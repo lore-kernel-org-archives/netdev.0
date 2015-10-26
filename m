@@ -1,117 +1,96 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: Linux 4.2.4
-Date: Mon, 26 Oct 2015 09:58:32 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1510260945510.17014@blackhole.kfki.hu>
-References: <20151023003306.GA25388@kroah.com> <562C83FD.6010402@wiesinger.com> <20151025082547.GA22300@kroah.com> <20151025090308.GA17656@1wt.eu> <562CA13C.90500@wiesinger.com> <20151025094634.GA6832@1wt.eu> <562CB396.2080509@wiesinger.com>
- <alpine.DEB.2.10.1510252032420.14141@blackhole.kfki.hu> <562D36D9.9060504@wiesinger.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next v8 00/10] Add new drivers: qed & qede
+Date: Mon, 26 Oct 2015 11:02:24 +0200
+Message-ID: <1445850154-19322-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Willy Tarreau <w@1wt.eu>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org,
-	Greg KH <gregkh@linuxfoundation.org>,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org, stable@vger.kernel.org, lwn@lwn.net,
-	Jiri Slaby <jslaby@suse.cz>
-To: Gerhard Wiesinger <lists@wiesinger.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <562D36D9.9060504@wiesinger.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <Ariel.Elior@qlogic.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:17273 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750932AbbJZJDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 05:03:08 -0400
+Received: from pps.filterd (m0045602.ppops.net [127.0.0.1])
+	by mx0a-0016ce01.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id t9Q8r0qm003753
+	for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 02:03:07 -0700
+Received: from avcashub1.qlogic.com (avcashub2.qlogic.com [198.70.193.116])
+	by mx0a-0016ce01.pphosted.com with ESMTP id 1xr94wt1wv-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 02:03:07 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 25 Oct 2015, Gerhard Wiesinger wrote:
+From: Ariel Elior <Ariel.Elior@qlogic.com>
 
-> On 25.10.2015 20:46, Jozsef Kadlecsik wrote:
-> > Hi,
-> > 
-> > On Sun, 25 Oct 2015, Gerhard Wiesinger wrote:
-> > 
-> > > On 25.10.2015 10:46, Willy Tarreau wrote:
-> > > > ipset *triggered* the problem. The whole stack dump would tell more.
-> > > OK, find the stack traces in the bug report:
-> > > https://bugzilla.redhat.com/show_bug.cgi?id=1272645
-> > > 
-> > > Kernel 4.1.10 triggered also a kernel dump when playing with ipset
-> > > commands
-> > > and IPv6, details in the bug report  ....
-> > It seems to me it is an architecture-specific alignment issue. I don't
-> > have a Cortex-A7 ARM hardware and qemu doesn't seem to support it either,
-> > so I'm unable to reproduce it (ipset passes all my tests on my hardware,
-> > including more complex ones than what breaks here). My first wild guess is
-> > that the dynamic array of the element structure is not aligned properly.
-> > Could you give a try to the next patch?
-> > 
-> > diff --git a/net/netfilter/ipset/ip_set_hash_gen.h
-> > b/net/netfilter/ipset/ip_set_hash_gen.h
-> > index afe905c..1cf357d 100644
-> > --- a/net/netfilter/ipset/ip_set_hash_gen.h
-> > +++ b/net/netfilter/ipset/ip_set_hash_gen.h
-> > @@ -1211,6 +1211,9 @@ static const struct ip_set_type_variant mtype_variant
-> > = {
-> >   	.same_set = mtype_same_set,
-> >   };
-> >   +#define IP_SET_BASE_ALIGN(dtype)	\
-> > +	ALIGN(sizeof(struct dtype), __alignof__(struct dtype))
-> > +
-> >   #ifdef IP_SET_EMIT_CREATE
-> >   static int
-> >   IPSET_TOKEN(HTYPE, _create)(struct net *net, struct ip_set *set,
-> > @@ -1319,12 +1322,12 @@ IPSET_TOKEN(HTYPE, _create)(struct net *net, struct
-> > ip_set *set,
-> >   #endif
-> >   		set->variant = &IPSET_TOKEN(HTYPE, 4_variant);
-> >   		set->dsize = ip_set_elem_len(set, tb,
-> > -				sizeof(struct IPSET_TOKEN(HTYPE, 4_elem)));
-> > +				IP_SET_BASE_ALIGN(IPSET_TOKEN(HTYPE,
-> > 4_elem)));
-> >   #ifndef IP_SET_PROTO_UNDEF
-> >   	} else {
-> >   		set->variant = &IPSET_TOKEN(HTYPE, 6_variant);
-> >   		set->dsize = ip_set_elem_len(set, tb,
-> > -				sizeof(struct IPSET_TOKEN(HTYPE, 6_elem)));
-> > +				IP_SET_BASE_ALIGN(IPSET_TOKEN(HTYPE,
-> > 6_elem)));
-> >   	}
-> >   #endif
-> >   	if (tb[IPSET_ATTR_TIMEOUT]) {
-> > 
-> > If that does not solve it, then could you help to narrow down the issue?
-> > Does the bug still appear if your remove the counter extension of the set?
-> > 
-> 
-> Patch applied well, compiling ...
-> 
-> Interesting, that it didn't happen before. Device is in production for 
-> more than 2 month without any issue.
+This series implements the driver set for Qlogic's new QL4xxx series.
+These are 10/20/25/40/50/100 Gig capable converged nics, supporting
+ethernet (obviously), iscsi, fcoe, roce and iwarp protocols.
 
-You mean the device was stable with the earlier kernels, but starting with 
-4.2.3 (and back to 4.1.10) you have got problems, don't you?
- 
-> Also any idea regarding the second isssue? Or do you think it has the 
-> same root cause?
+The overall driver design includes a common module ('qed') and protocol
+specific dependent modules for ethernet ('qede'), fcoe ('qedf'),
+iscsi ('qedi') and roce ('qedr').
+The common module contains all of the common logic, e.g. initialization,
+cleanup, infrastructure for interrupt handling, link management, slowpath
+etc. as well as protocol agnostic features, and supplying an abstraction
+layer for other modules.
+The protocol specific modules can be compiled and operated independently
+of each other, with the exception of the rdma modules which are dependent
+on the ethernet module, in accordance with the kernel rdma stack design.
 
-Looking at your RedHat bugzilla report, the "nf_conntrack: table full, 
-dropping packet" and "Alignment trap: not handling instruction" are two 
-unrelated issues and the second one is triggered by the unaligned counter 
-extension acccess in ipset, I'm investigating. I can't think of any reason 
-how those issues could be related to each other.
+This series only adds the core and ethernet modules, with basic L2
+capabilities. Future series will add the rest of the modules and enhance
+the L2 functionality.
 
-> Greetings from Vienna, Austria :-)
+Ths patch series is constructed of the following patches:
+qed:  Add module with basic common support
+qed:  Add basic L2 interface
+qede: Add basic Network driver
+qed:  Add slowpath L2 support
+qede: Add basic network device support
+qede: Add classification configuration
+qed:  Add link support
+qede: Add support for link
+qed:  Add statistics support
+qede: Add basic ethtool support
 
-Quite near to my place :-) 
+This project is a team effort, thanks go to Yuval Mintz, Dmitry Kravkov,
+Michal Kalderon, Tomer Tayar, Manish Chopra, Sudarsana Kalluru,
+Rajesh Borundia, Sony Chacko, Artum Zolotushko, Harish Patil, Rasesh Mody,
+Sergey Ukhterov and Elad Manela, as well as former team members,
+Eilon Greenstein and Shmulik Ravid.
 
-> BTW: You can get the Banana Pi R1 for example at:
-> http://www.aliexpress.com/item/BPI-R1-Set-1-R1-Board-Clear-Case-5dB-Antenna-Power-Adapter-Banana-PI-R1-Smart/32362127917.html
-> I can really recommend it as a router. Power consumption is as less as 3W.
-> Price is also IMHO very good.
+Changes from previos version:
+-----------------------------
 
-Cool mini gear, indeed!
+>From Version 7:
+  - Various small fixes according to Dave's suggestions; Largest change
+    [code-wise] - don't use tabs for indenting function arguments.
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+>From Version 6:
+  - Reduced the number of arguments for functions with exceptionally
+    high number of parameters.
+
+>From Version 5:
+  - Style change and fixes [mostly in 1, 4 and 7].
+    Thanks go to Francois Romieu, a mere mortal. ;-)
+
+>From Version 4:
+  - Drop dependency for x86_64.
+
+>From Version 3:
+  - Limit support of initial submission to x86_64.
+  - Fix endian problems appearing via sparse [although no BE support yet].
+  - Fix small issues suggested by the kbuild test robot.
+
+>From Version 2:
+  - Removed U64_{HI,LO}; Using {upper,lower}_32_bits instead.
+  - Use regular napi weight definition.
+  - [We still use the __le variants for variables, since we didn't get
+     a reply regarding the change into non-user API types].
+
+>From Version 1:
+  - Removed private license file; Instead revised comments at source headers.
+
+Thanks,
+Ariel Elior
