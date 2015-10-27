@@ -1,165 +1,105 @@
-From: dan.streetman@canonical.com
-Subject: [PATCH] xfrm: dst_entries_init() per-net dst_ops
-Date: Tue, 27 Oct 2015 12:15:19 -0400
-Message-ID: <1445962519-16133-1-git-send-email-dan.streetman@canonical.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Dan Streetman <dan.streetman@canonical.com>,
-	Dan Streetman <ddstreet@ieee.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
+ hierarchy
+Date: Tue, 27 Oct 2015 17:15:54 +0100
+Message-ID: <20151027161554.GJ9891@dhcp22.suse.cz>
+References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
+ <1445487696-21545-6-git-send-email-hannes@cmpxchg.org>
+ <20151023131956.GA15375@dhcp22.suse.cz>
+ <20151023.065957.1690815054807881760.davem@davemloft.net>
+ <20151026165619.GB2214@cmpxchg.org>
+ <20151027122647.GG9891@dhcp22.suse.cz>
+ <20151027154138.GA4665@cmpxchg.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	vdavydov@virtuozzo.com, tj@kernel.org, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20151027154138.GA4665@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Streetman <dan.streetman@canonical.com>
+On Tue 27-10-15 11:41:38, Johannes Weiner wrote:
+> On Tue, Oct 27, 2015 at 01:26:47PM +0100, Michal Hocko wrote:
+> > On Mon 26-10-15 12:56:19, Johannes Weiner wrote:
+> > [...]
+> > > Now you could argue that there might exist specialized workloads that
+> > > need to account anonymous pages and page cache, but not socket memory
+> > > buffers.
+> > 
+> > Exactly, and there are loads doing this. Memcg groups are also created to
+> > limit anon/page cache consumers to not affect the others running on
+> > the system (basically in the root memcg context from memcg POV) which
+> > don't care about tracking and they definitely do not want to pay for an
+> > additional overhead. We should definitely be able to offer a global
+> > disable knob for them. The same applies to kmem accounting in general.
+> 
+> I don't see how you make such a clear distinction between, say, page
+> cache and the dentry cache, and call one user memory and the other
+> kernel memory.
 
-The ipv4 and ipv6 xfrms each create a template dst_ops object, and
-perform dst_entries_init() on the template objects.  Then each net
-namespace has its net.xfrm.xfrm[46]_dst_ops field set to the template
-values.  The problem with that is the dst_ops.pcpuc_entries field is
-a percpu counter and cannot be used correctly by simply copying it to
-another object.
+Because the kernel memory footprint would be so small that it simply
+doesn't change the picture at all. While the page cache or anonymous
+memory consumption might be so large it might be disruptive.  I am
+talking about loads where good enough is better than "perfect" and
+ephemeral global memory pressure when kmem goes over expectations is
+better than a permanent cpu overhead. Whatever we do it will always
+be non-zero.
 
-The result of this is a very subtle bug; changes to the dst entries
-counter from one net namespace may sometimes get applied to a different
-net namespace dst entries counter.  This is because of how the percpu
-counter works; it has a main count field as well as a pointer to the
-percpu variables.  Each net namespace maintains its own main count
-variable, but all point to one set of percpu variables.  When any net
-namespace happens to change one of the percpu variables to outside its
-small batch range, its count is moved to the net namespace's main count
-variable.  So with multiple net namespaces operating concurrently, the
-dst_ops entries counter can stray from the actual value that it should
-be; if counts are consistently moved from one net namespace to another
-(which my testing showed is likely), then one net namespace winds up
-with a negative dst_ops count (which is reported as 0) while another
-winds up with a continually increasing count, eventually reaching its
-gc_thresh limit, which causes all new traffic on the net namespace to
-fail with -ENOBUFS.
+Also kmem accounting will make the load more non-deterministic because
+many of the resources are shared between tasks in separate cgroups
+unless they are explicitly configured. E.g. [id]cache will be shared
+and first to touch gets charged so you would end up with more false
+sharing.
 
-This removes the dst_entries_init (and dst_entries_destroy) call for
-the template dst_ops objects; their counters will never be used.
-Instead dst_entries_init is called for each net namespace's dst_ops
-object, right after copying its values from the template, and
-dst_entries_destroy is called when the net namespace is removed.
+Nevertheless, I do not want to shift the discussion from the topic. I
+just think that one-fits-all simply won't work.
 
-Signed-off-by: Dan Streetman <dan.streetman@canonical.com>
-Signed-off-by: Dan Streetman <ddstreet@ieee.org>
----
- net/ipv4/xfrm4_policy.c |  5 +++--
- net/ipv6/xfrm6_policy.c | 10 ++++------
- net/xfrm/xfrm_policy.c  | 25 +++++++++++++++++++++++--
- 3 files changed, 30 insertions(+), 10 deletions(-)
+> That just doesn't make sense to me. They're both kernel
+> memory allocated on behalf of the user, the only difference being that
+> one is tracked on the page level and the other on the slab level, and
+> we started accounting one before the other.
+> 
+> IMO that's an implementation detail and a historical artifact that
+> should not be exposed to the user. And that's the thing I hate about
+> the current opt-out knob.
+> 
+> > > I don't think there is a compelling case for an elaborate interface
+> > > to make individual memory consumers configurable inside the memory
+> > > controller.
+> > 
+> > I do not think we need an elaborate interface. We just want to have
+> > a global boot time knob to overwrite the default behavior. This is
+> > few lines of code and it should give the sufficient flexibility.
+> 
+> Okay, then let's add this for the socket memory to start with. I'll
+> have to think more about how to distinguish the slab-based consumers.
+> Or maybe you have an idea.
 
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index f2606b9..5f747ee 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -235,6 +235,9 @@ static void xfrm4_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
- 	xfrm_dst_ifdown(dst, dev);
- }
- 
-+/* This is used as a template only; the dst_entries counter is not
-+ * initialized for this, but must be on per-net copies of this
-+ */
- static struct dst_ops xfrm4_dst_ops = {
- 	.family =		AF_INET,
- 	.gc =			xfrm4_garbage_collect,
-@@ -325,8 +328,6 @@ static void __init xfrm4_policy_init(void)
- 
- void __init xfrm4_init(void)
- {
--	dst_entries_init(&xfrm4_dst_ops);
--
- 	xfrm4_state_init();
- 	xfrm4_policy_init();
- 	xfrm4_protocol_init();
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 2cc5840..b895ec1 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -279,6 +279,9 @@ static void xfrm6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
- 	xfrm_dst_ifdown(dst, dev);
- }
- 
-+/* This is used as a template only; the dst_entries counter is not
-+ * initialized for this, but must be on per-net copies of this
-+ */
- static struct dst_ops xfrm6_dst_ops = {
- 	.family =		AF_INET6,
- 	.gc =			xfrm6_garbage_collect,
-@@ -376,13 +379,9 @@ int __init xfrm6_init(void)
- {
- 	int ret;
- 
--	dst_entries_init(&xfrm6_dst_ops);
--
- 	ret = xfrm6_policy_init();
--	if (ret) {
--		dst_entries_destroy(&xfrm6_dst_ops);
-+	if (ret)
- 		goto out;
--	}
- 	ret = xfrm6_state_init();
- 	if (ret)
- 		goto out_policy;
-@@ -411,5 +410,4 @@ void xfrm6_fini(void)
- 	xfrm6_protocol_fini();
- 	xfrm6_policy_fini();
- 	xfrm6_state_fini();
--	dst_entries_destroy(&xfrm6_dst_ops);
- }
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 09bfcba..5381719 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2896,12 +2896,32 @@ static void __net_init xfrm_dst_ops_init(struct net *net)
- 
- 	rcu_read_lock();
- 	afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET]);
--	if (afinfo)
-+	if (afinfo) {
- 		net->xfrm.xfrm4_dst_ops = *afinfo->dst_ops;
-+		dst_entries_init(&net->xfrm.xfrm4_dst_ops);
-+	}
- #if IS_ENABLED(CONFIG_IPV6)
- 	afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET6]);
--	if (afinfo)
-+	if (afinfo) {
- 		net->xfrm.xfrm6_dst_ops = *afinfo->dst_ops;
-+		dst_entries_init(&net->xfrm.xfrm6_dst_ops);
-+	}
-+#endif
-+	rcu_read_unlock();
-+}
-+
-+static void xfrm_dst_ops_fini(struct net *net)
-+{
-+	struct xfrm_policy_afinfo *afinfo;
-+
-+	rcu_read_lock();
-+	afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET]);
-+	if (afinfo)
-+		dst_entries_destroy(&net->xfrm.xfrm4_dst_ops);
-+#if IS_ENABLED(CONFIG_IPV6)
-+	afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET6]);
-+	if (afinfo)
-+		dst_entries_destroy(&net->xfrm.xfrm6_dst_ops);
- #endif
- 	rcu_read_unlock();
- }
-@@ -3085,6 +3105,7 @@ static void __net_exit xfrm_net_exit(struct net *net)
- {
- 	flow_cache_fini(net);
- 	xfrm_sysctl_fini(net);
-+	xfrm_dst_ops_fini(net);
- 	xfrm_policy_fini(net);
- 	xfrm_state_fini(net);
- 	xfrm_statistics_fini(net);
+Isn't that as simple as enabling the jump label during the
+initialization depending on the knob value? All the charging paths
+should be disabled by default already.
+
+> For now, something like this as a boot commandline?
+> 
+> cgroup.memory=nosocket
+
+That would work for me. I would even see a place to have
+CONFIG_MEMCG_TCP_KMEM_ENABLED config option for the default and
+[no]socket as a kernel parameter to override the configuratioin default.
+This would allow distributions to define their policy without enforcing
+it hard and those who compile the kernel to define their own policy.
+
 -- 
-2.5.0
+Michal Hocko
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
