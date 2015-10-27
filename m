@@ -1,8 +1,7 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH 1/6] net: dsa: Use delayed work instead of timer+work for
- polling
-Date: Tue, 27 Oct 2015 15:48:48 +0100
-Message-ID: <562F8ED0.4010509@baylibre.com>
+Subject: [PATCH 4/6] net: dsa: Add missing master netdev dev_put() calls
+Date: Tue, 27 Oct 2015 15:49:09 +0100
+Message-ID: <562F8EE5.6070907@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -19,98 +18,37 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Simplifies the code and avoids a crash when removing the
-module:
- dsa dsa ethmv2 (unregistering): Link is Down
- device eth1 left promiscuous mode
- Unable to handle kernel paging request at virtual address bacc5cf6
- ...
- (run_timer_softirq) from [<c003e810>] (__do_softirq+0xcc/0x320)
- (__do_softirq) from [<c003ed40>] (irq_exit+0xac/0x10c)
- (irq_exit) from [<c007ec20>] (__handle_domain_irq+0x50/0xa8)
+Upon probe failure or unbinding, add missing dev_put() calls.
 
-Signed-off-by: Frode Isaksen <fisaksen@baylibre.com>
 Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 ---
- include/net/dsa.h |  3 +--
- net/dsa/dsa.c     | 28 ++++++++--------------------
- 2 files changed, 9 insertions(+), 22 deletions(-)
+ net/dsa/dsa.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 98ccbde..d4d13f7 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -112,8 +112,7 @@ struct dsa_switch_tree {
- 	 * Link state polling.
- 	 */
- 	int			link_poll_needed;
--	struct work_struct	link_poll_work;
--	struct timer_list	link_poll_timer;
-+	struct delayed_work	link_poll_work;
-
- 	/*
- 	 * Data for the individual switch chips.
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 1eba07f..aeb6a7c 100644
+index acbf854..9240a46 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -513,7 +513,7 @@ static void dsa_link_poll_work(struct work_struct *ugly)
- 	struct dsa_switch_tree *dst;
- 	int i;
+@@ -931,8 +931,10 @@ static int dsa_probe(struct platform_device *pdev)
+ 	platform_set_drvdata(pdev, dst);
 
--	dst = container_of(ugly, struct dsa_switch_tree, link_poll_work);
-+	dst = container_of(ugly, struct dsa_switch_tree, link_poll_work.work);
-
- 	for (i = 0; i < dst->pd->nr_chips; i++) {
- 		struct dsa_switch *ds = dst->ds[i];
-@@ -522,17 +522,9 @@ static void dsa_link_poll_work(struct work_struct *ugly)
- 			ds->drv->poll_link(ds);
- 	}
-
--	mod_timer(&dst->link_poll_timer, round_jiffies(jiffies + HZ));
-+	schedule_delayed_work(&dst->link_poll_work, round_jiffies_relative(HZ));
- }
-
--static void dsa_link_poll_timer(unsigned long _dst)
--{
--	struct dsa_switch_tree *dst = (void *)_dst;
--
--	schedule_work(&dst->link_poll_work);
--}
--
--
- /* platform driver init and cleanup *****************************************/
- static int dev_is_class(struct device *dev, void *class)
- {
-@@ -880,12 +872,8 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
- 	dev->dsa_ptr = (void *)dst;
-
- 	if (dst->link_poll_needed) {
--		INIT_WORK(&dst->link_poll_work, dsa_link_poll_work);
--		init_timer(&dst->link_poll_timer);
--		dst->link_poll_timer.data = (unsigned long)dst;
--		dst->link_poll_timer.function = dsa_link_poll_timer;
--		dst->link_poll_timer.expires = round_jiffies(jiffies + HZ);
--		add_timer(&dst->link_poll_timer);
-+		INIT_DELAYED_WORK(&dst->link_poll_work, dsa_link_poll_work);
-+		schedule_delayed_work(&dst->link_poll_work, round_jiffies_relative(HZ));
- 	}
-
- 	return 0;
-@@ -954,10 +942,10 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
- {
- 	int i;
-
--	if (dst->link_poll_needed)
--		del_timer_sync(&dst->link_poll_timer);
--
--	flush_work(&dst->link_poll_work);
-+	if (dst->link_poll_needed) {
-+		cancel_delayed_work_sync(&dst->link_poll_work);
-+		flush_delayed_work(&dst->link_poll_work);
+ 	ret = dsa_setup_dst(dst, dev, &pdev->dev, pd);
+-	if (ret)
++	if (ret) {
++		dev_put(dev);
+ 		goto out;
 +	}
 
- 	for (i = 0; i < dst->pd->nr_chips; i++) {
- 		struct dsa_switch *ds = dst->ds[i];
+ 	return 0;
+
+@@ -965,6 +967,8 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
+ 		if (ds)
+ 			dsa_switch_destroy(ds);
+ 	}
++
++	dev_put(dst->master_netdev);
+ }
+
+ static int dsa_remove(struct platform_device *pdev)
 -- 
 1.9.1
