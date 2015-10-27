@@ -1,42 +1,36 @@
-From: CORPORATE LENDERS PLC <info@webadicta.org>
-Subject: =?UTF-8?Q?J=C3=B3=20nap=2C?=
-Date: Tue, 27 Oct 2015 10:22:30 +0100
-Message-ID: <d9478b5b1c760897086f7881e5407ba9@multivision.com.ve>
-Reply-To: <corporate_lenders@webadicta.org>
+From: Manoil Claudiu <claudiu.manoil@freescale.com>
+Subject: RE: [PATCH net-next] gianfar: Increase TX_TIMEOUT to 5HZ
+Date: Tue, 27 Oct 2015 09:18:34 +0000
+Message-ID: <BY2PR0301MB0727BC50358E6A60D7D803199C220@BY2PR0301MB0727.namprd03.prod.outlook.com>
+References: <1445935663-15117-1-git-send-email-abhimanyu@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: ABHIMANYU SAINI <abhimanyu@freescale.com>,
+	Priyanka Jain <Priyanka.Jain@freescale.com>
+To: ABHIMANYU SAINI <abhimanyu@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvx1.ifxnw.com.ve ([200.62.27.83]:21192 "EHLO mvx1.ifxnw.com.ve"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751970AbbJ0Jc2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Oct 2015 05:32:28 -0400
+Received: from mail-by2on0127.outbound.protection.outlook.com ([207.46.100.127]:19815
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751970AbbJ0Jcx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 05:32:53 -0400
+In-Reply-To: <1445935663-15117-1-git-send-email-abhimanyu@freescale.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+>-----Original Message-----
+>From: Abhimanyu [mailto:abhimanyu@freescale.com]
+>Sent: Tuesday, October 27, 2015 10:48 AM
+>To: David S. Miller <davem@davemloft.net>; netdev@vger.kernel.org
+>Cc: Manoil Claudiu-B08782 <claudiu.manoil@freescale.com>; Saini
+>Abhimanyu-B49017 <abhimanyu@freescale.com>; Jain Priyanka-B32167
+><Priyanka.Jain@freescale.com>
+>Subject: [PATCH net-next] gianfar: Increase TX_TIMEOUT to 5HZ
+>
+[...]
 
-
---=20
-J=C3=B3 nap,
-
-    =C3=89n vagyok Mr. Laurence Howard, egy v=C3=A9grehajt=C3=B3 =C3=BC=
-gyn=C3=B6k egy j=C3=B3l ismert=20
-legitim hitelez=C5=91 t=C3=A1rsas=C3=A1g nev=C3=A9n V=C3=A1llalati hite=
-lez=C5=91k. Van egy rossz=20
-hitel, vagy ha sz=C3=BCks=C3=A9g=C3=BCk van a p=C3=A9nz a sz=C3=A1ml=C3=
-=A1k kifizet=C3=A9s=C3=A9hez? a kamatl=C3=A1b=20
-3%.
-
-   T=C3=B6ltse ki az al=C3=A1bbi =C5=B1rlapot, ha =C3=A9rdekel.
-
-Teljes n=C3=A9v:
-Nem:
-Sz=C3=BCks=C3=A9ges =C3=B6sszeg:
-Id=C5=91tartam:
-
-=C3=96n kapcsolatba l=C3=A9phet vel=C3=BCnk Tel: +447045734550
-
-   =C3=9Cdv=C3=B6zlettel,
-Laurence Howard
+Acked-by: Claudiu Manoil <claudiu.manoil@freescale.com>
