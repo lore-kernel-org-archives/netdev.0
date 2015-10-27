@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: gre: support SIT encapsulation
-Date: Mon, 26 Oct 2015 22:01:40 -0700 (PDT)
-Message-ID: <20151026.220140.437819068209052968.davem@davemloft.net>
-References: <1445690864.22974.199.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] ipv6 route: Use flag instead of calling
+ fib6_get_table() twice
+Date: Mon, 26 Oct 2015 22:05:14 -0700 (PDT)
+Message-ID: <20151026.220514.248571981890692553.davem@davemloft.net>
+References: <562C418B.9050909@gmail.com>
+	<1445741067-14891-1-git-send-email-masashi.honma@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: masashi.honma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35667 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35684 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751185AbbJ0EpA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 00:45:00 -0400
-In-Reply-To: <1445690864.22974.199.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1752180AbbJ0Esf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 00:48:35 -0400
+In-Reply-To: <1445741067-14891-1-git-send-email-masashi.honma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 24 Oct 2015 05:47:44 -0700
+From: Masashi Honma <masashi.honma@gmail.com>
+Date: Sun, 25 Oct 2015 11:44:27 +0900
 
-> From: Eric Dumazet <edumazet@google.com>
+> The fib6_get_table() is called twice to show the warning.
+> This patch reduces calling the function.
 > 
-> gre_gso_segment() chokes if SIT frames were aggregated by GRO engine.
-> 
-> Fixes: 61c1db7fae21e ("ipv6: sit: add GSO/TSO support")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Masashi Honma <masashi.honma@gmail.com>
 
-Applied and queued up for -stable, thanks Eric.
+I think the added cost of passing a reference to an on-stack variable
+exceeds the value of whatever you think you are improving here.
+
+The code as-is is fine as far as I'm concerned.
