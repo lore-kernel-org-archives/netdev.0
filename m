@@ -1,52 +1,38 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH 2/6] net: dsa: allow switch drivers to cleanup their
- resources
-Date: Tue, 27 Oct 2015 12:59:32 -0400
-Message-ID: <20151027165932.GA21799@ketchup.mtl.sfl>
-References: <562F8ED7.2000804@baylibre.com>
- <562F9AAB.8090202@gmail.com>
- <562F9BB1.8090700@baylibre.com>
+From: "Singh, Krishneil K" <krishneil.k.singh@intel.com>
+Subject: RE: [Intel-wired-lan] [net PATCH 2/3] fm10k: Fix handling of napi
+ budget when multiple queues are enabled per vector
+Date: Tue, 27 Oct 2015 17:06:04 +0000
+Message-ID: <EF50CC0C76A53A44BAD798C58E0A157E27221380@ORSMSX103.amr.corp.intel.com>
+References: <20150922213002.2774.37924.stgit@ahduyck-vm-fedora22>
+ <20150922213535.2774.9863.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Fabian Frederick <fabf@skynet.be>,
-	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Frode Isaksen <fisaksen@baylibre.com>
-To: Neil Armstrong <narmstrong@baylibre.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <562F9BB1.8090700@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Alexander Duyck <aduyck@mirantis.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:26432 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964977AbbJ0RIE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 13:08:04 -0400
+In-Reply-To: <20150922213535.2774.9863.stgit@ahduyck-vm-fedora22>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Oct. Tuesday 27 (44) 04:43 PM, Neil Armstrong wrote:
-> Hi,
-> On 10/27/2015 04:39 PM, Florian Fainelli wrote:
-> > On 27/10/15 07:48, Neil Armstrong wrote:
-> >> Some switch drivers might request interrupts, remap register ranges,
-> >> allow such drivers to implement a "remove" callback doing just that.
-> >>
-> >> Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
-> > 
-> > This should probably be a Signed-off-by tag, but there is nothing using
-> > this, so you would want to introduce an user of this function in the
-> > same patch series so we see how you intend to use it?
-> > 
-> >> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
-> 
-> Yes, I didn't know how to handle this since it was part of a larger patch.
-> 
-> I forgot to add this into the cover-letter but I wanted to send an RFC serie with
-> your bcm remove patch and a mv88e6xxx remove experimental code.
-> 
-> Yet, the mv88e6060 does not make usage of this.
 
-So this patch must be part of your RFC for module removal instead of
-this patchset.
 
-Thanks,
--v
+-----Original Message-----
+From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Alexander Duyck
+Sent: Tuesday, September 22, 2015 2:36 PM
+To: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org
+Subject: [Intel-wired-lan] [net PATCH 2/3] fm10k: Fix handling of napi budget when multiple queues are enabled per vector
+
+This patch corrects an issue in which the polling routine would increase the budget for Rx to at least 1 per queue if multiple queues were present.
+This would result in Rx packets being processed when the budget was 0 which is meant to indicate that no Rx can be handled.
+
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+---
+
+Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
