@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] add missing of_node_put
-Date: Mon, 26 Oct 2015 22:08:48 -0700 (PDT)
-Message-ID: <20151026.220848.1827888098875824300.davem@davemloft.net>
-References: <1445781427-7110-1-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [GIT PULL v2] ARCNET: code simplification and features
+Date: Mon, 26 Oct 2015 22:23:45 -0700 (PDT)
+Message-ID: <20151026.222345.1606847197716793544.davem@davemloft.net>
+References: <1445847800-13975-1-git-send-email-m.grzeschik@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, soren.brinkmann@xilinx.com,
-	linux-media@vger.kernel.org, linux@arm.linux.org.uk,
-	thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
-	bhelgaas@google.com, jason@lakedaemon.net
-To: Julia.Lawall@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445781427-7110-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de
+To: m.grzeschik@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35776 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750854AbbJ0FHG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 01:07:06 -0400
+In-Reply-To: <1445847800-13975-1-git-send-email-m.grzeschik@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Sun, 25 Oct 2015 14:56:59 +0100
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Date: Mon, 26 Oct 2015 09:23:14 +0100
 
-> The various for_each device_node iterators performs an of_node_get on each
-> iteration, so a break out of the loop requires an of_node_put.
-> 
-> The complete semantic patch that fixes this problem is
-> (http://coccinelle.lip6.fr):
- ...
+> This series includes code simplifaction. The main changes are the correct
+> xceiver handling (enable/disable) of the com20020 cards. The driver now handles
+> link status change detection. The EAE PCI-ARCNET cards now make use of the
+> rotary encoded subdevice indexing and got support for led triggers on transmit
+> and reconnection events.
 
-Series applied, thanks a lot Julia.
+Pulled, thanks Michael.
