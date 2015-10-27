@@ -1,87 +1,58 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: Re: [PATCH 0/8] mm: memcontrol: account socket memory in unified
- hierarchy
-Date: Tue, 27 Oct 2015 09:01:08 -0700
-Message-ID: <20151027155833.GB4665@cmpxchg.org>
-References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
- <20151022184509.GM18351@esperanza>
- <20151026172216.GC2214@cmpxchg.org>
- <20151027084320.GF13221@esperanza>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net v2 1/4] ipv4: no CHECKSUM_PARTIAL on MSG_MORE corked sockets
+Date: Tue, 27 Oct 2015 09:04:59 -0700
+Message-ID: <CALx6S36PRh1EmmydMAUhZVxyyAanNYBTRUzTN67=dHnbBTNOGQ@mail.gmail.com>
+References: <1445958135-19805-1-git-send-email-hannes@stressinduktion.org>
+	<1445958135-19805-2-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Michal Hocko <mhocko@suse.cz>, Tejun Heo <tj@kernel.org>,
-	netdev@vger.kernel.org, linux-mm@kvack.org,
-	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Vladimir Davydov <vdavydov@virtuozzo.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151027084320.GF13221@esperanza>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	Benjamin Coddington <bcodding@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:38699 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964977AbbJ0QFA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 12:05:00 -0400
+Received: by igbdj2 with SMTP id dj2so82224708igb.1
+        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 09:05:00 -0700 (PDT)
+In-Reply-To: <1445958135-19805-2-git-send-email-hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 27, 2015 at 11:43:21AM +0300, Vladimir Davydov wrote:
-> On Mon, Oct 26, 2015 at 01:22:16PM -0400, Johannes Weiner wrote:
-> > I'm not getting rid of those knobs, I'm just reusing the old socket
-> > accounting infrastructure in an attempt to make the memory accounting
-> > feature useful to more people in cgroups v2 (unified hierarchy).
-> 
-> My understanding is that in the meantime you effectively break the
-> existing per memcg tcp window control logic.
+On Tue, Oct 27, 2015 at 8:02 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> We cannot reliable calculate packet size on MSG_MORE corked sockets
+> and thus cannot decide if they are going to be fragmented later on,
+> so better not use CHECKSUM_PARTIAL in the first place.
+>
+MSG_MORE should be independent of checksum offload. If packet is
+fragmented the fix in ip_output will ensure that skb_checksum_help is
+properly called.
 
-That's not my intention, this stuff has to keep working. I'm assuming
-you mean the changes to sk_enter_memory_pressure() when hitting the
-charge limit; let me address this in the other subthread.
-
-> > We can always come back to think about per-cgroup tcp window limits in
-> > the unified hierarchy, my patches don't get in the way of this. I'm
-> > not removing the knobs in cgroups v1 and I'm not preventing them in v2.
-> > 
-> > But regardless of tcp window control, we need to account socket memory
-> > in the main memory accounting pool where pressure is shared (to the
-> > best of our abilities) between all accounted memory consumers.
-> > 
-> 
-> No objections to this point. However, I really don't like the idea to
-> charge tcp window size to memory.current instead of charging individual
-> pages consumed by the workload for storing socket buffers, because it is
-> inconsistent with what we have now. Can't we charge individual skb pages
-> as we do in case of other kmem allocations?
-
-Absolutely, both work for me. I chose that route because it's where
-the networking code already tracks and accounts memory consumed, so it
-seemed like a better site to hook into.
-
-But I understand your concerns. We want to track this stuff as close
-to the memory allocators as possible.
-
-> > But also, there are people right now for whom the socket buffers cause
-> > system OOM, but the existing memcg's hard tcp window limitq that
-> > exists absolutely wrecks network performance for them. It's not usable
-> > the way it is. It'd be much better to have the socket buffers exert
-> > pressure on the shared pool, and then propagate the overall pressure
-> > back to individual consumers with reclaim, shrinkers, vmpressure etc.
-> 
-> This might or might not work. I'm not an expert to judge. But if you do
-> this only for memcg leaving the global case as it is, networking people
-> won't budge IMO. So could you please start such a major rework from the
-> global case? Could you please try to deprecate the tcp window limits not
-> only in the legacy memcg hierarchy, but also system-wide in order to
-> attract attention of networking experts?
-
-I'm definitely interested in addressing this globally as well.
-
-The idea behind this was to use the memcg part as a testbed. cgroup2
-is going to be new and people are prepared for hiccups when migrating
-their applications to it; and they can roll back to cgroup1 and tcp
-window limits at any time should they run into problems in production.
-
-So this seemed like a good way to prove a new mechanism before rolling
-it out to every single Linux setup, rather than switch everybody over
-after the limited scope testing I can do as a developer on my own.
-
-Keep in mind that my patches are not committing anything in terms of
-interface, so we retain all the freedom to fix and tune the way this
-is implemented, including the freedom to re-add tcp window limits in
-case the pressure balancing is not a comprehensive solution.
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Vlad Yasevich <vyasevich@gmail.com>
+> Cc: Benjamin Coddington <bcodding@redhat.com>
+> Cc: Tom Herbert <tom@herbertland.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  net/ipv4/ip_output.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> index 50e2973..0b02417 100644
+> --- a/net/ipv4/ip_output.c
+> +++ b/net/ipv4/ip_output.c
+> @@ -911,6 +911,7 @@ static int __ip_append_data(struct sock *sk,
+>         if (transhdrlen &&
+>             length + fragheaderlen <= mtu &&
+>             rt->dst.dev->features & NETIF_F_V4_CSUM &&
+> +           !(flags & MSG_MORE) &&
+>             !exthdrlen)
+>                 csummode = CHECKSUM_PARTIAL;
+>
+> --
+> 2.5.0
+>
