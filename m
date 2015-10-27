@@ -1,13 +1,11 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net v2 3/4] ipv6: no CHECKSUM_PARTIAL on MSG_MORE corked
- sockets
-Date: Tue, 27 Oct 2015 19:29:11 +0100
-Message-ID: <1445970551.497935.421785961.521DBDF0@webmail.messagingengine.com>
+Subject: Re: [PATCH net v2 2/4] ipv4: add defensive check for CHECKSUM_PARTIAL
+ skbs in ip_fragment
+Date: Tue, 27 Oct 2015 19:30:43 +0100
+Message-ID: <1445970643.498172.421787649.4E2AF4F4@webmail.messagingengine.com>
 References: <1445958135-19805-1-git-send-email-hannes@stressinduktion.org>
- <1445958135-19805-4-git-send-email-hannes@stressinduktion.org>
- <CALx6S37qAxOxYRxxFQGR4P2r937yCnCqdASHV0qsi2UPj675iQ@mail.gmail.com>
- <1445964249.1414779.421671593.5D1C863C@webmail.messagingengine.com>
- <CALx6S34m5jEDMUtVZpsU05Z8ydXAYFoVBAsbAQF=sUc5h0TLiQ@mail.gmail.com>
+ <1445958135-19805-3-git-send-email-hannes@stressinduktion.org>
+ <CALx6S35PRhHOtxowWqF4YJYgVMmMiQgn1hf58XXh8QCizY4qcQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -17,57 +15,55 @@ Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	Benjamin Coddington <bcodding@redhat.com>
 To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:57950 "EHLO
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:54947 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S964840AbbJ0S3O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 14:29:14 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id 4C3F020280
-	for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 14:29:11 -0400 (EDT)
-In-Reply-To: <CALx6S34m5jEDMUtVZpsU05Z8ydXAYFoVBAsbAQF=sUc5h0TLiQ@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S964986AbbJ0Sao (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 14:30:44 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id A6286205A1
+	for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 14:30:43 -0400 (EDT)
+In-Reply-To: <CALx6S35PRhHOtxowWqF4YJYgVMmMiQgn1hf58XXh8QCizY4qcQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 27, 2015, at 18:32, Tom Herbert wrote:
-> On Tue, Oct 27, 2015 at 9:44 AM, Hannes Frederic Sowa
+On Tue, Oct 27, 2015, at 17:06, Tom Herbert wrote:
+> On Tue, Oct 27, 2015 at 8:02 AM, Hannes Frederic Sowa
 > <hannes@stressinduktion.org> wrote:
+> > CHECKSUM_PARTIAL skbs should never arrive in ip_fragment. If we get one
+> > of those warn about them once and handle them gracefully by recalculating
+> > the checksum.
 > >
+> > Cc: Eric Dumazet <edumazet@google.com>
+> > Cc: Vlad Yasevich <vyasevich@gmail.com>
+> > Cc: Benjamin Coddington <bcodding@redhat.com>
+> > Cc: Tom Herbert <tom@herbertland.com>
+> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > ---
+> >  net/ipv4/ip_output.c | 8 +++++---
+> >  1 file changed, 5 insertions(+), 3 deletions(-)
 > >
-> > On Tue, Oct 27, 2015, at 17:36, Tom Herbert wrote:> > -               if
-> > (cork->length + length > maxnonfragsize - headersize) {
-> >> > +       if (cork->length + length > maxnonfragsize - headersize) {
-> >> >  emsgsize:
-> >> > -                       ipv6_local_error(sk, EMSGSIZE, fl6,
-> >> > -                                        mtu - headersize +
-> >> > -                                        sizeof(struct ipv6hdr));
-> >> > -                       return -EMSGSIZE;
-> >> > -               }
-> >> > +               ipv6_local_error(sk, EMSGSIZE, fl6,
-> >> > +                                mtu - headersize +
-> >> > +                                sizeof(struct ipv6hdr));
-> >> > +               return -EMSGSIZE;
-> >> >         }
-> >> >
-> >> > +       /* CHECKSUM_PARTIAL only with no extension headers and when
-> >>
-> >> No, please don't do this. CHECKSUM_PARTIAL should work with extension
-> >> headers as defined, so this is just disabling otherwise valid and
-> >> useful functionality. If (some) drivers have problems with this they
-> >> need to be identified and fixed.
+> > diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> > index 0b02417..3f94a3b 100644
+> > --- a/net/ipv4/ip_output.c
+> > +++ b/net/ipv4/ip_output.c
+> > @@ -533,6 +533,11 @@ int ip_do_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
 > >
-> > I don't understand. The old code already didn't allow the use of
-> > opt_flen with CHECKSUM_PARTIAL.
+> >         dev = rt->dst.dev;
 > >
-> Then that's a problem with the old code :-). Is there any other reason
-> that we can't use CHECKSUM_PARTIAL with extension headers other than
-> lack of correct driver support?
+> > +       /* for offloaded checksums cleanup checksum before fragmentation */
+> > +       if (WARN_ON_ONCE(skb->ip_summed == CHECKSUM_PARTIAL) &&
+> > +           (err = skb_checksum_help(skb)))
+> > +               goto fail;
+> > +
+> Why the WARN_ON_ONCE? Is there a prior check somewhere that avoid this
+> condition?
 
-The lack of correct driver support is a big bumper, but as I wrote, I
-don't see a reason to not lift this restriction in net-next. I proposed
-a new feature flag, or by looking at your series, we could probably use
-the extension header okay field for that.
+While I am pretty sure we should not hit the condition in IPv6 anymore,
+I think this could frighten people in IPv4 land. I will repost without
+the WARN_ON_ONCE. Maybe it makes sense to use the IFF_DEBUG interface
+flags again? :)
 
-I would be conservative in net though.
+I will repost without those WARN_ON_ONCEs.
 
 Bye,
 Hannes
