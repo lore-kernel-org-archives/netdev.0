@@ -1,48 +1,33 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost: fix performance on LE hosts
-Date: Tue, 27 Oct 2015 17:52:24 +0200
-Message-ID: <20151027175057-mutt-send-email-mst@redhat.com>
-References: <1445938640-32673-1-git-send-email-mst@redhat.com>
-	<20151027.063255.1140860748569110696.davem@davemloft.net>
+From: Alan Burlison <Alan.Burlison@oracle.com>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Tue, 27 Oct 2015 15:53:41 +0000
+Message-ID: <562F9E05.6080009@oracle.com>
+References: <562F868B.4040001@oracle.com>	<20151027.073914.310976982324296607.davem@davemloft.net>	<562F8CBC.7080800@oracle.com> <20151027.080434.2260743137698389975.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org
+Cc: Casper.Dik@oracle.com, viro@ZenIV.linux.org.uk,
+	eric.dumazet@gmail.com, stephen@networkplumber.org,
+	netdev@vger.kernel.org, dholland-tech@netbsd.org
 To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20151027.063255.1140860748569110696.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:48582 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964838AbbJ0Px7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 11:53:59 -0400
+In-Reply-To: <20151027.080434.2260743137698389975.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 27, 2015 at 06:32:55AM -0700, David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Tue, 27 Oct 2015 11:37:39 +0200
-> 
-> > commit 2751c9882b947292fcfb084c4f604e01724af804 ("vhost: cross-endian
-> > support for legacy devices") introduced a minor regression: even with
-> > cross-endian disabled, and even on LE host, vhost_is_little_endian is
-> > checking is_le flag so there's always a branch.
-> > 
-> > To fix, simply check virtio_legacy_is_little_endian first.
-> > 
-> > Cc: Greg Kurz <gkurz@linux.vnet.ibm.com>
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> Michael, do you want me to take this via the 'net' tree?
+On 27/10/2015 15:04, David Miller wrote:
 
-Sure - especially since it looks like I have nothing else for this merge
-window (working on fixing shutdown races, but it's slow going).  Thanks
-a lot!
+> I said "run time".  Like when your final code runs on a target system.
+>
+> Not at build tree configure time.
+
+Yes, you could do it then as well.
 
 -- 
-MST
+Alan Burlison
+--
