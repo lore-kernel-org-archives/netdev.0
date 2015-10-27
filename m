@@ -1,86 +1,53 @@
-From: huangdaode <huangdaode@hisilicon.com>
-Subject: [PATCH RESEND v2 net-next] net: hisilicon: updates HNS config and
- documents
-Date: Tue, 27 Oct 2015 19:16:34 +0800
-Message-ID: <1445944594-244149-1-git-send-email-huangdaode@hisilicon.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] sock: don't enable netstamp for af_unix sockets
+Date: Tue, 27 Oct 2015 12:09:21 +0100
+Message-ID: <1445944161.1336457.421364569.5449BCCB@webmail.messagingengine.com>
+References: <1445863897-22646-1-git-send-email-hannes@stressinduktion.org>
+ <20151026131928.GA1820@netboy>
+ <1445866379.133031.420389177.3AE9E175@webmail.messagingengine.com>
+ <20151027101157.GA1850@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: mark.rutland@arm.com, devicetree@vger.kernel.org, salil.mehta@huawei.com,
- kenneth-lee-2012@foxmail.com, pawel.moll@arm.com,
- ijc+devicetree@hellion.org.uk, catalin.marinas@arm.com, lipeng321@huawei.com,
- will.deacon@arm.com, linux-kernel@vger.kernel.org, xuwei5@hisilicon.com,
- linuxarm@huawei.com, Yisen.Zhuang@huawei.com, huangdaode@hisilicon.com,
- galak@codeaurora.org, lisheng011@huawei.com, liguozhu@hisilicon.com,
- netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: <davem@davemloft.net>, <robh+dt@kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:56986 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752996AbbJ0LJW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 07:09:22 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id CF75B20844
+	for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 07:09:21 -0400 (EDT)
+In-Reply-To: <20151027101157.GA1850@netboy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: yankejian <yankejian@huawei.com>
+Hi Richard,
 
-updates the bindings documents and dtsi file according to the review
-comments[https://lkml.org/lkml/2015/9/21/670] from Rob Herring <robh@kernel.org>
+On Tue, Oct 27, 2015, at 11:11, Richard Cochran wrote:
+> On Mon, Oct 26, 2015 at 02:32:59PM +0100, Hannes Frederic Sowa wrote:
+> > On Mon, Oct 26, 2015, at 14:19, Richard Cochran wrote:
+> > > On Mon, Oct 26, 2015 at 01:51:37PM +0100, Hannes Frederic Sowa wrote:
+> > > > netstamp_needed is toggled for all socket families if they request
+> > > > timestamping. But some protocols don't need the lower-layer timestamping
+> > > > code at all. This patch starts disabling it for af-unix.
+> > > 
+> > > What problem is this patch trying to solve?
+> > 
+> > netstamp_needed is a static-key which enables timestamping code in the
+> > networking stack receive functions for every packet, while it is not
+> > needed for AF_UNIX/LOCAL. So it is merely a small performance
+> > enhancement.
+> 
+> Are there any numbers that show the effect of this enhancement?
 
-Acked-by: Rob Herring <robh@kernel.org>
-Signed-off-by: yankejian <yankejian@huawei.com>
-Signed-off-by: huangdaode <huangdaode@hisilicon.com>
----
- Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt | 2 +-
- arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi                 | 8 +++-----
- 2 files changed, 4 insertions(+), 6 deletions(-)
+I haven't personally done any performance numbers.
 
-diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-index 9940aa0..9c23fdf 100644
---- a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-+++ b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-@@ -12,7 +12,7 @@ Example:
-          mdio@803c0000 {
-                    #address-cells = <1>;
-                    #size-cells = <0>;
--                   compatible = "hisilicon,mdio","hisilicon,hns-mdio";
-+                   compatible = "hisilicon,hns-mdio","hisilicon,mdio";
-                    reg = <0x0 0x803c0000 0x0 0x10000>;
- 
-                    ethernet-phy@0 {
-diff --git a/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi b/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi
-index 3500586..606dd5a 100644
---- a/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi
-+++ b/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi
-@@ -13,14 +13,12 @@ soc0: soc@000000000 {
- 		reg = <0x0 0x803c0000 0x0 0x10000
- 		       0x0 0x80000000 0x0 0x10000>;
- 
--		soc0_phy4: ethernet-phy@4 {
-+		soc0_phy0: ethernet-phy@0 {
- 			reg = <0x0>;
--			device_type = "ethernet-phy";
- 			compatible = "ethernet-phy-ieee802.3-c22";
- 		};
--		soc0_phy5: ethernet-phy@5 {
-+		soc0_phy1: ethernet-phy@1 {
- 			reg = <0x1>;
--			device_type = "ethernet-phy";
- 			compatible = "ethernet-phy-ieee802.3-c22";
- 		};
- 	};
-@@ -37,7 +35,7 @@ soc0: soc@000000000 {
- 		       0x0 0xc7000000 0x0 0x60000
- 		       >;
- 
--		phy-handle = <0 0 0 0 &soc0_phy4 &soc0_phy5 0 0>;
-+		phy-handle = <0 0 0 0 &soc0_phy0 &soc0_phy1 0 0>;
- 		interrupts = <
- 			/* [14] ge fifo err 8 / xge 6**/
- 			149 0x4 150 0x4 151 0x4 152 0x4
--- 
-1.9.1
+Jesper (in Cc) noticed that it showed up in perf performance reports
+even though he used a very minimal setup. Turned out that
+systemd-journald enables timestamping on AF_UNIX sockets which thus
+enabled netstamps globally. I think Jesper can chime in here.
+
+Bye,
+Hannes
