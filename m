@@ -1,96 +1,52 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [RFC PATCH 3/3] net: dsa: make usage of mv88e6xxx common remove
- function
-Date: Tue, 27 Oct 2015 17:36:07 +0100
-Message-ID: <562FA7F7.8010902@baylibre.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net v2 1/4] ipv4: no CHECKSUM_PARTIAL on MSG_MORE corked sockets
+Date: Tue, 27 Oct 2015 09:41:46 -0700
+Message-ID: <CALx6S347aZyd1NhDEXsONG_txNC2PSXD-piv4e8kcs_DBFHOeg@mail.gmail.com>
+References: <1445958135-19805-1-git-send-email-hannes@stressinduktion.org>
+	<1445958135-19805-2-git-send-email-hannes@stressinduktion.org>
+	<CALx6S36PRh1EmmydMAUhZVxyyAanNYBTRUzTN67=dHnbBTNOGQ@mail.gmail.com>
+	<1445963644.1412577.421660985.2D10CC9A@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	vivien.didelot@savoirfairelinux.com,
-	Fabian Frederick <fabf@skynet.be>,
-	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	Benjamin Coddington <bcodding@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:34739 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754169AbbJ0Qlr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 12:41:47 -0400
+Received: by igpw7 with SMTP id w7so10249149igp.1
+        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 09:41:47 -0700 (PDT)
+In-Reply-To: <1445963644.1412577.421660985.2D10CC9A@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make usage of previously introduced mv88e6xxx common remove
-function in all mv88e6xxx drivers.
+On Tue, Oct 27, 2015 at 9:34 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Tue, Oct 27, 2015, at 17:04, Tom Herbert wrote:
+>> On Tue, Oct 27, 2015 at 8:02 AM, Hannes Frederic Sowa
+>> <hannes@stressinduktion.org> wrote:
+>> > We cannot reliable calculate packet size on MSG_MORE corked sockets
+>> > and thus cannot decide if they are going to be fragmented later on,
+>> > so better not use CHECKSUM_PARTIAL in the first place.
+>> >
+>> MSG_MORE should be independent of checksum offload. If packet is
+>> fragmented the fix in ip_output will ensure that skb_checksum_help is
+>> properly called.
+>
+> The probability is that we are going to fragment if MSG_MORE is set,
+> because exceeding link mtu is quite probable, see e.g. NFS use case. Why
+> not simply use the csum functions during copy-in in that case? It makes
+> much more sense to me.
+>
+For datagram sockets MSG_MORE means that more datagrams will be sent,
+it's not used to incrementally add data to a datagram already queued
+(SEQPACKET with EOR is for that).
 
-Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
----
- drivers/net/dsa/mv88e6123_61_65.c | 1 +
- drivers/net/dsa/mv88e6131.c       | 8 ++++++++
- drivers/net/dsa/mv88e6171.c       | 1 +
- drivers/net/dsa/mv88e6352.c       | 1 +
- 4 files changed, 11 insertions(+)
-
-diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
-index 4bcfd68..1773c99 100644
---- a/drivers/net/dsa/mv88e6123_61_65.c
-+++ b/drivers/net/dsa/mv88e6123_61_65.c
-@@ -122,6 +122,7 @@ struct dsa_switch_driver mv88e6123_61_65_switch_driver = {
- 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
- 	.probe			= mv88e6123_61_65_probe,
- 	.setup			= mv88e6123_61_65_setup,
-+	.remove			= mv88e6xxx_remove_common,
- 	.set_addr		= mv88e6xxx_set_addr_indirect,
- 	.phy_read		= mv88e6xxx_phy_read,
- 	.phy_write		= mv88e6xxx_phy_write,
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index c73121c..0f559b4 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -137,6 +137,13 @@ static int mv88e6131_setup(struct dsa_switch *ds)
- 	return mv88e6xxx_setup_ports(ds);
- }
-
-+static void mv88e6131_remove(struct dsa_switch *ds)
-+{
-+	mv88e6xxx_ppu_state_remove(ds);
-+
-+	mv88e6xxx_remove_common(ds);
-+}
-+
- static int mv88e6131_port_to_phy_addr(struct dsa_switch *ds, int port)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -175,6 +182,7 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
- 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
- 	.probe			= mv88e6131_probe,
- 	.setup			= mv88e6131_setup,
-+	.remove			= mv88e6131_remove,
- 	.set_addr		= mv88e6xxx_set_addr_direct,
- 	.phy_read		= mv88e6131_phy_read,
- 	.phy_write		= mv88e6131_phy_write,
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 2c8eb6f..382529b 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -101,6 +101,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
- 	.probe			= mv88e6171_probe,
- 	.setup			= mv88e6171_setup,
-+	.remove			= mv88e6xxx_remove_common,
- 	.set_addr		= mv88e6xxx_set_addr_indirect,
- 	.phy_read		= mv88e6xxx_phy_read_indirect,
- 	.phy_write		= mv88e6xxx_phy_write_indirect,
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index cbf4dd8..7938901 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -321,6 +321,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
- 	.probe			= mv88e6352_probe,
- 	.setup			= mv88e6352_setup,
-+	.remove			= mv88e6xxx_remove_common,
- 	.set_addr		= mv88e6xxx_set_addr_indirect,
- 	.phy_read		= mv88e6xxx_phy_read_indirect,
- 	.phy_write		= mv88e6xxx_phy_write_indirect,
--- 
-1.9.1
+> I don't see a reason to test for fragment length at all, then.
+>
+> Bye,
+> Hannes
