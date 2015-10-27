@@ -1,60 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Tue, 27 Oct 2015 05:01:10 -0700
-Message-ID: <1445947270.7476.7.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5628636E.1020107@oracle.com>
-	 <20151022044458.GP22011@ZenIV.linux.org.uk>
-	 <20151022060304.GQ22011@ZenIV.linux.org.uk>
-	 <201510220634.t9M6YJLD017883@room101.nl.oracle.com>
-	 <20151022172146.GS22011@ZenIV.linux.org.uk>
-	 <201510221824.t9MIOp6n003978@room101.nl.oracle.com>
-	 <20151022190701.GV22011@ZenIV.linux.org.uk>
-	 <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
-	 <20151022215741.GW22011@ZenIV.linux.org.uk>
-	 <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
-	 <20151024023054.GZ22011@ZenIV.linux.org.uk>
-	 <201510270908.t9R9873a001683@room101.nl.oracle.com>
-	 <562F577E.6000901@oracle.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next] sock: don't enable netstamp for af_unix
+ sockets
+Date: Tue, 27 Oct 2015 13:04:23 +0100
+Message-ID: <20151027130423.63f24dbb@redhat.com>
+References: <1445863897-22646-1-git-send-email-hannes@stressinduktion.org>
+	<20151026131928.GA1820@netboy>
+	<1445866379.133031.420389177.3AE9E175@webmail.messagingengine.com>
+	<20151027101157.GA1850@netboy>
+	<1445944161.1336457.421364569.5449BCCB@webmail.messagingengine.com>
+	<1445944516.1337466.421368457.2463FECE@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Casper.Dik@oracle.com, Al Viro <viro@ZenIV.linux.org.uk>,
-	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev@vger.kernel.org, dholland-tech@netbsd.org
-To: Alan Burlison <Alan.Burlison@oracle.com>
+Cc: brouer@redhat.com, Richard Cochran <richardcochran@gmail.com>,
+	netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:33697 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753333AbbJ0MBM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 08:01:12 -0400
-Received: by pabla5 with SMTP id la5so28065839pab.0
-        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 05:01:12 -0700 (PDT)
-In-Reply-To: <562F577E.6000901@oracle.com>
+Received: from mx1.redhat.com ([209.132.183.28]:50446 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753333AbbJ0ME0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Oct 2015 08:04:26 -0400
+In-Reply-To: <1445944516.1337466.421368457.2463FECE@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-10-27 at 10:52 +0000, Alan Burlison wrote:
 
-> Unfortunately Hadoop isn't the only thing that pulls the shutdown() 
-> trick, so I don't think there's a simple fix for this, as discussed 
-> earlier in the thread. Having said that, if close() on Linux also did an 
-> implicit shutdown() it would mean that well-written applications that 
-> handled the scoping, sharing and reuse of FDs properly could just call 
-> close() and have it work the same way across *NIX platforms.
+On Tue, 27 Oct 2015 12:15:16 +0100 Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
 
+> On Tue, Oct 27, 2015, at 12:09, Hannes Frederic Sowa wrote:
+> > Hi Richard,
+> > 
+> > On Tue, Oct 27, 2015, at 11:11, Richard Cochran wrote:
+> > > On Mon, Oct 26, 2015 at 02:32:59PM +0100, Hannes Frederic Sowa wrote:
+> > > > On Mon, Oct 26, 2015, at 14:19, Richard Cochran wrote:
+> > > > > On Mon, Oct 26, 2015 at 01:51:37PM +0100, Hannes Frederic Sowa wrote:
+> > > > > > netstamp_needed is toggled for all socket families if they request
+> > > > > > timestamping. But some protocols don't need the lower-layer timestamping
+> > > > > > code at all. This patch starts disabling it for af-unix.
+> > > > > 
+> > > > > What problem is this patch trying to solve?
+> > > > 
+> > > > netstamp_needed is a static-key which enables timestamping code in the
+> > > > networking stack receive functions for every packet, while it is not
+> > > > needed for AF_UNIX/LOCAL. So it is merely a small performance
+> > > > enhancement.
+> > > 
+> > > Are there any numbers that show the effect of this enhancement?
+> > 
+> > I haven't personally done any performance numbers.
+> > 
+> > Jesper (in Cc) noticed that it showed up in perf performance reports
+> > even though he used a very minimal setup. Turned out that
+> > systemd-journald enables timestamping on AF_UNIX sockets which thus
+> > enabled netstamps globally. I think Jesper can chime in here.
 
-Are non multi threaded applications considered well written ?
+Well, it should be quite obvious that requesting a timestamp on every
+packet is a fairly expensive, especially when not used for anything.
 
-listener = socket(...);
-bind(listener, ...);
-listen(fd, 10000);
-Loop 1 10
-  if (fork() == 0)
-    do_accept(listener)
+I can estimate the cost by looking at perf report, on a single-flow
+IP-fwd test (1989575 pps) CPU i7-4790K @ 4.2GHz.
 
-Now if a child does a close(listener), or is killed, you propose that it
-does an implicit shutdown() and all other children no longer can
-accept() ?
+I quick IP-fwd test show perf top:
+ 1.54%  ksoftirqd/1  [kernel.vmlinux]  [k] read_tsc
+ 1.07%  ksoftirqd/1  [kernel.vmlinux]  [k] ktime_get_with_offset
 
-Surely you did not gave all details on how it is really working.
+(1/1989575*10^9)*((1.54+1.07)/100) = 13.12 nanosec
+
+On some of my slower systems, I've seen cost of just reading TSC be
+around 32 ns.
+
+> Also counter question: why is the netstamp code protected by a
+> static_key otherwise if not for trying to suppress the code path as
+> often as possible if not used? ;)
+
+Exactly ;-)
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
