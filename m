@@ -1,107 +1,96 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [PATCH] ixgbe: check Master Disable bit after setting
-Date: Tue, 27 Oct 2015 17:14:50 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF22286646913C0D10@ORSMSX110.amr.corp.intel.com>
-References: <1445905192-9959-1-git-send-email-dan.streetman@canonical.com>
+From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next V18 3/3] 802.1AD: Flow handling,
+ actions, vlan parsing and netlink attributes
+Date: Tue, 27 Oct 2015 10:22:04 -0700
+Message-ID: <CALnjE+pBSdjVt0AvyK9ziL_tDEzaxEDEbW_Eqk=cKABi9vFCAQ@mail.gmail.com>
+References: <1445818286-4870-1-git-send-email-thomasfherbert@gmail.com>
+ <1445818286-4870-4-git-send-email-thomasfherbert@gmail.com>
+ <CALnjE+rcP1trUt2zSSGoUF9r1XwNgtRiLgsS2soejhd4j0zyHQ@mail.gmail.com>
+ <562FAA0E.4090908@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Dan Streetman <ddstreet@ieee.org>
-To: "dan.streetman@canonical.com" <dan.streetman@canonical.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445905192-9959-1-git-send-email-dan.streetman@canonical.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Thomas F Herbert <therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <562FAA0E.4090908-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-
-
-> -----Original Message-----
-> From: dan.streetman@canonical.com
-> [mailto:dan.streetman@canonical.com]
-> Sent: Monday, October 26, 2015 5:20 PM
-> To: Kirsher, Jeffrey T
-> Cc: Brandeburg, Jesse; Nelson, Shannon; Wyborny, Carolyn; Skidmore,
-> Donald C; Vick, Matthew; Ronciak, John; Williams, Mitch A; intel-wired-
-> lan@lists.osuosl.org; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> Dan Streetman; Dan Streetman
-> Subject: [PATCH] ixgbe: check Master Disable bit after setting
-> 
-> From: Dan Streetman <dan.streetman@canonical.com>
-> 
-> Spec section 8.2.4.1.1 notes that after setting the PCIe Master Disable bit, it
-> must be read to verify it was set before polling the Master Enable status bit.
-> 
-> This adds the check to verify the Master Disable bit was set.
-> 
-> This also corrects the spec section number reference - the Master Disable
-> section is 5.2.4.3.2, not 5.2.5.3.2.
-> 
-> Signed-off-by: Dan Streetman <dan.streetman@canonical.com>
-> Signed-off-by: Dan Streetman <ddstreet@ieee.org>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 13 ++++++++++++-
->  1 file changed, 12 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-> b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-> index 3f56a80..abfada7 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-> @@ -2453,6 +2453,16 @@ static s32 ixgbe_disable_pcie_master(struct
-> ixgbe_hw *hw)
->  	/* Always set this bit to ensure any future transactions are blocked */
->  	IXGBE_WRITE_REG(hw, IXGBE_CTRL, IXGBE_CTRL_GIO_DIS);
-> 
-> +	/* Spec sec 8.2.4.1.1, Master Disable bit :
-> +	 * "After doing any change to this bit the host must read that
-> +	 *  the bit has been modified as expected before reading
-> +	 *  STATUS.PCIe Master Enable Status bit."
-> +	 */
-> +	if (!(IXGBE_READ_REG(hw, IXGBE_CTRL) & IXGBE_CTRL_GIO_DIS)) {
-> +		hw_err(hw, "GIO Master Disable bit didn't set\n");
-> +		goto gio_dis_fail;
-> +	}
-> +
->  	/* Exit if master requests are blocked */
->  	if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO) ||
->  	    ixgbe_removed(hw->hw_addr))
-> @@ -2467,13 +2477,14 @@ static s32 ixgbe_disable_pcie_master(struct
-> ixgbe_hw *hw)
-> 
->  	/*
->  	 * Two consecutive resets are required via CTRL.RST per datasheet
-> -	 * 5.2.5.3.2 Master Disable.  We set a flag to inform the reset routine
-> +	 * 5.2.4.3.2 Master Disable.  We set a flag to inform the reset
-> +routine
->  	 * of this need.  The first reset prevents new master requests from
->  	 * being issued by our device.  We then must wait 1usec or more for
-> any
->  	 * remaining completions from the PCIe bus to trickle in, and then
-> reset
->  	 * again to clear out any effects they may have had on our device.
->  	 */
->  	hw_dbg(hw, "GIO Master Disable bit didn't clear - requesting
-> resets\n");
-> +gio_dis_fail:
->  	hw->mac.flags |= IXGBE_FLAGS_DOUBLE_RESET_REQUIRED;
-> 
->  	/*
-> --
-> 2.5.0
-
-Is this patch correcting some issue you're running in to?
-I ask as I don't believe this check is necessary, since right below setting CTLR. PCIE_MASTER_DISABLE we loop waiting for  STATUS. PCIE_MASTER_ENABLE_STATUS to clear.   This should have the same effect as verify that the write to CTLR. PCIE_MASTER_DISABLE has cleared.
-
-Thanks,
-Don Skidmore <donald.c.skidmore@intel.com>
+T24gVHVlLCBPY3QgMjcsIDIwMTUgYXQgOTo0NSBBTSwgVGhvbWFzIEYgSGVyYmVydAo8dGhvbWFz
+ZmhlcmJlcnRAZ21haWwuY29tPiB3cm90ZToKPiBPbiAxMC8yNi8xNSAxMDoxMCBQTSwgUHJhdmlu
+IFNoZWxhciB3cm90ZToKPiBUaGFua3MgZm9yIHRoZSByZXZpZXcuCj4+Cj4+IE9uIFN1biwgT2N0
+IDI1LCAyMDE1IGF0IDU6MTEgUE0sIFRob21hcyBGIEhlcmJlcnQKPj4gPHRob21hc2ZoZXJiZXJ0
+QGdtYWlsLmNvbT4gd3JvdGU6Cj4+Pgo+Pj4gQWRkIHN1cHBvcnQgZm9yIDgwMi4xYWQgaW5jbHVk
+aW5nIHRoZSBhYmlsaXR5IHRvIHB1c2ggYW5kIHBvcCBkb3VibGUKPj4+IHRhZ2dlZCB2bGFucy4g
+QWRkIHN1cHBvcnQgZm9yIDgwMi4xYWQgdG8gbmV0bGluayBwYXJzaW5nIGFuZCBmbG93Cj4+PiBj
+b252ZXJzaW9uLiBVc2VzIGRvdWJsZSBuZXN0ZWQgZW5jYXAgYXR0cmlidXRlcyB0byByZXByZXNl
+bnQgZG91YmxlCj4+PiB0YWdnZWQgdmxhbi4gSW5uZXIgVFBJRCBlbmNvZGVkIGFsb25nIHdpdGgg
+Y3RjaSBpbiBuZXN0ZWQgYXR0cmlidXRlcy4KPj4+IE91dGVyCj4+PiBUUElEIGlzIGFsc28gZW5j
+b2RlZCBpbiB0aGUgZmxvdyBrZXkuCj4+Pgo+Pj4gU2lnbmVkLW9mZi1ieTogVGhvbWFzIEYgSGVy
+YmVydCA8dGhvbWFzZmhlcmJlcnRAZ21haWwuY29tPgo+Pgo+PiBUaGlzIHBhdGNoIGRvZXMgbm90
+IGFwcGx5IG9uIGN1cnJlbnQgbWFzdGVyIGR1ZSB0byBjb25mbGljdHMgcmVsYXRlZAo+PiBuZXQt
+YnJhbmNoIG1lcmdlLgo+Cj4gT0ssIEkgd2lsbCByZWJhc2UuCj4KPj4KPj4+IC0tLQo+Pj4gICBu
+ZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jICAgICAgfCAgIDYgKy0KPj4+ICAgbmV0L29wZW52c3dp
+dGNoL2Zsb3cuYyAgICAgICAgIHwgIDc2ICsrKysrKysrKysrKy0tLS0KPj4+ICAgbmV0L29wZW52
+c3dpdGNoL2Zsb3cuaCAgICAgICAgIHwgICA4ICstCj4+PiAgIG5ldC9vcGVudnN3aXRjaC9mbG93
+X25ldGxpbmsuYyB8IDE5OQo+Pj4gKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
+Ky0tLS0KPj4+ICAgbmV0L29wZW52c3dpdGNoL3Zwb3J0LW5ldGRldi5jIHwgICA0ICstCj4+PiAg
+IDUgZmlsZXMgY2hhbmdlZCwgMjUyIGluc2VydGlvbnMoKyksIDQxIGRlbGV0aW9ucygtKQo+Pj4K
+Pj4+IGRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jIGIvbmV0L29wZW52c3dpdGNo
+L2Zsb3cuYwo+Pj4gaW5kZXggYzhkYjQ0YS4uZWQxOWUyYiAxMDA2NDQKPj4+IC0tLSBhL25ldC9v
+cGVudnN3aXRjaC9mbG93LmMKPj4+ICsrKyBiL25ldC9vcGVudnN3aXRjaC9mbG93LmMKPj4+IEBA
+IC0zMDIsMjQgKzMwMiw2OCBAQCBzdGF0aWMgYm9vbCBpY21wNmhkcl9vayhzdHJ1Y3Qgc2tfYnVm
+ZiAqc2tiKQo+Pj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzaXplb2Yoc3Ry
+dWN0IGljbXA2aGRyKSk7Cj4+PiAgIH0KPj4+Cj4+PiAtc3RhdGljIGludCBwYXJzZV92bGFuKHN0
+cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBzd19mbG93X2tleSAqa2V5KQo+Pj4gKy8qIFBhcnNl
+IHZsYW4gdGFnIGZyb20gdmxhbiBoZWFkZXIuCj4+PiArICogUmV0dXJucyBFUlJPUiBvbiBtZW1v
+cnkgZXJyb3IuCj4+PiArICogUmV0dXJucyAwIGlmIGl0IGVuY291bnRlcnMgYSBub24tdmxhbiBv
+ciBpbmNvbXBsZXRlIHBhY2tldC4KPj4+ICsgKiBSZXR1cm5zIDEgYWZ0ZXIgc3VjY2Vzc2Z1bGx5
+IHBhcnNpbmcgdmxhbiB0YWcuCj4+PiArICovCj4+PiArCj4+PiArc3RhdGljIGludCBwYXJzZV92
+bGFuX3RhZyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qgdmxhbl9oZWFkICp2bGFuKQo+Pj4g
+ICB7Cj4+PiAtICAgICAgIHN0cnVjdCBxdGFnX3ByZWZpeCB7Cj4+PiAtICAgICAgICAgICAgICAg
+X19iZTE2IGV0aF90eXBlOyAvKiBFVEhfUF84MDIxUSAqLwo+Pj4gLSAgICAgICAgICAgICAgIF9f
+YmUxNiB0Y2k7Cj4+PiAtICAgICAgIH07Cj4+PiAtICAgICAgIHN0cnVjdCBxdGFnX3ByZWZpeCAq
+cXA7Cj4+PiArICAgICAgIHN0cnVjdCB2bGFuX2hlYWQgKnFwID0gKHN0cnVjdCB2bGFuX2hlYWQg
+Kilza2ItPmRhdGE7Cj4+PiArCj4+PiArICAgICAgIGlmIChsaWtlbHkoIWV0aF90eXBlX3ZsYW4o
+cXAtPnRwaWQpKSkKPj4+ICsgICAgICAgICAgICAgICByZXR1cm4gMDsKPj4+Cj4+PiAtICAgICAg
+IGlmICh1bmxpa2VseShza2ItPmxlbiA8IHNpemVvZihzdHJ1Y3QgcXRhZ19wcmVmaXgpICsKPj4+
+IHNpemVvZihfX2JlMTYpKSkKPj4+ICsgICAgICAgaWYgKHVubGlrZWx5KHNrYi0+bGVuIDwgc2l6
+ZW9mKHN0cnVjdCB2bGFuX2hlYWQpICsKPj4+IHNpemVvZihfX2JlMTYpKSkKPj4+ICAgICAgICAg
+ICAgICAgICAgcmV0dXJuIDA7Cj4+Cj4+IFdoeSBkbyB3ZSBuZWVkIGV4dHJhIHNpemVvZihfX2Jl
+MTYpIGJ5dGVzIGhlcmU/Cj4KPiBJIGRvbid0IGhhdmUgYW4gYW5zd2VyIHRvIHlvdXIgcXVlc3Rp
+b24uIEkgZGlkbid0IHdyaXRlIHRoaXMgY29kZSBhbmQgaGF2ZQo+IHdvbmRlcmVkIGFib3V0IHdo
+eSB0aGUgZXh0cmEgdHdvIGJ5dGVzIHdlcmUgcmVzZXJ2ZWQuIEkgZG9uJ3Qga25vdyB3aHkgaXQK
+PiBzaG91bGQgYmUgbmVjZXNzYXJpbHkgZm9yIGlubmVyIG9yIG91dGVyIHZsYW5zIG9yIHRoZSBI
+VyBhY2NlbGVyYXRlZCBjYXNlIG9yCj4gZm9yIHRoZSBub24tYWNjZWxlcmF0ZWQgY2FzZS4gSWYg
+bm8gcmV2aWV3ZXIgY2FuIHN0YXRlIGEgY2FzZSBmb3IgaXQsIEkgd2lsbAo+IHJlbW92ZSBpdCB3
+aXRoIHRoZSBuZXh0IHZlcnNpb24gb2YgdGhpcyBwYXRjaC4KPgpMb29rcyBsaWtlIGl0IGlzIG9w
+dGltaXphdGlvbiBmb3IgcGFyc2luZyBldGhlcnR5cGUsIFNvIGxldHMga2VlcCBpdC4KCj4+Pgo+
+Pj4gICAgICAgICAgICAgICAgICB9IGVsc2UgaWYgKCF0Y2kpIHsKPj4+ICAgICAgICAgICAgICAg
+ICAgICAgICAgICAvKiBDb3JuZXIgY2FzZSBmb3IgdHJ1bmNhdGVkIDgwMi4xUSBoZWFkZXIuICov
+Cj4+PiAgICAgICAgICAgICAgICAgICAgICAgICAgaWYgKG5sYV9sZW4oZW5jYXApKSB7Cj4+PiBA
+QCAtMTE2OSw3ICsxMzEyLDcgQEAgaW50IG92c19ubGFfZ2V0X21hdGNoKHN0cnVjdCBuZXQgKm5l
+dCwgc3RydWN0Cj4+PiBzd19mbG93X21hdGNoICptYXRjaCwKPj4+ICAgICAgICAgICAgICAgICAg
+ICAgICAgICBnb3RvIGZyZWVfbmV3bWFzazsKPj4+Cj4+PiAgICAgICAgICAgICAgICAgIC8qIEFs
+d2F5cyBtYXRjaCBvbiB0Y2kuICovCj4+PiAtICAgICAgICAgICAgICAgU1dfRkxPV19LRVlfUFVU
+KG1hdGNoLCBldGgudGNpLCBodG9ucygweGZmZmYpLCB0cnVlKTsKPj4+ICsgICAgICAgICAgICAg
+ICBTV19GTE9XX0tFWV9QVVQobWF0Y2gsIGV0aC52bGFuLnRjaSwgaHRvbnMoMHhmZmZmKSwKPj4+
+IHRydWUpOwo+Pgo+PiBBbHNvIG5lZWQgdG8gZXhhY3QgbWF0Y2ggb24gaW5uZXIgdGNpLgo+Cj4g
+VGhpcyBjb2RlIHNldHMgYSBtYXRjaCBvbiB0Y2kgZXZlbiBpZiBubyB2bGFuIGlzIHByZXNlbnQu
+IElzIHRoaXMgaXMgZm9yIHRoZQo+IGNhc2Ugd2hlcmUgdGhlcmUgaXMgbm8gZXhwbGljaXQgbWFz
+ayBzcGVjaWZpZWQgaW4gdGhlIG5ldGxpbmsgZW5jb2RlZCBmbG93Pwo+IElmIHRoYXQgaXMgY29y
+cmVjdCwgdGhlbiBpdCBkb2VzIG5lZWQgdG8gYmUgZG9uZSBmb3IgdGhlIGlubmVyIHZsYW4gdG9v
+LgoKWWVzLCBCeSBkZWZhdWx0IGl0IG5lZWRzIHRvIGJlIG1hdGNoZWQuIHVzZXJzcGFjZSBjYW4g
+b3ZlcndyaXRlIGl0CndpdGggZGlmZmVyZW50IHdpbGRjYXJkLgpfX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3
+aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
