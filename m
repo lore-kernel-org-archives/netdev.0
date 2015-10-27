@@ -1,44 +1,48 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: Re: [PATCH 2/6] net: dsa: allow switch drivers to cleanup their
- resources
-Date: Tue, 27 Oct 2015 16:43:45 +0100
-Message-ID: <562F9BB1.8090700@baylibre.com>
-References: <562F8ED7.2000804@baylibre.com> <562F9AAB.8090202@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost: fix performance on LE hosts
+Date: Tue, 27 Oct 2015 17:52:24 +0200
+Message-ID: <20151027175057-mutt-send-email-mst@redhat.com>
+References: <1445938640-32673-1-git-send-email-mst@redhat.com>
+	<20151027.063255.1140860748569110696.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Guenter Roeck <linux@roeck-us.net>,
-	vivien.didelot@savoirfairelinux.com,
-	Fabian Frederick <fabf@skynet.be>,
-	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Frode Isaksen <fisaksen@baylibre.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <562F9AAB.8090202@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20151027.063255.1140860748569110696.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-On 10/27/2015 04:39 PM, Florian Fainelli wrote:
-> On 27/10/15 07:48, Neil Armstrong wrote:
->> Some switch drivers might request interrupts, remap register ranges,
->> allow such drivers to implement a "remove" callback doing just that.
->>
->> Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
+On Tue, Oct 27, 2015 at 06:32:55AM -0700, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Tue, 27 Oct 2015 11:37:39 +0200
 > 
-> This should probably be a Signed-off-by tag, but there is nothing using
-> this, so you would want to introduce an user of this function in the
-> same patch series so we see how you intend to use it?
+> > commit 2751c9882b947292fcfb084c4f604e01724af804 ("vhost: cross-endian
+> > support for legacy devices") introduced a minor regression: even with
+> > cross-endian disabled, and even on LE host, vhost_is_little_endian is
+> > checking is_le flag so there's always a branch.
+> > 
+> > To fix, simply check virtio_legacy_is_little_endian first.
+> > 
+> > Cc: Greg Kurz <gkurz@linux.vnet.ibm.com>
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 > 
->> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+> Michael, do you want me to take this via the 'net' tree?
 
-Yes, I didn't know how to handle this since it was part of a larger patch.
+Sure - especially since it looks like I have nothing else for this merge
+window (working on fixing shutdown races, but it's slow going).  Thanks
+a lot!
 
-I forgot to add this into the cover-letter but I wanted to send an RFC serie with
-your bcm remove patch and a mv88e6xxx remove experimental code.
-
-Yet, the mv88e6060 does not make usage of this.
-
-Neil
+-- 
+MST
