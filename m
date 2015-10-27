@@ -1,33 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Tue, 27 Oct 2015 06:59:24 -0700 (PDT)
-Message-ID: <20151027.065924.796277086557445997.davem@davemloft.net>
-References: <562F577E.6000901@oracle.com>
-	<20151027.064228.237119117273824839.davem@davemloft.net>
-	<562F7E16.2070906@oracle.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] sock: don't enable netstamp for af_unix sockets
+Date: Tue, 27 Oct 2015 14:44:28 +0100
+Message-ID: <1445953468.1370159.421485969.5DA0A8B3@webmail.messagingengine.com>
+References: <1445863897-22646-1-git-send-email-hannes@stressinduktion.org>
+ <20151026131928.GA1820@netboy>
+ <1445866379.133031.420389177.3AE9E175@webmail.messagingengine.com>
+ <20151027101157.GA1850@netboy>
+ <1445944161.1336457.421364569.5449BCCB@webmail.messagingengine.com>
+ <1445944516.1337466.421368457.2463FECE@webmail.messagingengine.com>
+ <1445951975.7476.16.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Casper.Dik@oracle.com, viro@ZenIV.linux.org.uk,
-	eric.dumazet@gmail.com, stephen@networkplumber.org,
-	netdev@vger.kernel.org, dholland-tech@netbsd.org
-To: Alan.Burlison@oracle.com
+Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38476 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932329AbbJ0Nmq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 09:42:46 -0400
-In-Reply-To: <562F7E16.2070906@oracle.com>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:50408 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932203AbbJ0No3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 09:44:29 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id DEBDD20D45
+	for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 09:44:28 -0400 (EDT)
+In-Reply-To: <1445951975.7476.16.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Burlison <Alan.Burlison@oracle.com>
-Date: Tue, 27 Oct 2015 13:37:26 +0000
 
-> If you took that argument to it's logical extreme they you'd never
-> make any changes that made changes to existing behaviour, and that's
-> patently not the case.
 
-You know exactly what I mean, and what you're saying here is just a
-scarecrow distracting the discussion from the real issue.
+On Tue, Oct 27, 2015, at 14:19, Eric Dumazet wrote:
+> On Tue, 2015-10-27 at 12:15 +0100, Hannes Frederic Sowa wrote:
+> 
+> > Also counter question: why is the netstamp code protected by a
+> > static_key otherwise if not for trying to suppress the code path as
+> > often as possible if not used? ;)
+> 
+> Any idea of why timestamping is asked on AF_UNIX in the first place ?
+
+I guess syslog code want's to have more accurate timetstamps on when the
+packet is send.
+
+> For messages sent/received on af_unix sockets, in which place timestamp
+> is taken ?
+
+in unix_sendmsg on the sending unix socket (we check peer unix socket
+for timestamp flag).
+
+> Is it at the time skb is cooked and stored in receive queue, or the time
+> it was dequeued ?
+
+No, at time it is send by sendmsg on the sending socket.
+
+> In any case, is your patch changing af_unix behavior ? It is not clear
+> from your changelog...
+
+No, af_unix logic does not pass this logic at all, so we don't need to
+care about netstamp code. netstamp_needed is private to dev.c.
+
+Bye,
+Hannes
