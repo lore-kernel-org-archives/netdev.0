@@ -1,61 +1,63 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] sock: don't enable netstamp for af_unix sockets
-Date: Tue, 27 Oct 2015 12:15:16 +0100
-Message-ID: <1445944516.1337466.421368457.2463FECE@webmail.messagingengine.com>
-References: <1445863897-22646-1-git-send-email-hannes@stressinduktion.org>
- <20151026131928.GA1820@netboy>
- <1445866379.133031.420389177.3AE9E175@webmail.messagingengine.com>
- <20151027101157.GA1850@netboy>
- <1445944161.1336457.421364569.5449BCCB@webmail.messagingengine.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH 2/2] net: add driver for Netronome NFP4000/NFP6000 NIC
+ VFs
+Date: Tue, 27 Oct 2015 11:16:03 +0000
+Message-ID: <20151027111603.77111ce4@jkicinski-Precision-T1700>
+References: <1445626691-19819-1-git-send-email-jakub.kicinski@netronome.com>
+	<1445626691-19819-3-git-send-email-jakub.kicinski@netronome.com>
+	<20151026.182307.873190227567325622.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: netdev@vger.kernel.org, rolf.neugebauer@netronome.com,
+	jason.mcmullan@netronome.com, simon.horman@netronome.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:40367 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751170AbbJ0LPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 07:15:16 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id 5F836209E1
-	for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 07:15:16 -0400 (EDT)
-In-Reply-To: <1445944161.1336457.421364569.5449BCCB@webmail.messagingengine.com>
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:32920 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751170AbbJ0LQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 07:16:09 -0400
+Received: by qgeo38 with SMTP id o38so143313261qge.0
+        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 04:16:08 -0700 (PDT)
+In-Reply-To: <20151026.182307.873190227567325622.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Tue, Oct 27, 2015, at 12:09, Hannes Frederic Sowa wrote:
-> Hi Richard,
+On Mon, 26 Oct 2015 18:23:07 -0700 (PDT), David Miller wrote:
+> From: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Date: Fri, 23 Oct 2015 19:58:11 +0100
 > 
-> On Tue, Oct 27, 2015, at 11:11, Richard Cochran wrote:
-> > On Mon, Oct 26, 2015 at 02:32:59PM +0100, Hannes Frederic Sowa wrote:
-> > > On Mon, Oct 26, 2015, at 14:19, Richard Cochran wrote:
-> > > > On Mon, Oct 26, 2015 at 01:51:37PM +0100, Hannes Frederic Sowa wrote:
-> > > > > netstamp_needed is toggled for all socket families if they request
-> > > > > timestamping. But some protocols don't need the lower-layer timestamping
-> > > > > code at all. This patch starts disabling it for af-unix.
-> > > > 
-> > > > What problem is this patch trying to solve?
-> > > 
-> > > netstamp_needed is a static-key which enables timestamping code in the
-> > > networking stack receive functions for every packet, while it is not
-> > > needed for AF_UNIX/LOCAL. So it is merely a small performance
-> > > enhancement.
-> > 
-> > Are there any numbers that show the effect of this enhancement?
+> > +struct nfp_net_tx_buf {
+> > +	struct sk_buff *skb;
+> > +	dma_addr_t dma_addr;
+> > +	short int fidx;
+> > +	u16 pkt_cnt;
+> > +	u32 real_len;
+> > +};
 > 
-> I haven't personally done any performance numbers.
+> This packs very poorly, and has a lot of padding holes.  Better ordering
+> would be:
 > 
-> Jesper (in Cc) noticed that it showed up in perf performance reports
-> even though he used a very minimal setup. Turned out that
-> systemd-journald enables timestamping on AF_UNIX sockets which thus
-> enabled netstamps globally. I think Jesper can chime in here.
+> struct nfp_net_tx_buf {
+> 	struct sk_buff *skb;
+> 	dma_addr_t dma_addr;
+> 	u32 real_len;
+> 	short int fidx;
+> 	u16 pkt_cnt;
+> };
 
-Also counter question: why is the netstamp code protected by a
-static_key otherwise if not for trying to suppress the code path as
-often as possible if not used? ;)
+Seems to pack fine on x86:
 
-Bye,
-Hannes
+struct nfp_net_tx_buf {
+        struct sk_buff *           skb;                  /*     0     8 */
+        dma_addr_t                 dma_addr;             /*     8     8 */
+        short int                  fidx;                 /*    16     2 */
+        u16                        pkt_cnt;              /*    18     2 */
+        u32                        real_len;             /*    20     4 */
+
+        /* size: 24, cachelines: 1, members: 5 */
+        /* last cacheline: 24 bytes */
+};
+
+Are my packing skills deceiving me?  Maybe I'll try to build the driver
+for more esoteric architectures.
