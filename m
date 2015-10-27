@@ -1,63 +1,63 @@
-From: Alan Burlison <Alan.Burlison@oracle.com>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Tue, 27 Oct 2015 14:13:31 +0000
-Message-ID: <562F868B.4040001@oracle.com>
-References: <562F577E.6000901@oracle.com>	<20151027.064228.237119117273824839.davem@davemloft.net>	<562F7E16.2070906@oracle.com> <20151027.065924.796277086557445997.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] sock: don't enable netstamp for af_unix sockets
+Date: Tue, 27 Oct 2015 07:15:09 -0700
+Message-ID: <1445955309.7476.19.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1445863897-22646-1-git-send-email-hannes@stressinduktion.org>
+	 <20151026131928.GA1820@netboy>
+	 <1445866379.133031.420389177.3AE9E175@webmail.messagingengine.com>
+	 <20151027101157.GA1850@netboy>
+	 <1445944161.1336457.421364569.5449BCCB@webmail.messagingengine.com>
+	 <1445944516.1337466.421368457.2463FECE@webmail.messagingengine.com>
+	 <1445951975.7476.16.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1445953468.1370159.421485969.5DA0A8B3@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Casper.Dik@oracle.com, viro@ZenIV.linux.org.uk,
-	eric.dumazet@gmail.com, stephen@networkplumber.org,
-	netdev@vger.kernel.org, dholland-tech@netbsd.org
-To: David Miller <davem@davemloft.net>
+Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:31740 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751957AbbJ0ONg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 10:13:36 -0400
-In-Reply-To: <20151027.065924.796277086557445997.davem@davemloft.net>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:33678 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932219AbbJ0OPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 10:15:12 -0400
+Received: by pabla5 with SMTP id la5so31016341pab.0
+        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 07:15:12 -0700 (PDT)
+In-Reply-To: <1445953468.1370159.421485969.5DA0A8B3@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27/10/2015 13:59, David Miller wrote:
+On Tue, 2015-10-27 at 14:44 +0100, Hannes Frederic Sowa wrote:
+> 
+> On Tue, Oct 27, 2015, at 14:19, Eric Dumazet wrote:
+> > On Tue, 2015-10-27 at 12:15 +0100, Hannes Frederic Sowa wrote:
+> > 
+> > > Also counter question: why is the netstamp code protected by a
+> > > static_key otherwise if not for trying to suppress the code path as
+> > > often as possible if not used? ;)
+> > 
+> > Any idea of why timestamping is asked on AF_UNIX in the first place ?
+> 
+> I guess syslog code want's to have more accurate timetstamps on when the
+> packet is send.
+> 
+> > For messages sent/received on af_unix sockets, in which place timestamp
+> > is taken ?
+> 
+> in unix_sendmsg on the sending unix socket (we check peer unix socket
+> for timestamp flag).
+> 
+> > Is it at the time skb is cooked and stored in receive queue, or the time
+> > it was dequeued ?
+> 
+> No, at time it is send by sendmsg on the sending socket.
+> 
+> > In any case, is your patch changing af_unix behavior ? It is not clear
+> > from your changelog...
+> 
+> No, af_unix logic does not pass this logic at all, so we don't need to
+> care about netstamp code. netstamp_needed is private to dev.c.
 
-> From: Alan Burlison <Alan.Burlison@oracle.com>
-> Date: Tue, 27 Oct 2015 13:37:26 +0000
->
->> If you took that argument to it's logical extreme they you'd never
->> make any changes that made changes to existing behaviour, and that's
->> patently not the case.
->
-> You know exactly what I mean, and what you're saying here is just a
-> scarecrow distracting the discussion from the real issue.
+Thanks for clarifying
 
-I think you probably mean "a straw man".
-
-The problematic case is MT applications that don't manage sharing of FDs 
-in a sensible way and need to have a way of terminating any accept() in 
-other threads. On Linux that's currently done with a shutdown()+close(), 
-on other platforms you can use open()+dup2(). However the Linux 
-shutdown() mechanism relies on bending the POSIX semantics and the 
-dup2() mechanism doesn't work on Linux as it also doesn't kick other 
-threads off accept().
-
-At the moment, on Linux you have to explicitly call shutdown() on a 
-socket on which another thread may be sat in accept(). If closing the 
-socket in one thread terminated any accept()s in other threads, in the 
-same way that an explicit shutdown() does, then the explicit shutdown() 
-wouldn't be needed for more sensibly written apps that weren't prone to 
-FD recycling races. As far as I can tell, that would work cross-platform.
-
-Ideally there'd be a single way of doing this that worked 
-cross-platform, at the moment there isn't. And yes, even if such a 
-mechanism was available now it would be some time before it could be 
-assumed to be available everywhere. I don't know enough about the Linux 
-implementation to know if there is a practical way around this, and of 
-course even if such a change were made, potential breakage of existing 
-code would be a concern. If there's a better, cross-platform way of 
-doing this then I'm all ears.
-
--- 
-Alan Burlison
---
+Acked-by: Eric Dumazet <edumazet@google.com>
