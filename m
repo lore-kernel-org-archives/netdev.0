@@ -1,39 +1,67 @@
-From: punit vara <punitvara@gmail.com>
-Subject: Re: [PATCH v4 14/15] net: wireless: ath: Remove unneeded variable ret
- returning 0
-Date: Wed, 28 Oct 2015 00:39:53 +0530
-Message-ID: <CABXAfNJf5dBNx-F=6O0SsBRE3jtasK-=1-2FFb_KNDvb+hrR_g@mail.gmail.com>
-References: <1445539670-4018-1-git-send-email-punitvara@gmail.com>
-	<5629316E.60106@cogentembedded.com>
-	<CABXAfNJewoq3LL9S+cSEs3S+nQXN714JyKT_ys2+armMprVEgA@mail.gmail.com>
-	<87a8r4ybks.fsf@kamboji.qca.qualcomm.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net v2 2/4] ipv4: add defensive check for CHECKSUM_PARTIAL
+ skbs in ip_fragment
+Date: Tue, 27 Oct 2015 20:15:27 +0100
+Message-ID: <1445973327.507378.421829321.15264A08@webmail.messagingengine.com>
+References: <1445958135-19805-1-git-send-email-hannes@stressinduktion.org>
+ <1445958135-19805-3-git-send-email-hannes@stressinduktion.org>
+ <562FCA18.8090008@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	jirislaby@gmail.com, Nick Kossifidis <mickflemm@gmail.com>,
-	mcgrof@do-not-panic.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87a8r4ybks.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, vyasevich@gmail.com, bcodding@redhat.com,
+	tom@herbertland.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:49142 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S964927AbbJ0TP1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 15:15:27 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id 74A2B20A15
+	for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 15:15:27 -0400 (EDT)
+In-Reply-To: <562FCA18.8090008@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 27, 2015 at 1:42 PM, Kalle Valo <kvalo@codeaurora.org> wrote:
-> punit vara <punitvara@gmail.com> writes:
->
->> Will my other patches which are already correct be added to wireless
->> tree ? or I have to resend everything ?
->
-> Yes, please resend the whole patchset. I don't apply patches
-> individually from a patchset, it's just too time consuming and error
-> prone.
->
-> Also, as you seem to be new here, I don't recommend sending big
-> patchsets in the beginning. Start slow, send just few a patch or two at
-> a time, and once you gain more experience send bigger patchsets.
->
-> --
-> Kalle Valo
-Next time I will send 2-3 patches only . This time I have resent you
-all the patches that I have created before . Thank you for suggestion.
+Hi Sergei,
+
+On Tue, Oct 27, 2015, at 20:01, Sergei Shtylyov wrote:
+> On 10/27/2015 06:02 PM, Hannes Frederic Sowa wrote:
+> 
+> > CHECKSUM_PARTIAL skbs should never arrive in ip_fragment. If we get one
+> > of those warn about them once and handle them gracefully by recalculating
+> > the checksum.
+> >
+> > Cc: Eric Dumazet <edumazet@google.com>
+> > Cc: Vlad Yasevich <vyasevich@gmail.com>
+> > Cc: Benjamin Coddington <bcodding@redhat.com>
+> > Cc: Tom Herbert <tom@herbertland.com>
+> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > ---
+> >   net/ipv4/ip_output.c | 8 +++++---
+> >   1 file changed, 5 insertions(+), 3 deletions(-)
+> >
+> > diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> > index 0b02417..3f94a3b 100644
+> > --- a/net/ipv4/ip_output.c
+> > +++ b/net/ipv4/ip_output.c
+> > @@ -533,6 +533,11 @@ int ip_do_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+> >
+> >   	dev = rt->dst.dev;
+> >
+> > +	/* for offloaded checksums cleanup checksum before fragmentation */
+> > +	if (WARN_ON_ONCE(skb->ip_summed == CHECKSUM_PARTIAL) &&
+> > +	    (err = skb_checksum_help(skb)))
+> 
+>     scripts/checkpatch.pl shou;d have complained about using = in the
+>     *if* 
+> expression.
+
+I know and I ignored it deliberately because I found it nicer this way.
+I made sure gcc does not complain by using extra braces around the
+assignment.
+
+Bye,
+Hannes
