@@ -1,108 +1,40 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: 802.3 ad bonding mode min-links doesn't work correctly once slave
- port link status is up again
-Date: Tue, 27 Oct 2015 13:32:19 +0100
-Message-ID: <562F6ED3.9070109@cumulusnetworks.com>
-References: <CAKpWUYnGO_YhXTQ5ekNTONZhaveDHScs2OLy-4NiDOTa6ahDsQ@mail.gmail.com>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH v3 2/2] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
+Date: Tue, 27 Oct 2015 12:40:42 +0000
+Message-ID: <yw1x8u6oeb79.fsf@unicorn.mansr.com>
+References: <1445895295-16778-1-git-send-email-mans@mansr.com>
+	<1445895295-16778-2-git-send-email-mans@mansr.com>
+	<20151027150209.043946d4@samsung9>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Arjun Pandey <apandepublic@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	slash.tmp@free.fr
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:32989 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932115AbbJ0McW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 08:32:22 -0400
-Received: by wijp11 with SMTP id p11so211383088wij.0
-        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 05:32:21 -0700 (PDT)
-In-Reply-To: <CAKpWUYnGO_YhXTQ5ekNTONZhaveDHScs2OLy-4NiDOTa6ahDsQ@mail.gmail.com>
+Received: from unicorn.mansr.com ([81.2.72.234]:53731 "EHLO unicorn.mansr.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932213AbbJ0Mku convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 08:40:50 -0400
+In-Reply-To: <20151027150209.043946d4@samsung9> (Stephen Hemminger's message
+	of "Tue, 27 Oct 2015 15:02:09 +0900")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/27/2015 01:17 PM, Arjun Pandey wrote:
-> Hi
-> 
-> I have configured a bond with 2 slave bond ports in 802.3 ad mode.
-> I have also set min-links=2 and miimon=100
-> 
-> 
-> root@foo bonding]# cat /proc/net/bonding/bond
-> Ethernet Channel Bonding Driver: v3.7.1 (April 27, 2011)
-> 
-> Bonding Mode: IEEE 802.3ad Dynamic link aggregation
-> Transmit Hash Policy: layer2 (0)
-> MII Status: down
-> MII Polling Interval (ms): 100
-> Up Delay (ms): 0
-> Down Delay (ms): 0
-> 
-> 802.3ad info
-> LACP rate: fast
-> Min links: 2
-> Aggregator selection policy (ad_select): stable
-> Active Aggregator Info:
-> Aggregator ID: 2
-> Number of ports: 1
-> Actor Key: 17
-> Partner Key: 1
-> Partner Mac Address: 00:00:00:00:00:00
-> 
-> Slave Interface: eth1
-> MII Status: up
-> Speed: 1000 Mbps
-> Duplex: full
-> Link Failure Count: 7
-> Permanent HW addr: 08:00:27:0a:cd:2c
-> Aggregator ID: 1
-> Slave queue ID: 0
-> 
-> Slave Interface: eth2
-> MII Status: up
-> Speed: 1000 Mbps
-> Duplex: full
-> Link Failure Count: 4
-> Permanent HW addr: 08:00:27:b0:4d:7e
-> Aggregator ID: 2
-> Slave queue ID: 0
-> 
-> I tried the following steps :
-> 1. Bring up bond with slaves as eth1 and eth2
-> 2. Bring down eth1 down via ip link set down eth1
-> 3. Check bond link status which now shows up as down
-> 4. Restore eth1 link status up.
-> 5. Bond link status is still set as down.
-> 
-> I can't get bond link status up unless i make min-links 0/1 and bring
-> bond status manually up via ip link set bond down and ip link set bond
-> up
-> [root@foo /]# ip link show
-> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
->     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-> state UP qlen 1000
->     link/ether 08:00:27:f8:38:ad brd ff:ff:ff:ff:ff:ff
-> 3: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc
-> pfifo_fast master bond state UP qlen 1000
->     link/ether 08:00:27:0a:cd:2c brd ff:ff:ff:ff:ff:ff
-> 4: eth2: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc
-> pfifo_fast master bond state UP qlen 1000
->     link/ether 08:00:27:0a:cd:2c brd ff:ff:ff:ff:ff:ff
-> 23: bond: <NO-CARRIER,BROADCAST,MULTICAST,MASTER,UP> mtu 1500 qdisc
-> noqueue state DOWN
->     link/ether 08:00:27:0a:cd:2c brd ff:ff:ff:ff:ff:ff
-> 
-> Am i missing something ?
-> 
-> 
-> This is on Centos 6.5 and kernel 3.10.27.1
-> 
-> Regards
-> Arjun
+Stephen Hemminger <stephen@networkplumber.org> writes:
 
-Hi Arjun,
-I think your slaves are in different aggregators (judging by their agg ids) and min_links
-checks if there're min_links number of active ports in the active aggregator (in your case
-that's agg id 2 which has 1 slave in it).
+>> +	.get_settings		=3D nb8800_get_settings,
+>> +	.set_settings		=3D nb8800_set_settings,
+>> +	.nway_reset		=3D nb8800_nway_reset,
+>> +	.get_link		=3D ethtool_op_get_link,
+>> +};
+>> +
+>
+> Since you are implementing ethtool please add a driver
+> info function.
 
-Cheers,
- Nik
+I don't know what I'd set there that the fallback code doesn't.
+
+--=20
+M=E5ns Rullg=E5rd
+mans@mansr.com
