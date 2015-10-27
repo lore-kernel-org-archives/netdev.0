@@ -1,111 +1,87 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 6/6] net: phy: Stop 'phy-state-machine' and 'phy_change'
- work on remove
-Date: Tue, 27 Oct 2015 08:57:58 -0700
-Message-ID: <562F9F06.7040402@gmail.com>
-References: <562F8EF1.5090504@baylibre.com>	<562F9AEE.5050708@gmail.com> <CAJ03sU_+nkvN1ZeqvWx56B7cb9GDCbpTFn6gJp2OmW-CKi7QFA@mail.gmail.com>
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: Re: [PATCH 0/8] mm: memcontrol: account socket memory in unified
+ hierarchy
+Date: Tue, 27 Oct 2015 09:01:08 -0700
+Message-ID: <20151027155833.GB4665@cmpxchg.org>
+References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
+ <20151022184509.GM18351@esperanza>
+ <20151026172216.GC2214@cmpxchg.org>
+ <20151027084320.GF13221@esperanza>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Neil Armstrong <narmstrong@baylibre.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Guenter Roeck <linux@roeck-us.net>,
-	vivien.didelot@savoirfairelinux.com,
-	Fabian Frederick <fabf@skynet.be>,
-	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Frode Isaksen <fisaksen@baylibre.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Michal Hocko <mhocko@suse.cz>, Tejun Heo <tj@kernel.org>,
+	netdev@vger.kernel.org, linux-mm@kvack.org,
+	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Vladimir Davydov <vdavydov@virtuozzo.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJ03sU_+nkvN1ZeqvWx56B7cb9GDCbpTFn6gJp2OmW-CKi7QFA@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <20151027084320.GF13221@esperanza>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(don't top post please)
+On Tue, Oct 27, 2015 at 11:43:21AM +0300, Vladimir Davydov wrote:
+> On Mon, Oct 26, 2015 at 01:22:16PM -0400, Johannes Weiner wrote:
+> > I'm not getting rid of those knobs, I'm just reusing the old socket
+> > accounting infrastructure in an attempt to make the memory accounting
+> > feature useful to more people in cgroups v2 (unified hierarchy).
+> 
+> My understanding is that in the meantime you effectively break the
+> existing per memcg tcp window control logic.
 
-On 27/10/15 08:53, Frode Isaksen wrote:
-> What will you need in the oops ? I presume you don' want everything or ?
-> 
-> The PHY state machine is not stopped with a PHY disconnect.
+That's not my intention, this stuff has to keep working. I'm assuming
+you mean the changes to sk_enter_memory_pressure() when hitting the
+charge limit; let me address this in the other subthread.
 
-It is stopped with a phy_disconnect():
+> > We can always come back to think about per-cgroup tcp window limits in
+> > the unified hierarchy, my patches don't get in the way of this. I'm
+> > not removing the knobs in cgroups v1 and I'm not preventing them in v2.
+> > 
+> > But regardless of tcp window control, we need to account socket memory
+> > in the main memory accounting pool where pressure is shared (to the
+> > best of our abilities) between all accounted memory consumers.
+> > 
+> 
+> No objections to this point. However, I really don't like the idea to
+> charge tcp window size to memory.current instead of charging individual
+> pages consumed by the workload for storing socket buffers, because it is
+> inconsistent with what we have now. Can't we charge individual skb pages
+> as we do in case of other kmem allocations?
 
-/**
- * phy_disconnect - disable interrupts, stop state machine, and detach a PHY
- *                  device
- * @phydev: target phy_device struct
- */
-void phy_disconnect(struct phy_device *phydev)
-{
-        if (phydev->irq > 0)
-                phy_stop_interrupts(phydev);
+Absolutely, both work for me. I chose that route because it's where
+the networking code already tracks and accounts memory consumed, so it
+seemed like a better site to hook into.
 
-        phy_stop_machine(phydev);
+But I understand your concerns. We want to track this stuff as close
+to the memory allocators as possible.
 
-        phydev->adjust_link = NULL;
+> > But also, there are people right now for whom the socket buffers cause
+> > system OOM, but the existing memcg's hard tcp window limitq that
+> > exists absolutely wrecks network performance for them. It's not usable
+> > the way it is. It'd be much better to have the socket buffers exert
+> > pressure on the shared pool, and then propagate the overall pressure
+> > back to individual consumers with reclaim, shrinkers, vmpressure etc.
+> 
+> This might or might not work. I'm not an expert to judge. But if you do
+> this only for memcg leaving the global case as it is, networking people
+> won't budge IMO. So could you please start such a major rework from the
+> global case? Could you please try to deprecate the tcp window limits not
+> only in the legacy memcg hierarchy, but also system-wide in order to
+> attract attention of networking experts?
 
-        phy_detach(phydev);
-}
+I'm definitely interested in addressing this globally as well.
 
+The idea behind this was to use the memcg part as a testbed. cgroup2
+is going to be new and people are prepared for hiccups when migrating
+their applications to it; and they can roll back to cgroup1 and tcp
+window limits at any time should they run into problems in production.
 
-> However, the
-> 'phy-change' work is cancelled, so cancelling this work in the remove
-> function maybe not needed. I will verify ASAP.
-> 
-> Frode
-> 
-> 2015-10-27 16:40 GMT+01:00 Florian Fainelli <f.fainelli@gmail.com
-> <mailto:f.fainelli@gmail.com>>:
-> 
->     On 27/10/15 07:49, Neil Armstrong wrote:
->     > Avoids:
->     >  Unable to handle kernel NULL pointer dereference at virtual address 00000064
->     >  Workqueue: events_power_efficient phy_state_machine
->     >  PC is at phy_state_machine+0x28/0x480
-> 
->     Stripped down oops can sometimes be missing critical pieces of
->     information to help debug the problem, is there a reason why this is
->     being obfuscated?
-> 
->     You are supposed to stop the PHY state machine by calling
->     phy_disconnect() is it possible that this is missing?
-> 
->     >
->     > Signed-off-by: Frode Isaksen <fisaksen@baylibre.com
->     <mailto:fisaksen@baylibre.com>>
->     > Signed-off-by: Neil Armstrong <narmstrong@baylibre.com
->     <mailto:narmstrong@baylibre.com>>
->     > ---
->     >  drivers/net/phy/phy_device.c | 6 ++++++
->     >  1 file changed, 6 insertions(+)
->     >
->     > diff --git a/drivers/net/phy/phy_device.c
->     b/drivers/net/phy/phy_device.c
->     > index 3833891..b5b6c1b 100644
->     > --- a/drivers/net/phy/phy_device.c
->     > +++ b/drivers/net/phy/phy_device.c
->     > @@ -1348,6 +1348,12 @@ static int phy_remove(struct device *dev)
->     >       phydev->state = PHY_DOWN;
->     >       mutex_unlock(&phydev->lock);
->     >
->     > +     cancel_delayed_work_sync(&phydev->state_queue);
->     > +     flush_delayed_work(&phydev->state_queue);
->     > +
->     > +     cancel_work_sync(&phydev->phy_queue);
->     > +     flush_work(&phydev->phy_queue);
->     > +
->     >       if (phydev->drv->remove)
->     >               phydev->drv->remove(phydev);
->     >       phydev->drv = NULL;
->     >
-> 
-> 
->     --
->     Florian
-> 
-> 
+So this seemed like a good way to prove a new mechanism before rolling
+it out to every single Linux setup, rather than switch everybody over
+after the limited scope testing I can do as a developer on my own.
 
-
--- 
-Florian
+Keep in mind that my patches are not committing anything in terms of
+interface, so we retain all the freedom to fix and tune the way this
+is implemented, including the freedom to re-add tcp window limits in
+case the pressure balancing is not a comprehensive solution.
