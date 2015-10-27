@@ -1,159 +1,96 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net v2 3/4] ipv6: no CHECKSUM_PARTIAL on MSG_MORE corked sockets
-Date: Tue, 27 Oct 2015 09:36:21 -0700
-Message-ID: <CALx6S37qAxOxYRxxFQGR4P2r937yCnCqdASHV0qsi2UPj675iQ@mail.gmail.com>
-References: <1445958135-19805-1-git-send-email-hannes@stressinduktion.org>
-	<1445958135-19805-4-git-send-email-hannes@stressinduktion.org>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: [RFC PATCH 3/3] net: dsa: make usage of mv88e6xxx common remove
+ function
+Date: Tue, 27 Oct 2015 17:36:07 +0100
+Message-ID: <562FA7F7.8010902@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	Benjamin Coddington <bcodding@redhat.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:34209 "EHLO
-	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965061AbbJ0QgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 12:36:22 -0400
-Received: by iody8 with SMTP id y8so71889711iod.1
-        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 09:36:21 -0700 (PDT)
-In-Reply-To: <1445958135-19805-4-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 27, 2015 at 8:02 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> We cannot reliable calculate packet size on MSG_MORE corked sockets
-> and thus cannot decide if they are going to be fragmented later on,
-> so better not use CHECKSUM_PARTIAL in the first place.
->
-> The IPv6 code also intended to protect and not use CHECKSUM_PARTIAL in
-> the existence of IPv6 extension headers, but the condition was wrong. Fix
-> it up, too. Also the condition to check whether the packet fits into
-> one fragment was wrong and has been corrected.
->
-> Fixes: commit 32dce968dd987 ("ipv6: Allow for partial checksums on non-ufo packets")
-> See-also: commit 72e843bb09d45 ("ipv6: ip6_fragment() should check CHECKSUM_PARTIAL")
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> Cc: Benjamin Coddington <bcodding@redhat.com>
-> Cc: Tom Herbert <tom@herbertland.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  net/ipv6/ip6_output.c | 70 ++++++++++++++++++++++++---------------------------
->  1 file changed, 33 insertions(+), 37 deletions(-)
->
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index c265068..9828a71 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -1272,6 +1272,7 @@ static int __ip6_append_data(struct sock *sk,
->         struct rt6_info *rt = (struct rt6_info *)cork->dst;
->         struct ipv6_txoptions *opt = v6_cork->opt;
->         int csummode = CHECKSUM_NONE;
-> +       unsigned int maxnonfragsize, headersize;
->
->         skb = skb_peek_tail(queue);
->         if (!skb) {
-> @@ -1289,38 +1290,43 @@ static int __ip6_append_data(struct sock *sk,
->         maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen -
->                      sizeof(struct frag_hdr);
->
-> -       if (mtu <= sizeof(struct ipv6hdr) + IPV6_MAXPLEN) {
+Make usage of previously introduced mv88e6xxx common remove
+function in all mv88e6xxx drivers.
 
-It seems like most of the diffs in this patch are a result of
-eliminating this line. Is this check not needed?
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+---
+ drivers/net/dsa/mv88e6123_61_65.c | 1 +
+ drivers/net/dsa/mv88e6131.c       | 8 ++++++++
+ drivers/net/dsa/mv88e6171.c       | 1 +
+ drivers/net/dsa/mv88e6352.c       | 1 +
+ 4 files changed, 11 insertions(+)
 
-> -               unsigned int maxnonfragsize, headersize;
-> -
-> -               headersize = sizeof(struct ipv6hdr) +
-> -                            (opt ? opt->opt_flen + opt->opt_nflen : 0) +
-> -                            (dst_allfrag(&rt->dst) ?
-> -                             sizeof(struct frag_hdr) : 0) +
-> -                            rt->rt6i_nfheader_len;
-> -
-> -               if (ip6_sk_ignore_df(sk))
-> -                       maxnonfragsize = sizeof(struct ipv6hdr) + IPV6_MAXPLEN;
-> -               else
-> -                       maxnonfragsize = mtu;
-> +       headersize = sizeof(struct ipv6hdr) +
-> +                    (opt ? opt->opt_flen + opt->opt_nflen : 0) +
-> +                    (dst_allfrag(&rt->dst) ?
-> +                     sizeof(struct frag_hdr) : 0) +
-> +                    rt->rt6i_nfheader_len;
-> +
-> +       if (cork->length + length > mtu - headersize && dontfrag &&
-> +           (sk->sk_protocol == IPPROTO_UDP ||
-> +            sk->sk_protocol == IPPROTO_RAW)) {
-> +               ipv6_local_rxpmtu(sk, fl6, mtu - headersize +
-> +                               sizeof(struct ipv6hdr));
-> +               goto emsgsize;
-> +       }
->
-> -               /* dontfrag active */
-> -               if ((cork->length + length > mtu - headersize) && dontfrag &&
-> -                   (sk->sk_protocol == IPPROTO_UDP ||
-> -                    sk->sk_protocol == IPPROTO_RAW)) {
-> -                       ipv6_local_rxpmtu(sk, fl6, mtu - headersize +
-> -                                                  sizeof(struct ipv6hdr));
-> -                       goto emsgsize;
-> -               }
-> +       if (ip6_sk_ignore_df(sk))
-> +               maxnonfragsize = sizeof(struct ipv6hdr) + IPV6_MAXPLEN;
-> +       else
-> +               maxnonfragsize = mtu;
->
-> -               if (cork->length + length > maxnonfragsize - headersize) {
-> +       if (cork->length + length > maxnonfragsize - headersize) {
->  emsgsize:
-> -                       ipv6_local_error(sk, EMSGSIZE, fl6,
-> -                                        mtu - headersize +
-> -                                        sizeof(struct ipv6hdr));
-> -                       return -EMSGSIZE;
-> -               }
-> +               ipv6_local_error(sk, EMSGSIZE, fl6,
-> +                                mtu - headersize +
-> +                                sizeof(struct ipv6hdr));
-> +               return -EMSGSIZE;
->         }
->
-> +       /* CHECKSUM_PARTIAL only with no extension headers and when
+diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
+index 4bcfd68..1773c99 100644
+--- a/drivers/net/dsa/mv88e6123_61_65.c
++++ b/drivers/net/dsa/mv88e6123_61_65.c
+@@ -122,6 +122,7 @@ struct dsa_switch_driver mv88e6123_61_65_switch_driver = {
+ 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+ 	.probe			= mv88e6123_61_65_probe,
+ 	.setup			= mv88e6123_61_65_setup,
++	.remove			= mv88e6xxx_remove_common,
+ 	.set_addr		= mv88e6xxx_set_addr_indirect,
+ 	.phy_read		= mv88e6xxx_phy_read,
+ 	.phy_write		= mv88e6xxx_phy_write,
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index c73121c..0f559b4 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -137,6 +137,13 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 	return mv88e6xxx_setup_ports(ds);
+ }
 
-No, please don't do this. CHECKSUM_PARTIAL should work with extension
-headers as defined, so this is just disabling otherwise valid and
-useful functionality. If (some) drivers have problems with this they
-need to be identified and fixed.
-
-> +        * we are not going to fragment
-> +        */
-> +       if (transhdrlen && sk->sk_protocol == IPPROTO_UDP &&
-> +           headersize == sizeof(struct ipv6hdr) &&
-> +           length < mtu - headersize &&
-> +           !(flags & MSG_MORE) &&
-> +           rt->dst.dev->features & NETIF_F_V6_CSUM)
-> +               csummode = CHECKSUM_PARTIAL;
-> +
->         if (sk->sk_type == SOCK_DGRAM || sk->sk_type == SOCK_RAW) {
->                 sock_tx_timestamp(sk, &tx_flags);
->                 if (tx_flags & SKBTX_ANY_SW_TSTAMP &&
-> @@ -1328,16 +1334,6 @@ emsgsize:
->                         tskey = sk->sk_tskey++;
->         }
->
-> -       /* If this is the first and only packet and device
-> -        * supports checksum offloading, let's use it.
-> -        * Use transhdrlen, same as IPv4, because partial
-> -        * sums only work when transhdrlen is set.
-> -        */
-> -       if (transhdrlen && sk->sk_protocol == IPPROTO_UDP &&
-> -           length + fragheaderlen < mtu &&
-> -           rt->dst.dev->features & NETIF_F_V6_CSUM &&
-> -           !exthdrlen)
-> -               csummode = CHECKSUM_PARTIAL;
->         /*
->          * Let's try using as much space as possible.
->          * Use MTU if total length of the message fits into the MTU.
-> --
-> 2.5.0
->
++static void mv88e6131_remove(struct dsa_switch *ds)
++{
++	mv88e6xxx_ppu_state_remove(ds);
++
++	mv88e6xxx_remove_common(ds);
++}
++
+ static int mv88e6131_port_to_phy_addr(struct dsa_switch *ds, int port)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+@@ -175,6 +182,7 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+ 	.probe			= mv88e6131_probe,
+ 	.setup			= mv88e6131_setup,
++	.remove			= mv88e6131_remove,
+ 	.set_addr		= mv88e6xxx_set_addr_direct,
+ 	.phy_read		= mv88e6131_phy_read,
+ 	.phy_write		= mv88e6131_phy_write,
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 2c8eb6f..382529b 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -101,6 +101,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+ 	.probe			= mv88e6171_probe,
+ 	.setup			= mv88e6171_setup,
++	.remove			= mv88e6xxx_remove_common,
+ 	.set_addr		= mv88e6xxx_set_addr_indirect,
+ 	.phy_read		= mv88e6xxx_phy_read_indirect,
+ 	.phy_write		= mv88e6xxx_phy_write_indirect,
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index cbf4dd8..7938901 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -321,6 +321,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+ 	.probe			= mv88e6352_probe,
+ 	.setup			= mv88e6352_setup,
++	.remove			= mv88e6xxx_remove_common,
+ 	.set_addr		= mv88e6xxx_set_addr_indirect,
+ 	.phy_read		= mv88e6xxx_phy_read_indirect,
+ 	.phy_write		= mv88e6xxx_phy_write_indirect,
+-- 
+1.9.1
