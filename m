@@ -1,64 +1,72 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 6/6] net: phy: Stop 'phy-state-machine' and 'phy_change'
- work on remove
-Date: Tue, 27 Oct 2015 08:40:30 -0700
-Message-ID: <562F9AEE.5050708@gmail.com>
-References: <562F8EF1.5090504@baylibre.com>
+From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
+ hierarchy
+Date: Tue, 27 Oct 2015 11:41:38 -0400
+Message-ID: <20151027154138.GA4665@cmpxchg.org>
+References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
+ <1445487696-21545-6-git-send-email-hannes@cmpxchg.org>
+ <20151023131956.GA15375@dhcp22.suse.cz>
+ <20151023.065957.1690815054807881760.davem@davemloft.net>
+ <20151026165619.GB2214@cmpxchg.org>
+ <20151027122647.GG9891@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Guenter Roeck <linux@roeck-us.net>,
-	vivien.didelot@savoirfairelinux.com,
-	Fabian Frederick <fabf@skynet.be>,
-	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Frode Isaksen <fisaksen@baylibre.com>
-To: Neil Armstrong <narmstrong@baylibre.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <562F8EF1.5090504@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20151027122647.GG9891-2MMpYkNvuYDjFM9bn6wA6Q@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 27/10/15 07:49, Neil Armstrong wrote:
-> Avoids:
->  Unable to handle kernel NULL pointer dereference at virtual address 00000064
->  Workqueue: events_power_efficient phy_state_machine
->  PC is at phy_state_machine+0x28/0x480
-
-Stripped down oops can sometimes be missing critical pieces of
-information to help debug the problem, is there a reason why this is
-being obfuscated?
-
-You are supposed to stop the PHY state machine by calling
-phy_disconnect() is it possible that this is missing?
-
+On Tue, Oct 27, 2015 at 01:26:47PM +0100, Michal Hocko wrote:
+> On Mon 26-10-15 12:56:19, Johannes Weiner wrote:
+> [...]
+> > Now you could argue that there might exist specialized workloads that
+> > need to account anonymous pages and page cache, but not socket memory
+> > buffers.
 > 
-> Signed-off-by: Frode Isaksen <fisaksen@baylibre.com>
-> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
-> ---
->  drivers/net/phy/phy_device.c | 6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 3833891..b5b6c1b 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -1348,6 +1348,12 @@ static int phy_remove(struct device *dev)
->  	phydev->state = PHY_DOWN;
->  	mutex_unlock(&phydev->lock);
-> 
-> +	cancel_delayed_work_sync(&phydev->state_queue);
-> +	flush_delayed_work(&phydev->state_queue);
-> +
-> +	cancel_work_sync(&phydev->phy_queue);
-> +	flush_work(&phydev->phy_queue);
-> +
->  	if (phydev->drv->remove)
->  		phydev->drv->remove(phydev);
->  	phydev->drv = NULL;
-> 
+> Exactly, and there are loads doing this. Memcg groups are also created to
+> limit anon/page cache consumers to not affect the others running on
+> the system (basically in the root memcg context from memcg POV) which
+> don't care about tracking and they definitely do not want to pay for an
+> additional overhead. We should definitely be able to offer a global
+> disable knob for them. The same applies to kmem accounting in general.
 
+I don't see how you make such a clear distinction between, say, page
+cache and the dentry cache, and call one user memory and the other
+kernel memory. That just doesn't make sense to me. They're both kernel
+memory allocated on behalf of the user, the only difference being that
+one is tracked on the page level and the other on the slab level, and
+we started accounting one before the other.
 
--- 
-Florian
+IMO that's an implementation detail and a historical artifact that
+should not be exposed to the user. And that's the thing I hate about
+the current opt-out knob.
+
+> > I don't think there is a compelling case for an elaborate interface
+> > to make individual memory consumers configurable inside the memory
+> > controller.
+> 
+> I do not think we need an elaborate interface. We just want to have
+> a global boot time knob to overwrite the default behavior. This is
+> few lines of code and it should give the sufficient flexibility.
+
+Okay, then let's add this for the socket memory to start with. I'll
+have to think more about how to distinguish the slab-based consumers.
+Or maybe you have an idea.
+
+For now, something like this as a boot commandline?
+
+cgroup.memory=nosocket
+
+So again in summary, no default overhead until you create a cgroup to
+specifically track and account memory. And then, when you know what
+you are doing and have a specialized workload, you can disable socket
+memory as a specific consumer to remove that particular overhead while
+still being able to contain page cache, anon, kmem, whatever.
+
+Does that sound like reasonable userinterfacing to everyone?
