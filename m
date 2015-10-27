@@ -1,77 +1,69 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 2/2] net/mlx4: Copy/set only sizeof struct mlx4_eqe bytes
-Date: Tue, 27 Oct 2015 17:36:20 +0200
-Message-ID: <1445960180-3450-3-git-send-email-ogerlitz@mellanox.com>
-References: <1445960180-3450-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Carol L Soto <clsoto@linux.vnet.ibm.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:45146 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751957AbbJ0Pgy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Oct 2015 11:36:54 -0400
-In-Reply-To: <1445960180-3450-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 2/6] net: dsa: allow switch drivers to cleanup their resources
+Date: Tue, 27 Oct 2015 08:39:23 -0700
+Message-ID: <562F9AAB.8090202@gmail.com>
+References: <562F8ED7.2000804@baylibre.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Frode Isaksen <fisaksen@baylibre.com>
+To: Neil Armstrong <narmstrong@baylibre.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <562F8ED7.2000804@baylibre.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Carol L Soto <clsoto@linux.vnet.ibm.com>
+On 27/10/15 07:48, Neil Armstrong wrote:
+> Some switch drivers might request interrupts, remap register ranges,
+> allow such drivers to implement a "remove" callback doing just that.
+> 
+> Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
 
-When doing memcpy/memset of EQEs, we should use sizeof struct
-mlx4_eqe as the base size and not caps.eqe_size which could be bigger.
+This should probably be a Signed-off-by tag, but there is nothing using
+this, so you would want to introduce an user of this function in the
+same patch series so we see how you intend to use it?
 
-If caps.eqe_size is bigger than the struct mlx4_eqe then we corrupt
-data in the master context.
+> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+> ---
+>  include/net/dsa.h | 1 +
+>  net/dsa/dsa.c     | 4 ++++
+>  2 files changed, 5 insertions(+)
+> 
+> diff --git a/include/net/dsa.h b/include/net/dsa.h
+> index d4d13f7..725b11f 100644
+> --- a/include/net/dsa.h
+> +++ b/include/net/dsa.h
+> @@ -211,6 +211,7 @@ struct dsa_switch_driver {
+>  	 */
+>  	char	*(*probe)(struct device *host_dev, int sw_addr);
+>  	int	(*setup)(struct dsa_switch *ds);
+> +	void	(*remove)(struct dsa_switch *ds);
+>  	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
+>  	u32	(*get_phy_flags)(struct dsa_switch *ds, int port);
+> 
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index aeb6a7c..7c9914b 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -459,6 +459,10 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+>  	}
+> 
+>  	mdiobus_unregister(ds->slave_mii_bus);
+> +
+> +	/* Leave a chance to the driver to cleanup */
+> +	if (ds->drv->remove)
+> +		ds->drv->remove(ds);
+>  }
+> 
+>  #ifdef CONFIG_PM_SLEEP
+> 
 
-When using a 64 byte stride, the memcpy copied over 63 bytes to the
-slave_eq structure.  This resulted in copying over the entire eqe of
-interest, including its ownership bit -- and also 31 bytes of garbage
-into the next WQE in the slave EQ -- which did NOT include the ownership
-bit (and therefore had no impact).
 
-However, once the stride is increased to 128, we are overwriting the
-ownership bits of *three* eqes in the slave_eq struct.  This results
-in an incorrect ownership bit for those eqes, which causes the eq to
-seem to be full. The issue therefore surfaced only once 128-byte EQEs
-started being used in SRIOV and (overarchitectures that have 128/256
-byte cache-lines such as PPC) - e.g after commit 77507aa249ae
-"net/mlx4_core: Enable CQE/EQE stride support".
-
-Fixes: 08ff32352d6f ('mlx4: 64-byte CQE/EQE support')
-Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/cmd.c | 2 +-
- drivers/net/ethernet/mellanox/mlx4/eq.c  | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 0a32020..2177e56 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -2398,7 +2398,7 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
- 			}
- 		}
- 
--		memset(&priv->mfunc.master.cmd_eqe, 0, dev->caps.eqe_size);
-+		memset(&priv->mfunc.master.cmd_eqe, 0, sizeof(struct mlx4_eqe));
- 		priv->mfunc.master.cmd_eqe.type = MLX4_EVENT_TYPE_CMD;
- 		INIT_WORK(&priv->mfunc.master.comm_work,
- 			  mlx4_master_comm_channel);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
-index c344884..603d1c3 100644
---- a/drivers/net/ethernet/mellanox/mlx4/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-@@ -196,7 +196,7 @@ static void slave_event(struct mlx4_dev *dev, u8 slave, struct mlx4_eqe *eqe)
- 		return;
- 	}
- 
--	memcpy(s_eqe, eqe, dev->caps.eqe_size - 1);
-+	memcpy(s_eqe, eqe, sizeof(struct mlx4_eqe) - 1);
- 	s_eqe->slave_id = slave;
- 	/* ensure all information is written before setting the ownersip bit */
- 	dma_wmb();
 -- 
-2.3.7
+Florian
