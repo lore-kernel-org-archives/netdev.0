@@ -1,50 +1,39 @@
-From: Punit Vara <punitvara@gmail.com>
-Subject: [RESEND PATCH 10/10] net: wireless: ath: Remove unneeded variable ret returning 0
-Date: Wed, 28 Oct 2015 00:32:45 +0530
-Message-ID: <1445972565-14963-10-git-send-email-punitvara@gmail.com>
-References: <1445972565-14963-1-git-send-email-punitvara@gmail.com>
-Cc: ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Punit Vara <punitvara@gmail.com>
-To: kvalo@qca.qualcomm.com
+From: punit vara <punitvara@gmail.com>
+Subject: Re: [PATCH v4 14/15] net: wireless: ath: Remove unneeded variable ret
+ returning 0
+Date: Wed, 28 Oct 2015 00:39:53 +0530
+Message-ID: <CABXAfNJf5dBNx-F=6O0SsBRE3jtasK-=1-2FFb_KNDvb+hrR_g@mail.gmail.com>
+References: <1445539670-4018-1-git-send-email-punitvara@gmail.com>
+	<5629316E.60106@cogentembedded.com>
+	<CABXAfNJewoq3LL9S+cSEs3S+nQXN714JyKT_ys2+armMprVEgA@mail.gmail.com>
+	<87a8r4ybks.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	jirislaby@gmail.com, Nick Kossifidis <mickflemm@gmail.com>,
+	mcgrof@do-not-panic.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445972565-14963-1-git-send-email-punitvara@gmail.com>
+In-Reply-To: <87a8r4ybks.fsf@kamboji.qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch is to the ath5k/eeprom.c that fixes up warning caught by
-coccicheck:
-
--Unneeded variable: "ret". Return "0" on line 1733
-
-Remove unneccesary variable ret created to return zero.
-
-Signed-off-by: Punit Vara <punitvara@gmail.com>
----
- drivers/net/wireless/ath/ath5k/eeprom.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/ath5k/eeprom.c b/drivers/net/wireless/ath/ath5k/eeprom.c
-index 94d34ee..673ab8d 100644
---- a/drivers/net/wireless/ath/ath5k/eeprom.c
-+++ b/drivers/net/wireless/ath/ath5k/eeprom.c
-@@ -1707,7 +1707,7 @@ ath5k_eeprom_read_spur_chans(struct ath5k_hw *ah)
- 	struct ath5k_eeprom_info *ee = &ah->ah_capabilities.cap_eeprom;
- 	u32 offset;
- 	u16 val;
--	int ret = 0, i;
-+	int i;
- 
- 	offset = AR5K_EEPROM_CTL(ee->ee_version) +
- 				AR5K_EEPROM_N_CTLS(ee->ee_version);
-@@ -1730,7 +1730,7 @@ ath5k_eeprom_read_spur_chans(struct ath5k_hw *ah)
- 		}
- 	}
- 
--	return ret;
-+	return 0;
- }
- 
- 
--- 
-2.5.3
+On Tue, Oct 27, 2015 at 1:42 PM, Kalle Valo <kvalo@codeaurora.org> wrote:
+> punit vara <punitvara@gmail.com> writes:
+>
+>> Will my other patches which are already correct be added to wireless
+>> tree ? or I have to resend everything ?
+>
+> Yes, please resend the whole patchset. I don't apply patches
+> individually from a patchset, it's just too time consuming and error
+> prone.
+>
+> Also, as you seem to be new here, I don't recommend sending big
+> patchsets in the beginning. Start slow, send just few a patch or two at
+> a time, and once you gain more experience send bigger patchsets.
+>
+> --
+> Kalle Valo
+Next time I will send 2-3 patches only . This time I have resent you
+all the patches that I have created before . Thank you for suggestion.
