@@ -1,67 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] bridge: set is_local and is_static before
- fdb entry is added to the fdb hashtable
-Date: Tue, 27 Oct 2015 07:02:55 -0700 (PDT)
-Message-ID: <20151027.070255.918332804045095898.davem@davemloft.net>
-References: <1445947922-12236-1-git-send-email-roopa@cumulusnetworks.com>
-	<562F7CC4.6040604@cumulusnetworks.com>
+Subject: Re: [PATCH] net: fsl: expands dependencies of NET_VENDOR_FREESCALE
+Date: Tue, 27 Oct 2015 07:04:58 -0700 (PDT)
+Message-ID: <20151027.070458.1404589365170744859.davem@davemloft.net>
+References: <1445849391-422-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: roopa@cumulusnetworks.com, stephen@networkplumber.org,
-	netdev@vger.kernel.org
-To: nikolay@cumulusnetworks.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, scottwood@freescale.com,
+	stuart.yoder@freescale.com, bhamciu1@freescale.com,
+	Shaohui.Xie@freescale.com
+To: shh.xie@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38488 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38502 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932203AbbJ0NqP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 09:46:15 -0400
-In-Reply-To: <562F7CC4.6040604@cumulusnetworks.com>
+	with ESMTP id S932203AbbJ0NsU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 09:48:20 -0400
+In-Reply-To: <1445849391-422-1-git-send-email-shh.xie@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTmlrb2xheSBBbGVrc2FuZHJvdiA8bmlrb2xheUBjdW11bHVzbmV0d29ya3MuY29tPg0K
-RGF0ZTogVHVlLCAyNyBPY3QgMjAxNSAxNDozMTo0OCArMDEwMA0KDQo+IE9uIDEwLzI3LzIwMTUg
-MDE6MTIgUE0sIFJvb3BhIFByYWJodSB3cm90ZToNCj4+IEZyb206IFJvb3BhIFByYWJodSA8cm9v
-cGFAY3VtdWx1c25ldHdvcmtzLmNvbT4NCj4+IA0KPj4gUHJvYmxlbSBEZXNjcmlwdGlvbjoNCj4+
-IFdlIGNhbiBhZGQgZmRicyBwb2ludGluZyB0byB0aGUgYnJpZGdlIHdpdGggTlVMTCAtPmRzdCBi
-dXQgdGhhdCBoYXMgYQ0KPj4gZmV3IHJhY2UgY29uZGl0aW9ucyBiZWNhdXNlIGJyX2ZkYl9pbnNl
-cnQoKSBpcyB1c2VkIHdoaWNoIGZpcnN0IGNyZWF0ZXMNCj4+IHRoZSBmZGIgYW5kIHRoZW4sIGFm
-dGVyIHRoZSBmZGIgaGFzIGJlZW4gcHVibGlzaGVkL2xpbmtlZCwgc2V0cw0KPj4gImlzX2xvY2Fs
-IiB0byAxIGFuZCBpbiB0aGF0IHRpbWUgZnJhbWUgaWYgYSBwYWNrZXQgYXJyaXZlcyBmb3IgdGhh
-dCBmZGINCj4+IGl0IG1heSBzZWUgaXQgYXMgbm9uLWxvY2FsIGFuZCBlaXRoZXIgZG8gYSBOVUxM
-IHB0ciBkZXJlZmVyZW5jZSBpbg0KPj4gYnJfZm9yd2FyZCgpIG9yIGF0dGFjaCB0aGUgZmRiIHRv
-IHRoZSBwb3J0IHdoZXJlIGl0IGFycml2ZWQsIGFuZCBsYXRlcg0KPj4gYnJfZmRiX2luc2VydCgp
-IHdpbGwgbWFrZSBpdCBsb2NhbCB0aHVzIGdldHRpbmcgYSB3cm9uZyBmZGIgZW50cnkuDQo+PiBD
-YWxsIGNoYWluIGJyX2hhbmRsZV9mcmFtZV9maW5pc2goKSAtPiBicl9mb3J3YXJkKCk6DQo+PiBC
-dXQgaW4gYnJfaGFuZGxlX2ZyYW1lX2ZpbmlzaCgpIGluIG9yZGVyIHRvIGNhbGwgYnJfZm9yd2Fy
-ZCgpIHRoZSBkc3QNCj4+IHNob3VsZCBub3QgYmUgbG9jYWwgaS5lLiBza2IgIT0gTlVMTCwgd2hl
-bmV2ZXIgdGhlIGRzdCBpcw0KPj4gZm91bmQgdG8gYmUgbG9jYWwgc2tiIGlzIHNldCB0byBOVUxM
-IHNvIHdlIGNhbid0IGZvcndhcmQgaXQsDQo+PiBhbmQgaGVyZSBjb21lcyB0aGUgcHJvYmxlbSBz
-aW5jZSBpdCdzIHJ1bm5pbmcgb25seQ0KPj4gd2l0aCBSQ1Ugd2hlbiBmb3J3YXJkaW5nIHBhY2tl
-dHMgaXQgY2FuIHNlZSB0aGUgZW50cnkgYmVmb3JlICJpc19sb2NhbCINCj4+IGlzIHNldCB0byAx
-IGFuZCBhY3R1YWxseSB0cnkgdG8gZGVyZWZlcmVuY2UgTlVMTC4NCj4+IFRoZSBtYWluIGlzc3Vl
-IGlzIHRoYXQgaWYgc29tZW9uZSBzZW5kcyBhIHBhY2tldCB0byB0aGUgc3dpdGNoIHdoaWxlDQo+
-PiBpdCdzIGFkZGluZyB0aGUgZW50cnkgd2hpY2ggcG9pbnRzIHRvIHRoZSBicmlkZ2UgZGV2aWNl
-LCBpdCBtYXkNCj4+IGRlcmVmZXJlbmNlIE5VTEwgcHRyLiBUaGlzIGlzIG5lZWRlZCBub3cgYWZ0
-ZXIgd2UgY2FuIGFkZCBmZGJzDQo+PiBwb2ludGluZyB0byB0aGUgYnJpZGdlLiAgVGhpcyBwb3Nl
-cyBhIHByb2JsZW0gZm9yDQo+PiBicl9mZGJfdXBkYXRlKCkgYXMgd2VsbCwgd2hpbGUgc29tZW9u
-ZSdzIGFkZGluZyBhIGJyaWRnZSBmZGIsIGJ1dA0KPj4gYmVmb3JlIGl0IGhhcyBpc19sb2NhbCA9
-PSAxLCBpdCBtaWdodCBnZXQgbW92ZWQgdG8gYSBwb3J0IGlmIGl0IGNvbWVzDQo+PiBhcyBhIHNv
-dXJjZSBtYWMgYW5kIHRoZW4gaXQgbWF5IGdldCBpdHMgImlzX2xvY2FsIiBzZXQgdG8gMQ0KPj4g
-DQo+PiBUaGlzIHBhdGNoIGNoYW5nZXMgZmRiX2NyZWF0ZSB0byB0YWtlIGlzX2xvY2FsIGFuZCBp
-c19zdGF0aWMgYXMNCj4+IGFyZ3VtZW50cyB0byBzZXQgdGhlc2UgdmFsdWVzIGluIHRoZSBmZGIg
-ZW50cnkgYmVmb3JlIGl0IGlzIGFkZGVkIHRvIHRoZQ0KPj4gaGFzaC4gQWxzbyBhZGRzIG51bGwg
-Y2hlY2sgZm9yIHBvcnQgaW4gYnJfZm9yd2FyZC4NCj4+IA0KPj4gUmVwb3J0ZWQtYnk6IE5pa29s
-YXkgQWxla3NhbmRyb3YgPG5pa29sYXlAY3VtdWx1c25ldHdvcmtzLmNvbT4NCj4+IFNpZ25lZC1v
-ZmYtYnk6IFJvb3BhIFByYWJodSA8cm9vcGFAY3VtdWx1c25ldHdvcmtzLmNvbT4NCj4+IC0tLQ0K
-Pj4gdjIgLSBmaXggY29tcGlsZSBlcnJvciByZXBvcnRlZCBieSBrYnVpbGQgdGVzdCByb2JvdC4N
-Cj4+ICAgICAgQWNjaWRlbnRseSBpIGhhZCBwb3N0ZWQgYW4gb2xkZXIgdmVyc2lvbiBvZiB0aGUg
-cGF0Y2gNCj4+IA0KPiANCj4gVGhhbmtzIGZvciBmaXhpbmcgdGhpcywNCj4gDQo+IEZpeGVzOiAz
-NzQxODczYjRmNzMgKCJicmlkZ2U6IGFsbG93IGFkZGluZyBvZiBmZGIgZW50cmllcyBwb2ludGlu
-ZyB0byB0aGUgYnJpZGdlIGRldmljZSIpDQo+IFJldmlld2VkLWJ5OiBOaWtvbGF5IEFsZWtzYW5k
-cm92IDxuaWtvbGF5QGN1bXVsdXNuZXR3b3Jrcy5jb20+DQoNClRoaXMgc3RpbGwgZG9lc24ndCBj
-b21waWxlOg0KDQpuZXQvYnJpZGdlL2JyX2ZkYi5jOiBJbiBmdW5jdGlvbiChYnJfZmRiX2V4dGVy
-bmFsX2xlYXJuX2FkZKI6DQpuZXQvYnJpZGdlL2JyX2ZkYi5jOjExMDM6MzogZXJyb3I6IHRvbyBm
-ZXcgYXJndW1lbnRzIHRvIGZ1bmN0aW9uIKFmZGJfY3JlYXRlog0KbmV0L2JyaWRnZS9icl9mZGIu
-Yzo0OTU6Mzc6IG5vdGU6IGRlY2xhcmVkIGhlcmUNCg==
+From: <shh.xie@gmail.com>
+Date: Mon, 26 Oct 2015 16:49:51 +0800
+
+> From: Shaohui Xie <Shaohui.Xie@freescale.com>
+> 
+> Freescale hosts some ARMv8 based SoCs, and a generic convention
+> ARCH_LAYERSCAPE is used to cover such SoCs. Adding ARCH_LAYERSCAPE
+> to dependencies of NET_VENDOR_FREESCALE to support networking on those
+> SoCs.
+> 
+> The patch to add ARCH_LAYERSCAPE can be viewed at:
+> http://www.spinics.net/lists/arm-kernel/msg455583.html
+> 
+> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+
+Since ARCH_LAYERSCAPE doesn't exist in my tree, it is best to
+merge this via the appropriate ARM tree.
+
+Acked-by: David S. Miller <davem@davemloft.net>
