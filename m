@@ -1,59 +1,52 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next v3 1/4] ipv4: no CHECKSUM_PARTIAL on MSG_MORE
- corked sockets
-Date: Tue, 27 Oct 2015 15:22:55 -0700
-Message-ID: <CALx6S35udd410V5bEzH2OxE=Qug0fydo10-X6E__gwzeGYCtzg@mail.gmail.com>
-References: <1445982042-3207-1-git-send-email-hannes@stressinduktion.org>
-	<1445982042-3207-2-git-send-email-hannes@stressinduktion.org>
+From: Richard Weinberger <richard.weinberger@gmail.com>
+Subject: Re: [PATCH net-next] hyperv: Add handler for
+ RNDIS_STATUS_NETWORK_CHANGE event
+Date: Tue, 27 Oct 2015 23:36:08 +0100
+Message-ID: <CAFLxGvwjhxxc2OgerCeF4nmvpbTV1-XttUZ2poaDLFWcBpaOxw@mail.gmail.com>
+References: <06b508cbb6b949f4b3e13e7797948e56@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20140623131723.GA7026@aepfle.de>
+ <5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20140623.131018.1349792926453695313.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	Benjamin Coddington <bcodding@redhat.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:33628 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754311AbbJ0WWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 18:22:55 -0400
-Received: by igbkq10 with SMTP id kq10so105531963igb.0
-        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 15:22:55 -0700 (PDT)
-In-Reply-To: <1445982042-3207-2-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ driverdev-devel@linuxdriverproject.org, LKML <linux-kernel@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Haiyang Zhang <haiyangz@microsoft.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140623.131018.1349792926453695313.davem@davemloft.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 27, 2015 at 2:40 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> We cannot reliable calculate packet size on MSG_MORE corked sockets
-> and thus cannot decide if they are going to be fragmented later on,
-> so better not use CHECKSUM_PARTIAL in the first place.
+On Mon, Jun 23, 2014 at 10:10 PM, David Miller <davem@davemloft.net> wrote:
+> From: Haiyang Zhang <haiyangz@microsoft.com>
+> Date: Mon, 23 Jun 2014 16:09:59 +0000
 >
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> Cc: Benjamin Coddington <bcodding@redhat.com>
-> Cc: Tom Herbert <tom@herbertland.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  net/ipv4/ip_output.c | 1 +
->  1 file changed, 1 insertion(+)
+>> So, what's the equivalent or similar command to "network restart" on SLES12? Could
+>> you update the command line for the usermodehelper when porting this patch to SLES
+>> 12?
 >
-> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> index 50e2973..0b02417 100644
-> --- a/net/ipv4/ip_output.c
-> +++ b/net/ipv4/ip_output.c
-> @@ -911,6 +911,7 @@ static int __ip_append_data(struct sock *sk,
->         if (transhdrlen &&
->             length + fragheaderlen <= mtu &&
->             rt->dst.dev->features & NETIF_F_V4_CSUM &&
-> +           !(flags & MSG_MORE) &&
+> No, you are not going to keep the usermodehelper invocation in your driver
+> please remove it.  It is absolutely inappropriate, and I strictly do not want
+> to keep it in there because other people will copy it and then we'll have a
+> real mess on our hands.
 
-I still don't understand this. It seems like the effect is to disable
-checksum offload for all UDP messages sent with MSG_MORE flag set.
+Sorry for digging up this old thread.
+While talking with some guys about usermodehelper abuses I came across this gem.
+Mainline still contains that "/etc/init.d/network restart" code.
+Haiyang, care to cleanup?
 
->             !exthdrlen)
->                 csummode = CHECKSUM_PARTIAL;
->
-> --
-> 2.5.0
->
+-- 
+Thanks,
+//richard
