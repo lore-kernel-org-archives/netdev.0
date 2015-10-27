@@ -1,42 +1,31 @@
-From: Yang Shi <yang.shi@linaro.org>
-Subject: [PATCH] bpf: sample: define aarch64 specific registers
-Date: Mon, 26 Oct 2015 17:02:19 -0700
-Message-ID: <1445904139-19212-1-git-send-email-yang.shi@linaro.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linaro-kernel@lists.linaro.org, yang.shi@linaro.org
-To: ast@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/4] Automatic adjustment of max frame size
+Date: Mon, 26 Oct 2015 17:40:27 -0700 (PDT)
+Message-ID: <20151026.174027.1082241693214346068.davem@davemloft.net>
+References: <562B4673.7020608@gmail.com>
+	<562D7A33.4020603@lab.ntt.co.jp>
+	<1445892645.15482.3.camel@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: makita.toshiaki@lab.ntt.co.jp, stephen@networkplumber.org,
+	toshiaki.makita1@gmail.com, kaber@trash.net, vyasevich@gmail.com,
+	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org
+To: jacob.e.keller@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34426 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751399AbbJ0AXt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 20:23:49 -0400
+In-Reply-To: <1445892645.15482.3.camel@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Define aarch64 specific registers for building bpf samples correctly.
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Date: Mon, 26 Oct 2015 20:50:45 +0000
 
-Signed-off-by: Yang Shi <yang.shi@linaro.org>
----
- samples/bpf/bpf_helpers.h | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+> I am not sure why it failed to mail to it, unless netdev blocks non
+> subscribers from sending mail (it probably does)
 
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index 3a44d3a..af44e56 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -86,5 +86,17 @@ static int (*bpf_l4_csum_replace)(void *ctx, int off, int from, int to, int flag
- #define PT_REGS_RC(x) ((x)->gprs[2])
- #define PT_REGS_SP(x) ((x)->gprs[15])
- 
-+#elif defined(__aarch64__)
-+
-+#define PT_REGS_PARM1(x) ((x)->regs[0])
-+#define PT_REGS_PARM2(x) ((x)->regs[1])
-+#define PT_REGS_PARM3(x) ((x)->regs[2])
-+#define PT_REGS_PARM4(x) ((x)->regs[3])
-+#define PT_REGS_PARM5(x) ((x)->regs[4])
-+#define PT_REGS_RET(x) ((x)->regs[30])
-+#define PT_REGS_FP(x) ((x)->regs[29]) /* Works only with CONFIG_FRAME_POINTER */
-+#define PT_REGS_RC(x) ((x)->regs[0])
-+#define PT_REGS_SP(x) ((x)->sp)
-+
- #endif
- #endif
--- 
-2.0.2
+It absolutely does not.
