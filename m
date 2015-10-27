@@ -1,46 +1,76 @@
-From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Subject: Re: [PATCH v8] seccomp, ptrace: add support for dumping seccomp filters
-Date: Tue, 27 Oct 2015 01:17:17 +0100
-Message-ID: <562EC28D.1070908@iogearbox.net>
-References: <1445370612-18843-2-git-send-email-tycho.andersen@canonical.com> <20151020202024.GA5772@redhat.com> <20151020220814.GA3232@hopstrocity> <20151021185146.GA27176@redhat.com> <20151021191533.GD30729@hopstrocity> <20151021210756.GA641@redhat.com> <20151021213306.GF30729@hopstrocity> <20151025153943.GA1912@redhat.com> <CAGXu5jLH++bDe-yf=jVxSxqO0FFLtpGnme9TFp2s-uPSZ4jbSg@mail.gmail.com> <CAGXu5jKj22-obrjhULdYx5+rEzNESHxLh6VZAbWugKr_LzA7kg@mail.gmail.com> <20151027000453.GA3379@hopstrocity>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151027000453.GA3379@hopstrocity>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: dan.streetman@canonical.com
+Subject: [PATCH] ixgbe: check Master Disable bit after setting
+Date: Mon, 26 Oct 2015 20:19:52 -0400
+Message-ID: <1445905192-9959-1-git-send-email-dan.streetman@canonical.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Dan Streetman <dan.streetman@canonical.com>,
+	Dan Streetman <ddstreet@ieee.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Tycho,
+From: Dan Streetman <dan.streetman@canonical.com>
 
-On 10/27/2015 01:04 AM, Tycho Andersen wrote:
-> On Mon, Oct 26, 2015 at 04:07:01PM +0900, Kees Cook wrote:
->> On Mon, Oct 26, 2015 at 3:46 PM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
->>> Cool, thanks. I'll get this into my tree after kernel summit. Thanks
->>> for suffering through all this Tycho!
->>
->> Actually, since this depends on changes in net, could this get pulled
->> in from that direction?
->>
->> Acked-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
->
-> Can we get the attached patch into net-next?
+Spec section 8.2.4.1.1 notes that after setting the PCIe Master Disable
+bit, it must be read to verify it was set before polling the Master Enable
+status bit.
 
-You need to make a fresh, formal submission of your patch to netdev,
-not as an attachment (otherwise patchwork cannot properly pick it up).
+This adds the check to verify the Master Disable bit was set.
 
-Also, indicate the right tree in the subject as: [PATCH net-next] ...
+This also corrects the spec section number reference - the Master Disable
+section is 5.2.4.3.2, not 5.2.5.3.2.
 
-Thanks,
-Daniel
+Signed-off-by: Dan Streetman <dan.streetman@canonical.com>
+Signed-off-by: Dan Streetman <ddstreet@ieee.org>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 3f56a80..abfada7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -2453,6 +2453,16 @@ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
+ 	/* Always set this bit to ensure any future transactions are blocked */
+ 	IXGBE_WRITE_REG(hw, IXGBE_CTRL, IXGBE_CTRL_GIO_DIS);
+ 
++	/* Spec sec 8.2.4.1.1, Master Disable bit :
++	 * "After doing any change to this bit the host must read that
++	 *  the bit has been modified as expected before reading
++	 *  STATUS.PCIe Master Enable Status bit."
++	 */
++	if (!(IXGBE_READ_REG(hw, IXGBE_CTRL) & IXGBE_CTRL_GIO_DIS)) {
++		hw_err(hw, "GIO Master Disable bit didn't set\n");
++		goto gio_dis_fail;
++	}
++
+ 	/* Exit if master requests are blocked */
+ 	if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO) ||
+ 	    ixgbe_removed(hw->hw_addr))
+@@ -2467,13 +2477,14 @@ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
+ 
+ 	/*
+ 	 * Two consecutive resets are required via CTRL.RST per datasheet
+-	 * 5.2.5.3.2 Master Disable.  We set a flag to inform the reset routine
++	 * 5.2.4.3.2 Master Disable.  We set a flag to inform the reset routine
+ 	 * of this need.  The first reset prevents new master requests from
+ 	 * being issued by our device.  We then must wait 1usec or more for any
+ 	 * remaining completions from the PCIe bus to trickle in, and then reset
+ 	 * again to clear out any effects they may have had on our device.
+ 	 */
+ 	hw_dbg(hw, "GIO Master Disable bit didn't clear - requesting resets\n");
++gio_dis_fail:
+ 	hw->mac.flags |= IXGBE_FLAGS_DOUBLE_RESET_REQUIRED;
+ 
+ 	/*
+-- 
+2.5.0
