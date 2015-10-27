@@ -1,72 +1,44 @@
-From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
- hierarchy
-Date: Tue, 27 Oct 2015 11:41:38 -0400
-Message-ID: <20151027154138.GA4665@cmpxchg.org>
-References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
- <1445487696-21545-6-git-send-email-hannes@cmpxchg.org>
- <20151023131956.GA15375@dhcp22.suse.cz>
- <20151023.065957.1690815054807881760.davem@davemloft.net>
- <20151026165619.GB2214@cmpxchg.org>
- <20151027122647.GG9891@dhcp22.suse.cz>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: Re: [PATCH 2/6] net: dsa: allow switch drivers to cleanup their
+ resources
+Date: Tue, 27 Oct 2015 16:43:45 +0100
+Message-ID: <562F9BB1.8090700@baylibre.com>
+References: <562F8ED7.2000804@baylibre.com> <562F9AAB.8090202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151027122647.GG9891-2MMpYkNvuYDjFM9bn6wA6Q@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Frode Isaksen <fisaksen@baylibre.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <562F9AAB.8090202@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 27, 2015 at 01:26:47PM +0100, Michal Hocko wrote:
-> On Mon 26-10-15 12:56:19, Johannes Weiner wrote:
-> [...]
-> > Now you could argue that there might exist specialized workloads that
-> > need to account anonymous pages and page cache, but not socket memory
-> > buffers.
+Hi,
+On 10/27/2015 04:39 PM, Florian Fainelli wrote:
+> On 27/10/15 07:48, Neil Armstrong wrote:
+>> Some switch drivers might request interrupts, remap register ranges,
+>> allow such drivers to implement a "remove" callback doing just that.
+>>
+>> Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
 > 
-> Exactly, and there are loads doing this. Memcg groups are also created to
-> limit anon/page cache consumers to not affect the others running on
-> the system (basically in the root memcg context from memcg POV) which
-> don't care about tracking and they definitely do not want to pay for an
-> additional overhead. We should definitely be able to offer a global
-> disable knob for them. The same applies to kmem accounting in general.
-
-I don't see how you make such a clear distinction between, say, page
-cache and the dentry cache, and call one user memory and the other
-kernel memory. That just doesn't make sense to me. They're both kernel
-memory allocated on behalf of the user, the only difference being that
-one is tracked on the page level and the other on the slab level, and
-we started accounting one before the other.
-
-IMO that's an implementation detail and a historical artifact that
-should not be exposed to the user. And that's the thing I hate about
-the current opt-out knob.
-
-> > I don't think there is a compelling case for an elaborate interface
-> > to make individual memory consumers configurable inside the memory
-> > controller.
+> This should probably be a Signed-off-by tag, but there is nothing using
+> this, so you would want to introduce an user of this function in the
+> same patch series so we see how you intend to use it?
 > 
-> I do not think we need an elaborate interface. We just want to have
-> a global boot time knob to overwrite the default behavior. This is
-> few lines of code and it should give the sufficient flexibility.
+>> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 
-Okay, then let's add this for the socket memory to start with. I'll
-have to think more about how to distinguish the slab-based consumers.
-Or maybe you have an idea.
+Yes, I didn't know how to handle this since it was part of a larger patch.
 
-For now, something like this as a boot commandline?
+I forgot to add this into the cover-letter but I wanted to send an RFC serie with
+your bcm remove patch and a mv88e6xxx remove experimental code.
 
-cgroup.memory=nosocket
+Yet, the mv88e6060 does not make usage of this.
 
-So again in summary, no default overhead until you create a cgroup to
-specifically track and account memory. And then, when you know what
-you are doing and have a specialized workload, you can disable socket
-memory as a specific consumer to remove that particular overhead while
-still being able to contain page cache, anon, kmem, whatever.
-
-Does that sound like reasonable userinterfacing to everyone?
+Neil
