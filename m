@@ -1,9 +1,10 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net v2 1/4] ipv4: no CHECKSUM_PARTIAL on MSG_MORE corked sockets
-Date: Tue, 27 Oct 2015 09:04:59 -0700
-Message-ID: <CALx6S36PRh1EmmydMAUhZVxyyAanNYBTRUzTN67=dHnbBTNOGQ@mail.gmail.com>
+Subject: Re: [PATCH net v2 2/4] ipv4: add defensive check for CHECKSUM_PARTIAL
+ skbs in ip_fragment
+Date: Tue, 27 Oct 2015 09:06:10 -0700
+Message-ID: <CALx6S35PRhHOtxowWqF4YJYgVMmMiQgn1hf58XXh8QCizY4qcQ@mail.gmail.com>
 References: <1445958135-19805-1-git-send-email-hannes@stressinduktion.org>
-	<1445958135-19805-2-git-send-email-hannes@stressinduktion.org>
+	<1445958135-19805-3-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
@@ -12,47 +13,60 @@ Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	Benjamin Coddington <bcodding@redhat.com>
 To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:38699 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964977AbbJ0QFA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 12:05:00 -0400
-Received: by igbdj2 with SMTP id dj2so82224708igb.1
-        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 09:05:00 -0700 (PDT)
-In-Reply-To: <1445958135-19805-2-git-send-email-hannes@stressinduktion.org>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:35809 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964811AbbJ0QGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 12:06:11 -0400
+Received: by iofz202 with SMTP id z202so225968377iof.2
+        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 09:06:10 -0700 (PDT)
+In-Reply-To: <1445958135-19805-3-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Tue, Oct 27, 2015 at 8:02 AM, Hannes Frederic Sowa
 <hannes@stressinduktion.org> wrote:
-> We cannot reliable calculate packet size on MSG_MORE corked sockets
-> and thus cannot decide if they are going to be fragmented later on,
-> so better not use CHECKSUM_PARTIAL in the first place.
+> CHECKSUM_PARTIAL skbs should never arrive in ip_fragment. If we get one
+> of those warn about them once and handle them gracefully by recalculating
+> the checksum.
 >
-MSG_MORE should be independent of checksum offload. If packet is
-fragmented the fix in ip_output will ensure that skb_checksum_help is
-properly called.
-
 > Cc: Eric Dumazet <edumazet@google.com>
 > Cc: Vlad Yasevich <vyasevich@gmail.com>
 > Cc: Benjamin Coddington <bcodding@redhat.com>
 > Cc: Tom Herbert <tom@herbertland.com>
 > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 > ---
->  net/ipv4/ip_output.c | 1 +
->  1 file changed, 1 insertion(+)
+>  net/ipv4/ip_output.c | 8 +++++---
+>  1 file changed, 5 insertions(+), 3 deletions(-)
 >
 > diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> index 50e2973..0b02417 100644
+> index 0b02417..3f94a3b 100644
 > --- a/net/ipv4/ip_output.c
 > +++ b/net/ipv4/ip_output.c
-> @@ -911,6 +911,7 @@ static int __ip_append_data(struct sock *sk,
->         if (transhdrlen &&
->             length + fragheaderlen <= mtu &&
->             rt->dst.dev->features & NETIF_F_V4_CSUM &&
-> +           !(flags & MSG_MORE) &&
->             !exthdrlen)
->                 csummode = CHECKSUM_PARTIAL;
+> @@ -533,6 +533,11 @@ int ip_do_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
 >
+>         dev = rt->dst.dev;
+>
+> +       /* for offloaded checksums cleanup checksum before fragmentation */
+> +       if (WARN_ON_ONCE(skb->ip_summed == CHECKSUM_PARTIAL) &&
+> +           (err = skb_checksum_help(skb)))
+> +               goto fail;
+> +
+Why the WARN_ON_ONCE? Is there a prior check somewhere that avoid this
+condition?
+
+>         /*
+>          *      Point into the IP datagram header.
+>          */
+> @@ -657,9 +662,6 @@ slow_path_clean:
+>         }
+>
+>  slow_path:
+> -       /* for offloaded checksums cleanup checksum before fragmentation */
+> -       if ((skb->ip_summed == CHECKSUM_PARTIAL) && skb_checksum_help(skb))
+> -               goto fail;
+>         iph = ip_hdr(skb);
+>
+>         left = skb->len - hlen;         /* Space per frame */
 > --
 > 2.5.0
 >
