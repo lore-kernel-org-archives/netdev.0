@@ -1,49 +1,37 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 1/2] net/mlx4_en: Explicitly set no vlan tags in WQE ctrl segment when no vlan is present
-Date: Tue, 27 Oct 2015 17:36:19 +0200
-Message-ID: <1445960180-3450-2-git-send-email-ogerlitz@mellanox.com>
-References: <1445960180-3450-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 0/2] Mellanox mlx4 driver fixes for 4.3-rc7
+Date: Tue, 27 Oct 2015 17:36:18 +0200
+Message-ID: <1445960180-3450-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:45130 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:45129 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750877AbbJ0Pgt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751957AbbJ0Pgt (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 27 Oct 2015 11:36:49 -0400
-In-Reply-To: <1445960180-3450-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Hi Dave,
 
-We do not set the ins_vlan field to zero when no vlan id is present in the packet.
+Jack's fix is for a regression introduced in 4.3-rc1
 
-Since WQEs in the TX ring are not zeroed out between uses, this oversight
-could result in having vlan flags present in the WQE ctrl segment when no
-vlan is preset.
+Carol's fix addresses an issue which exists for while and 
+turns to beat us hard on PPC, please queue for -stable. 
 
-Fixes: e38af4faf01d ('net/mlx4_en: Add support for hardware accelerated 802.1ad vlan')
-Reported-by: Gideon Naim <gideonn@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
+Or.
+
+Carol L Soto (1):
+  net/mlx4: Copy/set only sizeof struct mlx4_eqe bytes
+
+Jack Morgenstein (1):
+  net/mlx4_en: Explicitly set no vlan tags in WQE ctrl segment when no
+    vlan is present
+
+ drivers/net/ethernet/mellanox/mlx4/cmd.c   | 2 +-
  drivers/net/ethernet/mellanox/mlx4/en_tx.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/mellanox/mlx4/eq.c    | 2 +-
+ 3 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 494e776..4421bf5 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -964,6 +964,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 			tx_desc->ctrl.ins_vlan = MLX4_WQE_CTRL_INS_SVLAN;
- 		else if (vlan_proto == ETH_P_8021Q)
- 			tx_desc->ctrl.ins_vlan = MLX4_WQE_CTRL_INS_CVLAN;
-+		else
-+			tx_desc->ctrl.ins_vlan = 0;
- 
- 		tx_desc->ctrl.fence_size = real_size;
- 
 -- 
 2.3.7
