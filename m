@@ -1,118 +1,59 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
- hierarchy
-Date: Tue, 27 Oct 2015 09:42:27 -0700
-Message-ID: <20151027164227.GB7749@cmpxchg.org>
-References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
- <1445487696-21545-6-git-send-email-hannes@cmpxchg.org>
- <20151023131956.GA15375@dhcp22.suse.cz>
- <20151023.065957.1690815054807881760.davem@davemloft.net>
- <20151026165619.GB2214@cmpxchg.org>
- <20151027122647.GG9891@dhcp22.suse.cz>
- <20151027154138.GA4665@cmpxchg.org>
- <20151027161554.GJ9891@dhcp22.suse.cz>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net v2 3/4] ipv6: no CHECKSUM_PARTIAL on MSG_MORE corked
+ sockets
+Date: Tue, 27 Oct 2015 17:44:09 +0100
+Message-ID: <1445964249.1414779.421671593.5D1C863C@webmail.messagingengine.com>
+References: <1445958135-19805-1-git-send-email-hannes@stressinduktion.org>
+ <1445958135-19805-4-git-send-email-hannes@stressinduktion.org>
+ <CALx6S37qAxOxYRxxFQGR4P2r937yCnCqdASHV0qsi2UPj675iQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	vdavydov@virtuozzo.com, tj@kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Michal Hocko <mhocko@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151027161554.GJ9891@dhcp22.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	Benjamin Coddington <bcodding@redhat.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:37616 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751829AbbJ0QoZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 12:44:25 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id D122B20B6A
+	for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 12:44:09 -0400 (EDT)
+In-Reply-To: <CALx6S37qAxOxYRxxFQGR4P2r937yCnCqdASHV0qsi2UPj675iQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 27, 2015 at 05:15:54PM +0100, Michal Hocko wrote:
-> On Tue 27-10-15 11:41:38, Johannes Weiner wrote:
-> > On Tue, Oct 27, 2015 at 01:26:47PM +0100, Michal Hocko wrote:
-> > > On Mon 26-10-15 12:56:19, Johannes Weiner wrote:
-> > > [...]
-> > > > Now you could argue that there might exist specialized workloads that
-> > > > need to account anonymous pages and page cache, but not socket memory
-> > > > buffers.
-> > > 
-> > > Exactly, and there are loads doing this. Memcg groups are also created to
-> > > limit anon/page cache consumers to not affect the others running on
-> > > the system (basically in the root memcg context from memcg POV) which
-> > > don't care about tracking and they definitely do not want to pay for an
-> > > additional overhead. We should definitely be able to offer a global
-> > > disable knob for them. The same applies to kmem accounting in general.
-> > 
-> > I don't see how you make such a clear distinction between, say, page
-> > cache and the dentry cache, and call one user memory and the other
-> > kernel memory.
+
+
+On Tue, Oct 27, 2015, at 17:36, Tom Herbert wrote:> > -               if
+(cork->length + length > maxnonfragsize - headersize) {
+> > +       if (cork->length + length > maxnonfragsize - headersize) {
+> >  emsgsize:
+> > -                       ipv6_local_error(sk, EMSGSIZE, fl6,
+> > -                                        mtu - headersize +
+> > -                                        sizeof(struct ipv6hdr));
+> > -                       return -EMSGSIZE;
+> > -               }
+> > +               ipv6_local_error(sk, EMSGSIZE, fl6,
+> > +                                mtu - headersize +
+> > +                                sizeof(struct ipv6hdr));
+> > +               return -EMSGSIZE;
+> >         }
+> >
+> > +       /* CHECKSUM_PARTIAL only with no extension headers and when
 > 
-> Because the kernel memory footprint would be so small that it simply
-> doesn't change the picture at all. While the page cache or anonymous
-> memory consumption might be so large it might be disruptive.
+> No, please don't do this. CHECKSUM_PARTIAL should work with extension
+> headers as defined, so this is just disabling otherwise valid and
+> useful functionality. If (some) drivers have problems with this they
+> need to be identified and fixed.
 
-Or it could be exactly the other way around when you have a workload
-that is heavy on filesystem metadata. I don't see why any scenario
-would be more important than the other.
+I don't understand. The old code already didn't allow the use of
+opt_flen with CHECKSUM_PARTIAL.
 
-I'm not saying that distinguishing between consumers is wrong, just
-that "user memory vs kernel memory" is a false classification. Why do
-you call page cache user memory but dentry cache kernel memory? It
-doesn't make any sense.
+The MSG_MORE check has nothing to do with that but only with corking.
 
-> Also kmem accounting will make the load more non-deterministic because
-> many of the resources are shared between tasks in separate cgroups
-> unless they are explicitly configured. E.g. [id]cache will be shared
-> and first to touch gets charged so you would end up with more false
-> sharing.
-
-Exactly like page cache. This differentiation isn't based on reality.
-
-> Nevertheless, I do not want to shift the discussion from the topic. I
-> just think that one-fits-all simply won't work.
-
-Okay, this is something we can converge on.
-
-> > That just doesn't make sense to me. They're both kernel
-> > memory allocated on behalf of the user, the only difference being that
-> > one is tracked on the page level and the other on the slab level, and
-> > we started accounting one before the other.
-> > 
-> > IMO that's an implementation detail and a historical artifact that
-> > should not be exposed to the user. And that's the thing I hate about
-> > the current opt-out knob.
-
-You carefully skipped over this part. We can ignore it for socket
-memory but it's something we need to figure out when it comes to slab
-accounting and tracking.
-
-> > > > I don't think there is a compelling case for an elaborate interface
-> > > > to make individual memory consumers configurable inside the memory
-> > > > controller.
-> > > 
-> > > I do not think we need an elaborate interface. We just want to have
-> > > a global boot time knob to overwrite the default behavior. This is
-> > > few lines of code and it should give the sufficient flexibility.
-> > 
-> > Okay, then let's add this for the socket memory to start with. I'll
-> > have to think more about how to distinguish the slab-based consumers.
-> > Or maybe you have an idea.
-> 
-> Isn't that as simple as enabling the jump label during the
-> initialization depending on the knob value? All the charging paths
-> should be disabled by default already.
-
-You missed my point. It's not about the implementation, it's about how
-we present these choices to the user.
-
-Having page cache accounting built in while presenting dentry+inode
-cache as a configurable extension is completely random and doesn't
-make sense. They are both first class memory consumers. They're not
-separate categories. One isn't more "core" than the other.
-
-> > For now, something like this as a boot commandline?
-> > 
-> > cgroup.memory=nosocket
-> 
-> That would work for me.
-
-Okay, then I'll go that route for the socket stuff.
-
-Dave is that cool with you?
+Bye,
+Hannes
