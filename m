@@ -1,7 +1,8 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH 2/6] net: dsa: allow switch drivers to cleanup their resources
-Date: Tue, 27 Oct 2015 15:48:55 +0100
-Message-ID: <562F8ED7.2000804@baylibre.com>
+Subject: [PATCH 1/6] net: dsa: Use delayed work instead of timer+work for
+ polling
+Date: Tue, 27 Oct 2015 15:48:48 +0100
+Message-ID: <562F8ED0.4010509@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -18,42 +19,98 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some switch drivers might request interrupts, remap register ranges,
-allow such drivers to implement a "remove" callback doing just that.
+Simplifies the code and avoids a crash when removing the
+module:
+ dsa dsa ethmv2 (unregistering): Link is Down
+ device eth1 left promiscuous mode
+ Unable to handle kernel paging request at virtual address bacc5cf6
+ ...
+ (run_timer_softirq) from [<c003e810>] (__do_softirq+0xcc/0x320)
+ (__do_softirq) from [<c003ed40>] (irq_exit+0xac/0x10c)
+ (irq_exit) from [<c007ec20>] (__handle_domain_irq+0x50/0xa8)
 
-Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Frode Isaksen <fisaksen@baylibre.com>
 Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 ---
- include/net/dsa.h | 1 +
- net/dsa/dsa.c     | 4 ++++
- 2 files changed, 5 insertions(+)
+ include/net/dsa.h |  3 +--
+ net/dsa/dsa.c     | 28 ++++++++--------------------
+ 2 files changed, 9 insertions(+), 22 deletions(-)
 
 diff --git a/include/net/dsa.h b/include/net/dsa.h
-index d4d13f7..725b11f 100644
+index 98ccbde..d4d13f7 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -211,6 +211,7 @@ struct dsa_switch_driver {
+@@ -112,8 +112,7 @@ struct dsa_switch_tree {
+ 	 * Link state polling.
  	 */
- 	char	*(*probe)(struct device *host_dev, int sw_addr);
- 	int	(*setup)(struct dsa_switch *ds);
-+	void	(*remove)(struct dsa_switch *ds);
- 	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
- 	u32	(*get_phy_flags)(struct dsa_switch *ds, int port);
+ 	int			link_poll_needed;
+-	struct work_struct	link_poll_work;
+-	struct timer_list	link_poll_timer;
++	struct delayed_work	link_poll_work;
 
+ 	/*
+ 	 * Data for the individual switch chips.
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index aeb6a7c..7c9914b 100644
+index 1eba07f..aeb6a7c 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -459,6 +459,10 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+@@ -513,7 +513,7 @@ static void dsa_link_poll_work(struct work_struct *ugly)
+ 	struct dsa_switch_tree *dst;
+ 	int i;
+
+-	dst = container_of(ugly, struct dsa_switch_tree, link_poll_work);
++	dst = container_of(ugly, struct dsa_switch_tree, link_poll_work.work);
+
+ 	for (i = 0; i < dst->pd->nr_chips; i++) {
+ 		struct dsa_switch *ds = dst->ds[i];
+@@ -522,17 +522,9 @@ static void dsa_link_poll_work(struct work_struct *ugly)
+ 			ds->drv->poll_link(ds);
  	}
 
- 	mdiobus_unregister(ds->slave_mii_bus);
-+
-+	/* Leave a chance to the driver to cleanup */
-+	if (ds->drv->remove)
-+		ds->drv->remove(ds);
+-	mod_timer(&dst->link_poll_timer, round_jiffies(jiffies + HZ));
++	schedule_delayed_work(&dst->link_poll_work, round_jiffies_relative(HZ));
  }
 
- #ifdef CONFIG_PM_SLEEP
+-static void dsa_link_poll_timer(unsigned long _dst)
+-{
+-	struct dsa_switch_tree *dst = (void *)_dst;
+-
+-	schedule_work(&dst->link_poll_work);
+-}
+-
+-
+ /* platform driver init and cleanup *****************************************/
+ static int dev_is_class(struct device *dev, void *class)
+ {
+@@ -880,12 +872,8 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
+ 	dev->dsa_ptr = (void *)dst;
+
+ 	if (dst->link_poll_needed) {
+-		INIT_WORK(&dst->link_poll_work, dsa_link_poll_work);
+-		init_timer(&dst->link_poll_timer);
+-		dst->link_poll_timer.data = (unsigned long)dst;
+-		dst->link_poll_timer.function = dsa_link_poll_timer;
+-		dst->link_poll_timer.expires = round_jiffies(jiffies + HZ);
+-		add_timer(&dst->link_poll_timer);
++		INIT_DELAYED_WORK(&dst->link_poll_work, dsa_link_poll_work);
++		schedule_delayed_work(&dst->link_poll_work, round_jiffies_relative(HZ));
+ 	}
+
+ 	return 0;
+@@ -954,10 +942,10 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
+ {
+ 	int i;
+
+-	if (dst->link_poll_needed)
+-		del_timer_sync(&dst->link_poll_timer);
+-
+-	flush_work(&dst->link_poll_work);
++	if (dst->link_poll_needed) {
++		cancel_delayed_work_sync(&dst->link_poll_work);
++		flush_delayed_work(&dst->link_poll_work);
++	}
+
+ 	for (i = 0; i < dst->pd->nr_chips; i++) {
+ 		struct dsa_switch *ds = dst->ds[i];
 -- 
 1.9.1
