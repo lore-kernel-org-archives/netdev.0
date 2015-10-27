@@ -1,69 +1,42 @@
-From: Casper.Dik@oracle.com
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect for sockets in accept(3)
-Date: Tue, 27 Oct 2015 10:08:07 +0100
-Message-ID: <201510270908.t9R9873a001683@room101.nl.oracle.com>
-References: <5628636E.1020107@oracle.com> <20151022044458.GP22011@ZenIV.linux.org.uk> <20151022060304.GQ22011@ZenIV.linux.org.uk> <201510220634.t9M6YJLD017883@room101.nl.oracle.com> <20151022172146.GS22011@ZenIV.linux.org.uk> <201510221824.t9MIOp6n003978@room101.nl.oracle.com> <20151022190701.GV22011@ZenIV.linux.org.uk> <201510221951.t9MJp5LC005892@room101.nl.oracle.com> <20151022215741.GW22011@ZenIV.linux.org.uk> <201510230952.t9N9qYZJ021998@room101.nl.oracle.com> <20151024023054.GZ22011@ZenIV.linux.org.uk>
+From: CORPORATE LENDERS PLC <info@webadicta.org>
+Subject: =?UTF-8?Q?J=C3=B3=20nap=2C?=
+Date: Tue, 27 Oct 2015 10:22:30 +0100
+Message-ID: <d9478b5b1c760897086f7881e5407ba9@multivision.com.ve>
+Reply-To: <corporate_lenders@webadicta.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Burlison <Alan.Burlison@oracle.com>,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	dholland-tech@netbsd.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:39353 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752692AbbJ0JYO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 05:24:14 -0400
-Received: from aserv0021.oracle.com (aserv0021.oracle.com [141.146.126.233])
-	by userp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t9R9OD5v024268
-	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 09:24:13 GMT
-Received: from room101.nl.oracle.com (room101.nl.oracle.com [10.161.249.34])
-	by aserv0021.oracle.com (8.13.8/8.13.8) with ESMTP id t9R9BKT4012335
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 09:24:12 GMT
-In-Reply-To: <20151024023054.GZ22011@ZenIV.linux.org.uk> 
+Received: from mvx1.ifxnw.com.ve ([200.62.27.83]:21192 "EHLO mvx1.ifxnw.com.ve"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751970AbbJ0Jc2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Oct 2015 05:32:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
->And no, I'm not fond of such irregular ways to pass file descriptors, but
->we can't kill ioctl(2) with all weirdness hiding behind it, more's the pity...
+--=20
+J=C3=B3 nap,
 
-Yeah, there are a number of calls which supposed work on one but have a 
-second argument which is also a file descriptor; mostly part of ioctl().
+    =C3=89n vagyok Mr. Laurence Howard, egy v=C3=A9grehajt=C3=B3 =C3=BC=
+gyn=C3=B6k egy j=C3=B3l ismert=20
+legitim hitelez=C5=91 t=C3=A1rsas=C3=A1g nev=C3=A9n V=C3=A1llalati hite=
+lez=C5=91k. Van egy rossz=20
+hitel, vagy ha sz=C3=BCks=C3=A9g=C3=BCk van a p=C3=A9nz a sz=C3=A1ml=C3=
+=A1k kifizet=C3=A9s=C3=A9hez? a kamatl=C3=A1b=20
+3%.
 
->> In those specific cases where a system call needs to convert a file 
->> descriptor to a file pointer, there is only one routines which can be used.
->
->Obviously, but the problem is deadlock avoidance using it.
+   T=C3=B6ltse ki az al=C3=A1bbi =C5=B1rlapot, ha =C3=A9rdekel.
 
-The Solaris algorithm is quite different and as such there is no chance of 
-having a deadlock using that function (there is a bunch of functions)
+Teljes n=C3=A9v:
+Nem:
+Sz=C3=BCks=C3=A9ges =C3=B6sszeg:
+Id=C5=91tartam:
 
+=C3=96n kapcsolatba l=C3=A9phet vel=C3=BCnk Tel: +447045734550
 
->The memory footprint is really scary.  Bitmaps are pretty much noise, but
->blowing it by factor of 8 on normal 64bit (or 16 on something like Itanic -
->or Venus for that matter, which is more relevant for you guys)
-
-Fair enough.  I think we have some systems with a larger cache line.
-
->Said that, what's the point of "close won't return until..."?  After all,
->you can't guarantee that thread with cancelled syscall won't lose CPU
->immediately upon return to userland, so it *can't* make any assumptions
->about the descriptor not having been already reused.  I don't get it - what
->does that buy for userland code?
-
-Generally I wouldn't see that as a problem, but in the case of a socket 
-blocking on accept indefinitely, I do see it as a problem especially as 
-the thread actually wants to stop listening.
-
-But in general, this is basically a problem with the application: the file 
-descriptor space is shared between threads and having one thread sniping 
-at open files, you do have a problem and whatever the kernel does in that 
-case perhaps doesn't matter all that much: the application needs to be 
-fixed anyway.
-
-Casper
+   =C3=9Cdv=C3=B6zlettel,
+Laurence Howard
