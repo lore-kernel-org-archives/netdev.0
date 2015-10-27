@@ -1,43 +1,140 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH 0/6] Further fix for dsa unbinding
-Date: Tue, 27 Oct 2015 15:48:43 +0100
-Message-ID: <562F8ECB.6050709@baylibre.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	vivien.didelot@savoirfairelinux.com,
-	Fabian Frederick <fabf@skynet.be>,
-	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Frode Isaksen <fisaksen@baylibre.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v3] bridge: set is_local and is_static before fdb entry is added to the fdb hashtable
+Date: Tue, 27 Oct 2015 07:52:56 -0700
+Message-ID: <1445957576-33386-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: stephen@networkplumber.org, nikolay@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:32936 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932371AbbJ0OxB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 10:53:01 -0400
+Received: by pabla5 with SMTP id la5so31848072pab.0
+        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 07:53:01 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This serie fixes further issues for DSA dynamic unbinding.
-Frode Isaksen's patches make usage of delayed work and fixes kernel
-crashes when dsa is unbind.
-The other patches are simple fixes to permit cleanup and avoid netdev
-related crashes.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Frode Isaksen (3):
-  net: dsa: Use delayed work instead of timer+work for polling
-  net: dsa: Do not reschedule polling if driver removed
-  net: phy: Stop 'phy-state-machine' and 'phy_change' work on remove
+Problem Description:
+We can add fdbs pointing to the bridge with NULL ->dst but that has a
+few race conditions because br_fdb_insert() is used which first creates
+the fdb and then, after the fdb has been published/linked, sets
+"is_local" to 1 and in that time frame if a packet arrives for that fdb
+it may see it as non-local and either do a NULL ptr dereference in
+br_forward() or attach the fdb to the port where it arrived, and later
+br_fdb_insert() will make it local thus getting a wrong fdb entry.
+Call chain br_handle_frame_finish() -> br_forward():
+But in br_handle_frame_finish() in order to call br_forward() the dst
+should not be local i.e. skb != NULL, whenever the dst is
+found to be local skb is set to NULL so we can't forward it,
+and here comes the problem since it's running only
+with RCU when forwarding packets it can see the entry before "is_local"
+is set to 1 and actually try to dereference NULL.
+The main issue is that if someone sends a packet to the switch while
+it's adding the entry which points to the bridge device, it may
+dereference NULL ptr. This is needed now after we can add fdbs
+pointing to the bridge.  This poses a problem for
+br_fdb_update() as well, while someone's adding a bridge fdb, but
+before it has is_local == 1, it might get moved to a port if it comes
+as a source mac and then it may get its "is_local" set to 1
 
-Neil Armstrong (3):
-  net: dsa: allow switch drivers to cleanup their resources
-  net: dsa: cleanup resources upon module removal
-  net: dsa: Add missing master netdev dev_put() calls
+This patch changes fdb_create to take is_local and is_static as
+arguments to set these values in the fdb entry before it is added to the
+hash. Also adds null check for port in br_forward.
 
- drivers/net/phy/phy_device.c |  6 ++++++
- include/net/dsa.h            |  4 ++--
- net/dsa/dsa.c                | 46 +++++++++++++++++++++++++-------------------
- 3 files changed, 34 insertions(+), 22 deletions(-)
+Fixes: 3741873b4f73 ("bridge: allow adding of fdb entries pointing to the bridge device")
+Reported-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+v1 - v2 : fix compilation error reported by kbuild robot
 
+v2 - v3 : really fix the compilation error :( 
+
+ net/bridge/br_fdb.c     | 17 +++++++++--------
+ net/bridge/br_forward.c |  2 +-
+ 2 files changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index c88bd8e..a642bb8 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -495,7 +495,9 @@ static struct net_bridge_fdb_entry *fdb_find_rcu(struct hlist_head *head,
+ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
+ 					       struct net_bridge_port *source,
+ 					       const unsigned char *addr,
+-					       __u16 vid)
++					       __u16 vid,
++					       unsigned char is_local,
++					       unsigned char is_static)
+ {
+ 	struct net_bridge_fdb_entry *fdb;
+ 
+@@ -504,8 +506,8 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
+ 		memcpy(fdb->addr.addr, addr, ETH_ALEN);
+ 		fdb->dst = source;
+ 		fdb->vlan_id = vid;
+-		fdb->is_local = 0;
+-		fdb->is_static = 0;
++		fdb->is_local = is_local;
++		fdb->is_static = is_static;
+ 		fdb->added_by_user = 0;
+ 		fdb->added_by_external_learn = 0;
+ 		fdb->updated = fdb->used = jiffies;
+@@ -536,11 +538,10 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+ 		fdb_delete(br, fdb);
+ 	}
+ 
+-	fdb = fdb_create(head, source, addr, vid);
++	fdb = fdb_create(head, source, addr, vid, 1, 1);
+ 	if (!fdb)
+ 		return -ENOMEM;
+ 
+-	fdb->is_local = fdb->is_static = 1;
+ 	fdb_add_hw_addr(br, addr);
+ 	fdb_notify(br, fdb, RTM_NEWNEIGH);
+ 	return 0;
+@@ -597,7 +598,7 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+ 	} else {
+ 		spin_lock(&br->hash_lock);
+ 		if (likely(!fdb_find(head, addr, vid))) {
+-			fdb = fdb_create(head, source, addr, vid);
++			fdb = fdb_create(head, source, addr, vid, 0, 0);
+ 			if (fdb) {
+ 				if (unlikely(added_by_user))
+ 					fdb->added_by_user = 1;
+@@ -774,7 +775,7 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
+ 		if (!(flags & NLM_F_CREATE))
+ 			return -ENOENT;
+ 
+-		fdb = fdb_create(head, source, addr, vid);
++		fdb = fdb_create(head, source, addr, vid, 0, 0);
+ 		if (!fdb)
+ 			return -ENOMEM;
+ 
+@@ -1099,7 +1100,7 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
+ 	head = &br->hash[br_mac_hash(addr, vid)];
+ 	fdb = fdb_find(head, addr, vid);
+ 	if (!fdb) {
+-		fdb = fdb_create(head, p, addr, vid);
++		fdb = fdb_create(head, p, addr, vid, 0, 0);
+ 		if (!fdb) {
+ 			err = -ENOMEM;
+ 			goto err_unlock;
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index a9d424e..fcdb86d 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -141,7 +141,7 @@ EXPORT_SYMBOL_GPL(br_deliver);
+ /* called with rcu_read_lock */
+ void br_forward(const struct net_bridge_port *to, struct sk_buff *skb, struct sk_buff *skb0)
+ {
+-	if (should_deliver(to, skb)) {
++	if (to && should_deliver(to, skb)) {
+ 		if (skb0)
+ 			deliver_clone(to, skb, __br_forward);
+ 		else
 -- 
 1.9.1
