@@ -1,112 +1,200 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH v7 10/10] ss: activate json_writer excluded logic
-Date: Tue, 27 Oct 2015 14:21:03 +0100
-Message-ID: <20151027132103.GI26876@orbit.nwl.cc>
-References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
- <1441913708-15532-11-git-send-email-matthias.tafelmeier@gmx.net>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: 802.3 ad bonding mode min-links doesn't work correctly once slave
+ port link status is up again
+Date: Tue, 27 Oct 2015 14:24:12 +0100
+Message-ID: <562F7AFC.4030707@cumulusnetworks.com>
+References: <CAKpWUYnGO_YhXTQ5ekNTONZhaveDHScs2OLy-4NiDOTa6ahDsQ@mail.gmail.com>
+ <562F6ED3.9070109@cumulusnetworks.com>
+ <CAKpWUYmg8JhZyNecPAe0wA8MQLNXpzmzf4dO=yoXOhDNAdvc8w@mail.gmail.com>
+ <562F7940.3020800@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, hagen@jauu.net, shemminger@osdl.org,
-	fw@strlen.de, edumazet@google.com, daniel@iogearbox.net
-To: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Arjun Pandey <apandepublic@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:35301 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932072AbbJ0NVF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Oct 2015 09:21:05 -0400
-Content-Disposition: inline
-In-Reply-To: <1441913708-15532-11-git-send-email-matthias.tafelmeier@gmx.net>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:33567 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932072AbbJ0NYO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 09:24:14 -0400
+Received: by wijp11 with SMTP id p11so213643805wij.0
+        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 06:24:13 -0700 (PDT)
+In-Reply-To: <562F7940.3020800@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 10, 2015 at 09:35:08PM +0200, Matthias Tafelmeier wrote:
-> This small patch extends the lib json_writer module for formerly
-> deactivated functionality.
-
-Why was it deactivated in the first place?
-
+On 10/27/2015 02:16 PM, Nikolay Aleksandrov wrote:
+> On 10/27/2015 01:55 PM, Arjun Pandey wrote:
+>> Hi Nikolay
+>>
+>> But based on this output i think they are part of same aggregator.
+>> cat  /sys/class/net/bond/bonding/slaves
+>> eth2 eth1
+>> I am adding slave ports via ifenslave bond eth1 eth2
+>>
+> Hi again,
+> Please don't top post. You've shown that they're part of 1 bond
+> interface but that doesn't mean they're part of a single aggregator.
+> Look below,
 > 
-> Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-> ---
->  include/json_writer.h | 1 +
->  lib/json_writer.c     | 7 -------
->  2 files changed, 1 insertion(+), 7 deletions(-)
+>> Each individual slave port seems to be getting a different aggr id. I
+>> confirmed this by adding an additional port
+>> [root@foo /]# cat /proc/net/bonding/bond
+>> Ethernet Channel Bonding Driver: v3.7.1 (April 27, 2011)
+>>
+>> Bonding Mode: IEEE 802.3ad Dynamic link aggregation
+>> Transmit Hash Policy: layer2 (0)
+>> MII Status: down
+>> MII Polling Interval (ms): 100
+>> Up Delay (ms): 0
+>> Down Delay (ms): 0
+>>
+>> 802.3ad info
+>> LACP rate: fast
+>> Min links: 2
+>> Aggregator selection policy (ad_select): stable
+>> Active Aggregator Info:
+>> Aggregator ID: 1
+> ^^^
+> Bond active aggregator id is 1
 > 
-> diff --git a/include/json_writer.h b/include/json_writer.h
-> index ab9a008..3e2bbff 100644
-> --- a/include/json_writer.h
-> +++ b/include/json_writer.h
-> @@ -15,6 +15,7 @@
->  #ifndef _JSON_WRITER_H_
->  #define _JSON_WRITER_H_
->  
-> +#include <stdio.h>
-
-Does this silently fix another bug, or is it just an unrelated change?
-
->  #include <stdbool.h>
->  #include <stdint.h>
->  
-> diff --git a/lib/json_writer.c b/lib/json_writer.c
-> index 2af16e1..dfed4d7 100644
-> --- a/lib/json_writer.c
-> +++ b/lib/json_writer.c
-> @@ -12,7 +12,6 @@
->   * Authors:	Stephen Hemminger <stephen@networkplumber.org>
->   */
->  
-> -#include <stdio.h>
->  #include <stdbool.h>
->  #include <stdarg.h>
->  #include <assert.h>
-> @@ -201,7 +200,6 @@ void jsonw_bool(json_writer_t *self, bool val)
->  	jsonw_printf(self, "%s", val ? "true" : "false");
->  }
->  
-> -#ifdef notused
->  void jsonw_null(json_writer_t *self)
->  {
->  	jsonw_printf(self, "null");
-> @@ -211,7 +209,6 @@ void jsonw_float(json_writer_t *self, double num)
->  {
->  	jsonw_printf(self, "%g", num);
->  }
-> -#endif
->  
->  void jsonw_uint(json_writer_t *self, uint64_t num)
->  {
-> @@ -236,13 +233,11 @@ void jsonw_bool_field(json_writer_t *self, const char *prop, bool val)
->  	jsonw_bool(self, val);
->  }
->  
-> -#ifdef notused
->  void jsonw_float_field(json_writer_t *self, const char *prop, double val)
->  {
->  	jsonw_name(self, prop);
->  	jsonw_float(self, val);
->  }
-> -#endif
->  
->  void jsonw_uint_field(json_writer_t *self, const char *prop, uint64_t num)
->  {
-> @@ -256,13 +251,11 @@ void jsonw_int_field(json_writer_t *self, const char *prop, int64_t num)
->  	jsonw_int(self, num);
->  }
->  
-> -#ifdef notused
->  void jsonw_null_field(json_writer_t *self, const char *prop)
->  {
->  	jsonw_name(self, prop);
->  	jsonw_null(self);
->  }
-> -#endif
->  
->  #ifdef TEST
->  int main(int argc, char **argv)
-> -- 
-> 1.9.1
+>> Number of ports: 1
+> ^^^
+> _1 port_
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Actor Key: 17
+>> Partner Key: 1
+>> Partner Mac Address: 00:00:00:00:00:00
+^^^
+I forgot to mention - you don't have a link partner.
+
+>>
+>> Slave Interface: eth1
+>> MII Status: up
+>> Speed: 1000 Mbps
+>> Duplex: full
+>> Link Failure Count: 0
+>> Permanent HW addr: 08:00:27:0a:cd:2c
+>> Aggregator ID: 1
+> ^^^
+> This port is part of aggregator id 1 (this is the port of
+> the active aggregator)
+> 
+>> Slave queue ID: 0
+>>
+>> Slave Interface: eth2
+>> MII Status: up
+>> Speed: 1000 Mbps
+>> Duplex: full
+>> Link Failure Count: 0
+>> Permanent HW addr: 08:00:27:b0:4d:7e
+>> Aggregator ID: 2
+> ^^^
+> This port is a part of a different aggregator (id 2)
+> 
+>> Slave queue ID: 0
+>>
+>> Slave Interface: eth3
+>> MII Status: down
+>> Speed: Unknown
+>> Duplex: Unknown
+>> Link Failure Count: 0
+>> Permanent HW addr: 08:00:27:e7:dd:6b
+>> Aggregator ID: 3
+>> Slave queue ID: 0
+>>
+>> Regards
+>> Arjun
+>>
+>> On Tue, Oct 27, 2015 at 6:02 PM, Nikolay Aleksandrov
+>> <nikolay@cumulusnetworks.com> wrote:
+>>> On 10/27/2015 01:17 PM, Arjun Pandey wrote:
+>>>> Hi
+>>>>
+>>>> I have configured a bond with 2 slave bond ports in 802.3 ad mode.
+>>>> I have also set min-links=2 and miimon=100
+>>>>
+>>>>
+>>>> root@foo bonding]# cat /proc/net/bonding/bond
+>>>> Ethernet Channel Bonding Driver: v3.7.1 (April 27, 2011)
+>>>>
+>>>> Bonding Mode: IEEE 802.3ad Dynamic link aggregation
+>>>> Transmit Hash Policy: layer2 (0)
+>>>> MII Status: down
+>>>> MII Polling Interval (ms): 100
+>>>> Up Delay (ms): 0
+>>>> Down Delay (ms): 0
+>>>>
+>>>> 802.3ad info
+>>>> LACP rate: fast
+>>>> Min links: 2
+>>>> Aggregator selection policy (ad_select): stable
+>>>> Active Aggregator Info:
+>>>> Aggregator ID: 2
+>>>> Number of ports: 1
+>>>> Actor Key: 17
+>>>> Partner Key: 1
+>>>> Partner Mac Address: 00:00:00:00:00:00
+>>>>
+>>>> Slave Interface: eth1
+>>>> MII Status: up
+>>>> Speed: 1000 Mbps
+>>>> Duplex: full
+>>>> Link Failure Count: 7
+>>>> Permanent HW addr: 08:00:27:0a:cd:2c
+>>>> Aggregator ID: 1
+>>>> Slave queue ID: 0
+>>>>
+>>>> Slave Interface: eth2
+>>>> MII Status: up
+>>>> Speed: 1000 Mbps
+>>>> Duplex: full
+>>>> Link Failure Count: 4
+>>>> Permanent HW addr: 08:00:27:b0:4d:7e
+>>>> Aggregator ID: 2
+>>>> Slave queue ID: 0
+>>>>
+>>>> I tried the following steps :
+>>>> 1. Bring up bond with slaves as eth1 and eth2
+>>>> 2. Bring down eth1 down via ip link set down eth1
+>>>> 3. Check bond link status which now shows up as down
+>>>> 4. Restore eth1 link status up.
+>>>> 5. Bond link status is still set as down.
+>>>>
+>>>> I can't get bond link status up unless i make min-links 0/1 and bring
+>>>> bond status manually up via ip link set bond down and ip link set bond
+>>>> up
+>>>> [root@foo /]# ip link show
+>>>> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+>>>>     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+>>>> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+>>>> state UP qlen 1000
+>>>>     link/ether 08:00:27:f8:38:ad brd ff:ff:ff:ff:ff:ff
+>>>> 3: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc
+>>>> pfifo_fast master bond state UP qlen 1000
+>>>>     link/ether 08:00:27:0a:cd:2c brd ff:ff:ff:ff:ff:ff
+>>>> 4: eth2: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc
+>>>> pfifo_fast master bond state UP qlen 1000
+>>>>     link/ether 08:00:27:0a:cd:2c brd ff:ff:ff:ff:ff:ff
+>>>> 23: bond: <NO-CARRIER,BROADCAST,MULTICAST,MASTER,UP> mtu 1500 qdisc
+>>>> noqueue state DOWN
+>>>>     link/ether 08:00:27:0a:cd:2c brd ff:ff:ff:ff:ff:ff
+>>>>
+>>>> Am i missing something ?
+>>>>
+>>>>
+>>>> This is on Centos 6.5 and kernel 3.10.27.1
+>>>>
+>>>> Regards
+>>>> Arjun
+>>>
+>>> Hi Arjun,
+>>> I think your slaves are in different aggregators (judging by their agg ids) and min_links
+>>> checks if there're min_links number of active ports in the active aggregator (in your case
+>>> that's agg id 2 which has 1 slave in it).
+>>>
+>>> Cheers,
+>>>  Nik
+>>>
+>>>
+> 
