@@ -1,105 +1,95 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
- hierarchy
-Date: Tue, 27 Oct 2015 17:15:54 +0100
-Message-ID: <20151027161554.GJ9891@dhcp22.suse.cz>
-References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
- <1445487696-21545-6-git-send-email-hannes@cmpxchg.org>
- <20151023131956.GA15375@dhcp22.suse.cz>
- <20151023.065957.1690815054807881760.davem@davemloft.net>
- <20151026165619.GB2214@cmpxchg.org>
- <20151027122647.GG9891@dhcp22.suse.cz>
- <20151027154138.GA4665@cmpxchg.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	vdavydov@virtuozzo.com, tj@kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151027154138.GA4665@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Stefan Bader <stefan.bader@canonical.com>
+Subject: Stable-4.2 inclusion request for e1000e fix
+Date: Tue, 27 Oct 2015 17:28:01 +0100
+Message-ID: <1445963281-13704-1-git-send-email-stefan.bader@canonical.com>
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	raanan.avargil@intel.com
+To: netdev@vger.kernel.org, kernel-team@lists.ubuntu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:60117 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932466AbbJ0Q2G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 12:28:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue 27-10-15 11:41:38, Johannes Weiner wrote:
-> On Tue, Oct 27, 2015 at 01:26:47PM +0100, Michal Hocko wrote:
-> > On Mon 26-10-15 12:56:19, Johannes Weiner wrote:
-> > [...]
-> > > Now you could argue that there might exist specialized workloads that
-> > > need to account anonymous pages and page cache, but not socket memory
-> > > buffers.
-> > 
-> > Exactly, and there are loads doing this. Memcg groups are also created to
-> > limit anon/page cache consumers to not affect the others running on
-> > the system (basically in the root memcg context from memcg POV) which
-> > don't care about tracking and they definitely do not want to pay for an
-> > additional overhead. We should definitely be able to offer a global
-> > disable knob for them. The same applies to kmem accounting in general.
-> 
-> I don't see how you make such a clear distinction between, say, page
-> cache and the dentry cache, and call one user memory and the other
-> kernel memory.
+This was attempted to get into 4.2 before release but did not seem to
+be successful[1]. But was now reported to us and verified[2] that adding
+this prevents issues when the NIC is not connected.
 
-Because the kernel memory footprint would be so small that it simply
-doesn't change the picture at all. While the page cache or anonymous
-memory consumption might be so large it might be disruptive.  I am
-talking about loads where good enough is better than "perfect" and
-ephemeral global memory pressure when kmem goes over expectations is
-better than a permanent cpu overhead. Whatever we do it will always
-be non-zero.
+Could the patch below be added to the stable queue for 4.2. Thanks.
 
-Also kmem accounting will make the load more non-deterministic because
-many of the resources are shared between tasks in separate cgroups
-unless they are explicitly configured. E.g. [id]cache will be shared
-and first to touch gets charged so you would end up with more false
-sharing.
+-Stefan
 
-Nevertheless, I do not want to shift the discussion from the topic. I
-just think that one-fits-all simply won't work.
 
-> That just doesn't make sense to me. They're both kernel
-> memory allocated on behalf of the user, the only difference being that
-> one is tracked on the page level and the other on the slab level, and
-> we started accounting one before the other.
-> 
-> IMO that's an implementation detail and a historical artifact that
-> should not be exposed to the user. And that's the thing I hate about
-> the current opt-out knob.
-> 
-> > > I don't think there is a compelling case for an elaborate interface
-> > > to make individual memory consumers configurable inside the memory
-> > > controller.
-> > 
-> > I do not think we need an elaborate interface. We just want to have
-> > a global boot time knob to overwrite the default behavior. This is
-> > few lines of code and it should give the sufficient flexibility.
-> 
-> Okay, then let's add this for the socket memory to start with. I'll
-> have to think more about how to distinguish the slab-based consumers.
-> Or maybe you have an idea.
-
-Isn't that as simple as enabling the jump label during the
-initialization depending on the knob value? All the charging paths
-should be disabled by default already.
-
-> For now, something like this as a boot commandline?
-> 
-> cgroup.memory=nosocket
-
-That would work for me. I would even see a place to have
-CONFIG_MEMCG_TCP_KMEM_ENABLED config option for the default and
-[no]socket as a kernel parameter to override the configuratioin default.
-This would allow distributions to define their policy without enforcing
-it hard and those who compile the kernel to define their own policy.
-
--- 
-Michal Hocko
-SUSE Labs
+[1] http://lkml.iu.edu/hypermail/linux/kernel/1508.2/01174.html
+[2] https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1509929
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+
+>From 37b12910dd11d9ab969f2c310dc9160b7f3e3405 Mon Sep 17 00:00:00 2001
+From: Raanan Avargil <raanan.avargil@intel.com>
+Date: Sun, 19 Jul 2015 16:33:20 +0300
+Subject: [PATCH] e1000e: Fix tight loop implementation of systime read
+ algorithm
+
+Change the algorithm. Read systimel twice and check for overflow.
+If there was no overflow, use the first value.
+If there was an overflow, read systimeh again and use the second
+systimel value.
+
+Signed-off-by: Raanan Avargil <raanan.avargil@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+(cherry-picked from commit 37b12910dd11d9ab969f2c310dc9160b7f3e3405)
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 31 ++++++++++++++++++++----------
+ 1 file changed, 21 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 24b7269..96a8166 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -4280,18 +4280,29 @@ static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
+ 	struct e1000_adapter *adapter = container_of(cc, struct e1000_adapter,
+ 						     cc);
+ 	struct e1000_hw *hw = &adapter->hw;
++	u32 systimel_1, systimel_2, systimeh;
+ 	cycle_t systim, systim_next;
+-	/* SYSTIMH latching upon SYSTIML read does not work well. To fix that
+-	 * we don't want to allow overflow of SYSTIML and a change to SYSTIMH
+-	 * to occur between reads, so if we read a vale close to overflow, we
+-	 * wait for overflow to occur and read both registers when its safe.
++	/* SYSTIMH latching upon SYSTIML read does not work well.
++	 * This means that if SYSTIML overflows after we read it but before
++	 * we read SYSTIMH, the value of SYSTIMH has been incremented and we
++	 * will experience a huge non linear increment in the systime value
++	 * to fix that we test for overflow and if true, we re-read systime.
+ 	 */
+-	u32 systim_overflow_latch_fix = 0x3FFFFFFF;
+-
+-	do {
+-		systim = (cycle_t)er32(SYSTIML);
+-	} while (systim > systim_overflow_latch_fix);
+-	systim |= (cycle_t)er32(SYSTIMH) << 32;
++	systimel_1 = er32(SYSTIML);
++	systimeh = er32(SYSTIMH);
++	systimel_2 = er32(SYSTIML);
++	/* Check for overflow. If there was no overflow, use the values */
++	if (systimel_1 < systimel_2) {
++		systim = (cycle_t)systimel_1;
++		systim |= (cycle_t)systimeh << 32;
++	} else {
++		/* There was an overflow, read again SYSTIMH, and use
++		 * systimel_2
++		 */
++		systimeh = er32(SYSTIMH);
++		systim = (cycle_t)systimel_2;
++		systim |= (cycle_t)systimeh << 32;
++	}
+ 
+ 	if ((hw->mac.type == e1000_82574) || (hw->mac.type == e1000_82583)) {
+ 		u64 incvalue, time_delta, rem, temp;
+-- 
+1.9.1
