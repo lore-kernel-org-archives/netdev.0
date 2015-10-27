@@ -1,36 +1,60 @@
-From: Manoil Claudiu <claudiu.manoil@freescale.com>
-Subject: RE: [PATCH net-next] gianfar: Increase TX_TIMEOUT to 5HZ
-Date: Tue, 27 Oct 2015 09:18:34 +0000
-Message-ID: <BY2PR0301MB0727BC50358E6A60D7D803199C220@BY2PR0301MB0727.namprd03.prod.outlook.com>
-References: <1445935663-15117-1-git-send-email-abhimanyu@freescale.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] vhost: fix performance on LE hosts
+Date: Tue, 27 Oct 2015 11:37:39 +0200
+Message-ID: <1445938640-32673-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: ABHIMANYU SAINI <abhimanyu@freescale.com>,
-	Priyanka Jain <Priyanka.Jain@freescale.com>
-To: ABHIMANYU SAINI <abhimanyu@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0127.outbound.protection.outlook.com ([207.46.100.127]:19815
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751970AbbJ0Jcx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 05:32:53 -0400
-In-Reply-To: <1445935663-15117-1-git-send-email-abhimanyu@freescale.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	kvm@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: Abhimanyu [mailto:abhimanyu@freescale.com]
->Sent: Tuesday, October 27, 2015 10:48 AM
->To: David S. Miller <davem@davemloft.net>; netdev@vger.kernel.org
->Cc: Manoil Claudiu-B08782 <claudiu.manoil@freescale.com>; Saini
->Abhimanyu-B49017 <abhimanyu@freescale.com>; Jain Priyanka-B32167
-><Priyanka.Jain@freescale.com>
->Subject: [PATCH net-next] gianfar: Increase TX_TIMEOUT to 5HZ
->
-[...]
+commit 2751c9882b947292fcfb084c4f604e01724af804 ("vhost: cross-endian
+support for legacy devices") introduced a minor regression: even with
+cross-endian disabled, and even on LE host, vhost_is_little_endian is
+checking is_le flag so there's always a branch.
 
-Acked-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+To fix, simply check virtio_legacy_is_little_endian first.
+
+Cc: Greg Kurz <gkurz@linux.vnet.ibm.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/vhost/vhost.h | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index 4772862..d3f7674 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -183,10 +183,17 @@ static inline bool vhost_has_feature(struct vhost_virtqueue *vq, int bit)
+ 	return vq->acked_features & (1ULL << bit);
+ }
+ 
++#ifdef CONFIG_VHOST_CROSS_ENDIAN_LEGACY
+ static inline bool vhost_is_little_endian(struct vhost_virtqueue *vq)
+ {
+ 	return vq->is_le;
+ }
++#else
++static inline bool vhost_is_little_endian(struct vhost_virtqueue *vq)
++{
++	return virtio_legacy_is_little_endian() || vq->is_le;
++}
++#endif
+ 
+ /* Memory accessors */
+ static inline u16 vhost16_to_cpu(struct vhost_virtqueue *vq, __virtio16 val)
+-- 
+MST
