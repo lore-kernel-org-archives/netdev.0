@@ -1,128 +1,96 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next v2] bridge: set is_local and is_static before fdb entry is added to the fdb hashtable
-Date: Tue, 27 Oct 2015 05:12:02 -0700
-Message-ID: <1445947922-12236-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: stephen@networkplumber.org, nikolay@cumulusnetworks.com,
-	netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Arjun Pandey <apandepublic@gmail.com>
+Subject: 802.3 ad bonding mode min-links doesn't work correctly once slave
+ port link status is up again
+Date: Tue, 27 Oct 2015 17:47:08 +0530
+Message-ID: <CAKpWUYnGO_YhXTQ5ekNTONZhaveDHScs2OLy-4NiDOTa6ahDsQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33601 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753990AbbJ0MMG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 08:12:06 -0400
-Received: by pabla5 with SMTP id la5so28312624pab.0
-        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 05:12:06 -0700 (PDT)
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:34163 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932130AbbJ0MRI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 08:17:08 -0400
+Received: by igpw7 with SMTP id w7so4407955igp.1
+        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 05:17:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Hi
 
-Problem Description:
-We can add fdbs pointing to the bridge with NULL ->dst but that has a
-few race conditions because br_fdb_insert() is used which first creates
-the fdb and then, after the fdb has been published/linked, sets
-"is_local" to 1 and in that time frame if a packet arrives for that fdb
-it may see it as non-local and either do a NULL ptr dereference in
-br_forward() or attach the fdb to the port where it arrived, and later
-br_fdb_insert() will make it local thus getting a wrong fdb entry.
-Call chain br_handle_frame_finish() -> br_forward():
-But in br_handle_frame_finish() in order to call br_forward() the dst
-should not be local i.e. skb != NULL, whenever the dst is
-found to be local skb is set to NULL so we can't forward it,
-and here comes the problem since it's running only
-with RCU when forwarding packets it can see the entry before "is_local"
-is set to 1 and actually try to dereference NULL.
-The main issue is that if someone sends a packet to the switch while
-it's adding the entry which points to the bridge device, it may
-dereference NULL ptr. This is needed now after we can add fdbs
-pointing to the bridge.  This poses a problem for
-br_fdb_update() as well, while someone's adding a bridge fdb, but
-before it has is_local == 1, it might get moved to a port if it comes
-as a source mac and then it may get its "is_local" set to 1
+I have configured a bond with 2 slave bond ports in 802.3 ad mode.
+I have also set min-links=2 and miimon=100
 
-This patch changes fdb_create to take is_local and is_static as
-arguments to set these values in the fdb entry before it is added to the
-hash. Also adds null check for port in br_forward.
 
-Reported-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
-v2 - fix compile error reported by kbuild test robot.
-     Accidently i had posted an older version of the patch
+root@foo bonding]# cat /proc/net/bonding/bond
+Ethernet Channel Bonding Driver: v3.7.1 (April 27, 2011)
 
- net/bridge/br_fdb.c     | 15 ++++++++-------
- net/bridge/br_forward.c |  2 +-
- 2 files changed, 9 insertions(+), 8 deletions(-)
+Bonding Mode: IEEE 802.3ad Dynamic link aggregation
+Transmit Hash Policy: layer2 (0)
+MII Status: down
+MII Polling Interval (ms): 100
+Up Delay (ms): 0
+Down Delay (ms): 0
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index c88bd8e..35a1c7e 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -495,7 +495,9 @@ static struct net_bridge_fdb_entry *fdb_find_rcu(struct hlist_head *head,
- static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
- 					       struct net_bridge_port *source,
- 					       const unsigned char *addr,
--					       __u16 vid)
-+					       __u16 vid,
-+					       unsigned char is_local,
-+					       unsigned char is_static)
- {
- 	struct net_bridge_fdb_entry *fdb;
- 
-@@ -504,8 +506,8 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
- 		memcpy(fdb->addr.addr, addr, ETH_ALEN);
- 		fdb->dst = source;
- 		fdb->vlan_id = vid;
--		fdb->is_local = 0;
--		fdb->is_static = 0;
-+		fdb->is_local = is_local;
-+		fdb->is_static = is_static;
- 		fdb->added_by_user = 0;
- 		fdb->added_by_external_learn = 0;
- 		fdb->updated = fdb->used = jiffies;
-@@ -536,11 +538,10 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
- 		fdb_delete(br, fdb);
- 	}
- 
--	fdb = fdb_create(head, source, addr, vid);
-+	fdb = fdb_create(head, source, addr, vid, 1, 1);
- 	if (!fdb)
- 		return -ENOMEM;
- 
--	fdb->is_local = fdb->is_static = 1;
- 	fdb_add_hw_addr(br, addr);
- 	fdb_notify(br, fdb, RTM_NEWNEIGH);
- 	return 0;
-@@ -597,7 +598,7 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
- 	} else {
- 		spin_lock(&br->hash_lock);
- 		if (likely(!fdb_find(head, addr, vid))) {
--			fdb = fdb_create(head, source, addr, vid);
-+			fdb = fdb_create(head, source, addr, vid, 0, 0);
- 			if (fdb) {
- 				if (unlikely(added_by_user))
- 					fdb->added_by_user = 1;
-@@ -774,7 +775,7 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
- 		if (!(flags & NLM_F_CREATE))
- 			return -ENOENT;
- 
--		fdb = fdb_create(head, source, addr, vid);
-+		fdb = fdb_create(head, source, addr, vid, 0, 0);
- 		if (!fdb)
- 			return -ENOMEM;
- 
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index a9d424e..fcdb86d 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -141,7 +141,7 @@ EXPORT_SYMBOL_GPL(br_deliver);
- /* called with rcu_read_lock */
- void br_forward(const struct net_bridge_port *to, struct sk_buff *skb, struct sk_buff *skb0)
- {
--	if (should_deliver(to, skb)) {
-+	if (to && should_deliver(to, skb)) {
- 		if (skb0)
- 			deliver_clone(to, skb, __br_forward);
- 		else
--- 
-1.9.1
+802.3ad info
+LACP rate: fast
+Min links: 2
+Aggregator selection policy (ad_select): stable
+Active Aggregator Info:
+Aggregator ID: 2
+Number of ports: 1
+Actor Key: 17
+Partner Key: 1
+Partner Mac Address: 00:00:00:00:00:00
+
+Slave Interface: eth1
+MII Status: up
+Speed: 1000 Mbps
+Duplex: full
+Link Failure Count: 7
+Permanent HW addr: 08:00:27:0a:cd:2c
+Aggregator ID: 1
+Slave queue ID: 0
+
+Slave Interface: eth2
+MII Status: up
+Speed: 1000 Mbps
+Duplex: full
+Link Failure Count: 4
+Permanent HW addr: 08:00:27:b0:4d:7e
+Aggregator ID: 2
+Slave queue ID: 0
+
+I tried the following steps :
+1. Bring up bond with slaves as eth1 and eth2
+2. Bring down eth1 down via ip link set down eth1
+3. Check bond link status which now shows up as down
+4. Restore eth1 link status up.
+5. Bond link status is still set as down.
+
+I can't get bond link status up unless i make min-links 0/1 and bring
+bond status manually up via ip link set bond down and ip link set bond
+up
+[root@foo /]# ip link show
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+state UP qlen 1000
+    link/ether 08:00:27:f8:38:ad brd ff:ff:ff:ff:ff:ff
+3: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc
+pfifo_fast master bond state UP qlen 1000
+    link/ether 08:00:27:0a:cd:2c brd ff:ff:ff:ff:ff:ff
+4: eth2: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc
+pfifo_fast master bond state UP qlen 1000
+    link/ether 08:00:27:0a:cd:2c brd ff:ff:ff:ff:ff:ff
+23: bond: <NO-CARRIER,BROADCAST,MULTICAST,MASTER,UP> mtu 1500 qdisc
+noqueue state DOWN
+    link/ether 08:00:27:0a:cd:2c brd ff:ff:ff:ff:ff:ff
+
+Am i missing something ?
+
+
+This is on Centos 6.5 and kernel 3.10.27.1
+
+Regards
+Arjun
