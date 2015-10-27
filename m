@@ -1,7 +1,7 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH 4/6] net: dsa: Add missing master netdev dev_put() calls
-Date: Tue, 27 Oct 2015 15:49:09 +0100
-Message-ID: <562F8EE5.6070907@baylibre.com>
+Subject: [PATCH 3/6] net: dsa: cleanup resources upon module removal
+Date: Tue, 27 Oct 2015 15:49:03 +0100
+Message-ID: <562F8EDF.9080604@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -18,37 +18,33 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Upon probe failure or unbinding, add missing dev_put() calls.
+Make sure that we unassign the master_netdev dsa_ptr to make the packet
+processing go through the regular Ethernet receive path.
 
+Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 ---
- net/dsa/dsa.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ net/dsa/dsa.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index acbf854..9240a46 100644
+index 7c9914b..acbf854 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -931,8 +931,10 @@ static int dsa_probe(struct platform_device *pdev)
- 	platform_set_drvdata(pdev, dst);
-
- 	ret = dsa_setup_dst(dst, dev, &pdev->dev, pd);
--	if (ret)
-+	if (ret) {
-+		dev_put(dev);
- 		goto out;
-+	}
-
- 	return 0;
-
-@@ -965,6 +967,8 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
- 		if (ds)
- 			dsa_switch_destroy(ds);
+@@ -951,6 +951,14 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
+ 		flush_delayed_work(&dst->link_poll_work);
  	}
-+
-+	dev_put(dst->master_netdev);
- }
 
- static int dsa_remove(struct platform_device *pdev)
++	dst->master_netdev->dsa_ptr = NULL;
++
++	/* If we used a tagging format that doesn't have an ethertype
++	 * field, make sure that all packets from this point get sent
++	 * without the tag and go through the regular receive path.
++	 */
++	wmb();
++
+ 	for (i = 0; i < dst->pd->nr_chips; i++) {
+ 		struct dsa_switch *ds = dst->ds[i];
+
 -- 
 1.9.1
