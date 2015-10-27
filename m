@@ -1,35 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
- hierarchy
-Date: Tue, 27 Oct 2015 06:49:16 -0700 (PDT)
-Message-ID: <20151027.064916.312540587298733586.davem@davemloft.net>
-References: <20151023.065957.1690815054807881760.davem@davemloft.net>
-	<20151026165619.GB2214@cmpxchg.org>
-	<20151027122647.GG9891@dhcp22.suse.cz>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH v7 02/10] ss: created formatters for json and hr
+Date: Tue, 27 Oct 2015 14:35:20 +0100
+Message-ID: <20151027133520.GC30666@orbit.nwl.cc>
+References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
+ <1441913708-15532-3-git-send-email-matthias.tafelmeier@gmx.net>
+ <20151027122103.GC26876@orbit.nwl.cc>
+ <20151027.064753.1758424839914668000.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151027122647.GG9891-2MMpYkNvuYDjFM9bn6wA6Q@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: matthias.tafelmeier@gmx.net, netdev@vger.kernel.org,
+	hagen@jauu.net, shemminger@osdl.org, fw@strlen.de,
+	edumazet@google.com, daniel@iogearbox.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([176.31.251.142]:44524 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932072AbbJ0NfW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Oct 2015 09:35:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20151027.064753.1758424839914668000.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Date: Tue, 27 Oct 2015 13:26:47 +0100
-
-> On Mon 26-10-15 12:56:19, Johannes Weiner wrote:
-> [...]
->> Or any other combination of pick-and-choose consumers. But
->> honestly, nowadays all our paths are lockless, and the counting is an
->> atomic-add-return with a per-cpu batch cache.
+On Tue, Oct 27, 2015 at 06:47:53AM -0700, David Miller wrote:
 > 
-> You are still hooking into hot paths and there are users who want to
-> squeeze every single cycle from the HW.
+> Please do not quote an entire large patch in a reply just to common on
+> one particular section of the change.
+> 
+> Instead, trim it to just the necessary context.
 
-Yeah, you're basically probably undoing a half year of work by another
-developer who was able to remove an atomic from these paths.
+OK, I'll make sure to remember this. Better don't read my other emails
+of the same thread. :(
+
+Thanks, Phil
