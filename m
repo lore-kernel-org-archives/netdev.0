@@ -1,59 +1,73 @@
-From: Dan Streetman <dan.streetman@canonical.com>
-Subject: [PATCHv2] ixgbe: Wait for 1ms, not 1us, after RST
-Date: Tue, 27 Oct 2015 14:27:55 -0400
-Message-ID: <1445970475-19111-1-git-send-email-dan.streetman@canonical.com>
-References: <562FBB01.3080901@hurleysoftware.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Dan Streetman <dan.streetman@canonical.com>,
-	Dan Streetman <ddstreet@ieee.org>
-To: Peter Hurley <peter@hurleysoftware.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <562FBB01.3080901@hurleysoftware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net v2 3/4] ipv6: no CHECKSUM_PARTIAL on MSG_MORE corked
+ sockets
+Date: Tue, 27 Oct 2015 19:29:11 +0100
+Message-ID: <1445970551.497935.421785961.521DBDF0@webmail.messagingengine.com>
+References: <1445958135-19805-1-git-send-email-hannes@stressinduktion.org>
+ <1445958135-19805-4-git-send-email-hannes@stressinduktion.org>
+ <CALx6S37qAxOxYRxxFQGR4P2r937yCnCqdASHV0qsi2UPj675iQ@mail.gmail.com>
+ <1445964249.1414779.421671593.5D1C863C@webmail.messagingengine.com>
+ <CALx6S34m5jEDMUtVZpsU05Z8ydXAYFoVBAsbAQF=sUc5h0TLiQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	Benjamin Coddington <bcodding@redhat.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:57950 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S964840AbbJ0S3O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 14:29:14 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id 4C3F020280
+	for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 14:29:11 -0400 (EDT)
+In-Reply-To: <CALx6S34m5jEDMUtVZpsU05Z8ydXAYFoVBAsbAQF=sUc5h0TLiQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The driver currently waits 1us after issuing a RST, but the spec
-requires it to wait 1ms.  This adds a msleep(1) before polling the
-reset bit.
+On Tue, Oct 27, 2015, at 18:32, Tom Herbert wrote:
+> On Tue, Oct 27, 2015 at 9:44 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> >
+> >
+> > On Tue, Oct 27, 2015, at 17:36, Tom Herbert wrote:> > -               if
+> > (cork->length + length > maxnonfragsize - headersize) {
+> >> > +       if (cork->length + length > maxnonfragsize - headersize) {
+> >> >  emsgsize:
+> >> > -                       ipv6_local_error(sk, EMSGSIZE, fl6,
+> >> > -                                        mtu - headersize +
+> >> > -                                        sizeof(struct ipv6hdr));
+> >> > -                       return -EMSGSIZE;
+> >> > -               }
+> >> > +               ipv6_local_error(sk, EMSGSIZE, fl6,
+> >> > +                                mtu - headersize +
+> >> > +                                sizeof(struct ipv6hdr));
+> >> > +               return -EMSGSIZE;
+> >> >         }
+> >> >
+> >> > +       /* CHECKSUM_PARTIAL only with no extension headers and when
+> >>
+> >> No, please don't do this. CHECKSUM_PARTIAL should work with extension
+> >> headers as defined, so this is just disabling otherwise valid and
+> >> useful functionality. If (some) drivers have problems with this they
+> >> need to be identified and fixed.
+> >
+> > I don't understand. The old code already didn't allow the use of
+> > opt_flen with CHECKSUM_PARTIAL.
+> >
+> Then that's a problem with the old code :-). Is there any other reason
+> that we can't use CHECKSUM_PARTIAL with extension headers other than
+> lack of correct driver support?
 
-Signed-off-by: Dan Streetman <dan.streetman@canonical.com>
-Signed-off-by: Dan Streetman <ddstreet@ieee.org>
----
-changes since v1:
- use msleep(1) instead of mdelay(1), per Peter Hurley
- move msleep(1) out of for loop - only msleep once, leave udelay(1)
-   inside for loop
- use spec sec title instead of number, per Don Skidmore
+The lack of correct driver support is a big bumper, but as I wrote, I
+don't see a reason to not lift this restriction in net-next. I proposed
+a new feature flag, or by looking at your series, we could probably use
+the extension header okay field for that.
 
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+I would be conservative in net though.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index 4e75843..02cfa1e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -111,6 +111,13 @@ mac_reset_top:
- 	IXGBE_WRITE_REG(hw, IXGBE_CTRL, ctrl);
- 	IXGBE_WRITE_FLUSH(hw);
- 
-+	/* From the spec "General Control Registers - Device Control Register":
-+	 * "...programmers must wait approximately 1 ms after setting before
-+	 *  attempting to check if the bit has cleared or to access (read
-+	 *  or write) any other device register."
-+	 */
-+	msleep(1);
-+
- 	/* Poll for reset bit to self-clear indicating reset is complete */
- 	for (i = 0; i < 10; i++) {
- 		udelay(1);
--- 
-2.5.0
+Bye,
+Hannes
