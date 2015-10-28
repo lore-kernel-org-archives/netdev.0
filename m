@@ -1,53 +1,74 @@
-From: Loganaden Velvindron <logan@elandsys.com>
-Subject: [PATCH net-next] use vzalloc() instead of vmalloc() as counterstmp
- is not cleared before it is used in get_counters(). counterstmp might be
- leaked partially when it is sent to userland later on.
-Date: Wed, 28 Oct 2015 08:54:20 -0700
-Message-ID: <20151028155420.GA21173@mx.elandsys.com>
+From: Alan Burlison <Alan.Burlison@oracle.com>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Wed, 28 Oct 2015 16:04:55 +0000
+Message-ID: <5630F227.6080502@oracle.com>
+References: <201510220634.t9M6YJLD017883@room101.nl.oracle.com> <20151022172146.GS22011@ZenIV.linux.org.uk> <201510221824.t9MIOp6n003978@room101.nl.oracle.com> <20151022190701.GV22011@ZenIV.linux.org.uk> <201510221951.t9MJp5LC005892@room101.nl.oracle.com> <20151022215741.GW22011@ZenIV.linux.org.uk> <201510230952.t9N9qYZJ021998@room101.nl.oracle.com> <20151024023054.GZ22011@ZenIV.linux.org.uk> <201510270908.t9R9873a001683@room101.nl.oracle.com> <562F577E.6000901@oracle.com> <20151027231702.GA22011@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Casper.Dik@oracle.com, David Miller <davem@davemloft.net>,
+	eric.dumazet@gmail.com, stephen@networkplumber.org,
+	netdev@vger.kernel.org, dholland-tech@netbsd.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.qubic.net ([208.69.177.116]:64669 "EHLO mx.elandsys.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965806AbbJ1QAD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Oct 2015 12:00:03 -0400
-Received: from mx.elandsys.com (IDENT:logan@localhost [127.0.0.1])
-	by mx.elandsys.com (8.14.5/8.14.5) with ESMTP id t9SFsKcw020828
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 08:54:21 -0700 (PDT)
-Received: (from logan@localhost)
-	by mx.elandsys.com (8.14.5/8.14.5/Submit) id t9SFsKiw005523
-	for netdev@vger.kernel.org; Wed, 28 Oct 2015 08:54:20 -0700 (PDT)
-Content-Disposition: inline
+Received: from userp1040.oracle.com ([156.151.31.81]:33247 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755469AbbJ1QFJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 12:05:09 -0400
+In-Reply-To: <20151027231702.GA22011@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
----
- net/bridge/netfilter/ebtables.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+On 27/10/2015 23:17, Al Viro wrote:
 
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index f46ca41..26922e9 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -989,7 +989,7 @@ static int do_replace_finish(struct net *net, struct ebt_replace *repl,
- 	   the check on the size is done later, when we have the lock */
- 	if (repl->num_counters) {
- 		unsigned long size = repl->num_counters * sizeof(*counterstmp);
--		counterstmp = vmalloc(size);
-+		counterstmp = vzalloc(size);
- 		if (!counterstmp)
- 			return -ENOMEM;
- 	}
-@@ -1410,7 +1410,7 @@ static int copy_counters_to_user(struct ebt_table *t,
- 		return -EINVAL;
- 	}
- 
--	counterstmp = vmalloc(nentries * sizeof(*counterstmp));
-+	counterstmp = vzalloc(nentries * sizeof(*counterstmp));
- 	if (!counterstmp)
- 		return -ENOMEM;
- 
+> Frankly, as far as I'm concerned, the bottom line is
+> 	* there are two variants of semantics in that area and there's not
+> much that could be done about that.
+
+Yes, that seems to be the case.
+
+> 	* POSIX is vague enough for both variants to comply with it (it's
+> also very badly written in the area in question).
+
+On that aspect I disagree, the POSIX semantics seem clear to me, and are 
+different to the Linux behaviour.
+
+> 	* I don't see any way to implement something similar to Solaris
+> behaviour without a huge increase of memory footprint or massive cacheline
+> pingpong.  Solaris appears to go for memory footprint from hell - cacheline
+> per descriptor (instead of a pointer per descriptor).
+
+Yes, that does seem to be the case. Thanks for the detailed explanation 
+you've provided as to why that's so.
+
+> 	* the benefits of Solaris-style behaviour are not obvious - all things
+> equal it would be interesting, but the things are very much not equal.  What's
+> more, if your userland code is such that accept() argument could be closed by
+> another thread, the caller *cannot* do anything with said argument after
+> accept() returns, no matter which variant of semantics is used.
+
+Yes, irrespective of how you terminate the accept, once it returns with 
+an error it's unsafe to use the FD, with the exception of failures such 
+as EAGAIN, EINTR etc. However the shutdown() behaviour of Linux is not 
+POSIX compliant and allowing an accept to continue of a FD that's been 
+closed doesn't seem correct either.
+
+> 	* [Linux-specific aside] our __alloc_fd() can degrade quite badly
+> with some use patterns.  The cacheline pingpong in the bitmap is probably
+> inevitable, unless we accept considerably heavier memory footprint,
+> but we also have a case when alloc_fd() takes O(n) and it's _not_ hard
+> to trigger - close(3);open(...); will have the next open() after that
+> scanning the entire in-use bitmap.  I think I see a way to improve it
+> without slowing the normal case down, but I'll need to experiment a
+> bit before I post patches.  Anybody with examples of real-world loads
+> that make our descriptor allocator to degrade is very welcome to post
+> the reproducers...
+
+It looks like the remaining discussion is going to be about Linux 
+implementation details so I'll bow out at this point. Thanks again for 
+all the helpful explanation.
+
 -- 
-2.6.1
+Alan Burlison
+--
