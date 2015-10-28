@@ -1,56 +1,51 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH v7 02/10] ss: created formatters for json and hr
-Date: Wed, 28 Oct 2015 16:05:23 +0100
-Message-ID: <20151028150523.GQ26876@orbit.nwl.cc>
-References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
- <1441913708-15532-3-git-send-email-matthias.tafelmeier@gmx.net>
- <20150923162650.148fe95b@urahara>
- <bc9cacb94de24857a7d9e13960bfae56@HQ1WP-EXMB11.corp.brocade.com>
- <20150924151630.28129cdb@urahara>
- <5604E357.9000802@gmx.net>
- <56308253.2060608@gmx.net>
- <20151028082815.GO26876@orbit.nwl.cc>
- <5630B828.6070500@gmx.net>
+From: Dan Streetman <dan.streetman@canonical.com>
+Subject: Re: [PATCH] xfrm: dst_entries_init() per-net dst_ops
+Date: Wed, 28 Oct 2015 11:09:09 -0400
+Message-ID: <CAOZ2QJMjmma7PZevbuBN9QBeLdR_U9=AA_kZCdh68w2ii2mDQw@mail.gmail.com>
+References: <1445962519-16133-1-git-send-email-dan.streetman@canonical.com>
+ <CAOZ2QJMuPoSrrFdudiGYQ4PjvELbonqg94X2mQaUhZ-R5yS0hw@mail.gmail.com> <1446039763.132965.422568409.3FC44B03@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hagen@jauu.net" <hagen@jauu.net>,
-	"shemminger@osdl.org" <shemminger@osdl.org>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"edumazet@google.com" <edumazet@google.com>
-To: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:33875 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752022AbbJ1PFZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Oct 2015 11:05:25 -0400
-Content-Disposition: inline
-In-Reply-To: <5630B828.6070500@gmx.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Dan Streetman <ddstreet@ieee.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446039763.132965.422568409.3FC44B03@webmail.messagingengine.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 28, 2015 at 12:57:28PM +0100, Matthias Tafelmeier wrote:
-> >> Those resentments were related to the patchsets complexity and
-> >> size.
-> >=20
-> > I didn't see any problem with that in the first place. It is indeed
-> > a big change, achieving something like that without a big patch set
-> > is unlikely.
-> >=20
->=20
-> Fine, I was just repounding that since Steven Hemminger raised that.
-> My reasoning here is that I just don't want to kick off restarting
-> work whith objections still in the minds =E2=80=93 since we are alrea=
-dy at V7
-> now.
+On Wed, Oct 28, 2015 at 9:42 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hello,
+>
+> On Wed, Oct 28, 2015, at 14:32, Dan Streetman wrote:
+>> On Tue, Oct 27, 2015 at 12:15 PM,  <dan.streetman@canonical.com> wrote:
+>> > From: Dan Streetman <dan.streetman@canonical.com>
+>> >
+>> > The ipv4 and ipv6 xfrms each create a template dst_ops object, and
+>> > perform dst_entries_init() on the template objects.  Then each net
+>> > namespace has its net.xfrm.xfrm[46]_dst_ops field set to the template
+>> > values.  The problem with that is the dst_ops.pcpuc_entries field is
+>> > a percpu counter and cannot be used correctly by simply copying it to
+>> > another object.
+>
+> How hard would it be to split of the counters from the dst_ops struct?
+> We could make dst_ops instances const and have normal pointers to them
+> and keep the dst_entries as a small array in net namespace?
 
-Yeah, sorry for not having looked into this earlier. Also, I neither
-have nor claim any power of veto. Apart from that, I'm not against this
-patch series in general, just trying to help raise it's quality a bit.
-Eventually, we don't set anything in stone so everything can be
-fixed/improved later on. Except Git history of course, which is
-important to get right in relation to bisecting.
+Well, the dst_ops->pcpuc_entries counter is used in dst.c which just
+gets a struct dst_ops *, so it doesn't have access to the owning net
+namespace.  And, not all dst_ops users have a per-net-namespace
+dst_ops; ipv4/route.c for example uses a global "ipv4_dst_ops" object.
+So it probably does need to stay owned by dst_ops.
 
-Cheers, Phil
+
+>
+> Bye,
+> Hannes
