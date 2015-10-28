@@ -1,65 +1,72 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: Re: [RFC] unix: fix use-after-free in unix_dgram_poll()
-Date: Wed, 28 Oct 2015 13:57:47 -0400
-Message-ID: <56310C9B.1010608@akamai.com>
-References: <cover.1443817522.git.jbaron@akamai.com>
- <f4e283269e7063317956ea1de6fdc58449ee75cd.1443817522.git.jbaron@akamai.com>
- <87bncdxool.fsf@doppelsaurus.mobileactivedefense.com>
- <5612B9A9.8050301@akamai.com>
- <87lhb7sttz.fsf@doppelsaurus.mobileactivedefense.com>
- <561DCFA4.3010300@akamai.com>
- <87d1wh8hqh.fsf@doppelsaurus.mobileactivedefense.com>
- <561F156E.9050905@akamai.com>
- <87fv17x59w.fsf@doppelsaurus.mobileactivedefense.com>
- <5625073C.5010809@akamai.com>
- <87vba1i383.fsf@doppelsaurus.mobileactivedefense.com>
- <874mhbx7o1.fsf_-_@doppelsaurus.mobileactivedefense.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] hyperv: Add handler for
+ RNDIS_STATUS_NETWORK_CHANGE event
+Date: Wed, 28 Oct 2015 17:59:50 +0000
+Message-ID: <BN1PR0301MB07703A09DC093B0394D78888CA210@BN1PR0301MB0770.namprd03.prod.outlook.com>
+References: <06b508cbb6b949f4b3e13e7797948e56@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20140623131723.GA7026@aepfle.de>
+ <5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20140623.131018.1349792926453695313.davem@davemloft.net>
+ <CAFLxGvwjhxxc2OgerCeF4nmvpbTV1-XttUZ2poaDLFWcBpaOxw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, minipli@googlemail.com,
-	normalperson@yhbt.net, eric.dumazet@gmail.com,
-	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
-	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
-	torvalds@linux-foundation.org, peterz@infradead.org
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <874mhbx7o1.fsf_-_@doppelsaurus.mobileactivedefense.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>, LKML <linux-kernel@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Richard Weinberger <richard.weinberger@gmail.com>, David Miller
+ <davem@davemloft.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <CAFLxGvwjhxxc2OgerCeF4nmvpbTV1-XttUZ2poaDLFWcBpaOxw@mail.gmail.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On 10/28/2015 12:46 PM, Rainer Weikusat wrote:
-> Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
->> Jason Baron <jbaron@akamai.com> writes:
-> 
-> [...]
-> 
->>> 2)
->>>
->>> For the case of epoll() in edge triggered mode we need to ensure that
->>> when we return -EAGAIN from unix_dgram_sendmsg() when unix_recvq_full()
->>> is true, we need to add a unix_peer_wake_connect() call to guarantee a
->>> wakeup. Otherwise, we are going to potentially hang there.
->>
->> I consider this necessary.
-> 
-> (As already discussed privately) just doing this would open up another
-> way for sockets to be enqueued on the peer_wait queue of the peer
-> forever despite no one wants to be notified of write space
-> availability. Here's another RFC patch addressing the issues so far plus
-> this one by breaking the connection to the peer socket from the wake up
-> relaying function. This has the nice additional property that the
-> dgram_poll code becomes somewhat simpler as the "dequeued where we
-> didn't enqueue" situation can no longer occur and the not-so-nice
-> additional property that the connect and disconnect functions need to
-> take the peer_wait.lock spinlock explicitly so that this lock is used to
-> ensure that no two threads modifiy the private pointer of the client
-> wait_queue_t.
 
-Hmmm...I thought these were already all guarded by unix_state_lock(sk).
-In any case, rest of the patch overall looks good to me.
+
+> -----Original Message-----
+> From: Richard Weinberger [mailto:richard.weinberger@gmail.com]
+> Sent: Tuesday, October 27, 2015 6:36 PM
+> To: David Miller <davem@davemloft.net>
+> Cc: Haiyang Zhang <haiyangz@microsoft.com>; olaf@aepfle.de; Greg Kroah-
+> Hartman <greg@kroah.com>; netdev@vger.kernel.org;
+> jasowang@redhat.com; driverdev-devel@linuxdriverproject.org; LKML
+> <linux-kernel@vger.kernel.org>
+> Subject: Re: [PATCH net-next] hyperv: Add handler for
+> RNDIS_STATUS_NETWORK_CHANGE event
+> 
+> On Mon, Jun 23, 2014 at 10:10 PM, David Miller <davem@davemloft.net>
+> wrote:
+> > From: Haiyang Zhang <haiyangz@microsoft.com>
+> > Date: Mon, 23 Jun 2014 16:09:59 +0000
+> >
+> >> So, what's the equivalent or similar command to "network restart" on
+> >> SLES12? Could you update the command line for the usermodehelper
+> when
+> >> porting this patch to SLES 12?
+> >
+> > No, you are not going to keep the usermodehelper invocation in your
+> > driver please remove it.  It is absolutely inappropriate, and I
+> > strictly do not want to keep it in there because other people will
+> > copy it and then we'll have a real mess on our hands.
+> 
+> Sorry for digging up this old thread.
+> While talking with some guys about usermodehelper abuses I came across
+> this gem.
+> Mainline still contains that "/etc/init.d/network restart" code.
+> Haiyang, care to cleanup?
+
+I will clean up the usermode helper soon.
 
 Thanks,
-
--Jason
+- Haiyang
