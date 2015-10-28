@@ -1,56 +1,36 @@
 From: Loganaden Velvindron <logan@elandsys.com>
-Subject: [PATCH 1/1 net-next] net: bridge: use vzalloc() instead of vmalloc()
- for counterstmp
-Date: Wed, 28 Oct 2015 11:29:53 -0700
-Message-ID: <20151028182953.GA11738@mx.elandsys.com>
+Subject: Re: [PATCH net-next] net: bridge: use vzalloc() instead of vmalloc()
+ as counterstmp is not cleared before it is used in get_counters().
+ counterstmp might be leaked partially when it is sent to userland later on.
+Date: Wed, 28 Oct 2015 11:34:29 -0700
+Message-ID: <20151028183429.GA19990@mx.elandsys.com>
+References: <20151028155654.GA2775@mx.elandsys.com>
+ <56310F8C.2080201@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.qubic.net ([208.69.177.116]:62695 "EHLO mx.elandsys.com"
+Received: from ns1.qubic.net ([208.69.177.116]:62579 "EHLO mx.elandsys.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755704AbbJ1S34 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Oct 2015 14:29:56 -0400
-Received: from mx.elandsys.com (IDENT:logan@localhost [127.0.0.1])
-	by mx.elandsys.com (8.14.5/8.14.5) with ESMTP id t9SITrPP012497
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 11:29:54 -0700 (PDT)
-Received: (from logan@localhost)
-	by mx.elandsys.com (8.14.5/8.14.5/Submit) id t9SITrrE015582
-	for netdev@vger.kernel.org; Wed, 28 Oct 2015 11:29:53 -0700 (PDT)
+	id S1751191AbbJ1Sei (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Oct 2015 14:34:38 -0400
 Content-Disposition: inline
+In-Reply-To: <56310F8C.2080201@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-counterstmp is not cleared before it is used in get_counters(). it might be 
-leaked partially when it is sent to userland later on.
+On Wed, Oct 28, 2015 at 09:10:20PM +0300, Sergei Shtylyov wrote:
+> Hello.
+> 
+>    Your subject is too long, it should have been placed in the changelog
+> partially. You you didn't sign off on the patch, so it can't applied.
+> 
+> MBR, Sergei
 
-Signed-off-by: Loganaden Velvindron <logan@elandsys.com>
----
- net/bridge/netfilter/ebtables.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index f46ca41..26922e9 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -989,7 +989,7 @@ static int do_replace_finish(struct net *net, struct ebt_replace *repl,
- 	   the check on the size is done later, when we have the lock */
- 	if (repl->num_counters) {
- 		unsigned long size = repl->num_counters * sizeof(*counterstmp);
--		counterstmp = vmalloc(size);
-+		counterstmp = vzalloc(size);
- 		if (!counterstmp)
- 			return -ENOMEM;
- 	}
-@@ -1410,7 +1410,7 @@ static int copy_counters_to_user(struct ebt_table *t,
- 		return -EINVAL;
- 	}
- 
--	counterstmp = vmalloc(nentries * sizeof(*counterstmp));
-+	counterstmp = vzalloc(nentries * sizeof(*counterstmp));
- 	if (!counterstmp)
- 		return -ENOMEM;
- 
--- 
-2.6.1
+Thank you. Please reject this patch. I re-sent a proper one in another mail.
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
