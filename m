@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] RDS-TCP: Recover correctly from
- pskb_pull()/pksb_trim() failure in rds_tcp_data_recv
-Date: Tue, 27 Oct 2015 19:47:04 -0700 (PDT)
-Message-ID: <20151027.194704.863557122432415853.davem@davemloft.net>
-References: <20151026164637.GK10039@oracle.com>
+Subject: Re: [PATCH net] amd-xgbe: Fix race between access of desc and desc
+ index
+Date: Tue, 27 Oct 2015 19:50:07 -0700 (PDT)
+Message-ID: <20151027.195007.1435133435434786670.davem@davemloft.net>
+References: <20151026221354.927.9237.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, santosh.shilimkar@oracle.com
-To: sowmini.varadhan@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151026164637.GK10039@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com
+To: thomas.lendacky@amd.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44632 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754940AbbJ1Cd0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 22:33:26 -0400
+In-Reply-To: <20151026221354.927.9237.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Mon, 26 Oct 2015 12:46:37 -0400
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Mon, 26 Oct 2015 17:13:54 -0500
 
-> Either of pskb_pull() or pskb_trim() may fail under low memory conditions.
-> If rds_tcp_data_recv() ignores such failures, the application will
-> receive corrupted data because the skb has not been correctly
-> carved to the RDS datagram size.
+> During Tx cleanup it's still possible for the descriptor data to be
+> read ahead of the descriptor index. A memory barrier is required between
+> the read of the descriptor index and the start of the Tx cleanup loop.
+> This allows a change to a lighter-weight barrier in the Tx transmit
+> routine just before updating the current descriptor index.
 > 
-> Avoid this by handling pskb_pull/pskb_trim failure in the same
-> manner as the skb_clone failure: bail out of rds_tcp_data_recv(), and
-> retry via the deferred call to rds_send_worker() that gets set up on
-> ENOMEM from rds_tcp_read_sock()
+> Since the memory barrier does result in extra overhead on arm64, keep
+> the previous change to not chase the current descriptor value. This
+> prevents the execution of the barrier for each loop performed.
 > 
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> Suggested-by: Alexander Duyck <alexander.duyck@gmail.com>
+> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
