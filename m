@@ -1,41 +1,93 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] Erroneous behavior in try_to_coalesce
-Date: Wed, 28 Oct 2015 13:04:59 -0700
-Message-ID: <1446062699.7476.77.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAJFSNy4ar_=QP-zYi_AmEZ_70JOgOiqELBdWWQ=AZy=2Faxf5Q@mail.gmail.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Wed, 28 Oct 2015 21:13:47 +0000
+Message-ID: <20151028211347.GC22011@ZenIV.linux.org.uk>
+References: <1445991236.7476.59.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151028123543.GB22011@ZenIV.linux.org.uk>
+ <1446038672.7476.65.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1446043677.7476.68.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@redhat.com, David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
 	netdev@vger.kernel.org,
-	SiteGround Operations <operations@siteground.com>
-To: Nikolay Borisov <kernel@kyup.com>
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	dhowells@redhat.com, linux-fsdevel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35656 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750927AbbJ1UFC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 16:05:02 -0400
-Received: by pasz6 with SMTP id z6so16193108pas.2
-        for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 13:05:01 -0700 (PDT)
-In-Reply-To: <CAJFSNy4ar_=QP-zYi_AmEZ_70JOgOiqELBdWWQ=AZy=2Faxf5Q@mail.gmail.com>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:59254 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755908AbbJ1VNw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 17:13:52 -0400
+Content-Disposition: inline
+In-Reply-To: <1446043677.7476.68.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-10-29 at 04:19 +0900, Nikolay Borisov wrote:
-
+On Wed, Oct 28, 2015 at 07:47:57AM -0700, Eric Dumazet wrote:
+> On Wed, 2015-10-28 at 06:24 -0700, Eric Dumazet wrote:
 > 
+> > Before I take a deep look at your suggestion, are you sure plain use of
+> > include/linux/percpu-refcount.h infra is not possible for struct cred ?
 > 
-> Could you please comment whether it looks viable so that I can resend
-> as a proper fix? Also the interesting question is what kind of packets
-> could trigger this warn_on_once? In both traces ovs_packet_cmd_execute
-> is present so I suspect it might be possible that somehow openvswitch is
-> injecting wrong packets which make the kernel crash.
+> BTW, I am not convinced we need to spend so much energy and per-cpu
+> memory for struct cred refcount.
+> 
+> The big problem is fd array spinlock of course and bitmap search for
+> POSIX compliance.
+> 
+> The cache line trashing in struct cred is a minor one ;)
 
-Bug is the packet producer, not in try_to_coalesce()
+percpu-refcount isn't convenient - the only such candidate for ref_kill in
+there is "all other references are gone", and that can happen in
+interesting locking environments.  I doubt that it would be a good fit, TBH...
 
-This issue comes up on netdev from times to times...
+Cacheline pingpong on the descriptors bitmap is probably inevitable, but
+it's not the only problem in the existing implementation - close a small
+descriptor when you've got a lot of them and look for the second open
+after that.  _That_ can lead to thousands of cachelines being read through,
+all under the table spinlock.  It's literally orders of magnitude worse.
+And if the first open after that close happens to be for a short-living
+descriptor, you'll get the same situation back in your face as soon as you
+close it.
 
-The WARN_ON() in try_to_coalesce() is an attempt to detect a producer
-made a lie about truesize, leading to OOM in case of abuses.
+I think we can seriously improve that without screwing the fast path by
+adding "summary" bitmaps once the primary grows past the cacheline worth
+of bits.  With bits in the summary bitmap corresponding to cacheline-sized
+chunks of the primary, being set iff all bits in the corresponding chunk
+are set.  If the summary map grows larger than one cacheline, add the
+second-order one (that happens at quarter million descriptors and serves
+until 128 million; adding the third-order map is probably worthless).
 
-Do not paper over the bug, find the root cause and fix it, thanks.
+I want to maintain the same kind of "everything below this is known to be
+in use" thing as we do now.  Allocation would start with looking into the
+same place in primary bitmap where we'd looked now and similar search
+forward for zero bit.  _However_, it would stop at cacheline boundary.
+If nothing had been found, we look in the corresponding place in the
+summary bitmap and search for zero bit there.  Again, no more than up
+to the cacheline boundary.  If something is found, we've got a chunk in
+the primary known to contain a zero bit; if not - go to the second-level
+and search there, etc.
+
+When a zero bit in the primary had been found, check if it's within the
+rlimit (passed to __alloc_fd() explicitly) and either bugger off or set
+that bit.  If there are zero bits left in the same word - we are done,
+otherwise check the still unread words in the cacheline and see if all
+of them are ~0UL.  If all of them are, set the bit in summary bitmap, etc.
+
+Normal case is exactly the same as now - one cacheline accessed and modified.
+We might end up touching more than that, but it's going to be rare and
+the cases when it happens are very likely to lead to much worse amount of
+memory traffic with the current code.
+
+Freeing is done by zeroing the bit in primary, checking for other zero bits
+nearby and buggering off if there are such.  If the entire cacheline used
+to be all-bits-set, clear the bit in summary and, if there's a second-order
+summary, get the bit in there clear as well - it's probably not worth
+bothering with checking that all the cacheline in summary bitmap had been
+all-bits-set.  Again, the normal case is the same as now.
+
+It'll need profiling and tuning, but AFAICS it's doable without making the
+things worse than they are now, and it should get rid of those O(N) fetches
+under spinlock cases.  And yes, those are triggerable and visible in
+profiles.  IMO it's worth trying to fix...
