@@ -1,45 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Wed, 28 Oct 2015 07:47:57 -0700
-Message-ID: <1446043677.7476.68.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <201510221824.t9MIOp6n003978@room101.nl.oracle.com>
-	 <20151022190701.GV22011@ZenIV.linux.org.uk>
-	 <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
-	 <20151022215741.GW22011@ZenIV.linux.org.uk>
-	 <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
-	 <20151024023054.GZ22011@ZenIV.linux.org.uk>
-	 <201510270908.t9R9873a001683@room101.nl.oracle.com>
-	 <562F577E.6000901@oracle.com> <20151027231702.GA22011@ZenIV.linux.org.uk>
-	 <1445991236.7476.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151028123543.GB22011@ZenIV.linux.org.uk>
-	 <1446038672.7476.65.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net-next 0/4] sfc: NUMA support
+Date: Wed, 28 Oct 2015 15:00:13 +0000
+Message-ID: <5630E2FD.3070609@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	dhowells@redhat.com, linux-fsdevel@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:35254 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964AbbJ1Or7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 10:47:59 -0400
-In-Reply-To: <1446038672.7476.65.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:45908 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750968AbbJ1PA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 11:00:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-10-28 at 06:24 -0700, Eric Dumazet wrote:
+This patch series adds support for 
+- allocating rx pages local to the interrupt
+- setting affinity hint to influence IRQs to be allocated on the
+same NUMA node as the one where the card resides.
 
-> Before I take a deep look at your suggestion, are you sure plain use of
-> include/linux/percpu-refcount.h infra is not possible for struct cred ?
+Alexandra Kossovsky (1):
+  sfc: use __GFP_NOWARN when allocating RX pages from atomic context.
 
-BTW, I am not convinced we need to spend so much energy and per-cpu
-memory for struct cred refcount.
+Bert Kenward (2):
+  sfc: Use cpu_to_mem() to support memoryless nodes
+  sfc: set and clear interrupt affinity hints
 
-The big problem is fd array spinlock of course and bitmap search for
-POSIX compliance.
+Daniel Pieczko (1):
+  sfc: allocate rx pages on the same node as the interrupt
 
-The cache line trashing in struct cred is a minor one ;)
+ drivers/net/ethernet/sfc/efx.c        | 36 +++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/sfc/net_driver.h |  3 +++
+ drivers/net/ethernet/sfc/rx.c         | 18 +++++++++++++++---
+ 3 files changed, 54 insertions(+), 3 deletions(-)
