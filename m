@@ -1,62 +1,43 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RESEND PATCH 07/10] net: wireless: iwlegacy: Remove unneeded
- variable ret
-Date: Wed, 28 Oct 2015 16:36:30 +0300
-Message-ID: <5630CF5E.1030801@cogentembedded.com>
-References: <1445972565-14963-1-git-send-email-punitvara@gmail.com>
- <1445972565-14963-7-git-send-email-punitvara@gmail.com>
- <5630CF11.8080504@cogentembedded.com>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [RFC PATCH net-next 1/4] perf tools: Enable pre-event inherit
+ setting by config terms
+Date: Wed, 28 Oct 2015 10:42:13 -0300
+Message-ID: <20151028134213.GC18670@kernel.org>
+References: <1446029705-199659-1-git-send-email-wangnan0@huawei.com>
+ <1446029705-199659-2-git-send-email-wangnan0@huawei.com>
+ <20151028132126.GD5216@krava.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Punit Vara <punitvara@gmail.com>, kvalo@qca.qualcomm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5630CF11.8080504@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Wang Nan <wangnan0@huawei.com>, ast@kernel.org,
+	brendan.d.gregg@gmail.com, jolsa@kernel.org, lizefan@huawei.com,
+	pi3orama@163.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Jiri Olsa <jolsa@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:38812 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965646AbbJ1NmS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Oct 2015 09:42:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20151028132126.GD5216@krava.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/28/2015 4:35 PM, Sergei Shtylyov wrote:
+Em Wed, Oct 28, 2015 at 02:21:26PM +0100, Jiri Olsa escreveu:
+> On Wed, Oct 28, 2015 at 10:55:02AM +0000, Wang Nan wrote:
+> > @@ -55,6 +56,7 @@ struct perf_evsel_config_term {
+> >  		bool	time;
+> >  		char	*callgraph;
+> >  		u64	stack_user;
+> > +		u64	inherit;
+> 
+> seems like bool would be enough
 
->> This patch is to the 3945-mac.c file that fixes up following warning
->> by coccicheck:
->>
->> drivers/net/wireless/iwlegacy/3945-mac.c:247:5-8: Unneeded variable:
->> "ret". Return "- EOPNOTSUPP" on line 249
->>
->> Return -EOPNOTSUPP directly instead of return using ret
->>
->> Signed-off-by: Punit Vara <punitvara@gmail.com>
->> ---
->>   drivers/net/wireless/iwlegacy/3945-mac.c | 5 +----
->>   1 file changed, 1 insertion(+), 4 deletions(-)
->>
->> diff --git a/drivers/net/wireless/iwlegacy/3945-mac.c
->> b/drivers/net/wireless/iwlegacy/3945-mac.c
->> index af1b3e6..ff4dc44 100644
->> --- a/drivers/net/wireless/iwlegacy/3945-mac.c
->> +++ b/drivers/net/wireless/iwlegacy/3945-mac.c
->> @@ -244,9 +244,7 @@ il3945_set_dynamic_key(struct il_priv *il, struct
->> ieee80211_key_conf *keyconf,
->>   static int
->>   il3945_remove_static_key(struct il_priv *il)
->>   {
->> -    int ret = -EOPNOTSUPP;
->> -
->> -    return ret;
->> +    return -EOPNOTSUPP;
->>   }
->>
->>   static int
->> @@ -529,7 +527,6 @@ il3945_tx_skb(struct il_priv *il,
->>           if (unlikely(tid >= MAX_TID_COUNT))
->>               goto drop;
->>       }
->> -
->
->     Unrelated white space change.
+Ok, will change this and move it to a more suitable place member
+alignment wise.
 
-    And I've already complained about it! Please remove this hunk.
+Can I, with this change, slap an Acked-by: jirka?
 
-MBR, Sergei
+- Arnaldo
