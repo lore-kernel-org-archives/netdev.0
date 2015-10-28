@@ -1,51 +1,76 @@
-From: Dan Streetman <dan.streetman@canonical.com>
-Subject: Re: [PATCH] xfrm: dst_entries_init() per-net dst_ops
-Date: Wed, 28 Oct 2015 11:09:09 -0400
-Message-ID: <CAOZ2QJMjmma7PZevbuBN9QBeLdR_U9=AA_kZCdh68w2ii2mDQw@mail.gmail.com>
-References: <1445962519-16133-1-git-send-email-dan.streetman@canonical.com>
- <CAOZ2QJMuPoSrrFdudiGYQ4PjvELbonqg94X2mQaUhZ-R5yS0hw@mail.gmail.com> <1446039763.132965.422568409.3FC44B03@webmail.messagingengine.com>
+From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Subject: Re: [PATCH v7 02/10] ss: created formatters for json and hr
+Date: Wed, 28 Oct 2015 16:50:44 +0100
+Message-ID: <5630EED4.30203@gmx.net>
+References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
+ <1441913708-15532-3-git-send-email-matthias.tafelmeier@gmx.net>
+ <20150923162650.148fe95b@urahara>
+ <bc9cacb94de24857a7d9e13960bfae56@HQ1WP-EXMB11.corp.brocade.com>
+ <20150924151630.28129cdb@urahara> <5604E357.9000802@gmx.net>
+ <56308253.2060608@gmx.net> <20151028082815.GO26876@orbit.nwl.cc>
+ <5630B828.6070500@gmx.net> <20151028150523.GQ26876@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Dan Streetman <ddstreet@ieee.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446039763.132965.422568409.3FC44B03@webmail.messagingengine.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha384;
+ protocol="application/pgp-signature";
+ boundary="3KUfrW2TOlgPWeIGJudK9uuvEkhK5lH18"
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hagen@jauu.net" <hagen@jauu.net>,
+	"shemminger@osdl.org" <shemminger@osdl.org>,
+	"fw@strlen.de" <fw@strlen.de>,
+	"edumazet@google.com" <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.17.21]:58714 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755844AbbJ1PvB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Oct 2015 11:51:01 -0400
+In-Reply-To: <20151028150523.GQ26876@orbit.nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 28, 2015 at 9:42 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> Hello,
->
-> On Wed, Oct 28, 2015, at 14:32, Dan Streetman wrote:
->> On Tue, Oct 27, 2015 at 12:15 PM,  <dan.streetman@canonical.com> wrote:
->> > From: Dan Streetman <dan.streetman@canonical.com>
->> >
->> > The ipv4 and ipv6 xfrms each create a template dst_ops object, and
->> > perform dst_entries_init() on the template objects.  Then each net
->> > namespace has its net.xfrm.xfrm[46]_dst_ops field set to the template
->> > values.  The problem with that is the dst_ops.pcpuc_entries field is
->> > a percpu counter and cannot be used correctly by simply copying it to
->> > another object.
->
-> How hard would it be to split of the counters from the dst_ops struct?
-> We could make dst_ops instances const and have normal pointers to them
-> and keep the dst_entries as a small array in net namespace?
-
-Well, the dst_ops->pcpuc_entries counter is used in dst.c which just
-gets a struct dst_ops *, so it doesn't have access to the owning net
-namespace.  And, not all dst_ops users have a per-net-namespace
-dst_ops; ipv4/route.c for example uses a global "ipv4_dst_ops" object.
-So it probably does need to stay owned by dst_ops.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--3KUfrW2TOlgPWeIGJudK9uuvEkhK5lH18
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
 
->
-> Bye,
-> Hannes
+> Yeah, sorry for not having looked into this earlier. Also, I neither
+> have nor claim any power of veto.
+
+No big issue. Maybe Stephen can clarifiy things. I mean acknowledge no
+further objections.
+
+>  Apart from that, I'm not against this
+> patch series in general, just trying to help raise it's quality a bit.
+
+Many thanks for that.
+
+> Eventually, we don't set anything in stone so everything can be
+> fixed/improved later on. Except Git history of course, which is
+> important to get right in relation to bisecting.
+Absolutely!
+
+--=20
+BR
+
+Matthias
+
+
+--3KUfrW2TOlgPWeIGJudK9uuvEkhK5lH18
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBCQAGBQJWMO7UAAoJEOAWT1uK3zQ7B30IAJbJRXT2rv42XRvD22gB/psg
+3KK3tGkZl5qL3MP5+Lhtwf2KdRjB3GU4B2zL54bidBgXxvhiwt4BCmQVH3fYWe/O
+Zp0yj/IflPDcbUrMOshyYIRZHgjG7uH3hB6E5i+SBZOMwZOcJmODqZCmBRMt/GY/
+VSk+x/B0yvIxGtL0XBjX6m2Cfj3kEn5Y6mihMgdvhJ0MUlmKqQHyF4YwQ/lHul0M
+Ij8MPUEkkX9B76q4OnSDyQKks4KutcmQKe4l9qBneysicoAl3zzJcw3INZDxnqyU
+NgSQ2xpS+AGJKCXBsRxvw0LJiOoroPBcgWtBKyVLzVZdHFSyehgFkKsjiZqPAzA=
+=MChS
+-----END PGP SIGNATURE-----
+
+--3KUfrW2TOlgPWeIGJudK9uuvEkhK5lH18--
