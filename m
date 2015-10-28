@@ -1,67 +1,46 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH v2 1/4] net: dsa: allow switch drivers to cleanup
- their resources
-Date: Wed, 28 Oct 2015 15:25:56 +0100
-Message-ID: <20151028142556.GE2307@lunn.ch>
-References: <5630D7E9.4020609@baylibre.com>
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: Re: [GIT] Networking
+Date: Wed, 28 Oct 2015 15:27:41 +0100
+Message-ID: <87pozzvzj6.fsf@rasmusvillemoes.dk>
+References: <20151027.233235.1641084823622810663.davem@davemloft.net>
+	<CA+55aFx0o8e9J6ojHYjvOA5aRnKoW5j10fh76Ks1=VegPc4k6w@mail.gmail.com>
+	<1446030209.105419.422375497.14563933@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	vivien.didelot@savoirfairelinux.com,
-	Fabian Frederick <fabf@skynet.be>,
-	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Neil Armstrong <narmstrong@baylibre.com>
+Content-Type: text/plain
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5630D7E9.4020609@baylibre.com>
+In-Reply-To: <1446030209.105419.422375497.14563933@webmail.messagingengine.com>
+	(Hannes Frederic Sowa's message of "Wed, 28 Oct 2015 12:03:29 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 28, 2015 at 03:12:57PM +0100, Neil Armstrong wrote:
-> Some switch drivers might request interrupts, remap register ranges,
-> allow such drivers to implement a "remove" callback doing just that.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
-> ---
->  include/net/dsa.h | 1 +
->  net/dsa/dsa.c     | 4 ++++
->  2 files changed, 5 insertions(+)
-> 
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index 98ccbde..0e1502c 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -212,6 +212,7 @@ struct dsa_switch_driver {
->  	 */
->  	char	*(*probe)(struct device *host_dev, int sw_addr);
->  	int	(*setup)(struct dsa_switch *ds);
-> +	void	(*remove)(struct dsa_switch *ds);
->  	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
->  	u32	(*get_phy_flags)(struct dsa_switch *ds, int port);
-> 
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index 1eba07f..f462fc5 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -459,6 +459,10 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
->  	}
-> 
->  	mdiobus_unregister(ds->slave_mii_bus);
-> +
-> +	/* Leave a chance to the driver to cleanup */
+On Wed, Oct 28 2015, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
 
-A nitpick:
+> Hi Linus,
+>
+> On Wed, Oct 28, 2015, at 10:39, Linus Torvalds wrote:
+>> Get rid of it. And I don't *ever* want to see that shit again.
+>
+> I don't want to give up on that this easily:
+>
+> In future I would like to see an interface like this. It is often hard
+> to do correct overflow/wrap-around tests and it would be great if there
+> are helper functions which could easily and without a lot of thinking be
+> used by people to remove those problems from the kernel.
 
- /* Give the driver a chance to cleanup */
+I agree - proper overflow checking can be really hard. Quick, assuming a
+and b have the same unsigned integer type, is 'a+b<a' sufficient to
+check overflow? Of course not (hint: promotion rules). And as you say,
+it gets even more complicated for signed types.
 
-would be better English.
+A few months ago I tried posting a complete set of fallbacks for older
+compilers (https://lkml.org/lkml/2015/7/19/358), but nothing really
+happened. Now I know where Linus stands, so I guess I can just delete
+that branch.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-
-	    Andrew
+Rasmus
