@@ -1,27 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v8 00/10] Add new drivers: qed & qede
-Date: Tue, 27 Oct 2015 19:39:30 -0700 (PDT)
-Message-ID: <20151027.193930.785372079839047241.davem@davemloft.net>
-References: <1445850154-19322-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: Re: [PATCH net-next] sock: don't enable netstamp for af_unix
+ sockets
+Date: Tue, 27 Oct 2015 19:39:39 -0700 (PDT)
+Message-ID: <20151027.193939.2131141133181953706.davem@davemloft.net>
+References: <1445863897-22646-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
+Cc: netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44579 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44582 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754754AbbJ1CWt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 22:22:49 -0400
-In-Reply-To: <1445850154-19322-1-git-send-email-Yuval.Mintz@qlogic.com>
+	with ESMTP id S1755260AbbJ1CW5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 22:22:57 -0400
+In-Reply-To: <1445863897-22646-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Mon, 26 Oct 2015 11:02:24 +0200
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 26 Oct 2015 13:51:37 +0100
 
-> This series implements the driver set for Qlogic's new QL4xxx series.
-> These are 10/20/25/40/50/100 Gig capable converged nics, supporting
-> ethernet (obviously), iscsi, fcoe, roce and iwarp protocols.
+> netstamp_needed is toggled for all socket families if they request
+> timestamping. But some protocols don't need the lower-layer timestamping
+> code at all. This patch starts disabling it for af-unix.
+> 
+> E.g. systemd enables timestamping during boot-up on the journald af-unix
+> sockets, thus causing the system to globally enable timestamping in the
+> lower networking stack. Still, it is very probable that timestamping
+> gets activated, by e.g. dhclient or various NTP implementations.
+> 
+> Reported-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Series applied.
+Applied.
