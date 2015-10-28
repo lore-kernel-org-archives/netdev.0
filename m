@@ -1,28 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] seccomp, ptrace: add support for dumping
- seccomp filters
-Date: Tue, 27 Oct 2015 19:55:57 -0700 (PDT)
-Message-ID: <20151027.195557.2179752995547193374.davem@davemloft.net>
-References: <1445905439-25449-1-git-send-email-tycho.andersen@canonical.com>
-	<1445905439-25449-2-git-send-email-tycho.andersen@canonical.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v7 10/10] ss: activate json_writer excluded logic
+Date: Wed, 28 Oct 2015 11:39:41 +0900
+Message-ID: <20151028113941.062d74a3@samsung9>
+References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
+	<1441913708-15532-11-git-send-email-matthias.tafelmeier@gmx.net>
+	<20151027132103.GI26876@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-	oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
-	serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1445905439-25449-2-git-send-email-tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>,
+	netdev@vger.kernel.org, hagen@jauu.net, shemminger@osdl.org,
+	fw@strlen.de, edumazet@google.com, daniel@iogearbox.net
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:36449 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754305AbbJ1Cjx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 22:39:53 -0400
+Received: by pacfv9 with SMTP id fv9so251705480pac.3
+        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 19:39:49 -0700 (PDT)
+In-Reply-To: <20151027132103.GI26876@orbit.nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Date: Tue, 27 Oct 2015 09:23:59 +0900
+On Tue, 27 Oct 2015 14:21:03 +0100
+Phil Sutter <phil@nwl.cc> wrote:
 
-> This patch adds support for dumping a process' (classic BPF) seccomp
-> filters via ptrace.
+> On Thu, Sep 10, 2015 at 09:35:08PM +0200, Matthias Tafelmeier wrote:
+> > This small patch extends the lib json_writer module for formerly
+> > deactivated functionality.  
+> 
+> Why was it deactivated in the first place?
 
-Applied, thanks.
+The code came from another project that wasn't using this
+function.
