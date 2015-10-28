@@ -1,37 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] amd-xgbe: Fix race between access of desc and desc
- index
-Date: Tue, 27 Oct 2015 19:50:07 -0700 (PDT)
-Message-ID: <20151027.195007.1435133435434786670.davem@davemloft.net>
-References: <20151026221354.927.9237.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [PATCH] bpf: sample: define aarch64 specific registers
+Date: Tue, 27 Oct 2015 19:51:26 -0700 (PDT)
+Message-ID: <20151027.195126.733884775112780045.davem@davemloft.net>
+References: <1445904139-19212-1-git-send-email-yang.shi@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com
-To: thomas.lendacky@amd.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44632 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754940AbbJ1Cd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 22:33:26 -0400
-In-Reply-To: <20151026221354.927.9237.stgit@tlendack-t1.amdoffice.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ast@kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linaro-kernel@lists.linaro.org
+To: yang.shi@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445904139-19212-1-git-send-email-yang.shi@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Mon, 26 Oct 2015 17:13:54 -0500
+From: Yang Shi <yang.shi@linaro.org>
+Date: Mon, 26 Oct 2015 17:02:19 -0700
 
-> During Tx cleanup it's still possible for the descriptor data to be
-> read ahead of the descriptor index. A memory barrier is required between
-> the read of the descriptor index and the start of the Tx cleanup loop.
-> This allows a change to a lighter-weight barrier in the Tx transmit
-> routine just before updating the current descriptor index.
+> Define aarch64 specific registers for building bpf samples correctly.
 > 
-> Since the memory barrier does result in extra overhead on arm64, keep
-> the previous change to not chase the current descriptor value. This
-> prevents the execution of the barrier for each loop performed.
-> 
-> Suggested-by: Alexander Duyck <alexander.duyck@gmail.com>
-> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+> Signed-off-by: Yang Shi <yang.shi@linaro.org>
 
-Applied, thanks.
+Applied.
