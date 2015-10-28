@@ -1,24 +1,33 @@
 From: Wang Nan <wangnan0@huawei.com>
-Subject: [RFC PATCH net-next 4/4] perf data: Support converting data from bpf_perf_event_output()
-Date: Wed, 28 Oct 2015 10:55:05 +0000
-Message-ID: <1446029705-199659-5-git-send-email-wangnan0@huawei.com>
-References: <1446029705-199659-1-git-send-email-wangnan0@huawei.com>
+Subject: [RFC PATCH net-next 0/4] perf tools: Support receiving output through BPF programs
+Date: Wed, 28 Oct 2015 10:55:01 +0000
+Message-ID: <1446029705-199659-1-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <lizefan@huawei.com>, <pi3orama@163.com>, <davem@davemloft.net>,
 	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Wang Nan <wangnan0@huawei.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
+	Wang Nan <wangnan0@huawei.com>
 To: <acme@kernel.org>, <ast@kernel.org>, <brendan.d.gregg@gmail.com>,
 	<jolsa@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446029705-199659-1-git-send-email-wangnan0@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-bpf_perf_event_output() outputs data through sample->raw_data. This
-patch adds support to convert those data into CTF. A python script
-then can be used to process output data from BPF programs.
+Alexei provided a patchset to allow BPF programs output data to ring
+buffer using helper bpf_perf_event_output() [1].  and have been merged
+into net-next as commit a43eec304259a6c637f4014a6d4767159b6a3aa3 (bpf:
+introduce bpf_perf_event_output() helper).
+
+This patchset introduces perf side code to utilize that helper,
+
+This patchset only supports output data to CTF. It is enough for me
+because my workflow is 'perf record' -> 'convert to CTF' -> 'python'.
+However, I know some people heavily rely on 'perf script' to parse
+trace in perf.data. Here I'd like discuss the way to show output data
+using 'perf script'. Currently the only way to watch the output data
+using perf script is to use '-D'.
+
+[1] http://lkml.kernel.org/r/1445396556-4854-1-git-send-email-ast@kernel.org
 
 Example:
 
@@ -71,168 +80,19 @@ Example:
      raw_data = event['raw_data']
      print(raw_data[0] + raw_data[1] << 32, raw_data[2]));
 
-Signed-off-by: Wang Nan <wangnan0@huawei.com>
-Cc: Alexei Starovoitov <ast@plumgrid.com>
-Cc: Arnaldo Carvalho de Melo <acme@kernel.org>
-Cc: Brendan Gregg <brendan.d.gregg@gmail.com>
-Cc: Jiri Olsa <jolsa@kernel.org>
----
- tools/perf/util/data-convert-bt.c | 115 +++++++++++++++++++++++++++++++++++++-
- 1 file changed, 114 insertions(+), 1 deletion(-)
+Wang Nan (4):
+  perf tools: Enable pre-event inherit setting by config terms
+  perf tools: Introduce bpf-output event
+  perf data: Add u32_hex data type
+  perf data: Support converting data from bpf_perf_event_output()
 
-diff --git a/tools/perf/util/data-convert-bt.c b/tools/perf/util/data-convert-bt.c
-index 34cd1e4..44d6e0d 100644
---- a/tools/perf/util/data-convert-bt.c
-+++ b/tools/perf/util/data-convert-bt.c
-@@ -352,6 +352,84 @@ static int add_tracepoint_values(struct ctf_writer *cw,
- 	return ret;
- }
- 
-+static int
-+add_bpf_output_values(struct bt_ctf_event_class *event_class,
-+		      struct bt_ctf_event *event,
-+		      struct perf_sample *sample)
-+{
-+	struct bt_ctf_field_type *len_type, *seq_type;
-+	struct bt_ctf_field *len_field, *seq_field;
-+	unsigned int raw_size = sample->raw_size;
-+	unsigned int nr_elements = raw_size / sizeof(u32);
-+	unsigned int i;
-+	int ret;
-+
-+	if (nr_elements * sizeof(u32) != raw_size)
-+		pr_warning("Incorrect raw_size (%u) in bpf output event, skip %lu bytes\n",
-+			   raw_size, nr_elements * sizeof(u32) - raw_size);
-+	
-+	len_type = bt_ctf_event_class_get_field_by_name(event_class, "raw_len");
-+	len_field = bt_ctf_field_create(len_type);
-+	if (!len_field) {
-+		pr_err("failed to create 'raw_len' for bpf output event\n");
-+		ret = -1;
-+		goto put_len_type;
-+	}
-+
-+	ret = bt_ctf_field_unsigned_integer_set_value(len_field, nr_elements);
-+	if (ret) {
-+		pr_err("failed to set field value for raw_len\n");
-+		goto put_len_field;
-+	}
-+	ret = bt_ctf_event_set_payload(event, "raw_len", len_field);
-+	if (ret) {
-+		pr_err("failed to set payload to raw_len\n");
-+		goto put_len_field;
-+	}
-+
-+	seq_type = bt_ctf_event_class_get_field_by_name(event_class, "raw_data");
-+	seq_field = bt_ctf_field_create(seq_type);
-+	if (!seq_field) {
-+		pr_err("failed to create 'raw_data' for bpf output event\n");
-+		ret = -1;
-+		goto put_seq_type;
-+	}
-+
-+	ret = bt_ctf_field_sequence_set_length(seq_field, len_field);
-+	if (ret) {
-+		pr_err("failed to set length of 'raw_data'\n");
-+		goto put_seq_field;
-+	}
-+
-+	for (i = 0; i < nr_elements; i++) {
-+		struct bt_ctf_field *elem_field =
-+			bt_ctf_field_sequence_get_field(seq_field, i);
-+
-+		ret = bt_ctf_field_unsigned_integer_set_value(elem_field,
-+				((u32 *)(sample->raw_data))[i]);
-+
-+		bt_ctf_field_put(elem_field);
-+		if (ret) {
-+			pr_err("failed to set raw_data[%d]\n", i);
-+			goto put_seq_field;
-+		}
-+	}
-+
-+	ret = bt_ctf_event_set_payload(event, "raw_data", seq_field);
-+	if (ret)
-+		pr_err("failed to set payload for raw_data\n");
-+
-+put_seq_field:
-+	bt_ctf_field_put(seq_field);
-+put_seq_type:
-+	bt_ctf_field_type_put(seq_type);
-+put_len_field:
-+	bt_ctf_field_put(len_field);
-+put_len_type:
-+	bt_ctf_field_type_put(len_type);
-+	return ret;
-+}
-+
- static int add_generic_values(struct ctf_writer *cw,
- 			      struct bt_ctf_event *event,
- 			      struct perf_evsel *evsel,
-@@ -597,6 +675,13 @@ static int process_sample_event(struct perf_tool *tool,
- 			return -1;
- 	}
- 
-+	if ((evsel->attr.type == PERF_TYPE_SOFTWARE) &&
-+	    (evsel->attr.config == PERF_COUNT_SW_BPF_OUTPUT)) {
-+		ret = add_bpf_output_values(event_class, event, sample);
-+		if (ret)
-+			return -1;
-+	}
-+
- 	cs = ctf_stream(cw, get_sample_cpu(cw, sample, evsel));
- 	if (cs) {
- 		if (is_flush_needed(cs))
-@@ -744,6 +829,25 @@ static int add_tracepoint_types(struct ctf_writer *cw,
- 	return ret;
- }
- 
-+static int add_bpf_output_types(struct ctf_writer *cw,
-+				struct bt_ctf_event_class *class)
-+{
-+	struct bt_ctf_field_type *len_type = cw->data.u32;
-+	struct bt_ctf_field_type *seq_base_type = cw->data.u32_hex;
-+	struct bt_ctf_field_type *seq_type;
-+	int ret;
-+
-+	ret = bt_ctf_event_class_add_field(class, len_type, "raw_len");
-+	if (ret)
-+		return ret;
-+
-+	seq_type = bt_ctf_field_type_sequence_create(seq_base_type, "raw_len");
-+	if (!seq_type)
-+		return -1;
-+
-+	return bt_ctf_event_class_add_field(class, seq_type, "raw_data");
-+}
-+
- static int add_generic_types(struct ctf_writer *cw, struct perf_evsel *evsel,
- 			     struct bt_ctf_event_class *event_class)
- {
-@@ -755,7 +859,8 @@ static int add_generic_types(struct ctf_writer *cw, struct perf_evsel *evsel,
- 	 *                              ctf event header
- 	 *   PERF_SAMPLE_READ         - TODO
- 	 *   PERF_SAMPLE_CALLCHAIN    - TODO
--	 *   PERF_SAMPLE_RAW          - tracepoint fields are handled separately
-+	 *   PERF_SAMPLE_RAW          - tracepoint fields and BPF output
-+	 *                              are handled separately
- 	 *   PERF_SAMPLE_BRANCH_STACK - TODO
- 	 *   PERF_SAMPLE_REGS_USER    - TODO
- 	 *   PERF_SAMPLE_STACK_USER   - TODO
-@@ -824,6 +929,14 @@ static int add_event(struct ctf_writer *cw, struct perf_evsel *evsel)
- 			goto err;
- 	}
- 
-+	if ((evsel->attr.type == PERF_TYPE_SOFTWARE) &&
-+	    (evsel->attr.config == PERF_COUNT_SW_BPF_OUTPUT)) {
-+		ret = add_bpf_output_types(cw, event_class);
-+		if (ret)
-+			goto err;
-+
-+	}
-+
- 	ret = bt_ctf_stream_class_add_event_class(cw->stream_class, event_class);
- 	if (ret) {
- 		pr("Failed to add event class into stream.\n");
+ tools/perf/util/data-convert-bt.c | 117 +++++++++++++++++++++++++++++++++++++-
+ tools/perf/util/evsel.c           |  15 +++++
+ tools/perf/util/evsel.h           |   2 +
+ tools/perf/util/parse-events.c    |  18 ++++++
+ tools/perf/util/parse-events.h    |   2 +
+ tools/perf/util/parse-events.l    |   3 +
+ 6 files changed, 156 insertions(+), 1 deletion(-)
+
 -- 
 1.8.3.4
