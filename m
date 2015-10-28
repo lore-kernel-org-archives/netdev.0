@@ -1,50 +1,47 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 09/12] mlxsw: spectrum: Fix ageing time value
-Date: Wed, 28 Oct 2015 10:17:02 +0100
-Message-ID: <1446023825-7162-10-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 08/12] mlxsw: reg: Avoid unnecessary line wrap for mlxsw_reg_sfd_uc_unpack
+Date: Wed, 28 Oct 2015 10:17:01 +0100
+Message-ID: <1446023825-7162-9-git-send-email-jiri@resnulli.us>
 References: <1446023825-7162-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, sagir@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:36737 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965259AbbJ1JRm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 05:17:42 -0400
-Received: by wicfx6 with SMTP id fx6so190677566wic.1
-        for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 02:17:41 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:34233 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965264AbbJ1JRj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 05:17:39 -0400
+Received: by wikq8 with SMTP id q8so244649085wik.1
+        for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 02:17:38 -0700 (PDT)
 In-Reply-To: <1446023825-7162-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-The value passed through switchdev attr set is not in jiffies, but in
-clock_t, so fix the convert.
-
-Reported-by: Sagi Rotem <sagir@mellanox.com>
-Fixes: 56ade8fe3f ("mlxsw: spectrum: Add initial support for Spectrum ASIC")
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 1f3b12e..c2d0969 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -225,9 +225,10 @@ static int mlxsw_sp_ageing_set(struct mlxsw_sp *mlxsw_sp, u32 ageing_time)
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 2bf230c..236fb5d 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -397,10 +397,9 @@ static inline void mlxsw_reg_sfd_uc_pack(char *payload, int rec_index,
+ 	mlxsw_reg_sfd_uc_system_port_set(payload, rec_index, local_port);
+ }
  
- static int mlxsw_sp_port_attr_br_ageing_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 					    struct switchdev_trans *trans,
--					    unsigned long ageing_jiffies)
-+					    unsigned long ageing_clock_t)
+-static inline void
+-mlxsw_reg_sfd_uc_unpack(char *payload, int rec_index,
+-			char *mac, u16 *p_vid,
+-			u8 *p_local_port)
++static inline void mlxsw_reg_sfd_uc_unpack(char *payload, int rec_index,
++					   char *mac, u16 *p_vid,
++					   u8 *p_local_port)
  {
- 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	unsigned long ageing_jiffies = clock_t_to_jiffies(ageing_clock_t);
- 	u32 ageing_time = jiffies_to_msecs(ageing_jiffies) / 1000;
- 
- 	if (switchdev_trans_ph_prepare(trans))
+ 	mlxsw_reg_sfd_rec_mac_memcpy_from(payload, rec_index, mac);
+ 	*p_vid = mlxsw_reg_sfd_uc_fid_vid_get(payload, rec_index);
 -- 
 1.9.3
