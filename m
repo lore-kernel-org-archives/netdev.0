@@ -1,50 +1,47 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 2/2] mpls: reduce memory usage of routes
-Date: Tue, 27 Oct 2015 18:39:20 -0700
-Message-ID: <56302748.7050209@cumulusnetworks.com>
-References: <1445906256-14927-1-git-send-email-rshearma@brocade.com> <1445906256-14927-3-git-send-email-rshearma@brocade.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: new coverity defect in ipv6 route
+Date: Wed, 28 Oct 2015 03:14:04 +0100
+Message-ID: <1445998444.586814.422132817.384693E6@webmail.messagingengine.com>
+References: <20151028094330.1acb02db@samsung9>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Robert Shearman <rshearma@brocade.com>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:35903 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751429AbbJ1BjU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 21:39:20 -0400
-Received: by pacfv9 with SMTP id fv9so250041737pac.3
-        for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 18:39:20 -0700 (PDT)
-In-Reply-To: <1445906256-14927-3-git-send-email-rshearma@brocade.com>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:55271 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751549AbbJ1COF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 22:14:05 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id 75684203C1
+	for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 22:14:04 -0400 (EDT)
+In-Reply-To: <20151028094330.1acb02db@samsung9>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/26/15, 5:37 PM, Robert Shearman wrote:
-> Nexthops for MPLS routes have a via address field sized for the
-> largest via address that is expected, which is 32 bytes. This means
-> that in the most common case of having ipv4 via addresses, 28 bytes of
-> memory more than required are used per nexthop. In the other common
-> case of an ipv6 nexthop then 16 bytes more than required are
-> used. With large numbers of MPLS routes this extra memory usage could
-> start to become significant.
->
-> To avoid allocating memory for a maximum length via address when not
-> all of it is required and to allow for ease of iterating over
-> nexthops, then the via addresses are changed to be stored in the same
-> memory block as the route and nexthops, but in an array after the end
-> of the array of nexthops. New accessors are provided to retrieve a
-> pointer to the via address.
->
-> To allow for O(1) access without having to store a pointer or offset
-> per nh, the via address for each nexthop is sized according to the
-> maximum via address for any nexthop in the route, which is stored in a
-> new route field, rt_max_alen, but this is in an existing hole in
-> struct mpls_route so it doesn't increase the size of the
-> structure. Each via address is ensured to be aligned to VIA_ALEN_ALIGN
-> to account for architectures that don't allow unaligned accesses.
->
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
-> ---
-nice way to handle it!. I was going to submit a patch to make MAX_VIA_ALEN = 16bytes as suggested by Eric.
-In which case, your patch will only help the case where all nexthops are ipv4.
+Hi Stephen,
+
+On Wed, Oct 28, 2015, at 01:43, Stephen Hemminger wrote:
+________________________________________________________________________________________________________
+> *** CID 1328821:  Memory - corruptions  (ARRAY_VS_SINGLETON)
+> /net/ipv6/route.c: 320 in rt6_info_init()
+> 314     #endif
+> 315     
+> 316     static void rt6_info_init(struct rt6_info *rt)
+> 317     {
+> 318             struct dst_entry *dst = &rt->dst;
+> 319     
+> >>>     CID 1328821:  Memory - corruptions  (ARRAY_VS_SINGLETON)
+> >>>     Using "dst" as an array.  This might corrupt or misinterpret adjacent memory locations.
+> 320             memset(dst + 1, 0, sizeof(*rt) - sizeof(*dst));
+> 321             INIT_LIST_HEAD(&rt->rt6i_siblings);
+> 322             INIT_LIST_HEAD(&rt->rt6i_uncached);
+> 323     }
+> 324     
+> 325     /* allocate dst with ip6_dst_ops */
+
+I already marked this as an false positive in coverity.
+
+Thanks,
+Hannes
