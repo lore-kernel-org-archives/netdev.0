@@ -1,61 +1,57 @@
-From: David Jander <david@protonic.nl>
-Subject: Re: BUG: fsl FEC ethernet tx checksum offloading doesn't work with
- RMII interface
-Date: Wed, 28 Oct 2015 12:19:18 +0100
-Message-ID: <20151028121918.4884b42e@archvile>
-References: <20151028104854.025430ce@archvile>
-	<20151028111414.GJ8644@n2100.arm.linux.org.uk>
+From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Subject: Re: [PATCH v7 02/10] ss: created formatters for json and hr
+Date: Wed, 28 Oct 2015 12:57:28 +0100
+Message-ID: <5630B828.6070500@gmx.net>
+References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net> <1441913708-15532-3-git-send-email-matthias.tafelmeier@gmx.net> <20150923162650.148fe95b@urahara> <bc9cacb94de24857a7d9e13960bfae56@HQ1WP-EXMB11.corp.brocade.com> <20150924151630.28129cdb@urahara> <5604E357.9000802@gmx.net> <56308253.2060608@gmx.net> <20151028082815.GO26876@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hagen@jauu.net" <hagen@jauu.net>,
+	"shemminger@osdl.org" <shemminger@osdl.org>,
+	"fw@strlen.de" <fw@strlen.de>,
+	"edumazet@google.com" <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from protonic.xs4all.nl ([83.163.252.89]:27330 "EHLO
-	protonic.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754999AbbJ1LTT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 07:19:19 -0400
-In-Reply-To: <20151028111414.GJ8644@n2100.arm.linux.org.uk>
+Received: from mout.gmx.net ([212.227.17.20]:64717 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755529AbbJ1L5p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Oct 2015 07:57:45 -0400
+In-Reply-To: <20151028082815.GO26876@orbit.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 Oct 2015 11:14:14 +0000
-Russell King - ARM Linux <linux@arm.linux.org.uk> wrote:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA384
 
-> On Wed, Oct 28, 2015 at 10:48:54AM +0100, David Jander wrote:
-> > 
-> > Hi all,
-> > 
-> > I was unable to figure out who's maintaining
-> > drivers/net/ethernet/freescale/fec_main.c, so I hope someone can help out
-> > on this list...
-> > 
-> > We have a board with a RMII phy connected to an i.MX6S. The hardware seems
-> > to be ok, since I can receive and transmit ethernet frames without drops or
-> > errors. However only simple things like ping and dhcp seemed to work.
-> > TCP/IP connections could not be made. When looking at both ends with
-> > tcpdump, I realized that all transmitted packages arrived at the other end
-> > with the TCP and IP header checksums zeroed-out.
-> > 
-> > After issuing the following command, TCP/IP started working correctly:
-> > 
-> > $ ethtool --offload eth0 tx off
-> > 
-> > This works around the issue. For some reason, when the FEC is in RMII
-> > mode, it isn't filling in the checksums.
-> > 
-> > On another board with an RGMII phy the same kernel works fine without the
-> > need to disable offloading. What can possibly relate this functionality to
-> > the choice of MAC interface?
-> 
-> You don't mention which kernel version you're using.  There has been a bug
-> here with older kernels...
+> I did not take over maintenance responsibility (whatever that means
+> to you precisely). I merely reviewed the patches, focussing on the=20
+> technical aspects of both implementation and patch management.
 
-Sorry, I somehow assumed it was obvious I'd report against latest mainline...
-I'm on 4.3-rc7.
+Ah, I meant the maintenance of iproute2 as a whole. Though, obviosly I
+must have misconceived that.
 
-Best regards,
+>> Those resentments were related to the patchsets complexity and
+>> size.
+>=20
+> I didn't see any problem with that in the first place. It is indeed
+> a big change, achieving something like that without a big patch set
+> is unlikely.
+>=20
 
--- 
-David Jander
-Protonic Holland.
+=46ine, I was just repounding that since Steven Hemminger raised that.
+My reasoning here is that I just don't want to kick off restarting
+work whith objections still in the minds =96 since we are already at V7
+now.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBCQAGBQJWMLgnAAoJEOAWT1uK3zQ7dMkH/jHps8no3c23LRXGnVaX08Ap
+Eha6XWU9pHrCHAM2AF6XI8aKERjS00ycuC12rFKoPZC2sjSXv4PTGFJq9w8AF71K
+os5PPi1iZRFQ/0tti7pMkGTmUwRrtHmdfGNKvu79oRJfADaqaNtpZV+4UiS2bPCP
+jy+89mA02XXgJpNkJgG/md6wNFHEsJBUGtcx3KSWqYXHHpV2FJoN1H8P28ESVAJA
+H2o1De6g7XBbSpigiHX8X69CkzjZor5cYyWF6W5lUNXhGCQ4xqmGJycNKjM3Et/g
+OPXvcaRKwv2R06pSYzkQ17tsnm9u8+R/v3nQvFDJGD0+zZJsc+c2by2KTQt6qm4=3D
+=3DONCK
+-----END PGP SIGNATURE-----
