@@ -1,8 +1,8 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [RFC PATCH v2 3/4] net: dsa: mv88e6xxx: add common and ppu remove
+Subject: [RFC PATCH v2 4/4] net: dsa: make usage of mv88e6xxx common remove
  function
-Date: Wed, 28 Oct 2015 15:13:16 +0100
-Message-ID: <5630D7FC.4010509@baylibre.com>
+Date: Wed, 28 Oct 2015 15:13:28 +0100
+Message-ID: <5630D808.2070809@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -19,70 +19,78 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With the previously introduced remove callback, add a
-mv88e6xxx common remove function to cleanup all resources.
+Make usage of previously introduced mv88e6xxx common remove
+function in all mv88e6xxx drivers.
 
 Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 18 ++++++++++++++++++
- drivers/net/dsa/mv88e6xxx.h |  2 ++
- 2 files changed, 20 insertions(+)
+ drivers/net/dsa/mv88e6123_61_65.c | 1 +
+ drivers/net/dsa/mv88e6131.c       | 8 ++++++++
+ drivers/net/dsa/mv88e6171.c       | 1 +
+ drivers/net/dsa/mv88e6352.c       | 1 +
+ 4 files changed, 11 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index b1b14f5..6287096 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -331,6 +331,16 @@ void mv88e6xxx_ppu_state_init(struct dsa_switch *ds)
- 	ps->ppu_timer.function = mv88e6xxx_ppu_reenable_timer;
+diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
+index 4bcfd68..1773c99 100644
+--- a/drivers/net/dsa/mv88e6123_61_65.c
++++ b/drivers/net/dsa/mv88e6123_61_65.c
+@@ -122,6 +122,7 @@ struct dsa_switch_driver mv88e6123_61_65_switch_driver = {
+ 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+ 	.probe			= mv88e6123_61_65_probe,
+ 	.setup			= mv88e6123_61_65_setup,
++	.remove			= mv88e6xxx_remove_common,
+ 	.set_addr		= mv88e6xxx_set_addr_indirect,
+ 	.phy_read		= mv88e6xxx_phy_read,
+ 	.phy_write		= mv88e6xxx_phy_write,
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index c73121c..0f559b4 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -137,6 +137,13 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 	return mv88e6xxx_setup_ports(ds);
  }
 
-+void mv88e6xxx_ppu_state_remove(struct dsa_switch *ds)
++static void mv88e6131_remove(struct dsa_switch *ds)
 +{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	
-+	del_timer_sync(&ps->ppu_timer);
++	mv88e6xxx_ppu_state_remove(ds);
 +
-+	cancel_work_sync(&ps->bridge_work);
-+	flush_work(&ps->bridge_work);
++	mv88e6xxx_remove_common(ds);
 +}
 +
- int mv88e6xxx_phy_read_ppu(struct dsa_switch *ds, int addr, int regnum)
- {
- 	int ret;
-@@ -2083,6 +2093,14 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
- 	return 0;
- }
-
-+void mv88e6xxx_remove_common(struct dsa_switch *ds)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+
-+	cancel_work_sync(&ps->bridge_work);
-+	flush_work(&ps->bridge_work);
-+}
-+
- int mv88e6xxx_setup_global(struct dsa_switch *ds)
+ static int mv88e6131_port_to_phy_addr(struct dsa_switch *ds, int port)
  {
  	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 6f9ed5d..64d37a0 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -417,6 +417,7 @@ struct mv88e6xxx_hw_stat {
- int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active);
- int mv88e6xxx_setup_ports(struct dsa_switch *ds);
- int mv88e6xxx_setup_common(struct dsa_switch *ds);
-+void mv88e6xxx_remove_common(struct dsa_switch *ds);
- int mv88e6xxx_setup_global(struct dsa_switch *ds);
- int __mv88e6xxx_reg_read(struct mii_bus *bus, int sw_addr, int addr, int reg);
- int mv88e6xxx_reg_read(struct dsa_switch *ds, int addr, int reg);
-@@ -431,6 +432,7 @@ int mv88e6xxx_phy_read_indirect(struct dsa_switch *ds, int port, int regnum);
- int mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int port, int regnum,
- 				 u16 val);
- void mv88e6xxx_ppu_state_init(struct dsa_switch *ds);
-+void mv88e6xxx_ppu_state_remove(struct dsa_switch *ds);
- int mv88e6xxx_phy_read_ppu(struct dsa_switch *ds, int addr, int regnum);
- int mv88e6xxx_phy_write_ppu(struct dsa_switch *ds, int addr,
- 			    int regnum, u16 val);
+@@ -175,6 +182,7 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+ 	.probe			= mv88e6131_probe,
+ 	.setup			= mv88e6131_setup,
++	.remove			= mv88e6131_remove,
+ 	.set_addr		= mv88e6xxx_set_addr_direct,
+ 	.phy_read		= mv88e6131_phy_read,
+ 	.phy_write		= mv88e6131_phy_write,
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 2c8eb6f..382529b 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -101,6 +101,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+ 	.probe			= mv88e6171_probe,
+ 	.setup			= mv88e6171_setup,
++	.remove			= mv88e6xxx_remove_common,
+ 	.set_addr		= mv88e6xxx_set_addr_indirect,
+ 	.phy_read		= mv88e6xxx_phy_read_indirect,
+ 	.phy_write		= mv88e6xxx_phy_write_indirect,
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index cbf4dd8..7938901 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -321,6 +321,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+ 	.probe			= mv88e6352_probe,
+ 	.setup			= mv88e6352_setup,
++	.remove			= mv88e6xxx_remove_common,
+ 	.set_addr		= mv88e6xxx_set_addr_indirect,
+ 	.phy_read		= mv88e6xxx_phy_read_indirect,
+ 	.phy_write		= mv88e6xxx_phy_write_indirect,
 -- 
 1.9.1
