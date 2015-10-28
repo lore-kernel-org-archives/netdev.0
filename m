@@ -1,79 +1,124 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [V5, 2/6] fsl/fman: Add FMan support
-Date: Wed, 28 Oct 2015 16:30:54 -0500
-Message-ID: <1446067854.701.365.camel@freescale.com>
-References: <1442836354-5445-1-git-send-email-igal.liberman@freescale.com>
-	 <20150925230153.GA4626@home.buserror.net>
-	 <BL2PR03MB5006080090B6783629A33A5E6220@BL2PR03MB500.namprd03.prod.outlook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Wed, 28 Oct 2015 14:44:28 -0700
+Message-ID: <1446068668.7476.89.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1445991236.7476.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151028123543.GB22011@ZenIV.linux.org.uk>
+	 <1446038672.7476.65.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446043677.7476.68.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151028211347.GC22011@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Bucur Madalin-Cristian-B32716" <madalin.bucur@freescale.com>
-To: Liberman Igal-B31950 <Igal.Liberman@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BL2PR03MB5006080090B6783629A33A5E6220@BL2PR03MB500.namprd03.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	netdev@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	dhowells@redhat.com, linux-fsdevel@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34789 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752498AbbJ1Vob (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 17:44:31 -0400
+In-Reply-To: <20151028211347.GC22011@ZenIV.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-10-27 at 11:32 -0500, Liberman Igal-B31950 wrote:
-
-> > > +
-> > > +struct device *fman_get_device(struct fman *fman) {
-> > > + return fman->dev;
-> > > +}
+On Wed, 2015-10-28 at 21:13 +0000, Al Viro wrote:
+> On Wed, Oct 28, 2015 at 07:47:57AM -0700, Eric Dumazet wrote:
+> > On Wed, 2015-10-28 at 06:24 -0700, Eric Dumazet wrote:
 > > 
-> > Is this really necessary?
+> > > Before I take a deep look at your suggestion, are you sure plain use of
+> > > include/linux/percpu-refcount.h infra is not possible for struct cred ?
 > > 
+> > BTW, I am not convinced we need to spend so much energy and per-cpu
+> > memory for struct cred refcount.
+> > 
+> > The big problem is fd array spinlock of course and bitmap search for
+> > POSIX compliance.
+> > 
+> > The cache line trashing in struct cred is a minor one ;)
 > 
-> Fman port needs fman->dev, fman structure is opaque, so yes, it's needed.
+> percpu-refcount isn't convenient - the only such candidate for ref_kill in
+> there is "all other references are gone", and that can happen in
+> interesting locking environments.  I doubt that it would be a good fit, TBH...
 
-Why is opacity being maintained from one part of the fman driver to another?  
-Isn't this the sort of excessive layering that was complained about?
+OK then ...
 
-
-> > > +         /* In B4 rev 2.0 (and above) the MURAM size is 512KB.
-> > > +          * Check the SVR and update MURAM size if required.
-> > > +          */
-> > > +         u32 svr;
-> > > +
-> > > +         svr = mfspr(SPRN_SVR);
-> > > +
-> > > +         if ((SVR_SOC_VER(svr) == SVR_B4860) && (SVR_MAJ(svr) >=
-> > 2))
-> > > +                 fman->dts_params.muram_size = 0x80000;
-> > > + }
-> > 
-> > Why wasn't the MURAM size described in the device tree, as it was with
-> > CPM/QE?
-> > 
+> Cacheline pingpong on the descriptors bitmap is probably inevitable, but
+> it's not the only problem in the existing implementation - close a small
+> descriptor when you've got a lot of them and look for the second open
+> after that.  _That_ can lead to thousands of cachelines being read through,
+> all under the table spinlock.  It's literally orders of magnitude worse.
+> And if the first open after that close happens to be for a short-living
+> descriptor, you'll get the same situation back in your face as soon as you
+> close it.
 > 
-> MURAM size described by the device-tree.
-> In B4860 rev 2.0 (and above) MURAM size is bigger. 
-> This is workaround, in order to have the same device tree for all B4860 
-> revisions.
-
-We don't support b4860 prior to rev 2.0 (due to e6500 core errata) so this is 
-irrelevant.  Fix the device tree.
-
-> > > +
-> > > + of_node_put(muram_node);
-> > > + of_node_put(fm_node);
-> > > +
-> > > + err = devm_request_irq(&of_dev->dev, irq, fman_irq,
-> > > +                        IRQF_NO_SUSPEND, "fman", fman);
-> > > + if (err < 0) {
-> > > +         pr_err("Error: allocating irq %d (error = %d)\n", irq, err);
-> > > +         goto fman_free;
-> > > + }
-> > 
-> > Why IRQF_NO_SUSPEND?
-> > 
+> I think we can seriously improve that without screwing the fast path by
+> adding "summary" bitmaps once the primary grows past the cacheline worth
+> of bits.  With bits in the summary bitmap corresponding to cacheline-sized
+> chunks of the primary, being set iff all bits in the corresponding chunk
+> are set.  If the summary map grows larger than one cacheline, add the
+> second-order one (that happens at quarter million descriptors and serves
+> until 128 million; adding the third-order map is probably worthless).
 > 
-> It shouldn't be IRQF_NO_SUSPEND for now, removed. 
+> I want to maintain the same kind of "everything below this is known to be
+> in use" thing as we do now.  Allocation would start with looking into the
+> same place in primary bitmap where we'd looked now and similar search
+> forward for zero bit.  _However_, it would stop at cacheline boundary.
+> If nothing had been found, we look in the corresponding place in the
+> summary bitmap and search for zero bit there.  Again, no more than up
+> to the cacheline boundary.  If something is found, we've got a chunk in
+> the primary known to contain a zero bit; if not - go to the second-level
+> and search there, etc.
+> 
+> When a zero bit in the primary had been found, check if it's within the
+> rlimit (passed to __alloc_fd() explicitly) and either bugger off or set
+> that bit.  If there are zero bits left in the same word - we are done,
+> otherwise check the still unread words in the cacheline and see if all
+> of them are ~0UL.  If all of them are, set the bit in summary bitmap, etc.
+> 
+> Normal case is exactly the same as now - one cacheline accessed and modified.
+> We might end up touching more than that, but it's going to be rare and
+> the cases when it happens are very likely to lead to much worse amount of
+> memory traffic with the current code.
+> 
+> Freeing is done by zeroing the bit in primary, checking for other zero bits
+> nearby and buggering off if there are such.  If the entire cacheline used
+> to be all-bits-set, clear the bit in summary and, if there's a second-order
+> summary, get the bit in there clear as well - it's probably not worth
+> bothering with checking that all the cacheline in summary bitmap had been
+> all-bits-set.  Again, the normal case is the same as now.
+> 
+> It'll need profiling and tuning, but AFAICS it's doable without making the
+> things worse than they are now, and it should get rid of those O(N) fetches
+> under spinlock cases.  And yes, those are triggerable and visible in
+> profiles.  IMO it's worth trying to fix...
+> 
 
-Why just "for now"?
+Well, all this complexity goes away with a O_FD_FASTALLOC /
+SOCK_FD_FASTALLOC bit in various fd allocations, which specifically
+tells the kernel we do not care getting the lowest possible fd as POSIX
+mandates.
 
--Scott
+With this bit set, the bitmap search can start at a random point, and we
+find a lot in O(1) : one cache line miss, if you have at least one free
+bit/slot per 512 bits (64 bytes cache line).
+
+#ifndef O_FD_FASTALLOC
+#define O_FD_FASTALLOC 0x40000000
+#endif
+
+#ifndef SOCK_FD_FASTALLOC
+#define SOCK_FD_FASTALLOC O_FD_FASTALLOC
+#endif
+
+... // active sockets
+socket(AF_INET, SOCK_STREAM | SOCK_FD_FASTALLOC, 0);
+... // passive sockets
+accept4(sockfd, ..., SOCK_FD_FASTALLOC);
+...
+
+Except for legacy stuff and stdin/stdout/stderr games, I really doubt
+lot of applications absolutely rely on the POSIX thing...
