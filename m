@@ -1,37 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND v2 net-next] net: hisilicon: updates HNS config
- and documents
-Date: Tue, 27 Oct 2015 20:20:41 -0700 (PDT)
-Message-ID: <20151027.202041.613033307041357854.davem@davemloft.net>
-References: <1445944594-244149-1-git-send-email-huangdaode@hisilicon.com>
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
+ hierarchy
+Date: Tue, 27 Oct 2015 20:05:19 -0700
+Message-ID: <20151028030519.GA20789@cmpxchg.org>
+References: <20151027154138.GA4665@cmpxchg.org>
+ <20151027161554.GJ9891@dhcp22.suse.cz>
+ <20151027164227.GB7749@cmpxchg.org>
+ <20151027.174532.469361008055673315.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	catalin.marinas@arm.com, will.deacon@arm.com,
-	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, liguozhu@hisilicon.com,
-	Yisen.Zhuang@huawei.com, netdev@vger.kernel.org,
-	linuxarm@huawei.com, salil.mehta@huawei.com,
-	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
-	lisheng011@huawei.com, lipeng321@huawei.com
-To: huangdaode@hisilicon.com
+Content-Type: text/plain; charset=us-ascii
+Cc: mhocko@kernel.org, akpm@linux-foundation.org,
+	vdavydov@virtuozzo.com, tj@kernel.org, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445944594-244149-1-git-send-email-huangdaode@hisilicon.com>
+Content-Disposition: inline
+In-Reply-To: <20151027.174532.469361008055673315.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: huangdaode <huangdaode@hisilicon.com>
-Date: Tue, 27 Oct 2015 19:16:34 +0800
-
-> From: yankejian <yankejian@huawei.com>
+On Tue, Oct 27, 2015 at 05:45:32PM -0700, David Miller wrote:
+> From: Johannes Weiner <hannes@cmpxchg.org>
+> Date: Tue, 27 Oct 2015 09:42:27 -0700
 > 
-> updates the bindings documents and dtsi file according to the review
-> comments[https://lkml.org/lkml/2015/9/21/670] from Rob Herring <robh@kernel.org>
+> > On Tue, Oct 27, 2015 at 05:15:54PM +0100, Michal Hocko wrote:
+> >> > For now, something like this as a boot commandline?
+> >> > 
+> >> > cgroup.memory=nosocket
+> >> 
+> >> That would work for me.
+> > 
+> > Okay, then I'll go that route for the socket stuff.
+> > 
+> > Dave is that cool with you?
 > 
-> Acked-by: Rob Herring <robh@kernel.org>
-> Signed-off-by: yankejian <yankejian@huawei.com>
-> Signed-off-by: huangdaode <huangdaode@hisilicon.com>
+> Depends upon the default.
+> 
+> Until the user configures something explicitly into the memory
+> controller, the networking bits should all evaluate to nothing.
 
-Applied, thanks.
+Yep, I'll stick them behind a default-off jump label again.
+
+This bootflag is only to override an active memory controller
+configuration and force-off that jump label permanently.
