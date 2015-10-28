@@ -1,72 +1,65 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next] ipv4: use l4 hash for locally generated multipath flows
-Date: Wed, 28 Oct 2015 18:39:34 +0100
-Message-ID: <006ec2edb2d592ab9b90ccc5c084ac8926e811df.1446053264.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, pch@ordbogen.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57514 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754832AbbJ1RkI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Oct 2015 13:40:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: [RFC] unix: fix use-after-free in unix_dgram_poll()
+Date: Wed, 28 Oct 2015 13:57:47 -0400
+Message-ID: <56310C9B.1010608@akamai.com>
+References: <cover.1443817522.git.jbaron@akamai.com>
+ <f4e283269e7063317956ea1de6fdc58449ee75cd.1443817522.git.jbaron@akamai.com>
+ <87bncdxool.fsf@doppelsaurus.mobileactivedefense.com>
+ <5612B9A9.8050301@akamai.com>
+ <87lhb7sttz.fsf@doppelsaurus.mobileactivedefense.com>
+ <561DCFA4.3010300@akamai.com>
+ <87d1wh8hqh.fsf@doppelsaurus.mobileactivedefense.com>
+ <561F156E.9050905@akamai.com>
+ <87fv17x59w.fsf@doppelsaurus.mobileactivedefense.com>
+ <5625073C.5010809@akamai.com>
+ <87vba1i383.fsf@doppelsaurus.mobileactivedefense.com>
+ <874mhbx7o1.fsf_-_@doppelsaurus.mobileactivedefense.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, minipli@googlemail.com,
+	normalperson@yhbt.net, eric.dumazet@gmail.com,
+	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
+	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
+	torvalds@linux-foundation.org, peterz@infradead.org
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <874mhbx7o1.fsf_-_@doppelsaurus.mobileactivedefense.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch changes how the multipath hash is computed for locally
-generated UDP or TCP flows: now the hash comprises also l4 information
-(source and destination port).
+On 10/28/2015 12:46 PM, Rainer Weikusat wrote:
+> Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
+>> Jason Baron <jbaron@akamai.com> writes:
+> 
+> [...]
+> 
+>>> 2)
+>>>
+>>> For the case of epoll() in edge triggered mode we need to ensure that
+>>> when we return -EAGAIN from unix_dgram_sendmsg() when unix_recvq_full()
+>>> is true, we need to add a unix_peer_wake_connect() call to guarantee a
+>>> wakeup. Otherwise, we are going to potentially hang there.
+>>
+>> I consider this necessary.
+> 
+> (As already discussed privately) just doing this would open up another
+> way for sockets to be enqueued on the peer_wait queue of the peer
+> forever despite no one wants to be notified of write space
+> availability. Here's another RFC patch addressing the issues so far plus
+> this one by breaking the connection to the peer socket from the wake up
+> relaying function. This has the nice additional property that the
+> dgram_poll code becomes somewhat simpler as the "dequeued where we
+> didn't enqueue" situation can no longer occur and the not-so-nice
+> additional property that the connect and disconnect functions need to
+> take the peer_wait.lock spinlock explicitly so that this lock is used to
+> ensure that no two threads modifiy the private pointer of the client
+> wait_queue_t.
 
-This allows better utilization of the available paths when the existing
-flows have the same source IP and the same destination IP: with l3 hash,
-even when multiple connections are in place simultaneously, a single path
-will be used, while with l4 hash we can use all the available paths.
+Hmmm...I thought these were already all guarded by unix_state_lock(sk).
+In any case, rest of the patch overall looks good to me.
 
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- include/net/ip_fib.h     | 12 ++++++++++++
- net/ipv4/fib_semantics.c |  3 ++-
- 2 files changed, 14 insertions(+), 1 deletion(-)
+Thanks,
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index ac5c6e8..56bf68c 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -328,6 +328,18 @@ static inline int fib_multipath_hash(__be32 saddr, __be32 daddr)
- 	return jhash_2words(saddr, daddr, fib_multipath_secret) >> 1;
- }
- 
-+static inline int fib_multipath_output_hash(const struct flowi4 *fl4)
-+{
-+	if ((fl4->flowi4_proto == IPPROTO_TCP) ||
-+	    (fl4->flowi4_proto == IPPROTO_UDP))
-+		return jhash_3words(fl4->saddr, fl4->daddr,
-+				    *((__u32 *)&fl4->uli.ports),
-+				    fib_multipath_secret) >> 1;
-+
-+	return jhash_2words(fl4->saddr, fl4->daddr, fib_multipath_secret) >> 1;
-+}
-+
-+
- void fib_select_multipath(struct fib_result *res, int hash);
- void fib_select_path(struct net *net, struct fib_result *res,
- 		     struct flowi4 *fl4, int mp_hash);
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 42778d9..8a18349 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -1564,7 +1564,8 @@ void fib_select_path(struct net *net, struct fib_result *res,
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 	if (res->fi->fib_nhs > 1 && fl4->flowi4_oif == 0) {
- 		if (mp_hash < 0)
--			mp_hash = fib_multipath_hash(fl4->saddr, fl4->daddr);
-+			mp_hash = fib_multipath_output_hash(fl4);
-+
- 		fib_select_multipath(res, mp_hash);
- 	}
- 	else
--- 
-1.8.3.1
+-Jason
