@@ -1,47 +1,54 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 06/12] mlxsw: reg: Fix description for reg_sfd_uc_sub_port
-Date: Wed, 28 Oct 2015 10:16:59 +0100
-Message-ID: <1446023825-7162-7-git-send-email-jiri@resnulli.us>
-References: <1446023825-7162-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 00/12] mlxsw: driver update
+Date: Wed, 28 Oct 2015 10:16:53 +0100
+Message-ID: <1446023825-7162-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, sagir@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:32798 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754826AbbJ1JXY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 05:23:24 -0400
-Received: by wmeg8 with SMTP id g8so5306001wme.0
-        for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 02:23:23 -0700 (PDT)
-In-Reply-To: <1446023825-7162-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:35658 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932516AbbJ1JXz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 05:23:55 -0400
+Received: by wmll128 with SMTP id l128so5286528wml.0
+        for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 02:23:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-The original description was for LAG, so fix it.
+This driver update mainly brings support for user to be able to setup
+flooding on specified port, via bridge flag. Also, there is a fix in ageing
+time conversion. The rest is just cosmetics.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Ido Schimmel (4):
+  switchdev: Add support for flood control
+  switchdev: Make flood to CPU optional
+  mlxsw: spectrum: Add support for VLAN ranges in flooding configuration
+  mlxsw: spectrum: Add support for flood control
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 4fcba46..c24283a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -348,8 +348,9 @@ MLXSW_ITEM32_INDEXED(reg, sfd, rec_action, MLXSW_REG_SFD_BASE_LEN, 28, 4,
- 		     MLXSW_REG_SFD_REC_LEN, 0x0C, false);
- 
- /* reg_sfd_uc_sub_port
-- * LAG sub port.
-- * Must be 0 if multichannel VEPA is not enabled.
-+ * VEPA channel on local port.
-+ * Valid only if local port is a non-stacking port. Must be 0 if multichannel
-+ * VEPA is not enabled.
-  * Access: RW
-  */
- MLXSW_ITEM32_INDEXED(reg, sfd, uc_sub_port, MLXSW_REG_SFD_BASE_LEN, 16, 8,
+Jiri Pirko (6):
+  mlxsw: spectrum: move "bridged" bool to u8 flags
+  mlxsw: reg: Fix description for reg_sfd_uc_sub_port
+  mlxsw: reg: Fix desription typos of couple of SFN items
+  mlxsw: reg: Avoid unnecessary line wrap for mlxsw_reg_sfd_uc_unpack
+  mlxsw: spectrum: Fix ageing time value
+  mlxsw: spectrum: Make mlxsw_sp_port_switchdev_ops static
+
+Or Gerlitz (2):
+  mlxsw: Put constant on the right side of comparisons
+  mlxsw: Put braces on all arms of branch statement
+
+ Documentation/networking/switchdev.txt             |   7 +-
+ drivers/net/ethernet/mellanox/mlxsw/core.c         |   4 +-
+ drivers/net/ethernet/mellanox/mlxsw/pci.c          |   3 +-
+ drivers/net/ethernet/mellanox/mlxsw/reg.h          |  18 +--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   5 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   7 +-
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 144 +++++++++++++--------
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c     |   2 +-
+ net/switchdev/switchdev.c                          |   5 +-
+ 9 files changed, 122 insertions(+), 73 deletions(-)
+
 -- 
 1.9.3
