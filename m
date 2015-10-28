@@ -1,46 +1,61 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: Re: [GIT] Networking
-Date: Wed, 28 Oct 2015 15:27:41 +0100
-Message-ID: <87pozzvzj6.fsf@rasmusvillemoes.dk>
-References: <20151027.233235.1641084823622810663.davem@davemloft.net>
-	<CA+55aFx0o8e9J6ojHYjvOA5aRnKoW5j10fh76Ks1=VegPc4k6w@mail.gmail.com>
-	<1446030209.105419.422375497.14563933@webmail.messagingengine.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH v2 3/4] net: dsa: mv88e6xxx: add common and ppu
+ remove function
+Date: Wed, 28 Oct 2015 15:35:24 +0100
+Message-ID: <20151028143524.GF2307@lunn.ch>
+References: <5630D7FC.4010509@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446030209.105419.422375497.14563933@webmail.messagingengine.com>
-	(Hannes Frederic Sowa's message of "Wed, 28 Oct 2015 12:03:29 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Neil Armstrong <narmstrong@baylibre.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:57453 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966158AbbJ1Ofb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Oct 2015 10:35:31 -0400
+Content-Disposition: inline
+In-Reply-To: <5630D7FC.4010509@baylibre.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 28 2015, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+On Wed, Oct 28, 2015 at 03:13:16PM +0100, Neil Armstrong wrote:
+> With the previously introduced remove callback, add a
+> mv88e6xxx common remove function to cleanup all resources.
+> 
+> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+> ---
+>  drivers/net/dsa/mv88e6xxx.c | 18 ++++++++++++++++++
+>  drivers/net/dsa/mv88e6xxx.h |  2 ++
+>  2 files changed, 20 insertions(+)
+> 
+> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+> index b1b14f5..6287096 100644
+> --- a/drivers/net/dsa/mv88e6xxx.c
+> +++ b/drivers/net/dsa/mv88e6xxx.c
+> @@ -331,6 +331,16 @@ void mv88e6xxx_ppu_state_init(struct dsa_switch *ds)
+>  	ps->ppu_timer.function = mv88e6xxx_ppu_reenable_timer;
+>  }
+> 
+> +void mv88e6xxx_ppu_state_remove(struct dsa_switch *ds)
+> +{
+> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+> +	
+> +	del_timer_sync(&ps->ppu_timer);
+> +
+> +	cancel_work_sync(&ps->bridge_work);
+> +	flush_work(&ps->bridge_work);
+> +}
+> +
 
-> Hi Linus,
->
-> On Wed, Oct 28, 2015, at 10:39, Linus Torvalds wrote:
->> Get rid of it. And I don't *ever* want to see that shit again.
->
-> I don't want to give up on that this easily:
->
-> In future I would like to see an interface like this. It is often hard
-> to do correct overflow/wrap-around tests and it would be great if there
-> are helper functions which could easily and without a lot of thinking be
-> used by people to remove those problems from the kernel.
+You add this function, but you don't use it anywhere?  Also, why
+cancel bridge work, not ppu_work? Or has that been consolidated
+in some patch i'm missing?
 
-I agree - proper overflow checking can be really hard. Quick, assuming a
-and b have the same unsigned integer type, is 'a+b<a' sufficient to
-check overflow? Of course not (hint: promotion rules). And as you say,
-it gets even more complicated for signed types.
-
-A few months ago I tried posting a complete set of fallbacks for older
-compilers (https://lkml.org/lkml/2015/7/19/358), but nothing really
-happened. Now I know where Linus stands, so I guess I can just delete
-that branch.
-
-Rasmus
+   Andrew
