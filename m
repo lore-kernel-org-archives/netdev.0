@@ -1,48 +1,50 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 11/12] mlxsw: Put braces on all arms of branch statement
-Date: Wed, 28 Oct 2015 10:17:04 +0100
-Message-ID: <1446023825-7162-12-git-send-email-jiri@resnulli.us>
-References: <1446023825-7162-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com, sagir@mellanox.com
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v3 0/4] net: clean up interactions of CHECKSUM_PARTIAL and fragmentation
+Date: Wed, 28 Oct 2015 10:33:28 +0100
+Message-ID: <87wpu7bamv.fsf@stressinduktion.org>
+References: <1445982042-3207-1-git-send-email-hannes@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: edumazet@google.com, vyasevich@gmail.com, bcodding@redhat.com,
+	tom@herbertland.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:36035 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932551AbbJ1JZK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 05:25:10 -0400
-Received: by wmec75 with SMTP id c75so5291443wme.1
-        for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 02:25:09 -0700 (PDT)
-In-Reply-To: <1446023825-7162-1-git-send-email-jiri@resnulli.us>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:57679 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751159AbbJ1Jda (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 05:33:30 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id 0BAB52030B
+	for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 05:33:30 -0400 (EDT)
+In-Reply-To: <1445982042-3207-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+Hi David,
 
-Fix a place where checkpatch complains that braces should be used
-on all arms of this statement.
+Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/pci.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> This series fixes wrong checksums on the wire for IPv4 and IPv6. Large
+> send buffers and especially NFS lead to wrong checksums in both IPv4
+> and IPv6.
+>
+> CHECKSUM_PARTIAL skbs should not receive the respective fragmentations
+> functions, so we add WARN_ON_ONCE to those functions to fix up those as
+> soon as they get reported.
+>
+> Thanks!
+>
+> Changelog:
+> v2: added v4 checks
+> v3: removed WARN_ON_ONCES (advice by Tom Herbert)
+>
+> Hannes Frederic Sowa (4):
+>   ipv4: no CHECKSUM_PARTIAL on MSG_MORE corked sockets
+>   ipv4: add defensive check for CHECKSUM_PARTIAL skbs in ip_fragment
+>   ipv6: no CHECKSUM_PARTIAL on MSG_MORE corked sockets
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-index 371ea3f..de69e71 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-@@ -1662,8 +1662,9 @@ static int mlxsw_pci_cmd_exec(void *bus_priv, u16 opcode, u8 opcode_mod,
- 							   CIR_OUT_PARAM_LO));
- 			memcpy(out_mbox + sizeof(tmp), &tmp, sizeof(tmp));
- 		}
--	} else if (!err && out_mbox)
-+	} else if (!err && out_mbox) {
- 		memcpy(out_mbox, mlxsw_pci->cmd.out_mbox.buf, out_mbox_size);
-+	}
- 
- 	mutex_unlock(&mlxsw_pci->cmd.lock);
- 
--- 
-1.9.3
+Those patches are actually for net and not for net-next, sorry. Guess
+I messed it up with Ctrl-R foo.
+
+Thanks,
+Hannes
