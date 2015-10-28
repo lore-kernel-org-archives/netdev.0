@@ -1,47 +1,314 @@
-From: David Jander <david@protonic.nl>
-Subject: Re: BUG: fsl FEC ethernet tx checksum offloading doesn't work with
- RMII interface
-Date: Wed, 28 Oct 2015 13:36:02 +0100
-Message-ID: <20151028133602.0f48dac9@archvile>
-References: <20151028104854.025430ce@archvile>
-	<20151028111414.GJ8644@n2100.arm.linux.org.uk>
-	<20151028121918.4884b42e@archvile>
-	<CAOMZO5D=7Okx-Lju5uzMCXC+_8ETDVmEOfWU7ZD0byZszDSV3A@mail.gmail.com>
+From: <igal.liberman@freescale.com>
+Subject: [v6, 1/6] fsl/fman: Add FMan MURAM support
+Date: Wed, 28 Oct 2015 10:53:44 +0200
+Message-ID: <1446022429-31621-2-git-send-email-igal.liberman@freescale.com>
+References: <1446022429-31621-1-git-send-email-igal.liberman@freescale.com>
+Reply-To: <igal.liberman@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Fabio Estevam <festevam@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from protonic.xs4all.nl ([83.163.252.89]:27662 "EHLO
-	protonic.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965504AbbJ1MgE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 08:36:04 -0400
-In-Reply-To: <CAOMZO5D=7Okx-Lju5uzMCXC+_8ETDVmEOfWU7ZD0byZszDSV3A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+	<scottwood@freescale.com>, <madalin.bucur@freescale.com>,
+	<pebolle@tiscali.nl>, <joakim.tjernlund@transmode.se>,
+	<ppc@mindchasers.com>, <stephen@networkplumber.org>,
+	<davem@davemloft.net>, Igal Liberman <Igal.Liberman@freescale.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446022429-31621-1-git-send-email-igal.liberman@freescale.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Oct 2015 10:31:17 -0200
-Fabio Estevam <festevam@gmail.com> wrote:
+From: Igal Liberman <Igal.Liberman@freescale.com>
 
-> On Wed, Oct 28, 2015 at 9:19 AM, David Jander <david@protonic.nl> wrote:
-> 
-> > Sorry, I somehow assumed it was obvious I'd report against latest
-> > mainline... I'm on 4.3-rc7.
-> 
-> Are you able to find out a previous kernel version that does not
-> exhibit this failure?
+Add Frame Manager Multi-User RAM support.
+This internal FMan memory block is used by the
+FMan hardware modules, the management being made
+through the generic allocator.
 
-I can search further down, but 4.1 is also broken.
-Are there specific changes or versions you are suspicious of?
-Russel mentioned something similar being fixed in the past... any pointers to
-this fix, so I can investigate whether this has any relation?
+The FMan Internal memory, for example, is used for
+allocating transmit and receive FIFOs.
 
-Best regards,
+Signed-off-by: Igal Liberman <Igal.Liberman@freescale.com>
+---
+ drivers/net/ethernet/freescale/Kconfig           |    1 +
+ drivers/net/ethernet/freescale/Makefile          |    2 +
+ drivers/net/ethernet/freescale/fman/Kconfig      |    8 ++
+ drivers/net/ethernet/freescale/fman/Makefile     |    5 +
+ drivers/net/ethernet/freescale/fman/fman_muram.c |  159 ++++++++++++++++++++++
+ drivers/net/ethernet/freescale/fman/fman_muram.h |   51 +++++++
+ 6 files changed, 226 insertions(+)
+ create mode 100644 drivers/net/ethernet/freescale/fman/Kconfig
+ create mode 100644 drivers/net/ethernet/freescale/fman/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_muram.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_muram.h
 
+diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
+index ff76d4e..f3f89cc 100644
+--- a/drivers/net/ethernet/freescale/Kconfig
++++ b/drivers/net/ethernet/freescale/Kconfig
+@@ -53,6 +53,7 @@ config FEC_MPC52xx_MDIO
+ 	  If compiled as module, it will be called fec_mpc52xx_phy.
+ 
+ source "drivers/net/ethernet/freescale/fs_enet/Kconfig"
++source "drivers/net/ethernet/freescale/fman/Kconfig"
+ 
+ config FSL_PQ_MDIO
+ 	tristate "Freescale PQ MDIO"
+diff --git a/drivers/net/ethernet/freescale/Makefile b/drivers/net/ethernet/freescale/Makefile
+index 71debd1..4097c58 100644
+--- a/drivers/net/ethernet/freescale/Makefile
++++ b/drivers/net/ethernet/freescale/Makefile
+@@ -17,3 +17,5 @@ gianfar_driver-objs := gianfar.o \
+ 		gianfar_ethtool.o
+ obj-$(CONFIG_UCC_GETH) += ucc_geth_driver.o
+ ucc_geth_driver-objs := ucc_geth.o ucc_geth_ethtool.o
++
++obj-$(CONFIG_FSL_FMAN) += fman/
+diff --git a/drivers/net/ethernet/freescale/fman/Kconfig b/drivers/net/ethernet/freescale/fman/Kconfig
+new file mode 100644
+index 0000000..66b7296
+--- /dev/null
++++ b/drivers/net/ethernet/freescale/fman/Kconfig
+@@ -0,0 +1,8 @@
++config FSL_FMAN
++	bool "FMan support"
++	depends on FSL_SOC || COMPILE_TEST
++	select GENERIC_ALLOCATOR
++	default n
++	help
++		Freescale Data-Path Acceleration Architecture Frame Manager
++		(FMan) support
+diff --git a/drivers/net/ethernet/freescale/fman/Makefile b/drivers/net/ethernet/freescale/fman/Makefile
+new file mode 100644
+index 0000000..fc2e194
+--- /dev/null
++++ b/drivers/net/ethernet/freescale/fman/Makefile
+@@ -0,0 +1,5 @@
++subdir-ccflags-y +=  -I$(srctree)/drivers/net/ethernet/freescale/fman
++
++obj-y		+= fsl_fman.o
++
++fsl_fman-objs	:= fman_muram.o
+diff --git a/drivers/net/ethernet/freescale/fman/fman_muram.c b/drivers/net/ethernet/freescale/fman/fman_muram.c
+new file mode 100644
+index 0000000..35d4a50
+--- /dev/null
++++ b/drivers/net/ethernet/freescale/fman/fman_muram.c
+@@ -0,0 +1,159 @@
++/*
++ * Copyright 2008-2015 Freescale Semiconductor Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *       notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *       notice, this list of conditions and the following disclaimer in the
++ *       documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *       names of its contributors may be used to endorse or promote products
++ *       derived from this software without specific prior written permission.
++ *
++ *
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "fman_muram.h"
++
++#include <linux/io.h>
++#include <linux/slab.h>
++#include <linux/genalloc.h>
++
++struct muram_info {
++	struct gen_pool *pool;
++	void __iomem *vbase;
++	size_t size;
++	phys_addr_t pbase;
++};
++
++static unsigned long fman_muram_vbase_to_offset(struct muram_info *muram,
++						unsigned long vaddr)
++{
++	return vaddr - (unsigned long)muram->vbase;
++}
++
++/**
++ * fman_muram_init
++ * @base:	Pointer to base of memory mapped FM-MURAM.
++ * @size:	Size of the FM-MURAM partition.
++ *
++ * Creates partition in the MURAM.
++ * The routine returns a pointer to the MURAM partition.
++ * This pointer must be passed as to all other FM-MURAM function calls.
++ * No actual initialization or configuration of FM_MURAM hardware is done by
++ * this routine.
++ *
++ * Return: pointer to FM-MURAM object, or NULL for Failure.
++ */
++struct muram_info *fman_muram_init(phys_addr_t base, size_t size)
++{
++	struct muram_info *muram;
++	void __iomem *vaddr;
++	int ret;
++
++	muram = kzalloc(sizeof(*muram), GFP_KERNEL);
++	if (!muram)
++		return NULL;
++
++	muram->pool = gen_pool_create(ilog2(64), -1);
++	if (!muram->pool) {
++		pr_err("%s(): MURAM pool create failed\n", __func__);
++		goto  muram_free;
++	}
++
++	vaddr = ioremap(base, size);
++	if (!vaddr) {
++		pr_err("%s(): MURAM ioremap failed\n", __func__);
++		goto pool_destroy;
++	}
++
++	ret = gen_pool_add_virt(muram->pool, (unsigned long)vaddr,
++				base, size, -1);
++	if (ret < 0) {
++		pr_err("%s(): MURAM pool add failed\n", __func__);
++		iounmap(vaddr);
++		goto pool_destroy;
++	}
++
++	memset_io(vaddr, 0, (int)size);
++
++	muram->vbase = vaddr;
++	muram->pbase = base;
++	return muram;
++
++pool_destroy:
++	gen_pool_destroy(muram->pool);
++muram_free:
++	kfree(muram);
++	return NULL;
++}
++
++/**
++ * fman_muram_offset_to_vbase
++ * @muram:	FM-MURAM module pointer.
++ * @offset:	the offset of the memory block
++ *
++ * Gives the address of the memory region from specific offset
++ *
++ * Return: The address of the memory block
++ */
++unsigned long fman_muram_offset_to_vbase(struct muram_info *muram,
++					 unsigned long offset)
++{
++	return offset + (unsigned long)muram->vbase;
++}
++
++/**
++ * fman_muram_alloc
++ * @muram:	FM-MURAM module pointer.
++ * @size:	Size of the memory to be allocated.
++ *
++ * Allocate some memory from FM-MURAM partition.
++ *
++ * Return: address of the allocated memory; NULL otherwise.
++ */
++int fman_muram_alloc(struct muram_info *muram, size_t size)
++{
++	unsigned long vaddr;
++
++	vaddr = gen_pool_alloc(muram->pool, size);
++	if (!vaddr)
++		return -ENOMEM;
++
++	memset_io((void __iomem *)vaddr, 0, size);
++
++	return fman_muram_vbase_to_offset(muram, vaddr);
++}
++
++/**
++ * fman_muram_free_mem
++ * muram:	FM-MURAM module pointer.
++ * offset:	offset of the memory region to be freed.
++ * size:	size of the memory to be freed.
++ *
++ * Free an allocated memory from FM-MURAM partition.
++ */
++void fman_muram_free_mem(struct muram_info *muram, u32 offset, size_t size)
++{
++	unsigned long addr = fman_muram_offset_to_vbase(muram, offset);
++
++	gen_pool_free(muram->pool, addr, size);
++}
++
+diff --git a/drivers/net/ethernet/freescale/fman/fman_muram.h b/drivers/net/ethernet/freescale/fman/fman_muram.h
+new file mode 100644
+index 0000000..dbf0af9
+--- /dev/null
++++ b/drivers/net/ethernet/freescale/fman/fman_muram.h
+@@ -0,0 +1,51 @@
++/*
++ * Copyright 2008-2015 Freescale Semiconductor Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *       notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *       notice, this list of conditions and the following disclaimer in the
++ *       documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *       names of its contributors may be used to endorse or promote products
++ *       derived from this software without specific prior written permission.
++ *
++ *
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++#ifndef __FM_MURAM_EXT
++#define __FM_MURAM_EXT
++
++#include <linux/types.h>
++
++#define FM_MURAM_INVALID_ALLOCATION	-1
++
++/* Structure for FM MURAM information */
++struct muram_info;
++
++struct muram_info *fman_muram_init(phys_addr_t base, size_t size);
++
++unsigned long fman_muram_offset_to_vbase(struct muram_info *muram,
++					 unsigned long offset);
++
++int fman_muram_alloc(struct muram_info *muram, size_t size);
++
++void fman_muram_free_mem(struct muram_info *muram, u32 offset, size_t size);
++
++#endif /* __FM_MURAM_EXT */
 -- 
-David Jander
-Protonic Holland.
+1.7.9.5
