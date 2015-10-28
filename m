@@ -1,40 +1,35 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Wed, 28 Oct 2015 22:33:31 +0000
-Message-ID: <20151028223330.GD22011@ZenIV.linux.org.uk>
-References: <1445991236.7476.59.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151028123543.GB22011@ZenIV.linux.org.uk>
- <1446038672.7476.65.camel@edumazet-glaptop2.roam.corp.google.com>
- <1446043677.7476.68.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151028211347.GC22011@ZenIV.linux.org.uk>
- <1446068668.7476.89.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Singh, Krishneil K" <krishneil.k.singh@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH] fm10k:Fix error handling in the
+ function	fm10k_resume
+Date: Wed, 28 Oct 2015 22:40:23 +0000
+Message-ID: <EF50CC0C76A53A44BAD798C58E0A157E27221EC0@ORSMSX103.amr.corp.intel.com>
+References: <1445098842-28260-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	dhowells@redhat.com, linux-fsdevel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1446068668.7476.89.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Nicholas Krause <xerofoify@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445098842-28260-1-git-send-email-xerofoify@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 28, 2015 at 02:44:28PM -0700, Eric Dumazet wrote:
 
-> Well, all this complexity goes away with a O_FD_FASTALLOC /
-> SOCK_FD_FASTALLOC bit in various fd allocations, which specifically
-> tells the kernel we do not care getting the lowest possible fd as POSIX
-> mandates.
 
-... which won't do a damn thing for existing userland.
+-----Original Message-----
+From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Nicholas Krause
+Sent: Saturday, October 17, 2015 9:21 AM
+To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
+Cc: linux-kernel@vger.kernel.org; intel-wired-lan@lists.osuosl.org; netdev@vger.kernel.org
+Subject: [Intel-wired-lan] [PATCH] fm10k:Fix error handling in the function fm10k_resume
 
-> Except for legacy stuff and stdin/stdout/stderr games, I really doubt
-> lot of applications absolutely rely on the POSIX thing...
+This fixes error handling to proper check if the call to the function fm10k_mbx_request_irq has failed by returning a error code and if so return immediately to the caller of fm10k_resume to properly signal a failure has occurred when accepting to resume this network
 
-We obviously can't turn that into default behaviour, though.  BTW, what
-distribution do you have in mind for those random descriptors?  Uniform
-on [0,INT_MAX] is a bad idea for obvious reasons - you'll blow the
-memory footprint pretty soon...
+Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+---
+
+Tested-by: Krishneil SIngh <krishneil.k.singh@intel.com>
