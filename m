@@ -1,205 +1,213 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 05/12] mlxsw: spectrum: Add support for flood control
-Date: Wed, 28 Oct 2015 10:16:58 +0100
-Message-ID: <1446023825-7162-6-git-send-email-jiri@resnulli.us>
-References: <1446023825-7162-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com, sagir@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:37774 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932124AbbJ1JR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 05:17:29 -0400
-Received: by wicfv8 with SMTP id fv8so4711489wic.0
-        for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 02:17:28 -0700 (PDT)
-In-Reply-To: <1446023825-7162-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sagi Grimberg <sagig-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH 02/25] IB/mthca, net/mlx4: remove counting semaphores
+Date: Wed, 28 Oct 2015 11:19:20 +0200
+Message-ID: <56309318.8030409@dev.mellanox.co.il>
+References: <1446000373-1823620-1-git-send-email-arnd@arndb.de>
+ <1446000373-1823620-3-git-send-email-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
+	Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"Nicholas A. Bellinger" <nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1446000373-1823620-3-git-send-email-arnd-r2nGTMty4D4@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
+Hi Arnd,
 
-Add or remove a bridged port from the flooding domain of unknown unicast
-packets according to user configuration.
+> Since we want to make counting semaphores go away,
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   1 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   1 +
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 113 ++++++++++++++-------
- 3 files changed, 78 insertions(+), 37 deletions(-)
+Why do we want to make counting semaphores go away? completely?
+or just for binary use cases?
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index e30b2da..3be4a23 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1227,6 +1227,7 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 	mlxsw_sp_port->local_port = local_port;
- 	mlxsw_sp_port->learning = 1;
- 	mlxsw_sp_port->learning_sync = 1;
-+	mlxsw_sp_port->uc_flood = 1;
- 	mlxsw_sp_port->pvid = 1;
- 
- 	mlxsw_sp_port->pcpu_stats =
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index b4d8393..4365c8b 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -86,6 +86,7 @@ struct mlxsw_sp_port {
- 	u8 stp_state;
- 	u8 learning:1,
- 	   learning_sync:1,
-+	   uc_flood:1,
- 	   bridged:1;
- 	u16 pvid;
- 	/* 802.1Q bridge VLANs */
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index c3881c9..1f3b12e 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -66,7 +66,8 @@ static int mlxsw_sp_port_attr_get(struct net_device *dev,
- 	case SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS:
- 		attr->u.brport_flags =
- 			(mlxsw_sp_port->learning ? BR_LEARNING : 0) |
--			(mlxsw_sp_port->learning_sync ? BR_LEARNING_SYNC : 0);
-+			(mlxsw_sp_port->learning_sync ? BR_LEARNING_SYNC : 0) |
-+			(mlxsw_sp_port->uc_flood ? BR_FLOOD : 0);
- 		break;
- 	default:
- 		return -EOPNOTSUPP;
-@@ -123,15 +124,89 @@ static int mlxsw_sp_port_attr_stp_state_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 	return mlxsw_sp_port_stp_state_set(mlxsw_sp_port, state);
- }
- 
-+static int __mlxsw_sp_port_flood_set(struct mlxsw_sp_port *mlxsw_sp_port,
-+				     u16 fid_begin, u16 fid_end, bool set,
-+				     bool only_uc)
-+{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	u16 range = fid_end - fid_begin + 1;
-+	char *sftr_pl;
-+	int err;
-+
-+	sftr_pl = kmalloc(MLXSW_REG_SFTR_LEN, GFP_KERNEL);
-+	if (!sftr_pl)
-+		return -ENOMEM;
-+
-+	mlxsw_reg_sftr_pack(sftr_pl, MLXSW_SP_FLOOD_TABLE_UC, fid_begin,
-+			    MLXSW_REG_SFGC_TABLE_TYPE_FID_OFFEST, range,
-+			    mlxsw_sp_port->local_port, set);
-+	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sftr), sftr_pl);
-+	if (err)
-+		goto buffer_out;
-+
-+	/* Flooding control allows one to decide whether a given port will
-+	 * flood unicast traffic for which there is no FDB entry.
-+	 */
-+	if (only_uc)
-+		goto buffer_out;
-+
-+	mlxsw_reg_sftr_pack(sftr_pl, MLXSW_SP_FLOOD_TABLE_BM, fid_begin,
-+			    MLXSW_REG_SFGC_TABLE_TYPE_FID_OFFEST, range,
-+			    mlxsw_sp_port->local_port, set);
-+	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sftr), sftr_pl);
-+
-+buffer_out:
-+	kfree(sftr_pl);
-+	return err;
-+}
-+
-+static int mlxsw_sp_port_uc_flood_set(struct mlxsw_sp_port *mlxsw_sp_port,
-+				      bool set)
-+{
-+	struct net_device *dev = mlxsw_sp_port->dev;
-+	u16 vid, last_visited_vid;
-+	int err;
-+
-+	for_each_set_bit(vid, mlxsw_sp_port->active_vlans, VLAN_N_VID) {
-+		err = __mlxsw_sp_port_flood_set(mlxsw_sp_port, vid, vid, set,
-+						true);
-+		if (err) {
-+			last_visited_vid = vid;
-+			goto err_port_flood_set;
-+		}
-+	}
-+
-+	return 0;
-+
-+err_port_flood_set:
-+	for_each_set_bit(vid, mlxsw_sp_port->active_vlans, last_visited_vid)
-+		__mlxsw_sp_port_flood_set(mlxsw_sp_port, vid, vid, !set, true);
-+	netdev_err(dev, "Failed to configure unicast flooding\n");
-+	return err;
-+}
-+
- static int mlxsw_sp_port_attr_br_flags_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 					   struct switchdev_trans *trans,
- 					   unsigned long brport_flags)
- {
-+	unsigned long uc_flood = mlxsw_sp_port->uc_flood ? BR_FLOOD : 0;
-+	bool set;
-+	int err;
-+
- 	if (switchdev_trans_ph_prepare(trans))
- 		return 0;
- 
-+	if ((uc_flood ^ brport_flags) & BR_FLOOD) {
-+		set = mlxsw_sp_port->uc_flood ? false : true;
-+		err = mlxsw_sp_port_uc_flood_set(mlxsw_sp_port, set);
-+		if (err)
-+			return err;
-+	}
-+
-+	mlxsw_sp_port->uc_flood = brport_flags & BR_FLOOD ? 1 : 0;
- 	mlxsw_sp_port->learning = brport_flags & BR_LEARNING ? 1 : 0;
- 	mlxsw_sp_port->learning_sync = brport_flags & BR_LEARNING_SYNC ? 1 : 0;
-+
- 	return 0;
- }
- 
-@@ -247,42 +322,6 @@ static int mlxsw_sp_port_fid_unmap(struct mlxsw_sp_port *mlxsw_sp_port, u16 fid)
- 	return mlxsw_sp_port_vid_to_fid_set(mlxsw_sp_port, mt, false, fid, fid);
- }
- 
--static int __mlxsw_sp_port_flood_set(struct mlxsw_sp_port *mlxsw_sp_port,
--				     u16 fid_begin, u16 fid_end, bool set,
--				     bool only_uc)
--{
--	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
--	u16 range = fid_end - fid_begin + 1;
--	char *sftr_pl;
--	int err;
--
--	sftr_pl = kmalloc(MLXSW_REG_SFTR_LEN, GFP_KERNEL);
--	if (!sftr_pl)
--		return -ENOMEM;
--
--	mlxsw_reg_sftr_pack(sftr_pl, MLXSW_SP_FLOOD_TABLE_UC, fid_begin,
--			    MLXSW_REG_SFGC_TABLE_TYPE_FID_OFFEST, range,
--			    mlxsw_sp_port->local_port, set);
--	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sftr), sftr_pl);
--	if (err)
--		goto buffer_out;
--
--	/* Flooding control allows one to decide whether a given port will
--	 * flood unicast traffic for which there is no FDB entry.
--	 */
--	if (only_uc)
--		goto buffer_out;
--
--	mlxsw_reg_sftr_pack(sftr_pl, MLXSW_SP_FLOOD_TABLE_BM, fid_begin,
--			    MLXSW_REG_SFGC_TABLE_TYPE_FID_OFFEST, range,
--			    mlxsw_sp_port->local_port, set);
--	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sftr), sftr_pl);
--
--buffer_out:
--	kfree(sftr_pl);
--	return err;
--}
--
- static int mlxsw_sp_port_add_vids(struct net_device *dev, u16 vid_begin,
- 				  u16 vid_end)
- {
--- 
-1.9.3
+I have a use case in iser target code where a counting semaphore is the
+best suited synchronizing mechanism.
+
+I have a single thread handling connect requests (one at a time) while
+connect requests are event driven and come asynchronously. This is
+why I use a queue and a counting semaphore to handle this situation.
+
+I'd need to rethink of a new strategy to handle this without counting
+semaphores and I'm not entirely sure it would be simpler.
+
+> this patch replaces the semaphore counting the event-driven
+> commands with an open-coded wait-queue, which should
+> be an equivalent transformation of the code, although
+> it does not make it any nicer.
+>
+> As far as I can tell, there is a preexisting race condition
+> regarding the cmd->use_events flag, which is not protected
+> by any lock. When this flag is toggled while another command
+> is being started, that command gets stuck until the mode is
+> toggled back.
+>
+> A better solution that would solve the race condition and
+> at the same time improve the code readability would create
+> a new locking primitive that replaces both semaphores, like
+>
+> static int mlx4_use_events(struct mlx4_cmd *cmd)
+> {
+> 	int ret = -EAGAIN;
+> 	spin_lock(&cmd->lock);
+> 	if (cmd->use_events && cmd->commands < cmd->max_commands) {
+> 		cmd->commands++;
+> 		ret = 1;
+> 	} else if (!cmd->use_events && cmd->commands == 0) {
+> 		cmd->commands = 1;
+> 		ret = 0;
+> 	}
+> 	spin_unlock(&cmd->lock);
+> 	return ret;
+> }
+>
+> static bool mlx4_use_events(struct mlx4_cmd *cmd)
+> {
+> 	int ret;
+> 	wait_event(cmd->events_wq, ret = __mlx4_use_events(cmd) >= 0);
+> 	return ret;
+> }
+>
+> Cc: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+> Cc: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+> Cc: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+>
+> Conflicts:
+>
+> 	drivers/net/mlx4/cmd.c
+> 	drivers/net/mlx4/mlx4.h
+> ---
+>   drivers/infiniband/hw/mthca/mthca_cmd.c   | 12 ++++++++----
+>   drivers/infiniband/hw/mthca/mthca_dev.h   |  3 ++-
+>   drivers/net/ethernet/mellanox/mlx4/cmd.c  | 12 ++++++++----
+>   drivers/net/ethernet/mellanox/mlx4/mlx4.h |  3 ++-
+>   4 files changed, 20 insertions(+), 10 deletions(-)
+>
+> diff --git a/drivers/infiniband/hw/mthca/mthca_cmd.c b/drivers/infiniband/hw/mthca/mthca_cmd.c
+> index 9d3e5c1ac60e..aad1852e8e10 100644
+> --- a/drivers/infiniband/hw/mthca/mthca_cmd.c
+> +++ b/drivers/infiniband/hw/mthca/mthca_cmd.c
+> @@ -417,7 +417,8 @@ static int mthca_cmd_wait(struct mthca_dev *dev,
+>   	int err = 0;
+>   	struct mthca_cmd_context *context;
+>
+> -	down(&dev->cmd.event_sem);
+> +	wait_event(dev->cmd.event_wait,
+> +		   atomic_add_unless(&dev->cmd.commands, -1, 0));
+>
+>   	spin_lock(&dev->cmd.context_lock);
+>   	BUG_ON(dev->cmd.free_head < 0);
+> @@ -459,7 +460,8 @@ out:
+>   	dev->cmd.free_head = context - dev->cmd.context;
+>   	spin_unlock(&dev->cmd.context_lock);
+>
+> -	up(&dev->cmd.event_sem);
+> +	atomic_inc(&dev->cmd.commands);
+> +	wake_up(&dev->cmd.event_wait);
+>   	return err;
+>   }
+>
+> @@ -571,7 +573,8 @@ int mthca_cmd_use_events(struct mthca_dev *dev)
+>   	dev->cmd.context[dev->cmd.max_cmds - 1].next = -1;
+>   	dev->cmd.free_head = 0;
+>
+> -	sema_init(&dev->cmd.event_sem, dev->cmd.max_cmds);
+> +	init_waitqueue_head(&dev->cmd.event_wait);
+> +	atomic_set(&dev->cmd.commands, dev->cmd.max_cmds);
+>   	spin_lock_init(&dev->cmd.context_lock);
+>
+>   	for (dev->cmd.token_mask = 1;
+> @@ -597,7 +600,8 @@ void mthca_cmd_use_polling(struct mthca_dev *dev)
+>   	dev->cmd.flags &= ~MTHCA_CMD_USE_EVENTS;
+>
+>   	for (i = 0; i < dev->cmd.max_cmds; ++i)
+> -		down(&dev->cmd.event_sem);
+> +		wait_event(dev->cmd.event_wait,
+> +			   atomic_add_unless(&dev->cmd.commands, -1, 0));
+>
+>   	kfree(dev->cmd.context);
+>
+> diff --git a/drivers/infiniband/hw/mthca/mthca_dev.h b/drivers/infiniband/hw/mthca/mthca_dev.h
+> index 7e6a6d64ad4e..3055f5c12ac8 100644
+> --- a/drivers/infiniband/hw/mthca/mthca_dev.h
+> +++ b/drivers/infiniband/hw/mthca/mthca_dev.h
+> @@ -121,7 +121,8 @@ struct mthca_cmd {
+>   	struct pci_pool          *pool;
+>   	struct mutex              hcr_mutex;
+>   	struct semaphore 	  poll_sem;
+> -	struct semaphore 	  event_sem;
+> +	wait_queue_head_t 	  event_wait;
+> +	atomic_t	 	  commands;
+>   	int              	  max_cmds;
+>   	spinlock_t                context_lock;
+>   	int                       free_head;
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+> index 78f5a1a0b8c8..60134a4245ef 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+> @@ -273,7 +273,8 @@ static int mlx4_cmd_wait(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+>   	struct mlx4_cmd_context *context;
+>   	int err = 0;
+>
+> -	down(&cmd->event_sem);
+> +	wait_event(cmd->event_wait,
+> +		   atomic_add_unless(&cmd->commands, -1, 0));
+>
+>   	spin_lock(&cmd->context_lock);
+>   	BUG_ON(cmd->free_head < 0);
+> @@ -305,7 +306,8 @@ out:
+>   	cmd->free_head = context - cmd->context;
+>   	spin_unlock(&cmd->context_lock);
+>
+> -	up(&cmd->event_sem);
+> +	atomic_inc(&cmd->commands);
+> +	wake_up(&cmd->event_wait);
+>   	return err;
+>   }
+>
+> @@ -380,7 +382,8 @@ int mlx4_cmd_use_events(struct mlx4_dev *dev)
+>   	priv->cmd.context[priv->cmd.max_cmds - 1].next = -1;
+>   	priv->cmd.free_head = 0;
+>
+> -	sema_init(&priv->cmd.event_sem, priv->cmd.max_cmds);
+> +	init_waitqueue_head(&priv->cmd.event_wait);
+> +	atomic_set(&priv->cmd.commands, priv->cmd.max_cmds);
+>   	spin_lock_init(&priv->cmd.context_lock);
+>
+>   	for (priv->cmd.token_mask = 1;
+> @@ -407,7 +410,8 @@ void mlx4_cmd_use_polling(struct mlx4_dev *dev)
+>   	priv->cmd.use_events = 0;
+>
+>   	for (i = 0; i < priv->cmd.max_cmds; ++i)
+> -		down(&priv->cmd.event_sem);
+> +		wait_event(priv->cmd.event_wait,
+> +			   atomic_add_unless(&priv->cmd.commands, -1, 0));
+>
+>   	kfree(priv->cmd.context);
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+> index 5dfa68ffc11c..5a2c55d8ccfd 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+> @@ -189,7 +189,8 @@ struct mlx4_cmd {
+>   	void __iomem	       *hcr;
+>   	struct mutex		hcr_mutex;
+>   	struct semaphore	poll_sem;
+> -	struct semaphore	event_sem;
+> +	wait_queue_head_t 	event_wait;
+> +	atomic_t	 	commands;
+>   	int			max_cmds;
+>   	spinlock_t		context_lock;
+>   	int			free_head;
+>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
