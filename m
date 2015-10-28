@@ -1,4590 +1,1101 @@
 From: <igal.liberman@freescale.com>
-Subject: [v6, 3/6] fsl/fman: Add FMan MAC support
-Date: Wed, 28 Oct 2015 10:53:46 +0200
-Message-ID: <1446022429-31621-4-git-send-email-igal.liberman@freescale.com>
+Subject: [v6, 5/6] fsl/fman: Add FMan Port Support
+Date: Wed, 28 Oct 2015 10:53:48 +0200
+Message-ID: <1446022429-31621-6-git-send-email-igal.liberman@freescale.com>
 References: <1446022429-31621-1-git-send-email-igal.liberman@freescale.com>
-Reply-To: <igal.liberman@freescale.com>
+Reply-To: igal.liberman@freescale.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
-	<scottwood@freescale.com>, <madalin.bucur@freescale.com>,
-	<pebolle@tiscali.nl>, <joakim.tjernlund@transmode.se>,
-	<ppc@mindchasers.com>, <stephen@networkplumber.org>,
-	<davem@davemloft.net>, Igal Liberman <igal.liberman@freescale.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: pebolle@tiscali.nl, linux-kernel@vger.kernel.org, ppc@mindchasers.com,
+ stephen@networkplumber.org, Igal Liberman <igal.liberman@freescale.com>,
+ scottwood@freescale.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net,
+ madalin.bucur@freescale.com
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 In-Reply-To: <1446022429-31621-1-git-send-email-igal.liberman@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-From: Igal Liberman <igal.liberman@freescale.com>
-
-Add the Data Path Acceleration Architecture Frame Manger MAC support.
-This patch adds The FMan MAC configuration, initialization and
-runtime control routines.
-This patch contains support for these types of MACs:
-	- dTSEC: Three speed Ethernet controller (10/100/1000 Mbps)
-	- tGEC: 10G Ethernet controller (10 Gbps)
-	- mEMAC: Multi-rate Ethernet MAC (10/100/1000/10000 Mbps)
-Different FMan revisions have different type and number of MACs.
-
-Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
----
- drivers/net/ethernet/freescale/fman/Makefile       |    3 +-
- .../net/ethernet/freescale/fman/crc_mac_addr_ext.h |  314 ++++
- drivers/net/ethernet/freescale/fman/fman_dtsec.c   | 1608 ++++++++++++++++++++
- drivers/net/ethernet/freescale/fman/fman_dtsec.h   |   59 +
- drivers/net/ethernet/freescale/fman/fman_mac.h     |  276 ++++
- drivers/net/ethernet/freescale/fman/fman_memac.c   | 1307 ++++++++++++++++
- drivers/net/ethernet/freescale/fman/fman_memac.h   |   60 +
- drivers/net/ethernet/freescale/fman/fman_tgec.c    |  798 ++++++++++
- drivers/net/ethernet/freescale/fman/fman_tgec.h    |   55 +
- 9 files changed, 4479 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/freescale/fman/crc_mac_addr_ext.h
- create mode 100644 drivers/net/ethernet/freescale/fman/fman_dtsec.c
- create mode 100644 drivers/net/ethernet/freescale/fman/fman_dtsec.h
- create mode 100644 drivers/net/ethernet/freescale/fman/fman_mac.h
- create mode 100644 drivers/net/ethernet/freescale/fman/fman_memac.c
- create mode 100644 drivers/net/ethernet/freescale/fman/fman_memac.h
- create mode 100644 drivers/net/ethernet/freescale/fman/fman_tgec.c
- create mode 100644 drivers/net/ethernet/freescale/fman/fman_tgec.h
-
-diff --git a/drivers/net/ethernet/freescale/fman/Makefile b/drivers/net/ethernet/freescale/fman/Makefile
-index fb5a7f0..43360d70 100644
---- a/drivers/net/ethernet/freescale/fman/Makefile
-+++ b/drivers/net/ethernet/freescale/fman/Makefile
-@@ -1,5 +1,6 @@
- subdir-ccflags-y +=  -I$(srctree)/drivers/net/ethernet/freescale/fman
- 
--obj-y		+= fsl_fman.o
-+obj-y		+= fsl_fman.o fsl_fman_mac.o
- 
- fsl_fman-objs	:= fman_muram.o fman.o
-+fsl_fman_mac-objs := fman_dtsec.o fman_memac.o fman_tgec.o
-diff --git a/drivers/net/ethernet/freescale/fman/crc_mac_addr_ext.h b/drivers/net/ethernet/freescale/fman/crc_mac_addr_ext.h
-new file mode 100644
-index 0000000..92f2e87
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/crc_mac_addr_ext.h
-@@ -0,0 +1,314 @@
-+/*
-+ * Copyright 2008-2015 Freescale Semiconductor Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *       notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *       notice, this list of conditions and the following disclaimer in the
-+ *       documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *       names of its contributors may be used to endorse or promote products
-+ *       derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+/* Define a macro that calculate the crc value of an Ethernet MAC address
-+ * (48 bitd address)
-+ */
-+
-+#ifndef __crc_mac_addr_ext_h
-+#define __crc_mac_addr_ext_h
-+
-+#include <linux/types.h>
-+
-+static u32 crc_table[256] = {
-+	0x00000000,
-+	0x77073096,
-+	0xee0e612c,
-+	0x990951ba,
-+	0x076dc419,
-+	0x706af48f,
-+	0xe963a535,
-+	0x9e6495a3,
-+	0x0edb8832,
-+	0x79dcb8a4,
-+	0xe0d5e91e,
-+	0x97d2d988,
-+	0x09b64c2b,
-+	0x7eb17cbd,
-+	0xe7b82d07,
-+	0x90bf1d91,
-+	0x1db71064,
-+	0x6ab020f2,
-+	0xf3b97148,
-+	0x84be41de,
-+	0x1adad47d,
-+	0x6ddde4eb,
-+	0xf4d4b551,
-+	0x83d385c7,
-+	0x136c9856,
-+	0x646ba8c0,
-+	0xfd62f97a,
-+	0x8a65c9ec,
-+	0x14015c4f,
-+	0x63066cd9,
-+	0xfa0f3d63,
-+	0x8d080df5,
-+	0x3b6e20c8,
-+	0x4c69105e,
-+	0xd56041e4,
-+	0xa2677172,
-+	0x3c03e4d1,
-+	0x4b04d447,
-+	0xd20d85fd,
-+	0xa50ab56b,
-+	0x35b5a8fa,
-+	0x42b2986c,
-+	0xdbbbc9d6,
-+	0xacbcf940,
-+	0x32d86ce3,
-+	0x45df5c75,
-+	0xdcd60dcf,
-+	0xabd13d59,
-+	0x26d930ac,
-+	0x51de003a,
-+	0xc8d75180,
-+	0xbfd06116,
-+	0x21b4f4b5,
-+	0x56b3c423,
-+	0xcfba9599,
-+	0xb8bda50f,
-+	0x2802b89e,
-+	0x5f058808,
-+	0xc60cd9b2,
-+	0xb10be924,
-+	0x2f6f7c87,
-+	0x58684c11,
-+	0xc1611dab,
-+	0xb6662d3d,
-+	0x76dc4190,
-+	0x01db7106,
-+	0x98d220bc,
-+	0xefd5102a,
-+	0x71b18589,
-+	0x06b6b51f,
-+	0x9fbfe4a5,
-+	0xe8b8d433,
-+	0x7807c9a2,
-+	0x0f00f934,
-+	0x9609a88e,
-+	0xe10e9818,
-+	0x7f6a0dbb,
-+	0x086d3d2d,
-+	0x91646c97,
-+	0xe6635c01,
-+	0x6b6b51f4,
-+	0x1c6c6162,
-+	0x856530d8,
-+	0xf262004e,
-+	0x6c0695ed,
-+	0x1b01a57b,
-+	0x8208f4c1,
-+	0xf50fc457,
-+	0x65b0d9c6,
-+	0x12b7e950,
-+	0x8bbeb8ea,
-+	0xfcb9887c,
-+	0x62dd1ddf,
-+	0x15da2d49,
-+	0x8cd37cf3,
-+	0xfbd44c65,
-+	0x4db26158,
-+	0x3ab551ce,
-+	0xa3bc0074,
-+	0xd4bb30e2,
-+	0x4adfa541,
-+	0x3dd895d7,
-+	0xa4d1c46d,
-+	0xd3d6f4fb,
-+	0x4369e96a,
-+	0x346ed9fc,
-+	0xad678846,
-+	0xda60b8d0,
-+	0x44042d73,
-+	0x33031de5,
-+	0xaa0a4c5f,
-+	0xdd0d7cc9,
-+	0x5005713c,
-+	0x270241aa,
-+	0xbe0b1010,
-+	0xc90c2086,
-+	0x5768b525,
-+	0x206f85b3,
-+	0xb966d409,
-+	0xce61e49f,
-+	0x5edef90e,
-+	0x29d9c998,
-+	0xb0d09822,
-+	0xc7d7a8b4,
-+	0x59b33d17,
-+	0x2eb40d81,
-+	0xb7bd5c3b,
-+	0xc0ba6cad,
-+	0xedb88320,
-+	0x9abfb3b6,
-+	0x03b6e20c,
-+	0x74b1d29a,
-+	0xead54739,
-+	0x9dd277af,
-+	0x04db2615,
-+	0x73dc1683,
-+	0xe3630b12,
-+	0x94643b84,
-+	0x0d6d6a3e,
-+	0x7a6a5aa8,
-+	0xe40ecf0b,
-+	0x9309ff9d,
-+	0x0a00ae27,
-+	0x7d079eb1,
-+	0xf00f9344,
-+	0x8708a3d2,
-+	0x1e01f268,
-+	0x6906c2fe,
-+	0xf762575d,
-+	0x806567cb,
-+	0x196c3671,
-+	0x6e6b06e7,
-+	0xfed41b76,
-+	0x89d32be0,
-+	0x10da7a5a,
-+	0x67dd4acc,
-+	0xf9b9df6f,
-+	0x8ebeeff9,
-+	0x17b7be43,
-+	0x60b08ed5,
-+	0xd6d6a3e8,
-+	0xa1d1937e,
-+	0x38d8c2c4,
-+	0x4fdff252,
-+	0xd1bb67f1,
-+	0xa6bc5767,
-+	0x3fb506dd,
-+	0x48b2364b,
-+	0xd80d2bda,
-+	0xaf0a1b4c,
-+	0x36034af6,
-+	0x41047a60,
-+	0xdf60efc3,
-+	0xa867df55,
-+	0x316e8eef,
-+	0x4669be79,
-+	0xcb61b38c,
-+	0xbc66831a,
-+	0x256fd2a0,
-+	0x5268e236,
-+	0xcc0c7795,
-+	0xbb0b4703,
-+	0x220216b9,
-+	0x5505262f,
-+	0xc5ba3bbe,
-+	0xb2bd0b28,
-+	0x2bb45a92,
-+	0x5cb36a04,
-+	0xc2d7ffa7,
-+	0xb5d0cf31,
-+	0x2cd99e8b,
-+	0x5bdeae1d,
-+	0x9b64c2b0,
-+	0xec63f226,
-+	0x756aa39c,
-+	0x026d930a,
-+	0x9c0906a9,
-+	0xeb0e363f,
-+	0x72076785,
-+	0x05005713,
-+	0x95bf4a82,
-+	0xe2b87a14,
-+	0x7bb12bae,
-+	0x0cb61b38,
-+	0x92d28e9b,
-+	0xe5d5be0d,
-+	0x7cdcefb7,
-+	0x0bdbdf21,
-+	0x86d3d2d4,
-+	0xf1d4e242,
-+	0x68ddb3f8,
-+	0x1fda836e,
-+	0x81be16cd,
-+	0xf6b9265b,
-+	0x6fb077e1,
-+	0x18b74777,
-+	0x88085ae6,
-+	0xff0f6a70,
-+	0x66063bca,
-+	0x11010b5c,
-+	0x8f659eff,
-+	0xf862ae69,
-+	0x616bffd3,
-+	0x166ccf45,
-+	0xa00ae278,
-+	0xd70dd2ee,
-+	0x4e048354,
-+	0x3903b3c2,
-+	0xa7672661,
-+	0xd06016f7,
-+	0x4969474d,
-+	0x3e6e77db,
-+	0xaed16a4a,
-+	0xd9d65adc,
-+	0x40df0b66,
-+	0x37d83bf0,
-+	0xa9bcae53,
-+	0xdebb9ec5,
-+	0x47b2cf7f,
-+	0x30b5ffe9,
-+	0xbdbdf21c,
-+	0xcabac28a,
-+	0x53b39330,
-+	0x24b4a3a6,
-+	0xbad03605,
-+	0xcdd70693,
-+	0x54de5729,
-+	0x23d967bf,
-+	0xb3667a2e,
-+	0xc4614ab8,
-+	0x5d681b02,
-+	0x2a6f2b94,
-+	0xb40bbe37,
-+	0xc30c8ea1,
-+	0x5a05df1b,
-+	0x2d02ef8d
-+};
-+
-+/* CRC calculation */
-+#define GET_MAC_ADDR_CRC(addr, crc)				\
-+{								\
-+	u32 i;						\
-+	u8  data;						\
-+	crc = 0xffffffff;					\
-+	for (i = 0; i < 6; i++) {				\
-+		data = (u8)(addr >> ((5 - i) * 8));	\
-+		crc = crc ^ data;				\
-+		crc = crc_table[crc & 0xff] ^ (crc >> 8);	\
-+	}							\
-+}								\
-+
-+#endif /* __crc_mac_addr_ext_h */
-diff --git a/drivers/net/ethernet/freescale/fman/fman_dtsec.c b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-new file mode 100644
-index 0000000..9ed96596
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-@@ -0,0 +1,1608 @@
-+/*
-+ * Copyright 2008-2015 Freescale Semiconductor Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *       notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *       notice, this list of conditions and the following disclaimer in the
-+ *       documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *       names of its contributors may be used to endorse or promote products
-+ *       derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include "crc_mac_addr_ext.h"
-+
-+#include "fman_dtsec.h"
-+#include "fman.h"
-+
-+#include <linux/slab.h>
-+#include <linux/bitrev.h>
-+#include <linux/io.h>
-+#include <linux/delay.h>
-+#include <linux/phy.h>
-+
-+/* MII	Management Command Register */
-+#define MIIMCOM_READ_CYCLE		0x00000001
-+
-+/* MII	Management Address Register */
-+#define MIIMADD_PHY_ADDR_SHIFT		8
-+
-+/* MII Management Indicator Register */
-+#define MIIMIND_BUSY			0x00000001
-+
-+/* PHY Control Register */
-+#define PHY_CR_PHY_RESET	0x8000
-+#define PHY_CR_SPEED0		0x2000
-+#define PHY_CR_ANE		0x1000
-+#define PHY_CR_RESET_AN		0x0200
-+#define PHY_CR_FULLDUPLEX	0x0100
-+#define PHY_CR_SPEED1		0x0040
-+
-+#define PHY_TBICON_SRESET	0x8000
-+#define PHY_TBICON_CLK_SEL	0x0020
-+#define PHY_TBIANA_SGMII	0x4001
-+#define PHY_TBIANA_1000X	0x01a0
-+
-+#define DTSEC_TO_MII_OFFSET	0x1000
-+
-+/* Interrupt Mask Register (IMASK) */
-+#define DTSEC_IMASK_BREN	0x80000000
-+#define DTSEC_IMASK_RXCEN	0x40000000
-+#define DTSEC_IMASK_MSROEN	0x04000000
-+#define DTSEC_IMASK_GTSCEN	0x02000000
-+#define DTSEC_IMASK_BTEN	0x01000000
-+#define DTSEC_IMASK_TXCEN	0x00800000
-+#define DTSEC_IMASK_TXEEN	0x00400000
-+#define DTSEC_IMASK_LCEN	0x00040000
-+#define DTSEC_IMASK_CRLEN	0x00020000
-+#define DTSEC_IMASK_XFUNEN	0x00010000
-+#define DTSEC_IMASK_ABRTEN	0x00008000
-+#define DTSEC_IMASK_IFERREN	0x00004000
-+#define DTSEC_IMASK_MAGEN	0x00000800
-+#define DTSEC_IMASK_MMRDEN	0x00000400
-+#define DTSEC_IMASK_MMWREN	0x00000200
-+#define DTSEC_IMASK_GRSCEN	0x00000100
-+#define DTSEC_IMASK_TDPEEN	0x00000002
-+#define DTSEC_IMASK_RDPEEN	0x00000001
-+
-+#define DTSEC_EVENTS_MASK		\
-+	 ((u32)(DTSEC_IMASK_BREN    |	\
-+		DTSEC_IMASK_RXCEN   |	\
-+		DTSEC_IMASK_BTEN    |	\
-+		DTSEC_IMASK_TXCEN   |	\
-+		DTSEC_IMASK_TXEEN   |	\
-+		DTSEC_IMASK_ABRTEN  |	\
-+		DTSEC_IMASK_LCEN    |	\
-+		DTSEC_IMASK_CRLEN   |	\
-+		DTSEC_IMASK_XFUNEN  |	\
-+		DTSEC_IMASK_IFERREN |	\
-+		DTSEC_IMASK_MAGEN   |	\
-+		DTSEC_IMASK_TDPEEN  |	\
-+		DTSEC_IMASK_RDPEEN))
-+
-+/* dtsec timestamp event bits */
-+#define TMR_PEMASK_TSREEN	0x00010000
-+#define TMR_PEVENT_TSRE		0x00010000
-+
-+/* Group address bit indication */
-+#define MAC_GROUP_ADDRESS	0x0000010000000000ULL
-+
-+/* Defaults */
-+#define DEFAULT_HALFDUP_RETRANSMIT		0xf
-+#define DEFAULT_HALFDUP_COLL_WINDOW		0x37
-+#define DEFAULT_TX_PAUSE_TIME			0xf000
-+#define DEFAULT_TBIPA				5
-+#define DEFAULT_RX_PREPEND			0
-+#define DEFAULT_PREAMBLE_LEN			7
-+#define DEFAULT_TX_PAUSE_TIME_EXTD		0
-+#define DEFAULT_NON_BACK_TO_BACK_IPG1		0x40
-+#define DEFAULT_NON_BACK_TO_BACK_IPG2		0x60
-+#define DEFAULT_MIN_IFG_ENFORCEMENT		0x50
-+#define DEFAULT_BACK_TO_BACK_IPG		0x60
-+#define DEFAULT_MAXIMUM_FRAME			0x600
-+#define DEFAULT_TBI_PHY_ADDR			5
-+
-+/* register related defines (bits, field offsets..) */
-+#define DTSEC_ID2_INT_REDUCED_OFF	0x00010000
-+
-+#define DTSEC_ECNTRL_GMIIM		0x00000040
-+#define DTSEC_ECNTRL_TBIM		0x00000020
-+#define DTSEC_ECNTRL_SGMIIM		0x00000002
-+#define DTSEC_ECNTRL_RPM		0x00000010
-+#define DTSEC_ECNTRL_R100M		0x00000008
-+#define DTSEC_ECNTRL_QSGMIIM		0x00000001
-+
-+#define DTSEC_TCTRL_GTS			0x00000020
-+
-+#define RCTRL_PAL_MASK			0x001f0000
-+#define RCTRL_PAL_SHIFT			16
-+#define RCTRL_GHTX			0x00000400
-+#define RCTRL_GRS			0x00000020
-+#define RCTRL_MPROM			0x00000008
-+#define RCTRL_RSF			0x00000004
-+#define RCTRL_UPROM			0x00000001
-+
-+#define MACCFG1_SOFT_RESET		0x80000000
-+#define MACCFG1_RX_FLOW			0x00000020
-+#define MACCFG1_TX_FLOW			0x00000010
-+#define MACCFG1_TX_EN			0x00000001
-+#define MACCFG1_RX_EN			0x00000004
-+
-+#define MACCFG2_NIBBLE_MODE		0x00000100
-+#define MACCFG2_BYTE_MODE		0x00000200
-+#define MACCFG2_PAD_CRC_EN		0x00000004
-+#define MACCFG2_FULL_DUPLEX		0x00000001
-+#define MACCFG2_PREAMBLE_LENGTH_MASK	0x0000f000
-+#define MACCFG2_PREAMBLE_LENGTH_SHIFT	12
-+
-+#define IPGIFG_NON_BACK_TO_BACK_IPG_1_SHIFT	24
-+#define IPGIFG_NON_BACK_TO_BACK_IPG_2_SHIFT	16
-+#define IPGIFG_MIN_IFG_ENFORCEMENT_SHIFT	8
-+
-+#define IPGIFG_NON_BACK_TO_BACK_IPG_1	0x7F000000
-+#define IPGIFG_NON_BACK_TO_BACK_IPG_2	0x007F0000
-+#define IPGIFG_MIN_IFG_ENFORCEMENT	0x0000FF00
-+#define IPGIFG_BACK_TO_BACK_IPG	0x0000007F
-+
-+#define HAFDUP_EXCESS_DEFER			0x00010000
-+#define HAFDUP_COLLISION_WINDOW		0x000003ff
-+#define HAFDUP_RETRANSMISSION_MAX_SHIFT	12
-+#define HAFDUP_RETRANSMISSION_MAX		0x0000f000
-+
-+#define NUM_OF_HASH_REGS	8	/* Number of hash table registers */
-+
-+#define PTV_PTE_MASK		0xffff0000
-+#define PTV_PT_MASK		0x0000ffff
-+#define PTV_PTE_SHIFT		16
-+
-+#define MAX_PACKET_ALIGNMENT		31
-+#define MAX_INTER_PACKET_GAP		0x7f
-+#define MAX_RETRANSMISSION		0x0f
-+#define MAX_COLLISION_WINDOW		0x03ff
-+
-+/* Hash table size (32 bits*8 regs) */
-+#define DTSEC_HASH_TABLE_SIZE		256
-+/* Extended Hash table size (32 bits*16 regs) */
-+#define EXTENDED_HASH_TABLE_SIZE	512
-+
-+/* maximum number of phys */
-+#define MAX_PHYS			32
-+
-+/* MII Configuration Control Memory Map Registers */
-+struct dtsec_mii_regs {
-+	u32 reserved1[72];
-+	u32 miimcfg;	/* MII Mgmt:configuration */
-+	u32 miimcom;	/* MII Mgmt:command	  */
-+	u32 miimadd;	/* MII Mgmt:address	  */
-+	u32 miimcon;	/* MII Mgmt:control 3	  */
-+	u32 miimstat;	/* MII Mgmt:status	  */
-+	u32 miimind;	/* MII Mgmt:indicators	  */
-+};
-+
-+/* dTSEC Memory Map registers */
-+struct dtsec_regs {
-+	/* dTSEC General Control and Status Registers */
-+	u32 tsec_id;		/* 0x000 ETSEC_ID register */
-+	u32 tsec_id2;		/* 0x004 ETSEC_ID2 register */
-+	u32 ievent;		/* 0x008 Interrupt event register */
-+	u32 imask;		/* 0x00C Interrupt mask register */
-+	u32 reserved0010[1];
-+	u32 ecntrl;		/* 0x014 E control register */
-+	u32 ptv;		/* 0x018 Pause time value register */
-+	u32 tbipa;		/* 0x01C TBI PHY address register */
-+	u32 tmr_ctrl;		/* 0x020 Time-stamp Control register */
-+	u32 tmr_pevent;		/* 0x024 Time-stamp event register */
-+	u32 tmr_pemask;		/* 0x028 Timer event mask register */
-+	u32 reserved002c[5];
-+	u32 tctrl;		/* 0x040 Transmit control register */
-+	u32 reserved0044[3];
-+	u32 rctrl;		/* 0x050 Receive control register */
-+	u32 reserved0054[11];
-+	u32 igaddr[8];		/* 0x080-0x09C Individual/group address */
-+	u32 gaddr[8];		/* 0x0A0-0x0BC Group address registers 0-7 */
-+	u32 reserved00c0[16];
-+	u32 maccfg1;		/* 0x100 MAC configuration #1 */
-+	u32 maccfg2;		/* 0x104 MAC configuration #2 */
-+	u32 ipgifg;		/* 0x108 IPG/IFG */
-+	u32 hafdup;		/* 0x10C Half-duplex */
-+	u32 maxfrm;		/* 0x110 Maximum frame */
-+	u32 reserved0114[10];
-+	u32 ifstat;		/* 0x13C Interface status */
-+	u32 macstnaddr1;	/* 0x140 Station Address,part 1 */
-+	u32 macstnaddr2;	/* 0x144 Station Address,part 2 */
-+	struct {
-+		u32 exact_match1;	/* octets 1-4 */
-+		u32 exact_match2;	/* octets 5-6 */
-+	} macaddr[15];		/* 0x148-0x1BC mac exact match addresses 1-15 */
-+	u32 reserved01c0[16];
-+	u32 tr64;	/* 0x200 Tx and Rx 64 byte frame counter */
-+	u32 tr127;	/* 0x204 Tx and Rx 65 to 127 byte frame counter */
-+	u32 tr255;	/* 0x208 Tx and Rx 128 to 255 byte frame counter */
-+	u32 tr511;	/* 0x20C Tx and Rx 256 to 511 byte frame counter */
-+	u32 tr1k;	/* 0x210 Tx and Rx 512 to 1023 byte frame counter */
-+	u32 trmax;	/* 0x214 Tx and Rx 1024 to 1518 byte frame counter */
-+	u32 trmgv;
-+	/* 0x218 Tx and Rx 1519 to 1522 byte good VLAN frame count */
-+	u32 rbyt;	/* 0x21C receive byte counter */
-+	u32 rpkt;	/* 0x220 receive packet counter */
-+	u32 rfcs;	/* 0x224 receive FCS error counter */
-+	u32 rmca;	/* 0x228 RMCA Rx multicast packet counter */
-+	u32 rbca;	/* 0x22C Rx broadcast packet counter */
-+	u32 rxcf;	/* 0x230 Rx control frame packet counter */
-+	u32 rxpf;	/* 0x234 Rx pause frame packet counter */
-+	u32 rxuo;	/* 0x238 Rx unknown OP code counter */
-+	u32 raln;	/* 0x23C Rx alignment error counter */
-+	u32 rflr;	/* 0x240 Rx frame length error counter */
-+	u32 rcde;	/* 0x244 Rx code error counter */
-+	u32 rcse;	/* 0x248 Rx carrier sense error counter */
-+	u32 rund;	/* 0x24C Rx undersize packet counter */
-+	u32 rovr;	/* 0x250 Rx oversize packet counter */
-+	u32 rfrg;	/* 0x254 Rx fragments counter */
-+	u32 rjbr;	/* 0x258 Rx jabber counter */
-+	u32 rdrp;	/* 0x25C Rx drop */
-+	u32 tbyt;	/* 0x260 Tx byte counter */
-+	u32 tpkt;	/* 0x264 Tx packet counter */
-+	u32 tmca;	/* 0x268 Tx multicast packet counter */
-+	u32 tbca;	/* 0x26C Tx broadcast packet counter */
-+	u32 txpf;	/* 0x270 Tx pause control frame counter */
-+	u32 tdfr;	/* 0x274 Tx deferral packet counter */
-+	u32 tedf;	/* 0x278 Tx excessive deferral packet counter */
-+	u32 tscl;	/* 0x27C Tx single collision packet counter */
-+	u32 tmcl;	/* 0x280 Tx multiple collision packet counter */
-+	u32 tlcl;	/* 0x284 Tx late collision packet counter */
-+	u32 txcl;	/* 0x288 Tx excessive collision packet counter */
-+	u32 tncl;	/* 0x28C Tx total collision counter */
-+	u32 reserved0290[1];
-+	u32 tdrp;	/* 0x294 Tx drop frame counter */
-+	u32 tjbr;	/* 0x298 Tx jabber frame counter */
-+	u32 tfcs;	/* 0x29C Tx FCS error counter */
-+	u32 txcf;	/* 0x2A0 Tx control frame counter */
-+	u32 tovr;	/* 0x2A4 Tx oversize frame counter */
-+	u32 tund;	/* 0x2A8 Tx undersize frame counter */
-+	u32 tfrg;	/* 0x2AC Tx fragments frame counter */
-+	u32 car1;	/* 0x2B0 carry register one register* */
-+	u32 car2;	/* 0x2B4 carry register two register* */
-+	u32 cam1;	/* 0x2B8 carry register one mask register */
-+	u32 cam2;	/* 0x2BC carry register two mask register */
-+	u32 reserved02c0[848];
-+};
-+
-+/* struct dtsec_cfg - dTSEC configuration
-+ * Transmit half-duplex flow control, under software control for 10/100-Mbps
-+ * half-duplex media. If set, back pressure is applied to media by raising
-+ * carrier.
-+ * halfdup_retransmit:
-+ * Number of retransmission attempts following a collision.
-+ * If this is exceeded dTSEC aborts transmission due to excessive collisions.
-+ * The standard specifies the attempt limit to be 15.
-+ * halfdup_coll_window:
-+ * The number of bytes of the frame during which collisions may occur.
-+ * The default value of 55 corresponds to the frame byte at the end of the
-+ * standard 512-bit slot time window. If collisions are detected after this
-+ * byte, the late collision event is asserted and transmission of current
-+ * frame is aborted.
-+ * tx_pad_crc:
-+ * Pad and append CRC. If set, the MAC pads all ransmitted short frames and
-+ * appends a CRC to every frame regardless of padding requirement.
-+ * tx_pause_time:
-+ * Transmit pause time value. This pause value is used as part of the pause
-+ * frame to be sent when a transmit pause frame is initiated.
-+ * If set to 0 this disables transmission of pause frames.
-+ * preamble_len:
-+ * Length, in bytes, of the preamble field preceding each Ethernet
-+ * start-of-frame delimiter byte. The default value of 0x7 should be used in
-+ * order to guarantee reliable operation with IEEE 802.3 compliant hardware.
-+ * rx_prepend:
-+ * Packet alignment padding length. The specified number of bytes (1-31)
-+ * of zero padding are inserted before the start of each received frame.
-+ * For Ethernet, where optional preamble extraction is enabled, the padding
-+ * appears before the preamble, otherwise the padding precedes the
-+ * layer 2 header.
-+ *
-+ * This structure contains basic dTSEC configuration and must be passed to
-+ * init() function. A default set of configuration values can be
-+ * obtained by calling set_dflts().
-+ */
-+struct dtsec_cfg {
-+	u16 halfdup_retransmit;
-+	u16 halfdup_coll_window;
-+	bool tx_pad_crc;
-+	u16 tx_pause_time;
-+	u16 tbipa;
-+	bool ptp_tsu_en;
-+	bool ptp_exception_en;
-+	u32 preamble_len;
-+	u32 rx_prepend;
-+	u8 tbi_phy_addr;
-+	u16 tx_pause_time_extd;
-+	u16 maximum_frame;
-+	u32 non_back_to_back_ipg1;
-+	u32 non_back_to_back_ipg2;
-+	u32 min_ifg_enforcement;
-+	u32 back_to_back_ipg;
-+};
-+
-+struct fman_mac {
-+	/* pointer to dTSEC memory mapped registers */
-+	struct dtsec_regs __iomem *regs;
-+	/* pointer to dTSEC MII memory mapped registers */
-+	struct dtsec_mii_regs __iomem *mii_regs;
-+	/* MII management clock */
-+	u16 mii_mgmt_clk;
-+	/* MAC address of device */
-+	u64 addr;
-+	/* Ethernet physical interface */
-+	phy_interface_t phy_if;
-+	u16 max_speed;
-+	void *dev_id; /* device cookie used by the exception cbs */
-+	fman_mac_exception_cb *exception_cb;
-+	fman_mac_exception_cb *event_cb;
-+	/* Number of individual addresses in registers for this station */
-+	u8 num_of_ind_addr_in_regs;
-+	/* pointer to driver's global address hash table */
-+	struct eth_hash_t *multicast_addr_hash;
-+	/* pointer to driver's individual address hash table */
-+	struct eth_hash_t *unicast_addr_hash;
-+	u8 mac_id;
-+	u8 tbi_phy_addr;
-+	u32 exceptions;
-+	bool ptp_tsu_enabled;
-+	bool en_tsu_err_exeption;
-+	struct dtsec_cfg *dtsec_drv_param;
-+	void *fm;
-+	struct fman_rev_info fm_rev_info;
-+	bool basex_if;
-+};
-+
-+static u32 calc_mii_mgmt_clk(struct fman_mac *dtsec)
-+{
-+	u16 fm_clk_freq, dtsec_freq;
-+	u32 mgmt_clk;
-+
-+	fm_clk_freq = fman_get_clock_freq(dtsec->fm);
-+	if (fm_clk_freq  == 0) {
-+		pr_err("Can't get clock for MAC!\n");
-+		return 0;
-+	}
-+
-+	dtsec_freq = (u16)(fm_clk_freq >> 1);
-+
-+	if (dtsec_freq < 80)
-+		mgmt_clk = 1;
-+	else if (dtsec_freq < 120)
-+		mgmt_clk = 2;
-+	else if (dtsec_freq < 160)
-+		mgmt_clk = 3;
-+	else if (dtsec_freq < 200)
-+		mgmt_clk = 4;
-+	else if (dtsec_freq < 280)
-+		mgmt_clk = 5;
-+	else if (dtsec_freq < 400)
-+		mgmt_clk = 6;
-+	else
-+		mgmt_clk = 7;
-+
-+	return mgmt_clk;
-+}
-+
-+static int mii_write_reg(struct fman_mac *dtsec, u8 addr, u8 reg, u16 data)
-+{
-+	struct dtsec_mii_regs __iomem *regs = dtsec->mii_regs;
-+	u32 tmp;
-+	int count;
-+
-+	/* Setup the MII Mgmt clock speed */
-+	iowrite32be(dtsec->mii_mgmt_clk, &regs->miimcfg);
-+
-+	/* Stop the MII management read cycle */
-+	iowrite32be(0, &regs->miimcom);
-+	/* Dummy read to make sure MIIMCOM is written */
-+	tmp = ioread32be(&regs->miimcom);
-+
-+	/* Setting up MII Management Address Register */
-+	tmp = (u32)((addr << MIIMADD_PHY_ADDR_SHIFT) | reg);
-+	iowrite32be(tmp, &regs->miimadd);
-+
-+	/* Setting up MII Management Control Register with data */
-+	iowrite32be((u32)data, &regs->miimcon);
-+	/* Dummy read to make sure MIIMCON is written */
-+	tmp = ioread32be(&regs->miimcon);
-+
-+	/* Wait until MII management write is complete */
-+	count = 100;
-+	do {
-+		udelay(1);
-+	} while (((ioread32be(&regs->miimind)) & MIIMIND_BUSY) && count--);
-+
-+	if (count == 0)
-+		return -EBUSY;
-+
-+	return 0;
-+}
-+
-+static int mii_read_reg(struct fman_mac *dtsec, u8 addr, u8 reg, u16 *data)
-+{
-+	struct dtsec_mii_regs __iomem *regs = dtsec->mii_regs;
-+	u32 tmp;
-+	int count;
-+
-+	/* Setup the MII Mgmt clock speed */
-+	iowrite32be(dtsec->mii_mgmt_clk, &regs->miimcfg);
-+
-+	/* Setting up the MII Management Address Register */
-+	tmp = (u32)((addr << MIIMADD_PHY_ADDR_SHIFT) | reg);
-+	iowrite32be(tmp, &regs->miimadd);
-+
-+	/* Perform an MII management read cycle */
-+	iowrite32be(MIIMCOM_READ_CYCLE, &regs->miimcom);
-+	/* Dummy read to make sure MIIMCOM is written */
-+	tmp = ioread32be(&regs->miimcom);
-+
-+	/* Wait until MII management write is complete */
-+	count = 100;
-+	do {
-+		udelay(1);
-+	} while (((ioread32be(&regs->miimind)) & MIIMIND_BUSY) && count--);
-+
-+	if (count == 0)
-+		return -EBUSY;
-+
-+	/* Read MII management status  */
-+	*data = (u16)ioread32be(&regs->miimstat);
-+
-+	iowrite32be(0, &regs->miimcom);
-+	/* Dummy read to make sure MIIMCOM is written */
-+	tmp = ioread32be(&regs->miimcom);
-+
-+	if (*data == 0xffff) {
-+		pr_warn("Read wrong data(0xffff):phy_addr 0x%x,reg 0x%x",
-+			addr, reg);
-+		return -ENXIO;
-+	}
-+
-+	return 0;
-+}
-+
-+static void set_dflts(struct dtsec_cfg *cfg)
-+{
-+	cfg->halfdup_retransmit = DEFAULT_HALFDUP_RETRANSMIT;
-+	cfg->halfdup_coll_window = DEFAULT_HALFDUP_COLL_WINDOW;
-+	cfg->tx_pad_crc = true;
-+	cfg->tx_pause_time = DEFAULT_TX_PAUSE_TIME;
-+	/* PHY address 0 is reserved (DPAA RM) */
-+	cfg->tbipa = DEFAULT_TBIPA;
-+	cfg->rx_prepend = DEFAULT_RX_PREPEND;
-+	cfg->ptp_tsu_en = true;
-+	cfg->ptp_exception_en = true;
-+	cfg->preamble_len = DEFAULT_PREAMBLE_LEN;
-+	cfg->tx_pause_time_extd = DEFAULT_TX_PAUSE_TIME_EXTD;
-+	cfg->non_back_to_back_ipg1 = DEFAULT_NON_BACK_TO_BACK_IPG1;
-+	cfg->non_back_to_back_ipg2 = DEFAULT_NON_BACK_TO_BACK_IPG2;
-+	cfg->min_ifg_enforcement = DEFAULT_MIN_IFG_ENFORCEMENT;
-+	cfg->back_to_back_ipg = DEFAULT_BACK_TO_BACK_IPG;
-+	cfg->maximum_frame = DEFAULT_MAXIMUM_FRAME;
-+	cfg->tbi_phy_addr = DEFAULT_TBI_PHY_ADDR;
-+}
-+
-+static int init(struct dtsec_regs __iomem *regs, struct dtsec_cfg *cfg,
-+		phy_interface_t iface, u16 iface_speed, u8 *macaddr,
-+		u32 exception_mask)
-+{
-+	bool is_rgmii, is_sgmii, is_qsgmii;
-+	int i;
-+	u32 tmp;
-+
-+	/* Soft reset */
-+	iowrite32be(MACCFG1_SOFT_RESET, &regs->maccfg1);
-+	iowrite32be(0, &regs->maccfg1);
-+
-+	/* dtsec_id2 */
-+	tmp = ioread32be(&regs->tsec_id2);
-+
-+	/* check RGMII support */
-+	if (iface == PHY_INTERFACE_MODE_RGMII ||
-+	    iface == PHY_INTERFACE_MODE_RMII)
-+		if (tmp & DTSEC_ID2_INT_REDUCED_OFF)
-+			return -EINVAL;
-+
-+	if (iface == PHY_INTERFACE_MODE_SGMII ||
-+	    iface == PHY_INTERFACE_MODE_MII)
-+		if (tmp & DTSEC_ID2_INT_REDUCED_OFF)
-+			return -EINVAL;
-+
-+	is_rgmii = iface == PHY_INTERFACE_MODE_RGMII;
-+	is_sgmii = iface == PHY_INTERFACE_MODE_SGMII;
-+	is_qsgmii = iface == PHY_INTERFACE_MODE_QSGMII;
-+
-+	tmp = 0;
-+	if (is_rgmii || iface == PHY_INTERFACE_MODE_GMII)
-+		tmp |= DTSEC_ECNTRL_GMIIM;
-+	if (is_sgmii)
-+		tmp |= (DTSEC_ECNTRL_SGMIIM | DTSEC_ECNTRL_TBIM);
-+	if (is_qsgmii)
-+		tmp |= (DTSEC_ECNTRL_SGMIIM | DTSEC_ECNTRL_TBIM |
-+			DTSEC_ECNTRL_QSGMIIM);
-+	if (is_rgmii)
-+		tmp |= DTSEC_ECNTRL_RPM;
-+	if (iface_speed == SPEED_100)
-+		tmp |= DTSEC_ECNTRL_R100M;
-+
-+	iowrite32be(tmp, &regs->ecntrl);
-+
-+	tmp = 0;
-+
-+	if (cfg->tx_pause_time)
-+		tmp |= cfg->tx_pause_time;
-+	if (cfg->tx_pause_time_extd)
-+		tmp |= cfg->tx_pause_time_extd << PTV_PTE_SHIFT;
-+	iowrite32be(tmp, &regs->ptv);
-+
-+	tmp = 0;
-+	tmp |= (cfg->rx_prepend << RCTRL_PAL_SHIFT) & RCTRL_PAL_MASK;
-+	/* Accept short frames */
-+	tmp |= RCTRL_RSF;
-+
-+	iowrite32be(tmp, &regs->rctrl);
-+
-+	/* Assign a Phy Address to the TBI (TBIPA).
-+	 * Done also in cases where TBI is not selected to avoid conflict with
-+	 * the external PHY's Physical address
-+	 */
-+	iowrite32be(cfg->tbipa, &regs->tbipa);
-+
-+	iowrite32be(0, &regs->tmr_ctrl);
-+
-+	if (cfg->ptp_tsu_en) {
-+		tmp = 0;
-+		tmp |= TMR_PEVENT_TSRE;
-+		iowrite32be(tmp, &regs->tmr_pevent);
-+
-+		if (cfg->ptp_exception_en) {
-+			tmp = 0;
-+			tmp |= TMR_PEMASK_TSREEN;
-+			iowrite32be(tmp, &regs->tmr_pemask);
-+		}
-+	}
-+
-+	tmp = 0;
-+	tmp |= MACCFG1_RX_FLOW;
-+	tmp |= MACCFG1_TX_FLOW;
-+	iowrite32be(tmp, &regs->maccfg1);
-+
-+	tmp = 0;
-+
-+	if (iface_speed < SPEED_1000)
-+		tmp |= MACCFG2_NIBBLE_MODE;
-+	else if (iface_speed == SPEED_1000)
-+		tmp |= MACCFG2_BYTE_MODE;
-+
-+	tmp |= (cfg->preamble_len << MACCFG2_PREAMBLE_LENGTH_SHIFT) &
-+		MACCFG2_PREAMBLE_LENGTH_MASK;
-+	if (cfg->tx_pad_crc)
-+		tmp |= MACCFG2_PAD_CRC_EN;
-+	/* Full Duplex */
-+	tmp |= MACCFG2_FULL_DUPLEX;
-+	iowrite32be(tmp, &regs->maccfg2);
-+
-+	tmp = (((cfg->non_back_to_back_ipg1 <<
-+		 IPGIFG_NON_BACK_TO_BACK_IPG_1_SHIFT)
-+		& IPGIFG_NON_BACK_TO_BACK_IPG_1)
-+	       | ((cfg->non_back_to_back_ipg2 <<
-+		   IPGIFG_NON_BACK_TO_BACK_IPG_2_SHIFT)
-+		 & IPGIFG_NON_BACK_TO_BACK_IPG_2)
-+	       | ((cfg->min_ifg_enforcement << IPGIFG_MIN_IFG_ENFORCEMENT_SHIFT)
-+		 & IPGIFG_MIN_IFG_ENFORCEMENT)
-+	       | (cfg->back_to_back_ipg & IPGIFG_BACK_TO_BACK_IPG));
-+	iowrite32be(tmp, &regs->ipgifg);
-+
-+	tmp = 0;
-+	tmp |= HAFDUP_EXCESS_DEFER;
-+	tmp |= ((cfg->halfdup_retransmit << HAFDUP_RETRANSMISSION_MAX_SHIFT)
-+		& HAFDUP_RETRANSMISSION_MAX);
-+	tmp |= (cfg->halfdup_coll_window & HAFDUP_COLLISION_WINDOW);
-+
-+	iowrite32be(tmp, &regs->hafdup);
-+
-+	/* Initialize Maximum frame length */
-+	iowrite32be(cfg->maximum_frame, &regs->maxfrm);
-+
-+	iowrite32be(0xffffffff, &regs->cam1);
-+	iowrite32be(0xffffffff, &regs->cam2);
-+
-+	iowrite32be(exception_mask, &regs->imask);
-+
-+	iowrite32be(0xffffffff, &regs->ievent);
-+
-+	tmp = (u32)((macaddr[5] << 24) |
-+		    (macaddr[4] << 16) | (macaddr[3] << 8) | macaddr[2]);
-+	iowrite32be(tmp, &regs->macstnaddr1);
-+
-+	tmp = (u32)((macaddr[1] << 24) | (macaddr[0] << 16));
-+	iowrite32be(tmp, &regs->macstnaddr2);
-+
-+	/* HASH */
-+	for (i = 0; i < NUM_OF_HASH_REGS; i++) {
-+		/* Initialize IADDRx */
-+		iowrite32be(0, &regs->igaddr[i]);
-+		/* Initialize GADDRx */
-+		iowrite32be(0, &regs->gaddr[i]);
-+	}
-+
-+	return 0;
-+}
-+
-+static void set_mac_address(struct dtsec_regs __iomem *regs, u8 *adr)
-+{
-+	u32 tmp;
-+
-+	tmp = (u32)((adr[5] << 24) |
-+		    (adr[4] << 16) | (adr[3] << 8) | adr[2]);
-+	iowrite32be(tmp, &regs->macstnaddr1);
-+
-+	tmp = (u32)((adr[1] << 24) | (adr[0] << 16));
-+	iowrite32be(tmp, &regs->macstnaddr2);
-+}
-+
-+static void set_bucket(struct dtsec_regs __iomem *regs, int bucket,
-+		       bool enable)
-+{
-+	int reg_idx = (bucket >> 5) & 0xf;
-+	int bit_idx = bucket & 0x1f;
-+	u32 bit_mask = 0x80000000 >> bit_idx;
-+	u32 __iomem *reg;
-+
-+	if (reg_idx > 7)
-+		reg = &regs->gaddr[reg_idx - 8];
-+	else
-+		reg = &regs->igaddr[reg_idx];
-+
-+	if (enable)
-+		iowrite32be(ioread32be(reg) | bit_mask, reg);
-+	else
-+		iowrite32be(ioread32be(reg) & (~bit_mask), reg);
-+}
-+
-+static int check_init_parameters(struct fman_mac *dtsec)
-+{
-+	if (dtsec->max_speed >= SPEED_10000) {
-+		pr_err("1G MAC driver supports 1G or lower speeds\n");
-+		return -EINVAL;
-+	}
-+	if (dtsec->addr == 0) {
-+		pr_err("Ethernet MAC Must have a valid MAC Address\n");
-+		return -EINVAL;
-+	}
-+	if ((dtsec->dtsec_drv_param)->rx_prepend >
-+	    MAX_PACKET_ALIGNMENT) {
-+		pr_err("packetAlignmentPadding can't be > than %d\n",
-+		       MAX_PACKET_ALIGNMENT);
-+		return -EINVAL;
-+	}
-+	if (((dtsec->dtsec_drv_param)->non_back_to_back_ipg1 >
-+	     MAX_INTER_PACKET_GAP) ||
-+	    ((dtsec->dtsec_drv_param)->non_back_to_back_ipg2 >
-+	     MAX_INTER_PACKET_GAP) ||
-+	     ((dtsec->dtsec_drv_param)->back_to_back_ipg >
-+	      MAX_INTER_PACKET_GAP)) {
-+		pr_err("Inter packet gap can't be greater than %d\n",
-+		       MAX_INTER_PACKET_GAP);
-+		return -EINVAL;
-+	}
-+	if ((dtsec->dtsec_drv_param)->halfdup_retransmit >
-+	    MAX_RETRANSMISSION) {
-+		pr_err("maxRetransmission can't be greater than %d\n",
-+		       MAX_RETRANSMISSION);
-+		return -EINVAL;
-+	}
-+	if ((dtsec->dtsec_drv_param)->halfdup_coll_window >
-+	    MAX_COLLISION_WINDOW) {
-+		pr_err("collisionWindow can't be greater than %d\n",
-+		       MAX_COLLISION_WINDOW);
-+		return -EINVAL;
-+	/* If Auto negotiation process is disabled, need to set up the PHY
-+	 * using the MII Management Interface
-+	 */
-+	}
-+	if (dtsec->dtsec_drv_param->tbipa > MAX_PHYS) {
-+		pr_err("PHY address (should be 0-%d)\n", MAX_PHYS);
-+		return -ERANGE;
-+	}
-+	if (!dtsec->exception_cb) {
-+		pr_err("uninitialized exception_cb\n");
-+		return -EINVAL;
-+	}
-+	if (!dtsec->event_cb) {
-+		pr_err("uninitialized event_cb\n");
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int get_exception_flag(enum fman_mac_exceptions exception)
-+{
-+	u32 bit_mask;
-+
-+	switch (exception) {
-+	case FM_MAC_EX_1G_BAB_RX:
-+		bit_mask = DTSEC_IMASK_BREN;
-+		break;
-+	case FM_MAC_EX_1G_RX_CTL:
-+		bit_mask = DTSEC_IMASK_RXCEN;
-+		break;
-+	case FM_MAC_EX_1G_GRATEFUL_TX_STP_COMPLET:
-+		bit_mask = DTSEC_IMASK_GTSCEN;
-+		break;
-+	case FM_MAC_EX_1G_BAB_TX:
-+		bit_mask = DTSEC_IMASK_BTEN;
-+		break;
-+	case FM_MAC_EX_1G_TX_CTL:
-+		bit_mask = DTSEC_IMASK_TXCEN;
-+		break;
-+	case FM_MAC_EX_1G_TX_ERR:
-+		bit_mask = DTSEC_IMASK_TXEEN;
-+		break;
-+	case FM_MAC_EX_1G_LATE_COL:
-+		bit_mask = DTSEC_IMASK_LCEN;
-+		break;
-+	case FM_MAC_EX_1G_COL_RET_LMT:
-+		bit_mask = DTSEC_IMASK_CRLEN;
-+		break;
-+	case FM_MAC_EX_1G_TX_FIFO_UNDRN:
-+		bit_mask = DTSEC_IMASK_XFUNEN;
-+		break;
-+	case FM_MAC_EX_1G_MAG_PCKT:
-+		bit_mask = DTSEC_IMASK_MAGEN;
-+		break;
-+	case FM_MAC_EX_1G_MII_MNG_RD_COMPLET:
-+		bit_mask = DTSEC_IMASK_MMRDEN;
-+		break;
-+	case FM_MAC_EX_1G_MII_MNG_WR_COMPLET:
-+		bit_mask = DTSEC_IMASK_MMWREN;
-+		break;
-+	case FM_MAC_EX_1G_GRATEFUL_RX_STP_COMPLET:
-+		bit_mask = DTSEC_IMASK_GRSCEN;
-+		break;
-+	case FM_MAC_EX_1G_DATA_ERR:
-+		bit_mask = DTSEC_IMASK_TDPEEN;
-+		break;
-+	case FM_MAC_EX_1G_RX_MIB_CNT_OVFL:
-+		bit_mask = DTSEC_IMASK_MSROEN;
-+		break;
-+	default:
-+		bit_mask = 0;
-+		break;
-+	}
-+
-+	return bit_mask;
-+}
-+
-+static bool is_init_done(struct dtsec_cfg *dtsec_drv_params)
-+{
-+	/* Checks if dTSEC driver parameters were initialized */
-+	if (!dtsec_drv_params)
-+		return true;
-+
-+	return false;
-+}
-+
-+static u32 get_mac_addr_hash_code(u64 eth_addr)
-+{
-+	u32 crc;
-+
-+	/* CRC calculation */
-+	GET_MAC_ADDR_CRC(eth_addr, crc);
-+
-+	crc = bitrev32(crc);
-+
-+	return crc;
-+}
-+
-+static u16 dtsec_get_max_frame_length(struct fman_mac *dtsec)
-+{
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+
-+	if (is_init_done(dtsec->dtsec_drv_param))
-+		return 0;
-+
-+	return (u16)ioread32be(&regs->maxfrm);
-+}
-+
-+static void dtsec_isr(void *handle)
-+{
-+	struct fman_mac *dtsec = (struct fman_mac *)handle;
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	u32 event;
-+
-+	/* do not handle MDIO events */
-+	event = ioread32be(&regs->ievent) &
-+		(u32)(~(DTSEC_IMASK_MMRDEN | DTSEC_IMASK_MMWREN));
-+
-+	event &= ioread32be(&regs->imask);
-+
-+	iowrite32be(event, &regs->ievent);
-+
-+	if (event & DTSEC_IMASK_BREN)
-+		dtsec->exception_cb(dtsec->dev_id, FM_MAC_EX_1G_BAB_RX);
-+	if (event & DTSEC_IMASK_RXCEN)
-+		dtsec->exception_cb(dtsec->dev_id, FM_MAC_EX_1G_RX_CTL);
-+	if (event & DTSEC_IMASK_GTSCEN)
-+		dtsec->exception_cb(dtsec->dev_id,
-+				    FM_MAC_EX_1G_GRATEFUL_TX_STP_COMPLET);
-+	if (event & DTSEC_IMASK_BTEN)
-+		dtsec->exception_cb(dtsec->dev_id, FM_MAC_EX_1G_BAB_TX);
-+	if (event & DTSEC_IMASK_TXCEN)
-+		dtsec->exception_cb(dtsec->dev_id, FM_MAC_EX_1G_TX_CTL);
-+	if (event & DTSEC_IMASK_TXEEN)
-+		dtsec->exception_cb(dtsec->dev_id, FM_MAC_EX_1G_TX_ERR);
-+	if (event & DTSEC_IMASK_LCEN)
-+		dtsec->exception_cb(dtsec->dev_id, FM_MAC_EX_1G_LATE_COL);
-+	if (event & DTSEC_IMASK_CRLEN)
-+		dtsec->exception_cb(dtsec->dev_id, FM_MAC_EX_1G_COL_RET_LMT);
-+	if (event & DTSEC_IMASK_XFUNEN) {
-+		/* FM_TX_LOCKUP_ERRATA_DTSEC6 Errata workaround */
-+		if (dtsec->fm_rev_info.major == 2) {
-+			u32 tpkt1, tmp_reg1, tpkt2, tmp_reg2, i;
-+			/* a. Write 0x00E0_0C00 to DTSEC_ID
-+			 *	This is a read only register
-+			 * b. Read and save the value of TPKT
-+			 */
-+			tpkt1 = in_be32(&regs->tpkt);
-+
-+			/* c. Read the register at dTSEC address offset 0x32C */
-+			tmp_reg1 = in_be32(&regs->reserved02c0[27]);
-+
-+			/* d. Compare bits [9:15] to bits [25:31] of the
-+			 * register at address offset 0x32C.
-+			 */
-+			if ((tmp_reg1 & 0x007F0000) !=
-+				(tmp_reg1 & 0x0000007F)) {
-+				/* If they are not equal, save the value of
-+				 * this register and wait for at least
-+				 * MAXFRM*16 ns
-+				 */
-+				usleep_range((u32)(min
-+					(dtsec_get_max_frame_length(dtsec) *
-+					16 / 1000, 1)), (u32)
-+					(min(dtsec_get_max_frame_length
-+					(dtsec) * 16 / 1000, 1) + 1));
-+			}
-+
-+			/* e. Read and save TPKT again and read the register
-+			 * at dTSEC address offset 0x32C again
-+			 */
-+			tpkt2 = in_be32(&regs->tpkt);
-+			tmp_reg2 = in_be32(&regs->reserved02c0[27]);
-+
-+			/* f. Compare the value of TPKT saved in step b to
-+			 * value read in step e. Also compare bits [9:15] of
-+			 * the register at offset 0x32C saved in step d to the
-+			 * value of bits [9:15] saved in step e. If the two
-+			 * registers values are unchanged, then the transmit
-+			 * portion of the dTSEC controller is locked up and
-+			 * the user should proceed to the recover sequence.
-+			 */
-+			if ((tpkt1 == tpkt2) && ((tmp_reg1 & 0x007F0000) ==
-+				(tmp_reg2 & 0x007F0000))) {
-+				/* recover sequence */
-+
-+				/* a.Write a 1 to RCTRL[GRS] */
-+
-+				out_be32(&regs->rctrl,
-+					 in_be32(&regs->rctrl) | RCTRL_GRS);
-+
-+				/* b.Wait until IEVENT[GRSC]=1, or at least
-+				 * 100 us has elapsed.
-+				 */
-+				for (i = 0; i < 100; i++) {
-+					if (in_be32(&regs->ievent) &
-+					    DTSEC_IMASK_GRSCEN)
-+						break;
-+					udelay(1);
-+				}
-+				if (in_be32(&regs->ievent) & DTSEC_IMASK_GRSCEN)
-+					out_be32(&regs->ievent,
-+						 DTSEC_IMASK_GRSCEN);
-+				else
-+					pr_debug("Rx lockup due to Tx lockup\n");
-+
-+				/* c.Write a 1 to bit n of FM_RSTC
-+				 * (offset 0x0CC of FPM)
-+				 */
-+				fman_reset_mac(dtsec->fm, dtsec->mac_id);
-+
-+				/* d.Wait 4 Tx clocks (32 ns) */
-+				udelay(1);
-+
-+				/* e.Write a 0 to bit n of FM_RSTC. */
-+				/* cleared by FMAN
-+				 */
-+			}
-+		}
-+
-+		dtsec->exception_cb(dtsec->dev_id, FM_MAC_EX_1G_TX_FIFO_UNDRN);
-+	}
-+	if (event & DTSEC_IMASK_MAGEN)
-+		dtsec->exception_cb(dtsec->dev_id, FM_MAC_EX_1G_MAG_PCKT);
-+	if (event & DTSEC_IMASK_GRSCEN)
-+		dtsec->exception_cb(dtsec->dev_id,
-+				    FM_MAC_EX_1G_GRATEFUL_RX_STP_COMPLET);
-+	if (event & DTSEC_IMASK_TDPEEN)
-+		dtsec->exception_cb(dtsec->dev_id, FM_MAC_EX_1G_DATA_ERR);
-+	if (event & DTSEC_IMASK_RDPEEN)
-+		dtsec->exception_cb(dtsec->dev_id, FM_MAC_1G_RX_DATA_ERR);
-+
-+	/* masked interrupts */
-+	WARN_ON(event & DTSEC_IMASK_ABRTEN);
-+	WARN_ON(event & DTSEC_IMASK_IFERREN);
-+}
-+
-+static void dtsec_1588_isr(void *handle)
-+{
-+	struct fman_mac *dtsec = (struct fman_mac *)handle;
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	u32 event;
-+
-+	if (dtsec->ptp_tsu_enabled) {
-+		event = ioread32be(&regs->tmr_pevent);
-+		event &= ioread32be(&regs->tmr_pemask);
-+
-+		if (event) {
-+			iowrite32be(event, &regs->tmr_pevent);
-+			WARN_ON(event & TMR_PEVENT_TSRE);
-+			dtsec->exception_cb(dtsec->dev_id,
-+					    FM_MAC_EX_1G_1588_TS_RX_ERR);
-+		}
-+	}
-+}
-+
-+static void free_init_resources(struct fman_mac *dtsec)
-+{
-+	fman_unregister_intr(dtsec->fm, FMAN_MOD_MAC, dtsec->mac_id,
-+			     FMAN_INTR_TYPE_ERR);
-+	fman_unregister_intr(dtsec->fm, FMAN_MOD_MAC, dtsec->mac_id,
-+			     FMAN_INTR_TYPE_NORMAL);
-+
-+	/* release the driver's group hash table */
-+	free_hash_table(dtsec->multicast_addr_hash);
-+	dtsec->multicast_addr_hash = NULL;
-+
-+	/* release the driver's individual hash table */
-+	free_hash_table(dtsec->unicast_addr_hash);
-+	dtsec->unicast_addr_hash = NULL;
-+}
-+
-+int dtsec_cfg_max_frame_len(struct fman_mac *dtsec, u16 new_val)
-+{
-+	if (is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	dtsec->dtsec_drv_param->maximum_frame = new_val;
-+
-+	return 0;
-+}
-+
-+int dtsec_cfg_pad_and_crc(struct fman_mac *dtsec, bool new_val)
-+{
-+	if (is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	dtsec->dtsec_drv_param->tx_pad_crc = new_val;
-+
-+	return 0;
-+}
-+
-+int dtsec_enable(struct fman_mac *dtsec, enum comm_mode mode)
-+{
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	/* Enable */
-+	tmp = ioread32be(&regs->maccfg1);
-+	if (mode & COMM_MODE_RX)
-+		tmp |= MACCFG1_RX_EN;
-+	if (mode & COMM_MODE_TX)
-+		tmp |= MACCFG1_TX_EN;
-+
-+	iowrite32be(tmp, &regs->maccfg1);
-+
-+	/* Graceful start - clear the graceful receive stop bit */
-+	if (mode & COMM_MODE_TX)
-+		iowrite32be(ioread32be(&regs->tctrl) & ~DTSEC_TCTRL_GTS,
-+			    &regs->tctrl);
-+	if (mode & COMM_MODE_RX)
-+		iowrite32be(ioread32be(&regs->rctrl) & ~RCTRL_GRS,
-+			    &regs->rctrl);
-+
-+	return 0;
-+}
-+
-+int dtsec_disable(struct fman_mac *dtsec, enum comm_mode mode)
-+{
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	/* Gracefull stop - Assert the graceful transmit stop bit */
-+	if (mode & COMM_MODE_RX) {
-+		tmp = ioread32be(&regs->rctrl) | RCTRL_GRS;
-+		iowrite32be(tmp, &regs->rctrl);
-+
-+		if (dtsec->fm_rev_info.major == 2)
-+			usleep_range(100, 200);
-+		else
-+			udelay(10);
-+	}
-+
-+	if (mode & COMM_MODE_TX) {
-+		if (dtsec->fm_rev_info.major == 2)
-+			pr_debug("GTS not supported due to DTSEC_A004 errata.\n");
-+		else
-+			pr_debug("GTS not supported due to DTSEC_A0014 errata.\n");
-+	}
-+
-+	tmp = ioread32be(&regs->maccfg1);
-+	if (mode & COMM_MODE_RX)
-+		tmp &= ~MACCFG1_RX_EN;
-+	if (mode & COMM_MODE_TX)
-+		tmp &= ~MACCFG1_TX_EN;
-+
-+	iowrite32be(tmp, &regs->maccfg1);
-+
-+	return 0;
-+}
-+
-+int dtsec_set_tx_pause_frames(struct fman_mac *dtsec,
-+			      u8 __maybe_unused priority,
-+			      u16 pause_time, u16 __maybe_unused thresh_time)
-+{
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	u32 ptv = 0;
-+
-+	if (!is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	/* FM_BAD_TX_TS_IN_B_2_B_ERRATA_DTSEC_A003 Errata workaround */
-+	if (dtsec->fm_rev_info.major == 2)
-+		if (pause_time < 0 && pause_time <= 320) {
-+			pr_warn("pause-time: %d illegal.Should be > 320\n",
-+				pause_time);
-+			return -EINVAL;
-+		}
-+
-+	if (pause_time) {
-+		ptv = ioread32be(&regs->ptv);
-+		ptv &= PTV_PTE_MASK;
-+		ptv |= pause_time & PTV_PT_MASK;
-+		iowrite32be(ptv, &regs->ptv);
-+
-+		/* trigger the transmission of a flow-control pause frame */
-+		iowrite32be(ioread32be(&regs->maccfg1) | MACCFG1_TX_FLOW,
-+			    &regs->maccfg1);
-+	} else
-+		iowrite32be(ioread32be(&regs->maccfg1) & ~MACCFG1_TX_FLOW,
-+			    &regs->maccfg1);
-+
-+	return 0;
-+}
-+
-+int dtsec_accept_rx_pause_frames(struct fman_mac *dtsec, bool en)
-+{
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	tmp = ioread32be(&regs->maccfg1);
-+	if (en)
-+		tmp |= MACCFG1_RX_FLOW;
-+	else
-+		tmp &= ~MACCFG1_RX_FLOW;
-+	iowrite32be(tmp, &regs->maccfg1);
-+
-+	return 0;
-+}
-+
-+int dtsec_modify_mac_address(struct fman_mac *dtsec, enet_addr_t *enet_addr)
-+{
-+	if (!is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	/* Initialize MAC Station Address registers (1 & 2)
-+	 * Station address have to be swapped (big endian to little endian
-+	 */
-+	dtsec->addr = ENET_ADDR_TO_UINT64(*enet_addr);
-+	set_mac_address(dtsec->regs, (u8 *)(*enet_addr));
-+
-+	return 0;
-+}
-+
-+int dtsec_add_hash_mac_address(struct fman_mac *dtsec, enet_addr_t *eth_addr)
-+{
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	struct eth_hash_entry *hash_entry;
-+	u64 addr;
-+	s32 bucket;
-+	u32 crc;
-+	bool mcast, ghtx;
-+
-+	if (!is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	addr = ENET_ADDR_TO_UINT64(*eth_addr);
-+
-+	ghtx = (bool)((ioread32be(&regs->rctrl) & RCTRL_GHTX) ? true : false);
-+	mcast = (bool)((addr & MAC_GROUP_ADDRESS) ? true : false);
-+
-+	/* Cannot handle unicast mac addr when GHTX is on */
-+	if (ghtx && !mcast) {
-+		pr_err("Could not compute hash bucket\n");
-+		return -EINVAL;
-+	}
-+	crc = get_mac_addr_hash_code(addr);
-+
-+	/* considering the 9 highest order bits in crc H[8:0]:
-+	 *if ghtx = 0 H[8:6] (highest order 3 bits) identify the hash register
-+	 *and H[5:1] (next 5 bits) identify the hash bit
-+	 *if ghts = 1 H[8:5] (highest order 4 bits) identify the hash register
-+	 *and H[4:0] (next 5 bits) identify the hash bit.
-+	 *
-+	 *In bucket index output the low 5 bits identify the hash register
-+	 *bit, while the higher 4 bits identify the hash register
-+	 */
-+
-+	if (ghtx) {
-+		bucket = (s32)((crc >> 23) & 0x1ff);
-+	} else {
-+		bucket = (s32)((crc >> 24) & 0xff);
-+		/* if !ghtx and mcast the bit must be set in gaddr instead of
-+		 *igaddr.
-+		 */
-+		if (mcast)
-+			bucket += 0x100;
-+	}
-+
-+	set_bucket(dtsec->regs, bucket, true);
-+
-+	/* Create element to be added to the driver hash table */
-+	hash_entry = kmalloc(sizeof(*hash_entry), GFP_KERNEL);
-+	if (!hash_entry)
-+		return -ENOMEM;
-+	hash_entry->addr = addr;
-+	INIT_LIST_HEAD(&hash_entry->node);
-+
-+	if (addr & MAC_GROUP_ADDRESS)
-+		/* Group Address */
-+		list_add_tail(&hash_entry->node,
-+			      &dtsec->multicast_addr_hash->lsts[bucket]);
-+	else
-+		list_add_tail(&hash_entry->node,
-+			      &dtsec->unicast_addr_hash->lsts[bucket]);
-+
-+	return 0;
-+}
-+
-+int dtsec_del_hash_mac_address(struct fman_mac *dtsec, enet_addr_t *eth_addr)
-+{
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	struct list_head *pos;
-+	struct eth_hash_entry *hash_entry = NULL;
-+	u64 addr;
-+	s32 bucket;
-+	u32 crc;
-+	bool mcast, ghtx;
-+
-+	if (!is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	addr = ENET_ADDR_TO_UINT64(*eth_addr);
-+
-+	ghtx = (bool)((ioread32be(&regs->rctrl) & RCTRL_GHTX) ? true : false);
-+	mcast = (bool)((addr & MAC_GROUP_ADDRESS) ? true : false);
-+
-+	/* Cannot handle unicast mac addr when GHTX is on */
-+	if (ghtx && !mcast) {
-+		pr_err("Could not compute hash bucket\n");
-+		return -EINVAL;
-+	}
-+	crc = get_mac_addr_hash_code(addr);
-+
-+	if (ghtx) {
-+		bucket = (s32)((crc >> 23) & 0x1ff);
-+	} else {
-+		bucket = (s32)((crc >> 24) & 0xff);
-+		/* if !ghtx and mcast the bit must be set
-+		 * in gaddr instead of igaddr.
-+		 */
-+		if (mcast)
-+			bucket += 0x100;
-+	}
-+
-+	if (addr & MAC_GROUP_ADDRESS) {
-+		/* Group Address */
-+		list_for_each(pos,
-+			      &dtsec->multicast_addr_hash->lsts[bucket]) {
-+			hash_entry = ETH_HASH_ENTRY_OBJ(pos);
-+			if (hash_entry->addr == addr) {
-+				list_del_init(&hash_entry->node);
-+				kfree(hash_entry);
-+				break;
-+			}
-+		}
-+		if (list_empty(&dtsec->multicast_addr_hash->lsts[bucket]))
-+			set_bucket(dtsec->regs, bucket, false);
-+	} else {
-+		/* Individual Address */
-+		list_for_each(pos,
-+			      &dtsec->unicast_addr_hash->lsts[bucket]) {
-+			hash_entry = ETH_HASH_ENTRY_OBJ(pos);
-+			if (hash_entry->addr == addr) {
-+				list_del_init(&hash_entry->node);
-+				kfree(hash_entry);
-+				break;
-+			}
-+		}
-+		if (list_empty(&dtsec->unicast_addr_hash->lsts[bucket]))
-+			set_bucket(dtsec->regs, bucket, false);
-+	}
-+
-+	/* address does not exist */
-+	WARN_ON(!hash_entry);
-+
-+	return 0;
-+}
-+
-+int dtsec_set_promiscuous(struct fman_mac *dtsec, bool new_val)
-+{
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	/* Set unicast promiscuous */
-+	tmp = ioread32be(&regs->rctrl);
-+	if (new_val)
-+		tmp |= RCTRL_UPROM;
-+	else
-+		tmp &= ~RCTRL_UPROM;
-+
-+	iowrite32be(tmp, &regs->rctrl);
-+
-+	/* Set multicast promiscuous */
-+	tmp = ioread32be(&regs->rctrl);
-+	if (new_val)
-+		tmp |= RCTRL_MPROM;
-+	else
-+		tmp &= ~RCTRL_MPROM;
-+
-+	iowrite32be(tmp, &regs->rctrl);
-+
-+	return 0;
-+}
-+
-+int dtsec_adjust_link(struct fman_mac *dtsec, u16 speed)
-+{
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	tmp = ioread32be(&regs->maccfg2);
-+
-+	/* Full Duplex */
-+	tmp |= MACCFG2_FULL_DUPLEX;
-+
-+	tmp &= ~(MACCFG2_NIBBLE_MODE | MACCFG2_BYTE_MODE);
-+	if (speed < SPEED_1000)
-+		tmp |= MACCFG2_NIBBLE_MODE;
-+	else if (speed == SPEED_1000)
-+		tmp |= MACCFG2_BYTE_MODE;
-+	iowrite32be(tmp, &regs->maccfg2);
-+
-+	tmp = ioread32be(&regs->ecntrl);
-+	if (speed == SPEED_100)
-+		tmp |= DTSEC_ECNTRL_R100M;
-+	else
-+		tmp &= ~DTSEC_ECNTRL_R100M;
-+	iowrite32be(tmp, &regs->ecntrl);
-+
-+	return 0;
-+}
-+
-+int dtsec_restart_autoneg(struct fman_mac *dtsec)
-+{
-+	u16 tmp_reg16;
-+	int err;
-+
-+	if (!is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	err = mii_read_reg(dtsec, dtsec->tbi_phy_addr, 0, &tmp_reg16);
-+	if (err) {
-+		pr_err("Autonegotiation restart failed\n");
-+		return err;
-+	}
-+
-+	tmp_reg16 &= ~(PHY_CR_SPEED0 | PHY_CR_SPEED1);
-+	tmp_reg16 |=
-+	    (PHY_CR_ANE | PHY_CR_RESET_AN | PHY_CR_FULLDUPLEX | PHY_CR_SPEED1);
-+
-+	mii_write_reg(dtsec, dtsec->tbi_phy_addr, 0, tmp_reg16);
-+
-+	return 0;
-+}
-+
-+int dtsec_get_version(struct fman_mac *dtsec, u32 *mac_version)
-+{
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+
-+	if (!is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	*mac_version = ioread32be(&regs->tsec_id);
-+
-+	return 0;
-+}
-+
-+int dtsec_set_exception(struct fman_mac *dtsec,
-+			enum fman_mac_exceptions exception, bool enable)
-+{
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	u32 bit_mask = 0;
-+
-+	if (!is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	if (exception != FM_MAC_EX_1G_1588_TS_RX_ERR) {
-+		bit_mask = get_exception_flag(exception);
-+		if (bit_mask) {
-+			if (enable)
-+				dtsec->exceptions |= bit_mask;
-+			else
-+				dtsec->exceptions &= ~bit_mask;
-+		} else {
-+			pr_err("Undefined exception\n");
-+			return -EINVAL;
-+		}
-+		if (enable)
-+			iowrite32be(ioread32be(&regs->imask) | bit_mask,
-+				    &regs->imask);
-+		else
-+			iowrite32be(ioread32be(&regs->imask) & ~bit_mask,
-+				    &regs->imask);
-+	} else {
-+		if (!dtsec->ptp_tsu_enabled) {
-+			pr_err("Exception valid for 1588 only\n");
-+			return -EINVAL;
-+		}
-+		switch (exception) {
-+		case FM_MAC_EX_1G_1588_TS_RX_ERR:
-+			if (enable) {
-+				dtsec->en_tsu_err_exeption = true;
-+				iowrite32be(ioread32be(&regs->tmr_pemask) |
-+					    TMR_PEMASK_TSREEN,
-+					    &regs->tmr_pemask);
-+			} else {
-+				dtsec->en_tsu_err_exeption = false;
-+				iowrite32be(ioread32be(&regs->tmr_pemask) &
-+					    ~TMR_PEMASK_TSREEN,
-+					    &regs->tmr_pemask);
-+			}
-+			break;
-+		default:
-+			pr_err("Undefined exception\n");
-+			return -EINVAL;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+int dtsec_init(struct fman_mac *dtsec)
-+{
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	struct dtsec_cfg *dtsec_drv_param;
-+	int err;
-+	u16 max_frm_ln;
-+	enet_addr_t eth_addr;
-+
-+	if (is_init_done(dtsec->dtsec_drv_param))
-+		return -EINVAL;
-+
-+	if (DEFAULT_RESET_ON_INIT &&
-+	    (fman_reset_mac(dtsec->fm, dtsec->mac_id) != 0)) {
-+		pr_err("Can't reset MAC!\n");
-+		return -EINVAL;
-+	}
-+
-+	err = check_init_parameters(dtsec);
-+	if (err)
-+		return err;
-+
-+	dtsec_drv_param = dtsec->dtsec_drv_param;
-+
-+	MAKE_ENET_ADDR_FROM_UINT64(dtsec->addr, eth_addr);
-+
-+	err = init(dtsec->regs, dtsec_drv_param, dtsec->phy_if,
-+		   dtsec->max_speed, (u8 *)eth_addr, dtsec->exceptions);
-+	if (err) {
-+		free_init_resources(dtsec);
-+		pr_err("DTSEC version doesn't support this i/f mode\n");
-+		return err;
-+	}
-+
-+	if (dtsec->phy_if == PHY_INTERFACE_MODE_SGMII) {
-+		u16 tmp_reg16;
-+
-+		/* Configure the TBI PHY Control Register */
-+		tmp_reg16 = PHY_TBICON_CLK_SEL | PHY_TBICON_SRESET;
-+		mii_write_reg(dtsec, (u8)dtsec_drv_param->tbipa, 17,
-+			      tmp_reg16);
-+
-+		tmp_reg16 = PHY_TBICON_CLK_SEL;
-+		mii_write_reg(dtsec, (u8)dtsec_drv_param->tbipa, 17,
-+			      tmp_reg16);
-+
-+		tmp_reg16 =
-+		    (PHY_CR_PHY_RESET | PHY_CR_ANE | PHY_CR_FULLDUPLEX |
-+		     PHY_CR_SPEED1);
-+		mii_write_reg(dtsec, (u8)dtsec_drv_param->tbipa, 0, tmp_reg16);
-+
-+		if (dtsec->basex_if)
-+			tmp_reg16 = PHY_TBIANA_1000X;
-+		else
-+			tmp_reg16 = PHY_TBIANA_SGMII;
-+		mii_write_reg(dtsec, (u8)dtsec_drv_param->tbipa, 4, tmp_reg16);
-+
-+		tmp_reg16 =
-+		    (PHY_CR_ANE | PHY_CR_RESET_AN | PHY_CR_FULLDUPLEX |
-+		     PHY_CR_SPEED1);
-+
-+		mii_write_reg(dtsec, (u8)dtsec_drv_param->tbipa, 0, tmp_reg16);
-+	}
-+
-+	/* Max Frame Length */
-+	max_frm_ln = (u16)ioread32be(&regs->maxfrm);
-+	err = fman_set_mac_max_frame(dtsec->fm, dtsec->mac_id, max_frm_ln);
-+	if (err) {
-+		pr_err("Setting max frame length failed\n");
-+		free_init_resources(dtsec);
-+		return -EINVAL;
-+	}
-+
-+	dtsec->multicast_addr_hash =
-+	alloc_hash_table(EXTENDED_HASH_TABLE_SIZE);
-+	if (!dtsec->multicast_addr_hash) {
-+		free_init_resources(dtsec);
-+		pr_err("MC hash table is failed\n");
-+		return -ENOMEM;
-+	}
-+
-+	dtsec->unicast_addr_hash = alloc_hash_table(DTSEC_HASH_TABLE_SIZE);
-+	if (!dtsec->unicast_addr_hash) {
-+		free_init_resources(dtsec);
-+		pr_err("UC hash table is failed\n");
-+		return -ENOMEM;
-+	}
-+
-+	/* register err intr handler for dtsec to FPM (err) */
-+	fman_register_intr(dtsec->fm, FMAN_MOD_MAC, dtsec->mac_id,
-+			   FMAN_INTR_TYPE_ERR, dtsec_isr, dtsec);
-+	/* register 1588 intr handler for TMR to FPM (normal) */
-+	fman_register_intr(dtsec->fm, FMAN_MOD_MAC, dtsec->mac_id,
-+			   FMAN_INTR_TYPE_NORMAL, dtsec_1588_isr, dtsec);
-+
-+	kfree(dtsec_drv_param);
-+	dtsec->dtsec_drv_param = NULL;
-+
-+	return 0;
-+}
-+
-+int dtsec_free(struct fman_mac *dtsec)
-+{
-+	free_init_resources(dtsec);
-+
-+	kfree(dtsec->dtsec_drv_param);
-+	dtsec->dtsec_drv_param = NULL;
-+	kfree(dtsec);
-+
-+	return 0;
-+}
-+
-+struct fman_mac *dtsec_config(struct fman_mac_params *params)
-+{
-+	struct fman_mac *dtsec;
-+	struct dtsec_cfg *dtsec_drv_param;
-+	void __iomem *base_addr;
-+
-+	base_addr = params->base_addr;
-+
-+	/* allocate memory for the UCC GETH data structure. */
-+	dtsec = kzalloc(sizeof(*dtsec), GFP_KERNEL);
-+	if (!dtsec)
-+		return NULL;
-+
-+	/* allocate memory for the d_tsec driver parameters data structure. */
-+	dtsec_drv_param = kzalloc(sizeof(*dtsec_drv_param), GFP_KERNEL);
-+	if (!dtsec_drv_param)
-+		goto err_dtsec;
-+
-+	/* Plant parameter structure pointer */
-+	dtsec->dtsec_drv_param = dtsec_drv_param;
-+
-+	set_dflts(dtsec_drv_param);
-+
-+	dtsec->regs = (struct dtsec_regs __iomem *)(base_addr);
-+	dtsec->mii_regs = (struct dtsec_mii_regs __iomem *)
-+		(base_addr + DTSEC_TO_MII_OFFSET);
-+	dtsec->addr = ENET_ADDR_TO_UINT64(params->addr);
-+	dtsec->max_speed = params->max_speed;
-+	dtsec->phy_if = params->phy_if;
-+	dtsec->mac_id = params->mac_id;
-+	dtsec->exceptions = (DTSEC_IMASK_BREN	|
-+			     DTSEC_IMASK_RXCEN	|
-+			     DTSEC_IMASK_BTEN	|
-+			     DTSEC_IMASK_TXCEN	|
-+			     DTSEC_IMASK_TXEEN	|
-+			     DTSEC_IMASK_ABRTEN	|
-+			     DTSEC_IMASK_LCEN	|
-+			     DTSEC_IMASK_CRLEN	|
-+			     DTSEC_IMASK_XFUNEN	|
-+			     DTSEC_IMASK_IFERREN |
-+			     DTSEC_IMASK_MAGEN	|
-+			     DTSEC_IMASK_TDPEEN	|
-+			     DTSEC_IMASK_RDPEEN);
-+	dtsec->exception_cb = params->exception_cb;
-+	dtsec->event_cb = params->event_cb;
-+	dtsec->dev_id = params->dev_id;
-+	dtsec->ptp_tsu_enabled = dtsec->dtsec_drv_param->ptp_tsu_en;
-+	dtsec->en_tsu_err_exeption = dtsec->dtsec_drv_param->ptp_exception_en;
-+	dtsec->tbi_phy_addr = dtsec->dtsec_drv_param->tbi_phy_addr;
-+
-+	dtsec->fm = params->fm;
-+	dtsec->basex_if = params->basex_if;
-+	dtsec->mii_mgmt_clk = calc_mii_mgmt_clk(dtsec);
-+	if (dtsec->mii_mgmt_clk == 0) {
-+		pr_err("Can't calculate MII management clock\n");
-+		goto err_dtsec;
-+	}
-+
-+	/* Save FMan revision */
-+	fman_get_revision(dtsec->fm, &dtsec->fm_rev_info);
-+
-+	return dtsec;
-+
-+err_dtsec:
-+	kfree(dtsec);
-+	return NULL;
-+}
-diff --git a/drivers/net/ethernet/freescale/fman/fman_dtsec.h b/drivers/net/ethernet/freescale/fman/fman_dtsec.h
-new file mode 100644
-index 0000000..c4467c0
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/fman_dtsec.h
-@@ -0,0 +1,59 @@
-+/*
-+ * Copyright 2008-2015 Freescale Semiconductor Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *       notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *       notice, this list of conditions and the following disclaimer in the
-+ *       documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *       names of its contributors may be used to endorse or promote products
-+ *       derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef __DTSEC_H
-+#define __DTSEC_H
-+
-+#include "fman_mac.h"
-+
-+struct fman_mac *dtsec_config(struct fman_mac_params *params);
-+int dtsec_set_promiscuous(struct fman_mac *dtsec, bool new_val);
-+int dtsec_modify_mac_address(struct fman_mac *dtsec, enet_addr_t *enet_addr);
-+int dtsec_adjust_link(struct fman_mac *dtsec,
-+		      u16 speed);
-+int dtsec_restart_autoneg(struct fman_mac *dtsec);
-+int dtsec_cfg_max_frame_len(struct fman_mac *dtsec, u16 new_val);
-+int dtsec_cfg_pad_and_crc(struct fman_mac *dtsec, bool new_val);
-+int dtsec_enable(struct fman_mac *dtsec, enum comm_mode mode);
-+int dtsec_disable(struct fman_mac *dtsec, enum comm_mode mode);
-+int dtsec_init(struct fman_mac *dtsec);
-+int dtsec_free(struct fman_mac *dtsec);
-+int dtsec_accept_rx_pause_frames(struct fman_mac *dtsec, bool en);
-+int dtsec_set_tx_pause_frames(struct fman_mac *dtsec, u8 priority,
-+			      u16 pause_time, u16 thresh_time);
-+int dtsec_set_exception(struct fman_mac *dtsec,
-+			enum fman_mac_exceptions exception, bool enable);
-+int dtsec_add_hash_mac_address(struct fman_mac *dtsec, enet_addr_t *eth_addr);
-+int dtsec_del_hash_mac_address(struct fman_mac *dtsec, enet_addr_t *eth_addr);
-+int dtsec_get_version(struct fman_mac *dtsec, u32 *mac_version);
-+
-+#endif /* __DTSEC_H */
-diff --git a/drivers/net/ethernet/freescale/fman/fman_mac.h b/drivers/net/ethernet/freescale/fman/fman_mac.h
-new file mode 100644
-index 0000000..7a5e752
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/fman_mac.h
-@@ -0,0 +1,276 @@
-+/*
-+ * Copyright 2008-2015 Freescale Semiconductor Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *       notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *       notice, this list of conditions and the following disclaimer in the
-+ *       documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *       names of its contributors may be used to endorse or promote products
-+ *       derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+/* FM MAC ... */
-+#ifndef __FM_MAC_H
-+#define __FM_MAC_H
-+
-+#include "fman.h"
-+
-+#include <linux/slab.h>
-+#include <linux/phy.h>
-+#include <linux/if_ether.h>
-+
-+struct fman_mac;
-+
-+/* Ethernet Address */
-+typedef u8 enet_addr_t[ETH_ALEN];
-+
-+#define ENET_ADDR_TO_UINT64(_enet_addr)		\
-+	(u64)(((u64)(_enet_addr)[0] << 40) |		\
-+	      ((u64)(_enet_addr)[1] << 32) |		\
-+	      ((u64)(_enet_addr)[2] << 24) |		\
-+	      ((u64)(_enet_addr)[3] << 16) |		\
-+	      ((u64)(_enet_addr)[4] << 8) |		\
-+	      ((u64)(_enet_addr)[5]))
-+
-+#define MAKE_ENET_ADDR_FROM_UINT64(_addr64, _enet_addr) \
-+	do { \
-+		int i; \
-+		for (i = 0; i < ETH_ALEN; i++) \
-+			(_enet_addr)[i] = \
-+			(u8)((_addr64) >> ((5 - i) * 8)); \
-+	} while (0)
-+
-+/* defaults */
-+#define DEFAULT_RESET_ON_INIT                 false
-+
-+/* PFC defines */
-+#define FSL_FM_PAUSE_TIME_ENABLE	0xf000
-+#define FSL_FM_PAUSE_TIME_DISABLE	0
-+#define FSL_FM_PAUSE_THRESH_DEFAULT	0
-+
-+#define FM_MAC_NO_PFC   0xff
-+
-+/* HASH defines */
-+#define ETH_HASH_ENTRY_OBJ(ptr)	\
-+	hlist_entry_safe(ptr, struct eth_hash_entry, node)
-+
-+/* Enumeration (bit flags) of communication modes (Transmit,
-+ * receive or both).
-+ */
-+enum comm_mode {
-+	COMM_MODE_NONE = 0,	/* No transmit/receive communication */
-+	COMM_MODE_RX = 1,	/* Only receive communication */
-+	COMM_MODE_TX = 2,	/* Only transmit communication */
-+	COMM_MODE_RX_AND_TX = 3	/* Both transmit and receive communication */
-+};
-+
-+/* FM MAC Exceptions */
-+enum fman_mac_exceptions {
-+	FM_MAC_EX_10G_MDIO_SCAN_EVENT = 0
-+	/* 10GEC MDIO scan event interrupt */
-+	, FM_MAC_EX_10G_MDIO_CMD_CMPL
-+	/* 10GEC MDIO command completion interrupt */
-+	, FM_MAC_EX_10G_REM_FAULT
-+	/* 10GEC, mEMAC Remote fault interrupt */
-+	, FM_MAC_EX_10G_LOC_FAULT
-+	/* 10GEC, mEMAC Local fault interrupt */
-+	, FM_MAC_EX_10G_TX_ECC_ER
-+	/* 10GEC, mEMAC Transmit frame ECC error interrupt */
-+	, FM_MAC_EX_10G_TX_FIFO_UNFL
-+	/* 10GEC, mEMAC Transmit FIFO underflow interrupt */
-+	, FM_MAC_EX_10G_TX_FIFO_OVFL
-+	/* 10GEC, mEMAC Transmit FIFO overflow interrupt */
-+	, FM_MAC_EX_10G_TX_ER
-+	/* 10GEC Transmit frame error interrupt */
-+	, FM_MAC_EX_10G_RX_FIFO_OVFL
-+	/* 10GEC, mEMAC Receive FIFO overflow interrupt */
-+	, FM_MAC_EX_10G_RX_ECC_ER
-+	/* 10GEC, mEMAC Receive frame ECC error interrupt */
-+	, FM_MAC_EX_10G_RX_JAB_FRM
-+	/* 10GEC Receive jabber frame interrupt */
-+	, FM_MAC_EX_10G_RX_OVRSZ_FRM
-+	/* 10GEC Receive oversized frame interrupt */
-+	, FM_MAC_EX_10G_RX_RUNT_FRM
-+	/* 10GEC Receive runt frame interrupt */
-+	, FM_MAC_EX_10G_RX_FRAG_FRM
-+	/* 10GEC Receive fragment frame interrupt */
-+	, FM_MAC_EX_10G_RX_LEN_ER
-+	/* 10GEC Receive payload length error interrupt */
-+	, FM_MAC_EX_10G_RX_CRC_ER
-+	/* 10GEC Receive CRC error interrupt */
-+	, FM_MAC_EX_10G_RX_ALIGN_ER
-+	/* 10GEC Receive alignment error interrupt */
-+	, FM_MAC_EX_1G_BAB_RX
-+	/* dTSEC Babbling receive error */
-+	, FM_MAC_EX_1G_RX_CTL
-+	/* dTSEC Receive control (pause frame) interrupt */
-+	, FM_MAC_EX_1G_GRATEFUL_TX_STP_COMPLET
-+	/* dTSEC Graceful transmit stop complete */
-+	, FM_MAC_EX_1G_BAB_TX
-+	/* dTSEC Babbling transmit error */
-+	, FM_MAC_EX_1G_TX_CTL
-+	/* dTSEC Transmit control (pause frame) interrupt */
-+	, FM_MAC_EX_1G_TX_ERR
-+	/* dTSEC Transmit error */
-+	, FM_MAC_EX_1G_LATE_COL
-+	/* dTSEC Late collision */
-+	, FM_MAC_EX_1G_COL_RET_LMT
-+	/* dTSEC Collision retry limit */
-+	, FM_MAC_EX_1G_TX_FIFO_UNDRN
-+	/* dTSEC Transmit FIFO underrun */
-+	, FM_MAC_EX_1G_MAG_PCKT
-+	/* dTSEC Magic Packet detection */
-+	, FM_MAC_EX_1G_MII_MNG_RD_COMPLET
-+	/* dTSEC MII management read completion */
-+	, FM_MAC_EX_1G_MII_MNG_WR_COMPLET
-+	/* dTSEC MII management write completion */
-+	, FM_MAC_EX_1G_GRATEFUL_RX_STP_COMPLET
-+	/* dTSEC Graceful receive stop complete */
-+	, FM_MAC_EX_1G_DATA_ERR
-+	/* dTSEC Internal data error on transmit */
-+	, FM_MAC_1G_RX_DATA_ERR
-+	/* dTSEC Internal data error on receive */
-+	, FM_MAC_EX_1G_1588_TS_RX_ERR
-+	/* dTSEC Time-Stamp Receive Error */
-+	, FM_MAC_EX_1G_RX_MIB_CNT_OVFL
-+	/* dTSEC MIB counter overflow */
-+	, FM_MAC_EX_TS_FIFO_ECC_ERR
-+	/* mEMAC Time-stamp FIFO ECC error interrupt;
-+	 * not supported on T4240/B4860 rev1 chips
-+	 */
-+	, FM_MAC_EX_MAGIC_PACKET_INDICATION = FM_MAC_EX_1G_MAG_PCKT
-+	/* mEMAC Magic Packet Indication Interrupt */
-+};
-+
-+struct eth_hash_entry {
-+	u64 addr;		/* Ethernet Address  */
-+	struct list_head node;
-+};
-+
-+typedef void (fman_mac_exception_cb)(void *dev_id,
-+				    enum fman_mac_exceptions exceptions);
-+
-+/* FMan MAC config input */
-+struct fman_mac_params {
-+	/* Base of memory mapped FM MAC registers */
-+	void __iomem *base_addr;
-+	/* MAC address of device; First octet is sent first */
-+	enet_addr_t addr;
-+	/* MAC ID; numbering of dTSEC and 1G-mEMAC:
-+	 * 0 - FM_MAX_NUM_OF_1G_MACS;
-+	 * numbering of 10G-MAC (TGEC) and 10G-mEMAC:
-+	 * 0 - FM_MAX_NUM_OF_10G_MACS
-+	 */
-+	u8 mac_id;
-+	/* PHY interface */
-+	phy_interface_t	 phy_if;
-+	/* Note that the speed should indicate the maximum rate that
-+	 * this MAC should support rather than the actual speed;
-+	 */
-+	u16 max_speed;
-+	/* A handle to the FM object this port related to */
-+	void *fm;
-+	/* MDIO exceptions interrupt source - not valid for all
-+	 * MACs; MUST be set to 'NO_IRQ' for MACs that don't have
-+	 * mdio-irq, or for polling
-+	 */
-+	void *dev_id; /* device cookie used by the exception cbs */
-+	fman_mac_exception_cb *event_cb;    /* MDIO Events Callback Routine */
-+	fman_mac_exception_cb *exception_cb;/* Exception Callback Routine */
-+	/* SGMII/QSGII interface with 1000BaseX auto-negotiation between MAC
-+	 * and phy or backplane; Note: 1000BaseX auto-negotiation relates only
-+	 * to interface between MAC and phy/backplane, SGMII phy can still
-+	 * synchronize with far-end phy at 10Mbps, 100Mbps or 1000Mbps
-+	*/
-+	bool basex_if;
-+};
-+
-+struct eth_hash_t {
-+	u16 size;
-+	struct list_head *lsts;
-+};
-+
-+static inline struct eth_hash_entry
-+*dequeue_addr_from_hash_entry(struct list_head *addr_lst)
-+{
-+	struct eth_hash_entry *hash_entry = NULL;
-+
-+	if (!list_empty(addr_lst)) {
-+		hash_entry = ETH_HASH_ENTRY_OBJ(addr_lst->next);
-+		list_del_init(&hash_entry->node);
-+	}
-+	return hash_entry;
-+}
-+
-+static inline void free_hash_table(struct eth_hash_t *hash)
-+{
-+	struct eth_hash_entry *hash_entry;
-+	int i = 0;
-+
-+	if (hash) {
-+		if (hash->lsts) {
-+			for (i = 0; i < hash->size; i++) {
-+				hash_entry =
-+				dequeue_addr_from_hash_entry(&hash->lsts[i]);
-+				while (hash_entry) {
-+					kfree(hash_entry);
-+					hash_entry =
-+					dequeue_addr_from_hash_entry(&hash->
-+								     lsts[i]);
-+				}
-+			}
-+
-+			kfree(hash->lsts);
-+		}
-+
-+		kfree(hash);
-+	}
-+}
-+
-+static inline struct eth_hash_t *alloc_hash_table(u16 size)
-+{
-+	u32 i;
-+	struct eth_hash_t *hash;
-+
-+	/* Allocate address hash table */
-+	hash = kmalloc_array(size, sizeof(struct eth_hash_t *), GFP_KERNEL);
-+	if (!hash)
-+		return NULL;
-+
-+	hash->size = size;
-+
-+	hash->lsts = kmalloc_array(hash->size, sizeof(struct list_head),
-+				   GFP_KERNEL);
-+	if (!hash->lsts) {
-+		kfree(hash);
-+		return NULL;
-+	}
-+
-+	for (i = 0; i < hash->size; i++)
-+		INIT_LIST_HEAD(&hash->lsts[i]);
-+
-+	return hash;
-+}
-+
-+#endif /* __FM_MAC_H */
-diff --git a/drivers/net/ethernet/freescale/fman/fman_memac.c b/drivers/net/ethernet/freescale/fman/fman_memac.c
-new file mode 100644
-index 0000000..1e44982
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/fman_memac.c
-@@ -0,0 +1,1307 @@
-+/*
-+ * Copyright 2008-2015 Freescale Semiconductor Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *       notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *       notice, this list of conditions and the following disclaimer in the
-+ *       documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *       names of its contributors may be used to endorse or promote products
-+ *       derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include "fman_memac.h"
-+#include "fman.h"
-+
-+#include <linux/slab.h>
-+#include <linux/io.h>
-+#include <linux/phy.h>
-+
-+/* MII Management Registers */
-+#define MDIO_CFG_CLK_DIV_MASK		0x0080ff80
-+#define MDIO_CFG_HOLD_MASK		0x0000001c
-+#define MDIO_CFG_ENC45			0x00000040
-+#define MDIO_CFG_BSY			0x00000001
-+
-+#define MDIO_CTL_PHY_ADDR_SHIFT	5
-+
-+#define MDIO_DATA_BSY			0x80000000
-+
-+/* Internal PHY access */
-+#define PHY_MDIO_ADDR			0
-+
-+/* Internal PHY Registers - SGMII */
-+#define PHY_SGMII_CR_RESET_AN           0x0200
-+#define PHY_SGMII_CR_AN_ENABLE          0x1000
-+#define PHY_SGMII_CR_DEF_VAL            0x1140
-+#define PHY_SGMII_DEV_ABILITY_SGMII     0x4001
-+#define PHY_SGMII_DEV_ABILITY_1000X     0x01A0
-+#define PHY_SGMII_IF_MODE_DUPLEX_FULL   0x0000
-+#define PHY_SGMII_IF_MODE_DUPLEX_HALF   0x0010
-+#define PHY_SGMII_IF_MODE_SPEED_GB      0x0008
-+#define PHY_SGMII_IF_MODE_SPEED_100M    0x0004
-+#define PHY_SGMII_IF_MODE_SPEED_10M     0x0000
-+#define PHY_SGMII_IF_MODE_AN            0x0002
-+#define PHY_SGMII_IF_MODE_SGMII         0x0001
-+#define PHY_SGMII_IF_MODE_1000X         0x0000
-+
-+/* Offset from the MEM map to the MDIO mem map */
-+#define MEMAC_TO_MII_OFFSET         0x030
-+/* Num of additional exact match MAC adr regs */
-+#define MEMAC_NUM_OF_PADDRS 7
-+
-+/* Control and Configuration Register (COMMAND_CONFIG) */
-+#define CMD_CFG_REG_LOWP_RXETY	0x01000000 /* 07 Rx low power indication */
-+#define CMD_CFG_TX_LOWP_ENA	0x00800000 /* 08 Tx Low Power Idle Enable */
-+#define CMD_CFG_PFC_MODE	0x00080000 /* 12 Enable PFC */
-+#define CMD_CFG_NO_LEN_CHK	0x00020000 /* 14 Payload length check disable */
-+#define CMD_CFG_SW_RESET	0x00001000 /* 19 S/W Reset, self clearing bit */
-+#define CMD_CFG_TX_PAD_EN	0x00000800 /* 20 Enable Tx padding of frames */
-+#define CMD_CFG_PAUSE_IGNORE	0x00000100 /* 23 Ignore Pause frame quanta */
-+#define CMD_CFG_CRC_FWD		0x00000040 /* 25 Terminate/frwd CRC of frames */
-+#define CMD_CFG_PAD_EN		0x00000020 /* 26 Frame padding removal */
-+#define CMD_CFG_PROMIS_EN	0x00000010 /* 27 Promiscuous operation enable */
-+#define CMD_CFG_RX_EN		0x00000002 /* 30 MAC receive path enable */
-+#define CMD_CFG_TX_EN		0x00000001 /* 31 MAC transmit path enable */
-+
-+/* Transmit FIFO Sections Register (TX_FIFO_SECTIONS) */
-+#define TX_FIFO_SECTIONS_TX_EMPTY_MASK			0xFFFF0000
-+#define TX_FIFO_SECTIONS_TX_AVAIL_MASK			0x0000FFFF
-+#define TX_FIFO_SECTIONS_TX_EMPTY_DEFAULT_10G		0x00400000
-+#define TX_FIFO_SECTIONS_TX_EMPTY_DEFAULT_1G		0x00100000
-+#define TX_FIFO_SECTIONS_TX_AVAIL_10G			0x00000019
-+#define TX_FIFO_SECTIONS_TX_AVAIL_1G			0x00000020
-+#define TX_FIFO_SECTIONS_TX_AVAIL_SLOW_10G		0x00000060
-+
-+#define GET_TX_EMPTY_DEFAULT_VALUE(_val)				\
-+do {									\
-+	_val &= ~TX_FIFO_SECTIONS_TX_EMPTY_MASK;			\
-+	((_val == TX_FIFO_SECTIONS_TX_AVAIL_10G) ?			\
-+			(_val |= TX_FIFO_SECTIONS_TX_EMPTY_DEFAULT_10G) :\
-+			(_val |= TX_FIFO_SECTIONS_TX_EMPTY_DEFAULT_1G));\
-+} while (0)
-+
-+/* Interface Mode Register (IF_MODE) */
-+
-+#define IF_MODE_MASK		0x00000003 /* 30-31 Mask on i/f mode bits */
-+#define IF_MODE_XGMII		0x00000000 /* 30-31 XGMII (10G) interface */
-+#define IF_MODE_GMII		0x00000002 /* 30-31 GMII (1G) interface */
-+#define IF_MODE_RGMII		0x00000004
-+#define IF_MODE_RGMII_AUTO	0x00008000
-+#define IF_MODE_RGMII_1000	0x00004000 /* 10 - 1000Mbps RGMII */
-+#define IF_MODE_RGMII_100	0x00000000 /* 00 - 100Mbps RGMII */
-+#define IF_MODE_RGMII_10	0x00002000 /* 01 - 10Mbps RGMII */
-+#define IF_MODE_RGMII_SP_MASK	0x00006000 /* Setsp mask bits */
-+#define IF_MODE_RGMII_FD	0x00001000 /* Full duplex RGMII */
-+#define IF_MODE_HD		0x00000040 /* Half duplex operation */
-+
-+/* Hash table Control Register (HASHTABLE_CTRL) */
-+#define HASH_CTRL_MCAST_EN	0x00000100
-+/* 26-31 Hash table address code */
-+#define HASH_CTRL_ADDR_MASK	0x0000003F
-+/* MAC mcast indication */
-+#define GROUP_ADDRESS		0x0000010000000000LL
-+#define HASH_TABLE_SIZE		64	/* Hash tbl size */
-+
-+/* Interrupt Mask Register (IMASK) */
-+#define MEMAC_IMASK_MGI		0x40000000 /* 1 Magic pkt detect indication */
-+#define MEMAC_IMASK_TSECC_ER	0x20000000 /* 2 Timestamp FIFO ECC error evnt */
-+#define MEMAC_IMASK_TECC_ER	0x02000000 /* 6 Transmit frame ECC error evnt */
-+#define MEMAC_IMASK_RECC_ER	0x01000000 /* 7 Receive frame ECC error evnt */
-+
-+#define MEMAC_ALL_ERRS_IMASK					\
-+		((u32)(MEMAC_IMASK_TSECC_ER	|	\
-+		       MEMAC_IMASK_TECC_ER		|	\
-+		       MEMAC_IMASK_RECC_ER		|	\
-+		       MEMAC_IMASK_MGI))
-+
-+#define MEMAC_IEVNT_PCS			0x80000000 /* PCS (XG). Link sync (G) */
-+#define MEMAC_IEVNT_AN			0x40000000 /* Auto-negotiation */
-+#define MEMAC_IEVNT_LT			0x20000000 /* Link Training/New page */
-+#define MEMAC_IEVNT_MGI			0x00004000 /* Magic pkt detection */
-+#define MEMAC_IEVNT_TS_ECC_ER		0x00002000 /* Timestamp FIFO ECC error*/
-+#define MEMAC_IEVNT_RX_FIFO_OVFL	0x00001000 /* Rx FIFO overflow */
-+#define MEMAC_IEVNT_TX_FIFO_UNFL	0x00000800 /* Tx FIFO underflow */
-+#define MEMAC_IEVNT_TX_FIFO_OVFL	0x00000400 /* Tx FIFO overflow */
-+#define MEMAC_IEVNT_TX_ECC_ER		0x00000200 /* Tx frame ECC error */
-+#define MEMAC_IEVNT_RX_ECC_ER		0x00000100 /* Rx frame ECC error */
-+#define MEMAC_IEVNT_LI_FAULT		0x00000080 /* Link Interruption flt */
-+#define MEMAC_IEVNT_RX_EMPTY		0x00000040 /* Rx FIFO empty */
-+#define MEMAC_IEVNT_TX_EMPTY		0x00000020 /* Tx FIFO empty */
-+#define MEMAC_IEVNT_RX_LOWP		0x00000010 /* Low Power Idle */
-+#define MEMAC_IEVNT_PHY_LOS		0x00000004 /* Phy loss of signal */
-+#define MEMAC_IEVNT_REM_FAULT		0x00000002 /* Remote fault (XGMII) */
-+#define MEMAC_IEVNT_LOC_FAULT		0x00000001 /* Local fault (XGMII) */
-+
-+#define DEFAULT_PAUSE_QUANTA	0xf000
-+#define DEFAULT_FRAME_LENGTH	0x600
-+#define DEFAULT_TX_IPG_LENGTH	12
-+
-+#define CLXY_PAUSE_QUANTA_CLX_PQNT	0x0000FFFF
-+#define CLXY_PAUSE_QUANTA_CLY_PQNT	0xFFFF0000
-+#define CLXY_PAUSE_THRESH_CLX_QTH	0x0000FFFF
-+#define CLXY_PAUSE_THRESH_CLY_QTH	0xFFFF0000
-+
-+struct mac_addr {
-+	/* Lower 32 bits of 48-bit MAC address */
-+	u32 mac_addr_l;
-+	/* Upper 16 bits of 48-bit MAC address */
-+	u32 mac_addr_u;
-+};
-+
-+/* MII Configuration Control Memory Map Registers */
-+struct memac_mii_regs {
-+	u32 mdio_cfg;	/* 0x030  */
-+	u32 mdio_ctrl;	/* 0x034  */
-+	u32 mdio_data;	/* 0x038  */
-+	u32 mdio_addr;	/* 0x03c  */
-+};
-+
-+/* memory map */
-+struct memac_regs {
-+	u32 res0000[2];			/* General Control and Status */
-+	u32 command_config;		/* 0x008 Ctrl and cfg */
-+	struct mac_addr mac_addr0;	/* 0x00C-0x010 MAC_ADDR_0...1 */
-+	u32 maxfrm;			/* 0x014 Max frame length */
-+	u32 res0018[1];
-+	u32 rx_fifo_sections;		/* Receive FIFO configuration reg */
-+	u32 tx_fifo_sections;		/* Transmit FIFO configuration reg */
-+	u32 res0024[2];
-+	u32 hashtable_ctrl;		/* 0x02C Hash table control */
-+	u32 res0030[4];
-+	u32 ievent;			/* 0x040 Interrupt event */
-+	u32 tx_ipg_length;		/* 0x044 Transmitter inter-packet-gap */
-+	u32 res0048;
-+	u32 imask;			/* 0x04C Interrupt mask */
-+	u32 res0050;
-+	u32 pause_quanta[4];		/* 0x054 Pause quanta */
-+	u32 pause_thresh[4];		/* 0x064 Pause quanta threshold */
-+	u32 rx_pause_status;		/* 0x074 Receive pause status */
-+	u32 res0078[2];
-+	struct mac_addr mac_addr[MEMAC_NUM_OF_PADDRS];/* 0x80-0x0B4 mac padr */
-+	u32 lpwake_timer;		/* 0x0B8 Low Power Wakeup Timer */
-+	u32 sleep_timer;		/* 0x0BC Transmit EEE Low Power Timer */
-+	u32 res00c0[8];
-+	u32 statn_config;		/* 0x0E0 Statistics configuration */
-+	u32 res00e4[7];
-+	/* Rx Statistics Counter */
-+	u32 reoct_l;
-+	u32 reoct_u;
-+	u32 roct_l;
-+	u32 roct_u;
-+	u32 raln_l;
-+	u32 raln_u;
-+	u32 rxpf_l;
-+	u32 rxpf_u;
-+	u32 rfrm_l;
-+	u32 rfrm_u;
-+	u32 rfcs_l;
-+	u32 rfcs_u;
-+	u32 rvlan_l;
-+	u32 rvlan_u;
-+	u32 rerr_l;
-+	u32 rerr_u;
-+	u32 ruca_l;
-+	u32 ruca_u;
-+	u32 rmca_l;
-+	u32 rmca_u;
-+	u32 rbca_l;
-+	u32 rbca_u;
-+	u32 rdrp_l;
-+	u32 rdrp_u;
-+	u32 rpkt_l;
-+	u32 rpkt_u;
-+	u32 rund_l;
-+	u32 rund_u;
-+	u32 r64_l;
-+	u32 r64_u;
-+	u32 r127_l;
-+	u32 r127_u;
-+	u32 r255_l;
-+	u32 r255_u;
-+	u32 r511_l;
-+	u32 r511_u;
-+	u32 r1023_l;
-+	u32 r1023_u;
-+	u32 r1518_l;
-+	u32 r1518_u;
-+	u32 r1519x_l;
-+	u32 r1519x_u;
-+	u32 rovr_l;
-+	u32 rovr_u;
-+	u32 rjbr_l;
-+	u32 rjbr_u;
-+	u32 rfrg_l;
-+	u32 rfrg_u;
-+	u32 rcnp_l;
-+	u32 rcnp_u;
-+	u32 rdrntp_l;
-+	u32 rdrntp_u;
-+	u32 res01d0[12];
-+	/* Tx Statistics Counter */
-+	u32 teoct_l;
-+	u32 teoct_u;
-+	u32 toct_l;
-+	u32 toct_u;
-+	u32 res0210[2];
-+	u32 txpf_l;
-+	u32 txpf_u;
-+	u32 tfrm_l;
-+	u32 tfrm_u;
-+	u32 tfcs_l;
-+	u32 tfcs_u;
-+	u32 tvlan_l;
-+	u32 tvlan_u;
-+	u32 terr_l;
-+	u32 terr_u;
-+	u32 tuca_l;
-+	u32 tuca_u;
-+	u32 tmca_l;
-+	u32 tmca_u;
-+	u32 tbca_l;
-+	u32 tbca_u;
-+	u32 res0258[2];
-+	u32 tpkt_l;
-+	u32 tpkt_u;
-+	u32 tund_l;
-+	u32 tund_u;
-+	u32 t64_l;
-+	u32 t64_u;
-+	u32 t127_l;
-+	u32 t127_u;
-+	u32 t255_l;
-+	u32 t255_u;
-+	u32 t511_l;
-+	u32 t511_u;
-+	u32 t1023_l;
-+	u32 t1023_u;
-+	u32 t1518_l;
-+	u32 t1518_u;
-+	u32 t1519x_l;
-+	u32 t1519x_u;
-+	u32 res02a8[6];
-+	u32 tcnp_l;
-+	u32 tcnp_u;
-+	u32 res02c8[14];
-+	/* Line Interface Control */
-+	u32 if_mode;		/* 0x300 Interface Mode Control */
-+	u32 if_status;		/* 0x304 Interface Status */
-+	u32 res0308[14];
-+	/* HiGig/2 */
-+	u32 hg_config;		/* 0x340 Control and cfg */
-+	u32 res0344[3];
-+	u32 hg_pause_quanta;	/* 0x350 Pause quanta */
-+	u32 res0354[3];
-+	u32 hg_pause_thresh;	/* 0x360 Pause quanta threshold */
-+	u32 res0364[3];
-+	u32 hgrx_pause_status;	/* 0x370 Receive pause status */
-+	u32 hg_fifos_status;	/* 0x374 fifos status */
-+	u32 rhm;		/* 0x378 rx messages counter */
-+	u32 thm;		/* 0x37C tx messages counter */
-+};
-+
-+struct memac_cfg {
-+	bool reset_on_init;
-+	bool pause_ignore;
-+	bool promiscuous_mode_enable;
-+	struct fixed_phy_status *fixed_link;
-+	u16 max_frame_length;
-+	u16 pause_quanta;
-+	u32 tx_ipg_length;
-+};
-+
-+struct fman_mac {
-+	/* Pointer to MAC memory mapped registers */
-+	struct memac_regs __iomem *regs;
-+	/* Pointer to MII memory mapped registers */
-+	struct memac_mii_regs __iomem *mii_regs;
-+	/* MAC address of device */
-+	u64 addr;
-+	/* Ethernet physical interface */
-+	phy_interface_t phy_if;
-+	u16 max_speed;
-+	void *dev_id; /* device cookie used by the exception cbs */
-+	fman_mac_exception_cb *exception_cb;
-+	fman_mac_exception_cb *event_cb;
-+	/* Pointer to driver's global address hash table  */
-+	struct eth_hash_t *multicast_addr_hash;
-+	/* Pointer to driver's individual address hash table  */
-+	struct eth_hash_t *unicast_addr_hash;
-+	u8 mac_id;
-+	u32 exceptions;
-+	struct memac_cfg *memac_drv_param;
-+	void *fm;
-+	struct fman_rev_info fm_rev_info;
-+	bool basex_if;
-+};
-+
-+static int write_phy_reg_10g(struct memac_mii_regs __iomem *mii_regs,
-+			     u8 phy_addr, u8 reg, u16 data)
-+{
-+	u32 tmp_reg;
-+	int count;
-+
-+	tmp_reg = ioread32be(&mii_regs->mdio_cfg);
-+	/* Leave only MDIO_CLK_DIV bits set on */
-+	tmp_reg &= MDIO_CFG_CLK_DIV_MASK;
-+	/* Set maximum MDIO_HOLD value to allow phy to see
-+	 * change of data signal
-+	 */
-+	tmp_reg |= MDIO_CFG_HOLD_MASK;
-+	/* Add 10G interface mode */
-+	tmp_reg |= MDIO_CFG_ENC45;
-+	iowrite32be(tmp_reg, &mii_regs->mdio_cfg);
-+
-+	/* Wait for command completion */
-+	count = 100;
-+	do {
-+		udelay(1);
-+	} while (((ioread32be(&mii_regs->mdio_cfg)) & MDIO_CFG_BSY) && --count);
-+
-+	if (count == 0)
-+		return -EBUSY;
-+
-+	/* Specify phy and register to be accessed */
-+	iowrite32be(phy_addr, &mii_regs->mdio_ctrl);
-+	iowrite32be(reg, &mii_regs->mdio_addr);
-+
-+	count = 100;
-+	do {
-+		udelay(1);
-+	} while (((ioread32be(&mii_regs->mdio_cfg)) & MDIO_CFG_BSY) && --count);
-+
-+	if (count == 0)
-+		return -EBUSY;
-+
-+	/* Write data */
-+	iowrite32be(data, &mii_regs->mdio_data);
-+
-+	/* Wait for write transaction end */
-+	count = 100;
-+	do {
-+		udelay(1);
-+	} while (((ioread32be(&mii_regs->mdio_data)) & MDIO_DATA_BSY) &&
-+		 --count);
-+
-+	if (count == 0)
-+		return -EBUSY;
-+
-+	return 0;
-+}
-+
-+static int write_phy_reg_1g(struct memac_mii_regs __iomem *mii_regs,
-+			    u8 phy_addr, u8 reg, u16 data)
-+{
-+	u32 tmp_reg;
-+	int count;
-+
-+	/* Leave only MDIO_CLK_DIV and MDIO_HOLD bits set on */
-+	tmp_reg = ioread32be(&mii_regs->mdio_cfg);
-+	tmp_reg &= (MDIO_CFG_CLK_DIV_MASK | MDIO_CFG_HOLD_MASK);
-+	iowrite32be(tmp_reg, &mii_regs->mdio_cfg);
-+
-+	/* Wait for command completion */
-+	count = 100;
-+	do {
-+		udelay(1);
-+	} while (((ioread32be(&mii_regs->mdio_cfg)) & MDIO_CFG_BSY) && --count);
-+
-+	if (count == 0)
-+		return -EBUSY;
-+
-+	/* Write transaction */
-+	tmp_reg = (phy_addr << MDIO_CTL_PHY_ADDR_SHIFT);
-+	tmp_reg |= reg;
-+	iowrite32be(tmp_reg, &mii_regs->mdio_ctrl);
-+
-+	/* Wait for command completion */
-+	count = 100;
-+	do {
-+		udelay(1);
-+	} while (((ioread32be(&mii_regs->mdio_cfg)) & MDIO_CFG_BSY) && --count);
-+
-+	if (count == 0)
-+		return -EBUSY;
-+
-+	iowrite32be(data, &mii_regs->mdio_data);
-+
-+	/* Wait for write transaction to end */
-+	count = 100;
-+	do {
-+		udelay(1);
-+	} while (((ioread32be(&mii_regs->mdio_data)) & MDIO_DATA_BSY) &&
-+		 --count);
-+
-+	if (count == 0)
-+		return -EBUSY;
-+
-+	return 0;
-+}
-+
-+static int mii_write_phy_reg(struct fman_mac *memac, u8 phy_addr, u8 reg,
-+			     u16 data)
-+{
-+	int err = 0;
-+	/* Figure out interface type - 10G vs 1G.
-+	 * In 10G interface both phy_addr and devAddr present.
-+	 */
-+	if (memac->max_speed == SPEED_10000)
-+		err = write_phy_reg_10g(memac->mii_regs, phy_addr, reg, data);
-+	else
-+		err = write_phy_reg_1g(memac->mii_regs, phy_addr, reg, data);
-+
-+	return err;
-+}
-+
-+static void add_addr_in_paddr(struct memac_regs __iomem *regs, u8 *adr,
-+			      u8 paddr_num)
-+{
-+	u32 tmp0, tmp1;
-+
-+	tmp0 = (u32)(adr[0] | adr[1] << 8 | adr[2] << 16 | adr[3] << 24);
-+	tmp1 = (u32)(adr[4] | adr[5] << 8);
-+
-+	if (paddr_num == 0) {
-+		iowrite32be(tmp0, &regs->mac_addr0.mac_addr_l);
-+		iowrite32be(tmp1, &regs->mac_addr0.mac_addr_u);
-+	} else {
-+		iowrite32be(tmp0, &regs->mac_addr[paddr_num - 1].mac_addr_l);
-+		iowrite32be(tmp1, &regs->mac_addr[paddr_num - 1].mac_addr_u);
-+	}
-+}
-+
-+static int reset(struct memac_regs __iomem *regs)
-+{
-+	u32 tmp;
-+	int count;
-+
-+	tmp = ioread32be(&regs->command_config);
-+
-+	tmp |= CMD_CFG_SW_RESET;
-+
-+	iowrite32be(tmp, &regs->command_config);
-+
-+	count = 100;
-+	do {
-+		udelay(1);
-+	} while ((ioread32be(&regs->command_config) & CMD_CFG_SW_RESET) &&
-+		 --count);
-+
-+	if (count == 0)
-+		return -EBUSY;
-+
-+	return 0;
-+}
-+
-+static void set_exception(struct memac_regs __iomem *regs, u32 val,
-+			  bool enable)
-+{
-+	u32 tmp;
-+
-+	tmp = ioread32be(&regs->imask);
-+	if (enable)
-+		tmp |= val;
-+	else
-+		tmp &= ~val;
-+
-+	iowrite32be(tmp, &regs->imask);
-+}
-+
-+static int init(struct memac_regs __iomem *regs, struct memac_cfg *cfg,
-+		phy_interface_t phy_if, u16 speed, bool slow_10g_if,
-+		u32 exceptions)
-+{
-+	u32 tmp;
-+
-+	/* Config */
-+	tmp = 0;
-+	if (cfg->promiscuous_mode_enable)
-+		tmp |= CMD_CFG_PROMIS_EN;
-+	if (cfg->pause_ignore)
-+		tmp |= CMD_CFG_PAUSE_IGNORE;
-+
-+	/* Payload length check disable */
-+	tmp |= CMD_CFG_NO_LEN_CHK;
-+	/* Enable padding of frames in transmit direction */
-+	tmp |= CMD_CFG_TX_PAD_EN;
-+
-+	tmp |= CMD_CFG_CRC_FWD;
-+
-+	iowrite32be(tmp, &regs->command_config);
-+
-+	/* Max Frame Length */
-+	iowrite32be((u32)cfg->max_frame_length, &regs->maxfrm);
-+
-+	/* Pause Time */
-+	iowrite32be((u32)cfg->pause_quanta, &regs->pause_quanta[0]);
-+	iowrite32be((u32)0, &regs->pause_thresh[0]);
-+
-+	/* IF_MODE */
-+	tmp = 0;
-+	switch (phy_if) {
-+	case PHY_INTERFACE_MODE_XGMII:
-+		tmp |= IF_MODE_XGMII;
-+		break;
-+	default:
-+		tmp |= IF_MODE_GMII;
-+		if (phy_if == PHY_INTERFACE_MODE_RGMII)
-+			tmp |= IF_MODE_RGMII | IF_MODE_RGMII_AUTO;
-+	}
-+	iowrite32be(tmp, &regs->if_mode);
-+
-+	/* TX_FIFO_SECTIONS */
-+	tmp = 0;
-+	if (phy_if == PHY_INTERFACE_MODE_XGMII) {
-+		if (slow_10g_if) {
-+			tmp |= (TX_FIFO_SECTIONS_TX_AVAIL_SLOW_10G |
-+				TX_FIFO_SECTIONS_TX_EMPTY_DEFAULT_10G);
-+		} else {
-+			tmp |= (TX_FIFO_SECTIONS_TX_AVAIL_10G |
-+				TX_FIFO_SECTIONS_TX_EMPTY_DEFAULT_10G);
-+		}
-+	} else {
-+		tmp |= (TX_FIFO_SECTIONS_TX_AVAIL_1G |
-+			TX_FIFO_SECTIONS_TX_EMPTY_DEFAULT_1G);
-+	}
-+	iowrite32be(tmp, &regs->tx_fifo_sections);
-+
-+	/* clear all pending events and set-up interrupts */
-+	iowrite32be(0xffffffff, &regs->ievent);
-+	set_exception(regs, exceptions, true);
-+
-+	return 0;
-+}
-+
-+static void set_dflts(struct memac_cfg *cfg)
-+{
-+	cfg->reset_on_init = false;
-+	cfg->promiscuous_mode_enable = false;
-+	cfg->pause_ignore = false;
-+	cfg->tx_ipg_length = DEFAULT_TX_IPG_LENGTH;
-+	cfg->max_frame_length = DEFAULT_FRAME_LENGTH;
-+	cfg->pause_quanta = DEFAULT_PAUSE_QUANTA;
-+}
-+
-+static u32 get_mac_addr_hash_code(u64 eth_addr)
-+{
-+	u64 mask1, mask2;
-+	u32 xor_val = 0;
-+	u8 i, j;
-+
-+	for (i = 0; i < 6; i++) {
-+		mask1 = eth_addr & (u64)0x01;
-+		eth_addr >>= 1;
-+
-+		for (j = 0; j < 7; j++) {
-+			mask2 = eth_addr & (u64)0x01;
-+			mask1 ^= mask2;
-+			eth_addr >>= 1;
-+		}
-+
-+		xor_val |= (mask1 << (5 - i));
-+	}
-+
-+	return xor_val;
-+}
-+
-+static void setup_sgmii_internal_phy(struct fman_mac *memac, u8 phy_addr,
-+				     struct fixed_phy_status *fixed_link)
-+{
-+	u16 tmp_reg16, speed;
-+
-+	/* In case the higher MACs are used (i.e. the MACs that should
-+	 * support 10G), speed=10000 is provided for SGMII ports.
-+	 * Temporary modify enet mode to 1G one, so MII functions can
-+	 * work correctly.
-+	 */
-+	speed = memac->max_speed;
-+	memac->max_speed = SPEED_1000;
-+
-+	/* SGMII mode */
-+	tmp_reg16 = PHY_SGMII_IF_MODE_SGMII;
-+	if (!fixed_link)
-+		/* AN enable */
-+		tmp_reg16 |= PHY_SGMII_IF_MODE_AN;
-+	else {
-+		switch (fixed_link->speed) {
-+		case 10:
-+			tmp_reg16 |= PHY_SGMII_IF_MODE_SPEED_10M;
-+		break;
-+		case 100:
-+			tmp_reg16 |= PHY_SGMII_IF_MODE_SPEED_100M;
-+		break;
-+		case 1000: /* fallthrough */
-+		default:
-+			tmp_reg16 |= PHY_SGMII_IF_MODE_SPEED_GB;
-+		break;
-+		}
-+		if (fixed_link->duplex)
-+			tmp_reg16 |= PHY_SGMII_IF_MODE_DUPLEX_FULL;
-+		else
-+			tmp_reg16 |= PHY_SGMII_IF_MODE_DUPLEX_HALF;
-+	}
-+	mii_write_phy_reg(memac, phy_addr, 0x14, tmp_reg16);
-+
-+	/* Device ability according to SGMII specification */
-+	tmp_reg16 = PHY_SGMII_DEV_ABILITY_SGMII;
-+	mii_write_phy_reg(memac, phy_addr, 0x4, tmp_reg16);
-+
-+	/* Adjust link timer for SGMII  -
-+	 * According to Cisco SGMII specification the timer should be 1.6 ms.
-+	 * The link_timer register is configured in units of the clock.
-+	 * - When running as 1G SGMII, Serdes clock is 125 MHz, so
-+	 * unit = 1 / (125*10^6 Hz) = 8 ns.
-+	 * 1.6 ms in units of 8 ns = 1.6ms / 8ns = 2*10^5 = 0x30d40
-+	 * - When running as 2.5G SGMII, Serdes clock is 312.5 MHz, so
-+	 * unit = 1 / (312.5*10^6 Hz) = 3.2 ns.
-+	 * 1.6 ms in units of 3.2 ns = 1.6ms / 3.2ns = 5*10^5 = 0x7a120.
-+	 * Since link_timer value of 1G SGMII will be too short for 2.5 SGMII,
-+	 * we always set up here a value of 2.5 SGMII.
-+	 */
-+	mii_write_phy_reg(memac, phy_addr, 0x13, 0x0007);
-+	mii_write_phy_reg(memac, phy_addr, 0x12, 0xa120);
-+
-+	if (!fixed_link)
-+		/* Restart AN */
-+		tmp_reg16 = PHY_SGMII_CR_DEF_VAL | PHY_SGMII_CR_RESET_AN;
-+	else
-+		/* AN disabled */
-+		tmp_reg16 = PHY_SGMII_CR_DEF_VAL & ~PHY_SGMII_CR_AN_ENABLE;
-+	mii_write_phy_reg(memac, phy_addr, 0x0, tmp_reg16);
-+
-+	/* Restore original speed */
-+	memac->max_speed = speed;
-+}
-+
-+static void setup_sgmii_internal_phy_base_x(struct fman_mac *memac, u8 phy_addr)
-+{
-+	u16 tmp_reg16, speed;
-+
-+	/* In case the higher MACs are used (i.e. the MACs that
-+	 * should support 10G), speed=10000 is provided for SGMII ports.
-+	 * Temporary modify enet mode to 1G one, so MII functions can
-+	 * work correctly.
-+	 */
-+	speed = memac->max_speed;
-+	memac->max_speed = SPEED_1000;
-+
-+	/* 1000BaseX mode */
-+	tmp_reg16 = PHY_SGMII_IF_MODE_1000X;
-+	mii_write_phy_reg(memac, phy_addr, 0x14, tmp_reg16);
-+
-+	/* AN Device capability  */
-+	tmp_reg16 = PHY_SGMII_DEV_ABILITY_1000X;
-+	mii_write_phy_reg(memac, phy_addr, 0x4, tmp_reg16);
-+
-+	/* Adjust link timer for SGMII  -
-+	 * For Serdes 1000BaseX auto-negotiation the timer should be 10 ms.
-+	 * The link_timer register is configured in units of the clock.
-+	 * - When running as 1G SGMII, Serdes clock is 125 MHz, so
-+	 * unit = 1 / (125*10^6 Hz) = 8 ns.
-+	 * 10 ms in units of 8 ns = 10ms / 8ns = 1250000 = 0x1312d0
-+	 * - When running as 2.5G SGMII, Serdes clock is 312.5 MHz, so
-+	 * unit = 1 / (312.5*10^6 Hz) = 3.2 ns.
-+	 * 10 ms in units of 3.2 ns = 10ms / 3.2ns = 3125000 = 0x2faf08.
-+	 * Since link_timer value of 1G SGMII will be too short for 2.5 SGMII,
-+	 * we always set up here a value of 2.5 SGMII.
-+	 */
-+	mii_write_phy_reg(memac, phy_addr, 0x13, 0x002f);
-+	mii_write_phy_reg(memac, phy_addr, 0x12, 0xaf08);
-+
-+	/* Restart AN */
-+	tmp_reg16 = PHY_SGMII_CR_DEF_VAL | PHY_SGMII_CR_RESET_AN;
-+	mii_write_phy_reg(memac, phy_addr, 0x0, tmp_reg16);
-+
-+	/* Restore original speed */
-+	memac->max_speed = speed;
-+}
-+
-+static int check_init_parameters(struct fman_mac *memac)
-+{
-+	if (memac->addr == 0) {
-+		pr_err("Ethernet MAC must have a valid MAC address\n");
-+		return -EINVAL;
-+	}
-+	if (!memac->exception_cb) {
-+		pr_err("Uninitialized exception handler\n");
-+		return -EINVAL;
-+	}
-+	if (!memac->event_cb) {
-+		pr_warn("Uninitialize event handler\n");
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int get_exception_flag(enum fman_mac_exceptions exception)
-+{
-+	u32 bit_mask;
-+
-+	switch (exception) {
-+	case FM_MAC_EX_10G_TX_ECC_ER:
-+		bit_mask = MEMAC_IMASK_TECC_ER;
-+		break;
-+	case FM_MAC_EX_10G_RX_ECC_ER:
-+		bit_mask = MEMAC_IMASK_RECC_ER;
-+		break;
-+	case FM_MAC_EX_TS_FIFO_ECC_ERR:
-+		bit_mask = MEMAC_IMASK_TSECC_ER;
-+		break;
-+	case FM_MAC_EX_MAGIC_PACKET_INDICATION:
-+		bit_mask = MEMAC_IMASK_MGI;
-+		break;
-+	default:
-+		bit_mask = 0;
-+		break;
-+	}
-+
-+	return bit_mask;
-+}
-+
-+static void memac_err_exception(void *handle)
-+{
-+	struct fman_mac *memac = (struct fman_mac *)handle;
-+	struct memac_regs __iomem *regs = memac->regs;
-+	u32 event, imask;
-+
-+	event = ioread32be(&regs->ievent);
-+	imask = ioread32be(&regs->imask);
-+
-+	/* Imask include both error and notification/event bits.
-+	 * Leaving only error bits enabled by imask.
-+	 * The imask error bits are shifted by 16 bits offset from
-+	 * their corresponding location in the ievent - hence the >> 16
-+	 */
-+	event &= ((imask & MEMAC_ALL_ERRS_IMASK) >> 16);
-+
-+	iowrite32be(event, &regs->ievent);
-+
-+	if (event & MEMAC_IEVNT_TS_ECC_ER)
-+		memac->exception_cb(memac->dev_id, FM_MAC_EX_TS_FIFO_ECC_ERR);
-+	if (event & MEMAC_IEVNT_TX_ECC_ER)
-+		memac->exception_cb(memac->dev_id, FM_MAC_EX_10G_TX_ECC_ER);
-+	if (event & MEMAC_IEVNT_RX_ECC_ER)
-+		memac->exception_cb(memac->dev_id, FM_MAC_EX_10G_RX_ECC_ER);
-+}
-+
-+static void memac_exception(void *handle)
-+{
-+	struct fman_mac *memac = (struct fman_mac *)handle;
-+	struct memac_regs __iomem *regs = memac->regs;
-+	u32 event, imask;
-+
-+	event = ioread32be(&regs->ievent);
-+	imask = ioread32be(&regs->imask);
-+
-+	/* Imask include both error and notification/event bits.
-+	 * Leaving only error bits enabled by imask.
-+	 * The imask error bits are shifted by 16 bits offset from
-+	 * their corresponding location in the ievent - hence the >> 16
-+	 */
-+	event &= ((imask & MEMAC_ALL_ERRS_IMASK) >> 16);
-+
-+	iowrite32be(event, &regs->ievent);
-+
-+	if (event & MEMAC_IEVNT_MGI)
-+		memac->exception_cb(memac->dev_id,
-+				    FM_MAC_EX_MAGIC_PACKET_INDICATION);
-+}
-+
-+static void free_init_resources(struct fman_mac *memac)
-+{
-+	fman_unregister_intr(memac->fm, FMAN_MOD_MAC, memac->mac_id,
-+			     FMAN_INTR_TYPE_ERR);
-+
-+	fman_unregister_intr(memac->fm, FMAN_MOD_MAC, memac->mac_id,
-+			     FMAN_INTR_TYPE_NORMAL);
-+
-+	/* release the driver's group hash table */
-+	free_hash_table(memac->multicast_addr_hash);
-+	memac->multicast_addr_hash = NULL;
-+
-+	/* release the driver's individual hash table */
-+	free_hash_table(memac->unicast_addr_hash);
-+	memac->unicast_addr_hash = NULL;
-+}
-+
-+static bool is_init_done(struct memac_cfg *memac_drv_params)
-+{
-+	/* Checks if mEMAC driver parameters were initialized */
-+	if (!memac_drv_params)
-+		return true;
-+
-+	return false;
-+}
-+
-+int memac_enable(struct fman_mac *memac, enum comm_mode mode)
-+{
-+	struct memac_regs __iomem *regs = memac->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(memac->memac_drv_param))
-+		return -EINVAL;
-+
-+	tmp = ioread32be(&regs->command_config);
-+	if (mode & COMM_MODE_RX)
-+		tmp |= CMD_CFG_RX_EN;
-+	if (mode & COMM_MODE_TX)
-+		tmp |= CMD_CFG_TX_EN;
-+
-+	iowrite32be(tmp, &regs->command_config);
-+
-+	return 0;
-+}
-+
-+int memac_disable(struct fman_mac *memac, enum comm_mode mode)
-+{
-+	struct memac_regs __iomem *regs = memac->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(memac->memac_drv_param))
-+		return -EINVAL;
-+
-+	tmp = ioread32be(&regs->command_config);
-+	if (mode & COMM_MODE_RX)
-+		tmp &= ~CMD_CFG_RX_EN;
-+	if (mode & COMM_MODE_TX)
-+		tmp &= ~CMD_CFG_TX_EN;
-+
-+	iowrite32be(tmp, &regs->command_config);
-+
-+	return 0;
-+}
-+
-+int memac_set_promiscuous(struct fman_mac *memac, bool new_val)
-+{
-+	struct memac_regs __iomem *regs = memac->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(memac->memac_drv_param))
-+		return -EINVAL;
-+
-+	tmp = ioread32be(&regs->command_config);
-+	if (new_val)
-+		tmp |= CMD_CFG_PROMIS_EN;
-+	else
-+		tmp &= ~CMD_CFG_PROMIS_EN;
-+
-+	iowrite32be(tmp, &regs->command_config);
-+
-+	return 0;
-+}
-+
-+int memac_adjust_link(struct fman_mac *memac, u16 speed)
-+{
-+	struct memac_regs __iomem *regs = memac->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(memac->memac_drv_param))
-+		return -EINVAL;
-+
-+	tmp = ioread32be(&regs->if_mode);
-+
-+	/* Set full duplex */
-+	tmp &= ~IF_MODE_HD;
-+
-+	if (memac->phy_if == PHY_INTERFACE_MODE_RGMII) {
-+		/* Configure RGMII in manual mode */
-+		tmp &= ~IF_MODE_RGMII_AUTO;
-+		tmp &= ~IF_MODE_RGMII_SP_MASK;
-+		/* Full duplex */
-+		tmp |= IF_MODE_RGMII_FD;
-+
-+		switch (speed) {
-+		case SPEED_1000:
-+			tmp |= IF_MODE_RGMII_1000;
-+			break;
-+		case SPEED_100:
-+			tmp |= IF_MODE_RGMII_100;
-+			break;
-+		case SPEED_10:
-+			tmp |= IF_MODE_RGMII_10;
-+			break;
-+		default:
-+			break;
-+		}
-+	}
-+
-+	iowrite32be(tmp, &regs->if_mode);
-+
-+	return 0;
-+}
-+
-+int memac_cfg_max_frame_len(struct fman_mac *memac, u16 new_val)
-+{
-+	if (is_init_done(memac->memac_drv_param))
-+		return -EINVAL;
-+
-+	memac->memac_drv_param->max_frame_length = new_val;
-+
-+	return 0;
-+}
-+
-+int memac_cfg_reset_on_init(struct fman_mac *memac, bool enable)
-+{
-+	if (is_init_done(memac->memac_drv_param))
-+		return -EINVAL;
-+
-+	memac->memac_drv_param->reset_on_init = enable;
-+
-+	return 0;
-+}
-+
-+int memac_cfg_fixed_link(struct fman_mac *memac,
-+			 struct fixed_phy_status *fixed_link)
-+{
-+	if (is_init_done(memac->memac_drv_param))
-+		return -EINVAL;
-+
-+	memac->memac_drv_param->fixed_link = fixed_link;
-+
-+	return 0;
-+}
-+
-+int memac_set_tx_pause_frames(struct fman_mac *memac, u8 priority,
-+			      u16 pause_time, u16 thresh_time)
-+{
-+	struct memac_regs __iomem *regs = memac->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(memac->memac_drv_param))
-+		return -EINVAL;
-+
-+	tmp = ioread32be(&regs->tx_fifo_sections);
-+
-+	GET_TX_EMPTY_DEFAULT_VALUE(tmp);
-+	iowrite32be(tmp, &regs->tx_fifo_sections);
-+
-+	tmp = ioread32be(&regs->command_config);
-+	tmp &= ~CMD_CFG_PFC_MODE;
-+	priority = 0;
-+
-+	iowrite32be(tmp, &regs->command_config);
-+
-+	tmp = ioread32be(&regs->pause_quanta[priority / 2]);
-+	if (priority % 2)
-+		tmp &= CLXY_PAUSE_QUANTA_CLX_PQNT;
-+	else
-+		tmp &= CLXY_PAUSE_QUANTA_CLY_PQNT;
-+	tmp |= ((u32)pause_time << (16 * (priority % 2)));
-+	iowrite32be(tmp, &regs->pause_quanta[priority / 2]);
-+
-+	tmp = ioread32be(&regs->pause_thresh[priority / 2]);
-+	if (priority % 2)
-+		tmp &= CLXY_PAUSE_THRESH_CLX_QTH;
-+	else
-+		tmp &= CLXY_PAUSE_THRESH_CLY_QTH;
-+	tmp |= ((u32)thresh_time << (16 * (priority % 2)));
-+	iowrite32be(tmp, &regs->pause_thresh[priority / 2]);
-+
-+	return 0;
-+}
-+
-+int memac_accept_rx_pause_frames(struct fman_mac *memac, bool en)
-+{
-+	struct memac_regs __iomem *regs = memac->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(memac->memac_drv_param))
-+		return -EINVAL;
-+
-+	tmp = ioread32be(&regs->command_config);
-+	if (en)
-+		tmp &= ~CMD_CFG_PAUSE_IGNORE;
-+	else
-+		tmp |= CMD_CFG_PAUSE_IGNORE;
-+
-+	iowrite32be(tmp, &regs->command_config);
-+
-+	return 0;
-+}
-+
-+int memac_modify_mac_address(struct fman_mac *memac, enet_addr_t *enet_addr)
-+{
-+	if (!is_init_done(memac->memac_drv_param))
-+		return -EINVAL;
-+
-+	add_addr_in_paddr(memac->regs, (u8 *)(*enet_addr), 0);
-+
-+	return 0;
-+}
-+
-+int memac_add_hash_mac_address(struct fman_mac *memac, enet_addr_t *eth_addr)
-+{
-+	struct memac_regs __iomem *regs = memac->regs;
-+	struct eth_hash_entry *hash_entry;
-+	u32 hash;
-+	u64 addr;
-+
-+	if (!is_init_done(memac->memac_drv_param))
-+		return -EINVAL;
-+
-+	addr = ENET_ADDR_TO_UINT64(*eth_addr);
-+
-+	if (!(addr & GROUP_ADDRESS)) {
-+		/* Unicast addresses not supported in hash */
-+		pr_err("Unicast Address\n");
-+		return -EINVAL;
-+	}
-+	hash = get_mac_addr_hash_code(addr) & HASH_CTRL_ADDR_MASK;
-+
-+	/* Create element to be added to the driver hash table */
-+	hash_entry = kmalloc(sizeof(*hash_entry), GFP_KERNEL);
-+	if (!hash_entry)
-+		return -ENOMEM;
-+	hash_entry->addr = addr;
-+	INIT_LIST_HEAD(&hash_entry->node);
-+
-+	list_add_tail(&hash_entry->node,
-+		      &memac->multicast_addr_hash->lsts[hash]);
-+	iowrite32be(hash | HASH_CTRL_MCAST_EN, &regs->hashtable_ctrl);
-+
-+	return 0;
-+}
-+
-+int memac_del_hash_mac_address(struct fman_mac *memac, enet_addr_t *eth_addr)
-+{
-+	struct memac_regs __iomem *regs = memac->regs;
-+	struct eth_hash_entry *hash_entry = NULL;
-+	struct list_head *pos;
-+	u32 hash;
-+	u64 addr;
-+
-+	if (!is_init_done(memac->memac_drv_param))
-+		return -EINVAL;
-+
-+	addr = ENET_ADDR_TO_UINT64(*eth_addr);
-+
-+	hash = get_mac_addr_hash_code(addr) & HASH_CTRL_ADDR_MASK;
-+
-+	list_for_each(pos, &memac->multicast_addr_hash->lsts[hash]) {
-+		hash_entry = ETH_HASH_ENTRY_OBJ(pos);
-+		if (hash_entry->addr == addr) {
-+			list_del_init(&hash_entry->node);
-+			kfree(hash_entry);
-+			break;
-+		}
-+	}
-+	if (list_empty(&memac->multicast_addr_hash->lsts[hash]))
-+		iowrite32be(hash & ~HASH_CTRL_MCAST_EN, &regs->hashtable_ctrl);
-+
-+	return 0;
-+}
-+
-+int memac_set_exception(struct fman_mac *memac,
-+			enum fman_mac_exceptions exception, bool enable)
-+{
-+	u32 bit_mask = 0;
-+
-+	if (!is_init_done(memac->memac_drv_param))
-+		return -EINVAL;
-+
-+	bit_mask = get_exception_flag(exception);
-+	if (bit_mask) {
-+		if (enable)
-+			memac->exceptions |= bit_mask;
-+		else
-+			memac->exceptions &= ~bit_mask;
-+	} else {
-+		pr_err("Undefined exception\n");
-+		return -EINVAL;
-+	}
-+	set_exception(memac->regs, bit_mask, enable);
-+
-+	return 0;
-+}
-+
-+int memac_init(struct fman_mac *memac)
-+{
-+	struct memac_cfg *memac_drv_param;
-+	u8 i, phy_addr;
-+	enet_addr_t eth_addr;
-+	bool slow_10g_if = false;
-+	struct fixed_phy_status *fixed_link;
-+	int err;
-+	u32 reg32 = 0;
-+
-+	if (is_init_done(memac->memac_drv_param))
-+		return -EINVAL;
-+
-+	err = check_init_parameters(memac);
-+	if (err)
-+		return err;
-+
-+	memac_drv_param = memac->memac_drv_param;
-+
-+	if (memac->fm_rev_info.major == 6 && memac->fm_rev_info.minor == 4)
-+		slow_10g_if = true;
-+
-+	/* First, reset the MAC if desired. */
-+	if (memac_drv_param->reset_on_init) {
-+		err = reset(memac->regs);
-+		if (err) {
-+			pr_err("mEMAC reset failed\n");
-+			return err;
-+		}
-+	}
-+
-+	/* MAC Address */
-+	MAKE_ENET_ADDR_FROM_UINT64(memac->addr, eth_addr);
-+	add_addr_in_paddr(memac->regs, (u8 *)eth_addr, 0);
-+
-+	fixed_link = memac_drv_param->fixed_link;
-+
-+	init(memac->regs, memac->memac_drv_param, memac->phy_if,
-+	     memac->max_speed, slow_10g_if, memac->exceptions);
-+
-+	/* FM_RX_FIFO_CORRUPT_ERRATA_10GMAC_A006320 errata workaround
-+	 * Exists only in FMan 6.0 and 6.3.
-+	 */
-+	if ((memac->fm_rev_info.major == 6) &&
-+	    ((memac->fm_rev_info.minor == 0) ||
-+	    (memac->fm_rev_info.minor == 3))) {
-+		/* MAC strips CRC from received frames - this workaround
-+		 * should decrease the likelihood of bug appearance
-+		 */
-+		reg32 = in_be32(&memac->regs->command_config);
-+		reg32 &= ~CMD_CFG_CRC_FWD;
-+		out_be32(&memac->regs->command_config, reg32);
-+	}
-+
-+	if (memac->phy_if == PHY_INTERFACE_MODE_SGMII) {
-+		/* Configure internal SGMII PHY */
-+		if (memac->basex_if)
-+			setup_sgmii_internal_phy_base_x(memac, PHY_MDIO_ADDR);
-+		else
-+			setup_sgmii_internal_phy(memac, PHY_MDIO_ADDR,
-+						 fixed_link);
-+	} else if (memac->phy_if == PHY_INTERFACE_MODE_QSGMII) {
-+		/* Configure 4 internal SGMII PHYs */
-+		for (i = 0; i < 4; i++) {
-+			/* QSGMII PHY address occupies 3 upper bits of 5-bit
-+			 * phy_address; the lower 2 bits are used to extend
-+			 * register address space and access each one of 4
-+			 * ports inside QSGMII.
-+			 */
-+			phy_addr = (u8)((PHY_MDIO_ADDR << 2) | i);
-+			if (memac->basex_if)
-+				setup_sgmii_internal_phy_base_x(memac,
-+								phy_addr);
-+			else
-+				setup_sgmii_internal_phy(memac, phy_addr,
-+							 fixed_link);
-+		}
-+	}
-+
-+	/* Max Frame Length */
-+	err = fman_set_mac_max_frame(memac->fm, memac->mac_id,
-+				     memac_drv_param->max_frame_length);
-+	if (err) {
-+		pr_err("settings Mac max frame length is FAILED\n");
-+		return err;
-+	}
-+
-+	memac->multicast_addr_hash = alloc_hash_table(HASH_TABLE_SIZE);
-+	if (!memac->multicast_addr_hash) {
-+		free_init_resources(memac);
-+		pr_err("allocation hash table is FAILED\n");
-+		return -ENOMEM;
-+	}
-+
-+	memac->unicast_addr_hash = alloc_hash_table(HASH_TABLE_SIZE);
-+	if (!memac->unicast_addr_hash) {
-+		free_init_resources(memac);
-+		pr_err("allocation hash table is FAILED\n");
-+		return -ENOMEM;
-+	}
-+
-+	fman_register_intr(memac->fm, FMAN_MOD_MAC, memac->mac_id,
-+			   FMAN_INTR_TYPE_ERR, memac_err_exception, memac);
-+
-+	fman_register_intr(memac->fm, FMAN_MOD_MAC, memac->mac_id,
-+			   FMAN_INTR_TYPE_NORMAL, memac_exception, memac);
-+
-+	kfree(memac_drv_param);
-+	memac->memac_drv_param = NULL;
-+
-+	return 0;
-+}
-+
-+int memac_free(struct fman_mac *memac)
-+{
-+	free_init_resources(memac);
-+
-+	kfree(memac->memac_drv_param);
-+	kfree(memac);
-+
-+	return 0;
-+}
-+
-+struct fman_mac *memac_config(struct fman_mac_params *params)
-+{
-+	struct fman_mac *memac;
-+	struct memac_cfg *memac_drv_param;
-+	void __iomem *base_addr;
-+
-+	base_addr = params->base_addr;
-+	/* allocate memory for the m_emac data structure */
-+	memac = kzalloc(sizeof(*memac), GFP_KERNEL);
-+	if (!memac)
-+		return NULL;
-+
-+	/* allocate memory for the m_emac driver parameters data structure */
-+	memac_drv_param = kzalloc(sizeof(*memac_drv_param), GFP_KERNEL);
-+	if (!memac_drv_param) {
-+		memac_free(memac);
-+		return NULL;
-+	}
-+
-+	/* Plant parameter structure pointer */
-+	memac->memac_drv_param = memac_drv_param;
-+
-+	set_dflts(memac_drv_param);
-+
-+	memac->addr = ENET_ADDR_TO_UINT64(params->addr);
-+
-+	memac->regs = (struct memac_regs __iomem *)(base_addr);
-+	memac->mii_regs = (struct memac_mii_regs __iomem *)
-+		(base_addr + MEMAC_TO_MII_OFFSET);
-+	memac->max_speed = params->max_speed;
-+	memac->phy_if = params->phy_if;
-+	memac->mac_id = params->mac_id;
-+	memac->exceptions = (MEMAC_IMASK_TSECC_ER | MEMAC_IMASK_TECC_ER |
-+			     MEMAC_IMASK_RECC_ER | MEMAC_IMASK_MGI);
-+	memac->exception_cb = params->exception_cb;
-+	memac->event_cb = params->event_cb;
-+	memac->dev_id = params->dev_id;
-+	memac->fm = params->fm;
-+	memac->basex_if = params->basex_if;
-+
-+	/* Save FMan revision */
-+	fman_get_revision(memac->fm, &memac->fm_rev_info);
-+
-+	return memac;
-+}
-diff --git a/drivers/net/ethernet/freescale/fman/fman_memac.h b/drivers/net/ethernet/freescale/fman/fman_memac.h
-new file mode 100644
-index 0000000..173d8e0
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/fman_memac.h
-@@ -0,0 +1,60 @@
-+/*
-+ * Copyright 2008-2015 Freescale Semiconductor Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *       notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *       notice, this list of conditions and the following disclaimer in the
-+ *       documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *       names of its contributors may be used to endorse or promote products
-+ *       derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef __MEMAC_H
-+#define __MEMAC_H
-+
-+#include "fman_mac.h"
-+
-+#include <linux/netdevice.h>
-+
-+struct fman_mac *memac_config(struct fman_mac_params *params);
-+int memac_set_promiscuous(struct fman_mac *memac, bool new_val);
-+int memac_modify_mac_address(struct fman_mac *memac, enet_addr_t *enet_addr);
-+int memac_adjust_link(struct fman_mac *memac, u16 speed);
-+int memac_cfg_max_frame_len(struct fman_mac *memac, u16 new_val);
-+int memac_cfg_reset_on_init(struct fman_mac *memac, bool enable);
-+int memac_cfg_fixed_link(struct fman_mac *memac,
-+			 struct fixed_phy_status *fixed_link);
-+int memac_enable(struct fman_mac *memac, enum comm_mode mode);
-+int memac_disable(struct fman_mac *memac, enum comm_mode mode);
-+int memac_init(struct fman_mac *memac);
-+int memac_free(struct fman_mac *memac);
-+int memac_accept_rx_pause_frames(struct fman_mac *memac, bool en);
-+int memac_set_tx_pause_frames(struct fman_mac *memac, u8 priority,
-+			      u16 pause_time, u16 thresh_time);
-+int memac_set_exception(struct fman_mac *memac,
-+			enum fman_mac_exceptions exception, bool enable);
-+int memac_add_hash_mac_address(struct fman_mac *memac, enet_addr_t *eth_addr);
-+int memac_del_hash_mac_address(struct fman_mac *memac, enet_addr_t *eth_addr);
-+
-+#endif /* __MEMAC_H */
-diff --git a/drivers/net/ethernet/freescale/fman/fman_tgec.c b/drivers/net/ethernet/freescale/fman/fman_tgec.c
-new file mode 100644
-index 0000000..6801310
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/fman_tgec.c
-@@ -0,0 +1,798 @@
-+/*
-+ * Copyright 2008-2015 Freescale Semiconductor Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *       notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *       notice, this list of conditions and the following disclaimer in the
-+ *       documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *       names of its contributors may be used to endorse or promote products
-+ *       derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include "crc_mac_addr_ext.h"
-+
-+#include "fman_tgec.h"
-+#include "fman.h"
-+
-+#include <linux/slab.h>
-+#include <linux/bitrev.h>
-+#include <linux/io.h>
-+
-+/* Transmit Inter-Packet Gap Length Register (TX_IPG_LENGTH) */
-+#define TGEC_TX_IPG_LENGTH_MASK	0x000003ff
-+
-+/* Command and Configuration Register (COMMAND_CONFIG) */
-+#define CMD_CFG_NO_LEN_CHK		0x00020000
-+#define CMD_CFG_PAUSE_IGNORE		0x00000100
-+#define CMF_CFG_CRC_FWD			0x00000040
-+#define CMD_CFG_PROMIS_EN		0x00000010
-+#define CMD_CFG_RX_EN			0x00000002
-+#define CMD_CFG_TX_EN			0x00000001
-+
-+/* Interrupt Mask Register (IMASK) */
-+#define TGEC_IMASK_MDIO_SCAN_EVENT	0x00010000
-+#define TGEC_IMASK_MDIO_CMD_CMPL	0x00008000
-+#define TGEC_IMASK_REM_FAULT		0x00004000
-+#define TGEC_IMASK_LOC_FAULT		0x00002000
-+#define TGEC_IMASK_TX_ECC_ER		0x00001000
-+#define TGEC_IMASK_TX_FIFO_UNFL	0x00000800
-+#define TGEC_IMASK_TX_FIFO_OVFL	0x00000400
-+#define TGEC_IMASK_TX_ER		0x00000200
-+#define TGEC_IMASK_RX_FIFO_OVFL	0x00000100
-+#define TGEC_IMASK_RX_ECC_ER		0x00000080
-+#define TGEC_IMASK_RX_JAB_FRM		0x00000040
-+#define TGEC_IMASK_RX_OVRSZ_FRM	0x00000020
-+#define TGEC_IMASK_RX_RUNT_FRM		0x00000010
-+#define TGEC_IMASK_RX_FRAG_FRM		0x00000008
-+#define TGEC_IMASK_RX_LEN_ER		0x00000004
-+#define TGEC_IMASK_RX_CRC_ER		0x00000002
-+#define TGEC_IMASK_RX_ALIGN_ER		0x00000001
-+
-+/* Hashtable Control Register (HASHTABLE_CTRL) */
-+#define TGEC_HASH_MCAST_SHIFT		23
-+#define TGEC_HASH_MCAST_EN		0x00000200
-+#define TGEC_HASH_ADR_MSK		0x000001ff
-+
-+#define DEFAULT_TX_IPG_LENGTH			12
-+#define DEFAULT_MAX_FRAME_LENGTH		0x600
-+#define DEFAULT_PAUSE_QUANT			0xf000
-+
-+/* number of pattern match registers (entries) */
-+#define TGEC_NUM_OF_PADDRS          1
-+
-+/* Group address bit indication */
-+#define GROUP_ADDRESS               0x0000010000000000LL
-+
-+/* Hash table size (= 32 bits*8 regs) */
-+#define TGEC_HASH_TABLE_SIZE             512
-+
-+/* tGEC memory map */
-+struct tgec_regs {
-+	u32 tgec_id;		/* 0x000 Controller ID */
-+	u32 reserved001[1];	/* 0x004 */
-+	u32 command_config;	/* 0x008 Control and configuration */
-+	u32 mac_addr_0;		/* 0x00c Lower 32 bits of the MAC adr */
-+	u32 mac_addr_1;		/* 0x010 Upper 16 bits of the MAC adr */
-+	u32 maxfrm;		/* 0x014 Maximum frame length */
-+	u32 pause_quant;	/* 0x018 Pause quanta */
-+	u32 rx_fifo_sections;	/* 0x01c  */
-+	u32 tx_fifo_sections;	/* 0x020  */
-+	u32 rx_fifo_almost_f_e;	/* 0x024  */
-+	u32 tx_fifo_almost_f_e;	/* 0x028  */
-+	u32 hashtable_ctrl;	/* 0x02c Hash table control */
-+	u32 mdio_cfg_status;	/* 0x030  */
-+	u32 mdio_command;	/* 0x034  */
-+	u32 mdio_data;		/* 0x038  */
-+	u32 mdio_regaddr;	/* 0x03c  */
-+	u32 status;		/* 0x040  */
-+	u32 tx_ipg_len;		/* 0x044 Transmitter inter-packet-gap */
-+	u32 mac_addr_2;		/* 0x048 Lower 32 bits of 2nd MAC adr */
-+	u32 mac_addr_3;		/* 0x04c Upper 16 bits of 2nd MAC adr */
-+	u32 rx_fifo_ptr_rd;	/* 0x050  */
-+	u32 rx_fifo_ptr_wr;	/* 0x054  */
-+	u32 tx_fifo_ptr_rd;	/* 0x058  */
-+	u32 tx_fifo_ptr_wr;	/* 0x05c  */
-+	u32 imask;		/* 0x060 Interrupt mask */
-+	u32 ievent;		/* 0x064 Interrupt event */
-+	u32 udp_port;		/* 0x068 Defines a UDP Port number */
-+	u32 type_1588v2;	/* 0x06c Type field for 1588v2 */
-+	u32 reserved070[4];	/* 0x070 */
-+	/* 10Ge Statistics Counter */
-+	u32 tfrm_u;		/* 80 aFramesTransmittedOK */
-+	u32 tfrm_l;		/* 84 aFramesTransmittedOK */
-+	u32 rfrm_u;		/* 88 aFramesReceivedOK */
-+	u32 rfrm_l;		/* 8c aFramesReceivedOK */
-+	u32 rfcs_u;		/* 90 aFrameCheckSequenceErrors */
-+	u32 rfcs_l;		/* 94 aFrameCheckSequenceErrors */
-+	u32 raln_u;		/* 98 aAlignmentErrors */
-+	u32 raln_l;		/* 9c aAlignmentErrors */
-+	u32 txpf_u;		/* A0 aPAUSEMACCtrlFramesTransmitted */
-+	u32 txpf_l;		/* A4 aPAUSEMACCtrlFramesTransmitted */
-+	u32 rxpf_u;		/* A8 aPAUSEMACCtrlFramesReceived */
-+	u32 rxpf_l;		/* Ac aPAUSEMACCtrlFramesReceived */
-+	u32 rlong_u;		/* B0 aFrameTooLongErrors */
-+	u32 rlong_l;		/* B4 aFrameTooLongErrors */
-+	u32 rflr_u;		/* B8 aInRangeLengthErrors */
-+	u32 rflr_l;		/* Bc aInRangeLengthErrors */
-+	u32 tvlan_u;		/* C0 VLANTransmittedOK */
-+	u32 tvlan_l;		/* C4 VLANTransmittedOK */
-+	u32 rvlan_u;		/* C8 VLANReceivedOK */
-+	u32 rvlan_l;		/* Cc VLANReceivedOK */
-+	u32 toct_u;		/* D0 if_out_octets */
-+	u32 toct_l;		/* D4 if_out_octets */
-+	u32 roct_u;		/* D8 if_in_octets */
-+	u32 roct_l;		/* Dc if_in_octets */
-+	u32 ruca_u;		/* E0 if_in_ucast_pkts */
-+	u32 ruca_l;		/* E4 if_in_ucast_pkts */
-+	u32 rmca_u;		/* E8 ifInMulticastPkts */
-+	u32 rmca_l;		/* Ec ifInMulticastPkts */
-+	u32 rbca_u;		/* F0 ifInBroadcastPkts */
-+	u32 rbca_l;		/* F4 ifInBroadcastPkts */
-+	u32 terr_u;		/* F8 if_out_errors */
-+	u32 terr_l;		/* Fc if_out_errors */
-+	u32 reserved100[2];	/* 100-108 */
-+	u32 tuca_u;		/* 108 if_out_ucast_pkts */
-+	u32 tuca_l;		/* 10c if_out_ucast_pkts */
-+	u32 tmca_u;		/* 110 ifOutMulticastPkts */
-+	u32 tmca_l;		/* 114 ifOutMulticastPkts */
-+	u32 tbca_u;		/* 118 ifOutBroadcastPkts */
-+	u32 tbca_l;		/* 11c ifOutBroadcastPkts */
-+	u32 rdrp_u;		/* 120 etherStatsDropEvents */
-+	u32 rdrp_l;		/* 124 etherStatsDropEvents */
-+	u32 reoct_u;		/* 128 etherStatsOctets */
-+	u32 reoct_l;		/* 12c etherStatsOctets */
-+	u32 rpkt_u;		/* 130 etherStatsPkts */
-+	u32 rpkt_l;		/* 134 etherStatsPkts */
-+	u32 trund_u;		/* 138 etherStatsUndersizePkts */
-+	u32 trund_l;		/* 13c etherStatsUndersizePkts */
-+	u32 r64_u;		/* 140 etherStatsPkts64Octets */
-+	u32 r64_l;		/* 144 etherStatsPkts64Octets */
-+	u32 r127_u;		/* 148 etherStatsPkts65to127Octets */
-+	u32 r127_l;		/* 14c etherStatsPkts65to127Octets */
-+	u32 r255_u;		/* 150 etherStatsPkts128to255Octets */
-+	u32 r255_l;		/* 154 etherStatsPkts128to255Octets */
-+	u32 r511_u;		/* 158 etherStatsPkts256to511Octets */
-+	u32 r511_l;		/* 15c etherStatsPkts256to511Octets */
-+	u32 r1023_u;		/* 160 etherStatsPkts512to1023Octets */
-+	u32 r1023_l;		/* 164 etherStatsPkts512to1023Octets */
-+	u32 r1518_u;		/* 168 etherStatsPkts1024to1518Octets */
-+	u32 r1518_l;		/* 16c etherStatsPkts1024to1518Octets */
-+	u32 r1519x_u;		/* 170 etherStatsPkts1519toX */
-+	u32 r1519x_l;		/* 174 etherStatsPkts1519toX */
-+	u32 trovr_u;		/* 178 etherStatsOversizePkts */
-+	u32 trovr_l;		/* 17c etherStatsOversizePkts */
-+	u32 trjbr_u;		/* 180 etherStatsJabbers */
-+	u32 trjbr_l;		/* 184 etherStatsJabbers */
-+	u32 trfrg_u;		/* 188 etherStatsFragments */
-+	u32 trfrg_l;		/* 18C etherStatsFragments */
-+	u32 rerr_u;		/* 190 if_in_errors */
-+	u32 rerr_l;		/* 194 if_in_errors */
-+};
-+
-+struct tgec_cfg {
-+	bool pause_ignore;
-+	bool promiscuous_mode_enable;
-+	u16 max_frame_length;
-+	u16 pause_quant;
-+	u32 tx_ipg_length;
-+};
-+
-+struct fman_mac {
-+	/* Pointer to the memory mapped registers. */
-+	struct tgec_regs __iomem *regs;
-+	/* MAC address of device; */
-+	u64 addr;
-+	u16 max_speed;
-+	void *dev_id; /* device cookie used by the exception cbs */
-+	fman_mac_exception_cb *exception_cb;
-+	fman_mac_exception_cb *event_cb;
-+	/* pointer to driver's global address hash table  */
-+	struct eth_hash_t *multicast_addr_hash;
-+	/* pointer to driver's individual address hash table  */
-+	struct eth_hash_t *unicast_addr_hash;
-+	u8 mac_id;
-+	u32 exceptions;
-+	struct tgec_cfg *cfg;
-+	void *fm;
-+	struct fman_rev_info fm_rev_info;
-+};
-+
-+static void set_mac_address(struct tgec_regs __iomem *regs, u8 *adr)
-+{
-+	u32 tmp0, tmp1;
-+
-+	tmp0 = (u32)(adr[0] | adr[1] << 8 | adr[2] << 16 | adr[3] << 24);
-+	tmp1 = (u32)(adr[4] | adr[5] << 8);
-+	iowrite32be(tmp0, &regs->mac_addr_0);
-+	iowrite32be(tmp1, &regs->mac_addr_1);
-+}
-+
-+static void set_dflts(struct tgec_cfg *cfg)
-+{
-+	cfg->promiscuous_mode_enable = false;
-+	cfg->pause_ignore = false;
-+	cfg->tx_ipg_length = DEFAULT_TX_IPG_LENGTH;
-+	cfg->max_frame_length = DEFAULT_MAX_FRAME_LENGTH;
-+	cfg->pause_quant = DEFAULT_PAUSE_QUANT;
-+}
-+
-+static int init(struct tgec_regs __iomem *regs, struct tgec_cfg *cfg,
-+		u32 exception_mask)
-+{
-+	u32 tmp;
-+
-+	/* Config */
-+	tmp = CMF_CFG_CRC_FWD;
-+	if (cfg->promiscuous_mode_enable)
-+		tmp |= CMD_CFG_PROMIS_EN;
-+	if (cfg->pause_ignore)
-+		tmp |= CMD_CFG_PAUSE_IGNORE;
-+	/* Payload length check disable */
-+	tmp |= CMD_CFG_NO_LEN_CHK;
-+	iowrite32be(tmp, &regs->command_config);
-+
-+	/* Max Frame Length */
-+	iowrite32be((u32)cfg->max_frame_length, &regs->maxfrm);
-+	/* Pause Time */
-+	iowrite32be(cfg->pause_quant, &regs->pause_quant);
-+
-+	/* clear all pending events and set-up interrupts */
-+	iowrite32be(0xffffffff, &regs->ievent);
-+	iowrite32be(ioread32be(&regs->imask) | exception_mask, &regs->imask);
-+
-+	return 0;
-+}
-+
-+static int check_init_parameters(struct fman_mac *tgec)
-+{
-+	if (tgec->max_speed < SPEED_10000) {
-+		pr_err("10G MAC driver only support 10G speed\n");
-+		return -EINVAL;
-+	}
-+	if (tgec->addr == 0) {
-+		pr_err("Ethernet 10G MAC Must have valid MAC Address\n");
-+		return -EINVAL;
-+	}
-+	if (!tgec->exception_cb) {
-+		pr_err("uninitialized exception_cb\n");
-+		return -EINVAL;
-+	}
-+	if (!tgec->event_cb) {
-+		pr_err("uninitialized event_cb\n");
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int get_exception_flag(enum fman_mac_exceptions exception)
-+{
-+	u32 bit_mask;
-+
-+	switch (exception) {
-+	case FM_MAC_EX_10G_MDIO_SCAN_EVENT:
-+		bit_mask = TGEC_IMASK_MDIO_SCAN_EVENT;
-+		break;
-+	case FM_MAC_EX_10G_MDIO_CMD_CMPL:
-+		bit_mask = TGEC_IMASK_MDIO_CMD_CMPL;
-+		break;
-+	case FM_MAC_EX_10G_REM_FAULT:
-+		bit_mask = TGEC_IMASK_REM_FAULT;
-+		break;
-+	case FM_MAC_EX_10G_LOC_FAULT:
-+		bit_mask = TGEC_IMASK_LOC_FAULT;
-+		break;
-+	case FM_MAC_EX_10G_TX_ECC_ER:
-+		bit_mask = TGEC_IMASK_TX_ECC_ER;
-+		break;
-+	case FM_MAC_EX_10G_TX_FIFO_UNFL:
-+		bit_mask = TGEC_IMASK_TX_FIFO_UNFL;
-+		break;
-+	case FM_MAC_EX_10G_TX_FIFO_OVFL:
-+		bit_mask = TGEC_IMASK_TX_FIFO_OVFL;
-+		break;
-+	case FM_MAC_EX_10G_TX_ER:
-+		bit_mask = TGEC_IMASK_TX_ER;
-+		break;
-+	case FM_MAC_EX_10G_RX_FIFO_OVFL:
-+		bit_mask = TGEC_IMASK_RX_FIFO_OVFL;
-+		break;
-+	case FM_MAC_EX_10G_RX_ECC_ER:
-+		bit_mask = TGEC_IMASK_RX_ECC_ER;
-+		break;
-+	case FM_MAC_EX_10G_RX_JAB_FRM:
-+		bit_mask = TGEC_IMASK_RX_JAB_FRM;
-+		break;
-+	case FM_MAC_EX_10G_RX_OVRSZ_FRM:
-+		bit_mask = TGEC_IMASK_RX_OVRSZ_FRM;
-+		break;
-+	case FM_MAC_EX_10G_RX_RUNT_FRM:
-+		bit_mask = TGEC_IMASK_RX_RUNT_FRM;
-+		break;
-+	case FM_MAC_EX_10G_RX_FRAG_FRM:
-+		bit_mask = TGEC_IMASK_RX_FRAG_FRM;
-+		break;
-+	case FM_MAC_EX_10G_RX_LEN_ER:
-+		bit_mask = TGEC_IMASK_RX_LEN_ER;
-+		break;
-+	case FM_MAC_EX_10G_RX_CRC_ER:
-+		bit_mask = TGEC_IMASK_RX_CRC_ER;
-+		break;
-+	case FM_MAC_EX_10G_RX_ALIGN_ER:
-+		bit_mask = TGEC_IMASK_RX_ALIGN_ER;
-+		break;
-+	default:
-+		bit_mask = 0;
-+		break;
-+	}
-+
-+	return bit_mask;
-+}
-+
-+static u32 get_mac_addr_hash_code(u64 eth_addr)
-+{
-+	u32 crc;
-+
-+	/* CRC calculation */
-+	GET_MAC_ADDR_CRC(eth_addr, crc);
-+
-+	crc = bitrev32(crc);
-+
-+	return crc;
-+}
-+
-+static void tgec_err_exception(void *handle)
-+{
-+	struct fman_mac *tgec = (struct fman_mac *)handle;
-+	struct tgec_regs __iomem *regs = tgec->regs;
-+	u32 event;
-+
-+	/* do not handle MDIO events */
-+	event = ioread32be(&regs->ievent) &
-+			   ~(TGEC_IMASK_MDIO_SCAN_EVENT |
-+			   TGEC_IMASK_MDIO_CMD_CMPL);
-+
-+	event &= ioread32be(&regs->imask);
-+
-+	iowrite32be(event, &regs->ievent);
-+
-+	if (event & TGEC_IMASK_REM_FAULT)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_REM_FAULT);
-+	if (event & TGEC_IMASK_LOC_FAULT)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_LOC_FAULT);
-+	if (event & TGEC_IMASK_TX_ECC_ER)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_TX_ECC_ER);
-+	if (event & TGEC_IMASK_TX_FIFO_UNFL)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_TX_FIFO_UNFL);
-+	if (event & TGEC_IMASK_TX_FIFO_OVFL)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_TX_FIFO_OVFL);
-+	if (event & TGEC_IMASK_TX_ER)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_TX_ER);
-+	if (event & TGEC_IMASK_RX_FIFO_OVFL)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_RX_FIFO_OVFL);
-+	if (event & TGEC_IMASK_RX_ECC_ER)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_RX_ECC_ER);
-+	if (event & TGEC_IMASK_RX_JAB_FRM)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_RX_JAB_FRM);
-+	if (event & TGEC_IMASK_RX_OVRSZ_FRM)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_RX_OVRSZ_FRM);
-+	if (event & TGEC_IMASK_RX_RUNT_FRM)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_RX_RUNT_FRM);
-+	if (event & TGEC_IMASK_RX_FRAG_FRM)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_RX_FRAG_FRM);
-+	if (event & TGEC_IMASK_RX_LEN_ER)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_RX_LEN_ER);
-+	if (event & TGEC_IMASK_RX_CRC_ER)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_RX_CRC_ER);
-+	if (event & TGEC_IMASK_RX_ALIGN_ER)
-+		tgec->exception_cb(tgec->dev_id, FM_MAC_EX_10G_RX_ALIGN_ER);
-+}
-+
-+static void free_init_resources(struct fman_mac *tgec)
-+{
-+	fman_unregister_intr(tgec->fm, FMAN_MOD_MAC, tgec->mac_id,
-+			     FMAN_INTR_TYPE_ERR);
-+
-+	/* release the driver's group hash table */
-+	free_hash_table(tgec->multicast_addr_hash);
-+	tgec->multicast_addr_hash = NULL;
-+
-+	/* release the driver's individual hash table */
-+	free_hash_table(tgec->unicast_addr_hash);
-+	tgec->unicast_addr_hash = NULL;
-+}
-+
-+static bool is_init_done(struct tgec_cfg *cfg)
-+{
-+	/* Checks if tGEC driver parameters were initialized */
-+	if (!cfg)
-+		return true;
-+
-+	return false;
-+}
-+
-+int tgec_enable(struct fman_mac *tgec, enum comm_mode mode)
-+{
-+	struct tgec_regs __iomem *regs = tgec->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(tgec->cfg))
-+		return -EINVAL;
-+
-+	tmp = ioread32be(&regs->command_config);
-+	if (mode & COMM_MODE_RX)
-+		tmp |= CMD_CFG_RX_EN;
-+	if (mode & COMM_MODE_TX)
-+		tmp |= CMD_CFG_TX_EN;
-+	iowrite32be(tmp, &regs->command_config);
-+
-+	return 0;
-+}
-+
-+int tgec_disable(struct fman_mac *tgec, enum comm_mode mode)
-+{
-+	struct tgec_regs __iomem *regs = tgec->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(tgec->cfg))
-+		return -EINVAL;
-+
-+	tmp = ioread32be(&regs->command_config);
-+	if (mode & COMM_MODE_RX)
-+		tmp &= ~CMD_CFG_RX_EN;
-+	if (mode & COMM_MODE_TX)
-+		tmp &= ~CMD_CFG_TX_EN;
-+	iowrite32be(tmp, &regs->command_config);
-+
-+	return 0;
-+}
-+
-+int tgec_set_promiscuous(struct fman_mac *tgec, bool new_val)
-+{
-+	struct tgec_regs __iomem *regs = tgec->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(tgec->cfg))
-+		return -EINVAL;
-+
-+	tmp = ioread32be(&regs->command_config);
-+	if (new_val)
-+		tmp |= CMD_CFG_PROMIS_EN;
-+	else
-+		tmp &= ~CMD_CFG_PROMIS_EN;
-+	iowrite32be(tmp, &regs->command_config);
-+
-+	return 0;
-+}
-+
-+int tgec_cfg_max_frame_len(struct fman_mac *tgec, u16 new_val)
-+{
-+	if (is_init_done(tgec->cfg))
-+		return -EINVAL;
-+
-+	tgec->cfg->max_frame_length = new_val;
-+
-+	return 0;
-+}
-+
-+int tgec_set_tx_pause_frames(struct fman_mac *tgec, u8 __maybe_unused priority,
-+			     u16 pause_time, u16 __maybe_unused thresh_time)
-+{
-+	struct tgec_regs __iomem *regs = tgec->regs;
-+
-+	if (!is_init_done(tgec->cfg))
-+		return -EINVAL;
-+
-+	iowrite32be((u32)pause_time, &regs->pause_quant);
-+
-+	return 0;
-+}
-+
-+int tgec_accept_rx_pause_frames(struct fman_mac *tgec, bool en)
-+{
-+	struct tgec_regs __iomem *regs = tgec->regs;
-+	u32 tmp;
-+
-+	if (!is_init_done(tgec->cfg))
-+		return -EINVAL;
-+
-+	tmp = ioread32be(&regs->command_config);
-+	if (!en)
-+		tmp |= CMD_CFG_PAUSE_IGNORE;
-+	else
-+		tmp &= ~CMD_CFG_PAUSE_IGNORE;
-+	iowrite32be(tmp, &regs->command_config);
-+
-+	return 0;
-+}
-+
-+int tgec_modify_mac_address(struct fman_mac *tgec, enet_addr_t *p_enet_addr)
-+{
-+	if (!is_init_done(tgec->cfg))
-+		return -EINVAL;
-+
-+	tgec->addr = ENET_ADDR_TO_UINT64(*p_enet_addr);
-+	set_mac_address(tgec->regs, (u8 *)(*p_enet_addr));
-+
-+	return 0;
-+}
-+
-+int tgec_add_hash_mac_address(struct fman_mac *tgec, enet_addr_t *eth_addr)
-+{
-+	struct tgec_regs __iomem *regs = tgec->regs;
-+	struct eth_hash_entry *hash_entry;
-+	u32 crc, hash;
-+	u64 addr;
-+
-+	if (!is_init_done(tgec->cfg))
-+		return -EINVAL;
-+
-+	addr = ENET_ADDR_TO_UINT64(*eth_addr);
-+
-+	if (!(addr & GROUP_ADDRESS)) {
-+		/* Unicast addresses not supported in hash */
-+		pr_err("Unicast Address\n");
-+		return -EINVAL;
-+	}
-+	/* CRC calculation */
-+	crc = get_mac_addr_hash_code(addr);
-+
-+	/* Take 9 MSB bits */
-+	hash = (crc >> TGEC_HASH_MCAST_SHIFT) & TGEC_HASH_ADR_MSK;
-+
-+	/* Create element to be added to the driver hash table */
-+	hash_entry = kmalloc(sizeof(*hash_entry), GFP_KERNEL);
-+	if (!hash_entry)
-+		return -ENOMEM;
-+	hash_entry->addr = addr;
-+	INIT_LIST_HEAD(&hash_entry->node);
-+
-+	list_add_tail(&hash_entry->node,
-+		      &tgec->multicast_addr_hash->lsts[hash]);
-+	iowrite32be((hash | TGEC_HASH_MCAST_EN), &regs->hashtable_ctrl);
-+
-+	return 0;
-+}
-+
-+int tgec_del_hash_mac_address(struct fman_mac *tgec, enet_addr_t *eth_addr)
-+{
-+	struct tgec_regs __iomem *regs = tgec->regs;
-+	struct eth_hash_entry *hash_entry = NULL;
-+	struct list_head *pos;
-+	u32 crc, hash;
-+	u64 addr;
-+
-+	if (!is_init_done(tgec->cfg))
-+		return -EINVAL;
-+
-+	addr = ((*(u64 *)eth_addr) >> 16);
-+
-+	/* CRC calculation */
-+	crc = get_mac_addr_hash_code(addr);
-+	/* Take 9 MSB bits */
-+	hash = (crc >> TGEC_HASH_MCAST_SHIFT) & TGEC_HASH_ADR_MSK;
-+
-+	list_for_each(pos, &tgec->multicast_addr_hash->lsts[hash]) {
-+		hash_entry = ETH_HASH_ENTRY_OBJ(pos);
-+		if (hash_entry->addr == addr) {
-+			list_del_init(&hash_entry->node);
-+			kfree(hash_entry);
-+			break;
-+		}
-+	}
-+	if (list_empty(&tgec->multicast_addr_hash->lsts[hash]))
-+		iowrite32be((hash & ~TGEC_HASH_MCAST_EN),
-+			    &regs->hashtable_ctrl);
-+
-+	return 0;
-+}
-+
-+int tgec_get_version(struct fman_mac *tgec, u32 *mac_version)
-+{
-+	struct tgec_regs __iomem *regs = tgec->regs;
-+
-+	if (!is_init_done(tgec->cfg))
-+		return -EINVAL;
-+
-+	*mac_version = ioread32be(&regs->tgec_id);
-+
-+	return 0;
-+}
-+
-+int tgec_set_exception(struct fman_mac *tgec,
-+		       enum fman_mac_exceptions exception, bool enable)
-+{
-+	struct tgec_regs __iomem *regs = tgec->regs;
-+	u32 bit_mask = 0;
-+
-+	if (!is_init_done(tgec->cfg))
-+		return -EINVAL;
-+
-+	bit_mask = get_exception_flag(exception);
-+	if (bit_mask) {
-+		if (enable)
-+			tgec->exceptions |= bit_mask;
-+		else
-+			tgec->exceptions &= ~bit_mask;
-+	} else {
-+		pr_err("Undefined exception\n");
-+		return -EINVAL;
-+	}
-+	if (enable)
-+		iowrite32be(ioread32be(&regs->imask) | bit_mask, &regs->imask);
-+	else
-+		iowrite32be(ioread32be(&regs->imask) & ~bit_mask, &regs->imask);
-+
-+	return 0;
-+}
-+
-+int tgec_init(struct fman_mac *tgec)
-+{
-+	struct tgec_cfg *cfg;
-+	enet_addr_t eth_addr;
-+	int err;
-+
-+	if (is_init_done(tgec->cfg))
-+		return -EINVAL;
-+
-+	if (DEFAULT_RESET_ON_INIT &&
-+	    (fman_reset_mac(tgec->fm, tgec->mac_id) != 0)) {
-+		pr_err("Can't reset MAC!\n");
-+		return -EINVAL;
-+	}
-+
-+	err = check_init_parameters(tgec);
-+	if (err)
-+		return err;
-+
-+	cfg = tgec->cfg;
-+
-+	MAKE_ENET_ADDR_FROM_UINT64(tgec->addr, eth_addr);
-+	set_mac_address(tgec->regs, (u8 *)eth_addr);
-+
-+	/* interrupts */
-+	/* FM_10G_REM_N_LCL_FLT_EX_10GMAC_ERRATA_SW005 Errata workaround */
-+	if (tgec->fm_rev_info.major <= 2)
-+		tgec->exceptions &= ~(TGEC_IMASK_REM_FAULT |
-+				      TGEC_IMASK_LOC_FAULT);
-+
-+	err = init(tgec->regs, cfg, tgec->exceptions);
-+	if (err) {
-+		free_init_resources(tgec);
-+		pr_err("TGEC version doesn't support this i/f mode\n");
-+		return err;
-+	}
-+
-+	/* Max Frame Length */
-+	err = fman_set_mac_max_frame(tgec->fm, tgec->mac_id,
-+				     cfg->max_frame_length);
-+	if (err) {
-+		pr_err("Setting max frame length FAILED\n");
-+		free_init_resources(tgec);
-+		return -EINVAL;
-+	}
-+
-+	/* FM_TX_FIFO_CORRUPTION_ERRATA_10GMAC_A007 Errata workaround */
-+	if (tgec->fm_rev_info.major == 2) {
-+		struct tgec_regs __iomem *regs = tgec->regs;
-+		u32 tmp;
-+
-+		/* restore the default tx ipg Length */
-+		tmp = (ioread32be(&regs->tx_ipg_len) &
-+		       ~TGEC_TX_IPG_LENGTH_MASK) | 12;
-+
-+		iowrite32be(tmp, &regs->tx_ipg_len);
-+	}
-+
-+	tgec->multicast_addr_hash = alloc_hash_table(TGEC_HASH_TABLE_SIZE);
-+	if (!tgec->multicast_addr_hash) {
-+		free_init_resources(tgec);
-+		pr_err("allocation hash table is FAILED\n");
-+		return -ENOMEM;
-+	}
-+
-+	tgec->unicast_addr_hash = alloc_hash_table(TGEC_HASH_TABLE_SIZE);
-+	if (!tgec->unicast_addr_hash) {
-+		free_init_resources(tgec);
-+		pr_err("allocation hash table is FAILED\n");
-+		return -ENOMEM;
-+	}
-+
-+	fman_register_intr(tgec->fm, FMAN_MOD_MAC, tgec->mac_id,
-+			   FMAN_INTR_TYPE_ERR, tgec_err_exception, tgec);
-+
-+	kfree(cfg);
-+	tgec->cfg = NULL;
-+
-+	return 0;
-+}
-+
-+int tgec_free(struct fman_mac *tgec)
-+{
-+	free_init_resources(tgec);
-+
-+	if (tgec->cfg)
-+		tgec->cfg = NULL;
-+
-+	kfree(tgec->cfg);
-+	kfree(tgec);
-+
-+	return 0;
-+}
-+
-+struct fman_mac *tgec_config(struct fman_mac_params *params)
-+{
-+	struct fman_mac *tgec;
-+	struct tgec_cfg *cfg;
-+	void __iomem *base_addr;
-+
-+	base_addr = params->base_addr;
-+	/* allocate memory for the UCC GETH data structure. */
-+	tgec = kzalloc(sizeof(*tgec), GFP_KERNEL);
-+	if (!tgec)
-+		return NULL;
-+
-+	/* allocate memory for the 10G MAC driver parameters data structure. */
-+	cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
-+	if (!cfg) {
-+		tgec_free(tgec);
-+		return NULL;
-+	}
-+
-+	/* Plant parameter structure pointer */
-+	tgec->cfg = cfg;
-+
-+	set_dflts(cfg);
-+
-+	tgec->regs = (struct tgec_regs __iomem *)(base_addr);
-+	tgec->addr = ENET_ADDR_TO_UINT64(params->addr);
-+	tgec->max_speed = params->max_speed;
-+	tgec->mac_id = params->mac_id;
-+	tgec->exceptions = (TGEC_IMASK_MDIO_SCAN_EVENT	|
-+			    TGEC_IMASK_REM_FAULT	|
-+			    TGEC_IMASK_LOC_FAULT	|
-+			    TGEC_IMASK_TX_ECC_ER	|
-+			    TGEC_IMASK_TX_FIFO_UNFL	|
-+			    TGEC_IMASK_TX_FIFO_OVFL	|
-+			    TGEC_IMASK_TX_ER		|
-+			    TGEC_IMASK_RX_FIFO_OVFL	|
-+			    TGEC_IMASK_RX_ECC_ER	|
-+			    TGEC_IMASK_RX_JAB_FRM	|
-+			    TGEC_IMASK_RX_OVRSZ_FRM	|
-+			    TGEC_IMASK_RX_RUNT_FRM	|
-+			    TGEC_IMASK_RX_FRAG_FRM	|
-+			    TGEC_IMASK_RX_CRC_ER	|
-+			    TGEC_IMASK_RX_ALIGN_ER);
-+	tgec->exception_cb = params->exception_cb;
-+	tgec->event_cb = params->event_cb;
-+	tgec->dev_id = params->dev_id;
-+	tgec->fm = params->fm;
-+
-+	/* Save FMan revision */
-+	fman_get_revision(tgec->fm, &tgec->fm_rev_info);
-+
-+	return tgec;
-+}
-diff --git a/drivers/net/ethernet/freescale/fman/fman_tgec.h b/drivers/net/ethernet/freescale/fman/fman_tgec.h
-new file mode 100644
-index 0000000..514bba9
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/fman_tgec.h
-@@ -0,0 +1,55 @@
-+/*
-+ * Copyright 2008-2015 Freescale Semiconductor Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *       notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *       notice, this list of conditions and the following disclaimer in the
-+ *       documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *       names of its contributors may be used to endorse or promote products
-+ *       derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef __TGEC_H
-+#define __TGEC_H
-+
-+#include "fman_mac.h"
-+
-+struct fman_mac *tgec_config(struct fman_mac_params *params);
-+int tgec_set_promiscuous(struct fman_mac *tgec, bool new_val);
-+int tgec_modify_mac_address(struct fman_mac *tgec, enet_addr_t *enet_addr);
-+int tgec_cfg_max_frame_len(struct fman_mac *tgec, u16 new_val);
-+int tgec_enable(struct fman_mac *tgec, enum comm_mode mode);
-+int tgec_disable(struct fman_mac *tgec, enum comm_mode mode);
-+int tgec_init(struct fman_mac *tgec);
-+int tgec_free(struct fman_mac *tgec);
-+int tgec_accept_rx_pause_frames(struct fman_mac *tgec, bool en);
-+int tgec_set_tx_pause_frames(struct fman_mac *tgec, u8 priority,
-+			     u16 pause_time, u16 thresh_time);
-+int tgec_set_exception(struct fman_mac *tgec,
-+		       enum fman_mac_exceptions exception, bool enable);
-+int tgec_add_hash_mac_address(struct fman_mac *tgec, enet_addr_t *eth_addr);
-+int tgec_del_hash_mac_address(struct fman_mac *tgec, enet_addr_t *eth_addr);
-+int tgec_get_version(struct fman_mac *tgec, u32 *mac_version);
-+
-+#endif /* __TGEC_H */
--- 
-1.7.9.5
+RnJvbTogSWdhbCBMaWJlcm1hbiA8aWdhbC5saWJlcm1hbkBmcmVlc2NhbGUuY29tPgoKQWRkIHRo
+ZSBEYXRhIFBhdGggQWNjZWxlcmF0aW9uIEFyY2hpdGVjdHVyZSBGcmFtZSBNYW5nZXIgUG9ydCBE
+cml2ZXIuClRoZSBGTWFuIGRyaXZlciB1c2VzIGEgbW9kdWxlIGNhbGxlZCAiUG9ydCIgdG8gcmVw
+cmVzZW50IHRoZSBwaHlzaWNhbApUWCBhbmQgUlggcG9ydHMuCkVhY2ggRk1hbiB2ZXJzaW9uIGhh
+cyBkaWZmZXJlbnQgbnVtYmVyIG9mIHBoeXNpY2FsIHBvcnRzLgpUaGlzIHBhdGNoIGFkZHMgVGhl
+IEZNYW4gUG9ydCBjb25maWd1cmF0aW9uLCBpbml0aWFsaXphdGlvbiBhbmQKcnVudGltZSBjb250
+cm9sIHJvdXRpbmVzIGZvciBib3RoIFRYIGFuZCBSWC4KClNpZ25lZC1vZmYtYnk6IElnYWwgTGli
+ZXJtYW4gPGlnYWwubGliZXJtYW5AZnJlZXNjYWxlLmNvbT4KLS0tCiBkcml2ZXJzL25ldC9ldGhl
+cm5ldC9mcmVlc2NhbGUvZm1hbi9NYWtlZmlsZSAgICB8ICAgIDIgKy0KIGRyaXZlcnMvbmV0L2V0
+aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW5fcG9ydC5jIHwgMTgwMCArKysrKysrKysrKysrKysr
+KysrKysrKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9wb3J0Lmgg
+fCAgMTUxICsrCiAzIGZpbGVzIGNoYW5nZWQsIDE5NTIgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlv
+bigtKQogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9m
+bWFuL2ZtYW5fcG9ydC5jCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQv
+ZnJlZXNjYWxlL2ZtYW4vZm1hbl9wb3J0LmgKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9mcmVlc2NhbGUvZm1hbi9NYWtlZmlsZSBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVz
+Y2FsZS9mbWFuL01ha2VmaWxlCmluZGV4IDUxNDE1MzIuLjJlYjBiOWIgMTAwNjQ0Ci0tLSBhL2Ry
+aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL01ha2VmaWxlCisrKyBiL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL01ha2VmaWxlCkBAIC0yLDUgKzIsNSBAQCBzdWJk
+aXItY2NmbGFncy15ICs9ICAtSSQoc3JjdHJlZSkvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNj
+YWxlL2ZtYW4KIAogb2JqLXkJCSs9IGZzbF9mbWFuLm8gZnNsX2ZtYW5fbWFjLm8KIAotZnNsX2Zt
+YW4tb2Jqcwk6PSBmbWFuX211cmFtLm8gZm1hbi5vIGZtYW5fc3AubworZnNsX2ZtYW4tb2Jqcwk6
+PSBmbWFuX211cmFtLm8gZm1hbi5vIGZtYW5fc3AubyBmbWFuX3BvcnQubwogZnNsX2ZtYW5fbWFj
+LW9ianMgOj0gZm1hbl9kdHNlYy5vIGZtYW5fbWVtYWMubyBmbWFuX3RnZWMubwpkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9wb3J0LmMgYi9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX3BvcnQuYwpuZXcgZmlsZSBtb2Rl
+IDEwMDY0NAppbmRleCAwMDAwMDAwLi40NjJmODNkCi0tLSAvZGV2L251bGwKKysrIGIvZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9wb3J0LmMKQEAgLTAsMCArMSwxODAw
+IEBACisvKgorICogQ29weXJpZ2h0IDIwMDggLSAyMDE1IEZyZWVzY2FsZSBTZW1pY29uZHVjdG9y
+IEluYy4KKyAqCisgKiBSZWRpc3RyaWJ1dGlvbiBhbmQgdXNlIGluIHNvdXJjZSBhbmQgYmluYXJ5
+IGZvcm1zLCB3aXRoIG9yIHdpdGhvdXQKKyAqIG1vZGlmaWNhdGlvbiwgYXJlIHBlcm1pdHRlZCBw
+cm92aWRlZCB0aGF0IHRoZSBmb2xsb3dpbmcgY29uZGl0aW9ucyBhcmUgbWV0OgorICogICAgICog
+UmVkaXN0cmlidXRpb25zIG9mIHNvdXJjZSBjb2RlIG11c3QgcmV0YWluIHRoZSBhYm92ZSBjb3B5
+cmlnaHQKKyAqICAgICAgIG5vdGljZSwgdGhpcyBsaXN0IG9mIGNvbmRpdGlvbnMgYW5kIHRoZSBm
+b2xsb3dpbmcgZGlzY2xhaW1lci4KKyAqICAgICAqIFJlZGlzdHJpYnV0aW9ucyBpbiBiaW5hcnkg
+Zm9ybSBtdXN0IHJlcHJvZHVjZSB0aGUgYWJvdmUgY29weXJpZ2h0CisgKiAgICAgICBub3RpY2Us
+IHRoaXMgbGlzdCBvZiBjb25kaXRpb25zIGFuZCB0aGUgZm9sbG93aW5nIGRpc2NsYWltZXIgaW4g
+dGhlCisgKiAgICAgICBkb2N1bWVudGF0aW9uIGFuZC9vciBvdGhlciBtYXRlcmlhbHMgcHJvdmlk
+ZWQgd2l0aCB0aGUgZGlzdHJpYnV0aW9uLgorICogICAgICogTmVpdGhlciB0aGUgbmFtZSBvZiBG
+cmVlc2NhbGUgU2VtaWNvbmR1Y3RvciBub3IgdGhlCisgKiAgICAgICBuYW1lcyBvZiBpdHMgY29u
+dHJpYnV0b3JzIG1heSBiZSB1c2VkIHRvIGVuZG9yc2Ugb3IgcHJvbW90ZSBwcm9kdWN0cworICog
+ICAgICAgZGVyaXZlZCBmcm9tIHRoaXMgc29mdHdhcmUgd2l0aG91dCBzcGVjaWZpYyBwcmlvciB3
+cml0dGVuIHBlcm1pc3Npb24uCisgKgorICoKKyAqIEFMVEVSTkFUSVZFTFksIHRoaXMgc29mdHdh
+cmUgbWF5IGJlIGRpc3RyaWJ1dGVkIHVuZGVyIHRoZSB0ZXJtcyBvZiB0aGUKKyAqIEdOVSBHZW5l
+cmFsIFB1YmxpYyBMaWNlbnNlICgiR1BMIikgYXMgcHVibGlzaGVkIGJ5IHRoZSBGcmVlIFNvZnR3
+YXJlCisgKiBGb3VuZGF0aW9uLCBlaXRoZXIgdmVyc2lvbiAyIG9mIHRoYXQgTGljZW5zZSBvciAo
+YXQgeW91ciBvcHRpb24pIGFueQorICogbGF0ZXIgdmVyc2lvbi4KKyAqCisgKiBUSElTIFNPRlRX
+QVJFIElTIFBST1ZJREVEIEJZIEZyZWVzY2FsZSBTZW1pY29uZHVjdG9yIGBgQVMgSVMnJyBBTkQg
+QU5ZCisgKiBFWFBSRVNTIE9SIElNUExJRUQgV0FSUkFOVElFUywgSU5DTFVESU5HLCBCVVQgTk9U
+IExJTUlURUQgVE8sIFRIRSBJTVBMSUVECisgKiBXQVJSQU5USUVTIE9GIE1FUkNIQU5UQUJJTElU
+WSBBTkQgRklUTkVTUyBGT1IgQSBQQVJUSUNVTEFSIFBVUlBPU0UgQVJFCisgKiBESVNDTEFJTUVE
+LiBJTiBOTyBFVkVOVCBTSEFMTCBGcmVlc2NhbGUgU2VtaWNvbmR1Y3RvciBCRSBMSUFCTEUgRk9S
+IEFOWQorICogRElSRUNULCBJTkRJUkVDVCwgSU5DSURFTlRBTCwgU1BFQ0lBTCwgRVhFTVBMQVJZ
+LCBPUiBDT05TRVFVRU5USUFMIERBTUFHRVMKKyAqIChJTkNMVURJTkcsIEJVVCBOT1QgTElNSVRF
+RCBUTywgUFJPQ1VSRU1FTlQgT0YgU1VCU1RJVFVURSBHT09EUyBPUiBTRVJWSUNFUzsKKyAqIExP
+U1MgT0YgVVNFLCBEQVRBLCBPUiBQUk9GSVRTOyBPUiBCVVNJTkVTUyBJTlRFUlJVUFRJT04pIEhP
+V0VWRVIgQ0FVU0VEIEFORAorICogT04gQU5ZIFRIRU9SWSBPRiBMSUFCSUxJVFksIFdIRVRIRVIg
+SU4gQ09OVFJBQ1QsIFNUUklDVCBMSUFCSUxJVFksIE9SIFRPUlQKKyAqIChJTkNMVURJTkcgTkVH
+TElHRU5DRSBPUiBPVEhFUldJU0UpIEFSSVNJTkcgSU4gQU5ZIFdBWSBPVVQgT0YgVEhFIFVTRSBP
+RiBUSElTCisgKiBTT0ZUV0FSRSwgRVZFTiBJRiBBRFZJU0VEIE9GIFRIRSBQT1NTSUJJTElUWSBP
+RiBTVUNIIERBTUFHRS4KKyAqLworCisjZGVmaW5lIHByX2ZtdChmbXQpIEtCVUlMRF9NT0ROQU1F
+ICI6ICIgZm10CisKKyNpbmNsdWRlICJmbWFuX3BvcnQuaCIKKyNpbmNsdWRlICJmbWFuLmgiCisj
+aW5jbHVkZSAiZm1hbl9zcC5oIgorCisjaW5jbHVkZSA8YXNtL21wYzg1eHguaD4KKyNpbmNsdWRl
+IDxsaW51eC9pby5oPgorI2luY2x1ZGUgPGxpbnV4L3NsYWIuaD4KKyNpbmNsdWRlIDxsaW51eC9t
+b2R1bGUuaD4KKyNpbmNsdWRlIDxsaW51eC9pbnRlcnJ1cHQuaD4KKyNpbmNsdWRlIDxsaW51eC9v
+Zl9wbGF0Zm9ybS5oPgorI2luY2x1ZGUgPGxpbnV4L29mX2FkZHJlc3MuaD4KKworLyogUXVldWUg
+SUQgKi8KKyNkZWZpbmUgREZMVF9GUV9JRAkJMHgwMEZGRkZGRgorCisvKiBHZW5lcmFsIGRlZmlu
+ZXMgKi8KKyNkZWZpbmUgUE9SVF9CTUlfRklGT19VTklUUwkJMHgxMDAKKworI2RlZmluZSBNQVhf
+UE9SVF9GSUZPX1NJWkUoYm1pX21heF9maWZvX3NpemUpCVwKKwltaW4oKHUzMilibWlfbWF4X2Zp
+Zm9fc2l6ZSwgKHUzMikxMDI0ICogRk1BTl9CTUlfRklGT19VTklUUykKKworI2RlZmluZSBQT1JU
+X0NHX01BUF9OVU0JCQk4CisjZGVmaW5lIFBPUlRfUFJTX1JFU1VMVF9XT1JEU19OVU0JOAorI2Rl
+ZmluZSBQT1JUX0lDX09GRlNFVF9VTklUUwkJMHgxMAorCisjZGVmaW5lIE1JTl9FWFRfQlVGX1NJ
+WkUJCTY0CisKKyNkZWZpbmUgQk1JX1BPUlRfUkVHU19PRkZTRVQJCQkJMAorI2RlZmluZSBRTUlf
+UE9SVF9SRUdTX09GRlNFVAkJCQkweDQwMAorCisvKiBEZWZhdWx0IHZhbHVlcyAqLworI2RlZmlu
+ZSBERkxUX1BPUlRfQlVGRkVSX1BSRUZJWF9DT05URVhUX0RBVEFfQUxJR04JCVwKKwlERkxUX0ZN
+X1NQX0JVRkZFUl9QUkVGSVhfQ09OVEVYVF9EQVRBX0FMSUdOCisKKyNkZWZpbmUgREZMVF9QT1JU
+X0NVVF9CWVRFU19GUk9NX0VORAkJNAorCisjZGVmaW5lIERGTFRfUE9SVF9FUlJPUlNfVE9fRElT
+Q0FSRAkJRk1fUE9SVF9GUk1fRVJSX0NMU19ESVNDQVJECisjZGVmaW5lIERGTFRfUE9SVF9NQVhf
+RlJBTUVfTEVOR1RICQk5NjAwCisKKyNkZWZpbmUgREZMVF9QT1JUX1JYX0ZJRk9fUFJJX0VMRVZB
+VElPTl9MRVYoYm1pX21heF9maWZvX3NpemUpCVwKKwlNQVhfUE9SVF9GSUZPX1NJWkUoYm1pX21h
+eF9maWZvX3NpemUpCisKKyNkZWZpbmUgREZMVF9QT1JUX1JYX0ZJRk9fVEhSRVNIT0xEKG1ham9y
+LCBibWlfbWF4X2ZpZm9fc2l6ZSkJXAorCShtYWpvciA9PSA2ID8JCQkJCQlcCisJTUFYX1BPUlRf
+RklGT19TSVpFKGJtaV9tYXhfZmlmb19zaXplKSA6CQlcCisJKE1BWF9QT1JUX0ZJRk9fU0laRShi
+bWlfbWF4X2ZpZm9fc2l6ZSkgKiAzIC8gNCkpCVwKKworI2RlZmluZSBERkxUX1BPUlRfRVhUUkFf
+TlVNX09GX0ZJRk9fQlVGUwkJMAorCisvKiBRTUkgZGVmaW5lcyAqLworI2RlZmluZSBRTUlfREVR
+X0NGR19TVUJQT1JUQUxfTUFTSwkJMHgxZgorCisjZGVmaW5lIFFNSV9QT1JUX0NGR19FTgkJCQkw
+eDgwMDAwMDAwCisjZGVmaW5lIFFNSV9QT1JUX1NUQVRVU19ERVFfRkRfQlNZCQkweDIwMDAwMDAw
+CisKKyNkZWZpbmUgUU1JX0RFUV9DRkdfUFJJCQkJCTB4ODAwMDAwMDAKKyNkZWZpbmUgUU1JX0RF
+UV9DRkdfVFlQRTEJCQkweDEwMDAwMDAwCisjZGVmaW5lIFFNSV9ERVFfQ0ZHX1RZUEUyCQkJMHgy
+MDAwMDAwMAorI2RlZmluZSBRTUlfREVRX0NGR19UWVBFMwkJCTB4MzAwMDAwMDAKKyNkZWZpbmUg
+UU1JX0RFUV9DRkdfUFJFRkVUQ0hfUEFSVElBTAkJMHgwMTAwMDAwMAorI2RlZmluZSBRTUlfREVR
+X0NGR19QUkVGRVRDSF9GVUxMCQkweDAzMDAwMDAwCisjZGVmaW5lIFFNSV9ERVFfQ0ZHX1NQX01B
+U0sJCQkweGYKKyNkZWZpbmUgUU1JX0RFUV9DRkdfU1BfU0hJRlQJCQkyMAorCisjZGVmaW5lIFFN
+SV9CWVRFX0NPVU5UX0xFVkVMX0NPTlRST0woX3R5cGUpCVwKKwkoX3R5cGUgPT0gRk1BTl9QT1JU
+X1RZUEVfVFggPyAweDE0MDAgOiAweDQwMCkKKworLyogQk1JIGRlZmlucyAqLworI2RlZmluZSBC
+TUlfRUJEX0VOCQkJCTB4ODAwMDAwMDAKKworI2RlZmluZSBCTUlfUE9SVF9DRkdfRU4JCQkJMHg4
+MDAwMDAwMAorCisjZGVmaW5lIEJNSV9QT1JUX1NUQVRVU19CU1kJCQkweDgwMDAwMDAwCisKKyNk
+ZWZpbmUgQk1JX0RNQV9BVFRSX1NXUF9TSElGVAkJCUZNQU5fU1BfRE1BX0FUVFJfU1dQX1NISUZU
+CisjZGVmaW5lIEJNSV9ETUFfQVRUUl9XUklURV9PUFRJTUlaRQkJRk1BTl9TUF9ETUFfQVRUUl9X
+UklURV9PUFRJTUlaRQorCisjZGVmaW5lIEJNSV9SWF9GSUZPX1BSSV9FTEVWQVRJT05fU0hJRlQJ
+MTYKKyNkZWZpbmUgQk1JX1JYX0ZJRk9fVEhSRVNIT0xEX0VUSEUJCTB4ODAwMDAwMDAKKworI2Rl
+ZmluZSBCTUlfRlJBTUVfRU5EX0NTX0lHTk9SRV9TSElGVAkJMjQKKyNkZWZpbmUgQk1JX0ZSQU1F
+X0VORF9DU19JR05PUkVfTUFTSwkJMHgwMDAwMDAxZgorCisjZGVmaW5lIEJNSV9SWF9GUkFNRV9F
+TkRfQ1VUX1NISUZUCQkxNgorI2RlZmluZSBCTUlfUlhfRlJBTUVfRU5EX0NVVF9NQVNLCQkweDAw
+MDAwMDFmCisKKyNkZWZpbmUgQk1JX0lDX1RPX0VYVF9TSElGVAkJCUZNQU5fU1BfSUNfVE9fRVhU
+X1NISUZUCisjZGVmaW5lIEJNSV9JQ19UT19FWFRfTUFTSwkJCTB4MDAwMDAwMWYKKyNkZWZpbmUg
+Qk1JX0lDX0ZST01fSU5UX1NISUZUCQkJRk1BTl9TUF9JQ19GUk9NX0lOVF9TSElGVAorI2RlZmlu
+ZSBCTUlfSUNfRlJPTV9JTlRfTUFTSwkJCTB4MDAwMDAwMGYKKyNkZWZpbmUgQk1JX0lDX1NJWkVf
+TUFTSwkJCTB4MDAwMDAwMWYKKworI2RlZmluZSBCTUlfSU5UX0JVRl9NQVJHX1NISUZUCQkJMjgK
+KyNkZWZpbmUgQk1JX0lOVF9CVUZfTUFSR19NQVNLCQkJMHgwMDAwMDAwZgorI2RlZmluZSBCTUlf
+RVhUX0JVRl9NQVJHX1NUQVJUX1NISUZUCQlGTUFOX1NQX0VYVF9CVUZfTUFSR19TVEFSVF9TSElG
+VAorI2RlZmluZSBCTUlfRVhUX0JVRl9NQVJHX1NUQVJUX01BU0sJCTB4MDAwMDAxZmYKKyNkZWZp
+bmUgQk1JX0VYVF9CVUZfTUFSR19FTkRfTUFTSwkJMHgwMDAwMDFmZgorCisjZGVmaW5lIEJNSV9D
+TURfTVJfTEVBQwkJCQkweDAwMjAwMDAwCisjZGVmaW5lIEJNSV9DTURfTVJfU0xFQUMJCQkweDAw
+MTAwMDAwCisjZGVmaW5lIEJNSV9DTURfTVJfTUEJCQkJMHgwMDA4MDAwMAorI2RlZmluZSBCTUlf
+Q01EX01SX0RFQVMJCQkJMHgwMDA0MDAwMAorI2RlZmluZSBCTUlfQ01EX1JYX01SX0RFRgkJCShC
+TUlfQ01EX01SX0xFQUMgfCBcCisJCQkJCQlCTUlfQ01EX01SX1NMRUFDIHwgXAorCQkJCQkJQk1J
+X0NNRF9NUl9NQSB8IFwKKwkJCQkJCUJNSV9DTURfTVJfREVBUykKKyNkZWZpbmUgQk1JX0NNRF9U
+WF9NUl9ERUYJCQkwCisKKyNkZWZpbmUgQk1JX0NNRF9BVFRSX09SREVSCQkJMHg4MDAwMDAwMAor
+I2RlZmluZSBCTUlfQ01EX0FUVFJfU1lOQwkJCTB4MDIwMDAwMDAKKyNkZWZpbmUgQk1JX0NNRF9B
+VFRSX0NPTE9SX1NISUZUCQkyNgorCisjZGVmaW5lIEJNSV9GSUZPX1BJUEVMSU5FX0RFUFRIX1NI
+SUZUCQkxMgorI2RlZmluZSBCTUlfRklGT19QSVBFTElORV9ERVBUSF9NQVNLCQkweDAwMDAwMDBm
+CisjZGVmaW5lIEJNSV9ORVhUX0VOR19GRF9CSVRTX1NISUZUCQkyNAorCisjZGVmaW5lIEJNSV9F
+WFRfQlVGX1BPT0xfVkFMSUQJCQlGTUFOX1NQX0VYVF9CVUZfUE9PTF9WQUxJRAorI2RlZmluZSBC
+TUlfRVhUX0JVRl9QT09MX0VOX0NPVU5URVIJCUZNQU5fU1BfRVhUX0JVRl9QT09MX0VOX0NPVU5U
+RVIKKyNkZWZpbmUgQk1JX0VYVF9CVUZfUE9PTF9CQUNLVVAJCUZNQU5fU1BfRVhUX0JVRl9QT09M
+X0JBQ0tVUAorI2RlZmluZSBCTUlfRVhUX0JVRl9QT09MX0lEX1NISUZUCQkxNgorI2RlZmluZSBC
+TUlfRVhUX0JVRl9QT09MX0lEX01BU0sJCTB4MDAzRjAwMDAKKyNkZWZpbmUgQk1JX1BPT0xfREVQ
+X05VTV9PRl9QT09MU19TSElGVAkxNgorCisjZGVmaW5lIEJNSV9UWF9GSUZPX01JTl9GSUxMX1NI
+SUZUCQkxNgorCisjZGVmaW5lIEJNSV9QUklPUklUWV9FTEVWQVRJT05fTEVWRUwgKCgweDNGRiAr
+IDEpICogUE9SVF9CTUlfRklGT19VTklUUykKKyNkZWZpbmUgQk1JX0ZJRk9fVEhSRVNIT0xECSAg
+ICAgICgoMHgzRkYgKyAxKSAqIFBPUlRfQk1JX0ZJRk9fVU5JVFMpCisKKyNkZWZpbmUgQk1JX0RF
+UVVFVUVfUElQRUxJTkVfREVQVEgoX3R5cGUsIF9zcGVlZCkJCVwKKwkoKF90eXBlID09IEZNQU5f
+UE9SVF9UWVBFX1RYICYmIF9zcGVlZCA9PSAxMDAwMCkgPyA0IDogMSkKKworI2RlZmluZSBSWF9F
+UlJTX1RPX0VOUQkJCQkgIFwKKwkoRk1fUE9SVF9GUk1fRVJSX0RNQQkJCXwgXAorCUZNX1BPUlRf
+RlJNX0VSUl9QSFlTSUNBTAkJfCBcCisJRk1fUE9SVF9GUk1fRVJSX1NJWkUJCQl8IFwKKwlGTV9Q
+T1JUX0ZSTV9FUlJfRVhUUkFDVElPTgkJfCBcCisJRk1fUE9SVF9GUk1fRVJSX05PX1NDSEVNRQkJ
+fCBcCisJRk1fUE9SVF9GUk1fRVJSX1BSU19USU1FT1VUCQl8IFwKKwlGTV9QT1JUX0ZSTV9FUlJf
+UFJTX0lMTF9JTlNUUlVDVAl8IFwKKwlGTV9QT1JUX0ZSTV9FUlJfQkxPQ0tfTElNSVRfRVhDRUVE
+RUQJfCBcCisJRk1fUE9SVF9GUk1fRVJSX1BSU19IRFJfRVJSCQl8IFwKKwlGTV9QT1JUX0ZSTV9F
+UlJfS0VZU0laRV9PVkVSRkxPVwl8IFwKKwlGTV9QT1JUX0ZSTV9FUlJfSVBSRSkKKworLyogTklB
+IGRlZmluZXMgKi8KKyNkZWZpbmUgTklBX09SREVSX1JFU1RPUgkJCQkweDAwODAwMDAwCisjZGVm
+aW5lIE5JQV9FTkdfQk1JCQkJCQkweDAwNTAwMDAwCisjZGVmaW5lIE5JQV9FTkdfUU1JX0VOUQkJ
+CQkJMHgwMDU0MDAwMAorI2RlZmluZSBOSUFfRU5HX1FNSV9ERVEJCQkJCTB4MDA1ODAwMDAKKwor
+I2RlZmluZSBOSUFfQk1JX0FDX0VOUV9GUkFNRQkJCQkweDAwMDAwMDAyCisjZGVmaW5lIE5JQV9C
+TUlfQUNfVFhfUkVMRUFTRQkJCQkweDAwMDAwMkMwCisjZGVmaW5lIE5JQV9CTUlfQUNfUkVMRUFT
+RQkJCQkweDAwMDAwMEMwCisjZGVmaW5lIE5JQV9CTUlfQUNfVFgJCQkJCTB4MDAwMDAyNzQKKyNk
+ZWZpbmUgTklBX0JNSV9BQ19GRVRDSF9BTExfRlJBTUUJCQkweDAwMDAwMjBjCisKKy8qIFBvcnQg
+SURzICovCisjZGVmaW5lIFRYXzEwR19QT1JUX0JBU0UJCTB4MzAKKyNkZWZpbmUgUlhfMTBHX1BP
+UlRfQkFTRQkJMHgxMAorCisvKiBCTUkgUnggcG9ydCByZWdpc3RlciBtYXAgKi8KK3N0cnVjdCBm
+bWFuX3BvcnRfcnhfYm1pX3JlZ3MgeworCXUzMiBmbWJtX3JjZmc7CQkvKiBSeCBDb25maWd1cmF0
+aW9uICovCisJdTMyIGZtYm1fcnN0OwkJLyogUnggU3RhdHVzICovCisJdTMyIGZtYm1fcmRhOwkJ
+LyogUnggRE1BIGF0dHJpYnV0ZXMgKi8KKwl1MzIgZm1ibV9yZnA7CQkvKiBSeCBGSUZPIFBhcmFt
+ZXRlcnMgKi8KKwl1MzIgZm1ibV9yZmVkOwkJLyogUnggRnJhbWUgRW5kIERhdGEgKi8KKwl1MzIg
+Zm1ibV9yaWNwOwkJLyogUnggSW50ZXJuYWwgQ29udGV4dCBQYXJhbWV0ZXJzICovCisJdTMyIGZt
+Ym1fcmltOwkJLyogUnggSW50ZXJuYWwgQnVmZmVyIE1hcmdpbnMgKi8KKwl1MzIgZm1ibV9yZWJt
+OwkJLyogUnggRXh0ZXJuYWwgQnVmZmVyIE1hcmdpbnMgKi8KKwl1MzIgZm1ibV9yZm5lOwkJLyog
+UnggRnJhbWUgTmV4dCBFbmdpbmUgKi8KKwl1MzIgZm1ibV9yZmNhOwkJLyogUnggRnJhbWUgQ29t
+bWFuZCBBdHRyaWJ1dGVzLiAqLworCXUzMiBmbWJtX3JmcG5lOwkJLyogUnggRnJhbWUgUGFyc2Vy
+IE5leHQgRW5naW5lICovCisJdTMyIGZtYm1fcnBzbzsJCS8qIFJ4IFBhcnNlIFN0YXJ0IE9mZnNl
+dCAqLworCXUzMiBmbWJtX3JwcDsJCS8qIFJ4IFBvbGljZXIgUHJvZmlsZSAgKi8KKwl1MzIgZm1i
+bV9yY2NiOwkJLyogUnggQ29hcnNlIENsYXNzaWZpY2F0aW9uIEJhc2UgKi8KKwl1MzIgZm1ibV9y
+ZXRoOwkJLyogUnggRXhjZXNzaXZlIFRocmVzaG9sZCAqLworCXUzMiByZXNlcnZlZDAwM2NbMV07
+CS8qICgweDAzQyAweDAzRikgKi8KKwl1MzIgZm1ibV9ycHJhaVtQT1JUX1BSU19SRVNVTFRfV09S
+RFNfTlVNXTsKKwkvKiBSeCBQYXJzZSBSZXN1bHRzIEFycmF5IEluaXQgKi8KKwl1MzIgZm1ibV9y
+ZnFpZDsJCS8qIFJ4IEZyYW1lIFF1ZXVlIElEICovCisJdTMyIGZtYm1fcmVmcWlkOwkvKiBSeCBF
+cnJvciBGcmFtZSBRdWV1ZSBJRCAqLworCXUzMiBmbWJtX3Jmc2RtOwkJLyogUnggRnJhbWUgU3Rh
+dHVzIERpc2NhcmQgTWFzayAqLworCXUzMiBmbWJtX3Jmc2VtOwkJLyogUnggRnJhbWUgU3RhdHVz
+IEVycm9yIE1hc2sgKi8KKwl1MzIgZm1ibV9yZmVuZTsJCS8qIFJ4IEZyYW1lIEVucXVldWUgTmV4
+dCBFbmdpbmUgKi8KKwl1MzIgcmVzZXJ2ZWQwMDc0WzB4Ml07CS8qICgweDA3NC0weDA3QykgICov
+CisJdTMyIGZtYm1fcmNtbmU7CQkvKiBSeCBGcmFtZSBDb250aW51b3VzIE1vZGUgTmV4dCBFbmdp
+bmUgKi8KKwl1MzIgcmVzZXJ2ZWQwMDgwWzB4MjBdOwkvKiAoMHgwODAgMHgwRkYpICAqLworCXUz
+MiBmbWJtX2VibXBpW0ZNQU5fUE9SVF9NQVhfRVhUX1BPT0xTX05VTV07CisJLyogQnVmZmVyIE1h
+bmFnZXIgcG9vbCBJbmZvcm1hdGlvbi0gKi8KKwl1MzIgZm1ibV9hY250W0ZNQU5fUE9SVF9NQVhf
+RVhUX1BPT0xTX05VTV07CS8qIEFsbG9jYXRlIENvdW50ZXItICovCisJdTMyIHJlc2VydmVkMDEz
+MFs4XTsJLyogMHgxMzAvMHgxNDAgLSAweDE1RiByZXNlcnZlZCAtICovCisJdTMyIGZtYm1fcmNn
+bVtQT1JUX0NHX01BUF9OVU1dOwkvKiBDb25nZXN0aW9uIEdyb3VwIE1hcCAqLworCXUzMiBmbWJt
+X21wZDsJCS8qIEJNIFBvb2wgRGVwbGV0aW9uICAqLworCXUzMiByZXNlcnZlZDAxODRbMHgxRl07
+CS8qICgweDE4NCAweDFGRikgKi8KKwl1MzIgZm1ibV9yc3RjOwkJLyogUnggU3RhdGlzdGljcyBD
+b3VudGVycyAqLworCXUzMiBmbWJtX3JmcmM7CQkvKiBSeCBGcmFtZSBDb3VudGVyICovCisJdTMy
+IGZtYm1fcmZiYzsJCS8qIFJ4IEJhZCBGcmFtZXMgQ291bnRlciAqLworCXUzMiBmbWJtX3JsZmM7
+CQkvKiBSeCBMYXJnZSBGcmFtZXMgQ291bnRlciAqLworCXUzMiBmbWJtX3JmZmM7CQkvKiBSeCBG
+aWx0ZXIgRnJhbWVzIENvdW50ZXIgKi8KKwl1MzIgZm1ibV9yZmRjOwkJLyogUnggRnJhbWUgRGlz
+Y2FyZCBDb3VudGVyICovCisJdTMyIGZtYm1fcmZsZGVjOwkJLyogUnggRnJhbWVzIExpc3QgRE1B
+IEVycm9yIENvdW50ZXIgKi8KKwl1MzIgZm1ibV9yb2RjOwkJLyogUnggT3V0IG9mIEJ1ZmZlcnMg
+RGlzY2FyZCBubnRyICovCisJdTMyIGZtYm1fcmJkYzsJCS8qIFJ4IEJ1ZmZlcnMgRGVhbGxvY2F0
+ZSBDb3VudGVyICovCisJdTMyIGZtYm1fcnBlYzsJCS8qIFJYIFByZXBhcmUgdG8gZW5xdWV1ZSBD
+b3VudGUgKi8KKwl1MzIgcmVzZXJ2ZWQwMjI0WzB4MTZdOwkvKiAoMHgyMjQgMHgyN0YpICovCisJ
+dTMyIGZtYm1fcnBjOwkJLyogUnggUGVyZm9ybWFuY2UgQ291bnRlcnMgKi8KKwl1MzIgZm1ibV9y
+cGNwOwkJLyogUnggUGVyZm9ybWFuY2UgQ291bnQgUGFyYW1ldGVycyAqLworCXUzMiBmbWJtX3Jj
+Y247CQkvKiBSeCBDeWNsZSBDb3VudGVyICovCisJdTMyIGZtYm1fcnR1YzsJCS8qIFJ4IFRhc2tz
+IFV0aWxpemF0aW9uIENvdW50ZXIgKi8KKwl1MzIgZm1ibV9ycnF1YzsJCS8qIFJ4IFJlY2VpdmUg
+UXVldWUgVXRpbGl6YXRpb24gY250ciAqLworCXUzMiBmbWJtX3JkdWM7CQkvKiBSeCBETUEgVXRp
+bGl6YXRpb24gQ291bnRlciAqLworCXUzMiBmbWJtX3JmdWM7CQkvKiBSeCBGSUZPIFV0aWxpemF0
+aW9uIENvdW50ZXIgKi8KKwl1MzIgZm1ibV9ycGFjOwkJLyogUnggUGF1c2UgQWN0aXZhdGlvbiBD
+b3VudGVyICovCisJdTMyIHJlc2VydmVkMDJhMFsweDE4XTsJLyogKDB4MkEwIDB4MkZGKSAqLwor
+CXUzMiBmbWJtX3JkY2ZnWzB4M107CS8qIFJ4IERlYnVnIENvbmZpZ3VyYXRpb24gKi8KKwl1MzIg
+Zm1ibV9yZ3ByOwkJLyogUnggR2VuZXJhbCBQdXJwb3NlIFJlZ2lzdGVyICovCisJdTMyIHJlc2Vy
+dmVkMDMxMFsweDNhXTsKK307CisKKy8qIEJNSSBUeCBwb3J0IHJlZ2lzdGVyIG1hcCAqLworc3Ry
+dWN0IGZtYW5fcG9ydF90eF9ibWlfcmVncyB7CisJdTMyIGZtYm1fdGNmZzsJCS8qIFR4IENvbmZp
+Z3VyYXRpb24gKi8KKwl1MzIgZm1ibV90c3Q7CQkvKiBUeCBTdGF0dXMgKi8KKwl1MzIgZm1ibV90
+ZGE7CQkvKiBUeCBETUEgYXR0cmlidXRlcyAqLworCXUzMiBmbWJtX3RmcDsJCS8qIFR4IEZJRk8g
+UGFyYW1ldGVycyAqLworCXUzMiBmbWJtX3RmZWQ7CQkvKiBUeCBGcmFtZSBFbmQgRGF0YSAqLwor
+CXUzMiBmbWJtX3RpY3A7CQkvKiBUeCBJbnRlcm5hbCBDb250ZXh0IFBhcmFtZXRlcnMgKi8KKwl1
+MzIgZm1ibV90ZmRuZTsJCS8qIFR4IEZyYW1lIERlcXVldWUgTmV4dCBFbmdpbmUuICovCisJdTMy
+IGZtYm1fdGZjYTsJCS8qIFR4IEZyYW1lIENvbW1hbmQgYXR0cmlidXRlLiAqLworCXUzMiBmbWJt
+X3RjZnFpZDsJLyogVHggQ29uZmlybWF0aW9uIEZyYW1lIFF1ZXVlIElELiAqLworCXUzMiBmbWJt
+X3RlZnFpZDsJLyogVHggRnJhbWUgRXJyb3IgUXVldWUgSUQgKi8KKwl1MzIgZm1ibV90ZmVuZTsJ
+CS8qIFR4IEZyYW1lIEVucXVldWUgTmV4dCBFbmdpbmUgKi8KKwl1MzIgZm1ibV90cmxtdHM7CS8q
+IFR4IFJhdGUgTGltaXRlciBTY2FsZSAqLworCXUzMiBmbWJtX3RybG10OwkJLyogVHggUmF0ZSBM
+aW1pdGVyICovCisJdTMyIHJlc2VydmVkMDAzNFsweDBlXTsJLyogKDB4MDM0LTB4NmMpICovCisJ
+dTMyIGZtYm1fdGNjYjsJCS8qIFR4IENvYXJzZSBDbGFzc2lmaWNhdGlvbiBiYXNlICovCisJdTMy
+IGZtYm1fdGZuZTsJCS8qIFR4IEZyYW1lIE5leHQgRW5naW5lICovCisJdTMyIGZtYm1fdHBmY21b
+MHgwMl07CisJLyogVHggUHJpb3JpdHkgYmFzZWQgRmxvdyBDb250cm9sIChQRkMpIE1hcHBpbmcg
+Ki8KKwl1MzIgZm1ibV90Y21uZTsJCS8qIFR4IEZyYW1lIENvbnRpbnVvdXMgTW9kZSBOZXh0IEVu
+Z2luZSAqLworCXUzMiByZXNlcnZlZDAwODBbMHg2MF07CS8qICgweDA4MC0weDIwMCkgKi8KKwl1
+MzIgZm1ibV90c3RjOwkJLyogVHggU3RhdGlzdGljcyBDb3VudGVycyAqLworCXUzMiBmbWJtX3Rm
+cmM7CQkvKiBUeCBGcmFtZSBDb3VudGVyICovCisJdTMyIGZtYm1fdGZkYzsJCS8qIFR4IEZyYW1l
+cyBEaXNjYXJkIENvdW50ZXIgKi8KKwl1MzIgZm1ibV90ZmxlZGM7CS8qIFR4IEZyYW1lIGxlbiBl
+cnJvciBkaXNjYXJkIGNudHIgKi8KKwl1MzIgZm1ibV90ZnVmZGM7CS8qIFR4IEZyYW1lIHVuc3By
+dCBmcm10IGRpc2NhcmQgY250ciAqLworCXUzMiBmbWJtX3RiZGM7CQkvKiBUeCBCdWZmZXJzIERl
+YWxsb2NhdGUgQ291bnRlciAqLworCXUzMiByZXNlcnZlZDAyMThbMHgxQV07CS8qICgweDIxOC0w
+eDI4MCkgKi8KKwl1MzIgZm1ibV90cGM7CQkvKiBUeCBQZXJmb3JtYW5jZSBDb3VudGVycyAqLwor
+CXUzMiBmbWJtX3RwY3A7CQkvKiBUeCBQZXJmb3JtYW5jZSBDb3VudCBQYXJhbWV0ZXJzICovCisJ
+dTMyIGZtYm1fdGNjbjsJCS8qIFR4IEN5Y2xlIENvdW50ZXIgKi8KKwl1MzIgZm1ibV90dHVjOwkJ
+LyogVHggVGFza3MgVXRpbGl6YXRpb24gQ291bnRlciAqLworCXUzMiBmbWJtX3R0Y3F1YzsJLyog
+VHggVHJhbnNtaXQgY29uZiBRIHV0aWwgQ291bnRlciAqLworCXUzMiBmbWJtX3RkdWM7CQkvKiBU
+eCBETUEgVXRpbGl6YXRpb24gQ291bnRlciAqLworCXUzMiBmbWJtX3RmdWM7CQkvKiBUeCBGSUZP
+IFV0aWxpemF0aW9uIENvdW50ZXIgKi8KKwl1MzIgcmVzZXJ2ZWQwMjljWzE2XTsJLyogKDB4MjlD
+LTB4MkZGKSAqLworCXUzMiBmbWJtX3RkY2ZnWzB4M107CS8qIFR4IERlYnVnIENvbmZpZ3VyYXRp
+b24gKi8KKwl1MzIgZm1ibV90Z3ByOwkJLyogVHggR2VuZXJhbCBQdXJwb3NlIFJlZ2lzdGVyICov
+CisJdTMyIHJlc2VydmVkMDMxMFsweDNhXTsgLyogKDB4MzEwLTB4M0ZGKSAqLworfTsKKworLyog
+Qk1JIHBvcnQgcmVnaXN0ZXIgbWFwICovCit1bmlvbiBmbWFuX3BvcnRfYm1pX3JlZ3MgeworCXN0
+cnVjdCBmbWFuX3BvcnRfcnhfYm1pX3JlZ3Mgcng7CisJc3RydWN0IGZtYW5fcG9ydF90eF9ibWlf
+cmVncyB0eDsKK307CisKKy8qIFFNSSBwb3J0IHJlZ2lzdGVyIG1hcCAqLworc3RydWN0IGZtYW5f
+cG9ydF9xbWlfcmVncyB7CisJdTMyIGZtcW1fcG5jOwkJLyogUG9ydElEIG4gQ29uZmlndXJhdGlv
+biBSZWdpc3RlciAqLworCXUzMiBmbXFtX3BuczsJCS8qIFBvcnRJRCBuIFN0YXR1cyBSZWdpc3Rl
+ciAqLworCXUzMiBmbXFtX3BudHM7CQkvKiBQb3J0SUQgbiBUYXNrIFN0YXR1cyBSZWdpc3RlciAq
+LworCXUzMiByZXNlcnZlZDAwY1s0XTsJLyogMHhuMDBDIC0gMHhuMDFCICovCisJdTMyIGZtcW1f
+cG5lbjsJCS8qIFBvcnRJRCBuIEVucXVldWUgTklBIFJlZ2lzdGVyICovCisJdTMyIGZtcW1fcG5l
+dGZjOwkJLyogUG9ydElEIG4gRW5xIFRvdGFsIEZyYW1lIENvdW50ZXIgKi8KKwl1MzIgcmVzZXJ2
+ZWQwMjRbMl07CS8qIDB4bjAyNCAtIDB4MDJCICovCisJdTMyIGZtcW1fcG5kbjsJCS8qIFBvcnRJ
+RCBuIERlcXVldWUgTklBIFJlZ2lzdGVyICovCisJdTMyIGZtcW1fcG5kYzsJCS8qIFBvcnRJRCBu
+IERlcXVldWUgQ29uZmlnIFJlZ2lzdGVyICovCisJdTMyIGZtcW1fcG5kdGZjOwkJLyogUG9ydElE
+IG4gRGVxdWV1ZSB0b3QgRnJhbWUgY250ciAqLworCXUzMiBmbXFtX3BuZGZkYzsJCS8qIFBvcnRJ
+RCBuIERlcXVldWUgRlFJRCBEZmx0IENudHIgKi8KKwl1MzIgZm1xbV9wbmRjYzsJCS8qIFBvcnRJ
+RCBuIERlcXVldWUgQ29uZmlybSBDb3VudGVyICovCit9OworCisvKiBRTUkgZGVxdWV1ZSBwcmVm
+ZXRjaCBtb2RlcyAqLworZW51bSBmbWFuX3BvcnRfZGVxX3ByZWZldGNoIHsKKwlGTUFOX1BPUlRf
+REVRX05PX1BSRUZFVENILCAvKiBObyBwcmVmZXRjaCBtb2RlICovCisJRk1BTl9QT1JUX0RFUV9Q
+QVJUX1BSRUZFVENILCAvKiBQYXJ0aWFsIHByZWZldGNoIG1vZGUgKi8KKwlGTUFOX1BPUlRfREVR
+X0ZVTExfUFJFRkVUQ0ggLyogRnVsbCBwcmVmZXRjaCBtb2RlICovCit9OworCisvKiBBIHN0cnVj
+dHVyZSBmb3IgZGVmaW5pbmcgRk0gcG9ydCByZXNvdXJjZXMgKi8KK3N0cnVjdCBmbWFuX3BvcnRf
+cnNyYyB7CisJdTMyIG51bTsgLyogQ29tbWl0dGVkIHJlcXVpcmVkIHJlc291cmNlICovCisJdTMy
+IGV4dHJhOyAvKiBFeHRyYSAobm90IGNvbW1pdHRlZCkgcmVxdWlyZWQgcmVzb3VyY2UgKi8KK307
+CisKK2VudW0gZm1hbl9wb3J0X2RtYV9zd2FwIHsKKwlGTUFOX1BPUlRfRE1BX05PX1NXQVAsCS8q
+IE5vIHN3YXAsIHRyYW5zZmVyIGRhdGEgYXMgaXMgKi8KKwlGTUFOX1BPUlRfRE1BX1NXQVBfTEUs
+CisJLyogVGhlIHRyYW5zZmVycmVkIGRhdGEgc2hvdWxkIGJlIHN3YXBwZWQgaW4gUFBDIExpdHRs
+ZSBFbmRpYW4gbW9kZSAqLworCUZNQU5fUE9SVF9ETUFfU1dBUF9CRQorCS8qIFRoZSB0cmFuc2Zl
+cnJlZCBkYXRhIHNob3VsZCBiZSBzd2FwcGVkIGluIEJpZyBFbmRpYW4gbW9kZSAqLworfTsKKwor
+LyogRGVmYXVsdCBwb3J0IGNvbG9yICovCitlbnVtIGZtYW5fcG9ydF9jb2xvciB7CisJRk1BTl9Q
+T1JUX0NPTE9SX0dSRUVOLAkvKiBEZWZhdWx0IHBvcnQgY29sb3IgaXMgZ3JlZW4gKi8KKwlGTUFO
+X1BPUlRfQ09MT1JfWUVMTE9XLAkvKiBEZWZhdWx0IHBvcnQgY29sb3IgaXMgeWVsbG93ICovCisJ
+Rk1BTl9QT1JUX0NPTE9SX1JFRCwJCS8qIERlZmF1bHQgcG9ydCBjb2xvciBpcyByZWQgKi8KKwlG
+TUFOX1BPUlRfQ09MT1JfT1ZFUlJJREUJLyogSWdub3JlIGNvbG9yICovCit9OworCisvKiBRTUkg
+ZGVxdWV1ZSBmcm9tIHRoZSBTUCBjaGFubmVsIC0gdHlwZXMgKi8KK2VudW0gZm1hbl9wb3J0X2Rl
+cV90eXBlIHsKKwlGTUFOX1BPUlRfREVRX0JZX1BSSSwKKwkvKiBQcmlvcml0eSBwcmVjZWRlbmNl
+IGFuZCBJbnRyYS1DbGFzcyBzY2hlZHVsaW5nICovCisJRk1BTl9QT1JUX0RFUV9BQ1RJVkVfRlEs
+CisJLyogQWN0aXZlIEZRIHByZWNlZGVuY2UgYW5kIEludHJhLUNsYXNzIHNjaGVkdWxpbmcgKi8K
+KwlGTUFOX1BPUlRfREVRX0FDVElWRV9GUV9OT19JQ1MKKwkvKiBBY3RpdmUgRlEgcHJlY2VkZW5j
+ZSBhbmQgb3ZlcnJpZGUgSW50cmEtQ2xhc3Mgc2NoZWR1bGluZyAqLworfTsKKworLyogRXh0ZXJu
+YWwgYnVmZmVyIHBvb2xzIGNvbmZpZ3VyYXRpb24gKi8KK3N0cnVjdCBmbWFuX3BvcnRfYnBvb2xz
+IHsKKwl1OCBjb3VudDsJCQkvKiBOdW0gb2YgcG9vbHMgdG8gc2V0IHVwICovCisJYm9vbCBjb3Vu
+dGVyc19lbmFibGU7CQkvKiBFbmFibGUgYWxsb2NhdGUgY291bnRlcnMgKi8KKwl1OCBncnBfYnBf
+ZGVwbGV0ZWRfbnVtOworCS8qIE51bWJlciBvZiBkZXBsZXRlZCBwb29scyAtIGlmIHJlYWNoZWQg
+dGhlIEJNSSBpbmRpY2F0ZXMKKwkgKiB0aGUgTUFDIHRvIHNlbmQgYSBwYXVzZSBmcmFtZQorCSAq
+LworCXN0cnVjdCB7CisJCXU4IGJwaWQ7CQkvKiBCTSBwb29sIElEICovCisJCXUxNiBzaXplOwor
+CQkvKiBQb29sJ3Mgc2l6ZSAtIG11c3QgYmUgaW4gYXNjZW5kaW5nIG9yZGVyICovCisJCWJvb2wg
+aXNfYmFja3VwOworCQkvKiBJZiB0aGlzIGlzIGEgYmFja3VwIHBvb2wgKi8KKwkJYm9vbCBncnBf
+YnBfZGVwbGV0ZWQ7CisJCS8qIENvbnNpZGVyIHRoaXMgYnVmZmVyIGluIG11bHRpcGxlIHBvb2xz
+IGRlcGxldGlvbiBjcml0ZXJpYSAqLworCQlib29sIHNpbmdsZV9icF9kZXBsZXRlZDsKKwkJLyog
+Q29uc2lkZXIgdGhpcyBidWZmZXIgaW4gc2luZ2xlIHBvb2wgZGVwbGV0aW9uIGNyaXRlcmlhICov
+CisJfSBicG9vbFtGTUFOX1BPUlRfTUFYX0VYVF9QT09MU19OVU1dOworfTsKKworc3RydWN0IGZt
+YW5fcG9ydF9jZmcgeworCXUzMiBkZmx0X2ZxaWQ7CisJdTMyIGVycl9mcWlkOworCXU4IGRlcV9z
+cDsKKwlib29sIGRlcV9oaWdoX3ByaW9yaXR5OworCWVudW0gZm1hbl9wb3J0X2RlcV90eXBlIGRl
+cV90eXBlOworCWVudW0gZm1hbl9wb3J0X2RlcV9wcmVmZXRjaCBkZXFfcHJlZmV0Y2hfb3B0aW9u
+OworCXUxNiBkZXFfYnl0ZV9jbnQ7CisJdTggY2hla3N1bV9sYXN0X2J5dGVzX2lnbm9yZTsKKwl1
+OCByeF9jdXRfZW5kX2J5dGVzOworCXN0cnVjdCBmbWFuX2J1Zl9wb29sX2RlcGxldGlvbiBidWZf
+cG9vbF9kZXBsZXRpb247CisJc3RydWN0IGZtYW5fZXh0X3Bvb2xzIGV4dF9idWZfcG9vbHM7CisJ
+dTMyIHR4X2ZpZm9fbWluX2xldmVsOworCXUzMiB0eF9maWZvX2xvd19jb21mX2xldmVsOworCXUz
+MiByeF9wcmlfZWxldmF0aW9uOworCXUzMiByeF9maWZvX3RocjsKKwlzdHJ1Y3QgZm1hbl9zcF9i
+dWZfbWFyZ2lucyBidWZfbWFyZ2luczsKKwl1MzIgaW50X2J1Zl9zdGFydF9tYXJnaW47CisJc3Ry
+dWN0IGZtYW5fc3BfaW50X2NvbnRleHRfZGF0YV9jb3B5IGludF9jb250ZXh0OworCXUzMiBkaXNj
+YXJkX21hc2s7CisJdTMyIGVycl9tYXNrOworCXN0cnVjdCBmbWFuX2J1ZmZlcl9wcmVmaXhfY29u
+dGVudCBidWZmZXJfcHJlZml4X2NvbnRlbnQ7CisJYm9vbCBkb250X3JlbGVhc2VfYnVmOworCWJv
+b2wgYmNiX3dvcmthcm91bmQ7CisKKwl1OCByeF9mZF9iaXRzOworCXUzMiB0eF9maWZvX2RlcV9w
+aXBlbGluZV9kZXB0aDsKKwlib29sIGVycmF0YV9BMDA2MzIwOworCWJvb2wgZXhjZXNzaXZlX3Ro
+cmVzaG9sZF9yZWdpc3RlcjsKKwlib29sIGZtYm1fdGZuZV9oYXNfZmVhdHVyZXM7CisKKwllbnVt
+IGZtYW5fcG9ydF9kbWFfc3dhcCBkbWFfc3dhcF9kYXRhOworCWVudW0gZm1hbl9wb3J0X2NvbG9y
+IGNvbG9yOworfTsKKworc3RydWN0IGZtYW5fcG9ydF9yeF9wb29sc19wYXJhbXMgeworCXU4IG51
+bV9vZl9wb29sczsKKwl1MTYgc2Vjb25kX2xhcmdlc3RfYnVmX3NpemU7CisJdTE2IGxhcmdlc3Rf
+YnVmX3NpemU7Cit9OworCitzdHJ1Y3QgZm1hbl9wb3J0X2R0c19wYXJhbXMgeworCXZvaWQgX19p
+b21lbSAqYmFzZV9hZGRyOwkvKiBGTWFuIHBvcnQgdmlydHVhbCBtZW1vcnkgKi8KKwllbnVtIGZt
+YW5fcG9ydF90eXBlIHR5cGU7CS8qIFBvcnQgdHlwZSAqLworCXUxNiBzcGVlZDsJCQkvKiBQb3J0
+IHNwZWVkICovCisJdTggaWQ7CQkJCS8qIEhXIFBvcnQgSWQgKi8KKwl1MzIgcW1hbl9jaGFubmVs
+X2lkOwkJLyogUU1hbiBjaGFubmVsIGlkIChub24gUlggb25seSkgKi8KKwlzdHJ1Y3QgZm1hbiAq
+Zm1hbjsJCS8qIEZNYW4gSGFuZGxlICovCit9OworCitzdHJ1Y3QgZm1hbl9wb3J0IHsKKwl2b2lk
+ICpmbTsKKwlzdHJ1Y3QgZGV2aWNlICpkZXY7CisJc3RydWN0IGZtYW5fcmV2X2luZm8gcmV2X2lu
+Zm87CisJdTggcG9ydF9pZDsKKwllbnVtIGZtYW5fcG9ydF90eXBlIHBvcnRfdHlwZTsKKwl1MTYg
+cG9ydF9zcGVlZDsKKworCXVuaW9uIGZtYW5fcG9ydF9ibWlfcmVncyBfX2lvbWVtICpibWlfcmVn
+czsKKwlzdHJ1Y3QgZm1hbl9wb3J0X3FtaV9yZWdzIF9faW9tZW0gKnFtaV9yZWdzOworCisJc3Ry
+dWN0IGZtYW5fc3BfYnVmZmVyX29mZnNldHMgYnVmZmVyX29mZnNldHM7CisKKwl1OCBpbnRlcm5h
+bF9idWZfb2Zmc2V0OworCXN0cnVjdCBmbWFuX2V4dF9wb29scyBleHRfYnVmX3Bvb2xzOworCisJ
+dTE2IG1heF9mcmFtZV9sZW5ndGg7CisJc3RydWN0IGZtYW5fcG9ydF9yc3JjIG9wZW5fZG1hczsK
+KwlzdHJ1Y3QgZm1hbl9wb3J0X3JzcmMgdGFza3M7CisJc3RydWN0IGZtYW5fcG9ydF9yc3JjIGZp
+Zm9fYnVmczsKKwlzdHJ1Y3QgZm1hbl9wb3J0X3J4X3Bvb2xzX3BhcmFtcyByeF9wb29sc19wYXJh
+bXM7CisKKwlzdHJ1Y3QgZm1hbl9wb3J0X2NmZyAqY2ZnOworCXN0cnVjdCBmbWFuX3BvcnRfZHRz
+X3BhcmFtcyBkdHNfcGFyYW1zOworCisJdTggZXh0X3Bvb2xzX251bTsKKwl1MzIgbWF4X3BvcnRf
+Zmlmb19zaXplOworCXUzMiBtYXhfbnVtX29mX2V4dF9wb29sczsKKwl1MzIgbWF4X251bV9vZl9z
+dWJfcG9ydGFsczsKKwl1MzIgYm1fbWF4X251bV9vZl9wb29sczsKK307CisKK3N0YXRpYyBpbnQg
+aW5pdF9ibWlfcngoc3RydWN0IGZtYW5fcG9ydCAqcG9ydCkKK3sKKwlzdHJ1Y3QgZm1hbl9wb3J0
+X3J4X2JtaV9yZWdzIF9faW9tZW0gKnJlZ3MgPSAmcG9ydC0+Ym1pX3JlZ3MtPnJ4OworCXN0cnVj
+dCBmbWFuX3BvcnRfY2ZnICpjZmcgPSBwb3J0LT5jZmc7CisJdTMyIHRtcDsKKworCS8qIERNQSBh
+dHRyaWJ1dGVzICovCisJdG1wID0gKHUzMiljZmctPmRtYV9zd2FwX2RhdGEgPDwgQk1JX0RNQV9B
+VFRSX1NXUF9TSElGVDsKKwkvKiBFbmFibGUgd3JpdGUgb3B0aW1pemF0aW9uICovCisJdG1wIHw9
+IEJNSV9ETUFfQVRUUl9XUklURV9PUFRJTUlaRTsKKwlpb3dyaXRlMzJiZSh0bXAsICZyZWdzLT5m
+bWJtX3JkYSk7CisKKwkvKiBSeCBGSUZPIHBhcmFtZXRlcnMgKi8KKwl0bXAgPSAoY2ZnLT5yeF9w
+cmlfZWxldmF0aW9uIC8gUE9SVF9CTUlfRklGT19VTklUUyAtIDEpIDw8CisJCUJNSV9SWF9GSUZP
+X1BSSV9FTEVWQVRJT05fU0hJRlQ7CisJdG1wIHw9IGNmZy0+cnhfZmlmb190aHIgLyBQT1JUX0JN
+SV9GSUZPX1VOSVRTIC0gMTsKKwlpb3dyaXRlMzJiZSh0bXAsICZyZWdzLT5mbWJtX3JmcCk7CisK
+KwlpZiAoY2ZnLT5leGNlc3NpdmVfdGhyZXNob2xkX3JlZ2lzdGVyKQorCQkvKiBhbHdheXMgYWxs
+b3cgYWNjZXNzIHRvIHRoZSBleHRyYSByZXNvdXJjZXMgKi8KKwkJaW93cml0ZTMyYmUoQk1JX1JY
+X0ZJRk9fVEhSRVNIT0xEX0VUSEUsICZyZWdzLT5mbWJtX3JldGgpOworCisJLyogRnJhbWUgZW5k
+IGRhdGEgKi8KKwl0bXAgPSAoY2ZnLT5jaGVrc3VtX2xhc3RfYnl0ZXNfaWdub3JlICYgQk1JX0ZS
+QU1FX0VORF9DU19JR05PUkVfTUFTSykgPDwKKwkJQk1JX0ZSQU1FX0VORF9DU19JR05PUkVfU0hJ
+RlQ7CisJdG1wIHw9IChjZmctPnJ4X2N1dF9lbmRfYnl0ZXMgJiBCTUlfUlhfRlJBTUVfRU5EX0NV
+VF9NQVNLKSA8PAorCQlCTUlfUlhfRlJBTUVfRU5EX0NVVF9TSElGVDsKKwlpZiAoY2ZnLT5lcnJh
+dGFfQTAwNjMyMCkKKwkJdG1wICY9IDB4ZmZlMGZmZmY7CisJaW93cml0ZTMyYmUodG1wLCAmcmVn
+cy0+Zm1ibV9yZmVkKTsKKworCS8qIEludGVybmFsIGNvbnRleHQgcGFyYW1ldGVycyAqLworCXRt
+cCA9ICgoY2ZnLT5pbnRfY29udGV4dC5leHRfYnVmX29mZnNldCAvIFBPUlRfSUNfT0ZGU0VUX1VO
+SVRTKSAmCisJCUJNSV9JQ19UT19FWFRfTUFTSykgPDwgQk1JX0lDX1RPX0VYVF9TSElGVDsKKwl0
+bXAgfD0gKChjZmctPmludF9jb250ZXh0LmludF9jb250ZXh0X29mZnNldCAvIFBPUlRfSUNfT0ZG
+U0VUX1VOSVRTKSAmCisJCUJNSV9JQ19GUk9NX0lOVF9NQVNLKSA8PCBCTUlfSUNfRlJPTV9JTlRf
+U0hJRlQ7CisJdG1wIHw9IChjZmctPmludF9jb250ZXh0LnNpemUgLyBQT1JUX0lDX09GRlNFVF9V
+TklUUykgJgorCQlCTUlfSUNfU0laRV9NQVNLOworCWlvd3JpdGUzMmJlKHRtcCwgJnJlZ3MtPmZt
+Ym1fcmljcCk7CisKKwkvKiBJbnRlcm5hbCBidWZmZXIgb2Zmc2V0ICovCisJdG1wID0gKChjZmct
+PmludF9idWZfc3RhcnRfbWFyZ2luIC8gUE9SVF9JQ19PRkZTRVRfVU5JVFMpICYKKwkJQk1JX0lO
+VF9CVUZfTUFSR19NQVNLKSA8PCBCTUlfSU5UX0JVRl9NQVJHX1NISUZUOworCWlvd3JpdGUzMmJl
+KHRtcCwgJnJlZ3MtPmZtYm1fcmltKTsKKworCS8qIEV4dGVybmFsIGJ1ZmZlciBtYXJnaW5zICov
+CisJdG1wID0gKGNmZy0+YnVmX21hcmdpbnMuc3RhcnRfbWFyZ2lucyAmIEJNSV9FWFRfQlVGX01B
+UkdfU1RBUlRfTUFTSykgPDwKKwkJQk1JX0VYVF9CVUZfTUFSR19TVEFSVF9TSElGVDsKKwl0bXAg
+fD0gY2ZnLT5idWZfbWFyZ2lucy5lbmRfbWFyZ2lucyAmIEJNSV9FWFRfQlVGX01BUkdfRU5EX01B
+U0s7CisJaW93cml0ZTMyYmUodG1wLCAmcmVncy0+Zm1ibV9yZWJtKTsKKworCS8qIEZyYW1lIGF0
+dHJpYnV0ZXMgKi8KKwl0bXAgPSBCTUlfQ01EX1JYX01SX0RFRjsKKwl0bXAgfD0gQk1JX0NNRF9B
+VFRSX09SREVSOworCXRtcCB8PSAodTMyKWNmZy0+Y29sb3IgPDwgQk1JX0NNRF9BVFRSX0NPTE9S
+X1NISUZUOworCS8qIFN5bmNocm9uaXphdGlvbiByZXF1ZXN0ICovCisJdG1wIHw9IEJNSV9DTURf
+QVRUUl9TWU5DOworCisJaW93cml0ZTMyYmUodG1wLCAmcmVncy0+Zm1ibV9yZmNhKTsKKworCS8q
+IE5JQSAqLworCXRtcCA9ICh1MzIpY2ZnLT5yeF9mZF9iaXRzIDw8IEJNSV9ORVhUX0VOR19GRF9C
+SVRTX1NISUZUOworCisJdG1wIHw9IE5JQV9FTkdfQk1JIHwgTklBX0JNSV9BQ19FTlFfRlJBTUU7
+CisJaW93cml0ZTMyYmUodG1wLCAmcmVncy0+Zm1ibV9yZm5lKTsKKworCS8qIEVucXVldWUgTklB
+ICovCisJaW93cml0ZTMyYmUoTklBX0VOR19RTUlfRU5RIHwgTklBX09SREVSX1JFU1RPUiwgJnJl
+Z3MtPmZtYm1fcmZlbmUpOworCisJLyogRGVmYXVsdC9lcnJvciBxdWV1ZXMgKi8KKwlpb3dyaXRl
+MzJiZSgoY2ZnLT5kZmx0X2ZxaWQgJiBERkxUX0ZRX0lEKSwgJnJlZ3MtPmZtYm1fcmZxaWQpOwor
+CWlvd3JpdGUzMmJlKChjZmctPmVycl9mcWlkICYgREZMVF9GUV9JRCksICZyZWdzLT5mbWJtX3Jl
+ZnFpZCk7CisKKwkvKiBEaXNjYXJkL2Vycm9yIG1hc2tzICovCisJaW93cml0ZTMyYmUoY2ZnLT5k
+aXNjYXJkX21hc2ssICZyZWdzLT5mbWJtX3Jmc2RtKTsKKwlpb3dyaXRlMzJiZShjZmctPmVycl9t
+YXNrLCAmcmVncy0+Zm1ibV9yZnNlbSk7CisKKwlyZXR1cm4gMDsKK30KKworc3RhdGljIGludCBp
+bml0X2JtaV90eChzdHJ1Y3QgZm1hbl9wb3J0ICpwb3J0KQoreworCXN0cnVjdCBmbWFuX3BvcnRf
+dHhfYm1pX3JlZ3MgX19pb21lbSAqcmVncyA9ICZwb3J0LT5ibWlfcmVncy0+dHg7CisJc3RydWN0
+IGZtYW5fcG9ydF9jZmcgKmNmZyA9IHBvcnQtPmNmZzsKKwl1MzIgdG1wOworCisJLyogVHggQ29u
+ZmlndXJhdGlvbiByZWdpc3RlciAqLworCXRtcCA9IDA7CisJaW93cml0ZTMyYmUodG1wLCAmcmVn
+cy0+Zm1ibV90Y2ZnKTsKKworCS8qIERNQSBhdHRyaWJ1dGVzICovCisJdG1wID0gKHUzMiljZmct
+PmRtYV9zd2FwX2RhdGEgPDwgQk1JX0RNQV9BVFRSX1NXUF9TSElGVDsKKwlpb3dyaXRlMzJiZSh0
+bXAsICZyZWdzLT5mbWJtX3RkYSk7CisKKwkvKiBUeCBGSUZPIHBhcmFtZXRlcnMgKi8KKwl0bXAg
+PSAoY2ZnLT50eF9maWZvX21pbl9sZXZlbCAvIFBPUlRfQk1JX0ZJRk9fVU5JVFMpIDw8CisJCUJN
+SV9UWF9GSUZPX01JTl9GSUxMX1NISUZUOworCXRtcCB8PSAoKGNmZy0+dHhfZmlmb19kZXFfcGlw
+ZWxpbmVfZGVwdGggLSAxKSAmCisJCUJNSV9GSUZPX1BJUEVMSU5FX0RFUFRIX01BU0spIDw8IEJN
+SV9GSUZPX1BJUEVMSU5FX0RFUFRIX1NISUZUOworCXRtcCB8PSAoY2ZnLT50eF9maWZvX2xvd19j
+b21mX2xldmVsIC8gUE9SVF9CTUlfRklGT19VTklUUykgLSAxOworCWlvd3JpdGUzMmJlKHRtcCwg
+JnJlZ3MtPmZtYm1fdGZwKTsKKworCS8qIEZyYW1lIGVuZCBkYXRhICovCisJdG1wID0gKGNmZy0+
+Y2hla3N1bV9sYXN0X2J5dGVzX2lnbm9yZSAmIEJNSV9GUkFNRV9FTkRfQ1NfSUdOT1JFX01BU0sp
+IDw8CisJCUJNSV9GUkFNRV9FTkRfQ1NfSUdOT1JFX1NISUZUOworCWlvd3JpdGUzMmJlKHRtcCwg
+JnJlZ3MtPmZtYm1fdGZlZCk7CisKKwkvKiBJbnRlcm5hbCBjb250ZXh0IHBhcmFtZXRlcnMgKi8K
+Kwl0bXAgPSAoKGNmZy0+aW50X2NvbnRleHQuZXh0X2J1Zl9vZmZzZXQgLyBQT1JUX0lDX09GRlNF
+VF9VTklUUykgJgorCQlCTUlfSUNfVE9fRVhUX01BU0spIDw8IEJNSV9JQ19UT19FWFRfU0hJRlQ7
+CisJdG1wIHw9ICgoY2ZnLT5pbnRfY29udGV4dC5pbnRfY29udGV4dF9vZmZzZXQgLyBQT1JUX0lD
+X09GRlNFVF9VTklUUykgJgorCQlCTUlfSUNfRlJPTV9JTlRfTUFTSykgPDwgQk1JX0lDX0ZST01f
+SU5UX1NISUZUOworCXRtcCB8PSAoY2ZnLT5pbnRfY29udGV4dC5zaXplIC8gUE9SVF9JQ19PRkZT
+RVRfVU5JVFMpICYKKwkJQk1JX0lDX1NJWkVfTUFTSzsKKwlpb3dyaXRlMzJiZSh0bXAsICZyZWdz
+LT5mbWJtX3RpY3ApOworCisJLyogRnJhbWUgYXR0cmlidXRlcyAqLworCXRtcCA9IEJNSV9DTURf
+VFhfTVJfREVGOworCXRtcCB8PSBCTUlfQ01EX0FUVFJfT1JERVI7CisJdG1wIHw9ICh1MzIpY2Zn
+LT5jb2xvciA8PCBCTUlfQ01EX0FUVFJfQ09MT1JfU0hJRlQ7CisJaW93cml0ZTMyYmUodG1wLCAm
+cmVncy0+Zm1ibV90ZmNhKTsKKworCS8qIERlcXVldWUgTklBICsgZW5xdWV1ZSBOSUEgKi8KKwlp
+b3dyaXRlMzJiZShOSUFfRU5HX1FNSV9ERVEsICZyZWdzLT5mbWJtX3RmZG5lKTsKKwlpb3dyaXRl
+MzJiZShOSUFfRU5HX1FNSV9FTlEgfCBOSUFfT1JERVJfUkVTVE9SLCAmcmVncy0+Zm1ibV90ZmVu
+ZSk7CisJaWYgKGNmZy0+Zm1ibV90Zm5lX2hhc19mZWF0dXJlcykKKwkJaW93cml0ZTMyYmUoIWNm
+Zy0+ZGZsdF9mcWlkID8KKwkJCSAgICBCTUlfRUJEX0VOIHwgTklBX0JNSV9BQ19GRVRDSF9BTExf
+RlJBTUUgOgorCQkJICAgIE5JQV9CTUlfQUNfRkVUQ0hfQUxMX0ZSQU1FLCAmcmVncy0+Zm1ibV90
+Zm5lKTsKKwlpZiAoIWNmZy0+ZGZsdF9mcWlkICYmIGNmZy0+ZG9udF9yZWxlYXNlX2J1Zikgewor
+CQlpb3dyaXRlMzJiZShERkxUX0ZRX0lELCAmcmVncy0+Zm1ibV90Y2ZxaWQpOworCQlpb3dyaXRl
+MzJiZShOSUFfRU5HX0JNSSB8IE5JQV9CTUlfQUNfVFhfUkVMRUFTRSwKKwkJCSAgICAmcmVncy0+
+Zm1ibV90ZmVuZSk7CisJCWlmIChjZmctPmZtYm1fdGZuZV9oYXNfZmVhdHVyZXMpCisJCQlpb3dy
+aXRlMzJiZShpb3JlYWQzMmJlKCZyZWdzLT5mbWJtX3RmbmUpICYgfkJNSV9FQkRfRU4sCisJCQkJ
+ICAgICZyZWdzLT5mbWJtX3RmbmUpOworCX0KKworCS8qIENvbmZpcm1hdGlvbi9lcnJvciBxdWV1
+ZXMgKi8KKwlpZiAoY2ZnLT5kZmx0X2ZxaWQgfHwgIWNmZy0+ZG9udF9yZWxlYXNlX2J1ZikKKwkJ
+aW93cml0ZTMyYmUoY2ZnLT5kZmx0X2ZxaWQgJiBERkxUX0ZRX0lELCAmcmVncy0+Zm1ibV90Y2Zx
+aWQpOworCWlvd3JpdGUzMmJlKChjZmctPmVycl9mcWlkICYgREZMVF9GUV9JRCksICZyZWdzLT5m
+bWJtX3RlZnFpZCk7CisKKwlyZXR1cm4gMDsKK30KKworc3RhdGljIGludCBpbml0X3FtaShzdHJ1
+Y3QgZm1hbl9wb3J0ICpwb3J0KQoreworCXN0cnVjdCBmbWFuX3BvcnRfcW1pX3JlZ3MgX19pb21l
+bSAqcmVncyA9IHBvcnQtPnFtaV9yZWdzOworCXN0cnVjdCBmbWFuX3BvcnRfY2ZnICpjZmcgPSBw
+b3J0LT5jZmc7CisJdTMyIHRtcDsKKworCS8qIFJ4IHBvcnQgY29uZmlndXJhdGlvbiAqLworCWlm
+IChwb3J0LT5wb3J0X3R5cGUgPT0gRk1BTl9QT1JUX1RZUEVfUlgpIHsKKwkJLyogRW5xdWV1ZSBO
+SUEgKi8KKwkJaW93cml0ZTMyYmUoTklBX0VOR19CTUkgfCBOSUFfQk1JX0FDX1JFTEVBU0UsICZy
+ZWdzLT5mbXFtX3BuZW4pOworCQlyZXR1cm4gMDsKKwl9CisKKwkvKiBDb250aW51ZSB3aXRoIFR4
+IHBvcnQgY29uZmlndXJhdGlvbiAqLworCWlmIChwb3J0LT5wb3J0X3R5cGUgPT0gRk1BTl9QT1JU
+X1RZUEVfVFgpIHsKKwkJLyogRW5xdWV1ZSBOSUEgKi8KKwkJaW93cml0ZTMyYmUoTklBX0VOR19C
+TUkgfCBOSUFfQk1JX0FDX1RYX1JFTEVBU0UsCisJCQkgICAgJnJlZ3MtPmZtcW1fcG5lbik7CisJ
+CS8qIERlcXVldWUgTklBICovCisJCWlvd3JpdGUzMmJlKE5JQV9FTkdfQk1JIHwgTklBX0JNSV9B
+Q19UWCwgJnJlZ3MtPmZtcW1fcG5kbik7CisJfQorCisJLyogRGVxdWV1ZSBDb25maWd1cmF0aW9u
+IHJlZ2lzdGVyICovCisJdG1wID0gMDsKKwlpZiAoY2ZnLT5kZXFfaGlnaF9wcmlvcml0eSkKKwkJ
+dG1wIHw9IFFNSV9ERVFfQ0ZHX1BSSTsKKworCXN3aXRjaCAoY2ZnLT5kZXFfdHlwZSkgeworCWNh
+c2UgRk1BTl9QT1JUX0RFUV9CWV9QUkk6CisJCXRtcCB8PSBRTUlfREVRX0NGR19UWVBFMTsKKwkJ
+YnJlYWs7CisJY2FzZSBGTUFOX1BPUlRfREVRX0FDVElWRV9GUToKKwkJdG1wIHw9IFFNSV9ERVFf
+Q0ZHX1RZUEUyOworCQlicmVhazsKKwljYXNlIEZNQU5fUE9SVF9ERVFfQUNUSVZFX0ZRX05PX0lD
+UzoKKwkJdG1wIHw9IFFNSV9ERVFfQ0ZHX1RZUEUzOworCQlicmVhazsKKwlkZWZhdWx0OgorCQly
+ZXR1cm4gLUVJTlZBTDsKKwl9CisKKwlzd2l0Y2ggKGNmZy0+ZGVxX3ByZWZldGNoX29wdGlvbikg
+eworCWNhc2UgRk1BTl9QT1JUX0RFUV9OT19QUkVGRVRDSDoKKwkJYnJlYWs7CisJY2FzZSBGTUFO
+X1BPUlRfREVRX1BBUlRfUFJFRkVUQ0g6CisJCXRtcCB8PSBRTUlfREVRX0NGR19QUkVGRVRDSF9Q
+QVJUSUFMOworCQlicmVhazsKKwljYXNlIEZNQU5fUE9SVF9ERVFfRlVMTF9QUkVGRVRDSDoKKwkJ
+dG1wIHw9IFFNSV9ERVFfQ0ZHX1BSRUZFVENIX0ZVTEw7CisJCWJyZWFrOworCWRlZmF1bHQ6CisJ
+CXJldHVybiAtRUlOVkFMOworCX0KKworCXRtcCB8PSAoY2ZnLT5kZXFfc3AgJiBRTUlfREVRX0NG
+R19TUF9NQVNLKSA8PCBRTUlfREVRX0NGR19TUF9TSElGVDsKKwl0bXAgfD0gY2ZnLT5kZXFfYnl0
+ZV9jbnQ7CisJaW93cml0ZTMyYmUodG1wLCAmcmVncy0+Zm1xbV9wbmRjKTsKKworCXJldHVybiAw
+OworfQorCitzdGF0aWMgaW50IGluaXQoc3RydWN0IGZtYW5fcG9ydCAqcG9ydCkKK3sKKwlpbnQg
+ZXJyOworCisJLyogSW5pdCBCTUkgcmVnaXN0ZXJzICovCisJc3dpdGNoIChwb3J0LT5wb3J0X3R5
+cGUpIHsKKwljYXNlIEZNQU5fUE9SVF9UWVBFX1JYOgorCQllcnIgPSBpbml0X2JtaV9yeChwb3J0
+KTsKKwkJYnJlYWs7CisJY2FzZSBGTUFOX1BPUlRfVFlQRV9UWDoKKwkJZXJyID0gaW5pdF9ibWlf
+dHgocG9ydCk7CisJCWJyZWFrOworCWRlZmF1bHQ6CisJCXJldHVybiAtRUlOVkFMOworCX0KKwor
+CWlmIChlcnIpCisJCXJldHVybiBlcnI7CisKKwkvKiBJbml0IFFNSSByZWdpc3RlcnMgKi8KKwll
+cnIgPSBpbml0X3FtaShwb3J0KTsKKwlyZXR1cm4gZXJyOworCisJcmV0dXJuIDA7Cit9CisKK3N0
+YXRpYyBpbnQgc2V0X2Jwb29scyhjb25zdCBzdHJ1Y3QgZm1hbl9wb3J0ICpwb3J0LAorCQkgICAg
+ICBjb25zdCBzdHJ1Y3QgZm1hbl9wb3J0X2Jwb29scyAqYnApCit7CisJdTMyIF9faW9tZW0gKmJw
+X3JlZywgKmJwX2RlcGxfcmVnOworCXUzMiB0bXA7CisJdTggaSwgbWF4X2JwX251bTsKKwlib29s
+IGdycF9kZXBsX3VzZWQgPSBmYWxzZSwgcnhfcG9ydDsKKworCXN3aXRjaCAocG9ydC0+cG9ydF90
+eXBlKSB7CisJY2FzZSBGTUFOX1BPUlRfVFlQRV9SWDoKKwkJbWF4X2JwX251bSA9IHBvcnQtPmV4
+dF9wb29sc19udW07CisJCXJ4X3BvcnQgPSB0cnVlOworCQlicF9yZWcgPSBwb3J0LT5ibWlfcmVn
+cy0+cnguZm1ibV9lYm1waTsKKwkJYnBfZGVwbF9yZWcgPSAmcG9ydC0+Ym1pX3JlZ3MtPnJ4LmZt
+Ym1fbXBkOworCQlicmVhazsKKwlkZWZhdWx0OgorCQlyZXR1cm4gLUVJTlZBTDsKKwl9CisKKwlp
+ZiAocnhfcG9ydCkgeworCQkvKiBDaGVjayBidWZmZXJzIGFyZSBwcm92aWRlZCBpbiBhc2NlbmRp
+bmcgb3JkZXIgKi8KKwkJZm9yIChpID0gMDsgKGkgPCAoYnAtPmNvdW50IC0gMSkgJiYKKwkJCSAg
+ICAgKGkgPCBGTUFOX1BPUlRfTUFYX0VYVF9QT09MU19OVU0gLSAxKSk7IGkrKykgeworCQkJaWYg
+KGJwLT5icG9vbFtpXS5zaXplID4gYnAtPmJwb29sW2kgKyAxXS5zaXplKQorCQkJCXJldHVybiAt
+RUlOVkFMOworCQl9CisJfQorCisJLyogU2V0IHVwIGV4dGVybmFsIGJ1ZmZlcnMgcG9vbHMgKi8K
+Kwlmb3IgKGkgPSAwOyBpIDwgYnAtPmNvdW50OyBpKyspIHsKKwkJdG1wID0gQk1JX0VYVF9CVUZf
+UE9PTF9WQUxJRDsKKwkJdG1wIHw9ICgodTMyKWJwLT5icG9vbFtpXS5icGlkIDw8CisJCQlCTUlf
+RVhUX0JVRl9QT09MX0lEX1NISUZUKSAmIEJNSV9FWFRfQlVGX1BPT0xfSURfTUFTSzsKKworCQlp
+ZiAocnhfcG9ydCkgeworCQkJaWYgKGJwLT5jb3VudGVyc19lbmFibGUpCisJCQkJdG1wIHw9IEJN
+SV9FWFRfQlVGX1BPT0xfRU5fQ09VTlRFUjsKKworCQkJaWYgKGJwLT5icG9vbFtpXS5pc19iYWNr
+dXApCisJCQkJdG1wIHw9IEJNSV9FWFRfQlVGX1BPT0xfQkFDS1VQOworCisJCQl0bXAgfD0gKHUz
+MilicC0+YnBvb2xbaV0uc2l6ZTsKKwkJfQorCisJCWlvd3JpdGUzMmJlKHRtcCwgJmJwX3JlZ1tp
+XSk7CisJfQorCisJLyogQ2xlYXIgdW51c2VkIHBvb2xzICovCisJZm9yIChpID0gYnAtPmNvdW50
+OyBpIDwgbWF4X2JwX251bTsgaSsrKQorCQlpb3dyaXRlMzJiZSgwLCAmYnBfcmVnW2ldKTsKKwor
+CS8qIFBvb2xzIGRlcGxldGlvbiAqLworCXRtcCA9IDA7CisJZm9yIChpID0gMDsgaSA8IEZNQU5f
+UE9SVF9NQVhfRVhUX1BPT0xTX05VTTsgaSsrKSB7CisJCWlmIChicC0+YnBvb2xbaV0uZ3JwX2Jw
+X2RlcGxldGVkKSB7CisJCQlncnBfZGVwbF91c2VkID0gdHJ1ZTsKKwkJCXRtcCB8PSAweDgwMDAw
+MDAwID4+IGk7CisJCX0KKworCQlpZiAoYnAtPmJwb29sW2ldLnNpbmdsZV9icF9kZXBsZXRlZCkK
+KwkJCXRtcCB8PSAweDgwID4+IGk7CisJfQorCisJaWYgKGdycF9kZXBsX3VzZWQpCisJCXRtcCB8
+PSAoKHUzMilicC0+Z3JwX2JwX2RlcGxldGVkX251bSAtIDEpIDw8CisJCSAgICBCTUlfUE9PTF9E
+RVBfTlVNX09GX1BPT0xTX1NISUZUOworCisJaW93cml0ZTMyYmUodG1wLCBicF9kZXBsX3JlZyk7
+CisJcmV0dXJuIDA7Cit9CisKK3N0YXRpYyBib29sIGlzX2luaXRfZG9uZShzdHJ1Y3QgZm1hbl9w
+b3J0X2NmZyAqY2ZnKQoreworCS8qIENoZWNrcyBpZiBGTWFuIHBvcnQgZHJpdmVyIHBhcmFtZXRl
+cnMgd2VyZSBpbml0aWFsaXplZCAqLworCWlmICghY2ZnKQorCQlyZXR1cm4gdHJ1ZTsKKworCXJl
+dHVybiBmYWxzZTsKK30KKworc3RhdGljIGludCB2ZXJpZnlfc2l6ZV9vZl9maWZvKHN0cnVjdCBm
+bWFuX3BvcnQgKnBvcnQpCit7CisJdTMyIG1pbl9maWZvX3NpemVfcmVxdWlyZWQgPSAwLCBvcHRf
+Zmlmb19zaXplX2Zvcl9iMmIgPSAwOworCisJLyogVFggUG9ydHMgKi8KKwlpZiAocG9ydC0+cG9y
+dF90eXBlID09IEZNQU5fUE9SVF9UWVBFX1RYKSB7CisJCW1pbl9maWZvX3NpemVfcmVxdWlyZWQg
+PSAodTMyKQorCQkgICAgKHJvdW5kdXAocG9ydC0+bWF4X2ZyYW1lX2xlbmd0aCwKKwkJCSAgICAg
+Rk1BTl9CTUlfRklGT19VTklUUykgKyAoMyAqIEZNQU5fQk1JX0ZJRk9fVU5JVFMpKTsKKworCQlt
+aW5fZmlmb19zaXplX3JlcXVpcmVkICs9CisJCSAgICBwb3J0LT5jZmctPnR4X2ZpZm9fZGVxX3Bp
+cGVsaW5lX2RlcHRoICoKKwkJICAgIEZNQU5fQk1JX0ZJRk9fVU5JVFM7CisKKwkJb3B0X2ZpZm9f
+c2l6ZV9mb3JfYjJiID0gbWluX2ZpZm9fc2l6ZV9yZXF1aXJlZDsKKworCQkvKiBBZGQgc29tZSBt
+YXJnaW4gZm9yIGJhY2stdG8tYmFjayBjYXBhYmlsaXR5IHRvIGltcHJvdmUKKwkJICogcGVyZm9y
+bWFuY2UsIGFsbG93cyB0aGUgaGFyZHdhcmUgdG8gcGlwZWxpbmUgbmV3IGZyYW1lIGRtYQorCQkg
+KiB3aGlsZSB0aGUgcHJldmlvdXMgZnJhbWUgbm90IHlldCB0cmFuc21pdHRlZC4KKwkJICovCisJ
+CWlmIChwb3J0LT5wb3J0X3NwZWVkID09IDEwMDAwKQorCQkJb3B0X2ZpZm9fc2l6ZV9mb3JfYjJi
+ICs9IDMgKiBGTUFOX0JNSV9GSUZPX1VOSVRTOworCQllbHNlCisJCQlvcHRfZmlmb19zaXplX2Zv
+cl9iMmIgKz0gMiAqIEZNQU5fQk1JX0ZJRk9fVU5JVFM7CisJfQorCisJLyogUlggUG9ydHMgKi8K
+KwllbHNlIGlmIChwb3J0LT5wb3J0X3R5cGUgPT0gRk1BTl9QT1JUX1RZUEVfUlgpIHsKKwkJaWYg
+KHBvcnQtPnJldl9pbmZvLm1ham9yID49IDYpCisJCQltaW5fZmlmb19zaXplX3JlcXVpcmVkID0g
+KHUzMikKKwkJCShyb3VuZHVwKHBvcnQtPm1heF9mcmFtZV9sZW5ndGgsCisJCQkJIEZNQU5fQk1J
+X0ZJRk9fVU5JVFMpICsKKwkJCQkgKDUgKiBGTUFOX0JNSV9GSUZPX1VOSVRTKSk7CisJCQkvKiA0
+IGFjY29yZGluZyB0byBzcGVjICsgMSBmb3IgRk9GPjAgKi8KKwkJZWxzZQorCQkJbWluX2ZpZm9f
+c2l6ZV9yZXF1aXJlZCA9ICh1MzIpCisJCQkocm91bmR1cChtaW4ocG9ydC0+bWF4X2ZyYW1lX2xl
+bmd0aCwKKwkJCQkgICAgIHBvcnQtPnJ4X3Bvb2xzX3BhcmFtcy5sYXJnZXN0X2J1Zl9zaXplKSwK
+KwkJCQkgICAgIEZNQU5fQk1JX0ZJRk9fVU5JVFMpICsKKwkJCQkgICAgICg3ICogRk1BTl9CTUlf
+RklGT19VTklUUykpOworCisJCW9wdF9maWZvX3NpemVfZm9yX2IyYiA9IG1pbl9maWZvX3NpemVf
+cmVxdWlyZWQ7CisKKwkJLyogQWRkIHNvbWUgbWFyZ2luIGZvciBiYWNrLXRvLWJhY2sgY2FwYWJp
+bGl0eSB0byBpbXByb3ZlCisJCSAqIHBlcmZvcm1hbmNlLGFsbG93cyB0aGUgaGFyZHdhcmUgdG8g
+cGlwZWxpbmUgbmV3IGZyYW1lIGRtYQorCQkgKiB3aGlsZSB0aGUgcHJldmlvdXMgZnJhbWUgbm90
+IHlldCB0cmFuc21pdHRlZC4KKwkJICovCisJCWlmIChwb3J0LT5wb3J0X3NwZWVkID09IDEwMDAw
+KQorCQkJb3B0X2ZpZm9fc2l6ZV9mb3JfYjJiICs9IDggKiBGTUFOX0JNSV9GSUZPX1VOSVRTOwor
+CQllbHNlCisJCQlvcHRfZmlmb19zaXplX2Zvcl9iMmIgKz0gMyAqIEZNQU5fQk1JX0ZJRk9fVU5J
+VFM7CisJfQorCisJV0FSTl9PTihtaW5fZmlmb19zaXplX3JlcXVpcmVkIDw9IDApOworCVdBUk5f
+T04ob3B0X2ZpZm9fc2l6ZV9mb3JfYjJiIDwgbWluX2ZpZm9fc2l6ZV9yZXF1aXJlZCk7CisKKwkv
+KiBWZXJpZnkgdGhlIHNpemUgICovCisJaWYgKHBvcnQtPmZpZm9fYnVmcy5udW0gPCBtaW5fZmlm
+b19zaXplX3JlcXVpcmVkKQorCQlkZXZfZGJnKHBvcnQtPmRldiwgIiVzOiBGSUZPIHNpemUgc2hv
+dWxkIGJlIGVubGFyZ2VkIHRvICVkIGJ5dGVzXG4iLAorCQkJX19mdW5jX18sIG1pbl9maWZvX3Np
+emVfcmVxdWlyZWQpOworCWVsc2UgaWYgKHBvcnQtPmZpZm9fYnVmcy5udW0gPCBvcHRfZmlmb19z
+aXplX2Zvcl9iMmIpCisJCWRldl9kYmcocG9ydC0+ZGV2LCAiJXM6IEZvciBiMmIgcHJvY2Vzc2lu
+ZyxGSUZPIG1heSBiZSBlbmxhcmdlZCB0byAlZCBieXRlc1xuIiwKKwkJCV9fZnVuY19fLCBvcHRf
+Zmlmb19zaXplX2Zvcl9iMmIpOworCisJcmV0dXJuIDA7Cit9CisKK3N0YXRpYyBpbnQgc2V0X2V4
+dF9idWZmZXJfcG9vbHMoc3RydWN0IGZtYW5fcG9ydCAqcG9ydCkKK3sKKwlzdHJ1Y3QgZm1hbl9l
+eHRfcG9vbHMgKmV4dF9idWZfcG9vbHMgPSAmcG9ydC0+Y2ZnLT5leHRfYnVmX3Bvb2xzOworCXN0
+cnVjdCBmbWFuX2J1Zl9wb29sX2RlcGxldGlvbiAqYnVmX3Bvb2xfZGVwbGV0aW9uID0KKwkmcG9y
+dC0+Y2ZnLT5idWZfcG9vbF9kZXBsZXRpb247CisJdTggb3JkZXJlZF9hcnJheVtGTUFOX1BPUlRf
+TUFYX0VYVF9QT09MU19OVU1dOworCXUxNiBzaXplc19hcnJheVtCTV9NQVhfTlVNX09GX1BPT0xT
+XTsKKwlpbnQgaSA9IDAsIGogPSAwLCBlcnI7CisJc3RydWN0IGZtYW5fcG9ydF9icG9vbHMgYnBv
+b2xzOworCisJbWVtc2V0KCZvcmRlcmVkX2FycmF5LCAwLCBzaXplb2YodTgpICogRk1BTl9QT1JU
+X01BWF9FWFRfUE9PTFNfTlVNKTsKKwltZW1zZXQoJnNpemVzX2FycmF5LCAwLCBzaXplb2YodTE2
+KSAqIEJNX01BWF9OVU1fT0ZfUE9PTFMpOworCW1lbWNweSgmcG9ydC0+ZXh0X2J1Zl9wb29scywg
+ZXh0X2J1Zl9wb29scywKKwkgICAgICAgc2l6ZW9mKHN0cnVjdCBmbWFuX2V4dF9wb29scykpOwor
+CisJZm1hbl9zcF9zZXRfYnVmX3Bvb2xzX2luX2FzY19vcmRlcl9vZl9idWZfc2l6ZXMoZXh0X2J1
+Zl9wb29scywKKwkJCQkJCQlvcmRlcmVkX2FycmF5LAorCQkJCQkJCXNpemVzX2FycmF5KTsKKwor
+CW1lbXNldCgmYnBvb2xzLCAwLCBzaXplb2Yoc3RydWN0IGZtYW5fcG9ydF9icG9vbHMpKTsKKwli
+cG9vbHMuY291bnQgPSBleHRfYnVmX3Bvb2xzLT5udW1fb2ZfcG9vbHNfdXNlZDsKKwlicG9vbHMu
+Y291bnRlcnNfZW5hYmxlID0gdHJ1ZTsKKwlmb3IgKGkgPSAwOyBpIDwgZXh0X2J1Zl9wb29scy0+
+bnVtX29mX3Bvb2xzX3VzZWQ7IGkrKykgeworCQlicG9vbHMuYnBvb2xbaV0uYnBpZCA9IG9yZGVy
+ZWRfYXJyYXlbaV07CisJCWJwb29scy5icG9vbFtpXS5zaXplID0gc2l6ZXNfYXJyYXlbb3JkZXJl
+ZF9hcnJheVtpXV07CisJfQorCisJLyogc2F2ZSBwb29scyBwYXJhbWV0ZXJzIGZvciBsYXRlciB1
+c2UgKi8KKwlwb3J0LT5yeF9wb29sc19wYXJhbXMubnVtX29mX3Bvb2xzID0gZXh0X2J1Zl9wb29s
+cy0+bnVtX29mX3Bvb2xzX3VzZWQ7CisJcG9ydC0+cnhfcG9vbHNfcGFyYW1zLmxhcmdlc3RfYnVm
+X3NpemUgPQorCSAgICBzaXplc19hcnJheVtvcmRlcmVkX2FycmF5W2V4dF9idWZfcG9vbHMtPm51
+bV9vZl9wb29sc191c2VkIC0gMV1dOworCXBvcnQtPnJ4X3Bvb2xzX3BhcmFtcy5zZWNvbmRfbGFy
+Z2VzdF9idWZfc2l6ZSA9CisJICAgIHNpemVzX2FycmF5W29yZGVyZWRfYXJyYXlbZXh0X2J1Zl9w
+b29scy0+bnVtX29mX3Bvb2xzX3VzZWQgLSAyXV07CisKKwkvKiBGTUJNX1JNUEQgcmVnLiAtIHBv
+b2wgZGVwbGV0aW9uICovCisJaWYgKGJ1Zl9wb29sX2RlcGxldGlvbi0+cG9vbHNfZ3JwX21vZGVf
+ZW5hYmxlKSB7CisJCWJwb29scy5ncnBfYnBfZGVwbGV0ZWRfbnVtID0gYnVmX3Bvb2xfZGVwbGV0
+aW9uLT5udW1fb2ZfcG9vbHM7CisJCWZvciAoaSA9IDA7IGkgPCBwb3J0LT5ibV9tYXhfbnVtX29m
+X3Bvb2xzOyBpKyspIHsKKwkJCWlmIChidWZfcG9vbF9kZXBsZXRpb24tPnBvb2xzX3RvX2NvbnNp
+ZGVyW2ldKSB7CisJCQkJZm9yIChqID0gMDsgaiA8IGV4dF9idWZfcG9vbHMtPgorCQkJCSAgICAg
+bnVtX29mX3Bvb2xzX3VzZWQ7IGorKykgeworCQkJCQlpZiAoaSA9PSBvcmRlcmVkX2FycmF5W2pd
+KSB7CisJCQkJCQlicG9vbHMuYnBvb2xbal0uCisJCQkJCQkgICAgZ3JwX2JwX2RlcGxldGVkID0g
+dHJ1ZTsKKwkJCQkJCWJyZWFrOworCQkJCQl9CisJCQkJfQorCQkJfQorCQl9CisJfQorCisJaWYg
+KGJ1Zl9wb29sX2RlcGxldGlvbi0+c2luZ2xlX3Bvb2xfbW9kZV9lbmFibGUpIHsKKwkJZm9yIChp
+ID0gMDsgaSA8IHBvcnQtPmJtX21heF9udW1fb2ZfcG9vbHM7IGkrKykgeworCQkJaWYgKGJ1Zl9w
+b29sX2RlcGxldGlvbi0+CisJCQkgICAgcG9vbHNfdG9fY29uc2lkZXJfZm9yX3NpbmdsZV9tb2Rl
+W2ldKSB7CisJCQkJZm9yIChqID0gMDsgaiA8IGV4dF9idWZfcG9vbHMtPgorCQkJCSAgICAgbnVt
+X29mX3Bvb2xzX3VzZWQ7IGorKykgeworCQkJCQlpZiAoaSA9PSBvcmRlcmVkX2FycmF5W2pdKSB7
+CisJCQkJCQlicG9vbHMuYnBvb2xbal0uCisJCQkJCQkgICAgc2luZ2xlX2JwX2RlcGxldGVkID0g
+dHJ1ZTsKKwkJCQkJCWJyZWFrOworCQkJCQl9CisJCQkJfQorCQkJfQorCQl9CisJfQorCisJZXJy
+ID0gc2V0X2Jwb29scyhwb3J0LCAmYnBvb2xzKTsKKwlpZiAoZXJyICE9IDApIHsKKwkJZGV2X2Vy
+cihwb3J0LT5kZXYsICIlczogc2V0X2Jwb29scygpIGZhaWxlZFxuIiwgX19mdW5jX18pOworCQly
+ZXR1cm4gLUVJTlZBTDsKKwl9CisKKwlyZXR1cm4gMDsKK30KKworc3RhdGljIGludCBpbml0X2xv
+d19sZXZlbF9kcml2ZXIoc3RydWN0IGZtYW5fcG9ydCAqcG9ydCkKK3sKKwlzdHJ1Y3QgZm1hbl9w
+b3J0X2NmZyAqY2ZnID0gcG9ydC0+Y2ZnOworCXUzMiB0bXBfdmFsOworCisJc3dpdGNoIChwb3J0
+LT5wb3J0X3R5cGUpIHsKKwljYXNlIEZNQU5fUE9SVF9UWVBFX1JYOgorCQljZmctPmVycl9tYXNr
+ID0gKFJYX0VSUlNfVE9fRU5RICYgfmNmZy0+ZGlzY2FyZF9tYXNrKTsKKwkJYnJlYWs7CisJZGVm
+YXVsdDoKKwkJYnJlYWs7CisJfQorCisJdG1wX3ZhbCA9ICh1MzIpKChwb3J0LT5pbnRlcm5hbF9i
+dWZfb2Zmc2V0ICUgT0ZGU0VUX1VOSVRTKSA/CisJCShwb3J0LT5pbnRlcm5hbF9idWZfb2Zmc2V0
+IC8gT0ZGU0VUX1VOSVRTICsgMSkgOgorCQkocG9ydC0+aW50ZXJuYWxfYnVmX29mZnNldCAvIE9G
+RlNFVF9VTklUUykpOworCXBvcnQtPmludGVybmFsX2J1Zl9vZmZzZXQgPSAodTgpKHRtcF92YWwg
+KiBPRkZTRVRfVU5JVFMpOworCXBvcnQtPmNmZy0+aW50X2J1Zl9zdGFydF9tYXJnaW4gPSBwb3J0
+LT5pbnRlcm5hbF9idWZfb2Zmc2V0OworCisJaWYgKGluaXQocG9ydCkgIT0gMCkgeworCQlkZXZf
+ZXJyKHBvcnQtPmRldiwgIiVzOiBmbWFuIHBvcnQgaW5pdGlhbGl6YXRpb24gZmFpbGVkXG4iLAor
+CQkJX19mdW5jX18pOworCQlyZXR1cm4gLUVOT0RFVjsKKwl9CisKKwkvKiBUaGUgY29kZSBiZWxs
+b3cgaXMgYSB0cmljayBzbyB0aGUgRk0gd2lsbCBub3QgcmVsZWFzZSB0aGUgYnVmZmVyCisJICog
+dG8gQk0gbm9yIHdpbGwgdHJ5IHRvIGVucXVldWUgdGhlIGZyYW1lIHRvIFFNCisJICovCisJaWYg
+KHBvcnQtPnBvcnRfdHlwZSA9PSBGTUFOX1BPUlRfVFlQRV9UWCkgeworCQlpZiAoIWNmZy0+ZGZs
+dF9mcWlkICYmIGNmZy0+ZG9udF9yZWxlYXNlX2J1ZikgeworCQkJLyogb3ZlcnJpZGUgZm1ibV90
+Y2ZxaWQgMCB3aXRoIGEgZmFsc2Ugbm9uLTAgdmFsdWUuCisJCQkgKiBUaGlzIHdpbGwgZm9yY2Ug
+Rk0gdG8gYWN0IGFjY29yZGluZyB0byB0ZmVuZS4KKwkJCSAqIE90aGVyd2lzZSwgaWYgZm1ibV90
+Y2ZxaWQgaXMgMCB0aGUgRk0gd2lsbCByZWxlYXNlCisJCQkgKiBidWZmZXJzIHRvIEJNIHJlZ2Fy
+ZGxlc3Mgb2YgZm1ibV90ZmVuZQorCQkJICovCisJCQlvdXRfYmUzMigmcG9ydC0+Ym1pX3JlZ3Mt
+PnR4LmZtYm1fdGNmcWlkLCAweEZGRkZGRik7CisJCQlvdXRfYmUzMigmcG9ydC0+Ym1pX3JlZ3Mt
+PnR4LmZtYm1fdGZlbmUsCisJCQkJIE5JQV9FTkdfQk1JIHwgTklBX0JNSV9BQ19UWF9SRUxFQVNF
+KTsKKwkJfQorCX0KKworCXJldHVybiAwOworfQorCitzdGF0aWMgaW50IGZpbGxfc29jX3NwZWNp
+ZmljX3BhcmFtcyhzdHJ1Y3QgZm1hbl9wb3J0ICpwb3J0KQoreworCXUzMiBibWlfbWF4X2ZpZm9f
+c2l6ZTsKKworCWJtaV9tYXhfZmlmb19zaXplID0gZm1hbl9nZXRfYm1pX21heF9maWZvX3NpemUo
+cG9ydC0+Zm0pOworCXBvcnQtPm1heF9wb3J0X2ZpZm9fc2l6ZSA9IE1BWF9QT1JUX0ZJRk9fU0la
+RShibWlfbWF4X2ZpZm9fc2l6ZSk7CisJcG9ydC0+Ym1fbWF4X251bV9vZl9wb29scyA9IDY0Owor
+CisJLyogUDQwODAgLSBNYWpvciAyCisJICogUDIwNDEvUDMwNDEvUDUwMjAvUDUwNDAgLSBNYWpv
+ciAzCisJICogVHgvQnggLSBNYWpvciA2CisJICovCisJc3dpdGNoIChwb3J0LT5yZXZfaW5mby5t
+YWpvcikgeworCWNhc2UgMjoKKwljYXNlIDM6CisJCXBvcnQtPm1heF9udW1fb2ZfZXh0X3Bvb2xz
+CQk9IDQ7CisJCXBvcnQtPm1heF9udW1fb2Zfc3ViX3BvcnRhbHMJCT0gMTI7CisJCWJyZWFrOwor
+CisJY2FzZSA2OgorCQlwb3J0LT5tYXhfbnVtX29mX2V4dF9wb29scwkJPSA4OworCQlwb3J0LT5t
+YXhfbnVtX29mX3N1Yl9wb3J0YWxzCQk9IDE2OworCQlicmVhazsKKworCWRlZmF1bHQ6CisJCWRl
+dl9lcnIocG9ydC0+ZGV2LCAiJXM6IFVuc3VwcG9ydGVkIEZNYW4gdmVyc2lvblxuIiwgX19mdW5j
+X18pOworCQlyZXR1cm4gLUVJTlZBTDsKKwl9CisKKwlyZXR1cm4gMDsKK30KKworc3RhdGljIGlu
+dCBnZXRfZGZsdF9maWZvX2RlcV9waXBlbGluZV9kZXB0aCh1OCBtYWpvciwgZW51bSBmbWFuX3Bv
+cnRfdHlwZSB0eXBlLAorCQkJCQkgICAgdTE2IHNwZWVkKQoreworCXN3aXRjaCAodHlwZSkgewor
+CWNhc2UgRk1BTl9QT1JUX1RZUEVfUlg6CisJY2FzZSBGTUFOX1BPUlRfVFlQRV9UWDoKKwkJc3dp
+dGNoIChzcGVlZCkgeworCQljYXNlIDEwMDAwOgorCQkJcmV0dXJuIDQ7CisJCWNhc2UgMTAwMDoK
+KwkJCWlmIChtYWpvciA+PSA2KQorCQkJCXJldHVybiAyOworCQkJZWxzZQorCQkJCXJldHVybiAx
+OworCQlkZWZhdWx0OgorCQkJcmV0dXJuIDA7CisJCX0KKwlkZWZhdWx0OgorCQlyZXR1cm4gMDsK
+Kwl9Cit9CisKK3N0YXRpYyBpbnQgZ2V0X2RmbHRfbnVtX29mX3Rhc2tzKHU4IG1ham9yLCBlbnVt
+IGZtYW5fcG9ydF90eXBlIHR5cGUsCisJCQkJIHUxNiBzcGVlZCkKK3sKKwlzd2l0Y2ggKHR5cGUp
+IHsKKwljYXNlIEZNQU5fUE9SVF9UWVBFX1JYOgorCWNhc2UgRk1BTl9QT1JUX1RZUEVfVFg6CisJ
+CXN3aXRjaCAoc3BlZWQpIHsKKwkJY2FzZSAxMDAwMDoKKwkJCXJldHVybiAxNjsKKwkJY2FzZSAx
+MDAwOgorCQkJaWYgKG1ham9yID49IDYpCisJCQkJcmV0dXJuIDQ7CisJCQllbHNlCisJCQkJcmV0
+dXJuIDM7CisJCWRlZmF1bHQ6CisJCQlyZXR1cm4gMDsKKwkJfQorCWRlZmF1bHQ6CisJCXJldHVy
+biAwOworCX0KK30KKworc3RhdGljIGludCBnZXRfZGZsdF9leHRyYV9udW1fb2ZfdGFza3ModTgg
+bWFqb3IsIGVudW0gZm1hbl9wb3J0X3R5cGUgdHlwZSwKKwkJCQkgICAgICAgdTE2IHNwZWVkKQor
+eworCXN3aXRjaCAodHlwZSkgeworCWNhc2UgRk1BTl9QT1JUX1RZUEVfUlg6CisJCS8qIEZNYW4g
+VjMgKi8KKwkJaWYgKG1ham9yID49IDYpCisJCQlyZXR1cm4gMDsKKworCQkvKiBGTWFuIFYyICov
+CisJCWlmIChzcGVlZCA9PSAxMDAwMCkKKwkJCXJldHVybiA4OworCQllbHNlCisJCQlyZXR1cm4g
+MjsKKwljYXNlIEZNQU5fUE9SVF9UWVBFX1RYOgorCWRlZmF1bHQ6CisJCXJldHVybiAwOworCX0K
+K30KKworc3RhdGljIGludCBnZXRfZGZsdF9udW1fb2Zfb3Blbl9kbWFzKHU4IG1ham9yLCBlbnVt
+IGZtYW5fcG9ydF90eXBlIHR5cGUsCisJCQkJICAgICB1MTYgc3BlZWQpCit7CisJaW50IHZhbDsK
+KworCWlmIChtYWpvciA+PSA2KSB7CisJCXN3aXRjaCAodHlwZSkgeworCQljYXNlIEZNQU5fUE9S
+VF9UWVBFX1RYOgorCQkJaWYgKHNwZWVkID09IDEwMDAwKQorCQkJCXZhbCA9IDEyOworCQkJZWxz
+ZQorCQkJCXZhbCA9IDM7CisJCQlicmVhazsKKwkJY2FzZSBGTUFOX1BPUlRfVFlQRV9SWDoKKwkJ
+CWlmIChzcGVlZCA9PSAxMDAwMCkKKwkJCQl2YWwgPSA4OworCQkJZWxzZQorCQkJCXZhbCA9IDI7
+CisJCQlicmVhazsKKwkJZGVmYXVsdDoKKwkJCXJldHVybiAwOworCQl9CisJfSBlbHNlIHsKKwkJ
+c3dpdGNoICh0eXBlKSB7CisJCWNhc2UgRk1BTl9QT1JUX1RZUEVfVFg6CisJCWNhc2UgRk1BTl9Q
+T1JUX1RZUEVfUlg6CisJCQlpZiAoc3BlZWQgPT0gMTAwMDApCisJCQkJdmFsID0gODsKKwkJCWVs
+c2UKKwkJCQl2YWwgPSAxOworCQkJYnJlYWs7CisJCWRlZmF1bHQ6CisJCQl2YWwgPSAwOworCQl9
+CisJfQorCisJcmV0dXJuIHZhbDsKK30KKworc3RhdGljIGludCBnZXRfZGZsdF9leHRyYV9udW1f
+b2Zfb3Blbl9kbWFzKHU4IG1ham9yLCBlbnVtIGZtYW5fcG9ydF90eXBlIHR5cGUsCisJCQkJCSAg
+IHUxNiBzcGVlZCkKK3sKKwkvKiBGTWFuIFYzICovCisJaWYgKG1ham9yID49IDYpCisJCXJldHVy
+biAwOworCisJLyogRk1hbiBWMiAqLworCXN3aXRjaCAodHlwZSkgeworCWNhc2UgRk1BTl9QT1JU
+X1RZUEVfUlg6CisJY2FzZSBGTUFOX1BPUlRfVFlQRV9UWDoKKwkJaWYgKHNwZWVkID09IDEwMDAw
+KQorCQkJcmV0dXJuIDg7CisJCWVsc2UKKwkJCXJldHVybiAxOworCWRlZmF1bHQ6CisJCXJldHVy
+biAwOworCX0KK30KKworc3RhdGljIGludCBnZXRfZGZsdF9udW1fb2ZfZmlmb19idWZzKHU4IG1h
+am9yLCBlbnVtIGZtYW5fcG9ydF90eXBlIHR5cGUsCisJCQkJICAgICB1MTYgc3BlZWQpCit7CisJ
+aW50IHZhbDsKKworCWlmIChtYWpvciA+PSA2KSB7CisJCXN3aXRjaCAodHlwZSkgeworCQljYXNl
+IEZNQU5fUE9SVF9UWVBFX1RYOgorCQkJaWYgKHNwZWVkID09IDEwMDAwKQorCQkJCXZhbCA9IDY0
+OworCQkJZWxzZQorCQkJCXZhbCA9IDUwOworCQkJYnJlYWs7CisJCWNhc2UgRk1BTl9QT1JUX1RZ
+UEVfUlg6CisJCQlpZiAoc3BlZWQgPT0gMTAwMDApCisJCQkJdmFsID0gOTY7CisJCQllbHNlCisJ
+CQkJdmFsID0gNTA7CisJCQlicmVhazsKKwkJZGVmYXVsdDoKKwkJCXZhbCA9IDA7CisJCX0KKwl9
+IGVsc2UgeworCQlzd2l0Y2ggKHR5cGUpIHsKKwkJY2FzZSBGTUFOX1BPUlRfVFlQRV9UWDoKKwkJ
+CWlmIChzcGVlZCA9PSAxMDAwMCkKKwkJCQl2YWwgPSA0ODsKKwkJCWVsc2UKKwkJCQl2YWwgPSA0
+NDsKKwkJCWJyZWFrOworCQljYXNlIEZNQU5fUE9SVF9UWVBFX1JYOgorCQkJaWYgKHNwZWVkID09
+IDEwMDAwKQorCQkJCXZhbCA9IDQ4OworCQkJZWxzZQorCQkJCXZhbCA9IDQ1OworCQkJYnJlYWs7
+CisJCWRlZmF1bHQ6CisJCQl2YWwgPSAwOworCQl9CisJfQorCisJcmV0dXJuIHZhbDsKK30KKwor
+c3RhdGljIHZvaWQgc2V0X2RmbHRfY2ZnKHN0cnVjdCBmbWFuX3BvcnQgKnBvcnQsCisJCQkgc3Ry
+dWN0IGZtYW5fcG9ydF9wYXJhbXMgKnBvcnRfcGFyYW1zKQoreworCXN0cnVjdCBmbWFuX3BvcnRf
+Y2ZnICpjZmcgPSBwb3J0LT5jZmc7CisKKwljZmctPmRtYV9zd2FwX2RhdGEgPSBGTUFOX1BPUlRf
+RE1BX05PX1NXQVA7CisJY2ZnLT5jb2xvciA9IEZNQU5fUE9SVF9DT0xPUl9HUkVFTjsKKwljZmct
+PnJ4X2N1dF9lbmRfYnl0ZXMgPSBERkxUX1BPUlRfQ1VUX0JZVEVTX0ZST01fRU5EOworCWNmZy0+
+cnhfcHJpX2VsZXZhdGlvbiA9IEJNSV9QUklPUklUWV9FTEVWQVRJT05fTEVWRUw7CisJY2ZnLT5y
+eF9maWZvX3RociA9IEJNSV9GSUZPX1RIUkVTSE9MRDsKKwljZmctPnR4X2ZpZm9fbG93X2NvbWZf
+bGV2ZWwgPSAoNSAqIDEwMjQpOworCWNmZy0+ZGVxX3R5cGUgPSBGTUFOX1BPUlRfREVRX0JZX1BS
+STsKKwljZmctPmRlcV9wcmVmZXRjaF9vcHRpb24gPSBGTUFOX1BPUlRfREVRX0ZVTExfUFJFRkVU
+Q0g7CisJY2ZnLT50eF9maWZvX2RlcV9waXBlbGluZV9kZXB0aCA9CisJCUJNSV9ERVFVRVVFX1BJ
+UEVMSU5FX0RFUFRIKHBvcnQtPnBvcnRfdHlwZSwgcG9ydC0+cG9ydF9zcGVlZCk7CisJY2ZnLT5k
+ZXFfYnl0ZV9jbnQgPSBRTUlfQllURV9DT1VOVF9MRVZFTF9DT05UUk9MKHBvcnQtPnBvcnRfdHlw
+ZSk7CisKKwljZmctPnJ4X3ByaV9lbGV2YXRpb24gPQorCQlERkxUX1BPUlRfUlhfRklGT19QUklf
+RUxFVkFUSU9OX0xFVihwb3J0LT5tYXhfcG9ydF9maWZvX3NpemUpOworCXBvcnQtPmNmZy0+cnhf
+Zmlmb190aHIgPQorCQlERkxUX1BPUlRfUlhfRklGT19USFJFU0hPTEQocG9ydC0+cmV2X2luZm8u
+bWFqb3IsCisJCQkJCSAgICBwb3J0LT5tYXhfcG9ydF9maWZvX3NpemUpOworCisJaWYgKChwb3J0
+LT5yZXZfaW5mby5tYWpvciA9PSA2KSAmJgorCSAgICAoKHBvcnQtPnJldl9pbmZvLm1pbm9yID09
+IDApIHx8IChwb3J0LT5yZXZfaW5mby5taW5vciA9PSAzKSkpCisJCWNmZy0+ZXJyYXRhX0EwMDYz
+MjAgPSB0cnVlOworCisJLyogRXhjZXNzaXZlIFRocmVzaG9sZCByZWdpc3RlciAtIGV4aXN0cyBm
+b3IgcHJlLUZNdjMgY2hpcHMgb25seSAqLworCWlmIChwb3J0LT5yZXZfaW5mby5tYWpvciA8IDYp
+CisJCWNmZy0+ZXhjZXNzaXZlX3RocmVzaG9sZF9yZWdpc3RlciA9IHRydWU7CisJZWxzZQorCQlj
+ZmctPmZtYm1fdGZuZV9oYXNfZmVhdHVyZXMgPSB0cnVlOworCisJY2ZnLT5idWZmZXJfcHJlZml4
+X2NvbnRlbnQuZGF0YV9hbGlnbiA9CisJCURGTFRfUE9SVF9CVUZGRVJfUFJFRklYX0NPTlRFWFRf
+REFUQV9BTElHTjsKK30KKworc3RhdGljIHZvaWQgc2V0X3J4X2RmbHRfY2ZnKHN0cnVjdCBmbWFu
+X3BvcnQgKnBvcnQsCisJCQkgICAgc3RydWN0IGZtYW5fcG9ydF9wYXJhbXMgKnBvcnRfcGFyYW1z
+KQoreworCXBvcnQtPmNmZy0+ZGlzY2FyZF9tYXNrID0gREZMVF9QT1JUX0VSUk9SU19UT19ESVND
+QVJEOworCisJbWVtY3B5KCZwb3J0LT5jZmctPmV4dF9idWZfcG9vbHMsCisJICAgICAgICZwb3J0
+X3BhcmFtcy0+c3BlY2lmaWNfcGFyYW1zLnJ4X3BhcmFtcy5leHRfYnVmX3Bvb2xzLAorCSAgICAg
+ICBzaXplb2Yoc3RydWN0IGZtYW5fZXh0X3Bvb2xzKSk7CisJcG9ydC0+Y2ZnLT5lcnJfZnFpZCA9
+CisJCXBvcnRfcGFyYW1zLT5zcGVjaWZpY19wYXJhbXMucnhfcGFyYW1zLmVycl9mcWlkOworCXBv
+cnQtPmNmZy0+ZGZsdF9mcWlkID0KKwkJcG9ydF9wYXJhbXMtPnNwZWNpZmljX3BhcmFtcy5yeF9w
+YXJhbXMuZGZsdF9mcWlkOworCisJLyogU2V0IEJDQiB3b3JrYXJvdW5kIG9uIFJ4IHBvcnRzLCBv
+bmx5IGZvciBCNDg2MCByZXYxICovCisJaWYgKHBvcnQtPnJldl9pbmZvLm1ham9yID49IDYpIHsK
+KwkJdW5zaWduZWQgaW50IHN2cjsKKworCQlzdnIgPSBtZnNwcihTUFJOX1NWUik7CisJCWlmICgo
+U1ZSX1NPQ19WRVIoc3ZyKSA9PSBTVlJfQjQ4NjApICYmIChTVlJfTUFKKHN2cikgPT0gMSkpCisJ
+CQlwb3J0LT5jZmctPmJjYl93b3JrYXJvdW5kID0gdHJ1ZTsKKwl9Cit9CisKK3N0YXRpYyB2b2lk
+IHNldF90eF9kZmx0X2NmZyhzdHJ1Y3QgZm1hbl9wb3J0ICpwb3J0LAorCQkJICAgIHN0cnVjdCBm
+bWFuX3BvcnRfcGFyYW1zICpwb3J0X3BhcmFtcywKKwkJCSAgICBzdHJ1Y3QgZm1hbl9wb3J0X2R0
+c19wYXJhbXMgKmR0c19wYXJhbXMpCit7CisJcG9ydC0+Y2ZnLT50eF9maWZvX2RlcV9waXBlbGlu
+ZV9kZXB0aCA9CisJCWdldF9kZmx0X2ZpZm9fZGVxX3BpcGVsaW5lX2RlcHRoKHBvcnQtPnJldl9p
+bmZvLm1ham9yLAorCQkJCQkJIHBvcnQtPnBvcnRfdHlwZSwKKwkJCQkJCSBwb3J0LT5wb3J0X3Nw
+ZWVkKTsKKwlwb3J0LT5jZmctPmVycl9mcWlkID0KKwkJcG9ydF9wYXJhbXMtPnNwZWNpZmljX3Bh
+cmFtcy5ub25fcnhfcGFyYW1zLmVycl9mcWlkOworCXBvcnQtPmNmZy0+ZGVxX3NwID0KKwkJKHU4
+KShkdHNfcGFyYW1zLT5xbWFuX2NoYW5uZWxfaWQgJiBRTUlfREVRX0NGR19TVUJQT1JUQUxfTUFT
+Syk7CisJcG9ydC0+Y2ZnLT5kZmx0X2ZxaWQgPQorCQlwb3J0X3BhcmFtcy0+c3BlY2lmaWNfcGFy
+YW1zLm5vbl9yeF9wYXJhbXMuZGZsdF9mcWlkOworCXBvcnQtPmNmZy0+ZGVxX2hpZ2hfcHJpb3Jp
+dHkgPSB0cnVlOworfQorCisvKioKKyAqIGZtYW5fcG9ydF9jb25maWcKKyAqIEBwb3J0OglQb2lu
+dGVyIHRvIHRoZSBwb3J0IHN0cnVjdHVyZQorICogQHBhcmFtczoJUG9pbnRlciB0byBkYXRhIHN0
+cnVjdHVyZSBvZiBwYXJhbWV0ZXJzCisgKgorICogQ3JlYXRlcyBhIGRlc2NyaXB0b3IgZm9yIHRo
+ZSBGTSBQT1JUIG1vZHVsZS4KKyAqIFRoZSByb3V0aW5lIHJldHVybnMgYSBwb2ludGVyIHRvIHRo
+ZSBGTSBQT1JUIG9iamVjdC4KKyAqIFRoaXMgZGVzY3JpcHRvciBtdXN0IGJlIHBhc3NlZCBhcyBm
+aXJzdCBwYXJhbWV0ZXIgdG8gYWxsIG90aGVyIEZNIFBPUlQKKyAqIGZ1bmN0aW9uIGNhbGxzLgor
+ICogTm8gYWN0dWFsIGluaXRpYWxpemF0aW9uIG9yIGNvbmZpZ3VyYXRpb24gb2YgRk0gaGFyZHdh
+cmUgaXMgZG9uZSBieSB0aGlzCisgKiByb3V0aW5lLgorICoKKyAqIFJldHVybjogMCBvbiBzdWNj
+ZXNzOyBFcnJvciBjb2RlIG90aGVyd2lzZS4KKyAqLworaW50IGZtYW5fcG9ydF9jb25maWcoc3Ry
+dWN0IGZtYW5fcG9ydCAqcG9ydCwgc3RydWN0IGZtYW5fcG9ydF9wYXJhbXMgKnBhcmFtcykKK3sK
+Kwl2b2lkIF9faW9tZW0gKmJhc2VfYWRkciA9IHBvcnQtPmR0c19wYXJhbXMuYmFzZV9hZGRyOwor
+CWludCBlcnI7CisKKwkvKiBBbGxvY2F0ZSB0aGUgRk0gZHJpdmVyJ3MgcGFyYW1ldGVycyBzdHJ1
+Y3R1cmUgKi8KKwlwb3J0LT5jZmcgPSBremFsbG9jKHNpemVvZigqcG9ydC0+Y2ZnKSwgR0ZQX0tF
+Uk5FTCk7CisJaWYgKCFwb3J0LT5jZmcpCisJCWdvdG8gZXJyX3BhcmFtczsKKworCS8qIEluaXRp
+YWxpemUgRk0gcG9ydCBwYXJhbWV0ZXJzIHdoaWNoIHdpbGwgYmUga2VwdCBieSB0aGUgZHJpdmVy
+ICovCisJcG9ydC0+cG9ydF90eXBlID0gcG9ydC0+ZHRzX3BhcmFtcy50eXBlOworCXBvcnQtPnBv
+cnRfc3BlZWQgPSBwb3J0LT5kdHNfcGFyYW1zLnNwZWVkOworCXBvcnQtPnBvcnRfaWQgPSBwb3J0
+LT5kdHNfcGFyYW1zLmlkOworCXBvcnQtPmZtID0gcG9ydC0+ZHRzX3BhcmFtcy5mbWFuOworCXBv
+cnQtPmV4dF9wb29sc19udW0gPSAodTgpODsKKworCS8qIGdldCBGTSByZXZpc2lvbiAqLworCWZt
+YW5fZ2V0X3JldmlzaW9uKHBvcnQtPmZtLCAmcG9ydC0+cmV2X2luZm8pOworCisJZXJyID0gZmls
+bF9zb2Nfc3BlY2lmaWNfcGFyYW1zKHBvcnQpOworCWlmIChlcnIpCisJCWdvdG8gZXJyX3BvcnRf
+Y2ZnOworCisJc3dpdGNoIChwb3J0LT5wb3J0X3R5cGUpIHsKKwljYXNlIEZNQU5fUE9SVF9UWVBF
+X1JYOgorCQlzZXRfcnhfZGZsdF9jZmcocG9ydCwgcGFyYW1zKTsKKwljYXNlIEZNQU5fUE9SVF9U
+WVBFX1RYOgorCQlzZXRfdHhfZGZsdF9jZmcocG9ydCwgcGFyYW1zLCAmcG9ydC0+ZHRzX3BhcmFt
+cyk7CisJZGVmYXVsdDoKKwkJc2V0X2RmbHRfY2ZnKHBvcnQsIHBhcmFtcyk7CisJfQorCisJLyog
+Q29udGludWUgd2l0aCBvdGhlciBwYXJhbWV0ZXJzICovCisJLyogc2V0IG1lbW9yeSBtYXAgcG9p
+bnRlcnMgKi8KKwlwb3J0LT5ibWlfcmVncyA9ICh1bmlvbiBmbWFuX3BvcnRfYm1pX3JlZ3MgX19p
+b21lbSAqKQorCQkJIChiYXNlX2FkZHIgKyBCTUlfUE9SVF9SRUdTX09GRlNFVCk7CisJcG9ydC0+
+cW1pX3JlZ3MgPSAoc3RydWN0IGZtYW5fcG9ydF9xbWlfcmVncyBfX2lvbWVtICopCisJCQkgKGJh
+c2VfYWRkciArIFFNSV9QT1JUX1JFR1NfT0ZGU0VUKTsKKworCXBvcnQtPm1heF9mcmFtZV9sZW5n
+dGggPSBERkxUX1BPUlRfTUFYX0ZSQU1FX0xFTkdUSDsKKwkvKiByZXNvdXJjZSBkaXN0cmlidXRp
+b24uICovCisKKwlwb3J0LT5maWZvX2J1ZnMubnVtID0KKwlnZXRfZGZsdF9udW1fb2ZfZmlmb19i
+dWZzKHBvcnQtPnJldl9pbmZvLm1ham9yLCBwb3J0LT5wb3J0X3R5cGUsCisJCQkJICBwb3J0LT5w
+b3J0X3NwZWVkKSAqIEZNQU5fQk1JX0ZJRk9fVU5JVFM7CisJcG9ydC0+Zmlmb19idWZzLmV4dHJh
+ID0KKwlERkxUX1BPUlRfRVhUUkFfTlVNX09GX0ZJRk9fQlVGUyAqIEZNQU5fQk1JX0ZJRk9fVU5J
+VFM7CisKKwlwb3J0LT5vcGVuX2RtYXMubnVtID0KKwlnZXRfZGZsdF9udW1fb2Zfb3Blbl9kbWFz
+KHBvcnQtPnJldl9pbmZvLm1ham9yLAorCQkJCSAgcG9ydC0+cG9ydF90eXBlLCBwb3J0LT5wb3J0
+X3NwZWVkKTsKKwlwb3J0LT5vcGVuX2RtYXMuZXh0cmEgPQorCWdldF9kZmx0X2V4dHJhX251bV9v
+Zl9vcGVuX2RtYXMocG9ydC0+cmV2X2luZm8ubWFqb3IsCisJCQkJCXBvcnQtPnBvcnRfdHlwZSwg
+cG9ydC0+cG9ydF9zcGVlZCk7CisJcG9ydC0+dGFza3MubnVtID0KKwlnZXRfZGZsdF9udW1fb2Zf
+dGFza3MocG9ydC0+cmV2X2luZm8ubWFqb3IsCisJCQkgICAgICBwb3J0LT5wb3J0X3R5cGUsIHBv
+cnQtPnBvcnRfc3BlZWQpOworCXBvcnQtPnRhc2tzLmV4dHJhID0KKwlnZXRfZGZsdF9leHRyYV9u
+dW1fb2ZfdGFza3MocG9ydC0+cmV2X2luZm8ubWFqb3IsCisJCQkJICAgIHBvcnQtPnBvcnRfdHlw
+ZSwgcG9ydC0+cG9ydF9zcGVlZCk7CisKKwkvKiBGTV9IRUFWWV9UUkFGRklDX1NFUVVFTkNFUl9I
+QU5HX0VSUkFUQV9GTUFOX0EwMDY5ODEgZXJyYXRhCisJICogd29ya2Fyb3VuZAorCSAqLworCWlm
+ICgocG9ydC0+cmV2X2luZm8ubWFqb3IgPT0gNikgJiYgKHBvcnQtPnJldl9pbmZvLm1pbm9yID09
+IDApICYmCisJICAgICgoKHBvcnQtPnBvcnRfdHlwZSA9PSBGTUFOX1BPUlRfVFlQRV9UWCkgJiYK
+KwkgICAgKHBvcnQtPnBvcnRfc3BlZWQgPT0gMTAwMCkpKSkgeworCQlwb3J0LT5vcGVuX2RtYXMu
+bnVtID0gMTY7CisJCXBvcnQtPm9wZW5fZG1hcy5leHRyYSA9IDA7CisJfQorCisJaWYgKHBvcnQt
+PnJldl9pbmZvLm1ham9yID49IDYgJiYKKwkgICAgcG9ydC0+cG9ydF90eXBlID09IEZNQU5fUE9S
+VF9UWVBFX1RYICYmCisJICAgIHBvcnQtPnBvcnRfc3BlZWQgPT0gMTAwMCkgeworCQkvKiBGTV9X
+Uk9OR19SRVNFVF9WQUxVRVNfRVJSQVRBX0ZNQU5fQTAwNTEyNyBFcnJhdGEKKwkJICogd29ya2Fy
+b3VuZAorCQkgKi8KKwkJaWYgKHBvcnQtPnJldl9pbmZvLm1ham9yID49IDYpIHsKKwkJCXUzMiBy
+ZWc7CisKKwkJCXJlZyA9IDB4MDAwMDEwMTM7CisJCQlvdXRfYmUzMigmcG9ydC0+Ym1pX3JlZ3Mt
+PnR4LmZtYm1fdGZwLCByZWcpOworCQl9CisJfQorCisJcmV0dXJuIDA7CisKK2Vycl9wb3J0X2Nm
+ZzoKKwlrZnJlZShwb3J0LT5jZmcpOworZXJyX3BhcmFtczoKKwlrZnJlZShwb3J0KTsKKwlyZXR1
+cm4gLUVJTlZBTDsKK30KK0VYUE9SVF9TWU1CT0woZm1hbl9wb3J0X2NvbmZpZyk7CisKKy8qKgor
+ICogZm1hbl9wb3J0X2luaXQKKyAqIHBvcnQ6CUEgcG9pbnRlciB0byBhIEZNIFBvcnQgbW9kdWxl
+LgorICogSW5pdGlhbGl6ZXMgdGhlIEZNIFBPUlQgbW9kdWxlIGJ5IGRlZmluaW5nIHRoZSBzb2Z0
+d2FyZSBzdHJ1Y3R1cmUgYW5kCisgKiBjb25maWd1cmluZyB0aGUgaGFyZHdhcmUgcmVnaXN0ZXJz
+LgorICoKKyAqIFJldHVybjogMCBvbiBzdWNjZXNzOyBFcnJvciBjb2RlIG90aGVyd2lzZS4KKyAq
+LworaW50IGZtYW5fcG9ydF9pbml0KHN0cnVjdCBmbWFuX3BvcnQgKnBvcnQpCit7CisJc3RydWN0
+IGZtYW5fcG9ydF9jZmcgKmNmZzsKKwlpbnQgZXJyOworCXN0cnVjdCBmbWFuX3BvcnRfaW5pdF9w
+YXJhbXMgcGFyYW1zOworCisJaWYgKGlzX2luaXRfZG9uZShwb3J0LT5jZmcpKQorCQlyZXR1cm4g
+LUVJTlZBTDsKKworCWVyciA9IGZtYW5fc3BfYnVpbGRfYnVmZmVyX3N0cnVjdCgmcG9ydC0+Y2Zn
+LT5pbnRfY29udGV4dCwKKwkJCQkJICAmcG9ydC0+Y2ZnLT5idWZmZXJfcHJlZml4X2NvbnRlbnQs
+CisJCQkJCSAgJnBvcnQtPmNmZy0+YnVmX21hcmdpbnMsCisJCQkJCSAgJnBvcnQtPmJ1ZmZlcl9v
+ZmZzZXRzLAorCQkJCQkgICZwb3J0LT5pbnRlcm5hbF9idWZfb2Zmc2V0KTsKKwlpZiAoZXJyKQor
+CQlyZXR1cm4gZXJyOworCisJLyogRk1fSEVBVllfVFJBRkZJQ19IQU5HX0VSUkFUQV9GTUFOX0Ew
+MDU2NjkgRXJyYXRhIHdvcmthcm91bmQgKi8KKwlpZiAocG9ydC0+cmV2X2luZm8ubWFqb3IgPj0g
+NiAmJiAocG9ydC0+Y2ZnLT5iY2Jfd29ya2Fyb3VuZCkgJiYKKwkgICAgKChwb3J0LT5wb3J0X3R5
+cGUgPT0gRk1BTl9QT1JUX1RZUEVfUlgpICYmCisJICAgIChwb3J0LT5wb3J0X3NwZWVkID09IDEw
+MDApKSkgeworCQlwb3J0LT5jZmctPmRpc2NhcmRfbWFzayB8PSBGTV9QT1JUX0ZSTV9FUlJfUEhZ
+U0lDQUw7CisJCXBvcnQtPmZpZm9fYnVmcy5udW0gKz0gNCAqIDEwMjQ7CisJfQorCisJY2ZnID0g
+cG9ydC0+Y2ZnOworCisJaWYgKHBvcnQtPnBvcnRfdHlwZSA9PSBGTUFOX1BPUlRfVFlQRV9SWCkg
+eworCQkvKiBDYWxsIHRoZSBleHRlcm5hbCBCdWZmZXIgcm91dGluZSB3aGljaCBhbHNvIGNoZWNr
+cyBmaWZvCisJCSAqIHNpemUgYW5kIHVwZGF0ZXMgaXQgaWYgbmVjZXNzYXJ5CisJCSAqLworCQkv
+KiBkZWZpbmUgZXh0ZXJuYWwgYnVmZmVyIHBvb2xzIGFuZCBwb29sIGRlcGxldGlvbiAqLworCQll
+cnIgPSBzZXRfZXh0X2J1ZmZlcl9wb29scyhwb3J0KTsKKwkJaWYgKGVycikKKwkJCXJldHVybiBl
+cnI7CisJCS8qIGNoZWNrIGlmIHRoZSBsYXJnZXN0IGV4dGVybmFsIGJ1ZmZlciBwb29sIGlzIGxh
+cmdlIGVub3VnaCAqLworCQlpZiAoY2ZnLT5idWZfbWFyZ2lucy5zdGFydF9tYXJnaW5zICsgTUlO
+X0VYVF9CVUZfU0laRSArCisJCSAgICBjZmctPmJ1Zl9tYXJnaW5zLmVuZF9tYXJnaW5zID4KKwkJ
+ICAgIHBvcnQtPnJ4X3Bvb2xzX3BhcmFtcy5sYXJnZXN0X2J1Zl9zaXplKSB7CisJCQlkZXZfZXJy
+KHBvcnQtPmRldiwgIiVzOiBidWZfbWFyZ2lucy5zdGFydF9tYXJnaW5zICglZCkgKyBtaW5pbXVt
+IGJ1ZiBzaXplICg2NCkgKyBidWZfbWFyZ2lucy5lbmRfbWFyZ2lucyAoJWQpIGlzIGxhcmdlciB0
+aGFuIG1heGltdW0gZXh0ZXJuYWwgYnVmZmVyIHNpemUgKCVkKVxuIiwKKwkJCQlfX2Z1bmNfXywg
+Y2ZnLT5idWZfbWFyZ2lucy5zdGFydF9tYXJnaW5zLAorCQkJCWNmZy0+YnVmX21hcmdpbnMuZW5k
+X21hcmdpbnMsCisJCQkJcG9ydC0+cnhfcG9vbHNfcGFyYW1zLmxhcmdlc3RfYnVmX3NpemUpOwor
+CQkJcmV0dXJuIC1FSU5WQUw7CisJCX0KKwl9CisKKwkvKiBDYWxsIEZNIG1vZHVsZSByb3V0aW5l
+IGZvciBjb21tdW5pY2F0aW5nIHBhcmFtZXRlcnMgKi8KKwltZW1zZXQoJnBhcmFtcywgMCwgc2l6
+ZW9mKHBhcmFtcykpOworCXBhcmFtcy5wb3J0X2lkID0gcG9ydC0+cG9ydF9pZDsKKwlwYXJhbXMu
+cG9ydF90eXBlID0gcG9ydC0+cG9ydF90eXBlOworCXBhcmFtcy5wb3J0X3NwZWVkID0gcG9ydC0+
+cG9ydF9zcGVlZDsKKwlwYXJhbXMubnVtX29mX3Rhc2tzID0gKHU4KXBvcnQtPnRhc2tzLm51bTsK
+KwlwYXJhbXMubnVtX29mX2V4dHJhX3Rhc2tzID0gKHU4KXBvcnQtPnRhc2tzLmV4dHJhOworCXBh
+cmFtcy5udW1fb2Zfb3Blbl9kbWFzID0gKHU4KXBvcnQtPm9wZW5fZG1hcy5udW07CisJcGFyYW1z
+Lm51bV9vZl9leHRyYV9vcGVuX2RtYXMgPSAodTgpcG9ydC0+b3Blbl9kbWFzLmV4dHJhOworCisJ
+aWYgKHBvcnQtPmZpZm9fYnVmcy5udW0pIHsKKwkJZXJyID0gdmVyaWZ5X3NpemVfb2ZfZmlmbyhw
+b3J0KTsKKwkJaWYgKGVycikKKwkJCXJldHVybiBlcnI7CisJfQorCXBhcmFtcy5zaXplX29mX2Zp
+Zm8gPSBwb3J0LT5maWZvX2J1ZnMubnVtOworCXBhcmFtcy5leHRyYV9zaXplX29mX2ZpZm8gPSBw
+b3J0LT5maWZvX2J1ZnMuZXh0cmE7CisJcGFyYW1zLmRlcV9waXBlbGluZV9kZXB0aCA9IHBvcnQt
+PmNmZy0+dHhfZmlmb19kZXFfcGlwZWxpbmVfZGVwdGg7CisJcGFyYW1zLm1heF9mcmFtZV9sZW5n
+dGggPSBwb3J0LT5tYXhfZnJhbWVfbGVuZ3RoOworCisJZXJyID0gZm1hbl9zZXRfcG9ydF9wYXJh
+bXMocG9ydC0+Zm0sICZwYXJhbXMpOworCWlmIChlcnIpCisJCXJldHVybiBlcnI7CisKKwllcnIg
+PSBpbml0X2xvd19sZXZlbF9kcml2ZXIocG9ydCk7CisJaWYgKGVycikKKwkJcmV0dXJuIGVycjsK
+KworCWtmcmVlKHBvcnQtPmNmZyk7CisJcG9ydC0+Y2ZnID0gTlVMTDsKKworCXJldHVybiAwOwor
+fQorRVhQT1JUX1NZTUJPTChmbWFuX3BvcnRfaW5pdCk7CisKKy8qKgorICogZm1hbl9wb3J0X2Nm
+Z19idWZfcHJlZml4X2NvbnRlbnQKKyAqIEBwb3J0CQkJQSBwb2ludGVyIHRvIGEgRk0gUG9ydCBt
+b2R1bGUuCisgKiBAYnVmZmVyX3ByZWZpeF9jb250ZW50CUEgc3RydWN0dXJlIG9mIHBhcmFtZXRl
+cnMgZGVzY3JpYmluZworICoJCQkJdGhlIHN0cnVjdHVyZSBvZiB0aGUgYnVmZmVyLgorICoJCQkJ
+T3V0IHBhcmFtZXRlcjoKKyAqCQkJCVN0YXJ0IG1hcmdpbiAtIG9mZnNldCBvZiBkYXRhIGZyb20K
+KyAqCQkJCXN0YXJ0IG9mIGV4dGVybmFsIGJ1ZmZlci4KKyAqIERlZmluZXMgdGhlIHN0cnVjdHVy
+ZSwgc2l6ZSBhbmQgY29udGVudCBvZiB0aGUgYXBwbGljYXRpb24gYnVmZmVyLgorICogVGhlIHBy
+ZWZpeCwgaW4gVHggcG9ydHMsIGlmICdwYXNzX3Byc19yZXN1bHQnLCB0aGUgYXBwbGljYXRpb24g
+c2hvdWxkIHNldAorICogYSB2YWx1ZSB0byB0aGVpciBvZmZzZXRzIGluIHRoZSBwcmVmaXggb2Yg
+dGhlIEZNIHdpbGwgc2F2ZSB0aGUgZmlyc3QKKyAqICdwcml2X2RhdGFfc2l6ZScsIHRoYW4sIGRl
+cGVuZGluZyBvbiAncGFzc19wcnNfcmVzdWx0JyBhbmQKKyAqICdwYXNzX3RpbWVfc3RhbXAnLCBj
+b3B5IHBhcnNlIHJlc3VsdCBhbmQgdGltZVN0YW1wLCBhbmQgdGhlIHBhY2tldCBpdHNlbGYKKyAq
+IChpbiB0aGlzIG9yZGVyKSwgdG8gdGhlIGFwcGxpY2F0aW9uIGJ1ZmZlciwgYW5kIHRvIG9mZnNl
+dC4KKyAqIENhbGxpbmcgdGhpcyByb3V0aW5lIGNoYW5nZXMgdGhlIGJ1ZmZlciBtYXJnaW5zIGRl
+ZmluaXRpb25zIGluIHRoZSBpbnRlcm5hbAorICogZHJpdmVyIGRhdGEgYmFzZSBmcm9tIGl0cyBk
+ZWZhdWx0IGNvbmZpZ3VyYXRpb246CisgKiBEYXRhIHNpemU6ICBbREVGQVVMVF9QT1JUX0JVRkZF
+Ul9QUkVGSVhfQ09OVEVOVF9QUklWX0RBVEFfU0laRV0KKyAqIFBhc3MgUGFyc2VyIHJlc3VsdDog
+W0RFRkFVTFRfUE9SVF9CVUZGRVJfUFJFRklYX0NPTlRFTlRfUEFTU19QUlNfUkVTVUxUXS4KKyAq
+IFBhc3MgdGltZXN0YW1wOiBbREVGQVVMVF9QT1JUX0JVRkZFUl9QUkVGSVhfQ09OVEVOVF9QQVNT
+X1RJTUVfU1RBTVBdLgorICogTWF5IGJlIHVzZWQgZm9yIGFsbCBwb3J0cworICoKKyAqIEFsbG93
+ZWQgb25seSBmb2xsb3dpbmcgZm1hbl9wb3J0X2NvbmZpZygpIGFuZCBiZWZvcmUgZm1hbl9wb3J0
+X2luaXQoKS4KKyAqCisgKiBSZXR1cm46IDAgb24gc3VjY2VzczsgRXJyb3IgY29kZSBvdGhlcndp
+c2UuCisgKi8KK2ludCBmbWFuX3BvcnRfY2ZnX2J1Zl9wcmVmaXhfY29udGVudChzdHJ1Y3QgZm1h
+bl9wb3J0ICpwb3J0LAorCQkJCSAgICAgc3RydWN0IGZtYW5fYnVmZmVyX3ByZWZpeF9jb250ZW50
+ICoKKwkJCQkgICAgIGJ1ZmZlcl9wcmVmaXhfY29udGVudCkKK3sKKwlpZiAoaXNfaW5pdF9kb25l
+KHBvcnQtPmNmZykpCisJCXJldHVybiAtRUlOVkFMOworCisJbWVtY3B5KCZwb3J0LT5jZmctPmJ1
+ZmZlcl9wcmVmaXhfY29udGVudCwKKwkgICAgICAgYnVmZmVyX3ByZWZpeF9jb250ZW50LAorCSAg
+ICAgICBzaXplb2Yoc3RydWN0IGZtYW5fYnVmZmVyX3ByZWZpeF9jb250ZW50KSk7CisJLyogaWYg
+ZGF0YV9hbGlnbiB3YXMgbm90IGluaXRpYWxpemVkIGJ5IHVzZXIsCisJICogd2UgcmV0dXJuIHRv
+IGRyaXZlcidzIGRlZmF1bHQKKwkgKi8KKwlpZiAoIXBvcnQtPmNmZy0+YnVmZmVyX3ByZWZpeF9j
+b250ZW50LmRhdGFfYWxpZ24pCisJCXBvcnQtPmNmZy0+YnVmZmVyX3ByZWZpeF9jb250ZW50LmRh
+dGFfYWxpZ24gPQorCQlERkxUX1BPUlRfQlVGRkVSX1BSRUZJWF9DT05URVhUX0RBVEFfQUxJR047
+CisKKwlyZXR1cm4gMDsKK30KK0VYUE9SVF9TWU1CT0woZm1hbl9wb3J0X2NmZ19idWZfcHJlZml4
+X2NvbnRlbnQpOworCisvKioKKyAqIGZtYW5fcG9ydF9kaXNhYmxlCisgKiBwb3J0OglBIHBvaW50
+ZXIgdG8gYSBGTSBQb3J0IG1vZHVsZS4KKyAqCisgKiBHcmFjZWZ1bGx5IGRpc2FibGUgYW4gRk0g
+cG9ydC4gVGhlIHBvcnQgd2lsbCBub3Qgc3RhcnQgbmV3CXRhc2tzIGFmdGVyIGFsbAorICogdGFz
+a3MgYXNzb2NpYXRlZCB3aXRoIHRoZSBwb3J0IGFyZSB0ZXJtaW5hdGVkLgorICoKKyAqIFRoaXMg
+aXMgYSBibG9ja2luZyByb3V0aW5lLCBpdCByZXR1cm5zIGFmdGVyIHBvcnQgaXMgZ3JhY2VmdWxs
+eSBzdG9wcGVkLAorICogaS5lLiB0aGUgcG9ydCB3aWxsIG5vdCBleGNlcHQgbmV3IGZyYW1lcywg
+YnV0IGl0IHdpbGwgZmluaXNoIGFsbCBmcmFtZXMKKyAqIG9yIHRhc2tzIHdoaWNoIHdlcmUgYWxy
+ZWFkeSBiZWdhbi4KKyAqIEFsbG93ZWQgb25seSBmb2xsb3dpbmcgZm1hbl9wb3J0X2luaXQoKS4K
+KyAqCisgKiBSZXR1cm46IDAgb24gc3VjY2VzczsgRXJyb3IgY29kZSBvdGhlcndpc2UuCisgKi8K
+K2ludCBmbWFuX3BvcnRfZGlzYWJsZShzdHJ1Y3QgZm1hbl9wb3J0ICpwb3J0KQoreworCXUzMiBf
+X2lvbWVtICpibWlfY2ZnX3JlZywgKmJtaV9zdGF0dXNfcmVnLCB0bXA7CisJYm9vbCByeF9wb3J0
+LCBmYWlsdXJlID0gZmFsc2U7CisJaW50IGNvdW50OworCisJaWYgKCFpc19pbml0X2RvbmUocG9y
+dC0+Y2ZnKSkKKwkJcmV0dXJuIC1FSU5WQUw7CisKKwlzd2l0Y2ggKHBvcnQtPnBvcnRfdHlwZSkg
+eworCWNhc2UgRk1BTl9QT1JUX1RZUEVfUlg6CisJCWJtaV9jZmdfcmVnID0gJnBvcnQtPmJtaV9y
+ZWdzLT5yeC5mbWJtX3JjZmc7CisJCWJtaV9zdGF0dXNfcmVnID0gJnBvcnQtPmJtaV9yZWdzLT5y
+eC5mbWJtX3JzdDsKKwkJcnhfcG9ydCA9IHRydWU7CisJCWJyZWFrOworCWNhc2UgRk1BTl9QT1JU
+X1RZUEVfVFg6CisJCWJtaV9jZmdfcmVnID0gJnBvcnQtPmJtaV9yZWdzLT50eC5mbWJtX3RjZmc7
+CisJCWJtaV9zdGF0dXNfcmVnID0gJnBvcnQtPmJtaV9yZWdzLT50eC5mbWJtX3RzdDsKKwkJcnhf
+cG9ydCA9IGZhbHNlOworCQlicmVhazsKKwlkZWZhdWx0OgorCQlyZXR1cm4gLUVJTlZBTDsKKwl9
+CisKKwkvKiBEaXNhYmxlIFFNSSAqLworCWlmICghcnhfcG9ydCkgeworCQl0bXAgPSBpb3JlYWQz
+MmJlKCZwb3J0LT5xbWlfcmVncy0+Zm1xbV9wbmMpICYgflFNSV9QT1JUX0NGR19FTjsKKwkJaW93
+cml0ZTMyYmUodG1wLCAmcG9ydC0+cW1pX3JlZ3MtPmZtcW1fcG5jKTsKKworCQkvKiBXYWl0IGZv
+ciBRTUkgdG8gZmluaXNoIEZEIGhhbmRsaW5nICovCisJCWNvdW50ID0gMTAwOworCQlkbyB7CisJ
+CQl1ZGVsYXkoMTApOworCQkJdG1wID0gaW9yZWFkMzJiZSgmcG9ydC0+cW1pX3JlZ3MtPmZtcW1f
+cG5zKTsKKwkJfSB3aGlsZSAoKHRtcCAmIFFNSV9QT1JUX1NUQVRVU19ERVFfRkRfQlNZKSAmJiAt
+LWNvdW50KTsKKworCQlpZiAoY291bnQgPT0gMCkgeworCQkJLyogVGltZW91dCAqLworCQkJZmFp
+bHVyZSA9IHRydWU7CisJCX0KKwl9CisKKwkvKiBEaXNhYmxlIEJNSSAqLworCXRtcCA9IGlvcmVh
+ZDMyYmUoYm1pX2NmZ19yZWcpICYgfkJNSV9QT1JUX0NGR19FTjsKKwlpb3dyaXRlMzJiZSh0bXAs
+IGJtaV9jZmdfcmVnKTsKKworCS8qIFdhaXQgZm9yIGdyYWNlZnVsIHN0b3AgZW5kICovCisJY291
+bnQgPSA1MDA7CisJZG8geworCQl1ZGVsYXkoMTApOworCQl0bXAgPSBpb3JlYWQzMmJlKGJtaV9z
+dGF0dXNfcmVnKTsKKwl9IHdoaWxlICgodG1wICYgQk1JX1BPUlRfU1RBVFVTX0JTWSkgJiYgLS1j
+b3VudCk7CisKKwlpZiAoY291bnQgPT0gMCkgeworCQkvKiBUaW1lb3V0ICovCisJCWZhaWx1cmUg
+PSB0cnVlOworCX0KKworCWlmIChmYWlsdXJlKQorCQlkZXZfZGJnKHBvcnQtPmRldiwgIiVzOiBG
+TWFuIFBvcnRbJWRdOiBCTUkgb3IgUU1JIGlzIEJ1c3kuIFBvcnQgZm9yY2VkIGRvd25cbiIsCisJ
+CQlfX2Z1bmNfXywgIHBvcnQtPnBvcnRfaWQpOworCisJcmV0dXJuIDA7Cit9CitFWFBPUlRfU1lN
+Qk9MKGZtYW5fcG9ydF9kaXNhYmxlKTsKKworLyoqCisgKiBmbWFuX3BvcnRfZW5hYmxlCisgKiBw
+b3J0OglBIHBvaW50ZXIgdG8gYSBGTSBQb3J0IG1vZHVsZS4KKyAqCisgKiBBIHJ1bnRpbWUgcm91
+dGluZSBwcm92aWRlZCB0byBhbGxvdyBkaXNhYmxlL2VuYWJsZSBvZiBwb3J0LgorICoKKyAqIEFs
+bG93ZWQgb25seSBmb2xsb3dpbmcgZm1hbl9wb3J0X2luaXQoKS4KKyAqCisgKiBSZXR1cm46IDAg
+b24gc3VjY2VzczsgRXJyb3IgY29kZSBvdGhlcndpc2UuCisgKi8KK2ludCBmbWFuX3BvcnRfZW5h
+YmxlKHN0cnVjdCBmbWFuX3BvcnQgKnBvcnQpCit7CisJdTMyIF9faW9tZW0gKmJtaV9jZmdfcmVn
+LCB0bXA7CisJYm9vbCByeF9wb3J0OworCisJaWYgKCFpc19pbml0X2RvbmUocG9ydC0+Y2ZnKSkK
+KwkJcmV0dXJuIC1FSU5WQUw7CisKKwlzd2l0Y2ggKHBvcnQtPnBvcnRfdHlwZSkgeworCWNhc2Ug
+Rk1BTl9QT1JUX1RZUEVfUlg6CisJCWJtaV9jZmdfcmVnID0gJnBvcnQtPmJtaV9yZWdzLT5yeC5m
+bWJtX3JjZmc7CisJCXJ4X3BvcnQgPSB0cnVlOworCQlicmVhazsKKwljYXNlIEZNQU5fUE9SVF9U
+WVBFX1RYOgorCQlibWlfY2ZnX3JlZyA9ICZwb3J0LT5ibWlfcmVncy0+dHguZm1ibV90Y2ZnOwor
+CQlyeF9wb3J0ID0gZmFsc2U7CisJCWJyZWFrOworCWRlZmF1bHQ6CisJCXJldHVybiAtRUlOVkFM
+OworCX0KKworCS8qIEVuYWJsZSBRTUkgKi8KKwlpZiAoIXJ4X3BvcnQpIHsKKwkJdG1wID0gaW9y
+ZWFkMzJiZSgmcG9ydC0+cW1pX3JlZ3MtPmZtcW1fcG5jKSB8IFFNSV9QT1JUX0NGR19FTjsKKwkJ
+aW93cml0ZTMyYmUodG1wLCAmcG9ydC0+cW1pX3JlZ3MtPmZtcW1fcG5jKTsKKwl9CisKKwkvKiBF
+bmFibGUgQk1JICovCisJdG1wID0gaW9yZWFkMzJiZShibWlfY2ZnX3JlZykgfCBCTUlfUE9SVF9D
+RkdfRU47CisJaW93cml0ZTMyYmUodG1wLCBibWlfY2ZnX3JlZyk7CisKKwlyZXR1cm4gMDsKK30K
+K0VYUE9SVF9TWU1CT0woZm1hbl9wb3J0X2VuYWJsZSk7CisKKy8qKgorICogZm1hbl9wb3J0X2Jp
+bmQKKyAqIGRldjoJCUZNYW4gUG9ydCBPRiBkZXZpY2UgcG9pbnRlcgorICoKKyAqIEJpbmQgdG8g
+YSBzcGVjaWZpYyBGTWFuIFBvcnQuCisgKgorICogQWxsb3dlZCBvbmx5IGFmdGVyIHRoZSBwb3J0
+IHdhcyBjcmVhdGVkLgorICoKKyAqIFJldHVybjogQSBwb2ludGVyIHRvIHRoZSBGTWFuIHBvcnQg
+ZGV2aWNlLgorICovCitzdHJ1Y3QgZm1hbl9wb3J0ICpmbWFuX3BvcnRfYmluZChzdHJ1Y3QgZGV2
+aWNlICpkZXYpCit7CisJcmV0dXJuIChzdHJ1Y3QgZm1hbl9wb3J0ICopKGRldl9nZXRfZHJ2ZGF0
+YShnZXRfZGV2aWNlKGRldikpKTsKK30KK0VYUE9SVF9TWU1CT0woZm1hbl9wb3J0X2JpbmQpOwor
+CisvKioKKyAqIGZtYW5fcG9ydF9nZXRfcW1hbl9jaGFubmVsX2lkCisgKiBwb3J0OglQb2ludGVy
+IHRvIHRoZSBGTWFuIHBvcnQgZGV2dWNlCisgKgorICogR2V0IHRoZSBRTWFuIGNoYW5uZWwgSUQg
+Zm9yIHRoZSBzcGVjaWZpYyBwb3J0CisgKgorICogUmV0dXJuOiBRTWFuIGNoYW5uZWwgSUQKKyAq
+LwordTMyIGZtYW5fcG9ydF9nZXRfcW1hbl9jaGFubmVsX2lkKHN0cnVjdCBmbWFuX3BvcnQgKnBv
+cnQpCit7CisJcmV0dXJuIHBvcnQtPmR0c19wYXJhbXMucW1hbl9jaGFubmVsX2lkOworfQorRVhQ
+T1JUX1NZTUJPTChmbWFuX3BvcnRfZ2V0X3FtYW5fY2hhbm5lbF9pZCk7CisKK3N0YXRpYyBpbnQg
+Zm1hbl9wb3J0X3Byb2JlKHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UgKm9mX2RldikKK3sKKwlzdHJ1
+Y3QgZm1hbl9wb3J0ICpwb3J0OworCXN0cnVjdCBmbWFuICpmbWFuOworCXN0cnVjdCBkZXZpY2Vf
+bm9kZSAqZm1fbm9kZSwgKnBvcnRfbm9kZTsKKwlzdHJ1Y3QgcmVzb3VyY2UgcmVzOworCXN0cnVj
+dCByZXNvdXJjZSAqZGV2X3JlczsKKwljb25zdCB1MzIgKnUzMl9wcm9wOworCWludCBlcnIgPSAw
+LCBsZW5wOworCWVudW0gZm1hbl9wb3J0X3R5cGUgcG9ydF90eXBlOworCXUxNiBwb3J0X3NwZWVk
+OworCXU4IHBvcnRfaWQ7CisKKwlwb3J0ID0ga3phbGxvYyhzaXplb2YoKnBvcnQpLCBHRlBfS0VS
+TkVMKTsKKwlpZiAoIXBvcnQpCisJCXJldHVybiAtRU5PTUVNOworCisJcG9ydC0+ZGV2ID0gJm9m
+X2Rldi0+ZGV2OworCisJcG9ydF9ub2RlID0gb2Zfbm9kZV9nZXQob2ZfZGV2LT5kZXYub2Zfbm9k
+ZSk7CisKKwkvKiBHZXQgdGhlIEZNIG5vZGUgKi8KKwlmbV9ub2RlID0gb2ZfZ2V0X3BhcmVudChw
+b3J0X25vZGUpOworCWlmICghZm1fbm9kZSkgeworCQlkZXZfZXJyKHBvcnQtPmRldiwgIiVzOiBv
+Zl9nZXRfcGFyZW50KCkgZmFpbGVkXG4iLCBfX2Z1bmNfXyk7CisJCWVyciA9IC1FTk9ERVY7CisJ
+CWdvdG8gcmV0dXJuX2VycjsKKwl9CisKKwlmbWFuID0gZGV2X2dldF9kcnZkYXRhKCZvZl9maW5k
+X2RldmljZV9ieV9ub2RlKGZtX25vZGUpLT5kZXYpOworCW9mX25vZGVfcHV0KGZtX25vZGUpOwor
+CWlmICghZm1hbikgeworCQllcnIgPSAtRUlOVkFMOworCQlnb3RvIHJldHVybl9lcnI7CisJfQor
+CisJdTMyX3Byb3AgPSAoY29uc3QgdTMyICopb2ZfZ2V0X3Byb3BlcnR5KHBvcnRfbm9kZSwgImNl
+bGwtaW5kZXgiLCAmbGVucCk7CisJaWYgKCF1MzJfcHJvcCkgeworCQlkZXZfZXJyKHBvcnQtPmRl
+diwgIiVzOiBvZl9nZXRfcHJvcGVydHkoJXMsIGNlbGwtaW5kZXgpIGZhaWxlZFxuIiwKKwkJCV9f
+ZnVuY19fLCBwb3J0X25vZGUtPmZ1bGxfbmFtZSk7CisJCWVyciA9IC1FSU5WQUw7CisJCWdvdG8g
+cmV0dXJuX2VycjsKKwl9CisJaWYgKFdBUk5fT04obGVucCAhPSBzaXplb2YodTMyKSkpIHsKKwkJ
+ZXJyID0gLUVJTlZBTDsKKwkJZ290byByZXR1cm5fZXJyOworCX0KKwlwb3J0X2lkID0gKHU4KSp1
+MzJfcHJvcDsKKworCXBvcnQtPmR0c19wYXJhbXMuaWQgPSBwb3J0X2lkOworCisJaWYgKG9mX2Rl
+dmljZV9pc19jb21wYXRpYmxlKHBvcnRfbm9kZSwgImZzbCxmbWFuLXYzLXBvcnQtdHgiKSkgewor
+CQlwb3J0X3R5cGUgPSBGTUFOX1BPUlRfVFlQRV9UWDsKKwkJcG9ydF9zcGVlZCA9IDEwMDA7CisJ
+CXUzMl9wcm9wID0gKGNvbnN0IHUzMiAqKW9mX2dldF9wcm9wZXJ0eShwb3J0X25vZGUsCisJCQkJ
+CQkJImZzbCxmbWFuLTEwZy1wb3J0IiwKKwkJCQkJCQkmbGVucCk7CisJCWlmICh1MzJfcHJvcCkK
+KwkJCXBvcnRfc3BlZWQgPSAxMDAwMDsKKworCX0gZWxzZSBpZiAob2ZfZGV2aWNlX2lzX2NvbXBh
+dGlibGUocG9ydF9ub2RlLCAiZnNsLGZtYW4tdjItcG9ydC10eCIpKSB7CisJCWlmIChwb3J0X2lk
+ID49IFRYXzEwR19QT1JUX0JBU0UpCisJCQlwb3J0X3NwZWVkID0gMTAwMDA7CisJCWVsc2UKKwkJ
+CXBvcnRfc3BlZWQgPSAxMDAwOworCQlwb3J0X3R5cGUgPSBGTUFOX1BPUlRfVFlQRV9UWDsKKwor
+CX0gZWxzZSBpZiAob2ZfZGV2aWNlX2lzX2NvbXBhdGlibGUocG9ydF9ub2RlLCAiZnNsLGZtYW4t
+djMtcG9ydC1yeCIpKSB7CisJCXBvcnRfdHlwZSA9IEZNQU5fUE9SVF9UWVBFX1JYOworCQlwb3J0
+X3NwZWVkID0gMTAwMDsKKwkJdTMyX3Byb3AgPSAoY29uc3QgdTMyICopb2ZfZ2V0X3Byb3BlcnR5
+KHBvcnRfbm9kZSwKKwkJCQkJCSAgImZzbCxmbWFuLTEwZy1wb3J0IiwgJmxlbnApOworCQlpZiAo
+dTMyX3Byb3ApCisJCQlwb3J0X3NwZWVkID0gMTAwMDA7CisKKwl9IGVsc2UgaWYgKG9mX2Rldmlj
+ZV9pc19jb21wYXRpYmxlKHBvcnRfbm9kZSwgImZzbCxmbWFuLXYyLXBvcnQtcngiKSkgeworCQlp
+ZiAocG9ydF9pZCA+PSBSWF8xMEdfUE9SVF9CQVNFKQorCQkJcG9ydF9zcGVlZCA9IDEwMDAwOwor
+CQllbHNlCisJCQlwb3J0X3NwZWVkID0gMTAwMDsKKwkJcG9ydF90eXBlID0gRk1BTl9QT1JUX1RZ
+UEVfUlg7CisKKwl9ICBlbHNlIHsKKwkJZGV2X2Vycihwb3J0LT5kZXYsICIlczogSWxsZWdhbCBw
+b3J0IHR5cGVcbiIsIF9fZnVuY19fKTsKKwkJZXJyID0gLUVJTlZBTDsKKwkJZ290byByZXR1cm5f
+ZXJyOworCX0KKworCXBvcnQtPmR0c19wYXJhbXMudHlwZSA9IHBvcnRfdHlwZTsKKwlwb3J0LT5k
+dHNfcGFyYW1zLnNwZWVkID0gcG9ydF9zcGVlZDsKKworCWlmIChwb3J0X3R5cGUgPT0gRk1BTl9Q
+T1JUX1RZUEVfVFgpIHsKKwkJdTMyIHFtYW5fY2hhbm5lbF9pZDsKKworCQlxbWFuX2NoYW5uZWxf
+aWQgPSBmbWFuX2dldF9xbWFuX2NoYW5uZWxfaWQoZm1hbiwgcG9ydF9pZCk7CisJCWlmIChxbWFu
+X2NoYW5uZWxfaWQgPT0gMCkgeworCQkJZGV2X2Vycihwb3J0LT5kZXYsICIlczogaW5jb3JyZWN0
+IHFtYW4tY2hhbm5lbC1pZFxuIiwKKwkJCQlfX2Z1bmNfXyk7CisJCQllcnIgPSAtRUlOVkFMOwor
+CQkJZ290byByZXR1cm5fZXJyOworCQl9CisJCXBvcnQtPmR0c19wYXJhbXMucW1hbl9jaGFubmVs
+X2lkID0gcW1hbl9jaGFubmVsX2lkOworCX0KKworCWVyciA9IG9mX2FkZHJlc3NfdG9fcmVzb3Vy
+Y2UocG9ydF9ub2RlLCAwLCAmcmVzKTsKKwlpZiAoZXJyIDwgMCkgeworCQlkZXZfZXJyKHBvcnQt
+PmRldiwgIiVzOiBvZl9hZGRyZXNzX3RvX3Jlc291cmNlKCkgZmFpbGVkXG4iLAorCQkJX19mdW5j
+X18pOworCQllcnIgPSAtRU5PTUVNOworCQlnb3RvIHJldHVybl9lcnI7CisJfQorCisJcG9ydC0+
+ZHRzX3BhcmFtcy5mbWFuID0gZm1hbjsKKworCW9mX25vZGVfcHV0KHBvcnRfbm9kZSk7CisKKwlk
+ZXZfcmVzID0gX19kZXZtX3JlcXVlc3RfcmVnaW9uKGZtYW5fZ2V0X2RldmljZShmbWFuKSwgJnJl
+cywKKwkJCQkJcmVzLnN0YXJ0LCByZXNvdXJjZV9zaXplKCZyZXMpLAorCQkJCQkiZm1hbi1wb3J0
+Iik7CisJaWYgKCFkZXZfcmVzKSB7CisJCWRldl9lcnIocG9ydC0+ZGV2LCAiJXM6IF9fZGV2bV9y
+ZXF1ZXN0X3JlZ2lvbigpIGZhaWxlZFxuIiwKKwkJCV9fZnVuY19fKTsKKwkJZXJyID0gLUVJTlZB
+TDsKKwkJZ290byBmcmVlX3BvcnQ7CisJfQorCisJcG9ydC0+ZHRzX3BhcmFtcy5iYXNlX2FkZHIg
+PSBkZXZtX2lvcmVtYXAoZm1hbl9nZXRfZGV2aWNlKGZtYW4pLAorCQkJCQkJICByZXMuc3RhcnQs
+CisJCQkJCQkgIHJlc291cmNlX3NpemUoJnJlcykpOworCWlmIChwb3J0LT5kdHNfcGFyYW1zLmJh
+c2VfYWRkciA9PSAwKQorCQlkZXZfZXJyKHBvcnQtPmRldiwgIiVzOiBkZXZtX2lvcmVtYXAoKSBm
+YWlsZWRcbiIsIF9fZnVuY19fKTsKKworCWRldl9zZXRfZHJ2ZGF0YSgmb2ZfZGV2LT5kZXYsIHBv
+cnQpOworCisJcmV0dXJuIDA7CisKK3JldHVybl9lcnI6CisJb2Zfbm9kZV9wdXQocG9ydF9ub2Rl
+KTsKK2ZyZWVfcG9ydDoKKwlrZnJlZShwb3J0KTsKKwlyZXR1cm4gZXJyOworfQorCitzdGF0aWMg
+Y29uc3Qgc3RydWN0IG9mX2RldmljZV9pZCBmbWFuX3BvcnRfbWF0Y2hbXSA9IHsKKwl7LmNvbXBh
+dGlibGUgPSAiZnNsLGZtYW4tdjMtcG9ydC1yeCJ9LAorCXsuY29tcGF0aWJsZSA9ICJmc2wsZm1h
+bi12Mi1wb3J0LXJ4In0sCisJey5jb21wYXRpYmxlID0gImZzbCxmbWFuLXYzLXBvcnQtdHgifSwK
+Kwl7LmNvbXBhdGlibGUgPSAiZnNsLGZtYW4tdjItcG9ydC10eCJ9LAorCXt9Cit9OworCitNT0RV
+TEVfREVWSUNFX1RBQkxFKG9mLCBmbWFuX3BvcnRfbWF0Y2gpOworCitzdGF0aWMgc3RydWN0IHBs
+YXRmb3JtX2RyaXZlciBmbWFuX3BvcnRfZHJpdmVyID0geworCS5kcml2ZXIgPSB7CisJCS5uYW1l
+ID0gImZzbC1mbWFuLXBvcnQiLAorCQkub2ZfbWF0Y2hfdGFibGUgPSBmbWFuX3BvcnRfbWF0Y2gs
+CisJfSwKKwkucHJvYmUgPSBmbWFuX3BvcnRfcHJvYmUsCit9OworCitidWlsdGluX3BsYXRmb3Jt
+X2RyaXZlcihmbWFuX3BvcnRfZHJpdmVyKTsKKwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9wb3J0LmggYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9m
+cmVlc2NhbGUvZm1hbi9mbWFuX3BvcnQuaApuZXcgZmlsZSBtb2RlIDEwMDY0NAppbmRleCAwMDAw
+MDAwLi44YmE5MDE3Ci0tLSAvZGV2L251bGwKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
+ZXNjYWxlL2ZtYW4vZm1hbl9wb3J0LmgKQEAgLTAsMCArMSwxNTEgQEAKKy8qCisgKiBDb3B5cmln
+aHQgMjAwOCAtIDIwMTUgRnJlZXNjYWxlIFNlbWljb25kdWN0b3IgSW5jLgorICoKKyAqIFJlZGlz
+dHJpYnV0aW9uIGFuZCB1c2UgaW4gc291cmNlIGFuZCBiaW5hcnkgZm9ybXMsIHdpdGggb3Igd2l0
+aG91dAorICogbW9kaWZpY2F0aW9uLCBhcmUgcGVybWl0dGVkIHByb3ZpZGVkIHRoYXQgdGhlIGZv
+bGxvd2luZyBjb25kaXRpb25zIGFyZSBtZXQ6CisgKiAgICAgKiBSZWRpc3RyaWJ1dGlvbnMgb2Yg
+c291cmNlIGNvZGUgbXVzdCByZXRhaW4gdGhlIGFib3ZlIGNvcHlyaWdodAorICogICAgICAgbm90
+aWNlLCB0aGlzIGxpc3Qgb2YgY29uZGl0aW9ucyBhbmQgdGhlIGZvbGxvd2luZyBkaXNjbGFpbWVy
+LgorICogICAgICogUmVkaXN0cmlidXRpb25zIGluIGJpbmFyeSBmb3JtIG11c3QgcmVwcm9kdWNl
+IHRoZSBhYm92ZSBjb3B5cmlnaHQKKyAqICAgICAgIG5vdGljZSwgdGhpcyBsaXN0IG9mIGNvbmRp
+dGlvbnMgYW5kIHRoZSBmb2xsb3dpbmcgZGlzY2xhaW1lciBpbiB0aGUKKyAqICAgICAgIGRvY3Vt
+ZW50YXRpb24gYW5kL29yIG90aGVyIG1hdGVyaWFscyBwcm92aWRlZCB3aXRoIHRoZSBkaXN0cmli
+dXRpb24uCisgKiAgICAgKiBOZWl0aGVyIHRoZSBuYW1lIG9mIEZyZWVzY2FsZSBTZW1pY29uZHVj
+dG9yIG5vciB0aGUKKyAqICAgICAgIG5hbWVzIG9mIGl0cyBjb250cmlidXRvcnMgbWF5IGJlIHVz
+ZWQgdG8gZW5kb3JzZSBvciBwcm9tb3RlIHByb2R1Y3RzCisgKiAgICAgICBkZXJpdmVkIGZyb20g
+dGhpcyBzb2Z0d2FyZSB3aXRob3V0IHNwZWNpZmljIHByaW9yIHdyaXR0ZW4gcGVybWlzc2lvbi4K
+KyAqCisgKgorICogQUxURVJOQVRJVkVMWSwgdGhpcyBzb2Z0d2FyZSBtYXkgYmUgZGlzdHJpYnV0
+ZWQgdW5kZXIgdGhlIHRlcm1zIG9mIHRoZQorICogR05VIEdlbmVyYWwgUHVibGljIExpY2Vuc2Ug
+KCJHUEwiKSBhcyBwdWJsaXNoZWQgYnkgdGhlIEZyZWUgU29mdHdhcmUKKyAqIEZvdW5kYXRpb24s
+IGVpdGhlciB2ZXJzaW9uIDIgb2YgdGhhdCBMaWNlbnNlIG9yIChhdCB5b3VyIG9wdGlvbikgYW55
+CisgKiBsYXRlciB2ZXJzaW9uLgorICoKKyAqIFRISVMgU09GVFdBUkUgSVMgUFJPVklERUQgQlkg
+RnJlZXNjYWxlIFNlbWljb25kdWN0b3IgYGBBUyBJUycnIEFORCBBTlkKKyAqIEVYUFJFU1MgT1Ig
+SU1QTElFRCBXQVJSQU5USUVTLCBJTkNMVURJTkcsIEJVVCBOT1QgTElNSVRFRCBUTywgVEhFIElN
+UExJRUQKKyAqIFdBUlJBTlRJRVMgT0YgTUVSQ0hBTlRBQklMSVRZIEFORCBGSVRORVNTIEZPUiBB
+IFBBUlRJQ1VMQVIgUFVSUE9TRSBBUkUKKyAqIERJU0NMQUlNRUQuIElOIE5PIEVWRU5UIFNIQUxM
+IEZyZWVzY2FsZSBTZW1pY29uZHVjdG9yIEJFIExJQUJMRSBGT1IgQU5ZCisgKiBESVJFQ1QsIElO
+RElSRUNULCBJTkNJREVOVEFMLCBTUEVDSUFMLCBFWEVNUExBUlksIE9SIENPTlNFUVVFTlRJQUwg
+REFNQUdFUworICogKElOQ0xVRElORywgQlVUIE5PVCBMSU1JVEVEIFRPLCBQUk9DVVJFTUVOVCBP
+RiBTVUJTVElUVVRFIEdPT0RTIE9SIFNFUlZJQ0VTOworICogTE9TUyBPRiBVU0UsIERBVEEsIE9S
+IFBST0ZJVFM7IE9SIEJVU0lORVNTIElOVEVSUlVQVElPTikgSE9XRVZFUiBDQVVTRUQgQU5ECisg
+KiBPTiBBTlkgVEhFT1JZIE9GIExJQUJJTElUWSwgV0hFVEhFUiBJTiBDT05UUkFDVCwgU1RSSUNU
+IExJQUJJTElUWSwgT1IgVE9SVAorICogKElOQ0xVRElORyBORUdMSUdFTkNFIE9SIE9USEVSV0lT
+RSkgQVJJU0lORyBJTiBBTlkgV0FZIE9VVCBPRiBUSEUgVVNFIE9GIFRISVMKKyAqIFNPRlRXQVJF
+LCBFVkVOIElGIEFEVklTRUQgT0YgVEhFIFBPU1NJQklMSVRZIE9GIFNVQ0ggREFNQUdFLgorICov
+CisKKyNpZm5kZWYgX19GTUFOX1BPUlRfSAorI2RlZmluZSBfX0ZNQU5fUE9SVF9ICisKKyNpbmNs
+dWRlICJmbWFuLmgiCisKKy8qIEZNIFBvcnQgQVBJCisgKiBUaGUgRk0gdXNlcyBhIGdlbmVyYWwg
+bW9kdWxlIGNhbGxlZCAicG9ydCIgdG8gcmVwcmVzZW50IGEgVHggcG9ydCAoTUFDKSwKKyAqIGFu
+IFJ4IHBvcnQgKE1BQykuCisgKiBUaGUgbnVtYmVyIG9mIHBvcnRzIGluIGFuIEZNIHZhcmllcyBi
+ZXR3ZWVuIFNPQ3MuCisgKiBUaGUgU1cgZHJpdmVyIG1hbmFnZXMgdGhlc2UgcG9ydHMgYXMgc3Vi
+LW1vZHVsZXMgb2YgdGhlIEZNLGkuZS4gYWZ0ZXIgYW4KKyAqIEZNIGlzIGluaXRpYWxpemVkLCBp
+dHMgcG9ydHMgbWF5IGJlIGluaXRpYWxpemVkIGFuZCBvcGVyYXRlZCB1cG9uLgorICogVGhlIHBv
+cnQgaXMgaW5pdGlhbGl6ZWQgYXdhcmUgb2YgaXRzIHR5cGUsIGJ1dCBvdGhlciBmdW5jdGlvbnMg
+b24gYSBwb3J0CisgKiBtYXkgYmUgaW5kaWZmZXJlbnQgdG8gaXRzIHR5cGUuIFdoZW4gbmVjZXNz
+YXJ5LCB0aGUgZHJpdmVyIHZlcmlmaWVzCisgKiBjb2hlcmVuY2UgYW5kIHJldHVybnMgZXJyb3Ig
+aWYgYXBwbGljYWJsZS4KKyAqIE9uIGluaXRpYWxpemF0aW9uLCB1c2VyIHNwZWNpZmllcyB0aGUg
+cG9ydCB0eXBlIGFuZCBpdCdzIGluZGV4IChyZWxhdGl2ZQorICogdG8gdGhlIHBvcnQncyB0eXBl
+KSAtIGFsd2F5cyBzdGFydGluZyBhdCAwLgorICovCisKKy8qIEZNIEZyYW1lIGVycm9yICovCisv
+KiBGcmFtZSBEZXNjcmlwdG9yIGVycm9ycyAqLworLyogTm90IGZvciBSeC1Qb3J0ISBVbnN1cHBv
+cnRlZCBGb3JtYXQgKi8KKyNkZWZpbmUgRk1fUE9SVF9GUk1fRVJSX1VOU1VQUE9SVEVEX0ZPUk1B
+VAlGTV9GRF9FUlJfVU5TVVBQT1JURURfRk9STUFUCisvKiBOb3QgZm9yIFJ4LVBvcnQhIExlbmd0
+aCBFcnJvciAqLworI2RlZmluZSBGTV9QT1JUX0ZSTV9FUlJfTEVOR1RICQkJRk1fRkRfRVJSX0xF
+TkdUSAorLyogRE1BIERhdGEgZXJyb3IgKi8KKyNkZWZpbmUgRk1fUE9SVF9GUk1fRVJSX0RNQQkJ
+CUZNX0ZEX0VSUl9ETUEKKy8qIG5vbiBGcmFtZS1NYW5hZ2VyIGVycm9yOyBwcm9iYWJseSBjb21l
+IGZyb20gU0VDIHRoYXQgd2FzIGNoYWluZWQgdG8gRk0gKi8KKyNkZWZpbmUgRk1fUE9SVF9GUk1f
+RVJSX05PTl9GTQkJCUZNX0ZEX1JYX1NUQVRVU19FUlJfTk9OX0ZNCisgLyogSVBSIGVycm9yICov
+CisjZGVmaW5lIEZNX1BPUlRfRlJNX0VSUl9JUFJFCQkJKEZNX0ZEX0VSUl9JUFIgJiB+Rk1fRkRf
+SVBSKQorLyogSVBSIG5vbi1jb25zaXN0ZW50LXNwICovCisjZGVmaW5lIEZNX1BPUlRfRlJNX0VS
+Ul9JUFJfTkNTUAkJKEZNX0ZEX0VSUl9JUFJfTkNTUCAmCVwKKwkJCQkJCX5GTV9GRF9JUFIpCisK
+Ky8qIFJ4IEZJRk8gb3ZlcmZsb3csIEZDUyBlcnJvciwgY29kZSBlcnJvciwgcnVubmluZyBkaXNw
+YXJpdHkKKyAqIGVycm9yIChTR01JSSBhbmQgVEJJIG1vZGVzKSwgRklGTyBwYXJpdHkgZXJyb3Iu
+CisgKiBQSFkgU2VxdWVuY2UgZXJyb3IsIFBIWSBlcnJvciBjb250cm9sIGNoYXJhY3RlciBkZXRl
+Y3RlZC4KKyAqLworI2RlZmluZSBGTV9QT1JUX0ZSTV9FUlJfUEhZU0lDQUwgICAgICAgICAgICAg
+ICAgRk1fRkRfRVJSX1BIWVNJQ0FMCisvKiBGcmFtZSB0b28gbG9uZyBPUiBGcmFtZSBzaXplIGV4
+Y2VlZHMgbWF4X2xlbmd0aF9mcmFtZSAgKi8KKyNkZWZpbmUgRk1fUE9SVF9GUk1fRVJSX1NJWkUg
+ICAgICAgICAgICAgICAgICAgIEZNX0ZEX0VSUl9TSVpFCisvKiBpbmRpY2F0ZXMgYSBjbGFzc2lm
+aWVyICJkcm9wIiBvcGVyYXRpb24gKi8KKyNkZWZpbmUgRk1fUE9SVF9GUk1fRVJSX0NMU19ESVND
+QVJEICAgICAgICAgICAgIEZNX0ZEX0VSUl9DTFNfRElTQ0FSRAorLyogRXh0cmFjdCBPdXQgb2Yg
+RnJhbWUgKi8KKyNkZWZpbmUgRk1fUE9SVF9GUk1fRVJSX0VYVFJBQ1RJT04gICAgICAgICAgICAg
+IEZNX0ZEX0VSUl9FWFRSQUNUSU9OCisvKiBObyBTY2hlbWUgU2VsZWN0ZWQgKi8KKyNkZWZpbmUg
+Rk1fUE9SVF9GUk1fRVJSX05PX1NDSEVNRSAgICAgICAgICAgICAgIEZNX0ZEX0VSUl9OT19TQ0hF
+TUUKKy8qIEtleXNpemUgT3ZlcmZsb3cgKi8KKyNkZWZpbmUgRk1fUE9SVF9GUk1fRVJSX0tFWVNJ
+WkVfT1ZFUkZMT1cgICAgICAgIEZNX0ZEX0VSUl9LRVlTSVpFX09WRVJGTE9XCisvKiBGcmFtZSBj
+b2xvciBpcyByZWQgKi8KKyNkZWZpbmUgRk1fUE9SVF9GUk1fRVJSX0NPTE9SX1JFRCAgICAgICAg
+ICAgICAgIEZNX0ZEX0VSUl9DT0xPUl9SRUQKKy8qIEZyYW1lIGNvbG9yIGlzIHllbGxvdyAqLwor
+I2RlZmluZSBGTV9QT1JUX0ZSTV9FUlJfQ09MT1JfWUVMTE9XICAgICAgICAgICAgRk1fRkRfRVJS
+X0NPTE9SX1lFTExPVworLyogUGFyc2VyIFRpbWUgb3V0IEV4Y2VlZCAqLworI2RlZmluZSBGTV9Q
+T1JUX0ZSTV9FUlJfUFJTX1RJTUVPVVQgICAgICAgICAgICAgRk1fRkRfRVJSX1BSU19USU1FT1VU
+CisvKiBJbnZhbGlkIFNvZnQgUGFyc2VyIGluc3RydWN0aW9uICovCisjZGVmaW5lIEZNX1BPUlRf
+RlJNX0VSUl9QUlNfSUxMX0lOU1RSVUNUICAgICAgICBGTV9GRF9FUlJfUFJTX0lMTF9JTlNUUlVD
+VAorLyogSGVhZGVyIGVycm9yIHdhcyBpZGVudGlmaWVkIGR1cmluZyBwYXJzaW5nICovCisjZGVm
+aW5lIEZNX1BPUlRfRlJNX0VSUl9QUlNfSERSX0VSUiAgICAgICAgICAgICBGTV9GRF9FUlJfUFJT
+X0hEUl9FUlIKKy8qIEZyYW1lIHBhcnNlZCBiZXlpbmQgMjU2IGZpcnN0IGJ5dGVzICovCisjZGVm
+aW5lIEZNX1BPUlRfRlJNX0VSUl9CTE9DS19MSU1JVF9FWENFRURFRCAgICBGTV9GRF9FUlJfQkxP
+Q0tfTElNSVRfRVhDRUVERUQKKy8qIEZQTSBGcmFtZSBQcm9jZXNzaW5nIFRpbWVvdXQgRXhjZWVk
+ZWQgKi8KKyNkZWZpbmUgRk1fUE9SVF9GUk1fRVJSX1BST0NFU1NfVElNRU9VVCAgICAgICAgIDB4
+MDAwMDAwMDEKKworc3RydWN0IGZtYW5fcG9ydDsKKworLyogQSBzdHJ1Y3R1cmUgZm9yIGFkZGl0
+aW9uYWwgUnggcG9ydCBwYXJhbWV0ZXJzICovCitzdHJ1Y3QgZm1hbl9wb3J0X3J4X3BhcmFtcyB7
+CisJdTMyIGVycl9mcWlkOwkJCS8qIEVycm9yIFF1ZXVlIElkLiAqLworCXUzMiBkZmx0X2ZxaWQ7
+CQkJLyogRGVmYXVsdCBRdWV1ZSBJZC4gKi8KKwkvKiBXaGljaCBleHRlcm5hbCBidWZmZXIgcG9v
+bHMgYXJlIHVzZWQKKwkgKiAodXAgdG8gRk1BTl9QT1JUX01BWF9FWFRfUE9PTFNfTlVNKSwgYW5k
+IHRoZWlyIHNpemVzLgorCSAqLworCXN0cnVjdCBmbWFuX2V4dF9wb29scyBleHRfYnVmX3Bvb2xz
+OworfTsKKworLyogQSBzdHJ1Y3R1cmUgZm9yIGFkZGl0aW9uYWwgbm9uLVJ4IHBvcnQgcGFyYW1l
+dGVycyAqLworc3RydWN0IGZtYW5fcG9ydF9ub25fcnhfcGFyYW1zIHsKKwkvKiBFcnJvciBRdWV1
+ZSBJZC4gKi8KKwl1MzIgZXJyX2ZxaWQ7CisJLyogRm9yIFR4IC0gRGVmYXVsdCBDb25maXJtYXRp
+b24gcXVldWUsIDAgbWVhbnMgbm8gVHggY29uZmlybWF0aW9uCisJICogZm9yIHByb2Nlc3NlZCBm
+cmFtZXMuIEZvciBPUCBwb3J0IC0gZGVmYXVsdCBSeCBxdWV1ZS4KKwkgKi8KKwl1MzIgZGZsdF9m
+cWlkOworfTsKKworLyogQSB1bmlvbiBmb3IgYWRkaXRpb25hbCBwYXJhbWV0ZXJzIGRlcGVuZGlu
+ZyBvbiBwb3J0IHR5cGUgKi8KK3VuaW9uIGZtYW5fcG9ydF9zcGVjaWZpY19wYXJhbXMgeworCS8q
+IFJ4IHBvcnQgcGFyYW1ldGVycyBzdHJ1Y3R1cmUgKi8KKwlzdHJ1Y3QgZm1hbl9wb3J0X3J4X3Bh
+cmFtcyByeF9wYXJhbXM7CisJLyogTm9uLVJ4IHBvcnQgcGFyYW1ldGVycyBzdHJ1Y3R1cmUgKi8K
+KwlzdHJ1Y3QgZm1hbl9wb3J0X25vbl9yeF9wYXJhbXMgbm9uX3J4X3BhcmFtczsKK307CisKKy8q
+IEEgc3RydWN0dXJlIHJlcHJlc2VudGluZyBGTSBpbml0aWFsaXphdGlvbiBwYXJhbWV0ZXJzICov
+CitzdHJ1Y3QgZm1hbl9wb3J0X3BhcmFtcyB7CisJLyogVmlydHVhbCBBZGRyZXNzIG9mIG1lbW9y
+eSBtYXBwZWQgRk0gUG9ydCByZWdpc3RlcnMuICovCisJdm9pZCAqZm07CisJdW5pb24gZm1hbl9w
+b3J0X3NwZWNpZmljX3BhcmFtcyBzcGVjaWZpY19wYXJhbXM7CisJLyogQWRkaXRpb25hbCBwYXJh
+bWV0ZXJzIGRlcGVuZGluZyBvbiBwb3J0IHR5cGUuICovCit9OworCitpbnQgZm1hbl9wb3J0X2Nv
+bmZpZyhzdHJ1Y3QgZm1hbl9wb3J0ICpwb3J0LCBzdHJ1Y3QgZm1hbl9wb3J0X3BhcmFtcyAqcGFy
+YW1zKTsKKworaW50IGZtYW5fcG9ydF9pbml0KHN0cnVjdCBmbWFuX3BvcnQgKnBvcnQpOworCitp
+bnQgZm1hbl9wb3J0X2NmZ19idWZfcHJlZml4X2NvbnRlbnQoc3RydWN0IGZtYW5fcG9ydCAqcG9y
+dCwKKwkJCQkgICAgIHN0cnVjdCBmbWFuX2J1ZmZlcl9wcmVmaXhfY29udGVudAorCQkJCSAgICAg
+KmJ1ZmZlcl9wcmVmaXhfY29udGVudCk7CisKK2ludCBmbWFuX3BvcnRfZGlzYWJsZShzdHJ1Y3Qg
+Zm1hbl9wb3J0ICpwb3J0KTsKKworaW50IGZtYW5fcG9ydF9lbmFibGUoc3RydWN0IGZtYW5fcG9y
+dCAqcG9ydCk7CisKK3UzMiBmbWFuX3BvcnRfZ2V0X3FtYW5fY2hhbm5lbF9pZChzdHJ1Y3QgZm1h
+bl9wb3J0ICpwb3J0KTsKKworc3RydWN0IGZtYW5fcG9ydCAqZm1hbl9wb3J0X2JpbmQoc3RydWN0
+IGRldmljZSAqZGV2KTsKKworI2VuZGlmIC8qIF9fRk1BTl9QT1JUX0ggKi8KLS0gCjEuNy45LjUK
+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBj
+LWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9s
+aXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
