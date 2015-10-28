@@ -1,43 +1,113 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH v7 10/10] ss: activate json_writer excluded logic
-Date: Wed, 28 Oct 2015 09:17:24 +0100
-Message-ID: <20151028081724.GN26876@orbit.nwl.cc>
-References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
- <1441913708-15532-11-git-send-email-matthias.tafelmeier@gmx.net>
- <20151027132103.GI26876@orbit.nwl.cc>
- <20151028113941.062d74a3@samsung9>
+From: Vladimir Davydov <vdavydov@virtuozzo.com>
+Subject: Re: [PATCH 0/8] mm: memcontrol: account socket memory in unified
+ hierarchy
+Date: Wed, 28 Oct 2015 11:20:03 +0300
+Message-ID: <20151028082003.GK13221@esperanza>
+References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
+ <20151022184509.GM18351@esperanza>
+ <20151026172216.GC2214@cmpxchg.org>
+ <20151027084320.GF13221@esperanza>
+ <20151027155833.GB4665@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>,
-	netdev@vger.kernel.org, hagen@jauu.net, shemminger@osdl.org,
-	fw@strlen.de, edumazet@google.com, daniel@iogearbox.net
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:54336 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754811AbbJ1IR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Oct 2015 04:17:26 -0400
+Content-Type: text/plain; charset="us-ascii"
+Cc: "David S. Miller" <davem@davemloft.net>, Andrew Morton
+	<akpm@linux-foundation.org>, Michal Hocko <mhocko@suse.cz>, Tejun Heo
+	<tj@kernel.org>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+	<cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20151028113941.062d74a3@samsung9>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20151027155833.GB4665@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 28, 2015 at 11:39:41AM +0900, Stephen Hemminger wrote:
-> On Tue, 27 Oct 2015 14:21:03 +0100
-> Phil Sutter <phil@nwl.cc> wrote:
-> 
-> > On Thu, Sep 10, 2015 at 09:35:08PM +0200, Matthias Tafelmeier wrote:
-> > > This small patch extends the lib json_writer module for formerly
-> > > deactivated functionality.  
+On Tue, Oct 27, 2015 at 09:01:08AM -0700, Johannes Weiner wrote:
+...
+> > > But regardless of tcp window control, we need to account socket memory
+> > > in the main memory accounting pool where pressure is shared (to the
+> > > best of our abilities) between all accounted memory consumers.
+> > > 
 > > 
-> > Why was it deactivated in the first place?
+> > No objections to this point. However, I really don't like the idea to
+> > charge tcp window size to memory.current instead of charging individual
+> > pages consumed by the workload for storing socket buffers, because it is
+> > inconsistent with what we have now. Can't we charge individual skb pages
+> > as we do in case of other kmem allocations?
 > 
-> The code came from another project that wasn't using this
-> function.
+> Absolutely, both work for me. I chose that route because it's where
+> the networking code already tracks and accounts memory consumed, so it
+> seemed like a better site to hook into.
+> 
+> But I understand your concerns. We want to track this stuff as close
+> to the memory allocators as possible.
 
-Ah, I didn't get that the functions he uncomments were not added by his
-series in the first place. Still:
-- This patch should come before 02/10 which makes use of the uncommented
-  functions here.
-- jsonw_null() and jsonw_null_field() are still unused, no need to
-  uncomment them.
+Exactly.
+
+> 
+> > > But also, there are people right now for whom the socket buffers cause
+> > > system OOM, but the existing memcg's hard tcp window limitq that
+> > > exists absolutely wrecks network performance for them. It's not usable
+> > > the way it is. It'd be much better to have the socket buffers exert
+> > > pressure on the shared pool, and then propagate the overall pressure
+> > > back to individual consumers with reclaim, shrinkers, vmpressure etc.
+> > 
+> > This might or might not work. I'm not an expert to judge. But if you do
+> > this only for memcg leaving the global case as it is, networking people
+> > won't budge IMO. So could you please start such a major rework from the
+> > global case? Could you please try to deprecate the tcp window limits not
+> > only in the legacy memcg hierarchy, but also system-wide in order to
+> > attract attention of networking experts?
+> 
+> I'm definitely interested in addressing this globally as well.
+> 
+> The idea behind this was to use the memcg part as a testbed. cgroup2
+> is going to be new and people are prepared for hiccups when migrating
+> their applications to it; and they can roll back to cgroup1 and tcp
+> window limits at any time should they run into problems in production.
+
+Then you'd better not touch existing tcp limits at all, because they
+just work, and the logic behind them is very close to that of global tcp
+limits. I don't think one can simplify it somehow. Moreover, frankly I
+still have my reservations about this vmpressure propagation to skb
+you're proposing. It might work, but I doubt it will allow us to throw
+away explicit tcp limit, as I explained previously. So, even with your
+approach I think we can still need per memcg tcp limit *unless* you get
+rid of global tcp limit somehow.
+
+> 
+> So this seemed like a good way to prove a new mechanism before rolling
+> it out to every single Linux setup, rather than switch everybody over
+> after the limited scope testing I can do as a developer on my own.
+> 
+> Keep in mind that my patches are not committing anything in terms of
+> interface, so we retain all the freedom to fix and tune the way this
+> is implemented, including the freedom to re-add tcp window limits in
+> case the pressure balancing is not a comprehensive solution.
+> 
+
+I really dislike this kind of proof. It looks like you're trying to push
+something you think is right covertly, w/o having a proper discussion
+with networking people and then say that it just works and hence should
+be done globally, but what if it won't? Revert it? We already have a lot
+of dubious stuff in memcg that should be reverted, so let's please try
+to avoid this kind of mistakes in future. Note, I say "w/o having a
+proper discussion with networking people", because I don't think they
+will really care *unless* you change the global logic, simply because
+most of them aren't very interested in memcg AFAICS.
+
+That effectively means you loose a chance to listen to networking
+experts, who could point you at design flaws and propose an improvement
+right away. Let's please not miss such an opportunity. You said that
+you'd seen this problem happen w/o cgroups, so you have a use case that
+might need fixing at the global level. IMO it shouldn't be difficult to
+prepare an RFC patch for the global case first and see what people think
+about it.
+
+Thanks,
+Vladimir
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
