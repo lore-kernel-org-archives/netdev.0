@@ -1,30 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] mpls: mulipath improvements
-Date: Tue, 27 Oct 2015 19:53:37 -0700 (PDT)
-Message-ID: <20151027.195337.1069082631939252102.davem@davemloft.net>
-References: <1445906256-14927-1-git-send-email-rshearma@brocade.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] seccomp, ptrace: add support for dumping
+ seccomp filters
+Date: Tue, 27 Oct 2015 19:55:57 -0700 (PDT)
+Message-ID: <20151027.195557.2179752995547193374.davem@davemloft.net>
+References: <1445905439-25449-1-git-send-email-tycho.andersen@canonical.com>
+	<1445905439-25449-2-git-send-email-tycho.andersen@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	ebiederm@xmission.com
-To: rshearma@brocade.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44662 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755216AbbJ1Cgz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 22:36:55 -0400
-In-Reply-To: <1445906256-14927-1-git-send-email-rshearma@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
+	oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
+	serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1445905439-25449-2-git-send-email-tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Robert Shearman <rshearma@brocade.com>
-Date: Tue, 27 Oct 2015 00:37:34 +0000
+From: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Date: Tue, 27 Oct 2015 09:23:59 +0900
 
-> Two improvements to the recently added mpls multipath support. The
-> first is a fix for missing initialisation the nexthop address length
-> for the v4 and v6 explicit null label routes, and the second is to
-> reduce the amount of memory used by mpls routes by changing the way
-> the via addresses are stored.
+> This patch adds support for dumping a process' (classic BPF) seccomp
+> filters via ptrace.
 
-Series applied, thanks.
+Applied, thanks.
