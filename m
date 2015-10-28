@@ -1,134 +1,185 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Wed, 28 Oct 2015 06:24:32 -0700
-Message-ID: <1446038672.7476.65.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <201510221824.t9MIOp6n003978@room101.nl.oracle.com>
-	 <20151022190701.GV22011@ZenIV.linux.org.uk>
-	 <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
-	 <20151022215741.GW22011@ZenIV.linux.org.uk>
-	 <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
-	 <20151024023054.GZ22011@ZenIV.linux.org.uk>
-	 <201510270908.t9R9873a001683@room101.nl.oracle.com>
-	 <562F577E.6000901@oracle.com> <20151027231702.GA22011@ZenIV.linux.org.uk>
-	 <1445991236.7476.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151028123543.GB22011@ZenIV.linux.org.uk>
+From: Dan Streetman <dan.streetman@canonical.com>
+Subject: Re: [PATCH] xfrm: dst_entries_init() per-net dst_ops
+Date: Wed, 28 Oct 2015 09:32:47 -0400
+Message-ID: <CAOZ2QJMuPoSrrFdudiGYQ4PjvELbonqg94X2mQaUhZ-R5yS0hw@mail.gmail.com>
+References: <1445962519-16133-1-git-send-email-dan.streetman@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	dhowells@redhat.com, linux-fsdevel@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Dan Streetman <dan.streetman@canonical.com>,
+	Dan Streetman <ddstreet@ieee.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:36755 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751023AbbJ1NYe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 09:24:34 -0400
-In-Reply-To: <20151028123543.GB22011@ZenIV.linux.org.uk>
+Received: from mail-io0-f170.google.com ([209.85.223.170]:35976 "EHLO
+	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932548AbbJ1Nd2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 09:33:28 -0400
+Received: by ioll68 with SMTP id l68so10261073iol.3
+        for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 06:33:27 -0700 (PDT)
+In-Reply-To: <1445962519-16133-1-git-send-email-dan.streetman@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-10-28 at 12:35 +0000, Al Viro wrote:
-> [Linus and Dave added, Solaris and NetBSD folks dropped from Cc]
-> 
-> On Tue, Oct 27, 2015 at 05:13:56PM -0700, Eric Dumazet wrote:
-> > On Tue, 2015-10-27 at 23:17 +0000, Al Viro wrote:
-> > 
-> > > 	* [Linux-specific aside] our __alloc_fd() can degrade quite badly
-> > > with some use patterns.  The cacheline pingpong in the bitmap is probably
-> > > inevitable, unless we accept considerably heavier memory footprint,
-> > > but we also have a case when alloc_fd() takes O(n) and it's _not_ hard
-> > > to trigger - close(3);open(...); will have the next open() after that
-> > > scanning the entire in-use bitmap.  I think I see a way to improve it
-> > > without slowing the normal case down, but I'll need to experiment a
-> > > bit before I post patches.  Anybody with examples of real-world loads
-> > > that make our descriptor allocator to degrade is very welcome to post
-> > > the reproducers...
-> > 
-> > Well, I do have real-world loads, but quite hard to setup in a lab :(
-> > 
-> > Note that we also hit the 'struct cred'->usage refcount for every
-> > open()/close()/sock_alloc(), and simply moving uid/gid out of the first
-> > cache line really helps, as current_fsuid() and current_fsgid() no
-> > longer forces a pingpong.
-> > 
-> > I moved seldom used fields on the first cache line, so that overall
-> > memory usage did not change (192 bytes on 64 bit arches)
-> 
-> [snip]
-> 
-> Makes sense, but there's a funny thing about that refcount - the part
-> coming from ->f_cred is the most frequently changed *and* almost all
-> places using ->f_cred are just looking at its fields and do not manipulate
-> its refcount.  The only exception (do_process_acct()) is easy to eliminate
-> just by storing a separate reference to the current creds of acct(2) caller
-> and using it instead of looking at ->f_cred.  What's more, the place where we
-> grab what will be ->f_cred is guaranteed to have a non-f_cred reference *and*
-> most of the time such a reference is there for dropping ->f_cred (in
-> file_free()/file_free_rcu()).
-> 
-> With that change in kernel/acct.c done, we could do the following:
-> 	a) split the cred refcount into the normal and percpu parts and
-> add a spinlock in there.
-> 	b) have put_cred() do this:
-> 		if (atomic_dec_and_test(&cred->usage)) {
-> 			this_cpu_add(&cred->f_cred_usage, 1);
-> 			call_rcu(&cred->rcu, put_f_cred_rcu);
-> 		}
-> 	c) have get_empty_filp() increment current_cred ->f_cred_usage with
-> this_cpu_add()
-> 	d) have file_free() do
-> 		percpu_counter_dec(&nr_files);
-> 		rcu_read_lock();
-> 		if (likely(atomic_read(&f->f_cred->usage))) {
-> 			this_cpu_add(&f->f_cred->f_cred_usage, -1);
-> 			rcu_read_unlock();
-> 			call_rcu(&f->f_u.fu_rcuhead, file_free_rcu_light);
-> 		} else {
-> 			rcu_read_unlock();
-> 			call_rcu(&f->f_u.fu_rcuhead, file_free_rcu);
-> 		}
-> file_free_rcu() being
-> static void file_free_rcu(struct rcu_head *head)
-> {
->         struct file *f = container_of(head, struct file, f_u.fu_rcuhead);
->         put_f_cred(&f->f_cred->rcu);
->         kmem_cache_free(filp_cachep, f);
-> }
-> and file_free_rcu_light() - the same sans put_f_cred();
-> 
-> with put_f_cred() doing
-> 	spin_lock cred->lock
-> 	this_cpu_add(&cred->f_cred_usage, -1);
-> 	find the sum of cred->f_cred_usage
-> 	spin_unlock cred->lock
-> 	if the sum has not reached 0
-> 		return
-> 	current put_cred_rcu(cred)
-> 
-> IOW, let's try to get rid of cross-cpu stores in ->f_cred grabbing and
-> (most of) ->f_cred dropping.
-> 
-> Note that there are two paths leading to put_f_cred() in the above - via
-> call_rcu() on &cred->rcu and from file_free_rcu() called via call_rcu() on
-> &f->f_u.fu_rcuhead.  Both are RCU-delayed and they can happen in parallel -
-> different rcu_head are used.
-> 
-> atomic_read() check in file_free() might give false positives if it comes
-> just before put_cred() on another CPU kills the last non-f_cred reference.
-> It's not a problem, since put_f_cred() from that put_cred() won't be
-> executed until we drop rcu_read_lock(), so we can safely decrement the
-> cred->f_cred_usage without cred->lock here (and we are guaranteed that we won't
-> be dropping the last of that - the same put_cred() would've incremented
-> ->f_cred_usage).
-> 
-> Does anybody see problems with that approach?  I'm going to grab some sleep
-> (only a couple of hours so far tonight ;-/), will cook an incremental to Eric's
-> field-reordering patch when I get up...
+On Tue, Oct 27, 2015 at 12:15 PM,  <dan.streetman@canonical.com> wrote:
+> From: Dan Streetman <dan.streetman@canonical.com>
+>
+> The ipv4 and ipv6 xfrms each create a template dst_ops object, and
+> perform dst_entries_init() on the template objects.  Then each net
+> namespace has its net.xfrm.xfrm[46]_dst_ops field set to the template
+> values.  The problem with that is the dst_ops.pcpuc_entries field is
+> a percpu counter and cannot be used correctly by simply copying it to
+> another object.
+>
+> The result of this is a very subtle bug; changes to the dst entries
+> counter from one net namespace may sometimes get applied to a different
+> net namespace dst entries counter.  This is because of how the percpu
+> counter works; it has a main count field as well as a pointer to the
+> percpu variables.  Each net namespace maintains its own main count
+> variable, but all point to one set of percpu variables.  When any net
+> namespace happens to change one of the percpu variables to outside its
+> small batch range, its count is moved to the net namespace's main count
+> variable.  So with multiple net namespaces operating concurrently, the
+> dst_ops entries counter can stray from the actual value that it should
+> be; if counts are consistently moved from one net namespace to another
+> (which my testing showed is likely), then one net namespace winds up
+> with a negative dst_ops count (which is reported as 0) while another
+> winds up with a continually increasing count, eventually reaching its
+> gc_thresh limit, which causes all new traffic on the net namespace to
+> fail with -ENOBUFS.
+>
+> This removes the dst_entries_init (and dst_entries_destroy) call for
+> the template dst_ops objects; their counters will never be used.
+> Instead dst_entries_init is called for each net namespace's dst_ops
+> object, right after copying its values from the template, and
 
-Before I take a deep look at your suggestion, are you sure plain use of
-include/linux/percpu-refcount.h infra is not possible for struct cred ?
+Well I'm not sure why my test kernel booted, while the test robot
+found the bug of GFP_KERNEL percpu counter alloc during atomic
+context.  Thanks test robot!
 
-Thanks !
+I'll update the patch and resend.
+
+
+> dst_entries_destroy is called when the net namespace is removed.
+>
+> Signed-off-by: Dan Streetman <dan.streetman@canonical.com>
+> Signed-off-by: Dan Streetman <ddstreet@ieee.org>
+> ---
+>  net/ipv4/xfrm4_policy.c |  5 +++--
+>  net/ipv6/xfrm6_policy.c | 10 ++++------
+>  net/xfrm/xfrm_policy.c  | 25 +++++++++++++++++++++++--
+>  3 files changed, 30 insertions(+), 10 deletions(-)
+>
+> diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+> index f2606b9..5f747ee 100644
+> --- a/net/ipv4/xfrm4_policy.c
+> +++ b/net/ipv4/xfrm4_policy.c
+> @@ -235,6 +235,9 @@ static void xfrm4_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+>         xfrm_dst_ifdown(dst, dev);
+>  }
+>
+> +/* This is used as a template only; the dst_entries counter is not
+> + * initialized for this, but must be on per-net copies of this
+> + */
+>  static struct dst_ops xfrm4_dst_ops = {
+>         .family =               AF_INET,
+>         .gc =                   xfrm4_garbage_collect,
+> @@ -325,8 +328,6 @@ static void __init xfrm4_policy_init(void)
+>
+>  void __init xfrm4_init(void)
+>  {
+> -       dst_entries_init(&xfrm4_dst_ops);
+> -
+>         xfrm4_state_init();
+>         xfrm4_policy_init();
+>         xfrm4_protocol_init();
+> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+> index 2cc5840..b895ec1 100644
+> --- a/net/ipv6/xfrm6_policy.c
+> +++ b/net/ipv6/xfrm6_policy.c
+> @@ -279,6 +279,9 @@ static void xfrm6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+>         xfrm_dst_ifdown(dst, dev);
+>  }
+>
+> +/* This is used as a template only; the dst_entries counter is not
+> + * initialized for this, but must be on per-net copies of this
+> + */
+>  static struct dst_ops xfrm6_dst_ops = {
+>         .family =               AF_INET6,
+>         .gc =                   xfrm6_garbage_collect,
+> @@ -376,13 +379,9 @@ int __init xfrm6_init(void)
+>  {
+>         int ret;
+>
+> -       dst_entries_init(&xfrm6_dst_ops);
+> -
+>         ret = xfrm6_policy_init();
+> -       if (ret) {
+> -               dst_entries_destroy(&xfrm6_dst_ops);
+> +       if (ret)
+>                 goto out;
+> -       }
+>         ret = xfrm6_state_init();
+>         if (ret)
+>                 goto out_policy;
+> @@ -411,5 +410,4 @@ void xfrm6_fini(void)
+>         xfrm6_protocol_fini();
+>         xfrm6_policy_fini();
+>         xfrm6_state_fini();
+> -       dst_entries_destroy(&xfrm6_dst_ops);
+>  }
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index 09bfcba..5381719 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -2896,12 +2896,32 @@ static void __net_init xfrm_dst_ops_init(struct net *net)
+>
+>         rcu_read_lock();
+>         afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET]);
+> -       if (afinfo)
+> +       if (afinfo) {
+>                 net->xfrm.xfrm4_dst_ops = *afinfo->dst_ops;
+> +               dst_entries_init(&net->xfrm.xfrm4_dst_ops);
+> +       }
+>  #if IS_ENABLED(CONFIG_IPV6)
+>         afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET6]);
+> -       if (afinfo)
+> +       if (afinfo) {
+>                 net->xfrm.xfrm6_dst_ops = *afinfo->dst_ops;
+> +               dst_entries_init(&net->xfrm.xfrm6_dst_ops);
+> +       }
+> +#endif
+> +       rcu_read_unlock();
+> +}
+> +
+> +static void xfrm_dst_ops_fini(struct net *net)
+> +{
+> +       struct xfrm_policy_afinfo *afinfo;
+> +
+> +       rcu_read_lock();
+> +       afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET]);
+> +       if (afinfo)
+> +               dst_entries_destroy(&net->xfrm.xfrm4_dst_ops);
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +       afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET6]);
+> +       if (afinfo)
+> +               dst_entries_destroy(&net->xfrm.xfrm6_dst_ops);
+>  #endif
+>         rcu_read_unlock();
+>  }
+> @@ -3085,6 +3105,7 @@ static void __net_exit xfrm_net_exit(struct net *net)
+>  {
+>         flow_cache_fini(net);
+>         xfrm_sysctl_fini(net);
+> +       xfrm_dst_ops_fini(net);
+>         xfrm_policy_fini(net);
+>         xfrm_state_fini(net);
+>         xfrm_statistics_fini(net);
+> --
+> 2.5.0
+>
