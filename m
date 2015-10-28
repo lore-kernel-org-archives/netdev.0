@@ -1,52 +1,58 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: Re: [PATCH 2/6] net: dsa: allow switch drivers to cleanup their
- resources
-Date: Wed, 28 Oct 2015 14:56:18 +0100
-Message-ID: <5630D402.8010006@baylibre.com>
-References: <562F8ED7.2000804@baylibre.com> <562F9AAB.8090202@gmail.com>
- <562F9BB1.8090700@baylibre.com> <20151027165932.GA21799@ketchup.mtl.sfl>
+Subject: Re: [PATCH 6/6] net: phy: Stop 'phy-state-machine' and 'phy_change'
+ work on remove
+Date: Wed, 28 Oct 2015 14:54:35 +0100
+Message-ID: <5630D39B.2090306@baylibre.com>
+References: <562F8EF1.5090504@baylibre.com> <562F9AEE.5050708@gmail.com>
+ <CAJ03sU_+nkvN1ZeqvWx56B7cb9GDCbpTFn6gJp2OmW-CKi7QFA@mail.gmail.com>
+ <562F9F06.7040402@gmail.com> <20151027212045.GC2307@lunn.ch>
+ <CAJ03sU9Uw9SLXGpH9wqm+GWJtFZvcSuW=YCTZseSanpNeF_+Sw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
 	Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com,
 	Fabian Frederick <fabf@skynet.be>,
 	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
 	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Frode Isaksen <fisaksen@baylibre.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:34879 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965631AbbJ1N4Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 09:56:24 -0400
-Received: by wmll128 with SMTP id l128so7820992wml.0
-        for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 06:56:23 -0700 (PDT)
-In-Reply-To: <20151027165932.GA21799@ketchup.mtl.sfl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	linux-kernel@vger.kernel.org
+To: Frode Isaksen <fisaksen@baylibre.com>, Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJ03sU9Uw9SLXGpH9wqm+GWJtFZvcSuW=YCTZseSanpNeF_+Sw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/27/2015 05:59 PM, Vivien Didelot wrote:
-> On Oct. Tuesday 27 (44) 04:43 PM, Neil Armstrong wrote:
->>
->> Yes, I didn't know how to handle this since it was part of a larger patch.
->>
->> I forgot to add this into the cover-letter but I wanted to send an RFC serie with
->> your bcm remove patch and a mv88e6xxx remove experimental code.
->>
->> Yet, the mv88e6060 does not make usage of this.
+>     > void phy_disconnect(struct phy_device *phydev)
+>     > {
+>     >         if (phydev->irq > 0)
+>     >                 phy_stop_interrupts(phydev);
+>     >
+>     >         phy_stop_machine(phydev);
+>     >
+>     >         phydev->adjust_link = NULL;
+>     >
+>     >         phy_detach(phydev);
+>     > }
 > 
-> So this patch must be part of your RFC for module removal instead of
-> this patchset.
+>     And this does not yet get called. It probably needs to be in
+>     dsa_switch_destroy() just before unregister_netdev() of the slave
+>     devices.
 > 
-> Thanks,
-> -v
+>     However, the ordering in dsa_switch_destroy() looks wrong. The fixed
+>     phys are destroyed before the slave devices. They should probably be
+>     destroyed after the slave devices, or at least after the
+>     phy_disconnect() is called.
+> 
+>                      Andrew
 > 
 
-Vivien, Florian,
+Andrew, Florian,
 
-Thanks for the review, I will integrate it in the other RFC patchset with the correct Signed-off-by tag.
+Thanks for the review, a call to phy_disconnect was missing in dsa_switch_destroy.
+
+I will post a new patchset with the correct fix, a switch to delayed_work and
+a separate dsa_slave_destroy function for sake of maintenance ease.
 
 Neil
