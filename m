@@ -1,44 +1,100 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH] fec: Use gpio_set_value_cansleep()
-Date: Wed, 28 Oct 2015 10:20:30 -0200
-Message-ID: <1446034830-13640-1-git-send-email-festevam@gmail.com>
-Cc: netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@freescale.com>
-To: davem@davemloft.net
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net 1/2] Revert "Merge branch 'ipv6-overflow-arith'"
+Date: Wed, 28 Oct 2015 13:21:03 +0100
+Message-ID: <1446034864-14022-1-git-send-email-hannes@stressinduktion.org>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f52.google.com ([209.85.213.52]:35717 "EHLO
-	mail-vk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755868AbbJ1MUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 08:20:41 -0400
-Received: by vkfw189 with SMTP id w189so3348531vkf.2
-        for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 05:20:40 -0700 (PDT)
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:47796 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932178AbbJ1MVL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 08:21:11 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id CD40A2011F
+	for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 08:21:10 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
+Linus dislikes these changes. To not hold up the net-merge let's revert
+it for now and fix the bug like Linus suggested.
 
-We are in a context where we can sleep, and the FEC PHY reset gpio
-may be on an I2C expander. Use the cansleep() variant when
-setting the GPIO value.
+This reverts commit ec3661b42257d9a06cf0d318175623ac7a660113, reversing
+changes made to c80dbe04612986fd6104b4a1be21681b113b5ac9.
 
-Based on a patch from Russell King for pci-mvebu.c.
-
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Sorry for delaying the net pull request!
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 501e143..b2a3220 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -3261,7 +3261,7 @@ static void fec_reset_phy(struct platform_device *pdev)
- 		return;
+ include/linux/compiler-gcc.h   |  4 ----
+ include/linux/overflow-arith.h | 18 ------------------
+ net/ipv6/ip6_output.c          |  6 +-----
+ 3 files changed, 1 insertion(+), 27 deletions(-)
+ delete mode 100644 include/linux/overflow-arith.h
+
+diff --git a/include/linux/compiler-gcc.h b/include/linux/compiler-gcc.h
+index 82c159e..dfaa7b3 100644
+--- a/include/linux/compiler-gcc.h
++++ b/include/linux/compiler-gcc.h
+@@ -237,10 +237,6 @@
+ #define KASAN_ABI_VERSION 3
+ #endif
+ 
+-#if GCC_VERSION >= 50000
+-#define CC_HAVE_BUILTIN_OVERFLOW
+-#endif
+-
+ #endif	/* gcc version >= 40000 specific checks */
+ 
+ #if !defined(__noclone)
+diff --git a/include/linux/overflow-arith.h b/include/linux/overflow-arith.h
+deleted file mode 100644
+index e12ccf8..0000000
+--- a/include/linux/overflow-arith.h
++++ /dev/null
+@@ -1,18 +0,0 @@
+-#pragma once
+-
+-#include <linux/kernel.h>
+-
+-#ifdef CC_HAVE_BUILTIN_OVERFLOW
+-
+-#define overflow_usub __builtin_usub_overflow
+-
+-#else
+-
+-static inline bool overflow_usub(unsigned int a, unsigned int b,
+-				 unsigned int *res)
+-{
+-	*res = a - b;
+-	return *res > a ? true : false;
+-}
+-
+-#endif
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 8dddb45..d03d6da 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -28,7 +28,6 @@
+ 
+ #include <linux/errno.h>
+ #include <linux/kernel.h>
+-#include <linux/overflow-arith.h>
+ #include <linux/string.h>
+ #include <linux/socket.h>
+ #include <linux/net.h>
+@@ -585,10 +584,7 @@ int ip6_fragment(struct sock *sk, struct sk_buff *skb,
+ 		if (np->frag_size)
+ 			mtu = np->frag_size;
  	}
- 	msleep(msec);
--	gpio_set_value(phy_reset, 1);
-+	gpio_set_value_cansleep(phy_reset, 1);
- }
- #else /* CONFIG_OF */
- static void fec_reset_phy(struct platform_device *pdev)
+-
+-	if (overflow_usub(mtu, hlen + sizeof(struct frag_hdr), &mtu) ||
+-	    mtu <= 7)
+-		goto fail_toobig;
++	mtu -= hlen + sizeof(struct frag_hdr);
+ 
+ 	frag_id = ipv6_select_ident(net, &ipv6_hdr(skb)->daddr,
+ 				    &ipv6_hdr(skb)->saddr);
 -- 
-1.9.1
+2.4.3
