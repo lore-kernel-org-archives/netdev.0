@@ -1,44 +1,47 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [RFC PATCH net-next 1/4] perf tools: Enable pre-event inherit
- setting by config terms
-Date: Wed, 28 Oct 2015 10:44:20 -0300
-Message-ID: <20151028134420.GA17877@kernel.org>
-References: <1446029705-199659-1-git-send-email-wangnan0@huawei.com>
- <1446029705-199659-2-git-send-email-wangnan0@huawei.com>
- <20151028132126.GD5216@krava.brq.redhat.com>
- <20151028134213.GC18670@kernel.org>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: [PATCH net] amd-xgbe: Fix race between access of desc and desc
+ index
+Date: Wed, 28 Oct 2015 08:48:36 -0500
+Message-ID: <5630D234.3070600@amd.com>
+References: <20151026221354.927.9237.stgit@tlendack-t1.amdoffice.net>
+ <20151027.195007.1435133435434786670.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wang Nan <wangnan0@huawei.com>, ast@kernel.org,
-	brendan.d.gregg@gmail.com, jolsa@kernel.org, lizefan@huawei.com,
-	pi3orama@163.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Jiri Olsa <jolsa@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151028134213.GC18670@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <alexander.duyck@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0076.outbound.protection.outlook.com ([157.56.110.76]:5088
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751023AbbJ1Nso (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Oct 2015 09:48:44 -0400
+In-Reply-To: <20151027.195007.1435133435434786670.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Wed, Oct 28, 2015 at 10:42:13AM -0300, Arnaldo Carvalho de Melo escreveu:
-> Em Wed, Oct 28, 2015 at 02:21:26PM +0100, Jiri Olsa escreveu:
-> > On Wed, Oct 28, 2015 at 10:55:02AM +0000, Wang Nan wrote:
-> > > @@ -55,6 +56,7 @@ struct perf_evsel_config_term {
-> > >  		bool	time;
-> > >  		char	*callgraph;
-> > >  		u64	stack_user;
-> > > +		u64	inherit;
-> > 
-> > seems like bool would be enough
-> 
-> Ok, will change this and move it to a more suitable place member
-> alignment wise.
+On 10/27/2015 09:50 PM, David Miller wrote:
+> From: Tom Lendacky <thomas.lendacky@amd.com>
+> Date: Mon, 26 Oct 2015 17:13:54 -0500
+>
+>> During Tx cleanup it's still possible for the descriptor data to be
+>> read ahead of the descriptor index. A memory barrier is required between
+>> the read of the descriptor index and the start of the Tx cleanup loop.
+>> This allows a change to a lighter-weight barrier in the Tx transmit
+>> routine just before updating the current descriptor index.
+>>
+>> Since the memory barrier does result in extra overhead on arm64, keep
+>> the previous change to not chase the current descriptor value. This
+>> prevents the execution of the barrier for each loop performed.
+>>
+>> Suggested-by: Alexander Duyck <alexander.duyck@gmail.com>
+>> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+>
+> Applied, thanks.
+>
 
-Nah, switched it to bool, but no need to move it around, that is an
-union...
- 
-> Can I, with this change, slap an Acked-by: jirka?
-> 
-> - Arnaldo
+Thanks David.  Could you queue this up for the 4.1 and 4.2 stable
+trees?
+
+Thanks,
+Tom
