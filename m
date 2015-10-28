@@ -1,38 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vhost: fix performance on LE hosts
-Date: Tue, 27 Oct 2015 20:19:19 -0700 (PDT)
-Message-ID: <20151027.201919.383313270896131203.davem@davemloft.net>
-References: <1445938640-32673-1-git-send-email-mst@redhat.com>
+Subject: Re: [PATCH RESEND v2 net-next] net: hisilicon: updates HNS config
+ and documents
+Date: Tue, 27 Oct 2015 20:20:41 -0700 (PDT)
+Message-ID: <20151027.202041.613033307041357854.davem@davemloft.net>
+References: <1445944594-244149-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1445938640-32673-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	catalin.marinas@arm.com, will.deacon@arm.com,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, liguozhu@hisilicon.com,
+	Yisen.Zhuang@huawei.com, netdev@vger.kernel.org,
+	linuxarm@huawei.com, salil.mehta@huawei.com,
+	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
+	lisheng011@huawei.com, lipeng321@huawei.com
+To: huangdaode@hisilicon.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445944594-244149-1-git-send-email-huangdaode@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Tue, 27 Oct 2015 11:37:39 +0200
+From: huangdaode <huangdaode@hisilicon.com>
+Date: Tue, 27 Oct 2015 19:16:34 +0800
 
-> commit 2751c9882b947292fcfb084c4f604e01724af804 ("vhost: cross-endian
-> support for legacy devices") introduced a minor regression: even with
-> cross-endian disabled, and even on LE host, vhost_is_little_endian is
-> checking is_le flag so there's always a branch.
+> From: yankejian <yankejian@huawei.com>
 > 
-> To fix, simply check virtio_legacy_is_little_endian first.
+> updates the bindings documents and dtsi file according to the review
+> comments[https://lkml.org/lkml/2015/9/21/670] from Rob Herring <robh@kernel.org>
 > 
-> Cc: Greg Kurz <gkurz@linux.vnet.ibm.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Acked-by: Rob Herring <robh@kernel.org>
+> Signed-off-by: yankejian <yankejian@huawei.com>
+> Signed-off-by: huangdaode <huangdaode@hisilicon.com>
 
-Applied.
+Applied, thanks.
