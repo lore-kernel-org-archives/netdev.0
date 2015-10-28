@@ -1,8 +1,8 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [RFC PATCH v2 1/4] net: dsa: allow switch drivers to cleanup their
- resources
-Date: Wed, 28 Oct 2015 15:12:57 +0100
-Message-ID: <5630D7E9.4020609@baylibre.com>
+Subject: [RFC PATCH v2 2/4] net: dsa: bcm_sf2: cleanup resources in remove
+ callback
+Date: Wed, 28 Oct 2015 15:13:07 +0100
+Message-ID: <5630D7F3.2000508@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -19,42 +19,52 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some switch drivers might request interrupts, remap register ranges,
-allow such drivers to implement a "remove" callback doing just that.
+Implement a remove callback allowing the switch driver to cleanup
+resources it used: interrupts and remapped register ranges.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 ---
- include/net/dsa.h | 1 +
- net/dsa/dsa.c     | 4 ++++
- 2 files changed, 5 insertions(+)
+ drivers/net/dsa/bcm_sf2.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 98ccbde..0e1502c 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -212,6 +212,7 @@ struct dsa_switch_driver {
- 	 */
- 	char	*(*probe)(struct device *host_dev, int sw_addr);
- 	int	(*setup)(struct dsa_switch *ds);
-+	void	(*remove)(struct dsa_switch *ds);
- 	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
- 	u32	(*get_phy_flags)(struct dsa_switch *ds, int port);
-
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 1eba07f..f462fc5 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -459,6 +459,10 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- 	}
-
- 	mdiobus_unregister(ds->slave_mii_bus);
-+
-+	/* Leave a chance to the driver to cleanup */
-+	if (ds->drv->remove)
-+		ds->drv->remove(ds);
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 6f946fe..e0be318 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -1054,6 +1054,25 @@ out_unmap:
+ 	return ret;
  }
 
- #ifdef CONFIG_PM_SLEEP
++static void bcm_sf2_sw_remove(struct dsa_switch *ds)
++{
++	struct bcm_sf2_priv *priv = ds_to_priv(ds);
++	void __iomem **base;
++	unsigned int i;
++
++	/* Disable all interrupts and free them */
++	bcm_sf2_intr_disable(priv);
++
++	free_irq(priv->irq0, priv);
++	free_irq(priv->irq1, priv);
++
++	base = &priv->core;
++	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
++		iounmap(*base);
++		base++;
++	}
++}
++
+ static int bcm_sf2_sw_set_addr(struct dsa_switch *ds, u8 *addr)
+ {
+ 	return 0;
+@@ -1367,6 +1386,7 @@ static struct dsa_switch_driver bcm_sf2_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_BRCM,
+ 	.priv_size		= sizeof(struct bcm_sf2_priv),
+ 	.probe			= bcm_sf2_sw_probe,
++	.remove			= bcm_sf2_sw_remove,
+ 	.setup			= bcm_sf2_sw_setup,
+ 	.set_addr		= bcm_sf2_sw_set_addr,
+ 	.get_phy_flags		= bcm_sf2_sw_get_phy_flags,
 -- 
 1.9.1
