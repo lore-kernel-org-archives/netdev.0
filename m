@@ -1,61 +1,50 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 07/12] mlxsw: reg: Fix desription typos of couple of SFN items
-Date: Wed, 28 Oct 2015 10:17:00 +0100
-Message-ID: <1446023825-7162-8-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 09/12] mlxsw: spectrum: Fix ageing time value
+Date: Wed, 28 Oct 2015 10:17:02 +0100
+Message-ID: <1446023825-7162-10-git-send-email-jiri@resnulli.us>
 References: <1446023825-7162-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, sagir@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:36865 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964828AbbJ1JRg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 05:17:36 -0400
-Received: by wicfv8 with SMTP id fv8so4715061wic.0
-        for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 02:17:35 -0700 (PDT)
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:36737 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965259AbbJ1JRm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 05:17:42 -0400
+Received: by wicfx6 with SMTP id fx6so190677566wic.1
+        for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 02:17:41 -0700 (PDT)
 In-Reply-To: <1446023825-7162-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Fix copy-paste errors.
+The value passed through switchdev attr set is not in jiffies, but in
+clock_t, so fix the convert.
 
+Reported-by: Sagi Rotem <sagir@mellanox.com>
+Fixes: 56ade8fe3f ("mlxsw: spectrum: Add initial support for Spectrum ASIC")
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index c24283a..2bf230c 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -475,7 +475,7 @@ MLXSW_ITEM32_INDEXED(reg, sfn, rec_type, MLXSW_REG_SFN_BASE_LEN, 20, 4,
- MLXSW_ITEM_BUF_INDEXED(reg, sfn, rec_mac, MLXSW_REG_SFN_BASE_LEN, 6,
- 		       MLXSW_REG_SFN_REC_LEN, 0x02);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 1f3b12e..c2d0969 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -225,9 +225,10 @@ static int mlxsw_sp_ageing_set(struct mlxsw_sp *mlxsw_sp, u32 ageing_time)
  
--/* reg_sfd_mac_sub_port
-+/* reg_sfn_mac_sub_port
-  * VEPA channel on the local port.
-  * 0 if multichannel VEPA is not enabled.
-  * Access: RO
-@@ -483,14 +483,14 @@ MLXSW_ITEM_BUF_INDEXED(reg, sfn, rec_mac, MLXSW_REG_SFN_BASE_LEN, 6,
- MLXSW_ITEM32_INDEXED(reg, sfn, mac_sub_port, MLXSW_REG_SFN_BASE_LEN, 16, 8,
- 		     MLXSW_REG_SFN_REC_LEN, 0x08, false);
+ static int mlxsw_sp_port_attr_br_ageing_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 					    struct switchdev_trans *trans,
+-					    unsigned long ageing_jiffies)
++					    unsigned long ageing_clock_t)
+ {
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	unsigned long ageing_jiffies = clock_t_to_jiffies(ageing_clock_t);
+ 	u32 ageing_time = jiffies_to_msecs(ageing_jiffies) / 1000;
  
--/* reg_sfd_mac_fid
-+/* reg_sfn_mac_fid
-  * Filtering identifier.
-  * Access: RO
-  */
- MLXSW_ITEM32_INDEXED(reg, sfn, mac_fid, MLXSW_REG_SFN_BASE_LEN, 0, 16,
- 		     MLXSW_REG_SFN_REC_LEN, 0x08, false);
- 
--/* reg_sfd_mac_system_port
-+/* reg_sfn_mac_system_port
-  * Unique port identifier for the final destination of the packet.
-  * Access: RO
-  */
+ 	if (switchdev_trans_ph_prepare(trans))
 -- 
 1.9.3
