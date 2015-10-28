@@ -1,11 +1,18 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v3 1/4] ipv4: no CHECKSUM_PARTIAL on MSG_MORE corked
+Subject: Re: [PATCH net v2 3/4] ipv6: no CHECKSUM_PARTIAL on MSG_MORE corked
  sockets
-Date: Wed, 28 Oct 2015 00:53:51 +0100
-Message-ID: <1445990031.562267.422041489.195AFF12@webmail.messagingengine.com>
-References: <1445982042-3207-1-git-send-email-hannes@stressinduktion.org>
- <1445982042-3207-2-git-send-email-hannes@stressinduktion.org>
- <CALx6S35udd410V5bEzH2OxE=Qug0fydo10-X6E__gwzeGYCtzg@mail.gmail.com>
+Date: Wed, 28 Oct 2015 01:12:30 +0100
+Message-ID: <1445991150.565234.422057353.69DCA015@webmail.messagingengine.com>
+References: <1445958135-19805-1-git-send-email-hannes@stressinduktion.org>
+ <1445958135-19805-4-git-send-email-hannes@stressinduktion.org>
+ <CALx6S37qAxOxYRxxFQGR4P2r937yCnCqdASHV0qsi2UPj675iQ@mail.gmail.com>
+ <1445964249.1414779.421671593.5D1C863C@webmail.messagingengine.com>
+ <CALx6S34m5jEDMUtVZpsU05Z8ydXAYFoVBAsbAQF=sUc5h0TLiQ@mail.gmail.com>
+ <1445970551.497935.421785961.521DBDF0@webmail.messagingengine.com>
+ <CALx6S37X_+fEH0-_0DZTuGi4VJ6Xk86zi4wSnDiiH_fkUC3sQw@mail.gmail.com>
+ <1445973550.508206.421832305.2B25EDF1@webmail.messagingengine.com>
+ <1445982165.537052.421960617.70351761@webmail.messagingengine.com>
+ <CALx6S37F236V6YxMhHGbZNCsXxHTTfeXpAXj99GMyA3hnyH5XA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -15,73 +22,51 @@ Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	Benjamin Coddington <bcodding@redhat.com>
 To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:45612 "EHLO
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:46945 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752138AbbJ0Xxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 19:53:52 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id 2362B204A8
-	for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 19:53:52 -0400 (EDT)
-In-Reply-To: <CALx6S35udd410V5bEzH2OxE=Qug0fydo10-X6E__gwzeGYCtzg@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751824AbbJ1AMb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 20:12:31 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id 95D4620491
+	for <netdev@vger.kernel.org>; Tue, 27 Oct 2015 20:12:30 -0400 (EDT)
+In-Reply-To: <CALx6S37F236V6YxMhHGbZNCsXxHTTfeXpAXj99GMyA3hnyH5XA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 27, 2015, at 23:22, Tom Herbert wrote:
-> On Tue, Oct 27, 2015 at 2:40 PM, Hannes Frederic Sowa
+On Tue, Oct 27, 2015, at 23:03, Tom Herbert wrote:
+> On Tue, Oct 27, 2015 at 2:42 PM, Hannes Frederic Sowa
 > <hannes@stressinduktion.org> wrote:
-> > We cannot reliable calculate packet size on MSG_MORE corked sockets
-> > and thus cannot decide if they are going to be fragmented later on,
-> > so better not use CHECKSUM_PARTIAL in the first place.
+> > I posted v3 just now. I would like to let David consider it for net
+> > inclusion. We can work on how to lift this limitation then in net-next,
+> > okay? I am currently in favor of a new netdev-feature. What do you
+> > think? Your RFC series could help here, too.
 > >
-> > Cc: Eric Dumazet <edumazet@google.com>
-> > Cc: Vlad Yasevich <vyasevich@gmail.com>
-> > Cc: Benjamin Coddington <bcodding@redhat.com>
-> > Cc: Tom Herbert <tom@herbertland.com>
-> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > ---
-> >  net/ipv4/ip_output.c | 1 +
-> >  1 file changed, 1 insertion(+)
-> >
-> > diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> > index 50e2973..0b02417 100644
-> > --- a/net/ipv4/ip_output.c
-> > +++ b/net/ipv4/ip_output.c
-> > @@ -911,6 +911,7 @@ static int __ip_append_data(struct sock *sk,
-> >         if (transhdrlen &&
-> >             length + fragheaderlen <= mtu &&
-> >             rt->dst.dev->features & NETIF_F_V4_CSUM &&
-> > +           !(flags & MSG_MORE) &&
-> 
-> I still don't understand this. It seems like the effect is to disable
-> checksum offload for all UDP messages sent with MSG_MORE flag set.
+> I really do not like the feature flag, it's just a bandaid over the
+> real problem-- in fact my goal is to eliminate NETIF_F_IP{V6}_CSUM and
+> just have NETIF_F_HW_CSUM. I will repost the helper patches, but we
+> really do need to start fixing this stuff in the drivers instead of
+> more hacking in the stack.
 
-Exactly.
+It would be great if this is doable but I doubt so. There might be a lot
+of unresponsive driver maintainers and I don't see that we should simply
+eliminate IPv4 csum offloading for those drivers, too. Sometimes it is
+hard to patch drivers without documentation.
 
-MSG_MORE/UDP_CORK is a method to append data on the *same* UDP packet.
-The probability this packet exceeds the MTU size is rather large, as it
-is mostly used to prepare a header and later on send data via
-sendpage/sendfile-syscall (IPv6 UDP as no sendpage so it falls back to
-normal udpv6_sendmsg path). sendpage is mostly used to send rather large
-amount of data because for small amounts regular copying might be faster
-(IMHO). So the probability we exceed the MTU is quiet high. This is the
-case for NFSv4 which uses this flag over UDP, sending xdr header and
-later on the filesystem data directly from the page cache. You will
-still have CHECKSUM_PARTIAL capability with sendmsg and multiple iovecs!
+I am against lifting restrictions which will have unforeseeable 
+consequences for some people (as in partial communication errors) or
+having huge performance drawbacks (as in disabling ipv4 csum offloading,
+too).
 
-Because we cannot simply switch back to CHECKSUM_NONE in the second
-write, the first write would not yet have been checksumed, I decided to
-exclude MSG_MORE to set up a CHECKSUM_PARTIAL skb.
+I could even imagine this needs to be more configurable as in how many
+extension headers some hardware can process, I fear. One extension
+header might be okay (jumping over a fragmentation header), but two... I
+simply don't know, yet. Maybe there is no problem with hardware at all.
 
-Because there would be at least some more syscalls between the first
-write and the second write (not so in the  NFS example directly from the
-kernel but normal user space usage) the data would already be cold in
-the caches. So it makes sense to me to checksum the data during copy-in
-to trash the CPU caches only once.
+I don't really see this series as a hack. ;)
 
-The ip6_fragment logic will now catch this case and fragment anyway, but
-as I wrote, this is only a last resort.
-
-Hope that makes it more clear.
+Unluckily it seems we don't get feedback from the hardware about not
+being able to construct a proper checksum, so we cannot even close the
+loop and add code which warns us about misbehaving drivers.
 
 Bye,
 Hannes
