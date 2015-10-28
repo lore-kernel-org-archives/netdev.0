@@ -1,87 +1,56 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 4/4] sfc: set and clear interrupt affinity hints
-Date: Wed, 28 Oct 2015 21:15:57 +0300
-Message-ID: <563110DD.8040606@cogentembedded.com>
-References: <5630E2FD.3070609@solarflare.com>
- <5630E36B.2030501@solarflare.com>
+From: Loganaden Velvindron <logan@elandsys.com>
+Subject: [PATCH 1/1 net-next] net: bridge: use vzalloc() instead of vmalloc()
+ for counterstmp
+Date: Wed, 28 Oct 2015 11:29:53 -0700
+Message-ID: <20151028182953.GA11738@mx.elandsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Shradha Shah <sshah@solarflare.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:36682 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752375AbbJ1SQB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 14:16:01 -0400
-Received: by lbjm5 with SMTP id m5so11966040lbj.3
-        for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 11:15:59 -0700 (PDT)
-In-Reply-To: <5630E36B.2030501@solarflare.com>
+Received: from ns1.qubic.net ([208.69.177.116]:62695 "EHLO mx.elandsys.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755704AbbJ1S34 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Oct 2015 14:29:56 -0400
+Received: from mx.elandsys.com (IDENT:logan@localhost [127.0.0.1])
+	by mx.elandsys.com (8.14.5/8.14.5) with ESMTP id t9SITrPP012497
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 11:29:54 -0700 (PDT)
+Received: (from logan@localhost)
+	by mx.elandsys.com (8.14.5/8.14.5/Submit) id t9SITrrE015582
+	for netdev@vger.kernel.org; Wed, 28 Oct 2015 11:29:53 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+counterstmp is not cleared before it is used in get_counters(). it might be 
+leaked partially when it is sent to userland later on.
 
-On 10/28/2015 06:02 PM, Shradha Shah wrote:
+Signed-off-by: Loganaden Velvindron <logan@elandsys.com>
+---
+ net/bridge/netfilter/ebtables.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> From: Bert Kenward <bkenward@solarflare.com>
->
-> Use cpumask_local_spread to provide interrupt affinity hints
-> for each queue. This will spread interrupts across NUMA local
-> CPUs first, extending to remote nodes if needed.
->
-> Signed-off-by: Shradha Shah <sshah@solarflare.com>
-> ---
->   drivers/net/ethernet/sfc/efx.c | 35 +++++++++++++++++++++++++++++++++++
->   1 file changed, 35 insertions(+)
->
-> diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-> index 84f9e90..93c4c0e 100644
-> --- a/drivers/net/ethernet/sfc/efx.c
-> +++ b/drivers/net/ethernet/sfc/efx.c
-> @@ -1489,6 +1489,30 @@ static int efx_probe_interrupts(struct efx_nic *efx)
->   	return 0;
->   }
->
-> +#if defined(CONFIG_SMP)
-> +static void efx_set_interrupt_affinity(struct efx_nic *efx)
-> +{
-> +	struct efx_channel *channel;
-> +	unsigned int cpu;
-> +
-> +	efx_for_each_channel(channel, efx) {
-> +		cpu = cpumask_local_spread(channel->channel,
-> +					   pcibus_to_node(efx->pci_dev->bus));
-> +
-> +		irq_set_affinity_hint(channel->irq, cpumask_of(cpu));
-> +		channel->irq_mem_node = cpu_to_mem(cpu);
-> +	}
-> +}
-> +
-> +static void efx_clear_interrupt_affinity(struct efx_nic *efx)
-> +{
-> +	struct efx_channel *channel;
-> +
-> +	efx_for_each_channel(channel, efx)
-> +		irq_set_affinity_hint(channel->irq, NULL);
-> +}
-> +#endif /* CONFIG_SMP */
-> +
->   static int efx_soft_enable_interrupts(struct efx_nic *efx)
->   {
->   	struct efx_channel *channel, *end_channel;
-> @@ -2932,6 +2956,9 @@ static void efx_pci_remove_main(struct efx_nic *efx)
->   	cancel_work_sync(&efx->reset_work);
->
->   	efx_disable_interrupts(efx);
-> +#if defined(CONFIG_SMP)
-> +	efx_clear_interrupt_affinity(efx);
-> +#endif
-
-    Please just define empty function for !SMP case instead of the ugly 
-#ifdef'fery in the functiojn bodies.
-
-[...]
-
-MBR, Sergei
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index f46ca41..26922e9 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -989,7 +989,7 @@ static int do_replace_finish(struct net *net, struct ebt_replace *repl,
+ 	   the check on the size is done later, when we have the lock */
+ 	if (repl->num_counters) {
+ 		unsigned long size = repl->num_counters * sizeof(*counterstmp);
+-		counterstmp = vmalloc(size);
++		counterstmp = vzalloc(size);
+ 		if (!counterstmp)
+ 			return -ENOMEM;
+ 	}
+@@ -1410,7 +1410,7 @@ static int copy_counters_to_user(struct ebt_table *t,
+ 		return -EINVAL;
+ 	}
+ 
+-	counterstmp = vmalloc(nentries * sizeof(*counterstmp));
++	counterstmp = vzalloc(nentries * sizeof(*counterstmp));
+ 	if (!counterstmp)
+ 		return -ENOMEM;
+ 
+-- 
+2.6.1
