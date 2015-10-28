@@ -1,43 +1,67 @@
-From: Jiri Olsa <jolsa@redhat.com>
-Subject: Re: [RFC PATCH net-next 1/4] perf tools: Enable pre-event inherit
- setting by config terms
-Date: Wed, 28 Oct 2015 15:17:46 +0100
-Message-ID: <20151028141746.GA11769@krava.brq.redhat.com>
-References: <1446029705-199659-1-git-send-email-wangnan0@huawei.com>
- <1446029705-199659-2-git-send-email-wangnan0@huawei.com>
- <20151028132126.GD5216@krava.brq.redhat.com>
- <20151028134213.GC18670@kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH v2 1/4] net: dsa: allow switch drivers to cleanup
+ their resources
+Date: Wed, 28 Oct 2015 15:25:56 +0100
+Message-ID: <20151028142556.GE2307@lunn.ch>
+References: <5630D7E9.4020609@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Wang Nan <wangnan0@huawei.com>, ast@kernel.org,
-	brendan.d.gregg@gmail.com, jolsa@kernel.org, lizefan@huawei.com,
-	pi3orama@163.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Arnaldo Carvalho de Melo <acme@kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Neil Armstrong <narmstrong@baylibre.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20151028134213.GC18670@kernel.org>
+In-Reply-To: <5630D7E9.4020609@baylibre.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 28, 2015 at 10:42:13AM -0300, Arnaldo Carvalho de Melo wrote:
-> Em Wed, Oct 28, 2015 at 02:21:26PM +0100, Jiri Olsa escreveu:
-> > On Wed, Oct 28, 2015 at 10:55:02AM +0000, Wang Nan wrote:
-> > > @@ -55,6 +56,7 @@ struct perf_evsel_config_term {
-> > >  		bool	time;
-> > >  		char	*callgraph;
-> > >  		u64	stack_user;
-> > > +		u64	inherit;
-> > 
-> > seems like bool would be enough
+On Wed, Oct 28, 2015 at 03:12:57PM +0100, Neil Armstrong wrote:
+> Some switch drivers might request interrupts, remap register ranges,
+> allow such drivers to implement a "remove" callback doing just that.
 > 
-> Ok, will change this and move it to a more suitable place member
-> alignment wise.
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+> ---
+>  include/net/dsa.h | 1 +
+>  net/dsa/dsa.c     | 4 ++++
+>  2 files changed, 5 insertions(+)
 > 
-> Can I, with this change, slap an Acked-by: jirka?
+> diff --git a/include/net/dsa.h b/include/net/dsa.h
+> index 98ccbde..0e1502c 100644
+> --- a/include/net/dsa.h
+> +++ b/include/net/dsa.h
+> @@ -212,6 +212,7 @@ struct dsa_switch_driver {
+>  	 */
+>  	char	*(*probe)(struct device *host_dev, int sw_addr);
+>  	int	(*setup)(struct dsa_switch *ds);
+> +	void	(*remove)(struct dsa_switch *ds);
+>  	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
+>  	u32	(*get_phy_flags)(struct dsa_switch *ds, int port);
+> 
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index 1eba07f..f462fc5 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -459,6 +459,10 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+>  	}
+> 
+>  	mdiobus_unregister(ds->slave_mii_bus);
+> +
+> +	/* Leave a chance to the driver to cleanup */
 
-yep
+A nitpick:
 
-jirka
+ /* Give the driver a chance to cleanup */
+
+would be better English.
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+
+	    Andrew
