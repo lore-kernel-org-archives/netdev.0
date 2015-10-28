@@ -1,98 +1,51 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 2/2] e1000e: Fix msi-x interrupt automask
-Date: Wed, 28 Oct 2015 16:08:16 -0700
-Message-ID: <56315560.1070705@gmail.com>
-References: <1445560348-29872-1-git-send-email-bpoirier@suse.com>
- <1445560348-29872-3-git-send-email-bpoirier@suse.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Wed, 28 Oct 2015 16:08:29 -0700
+Message-ID: <1446073709.7476.93.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1445991236.7476.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151028123543.GB22011@ZenIV.linux.org.uk>
+	 <1446038672.7476.65.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446043677.7476.68.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151028211347.GC22011@ZenIV.linux.org.uk>
+	 <1446068668.7476.89.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151028223330.GD22011@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Benjamin Poirier <bpoirier@suse.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445560348-29872-3-git-send-email-bpoirier@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	netdev@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	dhowells@redhat.com, linux-fsdevel@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20151028223330.GD22011@ZenIV.linux.org.uk>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/22/2015 05:32 PM, Benjamin Poirier wrote:
-> Since the introduction of 82574 support in e1000e, the driver has worked on
-> the assumption that msi-x interrupt generation is automatically disabled
-> after each irq. As it turns out, this is not the case. Currently, rx
-> interrupts can fire multiple times before and during napi processing. This
-> can be a problem for users because frames that arrive in a certain window
-> (after adapter->clean_rx() but before napi_complete_done() has cleared
-> NAPI_STATE_SCHED) generate an interrupt which does not lead to
-> napi_schedule(). These frames sit in the rx queue until another frame
-> arrives (a tcp retransmit for example).
->
-> While the EIAC and CTRL_EXT registers are properly configured for irq
-> automask, the modification of IAM in e1000_configure_msix() is what
-> prevents automask from working as intended.
->
-> This patch removes that erroneous write and fixes interrupt rearming for tx
-> and "other" interrupts. Since e1000_msix_other() reads ICR, all interrupts
-> must be rearmed in that function.
->
-> Reported-by: Frank Steiner <steiner-reg@bio.ifi.lmu.de>
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
-> ---
->   drivers/net/ethernet/intel/e1000e/netdev.c | 12 ++++++------
->   1 file changed, 6 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-> index a228167..8881256 100644
-> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -1921,7 +1921,8 @@ static irqreturn_t e1000_msix_other(int __always_unused irq, void *data)
->
->   no_link_interrupt:
->   	if (!test_bit(__E1000_DOWN, &adapter->state))
-> -		ew32(IMS, E1000_IMS_LSC | E1000_IMS_OTHER);
-> +		ew32(IMS, adapter->eiac_mask | E1000_IMS_OTHER |
-> +		     E1000_IMS_LSC);
->
->   	return IRQ_HANDLED;
->   }
+On Wed, 2015-10-28 at 22:33 +0000, Al Viro wrote:
+> On Wed, Oct 28, 2015 at 02:44:28PM -0700, Eric Dumazet wrote:
+> 
+> > Well, all this complexity goes away with a O_FD_FASTALLOC /
+> > SOCK_FD_FASTALLOC bit in various fd allocations, which specifically
+> > tells the kernel we do not care getting the lowest possible fd as POSIX
+> > mandates.
+> 
+> ... which won't do a damn thing for existing userland.
 
-I would argue your first patch probably didn't go far enough to remove 
-dead code.  Specifically you should only ever get into this function if 
-LSC is set.  There are no other causes that should trigger this.  As 
-such you could probably remove the ICR read, and instead replace it with 
-an ICR write of the LSC bit since OTHER is already cleared via EIAC.
+For the userland that need +5,000,000 socket, I can tell you they are
+using this flag as soon they are aware it exists ;)
 
-> @@ -1940,6 +1941,9 @@ static irqreturn_t e1000_intr_msix_tx(int __always_unused irq, void *data)
->   		/* Ring was not completely cleaned, so fire another interrupt */
->   		ew32(ICS, tx_ring->ims_val);
->
-> +	if (!test_bit(__E1000_DOWN, &adapter->state))
-> +		ew32(IMS, E1000_IMS_TXQ0);
-> +
->   	return IRQ_HANDLED;
->   }
->
+> 
+> > Except for legacy stuff and stdin/stdout/stderr games, I really doubt
+> > lot of applications absolutely rely on the POSIX thing...
+> 
+> We obviously can't turn that into default behaviour, though.  BTW, what
+> distribution do you have in mind for those random descriptors?  Uniform
+> on [0,INT_MAX] is a bad idea for obvious reasons - you'll blow the
+> memory footprint pretty soon...
 
-I think what you need to set here is tx_ring->ims_val, not E1000_IMS_TXQ0.
+Simply [0 , fdt->max_fds] is working well in most cases.
 
-> @@ -2027,11 +2031,7 @@ static void e1000_configure_msix(struct e1000_adapter *adapter)
->
->   	/* enable MSI-X PBA support */
->   	ctrl_ext = er32(CTRL_EXT);
-> -	ctrl_ext |= E1000_CTRL_EXT_PBA_CLR;
-> -
-> -	/* Auto-Mask Other interrupts upon ICR read */
-> -	ew32(IAM, ~E1000_EIAC_MASK_82574 | E1000_IMS_OTHER);
-> -	ctrl_ext |= E1000_CTRL_EXT_EIAME;
-> +	ctrl_ext |= E1000_CTRL_EXT_PBA_CLR | E1000_CTRL_EXT_EIAME;
->   	ew32(CTRL_EXT, ctrl_ext);
->   	e1e_flush();
->   }
->
+
+
