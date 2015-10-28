@@ -1,42 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] xfrm: dst_entries_init() per-net dst_ops
-Date: Wed, 28 Oct 2015 14:42:43 +0100
-Message-ID: <1446039763.132965.422568409.3FC44B03@webmail.messagingengine.com>
-References: <1445962519-16133-1-git-send-email-dan.streetman@canonical.com>
- <CAOZ2QJMuPoSrrFdudiGYQ4PjvELbonqg94X2mQaUhZ-R5yS0hw@mail.gmail.com>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [RFC PATCH net-next 1/4] perf tools: Enable pre-event inherit
+ setting by config terms
+Date: Wed, 28 Oct 2015 10:44:20 -0300
+Message-ID: <20151028134420.GA17877@kernel.org>
+References: <1446029705-199659-1-git-send-email-wangnan0@huawei.com>
+ <1446029705-199659-2-git-send-email-wangnan0@huawei.com>
+ <20151028132126.GD5216@krava.brq.redhat.com>
+ <20151028134213.GC18670@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Dan Streetman <ddstreet@ieee.org>
-To: Dan Streetman <dan.streetman@canonical.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Wang Nan <wangnan0@huawei.com>, ast@kernel.org,
+	brendan.d.gregg@gmail.com, jolsa@kernel.org, lizefan@huawei.com,
+	pi3orama@163.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Jiri Olsa <jolsa@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOZ2QJMuPoSrrFdudiGYQ4PjvELbonqg94X2mQaUhZ-R5yS0hw@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <20151028134213.GC18670@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Em Wed, Oct 28, 2015 at 10:42:13AM -0300, Arnaldo Carvalho de Melo escreveu:
+> Em Wed, Oct 28, 2015 at 02:21:26PM +0100, Jiri Olsa escreveu:
+> > On Wed, Oct 28, 2015 at 10:55:02AM +0000, Wang Nan wrote:
+> > > @@ -55,6 +56,7 @@ struct perf_evsel_config_term {
+> > >  		bool	time;
+> > >  		char	*callgraph;
+> > >  		u64	stack_user;
+> > > +		u64	inherit;
+> > 
+> > seems like bool would be enough
+> 
+> Ok, will change this and move it to a more suitable place member
+> alignment wise.
 
-On Wed, Oct 28, 2015, at 14:32, Dan Streetman wrote:
-> On Tue, Oct 27, 2015 at 12:15 PM,  <dan.streetman@canonical.com> wrote:
-> > From: Dan Streetman <dan.streetman@canonical.com>
-> >
-> > The ipv4 and ipv6 xfrms each create a template dst_ops object, and
-> > perform dst_entries_init() on the template objects.  Then each net
-> > namespace has its net.xfrm.xfrm[46]_dst_ops field set to the template
-> > values.  The problem with that is the dst_ops.pcpuc_entries field is
-> > a percpu counter and cannot be used correctly by simply copying it to
-> > another object.
-
-How hard would it be to split of the counters from the dst_ops struct?
-We could make dst_ops instances const and have normal pointers to them
-and keep the dst_entries as a small array in net namespace?
-
-Bye,
-Hannes
+Nah, switched it to bool, but no need to move it around, that is an
+union...
+ 
+> Can I, with this change, slap an Acked-by: jirka?
+> 
+> - Arnaldo
