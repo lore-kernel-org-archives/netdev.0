@@ -1,8 +1,8 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [RFC PATCH v2 2/4] net: dsa: bcm_sf2: cleanup resources in remove
- callback
-Date: Wed, 28 Oct 2015 15:13:07 +0100
-Message-ID: <5630D7F3.2000508@baylibre.com>
+Subject: [RFC PATCH v2 3/4] net: dsa: mv88e6xxx: add common and ppu remove
+ function
+Date: Wed, 28 Oct 2015 15:13:16 +0100
+Message-ID: <5630D7FC.4010509@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -19,52 +19,70 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement a remove callback allowing the switch driver to cleanup
-resources it used: interrupts and remapped register ranges.
+With the previously introduced remove callback, add a
+mv88e6xxx common remove function to cleanup all resources.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 ---
- drivers/net/dsa/bcm_sf2.c | 20 ++++++++++++++++++++
- 1 file changed, 20 insertions(+)
+ drivers/net/dsa/mv88e6xxx.c | 18 ++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx.h |  2 ++
+ 2 files changed, 20 insertions(+)
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 6f946fe..e0be318 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -1054,6 +1054,25 @@ out_unmap:
- 	return ret;
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index b1b14f5..6287096 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -331,6 +331,16 @@ void mv88e6xxx_ppu_state_init(struct dsa_switch *ds)
+ 	ps->ppu_timer.function = mv88e6xxx_ppu_reenable_timer;
  }
 
-+static void bcm_sf2_sw_remove(struct dsa_switch *ds)
++void mv88e6xxx_ppu_state_remove(struct dsa_switch *ds)
 +{
-+	struct bcm_sf2_priv *priv = ds_to_priv(ds);
-+	void __iomem **base;
-+	unsigned int i;
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	
++	del_timer_sync(&ps->ppu_timer);
 +
-+	/* Disable all interrupts and free them */
-+	bcm_sf2_intr_disable(priv);
-+
-+	free_irq(priv->irq0, priv);
-+	free_irq(priv->irq1, priv);
-+
-+	base = &priv->core;
-+	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
-+		iounmap(*base);
-+		base++;
-+	}
++	cancel_work_sync(&ps->bridge_work);
++	flush_work(&ps->bridge_work);
 +}
 +
- static int bcm_sf2_sw_set_addr(struct dsa_switch *ds, u8 *addr)
+ int mv88e6xxx_phy_read_ppu(struct dsa_switch *ds, int addr, int regnum)
  {
+ 	int ret;
+@@ -2083,6 +2093,14 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
  	return 0;
-@@ -1367,6 +1386,7 @@ static struct dsa_switch_driver bcm_sf2_switch_driver = {
- 	.tag_protocol		= DSA_TAG_PROTO_BRCM,
- 	.priv_size		= sizeof(struct bcm_sf2_priv),
- 	.probe			= bcm_sf2_sw_probe,
-+	.remove			= bcm_sf2_sw_remove,
- 	.setup			= bcm_sf2_sw_setup,
- 	.set_addr		= bcm_sf2_sw_set_addr,
- 	.get_phy_flags		= bcm_sf2_sw_get_phy_flags,
+ }
+
++void mv88e6xxx_remove_common(struct dsa_switch *ds)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++
++	cancel_work_sync(&ps->bridge_work);
++	flush_work(&ps->bridge_work);
++}
++
+ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 6f9ed5d..64d37a0 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -417,6 +417,7 @@ struct mv88e6xxx_hw_stat {
+ int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active);
+ int mv88e6xxx_setup_ports(struct dsa_switch *ds);
+ int mv88e6xxx_setup_common(struct dsa_switch *ds);
++void mv88e6xxx_remove_common(struct dsa_switch *ds);
+ int mv88e6xxx_setup_global(struct dsa_switch *ds);
+ int __mv88e6xxx_reg_read(struct mii_bus *bus, int sw_addr, int addr, int reg);
+ int mv88e6xxx_reg_read(struct dsa_switch *ds, int addr, int reg);
+@@ -431,6 +432,7 @@ int mv88e6xxx_phy_read_indirect(struct dsa_switch *ds, int port, int regnum);
+ int mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int port, int regnum,
+ 				 u16 val);
+ void mv88e6xxx_ppu_state_init(struct dsa_switch *ds);
++void mv88e6xxx_ppu_state_remove(struct dsa_switch *ds);
+ int mv88e6xxx_phy_read_ppu(struct dsa_switch *ds, int addr, int regnum);
+ int mv88e6xxx_phy_write_ppu(struct dsa_switch *ds, int addr,
+ 			    int regnum, u16 val);
 -- 
 1.9.1
