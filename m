@@ -1,328 +1,128 @@
 From: <igal.liberman@freescale.com>
-Subject: [v6, 4/6] fsl/fman: Add FMan SP support
-Date: Wed, 28 Oct 2015 10:53:47 +0200
-Message-ID: <1446022429-31621-5-git-send-email-igal.liberman@freescale.com>
-References: <1446022429-31621-1-git-send-email-igal.liberman@freescale.com>
-Reply-To: <igal.liberman@freescale.com>
+Subject: [v6, 0/6] Freescale DPAA FMan
+Date: Wed, 28 Oct 2015 10:53:43 +0200
+Message-ID: <1446022429-31621-1-git-send-email-igal.liberman@freescale.com>
+Reply-To: igal.liberman@freescale.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
-	<scottwood@freescale.com>, <madalin.bucur@freescale.com>,
-	<pebolle@tiscali.nl>, <joakim.tjernlund@transmode.se>,
-	<ppc@mindchasers.com>, <stephen@networkplumber.org>,
-	<davem@davemloft.net>, Igal Liberman <igal.liberman@freescale.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: pebolle@tiscali.nl, linux-kernel@vger.kernel.org, ppc@mindchasers.com,
+ stephen@networkplumber.org, Igal Liberman <igal.liberman@freescale.com>,
+ scottwood@freescale.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net,
+ madalin.bucur@freescale.com
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446022429-31621-1-git-send-email-igal.liberman@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-From: Igal Liberman <igal.liberman@freescale.com>
-
-The Storage Profiles contain parameters that are used
-by the FMan for frame reception and transmission.
-
-Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
----
- drivers/net/ethernet/freescale/fman/Makefile  |    2 +-
- drivers/net/ethernet/freescale/fman/fman_sp.c |  167 +++++++++++++++++++++++++
- drivers/net/ethernet/freescale/fman/fman_sp.h |  103 +++++++++++++++
- 3 files changed, 271 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/freescale/fman/fman_sp.c
- create mode 100644 drivers/net/ethernet/freescale/fman/fman_sp.h
-
-diff --git a/drivers/net/ethernet/freescale/fman/Makefile b/drivers/net/ethernet/freescale/fman/Makefile
-index 43360d70..5141532 100644
---- a/drivers/net/ethernet/freescale/fman/Makefile
-+++ b/drivers/net/ethernet/freescale/fman/Makefile
-@@ -2,5 +2,5 @@ subdir-ccflags-y +=  -I$(srctree)/drivers/net/ethernet/freescale/fman
- 
- obj-y		+= fsl_fman.o fsl_fman_mac.o
- 
--fsl_fman-objs	:= fman_muram.o fman.o
-+fsl_fman-objs	:= fman_muram.o fman.o fman_sp.o
- fsl_fman_mac-objs := fman_dtsec.o fman_memac.o fman_tgec.o
-diff --git a/drivers/net/ethernet/freescale/fman/fman_sp.c b/drivers/net/ethernet/freescale/fman/fman_sp.c
-new file mode 100644
-index 0000000..f36c622
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/fman_sp.c
-@@ -0,0 +1,167 @@
-+/*
-+ * Copyright 2008 - 2015 Freescale Semiconductor Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *       notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *       notice, this list of conditions and the following disclaimer in the
-+ *       documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *       names of its contributors may be used to endorse or promote products
-+ *       derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include "fman_sp.h"
-+#include "fman.h"
-+
-+void fman_sp_set_buf_pools_in_asc_order_of_buf_sizes(struct fman_ext_pools
-+						     *fm_ext_pools,
-+						     u8 *ordered_array,
-+						     u16 *sizes_array)
-+{
-+	u16 buf_size = 0;
-+	int i = 0, j = 0, k = 0;
-+
-+	/* First we copy the external buffers pools information
-+	 * to an ordered local array
-+	 */
-+	for (i = 0; i < fm_ext_pools->num_of_pools_used; i++) {
-+		/* get pool size */
-+		buf_size = fm_ext_pools->ext_buf_pool[i].size;
-+
-+		/* keep sizes in an array according to poolId
-+		 * for direct access
-+		 */
-+		sizes_array[fm_ext_pools->ext_buf_pool[i].id] = buf_size;
-+
-+		/* save poolId in an ordered array according to size */
-+		for (j = 0; j <= i; j++) {
-+			/* this is the next free place in the array */
-+			if (j == i)
-+				ordered_array[i] =
-+				    fm_ext_pools->ext_buf_pool[i].id;
-+			else {
-+				/* find the right place for this poolId */
-+				if (buf_size < sizes_array[ordered_array[j]]) {
-+					/* move the pool_ids one place ahead
-+					 * to make room for this poolId
-+					 */
-+					for (k = i; k > j; k--)
-+						ordered_array[k] =
-+						    ordered_array[k - 1];
-+
-+					/* now k==j, this is the place for
-+					 * the new size
-+					 */
-+					ordered_array[k] =
-+					    fm_ext_pools->ext_buf_pool[i].id;
-+					break;
-+				}
-+			}
-+		}
-+	}
-+}
-+
-+int fman_sp_build_buffer_struct(struct fman_sp_int_context_data_copy *
-+				int_context_data_copy,
-+				struct fman_buffer_prefix_content *
-+				buffer_prefix_content,
-+				struct fman_sp_buf_margins *buf_margins,
-+				struct fman_sp_buffer_offsets *buffer_offsets,
-+				u8 *internal_buf_offset)
-+{
-+	u32 tmp;
-+
-+	/* Align start of internal context data to 16 byte */
-+	int_context_data_copy->ext_buf_offset = (u16)
-+		((buffer_prefix_content->priv_data_size & (OFFSET_UNITS - 1)) ?
-+		((buffer_prefix_content->priv_data_size + OFFSET_UNITS) &
-+			~(u16)(OFFSET_UNITS - 1)) :
-+		buffer_prefix_content->priv_data_size);
-+
-+	/* Translate margin and int_context params to FM parameters */
-+	/* Initialize with illegal value. Later we'll set legal values. */
-+	buffer_offsets->prs_result_offset = (u32)ILLEGAL_BASE;
-+	buffer_offsets->time_stamp_offset = (u32)ILLEGAL_BASE;
-+	buffer_offsets->hash_result_offset = (u32)ILLEGAL_BASE;
-+
-+	/* Internally the driver supports 4 options
-+	 * 1. prsResult/timestamp/hashResult selection (in fact 8 options,
-+	 * but for simplicity we'll
-+	 * relate to it as 1).
-+	 * 2. All IC context (from AD) not including debug.
-+	 */
-+
-+	/* This case covers the options under 1 */
-+	/* Copy size must be in 16-byte granularity. */
-+	int_context_data_copy->size =
-+	    (u16)((buffer_prefix_content->pass_prs_result ? 32 : 0) +
-+		  ((buffer_prefix_content->pass_time_stamp ||
-+		  buffer_prefix_content->pass_hash_result) ? 16 : 0));
-+
-+	/* Align start of internal context data to 16 byte */
-+	int_context_data_copy->int_context_offset =
-+	    (u8)(buffer_prefix_content->pass_prs_result ? 32 :
-+		 ((buffer_prefix_content->pass_time_stamp ||
-+		 buffer_prefix_content->pass_hash_result) ? 64 : 0));
-+
-+	if (buffer_prefix_content->pass_prs_result)
-+		buffer_offsets->prs_result_offset =
-+		    int_context_data_copy->ext_buf_offset;
-+	if (buffer_prefix_content->pass_time_stamp)
-+		buffer_offsets->time_stamp_offset =
-+		    buffer_prefix_content->pass_prs_result ?
-+		    (int_context_data_copy->ext_buf_offset +
-+			sizeof(struct fman_prs_result)) :
-+		    int_context_data_copy->ext_buf_offset;
-+	if (buffer_prefix_content->pass_hash_result)
-+		/* If PR is not requested, whether TS is
-+		 * requested or not, IC will be copied from TS
-+			 */
-+		buffer_offsets->hash_result_offset =
-+		buffer_prefix_content->pass_prs_result ?
-+			(int_context_data_copy->ext_buf_offset +
-+				sizeof(struct fman_prs_result) + 8) :
-+			int_context_data_copy->ext_buf_offset + 8;
-+
-+	if (int_context_data_copy->size)
-+		buf_margins->start_margins =
-+		    (u16)(int_context_data_copy->ext_buf_offset +
-+			  int_context_data_copy->size);
-+	else
-+		/* No Internal Context passing, STartMargin is
-+		 * immediately after private_info
-+		 */
-+		buf_margins->start_margins =
-+		    buffer_prefix_content->priv_data_size;
-+
-+	/* align data start */
-+	tmp = (u32)(buf_margins->start_margins %
-+		    buffer_prefix_content->data_align);
-+	if (tmp)
-+		buf_margins->start_margins +=
-+		    (buffer_prefix_content->data_align - tmp);
-+	buffer_offsets->data_offset = buf_margins->start_margins;
-+
-+	return 0;
-+}
-+
-diff --git a/drivers/net/ethernet/freescale/fman/fman_sp.h b/drivers/net/ethernet/freescale/fman/fman_sp.h
-new file mode 100644
-index 0000000..820b7f6
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/fman_sp.h
-@@ -0,0 +1,103 @@
-+/*
-+ * Copyright 2008 - 2015 Freescale Semiconductor Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *	 notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *	 notice, this list of conditions and the following disclaimer in the
-+ *	 documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *	 names of its contributors may be used to endorse or promote products
-+ *	 derived from this software without specific prior written permission.
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef __FM_SP_H
-+#define __FM_SP_H
-+
-+#include "fman.h"
-+#include <linux/types.h>
-+
-+#define ILLEGAL_BASE    (~0)
-+
-+/* defaults */
-+#define DFLT_FM_SP_BUFFER_PREFIX_CONTEXT_DATA_ALIGN	64
-+
-+/* Registers bit fields */
-+#define FMAN_SP_EXT_BUF_POOL_EN_COUNTER		0x40000000
-+#define FMAN_SP_EXT_BUF_POOL_VALID			0x80000000
-+#define FMAN_SP_EXT_BUF_POOL_BACKUP			0x20000000
-+#define FMAN_SP_DMA_ATTR_WRITE_OPTIMIZE		0x00100000
-+#define FMAN_SP_SG_DISABLE				0x80000000
-+
-+/* shifts */
-+#define FMAN_SP_EXT_BUF_MARG_START_SHIFT		16
-+#define FMAN_SP_DMA_ATTR_SWP_SHIFT			30
-+#define FMAN_SP_IC_TO_EXT_SHIFT			16
-+#define FMAN_SP_IC_FROM_INT_SHIFT			8
-+
-+/* structure for defining internal context copying */
-+struct fman_sp_int_context_data_copy {
-+	/* < Offset in External buffer to which internal
-+	 *  context is copied to (Rx) or taken from (Tx, Op).
-+	 */
-+	u16 ext_buf_offset;
-+	/* Offset within internal context to copy from
-+	 * (Rx) or to copy to (Tx, Op).
-+	 */
-+	u8 int_context_offset;
-+	/* Internal offset size to be copied */
-+	u16 size;
-+};
-+
-+/*  struct for defining external buffer margins */
-+struct fman_sp_buf_margins {
-+	/* Number of bytes to be left at the beginning
-+	 * of the external buffer (must be divisible by 16)
-+	 */
-+	u16 start_margins;
-+	/* number of bytes to be left at the end
-+	 * of the external buffer(must be divisible by 16)
-+	 */
-+	u16 end_margins;
-+};
-+
-+struct fman_sp_buffer_offsets {
-+	u32 data_offset;
-+	u32 prs_result_offset;
-+	u32 time_stamp_offset;
-+	u32 hash_result_offset;
-+};
-+
-+int fman_sp_build_buffer_struct(struct fman_sp_int_context_data_copy
-+				*int_context_data_copy,
-+				struct fman_buffer_prefix_content
-+				*buffer_prefix_content,
-+				struct fman_sp_buf_margins *buf_margins,
-+				struct fman_sp_buffer_offsets
-+				*buffer_offsets,
-+				u8 *internal_buf_offset);
-+
-+void fman_sp_set_buf_pools_in_asc_order_of_buf_sizes(struct fman_ext_pools
-+						     *fm_ext_pools,
-+						     u8 *ordered_array,
-+						     u16 *sizes_array);
-+
-+#endif	/* __FM_SP_H */
--- 
-1.7.9.5
+RnJvbTogSWdhbCBMaWJlcm1hbiA8aWdhbC5saWJlcm1hbkBmcmVlc2NhbGUuY29tPgoKVGhlIEZy
+ZWVzY2FsZSBEYXRhIFBhdGggQWNjZWxlcmF0aW9uIEFyY2hpdGVjdHVyZSAoRFBBQSkgaXMgYSBz
+ZXQKb2YgaGFyZHdhcmUgY29tcG9uZW50cyBvbiBzcGVjaWZpYyBRb3JJUSBtdWx0aWNvcmUgcHJv
+Y2Vzc29ycy4KVGhpcyBhcmNoaXRlY3R1cmUgcHJvdmlkZXMgdGhlIGluZnJhc3RydWN0dXJlIHRv
+IHN1cHBvcnQKc2ltcGxpZmllZCBzaGFyaW5nIG9mIG5ldHdvcmtpbmcgaW50ZXJmYWNlcyBhbmQg
+YWNjZWxlcmF0b3JzCmJ5IG11bHRpcGxlIENQVSBjb3JlcyBhbmQgdGhlIGFjY2VsZXJhdG9ycy4K
+Ck9uZSBvZiB0aGUgRFBBQSBhY2NlbGVyYXRvcnMgaXMgdGhlIEZyYW1lIE1hbmFnZXIgKEZNYW4p
+CndoaWNoIGNvbnRhaW5zIGEgc2VyaWVzIG9mIGhhcmR3YXJlIGJsb2NrczogcG9ydHMsIEV0aGVy
+bmV0IE1BQ3MsCmEgbXVsdGkgdXNlciBSQU0gKE1VUkFNKSBhbmQgU3RvcmFnZSBQcm9maWxlIChT
+UCkuCgpUaGlzIHBhdGNoIHNldCBpbnRyb2R1Y2UgdGhlIEZNYW4gZHJpdmVycy4KRWFjaCBkcml2
+ZXIgY29uZmlndXJlcyBhbmQgaW5pdGlhbGl6ZXMgdGhlIGNvcnJlc3BvbmRpbmcKRk1hbiBoYXJk
+d2FyZSBtb2R1bGUgKGRlc2NyaWJlZCBhYm92ZSkuClRoZSBNQUMgZHJpdmVyIG9mZmVycyBzdXBw
+b3J0IGZvciB0aHJlZSBkaWZmZXJlbnQKdHlwZXMgb2YgTUFDcyAoZVRTRUMsIFRHRUMsIE1FTUFD
+KS4KCnY1IC0tPiB2NjoKCS0gQWRkcmVzc2VkIGZlZWRiYWNrIGZyb20gU2NvdHQ6CgkJLSBNb3Zl
+ZCBrZXJuZWwgZG9jIHRvIHNvdXJjZSBmaWxlcwoJCS0gUmVtb3ZlZCBhIHNlcmllcyBvZiBjb25m
+aWd1cmFibGUgc2V0dGluZ3MKCQktIE1pc2NlbGxhbmVvdXMgY29kZSB1cGRhdGVzCgp2NCAtLT4g
+djU6CgktIEFkZHJlc3NlZCBmZWVkYmFjayBmcm9tIERhdmlkIE1pbGxlcjoKCQktIFJlbW92ZWQg
+ZHJpdmVyIGxheWVyaW5nCgkJLSBSZWR1Y2UgbmFtZXNwYWNlIHBvbGx1dGlvbgoJCS0gUmVkdWNl
+IGNvZGUgY29tcGxleGl0eSBhbmQgc2l6ZQoKdjMgLS0+IHY0OgoJLSBSZW1vdmUgZGV2aWNlX2lu
+aXRjYWxsIGNhbGwgaW4gZHJpdmVyIHJlZ2lzdHJhdGlvbiAocmVkdW5kYW50KQoJLSBSZW1vdmUg
+aG90L2NvbGQgbGFiZWxzCgktIE1pbm9yIHVwZGF0ZSBpbiBGTWFuIENsb2NrIHJlYWQgZnJvbSBk
+ZXZpY2UtdHJlZQoJLSBVcGRhdGUgZml4ZWQtbGluayBzdXBwb3J0CgktIEFkZHJlc3NlZCBmZWVk
+YmFjayBmcm9tIFN0ZXBoZW4gSGVtbWluZ2VyCgkJLSBSZW1vdmUgYm9ndXMgYmxhbmsgbGluZQoK
+djIgLS0+IHYzOgoJLSBBZGRyZXNzZWQgZmVlZGJhY2sgZnJvbSBTY290dDoKCQktIFJlbW92ZSB0
+eXBlZGVmcwoJCS0gUmVtb3ZlIHVubmVjZXNzYXJ5IG1lbW9yeSBiYXJyaWVycwoJCS0gUmVtb3Zl
+IHVubmVjZXNzYXJ5IGNhc3RpbmcKCQktIFJlbW92ZSBLQ29uZmlnIG9wdGlvbnMKCQktIFJlbW92
+ZSBlYXJseV9wYXJhbXMKCQktIFJlbW92ZSBIdW5nYXJpYW4gbm90YXRpb24KCQktIFJlbW92ZSBf
+X3BhY2tlZF9fICBhdHRyaWJ1dGUgYW5kIHBhZGRpbmcgZnJvbSBzdHJ1Y3R1cmVzCgkJLSBSZW1v
+dmUgdW5saWtlbHkgYXR0cmlidXRlICh3aGVyZSBpdCdzIG5vdCBuZWVkZWQpCgkJLSBVc2UgcHJv
+cGVyIGVycm9yIGNvZGVzIGFuZCByZW1vdmUgdW5uZWNlc3NhcnkgcHJpbnRzCgkJLSBVc2UgcHJv
+cGVyIHZhbHVlcyBmb3Igc2xlZXAgcm91dGluZXMKCQktIFJlcGxhY2UgY29tcGxleCBNYWNyb3Mg
+d2l0aCBmdW5jdGlvbnMKCQktIEltcHJvdmUgZGV2aWNlIHRyZWUgcHJvY2Vzc2luZyBjb2RlCgkJ
+LSBVc2Ugc3ltYm9saWMgZGVmaW5lcwoJCS0gQWRkIHRpbWUtb3V0IGluIGJ1c3ktd2FpdCBsb29w
+cwoJCS0gUmVtb3ZlZCBleGl0IGNvZGUgKGxvYWRhYmxlIG1vZHVsZSBzdXBwb3J0IHdpbGwgYmUg
+YWRkZWQgbGF0ZXIpCgktIEZpeGVkICJmaXhlZC1saW5rIiBpc3N1ZSByYWlzZWQgYnkgSm9ha2lt
+IFRqZXJubHVuZAoKdjEgLS0+IHYyOgoJLSBBZGRyZXNzZWQgZmVlZGJhY2sgZnJvbSBQYXVsIEJv
+bGxlOgoJCS0gR2VuZXJhbCBmZWVkYmFjayBvZiBGTWFuIERyaXZlciBsYXllcgoJCS0gUmVtb3Zl
+IEVycmF0YSBkZWZpbmVzCgkJLSBBbGlnbmVkIGNvbW1lbnRzIHRvIEtlcm5lbCBEb2MKCQktIFJl
+bW92ZSBMb2FkYWJsZSBNb2R1bGUgc3VwcG9ydCAobm90IHlldCBzdXBwb3J0ZWQpCgkJLSBSZW1v
+dmVkIG5vdCBuZWVkZWQgS0NvbmZpZyBkZXBlbmRlbmNpZXMKCS0gQWRkcmVzc2VkIGZlZWRiYWNr
+IGZyb20gU2NvdHQgV29vZAoJCS0gVXNlIEtlcm5lbCBpb3JlYWQvaW93cml0ZSBzZXJ2aWNlcwoJ
+CS0gU3F1YXNoIEZMSUIgc291cmNlIGFuZCBoZWFkZXIgcGF0Y2hlcyB0b2dldGhlcgoKVGhpcyBz
+dWJtaXNzaW9uIGlzIGJhc2VkIG9uIHRoZSBwcmlvciBGcmVlc2NhbGUgRFBBQSBGTWFuIFYzLFJG
+QyBzdWJtaXNzaW9uLgpTZXZlcmFsIGlzc3VlcyBhZGRyZXNzZXMgaW4gdGhpcyBzdWJtaXNzaW9u
+OgoJLSBSZWR1Y2VkIE1BQyBsYXllcmluZyBhbmQgY29tcGxleGl0eQoJLSBSZWR1Y2VkIGNvZGUg
+YmFzZQoJLSBUMTAyNC9UMjA4MCAxMEcgYmVzdCBlZmZvcnQgc3VwcG9ydAoKSWdhbCBMaWJlcm1h
+biAoNik6CiAgZnNsL2ZtYW46IEFkZCBGTWFuIE1VUkFNIHN1cHBvcnQKICBmc2wvZm1hbjogQWRk
+IEZNYW4gc3VwcG9ydAogIGZzbC9mbWFuOiBBZGQgRk1hbiBNQUMgc3VwcG9ydAogIGZzbC9mbWFu
+OiBBZGQgRk1hbiBTUCBzdXBwb3J0CiAgZnNsL2ZtYW46IEFkZCBGTWFuIFBvcnQgU3VwcG9ydAog
+IGZzbC9mbWFuOiBBZGQgRk1hbiBNQUMgZHJpdmVyCgogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
+ZXNjYWxlL0tjb25maWcgICAgICAgICAgICAgfCAgICAxICsKIGRyaXZlcnMvbmV0L2V0aGVybmV0
+L2ZyZWVzY2FsZS9NYWtlZmlsZSAgICAgICAgICAgIHwgICAgMiArCiBkcml2ZXJzL25ldC9ldGhl
+cm5ldC9mcmVlc2NhbGUvZm1hbi9LY29uZmlnICAgICAgICB8ICAgIDggKwogZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vTWFrZWZpbGUgICAgICAgfCAgICA3ICsKIC4uLi9uZXQv
+ZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vY3JjX21hY19hZGRyX2V4dC5oIHwgIDMxNCArKysKIGRy
+aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW4uYyAgICAgICAgIHwgMjg5NiAr
+KysrKysrKysrKysrKysrKysrKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4v
+Zm1hbi5oICAgICAgICAgfCAgMzI5ICsrKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxl
+L2ZtYW4vZm1hbl9kdHNlYy5jICAgfCAxNjA4ICsrKysrKysrKysrCiBkcml2ZXJzL25ldC9ldGhl
+cm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX2R0c2VjLmggICB8ICAgNTkgKwogZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9tYWMuaCAgICAgfCAgMjc2ICsrCiBkcml2ZXJz
+L25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX21lbWFjLmMgICB8IDEzMDcgKysrKysr
+KysrCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX21lbWFjLmggICB8
+ICAgNjAgKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9tdXJhbS5j
+ICAgfCAgMTU5ICsrCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX211
+cmFtLmggICB8ICAgNTEgKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1h
+bl9wb3J0LmMgICAgfCAxODAwICsrKysrKysrKysrKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
+ZXNjYWxlL2ZtYW4vZm1hbl9wb3J0LmggICAgfCAgMTUxICsKIGRyaXZlcnMvbmV0L2V0aGVybmV0
+L2ZyZWVzY2FsZS9mbWFuL2ZtYW5fc3AuYyAgICAgIHwgIDE2NyArKwogZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9zcC5oICAgICAgfCAgMTAzICsKIGRyaXZlcnMvbmV0
+L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW5fdGdlYy5jICAgIHwgIDc5OCArKysrKysKIGRy
+aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW5fdGdlYy5oICAgIHwgICA1NSAr
+CiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMuYyAgICAgICAgICB8ICA5
+ODAgKysrKysrKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vbWFjLmggICAg
+ICAgICAgfCAgIDk3ICsKIDIyIGZpbGVzIGNoYW5nZWQsIDExMjI4IGluc2VydGlvbnMoKykKIGNy
+ZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9LY29u
+ZmlnCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2Zt
+YW4vTWFrZWZpbGUKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
+c2NhbGUvZm1hbi9jcmNfbWFjX2FkZHJfZXh0LmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJz
+L25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuLmMKIGNyZWF0ZSBtb2RlIDEwMDY0NCBk
+cml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuLmgKIGNyZWF0ZSBtb2RlIDEw
+MDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX2R0c2VjLmMKIGNy
+ZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFu
+X2R0c2VjLmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2Nh
+bGUvZm1hbi9mbWFuX21hYy5oCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9tZW1hYy5jCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9tZW1hYy5oCiBjcmVhdGUgbW9kZSAx
+MDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9tdXJhbS5jCiBj
+cmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1h
+bl9tdXJhbS5oCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNj
+YWxlL2ZtYW4vZm1hbl9wb3J0LmMKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhl
+cm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX3BvcnQuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZl
+cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW5fc3AuYwogY3JlYXRlIG1vZGUgMTAw
+NjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW5fc3AuaAogY3JlYXRl
+IG1vZGUgMTAwNjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW5fdGdl
+Yy5jCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2Zt
+YW4vZm1hbl90Z2VjLmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9m
+cmVlc2NhbGUvZm1hbi9tYWMuYwogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ZyZWVzY2FsZS9mbWFuL21hYy5oCgotLQoxLjcuOS41CgpfX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0Ckxp
+bnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0
+aW5mby9saW51eHBwYy1kZXY=
