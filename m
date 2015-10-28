@@ -1,64 +1,45 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH v2 3/4] net: dsa: mv88e6xxx: add common and ppu
- remove function
-Date: Wed, 28 Oct 2015 15:45:05 +0100
-Message-ID: <20151028144505.GH2307@lunn.ch>
-References: <5630D7FC.4010509@baylibre.com>
- <20151028143524.GF2307@lunn.ch>
- <5630DD8E.4000404@baylibre.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Wed, 28 Oct 2015 07:47:57 -0700
+Message-ID: <1446043677.7476.68.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <201510221824.t9MIOp6n003978@room101.nl.oracle.com>
+	 <20151022190701.GV22011@ZenIV.linux.org.uk>
+	 <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
+	 <20151022215741.GW22011@ZenIV.linux.org.uk>
+	 <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
+	 <20151024023054.GZ22011@ZenIV.linux.org.uk>
+	 <201510270908.t9R9873a001683@room101.nl.oracle.com>
+	 <562F577E.6000901@oracle.com> <20151027231702.GA22011@ZenIV.linux.org.uk>
+	 <1445991236.7476.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151028123543.GB22011@ZenIV.linux.org.uk>
+	 <1446038672.7476.65.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	vivien.didelot@savoirfairelinux.com,
-	Fabian Frederick <fabf@skynet.be>,
-	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Neil Armstrong <narmstrong@baylibre.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5630DD8E.4000404@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	netdev@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	dhowells@redhat.com, linux-fsdevel@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:35254 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750964AbbJ1Or7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 10:47:59 -0400
+In-Reply-To: <1446038672.7476.65.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 28, 2015 at 03:37:02PM +0100, Neil Armstrong wrote:
-> Hi Andrew,
-> 
-> On 10/28/2015 03:35 PM, Andrew Lunn wrote:
-> > On Wed, Oct 28, 2015 at 03:13:16PM +0100, Neil Armstrong wrote:
-> >> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-> >> index b1b14f5..6287096 100644
-> >> --- a/drivers/net/dsa/mv88e6xxx.c
-> >> +++ b/drivers/net/dsa/mv88e6xxx.c
-> >> @@ -331,6 +331,16 @@ void mv88e6xxx_ppu_state_init(struct dsa_switch *ds)
-> >>  	ps->ppu_timer.function = mv88e6xxx_ppu_reenable_timer;
-> >>  }
-> >>
-> >> +void mv88e6xxx_ppu_state_remove(struct dsa_switch *ds)
-> >> +{
-> >> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-> >> +	
-> >> +	del_timer_sync(&ps->ppu_timer);
-> >> +
-> >> +	cancel_work_sync(&ps->bridge_work);
-> >> +	flush_work(&ps->bridge_work);
-> >> +}
-> >> +
-> > 
-> > You add this function, but you don't use it anywhere?  Also, why
-> > cancel bridge work, not ppu_work? Or has that been consolidated
-> > in some patch i'm missing?
-> > 
-> >    Andrew
-> > 
-> 
-> It's called in the next patch, in mv88e6131_remove for mv88e6131.
+On Wed, 2015-10-28 at 06:24 -0700, Eric Dumazet wrote:
 
-Hi Neil
+> Before I take a deep look at your suggestion, are you sure plain use of
+> include/linux/percpu-refcount.h infra is not possible for struct cred ?
 
-It would be better to split this out into a patch of its own, and
-include the mv88e6131 change with it.
+BTW, I am not convinced we need to spend so much energy and per-cpu
+memory for struct cred refcount.
 
-	Andrew
+The big problem is fd array spinlock of course and bitmap search for
+POSIX compliance.
+
+The cache line trashing in struct cred is a minor one ;)
