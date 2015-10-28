@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: wireless-drivers-next 2015-10-27
-Date: Tue, 27 Oct 2015 20:16:18 -0700 (PDT)
-Message-ID: <20151027.201618.2181567284358003532.davem@davemloft.net>
-References: <87y4eowvf5.fsf@kamboji.qca.qualcomm.com>
+Subject: Re: [PATCH] vhost: fix performance on LE hosts
+Date: Tue, 27 Oct 2015 20:19:19 -0700 (PDT)
+Message-ID: <20151027.201919.383313270896131203.davem@davemloft.net>
+References: <1445938640-32673-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: kvalo@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44750 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755261AbbJ1C7g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2015 22:59:36 -0400
-In-Reply-To: <87y4eowvf5.fsf@kamboji.qca.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1445938640-32673-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Kalle Valo <kvalo@codeaurora.org>
-Date: Tue, 27 Oct 2015 10:46:38 +0200
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Tue, 27 Oct 2015 11:37:39 +0200
 
-> here's a bigger pull request for 4.4. The diffstat looks scary as we
-> created a new directory realtek for all realtek drivers. In the future
-> I'm planning to create similar directories for all vendors, currently we
-> just have ath, mediatek and realtek. This change has been in linux-next
-> for a couple of weeks so it should be safe, but of course you never
-> know.
+> commit 2751c9882b947292fcfb084c4f604e01724af804 ("vhost: cross-endian
+> support for legacy devices") introduced a minor regression: even with
+> cross-endian disabled, and even on LE host, vhost_is_little_endian is
+> checking is_le flag so there's always a branch.
 > 
-> There's also a new driver rtl8xxxu for few realtek USB devices. This
-> just made it to the last linux-next build.
+> To fix, simply check virtio_legacy_is_little_endian first.
 > 
-> Otherwise there's nothing really special, more info below. If time
-> permits, and it's ok for you, I'm hoping to send you a one more pull
-> request this week.
+> Cc: Greg Kurz <gkurz@linux.vnet.ibm.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Pulled, thanks.
+Applied.
