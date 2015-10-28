@@ -1,76 +1,121 @@
-From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Subject: Re: [PATCH v7 02/10] ss: created formatters for json and hr
-Date: Wed, 28 Oct 2015 16:50:44 +0100
-Message-ID: <5630EED4.30203@gmx.net>
-References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
- <1441913708-15532-3-git-send-email-matthias.tafelmeier@gmx.net>
- <20150923162650.148fe95b@urahara>
- <bc9cacb94de24857a7d9e13960bfae56@HQ1WP-EXMB11.corp.brocade.com>
- <20150924151630.28129cdb@urahara> <5604E357.9000802@gmx.net>
- <56308253.2060608@gmx.net> <20151028082815.GO26876@orbit.nwl.cc>
- <5630B828.6070500@gmx.net> <20151028150523.GQ26876@orbit.nwl.cc>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/4] sfc: allocate rx pages on the same node as
+ the interrupt
+Date: Wed, 28 Oct 2015 08:59:56 -0700
+Message-ID: <1446047996.7476.71.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5630E2FD.3070609@solarflare.com>
+	 <5630E356.60109@solarflare.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha384;
- protocol="application/pgp-signature";
- boundary="3KUfrW2TOlgPWeIGJudK9uuvEkhK5lH18"
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hagen@jauu.net" <hagen@jauu.net>,
-	"shemminger@osdl.org" <shemminger@osdl.org>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"edumazet@google.com" <edumazet@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Shradha Shah <sshah@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:58714 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755844AbbJ1PvB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Oct 2015 11:51:01 -0400
-In-Reply-To: <20151028150523.GQ26876@orbit.nwl.cc>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34199 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965806AbbJ1P76 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 11:59:58 -0400
+Received: by padhk11 with SMTP id hk11so10845162pad.1
+        for <netdev@vger.kernel.org>; Wed, 28 Oct 2015 08:59:58 -0700 (PDT)
+In-Reply-To: <5630E356.60109@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---3KUfrW2TOlgPWeIGJudK9uuvEkhK5lH18
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On Wed, 2015-10-28 at 15:01 +0000, Shradha Shah wrote:
+> From: Daniel Pieczko <dpieczko@solarflare.com>
+> 
+> When the interrupt servicing a channel is on a NUMA node that is
+> not local to the device, performance is improved by allocating
+> rx pages on the node local to the interrupt (remote to the device)
+> 
+> The performance-optimal case, where interrupts and applications
+> are pinned to CPUs on the same node as the device, is not altered
+> by this change.
+> 
+> This change gave a 1% improvement in transaction rate using Nginx
+> with all interrupts and Nginx threads on the node remote to the
+> device. It also gave a small reduction in round-trip latency,
+> again with the interrupt and application on a different node to
+> the device.
+> 
+> Allocating rx pages based on the channel->irq_node value is only
+> valid for the initial driver-load interrupt affinities; if an
+> interrupt is moved later, the wrong node may be used for the
+> allocation.
+> 
+> Signed-off-by: Shradha Shah <sshah@solarflare.com>
+> ---
+>  drivers/net/ethernet/sfc/efx.c        |  1 +
+>  drivers/net/ethernet/sfc/net_driver.h |  3 +++
+>  drivers/net/ethernet/sfc/rx.c         | 14 +++++++++-----
+>  3 files changed, 13 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+> index 974637d..89fbd03 100644
+> --- a/drivers/net/ethernet/sfc/efx.c
+> +++ b/drivers/net/ethernet/sfc/efx.c
+> @@ -445,6 +445,7 @@ efx_alloc_channel(struct efx_nic *efx, int i, struct efx_channel *old_channel)
+>  	channel->efx = efx;
+>  	channel->channel = i;
+>  	channel->type = &efx_default_channel_type;
+> +	channel->irq_node = NUMA_NO_NODE;
+>  
+>  	for (j = 0; j < EFX_TXQ_TYPES; j++) {
+>  		tx_queue = &channel->tx_queue[j];
+> diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+> index ad56231..0ab9080a 100644
+> --- a/drivers/net/ethernet/sfc/net_driver.h
+> +++ b/drivers/net/ethernet/sfc/net_driver.h
+> @@ -419,6 +419,7 @@ enum efx_sync_events_state {
+>   * @sync_events_state: Current state of sync events on this channel
+>   * @sync_timestamp_major: Major part of the last ptp sync event
+>   * @sync_timestamp_minor: Minor part of the last ptp sync event
+> + * @irq_node: NUMA node of interrupt
+>   */
+>  struct efx_channel {
+>  	struct efx_nic *efx;
+> @@ -477,6 +478,8 @@ struct efx_channel {
+>  	enum efx_sync_events_state sync_events_state;
+>  	u32 sync_timestamp_major;
+>  	u32 sync_timestamp_minor;
+> +
+> +	int irq_node;
+>  };
+>  
+>  #ifdef CONFIG_NET_RX_BUSY_POLL
+> diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+> index 3f0e129..c5ef1e8 100644
+> --- a/drivers/net/ethernet/sfc/rx.c
+> +++ b/drivers/net/ethernet/sfc/rx.c
+> @@ -168,11 +168,15 @@ static int efx_init_rx_buffers(struct efx_rx_queue *rx_queue, bool atomic)
+>  			 * context in such a case.  So, use __GFP_NO_WARN
+>  			 * in case of atomic.
+>  			 */
+> -			page = alloc_pages(__GFP_COLD | __GFP_COMP |
+> -					   (atomic ?
+> -					    (GFP_ATOMIC | __GFP_NOWARN)
+> -					    : GFP_KERNEL),
+> -					   efx->rx_buffer_order);
+> +			struct efx_channel *channel;
+> +
+> +			channel = efx_rx_queue_channel(rx_queue);
+> +			page = alloc_pages_node(channel->irq_node, __GFP_COMP |
+> +						(atomic ?
+> +						 (GFP_ATOMIC | __GFP_NOWARN)
+> +						 : GFP_KERNEL),
+> +						efx->rx_buffer_order);
+> +
+>  			if (unlikely(page == NULL))
+>  				return -ENOMEM;
+>  			dma_addr =
+> 
 
 
-> Yeah, sorry for not having looked into this earlier. Also, I neither
-> have nor claim any power of veto.
+Sorry, I do not understand this patch, and why the following one is not
+squashed on this one.
 
-No big issue. Maybe Stephen can clarifiy things. I mean acknowledge no
-further objections.
+irq_node is always NUMA_NO_NODE (in this patch)
 
->  Apart from that, I'm not against this
-> patch series in general, just trying to help raise it's quality a bit.
-
-Many thanks for that.
-
-> Eventually, we don't set anything in stone so everything can be
-> fixed/improved later on. Except Git history of course, which is
-> important to get right in relation to bisecting.
-Absolutely!
-
---=20
-BR
-
-Matthias
-
-
---3KUfrW2TOlgPWeIGJudK9uuvEkhK5lH18
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQEcBAEBCQAGBQJWMO7UAAoJEOAWT1uK3zQ7B30IAJbJRXT2rv42XRvD22gB/psg
-3KK3tGkZl5qL3MP5+Lhtwf2KdRjB3GU4B2zL54bidBgXxvhiwt4BCmQVH3fYWe/O
-Zp0yj/IflPDcbUrMOshyYIRZHgjG7uH3hB6E5i+SBZOMwZOcJmODqZCmBRMt/GY/
-VSk+x/B0yvIxGtL0XBjX6m2Cfj3kEn5Y6mihMgdvhJ0MUlmKqQHyF4YwQ/lHul0M
-Ij8MPUEkkX9B76q4OnSDyQKks4KutcmQKe4l9qBneysicoAl3zzJcw3INZDxnqyU
-NgSQ2xpS+AGJKCXBsRxvw0LJiOoroPBcgWtBKyVLzVZdHFSyehgFkKsjiZqPAzA=
-=MChS
------END PGP SIGNATURE-----
-
---3KUfrW2TOlgPWeIGJudK9uuvEkhK5lH18--
+So you claim a 1% improvement, switching from alloc_pages(...) to
+alloc_pages_node(NUMA_NO_NODE, ...) ???
