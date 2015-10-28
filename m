@@ -1,98 +1,201 @@
 From: Wang Nan <wangnan0@huawei.com>
-Subject: [RFC PATCH net-next 0/4] perf tools: Support receiving output through BPF programs
-Date: Wed, 28 Oct 2015 10:55:01 +0000
-Message-ID: <1446029705-199659-1-git-send-email-wangnan0@huawei.com>
+Subject: [RFC PATCH net-next 1/4] perf tools: Enable pre-event inherit setting by config terms
+Date: Wed, 28 Oct 2015 10:55:02 +0000
+Message-ID: <1446029705-199659-2-git-send-email-wangnan0@huawei.com>
+References: <1446029705-199659-1-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <lizefan@huawei.com>, <pi3orama@163.com>, <davem@davemloft.net>,
 	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Wang Nan <wangnan0@huawei.com>
+	Wang Nan <wangnan0@huawei.com>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	"Alexei Starovoitov" <ast@plumgrid.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: <acme@kernel.org>, <ast@kernel.org>, <brendan.d.gregg@gmail.com>,
 	<jolsa@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446029705-199659-1-git-send-email-wangnan0@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexei provided a patchset to allow BPF programs output data to ring
-buffer using helper bpf_perf_event_output() [1].  and have been merged
-into net-next as commit a43eec304259a6c637f4014a6d4767159b6a3aa3 (bpf:
-introduce bpf_perf_event_output() helper).
+This patch allows perf record setting event's attr.inherit bit by
+config terms like:
 
-This patchset introduces perf side code to utilize that helper,
+ # perf record -e cycles/no-inherit/ ...
+ # perf record -e cycles/inherit/ ...
 
-This patchset only supports output data to CTF. It is enough for me
-because my workflow is 'perf record' -> 'convert to CTF' -> 'python'.
-However, I know some people heavily rely on 'perf script' to parse
-trace in perf.data. Here I'd like discuss the way to show output data
-using 'perf script'. Currently the only way to watch the output data
-using perf script is to use '-D'.
+So user can control inherit bit for each event separately.
 
-[1] http://lkml.kernel.org/r/1445396556-4854-1-git-send-email-ast@kernel.org
+In following example, a.out fork()s in main then do some complex
+CPU intensive computations in both of its children.
 
-Example:
+Basic result with and without inherit:
 
-############ BPF program #############
-  struct bpf_map_def SEC("maps") map_channel = {
-      .type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
-      .key_size = sizeof(int),
-      .value_size = sizeof(u32),
-      .max_entries = __NR_CPUS__,
-  };
+ # perf record -e cycles -e instructions ./a.out
+ [ perf record: Woken up 9 times to write data ]
+ [ perf record: Captured and wrote 2.205 MB perf.data (47920 samples) ]
+ # perf report --stdio
+ # ...
+ # Samples: 23K of event 'cycles'
+ # Event count (approx.): 23641752891
+ ...
+ # Samples: 24K of event 'instructions'
+ # Event count (approx.): 30428312415
 
-  SEC("func_write=sys_write")
-  int func_write(void *ctx)
-  {
-      struct {
-          u64 ktime;
-          int cpuid;
-      } __attribute__((packed)) output_data;
-      char error_data[] = "Error: failed to output\n";
 
-      output_data.cpuid = bpf_get_smp_processor_id();
-      output_data.ktime = bpf_ktime_get_ns();
-      int err = perf_event_output(ctx, &map_channel,
-                                  bpf_get_smp_processor_id(),
-                                  &output_data, sizeof(output_data));
-      if (err)
-          bpf_trace_printk(error_data, sizeof(error_data));
-      return 0;
-  }
-  char _license[] SEC("license") = "GPL";
-  int _version SEC("version") = 0x40300;
+ # perf record -i -e cycles -e instructions ./a.out
+ [ perf record: Woken up 5 times to write data ]
+ [ perf record: Captured and wrote 1.111 MB perf.data (24019 samples) ]
+ ...
+ # Samples: 12K of event 'cycles'
+ # Event count (approx.): 11699501775
+ ...
+ # Samples: 12K of event 'instructions'
+ # Event count (approx.): 15058023559
 
-############ cmdline ############
- # perf record -g -e evt=bpf-output/no-inherit/ \
-                  -e ./test_bpf_output.c/maps.map_channel.event=evt/ -a ls
- # perf data convert --to-ctf ./out.ctf
- # babeltrace ./out.ctf
- [06:34:00.288671496] (+?.?????????) evt=bpf-output/no-inherit/: { cpu_id = 0 }, { perf_ip = 0xFFFFFFFF811ED5F1, perf_tid = 4469, perf_pid = 4469, perf_id = 3685, raw_len = 3, raw_data = [ [0] = 0xB163D948, [1] = 0x19E6E, [2] = 0x0 ] }
- [06:34:00.288677551] (+0.000006055) evt=bpf-output/no-inherit/: { cpu_id = 0 }, { perf_ip = 0xFFFFFFFF811ED5F1, perf_tid = 4469, perf_pid = 4469, perf_id = 3685, raw_len = 3, raw_data = [ [0] = 0xB163F289, [1] = 0x19E6E, [2] = 0x0 ] }
+Cancel inherit for one event when globally enable:
 
-########### python script #######
- from babeltrace import TraceCollection
+ # perf record -e cycles/no-inherit/ -e instructions ./a.out
+ [ perf record: Woken up 7 times to write data ]
+ [ perf record: Captured and wrote 1.660 MB perf.data (36004 samples) ]
+ ...
+ # Samples: 12K of event 'cycles/no-inherit/'
+ # Event count (approx.): 11895759282
+ ...
+ # Samples: 24K of event 'instructions'
+ # Event count (approx.): 30668000441
 
- tc = TraceCollection(
- tc.add_trace('./out.ctf', 'ctf')
+Enable inherit for one event when globally disable:
 
- for event in tc.events:
-     if not event.name.startswith('evt='):
-         continue
-     raw_data = event['raw_data']
-     print(raw_data[0] + raw_data[1] << 32, raw_data[2]));
+ # perf record -i -e cycles/inherit/ -e instructions ./a.out
+ [ perf record: Woken up 7 times to write data ]
+ [ perf record: Captured and wrote 1.654 MB perf.data (35868 samples) ]
+ ...
+ # Samples: 23K of event 'cycles/inherit/'
+ # Event count (approx.): 23285400229
+ ...
+ # Samples: 11K of event 'instructions'
+ # Event count (approx.): 14969050259
 
-Wang Nan (4):
-  perf tools: Enable pre-event inherit setting by config terms
-  perf tools: Introduce bpf-output event
-  perf data: Add u32_hex data type
-  perf data: Support converting data from bpf_perf_event_output()
+Signed-off-by: Wang Nan <wangnan0@huawei.com>
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
+Cc: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Li Zefan <lizefan@huawei.com>
+Cc: pi3orama@163.com
+Link: http://lkml.kernel.org/n/ebpf-eel1zncmxd8rkw7hr5u04gn0@git.kernel.org
+---
+ tools/perf/util/evsel.c        |  9 +++++++++
+ tools/perf/util/evsel.h        |  2 ++
+ tools/perf/util/parse-events.c | 14 ++++++++++++++
+ tools/perf/util/parse-events.h |  2 ++
+ tools/perf/util/parse-events.l |  2 ++
+ 5 files changed, 29 insertions(+)
 
- tools/perf/util/data-convert-bt.c | 117 +++++++++++++++++++++++++++++++++++++-
- tools/perf/util/evsel.c           |  15 +++++
- tools/perf/util/evsel.h           |   2 +
- tools/perf/util/parse-events.c    |  18 ++++++
- tools/perf/util/parse-events.h    |   2 +
- tools/perf/util/parse-events.l    |   3 +
- 6 files changed, 156 insertions(+), 1 deletion(-)
-
+diff --git a/tools/perf/util/evsel.c b/tools/perf/util/evsel.c
+index f820906..397fb4e 100644
+--- a/tools/perf/util/evsel.c
++++ b/tools/perf/util/evsel.c
+@@ -653,6 +653,15 @@ static void apply_config_terms(struct perf_evsel *evsel,
+ 		case PERF_EVSEL__CONFIG_TERM_STACK_USER:
+ 			dump_size = term->val.stack_user;
+ 			break;
++		case PERF_EVSEL__CONFIG_TERM_INHERIT:
++			/*
++			 * attr->inherit should has already been set by
++			 * perf_evsel__config. If user explicitly set
++			 * inherit using config terms, override global
++			 * opt->no_inherit setting.
++			 */
++			attr->inherit = term->val.inherit ? 1 : 0;
++			break;
+ 		default:
+ 			break;
+ 		}
+diff --git a/tools/perf/util/evsel.h b/tools/perf/util/evsel.h
+index 9a95e73..e402f83 100644
+--- a/tools/perf/util/evsel.h
++++ b/tools/perf/util/evsel.h
+@@ -43,6 +43,7 @@ enum {
+ 	PERF_EVSEL__CONFIG_TERM_TIME,
+ 	PERF_EVSEL__CONFIG_TERM_CALLGRAPH,
+ 	PERF_EVSEL__CONFIG_TERM_STACK_USER,
++	PERF_EVSEL__CONFIG_TERM_INHERIT,
+ 	PERF_EVSEL__CONFIG_TERM_MAX,
+ };
+ 
+@@ -55,6 +56,7 @@ struct perf_evsel_config_term {
+ 		bool	time;
+ 		char	*callgraph;
+ 		u64	stack_user;
++		u64	inherit;
+ 	} val;
+ };
+ 
+diff --git a/tools/perf/util/parse-events.c b/tools/perf/util/parse-events.c
+index ae973cd..b98a82c 100644
+--- a/tools/perf/util/parse-events.c
++++ b/tools/perf/util/parse-events.c
+@@ -841,6 +841,12 @@ do {									   \
+ 	case PARSE_EVENTS__TERM_TYPE_STACKSIZE:
+ 		CHECK_TYPE_VAL(NUM);
+ 		break;
++	case PARSE_EVENTS__TERM_TYPE_INHERIT:
++		CHECK_TYPE_VAL(NUM);
++		break;
++	case PARSE_EVENTS__TERM_TYPE_NOINHERIT:
++		CHECK_TYPE_VAL(NUM);
++		break;
+ 	case PARSE_EVENTS__TERM_TYPE_NAME:
+ 		CHECK_TYPE_VAL(STR);
+ 		break;
+@@ -876,6 +882,8 @@ static int config_term_tracepoint(struct perf_event_attr *attr,
+ 	switch (term->type_term) {
+ 	case PARSE_EVENTS__TERM_TYPE_CALLGRAPH:
+ 	case PARSE_EVENTS__TERM_TYPE_STACKSIZE:
++	case PARSE_EVENTS__TERM_TYPE_INHERIT:
++	case PARSE_EVENTS__TERM_TYPE_NOINHERIT:
+ 		return config_term_common(attr, term, err);
+ 	default:
+ 		if (err) {
+@@ -939,6 +947,12 @@ do {								\
+ 		case PARSE_EVENTS__TERM_TYPE_STACKSIZE:
+ 			ADD_CONFIG_TERM(STACK_USER, stack_user, term->val.num);
+ 			break;
++		case PARSE_EVENTS__TERM_TYPE_INHERIT:
++			ADD_CONFIG_TERM(INHERIT, inherit, term->val.num ? 1 : 0);
++			break;
++		case PARSE_EVENTS__TERM_TYPE_NOINHERIT:
++			ADD_CONFIG_TERM(INHERIT, inherit, term->val.num ? 0 : 1);
++			break;
+ 		default:
+ 			break;
+ 		}
+diff --git a/tools/perf/util/parse-events.h b/tools/perf/util/parse-events.h
+index 5ba1d3e..9d415a8 100644
+--- a/tools/perf/util/parse-events.h
++++ b/tools/perf/util/parse-events.h
+@@ -67,6 +67,8 @@ enum {
+ 	PARSE_EVENTS__TERM_TYPE_TIME,
+ 	PARSE_EVENTS__TERM_TYPE_CALLGRAPH,
+ 	PARSE_EVENTS__TERM_TYPE_STACKSIZE,
++	PARSE_EVENTS__TERM_TYPE_NOINHERIT,
++	PARSE_EVENTS__TERM_TYPE_INHERIT
+ };
+ 
+ struct parse_events_term {
+diff --git a/tools/perf/util/parse-events.l b/tools/perf/util/parse-events.l
+index 0d92a4d..1fa8e0b 100644
+--- a/tools/perf/util/parse-events.l
++++ b/tools/perf/util/parse-events.l
+@@ -200,6 +200,8 @@ branch_type		{ return term(yyscanner, PARSE_EVENTS__TERM_TYPE_BRANCH_SAMPLE_TYPE
+ time			{ return term(yyscanner, PARSE_EVENTS__TERM_TYPE_TIME); }
+ call-graph		{ return term(yyscanner, PARSE_EVENTS__TERM_TYPE_CALLGRAPH); }
+ stack-size		{ return term(yyscanner, PARSE_EVENTS__TERM_TYPE_STACKSIZE); }
++inherit			{ return term(yyscanner, PARSE_EVENTS__TERM_TYPE_INHERIT); }
++no-inherit		{ return term(yyscanner, PARSE_EVENTS__TERM_TYPE_NOINHERIT); }
+ ,			{ return ','; }
+ "/"			{ BEGIN(INITIAL); return '/'; }
+ {name_minus}		{ return str(yyscanner, PE_NAME); }
 -- 
 1.8.3.4
