@@ -1,128 +1,47 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Wed, 28 Oct 2015 12:35:44 +0000
-Message-ID: <20151028123543.GB22011@ZenIV.linux.org.uk>
-References: <201510221824.t9MIOp6n003978@room101.nl.oracle.com>
- <20151022190701.GV22011@ZenIV.linux.org.uk>
- <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
- <20151022215741.GW22011@ZenIV.linux.org.uk>
- <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
- <20151024023054.GZ22011@ZenIV.linux.org.uk>
- <201510270908.t9R9873a001683@room101.nl.oracle.com>
- <562F577E.6000901@oracle.com>
- <20151027231702.GA22011@ZenIV.linux.org.uk>
- <1445991236.7476.59.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Jander <david@protonic.nl>
+Subject: Re: BUG: fsl FEC ethernet tx checksum offloading doesn't work with
+ RMII interface
+Date: Wed, 28 Oct 2015 13:36:02 +0100
+Message-ID: <20151028133602.0f48dac9@archvile>
+References: <20151028104854.025430ce@archvile>
+	<20151028111414.GJ8644@n2100.arm.linux.org.uk>
+	<20151028121918.4884b42e@archvile>
+	<CAOMZO5D=7Okx-Lju5uzMCXC+_8ETDVmEOfWU7ZD0byZszDSV3A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	dhowells@redhat.com, linux-fsdevel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Fabio Estevam <festevam@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:55556 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964787AbbJ1Mfs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 08:35:48 -0400
-Content-Disposition: inline
-In-Reply-To: <1445991236.7476.59.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from protonic.xs4all.nl ([83.163.252.89]:27662 "EHLO
+	protonic.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965504AbbJ1MgE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 08:36:04 -0400
+In-Reply-To: <CAOMZO5D=7Okx-Lju5uzMCXC+_8ETDVmEOfWU7ZD0byZszDSV3A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Linus and Dave added, Solaris and NetBSD folks dropped from Cc]
+On Wed, 28 Oct 2015 10:31:17 -0200
+Fabio Estevam <festevam@gmail.com> wrote:
 
-On Tue, Oct 27, 2015 at 05:13:56PM -0700, Eric Dumazet wrote:
-> On Tue, 2015-10-27 at 23:17 +0000, Al Viro wrote:
+> On Wed, Oct 28, 2015 at 9:19 AM, David Jander <david@protonic.nl> wrote:
 > 
-> > 	* [Linux-specific aside] our __alloc_fd() can degrade quite badly
-> > with some use patterns.  The cacheline pingpong in the bitmap is probably
-> > inevitable, unless we accept considerably heavier memory footprint,
-> > but we also have a case when alloc_fd() takes O(n) and it's _not_ hard
-> > to trigger - close(3);open(...); will have the next open() after that
-> > scanning the entire in-use bitmap.  I think I see a way to improve it
-> > without slowing the normal case down, but I'll need to experiment a
-> > bit before I post patches.  Anybody with examples of real-world loads
-> > that make our descriptor allocator to degrade is very welcome to post
-> > the reproducers...
+> > Sorry, I somehow assumed it was obvious I'd report against latest
+> > mainline... I'm on 4.3-rc7.
 > 
-> Well, I do have real-world loads, but quite hard to setup in a lab :(
-> 
-> Note that we also hit the 'struct cred'->usage refcount for every
-> open()/close()/sock_alloc(), and simply moving uid/gid out of the first
-> cache line really helps, as current_fsuid() and current_fsgid() no
-> longer forces a pingpong.
-> 
-> I moved seldom used fields on the first cache line, so that overall
-> memory usage did not change (192 bytes on 64 bit arches)
+> Are you able to find out a previous kernel version that does not
+> exhibit this failure?
 
-[snip]
+I can search further down, but 4.1 is also broken.
+Are there specific changes or versions you are suspicious of?
+Russel mentioned something similar being fixed in the past... any pointers to
+this fix, so I can investigate whether this has any relation?
 
-Makes sense, but there's a funny thing about that refcount - the part
-coming from ->f_cred is the most frequently changed *and* almost all
-places using ->f_cred are just looking at its fields and do not manipulate
-its refcount.  The only exception (do_process_acct()) is easy to eliminate
-just by storing a separate reference to the current creds of acct(2) caller
-and using it instead of looking at ->f_cred.  What's more, the place where we
-grab what will be ->f_cred is guaranteed to have a non-f_cred reference *and*
-most of the time such a reference is there for dropping ->f_cred (in
-file_free()/file_free_rcu()).
+Best regards,
 
-With that change in kernel/acct.c done, we could do the following:
-	a) split the cred refcount into the normal and percpu parts and
-add a spinlock in there.
-	b) have put_cred() do this:
-		if (atomic_dec_and_test(&cred->usage)) {
-			this_cpu_add(&cred->f_cred_usage, 1);
-			call_rcu(&cred->rcu, put_f_cred_rcu);
-		}
-	c) have get_empty_filp() increment current_cred ->f_cred_usage with
-this_cpu_add()
-	d) have file_free() do
-		percpu_counter_dec(&nr_files);
-		rcu_read_lock();
-		if (likely(atomic_read(&f->f_cred->usage))) {
-			this_cpu_add(&f->f_cred->f_cred_usage, -1);
-			rcu_read_unlock();
-			call_rcu(&f->f_u.fu_rcuhead, file_free_rcu_light);
-		} else {
-			rcu_read_unlock();
-			call_rcu(&f->f_u.fu_rcuhead, file_free_rcu);
-		}
-file_free_rcu() being
-static void file_free_rcu(struct rcu_head *head)
-{
-        struct file *f = container_of(head, struct file, f_u.fu_rcuhead);
-        put_f_cred(&f->f_cred->rcu);
-        kmem_cache_free(filp_cachep, f);
-}
-and file_free_rcu_light() - the same sans put_f_cred();
-
-with put_f_cred() doing
-	spin_lock cred->lock
-	this_cpu_add(&cred->f_cred_usage, -1);
-	find the sum of cred->f_cred_usage
-	spin_unlock cred->lock
-	if the sum has not reached 0
-		return
-	current put_cred_rcu(cred)
-
-IOW, let's try to get rid of cross-cpu stores in ->f_cred grabbing and
-(most of) ->f_cred dropping.
-
-Note that there are two paths leading to put_f_cred() in the above - via
-call_rcu() on &cred->rcu and from file_free_rcu() called via call_rcu() on
-&f->f_u.fu_rcuhead.  Both are RCU-delayed and they can happen in parallel -
-different rcu_head are used.
-
-atomic_read() check in file_free() might give false positives if it comes
-just before put_cred() on another CPU kills the last non-f_cred reference.
-It's not a problem, since put_f_cred() from that put_cred() won't be
-executed until we drop rcu_read_lock(), so we can safely decrement the
-cred->f_cred_usage without cred->lock here (and we are guaranteed that we won't
-be dropping the last of that - the same put_cred() would've incremented
-->f_cred_usage).
-
-Does anybody see problems with that approach?  I'm going to grab some sleep
-(only a couple of hours so far tonight ;-/), will cook an incremental to Eric's
-field-reordering patch when I get up...
+-- 
+David Jander
+Protonic Holland.
