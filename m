@@ -1,7 +1,7 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH v2 4/6] net: dsa: Add missing master netdev dev_put() calls
-Date: Thu, 29 Oct 2015 14:23:20 +0100
-Message-ID: <56321DC8.9020101@baylibre.com>
+Subject: [PATCH v2 6/6] net: dsa: move dsa slave destroy code to slave.c
+Date: Thu, 29 Oct 2015 14:23:31 +0100
+Message-ID: <56321DD3.3030708@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -14,48 +14,69 @@ Cc: Andrew Lunn <andrew@lunn.ch>,
 	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, Frode Isaksen <fisaksen@baylibre.com>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:33995 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932528AbbJ2NX0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2015 09:23:26 -0400
-Received: by wikq8 with SMTP id q8so284224352wik.1
-        for <netdev@vger.kernel.org>; Thu, 29 Oct 2015 06:23:25 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Upon probe failure or unbinding, add missing dev_put() calls on
-master netdev.
+Move dsa slave dedicated code from dsa_switch_destroy to a new
+dsa_slave_destroy function in slave.c
 
+Signed-off-by: Frode Isaksen <fisaksen@baylibre.com>
 Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 ---
- net/dsa/dsa.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ net/dsa/dsa.c      |  5 +----
+ net/dsa/dsa_priv.h |  1 +
+ net/dsa/slave.c    | 10 ++++++++++
+ 3 files changed, 12 insertions(+), 4 deletions(-)
 
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index b2f696c..597a462 100644
+index 11452e4..cf6b092 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -928,8 +928,10 @@ static int dsa_probe(struct platform_device *pdev)
- 	platform_set_drvdata(pdev, dst);
+@@ -454,10 +454,7 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+ 		if (!ds->ports[port])
+ 			continue;
 
- 	ret = dsa_setup_dst(dst, dev, &pdev->dev, pd);
--	if (ret)
-+	if (ret) {
-+		dev_put(dev);
- 		goto out;
-+	}
-
- 	return 0;
-
-@@ -963,6 +965,8 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
- 		if (ds)
- 			dsa_switch_destroy(ds);
+-		netif_carrier_off(ds->ports[port]);
+-		unregister_netdev(ds->ports[port]);
+-		phy_disconnect(p->phy);
+-		free_netdev(ds->ports[port]);
++		dsa_slave_destroy(ds->ports[port]);
  	}
-+
-+	dev_put(dst->master_netdev);
+
+ 	mdiobus_unregister(ds->slave_mii_bus);
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index 311796c8..1d1a546 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -61,6 +61,7 @@ extern const struct dsa_device_ops notag_netdev_ops;
+ void dsa_slave_mii_bus_init(struct dsa_switch *ds);
+ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 		     int port, char *name);
++void dsa_slave_destroy(struct net_device *slave_dev);
+ int dsa_slave_suspend(struct net_device *slave_dev);
+ int dsa_slave_resume(struct net_device *slave_dev);
+ int dsa_slave_netdevice_event(struct notifier_block *unused,
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 481754e..f77e5bd 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1223,6 +1223,16 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 	return 0;
  }
 
- static int dsa_remove(struct platform_device *pdev)
++void dsa_slave_destroy(struct net_device *slave_dev)
++{
++	struct dsa_slave_priv *p = netdev_priv(slave_dev);
++
++	netif_carrier_off(slave_dev);
++	unregister_netdev(slave_dev);
++	phy_disconnect(p->phy);
++	free_netdev(slave_dev);
++}
++
+ static bool dsa_slave_dev_check(struct net_device *dev)
+ {
+ 	return dev->netdev_ops == &dsa_slave_netdev_ops;
 -- 
 1.9.1
