@@ -1,28 +1,101 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] sh_eth: fix WARNING in dma_free_coherent()
-Date: Fri, 30 Oct 2015 02:11:08 +0300
-Message-ID: <5632A78C.4090807@cogentembedded.com>
-References: <5844359.Wmo6777QiE@wasted.cogentembedded.com>
- <1503970.kr1SvaSeoy@wasted.cogentembedded.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net] i40e: Look up MAC address in Open Firmware or IDPROM
+Date: Thu, 29 Oct 2015 19:34:30 -0400
+Message-ID: <20151029233430.GB11420@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1503970.kr1SvaSeoy@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	martin.petersen@oracle.com
+To: sowmini.varadhan@oracle.com, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/30/2015 12:52 AM, Sergei Shtylyov wrote:
 
-> Iff the first dma_alloc_coherent()  call fails in sh_eth_ring_init(), the
-> following  is printed to the kernel console:
->
-> WARNING: CPU: 0 PID: 1 at drivers/base/dma-mapping.c:334 dma_common_free_remap+0x48/0x6c()
 
-    Oops, I got the function name wrong in the subject. David, can you fix 
-this while applying or should I repost?
+This is the i40e equivalent of commit c762dff24c06 ("ixgbe: Look up MAC
+address in Open Firmware or IDPROM").
 
-MBR, Sergei
+As with that fix, attempt to look up the MAC address in Open Firmware
+on systems that uspport it, and use IDPROM on SPARC if no OF address
+is found.
 
+Reviewed-by: Martin K. Petersen <martin.petersen@oracle.com>
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_common.c |   36 +++++++++++++++++++++++++
+ 1 files changed, 36 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 2d74c6e..53f804a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -24,11 +24,23 @@
+  *
+  ******************************************************************************/
+ 
++#include <linux/etherdevice.h>
++#ifdef CONFIG_OF
++#include <linux/of_net.h>
++#endif
++#include <linux/pci.h>
++#include "i40e.h"
++
+ #include "i40e_type.h"
+ #include "i40e_adminq.h"
+ #include "i40e_prototype.h"
+ #include "i40e_virtchnl.h"
+ 
++#ifdef CONFIG_SPARC
++#include <asm/idprom.h>
++#include <asm/prom.h>
++#endif
++
+ /**
+  * i40e_set_mac_type - Sets MAC type
+  * @hw: pointer to the HW structure
+@@ -1008,6 +1020,27 @@ i40e_status i40e_aq_mac_address_write(struct i40e_hw *hw,
+ 	return status;
+ }
+ 
++static int i40e_get_platform_mac_addr(struct i40e_hw *hw, u8 *mac_addr)
++{
++#ifdef CONFIG_OF
++	struct i40e_pf *pf = hw->back;
++	struct device_node *dp = pci_device_to_OF_node(pf->pdev);
++	const unsigned char *addr;
++
++	addr = of_get_mac_address(dp);
++	if (addr) {
++		ether_addr_copy(mac_addr, addr);
++		return 0;
++	}
++#endif /* CONFIG_OF */
++
++#ifdef CONFIG_SPARC
++	ether_addr_copy(mac_addr, idprom->id_ethaddr);
++	return 0;
++#endif /* CONFIG_SPARC */
++	return 1;
++}
++
+ /**
+  * i40e_get_mac_addr - get MAC address
+  * @hw: pointer to the HW structure
+@@ -1021,6 +1054,9 @@ i40e_status i40e_get_mac_addr(struct i40e_hw *hw, u8 *mac_addr)
+ 	i40e_status status;
+ 	u16 flags = 0;
+ 
++	if (!i40e_get_platform_mac_addr(hw, mac_addr))
++		return I40E_SUCCESS;
++
+ 	status = i40e_aq_mac_address_read(hw, &flags, &addrs, NULL);
+ 
+ 	if (flags & I40E_AQC_LAN_ADDR_VALID)
+-- 
+1.7.1
