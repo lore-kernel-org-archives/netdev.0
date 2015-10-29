@@ -1,79 +1,151 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC Patch 00/12] IXGBE: Add live migration
-	support for SRIOV NIC
-Date: Wed, 28 Oct 2015 23:58:47 -0700
-Message-ID: <5631C3A7.2070900@gmail.com>
-References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
-	<562A7E33.4080800@gmail.com> <562DBBC9.4000104@intel.com>
-	<562E40BB.6040404@gmail.com> <5631B8CA.9040805@intel.com>
+From: Tina Ruchandani <ruchandani.tina@gmail.com>
+Subject: [PATCH v5] isdn: Use ktime_t instead of 'struct timeval'
+Date: Thu, 29 Oct 2015 00:17:29 -0700
+Message-ID: <20151029071729.GA11608@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-To: Lan Tianyu <tianyu.lan@intel.com>, bhelgaas@google.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	eddie.dong@intel.com, nrupal.jani@intel.com, yang.z.zhang@intel.com,
-	agraf@suse.de, kvm@vger.kernel.org, pbonzini@redhat.com,
-	qemu-devel@nongnu.org, emil.s.tantilov@intel.com,
-	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
-	matthew.vick@intel.com, mitch.a.williams@intel.com,
-	netdev@vger.kernel.org, shannon.nelson@intel.com
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-In-Reply-To: <5631B8CA.9040805@intel.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, Karsten Keil <isdn@linux-pingi.de>,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/28/2015 11:12 PM, Lan Tianyu wrote:
-> On 2015年10月26日 23:03, Alexander Duyck wrote:
->> No.  I think you are missing the fact that there are 256 descriptors per
->> page.  As such if you dirty just 1 you will be pulling in 255 more, of
->> which you may or may not have pulled in the receive buffer for.
->>
->> So for example if you have the descriptor ring size set to 256 then that
->> means you are going to get whatever the descriptor ring has since you
->> will be marking the entire ring dirty with every packet processed,
->> however you cannot guarantee that you are going to get all of the
->> receive buffers unless you go through and flush the entire ring prior to
->> migrating.
->
-> Yes, that will be a problem. How about adding tag for each Rx buffer and
-> check the tag when deliver the Rx buffer to stack? If tag has been
-> overwritten, this means the packet data has been migrated.
+'struct timeval' uses 32-bit representation for seconds which will
+overflow in year 2038 and beyond. mISDN/clock.c needs to compute and
+store elapsed time in intervals of 125 microseconds. This patch replaces
+the usage of 'struct timeval' with 64-bit ktime_t which is y2038 safe.
+The patch also replaces do_gettimeofday() (wall-clock time) with
+ktime_get() (monotonic time) since we only care about elapsed time here.
 
-Then you have to come up with a pattern that you can guarantee is the 
-tag and not part of the packet data.  That isn't going to be something 
-that is easy to do.  It would also have a serious performance impact on 
-the VF.
+Signed-off-by: Tina Ruchandani <ruchandani.tina@gmail.com>
+Suggested-by: Arnd Bergmnann <arnd@arndb.de>
+---
+ drivers/isdn/mISDN/clock.c | 51 +++++++++++++++++-----------------------------
+ include/linux/mISDNif.h    |  2 +-
+ 2 files changed, 20 insertions(+), 33 deletions(-)
 
->> This is why I have said you will need to do something to force the rings
->> to be flushed such as initiating a PM suspend prior to migrating.  You
->> need to do something to stop the DMA and flush the remaining Rx buffers
->> if you want to have any hope of being able to migrate the Rx in a
->> consistent state.  Beyond that the only other thing you have to worry
->> about are the Rx buffers that have already been handed off to the
->> stack.  However those should be handled if you do a suspend and somehow
->> flag pages as dirty when they are unmapped from the DMA.
->>
->> - Alex
-> This will be simple and maybe our first version to enable migration. But
-> we still hope to find a way not to disable DMA before stopping VCPU to
-> decrease service down time.
-
-You have to stop the Rx DMA at some point anyway.  It is the only means 
-to guarantee that the device stops updating buffers and descriptors so 
-that you will have a consistent state.
-
-Your code was having to do a bunch of shuffling in order to get things 
-set up so that you could bring the interface back up.  I would argue 
-that it may actually be faster at least on the bring-up to just drop the 
-old rings and start over since it greatly reduced the complexity and the 
-amount of device related data that has to be moved.
+diff --git a/drivers/isdn/mISDN/clock.c b/drivers/isdn/mISDN/clock.c
+index 693fb7c..a975226 100644
+--- a/drivers/isdn/mISDN/clock.c
++++ b/drivers/isdn/mISDN/clock.c
+@@ -37,6 +37,7 @@
+ #include <linux/types.h>
+ #include <linux/stddef.h>
+ #include <linux/spinlock.h>
++#include <linux/ktime.h>
+ #include <linux/mISDNif.h>
+ #include <linux/export.h>
+ #include "core.h"
+@@ -45,7 +46,7 @@ static u_int *debug;
+ static LIST_HEAD(iclock_list);
+ static DEFINE_RWLOCK(iclock_lock);
+ static u16 iclock_count;		/* counter of last clock */
+-static struct timeval iclock_tv;	/* time stamp of last clock */
++static ktime_t iclock_tv;		/* time stamp of last clock */
+ static int iclock_tv_valid;		/* already received one timestamp */
+ static struct mISDNclock *iclock_current;
+ 
+@@ -53,7 +54,7 @@ void
+ mISDN_init_clock(u_int *dp)
+ {
+ 	debug = dp;
+-	do_gettimeofday(&iclock_tv);
++	iclock_tv = ktime_get();
+ }
+ 
+ static void
+@@ -142,9 +143,8 @@ void
+ mISDN_clock_update(struct mISDNclock *iclock, int samples, struct timeval *tv)
+ {
+ 	u_long		flags;
+-	struct timeval	tv_now;
+-	time_t		elapsed_sec;
+-	int		elapsed_8000th;
++	ktime_t		tv_now;
++	u16		delta;
+ 
+ 	write_lock_irqsave(&iclock_lock, flags);
+ 	if (iclock_current != iclock) {
+@@ -160,28 +160,20 @@ mISDN_clock_update(struct mISDNclock *iclock, int samples, struct timeval *tv)
+ 		/* increment sample counter by given samples */
+ 		iclock_count += samples;
+ 		if (tv) { /* tv must be set, if function call is delayed */
+-			iclock_tv.tv_sec = tv->tv_sec;
+-			iclock_tv.tv_usec = tv->tv_usec;
++			iclock_tv = *tv;
+ 		} else
+-			do_gettimeofday(&iclock_tv);
++			iclock_tv = ktime_get();
+ 	} else {
+ 		/* calc elapsed time by system clock */
+ 		if (tv) { /* tv must be set, if function call is delayed */
+-			tv_now.tv_sec = tv->tv_sec;
+-			tv_now.tv_usec = tv->tv_usec;
++			tv_now = *tv;
+ 		} else
+-			do_gettimeofday(&tv_now);
+-		elapsed_sec = tv_now.tv_sec - iclock_tv.tv_sec;
+-		elapsed_8000th = (tv_now.tv_usec / 125)
+-			- (iclock_tv.tv_usec / 125);
+-		if (elapsed_8000th < 0) {
+-			elapsed_sec -= 1;
+-			elapsed_8000th += 8000;
+-		}
++			tv_now = ktime_get();
++		delta = ktime_divns(ktime_sub(tv_now, iclock_tv),
++				(NSEC_PER_SEC / 8000));
+ 		/* add elapsed time to counter and set new timestamp */
+-		iclock_count += elapsed_sec * 8000 + elapsed_8000th;
+-		iclock_tv.tv_sec = tv_now.tv_sec;
+-		iclock_tv.tv_usec = tv_now.tv_usec;
++		iclock_tv += delta;
++		iclock_tv = tv_now;
+ 		iclock_tv_valid = 1;
+ 		if (*debug & DEBUG_CLOCK)
+ 			printk("Received first clock from source '%s'.\n",
+@@ -195,22 +187,17 @@ unsigned short
+ mISDN_clock_get(void)
+ {
+ 	u_long		flags;
+-	struct timeval	tv_now;
+-	time_t		elapsed_sec;
+-	int		elapsed_8000th;
++	ktime_t		tv_now;
++	u16		delta;
+ 	u16		count;
+ 
+ 	read_lock_irqsave(&iclock_lock, flags);
+ 	/* calc elapsed time by system clock */
+-	do_gettimeofday(&tv_now);
+-	elapsed_sec = tv_now.tv_sec - iclock_tv.tv_sec;
+-	elapsed_8000th = (tv_now.tv_usec / 125) - (iclock_tv.tv_usec / 125);
+-	if (elapsed_8000th < 0) {
+-		elapsed_sec -= 1;
+-		elapsed_8000th += 8000;
+-	}
++	tv_now = ktime_get();
++	delta = ktime_divns(ktime_sub(tv_now, iclock_tv),
++			(NSEC_PER_SEC / 8000));
+ 	/* add elapsed time to counter */
+-	count =	iclock_count + elapsed_sec * 8000 + elapsed_8000th;
++	count = iclock_count + delta;
+ 	read_unlock_irqrestore(&iclock_lock, flags);
+ 	return count;
+ }
+diff --git a/include/linux/mISDNif.h b/include/linux/mISDNif.h
+index 246a352..ac02c54 100644
+--- a/include/linux/mISDNif.h
++++ b/include/linux/mISDNif.h
+@@ -596,7 +596,7 @@ static inline struct mISDNdevice *dev_to_mISDN(struct device *dev)
+ }
+ 
+ extern void	set_channel_address(struct mISDNchannel *, u_int, u_int);
+-extern void	mISDN_clock_update(struct mISDNclock *, int, struct timeval *);
++extern void	mISDN_clock_update(struct mISDNclock *, int, ktime_t *);
+ extern unsigned short mISDN_clock_get(void);
+ extern const char *mISDNDevName4ch(struct mISDNchannel *);
+ 
+-- 
+2.6.0.rc2.230.g3dd15c0
