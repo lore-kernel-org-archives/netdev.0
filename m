@@ -1,68 +1,60 @@
-From: David Holland <dholland-tech@netbsd.org>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Thu, 29 Oct 2015 16:01:31 +0000
-Message-ID: <20151029160131.GA18961@netbsd.org>
-References: <201510221824.t9MIOp6n003978@room101.nl.oracle.com>
- <20151022190701.GV22011@ZenIV.linux.org.uk>
- <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
- <20151022215741.GW22011@ZenIV.linux.org.uk>
- <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
- <20151024023054.GZ22011@ZenIV.linux.org.uk>
- <201510270908.t9R9873a001683@room101.nl.oracle.com>
- <562F577E.6000901@oracle.com>
- <20151029145847.GA10859@netbsd.org>
- <563238D0.2040802@oracle.com>
+From: Liberman Igal <Igal.Liberman@freescale.com>
+Subject: RE: [V5, 2/6] fsl/fman: Add FMan support
+Date: Thu, 29 Oct 2015 16:08:34 +0000
+Message-ID: <DM2PR03MB509FB7052B8B0401369F9D5E6200@DM2PR03MB509.namprd03.prod.outlook.com>
+References: <1442836354-5445-1-git-send-email-igal.liberman@freescale.com>
+	 <20150925230153.GA4626@home.buserror.net>
+	 <BL2PR03MB5006080090B6783629A33A5E6220@BL2PR03MB500.namprd03.prod.outlook.com>
+	 <1446067854.701.365.camel@freescale.com>
+	 <DM2PR03MB509C1B1A5272C9D0A9F8295E6200@DM2PR03MB509.namprd03.prod.outlook.com>
+ <1446132279.701.368.camel@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Holland <dholland-tech@netbsd.org>, Casper.Dik@oracle.com,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	stephen@networkplumber.org, netdev@vger.kernel.org
-To: Alan Burlison <Alan.Burlison@oracle.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+To: Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.netbsd.org ([149.20.53.66]:57286 "EHLO mail.netbsd.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751801AbbJ2QBd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Oct 2015 12:01:33 -0400
-Content-Disposition: inline
-In-Reply-To: <563238D0.2040802@oracle.com>
+Received: from mail-bl2on0122.outbound.protection.outlook.com ([65.55.169.122]:42336
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752564AbbJ2QIh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2015 12:08:37 -0400
+In-Reply-To: <1446132279.701.368.camel@freescale.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 29, 2015 at 03:18:40PM +0000, Alan Burlison wrote:
- > On 29/10/2015 14:58, David Holland wrote:
- > >ISTM that the best way to do this is to post a signal to the thread so
- > >accept bails with EINTR, at which point it can check to see if it's
- > >supposed to be exiting.
- > 
- > Yes, you could use pthread_kill, but that would require keeping a list of
- > the tids of all the threads that were using the FD, and that really just
- > moves the problem elsewhere rather than fixing it.
-
-Hardly; it moves the burden of doing stupid things to the
-application. If as you said the goal is to shut down all threads
-cleanly, then it doesn't need to keep track in detail anyway; it can
-just post SIGTERM to every thread, or SIGUSR1 if SIGTERM is bad for
-some reason, or whatever.
-
- > >Otherwise it sounds like the call you're looking for is not close(2)
- > >but revoke(2). Last I remember Linux doesn't have revoke because
- > >there's no way to implement it that isn't a trainwreck.
- > 
- > close(2) as per specified by POSIX works just fine on Solaris, if that was
- > the case everywhere then it wouldn't be an issue. And for cases where it is
- > necessary to keep the FD assigned because of races, the dup2(2) trick works
- > fine as well.
-
-close(2) as specified by POSIX doesn't prohibit this weird revoke-like
-behavior, but there's nothing in there that mandates it either. (I
-thought this discussion had already clarified that.)
-
-Note that while NetBSD apparently supports this behavior because
-someone copied it from Solaris, I'm about to go recommend it be
-removed.
-
--- 
-David A. Holland
-dholland@netbsd.org
+DQpSZWdhcmRzLA0KSWdhbCBMaWJlcm1hbg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0t
+DQo+IEZyb206IFdvb2QgU2NvdHQtQjA3NDIxDQo+IFNlbnQ6IFRodXJzZGF5LCBPY3RvYmVyIDI5
+LCAyMDE1IDU6MjUgUE0NCj4gVG86IExpYmVybWFuIElnYWwtQjMxOTUwIDxJZ2FsLkxpYmVybWFu
+QGZyZWVzY2FsZS5jb20+DQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eHBwYy1k
+ZXZAbGlzdHMub3psYWJzLm9yZzsgbGludXgtDQo+IGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IEJ1
+Y3VyIE1hZGFsaW4tQ3Jpc3RpYW4tQjMyNzE2DQo+IDxtYWRhbGluLmJ1Y3VyQGZyZWVzY2FsZS5j
+b20+DQo+IFN1YmplY3Q6IFJlOiBbVjUsIDIvNl0gZnNsL2ZtYW46IEFkZCBGTWFuIHN1cHBvcnQN
+Cj4gDQo+IE9uIFRodSwgMjAxNS0xMC0yOSBhdCAxMDoyMiAtMDUwMCwgTGliZXJtYW4gSWdhbC1C
+MzE5NTAgd3JvdGU6DQo+ID4gUmVnYXJkcywNCj4gPiBJZ2FsIExpYmVybWFuDQo+ID4NCj4gPiA+
+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPiBGcm9tOiBXb29kIFNjb3R0LUIwNzQy
+MQ0KPiA+ID4gU2VudDogV2VkbmVzZGF5LCBPY3RvYmVyIDI4LCAyMDE1IDExOjMxIFBNDQo+ID4g
+PiBUbzogTGliZXJtYW4gSWdhbC1CMzE5NTAgPElnYWwuTGliZXJtYW5AZnJlZXNjYWxlLmNvbT4N
+Cj4gPiA+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eHBwYy1kZXZAbGlzdHMub3ps
+YWJzLm9yZzsgbGludXgtDQo+ID4gPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnOyBCdWN1ciBNYWRh
+bGluLUNyaXN0aWFuLUIzMjcxNg0KPiA+ID4gPG1hZGFsaW4uYnVjdXJAZnJlZXNjYWxlLmNvbT4N
+Cj4gPiA+IFN1YmplY3Q6IFJlOiBbVjUsIDIvNl0gZnNsL2ZtYW46IEFkZCBGTWFuIHN1cHBvcnQN
+Cj4gPiA+DQo+ID4gPiBPbiBUdWUsIDIwMTUtMTAtMjcgYXQgMTE6MzIgLTA1MDAsIExpYmVybWFu
+IElnYWwtQjMxOTUwIHdyb3RlOg0KPiA+ID4NCj4gPiA+ID4gPiA+ICsNCj4gPiA+ID4gPiA+ICtz
+dHJ1Y3QgZGV2aWNlICpmbWFuX2dldF9kZXZpY2Uoc3RydWN0IGZtYW4gKmZtYW4pIHsgIHJldHVy
+bg0KPiA+ID4gPiA+ID4gK2ZtYW4tPmRldjsgfQ0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gSXMgdGhp
+cyByZWFsbHkgbmVjZXNzYXJ5Pw0KPiA+ID4gPiA+DQo+ID4gPiA+DQo+ID4gPiA+IEZtYW4gcG9y
+dCBuZWVkcyBmbWFuLT5kZXYsIGZtYW4gc3RydWN0dXJlIGlzIG9wYXF1ZSwgc28geWVzLCBpdCdz
+DQo+ID4gPiA+IG5lZWRlZC4NCj4gPiA+DQo+ID4gPiBXaHkgaXMgb3BhY2l0eSBiZWluZyBtYWlu
+dGFpbmVkIGZyb20gb25lIHBhcnQgb2YgdGhlIGZtYW4gZHJpdmVyIHRvDQo+ID4gPiBhbm90aGVy
+Pw0KPiA+ID4gSXNuJ3QgdGhpcyB0aGUgc29ydCBvZiBleGNlc3NpdmUgbGF5ZXJpbmcgdGhhdCB3
+YXMgY29tcGxhaW5lZCBhYm91dD8NCj4gPiA+DQo+ID4gPg0KPiA+DQo+ID4gSXQncyBub3QgcmVh
+bGx5IGxheWVyaW5nLg0KPiA+IEZtYW4gUG9ydCB1c2VzIEZtYW4gcmVzb3VyY2VzLCBpdCdzIG5v
+dCBjb21wbGV0ZWx5IHN0YW5kYWxvbmUuDQo+IA0KPiBUaGF0J3MgbXkgcG9pbnQgLS0gaWYgaXQn
+cyBub3Qgc3RhbmRhbG9uZSwgd2h5IGlzICJzdHJ1Y3QgZm1hbiIgb3BhcXVlIHRvIHRoZQ0KPiBw
+b3J0IGNvZGU/DQo+IA0KDQpPSywgSSdsbCBleHBvc2Ugc3RydWN0IGZtYW4uIA0KDQo+IC1TY290
+dA0KDQo=
