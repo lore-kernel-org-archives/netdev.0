@@ -1,67 +1,60 @@
-From: Liberman Igal <Igal.Liberman@freescale.com>
-Subject: RE: [V5, 2/6] fsl/fman: Add FMan support
-Date: Thu, 29 Oct 2015 15:22:23 +0000
-Message-ID: <DM2PR03MB509C1B1A5272C9D0A9F8295E6200@DM2PR03MB509.namprd03.prod.outlook.com>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [V5, 2/6] fsl/fman: Add FMan support
+Date: Thu, 29 Oct 2015 10:24:39 -0500
+Message-ID: <1446132279.701.368.camel@freescale.com>
 References: <1442836354-5445-1-git-send-email-igal.liberman@freescale.com>
 	 <20150925230153.GA4626@home.buserror.net>
 	 <BL2PR03MB5006080090B6783629A33A5E6220@BL2PR03MB500.namprd03.prod.outlook.com>
- <1446067854.701.365.camel@freescale.com>
+	 <1446067854.701.365.camel@freescale.com>
+	 <DM2PR03MB509C1B1A5272C9D0A9F8295E6200@DM2PR03MB509.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-To: Scott Wood <scottwood@freescale.com>
+	"Bucur Madalin-Cristian-B32716" <madalin.bucur@freescale.com>
+To: Liberman Igal-B31950 <Igal.Liberman@freescale.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446067854.701.365.camel@freescale.com>
-Content-Language: en-US
+In-Reply-To: <DM2PR03MB509C1B1A5272C9D0A9F8295E6200@DM2PR03MB509.namprd03.prod.outlook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQpSZWdhcmRzLA0KSWdhbCBMaWJlcm1hbg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0t
-DQo+IEZyb206IFdvb2QgU2NvdHQtQjA3NDIxDQo+IFNlbnQ6IFdlZG5lc2RheSwgT2N0b2JlciAy
-OCwgMjAxNSAxMTozMSBQTQ0KPiBUbzogTGliZXJtYW4gSWdhbC1CMzE5NTAgPElnYWwuTGliZXJt
-YW5AZnJlZXNjYWxlLmNvbT4NCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4cHBj
-LWRldkBsaXN0cy5vemxhYnMub3JnOyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVsLm9yZzsg
-QnVjdXIgTWFkYWxpbi1DcmlzdGlhbi1CMzI3MTYNCj4gPG1hZGFsaW4uYnVjdXJAZnJlZXNjYWxl
-LmNvbT4NCj4gU3ViamVjdDogUmU6IFtWNSwgMi82XSBmc2wvZm1hbjogQWRkIEZNYW4gc3VwcG9y
-dA0KPiANCj4gT24gVHVlLCAyMDE1LTEwLTI3IGF0IDExOjMyIC0wNTAwLCBMaWJlcm1hbiBJZ2Fs
-LUIzMTk1MCB3cm90ZToNCj4gDQo+ID4gPiA+ICsNCj4gPiA+ID4gK3N0cnVjdCBkZXZpY2UgKmZt
-YW5fZ2V0X2RldmljZShzdHJ1Y3QgZm1hbiAqZm1hbikgeyAgcmV0dXJuDQo+ID4gPiA+ICtmbWFu
-LT5kZXY7IH0NCj4gPiA+DQo+ID4gPiBJcyB0aGlzIHJlYWxseSBuZWNlc3Nhcnk/DQo+ID4gPg0K
-PiA+DQo+ID4gRm1hbiBwb3J0IG5lZWRzIGZtYW4tPmRldiwgZm1hbiBzdHJ1Y3R1cmUgaXMgb3Bh
-cXVlLCBzbyB5ZXMsIGl0J3MgbmVlZGVkLg0KPiANCj4gV2h5IGlzIG9wYWNpdHkgYmVpbmcgbWFp
-bnRhaW5lZCBmcm9tIG9uZSBwYXJ0IG9mIHRoZSBmbWFuIGRyaXZlciB0bw0KPiBhbm90aGVyPw0K
-PiBJc24ndCB0aGlzIHRoZSBzb3J0IG9mIGV4Y2Vzc2l2ZSBsYXllcmluZyB0aGF0IHdhcyBjb21w
-bGFpbmVkIGFib3V0Pw0KPiANCj4gDQoNCkl0J3Mgbm90IHJlYWxseSBsYXllcmluZy4NCkZtYW4g
-UG9ydCB1c2VzIEZtYW4gcmVzb3VyY2VzLCBpdCdzIG5vdCBjb21wbGV0ZWx5IHN0YW5kYWxvbmUu
-IA0KDQo+ID4gPiA+ICsgICAgICAgICAvKiBJbiBCNCByZXYgMi4wIChhbmQgYWJvdmUpIHRoZSBN
-VVJBTSBzaXplIGlzIDUxMktCLg0KPiA+ID4gPiArICAgICAgICAgICogQ2hlY2sgdGhlIFNWUiBh
-bmQgdXBkYXRlIE1VUkFNIHNpemUgaWYgcmVxdWlyZWQuDQo+ID4gPiA+ICsgICAgICAgICAgKi8N
-Cj4gPiA+ID4gKyAgICAgICAgIHUzMiBzdnI7DQo+ID4gPiA+ICsNCj4gPiA+ID4gKyAgICAgICAg
-IHN2ciA9IG1mc3ByKFNQUk5fU1ZSKTsNCj4gPiA+ID4gKw0KPiA+ID4gPiArICAgICAgICAgaWYg
-KChTVlJfU09DX1ZFUihzdnIpID09IFNWUl9CNDg2MCkgJiYgKFNWUl9NQUooc3ZyKSA+PQ0KPiA+
-ID4gMikpDQo+ID4gPiA+ICsgICAgICAgICAgICAgICAgIGZtYW4tPmR0c19wYXJhbXMubXVyYW1f
-c2l6ZSA9IDB4ODAwMDA7IH0NCj4gPiA+DQo+ID4gPiBXaHkgd2Fzbid0IHRoZSBNVVJBTSBzaXpl
-IGRlc2NyaWJlZCBpbiB0aGUgZGV2aWNlIHRyZWUsIGFzIGl0IHdhcw0KPiA+ID4gd2l0aCBDUE0v
-UUU/DQo+ID4gPg0KPiA+DQo+ID4gTVVSQU0gc2l6ZSBkZXNjcmliZWQgYnkgdGhlIGRldmljZS10
-cmVlLg0KPiA+IEluIEI0ODYwIHJldiAyLjAgKGFuZCBhYm92ZSkgTVVSQU0gc2l6ZSBpcyBiaWdn
-ZXIuDQo+ID4gVGhpcyBpcyB3b3JrYXJvdW5kLCBpbiBvcmRlciB0byBoYXZlIHRoZSBzYW1lIGRl
-dmljZSB0cmVlIGZvciBhbGwNCj4gPiBCNDg2MCByZXZpc2lvbnMuDQo+IA0KPiBXZSBkb24ndCBz
-dXBwb3J0IGI0ODYwIHByaW9yIHRvIHJldiAyLjAgKGR1ZSB0byBlNjUwMCBjb3JlIGVycmF0YSkg
-c28gdGhpcyBpcw0KPiBpcnJlbGV2YW50LiAgRml4IHRoZSBkZXZpY2UgdHJlZS4NCj4gDQoNCk9L
-LCB0aGFua3MuDQpJJ2xsIHN1Ym1pdCBhIG5ldyBkZXZpY2UgdHJlZSBwYXRjaCAob24gdG9wIG9m
-IHRoZSBleGlzdGluZyBwYXRjaGVzLCB3aGljaCBhcmUgYXdhaXRpbmcgdXBzdHJlYW0pIGFuZCBy
-ZW1vdmUgdGhpcyBjb2RlIGZyb20gRm1hbi4gDQoNCj4gPiA+ID4gKw0KPiA+ID4gPiArIG9mX25v
-ZGVfcHV0KG11cmFtX25vZGUpOw0KPiA+ID4gPiArIG9mX25vZGVfcHV0KGZtX25vZGUpOw0KPiA+
-ID4gPiArDQo+ID4gPiA+ICsgZXJyID0gZGV2bV9yZXF1ZXN0X2lycSgmb2ZfZGV2LT5kZXYsIGly
-cSwgZm1hbl9pcnEsDQo+ID4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAgICBJUlFGX05PX1NV
-U1BFTkQsICJmbWFuIiwgZm1hbik7IGlmIChlcnIgPA0KPiA+ID4gPiArIDApIHsNCj4gPiA+ID4g
-KyAgICAgICAgIHByX2VycigiRXJyb3I6IGFsbG9jYXRpbmcgaXJxICVkIChlcnJvciA9ICVkKVxu
-IiwgaXJxLCBlcnIpOw0KPiA+ID4gPiArICAgICAgICAgZ290byBmbWFuX2ZyZWU7DQo+ID4gPiA+
-ICsgfQ0KPiA+ID4NCj4gPiA+IFdoeSBJUlFGX05PX1NVU1BFTkQ/DQo+ID4gPg0KPiA+DQo+ID4g
-SXQgc2hvdWxkbid0IGJlIElSUUZfTk9fU1VTUEVORCBmb3Igbm93LCByZW1vdmVkLg0KPiANCj4g
-V2h5IGp1c3QgImZvciBub3ciPw0KPiANCg0KVW5zdWNjZXNzZnVsIHdvcmRpbmcsIHNvcnJ5Lg0K
-DQo+IC1TY290dA0KDQo=
+On Thu, 2015-10-29 at 10:22 -0500, Liberman Igal-B31950 wrote:
+> Regards,
+> Igal Liberman
+> 
+> > -----Original Message-----
+> > From: Wood Scott-B07421
+> > Sent: Wednesday, October 28, 2015 11:31 PM
+> > To: Liberman Igal-B31950 <Igal.Liberman@freescale.com>
+> > Cc: netdev@vger.kernel.org; linuxppc-dev@lists.ozlabs.org; linux-
+> > kernel@vger.kernel.org; Bucur Madalin-Cristian-B32716
+> > <madalin.bucur@freescale.com>
+> > Subject: Re: [V5, 2/6] fsl/fman: Add FMan support
+> > 
+> > On Tue, 2015-10-27 at 11:32 -0500, Liberman Igal-B31950 wrote:
+> > 
+> > > > > +
+> > > > > +struct device *fman_get_device(struct fman *fman) {  return
+> > > > > +fman->dev; }
+> > > > 
+> > > > Is this really necessary?
+> > > > 
+> > > 
+> > > Fman port needs fman->dev, fman structure is opaque, so yes, it's 
+> > > needed.
+> > 
+> > Why is opacity being maintained from one part of the fman driver to
+> > another?
+> > Isn't this the sort of excessive layering that was complained about?
+> > 
+> > 
+> 
+> It's not really layering.
+> Fman Port uses Fman resources, it's not completely standalone. 
+
+That's my point -- if it's not standalone, why is "struct fman" opaque to the 
+port code?
+
+-Scott
