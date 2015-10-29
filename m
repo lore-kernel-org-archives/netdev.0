@@ -1,50 +1,81 @@
-From: Gilberto Bertin <gilberto.bertin@gmail.com>
-Subject: Re: [BUG] Any-IP IPv6 support broken
-Date: Thu, 29 Oct 2015 18:58:47 +0000
-Message-ID: <E3F3A24A-F483-4026-97E5-B49F65AD2493@gmail.com>
-References: <0977189F-9778-4D1C-939D-FAD71595E5F6@gmail.com> <1446143957.486796.423892137.12302CDB@webmail.messagingengine.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.1 \(3096.5\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35502 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751055AbbJ2S6u convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2015 14:58:50 -0400
-Received: by pasz6 with SMTP id z6so48448683pas.2
-        for <netdev@vger.kernel.org>; Thu, 29 Oct 2015 11:58:50 -0700 (PDT)
-In-Reply-To: <1446143957.486796.423892137.12302CDB@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] hyperv: Add handler for
+ RNDIS_STATUS_NETWORK_CHANGE event
+Date: Thu, 29 Oct 2015 19:09:12 +0000
+Message-ID: <BN1PR0301MB077055A8DD93983AF1C8E31ACA200@BN1PR0301MB0770.namprd03.prod.outlook.com>
+References: <06b508cbb6b949f4b3e13e7797948e56@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20140623131723.GA7026@aepfle.de>
+ <5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20140623.131018.1349792926453695313.davem@davemloft.net>
+ <CAFLxGvwjhxxc2OgerCeF4nmvpbTV1-XttUZ2poaDLFWcBpaOxw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>, LKML <linux-kernel@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Richard Weinberger <richard.weinberger@gmail.com>, David Miller
+ <davem@davemloft.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <CAFLxGvwjhxxc2OgerCeF4nmvpbTV1-XttUZ2poaDLFWcBpaOxw@mail.gmail.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
 
-> On 29 Oct 2015, at 18:39, Hannes Frederic Sowa <hannes@stressinduktio=
-n.org> wrote:
->=20
-> Try the loopback interface:
->=20
-> ip -6 route add local abcd:abcd:abcd:abcd::/64 dev *lo*
->=20
-> Otherwise packets should end up in neighbor subsystem and you don't w=
-ant
-> that, still. ;)
->=20
 
-Thanks for the reply.
+> -----Original Message-----
+> From: Richard Weinberger [mailto:richard.weinberger@gmail.com]
+> Sent: Tuesday, October 27, 2015 6:36 PM
+> To: David Miller <davem@davemloft.net>
+> Cc: Haiyang Zhang <haiyangz@microsoft.com>; olaf@aepfle.de; Greg Kroah-
+> Hartman <greg@kroah.com>; netdev@vger.kernel.org; jasowang@redhat.com;
+> driverdev-devel@linuxdriverproject.org; LKML <linux-
+> kernel@vger.kernel.org>
+> Subject: Re: [PATCH net-next] hyperv: Add handler for
+> RNDIS_STATUS_NETWORK_CHANGE event
+> 
+> On Mon, Jun 23, 2014 at 10:10 PM, David Miller <davem@davemloft.net>
+> wrote:
+> > From: Haiyang Zhang <haiyangz@microsoft.com>
+> > Date: Mon, 23 Jun 2014 16:09:59 +0000
+> >
+> >> So, what's the equivalent or similar command to "network restart" on
+> SLES12? Could
+> >> you update the command line for the usermodehelper when porting this
+> patch to SLES
+> >> 12?
+> >
+> > No, you are not going to keep the usermodehelper invocation in your
+> driver
+> > please remove it.  It is absolutely inappropriate, and I strictly do
+> not want
+> > to keep it in there because other people will copy it and then we'll
+> have a
+> > real mess on our hands.
+> 
+> Sorry for digging up this old thread.
+> While talking with some guys about usermodehelper abuses I came across
+> this gem.
+> Mainline still contains that "/etc/init.d/network restart" code.
+> Haiyang, care to cleanup?
 
-I know it=E2=80=99s working on the lo interface, but unluckily I need i=
-t on
-other interfaces (and aliasing lo is not an option).
+Hi Richard and others,
 
-Moreover:
-- the IPv6 patch explicitly refers to the possibility to do this with
-  eth0 interface (i.e. it's not a lo-only feature)
-- should it be consistent with the IPv4 behaviour? (or maybe it's not
-  supposed to work even with IPv4 addresses, and so this is a bug)
+Thanks for the reminder. I will clean up the usermode helper.
 
+Do you have suggestions of trigger DHCP refresh from kernel mode? Any 
+sample code in the existing kernel code?
 
-thank you,
-
-Gilberto.
+Thanks,
+- Haiyang
