@@ -1,54 +1,69 @@
-From: David Holland <dholland-tech@netbsd.org>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Thu, 29 Oct 2015 14:58:47 +0000
-Message-ID: <20151029145847.GA10859@netbsd.org>
-References: <201510220634.t9M6YJLD017883@room101.nl.oracle.com>
- <20151022172146.GS22011@ZenIV.linux.org.uk>
- <201510221824.t9MIOp6n003978@room101.nl.oracle.com>
- <20151022190701.GV22011@ZenIV.linux.org.uk>
- <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
- <20151022215741.GW22011@ZenIV.linux.org.uk>
- <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
- <20151024023054.GZ22011@ZenIV.linux.org.uk>
- <201510270908.t9R9873a001683@room101.nl.oracle.com>
- <562F577E.6000901@oracle.com>
-Mime-Version: 1.0
+From: Gilberto Bertin <gilberto.bertin@gmail.com>
+Subject: [BUG] Any-IP IPv6 support broken
+Date: Thu, 29 Oct 2015 15:00:26 +0000
+Message-ID: <0977189F-9778-4D1C-939D-FAD71595E5F6@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.1 \(3096.5\))
 Content-Type: text/plain; charset=us-ascii
-Cc: Casper.Dik@oracle.com, Al Viro <viro@ZenIV.linux.org.uk>,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	dholland-tech@netbsd.org
-To: Alan Burlison <Alan.Burlison@oracle.com>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.netbsd.org ([149.20.53.66]:62324 "EHLO mail.netbsd.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965046AbbJ2O6t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Oct 2015 10:58:49 -0400
-Content-Disposition: inline
-In-Reply-To: <562F577E.6000901@oracle.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34227 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751438AbbJ2PA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2015 11:00:29 -0400
+Received: by padhk11 with SMTP id hk11so43310355pad.1
+        for <netdev@vger.kernel.org>; Thu, 29 Oct 2015 08:00:29 -0700 (PDT)
+Received: from ?IPv6:2a06:98c0:1000:1200:5c8f:2e3:21d0:5600? ([2a06:98c0:1000:1200:5c8f:2e3:21d0:5600])
+        by smtp.gmail.com with ESMTPSA id bz1sm2893888pab.20.2015.10.29.08.00.27
+        for <netdev@vger.kernel.org>
+        (version=TLS1 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
+        Thu, 29 Oct 2015 08:00:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 27, 2015 at 10:52:46AM +0000, Alan Burlison wrote:
- > >But in general, this is basically a problem with the application: the file
- > >descriptor space is shared between threads and having one thread sniping
- > >at open files, you do have a problem and whatever the kernel does in that
- > >case perhaps doesn't matter all that much: the application needs to be
- > >fixed anyway.
- > 
- > The scenario in Hadoop is that the FD is being used by a thread that's
- > waiting in accept and another thread wants to shut it down, e.g. because
- > the application is terminating and needs to stop all threads cleanly.
+Hello,
+testing Any-IP on my machine, I noticed that it's not working with IPv6
+addresses.
+Tests are performed on a 4.1 kernel.
 
-ISTM that the best way to do this is to post a signal to the thread so
-accept bails with EINTR, at which point it can check to see if it's
-supposed to be exiting.
+Steps to reproduce the bug:
 
-Otherwise it sounds like the call you're looking for is not close(2)
-but revoke(2). Last I remember Linux doesn't have revoke because
-there's no way to implement it that isn't a trainwreck.
+1- make sure Any-IP is working with IPv4 addresses:
 
--- 
-David A. Holland
-dholland@netbsd.org
+# ip -4 route add local 4.4.4.0/24 dev eth0
+
+with this command every packets with an IP in the subnet 4.4.4.0/24 will
+be delivered to the eth0 interface.
+We can test this:
+
+$ ping 4.4.4.1 -c 1 | grep received
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+$ ping 4.4.4.50 -c 1 | grep received
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+$ ping 4.4.4.200 -c 1 | grep received
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+
+2- note that it's not actually working with IPv6 addresses:
+
+# ip -6 route add local abcd:abcd:abcd:abcd::/64 dev eth0
+
+$ ping6 -c 1 abcd:abcd:abcd:abcd::1 | grep received
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+$ ping6 -c 1 abcd:abcd:abcd:abcd::50 | grep received
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+$ ping6 -c 1 abcd:abcd:abcd:abcd::100 | grep received
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+Since the kernel should support Any-IP with IPv6 addresses (the patch
+was submitted/accepted years ago [1]) I suspect this is a bug.
+
+Even trying with the commands suggested by the patch [1]:
+# ip -6 rule  add from all iif eth0 lookup 200
+# ip -6 route add local default dev lo table 200
+
+I was not able to get it working.
+
+
+Thank you.
+
+[1] http://www.spinics.net/lists/netdev/msg141994.html
