@@ -1,77 +1,106 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 1/4] ifcfg: add manpage
-Date: Thu, 29 Oct 2015 10:55:21 +0100
-Message-ID: <1446112524-6986-2-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH 2/4] genl: add manpage
+Date: Thu, 29 Oct 2015 10:55:22 +0100
+Message-ID: <1446112524-6986-3-git-send-email-phil@nwl.cc>
 References: <1446112524-6986-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:35796 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:52910 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755388AbbJ2Jz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755485AbbJ2Jz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 29 Oct 2015 05:55:26 -0400
 In-Reply-To: <1446112524-6986-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 ---
- man/man8/ifcfg.8 | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 48 insertions(+)
- create mode 100644 man/man8/ifcfg.8
+ man/man8/genl.8 | 77 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 77 insertions(+)
+ create mode 100644 man/man8/genl.8
 
-diff --git a/man/man8/ifcfg.8 b/man/man8/ifcfg.8
+diff --git a/man/man8/genl.8 b/man/man8/genl.8
 new file mode 100644
-index 0000000..79033bd
+index 0000000..22e44a8
 --- /dev/null
-+++ b/man/man8/ifcfg.8
-@@ -0,0 +1,48 @@
-+.TH IFCFG 8 "September 24 2009" "iproute2" "Linux"
++++ b/man/man8/genl.8
+@@ -0,0 +1,77 @@
++.TH GENL 8 "29 Oct 2015" "iproute2" "Linux"
 +.SH NAME
-+ifcfg \- simplistic script which replaces ifconfig IP managment
++genl \- generic netlink utility frontend
 +.SH SYNOPSIS
-+.ad l
 +.in +8
 +.ti -8
-+.B ifcfg
-+.RI "[ " DEVICE " ] [ " command " ] " ADDRESS " [ " PEER " ] "
-+.sp
++.BR genl " [ " -s [ tatistics "] ] [ " -d [ etails "] ] [ " -r [ aw "] ] " OBJECT
 +
++.ti -8
++.BR genl " { " -V [ ersion "] | " -h [ elp "] }"
++
++.ti -8
++.IR OBJECT " := { "
++.B ctrl
++.IR CTRL_OPTS " }"
++
++.ti -8
++.IR CTRL_OPTS " := { "
++.BR help " | " list " | " monitor " | " get
++.IR PARMS " }"
++
++.ti -8
++.IR PARMS " := { "
++.B name
++.IR NAME " | "
++.B id
++.IR ID " }"
 +.SH DESCRIPTION
-+This manual page documents briefly the
-+.B ifcfg
-+command.
-+.PP
-+This is a simplistic script replacing one option of
-+.B ifconfig
-+, namely, IP address management. It not only adds
-+addresses, but also carries out Duplicate Address Detection RFC-DHCP,
-+sends unsolicited ARP to update the caches of other hosts sharing
-+the interface, adds some control routes and restarts Router Discovery
-+when it is necessary.
-+
-+.SH IFCONFIG - COMMAND SYNTAX
-+
-+.SS
++The
++.B genl
++utility provides a simple frontend to the generic netlink library. Although it's
++designed to support multiple
++.IR OBJECT s,
++for now only the
++.B ctrl
++object is available, which is used to query the generic netlink controller.
++.SS ctrl
++The generic netlink controller can be queried in various ways:
 +.TP
-+.B DEVICE
-+- it may have alias, suffix, separated by colon.
-+
++.B help
++This command just prints a help text for the
++.B ctrl
++object.
 +.TP
-+.B command
-+- add, delete or stop.
-+
++.B list
++Show the registered netlink users.
 +.TP
-+.B ADDRESS
-+- optionally followed by prefix length.
-+
++.B monitor
++Listen for generic netlink notifications.
 +.TP
-+.B peer
-+- optional peer address for pointpoint interfaces.
-+
-+.SH NOTES
-+This script is not suitable for use with IPv6.
-+
++.B get
++Query the controller for a given user, identified either by
++.BR name " or " id .
++.SH OPTIONS
++genl supports the following options.
++.TP
++.B \-h, \-help
++Show summary of options.
++.TP
++.B \-V, \-Version
++Show version of program.
++.TP
++.B \-s, \-stats, \-statistics
++Show object statistics.
++.TP
++.B \-d, \-details
++Show object details.
++.TP
++.B \-r, \-raw
++Dump raw output only.
 +.SH SEE ALSO
-+.RB "IP Command reference " ip-cref.ps
++.BR ip (8)
++.br
++.SH AUTHOR
++genl was written by Jamal Hadi Salim <hadi@cyberus.ca>.
++.PP
++This manual page was written by Petr Sabata <contyk@redhat.com>.
 -- 
 2.1.2
