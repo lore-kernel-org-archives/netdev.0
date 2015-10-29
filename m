@@ -1,38 +1,59 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [BUG] Any-IP IPv6 support broken
-Date: Thu, 29 Oct 2015 19:39:17 +0100
-Message-ID: <1446143957.486796.423892137.12302CDB@webmail.messagingengine.com>
-References: <0977189F-9778-4D1C-939D-FAD71595E5F6@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ipv4: use l4 hash for locally generated
+ multipath flows
+Date: Thu, 29 Oct 2015 11:43:31 -0700
+Message-ID: <1446144211.6254.2.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <006ec2edb2d592ab9b90ccc5c084ac8926e811df.1446053264.git.pabeni@redhat.com>
+	 <1446129070.7476.148.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446130859.4431.17.camel@dhcp-176-88.mxp.redhat.com>
+	 <1446132510.7476.152.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446137527.4431.25.camel@dhcp-176-88.mxp.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Gilberto Bertin <gilberto.bertin@gmail.com>, netdev@vger.kernel.org
+Cc: Peter =?ISO-8859-1?Q?N=F8rlund?= <pch@ordbogen.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:33406 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751055AbbJ2SjS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2015 14:39:18 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id EC03C2018C
-	for <netdev@vger.kernel.org>; Thu, 29 Oct 2015 14:39:17 -0400 (EDT)
-In-Reply-To: <0977189F-9778-4D1C-939D-FAD71595E5F6@gmail.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:35888 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752025AbbJ2Snd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2015 14:43:33 -0400
+Received: by pacfv9 with SMTP id fv9so50159010pac.3
+        for <netdev@vger.kernel.org>; Thu, 29 Oct 2015 11:43:33 -0700 (PDT)
+In-Reply-To: <1446137527.4431.25.camel@dhcp-176-88.mxp.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-On Thu, Oct 29, 2015, at 16:00, Gilberto Bertin wrote:
-> 2- note that it's not actually working with IPv6 addresses:
+On Thu, 2015-10-29 at 17:52 +0100, Paolo Abeni wrote:
+> On Thu, 2015-10-29 at 08:28 -0700, Eric Dumazet wrote:
+> > On Thu, 2015-10-29 at 16:00 +0100, Paolo Abeni wrote:
+> > 
+> > > This patch do not add dissection code: it use the information provided
+> > > by the available flowi4 structure. Moreover the skb is not available on
+> > > the calling site (in __ip_route_output_key_hash) and pushing it all the
+> > > way will require a lot of intrusive changes. Do you think it's the
+> > > better option ?
+> > 
+> > If skb is provided, then we could use its information.
 > 
-> # ip -6 route add local abcd:abcd:abcd:abcd::/64 dev eth0
+> I see your point, but providing an skb to __ip_route_output_key_hash()
+> is not very viable: it has a lot of indirect callers which are
+> problematic, i.e.:
+> 
+> __ip_route_output_key()
+> ip_route_output_flow()
+> inet_csk_route_req()
+> tcp_v4_send_synack()  <- skb available here, but created using dst
+> information.
+> 
 
+I never said it was trivial.
 
-Try the loopback interface:
+I said : "If skb is provided, then we can use its l4hash"
 
-ip -6 route add local abcd:abcd:abcd:abcd::/64 dev *lo*
-
-Otherwise packets should end up in neighbor subsystem and you don't want
-that, still. ;)
-
-Bye,
-Hannes
+If not, then sure, a flow-based hash fallback is better than nothing.
