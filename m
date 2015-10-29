@@ -1,79 +1,62 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 1/5] bpf: abstract anon_inode_getfd invocations
-Date: Thu, 29 Oct 2015 14:58:06 +0100
-Message-ID: <7e428ccb5196367a6d3d73068587f8527923f61c.1446126105.git.daniel@iogearbox.net>
-References: <cover.1446126105.git.daniel@iogearbox.net>
-Cc: ast@plumgrid.com, hannes@stressinduktion.org, tgraf@suug.ch,
-	viro@ZenIV.linux.org.uk, ebiederm@xmission.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1446126105.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1446126105.git.daniel@iogearbox.net>
-References: <cover.1446126105.git.daniel@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 5/6] net: dsa: add missing calls in dsa_switch_destroy
+Date: Thu, 29 Oct 2015 15:00:58 +0100
+Message-ID: <20151029140058.GS2307@lunn.ch>
+References: <56321DCD.3070702@baylibre.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Frode Isaksen <fisaksen@baylibre.com>
+To: Neil Armstrong <narmstrong@baylibre.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:58134 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757177AbbJ2OBJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2015 10:01:09 -0400
+Content-Disposition: inline
+In-Reply-To: <56321DCD.3070702@baylibre.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since we're going to use anon_inode_getfd() invocations in more than just
-the current places, make a helper function for both, so that we only need
-to pass a map/prog pointer to the helper itself in order to get a fd. The
-new helpers are called bpf_map_new_fd() and bpf_prog_new_fd().
+On Thu, Oct 29, 2015 at 02:23:25PM +0100, Neil Armstrong wrote:
+> Add missing netif_carrier_off and phy_disconnect calls to the
+> dsa_switch_destroy function to make sure the netdev and phy
+> ressources are clean before complete removal.
+> 
+> Signed-off-by: Frode Isaksen <fisaksen@baylibre.com>
+> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+> ---
+>  net/dsa/dsa.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index 597a462..11452e4 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -454,7 +454,9 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+>  		if (!ds->ports[port])
+>  			continue;
+> 
+> +		netif_carrier_off(ds->ports[port]);
+>  		unregister_netdev(ds->ports[port]);
+> +		phy_disconnect(p->phy);
+>  		free_netdev(ds->ports[port]);
+>  	}
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
----
- kernel/bpf/syscall.c | 17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+Once you make it actually compile....
 
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 687dd6c..2b89ef0 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -111,6 +111,12 @@ static const struct file_operations bpf_map_fops = {
- 	.release = bpf_map_release,
- };
- 
-+static int bpf_map_new_fd(struct bpf_map *map)
-+{
-+	return anon_inode_getfd("bpf-map", &bpf_map_fops, map,
-+				O_RDWR | O_CLOEXEC);
-+}
-+
- /* helper macro to check that unused fields 'union bpf_attr' are zero */
- #define CHECK_ATTR(CMD) \
- 	memchr_inv((void *) &attr->CMD##_LAST_FIELD + \
-@@ -141,8 +147,7 @@ static int map_create(union bpf_attr *attr)
- 	if (err)
- 		goto free_map;
- 
--	err = anon_inode_getfd("bpf-map", &bpf_map_fops, map, O_RDWR | O_CLOEXEC);
--
-+	err = bpf_map_new_fd(map);
- 	if (err < 0)
- 		/* failed to allocate fd */
- 		goto free_map;
-@@ -538,6 +543,12 @@ static const struct file_operations bpf_prog_fops = {
-         .release = bpf_prog_release,
- };
- 
-+static int bpf_prog_new_fd(struct bpf_prog *prog)
-+{
-+	return anon_inode_getfd("bpf-prog", &bpf_prog_fops, prog,
-+				O_RDWR | O_CLOEXEC);
-+}
-+
- static struct bpf_prog *get_prog(struct fd f)
- {
- 	struct bpf_prog *prog;
-@@ -647,7 +658,7 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	if (err < 0)
- 		goto free_used_maps;
- 
--	err = anon_inode_getfd("bpf-prog", &bpf_prog_fops, prog, O_RDWR | O_CLOEXEC);
-+	err = bpf_prog_new_fd(prog);
- 	if (err < 0)
- 		/* failed to allocate fd */
- 		goto free_used_maps;
--- 
-1.9.3
+I'm not sure this is safe. The loop above this one has just destroyed
+some phys, and now you are potentially disconnecting a phy you just
+destroyed, causing it to be accessed?
+
+I would suggest you first fix the ordering in dsa_switch_destroy()
+and then add the missing netif_carrier_off() and phy_disconnect().
+
+Thanks
+	Andrew
