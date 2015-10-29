@@ -1,7 +1,7 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH v2 0/6] Further fix for dsa unbinding
-Date: Thu, 29 Oct 2015 14:22:34 +0100
-Message-ID: <56321D9A.8010109@baylibre.com>
+Subject: [PATCH v2 3/6] net: dsa: cleanup resources upon module removal
+Date: Thu, 29 Oct 2015 14:23:12 +0100
+Message-ID: <56321DC0.7010805@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -18,30 +18,33 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This serie fixes further issues for DSA dynamic unbinding.
-Frode Isaksen's patches make usage of delayed work and fixes kernel
-crashes when dsa is unbind.
-The other patches are simple fixes to permit cleanup and avoid netdev
-related crashes.
+Make sure that we unassign the master_netdev dsa_ptr to make the packet
+processing go through the regulard Ethernet receive path.
 
-v2: remove phy fix and add missing calls in dsa_switch_destroy
-then add dedicated dsa_slave_destroy
+Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+---
+ net/dsa/dsa.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-Frode Isaksen (4):
-  net: dsa: Use delayed work instead of timer+work for polling
-  net: dsa: Do not reschedule polling if driver removed
-  net: dsa: add missing calls in dsa_switch_destroy
-  net: dsa: move dsa slave destroy code to slave.c
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 19cff8f..b2f696c 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -949,6 +949,14 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
+ 		flush_delayed_work(&dst->link_poll_work);
+ 	}
 
-Neil Armstrong (2):
-  net: dsa: cleanup resources upon module removal
-  net: dsa: Add missing master netdev dev_put() calls
-
- include/net/dsa.h  |  3 +--
- net/dsa/dsa.c      | 45 +++++++++++++++++++++++----------------------
- net/dsa/dsa_priv.h |  1 +
- net/dsa/slave.c    | 10 ++++++++++
- 4 files changed, 35 insertions(+), 24 deletions(-)
++	dst->master_netdev->dsa_ptr = NULL;
++
++	/* If we used a tagging format that doesn't have an ethertype
++	 * field, make sure that all packets from this point get sent
++	 * without the tag and go through the regular receive path.
++	 */
++	wmb();
++
+ 	for (i = 0; i < dst->pd->nr_chips; i++) {
+ 		struct dsa_switch *ds = dst->ds[i];
 
 -- 
 1.9.1
