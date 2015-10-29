@@ -1,65 +1,73 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] ipv4: use l4 hash for locally generated
- multipath flows
-Date: Thu, 29 Oct 2015 08:28:30 -0700
-Message-ID: <1446132510.7476.152.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <006ec2edb2d592ab9b90ccc5c084ac8926e811df.1446053264.git.pabeni@redhat.com>
-	 <1446129070.7476.148.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1446130859.4431.17.camel@dhcp-176-88.mxp.redhat.com>
+Subject: Re: [BUG] Any-IP IPv6 support broken
+Date: Thu, 29 Oct 2015 08:34:48 -0700
+Message-ID: <1446132888.7476.153.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <0977189F-9778-4D1C-939D-FAD71595E5F6@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Peter =?ISO-8859-1?Q?N=F8rlund?= <pch@ordbogen.com>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Paolo Abeni <pabeni@redhat.com>
+Cc: netdev@vger.kernel.org
+To: Gilberto Bertin <gilberto.bertin@gmail.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35255 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757264AbbJ2P2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2015 11:28:32 -0400
-Received: by pasz6 with SMTP id z6so43887340pas.2
-        for <netdev@vger.kernel.org>; Thu, 29 Oct 2015 08:28:31 -0700 (PDT)
-In-Reply-To: <1446130859.4431.17.camel@dhcp-176-88.mxp.redhat.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:32870 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751848AbbJ2Peu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2015 11:34:50 -0400
+Received: by padhy1 with SMTP id hy1so38096994pad.0
+        for <netdev@vger.kernel.org>; Thu, 29 Oct 2015 08:34:49 -0700 (PDT)
+In-Reply-To: <0977189F-9778-4D1C-939D-FAD71595E5F6@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-10-29 at 16:00 +0100, Paolo Abeni wrote:
+On Thu, 2015-10-29 at 15:00 +0000, Gilberto Bertin wrote:
+> Hello,
+> testing Any-IP on my machine, I noticed that it's not working with IPv6
+> addresses.
+> Tests are performed on a 4.1 kernel.
+> 
+> Steps to reproduce the bug:
+> 
+> 1- make sure Any-IP is working with IPv4 addresses:
+> 
+> # ip -4 route add local 4.4.4.0/24 dev eth0
+> 
+> with this command every packets with an IP in the subnet 4.4.4.0/24 will
+> be delivered to the eth0 interface.
+> We can test this:
+> 
+> $ ping 4.4.4.1 -c 1 | grep received
+> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
+> $ ping 4.4.4.50 -c 1 | grep received
+> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
+> $ ping 4.4.4.200 -c 1 | grep received
+> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
+> 
+> 2- note that it's not actually working with IPv6 addresses:
+> 
+> # ip -6 route add local abcd:abcd:abcd:abcd::/64 dev eth0
+> 
+> $ ping6 -c 1 abcd:abcd:abcd:abcd::1 | grep received
+> 1 packets transmitted, 0 received, 100% packet loss, time 0ms
+> $ ping6 -c 1 abcd:abcd:abcd:abcd::50 | grep received
+> 1 packets transmitted, 0 received, 100% packet loss, time 0ms
+> $ ping6 -c 1 abcd:abcd:abcd:abcd::100 | grep received
+> 1 packets transmitted, 0 received, 100% packet loss, time 0ms
+> 
+> Since the kernel should support Any-IP with IPv6 addresses (the patch
+> was submitted/accepted years ago [1]) I suspect this is a bug.
+> 
+> Even trying with the commands suggested by the patch [1]:
+> # ip -6 rule  add from all iif eth0 lookup 200
+> # ip -6 route add local default dev lo table 200
+> 
+> I was not able to get it working.
+> 
+> 
+> Thank you.
+> 
+> [1] http://www.spinics.net/lists/netdev/msg141994.html
+> 
 
-> This patch do not add dissection code: it use the information provided
-> by the available flowi4 structure. Moreover the skb is not available on
-> the calling site (in __ip_route_output_key_hash) and pushing it all the
-> way will require a lot of intrusive changes. Do you think it's the
-> better option ?
 
-If skb is provided, then we could use its information.
-
-Local TCP flows now provide l4 hash in skb, and automatically shuffles
-it in case of dst failures.
-
-This provides resilience over dead paths, over variety of
-aggregation-like devices (bonding being an example)
-
-# git grep -n4 sk_rethink_txhash
-include/net/sock.h-1695-{
-include/net/sock.h-1696-        sk->sk_txhash = net_tx_rndhash();
-include/net/sock.h-1697-}
-include/net/sock.h-1698-
-include/net/sock.h:1699:static inline void sk_rethink_txhash(struct sock *sk)
-include/net/sock.h-1700-{
-include/net/sock.h-1701-        if (sk->sk_txhash)
-include/net/sock.h-1702-                sk_set_txhash(sk);
-include/net/sock.h-1703-}
---
-include/net/sock.h-1725-static inline void dst_negative_advice(struct sock *sk)
-include/net/sock.h-1726-{
-include/net/sock.h-1727-        struct dst_entry *ndst, *dst = __sk_dst_get(sk);
-include/net/sock.h-1728-
-include/net/sock.h:1729:        sk_rethink_txhash(sk);
-include/net/sock.h-1730-
-include/net/sock.h-1731-        if (dst && dst->ops->negative_advice) {
-include/net/sock.h-1732-                ndst = dst->ops->negative_advice(dst);
-include/net/sock.h-1733-
+CC Maciej
