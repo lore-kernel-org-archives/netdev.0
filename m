@@ -1,39 +1,70 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 1/6] net: dsa: Use delayed work instead of timer+work
- for polling
-Date: Thu, 29 Oct 2015 15:40:12 +0100
-Message-ID: <20151029144012.GT2307@lunn.ch>
-References: <56321DA1.4060304@baylibre.com>
- <20151029135156.GQ2307@lunn.ch>
- <563228C3.6010501@baylibre.com>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: [RFC PATCH v3 2/5] net: dsa: bcm_sf2: cleanup resources in remove
+ callback
+Date: Thu, 29 Oct 2015 15:45:30 +0100
+Message-ID: <5632310A.8040406@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Guenter Roeck <linux@roeck-us.net>,
 	vivien.didelot@savoirfairelinux.com,
 	Fabian Frederick <fabf@skynet.be>,
 	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
 	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Frode Isaksen <fisaksen@baylibre.com>
-To: Neil Armstrong <narmstrong@baylibre.com>
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <563228C3.6010501@baylibre.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Thanks for the hint, I will test this, but while reviewing the datasheet,
-> the port 5 has no PHY, so must only be used as cpu port.
+Implement a remove callback allowing the switch driver to cleanup
+resources it used: interrupts and remapped register ranges.
 
-Not necessarily. All that is needed is an external phy. Linux does not
-care what MDIO bus that phy hangs off. It could be the same MDIO bus
-as the switch, or some other MDIO bus. It is likely that port 5 is the
-CPU port, but it does not have to be.
- 
-> I also have another patchset which fixes 2 setup registers writes and
-> adds a shiny new mv88e6060.h based on mv88e6xxx.h.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+---
+ drivers/net/dsa/bcm_sf2.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
-Great. I hope that will help determine if we can merge 6060 into 6xxx.
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 6f946fe..e0be318 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -1054,6 +1054,25 @@ out_unmap:
+ 	return ret;
+ }
 
-       Andrew
++static void bcm_sf2_sw_remove(struct dsa_switch *ds)
++{
++	struct bcm_sf2_priv *priv = ds_to_priv(ds);
++	void __iomem **base;
++	unsigned int i;
++
++	/* Disable all interrupts and free them */
++	bcm_sf2_intr_disable(priv);
++
++	free_irq(priv->irq0, priv);
++	free_irq(priv->irq1, priv);
++
++	base = &priv->core;
++	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
++		iounmap(*base);
++		base++;
++	}
++}
++
+ static int bcm_sf2_sw_set_addr(struct dsa_switch *ds, u8 *addr)
+ {
+ 	return 0;
+@@ -1367,6 +1386,7 @@ static struct dsa_switch_driver bcm_sf2_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_BRCM,
+ 	.priv_size		= sizeof(struct bcm_sf2_priv),
+ 	.probe			= bcm_sf2_sw_probe,
++	.remove			= bcm_sf2_sw_remove,
+ 	.setup			= bcm_sf2_sw_setup,
+ 	.set_addr		= bcm_sf2_sw_set_addr,
+ 	.get_phy_flags		= bcm_sf2_sw_get_phy_flags,
+-- 
+1.9.1
