@@ -1,63 +1,44 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH v3 2/5] net: dsa: bcm_sf2: cleanup resources in
- remove callback
-Date: Thu, 29 Oct 2015 16:17:18 +0100
-Message-ID: <20151029151718.GW2307@lunn.ch>
-References: <5632310A.8040406@baylibre.com>
+From: Alan Burlison <Alan.Burlison@oracle.com>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Thu, 29 Oct 2015 15:18:40 +0000
+Message-ID: <563238D0.2040802@oracle.com>
+References: <201510220634.t9M6YJLD017883@room101.nl.oracle.com> <20151022172146.GS22011@ZenIV.linux.org.uk> <201510221824.t9MIOp6n003978@room101.nl.oracle.com> <20151022190701.GV22011@ZenIV.linux.org.uk> <201510221951.t9MJp5LC005892@room101.nl.oracle.com> <20151022215741.GW22011@ZenIV.linux.org.uk> <201510230952.t9N9qYZJ021998@room101.nl.oracle.com> <20151024023054.GZ22011@ZenIV.linux.org.uk> <201510270908.t9R9873a001683@room101.nl.oracle.com> <562F577E.6000901@oracle.com> <20151029145847.GA10859@netbsd.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	vivien.didelot@savoirfairelinux.com,
-	Fabian Frederick <fabf@skynet.be>,
-	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Neil Armstrong <narmstrong@baylibre.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5632310A.8040406@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Casper.Dik@oracle.com, Al Viro <viro@ZenIV.linux.org.uk>,
+	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	stephen@networkplumber.org, netdev@vger.kernel.org
+To: David Holland <dholland-tech@netbsd.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:27327 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756820AbbJ2PSz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2015 11:18:55 -0400
+In-Reply-To: <20151029145847.GA10859@netbsd.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 29, 2015 at 03:45:30PM +0100, Neil Armstrong wrote:
-> Implement a remove callback allowing the switch driver to cleanup
-> resources it used: interrupts and remapped register ranges.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
-> ---
->  drivers/net/dsa/bcm_sf2.c | 20 ++++++++++++++++++++
->  1 file changed, 20 insertions(+)
-> 
-> diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-> index 6f946fe..e0be318 100644
-> --- a/drivers/net/dsa/bcm_sf2.c
-> +++ b/drivers/net/dsa/bcm_sf2.c
-> @@ -1054,6 +1054,25 @@ out_unmap:
->  	return ret;
->  }
-> 
-> +static void bcm_sf2_sw_remove(struct dsa_switch *ds)
-> +{
-> +	struct bcm_sf2_priv *priv = ds_to_priv(ds);
-> +	void __iomem **base;
-> +	unsigned int i;
-> +
-> +	/* Disable all interrupts and free them */
-> +	bcm_sf2_intr_disable(priv);
-> +
-> +	free_irq(priv->irq0, priv);
-> +	free_irq(priv->irq1, priv);
-> +
-> +	base = &priv->core;
-> +	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
-> +		iounmap(*base);
-> +		base++;
+On 29/10/2015 14:58, David Holland wrote:
 
-Something for Florian to consider. Would it be possible to move to
-using devm_ for interrupts and iomem? The question would be, what is
-dev?
+> ISTM that the best way to do this is to post a signal to the thread so
+> accept bails with EINTR, at which point it can check to see if it's
+> supposed to be exiting.
 
-	Andrew
+Yes, you could use pthread_kill, but that would require keeping a list 
+of the tids of all the threads that were using the FD, and that really 
+just moves the problem elsewhere rather than fixing it.
+
+> Otherwise it sounds like the call you're looking for is not close(2)
+> but revoke(2). Last I remember Linux doesn't have revoke because
+> there's no way to implement it that isn't a trainwreck.
+
+close(2) as per specified by POSIX works just fine on Solaris, if that 
+was the case everywhere then it wouldn't be an issue. And for cases 
+where it is necessary to keep the FD assigned because of races, the 
+dup2(2) trick works fine as well.
+
+-- 
+Alan Burlison
+--
