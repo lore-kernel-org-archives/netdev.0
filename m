@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 1/2] sh_eth: fix uninitialized arrays in sh_eth_ring_init()
-Date: Fri, 30 Oct 2015 00:51:52 +0300
-Message-ID: <6300720.GXPplNSh3O@wasted.cogentembedded.com>
+Subject: [PATCH 2/2] sh_eth: fix WARNING in dma_free_coherent()
+Date: Fri, 30 Oct 2015 00:52:45 +0300
+Message-ID: <1503970.kr1SvaSeoy@wasted.cogentembedded.com>
 References: <5844359.Wmo6777QiE@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -13,39 +13,70 @@ In-Reply-To: <5844359.Wmo6777QiE@wasted.cogentembedded.com>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-sh_eth_ring_free()  called in the sh_eth_ring_init()'s error path  expects
-the arrays pointed  by sh_eth_private::[rt]x_skbuff to be initialized with
-NULLs  but they are allocated with just kmalloc_array() and so left filled
-with random data. Use kcalloc() instead.
+Iff the first dma_alloc_coherent()  call fails in sh_eth_ring_init(), the
+following  is printed to the kernel console:
+
+WARNING: CPU: 0 PID: 1 at drivers/base/dma-mapping.c:334 dma_common_free_remap+0x48/0x6c()
+trying to free invalid coherent area:   (null)
+Modules linked in:
+CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.3.0-rc7-dirty #969
+Hardware name: Generic R8A7791 (Flattened Device Tree)
+Backtrace:
+[<c0013820>] (dump_backtrace) from [<c00139bc>] (show_stack+0x18/0x1c)
+ r6:c0662856 r5:00000009 r4:00000000 r3:00204140
+[<c00139a4>] (show_stack) from [<c0227510>] (dump_stack+0x74/0x90)
+[<c022749c>] (dump_stack) from [<c0026ef4>] (warn_slowpath_common+0x8c/0xb8)
+ r4:ee84dce0 r3:c0712774
+[<c0026e68>] (warn_slowpath_common) from [<c0026fc4>] (warn_slowpath_fmt+0x38/0x40)
+ r8:ee7f8000 r7:c0734520 r6:00001000 r5:20000008 r4:00000000
+[<c0026f90>] (warn_slowpath_fmt) from [<c02df404>] (dma_common_free_remap+0x48/0x6c)
+ r3:00000000 r2:c0662871
+[<c02df3bc>] (dma_common_free_remap) from [<c001b9fc>] (__arm_dma_free+0xb8/0xd4)
+r6:00000001 r5:00000000 r4:00001000 r3:ee8c5584
+[<c001b944>] (__arm_dma_free) from [<c001ba68>] (arm_dma_free+0x24/0x2c)
+ r10:0000016b r8:00000000 r7:ee9bc830 r6:00000000 r5:00000400 r4:ee9bc800
+[<c001ba44>] (arm_dma_free) from [<c032ebf0>] (sh_eth_ring_init+0x110/0x138)
+[<c032eae0>] (sh_eth_ring_init) from [<c033179c>] (sh_eth_open+0x94/0x1f4)
+ r6:00000000 r5:ee9bcd18 r4:ee9bc800
+[<c0331708>] (sh_eth_open) from [<c041bf7c>] (__dev_open+0x84/0x104)
+ r6:c0565c50 r5:00000000 r4:ee9bc800
+[<c041bef8>] (__dev_open) from [<c041c208>] (__dev_change_flags+0x94/0x13c)
+ r7:00001002 r6:00000001 r5:00001003 r4:ee9bc800
+[<c041c174>] (__dev_change_flags) from [<c041c2e8>] (dev_change_flags+0x20/0x50)
+ r7:c072c8a0 r6:00000138 r5:00001002 r4:ee9bc800
+[<c041c2c8>] (dev_change_flags) from [<c06e8d4c>] (ip_auto_config+0x174/0xf7c)
+ r8:00001002 r7:c072c8a0 r6:c0700040 r5:00000001 r4:ee9bc800 r3:00000101
+[<c06e8bd8>] (ip_auto_config) from [<c000a810>] (do_one_initcall+0x100/0x1c8)
+ r10:c06f883c r9:00000000 r8:c06e8bd8 r7:c0734000 r6:c070e918 r5:c070e918
+ r4:ee083640
+[<c000a710>] (do_one_initcall) from [<c06c9ddc>] (kernel_init_freeable+0x11c/0x1ec)
+ r10:c06f883c r9:00000000 r8:00000099 r7:c0734000 r6:c070372c r5:c06f8834
+ r4:00000007
+[<c06c9cc0>] (kernel_init_freeable) from [<c0514d78>] (kernel_init+0x14/0xec)
+ r10:00000000 r8:00000000 r7:00000000 r6:00000000 r5:c0514d64 r4:c0734000
+[<c0514d64>] (kernel_init) from [<c0010458>] (ret_from_fork+0x14/0x3c)
+ r4:00000000 r3:ee84c000
+
+This is because the code jumps to a wrong label and so tries to free yet
+unallocated coherent memory.  Fix the *goto* in question.
 
 Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
- drivers/net/ethernet/renesas/sh_eth.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 Index: net/drivers/net/ethernet/renesas/sh_eth.c
 ===================================================================
 --- net.orig/drivers/net/ethernet/renesas/sh_eth.c
 +++ net/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1212,15 +1212,15 @@ static int sh_eth_ring_init(struct net_d
- 		mdp->rx_buf_sz += NET_IP_ALIGN;
- 
- 	/* Allocate RX and TX skb rings */
--	mdp->rx_skbuff = kmalloc_array(mdp->num_rx_ring,
--				       sizeof(*mdp->rx_skbuff), GFP_KERNEL);
-+	mdp->rx_skbuff = kcalloc(mdp->num_rx_ring, sizeof(*mdp->rx_skbuff),
-+				 GFP_KERNEL);
- 	if (!mdp->rx_skbuff) {
+@@ -1232,7 +1232,7 @@ static int sh_eth_ring_init(struct net_d
+ 					  GFP_KERNEL);
+ 	if (!mdp->rx_ring) {
  		ret = -ENOMEM;
- 		return ret;
+-		goto desc_ring_free;
++		goto skb_ring_free;
  	}
  
--	mdp->tx_skbuff = kmalloc_array(mdp->num_tx_ring,
--				       sizeof(*mdp->tx_skbuff), GFP_KERNEL);
-+	mdp->tx_skbuff = kcalloc(mdp->num_tx_ring, sizeof(*mdp->tx_skbuff),
-+				 GFP_KERNEL);
- 	if (!mdp->tx_skbuff) {
- 		ret = -ENOMEM;
- 		goto skb_ring_free;
+ 	mdp->dirty_rx = 0;
 
