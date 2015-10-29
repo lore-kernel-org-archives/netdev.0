@@ -1,46 +1,54 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Thu, 29 Oct 2015 00:15:32 +0000
-Message-ID: <20151029001532.GE22011@ZenIV.linux.org.uk>
-References: <1445991236.7476.59.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151028123543.GB22011@ZenIV.linux.org.uk>
- <1446038672.7476.65.camel@edumazet-glaptop2.roam.corp.google.com>
- <1446043677.7476.68.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151028211347.GC22011@ZenIV.linux.org.uk>
- <1446068668.7476.89.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151028223330.GD22011@ZenIV.linux.org.uk>
- <1446073709.7476.93.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Miller, Darin J" <darin.j.miller@intel.com>
+Subject: RE: [Intel-wired-lan] [net PATCH v2] ixgbe: Reset interface after
+	enabling SR-IOV
+Date: Thu, 29 Oct 2015 01:32:19 +0000
+Message-ID: <A91205FD8A6E14448BD4414C06E9C3D37520DF03@fmsmsx115.amr.corp.intel.com>
+References: <20151020202715.2955.88128.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	dhowells@redhat.com, linux-fsdevel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: 'Alexander Duyck' <aduyck@mirantis.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:59900 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751175AbbJ2APg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 20:15:36 -0400
-Content-Disposition: inline
-In-Reply-To: <1446073709.7476.93.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mga09.intel.com ([134.134.136.24]:4499 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751237AbbJ2BcU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2015 21:32:20 -0400
+In-Reply-To: <20151020202715.2955.88128.stgit@ahduyck-vm-fedora22>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 28, 2015 at 04:08:29PM -0700, Eric Dumazet wrote:
-> > > Except for legacy stuff and stdin/stdout/stderr games, I really doubt
-> > > lot of applications absolutely rely on the POSIX thing...
-> > 
-> > We obviously can't turn that into default behaviour, though.  BTW, what
-> > distribution do you have in mind for those random descriptors?  Uniform
-> > on [0,INT_MAX] is a bad idea for obvious reasons - you'll blow the
-> > memory footprint pretty soon...
-> 
-> Simply [0 , fdt->max_fds] is working well in most cases.
 
-Umm...  So first you dup2() to establish the ->max_fds you want, then
-do such opens?  What used/unused ratio do you expect to deal with?
-And what kind of locking are you going to use?  Keep in mind that
-e.g. dup2() is dependent on the lack of allocations while it's working,
-so it's not as simple as "we don't need no stinkin' ->files_lock"...
+
+-----Original Message-----
+From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Alexander Duyck
+Sent: Tuesday, October 20, 2015 1:28 PM
+To: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org
+Subject: [Intel-wired-lan] [net PATCH v2] ixgbe: Reset interface after enabling SR-IOV
+
+Enabling SR-IOV and then bringing the interface up was resulting in the PF MAC addresses getting into a bad state.  Specifically the MAC address was enabled for both VF 0 and the PF.  This resulted in some odd behaviors such as VF 0 receiving a copy of the PFs traffic, which in turn enables the ability for VF 0 to spoof the PF.
+
+A workaround for this issue appears to be to bring up the interface first and then enable SR-IOV as this way the reset is then triggered in the existing code.
+
+In order to correct this I have added a change to ixgbe_setup_tc where if the interface is down we still will at least call ixgbe_reset so that the MAC addresses for the device are reset to the correct pools.
+
+Steps to reproduce issue:
+modprobe ixgbe
+echo 7 > /sys/bus/pci/devices/0000\:01\:00.1/sriov_numvfs
+ifconfig enp1s0f1 up
+ethregs -s 1:00.1 | grep MPSAR | grep -v 00000000
+
+Result:
+	MPSAR[0]               00000081
+	MPSAR[254]             00000001
+
+Expected Result, behavior after patch:
+	MPSAR[0]               00000080
+	MPSAR[254]             00000080
+
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+---
+
+Tested-by: Darin Miller <darin.j.miller@intel.com>
