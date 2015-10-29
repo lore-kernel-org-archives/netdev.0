@@ -1,50 +1,51 @@
-From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
- hierarchy
-Date: Thu, 29 Oct 2015 09:10:09 -0700
-Message-ID: <20151029161009.GA9160@cmpxchg.org>
-References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
- <1445487696-21545-6-git-send-email-hannes@cmpxchg.org>
- <20151023131956.GA15375@dhcp22.suse.cz>
- <20151023.065957.1690815054807881760.davem@davemloft.net>
- <20151026165619.GB2214@cmpxchg.org>
- <20151027122647.GG9891@dhcp22.suse.cz>
- <20151027154138.GA4665@cmpxchg.org>
- <20151027161554.GJ9891@dhcp22.suse.cz>
- <20151027164227.GB7749@cmpxchg.org>
- <20151029152546.GG23598@dhcp22.suse.cz>
+From: Alan Burlison <Alan.Burlison@oracle.com>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Thu, 29 Oct 2015 16:15:33 +0000
+Message-ID: <56324625.9000803@oracle.com>
+References: <201510221824.t9MIOp6n003978@room101.nl.oracle.com> <20151022190701.GV22011@ZenIV.linux.org.uk> <201510221951.t9MJp5LC005892@room101.nl.oracle.com> <20151022215741.GW22011@ZenIV.linux.org.uk> <201510230952.t9N9qYZJ021998@room101.nl.oracle.com> <20151024023054.GZ22011@ZenIV.linux.org.uk> <201510270908.t9R9873a001683@room101.nl.oracle.com> <562F577E.6000901@oracle.com> <20151029145847.GA10859@netbsd.org> <563238D0.2040802@oracle.com> <20151029160131.GA18961@netbsd.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151029152546.GG23598-2MMpYkNvuYDjFM9bn6wA6Q@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Casper.Dik@oracle.com, Al Viro <viro@ZenIV.linux.org.uk>,
+	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	stephen@networkplumber.org, netdev@vger.kernel.org
+To: David Holland <dholland-tech@netbsd.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:26094 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964920AbbJ2QPq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2015 12:15:46 -0400
+In-Reply-To: <20151029160131.GA18961@netbsd.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 29, 2015 at 04:25:46PM +0100, Michal Hocko wrote:
-> On Tue 27-10-15 09:42:27, Johannes Weiner wrote:
-> > On Tue, Oct 27, 2015 at 05:15:54PM +0100, Michal Hocko wrote:
-> > > On Tue 27-10-15 11:41:38, Johannes Weiner wrote:
-> > > > IMO that's an implementation detail and a historical artifact that
-> > > > should not be exposed to the user. And that's the thing I hate about
-> > > > the current opt-out knob.
-> > 
-> > You carefully skipped over this part. We can ignore it for socket
-> > memory but it's something we need to figure out when it comes to slab
-> > accounting and tracking.
-> 
-> I am sorry, I didn't mean to skip this part, I though it would be clear
-> from the previous text. I think kmem accounting falls into the same
-> category. Have a sane default and a global boottime knob to override it
-> for those that think differently - for whatever reason they might have.
+On 29/10/2015 16:01, David Holland wrote:
 
-Yes, that makes sense to me.
+> Hardly; it moves the burden of doing stupid things to the
+> application. If as you said the goal is to shut down all threads
+> cleanly, then it doesn't need to keep track in detail anyway; it can
+> just post SIGTERM to every thread, or SIGUSR1 if SIGTERM is bad for
+> some reason, or whatever.
 
-Like cgroup.memory=nosocket, would you think it makes sense to include
-slab in the default for functional/semantical completeness and provide
-a cgroup.memory=noslab for powerusers?
+I agree that the root issue is poor application design, but posting a 
+signal to every thread is not a solution if you only want to shut down a 
+subset of threads.
+
+> close(2) as specified by POSIX doesn't prohibit this weird revoke-like
+> behavior, but there's nothing in there that mandates it either. (I
+> thought this discussion had already clarified that.)
+
+There was an attempt to interpret POSIX that way, with which I still 
+disagree. If a FD is closed or reassigned then any current pending 
+operations on it should be terminated.
+
+> Note that while NetBSD apparently supports this behavior because
+> someone copied it from Solaris, I'm about to go recommend it be
+> removed.
+
+Which behaviour? The abort accept() on close() behaviour?
+
+-- 
+Alan Burlison
+--
