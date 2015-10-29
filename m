@@ -1,60 +1,63 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: Re: [PATCH v2 1/6] net: dsa: Use delayed work instead of timer+work
- for polling
-Date: Thu, 29 Oct 2015 15:10:11 +0100
-Message-ID: <563228C3.6010501@baylibre.com>
-References: <56321DA1.4060304@baylibre.com> <20151029135156.GQ2307@lunn.ch>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [RFC] unix: fix use-after-free in unix_dgram_poll()
+Date: Thu, 29 Oct 2015 14:23:50 +0000
+Message-ID: <87d1vx3g95.fsf@doppelsaurus.mobileactivedefense.com>
+References: <cover.1443817522.git.jbaron@akamai.com>
+	<f4e283269e7063317956ea1de6fdc58449ee75cd.1443817522.git.jbaron@akamai.com>
+	<87bncdxool.fsf@doppelsaurus.mobileactivedefense.com>
+	<5612B9A9.8050301@akamai.com>
+	<87lhb7sttz.fsf@doppelsaurus.mobileactivedefense.com>
+	<561DCFA4.3010300@akamai.com>
+	<87d1wh8hqh.fsf@doppelsaurus.mobileactivedefense.com>
+	<561F156E.9050905@akamai.com>
+	<87fv17x59w.fsf@doppelsaurus.mobileactivedefense.com>
+	<5625073C.5010809@akamai.com>
+	<87vba1i383.fsf@doppelsaurus.mobileactivedefense.com>
+	<874mhbx7o1.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<56310C9B.1010608@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	vivien.didelot@savoirfairelinux.com,
-	Fabian Frederick <fabf@skynet.be>,
-	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Frode Isaksen <fisaksen@baylibre.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:34337 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750980AbbJ2OKT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2015 10:10:19 -0400
-Received: by wmff134 with SMTP id f134so25054930wmf.1
-        for <netdev@vger.kernel.org>; Thu, 29 Oct 2015 07:10:17 -0700 (PDT)
-In-Reply-To: <20151029135156.GQ2307@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, minipli@googlemail.com,
+	normalperson@yhbt.net, eric.dumazet@gmail.com,
+	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
+	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
+	torvalds@linux-foundation.org, peterz@infradead.org
+To: Jason Baron <jbaron@akamai.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56310C9B.1010608@akamai.com> (Jason Baron's message of "Wed, 28
+	Oct 2015 13:57:47 -0400")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/29/2015 02:51 PM, Andrew Lunn wrote:
-> On Thu, Oct 29, 2015 at 02:22:41PM +0100, Neil Armstrong wrote:
-> Hi Neil, Frode
-> 
-> I assume you have see:
-> 
-> http://permalink.gmane.org/gmane.linux.network/380777
-> 
-> which is now in net-next.
-> 
-> The only driver making use of poll_link is mv88e6060.c. The argument
-> from removing it from the other mv88e6xxx drivers is that it is not
-> needed. The phylib will be polling the phys and looking for state
-> changes. mv88e6060.c implements phy_read() and phy_write() so it
-> should also allow the use of phylib.
-> 
-> Could you try 6060 without .poll_link. If that works, we should be
-> able to remove all this code, rather than fix it up.
-> 
->      Andrew
-> 
-Hi Andrew,
+Jason Baron <jbaron@akamai.com> writes:
+> On 10/28/2015 12:46 PM, Rainer Weikusat wrote:
+>> Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
+>>> Jason Baron <jbaron@akamai.com> writes:
 
-Thanks for the hint, I will test this, but while reviewing the datasheet,
-the port 5 has no PHY, so must only be used as cpu port.
+[...]
 
-I also have another patchset which fixes 2 setup registers writes and
-adds a shiny new mv88e6060.h based on mv88e6xxx.h.
-I think the removal of the poll_link in mv88e6060 should be in this patchset.
+>> and the not-so-nice additional property that the connect and
+>> disconnect functions need to take the peer_wait.lock spinlock
+>> explicitly so that this lock is used to ensure that no two threads
+>> modifiy the private pointer of the client wait_queue_t.
+>
+> Hmmm...I thought these were already all guarded by unix_state_lock(sk).
+> In any case, rest of the patch overall looks good to me.
 
-Neil
+All but the one in unix_dgram_peer_wake_relay: That's
+called with the wait queue lock of the peer_wait queue held and even if
+it was desirable to acquire the state lock of the involved socket, it
+wouldn't easily be possible because 'other code' (in poll and sendmsg)
+acquires the wait queue lock while holding the state lock.
+
+The idea behind this is that the state lock ensures that the 'connection
+state' doesn't change while some code is examining it and that the wait
+queue lock of the peer_wait queue is (slightly ab-)used to ensure
+exclusive access to the private pointer which guards against concurrent
+inserts or removes of the same wait_queue_t.
+
+Poking around in the implementation of abstract interfaces like this
+isn't something I'm overly fond of but 'other code' does this too, eg,
+in eventfd.c
