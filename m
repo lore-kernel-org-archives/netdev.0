@@ -1,57 +1,63 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCHv2 net 2/2] ipv4: update RTNH_F_LINKDOWN flag on UP
- event
-Date: Thu, 29 Oct 2015 22:15:51 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1510292135550.2300@ja.home.ssi.bg>
-References: <1445896753-14464-1-git-send-email-ja@ssi.bg> <1445896753-14464-3-git-send-email-ja@ssi.bg> <20151027045203.GG3567@gospo.home.greyhouse.net> <alpine.LFD.2.11.1510270905500.1994@ja.home.ssi.bg> <20151027183737.GH3567@gospo.home.greyhouse.net>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next] ipv4: use l4 hash for locally generated
+ multipath flows
+Date: Thu, 29 Oct 2015 22:12:21 +0100
+Message-ID: <1446153141.4787.2.camel@dhcp-176-88.mxp.redhat.com>
+References: <006ec2edb2d592ab9b90ccc5c084ac8926e811df.1446053264.git.pabeni@redhat.com>
+	 <1446129070.7476.148.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446130859.4431.17.camel@dhcp-176-88.mxp.redhat.com>
+	 <1446132510.7476.152.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446137527.4431.25.camel@dhcp-176-88.mxp.redhat.com>
+	 <1446144211.6254.2.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Peter =?ISO-8859-1?Q?N=F8rlund?= <pch@ordbogen.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:60513 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752355AbbJ2UQB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Oct 2015 16:16:01 -0400
-In-Reply-To: <20151027183737.GH3567@gospo.home.greyhouse.net>
+Received: from mx1.redhat.com ([209.132.183.28]:40479 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751438AbbJ2VMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2015 17:12:25 -0400
+In-Reply-To: <1446144211.6254.2.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2015-10-29 at 11:43 -0700, Eric Dumazet wrote:
+> On Thu, 2015-10-29 at 17:52 +0100, Paolo Abeni wrote:
+> > On Thu, 2015-10-29 at 08:28 -0700, Eric Dumazet wrote:
+> > > On Thu, 2015-10-29 at 16:00 +0100, Paolo Abeni wrote:
+> > > 
+> > > > This patch do not add dissection code: it use the information provided
+> > > > by the available flowi4 structure. Moreover the skb is not available on
+> > > > the calling site (in __ip_route_output_key_hash) and pushing it all the
+> > > > way will require a lot of intrusive changes. Do you think it's the
+> > > > better option ?
+> > > 
+> > > If skb is provided, then we could use its information.
+> > 
+> > I see your point, but providing an skb to __ip_route_output_key_hash()
+> > is not very viable: it has a lot of indirect callers which are
+> > problematic, i.e.:
+> > 
+> > __ip_route_output_key()
+> > ip_route_output_flow()
+> > inet_csk_route_req()
+> > tcp_v4_send_synack()  <- skb available here, but created using dst
+> > information.
+> > 
+> 
+> I never said it was trivial.
+> 
+> I said : "If skb is provided, then we can use its l4hash"
+> 
+> If not, then sure, a flow-based hash fallback is better than nothing.
 
-	Hello,
+Thank you for all the feedback. I'll resubmit using the flow-based hash.
 
-On Tue, 27 Oct 2015, Andy Gospodarek wrote:
-
-> > 	Of course, we have a semantic problem when setting
-> > RTNH_F_LINKDOWN on last address removal, i.e. this event
-> > has nothing to do with the link state. But it works because
-> > RTNH_F_LINKDOWN is valid for lookups only when DEAD flag
-> > is not set, so that is why my patch looks this way.
-> The problem you describe here was a concern of mine as well.  I would
-> really like the output of 'ip route show' to properly reflect the link
-> state and fix the problem you describe, but it seems like it will not in
-> this case with your current patch.  I'll do a bit more testing and let
-> you know.
-
-	Another option is to remove the RTNH_F_LINKDOWN
-usage from any event, from FIB structs. In case only
-netif_carrier_ok check is needed, it looks cheap to just
-call it after the IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN check.
-When showing it to user space we can again use netif_carrier_ok.
-
-	The new fib_rebalance() is special, it still
-needs to be called, just like now on NETDEV_CHANGE
-event but only when ignore_routes_with_linkdown=1, i.e.
-we can avoid calling fib_sync_up/fib_sync_down_dev in
-fib_netdev_event if the flag is not set, guarded by 
-CONFIG_IP_ROUTE_MULTIPATH check.
-
-	To make this work we can also call somehow
-fib_rebalance() from devinet_conf_proc() context when
-the flag is changed, all this is for the
-CONFIG_IP_ROUTE_MULTIPATH case.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Paolo
