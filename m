@@ -1,183 +1,358 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Thu, 29 Oct 2015 06:48:46 -0700
-Message-ID: <1446126526.7476.145.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1445991236.7476.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151028123543.GB22011@ZenIV.linux.org.uk>
-	 <1446038672.7476.65.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1446043677.7476.68.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151028211347.GC22011@ZenIV.linux.org.uk>
-	 <1446068668.7476.89.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151028223330.GD22011@ZenIV.linux.org.uk>
-	 <1446073709.7476.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151029001532.GE22011@ZenIV.linux.org.uk>
-	 <1446089381.7476.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151029041611.GF22011@ZenIV.linux.org.uk>
-	 <1446122119.7476.138.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	dhowells@redhat.com, linux-fsdevel@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33685 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932088AbbJ2Nst (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2015 09:48:49 -0400
-In-Reply-To: <1446122119.7476.138.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Streetman <dan.streetman@canonical.com>
+Subject: [PATCHv3] xfrm: dst_entries_init() per-net dst_ops
+Date: Thu, 29 Oct 2015 09:51:16 -0400
+Message-ID: <1446126676-7242-1-git-send-email-dan.streetman@canonical.com>
+References: <1446118162-5385-1-git-send-email-dan.streetman@canonical.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Dan Streetman <dan.streetman@canonical.com>,
+	Dan Streetman <ddstreet@ieee.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446118162-5385-1-git-send-email-dan.streetman@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-10-29 at 05:35 -0700, Eric Dumazet wrote:
+Remove the dst_entries_init/destroy calls for xfrm4 and xfrm6 dst_ops
+templates; their dst_entries counters will never be used.  Move the
+xfrm dst_ops initialization from the common xfrm/xfrm_policy.c to
+xfrm4/xfrm4_policy.c and xfrm6/xfrm6_policy.c, and call dst_entries_init
+and dst_entries_destroy for each net namespace.
 
-> Current kernel :
-> 
->     64.98%  [kernel]          [k] queued_spin_lock_slowpath    
->     14.88%  opensock          [.] memset    // this part simulates user land actual work ;)                   
->     11.15%  [kernel]          [k] _find_next_bit.part.0        
->      0.69%  [kernel]          [k] _raw_spin_lock               
->      0.46%  [kernel]          [k] memset_erms                  
->      0.38%  [kernel]          [k] sk_alloc                     
->      0.37%  [kernel]          [k] kmem_cache_alloc             
->      0.33%  [kernel]          [k] get_empty_filp               
->      0.31%  [kernel]          [k] kmem_cache_free              
->      0.26%  [kernel]          [k] __alloc_fd                   
->      0.26%  opensock          [.] child_function               
->      0.18%  [kernel]          [k] inode_init_always            
->      0.17%  opensock          [.] __random_r                   
+The ipv4 and ipv6 xfrms each create dst_ops template, and perform
+dst_entries_init on the templates.  The template values are copied to each
+net namespace's xfrm.xfrm*_dst_ops.  The problem there is the dst_ops
+pcpuc_entries field is a percpu counter and cannot be used correctly by
+simply copying it to another object.
 
-With attached prototype patch we get this profile instead :
+The result of this is a very subtle bug; changes to the dst entries
+counter from one net namespace may sometimes get applied to a different
+net namespace dst entries counter.  This is because of how the percpu
+counter works; it has a main count field as well as a pointer to the
+percpu variables.  Each net namespace maintains its own main count
+variable, but all point to one set of percpu variables.  When any net
+namespace happens to change one of the percpu variables to outside its
+small batch range, its count is moved to the net namespace's main count
+variable.  So with multiple net namespaces operating concurrently, the
+dst_ops entries counter can stray from the actual value that it should
+be; if counts are consistently moved from one net namespace to another
+(which my testing showed is likely), then one net namespace winds up
+with a negative dst_ops count while another winds up with a continually
+increasing count, eventually reaching its gc_thresh limit, which causes
+all new traffic on the net namespace to fail with -ENOBUFS.
 
-You can see we no longer hit the spinlock issue and cache waste
-in find_next_bit.
+Signed-off-by: Dan Streetman <dan.streetman@canonical.com>
+Signed-off-by: Dan Streetman <ddstreet@ieee.org>
+---
+Changes since v2:
+ remove no longer needed struct net *net stack var
+Changes since v1:
+ move dst copying and entries_init from xfrm/xfrm_policy into
+   ipv[46]/xfrm[46]_policy
+ add dst_entries_init and destroy to xfrm[46]_policy pernet init/exit,
+   so no for_each_net() is required
 
-Userland can really progress _much_ faster.
+ net/ipv4/xfrm4_policy.c | 46 +++++++++++++++++++++++++++++++++---------
+ net/ipv6/xfrm6_policy.c | 53 +++++++++++++++++++++++++++++++++++--------------
+ net/xfrm/xfrm_policy.c  | 38 -----------------------------------
+ 3 files changed, 75 insertions(+), 62 deletions(-)
 
-    76.86%  opensock          [.] memset                        
-     1.31%  [kernel]          [k] _raw_spin_lock                
-     1.15%  assd              [.] 0x000000000056f32c            
-     1.08%  [kernel]          [k] kmem_cache_free               
-     0.97%  [kernel]          [k] kmem_cache_alloc              
-     0.83%  [kernel]          [k] sk_alloc                      
-     0.72%  [kernel]          [k] memset_erms                   
-     0.70%  opensock          [.] child_function                
-     0.67%  [kernel]          [k] get_empty_filp                
-     0.65%  [kernel]          [k] __alloc_fd                    
-     0.58%  [kernel]          [k] __close_fd                    
-     0.49%  [kernel]          [k] queued_spin_lock_slowpath     
-
-diff --git a/fs/file.c b/fs/file.c
-index 6c672ad329e9..eabb9a626259 100644
---- a/fs/file.c
-+++ b/fs/file.c
-@@ -22,6 +22,7 @@
- #include <linux/spinlock.h>
- #include <linux/rcupdate.h>
- #include <linux/workqueue.h>
-+#include <linux/random.h>
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index f2606b9..59ce2b9 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -235,7 +235,7 @@ static void xfrm4_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+ 	xfrm_dst_ifdown(dst, dev);
+ }
  
- int sysctl_nr_open __read_mostly = 1024*1024;
- int sysctl_nr_open_min = BITS_PER_LONG;
-@@ -471,6 +472,19 @@ int __alloc_fd(struct files_struct *files,
- 	spin_lock(&files->file_lock);
- repeat:
- 	fdt = files_fdtable(files);
+-static struct dst_ops xfrm4_dst_ops = {
++static struct dst_ops xfrm4_dst_ops_template = {
+ 	.family =		AF_INET,
+ 	.gc =			xfrm4_garbage_collect,
+ 	.update_pmtu =		xfrm4_update_pmtu,
+@@ -249,7 +249,7 @@ static struct dst_ops xfrm4_dst_ops = {
+ 
+ static struct xfrm_policy_afinfo xfrm4_policy_afinfo = {
+ 	.family = 		AF_INET,
+-	.dst_ops =		&xfrm4_dst_ops,
++	.dst_ops =		&xfrm4_dst_ops_template,
+ 	.dst_lookup =		xfrm4_dst_lookup,
+ 	.get_saddr =		xfrm4_get_saddr,
+ 	.decode_session =	_decode_session4,
+@@ -271,7 +271,7 @@ static struct ctl_table xfrm4_policy_table[] = {
+ 	{ }
+ };
+ 
+-static int __net_init xfrm4_net_init(struct net *net)
++static int __net_init xfrm4_net_sysctl_init(struct net *net)
+ {
+ 	struct ctl_table *table;
+ 	struct ctl_table_header *hdr;
+@@ -299,7 +299,7 @@ err_alloc:
+ 	return -ENOMEM;
+ }
+ 
+-static void __net_exit xfrm4_net_exit(struct net *net)
++static void __net_exit xfrm4_net_sysctl_exit(struct net *net)
+ {
+ 	struct ctl_table *table;
+ 
+@@ -311,12 +311,44 @@ static void __net_exit xfrm4_net_exit(struct net *net)
+ 	if (!net_eq(net, &init_net))
+ 		kfree(table);
+ }
++#else /* CONFIG_SYSCTL */
++static int inline xfrm4_net_sysctl_init(struct net *net)
++{
++	return 0;
++}
 +
-+	if (unlikely(flags & O_FD_FASTALLOC)) {
-+		u32 rnd, limit = min(end, fdt->max_fds);
-+
-+		/*
-+		 * Note: do not bother with files->next_fd,
-+		 * this is for POSIX lovers...
-+		 */
-+		rnd = ((u64)prandom_u32() * limit) >> 32;
-+		fd = find_next_zero_bit(fdt->open_fds, limit, rnd);
-+		if (fd < limit)
-+			goto ok;
-+	}
- 	fd = start;
- 	if (fd < files->next_fd)
- 		fd = files->next_fd;
-@@ -499,7 +513,7 @@ repeat:
- 
- 	if (start <= files->next_fd)
- 		files->next_fd = fd + 1;
--
-+ok:
- 	__set_open_fd(fd, fdt);
- 	if (flags & O_CLOEXEC)
- 		__set_close_on_exec(fd, fdt);
-diff --git a/include/linux/net.h b/include/linux/net.h
-index 70ac5e28e6b7..3823d082af4c 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -76,6 +76,7 @@ enum sock_type {
- #ifndef SOCK_NONBLOCK
- #define SOCK_NONBLOCK	O_NONBLOCK
- #endif
-+#define SOCK_FD_FASTALLOC O_FD_FASTALLOC
- 
- #endif /* ARCH_HAS_SOCKET_TYPES */
- 
-diff --git a/include/uapi/asm-generic/fcntl.h b/include/uapi/asm-generic/fcntl.h
-index e063effe0cc1..badd421dd9f4 100644
---- a/include/uapi/asm-generic/fcntl.h
-+++ b/include/uapi/asm-generic/fcntl.h
-@@ -88,6 +88,10 @@
- #define __O_TMPFILE	020000000
- #endif
- 
-+#ifndef O_FD_FASTALLOC
-+#define O_FD_FASTALLOC 0x40000000
++static void inline xfrm4_net_sysctl_exit(struct net *net)
++{
++}
 +#endif
 +
- /* a horrid kludge trying to make sure that this will fail on old kernels */
- #define O_TMPFILE (__O_TMPFILE | O_DIRECTORY)
- #define O_TMPFILE_MASK (__O_TMPFILE | O_DIRECTORY | O_CREAT)      
-diff --git a/net/socket.c b/net/socket.c
-index 9963a0b53a64..6dde02b2eaf9 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1227,9 +1227,10 @@ SYSCALL_DEFINE3(socket, int, family, int, type, int, protocol)
- 	BUILD_BUG_ON((SOCK_MAX | SOCK_TYPE_MASK) != SOCK_TYPE_MASK);
- 	BUILD_BUG_ON(SOCK_CLOEXEC & SOCK_TYPE_MASK);
- 	BUILD_BUG_ON(SOCK_NONBLOCK & SOCK_TYPE_MASK);
-+	BUILD_BUG_ON(SOCK_FD_FASTALLOC & SOCK_TYPE_MASK);
++static int __net_init xfrm4_net_init(struct net *net)
++{
++	int ret;
++
++	memcpy(&net->xfrm.xfrm4_dst_ops, &xfrm4_dst_ops_template,
++	       sizeof(xfrm4_dst_ops_template));
++	ret = dst_entries_init(&net->xfrm.xfrm4_dst_ops);
++	if (ret)
++		return ret;
++
++	ret = xfrm4_net_sysctl_init(net);
++	if (ret)
++		dst_entries_destroy(&net->xfrm.xfrm4_dst_ops);
++
++	return ret;
++}
++
++static void __net_exit xfrm4_net_exit(struct net *net)
++{
++	xfrm4_net_sysctl_exit(net);
++	dst_entries_destroy(&net->xfrm.xfrm4_dst_ops);
++}
  
- 	flags = type & ~SOCK_TYPE_MASK;
--	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
-+	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK | SOCK_FD_FASTALLOC))
- 		return -EINVAL;
- 	type &= SOCK_TYPE_MASK;
+ static struct pernet_operations __net_initdata xfrm4_net_ops = {
+ 	.init	= xfrm4_net_init,
+ 	.exit	= xfrm4_net_exit,
+ };
+-#endif
  
-@@ -1240,7 +1241,7 @@ SYSCALL_DEFINE3(socket, int, family, int, type, int, protocol)
- 	if (retval < 0)
+ static void __init xfrm4_policy_init(void)
+ {
+@@ -325,13 +357,9 @@ static void __init xfrm4_policy_init(void)
+ 
+ void __init xfrm4_init(void)
+ {
+-	dst_entries_init(&xfrm4_dst_ops);
+-
+ 	xfrm4_state_init();
+ 	xfrm4_policy_init();
+ 	xfrm4_protocol_init();
+-#ifdef CONFIG_SYSCTL
+ 	register_pernet_subsys(&xfrm4_net_ops);
+-#endif
+ }
+ 
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index 2cc5840..9c4c96b 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -279,7 +279,7 @@ static void xfrm6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+ 	xfrm_dst_ifdown(dst, dev);
+ }
+ 
+-static struct dst_ops xfrm6_dst_ops = {
++static struct dst_ops xfrm6_dst_ops_template = {
+ 	.family =		AF_INET6,
+ 	.gc =			xfrm6_garbage_collect,
+ 	.update_pmtu =		xfrm6_update_pmtu,
+@@ -293,7 +293,7 @@ static struct dst_ops xfrm6_dst_ops = {
+ 
+ static struct xfrm_policy_afinfo xfrm6_policy_afinfo = {
+ 	.family =		AF_INET6,
+-	.dst_ops =		&xfrm6_dst_ops,
++	.dst_ops =		&xfrm6_dst_ops_template,
+ 	.dst_lookup =		xfrm6_dst_lookup,
+ 	.get_saddr =		xfrm6_get_saddr,
+ 	.decode_session =	_decode_session6,
+@@ -325,7 +325,7 @@ static struct ctl_table xfrm6_policy_table[] = {
+ 	{ }
+ };
+ 
+-static int __net_init xfrm6_net_init(struct net *net)
++static int __net_init xfrm6_net_sysctl_init(struct net *net)
+ {
+ 	struct ctl_table *table;
+ 	struct ctl_table_header *hdr;
+@@ -353,7 +353,7 @@ err_alloc:
+ 	return -ENOMEM;
+ }
+ 
+-static void __net_exit xfrm6_net_exit(struct net *net)
++static void __net_exit xfrm6_net_sysctl_exit(struct net *net)
+ {
+ 	struct ctl_table *table;
+ 
+@@ -365,24 +365,52 @@ static void __net_exit xfrm6_net_exit(struct net *net)
+ 	if (!net_eq(net, &init_net))
+ 		kfree(table);
+ }
++#else /* CONFIG_SYSCTL */
++static int inline xfrm6_net_sysctl_init(struct net *net)
++{
++	return 0;
++}
++
++static void inline xfrm6_net_sysctl_exit(struct net *net)
++{
++}
++#endif
++
++static int __net_init xfrm6_net_init(struct net *net)
++{
++	int ret;
++
++	memcpy(&net->xfrm.xfrm6_dst_ops, &xfrm6_dst_ops_template,
++	       sizeof(xfrm6_dst_ops_template));
++	ret = dst_entries_init(&net->xfrm.xfrm6_dst_ops);
++	if (ret)
++		return ret;
++
++	ret = xfrm6_net_sysctl_init(net);
++	if (ret)
++		dst_entries_destroy(&net->xfrm.xfrm6_dst_ops);
++
++	return ret;
++}
++
++static void __net_exit xfrm6_net_exit(struct net *net)
++{
++	xfrm6_net_sysctl_exit(net);
++	dst_entries_destroy(&net->xfrm.xfrm6_dst_ops);
++}
+ 
+ static struct pernet_operations xfrm6_net_ops = {
+ 	.init	= xfrm6_net_init,
+ 	.exit	= xfrm6_net_exit,
+ };
+-#endif
+ 
+ int __init xfrm6_init(void)
+ {
+ 	int ret;
+ 
+-	dst_entries_init(&xfrm6_dst_ops);
+-
+ 	ret = xfrm6_policy_init();
+-	if (ret) {
+-		dst_entries_destroy(&xfrm6_dst_ops);
++	if (ret)
  		goto out;
+-	}
+ 	ret = xfrm6_state_init();
+ 	if (ret)
+ 		goto out_policy;
+@@ -391,9 +419,7 @@ int __init xfrm6_init(void)
+ 	if (ret)
+ 		goto out_state;
  
--	retval = sock_map_fd(sock, flags & (O_CLOEXEC | O_NONBLOCK));
-+	retval = sock_map_fd(sock, flags & (O_CLOEXEC | O_NONBLOCK | O_FD_FASTALLOC));
- 	if (retval < 0)
- 		goto out_release;
+-#ifdef CONFIG_SYSCTL
+ 	register_pernet_subsys(&xfrm6_net_ops);
+-#endif
+ out:
+ 	return ret;
+ out_state:
+@@ -405,11 +431,8 @@ out_policy:
  
-@@ -1266,7 +1267,7 @@ SYSCALL_DEFINE4(socketpair, int, family, int, type, int, protocol,
- 	int flags;
+ void xfrm6_fini(void)
+ {
+-#ifdef CONFIG_SYSCTL
+ 	unregister_pernet_subsys(&xfrm6_net_ops);
+-#endif
+ 	xfrm6_protocol_fini();
+ 	xfrm6_policy_fini();
+ 	xfrm6_state_fini();
+-	dst_entries_destroy(&xfrm6_dst_ops);
+ }
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 09bfcba..aed6a84 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2804,7 +2804,6 @@ static struct neighbour *xfrm_neigh_lookup(const struct dst_entry *dst,
  
- 	flags = type & ~SOCK_TYPE_MASK;
--	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
-+	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK | SOCK_FD_FASTALLOC))
+ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
+ {
+-	struct net *net;
+ 	int err = 0;
+ 	if (unlikely(afinfo == NULL))
  		return -EINVAL;
- 	type &= SOCK_TYPE_MASK;
+@@ -2835,26 +2834,6 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
+ 	}
+ 	spin_unlock(&xfrm_policy_afinfo_lock);
  
-@@ -1436,7 +1437,7 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
- 	int err, len, newfd, fput_needed;
- 	struct sockaddr_storage address;
+-	rtnl_lock();
+-	for_each_net(net) {
+-		struct dst_ops *xfrm_dst_ops;
+-
+-		switch (afinfo->family) {
+-		case AF_INET:
+-			xfrm_dst_ops = &net->xfrm.xfrm4_dst_ops;
+-			break;
+-#if IS_ENABLED(CONFIG_IPV6)
+-		case AF_INET6:
+-			xfrm_dst_ops = &net->xfrm.xfrm6_dst_ops;
+-			break;
+-#endif
+-		default:
+-			BUG();
+-		}
+-		*xfrm_dst_ops = *afinfo->dst_ops;
+-	}
+-	rtnl_unlock();
+-
+ 	return err;
+ }
+ EXPORT_SYMBOL(xfrm_policy_register_afinfo);
+@@ -2890,22 +2869,6 @@ int xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo)
+ }
+ EXPORT_SYMBOL(xfrm_policy_unregister_afinfo);
  
--	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
-+	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK | SOCK_FD_FASTALLOC))
- 		return -EINVAL;
- 
- 	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
+-static void __net_init xfrm_dst_ops_init(struct net *net)
+-{
+-	struct xfrm_policy_afinfo *afinfo;
+-
+-	rcu_read_lock();
+-	afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET]);
+-	if (afinfo)
+-		net->xfrm.xfrm4_dst_ops = *afinfo->dst_ops;
+-#if IS_ENABLED(CONFIG_IPV6)
+-	afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET6]);
+-	if (afinfo)
+-		net->xfrm.xfrm6_dst_ops = *afinfo->dst_ops;
+-#endif
+-	rcu_read_unlock();
+-}
+-
+ static int xfrm_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
+ {
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+@@ -3054,7 +3017,6 @@ static int __net_init xfrm_net_init(struct net *net)
+ 	rv = xfrm_policy_init(net);
+ 	if (rv < 0)
+ 		goto out_policy;
+-	xfrm_dst_ops_init(net);
+ 	rv = xfrm_sysctl_init(net);
+ 	if (rv < 0)
+ 		goto out_sysctl;
+-- 
+2.5.0
