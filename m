@@ -1,7 +1,8 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [RFC PATCH v3 0/5] net: dsa: cleanup dsa driver
-Date: Thu, 29 Oct 2015 15:45:20 +0100
-Message-ID: <56323100.9000304@baylibre.com>
+Subject: [RFC PATCH v3 1/5] net: dsa: allow switch drivers to cleanup their
+ resources
+Date: Thu, 29 Oct 2015 15:45:24 +0100
+Message-ID: <56323104.2030606@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -18,32 +19,42 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduce a new remove callback to allow DSA drivers to cleanup their
-ressources.
-Then add a remove implementation for bcm_sf2 and mv88e6xxx.
+Some switch drivers might request interrupts, remap register ranges,
+allow such drivers to implement a "remove" callback doing just that.
 
-This patch was not tested due of a lack of hardware.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+---
+ include/net/dsa.h | 1 +
+ net/dsa/dsa.c     | 4 ++++
+ 2 files changed, 5 insertions(+)
 
-v2: add remove callback patch to the serie
-v3: separate & fix ppu remove callback into a proper patch
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 98ccbde..0e1502c 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -212,6 +212,7 @@ struct dsa_switch_driver {
+ 	 */
+ 	char	*(*probe)(struct device *host_dev, int sw_addr);
+ 	int	(*setup)(struct dsa_switch *ds);
++	void	(*remove)(struct dsa_switch *ds);
+ 	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
+ 	u32	(*get_phy_flags)(struct dsa_switch *ds, int port);
 
-Neil Armstrong (5):
-  net: dsa: allow switch drivers to cleanup their resources
-  net: dsa: bcm_sf2: cleanup resources in remove callback
-  net: dsa: mv88e6xxx: add common remove function
-  net: dsa: make usage of mv88e6xxx common remove function
-  net: dsa: add mv88e6xxx ppu remove function for mv88e6131
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 1eba07f..f462fc5 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -459,6 +459,10 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+ 	}
 
- drivers/net/dsa/bcm_sf2.c         | 20 ++++++++++++++++++++
- drivers/net/dsa/mv88e6123_61_65.c |  1 +
- drivers/net/dsa/mv88e6131.c       |  8 ++++++++
- drivers/net/dsa/mv88e6171.c       |  1 +
- drivers/net/dsa/mv88e6352.c       |  1 +
- drivers/net/dsa/mv88e6xxx.c       | 18 ++++++++++++++++++
- drivers/net/dsa/mv88e6xxx.h       |  2 ++
- include/net/dsa.h                 |  1 +
- net/dsa/dsa.c                     |  4 ++++
- 9 files changed, 56 insertions(+)
+ 	mdiobus_unregister(ds->slave_mii_bus);
++
++	/* Leave a chance to the driver to cleanup */
++	if (ds->drv->remove)
++		ds->drv->remove(ds);
+ }
 
+ #ifdef CONFIG_PM_SLEEP
 -- 
 1.9.1
