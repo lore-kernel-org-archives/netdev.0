@@ -1,95 +1,56 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next RFC] mpls: support for dead routes
-Date: Thu, 29 Oct 2015 16:53:29 +0000
-Message-ID: <56324F09.2060103@brocade.com>
-References: <1446133748-13738-1-git-send-email-roopa@cumulusnetworks.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Thu, 29 Oct 2015 17:07:48 +0000
+Message-ID: <20151029170748.GG22011@ZenIV.linux.org.uk>
+References: <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
+ <20151022215741.GW22011@ZenIV.linux.org.uk>
+ <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
+ <20151024023054.GZ22011@ZenIV.linux.org.uk>
+ <201510270908.t9R9873a001683@room101.nl.oracle.com>
+ <562F577E.6000901@oracle.com>
+ <20151029145847.GA10859@netbsd.org>
+ <563238D0.2040802@oracle.com>
+ <20151029160131.GA18961@netbsd.org>
+ <56324625.9000803@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>, <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Holland <dholland-tech@netbsd.org>, Casper.Dik@oracle.com,
+	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	stephen@networkplumber.org, netdev@vger.kernel.org
+To: Alan Burlison <Alan.Burlison@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:47979 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757070AbbJ2Qxl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2015 12:53:41 -0400
-In-Reply-To: <1446133748-13738-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:36171 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752640AbbJ2RH4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2015 13:07:56 -0400
+Content-Disposition: inline
+In-Reply-To: <56324625.9000803@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 29/10/15 15:49, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> Adds support for both RTNH_F_DEAD and RTNH_F_LINKDOWN flags.
-> This resembles ipv4 fib code. I also picked fib_rebalance from
-> ipv4. Enabled weights support for nexthop, just because the
-> infrastructure is already there.
->
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
-> I want to get this in before net-next closes as promised.
-> I have tested it for the dead/linkdown flags. The multipath selection
-> and hash calculation in the face of dead routes needs some more
-> work. I am short on cycles this week and thought of getting some
-> early feedback. Hence sending this out as RFC. I will continue with some
-> more testing.  Robert, I am using your hash algo but it needs some more
-> work with dead routes. If you already have any thoughts on this, i will
-> take them. thanks!.
+On Thu, Oct 29, 2015 at 04:15:33PM +0000, Alan Burlison wrote:
 
-If you were to sort the array of nexthops (and by implication via 
-addresses) by their non-deadness keeping a count of the alive nexthops, 
-then there's no need to resort to an O(n) algorithm for selecting the 
-nexthop, and no need to store per-nh flags.
+> There was an attempt to interpret POSIX that way, with which I still
+> disagree. If a FD is closed or reassigned then any current pending
+> operations on it should be terminated.
 
-E.g. before eth0 link down:
+Could the esteemed sir possibly be ars^H^H^Hprevailed upon to quote the exact
+place in POSIX that requires such behaviour?
 
-+----------------------+
-| rt_nhn = 3           |
-| rt_nhn_alive = 3     |
-+----------------------+
-| nh 0:                |
-| dev = eth0, ...      |
-+----------------------+
-| nh 1:                |
-| dev = eth1, ...      |
-+----------------------+
-| nh 2:                |
-| dev = eth0, ...      |
-+----------------------+
-| vias ...             |
-+----------------------+
+This is getting ridiculous - if we are talking about POSIX-mandated behaviour
+of close(), please show where is it mandated.  Using close(2) on a descriptor
+that might be used by other threads is a bloody bad design in userland code -
+I think everyone in this thread agrees on that.  Making that a recommended way
+to do _anything_ is nuts.
 
-after eth0 link down:
+Now, no userland code, however lousy it might be, should be able to screw
+the system.  But that isn't the issue - our variant is providing that just
+fine.
 
-+----------------------+
-| rt_nhn = 3           |
-| rt_nhn_alive = 1     |
-+----------------------+
-| nh 0:                |
-| dev = eth1, ...      |
-+----------------------+
-| nh 1:                |
-| dev = eth0, ...      |
-+----------------------+
-| nh 2:                |
-| dev = eth0, ...      |
-+----------------------+
-| vias ...             |
-+----------------------+
-
-The mpls_select_multipath algorithm just then needs to be changed to use 
-rt_nhn_alive instead of rt_nhn and will work otherwise as-is.
-
-On link down you'll need to alloc a new route for RCU-safety, but you 
-can presumably just do a kmemdup to reduce the amount of code you have 
-to write and sort the nexthops in the copy. Link up will be similar.
-
-Then on the mpls_dump_route, if the index of the nexthop is >= 
-rt_nhn_alive then the path is link-down. If the nh_dev is NULL then 
-generate RTNH_F_DEAD|RTNH_F_LINKDOWN for the flags, otherwise just 
-RTNH_F_LINKDOWN.
-
-This would use less memory and be faster for forwarding.
-
-Thanks,
-Rob
+BTW, "cancel accept(2) because sending a signal is hard" is bogus anyway -
+a thread in accept(3) just about to enter the kernel would get buggered
+if another thread closes that descriptor and the third one does socket(2).
+_IF_ you are doing that kind of "close a descriptor under other threads"
+thing, you need to inform the potentially affected threads anyway, and
+you'd better not rely on them being currently in kernel mode.
