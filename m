@@ -1,69 +1,49 @@
-From: Gilberto Bertin <gilberto.bertin@gmail.com>
-Subject: [BUG] Any-IP IPv6 support broken
-Date: Thu, 29 Oct 2015 15:00:26 +0000
-Message-ID: <0977189F-9778-4D1C-939D-FAD71595E5F6@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.1 \(3096.5\))
-Content-Type: text/plain; charset=us-ascii
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next] ipv4: use l4 hash for locally generated
+ multipath flows
+Date: Thu, 29 Oct 2015 16:00:59 +0100
+Message-ID: <1446130859.4431.17.camel@dhcp-176-88.mxp.redhat.com>
+References: <006ec2edb2d592ab9b90ccc5c084ac8926e811df.1446053264.git.pabeni@redhat.com>
+	 <1446129070.7476.148.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Peter =?ISO-8859-1?Q?N=F8rlund?= <pch@ordbogen.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:34227 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751438AbbJ2PA3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2015 11:00:29 -0400
-Received: by padhk11 with SMTP id hk11so43310355pad.1
-        for <netdev@vger.kernel.org>; Thu, 29 Oct 2015 08:00:29 -0700 (PDT)
-Received: from ?IPv6:2a06:98c0:1000:1200:5c8f:2e3:21d0:5600? ([2a06:98c0:1000:1200:5c8f:2e3:21d0:5600])
-        by smtp.gmail.com with ESMTPSA id bz1sm2893888pab.20.2015.10.29.08.00.27
-        for <netdev@vger.kernel.org>
-        (version=TLS1 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
-        Thu, 29 Oct 2015 08:00:28 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:34386 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757488AbbJ2PBM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2015 11:01:12 -0400
+In-Reply-To: <1446129070.7476.148.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-testing Any-IP on my machine, I noticed that it's not working with IPv6
-addresses.
-Tests are performed on a 4.1 kernel.
+On Thu, 2015-10-29 at 07:31 -0700, Eric Dumazet wrote:
+> On Wed, 2015-10-28 at 18:39 +0100, Paolo Abeni wrote:
+> > This patch changes how the multipath hash is computed for locally
+> > generated UDP or TCP flows: now the hash comprises also l4 information
+> > (source and destination port).
+> > 
+> > This allows better utilization of the available paths when the existing
+> > flows have the same source IP and the same destination IP: with l3 hash,
+> > even when multiple connections are in place simultaneously, a single path
+> > will be used, while with l4 hash we can use all the available paths.
+> > 
+> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> 
+> Please note that many skb already have a l4 hash. No need to perform yet
+> another dissection.
 
-Steps to reproduce the bug:
+This patch do not add dissection code: it use the information provided
+by the available flowi4 structure. Moreover the skb is not available on
+the calling site (in __ip_route_output_key_hash) and pushing it all the
+way will require a lot of intrusive changes. Do you think it's the
+better option ?
 
-1- make sure Any-IP is working with IPv4 addresses:
-
-# ip -4 route add local 4.4.4.0/24 dev eth0
-
-with this command every packets with an IP in the subnet 4.4.4.0/24 will
-be delivered to the eth0 interface.
-We can test this:
-
-$ ping 4.4.4.1 -c 1 | grep received
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-$ ping 4.4.4.50 -c 1 | grep received
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-$ ping 4.4.4.200 -c 1 | grep received
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-
-2- note that it's not actually working with IPv6 addresses:
-
-# ip -6 route add local abcd:abcd:abcd:abcd::/64 dev eth0
-
-$ ping6 -c 1 abcd:abcd:abcd:abcd::1 | grep received
-1 packets transmitted, 0 received, 100% packet loss, time 0ms
-$ ping6 -c 1 abcd:abcd:abcd:abcd::50 | grep received
-1 packets transmitted, 0 received, 100% packet loss, time 0ms
-$ ping6 -c 1 abcd:abcd:abcd:abcd::100 | grep received
-1 packets transmitted, 0 received, 100% packet loss, time 0ms
-
-Since the kernel should support Any-IP with IPv6 addresses (the patch
-was submitted/accepted years ago [1]) I suspect this is a bug.
-
-Even trying with the commands suggested by the patch [1]:
-# ip -6 rule  add from all iif eth0 lookup 200
-# ip -6 route add local default dev lo table 200
-
-I was not able to get it working.
-
-
-Thank you.
-
-[1] http://www.spinics.net/lists/netdev/msg141994.html
+Paolo
