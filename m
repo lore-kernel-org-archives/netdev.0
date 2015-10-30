@@ -1,20 +1,38 @@
-From: MOHAMMEDLOAN@vger.kernel.org
-Subject: APPLY FOR A LOAN
-Date: Fri, 30 Oct 2015 12:57:10 +0530
-Message-ID: <BLUPR17MB01968CA62E83E9FD1D2B68AFB82F0@BLUPR17MB0196.namprd17.prod.outlook.com>
-Reply-To: <osmanserves@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: ME@vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCHv3 net 0/2] ipv4: fix problems from the RTNH_F_LINKDOWN introduction
+Date: Fri, 30 Oct 2015 10:23:32 +0200
+Message-ID: <1446193414-8244-1-git-send-email-ja@ssi.bg>
+Cc: netdev@vger.kernel.org, Andy Gospodarek <gospo@cumulusnetworks.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1hn0245.outbound.protection.outlook.com ([157.56.110.245]:21843
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758340AbbJ3H25 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 03:28:57 -0400
-Content-Description: Mail message body
+Received: from ja.ssi.bg ([178.16.129.10]:49556 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1030224AbbJ3IX4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Oct 2015 04:23:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do you need an urgent loan we offer worldwide loan to who in need of loan the business opportunity you having being looking for is here again. email osmanserves@gmail.com 
+Fix two problems from the change that introduced RTNH_F_LINKDOWN
+flag. The first patch deals with the removal of local route on
+DOWN event. The second patch makes sure the RTNH_F_LINKDOWN
+flag is properly updated on UP event because the DOWN event
+sets it in all cases.
+
+v2->v3:
+- use bool for force var
+
+v1->v2:
+- forgot to add ifconfig dummy0 down in the test case
+- split to 2 patches
+
+Julian Anastasov (2):
+  ipv4: fix to not remove local route on link down
+  ipv4: update RTNH_F_LINKDOWN flag on UP event
+
+ include/net/ip_fib.h     |  2 +-
+ net/ipv4/fib_frontend.c  | 13 +++++++------
+ net/ipv4/fib_semantics.c | 18 +++++++++++++++---
+ 3 files changed, 23 insertions(+), 10 deletions(-)
+
+-- 
+1.9.3
