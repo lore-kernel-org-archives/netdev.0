@@ -1,47 +1,48 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH net] i40e: Look up MAC address in Open Firmware or IDPROM
-Date: Fri, 30 Oct 2015 15:34:09 +0200
-Message-ID: <CAHp75VfqPpOdf38kjeKzUwgreuzHDkc9Lg0vPnUugw8vZwVzCQ@mail.gmail.com>
-References: <20151029233430.GB11420@oracle.com>
-	<CAHp75VcmgsAjgqt6+JVMB6uvbbJamoBnLyEU=YNCRp=s2fAW1A@mail.gmail.com>
-	<20151030112637.GB9312@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: intel-wired-lan@lists.osuosl.org, netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	martin.petersen@oracle.com
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151030112637.GB9312@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2015-10-30
+Date: Fri, 30 Oct 2015 14:39:58 +0100
+Message-ID: <1446212399-31546-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:57883 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030398AbbJ3NkE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 09:40:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 30, 2015 at 1:26 PM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (10/30/15 02:14), Andy Shevchenko wrote:
->>
->> Does the following has no stubs?
->>
->> > +       struct i40e_pf *pf = hw->back;
->> > +       struct device_node *dp = pci_device_to_OF_node(pf->pdev);
->> > +       const unsigned char *addr;
->> > +
->> > +       addr = of_get_mac_address(dp);
->>
->> ^^^
->
-> I was not able to find any.
-> I'm fixing up the rest and respinning V2 as a separate thread.
+Hello David,
 
-of_net.h contains the stub of of_get_mac_addr() which means you don't
-need to put ugly ifdefs in the function.
+this is a pull request for the upcoming v4.3 release.
 
-Have no idea about CONFIG_SPARC though.
+Marek Vasut provides a patch to use the correct attrlen in the nla_put() in the
+can_fill_info() function.
 
--- 
-With Best Regards,
-Andy Shevchenko
+regards,
+Marc
+
+---
+
+The following changes since commit 89bc7848a91bc99532f5c21b2885472ba710f249:
+
+  ipv6: protect mtu calculation of wrap-around and infinite loop by rounding issues (2015-10-29 07:01:50 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.3-20151030
+
+for you to fetch changes up to 562b103a21974c2f9cd67514d110f918bb3e1796:
+
+  can: Use correct type in sizeof() in nla_put() (2015-10-30 14:33:26 +0100)
+
+----------------------------------------------------------------
+linux-can-fixes-for-4.3-20151030
+
+----------------------------------------------------------------
+Marek Vasut (1):
+      can: Use correct type in sizeof() in nla_put()
+
+ drivers/net/can/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
