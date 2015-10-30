@@ -1,35 +1,67 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 5/5] dp83640: Only wait for timestamps for
- packets with timestamping enabled.
-Date: Fri, 30 Oct 2015 21:40:07 +0100
-Message-ID: <20151030204007.GF27879@netboy>
-References: <1446207244-2206-1-git-send-email-stefan.sorensen@spectralink.com>
- <1446207244-2206-6-git-send-email-stefan.sorensen@spectralink.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: assert SMI lock
+Date: Fri, 30 Oct 2015 21:41:10 +0100
+Message-ID: <20151030204110.GB10053@lunn.ch>
+References: <1446237342-5109-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Stefan =?iso-8859-1?Q?S=F8rensen?=
-	<stefan.sorensen@spectralink.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:33487 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759823AbbJ3UkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 16:40:11 -0400
-Received: by wijp11 with SMTP id p11so18590019wij.0
-        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 13:40:10 -0700 (PDT)
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Neil Armstrong <narmstrong@baylibre.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1446207244-2206-6-git-send-email-stefan.sorensen@spectralink.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1446237342-5109-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 30, 2015 at 01:14:04PM +0100, Stefan S=F8rensen wrote:
-> In the packet timestamping function, check that the ptp version and
-> protocol of the packet matches what we have configured the hardware t=
-o
-> actually generate timestamps for, before looking/waiting for a timest=
-amp.
->=20
-> Signed-off-by: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
+On Fri, Oct 30, 2015 at 04:35:42PM -0400, Vivien Didelot wrote:
+> It's easy to forget to lock the smi_mutex before calling the low-level
+> _mv88e6xxx_reg_{read,write}, so add a assert_smi_lock function in them.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  drivers/net/dsa/mv88e6xxx.c | 31 ++++++++++++++++++-------------
+>  1 file changed, 18 insertions(+), 13 deletions(-)
+> 
+> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+> index b1b14f5..70a0106 100644
+> --- a/drivers/net/dsa/mv88e6xxx.c
+> +++ b/drivers/net/dsa/mv88e6xxx.c
+> @@ -24,6 +24,16 @@
+>  #include <net/switchdev.h>
+>  #include "mv88e6xxx.h"
+>  
+> +static inline void assert_smi_lock(struct dsa_switch *ds)
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+No need for inline. Gcc will automatically inline it, if it thinks it
+is small enough.
+
+> +{
+> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+> +
+> +	if (unlikely(!mutex_is_locked(&ps->smi_mutex))) {
+> +		dev_err(ds->master_dev, "SMI lock not held!\n");
+> +		dump_stack();
+> +	}
+> +}
+> +
+
+> -/* Must be called with SMI mutex held */
+>  static int _mv88e6xxx_reg_read(struct dsa_switch *ds, int addr, int reg)
+>  {
+> -	struct mii_bus *bus = dsa_host_dev_to_mii_bus(ds->master_dev);
+> +	struct mii_bus *bus;
+>  	int ret;
+>  
+> +	assert_smi_lock(ds);
+> +
+> +	bus = dsa_host_dev_to_mii_bus(ds->master_dev);
+
+Is this change of when bus is assigned actually required?
+
+Thanks
+	Andrew
