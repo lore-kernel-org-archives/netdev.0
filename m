@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/5] xfrm: Let the flowcache handle its size by default.
-Date: Fri, 30 Oct 2015 07:16:26 +0100
-Message-ID: <1446185790-24214-2-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 3/5] xfrm4: Fix header checks in _decode_session4.
+Date: Fri, 30 Oct 2015 07:16:28 +0100
+Message-ID: <1446185790-24214-4-git-send-email-steffen.klassert@secunet.com>
 References: <1446185790-24214-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,87 +10,80 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39772 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:39794 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758134AbbJ3GQl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Oct 2015 02:16:41 -0400
+	id S1751355AbbJ3GQm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Oct 2015 02:16:42 -0400
 In-Reply-To: <1446185790-24214-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The xfrm flowcache size is limited by the flowcache limit
-(4096 * number of online cpus) and the xfrm garbage collector
-threshold (2 * 32768), whatever is reached first. This means
-that we can hit the garbage collector limit only on systems
-with more than 16 cpus. On such systems we simply refuse
-new allocations if we reach the limit, so new flows are dropped.
-On syslems with 16 or less cpus, we hit the flowcache limit.
-In this case, we shrink the flow cache instead of refusing new
-flows.
+We skip the header informations if the data pointer points
+already behind the header in question for some protocols.
+This is because we call pskb_may_pull with a negative value
+converted to unsigened int from pskb_may_pull in this case.
+Skipping the header informations can lead to incorrect policy
+lookups, so fix it by a check of the data pointer position
+before we call pskb_may_pull.
 
-We increase the xfrm garbage collector threshold to INT_MAX
-to get the same behaviour, independent of the number of cpus.
-
-The xfrm garbage collector threshold can still be set below
-the flowcache limit to reduce the memory usage of the flowcache.
-
-Tested-by: Dan Streetman <dan.streetman@canonical.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- Documentation/networking/ip-sysctl.txt | 6 ++++--
- net/ipv4/xfrm4_policy.c                | 2 +-
- net/ipv6/xfrm6_policy.c                | 2 +-
- 3 files changed, 6 insertions(+), 4 deletions(-)
+ net/ipv4/xfrm4_policy.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index ebe94f2..260f30b 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1199,7 +1199,8 @@ tag - INTEGER
- xfrm4_gc_thresh - INTEGER
- 	The threshold at which we will start garbage collecting for IPv4
- 	destination cache entries.  At twice this value the system will
--	refuse new allocations.
-+	refuse new allocations. The value must be set below the flowcache
-+	limit (4096 * number of online cpus) to take effect.
- 
- igmp_link_local_mcast_reports - BOOLEAN
- 	Enable IGMP reports for link local multicast groups in the
-@@ -1645,7 +1646,8 @@ ratelimit - INTEGER
- xfrm6_gc_thresh - INTEGER
- 	The threshold at which we will start garbage collecting for IPv6
- 	destination cache entries.  At twice this value the system will
--	refuse new allocations.
-+	refuse new allocations. The value must be set below the flowcache
-+	limit (4096 * number of online cpus) to take effect.
- 
- 
- IPv6 Update by:
 diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 0304d16..75e8d48 100644
+index 75e8d48..e4d533c 100644
 --- a/net/ipv4/xfrm4_policy.c
 +++ b/net/ipv4/xfrm4_policy.c
-@@ -246,7 +246,7 @@ static struct dst_ops xfrm4_dst_ops = {
- 	.destroy =		xfrm4_dst_destroy,
- 	.ifdown =		xfrm4_dst_ifdown,
- 	.local_out =		__ip_local_out,
--	.gc_thresh =		32768,
-+	.gc_thresh =		INT_MAX,
- };
+@@ -137,7 +137,8 @@ _decode_session4(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 			break;
  
- static struct xfrm_policy_afinfo xfrm4_policy_afinfo = {
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 30caa28..2fad593 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -287,7 +287,7 @@ static struct dst_ops xfrm6_dst_ops = {
- 	.destroy =		xfrm6_dst_destroy,
- 	.ifdown =		xfrm6_dst_ifdown,
- 	.local_out =		__ip6_local_out,
--	.gc_thresh =		32768,
-+	.gc_thresh =		INT_MAX,
- };
+ 		case IPPROTO_ICMP:
+-			if (pskb_may_pull(skb, xprth + 2 - skb->data)) {
++			if (xprth + 2 < skb->data ||
++			    pskb_may_pull(skb, xprth + 2 - skb->data)) {
+ 				u8 *icmp = xprth;
  
- static struct xfrm_policy_afinfo xfrm6_policy_afinfo = {
+ 				fl4->fl4_icmp_type = icmp[0];
+@@ -146,7 +147,8 @@ _decode_session4(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 			break;
+ 
+ 		case IPPROTO_ESP:
+-			if (pskb_may_pull(skb, xprth + 4 - skb->data)) {
++			if (xprth + 4 < skb->data ||
++			    pskb_may_pull(skb, xprth + 4 - skb->data)) {
+ 				__be32 *ehdr = (__be32 *)xprth;
+ 
+ 				fl4->fl4_ipsec_spi = ehdr[0];
+@@ -154,7 +156,8 @@ _decode_session4(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 			break;
+ 
+ 		case IPPROTO_AH:
+-			if (pskb_may_pull(skb, xprth + 8 - skb->data)) {
++			if (xprth + 8 < skb->data ||
++			    pskb_may_pull(skb, xprth + 8 - skb->data)) {
+ 				__be32 *ah_hdr = (__be32 *)xprth;
+ 
+ 				fl4->fl4_ipsec_spi = ah_hdr[1];
+@@ -162,7 +165,8 @@ _decode_session4(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 			break;
+ 
+ 		case IPPROTO_COMP:
+-			if (pskb_may_pull(skb, xprth + 4 - skb->data)) {
++			if (xprth + 4 < skb->data ||
++			    pskb_may_pull(skb, xprth + 4 - skb->data)) {
+ 				__be16 *ipcomp_hdr = (__be16 *)xprth;
+ 
+ 				fl4->fl4_ipsec_spi = htonl(ntohs(ipcomp_hdr[1]));
+@@ -170,7 +174,8 @@ _decode_session4(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 			break;
+ 
+ 		case IPPROTO_GRE:
+-			if (pskb_may_pull(skb, xprth + 12 - skb->data)) {
++			if (xprth + 12 < skb->data ||
++			    pskb_may_pull(skb, xprth + 12 - skb->data)) {
+ 				__be16 *greflags = (__be16 *)xprth;
+ 				__be32 *gre_hdr = (__be32 *)xprth;
+ 
 -- 
 1.9.1
