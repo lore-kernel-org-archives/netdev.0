@@ -1,53 +1,121 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Fri, 30 Oct 2015 22:33:17 +0000
-Message-ID: <20151030223317.GK22011@ZenIV.linux.org.uk>
-References: <20151028223330.GD22011@ZenIV.linux.org.uk>
- <1446073709.7476.93.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151029001532.GE22011@ZenIV.linux.org.uk>
- <1446089381.7476.114.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151029041611.GF22011@ZenIV.linux.org.uk>
- <1446122119.7476.138.camel@edumazet-glaptop2.roam.corp.google.com>
- <CA+55aFx_BQG4FzSuyL2KAz=c+R0cPv0ZpjboT_=yKjZNGmTUEg@mail.gmail.com>
- <20151030210215.GI22011@ZenIV.linux.org.uk>
- <CA+55aFyoA5sXQvFDavNa7cGkRevunmtPe8F8-_tZ9-826qfkgw@mail.gmail.com>
- <CA+55aFy9fPmbSCJoQiCkjkaiU2HTM6p=o-pJgiV7asyVWBjAEg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Network Development <netdev@vger.kernel.org>,
-	David Howells <dhowells@redhat.com>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:57591 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753242AbbJ3WdV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 18:33:21 -0400
-Content-Disposition: inline
-In-Reply-To: <CA+55aFy9fPmbSCJoQiCkjkaiU2HTM6p=o-pJgiV7asyVWBjAEg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yang Shi <yang.shi@linaro.org>
+Subject: [PATCH] bpf: convert hashtab lock to raw lock
+Date: Fri, 30 Oct 2015 15:16:26 -0700
+Message-ID: <1446243386-26582-1-git-send-email-yang.shi@linaro.org>
+Cc: linux-kernel@vger.kernel.org, linux-rt-users@vger.kernel.org,
+	netdev@vger.kernel.org, linaro-kernel@lists.linaro.org,
+	yang.shi@linaro.org
+To: ast@kernel.org, rostedt@goodmis.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 30, 2015 at 02:50:46PM -0700, Linus Torvalds wrote:
+When running bpf samples on rt kernel, it reports the below warning:
 
-> Anyway. This is a pretty simple patch, and I actually think that we
-> could just get rid of the "next_fd" logic entirely with this. That
-> would make this *patch* be more complicated, but it would make the
-> resulting *code* be simpler.
+BUG: sleeping function called from invalid context at kernel/locking/rtmutex.c:917
+in_atomic(): 1, irqs_disabled(): 128, pid: 477, name: ping
+Preemption disabled at:[<ffff80000017db58>] kprobe_perf_func+0x30/0x228
 
-Dropping next_fd would screw you in case of strictly sequential allocations...
+CPU: 3 PID: 477 Comm: ping Not tainted 4.1.10-rt8 #4
+Hardware name: Freescale Layerscape 2085a RDB Board (DT)
+Call trace:
+[<ffff80000008a5b0>] dump_backtrace+0x0/0x128
+[<ffff80000008a6f8>] show_stack+0x20/0x30
+[<ffff8000007da90c>] dump_stack+0x7c/0xa0
+[<ffff8000000e4830>] ___might_sleep+0x188/0x1a0
+[<ffff8000007e2200>] rt_spin_lock+0x28/0x40
+[<ffff80000018bf9c>] htab_map_update_elem+0x124/0x320
+[<ffff80000018c718>] bpf_map_update_elem+0x40/0x58
+[<ffff800000187658>] __bpf_prog_run+0xd48/0x1640
+[<ffff80000017ca6c>] trace_call_bpf+0x8c/0x100
+[<ffff80000017db58>] kprobe_perf_func+0x30/0x228
+[<ffff80000017dd84>] kprobe_dispatcher+0x34/0x58
+[<ffff8000007e399c>] kprobe_handler+0x114/0x250
+[<ffff8000007e3bf4>] kprobe_breakpoint_handler+0x1c/0x30
+[<ffff800000085b80>] brk_handler+0x88/0x98
+[<ffff8000000822f0>] do_debug_exception+0x50/0xb8
+Exception stack(0xffff808349687460 to 0xffff808349687580)
+7460: 4ca2b600 ffff8083 4a3a7000 ffff8083 49687620 ffff8083 0069c5f8 ffff8000
+7480: 00000001 00000000 007e0628 ffff8000 496874b0 ffff8083 007e1de8 ffff8000
+74a0: 496874d0 ffff8083 0008e04c ffff8000 00000001 00000000 4ca2b600 ffff8083
+74c0: 00ba2e80 ffff8000 49687528 ffff8083 49687510 ffff8083 000e5c70 ffff8000
+74e0: 00c22348 ffff8000 00000000 ffff8083 49687510 ffff8083 000e5c74 ffff8000
+7500: 4ca2b600 ffff8083 49401800 ffff8083 00000001 00000000 00000000 00000000
+7520: 496874d0 ffff8083 00000000 00000000 00000000 00000000 00000000 00000000
+7540: 2f2e2d2c 33323130 00000000 00000000 4c944500 ffff8083 00000000 00000000
+7560: 00000000 00000000 008751e0 ffff8000 00000001 00000000 124e2d1d 00107b77
 
-Your point re power-of-two allocations is well-taken, but then I'm not
-sure that kzalloc() is good enough here.  Look: you have a bit for every
-64 descriptors, i.e. byte per 512.  On 10M case Eric had been talking
-about that'll yield 32Kb worth of your secondary bitmap.  It's right on
-the edge of the range where vmalloc() becomes attractive; for something
-bigger it gets even worse...
+Convert hashtab lock to raw lock to avoid such warning.
 
-Currently we go for vmalloc (on bitmaps) once we are past 128K descriptors
-(two bitmaps packed together => 256Kbit = 32Kb).  kmalloc() is very
-sensitive to size being a power of two, but IIRC vmalloc() isn't...
+Signed-off-by: Yang Shi <yang.shi@linaro.org>
+---
+This patch is applicable to mainline kernel too.
+
+ kernel/bpf/hashtab.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index 83c209d..972b76b 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -17,7 +17,7 @@
+ struct bpf_htab {
+ 	struct bpf_map map;
+ 	struct hlist_head *buckets;
+-	spinlock_t lock;
++	raw_spinlock_t lock;
+ 	u32 count;	/* number of elements in this hashtable */
+ 	u32 n_buckets;	/* number of hash buckets */
+ 	u32 elem_size;	/* size of each element in bytes */
+@@ -82,7 +82,7 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+ 	for (i = 0; i < htab->n_buckets; i++)
+ 		INIT_HLIST_HEAD(&htab->buckets[i]);
+ 
+-	spin_lock_init(&htab->lock);
++	raw_spin_lock_init(&htab->lock);
+ 	htab->count = 0;
+ 
+ 	htab->elem_size = sizeof(struct htab_elem) +
+@@ -230,7 +230,7 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
+ 	l_new->hash = htab_map_hash(l_new->key, key_size);
+ 
+ 	/* bpf_map_update_elem() can be called in_irq() */
+-	spin_lock_irqsave(&htab->lock, flags);
++	raw_spin_lock_irqsave(&htab->lock, flags);
+ 
+ 	head = select_bucket(htab, l_new->hash);
+ 
+@@ -266,11 +266,11 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
+ 	} else {
+ 		htab->count++;
+ 	}
+-	spin_unlock_irqrestore(&htab->lock, flags);
++	raw_spin_unlock_irqrestore(&htab->lock, flags);
+ 
+ 	return 0;
+ err:
+-	spin_unlock_irqrestore(&htab->lock, flags);
++	raw_spin_unlock_irqrestore(&htab->lock, flags);
+ 	kfree(l_new);
+ 	return ret;
+ }
+@@ -291,7 +291,7 @@ static int htab_map_delete_elem(struct bpf_map *map, void *key)
+ 
+ 	hash = htab_map_hash(key, key_size);
+ 
+-	spin_lock_irqsave(&htab->lock, flags);
++	raw_spin_lock_irqsave(&htab->lock, flags);
+ 
+ 	head = select_bucket(htab, hash);
+ 
+@@ -304,7 +304,7 @@ static int htab_map_delete_elem(struct bpf_map *map, void *key)
+ 		ret = 0;
+ 	}
+ 
+-	spin_unlock_irqrestore(&htab->lock, flags);
++	raw_spin_unlock_irqrestore(&htab->lock, flags);
+ 	return ret;
+ }
+ 
+-- 
+2.0.2
