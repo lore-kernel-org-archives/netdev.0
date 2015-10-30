@@ -1,101 +1,57 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC PATCH net-next] net/core: initial support for stacked dev
- feature toggles
-Date: Fri, 30 Oct 2015 13:14:19 -0700
-Message-ID: <5633CF9B.30804@gmail.com>
-References: <1445658019-58621-1-git-send-email-jarod@redhat.com>
- <562B1C4D.8050407@gmail.com> <56339C6B.3000108@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch] tcp: attach SYNACK messages to request sockets instead
+ of listener
+Date: Fri, 30 Oct 2015 13:18:51 -0700
+Message-ID: <1446236331.6254.36.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <BN1PR0301MB07704A8D81E0AD6A358D6D53CA200@BN1PR0301MB0770.namprd03.prod.outlook.com>
+	 <1446159521.6254.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <BN1PR0301MB0770DDDA95027A39BF078CE6CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+	 <1446235356.6254.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	Michal Kubecek <mkubecek@suse.cz>, netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56339C6B.3000108@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "edumazet@google.com" <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	KY Srinivasan <kys@microsoft.com>
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34472 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760747AbbJ3USx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 16:18:53 -0400
+Received: by padhk11 with SMTP id hk11so83644132pad.1
+        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 13:18:53 -0700 (PDT)
+In-Reply-To: <1446235356.6254.33.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/30/2015 09:35 AM, Jarod Wilson wrote:
-> Alexander Duyck wrote:
->> On 10/23/2015 08:40 PM, Jarod Wilson wrote:
->>> There are some netdev features that make little sense to toggle on and
->>> off in a stacked device setup on only one device in the stack. The prime
->>> example is a bonded connection, where it really doesn't make sense to
->>> disable LRO on the master, but not on any of the slaves, nor does it
->>> really make sense to be able to shut LRO off on a slave when its still
->>> enabled on the master.
->>>
->>> The strategy here is to add a section near the end of
->>> netdev_fix_features() that looks for upper and lower netdevs, then make
->>> sure certain feature flags match both up and down the stack. At present,
->>> only the LRO flag is included.
-> ...
->>> +static void netdev_sync_lower_features(struct net_device *upper,
->>> + struct net_device *lower, netdev_features_t features)
->>> +{
->>> + netdev_features_t want = features & lower->hw_features;
->>> +
->>> + if (!(features & NETIF_F_LRO) && (lower->features & NETIF_F_LRO)) {
->>> + netdev_info(upper, "Disabling LRO on lower dev %s.\n",
->>> + lower->name);
->>> + upper->wanted_features &= ~NETIF_F_LRO;
->>> + lower->wanted_features &= ~NETIF_F_LRO;
->>> + netdev_update_features(lower);
->>> + if (unlikely(lower->features & NETIF_F_LRO))
->>> + netdev_WARN(upper, "failed to disable LRO on %s!\n",
->>> + lower->name);
->>> + } else if ((want & NETIF_F_LRO) && !(lower->features & NETIF_F_LRO)) {
->>> + netdev_info(upper, "Enabling LRO on lower dev %s.\n",
->>> + lower->name);
->>> + upper->wanted_features |= NETIF_F_LRO;
->>> + lower->wanted_features |= NETIF_F_LRO;
->>> + netdev_update_features(lower);
->>> + if (unlikely(!(lower->features & NETIF_F_LRO)))
->>> + netdev_WARN(upper, "failed to enable LRO on %s!\n",
->>> + lower->name);
->>> + }
->>> +}
->>> +
->>
->> Same thing here. If a lower dev has it disabled then leave it disabled.
->> I believe your goal is to make it so that dev_disable_lro() can shut
->> down LRO when it is making packets in the data-path unusable. There is
->> no need to make this an all or nothing scenario. We can let the stack
->> slam things down with dev_disable_lro() and then if a user so desires
->> they can come back through and enable LRO more selectively if they for
->> instance have an interface that can do a smarter job of putting together
->> frames that could be routed.
->>
->> You could probably look at doing something like this for RXCSUM as well.
->> The general idea is that if an upper device has it off then the value
->> has to be off. For example if RXCSUM is off in a upper device and LRO is
->> enabled on the lower device there is a good chance that the upper device
->> will report checksum errors since most LRO implementations don't
->> recalculate the checksum. If RXCSUM is forced down to the lower device
->> hopefully its fix_features will know this and disable LRO on that device
->> when the RXCSUM is disabled on it.
->
-> Yeah, I was thinking there might be more flags to treat the same way,
-> just wanted to hammer out the plausibility of doing it at all first. I
-> can add RXCSUM to v2, or just wait until there's something that people
-> might consider merge-worthy before worrying about additional flags. From
-> what I've seen, most device's fix_features are reasonably intelligent
-> about allowing/disallowing certain flag combos, so this does look pretty
-> safe at a glance, and if a specific device tips over, it probably needs
-> to be fixed in the device's driver anyway.
+On Fri, 2015-10-30 at 13:02 -0700, Eric Dumazet wrote:
 
-If nothing else you might start looking at working with a mask of bits 
-that function like this.  You could probably start with GRO, LRO, and 
-RXCSUM and work your way up from there.  If they aren't set on the upper 
-devices you cannot enable them, and if they are cleared then they must 
-be cleared on all lower devices.
+> So it looks like you have a device with a very big hh_len
+> 
+> MAX_TCP_HEADER is not enough space to hold all headers, and this is the
+> bug that needs to be fixed. This is scary to realloc all tcp packets !
+> 
 
-- Alex
+drivers/net/hyperv/netvsc_drv.c sets a needed_headroom of 220 bytes :(
+
+Could you try :
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 4ac653b7b8ac..7dbdd29076be 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -132,8 +132,10 @@ static inline bool dev_xmit_complete(int rc)
+  *	used.
+  */
+ 
+-#if defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
+-# if defined(CONFIG_MAC80211_MESH)
++#if defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25) || IS_ENABLED(CONFIG_HYPERV_NET)
++# if IS_ENABLED(CONFIG_HYPERV_NET)
++# define LL_MAX_HEADER 384
++# elif defined(CONFIG_MAC80211_MESH)
+ #  define LL_MAX_HEADER 128
+ # else
+ #  define LL_MAX_HEADER 96
