@@ -1,8 +1,9 @@
 From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorensen@spectralink.com>
-Subject: [PATCH net-next 0/5] dp83640 driver fixes
-Date: Fri, 30 Oct 2015 13:13:59 +0100
-Message-ID: <1446207244-2206-1-git-send-email-stefan.sorensen@spectralink.com>
+Subject: [PATCH net-next 3/5] dp83640: Prune rx timestamp list before reading from it
+Date: Fri, 30 Oct 2015 13:14:02 +0100
+Message-ID: <1446207244-2206-4-git-send-email-stefan.sorensen@spectralink.com>
+References: <1446207244-2206-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -11,29 +12,38 @@ Cc: <netdev@vger.kernel.org>, <richardcochran@gmail.com>,
 	<stefan.sorensen@spectralink.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0136.outbound.protection.outlook.com ([157.56.111.136]:31710
+Received: from mail-bn1on0140.outbound.protection.outlook.com ([157.56.110.140]:22221
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752372AbbJ3M3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Oct 2015 08:29:16 -0400
+	id S1752372AbbJ3M3v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Oct 2015 08:29:51 -0400
+In-Reply-To: <1446207244-2206-1-git-send-email-stefan.sorensen@spectralink.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series fixes a number of minor bugs in the dp83640 driver.=20
+The list of rx timestamps are currently only pruned of old entries when=
+ a
+new entry is inserted. If no new entries are added, old timestamps may
+survive beyond their lifetime, possible causing them to be attached to
+packets with the same sequence number after a rollover.
 
-Stefan S=C3=B8rensen (5):
-  dp83640: Include hash in timestamp/packet matching
-  dp83640: Delay scheduled work.
-  dp83640: Prune rx timestamp list before reading from it
-  ptp: Change ptp_class to a proper bitmask
-  dp83640: Only wait for timestamps for packets with timestamping enabl=
-ed.
+Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
+---
+ drivers/net/phy/dp83640.c | 1 +
+ 1 file changed, 1 insertion(+)
 
- drivers/net/phy/dp83640.c    | 60 +++++++++++++++++++++++++++---------=
---------
- include/linux/ptp_classify.h |  7 +++---
- net/core/ptp_classifier.c    | 16 ++++++------
- 3 files changed, 49 insertions(+), 34 deletions(-)
-
+diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+index f3e812b..c1f70b7 100644
+--- a/drivers/net/phy/dp83640.c
++++ b/drivers/net/phy/dp83640.c
+@@ -1394,6 +1394,7 @@ static bool dp83640_rxtstamp(struct phy_device *p=
+hydev,
+ 		return false;
+=20
+ 	spin_lock_irqsave(&dp83640->rx_lock, flags);
++	prune_rx_ts(dp83640);
+ 	list_for_each_safe(this, next, &dp83640->rxts) {
+ 		rxts =3D list_entry(this, struct rxts, list);
+ 		if (match(skb, type, rxts)) {
 --=20
 2.5.0
