@@ -1,57 +1,124 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next v2 4/4] sch_dsmark: update backlog as well
-Date: Fri, 30 Oct 2015 11:22:31 -0700
-Message-ID: <1446229351-13412-5-git-send-email-xiyou.wangcong@gmail.com>
-References: <1446229351-13412-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:32914 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758627AbbJ3SWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 14:22:48 -0400
-Received: by padhy1 with SMTP id hy1so75198128pad.0
-        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 11:22:47 -0700 (PDT)
-In-Reply-To: <1446229351-13412-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: [PATCH v3 net] i40e: Look up MAC address in Open Firmware or
+ IDPROM
+Date: Fri, 30 Oct 2015 18:28:46 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFACA14@fmsmsx115.amr.corp.intel.com>
+References: <20151030150344.GG9312@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"andy.shevchenko@gmail.com" <andy.shevchenko@gmail.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151030150344.GG9312@oracle.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Similarly, we need to update backlog too when we update qlen.
+> -----Original Message-----
+> From: Sowmini Varadhan [mailto:sowmini.varadhan@oracle.com]
+> Sent: Friday, October 30, 2015 8:04 AM
+> To: 
+> Subject: [PATCH v3 net] i40e: Look up MAC address in Open Firmware or IDPROM
+> 
+> 
+> This is the i40e equivalent of commit c762dff24c06 ("ixgbe: Look up MAC
+> address in Open Firmware or IDPROM").
+> 
+> As with that fix, attempt to look up the MAC address in Open Firmware
+> on systems that support it, and use IDPROM on SPARC if no OF address
+> is found.
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/sch_dsmark.c | 3 +++
- 1 file changed, 3 insertions(+)
+Going along with this being the equivalent of the ixgbe patch, I'd prefer the new code to be in i40e_main.c, rather than in i40e_common.c.  In the design of our drivers, the common file is essentially a device specific layer, and the OS and platform related stuff should stay in i40e_main.c.  That would also take care of one of the include file nits that Andy mentioned.
 
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index cfddb1c..d0dff0c 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -258,6 +258,7 @@ static int dsmark_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		return err;
- 	}
- 
-+	qdisc_qstats_backlog_inc(sch, skb);
- 	sch->q.qlen++;
- 
- 	return NET_XMIT_SUCCESS;
-@@ -280,6 +281,7 @@ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
- 		return NULL;
- 
- 	qdisc_bstats_update(sch, skb);
-+	qdisc_qstats_backlog_dec(sch, skb);
- 	sch->q.qlen--;
- 
- 	index = skb->tc_index & (p->indices - 1);
-@@ -395,6 +397,7 @@ static void dsmark_reset(struct Qdisc *sch)
- 
- 	pr_debug("%s(sch %p,[qdisc %p])\n", __func__, sch, p);
- 	qdisc_reset(p->q);
-+	sch->qstats.backlog = 0;
- 	sch->q.qlen = 0;
- }
- 
--- 
-1.8.3.1
+
+At the risk of flying my Device Tree ignorance for all to see, I have a couple questions on how this is used.
+
+Since the mac address is specific to the individual device, how does it get into the device tree?  I thought the device tree was compiled ahead of time for the platform it is used on.  Is this a generic DT pattern just in case some platform actually has the mac-address?  Or does the device mac-address get saved into the DT on the first time through this path so it can be found next time?
+
+If the Device Tree has a different mac address than the HW, when does the kernel tell the HW to use a different mac address?  Does the DT management eventually call the ndo_set_mac_address call so the HW knows to use a different mac address?
+
+Thanks,
+sln
+
+
+> 
+> Reviewed-by: Martin K. Petersen <martin.petersen@oracle.com>
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> ---
+> v2: andy shevchenko comments
+> v3: more andy shevchenko comments
+>  drivers/net/ethernet/intel/i40e/i40e_common.c |   30 +++++++++++++++++++++++++
+>  1 files changed, 30 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c
+> b/drivers/net/ethernet/intel/i40e/i40e_common.c
+> index 2d74c6e..3edfe19 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_common.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+> @@ -24,6 +24,14 @@
+>   *
+> 
+> ******************************************************************************/
+> 
+> +#include <linux/etherdevice.h>
+> +#include <linux/of_net.h>
+> +#include <linux/pci.h>
+> +#ifdef CONFIG_SPARC
+> +#include <asm/idprom.h>
+> +#include <asm/prom.h>
+> +#endif
+> +#include "i40e.h"
+>  #include "i40e_type.h"
+>  #include "i40e_adminq.h"
+>  #include "i40e_prototype.h"
+> @@ -1008,6 +1016,25 @@ i40e_status i40e_aq_mac_address_write(struct i40e_hw
+> *hw,
+>  	return status;
+>  }
+> 
+> +static int i40e_get_platform_mac_addr(struct i40e_hw *hw, u8 *mac_addr)
+> +{
+> +	struct i40e_pf *pf = hw->back;
+> +	struct device_node *dp = pci_device_to_OF_node(pf->pdev);
+> +	const unsigned char *addr;
+> +
+> +	addr = of_get_mac_address(dp);
+> +	if (addr) {
+> +		ether_addr_copy(mac_addr, addr);
+> +		return 0;
+> +	}
+> +
+> +#ifdef CONFIG_SPARC
+> +	ether_addr_copy(mac_addr, idprom->id_ethaddr);
+> +	return 0;
+> +#endif /* CONFIG_SPARC */
+> +	return 1;
+> +}
+> +
+>  /**
+>   * i40e_get_mac_addr - get MAC address
+>   * @hw: pointer to the HW structure
+> @@ -1021,6 +1048,9 @@ i40e_status i40e_get_mac_addr(struct i40e_hw *hw, u8
+> *mac_addr)
+>  	i40e_status status;
+>  	u16 flags = 0;
+> 
+> +	if (!i40e_get_platform_mac_addr(hw, mac_addr))
+> +		return I40E_SUCCESS;
+> +
+>  	status = i40e_aq_mac_address_read(hw, &flags, &addrs, NULL);
+> 
+>  	if (flags & I40E_AQC_LAN_ADDR_VALID)
+> --
+> 1.7.1
