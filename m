@@ -1,54 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net-next): ipsec-next 2015-10-30
-Date: Fri, 30 Oct 2015 20:53:05 +0900 (KST)
-Message-ID: <20151030.205305.233341348283456604.davem@davemloft.net>
-References: <1446185790-24214-1-git-send-email-steffen.klassert@secunet.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next rfc V2 0/2] basic busy polling support for
+	vhost_net
+Date: Fri, 30 Oct 2015 19:58:30 +0800
+Message-ID: <56335B66.9050705@redhat.com>
+References: <1446108326-37765-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33790 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758909AbbJ3LxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 07:53:17 -0400
-In-Reply-To: <1446185790-24214-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: mst@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1446108326-37765-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Fri, 30 Oct 2015 07:16:25 +0100
 
-> 1) The flow cache is limited by the flow cache limit which
->    depends on the number of cpus and the xfrm garbage collector
->    threshold which is independent of the number of cpus. This
->    leads to the fact that on systems with more than 16 cpus
->    we hit the xfrm garbage collector limit and refuse new
->    allocations, so new flows are dropped. On systems with 16
->    or less cpus, we hit the flowcache limit. In this case, we
->    shrink the flow cache instead of refusing new flows. 
-> 
->    We increase the xfrm garbage collector threshold to INT_MAX
->    to get the same behaviour, independent of the number of cpus.
-> 
-> 2) Fix some unaligned accesses on sparc systems.
->    From Sowmini Varadhan.
-> 
-> 3) Fix some header checks in _decode_session4. We may call
->    pskb_may_pull with a negative value converted to unsigened
->    int from pskb_may_pull. This can lead to incorrect policy
->    lookups. We fix this by a check of the data pointer position
->    before we call pskb_may_pull.
-> 
-> 4) Reload skb header pointers after calling pskb_may_pull
->    in _decode_session4 as this may change the pointers into
->    the packet. 
-> 
-> 5) Add a missing statistic counter on inner mode errors.
-> 
-> Please pull or let me know if there are problems.
- ...
->   git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
 
-Pulled, thanks a lot Steffen!
+On 10/29/2015 04:45 PM, Jason Wang wrote:
+> Hi all:
+>
+> This series tries to add basic busy polling for vhost net. The idea is
+> simple: at the end of tx processing, busy polling for new tx added
+> descriptor and rx receive socket for a while. The maximum number of
+> time (in us) could be spent on busy polling was specified through
+> module parameter.
+>
+> Test were done through:
+>
+> - 50 us as busy loop timeout
+> - Netperf 2.6
+> - Two machines with back to back connected mlx4
+> - Guest with 8 vcpus and 1 queue
+>
+> Result shows very huge improvement on both tx (at most 158%) and rr
+> (at most 53%) while rx is as much as in the past. Most cases the cpu
+> utilization is also improved:
+>
+
+Just notice there's something wrong in the setup. So the numbers are
+incorrect here. Will re-run and post correct number here.
+
+Sorry.
