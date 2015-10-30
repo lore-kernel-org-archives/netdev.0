@@ -1,80 +1,83 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net-next] hyperv: Add handler for RNDIS_STATUS_NETWORK_CHANGE event
-Date: Fri, 30 Oct 2015 11:56:19 +0100
-Message-ID: <878u6ksjzg.fsf@vitty.brq.redhat.com>
-References: <06b508cbb6b949f4b3e13e7797948e56@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-	<20140623131723.GA7026@aepfle.de>
-	<5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-	<20140623.131018.1349792926453695313.davem@davemloft.net>
-	<CAFLxGvwjhxxc2OgerCeF4nmvpbTV1-XttUZ2poaDLFWcBpaOxw@mail.gmail.com>
-	<BN1PR0301MB077055A8DD93983AF1C8E31ACA200@BN1PR0301MB0770.namprd03.prod.outlook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: kernel BUG in ipmr_queue_xmit()
+Date: Fri, 30 Oct 2015 04:00:28 -0700
+Message-ID: <1446202828.6254.10.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.OSX.2.00.1510291646320.59200@animac.local>
+	 <20151030001510.GG18062@breakpoint.cc>
+	 <alpine.OSX.2.00.1510291841480.68875@animac.local>
+	 <1446178542.6254.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151030103658.GA25931@breakpoint.cc>
+	 <1446201624.707140.424480297.4D8B55D6@webmail.messagingengine.com>
+	 <20151030104846.GA3461@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Richard Weinberger <richard.weinberger@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"olaf\@aepfle.de" <olaf@aepfle.de>,
-	"jasowang\@redhat.com" <jasowang@redhat.com>,
-	"driverdev-devel\@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BN1PR0301MB077055A8DD93983AF1C8E31ACA200@BN1PR0301MB0770.namprd03.prod.outlook.com>
-	(Haiyang Zhang's message of "Thu, 29 Oct 2015 19:09:12 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Ani Sinha <ani@arista.com>, netdev@vger.kernel.org,
+	ani@anirban.org, fruggeri@arista.com
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34145 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966231AbbJ3LAb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 07:00:31 -0400
+Received: by padhk11 with SMTP id hk11so71869312pad.1
+        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 04:00:30 -0700 (PDT)
+In-Reply-To: <20151030104846.GA3461@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Haiyang Zhang <haiyangz@microsoft.com> writes:
+On Fri, 2015-10-30 at 11:48 +0100, Florian Westphal wrote:
+> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> > > > > @@ -936,7 +936,9 @@ static void ipmr_cache_resolve(struct net *net, struct mr_table *mrt,
+> > > > >  
+> > > > >  			rtnl_unicast(skb, net, NETLINK_CB(skb).portid);
+> > > > >  		} else {
+> > > > > +			preempt_disable();
+> > > > >  			ip_mr_forward(net, mrt, skb, c, 0);
+> > > > > +			preempt_enable();
+> > > > >  		}
+> > > > >  	}
+> > > > >  }
+> > > > 
+> > > > I do not believe this fix is correct.
+> > > 
+> > > Yes, sorry.  I should have suggested local_bh_disable instead.
+> > > 
+> > > > Better replace the
+> > > > IP_INC_STATS_BH() by IP_INC_STATS()
+> > > >
+> > > > and IP_ADD_STATS_BH() by IP_ADD_STATS()
+> > > 
+> > > Hmm, whats the rationale for this?
+> > > 
+> > > Note that IP_ADD_STATS_BH in question is unconditional (not in
+> > > error path).  It seems that its virtually always called from softirq
+> > > except in the setsockopt case.
+> > 
+> > The naming of the functions is bad if you compare them to e.g.
+> > spin_lock_bh.
+> > 
+> > STATS_BH can only be used from bottom half and the normal ones (without
+> > _BH) can be called from everywhere. It is a common pattern in the
+> > kernel.
+> > 
+> > Eric's proposal is correct.
+> 
+> Yes, its correct but it results in 4 additonal bh on/off calls
+> for the common case, hence my question.
+> 
+> Moving the one ip_mr_forward into bh-off keeps the bh-disable thing
+> in the setsockopt path.
 
->> -----Original Message-----
->> From: Richard Weinberger [mailto:richard.weinberger@gmail.com]
->> Sent: Tuesday, October 27, 2015 6:36 PM
->> To: David Miller <davem@davemloft.net>
->> Cc: Haiyang Zhang <haiyangz@microsoft.com>; olaf@aepfle.de; Greg Kroah-
->> Hartman <greg@kroah.com>; netdev@vger.kernel.org; jasowang@redhat.com;
->> driverdev-devel@linuxdriverproject.org; LKML <linux-
->> kernel@vger.kernel.org>
->> Subject: Re: [PATCH net-next] hyperv: Add handler for
->> RNDIS_STATUS_NETWORK_CHANGE event
->> 
->> On Mon, Jun 23, 2014 at 10:10 PM, David Miller <davem@davemloft.net>
->> wrote:
->> > From: Haiyang Zhang <haiyangz@microsoft.com>
->> > Date: Mon, 23 Jun 2014 16:09:59 +0000
->> >
->> >> So, what's the equivalent or similar command to "network restart" on
->> SLES12? Could
->> >> you update the command line for the usermodehelper when porting this
->> patch to SLES
->> >> 12?
->> >
->> > No, you are not going to keep the usermodehelper invocation in your
->> driver
->> > please remove it.  It is absolutely inappropriate, and I strictly do
->> not want
->> > to keep it in there because other people will copy it and then we'll
->> have a
->> > real mess on our hands.
->> 
->> Sorry for digging up this old thread.
->> While talking with some guys about usermodehelper abuses I came across
->> this gem.
->> Mainline still contains that "/etc/init.d/network restart" code.
->> Haiyang, care to cleanup?
->
-> Hi Richard and others,
->
-> Thanks for the reminder. I will clean up the usermode helper.
->
-> Do you have suggestions of trigger DHCP refresh from kernel mode? Any 
-> sample code in the existing kernel code?
->
+I have no idea how long is the ip_mr_forward(net, mrt, skb, c, 0)
+section, and if GFP_KERNEL allocations were attempted in this path.
 
-I think it's wrong to call dhcp refresh from kernel. What happens when
-we reconnect normal hardware adapter to another network? Link goes down
-and then up and userspace is supposed to react accordingly. I think we
-should emulate something similar for RNDIS_STATUS_NETWORK_CHANGE.
+The proposed fix might add other regressions.
 
--- 
-  Vitaly
+I do not want to spend time auditing this code that nobody uses.
+
+While on x86, IP_INC_STATS() does not use additional bh on/off calls
+
+In general, we should disable interrupts (even if soft) for limited
+amount of times.
