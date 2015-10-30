@@ -1,60 +1,169 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [patch] tcp: attach SYNACK messages to request sockets instead of
- listener
-Date: Fri, 30 Oct 2015 21:42:30 +0000
-Message-ID: <BN1PR0301MB07705F68B22ED84061E37337CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-References: <BN1PR0301MB07704A8D81E0AD6A358D6D53CA200@BN1PR0301MB0770.namprd03.prod.outlook.com>
-	 <1446159521.6254.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <BN1PR0301MB0770DDDA95027A39BF078CE6CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-	 <1446235356.6254.33.camel@edumazet-glaptop2.roam.corp.google.com>
- <1446236331.6254.36.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect for
+ sockets in accept(3)
+Date: Fri, 30 Oct 2015 14:50:46 -0700
+Message-ID: <CA+55aFy9fPmbSCJoQiCkjkaiU2HTM6p=o-pJgiV7asyVWBjAEg@mail.gmail.com>
+References: <1446043677.7476.68.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20151028211347.GC22011@ZenIV.linux.org.uk>
+	<1446068668.7476.89.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20151028223330.GD22011@ZenIV.linux.org.uk>
+	<1446073709.7476.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20151029001532.GE22011@ZenIV.linux.org.uk>
+	<1446089381.7476.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20151029041611.GF22011@ZenIV.linux.org.uk>
+	<1446122119.7476.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+55aFx_BQG4FzSuyL2KAz=c+R0cPv0ZpjboT_=yKjZNGmTUEg@mail.gmail.com>
+	<20151030210215.GI22011@ZenIV.linux.org.uk>
+	<CA+55aFyoA5sXQvFDavNa7cGkRevunmtPe8F8-_tZ9-826qfkgw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "edumazet@google.com" <edumazet@google.com>,
+Content-Type: multipart/mixed; boundary=001a11c3146e865e1d0523596bcf
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"KY Srinivasan" <kys@microsoft.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Network Development <netdev@vger.kernel.org>,
+	David Howells <dhowells@redhat.com>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>
+To: Al Viro <viro@zeniv.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0117.outbound.protection.outlook.com ([207.46.100.117]:44419
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752865AbbJ3Vme (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Oct 2015 17:42:34 -0400
-In-Reply-To: <1446236331.6254.36.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-lf0-f52.google.com ([209.85.215.52]:35604 "EHLO
+	mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754016AbbJ3Vus (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 17:50:48 -0400
+In-Reply-To: <CA+55aFyoA5sXQvFDavNa7cGkRevunmtPe8F8-_tZ9-826qfkgw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBPY3RvYmVyIDMw
-LCAyMDE1IDQ6MTkgUE0NCj4gVG86IEhhaXlhbmcgWmhhbmcgPGhhaXlhbmd6QG1pY3Jvc29mdC5j
-b20+DQo+IENjOiBlZHVtYXpldEBnb29nbGUuY29tOyBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVt
-bG9mdC5uZXQ+Ow0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBLWSBTcmluaXZhc2FuIDxreXNA
-bWljcm9zb2Z0LmNvbT4NCj4gU3ViamVjdDogUmU6IFtwYXRjaF0gdGNwOiBhdHRhY2ggU1lOQUNL
-IG1lc3NhZ2VzIHRvIHJlcXVlc3Qgc29ja2V0cw0KPiBpbnN0ZWFkIG9mIGxpc3RlbmVyDQo+IA0K
-PiBPbiBGcmksIDIwMTUtMTAtMzAgYXQgMTM6MDIgLTA3MDAsIEVyaWMgRHVtYXpldCB3cm90ZToN
-Cj4gDQo+ID4gU28gaXQgbG9va3MgbGlrZSB5b3UgaGF2ZSBhIGRldmljZSB3aXRoIGEgdmVyeSBi
-aWcgaGhfbGVuDQo+ID4NCj4gPiBNQVhfVENQX0hFQURFUiBpcyBub3QgZW5vdWdoIHNwYWNlIHRv
-IGhvbGQgYWxsIGhlYWRlcnMsIGFuZCB0aGlzIGlzDQo+IHRoZQ0KPiA+IGJ1ZyB0aGF0IG5lZWRz
-IHRvIGJlIGZpeGVkLiBUaGlzIGlzIHNjYXJ5IHRvIHJlYWxsb2MgYWxsIHRjcCBwYWNrZXRzICEN
-Cj4gPg0KPiANCj4gZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYyBzZXRzIGEgbmVlZGVk
-X2hlYWRyb29tIG9mIDIyMCBieXRlcyA6KA0KPiANCj4gQ291bGQgeW91IHRyeSA6DQo+IA0KPiBk
-aWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaCBiL2luY2x1ZGUvbGludXgvbmV0
-ZGV2aWNlLmgNCj4gaW5kZXggNGFjNjUzYjdiOGFjLi43ZGJkZDI5MDc2YmUgMTAwNjQ0DQo+IC0t
-LSBhL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgNCj4gKysrIGIvaW5jbHVkZS9saW51eC9uZXRk
-ZXZpY2UuaA0KPiBAQCAtMTMyLDggKzEzMiwxMCBAQCBzdGF0aWMgaW5saW5lIGJvb2wgZGV2X3ht
-aXRfY29tcGxldGUoaW50IHJjKQ0KPiAgICoJdXNlZC4NCj4gICAqLw0KPiANCj4gLSNpZiBkZWZp
-bmVkKENPTkZJR19XTEFOKSB8fCBJU19FTkFCTEVEKENPTkZJR19BWDI1KQ0KPiAtIyBpZiBkZWZp
-bmVkKENPTkZJR19NQUM4MDIxMV9NRVNIKQ0KPiArI2lmIGRlZmluZWQoQ09ORklHX1dMQU4pIHx8
-IElTX0VOQUJMRUQoQ09ORklHX0FYMjUpIHx8DQo+IElTX0VOQUJMRUQoQ09ORklHX0hZUEVSVl9O
-RVQpDQo+ICsjIGlmIElTX0VOQUJMRUQoQ09ORklHX0hZUEVSVl9ORVQpDQo+ICsjIGRlZmluZSBM
-TF9NQVhfSEVBREVSIDM4NA0KPiArIyBlbGlmIGRlZmluZWQoQ09ORklHX01BQzgwMjExX01FU0gp
-DQo+ICAjICBkZWZpbmUgTExfTUFYX0hFQURFUiAxMjgNCj4gICMgZWxzZQ0KPiAgIyAgZGVmaW5l
-IExMX01BWF9IRUFERVIgOTYNCj4gDQoNCldpdGggeW91ciAybmQgcGF0Y2gsIEkgc2F3Og0KWyAg
-IDE5LjI0MjEwNF0gV293ICEgaGVhZHJvb209MTY0IHdoaWxlIGhoX2xlbihldGgwKT0yNDANCg0K
-QWZ0ZXIgYWRkaW5nIHRoZSAzcmQgcGF0Y2ggd2l0aCBpbmNyZWFzZWQgTExfTUFYX0hFQURFUiwN
-CnRoZSB3YXJuaW5nIGFuZCBzdGFjayB0cmFjZSBubyBsb25nZXIgc2hvdyB1cC4NCg0KQWxzbywg
-Y291bGQgeW91IGZpeCB0aGUgbmV0IGNvcmUgY29kZSBzbyB0aGF0IGl0IGRvZXNuJ3QgDQpwYW5p
-YyBldmVuIHdpdGggcmVhbGxvY2F0ZWQgaGVhZGVyPw0KDQpUaGFua3MsDQotIEhhaXlhbmcNCg0K
+--001a11c3146e865e1d0523596bcf
+Content-Type: text/plain; charset=UTF-8
+
+On Fri, Oct 30, 2015 at 2:23 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+> On Fri, Oct 30, 2015 at 2:02 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+>>
+>> Your variant has 1:64 ratio; obviously better than now, but we can actually
+>> do 1:bits-per-cacheline quite easily.
+>
+> Ok, but in that case you end up needing a counter for each cacheline
+> too (to count how many bits, in order to know when to say "cacheline
+> is entirely full").
+
+So here's a largely untested version of my "one bit per word"
+approach. It seems to work, but looking at it, I'm unhappy with a few
+things:
+
+ - using kmalloc() for the .full_fds_bits[] array is simple, but
+disgusting, since 99% of all programs just have a single word.
+
+   I know I talked about just adding the allocation to the same one
+that allocates the bitmaps themselves, but I got lazy and didn't do
+it. Especially since that code seems to try fairly hard to make the
+allocations nice powers of two, according to the comments. That may
+actually matter from an allocation standpoint.
+
+ - Maybe we could just use that "full_fds_bits_init" field for when a
+single word is sufficient, and avoid the kmalloc that way?
+
+Anyway. This is a pretty simple patch, and I actually think that we
+could just get rid of the "next_fd" logic entirely with this. That
+would make this *patch* be more complicated, but it would make the
+resulting *code* be simpler.
+
+Hmm? Want to play with this? Eric, what does this do to your test-case?
+
+                        Linus
+
+--001a11c3146e865e1d0523596bcf
+Content-Type: text/plain; charset=US-ASCII; name="patch.diff"
+Content-Disposition: attachment; filename="patch.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ige71vaj0
+
+IGZzL2ZpbGUuYyAgICAgICAgICAgICAgIHwgNDkgKysrKysrKysrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKy0tLQogaW5jbHVkZS9saW51eC9mZHRhYmxlLmggfCAgMiArKwog
+MiBmaWxlcyBjaGFuZ2VkLCA0OCBpbnNlcnRpb25zKCspLCAzIGRlbGV0aW9ucygtKQoKZGlmZiAt
+LWdpdCBhL2ZzL2ZpbGUuYyBiL2ZzL2ZpbGUuYwppbmRleCA2YzY3MmFkMzI5ZTkuLjBiODlhOTdj
+YWJiNSAxMDA2NDQKLS0tIGEvZnMvZmlsZS5jCisrKyBiL2ZzL2ZpbGUuYwpAQCAtNDgsNiArNDgs
+NyBAQCBzdGF0aWMgdm9pZCBfX2ZyZWVfZmR0YWJsZShzdHJ1Y3QgZmR0YWJsZSAqZmR0KQogewog
+CWt2ZnJlZShmZHQtPmZkKTsKIAlrdmZyZWUoZmR0LT5vcGVuX2Zkcyk7CisJa2ZyZWUoZmR0LT5m
+dWxsX2Zkc19iaXRzKTsKIAlrZnJlZShmZHQpOwogfQogCkBAIC01Niw2ICs1Nyw5IEBAIHN0YXRp
+YyB2b2lkIGZyZWVfZmR0YWJsZV9yY3Uoc3RydWN0IHJjdV9oZWFkICpyY3UpCiAJX19mcmVlX2Zk
+dGFibGUoY29udGFpbmVyX29mKHJjdSwgc3RydWN0IGZkdGFibGUsIHJjdSkpOwogfQogCisjZGVm
+aW5lIEJJVEJJVF9OUihucikJQklUU19UT19MT05HUyhCSVRTX1RPX0xPTkdTKG5yKSkKKyNkZWZp
+bmUgQklUQklUX1NJWkUobnIpCShCSVRCSVRfTlIobnIpICogc2l6ZW9mKGxvbmcpKQorCiAvKgog
+ICogRXhwYW5kIHRoZSBmZHNldCBpbiB0aGUgZmlsZXNfc3RydWN0LiAgQ2FsbGVkIHdpdGggdGhl
+IGZpbGVzIHNwaW5sb2NrCiAgKiBoZWxkIGZvciB3cml0ZS4KQEAgLTc3LDYgKzgxLDExIEBAIHN0
+YXRpYyB2b2lkIGNvcHlfZmR0YWJsZShzdHJ1Y3QgZmR0YWJsZSAqbmZkdCwgc3RydWN0IGZkdGFi
+bGUgKm9mZHQpCiAJbWVtc2V0KChjaGFyICopKG5mZHQtPm9wZW5fZmRzKSArIGNweSwgMCwgc2V0
+KTsKIAltZW1jcHkobmZkdC0+Y2xvc2Vfb25fZXhlYywgb2ZkdC0+Y2xvc2Vfb25fZXhlYywgY3B5
+KTsKIAltZW1zZXQoKGNoYXIgKikobmZkdC0+Y2xvc2Vfb25fZXhlYykgKyBjcHksIDAsIHNldCk7
+CisKKwljcHkgPSBCSVRCSVRfU0laRShvZmR0LT5tYXhfZmRzKTsKKwlzZXQgPSBCSVRCSVRfU0la
+RShuZmR0LT5tYXhfZmRzKSAtIGNweTsKKwltZW1jcHkobmZkdC0+ZnVsbF9mZHNfYml0cywgb2Zk
+dC0+ZnVsbF9mZHNfYml0cywgY3B5KTsKKwltZW1zZXQoY3B5KyhjaGFyICopbmZkdC0+ZnVsbF9m
+ZHNfYml0cywgMCwgc2V0KTsKIH0KIAogc3RhdGljIHN0cnVjdCBmZHRhYmxlICogYWxsb2NfZmR0
+YWJsZSh1bnNpZ25lZCBpbnQgbnIpCkBAIC0xMjIsOCArMTMxLDIxIEBAIHN0YXRpYyBzdHJ1Y3Qg
+ZmR0YWJsZSAqIGFsbG9jX2ZkdGFibGUodW5zaWduZWQgaW50IG5yKQogCWRhdGEgKz0gbnIgLyBC
+SVRTX1BFUl9CWVRFOwogCWZkdC0+Y2xvc2Vfb25fZXhlYyA9IGRhdGE7CiAKKwkvKgorCSAqIFRo
+ZSAiYml0bWFwIG9mIGJpdG1hcHMiIGhhcyBhIGJpdCBzZXQgZm9yIGVhY2ggd29yZCBpbgorCSAq
+IHRoZSBvcGVuX2ZkcyBhcnJheSB0aGF0IGlzIGZ1bGwuIFdlIGluaXRpYWxpemUgaXQgdG8KKwkg
+KiB6ZXJvIGJvdGggYXQgYWxsb2NhdGlvbiBhbmQgYXQgY29weWluZywgYmVjYXVzZSBpdCBpcwor
+CSAqIGltcG9ydGFudCB0aGF0IGl0IG5ldmVyIGhhdmUgYSBiaXQgc2V0IGZvciBhIG5vbi1mdWxs
+CisJICogd29yZCwgYnV0IGl0IGRvZXNuJ3QgaGF2ZSB0byBiZSBleGFjdCBvdGhlcndpc2UuCisJ
+ICovCisJZmR0LT5mdWxsX2Zkc19iaXRzID0ga3phbGxvYyhCSVRCSVRfU0laRShuciksIEdGUF9L
+RVJORUwpOworCWlmICghZmR0LT5mdWxsX2Zkc19iaXRzKQorCQlnb3RvIG91dF9ub2Z1bGw7CisK
+IAlyZXR1cm4gZmR0OwogCitvdXRfbm9mdWxsOgorCWt2ZnJlZShmZHQtPm9wZW5fZmRzKTsKIG91
+dF9hcnI6CiAJa3ZmcmVlKGZkdC0+ZmQpOwogb3V0X2ZkdDoKQEAgLTIyOSwxNCArMjUxLDE4IEBA
+IHN0YXRpYyBpbmxpbmUgdm9pZCBfX2NsZWFyX2Nsb3NlX29uX2V4ZWMoaW50IGZkLCBzdHJ1Y3Qg
+ZmR0YWJsZSAqZmR0KQogCV9fY2xlYXJfYml0KGZkLCBmZHQtPmNsb3NlX29uX2V4ZWMpOwogfQog
+Ci1zdGF0aWMgaW5saW5lIHZvaWQgX19zZXRfb3Blbl9mZChpbnQgZmQsIHN0cnVjdCBmZHRhYmxl
+ICpmZHQpCitzdGF0aWMgaW5saW5lIHZvaWQgX19zZXRfb3Blbl9mZCh1bnNpZ25lZCBpbnQgZmQs
+IHN0cnVjdCBmZHRhYmxlICpmZHQpCiB7CiAJX19zZXRfYml0KGZkLCBmZHQtPm9wZW5fZmRzKTsK
+KwlmZCAvPSBCSVRTX1BFUl9MT05HOworCWlmICghfmZkdC0+b3Blbl9mZHNbZmRdKQorCQlfX3Nl
+dF9iaXQoZmQsIGZkdC0+ZnVsbF9mZHNfYml0cyk7CiB9CiAKLXN0YXRpYyBpbmxpbmUgdm9pZCBf
+X2NsZWFyX29wZW5fZmQoaW50IGZkLCBzdHJ1Y3QgZmR0YWJsZSAqZmR0KQorc3RhdGljIGlubGlu
+ZSB2b2lkIF9fY2xlYXJfb3Blbl9mZCh1bnNpZ25lZCBpbnQgZmQsIHN0cnVjdCBmZHRhYmxlICpm
+ZHQpCiB7CiAJX19jbGVhcl9iaXQoZmQsIGZkdC0+b3Blbl9mZHMpOworCV9fY2xlYXJfYml0KGZk
+IC8gQklUU19QRVJfTE9ORywgZmR0LT5mdWxsX2Zkc19iaXRzKTsKIH0KIAogc3RhdGljIGludCBj
+b3VudF9vcGVuX2ZpbGVzKHN0cnVjdCBmZHRhYmxlICpmZHQpCkBAIC0yODAsNiArMzA2LDcgQEAg
+c3RydWN0IGZpbGVzX3N0cnVjdCAqZHVwX2ZkKHN0cnVjdCBmaWxlc19zdHJ1Y3QgKm9sZGYsIGlu
+dCAqZXJyb3JwKQogCW5ld19mZHQtPm1heF9mZHMgPSBOUl9PUEVOX0RFRkFVTFQ7CiAJbmV3X2Zk
+dC0+Y2xvc2Vfb25fZXhlYyA9IG5ld2YtPmNsb3NlX29uX2V4ZWNfaW5pdDsKIAluZXdfZmR0LT5v
+cGVuX2ZkcyA9IG5ld2YtPm9wZW5fZmRzX2luaXQ7CisJbmV3X2ZkdC0+ZnVsbF9mZHNfYml0cyA9
+IG5ld2YtPmZ1bGxfZmRzX2JpdHNfaW5pdDsKIAluZXdfZmR0LT5mZCA9ICZuZXdmLT5mZF9hcnJh
+eVswXTsKIAogCXNwaW5fbG9jaygmb2xkZi0+ZmlsZV9sb2NrKTsKQEAgLTMyMyw2ICszNTAsNyBA
+QCBzdHJ1Y3QgZmlsZXNfc3RydWN0ICpkdXBfZmQoc3RydWN0IGZpbGVzX3N0cnVjdCAqb2xkZiwg
+aW50ICplcnJvcnApCiAKIAltZW1jcHkobmV3X2ZkdC0+b3Blbl9mZHMsIG9sZF9mZHQtPm9wZW5f
+ZmRzLCBvcGVuX2ZpbGVzIC8gOCk7CiAJbWVtY3B5KG5ld19mZHQtPmNsb3NlX29uX2V4ZWMsIG9s
+ZF9mZHQtPmNsb3NlX29uX2V4ZWMsIG9wZW5fZmlsZXMgLyA4KTsKKwltZW1jcHkobmV3X2ZkdC0+
+ZnVsbF9mZHNfYml0cywgb2xkX2ZkdC0+ZnVsbF9mZHNfYml0cywgQklUQklUX1NJWkUob3Blbl9m
+aWxlcykpOwogCiAJZm9yIChpID0gb3Blbl9maWxlczsgaSAhPSAwOyBpLS0pIHsKIAkJc3RydWN0
+IGZpbGUgKmYgPSAqb2xkX2ZkcysrOwpAQCAtNDU0LDEwICs0ODIsMjUgQEAgc3RydWN0IGZpbGVz
+X3N0cnVjdCBpbml0X2ZpbGVzID0gewogCQkuZmQJCT0gJmluaXRfZmlsZXMuZmRfYXJyYXlbMF0s
+CiAJCS5jbG9zZV9vbl9leGVjCT0gaW5pdF9maWxlcy5jbG9zZV9vbl9leGVjX2luaXQsCiAJCS5v
+cGVuX2Zkcwk9IGluaXRfZmlsZXMub3Blbl9mZHNfaW5pdCwKKwkJLmZ1bGxfZmRzX2JpdHMJPSBp
+bml0X2ZpbGVzLmZ1bGxfZmRzX2JpdHNfaW5pdCwKIAl9LAogCS5maWxlX2xvY2sJPSBfX1NQSU5f
+TE9DS19VTkxPQ0tFRChpbml0X2ZpbGVzLmZpbGVfbG9jayksCiB9OwogCitzdGF0aWMgdW5zaWdu
+ZWQgbG9uZyBmaW5kX25leHRfZmQoc3RydWN0IGZkdGFibGUgKmZkdCwgdW5zaWduZWQgbG9uZyBz
+dGFydCkKK3sKKwl1bnNpZ25lZCBsb25nIG1heGZkID0gZmR0LT5tYXhfZmRzOworCXVuc2lnbmVk
+IGxvbmcgbWF4Yml0ID0gbWF4ZmQgLyBCSVRTX1BFUl9MT05HOworCXVuc2lnbmVkIGxvbmcgYml0
+Yml0ID0gc3RhcnQgLyBCSVRTX1BFUl9MT05HOworCisJYml0Yml0ID0gZmluZF9uZXh0X3plcm9f
+Yml0KGZkdC0+ZnVsbF9mZHNfYml0cywgbWF4Yml0LCBiaXRiaXQpICogQklUU19QRVJfTE9ORzsK
+KwlpZiAoYml0Yml0ID4gbWF4ZmQpCisJCXJldHVybiBtYXhmZDsKKwlpZiAoYml0Yml0ID4gc3Rh
+cnQpCisJCXN0YXJ0ID0gYml0Yml0OworCXJldHVybiBmaW5kX25leHRfemVyb19iaXQoZmR0LT5v
+cGVuX2ZkcywgbWF4ZmQsIHN0YXJ0KTsKK30KKwogLyoKICAqIGFsbG9jYXRlIGEgZmlsZSBkZXNj
+cmlwdG9yLCBtYXJrIGl0IGJ1c3kuCiAgKi8KQEAgLTQ3Niw3ICs1MTksNyBAQCByZXBlYXQ6CiAJ
+CWZkID0gZmlsZXMtPm5leHRfZmQ7CiAKIAlpZiAoZmQgPCBmZHQtPm1heF9mZHMpCi0JCWZkID0g
+ZmluZF9uZXh0X3plcm9fYml0KGZkdC0+b3Blbl9mZHMsIGZkdC0+bWF4X2ZkcywgZmQpOworCQlm
+ZCA9IGZpbmRfbmV4dF9mZChmZHQsIGZkKTsKIAogCS8qCiAJICogTi5CLiBGb3IgY2xvbmUgdGFz
+a3Mgc2hhcmluZyBhIGZpbGVzIHN0cnVjdHVyZSwgdGhpcyB0ZXN0CmRpZmYgLS1naXQgYS9pbmNs
+dWRlL2xpbnV4L2ZkdGFibGUuaCBiL2luY2x1ZGUvbGludXgvZmR0YWJsZS5oCmluZGV4IDY3NGUz
+ZTIyNjQ2NS4uNTI5NTUzNWI2MGM2IDEwMDY0NAotLS0gYS9pbmNsdWRlL2xpbnV4L2ZkdGFibGUu
+aAorKysgYi9pbmNsdWRlL2xpbnV4L2ZkdGFibGUuaApAQCAtMjYsNiArMjYsNyBAQCBzdHJ1Y3Qg
+ZmR0YWJsZSB7CiAJc3RydWN0IGZpbGUgX19yY3UgKipmZDsgICAgICAvKiBjdXJyZW50IGZkIGFy
+cmF5ICovCiAJdW5zaWduZWQgbG9uZyAqY2xvc2Vfb25fZXhlYzsKIAl1bnNpZ25lZCBsb25nICpv
+cGVuX2ZkczsKKwl1bnNpZ25lZCBsb25nICpmdWxsX2Zkc19iaXRzOwogCXN0cnVjdCByY3VfaGVh
+ZCByY3U7CiB9OwogCkBAIC01OSw2ICs2MCw3IEBAIHN0cnVjdCBmaWxlc19zdHJ1Y3QgewogCWlu
+dCBuZXh0X2ZkOwogCXVuc2lnbmVkIGxvbmcgY2xvc2Vfb25fZXhlY19pbml0WzFdOwogCXVuc2ln
+bmVkIGxvbmcgb3Blbl9mZHNfaW5pdFsxXTsKKwl1bnNpZ25lZCBsb25nIGZ1bGxfZmRzX2JpdHNf
+aW5pdFsxXTsKIAlzdHJ1Y3QgZmlsZSBfX3JjdSAqIGZkX2FycmF5W05SX09QRU5fREVGQVVMVF07
+CiB9OwogCg==
+--001a11c3146e865e1d0523596bcf--
