@@ -1,110 +1,53 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v4] net: ethernet: add driver for Aurora VLSI NB8800
- Ethernet controller
-Date: Fri, 30 Oct 2015 23:28:42 +0100
-Message-ID: <20151030222841.GA24712@electric-eye.fr.zoreil.com>
-References: <1446137333-1822-1-git-send-email-mans@mansr.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Fri, 30 Oct 2015 22:33:17 +0000
+Message-ID: <20151030223317.GK22011@ZenIV.linux.org.uk>
+References: <20151028223330.GD22011@ZenIV.linux.org.uk>
+ <1446073709.7476.93.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151029001532.GE22011@ZenIV.linux.org.uk>
+ <1446089381.7476.114.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151029041611.GF22011@ZenIV.linux.org.uk>
+ <1446122119.7476.138.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CA+55aFx_BQG4FzSuyL2KAz=c+R0cPv0ZpjboT_=yKjZNGmTUEg@mail.gmail.com>
+ <20151030210215.GI22011@ZenIV.linux.org.uk>
+ <CA+55aFyoA5sXQvFDavNa7cGkRevunmtPe8F8-_tZ9-826qfkgw@mail.gmail.com>
+ <CA+55aFy9fPmbSCJoQiCkjkaiU2HTM6p=o-pJgiV7asyVWBjAEg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Mans Rullgard <mans@mansr.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Network Development <netdev@vger.kernel.org>,
+	David Howells <dhowells@redhat.com>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:57591 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753242AbbJ3WdV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 18:33:21 -0400
 Content-Disposition: inline
-In-Reply-To: <1446137333-1822-1-git-send-email-mans@mansr.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CA+55aFy9fPmbSCJoQiCkjkaiU2HTM6p=o-pJgiV7asyVWBjAEg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mans Rullgard <mans@mansr.com> :
-[...]
-> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-> new file mode 100644
-> index 0000000..ce61439
-> --- /dev/null
-> +++ b/drivers/net/ethernet/aurora/nb8800.c
-[...]
-> +static int nb8800_mdio_read(struct mii_bus *bus, int phy_id, int reg)
-> +{
-> +	struct nb8800_priv *priv = bus->priv;
-> +	int val;
-> +
-> +	if (!nb8800_mdio_wait(bus))
-> +		return -ETIMEDOUT;
-> +
-> +	val = MIIAR_ADDR(phy_id) | MIIAR_REG(reg);
-> +
-> +	nb8800_writel(priv, NB8800_MDIO_CMD, val);
-> +	udelay(10);
-> +	nb8800_writel(priv, NB8800_MDIO_CMD, val | MDIO_CMD_GO);
-> +
-> +	if (!nb8800_mdio_wait(bus))
-> +		return -ETIMEDOUT;
+On Fri, Oct 30, 2015 at 02:50:46PM -0700, Linus Torvalds wrote:
 
-You may add a "nb8800_mdio_cmd" helper to factor the lines above in
-nb8800_mdio_{read / write}. It could save some bytes.
+> Anyway. This is a pretty simple patch, and I actually think that we
+> could just get rid of the "next_fd" logic entirely with this. That
+> would make this *patch* be more complicated, but it would make the
+> resulting *code* be simpler.
 
-[...]
-> +static void nb8800_mac_tx(struct net_device *dev, bool enable)
-> +{
-> +	struct nb8800_priv *priv = netdev_priv(dev);
-> +
-> +	while (nb8800_readl(priv, NB8800_TXC_CR) & TCR_EN)
-> +		cpu_relax();
-> +
-> +	if (enable)
-> +		nb8800_set_bits(b, priv, NB8800_TX_CTL1, TX_EN);
-> +	else
-> +		nb8800_clear_bits(b, priv, NB8800_TX_CTL1, TX_EN);
-[...]
-> +	if (enable)
-> +		nb8800_set_bits(b, priv, NB8800_RX_CTL, RX_EN);
-> +	else
-> +		nb8800_clear_bits(b, priv, NB8800_RX_CTL, RX_EN);
-[...]
-> +	if (enable)
-> +		nb8800_set_bits(b, priv, NB8800_RX_CTL, RX_AF_EN);
-> +	else
-> +		nb8800_clear_bits(b, priv, NB8800_RX_CTL, RX_AF_EN);
+Dropping next_fd would screw you in case of strictly sequential allocations...
 
-Factor out ?
+Your point re power-of-two allocations is well-taken, but then I'm not
+sure that kzalloc() is good enough here.  Look: you have a bit for every
+64 descriptors, i.e. byte per 512.  On 10M case Eric had been talking
+about that'll yield 32Kb worth of your secondary bitmap.  It's right on
+the edge of the range where vmalloc() becomes attractive; for something
+bigger it gets even worse...
 
-[...]
-> +static int nb8800_poll(struct napi_struct *napi, int budget)
-> +{
-> +	struct net_device *dev = napi->dev;
-> +	struct nb8800_priv *priv = netdev_priv(dev);
-> +	struct nb8800_dma_desc *rx;
-> +	int work = 0;
-> +	int last = priv->rx_eoc;
-> +	int next;
-> +
-> +	while (work < budget) {
-> +		struct rx_buf *rx_buf;
-> +		u32 report;
-> +		int len;
-> +
-> +		next = (last + 1) & (RX_DESC_COUNT - 1);
-> +
-> +		rx_buf = &priv->rx_bufs[next];
-> +		rx = &priv->rx_descs[next];
-> +		report = rx->report;
-> +
-> +		if (!report)
-> +			break;
-> +
-> +		if (IS_RX_ERROR(report)) {
-> +			nb8800_rx_error(dev, report);
-> +		} else if (likely(rx_buf->page)) {
-> +			len = RX_BYTES_TRANSFERRED(report);
-> +			nb8800_receive(dev, next, len);
-> +		}
-> +
-> +		rx->report = 0;
-> +		if (!rx_buf->page)
-> +			nb8800_alloc_rx(dev, next, true);
-
-It looks like it receives, then tries to allocate new resources. If so
-it may deplete the ring and you should instead consider allocating new
-resources first, then receive data if alloc + map suceeded.
-
--- 
-Ueimor
+Currently we go for vmalloc (on bitmaps) once we are past 128K descriptors
+(two bitmaps packed together => 256Kbit = 32Kb).  kmalloc() is very
+sensitive to size being a power of two, but IIRC vmalloc() isn't...
