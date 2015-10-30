@@ -1,49 +1,79 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: assert SMI lock
-Date: Fri, 30 Oct 2015 22:01:46 +0100
-Message-ID: <20151030210146.GD10053@lunn.ch>
-References: <1446237342-5109-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <20151030204110.GB10053@lunn.ch>
- <20151030205048.GA6658@ketchup.mtl.sfl>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Fri, 30 Oct 2015 21:02:15 +0000
+Message-ID: <20151030210215.GI22011@ZenIV.linux.org.uk>
+References: <1446043677.7476.68.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151028211347.GC22011@ZenIV.linux.org.uk>
+ <1446068668.7476.89.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151028223330.GD22011@ZenIV.linux.org.uk>
+ <1446073709.7476.93.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151029001532.GE22011@ZenIV.linux.org.uk>
+ <1446089381.7476.114.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151029041611.GF22011@ZenIV.linux.org.uk>
+ <1446122119.7476.138.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CA+55aFx_BQG4FzSuyL2KAz=c+R0cPv0ZpjboT_=yKjZNGmTUEg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Neil Armstrong <narmstrong@baylibre.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Network Development <netdev@vger.kernel.org>,
+	David Howells <dhowells@redhat.com>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:55712 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932814AbbJ3VCV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 17:02:21 -0400
 Content-Disposition: inline
-In-Reply-To: <20151030205048.GA6658@ketchup.mtl.sfl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CA+55aFx_BQG4FzSuyL2KAz=c+R0cPv0ZpjboT_=yKjZNGmTUEg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > >  static int _mv88e6xxx_reg_read(struct dsa_switch *ds, int addr, int reg)
-> > >  {
-> > > -	struct mii_bus *bus = dsa_host_dev_to_mii_bus(ds->master_dev);
-> > > +	struct mii_bus *bus;
-> > >  	int ret;
-> > >  
-> > > +	assert_smi_lock(ds);
-> > > +
-> > > +	bus = dsa_host_dev_to_mii_bus(ds->master_dev);
-> > 
-> > Is this change of when bus is assigned actually required?
+On Fri, Oct 30, 2015 at 10:18:12AM -0700, Linus Torvalds wrote:
+
+> I do wonder if we couldn't just speed up the bitmap allocator by an
+> order of magnitude. It would be nicer to be able to make existing
+> loads faster without any new "don't bother with POSIX semantics" flag.
 > 
-> No, but I found not necessary to issue this "mdio_bus" lookup if the
-> lock is not held (see net/dsa/dsa.c:555). Do you prefer not to do that?
+> We could, for example, extend the "open_fds" bitmap with a
+> "second-level" bitmap that has information on when the first level is
+> full. We traverse the open_fd's bitmap one word at a time anyway, we
+> could have a second-level bitmap that has one bit per word to say
+> whether that word is already full.
 
-You are optimising for an error condition. If this optimisation saves
-anything, it means we have a locking bug!
+Your variant has 1:64 ratio; obviously better than now, but we can actually
+do 1:bits-per-cacheline quite easily.
 
-As a separate patch, i would do this lookup once in a setup function
-and save it away in ps. We just need to watch out for the probe
-register accesses.
- 
-> Also are you OK with removing all the "Must be called with..." comments,
+I've been playing with a variant that has more than two bitmaps, and
+AFAICS it
+	a) does not increase the amount of cacheline pulled and
+	b) keeps it well-bound even in the absolutely worst case
+(128M-odd descriptors filled, followed by close(0);dup2(1,0); -
+in that case it ends up accessing the 7 cachelines worth of
+bitmaps; your variant will read through 4000-odd cachelines of
+the summary bitmap alone; the mainline is even worse).
 
-Yes, it will become a lot more clear when the kernel outputs a stack dump!
+> The advantage of the above is that it should just work for existing
+> binaries. It may not be quite as optimal as just introducing a new
+> "don't care about POSIX" feature, but quite frankly, if it cuts down
+> the bad case of "find_next_zero_bit()" by a factror of 64 (and then
+> adds a *small* expense factor on top of that), I suspect it should be
+> "good enough" even for your nasty case.
+> 
+> What do you think? Willing to try the above approach (with any
+> inevitable bug-fixes) and see how it compares?
+> 
+> Obviously in addition to any fixes to my pseudo-code above you'd need
+> to add the allocations for the new "full_fds_bits" etc, but I think it
+> should be easy to make the full_fds_bit allocation be *part* of the
+> "open_fds" allocation, so you wouldn't need a new allocation in
+> alloc_fdtable(). We already do that whole "use a single allocation" to
+> combine open_fds with close_on_exec into one single allocation.
 
-     Andrew
+I'll finish testing what I've got and post it; it costs 3 extra pointers
+in the files_struct and a bit fatter bitmap allocation (less than 0.2%
+extra).  All the arguments regarding the unmodified binaries apply, of
+course, and so far it looks fairly compact...
