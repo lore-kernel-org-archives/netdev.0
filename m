@@ -1,41 +1,39 @@
-From: Marek Vasut <marex@denx.de>
-Subject: [PATCH] can: Use correct type in sizeof() in nla_put()
-Date: Fri, 30 Oct 2015 13:48:19 +0100
-Message-ID: <1446209299-6250-1-git-send-email-marex@denx.de>
-Cc: Marek Vasut <marex@denx.de>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org
-To: linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Subject: [PATCH 0/2] net: encx24j600: Fix SPI driver module autoload
+Date: Fri, 30 Oct 2015 13:49:16 +0100
+Message-ID: <1446209358-26094-1-git-send-email-javier@osg.samsung.com>
+Cc: netdev@vger.kernel.org, Jon Ringle <jringle@gridpoint.com>,
+	davem@davemloft.net,
+	Javier Martinez Canillas <javier@osg.samsung.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The sizeof() is invoked on an incorrect variable, likely due to some
-copy-paste error, and this might result in memory corruption. Fix this.
+Hello,
 
-Signed-off-by: Marek Vasut <marex@denx.de>
-Cc: Wolfgang Grandegger <wg@grandegger.com>
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>
-Cc: netdev@vger.kernel.org
----
- drivers/net/can/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Recently I've been trying to fix module autoloading for all SPI drivers and
+found that the encx24j600 driver does not fill module alias information due
+missing a MODULE_DEVICE_TABLE() so module autload won't work and the driver
+Kconfig symbol is tristate which means the driver can be built as a module.
 
-NOTE: I only compile-tested this.
+But also the SPI id table is not correctly defined so this series fixes both
+issues.
 
-diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-index aede704..141c2a4 100644
---- a/drivers/net/can/dev.c
-+++ b/drivers/net/can/dev.c
-@@ -915,7 +915,7 @@ static int can_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	     nla_put(skb, IFLA_CAN_BITTIMING_CONST,
- 		     sizeof(*priv->bittiming_const), priv->bittiming_const)) ||
- 
--	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(cm), &priv->clock) ||
-+	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(priv->clock), &priv->clock) ||
- 	    nla_put_u32(skb, IFLA_CAN_STATE, state) ||
- 	    nla_put(skb, IFLA_CAN_CTRLMODE, sizeof(cm), &cm) ||
- 	    nla_put_u32(skb, IFLA_CAN_RESTART_MS, priv->restart_ms) ||
+The patches have been applied on top of the next-next tree master branch:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+
+Best regards,
+Javier
+
+
+Javier Martinez Canillas (2):
+  net: encx24j600: Fix SPI id table definition
+  net: encx24j600: Export missing SPI module alias information
+
+ drivers/net/ethernet/microchip/encx24j600.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
 -- 
-2.1.4
-
+2.4.3
