@@ -1,40 +1,64 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [PATCH] can: Use correct type in sizeof() in nla_put()
-Date: Fri, 30 Oct 2015 15:01:28 +0100
-Message-ID: <201510301501.28536.marex@denx.de>
-References: <1446209299-6250-1-git-send-email-marex@denx.de> <5633734A.3040504@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-can@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>,
-	netdev@vger.kernel.org
-To: "Marc Kleine-Budde" <mkl@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:51292 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031335AbbJ3OBd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 10:01:33 -0400
-In-Reply-To: <5633734A.3040504@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Saurabh Sengar <saurabh.truth@gmail.com>
+Subject: [PATCH v2] net: rds: changing the return type from int to void
+Date: Fri, 30 Oct 2015 19:46:44 +0530
+Message-ID: <1446214604-6437-1-git-send-email-saurabh.truth@gmail.com>
+References: <saurabh.truth@gmail.com>
+Cc: Saurabh Sengar <saurabh.truth@gmail.com>
+To: sergei.shtylyov@cogentembedded.com, chien.yen@oracle.com,
+	davem@davemloft.net, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <saurabh.truth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday, October 30, 2015 at 02:40:26 PM, Marc Kleine-Budde wrote:
-> On 10/30/2015 01:48 PM, Marek Vasut wrote:
-> > The sizeof() is invoked on an incorrect variable, likely due to some
-> > copy-paste error, and this might result in memory corruption. Fix this.
-> > 
-> > Signed-off-by: Marek Vasut <marex@denx.de>
-> > Cc: Wolfgang Grandegger <wg@grandegger.com>
-> > Cc: Marc Kleine-Budde <mkl@pengutronix.de>
-> > Cc: netdev@vger.kernel.org
-> 
-> Applies to can and added stable on Cc.
+as result of function rds_iw_flush_mr_pool is nowhere checked,
+changing its return type from int to void.
+also removing the unused variable rc as there is nothing to return
 
-Are you absolutelly positive this doesn't break kernel ABI please ?
+Signed-off-by: Saurabh Sengar <saurabh.truth@gmail.com>
+---
+v2 :  modify patch description, as per the comments from Sergei Shtylyov
 
-I am a little worried there, since the size of can_clock and can_ctrlmode
-structures differ.
+ net/rds/iw_rdma.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-Best regards,
-Marek Vasut
+diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
+index 6a8fbd6..d3d4454f 100644
+--- a/net/rds/iw_rdma.c
++++ b/net/rds/iw_rdma.c
+@@ -75,7 +75,7 @@ struct rds_iw_mr_pool {
+ 	int			max_pages;
+ };
+ 
+-static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all);
++static void rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all);
+ static void rds_iw_mr_pool_flush_worker(struct work_struct *work);
+ static int rds_iw_init_fastreg(struct rds_iw_mr_pool *pool, struct rds_iw_mr *ibmr);
+ static int rds_iw_map_fastreg(struct rds_iw_mr_pool *pool,
+@@ -479,14 +479,13 @@ void rds_iw_sync_mr(void *trans_private, int direction)
+  * If the number of MRs allocated exceeds the limit, we also try
+  * to free as many MRs as needed to get back to this limit.
+  */
+-static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
++static void rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
+ {
+ 	struct rds_iw_mr *ibmr, *next;
+ 	LIST_HEAD(unmap_list);
+ 	LIST_HEAD(kill_list);
+ 	unsigned long flags;
+ 	unsigned int nfreed = 0, ncleaned = 0, unpinned = 0;
+-	int ret = 0;
+ 
+ 	rds_iw_stats_inc(s_iw_rdma_mr_pool_flush);
+ 
+@@ -538,7 +537,6 @@ static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
+ 	atomic_sub(nfreed, &pool->item_count);
+ 
+ 	mutex_unlock(&pool->flush_lock);
+-	return ret;
+ }
+ 
+ static void rds_iw_mr_pool_flush_worker(struct work_struct *work)
+-- 
+1.9.1
