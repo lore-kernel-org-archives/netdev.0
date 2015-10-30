@@ -1,61 +1,68 @@
-From: Saurabh Sengar <saurabh.truth@gmail.com>
-Subject: [PATCH] net: rds: chnaging the return type from int to void
-Date: Fri, 30 Oct 2015 11:49:45 +0530
-Message-ID: <1446185985-6128-1-git-send-email-saurabh.truth@gmail.com>
-References: <saurabh.truth@gmail.com>
-Cc: Saurabh Sengar <saurabh.truth@gmail.com>
-To: chien.yen@oracle.com, davem@davemloft.net,
-	rds-devel@oss.oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Pavel Fedin <p.fedin@samsung.com>
+Subject: [PATCH] net: smsc911x: Reset PHY during initialization
+Date: Fri, 30 Oct 2015 10:06:19 +0300
+Message-ID: <1446188779-4184-1-git-send-email-p.fedin@samsung.com>
+Cc: Steve Glendinning <steve.glendinning@shawell.net>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <saurabh.truth@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-as return type of function rds_iw_flush_mr_pool no where checked, chnaging its return type from int to void.
-also removing the unused variable rc as there is nothing to return.
+On certain hardware after software reboot the chip may get stuck and fail
+to reinitialize during reset. This can be fixed by ensuring that PHY is
+reset too.
 
-Signed-off-by: Saurabh Sengar <saurabh.truth@gmail.com>
+Old PHY resetting method required operational MDIO interface, therefore
+the chip should have been already set up. In order to be able to function
+during probe, it is changed to use PMT_CTRL register.
+
+The problem could be observed on SMDK5410 board.
+
+Signed-off-by: Pavel Fedin <p.fedin@samsung.com>
 ---
- net/rds/iw_rdma.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/smsc/smsc911x.c | 17 ++++++-----------
+ 1 file changed, 6 insertions(+), 11 deletions(-)
 
-diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
-index 6a8fbd6..d3d4454f 100644
---- a/net/rds/iw_rdma.c
-+++ b/net/rds/iw_rdma.c
-@@ -75,7 +75,7 @@ struct rds_iw_mr_pool {
- 	int			max_pages;
- };
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index c860c90..219a99b 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -809,22 +809,17 @@ static int smsc911x_phy_check_loopbackpkt(struct smsc911x_data *pdata)
  
--static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all);
-+static void rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all);
- static void rds_iw_mr_pool_flush_worker(struct work_struct *work);
- static int rds_iw_init_fastreg(struct rds_iw_mr_pool *pool, struct rds_iw_mr *ibmr);
- static int rds_iw_map_fastreg(struct rds_iw_mr_pool *pool,
-@@ -479,14 +479,13 @@ void rds_iw_sync_mr(void *trans_private, int direction)
-  * If the number of MRs allocated exceeds the limit, we also try
-  * to free as many MRs as needed to get back to this limit.
-  */
--static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
-+static void rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
+ static int smsc911x_phy_reset(struct smsc911x_data *pdata)
  {
- 	struct rds_iw_mr *ibmr, *next;
- 	LIST_HEAD(unmap_list);
- 	LIST_HEAD(kill_list);
- 	unsigned long flags;
- 	unsigned int nfreed = 0, ncleaned = 0, unpinned = 0;
--	int ret = 0;
+-	struct phy_device *phy_dev = pdata->phy_dev;
+ 	unsigned int temp;
+ 	unsigned int i = 100000;
  
- 	rds_iw_stats_inc(s_iw_rdma_mr_pool_flush);
+-	BUG_ON(!phy_dev);
+-	BUG_ON(!phy_dev->bus);
+-
+-	SMSC_TRACE(pdata, hw, "Performing PHY BCR Reset");
+-	smsc911x_mii_write(phy_dev->bus, phy_dev->addr, MII_BMCR, BMCR_RESET);
++	temp = smsc911x_reg_read(pdata, PMT_CTRL);
++	smsc911x_reg_write(pdata, PMT_CTRL, temp | PMT_CTRL_PHY_RST_);
+ 	do {
+ 		msleep(1);
+-		temp = smsc911x_mii_read(phy_dev->bus, phy_dev->addr,
+-			MII_BMCR);
+-	} while ((i--) && (temp & BMCR_RESET));
++		temp = smsc911x_reg_read(pdata, PMT_CTRL);
++	} while ((i--) && (temp & PMT_CTRL_PHY_RST_));
  
-@@ -538,7 +537,6 @@ static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
- 	atomic_sub(nfreed, &pool->item_count);
+-	if (temp & BMCR_RESET) {
++	if (unlikely(temp & PMT_CTRL_PHY_RST_)) {
+ 		SMSC_WARN(pdata, hw, "PHY reset failed to complete");
+ 		return -EIO;
+ 	}
+@@ -2296,7 +2291,7 @@ static int smsc911x_init(struct net_device *dev)
+ 	}
  
- 	mutex_unlock(&pool->flush_lock);
--	return ret;
- }
+ 	/* Reset the LAN911x */
+-	if (smsc911x_soft_reset(pdata))
++	if (smsc911x_phy_reset(pdata) || smsc911x_soft_reset(pdata))
+ 		return -ENODEV;
  
- static void rds_iw_mr_pool_flush_worker(struct work_struct *work)
+ 	dev->flags |= IFF_MULTICAST;
 -- 
-1.9.1
+2.4.4
