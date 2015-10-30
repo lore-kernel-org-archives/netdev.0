@@ -1,60 +1,41 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: kernel BUG in ipmr_queue_xmit()
-Date: Fri, 30 Oct 2015 11:36:58 +0100
-Message-ID: <20151030103658.GA25931@breakpoint.cc>
-References: <alpine.OSX.2.00.1510291646320.59200@animac.local>
- <20151030001510.GG18062@breakpoint.cc>
- <alpine.OSX.2.00.1510291841480.68875@animac.local>
- <1446178542.6254.6.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 0/4] net: clean up interactions of
+ CHECKSUM_PARTIAL and fragmentation
+Date: Fri, 30 Oct 2015 19:37:48 +0900 (KST)
+Message-ID: <20151030.193748.1337418825359803374.davem@davemloft.net>
+References: <1445982042-3207-1-git-send-email-hannes@stressinduktion.org>
+	<87wpu7bamv.fsf@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ani Sinha <ani@arista.com>, Florian Westphal <fw@strlen.de>,
-	netdev@vger.kernel.org, ani@anirban.org, fruggeri@arista.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, vyasevich@gmail.com,
+	bcodding@redhat.com, tom@herbertland.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:33461 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759573AbbJ3KhB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 06:37:01 -0400
-Content-Disposition: inline
-In-Reply-To: <1446178542.6254.6.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33355 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759587AbbJ3Khu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 06:37:50 -0400
+In-Reply-To: <87wpu7bamv.fsf@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > Signed-off-by: Ani Sinha <ani@arista.com>
-> > ---
-> >  net/ipv4/ipmr.c | 2 ++
-> >  1 file changed, 2 insertions(+)
-> > 
-> > diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-> > index 866ee89..48df3cc 100644
-> > --- a/net/ipv4/ipmr.c
-> > +++ b/net/ipv4/ipmr.c
-> > @@ -936,7 +936,9 @@ static void ipmr_cache_resolve(struct net *net, struct mr_table *mrt,
-> >  
-> >  			rtnl_unicast(skb, net, NETLINK_CB(skb).portid);
-> >  		} else {
-> > +			preempt_disable();
-> >  			ip_mr_forward(net, mrt, skb, c, 0);
-> > +			preempt_enable();
-> >  		}
-> >  	}
-> >  }
-> 
-> I do not believe this fix is correct.
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed, 28 Oct 2015 10:33:28 +0100
 
-Yes, sorry.  I should have suggested local_bh_disable instead.
+> Those patches are actually for net and not for net-next,
+> sorry. Guess I messed it up with Ctrl-R foo.
 
-> Better replace the
-> IP_INC_STATS_BH() by IP_INC_STATS()
->
-> and IP_ADD_STATS_BH() by IP_ADD_STATS()
+Ok, in that case since:
 
-Hmm, whats the rationale for this?
+1) I already have a pull request pending (which is only delayed because
+   of you, hehe :-)
 
-Note that IP_ADD_STATS_BH in question is unconditional (not in
-error path).  It seems that its virtually always called from softirq
-except in the setsockopt case.
+2) 4.3 is likely to be finalized on Sunday.
 
-Thanks Eric.
+3) I am getting on a plane first thing tomorrow morning.
+
+I think this will end up going via the upcoming merge window and queud
+up for -stable.
+
+Just FYI...
