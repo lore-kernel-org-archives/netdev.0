@@ -1,51 +1,60 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect for
- sockets in accept(3)
-Date: Fri, 30 Oct 2015 14:23:54 -0700
-Message-ID: <CA+55aFyoA5sXQvFDavNa7cGkRevunmtPe8F8-_tZ9-826qfkgw@mail.gmail.com>
-References: <1446043677.7476.68.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151028211347.GC22011@ZenIV.linux.org.uk>
-	<1446068668.7476.89.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151028223330.GD22011@ZenIV.linux.org.uk>
-	<1446073709.7476.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151029001532.GE22011@ZenIV.linux.org.uk>
-	<1446089381.7476.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151029041611.GF22011@ZenIV.linux.org.uk>
-	<1446122119.7476.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+55aFx_BQG4FzSuyL2KAz=c+R0cPv0ZpjboT_=yKjZNGmTUEg@mail.gmail.com>
-	<20151030210215.GI22011@ZenIV.linux.org.uk>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [patch] tcp: attach SYNACK messages to request sockets instead of
+ listener
+Date: Fri, 30 Oct 2015 21:42:30 +0000
+Message-ID: <BN1PR0301MB07705F68B22ED84061E37337CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+References: <BN1PR0301MB07704A8D81E0AD6A358D6D53CA200@BN1PR0301MB0770.namprd03.prod.outlook.com>
+	 <1446159521.6254.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <BN1PR0301MB0770DDDA95027A39BF078CE6CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+	 <1446235356.6254.33.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1446236331.6254.36.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "edumazet@google.com" <edumazet@google.com>,
 	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Network Development <netdev@vger.kernel.org>,
-	David Howells <dhowells@redhat.com>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>
-To: Al Viro <viro@zeniv.linux.org.uk>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"KY Srinivasan" <kys@microsoft.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:37901 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030565AbbJ3VXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 17:23:55 -0400
-In-Reply-To: <20151030210215.GI22011@ZenIV.linux.org.uk>
+Received: from mail-by2on0117.outbound.protection.outlook.com ([207.46.100.117]:44419
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752865AbbJ3Vme (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Oct 2015 17:42:34 -0400
+In-Reply-To: <1446236331.6254.36.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 30, 2015 at 2:02 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
->
-> Your variant has 1:64 ratio; obviously better than now, but we can actually
-> do 1:bits-per-cacheline quite easily.
-
-Ok, but in that case you end up needing a counter for each cacheline
-too (to count how many bits, in order to know when to say "cacheline
-is entirely full").
-
-Because otherwise you'll end up having to check the whole cacheline
-(rather than check just one word, or check the "bit counter") when you
-set a bit.
-
-So I suspect a "bitmap of full words" ends up being much simpler.  But
-hey, if you can make your more complex thing work, go right ahead.
-
-               Linus
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
+YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBPY3RvYmVyIDMw
+LCAyMDE1IDQ6MTkgUE0NCj4gVG86IEhhaXlhbmcgWmhhbmcgPGhhaXlhbmd6QG1pY3Jvc29mdC5j
+b20+DQo+IENjOiBlZHVtYXpldEBnb29nbGUuY29tOyBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVt
+bG9mdC5uZXQ+Ow0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBLWSBTcmluaXZhc2FuIDxreXNA
+bWljcm9zb2Z0LmNvbT4NCj4gU3ViamVjdDogUmU6IFtwYXRjaF0gdGNwOiBhdHRhY2ggU1lOQUNL
+IG1lc3NhZ2VzIHRvIHJlcXVlc3Qgc29ja2V0cw0KPiBpbnN0ZWFkIG9mIGxpc3RlbmVyDQo+IA0K
+PiBPbiBGcmksIDIwMTUtMTAtMzAgYXQgMTM6MDIgLTA3MDAsIEVyaWMgRHVtYXpldCB3cm90ZToN
+Cj4gDQo+ID4gU28gaXQgbG9va3MgbGlrZSB5b3UgaGF2ZSBhIGRldmljZSB3aXRoIGEgdmVyeSBi
+aWcgaGhfbGVuDQo+ID4NCj4gPiBNQVhfVENQX0hFQURFUiBpcyBub3QgZW5vdWdoIHNwYWNlIHRv
+IGhvbGQgYWxsIGhlYWRlcnMsIGFuZCB0aGlzIGlzDQo+IHRoZQ0KPiA+IGJ1ZyB0aGF0IG5lZWRz
+IHRvIGJlIGZpeGVkLiBUaGlzIGlzIHNjYXJ5IHRvIHJlYWxsb2MgYWxsIHRjcCBwYWNrZXRzICEN
+Cj4gPg0KPiANCj4gZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYyBzZXRzIGEgbmVlZGVk
+X2hlYWRyb29tIG9mIDIyMCBieXRlcyA6KA0KPiANCj4gQ291bGQgeW91IHRyeSA6DQo+IA0KPiBk
+aWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaCBiL2luY2x1ZGUvbGludXgvbmV0
+ZGV2aWNlLmgNCj4gaW5kZXggNGFjNjUzYjdiOGFjLi43ZGJkZDI5MDc2YmUgMTAwNjQ0DQo+IC0t
+LSBhL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgNCj4gKysrIGIvaW5jbHVkZS9saW51eC9uZXRk
+ZXZpY2UuaA0KPiBAQCAtMTMyLDggKzEzMiwxMCBAQCBzdGF0aWMgaW5saW5lIGJvb2wgZGV2X3ht
+aXRfY29tcGxldGUoaW50IHJjKQ0KPiAgICoJdXNlZC4NCj4gICAqLw0KPiANCj4gLSNpZiBkZWZp
+bmVkKENPTkZJR19XTEFOKSB8fCBJU19FTkFCTEVEKENPTkZJR19BWDI1KQ0KPiAtIyBpZiBkZWZp
+bmVkKENPTkZJR19NQUM4MDIxMV9NRVNIKQ0KPiArI2lmIGRlZmluZWQoQ09ORklHX1dMQU4pIHx8
+IElTX0VOQUJMRUQoQ09ORklHX0FYMjUpIHx8DQo+IElTX0VOQUJMRUQoQ09ORklHX0hZUEVSVl9O
+RVQpDQo+ICsjIGlmIElTX0VOQUJMRUQoQ09ORklHX0hZUEVSVl9ORVQpDQo+ICsjIGRlZmluZSBM
+TF9NQVhfSEVBREVSIDM4NA0KPiArIyBlbGlmIGRlZmluZWQoQ09ORklHX01BQzgwMjExX01FU0gp
+DQo+ICAjICBkZWZpbmUgTExfTUFYX0hFQURFUiAxMjgNCj4gICMgZWxzZQ0KPiAgIyAgZGVmaW5l
+IExMX01BWF9IRUFERVIgOTYNCj4gDQoNCldpdGggeW91ciAybmQgcGF0Y2gsIEkgc2F3Og0KWyAg
+IDE5LjI0MjEwNF0gV293ICEgaGVhZHJvb209MTY0IHdoaWxlIGhoX2xlbihldGgwKT0yNDANCg0K
+QWZ0ZXIgYWRkaW5nIHRoZSAzcmQgcGF0Y2ggd2l0aCBpbmNyZWFzZWQgTExfTUFYX0hFQURFUiwN
+CnRoZSB3YXJuaW5nIGFuZCBzdGFjayB0cmFjZSBubyBsb25nZXIgc2hvdyB1cC4NCg0KQWxzbywg
+Y291bGQgeW91IGZpeCB0aGUgbmV0IGNvcmUgY29kZSBzbyB0aGF0IGl0IGRvZXNuJ3QgDQpwYW5p
+YyBldmVuIHdpdGggcmVhbGxvY2F0ZWQgaGVhZGVyPw0KDQpUaGFua3MsDQotIEhhaXlhbmcNCg0K
