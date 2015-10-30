@@ -1,57 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch] tcp: attach SYNACK messages to request sockets instead
- of listener
-Date: Fri, 30 Oct 2015 13:18:51 -0700
-Message-ID: <1446236331.6254.36.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <BN1PR0301MB07704A8D81E0AD6A358D6D53CA200@BN1PR0301MB0770.namprd03.prod.outlook.com>
-	 <1446159521.6254.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <BN1PR0301MB0770DDDA95027A39BF078CE6CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-	 <1446235356.6254.33.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 1/5] dp83640: Include hash in timestamp/packet
+ matching
+Date: Fri, 30 Oct 2015 21:32:01 +0100
+Message-ID: <20151030203201.GB27879@netboy>
+References: <1446207244-2206-1-git-send-email-stefan.sorensen@spectralink.com>
+ <1446207244-2206-2-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "edumazet@google.com" <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>
-To: Haiyang Zhang <haiyangz@microsoft.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Stefan =?iso-8859-1?Q?S=F8rensen?=
+	<stefan.sorensen@spectralink.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:34472 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760747AbbJ3USx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 16:18:53 -0400
-Received: by padhk11 with SMTP id hk11so83644132pad.1
-        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 13:18:53 -0700 (PDT)
-In-Reply-To: <1446235356.6254.33.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:38076 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752504AbbJ3UcG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 16:32:06 -0400
+Received: by wmeg8 with SMTP id g8so20386692wme.1
+        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 13:32:04 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1446207244-2206-2-git-send-email-stefan.sorensen@spectralink.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-10-30 at 13:02 -0700, Eric Dumazet wrote:
+On Fri, Oct 30, 2015 at 01:14:00PM +0100, Stefan S=F8rensen wrote:
+> Only using the message type and sequence id for matching timestamps w=
+ith
+> packets is error prone, particularly if packets can be reordered. Fix=
+ by
+> extending the check to include the hash of bytes 20-29 (source id in =
+PTPv2)
+> that is provided with the timestamps.
 
-> So it looks like you have a device with a very big hh_len
-> 
-> MAX_TCP_HEADER is not enough space to hold all headers, and this is the
-> bug that needs to be fixed. This is scary to realloc all tcp packets !
-> 
+The example of reordered packets is bogus, since the sequence numbers
+are not affected.  The one case that benefits from the hash check is
+when the port is in the master role and multiple clients send
+Delay_Req messages all with the same sequence number by chance.
+=20
+> @@ -819,11 +820,18 @@ static int match(struct sk_buff *skb, unsigned =
+int type, struct rxts *rxts)
+>  		msgtype =3D data + offset + OFF_PTP_CONTROL;
+>  	else
+>  		msgtype =3D data + offset;
+> +	if (rxts->msgtype !=3D (*msgtype & 0xf))
+> +		return 0;
+> =20
+>  	seqid =3D (u16 *)(data + offset + OFF_PTP_SEQUENCE_ID);
+> +	if (rxts->seqid !=3D ntohs(*seqid))
+> +		return 0;
+> +
+> +	hash =3D ether_crc(10, data + offset + 20) >> 20;
 
-drivers/net/hyperv/netvsc_drv.c sets a needed_headroom of 220 bytes :(
+This could use a macro instead of magic 20.
 
-Could you try :
+Thanks,
+Richard
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 4ac653b7b8ac..7dbdd29076be 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -132,8 +132,10 @@ static inline bool dev_xmit_complete(int rc)
-  *	used.
-  */
- 
--#if defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
--# if defined(CONFIG_MAC80211_MESH)
-+#if defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25) || IS_ENABLED(CONFIG_HYPERV_NET)
-+# if IS_ENABLED(CONFIG_HYPERV_NET)
-+# define LL_MAX_HEADER 384
-+# elif defined(CONFIG_MAC80211_MESH)
- #  define LL_MAX_HEADER 128
- # else
- #  define LL_MAX_HEADER 96
+> +	if (rxts->hash !=3D hash)
+> +		return 0;
+> =20
+> -	return rxts->msgtype =3D=3D (*msgtype & 0xf) &&
+> -		rxts->seqid   =3D=3D ntohs(*seqid);
+> +	return 1;
+>  }
+> =20
+>  static void decode_rxts(struct dp83640_private *dp83640,
+> --=20
+> 2.5.0
+>=20
