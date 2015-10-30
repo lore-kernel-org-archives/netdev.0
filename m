@@ -1,37 +1,51 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH RESEND v2 net-next] net: hisilicon: updates HNS config and documents
-Date: Fri, 30 Oct 2015 15:20:18 +0100
-Message-ID: <4549013.K7sn8Pca5b@wuerfel>
-References: <1445944594-244149-1-git-send-email-huangdaode@hisilicon.com>
+From: Marek Vasut <marex@denx.de>
+Subject: Re: [PATCH] can: Use correct type in sizeof() in nla_put()
+Date: Fri, 30 Oct 2015 15:24:58 +0100
+Message-ID: <201510301524.58411.marex@denx.de>
+References: <1446209299-6250-1-git-send-email-marex@denx.de> <201510301501.28536.marex@denx.de> <56337C08.40001@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, catalin.marinas@arm.com, will.deacon@arm.com,
-	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, liguozhu@hisilicon.com,
-	Yisen.Zhuang@huawei.com, netdev@vger.kernel.org,
-	linuxarm@huawei.com, salil.mehta@huawei.com,
-	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
-	lisheng011@huawei.com, lipeng321@huawei.com
-To: huangdaode <huangdaode@hisilicon.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445944594-244149-1-git-send-email-huangdaode@hisilicon.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-can@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>,
+	netdev@vger.kernel.org
+To: "Marc Kleine-Budde" <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <56337C08.40001@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 27 October 2015 19:16:34 huangdaode wrote:
->           mdio@803c0000 {
->                     #address-cells = <1>;
->                     #size-cells = <0>;
-> -                   compatible = "hisilicon,mdio","hisilicon,hns-mdio";
-> +                   compatible = "hisilicon,hns-mdio","hisilicon,mdio";
->                     reg = <0x0 0x803c0000 0x0 0x10000>;
->  
+On Friday, October 30, 2015 at 03:17:44 PM, Marc Kleine-Budde wrote:
+> On 10/30/2015 03:01 PM, Marek Vasut wrote:
+> > On Friday, October 30, 2015 at 02:40:26 PM, Marc Kleine-Budde wrote:
+> >> On 10/30/2015 01:48 PM, Marek Vasut wrote:
+> >>> The sizeof() is invoked on an incorrect variable, likely due to some
+> >>> copy-paste error, and this might result in memory corruption. Fix this.
+> >>> 
+> >>> Signed-off-by: Marek Vasut <marex@denx.de>
+> >>> Cc: Wolfgang Grandegger <wg@grandegger.com>
+> >>> Cc: Marc Kleine-Budde <mkl@pengutronix.de>
+> >>> Cc: netdev@vger.kernel.org
+> >> 
+> >> Applies to can and added stable on Cc.
+> > 
+> > Are you absolutelly positive this doesn't break kernel ABI please ?
+> > 
+> > I am a little worried there, since the size of can_clock and can_ctrlmode
+> > structures differ.
 > 
+> struct can_clock is a u32, see [1]
+> struct can_ctrlmode is 2 x u32.
+> 
+> in libsocketcan[2] it's accessed like this:
+> > 	memcpy(res,
+> > 	
+> > 		RTA_DATA(can_attr[IFLA_CAN_CLOCK]),
+> > 		sizeof(struct can_clock));
+> 
+> I think it should be ok.
 
-Does "hisilicon,mdio" actually have a specific meaning? Is that just there
-for legacy reasons?
+In that case, yes, it's good. Hopefully, noone wrote his own thing.
 
-	Arnd
+Best regards,
+Marek Vasut
