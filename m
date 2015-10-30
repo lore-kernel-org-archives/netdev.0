@@ -1,22 +1,37 @@
-From: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Subject: Klientskie bazi Tel/Viber/WhatsApp +79133913837 Email: nonen22pp@gmail.com Skype: prodawez389 ICQ: 6288862 FOTO ONLINE: http://media.xtwind.com/images/2015/10/19/2ba70554b12778c54b6a8ac82a7cc178.png
-Date: Fri, 30 Oct 2015 20:13:24 +0600
-Message-ID: <FB014B06B96D4221FDF8B10F9BBBFEE8@vger.kernel.org>
-Reply-To: "netdev@vger.kernel.org" <mamontova260@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH RESEND v2 net-next] net: hisilicon: updates HNS config and documents
+Date: Fri, 30 Oct 2015 15:20:18 +0100
+Message-ID: <4549013.K7sn8Pca5b@wuerfel>
+References: <1445944594-244149-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8";
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 193-231-187-92.static.rdsor.ro ([193.231.187.92]:56423 "EHLO
-	ns.limtex.ro" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1031559AbbJ3OVs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 10:21:48 -0400
-Received: from 193.231.187.92 (localhost.localdomain [127.0.0.1])
-	by ns.limtex.ro (Postfix) with SMTP id 93CC0104DD4
-	for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 16:14:31 +0200 (EET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, catalin.marinas@arm.com, will.deacon@arm.com,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, liguozhu@hisilicon.com,
+	Yisen.Zhuang@huawei.com, netdev@vger.kernel.org,
+	linuxarm@huawei.com, salil.mehta@huawei.com,
+	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
+	lisheng011@huawei.com, lipeng321@huawei.com
+To: huangdaode <huangdaode@hisilicon.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445944594-244149-1-git-send-email-huangdaode@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Klientskie bazi Tel/Viber/WhatsApp +79133913837 Email: lnaumova884@gmail.com Skype: prodawez389 ICQ: 6288862 FOTO ONLINE: http://media.xtwind.com/images/2015/10/19/2ba70554b12778c54b6a8ac82a7cc178.png
+On Tuesday 27 October 2015 19:16:34 huangdaode wrote:
+>           mdio@803c0000 {
+>                     #address-cells = <1>;
+>                     #size-cells = <0>;
+> -                   compatible = "hisilicon,mdio","hisilicon,hns-mdio";
+> +                   compatible = "hisilicon,hns-mdio","hisilicon,mdio";
+>                     reg = <0x0 0x803c0000 0x0 0x10000>;
+>  
+> 
+
+Does "hisilicon,mdio" actually have a specific meaning? Is that just there
+for legacy reasons?
+
+	Arnd
