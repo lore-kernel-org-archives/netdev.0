@@ -1,32 +1,31 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [1/1] stmmac: Correctly report PTP capabilities.
-Date: Fri, 30 Oct 2015 11:22:00 +0100
-Message-ID: <20151030102200.GA4771@localhost.localdomain>
-References: <1446194635-19782-1-git-send-email-preid@electromag.com.au>
- <1446194635-19782-2-git-send-email-preid@electromag.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 2/2] net: add driver for Netronome NFP4000/NFP6000
+ NIC VFs
+Date: Fri, 30 Oct 2015 19:27:01 +0900 (KST)
+Message-ID: <20151030.192701.377276134095637949.davem@davemloft.net>
+References: <1445969758-12779-1-git-send-email-jakub.kicinski@netronome.com>
+	<1445969758-12779-3-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
-To: Phil Reid <preid@electromag.com.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rolf.neugebauer@netronome.com,
+	jason.mcmullan@netronome.com, simon.horman@netronome.com
+To: jakub.kicinski@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:38584 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756952AbbJ3KWF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 06:22:05 -0400
-Received: by wmeg8 with SMTP id g8so8219796wme.1
-        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 03:22:04 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1446194635-19782-2-git-send-email-preid@electromag.com.au>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33289 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030730AbbJ3K1F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 06:27:05 -0400
+In-Reply-To: <1445969758-12779-3-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 30, 2015 at 04:43:55PM +0800, Phil Reid wrote:
-> priv->hwts_*_en indicate if timestamping is enabled/disabled at run
-> time. But  priv->dma_cap.time_stamp  and priv->dma_cap.atime_stamp
-> indicates HW is support for PTPv1/PTPv2.
-> 
-> Signed-off-by: Phil Reid <preid@electromag.com.au>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Tue, 27 Oct 2015 18:15:58 +0000
 
-Thanks for catching this bug.
+> + * @msix_table:         Pointer to mapped MSI-X table
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+The PCI layer already has the MSI-X table mapped, and provides
+common routines for masking and unmasking MSI-X interrupts.
+
+Please use that instead of reimplementing those facilities.
