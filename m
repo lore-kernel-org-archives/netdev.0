@@ -1,54 +1,54 @@
-From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
-Subject: Re: stmmac: Reporting ethtool_ts_info
-Date: Fri, 30 Oct 2015 10:45:21 +0530
-Message-ID: <CAJ3bTp6aKFqFs63HZPFRUD1R46dLfAhz_6SOkz4_NMi7qHJ37Q@mail.gmail.com>
-References: <562F1577.8040803@electromag.com.au>
+From: David Holland <dholland-tech@netbsd.org>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Fri, 30 Oct 2015 05:44:18 +0000
+Message-ID: <20151030054418.GA16702@netbsd.org>
+References: <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
+ <20151022215741.GW22011@ZenIV.linux.org.uk>
+ <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
+ <20151024023054.GZ22011@ZenIV.linux.org.uk>
+ <201510270908.t9R9873a001683@room101.nl.oracle.com>
+ <562F577E.6000901@oracle.com>
+ <20151029145847.GA10859@netbsd.org>
+ <563238D0.2040802@oracle.com>
+ <20151029160131.GA18961@netbsd.org>
+ <56324625.9000803@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: Phil Reid <preid@electromag.com.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Holland <dholland-tech@netbsd.org>, Casper.Dik@oracle.com,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	stephen@networkplumber.org, netdev@vger.kernel.org
+To: Alan Burlison <Alan.Burlison@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:33875 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752283AbbJ3FVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 01:21:01 -0400
-Received: by wmff134 with SMTP id f134so3504992wmf.1
-        for <netdev@vger.kernel.org>; Thu, 29 Oct 2015 22:21:00 -0700 (PDT)
-In-Reply-To: <562F1577.8040803@electromag.com.au>
+Received: from mail.netbsd.org ([149.20.53.66]:61403 "EHLO mail.netbsd.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751286AbbJ3FoU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Oct 2015 01:44:20 -0400
+Content-Disposition: inline
+In-Reply-To: <56324625.9000803@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 27, 2015 at 11:41 AM, Phil Reid <preid@electromag.com.au> wrote:
-> G'day All,
->
-> The stmmac driver checks (priv->hwts_tx_en) && (priv->hwts_rx_en) before
-> reporting WHTSTAMP capabilities.
-> No other driver seems to do this. hwts_*_en indicate if timestamping is
-> enabled, not if the interface is capable of it.
-> Instead they check there capabilities. Which would be
-> (priv->dma_cap.time_stamp || priv->dma_cap.atime_stamp)
+On Thu, Oct 29, 2015 at 04:15:33PM +0000, Alan Burlison wrote:
+ > >close(2) as specified by POSIX doesn't prohibit this weird revoke-like
+ > >behavior, but there's nothing in there that mandates it either. (I
+ > >thought this discussion had already clarified that.)
+ > 
+ > There was an attempt to interpret POSIX that way, with which I still
+ > disagree. If a FD is closed or reassigned then any current pending
+ > operations on it should be terminated.
 
-Yes true.
+C&V, please.
 
-priv->hwts_*_en indicate if timestamping is enabled/disabled at run
-time. But  priv->dma_cap.time_stamp  and priv->dma_cap.atime_stamp
-indicates HW is support for PTPv1/PTPv2.
+ > >Note that while NetBSD apparently supports this behavior because
+ > >someone copied it from Solaris, I'm about to go recommend it be
+ > >removed.
+ > 
+ > Which behaviour? The abort accept() on close() behaviour?
 
-We should use  - (priv->dma_cap.time_stamp ||
-priv->dma_cap.atime_stamp) in ethtool_ts_ops.
+That, and aborting anything else too. Close isn't revoke.
 
-wwr
-Rayagond
->
-> Does this seem reasonable?
->
->
-> --
-> Regards
-> Phil Reid
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+David A. Holland
+dholland@netbsd.org
