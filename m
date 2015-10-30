@@ -1,112 +1,110 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH net-next] hyperv: Add handler for
- RNDIS_STATUS_NETWORK_CHANGE event
-Date: Fri, 30 Oct 2015 23:10:55 +0100
-Message-ID: <5633EAEF.5030600@nod.at>
-References: <06b508cbb6b949f4b3e13e7797948e56@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140623131723.GA7026@aepfle.de>
- <5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140623.131018.1349792926453695313.davem@davemloft.net>
- <CAFLxGvwjhxxc2OgerCeF4nmvpbTV1-XttUZ2poaDLFWcBpaOxw@mail.gmail.com>
- <BN1PR0301MB077055A8DD93983AF1C8E31ACA200@BN1PR0301MB0770.namprd03.prod.outlook.com>
- <878u6ksjzg.fsf@vitty.brq.redhat.com>
- <BN1PR0301MB07707C038A4411BD4DF24DE3CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v4] net: ethernet: add driver for Aurora VLSI NB8800
+ Ethernet controller
+Date: Fri, 30 Oct 2015 23:28:42 +0100
+Message-ID: <20151030222841.GA24712@electric-eye.fr.zoreil.com>
+References: <1446137333-1822-1-git-send-email-mans@mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Haiyang Zhang <haiyangz@microsoft.com>,
-	Vitaly Kuznetsov <vkuznets@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Mans Rullgard <mans@mansr.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BN1PR0301MB07707C038A4411BD4DF24DE3CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+Content-Disposition: inline
+In-Reply-To: <1446137333-1822-1-git-send-email-mans@mansr.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 30.10.2015 um 23:03 schrieb Haiyang Zhang:
-> 
-> 
->> -----Original Message-----
->> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
->> Sent: Friday, October 30, 2015 6:56 AM
->> To: Haiyang Zhang <haiyangz@microsoft.com>
->> Cc: Richard Weinberger <richard.weinberger@gmail.com>; David Miller
->> <davem@davemloft.net>; olaf@aepfle.de; jasowang@redhat.com; driverdev-
->> devel@linuxdriverproject.org; LKML <linux-kernel@vger.kernel.org>;
->> netdev@vger.kernel.org
->> Subject: Re: [PATCH net-next] hyperv: Add handler for
->> RNDIS_STATUS_NETWORK_CHANGE event
->>
->> Haiyang Zhang <haiyangz@microsoft.com> writes:
->>
->>>> -----Original Message-----
->>>> From: Richard Weinberger [mailto:richard.weinberger@gmail.com]
->>>> Sent: Tuesday, October 27, 2015 6:36 PM
->>>> To: David Miller <davem@davemloft.net>
->>>> Cc: Haiyang Zhang <haiyangz@microsoft.com>; olaf@aepfle.de; Greg
->> Kroah-
->>>> Hartman <greg@kroah.com>; netdev@vger.kernel.org; jasowang@redhat.com;
->>>> driverdev-devel@linuxdriverproject.org; LKML <linux-
->>>> kernel@vger.kernel.org>
->>>> Subject: Re: [PATCH net-next] hyperv: Add handler for
->>>> RNDIS_STATUS_NETWORK_CHANGE event
->>>>
->>>> On Mon, Jun 23, 2014 at 10:10 PM, David Miller <davem@davemloft.net>
->>>> wrote:
->>>>> From: Haiyang Zhang <haiyangz@microsoft.com>
->>>>> Date: Mon, 23 Jun 2014 16:09:59 +0000
->>>>>
->>>>>> So, what's the equivalent or similar command to "network restart"
->> on
->>>> SLES12? Could
->>>>>> you update the command line for the usermodehelper when porting
->> this
->>>> patch to SLES
->>>>>> 12?
->>>>>
->>>>> No, you are not going to keep the usermodehelper invocation in your
->>>> driver
->>>>> please remove it.  It is absolutely inappropriate, and I strictly
->> do
->>>> not want
->>>>> to keep it in there because other people will copy it and then
->> we'll
->>>> have a
->>>>> real mess on our hands.
->>>>
->>>> Sorry for digging up this old thread.
->>>> While talking with some guys about usermodehelper abuses I came
->> across
->>>> this gem.
->>>> Mainline still contains that "/etc/init.d/network restart" code.
->>>> Haiyang, care to cleanup?
->>>
->>> Hi Richard and others,
->>>
->>> Thanks for the reminder. I will clean up the usermode helper.
->>>
->>> Do you have suggestions of trigger DHCP refresh from kernel mode? Any
->>> sample code in the existing kernel code?
->>>
->>
->> I think it's wrong to call dhcp refresh from kernel. What happens when
->> we reconnect normal hardware adapter to another network? Link goes down
->> and then up and userspace is supposed to react accordingly. I think we
->> should emulate something similar for RNDIS_STATUS_NETWORK_CHANGE.
-> 
-> When link is down physically for a few seconds, the DHCP will automatically 
-> refresh. I will add code to emulate this. There were some discussions around 
-> this and other possibilities previously... I agree emulating what happens 
-> with physically plug/unplug a cable is a reasonable way to trigger the DHCP 
-> refresh.
+Mans Rullgard <mans@mansr.com> :
+[...]
+> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+> new file mode 100644
+> index 0000000..ce61439
+> --- /dev/null
+> +++ b/drivers/net/ethernet/aurora/nb8800.c
+[...]
+> +static int nb8800_mdio_read(struct mii_bus *bus, int phy_id, int reg)
+> +{
+> +	struct nb8800_priv *priv = bus->priv;
+> +	int val;
+> +
+> +	if (!nb8800_mdio_wait(bus))
+> +		return -ETIMEDOUT;
+> +
+> +	val = MIIAR_ADDR(phy_id) | MIIAR_REG(reg);
+> +
+> +	nb8800_writel(priv, NB8800_MDIO_CMD, val);
+> +	udelay(10);
+> +	nb8800_writel(priv, NB8800_MDIO_CMD, val | MDIO_CMD_GO);
+> +
+> +	if (!nb8800_mdio_wait(bus))
+> +		return -ETIMEDOUT;
 
-Can't you propagate the event to userspace and let it take an appropriate
-action?
+You may add a "nb8800_mdio_cmd" helper to factor the lines above in
+nb8800_mdio_{read / write}. It could save some bytes.
 
-Thanks,
-//richard
+[...]
+> +static void nb8800_mac_tx(struct net_device *dev, bool enable)
+> +{
+> +	struct nb8800_priv *priv = netdev_priv(dev);
+> +
+> +	while (nb8800_readl(priv, NB8800_TXC_CR) & TCR_EN)
+> +		cpu_relax();
+> +
+> +	if (enable)
+> +		nb8800_set_bits(b, priv, NB8800_TX_CTL1, TX_EN);
+> +	else
+> +		nb8800_clear_bits(b, priv, NB8800_TX_CTL1, TX_EN);
+[...]
+> +	if (enable)
+> +		nb8800_set_bits(b, priv, NB8800_RX_CTL, RX_EN);
+> +	else
+> +		nb8800_clear_bits(b, priv, NB8800_RX_CTL, RX_EN);
+[...]
+> +	if (enable)
+> +		nb8800_set_bits(b, priv, NB8800_RX_CTL, RX_AF_EN);
+> +	else
+> +		nb8800_clear_bits(b, priv, NB8800_RX_CTL, RX_AF_EN);
+
+Factor out ?
+
+[...]
+> +static int nb8800_poll(struct napi_struct *napi, int budget)
+> +{
+> +	struct net_device *dev = napi->dev;
+> +	struct nb8800_priv *priv = netdev_priv(dev);
+> +	struct nb8800_dma_desc *rx;
+> +	int work = 0;
+> +	int last = priv->rx_eoc;
+> +	int next;
+> +
+> +	while (work < budget) {
+> +		struct rx_buf *rx_buf;
+> +		u32 report;
+> +		int len;
+> +
+> +		next = (last + 1) & (RX_DESC_COUNT - 1);
+> +
+> +		rx_buf = &priv->rx_bufs[next];
+> +		rx = &priv->rx_descs[next];
+> +		report = rx->report;
+> +
+> +		if (!report)
+> +			break;
+> +
+> +		if (IS_RX_ERROR(report)) {
+> +			nb8800_rx_error(dev, report);
+> +		} else if (likely(rx_buf->page)) {
+> +			len = RX_BYTES_TRANSFERRED(report);
+> +			nb8800_receive(dev, next, len);
+> +		}
+> +
+> +		rx->report = 0;
+> +		if (!rx_buf->page)
+> +			nb8800_alloc_rx(dev, next, true);
+
+It looks like it receives, then tries to allocate new resources. If so
+it may deplete the ring and you should instead consider allocating new
+resources first, then receive data if alloc + map suceeded.
+
+-- 
+Ueimor
