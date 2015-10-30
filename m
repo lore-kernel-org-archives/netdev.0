@@ -1,95 +1,110 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [RFC PATCH net-next] net/core: initial support for stacked dev
- feature toggles
-Date: Fri, 30 Oct 2015 12:35:55 -0400
-Message-ID: <56339C6B.3000108@redhat.com>
-References: <1445658019-58621-1-git-send-email-jarod@redhat.com> <562B1C4D.8050407@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp/dccp: fix ireq->pktopts race
+Date: Fri, 30 Oct 2015 09:46:12 -0700
+Message-ID: <1446223572.6254.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	Michal Kubecek <mkubecek@suse.cz>, netdev@vger.kernel.org
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <562B1C4D.8050407@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33299 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753599AbbJ3QqO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 12:46:14 -0400
+Received: by padhy1 with SMTP id hy1so73117145pad.0
+        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 09:46:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexander Duyck wrote:
-> On 10/23/2015 08:40 PM, Jarod Wilson wrote:
->> There are some netdev features that make little sense to toggle on and
->> off in a stacked device setup on only one device in the stack. The prime
->> example is a bonded connection, where it really doesn't make sense to
->> disable LRO on the master, but not on any of the slaves, nor does it
->> really make sense to be able to shut LRO off on a slave when its still
->> enabled on the master.
->>
->> The strategy here is to add a section near the end of
->> netdev_fix_features() that looks for upper and lower netdevs, then make
->> sure certain feature flags match both up and down the stack. At present,
->> only the LRO flag is included.
-...
->> +static void netdev_sync_lower_features(struct net_device *upper,
->> + struct net_device *lower, netdev_features_t features)
->> +{
->> + netdev_features_t want = features & lower->hw_features;
->> +
->> + if (!(features & NETIF_F_LRO) && (lower->features & NETIF_F_LRO)) {
->> + netdev_info(upper, "Disabling LRO on lower dev %s.\n",
->> + lower->name);
->> + upper->wanted_features &= ~NETIF_F_LRO;
->> + lower->wanted_features &= ~NETIF_F_LRO;
->> + netdev_update_features(lower);
->> + if (unlikely(lower->features & NETIF_F_LRO))
->> + netdev_WARN(upper, "failed to disable LRO on %s!\n",
->> + lower->name);
->> + } else if ((want & NETIF_F_LRO) && !(lower->features & NETIF_F_LRO)) {
->> + netdev_info(upper, "Enabling LRO on lower dev %s.\n",
->> + lower->name);
->> + upper->wanted_features |= NETIF_F_LRO;
->> + lower->wanted_features |= NETIF_F_LRO;
->> + netdev_update_features(lower);
->> + if (unlikely(!(lower->features & NETIF_F_LRO)))
->> + netdev_WARN(upper, "failed to enable LRO on %s!\n",
->> + lower->name);
->> + }
->> +}
->> +
->
-> Same thing here. If a lower dev has it disabled then leave it disabled.
-> I believe your goal is to make it so that dev_disable_lro() can shut
-> down LRO when it is making packets in the data-path unusable. There is
-> no need to make this an all or nothing scenario. We can let the stack
-> slam things down with dev_disable_lro() and then if a user so desires
-> they can come back through and enable LRO more selectively if they for
-> instance have an interface that can do a smarter job of putting together
-> frames that could be routed.
->
-> You could probably look at doing something like this for RXCSUM as well.
-> The general idea is that if an upper device has it off then the value
-> has to be off. For example if RXCSUM is off in a upper device and LRO is
-> enabled on the lower device there is a good chance that the upper device
-> will report checksum errors since most LRO implementations don't
-> recalculate the checksum. If RXCSUM is forced down to the lower device
-> hopefully its fix_features will know this and disable LRO on that device
-> when the RXCSUM is disabled on it.
+From: Eric Dumazet <edumazet@google.com>
 
-Yeah, I was thinking there might be more flags to treat the same way, 
-just wanted to hammer out the plausibility of doing it at all first. I 
-can add RXCSUM to v2, or just wait until there's something that people 
-might consider merge-worthy before worrying about additional flags. From 
-what I've seen, most device's fix_features are reasonably intelligent 
-about allowing/disallowing certain flag combos, so this does look pretty 
-safe at a glance, and if a specific device tips over, it probably needs 
-to be fixed in the device's driver anyway.
+IPv6 request sockets store a pointer to skb containing the SYN packet
+to be able to transfer it to full blown socket when 3WHS is done
+(ireq->pktopts -> np->pktoptions)
 
--- 
-Jarod Wilson
-jarod@redhat.com
+As explained in commit 5e0724d027f0 ("tcp/dccp: fix hashdance race for
+passive sessions"), we must transfer the skb only if we won the
+hashdance race, if multiple cpus receive the 'ack' packet completing
+3WHS at the same time.
+
+Fixes: e994b2f0fb92 ("tcp: do not lock listener to process SYN packets")
+Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/dccp/ipv6.c     |   16 ++++++++--------
+ net/ipv6/tcp_ipv6.c |   18 +++++++++---------
+ 2 files changed, 17 insertions(+), 17 deletions(-)
+
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index ef4e48ce9143..db5fc2440a23 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -477,15 +477,7 @@ static struct sock *dccp_v6_request_recv_sock(const struct sock *sk,
+ 	/* Clone RX bits */
+ 	newnp->rxopt.all = np->rxopt.all;
+ 
+-	/* Clone pktoptions received with SYN */
+ 	newnp->pktoptions = NULL;
+-	if (ireq->pktopts != NULL) {
+-		newnp->pktoptions = skb_clone(ireq->pktopts, GFP_ATOMIC);
+-		consume_skb(ireq->pktopts);
+-		ireq->pktopts = NULL;
+-		if (newnp->pktoptions)
+-			skb_set_owner_r(newnp->pktoptions, newsk);
+-	}
+ 	newnp->opt	  = NULL;
+ 	newnp->mcast_oif  = inet6_iif(skb);
+ 	newnp->mcast_hops = ipv6_hdr(skb)->hop_limit;
+@@ -515,6 +507,14 @@ static struct sock *dccp_v6_request_recv_sock(const struct sock *sk,
+ 		goto out;
+ 	}
+ 	*own_req = inet_ehash_nolisten(newsk, req_to_sk(req_unhash));
++	/* Clone pktoptions received with SYN, if we own the req */
++	if (*own_req && ireq->pktopts) {
++		newnp->pktoptions = skb_clone(ireq->pktopts, GFP_ATOMIC);
++		consume_skb(ireq->pktopts);
++		ireq->pktopts = NULL;
++		if (newnp->pktoptions)
++			skb_set_owner_r(newnp->pktoptions, newsk);
++	}
+ 
+ 	return newsk;
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 714bc5ad096e..ea2f4d5440b5 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1084,16 +1084,7 @@ static struct sock *tcp_v6_syn_recv_sock(const struct sock *sk, struct sk_buff *
+ 	/* Clone RX bits */
+ 	newnp->rxopt.all = np->rxopt.all;
+ 
+-	/* Clone pktoptions received with SYN */
+ 	newnp->pktoptions = NULL;
+-	if (ireq->pktopts) {
+-		newnp->pktoptions = skb_clone(ireq->pktopts,
+-					      sk_gfp_atomic(sk, GFP_ATOMIC));
+-		consume_skb(ireq->pktopts);
+-		ireq->pktopts = NULL;
+-		if (newnp->pktoptions)
+-			skb_set_owner_r(newnp->pktoptions, newsk);
+-	}
+ 	newnp->opt	  = NULL;
+ 	newnp->mcast_oif  = tcp_v6_iif(skb);
+ 	newnp->mcast_hops = ipv6_hdr(skb)->hop_limit;
+@@ -1149,6 +1140,15 @@ static struct sock *tcp_v6_syn_recv_sock(const struct sock *sk, struct sk_buff *
+ 		goto out;
+ 	}
+ 	*own_req = inet_ehash_nolisten(newsk, req_to_sk(req_unhash));
++	/* Clone pktoptions received with SYN, if we own the req */
++	if (*own_req && ireq->pktopts) {
++		newnp->pktoptions = skb_clone(ireq->pktopts,
++					      sk_gfp_atomic(sk, GFP_ATOMIC));
++		consume_skb(ireq->pktopts);
++		ireq->pktopts = NULL;
++		if (newnp->pktoptions)
++			skb_set_owner_r(newnp->pktoptions, newsk);
++	}
+ 
+ 	return newsk;
+ 
