@@ -1,58 +1,22 @@
-From: Tina Ruchandani <ruchandani.tina@gmail.com>
-Subject: [PATCH] [DCCP]: Use 64-bit timekeeping
-Date: Fri, 30 Oct 2015 01:24:56 -0700
-Message-ID: <20151030082456.GA31370@tina-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: y2038@lists.linaro.org, netdev@vger.kernel.org, davem@davemloft.net,
- arnd@arndb.de, linux-kernel@vger.kernel.org
-To: dccp@vger.kernel.org
-Return-path: <y2038-bounces@lists.linaro.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+From: Phil Reid <preid@electromag.com.au>
+Subject: [0/1] stmmac: Correctly report PTP capabilities.
+Date: Fri, 30 Oct 2015 16:43:54 +0800
+Message-ID: <1446194635-19782-1-git-send-email-preid@electromag.com.au>
+Cc: Phil Reid <preid@electromag.com.au>
+To: peppe.cavallaro@st.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 203-59-230-133.perm.iinet.net.au ([203.59.230.133]:58250 "EHLO
+	preid-centos7.electromag.com.au" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751473AbbJ3Ixr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 04:53:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBwYXRjaCBjaGFuZ2VzIHRoZSB1c2Ugb2Ygc3RydWN0IHRpbWVzcGVjIGluCmRjY3BfcHJv
-YmUgdG8gdXNlIHN0cnVjdCB0aW1lc3BlYzY0IGluc3RlYWQuIHRpbWVzcGVjIHVzZXMgYSAzMi1i
-aXQKc2Vjb25kcyBmaWVsZCB3aGljaCB3aWxsIG92ZXJmbG93IGluIHRoZSB5ZWFyIDIwMzggYW5k
-IGJleW9uZC4gdGltZXNwZWM2NAp1c2VzIGEgNjQtYml0IHNlY29uZHMgZmllbGQuIE5vdGUgdGhh
-dCB0aGUgY29ycmVjdG5lc3Mgb2YgdGhlIGNvZGUgaXNuJ3QKY2hhbmdlZCwgc2luY2UgdGhlIG9y
-aWdpbmFsIGNvZGUgb25seSB1c2VzIHRoZSB0aW1lc3RhbXBzIHRvIGNvbXB1dGUgYQpzbWFsbCBl
-bGFwc2VkIGludGVydmFsLiBUaGlzIHBhdGNoIGlzIHBhcnQgb2YgYSBsYXJnZXIgYXR0ZW1wdCB0
-byByZW1vdmUKaW5zdGFuY2VzIG9mIDMyLWJpdCB0aW1la2VlcGluZyBzdHJ1Y3R1cmVzICh0aW1l
-c3BlYywgdGltZXZhbCwgdGltZV90KQpmcm9tIHRoZSBrZXJuZWwgc28gaXQgaXMgZWFzaWVyIHRv
-IGlkZW50aWZ5IHdoZXJlIHRoZSByZWFsIDIwMzggaXNzdWVzCmFyZS4KClNpZ25lZC1vZmYtYnk6
-IFRpbmEgUnVjaGFuZGFuaSA8cnVjaGFuZGFuaS50aW5hQGdtYWlsLmNvbT4KLS0tCiBuZXQvZGNj
-cC9wcm9iZS5jIHwgMTEgKysrKysrLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCA2IGluc2VydGlvbnMo
-KyksIDUgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvbmV0L2RjY3AvcHJvYmUuYyBiL25ldC9k
-Y2NwL3Byb2JlLmMKaW5kZXggZDgzNDZkMC4uM2QzZmRhMCAxMDA2NDQKLS0tIGEvbmV0L2RjY3Av
-cHJvYmUuYworKysgYi9uZXQvZGNjcC9wcm9iZS5jCkBAIC0zMCw2ICszMCw3IEBACiAjaW5jbHVk
-ZSA8bGludXgvbW9kdWxlLmg+CiAjaW5jbHVkZSA8bGludXgva2ZpZm8uaD4KICNpbmNsdWRlIDxs
-aW51eC92bWFsbG9jLmg+CisjaW5jbHVkZSA8bGludXgvdGltZTY0Lmg+CiAjaW5jbHVkZSA8bGlu
-dXgvZ2ZwLmg+CiAjaW5jbHVkZSA8bmV0L25ldF9uYW1lc3BhY2UuaD4KIApAQCAtNDcsMjAgKzQ4
-LDIwIEBAIHN0YXRpYyBzdHJ1Y3QgewogCXN0cnVjdCBrZmlmbwkgIGZpZm87CiAJc3BpbmxvY2tf
-dAkgIGxvY2s7CiAJd2FpdF9xdWV1ZV9oZWFkX3Qgd2FpdDsKLQlzdHJ1Y3QgdGltZXNwZWMJICB0
-c3RhcnQ7CisJc3RydWN0IHRpbWVzcGVjNjQgdHN0YXJ0OwogfSBkY2NwdzsKIAogc3RhdGljIHZv
-aWQgcHJpbnRsKGNvbnN0IGNoYXIgKmZtdCwgLi4uKQogewogCXZhX2xpc3QgYXJnczsKIAlpbnQg
-bGVuOwotCXN0cnVjdCB0aW1lc3BlYyBub3c7CisJc3RydWN0IHRpbWVzcGVjNjQgbm93OwogCWNo
-YXIgdGJ1ZlsyNTZdOwogCiAJdmFfc3RhcnQoYXJncywgZm10KTsKLQlnZXRuc3RpbWVvZmRheSgm
-bm93KTsKKwlnZXRuc3RpbWVvZmRheTY0KCZub3cpOwogCi0Jbm93ID0gdGltZXNwZWNfc3ViKG5v
-dywgZGNjcHcudHN0YXJ0KTsKKwlub3cgPSB0aW1lc3BlYzY0X3N1Yihub3csIGRjY3B3LnRzdGFy
-dCk7CiAKIAlsZW4gPSBzcHJpbnRmKHRidWYsICIlbHUuJTA2bHUgIiwKIAkJICAgICAgKHVuc2ln
-bmVkIGxvbmcpIG5vdy50dl9zZWMsCkBAIC0xMTAsNyArMTExLDcgQEAgc3RhdGljIHN0cnVjdCBq
-cHJvYmUgZGNjcF9zZW5kX3Byb2JlID0gewogc3RhdGljIGludCBkY2NwcHJvYmVfb3BlbihzdHJ1
-Y3QgaW5vZGUgKmlub2RlLCBzdHJ1Y3QgZmlsZSAqZmlsZSkKIHsKIAlrZmlmb19yZXNldCgmZGNj
-cHcuZmlmbyk7Ci0JZ2V0bnN0aW1lb2ZkYXkoJmRjY3B3LnRzdGFydCk7CisJZ2V0bnN0aW1lb2Zk
-YXk2NCgmZGNjcHcudHN0YXJ0KTsKIAlyZXR1cm4gMDsKIH0KIAotLSAKMS45LjEKCl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClkyMDM4IG1haWxpbmcgbGlz
-dApZMjAzOEBsaXN0cy5saW5hcm8ub3JnCmh0dHBzOi8vbGlzdHMubGluYXJvLm9yZy9tYWlsbWFu
-L2xpc3RpbmZvL3kyMDM4Cg==
+Phil Reid (1):
+  stmmac: Correctly report PTP capabilities.
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+-- 
+1.8.3.1
