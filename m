@@ -1,97 +1,66 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next RFC] mpls: support for dead routes
-Date: Fri, 30 Oct 2015 15:06:34 +0000
-Message-ID: <5633877A.4060303@brocade.com>
-References: <1446133748-13738-1-git-send-email-roopa@cumulusnetworks.com> <56324F09.2060103@brocade.com> <56326980.5060605@cumulusnetworks.com>
+From: Marek Vasut <marex@denx.de>
+Subject: Re: [PATCH] can: Use correct type in sizeof() in nla_put()
+Date: Fri, 30 Oct 2015 16:33:11 +0100
+Message-ID: <201510301633.11762.marex@denx.de>
+References: <1446209299-6250-1-git-send-email-marex@denx.de> <201510301524.58411.marex@denx.de> <5633846B.30107@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <ebiederm@xmission.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: roopa <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:56848 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750710AbbJ3PGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 11:06:49 -0400
-In-Reply-To: <56326980.5060605@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Marc Kleine-Budde" <mkl@pengutronix.de>,
+	linux-can@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>,
+	netdev@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <5633846B.30107@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 29/10/15 18:46, roopa wrote:
-> On 10/29/15, 9:53 AM, Robert Shearman wrote:
->> On 29/10/15 15:49, Roopa Prabhu wrote:
->>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>
->>> Adds support for both RTNH_F_DEAD and RTNH_F_LINKDOWN flags.
->>> This resembles ipv4 fib code. I also picked fib_rebalance from
->>> ipv4. Enabled weights support for nexthop, just because the
->>> infrastructure is already there.
->>>
->>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->>> ---
->>> I want to get this in before net-next closes as promised.
->>> I have tested it for the dead/linkdown flags. The multipath selection
->>> and hash calculation in the face of dead routes needs some more
->>> work. I am short on cycles this week and thought of getting some
->>> early feedback. Hence sending this out as RFC. I will continue with some
->>> more testing.  Robert, I am using your hash algo but it needs some more
->>> work with dead routes. If you already have any thoughts on this, i will
->>> take them. thanks!.
->>
->> If you were to sort the array of nexthops (and by implication via addresses) by their non-deadness keeping a count of the alive nexthops, then there's no need to resort to an O(n) algorithm for selecting the nexthop, and no need to store per-nh flags.
->>
->> E.g. before eth0 link down:
->>
->> +----------------------+
->> | rt_nhn = 3           |
->> | rt_nhn_alive = 3     |
->> +----------------------+
->> | nh 0:                |
->> | dev = eth0, ...      |
->> +----------------------+
->> | nh 1:                |
->> | dev = eth1, ...      |
->> +----------------------+
->> | nh 2:                |
->> | dev = eth0, ...      |
->> +----------------------+
->> | vias ...             |
->> +----------------------+
->>
->> after eth0 link down:
->>
->> +----------------------+
->> | rt_nhn = 3           |
->> | rt_nhn_alive = 1     |
->> +----------------------+
->> | nh 0:                |
->> | dev = eth1, ...      |
->> +----------------------+
->> | nh 1:                |
->> | dev = eth0, ...      |
->> +----------------------+
->> | nh 2:                |
->> | dev = eth0, ...      |
->> +----------------------+
->> | vias ...             |
->> +----------------------+
->>
->> The mpls_select_multipath algorithm just then needs to be changed to use rt_nhn_alive instead of rt_nhn and will work otherwise as-is.
->>
->> On link down you'll need to alloc a new route for RCU-safety, but you can presumably just do a kmemdup to reduce the amount of code you have to write and sort the nexthops in the copy. Link up will be similar.
-> You mean sort the nexthops on every link and carrier event ?. I don't see a need for it.
->>
->> Then on the mpls_dump_route, if the index of the nexthop is >= rt_nhn_alive then the path is link-down. If the nh_dev is NULL then generate RTNH_F_DEAD|RTNH_F_LINKDOWN for the flags, otherwise just RTNH_F_LINKDOWN.
-> I was not thinking of making nh_dev NULL on RTNH_F_DEAD. And i would prefer to store the RTNH flags instead of deriving them on every dump.
->>
->> This would use less memory and be faster for forwarding.
-> Thanks for your inputs Robert. I am not see a huge advantage in sorting the nexthops on link events.
-> And i will be only saving an 'int' in a nexthop.
+On Friday, October 30, 2015 at 03:53:31 PM, Oliver Hartkopp wrote:
+> On 10/30/2015 03:24 PM, Marek Vasut wrote:
+> > On Friday, October 30, 2015 at 03:17:44 PM, Marc Kleine-Budde wrote:
+> >> On 10/30/2015 03:01 PM, Marek Vasut wrote:
+> >>> Are you absolutelly positive this doesn't break kernel ABI please ?
+> >>> 
+> >>> I am a little worried there, since the size of can_clock and
+> >>> can_ctrlmode structures differ.
+> >> 
+> >> struct can_clock is a u32, see [1]
+> >> struct can_ctrlmode is 2 x u32.
+> >> 
+> >> in libsocketcan[2] it's accessed like this:
+> >>> 	memcpy(res,
+> >>> 	
+> >>> 		RTA_DATA(can_attr[IFLA_CAN_CLOCK]),
+> >>> 		sizeof(struct can_clock));
+> >> 
+> >> I think it should be ok.
+> > 
+> > In that case, yes, it's good. Hopefully, noone wrote his own thing.
+> 
+> Fortunately ip from iproute2 does it similary:
+> 
+> https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/tree/i
+> p/iplink_can.c#n338
+> 
+> 
+> 	if (tb[IFLA_CAN_CLOCK]) {
+> 		struct can_clock *clock = RTA_DATA(tb[IFLA_CAN_CLOCK]);
+> 
+> 		fprintf(f, "\n	  clock %d", clock->freq);
+> 	}
+> 
+> As the clock is a read-only value kernel->userspace and nla_put creates its
+> own small ID/length information each time we are REALLY LUCKY that this fix
+> doesn't break the ABI in this case.
+> 
+> When can_clock would have been greater then can_ctrlmode we really had a
+> problem ...
+> 
+> Thanks for caching this!
 
-It avoids the extra 12 bytes per nexthop and it means that you don't 
-need to walk through every nexthop in the worst case to select a path 
-during forwarding.
+Yeah, I already had one leg in my asbestos trousers all right. Thanks for
+double-checking this!
 
-Thanks,
-Rob
+Best regards,
+Marek Vasut
