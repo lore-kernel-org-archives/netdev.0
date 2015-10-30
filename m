@@ -1,71 +1,129 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net PATCH 3/3] ixgbe: Fix handling of napi budget when multiple
- queues are enabled per vector
-Date: Fri, 30 Oct 2015 09:11:07 -0700
-Message-ID: <5633969B.1050401@gmail.com>
-References: <20150922213002.2774.37924.stgit@ahduyck-vm-fedora22>
- <20150922213541.2774.70538.stgit@ahduyck-vm-fedora22>
- <CAJ75kXZx9YoD4_k7yb2aEomhxceG96D-twPqYz_-9QmY-2MXvw@mail.gmail.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [RFC PATCH net-next] net/core: initial support for stacked dev
+ feature toggles
+Date: Fri, 30 Oct 2015 12:25:44 -0400
+Message-ID: <56339A08.8000205@redhat.com>
+References: <1445658019-58621-1-git-send-email-jarod@redhat.com> <562B1C4D.8050407@gmail.com> <20151026094213.GA1715@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	jeffrey.t.kirsher@intel.com
-To: William Dauchy <wdauchy@gmail.com>,
-	Alexander Duyck <aduyck@mirantis.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:32963 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751842AbbJ3QLJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 12:11:09 -0400
-Received: by padhy1 with SMTP id hy1so72356089pad.0
-        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 09:11:08 -0700 (PDT)
-In-Reply-To: <CAJ75kXZx9YoD4_k7yb2aEomhxceG96D-twPqYz_-9QmY-2MXvw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Nikolay Aleksandrov <razor@blackwall.org>,
+	netdev@vger.kernel.org
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151026094213.GA1715@unicorn.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/30/2015 07:55 AM, William Dauchy wrote:
-> Hi Alexander,
+Michal Kubecek wrote:
+> On Fri, Oct 23, 2015 at 10:51:09PM -0700, Alexander Duyck wrote:
+>> On 10/23/2015 08:40 PM, Jarod Wilson wrote:
+>>> +static netdev_features_t netdev_sync_upper_features(struct net_device *lower,
+>>> +	struct net_device *upper, netdev_features_t features)
+>>> +{
+>>> +	netdev_features_t want = upper->wanted_features&  lower->hw_features;
+>>> +
+>>> +	if (!(upper->wanted_features&  NETIF_F_LRO)
+>>> +	&&  (features&  NETIF_F_LRO)) {
+>>> +		netdev_info(lower, "Dropping LRO, upper dev %s has it off.\n",
+>>> +			   upper->name);
+>>> +		features&= ~NETIF_F_LRO;
+>>> +	} else if ((want&  NETIF_F_LRO)&&  !(features&  NETIF_F_LRO)) {
+>>> +		netdev_info(lower, "Keeping LRO, upper dev %s has it on.\n",
+>>> +			   upper->name);
+>>> +		features |= NETIF_F_LRO;
+>>> +	}
+>>> +
+>>> +	return features;
+>>> +}
+>>> +
+>> I'd say to drop the second half of this statement.  LRO is a feature
+>> that should be enabled explicitly per interface.  If someone enables
+>> LRO on the master they may only want it on one interface.  The fact
+>> is there are some implementations of LRO that work better than
+>> others so you want to give the end user the option to mix and match.
 >
-> On Tue, Sep 22, 2015 at 11:35 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
->> This patch corrects an issue in which the polling routine would increase
->> the budget for Rx to at least 1 per queue if multiple queues were present.
->> This would result in Rx packets being processed when the budget was 0 which
->> is meant to indicate that no Rx can be handled.
-> We may logically have the same issue with VF, right?
+> Agreed. IMHO it makes sense to allow setups with LRO disabled on some
+> slaves and enabled on other.
 >
->  From 4521374ae746543a925982d59a8ba73b6aaee59c Mon Sep 17 00:00:00 2001
-> From: William Dauchy <william@gandi.net>
-> Date: Fri, 30 Oct 2015 15:48:43 +0100
-> Subject: [PATCH] ixgbevf: Fix handling of napi budget when multiple queues are
->   enabled per vector
->
-> This is the same patch as for ixgbe but applied differently according to
-> busy polling
->
-> Signed-off-by: William Dauchy <william@gandi.net>
-> ---
->   drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 2 ++
->   1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> index 149a0b4..ff6e21d 100644
-> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> @@ -1014,6 +1014,8 @@ static int ixgbevf_poll(struct napi_struct
-> *napi, int budget)
->    ixgbevf_for_each_ring(ring, q_vector->tx)
->    clean_complete &= ixgbevf_clean_tx_irq(q_vector, ring);
->
-> + if (budget <= 0)
-> + return budget;
->   #ifdef CONFIG_NET_RX_BUSY_POLL
->    if (!ixgbevf_qv_lock_napi(q_vector))
->    return budget;
+> Also, the logic seems to only consider the 1 upper : N lower scheme
+> (bond, team) but we also have N upper : 1 lower setups (vlan, macvlan).
+> For these, there is no way to propagate both 0 and 1 down as this would
+> result in a conflict.
 
-Yes the same issue applies to ixgbevf, but it looks like your patch was 
-mangled by your mail client.  Can you please resubmit with the white 
-spaces fixed?
+Okay, so we're thinking do prevent lower devices turning LRO on if the 
+upper device has it off. Or rather, if *an* upper device has it off. 
+Probably need to rework the bit that calls this function to use 
+netdev_for_each_upper_dev{_rcu}() to walk all of adj_list.upper here.
 
-- Alex
+Rather than outright dropping the second bit though, I was thinking 
+maybe just drop a note in dmesg along the lines of "hey, you shut off 
+LRO, it is still enabled on upper dev foo", to placate end-users.
+
+
+>>> +static void netdev_sync_lower_features(struct net_device *upper,
+>>> +	struct net_device *lower, netdev_features_t features)
+>>> +{
+>>> +	netdev_features_t want = features&  lower->hw_features;
+>>> +
+>>> +	if (!(features&  NETIF_F_LRO)&&  (lower->features&  NETIF_F_LRO)) {
+>>> +		netdev_info(upper, "Disabling LRO on lower dev %s.\n",
+>>> +			   lower->name);
+>>> +		upper->wanted_features&= ~NETIF_F_LRO;
+>>> +		lower->wanted_features&= ~NETIF_F_LRO;
+>>> +		netdev_update_features(lower);
+>>> +		if (unlikely(lower->features&  NETIF_F_LRO))
+>>> +			netdev_WARN(upper, "failed to disable LRO on %s!\n",
+>>> +				    lower->name);
+>>> +	} else if ((want&  NETIF_F_LRO)&&  !(lower->features&  NETIF_F_LRO)) {
+>>> +		netdev_info(upper, "Enabling LRO on lower dev %s.\n",
+>>> +			   lower->name);
+>>> +		upper->wanted_features |= NETIF_F_LRO;
+>>> +		lower->wanted_features |= NETIF_F_LRO;
+>>> +		netdev_update_features(lower);
+>>> +		if (unlikely(!(lower->features&  NETIF_F_LRO)))
+>>> +			netdev_WARN(upper, "failed to enable LRO on %s!\n",
+>>> +				    lower->name);
+>>> +	}
+>>> +}
+>>> +
+>> Same thing here.  If a lower dev has it disabled then leave it
+>> disabled.  I believe your goal is to make it so that
+>> dev_disable_lro() can shut down LRO when it is making packets in the
+>> data-path unusable.
+>
+> This is already the case since commit fbe168ba91f7 ("net: generic
+> dev_disable_lro() stacked device handling"). That commit makes sure
+> dev_disable_lro() is propagated down the stack and also makes sure new
+> slaves added to a bond/team with LRO disabled have it disabled too.
+>
+> What it does not do is propagating LRO disabling down if it is disabled
+> in ways that do not call dev_disable_lro() (e.g. via ethtool). I'm not
+> sure if this should be done or not, both options have their pros and
+> cons.
+
+Making it work with ethtool was one of my primary goals with this 
+change, as it was users prodding things with ethtool that prompted the 
+"hey, this doesn't make sense" bug reports.
+
+> However, I believe enabling LRO shouldn't be propagated down.
+
+Hm. Devices that should never have LRO enabled still won't get it 
+enabled, so I'm not clear what harm it would cause. I tend to think you 
+do want this sync'ing down the stack if set on an upper dev (i.e., 
+ethtool -K bond0 lro on), for consistency's sake. You can always come 
+back through afterwards and disable things on lower devs individually if 
+they're really not wanted, since we're in agreement that we shouldn't 
+prevent disabling features on lower devices.
+
+-- 
+Jarod Wilson
+jarod@redhat.com
