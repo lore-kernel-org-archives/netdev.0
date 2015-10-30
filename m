@@ -1,169 +1,102 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect for
- sockets in accept(3)
-Date: Fri, 30 Oct 2015 14:50:46 -0700
-Message-ID: <CA+55aFy9fPmbSCJoQiCkjkaiU2HTM6p=o-pJgiV7asyVWBjAEg@mail.gmail.com>
-References: <1446043677.7476.68.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151028211347.GC22011@ZenIV.linux.org.uk>
-	<1446068668.7476.89.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151028223330.GD22011@ZenIV.linux.org.uk>
-	<1446073709.7476.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151029001532.GE22011@ZenIV.linux.org.uk>
-	<1446089381.7476.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151029041611.GF22011@ZenIV.linux.org.uk>
-	<1446122119.7476.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+55aFx_BQG4FzSuyL2KAz=c+R0cPv0ZpjboT_=yKjZNGmTUEg@mail.gmail.com>
-	<20151030210215.GI22011@ZenIV.linux.org.uk>
-	<CA+55aFyoA5sXQvFDavNa7cGkRevunmtPe8F8-_tZ9-826qfkgw@mail.gmail.com>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: [PATCH v3 net] i40e: Look up MAC address in Open Firmware or
+ IDPROM
+Date: Fri, 30 Oct 2015 22:03:07 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFACC2E@fmsmsx115.amr.corp.intel.com>
+References: <20151030150344.GG9312@oracle.com>
+ <FC41C24E35F18A40888AACA1A36F3E418AFACA14@fmsmsx115.amr.corp.intel.com>
+ <20151030183645.GD32759@oracle.com>
+ <FC41C24E35F18A40888AACA1A36F3E418AFACA8F@fmsmsx115.amr.corp.intel.com>
+ <20151030192437.GE32759@oracle.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a11c3146e865e1d0523596bcf
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Network Development <netdev@vger.kernel.org>,
-	David Howells <dhowells@redhat.com>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:35604 "EHLO
-	mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754016AbbJ3Vus (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 17:50:48 -0400
-In-Reply-To: <CA+55aFyoA5sXQvFDavNa7cGkRevunmtPe8F8-_tZ9-826qfkgw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"andy.shevchenko@gmail.com" <andy.shevchenko@gmail.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151030192437.GE32759@oracle.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---001a11c3146e865e1d0523596bcf
-Content-Type: text/plain; charset=UTF-8
 
-On Fri, Oct 30, 2015 at 2:23 PM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
-> On Fri, Oct 30, 2015 at 2:02 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
->>
->> Your variant has 1:64 ratio; obviously better than now, but we can actually
->> do 1:bits-per-cacheline quite easily.
->
-> Ok, but in that case you end up needing a counter for each cacheline
-> too (to count how many bits, in order to know when to say "cacheline
-> is entirely full").
 
-So here's a largely untested version of my "one bit per word"
-approach. It seems to work, but looking at it, I'm unhappy with a few
-things:
+> -----Original Message-----
+> From: Sowmini Varadhan [mailto:sowmini.varadhan@oracle.com]
+> Sent: Friday, October 30, 2015 12:25 PM
+> 
+> On (10/30/15 18:57), Nelson, Shannon wrote:
+> > > >
+> > > > Going along with this being the equivalent of the ixgbe patch, I'd
+> > > > prefer the new code to be in i40e_main.c, rather than in i40e_common.c.
+> > > > In the design of our drivers, the common file is essentially a device
+> > > > specific layer, and the OS and platform related stuff should stay in
+> > > > i40e_main.c.  That would also take care of one of the include file nits
+> > > > that Andy mentioned.
+>        :
+> > I'm not sure about any deeper wisdom, but the HW/FW model that this
+> > device uses is rather different from our previous devices, so our SW
+> > abstractions are a little different from ixgbe and igb.
+> 
+> Ok, in that case I can make i40e_main.c to do something like
+> 
+> static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+> {
+>    :
+>    if (i40e_get_platform_mac_addr(..) != I40E_SUCCESS)
+> 	i40e_get_mac_addr(..);
+>    :
+> }
+> 
+> and i agree that doing this from i40e_main will simplify a lot of the
+> other stuff around getting the pdev etc.
 
- - using kmalloc() for the .full_fds_bits[] array is simple, but
-disgusting, since 99% of all programs just have a single word.
+The more common idiom in our driver would be
 
-   I know I talked about just adding the allocation to the same one
-that allocates the bitmaps themselves, but I got lazy and didn't do
-it. Especially since that code seems to try fairly hard to make the
-allocations nice powers of two, according to the comments. That may
-actually matter from an allocation standpoint.
+	err = i40e_get_platform_mac_addr(..);
+	if (err) {
+		...
+	}
 
- - Maybe we could just use that "full_fds_bits_init" field for when a
-single word is sufficient, and avoid the kmalloc that way?
+> 
+> [Discussion about ndo_set_mac_address..]
+> 
+> > In the cases in which I'm aware, the platform manufacturer normally will
+> > burn a different mac-address into the device's eeprom at manufacturing
+> > time if they want something other than what came from Intel.  I suppose a
+> > Device Tree oriented platform could have a different address in the DT,
+> > but somehow that needs to get communicated to the device driver so that
+> > it can tell the HW.
+> >
+> > My question to you remains: does this ndo_set_mac_address happen from
+> > the stack above the driver or not?
+> 
+> I'm probably even less clued in to the DT arch than you in this case,
+> so input from the intel experts would be useful here.
 
-Anyway. This is a pretty simple patch, and I actually think that we
-could just get rid of the "next_fd" logic entirely with this. That
-would make this *patch* be more complicated, but it would make the
-resulting *code* be simpler.
+This worries me - if you're not clued into the DT architecture, why are you making these changes?  Have you tested this beyond a compile?  Do you have a DT model to try this against?
 
-Hmm? Want to play with this? Eric, what does this do to your test-case?
+> 
+> But both in this case, and for the ixgbe template on which I tried
+> to model this, the OF/idprom probing happens from the ->probe when the
+> driver comes up, and ndo_set_mac_address is not involved.
+> 
+> I dont know if it is easier (or even feasible to do this from ->probe)
+> to just call the i40e_set_mac to make sure all the state-bits in
+> the driver are correctly set.
+> 
+> --Sowmini
 
-                        Linus
+In looking at a couple other drivers, I see the difference being that they typically are writing the primary mac filter on probe (and any other reset), whereas the i40e "knows" that the default mac address is already set up as the filter and doesn't bother with a redundant write.  If you want to add this Open Filter code, you'll need to arrange for this write to happen.  You can't call i40e_set_mac() to do it, but you can see the i40e_aq_mac_address_write() code there that is involved in updating the mac address as an example.  You probably will want to look at section 4.2.1.5.3 of the XL710 data sheet in order to know how to use i40e_aq_mac_address_write() for your situation.
 
---001a11c3146e865e1d0523596bcf
-Content-Type: text/plain; charset=US-ASCII; name="patch.diff"
-Content-Disposition: attachment; filename="patch.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ige71vaj0
-
-IGZzL2ZpbGUuYyAgICAgICAgICAgICAgIHwgNDkgKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKy0tLQogaW5jbHVkZS9saW51eC9mZHRhYmxlLmggfCAgMiArKwog
-MiBmaWxlcyBjaGFuZ2VkLCA0OCBpbnNlcnRpb25zKCspLCAzIGRlbGV0aW9ucygtKQoKZGlmZiAt
-LWdpdCBhL2ZzL2ZpbGUuYyBiL2ZzL2ZpbGUuYwppbmRleCA2YzY3MmFkMzI5ZTkuLjBiODlhOTdj
-YWJiNSAxMDA2NDQKLS0tIGEvZnMvZmlsZS5jCisrKyBiL2ZzL2ZpbGUuYwpAQCAtNDgsNiArNDgs
-NyBAQCBzdGF0aWMgdm9pZCBfX2ZyZWVfZmR0YWJsZShzdHJ1Y3QgZmR0YWJsZSAqZmR0KQogewog
-CWt2ZnJlZShmZHQtPmZkKTsKIAlrdmZyZWUoZmR0LT5vcGVuX2Zkcyk7CisJa2ZyZWUoZmR0LT5m
-dWxsX2Zkc19iaXRzKTsKIAlrZnJlZShmZHQpOwogfQogCkBAIC01Niw2ICs1Nyw5IEBAIHN0YXRp
-YyB2b2lkIGZyZWVfZmR0YWJsZV9yY3Uoc3RydWN0IHJjdV9oZWFkICpyY3UpCiAJX19mcmVlX2Zk
-dGFibGUoY29udGFpbmVyX29mKHJjdSwgc3RydWN0IGZkdGFibGUsIHJjdSkpOwogfQogCisjZGVm
-aW5lIEJJVEJJVF9OUihucikJQklUU19UT19MT05HUyhCSVRTX1RPX0xPTkdTKG5yKSkKKyNkZWZp
-bmUgQklUQklUX1NJWkUobnIpCShCSVRCSVRfTlIobnIpICogc2l6ZW9mKGxvbmcpKQorCiAvKgog
-ICogRXhwYW5kIHRoZSBmZHNldCBpbiB0aGUgZmlsZXNfc3RydWN0LiAgQ2FsbGVkIHdpdGggdGhl
-IGZpbGVzIHNwaW5sb2NrCiAgKiBoZWxkIGZvciB3cml0ZS4KQEAgLTc3LDYgKzgxLDExIEBAIHN0
-YXRpYyB2b2lkIGNvcHlfZmR0YWJsZShzdHJ1Y3QgZmR0YWJsZSAqbmZkdCwgc3RydWN0IGZkdGFi
-bGUgKm9mZHQpCiAJbWVtc2V0KChjaGFyICopKG5mZHQtPm9wZW5fZmRzKSArIGNweSwgMCwgc2V0
-KTsKIAltZW1jcHkobmZkdC0+Y2xvc2Vfb25fZXhlYywgb2ZkdC0+Y2xvc2Vfb25fZXhlYywgY3B5
-KTsKIAltZW1zZXQoKGNoYXIgKikobmZkdC0+Y2xvc2Vfb25fZXhlYykgKyBjcHksIDAsIHNldCk7
-CisKKwljcHkgPSBCSVRCSVRfU0laRShvZmR0LT5tYXhfZmRzKTsKKwlzZXQgPSBCSVRCSVRfU0la
-RShuZmR0LT5tYXhfZmRzKSAtIGNweTsKKwltZW1jcHkobmZkdC0+ZnVsbF9mZHNfYml0cywgb2Zk
-dC0+ZnVsbF9mZHNfYml0cywgY3B5KTsKKwltZW1zZXQoY3B5KyhjaGFyICopbmZkdC0+ZnVsbF9m
-ZHNfYml0cywgMCwgc2V0KTsKIH0KIAogc3RhdGljIHN0cnVjdCBmZHRhYmxlICogYWxsb2NfZmR0
-YWJsZSh1bnNpZ25lZCBpbnQgbnIpCkBAIC0xMjIsOCArMTMxLDIxIEBAIHN0YXRpYyBzdHJ1Y3Qg
-ZmR0YWJsZSAqIGFsbG9jX2ZkdGFibGUodW5zaWduZWQgaW50IG5yKQogCWRhdGEgKz0gbnIgLyBC
-SVRTX1BFUl9CWVRFOwogCWZkdC0+Y2xvc2Vfb25fZXhlYyA9IGRhdGE7CiAKKwkvKgorCSAqIFRo
-ZSAiYml0bWFwIG9mIGJpdG1hcHMiIGhhcyBhIGJpdCBzZXQgZm9yIGVhY2ggd29yZCBpbgorCSAq
-IHRoZSBvcGVuX2ZkcyBhcnJheSB0aGF0IGlzIGZ1bGwuIFdlIGluaXRpYWxpemUgaXQgdG8KKwkg
-KiB6ZXJvIGJvdGggYXQgYWxsb2NhdGlvbiBhbmQgYXQgY29weWluZywgYmVjYXVzZSBpdCBpcwor
-CSAqIGltcG9ydGFudCB0aGF0IGl0IG5ldmVyIGhhdmUgYSBiaXQgc2V0IGZvciBhIG5vbi1mdWxs
-CisJICogd29yZCwgYnV0IGl0IGRvZXNuJ3QgaGF2ZSB0byBiZSBleGFjdCBvdGhlcndpc2UuCisJ
-ICovCisJZmR0LT5mdWxsX2Zkc19iaXRzID0ga3phbGxvYyhCSVRCSVRfU0laRShuciksIEdGUF9L
-RVJORUwpOworCWlmICghZmR0LT5mdWxsX2Zkc19iaXRzKQorCQlnb3RvIG91dF9ub2Z1bGw7CisK
-IAlyZXR1cm4gZmR0OwogCitvdXRfbm9mdWxsOgorCWt2ZnJlZShmZHQtPm9wZW5fZmRzKTsKIG91
-dF9hcnI6CiAJa3ZmcmVlKGZkdC0+ZmQpOwogb3V0X2ZkdDoKQEAgLTIyOSwxNCArMjUxLDE4IEBA
-IHN0YXRpYyBpbmxpbmUgdm9pZCBfX2NsZWFyX2Nsb3NlX29uX2V4ZWMoaW50IGZkLCBzdHJ1Y3Qg
-ZmR0YWJsZSAqZmR0KQogCV9fY2xlYXJfYml0KGZkLCBmZHQtPmNsb3NlX29uX2V4ZWMpOwogfQog
-Ci1zdGF0aWMgaW5saW5lIHZvaWQgX19zZXRfb3Blbl9mZChpbnQgZmQsIHN0cnVjdCBmZHRhYmxl
-ICpmZHQpCitzdGF0aWMgaW5saW5lIHZvaWQgX19zZXRfb3Blbl9mZCh1bnNpZ25lZCBpbnQgZmQs
-IHN0cnVjdCBmZHRhYmxlICpmZHQpCiB7CiAJX19zZXRfYml0KGZkLCBmZHQtPm9wZW5fZmRzKTsK
-KwlmZCAvPSBCSVRTX1BFUl9MT05HOworCWlmICghfmZkdC0+b3Blbl9mZHNbZmRdKQorCQlfX3Nl
-dF9iaXQoZmQsIGZkdC0+ZnVsbF9mZHNfYml0cyk7CiB9CiAKLXN0YXRpYyBpbmxpbmUgdm9pZCBf
-X2NsZWFyX29wZW5fZmQoaW50IGZkLCBzdHJ1Y3QgZmR0YWJsZSAqZmR0KQorc3RhdGljIGlubGlu
-ZSB2b2lkIF9fY2xlYXJfb3Blbl9mZCh1bnNpZ25lZCBpbnQgZmQsIHN0cnVjdCBmZHRhYmxlICpm
-ZHQpCiB7CiAJX19jbGVhcl9iaXQoZmQsIGZkdC0+b3Blbl9mZHMpOworCV9fY2xlYXJfYml0KGZk
-IC8gQklUU19QRVJfTE9ORywgZmR0LT5mdWxsX2Zkc19iaXRzKTsKIH0KIAogc3RhdGljIGludCBj
-b3VudF9vcGVuX2ZpbGVzKHN0cnVjdCBmZHRhYmxlICpmZHQpCkBAIC0yODAsNiArMzA2LDcgQEAg
-c3RydWN0IGZpbGVzX3N0cnVjdCAqZHVwX2ZkKHN0cnVjdCBmaWxlc19zdHJ1Y3QgKm9sZGYsIGlu
-dCAqZXJyb3JwKQogCW5ld19mZHQtPm1heF9mZHMgPSBOUl9PUEVOX0RFRkFVTFQ7CiAJbmV3X2Zk
-dC0+Y2xvc2Vfb25fZXhlYyA9IG5ld2YtPmNsb3NlX29uX2V4ZWNfaW5pdDsKIAluZXdfZmR0LT5v
-cGVuX2ZkcyA9IG5ld2YtPm9wZW5fZmRzX2luaXQ7CisJbmV3X2ZkdC0+ZnVsbF9mZHNfYml0cyA9
-IG5ld2YtPmZ1bGxfZmRzX2JpdHNfaW5pdDsKIAluZXdfZmR0LT5mZCA9ICZuZXdmLT5mZF9hcnJh
-eVswXTsKIAogCXNwaW5fbG9jaygmb2xkZi0+ZmlsZV9sb2NrKTsKQEAgLTMyMyw2ICszNTAsNyBA
-QCBzdHJ1Y3QgZmlsZXNfc3RydWN0ICpkdXBfZmQoc3RydWN0IGZpbGVzX3N0cnVjdCAqb2xkZiwg
-aW50ICplcnJvcnApCiAKIAltZW1jcHkobmV3X2ZkdC0+b3Blbl9mZHMsIG9sZF9mZHQtPm9wZW5f
-ZmRzLCBvcGVuX2ZpbGVzIC8gOCk7CiAJbWVtY3B5KG5ld19mZHQtPmNsb3NlX29uX2V4ZWMsIG9s
-ZF9mZHQtPmNsb3NlX29uX2V4ZWMsIG9wZW5fZmlsZXMgLyA4KTsKKwltZW1jcHkobmV3X2ZkdC0+
-ZnVsbF9mZHNfYml0cywgb2xkX2ZkdC0+ZnVsbF9mZHNfYml0cywgQklUQklUX1NJWkUob3Blbl9m
-aWxlcykpOwogCiAJZm9yIChpID0gb3Blbl9maWxlczsgaSAhPSAwOyBpLS0pIHsKIAkJc3RydWN0
-IGZpbGUgKmYgPSAqb2xkX2ZkcysrOwpAQCAtNDU0LDEwICs0ODIsMjUgQEAgc3RydWN0IGZpbGVz
-X3N0cnVjdCBpbml0X2ZpbGVzID0gewogCQkuZmQJCT0gJmluaXRfZmlsZXMuZmRfYXJyYXlbMF0s
-CiAJCS5jbG9zZV9vbl9leGVjCT0gaW5pdF9maWxlcy5jbG9zZV9vbl9leGVjX2luaXQsCiAJCS5v
-cGVuX2Zkcwk9IGluaXRfZmlsZXMub3Blbl9mZHNfaW5pdCwKKwkJLmZ1bGxfZmRzX2JpdHMJPSBp
-bml0X2ZpbGVzLmZ1bGxfZmRzX2JpdHNfaW5pdCwKIAl9LAogCS5maWxlX2xvY2sJPSBfX1NQSU5f
-TE9DS19VTkxPQ0tFRChpbml0X2ZpbGVzLmZpbGVfbG9jayksCiB9OwogCitzdGF0aWMgdW5zaWdu
-ZWQgbG9uZyBmaW5kX25leHRfZmQoc3RydWN0IGZkdGFibGUgKmZkdCwgdW5zaWduZWQgbG9uZyBz
-dGFydCkKK3sKKwl1bnNpZ25lZCBsb25nIG1heGZkID0gZmR0LT5tYXhfZmRzOworCXVuc2lnbmVk
-IGxvbmcgbWF4Yml0ID0gbWF4ZmQgLyBCSVRTX1BFUl9MT05HOworCXVuc2lnbmVkIGxvbmcgYml0
-Yml0ID0gc3RhcnQgLyBCSVRTX1BFUl9MT05HOworCisJYml0Yml0ID0gZmluZF9uZXh0X3plcm9f
-Yml0KGZkdC0+ZnVsbF9mZHNfYml0cywgbWF4Yml0LCBiaXRiaXQpICogQklUU19QRVJfTE9ORzsK
-KwlpZiAoYml0Yml0ID4gbWF4ZmQpCisJCXJldHVybiBtYXhmZDsKKwlpZiAoYml0Yml0ID4gc3Rh
-cnQpCisJCXN0YXJ0ID0gYml0Yml0OworCXJldHVybiBmaW5kX25leHRfemVyb19iaXQoZmR0LT5v
-cGVuX2ZkcywgbWF4ZmQsIHN0YXJ0KTsKK30KKwogLyoKICAqIGFsbG9jYXRlIGEgZmlsZSBkZXNj
-cmlwdG9yLCBtYXJrIGl0IGJ1c3kuCiAgKi8KQEAgLTQ3Niw3ICs1MTksNyBAQCByZXBlYXQ6CiAJ
-CWZkID0gZmlsZXMtPm5leHRfZmQ7CiAKIAlpZiAoZmQgPCBmZHQtPm1heF9mZHMpCi0JCWZkID0g
-ZmluZF9uZXh0X3plcm9fYml0KGZkdC0+b3Blbl9mZHMsIGZkdC0+bWF4X2ZkcywgZmQpOworCQlm
-ZCA9IGZpbmRfbmV4dF9mZChmZHQsIGZkKTsKIAogCS8qCiAJICogTi5CLiBGb3IgY2xvbmUgdGFz
-a3Mgc2hhcmluZyBhIGZpbGVzIHN0cnVjdHVyZSwgdGhpcyB0ZXN0CmRpZmYgLS1naXQgYS9pbmNs
-dWRlL2xpbnV4L2ZkdGFibGUuaCBiL2luY2x1ZGUvbGludXgvZmR0YWJsZS5oCmluZGV4IDY3NGUz
-ZTIyNjQ2NS4uNTI5NTUzNWI2MGM2IDEwMDY0NAotLS0gYS9pbmNsdWRlL2xpbnV4L2ZkdGFibGUu
-aAorKysgYi9pbmNsdWRlL2xpbnV4L2ZkdGFibGUuaApAQCAtMjYsNiArMjYsNyBAQCBzdHJ1Y3Qg
-ZmR0YWJsZSB7CiAJc3RydWN0IGZpbGUgX19yY3UgKipmZDsgICAgICAvKiBjdXJyZW50IGZkIGFy
-cmF5ICovCiAJdW5zaWduZWQgbG9uZyAqY2xvc2Vfb25fZXhlYzsKIAl1bnNpZ25lZCBsb25nICpv
-cGVuX2ZkczsKKwl1bnNpZ25lZCBsb25nICpmdWxsX2Zkc19iaXRzOwogCXN0cnVjdCByY3VfaGVh
-ZCByY3U7CiB9OwogCkBAIC01OSw2ICs2MCw3IEBAIHN0cnVjdCBmaWxlc19zdHJ1Y3QgewogCWlu
-dCBuZXh0X2ZkOwogCXVuc2lnbmVkIGxvbmcgY2xvc2Vfb25fZXhlY19pbml0WzFdOwogCXVuc2ln
-bmVkIGxvbmcgb3Blbl9mZHNfaW5pdFsxXTsKKwl1bnNpZ25lZCBsb25nIGZ1bGxfZmRzX2JpdHNf
-aW5pdFsxXTsKIAlzdHJ1Y3QgZmlsZSBfX3JjdSAqIGZkX2FycmF5W05SX09QRU5fREVGQVVMVF07
-CiB9OwogCg==
---001a11c3146e865e1d0523596bcf--
+sln
