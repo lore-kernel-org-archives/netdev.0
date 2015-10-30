@@ -1,38 +1,71 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCHv3 net 0/2] ipv4: fix problems from the RTNH_F_LINKDOWN introduction
-Date: Fri, 30 Oct 2015 10:23:32 +0200
-Message-ID: <1446193414-8244-1-git-send-email-ja@ssi.bg>
+Subject: [PATCHv3 net 2/2] ipv4: update RTNH_F_LINKDOWN flag on UP event
+Date: Fri, 30 Oct 2015 10:23:34 +0200
+Message-ID: <1446193414-8244-3-git-send-email-ja@ssi.bg>
+References: <1446193414-8244-1-git-send-email-ja@ssi.bg>
 Cc: netdev@vger.kernel.org, Andy Gospodarek <gospo@cumulusnetworks.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:49556 "EHLO ja.ssi.bg"
+Received: from ja.ssi.bg ([178.16.129.10]:49557 "EHLO ja.ssi.bg"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1030224AbbJ3IX4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Oct 2015 04:23:56 -0400
+	id S1758578AbbJ3IX6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Oct 2015 04:23:58 -0400
+In-Reply-To: <1446193414-8244-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix two problems from the change that introduced RTNH_F_LINKDOWN
-flag. The first patch deals with the removal of local route on
-DOWN event. The second patch makes sure the RTNH_F_LINKDOWN
-flag is properly updated on UP event because the DOWN event
-sets it in all cases.
+When nexthop is part of multipath route we should clear the
+LINKDOWN flag when link goes UP or when first address is added.
+This is needed because we always set LINKDOWN flag when DEAD flag
+was set but now on UP the nexthop is not dead anymore. Examples when
+LINKDOWN bit can be forgotten when no NETDEV_CHANGE is delivered:
 
-v2->v3:
-- use bool for force var
+- link goes down (LINKDOWN is set), then link goes UP and device
+shows carrier OK but LINKDOWN remains set
 
-v1->v2:
-- forgot to add ifconfig dummy0 down in the test case
-- split to 2 patches
+- last address is deleted (LINKDOWN is set), then address is
+added and device shows carrier OK but LINKDOWN remains set
 
-Julian Anastasov (2):
-  ipv4: fix to not remove local route on link down
-  ipv4: update RTNH_F_LINKDOWN flag on UP event
+Steps to reproduce:
+modprobe dummy
+ifconfig dummy0 192.168.168.1 up
 
- include/net/ip_fib.h     |  2 +-
- net/ipv4/fib_frontend.c  | 13 +++++++------
- net/ipv4/fib_semantics.c | 18 +++++++++++++++---
- 3 files changed, 23 insertions(+), 10 deletions(-)
+here add a multipath route where one nexthop is for dummy0:
 
+ip route add 1.2.3.4 nexthop dummy0 nexthop SOME_OTHER_DEVICE
+ifconfig dummy0 down
+ifconfig dummy0 up
+
+now ip route shows nexthop that is not dead. Now set the sysctl var:
+
+echo 1 > /proc/sys/net/ipv4/conf/dummy0/ignore_routes_with_linkdown
+
+now ip route will show a dead nexthop because the forgotten
+RTNH_F_LINKDOWN is propagated as RTNH_F_DEAD.
+
+Fixes: 8a3d03166f19 ("net: track link-status of ipv4 nexthops")
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+ net/ipv4/fib_semantics.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 2aa5b5e..e966f85 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -1445,6 +1445,13 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
+ 	if (!(dev->flags & IFF_UP))
+ 		return 0;
+ 
++	if (nh_flags & RTNH_F_DEAD) {
++		unsigned int flags = dev_get_flags(dev);
++
++		if (flags & (IFF_RUNNING | IFF_LOWER_UP))
++			nh_flags |= RTNH_F_LINKDOWN;
++	}
++
+ 	prev_fi = NULL;
+ 	hash = fib_devindex_hashfn(dev->ifindex);
+ 	head = &fib_info_devhash[hash];
 -- 
 1.9.3
