@@ -1,62 +1,63 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] can: Use correct type in sizeof() in nla_put()
-Date: Fri, 30 Oct 2015 15:53:31 +0100
-Message-ID: <5633846B.30107@hartkopp.net>
-References: <1446209299-6250-1-git-send-email-marex@denx.de> <201510301501.28536.marex@denx.de> <56337C08.40001@pengutronix.de> <201510301524.58411.marex@denx.de>
+From: William Dauchy <wdauchy@gmail.com>
+Subject: Re: [net PATCH 3/3] ixgbe: Fix handling of napi budget when multiple
+ queues are enabled per vector
+Date: Fri, 30 Oct 2015 15:55:34 +0100
+Message-ID: <CAJ75kXZx9YoD4_k7yb2aEomhxceG96D-twPqYz_-9QmY-2MXvw@mail.gmail.com>
+References: <20150922213002.2774.37924.stgit@ahduyck-vm-fedora22> <20150922213541.2774.70538.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-can@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>,
-	netdev@vger.kernel.org
-To: Marek Vasut <marex@denx.de>, Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <201510301524.58411.marex@denx.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	jeffrey.t.kirsher@intel.com
+To: Alexander Duyck <aduyck@mirantis.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:35551 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752811AbbJ3Oz4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 10:55:56 -0400
+Received: by lbbes7 with SMTP id es7so52251344lbb.2
+        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 07:55:54 -0700 (PDT)
+In-Reply-To: <20150922213541.2774.70538.stgit@ahduyck-vm-fedora22>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi Alexander,
 
+On Tue, Sep 22, 2015 at 11:35 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
+> This patch corrects an issue in which the polling routine would increase
+> the budget for Rx to at least 1 per queue if multiple queues were present.
+> This would result in Rx packets being processed when the budget was 0 which
+> is meant to indicate that no Rx can be handled.
 
-On 10/30/2015 03:24 PM, Marek Vasut wrote:
-> On Friday, October 30, 2015 at 03:17:44 PM, Marc Kleine-Budde wrote:
->> On 10/30/2015 03:01 PM, Marek Vasut wrote:
+We may logically have the same issue with VF, right?
 
->>> Are you absolutelly positive this doesn't break kernel ABI please ?
->>>
->>> I am a little worried there, since the size of can_clock and can_ctrlmode
->>> structures differ.
->>
->> struct can_clock is a u32, see [1]
->> struct can_ctrlmode is 2 x u32.
->>
->> in libsocketcan[2] it's accessed like this:
->>> 	memcpy(res,
->>> 	
->>> 		RTA_DATA(can_attr[IFLA_CAN_CLOCK]),
->>> 		sizeof(struct can_clock));
->>
->> I think it should be ok.
-> 
-> In that case, yes, it's good. Hopefully, noone wrote his own thing.
-> 
+>From 4521374ae746543a925982d59a8ba73b6aaee59c Mon Sep 17 00:00:00 2001
+From: William Dauchy <william@gandi.net>
+Date: Fri, 30 Oct 2015 15:48:43 +0100
+Subject: [PATCH] ixgbevf: Fix handling of napi budget when multiple queues are
+ enabled per vector
 
-Fortunately ip from iproute2 does it similary:
+This is the same patch as for ixgbe but applied differently according to
+busy polling
 
-https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/tree/ip/iplink_can.c#n338
+Signed-off-by: William Dauchy <william@gandi.net>
+---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 149a0b4..ff6e21d 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1014,6 +1014,8 @@ static int ixgbevf_poll(struct napi_struct
+*napi, int budget)
+  ixgbevf_for_each_ring(ring, q_vector->tx)
+  clean_complete &= ixgbevf_clean_tx_irq(q_vector, ring);
 
-	if (tb[IFLA_CAN_CLOCK]) {
-		struct can_clock *clock = RTA_DATA(tb[IFLA_CAN_CLOCK]);
-
-		fprintf(f, "\n	  clock %d", clock->freq);
-	}
-
-As the clock is a read-only value kernel->userspace and nla_put creates its
-own small ID/length information each time we are REALLY LUCKY that this fix
-doesn't break the ABI in this case.
-
-When can_clock would have been greater then can_ctrlmode we really had a
-problem ...
-
-Thanks for caching this!
-
-Oliver
++ if (budget <= 0)
++ return budget;
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+  if (!ixgbevf_qv_lock_napi(q_vector))
+  return budget;
+-- 
+William
