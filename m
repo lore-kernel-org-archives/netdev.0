@@ -1,8 +1,8 @@
 From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorensen@spectralink.com>
-Subject: [PATCH net-next 4/5] ptp: Change ptp_class to a proper bitmask
-Date: Fri, 30 Oct 2015 13:14:03 +0100
-Message-ID: <1446207244-2206-5-git-send-email-stefan.sorensen@spectralink.com>
+Subject: [PATCH net-next 5/5] dp83640: Only wait for timestamps for packets with timestamping enabled.
+Date: Fri, 30 Oct 2015 13:14:04 +0100
+Message-ID: <1446207244-2206-6-git-send-email-stefan.sorensen@spectralink.com>
 References: <1446207244-2206-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -12,130 +12,103 @@ Cc: <netdev@vger.kernel.org>, <richardcochran@gmail.com>,
 	<stefan.sorensen@spectralink.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0110.outbound.protection.outlook.com ([157.56.111.110]:13232
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+Received: from mail-bl2on0102.outbound.protection.outlook.com ([65.55.169.102]:48592
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1031016AbbJ3MPS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Oct 2015 08:15:18 -0400
+	id S1031016AbbJ3MPg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Oct 2015 08:15:36 -0400
 In-Reply-To: <1446207244-2206-1-git-send-email-stefan.sorensen@spectralink.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change the definition of PTP_CLASS_L2 to not have any bits overlapping =
-with
-the other defined protocol values, allowing the PTP_CLASS_* definitions=
- to
-be for simple filtering on packet type.
+In the packet timestamping function, check that the ptp version and
+protocol of the packet matches what we have configured the hardware to
+actually generate timestamps for, before looking/waiting for a timestam=
+p.
 
 Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
 ---
- include/linux/ptp_classify.h |  7 ++++---
- net/core/ptp_classifier.c    | 16 ++++++++--------
- 2 files changed, 12 insertions(+), 11 deletions(-)
+ drivers/net/phy/dp83640.c | 25 +++++++++++++------------
+ 1 file changed, 13 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/ptp_classify.h b/include/linux/ptp_classify.=
-h
-index 159c987..a079656 100644
---- a/include/linux/ptp_classify.h
-+++ b/include/linux/ptp_classify.h
-@@ -32,9 +32,9 @@
- #define PTP_CLASS_VMASK 0x0f /* max protocol version is 15 */
- #define PTP_CLASS_IPV4  0x10 /* event in an IPV4 UDP packet */
- #define PTP_CLASS_IPV6  0x20 /* event in an IPV6 UDP packet */
--#define PTP_CLASS_L2    0x30 /* event in a L2 packet */
--#define PTP_CLASS_PMASK 0x30 /* mask for the packet type field */
--#define PTP_CLASS_VLAN  0x40 /* event in a VLAN tagged packet */
-+#define PTP_CLASS_L2    0x40 /* event in a L2 packet */
-+#define PTP_CLASS_PMASK	0x70 /* mask for the packet type field */
-+#define PTP_CLASS_VLAN	0x80 /* event in a VLAN tagged packet */
+diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+index c1f70b7..30bfeb1 100644
+--- a/drivers/net/phy/dp83640.c
++++ b/drivers/net/phy/dp83640.c
+@@ -37,8 +37,6 @@
 =20
- #define PTP_CLASS_V1_IPV4 (PTP_CLASS_V1 | PTP_CLASS_IPV4)
- #define PTP_CLASS_V1_IPV6 (PTP_CLASS_V1 | PTP_CLASS_IPV6) /* probably =
-DNE */
-@@ -42,6 +42,7 @@
- #define PTP_CLASS_V2_IPV6 (PTP_CLASS_V2 | PTP_CLASS_IPV6)
- #define PTP_CLASS_V2_L2   (PTP_CLASS_V2 | PTP_CLASS_L2)
- #define PTP_CLASS_V2_VLAN (PTP_CLASS_V2 | PTP_CLASS_VLAN)
-+#define PTP_CLASS_L4      (PTP_CLASS_IPV4 | PTP_CLASS_IPV6)
+ #define DP83640_PHY_ID	0x20005ce1
+ #define PAGESEL		0x13
+-#define LAYER4		0x02
+-#define LAYER2		0x01
+ #define MAX_RXTS	64
+ #define N_EXT_TS	6
+ #define N_PER_OUT	7
+@@ -1292,29 +1290,29 @@ static int dp83640_hwtstamp(struct phy_device *=
+phydev, struct ifreq *ifr)
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
+ 		dp83640->hwts_rx_en =3D 1;
+-		dp83640->layer =3D LAYER4;
+-		dp83640->version =3D 1;
++		dp83640->layer =3D PTP_CLASS_L4;
++		dp83640->version =3D PTP_CLASS_V1;
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
+ 	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
+ 	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
+ 		dp83640->hwts_rx_en =3D 1;
+-		dp83640->layer =3D LAYER4;
+-		dp83640->version =3D 2;
++		dp83640->layer =3D PTP_CLASS_L4;
++		dp83640->version =3D PTP_CLASS_V2;
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
+ 	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
+ 	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
+ 		dp83640->hwts_rx_en =3D 1;
+-		dp83640->layer =3D LAYER2;
+-		dp83640->version =3D 2;
++		dp83640->layer =3D PTP_CLASS_L2;
++		dp83640->version =3D PTP_CLASS_V2;
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
+ 	case HWTSTAMP_FILTER_PTP_V2_SYNC:
+ 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
+ 		dp83640->hwts_rx_en =3D 1;
+-		dp83640->layer =3D LAYER4|LAYER2;
+-		dp83640->version =3D 2;
++		dp83640->layer =3D PTP_CLASS_L4 | PTP_CLASS_L2;
++		dp83640->version =3D PTP_CLASS_V2;
+ 		break;
+ 	default:
+ 		return -ERANGE;
+@@ -1323,11 +1321,11 @@ static int dp83640_hwtstamp(struct phy_device *=
+phydev, struct ifreq *ifr)
+ 	txcfg0 =3D (dp83640->version & TX_PTP_VER_MASK) << TX_PTP_VER_SHIFT;
+ 	rxcfg0 =3D (dp83640->version & TX_PTP_VER_MASK) << TX_PTP_VER_SHIFT;
 =20
- #define PTP_EV_PORT 319
- #define PTP_GEN_BIT 0x08 /* indicates general message, if set in messa=
-ge type */
-diff --git a/net/core/ptp_classifier.c b/net/core/ptp_classifier.c
-index 4eab4a9..703cf76 100644
---- a/net/core/ptp_classifier.c
-+++ b/net/core/ptp_classifier.c
-@@ -58,7 +58,7 @@
-  *   jneq #0x0, drop_ieee1588      ; for PTP_GEN_BIT and drop these
-  *   ldh [18]                      ; reload payload
-  *   and #0xf                      ; mask PTP_CLASS_VMASK
-- *   or #0x70                      ; PTP_CLASS_VLAN|PTP_CLASS_L2
-+ *   or #0xc0                      ; PTP_CLASS_VLAN|PTP_CLASS_L2
-  *   ret a                         ; return PTP class
-  *
-  * ; PTP over UDP over IPv4 over 802.1Q over Ethernet
-@@ -73,7 +73,7 @@
-  *   jneq #319, drop_8021q_ipv4    ; is port PTP_EV_PORT ?
-  *   ldh [x + 26]                  ; load payload
-  *   and #0xf                      ; mask PTP_CLASS_VMASK
-- *   or #0x50                      ; PTP_CLASS_VLAN|PTP_CLASS_IPV4
-+ *   or #0x90                      ; PTP_CLASS_VLAN|PTP_CLASS_IPV4
-  *   ret a                         ; return PTP class
-  *   drop_8021q_ipv4: ret #0x0     ; PTP_CLASS_NONE
-  *
-@@ -86,7 +86,7 @@
-  *   jneq #319, drop_8021q_ipv6          ; is port PTP_EV_PORT ?
-  *   ldh [66]                      ; load payload
-  *   and #0xf                      ; mask PTP_CLASS_VMASK
-- *   or #0x60                      ; PTP_CLASS_VLAN|PTP_CLASS_IPV6
-+ *   or #0xa0                      ; PTP_CLASS_VLAN|PTP_CLASS_IPV6
-  *   ret a                         ; return PTP class
-  *   drop_8021q_ipv6: ret #0x0     ; PTP_CLASS_NONE
-  *
-@@ -98,7 +98,7 @@
-  *   jneq #0x0, drop_ieee1588      ; for PTP_GEN_BIT and drop these
-  *   ldh [14]                      ; reload payload
-  *   and #0xf                      ; mask PTP_CLASS_VMASK
-- *   or #0x30                      ; PTP_CLASS_L2
-+ *   or #0x40                      ; PTP_CLASS_L2
-  *   ret a                         ; return PTP class
-  *   drop_ieee1588: ret #0x0       ; PTP_CLASS_NONE
-  */
-@@ -150,7 +150,7 @@ void __init ptp_classifier_init(void)
- 		{ 0x15,  0, 35, 0x00000000 },
- 		{ 0x28,  0,  0, 0x00000012 },
- 		{ 0x54,  0,  0, 0x0000000f },
--		{ 0x44,  0,  0, 0x00000070 },
-+		{ 0x44,  0,  0, 0x000000c0 },
- 		{ 0x16,  0,  0, 0x00000000 },
- 		{ 0x15,  0, 12, 0x00000800 },
- 		{ 0x30,  0,  0, 0x0000001b },
-@@ -162,7 +162,7 @@ void __init ptp_classifier_init(void)
- 		{ 0x15,  0,  4, 0x0000013f },
- 		{ 0x48,  0,  0, 0x0000001a },
- 		{ 0x54,  0,  0, 0x0000000f },
--		{ 0x44,  0,  0, 0x00000050 },
-+		{ 0x44,  0,  0, 0x00000090 },
- 		{ 0x16,  0,  0, 0x00000000 },
- 		{ 0x06,  0,  0, 0x00000000 },
- 		{ 0x15,  0,  8, 0x000086dd },
-@@ -172,7 +172,7 @@ void __init ptp_classifier_init(void)
- 		{ 0x15,  0,  4, 0x0000013f },
- 		{ 0x28,  0,  0, 0x00000042 },
- 		{ 0x54,  0,  0, 0x0000000f },
--		{ 0x44,  0,  0, 0x00000060 },
-+		{ 0x44,  0,  0, 0x000000a0 },
- 		{ 0x16,  0,  0, 0x00000000 },
- 		{ 0x06,  0,  0, 0x00000000 },
- 		{ 0x15,  0,  7, 0x000088f7 },
-@@ -181,7 +181,7 @@ void __init ptp_classifier_init(void)
- 		{ 0x15,  0,  4, 0x00000000 },
- 		{ 0x28,  0,  0, 0x0000000e },
- 		{ 0x54,  0,  0, 0x0000000f },
--		{ 0x44,  0,  0, 0x00000030 },
-+		{ 0x44,  0,  0, 0x00000040 },
- 		{ 0x16,  0,  0, 0x00000000 },
- 		{ 0x06,  0,  0, 0x00000000 },
- 	};
+-	if (dp83640->layer & LAYER2) {
++	if (dp83640->layer & PTP_CLASS_L2) {
+ 		txcfg0 |=3D TX_L2_EN;
+ 		rxcfg0 |=3D RX_L2_EN;
+ 	}
+-	if (dp83640->layer & LAYER4) {
++	if (dp83640->layer & PTP_CLASS_L4) {
+ 		txcfg0 |=3D TX_IPV6_EN | TX_IPV4_EN;
+ 		rxcfg0 |=3D RX_IPV6_EN | RX_IPV4_EN;
+ 	}
+@@ -1393,6 +1391,9 @@ static bool dp83640_rxtstamp(struct phy_device *p=
+hydev,
+ 	if (!dp83640->hwts_rx_en)
+ 		return false;
+=20
++	if ((type & dp83640->version) =3D=3D 0 || (type & dp83640->layer) =3D=
+=3D 0)
++		return false;
++
+ 	spin_lock_irqsave(&dp83640->rx_lock, flags);
+ 	prune_rx_ts(dp83640);
+ 	list_for_each_safe(this, next, &dp83640->rxts) {
 --=20
 2.5.0
