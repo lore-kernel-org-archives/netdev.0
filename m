@@ -1,45 +1,58 @@
-From: Ani Sinha <ani@arista.com>
-Subject: Re: kernel BUG in ipmr_queue_xmit()
-Date: Fri, 30 Oct 2015 14:10:31 -0700
-Message-ID: <CAOxq_8PvcQRtXdfWExC1fATSKo1XFzk-DabLa5r++_o4=nEY_g@mail.gmail.com>
-References: <alpine.OSX.2.00.1510291646320.59200@animac.local>
- <20151030001510.GG18062@breakpoint.cc> <alpine.OSX.2.00.1510291841480.68875@animac.local>
- <1446178542.6254.6.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151030103658.GA25931@breakpoint.cc> <1446201624.707140.424480297.4D8B55D6@webmail.messagingengine.com>
- <20151030104846.GA3461@breakpoint.cc> <1446202828.6254.10.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAOxq_8Nd8KA8CpwVPtCr2gwDbfzsqRp586PddF7r5DSSmeHb6A@mail.gmail.com> <1446232356.6254.23.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: assert SMI lock
+Date: Fri, 30 Oct 2015 17:11:31 -0400
+Message-ID: <20151030211130.GA4682@ketchup.mtl.sfl>
+References: <1446237342-5109-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <20151030204110.GB10053@lunn.ch>
+ <20151030205048.GA6658@ketchup.mtl.sfl>
+ <20151030210146.GD10053@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Westphal <fw@strlen.de>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ani Sinha <ani@anirban.org>, fruggeri <fruggeri@arista.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:35625 "EHLO
-	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750971AbbJ3VKv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 17:10:51 -0400
-Received: by iofz202 with SMTP id z202so92762821iof.2
-        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 14:10:50 -0700 (PDT)
-In-Reply-To: <1446232356.6254.23.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Neil Armstrong <narmstrong@baylibre.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151030210146.GD10053@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 30, 2015 at 12:12 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2015-10-30 at 10:47 -0700, Ani Sinha wrote:
->
->> for 32 bit archs, it does in SNMP_ADD_STATS64_USER()
->
-> Sure. But x86 these days is 64bit, at 99 % maybe.
->
-> We do not make changes that looks 'maybe better' for i486 or i586
->
-> Just do the same that multiple similar patches did.
->
-> Example :
->
-> 757efd32d5ce31f67193cc0e6a56e4dffcc42fb1
+On Oct. Friday 30 (44) 10:01 PM, Andrew Lunn wrote:
+> > > >  static int _mv88e6xxx_reg_read(struct dsa_switch *ds, int addr, int reg)
+> > > >  {
+> > > > -	struct mii_bus *bus = dsa_host_dev_to_mii_bus(ds->master_dev);
+> > > > +	struct mii_bus *bus;
+> > > >  	int ret;
+> > > >  
+> > > > +	assert_smi_lock(ds);
+> > > > +
+> > > > +	bus = dsa_host_dev_to_mii_bus(ds->master_dev);
+> > > 
+> > > Is this change of when bus is assigned actually required?
+> > 
+> > No, but I found not necessary to issue this "mdio_bus" lookup if the
+> > lock is not held (see net/dsa/dsa.c:555). Do you prefer not to do that?
+> 
+> You are optimising for an error condition. If this optimisation saves
+> anything, it means we have a locking bug!
 
-OK thanks for pointing me to this. Seems we have a precedence for this
-I will go ahead and send a patch as per your suggestion.
+Very good point, I'll get rid of that then.
+
+> As a separate patch, i would do this lookup once in a setup function
+> and save it away in ps. We just need to watch out for the probe
+> register accesses.
+
+Yes, I already put that on a todo list ;-)
+
+> > Also are you OK with removing all the "Must be called with..." comments,
+> 
+> Yes, it will become a lot more clear when the kernel outputs a stack dump!
+
+Good, sending a v2 right away then.
+
+Thanks,
+-v
