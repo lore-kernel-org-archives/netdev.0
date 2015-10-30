@@ -1,35 +1,140 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers-next 2015-10-29
-Date: Fri, 30 Oct 2015 20:39:06 +0900 (KST)
-Message-ID: <20151030.203906.57461318217584400.davem@davemloft.net>
-References: <87d1vxo3ap.fsf@kamboji.qca.qualcomm.com>
+From: Greg Kurz <gkurz@linux.vnet.ibm.com>
+Subject: [PATCH] vhost: move is_le setup to the backend
+Date: Fri, 30 Oct 2015 12:42:35 +0100
+Message-ID: <20151030114235.28847.63465.stgit@bahia.huguette.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87d1vxo3ap.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Thu, 29 Oct 2015 21:58:06 +0200
+The vq->is_le field is used to fix endianness when accessing the vring via
+the cpu_to_vhost16() and vhost16_to_cpu() helpers in the following cases:
 
-> here's hopefully my last pull request for 4.4. ssb had a new Kconfig
-> entry and that's why this touches arch/mips/bcm47xx/Kconfig. ssb also
-> did some code shuffling and moved code from b43 to ssb subsystem.
-> Otherwise should be business as usual.
-> 
-> While writing this I noticed that Fengwei Yin had a problem with the
-> From field and that's why you see "yfw" in the stats below. I considered
-> that this isn't a big enough problem to justify rebasing my tree, but
-> let me know if you think otherwise.
-> 
-> Please let me know if there are any problems.
+1) host is big endian and device is modern virtio
 
-Pulled, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2) host has cross-endian support and device is legacy virtio with a different
+   endianness than the host
+
+Both cases rely on the VHOST_SET_FEATURES ioctl, but 2) also needs the
+VHOST_SET_VRING_ENDIAN ioctl to be called by userspace. Since vq->is_le
+is only needed when the backend is active, it was decided to set it at
+backend start.
+
+This is currently done in vhost_init_used()->vhost_init_is_le() but it
+obfuscates the core vhost code. This patch moves the is_le setup to a
+dedicated function that is called from the backend code.
+
+Note vhost_net is the only backend that can pass vq->private_data == NULL to
+vhost_init_used(), hence the "if (sock)" branch.
+
+No behaviour change.
+
+Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
+---
+ drivers/vhost/net.c   |    6 ++++++
+ drivers/vhost/scsi.c  |    3 +++
+ drivers/vhost/test.c  |    2 ++
+ drivers/vhost/vhost.c |   12 +++++++-----
+ drivers/vhost/vhost.h |    1 +
+ 5 files changed, 19 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 9eda69e40678..d6319cb2664c 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -917,6 +917,12 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ 
+ 		vhost_net_disable_vq(n, vq);
+ 		vq->private_data = sock;
++
++		if (sock)
++			vhost_set_is_le(vq);
++		else
++			vq->is_le = virtio_legacy_is_little_endian();
++
+ 		r = vhost_init_used(vq);
+ 		if (r)
+ 			goto err_used;
+diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
+index e25a23692822..e2644a301fa5 100644
+--- a/drivers/vhost/scsi.c
++++ b/drivers/vhost/scsi.c
+@@ -1276,6 +1276,9 @@ vhost_scsi_set_endpoint(struct vhost_scsi *vs,
+ 			vq = &vs->vqs[i].vq;
+ 			mutex_lock(&vq->mutex);
+ 			vq->private_data = vs_tpg;
++
++			vhost_set_is_le(vq);
++
+ 			vhost_init_used(vq);
+ 			mutex_unlock(&vq->mutex);
+ 		}
+diff --git a/drivers/vhost/test.c b/drivers/vhost/test.c
+index f2882ac98726..b1c7df502211 100644
+--- a/drivers/vhost/test.c
++++ b/drivers/vhost/test.c
+@@ -196,6 +196,8 @@ static long vhost_test_run(struct vhost_test *n, int test)
+ 		oldpriv = vq->private_data;
+ 		vq->private_data = priv;
+ 
++		vhost_set_is_le(vq);
++
+ 		r = vhost_init_used(&n->vqs[index]);
+ 
+ 		mutex_unlock(&vq->mutex);
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index eec2f11809ff..6be863dcbd13 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -113,6 +113,12 @@ static void vhost_init_is_le(struct vhost_virtqueue *vq)
+ }
+ #endif /* CONFIG_VHOST_CROSS_ENDIAN_LEGACY */
+ 
++void vhost_set_is_le(struct vhost_virtqueue *vq)
++{
++	vhost_init_is_le(vq);
++}
++EXPORT_SYMBOL_GPL(vhost_set_is_le);
++
+ static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
+ 			    poll_table *pt)
+ {
+@@ -1156,12 +1162,8 @@ int vhost_init_used(struct vhost_virtqueue *vq)
+ {
+ 	__virtio16 last_used_idx;
+ 	int r;
+-	if (!vq->private_data) {
+-		vq->is_le = virtio_legacy_is_little_endian();
++	if (!vq->private_data)
+ 		return 0;
+-	}
+-
+-	vhost_init_is_le(vq);
+ 
+ 	r = vhost_update_used_flags(vq);
+ 	if (r)
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index 4772862b71a7..8a62041959fe 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -162,6 +162,7 @@ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+ 
+ int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+ 		    unsigned int log_num, u64 len);
++void vhost_set_is_le(struct vhost_virtqueue *vq);
+ 
+ #define vq_err(vq, fmt, ...) do {                                  \
+ 		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
