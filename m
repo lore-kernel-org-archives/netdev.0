@@ -1,9 +1,8 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: assert SMI lock
-Date: Fri, 30 Oct 2015 16:50:49 -0400
-Message-ID: <20151030205048.GA6658@ketchup.mtl.sfl>
-References: <1446237342-5109-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <20151030204110.GB10053@lunn.ch>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: lookup switch name
+Date: Fri, 30 Oct 2015 21:52:58 +0100
+Message-ID: <20151030205258.GC10053@lunn.ch>
+References: <1446237416-5447-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -12,70 +11,56 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Guenter Roeck <linux@roeck-us.net>,
 	Neil Armstrong <narmstrong@baylibre.com>
-To: Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20151030204110.GB10053@lunn.ch>
+In-Reply-To: <1446237416-5447-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+On Fri, Oct 30, 2015 at 04:36:56PM -0400, Vivien Didelot wrote:
+> All the mv88e6xxx drivers use the exact same code in their probe
+> function to lookup the switch name given its ID.
 
-On Oct. Friday 30 (44) 09:41 PM, Andrew Lunn wrote:
-> On Fri, Oct 30, 2015 at 04:35:42PM -0400, Vivien Didelot wrote:
-> > It's easy to forget to lock the smi_mutex before calling the low-level
-> > _mv88e6xxx_reg_{read,write}, so add a assert_smi_lock function in them.
-> > 
-> > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> > ---
-> >  drivers/net/dsa/mv88e6xxx.c | 31 ++++++++++++++++++-------------
-> >  1 file changed, 18 insertions(+), 13 deletions(-)
-> > 
-> > diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-> > index b1b14f5..70a0106 100644
-> > --- a/drivers/net/dsa/mv88e6xxx.c
-> > +++ b/drivers/net/dsa/mv88e6xxx.c
-> > @@ -24,6 +24,16 @@
-> >  #include <net/switchdev.h>
-> >  #include "mv88e6xxx.h"
-> >  
-> > +static inline void assert_smi_lock(struct dsa_switch *ds)
-> 
-> No need for inline. Gcc will automatically inline it, if it thinks it
-> is small enough.
+I did consider this before. But they are not exactly the same, when
+you consider the masking of the lower nibble which some drivers do,
+and others not. But i see you handled that.
 
-OK, I will respin this without the inline keyword then.
+> +char *mv88e6xxx_lookup_name(struct device *host_dev, int sw_addr,
+> +			    const struct mv88e6xxx_switch_id *table,
+> +			    unsigned int num)
+> +{
+> +	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
+> +	int i, ret;
+> +
+> +	if (!bus)
+> +		return NULL;
+> +
+> +	ret = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), PORT_SWITCH_ID);
+> +	if (ret < 0)
+> +		return NULL;
+> +
+> +	/* Look up the exact switch ID */
+> +	for (i = 0; i < num; ++i) {
+> +		if (table[i].id == ret) {
+> +			pr_info("found switch 0x%x\n", ret);
 
-> 
-> > +{
-> > +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-> > +
-> > +	if (unlikely(!mutex_is_locked(&ps->smi_mutex))) {
-> > +		dev_err(ds->master_dev, "SMI lock not held!\n");
-> > +		dump_stack();
-> > +	}
-> > +}
-> > +
-> 
-> > -/* Must be called with SMI mutex held */
-> >  static int _mv88e6xxx_reg_read(struct dsa_switch *ds, int addr, int reg)
-> >  {
-> > -	struct mii_bus *bus = dsa_host_dev_to_mii_bus(ds->master_dev);
-> > +	struct mii_bus *bus;
-> >  	int ret;
-> >  
-> > +	assert_smi_lock(ds);
-> > +
-> > +	bus = dsa_host_dev_to_mii_bus(ds->master_dev);
-> 
-> Is this change of when bus is assigned actually required?
+The old code did not print anything. The core DSA will print it later
+however, so we don't need to print it here.
 
-No, but I found not necessary to issue this "mdio_bus" lookup if the
-lock is not held (see net/dsa/dsa.c:555). Do you prefer not to do that?
+> +			return table[i].name;
+> +		}
+> +	}
+> +
+> +	/* Look up only the product number */
+> +	for (i = 0; i < num; ++i) {
+> +		if (table[i].id == (ret & PORT_SWITCH_ID_PROD_NUM_MASK)) {
+> +			pr_warn("found switch 0x%x, maybe register rev %d?\n",
+> +				ret, ret & PORT_SWITCH_ID_REV_MASK);
 
-Also are you OK with removing all the "Must be called with..." comments,
-which I found not necessary too (some function have this comment, some
-others don't).
+I probably would not warn here. The old code did not.
 
-Thanks,
--v
+
+Apart from these comments, a good change.
+
+      Andrew
