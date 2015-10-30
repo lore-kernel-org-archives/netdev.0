@@ -1,131 +1,170 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [patch] tcp: attach SYNACK messages to request sockets instead of
- listener
-Date: Fri, 30 Oct 2015 19:38:08 +0000
-Message-ID: <BN1PR0301MB0770DDDA95027A39BF078CE6CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-References: <BN1PR0301MB07704A8D81E0AD6A358D6D53CA200@BN1PR0301MB0770.namprd03.prod.outlook.com>
- <1446159521.6254.4.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC PATCH net-next] net/core: initial support for stacked dev
+ feature toggles
+Date: Fri, 30 Oct 2015 13:02:53 -0700
+Message-ID: <5633CCED.7060602@gmail.com>
+References: <1445658019-58621-1-git-send-email-jarod@redhat.com>
+ <562B1C4D.8050407@gmail.com> <20151026094213.GA1715@unicorn.suse.cz>
+ <56339A08.8000205@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "edumazet@google.com" <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"KY Srinivasan" <kys@microsoft.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0133.outbound.protection.outlook.com ([157.56.111.133]:39760
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758627AbbJ3TiL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Oct 2015 15:38:11 -0400
-In-Reply-To: <1446159521.6254.4.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Nikolay Aleksandrov <razor@blackwall.org>,
+	netdev@vger.kernel.org
+To: Jarod Wilson <jarod@redhat.com>, Michal Kubecek <mkubecek@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56339A08.8000205@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIE9jdG9iZXIg
-MjksIDIwMTUgNjo1OSBQTQ0KPiBUbzogSGFpeWFuZyBaaGFuZyA8aGFpeWFuZ3pAbWljcm9zb2Z0
-LmNvbT4NCj4gQ2M6IGVkdW1hemV0QGdvb2dsZS5jb207IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2
-ZW1sb2Z0Lm5ldD47DQo+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEtZIFNyaW5pdmFzYW4gPGt5
-c0BtaWNyb3NvZnQuY29tPg0KPiBTdWJqZWN0OiBSZTogW3BhdGNoXSB0Y3A6IGF0dGFjaCBTWU5B
-Q0sgbWVzc2FnZXMgdG8gcmVxdWVzdCBzb2NrZXRzDQo+IGluc3RlYWQgb2YgbGlzdGVuZXINCj4g
-DQo+IA0KPiBUaGFua3MgZm9yIHRoaXMgcmVwb3J0Lg0KPiANCj4gU29tZWhvdyBJIGtuZXcgc3Vj
-aCBidWdzIHdvdWxkIHN1cmZhY2UgOykNCj4gDQo+IFBsZWFzZSB0cnkgZm9sbG93aW5nIGRlYnVn
-Z2luZyBwYXRjaCA/DQo+IA0KPiBXZSBuZWVkIHRvIGlkZW50aWZ5IHdoaWNoIHBhcnQgb2YgdGhl
-IGtlcm5lbCBpcyBtZXNzZWQgdXAuDQo+IA0KPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvc29j
-ay5oIGIvaW5jbHVkZS9uZXQvc29jay5oDQo+IGluZGV4IGFlZWQ1Yzk1ZjNjYS4uYTY0MzQ5OWQz
-N2UyIDEwMDY0NA0KPiAtLS0gYS9pbmNsdWRlL25ldC9zb2NrLmgNCj4gKysrIGIvaW5jbHVkZS9u
-ZXQvc29jay5oDQo+IEBAIC0xOTUxLDYgKzE5NTEsMTQgQEAgc3RhdGljIGlubGluZSB2b2lkIHNr
-Yl9zZXRfaGFzaF9mcm9tX3NrKHN0cnVjdA0KPiBza19idWZmICpza2IsIHN0cnVjdCBzb2NrICpz
-aykNCj4gIAl9DQo+ICB9DQo+IA0KPiArLyogVGhpcyBoZWxwZXIgY2hlY2tzIGlmIGEgc29ja2V0
-IGlzIGEgZnVsbCBzb2NrZXQsDQo+ICsgKiBpZSBfbm90XyBhIHRpbWV3YWl0IG9yIHJlcXVlc3Qg
-c29ja2V0Lg0KPiArICovDQo+ICtzdGF0aWMgaW5saW5lIGJvb2wgc2tfZnVsbHNvY2soY29uc3Qg
-c3RydWN0IHNvY2sgKnNrKQ0KPiArew0KPiArCXJldHVybiAoMSA8PCBzay0+c2tfc3RhdGUpICYg
-fihUQ1BGX1RJTUVfV0FJVCB8IFRDUEZfTkVXX1NZTl9SRUNWKTsNCj4gK30NCj4gKw0KPiAgLyoN
-Cj4gICAqCVF1ZXVlIGEgcmVjZWl2ZWQgZGF0YWdyYW0gaWYgaXQgd2lsbCBmaXQuIFN0cmVhbSBh
-bmQgc2VxdWVuY2VkDQo+ICAgKglwcm90b2NvbHMgY2FuJ3Qgbm9ybWFsbHkgdXNlIHRoaXMgYXMg
-dGhleSBuZWVkIHRvIGZpdCBidWZmZXJzIGluDQo+IEBAIC0xOTYyLDYgKzE5NzAsMTAgQEAgc3Rh
-dGljIGlubGluZSB2b2lkIHNrYl9zZXRfaGFzaF9mcm9tX3NrKHN0cnVjdA0KPiBza19idWZmICpz
-a2IsIHN0cnVjdCBzb2NrICpzaykNCj4gDQo+ICBzdGF0aWMgaW5saW5lIHZvaWQgc2tiX3NldF9v
-d25lcl93KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBzb2NrICpzaykNCj4gIHsNCj4gKwlp
-ZiAoIXNrX2Z1bGxzb2NrKHNrKSkgew0KPiArCQlXQVJOX09OX09OQ0UoMSk7DQo+ICsJCXJldHVy
-bjsNCj4gKwl9DQo+ICAJc2tiX29ycGhhbihza2IpOw0KPiAgCXNrYi0+c2sgPSBzazsNCj4gIAlz
-a2ItPmRlc3RydWN0b3IgPSBzb2NrX3dmcmVlOw0KPiBAQCAtMjIyMywxNCArMjIzNSw2IEBAIHN0
-YXRpYyBpbmxpbmUgc3RydWN0IHNvY2sgKnNrYl9zdGVhbF9zb2NrKHN0cnVjdA0KPiBza19idWZm
-ICpza2IpDQo+ICAJcmV0dXJuIE5VTEw7DQo+ICB9DQo+IA0KPiAtLyogVGhpcyBoZWxwZXIgY2hl
-Y2tzIGlmIGEgc29ja2V0IGlzIGEgZnVsbCBzb2NrZXQsDQo+IC0gKiBpZSBfbm90XyBhIHRpbWV3
-YWl0IG9yIHJlcXVlc3Qgc29ja2V0Lg0KPiAtICovDQo+IC1zdGF0aWMgaW5saW5lIGJvb2wgc2tf
-ZnVsbHNvY2soY29uc3Qgc3RydWN0IHNvY2sgKnNrKQ0KPiAtew0KPiAtCXJldHVybiAoMSA8PCBz
-ay0+c2tfc3RhdGUpICYgfihUQ1BGX1RJTUVfV0FJVCB8IFRDUEZfTkVXX1NZTl9SRUNWKTsNCj4g
-LX0NCj4gLQ0KPiAgLyogVGhpcyBoZWxwZXIgY2hlY2tzIGlmIGEgc29ja2V0IGlzIGEgTElTVEVO
-IG9yIE5FV19TWU5fUkVDVg0KPiAgICogU1lOQUNLIG1lc3NhZ2VzIGNhbiBiZSBhdHRhY2hlZCB0
-byBlaXRoZXIgb25lcyAoZGVwZW5kaW5nIG9uDQo+IFNZTkNPT0tJRSkNCj4gICAqLw0KPiANCg0K
-SGkgRXJpYywNCg0KVGhhbmtzIGZvciB0aGUgZGVidWcgcGF0Y2guIFRoZSBwYW5pYyBkb2VzIG5v
-dCBoYXBwZW4gYW55bW9yZSB3aXRoDQp0aGUgcGF0Y2guIEkgc2VlIGEgd2FybmluZyBjYWxsIHRy
-YWNlOg0KDQpbICAyMjIuMzA3OTQ4XSAtLS0tLS0tLS0tLS1bIGN1dCBoZXJlIF0tLS0tLS0tLS0t
-LS0NClsgIDIyMi4zMDgwMDldIFdBUk5JTkc6IENQVTogNiBQSUQ6IDAgYXQgaW5jbHVkZS9uZXQv
-c29jay5oOjE5NzQgaXBfZmluaXNoX291dHB1dDIrMHgzNGYvMHgzNjAoKQ0KWyAgMjIyLjMwODAy
-N10gTW9kdWxlcyBsaW5rZWQgaW46IGNmZzgwMjExIGpveWRldiBjcmN0MTBkaWZfcGNsbXVsIGNy
-YzMyX3BjbG11bCBhZXNuaV9pbnRlbCBhZXNfeDg2XzY0IGdsdWVfaGVscGVyIGhpZF9nZW5lcmlj
-IGxydyBnZjEyOG11bCBhYmxrX2hlbHBlciBpMmNfcGlpeDQgaGlkX2h5cGVydiBoeXBlcnZfZmIg
-aGlkIGNyeXB0ZCBoeXBlcnZfa2V5Ym9hcmQgODI1MF9maW50ZWsgbWFjX2hpZCBzZXJpb19yYXcg
-cGFycG9ydF9wYyBwcGRldiBscCBwYXJwb3J0IGF1dG9mczQgaHZfdXRpbHMgaHZfbmV0dnNjIGh2
-X3N0b3J2c2MgcHNtb3VzZSBodl92bWJ1cyBmbG9wcHkgcGF0YV9hY3BpDQpbICAyMjIuMzA4MDg4
-XSBDUFU6IDYgUElEOiAwIENvbW06IHN3YXBwZXIvNiBOb3QgdGFpbnRlZCA0LjMuMC1yYzYtbmV4
-dC0yMDE1MTAyMisgIzINClsgIDIyMi4zMDgxMDRdIEhhcmR3YXJlIG5hbWU6IE1pY3Jvc29mdCBD
-b3Jwb3JhdGlvbiBWaXJ0dWFsIE1hY2hpbmUvVmlydHVhbCBNYWNoaW5lLCBCSU9TIDA5MDAwNiAg
-MDUvMjMvMjAxMg0KWyAgMjIyLjMwODEyMF0gIGZmZmZmZmZmODFiMmFlNjYgZmZmZjg4MDA3Yzc4
-Mzg3OCBmZmZmZmZmZjgxM2E0Y2Y0IDAwMDAwMDAwMDAwMDAwMDANClsgIDIyMi4zMDgxMzddICBm
-ZmZmODgwMDdjNzgzOGIwIGZmZmZmZmZmODEwNzhjYzYgZmZmZjg4MDA1YmYyZGMwMCBmZmZmODgw
-MDc5ZjU4MDAwDQpbICAyMjIuMzA4MTUzXSAgZmZmZjg4MDA1YmYyYzAwMCBmZmZmODgwMDViZjJj
-ODAwIGZmZmY4ODAwNTBiMjgwMDAgZmZmZjg4MDA3Yzc4MzhjMA0KWyAgMjIyLjMwODE3MV0gQ2Fs
-bCBUcmFjZToNClsgIDIyMi4zMDgxODVdICA8SVJRPiAgWzxmZmZmZmZmZjgxM2E0Y2Y0Pl0gZHVt
-cF9zdGFjaysweDQ0LzB4NjANClsgIDIyMi4zMDgyMTJdICBbPGZmZmZmZmZmODEwNzhjYzY+XSB3
-YXJuX3Nsb3dwYXRoX2NvbW1vbisweDg2LzB4YzANClsgIDIyMi4zMDgyMjhdICBbPGZmZmZmZmZm
-ODEwNzhkYmE+XSB3YXJuX3Nsb3dwYXRoX251bGwrMHgxYS8weDIwDQpbICAyMjIuMzA4MjQ1XSAg
-WzxmZmZmZmZmZjgxNmQyZTZmPl0gaXBfZmluaXNoX291dHB1dDIrMHgzNGYvMHgzNjANClsgIDIy
-Mi4zMDgyNjJdICBbPGZmZmZmZmZmODE2ZDQ1ODk+XSBpcF9maW5pc2hfb3V0cHV0KzB4MTQ5LzB4
-MWUwDQpbICAyMjIuMzA4MjgwXSAgWzxmZmZmZmZmZjgxNmQ0ZjJjPl0gaXBfb3V0cHV0KzB4NWMv
-MHhjMA0KWyAgMjIyLjMwODMwMF0gIFs8ZmZmZmZmZmY4MTAxZTg5OT5dID8gc2NoZWRfY2xvY2sr
-MHg5LzB4MTANClsgIDIyMi4zMDgzMTldICBbPGZmZmZmZmZmODEwYTYzYTc+XSA/IHNjaGVkX2Ns
-b2NrX2xvY2FsKzB4MTcvMHg4MA0KWyAgMjIyLjMwODMzNV0gIFs8ZmZmZmZmZmY4MTZkNDcyNT5d
-IGlwX2xvY2FsX291dCsweDM1LzB4NDANClsgIDIyMi4zMDgzNTFdICBbPGZmZmZmZmZmODE2ZDQ4
-N2Q+XSBpcF9idWlsZF9hbmRfc2VuZF9wa3QrMHgxNGQvMHgxYzANClsgIDIyMi4zMDgzNjldICBb
-PGZmZmZmZmZmODE2ZjM5ZmI+XSB0Y3BfdjRfc2VuZF9zeW5hY2srMHg1Yi8weGIwDQpbICAyMjIu
-MzA4Mzg2XSAgWzxmZmZmZmZmZjgxNmQ4ZmI5Pl0gPyBpbmV0X2VoYXNoX2luc2VydCsweDU5LzB4
-MTMwDQpbICAyMjIuMzA4NDA0XSAgWzxmZmZmZmZmZjgxNmRhMjY2Pl0gPyBpbmV0X2Nza19yZXFz
-a19xdWV1ZV9oYXNoX2FkZCsweDc2LzB4YTANClsgIDIyMi4zMDg0MjVdICBbPGZmZmZmZmZmODE2
-ZTMyMjM+XSB0Y3BfY29ubl9yZXF1ZXN0KzB4OWIzLzB4OWYwDQpbICAyMjIuMzA4NDQ0XSAgWzxm
-ZmZmZmZmZjgxNmYyMGJjPl0gdGNwX3Y0X2Nvbm5fcmVxdWVzdCsweDRjLzB4NTANClsgIDIyMi4z
-MDg0NThdICBbPGZmZmZmZmZmODE2ZTk0MGM+XSB0Y3BfcmN2X3N0YXRlX3Byb2Nlc3MrMHgxOWMv
-MHhjYjANClsgIDIyMi4zMDg0NzNdICBbPGZmZmZmZmZmODE3NzQ2ZWM+XSA/IHRjcF92NF9pbmJv
-dW5kX21kNV9oYXNoKzB4NmQvMHgxNzcNClsgIDIyMi4zMDg0ODVdICBbPGZmZmZmZmZmODE2ZjJm
-NTM+XSB0Y3BfdjRfZG9fcmN2KzB4NzMvMHgyMTANClsgIDIyMi4zMDg0OTZdICBbPGZmZmZmZmZm
-ODE2ZjQzYjE+XSB0Y3BfdjRfcmN2KzB4ODExLzB4ODQwDQpbICAyMjIuMzA4NTExXSAgWzxmZmZm
-ZmZmZjgxNmNkYTlhPl0gPyBpcF9yb3V0ZV9pbnB1dF9ub3JlZisweGIzYS8weGQ5MA0KWyAgMjIy
-LjMwODUyNF0gIFs8ZmZmZmZmZmY4MTZjZjFhMz5dIGlwX2xvY2FsX2RlbGl2ZXJfZmluaXNoKzB4
-NTMvMHhlMA0KWyAgMjIyLjMwODUzNl0gIFs8ZmZmZmZmZmY4MTZjZjY5MD5dIGlwX2xvY2FsX2Rl
-bGl2ZXIrMHg2MC8weGQwDQpbICAyMjIuMzA4NTQ5XSAgWzxmZmZmZmZmZjgxNmNmMmI3Pl0gaXBf
-cmN2X2ZpbmlzaCsweDg3LzB4MmIwDQpbICAyMjIuMzA4NTYxXSAgWzxmZmZmZmZmZjgxNmNmOTQ5
-Pl0gaXBfcmN2KzB4MjQ5LzB4MzUwDQpbICAyMjIuMzA4NTc0XSAgWzxmZmZmZmZmZjgxNzY3OTZj
-Pl0gPyBwYWNrZXRfcmN2KzB4NGMvMHgzZTANClsgIDIyMi4zMDg1ODldICBbPGZmZmZmZmZmODE2
-OTY4NTc+XSBfX25ldGlmX3JlY2VpdmVfc2tiX2NvcmUrMHgyZDcvMHg5ODANClsgIDIyMi4zMDg2
-MDJdICBbPGZmZmZmZmZmODE2OTZmMTg+XSBfX25ldGlmX3JlY2VpdmVfc2tiKzB4MTgvMHg2MA0K
-WyAgMjIyLjMwODYxNF0gIFs8ZmZmZmZmZmY4MTY5N2IzOD5dIHByb2Nlc3NfYmFja2xvZysweGE4
-LzB4MTUwDQpbICAyMjIuMzA4NjI3XSAgWzxmZmZmZmZmZjgxNjk3M2MzPl0gbmV0X3J4X2FjdGlv
-bisweDFiMy8weDJjMA0KWyAgMjIyLjMwODY0MV0gIFs8ZmZmZmZmZmY4MTA3ZDMyYz5dIF9fZG9f
-c29mdGlycSsweGZjLzB4MjUwDQpbICAyMjIuMzA4NjUzXSAgWzxmZmZmZmZmZjgxMDdkNWRlPl0g
-aXJxX2V4aXQrMHg4ZS8weDkwDQpbICAyMjIuMzA4NjY3XSAgWzxmZmZmZmZmZjgxMDRhMWNlPl0g
-aHlwZXJ2X3ZlY3Rvcl9oYW5kbGVyKzB4M2UvMHg1MA0KWyAgMjIyLjMwODY4MF0gIFs8ZmZmZmZm
-ZmY4MTc4MzVjMj5dIGh5cGVydl9jYWxsYmFja192ZWN0b3IrMHg4Mi8weDkwDQpbICAyMjIuMzA4
-NjkwXSAgPEVPST4gIFs8ZmZmZmZmZmY4MTA1ZTI1Nj5dID8gbmF0aXZlX3NhZmVfaGFsdCsweDYv
-MHgxMA0KWyAgMjIyLjMwODcwN10gIFs8ZmZmZmZmZmY4MTAxZjdhZT5dIGRlZmF1bHRfaWRsZSsw
-eDFlLzB4YTANClsgIDIyMi4zMDg3MThdICBbPGZmZmZmZmZmODEwMWZlZmY+XSBhcmNoX2NwdV9p
-ZGxlKzB4Zi8weDIwDQpbICAyMjIuMzA4NzMxXSAgWzxmZmZmZmZmZjgxMGI4NmYyPl0gZGVmYXVs
-dF9pZGxlX2NhbGwrMHgzMi8weDQwDQpbICAyMjIuMzA4NzQzXSAgWzxmZmZmZmZmZjgxMGI4YTE4
-Pl0gY3B1X3N0YXJ0dXBfZW50cnkrMHgyYjgvMHgzMTANClsgIDIyMi4zMDg3NTZdICBbPGZmZmZm
-ZmZmODEwNGMyMzg+XSBzdGFydF9zZWNvbmRhcnkrMHgxNzgvMHgxYTANClsgIDIyMi4zMDg3Njld
-IC0tLVsgZW5kIHRyYWNlIDBjNzE0MzhkNGQxYjZkY2EgXS0tLQ0KDQpUaGFua3MsDQotIEhhaXlh
-bmcNCg==
+On 10/30/2015 09:25 AM, Jarod Wilson wrote:
+> Michal Kubecek wrote:
+>> On Fri, Oct 23, 2015 at 10:51:09PM -0700, Alexander Duyck wrote:
+>>> On 10/23/2015 08:40 PM, Jarod Wilson wrote:
+>>>> +static netdev_features_t netdev_sync_upper_features(struct
+>>>> net_device *lower,
+>>>> +    struct net_device *upper, netdev_features_t features)
+>>>> +{
+>>>> +    netdev_features_t want = upper->wanted_features&
+>>>> lower->hw_features;
+>>>> +
+>>>> +    if (!(upper->wanted_features&  NETIF_F_LRO)
+>>>> +    &&  (features&  NETIF_F_LRO)) {
+>>>> +        netdev_info(lower, "Dropping LRO, upper dev %s has it off.\n",
+>>>> +               upper->name);
+>>>> +        features&= ~NETIF_F_LRO;
+>>>> +    } else if ((want&  NETIF_F_LRO)&&  !(features&  NETIF_F_LRO)) {
+>>>> +        netdev_info(lower, "Keeping LRO, upper dev %s has it on.\n",
+>>>> +               upper->name);
+>>>> +        features |= NETIF_F_LRO;
+>>>> +    }
+>>>> +
+>>>> +    return features;
+>>>> +}
+>>>> +
+>>> I'd say to drop the second half of this statement.  LRO is a feature
+>>> that should be enabled explicitly per interface.  If someone enables
+>>> LRO on the master they may only want it on one interface.  The fact
+>>> is there are some implementations of LRO that work better than
+>>> others so you want to give the end user the option to mix and match.
+>>
+>> Agreed. IMHO it makes sense to allow setups with LRO disabled on some
+>> slaves and enabled on other.
+>>
+>> Also, the logic seems to only consider the 1 upper : N lower scheme
+>> (bond, team) but we also have N upper : 1 lower setups (vlan, macvlan).
+>> For these, there is no way to propagate both 0 and 1 down as this would
+>> result in a conflict.
+>
+> Okay, so we're thinking do prevent lower devices turning LRO on if the
+> upper device has it off. Or rather, if *an* upper device has it off.
+> Probably need to rework the bit that calls this function to use
+> netdev_for_each_upper_dev{_rcu}() to walk all of adj_list.upper here.
+
+Right.  This part sounds fine.
+
+> Rather than outright dropping the second bit though, I was thinking
+> maybe just drop a note in dmesg along the lines of "hey, you shut off
+> LRO, it is still enabled on upper dev foo", to placate end-users.
+
+I would rather not see it.  It would be mostly noise.  It is perfectly 
+valid to have LRO advertised on an upper device, but not supported on a 
+lower one.  It basically just means that the path will allow LRO frames 
+through, it doesn't guarantee that we are going to provide them.
+
+>>>> +static void netdev_sync_lower_features(struct net_device *upper,
+>>>> +    struct net_device *lower, netdev_features_t features)
+>>>> +{
+>>>> +    netdev_features_t want = features&  lower->hw_features;
+>>>> +
+>>>> +    if (!(features&  NETIF_F_LRO)&&  (lower->features&
+>>>> NETIF_F_LRO)) {
+>>>> +        netdev_info(upper, "Disabling LRO on lower dev %s.\n",
+>>>> +               lower->name);
+>>>> +        upper->wanted_features&= ~NETIF_F_LRO;
+>>>> +        lower->wanted_features&= ~NETIF_F_LRO;
+>>>> +        netdev_update_features(lower);
+>>>> +        if (unlikely(lower->features&  NETIF_F_LRO))
+>>>> +            netdev_WARN(upper, "failed to disable LRO on %s!\n",
+>>>> +                    lower->name);
+>>>> +    } else if ((want&  NETIF_F_LRO)&&  !(lower->features&
+>>>> NETIF_F_LRO)) {
+>>>> +        netdev_info(upper, "Enabling LRO on lower dev %s.\n",
+>>>> +               lower->name);
+>>>> +        upper->wanted_features |= NETIF_F_LRO;
+>>>> +        lower->wanted_features |= NETIF_F_LRO;
+>>>> +        netdev_update_features(lower);
+>>>> +        if (unlikely(!(lower->features&  NETIF_F_LRO)))
+>>>> +            netdev_WARN(upper, "failed to enable LRO on %s!\n",
+>>>> +                    lower->name);
+>>>> +    }
+>>>> +}
+>>>> +
+>>> Same thing here.  If a lower dev has it disabled then leave it
+>>> disabled.  I believe your goal is to make it so that
+>>> dev_disable_lro() can shut down LRO when it is making packets in the
+>>> data-path unusable.
+>>
+>> This is already the case since commit fbe168ba91f7 ("net: generic
+>> dev_disable_lro() stacked device handling"). That commit makes sure
+>> dev_disable_lro() is propagated down the stack and also makes sure new
+>> slaves added to a bond/team with LRO disabled have it disabled too.
+>>
+>> What it does not do is propagating LRO disabling down if it is disabled
+>> in ways that do not call dev_disable_lro() (e.g. via ethtool). I'm not
+>> sure if this should be done or not, both options have their pros and
+>> cons.
+>
+> Making it work with ethtool was one of my primary goals with this
+> change, as it was users prodding things with ethtool that prompted the
+> "hey, this doesn't make sense" bug reports.
+
+I'd say make it work like dev_disable_lro already does.  Disabling LRO 
+propagates down, enabling LRO only enables it on the specific device.
+
+The way to think of it is as a warning flag.  With LRO enabled this 
+device may report frames larger than MTU to the stack and will mangle 
+checksums.  Without LRO all of the frames received should be restricted 
+to MTU.  That is why you have to force the disabling down to all lower 
+devices, and why you cannot enable it if an upper device has it disabled.
+
+>> However, I believe enabling LRO shouldn't be propagated down.
+>
+> Hm. Devices that should never have LRO enabled still won't get it
+> enabled, so I'm not clear what harm it would cause.I tend to think you
+
+How do you define "devices that should never have LRO enabled"?  The 
+fact is LRO is very messy in terms of the way it functions.  Different 
+drivers handle it different ways.  Usually it results in the Rx checksum 
+being mangled, it provides frames larger than MTU, and uses fraglist 
+instead of frags on some drivers.
+
+> do want this sync'ing down the stack if set on an upper dev (i.e.,
+> ethtool -K bond0 lro on), for consistency's sake. You can always come
+> back through afterwards and disable things on lower devs individually if
+> they're really not wanted, since we're in agreement that we shouldn't
+> prevent disabling features on lower devices.
+
+Think of it this way.  Lets say I have a NIC that I know is problematic 
+when LRO is enabled, it might cause a kernel panic due to an skb 
+overrun.  So I have a bond with it and some other NIC which can run with 
+LRO enabled without issues.  How do I enable LRO on the other device 
+without causing a kernel panic, and without tearing apart the existing 
+bond?  With the approach you have described I can't because I have to 
+enable it at the bond and doing so will enable it on the NIC with the 
+faulty implementation.
+
+This is why we cannot enable LRO unless all upper devices support it, 
+and why we should propagate disabling LRO down to all lower devices. 
+Trying to force it on for a lower device just because the upper device 
+supports it is a bad idea because there are multiple LRO implementations 
+and they all behave very differently.
+
+- Alex
