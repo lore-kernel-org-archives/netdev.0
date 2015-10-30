@@ -1,52 +1,45 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 1/2] bridge: vlan: Prevent possible use-after-free
-Date: Fri, 30 Oct 2015 17:46:19 +0100
-Message-ID: <1446223580-1464-2-git-send-email-razor@blackwall.org>
-References: <1446223580-1464-1-git-send-email-razor@blackwall.org>
-Cc: stephen@networkplumber.org, davem@davemloft.net,
-	nikolay@cumulusnetworks.com, idosch@mellanox.com,
-	roopa@cumulusnetworks.com
-To: netdev@vger.kernel.org
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCHv3 net 0/2] ipv4: fix problems from the RTNH_F_LINKDOWN
+ introduction
+Date: Fri, 30 Oct 2015 12:53:27 -0400
+Message-ID: <20151030165326.GA8027@gospo.home.greyhouse.net>
+References: <1446193414-8244-1-git-send-email-ja@ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:34169 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753599AbbJ3QqY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 12:46:24 -0400
-Received: by wikq8 with SMTP id q8so14990555wik.1
-        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 09:46:23 -0700 (PDT)
-In-Reply-To: <1446223580-1464-1-git-send-email-razor@blackwall.org>
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:32965 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752495AbbJ3Qxe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 12:53:34 -0400
+Received: by qgeo38 with SMTP id o38so66775184qge.0
+        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 09:53:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1446193414-8244-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+On Fri, Oct 30, 2015 at 10:23:32AM +0200, Julian Anastasov wrote:
+> Fix two problems from the change that introduced RTNH_F_LINKDOWN
+> flag. The first patch deals with the removal of local route on
+> DOWN event. The second patch makes sure the RTNH_F_LINKDOWN
+> flag is properly updated on UP event because the DOWN event
+> sets it in all cases.
+> 
+> v2->v3:
+> - use bool for force var
+> 
+> v1->v2:
+> - forgot to add ifconfig dummy0 down in the test case
+> - split to 2 patches
+> 
+> Julian Anastasov (2):
+>   ipv4: fix to not remove local route on link down
+>   ipv4: update RTNH_F_LINKDOWN flag on UP event
 
-When adding a port to a bridge we initialize VLAN filtering on it. We do
-not bail out in case an error occurred in nbp_vlan_init, as it can be
-used as a non VLAN filtering bridge.
+I had a chance to test both of these this morning and they look good.
+Sorry for the delay.  Thanks for making force a bool to cover the single
+case -- good suggestion by DaveM.
 
-However, if VLAN filtering is required and an error occurred in
-nbp_vlan_init, we should set vlgrp to NULL, so that VLAN filtering
-functions (e.g. br_vlan_find, br_get_pvid) will know the struct is
-invalid and will not try to access it.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_vlan.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 5f0d0cc4744f..1054696323d7 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -914,6 +914,8 @@ out:
- 	return ret;
- 
- err_vlan_add:
-+	RCU_INIT_POINTER(p->vlgrp, NULL);
-+	synchronize_rcu();
- 	rhashtable_destroy(&vg->vlan_hash);
- err_rhtbl:
- 	kfree(vg);
--- 
-2.4.3
+Reviewed-by: Andy Gospodarek <gospo@cumulusnetworks.com>
