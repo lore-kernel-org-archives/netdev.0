@@ -1,31 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] enic: assign affinity hint to interrupts
-Date: Fri, 30 Oct 2015 18:21:38 +0900 (KST)
-Message-ID: <20151030.182138.949964414988071678.davem@davemloft.net>
-References: <1445968722-29523-1-git-send-email-_govind@gmx.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [1/1] stmmac: Correctly report PTP capabilities.
+Date: Fri, 30 Oct 2015 11:22:00 +0100
+Message-ID: <20151030102200.GA4771@localhost.localdomain>
+References: <1446194635-19782-1-git-send-email-preid@electromag.com.au>
+ <1446194635-19782-2-git-send-email-preid@electromag.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benve@cisco.com, ssujith@cisco.com
-To: _govind@gmx.com
+Content-Type: text/plain; charset=us-ascii
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
+To: Phil Reid <preid@electromag.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33017 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758910AbbJ3JVk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 05:21:40 -0400
-In-Reply-To: <1445968722-29523-1-git-send-email-_govind@gmx.com>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:38584 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756952AbbJ3KWF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 06:22:05 -0400
+Received: by wmeg8 with SMTP id g8so8219796wme.1
+        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 03:22:04 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1446194635-19782-2-git-send-email-preid@electromag.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Date: Tue, 27 Oct 2015 23:28:42 +0530
+On Fri, Oct 30, 2015 at 04:43:55PM +0800, Phil Reid wrote:
+> priv->hwts_*_en indicate if timestamping is enabled/disabled at run
+> time. But  priv->dma_cap.time_stamp  and priv->dma_cap.atime_stamp
+> indicates HW is support for PTPv1/PTPv2.
+> 
+> Signed-off-by: Phil Reid <preid@electromag.com.au>
 
-> Introduce enic module global variable enic_numa_count[] to store the
-> number of affinity_hints set. If there are more than one enic interfaces,
-> we do not want them to share same affinity hint cpus. We store the
-> history of affinity hint assignment of all interfaces in global variable
-> enic_numa_count. Introduce enic_affinity_hint spinlock to access
-> enic_numa_count.
+Thanks for catching this bug.
 
-This is policy outside of the domain of your driver, no other networking
-driver does this.  Please remove this aspect of your change.
+Acked-by: Richard Cochran <richardcochran@gmail.com>
