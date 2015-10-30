@@ -1,114 +1,58 @@
-From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-Subject: [PATCH net-next 5/5] dp83640: Only wait for timestamps for packets with timestamping enabled.
-Date: Fri, 30 Oct 2015 13:14:04 +0100
-Message-ID: <1446207244-2206-6-git-send-email-stefan.sorensen@spectralink.com>
-References: <1446207244-2206-1-git-send-email-stefan.sorensen@spectralink.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v3 0/4] net: clean up interactions of
+ CHECKSUM_PARTIAL and fragmentation
+Date: Fri, 30 Oct 2015 13:21:48 +0100
+Message-ID: <1446207708.726564.424548761.49DD71DE@webmail.messagingengine.com>
+References: <1445982042-3207-1-git-send-email-hannes@stressinduktion.org>
+ <87wpu7bamv.fsf@stressinduktion.org>
+ <20151030.193748.1337418825359803374.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <richardcochran@gmail.com>,
-	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, vyasevich@gmail.com,
+	bcodding@redhat.com, tom@herbertland.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0102.outbound.protection.outlook.com ([65.55.169.102]:48592
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1031016AbbJ3MPg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Oct 2015 08:15:36 -0400
-In-Reply-To: <1446207244-2206-1-git-send-email-stefan.sorensen@spectralink.com>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:58143 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750882AbbJ3MVt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 08:21:49 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id 163B62096F
+	for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 08:21:49 -0400 (EDT)
+In-Reply-To: <20151030.193748.1337418825359803374.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the packet timestamping function, check that the ptp version and
-protocol of the packet matches what we have configured the hardware to
-actually generate timestamps for, before looking/waiting for a timestam=
-p.
 
-Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
----
- drivers/net/phy/dp83640.c | 25 +++++++++++++------------
- 1 file changed, 13 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index c1f70b7..30bfeb1 100644
---- a/drivers/net/phy/dp83640.c
-+++ b/drivers/net/phy/dp83640.c
-@@ -37,8 +37,6 @@
-=20
- #define DP83640_PHY_ID	0x20005ce1
- #define PAGESEL		0x13
--#define LAYER4		0x02
--#define LAYER2		0x01
- #define MAX_RXTS	64
- #define N_EXT_TS	6
- #define N_PER_OUT	7
-@@ -1292,29 +1290,29 @@ static int dp83640_hwtstamp(struct phy_device *=
-phydev, struct ifreq *ifr)
- 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
- 		dp83640->hwts_rx_en =3D 1;
--		dp83640->layer =3D LAYER4;
--		dp83640->version =3D 1;
-+		dp83640->layer =3D PTP_CLASS_L4;
-+		dp83640->version =3D PTP_CLASS_V1;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
- 	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
- 		dp83640->hwts_rx_en =3D 1;
--		dp83640->layer =3D LAYER4;
--		dp83640->version =3D 2;
-+		dp83640->layer =3D PTP_CLASS_L4;
-+		dp83640->version =3D PTP_CLASS_V2;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
- 	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
- 		dp83640->hwts_rx_en =3D 1;
--		dp83640->layer =3D LAYER2;
--		dp83640->version =3D 2;
-+		dp83640->layer =3D PTP_CLASS_L2;
-+		dp83640->version =3D PTP_CLASS_V2;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
- 	case HWTSTAMP_FILTER_PTP_V2_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
- 		dp83640->hwts_rx_en =3D 1;
--		dp83640->layer =3D LAYER4|LAYER2;
--		dp83640->version =3D 2;
-+		dp83640->layer =3D PTP_CLASS_L4 | PTP_CLASS_L2;
-+		dp83640->version =3D PTP_CLASS_V2;
- 		break;
- 	default:
- 		return -ERANGE;
-@@ -1323,11 +1321,11 @@ static int dp83640_hwtstamp(struct phy_device *=
-phydev, struct ifreq *ifr)
- 	txcfg0 =3D (dp83640->version & TX_PTP_VER_MASK) << TX_PTP_VER_SHIFT;
- 	rxcfg0 =3D (dp83640->version & TX_PTP_VER_MASK) << TX_PTP_VER_SHIFT;
-=20
--	if (dp83640->layer & LAYER2) {
-+	if (dp83640->layer & PTP_CLASS_L2) {
- 		txcfg0 |=3D TX_L2_EN;
- 		rxcfg0 |=3D RX_L2_EN;
- 	}
--	if (dp83640->layer & LAYER4) {
-+	if (dp83640->layer & PTP_CLASS_L4) {
- 		txcfg0 |=3D TX_IPV6_EN | TX_IPV4_EN;
- 		rxcfg0 |=3D RX_IPV6_EN | RX_IPV4_EN;
- 	}
-@@ -1393,6 +1391,9 @@ static bool dp83640_rxtstamp(struct phy_device *p=
-hydev,
- 	if (!dp83640->hwts_rx_en)
- 		return false;
-=20
-+	if ((type & dp83640->version) =3D=3D 0 || (type & dp83640->layer) =3D=
-=3D 0)
-+		return false;
-+
- 	spin_lock_irqsave(&dp83640->rx_lock, flags);
- 	prune_rx_ts(dp83640);
- 	list_for_each_safe(this, next, &dp83640->rxts) {
---=20
-2.5.0
+On Fri, Oct 30, 2015, at 11:37, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Wed, 28 Oct 2015 10:33:28 +0100
+> 
+> > Those patches are actually for net and not for net-next,
+> > sorry. Guess I messed it up with Ctrl-R foo.
+> 
+> Ok, in that case since:
+> 
+> 1) I already have a pull request pending (which is only delayed because
+>    of you, hehe :-)
+
+Next time I send those patches anonymously through the controversial
+tree. :]
+Sorry...
+
+> 2) 4.3 is likely to be finalized on Sunday.
+> 
+> 3) I am getting on a plane first thing tomorrow morning.
+> 
+> I think this will end up going via the upcoming merge window and queud
+> up for -stable.
+> 
+> Just FYI...
+
+Totally fine by me. I think those people using nfs over udp with
+fragmentation can wait a little bit longer.
+
+Have a nice flight,
+Hannes
