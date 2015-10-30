@@ -1,173 +1,53 @@
-From: Tina Ruchandani <ruchandani.tina@gmail.com>
-Subject: [PATCH v6] isdn: Use ktime_t instead of 'struct timeval'
-Date: Thu, 29 Oct 2015 21:08:16 -0700
-Message-ID: <20151030040816.GA3085@google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: kernel BUG in ipmr_queue_xmit()
+Date: Thu, 29 Oct 2015 21:15:42 -0700
+Message-ID: <1446178542.6254.6.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.OSX.2.00.1510291646320.59200@animac.local>
+	 <20151030001510.GG18062@breakpoint.cc>
+	 <alpine.OSX.2.00.1510291841480.68875@animac.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, Karsten Keil <isdn@linux-pingi.de>,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	ani@anirban.org, fruggeri@arista.com
+To: Ani Sinha <ani@arista.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34366 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750729AbbJ3EPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 00:15:44 -0400
+Received: by padhk11 with SMTP id hk11so61185953pad.1
+        for <netdev@vger.kernel.org>; Thu, 29 Oct 2015 21:15:44 -0700 (PDT)
+In-Reply-To: <alpine.OSX.2.00.1510291841480.68875@animac.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-'struct timeval' uses 32-bit representation for seconds which will
-overflow in year 2038 and beyond. mISDN/clock.c needs to compute and
-store elapsed time in intervals of 125 microseconds. This patch replaces
-the usage of 'struct timeval' with 64-bit ktime_t which is y2038 safe.
-The patch also replaces do_gettimeofday() (wall-clock time) with
-ktime_get() (monotonic time) since we only care about elapsed time here.
+On Thu, 2015-10-29 at 18:41 -0700, Ani Sinha wrote:
 
-Signed-off-by: Tina Ruchandani <ruchandani.tina@gmail.com>
-Suggested-by: Arnd Bergmnann <arnd@arndb.de>
----
-Changes in v6:
-- Fix compilation errors caused by bad code editing
-Changes in v5:
-- Apply cleanly to net-next
-Changes in v4:
-- Fix compile error (NS_PER_SEC -> NSEC_PER_SEC)
-Changes in v3:
-- Use division scheme suggested by Arnd Bergmann to avoid
-  a (64-bit variable) / (32-bit variable) expression.
-Changes in v2:
-- Avoid possible truncation bug caused by assigning ktime_us_delta
-output to a 16-bit number.
-- Use ktime_us_delta, more concise than a combination of ktime_sub
-and ktime_to_us.
----
- drivers/isdn/mISDN/clock.c | 57 +++++++++++++++++++---------------------------
- include/linux/mISDNif.h    |  2 +-
- 2 files changed, 24 insertions(+), 35 deletions(-)
+> 
+> Signed-off-by: Ani Sinha <ani@arista.com>
+> ---
+>  net/ipv4/ipmr.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+> index 866ee89..48df3cc 100644
+> --- a/net/ipv4/ipmr.c
+> +++ b/net/ipv4/ipmr.c
+> @@ -936,7 +936,9 @@ static void ipmr_cache_resolve(struct net *net, struct mr_table *mrt,
+>  
+>  			rtnl_unicast(skb, net, NETLINK_CB(skb).portid);
+>  		} else {
+> +			preempt_disable();
+>  			ip_mr_forward(net, mrt, skb, c, 0);
+> +			preempt_enable();
+>  		}
+>  	}
+>  }
 
-diff --git a/drivers/isdn/mISDN/clock.c b/drivers/isdn/mISDN/clock.c
-index 693fb7c..a23e6d9 100644
---- a/drivers/isdn/mISDN/clock.c
-+++ b/drivers/isdn/mISDN/clock.c
-@@ -37,6 +37,7 @@
- #include <linux/types.h>
- #include <linux/stddef.h>
- #include <linux/spinlock.h>
-+#include <linux/ktime.h>
- #include <linux/mISDNif.h>
- #include <linux/export.h>
- #include "core.h"
-@@ -45,7 +46,7 @@ static u_int *debug;
- static LIST_HEAD(iclock_list);
- static DEFINE_RWLOCK(iclock_lock);
- static u16 iclock_count;		/* counter of last clock */
--static struct timeval iclock_tv;	/* time stamp of last clock */
-+static ktime_t iclock_tv;		/* time stamp of last clock */
- static int iclock_tv_valid;		/* already received one timestamp */
- static struct mISDNclock *iclock_current;
- 
-@@ -53,7 +54,7 @@ void
- mISDN_init_clock(u_int *dp)
- {
- 	debug = dp;
--	do_gettimeofday(&iclock_tv);
-+	iclock_tv = ktime_get();
- }
- 
- static void
-@@ -139,12 +140,11 @@ mISDN_unregister_clock(struct mISDNclock *iclock)
- EXPORT_SYMBOL(mISDN_unregister_clock);
- 
- void
--mISDN_clock_update(struct mISDNclock *iclock, int samples, struct timeval *tv)
-+mISDN_clock_update(struct mISDNclock *iclock, int samples, ktime_t *tv)
- {
- 	u_long		flags;
--	struct timeval	tv_now;
--	time_t		elapsed_sec;
--	int		elapsed_8000th;
-+	ktime_t		tv_now;
-+	u16		delta;
- 
- 	write_lock_irqsave(&iclock_lock, flags);
- 	if (iclock_current != iclock) {
-@@ -160,28 +160,22 @@ mISDN_clock_update(struct mISDNclock *iclock, int samples, struct timeval *tv)
- 		/* increment sample counter by given samples */
- 		iclock_count += samples;
- 		if (tv) { /* tv must be set, if function call is delayed */
--			iclock_tv.tv_sec = tv->tv_sec;
--			iclock_tv.tv_usec = tv->tv_usec;
--		} else
--			do_gettimeofday(&iclock_tv);
-+			iclock_tv = *tv;
-+		} else {
-+			iclock_tv = ktime_get();
-+		}
- 	} else {
- 		/* calc elapsed time by system clock */
- 		if (tv) { /* tv must be set, if function call is delayed */
--			tv_now.tv_sec = tv->tv_sec;
--			tv_now.tv_usec = tv->tv_usec;
--		} else
--			do_gettimeofday(&tv_now);
--		elapsed_sec = tv_now.tv_sec - iclock_tv.tv_sec;
--		elapsed_8000th = (tv_now.tv_usec / 125)
--			- (iclock_tv.tv_usec / 125);
--		if (elapsed_8000th < 0) {
--			elapsed_sec -= 1;
--			elapsed_8000th += 8000;
-+			tv_now = *tv;
-+		} else {
-+			tv_now = ktime_get();
- 		}
-+		delta = ktime_divns(ktime_sub(tv_now, iclock_tv),
-+				(NSEC_PER_SEC / 8000));
- 		/* add elapsed time to counter and set new timestamp */
--		iclock_count += elapsed_sec * 8000 + elapsed_8000th;
--		iclock_tv.tv_sec = tv_now.tv_sec;
--		iclock_tv.tv_usec = tv_now.tv_usec;
-+		iclock_count += delta;
-+		iclock_tv = tv_now;
- 		iclock_tv_valid = 1;
- 		if (*debug & DEBUG_CLOCK)
- 			printk("Received first clock from source '%s'.\n",
-@@ -195,22 +189,17 @@ unsigned short
- mISDN_clock_get(void)
- {
- 	u_long		flags;
--	struct timeval	tv_now;
--	time_t		elapsed_sec;
--	int		elapsed_8000th;
-+	ktime_t		tv_now;
-+	u16		delta;
- 	u16		count;
- 
- 	read_lock_irqsave(&iclock_lock, flags);
- 	/* calc elapsed time by system clock */
--	do_gettimeofday(&tv_now);
--	elapsed_sec = tv_now.tv_sec - iclock_tv.tv_sec;
--	elapsed_8000th = (tv_now.tv_usec / 125) - (iclock_tv.tv_usec / 125);
--	if (elapsed_8000th < 0) {
--		elapsed_sec -= 1;
--		elapsed_8000th += 8000;
--	}
-+	tv_now = ktime_get();
-+	delta = ktime_divns(ktime_sub(tv_now, iclock_tv),
-+			(NSEC_PER_SEC / 8000));
- 	/* add elapsed time to counter */
--	count =	iclock_count + elapsed_sec * 8000 + elapsed_8000th;
-+	count = iclock_count + delta;
- 	read_unlock_irqrestore(&iclock_lock, flags);
- 	return count;
- }
-diff --git a/include/linux/mISDNif.h b/include/linux/mISDNif.h
-index 246a352..ac02c54 100644
---- a/include/linux/mISDNif.h
-+++ b/include/linux/mISDNif.h
-@@ -596,7 +596,7 @@ static inline struct mISDNdevice *dev_to_mISDN(struct device *dev)
- }
- 
- extern void	set_channel_address(struct mISDNchannel *, u_int, u_int);
--extern void	mISDN_clock_update(struct mISDNclock *, int, struct timeval *);
-+extern void	mISDN_clock_update(struct mISDNclock *, int, ktime_t *);
- extern unsigned short mISDN_clock_get(void);
- extern const char *mISDNDevName4ch(struct mISDNchannel *);
- 
--- 
-2.6.0.rc2.230.g3dd15c0
+I do not believe this fix is correct.
+
+Better replace the 
+IP_INC_STATS_BH() by IP_INC_STATS()
+
+and IP_ADD_STATS_BH() by IP_ADD_STATS()
