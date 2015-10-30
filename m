@@ -1,53 +1,73 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 2/2] bridge: vlan: Use correct flag name in comment
-Date: Fri, 30 Oct 2015 17:46:20 +0100
-Message-ID: <1446223580-1464-3-git-send-email-razor@blackwall.org>
-References: <1446223580-1464-1-git-send-email-razor@blackwall.org>
-Cc: stephen@networkplumber.org, davem@davemloft.net,
-	nikolay@cumulusnetworks.com, idosch@mellanox.com,
-	roopa@cumulusnetworks.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:33807 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751770AbbJ3QyU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 12:54:20 -0400
-Received: by wmff134 with SMTP id f134so16242067wmf.1
-        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 09:54:19 -0700 (PDT)
-In-Reply-To: <1446223580-1464-1-git-send-email-razor@blackwall.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next V19 0/3] openvswitch: Add support for
+	802.1ad
+Date: Fri, 30 Oct 2015 13:08:19 -0400
+Message-ID: <1446224902-21246-1-git-send-email-thomasfherbert@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
-
-The flag used to indicate if a VLAN should be used for filtering - as
-opposed to context only - on the bridge itself (e.g. br0) is called
-'brentry' and not 'brvlan'.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_vlan.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 1054696323d7..dc1a2da55d09 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -180,11 +180,11 @@ static void br_vlan_put_master(struct net_bridge_vlan *masterv)
-  * devices. There are four possible calls to this function in terms of the
-  * vlan entry type:
-  * 1. vlan is being added on a port (no master flags, global entry exists)
-- * 2. vlan is being added on a bridge (both master and brvlan flags)
-+ * 2. vlan is being added on a bridge (both master and brentry flags)
-  * 3. vlan is being added on a port, but a global entry didn't exist which
-- *    is being created right now (master flag set, brvlan flag unset), the
-+ *    is being created right now (master flag set, brentry flag unset), the
-  *    global entry is used for global per-vlan features, but not for filtering
-- * 4. same as 3 but with both master and brvlan flags set so the entry
-+ * 4. same as 3 but with both master and brentry flags set so the entry
-  *    will be used for filtering in both the port and the bridge
-  */
- static int __vlan_add(struct net_bridge_vlan *v, u16 flags)
--- 
-2.4.3
+VjE5OiBSZWJhc2VkIHRvIGxhdGVzdCBuZXQtbmV4dCA0LjMuMC1yYzYrCmNvbW1pdCA2ZDA4ZjYx
+Nzg3MmNjMDQ4MTczZDU5ZjFjZTQ2NjBiMDMwYmFiNWE2CnBsdXMgYSBmZXcgcmV2aWV3ZXIncyBz
+dWdnZXN0ZWQgY2hhbmdlcy4KCk5vdGU6IGNoYW5nZXMgdG8gbmV0ZGV2LXZwb3J0LmMgYXJlIG5v
+dCBpbmNsdWRlZC4gZGV2X3F1ZXVlX3htaXQoKSBpcwpub3cgY2FsbGVkIGRpcmVjdGx5IGFzIHRo
+ZSBzZW5kIHZwb3J0IG9wcyBmdW5jdGlvbiBhbmQgbGVuZ3RoCmFkanVzdG1lbnRzIGZvciB2bGFu
+cyBkb24ndCBhcHBseS4gSSBoYXZlIGNvbmNlcm5zIHdoZXRoZXIgdGhpcyBpcwpjb3JyZWN0IGJ1
+dCBoYXZlbid0IHJldmlldyBhbGwgdGhlIHZwb3J0IGNvZGUuIFJldmlld2VyJ3MgY29tbWVudHMK
+YXJlIHdlbGNvbWUuCgpWMTg6IFBhdGNoZXMgMSBhbmQgMiBpbiB0aGlzIHNlcmllcyBoYXZlIGJl
+ZW4gYWNrZWQgZnJvbSBWMTcuCgpQYXRjaCAzIGluIHRoZSBzZXJpZXMgaW5jbHVkZXMgc29tZSBz
+aWduaWZpY2FudCBjaGFuZ2VzLgpUaGUgcGF0Y2ggaW5jbHVkZXMgZml4ZXMgdGhlIGRlY29kaW5n
+IG9mIHRoZSBmbG93IGZvciB0aGUKb3V0ZXIgdHBpZC4gQWxzbywgbmV0bGluayBwYXJzaW5nIGNv
+ZGUgaGFzIGJlZW4gY29uc29saWRhdGVkIHRvIGdlbmVyYWxpemUKaW5uZXIgYW5kIG91dGVyIHZs
+YW5zIGFuZCBub24tbWFzayBhbmQgbWFza2VkIGNhc2VzIGFzIG11Y2ggYXMgcG9zc2libGUuCgpW
+MTcsVjE2OiBJbXBsZW1lbnQgcmV2aWV3ZXIncyBjb21tZW50cy4KClYxNTogSW1wbGVtZW50IHJl
+dmlld2VyIGNvbW1lbnRzLgoKVjE0OiBBZGQgb3V0ZXIgdHBpZCB0byBmbG93X2tleQoKVjEzOiBG
+aXggaW5jb3JyZWN0IGVuY29kaW5nIGFuZCBkZWNvZGluZyBvZiBuZXRsaW5rIHRvL2Zyb20ga2V5
+CmF0dHJpYnV0ZXMuCgpWMTI6IEZpeCBzb21lIHByb2JsZW1zIGFuZCBpc3N1ZXMgcG9pbnRlZCBv
+dXQgYnkgcmV2aWV3ZXJzLiBXaGVuIHBhcnNpbmcKbmV0bGluayBhdHRyaWJ1dGVzIEV0aGVyIHR5
+cGVzIG90aGVyIHRoZW4gMHg4OGE4IGFzIG91dGVyIHRwaWQuCgpWMTE6IEFkZCBpbm5lciB0cGlk
+IHRvIGZsb3cga2V5LiBGaXggc2VwYXJhdGUgaW5uZXIgZW5jYXAgYXR0cmlidXRlCndoZW4gcGFy
+c2luZyBuZXRsaW5rIGF0dHJpYnV0ZXMuIE1lcmdlIDIgcGF0Y2hlcyB0byBjb25zb2xpZGF0ZQpx
+aW5xIGNoYW5nZXMuCgpWMTA6IEltcGxlbWVudCByZXZpZXdlciBjb21tZW50czogQ29uc29saWRh
+dGUgdmxhbiBwYXJzaW5nIGZ1bmN0aW9ucy4KU3BsaXRzIG5ldGxpbmsgcGFyc2luZyBhbmQgZmxv
+dyBjb252ZXJzaW9uIGludG8gYSBzZXBhcmF0ZSBwYXRjaC4gVXNlcwpkb3VibGUgZW5jYXAgYXR0
+cmlidXRlIGVuY2Fwc3VsYXRpb24gZm9yIDgwMi4xYWQuICBOZXRsaW5rIGF0dHJpYnV0ZXMKbm93
+IGxvb2sgbGlrZSB0aGlzOgoKICAgIGV0aF90eXBlKDB4ODhhOCksdmxhbih2aWQ9MTAwKSxlbmNh
+cChldGhfdHlwZSgweDgxMDApLCB2bGFuKHZpZD0yMDApLAogICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgIGVuY2FwKGV0aF90eXBlKDB4MDgwMCksIC4uLikpCgpUaGUgZG91YmxlIGVuY2FwIGF0
+cmlidXRlcyBpbiB0aGlzIHZlcnNpb24gb2YgdGhlIHBhdGNoIGlzIGluY29tcGF0aWJsZSB3aXRo
+Cm9sZCB2ZXJzaW9ucyBvZiB0aGUgdXNlciBsZXZlbCA4MDIuMWFkIHBhdGNoLiBBIG5ldyB1c2Vy
+IGxldmVsIHBhdGNoIHdoaWNoCmlzIGFsc28gYmVpbmcgc3VibWl0dGVkIHNpbXVsdGFuZW91c2x5
+IHRvIG9wZW52c3dpdGNoIGRldiBtYWlsaW5nIGxpc3QuCgpWOTogIEluY2x1ZGVzIGNoYW5nZXMg
+c3VnZ2VzdGVkIGJ5IHJldmlld2VycwoKVjg6ICBJbmNsdWRlcyBjaGFuZ2VzIHN1Z2dlc3RlZCBi
+eSByZXZpZXdlcnMKClY3OiAgSW5jbHVkZXMgY2hhbmdlcyBzdWdnZXN0ZWQgYnkgcmV2aWV3ZXJz
+CgpWNjogIFJlYmFzZWQgdG8gbmV0LW5leHQKClY1OiAgVXNlIGVuY2Fwc3VsYXRlZCBhdHRyaWJ1
+dGVzCgoKRm9yIGRpc2N1c3Npb24sIGhpc3RvcnkgIGFuZCBwcmV2aW91cyB2ZXJzaW9ucyBvZiB0
+aGUga2VybmVsIG1vZHVsZQpwYXRjaCBhbmQgdGhlIHVzZXIgY29kZSBwYXRjaCBzZWUgdGhlIE9W
+UyBkZXYgbWFpbGluZyBsaXN0LApvcGVudnN3aXRjaC5vcmcvcGlwZXJtYWlsL2Rldi8uLgoKVGhv
+bWFzIEYgSGVyYmVydCAoMyk6CiAgb3BlbnZzd2l0Y2g6IDgwMi4xYWQgdWFwaSBjaGFuZ2VzLgog
+IENoZWNrIGZvciB2bGFuIGV0aGVybmV0IHR5cGVzIGZvciA4MDIxLnEgb3IgODAyLjFhZAogIDgw
+Mi4xQUQ6IEZsb3cgaGFuZGxpbmcsIGFjdGlvbnMsIHZsYW4gcGFyc2luZyBhbmQgbmV0bGluayBh
+dHRyaWJ1dGVzCgogaW5jbHVkZS9saW51eC9pZl92bGFuLmggICAgICAgICAgfCAgMTYgKysrCiBp
+bmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2guaCB8ICAxNyArLS0KIG5ldC9vcGVudnN3aXRj
+aC9hY3Rpb25zLmMgICAgICAgIHwgICA2ICstCiBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5jICAgICAg
+ICAgICB8ICA3NiArKysrKysrKysrLS0tCiBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5oICAgICAgICAg
+ICB8ICAgOCArLQogbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jICAgfCAyMzUgKysrKysr
+KysrKysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0tCiA2IGZpbGVzIGNoYW5nZWQsIDI3NiBp
+bnNlcnRpb25zKCspLCA4MiBkZWxldGlvbnMoLSkKCi0tIAoyLjQuMwoKX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3Bl
+bnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
