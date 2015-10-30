@@ -1,79 +1,69 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH v3 net] i40e: Look up MAC address in Open Firmware or
- IDPROM
-Date: Fri, 30 Oct 2015 15:24:37 -0400
-Message-ID: <20151030192437.GE32759@oracle.com>
-References: <20151030150344.GG9312@oracle.com>
- <FC41C24E35F18A40888AACA1A36F3E418AFACA14@fmsmsx115.amr.corp.intel.com>
- <20151030183645.GD32759@oracle.com>
- <FC41C24E35F18A40888AACA1A36F3E418AFACA8F@fmsmsx115.amr.corp.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net-next v2 2/4] net_sched: update hierarchical backlog
+ too
+Date: Fri, 30 Oct 2015 12:30:50 -0700
+Message-ID: <1446233450.6254.29.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1446229351-13412-1-git-send-email-xiyou.wangcong@gmail.com>
+	 <1446229351-13412-3-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"andy.shevchenko@gmail.com" <andy.shevchenko@gmail.com>
-To: "Nelson, Shannon" <shannon.nelson@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E418AFACA8F@fmsmsx115.amr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:36726 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751458AbbJ3Taw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 15:30:52 -0400
+Received: by pacfv9 with SMTP id fv9so85980946pac.3
+        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 12:30:51 -0700 (PDT)
+In-Reply-To: <1446229351-13412-3-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (10/30/15 18:57), Nelson, Shannon wrote:
-> > >
-> > > Going along with this being the equivalent of the ixgbe patch, I'd
-> > > prefer the new code to be in i40e_main.c, rather than in i40e_common.c.
-> > > In the design of our drivers, the common file is essentially a device
-> > > specific layer, and the OS and platform related stuff should stay in
-> > > i40e_main.c.  That would also take care of one of the include file nits
-> > > that Andy mentioned.
-       :
-> I'm not sure about any deeper wisdom, but the HW/FW model that this
-> device uses is rather different from our previous devices, so our SW
-> abstractions are a little different from ixgbe and igb.
-
-Ok, in that case I can make i40e_main.c to do something like
-
-static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
-{
-   :
-   if (i40e_get_platform_mac_addr(..) != I40E_SUCCESS)
-	i40e_get_mac_addr(..);
-   :
-}
-
-and i agree that doing this from i40e_main will simplify a lot of the
-other stuff around getting the pdev etc.
-
-[Discussion about ndo_set_mac_address..]
-
-> In the cases in which I'm aware, the platform manufacturer normally will
-> burn a different mac-address into the device's eeprom at manufacturing
-> time if they want something other than what came from Intel.  I suppose a
-> Device Tree oriented platform could have a different address in the DT,
-> but somehow that needs to get communicated to the device driver so that
-> it can tell the HW.
+On Fri, 2015-10-30 at 11:22 -0700, Cong Wang wrote:
+> When the bottom qdisc decides to, for example, drop some packet,
+> it calls qdisc_tree_decrease_qlen() to update the queue length
+> for all its ancestors, we need to update the backlog too to
+> keep the stats on root qdisc accurate.
 > 
-> My question to you remains: does this ndo_set_mac_address happen from
-> the stack above the driver or not?
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-I'm probably even less clued in to the DT arch than you in this case,
-so input from the intel experts would be useful here.
+...
 
-But both in this case, and for the ixgbe template on which I tried
-to model this, the OF/idprom probing happens from the ->probe when the
-driver comes up, and ndo_set_mac_address is not involved.
+>  
+> diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+> index 3abab53..498f0a2 100644
+> --- a/net/sched/sch_sfq.c
+> +++ b/net/sched/sch_sfq.c
+> @@ -346,7 +346,7 @@ static int
+>  sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>  {
+>  	struct sfq_sched_data *q = qdisc_priv(sch);
+> -	unsigned int hash;
+> +	unsigned int hash, dropped;
+>  	sfq_index x, qlen;
+>  	struct sfq_slot *slot;
+>  	int uninitialized_var(ret);
+> @@ -461,7 +461,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>  		return NET_XMIT_SUCCESS;
+>  
+>  	qlen = slot->qlen;
+> -	sfq_drop(sch);
+> +	dropped = sfq_drop(sch);
+>  	/* Return Congestion Notification only if we dropped a packet
+>  	 * from this flow.
+>  	 */
+> @@ -469,7 +469,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>  		return NET_XMIT_CN;
 
-I dont know if it is easier (or even feasible to do this from ->probe) 
-to just call the i40e_set_mac to make sure all the state-bits in
-the driver are correctly set.
 
---Sowmini
+I believe you missed the NET_XMIT_CN cases.
+
+SFQ can drop a prior packet, and queue current packet.
+
+qdisc_tree_reduce_backlog() wont be called to update parents.
+
+Not sure about other qdisc(s)
