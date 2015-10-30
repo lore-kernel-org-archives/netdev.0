@@ -1,41 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/4] net: clean up interactions of
- CHECKSUM_PARTIAL and fragmentation
-Date: Fri, 30 Oct 2015 19:37:48 +0900 (KST)
-Message-ID: <20151030.193748.1337418825359803374.davem@davemloft.net>
-References: <1445982042-3207-1-git-send-email-hannes@stressinduktion.org>
-	<87wpu7bamv.fsf@stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: kernel BUG in ipmr_queue_xmit()
+Date: Fri, 30 Oct 2015 11:40:24 +0100
+Message-ID: <1446201624.707140.424480297.4D8B55D6@webmail.messagingengine.com>
+References: <alpine.OSX.2.00.1510291646320.59200@animac.local>
+ <20151030001510.GG18062@breakpoint.cc>
+ <alpine.OSX.2.00.1510291841480.68875@animac.local>
+ <1446178542.6254.6.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151030103658.GA25931@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, vyasevich@gmail.com,
-	bcodding@redhat.com, tom@herbertland.com
-To: hannes@stressinduktion.org
+Cc: Ani Sinha <ani@arista.com>, netdev@vger.kernel.org,
+	ani@anirban.org, fruggeri@arista.com
+To: Florian Westphal <fw@strlen.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33355 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759587AbbJ3Khu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 06:37:50 -0400
-In-Reply-To: <87wpu7bamv.fsf@stressinduktion.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:40633 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758643AbbJ3Kk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 06:40:27 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 5B21220958
+	for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 06:40:24 -0400 (EDT)
+In-Reply-To: <20151030103658.GA25931@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Wed, 28 Oct 2015 10:33:28 +0100
+On Fri, Oct 30, 2015, at 11:36, Florian Westphal wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > > Signed-off-by: Ani Sinha <ani@arista.com>
+> > > ---
+> > >  net/ipv4/ipmr.c | 2 ++
+> > >  1 file changed, 2 insertions(+)
+> > > 
+> > > diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+> > > index 866ee89..48df3cc 100644
+> > > --- a/net/ipv4/ipmr.c
+> > > +++ b/net/ipv4/ipmr.c
+> > > @@ -936,7 +936,9 @@ static void ipmr_cache_resolve(struct net *net, struct mr_table *mrt,
+> > >  
+> > >  			rtnl_unicast(skb, net, NETLINK_CB(skb).portid);
+> > >  		} else {
+> > > +			preempt_disable();
+> > >  			ip_mr_forward(net, mrt, skb, c, 0);
+> > > +			preempt_enable();
+> > >  		}
+> > >  	}
+> > >  }
+> > 
+> > I do not believe this fix is correct.
+> 
+> Yes, sorry.  I should have suggested local_bh_disable instead.
+> 
+> > Better replace the
+> > IP_INC_STATS_BH() by IP_INC_STATS()
+> >
+> > and IP_ADD_STATS_BH() by IP_ADD_STATS()
+> 
+> Hmm, whats the rationale for this?
+> 
+> Note that IP_ADD_STATS_BH in question is unconditional (not in
+> error path).  It seems that its virtually always called from softirq
+> except in the setsockopt case.
 
-> Those patches are actually for net and not for net-next,
-> sorry. Guess I messed it up with Ctrl-R foo.
+The naming of the functions is bad if you compare them to e.g.
+spin_lock_bh.
 
-Ok, in that case since:
+STATS_BH can only be used from bottom half and the normal ones (without
+_BH) can be called from everywhere. It is a common pattern in the
+kernel.
 
-1) I already have a pull request pending (which is only delayed because
-   of you, hehe :-)
+Eric's proposal is correct.
 
-2) 4.3 is likely to be finalized on Sunday.
-
-3) I am getting on a plane first thing tomorrow morning.
-
-I think this will end up going via the upcoming merge window and queud
-up for -stable.
-
-Just FYI...
+Bye,
+Hannes
