@@ -1,92 +1,45 @@
-From: Ani Sinha <ani@arista.com>
-Subject: Re: [PATCH 1/1] commit c6825c0976fa7893692e0e43b09740b419b23c09 upstream.
-Date: Fri, 30 Oct 2015 08:37:25 -0700
-Message-ID: <CAOxq_8ML-0wUbGefdDroPY-NRKzeCqjoGiCAtZeab=WLY-0ORQ@mail.gmail.com>
-References: <alpine.OSX.2.20.1510261144390.3919@athabasca.local>
- <20151026200633.GA13476@salvia> <17709_1446014232_t9S6b5a3017652_20151028023650.7b76098f@playground>
- <20151029024052.28e11c83@playground> <CAOxq_8M5J0RO8X4Rd70rCWcrbBOrX3_jn4-dmrT+Y3yPYGThTA@mail.gmail.com>
- <20151029212129.0900b84d@playground>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: Re: [PATCH v2 1/6] net: dsa: Use delayed work instead of timer+work
+ for polling
+Date: Fri, 30 Oct 2015 16:44:13 +0100
+Message-ID: <5633904D.6060108@baylibre.com>
+References: <56321DA1.4060304@baylibre.com> <20151029135156.GQ2307@lunn.ch>
+ <563228C3.6010501@baylibre.com> <20151029144012.GT2307@lunn.ch>
+ <20151029145234.GB21131@ketchup.mtl.sfl> <20151029152802.GX2307@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: netfilter@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Neal P. Murphy" <neal.p.murphy@alum.wpi.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:36797 "EHLO
-	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759598AbbJ3Php convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 11:37:45 -0400
-Received: by ioll68 with SMTP id l68so84190080iol.3
-        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 08:37:45 -0700 (PDT)
-In-Reply-To: <20151029212129.0900b84d@playground>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Frode Isaksen <fisaksen@baylibre.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151029152802.GX2307@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 29, 2015 at 6:21 PM, Neal P. Murphy
-<neal.p.murphy@alum.wpi.edu> wrote:
-> On Thu, 29 Oct 2015 17:01:24 -0700
-> Ani Sinha <ani@arista.com> wrote:
->
->> On Wed, Oct 28, 2015 at 11:40 PM, Neal P. Murphy
->> <neal.p.murphy@alum.wpi.edu> wrote:
->> > On Wed, 28 Oct 2015 02:36:50 -0400
->> > "Neal P. Murphy" <neal.p.murphy@alum.wpi.edu> wrote:
->> >
->> >> On Mon, 26 Oct 2015 21:06:33 +0100
->> >> Pablo Neira Ayuso <pablo@netfilter.org> wrote:
->> >>
->> >> > Hi,
->> >> >
->> >> > On Mon, Oct 26, 2015 at 11:55:39AM -0700, Ani Sinha wrote:
->> >> > > netfilter: nf_conntrack: fix RCU race in nf_conntrack_find_get
->> >> >
->> >> > Please, no need to Cc everyone here. Please, submit your Netfilter
->> >> > patches to netfilter-devel@vger.kernel.org.
->> >> >
->> >> > Moreover, it would be great if the subject includes something
->> >> > descriptive on what you need, for this I'd suggest:
->> >> >
->> >> > [PATCH -stable 3.4,backport] netfilter: nf_conntrack: fix RCU race in nf_conntrack_find_get
->> >> >
->> >> > I'm including Neal P. Murphy, he said he would help testing these
->> >> > backports, getting a Tested-by: tag usually speeds up things too.
->> >>
->> >
->> > I've probably done about as much seat-of-the-pants testing as I can. All opening/closing the same destination IP/port.
->> >
->> > Host: Debian Jessie, 8-core Vishera 8350 at 4.4 GHz, 16GiB RAM at (I think) 2100MHz.
->> >
->> > Traffic generator 1: 6-CPU KVM running 64-bit Smoothwall Express 3.1 (linux 3.4.109 without these patches), with 8GiB RAM and 9GiB swap. Packets sent across PURPLE (to bypass NAT and firewall).
->> >
->> > Traffic generator 2: 32-bit KVM running Smoothwall Express 3.1 (linux 3.4.110 with these patches), 3GiB RAM and minimal swap.
->> >
->> > In the first set of tests, generator 1's traffic passed through Generator 2 as a NATting firewall, to the host's web server. In the second set of tests, generator 2's traffic went through NAT to the host's web server.
->> >
->> > The load tests:
->> >   - 2500 processes using 2500 addresses and random src ports
->> >   - 2500 processes using 2500 addresses and the same src port
->> >   - 2500 processes using the same src address and port
->> >
->> > I also tested using stock NF timeouts and using 1 second timeouts.
->> >
->> > Bandwidth used got as high as 16Mb/s for some tests.
->> >
->> > Conntracks got up to 200 000 or so or bounced between 1 and 2, depending on the test and the timeouts.
->> >
->> > I did not reproduce the problem these patches solve. But more importantly, I saw no problems at all. Each time I terminated a test, RAM usage returned to about that of post-boot; so there were no apparent memory leaks. No kernel messages and no netfilter messages appeared during the tests.
->> >
->> > If I have time, I suppose I could run another set of tests: 2500 source processes using 2500 addresses times 200 ports to connect to 2500 addresses times 200 ports on a destination system. Each process opens 200 sockets, then closes them. And repeats ad infinitum. But I might have to be clever since I can't run 500 000 processes; but I could run 20 VMs; that would get it down to about 12 000 processes per VM. And I might have to figure out how to allow allow processes on the destination system to open hundreds or thousands of sockets.
->>
->> Should I resend the patch with a Tested-by: tag?
->
-> ... Oh, wait. Not yet. The dawn just broke over ol' Marblehead here. I only tested TCP; I need to hammer UDP, too.
->
-> Can I set the timeouts to zero? Or is one as low as I can go?
+On 10/29/2015 04:28 PM, Andrew Lunn wrote:
+>> Is 6060 supported by the 6352 family? It doesn't share any mv88e6xxx
+>> code...
+> 
+> It is a totally separate driver. Nothing shared at all..  It is an old
+> device, and only does 10/100. It could be it is just too different to
+> support via mv88e6xxx.
+> 
+>    Andrew
+> 
 
-I don't see any assertion or check against 0 sec timeouts. You can
-try. Your conntrack entries will be constantly flushing.
+Andrew,
 
->
-> N
+The link detection still works without the polling for 6060, this will largely simplify the patchset.
+
+I will include a link poll callback removal in my 6060 cleanup patchset.
+
+Then I will include a poll_link removal in dsa.c instead of fixing it.
+
+Neil
