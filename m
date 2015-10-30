@@ -1,45 +1,39 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCHv3 net 0/2] ipv4: fix problems from the RTNH_F_LINKDOWN
- introduction
-Date: Fri, 30 Oct 2015 12:53:27 -0400
-Message-ID: <20151030165326.GA8027@gospo.home.greyhouse.net>
-References: <1446193414-8244-1-git-send-email-ja@ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net-next 0/2] bridge: vlan: failure path and comment fixes
+Date: Fri, 30 Oct 2015 17:46:18 +0100
+Message-ID: <1446223580-1464-1-git-send-email-razor@blackwall.org>
+Cc: stephen@networkplumber.org, davem@davemloft.net,
+	nikolay@cumulusnetworks.com, idosch@mellanox.com,
+	roopa@cumulusnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f50.google.com ([209.85.192.50]:32965 "EHLO
-	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752495AbbJ3Qxe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 12:53:34 -0400
-Received: by qgeo38 with SMTP id o38so66775184qge.0
-        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 09:53:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1446193414-8244-1-git-send-email-ja@ssi.bg>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:38198 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751770AbbJ3QyR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 12:54:17 -0400
+Received: by wmeg8 with SMTP id g8so16458819wme.1
+        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 09:54:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 30, 2015 at 10:23:32AM +0200, Julian Anastasov wrote:
-> Fix two problems from the change that introduced RTNH_F_LINKDOWN
-> flag. The first patch deals with the removal of local route on
-> DOWN event. The second patch makes sure the RTNH_F_LINKDOWN
-> flag is properly updated on UP event because the DOWN event
-> sets it in all cases.
-> 
-> v2->v3:
-> - use bool for force var
-> 
-> v1->v2:
-> - forgot to add ifconfig dummy0 down in the test case
-> - split to 2 patches
-> 
-> Julian Anastasov (2):
->   ipv4: fix to not remove local route on link down
->   ipv4: update RTNH_F_LINKDOWN flag on UP event
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-I had a chance to test both of these this morning and they look good.
-Sorry for the delay.  Thanks for making force a bool to cover the single
-case -- good suggestion by DaveM.
+Hi,
+This is a set from Ido which takes care of one failure path error in
+nbp_vlan_init (patch 1) and a few comment errors (patch 2).
+I must admit I didn't expect the port init continues after a vlan init
+failure but should've checked to make sure. Thanks to Ido for catching
+these!
 
-Reviewed-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+Cheers,
+ Nik
+
+Ido Schimmel (2):
+  bridge: vlan: Prevent possible use-after-free
+  bridge: vlan: Use correct flag name in comment
+
+ net/bridge/br_vlan.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+-- 
+2.4.3
