@@ -1,49 +1,61 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH v3 net] i40e: Look up MAC address in Open Firmware or IDPROM
-Date: Fri, 30 Oct 2015 20:20:57 +0200
-Message-ID: <CAHp75VdGHGwemwfoGHrCE5qS+ucCs02vjJNKyZP5OpQaNmOEsg@mail.gmail.com>
-References: <20151030150344.GG9312@oracle.com>
-	<CAHp75Vc-swMap+Umong1WVfL-fQNNZ9QEXvrHCJXCte1g_h_KA@mail.gmail.com>
-	<20151030181254.GC32759@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: intel-wired-lan@lists.osuosl.org, netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151030181254.GC32759@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next v2 0/4] net_sched: update backlog for hierarchical qdisc's
+Date: Fri, 30 Oct 2015 11:22:27 -0700
+Message-ID: <1446229351-13412-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:36649 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753246AbbJ3SWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 14:22:44 -0400
+Received: by pacfv9 with SMTP id fv9so84533758pac.3
+        for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 11:22:43 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 30, 2015 at 8:12 PM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (10/30/15 20:06), Andy Shevchenko wrote:
->>
->> > +#include "i40e.h"
->>
->> Why do you need this one exactly?
->
-> I needed it to find pf->pdev below.
->
->> > +       struct device_node *dp = pci_device_to_OF_node(pf->pdev);
->
-> Without it, you will get:
->               :
->      CC [M]  drivers/net/ethernet/intel/i40e/i40e_common.o
->    drivers/net/ethernet/intel/i40e/i40e_common.c: In function ?i40e_get_platform_mac_addr?:
->    drivers/net/ethernet/intel/i40e/i40e_common.c:1021: error: dereferencing pointer to incomplete type
+For hierarchical qdisc like HTB, we currently only update its qlen
+but leave its backlog as zero:
 
-OK
+    qdisc htb 1: dev eth0 root refcnt 2 r2q 10 default 1 direct_packets_stat 0 ver 3.17
+     Sent 172680457356 bytes 222469449 pkt (dropped 0, overlimits 123575834 requeues 0)
+     backlog 0b 72p requeues 0
 
-> Unless you feel passionately about the \n nits, I'm going to pass on those.
-> Thanks for reviewing.
+This patchset makes backlog as accurate as qlen.
 
-I'm okay, whatever maintainer now accepts.
+---
+
+v2: rebase and update changelog, not code change
+
+Cong Wang (4):
+  net_sched: introduce qdisc_replace() helper
+  net_sched: update hierarchical backlog too
+  sch_htb: update backlog as well
+  sch_dsmark: update backlog as well
+
+ include/net/codel.h       |  4 ++++
+ include/net/sch_generic.h | 20 +++++++++++++++++++-
+ net/sched/sch_api.c       |  6 ++++--
+ net/sched/sch_cbq.c       | 12 ++++--------
+ net/sched/sch_choke.c     |  6 ++++--
+ net/sched/sch_codel.c     | 10 ++++++----
+ net/sched/sch_drr.c       |  9 +++------
+ net/sched/sch_dsmark.c    | 11 ++++-------
+ net/sched/sch_fq.c        |  4 +++-
+ net/sched/sch_fq_codel.c  | 17 ++++++++++++-----
+ net/sched/sch_hfsc.c      |  9 +++------
+ net/sched/sch_hhf.c       | 10 +++++++---
+ net/sched/sch_htb.c       | 24 +++++++++++-------------
+ net/sched/sch_multiq.c    | 16 ++++++----------
+ net/sched/sch_netem.c     | 13 +++----------
+ net/sched/sch_pie.c       |  5 +++--
+ net/sched/sch_prio.c      | 15 +++++----------
+ net/sched/sch_qfq.c       |  9 +++------
+ net/sched/sch_red.c       | 10 +++-------
+ net/sched/sch_sfb.c       | 10 +++-------
+ net/sched/sch_sfq.c       | 16 +++++++++-------
+ net/sched/sch_tbf.c       | 15 ++++++---------
+ 22 files changed, 125 insertions(+), 126 deletions(-)
 
 -- 
-With Best Regards,
-Andy Shevchenko
+1.8.3.1
