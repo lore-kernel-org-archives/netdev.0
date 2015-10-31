@@ -1,25 +1,54 @@
-From: "hi" <littlepocaco@aol.com>
-Subject: hi
-Date: Sat, 31 Oct 2015 10:33:35 +0800
-Message-ID: <1438CB913B71CB89639C87AAAB57DC4D@xrutqg>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH] bpf: convert hashtab lock to raw lock
+Date: Sat, 31 Oct 2015 09:47:36 -0400
+Message-ID: <20151031094736.494427d7@grimm.local.home>
+References: <1446243386-26582-1-git-send-email-yang.shi@linaro.org>
+	<20151031000356.GA28070@Alexeis-MacBook-Pro.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <blazersub@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from oms-m008e.mx.aol.com ([204.29.186.104]:48777 "EHLO
-	oms-m008e.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751226AbbJaCjc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2015 22:39:32 -0400
-Received: from omr-m008e.mx.aol.com (omr-m008.mx.aol.com [10.74.137.100])
-	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by oms-m008e.mx.aol.com (AOL Outbound OMS Interface) with ESMTPS id B20B038017C6
-	for <netdev@vger.kernel.org>; Fri, 30 Oct 2015 22:34:15 -0400 (EDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Yang Shi <yang.shi@linaro.org>, ast@kernel.org,
+	linux-kernel@vger.kernel.org, linux-rt-users@vger.kernel.org,
+	netdev@vger.kernel.org, linaro-kernel@lists.linaro.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151031000356.GA28070@Alexeis-MacBook-Pro.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-aGkNCnRoaXMgaXMgYW4gZWxlY3Ryb25pYyBzaG9wDQpsYXB0b3AscGhvbmUsaXBob25lLHdhdGNo
-LHR2Li4udGhlIHNoaXBwaW5nIGlzIGZyZWUNCnZlcnkgYW1hemluZw0Kc2l0ZSA6ICBwb2F6emxv
-IC5jb20NCg==
+On Fri, 30 Oct 2015 17:03:58 -0700
+Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+
+> On Fri, Oct 30, 2015 at 03:16:26PM -0700, Yang Shi wrote:
+> > When running bpf samples on rt kernel, it reports the below warning:
+> > 
+> > BUG: sleeping function called from invalid context at kernel/locking/rtmutex.c:917
+> > in_atomic(): 1, irqs_disabled(): 128, pid: 477, name: ping
+> > Preemption disabled at:[<ffff80000017db58>] kprobe_perf_func+0x30/0x228  
+> ...
+> > diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+> > index 83c209d..972b76b 100644
+> > --- a/kernel/bpf/hashtab.c
+> > +++ b/kernel/bpf/hashtab.c
+> > @@ -17,7 +17,7 @@
+> >  struct bpf_htab {
+> >  	struct bpf_map map;
+> >  	struct hlist_head *buckets;
+> > -	spinlock_t lock;
+> > +	raw_spinlock_t lock;  
+> 
+> How do we address such things in general?
+> I bet there are tons of places around the kernel that
+> call spin_lock from atomic.
+> I'd hate to lose the benefits of lockdep of non-raw spin_lock
+> just to make rt happy.
+
+You wont lose any benefits of lockdep. Lockdep still checks
+raw_spin_lock(). The only difference between raw_spin_lock and
+spin_lock is that in -rt spin_lock turns into an rt_mutex() and
+raw_spin_lock stays a spin lock.
+
+The error is that in -rt, you called a mutex and not a spin lock while
+atomic.
+
+-- Steve
