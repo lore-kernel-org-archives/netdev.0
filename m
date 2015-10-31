@@ -1,40 +1,50 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] bpf: convert hashtab lock to raw lock
-Date: Fri, 30 Oct 2015 17:03:58 -0700
-Message-ID: <20151031000356.GA28070@Alexeis-MacBook-Pro.local>
-References: <1446243386-26582-1-git-send-email-yang.shi@linaro.org>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Sat, 31 Oct 2015 00:09:43 +0000
+Message-ID: <20151031000943.GL22011@ZenIV.linux.org.uk>
+References: <20151029001532.GE22011@ZenIV.linux.org.uk>
+ <1446089381.7476.114.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151029041611.GF22011@ZenIV.linux.org.uk>
+ <1446122119.7476.138.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CA+55aFx_BQG4FzSuyL2KAz=c+R0cPv0ZpjboT_=yKjZNGmTUEg@mail.gmail.com>
+ <20151030210215.GI22011@ZenIV.linux.org.uk>
+ <CA+55aFyoA5sXQvFDavNa7cGkRevunmtPe8F8-_tZ9-826qfkgw@mail.gmail.com>
+ <CA+55aFy9fPmbSCJoQiCkjkaiU2HTM6p=o-pJgiV7asyVWBjAEg@mail.gmail.com>
+ <20151030223317.GK22011@ZenIV.linux.org.uk>
+ <CA+55aFwfFb=LXU77AbiPDHgWcpBwTBoJB4EMCZgTgX32cxMYWw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ast@kernel.org, rostedt@goodmis.org, linux-kernel@vger.kernel.org,
-	linux-rt-users@vger.kernel.org, netdev@vger.kernel.org,
-	linaro-kernel@lists.linaro.org
-To: Yang Shi <yang.shi@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Network Development <netdev@vger.kernel.org>,
+	David Howells <dhowells@redhat.com>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1446243386-26582-1-git-send-email-yang.shi@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <CA+55aFwfFb=LXU77AbiPDHgWcpBwTBoJB4EMCZgTgX32cxMYWw@mail.gmail.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 30, 2015 at 03:16:26PM -0700, Yang Shi wrote:
-> When running bpf samples on rt kernel, it reports the below warning:
-> 
-> BUG: sleeping function called from invalid context at kernel/locking/rtmutex.c:917
-> in_atomic(): 1, irqs_disabled(): 128, pid: 477, name: ping
-> Preemption disabled at:[<ffff80000017db58>] kprobe_perf_func+0x30/0x228
-...
-> diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-> index 83c209d..972b76b 100644
-> --- a/kernel/bpf/hashtab.c
-> +++ b/kernel/bpf/hashtab.c
-> @@ -17,7 +17,7 @@
->  struct bpf_htab {
->  	struct bpf_map map;
->  	struct hlist_head *buckets;
-> -	spinlock_t lock;
-> +	raw_spinlock_t lock;
+On Fri, Oct 30, 2015 at 04:52:41PM -0700, Linus Torvalds wrote:
 
-How do we address such things in general?
-I bet there are tons of places around the kernel that
-call spin_lock from atomic.
-I'd hate to lose the benefits of lockdep of non-raw spin_lock
-just to make rt happy.
+> I really suspect this patch is "good enough" in reality, and I would
+> *much* rather do something like this than add a new non-POSIX flag
+> that people have to update their binaries for. I agree with Eric that
+> *some* people will do so, but it's still the wrong thing to do. Let's
+> just make performance with the normal semantics be good enough that we
+> don't need to play odd special games.
+> 
+> Eric?
+
+IIRC, at least a part of what Eric used to complain about was that on
+seriously multithreaded processes doing a lot of e.g. socket(2) we end up
+a lot of bouncing the cacheline containing the first free bits in the bitmap.
+But looking at the whole thing, I really wonder if the tons of threads asking
+for random bytes won't get at least as bad cacheline bouncing while
+getting said bytes, so I'm not sure if that rationale has survived.
+
+PS: this problem obviously exists in Linus' variant as well as in mine;
+the question is whether Eric's approach manages to avoid it in the first place.
