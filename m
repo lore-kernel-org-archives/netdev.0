@@ -1,151 +1,50 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH next 3/3] bonding: simplify / unify event handling code for 3ad mode.
-Date: Sat, 31 Oct 2015 12:45:11 -0700
-Message-ID: <1446320711-38991-1-git-send-email-maheshb@google.com>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	David Decotigny <decot@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect for
+ sockets in accept(3)
+Date: Sat, 31 Oct 2015 12:54:50 -0700
+Message-ID: <CA+55aFxeiVx4wMhWALfU3KYCqhsnr8T8M-dEZc3aAyzobWeRGQ@mail.gmail.com>
+References: <20151029001532.GE22011@ZenIV.linux.org.uk>
+	<1446089381.7476.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20151029041611.GF22011@ZenIV.linux.org.uk>
+	<1446122119.7476.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+55aFx_BQG4FzSuyL2KAz=c+R0cPv0ZpjboT_=yKjZNGmTUEg@mail.gmail.com>
+	<20151030210215.GI22011@ZenIV.linux.org.uk>
+	<CA+55aFyoA5sXQvFDavNa7cGkRevunmtPe8F8-_tZ9-826qfkgw@mail.gmail.com>
+	<CA+55aFy9fPmbSCJoQiCkjkaiU2HTM6p=o-pJgiV7asyVWBjAEg@mail.gmail.com>
+	<20151030223317.GK22011@ZenIV.linux.org.uk>
+	<CA+55aFwfFb=LXU77AbiPDHgWcpBwTBoJB4EMCZgTgX32cxMYWw@mail.gmail.com>
+	<20151031193449.GM22011@ZenIV.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Network Development <netdev@vger.kernel.org>,
+	David Howells <dhowells@redhat.com>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>
+To: Al Viro <viro@zeniv.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35215 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751264AbbJaTpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Oct 2015 15:45:15 -0400
-Received: by pasz6 with SMTP id z6so106012538pas.2
-        for <netdev@vger.kernel.org>; Sat, 31 Oct 2015 12:45:14 -0700 (PDT)
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:33318 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750887AbbJaTyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Oct 2015 15:54:50 -0400
+In-Reply-To: <20151031193449.GM22011@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Old logic of updating state-machine is not required since
-ad_update_actor_keys() does it implicitly. The only loss is
-the notification differentiation between speed vs. duplex
-change. Now only one unified notification is printed.
+On Sat, Oct 31, 2015 at 12:34 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+>
+> ... and here's the current variant of mine.
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
- drivers/net/bonding/bond_3ad.c  | 38 ++++++--------------------------------
- drivers/net/bonding/bond_main.c | 14 ++------------
- include/net/bond_3ad.h          |  3 +--
- 3 files changed, 9 insertions(+), 46 deletions(-)
+Ugh. I really liked how simple mine ended up being. Yours is definitely not.
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index b9816b7f319f..940e2ebbdea8 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2348,39 +2348,14 @@ static void ad_update_actor_keys(struct port *port, bool reset)
- }
- 
- /**
-- * bond_3ad_adapter_speed_changed - handle a slave's speed change indication
-- * @slave: slave struct to work on
-+ * bond_3ad_adapter_speed_duplex_changed - handle a slave's speed / duplex
-+ * change indication
-  *
-- * Handle reselection of aggregator (if needed) for this port.
-- */
--void bond_3ad_adapter_speed_changed(struct slave *slave)
--{
--	struct port *port;
--
--	port = &(SLAVE_AD_INFO(slave)->port);
--
--	/* if slave is null, the whole port is not initialized */
--	if (!port->slave) {
--		netdev_warn(slave->bond->dev, "speed changed for uninitialized port on %s\n",
--			    slave->dev->name);
--		return;
--	}
--
--	spin_lock_bh(&slave->bond->mode_lock);
--
--	ad_update_actor_keys(port, false);
--	netdev_dbg(slave->bond->dev, "Port %d changed speed\n", port->actor_port_number);
--
--	spin_unlock_bh(&slave->bond->mode_lock);
--}
--
--/**
-- * bond_3ad_adapter_duplex_changed - handle a slave's duplex change indication
-  * @slave: slave struct to work on
-  *
-  * Handle reselection of aggregator (if needed) for this port.
-  */
--void bond_3ad_adapter_duplex_changed(struct slave *slave)
-+void bond_3ad_adapter_speed_duplex_changed(struct slave *slave)
- {
- 	struct port *port;
- 
-@@ -2388,17 +2363,16 @@ void bond_3ad_adapter_duplex_changed(struct slave *slave)
- 
- 	/* if slave is null, the whole port is not initialized */
- 	if (!port->slave) {
--		netdev_warn(slave->bond->dev, "duplex changed for uninitialized port on %s\n",
-+		netdev_warn(slave->bond->dev,
-+			    "speed/duplex changed for uninitialized port %s\n",
- 			    slave->dev->name);
- 		return;
- 	}
- 
- 	spin_lock_bh(&slave->bond->mode_lock);
--
- 	ad_update_actor_keys(port, false);
--	netdev_dbg(slave->bond->dev, "Port %d slave %s changed duplex\n",
-+	netdev_dbg(slave->bond->dev, "Port %d slave %s changed speed/duplex\n",
- 		   port->actor_port_number, slave->dev->name);
--
- 	spin_unlock_bh(&slave->bond->mode_lock);
- }
- 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index d0f23cd6e236..b4351caf8e01 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2943,8 +2943,6 @@ static int bond_slave_netdev_event(unsigned long event,
- 	struct slave *slave = bond_slave_get_rtnl(slave_dev), *primary;
- 	struct bonding *bond;
- 	struct net_device *bond_dev;
--	u32 old_speed;
--	u8 old_duplex;
- 
- 	/* A netdev event can be generated while enslaving a device
- 	 * before netdev_rx_handler_register is called in which case
-@@ -2965,17 +2963,9 @@ static int bond_slave_netdev_event(unsigned long event,
- 		break;
- 	case NETDEV_UP:
- 	case NETDEV_CHANGE:
--		old_speed = slave->speed;
--		old_duplex = slave->duplex;
--
- 		bond_update_speed_duplex(slave);
--
--		if (BOND_MODE(bond) == BOND_MODE_8023AD) {
--			if (old_speed != slave->speed)
--				bond_3ad_adapter_speed_changed(slave);
--			if (old_duplex != slave->duplex)
--				bond_3ad_adapter_duplex_changed(slave);
--		}
-+		if (BOND_MODE(bond) == BOND_MODE_8023AD)
-+			bond_3ad_adapter_speed_duplex_changed(slave);
- 		/* Fallthrough */
- 	case NETDEV_DOWN:
- 		/* Refresh slave-array if applicable!
-diff --git a/include/net/bond_3ad.h b/include/net/bond_3ad.h
-index c2a40a172fcd..f1fbc3b11962 100644
---- a/include/net/bond_3ad.h
-+++ b/include/net/bond_3ad.h
-@@ -297,8 +297,7 @@ void bond_3ad_bind_slave(struct slave *slave);
- void bond_3ad_unbind_slave(struct slave *slave);
- void bond_3ad_state_machine_handler(struct work_struct *);
- void bond_3ad_initiate_agg_selection(struct bonding *bond, int timeout);
--void bond_3ad_adapter_speed_changed(struct slave *slave);
--void bond_3ad_adapter_duplex_changed(struct slave *slave);
-+void bond_3ad_adapter_speed_duplex_changed(struct slave *slave);
- void bond_3ad_handle_link_change(struct slave *slave, char link);
- int  bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info);
- int  __bond_3ad_get_active_agg_info(struct bonding *bond,
--- 
-2.6.0.rc2.230.g3dd15c0
+And based on the profiles from Eric, finding the fd is no longer the
+problem even with my simpler patch. The problem ends up being the
+contention on the file_lock spinlock.
+
+Eric, I assume that's not "expand_fdtable", since your test-program
+seems to expand the fd array at the beginning. So it's presumably all
+from the __alloc_fd() use, but we should double-check.. Eric, can you
+do a callgraph profile and see which caller is the hottest?
+
+                 Linus
