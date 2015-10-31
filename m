@@ -1,7 +1,7 @@
 From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH next 0/3] re-org actor admin/oper key updates
-Date: Sat, 31 Oct 2015 12:44:55 -0700
-Message-ID: <1446320695-38570-1-git-send-email-maheshb@google.com>
+Subject: [PATCH next 1/3] bonding: Simplify __get_duplex function.
+Date: Sat, 31 Oct 2015 12:45:00 -0700
+Message-ID: <1446320700-38613-1-git-send-email-maheshb@google.com>
 Cc: Mahesh Bandewar <maheshb@google.com>,
 	David Decotigny <decot@google.com>,
 	netdev <netdev@vger.kernel.org>
@@ -11,39 +11,42 @@ To: Jay Vosburgh <j.vosburgh@gmail.com>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35098 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750887AbbJaTpA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Oct 2015 15:45:00 -0400
-Received: by pasz6 with SMTP id z6so106009060pas.2
-        for <netdev@vger.kernel.org>; Sat, 31 Oct 2015 12:45:00 -0700 (PDT)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:32841 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751075AbbJaTpH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Oct 2015 15:45:07 -0400
+Received: by padhy1 with SMTP id hy1so100002628pad.0
+        for <netdev@vger.kernel.org>; Sat, 31 Oct 2015 12:45:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I was observing machines entering into weird LACP state when the
-partner is in passive mode. This issue is not because of the partners
-in passive state but probably because of some operational key update
-which is pushing the state-machine is that weird state. This was
-happening randomly on about 1% of the machine (when the sample size
-is a large set of machines with a variety of NICs/ports bonded).
+Eliminate 'else' clause by simply initializing variable
 
-In this patch-series I'm attempting to unify the logic of actor-key
-/ operational-key changes to one place to avoid possible errors in
-update. Also this eliminates the need for the event-handler to decide
-if the key needs update.
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ drivers/net/bonding/bond_3ad.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-After this patch-set none of the machines (from same sample set) were
-exhibiting LACP-weirdness that was observed earlier.
-
-Mahesh Bandewar (3):
-  bonding: Simplify __get_duplex function.
-  bonding: unify all places where actor-oper key needs to be updated.
-  bonding: simplify / unify event handling code for 3ad mode.
-
- drivers/net/bonding/bond_3ad.c  | 113 ++++++++++++++++++----------------------
- drivers/net/bonding/bond_main.c |  14 +----
- include/net/bond_3ad.h          |   3 +-
- 3 files changed, 54 insertions(+), 76 deletions(-)
-
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 3c45358844eb..3a17fd207ec6 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -327,14 +327,12 @@ static u16 __get_link_speed(struct port *port)
+ static u8 __get_duplex(struct port *port)
+ {
+ 	struct slave *slave = port->slave;
+-	u8 retval;
++	u8 retval = 0x0;
+ 
+ 	/* handling a special case: when the configuration starts with
+ 	 * link down, it sets the duplex to 0.
+ 	 */
+-	if (slave->link != BOND_LINK_UP) {
+-		retval = 0x0;
+-	} else {
++	if (slave->link == BOND_LINK_UP) {
+ 		switch (slave->duplex) {
+ 		case DUPLEX_FULL:
+ 			retval = 0x1;
 -- 
 2.6.0.rc2.230.g3dd15c0
