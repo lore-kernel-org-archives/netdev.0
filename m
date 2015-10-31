@@ -1,54 +1,39 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH] bpf: convert hashtab lock to raw lock
-Date: Sat, 31 Oct 2015 09:47:36 -0400
-Message-ID: <20151031094736.494427d7@grimm.local.home>
-References: <1446243386-26582-1-git-send-email-yang.shi@linaro.org>
-	<20151031000356.GA28070@Alexeis-MacBook-Pro.local>
+From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next V19 0/3] openvswitch: Add support for
+	802.1ad
+Date: Sat, 31 Oct 2015 07:45:49 -0700
+Message-ID: <CALnjE+oiDDvXkNowUEjg4RdY_zcJf3nz3ZRDe_tCQScVqeE0Og@mail.gmail.com>
+References: <1446224902-21246-1-git-send-email-thomasfherbert@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Yang Shi <yang.shi@linaro.org>, ast@kernel.org,
-	linux-kernel@vger.kernel.org, linux-rt-users@vger.kernel.org,
-	netdev@vger.kernel.org, linaro-kernel@lists.linaro.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151031000356.GA28070@Alexeis-MacBook-Pro.local>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Thomas F Herbert <therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1446224902-21246-1-git-send-email-thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Fri, 30 Oct 2015 17:03:58 -0700
-Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
-
-> On Fri, Oct 30, 2015 at 03:16:26PM -0700, Yang Shi wrote:
-> > When running bpf samples on rt kernel, it reports the below warning:
-> > 
-> > BUG: sleeping function called from invalid context at kernel/locking/rtmutex.c:917
-> > in_atomic(): 1, irqs_disabled(): 128, pid: 477, name: ping
-> > Preemption disabled at:[<ffff80000017db58>] kprobe_perf_func+0x30/0x228  
-> ...
-> > diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-> > index 83c209d..972b76b 100644
-> > --- a/kernel/bpf/hashtab.c
-> > +++ b/kernel/bpf/hashtab.c
-> > @@ -17,7 +17,7 @@
-> >  struct bpf_htab {
-> >  	struct bpf_map map;
-> >  	struct hlist_head *buckets;
-> > -	spinlock_t lock;
-> > +	raw_spinlock_t lock;  
-> 
-> How do we address such things in general?
-> I bet there are tons of places around the kernel that
-> call spin_lock from atomic.
-> I'd hate to lose the benefits of lockdep of non-raw spin_lock
-> just to make rt happy.
-
-You wont lose any benefits of lockdep. Lockdep still checks
-raw_spin_lock(). The only difference between raw_spin_lock and
-spin_lock is that in -rt spin_lock turns into an rt_mutex() and
-raw_spin_lock stays a spin lock.
-
-The error is that in -rt, you called a mutex and not a spin lock while
-atomic.
-
--- Steve
+T24gRnJpLCBPY3QgMzAsIDIwMTUgYXQgMTA6MDggQU0sIFRob21hcyBGIEhlcmJlcnQKPHRob21h
+c2ZoZXJiZXJ0QGdtYWlsLmNvbT4gd3JvdGU6Cj4gVjE5OiBSZWJhc2VkIHRvIGxhdGVzdCBuZXQt
+bmV4dCA0LjMuMC1yYzYrCj4gY29tbWl0IDZkMDhmNjE3ODcyY2MwNDgxNzNkNTlmMWNlNDY2MGIw
+MzBiYWI1YTYKPiBwbHVzIGEgZmV3IHJldmlld2VyJ3Mgc3VnZ2VzdGVkIGNoYW5nZXMuCj4KPiBO
+b3RlOiBjaGFuZ2VzIHRvIG5ldGRldi12cG9ydC5jIGFyZSBub3QgaW5jbHVkZWQuIGRldl9xdWV1
+ZV94bWl0KCkgaXMKPiBub3cgY2FsbGVkIGRpcmVjdGx5IGFzIHRoZSBzZW5kIHZwb3J0IG9wcyBm
+dW5jdGlvbiBhbmQgbGVuZ3RoCj4gYWRqdXN0bWVudHMgZm9yIHZsYW5zIGRvbid0IGFwcGx5LiBJ
+IGhhdmUgY29uY2VybnMgd2hldGhlciB0aGlzIGlzCj4gY29ycmVjdCBidXQgaGF2ZW4ndCByZXZp
+ZXcgYWxsIHRoZSB2cG9ydCBjb2RlLiBSZXZpZXdlcidzIGNvbW1lbnRzCj4gYXJlIHdlbGNvbWUu
+Cj4KZGV2X3F1ZXVlX3htaXQgaXMgZWZmZWN0aXZlbHkgY2FsbGVkIGZyb20gb3ZzX3Zwb3J0X3Nl
+bmQuIHZsYW4gbGVuCmNoZWNrIGNhbiBiZSBkb25lIGluIHRoaXMgb3ZzX3Zwb3J0X3NlbmQoKSBm
+dW5jdGlvbi4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+ZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5v
+cmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
