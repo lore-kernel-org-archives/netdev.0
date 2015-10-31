@@ -1,55 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v4] net: ethernet: add driver for Aurora VLSI NB8800
- Ethernet controller
-Date: Sat, 31 Oct 2015 19:07:51 +0100
-Message-ID: <20151031180751.GA490@electric-eye.fr.zoreil.com>
-References: <1446137333-1822-1-git-send-email-mans@mansr.com>
- <20151030222841.GA24712@electric-eye.fr.zoreil.com>
- <yw1xlhajauup.fsf@unicorn.mansr.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT] Networking
+Date: Sat, 31 Oct 2015 14:24:47 -0400 (EDT)
+Message-ID: <20151031.142447.926337336726689911.davem@davemloft.net>
+References: <20151029.081941.1748628899345967916.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: =?utf-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:35323 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751478AbbJaSHz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Oct 2015 14:07:55 -0400
-Content-Disposition: inline
-In-Reply-To: <yw1xlhajauup.fsf@unicorn.mansr.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46093 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751206AbbJaSYv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Oct 2015 14:24:51 -0400
+In-Reply-To: <20151029.081941.1748628899345967916.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-M=C3=A5ns Rullg=C3=A5rd <mans@mansr.com> :
-> Francois Romieu <romieu@fr.zoreil.com> writes:
-[...]
-> > It looks like it receives, then tries to allocate new resources. If=
- so
-> > it may deplete the ring and you should instead consider allocating =
-new
-> > resources first, then receive data if alloc + map suceeded.
->=20
-> The hardware receives a frame and stores it in the provided DMA buffe=
-r,
-> then raises an interrupt and moves on to the next buffer.  When a buf=
-fer
-> is handed over to the network stack, a new one has to take its place =
-in
-> the DMA queue.  I'm not sure how you're suggesting this be done
-> differently.
+From: David Miller <davem@davemloft.net>
+Date: Thu, 29 Oct 2015 08:19:41 -0700 (PDT)
 
-- The hardware raises an interrupt and moves on to the next packet
-- The driver allocates a new buffer - call it Bob - and maps it.
-  - If it succeeds
-    - The driver unmaps the received packet
-    - The driver hands the received packet to the network stack
-    - The driver hands Bob to the hardware
-  - It it fails
-    - The driver updates the dropped packet stats
-    - The driver recycles the received - yet non-unmapped - packet to t=
-he
-      hardware
+> This is the same as the previous pull request, with the ipv6 overflow
+> fix redone.  The merge conflict is therefore gone too.
+ ...
+> Please pull, thanks a lot.
+> 
+> The following changes since commit 1099f86044111e9a7807f09523e42d4c9d0fb781:
+> 
+>   Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2015-10-19 09:55:40 -0700)
 
---=20
-Ueimor
+Ping?
