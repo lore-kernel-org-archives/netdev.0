@@ -1,60 +1,73 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v4] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
-Date: Sat, 31 Oct 2015 18:44:02 +0000
-Message-ID: <yw1xd1vuc1zh.fsf@unicorn.mansr.com>
-References: <1446137333-1822-1-git-send-email-mans@mansr.com>
-	<20151030222841.GA24712@electric-eye.fr.zoreil.com>
-	<yw1xlhajauup.fsf@unicorn.mansr.com>
-	<20151031180751.GA490@electric-eye.fr.zoreil.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] bpf: convert hashtab lock to raw lock
+Date: Sat, 31 Oct 2015 19:37:58 +0100
+Message-ID: <56350A86.5090500@iogearbox.net>
+References: <1446243386-26582-1-git-send-email-yang.shi@linaro.org>	<20151031000356.GA28070@Alexeis-MacBook-Pro.local> <20151031094736.494427d7@grimm.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Yang Shi <yang.shi@linaro.org>, ast@kernel.org,
+	linux-kernel@vger.kernel.org, linux-rt-users@vger.kernel.org,
+	netdev@vger.kernel.org, linaro-kernel@lists.linaro.org
+To: Steven Rostedt <rostedt@goodmis.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:36866 "EHLO unicorn.mansr.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750704AbbJaSoE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Oct 2015 14:44:04 -0400
-In-Reply-To: <20151031180751.GA490@electric-eye.fr.zoreil.com> (Francois
-	Romieu's message of "Sat, 31 Oct 2015 19:07:51 +0100")
+Received: from www62.your-server.de ([213.133.104.62]:47885 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751018AbbJaTAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Oct 2015 15:00:07 -0400
+In-Reply-To: <20151031094736.494427d7@grimm.local.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rancois Romieu <romieu@fr.zoreil.com> writes:
-
-> M=E5ns Rullg=E5rd <mans@mansr.com> :
->> Francois Romieu <romieu@fr.zoreil.com> writes:
-> [...]
->> > It looks like it receives, then tries to allocate new resources. I=
-f so
->> > it may deplete the ring and you should instead consider allocating=
- new
->> > resources first, then receive data if alloc + map suceeded.
->>=20
->> The hardware receives a frame and stores it in the provided DMA buff=
-er,
->> then raises an interrupt and moves on to the next buffer.  When a bu=
-ffer
->> is handed over to the network stack, a new one has to take its place=
- in
->> the DMA queue.  I'm not sure how you're suggesting this be done
->> differently.
+On 10/31/2015 02:47 PM, Steven Rostedt wrote:
+> On Fri, 30 Oct 2015 17:03:58 -0700
+> Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+>> On Fri, Oct 30, 2015 at 03:16:26PM -0700, Yang Shi wrote:
+>>> When running bpf samples on rt kernel, it reports the below warning:
+>>>
+>>> BUG: sleeping function called from invalid context at kernel/locking/rtmutex.c:917
+>>> in_atomic(): 1, irqs_disabled(): 128, pid: 477, name: ping
+>>> Preemption disabled at:[<ffff80000017db58>] kprobe_perf_func+0x30/0x228
+>> ...
+>>> diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+>>> index 83c209d..972b76b 100644
+>>> --- a/kernel/bpf/hashtab.c
+>>> +++ b/kernel/bpf/hashtab.c
+>>> @@ -17,7 +17,7 @@
+>>>   struct bpf_htab {
+>>>   	struct bpf_map map;
+>>>   	struct hlist_head *buckets;
+>>> -	spinlock_t lock;
+>>> +	raw_spinlock_t lock;
+>>
+>> How do we address such things in general?
+>> I bet there are tons of places around the kernel that
+>> call spin_lock from atomic.
+>> I'd hate to lose the benefits of lockdep of non-raw spin_lock
+>> just to make rt happy.
 >
-> - The hardware raises an interrupt and moves on to the next packet
-> - The driver allocates a new buffer - call it Bob - and maps it.
->   - If it succeeds
->     - The driver unmaps the received packet
->     - The driver hands the received packet to the network stack
->     - The driver hands Bob to the hardware
->   - It it fails
->     - The driver updates the dropped packet stats
->     - The driver recycles the received - yet non-unmapped - packet to=
- the
->       hardware
+> You wont lose any benefits of lockdep. Lockdep still checks
+> raw_spin_lock(). The only difference between raw_spin_lock and
+> spin_lock is that in -rt spin_lock turns into an rt_mutex() and
+> raw_spin_lock stays a spin lock.
 
-Oh, I see.  That's better.
+( Btw, Yang, would have been nice if your commit description would have
+   already included such info, not only that you convert it, but also why
+   it's okay to do so. )
 
---=20
-M=E5ns Rullg=E5rd
-mans@mansr.com
+> The error is that in -rt, you called a mutex and not a spin lock while
+> atomic.
+
+You are right, I think this happens due to the preempt_disable() in the
+trace_call_bpf() handler. So, I think the patch seems okay. The dep_map
+is btw union'ed in the struct spinlock case to the same offset of the
+dep_map from raw_spinlock.
+
+It's a bit inconvenient, though, when we add other library code as maps
+in future, f.e. things like rhashtable as they would first need to be
+converted to raw_spinlock_t as well, but judging from the git log, it
+looks like common practice.
+
+Thanks,
+Daniel
