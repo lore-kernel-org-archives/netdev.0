@@ -1,89 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: fix a bug in get_phy_c45_ids
-Date: Sun, 01 Nov 2015 12:14:01 -0500 (EST)
-Message-ID: <20151101.121401.1787201985789532795.davem@davemloft.net>
-References: <1446109777-14846-1-git-send-email-shh.xie@gmail.com>
+Subject: Re: [PATCH] VSOCK: define VSOCK_SS_LISTEN once only
+Date: Sun, 01 Nov 2015 12:15:02 -0500 (EST)
+Message-ID: <20151101.121502.1753196778636094034.davem@davemloft.net>
+References: <1446119862-24369-1-git-send-email-stefanha@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-	Shaohui.Xie@freescale.com
-To: shh.xie@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53933 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752567AbbKAROD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 12:14:03 -0500
-In-Reply-To: <1446109777-14846-1-git-send-email-shh.xie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jhansen@vmware.com, virtualization@lists.linux-foundation.org
+To: stefanha@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1446119862-24369-1-git-send-email-stefanha@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: <shh.xie@gmail.com>
-Date: Thu, 29 Oct 2015 17:09:37 +0800
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Thu, 29 Oct 2015 11:57:42 +0000
 
-> From: Shaohui Xie <Shaohui.Xie@freescale.com>
+> The SS_LISTEN socket state is defined by both af_vsock.c and
+> vmci_transport.c.  This is risky since the value could be changed in one
+> file and the other would be out of sync.
 > 
-> When probing devices-in-package for a c45 phy, device zero is the last
-> device to probe, in a rare situation which driver can read a '0' from
-> the device zero, thus c45_ids->devices_in_package is set to '0', so the
-> loop condition of probing is matched, see codes below:
+> Rename from SS_LISTEN to VSOCK_SS_LISTEN since the constant is not part
+> of enum socket_state (SS_CONNECTED, ...).  This way it is clear that the
+> constant is vsock-specific.
 > 
-> for (i = 1;i < num_ids && c45_ids->devices_in_package == 0;i++)
+> The big text reflow in af_vsock.c was necessary to keep to the maximum
+> line length.  Text is unchanged except for s/SS_LISTEN/VSOCK_SS_LISTEN/.
 > 
-> driver will run in a dead loop.
-> 
-> So after probing the device zero, driver should stop the probing loop.
-> 
-> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
 
-This bug only exists because the loop is extremely confusing.
-
-Please fix this by restructuring the loop:
-
-1) Break out this code:
-
-		reg_addr = MII_ADDR_C45 | i << 16 | MDIO_DEVS2;
-		phy_reg = mdiobus_read(bus, addr, reg_addr);
-		if (phy_reg < 0)
-			return -EIO;
-		c45_ids->devices_in_package = (phy_reg & 0xffff) << 16;
-
-		reg_addr = MII_ADDR_C45 | i << 16 | MDIO_DEVS1;
-		phy_reg = mdiobus_read(bus, addr, reg_addr);
-		if (phy_reg < 0)
-			return -EIO;
-		c45_ids->devices_in_package |= (phy_reg & 0xffff);
-
-   into a helper function that takes "c45_ids, bus, addr, i" as arguments
-   and returns an error, either 0 or -EIO.  Call it "phy_check_devs_in_pkg"
-   or similar.
-
-2) Rewrite the loop as:
-
-	for (i = 1;
-	     i < num_ids && c45_ids->devices_in_package == 0;
-	     i++) {
-		err = phy_check_devs_in_pkg(c45_ids, bus, addr, i);
-		if (err < 0)
-			return err;
-		if ((c45_ids->devices_in_package & 0x1fffffff) == 0x1fffffff) {
-			if (i) {
-				/*  If mostly Fs, there is no device there,
-				 *  then let's continue to probe more, as some
-				 *  10G PHYs have zero Devices In package,
-				 *  e.g. Cortina CS4315/CS4340 PHY.
-				 */
-				err = phy_check_devs_in_pkg(c45_ids, bus, addr, 0);
-				if (err)
-					return err;
-				break;
-			}
-		} else {
-				/* no device there, let's get out of here */
-				*phy_id = 0xffffffff;
-				return 0;
-			}
-		}
-	}
-
-Thanks.
+Applied to net-next, thanks.
