@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [DCCP]: Use 64-bit timekeeping
-Date: Sun, 01 Nov 2015 17:01:38 -0500 (EST)
-Message-ID: <20151101.170138.358342779450639583.davem@davemloft.net>
-References: <20151030082456.GA31370@tina-laptop>
+Subject: Re: [1/1] stmmac: Correctly report PTP capabilities.
+Date: Sun, 01 Nov 2015 17:06:16 -0500 (EST)
+Message-ID: <20151101.170616.2211861253361543823.davem@davemloft.net>
+References: <1446194635-19782-1-git-send-email-preid@electromag.com.au>
+	<1446194635-19782-2-git-send-email-preid@electromag.com.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, arnd@arndb.de, y2038@lists.linaro.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: ruchandani.tina@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151030082456.GA31370@tina-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
+To: preid@electromag.com.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55450 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752672AbbKAWGS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 17:06:18 -0500
+In-Reply-To: <1446194635-19782-2-git-send-email-preid@electromag.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tina Ruchandani <ruchandani.tina@gmail.com>
-Date: Fri, 30 Oct 2015 01:24:56 -0700
+From: Phil Reid <preid@electromag.com.au>
+Date: Fri, 30 Oct 2015 16:43:55 +0800
 
-> This patch changes the use of struct timespec in
-> dccp_probe to use struct timespec64 instead. timespec uses a 32-bit
-> seconds field which will overflow in the year 2038 and beyond. timespec64
-> uses a 64-bit seconds field. Note that the correctness of the code isn't
-> changed, since the original code only uses the timestamps to compute a
-> small elapsed interval. This patch is part of a larger attempt to remove
-> instances of 32-bit timekeeping structures (timespec, timeval, time_t)
-> from the kernel so it is easier to identify where the real 2038 issues
-> are.
+> priv->hwts_*_en indicate if timestamping is enabled/disabled at run
+> time. But  priv->dma_cap.time_stamp  and priv->dma_cap.atime_stamp
+> indicates HW is support for PTPv1/PTPv2.
 > 
-> Signed-off-by: Tina Ruchandani <ruchandani.tina@gmail.com>
+> Signed-off-by: Phil Reid <preid@electromag.com.au>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
