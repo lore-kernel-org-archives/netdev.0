@@ -1,3511 +1,544 @@
-From: Marek Vasut <marex@denx.de>
-Subject: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
-Date: Mon,  2 Nov 2015 00:16:15 +0100
-Message-ID: <1446419775-5215-1-git-send-email-marex@denx.de>
-Cc: Marek Vasut <marex@denx.de>,
-	"David S. Miller\"" <davem@davemloft.net>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Andrey Vostrikov <andrey.vostrikov@cogentembedded.com>
-To: netdev@vger.kernel.org
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [PATCH net-next] net: make skb_set_owner_w() more robust
+Date: Mon, 2 Nov 2015 07:18:14 +0800
+Message-ID: <201511020754.lUc7VUJE%fengguang.wu@intel.com>
+References: <1446418728.6254.101.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="tThc/1wpZn/ma/RB"
+Cc: kbuild-all@01.org, David Miller <davem@davemloft.net>,
+	haiyangz@microsoft.com, edumazet@google.com,
+	netdev@vger.kernel.org, kys@microsoft.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:41522 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753087AbbKAXQj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 18:16:39 -0500
+Received: from mga01.intel.com ([192.55.52.88]:61747 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753087AbbKAXTG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Nov 2015 18:19:06 -0500
+Content-Disposition: inline
+In-Reply-To: <1446418728.6254.101.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ARINC-429 is a technical standard, which describes, among others,
-a data bus used by airplanes. The standard contains much more, since
-it is based off the ISO/OSI model, but this patch implements just the
-data bus protocol.
 
-This stack is derived from the SocketCAN implementation, already present
-in the kernel and thus behaves in a very similar fashion. Thus far, we
-support sending RAW ARINC-429 datagrams, configuration of the RX and TX
-clock speed and filtering.
+--tThc/1wpZn/ma/RB
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-The ARINC-429 datagram is four-byte long. The first byte is always the
-LABEL, the function of remaining three bytes can vary, so we handle it
-as an opaque PAYLOAD. The userspace tools can send these datagrams via
-a standard socket.
+Hi Eric,
 
-A LABEL-based filtering can be configured on each socket separately in
-a way comparable to CAN -- user uses setsockopt() to push a list of
-label,mask tuples into the kernel and the kernel will deliver a datagram
-to the socket if (<received_label> & mask) == (label & mask), otherwise
-the datagram is not delivered.
+[auto build test ERROR on net-next/master -- if it's inappropriate base, please suggest rules for selecting the more suitable base]
 
-Signed-off-by: Marek Vasut <marex@denx.de>
-Cc: David S. Miller" <davem@davemloft.net>
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>
-Cc: Wolfgang Grandegger <wg@grandegger.com>
-Cc: Andrew Lunn <andrew@lunn.ch>
-Cc: Andrey Vostrikov <andrey.vostrikov@cogentembedded.com>
-To: netdev@vger.kernel.org
+url:    https://github.com/0day-ci/linux/commits/Eric-Dumazet/net-make-skb_set_owner_w-more-robust/20151102-070107
+config: x86_64-randconfig-x019-201544 (attached as .config)
+reproduce:
+        # save the attached .config to linux build tree
+        make ARCH=x86_64 
+
+All errors (new ones prefixed by >>):
+
+   net/core/sock.c: In function 'skb_set_owner_w':
+>> net/core/sock.c:1664:21: error: 'sock_edemux' undeclared (first use in this function)
+      skb->destructor = sock_edemux;
+                        ^
+   net/core/sock.c:1664:21: note: each undeclared identifier is reported only once for each function it appears in
+
+vim +/sock_edemux +1664 net/core/sock.c
+
+  1658	
+  1659	void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
+  1660	{
+  1661		skb_orphan(skb);
+  1662		skb->sk = sk;
+  1663		if (unlikely(!sk_fullsock(sk))) {
+> 1664			skb->destructor = sock_edemux;
+  1665			sock_hold(sk);
+  1666			return;
+  1667		}
+
 ---
- MAINTAINERS                           |  19 +
- drivers/net/Makefile                  |   1 +
- drivers/net/arinc429/Kconfig          |  32 ++
- drivers/net/arinc429/Makefile         |  11 +
- drivers/net/arinc429/dev.c            | 448 +++++++++++++++++++
- drivers/net/arinc429/varinc429.c      | 163 +++++++
- include/linux/arinc429/core.h         |  61 +++
- include/linux/arinc429/dev.h          |  81 ++++
- include/linux/arinc429/skb.h          |  79 ++++
- include/linux/socket.h                |   4 +-
- include/uapi/linux/arinc429.h         |  88 ++++
- include/uapi/linux/arinc429/Kbuild    |   6 +
- include/uapi/linux/arinc429/netlink.h |  55 +++
- include/uapi/linux/arinc429/raw.h     |  36 ++
- include/uapi/linux/if_arp.h           |   1 +
- include/uapi/linux/if_ether.h         |   1 +
- net/Kconfig                           |   1 +
- net/Makefile                          |   1 +
- net/arinc429/Kconfig                  |  31 ++
- net/arinc429/Makefile                 |   9 +
- net/arinc429/af_arinc429.c            | 812 ++++++++++++++++++++++++++++++++++
- net/arinc429/af_arinc429.h            | 100 +++++
- net/arinc429/proc.c                   | 432 ++++++++++++++++++
- net/arinc429/raw.c                    | 758 +++++++++++++++++++++++++++++++
- 24 files changed, 3229 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/arinc429/Kconfig
- create mode 100644 drivers/net/arinc429/Makefile
- create mode 100644 drivers/net/arinc429/dev.c
- create mode 100644 drivers/net/arinc429/varinc429.c
- create mode 100644 include/linux/arinc429/core.h
- create mode 100644 include/linux/arinc429/dev.h
- create mode 100644 include/linux/arinc429/skb.h
- create mode 100644 include/uapi/linux/arinc429.h
- create mode 100644 include/uapi/linux/arinc429/Kbuild
- create mode 100644 include/uapi/linux/arinc429/netlink.h
- create mode 100644 include/uapi/linux/arinc429/raw.h
- create mode 100644 net/arinc429/Kconfig
- create mode 100644 net/arinc429/Makefile
- create mode 100644 net/arinc429/af_arinc429.c
- create mode 100644 net/arinc429/af_arinc429.h
- create mode 100644 net/arinc429/proc.c
- create mode 100644 net/arinc429/raw.c
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 9de185d..cfa3a92 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -814,6 +814,25 @@ S:	Maintained
- F:	drivers/net/arcnet/
- F:	include/uapi/linux/if_arcnet.h
- 
-+ARINC429 NETWORK LAYER
-+M:	Marek Vasut <marex@denx.de>
-+S:	Maintained
-+F:	net/arinc429/
-+F:	include/linux/arinc429/core.h
-+F:	include/uapi/linux/arinc429.h
-+F:	include/uapi/linux/arinc429/bcm.h
-+F:	include/uapi/linux/arinc429/raw.h
-+F:	include/uapi/linux/arinc429/gw.h
-+
-+ARINC429 NETWORK DRIVERS
-+M:	Marek Vasut <marex@denx.de>
-+S:	Maintained
-+F:	drivers/net/arinc429/
-+F:	include/linux/arinc429/dev.h
-+F:	include/linux/arinc429/platform/
-+F:	include/uapi/linux/arinc429/error.h
-+F:	include/uapi/linux/arinc429/netlink.h
-+
- ARM MFM AND FLOPPY DRIVERS
- M:	Ian Molton <spyro@f2s.com>
- S:	Maintained
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 900b0c5..d6e0682 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -31,6 +31,7 @@ obj-$(CONFIG_NET_VRF) += vrf.o
- # Networking Drivers
- #
- obj-$(CONFIG_ARCNET) += arcnet/
-+obj-$(CONFIG_ARINC429) += arinc429/
- obj-$(CONFIG_DEV_APPLETALK) += appletalk/
- obj-$(CONFIG_CAIF) += caif/
- obj-$(CONFIG_CAN) += can/
-diff --git a/drivers/net/arinc429/Kconfig b/drivers/net/arinc429/Kconfig
-new file mode 100644
-index 0000000..428164c
---- /dev/null
-+++ b/drivers/net/arinc429/Kconfig
-@@ -0,0 +1,32 @@
-+menu "ARINC429 Device Drivers"
-+
-+config ARINC429_VARINC429
-+	tristate "Virtual Local ARINC429 Interface (varinc429)"
-+	---help---
-+	  Similar to the network loopback devices, varinc429 offers a
-+	  virtual local ARINC429 interface.
-+
-+	  This driver can also be built as a module.  If so, the module
-+	  will be called varinc429.
-+
-+config ARINC429_DEV
-+	tristate "Platform ARINC429 drivers with Netlink support"
-+	default y
-+	---help---
-+	  Enables the common framework for platform ARINC429 drivers with Netlink
-+	  support. This is the standard library for ARINC429 drivers.
-+	  If unsure, say Y.
-+
-+if ARINC429_DEV
-+
-+endif
-+
-+config ARINC429_DEBUG_DEVICES
-+	bool "ARINC429 devices debugging messages"
-+	---help---
-+	  Say Y here if you want the ARINC429 device drivers to produce a bunch of
-+	  debug messages to the system log.  Select this if you are having
-+	  a problem with ARINC429 support and want to see more of what is going
-+	  on.
-+
-+endmenu
-diff --git a/drivers/net/arinc429/Makefile b/drivers/net/arinc429/Makefile
-new file mode 100644
-index 0000000..70aaaac
---- /dev/null
-+++ b/drivers/net/arinc429/Makefile
-@@ -0,0 +1,11 @@
-+#
-+#  Makefile for the Linux Controller Area Network drivers.
-+#
-+
-+obj-$(CONFIG_ARINC429_VARINC429)	+= varinc429.o
-+
-+obj-$(CONFIG_ARINC429_DEV)		+= arinc429-dev.o
-+arinc429-dev-y				:= dev.o
-+
-+subdir-ccflags-y += -D__CHECK_ENDIAN__
-+subdir-ccflags-$(CONFIG_ARINC429_DEBUG_DEVICES) += -DDEBUG
-diff --git a/drivers/net/arinc429/dev.c b/drivers/net/arinc429/dev.c
-new file mode 100644
-index 0000000..0debeec
---- /dev/null
-+++ b/drivers/net/arinc429/dev.c
-@@ -0,0 +1,448 @@
-+/*
-+ * Copyright (C) 2015 Marek Vasut <marex@denx.de>
-+ *
-+ * Based on the SocketCAN stack.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/slab.h>
-+#include <linux/netdevice.h>
-+#include <linux/if_arp.h>
-+#include <linux/arinc429.h>
-+#include <linux/arinc429/dev.h>
-+#include <linux/arinc429/skb.h>
-+#include <linux/arinc429/netlink.h>
-+#include <net/rtnetlink.h>
-+
-+#define MOD_DESC "ARINC429 device driver interface"
-+
-+MODULE_DESCRIPTION(MOD_DESC);
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Marek Vasut <marex@denx.de>");
-+
-+/*
-+ * Local echo of ARINC429 messages
-+ *
-+ * ARINC429 network devices *should* support a local echo functionality
-+ * (see Documentation/networking/can.txt). To test the handling of ARINC429
-+ * interfaces that do not support the local echo both driver types are
-+ * implemented. In the case that the driver does not support the echo
-+ * the IFF_ECHO remains clear in dev->flags. This causes the PF_ARINC429 core
-+ * to perform the echo as a fallback solution.
-+ */
-+static void arinc429_flush_echo_skb(struct net_device *dev)
-+{
-+	struct arinc429_priv *priv = netdev_priv(dev);
-+	struct net_device_stats *stats = &dev->stats;
-+	int i;
-+
-+	for (i = 0; i < priv->echo_skb_max; i++) {
-+		if (priv->echo_skb[i]) {
-+			kfree_skb(priv->echo_skb[i]);
-+			priv->echo_skb[i] = NULL;
-+			stats->tx_dropped++;
-+			stats->tx_aborted_errors++;
-+		}
-+	}
-+}
-+
-+/*
-+ * Put the skb on the stack to be looped backed locally lateron
-+ *
-+ * The function is typically called in the start_xmit function
-+ * of the device driver. The driver must protect access to
-+ * priv->echo_skb, if necessary.
-+ */
-+void arinc429_put_echo_skb(struct sk_buff *skb, struct net_device *dev,
-+			   unsigned int idx)
-+{
-+	struct arinc429_priv *priv = netdev_priv(dev);
-+
-+	BUG_ON(idx >= priv->echo_skb_max);
-+
-+	/* check flag whether this packet has to be looped back */
-+	if (!(dev->flags & IFF_ECHO) || skb->pkt_type != PACKET_LOOPBACK ||
-+	    skb->protocol != htons(ETH_P_ARINC429)) {
-+		kfree_skb(skb);
-+		return;
-+	}
-+
-+	if (!priv->echo_skb[idx]) {
-+		skb = arinc429_create_echo_skb(skb);
-+		if (!skb)
-+			return;
-+
-+		/* make settings for echo to reduce code in irq context */
-+		skb->pkt_type = PACKET_BROADCAST;
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		skb->dev = dev;
-+
-+		/* save this skb for tx interrupt echo handling */
-+		priv->echo_skb[idx] = skb;
-+	} else {
-+		/* locking problem with netif_stop_queue() ?? */
-+		netdev_err(dev, "%s: BUG! echo_skb is occupied!\n", __func__);
-+		kfree_skb(skb);
-+	}
-+}
-+EXPORT_SYMBOL_GPL(arinc429_put_echo_skb);
-+
-+/*
-+ * Get the skb from the stack and loop it back locally
-+ *
-+ * The function is typically called when the TX done interrupt
-+ * is handled in the device driver. The driver must protect
-+ * access to priv->echo_skb, if necessary.
-+ */
-+unsigned int arinc429_get_echo_skb(struct net_device *dev, unsigned int idx)
-+{
-+	struct arinc429_priv *priv = netdev_priv(dev);
-+
-+	BUG_ON(idx >= priv->echo_skb_max);
-+
-+	if (priv->echo_skb[idx]) {
-+		struct sk_buff *skb = priv->echo_skb[idx];
-+
-+		if (!(skb->tstamp.tv64))
-+			__net_timestamp(skb);
-+
-+		netif_rx(priv->echo_skb[idx]);
-+		priv->echo_skb[idx] = NULL;
-+
-+		return ARINC429_MTU;
-+	}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(arinc429_get_echo_skb);
-+
-+/*
-+  * Remove the skb from the stack and free it.
-+  *
-+  * The function is typically called when TX failed.
-+  */
-+void arinc429_free_echo_skb(struct net_device *dev, unsigned int idx)
-+{
-+	struct arinc429_priv *priv = netdev_priv(dev);
-+
-+	BUG_ON(idx >= priv->echo_skb_max);
-+
-+	if (priv->echo_skb[idx]) {
-+		dev_kfree_skb_any(priv->echo_skb[idx]);
-+		priv->echo_skb[idx] = NULL;
-+	}
-+}
-+EXPORT_SYMBOL_GPL(arinc429_free_echo_skb);
-+
-+static void arinc429_setup(struct net_device *dev)
-+{
-+	dev->type = ARPHRD_ARINC429;
-+	dev->mtu = ARINC429_MTU;
-+	dev->hard_header_len = 0;
-+	dev->addr_len = 0;
-+	dev->tx_queue_len = 10;
-+
-+	/* New-style flags. */
-+	dev->flags = IFF_NOARP;
-+	dev->features = NETIF_F_HW_CSUM;
-+}
-+
-+struct sk_buff *alloc_arinc429_skb(struct net_device *dev,
-+				   struct arinc429_frame **cf)
-+{
-+	struct sk_buff *skb;
-+
-+	skb = netdev_alloc_skb(dev, sizeof(struct arinc429_skb_priv) +
-+			       sizeof(struct arinc429_frame));
-+	if (unlikely(!skb))
-+		return NULL;
-+
-+	__net_timestamp(skb);
-+	skb->protocol = htons(ETH_P_ARINC429);
-+	skb->pkt_type = PACKET_BROADCAST;
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+
-+	skb_reset_mac_header(skb);
-+	skb_reset_network_header(skb);
-+	skb_reset_transport_header(skb);
-+
-+	arinc429_skb_reserve(skb);
-+	arinc429_skb_prv(skb)->ifindex = dev->ifindex;
-+
-+	*cf = (struct arinc429_frame *)skb_put(skb,
-+					       sizeof(struct arinc429_frame));
-+	memset(*cf, 0, sizeof(struct arinc429_frame));
-+
-+	return skb;
-+}
-+EXPORT_SYMBOL_GPL(alloc_arinc429_skb);
-+
-+/*
-+ * Allocate and setup space for the ARINC429 network device
-+ */
-+struct net_device *alloc_arinc429dev(int sizeof_priv, unsigned int echo_skb_max)
-+{
-+	struct net_device *dev;
-+	struct arinc429_priv *priv;
-+	int size;
-+
-+	if (echo_skb_max)
-+		size = ALIGN(sizeof_priv, sizeof(struct sk_buff *)) +
-+			echo_skb_max * sizeof(struct sk_buff *);
-+	else
-+		size = sizeof_priv;
-+
-+	dev = alloc_netdev(size, "arinc429-%d", NET_NAME_UNKNOWN,
-+			   arinc429_setup);
-+	if (!dev)
-+		return NULL;
-+
-+	priv = netdev_priv(dev);
-+
-+	if (echo_skb_max) {
-+		priv->echo_skb_max = echo_skb_max;
-+		priv->echo_skb = (void *)priv +
-+			ALIGN(sizeof_priv, sizeof(struct sk_buff *));
-+	}
-+
-+	return dev;
-+}
-+EXPORT_SYMBOL_GPL(alloc_arinc429dev);
-+
-+/*
-+ * Free space of the ARINC429 network device
-+ */
-+void free_arinc429dev(struct net_device *dev)
-+{
-+	free_netdev(dev);
-+}
-+EXPORT_SYMBOL_GPL(free_arinc429dev);
-+
-+/*
-+ * changing MTU and control mode for ARINC429 devices
-+ */
-+int arinc429_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	/* Do not allow changing the MTU while running */
-+	if (dev->flags & IFF_UP)
-+		return -EBUSY;
-+
-+	if (new_mtu != ARINC429_MTU)
-+		return -EINVAL;
-+
-+	dev->mtu = new_mtu;
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(arinc429_change_mtu);
-+
-+/*
-+ * Common open function when the device gets opened.
-+ *
-+ * This function should be called in the open function of the device
-+ * driver.
-+ */
-+int open_arinc429dev(struct net_device *dev)
-+{
-+	struct arinc429_priv *priv = netdev_priv(dev);
-+
-+	if (!priv->rate.rx_rate || !priv->rate.tx_rate) {
-+		netdev_err(dev, "data rate not yet defined\n");
-+		return -EINVAL;
-+	}
-+
-+	/* Switch carrier on if device was stopped while in bus-off state */
-+	if (!netif_carrier_ok(dev))
-+		netif_carrier_on(dev);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(open_arinc429dev);
-+
-+/*
-+ * Common close function for cleanup before the device gets closed.
-+ *
-+ * This function should be called in the close function of the device
-+ * driver.
-+ */
-+void close_arinc429dev(struct net_device *dev)
-+{
-+	arinc429_flush_echo_skb(dev);
-+}
-+EXPORT_SYMBOL_GPL(close_arinc429dev);
-+
-+/*
-+ * ARINC429 netlink interface
-+ */
-+static const struct nla_policy arinc429_policy[IFLA_ARINC429_MAX + 1] = {
-+	[IFLA_ARINC429_RATE]	= { .len = sizeof(struct arinc429_rate) },
-+	[IFLA_ARINC429_CTRLMODE] = { .len = sizeof(struct arinc429_ctrlmode) },
-+};
-+
-+static int arinc429_changelink(struct net_device *dev,
-+			       struct nlattr *tb[], struct nlattr *data[])
-+{
-+	struct arinc429_priv *priv = netdev_priv(dev);
-+	int err;
-+
-+	/* We need synchronization with dev->stop() */
-+	ASSERT_RTNL();
-+
-+	if (data[IFLA_ARINC429_RATE]) {
-+		struct arinc429_rate clk;
-+
-+		/* Do not allow changing clock while running */
-+		if (dev->flags & IFF_UP)
-+			return -EBUSY;
-+
-+		/*
-+		 * Check if the clock frequency is valid, ARINC429
-+		 * supports either 12.5kHz bus (Low speed bus mode)
-+		 * or 100kHz (High speed bus mode). If the speed is
-+		 * set to 0, do not modify that configuration.
-+		 */
-+		memcpy(&clk, nla_data(data[IFLA_ARINC429_RATE]), sizeof(clk));
-+		if (clk.rx_rate && clk.rx_rate != 12500 &&
-+		    clk.rx_rate != 100000)
-+			return -EINVAL;
-+		if (clk.tx_rate && clk.tx_rate != 12500 &&
-+		    clk.tx_rate != 100000)
-+			return -EINVAL;
-+
-+		memcpy(&priv->rate, &clk, sizeof(clk));
-+
-+		if (priv->do_set_rate) {
-+			/* Finally, set the data rate register */
-+			err = priv->do_set_rate(dev);
-+			if (err)
-+				return err;
-+		}
-+	}
-+
-+	if (data[IFLA_ARINC429_CTRLMODE]) {
-+		struct arinc429_ctrlmode *cm;
-+
-+		/* Do not allow changing controller mode while running */
-+		if (dev->flags & IFF_UP)
-+			return -EBUSY;
-+		cm = nla_data(data[IFLA_ARINC429_CTRLMODE]);
-+
-+		/* check whether changed bits are allowed to be modified */
-+		if (cm->mask & ~priv->ctrlmode_supported)
-+			return -EOPNOTSUPP;
-+
-+		/* clear bits to be modified and copy the flag values */
-+		priv->ctrlmode &= ~cm->mask;
-+		priv->ctrlmode |= (cm->flags & cm->mask);
-+	}
-+
-+	return 0;
-+}
-+
-+static size_t arinc429_get_size(const struct net_device *dev)
-+{
-+	size_t size = 0;
-+
-+	/* IFLA_ARINC429_RATE */
-+	size += nla_total_size(sizeof(struct arinc429_rate));
-+	/* IFLA_ARINC429_CTRLMODE */
-+	size += nla_total_size(sizeof(struct arinc429_ctrlmode));
-+
-+	return size;
-+}
-+
-+static int arinc429_fill_info(struct sk_buff *skb, const struct net_device *dev)
-+{
-+	struct arinc429_priv *priv = netdev_priv(dev);
-+	struct arinc429_ctrlmode cm = {.flags = priv->ctrlmode};
-+
-+	if (
-+		nla_put(skb, IFLA_ARINC429_RATE, sizeof(priv->rate), &priv->rate) ||
-+		nla_put(skb, IFLA_ARINC429_CTRLMODE, sizeof(cm), &cm)
-+	)
-+		return -EMSGSIZE;
-+
-+	return 0;
-+}
-+
-+static int arinc429_newlink(struct net *src_net, struct net_device *dev,
-+			    struct nlattr *tb[], struct nlattr *data[])
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static struct rtnl_link_ops arinc429_link_ops __read_mostly = {
-+	.kind		= "arinc429",
-+	.maxtype	= IFLA_ARINC429_MAX,
-+	.policy		= arinc429_policy,
-+	.setup		= arinc429_setup,
-+	.newlink	= arinc429_newlink,
-+	.changelink	= arinc429_changelink,
-+	.get_size	= arinc429_get_size,
-+	.fill_info	= arinc429_fill_info,
-+};
-+
-+/*
-+ * Register the ARINC429 network device
-+ */
-+int register_arinc429dev(struct net_device *dev)
-+{
-+	dev->rtnl_link_ops = &arinc429_link_ops;
-+	return register_netdev(dev);
-+}
-+EXPORT_SYMBOL_GPL(register_arinc429dev);
-+
-+/*
-+ * Unregister the ARINC429 network device
-+ */
-+void unregister_arinc429dev(struct net_device *dev)
-+{
-+	unregister_netdev(dev);
-+}
-+EXPORT_SYMBOL_GPL(unregister_arinc429dev);
-+
-+/*
-+ * Test if a network device is a arinc429dev based device
-+ * and return the arinc429_priv* if so.
-+ */
-+struct arinc429_priv *safe_arinc429dev_priv(struct net_device *dev)
-+{
-+	if ((dev->type != ARPHRD_ARINC429) ||
-+	    (dev->rtnl_link_ops != &arinc429_link_ops))
-+		return NULL;
-+
-+	return netdev_priv(dev);
-+}
-+EXPORT_SYMBOL_GPL(safe_arinc429dev_priv);
-+
-+static __init int arinc429_dev_init(void)
-+{
-+	int err;
-+
-+	err = rtnl_link_register(&arinc429_link_ops);
-+	if (!err)
-+		pr_info(MOD_DESC "\n");
-+
-+	return err;
-+}
-+module_init(arinc429_dev_init);
-+
-+static __exit void arinc429_dev_exit(void)
-+{
-+	rtnl_link_unregister(&arinc429_link_ops);
-+}
-+module_exit(arinc429_dev_exit);
-+
-+MODULE_ALIAS_RTNL_LINK("arinc429");
-diff --git a/drivers/net/arinc429/varinc429.c b/drivers/net/arinc429/varinc429.c
-new file mode 100644
-index 0000000..775ae48
---- /dev/null
-+++ b/drivers/net/arinc429/varinc429.c
-@@ -0,0 +1,163 @@
-+/*
-+ * varinc429.c - Virtual ARINC429 interface
-+ *
-+ * Copyright (C) 2015 Marek Vasut <marex@denx.de>
-+ *
-+ * Based on the SocketCAN stack.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation; either version 2 of
-+ * the License, or (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/netdevice.h>
-+#include <linux/if_arp.h>
-+#include <linux/if_ether.h>
-+#include <linux/arinc429.h>
-+#include <linux/arinc429/dev.h>
-+#include <linux/arinc429/skb.h>
-+#include <linux/slab.h>
-+#include <net/rtnetlink.h>
-+
-+MODULE_DESCRIPTION("Virtual ARINC429 interface");
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Marek Vasut <marex@denx.de>");
-+
-+/*
-+ * ARINC429 test feature:
-+ * Enable the echo on driver level for testing the ARINC429 core echo modes.
-+ */
-+
-+static bool echo; /* echo testing. Default: 0 (Off) */
-+module_param(echo, bool, S_IRUGO);
-+MODULE_PARM_DESC(echo, "Echo sent frames (for testing). Default: 0 (Off)");
-+
-+static void varinc429_rx(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct net_device_stats *stats = &dev->stats;
-+
-+	stats->rx_packets++;
-+	stats->rx_bytes += ARINC429_MTU;
-+
-+	skb->pkt_type  = PACKET_BROADCAST;
-+	skb->dev       = dev;
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+
-+	if (!(skb->tstamp.tv64))
-+		__net_timestamp(skb);
-+
-+	netif_rx_ni(skb);
-+}
-+
-+static netdev_tx_t varinc429_tx(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct net_device_stats *stats = &dev->stats;
-+	int loop;
-+
-+	if (arinc429_dropped_invalid_skb(dev, skb))
-+		return NETDEV_TX_OK;
-+
-+	stats->tx_packets++;
-+	stats->tx_bytes += ARINC429_MTU;
-+
-+	/* set flag whether this packet has to be looped back */
-+	loop = skb->pkt_type == PACKET_LOOPBACK;
-+
-+	if (!echo) {
-+		/* no echo handling available inside this driver */
-+
-+		if (loop) {
-+			/*
-+			 * Only count the packets here, because the
-+			 * ARINC429 core already did the echo for us
-+			 */
-+			stats->rx_packets++;
-+			stats->rx_bytes += ARINC429_MTU;
-+		}
-+		consume_skb(skb);
-+		return NETDEV_TX_OK;
-+	}
-+
-+	/* Perform standard echo handling for ARINC429 network interfaces */
-+	if (loop) {
-+		skb = arinc429_create_echo_skb(skb);
-+		if (!skb)
-+			return NETDEV_TX_OK;
-+
-+		/* Receive with packet counting */
-+		varinc429_rx(skb, dev);
-+	} else {
-+		/* No looped packets => no counting */
-+		consume_skb(skb);
-+	}
-+	return NETDEV_TX_OK;
-+}
-+
-+static int varinc429_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	/* Do not allow changing the MTU while running */
-+	if (dev->flags & IFF_UP)
-+		return -EBUSY;
-+
-+	if (new_mtu != ARINC429_MTU)
-+		return -EINVAL;
-+
-+	dev->mtu = new_mtu;
-+	return 0;
-+}
-+
-+static const struct net_device_ops varinc429_netdev_ops = {
-+	.ndo_start_xmit = varinc429_tx,
-+	.ndo_change_mtu = varinc429_change_mtu,
-+};
-+
-+static void varinc429_setup(struct net_device *dev)
-+{
-+	dev->type		= ARPHRD_ARINC429;
-+	dev->mtu		= ARINC429_MTU;
-+	dev->hard_header_len	= 0;
-+	dev->addr_len		= 0;
-+	dev->tx_queue_len	= 0;
-+	dev->flags		= IFF_NOARP;
-+
-+	/* set flags according to driver capabilities */
-+	if (echo)
-+		dev->flags |= IFF_ECHO;
-+
-+	dev->netdev_ops		= &varinc429_netdev_ops;
-+	dev->destructor		= free_netdev;
-+}
-+
-+static struct rtnl_link_ops varinc429_link_ops __read_mostly = {
-+	.kind	= "varinc429",
-+	.setup	= varinc429_setup,
-+};
-+
-+static __init int varinc429_init_module(void)
-+{
-+	pr_info("varinc429: Virtual ARINC429 interface driver\n");
-+
-+	if (echo)
-+		pr_info("varinc429: enabled echo on driver level.\n");
-+
-+	return rtnl_link_register(&varinc429_link_ops);
-+}
-+
-+static __exit void varinc429_cleanup_module(void)
-+{
-+	rtnl_link_unregister(&varinc429_link_ops);
-+}
-+
-+module_init(varinc429_init_module);
-+module_exit(varinc429_cleanup_module);
-diff --git a/include/linux/arinc429/core.h b/include/linux/arinc429/core.h
-new file mode 100644
-index 0000000..2e32858
---- /dev/null
-+++ b/include/linux/arinc429/core.h
-@@ -0,0 +1,61 @@
-+/*
-+ * linux/arinc429/core.h
-+ *
-+ * Protoypes and definitions for ARINC429 protocol modules
-+ * using the PF_ARINC429 core.
-+ *
-+ * Copyright (C) 2015 Marek Vasut <marex@denx.de>
-+ *
-+ * Based on the SocketCAN stack.
-+ */
-+
-+#ifndef __ARINC429_CORE_H__
-+#define __ARINC429_CORE_H__
-+
-+#include <linux/arinc429.h>
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+
-+#define ARINC429_VERSION "20151101"
-+
-+/* Increment this number each time you change some user-space interface */
-+#define ARINC429_ABI_VERSION "1"
-+
-+#define ARINC429_VERSION_STRING		\
-+	"rev " ARINC429_VERSION " abi " ARINC429_ABI_VERSION
-+
-+#define DNAME(dev) ((dev) ? (dev)->name : "any")
-+
-+/**
-+ * struct arinc429_proto - ARINC429 protocol structure
-+ * @type:       type argument in socket() syscall, e.g. SOCK_DGRAM.
-+ * @protocol:   protocol number in socket() syscall.
-+ * @ops:        pointer to struct proto_ops for sock->ops.
-+ * @prot:       pointer to struct proto structure.
-+ */
-+struct arinc429_proto {
-+	int			type;
-+	int			protocol;
-+	const struct proto_ops	*ops;
-+	struct proto		*prot;
-+};
-+
-+/* Function prototypes for the ARINC429 network layer core (af_arinc429.c) */
-+extern int  arinc429_proto_register(const struct arinc429_proto *cp);
-+extern void arinc429_proto_unregister(const struct arinc429_proto *cp);
-+
-+extern int  arinc429_rx_register(struct net_device *dev,
-+				 struct arinc429_filter *filter,
-+				 void (*func)(struct sk_buff *, void *),
-+				 void *data, char *ident);
-+
-+extern void arinc429_rx_unregister(struct net_device *dev,
-+				   struct arinc429_filter *filter,
-+				   void (*func)(struct sk_buff *, void *),
-+				   void *data);
-+
-+extern int arinc429_send(struct sk_buff *skb, int loop);
-+extern int arinc429_ioctl(struct socket *sock, unsigned int cmd,
-+			  unsigned long arg);
-+
-+#endif /* __ARINC429_CORE_H__ */
-diff --git a/include/linux/arinc429/dev.h b/include/linux/arinc429/dev.h
-new file mode 100644
-index 0000000..e496fbf
---- /dev/null
-+++ b/include/linux/arinc429/dev.h
-@@ -0,0 +1,81 @@
-+/*
-+ * linux/arinc429/dev.h
-+ *
-+ * Definitions for the ARINC429 network device driver interface
-+ *
-+ * Copyright (C) 2015 Marek Vasut <marex@denx.de>
-+ *
-+ * Based on the SocketCAN stack.
-+ */
-+
-+#ifndef __ARINC429_DEV_H__
-+#define __ARINC429_DEV_H__
-+
-+#include <linux/arinc429.h>
-+#include <linux/arinc429/netlink.h>
-+
-+/*
-+ * ARINC429 mode
-+ */
-+enum arinc429_mode {
-+	ARINC429_MODE_STOP = 0,
-+	ARINC429_MODE_START,
-+	ARINC429_MODE_SLEEP
-+};
-+
-+/*
-+ * ARINC429 common private data
-+ */
-+struct arinc429_priv {
-+	struct arinc429_rate rate;
-+	u32 ctrlmode;
-+	u32 ctrlmode_supported;
-+
-+	int (*do_set_rate)(struct net_device *dev);
-+	int (*do_set_mode)(struct net_device *dev, enum arinc429_mode mode);
-+
-+	unsigned int echo_skb_max;
-+	struct sk_buff **echo_skb;
-+};
-+
-+/* Drop a given socketbuffer if it does not contain a valid ARINC429 frame. */
-+static inline int arinc429_dropped_invalid_skb(struct net_device *dev,
-+					       struct sk_buff *skb)
-+{
-+	if (skb->protocol == htons(ETH_P_ARINC429)) {
-+		if (unlikely(skb->len != ARINC429_MTU))
-+			goto inval_skb;
-+	} else
-+		goto inval_skb;
-+
-+	return 0;
-+
-+inval_skb:
-+	kfree_skb(skb);
-+	dev->stats.tx_dropped++;
-+	return 1;
-+}
-+
-+struct net_device *alloc_arinc429dev(int sizeof_priv,
-+				     unsigned int echo_skb_max);
-+void free_arinc429dev(struct net_device *dev);
-+
-+/* a arinc429dev safe wrapper around netdev_priv */
-+struct arinc429_priv *safe_arinc429dev_priv(struct net_device *dev);
-+
-+int open_arinc429dev(struct net_device *dev);
-+void close_arinc429dev(struct net_device *dev);
-+int arinc429_change_mtu(struct net_device *dev, int new_mtu);
-+
-+int register_arinc429dev(struct net_device *dev);
-+void unregister_arinc429dev(struct net_device *dev);
-+
-+void arinc429_put_echo_skb(struct sk_buff *skb, struct net_device *dev,
-+		      unsigned int idx);
-+unsigned int arinc429_get_echo_skb(struct net_device *dev, unsigned int idx);
-+void arinc429_free_echo_skb(struct net_device *dev, unsigned int idx);
-+
-+struct sk_buff *alloc_arinc429_skb(struct net_device *dev,
-+				   struct arinc429_frame **cf);
-+
-+#endif /* __ARINC429_DEV_H__ */
-diff --git a/include/linux/arinc429/skb.h b/include/linux/arinc429/skb.h
-new file mode 100644
-index 0000000..20b76b5
---- /dev/null
-+++ b/include/linux/arinc429/skb.h
-@@ -0,0 +1,79 @@
-+/*
-+ * linux/arinc429/skb.h
-+ *
-+ * Definitions for the ARINC429 network socket buffer
-+ *
-+ * Copyright (C) 2015 Marek Vasut <marex@denx.de>
-+ *
-+ * Based on the SocketCAN stack.
-+ */
-+
-+#ifndef __ARINC429_SKB_H__
-+#define __ARINC429_SKB_H__
-+
-+#include <linux/types.h>
-+#include <linux/skbuff.h>
-+#include <linux/arinc429.h>
-+#include <net/sock.h>
-+
-+/*
-+ * The struct arinc429_skb_priv is used to transport additional information
-+ * along with the stored struct arinc429(fd)_frame that arinc429 not be
-+ * contained in existing struct sk_buff elements.
-+ * N.B. that this information must not be modified in cloned ARINC429 sk_buffs.
-+ * To modify the ARINC429 frame content or the struct arinc429_skb_priv content
-+ * skb_copy() needs to be used instead of skb_clone().
-+ */
-+
-+/**
-+ * struct arinc429_skb_priv - private additional data inside ARINC429 sk_buffs
-+ * @ifindex:	ifindex of the first interface the ARINC429 frame appeared on
-+ * @cf:		align to the following ARINC429 frame at skb->data
-+ */
-+struct arinc429_skb_priv {
-+	int			ifindex;
-+	struct arinc429_frame	af[0];
-+};
-+
-+static inline struct arinc429_skb_priv *arinc429_skb_prv(struct sk_buff *skb)
-+{
-+	return (struct arinc429_skb_priv *)(skb->head);
-+}
-+
-+static inline void arinc429_skb_reserve(struct sk_buff *skb)
-+{
-+	skb_reserve(skb, sizeof(struct arinc429_skb_priv));
-+}
-+
-+static inline void arinc429_skb_set_owner(struct sk_buff *skb, struct sock *sk)
-+{
-+	if (sk) {
-+		sock_hold(sk);
-+		skb->destructor = sock_efree;
-+		skb->sk = sk;
-+	}
-+}
-+
-+/*
-+ * returns an unshared skb owned by the original sock to be echo'ed back
-+ */
-+static inline struct sk_buff *arinc429_create_echo_skb(struct sk_buff *skb)
-+{
-+	if (skb_shared(skb)) {
-+		struct sk_buff *nskb = skb_clone(skb, GFP_ATOMIC);
-+
-+		if (likely(nskb)) {
-+			arinc429_skb_set_owner(nskb, skb->sk);
-+			consume_skb(skb);
-+			return nskb;
-+		}
-+
-+		kfree_skb(skb);
-+		return NULL;
-+	}
-+
-+	/* we can assume to have an unshared skb with proper owner */
-+	return skb;
-+}
-+
-+#endif /* __ARINC429_SKB_H__ */
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 5bf59c8..627d4af 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -200,7 +200,8 @@ struct ucred {
- #define AF_ALG		38	/* Algorithm sockets		*/
- #define AF_NFC		39	/* NFC sockets			*/
- #define AF_VSOCK	40	/* vSockets			*/
--#define AF_MAX		41	/* For now.. */
-+#define AF_ARINC429	41	/* ARINC429			*/
-+#define AF_MAX		42	/* For now.. */
- 
- /* Protocol families, same as address families. */
- #define PF_UNSPEC	AF_UNSPEC
-@@ -246,6 +247,7 @@ struct ucred {
- #define PF_ALG		AF_ALG
- #define PF_NFC		AF_NFC
- #define PF_VSOCK	AF_VSOCK
-+#define PF_ARINC429	AF_ARINC429
- #define PF_MAX		AF_MAX
- 
- /* Maximum queue length specifiable by listen.  */
-diff --git a/include/uapi/linux/arinc429.h b/include/uapi/linux/arinc429.h
-new file mode 100644
-index 0000000..0cd5151
---- /dev/null
-+++ b/include/uapi/linux/arinc429.h
-@@ -0,0 +1,88 @@
-+/*
-+ * linux/arinc429.h
-+ *
-+ * Definitions for ARINC429 network layer
-+ * (socket addr / ARINC429 frame / ARINC429 filter)
-+ *
-+ * * Copyright (C) 2015 Marek Vasut <marex@denx.de>
-+ *
-+ * Based on the SocketCAN stack.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#ifndef __UAPI_ARINC429_H__
-+#define __UAPI_ARINC429_H__
-+
-+#include <linux/types.h>
-+#include <linux/socket.h>
-+
-+/* ARINC429 kernel definitions */
-+
-+/*
-+ * ARINC packet:
-+ *
-+ * .-.---.------.---.-----.
-+ * |P|SSM| Data |SDI|Label|
-+ * '-'---'------'---'-----'
-+ *  3 3 2 2....1 1 9 8...0
-+ *  1 0 9 8    1 0
-+ */
-+
-+/**
-+ * struct arinc429_frame - basic ARINC429 frame structure
-+ * @label:	ARINC429 label
-+ * @data:	ARINC429 P, SSM, DATA and SDI
-+ */
-+struct arinc429_frame {
-+	__u8	label;		/* 8 bit label */
-+	__u8	data[3];	/* Up-to 23 bits are valid. */
-+};
-+
-+#define ARINC429_MTU		(sizeof(struct arinc429_frame))
-+
-+/* particular protocols of the protocol family PF_ARINC429 */
-+#define ARINC429_RAW		1 /* RAW sockets */
-+#define ARINC429_NPROTO		2
-+
-+#define SOL_ARINC429_BASE	100
-+
-+/**
-+ * struct sockaddr_arinc429 - the sockaddr structure for ARINC429 sockets
-+ * @arinc429_family:	address family number AF_ARINC429.
-+ * @arinc429_ifindex:	ARINC429 network interface index.
-+ * @arinc429_addr:	protocol specific address information
-+ */
-+struct sockaddr_arinc429 {
-+	__kernel_sa_family_t arinc429_family;
-+	int         arinc429_ifindex;
-+	union {
-+		/* reserved for future ARINC429 protocols address information */
-+	} arinc429_addr;
-+};
-+
-+/**
-+ * struct arinc429_filter - ARINC429 ID based filter in arinc429_register().
-+ * @arinc429_label: relevant bits of ARINC429 ID which are not masked out.
-+ * @arinc429_mask:  ARINC429 mask (see description)
-+ *
-+ * Description:
-+ * A filter matches, when
-+ *
-+ *          <received_arinc429_id> & mask == arinc429_id & mask
-+ */
-+struct arinc429_filter {
-+	__u8	label;		/* 8 bit label */
-+	__u8	mask;		/* 8 bit label mask */
-+#define ARINC429_INV_FILTER	0x00000001
-+	__u32	flags;		/* Flags */
-+};
-+
-+#endif /* __UAPI_ARINC429_H__ */
-diff --git a/include/uapi/linux/arinc429/Kbuild b/include/uapi/linux/arinc429/Kbuild
-new file mode 100644
-index 0000000..21c91bf
---- /dev/null
-+++ b/include/uapi/linux/arinc429/Kbuild
-@@ -0,0 +1,6 @@
-+# UAPI Header export list
-+header-y += bcm.h
-+header-y += error.h
-+header-y += gw.h
-+header-y += netlink.h
-+header-y += raw.h
-diff --git a/include/uapi/linux/arinc429/netlink.h b/include/uapi/linux/arinc429/netlink.h
-new file mode 100644
-index 0000000..5d2f48b
---- /dev/null
-+++ b/include/uapi/linux/arinc429/netlink.h
-@@ -0,0 +1,55 @@
-+/*
-+ * linux/arinc429/netlink.h
-+ *
-+ * Definitions for the ARINC429 netlink interface
-+ *
-+ * Copyright (C) 2015 Marek Vasut <marex@denx.de>
-+ *
-+ * Based on the SocketARINC429 stack.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#ifndef _UAPI_ARINC429_NETLINK_H
-+#define _UAPI_ARINC429_NETLINK_H
-+
-+#include <linux/types.h>
-+
-+/*
-+ * ARINC429 data rate parameters
-+ */
-+struct arinc429_rate {
-+	__u32 rx_rate;		/* ARINC429 bus RX rate [Hz] */
-+	__u32 tx_rate;		/* ARINC429 bus TX rate [Hz] */
-+};
-+
-+/*
-+ * ARINC429 controller mode
-+ */
-+struct arinc429_ctrlmode {
-+	__u32 mask;
-+	__u32 flags;
-+};
-+
-+#define ARINC429_CTRLMODE_LOOPBACK	0x01	/* Loopback mode */
-+
-+/*
-+ * ARINC429 netlink interface
-+ */
-+enum {
-+	IFLA_ARINC429_UNSPEC,
-+	IFLA_ARINC429_RATE,
-+	IFLA_ARINC429_CTRLMODE,
-+	__IFLA_ARINC429_MAX
-+};
-+
-+#define IFLA_ARINC429_MAX	(__IFLA_ARINC429_MAX - 1)
-+
-+#endif /* !_UAPI_ARINC429_NETLINK_H */
-diff --git a/include/uapi/linux/arinc429/raw.h b/include/uapi/linux/arinc429/raw.h
-new file mode 100644
-index 0000000..e951148
---- /dev/null
-+++ b/include/uapi/linux/arinc429/raw.h
-@@ -0,0 +1,36 @@
-+/*
-+ * linux/arinc429/raw.h
-+ *
-+ * Definitions for raw ARINC429 sockets
-+ *
-+ * Copyright (C) 2015 Marek Vasut <marex@denx.de>
-+ *
-+ * Based on the SocketCAN stack.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#ifndef _UAPI_ARINC429_RAW_H
-+#define _UAPI_ARINC429_RAW_H
-+
-+#include <linux/arinc429.h>
-+
-+#define SOL_ARINC429_RAW (SOL_ARINC429_BASE + ARINC429_RAW)
-+
-+/* for socket options affecting the socket (not the global system) */
-+
-+enum {
-+	ARINC429_RAW_FILTER = 1,	/* set 0 .. n arinc429_filter(s)     */
-+	ARINC429_RAW_LOOPBACK,		/* local loopback (default:on)       */
-+	ARINC429_RAW_RECV_OWN_MSGS,	/* receive my own msgs (default:off) */
-+	ARINC429_RAW_JOIN_FILTERS,	/* all filters must match to trigger */
-+};
-+
-+#endif /* !_UAPI_ARINC429_RAW_H */
-diff --git a/include/uapi/linux/if_arp.h b/include/uapi/linux/if_arp.h
-index 4d024d7..3457947 100644
---- a/include/uapi/linux/if_arp.h
-+++ b/include/uapi/linux/if_arp.h
-@@ -53,6 +53,7 @@
- #define ARPHRD_X25	271		/* CCITT X.25			*/
- #define ARPHRD_HWX25	272		/* Boards with X.25 in firmware	*/
- #define ARPHRD_CAN	280		/* Controller Area Network      */
-+#define ARPHRD_ARINC429	281		/* ARINC429			*/
- #define ARPHRD_PPP	512
- #define ARPHRD_CISCO	513		/* Cisco HDLC	 		*/
- #define ARPHRD_HDLC	ARPHRD_CISCO
-diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
-index ea9221b..8bbe328 100644
---- a/include/uapi/linux/if_ether.h
-+++ b/include/uapi/linux/if_ether.h
-@@ -126,6 +126,7 @@
- #define ETH_P_ARCNET	0x001A		/* 1A for ArcNet :-)            */
- #define ETH_P_DSA	0x001B		/* Distributed Switch Arch.	*/
- #define ETH_P_TRAILER	0x001C		/* Trailer switch tagging	*/
-+#define ETH_P_ARINC429	0x001D		/* ARINC429			*/
- #define ETH_P_PHONET	0x00F5		/* Nokia Phonet frames          */
- #define ETH_P_IEEE802154 0x00F6		/* IEEE802.15.4 frame		*/
- #define ETH_P_CAIF	0x00F7		/* ST-Ericsson CAIF protocol	*/
-diff --git a/net/Kconfig b/net/Kconfig
-index 7021c1b..ec5efaa 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -345,6 +345,7 @@ endmenu
- 
- endmenu
- 
-+source "net/arinc429/Kconfig"
- source "net/ax25/Kconfig"
- source "net/can/Kconfig"
- source "net/irda/Kconfig"
-diff --git a/net/Makefile b/net/Makefile
-index 3995613..b3ee049 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -28,6 +28,7 @@ obj-$(CONFIG_X25)		+= x25/
- obj-$(CONFIG_LAPB)		+= lapb/
- obj-$(CONFIG_NETROM)		+= netrom/
- obj-$(CONFIG_ROSE)		+= rose/
-+obj-$(CONFIG_ARINC429)		+= arinc429/
- obj-$(CONFIG_AX25)		+= ax25/
- obj-$(CONFIG_CAN)		+= can/
- obj-$(CONFIG_IRDA)		+= irda/
-diff --git a/net/arinc429/Kconfig b/net/arinc429/Kconfig
-new file mode 100644
-index 0000000..2952123
---- /dev/null
-+++ b/net/arinc429/Kconfig
-@@ -0,0 +1,31 @@
-+#
-+# ARINC429 network layer core configuration
-+#
-+
-+menuconfig ARINC429
-+	depends on NET
-+	tristate "ARINC429 bus subsystem support"
-+	---help---
-+	  ARINC429 is a slow communication protocol used in avionics.
-+	  More information on the ARINC429 protocol family PF_ARINC429
-+	  is contained in <Documentation/networking/arinc429.txt>.
-+
-+	  If you want ARINC429 support you should say Y here and also to
-+	  the specific driver for your controller(s) below.
-+
-+if ARINC429
-+
-+config ARINC429_RAW
-+	tristate "Raw ARINC429 Protocol"
-+	default y
-+	---help---
-+	  The raw ARINC429 protocol option offers access to the ARINC429
-+	  bus via the BSD socket API. You probably want to use the raw
-+	  socket in most cases where no higher level protocol is being
-+	  used. The raw socket has several filter options e.g. ID masking
-+	  / error frames. To receive/send raw ARINC429 messages, use AF_ARINC429
-+	  with protocol ARINC429_RAW.
-+
-+source "drivers/net/arinc429/Kconfig"
-+
-+endif
-diff --git a/net/arinc429/Makefile b/net/arinc429/Makefile
-new file mode 100644
-index 0000000..f444729
---- /dev/null
-+++ b/net/arinc429/Makefile
-@@ -0,0 +1,9 @@
-+#
-+#  Makefile for the Linux Controller Area Network core.
-+#
-+
-+obj-$(CONFIG_ARINC429)		+= arinc429.o
-+arinc429-y			:= af_arinc429.o proc.o
-+
-+obj-$(CONFIG_ARINC429_RAW)	+= arinc429-raw.o
-+arinc429-raw-y			:= raw.o
-diff --git a/net/arinc429/af_arinc429.c b/net/arinc429/af_arinc429.c
-new file mode 100644
-index 0000000..39c8d0a
---- /dev/null
-+++ b/net/arinc429/af_arinc429.c
-@@ -0,0 +1,812 @@
-+/*
-+ * af_arinc429.c - Protocol family ARINC429 core module
-+ *                 (used by different ARINC429 protocol modules)
-+ *
-+ * Copyright (C) 2015 Marek Vasut <marex@denx.de>
-+ *
-+ * Based on the SocketCAN stack.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation; either version 2 of
-+ * the License, or (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/stddef.h>
-+#include <linux/init.h>
-+#include <linux/kmod.h>
-+#include <linux/slab.h>
-+#include <linux/list.h>
-+#include <linux/spinlock.h>
-+#include <linux/rcupdate.h>
-+#include <linux/uaccess.h>
-+#include <linux/net.h>
-+#include <linux/netdevice.h>
-+#include <linux/socket.h>
-+#include <linux/if_ether.h>
-+#include <linux/if_arp.h>
-+#include <linux/skbuff.h>
-+#include <linux/arinc429.h>
-+#include <linux/arinc429/core.h>
-+#include <linux/arinc429/skb.h>
-+#include <linux/ratelimit.h>
-+#include <net/net_namespace.h>
-+#include <net/sock.h>
-+
-+#include "af_arinc429.h"
-+
-+MODULE_DESCRIPTION("ARINC429 PF_ARINC429 core");
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Marek Vasut <marex@denx.de>");
-+
-+MODULE_ALIAS_NETPROTO(PF_ARINC429);
-+
-+/* receive filters subscribed for 'all' ARINC429 devices */
-+struct dev_rcv_lists arinc429_rx_alldev_list;
-+static DEFINE_SPINLOCK(arinc429_rcvlists_lock);
-+
-+static struct kmem_cache *rcv_cache __read_mostly;
-+
-+/* table of registered ARINC429 protocols */
-+static const struct arinc429_proto *proto_tab[ARINC429_NPROTO] __read_mostly;
-+static DEFINE_MUTEX(proto_tab_lock);
-+
-+struct timer_list arinc429_stattimer;   /* timer for statistics update */
-+struct s_stats    arinc429_stats;       /* packet statistics */
-+struct s_pstats   arinc429_pstats;      /* receive list statistics */
-+
-+/*
-+ * af_arinc429 socket functions
-+ */
-+
-+int arinc429_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
-+{
-+	struct sock *sk = sock->sk;
-+
-+	switch (cmd) {
-+	case SIOCGSTAMP:
-+		return sock_get_timestamp(sk, (struct timeval __user *)arg);
-+
-+	default:
-+		return -ENOIOCTLCMD;
-+	}
-+}
-+EXPORT_SYMBOL(arinc429_ioctl);
-+
-+static void arinc429_sock_destruct(struct sock *sk)
-+{
-+	skb_queue_purge(&sk->sk_receive_queue);
-+}
-+
-+static const struct arinc429_proto *arinc429_get_proto(int protocol)
-+{
-+	const struct arinc429_proto *cp;
-+
-+	rcu_read_lock();
-+	cp = rcu_dereference(proto_tab[protocol]);
-+	if (cp && !try_module_get(cp->prot->owner))
-+		cp = NULL;
-+	rcu_read_unlock();
-+
-+	return cp;
-+}
-+
-+static inline void arinc429_put_proto(const struct arinc429_proto *cp)
-+{
-+	module_put(cp->prot->owner);
-+}
-+
-+static int arinc429_create(struct net *net, struct socket *sock, int protocol,
-+			   int kern)
-+{
-+	struct sock *sk;
-+	const struct arinc429_proto *cp;
-+	int err = 0;
-+
-+	sock->state = SS_UNCONNECTED;
-+
-+	if (protocol < 0 || protocol >= ARINC429_NPROTO)
-+		return -EINVAL;
-+
-+	if (!net_eq(net, &init_net))
-+		return -EAFNOSUPPORT;
-+
-+	cp = arinc429_get_proto(protocol);
-+
-+#ifdef CONFIG_MODULES
-+	if (!cp) {
-+		/* Try to load protocol module if kernel is modular */
-+		err = request_module("arinc429-proto-%d", protocol);
-+
-+		/*
-+		 * In case of error we only print a message but don't
-+		 * return the error code immediately.  Below we will
-+		 * return -EPROTONOSUPPORT
-+		 */
-+		if (err) {
-+			pr_err_ratelimited(
-+				"arinc429: request_module (arinc429-proto-%d) failed.\n",
-+				protocol);
-+		}
-+
-+		cp = arinc429_get_proto(protocol);
-+	}
-+#endif
-+
-+	/* Check for available protocol and correct usage */
-+	if (!cp)
-+		return -EPROTONOSUPPORT;
-+
-+	if (cp->type != sock->type) {
-+		err = -EPROTOTYPE;
-+		goto errout;
-+	}
-+
-+	sock->ops = cp->ops;
-+
-+	sk = sk_alloc(net, PF_ARINC429, GFP_KERNEL, cp->prot, kern);
-+	if (!sk) {
-+		err = -ENOMEM;
-+		goto errout;
-+	}
-+
-+	sock_init_data(sock, sk);
-+	sk->sk_destruct = arinc429_sock_destruct;
-+
-+	if (sk->sk_prot->init)
-+		err = sk->sk_prot->init(sk);
-+
-+	if (err) {
-+		/* release sk on errors */
-+		sock_orphan(sk);
-+		sock_put(sk);
-+	}
-+
-+ errout:
-+	arinc429_put_proto(cp);
-+	return err;
-+}
-+
-+/*
-+ * af_arinc429 tx path
-+ */
-+
-+/**
-+ * arinc429_send - transmit a ARINC429 frame (optional with local loopback)
-+ * @skb: pointer to socket buffer with ARINC429 frame in data section
-+ * @loop: loopback for listeners on local ARINC429 sockets
-+ *        (recommended default!)
-+ *
-+ * Due to the loopback this routine must not be called from hardirq context.
-+ *
-+ * Return:
-+ *  0 on success
-+ *  -ENETDOWN when the selected interface is down
-+ *  -ENOBUFS on full driver queue (see net_xmit_errno())
-+ *  -ENOMEM when local loopback failed at calling skb_clone()
-+ *  -EPERM when trying to send on a non-ARINC429 interface
-+ *  -EMSGSIZE ARINC429 frame size is bigger than ARINC429 interface MTU
-+ *  -EINVAL when the skb->data does not contain a valid ARINC429 frame
-+ */
-+int arinc429_send(struct sk_buff *skb, int loop)
-+{
-+	struct sk_buff *newskb = NULL;
-+	int err = -EINVAL;
-+
-+	if (skb->len == ARINC429_MTU)
-+		skb->protocol = htons(ETH_P_ARINC429);
-+	else
-+		goto inval_skb;
-+
-+	/*
-+	 * Make sure the ARINC429 frame can pass the selected
-+	 * ARINC429 netdevice.
-+	 */
-+	if (unlikely(skb->len > skb->dev->mtu)) {
-+		err = -EMSGSIZE;
-+		goto inval_skb;
-+	}
-+
-+	if (unlikely(skb->dev->type != ARPHRD_ARINC429)) {
-+		err = -EPERM;
-+		goto inval_skb;
-+	}
-+
-+	if (unlikely(!(skb->dev->flags & IFF_UP))) {
-+		err = -ENETDOWN;
-+		goto inval_skb;
-+	}
-+
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+
-+	skb_reset_mac_header(skb);
-+	skb_reset_network_header(skb);
-+	skb_reset_transport_header(skb);
-+
-+	if (loop) {
-+		/* local loopback of sent ARINC429 frames */
-+
-+		/* indication for the ARINC429 driver: do loopback */
-+		skb->pkt_type = PACKET_LOOPBACK;
-+
-+		/*
-+		 * The reference to the originating sock may be required
-+		 * by the receiving socket to check whether the frame is
-+		 * its own.
-+		 * Example: arinc429_raw sockopt ARINC429_RAW_RECV_OWN_MSGS
-+		 * Therefore we have to ensure that skb->sk remains the
-+		 * reference to the originating sock by restoring skb->sk
-+		 * after each skb_clone() or skb_orphan() usage.
-+		 */
-+
-+		if (!(skb->dev->flags & IFF_ECHO)) {
-+			/*
-+			 * If the interface is not capable to do loopback
-+			 * itself, we do it here.
-+			 */
-+			newskb = skb_clone(skb, GFP_ATOMIC);
-+			if (!newskb) {
-+				kfree_skb(skb);
-+				return -ENOMEM;
-+			}
-+
-+			arinc429_skb_set_owner(newskb, skb->sk);
-+			newskb->ip_summed = CHECKSUM_UNNECESSARY;
-+			newskb->pkt_type = PACKET_BROADCAST;
-+		}
-+	} else {
-+		/* indication for the ARINC429 driver: no loopback required */
-+		skb->pkt_type = PACKET_HOST;
-+	}
-+
-+	/* send to netdevice */
-+	err = dev_queue_xmit(skb);
-+	if (err > 0)
-+		err = net_xmit_errno(err);
-+
-+	if (err) {
-+		kfree_skb(newskb);
-+		return err;
-+	}
-+
-+	if (newskb) {
-+		if (!(newskb->tstamp.tv64))
-+			__net_timestamp(newskb);
-+
-+		netif_rx_ni(newskb);
-+	}
-+
-+	/* update statistics */
-+	arinc429_stats.tx_frames++;
-+	arinc429_stats.tx_frames_delta++;
-+
-+	return 0;
-+
-+inval_skb:
-+	kfree_skb(skb);
-+	return err;
-+}
-+EXPORT_SYMBOL(arinc429_send);
-+
-+/*
-+ * af_arinc429 rx path
-+ */
-+
-+static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev)
-+{
-+	if (!dev)
-+		return &arinc429_rx_alldev_list;
-+	else
-+		return (struct dev_rcv_lists *)dev->ml_priv;
-+}
-+
-+/**
-+ * find_rcv_list - determine optimal filterlist inside device filter struct
-+ * @label: pointer to ARINC429 identifier of a given arinc429_filter
-+ * @mask: pointer to ARINC429 mask of a given arinc429_filter
-+ * @inv: filter is inverted
-+ * @d: pointer to the device filter struct
-+ *
-+ * Description:
-+ *  Returns the optimal filterlist to reduce the filter handling in the
-+ *  receive path. This function is called by service functions that need
-+ *  to register or unregister a arinc429_filter in the filter lists.
-+ *
-+ *  A filter matches in general, when
-+ *
-+ *          <received_label> & mask == label & mask
-+ *
-+ *  The filter can be inverted (ARINC429_INV_FILTER bit set in label).
-+ *
-+ * Return:
-+ *  Pointer to optimal filterlist for the given label/mask pair.
-+ *  Constistency checked mask.
-+ *  Reduced label to have a preprocessed filter compare value.
-+ */
-+static struct hlist_head *find_rcv_list(u8 *label, u8 *mask, const bool inv,
-+					struct dev_rcv_lists *d)
-+{
-+	/* reduce condition testing at receive time */
-+	*label &= *mask;
-+
-+	/* inverse label/can_mask filter */
-+	if (inv)
-+		return &d->rx[RX_INV];
-+
-+	/* mask == 0 => no condition testing at receive time */
-+	if (!(*mask))
-+		return &d->rx[RX_ALL];
-+
-+	/* default: filter via label/can_mask */
-+	return &d->rx[RX_FIL];
-+}
-+
-+/**
-+ * arinc429_rx_register - subscribe ARINC429 frames from a specific interface
-+ * @dev: pointer to netdevice (NULL => subscribe from 'all' devices list)
-+ * @filter: ARINC429 filter (see description)
-+ * @func: callback function on filter match
-+ * @data: returned parameter for callback function
-+ * @ident: string for calling module identification
-+ *
-+ * Description:
-+ *  Invokes the callback function with the received sk_buff and the given
-+ *  parameter 'data' on a matching receive filter. A filter matches, when
-+ *
-+ *          <received_arinc429_id> & mask == arinc429_id & mask
-+ *
-+ *  The filter can be inverted (ARINC429_INV_FILTER bit set in arinc429_id)
-+ *  or it can filter for error message frames (ARINC429_ERR_FLAG bit set in
-+ *  mask).
-+ *
-+ *  The provided pointer to the sk_buff is guaranteed to be valid as long as
-+ *  the callback function is running. The callback function must *not* free
-+ *  the given sk_buff while processing it's task. When the given sk_buff is
-+ *  needed after the end of the callback function it must be cloned inside
-+ *  the callback function with skb_clone().
-+ *
-+ * Return:
-+ *  0 on success
-+ *  -ENOMEM on missing cache mem to create subscription entry
-+ *  -ENODEV unknown device
-+ */
-+int arinc429_rx_register(struct net_device *dev,
-+			 struct arinc429_filter *filter,
-+			 void (*func)(struct sk_buff *, void *), void *data,
-+			 char *ident)
-+{
-+	struct receiver *r;
-+	struct hlist_head *rl;
-+	struct dev_rcv_lists *d;
-+	int err = 0;
-+	u8 label = filter->label;
-+	u8 mask = filter->mask;
-+	const bool inv = filter->flags & ARINC429_INV_FILTER;
-+
-+	/* insert new receiver  (dev,label,mask) -> (func,data) */
-+
-+	if (dev && dev->type != ARPHRD_ARINC429)
-+		return -ENODEV;
-+
-+	r = kmem_cache_alloc(rcv_cache, GFP_KERNEL);
-+	if (!r)
-+		return -ENOMEM;
-+
-+	spin_lock(&arinc429_rcvlists_lock);
-+
-+	d = find_dev_rcv_lists(dev);
-+	if (d) {
-+		rl = find_rcv_list(&label, &mask, inv, d);
-+
-+		r->label   = label;
-+		r->mask    = mask;
-+		r->matches = 0;
-+		r->func    = func;
-+		r->data    = data;
-+		r->ident   = ident;
-+
-+		hlist_add_head_rcu(&r->list, rl);
-+		d->entries++;
-+
-+		arinc429_pstats.rcv_entries++;
-+		if (arinc429_pstats.rcv_entries_max < arinc429_pstats.rcv_entries)
-+			arinc429_pstats.rcv_entries_max = arinc429_pstats.rcv_entries;
-+	} else {
-+		kmem_cache_free(rcv_cache, r);
-+		err = -ENODEV;
-+	}
-+
-+	spin_unlock(&arinc429_rcvlists_lock);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL(arinc429_rx_register);
-+
-+/*
-+ * arinc429_rx_delete_receiver - rcu callback for single receiver entry removal
-+ */
-+static void arinc429_rx_delete_receiver(struct rcu_head *rp)
-+{
-+	struct receiver *r = container_of(rp, struct receiver, rcu);
-+
-+	kmem_cache_free(rcv_cache, r);
-+}
-+
-+/**
-+ * arinc429_rx_unregister - unsubscribe ARINC429 frames from specific interface
-+ * @dev: pointer to netdevice (NULL => unsubscribe from 'all' devices list)
-+ * @filter: ARINC429 filter
-+ * @func: callback function on filter match
-+ * @data: returned parameter for callback function
-+ *
-+ * Description:
-+ *  Removes subscription entry depending on given (subscription) values.
-+ */
-+void arinc429_rx_unregister(struct net_device *dev,
-+			    struct arinc429_filter *filter,
-+			    void (*func)(struct sk_buff *, void *),
-+			    void *data)
-+{
-+	struct receiver *r = NULL;
-+	struct hlist_head *rl;
-+	struct dev_rcv_lists *d;
-+	u8 label = filter->label;
-+	u8 mask = filter->mask;
-+	const bool inv = filter->flags & ARINC429_INV_FILTER;
-+
-+	if (dev && dev->type != ARPHRD_ARINC429)
-+		return;
-+
-+	spin_lock(&arinc429_rcvlists_lock);
-+
-+	d = find_dev_rcv_lists(dev);
-+	if (!d) {
-+		pr_err("BUG: receive list not found for dev %s, label %02X, mask %02X\n",
-+		       DNAME(dev), label, mask);
-+		goto out;
-+	}
-+
-+	rl = find_rcv_list(&label, &mask, inv, d);
-+
-+	/*
-+	 * Search the receiver list for the item to delete.  This should
-+	 * exist, since no receiver may be unregistered that hasn't
-+	 * been registered before.
-+	 */
-+
-+	hlist_for_each_entry_rcu(r, rl, list) {
-+		if (r->label == label && r->mask == mask &&
-+		    r->func == func && r->data == data)
-+			break;
-+	}
-+
-+	/*
-+	 * Check for bugs in ARINC429 protocol implementations using af_arinc429.c:
-+	 * 'r' will be NULL if no matching list item was found for removal.
-+	 */
-+
-+	if (!r) {
-+		WARN(1, "BUG: receive list entry not found for dev %s, id %02X, mask %02X\n",
-+		     DNAME(dev), label, mask);
-+		goto out;
-+	}
-+
-+	hlist_del_rcu(&r->list);
-+	d->entries--;
-+
-+	if (arinc429_pstats.rcv_entries > 0)
-+		arinc429_pstats.rcv_entries--;
-+
-+	/* remove device structure requested by NETDEV_UNREGISTER */
-+	if (d->remove_on_zero_entries && !d->entries) {
-+		kfree(d);
-+		dev->ml_priv = NULL;
-+	}
-+
-+ out:
-+	spin_unlock(&arinc429_rcvlists_lock);
-+
-+	/* schedule the receiver item for deletion */
-+	if (r)
-+		call_rcu(&r->rcu, arinc429_rx_delete_receiver);
-+}
-+EXPORT_SYMBOL(arinc429_rx_unregister);
-+
-+static inline void deliver(struct sk_buff *skb, struct receiver *r)
-+{
-+	r->func(skb, r->data);
-+	r->matches++;
-+}
-+
-+static unsigned int arinc429_rcv_filter(struct dev_rcv_lists *d,
-+					struct sk_buff *skb)
-+{
-+	struct receiver *r;
-+	unsigned int matches = 0;
-+	struct arinc429_frame *af = (struct arinc429_frame *)skb->data;
-+	__u8 label = af->label;
-+
-+	if (d->entries == 0)
-+		return 0;
-+
-+	/* check for unfiltered entries */
-+	hlist_for_each_entry_rcu(r, &d->rx[RX_ALL], list) {
-+		deliver(skb, r);
-+		matches++;
-+	}
-+
-+	/* check for label/mask entries */
-+	hlist_for_each_entry_rcu(r, &d->rx[RX_FIL], list) {
-+		if ((label & r->mask) == r->label) {
-+			deliver(skb, r);
-+			matches++;
-+		}
-+	}
-+
-+	/* check for inverted label/mask entries */
-+	hlist_for_each_entry_rcu(r, &d->rx[RX_INV], list) {
-+		if ((label & r->mask) != r->label) {
-+			deliver(skb, r);
-+			matches++;
-+		}
-+	}
-+
-+	return matches;
-+}
-+
-+static void arinc429_receive(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct dev_rcv_lists *d;
-+	unsigned int matches;
-+
-+	/* update statistics */
-+	arinc429_stats.rx_frames++;
-+	arinc429_stats.rx_frames_delta++;
-+
-+	rcu_read_lock();
-+
-+	/* deliver the packet to sockets listening on all devices */
-+	matches = arinc429_rcv_filter(&arinc429_rx_alldev_list, skb);
-+
-+	/* find receive list for this device */
-+	d = find_dev_rcv_lists(dev);
-+	if (d)
-+		matches += arinc429_rcv_filter(d, skb);
-+
-+	rcu_read_unlock();
-+
-+	/* consume the skbuff allocated by the netdevice driver */
-+	consume_skb(skb);
-+
-+	if (matches > 0) {
-+		arinc429_stats.matches++;
-+		arinc429_stats.matches_delta++;
-+	}
-+}
-+
-+static int arinc429_rcv(struct sk_buff *skb, struct net_device *dev,
-+			struct packet_type *pt, struct net_device *orig_dev)
-+{
-+	int ret;
-+
-+	if (unlikely(!net_eq(dev_net(dev), &init_net)))
-+		goto drop;
-+
-+	ret = WARN_ONCE(dev->type != ARPHRD_ARINC429 ||
-+			skb->len != ARINC429_MTU,
-+			"PF_ARINC429: dropped non conform ARINC429 skbuf: dev type %d, len %d\n",
-+			dev->type, skb->len);
-+	if (ret)
-+		goto drop;
-+
-+	arinc429_receive(skb, dev);
-+	return NET_RX_SUCCESS;
-+
-+drop:
-+	kfree_skb(skb);
-+	return NET_RX_DROP;
-+}
-+
-+/*
-+ * af_arinc429 protocol functions
-+ */
-+
-+/**
-+ * arinc429_proto_register - register ARINC429 transport protocol
-+ * @cp: pointer to ARINC429 protocol structure
-+ *
-+ * Return:
-+ *  0 on success
-+ *  -EINVAL invalid (out of range) protocol number
-+ *  -EBUSY  protocol already in use
-+ *  -ENOBUF if proto_register() fails
-+ */
-+int arinc429_proto_register(const struct arinc429_proto *cp)
-+{
-+	int proto = cp->protocol;
-+	int err = 0;
-+
-+	if (proto < 0 || proto >= ARINC429_NPROTO) {
-+		pr_err("arinc429: protocol number %d out of range\n", proto);
-+		return -EINVAL;
-+	}
-+
-+	err = proto_register(cp->prot, 0);
-+	if (err < 0)
-+		return err;
-+
-+	mutex_lock(&proto_tab_lock);
-+
-+	if (proto_tab[proto]) {
-+		pr_err("arinc429: protocol %d already registered\n", proto);
-+		err = -EBUSY;
-+	} else {
-+		RCU_INIT_POINTER(proto_tab[proto], cp);
-+	}
-+
-+	mutex_unlock(&proto_tab_lock);
-+
-+	if (err < 0)
-+		proto_unregister(cp->prot);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL(arinc429_proto_register);
-+
-+/**
-+ * arinc429_proto_unregister - unregister ARINC429 transport protocol
-+ * @cp: pointer to ARINC429 protocol structure
-+ */
-+void arinc429_proto_unregister(const struct arinc429_proto *cp)
-+{
-+	int proto = cp->protocol;
-+
-+	mutex_lock(&proto_tab_lock);
-+	BUG_ON(proto_tab[proto] != cp);
-+	RCU_INIT_POINTER(proto_tab[proto], NULL);
-+	mutex_unlock(&proto_tab_lock);
-+
-+	synchronize_rcu();
-+
-+	proto_unregister(cp->prot);
-+}
-+EXPORT_SYMBOL(arinc429_proto_unregister);
-+
-+/*
-+ * af_arinc429 notifier to create/remove ARINC429 netdevice specific structs
-+ */
-+static int arinc429_notifier(struct notifier_block *nb, unsigned long msg,
-+			     void *ptr)
-+{
-+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+	struct dev_rcv_lists *d;
-+
-+	if (!net_eq(dev_net(dev), &init_net))
-+		return NOTIFY_DONE;
-+
-+	if (dev->type != ARPHRD_ARINC429)
-+		return NOTIFY_DONE;
-+
-+	switch (msg) {
-+	case NETDEV_REGISTER:
-+
-+		/* create new dev_rcv_lists for this device */
-+		d = kzalloc(sizeof(*d), GFP_KERNEL);
-+		if (!d)
-+			return NOTIFY_DONE;
-+		BUG_ON(dev->ml_priv);
-+		dev->ml_priv = d;
-+
-+		break;
-+
-+	case NETDEV_UNREGISTER:
-+		spin_lock(&arinc429_rcvlists_lock);
-+
-+		d = dev->ml_priv;
-+		if (d) {
-+			if (d->entries)
-+				d->remove_on_zero_entries = 1;
-+			else {
-+				kfree(d);
-+				dev->ml_priv = NULL;
-+			}
-+		} else {
-+			pr_err("arinc429: notifier: receive list not found for dev %s\n",
-+			       dev->name);
-+		}
-+
-+		spin_unlock(&arinc429_rcvlists_lock);
-+
-+		break;
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+/*
-+ * af_arinc429 module init/exit functions
-+ */
-+static struct packet_type arinc429_packet __read_mostly = {
-+	.type	= cpu_to_be16(ETH_P_ARINC429),
-+	.func	= arinc429_rcv,
-+};
-+
-+static const struct net_proto_family arinc429_family_ops = {
-+	.family	= PF_ARINC429,
-+	.create	= arinc429_create,
-+	.owner	= THIS_MODULE,
-+};
-+
-+/* notifier block for netdevice event */
-+static struct notifier_block arinc429_netdev_notifier __read_mostly = {
-+	.notifier_call = arinc429_notifier,
-+};
-+
-+static __init int arinc429_init(void)
-+{
-+	pr_info("arinc429: ARINC429 core (" ARINC429_VERSION_STRING ")\n");
-+
-+	memset(&arinc429_rx_alldev_list, 0, sizeof(arinc429_rx_alldev_list));
-+
-+	rcv_cache = kmem_cache_create("arinc429_receiver",
-+				      sizeof(struct receiver),
-+				      0, 0, NULL);
-+	if (!rcv_cache)
-+		return -ENOMEM;
-+
-+	/* the statistics are updated every second (timer triggered) */
-+	setup_timer(&arinc429_stattimer, arinc429_stat_update, 0);
-+	mod_timer(&arinc429_stattimer, round_jiffies(jiffies + HZ));
-+
-+	arinc429_init_proc();
-+
-+	/* protocol register */
-+	sock_register(&arinc429_family_ops);
-+	register_netdevice_notifier(&arinc429_netdev_notifier);
-+	dev_add_pack(&arinc429_packet);
-+
-+	return 0;
-+}
-+
-+static __exit void arinc429_exit(void)
-+{
-+	struct net_device *dev;
-+
-+	del_timer_sync(&arinc429_stattimer);
-+
-+	arinc429_remove_proc();
-+
-+	/* protocol unregister */
-+	dev_remove_pack(&arinc429_packet);
-+	unregister_netdevice_notifier(&arinc429_netdev_notifier);
-+	sock_unregister(PF_ARINC429);
-+
-+	/* remove created dev_rcv_lists from still registered devices */
-+	rcu_read_lock();
-+	for_each_netdev_rcu(&init_net, dev) {
-+		if (dev->type == ARPHRD_ARINC429 && dev->ml_priv) {
-+			struct dev_rcv_lists *d = dev->ml_priv;
-+
-+			BUG_ON(d->entries);
-+			kfree(d);
-+			dev->ml_priv = NULL;
-+		}
-+	}
-+	rcu_read_unlock();
-+
-+	rcu_barrier(); /* Wait for completion of call_rcu()'s */
-+
-+	kmem_cache_destroy(rcv_cache);
-+}
-+
-+module_init(arinc429_init);
-+module_exit(arinc429_exit);
-diff --git a/net/arinc429/af_arinc429.h b/net/arinc429/af_arinc429.h
-new file mode 100644
-index 0000000..7e4b00e
---- /dev/null
-+++ b/net/arinc429/af_arinc429.h
-@@ -0,0 +1,100 @@
-+/*
-+ * Copyright (C) 2015 Marek Vasut <marex@denx.de>
-+ *
-+ * Based on the SocketCAN stack.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation; either version 2 of
-+ * the License, or (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-+ */
-+
-+#ifndef AF_ARINC429_H
-+#define AF_ARINC429_H
-+
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <linux/list.h>
-+#include <linux/rcupdate.h>
-+#include <linux/arinc429.h>
-+
-+/* af_arinc429 rx dispatcher structures */
-+
-+struct receiver {
-+	struct hlist_node	list;
-+	struct rcu_head		rcu;
-+	__u8			label;
-+	__u8			mask;
-+	unsigned long		matches;
-+	void			(*func)(struct sk_buff *, void *);
-+	void			*data;
-+	char			*ident;
-+};
-+
-+enum { RX_ALL, RX_FIL, RX_INV, RX_MAX };
-+
-+/* per device receive filters linked at dev->ml_priv */
-+struct dev_rcv_lists {
-+	struct hlist_head	rx[RX_MAX];
-+	int			remove_on_zero_entries;
-+	int			entries;
-+};
-+
-+/* statistic structures */
-+
-+/* can be reset e.g. by arinc429_init_stats() */
-+struct s_stats {
-+	unsigned long jiffies_init;
-+
-+	unsigned long rx_frames;
-+	unsigned long tx_frames;
-+	unsigned long matches;
-+
-+	unsigned long total_rx_rate;
-+	unsigned long total_tx_rate;
-+	unsigned long total_rx_match_ratio;
-+
-+	unsigned long current_rx_rate;
-+	unsigned long current_tx_rate;
-+	unsigned long current_rx_match_ratio;
-+
-+	unsigned long max_rx_rate;
-+	unsigned long max_tx_rate;
-+	unsigned long max_rx_match_ratio;
-+
-+	unsigned long rx_frames_delta;
-+	unsigned long tx_frames_delta;
-+	unsigned long matches_delta;
-+};
-+
-+/* persistent statistics */
-+struct s_pstats {
-+	unsigned long stats_reset;
-+	unsigned long user_reset;
-+	unsigned long rcv_entries;
-+	unsigned long rcv_entries_max;
-+};
-+
-+/* receive filters subscribed for 'all' ARINC429 devices */
-+extern struct dev_rcv_lists arinc429_rx_alldev_list;
-+
-+/* function prototypes for the ARINC429 networklayer procfs (proc.c) */
-+void arinc429_init_proc(void);
-+void arinc429_remove_proc(void);
-+void arinc429_stat_update(unsigned long data);
-+
-+/* structures and variables from af_arinc429.c needed in proc.c for reading */
-+extern struct timer_list arinc429_stattimer;    /* timer for stats update */
-+extern struct s_stats    arinc429_stats;        /* packet statistics */
-+extern struct s_pstats   arinc429_pstats;       /* receive list statistics */
-+extern struct hlist_head arinc429_rx_dev_list;  /* rx dispatcher structures */
-+
-+#endif /* AF_ARINC429_H */
-diff --git a/net/arinc429/proc.c b/net/arinc429/proc.c
-new file mode 100644
-index 0000000..28856a3
---- /dev/null
-+++ b/net/arinc429/proc.c
-@@ -0,0 +1,432 @@
-+/*
-+ * proc.c - procfs support for Protocol family ARINC429 core module
-+ *
-+ * Copyright (C) 2015 Marek Vasut <marex@denx.de>
-+ *
-+ * Based on the SocketCAN stack.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation; either version 2 of
-+ * the License, or (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/proc_fs.h>
-+#include <linux/list.h>
-+#include <linux/rcupdate.h>
-+#include <linux/if_arp.h>
-+#include <linux/arinc429/core.h>
-+
-+#include "af_arinc429.h"
-+
-+/*
-+ * proc filenames for the PF_ARINC429 core
-+ */
-+
-+#define ARINC429_PROC_VERSION     "version"
-+#define ARINC429_PROC_STATS       "stats"
-+#define ARINC429_PROC_RESET_STATS "reset_stats"
-+#define ARINC429_PROC_RCVLIST_ALL "rcvlist_all"
-+#define ARINC429_PROC_RCVLIST_FIL "rcvlist_fil"
-+#define ARINC429_PROC_RCVLIST_INV "rcvlist_inv"
-+
-+static struct proc_dir_entry *arinc429_dir;
-+static struct proc_dir_entry *pde_version;
-+static struct proc_dir_entry *pde_stats;
-+static struct proc_dir_entry *pde_reset_stats;
-+static struct proc_dir_entry *pde_rcvlist_all;
-+static struct proc_dir_entry *pde_rcvlist_fil;
-+static struct proc_dir_entry *pde_rcvlist_inv;
-+
-+static int user_reset;
-+
-+static const char rx_list_name[][8] = {
-+	[RX_ALL] = "rx_all",
-+	[RX_FIL] = "rx_fil",
-+	[RX_INV] = "rx_inv",
-+};
-+
-+/*
-+ * af_arinc429 statistics stuff
-+ */
-+
-+static void arinc429_init_stats(void)
-+{
-+	/*
-+	 * This memset function is called from a timer context (when
-+	 * arinc429_stattimer is active which is the default) OR in a process
-+	 * context (reading the proc_fs when arinc429_stattimer is disabled).
-+	 */
-+	memset(&arinc429_stats, 0, sizeof(arinc429_stats));
-+	arinc429_stats.jiffies_init = jiffies;
-+
-+	arinc429_pstats.stats_reset++;
-+
-+	if (user_reset) {
-+		user_reset = 0;
-+		arinc429_pstats.user_reset++;
-+	}
-+}
-+
-+static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
-+			       unsigned long count)
-+{
-+	unsigned long rate;
-+
-+	if (oldjif == newjif)
-+		return 0;
-+
-+	/* see arinc429_stat_update() - this should NEVER happen! */
-+	if (count > (ULONG_MAX / HZ)) {
-+		pr_err("arinc429: calc_rate: count exceeded! %ld\n", count);
-+		return 99999999;
-+	}
-+
-+	rate = (count * HZ) / (newjif - oldjif);
-+
-+	return rate;
-+}
-+
-+void arinc429_stat_update(unsigned long data)
-+{
-+	unsigned long j = jiffies; /* snapshot */
-+
-+	/* restart counting in timer context on user request */
-+	if (user_reset)
-+		arinc429_init_stats();
-+
-+	/* restart counting on jiffies overflow */
-+	if (j < arinc429_stats.jiffies_init)
-+		arinc429_init_stats();
-+
-+	/* prevent overflow in calc_rate() */
-+	if (arinc429_stats.rx_frames > (ULONG_MAX / HZ))
-+		arinc429_init_stats();
-+
-+	/* prevent overflow in calc_rate() */
-+	if (arinc429_stats.tx_frames > (ULONG_MAX / HZ))
-+		arinc429_init_stats();
-+
-+	/* matches overflow - very improbable */
-+	if (arinc429_stats.matches > (ULONG_MAX / 100))
-+		arinc429_init_stats();
-+
-+	/* calc total values */
-+	if (arinc429_stats.rx_frames)
-+		arinc429_stats.total_rx_match_ratio =
-+			(arinc429_stats.matches * 100) /
-+			arinc429_stats.rx_frames;
-+
-+	arinc429_stats.total_tx_rate = calc_rate(arinc429_stats.jiffies_init,
-+						 j, arinc429_stats.tx_frames);
-+	arinc429_stats.total_rx_rate = calc_rate(arinc429_stats.jiffies_init,
-+						 j, arinc429_stats.rx_frames);
-+
-+	/* calc current values */
-+	if (arinc429_stats.rx_frames_delta)
-+		arinc429_stats.current_rx_match_ratio =
-+			(arinc429_stats.matches_delta * 100) /
-+			arinc429_stats.rx_frames_delta;
-+
-+	arinc429_stats.current_tx_rate =
-+		calc_rate(0, HZ, arinc429_stats.tx_frames_delta);
-+	arinc429_stats.current_rx_rate =
-+		calc_rate(0, HZ, arinc429_stats.rx_frames_delta);
-+
-+	/* check / update maximum values */
-+	if (arinc429_stats.max_tx_rate < arinc429_stats.current_tx_rate)
-+		arinc429_stats.max_tx_rate = arinc429_stats.current_tx_rate;
-+
-+	if (arinc429_stats.max_rx_rate < arinc429_stats.current_rx_rate)
-+		arinc429_stats.max_rx_rate = arinc429_stats.current_rx_rate;
-+
-+	if (arinc429_stats.max_rx_match_ratio < arinc429_stats.current_rx_match_ratio)
-+		arinc429_stats.max_rx_match_ratio = arinc429_stats.current_rx_match_ratio;
-+
-+	/* clear values for 'current rate' calculation */
-+	arinc429_stats.tx_frames_delta = 0;
-+	arinc429_stats.rx_frames_delta = 0;
-+	arinc429_stats.matches_delta   = 0;
-+
-+	/* restart timer (one second) */
-+	mod_timer(&arinc429_stattimer, round_jiffies(jiffies + HZ));
-+}
-+
-+/*
-+ * proc read functions
-+ */
-+
-+static void arinc429_print_rcvlist(struct seq_file *m,
-+				   struct hlist_head *rx_list,
-+				   struct net_device *dev)
-+{
-+	struct receiver *r;
-+
-+	seq_puts(m, "  device      label  mask  function  userdata   matches  ident\n");
-+
-+	hlist_for_each_entry_rcu(r, rx_list, list) {
-+		char *fmt = "   %-5s     %02x     %02x   %pK  %pK  %8ld  %s\n";
-+
-+		seq_printf(m, fmt, DNAME(dev), r->label, r->mask,
-+			   r->func, r->data, r->matches, r->ident);
-+	}
-+}
-+
-+static int arinc429_stats_proc_show(struct seq_file *m, void *v)
-+{
-+	seq_putc(m, '\n');
-+	seq_printf(m, " %8ld transmitted frames (TXF)\n",
-+		   arinc429_stats.tx_frames);
-+	seq_printf(m, " %8ld received frames (RXF)\n",
-+		   arinc429_stats.rx_frames);
-+	seq_printf(m, " %8ld matched frames (RXMF)\n",
-+		   arinc429_stats.matches);
-+
-+	seq_putc(m, '\n');
-+
-+	if (arinc429_stattimer.function == arinc429_stat_update) {
-+		seq_printf(m, " %8ld %% total match ratio (RXMR)\n",
-+			   arinc429_stats.total_rx_match_ratio);
-+
-+		seq_printf(m, " %8ld frames/s total tx rate (TXR)\n",
-+			   arinc429_stats.total_tx_rate);
-+		seq_printf(m, " %8ld frames/s total rx rate (RXR)\n",
-+			   arinc429_stats.total_rx_rate);
-+
-+		seq_putc(m, '\n');
-+
-+		seq_printf(m, " %8ld %% current match ratio (CRXMR)\n",
-+			   arinc429_stats.current_rx_match_ratio);
-+
-+		seq_printf(m, " %8ld frames/s current tx rate (CTXR)\n",
-+			   arinc429_stats.current_tx_rate);
-+		seq_printf(m, " %8ld frames/s current rx rate (CRXR)\n",
-+			   arinc429_stats.current_rx_rate);
-+
-+		seq_putc(m, '\n');
-+
-+		seq_printf(m, " %8ld %% max match ratio (MRXMR)\n",
-+			   arinc429_stats.max_rx_match_ratio);
-+
-+		seq_printf(m, " %8ld frames/s max tx rate (MTXR)\n",
-+			   arinc429_stats.max_tx_rate);
-+		seq_printf(m, " %8ld frames/s max rx rate (MRXR)\n",
-+			   arinc429_stats.max_rx_rate);
-+
-+		seq_putc(m, '\n');
-+	}
-+
-+	seq_printf(m, " %8ld current receive list entries (CRCV)\n",
-+		   arinc429_pstats.rcv_entries);
-+	seq_printf(m, " %8ld maximum receive list entries (MRCV)\n",
-+		   arinc429_pstats.rcv_entries_max);
-+
-+	if (arinc429_pstats.stats_reset)
-+		seq_printf(m, "\n %8ld statistic resets (STR)\n",
-+			   arinc429_pstats.stats_reset);
-+
-+	if (arinc429_pstats.user_reset)
-+		seq_printf(m, " %8ld user statistic resets (USTR)\n",
-+			   arinc429_pstats.user_reset);
-+
-+	seq_putc(m, '\n');
-+	return 0;
-+}
-+
-+static int arinc429_stats_proc_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, arinc429_stats_proc_show, NULL);
-+}
-+
-+static const struct file_operations arinc429_stats_proc_fops = {
-+	.owner		= THIS_MODULE,
-+	.open		= arinc429_stats_proc_open,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+	.release	= single_release,
-+};
-+
-+static int arinc429_reset_stats_proc_show(struct seq_file *m, void *v)
-+{
-+	user_reset = 1;
-+
-+	if (arinc429_stattimer.function == arinc429_stat_update) {
-+		seq_printf(m, "Scheduled statistic reset #%ld.\n",
-+			   arinc429_pstats.stats_reset + 1);
-+
-+	} else {
-+		if (arinc429_stats.jiffies_init != jiffies)
-+			arinc429_init_stats();
-+
-+		seq_printf(m, "Performed statistic reset #%ld.\n",
-+			   arinc429_pstats.stats_reset);
-+	}
-+	return 0;
-+}
-+
-+static int arinc429_reset_stats_proc_open(struct inode *inode,
-+					  struct file *file)
-+{
-+	return single_open(file, arinc429_reset_stats_proc_show, NULL);
-+}
-+
-+static const struct file_operations arinc429_reset_stats_proc_fops = {
-+	.owner		= THIS_MODULE,
-+	.open		= arinc429_reset_stats_proc_open,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+	.release	= single_release,
-+};
-+
-+static int arinc429_version_proc_show(struct seq_file *m, void *v)
-+{
-+	seq_printf(m, "%s\n", ARINC429_VERSION_STRING);
-+	return 0;
-+}
-+
-+static int arinc429_version_proc_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, arinc429_version_proc_show, NULL);
-+}
-+
-+static const struct file_operations arinc429_version_proc_fops = {
-+	.owner		= THIS_MODULE,
-+	.open		= arinc429_version_proc_open,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+	.release	= single_release,
-+};
-+
-+static inline void arinc429_rcvlist_proc_show_one(struct seq_file *m, int idx,
-+						  struct net_device *dev,
-+						  struct dev_rcv_lists *d)
-+{
-+	if (!hlist_empty(&d->rx[idx]))
-+		arinc429_print_rcvlist(m, &d->rx[idx], dev);
-+	else
-+		seq_printf(m, "  (%s: no entry)\n", DNAME(dev));
-+}
-+
-+static int arinc429_rcvlist_proc_show(struct seq_file *m, void *v)
-+{
-+	/* double cast to prevent GCC warning */
-+	int idx = (int)(long)m->private;
-+	struct net_device *dev;
-+	struct dev_rcv_lists *d;
-+
-+	seq_printf(m, "\nreceive list '%s':\n", rx_list_name[idx]);
-+
-+	rcu_read_lock();
-+
-+	/* receive list for 'all' ARINC429 devices (dev == NULL) */
-+	d = &arinc429_rx_alldev_list;
-+	arinc429_rcvlist_proc_show_one(m, idx, NULL, d);
-+
-+	/* receive list for registered ARINC429 devices */
-+	for_each_netdev_rcu(&init_net, dev) {
-+		if (dev->type == ARPHRD_ARINC429 && dev->ml_priv)
-+			arinc429_rcvlist_proc_show_one(m, idx, dev,
-+						       dev->ml_priv);
-+	}
-+
-+	rcu_read_unlock();
-+
-+	seq_putc(m, '\n');
-+	return 0;
-+}
-+
-+static int arinc429_rcvlist_proc_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, arinc429_rcvlist_proc_show, PDE_DATA(inode));
-+}
-+
-+static const struct file_operations arinc429_rcvlist_proc_fops = {
-+	.owner		= THIS_MODULE,
-+	.open		= arinc429_rcvlist_proc_open,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+	.release	= single_release,
-+};
-+
-+/*
-+ * proc utility functions
-+ */
-+
-+static void arinc429_remove_proc_readentry(const char *name)
-+{
-+	if (arinc429_dir)
-+		remove_proc_entry(name, arinc429_dir);
-+}
-+
-+/*
-+ * arinc429_init_proc - create main ARINC429 proc directory and procfs entries
-+ */
-+void arinc429_init_proc(void)
-+{
-+	/* create /proc/net/arinc429 directory */
-+	arinc429_dir = proc_mkdir("arinc429", init_net.proc_net);
-+
-+	if (!arinc429_dir) {
-+		pr_info("arinc429: failed to create /proc/net/arinc429 . CONFIG_PROC_FS missing?\n");
-+		return;
-+	}
-+
-+	/* own procfs entries from the AF_ARINC429 core */
-+	pde_version     = proc_create(ARINC429_PROC_VERSION, 0644,
-+				      arinc429_dir,
-+				      &arinc429_version_proc_fops);
-+	pde_stats       = proc_create(ARINC429_PROC_STATS, 0644,
-+				      arinc429_dir,
-+				      &arinc429_stats_proc_fops);
-+	pde_reset_stats = proc_create(ARINC429_PROC_RESET_STATS, 0644,
-+				      arinc429_dir,
-+				      &arinc429_reset_stats_proc_fops);
-+	pde_rcvlist_all = proc_create_data(ARINC429_PROC_RCVLIST_ALL, 0644,
-+					   arinc429_dir,
-+					   &arinc429_rcvlist_proc_fops,
-+					   (void *)RX_ALL);
-+	pde_rcvlist_fil = proc_create_data(ARINC429_PROC_RCVLIST_FIL, 0644,
-+					   arinc429_dir,
-+					   &arinc429_rcvlist_proc_fops,
-+					   (void *)RX_FIL);
-+	pde_rcvlist_inv = proc_create_data(ARINC429_PROC_RCVLIST_INV, 0644,
-+					   arinc429_dir,
-+					   &arinc429_rcvlist_proc_fops,
-+					   (void *)RX_INV);
-+}
-+
-+/*
-+ * arinc429_remove_proc - remove procfs entries and main ARINC429 proc directory
-+ */
-+void arinc429_remove_proc(void)
-+{
-+	if (pde_version)
-+		arinc429_remove_proc_readentry(ARINC429_PROC_VERSION);
-+
-+	if (pde_stats)
-+		arinc429_remove_proc_readentry(ARINC429_PROC_STATS);
-+
-+	if (pde_reset_stats)
-+		arinc429_remove_proc_readentry(ARINC429_PROC_RESET_STATS);
-+
-+	if (pde_rcvlist_all)
-+		arinc429_remove_proc_readentry(ARINC429_PROC_RCVLIST_ALL);
-+
-+	if (pde_rcvlist_fil)
-+		arinc429_remove_proc_readentry(ARINC429_PROC_RCVLIST_FIL);
-+
-+	if (pde_rcvlist_inv)
-+		arinc429_remove_proc_readentry(ARINC429_PROC_RCVLIST_INV);
-+
-+	if (arinc429_dir)
-+		remove_proc_entry("arinc429", init_net.proc_net);
-+}
-diff --git a/net/arinc429/raw.c b/net/arinc429/raw.c
-new file mode 100644
-index 0000000..82e057b
---- /dev/null
-+++ b/net/arinc429/raw.c
-@@ -0,0 +1,758 @@
-+/*
-+ * raw.c - Raw sockets for protocol family ARINC429
-+ *
-+ * Copyright (C) 2015 Marek Vasut <marex@denx.de>
-+ *
-+ * Based on the SocketCAN stack.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation; either version 2 of
-+ * the License, or (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/uio.h>
-+#include <linux/net.h>
-+#include <linux/slab.h>
-+#include <linux/netdevice.h>
-+#include <linux/socket.h>
-+#include <linux/if_arp.h>
-+#include <linux/skbuff.h>
-+#include <linux/arinc429.h>
-+#include <linux/arinc429/core.h>
-+#include <linux/arinc429/skb.h>
-+#include <linux/arinc429/raw.h>
-+#include <net/sock.h>
-+#include <net/net_namespace.h>
-+
-+#define ARINC429_RAW_VERSION ARINC429_VERSION
-+
-+MODULE_DESCRIPTION("PF_ARINC429 raw protocol");
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Marek Vasut <marex@denx.de>");
-+MODULE_ALIAS("arinc429-proto-1");
-+
-+/*
-+ * A raw socket has a list of arinc429_filters attached to it, each receiving
-+ * the ARINC429 frames matching that filter.  If the filter list is empty,
-+ * no ARINC429 frames will be received by the socket.  The default after
-+ * opening the socket, is to have one filter which receives all frames.
-+ * The filter list is allocated dynamically with the exception of the
-+ * list containing only one item.  This common case is optimized by
-+ * storing the single filter in dfilter, to avoid using dynamic memory.
-+ */
-+
-+struct uniqframe {
-+	ktime_t tstamp;
-+	const struct sk_buff *skb;
-+	unsigned int join_rx_count;
-+};
-+
-+struct raw_sock {
-+	struct sock sk;
-+	int bound;
-+	int ifindex;
-+	struct notifier_block notifier;
-+	int loopback;
-+	int recv_own_msgs;
-+	int join_filters;
-+	int count;                 /* number of active filters */
-+	struct arinc429_filter dfilter; /* default/single filter */
-+	struct arinc429_filter *filter; /* pointer to filter(s) */
-+	struct uniqframe __percpu *uniq;
-+};
-+
-+/*
-+ * Return pointer to store the extra msg flags for raw_recvmsg().
-+ * We use the space of one unsigned int beyond the 'struct sockaddr_arinc429'
-+ * in skb->cb.
-+ */
-+static inline unsigned int *raw_flags(struct sk_buff *skb)
-+{
-+	sock_skb_cb_check_size(sizeof(struct sockaddr_arinc429) +
-+			       sizeof(unsigned int));
-+
-+	/* return pointer after struct sockaddr_arinc429 */
-+	return (unsigned int *)(&((struct sockaddr_arinc429 *)skb->cb)[1]);
-+}
-+
-+static inline struct raw_sock *raw_sk(const struct sock *sk)
-+{
-+	return (struct raw_sock *)sk;
-+}
-+
-+static void raw_rcv(struct sk_buff *oskb, void *data)
-+{
-+	struct sock *sk = (struct sock *)data;
-+	struct raw_sock *ro = raw_sk(sk);
-+	struct sockaddr_arinc429 *addr;
-+	struct sk_buff *skb;
-+	unsigned int *pflags;
-+
-+	/* check the received tx sock reference */
-+	if (!ro->recv_own_msgs && oskb->sk == sk)
-+		return;
-+
-+	/* do not pass non-ARINC429 frames to a socket */
-+	if (oskb->len != ARINC429_MTU)
-+		return;
-+
-+	/* eliminate multiple filter matches for the same skb */
-+	if (this_cpu_ptr(ro->uniq)->skb == oskb &&
-+	    ktime_equal(this_cpu_ptr(ro->uniq)->tstamp, oskb->tstamp)) {
-+		if (ro->join_filters) {
-+			this_cpu_inc(ro->uniq->join_rx_count);
-+			/* drop frame until all enabled filters matched */
-+			if (this_cpu_ptr(ro->uniq)->join_rx_count < ro->count)
-+				return;
-+		} else {
-+			return;
-+		}
-+	} else {
-+		this_cpu_ptr(ro->uniq)->skb = oskb;
-+		this_cpu_ptr(ro->uniq)->tstamp = oskb->tstamp;
-+		this_cpu_ptr(ro->uniq)->join_rx_count = 1;
-+		/* drop first frame to check all enabled filters? */
-+		if (ro->join_filters && ro->count > 1)
-+			return;
-+	}
-+
-+	/* clone the given skb to be able to enqueue it into the rcv queue */
-+	skb = skb_clone(oskb, GFP_ATOMIC);
-+	if (!skb)
-+		return;
-+
-+	/*
-+	 *  Put the datagram to the queue so that raw_recvmsg() can
-+	 *  get it from there.  We need to pass the interface index to
-+	 *  raw_recvmsg().  We pass a whole struct sockaddr_arinc429 in skb->cb
-+	 *  containing the interface index.
-+	 */
-+
-+	sock_skb_cb_check_size(sizeof(struct sockaddr_arinc429));
-+	addr = (struct sockaddr_arinc429 *)skb->cb;
-+	memset(addr, 0, sizeof(*addr));
-+	addr->arinc429_family  = AF_ARINC429;
-+	addr->arinc429_ifindex = skb->dev->ifindex;
-+
-+	/* add ARINC429 specific message flags for raw_recvmsg() */
-+	pflags = raw_flags(skb);
-+	*pflags = 0;
-+	if (oskb->sk)
-+		*pflags |= MSG_DONTROUTE;
-+	if (oskb->sk == sk)
-+		*pflags |= MSG_CONFIRM;
-+
-+	if (sock_queue_rcv_skb(sk, skb) < 0)
-+		kfree_skb(skb);
-+}
-+
-+static int raw_enable_filters(struct net_device *dev, struct sock *sk,
-+			      struct arinc429_filter *filter, int count)
-+{
-+	int err = 0;
-+	int i;
-+
-+	for (i = 0; i < count; i++) {
-+		err = arinc429_rx_register(dev, &filter[i], raw_rcv, sk, "raw");
-+		if (err) {
-+			/* clean up successfully registered filters */
-+			while (--i >= 0)
-+				arinc429_rx_unregister(dev, &filter[i],
-+						       raw_rcv, sk);
-+			break;
-+		}
-+	}
-+
-+	return err;
-+}
-+
-+static void raw_disable_filters(struct net_device *dev, struct sock *sk,
-+				struct arinc429_filter *filter, int count)
-+{
-+	int i;
-+
-+	for (i = 0; i < count; i++)
-+		arinc429_rx_unregister(dev, &filter[i], raw_rcv, sk);
-+}
-+
-+static inline void raw_disable_allfilters(struct net_device *dev,
-+					  struct sock *sk)
-+{
-+	struct raw_sock *ro = raw_sk(sk);
-+
-+	raw_disable_filters(dev, sk, ro->filter, ro->count);
-+}
-+
-+static int raw_enable_allfilters(struct net_device *dev, struct sock *sk)
-+{
-+	struct raw_sock *ro = raw_sk(sk);
-+	int err;
-+
-+	err = raw_enable_filters(dev, sk, ro->filter, ro->count);
-+
-+	return err;
-+}
-+
-+static int raw_notifier(struct notifier_block *nb,
-+			unsigned long msg, void *ptr)
-+{
-+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+	struct raw_sock *ro = container_of(nb, struct raw_sock, notifier);
-+	struct sock *sk = &ro->sk;
-+
-+	if (!net_eq(dev_net(dev), &init_net))
-+		return NOTIFY_DONE;
-+
-+	if (dev->type != ARPHRD_ARINC429)
-+		return NOTIFY_DONE;
-+
-+	if (ro->ifindex != dev->ifindex)
-+		return NOTIFY_DONE;
-+
-+	switch (msg) {
-+	case NETDEV_UNREGISTER:
-+		lock_sock(sk);
-+		/* remove current filters & unregister */
-+		if (ro->bound)
-+			raw_disable_allfilters(dev, sk);
-+
-+		if (ro->count > 1)
-+			kfree(ro->filter);
-+
-+		ro->ifindex = 0;
-+		ro->bound   = 0;
-+		ro->count   = 0;
-+		release_sock(sk);
-+
-+		sk->sk_err = ENODEV;
-+		if (!sock_flag(sk, SOCK_DEAD))
-+			sk->sk_error_report(sk);
-+		break;
-+
-+	case NETDEV_DOWN:
-+		sk->sk_err = ENETDOWN;
-+		if (!sock_flag(sk, SOCK_DEAD))
-+			sk->sk_error_report(sk);
-+		break;
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static int raw_init(struct sock *sk)
-+{
-+	struct raw_sock *ro = raw_sk(sk);
-+
-+	ro->bound            = 0;
-+	ro->ifindex          = 0;
-+
-+	/* set default filter to single entry dfilter */
-+	ro->dfilter.label    = 0;
-+	ro->dfilter.mask     = 0;
-+	ro->filter           = &ro->dfilter;
-+	ro->count            = 1;
-+
-+	/* set default loopback behaviour */
-+	ro->loopback         = 1;
-+	ro->recv_own_msgs    = 0;
-+	ro->join_filters     = 0;
-+
-+	/* alloc_percpu provides zero'ed memory */
-+	ro->uniq = alloc_percpu(struct uniqframe);
-+	if (unlikely(!ro->uniq))
-+		return -ENOMEM;
-+
-+	/* set notifier */
-+	ro->notifier.notifier_call = raw_notifier;
-+
-+	register_netdevice_notifier(&ro->notifier);
-+
-+	return 0;
-+}
-+
-+static int raw_release(struct socket *sock)
-+{
-+	struct sock *sk = sock->sk;
-+	struct raw_sock *ro;
-+
-+	if (!sk)
-+		return 0;
-+
-+	ro = raw_sk(sk);
-+
-+	unregister_netdevice_notifier(&ro->notifier);
-+
-+	lock_sock(sk);
-+
-+	/* remove current filters & unregister */
-+	if (ro->bound) {
-+		if (ro->ifindex) {
-+			struct net_device *dev;
-+
-+			dev = dev_get_by_index(&init_net, ro->ifindex);
-+			if (dev) {
-+				raw_disable_allfilters(dev, sk);
-+				dev_put(dev);
-+			}
-+		} else {
-+			raw_disable_allfilters(NULL, sk);
-+		}
-+	}
-+
-+	if (ro->count > 1)
-+		kfree(ro->filter);
-+
-+	ro->ifindex = 0;
-+	ro->bound   = 0;
-+	ro->count   = 0;
-+	free_percpu(ro->uniq);
-+
-+	sock_orphan(sk);
-+	sock->sk = NULL;
-+
-+	release_sock(sk);
-+	sock_put(sk);
-+
-+	return 0;
-+}
-+
-+static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
-+{
-+	struct sockaddr_arinc429 *addr = (struct sockaddr_arinc429 *)uaddr;
-+	struct sock *sk = sock->sk;
-+	struct raw_sock *ro = raw_sk(sk);
-+	int ifindex;
-+	int err = 0;
-+	int notify_enetdown = 0;
-+
-+	if (len < sizeof(*addr))
-+		return -EINVAL;
-+
-+	lock_sock(sk);
-+
-+	if (ro->bound && addr->arinc429_ifindex == ro->ifindex)
-+		goto out;
-+
-+	if (addr->arinc429_ifindex) {
-+		struct net_device *dev;
-+
-+		dev = dev_get_by_index(&init_net, addr->arinc429_ifindex);
-+		if (!dev) {
-+			err = -ENODEV;
-+			goto out;
-+		}
-+		if (dev->type != ARPHRD_ARINC429) {
-+			dev_put(dev);
-+			err = -ENODEV;
-+			goto out;
-+		}
-+		if (!(dev->flags & IFF_UP))
-+			notify_enetdown = 1;
-+
-+		ifindex = dev->ifindex;
-+
-+		/* filters set by default/setsockopt */
-+		err = raw_enable_allfilters(dev, sk);
-+		dev_put(dev);
-+	} else {
-+		ifindex = 0;
-+
-+		/* filters set by default/setsockopt */
-+		err = raw_enable_allfilters(NULL, sk);
-+	}
-+
-+	if (!err) {
-+		if (ro->bound) {
-+			/* unregister old filters */
-+			if (ro->ifindex) {
-+				struct net_device *dev;
-+
-+				dev = dev_get_by_index(&init_net, ro->ifindex);
-+				if (dev) {
-+					raw_disable_allfilters(dev, sk);
-+					dev_put(dev);
-+				}
-+			} else {
-+				raw_disable_allfilters(NULL, sk);
-+			}
-+		}
-+		ro->ifindex = ifindex;
-+		ro->bound = 1;
-+	}
-+
-+ out:
-+	release_sock(sk);
-+
-+	if (notify_enetdown) {
-+		sk->sk_err = ENETDOWN;
-+		if (!sock_flag(sk, SOCK_DEAD))
-+			sk->sk_error_report(sk);
-+	}
-+
-+	return err;
-+}
-+
-+static int raw_getname(struct socket *sock, struct sockaddr *uaddr,
-+		       int *len, int peer)
-+{
-+	struct sockaddr_arinc429 *addr = (struct sockaddr_arinc429 *)uaddr;
-+	struct sock *sk = sock->sk;
-+	struct raw_sock *ro = raw_sk(sk);
-+
-+	if (peer)
-+		return -EOPNOTSUPP;
-+
-+	memset(addr, 0, sizeof(*addr));
-+	addr->arinc429_family  = AF_ARINC429;
-+	addr->arinc429_ifindex = ro->ifindex;
-+
-+	*len = sizeof(*addr);
-+
-+	return 0;
-+}
-+
-+static int raw_setsockopt(struct socket *sock, int level, int optname,
-+			  char __user *optval, unsigned int optlen)
-+{
-+	struct sock *sk = sock->sk;
-+	struct raw_sock *ro = raw_sk(sk);
-+	struct arinc429_filter *filter = NULL;  /* dyn. alloc'ed filters */
-+	struct arinc429_filter sfilter;         /* single filter */
-+	struct net_device *dev = NULL;
-+	int count = 0;
-+	int err = 0;
-+
-+	if (level != SOL_ARINC429_RAW)
-+		return -EINVAL;
-+
-+	switch (optname) {
-+	case ARINC429_RAW_FILTER:
-+		if (optlen % sizeof(struct arinc429_filter) != 0)
-+			return -EINVAL;
-+
-+		count = optlen / sizeof(struct arinc429_filter);
-+
-+		if (count > 1) {
-+			/* filter does not fit into dfilter => alloc space */
-+			filter = memdup_user(optval, optlen);
-+			if (IS_ERR(filter))
-+				return PTR_ERR(filter);
-+		} else if (count == 1) {
-+			if (copy_from_user(&sfilter, optval, sizeof(sfilter)))
-+				return -EFAULT;
-+		}
-+
-+		lock_sock(sk);
-+
-+		if (ro->bound && ro->ifindex)
-+			dev = dev_get_by_index(&init_net, ro->ifindex);
-+
-+		if (ro->bound) {
-+			/* (try to) register the new filters */
-+			if (count == 1)
-+				err = raw_enable_filters(dev, sk, &sfilter, 1);
-+			else
-+				err = raw_enable_filters(dev, sk, filter,
-+							 count);
-+			if (err) {
-+				if (count > 1)
-+					kfree(filter);
-+				goto out_fil;
-+			}
-+
-+			/* remove old filter registrations */
-+			raw_disable_filters(dev, sk, ro->filter, ro->count);
-+		}
-+
-+		/* remove old filter space */
-+		if (ro->count > 1)
-+			kfree(ro->filter);
-+
-+		/* link new filters to the socket */
-+		if (count == 1) {
-+			/* copy filter data for single filter */
-+			ro->dfilter = sfilter;
-+			filter = &ro->dfilter;
-+		}
-+		ro->filter = filter;
-+		ro->count  = count;
-+
-+ out_fil:
-+		if (dev)
-+			dev_put(dev);
-+
-+		release_sock(sk);
-+
-+		break;
-+
-+	case ARINC429_RAW_LOOPBACK:
-+		if (optlen != sizeof(ro->loopback))
-+			return -EINVAL;
-+
-+		if (copy_from_user(&ro->loopback, optval, optlen))
-+			return -EFAULT;
-+
-+		break;
-+
-+	case ARINC429_RAW_RECV_OWN_MSGS:
-+		if (optlen != sizeof(ro->recv_own_msgs))
-+			return -EINVAL;
-+
-+		if (copy_from_user(&ro->recv_own_msgs, optval, optlen))
-+			return -EFAULT;
-+
-+		break;
-+
-+	case ARINC429_RAW_JOIN_FILTERS:
-+		if (optlen != sizeof(ro->join_filters))
-+			return -EINVAL;
-+
-+		if (copy_from_user(&ro->join_filters, optval, optlen))
-+			return -EFAULT;
-+
-+		break;
-+
-+	default:
-+		return -ENOPROTOOPT;
-+	}
-+	return err;
-+}
-+
-+static int raw_getsockopt(struct socket *sock, int level, int optname,
-+			  char __user *optval, int __user *optlen)
-+{
-+	struct sock *sk = sock->sk;
-+	struct raw_sock *ro = raw_sk(sk);
-+	int len;
-+	void *val;
-+	int err = 0;
-+
-+	if (level != SOL_ARINC429_RAW)
-+		return -EINVAL;
-+	if (get_user(len, optlen))
-+		return -EFAULT;
-+	if (len < 0)
-+		return -EINVAL;
-+
-+	switch (optname) {
-+	case ARINC429_RAW_FILTER:
-+		lock_sock(sk);
-+		if (ro->count > 0) {
-+			int fsize = ro->count * sizeof(struct arinc429_filter);
-+
-+			if (len > fsize)
-+				len = fsize;
-+			if (copy_to_user(optval, ro->filter, len))
-+				err = -EFAULT;
-+		} else {
-+			len = 0;
-+		}
-+		release_sock(sk);
-+
-+		if (!err)
-+			err = put_user(len, optlen);
-+		return err;
-+
-+	case ARINC429_RAW_LOOPBACK:
-+		if (len > sizeof(int))
-+			len = sizeof(int);
-+		val = &ro->loopback;
-+		break;
-+
-+	case ARINC429_RAW_RECV_OWN_MSGS:
-+		if (len > sizeof(int))
-+			len = sizeof(int);
-+		val = &ro->recv_own_msgs;
-+		break;
-+
-+	case ARINC429_RAW_JOIN_FILTERS:
-+		if (len > sizeof(int))
-+			len = sizeof(int);
-+		val = &ro->join_filters;
-+		break;
-+
-+	default:
-+		return -ENOPROTOOPT;
-+	}
-+
-+	if (put_user(len, optlen))
-+		return -EFAULT;
-+	if (copy_to_user(optval, val, len))
-+		return -EFAULT;
-+	return 0;
-+}
-+
-+static int raw_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
-+{
-+	struct sock *sk = sock->sk;
-+	struct raw_sock *ro = raw_sk(sk);
-+	struct sk_buff *skb;
-+	struct net_device *dev;
-+	int ifindex;
-+	int err;
-+
-+	if (msg->msg_name) {
-+		DECLARE_SOCKADDR(struct sockaddr_arinc429 *, addr,
-+				 msg->msg_name);
-+
-+		if (msg->msg_namelen < sizeof(*addr))
-+			return -EINVAL;
-+
-+		if (addr->arinc429_family != AF_ARINC429)
-+			return -EINVAL;
-+
-+		ifindex = addr->arinc429_ifindex;
-+	} else {
-+		ifindex = ro->ifindex;
-+	}
-+
-+	if (unlikely(size != ARINC429_MTU))
-+		return -EINVAL;
-+
-+	dev = dev_get_by_index(&init_net, ifindex);
-+	if (!dev)
-+		return -ENXIO;
-+
-+	skb = sock_alloc_send_skb(sk, size + sizeof(struct arinc429_skb_priv),
-+				  msg->msg_flags & MSG_DONTWAIT, &err);
-+	if (!skb)
-+		goto put_dev;
-+
-+	arinc429_skb_reserve(skb);
-+	arinc429_skb_prv(skb)->ifindex = dev->ifindex;
-+
-+	err = memcpy_from_msg(skb_put(skb, size), msg, size);
-+	if (err < 0)
-+		goto free_skb;
-+
-+	sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
-+
-+	skb->dev = dev;
-+	skb->sk  = sk;
-+	skb->priority = sk->sk_priority;
-+
-+	err = arinc429_send(skb, ro->loopback);
-+
-+	dev_put(dev);
-+
-+	if (err)
-+		goto send_failed;
-+
-+	return size;
-+
-+free_skb:
-+	kfree_skb(skb);
-+put_dev:
-+	dev_put(dev);
-+send_failed:
-+	return err;
-+}
-+
-+static int raw_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
-+		       int flags)
-+{
-+	struct sock *sk = sock->sk;
-+	struct sk_buff *skb;
-+	int err = 0;
-+	int noblock;
-+
-+	noblock =  flags & MSG_DONTWAIT;
-+	flags   &= ~MSG_DONTWAIT;
-+
-+	skb = skb_recv_datagram(sk, flags, noblock, &err);
-+	if (!skb)
-+		return err;
-+
-+	if (size < skb->len)
-+		msg->msg_flags |= MSG_TRUNC;
-+	else
-+		size = skb->len;
-+
-+	err = memcpy_to_msg(msg, skb->data, size);
-+	if (err < 0) {
-+		skb_free_datagram(sk, skb);
-+		return err;
-+	}
-+
-+	sock_recv_ts_and_drops(msg, sk, skb);
-+
-+	if (msg->msg_name) {
-+		__sockaddr_check_size(sizeof(struct sockaddr_arinc429));
-+		msg->msg_namelen = sizeof(struct sockaddr_arinc429);
-+		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
-+	}
-+
-+	/* assign the flags that have been recorded in raw_rcv() */
-+	msg->msg_flags |= *(raw_flags(skb));
-+
-+	skb_free_datagram(sk, skb);
-+
-+	return size;
-+}
-+
-+static const struct proto_ops raw_ops = {
-+	.family        = PF_ARINC429,
-+	.release       = raw_release,
-+	.bind          = raw_bind,
-+	.connect       = sock_no_connect,
-+	.socketpair    = sock_no_socketpair,
-+	.accept        = sock_no_accept,
-+	.getname       = raw_getname,
-+	.poll          = datagram_poll,
-+	/* use arinc429_ioctl() from af_arinc429.c */
-+	.ioctl         = arinc429_ioctl,
-+	.listen        = sock_no_listen,
-+	.shutdown      = sock_no_shutdown,
-+	.setsockopt    = raw_setsockopt,
-+	.getsockopt    = raw_getsockopt,
-+	.sendmsg       = raw_sendmsg,
-+	.recvmsg       = raw_recvmsg,
-+	.mmap          = sock_no_mmap,
-+	.sendpage      = sock_no_sendpage,
-+};
-+
-+static struct proto raw_proto __read_mostly = {
-+	.name       = "ARINC429_RAW",
-+	.owner      = THIS_MODULE,
-+	.obj_size   = sizeof(struct raw_sock),
-+	.init       = raw_init,
-+};
-+
-+static const struct arinc429_proto raw_arinc429_proto = {
-+	.type       = SOCK_RAW,
-+	.protocol   = ARINC429_RAW,
-+	.ops        = &raw_ops,
-+	.prot       = &raw_proto,
-+};
-+
-+static __init int raw_module_init(void)
-+{
-+	int err;
-+
-+	pr_info("arinc429: raw protocol (rev " ARINC429_RAW_VERSION ")\n");
-+
-+	err = arinc429_proto_register(&raw_arinc429_proto);
-+	if (err < 0)
-+		pr_err("arinc429: registration of raw protocol failed\n");
-+
-+	return err;
-+}
-+
-+static __exit void raw_module_exit(void)
-+{
-+	arinc429_proto_unregister(&raw_arinc429_proto);
-+}
-+
-+module_init(raw_module_init);
-+module_exit(raw_module_exit);
--- 
-2.1.4
+--tThc/1wpZn/ma/RB
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename=".config.gz"
+Content-Transfer-Encoding: base64
+
+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
+gIQms2cFWCB965uzgP4G46iwvdyBAQA=
+
+--tThc/1wpZn/ma/RB--
