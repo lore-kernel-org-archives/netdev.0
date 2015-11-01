@@ -1,26 +1,31 @@
-From: Occenic-Financeinc@vger.kernel.org
-Subject: Loan Offer @ 3%
-Date: Sun, 1 Nov 2015 20:13:52 +0100
-Message-ID: <AM2PR07MB05963ADA23B01033972CDCEDB82D0@AM2PR07MB0596.eurprd07.prod.outlook.com>
-Reply-To: <gannyeee@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: dsa: use switchdev obj for VLAN add/del ops
+Date: Sun, 01 Nov 2015 15:56:42 -0500 (EST)
+Message-ID: <20151101.155642.1302328563488956087.davem@davemloft.net>
+References: <1446399235-30668-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1hn0248.outbound.protection.outlook.com ([157.56.112.248]:4988
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752067AbbKATOD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 14:14:03 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, sfeldma@gmail.com, jiri@resnulli.us,
+	f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446399235-30668-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We offer all kind's of loan at 3% interest rate. If interested contact us for more info. occeanicfin@gmail.com 
-Regards 
-P.C.
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Sun,  1 Nov 2015 12:33:55 -0500
 
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+> Simplify DSA by pushing the switchdev objects for VLAN add and delete
+> operations down to its drivers. Currently only mv88e6xxx is affected.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+> v2: make _mv88e6xxx_port_vlan_del static as spotted by the kbuild robot.
+
+According to your previous submission this is targetted at net-next,
+so that's where I applied it.
+
+But please do not make me play guessing games like this in the future.
