@@ -1,78 +1,140 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH v3 net] i40e: Look up MAC address in Open Firmware or
+Subject: [PATCH v4 RFC net] i40e: Look up MAC address in Open Firmware or
  IDPROM
-Date: Sun, 1 Nov 2015 11:24:07 -0500
-Message-ID: <20151101162407.GA26373@oracle.com>
-References: <20151030150344.GG9312@oracle.com>
- <FC41C24E35F18A40888AACA1A36F3E418AFACA14@fmsmsx115.amr.corp.intel.com>
- <20151030183645.GD32759@oracle.com>
- <FC41C24E35F18A40888AACA1A36F3E418AFACA8F@fmsmsx115.amr.corp.intel.com>
- <20151030192437.GE32759@oracle.com>
- <FC41C24E35F18A40888AACA1A36F3E418AFACC2E@fmsmsx115.amr.corp.intel.com>
- <20151030231301.GA14974@oracle.com>
+Date: Sun, 1 Nov 2015 11:24:39 -0500
+Message-ID: <20151101162439.GB26373@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"andy.shevchenko@gmail.com" <andy.shevchenko@gmail.com>
-To: "Nelson, Shannon" <shannon.nelson@intel.com>
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	andy.shevchenko@gmail.com
+To: sowmini.varadhan@oracle.com, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20151030231301.GA14974@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On (10/30/15 19:13), Sowmini Varadhan wrote:
-> > In looking at a couple other drivers, I see the difference being that
-> > they typically are writing the primary mac filter on probe (and any
-> > other reset), whereas the i40e "knows" that the default mac address is
-> > already set up as the filter and doesn't bother with a redundant write.
-> > If you want to add this Open Filter code, you'll need to arrange for
-> > this write to happen.  You can't call i40e_set_mac() to do it, but you
-> > can see the i40e_aq_mac_address_write() code there that is involved in
-> > updating the mac address as an example.  You probably will want to look
-> > at section 4.2.1.5.3 of the XL710 data sheet in order to know how to
-> > use i40e_aq_mac_address_write() for your situation.
->
-> ok. I'll look into it (and also why this did not show up in my testing).
+This is the i40e equivalent of commit c762dff24c06 ("ixgbe: Look up MAC
+address in Open Firmware or IDPROM").
 
-So I figured out why it all "seemed to work" - my test env had another
-obscure init process that was marking the link promiscuous.  I guess
-that was having the side-effect of somehow setting the filters above.
+As with that fix, attempt to look up the MAC address in Open Firmware
+on systems that support it, and use IDPROM on SPARC if no OF address
+is found.
 
-But looks like there's more to getting this right than just calling
-i40e_aq_mac_address_write() - I think it also needs a i40e_aq_add_macvlan().  
+In the case of the i40e there is an assumption that the default mac
+address has already been set up as the primary mac filter on probe,
+so if this filter is obtained from the Open Firmware or IDPROM, an
+explicit write is needed via i40e_aq_mac_address_write() and
+i40e_aq_add_macvlan() invocation.
 
-I was able to get this to work by calling a the core part of
-i40e_set_mac just before register_netdev. In my patch (RFC patch 
-in a separate thread - please review) I now have this sequence in
-i40e_probe
+Reviewers: please check if invoking i40e_macaddr_init() on 
+platforms that use the default mac address (i.e., when it is not from
+OF or idprom) will cause harm, and if it is necessary/possible to
+move this invocation to an earlier point in i40e_probe().
 
-	err = i40e_get_platform_mac_addr(pdev, hw->mac.addr);
-	if (err)
-		i40e_get_mac_addr(hw, hw->mac.addr);
-	 : 
-	i40e_setup_pf_switch(..);
+Reviewed-by: Martin K. Petersen <martin.petersen@oracle.com>
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+v2, v3: Andy Shevchenko comments
+v4: 
 
-And the resulting i40e_vsi_setup() from i40e_setup_pf_switch()
-will end up doing the right thing by invoking the guts of 
-i40e_set_mac(), which is basically the  sequence:
-	i40e_aq_mac_address_write()
-	i40e_aq_add_macvlan()	
+ drivers/net/ethernet/intel/i40e/i40e_main.c |   53 ++++++++++++++++++++++++++-
+ 1 files changed, 52 insertions(+), 1 deletions(-)
 
-I dont know if it is necessary/possible/important to set up the
-filters sooner in the sequence- the add_macvlan needs an "seid",
-and I could not tell when (in the ":" code above) the right seid 
-can be found.  
-
-Please review the RFC patch I'll be sending shortly.
-
---Sowmini
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index b825f97..3c81c0c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -24,6 +24,15 @@
+  *
+  ******************************************************************************/
+ 
++#include <linux/etherdevice.h>
++#include <linux/of_net.h>
++#include <linux/pci.h>
++
++#ifdef CONFIG_SPARC
++#include <asm/idprom.h>
++#include <asm/prom.h>
++#endif
++
+ /* Local includes */
+ #include "i40e.h"
+ #include "i40e_diag.h"
+@@ -9212,6 +9221,25 @@ static struct i40e_vsi *i40e_vsi_reinit_setup(struct i40e_vsi *vsi)
+ 	return NULL;
+ }
+ 
++static int i40e_macaddr_init( struct i40e_vsi *vsi, u8 *macaddr)
++{
++	int ret; 
++	struct i40e_aqc_add_macvlan_element_data element;
++
++	ret = i40e_aq_mac_address_write(&vsi->back->hw,
++					I40E_AQC_WRITE_TYPE_LAA_WOL,
++					macaddr, NULL);
++	if (ret)
++		return -EADDRNOTAVAIL;
++
++	memset(&element, 0, sizeof(element));
++	ether_addr_copy(element.mac_addr, macaddr);
++	element.flags = cpu_to_le16(I40E_AQC_MACVLAN_ADD_PERFECT_MATCH);
++	i40e_aq_add_macvlan(&vsi->back->hw, vsi->seid, &element, 1, NULL);
++
++	return ret;
++}
++
+ /**
+  * i40e_vsi_setup - Set up a VSI by a given type
+  * @pf: board private structure
+@@ -9341,6 +9369,9 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
+ 		ret = i40e_config_netdev(vsi);
+ 		if (ret)
+ 			goto err_netdev;
++		ret = i40e_macaddr_init(vsi, pf->hw.mac.addr); 
++		if (ret)
++			goto err_netdev;
+ 		ret = register_netdev(vsi->netdev);
+ 		if (ret)
+ 			goto err_netdev;
+@@ -10162,6 +10193,24 @@ static void i40e_print_features(struct i40e_pf *pf)
+ 	kfree(string);
+ }
+ 
++static int i40e_get_platform_mac_addr(struct pci_dev *pdev, u8 *mac_addr)
++{
++	struct device_node *dp = pci_device_to_OF_node(pdev);
++	const unsigned char *addr;
++
++	addr = of_get_mac_address(dp);
++	if (addr) {
++		ether_addr_copy(mac_addr, addr);
++		return 0;
++	}
++#ifdef CONFIG_SPARC
++	ether_addr_copy(mac_addr, idprom->id_ethaddr);
++	return 0;
++#else
++	return -EINVAL;
++#endif /* CONFIG_SPARC */
++}
++
+ /**
+  * i40e_probe - Device initialization routine
+  * @pdev: PCI device information struct
+@@ -10360,7 +10409,9 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		i40e_aq_stop_lldp(hw, true, NULL);
+ 	}
+ 
+-	i40e_get_mac_addr(hw, hw->mac.addr);
++	err = i40e_get_platform_mac_addr(pdev, hw->mac.addr);
++	if (err)
++		i40e_get_mac_addr(hw, hw->mac.addr);
+ 	if (!is_valid_ether_addr(hw->mac.addr)) {
+ 		dev_info(&pdev->dev, "invalid MAC address %pM\n", hw->mac.addr);
+ 		err = -EIO;
+-- 
+1.7.1
