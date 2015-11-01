@@ -1,64 +1,100 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 3/8] net/mlx5_core: Use the the real irqn in eq->irqn
-Date: Sun,  1 Nov 2015 19:35:17 +0200
-Message-ID: <1446399322-14046-4-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 4/8] net/mlx5e: Consider IRQ affinity changes in NAPI poll
+Date: Sun,  1 Nov 2015 19:35:18 +0200
+Message-ID: <1446399322-14046-5-git-send-email-ogerlitz@mellanox.com>
 References: <1446399322-14046-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
 	Achiad Shochat <achiad@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:56256 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:56259 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752375AbbKARfp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Nov 2015 12:35:45 -0500
+	id S1752697AbbKARfq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Nov 2015 12:35:46 -0500
 In-Reply-To: <1446399322-14046-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Achiad Shochat <achiad@mellanox.com>
 
-Instead of storing the msix array index in eq->irqn (vecidx),
-store the real irq number.
+Under heavy network traffic load we may be in NAPI poll mode for
+a long time, thus IRQ affinity changes do not affect NAPI as desired.
+
+Now once in a NAPI poll session we check the channel IRQ affinity,
+if it points to a different CPU core than the current, stop polling
+and the following device interrupt will fix the NAPI affinity.
 
 Signed-off-by: Achiad Shochat <achiad@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eq.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  3 +++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c | 12 +++++++++++-
+ 3 files changed, 15 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-index 1f01fe8..713ead5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-@@ -382,10 +382,10 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
- 		 name, pci_name(dev->pdev));
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 0983a20..3c5c900 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -406,6 +406,9 @@ struct mlx5e_channel {
+ 	u8                         num_tc;
+ 	unsigned long              flags;
  
- 	eq->eqn = out.eq_number;
--	eq->irqn = vecidx;
-+	eq->irqn = priv->msix_arr[vecidx].vector;
- 	eq->dev = dev;
- 	eq->doorbell = uar->map + MLX5_EQ_DOORBEL_OFFSET;
--	err = request_irq(priv->msix_arr[vecidx].vector, mlx5_msix_handler, 0,
-+	err = request_irq(eq->irqn, mlx5_msix_handler, 0,
- 			  priv->irq_info[vecidx].name, eq);
- 	if (err)
- 		goto err_eq;
-@@ -421,12 +421,12 @@ int mlx5_destroy_unmap_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
- 	int err;
++	/* data path - accessed per napi poll */
++	struct irq_desc           *irq_desc;
++
+ 	/* control */
+ 	struct mlx5e_priv         *priv;
+ 	int                        ix;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 0bab33c..bdbef9f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1004,6 +1004,7 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
+ 		goto err_close_sqs;
  
- 	mlx5_debug_eq_remove(dev, eq);
--	free_irq(dev->priv.msix_arr[eq->irqn].vector, eq);
-+	free_irq(eq->irqn, eq);
- 	err = mlx5_cmd_destroy_eq(dev, eq->eqn);
- 	if (err)
- 		mlx5_core_warn(dev, "failed to destroy a previously created eq: eqn %d\n",
- 			       eq->eqn);
--	synchronize_irq(dev->priv.msix_arr[eq->irqn].vector);
-+	synchronize_irq(eq->irqn);
- 	mlx5_buf_free(dev, &eq->buf);
+ 	netif_set_xps_queue(netdev, get_cpu_mask(c->cpu), ix);
++	c->irq_desc = irq_to_desc(c->rq.cq.mcq.irqn);
+ 	*cp = c;
  
- 	return err;
+ 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+index 2c7cb67..99e29c9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+@@ -30,6 +30,7 @@
+  * SOFTWARE.
+  */
+ 
++#include <linux/irq.h>
+ #include "en.h"
+ 
+ struct mlx5_cqe64 *mlx5e_get_cqe(struct mlx5e_cq *cq)
+@@ -49,6 +50,15 @@ struct mlx5_cqe64 *mlx5e_get_cqe(struct mlx5e_cq *cq)
+ 	return cqe;
+ }
+ 
++static inline bool mlx5e_no_channel_affinity_change(struct mlx5e_channel *c)
++{
++	int current_cpu = smp_processor_id();
++	struct irq_data *d = irq_desc_get_irq_data(c->irq_desc);
++	struct cpumask *aff = irq_data_get_affinity_mask(d);
++
++	return cpumask_test_cpu(current_cpu, aff);
++}
++
+ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct mlx5e_channel *c = container_of(napi, struct mlx5e_channel,
+@@ -65,7 +75,7 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
+ 
+ 	busy |= mlx5e_post_rx_wqes(&c->rq);
+ 
+-	if (busy)
++	if (busy && likely(mlx5e_no_channel_affinity_change(c)))
+ 		return budget;
+ 
+ 	napi_complete(napi);
 -- 
 2.3.7
