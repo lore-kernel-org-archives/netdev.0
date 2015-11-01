@@ -1,47 +1,47 @@
-From: Matthias Schiffer <mschiffer@universe-factory.net>
-Subject: [PATCH net] ipv6: fix crash on ICMPv6 redirects with prohibited/blackholed source
-Date: Mon,  2 Nov 2015 00:10:35 +0100
-Message-ID: <bf7886537e41d9e9ac1a0d901283daf22b0b5df1.1446419326.git.mschiffer@universe-factory.net>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: make skb_set_owner_w() more robust
+Date: Sun, 01 Nov 2015 15:27:12 -0800
+Message-ID: <1446420432.6254.103.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <201511020754.lUc7VUJE%fengguang.wu@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: kbuild-all@01.org, David Miller <davem@davemloft.net>,
+	haiyangz@microsoft.com, edumazet@google.com,
+	netdev@vger.kernel.org, kys@microsoft.com
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chaos.universe-factory.net ([37.72.148.22]:37662 "EHLO
-	chaos.universe-factory.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753087AbbKAXTX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 18:19:23 -0500
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:33948 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753087AbbKAX1O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 18:27:14 -0500
+Received: by padec8 with SMTP id ec8so18991514pad.1
+        for <netdev@vger.kernel.org>; Sun, 01 Nov 2015 15:27:14 -0800 (PST)
+In-Reply-To: <201511020754.lUc7VUJE%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are other error values besides ip6_null_entry that can be returned by
-ip6_route_redirect(): fib6_rule_action() can also result in
-ip6_blk_hole_entry and ip6_prohibit_entry if such ip rules are installed.
+On Mon, 2015-11-02 at 07:18 +0800, kbuild test robot wrote:
+> Hi Eric,
+> 
+> [auto build test ERROR on net-next/master -- if it's inappropriate base, please suggest rules for selecting the more suitable base]
+> 
+> url:    https://github.com/0day-ci/linux/commits/Eric-Dumazet/net-make-skb_set_owner_w-more-robust/20151102-070107
+> config: x86_64-randconfig-x019-201544 (attached as .config)
+> reproduce:
+>         # save the attached .config to linux build tree
+>         make ARCH=x86_64 
+> 
+> All errors (new ones prefixed by >>):
+> 
+>    net/core/sock.c: In function 'skb_set_owner_w':
+> >> net/core/sock.c:1664:21: error: 'sock_edemux' undeclared (first use in this function)
+>       skb->destructor = sock_edemux;
+>                         ^
+>    net/core/sock.c:1664:21: note: each undeclared identifier is reported only once for each function it appears in
 
-Only checking for ip6_null_entry in rt6_do_redirect() causes ip6_ins_rt()
-to be called with rt->rt6i_table == NULL in these cases, making the kernel
-crash.
+Yes, I forgot sock_edemux() was guarded by CONFIG_INET.
 
-Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
----
+Kind of silly options really...
 
-This bug exists pretty much forever, please queue up for all -stable
-kernels.
-
-
- net/ipv6/route.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 946880a..c196ed7 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2160,7 +2160,7 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
- 	}
- 
- 	rt = (struct rt6_info *) dst;
--	if (rt == net->ipv6.ip6_null_entry) {
-+	if (rt->rt6i_flags & RTF_REJECT) {
- 		net_dbg_ratelimited("rt6_redirect: source isn't a valid nexthop for redirect target\n");
- 		return;
- 	}
--- 
-2.6.2
+I will send a V2.
