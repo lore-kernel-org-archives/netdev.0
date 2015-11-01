@@ -1,42 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET: ATM: MPOA: Remove 32-bit timekeeping
-Date: Sun, 01 Nov 2015 16:39:09 -0500 (EST)
-Message-ID: <20151101.163909.2057353716684505796.davem@davemloft.net>
-References: <20151030050107.GA10611@google.com>
+Subject: Re: [PATCH] net: smsc911x: Reset PHY during initialization
+Date: Sun, 01 Nov 2015 16:51:51 -0500 (EST)
+Message-ID: <20151101.165151.1119828043753664843.davem@davemloft.net>
+References: <1446188779-4184-1-git-send-email-p.fedin@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: y2038@lists.linaro.org, netdev@vger.kernel.org, isdn@linux-pingi.de,
- linux-kernel@vger.kernel.org, arnd@arndb.de
-To: ruchandani.tina@gmail.com
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <20151030050107.GA10611@google.com>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	steve.glendinning@shawell.net
+To: p.fedin@samsung.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55368 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752741AbbKAVvx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 16:51:53 -0500
+In-Reply-To: <1446188779-4184-1-git-send-email-p.fedin@samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogVGluYSBSdWNoYW5kYW5pIDxydWNoYW5kYW5pLnRpbmFAZ21haWwuY29tPgpEYXRlOiBU
-aHUsIDI5IE9jdCAyMDE1IDIyOjAxOjA3IC0wNzAwCgo+IEBAIC0xNCw5ICsxNSw5IEBAIHZvaWQg
-YXRtX21wb2FfaW5pdF9jYWNoZShzdHJ1Y3QgbXBvYV9jbGllbnQgKm1wYyk7Cj4gIHR5cGVkZWYg
-c3RydWN0IGluX2NhY2hlX2VudHJ5IHsKPiAgCXN0cnVjdCBpbl9jYWNoZV9lbnRyeSAqbmV4dDsK
-PiAgCXN0cnVjdCBpbl9jYWNoZV9lbnRyeSAqcHJldjsKPiAtCXN0cnVjdCB0aW1ldmFsICB0djsK
-PiAtCXN0cnVjdCB0aW1ldmFsICByZXBseV93YWl0Owo+IC0Jc3RydWN0IHRpbWV2YWwgIGhvbGRf
-ZG93bjsKPiArCXRpbWU2NF90ICB0djsKPiArCXRpbWU2NF90ICByZXBseV93YWl0Owo+ICsJdGlt
-ZTY0X3QgIGhvbGRfZG93bjsKPiAgCXVpbnQzMl90ICBwYWNrZXRzX2Z3ZGVkOwo+ICAJdWludDE2
-X3QgIGVudHJ5X3N0YXRlOwo+ICAJdWludDMyX3QgcmV0cnlfdGltZTsKPiBAQCAtNTEsNyArNTIs
-NyBAQCBzdHJ1Y3QgaW5fY2FjaGVfb3Bzewo+ICB0eXBlZGVmIHN0cnVjdCBlZ19jYWNoZV9lbnRy
-eXsKPiAgCXN0cnVjdCAgICAgICAgICAgICAgIGVnX2NhY2hlX2VudHJ5ICpuZXh0Owo+ICAJc3Ry
-dWN0ICAgICAgICAgICAgICAgZWdfY2FjaGVfZW50cnkgKnByZXY7Cj4gLQlzdHJ1Y3QgICAgICAg
-ICAgICAgICB0aW1ldmFsICB0djsKPiArCXRpbWU2NF90CSAgICAgdHY7CgpBZ2FpbiwgdGhlc2Ug
-c3RydWN0dXJlIG1lbWJlciBuYW1lcyBsaWtlICJ0diIgb25seSBtYWtlIHNlbnNlIGlmCnRoZXkg
-c3RvcmUgYSAidGltZXZhbCIuICBQbGVhc2UgcmVuYW1lIHRoZXNlIHN0cnVjdHVyZSBtZW1iZXJz
-CmFwcHJvcHJpYXRlbHksIHRoYW5rcy4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX18KWTIwMzggbWFpbGluZyBsaXN0ClkyMDM4QGxpc3RzLmxpbmFyby5vcmcK
-aHR0cHM6Ly9saXN0cy5saW5hcm8ub3JnL21haWxtYW4vbGlzdGluZm8veTIwMzgK
+From: Pavel Fedin <p.fedin@samsung.com>
+Date: Fri, 30 Oct 2015 10:06:19 +0300
+
+> On certain hardware after software reboot the chip may get stuck and fail
+> to reinitialize during reset. This can be fixed by ensuring that PHY is
+> reset too.
+> 
+> Old PHY resetting method required operational MDIO interface, therefore
+> the chip should have been already set up. In order to be able to function
+> during probe, it is changed to use PMT_CTRL register.
+> 
+> The problem could be observed on SMDK5410 board.
+> 
+> Signed-off-by: Pavel Fedin <p.fedin@samsung.com>
+
+I'm pretty sure this is going to break the PHY loopback test.
+
+This is such a tricky and fragile area to get right, therefore I
+want you to specifically guard any change in how PHY reset is
+done with tests against the specific chips that have the problem.
+
+Furthermore, I want you to test whether this has any negative
+effects on the PHY loopback test.
