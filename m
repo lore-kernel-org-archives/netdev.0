@@ -1,53 +1,24 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the spi tree with the net-next tree
-Date: Sun, 1 Nov 2015 23:18:35 +1100
-Message-ID: <20151101231835.06ea249c@canb.auug.org.au>
+From: Gan-Shyee@vger.kernel.org
+Subject: Business deal
+Date: Sun, 1 Nov 2015 16:53:50 +0100
+Message-ID: <HE1PR09MB00912DE8144AFF04E10F4CBCB82D0@HE1PR09MB0091.eurprd09.prod.outlook.com>
+Reply-To: <gannyeee@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Andrew F. Davis" <afd@ti.com>,
-	Javier Martinez Canillas <javier@osg.samsung.com>,
-	Samuel Ortiz <sameo@linux.intel.com>
-To: Mark Brown <broonie@kernel.org>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7BIT
+To: Recipients@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3hn0248.outbound.protection.outlook.com ([157.55.234.248]:24567
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751754AbbKAPyB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 10:54:01 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Mark,
+Business deal of $18.3M with you. For details contact me on my email: gannyeee@gmail.com
 
-Today's linux-next merge of the spi tree got a conflict in:
-
-  drivers/nfc/trf7970a.c
-
-between commit:
-
-  3c39c1a54a26 ("NFC: trf7970a: Add OF match table")
-
-from the net-next tree and commit:
-
-  3821a065f567 ("spi: Drop owner assignment from spi_drivers")
-
-from the spi tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc drivers/nfc/trf7970a.c
-index 123aa981c9d8,4036788c78b6..000000000000
---- a/drivers/nfc/trf7970a.c
-+++ b/drivers/nfc/trf7970a.c
-@@@ -2229,8 -2223,6 +2229,7 @@@ static struct spi_driver trf7970a_spi_d
-  	.id_table	= trf7970a_id_table,
-  	.driver		= {
-  		.name	= "trf7970a",
- +		.of_match_table = of_match_ptr(trf7970a_of_match),
-- 		.owner	= THIS_MODULE,
-  		.pm	= &trf7970a_pm_ops,
-  	},
-  };
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
