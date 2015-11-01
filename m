@@ -1,41 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] VSOCK: define VSOCK_SS_LISTEN once only
-Date: Sun, 01 Nov 2015 12:15:02 -0500 (EST)
-Message-ID: <20151101.121502.1753196778636094034.davem@davemloft.net>
-References: <1446119862-24369-1-git-send-email-stefanha@redhat.com>
+Subject: Re: [PATCH net-next v2 0/5] BPF updates
+Date: Sun, 01 Nov 2015 12:16:51 -0500 (EST)
+Message-ID: <20151101.121651.1361940420226820359.davem@davemloft.net>
+References: <cover.1446126105.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jhansen@vmware.com, virtualization@lists.linux-foundation.org
-To: stefanha@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1446119862-24369-1-git-send-email-stefanha@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: ast@plumgrid.com, hannes@stressinduktion.org, tgraf@suug.ch,
+	viro@ZenIV.linux.org.uk, ebiederm@xmission.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1446126105.git.daniel@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Date: Thu, 29 Oct 2015 11:57:42 +0000
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 29 Oct 2015 14:58:05 +0100
 
-> The SS_LISTEN socket state is defined by both af_vsock.c and
-> vmci_transport.c.  This is risky since the value could be changed in one
-> file and the other would be out of sync.
+> This set adds support for persistent maps/progs. Please see
+> individual patches for further details. A man-page update
+> to bpf(2) will be sent later on, also a iproute2 patch for
+> support in tc.
 > 
-> Rename from SS_LISTEN to VSOCK_SS_LISTEN since the constant is not part
-> of enum socket_state (SS_CONNECTED, ...).  This way it is clear that the
-> constant is vsock-specific.
+> Thanks!
 > 
-> The big text reflow in af_vsock.c was necessary to keep to the maximum
-> line length.  Text is unchanged except for s/SS_LISTEN/VSOCK_SS_LISTEN/.
-> 
-> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+> v1 -> v2:
+>   - Reworked most of patch 4 and 5
+>   - Rebased to latest net-next
 
-Applied to net-next, thanks.
+I'm going to let this sit for a little bit of review time since
+this facility seems to be generating at least a little bit of
+controversy :-)
