@@ -1,44 +1,55 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] ipmr: fix possible race resulting from improper
- usage of IP_INC_STATS_BH() in preemptible context.
-Date: Sun, 01 Nov 2015 14:35:00 -0800
-Message-ID: <1446417300.6254.91.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.OSX.2.00.1510291646320.59200@animac.local>
-	 <20151030001510.GG18062@breakpoint.cc>
-	 <alpine.OSX.2.00.1510291841480.68875@animac.local>
-	 <1446178542.6254.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151030103658.GA25931@breakpoint.cc>
-	 <1446201624.707140.424480297.4D8B55D6@webmail.messagingengine.com>
-	 <20151030104846.GA3461@breakpoint.cc>
-	 <1446202828.6254.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAOxq_8Nd8KA8CpwVPtCr2gwDbfzsqRp586PddF7r5DSSmeHb6A@mail.gmail.com>
-	 <1446232356.6254.23.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.OSX.2.00.1510301651240.81585@animac.local>
+Subject: Re: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET is
+ enabled
+Date: Sun, 01 Nov 2015 14:36:20 -0800
+Message-ID: <1446417380.6254.93.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <BN1PR0301MB07705F68B22ED84061E37337CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+	 <1446249142.6254.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446398459.6254.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151101.155859.1206189858863918018.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ani Sinha <ani@anirban.org>, fruggeri <fruggeri@arista.com>
-To: Ani Sinha <ani@arista.com>
+Cc: haiyangz@microsoft.com, edumazet@google.com,
+	netdev@vger.kernel.org, kys@microsoft.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35041 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753218AbbKAWfD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 17:35:03 -0500
-Received: by pasz6 with SMTP id z6so127310915pas.2
-        for <netdev@vger.kernel.org>; Sun, 01 Nov 2015 14:35:02 -0800 (PST)
-In-Reply-To: <alpine.OSX.2.00.1510301651240.81585@animac.local>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35733 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753087AbbKAWgV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 17:36:21 -0500
+Received: by pasz6 with SMTP id z6so127332080pas.2
+        for <netdev@vger.kernel.org>; Sun, 01 Nov 2015 14:36:21 -0800 (PST)
+In-Reply-To: <20151101.155859.1206189858863918018.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-10-30 at 16:54 -0700, Ani Sinha wrote:
-> Fixes the following kernel BUG :
+On Sun, 2015-11-01 at 15:58 -0500, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Sun, 01 Nov 2015 09:20:59 -0800
+> 
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > My recent commit, attaching SYNACK messages to request sockets
+> > exposed a too small LL_MAX_HEADER when netvsc_drv.c is in use,
+> > because this driver sets a needed_headroom of 220 bytes.
+> > 
+> > Increase LL_MAX_HEADER in this case, to avoid a realloc of all
+> > TCP frames.
+> > 
+> > In another patch, I'll make skb_set_owner_w() more robust.
+> > 
+> > Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Bisected-by: Haiyang Zhang <haiyangz@microsoft.com>
+> 
+> Using a value of 256 just because HYPER-V is crazy imposes a huge
+> unnecessary burdon upon the rest of the stack.
+> 
+> I rejected a previous attempt to use such a huge value for
+> LL_MAX_HEADER, and I will do so again here.  We need a different fix
+> for this issue, one that doesn't hurt everyone.
 
-> Signed-off-by: Ani Sinha <ani@arista.com>
-> ---
->  net/ipv4/ipmr.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+Sure, I was planning to send the skb_set_owner_w() fix as well.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+I was not aware you already objected to LL_MAX_HEADER increase.
