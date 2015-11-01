@@ -1,45 +1,57 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: [PATCH net-next] bridge: vlan: Use rcu_dereference instead of rtnl_dereference
-Date: Sun, 1 Nov 2015 18:31:45 +0200
-Message-ID: <1446395505-24841-1-git-send-email-idosch@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ip: find correct route for socket which is not bound
+ (v2)
+Date: Sun, 01 Nov 2015 11:47:30 -0500 (EST)
+Message-ID: <20151101.114730.490692280193173443.davem@davemloft.net>
+References: <1443145960-20514-1-git-send-email-wen.gang.wang@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <stephen@networkplumber.org>, <davem@davemloft.net>,
-	<nikolay@cumulusnetworks.com>, <jiri@mellanox.com>,
-	<eladr@mellanox.com>, "Ido Schimmel" <idosch@mellanox.com>
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: wen.gang.wang@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0094.outbound.protection.outlook.com ([157.55.234.94]:18722
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752015AbbKAQdA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Nov 2015 11:33:00 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:53807 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752049AbbKAQre (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 11:47:34 -0500
+In-Reply-To: <1443145960-20514-1-git-send-email-wen.gang.wang@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-br_should_learn() is protected by RCU and not by RTNL, so use correct
-flavor of nbp_vlan_group().
+From: Wengang Wang <wen.gang.wang@oracle.com>
+Date: Fri, 25 Sep 2015 09:52:40 +0800
 
-Fixes: 907b1e6e83ed ("bridge: vlan: use proper rcu for the vlgrp
-member")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_vlan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 5f4a556..c0534c2 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -2097,7 +2097,10 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
+>  			 */
+>  
+>  			fl4->flowi4_oif = dev_out->ifindex;
+> -			goto make_route;
+> +			if (dev_out->flags & IFF_LOOPBACK)
+> +				goto make_route;
+> +			else
+> +				goto lookup;
+>  		}
 
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 5f0d0cc..99a083e 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -482,7 +482,7 @@ bool br_should_learn(struct net_bridge_port *p, struct sk_buff *skb, u16 *vid)
- 	if (!br->vlan_enabled)
- 		return true;
- 
--	vg = nbp_vlan_group(p);
-+	vg = nbp_vlan_group_rcu(p);
- 	if (!vg || !vg->num_vlans)
- 		return false;
- 
--- 
-2.4.10
+This is still broken.
+
+By definition invoking fib_lookup() and depending upon it finding
+something in this path is going to break things for somebody,
+somewhere.  Before your change, if we lacked a multicast route,
+the user would still get a functioning path.
+
+Furthermore, most of the other "goto make_route" cases in this
+function suffer from the same exact problem you're trying to
+solve.  Therefore, special casing one instance makes no sense
+at all.
+
+I want you to, instead of making potentially lethal semantic changes
+here, fix the real problem instead.
+
+That is, I want you to fix how we do not cache routes we create merely
+because we lack a fib_info.
+
+Thanks.
