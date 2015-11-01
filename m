@@ -1,54 +1,129 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] bpf: convert hashtab lock to raw lock
-Date: Sun, 1 Nov 2015 14:56:22 -0800
-Message-ID: <20151101225620.GA28272@Alexeis-MacBook-Pro.local>
-References: <1446243386-26582-1-git-send-email-yang.shi@linaro.org>
- <20151031000356.GA28070@Alexeis-MacBook-Pro.local>
- <20151031094736.494427d7@grimm.local.home>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: make skb_set_owner_w() more robust
+Date: Sun, 01 Nov 2015 14:58:48 -0800
+Message-ID: <1446418728.6254.101.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <BN1PR0301MB07705F68B22ED84061E37337CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+	 <1446249142.6254.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446398459.6254.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151101.155859.1206189858863918018.davem@davemloft.net>
+	 <1446417380.6254.93.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yang Shi <yang.shi@linaro.org>, ast@kernel.org,
-	linux-kernel@vger.kernel.org, linux-rt-users@vger.kernel.org,
-	netdev@vger.kernel.org, linaro-kernel@lists.linaro.org
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151031094736.494427d7@grimm.local.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: haiyangz@microsoft.com, edumazet@google.com,
+	netdev@vger.kernel.org, kys@microsoft.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34436 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752824AbbKAW6u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 17:58:50 -0500
+Received: by padec8 with SMTP id ec8so18508333pad.1
+        for <netdev@vger.kernel.org>; Sun, 01 Nov 2015 14:58:49 -0800 (PST)
+In-Reply-To: <1446417380.6254.93.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 31, 2015 at 09:47:36AM -0400, Steven Rostedt wrote:
-> On Fri, 30 Oct 2015 17:03:58 -0700
-> Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
-> 
-> > On Fri, Oct 30, 2015 at 03:16:26PM -0700, Yang Shi wrote:
-> > > When running bpf samples on rt kernel, it reports the below warning:
-> > > 
-> > > BUG: sleeping function called from invalid context at kernel/locking/rtmutex.c:917
-> > > in_atomic(): 1, irqs_disabled(): 128, pid: 477, name: ping
-> > > Preemption disabled at:[<ffff80000017db58>] kprobe_perf_func+0x30/0x228  
-> > ...
-> > > diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-> > > index 83c209d..972b76b 100644
-> > > --- a/kernel/bpf/hashtab.c
-> > > +++ b/kernel/bpf/hashtab.c
-> > > @@ -17,7 +17,7 @@
-> > >  struct bpf_htab {
-> > >  	struct bpf_map map;
-> > >  	struct hlist_head *buckets;
-> > > -	spinlock_t lock;
-> > > +	raw_spinlock_t lock;  
-> > 
-> > How do we address such things in general?
-> > I bet there are tons of places around the kernel that
-> > call spin_lock from atomic.
-> > I'd hate to lose the benefits of lockdep of non-raw spin_lock
-> > just to make rt happy.
-> 
-> You wont lose any benefits of lockdep. Lockdep still checks
-> raw_spin_lock(). The only difference between raw_spin_lock and
-> spin_lock is that in -rt spin_lock turns into an rt_mutex() and
-> raw_spin_lock stays a spin lock.
+From: Eric Dumazet <edumazet@google.com>
 
-I see. The patch makes sense then.
-Would be good to document this peculiarity of spin_lock.
+skb_set_owner_w() is called from various places that assume
+skb->sk always point to a full blown socket (as it changes
+sk->sk_wmem_alloc)
+
+We'd like to attach skb to request sockets, and in the future
+to timewait sockets as well. For these kind of pseudo sockets,
+we need to take a traditional refcount and use sock_edemux()
+as the destructor.
+
+It is now time to un-inline skb_set_owner_w(), being too big.
+
+Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Bisected-by: Haiyang Zhang <haiyangz@microsoft.com>
+---
+ include/net/sock.h    |   17 ++---------------
+ net/core/sock.c       |   20 ++++++++++++++++++++
+ net/ipv4/tcp_output.c |    4 +---
+ 3 files changed, 23 insertions(+), 18 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index aeed5c95f3ca..f570e75e3da9 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1951,6 +1951,8 @@ static inline void skb_set_hash_from_sk(struct sk_buff *skb, struct sock *sk)
+ 	}
+ }
+ 
++void skb_set_owner_w(struct sk_buff *skb, struct sock *sk);
++
+ /*
+  *	Queue a received datagram if it will fit. Stream and sequenced
+  *	protocols can't normally use this as they need to fit buffers in
+@@ -1959,21 +1961,6 @@ static inline void skb_set_hash_from_sk(struct sk_buff *skb, struct sock *sk)
+  *	Inlined as it's very short and called for pretty much every
+  *	packet ever received.
+  */
+-
+-static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
+-{
+-	skb_orphan(skb);
+-	skb->sk = sk;
+-	skb->destructor = sock_wfree;
+-	skb_set_hash_from_sk(skb, sk);
+-	/*
+-	 * We used to take a refcount on sk, but following operation
+-	 * is enough to guarantee sk_free() wont free this sock until
+-	 * all in-flight packets are completed
+-	 */
+-	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
+-}
+-
+ static inline void skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
+ {
+ 	skb_orphan(skb);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 0ef30aa90132..8d8abcb4d8cd 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1656,6 +1656,26 @@ void sock_wfree(struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(sock_wfree);
+ 
++void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
++{
++	skb_orphan(skb);
++	skb->sk = sk;
++	if (unlikely(!sk_fullsock(sk))) {
++		skb->destructor = sock_edemux;
++		sock_hold(sk);
++		return;
++	}
++	skb->destructor = sock_wfree;
++	skb_set_hash_from_sk(skb, sk);
++	/*
++	 * We used to take a refcount on sk, but following operation
++	 * is enough to guarantee sk_free() wont free this sock until
++	 * all in-flight packets are completed
++	 */
++	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
++}
++EXPORT_SYMBOL(skb_set_owner_w);
++
+ void skb_orphan_partial(struct sk_buff *skb)
+ {
+ 	/* TCP stack sets skb->ooo_okay based on sk_wmem_alloc,
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index f4f9793eb025..cb7ca569052c 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2963,9 +2963,7 @@ struct sk_buff *tcp_make_synack(const struct sock *sk, struct dst_entry *dst,
+ 	skb_reserve(skb, MAX_TCP_HEADER);
+ 
+ 	if (attach_req) {
+-		skb->destructor = sock_edemux;
+-		sock_hold(req_to_sk(req));
+-		skb->sk = req_to_sk(req);
++		skb_set_owner_w(skb, req_to_sk(req));
+ 	} else {
+ 		/* sk is a const pointer, because we want to express multiple
+ 		 * cpu might call us concurrently.
