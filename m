@@ -1,122 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Sat, 31 Oct 2015 15:34:44 -0700
-Message-ID: <1446330884.6254.76.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151029001532.GE22011@ZenIV.linux.org.uk>
-	 <1446089381.7476.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151029041611.GF22011@ZenIV.linux.org.uk>
-	 <1446122119.7476.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+55aFx_BQG4FzSuyL2KAz=c+R0cPv0ZpjboT_=yKjZNGmTUEg@mail.gmail.com>
-	 <20151030210215.GI22011@ZenIV.linux.org.uk>
-	 <CA+55aFyoA5sXQvFDavNa7cGkRevunmtPe8F8-_tZ9-826qfkgw@mail.gmail.com>
-	 <CA+55aFy9fPmbSCJoQiCkjkaiU2HTM6p=o-pJgiV7asyVWBjAEg@mail.gmail.com>
-	 <20151030223317.GK22011@ZenIV.linux.org.uk>
-	 <CA+55aFwfFb=LXU77AbiPDHgWcpBwTBoJB4EMCZgTgX32cxMYWw@mail.gmail.com>
-	 <20151031193449.GM22011@ZenIV.linux.org.uk>
-	 <CA+55aFxeiVx4wMhWALfU3KYCqhsnr8T8M-dEZc3aAyzobWeRGQ@mail.gmail.com>
-	 <1446324359.6254.71.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+55aFz9wm7LssaaUzmo-NYNGW88gb_TkUFSJoFJrY+fvtt8+A@mail.gmail.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net,stable] qmi_wwan: fix entry for HP lt4112 LTE/HSPA+ Gobi 4G Module
+Date: Sun,  1 Nov 2015 01:34:50 +0100
+Message-ID: <1446338090-16494-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Al Viro <viro@zeniv.linux.org.uk>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Network Development <netdev@vger.kernel.org>,
-	David Howells <dhowells@redhat.com>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFz9wm7LssaaUzmo-NYNGW88gb_TkUFSJoFJrY+fvtt8+A@mail.gmail.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2015-10-31 at 14:23 -0700, Linus Torvalds wrote:
+The lt4112 is a HP branded Huawei me906e modem. Like other Huawei
+modems, it does not have a fixed interface to function mapping.
+Instead it uses a Huawei specific scheme: functions are mapped by
+subclass and protocol.
 
-> Mind testing something really stupid, and making the __clear_bit() in
-> __clear_close_on_exec() conditiona, something like this:
-> 
->      static inline void __clear_close_on_exec(int fd, struct fdtable *fdt)
->      {
->     -       __clear_bit(fd, fdt->close_on_exec);
->     +       if (test_bit(fd, fdt->close_on_exec)
->     +               __clear_bit(fd, fdt->close_on_exec);
->      }
-> 
-> and see if it makes a difference.
+However, the HP vendor ID is used for modems from many different
+manufacturers using different schemes, so we cannot apply a generic
+vendor rule like we do for the Huawei vendor ID.
 
-It does ;)
+Replace the previous lt4112 entry pointing to an arbitrary interface
+number with a device specific subclass + protocol match.
 
-About 4 % qps increase
+Reported-and-tested-by: Muri Nicanor <muri+libqmi-8Y1gJgr9kN5yDzI6CaY1VQ@public.gmane.org>
+Tested-by: Martin Hauke <mardnh-Mmb7MZpHnFY@public.gmane.org>
+=46ixes: bb2bdeb83fb1 ("qmi_wwan: Add support for HP lt4112 LTE/HSPA+ G=
+obi 4G Modem")
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+ drivers/net/usb/qmi_wwan.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-3 runs : 
-lpaa24:~# taskset ff0ff ./opensock -t 16 -n 10000000 -l 10
-total = 4176651
-total = 4178012
-total = 4105226
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index c2e7222f2556..434f147e67ac 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -487,6 +487,10 @@ static const struct usb_device_id products[] =3D {
+ 					      USB_CDC_PROTO_NONE),
+ 		.driver_info        =3D (unsigned long)&qmi_wwan_info,
+ 	},
++	{	/* HP lt4112 LTE/HSPA+ Gobi 4G Module (Huawei me906e) */
++		USB_DEVICE_AND_INTERFACE_INFO(0x03f0, 0x581d, USB_CLASS_VENDOR_SPEC,=
+ 1, 7),
++		.driver_info =3D (unsigned long)&qmi_wwan_info,
++	},
+=20
+ 	/* 3. Combined interface devices matching on interface number */
+ 	{QMI_FIXED_INTF(0x0408, 0xea42, 4)},	/* Yota / Megafon M100-1 */
+@@ -739,7 +743,6 @@ static const struct usb_device_id products[] =3D {
+ 	{QMI_FIXED_INTF(0x413c, 0x81a9, 8)},	/* Dell Wireless 5808e Gobi(TM) =
+4G LTE Mobile Broadband Card */
+ 	{QMI_FIXED_INTF(0x413c, 0x81b1, 8)},	/* Dell Wireless 5809e Gobi(TM) =
+4G LTE Mobile Broadband Card */
+ 	{QMI_FIXED_INTF(0x03f0, 0x4e1d, 8)},	/* HP lt4111 LTE/EV-DO/HSPA+ Gob=
+i 4G Module */
+-	{QMI_FIXED_INTF(0x03f0, 0x581d, 4)},	/* HP lt4112 LTE/HSPA+ Gobi 4G M=
+odule (Huawei me906e) */
+=20
+ 	/* 4. Gobi 1000 devices */
+ 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
+--=20
+2.1.4
 
-instead of :
-total = 3910620
-total = 3874567
-total = 3971028
-
-Perf profile :
-
-    69.12%       opensock  opensock             [.] memset                                       
-                 |
-                 --- memset
-
-    12.37%       opensock  [kernel.kallsyms]    [k] queued_spin_lock_slowpath                    
-                 |
-                 --- queued_spin_lock_slowpath
-                    |          
-                    |--99.99%-- _raw_spin_lock
-                    |          |          
-                    |          |--51.99%-- __close_fd
-                    |          |          sys_close
-                    |          |          entry_SYSCALL_64_fastpath
-                    |          |          __libc_close
-                    |          |          |          
-                    |          |           --100.00%-- 0x0
-                    |          |          
-                    |          |--47.79%-- __alloc_fd
-                    |          |          get_unused_fd_flags
-                    |          |          sock_map_fd
-                    |          |          sys_socket
-                    |          |          entry_SYSCALL_64_fastpath
-                    |          |          __socket
-                    |          |          |          
-                    |          |           --100.00%-- 0x0
-                    |           --0.21%-- [...]
-                     --0.01%-- [...]
-
-     1.92%       opensock  [kernel.kallsyms]    [k] _find_next_bit.part.0                        
-                 |
-                 --- _find_next_bit.part.0
-                    |          
-                    |--66.93%-- find_next_zero_bit
-                    |          __alloc_fd
-                    |          get_unused_fd_flags
-                    |          sock_map_fd
-                    |          sys_socket
-                    |          entry_SYSCALL_64_fastpath
-                    |          __socket
-                    |          
-                     --33.07%-- __alloc_fd
-                               get_unused_fd_flags
-                               sock_map_fd
-                               sys_socket
-                               entry_SYSCALL_64_fastpath
-                               __socket
-                               |          
-                                --100.00%-- 0x0
-
-     1.63%       opensock  [kernel.kallsyms]    [k] _raw_spin_lock                               
-                 |
-                 --- _raw_spin_lock
-                    |          
-                    |--28.66%-- get_unused_fd_flags
-                    |          sock_map_fd
-
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
