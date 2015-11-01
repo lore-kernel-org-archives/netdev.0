@@ -1,43 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: smsc911x: Reset PHY during initialization
-Date: Sun, 01 Nov 2015 16:51:51 -0500 (EST)
-Message-ID: <20151101.165151.1119828043753664843.davem@davemloft.net>
-References: <1446188779-4184-1-git-send-email-p.fedin@samsung.com>
+Subject: Re: [PATCHv3 net 0/2] ipv4: fix problems from the RTNH_F_LINKDOWN
+ introduction
+Date: Sun, 01 Nov 2015 16:58:08 -0500 (EST)
+Message-ID: <20151101.165808.1012194708058297171.davem@davemloft.net>
+References: <1446193414-8244-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	steve.glendinning@shawell.net
-To: p.fedin@samsung.com
+Cc: netdev@vger.kernel.org, gospo@cumulusnetworks.com
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55368 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55394 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752741AbbKAVvx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 16:51:53 -0500
-In-Reply-To: <1446188779-4184-1-git-send-email-p.fedin@samsung.com>
+	with ESMTP id S1752583AbbKAV6L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 16:58:11 -0500
+In-Reply-To: <1446193414-8244-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Fedin <p.fedin@samsung.com>
-Date: Fri, 30 Oct 2015 10:06:19 +0300
+From: Julian Anastasov <ja@ssi.bg>
+Date: Fri, 30 Oct 2015 10:23:32 +0200
 
-> On certain hardware after software reboot the chip may get stuck and fail
-> to reinitialize during reset. This can be fixed by ensuring that PHY is
-> reset too.
-> 
-> Old PHY resetting method required operational MDIO interface, therefore
-> the chip should have been already set up. In order to be able to function
-> during probe, it is changed to use PMT_CTRL register.
-> 
-> The problem could be observed on SMDK5410 board.
-> 
-> Signed-off-by: Pavel Fedin <p.fedin@samsung.com>
+> Fix two problems from the change that introduced RTNH_F_LINKDOWN
+> flag. The first patch deals with the removal of local route on
+> DOWN event. The second patch makes sure the RTNH_F_LINKDOWN
+> flag is properly updated on UP event because the DOWN event
+> sets it in all cases.
 
-I'm pretty sure this is going to break the PHY loopback test.
-
-This is such a tricky and fragile area to get right, therefore I
-want you to specifically guard any change in how PHY reset is
-done with tests against the specific chips that have the problem.
-
-Furthermore, I want you to test whether this has any negative
-effects on the PHY loopback test.
+Series applied and queued up for -stable, thanks Julian.
