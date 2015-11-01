@@ -1,44 +1,64 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 0/8] Mellanox driver update, Nov 1 2015
-Date: Sun,  1 Nov 2015 19:35:14 +0200
-Message-ID: <1446399322-14046-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 3/8] net/mlx5_core: Use the the real irqn in eq->irqn
+Date: Sun,  1 Nov 2015 19:35:17 +0200
+Message-ID: <1446399322-14046-4-git-send-email-ogerlitz@mellanox.com>
+References: <1446399322-14046-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:56258 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:56256 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752698AbbKARfq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Nov 2015 12:35:46 -0500
+	id S1752375AbbKARfp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Nov 2015 12:35:45 -0500
+In-Reply-To: <1446399322-14046-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Achiad Shochat <achiad@mellanox.com>
 
-This series contains bunch of small fixes to the mlx5e driver from Achiad.
+Instead of storing the msix array index in eq->irqn (vecidx),
+store the real irq number.
 
-Applies on net-next commit e7b63ff "Merge branch 'master' of 
-git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next"
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Or.
-
-Achiad Shochat (8):
-  net/mlx5e: Avoid NULL pointer access in case of configuration failure
-  net/mlx5e: Wait for RX buffers initialization in a more proper manner
-  net/mlx5_core: Use the the real irqn in eq->irqn
-  net/mlx5e: Consider IRQ affinity changes in NAPI poll
-  net/mlx5e: Don't allow more than max supported channels
-  net/mlx5e: Return error in case mlx5e_set_features() fails
-  net/mlx5e: Re-eanble client vlan TX acceleration
-  net/mlx5e: Fix LSO vlan insertion
-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  9 ++++++++
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  5 ++---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 17 +++++++++-----
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    | 26 +++++++++++++++++++---
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  | 12 +++++++++-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       |  8 +++----
- 6 files changed, 61 insertions(+), 16 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+index 1f01fe8..713ead5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+@@ -382,10 +382,10 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
+ 		 name, pci_name(dev->pdev));
+ 
+ 	eq->eqn = out.eq_number;
+-	eq->irqn = vecidx;
++	eq->irqn = priv->msix_arr[vecidx].vector;
+ 	eq->dev = dev;
+ 	eq->doorbell = uar->map + MLX5_EQ_DOORBEL_OFFSET;
+-	err = request_irq(priv->msix_arr[vecidx].vector, mlx5_msix_handler, 0,
++	err = request_irq(eq->irqn, mlx5_msix_handler, 0,
+ 			  priv->irq_info[vecidx].name, eq);
+ 	if (err)
+ 		goto err_eq;
+@@ -421,12 +421,12 @@ int mlx5_destroy_unmap_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
+ 	int err;
+ 
+ 	mlx5_debug_eq_remove(dev, eq);
+-	free_irq(dev->priv.msix_arr[eq->irqn].vector, eq);
++	free_irq(eq->irqn, eq);
+ 	err = mlx5_cmd_destroy_eq(dev, eq->eqn);
+ 	if (err)
+ 		mlx5_core_warn(dev, "failed to destroy a previously created eq: eqn %d\n",
+ 			       eq->eqn);
+-	synchronize_irq(dev->priv.msix_arr[eq->irqn].vector);
++	synchronize_irq(eq->irqn);
+ 	mlx5_buf_free(dev, &eq->buf);
+ 
+ 	return err;
 -- 
 2.3.7
