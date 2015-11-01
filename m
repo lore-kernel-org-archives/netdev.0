@@ -1,31 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: dsa: use switchdev obj for VLAN add/del ops
-Date: Sun, 01 Nov 2015 15:56:42 -0500 (EST)
-Message-ID: <20151101.155642.1302328563488956087.davem@davemloft.net>
-References: <1446399235-30668-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET is
+ enabled
+Date: Sun, 01 Nov 2015 15:58:59 -0500 (EST)
+Message-ID: <20151101.155859.1206189858863918018.davem@davemloft.net>
+References: <BN1PR0301MB07705F68B22ED84061E37337CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+	<1446249142.6254.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1446398459.6254.90.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, sfeldma@gmail.com, jiri@resnulli.us,
-	f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446399235-30668-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: haiyangz@microsoft.com, edumazet@google.com,
+	netdev@vger.kernel.org, kys@microsoft.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55110 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752573AbbKAU7C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 15:59:02 -0500
+In-Reply-To: <1446398459.6254.90.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Sun,  1 Nov 2015 12:33:55 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 01 Nov 2015 09:20:59 -0800
 
-> Simplify DSA by pushing the switchdev objects for VLAN add and delete
-> operations down to its drivers. Currently only mv88e6xxx is affected.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
-> v2: make _mv88e6xxx_port_vlan_del static as spotted by the kbuild robot.
+> My recent commit, attaching SYNACK messages to request sockets
+> exposed a too small LL_MAX_HEADER when netvsc_drv.c is in use,
+> because this driver sets a needed_headroom of 220 bytes.
+> 
+> Increase LL_MAX_HEADER in this case, to avoid a realloc of all
+> TCP frames.
+> 
+> In another patch, I'll make skb_set_owner_w() more robust.
+> 
+> Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Bisected-by: Haiyang Zhang <haiyangz@microsoft.com>
 
-According to your previous submission this is targetted at net-next,
-so that's where I applied it.
+Using a value of 256 just because HYPER-V is crazy imposes a huge
+unnecessary burdon upon the rest of the stack.
 
-But please do not make me play guessing games like this in the future.
+I rejected a previous attempt to use such a huge value for
+LL_MAX_HEADER, and I will do so again here.  We need a different fix
+for this issue, one that doesn't hurt everyone.
+
+Every distribution is going to turn all the options on, so you might
+as well consider the largest LL_MAX_HEADER value the one %99.999
+users end up paying the price for.
