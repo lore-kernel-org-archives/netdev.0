@@ -1,90 +1,78 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net 1/2] isdn_ppp: Add checks for allocation failure in
- isdn_ppp_open()
-Date: Sun, 01 Nov 2015 16:23:51 +0000
-Message-ID: <1446395031.25466.1.camel@decadent.org.uk>
-References: <1444845074.31451.21.camel@decadent.org.uk>
-	 <20151016.004606.1112196816016985692.davem@davemloft.net>
-	 <CA+5PVA50ToS+h0ahYAAN_ZG6CHnaxZjzkjKwGW=WWgzxjLT=dQ@mail.gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH v3 net] i40e: Look up MAC address in Open Firmware or
+ IDPROM
+Date: Sun, 1 Nov 2015 11:24:07 -0500
+Message-ID: <20151101162407.GA26373@oracle.com>
+References: <20151030150344.GG9312@oracle.com>
+ <FC41C24E35F18A40888AACA1A36F3E418AFACA14@fmsmsx115.amr.corp.intel.com>
+ <20151030183645.GD32759@oracle.com>
+ <FC41C24E35F18A40888AACA1A36F3E418AFACA8F@fmsmsx115.amr.corp.intel.com>
+ <20151030192437.GE32759@oracle.com>
+ <FC41C24E35F18A40888AACA1A36F3E418AFACC2E@fmsmsx115.amr.corp.intel.com>
+ <20151030231301.GA14974@oracle.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Y3AwySl64tJGqN+83guI"
-Cc: isdn@linux-pingi.de, David Miller <davem@davemloft.net>,
-	linux-ppp@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Josh Boyer <jwboyer@fedoraproject.org>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <CA+5PVA50ToS+h0ahYAAN_ZG6CHnaxZjzkjKwGW=WWgzxjLT=dQ@mail.gmail.com>
-Sender: linux-ppp-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"andy.shevchenko@gmail.com" <andy.shevchenko@gmail.com>
+To: "Nelson, Shannon" <shannon.nelson@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151030231301.GA14974@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On (10/30/15 19:13), Sowmini Varadhan wrote:
+> > In looking at a couple other drivers, I see the difference being that
+> > they typically are writing the primary mac filter on probe (and any
+> > other reset), whereas the i40e "knows" that the default mac address is
+> > already set up as the filter and doesn't bother with a redundant write.
+> > If you want to add this Open Filter code, you'll need to arrange for
+> > this write to happen.  You can't call i40e_set_mac() to do it, but you
+> > can see the i40e_aq_mac_address_write() code there that is involved in
+> > updating the mac address as an example.  You probably will want to look
+> > at section 4.2.1.5.3 of the XL710 data sheet in order to know how to
+> > use i40e_aq_mac_address_write() for your situation.
+>
+> ok. I'll look into it (and also why this did not show up in my testing).
 
---=-Y3AwySl64tJGqN+83guI
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+So I figured out why it all "seemed to work" - my test env had another
+obscure init process that was marking the link promiscuous.  I guess
+that was having the side-effect of somehow setting the filters above.
 
-On Fri, 2015-10-30 at 09:03 -0400, Josh Boyer wrote:
-> On Fri, Oct 16, 2015 at 3:46 AM, David Miller <davem@davemloft.net>
-> wrote:
-> > From: Ben Hutchings <ben@decadent.org.uk>
-> > Date: Wed, 14 Oct 2015 18:51:14 +0100
-> >=20
-> > > Compile-tested only.
-> > >=20
-> > > Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> > > ---
-> > > =C2=A0drivers/isdn/i4l/isdn_ppp.c | 6 ++++++
-> > > =C2=A01 file changed, 6 insertions(+)
-> > >=20
-> > > diff --git a/drivers/isdn/i4l/isdn_ppp.c
-> > > b/drivers/isdn/i4l/isdn_ppp.c
-> > > index c4198fa..86f9abe 100644
-> > > --- a/drivers/isdn/i4l/isdn_ppp.c
-> > > +++ b/drivers/isdn/i4l/isdn_ppp.c
-> > > @@ -301,6 +301,8 @@ isdn_ppp_open(int min, struct file *file)
-> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0is->compflags =3D 0;
-> > >=20
-> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0is->reset =3D isdn_ppp_ccp_reset_=
-alloc(is);
-> > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0if (!is->reset)
-> > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0return -ENOMEM;
-> >=20
-> > Ben, your email client has corrupted both of these patches.
-> >=20
-> > Please fix this up and resubmit, thanks.
->=20
-> Ben, did you resubmit these as David suggested?=C2=A0=C2=A0I haven't foun=
-d a v2
-> anywhere.
+But looks like there's more to getting this right than just calling
+i40e_aq_mac_address_write() - I think it also needs a i40e_aq_add_macvlan().  
 
-I've just done so.
+I was able to get this to work by calling a the core part of
+i40e_set_mac just before register_netdev. In my patch (RFC patch 
+in a separate thread - please review) I now have this sequence in
+i40e_probe
 
-Ben.
+	err = i40e_get_platform_mac_addr(pdev, hw->mac.addr);
+	if (err)
+		i40e_get_mac_addr(hw, hw->mac.addr);
+	 : 
+	i40e_setup_pf_switch(..);
 
---=20
-Ben Hutchings
-Nothing is ever a complete failure; it can always serve as a bad example.
+And the resulting i40e_vsi_setup() from i40e_setup_pf_switch()
+will end up doing the right thing by invoking the guts of 
+i40e_set_mac(), which is basically the  sequence:
+	i40e_aq_mac_address_write()
+	i40e_aq_add_macvlan()	
 
---=-Y3AwySl64tJGqN+83guI
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+I dont know if it is necessary/possible/important to set up the
+filters sooner in the sequence- the add_macvlan needs an "seid",
+and I could not tell when (in the ":" code above) the right seid 
+can be found.  
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+Please review the RFC patch I'll be sending shortly.
 
-iQIVAwUAVjY8l+e/yOyVhhEJAQqpWg//eK4oj6yH5992ict0BKWIrfI2tKSXzv84
-TfbaW4d4v+IdBUc4st45P87aLp2rmsjurxhy4EK5AhIitzCFb10DOBwJZ70wZZGP
-ASFMewS12i5n0aCQch437719bQK/JkgUfc98tmUDi/W02JhYm2TiJ+5KZxMatdtw
-Qes0DyiChAaDs1dZYdRC43lDocAuyfD909zq36748X4Oh1szrLiebk74Rppz+QO8
-+nsJ2LfLml/p5x0JKU748rooJFoi7a2cqbwwwlymZBhm8iuuoJqnW5n5q4s/FXoZ
-WNuMnihL+gSdzguX0xpQjCBVc1Xxk4EArXdko1b2deT+7VcMkHtQJ4z07px8SKeM
-GX9+qQTdKE+2wUOw+l2/KdRWoGLlA0voiz1HKfh6dqi+fes3K2P2WtKgkytvLIP4
-xi/Bs2K2ZHtG3FfHHl/BSwwFvKaYHuB7GEGTKNTcPCI9HefU54kIiv4rA/yNuE2F
-z9KmfawICd9750v5hzzgUmZQp/oPLd1E3EbOJruM++/LcPYq6+bHJiiHBJa8+vsj
-8+UjhJ+BS5gHwTb8urc/P0l+mBedCMq973TtGB6VBGXG0oMdWjgI7uTrnDZJUykE
-pfECMCJTc8ULvymG0Zi35BbbB01PE6ST195szxnghT574jw/hio/VZV6wfaIYZvh
-V4sWGDSzbPQ=
-=1QFm
------END PGP SIGNATURE-----
-
---=-Y3AwySl64tJGqN+83guI--
+--Sowmini
