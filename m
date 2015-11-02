@@ -1,26 +1,38 @@
-From: Tina Ruchandani <ruchandani.tina@gmail.com>
-Subject: Re: [PATCH v6] isdn: Use ktime_t instead of 'struct timeval'
-Date: Sun, 1 Nov 2015 23:24:31 -0800
-Message-ID: <CAB__kkk1RZg5_GuSF4Lj1o+K8exRP-vXU1fjZRYVHmCcqqrj5w@mail.gmail.com>
-References: <20151030040816.GA3085@google.com>
-	<20151101.161533.1975473410924274976.davem@davemloft.net>
+From: =?utf-8?B?U8O4cmVuc2VuLCBTdGVmYW4=?=
+	<Stefan.Sorensen@spectralink.com>
+Subject: Re: [PATCH net-next 2/5] dp83640: Delay scheduled work.
+Date: Mon, 2 Nov 2015 07:23:12 +0000
+Message-ID: <1446448990.2437.7.camel@spectralink.com>
+References: <1446207244-2206-1-git-send-email-stefan.sorensen@spectralink.com>
+	 <1446207244-2206-3-git-send-email-stefan.sorensen@spectralink.com>
+	 <20151030203729.GC27879@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	Linux Kernel List <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "richardcochran@gmail.com" <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f181.google.com ([209.85.160.181]:36391 "EHLO
-	mail-yk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752069AbbKBHYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 02:24:32 -0500
-In-Reply-To: <20151101.161533.1975473410924274976.davem@davemloft.net>
+Received: from mail-bl2on0118.outbound.protection.outlook.com ([65.55.169.118]:54294
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751402AbbKBHiI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2015 02:38:08 -0500
+In-Reply-To: <20151030203729.GC27879@netboy>
+Content-Language: en-US
+Content-ID: <747744BEB8260343905B823FAB141B39@namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
-> Therefore please adjust the variable name appropriately, thanks.
-
-David,
-Thanks for the feedback, I will send out a v3.
+T24gRnJpLCAyMDE1LTEwLTMwIGF0IDIxOjM3ICswMTAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
+DQo+wqANCj4gTkFLLsKgwqBXZSB3YW50IHRvIGhhdmUgdGhlIHRpbWUgc3RhbXAgQVNBUCwgYmVj
+YXVzZSB0aGUgZGVsYXkgYmV0d2Vlbg0KPiB0aGUgdHJhbnNtaXNzaW9uIG9mIHRoZSBTeW5jIGFu
+ZCBpdHMgYXBwbGljYXRpb24gaW4gdGhlIHNlcnZvDQo+IGRlZ3JhZGVzIG9yIGV2ZW4gc3BvaWxz
+IHN5bmNocm9uaXphdGlvbi7CoMKgVGhpbmsgb2YgYW4gQVJNIFNvQyB3aXRoDQo+IEhaPTEwMC7C
+oMKgVHdvIGppZmZpZXMgYXJlIDIwIG1pbGxpc2Vjb25kcy4NCg0KVGhlIHdvcmtxdWV1ZSBpcyBv
+bmx5IHVzZWQgZm9yIGRlbGl2ZXJpbmcgcGFja2V0cyB3aGVyZSB0aGUgdGltZXN0YW1wDQp3YXMg
+bG9zdCAtIGlmIGEgdGltZXN0YW1wIGlzIHJlY2VpdmVkLCB0aGUgcGFja2V0IGlzIGRlbGl2ZXJl
+ZA0KaW1tZWRpYXRlbHkuIFRoaXMgcGF0Y2ggbWF5IGludHJvZHVjZSBhIHNsaWdodCBkZWxheSBv
+ZiB0aGUgcGFja2V0cw0Kd2hlcmUgdGhlIHRpbWVzdGFtcCBuZXZlciBhcnJpdmVzLCBieSB0aGVz
+ZSBwYWNrZXRzIGFyZSBwcm9wZXJseSBub3QNCnZlcnkgdXNlZnVsIHRvIHRoZSBhcHBsaWNhdGlv
+biBhbnl3YXkuDQoNClN0ZWZhbg0K
