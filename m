@@ -1,38 +1,75 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 2/5] dp83640: Delay scheduled work.
-Date: Mon, 2 Nov 2015 10:59:47 +0100
-Message-ID: <20151102095947.GA3291@netboy>
-References: <1446207244-2206-1-git-send-email-stefan.sorensen@spectralink.com>
- <1446207244-2206-3-git-send-email-stefan.sorensen@spectralink.com>
- <20151030203729.GC27879@netboy>
- <1446448990.2437.7.camel@spectralink.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is
+ incorrect for sockets in accept(3)
+Date: Mon, 2 Nov 2015 10:03:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBC8782@AcuExch.aculab.com>
+References: <20151019095938.72ea48e6@xeon-e3>
+ <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com>
+ <562594E1.8040403@oracle.com>
+ <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151021034950.GL22011@ZenIV.linux.org.uk> <5627A37B.4090208@oracle.com>
+ <20151021185104.GM22011@ZenIV.linux.org.uk>
+  <201510212033.t9LKX4G8007718@room101.nl.oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?iso-8859-1?B?U/hyZW5zZW4s?= Stefan
-	<Stefan.Sorensen@spectralink.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Alan Burlison <Alan.Burlison@oracle.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"dholland-tech@netbsd.org" <dholland-tech@netbsd.org>
+To: "'Casper.Dik@oracle.com'" <Casper.Dik@oracle.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:37000 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751310AbbKBJ7w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 04:59:52 -0500
-Received: by wmff134 with SMTP id f134so55548372wmf.0
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 01:59:51 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1446448990.2437.7.camel@spectralink.com>
+Received: from smtp-out4.electric.net ([192.162.216.192]:61959 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752696AbbKBKEE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 05:04:04 -0500
+In-Reply-To: <201510212033.t9LKX4G8007718@room101.nl.oracle.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 02, 2015 at 07:23:12AM +0000, S=F8rensen, Stefan wrote:
-> The workqueue is only used for delivering packets where the timestamp
-> was lost - if a timestamp is received, the packet is delivered
-> immediately. This patch may introduce a slight delay of the packets
-> where the timestamp never arrives, by these packets are properly not
-> very useful to the application anyway.
+From: Casper.Dik@oracle.com
+> Sent: 21 October 2015 21:33
+..
+> >Er...  So fd2 = dup(fd);accept(fd)/close(fd) should *not* trigger that
+> >behaviour, in your opinion?  Because fd is sure as hell not the last
+> >descriptor refering to that socket - fd2 remains alive and well.
+> >
+> >Behaviour you describe below matches the _third_ option.
+> 
+> >> >BTW, for real fun, consider this:
+> >> >7)
+> >> >// fd is a socket
+> >> >fd2 = dup(fd);
+> >> >in thread A: accept(fd);
+> >> >in thread B: accept(fd);
+> >> >in thread C: accept(fd2);
+> >> >in thread D: close(fd);
 
-Ok, thanks for the explanation.  I mixed this up with another out of
-tree driver that I was hacking recently.
+If D is going to do this, it ought to be using dup2() to clone
+a copy of (say) /dev/null onto 'fd'.
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+> >> >Which threads (if any), should get hit where it hurts?
+> >>
+> >> A & B should return from the accept with an error. C should
+> >> continue. Which is what happens on Solaris.
+
+That seems to completely break the normal *nix file scheme...
+
+> >> To this end each thread keeps a list of file descriptors
+> >> in use by the current active system call.
+> >
+
+Remember, Solaris (and SYSV) has extra levels of multiplexing between
+userspace and char special drivers (and probably sockets) than Linux does.
+As well as having multiple fd referencing the same struct FILE, multiple
+FILE can point to the same inode.
+If you have two different /dev entries for the same major/minor you
+also end up with separate inodes - all finally referencing the same
+driver data (indexed only by minor number).
+(You actually get two inodes in the chain, one for the disk filesystem
+and one char-special. The ref counts on both can be greater than 1.)
+
+	David
