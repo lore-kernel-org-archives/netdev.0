@@ -1,36 +1,59 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RFC] mpls: support for dead routes
-Date: Sun, 01 Nov 2015 17:01:05 -0800
-Message-ID: <5636B5D1.9070901@cumulusnetworks.com>
-References: <1446133748-13738-1-git-send-email-roopa@cumulusnetworks.com> <87twp5tnq3.fsf@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: rshearma@brocade.com, davem@davemloft.net, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:33184 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750704AbbKBBBH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2015 20:01:07 -0500
-Received: by pabfh17 with SMTP id fh17so6001035pab.0
-        for <netdev@vger.kernel.org>; Sun, 01 Nov 2015 17:01:07 -0800 (PST)
-In-Reply-To: <87twp5tnq3.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH net-next] ravb: use pdev rather than ndev for error messages
+Date: Mon,  2 Nov 2015 10:40:17 +0900
+Message-ID: <1446428417-10895-1-git-send-email-horms+renesas@verge.net.au>
+Cc: Magnus Damm <magnus.damm@gmail.com>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/1/15, 1:27 PM, Eric W. Biederman wrote:
-> Roopa Prabhu <roopa@cumulusnetworks.com> writes:
->
->> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
->> index c70d750..7db9678 100644
->> --- a/net/mpls/af_mpls.c
->> +++ b/net/mpls/af_mpls.c
->> @@ -27,6 +27,8 @@
->>   */
->>  #define MAX_MP_SELECT_LABELS 4
->>  
->> +u32 mpls_multipath_secret __read_mostly;
-> This mpls_multipath_secret is never used.
->
-It is used in mpls_multipath_rebalance, same as fib_rebalance.
+This corrects what appear to be typos, making the code consistent with
+itself, and allowing meaningful prefixes to be displayed with the errors in
+question.
+
+Before:
+ (null): failed to initialize MDIO
+ (null): Cannot allocate desc base address table (size 176 bytes)
+
+After:
+ravb e6800000.ethernet: failed to initialize MDIO
+ravb e6800000.ethernet: Cannot allocate desc base address table (size 176 bytes)
+
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+
+---
+
+Tested using an r8a7795/Salvatore-X on the topic/gen3-latest branch of
+Geert Uytterhoeven's renesas-drivers tree on kernel.org: 3f5a88be9fea
+("[WIP] arm64: renesas: r8a7795: Convert to new CPG/MSSR bindings")
+---
+ drivers/net/ethernet/renesas/ravb_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index af52c88b8b8f..2f345da1cc66 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1798,7 +1798,7 @@ static int ravb_probe(struct platform_device *pdev)
+ 	priv->desc_bat = dma_alloc_coherent(ndev->dev.parent, priv->desc_bat_size,
+ 					    &priv->desc_bat_dma, GFP_KERNEL);
+ 	if (!priv->desc_bat) {
+-		dev_err(&ndev->dev,
++		dev_err(&pdev->dev,
+ 			"Cannot allocate desc base address table (size %d bytes)\n",
+ 			priv->desc_bat_size);
+ 		error = -ENOMEM;
+@@ -1825,7 +1825,7 @@ static int ravb_probe(struct platform_device *pdev)
+ 	/* MDIO bus init */
+ 	error = ravb_mdio_init(priv);
+ 	if (error) {
+-		dev_err(&ndev->dev, "failed to initialize MDIO\n");
++		dev_err(&pdev->dev, "failed to initialize MDIO\n");
+ 		goto out_dma_free;
+ 	}
+ 
+-- 
+2.1.4
+
