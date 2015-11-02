@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] net: encx24j600: Fix SPI driver module autoload
-Date: Mon, 02 Nov 2015 15:33:21 -0500 (EST)
-Message-ID: <20151102.153321.1233012842173794868.davem@davemloft.net>
-References: <1446209358-26094-1-git-send-email-javier@osg.samsung.com>
+Subject: Re: pull-request: can 2015-10-30
+Date: Mon, 02 Nov 2015 15:34:39 -0500 (EST)
+Message-ID: <20151102.153439.775851202228554682.davem@davemloft.net>
+References: <1446212399-31546-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jringle@gridpoint.com
-To: javier@osg.samsung.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446209358-26094-1-git-send-email-javier@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: mkl@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35202 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752799AbbKBUel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 15:34:41 -0500
+In-Reply-To: <1446212399-31546-1-git-send-email-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Javier Martinez Canillas <javier@osg.samsung.com>
-Date: Fri, 30 Oct 2015 13:49:16 +0100
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Fri, 30 Oct 2015 14:39:58 +0100
 
-> Recently I've been trying to fix module autoloading for all SPI drivers and
-> found that the encx24j600 driver does not fill module alias information due
-> missing a MODULE_DEVICE_TABLE() so module autload won't work and the driver
-> Kconfig symbol is tristate which means the driver can be built as a module.
+> this is a pull request for the upcoming v4.3 release.
 > 
-> But also the SPI id table is not correctly defined so this series fixes both
-> issues.
+> Marek Vasut provides a patch to use the correct attrlen in the nla_put() in the
+> can_fill_info() function.
 
-Series applied to net-next, thanks.
+Pulled, but this missed the v4.3 release so you'll need to push this explicitly
+out to -stable.
+
+Thanks.
