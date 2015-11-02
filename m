@@ -1,61 +1,120 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
+From: Marek Vasut <marex@denx.de>
 Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
-Date: Mon, 02 Nov 2015 20:55:33 +0100
-Message-ID: <5637BFB5.6070706@hartkopp.net>
-References: <1446419775-5215-1-git-send-email-marex@denx.de>	<56373140.6040003@pengutronix.de>	<56374593.6000200@hartkopp.net> <CAAP7ucKOzP=HX4qJPhLN0c8nBHpCfzskBxtO09=K7HLLu_iT2w@mail.gmail.com>
+Date: Mon, 2 Nov 2015 19:16:18 +0100
+Message-ID: <201511021916.18117.marex@denx.de>
+References: <1446419775-5215-1-git-send-email-marex@denx.de> <56373140.6040003@pengutronix.de> <56374593.6000200@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Marek Vasut <marex@denx.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Cc: "Marc Kleine-Budde" <mkl@pengutronix.de>, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
 	Wolfgang Grandegger <wg@grandegger.com>,
 	Andrew Lunn <andrew@lunn.ch>,
 	Andrey Vostrikov <andrey.vostrikov@cogentembedded.com>
-To: Aleksander Morgado <aleksander@aleksander.es>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.218]:47536 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750887AbbKBUBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 15:01:50 -0500
-In-Reply-To: <CAAP7ucKOzP=HX4qJPhLN0c8nBHpCfzskBxtO09=K7HLLu_iT2w@mail.gmail.com>
+Received: from mail-out.m-online.net ([212.18.0.9]:56218 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751801AbbKBUDg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 15:03:36 -0500
+In-Reply-To: <56374593.6000200@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/02/2015 08:41 PM, Aleksander Morgado wrote:
-> On Mon, Nov 2, 2015 at 12:14 PM, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
->>
->> What about defining some overlay data structure to map ARINC-429 frames into
->> CAN frames?
->>
->> E.g. we could write the ARINC 32 bit data completely into data[0..3] and
->> additionally copy the 8 bit label information (or should it better be 10 bit
->> including the Source/Destination Identifiers?) additionally into the can_id.
+On Monday, November 02, 2015 at 12:14:27 PM, Oliver Hartkopp wrote:
+> On 02.11.2015 10:47, Marc Kleine-Budde wrote:
+> > On 11/02/2015 12:16 AM, Marek Vasut wrote:
+> >> The ARINC-429 is a technical standard, which describes, among others,
+> >> a data bus used by airplanes. The standard contains much more, since
+> >> it is based off the ISO/OSI model, but this patch implements just the
+> >> data bus protocol.
+> >> 
+> >> This stack is derived from the SocketCAN implementation, already present
+> >> in the kernel and thus behaves in a very similar fashion. Thus far, we
+> >> support sending RAW ARINC-429 datagrams, configuration of the RX and TX
+> >> clock speed and filtering.
+> >> 
+> >> The ARINC-429 datagram is four-byte long. The first byte is always the
+> >> LABEL, the function of remaining three bytes can vary, so we handle it
+> >> as an opaque PAYLOAD. The userspace tools can send these datagrams via
+> >> a standard socket.
+> >> 
+> >> A LABEL-based filtering can be configured on each socket separately in
+> >> a way comparable to CAN -- user uses setsockopt() to push a list of
+> >> label,mask tuples into the kernel and the kernel will deliver a datagram
+> >> to the socket if (<received_label> & mask) == (label & mask), otherwise
+> >> the datagram is not delivered.
+> > 
+> > What's difference compared to CAN besides a different MTU? The CAN stack
+> > is already capable to handle CAN and CAN-FD frames. Would it make sense
+> > to integrate the ARINC-429 into the existing CAN stack?
 > 
-> Note that the only bits which are always treated as non-data are the 8
-> label bits (well, and the parity bit #31). The 2 SDI bits (#8, #9) may
-> be used as data bits when a high resolution is needed, like Lat/Long
-> encoded in binary words 310 and 311. I wouldn't make any assumption on
-> what's on those 2 bits; i.e. they're not always "source/destination".
+> That was my first impression too.
+
+Hi!
+
+> What about defining some overlay data structure to map ARINC-429 frames
+> into CAN frames?
+
+I agree about the code reuse, it was stupid to do such a blatant copy of the
+code all right. I don't think it's such a great idea to outright place ARINC 
+support into the CAN stack though. They're two different busses after all. 
+Please see below.
+
+> E.g. we could write the ARINC 32 bit data completely into data[0..3] and
+> additionally copy the 8 bit label information (or should it better be 10
+> bit including the Source/Destination Identifiers?) additionally into the
+> can_id.
 > 
+>  From what I can see the filtering by label is similar to filtering by
+> can_id. And you would be able to use the can-gw functionality too.
 
-You definitely know these details better than me. That's why I'm asking.
+This is correct.
 
-Would hosting the 32 bit in the struct can_frame.data and just the 8 bit label
-in struct can_frame.can_id offer the functionality you need?
+> The only real difference is the bitrate configuration of the ARINC
+> interface.
 
-Besides the arinc429_frame struct
+There might be additional ARINC-specific configuration bits involved,
+but thus far, that's correct.
 
-struct arinc429_frame {
-	__u8	label;		/* 8 bit label */
-	__u8	data[3];	/* Up-to 23 bits are valid. */
-};
+> I wonder if a similar approach would fit here as we discussed with the
+> University of Prague for a LIN implementation using the PF_CAN
+> infrastructure:
 
-everything else roughly looks like copy&paste from PF_CAN with renaming.
+OT: Hey, there is no "University of Prague", there are two universities in 
+Prague to boot -- Charles University and Czech Technical University -- you
+mean the later ;-)
 
-So when we can fit the arinc frames into CAN frames and re-use the existing
-CAN infrastructure - we are almost done.
+> http://rtime.felk.cvut.cz/can/lin-bus/
+> 
+> It could probably boil down to a 'CAN interface' that is named arinc0 which
+> implements the serial driver like in slcan.c or sllin.c ...
 
-Regards,
-Oliver
+I was thinking about this and I mostly agree with you. Obviously, copying the
+code this way was dumb. On the other hand, ARINC and CAN are two different sort 
+of busses, so I'd propose something slightly different here to avoid confusion 
+and prevent the future extensions (or protocols) from adding unrelated cruft 
+into the CAN stack.
+
+I would propose we (read: me) create some sort of "common" core, which would
+contain the following:
+ - drivers/net/: big part of the device interface here is common
+                 big part of the virtual interface here is common
+                 -> CAN or ARINC can just add their own specific callbacks and
+                    be done with it
+                   
+ - net/: there's a lot of common parts as well, like the filtering can be
+         unified such that it can be used by both. A big part of the socket
+         handling is also similar.
+
+This would also let the slcan or sllin or whatever stuff they made at CVUT just
+plug into this "common" core part.
+
+Now I wonder if we should introduce AF_ARINC or stick to AF_CAN for both. I'd
+be much happier to keep those two separate, again, to avoid confusion.
+
+What do you think please ?
+
+Best regards,
+Marek Vasut
