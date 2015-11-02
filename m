@@ -1,58 +1,210 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [RFC] unix: fix use-after-free in unix_dgram_poll()/ 4.2.5
-Date: Mon, 02 Nov 2015 21:55:42 +0000
-Message-ID: <874mh4gj6p.fsf@doppelsaurus.mobileactivedefense.com>
-References: <cover.1443817522.git.jbaron@akamai.com>
-	<f4e283269e7063317956ea1de6fdc58449ee75cd.1443817522.git.jbaron@akamai.com>
-	<87bncdxool.fsf@doppelsaurus.mobileactivedefense.com>
-	<5612B9A9.8050301@akamai.com>
-	<87lhb7sttz.fsf@doppelsaurus.mobileactivedefense.com>
-	<561DCFA4.3010300@akamai.com>
-	<87d1wh8hqh.fsf@doppelsaurus.mobileactivedefense.com>
-	<561F156E.9050905@akamai.com>
-	<87fv17x59w.fsf@doppelsaurus.mobileactivedefense.com>
-	<5625073C.5010809@akamai.com>
-	<87vba1i383.fsf@doppelsaurus.mobileactivedefense.com>
-	<874mhbx7o1.fsf_-_@doppelsaurus.mobileactivedefense.com>
-	<877fm43wqv.fsf_-_@doppelsaurus.mobileactivedefense.com>
-	<57d2f5b6aae251957bff7a1a52b8bf2c@core-hosting.net>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net-next] net/core: generic support for disabling netdev
+ features down stack
+Date: Mon, 02 Nov 2015 16:57:39 -0500
+Message-ID: <5637DC53.3090001@redhat.com>
+References: <1445658019-58621-1-git-send-email-jarod@redhat.com> <1446486818-26166-1-git-send-email-jarod@redhat.com> <5637A5B7.6070405@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Jason Baron <jbaron@akamai.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<minipli@googlemail.com>, <normalperson@yhbt.net>,
-	<eric.dumazet@gmail.com>, <viro@zeniv.linux.org.uk>,
-	<davidel@xmailserver.org>, <dave@stgolabs.net>,
-	<pageexec@freemail.hu>, <torvalds@linux-foundation.org>,
-	<peterz@infradead.org>
-To: <olivier@mauras.ch>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Nikolay Aleksandrov <razor@blackwall.org>,
+	Michal Kubecek <mkubecek@suse.cz>, netdev@vger.kernel.org
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57d2f5b6aae251957bff7a1a52b8bf2c@core-hosting.net> (Olivier
-	Mauras's message of "Mon, 02 Nov 2015 11:01:08 +0200")
+In-Reply-To: <5637A5B7.6070405@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Olivier Mauras <olivier@mauras.ch> writes:
+Alexander Duyck wrote:
+> On 11/02/2015 09:53 AM, Jarod Wilson wrote:
+>> There are some netdev features, which when disabled on an upper device,
+>> such as a bonding master or a bridge, must be disabled and cannot be
+>> re-enabled on underlying devices.
+>>
+>> This is a rework of an earlier more heavy-handed appraoch, which simply
+>> disables and prevents re-enabling of netdev features listed in a new
+>> define in include/net/netdev_features.h, NETIF_F_UPPER_DISABLES. Any
+>> upper
+>> device that disables a flag in that feature mask, the disabling will
+>> propagate down the stack, and any lower device that has any upper device
+>> with one of those flags disabled should not be able to enable said flag.
+>>
+>> Initially, only LRO is included for proof of concept, and because this
+>> code effectively does the same thing as dev_disable_lro(), though it will
+>> also activate from the ethtool path, which was one of the goals here.
+>>
+>> [root@dell-per730-01 ~]# ethtool -k bond0 |grep large
+>> large-receive-offload: on
+>> [root@dell-per730-01 ~]# ethtool -k p5p1 |grep large
+>> large-receive-offload: on
+>> [root@dell-per730-01 ~]# ethtool -K bond0 lro off
+>> [root@dell-per730-01 ~]# ethtool -k bond0 |grep large
+>> large-receive-offload: off
+>> [root@dell-per730-01 ~]# ethtool -k p5p1 |grep large
+>> large-receive-offload: off
+>>
+>> dmesg dump:
+>>
+>> [ 1033.277986] bond0: Disabling feature 0x0000000000008000 on lower
+>> dev p5p2.
+>> [ 1034.067949] bnx2x 0000:06:00.1 p5p2: using MSI-X IRQs: sp 74 fp[0]
+>> 76 ... fp[7] 83
+>> [ 1034.753612] bond0: Disabling feature 0x0000000000008000 on lower
+>> dev p5p1.
+>> [ 1035.591019] bnx2x 0000:06:00.0 p5p1: using MSI-X IRQs: sp 62 fp[0]
+>> 64 ... fp[7] 71
+>>
+>> This has been successfully tested with bnx2x, qlcnic and netxen network
+>> cards as slaves in a bond interface. Turning LRO on or off on the master
+>> also turns it on or off on each of the slaves, new slaves are added with
+>> LRO in the same state as the master, and LRO can't be toggled on the
+>> slaves.
+>>
+>> Also, this should largely remove the need for dev_disable_lro(), and
+>> most,
+>> if not all, of its call sites can be replaced by simply making sure
+>> NETIF_F_LRO isn't included in the relevant device's feature flags.
+>>
+>> Note that this patch is driven by bug reports from users saying it was
+>> confusing that bonds and slaves had different settings for the same
+>> features, and while it won't be 100% in sync if a lower device doesn't
+>> support a feature like LRO, I think this is a good step in the right
+>> direction.
+>>
+>> CC: "David S. Miller" <davem@davemloft.net>
+>> CC: Eric Dumazet <edumazet@google.com>
+>> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+>> CC: Veaceslav Falico <vfalico@gmail.com>
+>> CC: Andy Gospodarek <gospo@cumulusnetworks.com>
+>> CC: Jiri Pirko <jiri@resnulli.us>
+>> CC: Nikolay Aleksandrov <razor@blackwall.org>
+>> CC: Michal Kubecek <mkubecek@suse.cz>
+>> CC: Alexander Duyck <alexander.duyck@gmail.com>
+>> CC: netdev@vger.kernel.org
+>> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+>> ---
+>> Note: this replaces "[RFC PATCH net-next] net/core: initial support for
+>> stacked dev feature toggles" for consideration.
+>>
+>> include/linux/netdev_features.h | 11 +++++++++
+>> net/core/dev.c | 52 +++++++++++++++++++++++++++++++++++++++++
+>> 2 files changed, 63 insertions(+)
+>>
+>> diff --git a/include/linux/netdev_features.h
+>> b/include/linux/netdev_features.h
+>> index 9672781..0f5837a 100644
+>> --- a/include/linux/netdev_features.h
+>> +++ b/include/linux/netdev_features.h
+>> @@ -125,6 +125,11 @@ enum {
+>> #define NETIF_F_HW_L2FW_DOFFLOAD __NETIF_F(HW_L2FW_DOFFLOAD)
+>> #define NETIF_F_BUSY_POLL __NETIF_F(BUSY_POLL)
+>>
+>> +#define for_each_netdev_feature(mask_addr, feature) \
+>> + int bit; \
+>> + for_each_set_bit(bit, (unsigned long *)mask_addr,
+>> NETDEV_FEATURE_COUNT) \
+>> + feature = __NETIF_F_BIT(bit);
+>> +
+>> /* Features valid for ethtool to change */
+>> /* = all defined minus driver/device-class-related */
+>> #define NETIF_F_NEVER_CHANGE (NETIF_F_VLAN_CHALLENGED | \
+>> @@ -167,6 +172,12 @@ enum {
+>> */
+>> #define NETIF_F_ALL_FOR_ALL (NETIF_F_NOCACHE_COPY | NETIF_F_FSO)
+>>
+>> +/*
+>> + * If upper/master device has these features disabled, they must be
+>> disabled
+>> + * on all lower/slave devices as well.
+>> + */
+>> +#define NETIF_F_UPPER_DISABLES NETIF_F_LRO
+>> +
+>> /* changeable features with no special hardware requirements */
+>> #define NETIF_F_SOFT_FEATURES (NETIF_F_GSO | NETIF_F_GRO)
+>>
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 13f49f8..3a8dbbc 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -6288,9 +6288,51 @@ static void rollback_registered(struct
+>> net_device *dev)
+>> list_del(&single);
+>> }
+>>
+>> +static netdev_features_t netdev_sync_upper_features(struct net_device
+>> *lower,
+>> + struct net_device *upper, netdev_features_t features)
+>> +{
+>> + netdev_features_t upper_disables = NETIF_F_UPPER_DISABLES;
+>> + netdev_features_t feature;
+>> +
+>> + for_each_netdev_feature(&upper_disables, feature) {
+>> + if (!(upper->wanted_features & feature)
+>> + && (features & feature)) {
+>> + netdev_dbg(lower, "Dropping feature %pNF, upper dev %s has it off.\n",
+>> + &feature, upper->name);
+>> + features &= ~feature;
+>> + }
+>> + }
+>> +
+>> + return features;
+>> +}
+>> +
+>> +static void netdev_sync_lower_features(struct net_device *upper,
+>> + struct net_device *lower, netdev_features_t features)
+>> +{
+>> + netdev_features_t upper_disables = NETIF_F_UPPER_DISABLES;
+>> + netdev_features_t feature;
+>> +
+>> + for_each_netdev_feature(&upper_disables, feature) {
+>> + if (!(features & feature) && (lower->features & feature)) {
+>> + netdev_dbg(upper, "Disabling feature %pNF on lower dev %s.\n",
+>> + &feature, lower->name);
+>> + upper->wanted_features &= ~feature;
+>
+> Isn't this line redundant? The upper device should have already cleared
+> the bit from the wanted_features? That is unless the ndo_fix_features
+> call modified it in which case we shouldn't be modifying it ourselves.
 
-[...]
+With the upper/lower feature sync calls where they currently are, no, 
+its actually necessary to prevent flip-flopping flag values.
 
-> I've encountered  issues with Jason's patch ported to 3.14.x which would break
-> openldap, rendering it unable to answer any query - Here's a strace of the
-> slapd process in this state http://pastebin.ca/3226383
-> Just ported Rainer's patch to 3.14 and so far I can't reproduce the issue -
+...
+>> @@ -6345,6 +6387,16 @@ static netdev_features_t
+>> netdev_fix_features(struct net_device *dev,
+>> }
+>> }
+>>
+>> + /* some features can't be enabled if they're off an an upper device */
+>> + netdev_for_each_upper_dev_rcu(dev, upper, iter)
+>> + features = netdev_sync_upper_features(dev, upper, features);
+>> +
+>> + /* some features must be disabled on lower devices when disabled
+>> + * on an upper device (think: bonding master or bridge)
+>> + */
+>> + netdev_for_each_lower_dev(dev, lower, iter)
+>> + netdev_sync_lower_features(dev, lower, features);
+>> +
+>
+> I don't know if this is the right spot for this. You might want to look
+> at placing this after the ndo_set_features call to handle things if
+> there wasn't an error. That way if a lower device for some reason has an
+> issue with one of the other settings being changed you don't end up in a
+> state where all the lower devices have the feature stripped while the
+> upper device still reports it as being enabled.
 
-I may be missing something here but the final state according to the
-trace it that thread 775 of the process blocks in epoll_wait with a
-descriptor set containing only a listening TCP socket (8) and waiting
-for new connections. I don't think this can execute any code
-changed by my patch and I'm fairly certain for this for Jason's, too:
-Both are about AF_UNIX datagram sockets and the specific case where
-either a write couldn't complete because the backlog of the receive
-queue of the 1 side of a n:1 datagram socket arrangement was considered
-too large or where a 'poll for write' check returned 'not writeable' for
-the same reason.
+I'll give it a go after the .ndo_set_features calls in 
+__netdev_update_features(), see what shakes loose. Might even not need 
+the extra upper->wanted_features twiddling with it here.
 
-Judging from the 2.4.42 sources, OpenLDAP doesn't use AF_UNIX datagram
-sockets at all so it shouldn't ever be affected by any changes to the
-code handling them.
+
+-- 
+Jarod Wilson
+jarod@redhat.com
