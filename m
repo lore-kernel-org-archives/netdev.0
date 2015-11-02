@@ -1,31 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: dsa: mv88e6xxx: lookup switch name
-Date: Mon, 02 Nov 2015 15:54:52 -0500 (EST)
-Message-ID: <20151102.155452.2035474549929551377.davem@davemloft.net>
-References: <1446248388-21060-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v2 0/2] sh_eth: fix bugs in sh_eth_ring_init()
+Date: Mon, 02 Nov 2015 15:56:39 -0500 (EST)
+Message-ID: <20151102.155639.1614788692883883662.davem@davemloft.net>
+References: <3291270.dPgp9opalf@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch,
-	linux@roeck-us.net, narmstrong@baylibre.com
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446248388-21060-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <3291270.dPgp9opalf@wasted.cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Fri, 30 Oct 2015 19:39:48 -0400
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sat, 31 Oct 2015 02:05:19 +0300
 
-> All the mv88e6xxx drivers use the exact same code in their probe
-> function to lookup the switch name given its ID. Thus introduce a
-> mv88e6xxx_switch_id structure and a mv88e6xxx_lookup_name function in
-> the common mv88e6xxx code.
-> 
-> In the meantime make __mv88e6xxx_reg_{read,write} static since we do not
-> need to expose these low-level r/w routines anymore.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>    Here's a set of 2 patches against DaveM's 'net.git' repo which fix couple of
+> bugs in the sh_eth_ring_init() function.
 
-Applied.
+Series applied.
