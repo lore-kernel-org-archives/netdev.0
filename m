@@ -1,47 +1,41 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next RFC] mpls: support for dead routes
-Date: Sun, 01 Nov 2015 23:08:09 -0600
-Message-ID: <87d1vtt2di.fsf@x220.int.ebiederm.org>
-References: <1446133748-13738-1-git-send-email-roopa@cumulusnetworks.com>
-	<87twp5tnq3.fsf@x220.int.ebiederm.org>
-	<5636B5D1.9070901@cumulusnetworks.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: HW communication debugging interface - ideas?
+Date: Mon, 2 Nov 2015 07:13:31 +0100
+Message-ID: <20151102061331.GA2216@nanopsycho.orion>
+References: <20150930135141.GF2098@nanopsycho.orion>
+ <20151101.115116.620913426492186507.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: rshearma@brocade.com, davem@davemloft.net, netdev@vger.kernel.org
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eladr@mellanox.com, idosch@mellanox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:59835 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751019AbbKBFQb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 00:16:31 -0500
-In-Reply-To: <5636B5D1.9070901@cumulusnetworks.com>
-	(roopa@cumulusnetworks.com's message of "Sun, 01 Nov 2015 17:01:05
-	-0800")
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:38404 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751483AbbKBGNe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 01:13:34 -0500
+Received: by wicll6 with SMTP id ll6so42936928wic.1
+        for <netdev@vger.kernel.org>; Sun, 01 Nov 2015 22:13:33 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20151101.115116.620913426492186507.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-roopa <roopa@cumulusnetworks.com> writes:
+Sun, Nov 01, 2015 at 05:51:16PM CET, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Wed, 30 Sep 2015 15:51:41 +0200
+>
+>> 2) generic Netlink (genl) interface. Easy to put metadata in, including the
+>> device identificator (pci address). User then can use nlmon in order to
+>> be able to use wireshark to see the netlink messages.
+>> 
+>> Looks like 2) might be viable, well-defined, generic interface to carry
+>> this info. What do you think? Does this make sense?
+>
+>Sorry for the late response.  I definitely prefer this netlink idea,
+>particularly for the metadata aspect.
+>
+>Yes, the ethernet frames should "identify" the device, but I much more
+>like the idea of precisely having the geographic ID of the device (PCI
+>ID, whatever) available as metadata as well.
 
-> On 11/1/15, 1:27 PM, Eric W. Biederman wrote:
->> Roopa Prabhu <roopa@cumulusnetworks.com> writes:
->>
->>> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
->>> index c70d750..7db9678 100644
->>> --- a/net/mpls/af_mpls.c
->>> +++ b/net/mpls/af_mpls.c
->>> @@ -27,6 +27,8 @@
->>>   */
->>>  #define MAX_MP_SELECT_LABELS 4
->>>  
->>> +u32 mpls_multipath_secret __read_mostly;
->> This mpls_multipath_secret is never used.
->>
-> It is used in mpls_multipath_rebalance, same as fib_rebalance.
-
-fib_multipath_secret is only initialized in fib_rebalalance.
-fib_multipath_secret is used used in fib_multipath_hash,
-which is called in fib_select_path.
-
-The equivalent code does not exist in your mpls patch.
-
-Eric
+Okay. Thanks!
