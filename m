@@ -1,1137 +1,237 @@
 From: <igal.liberman@freescale.com>
-Subject: [v7, 6/6] fsl/fman: Add FMan MAC driver
-Date: Mon, 2 Nov 2015 14:30:16 +0200
-Message-ID: <1446467416-15992-7-git-send-email-igal.liberman@freescale.com>
+Subject: [v7, 4/6] fsl/fman: Add FMan SP support
+Date: Mon, 2 Nov 2015 14:30:14 +0200
+Message-ID: <1446467416-15992-5-git-send-email-igal.liberman@freescale.com>
 References: <1446467416-15992-1-git-send-email-igal.liberman@freescale.com>
-Reply-To: <igal.liberman@freescale.com>
+Reply-To: igal.liberman@freescale.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
-	<scottwood@freescale.com>, <madalin.bucur@freescale.com>,
-	<pebolle@tiscali.nl>, <joakim.tjernlund@transmode.se>,
-	<ppc@mindchasers.com>, <stephen@networkplumber.org>,
-	<davem@davemloft.net>, Igal Liberman <igal.liberman@freescale.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: pebolle@tiscali.nl, linux-kernel@vger.kernel.org, ppc@mindchasers.com,
+ stephen@networkplumber.org, Igal Liberman <igal.liberman@freescale.com>,
+ scottwood@freescale.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net,
+ madalin.bucur@freescale.com
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 In-Reply-To: <1446467416-15992-1-git-send-email-igal.liberman@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-From: Igal Liberman <igal.liberman@freescale.com>
-
-This patch adds the Ethernet MAC driver supporting the three
-different types of MACs: dTSEC, tGEC and mEMAC.
-
-Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
----
- drivers/net/ethernet/freescale/fman/Makefile |    3 +-
- drivers/net/ethernet/freescale/fman/mac.c    |  980 ++++++++++++++++++++++++++
- drivers/net/ethernet/freescale/fman/mac.h    |   97 +++
- 3 files changed, 1079 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/freescale/fman/mac.c
- create mode 100644 drivers/net/ethernet/freescale/fman/mac.h
-
-diff --git a/drivers/net/ethernet/freescale/fman/Makefile b/drivers/net/ethernet/freescale/fman/Makefile
-index 2eb0b9b..51fd2e6 100644
---- a/drivers/net/ethernet/freescale/fman/Makefile
-+++ b/drivers/net/ethernet/freescale/fman/Makefile
-@@ -1,6 +1,7 @@
- subdir-ccflags-y +=  -I$(srctree)/drivers/net/ethernet/freescale/fman
- 
--obj-y		+= fsl_fman.o fsl_fman_mac.o
-+obj-y		+= fsl_fman.o fsl_fman_mac.o fsl_mac.o
- 
- fsl_fman-objs	:= fman_muram.o fman.o fman_sp.o fman_port.o
- fsl_fman_mac-objs := fman_dtsec.o fman_memac.o fman_tgec.o
-+fsl_mac-objs += mac.o
-diff --git a/drivers/net/ethernet/freescale/fman/mac.c b/drivers/net/ethernet/freescale/fman/mac.c
-new file mode 100644
-index 0000000..9dd66bc
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/mac.c
-@@ -0,0 +1,980 @@
-+/* Copyright 2008-2015 Freescale Semiconductor, Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *	 notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *	 notice, this list of conditions and the following disclaimer in the
-+ *	 documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *	 names of its contributors may be used to endorse or promote products
-+ *	 derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/of_address.h>
-+#include <linux/of_platform.h>
-+#include <linux/of_net.h>
-+#include <linux/of_mdio.h>
-+#include <linux/device.h>
-+#include <linux/phy.h>
-+#include <linux/netdevice.h>
-+#include <linux/phy_fixed.h>
-+#include <linux/etherdevice.h>
-+
-+#include "mac.h"
-+#include "fman_mac.h"
-+#include "fman_dtsec.h"
-+#include "fman_tgec.h"
-+#include "fman_memac.h"
-+
-+#define MAC_DESCRIPTION "FSL FMan MAC API based driver"
-+
-+MODULE_LICENSE("Dual BSD/GPL");
-+
-+MODULE_AUTHOR("Emil Medve <Emilian.Medve@Freescale.com>");
-+
-+MODULE_DESCRIPTION(MAC_DESCRIPTION);
-+
-+struct mac_priv_s {
-+	struct device			*dev;
-+	void __iomem			*vaddr;
-+	u8				cell_index;
-+	phy_interface_t			phy_if;
-+	struct fman			*fman;
-+	struct device_node		*phy_node;
-+	/* List of multicast addresses */
-+	struct list_head		mc_addr_list;
-+	struct platform_device		*eth_dev;
-+	struct fixed_phy_status		*fixed_link;
-+	u16				speed;
-+	u16				max_speed;
-+
-+	int (*enable)(struct fman_mac *mac_dev, enum comm_mode mode);
-+	int (*disable)(struct fman_mac *mac_dev, enum comm_mode mode);
-+};
-+
-+struct mac_address {
-+	u8 addr[ETH_ALEN];
-+	struct list_head list;
-+};
-+
-+static void mac_exception(void *_mac_dev, enum fman_mac_exceptions ex)
-+{
-+	struct mac_device	*mac_dev;
-+	struct mac_priv_s	*priv;
-+
-+	mac_dev = (struct mac_device *)_mac_dev;
-+	priv = mac_dev->priv;
-+
-+	if (ex == FM_MAC_EX_10G_RX_FIFO_OVFL) {
-+		/* don't flag RX FIFO after the first */
-+		mac_dev->set_exception(mac_dev->fman_mac,
-+				       FM_MAC_EX_10G_RX_FIFO_OVFL, false);
-+		dev_err(priv->dev, "10G MAC got RX FIFO Error = %x\n", ex);
-+	}
-+
-+	dev_dbg(priv->dev, "%s:%s() -> %d\n", KBUILD_BASENAME ".c",
-+		__func__, ex);
-+}
-+
-+static void set_fman_mac_params(struct mac_device *mac_dev,
-+				struct fman_mac_params *params)
-+{
-+	struct mac_priv_s *priv = mac_dev->priv;
-+
-+	params->base_addr = (typeof(params->base_addr))
-+		devm_ioremap(priv->dev, mac_dev->res->start, 0x2000);
-+	memcpy(&params->addr, mac_dev->addr, sizeof(mac_dev->addr));
-+	params->max_speed	= priv->max_speed;
-+	params->phy_if		= priv->phy_if;
-+	params->basex_if	= false;
-+	params->mac_id		= priv->cell_index;
-+	params->fm		= (void *)priv->fman;
-+	params->exception_cb	= mac_exception;
-+	params->event_cb	= mac_exception;
-+	params->dev_id		= mac_dev;
-+}
-+
-+static int tgec_initialization(struct mac_device *mac_dev)
-+{
-+	int err;
-+	struct mac_priv_s	*priv;
-+	struct fman_mac_params	params;
-+	u32			version;
-+
-+	priv = mac_dev->priv;
-+
-+	set_fman_mac_params(mac_dev, &params);
-+
-+	mac_dev->fman_mac = tgec_config(&params);
-+	if (!mac_dev->fman_mac) {
-+		err = -EINVAL;
-+		goto _return;
-+	}
-+
-+	err = tgec_cfg_max_frame_len(mac_dev->fman_mac, fman_get_max_frm());
-+	if (err < 0)
-+		goto _return_fm_mac_free;
-+
-+	err = tgec_init(mac_dev->fman_mac);
-+	if (err < 0)
-+		goto _return_fm_mac_free;
-+
-+	/* For 10G MAC, disable Tx ECC exception */
-+	err = mac_dev->set_exception(mac_dev->fman_mac,
-+				     FM_MAC_EX_10G_TX_ECC_ER, false);
-+	if (err < 0)
-+		goto _return_fm_mac_free;
-+
-+	err = tgec_get_version(mac_dev->fman_mac, &version);
-+	if (err < 0)
-+		goto _return_fm_mac_free;
-+
-+	dev_info(priv->dev, "FMan XGEC version: 0x%08x\n", version);
-+
-+	goto _return;
-+
-+_return_fm_mac_free:
-+	tgec_free(mac_dev->fman_mac);
-+
-+_return:
-+	return err;
-+}
-+
-+static int dtsec_initialization(struct mac_device *mac_dev)
-+{
-+	int			err;
-+	struct mac_priv_s	*priv;
-+	struct fman_mac_params	params;
-+	u32			version;
-+
-+	priv = mac_dev->priv;
-+
-+	set_fman_mac_params(mac_dev, &params);
-+
-+	mac_dev->fman_mac = dtsec_config(&params);
-+	if (!mac_dev->fman_mac) {
-+		err = -EINVAL;
-+		goto _return;
-+	}
-+
-+	err = dtsec_cfg_max_frame_len(mac_dev->fman_mac, fman_get_max_frm());
-+	if (err < 0)
-+		goto _return_fm_mac_free;
-+
-+	err = dtsec_cfg_pad_and_crc(mac_dev->fman_mac, true);
-+	if (err < 0)
-+		goto _return_fm_mac_free;
-+
-+	err = dtsec_init(mac_dev->fman_mac);
-+	if (err < 0)
-+		goto _return_fm_mac_free;
-+
-+	/* For 1G MAC, disable by default the MIB counters overflow interrupt */
-+	err = mac_dev->set_exception(mac_dev->fman_mac,
-+				     FM_MAC_EX_1G_RX_MIB_CNT_OVFL, false);
-+	if (err < 0)
-+		goto _return_fm_mac_free;
-+
-+	err = dtsec_get_version(mac_dev->fman_mac, &version);
-+	if (err < 0)
-+		goto _return_fm_mac_free;
-+
-+	dev_info(priv->dev, "FMan dTSEC version: 0x%08x\n", version);
-+
-+	goto _return;
-+
-+_return_fm_mac_free:
-+	dtsec_free(mac_dev->fman_mac);
-+
-+_return:
-+	return err;
-+}
-+
-+static int memac_initialization(struct mac_device *mac_dev)
-+{
-+	int			 err;
-+	struct mac_priv_s	*priv;
-+	struct fman_mac_params	 params;
-+
-+	priv = mac_dev->priv;
-+
-+	set_fman_mac_params(mac_dev, &params);
-+
-+	if (priv->max_speed == SPEED_10000)
-+		params.phy_if = PHY_INTERFACE_MODE_XGMII;
-+
-+	mac_dev->fman_mac = memac_config(&params);
-+	if (!mac_dev->fman_mac) {
-+		err = -EINVAL;
-+		goto _return;
-+	}
-+
-+	err = memac_cfg_max_frame_len(mac_dev->fman_mac, fman_get_max_frm());
-+	if (err < 0)
-+		goto _return_fm_mac_free;
-+
-+	err = memac_cfg_reset_on_init(mac_dev->fman_mac, true);
-+	if (err < 0)
-+		goto _return_fm_mac_free;
-+
-+	err = memac_cfg_fixed_link(mac_dev->fman_mac, priv->fixed_link);
-+	if (err < 0)
-+		goto _return_fm_mac_free;
-+
-+	err = memac_init(mac_dev->fman_mac);
-+	if (err < 0)
-+		goto _return_fm_mac_free;
-+
-+	dev_info(priv->dev, "FMan MEMAC\n");
-+
-+	goto _return;
-+
-+_return_fm_mac_free:
-+	memac_free(mac_dev->fman_mac);
-+
-+_return:
-+	return err;
-+}
-+
-+static int start(struct mac_device *mac_dev)
-+{
-+	int	 err;
-+	struct phy_device *phy_dev = mac_dev->phy_dev;
-+	struct mac_priv_s *priv = mac_dev->priv;
-+
-+	err = priv->enable(mac_dev->fman_mac, COMM_MODE_RX_AND_TX);
-+	if (!err && phy_dev)
-+		phy_start(phy_dev);
-+
-+	return err;
-+}
-+
-+static int stop(struct mac_device *mac_dev)
-+{
-+	struct mac_priv_s *priv = mac_dev->priv;
-+
-+	if (mac_dev->phy_dev)
-+		phy_stop(mac_dev->phy_dev);
-+
-+	return priv->disable(mac_dev->fman_mac, COMM_MODE_RX_AND_TX);
-+}
-+
-+static int set_multi(struct net_device *net_dev, struct mac_device *mac_dev)
-+{
-+	struct mac_priv_s	*priv;
-+	struct mac_address	*old_addr, *tmp;
-+	struct netdev_hw_addr	*ha;
-+	int			err;
-+	enet_addr_t		*addr;
-+
-+	priv = mac_dev->priv;
-+
-+	/* Clear previous address list */
-+	list_for_each_entry_safe(old_addr, tmp, &priv->mc_addr_list, list) {
-+		addr = (enet_addr_t *)old_addr->addr;
-+		err = mac_dev->remove_hash_mac_addr(mac_dev->fman_mac, addr);
-+		if (err < 0)
-+			return err;
-+
-+		list_del(&old_addr->list);
-+		kfree(old_addr);
-+	}
-+
-+	/* Add all the addresses from the new list */
-+	netdev_for_each_mc_addr(ha, net_dev) {
-+		addr = (enet_addr_t *)ha->addr;
-+		err = mac_dev->add_hash_mac_addr(mac_dev->fman_mac, addr);
-+		if (err < 0)
-+			return err;
-+
-+		tmp = kmalloc(sizeof(*tmp), GFP_ATOMIC);
-+		if (!tmp)
-+			return -ENOMEM;
-+
-+		ether_addr_copy(tmp->addr, ha->addr);
-+		list_add(&tmp->list, &priv->mc_addr_list);
-+	}
-+	return 0;
-+}
-+
-+/**
-+ * fman_set_mac_active_pause
-+ * @mac_dev:	A pointer to the MAC device
-+ * @rx:		Pause frame setting for RX
-+ * @tx:		Pause frame setting for TX
-+ *
-+ * Set the MAC RX/TX PAUSE frames settings
-+ *
-+ * Avoid redundant calls to FMD, if the MAC driver already contains the desired
-+ * active PAUSE settings. Otherwise, the new active settings should be reflected
-+ * in FMan.
-+ *
-+ * Return: 0 on success; Error code otherwise.
-+ */
-+int fman_set_mac_active_pause(struct mac_device *mac_dev, bool rx, bool tx)
-+{
-+	struct fman_mac *fman_mac = mac_dev->fman_mac;
-+	int err = 0;
-+
-+	if (rx != mac_dev->rx_pause_active) {
-+		err = mac_dev->set_rx_pause(fman_mac, rx);
-+		if (likely(err == 0))
-+			mac_dev->rx_pause_active = rx;
-+	}
-+
-+	if (tx != mac_dev->tx_pause_active) {
-+		u16 pause_time = (tx ? FSL_FM_PAUSE_TIME_ENABLE :
-+					 FSL_FM_PAUSE_TIME_DISABLE);
-+
-+		err = mac_dev->set_tx_pause(fman_mac, 0, pause_time, 0);
-+
-+		if (likely(err == 0))
-+			mac_dev->tx_pause_active = tx;
-+	}
-+
-+	return err;
-+}
-+EXPORT_SYMBOL(fman_set_mac_active_pause);
-+
-+/**
-+ * fman_get_pause_cfg
-+ * @mac_dev:	A pointer to the MAC device
-+ * @rx:		Return value for RX setting
-+ * @tx:		Return value for TX setting
-+ *
-+ * Determine the MAC RX/TX PAUSE frames settings based on PHY
-+ * autonegotiation or values set by eththool.
-+ *
-+ * Return: Pointer to FMan device.
-+ */
-+void fman_get_pause_cfg(struct mac_device *mac_dev, bool *rx_pause,
-+			bool *tx_pause)
-+{
-+	struct phy_device *phy_dev = mac_dev->phy_dev;
-+	u16 lcl_adv, rmt_adv;
-+	u8 flowctrl;
-+
-+	*rx_pause = *tx_pause = false;
-+
-+	if (!phy_dev->duplex)
-+		return;
-+
-+	/* If PAUSE autonegotiation is disabled, the TX/RX PAUSE settings
-+	 * are those set by ethtool.
-+	 */
-+	if (!mac_dev->autoneg_pause) {
-+		*rx_pause = mac_dev->rx_pause_req;
-+		*tx_pause = mac_dev->tx_pause_req;
-+		return;
-+	}
-+
-+	/* Else if PAUSE autonegotiation is enabled, the TX/RX PAUSE
-+	 * settings depend on the result of the link negotiation.
-+	 */
-+
-+	/* get local capabilities */
-+	lcl_adv = 0;
-+	if (phy_dev->advertising & ADVERTISED_Pause)
-+		lcl_adv |= ADVERTISE_PAUSE_CAP;
-+	if (phy_dev->advertising & ADVERTISED_Asym_Pause)
-+		lcl_adv |= ADVERTISE_PAUSE_ASYM;
-+
-+	/* get link partner capabilities */
-+	rmt_adv = 0;
-+	if (phy_dev->pause)
-+		rmt_adv |= LPA_PAUSE_CAP;
-+	if (phy_dev->asym_pause)
-+		rmt_adv |= LPA_PAUSE_ASYM;
-+
-+	/* Calculate TX/RX settings based on local and peer advertised
-+	 * symmetric/asymmetric PAUSE capabilities.
-+	 */
-+	flowctrl = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
-+	if (flowctrl & FLOW_CTRL_RX)
-+		*rx_pause = true;
-+	if (flowctrl & FLOW_CTRL_TX)
-+		*tx_pause = true;
-+}
-+EXPORT_SYMBOL(fman_get_pause_cfg);
-+
-+static void adjust_link_void(struct net_device *net_dev)
-+{
-+}
-+
-+static void adjust_link_dtsec(struct net_device *net_dev)
-+{
-+	struct device *dev = net_dev->dev.parent;
-+	struct dpaa_eth_data *eth_data = dev->platform_data;
-+	struct mac_device *mac_dev = eth_data->mac_dev;
-+	struct phy_device *phy_dev = mac_dev->phy_dev;
-+	struct fman_mac *fman_mac;
-+	bool rx_pause, tx_pause;
-+	int err;
-+
-+	fman_mac = mac_dev->fman_mac;
-+	if (!phy_dev->link) {
-+		dtsec_restart_autoneg(fman_mac);
-+
-+		return;
-+	}
-+
-+	dtsec_adjust_link(fman_mac, phy_dev->speed);
-+	fman_get_pause_cfg(mac_dev, &rx_pause, &tx_pause);
-+	err = fman_set_mac_active_pause(mac_dev, rx_pause, tx_pause);
-+	if (err < 0)
-+		netdev_err(net_dev, "fman_set_mac_active_pause() = %d\n", err);
-+}
-+
-+static void adjust_link_memac(struct net_device *net_dev)
-+{
-+	struct device *dev = net_dev->dev.parent;
-+	struct dpaa_eth_data *eth_data = dev->platform_data;
-+	struct mac_device *mac_dev = eth_data->mac_dev;
-+	struct phy_device *phy_dev = mac_dev->phy_dev;
-+	struct fman_mac *fman_mac;
-+	bool rx_pause, tx_pause;
-+	int err;
-+
-+	fman_mac = mac_dev->fman_mac;
-+	memac_adjust_link(fman_mac, phy_dev->speed);
-+
-+	fman_get_pause_cfg(mac_dev, &rx_pause, &tx_pause);
-+	err = fman_set_mac_active_pause(mac_dev, rx_pause, tx_pause);
-+	if (err < 0)
-+		netdev_err(net_dev, "fman_set_mac_active_pause() = %d\n", err);
-+}
-+
-+/* Initializes driver's PHY state, and attaches to the PHY.
-+ * Returns 0 on success.
-+ */
-+static int init_phy(struct net_device *net_dev,
-+		    struct mac_device *mac_dev,
-+		    void (*adj_lnk)(struct net_device *))
-+{
-+	struct phy_device	*phy_dev;
-+	struct mac_priv_s	*priv = mac_dev->priv;
-+
-+	phy_dev = of_phy_connect(net_dev, priv->phy_node, adj_lnk, 0,
-+				 priv->phy_if);
-+	if (!phy_dev) {
-+		netdev_err(net_dev, "Could not connect to PHY\n");
-+		return -ENODEV;
-+	}
-+
-+	/* Remove any features not supported by the controller */
-+	phy_dev->supported &= mac_dev->if_support;
-+	/* Enable the symmetric and asymmetric PAUSE frame advertisements,
-+	 * as most of the PHY drivers do not enable them by default.
-+	 */
-+	phy_dev->supported |= (SUPPORTED_Pause | SUPPORTED_Asym_Pause);
-+	phy_dev->advertising = phy_dev->supported;
-+
-+	mac_dev->phy_dev = phy_dev;
-+
-+	return 0;
-+}
-+
-+static int dtsec_init_phy(struct net_device *net_dev,
-+			  struct mac_device *mac_dev)
-+{
-+	return init_phy(net_dev, mac_dev, &adjust_link_dtsec);
-+}
-+
-+static int tgec_init_phy(struct net_device *net_dev,
-+			 struct mac_device *mac_dev)
-+{
-+	return init_phy(net_dev, mac_dev, adjust_link_void);
-+}
-+
-+static int memac_init_phy(struct net_device *net_dev,
-+			  struct mac_device *mac_dev)
-+{
-+	return init_phy(net_dev, mac_dev, &adjust_link_memac);
-+}
-+
-+static void setup_dtsec(struct mac_device *mac_dev)
-+{
-+	mac_dev->init_phy		= dtsec_init_phy;
-+	mac_dev->init			= dtsec_initialization;
-+	mac_dev->set_promisc		= dtsec_set_promiscuous;
-+	mac_dev->change_addr		= dtsec_modify_mac_address;
-+	mac_dev->add_hash_mac_addr	= dtsec_add_hash_mac_address;
-+	mac_dev->remove_hash_mac_addr	= dtsec_del_hash_mac_address;
-+	mac_dev->set_tx_pause		= dtsec_set_tx_pause_frames;
-+	mac_dev->set_rx_pause		= dtsec_accept_rx_pause_frames;
-+	mac_dev->set_exception		= dtsec_set_exception;
-+	mac_dev->set_multi		= set_multi;
-+	mac_dev->start			= start;
-+	mac_dev->stop			= stop;
-+
-+	mac_dev->priv->enable		= dtsec_enable;
-+	mac_dev->priv->disable		= dtsec_disable;
-+}
-+
-+static void setup_tgec(struct mac_device *mac_dev)
-+{
-+	mac_dev->init_phy		= tgec_init_phy;
-+	mac_dev->init			= tgec_initialization;
-+	mac_dev->set_promisc		= tgec_set_promiscuous;
-+	mac_dev->change_addr		= tgec_modify_mac_address;
-+	mac_dev->add_hash_mac_addr	= tgec_add_hash_mac_address;
-+	mac_dev->remove_hash_mac_addr	= tgec_del_hash_mac_address;
-+	mac_dev->set_tx_pause		= tgec_set_tx_pause_frames;
-+	mac_dev->set_rx_pause		= tgec_accept_rx_pause_frames;
-+	mac_dev->set_exception		= tgec_set_exception;
-+	mac_dev->set_multi		= set_multi;
-+	mac_dev->start			= start;
-+	mac_dev->stop			= stop;
-+
-+	mac_dev->priv->enable		= tgec_enable;
-+	mac_dev->priv->disable		= tgec_disable;
-+}
-+
-+static void setup_memac(struct mac_device *mac_dev)
-+{
-+	mac_dev->init_phy		= memac_init_phy;
-+	mac_dev->init			= memac_initialization;
-+	mac_dev->set_promisc		= memac_set_promiscuous;
-+	mac_dev->change_addr		= memac_modify_mac_address;
-+	mac_dev->add_hash_mac_addr	= memac_add_hash_mac_address;
-+	mac_dev->remove_hash_mac_addr	= memac_del_hash_mac_address;
-+	mac_dev->set_tx_pause		= memac_set_tx_pause_frames;
-+	mac_dev->set_rx_pause		= memac_accept_rx_pause_frames;
-+	mac_dev->set_exception		= memac_set_exception;
-+	mac_dev->set_multi		= set_multi;
-+	mac_dev->start			= start;
-+	mac_dev->stop			= stop;
-+
-+	mac_dev->priv->enable		= memac_enable;
-+	mac_dev->priv->disable		= memac_disable;
-+}
-+
-+#define DTSEC_SUPPORTED \
-+	(SUPPORTED_10baseT_Half \
-+	| SUPPORTED_10baseT_Full \
-+	| SUPPORTED_100baseT_Half \
-+	| SUPPORTED_100baseT_Full \
-+	| SUPPORTED_Autoneg \
-+	| SUPPORTED_Pause \
-+	| SUPPORTED_Asym_Pause \
-+	| SUPPORTED_MII)
-+
-+static DEFINE_MUTEX(eth_lock);
-+
-+static const char phy_str[][11] = {
-+	[PHY_INTERFACE_MODE_MII]		= "mii",
-+	[PHY_INTERFACE_MODE_GMII]		= "gmii",
-+	[PHY_INTERFACE_MODE_SGMII]		= "sgmii",
-+	[PHY_INTERFACE_MODE_TBI]		= "tbi",
-+	[PHY_INTERFACE_MODE_RMII]		= "rmii",
-+	[PHY_INTERFACE_MODE_RGMII]		= "rgmii",
-+	[PHY_INTERFACE_MODE_RGMII_ID]		= "rgmii-id",
-+	[PHY_INTERFACE_MODE_RGMII_RXID]	= "rgmii-rxid",
-+	[PHY_INTERFACE_MODE_RGMII_TXID]	= "rgmii-txid",
-+	[PHY_INTERFACE_MODE_RTBI]		= "rtbi",
-+	[PHY_INTERFACE_MODE_XGMII]		= "xgmii"
-+};
-+
-+static phy_interface_t __pure __attribute__((nonnull)) str2phy(const char *str)
-+{
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(phy_str); i++)
-+		if (strcmp(str, phy_str[i]) == 0)
-+			return (phy_interface_t)i;
-+
-+	return PHY_INTERFACE_MODE_MII;
-+}
-+
-+static const u16 phy2speed[] = {
-+	[PHY_INTERFACE_MODE_MII]		= SPEED_100,
-+	[PHY_INTERFACE_MODE_GMII]		= SPEED_1000,
-+	[PHY_INTERFACE_MODE_SGMII]		= SPEED_1000,
-+	[PHY_INTERFACE_MODE_TBI]		= SPEED_1000,
-+	[PHY_INTERFACE_MODE_RMII]		= SPEED_100,
-+	[PHY_INTERFACE_MODE_RGMII]		= SPEED_1000,
-+	[PHY_INTERFACE_MODE_RGMII_ID]		= SPEED_1000,
-+	[PHY_INTERFACE_MODE_RGMII_RXID]	= SPEED_1000,
-+	[PHY_INTERFACE_MODE_RGMII_TXID]	= SPEED_1000,
-+	[PHY_INTERFACE_MODE_RTBI]		= SPEED_1000,
-+	[PHY_INTERFACE_MODE_XGMII]		= SPEED_10000
-+};
-+
-+static struct platform_device *dpaa_eth_add_device(int fman_id,
-+						   struct mac_device *mac_dev,
-+						   struct device_node *node)
-+{
-+	struct platform_device *pdev;
-+	struct dpaa_eth_data data;
-+	struct mac_priv_s	*priv;
-+	static int dpaa_eth_dev_cnt;
-+	int ret;
-+
-+	priv = mac_dev->priv;
-+
-+	data.mac_dev = mac_dev;
-+	data.mac_hw_id = priv->cell_index;
-+	data.fman_hw_id = fman_id;
-+	data.mac_node = node;
-+
-+	mutex_lock(&eth_lock);
-+
-+	pdev = platform_device_alloc("dpaa-ethernet", dpaa_eth_dev_cnt);
-+	if (!pdev) {
-+		ret = -ENOMEM;
-+		goto no_mem;
-+	}
-+
-+	ret = platform_device_add_data(pdev, &data, sizeof(data));
-+	if (ret)
-+		goto err;
-+
-+	ret = platform_device_add(pdev);
-+	if (ret)
-+		goto err;
-+
-+	dpaa_eth_dev_cnt++;
-+	mutex_unlock(&eth_lock);
-+
-+	return pdev;
-+
-+err:
-+	platform_device_put(pdev);
-+no_mem:
-+	mutex_unlock(&eth_lock);
-+
-+	return ERR_PTR(ret);
-+}
-+
-+static const struct of_device_id mac_match[] = {
-+	{ .compatible	= "fsl,fman-dtsec" },
-+	{ .compatible	= "fsl,fman-xgec" },
-+	{ .compatible	= "fsl,fman-memac" },
-+	{}
-+};
-+MODULE_DEVICE_TABLE(of, mac_match);
-+
-+static int mac_probe(struct platform_device *_of_dev)
-+{
-+	int			 err, i, lenp;
-+	struct device		*dev;
-+	struct device_node	*mac_node, *dev_node, *tbi_node;
-+	struct mac_device	*mac_dev;
-+	struct platform_device	*of_dev;
-+	struct resource		 res;
-+	struct mac_priv_s	*priv;
-+	const u8		*mac_addr;
-+	const char		*char_prop;
-+	const u32		*u32_prop;
-+	u8			fman_id;
-+	const phandle		*phandle_prop;
-+
-+	dev = &_of_dev->dev;
-+	mac_node = dev->of_node;
-+
-+	mac_dev = devm_kzalloc(dev, sizeof(*mac_dev), GFP_KERNEL);
-+	if (!mac_dev) {
-+		err = -ENOMEM;
-+		dev_err(dev, "devm_kzalloc() = %d\n", err);
-+		goto _return;
-+	}
-+	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
-+	if (!priv) {
-+		err = -ENOMEM;
-+		goto _return;
-+	}
-+
-+	/* Save private information */
-+	mac_dev->priv = priv;
-+	priv->dev = dev;
-+
-+	if (of_device_is_compatible(mac_node, "fsl,fman-dtsec")) {
-+		setup_dtsec(mac_dev);
-+	} else if (of_device_is_compatible(mac_node, "fsl,fman-xgec")) {
-+		setup_tgec(mac_dev);
-+	} else if (of_device_is_compatible(mac_node, "fsl,fman-memac")) {
-+		setup_memac(mac_dev);
-+	} else {
-+		dev_err(dev, "MAC node (%s) contains unsupported MAC\n",
-+			mac_node->full_name);
-+		err = -EINVAL;
-+		goto _return;
-+	}
-+
-+	/* Register mac_dev */
-+	dev_set_drvdata(dev, mac_dev);
-+
-+	INIT_LIST_HEAD(&priv->mc_addr_list);
-+
-+	/* Get the FM node */
-+	dev_node = of_get_parent(mac_node);
-+	if (!dev_node) {
-+		dev_err(dev, "of_get_parent(%s) failed\n",
-+			mac_node->full_name);
-+		err = -EINVAL;
-+		goto _return_dev_set_drvdata;
-+	}
-+
-+	of_dev = of_find_device_by_node(dev_node);
-+	if (!of_dev) {
-+		dev_err(dev, "of_find_device_by_node(%s) failed\n",
-+			dev_node->full_name);
-+		err = -EINVAL;
-+		goto _return_of_node_put;
-+	}
-+
-+	/* Get the FMan cell-index */
-+	u32_prop = of_get_property(dev_node, "cell-index", &lenp);
-+	if (!u32_prop) {
-+		dev_err(dev, "of_get_property(%s, cell-index) failed\n",
-+			dev_node->full_name);
-+		err = -EINVAL;
-+		goto _return_of_node_put;
-+	}
-+	WARN_ON(lenp != sizeof(u32));
-+	fman_id = (u8)*u32_prop + 1; /* cell-index 0 => FMan id 1 */
-+
-+	priv->fman = fman_bind(&of_dev->dev);
-+	if (!priv->fman) {
-+		dev_err(dev, "fman_bind(%s) failed\n", dev_node->full_name);
-+		err = -ENODEV;
-+		goto _return_of_node_put;
-+	}
-+
-+	of_node_put(dev_node);
-+
-+	/* Get the address of the memory mapped registers */
-+	err = of_address_to_resource(mac_node, 0, &res);
-+	if (err < 0) {
-+		dev_err(dev, "of_address_to_resource(%s) = %d\n",
-+			mac_node->full_name, err);
-+		goto _return_dev_set_drvdata;
-+	}
-+
-+	mac_dev->res = __devm_request_region(dev,
-+					     fman_get_mem_region(priv->fman),
-+					     res.start, res.end + 1 - res.start,
-+					     "mac");
-+	if (!mac_dev->res) {
-+		dev_err(dev, "__devm_request_mem_region(mac) failed\n");
-+		err = -EBUSY;
-+		goto _return_dev_set_drvdata;
-+	}
-+
-+	priv->vaddr = devm_ioremap(dev, mac_dev->res->start,
-+				   mac_dev->res->end + 1 - mac_dev->res->start);
-+	if (!priv->vaddr) {
-+		dev_err(dev, "devm_ioremap() failed\n");
-+		err = -EIO;
-+		goto _return_dev_set_drvdata;
-+	}
-+
-+#define TBIPA_OFFSET		0x1c
-+#define TBIPA_DEFAULT_ADDR	5 /* override if used as external PHY addr. */
-+	tbi_node = of_parse_phandle(mac_node, "tbi-handle", 0);
-+	if (tbi_node) {
-+		u32 tbiaddr = TBIPA_DEFAULT_ADDR;
-+
-+		u32_prop = of_get_property(tbi_node, "reg", NULL);
-+		if (u32_prop)
-+			tbiaddr = *u32_prop;
-+		iowrite32be(tbiaddr, priv->vaddr + TBIPA_OFFSET);
-+	}
-+
-+	if (!of_device_is_available(mac_node)) {
-+		devm_iounmap(dev, priv->vaddr);
-+		__devm_release_region(dev, fman_get_mem_region(priv->fman),
-+				      res.start, res.end + 1 - res.start);
-+		devm_kfree(dev, mac_dev);
-+		dev_set_drvdata(dev, NULL);
-+		return -ENODEV;
-+	}
-+
-+	/* Get the cell-index */
-+	u32_prop = of_get_property(mac_node, "cell-index", &lenp);
-+	if (!u32_prop) {
-+		dev_err(dev, "of_get_property(%s, cell-index) failed\n",
-+			mac_node->full_name);
-+		err = -EINVAL;
-+		goto _return_dev_set_drvdata;
-+	}
-+	WARN_ON(lenp != sizeof(u32));
-+	priv->cell_index = (u8)*u32_prop;
-+
-+	/* Get the MAC address */
-+	mac_addr = of_get_mac_address(mac_node);
-+	if (!mac_addr) {
-+		dev_err(dev, "of_get_mac_address(%s) failed\n",
-+			mac_node->full_name);
-+		err = -EINVAL;
-+		goto _return_dev_set_drvdata;
-+	}
-+	memcpy(mac_dev->addr, mac_addr, sizeof(mac_dev->addr));
-+
-+	/* Get the port handles */
-+	phandle_prop = of_get_property(mac_node, "fsl,fman-ports", &lenp);
-+	if (!phandle_prop) {
-+		dev_err(dev, "of_get_property(%s, fsl,fman-ports) failed\n",
-+			mac_node->full_name);
-+		err = -EINVAL;
-+		goto _return_dev_set_drvdata;
-+	}
-+	WARN_ON(lenp != sizeof(phandle) * ARRAY_SIZE(mac_dev->port));
-+
-+	for (i = 0; i < ARRAY_SIZE(mac_dev->port); i++) {
-+		/* Find the port node */
-+		dev_node = of_find_node_by_phandle(phandle_prop[i]);
-+		if (!dev_node) {
-+			dev_err(dev, "of_find_node_by_phandle() failed\n");
-+			err = -EINVAL;
-+			goto _return_of_node_put;
-+		}
-+
-+		of_dev = of_find_device_by_node(dev_node);
-+		if (!of_dev) {
-+			dev_err(dev, "of_find_device_by_node(%s) failed\n",
-+				dev_node->full_name);
-+			err = -EINVAL;
-+			goto _return_of_node_put;
-+		}
-+
-+		mac_dev->port[i] = fman_port_bind(&of_dev->dev);
-+		if (!mac_dev->port[i]) {
-+			dev_err(dev, "dev_get_drvdata(%s) failed\n",
-+				dev_node->full_name);
-+			err = -EINVAL;
-+			goto _return_of_node_put;
-+		}
-+		of_node_put(dev_node);
-+	}
-+
-+	/* Get the PHY connection type */
-+	char_prop = (const char *)of_get_property(mac_node,
-+						"phy-connection-type", NULL);
-+	if (!char_prop) {
-+		dev_warn(dev,
-+			 "of_get_property(%s, phy-connection-type) failed. Defaulting to MII\n",
-+			 mac_node->full_name);
-+		priv->phy_if = PHY_INTERFACE_MODE_MII;
-+	} else {
-+		priv->phy_if = str2phy(char_prop);
-+	}
-+
-+	priv->speed		= phy2speed[priv->phy_if];
-+	priv->max_speed		= priv->speed;
-+	mac_dev->if_support	= DTSEC_SUPPORTED;
-+	/* We don't support half-duplex in SGMII mode */
-+	if (strstr(char_prop, "sgmii"))
-+		mac_dev->if_support &= ~(SUPPORTED_10baseT_Half |
-+					SUPPORTED_100baseT_Half);
-+
-+	/* Gigabit support (no half-duplex) */
-+	if (priv->max_speed == 1000)
-+		mac_dev->if_support |= SUPPORTED_1000baseT_Full;
-+
-+	/* The 10G interface only supports one mode */
-+	if (strstr(char_prop, "xgmii"))
-+		mac_dev->if_support = SUPPORTED_10000baseT_Full;
-+
-+	/* Get the rest of the PHY information */
-+	priv->phy_node = of_parse_phandle(mac_node, "phy-handle", 0);
-+	if (!priv->phy_node && of_phy_is_fixed_link(mac_node)) {
-+		struct phy_device *phy;
-+
-+		err = of_phy_register_fixed_link(mac_node);
-+		if (err)
-+			goto _return_dev_set_drvdata;
-+
-+		priv->fixed_link = kzalloc(sizeof(*priv->fixed_link),
-+					   GFP_KERNEL);
-+		if (!priv->fixed_link)
-+			goto _return_dev_set_drvdata;
-+
-+		priv->phy_node = of_node_get(mac_node);
-+		phy = of_phy_find_device(priv->phy_node);
-+		if (!phy)
-+			goto _return_dev_set_drvdata;
-+
-+		priv->fixed_link->link = phy->link;
-+		priv->fixed_link->speed = phy->speed;
-+		priv->fixed_link->duplex = phy->duplex;
-+		priv->fixed_link->pause = phy->pause;
-+		priv->fixed_link->asym_pause = phy->asym_pause;
-+	}
-+
-+	err = mac_dev->init(mac_dev);
-+	if (err < 0) {
-+		dev_err(dev, "mac_dev->init() = %d\n", err);
-+		of_node_put(priv->phy_node);
-+		goto _return_dev_set_drvdata;
-+	}
-+
-+	/* pause frame autonegotiation enabled */
-+	mac_dev->autoneg_pause = true;
-+
-+	/* by intializing the values to false, force FMD to enable PAUSE frames
-+	 * on RX and TX
-+	 */
-+	mac_dev->rx_pause_req = true;
-+	mac_dev->tx_pause_req = true;
-+	mac_dev->rx_pause_active = false;
-+	mac_dev->tx_pause_active = false;
-+	err = fman_set_mac_active_pause(mac_dev, true, true);
-+	if (err < 0)
-+		dev_err(dev, "fman_set_mac_active_pause() = %d\n", err);
-+
-+	dev_info(dev, "FMan MAC address: %02hx:%02hx:%02hx:%02hx:%02hx:%02hx\n",
-+		 mac_dev->addr[0], mac_dev->addr[1], mac_dev->addr[2],
-+		 mac_dev->addr[3], mac_dev->addr[4], mac_dev->addr[5]);
-+
-+	priv->eth_dev = dpaa_eth_add_device(fman_id, mac_dev, mac_node);
-+	if (IS_ERR(priv->eth_dev)) {
-+		dev_err(dev, "failed to add Ethernet platform device for MAC %d\n",
-+			priv->cell_index);
-+		priv->eth_dev = NULL;
-+	}
-+
-+	goto _return;
-+
-+_return_of_node_put:
-+	of_node_put(dev_node);
-+_return_dev_set_drvdata:
-+	kfree(priv->fixed_link);
-+	kfree(priv);
-+	dev_set_drvdata(dev, NULL);
-+_return:
-+	return err;
-+}
-+
-+static struct platform_driver mac_driver = {
-+	.driver = {
-+		.name		= KBUILD_MODNAME,
-+		.of_match_table	= mac_match,
-+	},
-+	.probe		= mac_probe,
-+};
-+
-+builtin_platform_driver(mac_driver);
-diff --git a/drivers/net/ethernet/freescale/fman/mac.h b/drivers/net/ethernet/freescale/fman/mac.h
-new file mode 100644
-index 0000000..0211cc9
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/mac.h
-@@ -0,0 +1,97 @@
-+/* Copyright 2008-2015 Freescale Semiconductor, Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *	 notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *	 notice, this list of conditions and the following disclaimer in the
-+ *	 documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *	 names of its contributors may be used to endorse or promote products
-+ *	 derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef __MAC_H
-+#define __MAC_H
-+
-+#include <linux/device.h>
-+#include <linux/if_ether.h>
-+#include <linux/phy.h>
-+#include <linux/list.h>
-+
-+#include "fman_port.h"
-+#include "fman.h"
-+#include "fman_mac.h"
-+
-+struct fman_mac;
-+struct mac_priv_s;
-+
-+struct mac_device {
-+	struct resource		*res;
-+	u8			 addr[ETH_ALEN];
-+	struct fman_port	*port[2];
-+	u32			 if_support;
-+	struct phy_device	*phy_dev;
-+
-+	bool autoneg_pause;
-+	bool rx_pause_req;
-+	bool tx_pause_req;
-+	bool rx_pause_active;
-+	bool tx_pause_active;
-+	bool promisc;
-+
-+	int (*init_phy)(struct net_device *net_dev, struct mac_device *mac_dev);
-+	int (*init)(struct mac_device *mac_dev);
-+	int (*start)(struct mac_device *mac_dev);
-+	int (*stop)(struct mac_device *mac_dev);
-+	int (*set_promisc)(struct fman_mac *mac_dev, bool enable);
-+	int (*change_addr)(struct fman_mac *mac_dev, enet_addr_t *enet_addr);
-+	int (*set_multi)(struct net_device *net_dev,
-+			 struct mac_device *mac_dev);
-+	int (*set_rx_pause)(struct fman_mac *mac_dev, bool en);
-+	int (*set_tx_pause)(struct fman_mac *mac_dev, u8 priority,
-+			    u16 pause_time, u16 thresh_time);
-+	int (*set_exception)(struct fman_mac *mac_dev,
-+			     enum fman_mac_exceptions exception, bool enable);
-+	int (*add_hash_mac_addr)(struct fman_mac *mac_dev,
-+				 enet_addr_t *eth_addr);
-+	int (*remove_hash_mac_addr)(struct fman_mac *mac_dev,
-+				    enet_addr_t *eth_addr);
-+
-+	struct fman_mac		*fman_mac;
-+	struct mac_priv_s	*priv;
-+};
-+
-+struct dpaa_eth_data {
-+	struct device_node *mac_node;
-+	struct mac_device *mac_dev;
-+	int mac_hw_id;
-+	int fman_hw_id;
-+};
-+
-+extern const char	*mac_driver_description;
-+
-+int fman_set_mac_active_pause(struct mac_device *mac_dev, bool rx, bool tx);
-+
-+void fman_get_pause_cfg(struct mac_device *mac_dev, bool *rx_pause,
-+			bool *tx_pause);
-+
-+#endif	/* __MAC_H */
--- 
-1.7.9.5
+RnJvbTogSWdhbCBMaWJlcm1hbiA8aWdhbC5saWJlcm1hbkBmcmVlc2NhbGUuY29tPgoKVGhlIFN0
+b3JhZ2UgUHJvZmlsZXMgY29udGFpbiBwYXJhbWV0ZXJzIHRoYXQgYXJlIHVzZWQKYnkgdGhlIEZN
+YW4gZm9yIGZyYW1lIHJlY2VwdGlvbiBhbmQgdHJhbnNtaXNzaW9uLgoKU2lnbmVkLW9mZi1ieTog
+SWdhbCBMaWJlcm1hbiA8aWdhbC5saWJlcm1hbkBmcmVlc2NhbGUuY29tPgotLS0KIGRyaXZlcnMv
+bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL01ha2VmaWxlICB8ICAgIDIgKy0KIGRyaXZlcnMv
+bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW5fc3AuYyB8ICAxNjcgKysrKysrKysrKysr
+KysrKysrKysrKysrKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9z
+cC5oIHwgIDEwMyArKysrKysrKysrKysrKysKIDMgZmlsZXMgY2hhbmdlZCwgMjcxIGluc2VydGlv
+bnMoKyksIDEgZGVsZXRpb24oLSkKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhl
+cm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX3NwLmMKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJz
+L25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX3NwLmgKCmRpZmYgLS1naXQgYS9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9NYWtlZmlsZSBiL2RyaXZlcnMvbmV0L2V0
+aGVybmV0L2ZyZWVzY2FsZS9mbWFuL01ha2VmaWxlCmluZGV4IDQzMzYwZDcwLi41MTQxNTMyIDEw
+MDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9NYWtlZmlsZQor
+KysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9NYWtlZmlsZQpAQCAtMiw1
+ICsyLDUgQEAgc3ViZGlyLWNjZmxhZ3MteSArPSAgLUkkKHNyY3RyZWUpL2RyaXZlcnMvbmV0L2V0
+aGVybmV0L2ZyZWVzY2FsZS9mbWFuCiAKIG9iai15CQkrPSBmc2xfZm1hbi5vIGZzbF9mbWFuX21h
+Yy5vCiAKLWZzbF9mbWFuLW9ianMJOj0gZm1hbl9tdXJhbS5vIGZtYW4ubworZnNsX2ZtYW4tb2Jq
+cwk6PSBmbWFuX211cmFtLm8gZm1hbi5vIGZtYW5fc3AubwogZnNsX2ZtYW5fbWFjLW9ianMgOj0g
+Zm1hbl9kdHNlYy5vIGZtYW5fbWVtYWMubyBmbWFuX3RnZWMubwpkaWZmIC0tZ2l0IGEvZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9zcC5jIGIvZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9zcC5jCm5ldyBmaWxlIG1vZGUgMTAwNjQ0CmluZGV4
+IDAwMDAwMDAuLmYzNmM2MjIKLS0tIC9kZXYvbnVsbAorKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9mcmVlc2NhbGUvZm1hbi9mbWFuX3NwLmMKQEAgLTAsMCArMSwxNjcgQEAKKy8qCisgKiBDb3B5
+cmlnaHQgMjAwOCAtIDIwMTUgRnJlZXNjYWxlIFNlbWljb25kdWN0b3IgSW5jLgorICoKKyAqIFJl
+ZGlzdHJpYnV0aW9uIGFuZCB1c2UgaW4gc291cmNlIGFuZCBiaW5hcnkgZm9ybXMsIHdpdGggb3Ig
+d2l0aG91dAorICogbW9kaWZpY2F0aW9uLCBhcmUgcGVybWl0dGVkIHByb3ZpZGVkIHRoYXQgdGhl
+IGZvbGxvd2luZyBjb25kaXRpb25zIGFyZSBtZXQ6CisgKiAgICAgKiBSZWRpc3RyaWJ1dGlvbnMg
+b2Ygc291cmNlIGNvZGUgbXVzdCByZXRhaW4gdGhlIGFib3ZlIGNvcHlyaWdodAorICogICAgICAg
+bm90aWNlLCB0aGlzIGxpc3Qgb2YgY29uZGl0aW9ucyBhbmQgdGhlIGZvbGxvd2luZyBkaXNjbGFp
+bWVyLgorICogICAgICogUmVkaXN0cmlidXRpb25zIGluIGJpbmFyeSBmb3JtIG11c3QgcmVwcm9k
+dWNlIHRoZSBhYm92ZSBjb3B5cmlnaHQKKyAqICAgICAgIG5vdGljZSwgdGhpcyBsaXN0IG9mIGNv
+bmRpdGlvbnMgYW5kIHRoZSBmb2xsb3dpbmcgZGlzY2xhaW1lciBpbiB0aGUKKyAqICAgICAgIGRv
+Y3VtZW50YXRpb24gYW5kL29yIG90aGVyIG1hdGVyaWFscyBwcm92aWRlZCB3aXRoIHRoZSBkaXN0
+cmlidXRpb24uCisgKiAgICAgKiBOZWl0aGVyIHRoZSBuYW1lIG9mIEZyZWVzY2FsZSBTZW1pY29u
+ZHVjdG9yIG5vciB0aGUKKyAqICAgICAgIG5hbWVzIG9mIGl0cyBjb250cmlidXRvcnMgbWF5IGJl
+IHVzZWQgdG8gZW5kb3JzZSBvciBwcm9tb3RlIHByb2R1Y3RzCisgKiAgICAgICBkZXJpdmVkIGZy
+b20gdGhpcyBzb2Z0d2FyZSB3aXRob3V0IHNwZWNpZmljIHByaW9yIHdyaXR0ZW4gcGVybWlzc2lv
+bi4KKyAqCisgKgorICogQUxURVJOQVRJVkVMWSwgdGhpcyBzb2Z0d2FyZSBtYXkgYmUgZGlzdHJp
+YnV0ZWQgdW5kZXIgdGhlIHRlcm1zIG9mIHRoZQorICogR05VIEdlbmVyYWwgUHVibGljIExpY2Vu
+c2UgKCJHUEwiKSBhcyBwdWJsaXNoZWQgYnkgdGhlIEZyZWUgU29mdHdhcmUKKyAqIEZvdW5kYXRp
+b24sIGVpdGhlciB2ZXJzaW9uIDIgb2YgdGhhdCBMaWNlbnNlIG9yIChhdCB5b3VyIG9wdGlvbikg
+YW55CisgKiBsYXRlciB2ZXJzaW9uLgorICoKKyAqIFRISVMgU09GVFdBUkUgSVMgUFJPVklERUQg
+QlkgRnJlZXNjYWxlIFNlbWljb25kdWN0b3IgYGBBUyBJUycnIEFORCBBTlkKKyAqIEVYUFJFU1Mg
+T1IgSU1QTElFRCBXQVJSQU5USUVTLCBJTkNMVURJTkcsIEJVVCBOT1QgTElNSVRFRCBUTywgVEhF
+IElNUExJRUQKKyAqIFdBUlJBTlRJRVMgT0YgTUVSQ0hBTlRBQklMSVRZIEFORCBGSVRORVNTIEZP
+UiBBIFBBUlRJQ1VMQVIgUFVSUE9TRSBBUkUKKyAqIERJU0NMQUlNRUQuIElOIE5PIEVWRU5UIFNI
+QUxMIEZyZWVzY2FsZSBTZW1pY29uZHVjdG9yIEJFIExJQUJMRSBGT1IgQU5ZCisgKiBESVJFQ1Qs
+IElORElSRUNULCBJTkNJREVOVEFMLCBTUEVDSUFMLCBFWEVNUExBUlksIE9SIENPTlNFUVVFTlRJ
+QUwgREFNQUdFUworICogKElOQ0xVRElORywgQlVUIE5PVCBMSU1JVEVEIFRPLCBQUk9DVVJFTUVO
+VCBPRiBTVUJTVElUVVRFIEdPT0RTIE9SIFNFUlZJQ0VTOworICogTE9TUyBPRiBVU0UsIERBVEEs
+IE9SIFBST0ZJVFM7IE9SIEJVU0lORVNTIElOVEVSUlVQVElPTikgSE9XRVZFUiBDQVVTRUQgQU5E
+CisgKiBPTiBBTlkgVEhFT1JZIE9GIExJQUJJTElUWSwgV0hFVEhFUiBJTiBDT05UUkFDVCwgU1RS
+SUNUIExJQUJJTElUWSwgT1IgVE9SVAorICogKElOQ0xVRElORyBORUdMSUdFTkNFIE9SIE9USEVS
+V0lTRSkgQVJJU0lORyBJTiBBTlkgV0FZIE9VVCBPRiBUSEUgVVNFIE9GIFRISVMKKyAqIFNPRlRX
+QVJFLCBFVkVOIElGIEFEVklTRUQgT0YgVEhFIFBPU1NJQklMSVRZIE9GIFNVQ0ggREFNQUdFLgor
+ICovCisKKyNpbmNsdWRlICJmbWFuX3NwLmgiCisjaW5jbHVkZSAiZm1hbi5oIgorCit2b2lkIGZt
+YW5fc3Bfc2V0X2J1Zl9wb29sc19pbl9hc2Nfb3JkZXJfb2ZfYnVmX3NpemVzKHN0cnVjdCBmbWFu
+X2V4dF9wb29scworCQkJCQkJICAgICAqZm1fZXh0X3Bvb2xzLAorCQkJCQkJICAgICB1OCAqb3Jk
+ZXJlZF9hcnJheSwKKwkJCQkJCSAgICAgdTE2ICpzaXplc19hcnJheSkKK3sKKwl1MTYgYnVmX3Np
+emUgPSAwOworCWludCBpID0gMCwgaiA9IDAsIGsgPSAwOworCisJLyogRmlyc3Qgd2UgY29weSB0
+aGUgZXh0ZXJuYWwgYnVmZmVycyBwb29scyBpbmZvcm1hdGlvbgorCSAqIHRvIGFuIG9yZGVyZWQg
+bG9jYWwgYXJyYXkKKwkgKi8KKwlmb3IgKGkgPSAwOyBpIDwgZm1fZXh0X3Bvb2xzLT5udW1fb2Zf
+cG9vbHNfdXNlZDsgaSsrKSB7CisJCS8qIGdldCBwb29sIHNpemUgKi8KKwkJYnVmX3NpemUgPSBm
+bV9leHRfcG9vbHMtPmV4dF9idWZfcG9vbFtpXS5zaXplOworCisJCS8qIGtlZXAgc2l6ZXMgaW4g
+YW4gYXJyYXkgYWNjb3JkaW5nIHRvIHBvb2xJZAorCQkgKiBmb3IgZGlyZWN0IGFjY2VzcworCQkg
+Ki8KKwkJc2l6ZXNfYXJyYXlbZm1fZXh0X3Bvb2xzLT5leHRfYnVmX3Bvb2xbaV0uaWRdID0gYnVm
+X3NpemU7CisKKwkJLyogc2F2ZSBwb29sSWQgaW4gYW4gb3JkZXJlZCBhcnJheSBhY2NvcmRpbmcg
+dG8gc2l6ZSAqLworCQlmb3IgKGogPSAwOyBqIDw9IGk7IGorKykgeworCQkJLyogdGhpcyBpcyB0
+aGUgbmV4dCBmcmVlIHBsYWNlIGluIHRoZSBhcnJheSAqLworCQkJaWYgKGogPT0gaSkKKwkJCQlv
+cmRlcmVkX2FycmF5W2ldID0KKwkJCQkgICAgZm1fZXh0X3Bvb2xzLT5leHRfYnVmX3Bvb2xbaV0u
+aWQ7CisJCQllbHNlIHsKKwkJCQkvKiBmaW5kIHRoZSByaWdodCBwbGFjZSBmb3IgdGhpcyBwb29s
+SWQgKi8KKwkJCQlpZiAoYnVmX3NpemUgPCBzaXplc19hcnJheVtvcmRlcmVkX2FycmF5W2pdXSkg
+eworCQkJCQkvKiBtb3ZlIHRoZSBwb29sX2lkcyBvbmUgcGxhY2UgYWhlYWQKKwkJCQkJICogdG8g
+bWFrZSByb29tIGZvciB0aGlzIHBvb2xJZAorCQkJCQkgKi8KKwkJCQkJZm9yIChrID0gaTsgayA+
+IGo7IGstLSkKKwkJCQkJCW9yZGVyZWRfYXJyYXlba10gPQorCQkJCQkJICAgIG9yZGVyZWRfYXJy
+YXlbayAtIDFdOworCisJCQkJCS8qIG5vdyBrPT1qLCB0aGlzIGlzIHRoZSBwbGFjZSBmb3IKKwkJ
+CQkJICogdGhlIG5ldyBzaXplCisJCQkJCSAqLworCQkJCQlvcmRlcmVkX2FycmF5W2tdID0KKwkJ
+CQkJICAgIGZtX2V4dF9wb29scy0+ZXh0X2J1Zl9wb29sW2ldLmlkOworCQkJCQlicmVhazsKKwkJ
+CQl9CisJCQl9CisJCX0KKwl9Cit9CisKK2ludCBmbWFuX3NwX2J1aWxkX2J1ZmZlcl9zdHJ1Y3Qo
+c3RydWN0IGZtYW5fc3BfaW50X2NvbnRleHRfZGF0YV9jb3B5ICoKKwkJCQlpbnRfY29udGV4dF9k
+YXRhX2NvcHksCisJCQkJc3RydWN0IGZtYW5fYnVmZmVyX3ByZWZpeF9jb250ZW50ICoKKwkJCQli
+dWZmZXJfcHJlZml4X2NvbnRlbnQsCisJCQkJc3RydWN0IGZtYW5fc3BfYnVmX21hcmdpbnMgKmJ1
+Zl9tYXJnaW5zLAorCQkJCXN0cnVjdCBmbWFuX3NwX2J1ZmZlcl9vZmZzZXRzICpidWZmZXJfb2Zm
+c2V0cywKKwkJCQl1OCAqaW50ZXJuYWxfYnVmX29mZnNldCkKK3sKKwl1MzIgdG1wOworCisJLyog
+QWxpZ24gc3RhcnQgb2YgaW50ZXJuYWwgY29udGV4dCBkYXRhIHRvIDE2IGJ5dGUgKi8KKwlpbnRf
+Y29udGV4dF9kYXRhX2NvcHktPmV4dF9idWZfb2Zmc2V0ID0gKHUxNikKKwkJKChidWZmZXJfcHJl
+Zml4X2NvbnRlbnQtPnByaXZfZGF0YV9zaXplICYgKE9GRlNFVF9VTklUUyAtIDEpKSA/CisJCSgo
+YnVmZmVyX3ByZWZpeF9jb250ZW50LT5wcml2X2RhdGFfc2l6ZSArIE9GRlNFVF9VTklUUykgJgor
+CQkJfih1MTYpKE9GRlNFVF9VTklUUyAtIDEpKSA6CisJCWJ1ZmZlcl9wcmVmaXhfY29udGVudC0+
+cHJpdl9kYXRhX3NpemUpOworCisJLyogVHJhbnNsYXRlIG1hcmdpbiBhbmQgaW50X2NvbnRleHQg
+cGFyYW1zIHRvIEZNIHBhcmFtZXRlcnMgKi8KKwkvKiBJbml0aWFsaXplIHdpdGggaWxsZWdhbCB2
+YWx1ZS4gTGF0ZXIgd2UnbGwgc2V0IGxlZ2FsIHZhbHVlcy4gKi8KKwlidWZmZXJfb2Zmc2V0cy0+
+cHJzX3Jlc3VsdF9vZmZzZXQgPSAodTMyKUlMTEVHQUxfQkFTRTsKKwlidWZmZXJfb2Zmc2V0cy0+
+dGltZV9zdGFtcF9vZmZzZXQgPSAodTMyKUlMTEVHQUxfQkFTRTsKKwlidWZmZXJfb2Zmc2V0cy0+
+aGFzaF9yZXN1bHRfb2Zmc2V0ID0gKHUzMilJTExFR0FMX0JBU0U7CisKKwkvKiBJbnRlcm5hbGx5
+IHRoZSBkcml2ZXIgc3VwcG9ydHMgNCBvcHRpb25zCisJICogMS4gcHJzUmVzdWx0L3RpbWVzdGFt
+cC9oYXNoUmVzdWx0IHNlbGVjdGlvbiAoaW4gZmFjdCA4IG9wdGlvbnMsCisJICogYnV0IGZvciBz
+aW1wbGljaXR5IHdlJ2xsCisJICogcmVsYXRlIHRvIGl0IGFzIDEpLgorCSAqIDIuIEFsbCBJQyBj
+b250ZXh0IChmcm9tIEFEKSBub3QgaW5jbHVkaW5nIGRlYnVnLgorCSAqLworCisJLyogVGhpcyBj
+YXNlIGNvdmVycyB0aGUgb3B0aW9ucyB1bmRlciAxICovCisJLyogQ29weSBzaXplIG11c3QgYmUg
+aW4gMTYtYnl0ZSBncmFudWxhcml0eS4gKi8KKwlpbnRfY29udGV4dF9kYXRhX2NvcHktPnNpemUg
+PQorCSAgICAodTE2KSgoYnVmZmVyX3ByZWZpeF9jb250ZW50LT5wYXNzX3Byc19yZXN1bHQgPyAz
+MiA6IDApICsKKwkJICAoKGJ1ZmZlcl9wcmVmaXhfY29udGVudC0+cGFzc190aW1lX3N0YW1wIHx8
+CisJCSAgYnVmZmVyX3ByZWZpeF9jb250ZW50LT5wYXNzX2hhc2hfcmVzdWx0KSA/IDE2IDogMCkp
+OworCisJLyogQWxpZ24gc3RhcnQgb2YgaW50ZXJuYWwgY29udGV4dCBkYXRhIHRvIDE2IGJ5dGUg
+Ki8KKwlpbnRfY29udGV4dF9kYXRhX2NvcHktPmludF9jb250ZXh0X29mZnNldCA9CisJICAgICh1
+OCkoYnVmZmVyX3ByZWZpeF9jb250ZW50LT5wYXNzX3Byc19yZXN1bHQgPyAzMiA6CisJCSAoKGJ1
+ZmZlcl9wcmVmaXhfY29udGVudC0+cGFzc190aW1lX3N0YW1wIHx8CisJCSBidWZmZXJfcHJlZml4
+X2NvbnRlbnQtPnBhc3NfaGFzaF9yZXN1bHQpID8gNjQgOiAwKSk7CisKKwlpZiAoYnVmZmVyX3By
+ZWZpeF9jb250ZW50LT5wYXNzX3Byc19yZXN1bHQpCisJCWJ1ZmZlcl9vZmZzZXRzLT5wcnNfcmVz
+dWx0X29mZnNldCA9CisJCSAgICBpbnRfY29udGV4dF9kYXRhX2NvcHktPmV4dF9idWZfb2Zmc2V0
+OworCWlmIChidWZmZXJfcHJlZml4X2NvbnRlbnQtPnBhc3NfdGltZV9zdGFtcCkKKwkJYnVmZmVy
+X29mZnNldHMtPnRpbWVfc3RhbXBfb2Zmc2V0ID0KKwkJICAgIGJ1ZmZlcl9wcmVmaXhfY29udGVu
+dC0+cGFzc19wcnNfcmVzdWx0ID8KKwkJICAgIChpbnRfY29udGV4dF9kYXRhX2NvcHktPmV4dF9i
+dWZfb2Zmc2V0ICsKKwkJCXNpemVvZihzdHJ1Y3QgZm1hbl9wcnNfcmVzdWx0KSkgOgorCQkgICAg
+aW50X2NvbnRleHRfZGF0YV9jb3B5LT5leHRfYnVmX29mZnNldDsKKwlpZiAoYnVmZmVyX3ByZWZp
+eF9jb250ZW50LT5wYXNzX2hhc2hfcmVzdWx0KQorCQkvKiBJZiBQUiBpcyBub3QgcmVxdWVzdGVk
+LCB3aGV0aGVyIFRTIGlzCisJCSAqIHJlcXVlc3RlZCBvciBub3QsIElDIHdpbGwgYmUgY29waWVk
+IGZyb20gVFMKKwkJCSAqLworCQlidWZmZXJfb2Zmc2V0cy0+aGFzaF9yZXN1bHRfb2Zmc2V0ID0K
+KwkJYnVmZmVyX3ByZWZpeF9jb250ZW50LT5wYXNzX3Byc19yZXN1bHQgPworCQkJKGludF9jb250
+ZXh0X2RhdGFfY29weS0+ZXh0X2J1Zl9vZmZzZXQgKworCQkJCXNpemVvZihzdHJ1Y3QgZm1hbl9w
+cnNfcmVzdWx0KSArIDgpIDoKKwkJCWludF9jb250ZXh0X2RhdGFfY29weS0+ZXh0X2J1Zl9vZmZz
+ZXQgKyA4OworCisJaWYgKGludF9jb250ZXh0X2RhdGFfY29weS0+c2l6ZSkKKwkJYnVmX21hcmdp
+bnMtPnN0YXJ0X21hcmdpbnMgPQorCQkgICAgKHUxNikoaW50X2NvbnRleHRfZGF0YV9jb3B5LT5l
+eHRfYnVmX29mZnNldCArCisJCQkgIGludF9jb250ZXh0X2RhdGFfY29weS0+c2l6ZSk7CisJZWxz
+ZQorCQkvKiBObyBJbnRlcm5hbCBDb250ZXh0IHBhc3NpbmcsIFNUYXJ0TWFyZ2luIGlzCisJCSAq
+IGltbWVkaWF0ZWx5IGFmdGVyIHByaXZhdGVfaW5mbworCQkgKi8KKwkJYnVmX21hcmdpbnMtPnN0
+YXJ0X21hcmdpbnMgPQorCQkgICAgYnVmZmVyX3ByZWZpeF9jb250ZW50LT5wcml2X2RhdGFfc2l6
+ZTsKKworCS8qIGFsaWduIGRhdGEgc3RhcnQgKi8KKwl0bXAgPSAodTMyKShidWZfbWFyZ2lucy0+
+c3RhcnRfbWFyZ2lucyAlCisJCSAgICBidWZmZXJfcHJlZml4X2NvbnRlbnQtPmRhdGFfYWxpZ24p
+OworCWlmICh0bXApCisJCWJ1Zl9tYXJnaW5zLT5zdGFydF9tYXJnaW5zICs9CisJCSAgICAoYnVm
+ZmVyX3ByZWZpeF9jb250ZW50LT5kYXRhX2FsaWduIC0gdG1wKTsKKwlidWZmZXJfb2Zmc2V0cy0+
+ZGF0YV9vZmZzZXQgPSBidWZfbWFyZ2lucy0+c3RhcnRfbWFyZ2luczsKKworCXJldHVybiAwOwor
+fQorCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFu
+X3NwLmggYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX3NwLmgKbmV3
+IGZpbGUgbW9kZSAxMDA2NDQKaW5kZXggMDAwMDAwMC4uODIwYjdmNgotLS0gL2Rldi9udWxsCisr
+KyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW5fc3AuaApAQCAtMCww
+ICsxLDEwMyBAQAorLyoKKyAqIENvcHlyaWdodCAyMDA4IC0gMjAxNSBGcmVlc2NhbGUgU2VtaWNv
+bmR1Y3RvciBJbmMuCisgKgorICogUmVkaXN0cmlidXRpb24gYW5kIHVzZSBpbiBzb3VyY2UgYW5k
+IGJpbmFyeSBmb3Jtcywgd2l0aCBvciB3aXRob3V0CisgKiBtb2RpZmljYXRpb24sIGFyZSBwZXJt
+aXR0ZWQgcHJvdmlkZWQgdGhhdCB0aGUgZm9sbG93aW5nIGNvbmRpdGlvbnMgYXJlIG1ldDoKKyAq
+ICAgICAqIFJlZGlzdHJpYnV0aW9ucyBvZiBzb3VyY2UgY29kZSBtdXN0IHJldGFpbiB0aGUgYWJv
+dmUgY29weXJpZ2h0CisgKgkgbm90aWNlLCB0aGlzIGxpc3Qgb2YgY29uZGl0aW9ucyBhbmQgdGhl
+IGZvbGxvd2luZyBkaXNjbGFpbWVyLgorICogICAgICogUmVkaXN0cmlidXRpb25zIGluIGJpbmFy
+eSBmb3JtIG11c3QgcmVwcm9kdWNlIHRoZSBhYm92ZSBjb3B5cmlnaHQKKyAqCSBub3RpY2UsIHRo
+aXMgbGlzdCBvZiBjb25kaXRpb25zIGFuZCB0aGUgZm9sbG93aW5nIGRpc2NsYWltZXIgaW4gdGhl
+CisgKgkgZG9jdW1lbnRhdGlvbiBhbmQvb3Igb3RoZXIgbWF0ZXJpYWxzIHByb3ZpZGVkIHdpdGgg
+dGhlIGRpc3RyaWJ1dGlvbi4KKyAqICAgICAqIE5laXRoZXIgdGhlIG5hbWUgb2YgRnJlZXNjYWxl
+IFNlbWljb25kdWN0b3Igbm9yIHRoZQorICoJIG5hbWVzIG9mIGl0cyBjb250cmlidXRvcnMgbWF5
+IGJlIHVzZWQgdG8gZW5kb3JzZSBvciBwcm9tb3RlIHByb2R1Y3RzCisgKgkgZGVyaXZlZCBmcm9t
+IHRoaXMgc29mdHdhcmUgd2l0aG91dCBzcGVjaWZpYyBwcmlvciB3cml0dGVuIHBlcm1pc3Npb24u
+CisgKgorICogQUxURVJOQVRJVkVMWSwgdGhpcyBzb2Z0d2FyZSBtYXkgYmUgZGlzdHJpYnV0ZWQg
+dW5kZXIgdGhlIHRlcm1zIG9mIHRoZQorICogR05VIEdlbmVyYWwgUHVibGljIExpY2Vuc2UgKCJH
+UEwiKSBhcyBwdWJsaXNoZWQgYnkgdGhlIEZyZWUgU29mdHdhcmUKKyAqIEZvdW5kYXRpb24sIGVp
+dGhlciB2ZXJzaW9uIDIgb2YgdGhhdCBMaWNlbnNlIG9yIChhdCB5b3VyIG9wdGlvbikgYW55Cisg
+KiBsYXRlciB2ZXJzaW9uLgorICoKKyAqIFRISVMgU09GVFdBUkUgSVMgUFJPVklERUQgQlkgRnJl
+ZXNjYWxlIFNlbWljb25kdWN0b3IgYGBBUyBJUycnIEFORCBBTlkKKyAqIEVYUFJFU1MgT1IgSU1Q
+TElFRCBXQVJSQU5USUVTLCBJTkNMVURJTkcsIEJVVCBOT1QgTElNSVRFRCBUTywgVEhFIElNUExJ
+RUQKKyAqIFdBUlJBTlRJRVMgT0YgTUVSQ0hBTlRBQklMSVRZIEFORCBGSVRORVNTIEZPUiBBIFBB
+UlRJQ1VMQVIgUFVSUE9TRSBBUkUKKyAqIERJU0NMQUlNRUQuIElOIE5PIEVWRU5UIFNIQUxMIEZy
+ZWVzY2FsZSBTZW1pY29uZHVjdG9yIEJFIExJQUJMRSBGT1IgQU5ZCisgKiBESVJFQ1QsIElORElS
+RUNULCBJTkNJREVOVEFMLCBTUEVDSUFMLCBFWEVNUExBUlksIE9SIENPTlNFUVVFTlRJQUwgREFN
+QUdFUworICogKElOQ0xVRElORywgQlVUIE5PVCBMSU1JVEVEIFRPLCBQUk9DVVJFTUVOVCBPRiBT
+VUJTVElUVVRFIEdPT0RTIE9SIFNFUlZJQ0VTOworICogTE9TUyBPRiBVU0UsIERBVEEsIE9SIFBS
+T0ZJVFM7IE9SIEJVU0lORVNTIElOVEVSUlVQVElPTikgSE9XRVZFUiBDQVVTRUQgQU5ECisgKiBP
+TiBBTlkgVEhFT1JZIE9GIExJQUJJTElUWSwgV0hFVEhFUiBJTiBDT05UUkFDVCwgU1RSSUNUIExJ
+QUJJTElUWSwgT1IgVE9SVAorICogKElOQ0xVRElORyBORUdMSUdFTkNFIE9SIE9USEVSV0lTRSkg
+QVJJU0lORyBJTiBBTlkgV0FZIE9VVCBPRiBUSEUgVVNFIE9GIFRISVMKKyAqIFNPRlRXQVJFLCBF
+VkVOIElGIEFEVklTRUQgT0YgVEhFIFBPU1NJQklMSVRZIE9GIFNVQ0ggREFNQUdFLgorICovCisK
+KyNpZm5kZWYgX19GTV9TUF9ICisjZGVmaW5lIF9fRk1fU1BfSAorCisjaW5jbHVkZSAiZm1hbi5o
+IgorI2luY2x1ZGUgPGxpbnV4L3R5cGVzLmg+CisKKyNkZWZpbmUgSUxMRUdBTF9CQVNFICAgICh+
+MCkKKworLyogZGVmYXVsdHMgKi8KKyNkZWZpbmUgREZMVF9GTV9TUF9CVUZGRVJfUFJFRklYX0NP
+TlRFWFRfREFUQV9BTElHTgk2NAorCisvKiBSZWdpc3RlcnMgYml0IGZpZWxkcyAqLworI2RlZmlu
+ZSBGTUFOX1NQX0VYVF9CVUZfUE9PTF9FTl9DT1VOVEVSCQkweDQwMDAwMDAwCisjZGVmaW5lIEZN
+QU5fU1BfRVhUX0JVRl9QT09MX1ZBTElECQkJMHg4MDAwMDAwMAorI2RlZmluZSBGTUFOX1NQX0VY
+VF9CVUZfUE9PTF9CQUNLVVAJCQkweDIwMDAwMDAwCisjZGVmaW5lIEZNQU5fU1BfRE1BX0FUVFJf
+V1JJVEVfT1BUSU1JWkUJCTB4MDAxMDAwMDAKKyNkZWZpbmUgRk1BTl9TUF9TR19ESVNBQkxFCQkJ
+CTB4ODAwMDAwMDAKKworLyogc2hpZnRzICovCisjZGVmaW5lIEZNQU5fU1BfRVhUX0JVRl9NQVJH
+X1NUQVJUX1NISUZUCQkxNgorI2RlZmluZSBGTUFOX1NQX0RNQV9BVFRSX1NXUF9TSElGVAkJCTMw
+CisjZGVmaW5lIEZNQU5fU1BfSUNfVE9fRVhUX1NISUZUCQkJMTYKKyNkZWZpbmUgRk1BTl9TUF9J
+Q19GUk9NX0lOVF9TSElGVAkJCTgKKworLyogc3RydWN0dXJlIGZvciBkZWZpbmluZyBpbnRlcm5h
+bCBjb250ZXh0IGNvcHlpbmcgKi8KK3N0cnVjdCBmbWFuX3NwX2ludF9jb250ZXh0X2RhdGFfY29w
+eSB7CisJLyogPCBPZmZzZXQgaW4gRXh0ZXJuYWwgYnVmZmVyIHRvIHdoaWNoIGludGVybmFsCisJ
+ICogIGNvbnRleHQgaXMgY29waWVkIHRvIChSeCkgb3IgdGFrZW4gZnJvbSAoVHgsIE9wKS4KKwkg
+Ki8KKwl1MTYgZXh0X2J1Zl9vZmZzZXQ7CisJLyogT2Zmc2V0IHdpdGhpbiBpbnRlcm5hbCBjb250
+ZXh0IHRvIGNvcHkgZnJvbQorCSAqIChSeCkgb3IgdG8gY29weSB0byAoVHgsIE9wKS4KKwkgKi8K
+Kwl1OCBpbnRfY29udGV4dF9vZmZzZXQ7CisJLyogSW50ZXJuYWwgb2Zmc2V0IHNpemUgdG8gYmUg
+Y29waWVkICovCisJdTE2IHNpemU7Cit9OworCisvKiAgc3RydWN0IGZvciBkZWZpbmluZyBleHRl
+cm5hbCBidWZmZXIgbWFyZ2lucyAqLworc3RydWN0IGZtYW5fc3BfYnVmX21hcmdpbnMgeworCS8q
+IE51bWJlciBvZiBieXRlcyB0byBiZSBsZWZ0IGF0IHRoZSBiZWdpbm5pbmcKKwkgKiBvZiB0aGUg
+ZXh0ZXJuYWwgYnVmZmVyIChtdXN0IGJlIGRpdmlzaWJsZSBieSAxNikKKwkgKi8KKwl1MTYgc3Rh
+cnRfbWFyZ2luczsKKwkvKiBudW1iZXIgb2YgYnl0ZXMgdG8gYmUgbGVmdCBhdCB0aGUgZW5kCisJ
+ICogb2YgdGhlIGV4dGVybmFsIGJ1ZmZlcihtdXN0IGJlIGRpdmlzaWJsZSBieSAxNikKKwkgKi8K
+Kwl1MTYgZW5kX21hcmdpbnM7Cit9OworCitzdHJ1Y3QgZm1hbl9zcF9idWZmZXJfb2Zmc2V0cyB7
+CisJdTMyIGRhdGFfb2Zmc2V0OworCXUzMiBwcnNfcmVzdWx0X29mZnNldDsKKwl1MzIgdGltZV9z
+dGFtcF9vZmZzZXQ7CisJdTMyIGhhc2hfcmVzdWx0X29mZnNldDsKK307CisKK2ludCBmbWFuX3Nw
+X2J1aWxkX2J1ZmZlcl9zdHJ1Y3Qoc3RydWN0IGZtYW5fc3BfaW50X2NvbnRleHRfZGF0YV9jb3B5
+CisJCQkJKmludF9jb250ZXh0X2RhdGFfY29weSwKKwkJCQlzdHJ1Y3QgZm1hbl9idWZmZXJfcHJl
+Zml4X2NvbnRlbnQKKwkJCQkqYnVmZmVyX3ByZWZpeF9jb250ZW50LAorCQkJCXN0cnVjdCBmbWFu
+X3NwX2J1Zl9tYXJnaW5zICpidWZfbWFyZ2lucywKKwkJCQlzdHJ1Y3QgZm1hbl9zcF9idWZmZXJf
+b2Zmc2V0cworCQkJCSpidWZmZXJfb2Zmc2V0cywKKwkJCQl1OCAqaW50ZXJuYWxfYnVmX29mZnNl
+dCk7CisKK3ZvaWQgZm1hbl9zcF9zZXRfYnVmX3Bvb2xzX2luX2FzY19vcmRlcl9vZl9idWZfc2l6
+ZXMoc3RydWN0IGZtYW5fZXh0X3Bvb2xzCisJCQkJCQkgICAgICpmbV9leHRfcG9vbHMsCisJCQkJ
+CQkgICAgIHU4ICpvcmRlcmVkX2FycmF5LAorCQkJCQkJICAgICB1MTYgKnNpemVzX2FycmF5KTsK
+KworI2VuZGlmCS8qIF9fRk1fU1BfSCAqLwotLSAKMS43LjkuNQoKX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApM
+aW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlz
+dGluZm8vbGludXhwcGMtZGV2
