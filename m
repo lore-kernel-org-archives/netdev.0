@@ -1,53 +1,58 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [Patch net-next v2 2/4] net_sched: update hierarchical backlog too
-Date: Mon, 2 Nov 2015 13:50:40 -0800
-Message-ID: <CAHA+R7MogROyXLDhT7FrVLiLRhJueB0DmKGVDr49xDxcT2Q2KA@mail.gmail.com>
-References: <1446229351-13412-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1446229351-13412-3-git-send-email-xiyou.wangcong@gmail.com>
-	<1446233450.6254.29.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7NkU3Bme5MbgFraOo=7SRYUF+F-6owyzFxfVidjc2AxMw@mail.gmail.com>
-	<1446499257.23275.33.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [RFC] unix: fix use-after-free in unix_dgram_poll()/ 4.2.5
+Date: Mon, 02 Nov 2015 21:55:42 +0000
+Message-ID: <874mh4gj6p.fsf@doppelsaurus.mobileactivedefense.com>
+References: <cover.1443817522.git.jbaron@akamai.com>
+	<f4e283269e7063317956ea1de6fdc58449ee75cd.1443817522.git.jbaron@akamai.com>
+	<87bncdxool.fsf@doppelsaurus.mobileactivedefense.com>
+	<5612B9A9.8050301@akamai.com>
+	<87lhb7sttz.fsf@doppelsaurus.mobileactivedefense.com>
+	<561DCFA4.3010300@akamai.com>
+	<87d1wh8hqh.fsf@doppelsaurus.mobileactivedefense.com>
+	<561F156E.9050905@akamai.com>
+	<87fv17x59w.fsf@doppelsaurus.mobileactivedefense.com>
+	<5625073C.5010809@akamai.com>
+	<87vba1i383.fsf@doppelsaurus.mobileactivedefense.com>
+	<874mhbx7o1.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<877fm43wqv.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<57d2f5b6aae251957bff7a1a52b8bf2c@core-hosting.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f176.google.com ([209.85.160.176]:36552 "EHLO
-	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751711AbbKBVul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 16:50:41 -0500
-Received: by ykba4 with SMTP id a4so153583676ykb.3
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 13:50:40 -0800 (PST)
-In-Reply-To: <1446499257.23275.33.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Jason Baron <jbaron@akamai.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<minipli@googlemail.com>, <normalperson@yhbt.net>,
+	<eric.dumazet@gmail.com>, <viro@zeniv.linux.org.uk>,
+	<davidel@xmailserver.org>, <dave@stgolabs.net>,
+	<pageexec@freemail.hu>, <torvalds@linux-foundation.org>,
+	<peterz@infradead.org>
+To: <olivier@mauras.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <57d2f5b6aae251957bff7a1a52b8bf2c@core-hosting.net> (Olivier
+	Mauras's message of "Mon, 02 Nov 2015 11:01:08 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 2, 2015 at 1:20 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> Well, before your changes, the qdisc_tree_decrease_qlen(sch, 0) would
-> have been useless, since qdisc_tree_decrease_qlen() does nothing in this
-> case [1]
->
-> But after your changes, we need to change the backlog, even if the qlen
-> does not change.
->
-> Maybe I missed something, but your patch is not really obvious ;)
->
+Olivier Mauras <olivier@mauras.ch> writes:
 
-Oh, very good point... You actually mean in some cases we enqueue
-one packet and then drop one packet which ends up with dropping 0
-packet but the backlog size goes down by (drop_len - enqueue_len). :)
+[...]
 
-Hmm, I need to double check for this case for sure, but for sfq case,
-I just did:
+> I've encountered  issues with Jason's patch ported to 3.14.x which would break
+> openldap, rendering it unable to answer any query - Here's a strace of the
+> slapd process in this state http://pastebin.ca/3226383
+> Just ported Rainer's patch to 3.14 and so far I can't reproduce the issue -
 
--       qdisc_tree_decrease_qlen(sch, 1);
-+       qdisc_tree_reduce_backlog(sch, 1, dropped);
+I may be missing something here but the final state according to the
+trace it that thread 775 of the process blocks in epoll_wait with a
+descriptor set containing only a listening TCP socket (8) and waiting
+for new connections. I don't think this can execute any code
+changed by my patch and I'm fairly certain for this for Jason's, too:
+Both are about AF_UNIX datagram sockets and the specific case where
+either a write couldn't complete because the backlog of the receive
+queue of the 1 side of a n:1 datagram socket arrangement was considered
+too large or where a 'poll for write' check returned 'not writeable' for
+the same reason.
 
-which isn't the case where n==0, like you mentioned.
-
-I am auditing that case for all the qdisc's anyway.
-
-Thanks.
+Judging from the 2.4.42 sources, OpenLDAP doesn't use AF_UNIX datagram
+sockets at all so it shouldn't ever be affected by any changes to the
+code handling them.
