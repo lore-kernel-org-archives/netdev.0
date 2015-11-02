@@ -1,35 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] af_unix: optimize unix_writable by inlining
-Date: Mon, 02 Nov 2015 09:13:46 -0800
-Message-ID: <1446484426.23275.22.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1446483719-30310-1-git-send-email-aconole@bytheb.org>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH] bpf: convert hashtab lock to raw lock
+Date: Mon, 2 Nov 2015 12:24:05 -0500
+Message-ID: <20151102122405.56dd97a1@gandalf.local.home>
+References: <1446243386-26582-1-git-send-email-yang.shi@linaro.org>
+	<20151031000356.GA28070@Alexeis-MacBook-Pro.local>
+	<20151031094736.494427d7@grimm.local.home>
+	<56350A86.5090500@iogearbox.net>
+	<5637997D.1020502@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Aaron Conole <aconole@bytheb.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35519 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932091AbbKBRNr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 12:13:47 -0500
-Received: by pasz6 with SMTP id z6so154048291pas.2
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 09:13:47 -0800 (PST)
-In-Reply-To: <1446483719-30310-1-git-send-email-aconole@bytheb.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	ast@kernel.org, linux-kernel@vger.kernel.org,
+	linux-rt-users@vger.kernel.org, netdev@vger.kernel.org,
+	linaro-kernel@lists.linaro.org
+To: "Shi, Yang" <yang.shi@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5637997D.1020502@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-11-02 at 12:01 -0500, Aaron Conole wrote:
-> unix_writable() originally was inlined, but was changed as part of
-> commit 1586a5877db9 ("af_unix: do not report POLLOUT on
-> listeners"). Re-enable the inline flag.
-> 
-> Signed-off-by: Aaron Conole <aconole@bytheb.org>
-> Cc: Eric Dumazet <edumazet@google.com>
-> ---
+On Mon, 02 Nov 2015 09:12:29 -0800
+"Shi, Yang" <yang.shi@linaro.org> wrote:
 
+> Yes, it is common practice for converting sleepable spin lock to raw 
+> spin lock in -rt to avoid scheduling in atomic context bug.
 
-We leave this to the compiler nowadays.
+Note, in a lot of cases we don't just convert spin_locks to raw because
+of atomic context. There's times we need to change the design where the
+lock is not taken in atomic context (switching preempt_disable() to a
+local_lock() for example).
 
-If you take a look at disassembly, you'll see your patch has no effect
-at all.
+But bpf is much like ftrace and kprobes where they can be taken almost
+anywhere, and the do indeed need to be raw.
+
+-- Steve
