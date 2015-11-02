@@ -1,8 +1,8 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [RFC PATCH net-next 2/6] net: dsa: mv88e6060: use the correct
- InitReady bit
-Date: Mon, 2 Nov 2015 11:57:12 +0100
-Message-ID: <56374188.1010603@baylibre.com>
+Subject: [RFC PATCH net-next 4/6] net: dsa: mv88e6060: use the correct bit
+ shift for mac0
+Date: Mon, 2 Nov 2015 11:57:22 +0100
+Message-ID: <56374192.6040108@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -18,27 +18,29 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-According to the mv88e6060 datasheet, the InitReady bit position
-is 11 and the polarity is inverted.
-Use the bit correctly to detect the end of initialization.
+According to the mv88e6060 datasheet, the first mac byte must
+be at position 9 instead of 8 since the bit 8 is used to select
+if the mac address must differ for each port for Pause frames.
+Use the correct shift and set the same mac address for all port.
 
 Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 ---
- drivers/net/dsa/mv88e6060.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/dsa/mv88e6060.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
-index 6885ef5..c10880f 100644
+index ba1899e..1ccfd7a 100644
 --- a/drivers/net/dsa/mv88e6060.c
 +++ b/drivers/net/dsa/mv88e6060.c
-@@ -102,7 +102,7 @@ static int mv88e6060_switch_reset(struct dsa_switch *ds)
- 	timeout = jiffies + 1 * HZ;
- 	while (time_before(jiffies, timeout)) {
- 		ret = REG_READ(REG_GLOBAL, 0x00);
--		if ((ret & 0x8000) == 0x0000)
-+		if ((ret & 0x800) != 0x0000)
- 			break;
+@@ -188,7 +188,8 @@ static int mv88e6060_setup(struct dsa_switch *ds)
 
- 		usleep_range(1000, 2000);
+ static int mv88e6060_set_addr(struct dsa_switch *ds, u8 *addr)
+ {
+-	REG_WRITE(REG_GLOBAL, 0x01, (addr[0] << 8) | addr[1]);
++	/* Use the same MAC Address as FD Pause frames for all ports */
++	REG_WRITE(REG_GLOBAL, 0x01, (addr[0] << 9) | addr[1]);
+ 	REG_WRITE(REG_GLOBAL, 0x02, (addr[2] << 8) | addr[3]);
+ 	REG_WRITE(REG_GLOBAL, 0x03, (addr[4] << 8) | addr[5]);
+
 -- 
 1.9.1
