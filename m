@@ -1,31 +1,48 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
+From: "Shi, Yang" <yang.shi@linaro.org>
 Subject: Re: [PATCH] bpf: convert hashtab lock to raw lock
-Date: Mon, 02 Nov 2015 18:28:58 +0100
-Message-ID: <56379D5A.7080402@iogearbox.net>
-References: <1446243386-26582-1-git-send-email-yang.shi@linaro.org>	<20151031000356.GA28070@Alexeis-MacBook-Pro.local> <20151031094736.494427d7@grimm.local.home> <56350A86.5090500@iogearbox.net> <5637997D.1020502@linaro.org>
+Date: Mon, 02 Nov 2015 09:31:50 -0800
+Message-ID: <56379E06.3040008@linaro.org>
+References: <1446243386-26582-1-git-send-email-yang.shi@linaro.org>	<20151031000356.GA28070@Alexeis-MacBook-Pro.local>	<20151031094736.494427d7@grimm.local.home>	<56350A86.5090500@iogearbox.net>	<5637997D.1020502@linaro.org> <20151102122405.56dd97a1@gandalf.local.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, linux-kernel@vger.kernel.org,
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	ast@kernel.org, linux-kernel@vger.kernel.org,
 	linux-rt-users@vger.kernel.org, netdev@vger.kernel.org,
 	linaro-kernel@lists.linaro.org
-To: "Shi, Yang" <yang.shi@linaro.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5637997D.1020502@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33397 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751771AbbKBRbx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 12:31:53 -0500
+Received: by pabfh17 with SMTP id fh17so30386127pab.0
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 09:31:52 -0800 (PST)
+In-Reply-To: <20151102122405.56dd97a1@gandalf.local.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/02/2015 06:12 PM, Shi, Yang wrote:
-...
-> If you think such info is necessary, I definitely could add it into the commit log in v2.
+On 11/2/2015 9:24 AM, Steven Rostedt wrote:
+> On Mon, 02 Nov 2015 09:12:29 -0800
+> "Shi, Yang" <yang.shi@linaro.org> wrote:
+>
+>> Yes, it is common practice for converting sleepable spin lock to raw
+>> spin lock in -rt to avoid scheduling in atomic context bug.
+>
+> Note, in a lot of cases we don't just convert spin_locks to raw because
+> of atomic context. There's times we need to change the design where the
+> lock is not taken in atomic context (switching preempt_disable() to a
+> local_lock() for example).
 
-As this is going to be documented anyway (thanks! ;)), and the discussion
-to this patch can be found in the archives for those wondering, I'm good:
+Yes, definitely. Understood.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Thanks,
+Yang
 
-Thanks for the fix, Yang!
-
-I presume this should go to net-next then ...
+>
+> But bpf is much like ftrace and kprobes where they can be taken almost
+> anywhere, and the do indeed need to be raw.
+>
+> -- Steve
+>
