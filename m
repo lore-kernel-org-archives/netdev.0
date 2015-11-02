@@ -1,55 +1,63 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [RFC PATCH net-next 0/6] net: dsa: mv88e6060: cleanup and fix
- setup
-Date: Mon, 2 Nov 2015 10:41:23 -0500
-Message-ID: <20151102154121.GB3036@ketchup.mtl.sfl>
-References: <5637417D.6060503@baylibre.com>
+From: Jeremy Linton <jeremy.linton@arm.com>
+Subject: Re: [PATCH 2/2] Convert smsc911x to use ACPI as well as DT
+Date: Mon, 2 Nov 2015 09:48:06 -0600
+Message-ID: <563785B6.50800@arm.com>
+References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
+ <1439417187-21411-3-git-send-email-jeremy.linton@arm.com>
+ <55F059F9.3080200@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Guenter Roeck <linux@roeck-us.net>
-To: Neil Armstrong <narmstrong@baylibre.com>
+Content-Type: text/plain; charset=WINDOWS-1252; format=flowed
+Content-Transfer-Encoding: 8BIT
+Cc: "steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>,
+	"suravee.suthikulpanit@amd.com" <suravee.suthikulpanit@amd.com>,
+	Catalin Marinas <Catalin.Marinas@arm.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>
+To: Marc Zyngier <marc.zyngier@arm.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:35746 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754101AbbKBPlZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 10:41:25 -0500
-Content-Disposition: inline
-In-Reply-To: <5637417D.6060503@baylibre.com>
+Received: from eu-smtp-delivery-143.mimecast.com ([207.82.80.143]:46420 "EHLO
+	eu-smtp-delivery-143.mimecast.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753411AbbKBPsN convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2015 10:48:13 -0500
+In-Reply-To: <55F059F9.3080200@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Neil,
+On 09/09/2015 11:10 AM, Marc Zyngier wrote:
+> Jeremy,
+>
+> I can see two issues here: we have a screaming interrupt, and
+> we seem to corrupt some workqueue.
+>
+> How did you get this to work? Firmware release?
 
-On Nov. Monday 02 (45) 11:57 AM, Neil Armstrong wrote:
-> This patchset introduces somes fixes and a registers addressing cleanup for
-> the mv88e6060 DSA driver.
-> 
-> The first patch removes the poll_link as mv88e6xxx.
-> The 3 following patchs fixes the setup in regards of the datasheet.
-> The 2 last patches introduces a clean header and replaces all magic values.
-> 
-> Neil Armstrong (6):
->   net: dsa: mv88e6060: remove poll_link callback
->   net: dsa: mv88e6060: use the correct InitReady bit
->   net: dsa: mv88e6060: use the correct MaxFrameSize bit
->   net: dsa: mv88e6060: use the correct bit shift for mac0
->   net: dsa: mv88e6060: add register defines header file
->   net: dsa: mv88e6060: replace magic values with register defines
+Marc,
 
-Nice cleanup. I'll just be a bit picky here, so you may not consider my
-comment for this patchset, but maybe for the future ones. Unless I'm
-mistaken, there is no reason to group all these patches together.
+I'm responding because its been a month or so since my last response, 
+and I haven't forgotten about this issue.
 
-The first 4 patches are independent fixes, and thus could have been sent
-separately to netdev -net.
+First, any custom tianocore build (*) should work. The required changes 
+have been in the last few linaro snapshots as well 
+(http://snapshots.linaro.org/components/kernel/linaro-edk2/, currently 
+at 40) but I personally haven't had a lot of luck with the prebuilt 
+images due to problems unrelated to this change. Others may have more luck.
 
-Then the last 2 ones could have been squashed together, because I don't
-see a real value to seperate them since you duplicate some defines, e.g.
-REG_PORT. And this patch would be a candidate for netdev -net-next.
+* For those that don't know, tianno core is at:
 
-Thanks,
--v
+https://github.com/tianocore/edk2.git
+Use the master branch
+
+After setting the environment variables/dependencies appropriately:
+
+make -f ArmPlatformPkg/ArmJunoPkg/Makefile all
+
+Will create a functional ACPI firmware image for all recent kernels, 
+including ACPI/PCIe ones.
+
+Thanks for everyone's patience on this,
+
+	
