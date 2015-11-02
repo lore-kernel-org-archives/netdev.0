@@ -1,54 +1,143 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is
- incorrect for sockets in accept(3)
-Date: Mon, 2 Nov 2015 10:29:23 +0000
-Message-ID: <20151102102923.GR22011@ZenIV.linux.org.uk>
-References: <20151019095938.72ea48e6@xeon-e3>
- <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com>
- <562594E1.8040403@oracle.com>
- <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151021034950.GL22011@ZenIV.linux.org.uk>
- <5627A37B.4090208@oracle.com>
- <20151021185104.GM22011@ZenIV.linux.org.uk>
- <201510212033.t9LKX4G8007718@room101.nl.oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CBC8782@AcuExch.aculab.com>
+From: <shh.xie@gmail.com>
+Subject: [PATCH][v2] net: phy: fix a bug in get_phy_c45_ids
+Date: Mon, 2 Nov 2015 18:48:33 +0800
+Message-ID: <1446461313-37628-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'Casper.Dik@oracle.com'" <Casper.Dik@oracle.com>,
-	Alan Burlison <Alan.Burlison@oracle.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"dholland-tech@netbsd.org" <dholland-tech@netbsd.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain
+Cc: <f.fainelli@gmail.com>, Shaohui Xie <Shaohui.Xie@freescale.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:54788 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752540AbbKBK3e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 05:29:34 -0500
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBC8782@AcuExch.aculab.com>
+Received: from mail-bl2on0075.outbound.protection.outlook.com ([65.55.169.75]:7361
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753075AbbKBKzd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2015 05:55:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 02, 2015 at 10:03:58AM +0000, David Laight wrote:
-> Remember, Solaris (and SYSV) has extra levels of multiplexing between
-> userspace and char special drivers (and probably sockets) than Linux does.
-> As well as having multiple fd referencing the same struct FILE, multiple
-> FILE can point to the same inode.
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
 
-As they ever could on any Unix.  Every open(2) results in a new struct file
-(BTW, I've never seen that capitalization for kernel structure - not in
-v7, not in *BSD, etc.; FILE is a userland typedef and I would be rather
-surprised if any kernel, Solaris included, would've renamed 'struct file'
-to 'struct FILE').
+When probing devices-in-package for a c45 phy, device zero is the last
+device to probe, however, if driver reads 0 from device zero,
+c45_ids->devices_in_package is set to '0', the loop condition of probing
+will be matched again, see codes below:
 
-> If you have two different /dev entries for the same major/minor you
-> also end up with separate inodes - all finally referencing the same
-> driver data (indexed only by minor number).
+for (i = 1;i < num_ids && c45_ids->devices_in_package == 0;i++)
 
-Again, the same goes for all Unices, both Linux and Solaris included.
-And what the devil does that have to do with sockets, anyway?  Or with
-the problem in question, while we are at it - they have different
-descriptors pointing to the same struct file behave differently;
-anything sensitive to file type would be past that point.
+driver will run in a dead loop.
+
+This patch restructures the bug and confusing loop, it provides a helper
+function get_phy_c45_devs_in_pkg which to read devices-in-package registers
+of a MMD, and rewrites the loop with using the helper function.
+
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+---
+changes in v2:
+1. uses a helper function to read devices in package registers of a MMD.
+
+2. rewrites the probing loop with using the helper function.
+
+ drivers/net/phy/phy_device.c | 74 +++++++++++++++++++++++++++++---------------
+ 1 file changed, 49 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 3833891..8c84b9e 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -205,6 +205,37 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
+ }
+ EXPORT_SYMBOL(phy_device_create);
+ 
++ /* get_phy_c45_devs_in_pkg - reads a MMD's devices in package registers.
++ * @bus: the target MII bus
++ * @addr: PHY address on the MII bus
++ * @dev_addr: MMD address in the PHY.
++ * @devices_in_package: where to store the devices in package information.
++ *
++ * Description: reads devices in package registers of a MMD at @dev_addr
++ * from PHY at @addr on @bus.
++ *
++ * Returns: 0 on success, -EIO on failure.
++ */
++static int get_phy_c45_devs_in_pkg(struct mii_bus *bus, int addr, int dev_addr,
++				   u32 *devices_in_package)
++{
++	int phy_reg, reg_addr;
++
++	reg_addr = MII_ADDR_C45 | dev_addr << 16 | MDIO_DEVS2;
++	phy_reg = mdiobus_read(bus, addr, reg_addr);
++	if (phy_reg < 0)
++		return -EIO;
++	*devices_in_package = (phy_reg & 0xffff) << 16;
++
++	reg_addr = MII_ADDR_C45 | dev_addr << 16 | MDIO_DEVS1;
++	phy_reg = mdiobus_read(bus, addr, reg_addr);
++	if (phy_reg < 0)
++		return -EIO;
++	*devices_in_package |= (phy_reg & 0xffff);
++
++	return 0;
++}
++
+ /**
+  * get_phy_c45_ids - reads the specified addr for its 802.3-c45 IDs.
+  * @bus: the target MII bus
+@@ -223,38 +254,31 @@ static int get_phy_c45_ids(struct mii_bus *bus, int addr, u32 *phy_id,
+ 	int phy_reg;
+ 	int i, reg_addr;
+ 	const int num_ids = ARRAY_SIZE(c45_ids->device_ids);
++	u32 *devs = &c45_ids->devices_in_package;
+ 
+-	/* Find first non-zero Devices In package.  Device
+-	 * zero is reserved, so don't probe it.
++	/* Find first non-zero Devices In package. Device zero is reserved
++	 * for 802.3 c45 complied PHYs, so don't probe it at first.
+ 	 */
+-	for (i = 1;
+-	     i < num_ids && c45_ids->devices_in_package == 0;
+-	     i++) {
+-retry:		reg_addr = MII_ADDR_C45 | i << 16 | MDIO_DEVS2;
+-		phy_reg = mdiobus_read(bus, addr, reg_addr);
++	for (i = 1; i < num_ids && *devs == 0; i++) {
++		phy_reg = get_phy_c45_devs_in_pkg(bus, addr, i, devs);
+ 		if (phy_reg < 0)
+ 			return -EIO;
+-		c45_ids->devices_in_package = (phy_reg & 0xffff) << 16;
+ 
+-		reg_addr = MII_ADDR_C45 | i << 16 | MDIO_DEVS1;
+-		phy_reg = mdiobus_read(bus, addr, reg_addr);
+-		if (phy_reg < 0)
+-			return -EIO;
+-		c45_ids->devices_in_package |= (phy_reg & 0xffff);
+-
+-		if ((c45_ids->devices_in_package & 0x1fffffff) == 0x1fffffff) {
+-			if (i) {
+-				/*  If mostly Fs, there is no device there,
+-				 *  then let's continue to probe more, as some
+-				 *  10G PHYs have zero Devices In package,
+-				 *  e.g. Cortina CS4315/CS4340 PHY.
+-				 */
+-				i = 0;
+-				goto retry;
+-			} else {
+-				/* no device there, let's get out of here */
++		if ((*devs & 0x1fffffff) == 0x1fffffff) {
++			/*  If mostly Fs, there is no device there,
++			 *  then let's continue to probe more, as some
++			 *  10G PHYs have zero Devices In package,
++			 *  e.g. Cortina CS4315/CS4340 PHY.
++			 */
++			phy_reg = get_phy_c45_devs_in_pkg(bus, addr, 0, devs);
++			if (phy_reg < 0)
++				return -EIO;
++			/* no device there, let's get out of here */
++			if ((*devs & 0x1fffffff) == 0x1fffffff) {
+ 				*phy_id = 0xffffffff;
+ 				return 0;
++			} else {
++				break;
+ 			}
+ 		}
+ 	}
+-- 
+2.1.0.27.g96db324
