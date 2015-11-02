@@ -1,70 +1,47 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
-Date: Mon, 2 Nov 2015 21:25:47 +0100
-Message-ID: <201511022125.47892.marex@denx.de>
-References: <1446419775-5215-1-git-send-email-marex@denx.de> <201511021916.18117.marex@denx.de> <666821254.20151102231521@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] net: make skb_set_owner_w() more robust
+Date: Mon, 02 Nov 2015 15:26:10 -0500 (EST)
+Message-ID: <20151102.152610.2091248201809813226.davem@davemloft.net>
+References: <1446421015.6254.106.camel@edumazet-glaptop2.roam.corp.google.com>
+	<BN1PR0301MB0770C038C9E0F34EBCCB605FCA2C0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+	<1446494965.23275.28.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-	"Marc Kleine-Budde" <mkl@pengutronix.de>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>
+Cc: haiyangz@microsoft.com, edumazet@google.com,
+	netdev@vger.kernel.org, kys@microsoft.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:46681 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753089AbbKBUZv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 15:25:51 -0500
-In-Reply-To: <666821254.20151102231521@cogentembedded.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35123 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753142AbbKBU0N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 15:26:13 -0500
+In-Reply-To: <1446494965.23275.28.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday, November 02, 2015 at 09:15:21 PM, Vostrikov Andrey wrote:
-> Hi,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 02 Nov 2015 12:09:25 -0800
 
-Hi,
-
-> > I was thinking about this and I mostly agree with you. Obviously, copying
-> > the code this way was dumb. On the other hand, ARINC and CAN are two
-> > different sort of busses, so I'd propose something slightly different
-> > here to avoid confusion and prevent the future extensions (or protocols)
-> > from adding unrelated cruft into the CAN stack.
+> On Mon, 2015-11-02 at 20:05 +0000, Haiyang Zhang wrote:
 > 
-> Another  major  difference  between  CAN and ARINC429 is that ARINC is
-> simplex.  It  does  not  need  loopback  and echo. For example HOLT IC
-> chip  HI-3593  has  two receivers and single transmitter, which
-> should  be  instantiated as separate devices, as each channel could be
-> connected to different network.
+>> Thanks for the fix!
+>> For some driver, like ours, this condition may not be "unlikely".
+>> So could you remove the "unlikely"?
+> 
+> No, I wont remove the unlikely.
+> 
+> Look, your main issue is about reallocating skbs, because of excessive
+> dev->needed_headroom.
+> 
+> An unlikely() mismatch is 1000 times less expensive, why would you
+> care ?
+> 
+> If you really care, fix your driver to not abuse skb->head to store 220
+> bytes of private data.
 
-So this would effectively be three devices, correct ?  I think you can just
-register a regular ARINC device for each channel and be done with it. Loopback
-and echo can be configurable.
++1
 
-> It  would  be nice if new ARINC framework will provide means to create
-> RX  or  TX  only  network device and have -rx- or -tx- as part of device
-> name.
-
-I'd say you can fail the TX if you're trying to send via an RX-only channel.
-The naming can probably be also tweaked, but I don't see much value in that,
-especially since you can rename those interfaces by using udev rules. Checking
-if the interface supports RX/TX should be done by other means, not the name.
-
-> Label  space in ARINC is much smaller than in CAN, is it really needed
-> to  have  hash  and  masks? May be simple bitmap for 256 bits will fit
-> better.  At least it could be directly provided to mentioned HOLT chip
-> to do filtering in hardware.
-
-CAN does the can_id filtering this way and I find it familiar and convenient,
-so I don't see a reason not to re-use it. If the hardware has some special
-support for the frame filtering, it's the driver that should convert the
-filter specification into form which the hardware understands -- this sort
-of configuration is done only once at the beginning of operation, so some
-small overhead of the conversion of the filter setting should be acceptable,
-we're talking about generating 256 entries for the hardware from ID/mask tuple,
-no big deal here.
-
-Best regards,
-Marek Vasut
+And I've been saying this from the beginning.  This driver must place
+it's private per-packet data in another location if it wants optimal
+behavior inside of the Linux networking stack.
