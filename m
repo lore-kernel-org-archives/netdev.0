@@ -1,61 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Resource leak in unshare
-Date: Mon, 02 Nov 2015 11:54:12 -0800
-Message-ID: <1446494052.23275.25.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+Y5mcBrnLOsXchJVrO_8FD-u=EFU67WsH3bU51aAU-idA@mail.gmail.com>
-	 <87oafcrzsa.fsf@x220.int.ebiederm.org>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH v3 net] i40e: Look up MAC address in Open Firmware or
+ IDPROM
+Date: Mon, 2 Nov 2015 14:57:07 -0500
+Message-ID: <20151102195707.GC15009@oracle.com>
+References: <FC41C24E35F18A40888AACA1A36F3E418AFACA14@fmsmsx115.amr.corp.intel.com>
+ <20151030183645.GD32759@oracle.com>
+ <FC41C24E35F18A40888AACA1A36F3E418AFACA8F@fmsmsx115.amr.corp.intel.com>
+ <20151030192437.GE32759@oracle.com>
+ <FC41C24E35F18A40888AACA1A36F3E418AFACC2E@fmsmsx115.amr.corp.intel.com>
+ <20151030231301.GA14974@oracle.com>
+ <20151101162407.GA26373@oracle.com>
+ <FC41C24E35F18A40888AACA1A36F3E418AFAD1C9@fmsmsx115.amr.corp.intel.com>
+ <20151102000701.GD9552@oracle.com>
+ <FC41C24E35F18A40888AACA1A36F3E418AFAD398@fmsmsx115.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	David Miller <davem@davemloft.net>, nicolas.dichtel@6wind.com,
-	Al Viro <viro@zeniv.linux.org.uk>, Thomas Graf <tgraf@suug.ch>,
-	xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Kees Cook <keescook@google.com>,
-	Julien Tinnes <jln@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87oafcrzsa.fsf@x220.int.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"andy.shevchenko@gmail.com" <andy.shevchenko@gmail.com>,
+	sowmini.varadhan@oracle.com
+To: "Nelson, Shannon" <shannon.nelson@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:23824 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751684AbbKBT5L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 14:57:11 -0500
+Content-Disposition: inline
+In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E418AFAD398@fmsmsx115.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-11-02 at 13:01 -0600, Eric W. Biederman wrote:
-> Dmitry Vyukov <dvyukov@google.com> writes:
+On (11/02/15 17:26), Nelson, Shannon wrote:
+> > I assume you mean .1q 
 > 
-> > Hello,
-> >
-> > I am hitting the following warnings on
-> > bcee19f424a0d8c26ecf2607b73c690802658b29 (4.3):
-> 
-> Do you have any trace of the earlier failures?
-> 
-> This appears to be something caused by an earlier failure (possibly
-> whatever fails to allocate memory).  Having network devices present
-> but being in the generic cleanup routines is wrong.
-> 
-> If there is no additional information can you please rerun with the
-> following change applied?  That should at least report which function is
-> failing, and give us a good clue where to start debugging this.
+> Yes, this is what I had in mind.
 
-At first, I would say sit is leaking percpu memory
+I dont think we're quite there yet, even without vlans.
 
-Load sit module, then :
+If I turn on/off tcpdump, there's something about the way that the link
+is bounced that leaves the device down while tcpdump is running. Then
+after I exit tcpdump, it bounces things a few more times again, packets
+flow for a brief interval, and then there's silence.
 
-while :
-do
-ip netns add foo
-ip netns del foo
-done
+Seems like there's is a workq that results in
+i40e_service_task->i40e_sync_vsi_filters that periodically resets things.
 
-Will eat all memory eventually.
+Doing 'ip link set eth0 promisc on' keeps things nice and steady.
 
-ipip6_tunnel_init() and ipip6_fb_tunnel_init() are _both_ called for the
-sit0 device, this looks very wrong.
+How is this all supposed to work if I change the macaddr from /sbin/ip 
+using i40e_set_mac() and then jiggle the promisc (either just the flag,
+or with tcpdump)? (I cant tell because I dont have an x86 machine with 
+i40e handy)
+
+To frame the question differently, where all should I be invoking
+the new i40e_macaddr_init() function from? 
+
+--Sowmini
