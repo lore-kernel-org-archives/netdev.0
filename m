@@ -1,216 +1,139 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: kernel panic in 4.2.3, rb_erase in sch_fq
-Date: Mon, 02 Nov 2015 16:11:54 +0200
-Message-ID: <d66d455afe6dd28bed32ed3e17f797b7@visp.net.lb>
+From: Vladimir Davydov <vdavydov@virtuozzo.com>
+Subject: Re: [PATCH 0/8] mm: memcontrol: account socket memory in unified
+ hierarchy
+Date: Mon, 2 Nov 2015 17:47:29 +0300
+Message-ID: <20151102144729.GA17424@esperanza>
+References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
+ <20151022184509.GM18351@esperanza>
+ <20151026172216.GC2214@cmpxchg.org>
+ <20151027084320.GF13221@esperanza>
+ <20151027155833.GB4665@cmpxchg.org>
+ <20151028082003.GK13221@esperanza>
+ <20151028185810.GA31488@cmpxchg.org>
+ <20151029092747.GR13221@esperanza>
+ <20151029175228.GB9160@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:42572 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753413AbbKBOME (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 09:12:04 -0500
-Received: from hosting.visp.net.lb (localhost [127.0.0.1])
-	by hosting.visp.net.lb (Postfix) with ESMTP id 9362E481EFF
-	for <netdev@vger.kernel.org>; Mon,  2 Nov 2015 16:12:00 +0200 (EET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Michal Hocko <mhocko@suse.cz>, Tejun Heo <tj@kernel.org>,
+	<netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+	<cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151029175228.GB9160@cmpxchg.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi!
+On Thu, Oct 29, 2015 at 10:52:28AM -0700, Johannes Weiner wrote:
+...
+> Now, you mentioned that you'd rather see the socket buffers accounted
+> at the allocator level, but I looked at the different allocation paths
+> and network protocols and I'm not convinced that this makes sense. We
+> don't want to be in the hotpath of every single packet when a lot of
+> them are small, short-lived management blips that don't involve user
+> space to let the kernel dispose of them.
+> 
+> __sk_mem_schedule() on the other hand is already wired up to exactly
+> those consumers we are interested in for memory isolation: those with
+> bigger chunks of data attached to them and those that have exploding
+> receive queues when userspace fails to read(). UDP and TCP.
+> 
+> I mean, there is a reason why the global memory limits apply to only
+> those types of packets in the first place: everything else is noise.
+> 
+> I agree that it's appealing to account at the allocator level and set
+> page->mem_cgroup etc. but in this case we'd pay extra to capture a lot
+> of noise, and I don't want to pay that just for aesthetics. In this
+> case it's better to track ownership on the socket level and only count
+> packets that can accumulate a significant amount of memory consumed.
 
-Actually seems i was getting this panic for a while (once per week) on 
-loaded pppoe server, but just now was able to get full panic message.
-After checking commit logs on sch_fq.c i didnt seen any fixes, so 
-probably upgrading to newer kernel wont help?
+Sigh, you seem to be right. Moreover, I can't even think of a neat way
+to account skb pages to memcg, because rcv skbs are generated in device
+drivers, where we don't know which socket/memcg it will go to. We could
+recharge individual pages when skb gets to the network or transport
+layer, but it would result in unjustified overhead.
 
+> 
+> > > We tried using the per-memcg tcp limits, and that prevents the OOMs
+> > > for sure, but it's horrendous for network performance. There is no
+> > > "stop growing" phase, it just keeps going full throttle until it hits
+> > > the wall hard.
+> > > 
+> > > Now, we could probably try to replicate the global knobs and add a
+> > > per-memcg soft limit. But you know better than anyone else how hard it
+> > > is to estimate the overall workingset size of a workload, and the
+> > > margins on containerized loads are razor-thin. Performance is much
+> > > more sensitive to input errors, and often times parameters must be
+> > > adjusted continuously during the runtime of a workload. It'd be
+> > > disasterous to rely on yet more static, error-prone user input here.
+> > 
+> > Yeah, but the dynamic approach proposed in your patch set doesn't
+> > guarantee we won't hit OOM in memcg due to overgrown buffers. It just
+> > reduces this possibility. Of course, memcg OOM is far not as disastrous
+> > as the global one, but still it usually means the workload breakage.
+> 
+> Right now, the entire machine breaks. Confining it to a faulty memcg,
+> as well as reducing the likelihood of that OOM in many cases seems
+> like a good move in the right direction, no?
 
-<remote> [237470.633382] general protection fault: 0000 [#1]
-<remote> SMP
-<remote>
-<remote> [237470.633832] Modules linked in:
-<remote> netconsole
-<remote> configfs
-<remote> act_skbedit
-<remote> sch_fq
-<remote> cls_fw
-<remote> act_police
-<remote> cls_u32
-<remote> sch_ingress
-<remote> sch_sfq
-<remote> sch_htb
-<remote> pppoe
-<remote> pppox
-<remote> ppp_generic
-<remote> slhc
-<remote> xt_nat
-<remote> ts_bm
-<remote> xt_string
-<remote> xt_connmark
-<remote> xt_TCPMSS
-<remote> xt_tcpudp
-<remote> xt_mark
-<remote> iptable_filter
-<remote> iptable_nat
-<remote> nf_conntrack_ipv4
-<remote> nf_defrag_ipv4
-<remote> nf_nat_ipv4
-<remote> nf_nat
-<remote> nf_conntrack
-<remote> iptable_mangle
-<remote> ip_tables
-<remote> x_tables
-<remote> 8021q
-<remote> garp
-<remote> mrp
-<remote> stp
-<remote> llc
-<remote>
-<remote> [237470.637835] CPU: 1 PID: 14035 Comm: accel-pppd Not tainted 
-4.2.3-build-0087 #3
-<remote> [237470.638342] Hardware name: Intel Corporation 
-S2600GZ/S2600GZ, BIOS SE5C600.86B.01.03.0002.062020121504 06/20/2012
-<remote> [237470.638859] task: ffff8803ef8b5080 ti: ffff8803ed7e0000 
-task.ti: ffff8803ed7e0000
-<remote> [237470.639370] RIP: 0010:[<ffffffff8125af5d>]
-<remote> [<ffffffff8125af5d>] rb_erase+0x37/0x2c4
-<remote> [237470.639960] RSP: 0018:ffff8803ed7e3b88  EFLAGS: 00010286
-<remote> [237470.644863] RAX: 0000000000000000 RBX: ffff8804106ab000 
-RCX: 0000000000000001
-<remote> [237470.645366] RDX: ffa2050402210218 RSI: ffff88040cfe2cf0 
-RDI: ffff8803f50d00e0
-<remote> [237470.645872] RBP: ffff8803ed7e3b88 R08: 0000000000000000 
-R09: ffff88042ee37d50
-<remote> [237470.646376] R10: ffffea000fe7a9c0 R11: 0000000094f1b850 
-R12: 000000000000019e
-<remote> [237470.646881] R13: ffff88040cfe2cf0 R14: ffff8803f50d00d0 
-R15: 0000000000000000
-<remote> [237470.647381] FS:  00007fcd5d384700(0000) 
-GS:ffff88042ee20000(0000) knlGS:0000000000000000
-<remote> [237470.647889] CS:  0010 DS: 0000 ES: 0000 CR0: 
-0000000080050033
-<remote> [237470.648209] CR2: 00007fcd003efa90 CR3: 0000000424b6e000 
-CR4: 00000000000406e0
-<remote> [237470.648707] Stack:
-<remote> [237470.648990]  ffff8803ed7e3bb8
-<remote> ffffffffa00ef38b
-<remote> ffff8804106ab000
-<remote> ffff880416079000
-<remote>
-<remote> [237470.649791]  0000000000000002
-<remote> ffff8804160790d8
-<remote> ffff8803ed7e3bd8
-<remote> ffffffff8183785c
-<remote>
-<remote> [237470.650589]  0000000000000002
-<remote> ffff8800b021d000
-<remote> ffff8803ed7e3c18
-<remote> ffffffffa00d247a
-<remote>
-<remote> [237470.651387] Call Trace:
-<remote> [237470.651716]  [<ffffffffa00ef38b>] fq_reset+0x7a/0xf2 
-[sch_fq]
-<remote> [237470.652084]  [<ffffffff8183785c>] qdisc_reset+0x18/0x42
-<remote> [237470.652444]  [<ffffffffa00d247a>] htb_reset+0x96/0x14d 
-[sch_htb]
-<remote> [237470.652780]  [<ffffffff8183785c>] qdisc_reset+0x18/0x42
-<remote> [237470.653146]  [<ffffffff81837e3d>] 
-dev_deactivate_queue.constprop.34+0x43/0x53
-<remote> [237470.653726]  [<ffffffff81838543>] 
-dev_deactivate_many+0x53/0x206
-<remote> [237470.654088]  [<ffffffff81819ce2>] 
-__dev_close_many+0x73/0xbf
-<remote> [237470.654436]  [<ffffffff81819e5d>] __dev_close+0x2c/0x41
-<remote> [237470.654784]  [<ffffffff818a5569>] ? 
-_raw_spin_unlock_bh+0x15/0x17
-<remote> [237470.655106]  [<ffffffff8181ff25>] 
-__dev_change_flags+0xa5/0x13c
-<remote> [237470.655427]  [<ffffffff8181ffdf>] 
-dev_change_flags+0x23/0x59
-<remote> [237470.655777]  [<ffffffff818a437b>] ? mutex_lock+0x13/0x24
-<remote> [237470.656073]  [<ffffffff81874197>] devinet_ioctl+0x246/0x533
-<remote> [237470.656372]  [<ffffffff8187572d>] inet_ioctl+0x8c/0xa6
-<remote> [237470.656667]  [<ffffffff81807e06>] sock_do_ioctl+0x22/0x40
-<remote> [237470.656960]  [<ffffffff81808016>] sock_ioctl+0x1f2/0x200
-<remote> [237470.657253]  [<ffffffff8115f5b5>] do_vfs_ioctl+0x360/0x41a
-<remote> [237470.657549]  [<ffffffff81151989>] ? vfs_write+0x105/0x164
-<remote> [237470.657841]  [<ffffffff8115f6a8>] SyS_ioctl+0x39/0x61
-<remote> [237470.658134]  [<ffffffff818a591b>] 
-entry_SYSCALL_64_fastpath+0x16/0x6e
-<remote> [237470.658431] Code:
-<remote> 48
-<remote> 85
-<remote> c0
-<remote> 75
-<remote> 36
-<remote> 48
-<remote> 8b
-<remote> 0f
-<remote> 48
-<remote> 89
-<remote> c8
-<remote> 48
-<remote> 83
-<remote> e0
-<remote> fc
-<remote> 74
-<remote> 12
-<remote> 48
-<remote> 39
-<remote> 78
-<remote> 10
-<remote> 75
-<remote> 06
-<remote> 48
-<remote> 89
-<remote> 50
-<remote> 10
-<remote> eb
-<remote> 09
-<remote> 48
-<remote> 89
-<remote> 50
-<remote> 08
-<remote> eb
-<remote> 03
-<remote> 48
-<remote> 89
-<remote> 16
-<remote> 48
-<remote> 85
-<remote> d2
-<remote> 74
-<remote> 08
-<remote>
-<remote> 89
-<remote> 0a
-<remote> e9
-<remote> 83
-<remote> 02
-<remote> 00
-<remote> 00
-<remote> 80
-<remote> e1
-<remote> 01
-<remote> e9
-<remote> c3
-<remote> 00
-<remote> 00
-<remote> 00
-<remote> 48
-<remote> 85
-<remote> d2
-<remote> 75
-<remote> 2c
-<remote>
-<remote> [237470.663930] RIP
-<remote> [<ffffffff8125af5d>] rb_erase+0x37/0x2c4
-<remote> [237470.664296]  RSP <ffff8803ed7e3b88>
-<remote> [237470.664598] ---[ end trace 32ea40a7de450892 ]---
-<remote> [237470.673272] Kernel panic - not syncing: Fatal exception in 
-interrupt
-<remote> [237470.673577] Kernel Offset: disabled
-<remote> [237470.704654] Rebooting in 5 seconds..
+It seems. However, memcg OOM is also bad, we should strive to avoid it
+if we can.
+
+> 
+> And how likely are memcg OOMs because of this anyway? There is of
+
+Frankly, I've no idea. Your arguments below sound reassuring though.
+
+> course a scenario imaginable where the packets pile up, followed by
+> some *other* part of the workload, the one that doesn't read() and
+> process packets, trying to expand--which then doesn't work and goes
+> OOM. But that seems like a complete corner case. In the vast majority
+> of cases, the application will be in full operation and just fail to
+> read() fast enough--because the network bandwidth is enormous compared
+> to the container's size, or because it shares the CPU with thousands
+> of other workloads and there is scheduling latency.
+> 
+> This would be the perfect point to reign in the transmit window...
+> 
+> > The static approach is error-prone for sure, but it has existed for
+> > years and worked satisfactory AFAIK.
+> 
+> ...but that point is not a fixed amount of memory consumed. It depends
+> on the workload and the random interactions it's having with thousands
+> of other containers on that same machine.
+> 
+> The point of containers is to maximize utilization of your hardware
+> and systematically eliminate slack in the system. But it's exactly
+> that slack on dedicated bare-metal machines that allowed us to take a
+> wild guess at the settings and then tune them based on observing a
+> handful of workloads. This approach is not going to work anymore when
+> we pack the machine to capacity and still expect every single
+> container out of thousands to perform well. We need that automation.
+
+But we do use static approach when setting memory limits, no?
+memory.{low,high,max} - they are all static.
+
+I understand it's appealing to have just one knob - memory size - like
+in case of virtual machines, but it doesn't seem to work with
+containers. You added memory.low and memory.high knobs. VMs don't have
+anything like that. How is one supposed to set them? Depends on the
+workload, I guess. Also, there is the pids cgroup for limiting the
+number of pids that can be used by a cgroup, because pid turns out to be
+a resource in case of containers.  May be, tcp window should be
+considered as a separate resource either, as it is now, and shouldn't go
+to memcg? I'm just wondering...
+
+> 
+> The static setting working okay on the global level is also why I'm
+> not interested in starting to experiment with it. There is no reason
+> to change it. It's much more likely that any attempt to change it will
+> be shot down, not because of the approach chosen, but because there is
+> no problem to solve there. I doubt we can get networking people to
+> care about containers by screwing with things that work for them ;-)
+
+Fair enough.
+
+Thanks,
+Vladimir
