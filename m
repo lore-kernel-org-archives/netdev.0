@@ -1,39 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] ipv4: use l4 hash for locally generated
- multipath flows
-Date: Mon, 02 Nov 2015 14:39:02 -0500 (EST)
-Message-ID: <20151102.143902.1537936093026010153.davem@davemloft.net>
-References: <63c7c10d710fb30e886121ac33ef66cedb101cd9.1446139106.git.pabeni@redhat.com>
+From: Aleksander Morgado <aleksander@aleksander.es>
+Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
+Date: Mon, 2 Nov 2015 20:41:29 +0100
+Message-ID: <CAAP7ucKOzP=HX4qJPhLN0c8nBHpCfzskBxtO09=K7HLLu_iT2w@mail.gmail.com>
+References: <1446419775-5215-1-git-send-email-marex@denx.de>
+	<56373140.6040003@pengutronix.de>
+	<56374593.6000200@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, pch@ordbogen.com
-To: pabeni@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Marek Vasut <marex@denx.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Andrey Vostrikov <andrey.vostrikov@cogentembedded.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34669 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751711AbbKBTjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 14:39:08 -0500
-In-Reply-To: <63c7c10d710fb30e886121ac33ef66cedb101cd9.1446139106.git.pabeni@redhat.com>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:35002 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751729AbbKBTl3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 14:41:29 -0500
+Received: by obctp1 with SMTP id tp1so102724407obc.2
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 11:41:29 -0800 (PST)
+In-Reply-To: <56374593.6000200@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Thu, 29 Oct 2015 22:20:40 +0100
+On Mon, Nov 2, 2015 at 12:14 PM, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
+>
+> What about defining some overlay data structure to map ARINC-429 frames into
+> CAN frames?
+>
+> E.g. we could write the ARINC 32 bit data completely into data[0..3] and
+> additionally copy the 8 bit label information (or should it better be 10 bit
+> including the Source/Destination Identifiers?) additionally into the can_id.
 
-> This patch changes how the multipath hash is computed for locally
-> generated flows: now the hash comprises l4 information.
-> 
-> This allows better utilization of the available paths when the existing
-> flows have the same source IP and the same destination IP: with l3 hash,
-> even when multiple connections are in place simultaneously, a single path
-> will be used, while with l4 hash we can use all the available paths.
-> 
-> v2 changes:
-> - use get_hash_from_flowi4() instead of implementing just another l4 hash
->   function
-> 
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Note that the only bits which are always treated as non-data are the 8
+label bits (well, and the parity bit #31). The 2 SDI bits (#8, #9) may
+be used as data bits when a high resolution is needed, like Lat/Long
+encoded in binary words 310 and 311. I wouldn't make any assumption on
+what's on those 2 bits; i.e. they're not always "source/destination".
 
-Applied, thanks.
+-- 
+Aleksander
+https://aleksander.es
