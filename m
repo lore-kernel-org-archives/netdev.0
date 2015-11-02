@@ -1,122 +1,143 @@
 From: Madalin Bucur <madalin.bucur@freescale.com>
-Subject: [net-next v4 4/8] dpaa_eth: add driver's Tx queue selection
-Date: Mon, 2 Nov 2015 19:31:36 +0200
-Message-ID: <1446485500-9782-5-git-send-email-madalin.bucur@freescale.com>
-References: <1446485500-9782-1-git-send-email-madalin.bucur@freescale.com>
-Reply-To: <madalin.bucur@freescale.com>
+Subject: [net-next v4 0/8] dpaa_eth: Add the Freescale DPAA Ethernet driver
+Date: Mon, 2 Nov 2015 19:31:32 +0200
+Message-ID: <1446485500-9782-1-git-send-email-madalin.bucur@freescale.com>
+Reply-To: madalin.bucur@freescale.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
-	<davem@davemloft.net>, <scottwood@freescale.com>,
-	<igal.liberman@freescale.com>, <roy.pledge@freescale.com>,
-	<ppc@mindchasers.com>, <joe@perches.com>, <pebolle@tiscali.nl>,
-	<joakim.tjernlund@transmode.se>, <gregkh@linuxfoundation.org>,
-	Madalin Bucur <madalin.bucur@freescale.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: pebolle@tiscali.nl, roy.pledge@freescale.com, gregkh@linuxfoundation.org,
+ linux-kernel@vger.kernel.org, ppc@mindchasers.com, igal.liberman@freescale.com,
+ scottwood@freescale.com, joe@perches.com, linuxppc-dev@lists.ozlabs.org,
+ davem@davemloft.net, Madalin Bucur <madalin.bucur@freescale.com>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446485500-9782-1-git-send-email-madalin.bucur@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Allow the selection of the transmission queue based on the CPU id.
-
-Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
----
- drivers/net/ethernet/freescale/dpaa/Kconfig           | 10 ++++++++++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c        |  3 +++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h        |  6 ++++++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c |  8 ++++++++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h |  4 ++++
- 5 files changed, 31 insertions(+)
-
-diff --git a/drivers/net/ethernet/freescale/dpaa/Kconfig b/drivers/net/ethernet/freescale/dpaa/Kconfig
-index 022d5aa..2577aac 100644
---- a/drivers/net/ethernet/freescale/dpaa/Kconfig
-+++ b/drivers/net/ethernet/freescale/dpaa/Kconfig
-@@ -11,6 +11,16 @@ menuconfig FSL_DPAA_ETH
- 
- if FSL_DPAA_ETH
- 
-+config FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+	bool "Use driver's Tx queue selection mechanism"
-+	default y
-+	---help---
-+	  The DPAA Ethernet driver defines a ndo_select_queue() callback for optimal selection
-+	  of the egress FQ. That will override the XPS support for this netdevice.
-+	  If for whatever reason you want to be in control of the egress FQ-to-CPU selection and mapping,
-+	  or simply don't want to use the driver's ndo_select_queue() callback, then unselect this
-+	  and use the standard XPS support instead.
-+
- config FSL_DPAA_ETH_FRIENDLY_IF_NAME
- 	bool "Use fmX-macY names for the DPAA interfaces"
- 	default y
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index 31d55b4..894f1a7 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -390,6 +390,9 @@ static const struct net_device_ops dpa_private_ops = {
- 	.ndo_get_stats64 = dpa_get_stats64,
- 	.ndo_set_mac_address = dpa_set_mac_address,
- 	.ndo_validate_addr = eth_validate_addr,
-+#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+	.ndo_select_queue = dpa_select_queue,
-+#endif
- 	.ndo_change_mtu = dpa_change_mtu,
- 	.ndo_set_rx_mode = dpa_set_rx_mode,
- 	.ndo_init = dpa_ndo_init,
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-index 1ba6617..87577cf 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-@@ -420,9 +420,15 @@ static inline void _dpa_assign_wq(struct dpa_fq *fq)
- 	}
- }
- 
-+#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+/* Use in lieu of skb_get_queue_mapping() */
-+#define dpa_get_queue_mapping(skb) \
-+	raw_smp_processor_id()
-+#else
- /* Use the queue selected by XPS */
- #define dpa_get_queue_mapping(skb) \
- 	skb_get_queue_mapping(skb)
-+#endif
- 
- static inline void _dpa_bp_free_pf(void *addr)
- {
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-index b36cbca..89f3b1f 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-@@ -593,6 +593,14 @@ bool dpa_bpid2pool_use(int bpid)
- 	return false;
- }
- 
-+#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+u16 dpa_select_queue(struct net_device *net_dev, struct sk_buff *skb,
-+		     void *accel_priv, select_queue_fallback_t fallback)
-+{
-+	return dpa_get_queue_mapping(skb);
-+}
-+#endif
-+
- struct dpa_fq *dpa_fq_alloc(struct device *dev,
- 			    const struct fqid_cell *fqids,
- 			    struct list_head *list,
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-index 9df8f14..2e9471d 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-@@ -70,6 +70,10 @@ struct dpa_bp *dpa_bpid2pool(int bpid);
- void dpa_bpid2pool_map(int bpid, struct dpa_bp *dpa_bp);
- bool dpa_bpid2pool_use(int bpid);
- void dpa_bp_drain(struct dpa_bp *bp);
-+#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+u16 dpa_select_queue(struct net_device *net_dev, struct sk_buff *skb,
-+		     void *accel_priv, select_queue_fallback_t fallback);
-+#endif
- struct dpa_fq *dpa_fq_alloc(struct device *dev,
- 			    const struct fqid_cell *fqids,
- 			    struct list_head *list,
--- 
-1.7.11.7
+VGhpcyBwYXRjaCBzZXJpZXMgYWRkcyB0aGUgRXRoZXJuZXQgZHJpdmVyIGZvciB0aGUgRnJlZXNj
+YWxlClFvcklRIERhdGEgUGF0aCBBY2NlbGVyYXRpb24gQXJjaGl0ZWN0dXJlIChEUEFBKS4KClRo
+aXMgdmVyc2lvbiBpbmNsdWRlcyBjaGFuZ2VzIGZvbGxvd2luZyB0aGUgZmVlZGJhY2sgcmVjZWl2
+ZWQKb24gcHJldmlvdXMgdmVyc2lvbnMgZnJvbSBFcmljIER1bWF6ZXQsIEJvYiBDb2NocmFuLCBK
+b2UgUGVyY2hlcywKUGF1bCBCb2xsZSwgSm9ha2ltIFRqZXJubHVuZCwgU2NvdHQgV29vZCwgRGF2
+aWQgTWlsbGVyIC0gdGhhbmsgeW91LgoKVG9nZXRoZXIgd2l0aCB0aGUgZHJpdmVyIGEgbWFuYWdl
+ZCB2ZXJzaW9uIG9mIGFsbG9jX3BlcmNwdQppcyBwcm92aWRlZCB0aGF0IHNpbXBsaWZpZXMgdGhl
+IHJlbGVhc2Ugb2YgcGVyLUNQVSBtZW1vcnkuCgpUaGUgRnJlZXNjYWxlIERQQUEgYXJjaGl0ZWN0
+dXJlIGNvbnNpc3RzIGluIGEgc2VyaWVzIG9mIGhhcmR3YXJlCmJsb2NrcyB0aGF0IHN1cHBvcnQg
+dGhlIEV0aGVybmV0IGNvbm5lY3Rpdml0eS4gVGhlIEV0aGVybmV0IGRyaXZlcgpkZXBlbmRzIHVw
+b24gdGhlIGZvbGxvd2luZyBkcml2ZXJzIHRoYXQgYXJlIGN1cnJlbnRseSBpbiB0aGUgTGludXgK
+a2VybmVsIG9yIGluIHJldmlldyAodGhlIHVuZGVybHlpbmcgZHJpdmVycyBhcmUgbm90IGludGVy
+LWRlcGVuZGVudCk6CiAtIFBlcmlwaGVyYWwgQWNjZXNzIE1lbW9yeSBVbml0IChQQU1VKQogICAg
+ZHJpdmVycy9pb21tdS9mc2xfKgogLSBGcmFtZSBNYW5hZ2VyIChGTWFuKQogICAgZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4KIC0gUXVldWUgTWFuYWdlciAoUU1hbiksIEJ1ZmZl
+ciBNYW5hZ2VyIChCTWFuKQogICAgZHJpdmVycy9zb2MvZnNsL3FibWFuCgpkcGFhX2V0aCBpbnRl
+cmZhY2VzIG1hcHBpbmcgdG8gRk1hbiBNQUNzOgoKICBkcGFhX2V0aCAgICAgICAvZXRoMFwgICAg
+IC4uLiAgICAgICAvZXRoTlwKICBkcml2ZXIgICAgICAgIHwgICAgICB8ICAgICAgICAgICAgIHwg
+ICAgICB8CiAgLS0tLS0tLS0tLS0tLSAgIC0tLS0gICAtLS0tLS0tLS0tLSAgIC0tLS0gICAtLS0t
+LS0tLS0tLS0tCiAgICAgICAtUG9ydHMgIC8gVHggIFJ4IFwgICAgLi4uICAgIC8gVHggIFJ4IFwK
+ICBGTWFuICAgICAgICB8ICAgICAgICAgIHwgICAgICAgICB8ICAgICAgICAgIHwKICAgICAgIC1N
+QUNzICB8ICAgTUFDMCAgIHwgICAgICAgICB8ICAgTUFDTiAgIHwKICAgICAgICAgICAgIC8gICBk
+dHNlYzAgICBcICAuLi4gIC8gICBkdHNlY04gICBcIChvciB0Z2VjKQogICAgICAgICAgICAvICAg
+ICAgICAgICAgICBcICAgICAvICAgICAgICAgICAgICBcKG9yIG1lbWFjKQogIC0tLS0tLS0tLSAg
+LS0tLS0tLS0tLS0tLS0gIC0tLSAgLS0tLS0tLS0tLS0tLS0gIC0tLS0tLS0tLQogICAgICBGTWFu
+LCBGTWFuIFBvcnQsIEZNYW4gU1AsIEZNYW4gTVVSQU0gZHJpdmVycwogIC0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogICAgICBGTWFuIEhX
+IGJsb2NrczogTVVSQU0sIE1BQ3MsIFBvcnRzLCBTUAogIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQoKZHBhYV9ldGggcmVsYXRpb24gdG8g
+UU1hbiwgRk1hbjoKICAgICAgICAgICAgICBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+XwogIGRwYWFfZXRoICAgLyAgICAgICAgICAgIGV0aDAgICAgICAgICAgICAgICAgXAogIGRyaXZl
+ciAgICAvICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwKICAtLS0tLS0tLS0gICAt
+Xi0gICAtXi0gICAtXi0gICAtLS0gICAgLS0tLS0tLS0tCiAgUU1hbiBkcml2ZXIgLyBcICAgLyBc
+ICAgLyBcICBcICAgLyAgfCBCTWFuICAgIHwKICAgICAgICAgICAgIHxSeCB8IHxSeCB8IHxUeCB8
+IHxUeCB8ICB8IGRyaXZlciAgfAogIC0tLS0tLS0tLSAgfERmbHwgfEVycnwgfENuZnwgfEZRc3wg
+IHwgICAgICAgICB8CiAgUU1hbiBIVyAgICB8RlEgfCB8RlEgfCB8RlEgfCB8ICAgfCAgfCAgICAg
+ICAgIHwKICAgICAgICAgICAgIC8gICBcIC8gICBcIC8gICBcICBcIC8gICB8ICAgICAgICAgfAog
+IC0tLS0tLS0tLSAgIC0tLSAgIC0tLSAgIC0tLSAgIC12LSAgICAtLS0tLS0tLS0KICAgICAgICAg
+ICAgfCAgICAgICAgRk1hbiBRTUkgICAgICAgICB8ICAgICAgICAgfAogICAgICAgICAgICB8IEZN
+YW4gSFcgICAgICAgRk1hbiBCTUkgIHwgQk1hbiBIVyB8CiAgICAgICAgICAgICAgLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0gICAtLS0tLS0tLQoKd2hlcmUgdGhlIGFjcm9ueW1zIHVzZWQgYWJvdmUg
+KGFuZCBpbiB0aGUgY29kZSkgYXJlOgpEUEFBID0gRGF0YSBQYXRoIEFjY2VsZXJhdGlvbiBBcmNo
+aXRlY3R1cmUKRk1hbiA9IERQQUEgRnJhbWUgTWFuYWdlcgpRTWFuID0gRFBBQSBRdWV1ZSBNYW5h
+Z2VyCkJNYW4gPSBEUEFBIEJ1ZmZlcnMgTWFuYWdlcgpRTUkgPSBRTWFuIGludGVyZmFjZSBpbiBG
+TWFuCkJNSSA9IEJNYW4gaW50ZXJmYWNlIGluIEZNYW4KRk1hbiBTUCA9IEZNYW4gU3RvcmFnZSBQ
+cm9maWxlcwpNVVJBTSA9IE11bHRpLXVzZXIgUkFNIGluIEZNYW4KRlEgPSBRTWFuIEZyYW1lIFF1
+ZXVlClJ4IERmbCBGUSA9IGRlZmF1bHQgcmVjZXB0aW9uIEZRClJ4IEVyciBGUSA9IFJ4IGVycm9y
+IGZyYW1lcyBGUQpUeCBDbmYgRlEgPSBUeCBjb25maXJtYXRpb24gRlEKVHggRlFzID0gdHJhbnNt
+aXNzaW9uIGZyYW1lIHF1ZXVlcwpkdHNlYyA9IGRhdGFwYXRoIHRocmVlIHNwZWVkIEV0aGVybmV0
+IGNvbnRyb2xsZXIgKDEwLzEwMC8xMDAwIE1icHMpCnRnZWMgPSB0ZW4gZ2lnYWJpdCBFdGhlcm5l
+dCBjb250cm9sbGVyICgxMCBHYnBzKQptZW1hYyA9IG11bHRpcmF0ZSBFdGhlcm5ldCBNQUMgKDEw
+LzEwMC8xMDAwLzEwMDAwKQoKVGhlIGxhdGVzdCBGTWFuIGRyaXZlciBwYXRjaGVzIHdlcmUgc3Vi
+bWl0dGVkIGJ5IElnYWwgTGliZXJtYW46Cmh0dHBzOi8vcGF0Y2h3b3JrLm96bGFicy5vcmcvcHJv
+amVjdC9uZXRkZXYvbGlzdC8/c3VibWl0dGVyPTY0NzE1JnN0YXRlPSomcT1bdjcsCgpUaGUgbGF0
+ZXN0IFEvQk1hbiBkcml2ZXJzIHdlcmUgc3VibWl0dGVkIGJ5IFJveSBQbGVkZ2U6Cmh0dHBzOi8v
+cGF0Y2h3b3JrLm96bGFicy5vcmcvcHJvamVjdC9saW51eHBwYy1kZXYvbGlzdC8/c3VibWl0dGVy
+PTY2MzMxJnN0YXRlPSoKCkNoYW5nZXMgZnJvbSB2MzoKIC0gcmVtb3ZlZCBib2d1cyBkZWxheSBh
+bmQgY29tbWVudCBpbiAubmRvX3N0b3AgaW1wbGVtZW50YXRpb24KIC0gYWRkcmVzc2VkIG1pbm9y
+IGlzc3VlcyByZXBvcnRlZCBieSBEYXZpZCBNaWxsZXIKCkNoYW5nZXMgZnJvbSB2MjoKIC0gcmVt
+b3ZlZCBkZWJ1Z2ZzLCBtb3ZlZCBleHBvcnRzIHRvIGV0aHRvb2wgc3RhdGlzdGljcwogLSByZW1v
+dmVkIGNvbmdlc3Rpb24gZ3JvdXBzIEtjb25maWcgcGFyYW1zCgpDaGFuZ2VzIGZyb20gdjE6CiAt
+IGJwb29sIGxldmVsIEtjb25maWcgb3B0aW9ucyByZW1vdmVkCiAtIHByaW50IGZvcm1hdCB1c2lu
+ZyBwcl9mbXQsIGNsZWFuZWQgdXAgcHJpbnRzCiAtIF9faG90L19fY29sZCByZW1vdmVkCiAtIGdy
+YXR1aXRvdXMgdW5saWtlbHkoKSByZW1vdmVkCiAtIGNvZGUgc3R5bGUgYWxpZ25lZCwgY29uc2lz
+dGVudCBzcGFjaW5nIGZvciBkZWNsYXJhdGlvbnMKIC0gY29tbWVudCBmb3JtYXR0aW5nCgpUaGUg
+Y29tcGxldGUgcGF0Y2ggc2V0IGJhc2VkIG9uIHRoZSBsYXRlc3QgbmV0LW5leHQvbWFzdGVyIGtl
+cm5lbApjYW4gYmUgZm91bmQgaW4gdGhlIHB1YmxpYyBnaXQgYXQ6Cmh0dHA6Ly9naXQuZnJlZXNj
+YWxlLmNvbS9naXQvY2dpdC5jZ2kvcHBjL3Vwc3RyZWFtL2xpbnV4LmdpdAp1bmRlciB0aGUgdGFn
+IGxkdXBfcHVibGljX2dpdF8yMDE1MTEwMjoKaHR0cDovL2dpdC5mcmVlc2NhbGUuY29tL2dpdC9j
+Z2l0LmNnaS9wcGMvdXBzdHJlYW0vbGludXguZ2l0L2xvZy8/aD1sZHVwX3B1YmxpY19naXRfMjAx
+NTExMDIKClRoZXJlIGlzIG9uZSB1LWJvb3QgcGF0Y2ggdGhhdCBvbmUgbmVlZHMgdG8gbWFrZSBz
+dXJlIGl0J3MgYXBwbGllZAp0byBhbGlnbiB1LWJvb3QgdG8gdGhlIGxhdGVzdCBkZXZpY2UgdHJl
+ZSBiaW5kaW5nIGRvY3VtZW50IHNwZWNpZmljYXRpb24KdXNlZCBieSB0aGUgRk1hbiBkcml2ZXIu
+IFBsZWFzZSBtYWtlIHN1cmUgeW91ciB1LWJvb3QgaW5jbHVkZXMgdGhpcyBwYXRjaDoKCgljb21t
+aXQgOTdhOGQwMTBlMDI5MTExZTU3MTFhNDUyNjRhNzI2YmVkYmViMjRjNAoJQXV0aG9yOiBJZ2Fs
+IExpYmVybWFuIDxpZ2FsLmxpYmVybWFuQGZyZWVzY2FsZS5jb20+CglEYXRlOiAgIFR1ZSBBdWcg
+MTggMTQ6NDc6MDUgMjAxNSArMDMwMAoKCSAgICBuZXQvZm1hbjogU3VwcG9ydCBib3RoIG5ldyBh
+bmQgbGVnYWN5IEZNYW4gQ29tcGF0aWJsZXMKClRoZSBwYXRjaCB3YXMgaW5jbHVkZWQgaW4gdS1i
+b290IGluIHYyMDE1LjEwLXJjMy4KCk1hZGFsaW4gQnVjdXIgKDgpOgogIGRldnJlczogYWRkIGRl
+dm1fYWxsb2NfcGVyY3B1KCkKICBkcGFhX2V0aDogYWRkIHN1cHBvcnQgZm9yIERQQUEgRXRoZXJu
+ZXQKICBkcGFhX2V0aDogYWRkIHN1cHBvcnQgZm9yIFMvRyBmcmFtZXMKICBkcGFhX2V0aDogYWRk
+IGRyaXZlcidzIFR4IHF1ZXVlIHNlbGVjdGlvbgogIGRwYWFfZXRoOiBhZGQgZXRodG9vbCBmdW5j
+dGlvbmFsaXR5CiAgZHBhYV9ldGg6IGFkZCBldGh0b29sIHN0YXRpc3RpY3MKICBkcGFhX2V0aDog
+YWRkIHN5c2ZzIGV4cG9ydHMKICBkcGFhX2V0aDogYWRkIHRyYWNlIHBvaW50cwoKIERvY3VtZW50
+YXRpb24vZHJpdmVyLW1vZGVsL2RldnJlcy50eHQgICAgICAgICAgICAgIHwgICAgNCArCiBkcml2
+ZXJzL2Jhc2UvZGV2cmVzLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgNjQgKwog
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL0tjb25maWcgICAgICAgICAgICAgfCAgICAy
+ICsKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9NYWtlZmlsZSAgICAgICAgICAgIHwg
+ICAgMSArCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9LY29uZmlnICAgICAg
+ICB8ICAgMzIgKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvTWFrZWZpbGUg
+ICAgICAgfCAgIDEyICsKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFf
+ZXRoLmMgICAgIHwgIDg1NCArKysrKysrKysrKysKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVz
+Y2FsZS9kcGFhL2RwYWFfZXRoLmggICAgIHwgIDQ3OSArKysrKysrCiAuLi4vbmV0L2V0aGVybmV0
+L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRoX2NvbW1vbi5jICB8IDEzOTUgKysrKysrKysrKysrKysr
+KysrKysKIC4uLi9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGhfY29tbW9uLmgg
+IHwgIDEwOSArKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGhf
+c2cuYyAgfCAgNzA2ICsrKysrKysrKysKIC4uLi9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEv
+ZHBhYV9ldGhfc3lzZnMuYyAgIHwgIDE2NyArKysKIC4uLi9uZXQvZXRoZXJuZXQvZnJlZXNjYWxl
+L2RwYWEvZHBhYV9ldGhfdHJhY2UuaCAgIHwgIDE0MSArKwogZHJpdmVycy9uZXQvZXRoZXJuZXQv
+ZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGh0b29sLmMgfCAgNDEzICsrKysrKwogaW5jbHVkZS9saW51
+eC9kZXZpY2UuaCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgIDE5ICsKIDE1IGZpbGVz
+IGNoYW5nZWQsIDQzOTggaW5zZXJ0aW9ucygrKQogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMv
+bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL0tjb25maWcKIGNyZWF0ZSBtb2RlIDEwMDY0NCBk
+cml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9NYWtlZmlsZQogY3JlYXRlIG1vZGUg
+MTAwNjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRoLmMKIGNy
+ZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFh
+X2V0aC5oCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxl
+L2RwYWEvZHBhYV9ldGhfY29tbW9uLmMKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9l
+dGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aF9jb21tb24uaAogY3JlYXRlIG1vZGUgMTAw
+NjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRoX3NnLmMKIGNy
+ZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFh
+X2V0aF9zeXNmcy5jCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
+ZXNjYWxlL2RwYWEvZHBhYV9ldGhfdHJhY2UuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMv
+bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRodG9vbC5jCgotLSAKMS43LjExLjcK
+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBj
+LWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9s
+aXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
