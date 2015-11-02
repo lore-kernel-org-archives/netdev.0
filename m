@@ -1,120 +1,86 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
-Date: Mon, 2 Nov 2015 19:16:18 +0100
-Message-ID: <201511021916.18117.marex@denx.de>
-References: <1446419775-5215-1-git-send-email-marex@denx.de> <56373140.6040003@pengutronix.de> <56374593.6000200@hartkopp.net>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH v2 net-next] net: make skb_set_owner_w() more robust
+Date: Mon, 2 Nov 2015 20:05:12 +0000
+Message-ID: <BN1PR0301MB0770C038C9E0F34EBCCB605FCA2C0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+References: <BN1PR0301MB07705F68B22ED84061E37337CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+	 <1446249142.6254.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446398459.6254.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151101.155859.1206189858863918018.davem@davemloft.net>
+	 <1446417380.6254.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446418728.6254.101.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1446421015.6254.106.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Marc Kleine-Budde" <mkl@pengutronix.de>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Andrey Vostrikov <andrey.vostrikov@cogentembedded.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "edumazet@google.com" <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	KY Srinivasan <kys@microsoft.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:56218 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751801AbbKBUDg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 15:03:36 -0500
-In-Reply-To: <56374593.6000200@hartkopp.net>
+Received: from mail-bl2on0128.outbound.protection.outlook.com ([65.55.169.128]:14615
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751217AbbKBUFQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2015 15:05:16 -0500
+In-Reply-To: <1446421015.6254.106.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday, November 02, 2015 at 12:14:27 PM, Oliver Hartkopp wrote:
-> On 02.11.2015 10:47, Marc Kleine-Budde wrote:
-> > On 11/02/2015 12:16 AM, Marek Vasut wrote:
-> >> The ARINC-429 is a technical standard, which describes, among others,
-> >> a data bus used by airplanes. The standard contains much more, since
-> >> it is based off the ISO/OSI model, but this patch implements just the
-> >> data bus protocol.
-> >> 
-> >> This stack is derived from the SocketCAN implementation, already present
-> >> in the kernel and thus behaves in a very similar fashion. Thus far, we
-> >> support sending RAW ARINC-429 datagrams, configuration of the RX and TX
-> >> clock speed and filtering.
-> >> 
-> >> The ARINC-429 datagram is four-byte long. The first byte is always the
-> >> LABEL, the function of remaining three bytes can vary, so we handle it
-> >> as an opaque PAYLOAD. The userspace tools can send these datagrams via
-> >> a standard socket.
-> >> 
-> >> A LABEL-based filtering can be configured on each socket separately in
-> >> a way comparable to CAN -- user uses setsockopt() to push a list of
-> >> label,mask tuples into the kernel and the kernel will deliver a datagram
-> >> to the socket if (<received_label> & mask) == (label & mask), otherwise
-> >> the datagram is not delivered.
-> > 
-> > What's difference compared to CAN besides a different MTU? The CAN stack
-> > is already capable to handle CAN and CAN-FD frames. Would it make sense
-> > to integrate the ARINC-429 into the existing CAN stack?
-> 
-> That was my first impression too.
-
-Hi!
-
-> What about defining some overlay data structure to map ARINC-429 frames
-> into CAN frames?
-
-I agree about the code reuse, it was stupid to do such a blatant copy of the
-code all right. I don't think it's such a great idea to outright place ARINC 
-support into the CAN stack though. They're two different busses after all. 
-Please see below.
-
-> E.g. we could write the ARINC 32 bit data completely into data[0..3] and
-> additionally copy the 8 bit label information (or should it better be 10
-> bit including the Source/Destination Identifiers?) additionally into the
-> can_id.
-> 
->  From what I can see the filtering by label is similar to filtering by
-> can_id. And you would be able to use the can-gw functionality too.
-
-This is correct.
-
-> The only real difference is the bitrate configuration of the ARINC
-> interface.
-
-There might be additional ARINC-specific configuration bits involved,
-but thus far, that's correct.
-
-> I wonder if a similar approach would fit here as we discussed with the
-> University of Prague for a LIN implementation using the PF_CAN
-> infrastructure:
-
-OT: Hey, there is no "University of Prague", there are two universities in 
-Prague to boot -- Charles University and Czech Technical University -- you
-mean the later ;-)
-
-> http://rtime.felk.cvut.cz/can/lin-bus/
-> 
-> It could probably boil down to a 'CAN interface' that is named arinc0 which
-> implements the serial driver like in slcan.c or sllin.c ...
-
-I was thinking about this and I mostly agree with you. Obviously, copying the
-code this way was dumb. On the other hand, ARINC and CAN are two different sort 
-of busses, so I'd propose something slightly different here to avoid confusion 
-and prevent the future extensions (or protocols) from adding unrelated cruft 
-into the CAN stack.
-
-I would propose we (read: me) create some sort of "common" core, which would
-contain the following:
- - drivers/net/: big part of the device interface here is common
-                 big part of the virtual interface here is common
-                 -> CAN or ARINC can just add their own specific callbacks and
-                    be done with it
-                   
- - net/: there's a lot of common parts as well, like the filtering can be
-         unified such that it can be used by both. A big part of the socket
-         handling is also similar.
-
-This would also let the slcan or sllin or whatever stuff they made at CVUT just
-plug into this "common" core part.
-
-Now I wonder if we should introduce AF_ARINC or stick to AF_CAN for both. I'd
-be much happier to keep those two separate, again, to avoid confusion.
-
-What do you think please ?
-
-Best regards,
-Marek Vasut
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
+YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogU3VuZGF5LCBOb3ZlbWJlciAx
+LCAyMDE1IDY6MzcgUE0NCj4gVG86IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4N
+Cj4gQ2M6IEhhaXlhbmcgWmhhbmcgPGhhaXlhbmd6QG1pY3Jvc29mdC5jb20+OyBlZHVtYXpldEBn
+b29nbGUuY29tOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBLWSBTcmluaXZhc2FuIDxreXNA
+bWljcm9zb2Z0LmNvbT4NCj4gU3ViamVjdDogW1BBVENIIHYyIG5ldC1uZXh0XSBuZXQ6IG1ha2Ug
+c2tiX3NldF9vd25lcl93KCkgbW9yZSByb2J1c3QNCj4gDQo+IEZyb206IEVyaWMgRHVtYXpldCA8
+ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4gDQo+IHNrYl9zZXRfb3duZXJfdygpIGlzIGNhbGxlZCBm
+cm9tIHZhcmlvdXMgcGxhY2VzIHRoYXQgYXNzdW1lDQo+IHNrYi0+c2sgYWx3YXlzIHBvaW50IHRv
+IGEgZnVsbCBibG93biBzb2NrZXQgKGFzIGl0IGNoYW5nZXMNCj4gc2stPnNrX3dtZW1fYWxsb2Mp
+DQo+IA0KPiBXZSdkIGxpa2UgdG8gYXR0YWNoIHNrYiB0byByZXF1ZXN0IHNvY2tldHMsIGFuZCBp
+biB0aGUgZnV0dXJlDQo+IHRvIHRpbWV3YWl0IHNvY2tldHMgYXMgd2VsbC4gRm9yIHRoZXNlIGtp
+bmQgb2YgcHNldWRvIHNvY2tldHMsDQo+IHdlIG5lZWQgdG8gdGFrZSBhIHRyYWRpdGlvbmFsIHJl
+ZmNvdW50IGFuZCB1c2Ugc29ja19lZGVtdXgoKQ0KPiBhcyB0aGUgZGVzdHJ1Y3Rvci4NCj4gDQo+
+IEl0IGlzIG5vdyB0aW1lIHRvIHVuLWlubGluZSBza2Jfc2V0X293bmVyX3coKSwgYmVpbmcgdG9v
+IGJpZy4NCj4gDQo+IEZpeGVzOiBjYTZmYjA2NTE4ODMgKCJ0Y3A6IGF0dGFjaCBTWU5BQ0sgbWVz
+c2FnZXMgdG8gcmVxdWVzdCBzb2NrZXRzDQo+IGluc3RlYWQgb2YgbGlzdGVuZXIiKQ0KPiBTaWdu
+ZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+IEJpc2VjdGVk
+LWJ5OiBIYWl5YW5nIFpoYW5nIDxoYWl5YW5nekBtaWNyb3NvZnQuY29tPg0KPiAtLS0NCj4gdjI6
+IHNvY2tfZWRlbXV4KCkgbXVzdCBiZSBndWFyZGVkIGJ5IENPTkZJR19JTkVUDQo+IA0KPiAgaW5j
+bHVkZS9uZXQvc29jay5oICAgIHwgICAxNyArKy0tLS0tLS0tLS0tLS0tLQ0KPiAgbmV0L2NvcmUv
+c29jay5jICAgICAgIHwgICAyMiArKysrKysrKysrKysrKysrKysrKysrDQo+ICBuZXQvaXB2NC90
+Y3Bfb3V0cHV0LmMgfCAgICA0ICstLS0NCj4gIDMgZmlsZXMgY2hhbmdlZCwgMjUgaW5zZXJ0aW9u
+cygrKSwgMTggZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvc29j
+ay5oIGIvaW5jbHVkZS9uZXQvc29jay5oDQo+IGluZGV4IGFlZWQ1Yzk1ZjNjYS4uZjU3MGU3NWUz
+ZGE5IDEwMDY0NA0KPiAtLS0gYS9pbmNsdWRlL25ldC9zb2NrLmgNCj4gKysrIGIvaW5jbHVkZS9u
+ZXQvc29jay5oDQo+IEBAIC0xOTUxLDYgKzE5NTEsOCBAQCBzdGF0aWMgaW5saW5lIHZvaWQgc2ti
+X3NldF9oYXNoX2Zyb21fc2soc3RydWN0DQo+IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHNvY2sgKnNr
+KQ0KPiAgCX0NCj4gIH0NCj4gDQo+ICt2b2lkIHNrYl9zZXRfb3duZXJfdyhzdHJ1Y3Qgc2tfYnVm
+ZiAqc2tiLCBzdHJ1Y3Qgc29jayAqc2spOw0KPiArDQo+ICAvKg0KPiAgICoJUXVldWUgYSByZWNl
+aXZlZCBkYXRhZ3JhbSBpZiBpdCB3aWxsIGZpdC4gU3RyZWFtIGFuZCBzZXF1ZW5jZWQNCj4gICAq
+CXByb3RvY29scyBjYW4ndCBub3JtYWxseSB1c2UgdGhpcyBhcyB0aGV5IG5lZWQgdG8gZml0IGJ1
+ZmZlcnMgaW4NCj4gQEAgLTE5NTksMjEgKzE5NjEsNiBAQCBzdGF0aWMgaW5saW5lIHZvaWQgc2ti
+X3NldF9oYXNoX2Zyb21fc2soc3RydWN0DQo+IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHNvY2sgKnNr
+KQ0KPiAgICoJSW5saW5lZCBhcyBpdCdzIHZlcnkgc2hvcnQgYW5kIGNhbGxlZCBmb3IgcHJldHR5
+IG11Y2ggZXZlcnkNCj4gICAqCXBhY2tldCBldmVyIHJlY2VpdmVkLg0KPiAgICovDQo+IC0NCj4g
+LXN0YXRpYyBpbmxpbmUgdm9pZCBza2Jfc2V0X293bmVyX3coc3RydWN0IHNrX2J1ZmYgKnNrYiwg
+c3RydWN0IHNvY2sgKnNrKQ0KPiAtew0KPiAtCXNrYl9vcnBoYW4oc2tiKTsNCj4gLQlza2ItPnNr
+ID0gc2s7DQo+IC0Jc2tiLT5kZXN0cnVjdG9yID0gc29ja193ZnJlZTsNCj4gLQlza2Jfc2V0X2hh
+c2hfZnJvbV9zayhza2IsIHNrKTsNCj4gLQkvKg0KPiAtCSAqIFdlIHVzZWQgdG8gdGFrZSBhIHJl
+ZmNvdW50IG9uIHNrLCBidXQgZm9sbG93aW5nIG9wZXJhdGlvbg0KPiAtCSAqIGlzIGVub3VnaCB0
+byBndWFyYW50ZWUgc2tfZnJlZSgpIHdvbnQgZnJlZSB0aGlzIHNvY2sgdW50aWwNCj4gLQkgKiBh
+bGwgaW4tZmxpZ2h0IHBhY2tldHMgYXJlIGNvbXBsZXRlZA0KPiAtCSAqLw0KPiAtCWF0b21pY19h
+ZGQoc2tiLT50cnVlc2l6ZSwgJnNrLT5za193bWVtX2FsbG9jKTsNCj4gLX0NCj4gLQ0KPiAgc3Rh
+dGljIGlubGluZSB2b2lkIHNrYl9zZXRfb3duZXJfcihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1
+Y3Qgc29jayAqc2spDQo+ICB7DQo+ICAJc2tiX29ycGhhbihza2IpOw0KPiBkaWZmIC0tZ2l0IGEv
+bmV0L2NvcmUvc29jay5jIGIvbmV0L2NvcmUvc29jay5jDQo+IGluZGV4IDBlZjMwYWE5MDEzMi4u
+NzUyOWViOTQ2M2JlIDEwMDY0NA0KPiAtLS0gYS9uZXQvY29yZS9zb2NrLmMNCj4gKysrIGIvbmV0
+L2NvcmUvc29jay5jDQo+IEBAIC0xNjU2LDYgKzE2NTYsMjggQEAgdm9pZCBzb2NrX3dmcmVlKHN0
+cnVjdCBza19idWZmICpza2IpDQo+ICB9DQo+ICBFWFBPUlRfU1lNQk9MKHNvY2tfd2ZyZWUpOw0K
+PiANCj4gK3ZvaWQgc2tiX3NldF9vd25lcl93KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBz
+b2NrICpzaykNCj4gK3sNCj4gKwlza2Jfb3JwaGFuKHNrYik7DQo+ICsJc2tiLT5zayA9IHNrOw0K
+PiArI2lmZGVmIENPTkZJR19JTkVUDQo+ICsJaWYgKHVubGlrZWx5KCFza19mdWxsc29jayhzaykp
+KSB7DQoNClRoYW5rcyBmb3IgdGhlIGZpeCENCkZvciBzb21lIGRyaXZlciwgbGlrZSBvdXJzLCB0
+aGlzIGNvbmRpdGlvbiBtYXkgbm90IGJlICJ1bmxpa2VseSIuDQpTbyBjb3VsZCB5b3UgcmVtb3Zl
+IHRoZSAidW5saWtlbHkiPw0KDQpUaGFua3MsDQotIEhhaXlhbmcNCg0KDQo=
