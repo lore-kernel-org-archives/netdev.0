@@ -1,45 +1,43 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RFC] mpls: support for dead routes
-Date: Mon, 02 Nov 2015 13:18:27 -0800
-Message-ID: <5637D323.7090602@cumulusnetworks.com>
-References: <1446133748-13738-1-git-send-email-roopa@cumulusnetworks.com> <87twp5tnq3.fsf@x220.int.ebiederm.org> <5636B5D1.9070901@cumulusnetworks.com> <87d1vtt2di.fsf@x220.int.ebiederm.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Mon, 2 Nov 2015 13:19:23 -0800
+Message-ID: <CA+55aFy6nC9tQFE_kRrF-YS9N7Jp18CnSxsLNcnAykNLyXQUtg@mail.gmail.com>
+References: <20151027.233235.1641084823622810663.davem@davemloft.net>
+	<CA+55aFx0o8e9J6ojHYjvOA5aRnKoW5j10fh76Ks1=VegPc4k6w@mail.gmail.com>
+	<5637C8DF.800@kernel.org>
+	<CA+55aFwxDSYSB=bBfCxLadgCmFiOzAi0T0JHLFLK5nkR6cm8tg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: rshearma@brocade.com, davem@davemloft.net, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:33068 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753256AbbKBVS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 16:18:28 -0500
-Received: by pabfh17 with SMTP id fh17so35313091pab.0
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 13:18:28 -0800 (PST)
-In-Reply-To: <87d1vtt2di.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Andy Lutomirski <luto@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFwxDSYSB=bBfCxLadgCmFiOzAi0T0JHLFLK5nkR6cm8tg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/1/15, 9:08 PM, Eric W. Biederman wrote:
-> roopa <roopa@cumulusnetworks.com> writes:
+On Mon, Nov 2, 2015 at 1:16 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+> On Mon, Nov 2, 2015 at 12:34 PM, Andy Lutomirski <luto@kernel.org> wrote:
+>>
+>> Getting overflow checking right in more complicated cases is a PITA.
 >
->> On 11/1/15, 1:27 PM, Eric W. Biederman wrote:
->>> Roopa Prabhu <roopa@cumulusnetworks.com> writes:
->>>
->>>> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
->>>> index c70d750..7db9678 100644
->>>> --- a/net/mpls/af_mpls.c
->>>> +++ b/net/mpls/af_mpls.c
->>>> @@ -27,6 +27,8 @@
->>>>   */
->>>>  #define MAX_MP_SELECT_LABELS 4
->>>>  
->>>> +u32 mpls_multipath_secret __read_mostly;
->>> This mpls_multipath_secret is never used.
->>>
->> It is used in mpls_multipath_rebalance, same as fib_rebalance.
-> fib_multipath_secret is only initialized in fib_rebalalance.
-> fib_multipath_secret is used used in fib_multipath_hash,
-> which is called in fib_select_path.
->
-> The equivalent code does not exist in your mpls patch.
-sorry, missed that. I have posted a new version.
+> No it is not. Not for unsigned values.
+
+Just to clarify. The "oevrflow" test for unsigned subtracts  of "a-b"
+(it's really an underflow, but whatever) really is just
+
+   (b > a)
+
+Really. That's it. Claiming that that is "complicated" and needs a
+helper function is not something sane people do. A fifth-grader that
+isn't good at math can understand that.
+
+In contrast, nobody sane understands "usub_overflow(a, b, &res)".
+
+So really. Stop making inane arguments.
+
+                  Linus
