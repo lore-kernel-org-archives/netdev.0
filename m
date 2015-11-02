@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net 2/2] ppp, slip: Validate VJ compression slot
- parameters completely
-Date: Mon, 02 Nov 2015 16:25:22 -0500 (EST)
-Message-ID: <20151102.162522.1417839400954115202.davem@davemloft.net>
-References: <20151101162123.GA9478@decadent.org.uk>
-	<20151101162253.GB9478@decadent.org.uk>
+Subject: Re: [PATCH net-next] bridge: vlan: Use rcu_dereference instead of
+ rtnl_dereference
+Date: Mon, 02 Nov 2015 16:28:00 -0500 (EST)
+Message-ID: <20151102.162800.2243209656295095377.davem@davemloft.net>
+References: <1446395505-24841-1-git-send-email-idosch@mellanox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: isdn@linux-pingi.de, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: ben@decadent.org.uk
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20151101162253.GB9478@decadent.org.uk>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	nikolay@cumulusnetworks.com, jiri@mellanox.com, eladr@mellanox.com
+To: idosch@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35804 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751771AbbKBV2D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 16:28:03 -0500
+In-Reply-To: <1446395505-24841-1-git-send-email-idosch@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQmVuIEh1dGNoaW5ncyA8YmVuQGRlY2FkZW50Lm9yZy51az4NCkRhdGU6IFN1biwgMSBO
-b3YgMjAxNSAxNjoyMjo1MyArMDAwMA0KDQo+IEN1cnJlbnRseSBzbGhjX2luaXQoKSB0cmVhdHMg
-b3V0LW9mLXJhbmdlIHZhbHVlcyBvZiByc2xvdHMgYW5kIHRzbG90cw0KPiBhcyBlcXVpdmFsZW50
-IHRvIDAsIGV4Y2VwdCB0aGF0IGlmIHRzbG90cyBpcyB0b28gbGFyZ2UgaXQgd2lsbA0KPiBkZXJl
-ZmVyZW5jZSBhIG51bGwgcG9pbnRlciAoQ1ZFLTIwMTUtNzc5OSkuDQo+IA0KPiBBZGQgYSByYW5n
-ZS1jaGVjayBhdCB0aGUgdG9wIG9mIHRoZSBmdW5jdGlvbiBhbmQgbWFrZSBpdCByZXR1cm4gYW4N
-Cj4gRVJSX1BUUigpIG9uIGVycm9yIGluc3RlYWQgb2YgTlVMTC4gIENoYW5nZSB0aGUgY2FsbGVy
-cyBhY2NvcmRpbmdseS4NCj4gDQo+IENvbXBpbGUtdGVzdGVkIG9ubHkuDQo+IA0KPiBSZXBvcnRl
-ZC1ieTog6YOt5rC45YiaIDxndW95b25nZ2FuZ0AzNjAuY24+DQo+IFJlZmVyZW5jZXM6IGh0dHA6
-Ly9hcnRpY2xlLmdtYW5lLm9yZy9nbWFuZS5jb21wLnNlY3VyaXR5Lm9zcy5nZW5lcmFsLzE3OTA4
-DQo+IFNpZ25lZC1vZmYtYnk6IEJlbiBIdXRjaGluZ3MgPGJlbkBkZWNhZGVudC5vcmcudWs+DQoN
-CkFwcGxpZWQuDQo=
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Sun, 1 Nov 2015 18:31:45 +0200
+
+> br_should_learn() is protected by RCU and not by RTNL, so use correct
+> flavor of nbp_vlan_group().
+> 
+> Fixes: 907b1e6e83ed ("bridge: vlan: use proper rcu for the vlgrp
+> member")
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+
+Applied, thanks.
