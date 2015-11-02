@@ -1,43 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: make skb_set_owner_w() more robust
-Date: Mon, 02 Nov 2015 16:29:17 -0500 (EST)
-Message-ID: <20151102.162917.316954656038063696.davem@davemloft.net>
-References: <1446417380.6254.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1446418728.6254.101.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1446421015.6254.106.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [GIT] Networking
+Date: Mon, 2 Nov 2015 13:30:28 -0800
+Message-ID: <CALCETrUxU_AVcQheeCXc0qTh=o2tmDbDct27QfTCb_+G6qc3gQ@mail.gmail.com>
+References: <20151027.233235.1641084823622810663.davem@davemloft.net>
+ <CA+55aFx0o8e9J6ojHYjvOA5aRnKoW5j10fh76Ks1=VegPc4k6w@mail.gmail.com>
+ <5637C8DF.800@kernel.org> <CA+55aFwxDSYSB=bBfCxLadgCmFiOzAi0T0JHLFLK5nkR6cm8tg@mail.gmail.com>
+ <CA+55aFy6nC9tQFE_kRrF-YS9N7Jp18CnSxsLNcnAykNLyXQUtg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: haiyangz@microsoft.com, edumazet@google.com,
-	netdev@vger.kernel.org, kys@microsoft.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35832 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752722AbbKBV3T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 16:29:19 -0500
-In-Reply-To: <1446421015.6254.106.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Lutomirski <luto@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFy6nC9tQFE_kRrF-YS9N7Jp18CnSxsLNcnAykNLyXQUtg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 01 Nov 2015 15:36:55 -0800
+On Mon, Nov 2, 2015 at 1:19 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+> On Mon, Nov 2, 2015 at 1:16 PM, Linus Torvalds
+> <torvalds@linux-foundation.org> wrote:
+>> On Mon, Nov 2, 2015 at 12:34 PM, Andy Lutomirski <luto@kernel.org> wrote:
+>>>
+>>> Getting overflow checking right in more complicated cases is a PITA.
+>>
+>> No it is not. Not for unsigned values.
+>
+> Just to clarify. The "oevrflow" test for unsigned subtracts  of "a-b"
+> (it's really an underflow, but whatever) really is just
+>
+>    (b > a)
+>
+> Really. That's it. Claiming that that is "complicated" and needs a
+> helper function is not something sane people do. A fifth-grader that
+> isn't good at math can understand that.
+>
+> In contrast, nobody sane understands "usub_overflow(a, b, &res)".
+>
+> So really. Stop making inane arguments.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> skb_set_owner_w() is called from various places that assume
-> skb->sk always point to a full blown socket (as it changes
-> sk->sk_wmem_alloc)
-> 
-> We'd like to attach skb to request sockets, and in the future
-> to timewait sockets as well. For these kind of pseudo sockets,
-> we need to take a traditional refcount and use sock_edemux()
-> as the destructor.
-> 
-> It is now time to un-inline skb_set_owner_w(), being too big.
-> 
-> Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Bisected-by: Haiyang Zhang <haiyangz@microsoft.com>
+I'll stop making inane arguments if you stop bashing arguments I
+didn't make. :)  I said the helpers were useful for multiplication (by
+which I meant both signed and unsigned) and, to a lesser extent, for
+signed addition and subtraction.
 
-Applied, thanks.
+I don't believe I even tried to justify usub_overflow as anything
+other than an extremely minor optimization that probably isn't
+worthwhile.
+
+--Andy, who still has inline asm that does 'cmovo' and such in his
+code for work, sigh.
