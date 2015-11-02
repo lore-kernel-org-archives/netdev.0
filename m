@@ -1,45 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vhost: move is_le setup to the backend
-Date: Mon, 02 Nov 2015 15:09:22 -0500 (EST)
-Message-ID: <20151102.150922.1956383631313633658.davem@davemloft.net>
-References: <20151030114235.28847.63465.stgit@bahia.huguette.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: make skb_set_owner_w() more robust
+Date: Mon, 02 Nov 2015 12:09:25 -0800
+Message-ID: <1446494965.23275.28.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <BN1PR0301MB07705F68B22ED84061E37337CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+	 <1446249142.6254.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446398459.6254.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151101.155859.1206189858863918018.davem@davemloft.net>
+	 <1446417380.6254.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446418728.6254.101.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446421015.6254.106.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <BN1PR0301MB0770C038C9E0F34EBCCB605FCA2C0@BN1PR0301MB0770.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: gkurz@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151030114235.28847.63465.stgit@bahia.huguette.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	KY Srinivasan <kys@microsoft.com>
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34059 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752110AbbKBUJ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 15:09:27 -0500
+Received: by padec8 with SMTP id ec8so48769559pad.1
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 12:09:26 -0800 (PST)
+In-Reply-To: <BN1PR0301MB0770C038C9E0F34EBCCB605FCA2C0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Greg Kurz <gkurz@linux.vnet.ibm.com>
-Date: Fri, 30 Oct 2015 12:42:35 +0100
+On Mon, 2015-11-02 at 20:05 +0000, Haiyang Zhang wrote:
 
-> The vq->is_le field is used to fix endianness when accessing the vring via
-> the cpu_to_vhost16() and vhost16_to_cpu() helpers in the following cases:
-> 
-> 1) host is big endian and device is modern virtio
-> 
-> 2) host has cross-endian support and device is legacy virtio with a different
->    endianness than the host
-> 
-> Both cases rely on the VHOST_SET_FEATURES ioctl, but 2) also needs the
-> VHOST_SET_VRING_ENDIAN ioctl to be called by userspace. Since vq->is_le
-> is only needed when the backend is active, it was decided to set it at
-> backend start.
-> 
-> This is currently done in vhost_init_used()->vhost_init_is_le() but it
-> obfuscates the core vhost code. This patch moves the is_le setup to a
-> dedicated function that is called from the backend code.
-> 
-> Note vhost_net is the only backend that can pass vq->private_data == NULL to
-> vhost_init_used(), hence the "if (sock)" branch.
-> 
-> No behaviour change.
-> 
-> Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
+> Thanks for the fix!
+> For some driver, like ours, this condition may not be "unlikely".
+> So could you remove the "unlikely"?
 
-Michael, I'm assuming that you will be the one taking this.
+No, I wont remove the unlikely.
+
+Look, your main issue is about reallocating skbs, because of excessive
+dev->needed_headroom.
+
+An unlikely() mismatch is 1000 times less expensive, why would you
+care ?
+
+If you really care, fix your driver to not abuse skb->head to store 220
+bytes of private data.
