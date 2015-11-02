@@ -1,139 +1,160 @@
-From: Vladimir Davydov <vdavydov@virtuozzo.com>
-Subject: Re: [PATCH 0/8] mm: memcontrol: account socket memory in unified
- hierarchy
-Date: Mon, 2 Nov 2015 17:47:29 +0300
-Message-ID: <20151102144729.GA17424@esperanza>
-References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
- <20151022184509.GM18351@esperanza>
- <20151026172216.GC2214@cmpxchg.org>
- <20151027084320.GF13221@esperanza>
- <20151027155833.GB4665@cmpxchg.org>
- <20151028082003.GK13221@esperanza>
- <20151028185810.GA31488@cmpxchg.org>
- <20151029092747.GR13221@esperanza>
- <20151029175228.GB9160@cmpxchg.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 5/6] net: dsa: mv88e6060: add register
+ defines header file
+Date: Mon, 2 Nov 2015 15:54:20 +0100
+Message-ID: <20151102145420.GA7963@lunn.ch>
+References: <56374197.3050507@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Michal Hocko <mhocko@suse.cz>, Tejun Heo <tj@kernel.org>,
-	<netdev@vger.kernel.org>, <linux-mm@kvack.org>,
-	<cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Neil Armstrong <narmstrong@baylibre.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:35200 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753538AbbKBOyX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2015 09:54:23 -0500
 Content-Disposition: inline
-In-Reply-To: <20151029175228.GB9160@cmpxchg.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <56374197.3050507@baylibre.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 29, 2015 at 10:52:28AM -0700, Johannes Weiner wrote:
-...
-> Now, you mentioned that you'd rather see the socket buffers accounted
-> at the allocator level, but I looked at the different allocation paths
-> and network protocols and I'm not convinced that this makes sense. We
-> don't want to be in the hotpath of every single packet when a lot of
-> them are small, short-lived management blips that don't involve user
-> space to let the kernel dispose of them.
-> 
-> __sk_mem_schedule() on the other hand is already wired up to exactly
-> those consumers we are interested in for memory isolation: those with
-> bigger chunks of data attached to them and those that have exploding
-> receive queues when userspace fails to read(). UDP and TCP.
-> 
-> I mean, there is a reason why the global memory limits apply to only
-> those types of packets in the first place: everything else is noise.
-> 
-> I agree that it's appealing to account at the allocator level and set
-> page->mem_cgroup etc. but in this case we'd pay extra to capture a lot
-> of noise, and I don't want to pay that just for aesthetics. In this
-> case it's better to track ownership on the socket level and only count
-> packets that can accumulate a significant amount of memory consumed.
+On Mon, Nov 02, 2015 at 11:57:27AM +0100, Neil Armstrong wrote:
+> To align with the mv88e6xxx code, add a similar header file
+> with all the register defines.
+> The file is based on the mv88e6xxx header for coherency.
 
-Sigh, you seem to be right. Moreover, I can't even think of a neat way
-to account skb pages to memcg, because rcv skbs are generated in device
-drivers, where we don't know which socket/memcg it will go to. We could
-recharge individual pages when skb gets to the network or transport
-layer, but it would result in unjustified overhead.
+Hi Neil
+
+I did a --side-by-side diff between this and mv88e6xxx.h. I don't
+think there is enough the same to allow using mv88e6xxx.c functions
+with the mv88e6060 driver :-(
+
+     Andrew
 
 > 
-> > > We tried using the per-memcg tcp limits, and that prevents the OOMs
-> > > for sure, but it's horrendous for network performance. There is no
-> > > "stop growing" phase, it just keeps going full throttle until it hits
-> > > the wall hard.
-> > > 
-> > > Now, we could probably try to replicate the global knobs and add a
-> > > per-memcg soft limit. But you know better than anyone else how hard it
-> > > is to estimate the overall workingset size of a workload, and the
-> > > margins on containerized loads are razor-thin. Performance is much
-> > > more sensitive to input errors, and often times parameters must be
-> > > adjusted continuously during the runtime of a workload. It'd be
-> > > disasterous to rely on yet more static, error-prone user input here.
-> > 
-> > Yeah, but the dynamic approach proposed in your patch set doesn't
-> > guarantee we won't hit OOM in memcg due to overgrown buffers. It just
-> > reduces this possibility. Of course, memcg OOM is far not as disastrous
-> > as the global one, but still it usually means the workload breakage.
+> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+> ---
+>  drivers/net/dsa/mv88e6060.h | 108 ++++++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 108 insertions(+)
+>  create mode 100644 drivers/net/dsa/mv88e6060.h
 > 
-> Right now, the entire machine breaks. Confining it to a faulty memcg,
-> as well as reducing the likelihood of that OOM in many cases seems
-> like a good move in the right direction, no?
-
-It seems. However, memcg OOM is also bad, we should strive to avoid it
-if we can.
-
-> 
-> And how likely are memcg OOMs because of this anyway? There is of
-
-Frankly, I've no idea. Your arguments below sound reassuring though.
-
-> course a scenario imaginable where the packets pile up, followed by
-> some *other* part of the workload, the one that doesn't read() and
-> process packets, trying to expand--which then doesn't work and goes
-> OOM. But that seems like a complete corner case. In the vast majority
-> of cases, the application will be in full operation and just fail to
-> read() fast enough--because the network bandwidth is enormous compared
-> to the container's size, or because it shares the CPU with thousands
-> of other workloads and there is scheduling latency.
-> 
-> This would be the perfect point to reign in the transmit window...
-> 
-> > The static approach is error-prone for sure, but it has existed for
-> > years and worked satisfactory AFAIK.
-> 
-> ...but that point is not a fixed amount of memory consumed. It depends
-> on the workload and the random interactions it's having with thousands
-> of other containers on that same machine.
-> 
-> The point of containers is to maximize utilization of your hardware
-> and systematically eliminate slack in the system. But it's exactly
-> that slack on dedicated bare-metal machines that allowed us to take a
-> wild guess at the settings and then tune them based on observing a
-> handful of workloads. This approach is not going to work anymore when
-> we pack the machine to capacity and still expect every single
-> container out of thousands to perform well. We need that automation.
-
-But we do use static approach when setting memory limits, no?
-memory.{low,high,max} - they are all static.
-
-I understand it's appealing to have just one knob - memory size - like
-in case of virtual machines, but it doesn't seem to work with
-containers. You added memory.low and memory.high knobs. VMs don't have
-anything like that. How is one supposed to set them? Depends on the
-workload, I guess. Also, there is the pids cgroup for limiting the
-number of pids that can be used by a cgroup, because pid turns out to be
-a resource in case of containers.  May be, tcp window should be
-considered as a separate resource either, as it is now, and shouldn't go
-to memcg? I'm just wondering...
-
-> 
-> The static setting working okay on the global level is also why I'm
-> not interested in starting to experiment with it. There is no reason
-> to change it. It's much more likely that any attempt to change it will
-> be shot down, not because of the approach chosen, but because there is
-> no problem to solve there. I doubt we can get networking people to
-> care about containers by screwing with things that work for them ;-)
-
-Fair enough.
-
-Thanks,
-Vladimir
+> diff --git a/drivers/net/dsa/mv88e6060.h b/drivers/net/dsa/mv88e6060.h
+> new file mode 100644
+> index 0000000..ed3b3ac
+> --- /dev/null
+> +++ b/drivers/net/dsa/mv88e6060.h
+> @@ -0,0 +1,108 @@
+> +/*
+> + * net/dsa/mv88e6060.h - Marvell 88e6060 switch chip support
+> + * Copyright (c) 2008 Marvell Semiconductor
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + */
+> +
+> +#ifndef __MV88E6060_H
+> +#define __MV88E6060_H
+> +
+> +#define MV88E6060_PORTS	6
+> +
+> +#define REG_PORT(p)		(0x8 + (p))
+> +#define PORT_STATUS		0x00
+> +#define PORT_STATUS_PAUSE_EN	BIT(15)
+> +#define PORT_STATUS_MY_PAUSE	BIT(14)
+> +#define PORT_STATUS_FC		(PORT_STATUS_MY_PAUSE | PORT_STATUS_PAUSE_EN)
+> +#define PORT_STATUS_RESOLVED	BIT(13)
+> +#define PORT_STATUS_LINK	BIT(12)
+> +#define PORT_STATUS_PORTMODE	BIT(11)
+> +#define PORT_STATUS_PHYMODE	BIT(10)
+> +#define PORT_STATUS_DUPLEX	BIT(9)
+> +#define PORT_STATUS_SPEED	BIT(8)
+> +#define PORT_SWITCH_ID		0x03
+> +#define PORT_SWITCH_ID_6060	0x0600
+> +#define PORT_SWITCH_ID_6060_MASK	0xfff0
+> +#define PORT_SWITCH_ID_6060_R1	0x0601
+> +#define PORT_SWITCH_ID_6060_R2	0x0602
+> +#define PORT_CONTROL		0x04
+> +#define PORT_CONTROL_FORCE_FLOW_CTRL	BIT(15)
+> +#define PORT_CONTROL_TRAILER	BIT(14)
+> +#define PORT_CONTROL_HEADER	BIT(11)
+> +#define PORT_CONTROL_INGRESS_MODE	BIT(8)
+> +#define PORT_CONTROL_VLAN_TUNNEL	BIT(7)
+> +#define PORT_CONTROL_STATE_MASK	0x03
+> +#define PORT_CONTROL_STATE_DISABLED	0x00
+> +#define PORT_CONTROL_STATE_BLOCKING	0x01
+> +#define PORT_CONTROL_STATE_LEARNING	0x02
+> +#define PORT_CONTROL_STATE_FORWARDING	0x03
+> +#define PORT_VLAN_MAP		0x06
+> +#define PORT_VLAN_MAP_DBNUM_SHIFT	12
+> +#define PORT_VLAN_MAP_TABLE_MASK	0x1f
+> +#define PORT_ASSOC_VECTOR	0x0b
+> +#define PORT_ASSOC_VECTOR_MONITOR	BIT(15)
+> +#define PORT_ASSOC_VECTOR_PAV_MASK	0x1f
+> +#define PORT_RX_CNTR		0x10
+> +#define PORT_TX_CNTR		0x11
+> +
+> +#define REG_GLOBAL		0x0f
+> +#define GLOBAL_STATUS		0x00
+> +#define GLOBAL_STATUS_SW_MODE_MASK	(0x3 << 12)
+> +#define GLOBAL_STATUS_SW_MODE_0	(0x0 << 12)
+> +#define GLOBAL_STATUS_SW_MODE_1	(0x1 << 12)
+> +#define GLOBAL_STATUS_SW_MODE_2	(0x2 << 12)
+> +#define GLOBAL_STATUS_SW_MODE_3	(0x3 << 12)
+> +#define GLOBAL_STATUS_INIT_READY	BIT(11)
+> +#define GLOBAL_STATUS_ATU_FULL		BIT(3)
+> +#define GLOBAL_STATUS_ATU_DONE		BIT(2)
+> +#define GLOBAL_STATUS_PHY_INT	BIT(1)
+> +#define GLOBAL_STATUS_EEINT	BIT(0)
+> +#define GLOBAL_MAC_01		0x01
+> +#define GLOBAL_MAC_01_DIFF_ADDR	BIT(8)
+> +#define GLOBAL_MAC_23		0x02
+> +#define GLOBAL_MAC_45		0x03
+> +#define GLOBAL_CONTROL		0x04
+> +#define GLOBAL_CONTROL_DISCARD_EXCESS	BIT(13)
+> +#define GLOBAL_CONTROL_MAX_FRAME_1536	BIT(10)
+> +#define GLOBAL_CONTROL_RELOAD_EEPROM	BIT(9)
+> +#define GLOBAL_CONTROL_CTRMODE		BIT(8)
+> +#define GLOBAL_CONTROL_ATU_FULL_EN	BIT(3)
+> +#define GLOBAL_CONTROL_ATU_DONE_EN	BIT(2)
+> +#define GLOBAL_CONTROL_PHYINT_EN	BIT(1)
+> +#define GLOBAL_CONTROL_EEPROM_DONE_EN	BIT(0)
+> +#define GLOBAL_ATU_CONTROL	0x0a
+> +#define GLOBAL_ATU_CONTROL_SWRESET	BIT(15)
+> +#define GLOBAL_ATU_CONTROL_LEARNDIS	BIT(14)
+> +#define GLOBAL_ATU_CONTROL_ATUSIZE_256	(0x0 << 12)
+> +#define GLOBAL_ATU_CONTROL_ATUSIZE_512	(0x1 << 12)
+> +#define GLOBAL_ATU_CONTROL_ATUSIZE_1024	(0x2 << 12)
+> +#define GLOBAL_ATU_CONTROL_ATE_AGE_SHIFT	4
+> +#define GLOBAL_ATU_CONTROL_ATE_AGE_MASK	(0xff << 4)
+> +#define GLOBAL_ATU_CONTROL_ATE_AGE_5MIN	(0x13 << 4)
+> +#define GLOBAL_ATU_OP		0x0b
+> +#define GLOBAL_ATU_OP_BUSY	BIT(15)
+> +#define GLOBAL_ATU_OP_NOP		(0 << 12)
+> +#define GLOBAL_ATU_OP_FLUSH_ALL	((1 << 12) | GLOBAL_ATU_OP_BUSY)
+> +#define GLOBAL_ATU_OP_FLUSH_UNLOCKED	((2 << 12) | GLOBAL_ATU_OP_BUSY)
+> +#define GLOBAL_ATU_OP_LOAD_DB		((3 << 12) | GLOBAL_ATU_OP_BUSY)
+> +#define GLOBAL_ATU_OP_GET_NEXT_DB	((4 << 12) | GLOBAL_ATU_OP_BUSY)
+> +#define GLOBAL_ATU_OP_FLUSH_DB		((5 << 12) | GLOBAL_ATU_OP_BUSY)
+> +#define GLOBAL_ATU_OP_FLUSH_UNLOCKED_DB ((6 << 12) | GLOBAL_ATU_OP_BUSY)
+> +#define GLOBAL_ATU_DATA		0x0c
+> +#define GLOBAL_ATU_DATA_PORT_VECTOR_MASK	0x3f0
+> +#define GLOBAL_ATU_DATA_PORT_VECTOR_SHIFT	4
+> +#define GLOBAL_ATU_DATA_STATE_MASK		0x0f
+> +#define GLOBAL_ATU_DATA_STATE_UNUSED		0x00
+> +#define GLOBAL_ATU_DATA_STATE_UC_STATIC		0x0e
+> +#define GLOBAL_ATU_DATA_STATE_UC_LOCKED		0x0f
+> +#define GLOBAL_ATU_DATA_STATE_MC_STATIC		0x07
+> +#define GLOBAL_ATU_DATA_STATE_MC_LOCKED		0x0e
+> +#define GLOBAL_ATU_MAC_01	0x0d
+> +#define GLOBAL_ATU_MAC_23	0x0e
+> +#define GLOBAL_ATU_MAC_45	0x0f
+> +
+> +#endif
+> -- 
+> 1.9.1
