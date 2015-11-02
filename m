@@ -1,37 +1,34 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH/RFC net-next] ravb: use clock rate as basis for GTI.TIV
-Date: Mon, 2 Nov 2015 08:51:41 +0100
-Message-ID: <CAMuHMdVQWMc-giQb-J0JV9JXLCYLXHQJhStRgwHZX0qjgye0cw@mail.gmail.com>
-References: <1446428439-10944-1-git-send-email-horms+renesas@verge.net.au>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] bridge: vlan: Use rcu_dereference instead of
+ rtnl_dereference
+Date: Mon, 2 Nov 2015 09:40:40 +0100
+Message-ID: <20151102084040.GB2216@nanopsycho.orion>
+References: <1446395505-24841-1-git-send-email-idosch@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Simon Horman <horms+renesas@verge.net.au>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1446428439-10944-1-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	davem@davemloft.net, nikolay@cumulusnetworks.com,
+	jiri@mellanox.com, eladr@mellanox.com
+To: Ido Schimmel <idosch@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:34562 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752423AbbKBIkn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 03:40:43 -0500
+Received: by wikq8 with SMTP id q8so46260837wik.1
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 00:40:42 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1446395505-24841-1-git-send-email-idosch@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 2, 2015 at 2:40 AM, Simon Horman <horms+renesas@verge.net.au> wrote:
-> The motivation for this is to use the correct rate on
-> the r8a7795/Slavator-X which is advertised as 133MHz but
+Sun, Nov 01, 2015 at 05:31:45PM CET, idosch@mellanox.com wrote:
+>br_should_learn() is protected by RCU and not by RTNL, so use correct
+>flavor of nbp_vlan_group().
+>
+>Fixes: 907b1e6e83ed ("bridge: vlan: use proper rcu for the vlgrp
+>member")
+>Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+>Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Salvator-X
-
-> may differ depending on the extal present on the Slavator-X.
-
-Salvator-X
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Acked-by: Jiri Pirko <jiri@mellanox.com>
