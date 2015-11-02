@@ -1,58 +1,60 @@
-From: Central Trust Loan Limited <beata.skrzeczewska@uni.wroc.pl>
-Subject: =?utf-8?Q?L=C3=A5netilbud_1,5%?=
-Date: Tue, 3 Nov 2015 00:02:03 +0100 (CET)
-Message-ID: <224007283.388563.1446505323420.JavaMail.root@kurier>
-Reply-To: "centraltrustlltd@gmail.com" <centraltrustlltd@gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Mon, 2 Nov 2015 15:21:48 -0800
+Message-ID: <CA+55aFybA=MxezoSCN8ZtbyKdUzto3u+gOJw04w5tWQbYD-1KA@mail.gmail.com>
+References: <20151027.233235.1641084823622810663.davem@davemloft.net>
+	<CA+55aFx0o8e9J6ojHYjvOA5aRnKoW5j10fh76Ks1=VegPc4k6w@mail.gmail.com>
+	<5637C8DF.800@kernel.org>
+	<CA+55aFwxDSYSB=bBfCxLadgCmFiOzAi0T0JHLFLK5nkR6cm8tg@mail.gmail.com>
+	<CA+55aFy6nC9tQFE_kRrF-YS9N7Jp18CnSxsLNcnAykNLyXQUtg@mail.gmail.com>
+	<CALCETrUxU_AVcQheeCXc0qTh=o2tmDbDct27QfTCb_+G6qc3gQ@mail.gmail.com>
+	<1446502448.296003.427190649.434774F6@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kurier.uni.wroc.pl ([156.17.87.160]:35003 "EHLO
-	kurier.uni.wroc.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751219AbbKBXKF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 18:10:05 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Lutomirski <luto@amacapital.net>,
+	Andy Lutomirski <luto@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446502448.296003.427190649.434774F6@webmail.messagingengine.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Nov 2, 2015 at 2:14 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+>
+> overflow_usub was part of a larger header I already prepared to offer
+> support for *all* overflow_* checking builtins. While fixing this IPv6
+> bug I thought I could hopefully introduce this interface slowly and
+> simply cut away the other versions.
 
+Hell no.
 
+Both you and Andy seem to argue that "since there are other totally
+unrelated functions that look superficially similar and actually some
+sense, we should add these stupid crap functions too".
 
-God dag,
+In exactly *WHAT* crazy universe does that make sense as an argument?
 
-Dette er CENTRAL TRUST l=C3=A5n selskaper tilbyr l=C3=A5n.
+It's like saying "I put literal shit on your plate, because there are
+potentially nutritious sausages that look superficially a bit like the
+dogshit I served you".
 
-CENTRAL TRUST L=C3=85N Selskapet tilbyr fleksible og rimelige l=C3=A5n =
-til ethvert form=C3=A5l, for =C3=A5 hjelpe deg =C3=A5 n=C3=A5 dine fina=
-nsielle m=C3=A5l. vi l=C3=A5n med lav rente p=C3=A5 1,5%. Her er noen v=
-iktige trekk ved personlig l=C3=A5n fra sentral stoler p=C3=A5 utl=C3=A5=
-n selskaper tilbys. Her er de L=C3=A5ne Faktorer vi samarbeider med de =
-ledende britiske meglere som har tilgang til toppen l=C3=A5ngivere og v=
-=C3=A6re i stand til =C3=A5 finne den beste =C3=B8konomiske l=C3=B8snin=
-gen til en rimelig price.Please, hvis du er interessert kan du kontakte=
- oss via denne e-post: centraltrust_ltd @ webadicta .org
+Seriously.
 
-Etter reaksjonen, vil du motta en s=C3=B8knad om kreditt fyll. Ingen so=
-sial sikkerhet og ingen kredittsjekk, 100% garantert.
+The fact that _valid_ overflow checking functions exist in _no_ way
+support the crap that I got.
 
-Det er en =C3=A6re for oss hvis du tillater oss til tjeneste.
+It's *exactly* the same argument as "dog poop superficially looks like
+good sausages".
 
-Informasjon Needed
+Is that really your argument?
 
-Dine navn:
-Adresse:
-Telefon:
-N=C3=B8dvendig Antall:
-Varighet:
-Okkupasjon:
-M=C3=A5nedlig inntekt niv=C3=A5:
-Kj=C3=B8nn:
-=46=C3=B8dselsdato:
-Status:
-Land:
-=46orm=C3=A5let:
+There is never an excuse for "usub_overflow()". It's that simple.
 
-Oppfylle dine =C3=B8konomiske behov er v=C3=A5r stolthet.
+No amount of _other_ overflow functions make that shit palatable.
 
-Vennlig hilsen
-David Donald
+                   Linus
