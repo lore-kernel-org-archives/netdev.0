@@ -1,38 +1,37 @@
-From: =?utf-8?B?U8O4cmVuc2VuLCBTdGVmYW4=?=
-	<Stefan.Sorensen@spectralink.com>
-Subject: Re: [PATCH net-next 2/5] dp83640: Delay scheduled work.
-Date: Mon, 2 Nov 2015 07:23:12 +0000
-Message-ID: <1446448990.2437.7.camel@spectralink.com>
-References: <1446207244-2206-1-git-send-email-stefan.sorensen@spectralink.com>
-	 <1446207244-2206-3-git-send-email-stefan.sorensen@spectralink.com>
-	 <20151030203729.GC27879@netboy>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH/RFC net-next] ravb: use clock rate as basis for GTI.TIV
+Date: Mon, 2 Nov 2015 08:51:41 +0100
+Message-ID: <CAMuHMdVQWMc-giQb-J0JV9JXLCYLXHQJhStRgwHZX0qjgye0cw@mail.gmail.com>
+References: <1446428439-10944-1-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "richardcochran@gmail.com" <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0118.outbound.protection.outlook.com ([65.55.169.118]:54294
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751402AbbKBHiI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Nov 2015 02:38:08 -0500
-In-Reply-To: <20151030203729.GC27879@netboy>
-Content-Language: en-US
-Content-ID: <747744BEB8260343905B823FAB141B39@namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Simon Horman <horms+renesas@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1446428439-10944-1-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gRnJpLCAyMDE1LTEwLTMwIGF0IDIxOjM3ICswMTAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
-DQo+wqANCj4gTkFLLsKgwqBXZSB3YW50IHRvIGhhdmUgdGhlIHRpbWUgc3RhbXAgQVNBUCwgYmVj
-YXVzZSB0aGUgZGVsYXkgYmV0d2Vlbg0KPiB0aGUgdHJhbnNtaXNzaW9uIG9mIHRoZSBTeW5jIGFu
-ZCBpdHMgYXBwbGljYXRpb24gaW4gdGhlIHNlcnZvDQo+IGRlZ3JhZGVzIG9yIGV2ZW4gc3BvaWxz
-IHN5bmNocm9uaXphdGlvbi7CoMKgVGhpbmsgb2YgYW4gQVJNIFNvQyB3aXRoDQo+IEhaPTEwMC7C
-oMKgVHdvIGppZmZpZXMgYXJlIDIwIG1pbGxpc2Vjb25kcy4NCg0KVGhlIHdvcmtxdWV1ZSBpcyBv
-bmx5IHVzZWQgZm9yIGRlbGl2ZXJpbmcgcGFja2V0cyB3aGVyZSB0aGUgdGltZXN0YW1wDQp3YXMg
-bG9zdCAtIGlmIGEgdGltZXN0YW1wIGlzIHJlY2VpdmVkLCB0aGUgcGFja2V0IGlzIGRlbGl2ZXJl
-ZA0KaW1tZWRpYXRlbHkuIFRoaXMgcGF0Y2ggbWF5IGludHJvZHVjZSBhIHNsaWdodCBkZWxheSBv
-ZiB0aGUgcGFja2V0cw0Kd2hlcmUgdGhlIHRpbWVzdGFtcCBuZXZlciBhcnJpdmVzLCBieSB0aGVz
-ZSBwYWNrZXRzIGFyZSBwcm9wZXJseSBub3QNCnZlcnkgdXNlZnVsIHRvIHRoZSBhcHBsaWNhdGlv
-biBhbnl3YXkuDQoNClN0ZWZhbg0K
+On Mon, Nov 2, 2015 at 2:40 AM, Simon Horman <horms+renesas@verge.net.au> wrote:
+> The motivation for this is to use the correct rate on
+> the r8a7795/Slavator-X which is advertised as 133MHz but
+
+Salvator-X
+
+> may differ depending on the extal present on the Slavator-X.
+
+Salvator-X
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
