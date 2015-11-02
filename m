@@ -1,55 +1,59 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] net: fix percpu memory leaks
-Date: Mon, 02 Nov 2015 19:32:03 +0100
-Message-ID: <1446489123.3078652.426995233.777A4A93@webmail.messagingengine.com>
-References: <1446483791.23275.19.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Dmitry Vyukov <dvyukov@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+From: Gilberto Bertin <gilberto.bertin@gmail.com>
+Subject: Re: [BUG] Any-IP IPv6 support broken
+Date: Mon, 2 Nov 2015 10:45:39 -0800
+Message-ID: <C98935CD-7723-4903-A4E2-DEB98DCC5912@gmail.com>
+References: <0977189F-9778-4D1C-939D-FAD71595E5F6@gmail.com> <1446132888.7476.153.camel@edumazet-glaptop2.roam.corp.google.com> <CAHo-OowqDLe1d+bJEo9B_1AC41n+RM+5Kkq7NknA-CouWoeYAQ@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.1 \(3096.5\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux NetDev <netdev@vger.kernel.org>
+To: =?utf-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:47561 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753766AbbKBScF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 13:32:05 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 3D78D209D1
-	for <netdev@vger.kernel.org>; Mon,  2 Nov 2015 13:32:04 -0500 (EST)
-In-Reply-To: <1446483791.23275.19.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33982 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752221AbbKBSpm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 13:45:42 -0500
+Received: by padec8 with SMTP id ec8so46935061pad.1
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 10:45:41 -0800 (PST)
+In-Reply-To: <CAHo-OowqDLe1d+bJEo9B_1AC41n+RM+5Kkq7NknA-CouWoeYAQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 2, 2015, at 18:03, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> This patch fixes following problems :
-> 
-> 1) percpu_counter_init() can return an error, therefore
->   init_frag_mem_limit() must propagate this error so that
->   inet_frags_init_net() can do the same up to its callers.
-> 
-> 2) If ip[46]_frags_ns_ctl_register() fail, we must unwind
->    properly and free the percpu_counter.
-> 
-> Without this fix, we leave freed object in percpu_counters
-> global list (if CONFIG_HOTPLUG_CPU) leading to crashes.
-> 
-> This bug was detected by KASAN and syzkaller tool
-> (http://github.com/google/syzkaller)
-> 
-> Fixes: 6d7b857d541e ("net: use lib/percpu_counter API for fragmentation
-> mem accounting")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Cc: Jesper Dangaard Brouer <brouer@redhat.com>
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> On 29 Oct 2015, at 17:44, Maciej =C5=BBenczykowski <zenczykowski@gmai=
+l.com> wrote:
+>=20
+> What are you trying to do?
 
-Syzkaller tool looks amazing, seems like it got support for unshare :).
+I would like to have a "bind-to-subnet" semantic with IPv6.
 
-Thanks!
+This is currently working with IPv4, and the setup is the follow:
+
+- setup a dummy network device configured with any-IP
+- add an any-IP route
+- bind() on the dummy device
+
+in this way we can effectively bind a process to a particular subnet
+(by binding it to a dummy device which is receiving all the packets
+from a particular subnet).
+
+The point of using dummy devices is that we can configure multiple ones
+(and so we can bind multiple processes to multiple subnets).
+
+>=20
+> Does what you're trying to do work on an older kernel?  Which kernel
+> version does it break at?
+>=20
+> btw. afaik any-ip doesn't work with IPv4 on any un-patched kernel (th=
+e
+> IPv4 support patch was reverted).
+
+
+This is actually working with IPv4 (as I said I'm using a recent kernel=
+,
+4.1), and the fact that you say it's not supposed to work leads me to
+think that maybe we are not talking about the same feature.
+
+Cheers,
+	gilberto
