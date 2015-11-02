@@ -1,63 +1,45 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: Re: [PATCH 2/2] Convert smsc911x to use ACPI as well as DT
-Date: Mon, 2 Nov 2015 09:48:06 -0600
-Message-ID: <563785B6.50800@arm.com>
-References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
- <1439417187-21411-3-git-send-email-jeremy.linton@arm.com>
- <55F059F9.3080200@arm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net: avoid NULL deref in inet_ctl_sock_destroy()
+Date: Mon, 02 Nov 2015 07:50:07 -0800
+Message-ID: <1446479407.23275.12.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=WINDOWS-1252; format=flowed
-Content-Transfer-Encoding: 8BIT
-Cc: "steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>,
-	"suravee.suthikulpanit@amd.com" <suravee.suthikulpanit@amd.com>,
-	Catalin Marinas <Catalin.Marinas@arm.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>
-To: Marc Zyngier <marc.zyngier@arm.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Dmitry Vyukov <dvyukov@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu-smtp-delivery-143.mimecast.com ([207.82.80.143]:46420 "EHLO
-	eu-smtp-delivery-143.mimecast.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753411AbbKBPsN convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Nov 2015 10:48:13 -0500
-In-Reply-To: <55F059F9.3080200@arm.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34561 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754024AbbKBPuJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 10:50:09 -0500
+Received: by padec8 with SMTP id ec8so43061709pad.1
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 07:50:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/09/2015 11:10 AM, Marc Zyngier wrote:
-> Jeremy,
->
-> I can see two issues here: we have a screaming interrupt, and
-> we seem to corrupt some workqueue.
->
-> How did you get this to work? Firmware release?
+From: Eric Dumazet <edumazet@google.com>
 
-Marc,
+Under low memory conditions, tcp_sk_init() and icmp_sk_init()
+can both iterate on all possible cpus and call inet_ctl_sock_destroy(),
+with eventual NULL pointer.
 
-I'm responding because its been a month or so since my last response, 
-and I haven't forgotten about this issue.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+---
+ include/net/inet_common.h |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-First, any custom tianocore build (*) should work. The required changes 
-have been in the last few linaro snapshots as well 
-(http://snapshots.linaro.org/components/kernel/linaro-edk2/, currently 
-at 40) but I personally haven't had a lot of luck with the prebuilt 
-images due to problems unrelated to this change. Others may have more luck.
-
-* For those that don't know, tianno core is at:
-
-https://github.com/tianocore/edk2.git
-Use the master branch
-
-After setting the environment variables/dependencies appropriately:
-
-make -f ArmPlatformPkg/ArmJunoPkg/Makefile all
-
-Will create a functional ACPI firmware image for all recent kernels, 
-including ACPI/PCIe ones.
-
-Thanks for everyone's patience on this,
-
-	
+diff --git a/include/net/inet_common.h b/include/net/inet_common.h
+index 279f83591971..109e3ee9108c 100644
+--- a/include/net/inet_common.h
++++ b/include/net/inet_common.h
+@@ -41,7 +41,8 @@ int inet_recv_error(struct sock *sk, struct msghdr *msg, int len,
+ 
+ static inline void inet_ctl_sock_destroy(struct sock *sk)
+ {
+-	sock_release(sk->sk_socket);
++	if (sk)
++		sock_release(sk->sk_socket);
+ }
+ 
+ #endif
