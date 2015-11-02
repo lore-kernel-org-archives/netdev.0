@@ -1,170 +1,158 @@
 From: Madalin Bucur <madalin.bucur@freescale.com>
-Subject: [net-next v4 7/8] dpaa_eth: add sysfs exports
-Date: Mon, 2 Nov 2015 19:31:39 +0200
-Message-ID: <1446485500-9782-8-git-send-email-madalin.bucur@freescale.com>
+Subject: [net-next v4 1/8] devres: add devm_alloc_percpu()
+Date: Mon, 2 Nov 2015 19:31:33 +0200
+Message-ID: <1446485500-9782-2-git-send-email-madalin.bucur@freescale.com>
 References: <1446485500-9782-1-git-send-email-madalin.bucur@freescale.com>
-Reply-To: madalin.bucur@freescale.com
+Reply-To: <madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: pebolle@tiscali.nl, roy.pledge@freescale.com, gregkh@linuxfoundation.org,
- linux-kernel@vger.kernel.org, ppc@mindchasers.com, igal.liberman@freescale.com,
- scottwood@freescale.com, joe@perches.com, linuxppc-dev@lists.ozlabs.org,
- davem@davemloft.net, Madalin Bucur <madalin.bucur@freescale.com>
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+	<davem@davemloft.net>, <scottwood@freescale.com>,
+	<igal.liberman@freescale.com>, <roy.pledge@freescale.com>,
+	<ppc@mindchasers.com>, <joe@perches.com>, <pebolle@tiscali.nl>,
+	<joakim.tjernlund@transmode.se>, <gregkh@linuxfoundation.org>,
+	Madalin Bucur <madalin.bucur@freescale.com>
 To: <netdev@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1446485500-9782-1-git-send-email-madalin.bucur@freescale.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RXhwb3J0IEZyYW1lIFF1ZXVlIGFuZCBCdWZmZXIgUG9vbCBJRHMgdGhyb3VnaCBzeXNmcy4KClNp
-Z25lZC1vZmYtYnk6IE1hZGFsaW4gQnVjdXIgPG1hZGFsaW4uYnVjdXJAZnJlZXNjYWxlLmNvbT4K
-LS0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9NYWtlZmlsZSAgICAgICB8
-ICAgMiArLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGguYyAg
-ICAgfCAgIDIgKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGgu
-aCAgICAgfCAgIDMgKwogLi4uL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aF9j
-b21tb24uYyAgfCAgIDIgKwogLi4uL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0
-aF9zeXNmcy5jICAgfCAxNjcgKysrKysrKysrKysrKysrKysrKysrCiA1IGZpbGVzIGNoYW5nZWQs
-IDE3NSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJp
-dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGhfc3lzZnMuYwoKZGlmZiAt
-LWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL01ha2VmaWxlIGIvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvTWFrZWZpbGUKaW5kZXggOWI3NWQ1Mi4u
-MTQxYWRlNCAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEv
-TWFrZWZpbGUKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvTWFrZWZp
-bGUKQEAgLTgsNCArOCw0IEBAIGNjZmxhZ3MteSArPSAtSSQoRk1BTikKIAogb2JqLSQoQ09ORklH
-X0ZTTF9EUEFBX0VUSCkgKz0gZnNsX2RwYS5vCiAKLWZzbF9kcGEtb2JqcyArPSBkcGFhX2V0aC5v
-IGRwYWFfZXRoX3NnLm8gZHBhYV9ldGhfY29tbW9uLm8gZHBhYV9ldGh0b29sLm8KK2ZzbF9kcGEt
-b2JqcyArPSBkcGFhX2V0aC5vIGRwYWFfZXRoX3NnLm8gZHBhYV9ldGhfY29tbW9uLm8gZHBhYV9l
-dGh0b29sLm8gZHBhYV9ldGhfc3lzZnMubwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGguYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVz
-Y2FsZS9kcGFhL2RwYWFfZXRoLmMKaW5kZXggMGIzMzMyYS4uM2NkMDNmNSAxMDA2NDQKLS0tIGEv
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGguYworKysgYi9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5jCkBAIC03NTYsNiArNzU2
-LDggQEAgZHBhYV9ldGhfcHJpdl9wcm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KQog
-CWlmIChlcnIgPCAwKQogCQlnb3RvIG5ldGRldl9pbml0X2ZhaWxlZDsKIAorCWRwYWFfZXRoX3N5
-c2ZzX2luaXQoJm5ldF9kZXYtPmRldik7CisKIAlwcl9pbmZvKCJQcm9iZWQgaW50ZXJmYWNlICVz
-XG4iLCBuZXRfZGV2LT5uYW1lKTsKIAogCXJldHVybiAwOwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGguaCBiL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRoLmgKaW5kZXggY2NhYWRkOS4uY2RjNzU5NSAxMDA2
-NDQKLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGguaAor
-KysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5oCkBAIC0z
-NzEsNiArMzcxLDkgQEAgc3RhdGljIGlubGluZSB1MTYgZHBhX2dldF9oZWFkcm9vbShzdHJ1Y3Qg
-ZHBhX2J1ZmZlcl9sYXlvdXRfcyAqYmwpCiAJcmV0dXJuIGJsLT5kYXRhX2FsaWduID8gQUxJR04o
-aGVhZHJvb20sIGJsLT5kYXRhX2FsaWduKSA6IGhlYWRyb29tOwogfQogCit2b2lkIGRwYWFfZXRo
-X3N5c2ZzX3JlbW92ZShzdHJ1Y3QgZGV2aWNlICpkZXYpOwordm9pZCBkcGFhX2V0aF9zeXNmc19p
-bml0KHN0cnVjdCBkZXZpY2UgKmRldik7CisKIHZvaWQgZHBhX3ByaXZhdGVfbmFwaV9kZWwoc3Ry
-dWN0IG5ldF9kZXZpY2UgKm5ldF9kZXYpOwogCiBzdGF0aWMgaW5saW5lIHZvaWQgY2xlYXJfZmQo
-c3RydWN0IHFtX2ZkICpmZCkKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVz
-Y2FsZS9kcGFhL2RwYWFfZXRoX2NvbW1vbi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNj
-YWxlL2RwYWEvZHBhYV9ldGhfY29tbW9uLmMKaW5kZXggNDk0N2NiOS4uMmNmNDU2NSAxMDA2NDQK
-LS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGhfY29tbW9u
-LmMKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGhfY29t
-bW9uLmMKQEAgLTI5OSw2ICsyOTksOCBAQCBpbnQgZHBhX3JlbW92ZShzdHJ1Y3QgcGxhdGZvcm1f
-ZGV2aWNlICpwZGV2KQogCiAJcHJpdiA9IG5ldGRldl9wcml2KG5ldF9kZXYpOwogCisJZHBhYV9l
-dGhfc3lzZnNfcmVtb3ZlKGRldik7CisKIAlkZXZfc2V0X2RydmRhdGEoZGV2LCBOVUxMKTsKIAl1
-bnJlZ2lzdGVyX25ldGRldihuZXRfZGV2KTsKIApkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGhfc3lzZnMuYyBiL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRoX3N5c2ZzLmMKbmV3IGZpbGUgbW9kZSAxMDA2NDQK
-aW5kZXggMDAwMDAwMC4uYTZjNzFiMQotLS0gL2Rldi9udWxsCisrKyBiL2RyaXZlcnMvbmV0L2V0
-aGVybmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRoX3N5c2ZzLmMKQEAgLTAsMCArMSwxNjcgQEAK
-Ky8qIENvcHlyaWdodCAyMDA4LTIwMTUgRnJlZXNjYWxlIFNlbWljb25kdWN0b3IgSW5jLgorICoK
-KyAqIFJlZGlzdHJpYnV0aW9uIGFuZCB1c2UgaW4gc291cmNlIGFuZCBiaW5hcnkgZm9ybXMsIHdp
-dGggb3Igd2l0aG91dAorICogbW9kaWZpY2F0aW9uLCBhcmUgcGVybWl0dGVkIHByb3ZpZGVkIHRo
-YXQgdGhlIGZvbGxvd2luZyBjb25kaXRpb25zIGFyZSBtZXQ6CisgKiAgICAgKiBSZWRpc3RyaWJ1
-dGlvbnMgb2Ygc291cmNlIGNvZGUgbXVzdCByZXRhaW4gdGhlIGFib3ZlIGNvcHlyaWdodAorICoJ
-IG5vdGljZSwgdGhpcyBsaXN0IG9mIGNvbmRpdGlvbnMgYW5kIHRoZSBmb2xsb3dpbmcgZGlzY2xh
-aW1lci4KKyAqICAgICAqIFJlZGlzdHJpYnV0aW9ucyBpbiBiaW5hcnkgZm9ybSBtdXN0IHJlcHJv
-ZHVjZSB0aGUgYWJvdmUgY29weXJpZ2h0CisgKgkgbm90aWNlLCB0aGlzIGxpc3Qgb2YgY29uZGl0
-aW9ucyBhbmQgdGhlIGZvbGxvd2luZyBkaXNjbGFpbWVyIGluIHRoZQorICoJIGRvY3VtZW50YXRp
-b24gYW5kL29yIG90aGVyIG1hdGVyaWFscyBwcm92aWRlZCB3aXRoIHRoZSBkaXN0cmlidXRpb24u
-CisgKiAgICAgKiBOZWl0aGVyIHRoZSBuYW1lIG9mIEZyZWVzY2FsZSBTZW1pY29uZHVjdG9yIG5v
-ciB0aGUKKyAqCSBuYW1lcyBvZiBpdHMgY29udHJpYnV0b3JzIG1heSBiZSB1c2VkIHRvIGVuZG9y
-c2Ugb3IgcHJvbW90ZSBwcm9kdWN0cworICoJIGRlcml2ZWQgZnJvbSB0aGlzIHNvZnR3YXJlIHdp
-dGhvdXQgc3BlY2lmaWMgcHJpb3Igd3JpdHRlbiBwZXJtaXNzaW9uLgorICoKKyAqCisgKiBBTFRF
-Uk5BVElWRUxZLCB0aGlzIHNvZnR3YXJlIG1heSBiZSBkaXN0cmlidXRlZCB1bmRlciB0aGUgdGVy
-bXMgb2YgdGhlCisgKiBHTlUgR2VuZXJhbCBQdWJsaWMgTGljZW5zZSAoIkdQTCIpIGFzIHB1Ymxp
-c2hlZCBieSB0aGUgRnJlZSBTb2Z0d2FyZQorICogRm91bmRhdGlvbiwgZWl0aGVyIHZlcnNpb24g
-MiBvZiB0aGF0IExpY2Vuc2Ugb3IgKGF0IHlvdXIgb3B0aW9uKSBhbnkKKyAqIGxhdGVyIHZlcnNp
-b24uCisgKgorICogVEhJUyBTT0ZUV0FSRSBJUyBQUk9WSURFRCBCWSBGcmVlc2NhbGUgU2VtaWNv
-bmR1Y3RvciBgYEFTIElTJycgQU5EIEFOWQorICogRVhQUkVTUyBPUiBJTVBMSUVEIFdBUlJBTlRJ
-RVMsIElOQ0xVRElORywgQlVUIE5PVCBMSU1JVEVEIFRPLCBUSEUgSU1QTElFRAorICogV0FSUkFO
-VElFUyBPRiBNRVJDSEFOVEFCSUxJVFkgQU5EIEZJVE5FU1MgRk9SIEEgUEFSVElDVUxBUiBQVVJQ
-T1NFIEFSRQorICogRElTQ0xBSU1FRC4gSU4gTk8gRVZFTlQgU0hBTEwgRnJlZXNjYWxlIFNlbWlj
-b25kdWN0b3IgQkUgTElBQkxFIEZPUiBBTlkKKyAqIERJUkVDVCwgSU5ESVJFQ1QsIElOQ0lERU5U
-QUwsIFNQRUNJQUwsIEVYRU1QTEFSWSwgT1IgQ09OU0VRVUVOVElBTCBEQU1BR0VTCisgKiAoSU5D
-TFVESU5HLCBCVVQgTk9UIExJTUlURUQgVE8sIFBST0NVUkVNRU5UIE9GIFNVQlNUSVRVVEUgR09P
-RFMgT1IgU0VSVklDRVM7CisgKiBMT1NTIE9GIFVTRSwgREFUQSwgT1IgUFJPRklUUzsgT1IgQlVT
-SU5FU1MgSU5URVJSVVBUSU9OKSBIT1dFVkVSIENBVVNFRCBBTkQKKyAqIE9OIEFOWSBUSEVPUlkg
-T0YgTElBQklMSVRZLCBXSEVUSEVSIElOIENPTlRSQUNULCBTVFJJQ1QgTElBQklMSVRZLCBPUiBU
-T1JUCisgKiAoSU5DTFVESU5HIE5FR0xJR0VOQ0UgT1IgT1RIRVJXSVNFKSBBUklTSU5HIElOIEFO
-WSBXQVkgT1VUIE9GIFRIRSBVU0UgT0YgVEhJUworICogU09GVFdBUkUsIEVWRU4gSUYgQURWSVNF
-RCBPRiBUSEUgUE9TU0lCSUxJVFkgT0YgU1VDSCBEQU1BR0UuCisgKi8KKworI2luY2x1ZGUgPGxp
-bnV4L2luaXQuaD4KKyNpbmNsdWRlIDxsaW51eC9tb2R1bGUuaD4KKyNpbmNsdWRlIDxsaW51eC9r
-dGhyZWFkLmg+CisjaW5jbHVkZSA8bGludXgvaW8uaD4KKyNpbmNsdWRlIDxsaW51eC9vZl9uZXQu
-aD4KKyNpbmNsdWRlICJkcGFhX2V0aC5oIgorI2luY2x1ZGUgIm1hYy5oIgorCitzdGF0aWMgc3Np
-emVfdCBkcGFhX2V0aF9zaG93X2FkZHIoc3RydWN0IGRldmljZSAqZGV2LAorCQkJCSAgc3RydWN0
-IGRldmljZV9hdHRyaWJ1dGUgKmF0dHIsIGNoYXIgKmJ1ZikKK3sKKwlzdHJ1Y3QgZHBhX3ByaXZf
-cyAqcHJpdiA9IG5ldGRldl9wcml2KHRvX25ldF9kZXYoZGV2KSk7CisJc3RydWN0IG1hY19kZXZp
-Y2UgKm1hY19kZXYgPSBwcml2LT5tYWNfZGV2OworCisJaWYgKG1hY19kZXYpCisJCXJldHVybiBz
-cHJpbnRmKGJ1ZiwgIiVsbHgiLAorCQkJCSh1bnNpZ25lZCBsb25nIGxvbmcpbWFjX2Rldi0+cmVz
-LT5zdGFydCk7CisJZWxzZQorCQlyZXR1cm4gc3ByaW50ZihidWYsICJub25lIik7Cit9CisKK3N0
-YXRpYyBzc2l6ZV90IGRwYWFfZXRoX3Nob3dfZnFpZHMoc3RydWN0IGRldmljZSAqZGV2LAorCQkJ
-CSAgIHN0cnVjdCBkZXZpY2VfYXR0cmlidXRlICphdHRyLCBjaGFyICpidWYpCit7CisJc3RydWN0
-IGRwYV9wcml2X3MgKnByaXYgPSBuZXRkZXZfcHJpdih0b19uZXRfZGV2KGRldikpOworCXNzaXpl
-X3QgYnl0ZXMgPSAwOworCWludCBpID0gMDsKKwljaGFyICpzdHI7CisJc3RydWN0IGRwYV9mcSAq
-ZnE7CisJc3RydWN0IGRwYV9mcSAqdG1wOworCXN0cnVjdCBkcGFfZnEgKnByZXYgPSBOVUxMOwor
-CXUzMiBmaXJzdF9mcWlkID0gMDsKKwl1MzIgbGFzdF9mcWlkID0gMDsKKwljaGFyICpwcmV2c3Ry
-ID0gTlVMTDsKKworCWxpc3RfZm9yX2VhY2hfZW50cnlfc2FmZShmcSwgdG1wLCAmcHJpdi0+ZHBh
-X2ZxX2xpc3QsIGxpc3QpIHsKKwkJc3dpdGNoIChmcS0+ZnFfdHlwZSkgeworCQljYXNlIEZRX1RZ
-UEVfUlhfREVGQVVMVDoKKwkJCXN0ciA9ICJSeCBkZWZhdWx0IjsKKwkJCWJyZWFrOworCQljYXNl
-IEZRX1RZUEVfUlhfRVJST1I6CisJCQlzdHIgPSAiUnggZXJyb3IiOworCQkJYnJlYWs7CisJCWNh
-c2UgRlFfVFlQRV9UWF9DT05GSVJNOgorCQkJc3RyID0gIlR4IGRlZmF1bHQgY29uZmlybWF0aW9u
-IjsKKwkJCWJyZWFrOworCQljYXNlIEZRX1RZUEVfVFhfQ09ORl9NUToKKwkJCXN0ciA9ICJUeCBj
-b25maXJtYXRpb24gKG1xKSI7CisJCQlicmVhazsKKwkJY2FzZSBGUV9UWVBFX1RYX0VSUk9SOgor
-CQkJc3RyID0gIlR4IGVycm9yIjsKKwkJCWJyZWFrOworCQljYXNlIEZRX1RZUEVfVFg6CisJCQlz
-dHIgPSAiVHgiOworCQkJYnJlYWs7CisJCWRlZmF1bHQ6CisJCQlzdHIgPSAiVW5rbm93biI7CisJ
-CX0KKworCQlpZiAocHJldiAmJiAoYWJzKGZxLT5mcWlkIC0gcHJldi0+ZnFpZCkgIT0gMSB8fAor
-CQkJICAgICBzdHIgIT0gcHJldnN0cikpIHsKKwkJCWlmIChsYXN0X2ZxaWQgPT0gZmlyc3RfZnFp
-ZCkKKwkJCQlieXRlcyArPSBzcHJpbnRmKGJ1ZiArIGJ5dGVzLAorCQkJCQkiJXM6ICVkXG4iLCBw
-cmV2c3RyLCBwcmV2LT5mcWlkKTsKKwkJCWVsc2UKKwkJCQlieXRlcyArPSBzcHJpbnRmKGJ1ZiAr
-IGJ5dGVzLAorCQkJCQkiJXM6ICVkIC0gJWRcbiIsIHByZXZzdHIsCisJCQkJCWZpcnN0X2ZxaWQs
-IGxhc3RfZnFpZCk7CisJCX0KKworCQlpZiAocHJldiAmJiBhYnMoZnEtPmZxaWQgLSBwcmV2LT5m
-cWlkKSA9PSAxICYmCisJCSAgICBzdHIgPT0gcHJldnN0cikgeworCQkJbGFzdF9mcWlkID0gZnEt
-PmZxaWQ7CisJCX0gZWxzZSB7CisJCQlmaXJzdF9mcWlkID0gZnEtPmZxaWQ7CisJCQlsYXN0X2Zx
-aWQgPSBmcS0+ZnFpZDsKKwkJfQorCisJCXByZXYgPSBmcTsKKwkJcHJldnN0ciA9IHN0cjsKKwkJ
-aSsrOworCX0KKworCWlmIChwcmV2KSB7CisJCWlmIChsYXN0X2ZxaWQgPT0gZmlyc3RfZnFpZCkK
-KwkJCWJ5dGVzICs9IHNwcmludGYoYnVmICsgYnl0ZXMsICIlczogJWRcbiIsIHByZXZzdHIsCisJ
-CQkJCXByZXYtPmZxaWQpOworCQllbHNlCisJCQlieXRlcyArPSBzcHJpbnRmKGJ1ZiArIGJ5dGVz
-LCAiJXM6ICVkIC0gJWRcbiIsIHByZXZzdHIsCisJCQkJCWZpcnN0X2ZxaWQsIGxhc3RfZnFpZCk7
-CisJfQorCisJcmV0dXJuIGJ5dGVzOworfQorCitzdGF0aWMgc3NpemVfdCBkcGFhX2V0aF9zaG93
-X2JwaWRzKHN0cnVjdCBkZXZpY2UgKmRldiwKKwkJCQkgICBzdHJ1Y3QgZGV2aWNlX2F0dHJpYnV0
-ZSAqYXR0ciwgY2hhciAqYnVmKQoreworCXNzaXplX3QgYnl0ZXMgPSAwOworCXN0cnVjdCBkcGFf
-cHJpdl9zICpwcml2ID0gbmV0ZGV2X3ByaXYodG9fbmV0X2RldihkZXYpKTsKKwlzdHJ1Y3QgZHBh
-X2JwICpkcGFfYnAgPSBwcml2LT5kcGFfYnA7CisJaW50IGkgPSAwOworCisJZm9yIChpID0gMDsg
-aSA8IHByaXYtPmJwX2NvdW50OyBpKyspCisJCWJ5dGVzICs9IHNucHJpbnRmKGJ1ZiArIGJ5dGVz
-LCBQQUdFX1NJWkUgLSBieXRlcywgIiV1XG4iLAorCQkJCWRwYV9icFtpXS5icGlkKTsKKworCXJl
-dHVybiBieXRlczsKK30KKworc3RhdGljIHN0cnVjdCBkZXZpY2VfYXR0cmlidXRlIGRwYWFfZXRo
-X2F0dHJzW10gPSB7CisJX19BVFRSKGRldmljZV9hZGRyLCBTX0lSVUdPLCBkcGFhX2V0aF9zaG93
-X2FkZHIsIE5VTEwpLAorCV9fQVRUUihmcWlkcywgU19JUlVHTywgZHBhYV9ldGhfc2hvd19mcWlk
-cywgTlVMTCksCisJX19BVFRSKGJwaWRzLCBTX0lSVUdPLCBkcGFhX2V0aF9zaG93X2JwaWRzLCBO
-VUxMKSwKK307CisKK3ZvaWQgZHBhYV9ldGhfc3lzZnNfaW5pdChzdHJ1Y3QgZGV2aWNlICpkZXYp
-Cit7CisJaW50IGk7CisKKwlmb3IgKGkgPSAwOyBpIDwgQVJSQVlfU0laRShkcGFhX2V0aF9hdHRy
-cyk7IGkrKykKKwkJaWYgKGRldmljZV9jcmVhdGVfZmlsZShkZXYsICZkcGFhX2V0aF9hdHRyc1tp
-XSkpIHsKKwkJCWRldl9lcnIoZGV2LCAiRXJyb3IgY3JlYXRpbmcgc3lzZnMgZmlsZVxuIik7CisJ
-CQl3aGlsZSAoaSA+IDApCisJCQkJZGV2aWNlX3JlbW92ZV9maWxlKGRldiwgJmRwYWFfZXRoX2F0
-dHJzWy0taV0pOworCQkJcmV0dXJuOworCQl9Cit9CisKK3ZvaWQgZHBhYV9ldGhfc3lzZnNfcmVt
-b3ZlKHN0cnVjdCBkZXZpY2UgKmRldikKK3sKKwlpbnQgaTsKKworCWZvciAoaSA9IDA7IGkgPCBB
-UlJBWV9TSVpFKGRwYWFfZXRoX2F0dHJzKTsgaSsrKQorCQlkZXZpY2VfcmVtb3ZlX2ZpbGUoZGV2
-LCAmZHBhYV9ldGhfYXR0cnNbaV0pOworfQotLSAKMS43LjExLjcKCl9fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QK
-TGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xp
-c3RpbmZvL2xpbnV4cHBjLWRldg==
+Introduce managed counterparts for alloc_percpu() and free_percpu().
+Add devm_alloc_percpu() and devm_free_percpu() into the managed
+interfaces list.
+
+Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
+Tested-by: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+---
+ Documentation/driver-model/devres.txt |  4 +++
+ drivers/base/devres.c                 | 64 +++++++++++++++++++++++++++++++++++
+ include/linux/device.h                | 19 +++++++++++
+ 3 files changed, 87 insertions(+)
+
+diff --git a/Documentation/driver-model/devres.txt b/Documentation/driver-model/devres.txt
+index 831a536..595fd1b 100644
+--- a/Documentation/driver-model/devres.txt
++++ b/Documentation/driver-model/devres.txt
+@@ -312,6 +312,10 @@ MEM
+   devm_kvasprintf()
+   devm_kzalloc()
+ 
++PER-CPU MEM
++  devm_alloc_percpu()
++  devm_free_percpu()
++
+ PCI
+   pcim_enable_device()	: after success, all PCI ops become managed
+   pcim_pin_device()	: keep PCI device enabled after release
+diff --git a/drivers/base/devres.c b/drivers/base/devres.c
+index 8754646..6c314cc 100644
+--- a/drivers/base/devres.c
++++ b/drivers/base/devres.c
+@@ -10,6 +10,7 @@
+ #include <linux/device.h>
+ #include <linux/module.h>
+ #include <linux/slab.h>
++#include <linux/percpu.h>
+ 
+ #include "base.h"
+ 
+@@ -984,3 +985,66 @@ void devm_free_pages(struct device *dev, unsigned long addr)
+ 			       &devres));
+ }
+ EXPORT_SYMBOL_GPL(devm_free_pages);
++
++static void devm_percpu_release(struct device *dev, void *pdata)
++{
++	void __percpu *p;
++
++	p = *(void __percpu **)pdata;
++	free_percpu(p);
++}
++
++static int devm_percpu_match(struct device *dev, void *data, void *p)
++{
++	struct devres *devr = container_of(data, struct devres, data);
++
++	return *(void **)devr->data == p;
++}
++
++/**
++ * __devm_alloc_percpu - Resource-managed alloc_percpu
++ * @dev: Device to allocate per-cpu memory for
++ * @size: Size of per-cpu memory to allocate
++ * @align: Alignement of per-cpu memory to allocate
++ *
++ * Managed alloc_percpu. Per-cpu memory allocated with this function is
++ * automatically freed on driver detach.
++ *
++ * RETURNS:
++ * Pointer to allocated memory on success, NULL on failure.
++ */
++void __percpu *__devm_alloc_percpu(struct device *dev, size_t size,
++		size_t align)
++{
++	void *p;
++	void __percpu *pcpu;
++
++	pcpu = __alloc_percpu(size, align);
++	if (!pcpu)
++		return NULL;
++
++	p = devres_alloc(devm_percpu_release, sizeof(void *), GFP_KERNEL);
++	if (!p)
++		return NULL;
++
++	*(void __percpu **)p = pcpu;
++
++	devres_add(dev, p);
++
++	return pcpu;
++}
++EXPORT_SYMBOL_GPL(__devm_alloc_percpu);
++
++/**
++ * devm_free_percpu - Resource-managed free_percpu
++ * @dev: Device this memory belongs to
++ * @pdata: Per-cpu memory to free
++ *
++ * Free memory allocated with devm_alloc_percpu().
++ */
++void devm_free_percpu(struct device *dev, void __percpu *pdata)
++{
++	WARN_ON(devres_destroy(dev, devm_percpu_release, devm_percpu_match,
++			       (void *)pdata));
++}
++EXPORT_SYMBOL_GPL(devm_free_percpu);
+diff --git a/include/linux/device.h b/include/linux/device.h
+index 5d7bc63..b563cc5 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -673,6 +673,25 @@ void __iomem *devm_ioremap_resource(struct device *dev, struct resource *res);
+ int devm_add_action(struct device *dev, void (*action)(void *), void *data);
+ void devm_remove_action(struct device *dev, void (*action)(void *), void *data);
+ 
++/**
++ * devm_alloc_percpu - Resource-managed alloc_percpu
++ * @dev: Device to allocate per-cpu memory for
++ * @type: Type to allocate per-cpu memory for
++ *
++ * Managed alloc_percpu. Per-cpu memory allocated with this function is
++ * automatically freed on driver detach.
++ *
++ * RETURNS:
++ * Pointer to allocated memory on success, NULL on failure.
++ */
++#define devm_alloc_percpu(dev, type)      \
++	(typeof(type) __percpu *)__devm_alloc_percpu(dev, sizeof(type), \
++						     __alignof__(type))
++
++void __percpu *__devm_alloc_percpu(struct device *dev, size_t size,
++				   size_t align);
++void devm_free_percpu(struct device *dev, void __percpu *pdata);
++
+ struct device_dma_parameters {
+ 	/*
+ 	 * a low level driver may set these to teach IOMMU code about
+-- 
+1.7.11.7
