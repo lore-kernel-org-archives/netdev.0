@@ -1,67 +1,86 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH RFC net-next 2/2] tcp: Add Redundant Data Bundling (RDB)
-Date: Mon, 2 Nov 2015 09:37:54 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBC86F1@AcuExch.aculab.com>
-References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
- <1445633413-3532-3-git-send-email-bro.devel+kernel@gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
+Date: Mon, 2 Nov 2015 10:47:44 +0100
+Message-ID: <56373140.6040003@pengutronix.de>
+References: <1446419775-5215-1-git-send-email-marex@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	"Paolo Abeni" <pabeni@redhat.com>, Erik Kline <ek@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	"Florian Westphal" <fw@strlen.de>,
-	Daniel Lee <Longinus00@gmail.com>,
-	"Marcelo Ricardo Leitner" <mleitner@redhat.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"Willem de Bruijn" <willemb@google.com>,
-	=?utf-8?B?TGludXMgTMO8c3Npbmc=?= <linus.luessing@c0d3.blue>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
-	Andreas Petlund
-To: =?utf-8?B?J0JlbmRpayBSw7hubmluZyBPcHN0YWQn?= <bro.devel@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jonathan Corbet <corbet@lwn.net>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1445633413-3532-3-git-send-email-bro.devel+kernel@gmail.com>
-Content-Language: en-US
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="fBGBO6afFQ3iUwXoo9Ixo6EnwArN0fwr2"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Andrey Vostrikov <andrey.vostrikov@cogentembedded.com>
+To: Marek Vasut <marex@denx.de>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:48331 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751576AbbKBJsH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 04:48:07 -0500
+In-Reply-To: <1446419775-5215-1-git-send-email-marex@denx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQmVuZGlrIFLDuG5uaW5nIE9wc3RhZA0KPiBTZW50OiAyMyBPY3RvYmVyIDIwMTUgMjE6
-NTANCj4gUkRCIGlzIGEgbWVjaGFuaXNtIHRoYXQgZW5hYmxlcyBhIFRDUCBzZW5kZXIgdG8gYnVu
-ZGxlIHJlZHVuZGFudA0KPiAoYWxyZWFkeSBzZW50KSBkYXRhIHdpdGggVENQIHBhY2tldHMgY29u
-dGFpbmluZyBuZXcgZGF0YS4gQnkgYnVuZGxpbmcNCj4gKHJldHJhbnNtaXR0aW5nKSBhbHJlYWR5
-IHNlbnQgZGF0YSB3aXRoIGVhY2ggVENQIHBhY2tldCBjb250YWluaW5nIG5ldw0KPiBkYXRhLCB0
-aGUgY29ubmVjdGlvbiB3aWxsIGJlIG1vcmUgcmVzaXN0YW50IHRvIHNwb3JhZGljIHBhY2tldCBs
-b3NzDQo+IHdoaWNoIHJlZHVjZXMgdGhlIGFwcGxpY2F0aW9uIGxheWVyIGxhdGVuY3kgc2lnbmlm
-aWNhbnRseSBpbiBjb25nZXN0ZWQNCj4gc2NlbmFyaW9zLg0KDQpXaGF0IHNvcnQgb2YgdHJhZmZp
-YyBmbG93cyBkbyB5b3UgZXhwZWN0IHRoaXMgdG8gaGVscD8NCg0KQW4gc3NoIChvciBzaW1pbGFy
-KSBjb25uZWN0aW9uIHdpbGwgZ2V0IGFkZGl0aW9uYWwgZGF0YSB0byBzZW5kLA0KYnV0IHRoYXQg
-c29ydCBvZiBkYXRhIGZsb3cgbmVlZHMgTmFnbGUgaW4gb3JkZXIgdG8gcmVkdWNlIHRoZQ0KbnVt
-YmVyIG9mIHBhY2tldHMgc2VudC4NCk9UT0ggaXQgbWlnaHQgYmVuZWZpdCBmcm9tIGluY2x1ZGlu
-ZyB1bmFja2VkIGRhdGEgaWYgdGhlIE5hZ2xlDQp0aW1lciBleHBpcmVzLg0KQmVpbmcgYWJsZSB0
-byBzZXQgdGhlIE5hZ2xlIHRpbWVyIG9uIGEgcGVyLWNvbm5lY3Rpb24gYmFzaXMNCihvciBtYXli
-ZSB1c2luZyBzb21ldGhpbmcgYmFzZWQgb24gdGhlIFJUVCBpbnN0ZWFkIG9mIDIgc2VjcykNCm1p
-Z2h0IG1ha2UgcGFja2V0IGxvc3MgbGVzcyBwcm9ibGVtYXRpYy4NCg0KRGF0YSBmbG93cyB0aGF0
-IGFscmVhZHkgaGF2ZSBOYWdsZSBkaXNhYmxlZCAocHJvYmFibHkgYW55dGhpbmcgdGhhdA0KaXNu
-J3QgY29tbWFuZC1yZXNwb25zZSBhbmQgaXNuJ3QgdW5pZGlyZWN0aW9uYWwgYnVsayBkYXRhKSBh
-cmUNCmxpa2VseSB0byBnZW5lcmF0ZSBhIGxvdCBvZiBwYWNrZXRzIHdpdGhpbiB0aGUgUlRULg0K
-UmVzZW5kaW5nIHVuYWNrZWQgZGF0YSB3aWxsIGp1c3QgZWF0IGludG8gYXZhaWxhYmxlIG5ldHdv
-cmsgYmFuZHdpZHRoDQphbmQgY291bGQgZWFzaWx5IG1ha2UgYW55IGNvbmdlc3Rpb24gd29yc2Uu
-DQoNCkkgdGhpbmsgdGhhdCBtZWFucyB5b3Ugc2hvdWxkbid0IHJlc2VuZCBkYXRhIG1vcmUgdGhh
-biBvbmNlLCBhbmQvb3INCnNob3VsZCBtYWtlIHN1cmUgdGhhdCB0aGUgcmVzZW50IGRhdGEgaXNu
-J3QgYSBzaWduaWZpY2FudCBvdmVyaGVhZA0Kb24gdGhlIHBhY2tldCBiZWluZyBzZW50Lg0KDQoJ
-RGF2aWQNCg0KDQo=
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--fBGBO6afFQ3iUwXoo9Ixo6EnwArN0fwr2
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+On 11/02/2015 12:16 AM, Marek Vasut wrote:
+> The ARINC-429 is a technical standard, which describes, among others,
+> a data bus used by airplanes. The standard contains much more, since
+> it is based off the ISO/OSI model, but this patch implements just the
+> data bus protocol.
+>=20
+> This stack is derived from the SocketCAN implementation, already presen=
+t
+> in the kernel and thus behaves in a very similar fashion. Thus far, we
+> support sending RAW ARINC-429 datagrams, configuration of the RX and TX=
+
+> clock speed and filtering.
+>=20
+> The ARINC-429 datagram is four-byte long. The first byte is always the
+> LABEL, the function of remaining three bytes can vary, so we handle it
+> as an opaque PAYLOAD. The userspace tools can send these datagrams via
+> a standard socket.
+>=20
+> A LABEL-based filtering can be configured on each socket separately in
+> a way comparable to CAN -- user uses setsockopt() to push a list of
+> label,mask tuples into the kernel and the kernel will deliver a datagra=
+m
+> to the socket if (<received_label> & mask) =3D=3D (label & mask), other=
+wise
+> the datagram is not delivered.
+
+What's difference compared to CAN besides a different MTU? The CAN stack
+is already capable to handle CAN and CAN-FD frames. Would it make sense
+to integrate the ARINC-429 into the existing CAN stack?
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+
+--fBGBO6afFQ3iUwXoo9Ixo6EnwArN0fwr2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJWNzFDAAoJEP5prqPJtc/Hj2AH/1BpaylyKUffLIDhvWttYgtG
+GXR3ziX9n4QFZM5SDwQAMGNF7Y6FE6+bLUGUEZ8EbdI4Gk9gEm44AkJOnaSOfNSZ
+e8u11Auj14QaeV5+BzENGbJ5w1Va1VxrFXspGj4iiHl/TztbxjAf3AambrHgdTFE
+nERJ7baW2ox6OU/HTv8/RsPkY4tF0E+xWhIthVa020xrXH6hPhl7urtVgpn7/Fmw
+FgIk5sMK59+y2FYupDXtgX+/NOH0pBS4ZVe2VO9E8u/W2ZsmQA5DTgE4smSClsNO
+xV3PgYzFUbld53U1vvuPw5LYWv9WZNNWrqkT2kd6yRb7Ywx4Ckbff9mPSSSPxm4=
+=itV1
+-----END PGP SIGNATURE-----
+
+--fBGBO6afFQ3iUwXoo9Ixo6EnwArN0fwr2--
