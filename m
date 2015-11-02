@@ -1,106 +1,93 @@
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
-Subject: RE: [PATCH] net: phy: fix a bug in get_phy_c45_ids
-Date: Mon, 2 Nov 2015 11:00:15 +0000
-Message-ID: <BLUPR03MB14758A73606C88602401C3BFE22C0@BLUPR03MB1475.namprd03.prod.outlook.com>
-References: <1446109777-14846-1-git-send-email-shh.xie@gmail.com>
- <20151101.121401.1787201985789532795.davem@davemloft.net>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Resource leak in unshare
+Date: Mon, 2 Nov 2015 12:05:09 +0100
+Message-ID: <CACT4Y+Y5mcBrnLOsXchJVrO_8FD-u=EFU67WsH3bU51aAU-idA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
-To: David Miller <davem@davemloft.net>,
-	"shh.xie@gmail.com" <shh.xie@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0140.outbound.protection.outlook.com ([65.55.169.140]:4640
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751834AbbKBLAR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 06:00:17 -0500
-In-Reply-To: <20151101.121401.1787201985789532795.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Kees Cook <keescook@google.com>,
+	Julien Tinnes <jln@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: David Miller <davem@davemloft.net>, nicolas.dichtel@6wind.com,
+	Al Viro <viro@zeniv.linux.org.uk>, Thomas Graf <tgraf@suug.ch>,
+	ebiederm@xmission.com, xiyou.wangcong@gmail.com,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, November 02, 2015 1:14 AM
-> To: shh.xie@gmail.com
-> Cc: netdev@vger.kernel.org; f.fainelli@gmail.com; Xie Shaohui-B21989
-> Subject: Re: [PATCH] net: phy: fix a bug in get_phy_c45_ids
-> 
-> From: <shh.xie@gmail.com>
-> Date: Thu, 29 Oct 2015 17:09:37 +0800
-> 
-> > From: Shaohui Xie <Shaohui.Xie@freescale.com>
-> >
-> > When probing devices-in-package for a c45 phy, device zero is the last
-> > device to probe, in a rare situation which driver can read a '0' from
-> > the device zero, thus c45_ids->devices_in_package is set to '0', so
-> > the loop condition of probing is matched, see codes below:
-> >
-> > for (i = 1;i < num_ids && c45_ids->devices_in_package == 0;i++)
-> >
-> > driver will run in a dead loop.
-> >
-> > So after probing the device zero, driver should stop the probing loop.
-> >
-> > Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
-> 
-> This bug only exists because the loop is extremely confusing.
-> 
-> Please fix this by restructuring the loop:
-> 
-> 1) Break out this code:
-> 
-> 		reg_addr = MII_ADDR_C45 | i << 16 | MDIO_DEVS2;
-> 		phy_reg = mdiobus_read(bus, addr, reg_addr);
-> 		if (phy_reg < 0)
-> 			return -EIO;
-> 		c45_ids->devices_in_package = (phy_reg & 0xffff) << 16;
-> 
-> 		reg_addr = MII_ADDR_C45 | i << 16 | MDIO_DEVS1;
-> 		phy_reg = mdiobus_read(bus, addr, reg_addr);
-> 		if (phy_reg < 0)
-> 			return -EIO;
-> 		c45_ids->devices_in_package |= (phy_reg & 0xffff);
-> 
->    into a helper function that takes "c45_ids, bus, addr, i" as arguments
->    and returns an error, either 0 or -EIO.  Call it
-> "phy_check_devs_in_pkg"
->    or similar.
-> 
-> 2) Rewrite the loop as:
-> 
-> 	for (i = 1;
-> 	     i < num_ids && c45_ids->devices_in_package == 0;
-> 	     i++) {
-> 		err = phy_check_devs_in_pkg(c45_ids, bus, addr, i);
-> 		if (err < 0)
-> 			return err;
-> 		if ((c45_ids->devices_in_package & 0x1fffffff) == 0x1fffffff)
-> {
-> 			if (i) {
-> 				/*  If mostly Fs, there is no device there,
-> 				 *  then let's continue to probe more, as some
-> 				 *  10G PHYs have zero Devices In package,
-> 				 *  e.g. Cortina CS4315/CS4340 PHY.
-> 				 */
-> 				err = phy_check_devs_in_pkg(c45_ids, bus, addr,
-> 0);
-> 				if (err)
-> 					return err;
-> 				break;
-> 			}
-> 		} else {
-> 				/* no device there, let's get out of here */
-> 				*phy_id = 0xffffffff;
-> 				return 0;
-> 			}
-> 		}
-> 	}
-I've addressed the above in V2.
+Hello,
 
-Thank you!
+I am hitting the following warnings on
+bcee19f424a0d8c26ecf2607b73c690802658b29 (4.3):
 
---Shaohui
+------------[ cut here ]------------
+WARNING: CPU: 3 PID: 16049 at fs/proc/generic.c:575
+remove_proc_entry+0x284/0x2f0()
+remove_proc_entry: removing non-empty directory 'net/dev_snmp6',
+leaking at least 'sit0'
+Modules linked in:
+CPU: 3 PID: 16049 Comm: syzkaller_execu Not tainted 4.3.0-rc2+ #21
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ 00000000ffffffff ffff88000c91fad8 ffffffff81a44e70 ffff88000c91fb48
+ ffff88006e39e800 ffffffff83098e40 ffff88000c91fb18 ffffffff810fa399
+ ffffffff815c4d14 ffffed0001923f65 ffffffff83098e40 000000000000023f
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff81a44e70>] dump_stack+0x68/0x88 lib/dump_stack.c:50
+ [<ffffffff810fa399>] warn_slowpath_common+0xd9/0x140 kernel/panic.c:447
+ [<ffffffff810fa4a9>] warn_slowpath_fmt+0xa9/0xd0 kernel/panic.c:459
+ [<ffffffff815c4d14>] remove_proc_entry+0x284/0x2f0 fs/proc/generic.c:573
+ [<ffffffff82aefc6a>] ipv6_proc_exit_net+0x6a/0xc0 net/ipv6/proc.c:328
+ [<ffffffff8272b87e>] ops_exit_list.isra.6+0xae/0x150
+net/core/net_namespace.c:134
+ [<ffffffff8272d390>] setup_net+0x2a0/0x4a0 net/core/net_namespace.c:301
+ [<ffffffff8272eb5e>] copy_net_ns+0xbe/0x1d0 net/core/net_namespace.c:367
+ [<ffffffff811577bf>] create_new_namespaces+0x2ff/0x620 kernel/nsproxy.c:95
+ [<ffffffff81157f0e>] unshare_nsproxy_namespaces+0xae/0x160 kernel/nsproxy.c:190
+ [<     inline     >] SYSC_unshare kernel/fork.c:2023
+ [<ffffffff810f943c>] SyS_unshare+0x37c/0x790 kernel/fork.c:1973
+ [<ffffffff82e3acd1>] entry_SYSCALL_64_fastpath+0x31/0x95
+arch/x86/entry/entry_64.S:187
+---[ end trace fd4be0a0d59bcf96 ]---
+
+------------[ cut here ]------------
+WARNING: CPU: 2 PID: 11469 at fs/proc/generic.c:575
+remove_proc_entry+0x284/0x2f0()
+remove_proc_entry: removing non-empty directory 'net/dev_snmp6',
+leaking at least 'lo'
+Modules linked in:
+CPU: 2 PID: 11469 Comm: syzkaller_execu Not tainted 4.3.0-rc2+ #21
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ 00000000ffffffff ffff88003ec3fad8 ffffffff81a44e70 ffff88003ec3fb48
+ ffff88003cdfa700 ffffffff83098e40 ffff88003ec3fb18 ffffffff810fa399
+ ffffffff815c4d14 ffffed0007d87f65 ffffffff83098e40 000000000000023f
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff81a44e70>] dump_stack+0x68/0x88 lib/dump_stack.c:50
+ [<ffffffff810fa399>] warn_slowpath_common+0xd9/0x140 kernel/panic.c:447
+ [<ffffffff810fa4a9>] warn_slowpath_fmt+0xa9/0xd0 kernel/panic.c:459
+ [<ffffffff815c4d14>] remove_proc_entry+0x284/0x2f0 fs/proc/generic.c:573
+ [<ffffffff82aefc6a>] ipv6_proc_exit_net+0x6a/0xc0 net/ipv6/proc.c:328
+ [<ffffffff8272b87e>] ops_exit_list.isra.6+0xae/0x150
+net/core/net_namespace.c:134
+ [<ffffffff8272d390>] setup_net+0x2a0/0x4a0 net/core/net_namespace.c:301
+ [<ffffffff8272eb5e>] copy_net_ns+0xbe/0x1d0 net/core/net_namespace.c:367
+ [<ffffffff811577bf>] create_new_namespaces+0x2ff/0x620 kernel/nsproxy.c:95
+ [<ffffffff81157f0e>] unshare_nsproxy_namespaces+0xae/0x160 kernel/nsproxy.c:190
+ [<     inline     >] SYSC_unshare kernel/fork.c:2023
+ [<ffffffff810f943c>] SyS_unshare+0x37c/0x790 kernel/fork.c:1973
+ [<ffffffff82e3acd1>] entry_SYSCALL_64_fastpath+0x31/0x95
+arch/x86/entry/entry_64.S:187
+---[ end trace 95bc097df8fd8f83 ]---
+
+
+The trigger seems to be unshare syscall happening in low memory
+conditions, so that error cleanup paths are triggered.
+
+Found with syzkaller syscall fuzzer.
