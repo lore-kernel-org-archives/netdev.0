@@ -1,73 +1,67 @@
 From: David Laight <David.Laight@ACULAB.COM>
 Subject: RE: [PATCH RFC net-next 2/2] tcp: Add Redundant Data Bundling (RDB)
-Date: Mon, 2 Nov 2015 09:18:20 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBC86C4@AcuExch.aculab.com>
+Date: Mon, 2 Nov 2015 09:37:54 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBC86F1@AcuExch.aculab.com>
 References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
- <C1235108-1DC2-408E-8CAC-65DBE628AB78@simula.no>
- <CAK6E8=fyY_kQ4ZpyC+q3fH-CFvwDt_=ro2Y7qB9bxgMCpkcC3g@mail.gmail.com>
- <3710572.sJUWpao1xp@bro-compal>
+ <1445633413-3532-3-git-send-email-bro.devel+kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=Windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andreas Petlund <apetlund@simula.no>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Eric Dumazet <edumazet@google.com>,
 	Neal Cardwell <ncardwell@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	"Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jonathan Corbet <corbet@lwn.net>,
-	Eric Dumazet <edumazet@google.com>,
-	"Tom Herbert" <tom@herbertland.com>,
-	Paolo Abeni <pabeni@redhat.com>, Erik Kline <ek@google.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	"Paolo Abeni" <pabeni@redhat.com>, Erik Kline <ek@google.com>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Al Viro <viro@zeniv.linux.org.uk>,
 	Jiri Pirko <jiri@resnulli.us>,
 	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
+	"Florian Westphal" <fw@strlen.de>,
 	Daniel Lee <Longinus00@gmail.com>,
-	Marcelo Ricardo Leitner <mleitner@redhat.com>,
-	"Daniel Borkmann" <daniel@iogearbox.net>,
-	Willem de Bruijn <willemb@google.com>,
-	=?Windows-1252?Q?Linus_L=FCssing?= <linus.luessing@c0d3.blue>,
-	"linux-
-To: "'bro.devel+kernel@gmail.com'" <bro.devel+kernel@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3710572.sJUWpao1xp@bro-compal>
+	"Marcelo Ricardo Leitner" <mleitner@redhat.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"Willem de Bruijn" <willemb@google.com>,
+	=?utf-8?B?TGludXMgTMO8c3Npbmc=?= <linus.luessing@c0d3.blue>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
+	Andreas Petlund
+To: =?utf-8?B?J0JlbmRpayBSw7hubmluZyBPcHN0YWQn?= <bro.devel@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jonathan Corbet <corbet@lwn.net>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1445633413-3532-3-git-send-email-bro.devel+kernel@gmail.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Bendik R=F8nning Opstad
-> Sent: 29 October 2015 22:54
-=2E..
-> > > > The semantics of the tp->nonagle bits are already a bit complex=
-=2E My
-> > > > sense is that having a setsockopt of TCP_RDB transparently modi=
-fy the
-> > > > nagle behavior is going to add more extra complexity and unanti=
-cipated
-> > > > behavior than is warranted given the slight possible gain in
-> > > > convenience to the app writer. What about a model where the
-> > > > application user just needs to remember to call
-> > > > setsockopt(TCP_NODELAY) if they want the TCP_RDB behavior to be
-> > > > sensible? I see your nice tests at
-> > > >
-> > > >   https://github.com/bendikro/packetdrill/commit/9916b6c53e33dd=
-04329d29b
-> > > >   7d8baf703b2c2ac1b> >
-> > > > are already doing that. And my sense is that likewise most
-> > > > well-engineered "thin stream" apps will already be using
-> > > > setsockopt(TCP_NODELAY). Is that workable?
->=20
-> This is definitely workable. I agree that it may not be an ideal solu=
-tion to
-> have TCP_RDB disable Nagle, however, it would be useful with a way to=
- easily
-> enable RDB and disable Nagle.
-
-If enabling RDB disables Nagle, then what happens when you turn RDB bac=
-k off?
-
-	David
+RnJvbTogQmVuZGlrIFLDuG5uaW5nIE9wc3RhZA0KPiBTZW50OiAyMyBPY3RvYmVyIDIwMTUgMjE6
+NTANCj4gUkRCIGlzIGEgbWVjaGFuaXNtIHRoYXQgZW5hYmxlcyBhIFRDUCBzZW5kZXIgdG8gYnVu
+ZGxlIHJlZHVuZGFudA0KPiAoYWxyZWFkeSBzZW50KSBkYXRhIHdpdGggVENQIHBhY2tldHMgY29u
+dGFpbmluZyBuZXcgZGF0YS4gQnkgYnVuZGxpbmcNCj4gKHJldHJhbnNtaXR0aW5nKSBhbHJlYWR5
+IHNlbnQgZGF0YSB3aXRoIGVhY2ggVENQIHBhY2tldCBjb250YWluaW5nIG5ldw0KPiBkYXRhLCB0
+aGUgY29ubmVjdGlvbiB3aWxsIGJlIG1vcmUgcmVzaXN0YW50IHRvIHNwb3JhZGljIHBhY2tldCBs
+b3NzDQo+IHdoaWNoIHJlZHVjZXMgdGhlIGFwcGxpY2F0aW9uIGxheWVyIGxhdGVuY3kgc2lnbmlm
+aWNhbnRseSBpbiBjb25nZXN0ZWQNCj4gc2NlbmFyaW9zLg0KDQpXaGF0IHNvcnQgb2YgdHJhZmZp
+YyBmbG93cyBkbyB5b3UgZXhwZWN0IHRoaXMgdG8gaGVscD8NCg0KQW4gc3NoIChvciBzaW1pbGFy
+KSBjb25uZWN0aW9uIHdpbGwgZ2V0IGFkZGl0aW9uYWwgZGF0YSB0byBzZW5kLA0KYnV0IHRoYXQg
+c29ydCBvZiBkYXRhIGZsb3cgbmVlZHMgTmFnbGUgaW4gb3JkZXIgdG8gcmVkdWNlIHRoZQ0KbnVt
+YmVyIG9mIHBhY2tldHMgc2VudC4NCk9UT0ggaXQgbWlnaHQgYmVuZWZpdCBmcm9tIGluY2x1ZGlu
+ZyB1bmFja2VkIGRhdGEgaWYgdGhlIE5hZ2xlDQp0aW1lciBleHBpcmVzLg0KQmVpbmcgYWJsZSB0
+byBzZXQgdGhlIE5hZ2xlIHRpbWVyIG9uIGEgcGVyLWNvbm5lY3Rpb24gYmFzaXMNCihvciBtYXli
+ZSB1c2luZyBzb21ldGhpbmcgYmFzZWQgb24gdGhlIFJUVCBpbnN0ZWFkIG9mIDIgc2VjcykNCm1p
+Z2h0IG1ha2UgcGFja2V0IGxvc3MgbGVzcyBwcm9ibGVtYXRpYy4NCg0KRGF0YSBmbG93cyB0aGF0
+IGFscmVhZHkgaGF2ZSBOYWdsZSBkaXNhYmxlZCAocHJvYmFibHkgYW55dGhpbmcgdGhhdA0KaXNu
+J3QgY29tbWFuZC1yZXNwb25zZSBhbmQgaXNuJ3QgdW5pZGlyZWN0aW9uYWwgYnVsayBkYXRhKSBh
+cmUNCmxpa2VseSB0byBnZW5lcmF0ZSBhIGxvdCBvZiBwYWNrZXRzIHdpdGhpbiB0aGUgUlRULg0K
+UmVzZW5kaW5nIHVuYWNrZWQgZGF0YSB3aWxsIGp1c3QgZWF0IGludG8gYXZhaWxhYmxlIG5ldHdv
+cmsgYmFuZHdpZHRoDQphbmQgY291bGQgZWFzaWx5IG1ha2UgYW55IGNvbmdlc3Rpb24gd29yc2Uu
+DQoNCkkgdGhpbmsgdGhhdCBtZWFucyB5b3Ugc2hvdWxkbid0IHJlc2VuZCBkYXRhIG1vcmUgdGhh
+biBvbmNlLCBhbmQvb3INCnNob3VsZCBtYWtlIHN1cmUgdGhhdCB0aGUgcmVzZW50IGRhdGEgaXNu
+J3QgYSBzaWduaWZpY2FudCBvdmVyaGVhZA0Kb24gdGhlIHBhY2tldCBiZWluZyBzZW50Lg0KDQoJ
+RGF2aWQNCg0KDQo=
