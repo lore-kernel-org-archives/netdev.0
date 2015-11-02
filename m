@@ -1,34 +1,53 @@
-From: Matthew Fernandez <matthew.fernandez@gmail.com>
-Subject: Re: [PATCH] bpf: fix trivial comment typo
-Date: Tue, 3 Nov 2015 08:48:15 +1100
-Message-ID: <5637DA1F.6060501@gmail.com>
-References: <5636B557.1030804@gmail.com>
- <20151102.163138.2054202316045092354.davem@davemloft.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [Patch net-next v2 2/4] net_sched: update hierarchical backlog too
+Date: Mon, 2 Nov 2015 13:50:40 -0800
+Message-ID: <CAHA+R7MogROyXLDhT7FrVLiLRhJueB0DmKGVDr49xDxcT2Q2KA@mail.gmail.com>
+References: <1446229351-13412-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1446229351-13412-3-git-send-email-xiyou.wangcong@gmail.com>
+	<1446233450.6254.29.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAHA+R7NkU3Bme5MbgFraOo=7SRYUF+F-6owyzFxfVidjc2AxMw@mail.gmail.com>
+	<1446499257.23275.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, trivial@kernel.org, ast@kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:36810 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750843AbbKBVsV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 16:48:21 -0500
-In-Reply-To: <20151102.163138.2054202316045092354.davem@davemloft.net>
+Received: from mail-yk0-f176.google.com ([209.85.160.176]:36552 "EHLO
+	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751711AbbKBVul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 16:50:41 -0500
+Received: by ykba4 with SMTP id a4so153583676ykb.3
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 13:50:40 -0800 (PST)
+In-Reply-To: <1446499257.23275.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/11/15 08:31, David Miller wrote:
-> From: Matthew Fernandez <matthew.fernandez@gmail.com>
-> Date: Mon, 2 Nov 2015 11:59:03 +1100
+On Mon, Nov 2, 2015 at 1:20 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >
->> bpf: fix trivial comment typo
->>
->> Signed-off-by: Matthew Fernandez <matthew.fernandez@gmail.com>
+> Well, before your changes, the qdisc_tree_decrease_qlen(sch, 0) would
+> have been useless, since qdisc_tree_decrease_qlen() does nothing in this
+> case [1]
 >
-> This doesn't apply to any tree.
+> But after your changes, we need to change the backlog, even if the qlen
+> does not change.
+>
+> Maybe I missed something, but your patch is not really obvious ;)
+>
 
-I'm sorry, I think I must be missing something. This seems to apply cleanly to the current tip of mainline 
-(e86328c489d7) to me. Was this not in the expected format? It wasn't my intention to waste your time, so I apologise for 
-any newbie errors.
+Oh, very good point... You actually mean in some cases we enqueue
+one packet and then drop one packet which ends up with dropping 0
+packet but the backlog size goes down by (drop_len - enqueue_len). :)
+
+Hmm, I need to double check for this case for sure, but for sfq case,
+I just did:
+
+-       qdisc_tree_decrease_qlen(sch, 1);
++       qdisc_tree_reduce_backlog(sch, 1, dropped);
+
+which isn't the case where n==0, like you mentioned.
+
+I am auditing that case for all the qdisc's anyway.
+
+Thanks.
