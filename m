@@ -1,42 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net,stable] qmi_wwan: fix entry for HP lt4112 LTE/HSPA+
- Gobi 4G Module
-Date: Mon, 02 Nov 2015 15:59:53 -0500 (EST)
-Message-ID: <20151102.155953.573501974172839058.davem@davemloft.net>
-References: <1446338090-16494-1-git-send-email-bjorn@mork.no>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next v4 3/8] dpaa_eth: add support for S/G frames
+Date: Mon, 02 Nov 2015 13:03:23 -0800
+Message-ID: <1446498203.24485.74.camel@perches.com>
+References: <1446485500-9782-1-git-send-email-madalin.bucur@freescale.com>
+	 <1446485500-9782-4-git-send-email-madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: bjorn-yOkvZcmFvRU@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1446338090-16494-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	scottwood@freescale.com, igal.liberman@freescale.com,
+	roy.pledge@freescale.com, ppc@mindchasers.com, pebolle@tiscali.nl,
+	joakim.tjernlund@transmode.se, gregkh@linuxfoundation.org
+To: madalin.bucur@freescale.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446485500-9782-4-git-send-email-madalin.bucur@freescale.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Date: Sun,  1 Nov 2015 01:34:50 +0100
+On Mon, 2015-11-02 at 19:31 +0200, Madalin Bucur wrote:
+> Add support for Scater/Gather (S/G) frames. The FMan can place
+> the frame content into multiple buffers and provide a S/G Table
+> (SGT) into one first buffer with references to the others.
 
-> The lt4112 is a HP branded Huawei me906e modem. Like other Huawei
-> modems, it does not have a fixed interface to function mapping.
-> Instead it uses a Huawei specific scheme: functions are mapped by
-> subclass and protocol.
->=20
-> However, the HP vendor ID is used for modems from many different
-> manufacturers using different schemes, so we cannot apply a generic
-> vendor rule like we do for the Huawei vendor ID.
->=20
-> Replace the previous lt4112 entry pointing to an arbitrary interface
-> number with a device specific subclass + protocol match.
->=20
-> Reported-and-tested-by: Muri Nicanor <muri+libqmi-8Y1gJgr9kN5yDzI6CaY1VQ@public.gmane.org>
-> Tested-by: Martin Hauke <mardnh-Mmb7MZpHnFY@public.gmane.org>
-> Fixes: bb2bdeb83fb1 ("qmi_wwan: Add support for HP lt4112 LTE/HSPA+ G=
-obi 4G Modem")
-> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+trivia:
 
-Applied and queued up for -stable, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+[]
+> @@ -347,7 +347,7 @@ static inline void clear_fd(struct qm_fd *fd)
+>  }
+>  
+>  static inline int _dpa_tx_fq_to_id(const struct dpa_priv_s *priv,
+> -				   struct qman_fq *tx_fq)
+> +		struct qman_fq *tx_fq)
+
+superfluous change?
+
+> +void dpa_release_sgt(struct qm_sg_entry *sgt)
+> +{
+> +	struct dpa_bp *dpa_bp;
+> +	struct bm_buffer bmb[DPA_BUFF_RELEASE_MAX];
+> +	u8 i = 0, j;
+
+Using int may be better than u8 for indexing
