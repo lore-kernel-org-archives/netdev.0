@@ -1,86 +1,39 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH v2 net-next] net: make skb_set_owner_w() more robust
-Date: Mon, 2 Nov 2015 20:05:12 +0000
-Message-ID: <BN1PR0301MB0770C038C9E0F34EBCCB605FCA2C0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-References: <BN1PR0301MB07705F68B22ED84061E37337CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-	 <1446249142.6254.47.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1446398459.6254.90.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151101.155859.1206189858863918018.davem@davemloft.net>
-	 <1446417380.6254.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1446418728.6254.101.camel@edumazet-glaptop2.roam.corp.google.com>
- <1446421015.6254.106.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next v4 3/8] dpaa_eth: add support for S/G frames
+Date: Mon, 02 Nov 2015 12:07:09 -0800
+Message-ID: <1446494829.24485.63.camel@perches.com>
+References: <1446485500-9782-1-git-send-email-madalin.bucur@freescale.com>
+	 <1446485500-9782-4-git-send-email-madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "edumazet@google.com" <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0128.outbound.protection.outlook.com ([65.55.169.128]:14615
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751217AbbKBUFQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Nov 2015 15:05:16 -0500
-In-Reply-To: <1446421015.6254.106.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	scottwood@freescale.com, igal.liberman@freescale.com,
+	roy.pledge@freescale.com, ppc@mindchasers.com, pebolle@tiscali.nl,
+	joakim.tjernlund@transmode.se, gregkh@linuxfoundation.org
+To: madalin.bucur@freescale.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446485500-9782-4-git-send-email-madalin.bucur@freescale.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogU3VuZGF5LCBOb3ZlbWJlciAx
-LCAyMDE1IDY6MzcgUE0NCj4gVG86IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4N
-Cj4gQ2M6IEhhaXlhbmcgWmhhbmcgPGhhaXlhbmd6QG1pY3Jvc29mdC5jb20+OyBlZHVtYXpldEBn
-b29nbGUuY29tOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBLWSBTcmluaXZhc2FuIDxreXNA
-bWljcm9zb2Z0LmNvbT4NCj4gU3ViamVjdDogW1BBVENIIHYyIG5ldC1uZXh0XSBuZXQ6IG1ha2Ug
-c2tiX3NldF9vd25lcl93KCkgbW9yZSByb2J1c3QNCj4gDQo+IEZyb206IEVyaWMgRHVtYXpldCA8
-ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4gDQo+IHNrYl9zZXRfb3duZXJfdygpIGlzIGNhbGxlZCBm
-cm9tIHZhcmlvdXMgcGxhY2VzIHRoYXQgYXNzdW1lDQo+IHNrYi0+c2sgYWx3YXlzIHBvaW50IHRv
-IGEgZnVsbCBibG93biBzb2NrZXQgKGFzIGl0IGNoYW5nZXMNCj4gc2stPnNrX3dtZW1fYWxsb2Mp
-DQo+IA0KPiBXZSdkIGxpa2UgdG8gYXR0YWNoIHNrYiB0byByZXF1ZXN0IHNvY2tldHMsIGFuZCBp
-biB0aGUgZnV0dXJlDQo+IHRvIHRpbWV3YWl0IHNvY2tldHMgYXMgd2VsbC4gRm9yIHRoZXNlIGtp
-bmQgb2YgcHNldWRvIHNvY2tldHMsDQo+IHdlIG5lZWQgdG8gdGFrZSBhIHRyYWRpdGlvbmFsIHJl
-ZmNvdW50IGFuZCB1c2Ugc29ja19lZGVtdXgoKQ0KPiBhcyB0aGUgZGVzdHJ1Y3Rvci4NCj4gDQo+
-IEl0IGlzIG5vdyB0aW1lIHRvIHVuLWlubGluZSBza2Jfc2V0X293bmVyX3coKSwgYmVpbmcgdG9v
-IGJpZy4NCj4gDQo+IEZpeGVzOiBjYTZmYjA2NTE4ODMgKCJ0Y3A6IGF0dGFjaCBTWU5BQ0sgbWVz
-c2FnZXMgdG8gcmVxdWVzdCBzb2NrZXRzDQo+IGluc3RlYWQgb2YgbGlzdGVuZXIiKQ0KPiBTaWdu
-ZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+IEJpc2VjdGVk
-LWJ5OiBIYWl5YW5nIFpoYW5nIDxoYWl5YW5nekBtaWNyb3NvZnQuY29tPg0KPiAtLS0NCj4gdjI6
-IHNvY2tfZWRlbXV4KCkgbXVzdCBiZSBndWFyZGVkIGJ5IENPTkZJR19JTkVUDQo+IA0KPiAgaW5j
-bHVkZS9uZXQvc29jay5oICAgIHwgICAxNyArKy0tLS0tLS0tLS0tLS0tLQ0KPiAgbmV0L2NvcmUv
-c29jay5jICAgICAgIHwgICAyMiArKysrKysrKysrKysrKysrKysrKysrDQo+ICBuZXQvaXB2NC90
-Y3Bfb3V0cHV0LmMgfCAgICA0ICstLS0NCj4gIDMgZmlsZXMgY2hhbmdlZCwgMjUgaW5zZXJ0aW9u
-cygrKSwgMTggZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvc29j
-ay5oIGIvaW5jbHVkZS9uZXQvc29jay5oDQo+IGluZGV4IGFlZWQ1Yzk1ZjNjYS4uZjU3MGU3NWUz
-ZGE5IDEwMDY0NA0KPiAtLS0gYS9pbmNsdWRlL25ldC9zb2NrLmgNCj4gKysrIGIvaW5jbHVkZS9u
-ZXQvc29jay5oDQo+IEBAIC0xOTUxLDYgKzE5NTEsOCBAQCBzdGF0aWMgaW5saW5lIHZvaWQgc2ti
-X3NldF9oYXNoX2Zyb21fc2soc3RydWN0DQo+IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHNvY2sgKnNr
-KQ0KPiAgCX0NCj4gIH0NCj4gDQo+ICt2b2lkIHNrYl9zZXRfb3duZXJfdyhzdHJ1Y3Qgc2tfYnVm
-ZiAqc2tiLCBzdHJ1Y3Qgc29jayAqc2spOw0KPiArDQo+ICAvKg0KPiAgICoJUXVldWUgYSByZWNl
-aXZlZCBkYXRhZ3JhbSBpZiBpdCB3aWxsIGZpdC4gU3RyZWFtIGFuZCBzZXF1ZW5jZWQNCj4gICAq
-CXByb3RvY29scyBjYW4ndCBub3JtYWxseSB1c2UgdGhpcyBhcyB0aGV5IG5lZWQgdG8gZml0IGJ1
-ZmZlcnMgaW4NCj4gQEAgLTE5NTksMjEgKzE5NjEsNiBAQCBzdGF0aWMgaW5saW5lIHZvaWQgc2ti
-X3NldF9oYXNoX2Zyb21fc2soc3RydWN0DQo+IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHNvY2sgKnNr
-KQ0KPiAgICoJSW5saW5lZCBhcyBpdCdzIHZlcnkgc2hvcnQgYW5kIGNhbGxlZCBmb3IgcHJldHR5
-IG11Y2ggZXZlcnkNCj4gICAqCXBhY2tldCBldmVyIHJlY2VpdmVkLg0KPiAgICovDQo+IC0NCj4g
-LXN0YXRpYyBpbmxpbmUgdm9pZCBza2Jfc2V0X293bmVyX3coc3RydWN0IHNrX2J1ZmYgKnNrYiwg
-c3RydWN0IHNvY2sgKnNrKQ0KPiAtew0KPiAtCXNrYl9vcnBoYW4oc2tiKTsNCj4gLQlza2ItPnNr
-ID0gc2s7DQo+IC0Jc2tiLT5kZXN0cnVjdG9yID0gc29ja193ZnJlZTsNCj4gLQlza2Jfc2V0X2hh
-c2hfZnJvbV9zayhza2IsIHNrKTsNCj4gLQkvKg0KPiAtCSAqIFdlIHVzZWQgdG8gdGFrZSBhIHJl
-ZmNvdW50IG9uIHNrLCBidXQgZm9sbG93aW5nIG9wZXJhdGlvbg0KPiAtCSAqIGlzIGVub3VnaCB0
-byBndWFyYW50ZWUgc2tfZnJlZSgpIHdvbnQgZnJlZSB0aGlzIHNvY2sgdW50aWwNCj4gLQkgKiBh
-bGwgaW4tZmxpZ2h0IHBhY2tldHMgYXJlIGNvbXBsZXRlZA0KPiAtCSAqLw0KPiAtCWF0b21pY19h
-ZGQoc2tiLT50cnVlc2l6ZSwgJnNrLT5za193bWVtX2FsbG9jKTsNCj4gLX0NCj4gLQ0KPiAgc3Rh
-dGljIGlubGluZSB2b2lkIHNrYl9zZXRfb3duZXJfcihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1
-Y3Qgc29jayAqc2spDQo+ICB7DQo+ICAJc2tiX29ycGhhbihza2IpOw0KPiBkaWZmIC0tZ2l0IGEv
-bmV0L2NvcmUvc29jay5jIGIvbmV0L2NvcmUvc29jay5jDQo+IGluZGV4IDBlZjMwYWE5MDEzMi4u
-NzUyOWViOTQ2M2JlIDEwMDY0NA0KPiAtLS0gYS9uZXQvY29yZS9zb2NrLmMNCj4gKysrIGIvbmV0
-L2NvcmUvc29jay5jDQo+IEBAIC0xNjU2LDYgKzE2NTYsMjggQEAgdm9pZCBzb2NrX3dmcmVlKHN0
-cnVjdCBza19idWZmICpza2IpDQo+ICB9DQo+ICBFWFBPUlRfU1lNQk9MKHNvY2tfd2ZyZWUpOw0K
-PiANCj4gK3ZvaWQgc2tiX3NldF9vd25lcl93KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBz
-b2NrICpzaykNCj4gK3sNCj4gKwlza2Jfb3JwaGFuKHNrYik7DQo+ICsJc2tiLT5zayA9IHNrOw0K
-PiArI2lmZGVmIENPTkZJR19JTkVUDQo+ICsJaWYgKHVubGlrZWx5KCFza19mdWxsc29jayhzaykp
-KSB7DQoNClRoYW5rcyBmb3IgdGhlIGZpeCENCkZvciBzb21lIGRyaXZlciwgbGlrZSBvdXJzLCB0
-aGlzIGNvbmRpdGlvbiBtYXkgbm90IGJlICJ1bmxpa2VseSIuDQpTbyBjb3VsZCB5b3UgcmVtb3Zl
-IHRoZSAidW5saWtlbHkiPw0KDQpUaGFua3MsDQotIEhhaXlhbmcNCg0KDQo=
+On Mon, 2015-11-02 at 19:31 +0200, Madalin Bucur wrote:
+> Add support for Scater/Gather (S/G) frames. The FMan can place
+> the frame content into multiple buffers and provide a S/G Table
+> (SGT) into one first buffer with references to the others.
+
+trivia: scatter
+
+> diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
+[]
+> @@ -1177,10 +1177,42 @@ void dpaa_eth_init_ports(struct mac_device *mac_dev,
+>  			      port_fqs->rx_defq, &buf_layout[RX]);
+>  }
+>  
+> +void dpa_release_sgt(struct qm_sg_entry *sgt)
+> +{
+> +	struct dpa_bp *dpa_bp;
+> +	struct bm_buffer bmb[DPA_BUFF_RELEASE_MAX];
+
+Where is "struct bm_buffer" defined?
