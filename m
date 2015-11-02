@@ -1,79 +1,149 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: kernel panic in 4.2.3, rb_erase in sch_fq
-Date: Mon, 02 Nov 2015 18:21:35 +0200
-Message-ID: <85bcbc58ac49545080497d66bddfacd6@visp.net.lb>
-References: <d66d455afe6dd28bed32ed3e17f797b7@visp.net.lb>
- <1446477897.23275.6.camel@edumazet-glaptop2.roam.corp.google.com>
- <bf7139bba27ed042a24daa128b475742@visp.net.lb>
- <1446480722.23275.14.camel@edumazet-glaptop2.roam.corp.google.com>
+From: <igal.liberman@freescale.com>
+Subject: [v7, 0/6] Freescale DPAA FMan
+Date: Mon, 2 Nov 2015 14:30:10 +0200
+Message-ID: <1446467416-15992-1-git-send-email-igal.liberman@freescale.com>
+Reply-To: <igal.liberman@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+	<scottwood@freescale.com>, <madalin.bucur@freescale.com>,
+	<pebolle@tiscali.nl>, <joakim.tjernlund@transmode.se>,
+	<ppc@mindchasers.com>, <stephen@networkplumber.org>,
+	<davem@davemloft.net>, Igal Liberman <igal.liberman@freescale.com>
+To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446480722.23275.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2015-11-02 18:12, Eric Dumazet wrote:
-> On Mon, 2015-11-02 at 17:58 +0200, Denys Fedoryshchenko wrote:
->> On 2015-11-02 17:24, Eric Dumazet wrote:
->> > On Mon, 2015-11-02 at 16:11 +0200, Denys Fedoryshchenko wrote:
->> >> Hi!
->> >>
->> >> Actually seems i was getting this panic for a while (once per week) on
->> >> loaded pppoe server, but just now was able to get full panic message.
->> >> After checking commit logs on sch_fq.c i didnt seen any fixes, so
->> >> probably upgrading to newer kernel wont help?
->> >
->> > I do not think we support sch_fq as a HTB leaf.
->> >
->> > If you want both HTB and sch_fq, you need to setup a bonding device.
->> >
->> > HTB on bond0
->> >
->> > sch_fq on the slaves
->> >
->> > Sure, the kernel should not crash, but HTB+sch_fq on same net device is
->> > certainly not something that will work anyway.
->> Strange, because except ppp, on static devices it works really very 
->> well
->> in such scheme. It is the only solution that can throttle incoming
->> bandwidth, when bandwidth is very overbooked - reliably, for my use
->> cases, such as 256k+ flows/2.5Gbps and several different classes of
->> traffic, so using DRR will end up in just not enough classes.
->> 
->> On latest kernels i had to patch tc to provide parameter for orphan 
->> mask
->> in fq, to increase number for flows for transit traffic.
->> None of other qdiscs able to solve this problem, incoming bandwidth
->> simply flowing 10-20% more than set, but fq is doing magic.
->> The only device that was working with similar efficiency for such 
->> cases
->> - proprietary PacketShaper, but is modifying tcp window size, and 
->> can't
->> be called transparent, and also has stability issues over 1Gbps.
-> 
-> Ah, I was thinking you needed more like 10Gb traffic ;)
-> 
-> with HTB on bonding, we can use MQ+FQ on the slaves in order to use 
-> many
-> cpus to serve local traffic.
-> 
-> But yes, if you use HTB+FQ for forwarding, I guess the bonding setup is
-> not really needed.
-Well, here country is very underdeveloped in matters of technology. 10G 
-interfaces appeared in some ISP only this year.
-On the ppp interfaces where crash happening - it is even less bandwidth. 
-Each user max 1-2Mbps(average usage 128kbps), 4.5k interfaces.
-But i have some more heavy setups there, around 9k pppoe users 
-terminated on single server, (means 9k interfaces), about 2Gbps traffic 
-passing thru.
-If i take non-FOSS solution, i will have to pay for software licenses 
-$100k+, which is unbearable for local ISP. fq is not critical in this 
-specific use case, i can use for ppp interfaces fifo or such, but i 
-guess better to report a but :)
+From: Igal Liberman <igal.liberman@freescale.com>
+
+The Freescale Data Path Acceleration Architecture (DPAA) is a set
+of hardware components on specific QorIQ multicore processors.
+This architecture provides the infrastructure to support
+simplified sharing of networking interfaces and accelerators
+by multiple CPU cores and the accelerators.
+
+One of the DPAA accelerators is the Frame Manager (FMan)
+which contains a series of hardware blocks: ports, Ethernet MACs,
+a multi user RAM (MURAM) and Storage Profile (SP).
+
+This patch set introduce the FMan drivers.
+Each driver configures and initializes the corresponding
+FMan hardware module (described above).
+The MAC driver offers support for three different
+types of MACs (eTSEC, TGEC, MEMAC).
+
+v6 --> v7:
+	- Addressed compilation issue on non-PPC targets
+	- Removed B4860 rev 1 support
+
+v5 --> v6:
+	- Addressed feedback from Scott:
+		- Moved kernel doc to source files
+		- Removed a series of configurable settings
+		- Miscellaneous code updates
+
+v4 --> v5:
+	- Addressed feedback from David Miller:
+		- Removed driver layering
+		- Reduce namespace pollution
+		- Reduce code complexity and size
+
+v3 --> v4:
+	- Remove device_initcall call in driver registration (redundant)
+	- Remove hot/cold labels
+	- Minor update in FMan Clock read from device-tree
+	- Update fixed-link support
+	- Addressed feedback from Stephen Hemminger
+		- Remove bogus blank line
+
+v2 --> v3:
+	- Addressed feedback from Scott:
+		- Remove typedefs
+		- Remove unnecessary memory barriers
+		- Remove unnecessary casting
+		- Remove KConfig options
+		- Remove early_params
+		- Remove Hungarian notation
+		- Remove __packed__  attribute and padding from structures
+		- Remove unlikely attribute (where it's not needed)
+		- Use proper error codes and remove unnecessary prints
+		- Use proper values for sleep routines
+		- Replace complex Macros with functions
+		- Improve device tree processing code
+		- Use symbolic defines
+		- Add time-out in busy-wait loops
+		- Removed exit code (loadable module support will be added later)
+	- Fixed "fixed-link" issue raised by Joakim Tjernlund
+
+v1 --> v2:
+	- Addressed feedback from Paul Bolle:
+		- General feedback of FMan Driver layer
+		- Remove Errata defines
+		- Aligned comments to Kernel Doc
+		- Remove Loadable Module support (not yet supported)
+		- Removed not needed KConfig dependencies
+	- Addressed feedback from Scott Wood
+		- Use Kernel ioread/iowrite services
+		- Squash FLIB source and header patches together
+
+This submission is based on the prior Freescale DPAA FMan V3,RFC submission.
+Several issues addresses in this submission:
+	- Reduced MAC layering and complexity
+	- Reduced code base
+	- T1024/T2080 10G best effort support
+
+Igal Liberman (6):
+  fsl/fman: Add FMan MURAM support
+  fsl/fman: Add FMan support
+  fsl/fman: Add FMan MAC support
+  fsl/fman: Add FMan SP support
+  fsl/fman: Add FMan Port Support
+  fsl/fman: Add FMan MAC driver
+
+ drivers/net/ethernet/freescale/Kconfig             |    1 +
+ drivers/net/ethernet/freescale/Makefile            |    2 +
+ drivers/net/ethernet/freescale/fman/Kconfig        |    8 +
+ drivers/net/ethernet/freescale/fman/Makefile       |    7 +
+ .../net/ethernet/freescale/fman/crc_mac_addr_ext.h |  314 +++
+ drivers/net/ethernet/freescale/fman/fman.c         | 2876 ++++++++++++++++++++
+ drivers/net/ethernet/freescale/fman/fman.h         |  325 +++
+ drivers/net/ethernet/freescale/fman/fman_dtsec.c   | 1609 +++++++++++
+ drivers/net/ethernet/freescale/fman/fman_dtsec.h   |   59 +
+ drivers/net/ethernet/freescale/fman/fman_mac.h     |  276 ++
+ drivers/net/ethernet/freescale/fman/fman_memac.c   | 1307 +++++++++
+ drivers/net/ethernet/freescale/fman/fman_memac.h   |   60 +
+ drivers/net/ethernet/freescale/fman/fman_muram.c   |  159 ++
+ drivers/net/ethernet/freescale/fman/fman_muram.h   |   51 +
+ drivers/net/ethernet/freescale/fman/fman_port.c    | 1779 ++++++++++++
+ drivers/net/ethernet/freescale/fman/fman_port.h    |  151 +
+ drivers/net/ethernet/freescale/fman/fman_sp.c      |  167 ++
+ drivers/net/ethernet/freescale/fman/fman_sp.h      |  103 +
+ drivers/net/ethernet/freescale/fman/fman_tgec.c    |  798 ++++++
+ drivers/net/ethernet/freescale/fman/fman_tgec.h    |   55 +
+ drivers/net/ethernet/freescale/fman/mac.c          |  980 +++++++
+ drivers/net/ethernet/freescale/fman/mac.h          |   97 +
+ 22 files changed, 11184 insertions(+)
+ create mode 100644 drivers/net/ethernet/freescale/fman/Kconfig
+ create mode 100644 drivers/net/ethernet/freescale/fman/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/fman/crc_mac_addr_ext.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_dtsec.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_dtsec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_mac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_memac.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_memac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_muram.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_muram.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_port.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_port.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_sp.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_sp.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_tgec.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_tgec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac.h
+
+-- 
+1.7.9.5
