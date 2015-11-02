@@ -1,121 +1,61 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next v4 2/8] dpaa_eth: add support for DPAA Ethernet
-Date: Mon, 02 Nov 2015 11:51:38 -0800
-Message-ID: <1446493898.24485.59.camel@perches.com>
-References: <1446485500-9782-1-git-send-email-madalin.bucur@freescale.com>
-	 <1446485500-9782-3-git-send-email-madalin.bucur@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Resource leak in unshare
+Date: Mon, 02 Nov 2015 11:54:12 -0800
+Message-ID: <1446494052.23275.25.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACT4Y+Y5mcBrnLOsXchJVrO_8FD-u=EFU67WsH3bU51aAU-idA@mail.gmail.com>
+	 <87oafcrzsa.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	scottwood@freescale.com, igal.liberman@freescale.com,
-	roy.pledge@freescale.com, ppc@mindchasers.com, pebolle@tiscali.nl,
-	joakim.tjernlund@transmode.se, gregkh@linuxfoundation.org
-To: madalin.bucur@freescale.com
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	David Miller <davem@davemloft.net>, nicolas.dichtel@6wind.com,
+	Al Viro <viro@zeniv.linux.org.uk>, Thomas Graf <tgraf@suug.ch>,
+	xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Kees Cook <keescook@google.com>,
+	Julien Tinnes <jln@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446485500-9782-3-git-send-email-madalin.bucur@freescale.com>
+In-Reply-To: <87oafcrzsa.fsf@x220.int.ebiederm.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-11-02 at 19:31 +0200, Madalin Bucur wrote:
-> This introduces the Freescale Data Path Acceleration Architecture
-> (DPAA) Ethernet driver (dpaa_eth) that builds upon the DPAA QMan,
-> BMan, PAMU and FMan drivers to deliver Ethernet connectivity on
-> the Freescale DPAA QorIQ platforms.
-[]
-> diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-[]
-> +static void _dpa_rx_error(struct net_device *net_dev,
-> +			  const struct dpa_priv_s *priv,
-> +			  struct dpa_percpu_priv_s *percpu_priv,
-> +			  const struct qm_fd *fd,
-> +			  u32 fqid)
-> +{
-> +	/* limit common, possibly innocuous Rx FIFO Overflow errors'
-> +	 * interference with zero-loss convergence benchmark results.
-> +	 */
-> +	if (likely(fd->status & FM_FD_ERR_PHYSICAL))
-> +		pr_warn_once("non-zero error counters in fman statistics (sysfs)\n");
-> +	else
-> +		if (net_ratelimit())
-> +			netif_err(priv, hw, net_dev, "Err FD status = 0x%08x\n",
-> +				  fd->status & FM_FD_STAT_RX_ERRORS);
+On Mon, 2015-11-02 at 13:01 -0600, Eric W. Biederman wrote:
+> Dmitry Vyukov <dvyukov@google.com> writes:
+> 
+> > Hello,
+> >
+> > I am hitting the following warnings on
+> > bcee19f424a0d8c26ecf2607b73c690802658b29 (4.3):
+> 
+> Do you have any trace of the earlier failures?
+> 
+> This appears to be something caused by an earlier failure (possibly
+> whatever fails to allocate memory).  Having network devices present
+> but being in the generic cleanup routines is wrong.
+> 
+> If there is no additional information can you please rerun with the
+> following change applied?  That should at least report which function is
+> failing, and give us a good clue where to start debugging this.
 
-It's a bit of a pity the logging message code is
-a mix of pr_<level>, dev_<level>, netdev_<level>
-and netif_<level>
+At first, I would say sit is leaking percpu memory
 
-Perhaps netif_<foo>_ratelimited macros should be added.
+Load sit module, then :
 
-Something like:
+while :
+do
+ip netns add foo
+ip netns del foo
+done
 
----
- include/linux/netdevice.h | 54 +++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 54 insertions(+)
+Will eat all memory eventually.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 210d11a..555471d 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -4025,6 +4025,60 @@ do {								\
- })
- #endif
- 
-+#define netif_level_ratelimited(level, priv, type, dev, fmt, args...)	\
-+do {									\
-+	if (netif_msg_##type(priv) && net_ratelimit())			\
-+		netdev_##level(dev, fmt, ##args);			\
-+} while (0)
-+
-+#define netif_emerg_ratelimited(priv, type, dev, fmt, args...)		\
-+	netif_level_ratelimited(emerg, priv, type, dev, fmt, ##args)
-+#define netif_alert_ratelimited(priv, type, dev, fmt, args...)		\
-+	netif_level_ratelimited(alert, priv, type, dev, fmt, ##args)
-+#define netif_crit_ratelimited(priv, type, dev, fmt, args...)		\
-+	netif_level_ratelimited(crit, priv, type, dev, fmt, ##args)
-+#define netif_err_ratelimited(priv, type, dev, fmt, args...)		\
-+	netif_level_ratelimited(err, priv, type, dev, fmt, ##args)
-+#define netif_warn_ratelimited(priv, type, dev, fmt, args...)		\
-+	netif_level_ratelimited(warn, priv, type, dev, fmt, ##args)
-+#define netif_notice_ratelimited(priv, type, dev, fmt, args...)		\
-+	netif_level_ratelimited(notice, priv, type, dev, fmt, ##args)
-+#define netif_info_ratelimited(priv, type, dev, fmt, args...)		\
-+	netif_level_ratelimited(info, priv, type, dev, fmt, ##args)
-+
-+#if defined(CONFIG_DYNAMIC_DEBUG)
-+/* descriptor check is first to prevent flooding with "callbacks suppressed" */
-+#define netif_dbg_ratelimited(priv, type, dev, fmt, args...)		\
-+do {									\
-+	DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, fmt);			\
-+	if (unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT) &&	\
-+	    netif_msg_##type(priv) && net_ratelimit())			\
-+		__dynamic_netdev_dbg(&descriptor, dev, fmt, ##args);	\
-+} while (0)
-+#elif defined(DEBUG)
-+#define netif_dbg_ratelimited(priv, type, dev, fmt, args...)		\
-+do {									\
-+	if (netif_msg_##type(priv) && net_ratelimit())			\
-+		netif_printk(priv, type, KERN_DEBUG, dev, fmt, ##args);	\
-+} while (0)
-+#else
-+#define netif_dbg_ratelimited(priv, type, dev, fmt, args...)		\
-+do {									\
-+	if (0)								\
-+		netif_printk(priv, type, KERN_DEBUG, dev, fmt, ##args);	\
-+} while (0)
-+#endif
-+
-+#if defined(VERBOSE_DEBUG)
-+#define netif_vdbg_ratelimited	netif_dbg_ratelimited
-+#else
-+#define netif_vdbg(priv, type, dev, fmt, args...)			\
-+do {									\
-+	if (0)								\
-+		netif_printk(priv, type, KERN_DEBUG, dev, fmt, ##args);	\
-+} while (0)
-+#endif
-+
- /*
-  *	The list of packet types we will receive (as opposed to discard)
-  *	and the routines to invoke.
+ipip6_tunnel_init() and ipip6_fb_tunnel_init() are _both_ called for the
+sit0 device, this looks very wrong.
