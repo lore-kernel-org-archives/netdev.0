@@ -1,48 +1,30 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect for
- sockets in accept(3)
-Date: Sun, 1 Nov 2015 16:59:23 -0800
-Message-ID: <CA+55aFwyFPdw3b=Cd+T7=iO+Dc4BkybMJnV+HT5AJRntUb=jhQ@mail.gmail.com>
-References: <1446122119.7476.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+55aFx_BQG4FzSuyL2KAz=c+R0cPv0ZpjboT_=yKjZNGmTUEg@mail.gmail.com>
-	<20151030210215.GI22011@ZenIV.linux.org.uk>
-	<CA+55aFyoA5sXQvFDavNa7cGkRevunmtPe8F8-_tZ9-826qfkgw@mail.gmail.com>
-	<CA+55aFy9fPmbSCJoQiCkjkaiU2HTM6p=o-pJgiV7asyVWBjAEg@mail.gmail.com>
-	<20151030223317.GK22011@ZenIV.linux.org.uk>
-	<CA+55aFwfFb=LXU77AbiPDHgWcpBwTBoJB4EMCZgTgX32cxMYWw@mail.gmail.com>
-	<20151031193449.GM22011@ZenIV.linux.org.uk>
-	<CA+55aFxeiVx4wMhWALfU3KYCqhsnr8T8M-dEZc3aAyzobWeRGQ@mail.gmail.com>
-	<20151031202929.GN22011@ZenIV.linux.org.uk>
-	<20151102002421.GP22011@ZenIV.linux.org.uk>
+From: Matthew Fernandez <matthew.fernandez@gmail.com>
+Subject: [PATCH] bpf: fix trivial comment typo
+Date: Mon, 2 Nov 2015 11:59:03 +1100
+Message-ID: <5636B557.1030804@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Network Development <netdev@vger.kernel.org>,
-	David Howells <dhowells@redhat.com>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20151102002421.GP22011@ZenIV.linux.org.uk>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: trivial@kernel.org, ast@kernel.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 1, 2015 at 4:24 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
->
-> This ought to be a bit cleaner.  Eric, could you test the variant below on your
-> setup?
+bpf: fix trivial comment typo
 
-I'd love to see the numbers, but at the same time I really can't say I
-love your patch.
+Signed-off-by: Matthew Fernandez <matthew.fernandez@gmail.com>
 
-I've merged my own two patches for now (not actually pushed out - I
-don't want to distract people from just testing 4.3 for a while),
-because I felt that those had a unreasonably high bang-for-the-buck
-(ie big speedups for something that still keeps the code very simple).
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 67c380c..996db5c 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -456,7 +456,7 @@ select_insn:
 
-I'm definitely open to improving this further, even go as far as your
-patch, but just looking at your version of __alloc_fd(), I just don't
-get the warm and fuzzies.
-
-                  Linus
+  		/* ARG1 at this point is guaranteed to point to CTX from
+  		 * the verifier side due to the fact that the tail call is
+-		 * handeled like a helper, that is, bpf_tail_call_proto,
++		 * handled like a helper, that is, bpf_tail_call_proto,
+  		 * where arg1_type is ARG_PTR_TO_CTX.
+  		 */
+  		insn = prog->insnsi;
