@@ -1,56 +1,67 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [GIT] Networking
-Date: Mon, 2 Nov 2015 13:30:28 -0800
-Message-ID: <CALCETrUxU_AVcQheeCXc0qTh=o2tmDbDct27QfTCb_+G6qc3gQ@mail.gmail.com>
-References: <20151027.233235.1641084823622810663.davem@davemloft.net>
- <CA+55aFx0o8e9J6ojHYjvOA5aRnKoW5j10fh76Ks1=VegPc4k6w@mail.gmail.com>
- <5637C8DF.800@kernel.org> <CA+55aFwxDSYSB=bBfCxLadgCmFiOzAi0T0JHLFLK5nkR6cm8tg@mail.gmail.com>
- <CA+55aFy6nC9tQFE_kRrF-YS9N7Jp18CnSxsLNcnAykNLyXQUtg@mail.gmail.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [BUG] Any-IP IPv6 support broken
+Date: Mon, 2 Nov 2015 13:30:55 -0800
+Message-ID: <CAHo-OoyFi7wZoYvO+i9JEe0yRY+s1Ps9qh9zK02TfEJLuWAmsA@mail.gmail.com>
+References: <0977189F-9778-4D1C-939D-FAD71595E5F6@gmail.com>
+	<1446132888.7476.153.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAHo-OowqDLe1d+bJEo9B_1AC41n+RM+5Kkq7NknA-CouWoeYAQ@mail.gmail.com>
+	<C98935CD-7723-4903-A4E2-DEB98DCC5912@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Andy Lutomirski <luto@kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFy6nC9tQFE_kRrF-YS9N7Jp18CnSxsLNcnAykNLyXQUtg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux NetDev <netdev@vger.kernel.org>
+To: Gilberto Bertin <gilberto.bertin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f46.google.com ([209.85.215.46]:32807 "EHLO
+	mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754411AbbKBVa5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 16:30:57 -0500
+Received: by lfbf136 with SMTP id f136so54051631lfb.0
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 13:30:55 -0800 (PST)
+In-Reply-To: <C98935CD-7723-4903-A4E2-DEB98DCC5912@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 2, 2015 at 1:19 PM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
-> On Mon, Nov 2, 2015 at 1:16 PM, Linus Torvalds
-> <torvalds@linux-foundation.org> wrote:
->> On Mon, Nov 2, 2015 at 12:34 PM, Andy Lutomirski <luto@kernel.org> wrote:
->>>
->>> Getting overflow checking right in more complicated cases is a PITA.
->>
->> No it is not. Not for unsigned values.
->
-> Just to clarify. The "oevrflow" test for unsigned subtracts  of "a-b"
-> (it's really an underflow, but whatever) really is just
->
->    (b > a)
->
-> Really. That's it. Claiming that that is "complicated" and needs a
-> helper function is not something sane people do. A fifth-grader that
-> isn't good at math can understand that.
->
-> In contrast, nobody sane understands "usub_overflow(a, b, &res)".
->
-> So really. Stop making inane arguments.
+> I would like to have a "bind-to-subnet" semantic with IPv6.
 
-I'll stop making inane arguments if you stop bashing arguments I
-didn't make. :)  I said the helpers were useful for multiplication (by
-which I meant both signed and unsigned) and, to a lesser extent, for
-signed addition and subtraction.
+Ah, this is something that I have reason to suspect may indeed be
+broken for IPv6.
+A coworker did some one-off testing on this a few months back, and
+didn't get it to trivially work.
+We didn't debug it, nor try to figure out what (if anything) was wrong.
 
-I don't believe I even tried to justify usub_overflow as anything
-other than an extremely minor optimization that probably isn't
-worthwhile.
+Specifically what we were trying to get is a replacement for the
+127.0.0.1/8 subnet on lo, ie. more than one IPv6 loopback IP.
 
---Andy, who still has inline asm that does 'cmovo' and such in his
-code for work, sigh.
+> This is currently working with IPv4, and the setup is the follow:
+>
+> - setup a dummy network device configured with any-IP
+> - add an any-IP route
+> - bind() on the dummy device
+
+I'm not entirely sure why you have a dummy device.
+Couldn't you use 'lo'?  How are you configuring this?
+Any-ip routing configuration explicitly uses iif which should never
+trigger here.
+
+> in this way we can effectively bind a process to a particular subnet
+> (by binding it to a dummy device which is receiving all the packets
+> from a particular subnet).
+
+How can a dummy device receive packets?
+
+> The point of using dummy devices is that we can configure multiple ones
+> (and so we can bind multiple processes to multiple subnets).
+
+Interesting, I had no idea something like this was possible.
+I'm not convinced this is even working as intended.
+
+Naively I'd expect dummy devices to never be the source of packets,
+and thus binding to a dummy device to cause a socket to not receive
+any traffic.  But obviously I must be wrong.
+
+> This is actually working with IPv4 (as I said I'm using a recent kernel,
+> 4.1), and the fact that you say it's not supposed to work leads me to
+> think that maybe we are not talking about the same feature.
+
+Yeah, certainly seems like it.
