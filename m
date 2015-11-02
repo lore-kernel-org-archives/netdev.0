@@ -1,63 +1,56 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Resource leak in unshare
-Date: Mon, 02 Nov 2015 13:01:41 -0600
-Message-ID: <87oafcrzsa.fsf@x220.int.ebiederm.org>
-References: <CACT4Y+Y5mcBrnLOsXchJVrO_8FD-u=EFU67WsH3bU51aAU-idA@mail.gmail.com>
+Subject: [PATCH net-next] mpls: Don't accept multipath configuration until the support is complete
+Date: Mon, 02 Nov 2015 13:29:17 -0600
+Message-ID: <87egg8ryia.fsf@x220.int.ebiederm.org>
+References: <1446133748-13738-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, nicolas.dichtel@6wind.com,
-	Al Viro <viro@zeniv.linux.org.uk>, Thomas Graf <tgraf@suug.ch>,
-	xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Kees Cook <keescook@google.com>,
-	Julien Tinnes <jln@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+Cc: rshearma@brocade.com, netdev@vger.kernel.org,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:42508 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751025AbbKBTLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 14:11:37 -0500
-In-Reply-To: <CACT4Y+Y5mcBrnLOsXchJVrO_8FD-u=EFU67WsH3bU51aAU-idA@mail.gmail.com>
-	(Dmitry Vyukov's message of "Mon, 2 Nov 2015 12:05:09 +0100")
+Received: from out03.mta.xmission.com ([166.70.13.233]:48105 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751495AbbKBThP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 14:37:15 -0500
+In-Reply-To: <1446133748-13738-1-git-send-email-roopa@cumulusnetworks.com>
+	(Roopa Prabhu's message of "Thu, 29 Oct 2015 08:49:08 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dmitry Vyukov <dvyukov@google.com> writes:
 
-> Hello,
->
-> I am hitting the following warnings on
-> bcee19f424a0d8c26ecf2607b73c690802658b29 (4.3):
+Currently the multipath code has a nasty failure mode in that it will
+fail to notice link down or administrative device down and will
+instead black hole packets instead of sending them to their nexthop
+destination.
 
-Do you have any trace of the earlier failures?
+Half the point of multipath is to gracefully handle forwarding path
+failures and as the current code does not handle forwarding failures the
+current code is dangerous to use.
 
-This appears to be something caused by an earlier failure (possibly
-whatever fails to allocate memory).  Having network devices present
-but being in the generic cleanup routines is wrong.
+As mpls multipath has never been exported to userspace and as the
+implementation was not complete before the merge window disable the mpls
+multipath code by rejecting all multipath configuration requests.  This
+will give us another kernel development cycle to cleanly sort out the
+issues, without any bad precedents to worry about.
 
-If there is no additional information can you please rerun with the
-following change applied?  That should at least report which function is
-failing, and give us a good clue where to start debugging this.
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ net/mpls/af_mpls.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Eric
-----
-
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 2c2eb1b629b1..125c94af22b8 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -292,6 +292,7 @@ out:
-        return error;
- 
- out_undo:
-+       WARN(1, "net ops->init %pF returned with %d\n", ops->init, error);
-        /* Walk through the list backwards calling the exit functions
-         * for the pernet modules whose init functions did not fail.
-         */
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index c70d750148b6..893cd2dc3979 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -1162,6 +1162,8 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
+ 		{
+ 			cfg->rc_mp = nla_data(nla);
+ 			cfg->rc_mp_len = nla_len(nla);
++			/* Fail until multipath support is complete */
++			goto errout;
+ 			break;
+ 		}
+ 		default:
+-- 
+2.2.1
