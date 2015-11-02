@@ -1,45 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net: avoid NULL deref in inet_ctl_sock_destroy()
-Date: Mon, 02 Nov 2015 07:50:07 -0800
-Message-ID: <1446479407.23275.12.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: kernel panic in 4.2.3, rb_erase in sch_fq
+Date: Mon, 02 Nov 2015 17:58:11 +0200
+Message-ID: <bf7139bba27ed042a24daa128b475742@visp.net.lb>
+References: <d66d455afe6dd28bed32ed3e17f797b7@visp.net.lb>
+ <1446477897.23275.6.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Dmitry Vyukov <dvyukov@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34561 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754024AbbKBPuJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 10:50:09 -0500
-Received: by padec8 with SMTP id ec8so43061709pad.1
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 07:50:08 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446477897.23275.6.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On 2015-11-02 17:24, Eric Dumazet wrote:
+> On Mon, 2015-11-02 at 16:11 +0200, Denys Fedoryshchenko wrote:
+>> Hi!
+>> 
+>> Actually seems i was getting this panic for a while (once per week) on
+>> loaded pppoe server, but just now was able to get full panic message.
+>> After checking commit logs on sch_fq.c i didnt seen any fixes, so
+>> probably upgrading to newer kernel wont help?
+> 
+> I do not think we support sch_fq as a HTB leaf.
+> 
+> If you want both HTB and sch_fq, you need to setup a bonding device.
+> 
+> HTB on bond0
+> 
+> sch_fq on the slaves
+> 
+> Sure, the kernel should not crash, but HTB+sch_fq on same net device is
+> certainly not something that will work anyway.
+Strange, because except ppp, on static devices it works really very well 
+in such scheme. It is the only solution that can throttle incoming 
+bandwidth, when bandwidth is very overbooked - reliably, for my use 
+cases, such as 256k+ flows/2.5Gbps and several different classes of 
+traffic, so using DRR will end up in just not enough classes.
 
-Under low memory conditions, tcp_sk_init() and icmp_sk_init()
-can both iterate on all possible cpus and call inet_ctl_sock_destroy(),
-with eventual NULL pointer.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
----
- include/net/inet_common.h |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/include/net/inet_common.h b/include/net/inet_common.h
-index 279f83591971..109e3ee9108c 100644
---- a/include/net/inet_common.h
-+++ b/include/net/inet_common.h
-@@ -41,7 +41,8 @@ int inet_recv_error(struct sock *sk, struct msghdr *msg, int len,
- 
- static inline void inet_ctl_sock_destroy(struct sock *sk)
- {
--	sock_release(sk->sk_socket);
-+	if (sk)
-+		sock_release(sk->sk_socket);
- }
- 
- #endif
+On latest kernels i had to patch tc to provide parameter for orphan mask 
+in fq, to increase number for flows for transit traffic.
+None of other qdiscs able to solve this problem, incoming bandwidth 
+simply flowing 10-20% more than set, but fq is doing magic.
+The only device that was working with similar efficiency for such cases 
+- proprietary PacketShaper, but is modifying tcp window size, and can't 
+be called transparent, and also has stability issues over 1Gbps.
