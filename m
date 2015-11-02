@@ -1,67 +1,107 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [BUG] Any-IP IPv6 support broken
-Date: Mon, 2 Nov 2015 13:30:55 -0800
-Message-ID: <CAHo-OoyFi7wZoYvO+i9JEe0yRY+s1Ps9qh9zK02TfEJLuWAmsA@mail.gmail.com>
-References: <0977189F-9778-4D1C-939D-FAD71595E5F6@gmail.com>
-	<1446132888.7476.153.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHo-OowqDLe1d+bJEo9B_1AC41n+RM+5Kkq7NknA-CouWoeYAQ@mail.gmail.com>
-	<C98935CD-7723-4903-A4E2-DEB98DCC5912@gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: net: lockdep warning in ip_mc_msfget (net/ipv4/igmp.c:2400)
+Date: Mon, 2 Nov 2015 13:31:13 -0800
+Message-ID: <CAHA+R7NsSCsLuAuYu9HNmAOvbRdi35U8zLwSmLv0Rq4T4sHKFw@mail.gmail.com>
+References: <56377FC9.90601@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux NetDev <netdev@vger.kernel.org>
-To: Gilberto Bertin <gilberto.bertin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f46.google.com ([209.85.215.46]:32807 "EHLO
-	mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754411AbbKBVa5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 16:30:57 -0500
-Received: by lfbf136 with SMTP id f136so54051631lfb.0
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 13:30:55 -0800 (PST)
-In-Reply-To: <C98935CD-7723-4903-A4E2-DEB98DCC5912@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>, syzkaller@googlegroups.com,
+	Dmitry Vyukov <dvyukov@google.com>, marcelo.leitner@gmail.com
+To: Sasha Levin <sasha.levin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56377FC9.90601@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I would like to have a "bind-to-subnet" semantic with IPv6.
-
-Ah, this is something that I have reason to suspect may indeed be
-broken for IPv6.
-A coworker did some one-off testing on this a few months back, and
-didn't get it to trivially work.
-We didn't debug it, nor try to figure out what (if anything) was wrong.
-
-Specifically what we were trying to get is a replacement for the
-127.0.0.1/8 subnet on lo, ie. more than one IPv6 loopback IP.
-
-> This is currently working with IPv4, and the setup is the follow:
+On Mon, Nov 2, 2015 at 7:22 AM, Sasha Levin <sasha.levin@oracle.com> wrote:
+> Hi all,
 >
-> - setup a dummy network device configured with any-IP
-> - add an any-IP route
-> - bind() on the dummy device
+> While fuzzing with syzkaller inside a KVM tools guest running the latest -next, I saw
+> the following warning:
+>
+> [ 2391.993558] ======================================================
+> [ 2391.995441] [ INFO: possible circular locking dependency detected ]
+> [ 2391.995771] 4.3.0-rc6-next-20151022-sasha-00042-g2b253a1-dirty #2618 Not tainted
+> [ 2391.995771] -------------------------------------------------------
+> [ 2391.995771] syzkaller_execu/14105 is trying to acquire lock:
+> [ 2391.995771] (rtnl_mutex){+.+.+.}, at: rtnl_lock (net/core/rtnetlink.c:71)
+> [ 2391.995771] Mutex: counter: 1 owner: None
+> [ 2391.995771]
+> [ 2391.995771] but task is already holding lock:
+> [ 2391.995771] (sk_lock-AF_INET){+.+.+.}, at: do_ip_getsockopt (net/ipv4/ip_sockglue.c:1274)
+> [ 2391.995771]
+> [ 2391.995771] which lock already depends on the new lock.
+> [ 2391.995771]
+> [ 2391.995771]
+> [ 2391.995771] the existing dependency chain (in reverse order) is:
+> [ 2391.995771] -> #1 (sk_lock-AF_INET){+.+.+.}:
+> [ 2391.995771] lock_acquire (kernel/locking/lockdep.c:3620)
+> [ 2391.995771] lock_sock_nested (include/linux/bottom_half.h:31 net/core/sock.c:2411)
+> [ 2391.995771] do_ip_setsockopt.isra.9 (net/ipv4/ip_sockglue.c:623)
+> [ 2391.995771] ip_setsockopt (net/ipv4/ip_sockglue.c:1202)
+> [ 2391.995771]        ffffffffffffff, 0x0)
+> [ 2391.995771] sock_common_setsockopt (net/core/sock.c:2610)
+> [ 2391.995771] SyS_setsockopt (net/socket.c:1756 net/socket.c:1736)
+> [ 2391.995771] entry_SYSCALL_64_fastpath (arch/x86/entry/entry_64.S:188)
+> [ 2391.995771] -> #0 (rtnl_mutex){+.+.+.}:
+> [ 2391.995771] __lock_acquire (kernel/locking/lockdep.c:1877 kernel/locking/lockdep.c:1982 kernel/locking/lockdep.c:2168 kernel/locking/lockdep.c:3239)
+> [ 2391.995771] lock_acquire (kernel/locking/lockdep.c:3620)
+> [ 2391.995771] mutex_lock_nested (kernel/locking/mutex.c:526 kernel/locking/mutex.c:618)
+> [ 2391.995771] rtnl_lock (net/core/rtnetlink.c:71)
+> [ 2391.995771] ip_mc_msfget (net/ipv4/igmp.c:2400)
+> [ 2391.995771] do_ip_getsockopt (net/ipv4/ip_sockglue.c:1401)
+> [ 2391.995771] ip_getsockopt (net/ipv4/ip_sockglue.c:1498)
+> [ 2391.995771] raw_getsockopt (net/ipv4/raw.c:851)
+> [ 2391.995771] sock_common_getsockopt (net/core/sock.c:2569)
+> [ 2391.995771] SyS_getsockopt (net/socket.c:1787 net/socket.c:1770)
+> [ 2391.995771] entry_SYSCALL_64_fastpath (arch/x86/entry/entry_64.S:188)
+> [ 2391.995771]
+> [ 2391.995771] other info that might help us debug this:
+> [ 2391.995771]
+> [ 2391.995771]  Possible unsafe locking scenario:
+> [ 2391.995771]
+> [ 2391.995771]        CPU0                    CPU1
+> [ 2391.995771]        ----                    ----
+> [ 2391.995771]   lock(sk_lock-AF_INET);
+> [ 2391.995771]                                lock(rtnl_mutex);
+> [ 2391.995771]                                lock(sk_lock-AF_INET);
+> [ 2391.995771]   lock(rtnl_mutex);
+> [ 2391.995771]
+> [ 2391.995771]  *** DEADLOCK ***
+> [ 2391.995771]
+> [ 2391.995771] 1 lock held by syzkaller_execu/14105:
+> [ 2391.995771] #0: (sk_lock-AF_INET){+.+.+.}, at: do_ip_getsockopt (net/ipv4/ip_sockglue.c:1274)
+> [ 2391.995771]
+> [ 2391.995771] stack backtrace:
+> [ 2391.995771] CPU: 1 PID: 14105 Comm: syzkaller_execu Not tainted 4.3.0-rc6-next-20151022-sasha-00042-g2b253a1-dirty #2618
+> [ 2391.995771]  0000000000000001 00000000c179c8c9 ffff8800a403f550 ffffffffade32a2b
+> [ 2391.995771]  ffffffffbb7f5a50 ffffffffbb84a4a0 ffffffffbb7f5a50 ffff8800a403f5a0
+> [ 2391.995771]  ffffffffac43fca8 ffff8800a403f690 00000000a3e18000 ffff8800a3e18000
+> [ 2391.995771] Call Trace:
+> [ 2391.995771] dump_stack (lib/dump_stack.c:52)
+> [ 2391.995771] print_circular_bug (kernel/locking/lockdep.c:1250)
+> [ 2391.995771] __lock_acquire (kernel/locking/lockdep.c:1877 kernel/locking/lockdep.c:1982 kernel/locking/lockdep.c:2168 kernel/locking/lockdep.c:3239)
+> [ 2391.995771] lock_acquire (kernel/locking/lockdep.c:3620)
+> [ 2391.995771] mutex_lock_nested (kernel/locking/mutex.c:526 kernel/locking/mutex.c:618)
+> [ 2391.995771] rtnl_lock (net/core/rtnetlink.c:71)
+> [ 2391.995771] ip_mc_msfget (net/ipv4/igmp.c:2400)
+> [ 2391.995771] do_ip_getsockopt (net/ipv4/ip_sockglue.c:1401)
+> [ 2391.995771] ip_getsockopt (net/ipv4/ip_sockglue.c:1498)
+> [ 2391.995771] raw_getsockopt (net/ipv4/raw.c:851)
+> [ 2391.995771] sock_common_getsockopt (net/core/sock.c:2569)
+> [ 2391.995771] SyS_getsockopt (net/socket.c:1787 net/socket.c:1770)
+> [ 2391.995771] entry_SYSCALL_64_fastpath (arch/x86/entry/entry_64.S:188)
 
-I'm not entirely sure why you have a dummy device.
-Couldn't you use 'lo'?  How are you configuring this?
-Any-ip routing configuration explicitly uses iif which should never
-trigger here.
+Good catch!
 
-> in this way we can effectively bind a process to a particular subnet
-> (by binding it to a dummy device which is receiving all the packets
-> from a particular subnet).
+This is probably introduced by:
 
-How can a dummy device receive packets?
+commit baf606d9c9b12517e47e0d1370e8aa9f7323f210
+Author: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date:   Wed Mar 18 14:50:42 2015 -0300
 
-> The point of using dummy devices is that we can configure multiple ones
-> (and so we can bind multiple processes to multiple subnets).
+    ipv4,ipv6: grab rtnl before locking the socket
 
-Interesting, I had no idea something like this was possible.
-I'm not convinced this is even working as intended.
-
-Naively I'd expect dummy devices to never be the source of packets,
-and thus binding to a dummy device to cause a socket to not receive
-any traffic.  But obviously I must be wrong.
-
-> This is actually working with IPv4 (as I said I'm using a recent kernel,
-> 4.1), and the fact that you say it's not supposed to work leads me to
-> think that maybe we are not talking about the same feature.
-
-Yeah, certainly seems like it.
+I am thinking what is the right way to fix it...
