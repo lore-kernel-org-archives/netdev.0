@@ -1,119 +1,377 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211 2015-11-03
-Date: Tue, 03 Nov 2015 15:40:02 +0100
-Message-ID: <1446561602.29010.23.camel@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v3] mpls: support for dead routes
+Date: Tue,  3 Nov 2015 06:49:51 -0800
+Message-ID: <1446562191-22416-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: ebiederm@xmission.com, rshearma@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:56843 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751370AbbKCOkH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Nov 2015 09:40:07 -0500
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34862 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751504AbbKCOu0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 09:50:26 -0500
+Received: by pasz6 with SMTP id z6so20552395pas.2
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 06:50:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-After the travel I got a whole bunch of things in - I've sorted through
-and taken the fix-like things.
+Adds support for RTNH_F_DEAD and RTNH_F_LINKDOWN flags on mpls
+routes due to link events. Also adds code to ignore dead
+routes during route selection
 
-Note that this is in the mac80211 tree, but based on net-next, since I
-thought you might decide to pull this in before you send a pull request
-to Linus.
-However, the content is only things I'd also send after -rc1 (with the
-WMM stuff being a bit borderline, since it's fairly big, but it's a
-huge improvement with broken APs and we've had it in our Intel tree
-testing there for quite a while.)
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+Dave, I know you are only taking bug fixes currently. This patch
+is borderline a bug fix because Eric thinks it is critical for
+mpls multipath routes. I can sure resubmit it as a bug fix against net
+when it is time if you did prefer that. Thanks!
 
-Let me know if you run into any problems.
+RFC to v1:
+        Addressed a few comments from Eric and Robert:
+        - remove support for weighted nexthops
+        - Use rt_nhn_alive in the rt structure to keep count of alive
+        routes.
+        What i have not done is: sort nexthops on link events.
+        I am not comfortable recreating or sorting nexthops on
+        every carrier change. This leaves scope for optimizing in the future
 
-johannes
+v1 to v2:
+        Fix dead nexthop checks as suggested by dave
+
+v2 to v3:
+	Fix duplicated argument reported by kbuild test robot
 
 
 
-The following changes since commit e9829b9745b6e1683fd2a90842da498a2197299e:
+ net/mpls/af_mpls.c  | 189 ++++++++++++++++++++++++++++++++++++++++++++--------
+ net/mpls/internal.h |   3 +
+ 2 files changed, 165 insertions(+), 27 deletions(-)
 
-  Merge tag 'mac80211-next-for-davem-2015-10-21' of git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next (2015-10-22 07:28:41 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2015-11-03
-
-for you to fetch changes up to e4208427247ecc7306c8f71ab3c5c08e08cf9fda:
-
-  cfg80211: allow AID/listen interval changes for unassociated station (2015-11-03 11:20:29 +0100)
-
-----------------------------------------------------------------
-Another set of fixes:
- * remove a warning on a check that can trigger without any
-   errors having happened (Andrei)
- * correctly handle deauth request while in the process of
-   associating (Andrei)
- * fix TDLS HT operation (Arik)
- * allow changing AID/listen interval during client setup (Ayala)
- * be more forgiving with WMM parameters to get HT/VHT in case of
-   broken APs with bad WMM settings (Emmanuel, myself)
- * a number of other fixes (some in documentation)
-
-----------------------------------------------------------------
-Andrei Otcheretianski (2):
-      mac80211: Fix local deauth while associating
-      mac80211: Remove WARN_ON_ONCE in ieee80211_recalc_smps
-
-Arik Nemtsov (2):
-      mac80211: allow null chandef in tracing
-      mac80211: TDLS: add proper HT-oper IE
-
-Ayala Beker (1):
-      cfg80211: allow AID/listen interval changes for unassociated station
-
-Chaitanya T K (1):
-      mac80211: document sleep requirements for channel context ops
-
-Eliad Peller (3):
-      mac80211: use freezable workqueue for restart work
-      mac80211: call drv_stop only if driver is started
-      mac80211: don't reconfigure sched scan in case of wowlan
-
-Emmanuel Grumbach (1):
-      mac80211: fixup AIFSN instead of disabling WMM
-
-Janusz.Dziedzic@tieto.com (1):
-      mac80211: fix divide by zero when NOA update
-
-Johannes Berg (4):
-      cfg80211/mac80211: clarify RSSI CQM reporting requirements
-      mac80211: make enable_qos parameter to ieee80211_set_wmm_default()
-      mac80211: treat bad WMM parameters more gracefully
-      mac80211: further improve "no supported rates" warning
-
-Matthias Schiffer (1):
-      mac80211: fix crash on mesh local link ID generation with VIFs
-
-Ola Olsson (1):
-      nl80211: Fix potential memory leak from parse_acl_data
-
- include/net/cfg80211.h     |   4 ++
- include/net/mac80211.h     |  10 ++-
- net/mac80211/cfg.c         |   6 +-
- net/mac80211/driver-ops.c  |  46 ++++++++++++
- net/mac80211/driver-ops.h  |  42 ++++-------
- net/mac80211/ibss.c        |   4 +-
- net/mac80211/ieee80211_i.h |   6 +-
- net/mac80211/iface.c       |   8 ++-
- net/mac80211/main.c        |   2 +-
- net/mac80211/mesh.c        |   3 +-
- net/mac80211/mesh_plink.c  |   3 +
- net/mac80211/mlme.c        | 173 +++++++++++++++++++--------------------------
- net/mac80211/pm.c          |  11 +++
- net/mac80211/rate.c        |   2 +-
- net/mac80211/scan.c        |  12 ++--
- net/mac80211/tdls.c        |  13 +++-
- net/mac80211/trace.h       |  10 +--
- net/mac80211/util.c        |  94 ++++++++++++++----------
- net/wireless/nl80211.c     |  39 ++++++----
- 19 files changed, 277 insertions(+), 211 deletions(-)
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index c70d750..8054904 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -96,22 +96,15 @@ bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
+ }
+ EXPORT_SYMBOL_GPL(mpls_pkt_too_big);
+ 
+-static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
+-					     struct sk_buff *skb, bool bos)
++static u32 mpls_multipath_hash(struct mpls_route *rt,
++			       struct sk_buff *skb, bool bos)
+ {
+ 	struct mpls_entry_decoded dec;
+ 	struct mpls_shim_hdr *hdr;
+ 	bool eli_seen = false;
+ 	int label_index;
+-	int nh_index = 0;
+ 	u32 hash = 0;
+ 
+-	/* No need to look further into packet if there's only
+-	 * one path
+-	 */
+-	if (rt->rt_nhn == 1)
+-		goto out;
+-
+ 	for (label_index = 0; label_index < MAX_MP_SELECT_LABELS && !bos;
+ 	     label_index++) {
+ 		if (!pskb_may_pull(skb, sizeof(*hdr) * label_index))
+@@ -165,9 +158,37 @@ static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
+ 		}
+ 	}
+ 
+-	nh_index = hash % rt->rt_nhn;
++	return hash;
++}
++
++static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
++					     struct sk_buff *skb, bool bos)
++{
++	u32 hash = 0;
++	int nh_index;
++	int n = 0;
++
++	/* No need to look further into packet if there's only
++	 * one path
++	 */
++	if (rt->rt_nhn == 1)
++		goto out;
++
++	if (rt->rt_nhn_alive <= 0)
++		return NULL;
++
++	hash = mpls_multipath_hash(rt, skb, bos);
++	nh_index = hash % rt->rt_nhn_alive;
++	for_nexthops(rt) {
++		if (nh->nh_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
++			continue;
++		if (n == nh_index)
++			return nh;
++		n++;
++	} endfor_nexthops(rt);
++
+ out:
+-	return &rt->rt_nh[nh_index];
++	return &rt->rt_nh[0];
+ }
+ 
+ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+@@ -365,6 +386,7 @@ static struct mpls_route *mpls_rt_alloc(int num_nh, u8 max_alen)
+ 		     GFP_KERNEL);
+ 	if (rt) {
+ 		rt->rt_nhn = num_nh;
++		rt->rt_nhn_alive = num_nh;
+ 		rt->rt_max_alen = max_alen_aligned;
+ 	}
+ 
+@@ -536,6 +558,15 @@ static int mpls_nh_assign_dev(struct net *net, struct mpls_route *rt,
+ 
+ 	RCU_INIT_POINTER(nh->nh_dev, dev);
+ 
++	if (!netif_carrier_ok(dev))
++		nh->nh_flags |= RTNH_F_LINKDOWN;
++
++	if (!(dev->flags & IFF_UP))
++		nh->nh_flags |= RTNH_F_DEAD;
++
++	if (nh->nh_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
++		rt->rt_nhn_alive--;
++
+ 	return 0;
+ 
+ errout:
+@@ -577,7 +608,7 @@ errout:
+ }
+ 
+ static int mpls_nh_build(struct net *net, struct mpls_route *rt,
+-			 struct mpls_nh *nh, int oif,
++			 struct mpls_nh *nh, int oif, int hops,
+ 			 struct nlattr *via, struct nlattr *newdst)
+ {
+ 	int err = -ENOMEM;
+@@ -681,8 +712,8 @@ static int mpls_nh_build_multi(struct mpls_route_config *cfg,
+ 			goto errout;
+ 
+ 		err = mpls_nh_build(cfg->rc_nlinfo.nl_net, rt, nh,
+-				    rtnh->rtnh_ifindex, nla_via,
+-				    nla_newdst);
++				    rtnh->rtnh_ifindex, rtnh->rtnh_hops,
++				    nla_via, nla_newdst);
+ 		if (err)
+ 			goto errout;
+ 
+@@ -875,34 +906,100 @@ free:
+ 	return ERR_PTR(err);
+ }
+ 
+-static void mpls_ifdown(struct net_device *dev)
++static void mpls_ifdown(struct net_device *dev, int event)
+ {
+ 	struct mpls_route __rcu **platform_label;
+ 	struct net *net = dev_net(dev);
+-	struct mpls_dev *mdev;
+ 	unsigned index;
++	int dead;
+ 
+ 	platform_label = rtnl_dereference(net->mpls.platform_label);
+ 	for (index = 0; index < net->mpls.platform_labels; index++) {
+ 		struct mpls_route *rt = rtnl_dereference(platform_label[index]);
++
+ 		if (!rt)
+ 			continue;
++		dead = 0;
+ 		for_nexthops(rt) {
++			if ((event == NETDEV_DOWN &&
++			     (nh->nh_flags & RTNH_F_DEAD)) ||
++			     (event == NETDEV_CHANGE &&
++			     (nh->nh_flags & RTNH_F_LINKDOWN))) {
++				dead++;
++				continue;
++			}
++
+ 			if (rtnl_dereference(nh->nh_dev) != dev)
+ 				continue;
+-			nh->nh_dev = NULL;
++			switch (event) {
++			case NETDEV_DOWN:
++			case NETDEV_UNREGISTER:
++				nh->nh_flags |= RTNH_F_DEAD;
++				/* fall through */
++			case NETDEV_CHANGE:
++				nh->nh_flags |= RTNH_F_LINKDOWN;
++				rt->rt_nhn_alive--;
++				break;
++			}
++			if (event == NETDEV_UNREGISTER) {
++				nh->nh_dev = NULL;
++				dead = rt->rt_nhn;
++				break;
++			}
++			dead++;
+ 		} endfor_nexthops(rt);
++
++		if (dead == rt->rt_nhn) {
++			switch (event) {
++			case NETDEV_DOWN:
++			case NETDEV_UNREGISTER:
++				rt->rt_flags |= RTNH_F_DEAD;
++				/* fall through */
++			case NETDEV_CHANGE:
++				rt->rt_flags |= RTNH_F_LINKDOWN;
++				rt->rt_nhn_alive = 0;
++				break;
++			}
++		}
+ 	}
+ 
+-	mdev = mpls_dev_get(dev);
+-	if (!mdev)
+-		return;
++	return;
++}
++
++static void mpls_ifup(struct net_device *dev, unsigned int nh_flags)
++{
++	struct mpls_route __rcu **platform_label;
++	struct net *net = dev_net(dev);
++	unsigned index;
++	int alive;
++
++	platform_label = rtnl_dereference(net->mpls.platform_label);
++	for (index = 0; index < net->mpls.platform_labels; index++) {
++		struct mpls_route *rt = rtnl_dereference(platform_label[index]);
++
++		if (!rt)
++			continue;
++		alive = 0;
++		for_nexthops(rt) {
++			struct net_device *nh_dev =
++				rtnl_dereference(nh->nh_dev);
+ 
+-	mpls_dev_sysctl_unregister(mdev);
++			if (!(nh->nh_flags & nh_flags)) {
++				alive++;
++				continue;
++			}
++			if (nh_dev != dev)
++				continue;
++			alive++;
++			nh->nh_flags &= ~nh_flags;
++		} endfor_nexthops(rt);
+ 
+-	RCU_INIT_POINTER(dev->mpls_ptr, NULL);
++		if (alive > 0)
++			rt->rt_flags &= ~nh_flags;
++		rt->rt_nhn_alive = alive;
++	}
+ 
+-	kfree_rcu(mdev, rcu);
++	return;
+ }
+ 
+ static int mpls_dev_notify(struct notifier_block *this, unsigned long event,
+@@ -910,9 +1007,9 @@ static int mpls_dev_notify(struct notifier_block *this, unsigned long event,
+ {
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+ 	struct mpls_dev *mdev;
++	unsigned int flags;
+ 
+-	switch(event) {
+-	case NETDEV_REGISTER:
++	if (event == NETDEV_REGISTER) {
+ 		/* For now just support ethernet devices */
+ 		if ((dev->type == ARPHRD_ETHER) ||
+ 		    (dev->type == ARPHRD_LOOPBACK)) {
+@@ -920,10 +1017,39 @@ static int mpls_dev_notify(struct notifier_block *this, unsigned long event,
+ 			if (IS_ERR(mdev))
+ 				return notifier_from_errno(PTR_ERR(mdev));
+ 		}
+-		break;
++		return NOTIFY_OK;
++	}
+ 
++	mdev = mpls_dev_get(dev);
++	if (!mdev)
++		return NOTIFY_OK;
++
++	switch (event) {
++	case NETDEV_DOWN:
++		mpls_ifdown(dev, event);
++		break;
++	case NETDEV_UP:
++		flags = dev_get_flags(dev);
++		if (flags & (IFF_RUNNING | IFF_LOWER_UP))
++			mpls_ifup(dev, RTNH_F_DEAD | RTNH_F_LINKDOWN);
++		else
++			mpls_ifup(dev, RTNH_F_DEAD);
++		break;
++	case NETDEV_CHANGE:
++		flags = dev_get_flags(dev);
++		if (flags & (IFF_RUNNING | IFF_LOWER_UP))
++			mpls_ifup(dev, RTNH_F_DEAD | RTNH_F_LINKDOWN);
++		else
++			mpls_ifdown(dev, event);
++		break;
+ 	case NETDEV_UNREGISTER:
+-		mpls_ifdown(dev);
++		mpls_ifdown(dev, event);
++		mdev = mpls_dev_get(dev);
++		if (mdev) {
++			mpls_dev_sysctl_unregister(mdev);
++			RCU_INIT_POINTER(dev->mpls_ptr, NULL);
++			kfree_rcu(mdev, rcu);
++		}
+ 		break;
+ 	case NETDEV_CHANGENAME:
+ 		mdev = mpls_dev_get(dev);
+@@ -1237,6 +1363,10 @@ static int mpls_dump_route(struct sk_buff *skb, u32 portid, u32 seq, int event,
+ 		dev = rtnl_dereference(nh->nh_dev);
+ 		if (dev && nla_put_u32(skb, RTA_OIF, dev->ifindex))
+ 			goto nla_put_failure;
++		if (nh->nh_flags & RTNH_F_LINKDOWN)
++			rtm->rtm_flags |= RTNH_F_LINKDOWN;
++		if (nh->nh_flags & RTNH_F_DEAD)
++			rtm->rtm_flags |= RTNH_F_DEAD;
+ 	} else {
+ 		struct rtnexthop *rtnh;
+ 		struct nlattr *mp;
+@@ -1253,6 +1383,11 @@ static int mpls_dump_route(struct sk_buff *skb, u32 portid, u32 seq, int event,
+ 			dev = rtnl_dereference(nh->nh_dev);
+ 			if (dev)
+ 				rtnh->rtnh_ifindex = dev->ifindex;
++			if (nh->nh_flags & RTNH_F_LINKDOWN)
++				rtnh->rtnh_flags |= RTNH_F_LINKDOWN;
++			if (nh->nh_flags & RTNH_F_DEAD)
++				rtnh->rtnh_flags |= RTNH_F_DEAD;
++
+ 			if (nh->nh_labels && nla_put_labels(skb, RTA_NEWDST,
+ 							    nh->nh_labels,
+ 							    nh->nh_label))
+diff --git a/net/mpls/internal.h b/net/mpls/internal.h
+index bde52ce..4f9bf2b 100644
+--- a/net/mpls/internal.h
++++ b/net/mpls/internal.h
+@@ -41,6 +41,7 @@ enum mpls_payload_type {
+ 
+ struct mpls_nh { /* next hop label forwarding entry */
+ 	struct net_device __rcu *nh_dev;
++	unsigned int		nh_flags;
+ 	u32			nh_label[MAX_NEW_LABELS];
+ 	u8			nh_labels;
+ 	u8			nh_via_alen;
+@@ -70,10 +71,12 @@ struct mpls_nh { /* next hop label forwarding entry */
+  */
+ struct mpls_route { /* next hop label forwarding entry */
+ 	struct rcu_head		rt_rcu;
++	unsigned int		rt_flags;
+ 	u8			rt_protocol;
+ 	u8			rt_payload_type;
+ 	u8			rt_max_alen;
+ 	unsigned int		rt_nhn;
++	unsigned int		rt_nhn_alive;
+ 	struct mpls_nh		rt_nh[0];
+ };
+ 
+-- 
+1.9.1
