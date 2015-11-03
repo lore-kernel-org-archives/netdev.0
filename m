@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/core: fix for_each_netdev_feature
-Date: Tue, 03 Nov 2015 11:34:56 -0500 (EST)
-Message-ID: <20151103.113456.1360164920793289224.davem@davemloft.net>
-References: <1446519359-21400-1-git-send-email-jarod@redhat.com>
-	<1446563759-17713-1-git-send-email-jarod@redhat.com>
+Subject: Re: [PATCH net] net: dsa: mv88e6xxx: disable SA learning for DSA
+ and CPU ports
+Date: Tue, 03 Nov 2015 11:35:03 -0500 (EST)
+Message-ID: <20151103.113503.1422547127820558052.davem@davemloft.net>
+References: <1446565956-14893-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, edumazet@google.com,
-	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	jiri@resnulli.us, razor@blackwall.org, mkubecek@suse.cz,
-	alexander.duyck@gmail.com, geert@linux-m68k.org,
-	netdev@vger.kernel.org
-To: jarod@redhat.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446563759-17713-1-git-send-email-jarod@redhat.com>
+In-Reply-To: <1446565956-14893-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jarod Wilson <jarod@redhat.com>
-Date: Tue,  3 Nov 2015 10:15:59 -0500
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Tue,  3 Nov 2015 10:52:36 -0500
 
-> As pointed out by Nikolay and further explained by Geert, the initial
-> for_each_netdev_feature macro was broken, as feature would get set outside
-> of the block of code it was intended to run in, thus only ever working for
-> the first feature bit in the mask. While less pretty this way, this is
-> tested and confirmed functional with multiple feature bits set in
-> NETIF_F_UPPER_DISABLES.
- ...
-> Fixes: fd867d51f ("net/core: generic support for disabling netdev features down stack")
- ...
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> From: Andrew Lunn <andrew@lunn.ch>
+> 
+> Frames with DSA headers passing to/from the CPU were taking place in the
+> MAC learning on these ports, resulting in incorrect ATU entries. Disable
+> learning on these ports.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
 Applied.
