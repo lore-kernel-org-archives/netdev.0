@@ -1,47 +1,48 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT PULL] parisc architecture updates for v4.3
-Date: Tue, 3 Nov 2015 15:25:13 -0800
-Message-ID: <CA+55aFyENfhCBj4aaPRc2=82e=fjdg4wynCUCJc9Mbz1PwfCqA@mail.gmail.com>
-References: <20151025114934.GA11108@ls3530.box>
-	<CA+55aFyJyY1FE_1k6Ks-2j4nYr7cbde_KvZ=J3fMUFJG5Okijg@mail.gmail.com>
-	<56393D46.6060903@gmx.de>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute PATCH] Confirm success for each tc -batch command
+Date: Wed, 4 Nov 2015 00:35:52 +0100
+Message-ID: <20151103233552.GB26876@orbit.nwl.cc>
+References: <1446120596-10399-1-git-send-email-phil@nwl.cc>
+ <20151103124621.06e37725@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Parisc List <linux-parisc@vger.kernel.org>,
-	James Bottomley <James.Bottomley@hansenpartnership.com>,
-	John David Anglin <dave.anglin@bell.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Helge Deller <deller@gmx.de>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <56393D46.6060903@gmx.de>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Petr =?utf-8?B?UMOtc2HFmQ==?= <ppisar@redhat.com>
+To: Stephen Hemminger <shemming@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([176.31.251.142]:46650 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751941AbbKCXfz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Nov 2015 18:35:55 -0500
+Content-Disposition: inline
+In-Reply-To: <20151103124621.06e37725@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 3, 2015 at 3:03 PM, Helge Deller <deller@gmx.de> wrote:
->
-> Sadly it's nowhere clearly documented how big the L1 cacheline of parisc really is.
+On Tue, Nov 03, 2015 at 12:46:21PM -0800, Stephen Hemminger wrote:
+> On Thu, 29 Oct 2015 13:09:56 +0100
+> Phil Sutter <phil@nwl.cc> wrote:
+>=20
+> > If `tc -force -batch' is fed by a controlling program from a pipe,
+> > it's not possible to recognize when a command has been processes
+> > successfully.
+> >=20
+> > This patch adds an optional `-OK' option to the tc(8) tool, so `tc
+> > -force -OK -batch' will print "OK\n" to standard output on each
+> > successfully completed tc command.
+> >=20
+> > Signed-off-by: Petr P=C3=ADsa=C5=99 <ppisar@redhat.com>
+> > Signed-off-by: Phil Sutter <phil@nwl.cc>
+>=20
+> Why use batch mode if you are feeding it from a pipe?
+> This seems like unnecessary feature creep.
 
-Wow.
+This turned up when searching the list of iproute2 patches in RHEL6 for
+unpublished changes. It dates back to a feature request from 2012 by a
+customer who wanted to know when a command piped into tc was finished
+processing. Looking at the ticket again, it appears you rejected this
+patch in 2013 already. So I guess everything has been said but "sorry
+for the noise"!
 
-Particularly that "it might actually be 16 bytes" from the thread
-according to John David Anglin. I didn't expect anybody to really have
-that small a line size any more.
-
-> I was not very much concerned about any over-alignment, but about the
-> performance. Reducing L1_CACHE_BYTES gave a performance improvement
-> on parisc, most likely since we protect atomic accesses through our
-> atomic spinlocks anyway.
-
-Well, we do end up using L1_CACHE_BYTES to avoid false sharing in some
-places, where it's not so much about atomic accesses, as just trying
-to avoid having different CPU's step on each other when not needed. So
-it's not necessarily about atomic accesses per se.
-
-But if it's actually possible that the pa-risc L1 line size is really
-just 16 bytes, I guess that objection to the patch goes away. My
-automatic reaction was "that's not real, it's some odd workaround",
-but if it is actually real...
-
-                 Linus
+Cheers, Phil
