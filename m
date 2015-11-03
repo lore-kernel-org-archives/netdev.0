@@ -1,49 +1,44 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH net-next] net/core: ensure features get disabled on new
- lower devs
-Date: Tue, 03 Nov 2015 16:58:36 -0500
-Message-ID: <56392E0C.1030509@redhat.com>
-References: <1446519359-21400-1-git-send-email-jarod@redhat.com> <1446583017-19021-1-git-send-email-jarod@redhat.com> <20151103215310.GA7839@unicorn.suse.cz>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: HTB, HFSC, PIE, FIFO stuck on 2.4Gbit on default values
+Date: Tue, 03 Nov 2015 14:02:22 -0800
+Message-ID: <1446588142.23275.80.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <14bd7629199800f798c8ab932e0285d3@visp.net.lb>
+	 <1446577894.23275.71.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <907cb54c0a27beed12381247ba29bca5@visp.net.lb>
+	 <1446580156.23275.74.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <56392148.4090309@seti.kr.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	netdev@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151103215310.GA7839@unicorn.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>
+To: Andrew <nitr0@seti.kr.ua>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35372 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964790AbbKCWCY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 17:02:24 -0500
+Received: by pasz6 with SMTP id z6so30465979pas.2
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 14:02:23 -0800 (PST)
+In-Reply-To: <56392148.4090309@seti.kr.ua>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michal Kubecek wrote:
-> On Tue, Nov 03, 2015 at 03:36:57PM -0500, Jarod Wilson wrote:
->> With moving netdev_sync_lower_features() after the .ndo_set_features
->> calls, I neglected to verify that devices added *after* a flag had been
->> disabled on an upper device were properly added with that flag disabled as
->> well. This currently happens, because we exit __netdev_update_features()
->> when we see dev->features == features for the upper dev. We can retain the
->> optimization of leaving without calling .ndo_set_features with a bit of
->> tweaking and a goto here.
->
-> I haven't reviewed the patch yet (I'm going to take a look with fresher
-> mind in the morning) but if you are going to handle this in a generic
-> way, you may want to remove the LRO specific hacks added to
-> bond_enslave() and team_port_add() by commit fbe168ba91f7 ("net: generic
-> dev_disable_lro() stacked device handling").
+On Tue, 2015-11-03 at 23:04 +0200, Andrew wrote:
+> Hi.
+> 
+> This is common trouble due to hierarchical shapers realization (global 
+> tree lock on packet dequeuing - so when one CPU looks for parent class 
+> where tokens can be borrowed, other CPUs are waiting). It's mentioned 
+> even in academic publications :) You can read about it here: 
+> http://www.ijcset.com/docs/IJCSET13-04-04-113.pdf
+> 
+> I think that simple lock removing will greatly improve performance; and 
+> race conditions on packets dequeuing shouldn't hurt anything except 
+> shaping accuracy. Another solutions looks more complex.
 
-Yeah, that's on tap for a follow-up series. I wanted to get all this in 
-first and soaked before pulling those bits out. My current 
-haven't-yet-fully-investigated thinking is that dev_disable_lro() can go 
-away entirely, not just the hacks added to bond and team.
+Thanks Andrew, I am very well aware of qdisc spinlock contention.
 
--- 
-Jarod Wilson
-jarod@redhat.com
+And race conditions on packets dequeueing will _crash_ your host.
+Plainly.
+
+This is why I am advising using GRO in the first place.
