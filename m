@@ -1,72 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Resource leak in unshare
-Date: Mon, 02 Nov 2015 16:03:07 -0800
-Message-ID: <1446508987.23275.35.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+Y5mcBrnLOsXchJVrO_8FD-u=EFU67WsH3bU51aAU-idA@mail.gmail.com>
-	 <87oafcrzsa.fsf@x220.int.ebiederm.org>
-	 <1446494052.23275.25.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 3 Nov 2015 11:17:23 +1100
+Message-ID: <20151103111723.010c7ede@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	David Miller <davem@davemloft.net>, nicolas.dichtel@6wind.com,
-	Al Viro <viro@zeniv.linux.org.uk>, Thomas Graf <tgraf@suug.ch>,
-	xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Kees Cook <keescook@google.com>,
-	Julien Tinnes <jln@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ani Sinha <ani@arista.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446494052.23275.25.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-11-02 at 11:54 -0800, Eric Dumazet wrote:
-> On Mon, 2015-11-02 at 13:01 -0600, Eric W. Biederman wrote:
-> > Dmitry Vyukov <dvyukov@google.com> writes:
-> > 
-> > > Hello,
-> > >
-> > > I am hitting the following warnings on
-> > > bcee19f424a0d8c26ecf2607b73c690802658b29 (4.3):
-> > 
-> > Do you have any trace of the earlier failures?
-> > 
-> > This appears to be something caused by an earlier failure (possibly
-> > whatever fails to allocate memory).  Having network devices present
-> > but being in the generic cleanup routines is wrong.
-> > 
-> > If there is no additional information can you please rerun with the
-> > following change applied?  That should at least report which function is
-> > failing, and give us a good clue where to start debugging this.
-> 
-> At first, I would say sit is leaking percpu memory
-> 
-> Load sit module, then :
-> 
-> while :
-> do
-> ip netns add foo
-> ip netns del foo
-> done
-> 
-> Will eat all memory eventually.
-> 
-> ipip6_tunnel_init() and ipip6_fb_tunnel_init() are _both_ called for the
-> sit0 device, this looks very wrong.
-> 
-> 
+Hi all,
 
-This memleak might have been added in commit
-ebe084aafb7e93adf210e80043c9f69adf56820d
-("sit: Use ipip6_tunnel_init as the ndo_init function.")
+Today's linux-next merge of the net-next tree got a conflict in:
 
-I'll send a patch asap, if nothing more urgent preempts me today...
+  net/ipv4/ipmr.c
+
+between commit:
+
+  44f49dd8b5a6 ("ipmr: fix possible race resulting from improper usage of IP_INC_STATS_BH() in preemptible context.")
+
+from the net tree and commit:
+
+  758ccac8e741 ("ipv4: Only compute net once in ipmr_forward_finish")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc net/ipv4/ipmr.c
+index 8e8203d5c520,fc42525d8694..000000000000
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@@ -1682,8 -1683,8 +1683,8 @@@ static inline int ipmr_forward_finish(s
+  {
+  	struct ip_options *opt = &(IPCB(skb)->opt);
+  
+- 	IP_INC_STATS(dev_net(skb_dst(skb)->dev), IPSTATS_MIB_OUTFORWDATAGRAMS);
+- 	IP_ADD_STATS(dev_net(skb_dst(skb)->dev), IPSTATS_MIB_OUTOCTETS, skb->len);
+ -	IP_INC_STATS_BH(net, IPSTATS_MIB_OUTFORWDATAGRAMS);
+ -	IP_ADD_STATS_BH(net, IPSTATS_MIB_OUTOCTETS, skb->len);
+++	IP_INC_STATS(net, IPSTATS_MIB_OUTFORWDATAGRAMS);
+++	IP_ADD_STATS(net, IPSTATS_MIB_OUTOCTETS, skb->len);
+  
+  	if (unlikely(opt->optlen))
+  		ip_forward_options(skb);
+@@@ -1745,7 -1746,7 +1746,7 @@@ static void ipmr_queue_xmit(struct net 
+  		 * to blackhole.
+  		 */
+  
+- 		IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
+ -		IP_INC_STATS_BH(net, IPSTATS_MIB_FRAGFAILS);
+++		IP_INC_STATS(net, IPSTATS_MIB_FRAGFAILS);
+  		ip_rt_put(rt);
+  		goto out_free;
+  	}
