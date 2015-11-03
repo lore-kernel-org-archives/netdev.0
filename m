@@ -1,114 +1,29 @@
-From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-Subject: [PATCH v2 net-next 5/5] dp83640: Only wait for timestamps for packets with timestamping enabled.
-Date: Tue, 3 Nov 2015 09:34:08 +0100
-Message-ID: <1446539648-8355-6-git-send-email-stefan.sorensen@spectralink.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v2 net-next 0/5] dp83640 driver fixes
+Date: Tue, 3 Nov 2015 09:44:16 +0100
+Message-ID: <20151103084415.GB5245@netboy>
 References: <1446539648-8355-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <richardcochran@gmail.com>,
-	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Stefan =?iso-8859-1?Q?S=F8rensen?=
 	<stefan.sorensen@spectralink.com>
-To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0109.outbound.protection.outlook.com ([65.55.169.109]:27913
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752179AbbKCIky (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Nov 2015 03:40:54 -0500
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:36221 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752800AbbKCIoa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 03:44:30 -0500
+Received: by wmec75 with SMTP id c75so79999858wme.1
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 00:44:28 -0800 (PST)
+Content-Disposition: inline
 In-Reply-To: <1446539648-8355-1-git-send-email-stefan.sorensen@spectralink.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the packet timestamping function, check that the ptp version and
-protocol of the packet matches what we have configured the hardware to
-actually generate timestamps for, before looking/waiting for a timestam=
-p.
+On Tue, Nov 03, 2015 at 09:34:03AM +0100, Stefan S=F8rensen wrote:
+> This series fixes a number of minor bugs in the dp83640 driver.
 
-Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
----
- drivers/net/phy/dp83640.c | 25 +++++++++++++------------
- 1 file changed, 13 insertions(+), 12 deletions(-)
+=46or the series,
 
-diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index 39ac633..47b7117 100644
---- a/drivers/net/phy/dp83640.c
-+++ b/drivers/net/phy/dp83640.c
-@@ -37,8 +37,6 @@
-=20
- #define DP83640_PHY_ID	0x20005ce1
- #define PAGESEL		0x13
--#define LAYER4		0x02
--#define LAYER2		0x01
- #define MAX_RXTS	64
- #define N_EXT_TS	6
- #define N_PER_OUT	7
-@@ -1296,29 +1294,29 @@ static int dp83640_hwtstamp(struct phy_device *=
-phydev, struct ifreq *ifr)
- 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
- 		dp83640->hwts_rx_en =3D 1;
--		dp83640->layer =3D LAYER4;
--		dp83640->version =3D 1;
-+		dp83640->layer =3D PTP_CLASS_L4;
-+		dp83640->version =3D PTP_CLASS_V1;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
- 	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
- 		dp83640->hwts_rx_en =3D 1;
--		dp83640->layer =3D LAYER4;
--		dp83640->version =3D 2;
-+		dp83640->layer =3D PTP_CLASS_L4;
-+		dp83640->version =3D PTP_CLASS_V2;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
- 	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
- 		dp83640->hwts_rx_en =3D 1;
--		dp83640->layer =3D LAYER2;
--		dp83640->version =3D 2;
-+		dp83640->layer =3D PTP_CLASS_L2;
-+		dp83640->version =3D PTP_CLASS_V2;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
- 	case HWTSTAMP_FILTER_PTP_V2_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
- 		dp83640->hwts_rx_en =3D 1;
--		dp83640->layer =3D LAYER4|LAYER2;
--		dp83640->version =3D 2;
-+		dp83640->layer =3D PTP_CLASS_L4 | PTP_CLASS_L2;
-+		dp83640->version =3D PTP_CLASS_V2;
- 		break;
- 	default:
- 		return -ERANGE;
-@@ -1327,11 +1325,11 @@ static int dp83640_hwtstamp(struct phy_device *=
-phydev, struct ifreq *ifr)
- 	txcfg0 =3D (dp83640->version & TX_PTP_VER_MASK) << TX_PTP_VER_SHIFT;
- 	rxcfg0 =3D (dp83640->version & TX_PTP_VER_MASK) << TX_PTP_VER_SHIFT;
-=20
--	if (dp83640->layer & LAYER2) {
-+	if (dp83640->layer & PTP_CLASS_L2) {
- 		txcfg0 |=3D TX_L2_EN;
- 		rxcfg0 |=3D RX_L2_EN;
- 	}
--	if (dp83640->layer & LAYER4) {
-+	if (dp83640->layer & PTP_CLASS_L4) {
- 		txcfg0 |=3D TX_IPV6_EN | TX_IPV4_EN;
- 		rxcfg0 |=3D RX_IPV6_EN | RX_IPV4_EN;
- 	}
-@@ -1397,6 +1395,9 @@ static bool dp83640_rxtstamp(struct phy_device *p=
-hydev,
- 	if (!dp83640->hwts_rx_en)
- 		return false;
-=20
-+	if ((type & dp83640->version) =3D=3D 0 || (type & dp83640->layer) =3D=
-=3D 0)
-+		return false;
-+
- 	spin_lock_irqsave(&dp83640->rx_lock, flags);
- 	prune_rx_ts(dp83640);
- 	list_for_each_safe(this, next, &dp83640->rxts) {
---=20
-2.5.0
+Acked-by: Richard Cochran <richardcochran@gmail.com>
