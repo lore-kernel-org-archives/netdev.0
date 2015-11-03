@@ -1,66 +1,48 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH v2 net-next] net/core: generic support for disabling netdev
- features down stack
-Date: Tue, 03 Nov 2015 08:57:02 -0500
-Message-ID: <5638BD2E.8010508@redhat.com>
-References: <1446486818-26166-1-git-send-email-jarod@redhat.com> <1446519359-21400-1-git-send-email-jarod@redhat.com> <5638865D.2000804@cumulusnetworks.com> <CAMuHMdXrs2fkHw+DGgutM1y71Y=MTsxSqJ+J78e_Q7oZjaNesA@mail.gmail.com>
+From: Florian Weimer <fweimer@redhat.com>
+Subject: Re: [PATCH] glibc: Terminate process on invalid netlink response from
+ kernel [BZ #12926]
+Date: Tue, 3 Nov 2015 15:00:03 +0100
+Message-ID: <5638BDE3.2040608@redhat.com>
+References: <562A9391.1040806@redhat.com>
+ <1446558492.1880442.427793993.78B20B4F@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	Michal Kubecek <mkubecek@suse.cz>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdXrs2fkHw+DGgutM1y71Y=MTsxSqJ+J78e_Q7oZjaNesA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: Hannes Sowa <hannes@redhat.com>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	GNU C Library <libc-alpha@sourceware.org>,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38410 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751019AbbKCOAG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Nov 2015 09:00:06 -0500
+In-Reply-To: <1446558492.1880442.427793993.78B20B4F@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Geert Uytterhoeven wrote:
-> On Tue, Nov 3, 2015 at 11:03 AM, Nikolay Aleksandrov
-> <nikolay@cumulusnetworks.com>  wrote:
->> On 11/03/2015 03:55 AM, Jarod Wilson wrote:
->> [snip]
->>> +#define for_each_netdev_feature(mask_addr, feature)                          \
->>> +     int bit;                                                                \
->>> +     for_each_set_bit(bit, (unsigned long *)mask_addr, NETDEV_FEATURE_COUNT) \
->>> +             feature = __NETIF_F_BIT(bit);
->>> +
->> ^
->> This is broken, it will not work for more than a single feature.
->
-> Indeed it is.
->
-> This is used as:
->
->          for_each_netdev_feature(&upper_disables, feature) {
->          ...
->          }
->
-> which expands to:
->
->          int bit;
->          for_each_set_bit(bit, (unsigned long *)mask_addr, NETDEV_FEATURE_COUNT)
->                  feature = __NETIF_F_BIT(bit);
->          {
->                  ...
->          }
->
-> Note the assignment to "feature" happens outside the {}-delimited block.
-> And the block is always executed once.
+On 11/03/2015 02:48 PM, Hannes Frederic Sowa wrote:
+> Hello,
+> 
+> On Fri, Oct 23, 2015, at 21:07, Florian Weimer wrote:
+>> (By the way, we'd also love to have a better kernel interface to fulfill
+>> the needs for getaddrinfo address sorting.  The netlink requests we
+>> currently use are much too slow if the host has many addresses
+>> configured.)
+> 
+> One solution would be to finish the IPv6 ioctl interface to list
+> addresses. The ioctl interface would need less memory allocations and is
+> a synchronous interface which would make it much more easier for glibc
+> to deal with. No timeouts and retries like with netlink are necessary.
 
-Bah, crap, I was still staring at the code not seeing it, thank you for 
-the detailed cluebat. I'll fix that up right now.
+The more fundamental question is whether we actually have to copy all
+the addresses to userspace.  In the end, it may be better to hand a list
+of destination addresses to the kernel and have it sort them according
+to some algorithm.  But for the algorithm proposed in RFC 6724 section
+6, this may be not worth the effort because there are so many
+configurable bits.
 
--- 
-Jarod Wilson
-jarod@redhat.com
+I still think most of the address sorting is bogus because it appears to
+make guarantees which can break after renumbering.
+
+Florian
