@@ -1,51 +1,262 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET is
- enabled
-Date: Tue, 3 Nov 2015 18:49:05 +0000
-Message-ID: <BN1PR0301MB07708CE383BA67E83C161370CA2B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-References: <20151103.103319.1465681990237533576.davem@davemloft.net>
-	<1446568644.23275.65.camel@edumazet-glaptop2.roam.corp.google.com>
-	<BN1PR0301MB07704B4966A54DC679505962CA2B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
- <20151103.132015.944876907781932861.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next v2] mpls: support for dead routes
+Date: Tue, 03 Nov 2015 12:54:54 -0600
+Message-ID: <878u6erk01.fsf@x220.int.ebiederm.org>
+References: <1446527581-64787-1-git-send-email-roopa@cumulusnetworks.com>
+	<5638CDE4.2080501@brocade.com> <5638ED0D.5030301@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	KY Srinivasan <kys@microsoft.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: Robert Shearman <rshearma@brocade.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0142.outbound.protection.outlook.com ([65.55.169.142]:14127
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751593AbbKCStI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 13:49:08 -0500
-In-Reply-To: <20151103.132015.944876907781932861.davem@davemloft.net>
-Content-Language: en-US
+Received: from out01.mta.xmission.com ([166.70.13.231]:47074 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754303AbbKCTEE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 14:04:04 -0500
+In-Reply-To: <5638ED0D.5030301@cumulusnetworks.com>
+	(roopa@cumulusnetworks.com's message of "Tue, 03 Nov 2015 09:21:17
+	-0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+roopa <roopa@cumulusnetworks.com> writes:
 
+> On 11/3/15, 7:08 AM, Robert Shearman wrote:
+>> On 03/11/15 05:13, Roopa Prabhu wrote:
+>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>
+>>> Adds support for RTNH_F_DEAD and RTNH_F_LINKDOWN flags on mpls
+>>> routes due to link events. Also adds code to ignore dead
+>>> routes during route selection
+>>>
+>>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>> ---
+>>> RFC to v1:
+>>>          Addressed a few comments from Eric and Robert:
+>>>          - remove support for weighted nexthops
+>>>          - Use rt_nhn_alive in the rt structure to keep count of alive
+>>>          routes.
+>>>          What i have not done is: sort nexthops on link events.
+>>>          I am not comfortable recreating or sorting nexthops on
+>>>          every carrier change. This leaves scope for optimizing in the future
+>>>
+>>> v1 to v2:
+>>>     Fix dead nexthop checks as suggested by dave
+>>>
+>>>   net/mpls/af_mpls.c  | 191 ++++++++++++++++++++++++++++++++++++++++++++--------
+>>>   net/mpls/internal.h |   3 +
+>>>   2 files changed, 166 insertions(+), 28 deletions(-)
+>>>
+>>> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+>>> index c70d750..5e88118 100644
+>>> --- a/net/mpls/af_mpls.c
+>>> +++ b/net/mpls/af_mpls.c
+>>> @@ -96,22 +96,15 @@ bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
+>>>   }
+>>>   EXPORT_SYMBOL_GPL(mpls_pkt_too_big);
+>>>
+>>> -static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
+>>> -                         struct sk_buff *skb, bool bos)
+>>> +static u32 mpls_multipath_hash(struct mpls_route *rt,
+>>> +                   struct sk_buff *skb, bool bos)
+>>>   {
+>>>       struct mpls_entry_decoded dec;
+>>>       struct mpls_shim_hdr *hdr;
+>>>       bool eli_seen = false;
+>>>       int label_index;
+>>> -    int nh_index = 0;
+>>>       u32 hash = 0;
+>>>
+>>> -    /* No need to look further into packet if there's only
+>>> -     * one path
+>>> -     */
+>>> -    if (rt->rt_nhn == 1)
+>>> -        goto out;
+>>> -
+>>>       for (label_index = 0; label_index < MAX_MP_SELECT_LABELS && !bos;
+>>>            label_index++) {
+>>>           if (!pskb_may_pull(skb, sizeof(*hdr) * label_index))
+>>> @@ -165,9 +158,37 @@ static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
+>>>           }
+>>>       }
+>>>
+>>> -    nh_index = hash % rt->rt_nhn;
+>>> +    return hash;
+>>> +}
+>>> +
+>>> +static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
+>>> +                         struct sk_buff *skb, bool bos)
+>>> +{
+>>> +    u32 hash = 0;
+>>> +    int nh_index;
+>>> +    int n = 0;
+>>> +
+>>> +    /* No need to look further into packet if there's only
+>>> +     * one path
+>>> +     */
+>>> +    if (rt->rt_nhn == 1)
+>>> +        goto out;
+>>> +
+>>> +    if (rt->rt_nhn_alive <= 0)
+>>> +        return NULL;
+>>> +
+>>> +    hash = mpls_multipath_hash(rt, skb, bos);
+>>> +    nh_index = hash % rt->rt_nhn_alive;
+>>> +    for_nexthops(rt) {
+>>
+>> This should be optimised in the common rt->rt_nhn_alive == rt->rt_nhn case by doing the direct array index and avoid the nh walk.
+>
+> sure, that is an optimization.  i will add that.
+>>
+>>> +        if (nh->nh_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
+>>> +            continue;
+>>> +        if (n == nh_index)
+>>> +            return nh;
+>>> +        n++;
+>>> +    } endfor_nexthops(rt);
+>>> +
+>>>   out:
+>>> -    return &rt->rt_nh[nh_index];
+>>> +    return &rt->rt_nh[0];
+>>>   }
+>>>
+>>>   static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+>>> @@ -365,6 +386,7 @@ static struct mpls_route *mpls_rt_alloc(int num_nh, u8 max_alen)
+>>>                GFP_KERNEL);
+>>>       if (rt) {
+>>>           rt->rt_nhn = num_nh;
+>>> +        rt->rt_nhn_alive = num_nh;
+>>>           rt->rt_max_alen = max_alen_aligned;
+>>>       }
+>>>
+>>> @@ -536,6 +558,15 @@ static int mpls_nh_assign_dev(struct net *net, struct mpls_route *rt,
+>>>
+>>>       RCU_INIT_POINTER(nh->nh_dev, dev);
+>>>
+>>> +    if (!netif_carrier_ok(dev))
+>>> +        nh->nh_flags |= RTNH_F_LINKDOWN;
+>>> +
+>>> +    if (!(dev->flags & IFF_UP))
+>>> +        nh->nh_flags |= RTNH_F_DEAD;
+>>
+>> Below you're testing IFF_RUNNING | IFF_LOWER_UP. Is the difference intended here?
+> Not really. I can change it. This is during adding the route. I tried to keep the checks consistent with ipv4.
+>
+>>> +
+>>> +    if (nh->nh_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
+>>> +        rt->rt_nhn_alive--;
+>>
+>> You don't update your new rt->rt_flags field here. This highlights the issue with duplicating data, which you're doing with the rt_flags field.
+> I am not sure I understand completely. Would you prefer i loop and derive the rt_flags from nh_flags during dumps than storing them in rt_flags ?. Sure I can do that. I did not think it was such a big deal because, all routes (ipv4 and others) have rt_flags and all routes today carry RTNH_ flags and you have to send them to userspace in rtm_flags anyways.
+> I am just trying to keep the use and semantics of RTNH_F flags for mpls routes consistent with the other family routes.
+>
+>>
+>>> +
+>>>       return 0;
+>>>
+>>>   errout:
+>>> @@ -577,7 +608,7 @@ errout:
+>>>   }
+>>>
+>>>   static int mpls_nh_build(struct net *net, struct mpls_route *rt,
+>>> -             struct mpls_nh *nh, int oif,
+>>> +             struct mpls_nh *nh, int oif, int hops,
+>>
+>> This change isn't required.
+> ack, this is a leftover from my attempt to add weights. will remove it.
+>>
+>>>                struct nlattr *via, struct nlattr *newdst)
+>>>   {
+>>>       int err = -ENOMEM;
+>>> @@ -666,7 +697,7 @@ static int mpls_nh_build_multi(struct mpls_route_config *cfg,
+>>>           /* neither weighted multipath nor any flags
+>>>            * are supported
+>>>            */
+>>> -        if (rtnh->rtnh_hops || rtnh->rtnh_flags)
+>>> +        if (rtnh->rtnh_flags || rtnh->rtnh_flags)
+>>
+>> As the build bot has pointed out, this change is not entirely correct.
+> yes, this was fixed later.
+>>
+>>>               goto errout;
+>>>
+>>>           attrlen = rtnh_attrlen(rtnh);
+>>> @@ -681,8 +712,8 @@ static int mpls_nh_build_multi(struct mpls_route_config *cfg,
+>>>               goto errout;
+>>>
+>>>           err = mpls_nh_build(cfg->rc_nlinfo.nl_net, rt, nh,
+>>> -                    rtnh->rtnh_ifindex, nla_via,
+>>> -                    nla_newdst);
+>>> +                    rtnh->rtnh_ifindex, rtnh->rtnh_hops,
+>>> +                    nla_via, nla_newdst);
+>>
+>> This change isn't required.
+> yep, ack. same here left over from weights. will remove it.
+>
+>>
+>>>           if (err)
+>>>               goto errout;
+>>>
+>>> @@ -875,34 +906,100 @@ free:
+>>>       return ERR_PTR(err);
+>>>   }
+>>>
+>>> -static void mpls_ifdown(struct net_device *dev)
+>>> +static void mpls_ifdown(struct net_device *dev, int event)
+>>>   {
+>>>       struct mpls_route __rcu **platform_label;
+>>>       struct net *net = dev_net(dev);
+>>> -    struct mpls_dev *mdev;
+>>>       unsigned index;
+>>> +    int dead;
+>>>
+>>>       platform_label = rtnl_dereference(net->mpls.platform_label);
+>>>       for (index = 0; index < net->mpls.platform_labels; index++) {
+>>>           struct mpls_route *rt = rtnl_dereference(platform_label[index]);
+>>> +
+>>>           if (!rt)
+>>>               continue;
+>>> +        dead = 0;
+>>>           for_nexthops(rt) {
+>>> +            if ((event == NETDEV_DOWN &&
+>>> +                 (nh->nh_flags & RTNH_F_DEAD)) ||
+>>> +                 (event == NETDEV_CHANGE &&
+>>> +                 (nh->nh_flags & RTNH_F_LINKDOWN))) {
+>>> +                dead++;
+>>> +                continue;
+>>> +            }
+>>> +
+>>>               if (rtnl_dereference(nh->nh_dev) != dev)
+>>>                   continue;
+>>> -            nh->nh_dev = NULL;
+>>> +            switch (event) {
+>>> +            case NETDEV_DOWN:
+>>> +            case NETDEV_UNREGISTER:
+>>> +                nh->nh_flags |= RTNH_F_DEAD;
+>>> +                /* fall through */
+>>> +            case NETDEV_CHANGE:
+>>> +                nh->nh_flags |= RTNH_F_LINKDOWN;
+>>> +                rt->rt_nhn_alive--;
+>>
+>> Are these operations atomic on all architectures?
+>
+> I think so.
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, November 3, 2015 1:20 PM
-> To: Haiyang Zhang <haiyangz@microsoft.com>
-> Cc: eric.dumazet@gmail.com; KY Srinivasan <kys@microsoft.com>;
-> edumazet@google.com; netdev@vger.kernel.org
-> Subject: Re: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET
-> is enabled
-> 
-> From: Haiyang Zhang <haiyangz@microsoft.com>
-> Date: Tue, 3 Nov 2015 17:34:47 +0000
-> 
-> > But we still keep this busy return in our code, just for "weird corner cases".
-> 
-> The queue_stopped condition must be precise.
+Ugh.  I don't see how.
+A) You are doing read-modify-write. 
+B) You are modifying multiple fields.
 
-The only case we return NETDEV_TX_BUSY is when the outgoing ring buffer is full, 
-which almost never happens because we stop the xmit queue if ring is <10% available.
+So while the individual field writes may be atomic the changes certainly
+are not atomic.
 
-Thanks,
-- Haiyang
+>> Even if they are, I'm a bit worried about the RCU-correctness of this. I think the fallthrough case in mpls_select_multipath saves you, causing traffic to get via nh0 instead of the one selected by the hash (which is fine transiently).
+>>
+
+I share your concern.  In-place modification sounds good in principle
+for handling RCU, but there is a reason why the original version of
+RCU was called Read-Copy-Update.   Given that there are multiple fields
+that seem to depend upon each other I am not certain we can perform rcu
+safe modifications without creating a fresh copy of the route.
+
+Eric
