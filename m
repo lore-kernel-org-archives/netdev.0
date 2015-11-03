@@ -1,158 +1,39 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [next PATCH 11/11] ixgbe: Clean stale VLANs when changing port vlan
- or resetting
-Date: Mon, 02 Nov 2015 17:10:32 -0800
-Message-ID: <20151103011032.28233.6892.stgit@localhost.localdomain>
-References: <20151103005850.28233.63113.stgit@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Resource leak in unshare
+Date: Mon, 02 Nov 2015 17:16:44 -0800
+Message-ID: <1446513404.23275.48.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACT4Y+Y5mcBrnLOsXchJVrO_8FD-u=EFU67WsH3bU51aAU-idA@mail.gmail.com>
+	 <87oafcrzsa.fsf@x220.int.ebiederm.org>
+	 <1446494052.23275.25.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446508987.23275.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1446512899.23275.46.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33234 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754377AbbKCBKe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 20:10:34 -0500
-Received: by pabfh17 with SMTP id fh17so2131201pab.0
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 17:10:33 -0800 (PST)
-In-Reply-To: <20151103005850.28233.63113.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Dmitry Vyukov <dvyukov@google.com>, nicolas.dichtel@6wind.com,
+	Al Viro <viro@zeniv.linux.org.uk>, Thomas Graf <tgraf@suug.ch>,
+	xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Kees Cook <keescook@google.com>,
+	Julien Tinnes <jln@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446512899.23275.46.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch guarantees that the VFs do not have access to VLANs that they
-were not supposed to.  What this patch does is add code so that we delete
-the previous port VLAN after adding a new one, and if we reset the VF we
-clear all of the filters associated with it.
+On Mon, 2015-11-02 at 17:08 -0800, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 
-Previously the code was leaving all previous VLANs mapped to the VF and
-they didn't get deleted unless the VF specifically requested it or if the
-PF itself was reset.
+Erm, patch title would be :
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |   77 ++++++++++++++++++++++--
- 1 file changed, 72 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 03d4e5c9d71d..eeff3d075bf8 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -455,10 +455,6 @@ static int ixgbe_set_vf_vlan(struct ixgbe_adapter *adapter, int add, int vid,
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	int err;
- 
--	/* VLAN 0 is a special case, don't allow it to be removed */
--	if (!vid && !add)
--		return 0;
--
- 	/* If VLAN overlaps with one the PF is currently monitoring make
- 	 * sure that we are able to allocate a VLVF entry.  This may be
- 	 * redundant but it guarantees PF will maintain visibility to
-@@ -589,13 +585,75 @@ static void ixgbe_clear_vmvir(struct ixgbe_adapter *adapter, u32 vf)
- 
- 	IXGBE_WRITE_REG(hw, IXGBE_VMVIR(vf), 0);
- }
-+
-+static void ixgbe_clear_vf_vlans(struct ixgbe_adapter *adapter, u32 vf)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 i;
-+
-+	/* post increment loop, covers VLVF_ENTRIES - 1 to 0 */
-+	for (i = IXGBE_VLVF_ENTRIES; i--;) {
-+		u32 word = IXGBE_VLVFB(i * 2 + vf / 32);
-+		u32 bits[2], vlvfb, vid, vfta, vlvf;
-+		u32 mask = 1 << (vf / 32);
-+
-+		vlvfb = IXGBE_READ_REG(hw, word);
-+
-+		/* if our bit isn't set we can skip it */
-+		if (!(vlvfb & mask))
-+			continue;
-+
-+		/* clear our bit from vlvfb */
-+		vlvfb ^= mask;
-+
-+		/* create 64b mask to chedk to see if we should clear VLVF */
-+		bits[word % 2] = vlvfb;
-+		bits[(word % 2) ^ 1] = IXGBE_READ_REG(hw, word ^ 1);
-+
-+		/* if promisc is enabled, PF will be present, leave VFTA */
-+		if (adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC) {
-+			bits[VMDQ_P(0) / 32] &= ~(1 << (VMDQ_P(0) % 32));
-+
-+			if (bits[0] || bits[1])
-+				goto update_vlvfb;
-+			goto update_vlvf;
-+		}
-+
-+		/* if other pools are present, just remove ourselves */
-+		if (bits[0] || bits[1])
-+			goto update_vlvfb;
-+
-+		/* if we cannot determine VLAN just remove ourselves */
-+		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(i));
-+		if (!vlvf)
-+			goto update_vlvfb;
-+
-+		vid = vlvf & VLAN_VID_MASK;
-+		mask = 1 << (vid % 32);
-+
-+		/* clear bit from VFTA */
-+		vfta = IXGBE_READ_REG(hw, IXGBE_VFTA(vid / 32));
-+		if (vfta & mask)
-+			IXGBE_WRITE_REG(hw, IXGBE_VFTA(vid / 32), vfta ^ mask);
-+update_vlvf:
-+		/* clear POOL selection enable */
-+		IXGBE_WRITE_REG(hw, IXGBE_VLVF(i), 0);
-+update_vlvfb:
-+		/* clear pool bits */
-+		IXGBE_WRITE_REG(hw, IXGBE_VLVFB(word), vlvfb);
-+	}
-+}
-+
- static inline void ixgbe_vf_reset_event(struct ixgbe_adapter *adapter, u32 vf)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	struct vf_data_storage *vfinfo = &adapter->vfinfo[vf];
- 	u8 num_tcs = netdev_get_num_tc(adapter->netdev);
- 
--	/* add PF assigned VLAN or VLAN 0 */
-+	/* remove VLAN filters beloning to this VF */
-+	ixgbe_clear_vf_vlans(adapter, vf);
-+
-+	/* add back PF assigned VLAN or VLAN 0 */
- 	ixgbe_set_vf_vlan(adapter, true, vfinfo->pf_vlan, vf);
- 
- 	/* reset offloads to defaults */
-@@ -858,6 +916,10 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 		return -1;
- 	}
- 
-+	/* VLAN 0 is a special case, don't allow it to be removed */
-+	if (!vid && !add)
-+		return 0;
-+
- 	err = ixgbe_set_vf_vlan(adapter, add, vid, vf);
- 	if (err)
- 		return err;
-@@ -1251,6 +1313,9 @@ static int ixgbe_enable_port_vlan(struct ixgbe_adapter *adapter, int vf,
- 	if (err)
- 		goto out;
- 
-+	/* Revoke tagless access via VLAN 0 */
-+	ixgbe_set_vf_vlan(adapter, false, 0, vf);
-+
- 	ixgbe_set_vmvir(adapter, vlan, qos, vf);
- 	ixgbe_set_vmolr(hw, vf, false);
- 	if (adapter->vfinfo[vf].spoofchk_enabled)
-@@ -1284,6 +1349,8 @@ static int ixgbe_disable_port_vlan(struct ixgbe_adapter *adapter, int vf)
- 
- 	err = ixgbe_set_vf_vlan(adapter, false,
- 				adapter->vfinfo[vf].pf_vlan, vf);
-+	/* Restore tagless access via VLAN 0 */
-+	ixgbe_set_vf_vlan(adapter, true, 0, vf);
- 	ixgbe_clear_vmvir(adapter, vf);
- 	ixgbe_set_vmolr(hw, vf, true);
- 	hw->mac.ops.set_vlan_anti_spoofing(hw, false, vf);
+[PATCH] sit: fix sit0 percpu double allocations
