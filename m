@@ -1,8 +1,8 @@
 From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorensen@spectralink.com>
-Subject: [PATCH v2 net-next 2/5] dp83640: Delay scheduled work.
-Date: Tue, 3 Nov 2015 09:34:05 +0100
-Message-ID: <1446539648-8355-3-git-send-email-stefan.sorensen@spectralink.com>
+Subject: [PATCH v2 net-next 1/5] dp83640: Include hash in timestamp/packet matching
+Date: Tue, 3 Nov 2015 09:34:04 +0100
+Message-ID: <1446539648-8355-2-git-send-email-stefan.sorensen@spectralink.com>
 References: <1446539648-8355-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -12,114 +12,76 @@ Cc: <netdev@vger.kernel.org>, <richardcochran@gmail.com>,
 	<stefan.sorensen@spectralink.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bn0103.outbound.protection.outlook.com ([157.56.110.103]:34925
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+Received: from mail-bl2on0124.outbound.protection.outlook.com ([65.55.169.124]:15049
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752051AbbKCIiD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Nov 2015 03:38:03 -0500
+	id S1751565AbbKCIho (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Nov 2015 03:37:44 -0500
 In-Reply-To: <1446539648-8355-1-git-send-email-stefan.sorensen@spectralink.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently rx_timestamp_work reschedules itself as a regular workqueue i=
-tem,
-effectively causing it run constantly as long as there are packets left=
- in
-the queue. Fix by using delayed workqueue items, limiting it to run onl=
-y
-every two jiffies.
+Only using the message type and sequence id for matching timestamps
+with packets is error prone, as multiple clients may very well be
+sending packets with the same messagetype and timestamp at the same
+time. Fix by extending the check to include the hash of bytes 20-29
+(source id in PTPv2) that is provided with the timestamps.
 
 Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
 ---
- drivers/net/phy/dp83640.c | 20 ++++++++++++--------
- 1 file changed, 12 insertions(+), 8 deletions(-)
+ drivers/net/phy/dp83640.c | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index cae3b3b..69a2f56 100644
+index 185b03c..cae3b3b 100644
 --- a/drivers/net/phy/dp83640.c
 +++ b/drivers/net/phy/dp83640.c
-@@ -69,6 +69,8 @@
- /* phyter seems to miss the mark by 16 ns */
- #define ADJTIME_FIX	16
+@@ -20,6 +20,7 @@
 =20
-+#define SKB_TIMESTAMP_TIMEOUT	2 /* jiffies */
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+=20
++#include <linux/crc32.h>
+ #include <linux/ethtool.h>
+ #include <linux/kernel.h>
+ #include <linux/list.h>
+@@ -787,9 +788,12 @@ static int decode_evnt(struct dp83640_private *dp8=
+3640,
+ 	return parsed;
+ }
+=20
++#define DP83640_PACKET_HASH_OFFSET	20
++#define DP83640_PACKET_HASH_LEN		10
 +
- #if defined(__BIG_ENDIAN)
- #define ENDIAN_FLAG	0
- #elif defined(__LITTLE_ENDIAN)
-@@ -111,7 +113,7 @@ struct dp83640_private {
- 	struct list_head list;
- 	struct dp83640_clock *clock;
- 	struct phy_device *phydev;
--	struct work_struct ts_work;
-+	struct delayed_work ts_work;
- 	int hwts_tx_en;
- 	int hwts_rx_en;
- 	int layer;
-@@ -285,7 +287,7 @@ static void phy2rxts(struct phy_rxts *p, struct rxt=
-s *rxts)
- 	rxts->seqid =3D p->seqid;
- 	rxts->msgtype =3D (p->msgtype >> 12) & 0xf;
- 	rxts->hash =3D p->msgtype & 0x0fff;
--	rxts->tmo =3D jiffies + 2;
-+	rxts->tmo =3D jiffies + SKB_TIMESTAMP_TIMEOUT;
- }
-=20
- static u64 phy2txts(struct phy_txts *p)
-@@ -1115,7 +1117,7 @@ static int dp83640_probe(struct phy_device *phyde=
-v)
- 		goto no_memory;
-=20
- 	dp83640->phydev =3D phydev;
--	INIT_WORK(&dp83640->ts_work, rx_timestamp_work);
-+	INIT_DELAYED_WORK(&dp83640->ts_work, rx_timestamp_work);
-=20
- 	INIT_LIST_HEAD(&dp83640->rxts);
- 	INIT_LIST_HEAD(&dp83640->rxpool);
-@@ -1162,7 +1164,7 @@ static void dp83640_remove(struct phy_device *phy=
-dev)
- 		return;
-=20
- 	enable_status_frames(phydev, false);
--	cancel_work_sync(&dp83640->ts_work);
-+	cancel_delayed_work_sync(&dp83640->ts_work);
-=20
- 	skb_queue_purge(&dp83640->rx_queue);
- 	skb_queue_purge(&dp83640->tx_queue);
-@@ -1356,7 +1358,7 @@ static int dp83640_hwtstamp(struct phy_device *ph=
-ydev, struct ifreq *ifr)
- static void rx_timestamp_work(struct work_struct *work)
+ static int match(struct sk_buff *skb, unsigned int type, struct rxts *=
+rxts)
  {
- 	struct dp83640_private *dp83640 =3D
--		container_of(work, struct dp83640_private, ts_work);
-+		container_of(work, struct dp83640_private, ts_work.work);
- 	struct sk_buff *skb;
+-	u16 *seqid;
++	u16 *seqid, hash;
+ 	unsigned int offset =3D 0;
+ 	u8 *msgtype, *data =3D skb_mac_header(skb);
 =20
- 	/* Deliver expired packets. */
-@@ -1373,7 +1375,7 @@ static void rx_timestamp_work(struct work_struct =
-*work)
- 	}
+@@ -819,11 +823,19 @@ static int match(struct sk_buff *skb, unsigned in=
+t type, struct rxts *rxts)
+ 		msgtype =3D data + offset + OFF_PTP_CONTROL;
+ 	else
+ 		msgtype =3D data + offset;
++	if (rxts->msgtype !=3D (*msgtype & 0xf))
++		return 0;
 =20
- 	if (!skb_queue_empty(&dp83640->rx_queue))
--		schedule_work(&dp83640->ts_work);
-+		schedule_delayed_work(&dp83640->ts_work, SKB_TIMESTAMP_TIMEOUT);
+ 	seqid =3D (u16 *)(data + offset + OFF_PTP_SEQUENCE_ID);
++	if (rxts->seqid !=3D ntohs(*seqid))
++		return 0;
++
++	hash =3D ether_crc(DP83640_PACKET_HASH_LEN,
++			 data + offset + DP83640_PACKET_HASH_OFFSET) >> 20;
++	if (rxts->hash !=3D hash)
++		return 0;
+=20
+-	return rxts->msgtype =3D=3D (*msgtype & 0xf) &&
+-		rxts->seqid   =3D=3D ntohs(*seqid);
++	return 1;
  }
 =20
- static bool dp83640_rxtstamp(struct phy_device *phydev,
-@@ -1412,9 +1414,11 @@ static bool dp83640_rxtstamp(struct phy_device *=
-phydev,
-=20
- 	if (!shhwtstamps) {
- 		skb_info->ptp_type =3D type;
--		skb_info->tmo =3D jiffies + 2;
-+		skb_info->tmo =3D jiffies + SKB_TIMESTAMP_TIMEOUT;
- 		skb_queue_tail(&dp83640->rx_queue, skb);
--		schedule_work(&dp83640->ts_work);
-+		schedule_delayed_work(&dp83640->ts_work, SKB_TIMESTAMP_TIMEOUT);
-+	} else {
-+		netif_rx_ni(skb);
- 	}
-=20
- 	return true;
+ static void decode_rxts(struct dp83640_private *dp83640,
 --=20
 2.5.0
