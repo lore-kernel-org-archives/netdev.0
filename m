@@ -1,68 +1,41 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
-Date: Tue, 3 Nov 2015 16:19:43 +0100
-Message-ID: <201511031619.43802.marex@denx.de>
-References: <1446419775-5215-1-git-send-email-marex@denx.de> <56389C38.4080508@pengutronix.de> <CAAP7ucLhzqh8+QxYJwx-8-DqSb6YqV0ZXXVGqY=OUUnzAu5EVQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET is
+ enabled
+Date: Tue, 03 Nov 2015 10:33:19 -0500 (EST)
+Message-ID: <20151103.103319.1465681990237533576.davem@davemloft.net>
+References: <1446398459.6254.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20151101.155859.1206189858863918018.davem@davemloft.net>
+	<BY2PR0301MB16547E3AA4FB1F1AC8DE28ECA02B0@BY2PR0301MB1654.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Marc Kleine-Budde" <mkl@pengutronix.de>,
-	Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Aleksander Morgado <aleksander@aleksander.es>
+Cc: eric.dumazet@gmail.com, haiyangz@microsoft.com,
+	edumazet@google.com, netdev@vger.kernel.org
+To: kys@microsoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:57589 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932182AbbKCPbn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 10:31:43 -0500
-In-Reply-To: <CAAP7ucLhzqh8+QxYJwx-8-DqSb6YqV0ZXXVGqY=OUUnzAu5EVQ@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44556 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751851AbbKCPdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 10:33:24 -0500
+In-Reply-To: <BY2PR0301MB16547E3AA4FB1F1AC8DE28ECA02B0@BY2PR0301MB1654.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, November 03, 2015 at 04:06:05 PM, Aleksander Morgado wrote:
-> On Tue, Nov 3, 2015 at 12:36 PM, Marc Kleine-Budde <mkl@pengutronix.de> wrote:
-> > On 11/03/2015 11:36 AM, Aleksander Morgado wrote:
-> >> On Mon, Nov 2, 2015 at 9:25 PM, Marek Vasut <marex@denx.de> wrote:
-> >>>>> I was thinking about this and I mostly agree with you. Obviously,
-> >>>>> copying the code this way was dumb. On the other hand, ARINC and CAN
-> >>>>> are two different sort of busses, so I'd propose something slightly
-> >>>>> different here to avoid confusion and prevent the future extensions
-> >>>>> (or protocols) from adding unrelated cruft into the CAN stack.
-> >> 
-> >> I'd keep them separate not because ARINC may add unrelated cruft into
-> >> the CAN stack, but because ARINC is much simpler than CAN already...
-> > 
-> > What about maintainability? Why take care of two almost identical
-> > subsystems? With making one stack "simpler" you increase, from my point
-> > of view, the costs of maintaining even more. If you fix problems in one
-> > stack you have to adopt the other, too.
-> 
-> If they can share common code, that's fine, that probably can be
-> worked around if needed. My main issues are actually with all the
-> behavior that CAN supports and doesn't make much sense in ARINC, like
-> the complex ID filtering scheme for example (ARINC just requires 256
-> bits for a minimum filter)
+From: KY Srinivasan <kys@microsoft.com>
+Date: Tue, 3 Nov 2015 07:59:36 +0000
 
-So does CAN, I don't see a problem re-using the filtering infrastructure here.
+> I have implemented the scheme we had discussed a few weeks ago. In
+> this new implementation our driver is NOT requesting addition
+> headroom - rndis header and the per packet state is being maintained
+> outside of the skb. What I am seeing is that when I have
+> LL_MAX_HEADER set to 220 bytes, even though our driver is not using
+> the additional head room, I see about a 10% boost in the peak
+> performance (about 34 Gbps on a 40Gbps interface). However, when I
+> set the LL_MAX_HEADER value to the current default, the peak
+> performance drops back to what we currently have (around 31
+> Gbps). In both these cases, there is no reallocation of skb since no
+> additional headroom is being requested and yet there is a
+> significant difference in performance.  I trying to figure out why
+> this is the case, your insights will be greatly appreciated.
 
-> , or the duplex TX/RX setup for channels
-> (channels are either RX or TX, not both), or the local
-> echoing/loopback (which wouldn't make much sense for TX-only
-> channels).
-
-Aren't the RX-only/TX-only channels rather a special case ? In that case, you
-can register a device per each such channel and be done with it, no ?
-
-> The minimum subset of features required by an ARINC driver
-> is actually very small. Trying to "fit" ARINC as a subset of CAN may
-> actually be harder than keeping it separate maintainability wise.
-> Maybe the issue here is that the original patch is too CAN-like while
-> it shouldn't be, don't know.
-
-Best regards,
-Marek Vasut
+It probably has something to do with cache line or data alignment.
