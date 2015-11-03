@@ -1,118 +1,89 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: net: lockdep warning in ip_mc_msfget (net/ipv4/igmp.c:2400)
-Date: Mon, 2 Nov 2015 16:38:16 -0800
-Message-ID: <CAHA+R7OsGmYPWtHFK8QmuzaZW9WBfVCVviReEopTRF_zjxzKKA@mail.gmail.com>
-References: <56377FC9.90601@oracle.com>
-	<CAHA+R7NsSCsLuAuYu9HNmAOvbRdi35U8zLwSmLv0Rq4T4sHKFw@mail.gmail.com>
+From: Ani Sinha <ani@arista.com>
+Subject: [PATCH -stable 3.18, backport] ipmr: fix possible race resulting
+ from improper usage of IP_INC_STATS_BH() in preemptible context.
+Date: Mon, 2 Nov 2015 16:40:06 -0800 (PST)
+Message-ID: <alpine.OSX.2.00.1511021633400.6869@animac.local>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a114f14a4159abf0523981ca8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>, syzkaller@googlegroups.com,
-	Dmitry Vyukov <dvyukov@google.com>, marcelo.leitner@gmail.com
-To: Sasha Levin <sasha.levin@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHA+R7NsSCsLuAuYu9HNmAOvbRdi35U8zLwSmLv0Rq4T4sHKFw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <edumazet@google.com>
+To: Sasha Levin <sasha.levin@oracle.com>, stable@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35322 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752392AbbKCAkY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 19:40:24 -0500
+Received: by pasz6 with SMTP id z6so1349285pas.2
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 16:40:23 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---001a114f14a4159abf0523981ca8
-Content-Type: text/plain; charset=UTF-8
+[ Upstream commit 44f49dd8b5a606870a1f2 ] 
 
-On Mon, Nov 2, 2015 at 1:31 PM, Cong Wang <cwang@twopensource.com> wrote:
->
-> Good catch!
->
-> This is probably introduced by:
->
-> commit baf606d9c9b12517e47e0d1370e8aa9f7323f210
-> Author: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Date:   Wed Mar 18 14:50:42 2015 -0300
->
->     ipv4,ipv6: grab rtnl before locking the socket
->
-> I am thinking what is the right way to fix it...
+Fixes the following kernel BUG :
 
-Please try the attached patch.
+BUG: using __this_cpu_add() in preemptible [00000000] code: bash/2758
+caller is __this_cpu_preempt_check+0x13/0x15
+CPU: 0 PID: 2758 Comm: bash Tainted: P           O   3.18.19 #2
+ ffffffff8170eaca ffff880110d1b788 ffffffff81482b2a 0000000000000000
+ 0000000000000000 ffff880110d1b7b8 ffffffff812010ae ffff880007cab800
+ ffff88001a060800 ffff88013a899108 ffff880108b84240 ffff880110d1b7c8
+Call Trace:
+[<ffffffff81482b2a>] dump_stack+0x52/0x80
+[<ffffffff812010ae>] check_preemption_disabled+0xce/0xe1
+[<ffffffff812010d4>] __this_cpu_preempt_check+0x13/0x15
+[<ffffffff81419d60>] ipmr_queue_xmit+0x647/0x70c
+[<ffffffff8141a154>] ip_mr_forward+0x32f/0x34e
+[<ffffffff8141af76>] ip_mroute_setsockopt+0xe03/0x108c
+[<ffffffff810553fc>] ? get_parent_ip+0x11/0x42
+[<ffffffff810e6974>] ? pollwake+0x4d/0x51
+[<ffffffff81058ac0>] ? default_wake_function+0x0/0xf
+[<ffffffff810553fc>] ? get_parent_ip+0x11/0x42
+[<ffffffff810613d9>] ? __wake_up_common+0x45/0x77
+[<ffffffff81486ea9>] ? _raw_spin_unlock_irqrestore+0x1d/0x32
+[<ffffffff810618bc>] ? __wake_up_sync_key+0x4a/0x53
+[<ffffffff8139a519>] ? sock_def_readable+0x71/0x75
+[<ffffffff813dd226>] do_ip_setsockopt+0x9d/0xb55
+[<ffffffff81429818>] ? unix_seqpacket_sendmsg+0x3f/0x41
+[<ffffffff813963fe>] ? sock_sendmsg+0x6d/0x86
+[<ffffffff813959d4>] ? sockfd_lookup_light+0x12/0x5d
+[<ffffffff8139650a>] ? SyS_sendto+0xf3/0x11b
+[<ffffffff810d5738>] ? new_sync_read+0x82/0xaa
+[<ffffffff813ddd19>] compat_ip_setsockopt+0x3b/0x99
+[<ffffffff813fb24a>] compat_raw_setsockopt+0x11/0x32
+[<ffffffff81399052>] compat_sock_common_setsockopt+0x18/0x1f
+[<ffffffff813c4d05>] compat_SyS_setsockopt+0x1a9/0x1cf
+[<ffffffff813c4149>] compat_SyS_socketcall+0x180/0x1e3
+[<ffffffff81488ea1>] cstar_dispatch+0x7/0x1e
 
-Thanks!
+Signed-off-by: Ani Sinha <ani@arista.com>
+---
+ net/ipv4/ipmr.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
---001a114f14a4159abf0523981ca8
-Content-Type: text/x-patch; charset=US-ASCII; name="tmp.patch"
-Content-Disposition: attachment; filename="tmp.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_igincgpl0
-
-ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2lnbXAuYyBiL25ldC9pcHY0L2lnbXAuYwppbmRleCBkMzhi
-OGI2Li5hMjQyOWI3IDEwMDY0NAotLS0gYS9uZXQvaXB2NC9pZ21wLmMKKysrIGIvbmV0L2lwdjQv
-aWdtcC5jCkBAIC0yMzkyLDExICsyMzkyLDExIEBAIGludCBpcF9tY19tc2ZnZXQoc3RydWN0IHNv
-Y2sgKnNrLCBzdHJ1Y3QgaXBfbXNmaWx0ZXIgKm1zZiwKIAlzdHJ1Y3QgaXBfc2Zfc29ja2xpc3Qg
-KnBzbDsKIAlzdHJ1Y3QgbmV0ICpuZXQgPSBzb2NrX25ldChzayk7CiAKKwlBU1NFUlRfUlROTCgp
-OworCiAJaWYgKCFpcHY0X2lzX211bHRpY2FzdChhZGRyKSkKIAkJcmV0dXJuIC1FSU5WQUw7CiAK
-LQlydG5sX2xvY2soKTsKLQogCWltci5pbXJfbXVsdGlhZGRyLnNfYWRkciA9IG1zZi0+aW1zZl9t
-dWx0aWFkZHI7CiAJaW1yLmltcl9hZGRyZXNzLnNfYWRkciA9IG1zZi0+aW1zZl9pbnRlcmZhY2U7
-CiAJaW1yLmltcl9pZmluZGV4ID0gMDsKQEAgLTI0MTcsNyArMjQxNyw2IEBAIGludCBpcF9tY19t
-c2ZnZXQoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3QgaXBfbXNmaWx0ZXIgKm1zZiwKIAkJZ290byBk
-b25lOwogCW1zZi0+aW1zZl9mbW9kZSA9IHBtYy0+c2Ztb2RlOwogCXBzbCA9IHJ0bmxfZGVyZWZl
-cmVuY2UocG1jLT5zZmxpc3QpOwotCXJ0bmxfdW5sb2NrKCk7CiAJaWYgKCFwc2wpIHsKIAkJbGVu
-ID0gMDsKIAkJY291bnQgPSAwOwpAQCAtMjQzNiw3ICsyNDM1LDYgQEAgaW50IGlwX21jX21zZmdl
-dChzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBpcF9tc2ZpbHRlciAqbXNmLAogCQlyZXR1cm4gLUVG
-QVVMVDsKIAlyZXR1cm4gMDsKIGRvbmU6Ci0JcnRubF91bmxvY2soKTsKIAlyZXR1cm4gZXJyOwog
-fQogCkBAIC0yNDUwLDYgKzI0NDgsOCBAQCBpbnQgaXBfbWNfZ3NmZ2V0KHN0cnVjdCBzb2NrICpz
-aywgc3RydWN0IGdyb3VwX2ZpbHRlciAqZ3NmLAogCXN0cnVjdCBpbmV0X3NvY2sgKmluZXQgPSBp
-bmV0X3NrKHNrKTsKIAlzdHJ1Y3QgaXBfc2Zfc29ja2xpc3QgKnBzbDsKIAorCUFTU0VSVF9SVE5M
-KCk7CisKIAlwc2luID0gKHN0cnVjdCBzb2NrYWRkcl9pbiAqKSZnc2YtPmdmX2dyb3VwOwogCWlm
-IChwc2luLT5zaW5fZmFtaWx5ICE9IEFGX0lORVQpCiAJCXJldHVybiAtRUlOVkFMOwpAQCAtMjQ1
-Nyw4ICsyNDU3LDYgQEAgaW50IGlwX21jX2dzZmdldChzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBn
-cm91cF9maWx0ZXIgKmdzZiwKIAlpZiAoIWlwdjRfaXNfbXVsdGljYXN0KGFkZHIpKQogCQlyZXR1
-cm4gLUVJTlZBTDsKIAotCXJ0bmxfbG9jaygpOwotCiAJZXJyID0gLUVBRERSTk9UQVZBSUw7CiAK
-IAlmb3JfZWFjaF9wbWNfcnRubChpbmV0LCBwbWMpIHsKQEAgLTI0NzAsNyArMjQ2OCw2IEBAIGlu
-dCBpcF9tY19nc2ZnZXQoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3QgZ3JvdXBfZmlsdGVyICpnc2Ys
-CiAJCWdvdG8gZG9uZTsKIAlnc2YtPmdmX2Ztb2RlID0gcG1jLT5zZm1vZGU7CiAJcHNsID0gcnRu
-bF9kZXJlZmVyZW5jZShwbWMtPnNmbGlzdCk7Ci0JcnRubF91bmxvY2soKTsKIAljb3VudCA9IHBz
-bCA/IHBzbC0+c2xfY291bnQgOiAwOwogCWNvcHljb3VudCA9IGNvdW50IDwgZ3NmLT5nZl9udW1z
-cmMgPyBjb3VudCA6IGdzZi0+Z2ZfbnVtc3JjOwogCWdzZi0+Z2ZfbnVtc3JjID0gY291bnQ7CkBA
-IC0yNDkwLDcgKzI0ODcsNiBAQCBpbnQgaXBfbWNfZ3NmZ2V0KHN0cnVjdCBzb2NrICpzaywgc3Ry
-dWN0IGdyb3VwX2ZpbHRlciAqZ3NmLAogCX0KIAlyZXR1cm4gMDsKIGRvbmU6Ci0JcnRubF91bmxv
-Y2soKTsKIAlyZXR1cm4gZXJyOwogfQogCmRpZmYgLS1naXQgYS9uZXQvaXB2NC9pcF9zb2NrZ2x1
-ZS5jIGIvbmV0L2lwdjQvaXBfc29ja2dsdWUuYwppbmRleCBjM2MzNTlhLi4yYjEyZWQyIDEwMDY0
-NAotLS0gYS9uZXQvaXB2NC9pcF9zb2NrZ2x1ZS5jCisrKyBiL25ldC9pcHY0L2lwX3NvY2tnbHVl
-LmMKQEAgLTEyNTEsMTEgKzEyNTEsMjIgQEAgRVhQT1JUX1NZTUJPTChjb21wYXRfaXBfc2V0c29j
-a29wdCk7CiAgKgl0aGUgX3JlY2VpdmVkXyBvbmVzLiBUaGUgc2V0IHNldHMgdGhlIF9zZW50XyBv
-bmVzLgogICovCiAKK3N0YXRpYyBib29sIGdldHNvY2tvcHRfbmVlZHNfcnRubChpbnQgb3B0bmFt
-ZSkKK3sKKwlzd2l0Y2ggKG9wdG5hbWUpIHsKKwljYXNlIElQX01TRklMVEVSOgorCWNhc2UgTUNB
-U1RfTVNGSUxURVI6CisJCXJldHVybiB0cnVlOworCX0KKwlyZXR1cm4gZmFsc2U7Cit9CisKIHN0
-YXRpYyBpbnQgZG9faXBfZ2V0c29ja29wdChzdHJ1Y3Qgc29jayAqc2ssIGludCBsZXZlbCwgaW50
-IG9wdG5hbWUsCiAJCQkgICAgY2hhciBfX3VzZXIgKm9wdHZhbCwgaW50IF9fdXNlciAqb3B0bGVu
-LCB1bnNpZ25lZCBpbnQgZmxhZ3MpCiB7CiAJc3RydWN0IGluZXRfc29jayAqaW5ldCA9IGluZXRf
-c2soc2spOwotCWludCB2YWw7CisJYm9vbCBuZWVkc19ydG5sID0gZ2V0c29ja29wdF9uZWVkc19y
-dG5sKG9wdG5hbWUpOworCWludCB2YWwsIGVycjsKIAlpbnQgbGVuOwogCiAJaWYgKGxldmVsICE9
-IFNPTF9JUCkKQEAgLTEyNjksNiArMTI4MCw4IEBAIHN0YXRpYyBpbnQgZG9faXBfZ2V0c29ja29w
-dChzdHJ1Y3Qgc29jayAqc2ssIGludCBsZXZlbCwgaW50IG9wdG5hbWUsCiAJaWYgKGxlbiA8IDAp
-CiAJCXJldHVybiAtRUlOVkFMOwogCisJaWYgKG5lZWRzX3J0bmwpCisJCXJ0bmxfbG9jaygpOwog
-CWxvY2tfc29jayhzayk7CiAKIAlzd2l0Y2ggKG9wdG5hbWUpIHsKQEAgLTEzODksMTcgKzE0MDIs
-MTYgQEAgc3RhdGljIGludCBkb19pcF9nZXRzb2Nrb3B0KHN0cnVjdCBzb2NrICpzaywgaW50IGxl
-dmVsLCBpbnQgb3B0bmFtZSwKIAkJaW50IGVycjsKIAogCQlpZiAobGVuIDwgSVBfTVNGSUxURVJf
-U0laRSgwKSkgewotCQkJcmVsZWFzZV9zb2NrKHNrKTsKLQkJCXJldHVybiAtRUlOVkFMOworCQkJ
-ZXJyID0gLUVJTlZBTDsKKwkJCWdvdG8gb3V0OwogCQl9CiAJCWlmIChjb3B5X2Zyb21fdXNlcigm
-bXNmLCBvcHR2YWwsIElQX01TRklMVEVSX1NJWkUoMCkpKSB7Ci0JCQlyZWxlYXNlX3NvY2soc2sp
-OwotCQkJcmV0dXJuIC1FRkFVTFQ7CisJCQllcnIgPSAtRUZBVUxUOworCQkJZ290byBvdXQ7CiAJ
-CX0KIAkJZXJyID0gaXBfbWNfbXNmZ2V0KHNrLCAmbXNmLAogCQkJCSAgIChzdHJ1Y3QgaXBfbXNm
-aWx0ZXIgX191c2VyICopb3B0dmFsLCBvcHRsZW4pOwotCQlyZWxlYXNlX3NvY2soc2spOwotCQly
-ZXR1cm4gZXJyOworCQlnb3RvIG91dDsKIAl9CiAJY2FzZSBNQ0FTVF9NU0ZJTFRFUjoKIAl7CkBA
-IC0xNDA3LDE4ICsxNDE5LDE3IEBAIHN0YXRpYyBpbnQgZG9faXBfZ2V0c29ja29wdChzdHJ1Y3Qg
-c29jayAqc2ssIGludCBsZXZlbCwgaW50IG9wdG5hbWUsCiAJCWludCBlcnI7CiAKIAkJaWYgKGxl
-biA8IEdST1VQX0ZJTFRFUl9TSVpFKDApKSB7Ci0JCQlyZWxlYXNlX3NvY2soc2spOwotCQkJcmV0
-dXJuIC1FSU5WQUw7CisJCQllcnIgPSAtRUlOVkFMOworCQkJZ290byBvdXQ7CiAJCX0KIAkJaWYg
-KGNvcHlfZnJvbV91c2VyKCZnc2YsIG9wdHZhbCwgR1JPVVBfRklMVEVSX1NJWkUoMCkpKSB7Ci0J
-CQlyZWxlYXNlX3NvY2soc2spOwotCQkJcmV0dXJuIC1FRkFVTFQ7CisJCQllcnIgPSAtRUZBVUxU
-OworCQkJZ290byBvdXQ7CiAJCX0KIAkJZXJyID0gaXBfbWNfZ3NmZ2V0KHNrLCAmZ3NmLAogCQkJ
-CSAgIChzdHJ1Y3QgZ3JvdXBfZmlsdGVyIF9fdXNlciAqKW9wdHZhbCwKIAkJCQkgICBvcHRsZW4p
-OwotCQlyZWxlYXNlX3NvY2soc2spOwotCQlyZXR1cm4gZXJyOworCQlnb3RvIG91dDsKIAl9CiAJ
-Y2FzZSBJUF9NVUxUSUNBU1RfQUxMOgogCQl2YWwgPSBpbmV0LT5tY19hbGw7CkBAIC0xNDg1LDYg
-KzE0OTYsMTIgQEAgc3RhdGljIGludCBkb19pcF9nZXRzb2Nrb3B0KHN0cnVjdCBzb2NrICpzaywg
-aW50IGxldmVsLCBpbnQgb3B0bmFtZSwKIAkJCXJldHVybiAtRUZBVUxUOwogCX0KIAlyZXR1cm4g
-MDsKKworb3V0OgorCXJlbGVhc2Vfc29jayhzayk7CisJaWYgKG5lZWRzX3J0bmwpCisJCXJ0bmxf
-dW5sb2NrKCk7CisJcmV0dXJuIGVycjsKIH0KIAogaW50IGlwX2dldHNvY2tvcHQoc3RydWN0IHNv
-Y2sgKnNrLCBpbnQgbGV2ZWwsCg==
---001a114f14a4159abf0523981ca8--
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index c803458..a1fc97a 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1674,8 +1674,8 @@ static inline int ipmr_forward_finish(struct sk_buff *skb)
+ {
+ 	struct ip_options *opt = &(IPCB(skb)->opt);
+ 
+-	IP_INC_STATS_BH(dev_net(skb_dst(skb)->dev), IPSTATS_MIB_OUTFORWDATAGRAMS);
+-	IP_ADD_STATS_BH(dev_net(skb_dst(skb)->dev), IPSTATS_MIB_OUTOCTETS, skb->len);
++	IP_INC_STATS(dev_net(skb_dst(skb)->dev), IPSTATS_MIB_OUTFORWDATAGRAMS);
++	IP_ADD_STATS(dev_net(skb_dst(skb)->dev), IPSTATS_MIB_OUTOCTETS, skb->len);
+ 
+ 	if (unlikely(opt->optlen))
+ 		ip_forward_options(skb);
+@@ -1737,7 +1737,7 @@ static void ipmr_queue_xmit(struct net *net, struct mr_table *mrt,
+ 		 * to blackhole.
+ 		 */
+ 
+-		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
++		IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
+ 		ip_rt_put(rt);
+ 		goto out_free;
+ 	}
+-- 
+1.8.1.4
