@@ -1,114 +1,46 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH/RFC v2] ravb: use clock rate as basis for GTI.TIV
-Date: Tue,  3 Nov 2015 15:07:27 +0900
-Message-ID: <1446530847-8699-1-git-send-email-horms+renesas@verge.net.au>
-Cc: Magnus Damm <magnus.damm@gmail.com>
-To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 0/7] Mellanox mlx5e driver update, Nov 3 2015
+Date: Tue,  3 Nov 2015 08:07:17 +0200
+Message-ID: <1446530844-14077-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:38555 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753005AbbKCGHw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Nov 2015 01:07:52 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The GTI.TIV may be set to 2GHz^2 / rate, where rate is
-that of the clock of the device. Rather than assuming a
-rate of 130MHz use the actual rate of the clock.
+Hi Dave,
 
-The motivation for this is to use the correct rate on
-the r8a7795/Salvator-X which is advertised as 133MHz but
-may differ depending on the extal present on the Salvator-X.
+This series contains bunch of small fixes to the mlx5e driver from Achiad.
 
-Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+Applies on net-next commit e7b63ff "Merge branch 'master' of 
+git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next"
 
----
-Tested on the topic/gen3-latest branch of Geert Uytterhoeven's
-renesas-drivers tree on kernel.org: 3f5a88be9fea ("[WIP] arm64: renesas:
-r8a7795: Convert to new CPG/MSSR bindings")
+Or.
 
-v2
-* Corrected typos in changelog, as pointed out by Geert Uytterhoeven
-* Use do_div() rather than 64-bit division to allow compilation on
-  32-bit ARM
----
- drivers/net/ethernet/renesas/ravb.h      |  3 +++
- drivers/net/ethernet/renesas/ravb_main.c | 38 +++++++++++++++++++++++++++++++-
- 2 files changed, 40 insertions(+), 1 deletion(-)
+Changes from V0:
+  - removed the driver patch that dealt with IRQ affinity changes during
+    NAPI poll, as this is a generic problem which needs generic solution.
 
-diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
-index 0623fff932e4..f9dee7436e81 100644
---- a/drivers/net/ethernet/renesas/ravb.h
-+++ b/drivers/net/ethernet/renesas/ravb.h
-@@ -576,6 +576,9 @@ enum GTI_BIT {
- 	GTI_TIV		= 0x0FFFFFFF,
- };
- 
-+#define GTI_TIV_MAX	GTI_TIV
-+#define GTI_TIV_MIN	0x20
-+
- /* GIC */
- enum GIC_BIT {
- 	GIC_PTCE	= 0x00000001,	/* Undocumented? */
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index aa7b2083cb53..599334d68afe 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -32,6 +32,8 @@
- #include <linux/slab.h>
- #include <linux/spinlock.h>
- 
-+#include <asm/div64.h>
-+
- #include "ravb.h"
- 
- #define RAVB_DEF_MSG_ENABLE \
-@@ -1659,6 +1661,38 @@ static const struct of_device_id ravb_match_table[] = {
- };
- MODULE_DEVICE_TABLE(of, ravb_match_table);
- 
-+static int ravb_set_gti(struct net_device *ndev)
-+{
-+
-+	struct device *dev = ndev->dev.parent;
-+	struct device_node *np = dev->of_node;
-+	unsigned long rate;
-+	struct clk *clk;
-+	uint64_t inc;
-+
-+	clk = of_clk_get(np, 0);
-+	if (IS_ERR(clk)) {
-+		dev_err(dev, "could not get clock\n");
-+		return PTR_ERR(clk);
-+	}
-+
-+	rate = clk_get_rate(clk);
-+	clk_put(clk);
-+
-+	inc = 1000000000ULL << 20;
-+	do_div(inc, rate);
-+
-+	if (inc < GTI_TIV_MIN || inc > GTI_TIV_MAX) {
-+		dev_err(dev, "gti.tiv increment 0x%llx is outside the range 0x%x - 0x%x\n",
-+			inc, GTI_TIV_MIN, GTI_TIV_MAX);
-+		return -EINVAL;
-+	}
-+
-+	ravb_write(ndev, inc, GTI);
-+
-+	return 0;
-+}
-+
- static int ravb_probe(struct platform_device *pdev)
- {
- 	struct device_node *np = pdev->dev.of_node;
-@@ -1755,7 +1789,9 @@ static int ravb_probe(struct platform_device *pdev)
- 		   CCC);
- 
- 	/* Set GTI value */
--	ravb_write(ndev, ((1000 << 20) / 130) & GTI_TIV, GTI);
-+	error = ravb_set_gti(ndev);
-+	if (error)
-+		goto out_release;
- 
- 	/* Request GTI loading */
- 	ravb_write(ndev, ravb_read(ndev, GCCR) | GCCR_LTI, GCCR);
+Achiad Shochat (7):
+  net/mlx5e: Avoid NULL pointer access in case of configuration failure
+  net/mlx5e: Wait for RX buffers initialization in a more proper manner
+  net/mlx5_core: Use the the real irqn in eq->irqn
+  net/mlx5e: Don't allow more than max supported channels
+  net/mlx5e: Return error in case mlx5e_set_features() fails
+  net/mlx5e: Re-eanble client vlan TX acceleration
+  net/mlx5e: Fix LSO vlan insertion
+
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  6 +++++
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  5 ++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 16 ++++++++-----
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    | 26 +++++++++++++++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |  8 +++----
+ 5 files changed, 46 insertions(+), 15 deletions(-)
+
 -- 
-2.1.4
-
+2.3.7
