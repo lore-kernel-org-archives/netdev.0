@@ -1,87 +1,55 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 6/7] net/mlx5e: Re-eanble client vlan TX acceleration
-Date: Tue,  3 Nov 2015 08:07:23 +0200
-Message-ID: <1446530844-14077-7-git-send-email-ogerlitz@mellanox.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next V1 0/7] Mellanox mlx5e driver update, Nov 3 2015
+Date: Tue, 3 Nov 2015 08:15:31 +0200
+Message-ID: <CAJ3xEMi75E2=Bf-coQAeybu=aE+-FfFVkEnkg+DqFioqYQhp+g@mail.gmail.com>
 References: <1446530844-14077-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Saeed Mahameed <saeedm@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:38594 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754282AbbKCGIQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Nov 2015 01:08:16 -0500
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:34147 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752067AbbKCGPc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 01:15:32 -0500
+Received: by igpw7 with SMTP id w7so62832597igp.1
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 22:15:31 -0800 (PST)
 In-Reply-To: <1446530844-14077-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Achiad Shochat <achiad@mellanox.com>
+On Tue, Nov 3, 2015 at 8:07 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+> This series contains bunch of small fixes to the mlx5e driver from Achiad.
 
-This reverts commit cd58c714acb9 "net/mlx5e: Disable client vlan TX acceleration".
+Oops, I missed your email from 2h ago... but these all ARE bug fixes,
+so hopefully
+I didn't really violated the directive (I guess I should have just
+asked, but again,
+I missed the email...)
 
-Bring back client vlan insertion offload, the original
-performance issue was found and fixed in the next patch.
+Or.
 
-Signed-off-by: Achiad Shochat <achiad@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   | 23 +++++++++++++++++++++--
- 2 files changed, 22 insertions(+), 2 deletions(-)
+> Applies on net-next commit e7b63ff "Merge branch 'master' of
+> git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next"
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 28eaed5..5fc4d2d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -2004,6 +2004,7 @@ static void mlx5e_build_netdev(struct net_device *netdev)
- 		netdev->vlan_features    |= NETIF_F_LRO;
- 
- 	netdev->hw_features       = netdev->vlan_features;
-+	netdev->hw_features      |= NETIF_F_HW_VLAN_CTAG_TX;
- 	netdev->hw_features      |= NETIF_F_HW_VLAN_CTAG_RX;
- 	netdev->hw_features      |= NETIF_F_HW_VLAN_CTAG_FILTER;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index b73672f..5105288 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -124,6 +124,21 @@ static inline u16 mlx5e_get_inline_hdr_size(struct mlx5e_sq *sq,
- 	return MLX5E_MIN_INLINE;
- }
- 
-+static inline void mlx5e_insert_vlan(void *start, struct sk_buff *skb, u16 ihs)
-+{
-+	struct vlan_ethhdr *vhdr = (struct vlan_ethhdr *)start;
-+	int cpy1_sz = 2 * ETH_ALEN;
-+	int cpy2_sz = ihs - cpy1_sz - VLAN_HLEN;
-+
-+	skb_copy_from_linear_data(skb, vhdr, cpy1_sz);
-+	skb_pull_inline(skb, cpy1_sz);
-+	vhdr->h_vlan_proto = skb->vlan_proto;
-+	vhdr->h_vlan_TCI = cpu_to_be16(skb_vlan_tag_get(skb));
-+	skb_copy_from_linear_data(skb, &vhdr->h_vlan_encapsulated_proto,
-+				  cpy2_sz);
-+	skb_pull_inline(skb, cpy2_sz);
-+}
-+
- static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- {
- 	struct mlx5_wq_cyc       *wq   = &sq->wq;
-@@ -175,8 +190,12 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 							ETH_ZLEN);
- 	}
- 
--	skb_copy_from_linear_data(skb, eseg->inline_hdr_start, ihs);
--	skb_pull_inline(skb, ihs);
-+	if (skb_vlan_tag_present(skb)) {
-+		mlx5e_insert_vlan(eseg->inline_hdr_start, skb, ihs);
-+	} else {
-+		skb_copy_from_linear_data(skb, eseg->inline_hdr_start, ihs);
-+		skb_pull_inline(skb, ihs);
-+	}
- 
- 	eseg->inline_hdr_sz = cpu_to_be16(ihs);
- 
--- 
-2.3.7
+> Changes from V0:
+>   - removed the driver patch that dealt with IRQ affinity changes during
+>     NAPI poll, as this is a generic problem which needs generic solution.
+>
+> Achiad Shochat (7):
+>   net/mlx5e: Avoid NULL pointer access in case of configuration failure
+>   net/mlx5e: Wait for RX buffers initialization in a more proper manner
+>   net/mlx5_core: Use the the real irqn in eq->irqn
+>   net/mlx5e: Don't allow more than max supported channels
+>   net/mlx5e: Return error in case mlx5e_set_features() fails
+>   net/mlx5e: Re-eanble client vlan TX acceleration
+>   net/mlx5e: Fix LSO vlan insertion
+>
+>  drivers/net/ethernet/mellanox/mlx5/core/en.h       |  6 +++++
+>  .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  5 ++---
+>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 16 ++++++++-----
+>  drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    | 26 +++++++++++++++++++---
+>  drivers/net/ethernet/mellanox/mlx5/core/eq.c       |  8 +++----
+>  5 files changed, 46 insertions(+), 15 deletions(-)
