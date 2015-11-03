@@ -1,31 +1,42 @@
-From: Unknown <unknown@unknown.invalid>
-Subject: ATTENTION
-Date: Tue, 3 Nov 2015 14:03:53 +0530
-Message-ID: <PN1PR01MB00791F3600119978F31C9DFBB82B0@PN1PR01MB0079.INDPRD01.PROD.OUTLOOK.COM>
-Reply-To: <mrsmariarose0@gmail.com>
+From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
+	<stefan.sorensen@spectralink.com>
+Subject: [PATCH v2 net-next 0/5] dp83640 driver fixes
+Date: Tue, 3 Nov 2015 09:34:03 +0100
+Message-ID: <1446539648-8355-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <richardcochran@gmail.com>,
+	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
+	<stefan.sorensen@spectralink.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bo1ind01hn0205.outbound.protection.outlook.com ([104.47.101.205]:63886
-	"EHLO IND01-BO1-obe.outbound.protection.outlook.com"
+Received: from mail-bn1bn0103.outbound.protection.outlook.com ([157.56.110.103]:14512
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752295AbbKCIeN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 03:34:13 -0500
-Content-Description: Mail message body
-From: <>
+	id S1754122AbbKCIe1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Nov 2015 03:34:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Good day My Dear,
+This series fixes a number of minor bugs in the dp83640 driver.
 
-I am seeking the immediate assistance,of a reliable and trustworthy Indian
-businessman who understands India local language (Hindi) and a little
-English; to handle a profitable business for our mutual benefit.
+Stefan S=C3=B8rensen (5):
+  dp83640: Include hash in timestamp/packet matching
+  dp83640: Delay scheduled work.
+  dp83640: Prune rx timestamp list before reading from it
+  ptp: Change ptp_class to a proper bitmask
+  dp83640: Only wait for timestamps for packets with timestamping
+    enabled.
 
-I await your reply for more details.
+ drivers/net/phy/dp83640.c    | 64 ++++++++++++++++++++++++++++--------=
+--------
+ include/linux/ptp_classify.h |  7 ++---
+ net/core/ptp_classifier.c    | 16 +++++------
+ 3 files changed, 53 insertions(+), 34 deletions(-)
 
-Thanks and best regards,
-Dr. Maria Rose Anthony.
-Email:mrsmariarose0@gmail.com
+v2 changes: Use macro for hash data offset and length and reword commit
+description.
+
+--=20
+2.5.0
