@@ -1,44 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: avoid NULL deref in inet_ctl_sock_destroy()
-Date: Tue, 03 Nov 2015 10:22:54 -0500 (EST)
-Message-ID: <20151103.102254.64233870062583789.davem@davemloft.net>
-References: <1446479407.23275.12.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151102.224647.1672869809835691426.davem@davemloft.net>
-	<1446527041.23275.50.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Loganaden Velvindron <loganaden@gmail.com>
+Subject: Re: nothing other than BUG fixes please
+Date: Tue, 3 Nov 2015 15:25:25 +0000
+Message-ID: <CAOp4FwREJmD3+FWDmoXps-4ZrTxyVk0LBYJ7E77yOjPswjWjvw@mail.gmail.com>
+References: <20151102.231014.1768364387900448838.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dvyukov@google.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44391 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751844AbbKCPW7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 10:22:59 -0500
-In-Reply-To: <1446527041.23275.50.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34519 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932186AbbKCPZ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 10:25:26 -0500
+Received: by padhx2 with SMTP id hx2so13421897pad.1
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 07:25:26 -0800 (PST)
+In-Reply-To: <20151102.231014.1768364387900448838.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 02 Nov 2015 21:04:01 -0800
+On Tue, Nov 3, 2015 at 4:10 AM, David Miller <davem@davemloft.net> wrote:
+>
+>
+> If it's not a bug fix, I really don't want to see it submitted at
+> this time.  No exceptions.
+>
+> Things will stay this way until some short period after the merge
+> window opens and I open up net-next and patchwork to new feature
+> patches and cleanups.
+>
+> Anyone violating this will not even get an email reply from me,
+> I will simply toss your submission from patchwork silently.  It's
+> simply too much pointless work for me to keep reminding people
+> what I explicitly state on the list about the state of the trees
+> we develop under.
+>
+> The best part is this will only punish the people who don't pay
+> attention and just blindly come post patches here when it's convenient
+> for them to submit patches, rather than actually reading the list and
+> making an effort to participate in development properly.
 
-> On Mon, 2015-11-02 at 22:46 -0500, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Mon, 02 Nov 2015 07:50:07 -0800
->> 
->> > From: Eric Dumazet <edumazet@google.com>
->> > 
->> > Under low memory conditions, tcp_sk_init() and icmp_sk_init()
->> > can both iterate on all possible cpus and call inet_ctl_sock_destroy(),
->> > with eventual NULL pointer.
->> > 
->> > Signed-off-by: Eric Dumazet <edumazet@google.com>
->> > Reported-by: Dmitry Vyukov <dvyukov@google.com>
->> 
->> Applied.
-> 
-> Thanks David.
-> 
-> Bug origin was in linux-4.2 :
 
-Ok, queued up for -stable then...
+Do small "security" patches that prevent resource leakage count as bugfixes ?
+
+e.g:
+http://patchwork.ozlabs.org/patch/537519/
+
+
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
