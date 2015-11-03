@@ -1,63 +1,82 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: HTB, HFSC, PIE, FIFO stuck on 2.4Gbit on default values
-Date: Tue, 03 Nov 2015 21:17:35 +0200
-Message-ID: <907cb54c0a27beed12381247ba29bca5@visp.net.lb>
-References: <14bd7629199800f798c8ab932e0285d3@visp.net.lb>
- <1446577894.23275.71.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Stanton, Kevin B" <kevin.b.stanton@intel.com>
+Subject: RE: [PATCH v4 1/4] Produce system time from correlated clocksource
+Date: Tue, 3 Nov 2015 19:18:10 +0000
+Message-ID: <487620E8DE6666469C4E4133DA94A0EF31F42651@FMSMSX108.amr.corp.intel.com>
+References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com>
+ <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com>
+ <alpine.DEB.2.11.1510132116480.25029@nanos>
+ <op.x6iyd7gq1774gr@chall-mobl2.amr.corp.intel.com>
+ <alpine.DEB.2.11.1510151014330.3960@nanos>
+ <op.x6r25dza1774gr@chall-mobl2.amr.corp.intel.com>
+ <CALAqxLXu_C8sWaKyxqXJPFV+m5Zdk=4q4s7O6NoLR1B8bbyuxg@mail.gmail.com>
+ <20151020085408.GA2542@netboy> <alpine.DEB.2.11.1510201246250.3982@nanos>
+ <20151020115113.GA23428@netboy> <20151020145523.GA5207@netboy>
+ <alpine.DEB.2.11.1510202107410.8159@nanos>
+ <CALAqxLXGnzwH5OgDCyggzxbao7UvS6_SOtVVkNVmjrsrOL-YBw@mail.gmail.com>
+ <alpine.DEB.2.11.1510210941130.4000@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:60231 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932333AbbKCTRl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 14:17:41 -0500
-Received: from hosting.visp.net.lb (localhost [127.0.0.1])
-	by hosting.visp.net.lb (Postfix) with ESMTP id C9E7448074D
-	for <netdev@vger.kernel.org>; Tue,  3 Nov 2015 21:17:39 +0200 (EET)
-In-Reply-To: <1446577894.23275.71.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	"Hall, Christopher S" <christopher.s.hall@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>
+To: John Stultz <john.stultz@linaro.org>,
+	Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1510210941130.4000@nanos>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2015-11-03 21:11, Eric Dumazet wrote:
-> On Tue, 2015-11-03 at 19:33 +0200, Denys Fedoryshchenko wrote:
->> Hi
->> 
->> Recently i was testing shaping over single 10G cards, for speeds up to
->> 3-4Gbps, and noticed interesting effect.
->> 
->> Shaping scheme:
->> Incoming bandwidth comes to switch port, with access vlan 100
->> Outgoing bandwidth leaves switch port with access vlan 200
->> Linux with Intel X710 connected to trunk port, bridge created, 
->> eth0.100
->> bridged to eth0.200
->> gso/gro/tso disabled (they doesn't work nice with shapers)
-> 
-> Well, this seems urban legend to me.
-> 
-> Something that is repeatedly copied/pasted on many web pages since last
-> century.
-> 
-> Given the nature of qdisc (being protected by a spinlock), you
-> absolutely want to have some kind of aggregation.
-> 
-> I have a patch to allow a sysadmin to set a max gro segs value to
-> incoming packets. You could play with it. Start with 4 segments,
-> allow GSO/TSO on the output and watch performance coming back.
+On Wed, 21 Oct 2015, Thomas Gleixner wrote:
+> On Tue, 20 Oct 2015, John Stultz wrote:
+>> Being able to have various hardware sharing a time base is quite 
+>> useful, and methods for correlating timestamps together are useful.
+>> But I don't yet really understand why its important that we can 
+>> translate a hardware timestamp from some time in the past to the 
+>> correct system time in the past without error.
 
-It is not, since i have more than 120 servers installed over country 
-(most of them handle small traffic), in forwarding mode, first thing i 
-am doing on forwarding setup - disabling gro/gso/tso. It is helped also 
-many ISP on their forum where i visit often, first thing in 
-troubleshooting unreliable network traffic forwarding - disabling 
-offloading.
-Because problem starts from incorrect shaping, and ends in some cases 
-with network drivers spitting watchdog errors. Sometimes even shaper not 
-necessary, just plain forwarding with offload enabled can cause issues, 
-but it might be bug in networking drivers.
-Should i try to reproduce and report? Sure if anybody can look into this 
-issue.
+>If your device can only provide timestamps from the past, then
+>having access to the history is important if you want to have
+>precise correlation.
+
+I hope this can be solved in timekeeping. But first, a quick
+recap...
+
+The timestamp pair (including the ART snapshot, as described
+previously) is captured simultaneously by the hardware
+resulting, effectively, in a (PTP,TSC) pair, or
+(AudioPosition,TSC) pair. The in-the-past-TSC value needs to be
+converted to system time so that it can be used by applications,
+without exposing the underlying ART or TSC.
+
+Note: ART is architectural, defined as part of Invariant
+Timekeeping in the current SDM, so this isn't a one-off
+capability.
+
+To convert a past TSC timestamp to system time 'correctly' (in a
+mathematical sense), a history of monotonic rate adjustments
+since that time in the past must be maintained.
+
+Regarding the amount of history, as Chris mentioned (and
+in the context of new Intel hardware) LAN timestamp pairs are
+a few microseconds in the past (no history would be required),
+but for timestamps captured by the audio DSP, unfortunately,
+they can be a small number of *milliseconds* in the past by the
+time they're available to the audio driver (some history
+required to convert accurately). I'm told that 4ms of adjustment
+history accommodates known hardware.
+
+Getting this 'correct' in one place (timekeeping) seems a lot
+better than unnecessarily introducing inaccuracy via software
+sampling (and extrapolation) or leaving it to each driver to do
+it themselves, and to do it differently (and/or do it wrongly).
+
+Best Regards,
+Kevin
