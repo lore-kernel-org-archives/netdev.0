@@ -1,83 +1,66 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
-Date: Tue, 3 Nov 2015 20:19:29 +0100
-Message-ID: <201511032019.29236.marex@denx.de>
-References: <1446419775-5215-1-git-send-email-marex@denx.de> <201511031841.09549.marex@denx.de> <5638F6EE.10505@hartkopp.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] sh_eth: fix typo in RX descriptor bit name
+Date: Tue, 03 Nov 2015 22:20:05 +0300
+Message-ID: <2178116.o4gdOMzEUc@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Aleksander Morgado <aleksander@aleksander.es>,
-	"Marc Kleine-Budde" <mkl@pengutronix.de>,
-	Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:55651 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755874AbbKCTTk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 14:19:40 -0500
-In-Reply-To: <5638F6EE.10505@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday, November 03, 2015 at 07:03:26 PM, Oliver Hartkopp wrote:
-> On 11/03/2015 06:41 PM, Marek Vasut wrote:
-> > On Tuesday, November 03, 2015 at 06:32:12 PM, Oliver Hartkopp wrote:
-> > 
-> > [...]
-> > 
-> >> It looks like you need to shift the stuff in user space every time.
-> >> 
-> >> So you might better think of something like this:
-> >>     struct a429_frame {
-> >>     
-> >>             __u32   label;   /* ARINC 429 label */
-> >>             __u8    length;  /* always set to 8 */
-> >>             __u8    __pad;   /* padding */
-> >>             __u8    __res0;  /* reserved / padding */
-> >>             __u8    __res1;  /* reserved / padding */
-> >>             __u32   data __attribute__((aligned(8)));
-> >>             __u8    p;       /* p */
-> >>             __u8    ssm;     /* ssm */
-> >>             __u8    sdi;     /* sdi */
-> >>             __u8    __end;   /* padding */
-> >>     
-> >>     };
-> > 
-> > You don't want to interpret those P(arity)/SSM/SDI bits, since they
-> > differ depending on whatever the remote party sends. That's why I
-> > decided to just make those into 3-bytes of data and let the userland
-> > application deal with it as seen fit. Besides, the ARINC "FTP" really
-> > uses those 3 bytes as plain data.
-> 
-> Ok. I did not know what P was for :-)
+Commit  7d7355f58ba4 ("sh_eth: Ensure proper ordering of descriptor active
+bit write/read") did the right thing  but used too "heavy" barriers while
+there were already "lighter" DMA barriers exactly  for this case...
 
-Oh yeah. P is parity and it's optional as well and can be odd/even depending
-on the remote endpoint (sigh).
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-> Btw. it can make sense to introduce an union struct where different options
-> to access the content are possible.
+---
+The patch is against DaveM's 'net-next.git' repo.
 
-This would be pretty nasty I think. By reading the ARINC specification, the
-SSM can be either 2 or 3 bits, the SDI is who-knows-what depending on the
-remote endpoint and the P is also not always present. I'm not convinced that
-the kernel should interpret the 3 byte ARINC payload in any way. (but I wonder
-if my argument presented above is convincing at all either ...).
+ drivers/net/ethernet/renesas/sh_eth.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-So while we can do it for the common case, I wonder if this isn't 
-overengineering things a bit right from the beginning. Wouldn't it
-make more sense to add this only once the need for it is there?
-Such change won't create an incompatible change to the ABI, so from
-my perspective, postponing it won't hurt.
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1416,7 +1416,7 @@ static int sh_eth_txfree(struct net_devi
+ 		if (txdesc->status & cpu_to_edmac(mdp, TD_TACT))
+ 			break;
+ 		/* TACT bit must be checked before all the following reads */
+-		rmb();
++		dma_rmb();
+ 		netif_info(mdp, tx_done, ndev,
+ 			   "tx entry %d status 0x%08x\n",
+ 			   entry, edmac_to_cpu(mdp, txdesc->status));
+@@ -1458,7 +1458,7 @@ static int sh_eth_rx(struct net_device *
+ 	rxdesc = &mdp->rx_ring[entry];
+ 	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT))) {
+ 		/* RACT bit must be checked before all the following reads */
+-		rmb();
++		dma_rmb();
+ 		desc_status = edmac_to_cpu(mdp, rxdesc->status);
+ 		pkt_len = rxdesc->frame_length;
+ 
+@@ -1544,7 +1544,7 @@ static int sh_eth_rx(struct net_device *
+ 			skb_checksum_none_assert(skb);
+ 			rxdesc->addr = dma_addr;
+ 		}
+-		wmb(); /* RACT bit must be set after all the above writes */
++		dma_wmb(); /* RACT bit must be set after all the above writes */
+ 		if (entry >= mdp->num_rx_ring - 1)
+ 			rxdesc->status |=
+ 				cpu_to_edmac(mdp, RD_RACT | RD_RFP | RD_RDLE);
+@@ -2403,7 +2403,7 @@ static int sh_eth_start_xmit(struct sk_b
+ 	}
+ 	txdesc->buffer_length = skb->len;
+ 
+-	wmb(); /* TACT bit must be set after all the above writes */
++	dma_wmb(); /* TACT bit must be set after all the above writes */
+ 	if (entry >= mdp->num_tx_ring - 1)
+ 		txdesc->status |= cpu_to_edmac(mdp, TD_TACT | TD_TDLE);
+ 	else
 
-> E.g. you might have a 32 bit word, some bit-wise specification and a four
-> byte tuple to access the three bytes for ARINC FTP ...
-
-I understand the idea, yes.
-
-Best regards,
-Marek Vasut
