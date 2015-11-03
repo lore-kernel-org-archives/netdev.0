@@ -1,95 +1,63 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 3/3] batman-adv: Less function calls in
- batadv_is_ap_isolated() after error detection
-Date: Tue, 3 Nov 2015 21:56:19 +0100
-Message-ID: <56391F73.7090605@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net>
- <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
- <530A086E.8010901@users.sourceforge.net>
- <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
- <530A72AA.3000601@users.sourceforge.net>
- <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
- <530B5FB6.6010207@users.sourceforge.net>
- <alpine.DEB.2.10.1402241710370.2074@hadrien>
- <530C5E18.1020800@users.sourceforge.net>
- <alpine.DEB.2.10.1402251014170.2080@hadrien>
- <530CD2C4.4050903@users.sourceforge.net>
- <alpine.DEB.2.10.1402251840450.7035@hadrien>
- <530CF8FF.8080600@users.sourceforge.net>
- <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
- <530DD06F.4090703@users.sourceforge.net>
- <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
- <5317A59D.4@users.sourceforge.net> <56391CF7.9080400@users.sourceforge.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT PULL] parisc architecture updates for v4.3
+Date: Tue, 3 Nov 2015 13:01:21 -0800
+Message-ID: <CA+55aFyJyY1FE_1k6Ks-2j4nYr7cbde_KvZ=J3fMUFJG5Okijg@mail.gmail.com>
+References: <20151025114934.GA11108@ls3530.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Antonio Quartulli <antonio@meshcoding.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Simon Wunderlich <sw@simonwunderlich.de>,
-	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <56391CF7.9080400@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Parisc List <linux-parisc@vger.kernel.org>,
+	James Bottomley <James.Bottomley@hansenpartnership.com>,
+	John David Anglin <dave.anglin@bell.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Helge Deller <deller@gmx.de>, David Miller <davem@davemloft.net>
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <20151025114934.GA11108@ls3530.box>
+Sender: linux-parisc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 3 Nov 2015 21:10:51 +0100
+On Sun, Oct 25, 2015 at 4:49 AM, Helge Deller <deller@gmx.de> wrote:
+>
+> please pull some patches for the parisc architecture for kernel v4.3 from:
 
-The variables "tt_local_entry" and "tt_global_entry" were eventually checked
-again despite of a corresponding null pointer test before.
-Let us avoid this double check by reordering a function call sequence
-and the better selection of jump targets.
+So no way was I going to pull that for 4.3, and I delayed it to the
+merge window.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- net/batman-adv/translation-table.c | 21 +++++++++------------
- 1 file changed, 9 insertions(+), 12 deletions(-)
+However, even now that we're in the merge window, and I look at it again:
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 965a004..3ac32d9 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -3323,27 +3323,24 @@ bool batadv_is_ap_isolated(struct batadv_priv *bat_priv, u8 *src, u8 *dst,
- 		return false;
- 
- 	if (!atomic_read(&vlan->ap_isolation))
--		goto out;
-+		goto vlan_free;
- 
- 	tt_local_entry = batadv_tt_local_hash_find(bat_priv, dst, vid);
- 	if (!tt_local_entry)
--		goto out;
-+		goto vlan_free;
- 
- 	tt_global_entry = batadv_tt_global_hash_find(bat_priv, src, vid);
- 	if (!tt_global_entry)
--		goto out;
-+		goto local_entry_free;
- 
--	if (!_batadv_is_ap_isolated(tt_local_entry, tt_global_entry))
--		goto out;
--
--	ret = true;
-+	if (_batadv_is_ap_isolated(tt_local_entry, tt_global_entry))
-+		ret = true;
- 
--out:
-+	batadv_tt_global_entry_free_ref(tt_global_entry);
-+local_entry_free:
-+	batadv_tt_local_entry_free_ref(tt_local_entry);
-+vlan_free:
- 	batadv_softif_vlan_free_ref(vlan);
--	if (tt_global_entry)
--		batadv_tt_global_entry_free_ref(tt_global_entry);
--	if (tt_local_entry)
--		batadv_tt_local_entry_free_ref(tt_local_entry);
- 	return ret;
- }
- 
--- 
-2.6.2
+> The most important change is that we reduce L1_CACHE_BYTES to 16 bytes, for
+> which a trivial patch for XPS in the network layer was needed.
 
+I'd really want the network people involved with that change, and I'm
+also wondering why you seem to want to re-define L1_CACHE_BYTES to
+something that it isn't.
+
+I doubt the PA-RISC L1 cacheline really is 16 bytes. So this seems to
+be more of a hack around the fact that some data structures may be
+over-aligned, and using that L1_CACHE_BYTES for aligning things that
+really don't want to be that aligned. Maybe it casues less sharing,
+but if it does so at the cost of excessive memory use, it's still
+wrong.
+
+But that in turn says to me "We should fix the *real* problem, rather
+than hack around it by having PA-RISC lie about its L1 cache size".
+
+Is there any particular over-alignment that you have determined to be
+the real problem?
+
+Also, just looking at other things, we currently do have openrisc that has
+
+  #define L1_CACHE_BYTES 16
+
+so presumably openrisc would have had an issue with that XPS thing,
+and how XPS_MIN_MAP_ALLOC can go negative for a 16-byte case (well,
+it's zero on 32-bit architectures).
+
+David: the issue wrt XPS is this:
+
+   #define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES - sizeof(struct xps_map))   \
+       / sizeof(u16))
+
+Comments?
+
+               Linus
