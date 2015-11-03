@@ -1,49 +1,66 @@
-From: John David Anglin <dave.anglin@bell.net>
-Subject: Re: [GIT PULL] parisc architecture updates for v4.3
-Date: Tue, 3 Nov 2015 18:53:32 -0500
-Message-ID: <38881C74-60B0-40BC-83ED-052889705FC5@bell.net>
-References: <20151025114934.GA11108@ls3530.box> <CA+55aFyJyY1FE_1k6Ks-2j4nYr7cbde_KvZ=J3fMUFJG5Okijg@mail.gmail.com> <56393D46.6060903@gmx.de> <D6403D2F-339E-4986-ABED-26455A157F7A@alum.mit.edu>
-Mime-Version: 1.0 (Apple Message framework v1085)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Helge Deller <deller@gmx.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Parisc List <linux-parisc@vger.kernel.org>,
-	James Bottomley <James.Bottomley@hansenpartnership.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Guy Harris <guy@alum.mit.edu>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <D6403D2F-339E-4986-ABED-26455A157F7A@alum.mit.edu>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH] net: Fix prefsrc lookups
+Date: Tue,  3 Nov 2015 15:59:28 -0800
+Message-ID: <1446595168-27323-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: vladi@aresgate.net, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35140 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756125AbbKCX7j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 18:59:39 -0500
+Received: by pasz6 with SMTP id z6so33261020pas.2
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 15:59:38 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2015-11-03, at 6:43 PM, Guy Harris wrote:
+A bug report (https://bugzilla.kernel.org/show_bug.cgi?id=107071) noted
+that the follwoing ip command is failing with v4.3:
 
-> 
-> On Nov 3, 2015, at 3:03 PM, Helge Deller <deller@gmx.de> wrote:
-> 
->> Sadly it's nowhere clearly documented how big the L1 cacheline of parisc really is.
-> 
-> To which particular PA-RISC processor are you referring?  It might not be the same on all processors.
-> 
-> If openpa.net is to be believed, then:
-> 
-> The 7100LC has 32 byte cache lines on the off-chip cache:
-> 
-> 	http://www.openpa.net/pa-risc_processor_pa-7100lc.html
-> 
-> and the 8500 has "32 or 64 Byte cache line size", which may be referring to the on-chip caches:
-> 
-> 	http://www.openpa.net/pa-risc_processor_pa-8500.html
+    $ ip route add 10.248.5.0/24 dev bond0.250 table vlan_250 src 10.248.5.154
+    RTNETLINK answers: Invalid argument
 
-Yes, this is correct but these numbers relate to the memory interface.  The PA8800 and PA8900 have 128 byte
-memory interfaces.  These numbers are reported by firmware PDC calls.  This whole discussion started when I
-suggested that we needed to bump L1_CACHE_BYTES to 128 bytes on PA8800 and PA8900 processors.
+021dd3b8a142d changed the lookup of the given preferred source address to
+use the table id passed in, but this assumes the local entries are in the
+given table which is not necessarily true for non-VRF use cases. When
+validating the preferred source fallback to the local table on failure.
 
---
-John David Anglin	dave.anglin@bell.net
+Fixes: 021dd3b8a142d ("net: Add routes to the table associated with the device")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+This is needed in v4.3.
 
+ net/ipv4/fib_semantics.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
-
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 064bd3caaa4f..aac966f6162f 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -864,14 +864,21 @@ static bool fib_valid_prefsrc(struct fib_config *cfg, __be32 fib_prefsrc)
+ 	if (cfg->fc_type != RTN_LOCAL || !cfg->fc_dst ||
+ 	    fib_prefsrc != cfg->fc_dst) {
+ 		u32 tb_id = cfg->fc_table;
++		int rc;
+ 
+ 		if (tb_id == RT_TABLE_MAIN)
+ 			tb_id = RT_TABLE_LOCAL;
+ 
+-		if (inet_addr_type_table(cfg->fc_nlinfo.nl_net,
+-					 fib_prefsrc, tb_id) != RTN_LOCAL) {
+-			return false;
++		rc = inet_addr_type_table(cfg->fc_nlinfo.nl_net,
++					  fib_prefsrc, tb_id);
++
++		if (rc != RTN_LOCAL && tb_id != RT_TABLE_LOCAL) {
++			rc = inet_addr_type_table(cfg->fc_nlinfo.nl_net,
++						  fib_prefsrc, RT_TABLE_LOCAL);
+ 		}
++
++		if (rc != RTN_LOCAL)
++			return false;
+ 	}
+ 	return true;
+ }
+-- 
+1.9.1
