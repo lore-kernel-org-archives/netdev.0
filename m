@@ -1,89 +1,41 @@
-From: Ani Sinha <ani@arista.com>
-Subject: [PATCH -stable 3.18, backport] ipmr: fix possible race resulting
- from improper usage of IP_INC_STATS_BH() in preemptible context.
-Date: Mon, 2 Nov 2015 16:40:06 -0800 (PST)
-Message-ID: <alpine.OSX.2.00.1511021633400.6869@animac.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH -stable 3.18, backport] ipmr: fix possible race
+ resulting from improper usage of IP_INC_STATS_BH() in preemptible context.
+Date: Mon, 02 Nov 2015 16:50:11 -0800
+Message-ID: <1446511811.23275.37.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.OSX.2.00.1511021633400.6869@animac.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <edumazet@google.com>
-To: Sasha Levin <sasha.levin@oracle.com>, stable@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35322 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752392AbbKCAkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 19:40:24 -0500
-Received: by pasz6 with SMTP id z6so1349285pas.2
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 16:40:23 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sasha Levin <sasha.levin@oracle.com>, stable@vger.kernel.org,
+	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
+To: Ani Sinha <ani@arista.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <alpine.OSX.2.00.1511021633400.6869@animac.local>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[ Upstream commit 44f49dd8b5a606870a1f2 ] 
+On Mon, 2015-11-02 at 16:40 -0800, Ani Sinha wrote:
+> [ Upstream commit 44f49dd8b5a606870a1f2 ] 
 
-Fixes the following kernel BUG :
+Please carefully read Documentation/networking/netdev-FAQ.txt
 
-BUG: using __this_cpu_add() in preemptible [00000000] code: bash/2758
-caller is __this_cpu_preempt_check+0x13/0x15
-CPU: 0 PID: 2758 Comm: bash Tainted: P           O   3.18.19 #2
- ffffffff8170eaca ffff880110d1b788 ffffffff81482b2a 0000000000000000
- 0000000000000000 ffff880110d1b7b8 ffffffff812010ae ffff880007cab800
- ffff88001a060800 ffff88013a899108 ffff880108b84240 ffff880110d1b7c8
-Call Trace:
-[<ffffffff81482b2a>] dump_stack+0x52/0x80
-[<ffffffff812010ae>] check_preemption_disabled+0xce/0xe1
-[<ffffffff812010d4>] __this_cpu_preempt_check+0x13/0x15
-[<ffffffff81419d60>] ipmr_queue_xmit+0x647/0x70c
-[<ffffffff8141a154>] ip_mr_forward+0x32f/0x34e
-[<ffffffff8141af76>] ip_mroute_setsockopt+0xe03/0x108c
-[<ffffffff810553fc>] ? get_parent_ip+0x11/0x42
-[<ffffffff810e6974>] ? pollwake+0x4d/0x51
-[<ffffffff81058ac0>] ? default_wake_function+0x0/0xf
-[<ffffffff810553fc>] ? get_parent_ip+0x11/0x42
-[<ffffffff810613d9>] ? __wake_up_common+0x45/0x77
-[<ffffffff81486ea9>] ? _raw_spin_unlock_irqrestore+0x1d/0x32
-[<ffffffff810618bc>] ? __wake_up_sync_key+0x4a/0x53
-[<ffffffff8139a519>] ? sock_def_readable+0x71/0x75
-[<ffffffff813dd226>] do_ip_setsockopt+0x9d/0xb55
-[<ffffffff81429818>] ? unix_seqpacket_sendmsg+0x3f/0x41
-[<ffffffff813963fe>] ? sock_sendmsg+0x6d/0x86
-[<ffffffff813959d4>] ? sockfd_lookup_light+0x12/0x5d
-[<ffffffff8139650a>] ? SyS_sendto+0xf3/0x11b
-[<ffffffff810d5738>] ? new_sync_read+0x82/0xaa
-[<ffffffff813ddd19>] compat_ip_setsockopt+0x3b/0x99
-[<ffffffff813fb24a>] compat_raw_setsockopt+0x11/0x32
-[<ffffffff81399052>] compat_sock_common_setsockopt+0x18/0x1f
-[<ffffffff813c4d05>] compat_SyS_setsockopt+0x1a9/0x1cf
-[<ffffffff813c4149>] compat_SyS_socketcall+0x180/0x1e3
-[<ffffffff81488ea1>] cstar_dispatch+0x7/0x1e
+A: Normally Greg Kroah-Hartman collects stable commits himself, but
+   for networking, Dave collects up patches he deems critical for the
+   networking subsystem, and then hands them off to Greg.
 
-Signed-off-by: Ani Sinha <ani@arista.com>
----
- net/ipv4/ipmr.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+   There is a patchworks queue that you can see here:
+        http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
 
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index c803458..a1fc97a 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1674,8 +1674,8 @@ static inline int ipmr_forward_finish(struct sk_buff *skb)
- {
- 	struct ip_options *opt = &(IPCB(skb)->opt);
- 
--	IP_INC_STATS_BH(dev_net(skb_dst(skb)->dev), IPSTATS_MIB_OUTFORWDATAGRAMS);
--	IP_ADD_STATS_BH(dev_net(skb_dst(skb)->dev), IPSTATS_MIB_OUTOCTETS, skb->len);
-+	IP_INC_STATS(dev_net(skb_dst(skb)->dev), IPSTATS_MIB_OUTFORWDATAGRAMS);
-+	IP_ADD_STATS(dev_net(skb_dst(skb)->dev), IPSTATS_MIB_OUTOCTETS, skb->len);
- 
- 	if (unlikely(opt->optlen))
- 		ip_forward_options(skb);
-@@ -1737,7 +1737,7 @@ static void ipmr_queue_xmit(struct net *net, struct mr_table *mrt,
- 		 * to blackhole.
- 		 */
- 
--		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
-+		IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
- 		ip_rt_put(rt);
- 		goto out_free;
- 	}
--- 
-1.8.1.4
+   It contains the patches which Dave has selected, but not yet handed
+   off to Greg.  If Greg already has the patch, then it will be here:
+        http://git.kernel.org/cgit/linux/kernel/git/stable/stable-queue.git
+
+   A quick way to find whether the patch is in this stable-queue is
+   to simply clone the repo, and then git grep the mainline commit ID, e.g.
+
+        stable-queue$ git grep -l 284041ef21fdf2e
+        releases/3.0.84/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
+        releases/3.4.51/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
+        releases/3.9.8/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
+        stable/stable-queue$
