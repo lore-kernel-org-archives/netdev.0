@@ -1,84 +1,98 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET is
- enabled
-Date: Tue, 3 Nov 2015 21:00:12 +0000
-Message-ID: <BN1PR0301MB0770737810188CE2573A42CACA2B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-References: <BN1PR0301MB07704B4966A54DC679505962CA2B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-	<20151103.132015.944876907781932861.davem@davemloft.net>
-	<BN1PR0301MB07708CE383BA67E83C161370CA2B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
- <20151103.145027.1401610638879230478.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] sh_eth: kill 'ret' variable in sh_eth_ring_init()
+Date: Wed, 04 Nov 2015 00:17:08 +0300
+Message-ID: <3103690.zc6n37veWQ@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	KY Srinivasan <kys@microsoft.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0136.outbound.protection.outlook.com ([157.56.110.136]:21152
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755304AbbKCVPS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 16:15:18 -0500
-In-Reply-To: <20151103.145027.1401610638879230478.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-lf0-f51.google.com ([209.85.215.51]:34120 "EHLO
+	mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755226AbbKCVRM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 16:17:12 -0500
+Received: by lfgh9 with SMTP id h9so31488634lfg.1
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 13:17:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The 'ret' local variable in sh_eth_ring_init() serves no useful purpose as
+the only  values it gets assigned are 0 and -ENOMEM both of which could be
+returned directly...
 
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, November 3, 2015 2:50 PM
-> To: Haiyang Zhang <haiyangz@microsoft.com>
-> Cc: eric.dumazet@gmail.com; KY Srinivasan <kys@microsoft.com>;
-> edumazet@google.com; netdev@vger.kernel.org
-> Subject: Re: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET
-> is enabled
-> 
-> From: Haiyang Zhang <haiyangz@microsoft.com>
-> Date: Tue, 3 Nov 2015 18:49:05 +0000
-> 
-> >> -----Original Message-----
-> >> From: David Miller [mailto:davem@davemloft.net]
-> >> Sent: Tuesday, November 3, 2015 1:20 PM
-> >> To: Haiyang Zhang <haiyangz@microsoft.com>
-> >> Cc: eric.dumazet@gmail.com; KY Srinivasan <kys@microsoft.com>;
-> >> edumazet@google.com; netdev@vger.kernel.org
-> >> Subject: Re: [PATCH net-next] net: increase LL_MAX_HEADER if
-> >> HYPERV_NET is enabled
-> >>
-> >> From: Haiyang Zhang <haiyangz@microsoft.com>
-> >> Date: Tue, 3 Nov 2015 17:34:47 +0000
-> >>
-> >> > But we still keep this busy return in our code, just for "weird corner
-> cases".
-> >>
-> >> The queue_stopped condition must be precise.
-> >
-> > The only case we return NETDEV_TX_BUSY is when the outgoing ring
-> > buffer is full, which almost never happens because we stop the xmit queue
-> if ring is <10% available.
-> 
-> I don't think you understand.
-> 
-> You must perform the queue stop operation such that it is impossible for
-> your
-> ->ndo_start_xmit() method to be invoked in a way such that you cannot
-> ->transmit
-> the SKB given to you immediately.
+---
+The patch is against DaveM's 'net-next.git' repo.
 
-We already did the queue stop operation in the netvsc_send_pkt() in file netvsc.c:
-		if (ring_avail < RING_AVAIL_PERCENT_LOWATER) {
-			netif_tx_stop_queue(netdev_get_tx_queue(ndev, q_idx));
-This flow control mechanism stops the tx queue when the outgoing buffer on vmbus 
-is <10% available. So we can always transmit immediately when start_xmit is called.
+ drivers/net/ethernet/renesas/sh_eth.c |   24 ++++++++----------------
+ 1 file changed, 8 insertions(+), 16 deletions(-)
 
-The case of returning NETDEV_TX_BUSY is not expected to happen normally.
-
-Thanks,
-- Haiyang
-
-> 
-> It's quite tiring to keep trying to explain this over and over repeatedly.
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1199,7 +1199,7 @@ static void sh_eth_ring_format(struct ne
+ static int sh_eth_ring_init(struct net_device *ndev)
+ {
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
+-	int rx_ringsize, tx_ringsize, ret = 0;
++	int rx_ringsize, tx_ringsize;
+ 
+ 	/* +26 gets the maximum ethernet encapsulation, +7 & ~7 because the
+ 	 * card needs room to do 8 byte alignment, +2 so we can reserve
+@@ -1214,26 +1214,20 @@ static int sh_eth_ring_init(struct net_d
+ 	/* Allocate RX and TX skb rings */
+ 	mdp->rx_skbuff = kcalloc(mdp->num_rx_ring, sizeof(*mdp->rx_skbuff),
+ 				 GFP_KERNEL);
+-	if (!mdp->rx_skbuff) {
+-		ret = -ENOMEM;
+-		return ret;
+-	}
++	if (!mdp->rx_skbuff)
++		return -ENOMEM;
+ 
+ 	mdp->tx_skbuff = kcalloc(mdp->num_tx_ring, sizeof(*mdp->tx_skbuff),
+ 				 GFP_KERNEL);
+-	if (!mdp->tx_skbuff) {
+-		ret = -ENOMEM;
++	if (!mdp->tx_skbuff)
+ 		goto skb_ring_free;
+-	}
+ 
+ 	/* Allocate all Rx descriptors. */
+ 	rx_ringsize = sizeof(struct sh_eth_rxdesc) * mdp->num_rx_ring;
+ 	mdp->rx_ring = dma_alloc_coherent(NULL, rx_ringsize, &mdp->rx_desc_dma,
+ 					  GFP_KERNEL);
+-	if (!mdp->rx_ring) {
+-		ret = -ENOMEM;
++	if (!mdp->rx_ring)
+ 		goto skb_ring_free;
+-	}
+ 
+ 	mdp->dirty_rx = 0;
+ 
+@@ -1241,11 +1235,9 @@ static int sh_eth_ring_init(struct net_d
+ 	tx_ringsize = sizeof(struct sh_eth_txdesc) * mdp->num_tx_ring;
+ 	mdp->tx_ring = dma_alloc_coherent(NULL, tx_ringsize, &mdp->tx_desc_dma,
+ 					  GFP_KERNEL);
+-	if (!mdp->tx_ring) {
+-		ret = -ENOMEM;
++	if (!mdp->tx_ring)
+ 		goto desc_ring_free;
+-	}
+-	return ret;
++	return 0;
+ 
+ desc_ring_free:
+ 	/* free DMA buffer */
+@@ -1257,7 +1249,7 @@ skb_ring_free:
+ 	mdp->tx_ring = NULL;
+ 	mdp->rx_ring = NULL;
+ 
+-	return ret;
++	return -ENOMEM;
+ }
+ 
+ static void sh_eth_free_dma_buffer(struct sh_eth_private *mdp)
