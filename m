@@ -1,79 +1,44 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net/core: fix for_each_netdev_feature
-Date: Tue, 3 Nov 2015 16:33:38 +0100
-Message-ID: <5638D3D2.5080703@cumulusnetworks.com>
-References: <1446519359-21400-1-git-send-email-jarod@redhat.com>
- <1446563759-17713-1-git-send-email-jarod@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: dynamically set number of queues for 82598 devices
+Date: Tue, 03 Nov 2015 10:35:02 -0500 (EST)
+Message-ID: <20151103.103502.755669061638846118.davem@davemloft.net>
+References: <20151029152645.GD7657@gandi.net>
+	<20151103095603.GE7714@gandi.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	Michal Kubecek <mkubecek@suse.cz>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, talabudi@gmail.com,
+	emil.s.tantilov@intel.com, jeffrey.t.kirsher@intel.com
+To: william@gandi.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:36732 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752030AbbKCPdr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 10:33:47 -0500
-Received: by wmec75 with SMTP id c75so89653953wme.1
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 07:33:46 -0800 (PST)
-In-Reply-To: <1446563759-17713-1-git-send-email-jarod@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44577 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754762AbbKCPfG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 10:35:06 -0500
+In-Reply-To: <20151103095603.GE7714@gandi.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/03/2015 04:15 PM, Jarod Wilson wrote:
-> As pointed out by Nikolay and further explained by Geert, the initial
-> for_each_netdev_feature macro was broken, as feature would get set outside
-> of the block of code it was intended to run in, thus only ever working for
-> the first feature bit in the mask. While less pretty this way, this is
-> tested and confirmed functional with multiple feature bits set in
-> NETIF_F_UPPER_DISABLES.
-> 
-> [root@dell-per730-01 ~]# ethtool -K bond0 lro off
-> ...
-> [  242.761394] bond0: Disabling feature 0x0000000000008000 on lower dev p5p2.
-> [  243.552178] bnx2x 0000:06:00.1 p5p2: using MSI-X  IRQs: sp 74  fp[0] 76 ... fp[7] 83
-> [  244.353978] bond0: Disabling feature 0x0000000000008000 on lower dev p5p1.
-> [  245.147420] bnx2x 0000:06:00.0 p5p1: using MSI-X  IRQs: sp 62  fp[0] 64 ... fp[7] 71
-> 
-> [root@dell-per730-01 ~]# ethtool -K bond0 gro off
-> ...
-> [  251.925645] bond0: Disabling feature 0x0000000000004000 on lower dev p5p2.
-> [  252.713693] bnx2x 0000:06:00.1 p5p2: using MSI-X  IRQs: sp 74  fp[0] 76 ... fp[7] 83
-> [  253.499085] bond0: Disabling feature 0x0000000000004000 on lower dev p5p1.
-> [  254.290922] bnx2x 0000:06:00.0 p5p1: using MSI-X  IRQs: sp 62  fp[0] 64 ... fp[7] 71
-> 
-> Fixes: fd867d51f ("net/core: generic support for disabling netdev features down stack")
-> CC: "David S. Miller" <davem@davemloft.net>
-> CC: Eric Dumazet <edumazet@google.com>
-> CC: Jay Vosburgh <j.vosburgh@gmail.com>
-> CC: Veaceslav Falico <vfalico@gmail.com>
-> CC: Andy Gospodarek <gospo@cumulusnetworks.com>
-> CC: Jiri Pirko <jiri@resnulli.us>
-> CC: Nikolay Aleksandrov <razor@blackwall.org>
-> CC: Michal Kubecek <mkubecek@suse.cz>
-> CC: Alexander Duyck <alexander.duyck@gmail.com>
-> CC: Geert Uytterhoeven <geert@linux-m68k.org>
-> CC: netdev@vger.kernel.org
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
-> ---
->  include/linux/netdev_features.h | 6 ++----
->  net/core/dev.c                  | 8 ++++++--
->  2 files changed, 8 insertions(+), 6 deletions(-)
-> 
+From: William Dauchy <william@gandi.net>
+Date: Tue, 3 Nov 2015 10:56:03 +0100
 
-Looks good to me especially without the hidden side-effects,
+> Hello David,
+> 
+> On Oct29 16:26, William Dauchy wrote:
+>> I faced the problem described in commit 7e3f5c8:
+>> ixgbe: fix bounds checking in ixgbe_setup_tc for 82598
+>> 
+>> This patch resolves an issue where users were not able to dynamically
+>> set number of queues for 82598 via ethtool -L
+>> 
+>> I backported it for my v4.1.x build but I was wondering if this could be
+>> a candidate for a backport in stable tree at least for v4.1.x.
+> 
+> Since we are now in a bug fix period, I was wondering if you could have
+> a look at commit 7e3f5c8 (ixgbe: fix bounds checking in ixgbe_setup_tc
+> for 82598)
+> I don't see it in
+> http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
+> so I was wondering if it could be a valid candidate for stable.
 
-Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-
-Thanks,
- Nik
+The Intel ethernet folks handle their driver -stable submissions.
