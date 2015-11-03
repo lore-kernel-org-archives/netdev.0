@@ -1,7 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 2/3] batman-adv: Split a condition check
-Date: Tue, 3 Nov 2015 21:54:35 +0100
-Message-ID: <56391F0B.2060102@users.sourceforge.net>
+Subject: [PATCH 3/3] batman-adv: Less function calls in
+ batadv_is_ap_isolated() after error detection
+Date: Tue, 3 Nov 2015 21:56:19 +0100
+Message-ID: <56391F73.7090605@users.sourceforge.net>
 References: <5307CAA2.8060406@users.sourceforge.net>
  <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
  <530A086E.8010901@users.sourceforge.net>
@@ -30,38 +31,65 @@ To: Antonio Quartulli <antonio@meshcoding.com>,
 	Marek Lindner <mareklindner@neomailbox.ch>,
 	Simon Wunderlich <sw@simonwunderlich.de>,
 	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 In-Reply-To: <56391CF7.9080400@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 3 Nov 2015 20:41:02 +0100
+Date: Tue, 3 Nov 2015 21:10:51 +0100
 
-Let us split a check for a condition at the beginning of the
-batadv_is_ap_isolated() function so that a direct return can be performed
-in this function if the variable "vlan" contained a null pointer.
+The variables "tt_local_entry" and "tt_global_entry" were eventually checked
+again despite of a corresponding null pointer test before.
+Let us avoid this double check by reordering a function call sequence
+and the better selection of jump targets.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- net/batman-adv/translation-table.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ net/batman-adv/translation-table.c | 21 +++++++++------------
+ 1 file changed, 9 insertions(+), 12 deletions(-)
 
 diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 48315de..965a004 100644
+index 965a004..3ac32d9 100644
 --- a/net/batman-adv/translation-table.c
 +++ b/net/batman-adv/translation-table.c
-@@ -3319,7 +3319,10 @@ bool batadv_is_ap_isolated(struct batadv_priv *bat_priv, u8 *src, u8 *dst,
- 	bool ret = false;
+@@ -3323,27 +3323,24 @@ bool batadv_is_ap_isolated(struct batadv_priv *bat_priv, u8 *src, u8 *dst,
+ 		return false;
  
- 	vlan = batadv_softif_vlan_get(bat_priv, vid);
--	if (!vlan || !atomic_read(&vlan->ap_isolation))
-+	if (!vlan)
-+		return false;
-+
-+	if (!atomic_read(&vlan->ap_isolation))
- 		goto out;
+ 	if (!atomic_read(&vlan->ap_isolation))
+-		goto out;
++		goto vlan_free;
  
  	tt_local_entry = batadv_tt_local_hash_find(bat_priv, dst, vid);
+ 	if (!tt_local_entry)
+-		goto out;
++		goto vlan_free;
+ 
+ 	tt_global_entry = batadv_tt_global_hash_find(bat_priv, src, vid);
+ 	if (!tt_global_entry)
+-		goto out;
++		goto local_entry_free;
+ 
+-	if (!_batadv_is_ap_isolated(tt_local_entry, tt_global_entry))
+-		goto out;
+-
+-	ret = true;
++	if (_batadv_is_ap_isolated(tt_local_entry, tt_global_entry))
++		ret = true;
+ 
+-out:
++	batadv_tt_global_entry_free_ref(tt_global_entry);
++local_entry_free:
++	batadv_tt_local_entry_free_ref(tt_local_entry);
++vlan_free:
+ 	batadv_softif_vlan_free_ref(vlan);
+-	if (tt_global_entry)
+-		batadv_tt_global_entry_free_ref(tt_global_entry);
+-	if (tt_local_entry)
+-		batadv_tt_local_entry_free_ref(tt_local_entry);
+ 	return ret;
+ }
+ 
 -- 
 2.6.2
+
