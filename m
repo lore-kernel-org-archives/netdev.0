@@ -1,60 +1,84 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] ipv6: gro: support sit protocol
-Date: Wed, 4 Nov 2015 06:14:14 +0900
-Message-ID: <CALx6S35BK3aTGwceKmdXPDyGq+xn_ysb_yvgjj9piq2va30zFg@mail.gmail.com>
-References: <1438621878-1113072-1-git-send-email-tom@herbertland.com>
-	<1445306641.30896.42.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1445312417.30896.64.camel@edumazet-glaptop2.roam.corp.google.com>
-	<19837690.PaPkekjCr9@stwm.de>
-	<1446556053.23275.55.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET is
+ enabled
+Date: Tue, 3 Nov 2015 21:00:12 +0000
+Message-ID: <BN1PR0301MB0770737810188CE2573A42CACA2B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+References: <BN1PR0301MB07704B4966A54DC679505962CA2B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+	<20151103.132015.944876907781932861.davem@davemloft.net>
+	<BN1PR0301MB07708CE383BA67E83C161370CA2B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+ <20151103.145027.1401610638879230478.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Wolfgang Walter <linux@stwm.de>,
-	David Miller <davem@davemloft.net>,
-	Jerry Chu <hkchu@google.com>, JesseGross <jesse@nicira.com>,
-	netdev <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	KY Srinivasan <kys@microsoft.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:36683 "EHLO
-	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755019AbbKCVOP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 16:14:15 -0500
-Received: by ioll68 with SMTP id l68so33366135iol.3
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 13:14:15 -0800 (PST)
-In-Reply-To: <1446556053.23275.55.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-bn1on0136.outbound.protection.outlook.com ([157.56.110.136]:21152
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755304AbbKCVPS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 16:15:18 -0500
+In-Reply-To: <20151103.145027.1401610638879230478.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 3, 2015 at 10:07 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2015-11-03 at 13:57 +0100, Wolfgang Walter wrote:
->> Am Montag, 19. Oktober 2015, 20:40:17 schrieb Eric Dumazet:
->> > From: Eric Dumazet <edumazet@google.com>
->> >
->> > Tom Herbert added SIT support to GRO with commit
->> > 19424e052fb4 ("sit: Add gro callbacks to sit_offload"),
->> > later reverted by Herbert Xu.
->> >
->> > The problem came because Tom patch was building GRO
->> > packets without proper meta data : If packets were locally
->> > delivered, we would not care.
->> >
->> > But if packets needed to be forwarded, GSO engine was not
->> > able to segment individual segments.
->> >
->> > With the following patch, we correctly set skb->encapsulation
->> > and inner network header. We also update gso_type.
->> >
->>
->> I'm running 4.1.11 / 4.1.12 with this patch on top now since over a week.
->> ISATAP works fine.
->
-> Perfect ! thanks a lot for testing !
->
 
-Thanks for all the work on this!
 
-Tom
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, November 3, 2015 2:50 PM
+> To: Haiyang Zhang <haiyangz@microsoft.com>
+> Cc: eric.dumazet@gmail.com; KY Srinivasan <kys@microsoft.com>;
+> edumazet@google.com; netdev@vger.kernel.org
+> Subject: Re: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET
+> is enabled
+> 
+> From: Haiyang Zhang <haiyangz@microsoft.com>
+> Date: Tue, 3 Nov 2015 18:49:05 +0000
+> 
+> >> -----Original Message-----
+> >> From: David Miller [mailto:davem@davemloft.net]
+> >> Sent: Tuesday, November 3, 2015 1:20 PM
+> >> To: Haiyang Zhang <haiyangz@microsoft.com>
+> >> Cc: eric.dumazet@gmail.com; KY Srinivasan <kys@microsoft.com>;
+> >> edumazet@google.com; netdev@vger.kernel.org
+> >> Subject: Re: [PATCH net-next] net: increase LL_MAX_HEADER if
+> >> HYPERV_NET is enabled
+> >>
+> >> From: Haiyang Zhang <haiyangz@microsoft.com>
+> >> Date: Tue, 3 Nov 2015 17:34:47 +0000
+> >>
+> >> > But we still keep this busy return in our code, just for "weird corner
+> cases".
+> >>
+> >> The queue_stopped condition must be precise.
+> >
+> > The only case we return NETDEV_TX_BUSY is when the outgoing ring
+> > buffer is full, which almost never happens because we stop the xmit queue
+> if ring is <10% available.
+> 
+> I don't think you understand.
+> 
+> You must perform the queue stop operation such that it is impossible for
+> your
+> ->ndo_start_xmit() method to be invoked in a way such that you cannot
+> ->transmit
+> the SKB given to you immediately.
 
->
+We already did the queue stop operation in the netvsc_send_pkt() in file netvsc.c:
+		if (ring_avail < RING_AVAIL_PERCENT_LOWATER) {
+			netif_tx_stop_queue(netdev_get_tx_queue(ndev, q_idx));
+This flow control mechanism stops the tx queue when the outgoing buffer on vmbus 
+is <10% available. So we can always transmit immediately when start_xmit is called.
+
+The case of returning NETDEV_TX_BUSY is not expected to happen normally.
+
+Thanks,
+- Haiyang
+
+> 
+> It's quite tiring to keep trying to explain this over and over repeatedly.
