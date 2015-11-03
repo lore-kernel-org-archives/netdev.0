@@ -1,31 +1,31 @@
 From: Unknown <unknown@unknown.invalid>
-Subject: details required
-Date: Tue, 3 Nov 2015 10:23:33 +0200
-Message-ID: <AM2PR08MB011357277D5AC026CBDFED99B82B0__13345.1227950447$1446539296$gmane$org@AM2PR08MB0113.eurprd08.prod.outlook.com>
-Reply-To: <maekhalsalem@gmail.com>
+Subject: ATTENTION
+Date: Tue, 3 Nov 2015 14:03:53 +0530
+Message-ID: <PN1PR01MB00791F3600119978F31C9DFBB82B0@PN1PR01MB0079.INDPRD01.PROD.OUTLOOK.COM>
+Reply-To: <mrsmariarose0@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 To: Recipients@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3hn0252.outbound.protection.outlook.com ([157.55.234.252]:58210
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+Received: from mail-bo1ind01hn0205.outbound.protection.outlook.com ([104.47.101.205]:63886
+	"EHLO IND01-BO1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753189AbbKCIXz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 03:23:55 -0500
+	id S1752295AbbKCIeN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 03:34:13 -0500
 Content-Description: Mail message body
 From: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-i have a business proposal for you with urgent transfer notice please send me reply to maekhalsalem@gmail.com or my official email salem@iraqrepvp.comze.com with your
-contact details and personal mobile number if you are interested.
+Good day My Dear,
 
-you can also call me at my direct sattelite number +447937455418 for detailed discussion
+I am seeking the immediate assistance,of a reliable and trustworthy Indian
+businessman who understands India local language (Hindi) and a little
+English; to handle a profitable business for our mutual benefit.
 
-regards
-maekhal salem
+I await your reply for more details.
 
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+Thanks and best regards,
+Dr. Maria Rose Anthony.
+Email:mrsmariarose0@gmail.com
