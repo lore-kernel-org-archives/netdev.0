@@ -1,53 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: HTB, HFSC, PIE, FIFO stuck on 2.4Gbit on default values
-Date: Tue, 03 Nov 2015 11:49:16 -0800
-Message-ID: <1446580156.23275.74.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <14bd7629199800f798c8ab932e0285d3@visp.net.lb>
-	 <1446577894.23275.71.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <907cb54c0a27beed12381247ba29bca5@visp.net.lb>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET is
+ enabled
+Date: Tue, 03 Nov 2015 14:50:27 -0500 (EST)
+Message-ID: <20151103.145027.1401610638879230478.davem@davemloft.net>
+References: <BN1PR0301MB07704B4966A54DC679505962CA2B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+	<20151103.132015.944876907781932861.davem@davemloft.net>
+	<BN1PR0301MB07708CE383BA67E83C161370CA2B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Cc: eric.dumazet@gmail.com, kys@microsoft.com, edumazet@google.com,
+	netdev@vger.kernel.org
+To: haiyangz@microsoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33130 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932456AbbKCTtR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 14:49:17 -0500
-Received: by pabfh17 with SMTP id fh17so27218427pab.0
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 11:49:17 -0800 (PST)
-In-Reply-To: <907cb54c0a27beed12381247ba29bca5@visp.net.lb>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46952 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932478AbbKCTuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 14:50:32 -0500
+In-Reply-To: <BN1PR0301MB07708CE383BA67E83C161370CA2B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-11-03 at 21:17 +0200, Denys Fedoryshchenko wrote:
->  GSO/TSO on the output and watch performance coming back.
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Tue, 3 Nov 2015 18:49:05 +0000
+
+>> -----Original Message-----
+>> From: David Miller [mailto:davem@davemloft.net]
+>> Sent: Tuesday, November 3, 2015 1:20 PM
+>> To: Haiyang Zhang <haiyangz@microsoft.com>
+>> Cc: eric.dumazet@gmail.com; KY Srinivasan <kys@microsoft.com>;
+>> edumazet@google.com; netdev@vger.kernel.org
+>> Subject: Re: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET
+>> is enabled
+>> 
+>> From: Haiyang Zhang <haiyangz@microsoft.com>
+>> Date: Tue, 3 Nov 2015 17:34:47 +0000
+>> 
+>> > But we still keep this busy return in our code, just for "weird corner cases".
+>> 
+>> The queue_stopped condition must be precise.
 > 
-> It is not, since i have more than 120 servers installed over country 
-> (most of them handle small traffic), in forwarding mode, first thing i 
-> am doing on forwarding setup - disabling gro/gso/tso. It is helped also 
-> many ISP on their forum where i visit often, first thing in 
-> troubleshooting unreliable network traffic forwarding - disabling 
-> offloading.
-> Because problem starts from incorrect shaping, and ends in some cases 
-> with network drivers spitting watchdog errors. Sometimes even shaper not 
-> necessary, just plain forwarding with offload enabled can cause issues, 
-> but it might be bug in networking drivers.
-> Should i try to reproduce and report? Sure if anybody can look into this 
-> issue.
+> The only case we return NETDEV_TX_BUSY is when the outgoing ring buffer is full, 
+> which almost never happens because we stop the xmit queue if ring is <10% available.
 
+I don't think you understand.
 
-Well, I am telling you.
+You must perform the queue stop operation such that it is impossible for your
+->ndo_start_xmit() method to be invoked in a way such that you cannot transmit
+the SKB given to you immediately.
 
-Say no to people advising to turn off GRO/TSO.
-
-If you were the guy adviding others to do so, it is time to see the
-light.
-
-Lets fix the bugs if any, instead of spreading disinformation.
-
-I am so tired of telling these very simple facts guys.
-
-If you prefer, continue to work on linux-2.0 but don't ask help on
-netdev.
+It's quite tiring to keep trying to explain this over and over repeatedly.
