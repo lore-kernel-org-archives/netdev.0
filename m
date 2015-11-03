@@ -1,174 +1,38 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: New Defects reported by Coverity Scan for Linux
-Date: Tue, 3 Nov 2015 19:32:10 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D22372350@eusaamb103.ericsson.se>
-References: <20151103081812.6c55fbe5@xeon-e3>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: fix typo in RX descriptor bit name
+Date: Tue, 3 Nov 2015 22:35:15 +0300
+Message-ID: <56390C73.2030302@cogentembedded.com>
+References: <2178116.o4gdOMzEUc@wasted.cogentembedded.com>
+ <CAOJe8K1GbJ7N9YW31f8Ht8Qbb2av_vpeZPv7R60DuKV6vuDZKA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	Ying Xue <ying.xue@windriver.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: Denis Kirjanov <kda@linux-powerpc.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usevmg20.ericsson.net ([198.24.6.45]:57114 "EHLO
-	usevmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932223AbbKCTcR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 14:32:17 -0500
-In-Reply-To: <20151103081812.6c55fbe5@xeon-e3>
-Content-Language: en-US
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:33310 "EHLO
+	mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755723AbbKCTfT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 14:35:19 -0500
+Received: by lfbf136 with SMTP id f136so30293237lfb.0
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 11:35:18 -0800 (PST)
+In-Reply-To: <CAOJe8K1GbJ7N9YW31f8Ht8Qbb2av_vpeZPv7R60DuKV6vuDZKA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch went to 'stable', so I am a little uncertain about how to handle it.
-Do I need to post a trailing commit that also goes to stable, or is net-next sufficient?
-Personally, I would prefer the latter.
+Hello.
 
-///jon
+On 11/03/2015 10:30 PM, Denis Kirjanov wrote:
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> Sent: Tuesday, 03 November, 2015 11:18
-> To: Jon Maloy; Ying Xue
-> Cc: netdev@vger.kernel.org
-> Subject: Fw: New Defects reported by Coverity Scan for Linux
-> 
-> The TIPC case is a missing check for memory allocation failure.
-> 
-> 
-> Begin forwarded message:
-> 
-> Date: Mon, 02 Nov 2015 23:45:55 -0800
-> From: scan-admin@coverity.com
-> To: stephen@networkplumber.org
-> Subject: New Defects reported by Coverity Scan for Linux
-> 
-> 
-> 
-> Hi,
-> 
-> Please find the latest report on new defect(s) introduced to Linux found with
-> Coverity Scan.
-> 
-> 4 new defect(s) introduced to Linux found with Coverity Scan.
-> 9 defect(s), reported by Coverity Scan earlier, were marked fixed in the
-> recent build analyzed by Coverity Scan.
-> 
-> New defect(s) Reported-by: Coverity Scan Showing 4 of 4 defect(s)
-> 
-> 
-> ** CID 1338065:  Error handling issues  (CHECKED_RETURN)
-> /net/tipc/udp_media.c: 162 in tipc_udp_send_msg()
-> 
-> 
-> __________________________________________________________
-> ______________________________________________
-> *** CID 1338065:  Error handling issues  (CHECKED_RETURN)
-> /net/tipc/udp_media.c: 162 in tipc_udp_send_msg()
-> 156     	struct udp_media_addr *dst = (struct udp_media_addr *)&dest-
-> >value;
-> 157     	struct udp_media_addr *src = (struct udp_media_addr *)&b-
-> >addr.value;
-> 158     	struct sk_buff *clone;
-> 159     	struct rtable *rt;
-> 160
-> 161     	if (skb_headroom(skb) < UDP_MIN_HEADROOM)
-> >>>     CID 1338065:  Error handling issues  (CHECKED_RETURN)
-> >>>     Calling "pskb_expand_head" without checking return value (as is done
-> elsewhere 51 out of 56 times).
-> 162     		pskb_expand_head(skb, UDP_MIN_HEADROOM, 0,
-> GFP_ATOMIC);
-> 163
-> 164     	clone = skb_clone(skb, GFP_ATOMIC);
-> 165     	skb_set_inner_protocol(clone, htons(ETH_P_TIPC));
-> 166     	ub = rcu_dereference_rtnl(b->media_ptr);
-> 167     	if (!ub) {
-> 
-> ** CID 1338066:  Null pointer dereferences  (FORWARD_NULL)
-> /net/openvswitch/flow_netlink.c: 1379 in __ovs_nla_put_key()
-> 
-> 
-> __________________________________________________________
-> ______________________________________________
-> *** CID 1338066:  Null pointer dereferences  (FORWARD_NULL)
-> /net/openvswitch/flow_netlink.c: 1379 in __ovs_nla_put_key()
-> 1373     		goto nla_put_failure;
-> 1374
-> 1375     	if (nla_put_u32(skb, OVS_KEY_ATTR_PRIORITY, output-
-> >phy.priority))
-> 1376     		goto nla_put_failure;
-> 1377
-> 1378     	if ((swkey->tun_key.u.ipv4.dst || is_mask)) {
-> >>>     CID 1338066:  Null pointer dereferences  (FORWARD_NULL)
-> >>>     Assigning: "opts" = "NULL".
-> 1379     		const void *opts = NULL;
-> 1380
-> 1381     		if (output->tun_key.tun_flags &
-> TUNNEL_OPTIONS_PRESENT)
-> 1382     			opts = TUN_METADATA_OPTS(output, swkey-
-> >tun_opts_len);
-> 1383
-> 1384     		if (ipv4_tun_to_nlattr(skb, &output->tun_key, opts,
-> 
-> ** CID 1338067:  Integer handling issues  (OVERFLOW_BEFORE_WIDEN)
-> /drivers/net/ethernet/cavium/thunder/nic_main.c: 407 in nic_config_cpi()
-> 
-> 
-> __________________________________________________________
-> ______________________________________________
-> *** CID 1338067:  Integer handling issues  (OVERFLOW_BEFORE_WIDEN)
-> /drivers/net/ethernet/cavium/thunder/nic_main.c: 407 in nic_config_cpi()
-> 401     			nic_reg_write(nic, NIC_PF_CPI_0_2047_CFG | (cpi <<
-> 3),
-> 402     				      (vnic << 24) | (padd << 16) |
-> 403     				      (rssi_base + rssi));
-> 404     		} else {
-> 405     			/* Set MPI_ALG to '0' to disable MCAM parsing */
-> 406     			nic_reg_write(nic, NIC_PF_CPI_0_2047_CFG | (cpi <<
-> 3),
-> >>>     CID 1338067:  Integer handling issues  (OVERFLOW_BEFORE_WIDEN)
-> >>>     Potentially overflowing expression "padd << 16" with type "u32" (32
-> bits, unsigned) is evaluated using 32-bit arithmetic, and then used in a
-> context that expects an expression of type "u64" (64 bits, unsigned).
-> 407     				      (padd << 16));
-> 408     			/* MPI index is same as CPI if MPI_ALG is not
-> enabled */
-> 409     			nic_reg_write(nic, NIC_PF_MPI_0_2047_CFG | (cpi
-> << 3),
-> 410     				      (vnic << 24) | (rssi_base + rssi));
-> 411     		}
-> 412
-> 
-> ** CID 1338068:  Null pointer dereferences  (REVERSE_INULL)
-> /include/net/dst_metadata.h: 69 in tun_dst_unclone()
-> 
-> 
-> __________________________________________________________
-> ______________________________________________
-> *** CID 1338068:  Null pointer dereferences  (REVERSE_INULL)
-> /include/net/dst_metadata.h: 69 in tun_dst_unclone()
-> 63     static inline struct metadata_dst *tun_dst_unclone(struct sk_buff *skb)
-> 64     {
-> 65     	struct metadata_dst *md_dst = skb_metadata_dst(skb);
-> 66     	int md_size = md_dst->u.tun_info.options_len;
-> 67     	struct metadata_dst *new_md;
-> 68
-> >>>     CID 1338068:  Null pointer dereferences  (REVERSE_INULL)
-> >>>     Null-checking "md_dst" suggests that it may be null, but it has already
-> been dereferenced on all paths leading to the check.
-> 69     	if (!md_dst)
-> 70     		return ERR_PTR(-EINVAL);
-> 71
-> 72     	new_md = metadata_dst_alloc(md_size, GFP_ATOMIC);
-> 73     	if (!new_md)
-> 74     		return ERR_PTR(-ENOMEM);
-> 
-> 
-> __________________________________________________________
-> ______________________________________________
-> To view the defects in Coverity Scan visit,
-> https://scan.coverity.com/projects/linux?tab=overview
-> 
-> To manage Coverity Scan email notifications for
-> "stephen@networkplumber.org", click
-> https://scan.coverity.com/subscriptions/edit?email=stephen%40networkplu
-> mber.org&token=41b352b884ef3fc73426635eebc294c3
+>> Commit  7d7355f58ba4 ("sh_eth: Ensure proper ordering of descriptor active
+>> bit write/read") did the right thing  but used too "heavy" barriers while
+>> there were already "lighter" DMA barriers exactly  for this case...
+>>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>
+> Fix the subject line...
+
+    Oops! Will fix in a jiffy...
+    (I thought at first that you're commenting on the already applied patch. :-))
+
+MBR, Sergei
