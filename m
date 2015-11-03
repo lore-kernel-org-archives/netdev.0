@@ -1,73 +1,51 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH net] ipv6: clean up dev_snmp6 proc entry when we fail to
- initialize inet6_dev
-Date: Tue, 3 Nov 2015 19:41:30 +0100
-Message-ID: <20151103184130.GA11234@bistromath.redhat.com>
-References: <8e1fff92148028f407177e68355100b705cf4ad1.1446573077.git.sd@queasysnail.net>
- <CAHA+R7OvQ0-=w+uSUZmYUi4t4gfBgW+iLGEX5zsRr8-r_6pGGQ@mail.gmail.com>
- <20151103.133837.925754446071442709.davem@davemloft.net>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET is
+ enabled
+Date: Tue, 3 Nov 2015 18:49:05 +0000
+Message-ID: <BN1PR0301MB07708CE383BA67E83C161370CA2B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+References: <20151103.103319.1465681990237533576.davem@davemloft.net>
+	<1446568644.23275.65.camel@edumazet-glaptop2.roam.corp.google.com>
+	<BN1PR0301MB07704B4966A54DC679505962CA2B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+ <20151103.132015.944876907781932861.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: cwang@twopensource.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, dvyukov@google.com,
-	hannes@stressinduktion.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	KY Srinivasan <kys@microsoft.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41130 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754129AbbKCSld (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Nov 2015 13:41:33 -0500
-Content-Disposition: inline
-In-Reply-To: <20151103.133837.925754446071442709.davem@davemloft.net>
+Received: from mail-bl2on0142.outbound.protection.outlook.com ([65.55.169.142]:14127
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751593AbbKCStI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 13:49:08 -0500
+In-Reply-To: <20151103.132015.944876907781932861.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-11-03, 13:38:37 -0500, David Miller wrote:
-> From: Cong Wang <cwang@twopensource.com>
-> Date: Tue, 3 Nov 2015 10:30:20 -0800
+
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, November 3, 2015 1:20 PM
+> To: Haiyang Zhang <haiyangz@microsoft.com>
+> Cc: eric.dumazet@gmail.com; KY Srinivasan <kys@microsoft.com>;
+> edumazet@google.com; netdev@vger.kernel.org
+> Subject: Re: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET
+> is enabled
 > 
-> > On Tue, Nov 3, 2015 at 10:09 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
-> >> In ipv6_add_dev, when addrconf_sysctl_register fails, we do not clean up
-> >> the dev_snmp6 entry that we have already registered for this device.
-> >>
-> >> It is safe to call snmp6_unregister_dev unconditionally from
-> >> in6_dev_finish_destroy, so do it.
-> >>
-> >> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> >> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> >> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> >> ---
-> >> Dmitry, I'm not completely sure it's the issue you're triggering, but
-> >> it sems likely.
-> >>
-> >>  net/ipv6/addrconf_core.c | 2 ++
-> >>  1 file changed, 2 insertions(+)
-> >>
-> >> diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
-> >> index bfa941fc1165..96248a333197 100644
-> >> --- a/net/ipv6/addrconf_core.c
-> >> +++ b/net/ipv6/addrconf_core.c
-> >> @@ -168,6 +168,8 @@ void in6_dev_finish_destroy(struct inet6_dev *idev)
-> >>                 pr_warn("Freeing alive inet6 device %p\n", idev);
-> >>                 return;
-> >>         }
-> >> +
-> >> +       snmp6_unregister_dev(idev);
-> >>         call_rcu(&idev->rcu, in6_dev_finish_destroy_rcu);
-> > 
-> > 
-> > Hmm, but looks like we can't call a function from ipv6 module in a core file?
+> From: Haiyang Zhang <haiyangz@microsoft.com>
+> Date: Tue, 3 Nov 2015 17:34:47 +0000
 > 
-> Grrr, that's right, I have to revert this.
-
-Sorry :(
-
-I will fix this and resubmit later.
-
+> > But we still keep this busy return in our code, just for "weird corner cases".
 > 
-> Good catch Cong.
+> The queue_stopped condition must be precise.
 
-Yes, thanks Cong!
+The only case we return NETDEV_TX_BUSY is when the outgoing ring buffer is full, 
+which almost never happens because we stop the xmit queue if ring is <10% available.
 
--- 
-Sabrina
+Thanks,
+- Haiyang
