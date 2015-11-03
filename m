@@ -1,47 +1,39 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: Re: [PATCH -stable 3.18, backport] ipmr: fix possible race resulting
- from improper usage of IP_INC_STATS_BH() in preemptible context.
-Date: Mon, 2 Nov 2015 22:48:59 -0500
-Message-ID: <56382EAB.8020602@oracle.com>
-References: <alpine.OSX.2.00.1511021633400.6869@animac.local>
- <1446511811.23275.37.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAOxq_8MKSV2QtTvFoEXXFjRFsFFaae_FUbPiZn2SZC9fwAEPeQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH next 0/3] re-org actor admin/oper key updates
+Date: Mon, 02 Nov 2015 22:52:40 -0500 (EST)
+Message-ID: <20151102.225240.1162453078430872461.davem@davemloft.net>
+References: <1446320695-38570-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stable <stable@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Ani Sinha <ani@arista.com>, Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <CAOxq_8MKSV2QtTvFoEXXFjRFsFFaae_FUbPiZn2SZC9fwAEPeQ@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
+	nikolay@redhat.com, decot@google.com, netdev@vger.kernel.org
+To: maheshb@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39202 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751780AbbKCDwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 22:52:42 -0500
+In-Reply-To: <1446320695-38570-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/02/2015 10:32 PM, Ani Sinha wrote:
-> On Mon, Nov 2, 2015 at 4:50 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Mon, 2015-11-02 at 16:40 -0800, Ani Sinha wrote:
->>> >> [ Upstream commit 44f49dd8b5a606870a1f2 ]
->> >
->> > Please carefully read Documentation/networking/netdev-FAQ.txt
-> I don't see any recent releases of 3.18 version series in Greg KH's
-> tree. Is the 3.18 stable train being maintained by Sasha here?
+From: Mahesh Bandewar <maheshb@google.com>
+Date: Sat, 31 Oct 2015 12:44:55 -0700
+
+> I was observing machines entering into weird LACP state when the
+> partner is in passive mode. This issue is not because of the partners
+> in passive state but probably because of some operational key update
+> which is pushing the state-machine is that weird state. This was
+> happening randomly on about 1% of the machine (when the sample size
+> is a large set of machines with a variety of NICs/ports bonded).
 > 
-> http://git.kernel.org/cgit/linux/kernel/git/sashal/linux-stable.git/
+> In this patch-series I'm attempting to unify the logic of actor-key
+> / operational-key changes to one place to avoid possible errors in
+> update. Also this eliminates the need for the event-handler to decide
+> if the key needs update.
 > 
-> If that is the case, should 3.18 specific backport patches be sent
-> directly to him ?
+> After this patch-set none of the machines (from same sample set) were
+> exhibiting LACP-weirdness that was observed earlier.
 
-The documentation is a bit lacking here. I follow the same procedure
-as Greg: Dave sends us backports for patches he picks for -stable and
-I apply them.
-
-The only difference is that my (currently empty) queue is located elsewhere:
-https://git.kernel.org/cgit/linux/kernel/git/sashal/linux-stable.git/log/?h=linux-3.18.y-queue
-
-To sum it up, no need to send anything regarding -stable  net/ to anyone,
-Dave does all the heavy lifting there (thanks Dave!).
-
-
-Thanks,
-Sasha
+Series applied, thanks.
