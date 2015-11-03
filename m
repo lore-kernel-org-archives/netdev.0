@@ -1,53 +1,84 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: [net-next v4 2/8] dpaa_eth: add support for DPAA Ethernet
-Date: Tue, 3 Nov 2015 07:55:57 +0000
-Message-ID: <1446537357.21216.49.camel@transmode.se>
-References: <1446485500-9782-1-git-send-email-madalin.bucur@freescale.com>
- <1446485500-9782-3-git-send-email-madalin.bucur@freescale.com>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET is
+ enabled
+Date: Tue, 3 Nov 2015 07:59:36 +0000
+Message-ID: <BY2PR0301MB16547E3AA4FB1F1AC8DE28ECA02B0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+References: <BN1PR0301MB07705F68B22ED84061E37337CA2F0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+	<1446249142.6254.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1446398459.6254.90.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151101.155859.1206189858863918018.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
- "roy.pledge@freescale.com" <roy.pledge@freescale.com>,
- "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "ppc@mindchasers.com" <ppc@mindchasers.com>,
- "igal.liberman@freescale.com" <igal.liberman@freescale.com>,
- "scottwood@freescale.com" <scottwood@freescale.com>,
- "joe@perches.com" <joe@perches.com>,
- "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "madalin.bucur@freescale.com" <madalin.bucur@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1446485500-9782-3-git-send-email-madalin.bucur@freescale.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Haiyang Zhang <haiyangz@microsoft.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bon0117.outbound.protection.outlook.com ([157.56.111.117]:54176
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752288AbbKCH7j convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 02:59:39 -0500
+In-Reply-To: <20151101.155859.1206189858863918018.davem@davemloft.net>
 Content-Language: en-US
-Content-ID: <CF8489B5EE0DAE4BBFE203423BC783E4@transmode.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCAyMDE1LTExLTAyIGF0IDE5OjMxICswMjAwLCBNYWRhbGluIEJ1Y3VyIHdyb3RlOgo+
-ICsgICAgICAgaWYgKHVubGlrZWx5KGZkX3N0YXR1cyAmIEZNX0ZEX1NUQVRfUlhfRVJST1JTKSAh
-PSAwKSB7Cj4gKyAgICAgICAgICAgICAgIGlmIChuZXRfcmF0ZWxpbWl0KCkpCj4gKyAgICAgICAg
-ICAgICAgICAgICAgICAgbmV0aWZfd2Fybihwcml2LCBodywgbmV0X2RldiwgIkZEIHN0YXR1cyA9
-IDB4JTA4eFxuIiwKPiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGZkX3N0YXR1
-cyAmIEZNX0ZEX1NUQVRfUlhfRVJST1JTKTsKPiArCj4gKyAgICAgICAgICAgICAgIHBlcmNwdV9z
-dGF0cy0+cnhfZXJyb3JzKys7Cj4gKyAgICAgICAgICAgICAgIGdvdG8gX3JlbGVhc2VfZnJhbWU7
-Cj4gKyAgICAgICB9CgpJIGNhbm5vdCBmaW5kIGFueSBkZXRhaWxlZCBlcnJvciBhY2NvdW50aW5n
-KG1heWJlIEkgYW0gbm90IGxvb2tpbmcgaGFyZCBlbm91Z2gpIGJ1dCBJCndvdWxkIGFwcHJlY2lh
-dGUgaWYgYm90aCBUWCBhbmQgUlggZXJyb3JzIHdoZXJlIGJldHRlciBhY2NvdW50ZWQocnhfbGVu
-Z3RoX2Vycm9ycywgcnhfZnJhbWVfZXJyb3JzLApyeF9jcmNfZXJyb3JzLCByeF9maWZvX2Vycm9y
-cyBldGMuKS4gVGhpcyBoYXMgaGVscGVkIG1lIG1hbnkgdGltZXMgaW4gdGhlIHBhc3QgZGlhZ25v
-c2luZwpib2FyZCBIVyBwcm9ibGVtcy4KCiBKb2NrZQpfX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBj
-LWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9s
-aW51eHBwYy1kZXY=
+
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Sunday, November 1, 2015 12:59 PM
+> To: eric.dumazet@gmail.com
+> Cc: Haiyang Zhang <haiyangz@microsoft.com>; edumazet@google.com;
+> netdev@vger.kernel.org; KY Srinivasan <kys@microsoft.com>
+> Subject: Re: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET
+> is enabled
+> 
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Sun, 01 Nov 2015 09:20:59 -0800
+> 
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > My recent commit, attaching SYNACK messages to request sockets
+> > exposed a too small LL_MAX_HEADER when netvsc_drv.c is in use,
+> > because this driver sets a needed_headroom of 220 bytes.
+> >
+> > Increase LL_MAX_HEADER in this case, to avoid a realloc of all
+> > TCP frames.
+> >
+> > In another patch, I'll make skb_set_owner_w() more robust.
+> >
+> > Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets
+> instead of listener")
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Bisected-by: Haiyang Zhang <haiyangz@microsoft.com>
+> 
+> Using a value of 256 just because HYPER-V is crazy imposes a huge
+> unnecessary burdon upon the rest of the stack.
+> 
+> I rejected a previous attempt to use such a huge value for
+> LL_MAX_HEADER, and I will do so again here.  We need a different fix
+> for this issue, one that doesn't hurt everyone.
+> 
+> Every distribution is going to turn all the options on, so you might
+> as well consider the largest LL_MAX_HEADER value the one %99.999
+> users end up paying the price for.
+
+David,
+
+I have implemented the scheme we had discussed a few weeks ago. In this new implementation
+our driver is NOT requesting addition headroom - rndis header and the per packet state is being
+maintained outside of the skb. What I am seeing is that when I have LL_MAX_HEADER set to 220 bytes,
+even though our driver is not using the additional head room, I see about a 10% boost in the peak performance
+(about 34 Gbps on a 40Gbps interface). However, when I set the LL_MAX_HEADER value to the current default,
+the peak performance drops back to what we currently have (around 31 Gbps). In both these cases,
+there is no reallocation of skb since no additional headroom is being requested and yet there is a significant
+difference in performance.  I trying to figure out why this is the case, your insights will be greatly
+appreciated.
+
+Regards,
+
+K. Y
