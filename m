@@ -1,7 +1,7 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [next PATCH 09/11] ixgbe: Fix VLAN promisc in relation to SR-IOV
-Date: Mon, 02 Nov 2015 17:10:19 -0800
-Message-ID: <20151103011019.28233.84699.stgit@localhost.localdomain>
+Subject: [next PATCH 10/11] ixgbe: Clear stale pool mappings
+Date: Mon, 02 Nov 2015 17:10:26 -0800
+Message-ID: <20151103011026.28233.59751.stgit@localhost.localdomain>
 References: <20151103005850.28233.63113.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,236 +9,94 @@ Content-Transfer-Encoding: 7bit
 Cc: jeffrey.t.kirsher@intel.com
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:36365 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751415AbbKCBKV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 20:10:21 -0500
-Received: by pacfv9 with SMTP id fv9so2120731pac.3
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 17:10:21 -0800 (PST)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35440 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754311AbbKCBK1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 20:10:27 -0500
+Received: by pasz6 with SMTP id z6so2047812pas.2
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 17:10:27 -0800 (PST)
 In-Reply-To: <20151103005850.28233.63113.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-This patch is a follow-on for enabling VLAN promiscuous and allowing the PF
-to add VLANs without adding a VLVF entry.  What this patch does is go
-through and free the VLVF registers if they are not needed as the VLAN
-belongs only to the PF which is the default pool.
+This patch makes certain that we clear the pool mappings added when we
+configure default MAC addresses for the interface.  Without this we run the
+risk of leaking an address into pool 0 which really belongs to VF 0 when
+SR-IOV is enabled.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h       |    1 
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |   50 +++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |   94 ++++++------------------
- 3 files changed, 72 insertions(+), 73 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  |   10 +++++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |    7 ++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   |   10 +++++++---
+ 3 files changed, 18 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 0269c0ca997c..f4c9a42dafcf 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -898,6 +898,7 @@ int ixgbe_add_mac_filter(struct ixgbe_adapter *adapter,
- 			 const u8 *addr, u16 queue);
- int ixgbe_del_mac_filter(struct ixgbe_adapter *adapter,
- 			 const u8 *addr, u16 queue);
-+void ixgbe_update_pf_promisc_vlvf(struct ixgbe_adapter *adapter, u32 vid);
- void ixgbe_clear_interrupt_scheme(struct ixgbe_adapter *adapter);
- netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *, struct ixgbe_adapter *,
- 				  struct ixgbe_ring *);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index f10337b1792c..1a5719c53fde 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3908,6 +3908,50 @@ static int ixgbe_vlan_rx_add_vid(struct net_device *netdev,
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index b8bd72589f72..fa8d4f40ac2a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -1083,12 +1083,16 @@ mac_reset_top:
  
-+static int ixgbe_find_vlvf_entry(struct ixgbe_hw *hw, u32 vlan)
-+{
-+	u32 vlvf;
-+	int idx;
-+
-+	/* short cut the special case */
-+	if (vlan == 0)
-+		return 0;
-+
-+	/* Search for the vlan id in the VLVF entries */
-+	for (idx = IXGBE_VLVF_ENTRIES; --idx;) {
-+		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(idx));
-+		if ((vlvf & VLAN_VID_MASK) == vlan)
-+			break;
-+	}
-+
-+	return idx;
-+}
-+
-+void ixgbe_update_pf_promisc_vlvf(struct ixgbe_adapter *adapter, u32 vid)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 bits, word;
-+	int idx;
-+
-+	idx = ixgbe_find_vlvf_entry(hw, vid);
-+	if (!idx)
-+		return;
-+
-+	/* See if any other pools are set for this VLAN filter
-+	 * entry other than the PF.
-+	 */
-+	word = idx * 2 + (VMDQ_P(0) / 32);
-+	bits = ~(1 << (VMDQ_P(0)) % 32);
-+	bits &= IXGBE_READ_REG(hw, IXGBE_VLVFB(word));
-+
-+	/* Disable the filter so this falls into the default pool. */
-+	if (!bits && !IXGBE_READ_REG(hw, IXGBE_VLVFB(word ^ 1))) {
-+		if (!(adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC))
-+			IXGBE_WRITE_REG(hw, IXGBE_VLVFB(word), 0);
-+		IXGBE_WRITE_REG(hw, IXGBE_VLVF(idx), 0);
-+	}
-+}
-+
- static int ixgbe_vlan_rx_kill_vid(struct net_device *netdev,
- 				  __be16 proto, u16 vid)
- {
-@@ -3915,7 +3959,11 @@ static int ixgbe_vlan_rx_kill_vid(struct net_device *netdev,
- 	struct ixgbe_hw *hw = &adapter->hw;
- 
- 	/* remove VID from filter table */
--	hw->mac.ops.set_vfta(&adapter->hw, vid, VMDQ_P(0), false, true);
-+	if (adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC)
-+		ixgbe_update_pf_promisc_vlvf(adapter, vid);
-+	else
-+		hw->mac.ops.set_vfta(hw, vid, VMDQ_P(0), false, true);
-+
- 	clear_bit(vid, adapter->active_vlans);
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 3380f14517dc..03d4e5c9d71d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -472,6 +472,17 @@ static int ixgbe_set_vf_vlan(struct ixgbe_adapter *adapter, int add, int vid,
- 
- 	err = hw->mac.ops.set_vfta(hw, vid, vf, !!add, false);
- 
-+	if (add && !err)
-+		return err;
-+
-+	/* If we failed to add the VF VLAN or we are removing the VF VLAN
-+	 * we may need to drop the PF pool bit in order to allow us to free
-+	 * up the VLVF resources.
-+	 */
-+	if (test_bit(vid, adapter->active_vlans) ||
-+	    (adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC))
-+		ixgbe_update_pf_promisc_vlvf(adapter, vid);
-+
- 	return err;
- }
- 
-@@ -830,40 +841,14 @@ static int ixgbe_set_vf_mac_addr(struct ixgbe_adapter *adapter,
- 	return ixgbe_set_vf_mac(adapter, vf, new_mac) < 0;
- }
- 
--static int ixgbe_find_vlvf_entry(struct ixgbe_hw *hw, u32 vlan)
--{
--	u32 vlvf;
--	s32 regindex;
+ 	/* Add the SAN MAC address to the RAR only if it's a valid address */
+ 	if (is_valid_ether_addr(hw->mac.san_addr)) {
+-		hw->mac.ops.set_rar(hw, hw->mac.num_rar_entries - 1,
+-				    hw->mac.san_addr, 0, IXGBE_RAH_AV);
 -
--	/* short cut the special case */
--	if (vlan == 0)
--		return 0;
--
--	/* Search for the vlan id in the VLVF entries */
--	for (regindex = 1; regindex < IXGBE_VLVF_ENTRIES; regindex++) {
--		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(regindex));
--		if ((vlvf & VLAN_VID_MASK) == vlan)
--			break;
--	}
--
--	/* Return a negative value if not found */
--	if (regindex >= IXGBE_VLVF_ENTRIES)
--		regindex = -1;
--
--	return regindex;
--}
--
- static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 				 u32 *msgbuf, u32 vf)
- {
-+	u32 add = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK) >> IXGBE_VT_MSGINFO_SHIFT;
-+	u32 vid = (msgbuf[1] & IXGBE_VLVF_VLANID_MASK);
-+	u8 tcs = netdev_get_num_tc(adapter->netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
--	int add = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK) >> IXGBE_VT_MSGINFO_SHIFT;
--	int vid = (msgbuf[1] & IXGBE_VLVF_VLANID_MASK);
- 	int err;
--	s32 reg_ndx;
--	u32 vlvf;
--	u32 bits;
--	u8 tcs = netdev_get_num_tc(adapter->netdev);
+ 		/* Save the SAN MAC RAR index */
+ 		hw->mac.san_mac_rar_index = hw->mac.num_rar_entries - 1;
  
- 	if (adapter->vfinfo[vf].pf_vlan || tcs) {
- 		e_warn(drv,
-@@ -873,54 +858,19 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 		return -1;
++		hw->mac.ops.set_rar(hw, hw->mac.san_mac_rar_index,
++				    hw->mac.san_addr, 0, IXGBE_RAH_AV);
++
++		/* clear VMDq pool/queue selection for this RAR */
++		hw->mac.ops.clear_vmdq(hw, hw->mac.san_mac_rar_index,
++				       IXGBE_CLEAR_VMDQ_ALL);
++
+ 		/* Reserve the last RAR for the SAN MAC address */
+ 		hw->mac.num_rar_entries--;
  	}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 73dcc0aec6dc..64045053e874 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -1884,10 +1884,11 @@ s32 ixgbe_init_rx_addrs_generic(struct ixgbe_hw *hw)
+ 		hw_dbg(hw, " New MAC Addr =%pM\n", hw->mac.addr);
  
-+	err = ixgbe_set_vf_vlan(adapter, add, vid, vf);
-+	if (err)
-+		return err;
+ 		hw->mac.ops.set_rar(hw, 0, hw->mac.addr, 0, IXGBE_RAH_AV);
+-
+-		/*  clear VMDq pool/queue selection for RAR 0 */
+-		hw->mac.ops.clear_vmdq(hw, 0, IXGBE_CLEAR_VMDQ_ALL);
+ 	}
 +
-+	if (adapter->vfinfo[vf].spoofchk_enabled)
-+		hw->mac.ops.set_vlan_anti_spoofing(hw, true, vf);
++	/*  clear VMDq pool/queue selection for RAR 0 */
++	hw->mac.ops.clear_vmdq(hw, 0, IXGBE_CLEAR_VMDQ_ALL);
 +
- 	if (add)
- 		adapter->vfinfo[vf].vlan_count++;
- 	else if (adapter->vfinfo[vf].vlan_count)
- 		adapter->vfinfo[vf].vlan_count--;
+ 	hw->addr_ctrl.overflow_promisc = 0;
  
--	/* in case of promiscuous mode any VLAN filter set for a VF must
--	 * also have the PF pool added to it.
--	 */
--	if (add && adapter->netdev->flags & IFF_PROMISC)
--		err = ixgbe_set_vf_vlan(adapter, add, vid, VMDQ_P(0));
--
--	err = ixgbe_set_vf_vlan(adapter, add, vid, vf);
--	if (!err && adapter->vfinfo[vf].spoofchk_enabled)
--		hw->mac.ops.set_vlan_anti_spoofing(hw, true, vf);
--
--	/* Go through all the checks to see if the VLAN filter should
--	 * be wiped completely.
--	 */
--	if (!add && adapter->netdev->flags & IFF_PROMISC) {
--		reg_ndx = ixgbe_find_vlvf_entry(hw, vid);
--		if (reg_ndx < 0)
--			return err;
--		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(reg_ndx));
--		/* See if any other pools are set for this VLAN filter
--		 * entry other than the PF.
--		 */
--		if (VMDQ_P(0) < 32) {
--			bits = IXGBE_READ_REG(hw, IXGBE_VLVFB(reg_ndx * 2));
--			bits &= ~(1 << VMDQ_P(0));
--			bits |= IXGBE_READ_REG(hw,
--					       IXGBE_VLVFB(reg_ndx * 2 + 1));
--		} else {
--			bits = IXGBE_READ_REG(hw,
--					      IXGBE_VLVFB(reg_ndx * 2 + 1));
--			bits &= ~(1 << (VMDQ_P(0) - 32));
--			bits |= IXGBE_READ_REG(hw, IXGBE_VLVFB(reg_ndx * 2));
--		}
--
--		/* If the filter was removed then ensure PF pool bit
--		 * is cleared if the PF only added itself to the pool
--		 * because the PF is in promiscuous mode.
--		 */
--		if ((vlvf & VLAN_VID_MASK) == vid &&
--		    !test_bit(vid, adapter->active_vlans) && !bits)
--			ixgbe_set_vf_vlan(adapter, add, vid, VMDQ_P(0));
--	}
--
--	return err;
-+	return 0;
- }
+ 	hw->addr_ctrl.rar_used_count = 1;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index b9e9b0c17398..e44952eeab00 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -155,12 +155,16 @@ mac_reset_top:
  
- static int ixgbe_set_vf_macvlan_msg(struct ixgbe_adapter *adapter,
+ 	/* Add the SAN MAC address to the RAR only if it's a valid address */
+ 	if (is_valid_ether_addr(hw->mac.san_addr)) {
+-		hw->mac.ops.set_rar(hw, hw->mac.num_rar_entries - 1,
+-				    hw->mac.san_addr, 0, IXGBE_RAH_AV);
+-
+ 		/* Save the SAN MAC RAR index */
+ 		hw->mac.san_mac_rar_index = hw->mac.num_rar_entries - 1;
+ 
++		hw->mac.ops.set_rar(hw, hw->mac.san_mac_rar_index,
++				    hw->mac.san_addr, 0, IXGBE_RAH_AV);
++
++		/* clear VMDq pool/queue selection for this RAR */
++		hw->mac.ops.clear_vmdq(hw, hw->mac.san_mac_rar_index,
++				       IXGBE_CLEAR_VMDQ_ALL);
++
+ 		/* Reserve the last RAR for the SAN MAC address */
+ 		hw->mac.num_rar_entries--;
+ 	}
