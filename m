@@ -1,53 +1,53 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] ssb: mark ssb_bus_register as __maybe_unused
-Date: Tue, 03 Nov 2015 16:05:51 +0100
-Message-ID: <5928552.0ccybX7Zly@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Michael Buesch <m@bues.ch>, linux-kernel@vger.kernel.org,
-	zajec5@gmail.com, Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>
-To: netdev@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>
+Subject: [PATCH net-next] vlan: Invoke driver vlan hooks only if device is present
+Date: Tue,  3 Nov 2015 20:25:59 +0530
+Message-ID: <1446562559-7264-1-git-send-email-padmanabh.ratnakar@avagotech.com>
+Cc: Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmrelayp1.emulex.com ([138.239.112.140]:65237 "EHLO
+	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750817AbbKCPNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 10:13:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The SoC variant of the ssb code is now optional like the other
-ones, which means we can build the framwork without any
-front-end, but that results in a warning:
+NIC drivers mark device as detached during error recovery.
+It expects no manangement hooks to be invoked in this state.
+Invoke driver vlan hooks only if device is present.
 
-drivers/ssb/main.c:616:12: warning: 'ssb_bus_register' defined but not used [-Wunused-function]
+Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>
+---
+ net/8021q/vlan_core.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-This annotates the ssb_bus_register function as __maybe_unused to
-shut up the warning. A configuration like this will not work on
-any hardware of course, but we still want this to silently build
-without warnings if the configuration is allowed in the first
-place.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 845da6e58e19 ("ssb: add Kconfig entry for compiling SoC related code")
-----
-This showed up on ARM at91_defconfig and sama5_defconfig, so we should probably
-change those configurations as well. I can't see why they enable CONFIG_SSB
-when they do not use any drivers for this framework.
-
-diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
-index 5d1e9a0fc389..e2ff6b5b2094 100644
---- a/drivers/ssb/main.c
-+++ b/drivers/ssb/main.c
-@@ -613,9 +613,10 @@ out:
- 	return err;
- }
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 61bf2a0..496b275 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -206,7 +206,10 @@ static int __vlan_vid_add(struct vlan_info *vlan_info, __be16 proto, u16 vid,
+ 		return -ENOMEM;
  
--static int ssb_bus_register(struct ssb_bus *bus,
--			    ssb_invariants_func_t get_invariants,
--			    unsigned long baseaddr)
-+static int __maybe_unused
-+ssb_bus_register(struct ssb_bus *bus,
-+		 ssb_invariants_func_t get_invariants,
-+		 unsigned long baseaddr)
- {
+ 	if (vlan_hw_filter_capable(dev, vid_info)) {
+-		err =  ops->ndo_vlan_rx_add_vid(dev, proto, vid);
++		if (netif_device_present(dev))
++			err = ops->ndo_vlan_rx_add_vid(dev, proto, vid);
++		else
++			err = -ENODEV;
+ 		if (err) {
+ 			kfree(vid_info);
+ 			return err;
+@@ -264,7 +267,10 @@ static void __vlan_vid_del(struct vlan_info *vlan_info,
  	int err;
  
+ 	if (vlan_hw_filter_capable(dev, vid_info)) {
+-		err = ops->ndo_vlan_rx_kill_vid(dev, proto, vid);
++		if (netif_device_present(dev))
++			err = ops->ndo_vlan_rx_kill_vid(dev, proto, vid);
++		else
++			err = -ENODEV;
+ 		if (err) {
+ 			pr_warn("failed to kill vid %04x/%d for device %s\n",
+ 				proto, vid, dev->name);
+-- 
+1.7.1
