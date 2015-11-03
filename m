@@ -1,144 +1,120 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [GIT] Networking
-Date: Tue, 03 Nov 2015 13:53:20 +0100
-Message-ID: <1446555200.1870849.427743457.63139285@webmail.messagingengine.com>
-References: <20151027.233235.1641084823622810663.davem@davemloft.net>
- <CA+55aFx0o8e9J6ojHYjvOA5aRnKoW5j10fh76Ks1=VegPc4k6w@mail.gmail.com>
- <5637C8DF.800@kernel.org>
- <CA+55aFwxDSYSB=bBfCxLadgCmFiOzAi0T0JHLFLK5nkR6cm8tg@mail.gmail.com>
- <CA+55aFy6nC9tQFE_kRrF-YS9N7Jp18CnSxsLNcnAykNLyXQUtg@mail.gmail.com>
- <CALCETrUxU_AVcQheeCXc0qTh=o2tmDbDct27QfTCb_+G6qc3gQ@mail.gmail.com>
- <1446512176.17404.30.camel@kernel.crashing.org>
- <CA+55aFxas=6fg2LtcLjDB3jM9cHBj=7PnDf-8J31jc3yXNpXNQ@mail.gmail.com>
- <CALCETrUijiLwtYRwc-UHPkuhh+PoMh0scwffewuJ+7wRBR=Jfg@mail.gmail.com>
- <CA+55aFxgr=VteHvxj7EY===QbchRdLY56r7cyFxSnuF_G0rqVA@mail.gmail.com>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: [PATCH net-next] ipv6: gro: support sit protocol
+Date: Tue, 03 Nov 2015 13:57:06 +0100
+Message-ID: <19837690.PaPkekjCr9@stwm.de>
+References: <1438621878-1113072-1-git-send-email-tom@herbertland.com> <1445306641.30896.42.camel@edumazet-glaptop2.roam.corp.google.com> <1445312417.30896.64.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Andy Lutomirski <luto@kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFxgr=VteHvxj7EY===QbchRdLY56r7cyFxSnuF_G0rqVA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Jerry Chu <hkchu@google.com>,
+	JesseGross <jesse@nicira.com>, Tom Herbert <tom@herbertland.com>,
+	netdev <netdev@vger.kernel.org>, kernel-team@fb.com,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:50023 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752605AbbKCM5J convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Nov 2015 07:57:09 -0500
+In-Reply-To: <1445312417.30896.64.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Am Montag, 19. Oktober 2015, 20:40:17 schrieb Eric Dumazet:
+> From: Eric Dumazet <edumazet@google.com>
+>=20
+> Tom Herbert added SIT support to GRO with commit
+> 19424e052fb4 ("sit: Add gro callbacks to sit_offload"),
+> later reverted by Herbert Xu.
+>=20
+> The problem came because Tom patch was building GRO
+> packets without proper meta data : If packets were locally
+> delivered, we would not care.
+>=20
+> But if packets needed to be forwarded, GSO engine was not
+> able to segment individual segments.
+>=20
+> With the following patch, we correctly set skb->encapsulation
+> and inner network header. We also update gso_type.
+>=20
 
-On Tue, Nov 3, 2015, at 03:38, Linus Torvalds wrote:
-> On Mon, Nov 2, 2015 at 5:58 PM, Andy Lutomirski <luto@amacapital.net>
-> wrote:
-> >
-> > Based in part on an old patch by Sasha, what if we relied on CSE:
-> >
-> > if (mul_would_overflow(size, n))
-> >   return NULL;
-> > do_something_with(size * n);
-> 
-> I suspect we wouldn't even have to rely on CSE. Are these things in
-> performance-critical areas? I suspect our current "use divides" is
-> actually slower than just using two multiplies, even if one is only
-> used for overflow checking.
+I'm running 4.1.11 / 4.1.12 with this patch on top now since over a wee=
+k.=20
+ISATAP works fine.
+=20
 
-And furthermore we don't actually have to rely on CSE if we want to, our
-overflow checks could look much more simpler as in "ordinary" C code
-because we tell the compiler that signed overflow is defined throughout
-the kernel ( -fno-strict-overflow). Thus the checks can be done after
-the calculations.
+> Tested:
+>=20
+> Server :
+> netserver
+> modprobe dummy
+> ifconfig dummy0 8.0.0.1 netmask 255.255.255.0 up
+> arp -s 8.0.0.100 4e:32:51:04:47:e5
+> iptables -I INPUT -s 10.246.7.151 -j TEE --gateway 8.0.0.100
+> ifconfig sixtofour0
+> sixtofour0 Link encap:IPv6-in-IPv4
+>           inet6 addr: 2002:af6:798::1/128 Scope:Global
+>           inet6 addr: 2002:af6:798::/128 Scope:Global
+>           UP RUNNING NOARP  MTU:1480  Metric:1
+>           RX packets:411169 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:409414 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:0
+>           RX bytes:20319631739 (20.3 GB)  TX bytes:29529556 (29.5 MB)
+>=20
+> Client :
+> netperf -H 2002:af6:798::1 -l 1000 &
+>=20
+> Checked on server traffic copied on dummy0 and verify segments were
+> properly rebuilt, with proper IP headers, TCP checksums...
+>=20
+> tcpdump on eth0 shows proper GRO aggregation takes place.
+>=20
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/ipv6/ip6_offload.c |   12 ++++++++++++
+>  1 file changed, 12 insertions(+)
+>=20
+> diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+> index 08b62047c67f..eeca943f12dc 100644
+> --- a/net/ipv6/ip6_offload.c
+> +++ b/net/ipv6/ip6_offload.c
+> @@ -264,6 +264,9 @@ static int ipv6_gro_complete(struct sk_buff *skb,=
+ int
+> nhoff) struct ipv6hdr *iph =3D (struct ipv6hdr *)(skb->data + nhoff);
+>  	int err =3D -ENOSYS;
+>=20
+> +	if (skb->encapsulation)
+> +		skb_set_inner_network_header(skb, nhoff);
+> +
+>  	iph->payload_len =3D htons(skb->len - nhoff - sizeof(*iph));
+>=20
+>  	rcu_read_lock();
+> @@ -280,6 +283,13 @@ out_unlock:
+>  	return err;
+>  }
+>=20
+> +static int sit_gro_complete(struct sk_buff *skb, int nhoff)
+> +{
+> +	skb->encapsulation =3D 1;
+> +	skb_shinfo(skb)->gso_type |=3D SKB_GSO_SIT;
+> +	return ipv6_gro_complete(skb, nhoff);
+> +}
+> +
+>  static struct packet_offload ipv6_packet_offload __read_mostly =3D {
+>  	.type =3D cpu_to_be16(ETH_P_IPV6),
+>  	.callbacks =3D {
+> @@ -292,6 +302,8 @@ static struct packet_offload ipv6_packet_offload
+> __read_mostly =3D { static const struct net_offload sit_offload =3D {
+>  	.callbacks =3D {
+>  		.gso_segment	=3D ipv6_gso_segment,
+> +		.gro_receive    =3D ipv6_gro_receive,
+> +		.gro_complete   =3D sit_gro_complete,
+>  	},
+>  };
 
-> That said, I also think that for something like this, where we
-> actually have a *reason* for using a special overflow helper function,
-> we could just try to use the gcc syntax.
->
-> I don't think it's wonderful syntax, but at least there's an excuse
-> for odd/ugly code in those kinds of situations. The reason I hated the
-> unsigned subtraction case so much was that the simple obvious code
-> just avoids all those issues entirely, and there wasn't any real
-> *reason* for the nasty syntax. For multiplication overflow, we'd at
-> least have a reason.
-> 
-> Sadly, the *nice* syntax, where we'd do something like "goto label"
-> when the multiply overflows, does not mesh well with inline asm.  Yes,
-> gcc now has "asm goto", but you can't use it with an output value ;(
-
-I don't understand why you consider inline asm? Those builtins already
-normally produce very reasonable code (and yes, I checked). We can wrap
-the gcc builtins anyway and adapt the syntax as needed. inline asm does
-prohibit constant folding etc, so a __builtin_constant_p check would be
-necessary or helpful further adding complexity.
- 
-> But from a syntactic standpoint, the best syntax might actually be
-> something like
-> 
->         mul = multiply_with_overflow(size, n, error_label);
->         do_something_with(mul);
-> 
->     error_label:
->         return NULL;
-> 
-> and it would *almost* be possible to do this with inline asm if it
-> wasn't for the annoying "no output values" case.  There are many other
-> cases where I'd have wanted to do this (ie the whole "fetch value from
-> user space, but if an exception happens, point the exception handler
-> at the label).
-
-I don't see the problem with the
-
-  if (multiply_with_overflow(...))
-    overflowed_handle_error(...);
-
-multiply_with_overflow can have a __must_check attribute, so we see
-warnings if return value is not checked immediately.
-
-It allows chaining easily
-
-if (multiply_with_overflow(...) ||
-    multiply_with_overflow(...))
-      goto overflow;
-
-without adding checks between the different stages or calculation. It
-just composes nicely. The error handling is very explicit.
-
-> Back in May, we talked to the gcc people about allowing output values
-> that are unspecified for the "goto" case (so only a fallthrough would
-> have them set), but I think that that doesn't match how gcc internally
-> thinks about branching instructions..
-> 
-> But you could still hide it inside a macro and make it expand to
-> something like
-> 
->    #define multiply_with_overflow(size, n, error_label) ({
->         unsigned long result, error; \
->         .. do multiply in asm, set result and error... \
->         if (error) goto error_label;
->         result; })
-> 
-> which would allow the above kind of odd hand-coded try/catch model in
-> C. Which I think would be pretty understandable and not very prone to
-> getting it wrong. Hmm?
-
-Hiding branches in macros seems not to be a good idea to me at all. I
-actually think a lot of users in functions would simply check their
-arguments and return -EINVAL in case they overflow. Forcing them to do a
-jump seems inappropriate.
-
-I also don't think that reordering the arguments makes a lot of sense:
-
-bool overflow;
-int a = multiply_with_overflow(b, c, &overflow);
-if (overflow)
-  error out;
-
-This scheme might be composable if we ||= the overflow flag in the
-helper functions/macros and force the user to initialize the overflow
-boolean it to false in the beginning. Way too many things that can go
-wrong and an auditor has to verify.
-
-Bye,
-Hannes
+Thanks,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
