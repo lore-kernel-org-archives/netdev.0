@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [next PATCH 08/11] ixgbe: Add support for VLAN promiscuous with
- SR-IOV
-Date: Mon, 02 Nov 2015 17:10:13 -0800
-Message-ID: <20151103011013.28233.62670.stgit@localhost.localdomain>
+Subject: [next PATCH 07/11] ixgbe: Reorder search to work from the top down
+ instead of bottom up
+Date: Mon, 02 Nov 2015 17:10:07 -0800
+Message-ID: <20151103011007.28233.6659.stgit@localhost.localdomain>
 References: <20151103005850.28233.63113.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,239 +10,93 @@ Content-Transfer-Encoding: 7bit
 Cc: jeffrey.t.kirsher@intel.com
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:34064 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752641AbbKCBKP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 20:10:15 -0500
-Received: by padec8 with SMTP id ec8so2076625pad.1
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 17:10:14 -0800 (PST)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35170 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753582AbbKCBKI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 20:10:08 -0500
+Received: by pasz6 with SMTP id z6so2039854pas.2
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 17:10:08 -0800 (PST)
 In-Reply-To: <20151103005850.28233.63113.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for VLAN promiscuous with SR-IOV enabled.
+This patch is meant to reduce the complexity of the search function used
+for finding a VLVF entry associated with a given VLAN ID.  The previous
+code was searching from bottom to top.  I reordered it to search from top
+to bottom.  In addition I pulled an AND statement out of the loop and
+instead replaced it with an OR statement outside the loop.  This should
+help to reduce the overall size and complexity of the function.
 
-The code prior to this patch was only adding the PF to VLANs that the VF
-had added.  As such enabling promiscuous mode would actually not add any
-additional VLAN filters so visibility was limited.  This lead to a number
-of issues as the bridge and OVS would expect us to accept all VLAN tagged
-packets when promiscuous mode was enabled, and instead we would filter out
-most if not all depending on the configuration of the PF.
-
-With this patch what we do is set all the bits in the VFTA and all of the
-VLVF bits associated with the pool belonging to the PF.  By doing this the
-PF is guaranteed to receive all VLAN tagged traffic associated with the RAR
-filters assigned to the PF.  In addition we will clean up those same bits
-in the event of promiscuous mode being disabled.
+There was also some formatting I cleaned up in regards to whitespace and
+such.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    1 
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  140 +++++++++++++++++++++++--
- 2 files changed, 129 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |   42 ++++++++++-------------
+ 1 file changed, 19 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 445b4c9169b6..0269c0ca997c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -664,6 +664,7 @@ struct ixgbe_adapter {
- #ifdef CONFIG_IXGBE_VXLAN
- #define IXGBE_FLAG2_VXLAN_REREG_NEEDED		BIT(12)
- #endif
-+#define IXGBE_FLAG2_VLAN_PROMISC		BIT(13)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 5fd860a8d6f7..73dcc0aec6dc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -3002,7 +3002,7 @@ s32 ixgbe_init_uta_tables_generic(struct ixgbe_hw *hw)
+ static s32 ixgbe_find_vlvf_slot(struct ixgbe_hw *hw, u32 vlan, bool vlvf_bypass)
+ {
+ 	s32 regindex, first_empty_slot;
+-	u32 bits = 0;
++	u32 bits;
  
- 	/* Tx fast path data */
- 	int num_tx_queues;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 742e0f84a925..f10337b1792c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3702,6 +3702,9 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
- 	/* Map PF MAC address in RAR Entry 0 to first pool following VFs */
- 	hw->mac.ops.set_vmdq(hw, 0, VMDQ_P(0));
+ 	/* short cut the special case */
+ 	if (vlan == 0)
+@@ -3014,33 +3014,29 @@ static s32 ixgbe_find_vlvf_slot(struct ixgbe_hw *hw, u32 vlan, bool vlvf_bypass)
+ 	 */
+ 	first_empty_slot = vlvf_bypass ? IXGBE_ERR_NO_SPACE : 0;
  
-+	/* clear VLAN promisc flag so VFTA will be updated if necessary */
-+	adapter->flags2 &= ~IXGBE_FLAG2_VLAN_PROMISC;
+-	/*
+-	  * Search for the vlan id in the VLVF entries. Save off the first empty
+-	  * slot found along the way
+-	  */
+-	for (regindex = 1; regindex < IXGBE_VLVF_ENTRIES; regindex++) {
++	/* add VLAN enable bit for comparison */
++	vlan |= IXGBE_VLVF_VIEN;
 +
- 	/*
- 	 * Set up VF register offsets for selected VT Mode,
- 	 * i.e. 32 or 64 VFs for SR-IOV
-@@ -3990,6 +3993,129 @@ static void ixgbe_vlan_strip_enable(struct ixgbe_adapter *adapter)
++	/* Search for the vlan id in the VLVF entries. Save off the first empty
++	 * slot found along the way.
++	 *
++	 * pre-decrement loop covering (IXGBE_VLVF_ENTRIES - 1) .. 1
++	 */
++	for (regindex = IXGBE_VLVF_ENTRIES; --regindex;) {
+ 		bits = IXGBE_READ_REG(hw, IXGBE_VLVF(regindex));
+-		if (!bits && !(first_empty_slot))
++		if (bits == vlan)
++			return regindex;
++		if (!first_empty_slot && !bits)
+ 			first_empty_slot = regindex;
+-		else if ((bits & 0x0FFF) == vlan)
+-			break;
  	}
+ 
+-	/*
+-	  * If regindex is less than IXGBE_VLVF_ENTRIES, then we found the vlan
+-	  * in the VLVF. Else use the first empty VLVF register for this
+-	  * vlan id.
+-	  */
+-	if (regindex >= IXGBE_VLVF_ENTRIES) {
+-		if (first_empty_slot)
+-			regindex = first_empty_slot;
+-		else {
+-			hw_dbg(hw, "No space in VLVF.\n");
+-			regindex = IXGBE_ERR_NO_SPACE;
+-		}
+-	}
++	/* If we are here then we didn't find the VLAN.  Return first empty
++	 * slot we found during our search, else error.
++	 */
++	if (!first_empty_slot)
++		hw_dbg(hw, "No space in VLVF.\n");
+ 
+-	return regindex;
++	return first_empty_slot ? : IXGBE_ERR_NO_SPACE;
  }
  
-+static void ixgbe_vlan_promisc_enable(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 vlnctrl, i;
-+
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+	case ixgbe_mac_X550:
-+	case ixgbe_mac_X550EM_x:
-+	default:
-+		if (adapter->flags & IXGBE_FLAG_VMDQ_ENABLED)
-+			break;
-+		/* fall through */
-+	case ixgbe_mac_82598EB:
-+		/* legacy case, we can just disable VLAN filtering */
-+		vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
-+		vlnctrl &= ~(IXGBE_VLNCTRL_VFE | IXGBE_VLNCTRL_CFIEN);
-+		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
-+		return;
-+	}
-+
-+	/* We are already in VLAN promisc, nothing to do */
-+	if (adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC)
-+		return;
-+
-+	/* Set flag so we don't redo unnecessary work */
-+	adapter->flags2 |= IXGBE_FLAG2_VLAN_PROMISC;
-+
-+	/* Add PF to all active pools */
-+	for (i = IXGBE_VLVF_ENTRIES; --i;) {
-+		u32 reg_offset = IXGBE_VLVFB(i * 2 + VMDQ_P(0) / 32);
-+		u32 vlvfb = IXGBE_READ_REG(hw, reg_offset);
-+
-+		vlvfb |= 1 << (VMDQ_P(0) % 32);
-+		IXGBE_WRITE_REG(hw, reg_offset, vlvfb);
-+	}
-+
-+	/* Set all bits in the VLAN filter table array */
-+	for (i = hw->mac.vft_size; i--;)
-+		IXGBE_WRITE_REG(hw, IXGBE_VFTA(i), ~0U);
-+}
-+
-+#define VFTA_BLOCK_SIZE 8
-+static void ixgbe_scrub_vfta(struct ixgbe_adapter *adapter, u32 vfta_offset)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 vfta[VFTA_BLOCK_SIZE] = { 0 };
-+	u32 vid_start = vfta_offset * 32;
-+	u32 vid_end = vid_start + (VFTA_BLOCK_SIZE * 32);
-+	u32 i, vid, word, bits;
-+
-+	for (i = IXGBE_VLVF_ENTRIES; --i;) {
-+		u32 vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(i));
-+
-+		/* pull VLAN ID from VLVF */
-+		vid = vlvf & VLAN_VID_MASK;
-+
-+		/* only concern outselves with a certain range */
-+		if (vid < vid_start || vid >= vid_end)
-+			continue;
-+
-+		if (vlvf) {
-+			/* record VLAN ID in VFTA */
-+			vfta[(vid - vid_start) / 32] |= 1 << (vid % 32);
-+
-+			/* if PF is part of this then continue */
-+			if (test_bit(vid, adapter->active_vlans))
-+				continue;
-+		}
-+
-+		/* remove PF from the pool */
-+		word = i * 2 + VMDQ_P(0) / 32;
-+		bits = ~(1 << (VMDQ_P(0) % 32));
-+		bits &= IXGBE_READ_REG(hw, IXGBE_VLVFB(word));
-+		IXGBE_WRITE_REG(hw, IXGBE_VLVFB(word), bits);
-+	}
-+
-+	/* extract values from active_vlans and write back to VFTA */
-+	for (i = VFTA_BLOCK_SIZE; i--;) {
-+		vid = (vfta_offset + i) * 32;
-+		word = vid / BITS_PER_LONG;
-+		bits = vid % BITS_PER_LONG;
-+
-+		vfta[i] |= adapter->active_vlans[word] >> bits;
-+
-+		IXGBE_WRITE_REG(hw, IXGBE_VFTA(vfta_offset + i), vfta[i]);
-+	}
-+}
-+
-+static void ixgbe_vlan_promisc_disable(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 vlnctrl, i;
-+
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+	case ixgbe_mac_X550:
-+	case ixgbe_mac_X550EM_x:
-+	default:
-+		if (adapter->flags & IXGBE_FLAG_VMDQ_ENABLED)
-+			break;
-+		/* fall through */
-+	case ixgbe_mac_82598EB:
-+		vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
-+		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
-+		vlnctrl |= IXGBE_VLNCTRL_VFE;
-+		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
-+		return;
-+	}
-+
-+	/* We are not in VLAN promisc, nothing to do */
-+	if (!(adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC))
-+		return;
-+
-+	/* Set flag so we don't redo unnecessary work */
-+	adapter->flags2 &= ~IXGBE_FLAG2_VLAN_PROMISC;
-+
-+	for (i = 0; i < hw->mac.vft_size; i += VFTA_BLOCK_SIZE)
-+		ixgbe_scrub_vfta(adapter, i);
-+}
-+
- static void ixgbe_restore_vlan(struct ixgbe_adapter *adapter)
- {
- 	u16 vid;
-@@ -4246,12 +4372,10 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 fctrl, vmolr = IXGBE_VMOLR_BAM | IXGBE_VMOLR_AUPE;
--	u32 vlnctrl;
- 	int count;
- 
- 	/* Check for Promiscuous and All Multicast modes */
- 	fctrl = IXGBE_READ_REG(hw, IXGBE_FCTRL);
--	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
- 
- 	/* set all bits that we expect to always be set */
- 	fctrl &= ~IXGBE_FCTRL_SBP; /* disable store-bad-packets */
-@@ -4261,25 +4385,18 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 
- 	/* clear the bits we are changing the status of */
- 	fctrl &= ~(IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
--	vlnctrl &= ~(IXGBE_VLNCTRL_VFE | IXGBE_VLNCTRL_CFIEN);
- 	if (netdev->flags & IFF_PROMISC) {
- 		hw->addr_ctrl.user_set_promisc = true;
- 		fctrl |= (IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
- 		vmolr |= IXGBE_VMOLR_MPE;
--		/* Only disable hardware filter vlans in promiscuous mode
--		 * if SR-IOV and VMDQ are disabled - otherwise ensure
--		 * that hardware VLAN filters remain enabled.
--		 */
--		if (adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
--				      IXGBE_FLAG_SRIOV_ENABLED))
--			vlnctrl |= (IXGBE_VLNCTRL_VFE | IXGBE_VLNCTRL_CFIEN);
-+		ixgbe_vlan_promisc_enable(adapter);
- 	} else {
- 		if (netdev->flags & IFF_ALLMULTI) {
- 			fctrl |= IXGBE_FCTRL_MPE;
- 			vmolr |= IXGBE_VMOLR_MPE;
- 		}
--		vlnctrl |= IXGBE_VLNCTRL_VFE;
- 		hw->addr_ctrl.user_set_promisc = false;
-+		ixgbe_vlan_promisc_disable(adapter);
- 	}
- 
- 	/*
-@@ -4323,7 +4440,6 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 		/* NOTE:  VLAN filtering is disabled by setting PROMISC */
- 	}
- 
--	IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
- 	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, fctrl);
- 
- 	if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
+ /**
