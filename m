@@ -1,57 +1,68 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: Re: [RFC PATCH net-next 0/6] net: dsa: mv88e6060: cleanup and fix
- setup
-Date: Tue, 3 Nov 2015 17:27:26 +0100
-Message-ID: <5638E06E.8010405@baylibre.com>
-References: <5637417D.6060503@baylibre.com>
- <20151102154121.GB3036@ketchup.mtl.sfl>
+From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
+Subject: Re: [PATCH] ssb: mark ssb_bus_register as __maybe_unused
+Date: Tue, 3 Nov 2015 17:27:21 +0100
+Message-ID: <20151103172721.04533081@wiggum>
+References: <5928552.0ccybX7Zly@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Guenter Roeck <linux@roeck-us.net>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/Ljre1AhLXzX0AwMXVYgLnsm"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
+	linux-kernel@vger.kernel.org, zajec5@gmail.com,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151102154121.GB3036@ketchup.mtl.sfl>
+In-Reply-To: <5928552.0ccybX7Zly@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/02/2015 04:41 PM, Vivien Didelot wrote:
-> Hi Neil,
-> 
-> Nice cleanup. I'll just be a bit picky here, so you may not consider my
-> comment for this patchset, but maybe for the future ones. Unless I'm
-> mistaken, there is no reason to group all these patches together.
-> 
-> The first 4 patches are independent fixes, and thus could have been sent
-> separately to netdev -net.
-> 
-> Then the last 2 ones could have been squashed together, because I don't
-> see a real value to seperate them since you duplicate some defines, e.g.
-> REG_PORT. And this patch would be a candidate for netdev -net-next.
-> 
-> Thanks,
-> -v
-> 
-Hi Vivien,
+--Sig_/Ljre1AhLXzX0AwMXVYgLnsm
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-I understand your point of view, and it really makes sense.
+On Tue, 03 Nov 2015 16:05:51 +0100
+Arnd Bergmann <arnd@arndb.de> wrote:
 
-But the first patch has a dependency on the DSA cleanup patchset, so
-if I follow your point, I should submit 3 patchsets with a single
-patchset for the poll_link complete removal. But the two other
-patchsets will have a strong dependency on the poll_link removal...
+> The SoC variant of the ssb code is now optional like the other
+> ones, which means we can build the framwork without any
+> front-end, but that results in a warning:
+>=20
+> drivers/ssb/main.c:616:12: warning: 'ssb_bus_register' defined but not us=
+ed [-Wunused-function]
+>=20
+> This annotates the ssb_bus_register function as __maybe_unused to
+> shut up the warning. A configuration like this will not work on
+> any hardware of course, but we still want this to silently build
+> without warnings if the configuration is allowed in the first
+> place.
 
-This question is on which version of mv88e6060 and dsa should I base
-the cleanup patchset ? before of after the poll_link removal ?
 
-For the fixes, they are not critical at all, net-next would be enough.
+Is there a simple way to disallow this configuration?
 
-Any advice is welcome at this point....
+--=20
+Michael
 
-Thanks !
+--Sig_/Ljre1AhLXzX0AwMXVYgLnsm
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
 
-Neil
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJWOOBpAAoJEPUyvh2QjYsOJVQQANoNgd/6iKajpJCa7KNw6v6Z
+DKvX36L5ZQND2d2iSG0c24GTIVprRq2R19+v5tMAY97JvXGXRdjMZLQAc6rxIwLn
+ZeMO4omQLpHSZuWXq+Y6/q7XoojNo+0wvyYzlOq3KaAs0mzDhjhwF0gisJOzvjhM
+LZ0VjgHcPCQeJZmNIAvlzwA4iW5k1iEZwMZ2boXTYjVBwto9MkPwXEPXSgrPt+oo
+Bw+nsH2/O+P57kVZanji7mP8ZYqYLVchpi0UOmRxZtOK5dcxZa67U8zcI+ssZqz/
+qNdi5tCh+nMH+p+zlakSHzhIMYPFWW75nxMQz1Yh7p9i+GBB2939Ktn/Mvq0Afcn
+uaQN2pOPWI2MFgt2Aef5l9ARmDCQq3ijMIqT6e5YNmwe4Ho4jWRzhJ8/2Lgq7CgH
+eILl/dPS1QgxCsGcSMBQNghi+4EkIoW4g3cEXpioSDUv+IiUHpsm0BmzDrbKRoQv
+YGemcUHBG+CGbVneOwyyPcvpy8RfPwgaliRhPELrF16UKARQPvxi8FStILsKPFrO
+b7heI43w0E8YE+o8m4Y5OAi+blGxRMCz8xIuvOuZFTv7bMyL6KHaTqynRqNu/QwY
+Ny7d9qj0BJegIceyNaxcCr1wYkV2SuaUflmIpZjQZAVxqaxLXR7gkT+OG2D/OlbS
+Ijvuxp11ie5RRHjsao2Y
+=yFbE
+-----END PGP SIGNATURE-----
+
+--Sig_/Ljre1AhLXzX0AwMXVYgLnsm--
