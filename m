@@ -1,63 +1,57 @@
-From: William Dauchy <william@gandi.net>
-Subject: Re: dynamically set number of queues for 82598 devices
-Date: Tue, 3 Nov 2015 10:56:03 +0100
-Message-ID: <20151103095603.GE7714@gandi.net>
-References: <20151029152645.GD7657@gandi.net>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH v2 net-next] net/core: generic support for disabling
+ netdev features down stack
+Date: Tue, 3 Nov 2015 11:03:09 +0100
+Message-ID: <5638865D.2000804@cumulusnetworks.com>
+References: <1446486818-26166-1-git-send-email-jarod@redhat.com>
+ <1446519359-21400-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="9l24NVCWtSuIVIod"
-Cc: netdev@vger.kernel.org, Tal Abudi <talabudi@gmail.com>,
-	Emil Tantilov <emil.s.tantilov@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>, william@gandi.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Nikolay Aleksandrov <razor@blackwall.org>,
+	Michal Kubecek <mkubecek@suse.cz>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	netdev@vger.kernel.org
+To: Jarod Wilson <jarod@redhat.com>, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.gandi.net ([217.70.183.210]:59082 "EHLO gandi.net"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751289AbbKCJ4H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Nov 2015 04:56:07 -0500
-Content-Disposition: inline
-In-Reply-To: <20151029152645.GD7657@gandi.net>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:32905 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751266AbbKCKDM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 05:03:12 -0500
+Received: by wmeg8 with SMTP id g8so79964400wme.0
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 02:03:11 -0800 (PST)
+In-Reply-To: <1446519359-21400-1-git-send-email-jarod@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 11/03/2015 03:55 AM, Jarod Wilson wrote:
+[snip]
+>  
+> +#define for_each_netdev_feature(mask_addr, feature)				\
+> +	int bit;								\
+> +	for_each_set_bit(bit, (unsigned long *)mask_addr, NETDEV_FEATURE_COUNT)	\
+> +		feature = __NETIF_F_BIT(bit);
+> +
+^
+This is broken, it will not work for more than a single feature.
 
---9l24NVCWtSuIVIod
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hello David,
-
-On Oct29 16:26, William Dauchy wrote:
-> I faced the problem described in commit 7e3f5c8:
-> ixgbe: fix bounds checking in ixgbe_setup_tc for 82598
->=20
-> This patch resolves an issue where users were not able to dynamically
-> set number of queues for 82598 via ethtool -L
->=20
-> I backported it for my v4.1.x build but I was wondering if this could be
-> a candidate for a backport in stable tree at least for v4.1.x.
-
-Since we are now in a bug fix period, I was wondering if you could have
-a look at commit 7e3f5c8 (ixgbe: fix bounds checking in ixgbe_setup_tc
-for 82598)
-I don't see it in
-http://patchwork.ozlabs.org/bundle/davem/stable/?state=3D*
-so I was wondering if it could be a valid candidate for stable.
-
-Best regards,
---=20
-William
-
---9l24NVCWtSuIVIod
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlY4hLMACgkQ1I6eqOUidQEYigCgjIHYW8Fl/qHBsMwi9m/lOsnR
-AbcAmwSmSxmOuZ/0Dag2I1/Pm6m8sAJT
-=nvsI
------END PGP SIGNATURE-----
-
---9l24NVCWtSuIVIod--
+>  /* Features valid for ethtool to change */
+>  /* = all defined minus driver/device-class-related */
+>  #define NETIF_F_NEVER_CHANGE	(NETIF_F_VLAN_CHALLENGED | \
+> @@ -167,6 +172,12 @@ enum {
+>   */
+>  #define NETIF_F_ALL_FOR_ALL	(NETIF_F_NOCACHE_COPY | NETIF_F_FSO)
+>  
+> +/*
+> + * If upper/master device has these features disabled, they must be disabled
+> + * on all lower/slave devices as well.
+> + */
+> +#define NETIF_F_UPPER_DISABLES	NETIF_F_LRO
+> +
+[snip]
