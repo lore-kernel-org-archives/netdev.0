@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Resource leak in unshare
-Date: Mon, 02 Nov 2015 22:55:31 -0500 (EST)
-Message-ID: <20151102.225531.215294199994277493.davem@davemloft.net>
-References: <1446508987.23275.35.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1446512899.23275.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1446513404.23275.48.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] sh_eth: fix typo in RX descriptor bit name
+Date: Mon, 02 Nov 2015 23:01:25 -0500 (EST)
+Message-ID: <20151102.230125.542085160495385546.davem@davemloft.net>
+References: <2943003.kyUQtQdRCT@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, steffen.klassert@secunet.com,
-	dvyukov@google.com, nicolas.dichtel@6wind.com,
-	viro@zeniv.linux.org.uk, tgraf@suug.ch, xiyou.wangcong@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, syzkaller@googlegroups.com, kcc@google.com,
-	glider@google.com, edumazet@google.com, keescook@google.com,
-	jln@google.com, sasha.levin@oracle.com
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446513404.23275.48.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <2943003.kyUQtQdRCT@wasted.cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 02 Nov 2015 17:16:44 -0800
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Tue, 03 Nov 2015 01:28:07 +0300
 
-> On Mon, 2015-11-02 at 17:08 -0800, Eric Dumazet wrote:
->> From: Eric Dumazet <edumazet@google.com>
+> The correct name of the RX descriptor 0 bit 30 is RDLE (receive descriptor
+> list end),  not  RDEL.
 > 
-> Erm, patch title would be :
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 > 
-> [PATCH] sit: fix sit0 percpu double allocations
+> ---
+> The patch is against the Dave Miller's 'net-next.git' repo.
 
-:-)  Applied and queued up for -stable.
+Applied.
