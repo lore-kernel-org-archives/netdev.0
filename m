@@ -1,28 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: HTB, HFSC, PIE, FIFO stuck on 2.4Gbit on default values
-Date: Tue, 03 Nov 2015 15:01:00 -0500 (EST)
-Message-ID: <20151103.150100.1208751807022747151.davem@davemloft.net>
-References: <1446577894.23275.71.camel@edumazet-glaptop2.roam.corp.google.com>
-	<907cb54c0a27beed12381247ba29bca5@visp.net.lb>
-	<1446580156.23275.74.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2] sh_eth: use DMA barriers
+Date: Tue, 03 Nov 2015 15:03:23 -0500 (EST)
+Message-ID: <20151103.150323.2050849842791800571.davem@davemloft.net>
+References: <1753153.kv41W3qdJQ@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nuclearcat@nuclearcat.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47034 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932291AbbKCUBD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 15:01:03 -0500
-In-Reply-To: <1446580156.23275.74.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1753153.kv41W3qdJQ@wasted.cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 03 Nov 2015 11:49:16 -0800
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Tue, 03 Nov 2015 22:36:04 +0300
 
-> If you prefer, continue to work on linux-2.0 but don't ask help on
-> netdev.
+> Commit  7d7355f58ba4 ("sh_eth: Ensure proper ordering of descriptor active
+> bit write/read") did the right thing  but used too "heavy" barriers while
+> there were already "lighter" DMA barriers exactly  for this case...
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-+1
+Applied, thanks.
