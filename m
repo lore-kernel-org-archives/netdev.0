@@ -1,94 +1,67 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [next PATCH 00/11] ixgbe: Add support for mixed PF/VF
- virtualization
-Date: Tue, 03 Nov 2015 04:38:51 -0800
-Message-ID: <1446554331.12325.0.camel@intel.com>
-References: <20151103005850.28233.63113.stgit@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Resource leak in unshare
+Date: Tue, 03 Nov 2015 04:48:00 -0800
+Message-ID: <1446554880.23275.53.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACT4Y+Y5mcBrnLOsXchJVrO_8FD-u=EFU67WsH3bU51aAU-idA@mail.gmail.com>
+	 <87oafcrzsa.fsf@x220.int.ebiederm.org>
+	 <CACT4Y+arcDq=-kDn=y6oRFRSMApKKA7GrfAg_svTtLOVnnaVDA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-YG2/Nk2Cq9B3WmwWU+iy"
-To: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:42683 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750852AbbKCMjW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Nov 2015 07:39:22 -0500
-In-Reply-To: <20151103005850.28233.63113.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-YG2/Nk2Cq9B3WmwWU+iy
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2015-11-02 at 17:09 -0800, Alexander Duyck wrote:
-> This patch series extends the abilities of the ixgbe driver so that
-> we can
-> now support VLAN trunking on top of the PF when SR-IOV is enabled.=20
-> By
-> doing this we are able to extend the existing capabilities that were
-> enabled with the "bridge fdb add" support that was added some time
-> ago.  It
-> had enabled the ability to have PF and VF mixed on a flat network,
-> this
-> makes it so that it also works on a VLAN enabled network.
->=20
-> The first few patches in this series are basically just cleanup.=20
-> They
-> either fix bugs found in the code, or address complexity that was
-> making it
-> hard to either read or sort out exactly how the code was supposed to
-> work.
->=20
-> The second half of the patch set is where we start adding features.
-> Specifically with this patch set the VLAN behavior changes for the PF
-> in
-> two ways.  First we do not need to use the VLVF if the VFs have not
-> already
-> set up a pool list.  As such I added functionality so that we can
-> skip that
-> step when it is not needed.  Then I added support for VLAN
-> promiscuous by
-> simply setting all of the bits in the VFTA and letting the packets
-> fall
-> through to the default pool.  In addition when in promiscuous mode we
-> set
-> the pool bit for the PF in all of the VLVF entries.  This way if
-> anyone
-> adds a new entry it will automatically have the PF enabled.
->=20
-> The last few patches address some more issues I found during testing.
->   The
-> issues were primarily related to stale entries floating around in
-> either
-> the RAR or VLVFB registers which were pointing to pools which were
-> not
-> valid for the given L2 address.
-
-I have added these patches to my queue, Dave.
---=-YG2/Nk2Cq9B3WmwWU+iy
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
+Cc: syzkaller <syzkaller@googlegroups.com>,
+	David Miller <davem@davemloft.net>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Al Viro <viro@zeniv.linux.org.uk>, Thomas Graf <tgraf@suug.ch>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Kees Cook <keescook@google.com>,
+	Julien Tinnes <jln@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+arcDq=-kDn=y6oRFRSMApKKA7GrfAg_svTtLOVnnaVDA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+On Tue, 2015-11-03 at 09:48 +0100, Dmitry Vyukov wrote:
+> On Mon, Nov 2, 2015 at 8:01 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
+> > Dmitry Vyukov <dvyukov@google.com> writes:
+> >
+> >> Hello,
+> >>
+> >> I am hitting the following warnings on
+> >> bcee19f424a0d8c26ecf2607b73c690802658b29 (4.3):
+> >
+> > Do you have any trace of the earlier failures?
+> >
+> > This appears to be something caused by an earlier failure (possibly
+> > whatever fails to allocate memory).  Having network devices present
+> > but being in the generic cleanup routines is wrong.
+> >
+> > If there is no additional information can you please rerun with the
+> > following change applied?  That should at least report which function is
+> > failing, and give us a good clue where to start debugging this.
+> 
+> 
+> So is it all fixed now? Or it is still clear how it can happen?
+> Eric (Dumazet), do you see how the WARNING can fire?
+> I don't have any logs at the moment, but I can run fuzzer for longer
+> to reproduce it again if necessary.
 
-iQIcBAABCgAGBQJWOKrbAAoJEOVv75VaS+3ODoQP/0ANC4yrG86MSkfopIATN2Lb
-ATb02kTNPXBr08HhuTWMGA+5iTShXDNiv3GyVlddi+B/RIF5AbEaVtkuJ6IbSdve
-bW4F7DVPPyALQ6N2rpSKYfg1sgd747j97wkJc5WFHm1sg39mN9SEXY+xr11yaCVy
-SiWJKV0ADYYDNeWxDd42IPI1BhmERecrTbuH7p6ai8QRITJLjkzdSuRDuUPHI/7T
-MMVZR47HGvXrGYuCuusyHwF58RxjOKTfIVdnj/Sa3bIHeVJ9f/5monWK+oh//2S8
-Zd+AQrrISV+McwzuEoyKcQ/VVS/AmWvl2cX5Jh+B9a1zFVEqGrKxBYe076qNyCoQ
-hKmX1s1lbnmvm3NO1wcsT8UAvyDJa3RzrWKQqo9ozdGaCKd4vjg6AsUSJMJzCOI/
-7A6AEbS15GvviuwVTYuV8ib8MKauxzK7cs2n0UJABvtMWYWn1x0zc9pT8nqzzia9
-2i+YMkPgFXK/cNY1vuVGWGm0jLDBiRPtw6SAzMTr1t1oyCAXC93WTczhQHxpPvfR
-vrI6AUxMv2UDt1WNpTTCunPYzHGKSybm/PhSgayHe/SyNhrWnCH4h5vF8y4HHwyr
-Jq/Dnd9ywcn2eVTrJU1cv5Ryw/Dkmr816X1bP4lMgVFurrODxZrP3xoJ6hrbi1Jy
-qrvRVEn2e+jr/C6LLxzz
-=OhIm
------END PGP SIGNATURE-----
+No idea.
 
---=-YG2/Nk2Cq9B3WmwWU+iy--
+I fixed a completely different bug I think, while simply looking at sit
+code, since your report mentioned a sit0 name.
+
+Namely a pure memory leak.
+
+We have hundred of old bugs yet to fix. Not counting the new ones that
+we'll add while fixing them.
+
+Feel free to run your fuzzer of course.
