@@ -1,36 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] switchdev: respect SKIP_EOPNOTSUPP flag in
- case there is no recursion
-Date: Tue, 03 Nov 2015 13:37:53 -0500 (EST)
-Message-ID: <20151103.133753.1743961419370989382.davem@davemloft.net>
-References: <1446568853-8705-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH net] ipv6: clean up dev_snmp6 proc entry when we fail
+ to initialize inet6_dev
+Date: Tue, 03 Nov 2015 13:38:37 -0500 (EST)
+Message-ID: <20151103.133837.925754446071442709.davem@davemloft.net>
+References: <8e1fff92148028f407177e68355100b705cf4ad1.1446573077.git.sd@queasysnail.net>
+	<CAHA+R7OvQ0-=w+uSUZmYUi4t4gfBgW+iLGEX5zsRr8-r_6pGGQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	linux@roeck-us.net, vivien.didelot@savoirfairelinux.com
-To: jiri@resnulli.us
+Cc: sd@queasysnail.net, netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	dvyukov@google.com, hannes@stressinduktion.org
+To: cwang@twopensource.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46398 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46410 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755778AbbKCSh4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 13:37:56 -0500
-In-Reply-To: <1446568853-8705-1-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1755546AbbKCSik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 13:38:40 -0500
+In-Reply-To: <CAHA+R7OvQ0-=w+uSUZmYUi4t4gfBgW+iLGEX5zsRr8-r_6pGGQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Tue,  3 Nov 2015 17:40:53 +0100
+From: Cong Wang <cwang@twopensource.com>
+Date: Tue, 3 Nov 2015 10:30:20 -0800
 
-> From: Jiri Pirko <jiri@mellanox.com>
+> On Tue, Nov 3, 2015 at 10:09 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
+>> In ipv6_add_dev, when addrconf_sysctl_register fails, we do not clean up
+>> the dev_snmp6 entry that we have already registered for this device.
+>>
+>> It is safe to call snmp6_unregister_dev unconditionally from
+>> in6_dev_finish_destroy, so do it.
+>>
+>> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+>> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+>> ---
+>> Dmitry, I'm not completely sure it's the issue you're triggering, but
+>> it sems likely.
+>>
+>>  net/ipv6/addrconf_core.c | 2 ++
+>>  1 file changed, 2 insertions(+)
+>>
+>> diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
+>> index bfa941fc1165..96248a333197 100644
+>> --- a/net/ipv6/addrconf_core.c
+>> +++ b/net/ipv6/addrconf_core.c
+>> @@ -168,6 +168,8 @@ void in6_dev_finish_destroy(struct inet6_dev *idev)
+>>                 pr_warn("Freeing alive inet6 device %p\n", idev);
+>>                 return;
+>>         }
+>> +
+>> +       snmp6_unregister_dev(idev);
+>>         call_rcu(&idev->rcu, in6_dev_finish_destroy_rcu);
 > 
-> Caller passing down the SKIP_EOPNOTSUPP switchdev flag expects that
-> -EOPNOTSUPP cannot be returned. But in case of direct op call without
-> recurtion, this may happen. So fix this by checking it always on the
-> end of __switchdev_port_attr_set function.
 > 
-> Fixes: 464314ea6c11 ("switchdev: skip over ports returning -EOPNOTSUPP when recursing ports")
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Hmm, but looks like we can't call a function from ipv6 module in a core file?
 
-Applied, thanks Jiri.
+Grrr, that's right, I have to revert this.
+
+Good catch Cong.
