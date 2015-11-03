@@ -1,55 +1,77 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: HTB, HFSC, PIE, FIFO stuck on 2.4Gbit on default values
-Date: Tue, 03 Nov 2015 19:33:22 +0200
-Message-ID: <14bd7629199800f798c8ab932e0285d3@visp.net.lb>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] net: increase LL_MAX_HEADER if HYPERV_NET is
+ enabled
+Date: Tue, 3 Nov 2015 17:34:47 +0000
+Message-ID: <BN1PR0301MB07704B4966A54DC679505962CA2B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+References: <1446398459.6254.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151101.155859.1206189858863918018.davem@davemloft.net>
+	 <BY2PR0301MB16547E3AA4FB1F1AC8DE28ECA02B0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+	 <20151103.103319.1465681990237533576.davem@davemloft.net>
+ <1446568644.23275.65.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: KY Srinivasan <kys@microsoft.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:57653 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752015AbbKCRdg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 12:33:36 -0500
-Received: from hosting.visp.net.lb (localhost [127.0.0.1])
-	by hosting.visp.net.lb (Postfix) with ESMTP id 39CC9480FD2
-	for <netdev@vger.kernel.org>; Tue,  3 Nov 2015 19:33:30 +0200 (EET)
-Received: from webmail.visp.net.lb (localhost [127.0.0.1])
-	by hosting.visp.net.lb (Postfix) with ESMTP id CF695480FD2
-	for <netdev@vger.kernel.org>; Tue,  3 Nov 2015 19:33:22 +0200 (EET)
+Received: from mail-bn1bon0147.outbound.protection.outlook.com ([157.56.111.147]:44399
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751415AbbKCReu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Nov 2015 12:34:50 -0500
+In-Reply-To: <1446568644.23275.65.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
-
-Recently i was testing shaping over single 10G cards, for speeds up to 
-3-4Gbps, and noticed interesting effect.
-
-Shaping scheme:
-Incoming bandwidth comes to switch port, with access vlan 100
-Outgoing bandwidth leaves switch port with access vlan 200
-Linux with Intel X710 connected to trunk port, bridge created, eth0.100 
-bridged to eth0.200
-gso/gro/tso disabled (they doesn't work nice with shapers)
-Sure latest kernel
-
-Shaper are installed on eth0.200, and seems multiqueue works on eth0 in 
-general (i see packets are distributed over each queue), CPU load is 
-very low (max 20% on core, but usually below 5%).
-I tried:
-HTB with fq, pfifo, pie qdisc
-HFSC with fq, pfifo, pie qdisc
-
-After i run shaper with default values, i can see traffic start to queue 
-in classes and total traffic doesn't reach more than 2.4Gbit, and if i 
-remove shaper it directly reach 4Gbit.
-The only trick i found, it is running pie with burst 10000 cburst 10000 
-in leaf classes, and 100000 in root class (i think 10000 in root class 
-might work as well). If i change discipline to fq, i am returning back 
-to 2.4Gbit, but it might be just because fq is not intended to be used 
-with HTB leaf class.
-So in my case burst/cburst solved issue, but i suspect maybe possible 
-more elegant solution/tuning, than putting some random values?
-Is there any particular reason why i am limited by ~2.4Gbit on any other 
-settings?
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
+YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogVHVlc2RheSwgTm92ZW1iZXIg
+MywgMjAxNSAxMTozNyBBTQ0KPiBUbzogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0
+Pg0KPiBDYzogS1kgU3Jpbml2YXNhbiA8a3lzQG1pY3Jvc29mdC5jb20+OyBIYWl5YW5nIFpoYW5n
+DQo+IDxoYWl5YW5nekBtaWNyb3NvZnQuY29tPjsgZWR1bWF6ZXRAZ29vZ2xlLmNvbTsNCj4gbmV0
+ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0XSBuZXQ6
+IGluY3JlYXNlIExMX01BWF9IRUFERVIgaWYgSFlQRVJWX05FVA0KPiBpcyBlbmFibGVkDQo+IA0K
+PiBPbiBUdWUsIDIwMTUtMTEtMDMgYXQgMTA6MzMgLTA1MDAsIERhdmlkIE1pbGxlciB3cm90ZToN
+Cj4gPiBGcm9tOiBLWSBTcmluaXZhc2FuIDxreXNAbWljcm9zb2Z0LmNvbT4NCj4gPiBEYXRlOiBU
+dWUsIDMgTm92IDIwMTUgMDc6NTk6MzYgKzAwMDANCj4gPg0KPiA+ID4gSSBoYXZlIGltcGxlbWVu
+dGVkIHRoZSBzY2hlbWUgd2UgaGFkIGRpc2N1c3NlZCBhIGZldyB3ZWVrcyBhZ28uIEluDQo+ID4g
+PiB0aGlzIG5ldyBpbXBsZW1lbnRhdGlvbiBvdXIgZHJpdmVyIGlzIE5PVCByZXF1ZXN0aW5nIGFk
+ZGl0aW9uDQo+ID4gPiBoZWFkcm9vbSAtIHJuZGlzIGhlYWRlciBhbmQgdGhlIHBlciBwYWNrZXQg
+c3RhdGUgaXMgYmVpbmcgbWFpbnRhaW5lZA0KPiA+ID4gb3V0c2lkZSBvZiB0aGUgc2tiLiBXaGF0
+IEkgYW0gc2VlaW5nIGlzIHRoYXQgd2hlbiBJIGhhdmUNCj4gPiA+IExMX01BWF9IRUFERVIgc2V0
+IHRvIDIyMCBieXRlcywgZXZlbiB0aG91Z2ggb3VyIGRyaXZlciBpcyBub3QgdXNpbmcNCj4gPiA+
+IHRoZSBhZGRpdGlvbmFsIGhlYWQgcm9vbSwgSSBzZWUgYWJvdXQgYSAxMCUgYm9vc3QgaW4gdGhl
+IHBlYWsNCj4gPiA+IHBlcmZvcm1hbmNlIChhYm91dCAzNCBHYnBzIG9uIGEgNDBHYnBzIGludGVy
+ZmFjZSkuIEhvd2V2ZXIsIHdoZW4gSQ0KPiA+ID4gc2V0IHRoZSBMTF9NQVhfSEVBREVSIHZhbHVl
+IHRvIHRoZSBjdXJyZW50IGRlZmF1bHQsIHRoZSBwZWFrDQo+ID4gPiBwZXJmb3JtYW5jZSBkcm9w
+cyBiYWNrIHRvIHdoYXQgd2UgY3VycmVudGx5IGhhdmUgKGFyb3VuZCAzMSBHYnBzKS4NCj4gPiA+
+IEluIGJvdGggdGhlc2UgY2FzZXMsIHRoZXJlIGlzIG5vIHJlYWxsb2NhdGlvbiBvZiBza2Igc2lu
+Y2Ugbm8NCj4gPiA+IGFkZGl0aW9uYWwgaGVhZHJvb20gaXMgYmVpbmcgcmVxdWVzdGVkIGFuZCB5
+ZXQgdGhlcmUgaXMgYQ0KPiA+ID4gc2lnbmlmaWNhbnQgZGlmZmVyZW5jZSBpbiBwZXJmb3JtYW5j
+ZS4gIEkgdHJ5aW5nIHRvIGZpZ3VyZSBvdXQgd2h5DQo+ID4gPiB0aGlzIGlzIHRoZSBjYXNlLCB5
+b3VyIGluc2lnaHRzIHdpbGwgYmUgZ3JlYXRseSBhcHByZWNpYXRlZC4NCj4gPg0KPiA+IEl0IHBy
+b2JhYmx5IGhhcyBzb21ldGhpbmcgdG8gZG8gd2l0aCBjYWNoZSBsaW5lIG9yIGRhdGEgYWxpZ25t
+ZW50Lg0KPiANCj4gVGhpcyBhbHNvIG1pZ2h0IGJlIGJlY2F1c2Ugb2YgYSBzbGlnaHQgY2hhbmdl
+IGluIHNrYi0+dHJ1ZXNpemUsIGFuZC9vciBhDQo+IGNoYW5nZSBvZiBhbW91bnQgb2YgcGF5bG9h
+ZCBpbiBza2ItPmhlYWQNCj4gDQo+IChJbmNyZWFzaW5nIExMX01BWF9IRUFERVIgaXMgcmVkdWNp
+bmcgYW1vdW50IG9mIHBheWxvYWQgaW4gc2tiLT5oZWFkKQ0KPiANCj4gQ2FuJ3QgeW91IHJ1biBw
+ZXJmIHRvb2wgdG8gZ2V0IHNvbWUgcHJlY2lzZSBwcm9maWxpbmcgPw0KPiANCj4gDQo+IEFub3Ro
+ZXIgcmVkIGZsYWcgaW4geW91IGRyaXZlciB4bWl0IGlzIDoNCj4gDQo+IHJldHVybiAocmV0ID09
+IC1FQUdBSU4pID8gTkVUREVWX1RYX0JVU1kgOiBORVRERVZfVFhfT0s7DQo+IA0KPiANCj4gZXh0
+cmFjdCBmcm9tIGluY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgNCj4gICogbmV0ZGV2X3R4X3QgKCpu
+ZG9fc3RhcnRfeG1pdCkoc3RydWN0IHNrX2J1ZmYgKnNrYiwNCj4gICogICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgc3RydWN0IG5ldF9kZXZpY2UgKmRldik7DQo+ICAqICAgICAgQ2FsbGVk
+IHdoZW4gYSBwYWNrZXQgbmVlZHMgdG8gYmUgdHJhbnNtaXR0ZWQuDQo+ICAqICAgICAgUmV0dXJu
+cyBORVRERVZfVFhfT0suICBDYW4gcmV0dXJuIE5FVERFVl9UWF9CVVNZLCBidXQgeW91IHNob3Vs
+ZA0KPiBzdG9wDQo+ICAqICAgICAgdGhlIHF1ZXVlIGJlZm9yZSB0aGF0IGNhbiBoYXBwZW47IGl0
+J3MgZm9yIG9ic29sZXRlIGRldmljZXMgYW5kIHdlaXJkDQo+ICAqICAgICAgY29ybmVyIGNhc2Vz
+LCBidXQgdGhlIHN0YWNrIHJlYWxseSBkb2VzIGEgbm9uLXRyaXZpYWwgYW1vdW50DQo+ICAqICAg
+ICAgb2YgdXNlbGVzcyB3b3JrIGlmIHlvdSByZXR1cm4gTkVUREVWX1RYX0JVU1kuDQoNCldlIHN0
+b3AgeG1pdCB3aGVuIHJpbmcgYnVmZmVyIGlzIDwxMCUgYXZhaWxhYmxlIChuZXR2c2Nfc2VuZF9w
+a3QoKSksIHNvIHdlIA0KYWxtb3N0IG5ldmVyIGhpdCBlbXB0eSByaW5nIGJ1ZmZlciBhbmQgcmV0
+dXJuIE5FVERFVl9UWF9CVVNZLiANCkJ1dCB3ZSBzdGlsbCBrZWVwIHRoaXMgYnVzeSByZXR1cm4g
+aW4gb3VyIGNvZGUsIGp1c3QgZm9yICJ3ZWlyZCBjb3JuZXIgY2FzZXMiLg0KDQpUaGFua3MsDQot
+IEhhaXlhbmcNCg0K
