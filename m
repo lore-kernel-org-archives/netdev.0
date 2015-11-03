@@ -1,79 +1,77 @@
-From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Subject: Re: [PATCH v7 02/10] ss: created formatters for json and hr
-Date: Tue, 3 Nov 2015 07:54:44 +0100
-Message-ID: <56385A34.7040602@gmx.net>
-References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
- <1441913708-15532-3-git-send-email-matthias.tafelmeier@gmx.net>
- <20150923162650.148fe95b@urahara>
- <bc9cacb94de24857a7d9e13960bfae56@HQ1WP-EXMB11.corp.brocade.com>
- <20150924151630.28129cdb@urahara> <5604E357.9000802@gmx.net>
- <b114412a541d4273a9a7a1c0ae4777df@HQ1WP-EXMB11.corp.brocade.com>
- <20151102150617.30d2e478@xeon-e3>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH net-next] mpls: support for dead routes
+Date: Tue, 3 Nov 2015 08:11:11 +0100 (CET)
+Message-ID: <alpine.DEB.2.02.1511030810310.2043@localhost6.localdomain6>
+References: <201511030632.M6iNpQTU%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha384;
- protocol="application/pgp-signature";
- boundary="JnS9rX1jbNn0c48FExAIU6NAx7awEOhMt"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hagen@jauu.net" <hagen@jauu.net>,
-	"shemminger@osdl.org" <shemminger@osdl.org>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"edumazet@google.com" <edumazet@google.com>,
-	Phil Sutter <phil@nwl.cc>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: ebiederm@xmission.com, rshearma@brocade.com, davem@davemloft.net,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, kbuild-all@01.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:63683 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753541AbbKCGzF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Nov 2015 01:55:05 -0500
-In-Reply-To: <20151102150617.30d2e478@xeon-e3>
+Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:38070 "EHLO
+	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932120AbbKCHLN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 02:11:13 -0500
+In-Reply-To: <201511030632.M6iNpQTU%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---JnS9rX1jbNn0c48FExAIU6NAx7awEOhMt
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+Please check on what was intended.
 
-> Your perception is incorrect.
-> I am still maintaining iproute2. Phil is just providing lots of feedbac=
-k
-> and new patches.
-No offense intendet! I know, Phil has already clarified things in the
-other responses. Maybe you overlooked those accidentally.
+julia
 
-> The size of the change makes it harder to digest, and I do think
-> adding JSON support is a good idea. Just concerned about the long
-> term maintainance overhead. Plus I want the other utilities to have
-> JSON output as well. Therefore this change is going to take longer
-> to adopt and hopefull we can figure out a good way to do this kind
-> of output.
+On Tue, 3 Nov 2015, kbuild test robot wrote:
 
-I see! Well, do you conceive a decentralized approach or a centralized
-one for all the utilities?
-Decentralizied would be as things are now =96 I mean what my patch series=
-
-tries to amount to.
-
-> Almost want to go to C++ or something.
-
-Would that be viable or is that a wishful line of thougts?
-
-
---JnS9rX1jbNn0c48FExAIU6NAx7awEOhMt
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQEcBAEBCQAGBQJWOFo0AAoJEOAWT1uK3zQ7jHgH/j5VUtJjWJ6vKOX3HYC7FPOs
-gtWVgXLRswSr/MnFVS5+g9waC4NAftxawW8ZeS098JwwBtfVJJtXh1eDh9imIqbR
-FY1H38806eQVEnYCL0vT8xXx1XpW+3SLC1g427b5jnboifhK0pz/NEpgn9L6mPLN
-RxCB0SqaLvn3ri3ezlPDP2LPjyVFrGzTZGqXlRx6zCsd0nGPYrbS9kdFQASu4Xpd
-JvQURSLGFVC8w8YUkUb76crNArrE2VBew770j44igPw5UIEXqRXi9aeydf88qmzj
-3e3j7iecGCuFK601mAogZtWqQHIgesoXTj0+vRVkYlciXOZhxKhousQRLMPo0do=
-=vwsM
------END PGP SIGNATURE-----
-
---JnS9rX1jbNn0c48FExAIU6NAx7awEOhMt--
+> CC: kbuild-all@01.org
+> In-Reply-To: <1446498529-50275-1-git-send-email-roopa@cumulusnetworks.com>
+> TO: Roopa Prabhu <roopa@cumulusnetworks.com>
+> CC: ebiederm@xmission.com, rshearma@brocade.com, davem@davemloft.net, netdev@vger.kernel.org
+> CC: davem@davemloft.net, netdev@vger.kernel.org
+> 
+> Hi Roopa,
+> 
+> [auto build test WARNING on net-next/master -- if it's inappropriate base, please suggest rules for selecting the more suitable base]
+> 
+> url:    https://github.com/0day-ci/linux/commits/Roopa-Prabhu/mpls-support-for-dead-routes/20151103-051211
+> :::::: branch date: 88 minutes ago
+> :::::: commit date: 88 minutes ago
+> 
+> >> net/mpls/af_mpls.c:702:6-22: duplicated argument to && or ||
+> 
+> git remote add linux-review https://github.com/0day-ci/linux
+> git remote update linux-review
+> git checkout 21fa92d07a7254a2042ded6647fc4b91332c6d0e
+> vim +702 net/mpls/af_mpls.c
+> 
+> f8efb73c Roopa Prabhu    2015-10-23  686  	int nhs = 0;
+> f8efb73c Roopa Prabhu    2015-10-23  687  	int err = 0;
+> f8efb73c Roopa Prabhu    2015-10-23  688  
+> f8efb73c Roopa Prabhu    2015-10-23  689  	change_nexthops(rt) {
+> f8efb73c Roopa Prabhu    2015-10-23  690  		int attrlen;
+> f8efb73c Roopa Prabhu    2015-10-23  691  
+> f8efb73c Roopa Prabhu    2015-10-23  692  		nla_via = NULL;
+> f8efb73c Roopa Prabhu    2015-10-23  693  		nla_newdst = NULL;
+> f8efb73c Roopa Prabhu    2015-10-23  694  
+> f8efb73c Roopa Prabhu    2015-10-23  695  		err = -EINVAL;
+> f8efb73c Roopa Prabhu    2015-10-23  696  		if (!rtnh_ok(rtnh, remaining))
+> f8efb73c Roopa Prabhu    2015-10-23  697  			goto errout;
+> f8efb73c Roopa Prabhu    2015-10-23  698  
+> 1c78efa8 Robert Shearman 2015-10-23  699  		/* neither weighted multipath nor any flags
+> 1c78efa8 Robert Shearman 2015-10-23  700  		 * are supported
+> 1c78efa8 Robert Shearman 2015-10-23  701  		 */
+> 21fa92d0 Roopa Prabhu    2015-11-02 @702  		if (rtnh->rtnh_flags || rtnh->rtnh_flags)
+> 1c78efa8 Robert Shearman 2015-10-23  703  			goto errout;
+> 1c78efa8 Robert Shearman 2015-10-23  704  
+> f8efb73c Roopa Prabhu    2015-10-23  705  		attrlen = rtnh_attrlen(rtnh);
+> f8efb73c Roopa Prabhu    2015-10-23  706  		if (attrlen > 0) {
+> f8efb73c Roopa Prabhu    2015-10-23  707  			struct nlattr *attrs = rtnh_attrs(rtnh);
+> f8efb73c Roopa Prabhu    2015-10-23  708  
+> f8efb73c Roopa Prabhu    2015-10-23  709  			nla_via = nla_find(attrs, attrlen, RTA_VIA);
+> f8efb73c Roopa Prabhu    2015-10-23  710  			nla_newdst = nla_find(attrs, attrlen, RTA_NEWDST);
+> 
+> ---
+> 0-DAY kernel test infrastructure                Open Source Technology Center
+> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+> 
