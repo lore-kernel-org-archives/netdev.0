@@ -1,53 +1,44 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next v3] mpls: support for dead routes
-Date: Tue, 3 Nov 2015 15:15:47 +0000
-Message-ID: <5638CFA3.6010605@brocade.com>
-References: <1446562191-22416-1-git-send-email-roopa@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: avoid NULL deref in inet_ctl_sock_destroy()
+Date: Tue, 03 Nov 2015 10:22:54 -0500 (EST)
+Message-ID: <20151103.102254.64233870062583789.davem@davemloft.net>
+References: <1446479407.23275.12.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20151102.224647.1672869809835691426.davem@davemloft.net>
+	<1446527041.23275.50.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>, <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org, dvyukov@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:10351 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751289AbbKCPQL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 10:16:11 -0500
-In-Reply-To: <1446562191-22416-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44391 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751844AbbKCPW7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 10:22:59 -0500
+In-Reply-To: <1446527041.23275.50.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/11/15 14:49, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> Adds support for RTNH_F_DEAD and RTNH_F_LINKDOWN flags on mpls
-> routes due to link events. Also adds code to ignore dead
-> routes during route selection
->
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
-> Dave, I know you are only taking bug fixes currently. This patch
-> is borderline a bug fix because Eric thinks it is critical for
-> mpls multipath routes. I can sure resubmit it as a bug fix against net
-> when it is time if you did prefer that. Thanks!
->
-> RFC to v1:
->          Addressed a few comments from Eric and Robert:
->          - remove support for weighted nexthops
->          - Use rt_nhn_alive in the rt structure to keep count of alive
->          routes.
->          What i have not done is: sort nexthops on link events.
->          I am not comfortable recreating or sorting nexthops on
->          every carrier change. This leaves scope for optimizing in the future
->
-> v1 to v2:
->          Fix dead nexthop checks as suggested by dave
->
-> v2 to v3:
-> 	Fix duplicated argument reported by kbuild test robot
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 02 Nov 2015 21:04:01 -0800
 
-FYI, I've sent out comments to v2 and all but one of them also apply to 
-this version too.
+> On Mon, 2015-11-02 at 22:46 -0500, David Miller wrote:
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Mon, 02 Nov 2015 07:50:07 -0800
+>> 
+>> > From: Eric Dumazet <edumazet@google.com>
+>> > 
+>> > Under low memory conditions, tcp_sk_init() and icmp_sk_init()
+>> > can both iterate on all possible cpus and call inet_ctl_sock_destroy(),
+>> > with eventual NULL pointer.
+>> > 
+>> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> > Reported-by: Dmitry Vyukov <dvyukov@google.com>
+>> 
+>> Applied.
+> 
+> Thanks David.
+> 
+> Bug origin was in linux-4.2 :
 
-Thanks,
-Rob
+Ok, queued up for -stable then...
