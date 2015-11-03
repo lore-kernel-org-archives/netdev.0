@@ -1,66 +1,66 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 107071] New: ip route add with src failes with RTNETLINK
- answers: Invalid argument
-Date: Tue, 3 Nov 2015 13:08:20 -0800
-Message-ID: <20151103130820.3356b6cd@xeon-e3>
+From: Markus Brunner <systemprogrammierung.brunner@gmail.com>
+Subject: [PATCH] drivers: net: cpsw: Add support for fixed-link PHY
+Date: Tue, 03 Nov 2015 22:09:51 +0100
+Message-ID: <2251323.UEGYDRRlj7@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-omap@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:35255 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755304AbbKCVIJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 16:08:09 -0500
-Received: by pasz6 with SMTP id z6so29254650pas.2
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 13:08:08 -0800 (PST)
-Received: from xeon-e3 (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
-        by smtp.gmail.com with ESMTPSA id xm4sm31251095pab.27.2015.11.03.13.08.08
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Tue, 03 Nov 2015 13:08:08 -0800 (PST)
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:34060 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755259AbbKCVLa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 16:11:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a 4.3 kernel bug, not iproute2
+Add support for a fixed-link devicetree sub-node in case the the 
+cpsw MAC is directly connected to a non-mdio PHY/device. 
 
-Begin forwarded message:
+Signed-off-by: Markus Brunner <systemprogrammierung.brunner@gmail.com>
 
-Date: Tue, 3 Nov 2015 04:37:03 +0000
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-Subject: [Bug 107071] New: ip route add with src failes with RTNETLINK answers: Invalid argument
+---
+ Documentation/devicetree/bindings/net/cpsw.txt |    5 +++++
+ drivers/net/ethernet/ti/cpsw.c                 |   13 +++++++++++++
+ 2 files changed, 18 insertions(+)
 
-
-https://bugzilla.kernel.org/show_bug.cgi?id=107071
-
-            Bug ID: 107071
-           Summary: ip route add with src failes with RTNETLINK answers:
-                    Invalid argument
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 4.3.0
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: vladi@aresgate.net
-        Regression: No
-
-when I try to add sudo ip route add 10.248.5.0/24 dev bond0.250 table vlan_250
-src 10.248.5.154
-
-I get RTNETLINK answers: Invalid argument
-
-On latest 4.3 compiled from source on ubuntu 14.04
-
-strace:
-https://bpaste.net/show/78afc27a1bb7
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+diff -upNr linux-4.3.orig/Documentation/devicetree/bindings/net/cpsw.txt linux-4.3/Documentation/devicetree/bindings/net/cpsw.txt
+--- linux-4.3.orig/Documentation/devicetree/bindings/net/cpsw.txt	2015-11-03 17:21:40.000000000 +0100
++++ linux-4.3/Documentation/devicetree/bindings/net/cpsw.txt	2015-11-02 16:53:43.000000000 +0100
+@@ -41,6 +41,11 @@ Optional properties:
+ - mac-address		: See ethernet.txt file in the same directory
+ - phy-handle		: See ethernet.txt file in the same directory
+ 
++Slave sub-nodes:
++- fixed-link		: See fixed-link.txt file in the same directory
++			  Either the properties phy_id and phy-mode,
++			  or the sub-node fixed-link can be specified
++
+ Note: "ti,hwmods" field is used to fetch the base address and irq
+ resources from TI, omap hwmod data base during device registration.
+ Future plan is to migrate hwmod data base contents into device tree
+diff -upNr linux-4.3.orig/drivers/net/ethernet/ti/cpsw.c linux-4.3/drivers/net/ethernet/ti/cpsw.c
+--- linux-4.3.orig/drivers/net/ethernet/ti/cpsw.c	2015-11-03 17:18:00.000000000 +0100
++++ linux-4.3/drivers/net/ethernet/ti/cpsw.c	2015-11-03 17:04:08.000000000 +0100
+@@ -2037,6 +2037,19 @@ static int cpsw_probe_dt(struct cpsw_pri
+ 			continue;
+ 
+ 		priv->phy_node = of_parse_phandle(slave_node, "phy-handle", 0);
++		if (of_phy_is_fixed_link(slave_node)) {
++			struct phy_device *pd;
++
++			ret = of_phy_register_fixed_link(slave_node);
++			if (ret)
++				return ret;
++			pd = of_phy_find_device(slave_node);
++			if (!pd)
++				return -ENODEV;
++			snprintf(slave_data->phy_id, sizeof(slave_data->phy_id),
++				 PHY_ID_FMT, pd->bus->id, pd->phy_id);
++			goto no_phy_slave;
++		}
+ 		parp = of_get_property(slave_node, "phy_id", &lenp);
+ 		if ((parp == NULL) || (lenp != (sizeof(void *) * 2))) {
+ 			dev_err(&pdev->dev, "Missing slave[%d] phy_id property\n", i);
