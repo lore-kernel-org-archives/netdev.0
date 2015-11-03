@@ -1,41 +1,36 @@
-From: Guy Harris <guy@alum.mit.edu>
-Subject: Re: [GIT PULL] parisc architecture updates for v4.3
-Date: Tue, 3 Nov 2015 15:43:06 -0800
-Message-ID: <D6403D2F-339E-4986-ABED-26455A157F7A@alum.mit.edu>
-References: <20151025114934.GA11108@ls3530.box> <CA+55aFyJyY1FE_1k6Ks-2j4nYr7cbde_KvZ=J3fMUFJG5Okijg@mail.gmail.com> <56393D46.6060903@gmx.de>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Parisc List <linux-parisc@vger.kernel.org>,
-	James Bottomley <James.Bottomley@hansenpartnership.com>,
-	John David Anglin <dave.anglin@bell.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Helge Deller <deller@gmx.de>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net] net: bcmgenet: Software reset EPHY after power on
+Date: Tue, 03 Nov 2015 15:44:14 -0800
+Message-ID: <563946CE.8070706@gmail.com>
+References: <1446167495-3923-1-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c.mail.sonic.net ([64.142.111.80]:38717 "EHLO c.mail.sonic.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965135AbbKCXnS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 18:43:18 -0500
-In-Reply-To: <56393D46.6060903@gmx.de>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:32938 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752641AbbKCXpA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 18:45:00 -0500
+Received: by pabfh17 with SMTP id fh17so32461894pab.0
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 15:45:00 -0800 (PST)
+In-Reply-To: <1446167495-3923-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 29/10/15 18:11, Florian Fainelli wrote:
+> The EPHY on GENET v1->v3 is extremely finicky, and will show occasional
+> failures based on the timing and reset sequence, ranging from duplicate
+> packets, to extremely high latencies.
+> 
+> Perform an additional software reset, and re-configuration to make sure it is
+> in a consistent and working state.
+> 
+> Fixes: 6ac3ce8295e6 ("net: bcmgenet: Remove excessive PHY reset")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-On Nov 3, 2015, at 3:03 PM, Helge Deller <deller@gmx.de> wrote:
-
-> Sadly it's nowhere clearly documented how big the L1 cacheline of parisc really is.
-
-To which particular PA-RISC processor are you referring?  It might not be the same on all processors.
-
-If openpa.net is to be believed, then:
-
-The 7100LC has 32 byte cache lines on the off-chip cache:
-
-	http://www.openpa.net/pa-risc_processor_pa-7100lc.html
-
-and the 8500 has "32 or 64 Byte cache line size", which may be referring to the on-chip caches:
-
-	http://www.openpa.net/pa-risc_processor_pa-8500.html
+I see that you have applied this to your pull request sent to Linus
+today, could you also queue this for 4.3-stable? Thank you!
+-- 
+Florian
