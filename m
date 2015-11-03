@@ -1,60 +1,45 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] switchdev: respect SKIP_EOPNOTSUPP flag in case there is no recursion
-Date: Tue,  3 Nov 2015 17:40:53 +0100
-Message-ID: <1446568853-8705-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	linux@roeck-us.net, vivien.didelot@savoirfairelinux.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:33623 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751562AbbKCQk4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 11:40:56 -0500
-Received: by wijp11 with SMTP id p11so75605415wij.0
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 08:40:55 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] ssb: mark ssb_bus_register as __maybe_unused
+Date: Tue, 03 Nov 2015 17:42:26 +0100
+Message-ID: <7423389.1hNz9LlOCE@wuerfel>
+References: <5928552.0ccybX7Zly@wuerfel> <20151103172721.04533081@wiggum>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
+	linux-kernel@vger.kernel.org, zajec5@gmail.com,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>
+To: Michael =?ISO-8859-1?Q?B=FCsch?= <m@bues.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151103172721.04533081@wiggum>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+On Tuesday 03 November 2015 17:27:21 Michael B=FCsch wrote:
+> On Tue, 03 Nov 2015 16:05:51 +0100
+> Arnd Bergmann <arnd@arndb.de> wrote:
+>=20
+> > The SoC variant of the ssb code is now optional like the other
+> > ones, which means we can build the framwork without any
+> > front-end, but that results in a warning:
+> >=20
+> > drivers/ssb/main.c:616:12: warning: 'ssb_bus_register' defined but =
+not used [-Wunused-function]
+> >=20
+> > This annotates the ssb_bus_register function as __maybe_unused to
+> > shut up the warning. A configuration like this will not work on
+> > any hardware of course, but we still want this to silently build
+> > without warnings if the configuration is allowed in the first
+> > place.
+>=20
+>=20
+> Is there a simple way to disallow this configuration?
 
-Caller passing down the SKIP_EOPNOTSUPP switchdev flag expects that
--EOPNOTSUPP cannot be returned. But in case of direct op call without
-recurtion, this may happen. So fix this by checking it always on the
-end of __switchdev_port_attr_set function.
+I could not come up with a simple one. We could turn 'CONFIG_SSB' into
+a silent option and have it selected by each bus specific driver,
+but then we also have to change all the device drivers (usb and
+wireless I guess) to use 'depends on' rather than 'select'.
 
-Fixes: 464314ea6c11 ("switchdev: skip over ports returning -EOPNOTSUPP when recursing ports")
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/switchdev/switchdev.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 6dfd19e..f34e535 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -225,8 +225,10 @@ static int __switchdev_port_attr_set(struct net_device *dev,
- 	struct list_head *iter;
- 	int err = -EOPNOTSUPP;
- 
--	if (ops && ops->switchdev_port_attr_set)
--		return ops->switchdev_port_attr_set(dev, attr, trans);
-+	if (ops && ops->switchdev_port_attr_set) {
-+		err = ops->switchdev_port_attr_set(dev, attr, trans);
-+		goto done;
-+	}
- 
- 	if (attr->flags & SWITCHDEV_F_NO_RECURSE)
- 		goto done;
-@@ -238,9 +240,6 @@ static int __switchdev_port_attr_set(struct net_device *dev,
- 
- 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
- 		err = __switchdev_port_attr_set(lower_dev, attr, trans);
--		if (err == -EOPNOTSUPP &&
--		    attr->flags & SWITCHDEV_F_SKIP_EOPNOTSUPP)
--			continue;
- 		if (err)
- 			break;
- 	}
--- 
-1.9.3
+	Arnd
