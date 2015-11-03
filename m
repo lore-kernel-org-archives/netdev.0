@@ -1,16 +1,16 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 1/7] net/mlx5e: Avoid NULL pointer access in case of configuration failure
-Date: Tue,  3 Nov 2015 08:07:18 +0200
-Message-ID: <1446530844-14077-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 2/7] net/mlx5e: Wait for RX buffers initialization in a more proper manner
+Date: Tue,  3 Nov 2015 08:07:19 +0200
+Message-ID: <1446530844-14077-3-git-send-email-ogerlitz@mellanox.com>
 References: <1446530844-14077-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
 	Achiad Shochat <achiad@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:38556 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:38557 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753089AbbKCGHw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752980AbbKCGHw (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 3 Nov 2015 01:07:52 -0500
 In-Reply-To: <1446530844-14077-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,34 +18,35 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Achiad Shochat <achiad@mellanox.com>
 
-In case a configuration operation that involves closing and re-opening
-resources (e.g RX/TX queue size change) fails at the re-opening stage
-these resources will remain closed.
-So when executing (following) configuration operations (e.g ifconfig
-down) we cannot assume that these resources are available.
+Use jiffies rather than wait loop with msleep().
+
+The wait loop didn't take into consideration time when the
+process was not executing.
 
 Signed-off-by: Achiad Shochat <achiad@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index bb801a9..9df6f9a 100644
+index 9df6f9a..0bab33c 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1404,6 +1404,12 @@ int mlx5e_close_locked(struct net_device *netdev)
+@@ -442,12 +442,12 @@ static void mlx5e_disable_rq(struct mlx5e_rq *rq)
+ 
+ static int mlx5e_wait_for_min_rx_wqes(struct mlx5e_rq *rq)
  {
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
++	unsigned long exp_time = jiffies + msecs_to_jiffies(20000);
+ 	struct mlx5e_channel *c = rq->channel;
+ 	struct mlx5e_priv *priv = c->priv;
+ 	struct mlx5_wq_ll *wq = &rq->wq;
+-	int i;
  
-+	/* May already be CLOSED in case a previous configuration operation
-+	 * (e.g RX/TX queue size change) that involves close&open failed.
-+	 */
-+	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
-+		return 0;
-+
- 	clear_bit(MLX5E_STATE_OPENED, &priv->state);
+-	for (i = 0; i < 1000; i++) {
++	while (time_before(jiffies, exp_time)) {
+ 		if (wq->cur_sz >= priv->params.min_rx_wqes)
+ 			return 0;
  
- 	mlx5e_redirect_rqts(priv);
 -- 
 2.3.7
