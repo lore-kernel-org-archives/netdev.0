@@ -1,136 +1,46 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: New Defects reported by Coverity Scan for Linux
-Date: Tue, 3 Nov 2015 08:18:12 -0800
-Message-ID: <20151103081812.6c55fbe5@xeon-e3>
+From: Aleksander Morgado <aleksander@aleksander.es>
+Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
+Date: Tue, 3 Nov 2015 17:18:16 +0100
+Message-ID: <CAAP7uc+z==A=VZqYXmsQB4CAuTXvbwefhVyUdud0ES30rbaBsg@mail.gmail.com>
+References: <1446419775-5215-1-git-send-email-marex@denx.de>
+	<56389C38.4080508@pengutronix.de>
+	<CAAP7ucLhzqh8+QxYJwx-8-DqSb6YqV0ZXXVGqY=OUUnzAu5EVQ@mail.gmail.com>
+	<201511031619.43802.marex@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jon Maloy <jon.maloy@ericsson.com>,
-	Ying Xue <ying.xue@windriver.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Marek Vasut <marex@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35070 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754674AbbKCQSD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 11:18:03 -0500
-Received: by pasz6 with SMTP id z6so22508293pas.2
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 08:18:02 -0800 (PST)
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:33945 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751960AbbKCQSQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 11:18:16 -0500
+Received: by obbza9 with SMTP id za9so16131682obb.1
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 08:18:16 -0800 (PST)
+In-Reply-To: <201511031619.43802.marex@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The TIPC case is a missing check for memory allocation failure.
+On Tue, Nov 3, 2015 at 4:19 PM, Marek Vasut <marex@denx.de> wrote:
+>> , or the duplex TX/RX setup for channels
+>> (channels are either RX or TX, not both), or the local
+>> echoing/loopback (which wouldn't make much sense for TX-only
+>> channels).
+>
+> Aren't the RX-only/TX-only channels rather a special case ?
 
+They're actually the only case AFAIK. You've got systems generating
+streams of ARINC429 words (e.g. the IRS, the FMC...) and systems that
+may consume the streams from multiple independent channels (e.g. the
+IFE). I try to think of each logical bus as a single transmitter
+broadcasting to multiple receivers.
 
-Begin forwarded message:
-
-Date: Mon, 02 Nov 2015 23:45:55 -0800
-From: scan-admin@coverity.com
-To: stephen@networkplumber.org
-Subject: New Defects reported by Coverity Scan for Linux
-
-
-
-Hi,
-
-Please find the latest report on new defect(s) introduced to Linux found with Coverity Scan.
-
-4 new defect(s) introduced to Linux found with Coverity Scan.
-9 defect(s), reported by Coverity Scan earlier, were marked fixed in the recent build analyzed by Coverity Scan.
-
-New defect(s) Reported-by: Coverity Scan
-Showing 4 of 4 defect(s)
-
-
-** CID 1338065:  Error handling issues  (CHECKED_RETURN)
-/net/tipc/udp_media.c: 162 in tipc_udp_send_msg()
-
-
-________________________________________________________________________________________________________
-*** CID 1338065:  Error handling issues  (CHECKED_RETURN)
-/net/tipc/udp_media.c: 162 in tipc_udp_send_msg()
-156     	struct udp_media_addr *dst = (struct udp_media_addr *)&dest->value;
-157     	struct udp_media_addr *src = (struct udp_media_addr *)&b->addr.value;
-158     	struct sk_buff *clone;
-159     	struct rtable *rt;
-160     
-161     	if (skb_headroom(skb) < UDP_MIN_HEADROOM)
->>>     CID 1338065:  Error handling issues  (CHECKED_RETURN)
->>>     Calling "pskb_expand_head" without checking return value (as is done elsewhere 51 out of 56 times).
-162     		pskb_expand_head(skb, UDP_MIN_HEADROOM, 0, GFP_ATOMIC);
-163     
-164     	clone = skb_clone(skb, GFP_ATOMIC);
-165     	skb_set_inner_protocol(clone, htons(ETH_P_TIPC));
-166     	ub = rcu_dereference_rtnl(b->media_ptr);
-167     	if (!ub) {
-
-** CID 1338066:  Null pointer dereferences  (FORWARD_NULL)
-/net/openvswitch/flow_netlink.c: 1379 in __ovs_nla_put_key()
-
-
-________________________________________________________________________________________________________
-*** CID 1338066:  Null pointer dereferences  (FORWARD_NULL)
-/net/openvswitch/flow_netlink.c: 1379 in __ovs_nla_put_key()
-1373     		goto nla_put_failure;
-1374     
-1375     	if (nla_put_u32(skb, OVS_KEY_ATTR_PRIORITY, output->phy.priority))
-1376     		goto nla_put_failure;
-1377     
-1378     	if ((swkey->tun_key.u.ipv4.dst || is_mask)) {
->>>     CID 1338066:  Null pointer dereferences  (FORWARD_NULL)
->>>     Assigning: "opts" = "NULL".
-1379     		const void *opts = NULL;
-1380     
-1381     		if (output->tun_key.tun_flags & TUNNEL_OPTIONS_PRESENT)
-1382     			opts = TUN_METADATA_OPTS(output, swkey->tun_opts_len);
-1383     
-1384     		if (ipv4_tun_to_nlattr(skb, &output->tun_key, opts,
-
-** CID 1338067:  Integer handling issues  (OVERFLOW_BEFORE_WIDEN)
-/drivers/net/ethernet/cavium/thunder/nic_main.c: 407 in nic_config_cpi()
-
-
-________________________________________________________________________________________________________
-*** CID 1338067:  Integer handling issues  (OVERFLOW_BEFORE_WIDEN)
-/drivers/net/ethernet/cavium/thunder/nic_main.c: 407 in nic_config_cpi()
-401     			nic_reg_write(nic, NIC_PF_CPI_0_2047_CFG | (cpi << 3),
-402     				      (vnic << 24) | (padd << 16) |
-403     				      (rssi_base + rssi));
-404     		} else {
-405     			/* Set MPI_ALG to '0' to disable MCAM parsing */
-406     			nic_reg_write(nic, NIC_PF_CPI_0_2047_CFG | (cpi << 3),
->>>     CID 1338067:  Integer handling issues  (OVERFLOW_BEFORE_WIDEN)
->>>     Potentially overflowing expression "padd << 16" with type "u32" (32 bits, unsigned) is evaluated using 32-bit arithmetic, and then used in a context that expects an expression of type "u64" (64 bits, unsigned).
-407     				      (padd << 16));
-408     			/* MPI index is same as CPI if MPI_ALG is not enabled */
-409     			nic_reg_write(nic, NIC_PF_MPI_0_2047_CFG | (cpi << 3),
-410     				      (vnic << 24) | (rssi_base + rssi));
-411     		}
-412     
-
-** CID 1338068:  Null pointer dereferences  (REVERSE_INULL)
-/include/net/dst_metadata.h: 69 in tun_dst_unclone()
-
-
-________________________________________________________________________________________________________
-*** CID 1338068:  Null pointer dereferences  (REVERSE_INULL)
-/include/net/dst_metadata.h: 69 in tun_dst_unclone()
-63     static inline struct metadata_dst *tun_dst_unclone(struct sk_buff *skb)
-64     {
-65     	struct metadata_dst *md_dst = skb_metadata_dst(skb);
-66     	int md_size = md_dst->u.tun_info.options_len;
-67     	struct metadata_dst *new_md;
-68     
->>>     CID 1338068:  Null pointer dereferences  (REVERSE_INULL)
->>>     Null-checking "md_dst" suggests that it may be null, but it has already been dereferenced on all paths leading to the check.
-69     	if (!md_dst)
-70     		return ERR_PTR(-EINVAL);
-71     
-72     	new_md = metadata_dst_alloc(md_size, GFP_ATOMIC);
-73     	if (!new_md)
-74     		return ERR_PTR(-ENOMEM);
-
-
-________________________________________________________________________________________________________
-To view the defects in Coverity Scan visit, https://scan.coverity.com/projects/linux?tab=overview
-
-To manage Coverity Scan email notifications for "stephen@networkplumber.org", click https://scan.coverity.com/subscriptions/edit?email=stephen%40networkplumber.org&token=41b352b884ef3fc73426635eebc294c3
+-- 
+Aleksander
+https://aleksander.es
