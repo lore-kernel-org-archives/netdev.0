@@ -1,44 +1,47 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH] net: sched: kill dead code in sch_choke.c
-Date: Wed, 4 Nov 2015 00:15:13 +0100
-Message-ID: <20151103231513.GA26876@orbit.nwl.cc>
-References: <1446573701-7585-1-git-send-email-phil@nwl.cc>
- <20151103.133244.1213287119275421272.davem@davemloft.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT PULL] parisc architecture updates for v4.3
+Date: Tue, 3 Nov 2015 15:25:13 -0800
+Message-ID: <CA+55aFyENfhCBj4aaPRc2=82e=fjdg4wynCUCJc9Mbz1PwfCqA@mail.gmail.com>
+References: <20151025114934.GA11108@ls3530.box>
+	<CA+55aFyJyY1FE_1k6Ks-2j4nYr7cbde_KvZ=J3fMUFJG5Okijg@mail.gmail.com>
+	<56393D46.6060903@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemming@brocade.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:53080 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965115AbbKCXPQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Nov 2015 18:15:16 -0500
-Content-Disposition: inline
-In-Reply-To: <20151103.133244.1213287119275421272.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Parisc List <linux-parisc@vger.kernel.org>,
+	James Bottomley <James.Bottomley@hansenpartnership.com>,
+	John David Anglin <dave.anglin@bell.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Helge Deller <deller@gmx.de>
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <56393D46.6060903@gmx.de>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 03, 2015 at 01:32:44PM -0500, David Miller wrote:
-> From: Phil Sutter <phil@nwl.cc>
-> Date: Tue,  3 Nov 2015 19:01:41 +0100
-> 
-> > It looks like this has never been used at all.
-> > 
-> > Signed-off-by: Phil Sutter <phil@nwl.cc>
-> 
-> Indeed, from day one this was completely unreferenced.
+On Tue, Nov 3, 2015 at 3:03 PM, Helge Deller <deller@gmx.de> wrote:
+>
+> Sadly it's nowhere clearly documented how big the L1 cacheline of parisc really is.
 
-I found it by accident when trying to find out whether choke was
-class-full or not. :)
+Wow.
 
-> One downside from marking so much stuff const is that an
-> unreferenced static variable won't be warned as unused if
-> it's const.
+Particularly that "it might actually be 16 bytes" from the thread
+according to John David Anglin. I didn't expect anybody to really have
+that small a line size any more.
 
-Interestingly, this topic was picked up again only just two months
-ago[1]. Not sure though if that could be used for kernel code with all
-it's specialties.
+> I was not very much concerned about any over-alignment, but about the
+> performance. Reducing L1_CACHE_BYTES gave a performance improvement
+> on parisc, most likely since we protect atomic accesses through our
+> atomic spinlocks anyway.
 
-Cheers, Phil
+Well, we do end up using L1_CACHE_BYTES to avoid false sharing in some
+places, where it's not so much about atomic accesses, as just trying
+to avoid having different CPU's step on each other when not needed. So
+it's not necessarily about atomic accesses per se.
 
-[1]: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=28901
+But if it's actually possible that the pa-risc L1 line size is really
+just 16 bytes, I guess that objection to the patch goes away. My
+automatic reaction was "that's not real, it's some odd workaround",
+but if it is actually real...
+
+                 Linus
