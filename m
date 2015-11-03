@@ -1,66 +1,60 @@
-From: Markus Brunner <systemprogrammierung.brunner@gmail.com>
-Subject: [PATCH] drivers: net: cpsw: Add support for fixed-link PHY
-Date: Tue, 03 Nov 2015 22:09:51 +0100
-Message-ID: <2251323.UEGYDRRlj7@localhost>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next] ipv6: gro: support sit protocol
+Date: Wed, 4 Nov 2015 06:14:14 +0900
+Message-ID: <CALx6S35BK3aTGwceKmdXPDyGq+xn_ysb_yvgjj9piq2va30zFg@mail.gmail.com>
+References: <1438621878-1113072-1-git-send-email-tom@herbertland.com>
+	<1445306641.30896.42.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1445312417.30896.64.camel@edumazet-glaptop2.roam.corp.google.com>
+	<19837690.PaPkekjCr9@stwm.de>
+	<1446556053.23275.55.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-omap@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Wolfgang Walter <linux@stwm.de>,
+	David Miller <davem@davemloft.net>,
+	Jerry Chu <hkchu@google.com>, JesseGross <jesse@nicira.com>,
+	netdev <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:34060 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755259AbbKCVLa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 16:11:30 -0500
+Received: from mail-io0-f175.google.com ([209.85.223.175]:36683 "EHLO
+	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755019AbbKCVOP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 16:14:15 -0500
+Received: by ioll68 with SMTP id l68so33366135iol.3
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 13:14:15 -0800 (PST)
+In-Reply-To: <1446556053.23275.55.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for a fixed-link devicetree sub-node in case the the 
-cpsw MAC is directly connected to a non-mdio PHY/device. 
+On Tue, Nov 3, 2015 at 10:07 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2015-11-03 at 13:57 +0100, Wolfgang Walter wrote:
+>> Am Montag, 19. Oktober 2015, 20:40:17 schrieb Eric Dumazet:
+>> > From: Eric Dumazet <edumazet@google.com>
+>> >
+>> > Tom Herbert added SIT support to GRO with commit
+>> > 19424e052fb4 ("sit: Add gro callbacks to sit_offload"),
+>> > later reverted by Herbert Xu.
+>> >
+>> > The problem came because Tom patch was building GRO
+>> > packets without proper meta data : If packets were locally
+>> > delivered, we would not care.
+>> >
+>> > But if packets needed to be forwarded, GSO engine was not
+>> > able to segment individual segments.
+>> >
+>> > With the following patch, we correctly set skb->encapsulation
+>> > and inner network header. We also update gso_type.
+>> >
+>>
+>> I'm running 4.1.11 / 4.1.12 with this patch on top now since over a week.
+>> ISATAP works fine.
+>
+> Perfect ! thanks a lot for testing !
+>
 
-Signed-off-by: Markus Brunner <systemprogrammierung.brunner@gmail.com>
+Thanks for all the work on this!
 
----
- Documentation/devicetree/bindings/net/cpsw.txt |    5 +++++
- drivers/net/ethernet/ti/cpsw.c                 |   13 +++++++++++++
- 2 files changed, 18 insertions(+)
+Tom
 
-diff -upNr linux-4.3.orig/Documentation/devicetree/bindings/net/cpsw.txt linux-4.3/Documentation/devicetree/bindings/net/cpsw.txt
---- linux-4.3.orig/Documentation/devicetree/bindings/net/cpsw.txt	2015-11-03 17:21:40.000000000 +0100
-+++ linux-4.3/Documentation/devicetree/bindings/net/cpsw.txt	2015-11-02 16:53:43.000000000 +0100
-@@ -41,6 +41,11 @@ Optional properties:
- - mac-address		: See ethernet.txt file in the same directory
- - phy-handle		: See ethernet.txt file in the same directory
- 
-+Slave sub-nodes:
-+- fixed-link		: See fixed-link.txt file in the same directory
-+			  Either the properties phy_id and phy-mode,
-+			  or the sub-node fixed-link can be specified
-+
- Note: "ti,hwmods" field is used to fetch the base address and irq
- resources from TI, omap hwmod data base during device registration.
- Future plan is to migrate hwmod data base contents into device tree
-diff -upNr linux-4.3.orig/drivers/net/ethernet/ti/cpsw.c linux-4.3/drivers/net/ethernet/ti/cpsw.c
---- linux-4.3.orig/drivers/net/ethernet/ti/cpsw.c	2015-11-03 17:18:00.000000000 +0100
-+++ linux-4.3/drivers/net/ethernet/ti/cpsw.c	2015-11-03 17:04:08.000000000 +0100
-@@ -2037,6 +2037,19 @@ static int cpsw_probe_dt(struct cpsw_pri
- 			continue;
- 
- 		priv->phy_node = of_parse_phandle(slave_node, "phy-handle", 0);
-+		if (of_phy_is_fixed_link(slave_node)) {
-+			struct phy_device *pd;
-+
-+			ret = of_phy_register_fixed_link(slave_node);
-+			if (ret)
-+				return ret;
-+			pd = of_phy_find_device(slave_node);
-+			if (!pd)
-+				return -ENODEV;
-+			snprintf(slave_data->phy_id, sizeof(slave_data->phy_id),
-+				 PHY_ID_FMT, pd->bus->id, pd->phy_id);
-+			goto no_phy_slave;
-+		}
- 		parp = of_get_property(slave_node, "phy_id", &lenp);
- 		if ((parp == NULL) || (lenp != (sizeof(void *) * 2))) {
- 			dev_err(&pdev->dev, "Missing slave[%d] phy_id property\n", i);
+>
