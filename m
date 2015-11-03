@@ -1,82 +1,29 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH net-next] net/core: ensure features get disabled on new
- lower devs
-Date: Tue, 03 Nov 2015 17:11:51 -0500
-Message-ID: <56393127.4050406@redhat.com>
-References: <1446519359-21400-1-git-send-email-jarod@redhat.com> <1446583017-19021-1-git-send-email-jarod@redhat.com> <5639245D.7000501@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: Fw: [Bug 107071] New: ip route add with src failes with RTNETLINK
+ answers: Invalid argument
+Date: Tue, 3 Nov 2015 15:21:20 -0700
+Message-ID: <56393360.4090706@cumulusnetworks.com>
+References: <20151103130820.3356b6cd@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	Michal Kubecek <mkubecek@suse.cz>, netdev@vger.kernel.org
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5639245D.7000501@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:33117 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752196AbbKCWVY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 17:21:24 -0500
+Received: by obbwb3 with SMTP id wb3so25308521obb.0
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 14:21:23 -0800 (PST)
+In-Reply-To: <20151103130820.3356b6cd@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexander Duyck wrote:
-> On 11/03/2015 12:36 PM, Jarod Wilson wrote:
->> With moving netdev_sync_lower_features() after the .ndo_set_features
->> calls, I neglected to verify that devices added *after* a flag had been
->> disabled on an upper device were properly added with that flag
->> disabled as
->> well. This currently happens, because we exit __netdev_update_features()
->> when we see dev->features == features for the upper dev. We can retain
->> the
->> optimization of leaving without calling .ndo_set_features with a bit of
->> tweaking and a goto here.
->>
->> Changing err to ret was somewhat arbitrary and makes the patch look more
->> involved, but seems to better fit the altered use.
-...
->> + 	if (!ret) {
->> + 		dev->features = features;
->> + 		ret = 1;
->> + 	}
->> +
+On 11/3/15 2:08 PM, Stephen Hemminger wrote:
+> when I try to add sudo ip route add 10.248.5.0/24 dev bond0.250 table vlan_250
+> src 10.248.5.154
 >
-> I would take the "ret = 1;" out of the if statement and let it stay here
-> by itself. Technically anything that traversed this path was returning 1
-> previously so we probably want to retain that behavior.
+> I get RTNETLINK answers: Invalid argument
 
-Ah, that. I took a look at all the callers of __netdev_update_features, 
-and most don't even check return value, the one that does 
-(netdev_update_features) only cares if its zero or not zero, so I 
-figured it didn't really matter here, but it would indeed return 2 now 
-instead of 1, if it got that from ndo_set_features. For consistency's 
-sake, I can respin and just always set ret = 1 though.
-
->> +sync_lower:
->> 	/* some features must be disabled on lower devices when disabled
->> 	 * on an upper device (think: bonding master or bridge)
->> 	 */
->> 	netdev_for_each_lower_dev(dev, lower, iter)
->> 		netdev_sync_lower_features(dev, lower, features);
->>
->> - 	if (!err)
->> - 		dev->features = features;
->
-> You could just alter the if statement here to check for a non-zero ret
-> value since you should have it as either 0 or 1. It shouldn't have any
-> other values.
->
-> That way you will have disabled the feature on the lower devices before
-> advertising that it has been disabled on the upper device.
-
-If this check is down here, the goto will trigger, setting dev->features 
-= features, but then, we got there because dev->features == features 
-already, so meh. But it would also NOT trigger in the case of 
-ndo_set_features returning 0 anymore, because we set ret = 1. Or am I 
-missing something or misunderstanding what you're suggesting here?
-
--- 
-Jarod Wilson
-jarod@redhat.com
+Probably a side effect of one my patches for VRF. I'll take a look.
