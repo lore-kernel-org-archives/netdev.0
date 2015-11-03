@@ -1,43 +1,86 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] arcnet/com20020: add LEDS_CLASS dependency
-Date: Tue, 03 Nov 2015 14:51:29 +0100
-Message-ID: <10338405.rWTFsWuIBE@wuerfel>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH v2 net-next] net/core: generic support for disabling
+ netdev features down stack
+Date: Tue, 3 Nov 2015 14:52:44 +0100
+Message-ID: <CAMuHMdXrs2fkHw+DGgutM1y71Y=MTsxSqJ+J78e_Q7oZjaNesA@mail.gmail.com>
+References: <1446486818-26166-1-git-send-email-jarod@redhat.com>
+	<1446519359-21400-1-git-send-email-jarod@redhat.com>
+	<5638865D.2000804@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Michael Grzeschik <m.grzeschik@pengutronix.de>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jarod Wilson <jarod@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Nikolay Aleksandrov <razor@blackwall.org>,
+	Michal Kubecek <mkubecek@suse.cz>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:34113 "EHLO
+	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752330AbbKCNwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 08:52:45 -0500
+In-Reply-To: <5638865D.2000804@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The newly added led trigger support in the com20020-pci driver causes
-build errors when CONFIG_LEDS_CLASS is disabled:
+On Tue, Nov 3, 2015 at 11:03 AM, Nikolay Aleksandrov
+<nikolay@cumulusnetworks.com> wrote:
+> On 11/03/2015 03:55 AM, Jarod Wilson wrote:
+> [snip]
+>>
+>> +#define for_each_netdev_feature(mask_addr, feature)                          \
+>> +     int bit;                                                                \
+>> +     for_each_set_bit(bit, (unsigned long *)mask_addr, NETDEV_FEATURE_COUNT) \
+>> +             feature = __NETIF_F_BIT(bit);
+>> +
+> ^
+> This is broken, it will not work for more than a single feature.
 
-drivers/built-in.o: In function `com20020pci_probe':
-(.text+0x185dc4): undefined reference to `devm_led_classdev_register'
-(.text+0x185dd8): undefined reference to `devm_led_classdev_register'
+Indeed it is.
 
-This adds a Kconfig dependency to prevent the invalid configurations.
-Other drivers appear to be split 50:50 between 'select' and 'depends on'
-for this symbol, I picked 'depends on' as I could not find a common
-policy and it generally causes fewer problems.
+This is used as:
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 8890624a4e8c ("arcnet: com20020-pci: add led trigger support")
----
-Found on ARM randconfig build tests
+        for_each_netdev_feature(&upper_disables, feature) {
+        ...
+        }
 
-diff --git a/drivers/net/arcnet/Kconfig b/drivers/net/arcnet/Kconfig
-index 2a9c3c3abe9b..39bd16f3f86d 100644
---- a/drivers/net/arcnet/Kconfig
-+++ b/drivers/net/arcnet/Kconfig
-@@ -103,6 +103,7 @@ config ARCNET_RIM_I
- 
- config ARCNET_COM20020
- 	tristate "ARCnet COM20020 chipset driver"
-+	depends on LEDS_CLASS
- 	help
- 	  This is the driver for the new COM20020 chipset. It supports such
- 	  things as promiscuous mode, so packet sniffing is possible, and
+which expands to:
+
+        int bit;
+        for_each_set_bit(bit, (unsigned long *)mask_addr, NETDEV_FEATURE_COUNT)
+                feature = __NETIF_F_BIT(bit);
+        {
+                ...
+        }
+
+Note the assignment to "feature" happens outside the {}-delimited block.
+And the block is always executed once.
+
+Interestingly, arm-unknown-linux-gnueabi-gcc 4.9.0 warns about this in
+some of my configs, but not in all of them:
+
+net/core/dev.c: In function '__netdev_update_features':
+net/core/dev.c:6302:16: warning: 'feature' may be used uninitialized
+in this function [-Wmaybe-uninitialized]
+    features &= ~feature;
+                ^
+net/core/dev.c:6295:20: note: 'feature' was declared here
+  netdev_features_t feature;
+                    ^
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
