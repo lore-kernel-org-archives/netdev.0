@@ -1,98 +1,121 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] sh_eth: kill 'ret' variable in sh_eth_ring_init()
-Date: Wed, 04 Nov 2015 00:17:08 +0300
-Message-ID: <3103690.zc6n37veWQ@wasted.cogentembedded.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next] net/core: ensure features get disabled on new
+ lower devs
+Date: Tue, 3 Nov 2015 13:17:17 -0800
+Message-ID: <5639245D.7000501@gmail.com>
+References: <1446519359-21400-1-git-send-email-jarod@redhat.com>
+ <1446583017-19021-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f51.google.com ([209.85.215.51]:34120 "EHLO
-	mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755226AbbKCVRM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 16:17:12 -0500
-Received: by lfgh9 with SMTP id h9so31488634lfg.1
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 13:17:10 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Nikolay Aleksandrov <razor@blackwall.org>,
+	Michal Kubecek <mkubecek@suse.cz>, netdev@vger.kernel.org
+To: Jarod Wilson <jarod@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446583017-19021-1-git-send-email-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The 'ret' local variable in sh_eth_ring_init() serves no useful purpose as
-the only  values it gets assigned are 0 and -ENOMEM both of which could be
-returned directly...
+On 11/03/2015 12:36 PM, Jarod Wilson wrote:
+> With moving netdev_sync_lower_features() after the .ndo_set_features
+> calls, I neglected to verify that devices added *after* a flag had been
+> disabled on an upper device were properly added with that flag disabled as
+> well. This currently happens, because we exit __netdev_update_features()
+> when we see dev->features == features for the upper dev. We can retain the
+> optimization of leaving without calling .ndo_set_features with a bit of
+> tweaking and a goto here.
+>
+> Changing err to ret was somewhat arbitrary and makes the patch look more
+> involved, but seems to better fit the altered use.
+>
+> Fixes: fd867d51f ("net/core: generic support for disabling netdev features down stack")
+> CC: "David S. Miller" <davem@davemloft.net>
+> CC: Eric Dumazet <edumazet@google.com>
+> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+> CC: Veaceslav Falico <vfalico@gmail.com>
+> CC: Andy Gospodarek <gospo@cumulusnetworks.com>
+> CC: Jiri Pirko <jiri@resnulli.us>
+> CC: Nikolay Aleksandrov <razor@blackwall.org>
+> CC: Michal Kubecek <mkubecek@suse.cz>
+> CC: Alexander Duyck <alexander.duyck@gmail.com>
+> CC: netdev@vger.kernel.org
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> ---
+>   net/core/dev.c | 21 ++++++++++++---------
+>   1 file changed, 12 insertions(+), 9 deletions(-)
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 8ce3f74..90e0a62 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -6402,7 +6402,7 @@ int __netdev_update_features(struct net_device *dev)
+>   	struct net_device *upper, *lower;
+>   	netdev_features_t features;
+>   	struct list_head *iter;
+> -	int err = 0;
+> +	int ret = 0;
+>
+>   	ASSERT_RTNL();
+>
+> @@ -6419,31 +6419,34 @@ int __netdev_update_features(struct net_device *dev)
+>   		features = netdev_sync_upper_features(dev, upper, features);
+>
+>   	if (dev->features == features)
+> -		return 0;
+> +		goto sync_lower;
+>
+>   	netdev_dbg(dev, "Features changed: %pNF -> %pNF\n",
+>   		&dev->features, &features);
+>
+>   	if (dev->netdev_ops->ndo_set_features)
+> -		err = dev->netdev_ops->ndo_set_features(dev, features);
+> +		ret = dev->netdev_ops->ndo_set_features(dev, features);
+>
+> -	if (unlikely(err < 0)) {
+> +	if (unlikely(ret < 0)) {
+>   		netdev_err(dev,
+>   			"set_features() failed (%d); wanted %pNF, left %pNF\n",
+> -			err, &features, &dev->features);
+> +			ret, &features, &dev->features);
+>   		return -1;
+>   	}
+>
+> +	if (!ret) {
+> +		dev->features = features;
+> +		ret = 1;
+> +	}
+> +
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+I would take the "ret = 1;" out of the if statement and let it stay here 
+by itself.  Technically anything that traversed this path was returning 
+1 previously so we probably want to retain that behavior.
 
----
-The patch is against DaveM's 'net-next.git' repo.
+> +sync_lower:
+>   	/* some features must be disabled on lower devices when disabled
+>   	 * on an upper device (think: bonding master or bridge)
+>   	 */
+>   	netdev_for_each_lower_dev(dev, lower, iter)
+>   		netdev_sync_lower_features(dev, lower, features);
+>
+> -	if (!err)
+> -		dev->features = features;
 
- drivers/net/ethernet/renesas/sh_eth.c |   24 ++++++++----------------
- 1 file changed, 8 insertions(+), 16 deletions(-)
+You could just alter the if statement here to check for a non-zero ret 
+value since you should have it as either 0 or 1.  It shouldn't have any 
+other values.
 
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1199,7 +1199,7 @@ static void sh_eth_ring_format(struct ne
- static int sh_eth_ring_init(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
--	int rx_ringsize, tx_ringsize, ret = 0;
-+	int rx_ringsize, tx_ringsize;
- 
- 	/* +26 gets the maximum ethernet encapsulation, +7 & ~7 because the
- 	 * card needs room to do 8 byte alignment, +2 so we can reserve
-@@ -1214,26 +1214,20 @@ static int sh_eth_ring_init(struct net_d
- 	/* Allocate RX and TX skb rings */
- 	mdp->rx_skbuff = kcalloc(mdp->num_rx_ring, sizeof(*mdp->rx_skbuff),
- 				 GFP_KERNEL);
--	if (!mdp->rx_skbuff) {
--		ret = -ENOMEM;
--		return ret;
--	}
-+	if (!mdp->rx_skbuff)
-+		return -ENOMEM;
- 
- 	mdp->tx_skbuff = kcalloc(mdp->num_tx_ring, sizeof(*mdp->tx_skbuff),
- 				 GFP_KERNEL);
--	if (!mdp->tx_skbuff) {
--		ret = -ENOMEM;
-+	if (!mdp->tx_skbuff)
- 		goto skb_ring_free;
--	}
- 
- 	/* Allocate all Rx descriptors. */
- 	rx_ringsize = sizeof(struct sh_eth_rxdesc) * mdp->num_rx_ring;
- 	mdp->rx_ring = dma_alloc_coherent(NULL, rx_ringsize, &mdp->rx_desc_dma,
- 					  GFP_KERNEL);
--	if (!mdp->rx_ring) {
--		ret = -ENOMEM;
-+	if (!mdp->rx_ring)
- 		goto skb_ring_free;
--	}
- 
- 	mdp->dirty_rx = 0;
- 
-@@ -1241,11 +1235,9 @@ static int sh_eth_ring_init(struct net_d
- 	tx_ringsize = sizeof(struct sh_eth_txdesc) * mdp->num_tx_ring;
- 	mdp->tx_ring = dma_alloc_coherent(NULL, tx_ringsize, &mdp->tx_desc_dma,
- 					  GFP_KERNEL);
--	if (!mdp->tx_ring) {
--		ret = -ENOMEM;
-+	if (!mdp->tx_ring)
- 		goto desc_ring_free;
--	}
--	return ret;
-+	return 0;
- 
- desc_ring_free:
- 	/* free DMA buffer */
-@@ -1257,7 +1249,7 @@ skb_ring_free:
- 	mdp->tx_ring = NULL;
- 	mdp->rx_ring = NULL;
- 
--	return ret;
-+	return -ENOMEM;
- }
- 
- static void sh_eth_free_dma_buffer(struct sh_eth_private *mdp)
+That way you will have disabled the feature on the lower devices before 
+advertising that it has been disabled on the upper device.
+
+> -	return 1;
+> +	return ret;
+>   }
+>
+>   /**
+>
