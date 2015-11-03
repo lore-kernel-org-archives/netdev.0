@@ -1,60 +1,72 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Mon, 2 Nov 2015 15:21:48 -0800
-Message-ID: <CA+55aFybA=MxezoSCN8ZtbyKdUzto3u+gOJw04w5tWQbYD-1KA@mail.gmail.com>
-References: <20151027.233235.1641084823622810663.davem@davemloft.net>
-	<CA+55aFx0o8e9J6ojHYjvOA5aRnKoW5j10fh76Ks1=VegPc4k6w@mail.gmail.com>
-	<5637C8DF.800@kernel.org>
-	<CA+55aFwxDSYSB=bBfCxLadgCmFiOzAi0T0JHLFLK5nkR6cm8tg@mail.gmail.com>
-	<CA+55aFy6nC9tQFE_kRrF-YS9N7Jp18CnSxsLNcnAykNLyXQUtg@mail.gmail.com>
-	<CALCETrUxU_AVcQheeCXc0qTh=o2tmDbDct27QfTCb_+G6qc3gQ@mail.gmail.com>
-	<1446502448.296003.427190649.434774F6@webmail.messagingengine.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Resource leak in unshare
+Date: Mon, 02 Nov 2015 16:03:07 -0800
+Message-ID: <1446508987.23275.35.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACT4Y+Y5mcBrnLOsXchJVrO_8FD-u=EFU67WsH3bU51aAU-idA@mail.gmail.com>
+	 <87oafcrzsa.fsf@x220.int.ebiederm.org>
+	 <1446494052.23275.25.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andy Lutomirski <luto@amacapital.net>,
-	Andy Lutomirski <luto@kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	David Miller <davem@davemloft.net>, nicolas.dichtel@6wind.com,
+	Al Viro <viro@zeniv.linux.org.uk>, Thomas Graf <tgraf@suug.ch>,
+	xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Kees Cook <keescook@google.com>,
+	Julien Tinnes <jln@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446502448.296003.427190649.434774F6@webmail.messagingengine.com>
+In-Reply-To: <1446494052.23275.25.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 2, 2015 at 2:14 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
->
-> overflow_usub was part of a larger header I already prepared to offer
-> support for *all* overflow_* checking builtins. While fixing this IPv6
-> bug I thought I could hopefully introduce this interface slowly and
-> simply cut away the other versions.
+On Mon, 2015-11-02 at 11:54 -0800, Eric Dumazet wrote:
+> On Mon, 2015-11-02 at 13:01 -0600, Eric W. Biederman wrote:
+> > Dmitry Vyukov <dvyukov@google.com> writes:
+> > 
+> > > Hello,
+> > >
+> > > I am hitting the following warnings on
+> > > bcee19f424a0d8c26ecf2607b73c690802658b29 (4.3):
+> > 
+> > Do you have any trace of the earlier failures?
+> > 
+> > This appears to be something caused by an earlier failure (possibly
+> > whatever fails to allocate memory).  Having network devices present
+> > but being in the generic cleanup routines is wrong.
+> > 
+> > If there is no additional information can you please rerun with the
+> > following change applied?  That should at least report which function is
+> > failing, and give us a good clue where to start debugging this.
+> 
+> At first, I would say sit is leaking percpu memory
+> 
+> Load sit module, then :
+> 
+> while :
+> do
+> ip netns add foo
+> ip netns del foo
+> done
+> 
+> Will eat all memory eventually.
+> 
+> ipip6_tunnel_init() and ipip6_fb_tunnel_init() are _both_ called for the
+> sit0 device, this looks very wrong.
+> 
+> 
 
-Hell no.
+This memleak might have been added in commit
+ebe084aafb7e93adf210e80043c9f69adf56820d
+("sit: Use ipip6_tunnel_init as the ndo_init function.")
 
-Both you and Andy seem to argue that "since there are other totally
-unrelated functions that look superficially similar and actually some
-sense, we should add these stupid crap functions too".
-
-In exactly *WHAT* crazy universe does that make sense as an argument?
-
-It's like saying "I put literal shit on your plate, because there are
-potentially nutritious sausages that look superficially a bit like the
-dogshit I served you".
-
-Seriously.
-
-The fact that _valid_ overflow checking functions exist in _no_ way
-support the crap that I got.
-
-It's *exactly* the same argument as "dog poop superficially looks like
-good sausages".
-
-Is that really your argument?
-
-There is never an excuse for "usub_overflow()". It's that simple.
-
-No amount of _other_ overflow functions make that shit palatable.
-
-                   Linus
+I'll send a patch asap, if nothing more urgent preempts me today...
