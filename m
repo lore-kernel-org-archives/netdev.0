@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] arcnet/com20020: add LEDS_CLASS dependency
-Date: Tue, 03 Nov 2015 11:34:32 -0500 (EST)
-Message-ID: <20151103.113432.1400073533179795014.davem@davemloft.net>
-References: <10338405.rWTFsWuIBE@wuerfel>
+Subject: Re: [PATCH net-next] net/core: fix for_each_netdev_feature
+Date: Tue, 03 Nov 2015 11:34:56 -0500 (EST)
+Message-ID: <20151103.113456.1360164920793289224.davem@davemloft.net>
+References: <1446519359-21400-1-git-send-email-jarod@redhat.com>
+	<1446563759-17713-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: m.grzeschik@pengutronix.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: arnd@arndb.de
+Cc: linux-kernel@vger.kernel.org, edumazet@google.com,
+	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	jiri@resnulli.us, razor@blackwall.org, mkubecek@suse.cz,
+	alexander.duyck@gmail.com, geert@linux-m68k.org,
+	netdev@vger.kernel.org
+To: jarod@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <10338405.rWTFsWuIBE@wuerfel>
+In-Reply-To: <1446563759-17713-1-git-send-email-jarod@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 03 Nov 2015 14:51:29 +0100
+From: Jarod Wilson <jarod@redhat.com>
+Date: Tue,  3 Nov 2015 10:15:59 -0500
 
-> The newly added led trigger support in the com20020-pci driver causes
-> build errors when CONFIG_LEDS_CLASS is disabled:
-> 
-> drivers/built-in.o: In function `com20020pci_probe':
-> (.text+0x185dc4): undefined reference to `devm_led_classdev_register'
-> (.text+0x185dd8): undefined reference to `devm_led_classdev_register'
-> 
-> This adds a Kconfig dependency to prevent the invalid configurations.
-> Other drivers appear to be split 50:50 between 'select' and 'depends on'
-> for this symbol, I picked 'depends on' as I could not find a common
-> policy and it generally causes fewer problems.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 8890624a4e8c ("arcnet: com20020-pci: add led trigger support")
+> As pointed out by Nikolay and further explained by Geert, the initial
+> for_each_netdev_feature macro was broken, as feature would get set outside
+> of the block of code it was intended to run in, thus only ever working for
+> the first feature bit in the mask. While less pretty this way, this is
+> tested and confirmed functional with multiple feature bits set in
+> NETIF_F_UPPER_DISABLES.
+ ...
+> Fixes: fd867d51f ("net/core: generic support for disabling netdev features down stack")
+ ...
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
 
 Applied.
