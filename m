@@ -1,16 +1,16 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 7/7] net/mlx5e: Fix LSO vlan insertion
-Date: Tue,  3 Nov 2015 08:07:24 +0200
-Message-ID: <1446530844-14077-8-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 3/7] net/mlx5_core: Use the the real irqn in eq->irqn
+Date: Tue,  3 Nov 2015 08:07:20 +0200
+Message-ID: <1446530844-14077-4-git-send-email-ogerlitz@mellanox.com>
 References: <1446530844-14077-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
 	Achiad Shochat <achiad@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:38578 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:38574 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754282AbbKCGIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752980AbbKCGIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 3 Nov 2015 01:08:09 -0500
 In-Reply-To: <1446530844-14077-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,44 +18,47 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Achiad Shochat <achiad@mellanox.com>
 
-Consider vlan insertion impact on headers copy size also for LSO
-packets.
+Instead of storing the msix array index in eq->irqn (vecidx),
+store the real irq number.
 
 Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index 5105288..cd8f85a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -116,7 +116,7 @@ static inline u16 mlx5e_get_inline_hdr_size(struct mlx5e_sq *sq,
- 	 * headers and occur before the data gather.
- 	 * Therefore these headers must be copied into the WQE
- 	 */
--#define MLX5E_MIN_INLINE (ETH_HLEN + 2/*vlan tag*/)
-+#define MLX5E_MIN_INLINE ETH_HLEN
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+index 1f01fe8..713ead5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+@@ -382,10 +382,10 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
+ 		 name, pci_name(dev->pdev));
  
- 	if (bf && (skb_headlen(skb) <= sq->max_inline))
- 		return skb_headlen(skb);
-@@ -128,7 +128,7 @@ static inline void mlx5e_insert_vlan(void *start, struct sk_buff *skb, u16 ihs)
- {
- 	struct vlan_ethhdr *vhdr = (struct vlan_ethhdr *)start;
- 	int cpy1_sz = 2 * ETH_ALEN;
--	int cpy2_sz = ihs - cpy1_sz - VLAN_HLEN;
-+	int cpy2_sz = ihs - cpy1_sz;
+ 	eq->eqn = out.eq_number;
+-	eq->irqn = vecidx;
++	eq->irqn = priv->msix_arr[vecidx].vector;
+ 	eq->dev = dev;
+ 	eq->doorbell = uar->map + MLX5_EQ_DOORBEL_OFFSET;
+-	err = request_irq(priv->msix_arr[vecidx].vector, mlx5_msix_handler, 0,
++	err = request_irq(eq->irqn, mlx5_msix_handler, 0,
+ 			  priv->irq_info[vecidx].name, eq);
+ 	if (err)
+ 		goto err_eq;
+@@ -421,12 +421,12 @@ int mlx5_destroy_unmap_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
+ 	int err;
  
- 	skb_copy_from_linear_data(skb, vhdr, cpy1_sz);
- 	skb_pull_inline(skb, cpy1_sz);
-@@ -192,6 +192,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 	mlx5_debug_eq_remove(dev, eq);
+-	free_irq(dev->priv.msix_arr[eq->irqn].vector, eq);
++	free_irq(eq->irqn, eq);
+ 	err = mlx5_cmd_destroy_eq(dev, eq->eqn);
+ 	if (err)
+ 		mlx5_core_warn(dev, "failed to destroy a previously created eq: eqn %d\n",
+ 			       eq->eqn);
+-	synchronize_irq(dev->priv.msix_arr[eq->irqn].vector);
++	synchronize_irq(eq->irqn);
+ 	mlx5_buf_free(dev, &eq->buf);
  
- 	if (skb_vlan_tag_present(skb)) {
- 		mlx5e_insert_vlan(eseg->inline_hdr_start, skb, ihs);
-+		ihs += VLAN_HLEN;
- 	} else {
- 		skb_copy_from_linear_data(skb, eseg->inline_hdr_start, ihs);
- 		skb_pull_inline(skb, ihs);
+ 	return err;
 -- 
 2.3.7
