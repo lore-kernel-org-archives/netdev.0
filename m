@@ -1,38 +1,32 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH net-next v3] mpls: support for dead routes
-Date: Tue, 3 Nov 2015 23:25:39 +0800
-Message-ID: <201511032333.Lf2mqx0D%fengguang.wu@intel.com>
-References: <1446562191-22416-1-git-send-email-roopa@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] mpls: support for dead routes
+Date: Tue, 03 Nov 2015 10:28:02 -0500 (EST)
+Message-ID: <20151103.102802.1746914891520356480.davem@davemloft.net>
+References: <1446527581-64787-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, ebiederm@xmission.com, rshearma@brocade.com,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, rshearma@brocade.com, netdev@vger.kernel.org
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:25654 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964934AbbKCP1P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Nov 2015 10:27:15 -0500
-Content-Disposition: inline
-In-Reply-To: <1446562191-22416-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44447 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754402AbbKCP2G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 10:28:06 -0500
+In-Reply-To: <1446527581-64787-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Roopa,
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Date: Mon,  2 Nov 2015 21:13:01 -0800
 
-[auto build test WARNING on net-next/master]
-[also WARNING on: next-20151103]
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> Adds support for RTNH_F_DEAD and RTNH_F_LINKDOWN flags on mpls
+> routes due to link events. Also adds code to ignore dead
+> routes during route selection
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-url:    https://github.com/0day-ci/linux/commits/Roopa-Prabhu/mpls-support-for-dead-routes/20151103-225234
-base:   https://github.com/0day-ci/linux Roopa-Prabhu/mpls-support-for-dead-routes/20151103-225234
-
-
-coccinelle warnings: (new ones prefixed by >>)
-
->> net/mpls/af_mpls.c:722:22-23: Unneeded semicolon
-
-Please review and possibly fold the followup patch.
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+Robert found more issues, I think this is going to have to wait until the
+next merge window Roopa...
