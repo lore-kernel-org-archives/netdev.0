@@ -1,41 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH -stable 3.18, backport] ipmr: fix possible race
- resulting from improper usage of IP_INC_STATS_BH() in preemptible context.
-Date: Mon, 02 Nov 2015 16:50:11 -0800
-Message-ID: <1446511811.23275.37.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.OSX.2.00.1511021633400.6869@animac.local>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [GIT] Networking
+Date: Tue, 03 Nov 2015 11:56:16 +1100
+Message-ID: <1446512176.17404.30.camel@kernel.crashing.org>
+References: <20151027.233235.1641084823622810663.davem@davemloft.net>
+	 <CA+55aFx0o8e9J6ojHYjvOA5aRnKoW5j10fh76Ks1=VegPc4k6w@mail.gmail.com>
+	 <5637C8DF.800@kernel.org>
+	 <CA+55aFwxDSYSB=bBfCxLadgCmFiOzAi0T0JHLFLK5nkR6cm8tg@mail.gmail.com>
+	 <CA+55aFy6nC9tQFE_kRrF-YS9N7Jp18CnSxsLNcnAykNLyXQUtg@mail.gmail.com>
+	 <CALCETrUxU_AVcQheeCXc0qTh=o2tmDbDct27QfTCb_+G6qc3gQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Sasha Levin <sasha.levin@oracle.com>, stable@vger.kernel.org,
-	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: Ani Sinha <ani@arista.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <alpine.OSX.2.00.1511021633400.6869@animac.local>
-Sender: stable-owner@vger.kernel.org
+Cc: Andy Lutomirski <luto@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALCETrUxU_AVcQheeCXc0qTh=o2tmDbDct27QfTCb_+G6qc3gQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-11-02 at 16:40 -0800, Ani Sinha wrote:
-> [ Upstream commit 44f49dd8b5a606870a1f2 ] 
+On Mon, 2015-11-02 at 13:30 -0800, Andy Lutomirski wrote:
+> 
+> I'll stop making inane arguments if you stop bashing arguments I
+> didn't make. :)  I said the helpers were useful for multiplication (by
+> which I meant both signed and unsigned) and, to a lesser extent, for
+> signed addition and subtraction.
+> 
+> I don't believe I even tried to justify usub_overflow as anything
+> other than an extremely minor optimization that probably isn't
+> worthwhile.
 
-Please carefully read Documentation/networking/netdev-FAQ.txt
+Also how much of the problem is simply that the function signature
+(naming and choice of arguments) just plain sucks ?
 
-A: Normally Greg Kroah-Hartman collects stable commits himself, but
-   for networking, Dave collects up patches he deems critical for the
-   networking subsystem, and then hands them off to Greg.
-
-   There is a patchworks queue that you can see here:
-        http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
-
-   It contains the patches which Dave has selected, but not yet handed
-   off to Greg.  If Greg already has the patch, then it will be here:
-        http://git.kernel.org/cgit/linux/kernel/git/stable/stable-queue.git
-
-   A quick way to find whether the patch is in this stable-queue is
-   to simply clone the repo, and then git grep the mainline commit ID, e.g.
-
-        stable-queue$ git grep -l 284041ef21fdf2e
-        releases/3.0.84/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
-        releases/3.4.51/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
-        releases/3.9.8/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
-        stable/stable-queue$
+Cheers,
+Ben.
