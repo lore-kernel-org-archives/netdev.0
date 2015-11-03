@@ -1,146 +1,59 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH][v3] net: phy: fix a bug in get_phy_c45_ids
-Date: Tue, 3 Nov 2015 12:27:33 +0800
-Message-ID: <1446524853-3050-1-git-send-email-shh.xie@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net: avoid NULL deref in inet_ctl_sock_destroy()
+Date: Mon, 02 Nov 2015 21:04:01 -0800
+Message-ID: <1446527041.23275.50.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1446479407.23275.12.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151102.224647.1672869809835691426.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <f.fainelli@gmail.com>, Shaohui Xie <Shaohui.Xie@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dvyukov@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0083.outbound.protection.outlook.com ([207.46.100.83]:36192
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751612AbbKCEuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Nov 2015 23:50:09 -0500
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34608 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751232AbbKCFEE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 00:04:04 -0500
+Received: by padhk6 with SMTP id hk6so1646425pad.1
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2015 21:04:03 -0800 (PST)
+In-Reply-To: <20151102.224647.1672869809835691426.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
+On Mon, 2015-11-02 at 22:46 -0500, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 02 Nov 2015 07:50:07 -0800
+> 
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Under low memory conditions, tcp_sk_init() and icmp_sk_init()
+> > can both iterate on all possible cpus and call inet_ctl_sock_destroy(),
+> > with eventual NULL pointer.
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> 
+> Applied.
 
-When probing devices-in-package for a c45 phy, device zero is the last
-device to probe, however, if driver reads 0 from device zero,
-c45_ids->devices_in_package is set to '0', the loop condition of probing
-will be matched again, see codes below:
+Thanks David.
 
-for (i = 1;i < num_ids && c45_ids->devices_in_package == 0;i++)
+Bug origin was in linux-4.2 :
 
-driver will run in a dead loop.
+commit 26abe14379f8e2fa3fd1bcf97c9a7ad9364886fe
+Author: Eric W. Biederman <ebiederm@xmission.com>
+Date:   Fri May 8 21:10:31 2015 -0500
 
-This patch restructures the bug and confusing loop, it provides a helper
-function get_phy_c45_devs_in_pkg which to read devices-in-package registers
-of a MMD, and rewrites the loop with using the helper function.
-
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
----
-changes in v3:
-removed a leading space on the first line of comment of get_phy_c45_devs_in_pkg.
-
-changes in v2:
-1. uses a helper function to read devices in package registers of a MMD.
-
-2. rewrites the probing loop with using the helper function.
-
- drivers/net/phy/phy_device.c | 74 +++++++++++++++++++++++++++++---------------
- 1 file changed, 49 insertions(+), 25 deletions(-)
-
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 3833891..8c84b9e 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -205,6 +205,37 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
- }
- EXPORT_SYMBOL(phy_device_create);
- 
-+/* get_phy_c45_devs_in_pkg - reads a MMD's devices in package registers.
-+ * @bus: the target MII bus
-+ * @addr: PHY address on the MII bus
-+ * @dev_addr: MMD address in the PHY.
-+ * @devices_in_package: where to store the devices in package information.
-+ *
-+ * Description: reads devices in package registers of a MMD at @dev_addr
-+ * from PHY at @addr on @bus.
-+ *
-+ * Returns: 0 on success, -EIO on failure.
-+ */
-+static int get_phy_c45_devs_in_pkg(struct mii_bus *bus, int addr, int dev_addr,
-+				   u32 *devices_in_package)
-+{
-+	int phy_reg, reg_addr;
-+
-+	reg_addr = MII_ADDR_C45 | dev_addr << 16 | MDIO_DEVS2;
-+	phy_reg = mdiobus_read(bus, addr, reg_addr);
-+	if (phy_reg < 0)
-+		return -EIO;
-+	*devices_in_package = (phy_reg & 0xffff) << 16;
-+
-+	reg_addr = MII_ADDR_C45 | dev_addr << 16 | MDIO_DEVS1;
-+	phy_reg = mdiobus_read(bus, addr, reg_addr);
-+	if (phy_reg < 0)
-+		return -EIO;
-+	*devices_in_package |= (phy_reg & 0xffff);
-+
-+	return 0;
-+}
-+
- /**
-  * get_phy_c45_ids - reads the specified addr for its 802.3-c45 IDs.
-  * @bus: the target MII bus
-@@ -223,38 +254,31 @@ static int get_phy_c45_ids(struct mii_bus *bus, int addr, u32 *phy_id,
- 	int phy_reg;
- 	int i, reg_addr;
- 	const int num_ids = ARRAY_SIZE(c45_ids->device_ids);
-+	u32 *devs = &c45_ids->devices_in_package;
- 
--	/* Find first non-zero Devices In package.  Device
--	 * zero is reserved, so don't probe it.
-+	/* Find first non-zero Devices In package. Device zero is reserved
-+	 * for 802.3 c45 complied PHYs, so don't probe it at first.
- 	 */
--	for (i = 1;
--	     i < num_ids && c45_ids->devices_in_package == 0;
--	     i++) {
--retry:		reg_addr = MII_ADDR_C45 | i << 16 | MDIO_DEVS2;
--		phy_reg = mdiobus_read(bus, addr, reg_addr);
-+	for (i = 1; i < num_ids && *devs == 0; i++) {
-+		phy_reg = get_phy_c45_devs_in_pkg(bus, addr, i, devs);
- 		if (phy_reg < 0)
- 			return -EIO;
--		c45_ids->devices_in_package = (phy_reg & 0xffff) << 16;
- 
--		reg_addr = MII_ADDR_C45 | i << 16 | MDIO_DEVS1;
--		phy_reg = mdiobus_read(bus, addr, reg_addr);
--		if (phy_reg < 0)
--			return -EIO;
--		c45_ids->devices_in_package |= (phy_reg & 0xffff);
--
--		if ((c45_ids->devices_in_package & 0x1fffffff) == 0x1fffffff) {
--			if (i) {
--				/*  If mostly Fs, there is no device there,
--				 *  then let's continue to probe more, as some
--				 *  10G PHYs have zero Devices In package,
--				 *  e.g. Cortina CS4315/CS4340 PHY.
--				 */
--				i = 0;
--				goto retry;
--			} else {
--				/* no device there, let's get out of here */
-+		if ((*devs & 0x1fffffff) == 0x1fffffff) {
-+			/*  If mostly Fs, there is no device there,
-+			 *  then let's continue to probe more, as some
-+			 *  10G PHYs have zero Devices In package,
-+			 *  e.g. Cortina CS4315/CS4340 PHY.
-+			 */
-+			phy_reg = get_phy_c45_devs_in_pkg(bus, addr, 0, devs);
-+			if (phy_reg < 0)
-+				return -EIO;
-+			/* no device there, let's get out of here */
-+			if ((*devs & 0x1fffffff) == 0x1fffffff) {
- 				*phy_id = 0xffffffff;
- 				return 0;
-+			} else {
-+				break;
- 			}
- 		}
- 	}
--- 
-2.1.0.27.g96db324
+    net: Modify sk_alloc to not reference count the netns of kernel sockets.
+    
+    Now that sk_alloc knows when a kernel socket is being allocated modify
+    it to not reference count the network namespace of kernel sockets.
+    
+    Keep track of if a socket needs reference counting by adding a flag to
+    struct sock called sk_net_refcnt.
+    
+    Update all of the callers of sock_create_kern to stop using
+    sk_change_net and sk_release_kernel as those hacks are no longer
+    needed, to avoid reference counting a kernel socket.
+    
+    Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
