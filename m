@@ -1,151 +1,215 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] sh_eth: merge sh_eth_free_dma_buffer() into sh_eth_ring_free()
-Date: Wed, 04 Nov 2015 00:55:13 +0300
-Message-ID: <6672379.kyQ5eFYq8y@wasted.cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] ipv4: fix a potential deadlock in mcast getsockopt() path
+Date: Tue,  3 Nov 2015 13:55:10 -0800
+Message-ID: <1446587710-23642-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: sasha.levin@oracle.com, Cong Wang <xiyou.wangcong@gmail.com>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:34252 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755209AbbKCVzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 16:55:18 -0500
+Received: by padhx2 with SMTP id hx2so22060511pad.1
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 13:55:17 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-While the ring allocation is done by a single function, sh_eth_ring_init(),
-the ring deallocation was split into two functions (almost always called
-one after the other) for no good reason. Merge  sh_eth_free_dma_buffer()
-into sh_eth_ring_free() which allows us  to save space not only on the
-direct calls  of the former function but also on the sh_eth_ring_init()'s
-simplified error path...
+Sasha reported the following lockdep warning:
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+  Possible unsafe locking scenario:
 
+        CPU0                    CPU1
+        ----                    ----
+   lock(sk_lock-AF_INET);
+                                lock(rtnl_mutex);
+                                lock(sk_lock-AF_INET);
+   lock(rtnl_mutex);
+
+This is due to that for IP_MSFILTER and MCAST_MSFILTER, we take
+rtnl lock before the socket lock in setsockopt() path, but take
+the socket lock before rtnl lock in getsockopt() path. All the
+rest optnames are setsockopt()-only.
+
+Fix this by aligning the getsockopt() path with the setsockopt()
+path, so that all mcast socket path would be locked in the same
+order.
+
+Note, IPv6 part is different where rtnl lock is not held.
+
+Fixes: 54ff9ef36bdf ("ipv4, ipv6: kill ip_mc_{join, leave}_group and ipv6_sock_mc_{join, drop}")
+Reported-by: Sasha Levin <sasha.levin@oracle.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
-The patch is against DaveM's 'net-next.git' repo plus the patch just posted.
+ net/ipv4/igmp.c        | 12 ++++--------
+ net/ipv4/ip_sockglue.c | 43 ++++++++++++++++++++++++++++++-------------
+ 2 files changed, 34 insertions(+), 21 deletions(-)
 
- drivers/net/ethernet/renesas/sh_eth.c |   60 ++++++++++++----------------------
- 1 file changed, 22 insertions(+), 38 deletions(-)
-
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1098,7 +1098,7 @@ static struct mdiobb_ops bb_ops = {
- static void sh_eth_ring_free(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
--	int i;
-+	int ringsize, i;
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index d38b8b6..a2429b7 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -2392,11 +2392,11 @@ int ip_mc_msfget(struct sock *sk, struct ip_msfilter *msf,
+ 	struct ip_sf_socklist *psl;
+ 	struct net *net = sock_net(sk);
  
- 	/* Free Rx skb ringbuffer */
- 	if (mdp->rx_skbuff) {
-@@ -1115,6 +1115,20 @@ static void sh_eth_ring_free(struct net_
- 	}
- 	kfree(mdp->tx_skbuff);
- 	mdp->tx_skbuff = NULL;
++	ASSERT_RTNL();
 +
-+	if (mdp->rx_ring) {
-+		ringsize = sizeof(struct sh_eth_rxdesc) * mdp->num_rx_ring;
-+		dma_free_coherent(NULL, ringsize, mdp->rx_ring,
-+				  mdp->rx_desc_dma);
-+		mdp->rx_ring = NULL;
-+	}
-+
-+	if (mdp->tx_ring) {
-+		ringsize = sizeof(struct sh_eth_txdesc) * mdp->num_tx_ring;
-+		dma_free_coherent(NULL, ringsize, mdp->tx_ring,
-+				  mdp->tx_desc_dma);
-+		mdp->tx_ring = NULL;
-+	}
- }
+ 	if (!ipv4_is_multicast(addr))
+ 		return -EINVAL;
  
- /* format skb and descriptor buffer */
-@@ -1220,14 +1234,14 @@ static int sh_eth_ring_init(struct net_d
- 	mdp->tx_skbuff = kcalloc(mdp->num_tx_ring, sizeof(*mdp->tx_skbuff),
- 				 GFP_KERNEL);
- 	if (!mdp->tx_skbuff)
--		goto skb_ring_free;
-+		goto ring_free;
- 
- 	/* Allocate all Rx descriptors. */
- 	rx_ringsize = sizeof(struct sh_eth_rxdesc) * mdp->num_rx_ring;
- 	mdp->rx_ring = dma_alloc_coherent(NULL, rx_ringsize, &mdp->rx_desc_dma,
- 					  GFP_KERNEL);
- 	if (!mdp->rx_ring)
--		goto skb_ring_free;
-+		goto ring_free;
- 
- 	mdp->dirty_rx = 0;
- 
-@@ -1236,41 +1250,16 @@ static int sh_eth_ring_init(struct net_d
- 	mdp->tx_ring = dma_alloc_coherent(NULL, tx_ringsize, &mdp->tx_desc_dma,
- 					  GFP_KERNEL);
- 	if (!mdp->tx_ring)
--		goto desc_ring_free;
-+		goto ring_free;
+-	rtnl_lock();
+-
+ 	imr.imr_multiaddr.s_addr = msf->imsf_multiaddr;
+ 	imr.imr_address.s_addr = msf->imsf_interface;
+ 	imr.imr_ifindex = 0;
+@@ -2417,7 +2417,6 @@ int ip_mc_msfget(struct sock *sk, struct ip_msfilter *msf,
+ 		goto done;
+ 	msf->imsf_fmode = pmc->sfmode;
+ 	psl = rtnl_dereference(pmc->sflist);
+-	rtnl_unlock();
+ 	if (!psl) {
+ 		len = 0;
+ 		count = 0;
+@@ -2436,7 +2435,6 @@ int ip_mc_msfget(struct sock *sk, struct ip_msfilter *msf,
+ 		return -EFAULT;
  	return 0;
- 
--desc_ring_free:
--	/* free DMA buffer */
--	dma_free_coherent(NULL, rx_ringsize, mdp->rx_ring, mdp->rx_desc_dma);
--
--skb_ring_free:
--	/* Free Rx and Tx skb ring buffer */
-+ring_free:
-+	/* Free Rx and Tx skb ring buffer and DMA buffer */
- 	sh_eth_ring_free(ndev);
--	mdp->tx_ring = NULL;
--	mdp->rx_ring = NULL;
- 
- 	return -ENOMEM;
+ done:
+-	rtnl_unlock();
+ 	return err;
  }
  
--static void sh_eth_free_dma_buffer(struct sh_eth_private *mdp)
--{
--	int ringsize;
--
--	if (mdp->rx_ring) {
--		ringsize = sizeof(struct sh_eth_rxdesc) * mdp->num_rx_ring;
--		dma_free_coherent(NULL, ringsize, mdp->rx_ring,
--				  mdp->rx_desc_dma);
--		mdp->rx_ring = NULL;
--	}
--
--	if (mdp->tx_ring) {
--		ringsize = sizeof(struct sh_eth_txdesc) * mdp->num_tx_ring;
--		dma_free_coherent(NULL, ringsize, mdp->tx_ring,
--				  mdp->tx_desc_dma);
--		mdp->tx_ring = NULL;
--	}
--}
--
- static int sh_eth_dev_init(struct net_device *ndev, bool start)
- {
- 	int ret = 0;
-@@ -2231,10 +2220,8 @@ static int sh_eth_set_ringparam(struct n
+@@ -2450,6 +2448,8 @@ int ip_mc_gsfget(struct sock *sk, struct group_filter *gsf,
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct ip_sf_socklist *psl;
  
- 		sh_eth_dev_exit(ndev);
++	ASSERT_RTNL();
++
+ 	psin = (struct sockaddr_in *)&gsf->gf_group;
+ 	if (psin->sin_family != AF_INET)
+ 		return -EINVAL;
+@@ -2457,8 +2457,6 @@ int ip_mc_gsfget(struct sock *sk, struct group_filter *gsf,
+ 	if (!ipv4_is_multicast(addr))
+ 		return -EINVAL;
  
--		/* Free all the skbuffs in the Rx queue. */
-+		/* Free all the skbuffs in the Rx queue and the DMA buffers. */
- 		sh_eth_ring_free(ndev);
--		/* Free DMA buffer */
--		sh_eth_free_dma_buffer(mdp);
+-	rtnl_lock();
+-
+ 	err = -EADDRNOTAVAIL;
+ 
+ 	for_each_pmc_rtnl(inet, pmc) {
+@@ -2470,7 +2468,6 @@ int ip_mc_gsfget(struct sock *sk, struct group_filter *gsf,
+ 		goto done;
+ 	gsf->gf_fmode = pmc->sfmode;
+ 	psl = rtnl_dereference(pmc->sflist);
+-	rtnl_unlock();
+ 	count = psl ? psl->sl_count : 0;
+ 	copycount = count < gsf->gf_numsrc ? count : gsf->gf_numsrc;
+ 	gsf->gf_numsrc = count;
+@@ -2490,7 +2487,6 @@ int ip_mc_gsfget(struct sock *sk, struct group_filter *gsf,
  	}
+ 	return 0;
+ done:
+-	rtnl_unlock();
+ 	return err;
+ }
  
- 	/* Set new parameters */
-@@ -2479,12 +2466,9 @@ static int sh_eth_close(struct net_devic
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index c3c359a..2b12ed2 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -1251,11 +1251,22 @@ EXPORT_SYMBOL(compat_ip_setsockopt);
+  *	the _received_ ones. The set sets the _sent_ ones.
+  */
  
- 	free_irq(ndev->irq, ndev);
++static bool getsockopt_needs_rtnl(int optname)
++{
++	switch (optname) {
++	case IP_MSFILTER:
++	case MCAST_MSFILTER:
++		return true;
++	}
++	return false;
++}
++
+ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 			    char __user *optval, int __user *optlen, unsigned int flags)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+-	int val;
++	bool needs_rtnl = getsockopt_needs_rtnl(optname);
++	int val, err;
+ 	int len;
  
--	/* Free all the skbuffs in the Rx queue. */
-+	/* Free all the skbuffs in the Rx queue and the DMA buffer. */
- 	sh_eth_ring_free(ndev);
+ 	if (level != SOL_IP)
+@@ -1269,6 +1280,8 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 	if (len < 0)
+ 		return -EINVAL;
  
--	/* free DMA buffer */
--	sh_eth_free_dma_buffer(mdp);
--
- 	pm_runtime_put_sync(&mdp->pdev->dev);
++	if (needs_rtnl)
++		rtnl_lock();
+ 	lock_sock(sk);
  
- 	mdp->is_opened = 0;
-
+ 	switch (optname) {
+@@ -1389,17 +1402,16 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 		int err;
+ 
+ 		if (len < IP_MSFILTER_SIZE(0)) {
+-			release_sock(sk);
+-			return -EINVAL;
++			err = -EINVAL;
++			goto out;
+ 		}
+ 		if (copy_from_user(&msf, optval, IP_MSFILTER_SIZE(0))) {
+-			release_sock(sk);
+-			return -EFAULT;
++			err = -EFAULT;
++			goto out;
+ 		}
+ 		err = ip_mc_msfget(sk, &msf,
+ 				   (struct ip_msfilter __user *)optval, optlen);
+-		release_sock(sk);
+-		return err;
++		goto out;
+ 	}
+ 	case MCAST_MSFILTER:
+ 	{
+@@ -1407,18 +1419,17 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 		int err;
+ 
+ 		if (len < GROUP_FILTER_SIZE(0)) {
+-			release_sock(sk);
+-			return -EINVAL;
++			err = -EINVAL;
++			goto out;
+ 		}
+ 		if (copy_from_user(&gsf, optval, GROUP_FILTER_SIZE(0))) {
+-			release_sock(sk);
+-			return -EFAULT;
++			err = -EFAULT;
++			goto out;
+ 		}
+ 		err = ip_mc_gsfget(sk, &gsf,
+ 				   (struct group_filter __user *)optval,
+ 				   optlen);
+-		release_sock(sk);
+-		return err;
++		goto out;
+ 	}
+ 	case IP_MULTICAST_ALL:
+ 		val = inet->mc_all;
+@@ -1485,6 +1496,12 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 			return -EFAULT;
+ 	}
+ 	return 0;
++
++out:
++	release_sock(sk);
++	if (needs_rtnl)
++		rtnl_unlock();
++	return err;
+ }
+ 
+ int ip_getsockopt(struct sock *sk, int level,
+-- 
+1.8.3.1
