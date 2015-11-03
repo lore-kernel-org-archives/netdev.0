@@ -1,30 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: fix tunnel error handling
-Date: Tue, 03 Nov 2015 10:52:47 -0500 (EST)
-Message-ID: <20151103.105247.855059013530025317.davem@davemloft.net>
-References: <20151103075107.9B08EA0CD2@unicorn.suse.cz>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] mpls: support for dead routes
+Date: Tue, 03 Nov 2015 08:00:10 -0800
+Message-ID: <5638DA0A.3040806@cumulusnetworks.com>
+References: <1446527581-64787-1-git-send-email-roopa@cumulusnetworks.com> <20151103.102802.1746914891520356480.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, miyazawa@linux-ipv6.org
-To: mkubecek@suse.cz
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151103075107.9B08EA0CD2@unicorn.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ebiederm@xmission.com, rshearma@brocade.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:33813 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755438AbbKCQAN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 11:00:13 -0500
+Received: by padhx2 with SMTP id hx2so14182364pad.1
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 08:00:13 -0800 (PST)
+In-Reply-To: <20151103.102802.1746914891520356480.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kubecek <mkubecek@suse.cz>
-Date: Tue,  3 Nov 2015 08:51:07 +0100 (CET)
-
-> Both tunnel6_protocol and tunnel46_protocol share the same error
-> handler, tunnel6_err(), which traverses through tunnel6_handlers list.
-> For ipip6 tunnels, we need to traverse tunnel46_handlers as we do e.g.
-> in tunnel46_rcv(). Current code can generate an ICMPv6 error message
-> with an IPv4 packet embedded in it.
-> 
-> Fixes: 73d605d1abbd ("[IPSEC]: changing API of xfrm6_tunnel_register")
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-
-Good catch, applied and queued up for -stable.
+On 11/3/15, 7:28 AM, David Miller wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Date: Mon,  2 Nov 2015 21:13:01 -0800
+>
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> Adds support for RTNH_F_DEAD and RTNH_F_LINKDOWN flags on mpls
+>> routes due to link events. Also adds code to ignore dead
+>> routes during route selection
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Robert found more issues, I think this is going to have to wait until the
+> next merge window Roopa...
+sure, that works. Thanks!.
