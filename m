@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] irda: Delete an unnecessary check before the function
- call "irlmp_unregister_service"
-Date: Tue, 03 Nov 2015 13:31:07 -0500 (EST)
-Message-ID: <20151103.133107.8373482880165720.davem@davemloft.net>
-References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
-	<5317A59D.4@users.sourceforge.net>
-	<5638EF52.7030300@users.sourceforge.net>
+Subject: Re: [PATCH] net: sched: kill dead code in sch_choke.c
+Date: Tue, 03 Nov 2015 13:32:44 -0500 (EST)
+Message-ID: <20151103.133244.1213287119275421272.davem@davemloft.net>
+References: <1446573701-7585-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	julia.lawall@lip6.fr
-To: elfring@users.sourceforge.net
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <5638EF52.7030300@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shemming@brocade.com, netdev@vger.kernel.org
+To: phil@nwl.cc
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46345 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754762AbbKCScr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 13:32:47 -0500
+In-Reply-To: <1446573701-7585-1-git-send-email-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 3 Nov 2015 18:30:58 +0100
+From: Phil Sutter <phil@nwl.cc>
+Date: Tue,  3 Nov 2015 19:01:41 +0100
 
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Tue, 3 Nov 2015 18:18:37 +0100
+> It looks like this has never been used at all.
 > 
-> The irlmp_unregister_service() function tests whether its argument is NULL
-> and then returns immediately. Thus the test around the call is not needed.
-> 
-> This issue was detected by using the Coccinelle software.
-> 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
-Applied.
+Indeed, from day one this was completely unreferenced.
+
+One downside from marking so much stuff const is that an
+unreferenced static variable won't be warned as unused if
+it's const.
+
+Applied, thanks.
