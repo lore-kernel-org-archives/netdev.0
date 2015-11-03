@@ -1,57 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net/core: generic support for disabling
- netdev features down stack
-Date: Mon, 02 Nov 2015 23:41:56 -0500 (EST)
-Message-ID: <20151102.234156.419769039353985647.davem@davemloft.net>
-References: <1446486818-26166-1-git-send-email-jarod@redhat.com>
-	<1446519359-21400-1-git-send-email-jarod@redhat.com>
+Subject: Re: [PATCH][v3] net: phy: fix a bug in get_phy_c45_ids
+Date: Mon, 02 Nov 2015 23:45:57 -0500 (EST)
+Message-ID: <20151102.234557.2138288424124774759.davem@davemloft.net>
+References: <1446524853-3050-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, edumazet@google.com,
-	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	jiri@resnulli.us, razor@blackwall.org, mkubecek@suse.cz,
-	alexander.duyck@gmail.com, netdev@vger.kernel.org
-To: jarod@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446519359-21400-1-git-send-email-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+	Shaohui.Xie@freescale.com
+To: shh.xie@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39588 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754687AbbKCEp6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2015 23:45:58 -0500
+In-Reply-To: <1446524853-3050-1-git-send-email-shh.xie@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jarod Wilson <jarod@redhat.com>
-Date: Mon,  2 Nov 2015 21:55:59 -0500
+From: <shh.xie@gmail.com>
+Date: Tue, 3 Nov 2015 12:27:33 +0800
 
-> There are some netdev features, which when disabled on an upper device,
-> such as a bonding master or a bridge, must be disabled and cannot be
-> re-enabled on underlying devices.
+> From: Shaohui Xie <Shaohui.Xie@freescale.com>
 > 
-> This is a rework of an earlier more heavy-handed appraoch, which simply
-> disables and prevents re-enabling of netdev features listed in a new
-> define in include/net/netdev_features.h, NETIF_F_UPPER_DISABLES. Any upper
-> device that disables a flag in that feature mask, the disabling will
-> propagate down the stack, and any lower device that has any upper device
-> with one of those flags disabled should not be able to enable said flag.
+> When probing devices-in-package for a c45 phy, device zero is the last
+> device to probe, however, if driver reads 0 from device zero,
+> c45_ids->devices_in_package is set to '0', the loop condition of probing
+> will be matched again, see codes below:
 > 
-> Initially, only LRO is included for proof of concept, and because this
-> code effectively does the same thing as dev_disable_lro(), though it will
-> also activate from the ethtool path, which was one of the goals here.
- ...
-> This has been successfully tested with bnx2x, qlcnic and netxen network
-> cards as slaves in a bond interface. Turning LRO on or off on the master
-> also turns it on or off on each of the slaves, new slaves are added with
-> LRO in the same state as the master, and LRO can't be toggled on the
-> slaves.
+> for (i = 1;i < num_ids && c45_ids->devices_in_package == 0;i++)
 > 
-> Also, this should largely remove the need for dev_disable_lro(), and most,
-> if not all, of its call sites can be replaced by simply making sure
-> NETIF_F_LRO isn't included in the relevant device's feature flags.
+> driver will run in a dead loop.
 > 
-> Note that this patch is driven by bug reports from users saying it was
-> confusing that bonds and slaves had different settings for the same
-> features, and while it won't be 100% in sync if a lower device doesn't
-> support a feature like LRO, I think this is a good step in the right
-> direction.
- ...
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> This patch restructures the bug and confusing loop, it provides a helper
+> function get_phy_c45_devs_in_pkg which to read devices-in-package registers
+> of a MMD, and rewrites the loop with using the helper function.
+> 
+> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
 
-Looks good to me, applied, thanks Jarod.
+Applied.
