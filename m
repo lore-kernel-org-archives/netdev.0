@@ -1,100 +1,113 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
-Date: Tue, 3 Nov 2015 16:15:00 +0100
-Message-ID: <5638CF74.7030001@pengutronix.de>
-References: <1446419775-5215-1-git-send-email-marex@denx.de>
- <201511021916.18117.marex@denx.de>
- <666821254.20151102231521@cogentembedded.com>
- <201511022125.47892.marex@denx.de>
- <CAAP7uc+3sJRJ9khC6x58ULy2vR8fTCi6gMwtgV_0GAWW49AwLg@mail.gmail.com>
- <56389C38.4080508@pengutronix.de>
- <CAAP7ucLhzqh8+QxYJwx-8-DqSb6YqV0ZXXVGqY=OUUnzAu5EVQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="sfsVBvwTGlfdu05iEFwsQW2QbaDrNsmtG"
-Cc: Marek Vasut <marex@denx.de>,
-	Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH net-next] net/core: fix for_each_netdev_feature
+Date: Tue,  3 Nov 2015 10:15:59 -0500
+Message-ID: <1446563759-17713-1-git-send-email-jarod@redhat.com>
+References: <1446519359-21400-1-git-send-email-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Aleksander Morgado <aleksander@aleksander.es>
+	Eric Dumazet <edumazet@google.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Nikolay Aleksandrov <razor@blackwall.org>,
+	Michal Kubecek <mkubecek@suse.cz>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:42816 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751098AbbKCPPO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 10:15:14 -0500
-In-Reply-To: <CAAP7ucLhzqh8+QxYJwx-8-DqSb6YqV0ZXXVGqY=OUUnzAu5EVQ@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:44245 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751285AbbKCPQK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Nov 2015 10:16:10 -0500
+In-Reply-To: <1446519359-21400-1-git-send-email-jarod@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---sfsVBvwTGlfdu05iEFwsQW2QbaDrNsmtG
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+As pointed out by Nikolay and further explained by Geert, the initial
+for_each_netdev_feature macro was broken, as feature would get set outside
+of the block of code it was intended to run in, thus only ever working for
+the first feature bit in the mask. While less pretty this way, this is
+tested and confirmed functional with multiple feature bits set in
+NETIF_F_UPPER_DISABLES.
 
-On 11/03/2015 04:06 PM, Aleksander Morgado wrote:
->> What about maintainability? Why take care of two almost identical
->> subsystems? With making one stack "simpler" you increase, from my poin=
-t
->> of view, the costs of maintaining even more. If you fix problems in on=
-e
->> stack you have to adopt the other, too.
->=20
-> If they can share common code, that's fine, that probably can be
-> worked around if needed. My main issues are actually with all the
-> behavior that CAN supports and doesn't make much sense in ARINC, like
-> the complex ID filtering scheme for example (ARINC just requires 256
-> bits for a minimum filter),
+[root@dell-per730-01 ~]# ethtool -K bond0 lro off
+...
+[  242.761394] bond0: Disabling feature 0x0000000000008000 on lower dev p5p2.
+[  243.552178] bnx2x 0000:06:00.1 p5p2: using MSI-X  IRQs: sp 74  fp[0] 76 ... fp[7] 83
+[  244.353978] bond0: Disabling feature 0x0000000000008000 on lower dev p5p1.
+[  245.147420] bnx2x 0000:06:00.0 p5p1: using MSI-X  IRQs: sp 62  fp[0] 64 ... fp[7] 71
 
-I think it should be possible to use a simple/different filter mechanism
-for ARINC packages.
+[root@dell-per730-01 ~]# ethtool -K bond0 gro off
+...
+[  251.925645] bond0: Disabling feature 0x0000000000004000 on lower dev p5p2.
+[  252.713693] bnx2x 0000:06:00.1 p5p2: using MSI-X  IRQs: sp 74  fp[0] 76 ... fp[7] 83
+[  253.499085] bond0: Disabling feature 0x0000000000004000 on lower dev p5p1.
+[  254.290922] bnx2x 0000:06:00.0 p5p1: using MSI-X  IRQs: sp 62  fp[0] 64 ... fp[7] 71
 
-> or the duplex TX/RX setup for channels
-> (channels are either RX or TX, not both), or the local
-> echoing/loopback (which wouldn't make much sense for TX-only
-> channels).
+Fixes: fd867d51f ("net/core: generic support for disabling netdev features down stack")
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Veaceslav Falico <vfalico@gmail.com>
+CC: Andy Gospodarek <gospo@cumulusnetworks.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: Nikolay Aleksandrov <razor@blackwall.org>
+CC: Michal Kubecek <mkubecek@suse.cz>
+CC: Alexander Duyck <alexander.duyck@gmail.com>
+CC: Geert Uytterhoeven <geert@linux-m68k.org>
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ include/linux/netdev_features.h | 6 ++----
+ net/core/dev.c                  | 8 ++++++--
+ 2 files changed, 8 insertions(+), 6 deletions(-)
 
-Local echo/loopback comes in two flavours:
-- Other socket receive local generate frames, too.
-  This is interesting if you want to merge two ARINC node on single
-  device.
-- Sending socket receives send frame, too. This is useful if you need
-  the feedback that the frame has _really_ been send, not just pushed
-  into the networking stack.
-
-> The minimum subset of features required by an ARINC driver
-> is actually very small. Trying to "fit" ARINC as a subset of CAN may
-> actually be harder than keeping it separate maintainability wise.
-> Maybe the issue here is that the original patch is too CAN-like while
-> it shouldn't be, don't know.
-
-regards,
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---sfsVBvwTGlfdu05iEFwsQW2QbaDrNsmtG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWOM90AAoJEP5prqPJtc/HoFMH/Rn7XEptt9T4VhWumh6FBAd5
-2K3KzyCUF/O8W767gdQouWbOcHFMsAITEmCH2vidafDw4G1eDwnYb3FNP8ovrqzN
-XngVoA3wuwk2tAk+juFTVVekUK3Q6wB0F+uLomMfuLetDsuGDGoOXFF+a0WAEDbV
-MbqHeecLo//5wBYl7yHxg9flaoL7e0LgfnjzCiuFx2BtcvDvzd6WRpG34lJea+qe
-/bdHH9M2qLxFU23H9QjVerUYkzoKtaCWnVYPCeKj330LxgteCUMk9dJC1NyD8Eqo
-OgyKsSajMthTDTcxVJFi3RyNTOk6RQ4bLSbm9I4/eb1Gxm7VyUL/TrUbLmB9CSg=
-=jUht
------END PGP SIGNATURE-----
-
---sfsVBvwTGlfdu05iEFwsQW2QbaDrNsmtG--
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index 0f5837a..f0d8734 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -125,10 +125,8 @@ enum {
+ #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
+ #define NETIF_F_BUSY_POLL	__NETIF_F(BUSY_POLL)
+ 
+-#define for_each_netdev_feature(mask_addr, feature)				\
+-	int bit;								\
+-	for_each_set_bit(bit, (unsigned long *)mask_addr, NETDEV_FEATURE_COUNT)	\
+-		feature = __NETIF_F_BIT(bit);
++#define for_each_netdev_feature(mask_addr, bit)	\
++	for_each_set_bit(bit, (unsigned long *)mask_addr, NETDEV_FEATURE_COUNT)
+ 
+ /* Features valid for ethtool to change */
+ /* = all defined minus driver/device-class-related */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index c4d2b43..8ce3f74 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6293,8 +6293,10 @@ static netdev_features_t netdev_sync_upper_features(struct net_device *lower,
+ {
+ 	netdev_features_t upper_disables = NETIF_F_UPPER_DISABLES;
+ 	netdev_features_t feature;
++	int feature_bit;
+ 
+-	for_each_netdev_feature(&upper_disables, feature) {
++	for_each_netdev_feature(&upper_disables, feature_bit) {
++		feature = __NETIF_F_BIT(feature_bit);
+ 		if (!(upper->wanted_features & feature)
+ 		    && (features & feature)) {
+ 			netdev_dbg(lower, "Dropping feature %pNF, upper dev %s has it off.\n",
+@@ -6311,8 +6313,10 @@ static void netdev_sync_lower_features(struct net_device *upper,
+ {
+ 	netdev_features_t upper_disables = NETIF_F_UPPER_DISABLES;
+ 	netdev_features_t feature;
++	int feature_bit;
+ 
+-	for_each_netdev_feature(&upper_disables, feature) {
++	for_each_netdev_feature(&upper_disables, feature_bit) {
++		feature = __NETIF_F_BIT(feature_bit);
+ 		if (!(features & feature) && (lower->features & feature)) {
+ 			netdev_dbg(upper, "Disabling feature %pNF on lower dev %s.\n",
+ 				   &feature, lower->name);
+-- 
+1.8.3.1
