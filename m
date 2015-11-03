@@ -1,33 +1,38 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: kernel panic in 4.2.3, rb_erase in sch_fq
-Date: Tue, 3 Nov 2015 14:06:05 -0800
-Message-ID: <CAHA+R7MNxEkMfyQa56d0HRk2HxeqsduUfM3BkBh=Oxm2yNBVaA@mail.gmail.com>
-References: <d66d455afe6dd28bed32ed3e17f797b7@visp.net.lb>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT PULL] parisc architecture updates for v4.3
+Date: Tue, 3 Nov 2015 14:07:11 -0800
+Message-ID: <CA+55aFzXv9KcyHJ4SfiL3Jihz6ObyiDPnbCnfy7HwAbXUsXf_A@mail.gmail.com>
+References: <20151025114934.GA11108@ls3530.box>
+	<CA+55aFyJyY1FE_1k6Ks-2j4nYr7cbde_KvZ=J3fMUFJG5Okijg@mail.gmail.com>
+	<20151103.163324.221668446986372734.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Cc: Helge Deller <deller@gmx.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Parisc List <linux-parisc@vger.kernel.org>,
+	Jej B <James.Bottomley@hansenpartnership.com>,
+	John David Anglin <dave.anglin@bell.net>,
+	Network Development <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d66d455afe6dd28bed32ed3e17f797b7@visp.net.lb>
+In-Reply-To: <20151103.163324.221668446986372734.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 2, 2015 at 6:11 AM, Denys Fedoryshchenko
-<nuclearcat@nuclearcat.com> wrote:
-> Hi!
+On Tue, Nov 3, 2015 at 1:33 PM, David Miller <davem@davemloft.net> wrote:
 >
-> Actually seems i was getting this panic for a while (once per week) on
-> loaded pppoe server, but just now was able to get full panic message.
-> After checking commit logs on sch_fq.c i didnt seen any fixes, so probably
-> upgrading to newer kernel wont help?
+>> David: the issue wrt XPS is this:
+>>
+>>    #define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES - sizeof(struct xps_map))   \
+>>        / sizeof(u16))
+>>
+>> Comments?
+>
+> The PARISC folks did discuss this with us networking folks...
+>
+>         http://marc.info/?t=144554413000001&r=1&w=2
 
+Ok. So that still leaves the "is it sane to lie about your
+L1_CACHE_BYTES" question...
 
-Can you share your `tc qdisc show dev xxxx` with us? And how to reproduce
-it? I tried to setup htb+fq and then flip the interface back and forth
-but I don't
-see any crash.
-
-Thanks.
+               Linus
