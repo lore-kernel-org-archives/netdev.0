@@ -1,63 +1,83 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT PULL] parisc architecture updates for v4.3
-Date: Tue, 3 Nov 2015 13:01:21 -0800
-Message-ID: <CA+55aFyJyY1FE_1k6Ks-2j4nYr7cbde_KvZ=J3fMUFJG5Okijg@mail.gmail.com>
-References: <20151025114934.GA11108@ls3530.box>
+From: Andrew <nitr0@seti.kr.ua>
+Subject: Re: HTB, HFSC, PIE, FIFO stuck on 2.4Gbit on default values
+Date: Tue, 3 Nov 2015 23:04:08 +0200
+Message-ID: <56392148.4090309@seti.kr.ua>
+References: <14bd7629199800f798c8ab932e0285d3@visp.net.lb>
+ <1446577894.23275.71.camel@edumazet-glaptop2.roam.corp.google.com>
+ <907cb54c0a27beed12381247ba29bca5@visp.net.lb>
+ <1446580156.23275.74.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Parisc List <linux-parisc@vger.kernel.org>,
-	James Bottomley <James.Bottomley@hansenpartnership.com>,
-	John David Anglin <dave.anglin@bell.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Helge Deller <deller@gmx.de>, David Miller <davem@davemloft.net>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <20151025114934.GA11108@ls3530.box>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.seti.kr.ua ([91.202.132.4]:38405 "EHLO mail.seti.kr.ua"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932525AbbKCVEN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Nov 2015 16:04:13 -0500
+Received: from [91.202.135.243] (helo=[192.168.0.145])
+	by mail.seti.kr.ua with esmtpa (Exim 4.68)
+	(envelope-from <nitr0@seti.kr.ua>)
+	id 1ZtikT-00047s-2C
+	for netdev@vger.kernel.org; Tue, 03 Nov 2015 23:04:10 +0200
+In-Reply-To: <1446580156.23275.74.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 25, 2015 at 4:49 AM, Helge Deller <deller@gmx.de> wrote:
+Hi.
+
+This is common trouble due to hierarchical shapers realization (global=20
+tree lock on packet dequeuing - so when one CPU looks for parent class=20
+where tokens can be borrowed, other CPUs are waiting). It's mentioned=20
+even in academic publications :) You can read about it here:=20
+http://www.ijcset.com/docs/IJCSET13-04-04-113.pdf
+
+I think that simple lock removing will greatly improve performance; and=
+=20
+race conditions on packets dequeuing shouldn't hurt anything except=20
+shaping accuracy. Another solutions looks more complex.
+
+03.11.2015 21:49, Eric Dumazet =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Tue, 2015-11-03 at 21:17 +0200, Denys Fedoryshchenko wrote:
+>>   GSO/TSO on the output and watch performance coming back.
+>>
+>> It is not, since i have more than 120 servers installed over country
+>> (most of them handle small traffic), in forwarding mode, first thing=
+ i
+>> am doing on forwarding setup - disabling gro/gso/tso. It is helped a=
+lso
+>> many ISP on their forum where i visit often, first thing in
+>> troubleshooting unreliable network traffic forwarding - disabling
+>> offloading.
+>> Because problem starts from incorrect shaping, and ends in some case=
+s
+>> with network drivers spitting watchdog errors. Sometimes even shaper=
+ not
+>> necessary, just plain forwarding with offload enabled can cause issu=
+es,
+>> but it might be bug in networking drivers.
+>> Should i try to reproduce and report? Sure if anybody can look into =
+this
+>> issue.
 >
-> please pull some patches for the parisc architecture for kernel v4.3 from:
-
-So no way was I going to pull that for 4.3, and I delayed it to the
-merge window.
-
-However, even now that we're in the merge window, and I look at it again:
-
-> The most important change is that we reduce L1_CACHE_BYTES to 16 bytes, for
-> which a trivial patch for XPS in the network layer was needed.
-
-I'd really want the network people involved with that change, and I'm
-also wondering why you seem to want to re-define L1_CACHE_BYTES to
-something that it isn't.
-
-I doubt the PA-RISC L1 cacheline really is 16 bytes. So this seems to
-be more of a hack around the fact that some data structures may be
-over-aligned, and using that L1_CACHE_BYTES for aligning things that
-really don't want to be that aligned. Maybe it casues less sharing,
-but if it does so at the cost of excessive memory use, it's still
-wrong.
-
-But that in turn says to me "We should fix the *real* problem, rather
-than hack around it by having PA-RISC lie about its L1 cache size".
-
-Is there any particular over-alignment that you have determined to be
-the real problem?
-
-Also, just looking at other things, we currently do have openrisc that has
-
-  #define L1_CACHE_BYTES 16
-
-so presumably openrisc would have had an issue with that XPS thing,
-and how XPS_MIN_MAP_ALLOC can go negative for a 16-byte case (well,
-it's zero on 32-bit architectures).
-
-David: the issue wrt XPS is this:
-
-   #define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES - sizeof(struct xps_map))   \
-       / sizeof(u16))
-
-Comments?
-
-               Linus
+> Well, I am telling you.
+>
+> Say no to people advising to turn off GRO/TSO.
+>
+> If you were the guy adviding others to do so, it is time to see the
+> light.
+>
+> Lets fix the bugs if any, instead of spreading disinformation.
+>
+> I am so tired of telling these very simple facts guys.
+>
+> If you prefer, continue to work on linux-2.0 but don't ask help on
+> netdev.
+>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
