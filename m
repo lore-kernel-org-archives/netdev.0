@@ -1,8 +1,7 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/3] batman-adv: Delete an unnecessary check before the
- function call "batadv_softif_vlan_free_ref"
-Date: Tue, 3 Nov 2015 21:52:58 +0100
-Message-ID: <56391EAA.2060002@users.sourceforge.net>
+Subject: [PATCH 2/3] batman-adv: Split a condition check
+Date: Tue, 3 Nov 2015 21:54:35 +0100
+Message-ID: <56391F0B.2060102@users.sourceforge.net>
 References: <5307CAA2.8060406@users.sourceforge.net>
  <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
  <530A086E.8010901@users.sourceforge.net>
@@ -37,31 +36,32 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 3 Nov 2015 19:20:34 +0100
+Date: Tue, 3 Nov 2015 20:41:02 +0100
 
-The batadv_softif_vlan_free_ref() function tests whether its argument is NULL
-and then returns immediately. Thus the test around the call is not needed.
-
-This issue was detected by using the Coccinelle software.
+Let us split a check for a condition at the beginning of the
+batadv_is_ap_isolated() function so that a direct return can be performed
+in this function if the variable "vlan" contained a null pointer.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- net/batman-adv/translation-table.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ net/batman-adv/translation-table.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 4228b10..48315de 100644
+index 48315de..965a004 100644
 --- a/net/batman-adv/translation-table.c
 +++ b/net/batman-adv/translation-table.c
-@@ -3336,8 +3336,7 @@ bool batadv_is_ap_isolated(struct batadv_priv *bat_priv, u8 *src, u8 *dst,
- 	ret = true;
+@@ -3319,7 +3319,10 @@ bool batadv_is_ap_isolated(struct batadv_priv *bat_priv, u8 *src, u8 *dst,
+ 	bool ret = false;
  
- out:
--	if (vlan)
--		batadv_softif_vlan_free_ref(vlan);
-+	batadv_softif_vlan_free_ref(vlan);
- 	if (tt_global_entry)
- 		batadv_tt_global_entry_free_ref(tt_global_entry);
- 	if (tt_local_entry)
+ 	vlan = batadv_softif_vlan_get(bat_priv, vid);
+-	if (!vlan || !atomic_read(&vlan->ap_isolation))
++	if (!vlan)
++		return false;
++
++	if (!atomic_read(&vlan->ap_isolation))
+ 		goto out;
+ 
+ 	tt_local_entry = batadv_tt_local_hash_find(bat_priv, dst, vid);
 -- 
 2.6.2
