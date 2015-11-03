@@ -1,56 +1,100 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next] mpls: Don't accept multipath configuration until
- the support is complete
-Date: Tue, 3 Nov 2015 15:14:31 +0000
-Message-ID: <5638CF57.9070203@brocade.com>
-References: <1446133748-13738-1-git-send-email-roopa@cumulusnetworks.com> <87egg8ryia.fsf@x220.int.ebiederm.org> <5637BE34.10304@cogentembedded.com> <87ziyvr4w2.fsf@x220.int.ebiederm.org> <5638BE96.2010700@cumulusnetworks.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
+Date: Tue, 3 Nov 2015 16:15:00 +0100
+Message-ID: <5638CF74.7030001@pengutronix.de>
+References: <1446419775-5215-1-git-send-email-marex@denx.de>
+ <201511021916.18117.marex@denx.de>
+ <666821254.20151102231521@cogentembedded.com>
+ <201511022125.47892.marex@denx.de>
+ <CAAP7uc+3sJRJ9khC6x58ULy2vR8fTCi6gMwtgV_0GAWW49AwLg@mail.gmail.com>
+ <56389C38.4080508@pengutronix.de>
+ <CAAP7ucLhzqh8+QxYJwx-8-DqSb6YqV0ZXXVGqY=OUUnzAu5EVQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: roopa <roopa@cumulusnetworks.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="sfsVBvwTGlfdu05iEFwsQW2QbaDrNsmtG"
+Cc: Marek Vasut <marex@denx.de>,
+	Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Aleksander Morgado <aleksander@aleksander.es>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:10557 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751098AbbKCPOt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 10:14:49 -0500
-In-Reply-To: <5638BE96.2010700@cumulusnetworks.com>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:42816 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751098AbbKCPPO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 10:15:14 -0500
+In-Reply-To: <CAAP7ucLhzqh8+QxYJwx-8-DqSb6YqV0ZXXVGqY=OUUnzAu5EVQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/11/15 14:03, roopa wrote:
-> On 11/2/15, 10:09 PM, Eric W. Biederman wrote:
->> Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> writes:
->>
->>> Hello.
->>>> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
->>>> index c70d750148b6..893cd2dc3979 100644
->>>> --- a/net/mpls/af_mpls.c
->>>> +++ b/net/mpls/af_mpls.c
->>>> @@ -1162,6 +1162,8 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
->>>>    		{
->>>>    			cfg->rc_mp = nla_data(nla);
->>>>    			cfg->rc_mp_len = nla_len(nla);
->>>> +			/* Fail until multipath support is complete */
->>>> +			goto errout;
->>>>    			break;
->>>     Forgot to delete *break*?
->> Nope.  I did that deliberately, because this code is not supposed to
->> stay this way for long.
-> Eric, this is only until dead route support is added correct ?.
-> If yes, then my v2 on dead route/nh support is out. I know david is only taking bug fixes right now...
-> and I thought the dead route/nh is a bug fix. If you are ok with v2, we could skip this patch ?.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--sfsVBvwTGlfdu05iEFwsQW2QbaDrNsmtG
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Roopa,
+On 11/03/2015 04:06 PM, Aleksander Morgado wrote:
+>> What about maintainability? Why take care of two almost identical
+>> subsystems? With making one stack "simpler" you increase, from my poin=
+t
+>> of view, the costs of maintaining even more. If you fix problems in on=
+e
+>> stack you have to adopt the other, too.
+>=20
+> If they can share common code, that's fine, that probably can be
+> worked around if needed. My main issues are actually with all the
+> behavior that CAN supports and doesn't make much sense in ARINC, like
+> the complex ID filtering scheme for example (ARINC just requires 256
+> bits for a minimum filter),
 
-I think we should take our time with the dead nexthop changes, and 
-Eric's patch gives us that time.
+I think it should be possible to use a simple/different filter mechanism
+for ARINC packages.
 
-Thanks,
-Rob
+> or the duplex TX/RX setup for channels
+> (channels are either RX or TX, not both), or the local
+> echoing/loopback (which wouldn't make much sense for TX-only
+> channels).
 
->
-> If david decides to not pick it up in net-next, i was hoping to submit it as a bug-fix to net.
->
+Local echo/loopback comes in two flavours:
+- Other socket receive local generate frames, too.
+  This is interesting if you want to merge two ARINC node on single
+  device.
+- Sending socket receives send frame, too. This is useful if you need
+  the feedback that the frame has _really_ been send, not just pushed
+  into the networking stack.
+
+> The minimum subset of features required by an ARINC driver
+> is actually very small. Trying to "fit" ARINC as a subset of CAN may
+> actually be harder than keeping it separate maintainability wise.
+> Maybe the issue here is that the original patch is too CAN-like while
+> it shouldn't be, don't know.
+
+regards,
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--sfsVBvwTGlfdu05iEFwsQW2QbaDrNsmtG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJWOM90AAoJEP5prqPJtc/HoFMH/Rn7XEptt9T4VhWumh6FBAd5
+2K3KzyCUF/O8W767gdQouWbOcHFMsAITEmCH2vidafDw4G1eDwnYb3FNP8ovrqzN
+XngVoA3wuwk2tAk+juFTVVekUK3Q6wB0F+uLomMfuLetDsuGDGoOXFF+a0WAEDbV
+MbqHeecLo//5wBYl7yHxg9flaoL7e0LgfnjzCiuFx2BtcvDvzd6WRpG34lJea+qe
+/bdHH9M2qLxFU23H9QjVerUYkzoKtaCWnVYPCeKj330LxgteCUMk9dJC1NyD8Eqo
+OgyKsSajMthTDTcxVJFi3RyNTOk6RQ4bLSbm9I4/eb1Gxm7VyUL/TrUbLmB9CSg=
+=jUht
+-----END PGP SIGNATURE-----
+
+--sfsVBvwTGlfdu05iEFwsQW2QbaDrNsmtG--
