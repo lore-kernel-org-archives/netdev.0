@@ -1,36 +1,63 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] bpf: fix trivial comment typo
-Date: Tue, 03 Nov 2015 10:48:43 +0100
-Message-ID: <563882FB.1010008@iogearbox.net>
-References: <5636B557.1030804@gmail.com> <20151102.163138.2054202316045092354.davem@davemloft.net> <5637DA1F.6060501@gmail.com>
+From: William Dauchy <william@gandi.net>
+Subject: Re: dynamically set number of queues for 82598 devices
+Date: Tue, 3 Nov 2015 10:56:03 +0100
+Message-ID: <20151103095603.GE7714@gandi.net>
+References: <20151029152645.GD7657@gandi.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, trivial@kernel.org, ast@kernel.org,
-	linux-kernel@vger.kernel.org
-To: Matthew Fernandez <matthew.fernandez@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="9l24NVCWtSuIVIod"
+Cc: netdev@vger.kernel.org, Tal Abudi <talabudi@gmail.com>,
+	Emil Tantilov <emil.s.tantilov@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>, william@gandi.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:54867 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752169AbbKCJsr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 04:48:47 -0500
-In-Reply-To: <5637DA1F.6060501@gmail.com>
+Received: from mail4.gandi.net ([217.70.183.210]:59082 "EHLO gandi.net"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751289AbbKCJ4H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Nov 2015 04:56:07 -0500
+Content-Disposition: inline
+In-Reply-To: <20151029152645.GD7657@gandi.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/02/2015 10:48 PM, Matthew Fernandez wrote:
-> On 03/11/15 08:31, David Miller wrote:
->> From: Matthew Fernandez <matthew.fernandez@gmail.com>
->> Date: Mon, 2 Nov 2015 11:59:03 +1100
->>
->>> bpf: fix trivial comment typo
->>>
->>> Signed-off-by: Matthew Fernandez <matthew.fernandez@gmail.com>
->>
->> This doesn't apply to any tree.
->
-> I'm sorry, I think I must be missing something. This seems to apply cleanly to the current tip of mainline (e86328c489d7) to me. Was this not in the expected format? It wasn't my intention to waste your time, so I apologise for any newbie errors.
 
-You might want to check Documentation/networking/netdev-FAQ.txt ;),
-and rebase your spelling fix f.e. to the latest net-next tree.
+--9l24NVCWtSuIVIod
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hello David,
+
+On Oct29 16:26, William Dauchy wrote:
+> I faced the problem described in commit 7e3f5c8:
+> ixgbe: fix bounds checking in ixgbe_setup_tc for 82598
+>=20
+> This patch resolves an issue where users were not able to dynamically
+> set number of queues for 82598 via ethtool -L
+>=20
+> I backported it for my v4.1.x build but I was wondering if this could be
+> a candidate for a backport in stable tree at least for v4.1.x.
+
+Since we are now in a bug fix period, I was wondering if you could have
+a look at commit 7e3f5c8 (ixgbe: fix bounds checking in ixgbe_setup_tc
+for 82598)
+I don't see it in
+http://patchwork.ozlabs.org/bundle/davem/stable/?state=3D*
+so I was wondering if it could be a valid candidate for stable.
+
+Best regards,
+--=20
+William
+
+--9l24NVCWtSuIVIod
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlY4hLMACgkQ1I6eqOUidQEYigCgjIHYW8Fl/qHBsMwi9m/lOsnR
+AbcAmwSmSxmOuZ/0Dag2I1/Pm6m8sAJT
+=nvsI
+-----END PGP SIGNATURE-----
+
+--9l24NVCWtSuIVIod--
