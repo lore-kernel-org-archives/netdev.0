@@ -1,90 +1,94 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next] net/core: ensure features get disabled on new
- lower devs
-Date: Tue, 3 Nov 2015 15:01:57 -0800
-Message-ID: <56393CE5.50704@gmail.com>
-References: <1446519359-21400-1-git-send-email-jarod@redhat.com>
- <1446583017-19021-1-git-send-email-jarod@redhat.com>
- <5639245D.7000501@gmail.com> <56393127.4050406@redhat.com>
+From: Helge Deller <deller@gmx.de>
+Subject: Re: [GIT PULL] parisc architecture updates for v4.3
+Date: Wed, 4 Nov 2015 00:03:34 +0100
+Message-ID: <56393D46.6060903@gmx.de>
+References: <20151025114934.GA11108@ls3530.box>
+ <CA+55aFyJyY1FE_1k6Ks-2j4nYr7cbde_KvZ=J3fMUFJG5Okijg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	Michal Kubecek <mkubecek@suse.cz>, netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Parisc List <linux-parisc@vger.kernel.org>,
+	James Bottomley <James.Bottomley@hansenpartnership.com>,
+	John David Anglin <dave.anglin@bell.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56393127.4050406@redhat.com>
+In-Reply-To: <CA+55aFyJyY1FE_1k6Ks-2j4nYr7cbde_KvZ=J3fMUFJG5Okijg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/03/2015 02:11 PM, Jarod Wilson wrote:
-> Alexander Duyck wrote:
->> On 11/03/2015 12:36 PM, Jarod Wilson wrote:
->>> With moving netdev_sync_lower_features() after the .ndo_set_features
->>> calls, I neglected to verify that devices added *after* a flag had been
->>> disabled on an upper device were properly added with that flag
->>> disabled as
->>> well. This currently happens, because we exit 
->>> __netdev_update_features()
->>> when we see dev->features == features for the upper dev. We can retain
->>> the
->>> optimization of leaving without calling .ndo_set_features with a bit of
->>> tweaking and a goto here.
->>>
->>> Changing err to ret was somewhat arbitrary and makes the patch look 
->>> more
->>> involved, but seems to better fit the altered use.
-> ...
->>> +     if (!ret) {
->>> +         dev->features = features;
->>> +         ret = 1;
->>> +     }
->>> +
->>
->> I would take the "ret = 1;" out of the if statement and let it stay here
->> by itself. Technically anything that traversed this path was returning 1
->> previously so we probably want to retain that behavior.
->
-> Ah, that. I took a look at all the callers of 
-> __netdev_update_features, and most don't even check return value, the 
-> one that does (netdev_update_features) only cares if its zero or not 
-> zero, so I figured it didn't really matter here, but it would indeed 
-> return 2 now instead of 1, if it got that from ndo_set_features. For 
-> consistency's sake, I can respin and just always set ret = 1 though.
+Hi Linus,
 
-One thought I just had would be to make it so that we assign -1 to ret 
-and then jump inside the earlier features==features check rather than 
-altering the ret value here.  Then we could just use a ternary value at 
-the end and just do "return ret < 0 ? 0 : 1;".  That would take care of 
-the return values and the features flag you called out below.
+On 03.11.2015 22:01, Linus Torvalds wrote:
+> On Sun, Oct 25, 2015 at 4:49 AM, Helge Deller <deller@gmx.de> wrote:
+>>
+>> please pull some patches for the parisc architecture for kernel v4.3 from:
+> 
+> So no way was I going to pull that for 4.3,
 
->>> +sync_lower:
->>>     /* some features must be disabled on lower devices when disabled
->>>      * on an upper device (think: bonding master or bridge)
->>>      */
->>>     netdev_for_each_lower_dev(dev, lower, iter)
->>>         netdev_sync_lower_features(dev, lower, features);
->>>
->>> -     if (!err)
->>> -         dev->features = features;
->>
->> You could just alter the if statement here to check for a non-zero ret
->> value since you should have it as either 0 or 1. It shouldn't have any
->> other values.
->>
->> That way you will have disabled the feature on the lower devices before
->> advertising that it has been disabled on the upper device.
->
-> If this check is down here, the goto will trigger, setting 
-> dev->features = features, but then, we got there because dev->features 
-> == features already, so meh. But it would also NOT trigger in the case 
-> of ndo_set_features returning 0 anymore, because we set ret = 1. Or am 
-> I missing something or misunderstanding what you're suggesting here?
->
+Yes, since you didn't pulled I assumed you saw some kind of problem with the patches.
+Maybe it's even my fault, because I should have explained some more in the pull request,
+e.g. that all patches were discussed with the various stakeholders, and e.g. that
+I was late in sending this pull request, because I was waiting for some benchmark results.
+
+> and I delayed it to the merge window.
+
+Ok.
+ 
+> However, even now that we're in the merge window, and I look at it again:
+> 
+>> The most important change is that we reduce L1_CACHE_BYTES to 16 bytes, for
+>> which a trivial patch for XPS in the network layer was needed.
+> 
+> I'd really want the network people involved with that change, 
+
+As David already answered, it was discussed with them:
+http://marc.info/?t=144554413000001&r=1&w=2
+
+> and I'm
+> also wondering why you seem to want to re-define L1_CACHE_BYTES to
+> something that it isn't.
+> I doubt the PA-RISC L1 cacheline really is 16 bytes. 
+
+Sadly it's nowhere clearly documented how big the L1 cacheline of parisc really is.
+
+We are currently experimenting a lot with improving spinlocks on hppa,
+that's why we play around with the L1 cache size setting.
+
+In one of the mail threads (where I actually wanted to align the hashes
+which we need to protect/simulate the atomic locks) James Bottomleys
+gave a pretty good explanation of why it might be beneficial to 
+modify L1_CACHE_BYTES for parisc:
+ http://permalink.gmane.org/gmane.linux.ports.parisc/26040
+The whole mail thread is here:
+ http://thread.gmane.org/gmane.linux.ports.parisc/26000
+
+> So this seems to
+> be more of a hack around the fact that some data structures may be
+> over-aligned, and using that L1_CACHE_BYTES for aligning things that
+> really don't want to be that aligned. Maybe it casues less sharing,
+> but if it does so at the cost of excessive memory use, it's still
+> wrong.
+> 
+> But that in turn says to me "We should fix the *real* problem, rather
+> than hack around it by having PA-RISC lie about its L1 cache size".
+> 
+> Is there any particular over-alignment that you have determined to be
+> the real problem?
+
+I was not very much concerned about any over-alignment, but about the
+performance. Reducing L1_CACHE_BYTES gave a performance improvement
+on parisc, most likely since we protect atomic accesses through our
+atomic spinlocks anyway. 
+ 
+> Also, just looking at other things, we currently do have openrisc that has
+> 
+>   #define L1_CACHE_BYTES 16
+> 
+> so presumably openrisc would have had an issue with that XPS thing,
+
+and mn10300.
+
+Helge
