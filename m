@@ -1,40 +1,47 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next] bpf, verifier: annotate verbose printer with __printf
-Date: Tue,  3 Nov 2015 11:39:20 +0100
-Message-ID: <148eb693cd6fe017da1c5a564d972c06cb24166b.1446546825.git.daniel@iogearbox.net>
-Cc: ast@kernel.org, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:58433 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751193AbbKCKjX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 05:39:23 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: net: lockdep warning in ip_mc_msfget (net/ipv4/igmp.c:2400)
+Date: Tue, 3 Nov 2015 09:21:09 -0200
+Message-ID: <563898A5.9050200@gmail.com>
+References: <56377FC9.90601@oracle.com>
+ <CAHA+R7NsSCsLuAuYu9HNmAOvbRdi35U8zLwSmLv0Rq4T4sHKFw@mail.gmail.com>
+ <CAHA+R7OsGmYPWtHFK8QmuzaZW9WBfVCVviReEopTRF_zjxzKKA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>, syzkaller@googlegroups.com,
+	Dmitry Vyukov <dvyukov@google.com>
+To: Cong Wang <cwang@twopensource.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHA+R7OsGmYPWtHFK8QmuzaZW9WBfVCVviReEopTRF_zjxzKKA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The verbose() printer dumps the verifier state to user space, so let gcc
-take care to check calls to verbose() for (future) errors. make with W=1
-correctly suggests: function might be possible candidate for 'gnu_printf'
-format attribute [-Wsuggest-attribute=format].
+Em 02-11-2015 22:38, Cong Wang escreveu:
+> On Mon, Nov 2, 2015 at 1:31 PM, Cong Wang <cwang@twopensource.com> wrote:
+>>
+>> Good catch!
+>>
+>> This is probably introduced by:
+>>
+>> commit baf606d9c9b12517e47e0d1370e8aa9f7323f210
+>> Author: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+>> Date:   Wed Mar 18 14:50:42 2015 -0300
+>>
+>>      ipv4,ipv6: grab rtnl before locking the socket
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- kernel/bpf/verifier.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Yes, that commit introduced this inverse order situation by not fixing 
+the get path of it.
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index fdc88c5..c607305 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -214,7 +214,7 @@ static DEFINE_MUTEX(bpf_verifier_lock);
-  * verbose() is used to dump the verification trace to the log, so the user
-  * can figure out what's wrong with the program
-  */
--static void verbose(const char *fmt, ...)
-+static __printf(1, 2) void verbose(const char *fmt, ...)
- {
- 	va_list args;
- 
--- 
-1.9.3
+>> I am thinking what is the right way to fix it...
+>
+> Please try the attached patch.
+>
+> Thanks!
+
+Patch LGTM, same design and covered all rtnl_lock()s I could find on get 
+path now. Thanks!
+
+   Marcelo
