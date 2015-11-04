@@ -1,26 +1,36 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] bpf: add mod default A and X test cases
-Date: Wed, 4 Nov 2015 12:25:47 -0800
-Message-ID: <20151104202546.GA47322@ast-mbp.thefacebook.com>
-References: <1446665797-21400-1-git-send-email-yang.shi@linaro.org>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net v4] ipv6: clean up dev_snmp6 proc entry when we fail
+ to initialize inet6_dev
+Date: Wed, 4 Nov 2015 12:47:53 -0800
+Message-ID: <CAHA+R7MPrrdKfGHdBN8iLbjw4dZNHg32MSn9vjNZcQL4u0zXZg@mail.gmail.com>
+References: <1446658240-31423-1-git-send-email-sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ast@kernel.org, daniel@iogearbox.net, zlim.lnx@gmail.com,
-	xi.wang@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linaro-kernel@lists.linaro.org
-To: Yang Shi <yang.shi@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1446665797-21400-1-git-send-email-yang.shi@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f171.google.com ([209.85.160.171]:34904 "EHLO
+	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965722AbbKDUry (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 15:47:54 -0500
+Received: by ykek133 with SMTP id k133so95077544yke.2
+        for <netdev@vger.kernel.org>; Wed, 04 Nov 2015 12:47:53 -0800 (PST)
+In-Reply-To: <1446658240-31423-1-git-send-email-sd@queasysnail.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 04, 2015 at 11:36:37AM -0800, Yang Shi wrote:
-> When running "mod X" operation, if X is 0 the filter has to be halt.
-> Add new test cases to cover A = A mod X if X is 0, and A = A mod 1.
-> 
-> CC: Xi Wang <xi.wang@gmail.com>
-> CC: Zi Shen Lim <zlim.lnx@gmail.com>
-> Signed-off-by: Yang Shi <yang.shi@linaro.org>
+On Wed, Nov 4, 2015 at 9:30 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
+> In ipv6_add_dev, when addrconf_sysctl_register fails, we do not clean up
+> the dev_snmp6 entry that we have already registered for this device.
+> Call snmp6_unregister_dev in this case.
+>
+> Fixes: a317a2f19da7d ("ipv6: fail early when creating netdev named all or default")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Reviewed-by: Cong Wang <cwang@twopensource.com>
+
+Thanks!
