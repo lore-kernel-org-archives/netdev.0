@@ -1,90 +1,136 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: [PATCH 1/8] mm: memcontrol: export root_mem_cgroup
-Date: Wed,  4 Nov 2015 17:22:07 -0500
-Message-ID: <1446675734-25671-2-git-send-email-hannes@cmpxchg.org>
+From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Subject: [PATCH 3/8] mm: page_counter: let page_counter_try_charge() return bool
+Date: Wed,  4 Nov 2015 17:22:09 -0500
+Message-ID: <1446675734-25671-4-git-send-email-hannes@cmpxchg.org>
 References: <1446675734-25671-1-git-send-email-hannes@cmpxchg.org>
-Cc: Michal Hocko <mhocko@suse.cz>,
-	Vladimir Davydov <vdavydov@virtuozzo.com>,
-	Tejun Heo <tj@kernel.org>,
-	netdev@vger.kernel.org,
-	linux-mm@kvack.org,
-	cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	kernel-team@fb.com
-To: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1446675734-25671-1-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+Cc: Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
+	Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1446675734-25671-1-git-send-email-hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-A later patch will need this symbol in files other than memcontrol.c,
-so export it now and replace mem_cgroup_root_css at the same time.
+page_counter_try_charge() currently returns 0 on success and -ENOMEM
+on failure, which is surprising behavior given the function name.
 
-Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
-Acked-by: Michal Hocko <mhocko@suse.com>
+Make it follow the expected pattern of try_stuff() functions that
+return a boolean true to indicate success, or false for failure.
+
+Signed-off-by: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Acked-by: Michal Hocko <mhocko-IBi9RG/b67k@public.gmane.org>
 ---
- include/linux/memcontrol.h | 3 ++-
- mm/backing-dev.c           | 2 +-
- mm/memcontrol.c            | 5 ++---
- 3 files changed, 5 insertions(+), 5 deletions(-)
+ include/linux/page_counter.h |  6 +++---
+ mm/hugetlb_cgroup.c          |  3 ++-
+ mm/memcontrol.c              | 11 +++++------
+ mm/page_counter.c            | 14 +++++++-------
+ 4 files changed, 17 insertions(+), 17 deletions(-)
 
-diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
-index 805da1f..19ff87b 100644
---- a/include/linux/memcontrol.h
-+++ b/include/linux/memcontrol.h
-@@ -275,7 +275,8 @@ struct mem_cgroup {
- 	struct mem_cgroup_per_node *nodeinfo[0];
- 	/* WARNING: nodeinfo must be the last member here */
- };
--extern struct cgroup_subsys_state *mem_cgroup_root_css;
-+
-+extern struct mem_cgroup *root_mem_cgroup;
+diff --git a/include/linux/page_counter.h b/include/linux/page_counter.h
+index 17fa4f8..7e62920 100644
+--- a/include/linux/page_counter.h
++++ b/include/linux/page_counter.h
+@@ -36,9 +36,9 @@ static inline unsigned long page_counter_read(struct page_counter *counter)
  
- /**
-  * mem_cgroup_events - count memory events against a cgroup
-diff --git a/mm/backing-dev.c b/mm/backing-dev.c
-index 095b23b..73ab967 100644
---- a/mm/backing-dev.c
-+++ b/mm/backing-dev.c
-@@ -702,7 +702,7 @@ static int cgwb_bdi_init(struct backing_dev_info *bdi)
- 
- 	ret = wb_init(&bdi->wb, bdi, 1, GFP_KERNEL);
- 	if (!ret) {
--		bdi->wb.memcg_css = mem_cgroup_root_css;
-+		bdi->wb.memcg_css = &root_mem_cgroup->css;
- 		bdi->wb.blkcg_css = blkcg_root_css;
+ void page_counter_cancel(struct page_counter *counter, unsigned long nr_pages);
+ void page_counter_charge(struct page_counter *counter, unsigned long nr_pages);
+-int page_counter_try_charge(struct page_counter *counter,
+-			    unsigned long nr_pages,
+-			    struct page_counter **fail);
++bool page_counter_try_charge(struct page_counter *counter,
++			     unsigned long nr_pages,
++			     struct page_counter **fail);
+ void page_counter_uncharge(struct page_counter *counter, unsigned long nr_pages);
+ int page_counter_limit(struct page_counter *counter, unsigned long limit);
+ int page_counter_memparse(const char *buf, const char *max,
+diff --git a/mm/hugetlb_cgroup.c b/mm/hugetlb_cgroup.c
+index 6a44263..d8fb10d 100644
+--- a/mm/hugetlb_cgroup.c
++++ b/mm/hugetlb_cgroup.c
+@@ -186,7 +186,8 @@ again:
  	}
- 	return ret;
+ 	rcu_read_unlock();
+ 
+-	ret = page_counter_try_charge(&h_cg->hugepage[idx], nr_pages, &counter);
++	if (!page_counter_try_charge(&h_cg->hugepage[idx], nr_pages, &counter))
++		ret = -ENOMEM;
+ 	css_put(&h_cg->css);
+ done:
+ 	*ptr = h_cg;
 diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index c71fe40..7049e55 100644
+index 7049e55..e54f434 100644
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
-@@ -76,9 +76,9 @@
- struct cgroup_subsys memory_cgrp_subsys __read_mostly;
- EXPORT_SYMBOL(memory_cgrp_subsys);
+@@ -2018,8 +2018,8 @@ retry:
+ 		return 0;
  
-+struct mem_cgroup *root_mem_cgroup __read_mostly;
-+
- #define MEM_CGROUP_RECLAIM_RETRIES	5
--static struct mem_cgroup *root_mem_cgroup __read_mostly;
--struct cgroup_subsys_state *mem_cgroup_root_css __read_mostly;
+ 	if (!do_swap_account ||
+-	    !page_counter_try_charge(&memcg->memsw, batch, &counter)) {
+-		if (!page_counter_try_charge(&memcg->memory, batch, &counter))
++	    page_counter_try_charge(&memcg->memsw, batch, &counter)) {
++		if (page_counter_try_charge(&memcg->memory, batch, &counter))
+ 			goto done_restock;
+ 		if (do_swap_account)
+ 			page_counter_uncharge(&memcg->memsw, batch);
+@@ -2383,14 +2383,13 @@ int __memcg_kmem_charge_memcg(struct page *page, gfp_t gfp, int order,
+ {
+ 	unsigned int nr_pages = 1 << order;
+ 	struct page_counter *counter;
+-	int ret = 0;
++	int ret;
  
- /* Whether the swap controller is active */
- #ifdef CONFIG_MEMCG_SWAP
-@@ -4214,7 +4214,6 @@ mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
- 	/* root ? */
- 	if (parent_css == NULL) {
- 		root_mem_cgroup = memcg;
--		mem_cgroup_root_css = &memcg->css;
- 		page_counter_init(&memcg->memory, NULL);
- 		memcg->high = PAGE_COUNTER_MAX;
- 		memcg->soft_limit = PAGE_COUNTER_MAX;
+ 	if (!memcg_kmem_is_active(memcg))
+ 		return 0;
+ 
+-	ret = page_counter_try_charge(&memcg->kmem, nr_pages, &counter);
+-	if (ret)
+-		return ret;
++	if (!page_counter_try_charge(&memcg->kmem, nr_pages, &counter))
++		return -ENOMEM;
+ 
+ 	ret = try_charge(memcg, gfp, nr_pages);
+ 	if (ret) {
+diff --git a/mm/page_counter.c b/mm/page_counter.c
+index 11b4bed..7c6a63d 100644
+--- a/mm/page_counter.c
++++ b/mm/page_counter.c
+@@ -56,12 +56,12 @@ void page_counter_charge(struct page_counter *counter, unsigned long nr_pages)
+  * @nr_pages: number of pages to charge
+  * @fail: points first counter to hit its limit, if any
+  *
+- * Returns 0 on success, or -ENOMEM and @fail if the counter or one of
+- * its ancestors has hit its configured limit.
++ * Returns %true on success, or %false and @fail if the counter or one
++ * of its ancestors has hit its configured limit.
+  */
+-int page_counter_try_charge(struct page_counter *counter,
+-			    unsigned long nr_pages,
+-			    struct page_counter **fail)
++bool page_counter_try_charge(struct page_counter *counter,
++			     unsigned long nr_pages,
++			     struct page_counter **fail)
+ {
+ 	struct page_counter *c;
+ 
+@@ -99,13 +99,13 @@ int page_counter_try_charge(struct page_counter *counter,
+ 		if (new > c->watermark)
+ 			c->watermark = new;
+ 	}
+-	return 0;
++	return true;
+ 
+ failed:
+ 	for (c = counter; c != *fail; c = c->parent)
+ 		page_counter_cancel(c, nr_pages);
+ 
+-	return -ENOMEM;
++	return false;
+ }
+ 
+ /**
 -- 
 2.6.2
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
