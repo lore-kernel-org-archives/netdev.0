@@ -1,43 +1,61 @@
-From: =?utf-8?Q?Toke_H=C3=B8iland-J=C3=B8rgensen?= <toke@toke.dk>
-Subject: Expected behaviour of `tc qdisc replace`?
-Date: Wed, 04 Nov 2015 16:34:49 +0100
-Message-ID: <87lhadn5gm.fsf@toke.dk>
+From: Aleksander Morgado <aleksander@aleksander.es>
+Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
+Date: Wed, 4 Nov 2015 16:45:20 +0100
+Message-ID: <CAAP7ucJZxqUdA-B4m=u-+-BGkydYaSdnutiPf4ik36EcfjiUzQ@mail.gmail.com>
+References: <1446419775-5215-1-git-send-email-marex@denx.de>
+	<1938246043.20151104181806@cogentembedded.com>
+	<CAAP7ucJrkhJ=nqwruf0p+YOCdqtH5+N6pgeAY_qF9g7Wc6_XiA@mail.gmail.com>
+	<201511041633.33504.marex@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: cake@lists.bufferbloat.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Marek Vasut <marex@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.tohojo.dk ([77.235.48.147]:42810 "EHLO mail2.tohojo.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932323AbbKDPnK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Nov 2015 10:43:10 -0500
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:36665 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932323AbbKDPpV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 10:45:21 -0500
+Received: by obdgf3 with SMTP id gf3so42217422obd.3
+        for <netdev@vger.kernel.org>; Wed, 04 Nov 2015 07:45:21 -0800 (PST)
+In-Reply-To: <201511041633.33504.marex@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+On Wed, Nov 4, 2015 at 4:33 PM, Marek Vasut <marex@denx.de> wrote:
+> On Wednesday, November 04, 2015 at 04:19:45 PM, Aleksander Morgado wrote:
+>> On Wed, Nov 4, 2015 at 4:18 PM, Vostrikov Andrey
+>>
+>> <andrey.vostrikov@cogentembedded.com> wrote:
+>> >>> > About the parity -- can we add some flag into the datagram to
+>> >>> > indicate we want hardware to calculate the parity for that
+>> >>> > particular datagram for us? And we'd also need to indicate what type
+>> >>> > of parity. I dunno if this is worth the hassle.
+>> >>>
+>> >>> This  is HW configuration property, it does not belong to  datagram.
+>> >>> Also for TX channels,  parity could  be  two  kinds:  odd and even,
+>> >>> for RX it is only on/off.
+>> >>
+>> >> There are datagrams which do contain parity and ones which do not
+>> >> contain it, correct ? Thus, it's a property of that particular
+>> >> datagram.
+>>
+>> All ARINC words have bit #31 as parity bit; whether it's used or not
+>> depends on the setup as Andrey says below.
+>
+> Can bit 31 be ever used for DATA instead of parity ? Or is this just me
+> not understanding the parlance of the specification, where "DATA" actually
+> means "DATA with parity" ?
 
-I recently noticed that the behaviour of `tc qdisc replace` differs
-depending on whether the qdisc being replaced is of the same kind as the
-replacement. I.e.:
+Well, as far as I know bit 31 is always parity bit, never used for
+actual data contents. Which is the spec section that got you confused?
+Maybe I'm the one which didn't read it well?
 
-# tc qdisc del dev eno1 root
-# tc qdisc replace dev eno1 root fq_codel target 100ms interval 200ms
-# tc qdisc replace dev eno1 root fq_codel target 5ms                 
-# tc qdisc
-qdisc fq_codel 8007: dev eno1 root refcnt 2 limit 10240p flows 1024 quantum 1514 target 5.0ms interval 200.0ms ecn 
-# tc qdisc del dev eno1 root                                         
-# tc qdisc replace dev eno1 root fq_codel target 5ms
-# tc qdisc                                          
-qdisc fq_codel 8008: dev eno1 root refcnt 2 limit 10240p flows 1024 quantum 1514 target 5.0ms interval 100.0ms ecn 
-
-Notice the difference in interval between the two output lines from tc.
-
-Now, according to the tc man page, `tc qdisc replace` "Performs a nearly
-atomic remove/add on an existing node id." In which case I would expect
-it to *not* retain settings from the previous configuration.
-
-So my question is: is this a bug, or is it expected behaviour? And if
-the latter, what is the difference between `tc qdisc replace` and `tc
-qdisc change` then supposed to be?
-
--Toke
+-- 
+Aleksander
+https://aleksander.es
