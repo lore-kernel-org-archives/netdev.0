@@ -1,90 +1,38 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/3] netfilter: nf_nat_redirect: add missing NULL pointer check
-Date: Wed,  4 Nov 2015 15:00:37 +0100
-Message-ID: <1446645638-3625-3-git-send-email-pablo@netfilter.org>
-References: <1446645638-3625-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1446645638-3625-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] net: add forgotten IFF_L3MDEV_SLAVE define
+Date: Wed,  4 Nov 2015 14:59:06 +0100
+Message-ID: <1446645546-588-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, dsa@cumulusnetworks.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:37615 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965407AbbKDN7K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 08:59:10 -0500
+Received: by wicfv8 with SMTP id fv8so32770764wic.0
+        for <netdev@vger.kernel.org>; Wed, 04 Nov 2015 05:59:08 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Munehisa Kamata <kamatam@amazon.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-Commit 8b13eddfdf04cbfa561725cfc42d6868fe896f56 ("netfilter: refactor NAT
-redirect IPv4 to use it from nf_tables") has introduced a trivial logic
-change which can result in the following crash.
-
-BUG: unable to handle kernel NULL pointer dereference at 0000000000000030
-IP: [<ffffffffa033002d>] nf_nat_redirect_ipv4+0x2d/0xa0 [nf_nat_redirect]
-PGD 3ba662067 PUD 3ba661067 PMD 0
-Oops: 0000 [#1] SMP
-Modules linked in: ipv6(E) xt_REDIRECT(E) nf_nat_redirect(E) xt_tcpudp(E) iptable_nat(E) nf_conntrack_ipv4(E) nf_defrag_ipv4(E) nf_nat_ipv4(E) nf_nat(E) nf_conntrack(E) ip_tables(E) x_tables(E) binfmt_misc(E) xfs(E) libcrc32c(E) evbug(E) evdev(E) psmouse(E) i2c_piix4(E) i2c_core(E) acpi_cpufreq(E) button(E) ext4(E) crc16(E) jbd2(E) mbcache(E) dm_mirror(E) dm_region_hash(E) dm_log(E) dm_mod(E)
-CPU: 0 PID: 2536 Comm: ip Tainted: G            E   4.1.7-15.23.amzn1.x86_64 #1
-Hardware name: Xen HVM domU, BIOS 4.2.amazon 05/06/2015
-task: ffff8800eb438000 ti: ffff8803ba664000 task.ti: ffff8803ba664000
-[...]
-Call Trace:
- <IRQ>
- [<ffffffffa0334065>] redirect_tg4+0x15/0x20 [xt_REDIRECT]
- [<ffffffffa02e2e99>] ipt_do_table+0x2b9/0x5e1 [ip_tables]
- [<ffffffffa0328045>] iptable_nat_do_chain+0x25/0x30 [iptable_nat]
- [<ffffffffa031777d>] nf_nat_ipv4_fn+0x13d/0x1f0 [nf_nat_ipv4]
- [<ffffffffa0328020>] ? iptable_nat_ipv4_fn+0x20/0x20 [iptable_nat]
- [<ffffffffa031785e>] nf_nat_ipv4_in+0x2e/0x90 [nf_nat_ipv4]
- [<ffffffffa03280a5>] iptable_nat_ipv4_in+0x15/0x20 [iptable_nat]
- [<ffffffff81449137>] nf_iterate+0x57/0x80
- [<ffffffff814491f7>] nf_hook_slow+0x97/0x100
- [<ffffffff814504d4>] ip_rcv+0x314/0x400
-
-unsigned int
-nf_nat_redirect_ipv4(struct sk_buff *skb,
-...
-{
-...
-		rcu_read_lock();
-		indev = __in_dev_get_rcu(skb->dev);
-		if (indev != NULL) {
-			ifa = indev->ifa_list;
-			newdst = ifa->ifa_local; <---
-		}
-		rcu_read_unlock();
-...
-}
-
-Before the commit, 'ifa' had been always checked before access. After the
-commit, however, it could be accessed even if it's NULL. Interestingly,
-this was once fixed in 2003.
-
-http://marc.info/?l=netfilter-devel&m=106668497403047&w=2
-
-In addition to the original one, we have seen the crash when packets that
-need to be redirected somehow arrive on an interface which hasn't been
-yet fully configured.
-
-This change just reverts the logic to the old behavior to avoid the crash.
-
-Fixes: 8b13eddfdf04 ("netfilter: refactor NAT redirect IPv4 to use it from nf_tables")
-Signed-off-by: Munehisa Kamata <kamatam@amazon.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Fixes: fee6d4c77 ("net: Add netif_is_l3_slave")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/netfilter/nf_nat_redirect.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/linux/netdevice.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/netfilter/nf_nat_redirect.c b/net/netfilter/nf_nat_redirect.c
-index 97b75f9..d438698 100644
---- a/net/netfilter/nf_nat_redirect.c
-+++ b/net/netfilter/nf_nat_redirect.c
-@@ -55,7 +55,7 @@ nf_nat_redirect_ipv4(struct sk_buff *skb,
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 4ac653b..2c00772 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1322,6 +1322,7 @@ enum netdev_priv_flags {
+ #define IFF_L3MDEV_MASTER		IFF_L3MDEV_MASTER
+ #define IFF_NO_QUEUE			IFF_NO_QUEUE
+ #define IFF_OPENVSWITCH			IFF_OPENVSWITCH
++#define IFF_L3MDEV_SLAVE		IFF_L3MDEV_SLAVE
  
- 		rcu_read_lock();
- 		indev = __in_dev_get_rcu(skb->dev);
--		if (indev != NULL) {
-+		if (indev && indev->ifa_list) {
- 			ifa = indev->ifa_list;
- 			newdst = ifa->ifa_local;
- 		}
+ /**
+  *	struct net_device - The DEVICE structure.
 -- 
-2.1.4
-
+1.9.3
