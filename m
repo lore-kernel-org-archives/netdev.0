@@ -1,33 +1,52 @@
 From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [iproute PATCH] lib/utils: improve error messages of get_addr()
- and get_prefix()
-Date: Tue, 3 Nov 2015 16:33:01 -0800
-Message-ID: <20151103163301.70fafe71@xeon-e3>
-References: <1446134738-16732-1-git-send-email-phil@nwl.cc>
+Subject: Re: [iproute PATCH] iproute: fix filter_nlmsg
+Date: Tue, 3 Nov 2015 16:33:59 -0800
+Message-ID: <20151103163359.0a38d573@xeon-e3>
+References: <1446117347-9110-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>
 To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:35771 "EHLO
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:4161 "EHLO
 	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752748AbbKDAcz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 19:32:55 -0500
-In-Reply-To: <1446134738-16732-1-git-send-email-phil@nwl.cc>
+	by vger.kernel.org with ESMTP id S1755445AbbKDAdw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 19:33:52 -0500
+In-Reply-To: <1446117347-9110-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 29 Oct 2015 17:05:38 +0100
+On Thu, 29 Oct 2015 12:15:47 +0100
 Phil Sutter <phil@nwl.cc> wrote:
 
-> Instead of statically complaining about illegal inet address, use
-> get_family() to get the address family right.
+> This patch is based upon an old Fedora bug[1] regarding the routing
+> setup of PPP links. I'm not quite sure if it still applies today or how
+> to trigger it, but looking at the change introducing this, it's
+> obviously a bug.
 > 
-> Based on a patch by Hangbin Liu to print "inet6" for AF_INET6 made more
-> generic by me.
+> [1] https://bugzilla.redhat.com/show_bug.cgi?id=622782
 > 
+> Fixes: 4479282 ("iproute2: filter routing entries based on clone flag")
 > Signed-off-by: Phil Sutter <phil@nwl.cc>
 > ---
+>  ip/iproute.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index eab512d..ea7e9aa 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -151,7 +151,7 @@ static int filter_nlmsg(struct nlmsghdr *n, struct rtattr **tb, int host_len)
+>  	if (r->rtm_family == AF_INET6 && table != RT_TABLE_MAIN)
+>  		ip6_multiple_tables = 1;
+>  
+> -	if (filter.cloned == !(r->rtm_flags&RTM_F_CLONED))
+> +	if (filter.cloned && !(r->rtm_flags&RTM_F_CLONED))
+>  		return 0;
+>  
+>  	if (r->rtm_family == AF_INET6 && !ip6_multiple_tables) {
 
-Applied for 4.3 release.
+Holding off on this, until there is an obvious reproduction.
+The patch looks right but this code has been around a long time and don't want
+any surprised users.
