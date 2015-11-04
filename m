@@ -1,51 +1,30 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: Re: [PATCH] bnxt_en: add VXLAN dependency
-Date: Wed, 4 Nov 2015 08:07:53 -0800
-Message-ID: <1446653274.3700.5.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <10667823.xAtO4QOJMM@wuerfel>
+From: "Jose Calvache" <josecalvach.e@outlook.com>
+Subject: Eure Hilfe
+Date: Wed, 4 Nov 2015 11:01:27 -0500
+Message-ID: <4c279bac42a356d390b2ab135939e0be.squirrel@wdtraders.com>
+Reply-To: josecalvach.e@aim.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="cp1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <davem@davemloft.net>,
-	Eddie Wai <eddie.wai@broadcom.com>,
-	Jeffrey Huang <huangjw@broadcom.com>,
-	"Prashant Sreedharan" <prashant@broadcom.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <10667823.xAtO4QOJMM@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 18-230-194-104-dedicated.multacom.com ([104.194.230.18]:58374
+	"EHLO server.arnhost.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751314AbbKDQRi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 11:17:38 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-11-04 at 16:00 +0100, Arnd Bergmann wrote: 
-> VXLAN may be a loadable module, and this driver cannot be built-in
-> in that case, or we get a link error:
-> 
-> drivers/built-in.o: In function `__bnxt_open_nic':
-> drivers/net/ethernet/broadcom/bnxt/bnxt.c:4581: undefined reference to `vxlan_get_rx_port'
-> 
-> This adds a Kconfig dependency that ensures that either VXLAN is
-> disabled (which the driver handles correctly), or we depend on
-> VXLAN itself and disallow built-in compilation when VXLAN is
-> a module.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Guten Tag,
 
-Thanks.
-Acked-by: Michael Chan <mchan@broadcom.com>
+Ich m=F6chte, dass Sie mich auf einem Geldtransfer zu unterst=FCtzen, w=
+enn Sie
+bereit und interessiert sind, antworten Sie mir bitte nach Erhalt diese=
+r
+E-Mails f=FCr mehr Klarheit und Modalit=E4ten f=FCr den erfolgreichen A=
+bschluss
+dieser Transaktion erforderlich.
+Dank und warten Sie Ihre dringende Antwort zu diesem Thema.
 
-> Fixes: c0c050c58d84 ("bnxt_en: New Broadcom ethernet driver.")
-> 
-> diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
-> index 67a7d520d9f5..8550df189ceb 100644
-> --- a/drivers/net/ethernet/broadcom/Kconfig
-> +++ b/drivers/net/ethernet/broadcom/Kconfig
-> @@ -173,6 +173,7 @@ config SYSTEMPORT
->  config BNXT
->  	tristate "Broadcom NetXtreme-C/E support"
->  	depends on PCI
-> +	depends on VXLAN || VXLAN=n
->  	select FW_LOADER
->  	select LIBCRC32C
->  	---help---
-> 
+=46reundliche Gr=FC=DFe,
+Mr. Jose Calvache.
