@@ -1,81 +1,66 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH v5] i40e: Look up MAC address in Open Firmware or IDPROM
-Date: Thu, 5 Nov 2015 01:06:36 +0200
-Message-ID: <CAHp75VfiveeZQ=gKDo7ZbySowrxxNNaC7=ZQriU0m-oVEQ92Kw@mail.gmail.com>
-References: <20151104193956.GD14575@oracle.com>
-	<CAHp75Vcrx+Rkz2mDSG+GEUW6LdO0w6On=6UoV4fhZK27Ayf1zQ@mail.gmail.com>
-	<FC41C24E35F18A40888AACA1A36F3E418AFAEA1A@fmsmsx115.amr.corp.intel.com>
+From: Benjamin Poirier <bpoirier@suse.com>
+Subject: Re: [PATCH v2 2/4] e1000e: Do not read icr in Other interrupt
+Date: Wed, 4 Nov 2015 15:19:45 -0800
+Message-ID: <20151104231945.GA7111@f1.synalogic.ca>
+References: <1446226264-29660-1-git-send-email-bpoirier@suse.com>
+ <1446226264-29660-3-git-send-email-bpoirier@suse.com>
+ <5633C2A4.90002@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>
-To: "Nelson, Shannon" <shannon.nelson@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f193.google.com ([209.85.160.193]:35364 "EHLO
-	mail-yk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030396AbbKDXGh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 18:06:37 -0500
-In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E418AFAEA1A@fmsmsx115.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Frank Steiner <steiner-reg@bio.ifi.lmu.de>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5633C2A4.90002@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 5, 2015 at 12:53 AM, Nelson, Shannon
-<shannon.nelson@intel.com> wrote:
->> From: Andy Shevchenko [mailto:andy.shevchenko@gmail.com]
->> Sent: Wednesday, November 04, 2015 11:59 AM
->>
->> On Wed, Nov 4, 2015 at 9:39 PM, Sowmini Varadhan
->> <sowmini.varadhan@oracle.com> wrote:
->> >
->> > This is the i40e equivalent of commit c762dff24c06 ("ixgbe: Look up MAC
->> > address in Open Firmware or IDPROM").
->
-> [...]
->
->> > +       }
->> > +
->> > +       memset(&element, 0, sizeof(element));
->> > +       ether_addr_copy(element.mac_addr, macaddr);
->> > +       element.flags = cpu_to_le16(I40E_AQC_MACVLAN_ADD_PERFECT_MATCH);
->> > +       ret = i40e_aq_add_macvlan(&vsi->back->hw, vsi->seid, &element,
->> 1, NULL);
->> > +       aq_err = vsi->back->hw.aq.asq_last_status;
->>
->> Do you really need a separate variable (aq_err)?
->
-> These are two separate error values that we're tracking - one from the communication between the driver and the firmware (aq_err) and one from the driver activity.  Sometimes there may be an AQ error that we want to report, but it might not actually be a driver error.  Alternatively, there are times when the AQ error needs to get interpreted different ways depending on which task the driver is performing.  Lastly, the AQ error gives us more detail on whatever the transaction error may have been which gives us more useful debug info.
+On 2015/10/30 12:19, Alexander Duyck wrote:
+> On 10/30/2015 10:31 AM, Benjamin Poirier wrote:
+> >Using eiac instead of reading icr allows us to avoid interference with
+> >rx and tx interrupts in the Other interrupt handler.
+> >
+> >According to the 82574 datasheet section 10.2.4.1, interrupt causes that
+> >trigger the Other interrupt are
+> >1) Link Status Change.
+> >2) Receiver Overrun.
+> >3) MDIO Access Complete.
+> >4) Small Receive Packet Detected.
+> >5) Receive ACK Frame Detected.
+> >6) Manageability Event Detected.
+> >
+> >Causes 3, 4, 5 are related to features which are not enabled by the
+> >driver. Always assume that cause 1 is what triggered the Other interrupt
+> >and set get_link_status. Cause 2 and 6 should be rare enough that the
+> >extra cost of needlessly re-reading the link status is negligible.
+> >
+> >Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+> 
+> You might want to instead use a write of LSC to the ICR instead of just
+> using auto-clear and not enabling LSC.  My concern is that you might no
+> longer be getting link status change events at all.  An easy test is to just
+> unplug/plug the cable a few times, or run "ethtool -r" on the link partner
+> if connected back to back.  You should see messages appear in the dmesg log
+> indicating that the link state changed.
+> 
+> In addition you should probably clear the IAME bit in the CTRL_EXT register
+> so that you don't risk masking the interrupts on the ICR read or write.
 
-Understandable, though in this certain function I don't see why we
-can't drop it. The usage of it like this:
+Thanks, your concern about not getting LSC events was right. After more
+experimentation I noticed that in order for the Other interrupt to be
+raised for each of these six conditions, the IMS bit for that condition
+must also be set. I've restored setting LSC in IMS. OTOH, I don't see a
+need to clear LSC from ICR. Even without an ICR read or write-to-clear
+to clear the LSC bit, Other interrupts are raised to signal LSC events.
 
-var x;
-
-x = y;
-if (x) {
-...
-}
-
-Which is just
-if (y) {
-...
-}
-
-
->
-> sln
-
-
-
--- 
-With Best Regards,
-Andy Shevchenko
+I'll wait for net-next to reopen and send v3.
