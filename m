@@ -1,172 +1,26 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net] net: dsa: mv88e6xxx: isolate unbridged ports
-Date: Wed, 04 Nov 2015 14:43:17 -0800
-Message-ID: <563A8A05.6020401@gmail.com>
-References: <1446675820-25608-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Xi Wang <xi.wang@gmail.com>
+Subject: Re: [PATCH] bpf: add mod default A and X test cases
+Date: Wed, 4 Nov 2015 14:43:47 -0800
+Message-ID: <CAKU6vya0D7Sxy5A3SaL1WoqidveT8yJY21PnJfLJwVGVu8V9aQ@mail.gmail.com>
+References: <1446665797-21400-1-git-send-email-yang.shi@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <ast@kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Z Lim <zlim.lnx@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linaro-kernel@lists.linaro.org
+To: Yang Shi <yang.shi@linaro.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446675820-25608-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <1446665797-21400-1-git-send-email-yang.shi@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/11/15 14:23, Vivien Didelot wrote:
-> The DSA documentation specifies that each port must be capable of
-> forwarding frames to the CPU port. The last changes on bridging support
-> for the mv88e6xxx driver broke this requirement for non-bridged ports.
-> 
-> So as for the bridged ports, reserve a few VLANs (4000+) in the switch
-> to isolate ports that have not been bridged yet.
-> 
-> By default, a port will be isolated with the CPU and DSA ports. When the
-> port joins a bridge, it will leave its reserved port. When it is removed
-> from a bridge, it will join its reserved VLAN again.
+On Wed, Nov 4, 2015 at 11:36 AM, Yang Shi <yang.shi@linaro.org> wrote:
+> When running "mod X" operation, if X is 0 the filter has to be halt.
+> Add new test cases to cover A = A mod X if X is 0, and A = A mod 1.
+>
+> CC: Xi Wang <xi.wang@gmail.com>
+> CC: Zi Shen Lim <zlim.lnx@gmail.com>
+> Signed-off-by: Yang Shi <yang.shi@linaro.org>
 
-This looks fine but the logic is a little hard to understand at first
-glance.
-
-> 
-> Fixes: 5fe7f68016ff ("net: dsa: mv88e6xxx: fix hardware bridging")
-> Reported-by: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  drivers/net/dsa/mv88e6171.c |  2 ++
->  drivers/net/dsa/mv88e6352.c |  2 ++
->  drivers/net/dsa/mv88e6xxx.c | 42 ++++++++++++++++++++++++++++++++++++++++++
->  drivers/net/dsa/mv88e6xxx.h |  2 ++
->  4 files changed, 48 insertions(+)
-> 
-> diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-> index 54aa000..6e18213 100644
-> --- a/drivers/net/dsa/mv88e6171.c
-> +++ b/drivers/net/dsa/mv88e6171.c
-> @@ -103,6 +103,8 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
->  #endif
->  	.get_regs_len		= mv88e6xxx_get_regs_len,
->  	.get_regs		= mv88e6xxx_get_regs,
-> +	.port_join_bridge	= mv88e6xxx_port_bridge_join,
-> +	.port_leave_bridge	= mv88e6xxx_port_bridge_leave,
->  	.port_stp_update        = mv88e6xxx_port_stp_update,
->  	.port_pvid_get		= mv88e6xxx_port_pvid_get,
->  	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
-> diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-> index ff846d0..cc6c545 100644
-> --- a/drivers/net/dsa/mv88e6352.c
-> +++ b/drivers/net/dsa/mv88e6352.c
-> @@ -323,6 +323,8 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
->  	.set_eeprom		= mv88e6352_set_eeprom,
->  	.get_regs_len		= mv88e6xxx_get_regs_len,
->  	.get_regs		= mv88e6xxx_get_regs,
-> +	.port_join_bridge	= mv88e6xxx_port_bridge_join,
-> +	.port_leave_bridge	= mv88e6xxx_port_bridge_leave,
->  	.port_stp_update	= mv88e6xxx_port_stp_update,
->  	.port_pvid_get		= mv88e6xxx_port_pvid_get,
->  	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
-> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-> index 04cff58..b06dba0 100644
-> --- a/drivers/net/dsa/mv88e6xxx.c
-> +++ b/drivers/net/dsa/mv88e6xxx.c
-> @@ -1462,6 +1462,10 @@ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
->  				const struct switchdev_obj_port_vlan *vlan,
->  				struct switchdev_trans *trans)
->  {
-> +	/* We reserve a few VLANs to isolate unbridged ports */
-> +	if (vlan->vid_end >= 4000)
-> +		return -EOPNOTSUPP;
-
-Since this constant is repeated 3 times, you might want to create a
-local define for it and size it based on the number of ports present in
-the switch rather than leaving 95 numbers?
-
-> +
->  	/* We don't need any dynamic resource from the kernel (yet),
->  	 * so skip the prepare phase.
->  	 */
-> @@ -1870,6 +1874,36 @@ unlock:
->  	return err;
->  }
->  
-> +int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port, u32 members)
-> +{
-> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-> +	const u16 pvid = 4000 + ds->index * DSA_MAX_PORTS + port;
-> +	int err;
-> +
-> +	/* The port joined a bridge, so leave its reserved VLAN */
-> +	mutex_lock(&ps->smi_mutex);
-> +	err = _mv88e6xxx_port_vlan_del(ds, port, pvid);
-> +	if (!err)
-> +		err = _mv88e6xxx_port_pvid_set(ds, port, 0);
-
-Does that mean that the following happens:
-
-- bridge is created and port joins it
-- port is configured to be in pvid 0 while joining
-- port is then configured again by the bridge layer to be in whatever
-pvid the user has decided
-
-The other question is, does that break isolation between multiple
-bridges on the same switch? Should we use the bridge ifindex here
-somehow as a pvid indication?
-
-> +	mutex_unlock(&ps->smi_mutex);
-> +	return err;
-> +}
-> +
-> +int mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port, u32 members)
-> +{
-> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-> +	const u16 pvid = 4000 + ds->index * DSA_MAX_PORTS + port;
-> +	int err;
-> +
-> +	/* The port left the bridge, so join its reserved VLAN */
-> +	mutex_lock(&ps->smi_mutex);
-> +	err = _mv88e6xxx_port_vlan_add(ds, port, pvid, true);
-> +	if (!err)
-> +		err = _mv88e6xxx_port_pvid_set(ds, port, pvid);
-> +	mutex_unlock(&ps->smi_mutex);
-> +	return err;
-> +}
-> +
->  static void mv88e6xxx_bridge_work(struct work_struct *work)
->  {
->  	struct mv88e6xxx_priv_state *ps;
-> @@ -2140,6 +2174,14 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
->  		ret = mv88e6xxx_setup_port(ds, i);
->  		if (ret < 0)
->  			return ret;
-> +
-> +		if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
-> +			continue;
-> +
-> +		/* setup the unbridged state */
-> +		ret = mv88e6xxx_port_bridge_leave(ds, i, 0);
-> +		if (ret < 0)
-> +			return ret;
->  	}
->  	return 0;
->  }
-> diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-> index fb9a873..21c8daa 100644
-> --- a/drivers/net/dsa/mv88e6xxx.h
-> +++ b/drivers/net/dsa/mv88e6xxx.h
-> @@ -468,6 +468,8 @@ int mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int addr, int regnum,
->  int mv88e6xxx_get_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e);
->  int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
->  		      struct phy_device *phydev, struct ethtool_eee *e);
-> +int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port, u32 members);
-> +int mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port, u32 members);
->  int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state);
->  int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
->  				const struct switchdev_obj_port_vlan *vlan,
-> 
-
-
--- 
-Florian
+Acked-by: Xi Wang <xi.wang@gmail.com>
