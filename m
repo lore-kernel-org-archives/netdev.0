@@ -1,52 +1,55 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
-Date: Wed, 4 Nov 2015 16:33:33 +0100
-Message-ID: <201511041633.33504.marex@denx.de>
-References: <1446419775-5215-1-git-send-email-marex@denx.de> <1938246043.20151104181806@cogentembedded.com> <CAAP7ucJrkhJ=nqwruf0p+YOCdqtH5+N6pgeAY_qF9g7Wc6_XiA@mail.gmail.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH net v2] ipv6: clean up dev_snmp6 proc entry when we fail
+ to initialize inet6_dev
+Date: Wed, 4 Nov 2015 16:36:54 +0100
+Message-ID: <20151104153654.GA22004@bistromath.redhat.com>
+References: <94ceff1a1f708ce80664370c783f7bfb066fccb5.1446577025.git.sd@queasysnail.net>
+ <1446650594.4184.25.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	"Marc Kleine-Budde" <mkl@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Aleksander Morgado <aleksander@aleksander.es>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, dvyukov@google.com,
+	hannes@stressinduktion.org, cwang@twopensource.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:43987 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030324AbbKDPdv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 10:33:51 -0500
-In-Reply-To: <CAAP7ucJrkhJ=nqwruf0p+YOCdqtH5+N6pgeAY_qF9g7Wc6_XiA@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:51846 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932491AbbKDPg5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2015 10:36:57 -0500
+Content-Disposition: inline
+In-Reply-To: <1446650594.4184.25.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, November 04, 2015 at 04:19:45 PM, Aleksander Morgado wrote:
-> On Wed, Nov 4, 2015 at 4:18 PM, Vostrikov Andrey
+2015-11-04, 07:23:14 -0800, Eric Dumazet wrote:
+> On Wed, 2015-11-04 at 14:47 +0100, Sabrina Dubroca wrote:
+> > In ipv6_add_dev, when addrconf_sysctl_register fails, we do not clean up
+> > the dev_snmp6 entry that we have already registered for this device.
+> > Call snmp6_unregister_dev in this case.
+> > 
+> > Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> > Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> > ---
+> > 
+> > v2: we cannot call snmp6_unregister_dev from addrconf_core.c, this
+> >     breaks CONFIG_IPV6=m, instead do the clean up directly from
+> >     ipv6_add_dev
+> >     thanks Cong.
 > 
-> <andrey.vostrikov@cogentembedded.com> wrote:
-> >>> > About the parity -- can we add some flag into the datagram to
-> >>> > indicate we want hardware to calculate the parity for that
-> >>> > particular datagram for us? And we'd also need to indicate what type
-> >>> > of parity. I dunno if this is worth the hassle.
-> >>> 
-> >>> This  is HW configuration property, it does not belong to  datagram.
-> >>> Also for TX channels,  parity could  be  two  kinds:  odd and even,
-> >>> for RX it is only on/off.
-> >> 
-> >> There are datagrams which do contain parity and ones which do not
-> >> contain it, correct ? Thus, it's a property of that particular
-> >> datagram.
+> Any idea when the bug was added ?
 > 
-> All ARINC words have bit #31 as parity bit; whether it's used or not
-> depends on the setup as Andrey says below.
+> Can we please add a proper Fixes: tag for patches that need to be
+> backported to stable versions ?
+> 
+> It seems to be
+> 
+> Fixes: a317a2f19da7d ("ipv6: fail early when creating netdev named all or default")
+> 
+> So this goes back to linux-3.17 ?
+> 
+> Thanks a lot Sabrina !
 
-Can bit 31 be ever used for DATA instead of parity ? Or is this just me
-not understanding the parlance of the specification, where "DATA" actually
-means "DATA with parity" ?
+Sorry, I didn't do the archeology (well, run git blame).  That looks
+correct, thanks Eric.
 
-Best regards,
-Marek Vasut
+-- 
+Sabrina
