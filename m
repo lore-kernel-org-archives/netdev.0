@@ -1,48 +1,45 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH net] tun_dst: Fix potential NULL dereference
-Date: Wed,  4 Nov 2015 13:49:49 +0100
-Message-ID: <1446641389-26183-1-git-send-email-tklauser@distanz.ch>
-Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:54673 "EHLO mail.zhinst.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750914AbbKDMtw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Nov 2015 07:49:52 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [PATCH] VSOCK: call sk->sk_data_ready() on accept()
+Date: Wed,  4 Nov 2015 12:58:42 +0000
+Message-ID: <1446641922-32243-1-git-send-email-stefanha@redhat.com>
+Cc: Thomas Hellstrom <thellstrom@vmware.com>,
+	Aditya Asarwade <asarwade@vmware.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jorgen Hansen <jhansen@vmware.com>,
+	linux-kernel@vger.kernel.org, Stefan Hajnoczi <stefanha@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In tun_dst_unclone() the return value of skb_metadata_dst() is checked
-for being NULL after it is dereferenced. Fix this by moving the
-dereference after the NULL check.
+When a listen socket enqueues a connection for userspace to accept(),
+the sk->sk_data_ready() callback should be invoked.  In-kernel socket
+users rely on this callback to detect when incoming connections are
+available.
 
-Found by the Coverity scanner (CID 1338068).
+Currently the sk->sk_state_change() callback is invoked by
+vmci_transport.c.  This happens to work for userspace applications since
+sk->sk_state_change = sock_def_wakeup() and sk->sk_data_ready =
+sock_def_readable() both wake up the accept() waiter.  In-kernel socket
+users, on the other hand, fail to detect incoming connections.
 
-Fixes: fc4099f17240 ("openvswitch: Fix egress tunnel info.")
-Cc: Pravin B Shelar <pshelar@nicira.com>
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
 ---
- include/net/dst_metadata.h | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/vmw_vsock/vmci_transport.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
-index ce00971..6816f0f 100644
---- a/include/net/dst_metadata.h
-+++ b/include/net/dst_metadata.h
-@@ -63,12 +63,13 @@ static inline struct metadata_dst *tun_rx_dst(int md_size)
- static inline struct metadata_dst *tun_dst_unclone(struct sk_buff *skb)
- {
- 	struct metadata_dst *md_dst = skb_metadata_dst(skb);
--	int md_size = md_dst->u.tun_info.options_len;
-+	int md_size;
- 	struct metadata_dst *new_md;
+diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
+index 7555cad..9363abb 100644
+--- a/net/vmw_vsock/vmci_transport.c
++++ b/net/vmw_vsock/vmci_transport.c
+@@ -1236,7 +1236,7 @@ vmci_transport_recv_connecting_server(struct sock *listener,
+ 	/* Callers of accept() will be be waiting on the listening socket, not
+ 	 * the pending socket.
+ 	 */
+-	listener->sk_state_change(listener);
++	listener->sk_data_ready(listener);
  
- 	if (!md_dst)
- 		return ERR_PTR(-EINVAL);
+ 	return 0;
  
-+	md_size = md_dst->u.tun_info.options_len;
- 	new_md = metadata_dst_alloc(md_size, GFP_ATOMIC);
- 	if (!new_md)
- 		return ERR_PTR(-ENOMEM);
 -- 
-2.6.1.148.g7927db1
+2.5.0
