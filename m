@@ -1,45 +1,59 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [PATCH] VSOCK: call sk->sk_data_ready() on accept()
-Date: Wed,  4 Nov 2015 12:58:42 +0000
-Message-ID: <1446641922-32243-1-git-send-email-stefanha@redhat.com>
-Cc: Thomas Hellstrom <thellstrom@vmware.com>,
-	Aditya Asarwade <asarwade@vmware.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jorgen Hansen <jhansen@vmware.com>,
-	linux-kernel@vger.kernel.org, Stefan Hajnoczi <stefanha@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] ipv6: allow routes to be configured with expire values
+Date: Wed,  4 Nov 2015 21:08:10 +0800
+Message-ID: <351cae1858ad0f91eb8a2ff9c9a1c356e50e0ae8.1446642490.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, hannes@stressinduktion.org, thaller@redhat.com
+To: network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:36128 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750746AbbKDNIO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 08:08:14 -0500
+Received: by pacdm15 with SMTP id dm15so28824437pac.3
+        for <netdev@vger.kernel.org>; Wed, 04 Nov 2015 05:08:13 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When a listen socket enqueues a connection for userspace to accept(),
-the sk->sk_data_ready() callback should be invoked.  In-kernel socket
-users rely on this callback to detect when incoming connections are
-available.
+Add the support for adding expire value to routes,  requested by
+Tom Gundersen <teg@jklm.no> for systemd-networkd, and NetworkManager
+wants it too.
 
-Currently the sk->sk_state_change() callback is invoked by
-vmci_transport.c.  This happens to work for userspace applications since
-sk->sk_state_change = sock_def_wakeup() and sk->sk_data_ready =
-sock_def_readable() both wake up the accept() waiter.  In-kernel socket
-users, on the other hand, fail to detect incoming connections.
+add it by using the field rta_expires of rta_cacheinfo
 
-Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/vmw_vsock/vmci_transport.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv6/route.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
-index 7555cad..9363abb 100644
---- a/net/vmw_vsock/vmci_transport.c
-+++ b/net/vmw_vsock/vmci_transport.c
-@@ -1236,7 +1236,7 @@ vmci_transport_recv_connecting_server(struct sock *listener,
- 	/* Callers of accept() will be be waiting on the listening socket, not
- 	 * the pending socket.
- 	 */
--	listener->sk_state_change(listener);
-+	listener->sk_data_ready(listener);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 946880a..49780bc 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2700,6 +2700,7 @@ static const struct nla_policy rtm_ipv6_policy[RTA_MAX+1] = {
+ 	[RTA_PREF]              = { .type = NLA_U8 },
+ 	[RTA_ENCAP_TYPE]	= { .type = NLA_U16 },
+ 	[RTA_ENCAP]		= { .type = NLA_NESTED },
++	[RTA_CACHEINFO]		= { .len = sizeof(struct rta_cacheinfo) },
+ };
  
- 	return 0;
+ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+@@ -2800,6 +2801,16 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (tb[RTA_ENCAP_TYPE])
+ 		cfg->fc_encap_type = nla_get_u16(tb[RTA_ENCAP_TYPE]);
  
++	if (tb[RTA_CACHEINFO]) {
++		struct rta_cacheinfo *ci = nla_data(tb[RTA_CACHEINFO]);
++		unsigned long timeout = addrconf_timeout_fixup(ci->rta_expires, HZ);
++
++		if (addrconf_finite_timeout(timeout)) {
++			cfg->fc_expires = jiffies_to_clock_t(timeout * HZ);
++			cfg->fc_flags |= RTF_EXPIRES;
++		}
++	}
++
+ 	err = 0;
+ errout:
+ 	return err;
 -- 
-2.5.0
+2.1.0
