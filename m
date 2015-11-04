@@ -1,88 +1,64 @@
-From: Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>
-Subject: Re: [PATCH net-next] vlan: Invoke driver vlan hooks only if device is present
-Date: Wed, 4 Nov 2015 13:31:12 +0530
-Message-ID: <CAE37WoMO9JJDY8daYbGkqcM+9Bwcz-+5K0CMknyFJSfHgSJZ7Q@mail.gmail.com>
-References: <1446562559-7264-1-git-send-email-padmanabh.ratnakar@avagotech.com>
-	<20151103.111633.1800653969325047017.davem@davemloft.net>
+From: Aleksander Morgado <aleksander@aleksander.es>
+Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
+Date: Wed, 4 Nov 2015 10:31:59 +0100
+Message-ID: <CAAP7uc+73KiMFLrZbMM=1yAZZkn-NcVULm0YJd0UJNGBAiq3yw@mail.gmail.com>
+References: <1446419775-5215-1-git-send-email-marex@denx.de>
+	<CAAP7uc+z==A=VZqYXmsQB4CAuTXvbwefhVyUdud0ES30rbaBsg@mail.gmail.com>
+	<CAAP7ucLEN3-_9agX_miLu4n6Vcnbd+jBouMXmEg0x196Q1OZmg@mail.gmail.com>
+	<201511031833.27689.marex@denx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Marek Vasut <marex@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:33830 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753732AbbKDIBN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 03:01:13 -0500
-Received: by oies66 with SMTP id s66so23742522oie.1
-        for <netdev@vger.kernel.org>; Wed, 04 Nov 2015 00:01:12 -0800 (PST)
-In-Reply-To: <20151103.111633.1800653969325047017.davem@davemloft.net>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:33645 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754672AbbKDJcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 04:32:00 -0500
+Received: by obbww6 with SMTP id ww6so8652974obb.0
+        for <netdev@vger.kernel.org>; Wed, 04 Nov 2015 01:31:59 -0800 (PST)
+In-Reply-To: <201511031833.27689.marex@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
-
-On Tue, Nov 3, 2015 at 9:46 PM, David Miller <davem@davemloft.net> wrote:
-> From: Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>
-> Date: Tue,  3 Nov 2015 20:25:59 +0530
->
->> NIC drivers mark device as detached during error recovery.
->> It expects no manangement hooks to be invoked in this state.
->> Invoke driver vlan hooks only if device is present.
+On Tue, Nov 3, 2015 at 6:33 PM, Marek Vasut <marex@denx.de> wrote:
+> On Tuesday, November 03, 2015 at 05:56:53 PM, Aleksander Morgado wrote:
+>> On Tue, Nov 3, 2015 at 5:18 PM, Aleksander Morgado
 >>
->> Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>
+>> <aleksander@aleksander.es> wrote:
+>> > On Tue, Nov 3, 2015 at 4:19 PM, Marek Vasut <marex@denx.de> wrote:
+>> >>> , or the duplex TX/RX setup for channels
+>> >>> (channels are either RX or TX, not both), or the local
+>> >>> echoing/loopback (which wouldn't make much sense for TX-only
+>> >>> channels).
+>> >>
+>> >> Aren't the RX-only/TX-only channels rather a special case ?
+>> >
+>> > They're actually the only case AFAIK. You've got systems generating
+>> > streams of ARINC429 words (e.g. the IRS, the FMC...) and systems that
+>> > may consume the streams from multiple independent channels (e.g. the
+>> > IFE). I try to think of each logical bus as a single transmitter
+>> > broadcasting to multiple receivers.
+>>
+>> I've re-checked the spec and it does say that there may be systems
+>> that act as source (TX) and sink (RX), e.g. DME, VOR or ILS. But in
+>> those cases, they will actually have separate TX and RX physical
+>> ports.
 >
-> I don't like this.
->
-> This approach to solving the issue just peppers checks randomly around
-> the kernel and the risk for missing cases is very high.  It is also
-> not clear to me what exactly specifies that these calls are not valid
-> in such states.
->
-> Traditionally we've depended upon the driver to make this kind of check
-> in it's callback, and that way we don't need to add extra overhead for
-> everyone at all of these method invokcation points.
->
-> Therefore, I would like to see a less dirty, and less error prone
-> approach to solving this bug.
+> So, considering that hi3593 which as 2x RX and 1x TX port, what about
+> registering one device per port and be done with it ?
 
-I am trying to figure out the correct place for this check.
+Yes, as long as the RX device doesn't accept writing, and the TX
+device doesn't accept reading (except for echo I guess, if that ends
+up getting included), that would make sense. The kernel will need to
+specify somehow the port type clearly.
 
-Currently for invoking of most managements hooks, kernel follows below pattern -
-(ethtool, set mac, set mtu etc..)
-
-rtlnl_lock();
-if (!netif_device_present(netdev))
-        return -ENODEV;
-if (ops->ndo_xxxxx)
-         ops->ndo_xxxxx;
-rtnl_unlock();
-
-Many drivers((emulex, intel, tg3 etc)) when they are recovering from error like
-PCIe error, do the following -
-
-In error_detected routine, before starting recovery -
-
-rtnl_lock();
-...
-netif_device_detach(netdev);
-....
-rtnl_unlock();
-
-After error is recovered, driver moves the device to attached state
-using netif_device_attach().
-Drivers use other methods to quiesce data path hooks.
-
-Management hooks implementation of driver don't check if device is in
-error recovery.
-They expect that these hooks wont get called if device is marked as not present.
-
-Device present check is missing for vlan addition/deletion.
-Be2net driver may have an issue if this hook gets invoked during error recovery.
-I thought it may be better if this is also handled like other management hooks.
-Please let me know if I am missing anything and what you feel in right
-place to put this
-check - in kernel or in driver.
-
-
-Thanks,
-Padmanabh
+-- 
+Aleksander
+https://aleksander.es
