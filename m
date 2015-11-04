@@ -1,46 +1,59 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net v2] ipv6: clean up dev_snmp6 proc entry when we fail to initialize inet6_dev
-Date: Wed,  4 Nov 2015 14:47:53 +0100
-Message-ID: <94ceff1a1f708ce80664370c783f7bfb066fccb5.1446577025.git.sd@queasysnail.net>
-Cc: eric.dumazet@gmail.com, dvyukov@google.com,
-	hannes@stressinduktion.org, cwang@twopensource.com,
-	Sabrina Dubroca <sd@queasysnail.net>
-To: netdev@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 1/3] netfilter: xt_TEE: fix NULL dereference
+Date: Wed,  4 Nov 2015 15:00:36 +0100
+Message-ID: <1446645638-3625-2-git-send-email-pablo@netfilter.org>
+References: <1446645638-3625-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56733 "EHLO mx1.redhat.com"
+Received: from mail.us.es ([193.147.175.20]:44228 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751973AbbKDNsP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Nov 2015 08:48:15 -0500
+	id S1754871AbbKDNxp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2015 08:53:45 -0500
+In-Reply-To: <1446645638-3625-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In ipv6_add_dev, when addrconf_sysctl_register fails, we do not clean up
-the dev_snmp6 entry that we have already registered for this device.
-Call snmp6_unregister_dev in this case.
+From: Eric Dumazet <edumazet@google.com>
 
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+iptables -I INPUT ... -j TEE --gateway 10.1.2.3
+
+<crash> because --oif was not specified
+
+tee_tg_check() sets ->priv pointer to NULL in this case.
+
+Fixes: bbde9fc1824a ("netfilter: factor out packet duplication for IPv4/IPv6")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
+ net/netfilter/xt_TEE.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-v2: we cannot call snmp6_unregister_dev from addrconf_core.c, this
-    breaks CONFIG_IPV6=m, instead do the clean up directly from
-    ipv6_add_dev
-    thanks Cong.
-
- net/ipv6/addrconf.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 36b85bd05ac8..dd00828863a0 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -417,6 +417,7 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
- 	if (err) {
- 		ipv6_mc_destroy_dev(ndev);
- 		del_timer(&ndev->regen_timer);
-+		snmp6_unregister_dev(ndev);
- 		goto err_release;
- 	}
- 	/* protected by rtnl_lock */
+diff --git a/net/netfilter/xt_TEE.c b/net/netfilter/xt_TEE.c
+index fd980aa..c5fdea1 100644
+--- a/net/netfilter/xt_TEE.c
++++ b/net/netfilter/xt_TEE.c
+@@ -31,8 +31,9 @@ static unsigned int
+ tee_tg4(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct xt_tee_tginfo *info = par->targinfo;
++	int oif = info->priv ? info->priv->oif : 0;
+ 
+-	nf_dup_ipv4(skb, par->hooknum, &info->gw.in, info->priv->oif);
++	nf_dup_ipv4(skb, par->hooknum, &info->gw.in, oif);
+ 
+ 	return XT_CONTINUE;
+ }
+@@ -42,8 +43,9 @@ static unsigned int
+ tee_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct xt_tee_tginfo *info = par->targinfo;
++	int oif = info->priv ? info->priv->oif : 0;
+ 
+-	nf_dup_ipv6(skb, par->hooknum, &info->gw.in6, info->priv->oif);
++	nf_dup_ipv6(skb, par->hooknum, &info->gw.in6, oif);
+ 
+ 	return XT_CONTINUE;
+ }
 -- 
-2.6.2
+2.1.4
