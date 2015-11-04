@@ -1,47 +1,30 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [patch net-next] net: add forgotten IFF_L3MDEV_SLAVE define
-Date: Wed, 4 Nov 2015 07:43:53 -0700
-Message-ID: <563A19A9.3040508@cumulusnetworks.com>
-References: <1446645546-588-1-git-send-email-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [kbuild-all] [PATCH] mpls: fix semicolon.cocci warnings
+Date: Wed, 04 Nov 2015 09:57:40 -0500 (EST)
+Message-ID: <20151104.095740.1875720480943254459.davem@davemloft.net>
+References: <20151103.111736.1351482614470057979.davem@davemloft.net>
+	<20151104020151.GA25902@wfg-t540p.sh.intel.com>
+	<alpine.DEB.2.02.1511040746350.2068@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Cc: lkp@intel.com, netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	rshearma@brocade.com, kbuild-all@01.org, ebiederm@xmission.com
+To: julia.lawall@lip6.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36672 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932178AbbKDOn4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 09:43:56 -0500
-Received: by pacdm15 with SMTP id dm15so30726033pac.3
-        for <netdev@vger.kernel.org>; Wed, 04 Nov 2015 06:43:56 -0800 (PST)
-In-Reply-To: <1446645546-588-1-git-send-email-jiri@resnulli.us>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54752 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932318AbbKDO5p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 09:57:45 -0500
+In-Reply-To: <alpine.DEB.2.02.1511040746350.2068@localhost6.localdomain6>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/4/15 6:59 AM, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> Fixes: fee6d4c77 ("net: Add netif_is_l3_slave")
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->   include/linux/netdevice.h | 1 +
->   1 file changed, 1 insertion(+)
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 4ac653b..2c00772 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1322,6 +1322,7 @@ enum netdev_priv_flags {
->   #define IFF_L3MDEV_MASTER		IFF_L3MDEV_MASTER
->   #define IFF_NO_QUEUE			IFF_NO_QUEUE
->   #define IFF_OPENVSWITCH			IFF_OPENVSWITCH
-> +#define IFF_L3MDEV_SLAVE		IFF_L3MDEV_SLAVE
->
->   /**
->    *	struct net_device - The DEVICE structure.
->
+From: Julia Lawall <julia.lawall@lip6.fr>
+Date: Wed, 4 Nov 2015 07:50:05 +0100 (CET)
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+> The whole idea of a macro that declares variables some of which are then 
+> used in the code under the macro also seems quite unpleasant.  Other 
+> iterators don't do this, and so they don't need the end marker.
 
-Thanks, Jiri.
+I'm open minded about cleaning these iterators up.
