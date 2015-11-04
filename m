@@ -1,91 +1,60 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH v2 net-next] net/core: ensure features get disabled on new lower devs
-Date: Tue,  3 Nov 2015 23:09:32 -0500
-Message-ID: <1446610172-21420-1-git-send-email-jarod@redhat.com>
-References: <1446583017-19021-1-git-send-email-jarod@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	Michal Kubecek <mkubecek@suse.cz>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446583017-19021-1-git-send-email-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: HTB, HFSC, PIE, FIFO stuck on 2.4Gbit on default values
+Date: Wed, 04 Nov 2015 06:12:14 +0200
+Message-ID: <0394a0a8c8f65e367a596274719ed759@visp.net.lb>
+References: <14bd7629199800f798c8ab932e0285d3@visp.net.lb>
+ <1446577894.23275.71.camel@edumazet-glaptop2.roam.corp.google.com>
+ <907cb54c0a27beed12381247ba29bca5@visp.net.lb>
+ <1446580156.23275.74.camel@edumazet-glaptop2.roam.corp.google.com>
+ <f970215bd46efe3ea3dc5c7fccfa0509@visp.net.lb>
+ <1446585826.23275.78.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:42371 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754507AbbKDEMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 23:12:18 -0500
+Received: from hosting.visp.net.lb (localhost [127.0.0.1])
+	by hosting.visp.net.lb (Postfix) with ESMTP id DEE0B480CE9
+	for <netdev@vger.kernel.org>; Wed,  4 Nov 2015 06:12:16 +0200 (EET)
+In-Reply-To: <1446585826.23275.78.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With moving netdev_sync_lower_features() after the .ndo_set_features
-calls, I neglected to verify that devices added *after* a flag had been
-disabled on an upper device were properly added with that flag disabled as
-well. This currently happens, because we exit __netdev_update_features()
-when we see dev->features == features for the upper dev. We can retain the
-optimization of leaving without calling .ndo_set_features with a bit of
-tweaking and a goto here.
-
-Fixes: fd867d51f889 ("net/core: generic support for disabling netdev features down stack")
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <gospo@cumulusnetworks.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Nikolay Aleksandrov <razor@blackwall.org>
-CC: Michal Kubecek <mkubecek@suse.cz>
-CC: Alexander Duyck <alexander.duyck@gmail.com>
-CC: netdev@vger.kernel.org
-Reported-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
----
-v2: Based on suggestions from Alex, and with not changing err to ret, this
-patch actually becomes quite minimal and doesn't ugly up the code much.
-
- net/core/dev.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8ce3f74..ab9b8d0 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6402,7 +6402,7 @@ int __netdev_update_features(struct net_device *dev)
- 	struct net_device *upper, *lower;
- 	netdev_features_t features;
- 	struct list_head *iter;
--	int err = 0;
-+	int err = -1;
- 
- 	ASSERT_RTNL();
- 
-@@ -6419,7 +6419,7 @@ int __netdev_update_features(struct net_device *dev)
- 		features = netdev_sync_upper_features(dev, upper, features);
- 
- 	if (dev->features == features)
--		return 0;
-+		goto sync_lower;
- 
- 	netdev_dbg(dev, "Features changed: %pNF -> %pNF\n",
- 		&dev->features, &features);
-@@ -6434,6 +6434,7 @@ int __netdev_update_features(struct net_device *dev)
- 		return -1;
- 	}
- 
-+sync_lower:
- 	/* some features must be disabled on lower devices when disabled
- 	 * on an upper device (think: bonding master or bridge)
- 	 */
-@@ -6443,7 +6444,7 @@ int __netdev_update_features(struct net_device *dev)
- 	if (!err)
- 		dev->features = features;
- 
--	return 1;
-+	return err < 0 ? 0 : 1;
- }
- 
- /**
--- 
-1.8.3.1
+On 2015-11-03 23:23, Eric Dumazet wrote:
+> On Tue, 2015-11-03 at 22:24 +0200, Denys Fedoryshchenko wrote:
+> 
+>> I wont argue on that, you are right.
+>> Ok, then it is a bit offtopic in current case, different setup, but i
+>> know this one has easy to reproduce issues with offloading. but this 
+>> is
+>> bug related to that, directly appearing when i enable tso/gso/gro. I 
+>> am
+>> losing access to remote box, so max i can do right now:
+>> ethtool -K eth0 tso on gso on gro on; sleep 5;ethtool -K eth0 tso off
+>> gso off gro off
+>> 
+>> No shapers, just plain nat. I suspect it might be specific to network
+>> card, but not sure.
+>> 
+> 
+> 
+> 
+> What happens if you enable gro, but disable tso ?
+> 
+> With GRO enabled, you'll get a good performance increase, as forwarding
+> and qdisc will use big packets.
+Just enabling gro or gso (or together) is fine there. Thanks for advice. 
+Seems only tso causing problems.
+Also i guess if i keep tso disabled, it will solve my MTU issues (i had 
+once issue, that traffic heading to pppoe users,
+who have 14xx mtu, was blocked, when offloading enabled on transit 
+server, but can't reproduce it quickly again).
+Should i try to report to e1000e maintainers this bug? On similar setup 
+it is happening only at specific locations,
+but i am not definitely sure what can be the reason.
