@@ -1,30 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [kbuild-all] [PATCH] mpls: fix semicolon.cocci warnings
-Date: Wed, 04 Nov 2015 09:57:40 -0500 (EST)
-Message-ID: <20151104.095740.1875720480943254459.davem@davemloft.net>
-References: <20151103.111736.1351482614470057979.davem@davemloft.net>
-	<20151104020151.GA25902@wfg-t540p.sh.intel.com>
-	<alpine.DEB.2.02.1511040746350.2068@localhost6.localdomain6>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] bnxt_en: add VXLAN dependency
+Date: Wed, 04 Nov 2015 16:00:32 +0100
+Message-ID: <10667823.xAtO4QOJMM@wuerfel>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lkp@intel.com, netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	rshearma@brocade.com, kbuild-all@01.org, ebiederm@xmission.com
-To: julia.lawall@lip6.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54752 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932318AbbKDO5p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 09:57:45 -0500
-In-Reply-To: <alpine.DEB.2.02.1511040746350.2068@localhost6.localdomain6>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	davem@davemloft.net, Eddie Wai <eddie.wai@broadcom.com>,
+	Jeffrey Huang <huangjw@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <julia.lawall@lip6.fr>
-Date: Wed, 4 Nov 2015 07:50:05 +0100 (CET)
+VXLAN may be a loadable module, and this driver cannot be built-in
+in that case, or we get a link error:
 
-> The whole idea of a macro that declares variables some of which are then 
-> used in the code under the macro also seems quite unpleasant.  Other 
-> iterators don't do this, and so they don't need the end marker.
+drivers/built-in.o: In function `__bnxt_open_nic':
+drivers/net/ethernet/broadcom/bnxt/bnxt.c:4581: undefined reference to `vxlan_get_rx_port'
 
-I'm open minded about cleaning these iterators up.
+This adds a Kconfig dependency that ensures that either VXLAN is
+disabled (which the driver handles correctly), or we depend on
+VXLAN itself and disallow built-in compilation when VXLAN is
+a module.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: c0c050c58d84 ("bnxt_en: New Broadcom ethernet driver.")
+
+diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
+index 67a7d520d9f5..8550df189ceb 100644
+--- a/drivers/net/ethernet/broadcom/Kconfig
++++ b/drivers/net/ethernet/broadcom/Kconfig
+@@ -173,6 +173,7 @@ config SYSTEMPORT
+ config BNXT
+ 	tristate "Broadcom NetXtreme-C/E support"
+ 	depends on PCI
++	depends on VXLAN || VXLAN=n
+ 	select FW_LOADER
+ 	select LIBCRC32C
+ 	---help---
