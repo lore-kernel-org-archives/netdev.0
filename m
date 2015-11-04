@@ -1,55 +1,43 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH net v2] ipv6: clean up dev_snmp6 proc entry when we fail
- to initialize inet6_dev
-Date: Wed, 4 Nov 2015 16:36:54 +0100
-Message-ID: <20151104153654.GA22004@bistromath.redhat.com>
-References: <94ceff1a1f708ce80664370c783f7bfb066fccb5.1446577025.git.sd@queasysnail.net>
- <1446650594.4184.25.camel@edumazet-glaptop2.roam.corp.google.com>
+From: =?utf-8?Q?Toke_H=C3=B8iland-J=C3=B8rgensen?= <toke@toke.dk>
+Subject: Expected behaviour of `tc qdisc replace`?
+Date: Wed, 04 Nov 2015 16:34:49 +0100
+Message-ID: <87lhadn5gm.fsf@toke.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, dvyukov@google.com,
-	hannes@stressinduktion.org, cwang@twopensource.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: cake@lists.bufferbloat.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51846 "EHLO mx1.redhat.com"
+Received: from mail2.tohojo.dk ([77.235.48.147]:42810 "EHLO mail2.tohojo.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932491AbbKDPg5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Nov 2015 10:36:57 -0500
-Content-Disposition: inline
-In-Reply-To: <1446650594.4184.25.camel@edumazet-glaptop2.roam.corp.google.com>
+	id S932323AbbKDPnK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2015 10:43:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-11-04, 07:23:14 -0800, Eric Dumazet wrote:
-> On Wed, 2015-11-04 at 14:47 +0100, Sabrina Dubroca wrote:
-> > In ipv6_add_dev, when addrconf_sysctl_register fails, we do not clean up
-> > the dev_snmp6 entry that we have already registered for this device.
-> > Call snmp6_unregister_dev in this case.
-> > 
-> > Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> > Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> > ---
-> > 
-> > v2: we cannot call snmp6_unregister_dev from addrconf_core.c, this
-> >     breaks CONFIG_IPV6=m, instead do the clean up directly from
-> >     ipv6_add_dev
-> >     thanks Cong.
-> 
-> Any idea when the bug was added ?
-> 
-> Can we please add a proper Fixes: tag for patches that need to be
-> backported to stable versions ?
-> 
-> It seems to be
-> 
-> Fixes: a317a2f19da7d ("ipv6: fail early when creating netdev named all or default")
-> 
-> So this goes back to linux-3.17 ?
-> 
-> Thanks a lot Sabrina !
+Hi
 
-Sorry, I didn't do the archeology (well, run git blame).  That looks
-correct, thanks Eric.
+I recently noticed that the behaviour of `tc qdisc replace` differs
+depending on whether the qdisc being replaced is of the same kind as the
+replacement. I.e.:
 
--- 
-Sabrina
+# tc qdisc del dev eno1 root
+# tc qdisc replace dev eno1 root fq_codel target 100ms interval 200ms
+# tc qdisc replace dev eno1 root fq_codel target 5ms                 
+# tc qdisc
+qdisc fq_codel 8007: dev eno1 root refcnt 2 limit 10240p flows 1024 quantum 1514 target 5.0ms interval 200.0ms ecn 
+# tc qdisc del dev eno1 root                                         
+# tc qdisc replace dev eno1 root fq_codel target 5ms
+# tc qdisc                                          
+qdisc fq_codel 8008: dev eno1 root refcnt 2 limit 10240p flows 1024 quantum 1514 target 5.0ms interval 100.0ms ecn 
+
+Notice the difference in interval between the two output lines from tc.
+
+Now, according to the tc man page, `tc qdisc replace` "Performs a nearly
+atomic remove/add on an existing node id." In which case I would expect
+it to *not* retain settings from the previous configuration.
+
+So my question is: is this a bug, or is it expected behaviour? And if
+the latter, what is the difference between `tc qdisc replace` and `tc
+qdisc change` then supposed to be?
+
+-Toke
