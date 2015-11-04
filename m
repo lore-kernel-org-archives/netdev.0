@@ -1,56 +1,82 @@
-From: Patrick Schaaf <netdev@bof.de>
-Subject: kernel 3.14.53 + bnx2x loss of connectivity / parity errors / MCP SCPAD
-Date: Wed, 04 Nov 2015 12:31:46 +0100
-Message-ID: <1727409.Ct3NHyBiXb@rofl>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: [PATCH net-next] ipv6: gro: support sit protocol
+Date: Wed, 04 Nov 2015 13:19:43 +0100
+Message-ID: <3363088.63t9TqhiQf@stwm.de>
+References: <1438621878-1113072-1-git-send-email-tom@herbertland.com> <19837690.PaPkekjCr9@stwm.de> <1446556053.23275.55.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Greg KH <gregkh@linuxfoundation.org>, ariele@broadcom.com
-To: NETDEV <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Jerry Chu <hkchu@google.com>,
+	JesseGross <jesse@nicira.com>, Tom Herbert <tom@herbertland.com>,
+	netdev <netdev@vger.kernel.org>, kernel-team@fb.com,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mars.intermailgate.com ([80.242.145.70]:59095 "EHLO
-	mars.intermailgate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754545AbbKDLia (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 06:38:30 -0500
+Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:55083 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965423AbbKDMT7 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2015 07:19:59 -0500
+In-Reply-To: <1446556053.23275.55.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear netdevs,
+Am Dienstag, 3. November 2015, 05:07:33 schrieb Eric Dumazet:
+> On Tue, 2015-11-03 at 13:57 +0100, Wolfgang Walter wrote:
+> > Am Montag, 19. Oktober 2015, 20:40:17 schrieb Eric Dumazet:
+> > > From: Eric Dumazet <edumazet@google.com>
+> > >=20
+> > > Tom Herbert added SIT support to GRO with commit
+> > > 19424e052fb4 ("sit: Add gro callbacks to sit_offload"),
+> > > later reverted by Herbert Xu.
+> > >=20
+> > > The problem came because Tom patch was building GRO
+> > > packets without proper meta data : If packets were locally
+> > > delivered, we would not care.
+> > >=20
+> > > But if packets needed to be forwarded, GSO engine was not
+> > > able to segment individual segments.
+> > >=20
+> > > With the following patch, we correctly set skb->encapsulation
+> > > and inner network header. We also update gso_type.
+> >=20
+> > I'm running 4.1.11 / 4.1.12 with this patch on top now since over a=
+ week.
+> > ISATAP works fine.
+>=20
+> Perfect ! thanks a lot for testing !
 
-on a production server (HP DL380 Gen9 with HP 10GE dual port card - bnx2x 
-driver), I just encountered a full loss of connectivity through the 10 GE 
-ports. Kernel in use is vanilla 3.14.53.
+Today I found a problem: on a router forwarding GRE-packets (ipv4) (it =
+is not=20
+the endpount) the interface (intel igb) stops sending packets after som=
+e time.=20
+I think this happens when an ISATAP packet is inside the GRE-packet.
 
-On the console I could see this (timestamps omitted, have to type by hand, 
-damn ILO console does not let me copy+paste text...)
+	gre packets arrives on eth0
+	eth1 stops sending (receiving still works)
+	ethtool -r eth1
+	eth1 works again for some time
 
-MCP SCPAD
-MCP SCPAD
-bnx2x 0000:04:00.1 eth1: Parity errors detected in blocks:
-MCP SCPAD
-MCP SCPAD
-bnx2x 0000:04:00.0 eth0: Parity errors detected in blocks:
-bnx2x: [bnx2x_attn_int_deasserted3:4080(eth0)]LATCHED attention 0x80000000 
-(masked)
-MCP SCPAD
-...
-systemd-journald[491]: /dev/kmsg buffer overrun, some messages lost.
+Switching GRO off on eth0 "fixes" the problem.
 
-Some googling around finds:
+I didn't test vanilla 4.1.12 yet, though. Until today 4.1.11 has been r=
+unning=20
+on the router. What I tested was your patch
+	"gre_gso_segment() chokes if SIT frames were aggregated by GRO engine.=
+"
+but did not solve the problem.
 
-https://github.com/torvalds/linux/commit/ad6afbe9578d1fa26680faf78c846bd8c00d1d6e 
+So I would not recommend to backport it to longterm 4.1.
 
-which might be related. If I read that correctly (and I have no real idea what 
-I'm talking about, sorry...) that patch removes superflous printks which 
-might, e.g. in our case, hide the real cause. i.e. even with that patch we 
-would have had a problem / loss of connectivity, but we might know better why.
+My plans are:
 
-Maybe that changeset would be suitable for backporting to long term stable 
-kernels?
+* test vanilla 4.1.12
+* test 4.3
 
-Incidentally, how should these parity events be judged generally? Hope it's a 
-one time cosmic ray incident? Cry "faulty hardware, please repair" to the 
-supplier? Anything else?
+I want to test 4.3 on another router first, though.
 
-best regards
-  Patrick
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
