@@ -1,66 +1,167 @@
-From: Benjamin Poirier <bpoirier@suse.com>
-Subject: Re: [PATCH v2 2/4] e1000e: Do not read icr in Other interrupt
-Date: Wed, 4 Nov 2015 15:19:45 -0800
-Message-ID: <20151104231945.GA7111@f1.synalogic.ca>
-References: <1446226264-29660-1-git-send-email-bpoirier@suse.com>
- <1446226264-29660-3-git-send-email-bpoirier@suse.com>
- <5633C2A4.90002@gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH v6] i40e: Look up MAC address in Open Firmware or IDPROM
+Date: Wed, 4 Nov 2015 18:21:00 -0500
+Message-ID: <20151104232100.GJ14575@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Frank Steiner <steiner-reg@bio.ifi.lmu.de>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	andy.shevchenko@gmail.com
+To: sowmini.varadhan@oracle.com, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <5633C2A4.90002@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2015/10/30 12:19, Alexander Duyck wrote:
-> On 10/30/2015 10:31 AM, Benjamin Poirier wrote:
-> >Using eiac instead of reading icr allows us to avoid interference with
-> >rx and tx interrupts in the Other interrupt handler.
-> >
-> >According to the 82574 datasheet section 10.2.4.1, interrupt causes that
-> >trigger the Other interrupt are
-> >1) Link Status Change.
-> >2) Receiver Overrun.
-> >3) MDIO Access Complete.
-> >4) Small Receive Packet Detected.
-> >5) Receive ACK Frame Detected.
-> >6) Manageability Event Detected.
-> >
-> >Causes 3, 4, 5 are related to features which are not enabled by the
-> >driver. Always assume that cause 1 is what triggered the Other interrupt
-> >and set get_link_status. Cause 2 and 6 should be rare enough that the
-> >extra cost of needlessly re-reading the link status is negligible.
-> >
-> >Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
-> 
-> You might want to instead use a write of LSC to the ICR instead of just
-> using auto-clear and not enabling LSC.  My concern is that you might no
-> longer be getting link status change events at all.  An easy test is to just
-> unplug/plug the cable a few times, or run "ethtool -r" on the link partner
-> if connected back to back.  You should see messages appear in the dmesg log
-> indicating that the link state changed.
-> 
-> In addition you should probably clear the IAME bit in the CTRL_EXT register
-> so that you don't risk masking the interrupts on the ICR read or write.
 
-Thanks, your concern about not getting LSC events was right. After more
-experimentation I noticed that in order for the Other interrupt to be
-raised for each of these six conditions, the IMS bit for that condition
-must also be set. I've restored setting LSC in IMS. OTOH, I don't see a
-need to clear LSC from ICR. Even without an ICR read or write-to-clear
-to clear the LSC bit, Other interrupts are raised to signal LSC events.
+This is the i40e equivalent of commit c762dff24c06 ("ixgbe: Look up MAC
+address in Open Firmware or IDPROM").
 
-I'll wait for net-next to reopen and send v3.
+As with that fix, attempt to look up the MAC address in Open Firmware
+on systems that support it, and use IDPROM on SPARC if no OF address
+is found.
+
+In the case of the i40e there is an assumption that the default mac
+address has already been set up as the primary mac filter on probe,
+so if this filter is obtained from the Open Firmware or IDPROM, an
+explicit write is needed via i40e_aq_mac_address_write() and
+i40e_aq_add_macvlan() invocation.
+
+Reviewed-by: Martin K. Petersen <martin.petersen@oracle.com>
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+v2, v3: Andy Shevchenko comments
+v4: Shannon Nelson review: explicitly set up mac filters before register_netdev
+v5: Shannon Nelson code style comments
+v6: Shannon Nelson code style comments
+
+ drivers/net/ethernet/intel/i40e/i40e_main.c |   83 ++++++++++++++++++++++++++-
+ 1 files changed, 82 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index b825f97..e355873 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -24,6 +24,15 @@
+  *
+  ******************************************************************************/
+ 
++#include <linux/etherdevice.h>
++#include <linux/of_net.h>
++#include <linux/pci.h>
++
++#ifdef CONFIG_SPARC
++#include <asm/idprom.h>
++#include <asm/prom.h>
++#endif
++
+ /* Local includes */
+ #include "i40e.h"
+ #include "i40e_diag.h"
+@@ -9213,6 +9222,44 @@ static struct i40e_vsi *i40e_vsi_reinit_setup(struct i40e_vsi *vsi)
+ }
+ 
+ /**
++ * i40e_macaddr_init - explicitly write the mac address filters.
++ *
++ * @vsi: pointer to the vsi.
++ * @macaddr: the MAC address
++ *
++ * This is needed when the macaddr has been obtained by other
++ * means than the default, e.g., from Open Firmware or IDPROM.
++ * Returns 0 on success, negative on failure
++ **/
++static int i40e_macaddr_init(struct i40e_vsi *vsi, u8 *macaddr)
++{
++	int ret, aq_err;
++	struct i40e_aqc_add_macvlan_element_data element;
++
++	ret = i40e_aq_mac_address_write(&vsi->back->hw,
++					I40E_AQC_WRITE_TYPE_LAA_WOL,
++					macaddr, NULL);
++	if (ret) {
++		dev_info(&vsi->back->pdev->dev,
++			 "Addr change for VSI failed: %d\n", ret);
++		return -EADDRNOTAVAIL;
++	}
++
++	memset(&element, 0, sizeof(element));
++	ether_addr_copy(element.mac_addr, macaddr);
++	element.flags = cpu_to_le16(I40E_AQC_MACVLAN_ADD_PERFECT_MATCH);
++	ret = i40e_aq_add_macvlan(&vsi->back->hw, vsi->seid, &element, 1, NULL);
++	aq_err = vsi->back->hw.aq.asq_last_status;
++	if (aq_err != I40E_AQ_RC_OK) {
++		dev_info(&vsi->back->pdev->dev,
++			 "add filter failed err %s aq_err %s\n",
++			 i40e_stat_str(&vsi->back->hw, ret),
++			 i40e_aq_str(&vsi->back->hw, aq_err));
++	}
++	return ret;
++}
++
++/**
+  * i40e_vsi_setup - Set up a VSI by a given type
+  * @pf: board private structure
+  * @type: VSI type
+@@ -9341,6 +9388,9 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
+ 		ret = i40e_config_netdev(vsi);
+ 		if (ret)
+ 			goto err_netdev;
++		ret = i40e_macaddr_init(vsi, pf->hw.mac.addr);
++		if (ret)
++			goto err_netdev;
+ 		ret = register_netdev(vsi->netdev);
+ 		if (ret)
+ 			goto err_netdev;
+@@ -10163,6 +10213,35 @@ static void i40e_print_features(struct i40e_pf *pf)
+ }
+ 
+ /**
++ * i40e_get_platform_mac_addr - get platform-specific MAC address
++ *
++ * @pdev: PCI device information struct
++ * @mac_addr: the MAC address to be returned
++ *
++ * Look up the MAC address in Open Firmware  on systems that support it,
++ * and use IDPROM on SPARC if no OF address is found.
++ *
++ * Returns 0 on success, negative on failure
++ **/
++static int i40e_get_platform_mac_addr(struct pci_dev *pdev, u8 *mac_addr)
++{
++	struct device_node *dp = pci_device_to_OF_node(pdev);
++	const unsigned char *addr;
++
++	addr = of_get_mac_address(dp);
++	if (addr) {
++		ether_addr_copy(mac_addr, addr);
++		return 0;
++	}
++#ifdef CONFIG_SPARC
++	ether_addr_copy(mac_addr, idprom->id_ethaddr);
++	return 0;
++#else
++	return -EINVAL;
++#endif /* CONFIG_SPARC */
++}
++
++/**
+  * i40e_probe - Device initialization routine
+  * @pdev: PCI device information struct
+  * @ent: entry in i40e_pci_tbl
+@@ -10360,7 +10439,9 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		i40e_aq_stop_lldp(hw, true, NULL);
+ 	}
+ 
+-	i40e_get_mac_addr(hw, hw->mac.addr);
++	err = i40e_get_platform_mac_addr(pdev, hw->mac.addr);
++	if (err)
++		i40e_get_mac_addr(hw, hw->mac.addr);
+ 	if (!is_valid_ether_addr(hw->mac.addr)) {
+ 		dev_info(&pdev->dev, "invalid MAC address %pM\n", hw->mac.addr);
+ 		err = -EIO;
+-- 
+1.7.1
