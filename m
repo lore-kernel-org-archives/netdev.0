@@ -1,31 +1,46 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [patch -next] qlogic: qed: fix a test for MODE_MF_SI
-Date: Wed, 4 Nov 2015 13:35:15 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63E6873E@avmb3.qlogic.org>
-References: <20151104132911.GE20966@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
-	Dept-Eng Everest Linux L2 <everest-linux-l2@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net v2] ipv6: clean up dev_snmp6 proc entry when we fail to initialize inet6_dev
+Date: Wed,  4 Nov 2015 14:47:53 +0100
+Message-ID: <94ceff1a1f708ce80664370c783f7bfb066fccb5.1446577025.git.sd@queasysnail.net>
+Cc: eric.dumazet@gmail.com, dvyukov@google.com,
+	hannes@stressinduktion.org, cwang@twopensource.com,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:55387 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755787AbbKDNfU convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Nov 2015 08:35:20 -0500
-In-Reply-To: <20151104132911.GE20966@mwanda>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:56733 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751973AbbKDNsP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2015 08:48:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> MODE_MF_SI is 9.  We should be testing bit 9 instead of AND 0x9.
-> 
-> Fixes: fe56b9e6a8d9 ('qed: Add module with basic common support')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+In ipv6_add_dev, when addrconf_sysctl_register fails, we do not clean up
+the dev_snmp6 entry that we have already registered for this device.
+Call snmp6_unregister_dev in this case.
 
-True indeed. Thanks.
-Acked-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+
+v2: we cannot call snmp6_unregister_dev from addrconf_core.c, this
+    breaks CONFIG_IPV6=m, instead do the clean up directly from
+    ipv6_add_dev
+    thanks Cong.
+
+ net/ipv6/addrconf.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 36b85bd05ac8..dd00828863a0 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -417,6 +417,7 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
+ 	if (err) {
+ 		ipv6_mc_destroy_dev(ndev);
+ 		del_timer(&ndev->regen_timer);
++		snmp6_unregister_dev(ndev);
+ 		goto err_release;
+ 	}
+ 	/* protected by rtnl_lock */
+-- 
+2.6.2
