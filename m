@@ -1,66 +1,49 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] net: Fix prefsrc lookups
-Date: Tue,  3 Nov 2015 15:59:28 -0800
-Message-ID: <1446595168-27323-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: vladi@aresgate.net, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [iproute PATCH 0/4] A few more man pages and documentation
+ fixup
+Date: Tue, 3 Nov 2015 16:31:30 -0800
+Message-ID: <20151103163130.5331c60f@xeon-e3>
+References: <27f028ea7dbe4d078e9cb57b3d6fb335@HQ1WP-EXMB11.corp.brocade.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:35140 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756125AbbKCX7j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 18:59:39 -0500
-Received: by pasz6 with SMTP id z6so33261020pas.2
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 15:59:38 -0800 (PST)
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:24190 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754983AbbKDAb0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 19:31:26 -0500
+In-Reply-To: <27f028ea7dbe4d078e9cb57b3d6fb335@HQ1WP-EXMB11.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A bug report (https://bugzilla.kernel.org/show_bug.cgi?id=107071) noted
-that the follwoing ip command is failing with v4.3:
+On Thu, 29 Oct 2015 09:55:20 +0000
+Phil Sutter <phil@nwl.cc> wrote:
 
-    $ ip route add 10.248.5.0/24 dev bond0.250 table vlan_250 src 10.248.5.154
-    RTNETLINK answers: Invalid argument
+> This series adds man pages for ifcfg, genl and ifstat utilities. Some of
+> them have already been submitted once in 2013[1] but weren't picked up
+> for unknown reasons.
+> 
+> Along with this comes a final patch fixing bridge fdb help text.
+> 
+> 
+> [1]: http://lists.openwall.net/netdev/2013/05/27/102
+> 
+> Phil Sutter (4):
+>   ifcfg: add manpage
+>   genl: add manpage
+>   ifstat: add manpage
+>   bridge: fdb: minor syntax fix in help text
+> 
+>  bridge/fdb.c      |  6 ++---
+>  man/man8/genl.8   | 77 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+>  man/man8/ifcfg.8  | 48 ++++++++++++++++++++++++++++++++++
+>  man/man8/ifstat.8 | 59 ++++++++++++++++++++++++++++++++++++++++++
+>  4 files changed, 187 insertions(+), 3 deletions(-)
+>  create mode 100644 man/man8/genl.8
+>  create mode 100644 man/man8/ifcfg.8
+>  create mode 100644 man/man8/ifstat.8
+> 
 
-021dd3b8a142d changed the lookup of the given preferred source address to
-use the table id passed in, but this assumes the local entries are in the
-given table which is not necessarily true for non-VRF use cases. When
-validating the preferred source fallback to the local table on failure.
-
-Fixes: 021dd3b8a142d ("net: Add routes to the table associated with the device")
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
-This is needed in v4.3.
-
- net/ipv4/fib_semantics.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 064bd3caaa4f..aac966f6162f 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -864,14 +864,21 @@ static bool fib_valid_prefsrc(struct fib_config *cfg, __be32 fib_prefsrc)
- 	if (cfg->fc_type != RTN_LOCAL || !cfg->fc_dst ||
- 	    fib_prefsrc != cfg->fc_dst) {
- 		u32 tb_id = cfg->fc_table;
-+		int rc;
- 
- 		if (tb_id == RT_TABLE_MAIN)
- 			tb_id = RT_TABLE_LOCAL;
- 
--		if (inet_addr_type_table(cfg->fc_nlinfo.nl_net,
--					 fib_prefsrc, tb_id) != RTN_LOCAL) {
--			return false;
-+		rc = inet_addr_type_table(cfg->fc_nlinfo.nl_net,
-+					  fib_prefsrc, tb_id);
-+
-+		if (rc != RTN_LOCAL && tb_id != RT_TABLE_LOCAL) {
-+			rc = inet_addr_type_table(cfg->fc_nlinfo.nl_net,
-+						  fib_prefsrc, RT_TABLE_LOCAL);
- 		}
-+
-+		if (rc != RTN_LOCAL)
-+			return false;
- 	}
- 	return true;
- }
--- 
-1.9.1
+Applied thanks
