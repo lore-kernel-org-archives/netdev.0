@@ -1,70 +1,56 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: NETIF_F_GSO_SOFTWARE vs NETIF_F_GSO
-Date: Wed, 4 Nov 2015 12:24:47 +0100
-Message-ID: <CAHmME9rGvViDN2iFa8xfXvUJpQThJnrCcZ1yHgQrdgEQRUWtfg@mail.gmail.com>
+From: Patrick Schaaf <netdev@bof.de>
+Subject: kernel 3.14.53 + bnx2x loss of connectivity / parity errors / MCP SCPAD
+Date: Wed, 04 Nov 2015 12:31:46 +0100
+Message-ID: <1727409.Ct3NHyBiXb@rofl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Greg KH <gregkh@linuxfoundation.org>, ariele@broadcom.com
+To: NETDEV <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mars.intermailgate.com ([80.242.145.70]:59095 "EHLO
+	mars.intermailgate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754545AbbKDLia (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 06:38:30 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Dear netdevs,
 
-I am making a network device driver that receives packets in
-ndo_start_xmit, "does something to them", and then sends the resultant
-packet out of a kernelspace UDP socket.
+on a production server (HP DL380 Gen9 with HP 10GE dual port card - bnx2x 
+driver), I just encountered a full loss of connectivity through the 10 GE 
+ports. Kernel in use is vanilla 3.14.53.
 
-The routine looks something along the lines of:
+On the console I could see this (timestamps omitted, have to type by hand, 
+damn ILO console does not let me copy+paste text...)
 
-    size_t outgoing_len = calculate_outgoing_length(skb);
-    struct sk_buff *outgoing = alloc_skb(outgoing_len);
-    u8 *output_buffer = skb_put(outgoing, outgoing_len);
+MCP SCPAD
+MCP SCPAD
+bnx2x 0000:04:00.1 eth1: Parity errors detected in blocks:
+MCP SCPAD
+MCP SCPAD
+bnx2x 0000:04:00.0 eth0: Parity errors detected in blocks:
+bnx2x: [bnx2x_attn_int_deasserted3:4080(eth0)]LATCHED attention 0x80000000 
+(masked)
+MCP SCPAD
+...
+systemd-journald[491]: /dev/kmsg buffer overrun, some messages lost.
 
-    struct scatterlist sglist[MAX_SKB_FRAGS + 1] = { 0 };
-    sg_init_table(sglist, skb_shinfo(skb)->nr_frags + 1);
-    skb_to_sgvec(skb, sglist, 0, skb->len);
+Some googling around finds:
 
-    magic_transformer state;
-    begin_magic(&state, outgoing_buffer);
-    for (struct scatterlist *sg = &sglist; sg; sg = sg_next(sg)) {
-        u8 *vaddr = kmap_atomic(sg_page(sg));
-        update_magic(&state, vaddr + sg->offset, sg->length);
-        kunmap_atomic(vaddr);
-    }
-    finish_magic(&state);
+https://github.com/torvalds/linux/commit/ad6afbe9578d1fa26680faf78c846bd8c00d1d6e 
 
-    send_udp(outgoing);
+which might be related. If I read that correctly (and I have no real idea what 
+I'm talking about, sorry...) that patch removes superflous printks which 
+might, e.g. in our case, hide the real cause. i.e. even with that patch we 
+would have had a problem / loss of connectivity, but we might know better why.
 
-Hopefully that's straight-forward enough. I make the skb into an
-scatterlist, and then iterate over the scatterlist, to apply a
-particular transformation to each part, and then finally I send it
-out.
+Maybe that changeset would be suitable for backporting to long term stable 
+kernels?
 
-For this, I'm using these netdev features:
+Incidentally, how should these parity events be judged generally? Hope it's a 
+one time cosmic ray incident? Cry "faulty hardware, please repair" to the 
+supplier? Anything else?
 
-    #define MY_FEATURES (NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_SG \
-                                             | NETIF_F_GSO | NETIF_F_HIGHDMA)
-    dev->features |= MY_FEATURES;
-    dev->hw_features |= MY_FEATURES;
-    dev->hw_enc_features |= MY_FEATURES;
-
-Using this set of features, everything works well. But the performance
-isn't great. I suspect this has something to do with having to
-traverse the network stack. So I've looked into offloading features.
-
-Strangely, the performance does not change at all regardless of
-whether or not NETIF_F_GSO is specified.
-
-However, the performance becomes incredible when I use
-NETIF_F_GSO_SOFTWARE instead of NETIF_F_GSO. But, when using
-NETIF_F_GSO_SOFTWARE, skb->len is bigger than the MTU! This poses some
-problems for me. Perhaps this is intended behavior? I'm not really
-sure. My question is: how can I gain the performance benefits of
-NETIF_F_GSO_SOFTWARE while still having skbs that fit inside the MTU?
-And what's the difference between specifying NETIF_F_GSO and
-NETIF_F_GSO_SOFTWARE?
-
-Thank you,
-Jason
+best regards
+  Patrick
