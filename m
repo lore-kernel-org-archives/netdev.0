@@ -1,72 +1,68 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Wed, 4 Nov 2015 16:27:35 +0000
-Message-ID: <20151104162735.GS22011@ZenIV.linux.org.uk>
-References: <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
- <20151022215741.GW22011@ZenIV.linux.org.uk>
- <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
- <20151024023054.GZ22011@ZenIV.linux.org.uk>
- <201510270908.t9R9873a001683@room101.nl.oracle.com>
- <562F577E.6000901@oracle.com>
- <20151029145847.GA10859@netbsd.org>
- <063D6719AE5E284EB5DD2968C1650D6D1CBC66C8@AcuExch.aculab.com>
- <20151030210943.GJ22011@ZenIV.linux.org.uk>
- <063D6719AE5E284EB5DD2968C1650D6D1CBCC02B@AcuExch.aculab.com>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: [PATCH net-next] ipv6: gro: support sit protocol
+Date: Wed, 04 Nov 2015 18:05:55 +0100
+Message-ID: <3441744.PdBCeOO15u@stwm.de>
+References: <1438621878-1113072-1-git-send-email-tom@herbertland.com> <2511200.aYIar34voW@stwm.de> <1446649987.4184.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'David Holland' <dholland-tech@netbsd.org>,
-	Alan Burlison <Alan.Burlison@oracle.com>,
-	"Casper.Dik@oracle.com" <Casper.Dik@oracle.com>,
-	David Miller <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Jerry Chu <hkchu@google.com>,
+	JesseGross <jesse@nicira.com>, Tom Herbert <tom@herbertland.com>,
+	netdev <netdev@vger.kernel.org>, kernel-team@fb.com,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:53435 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964795AbbKDQ1w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 11:27:52 -0500
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBCC02B@AcuExch.aculab.com>
+Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:58050 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932365AbbKDRF5 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2015 12:05:57 -0500
+In-Reply-To: <1446649987.4184.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 04, 2015 at 03:54:09PM +0000, David Laight wrote:
-> > Sigh...  The kernel has no idea when other threads are done with "all
-> > io activities using that fd" - it can wait for them to leave the
-> > kernel mode, but there's fuck-all it can do about e.g. a userland
-> > loop doing write() until there's more data to send.  And no, you can't
-> > rely upon them catching EBADF on the next iteration - by the time they
-> > get there, close() might very well have returned and open() from yet
-> > another thread might've grabbed the same descriptor.  Welcome to your
-> > data being written to hell knows what...
-> 
-> That just means that the application must use dup2() rather than close().
-> It must do that anyway since the thread it is trying to stop might be
-> sleeping in the system call stub in libc at the time a close() and open()
-> happen.
+Am Mittwoch, 4. November 2015, 07:13:07 schrieb Eric Dumazet:
+> On Wed, 2015-11-04 at 15:09 +0100, Wolfgang Walter wrote:
+> > Yes, maybe igb has a problem sending a gro-packet if it is an isata=
+p in
+> > gre.
+> We might detect this condition properly from igb ndo_features_check
+> method.
+>=20
+> It currently uses plain passthru_features_check()
+>=20
+> > igb has no problem sending gro-packets which are pure isatap or whi=
+ch are
+> > ipv4 (tcp/udp) in gre with 4.1.12 + these patches.
+> >=20
+> > And it had no problem with 4.1.11 with isatap in gre.
+> >=20
+> > Disabling gso for the interface does help.
+>=20
+> My patch was aimed for 4.4, not sure about backports to old kernels..=
+=2E
 
-Oh, _lovely_.  So instead of continuation of that write(2) going down
-the throat of something opened by unrelated thread, it (starting from a
-pretty arbitrary point) will go into the descriptor the closing thread
-passed to dup2().  Until it, in turn, gets closed, at which point we
-are back to square one.  That, of course, makes it so much better -
-whatever had I been thinking about that made me miss that?
+I know. I cannot test 4.4 (or net-next) on that router, though, as I do=
+n't=20
+have easy physical access to it if it crashes or I loose network connec=
+tivity.=20
+=46or such tests I must send someone in situ.
 
-> The listening (in this case) thread would need to look at its global
-> data to determine that it is supposed to exit, and then close the fd itself.
+As 4.4 will be the next longterm kernel I definitivly will do that for =
+4.4-rc2=20
+or 4.4-rc3.
 
-Right until it crosses into the kernel mode and does descriptor-to-file
-lookup, presumably?  Because prior to that point this kernel-side
-"protection" oesn't come into play.  In other words, this is inherently
-racy, and AFAICS you are the first poster in that thread who disagrees
-with that.
+I think your patch is correct for 4.1 in the sense that ISATAP is corre=
+ctly=20
+handled. Only SIT in GRE triggers this and if it is indeed igb I will s=
+ee it=20
+probably in 4.4 ;-), too.
 
-_Any_ userland code that would be racy without that kludge of semantics
-in close()/dup2() is *still* racy with it.  If that crap gets triggered
-at all, the userland code responsible for that is broken.  Said crap
-makes the race windows more narrow, but it doesn't really close them.
-And IMO it's rather misduided, especially since it's a) quiet and b)
-costly as hell.
+I now tested an unmodified 4.1.12 and it shows no problems.
+
+
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
