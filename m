@@ -1,132 +1,35 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH v2 4/4] ipv6: add option to drop unsolicited neighbor advertisements
-Date: Wed,  4 Nov 2015 17:22:07 +0100
-Message-ID: <1446654127-26826-4-git-send-email-johannes@sipsolutions.net>
-References: <1446654127-26826-1-git-send-email-johannes@sipsolutions.net>
-Cc: Julian Anastasov <ja@ssi.bg>,
-	Johannes Berg <johannes.berg@intel.com>
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Subject: Re: [PATCH 3/4] ipv4: add option to drop gratuitous ARP packets
+Date: Wed, 04 Nov 2015 17:19:53 +0100
+Message-ID: <1446653993.17416.3.camel@sipsolutions.net>
+References: <1428652454-1224-1-git-send-email-johannes@sipsolutions.net>
+	 <1428652454-1224-3-git-send-email-johannes@sipsolutions.net>
+	 <alpine.LFD.2.11.1504111340170.2449@ja.home.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	matti.gottlieb@intel.com
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:35082 "EHLO sipsolutions.net"
+Received: from s3.sipsolutions.net ([5.9.151.49]:35063 "EHLO sipsolutions.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965605AbbKDQWO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Nov 2015 11:22:14 -0500
-In-Reply-To: <1446654127-26826-1-git-send-email-johannes@sipsolutions.net>
+	id S1755928AbbKDQT4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2015 11:19:56 -0500
+In-Reply-To: <alpine.LFD.2.11.1504111340170.2449@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg@intel.com>
+On Sat, 2015-04-11 at 13:59 +0300, Julian Anastasov wrote:
+>=C2=A0
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0May be only arptable_=
+filter can help here to
+> protect ARP?
+>=20
 
-In certain 802.11 wireless deployments, there will be NA proxies
-that use knowledge of the network to correctly answer requests.
-To prevent unsolicitd advertisements on the shared medium from
-being a problem, on such deployments wireless needs to drop them.
+=46inally reviving an ancient thread ...
 
-Enable this by providing an option called "drop_unsolicited_na".
+I checked, butI don't see a way to match tip=3D=3Dsip. You can match on
+each, but not against each other.
 
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- Documentation/networking/ip-sysctl.txt | 7 +++++++
- include/linux/ipv6.h                   | 1 +
- include/uapi/linux/ipv6.h              | 1 +
- net/ipv6/addrconf.c                    | 8 ++++++++
- net/ipv6/ndisc.c                       | 9 +++++++++
- 5 files changed, 26 insertions(+)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 428fb48a19fc..77992f1173c3 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1672,6 +1672,13 @@ drop_unicast_in_l2_multicast - BOOLEAN
- 
- 	By default this is turned off.
- 
-+drop_unsolicited_na - BOOLEAN
-+	Drop all unsolicited neighbor advertisements, for example if there's
-+	a known good NA proxy on the network and such frames need not be used
-+	(or in the case of 802.11, must not be used to prevent attacks.)
-+
-+	By default this is turned off.
-+
- icmp/*:
- ratelimit - INTEGER
- 	Limit the maximal rates for sending ICMPv6 packets.
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 34317cb6a6fc..9231bfdc7c92 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -56,6 +56,7 @@ struct ipv6_devconf {
- 	__s32           ndisc_notify;
- 	__s32		suppress_frag_ndisc;
- 	__s32		accept_ra_mtu;
-+	__s32		drop_unsolicited_na;
- 	struct ipv6_stable_secret {
- 		bool initialized;
- 		struct in6_addr secret;
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index 4c413570efe8..ec117b65d5a5 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -175,6 +175,7 @@ enum {
- 	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
- 	DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
- 	DEVCONF_DROP_UNICAST_IN_L2_MULTICAST,
-+	DEVCONF_DROP_UNSOLICITED_NA,
- 	DEVCONF_MAX
- };
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 35f880bcf626..e7dd0a0c5126 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4673,6 +4673,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	/* we omit DEVCONF_STABLE_SECRET for now */
- 	array[DEVCONF_USE_OIF_ADDRS_ONLY] = cnf->use_oif_addrs_only;
- 	array[DEVCONF_DROP_UNICAST_IN_L2_MULTICAST] = cnf->drop_unicast_in_l2_multicast;
-+	array[DEVCONF_DROP_UNSOLICITED_NA] = cnf->drop_unsolicited_na;
- }
- 
- static inline size_t inet6_ifla6_size(void)
-@@ -5742,6 +5743,13 @@ static struct addrconf_sysctl_table
- 			.proc_handler	= proc_dointvec,
- 		},
- 		{
-+			.procname	= "drop_unsolicited_na",
-+			.data		= &ipv6_devconf.drop_unsolicited_na,
-+			.maxlen		= sizeof(int),
-+			.mode		= 0644,
-+			.proc_handler	= proc_dointvec,
-+		},
-+		{
- 			/* sentinel */
- 		}
- 	},
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 3e0f855e1bea..0737bc23ea39 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -887,6 +887,7 @@ static void ndisc_recv_na(struct sk_buff *skb)
- 				    offsetof(struct nd_msg, opt));
- 	struct ndisc_options ndopts;
- 	struct net_device *dev = skb->dev;
-+	struct inet6_dev *idev = __in6_dev_get(dev);
- 	struct inet6_ifaddr *ifp;
- 	struct neighbour *neigh;
- 
-@@ -906,6 +907,14 @@ static void ndisc_recv_na(struct sk_buff *skb)
- 		return;
- 	}
- 
-+	/* For some 802.11 wireless deployments (and possibly other networks),
-+	 * there will be a NA proxy and unsolicitd packets are attacks
-+	 * and thus should not be accepted.
-+	 */
-+	if (idev && idev->cnf.drop_unsolicited_na &&
-+	    !msg->icmph.icmp6_solicited)
-+		return;
-+
- 	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts)) {
- 		ND_PRINTK(2, warn, "NS: invalid ND option\n");
- 		return;
--- 
-2.6.2
+johannes
