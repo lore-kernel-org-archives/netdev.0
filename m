@@ -1,7 +1,7 @@
 From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: [PATCH v2 2/4] ipv6: add option to drop unicast encapsulated in L2 multicast
-Date: Wed,  4 Nov 2015 17:22:05 +0100
-Message-ID: <1446654127-26826-2-git-send-email-johannes@sipsolutions.net>
+Subject: [PATCH v2 3/4] ipv4: add option to drop gratuitous ARP packets
+Date: Wed,  4 Nov 2015 17:22:06 +0100
+Message-ID: <1446654127-26826-3-git-send-email-johannes@sipsolutions.net>
 References: <1446654127-26826-1-git-send-email-johannes@sipsolutions.net>
 Cc: Julian Anastasov <ja-FgGsKACvmQM@public.gmane.org>,
 	Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
@@ -13,111 +13,82 @@ List-Id: netdev.vger.kernel.org
 
 From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-In order to solve a problem with 802.11, the so-called hole-196 attack,
-add an option (sysctl) called "drop_unicast_in_l2_multicast" which, if
-enabled, causes the stack to drop IPv6 unicast packets encapsulated in
-link-layer multi- or broadcast frames. Such frames can (as an attack)
-be created by any member of the same wireless network and transmitted
-as valid encrypted frames since the symmetric key for broadcast frames
-is shared between all stations.
+In certain 802.11 wireless deployments, there will be ARP proxies
+that use knowledge of the network to correctly answer requests.
+To prevent gratuitous ARP frames on the shared medium from being
+a problem, on such deployments wireless needs to drop them.
+
+Enable this by providing an option called "drop_gratuitous_arp".
 
 Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- Documentation/networking/ip-sysctl.txt |  6 ++++++
- include/linux/ipv6.h                   |  1 +
- include/uapi/linux/ipv6.h              |  1 +
- net/ipv6/addrconf.c                    |  8 ++++++++
- net/ipv6/ip6_input.c                   | 10 ++++++++++
- 5 files changed, 26 insertions(+)
+ Documentation/networking/ip-sysctl.txt | 6 ++++++
+ include/uapi/linux/ip.h                | 1 +
+ net/ipv4/arp.c                         | 8 ++++++++
+ net/ipv4/devinet.c                     | 2 ++
+ 4 files changed, 17 insertions(+)
 
 diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 35c4c43dd8de..a2169651254e 100644
+index a2169651254e..428fb48a19fc 100644
 --- a/Documentation/networking/ip-sysctl.txt
 +++ b/Documentation/networking/ip-sysctl.txt
-@@ -1660,6 +1660,12 @@ stable_secret - IPv6 address
+@@ -1215,6 +1215,12 @@ drop_unicast_in_l2_multicast - BOOLEAN
+ 	1122, but is disabled by default for compatibility reasons.
+ 	Default: off (0)
  
- 	By default the stable secret is unset.
++drop_gratuitous_arp - BOOLEAN
++	Drop all gratuitous ARP frames, for example if there's a known
++	good ARP proxy on the network and such frames need not be used
++	(or in the case of 802.11, must not be used to prevent attacks.)
++	Default: off (0)
++
  
-+drop_unicast_in_l2_multicast - BOOLEAN
-+	Drop any unicast IPv6 packets that are received in link-layer
-+	multicast (or broadcast) frames.
-+
-+	By default this is turned off.
-+
- icmp/*:
- ratelimit - INTEGER
- 	Limit the maximal rates for sending ICMPv6 packets.
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 0ef2a97ccdb5..34317cb6a6fc 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -50,6 +50,7 @@ struct ipv6_devconf {
- 	__s32		mc_forwarding;
- #endif
- 	__s32		disable_ipv6;
-+	__s32		drop_unicast_in_l2_multicast;
- 	__s32		accept_dad;
- 	__s32		force_tllao;
- 	__s32           ndisc_notify;
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index 38b4fef20219..4c413570efe8 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -174,6 +174,7 @@ enum {
- 	DEVCONF_USE_OIF_ADDRS_ONLY,
- 	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
- 	DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
-+	DEVCONF_DROP_UNICAST_IN_L2_MULTICAST,
- 	DEVCONF_MAX
+ tag - INTEGER
+ 	Allows you to write a number, which can be used as required.
+diff --git a/include/uapi/linux/ip.h b/include/uapi/linux/ip.h
+index 584834f7e95c..f291569768dd 100644
+--- a/include/uapi/linux/ip.h
++++ b/include/uapi/linux/ip.h
+@@ -166,6 +166,7 @@ enum
+ 	IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL,
+ 	IPV4_DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
+ 	IPV4_DEVCONF_DROP_UNICAST_IN_L2_MULTICAST,
++	IPV4_DEVCONF_DROP_GRATUITOUS_ARP,
+ 	__IPV4_DEVCONF_MAX
  };
  
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index d72fa90d6feb..35f880bcf626 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4672,6 +4672,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN] = cnf->ignore_routes_with_linkdown;
- 	/* we omit DEVCONF_STABLE_SECRET for now */
- 	array[DEVCONF_USE_OIF_ADDRS_ONLY] = cnf->use_oif_addrs_only;
-+	array[DEVCONF_DROP_UNICAST_IN_L2_MULTICAST] = cnf->drop_unicast_in_l2_multicast;
- }
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 59b3e0e8fd51..36006a59c7f0 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -735,6 +735,14 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 	    (!IN_DEV_ROUTE_LOCALNET(in_dev) && ipv4_is_loopback(tip)))
+ 		goto out;
  
- static inline size_t inet6_ifla6_size(void)
-@@ -5734,6 +5735,13 @@ static struct addrconf_sysctl_table
- 			.proc_handler	= addrconf_sysctl_ignore_routes_with_linkdown,
- 		},
- 		{
-+			.procname	= "drop_unicast_in_l2_multicast",
-+			.data		= &ipv6_devconf.drop_unicast_in_l2_multicast,
-+			.maxlen		= sizeof(int),
-+			.mode		= 0644,
-+			.proc_handler	= proc_dointvec,
-+		},
-+		{
- 			/* sentinel */
- 		}
- 	},
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 9075acf081dd..31ac3c56da4b 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -134,6 +134,16 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
- 	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) == 1)
- 		goto err;
- 
-+	/* If enabled, drop unicast packets that were encapsulated in link-layer
-+	 * multicast or broadcast to protected against the so-called "hole-196"
-+	 * attack in 802.11 wireless.
-+	 */
-+	if (!ipv6_addr_is_multicast(&hdr->daddr) &&
-+	    (skb->pkt_type == PACKET_BROADCAST ||
-+	     skb->pkt_type == PACKET_MULTICAST) &&
-+	    idev->cnf.drop_unicast_in_l2_multicast)
-+		goto err;
++ /*
++  *	For some 802.11 wireless deployments (and possibly other networks),
++  *	there will be an ARP proxy and gratuitous ARP frames are attacks
++  *	and thus should not be accepted.
++  */
++	if (IN_DEV_ORCONF(in_dev, DROP_GRATUITOUS_ARP) && sip == tip)
++		goto out;
 +
- 	/* RFC4291 2.7
- 	 * Nodes must not originate a packet to a multicast address whose scope
- 	 * field contains the reserved value 0; if such a packet is received, it
+ /*
+  *     Special case: We must set Frame Relay source Q.922 address
+  */
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index dbbab28a52a4..3d835313575e 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -2185,6 +2185,8 @@ static struct devinet_sysctl_table {
+ 					"igmpv3_unsolicited_report_interval"),
+ 		DEVINET_SYSCTL_RW_ENTRY(IGNORE_ROUTES_WITH_LINKDOWN,
+ 					"ignore_routes_with_linkdown"),
++		DEVINET_SYSCTL_RW_ENTRY(DROP_GRATUITOUS_ARP,
++					"drop_gratuitous_arp"),
+ 
+ 		DEVINET_SYSCTL_FLUSHING_ENTRY(NOXFRM, "disable_xfrm"),
+ 		DEVINET_SYSCTL_FLUSHING_ENTRY(NOPOLICY, "disable_policy"),
 -- 
 2.6.2
 
