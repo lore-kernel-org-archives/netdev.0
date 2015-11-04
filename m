@@ -1,48 +1,28 @@
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Subject: [PATCH] net: stmmac: remove unneeded phy_iface variable
-Date: Wed,  4 Nov 2015 21:08:12 +0100
-Message-ID: <1446667692-6182-1-git-send-email-clabbe.montjoie@gmail.com>
-Cc: LABBE Corentin <clabbe.montjoie@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] bpf: add mod default A and X test cases
+Date: Wed, 04 Nov 2015 21:15:21 +0100
+Message-ID: <563A6759.3060405@iogearbox.net>
+References: <1446665797-21400-1-git-send-email-yang.shi@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: zlim.lnx@gmail.com, xi.wang@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linaro-kernel@lists.linaro.org
+To: Yang Shi <yang.shi@linaro.org>, ast@kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446665797-21400-1-git-send-email-yang.shi@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The variable phy_iface is double-initialized and finally is not necessary
-at all.
+On 11/04/2015 08:36 PM, Yang Shi wrote:
+> When running "mod X" operation, if X is 0 the filter has to be halt.
+> Add new test cases to cover A = A mod X if X is 0, and A = A mod 1.
+>
+> CC: Xi Wang <xi.wang@gmail.com>
+> CC: Zi Shen Lim <zlim.lnx@gmail.com>
+> Signed-off-by: Yang Shi <yang.shi@linaro.org>
 
-Reported-by: coverity (CID 1271141)
-Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+LGTM!
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index 11baa4b..26a11b7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -354,11 +354,9 @@ static int gmac_clk_init(struct rk_priv_data *bsp_priv)
- 
- static int gmac_clk_enable(struct rk_priv_data *bsp_priv, bool enable)
- {
--	int phy_iface = phy_iface = bsp_priv->phy_iface;
--
- 	if (enable) {
- 		if (!bsp_priv->clk_enabled) {
--			if (phy_iface == PHY_INTERFACE_MODE_RMII) {
-+			if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RMII) {
- 				if (!IS_ERR(bsp_priv->mac_clk_rx))
- 					clk_prepare_enable(
- 						bsp_priv->mac_clk_rx);
-@@ -390,7 +388,7 @@ static int gmac_clk_enable(struct rk_priv_data *bsp_priv, bool enable)
- 		}
- 	} else {
- 		if (bsp_priv->clk_enabled) {
--			if (phy_iface == PHY_INTERFACE_MODE_RMII) {
-+			if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RMII) {
- 				if (!IS_ERR(bsp_priv->mac_clk_rx))
- 					clk_disable_unprepare(
- 						bsp_priv->mac_clk_rx);
--- 
-2.4.10
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
