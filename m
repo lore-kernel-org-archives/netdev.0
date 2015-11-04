@@ -1,32 +1,32 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] qlogic: qed: fix a test for MODE_MF_SI
-Date: Wed, 4 Nov 2015 16:29:11 +0300
-Message-ID: <20151104132911.GE20966@mwanda>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [patch -next] qlogic/qed: remove bogus NULL check
+Date: Wed, 4 Nov 2015 13:31:51 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63E68723@avmb3.qlogic.org>
+References: <20151104132716.GD20966@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>, everest-linux-l2@qlogic.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
+	Dept-Eng Everest Linux L2 <everest-linux-l2@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:54871 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751398AbbKDNb4 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2015 08:31:56 -0500
+In-Reply-To: <20151104132716.GD20966@mwanda>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-MODE_MF_SI is 9.  We should be testing bit 9 instead of AND 0x9.
+> We check if "p_hwfn" is NULL and then dereference it in the error handling
+> code.  I read the code and it isn't NULL so let's remove the check.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Fixes: fe56b9e6a8d9 ('qed: Add module with basic common support')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Our current interrupt handling logic is being uber-defensive. Thanks.
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index b9b7b7e..774b223 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -562,7 +562,7 @@ static int qed_hw_init_pf(struct qed_hwfn *p_hwfn,
- 	}
- 
- 	/* Enable classification by MAC if needed */
--	if (hw_mode & MODE_MF_SI) {
-+	if (hw_mode & (1 << MODE_MF_SI)) {
- 		DP_VERBOSE(p_hwfn, NETIF_MSG_HW,
- 			   "Configuring TAGMAC_CLS_TYPE\n");
- 		STORE_RT_REG(p_hwfn,
+Acked-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
