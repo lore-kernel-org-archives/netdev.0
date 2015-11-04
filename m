@@ -1,59 +1,28 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH v2 1/4] ipv4: add option to drop unicast encapsulated in
- L2 multicast
-Date: Wed, 04 Nov 2015 22:35:58 +0100
-Message-ID: <1446672958.13649.4.camel@sipsolutions.net>
-References: <1446654127-26826-1-git-send-email-johannes@sipsolutions.net>
-	 <alpine.LFD.2.11.1511042215570.2194@ja.home.ssi.bg>
+From: Z Lim <zlim.lnx@gmail.com>
+Subject: Re: [PATCH] bpf: add mod default A and X test cases
+Date: Wed, 4 Nov 2015 14:05:05 -0800
+Message-ID: <CABg9mcsQnZrwWSck85JD6djoysq69unTWCeLzCTOb7oD7mtCVQ@mail.gmail.com>
+References: <1446665797-21400-1-git-send-email-yang.shi@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Julian Anastasov <ja-FgGsKACvmQM@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LFD.2.11.1511042215570.2194-c1lBKlETG9EWAawoAK+ZAw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Alexei Starovoitov <ast@kernel.org>, daniel@iogearbox.net,
+	Xi Wang <xi.wang@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	linaro-kernel@lists.linaro.org
+To: Yang Shi <yang.shi@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446665797-21400-1-git-send-email-yang.shi@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-11-04 at 22:59 +0200, Julian Anastasov wrote:
->=C2=A0
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0Patches 1 and 3 look =
-correct to me,
->=20
-> Reviewed-by: Julian Anastasov <ja-FgGsKACvmQM@public.gmane.org>
+On Wed, Nov 4, 2015 at 11:36 AM, Yang Shi <yang.shi@linaro.org> wrote:
+> When running "mod X" operation, if X is 0 the filter has to be halt.
+> Add new test cases to cover A = A mod X if X is 0, and A = A mod 1.
+>
+> CC: Xi Wang <xi.wang@gmail.com>
+> CC: Zi Shen Lim <zlim.lnx@gmail.com>
+> Signed-off-by: Yang Shi <yang.shi@linaro.org>
+> ---
 
-Thanks for checking!
-
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0If the patches are lo=
-st in the merge window you
-> can also consider one minor optimization, see below...
-
-Oh, yeah, they probably are - sorry Dave.
-
-> > -=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0} else if (rt->rt_type =3D=3D RTN_BR=
-OADCAST)
-> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0} else if (rt->rt_type =3D=3D RTN_BR=
-OADCAST) {
-> >=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0IP_UPD_PO_STATS_BH(net, IPSTATS_MIB_INBCAST, skb-
-> >len);
-> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0} else {
->=20
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0} else if (unlikely(s=
-kb->pkt_type !=3D PACKET_HOST)) {
->=20
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0May be such check can=
- save some cycles because
-> it is more common to see PACKET_HOST packets...
-
-I had thought about that based on your earlier comments, but then I
-didn't quite see the point. However, perhaps we could invert the check
-below to check the pkt_type first, hoping it'll have some kind of cache
-effect?
-
-johannes
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Zi Shen Lim <zlim.lnx@gmail.com>
