@@ -1,56 +1,49 @@
-From: Aleksander Morgado <aleksander@aleksander.es>
-Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
-Date: Wed, 4 Nov 2015 16:19:45 +0100
-Message-ID: <CAAP7ucJrkhJ=nqwruf0p+YOCdqtH5+N6pgeAY_qF9g7Wc6_XiA@mail.gmail.com>
-References: <1446419775-5215-1-git-send-email-marex@denx.de>
-	<201511041454.16413.marex@denx.de>
-	<338664525.20151104180316@cogentembedded.com>
-	<201511041607.30577.marex@denx.de>
-	<1938246043.20151104181806@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v2] ipv6: clean up dev_snmp6 proc entry when we fail
+ to initialize inet6_dev
+Date: Wed, 04 Nov 2015 07:23:14 -0800
+Message-ID: <1446650594.4184.25.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <94ceff1a1f708ce80664370c783f7bfb066fccb5.1446577025.git.sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Marek Vasut <marex@denx.de>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dvyukov@google.com,
+	hannes@stressinduktion.org, cwang@twopensource.com
+To: Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:33725 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752679AbbKDPTq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 10:19:46 -0500
-Received: by obbww6 with SMTP id ww6so15403400obb.0
-        for <netdev@vger.kernel.org>; Wed, 04 Nov 2015 07:19:46 -0800 (PST)
-In-Reply-To: <1938246043.20151104181806@cogentembedded.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34697 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932317AbbKDPXR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 10:23:17 -0500
+Received: by padhx2 with SMTP id hx2so47827177pad.1
+        for <netdev@vger.kernel.org>; Wed, 04 Nov 2015 07:23:17 -0800 (PST)
+In-Reply-To: <94ceff1a1f708ce80664370c783f7bfb066fccb5.1446577025.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 4, 2015 at 4:18 PM, Vostrikov Andrey
-<andrey.vostrikov@cogentembedded.com> wrote:
->>> > About the parity -- can we add some flag into the datagram to indicate we
->>> > want hardware to calculate the parity for that particular datagram for
->>> > us? And we'd also need to indicate what type of parity. I dunno if this
->>> > is worth the hassle.
->>>
->>> This  is HW configuration property, it does not belong to  datagram. Also
->>> for TX channels,  parity could  be  two  kinds:  odd and even, for RX it
->>> is only on/off.
->
->> There are datagrams which do contain parity and ones which do not contain it,
->> correct ? Thus, it's a property of that particular datagram.
+On Wed, 2015-11-04 at 14:47 +0100, Sabrina Dubroca wrote:
+> In ipv6_add_dev, when addrconf_sysctl_register fails, we do not clean up
+> the dev_snmp6 entry that we have already registered for this device.
+> Call snmp6_unregister_dev in this case.
+> 
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> ---
+> 
+> v2: we cannot call snmp6_unregister_dev from addrconf_core.c, this
+>     breaks CONFIG_IPV6=m, instead do the clean up directly from
+>     ipv6_add_dev
+>     thanks Cong.
 
-All ARINC words have bit #31 as parity bit; whether it's used or not
-depends on the setup as Andrey says below.
+Any idea when the bug was added ?
 
-> For   RX  side  it  is  both: datagram and HW (is it checked by receiver or not)
-> But  for TX side it is HW property of transmitter, either OFF or ON (odd or even).
+Can we please add a proper Fixes: tag for patches that need to be
+backported to stable versions ?
 
+It seems to be
 
+Fixes: a317a2f19da7d ("ipv6: fail early when creating netdev named all or default")
 
+So this goes back to linux-3.17 ?
 
--- 
-Aleksander
-https://aleksander.es
+Thanks a lot Sabrina !
