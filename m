@@ -1,99 +1,77 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
-Date: Wed, 4 Nov 2015 14:54:16 +0100
-Message-ID: <201511041454.16413.marex@denx.de>
-References: <1446419775-5215-1-git-send-email-marex@denx.de> <201511032243.03029.marex@denx.de> <CAAP7ucJbWFZ-DCH1dhvJUYcYosTfYgsHx9Mdnwq+K166yjYJaA@mail.gmail.com>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: [PATCH net-next] ipv6: gro: support sit protocol
+Date: Wed, 04 Nov 2015 15:09:17 +0100
+Message-ID: <2511200.aYIar34voW@stwm.de>
+References: <1438621878-1113072-1-git-send-email-tom@herbertland.com> <3363088.63t9TqhiQf@stwm.de> <1446640851.4184.20.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-	"Marc Kleine-Budde" <mkl@pengutronix.de>,
-	Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Aleksander Morgado <aleksander@aleksander.es>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Jerry Chu <hkchu@google.com>,
+	JesseGross <jesse@nicira.com>, Tom Herbert <tom@herbertland.com>,
+	netdev <netdev@vger.kernel.org>, kernel-team@fb.com,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:41330 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965184AbbKDOCj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 09:02:39 -0500
-In-Reply-To: <CAAP7ucJbWFZ-DCH1dhvJUYcYosTfYgsHx9Mdnwq+K166yjYJaA@mail.gmail.com>
+Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:57225 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932178AbbKDOJU convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2015 09:09:20 -0500
+In-Reply-To: <1446640851.4184.20.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, November 04, 2015 at 10:34:50 AM, Aleksander Morgado wrote:
-> On Tue, Nov 3, 2015 at 10:43 PM, Marek Vasut <marex@denx.de> wrote:
-> > On Tuesday, November 03, 2015 at 08:28:43 PM, Oliver Hartkopp wrote:
-> >> On 11/03/2015 08:19 PM, Marek Vasut wrote:
-> >> > On Tuesday, November 03, 2015 at 07:03:26 PM, Oliver Hartkopp wrote:
-> >> >> On 11/03/2015 06:41 PM, Marek Vasut wrote:
-> >> >>> On Tuesday, November 03, 2015 at 06:32:12 PM, Oliver Hartkopp wrote:
-> >> >>> 
-> >> >>> [...]
-> >> >>> 
-> >> >>>> It looks like you need to shift the stuff in user space every time.
-> >> >>>> 
-> >> >>>> So you might better think of something like this:
-> >> >>>>     struct a429_frame {
-> >> >>>>     
-> >> >>>>             __u32   label;   /* ARINC 429 label */
-> >> >>>>             __u8    length;  /* always set to 8 */
-> >> >>>>             __u8    __pad;   /* padding */
-> >> >>>>             __u8    __res0;  /* reserved / padding */
-> >> >>>>             __u8    __res1;  /* reserved / padding */
-> >> >>>>             __u32   data __attribute__((aligned(8)));
-> >> >>>>             __u8    p;       /* p */
-> >> >>>>             __u8    ssm;     /* ssm */
-> >> >>>>             __u8    sdi;     /* sdi */
-> >> >>>>             __u8    __end;   /* padding */
-> >> >>>>     
-> >> >>>>     };
-> >> >>> 
-> >> >>> You don't want to interpret those P(arity)/SSM/SDI bits, since they
-> >> >>> differ depending on whatever the remote party sends. That's why I
-> >> >>> decided to just make those into 3-bytes of data and let the userland
-> >> >>> application deal with it as seen fit. Besides, the ARINC "FTP"
-> >> >>> really uses those 3 bytes as plain data.
-> >> >> 
-> >> >> Ok. I did not know what P was for :-)
-> >> > 
-> >> > Oh yeah. P is parity and it's optional as well and can be odd/even
-> >> > depending on the remote endpoint (sigh).
-> >> > 
-> >> >> Btw. it can make sense to introduce an union struct where different
-> >> >> options to access the content are possible.
-> >> > 
-> >> > This would be pretty nasty I think. By reading the ARINC
-> >> > specification, the SSM can be either 2 or 3 bits, the SDI is
-> >> > who-knows-what depending on the remote endpoint and the P is also not
-> >> > always present. I'm not convinced that the kernel should interpret
-> >> > the 3 byte ARINC payload in any way. (but I wonder if my argument
-> >> > presented above is convincing at all either ...).
-> >> 
-> >> Right.
-> >> 
-> >> When we define a user visible data structure, this is written into
-> >> stone.
-> >> 
-> >> When ARINC isn't even sure about the detailed interpretation we should
-> >> definitely keep our fingers away from doing it ourselves.
-> > 
-> > Right. Besides, such extension to the ABI can be done later if the need
-> > arises (which I seriously doubt), can't it ? Handling the payload as a
-> > CAN payload makes sense.
-> 
-> Agree on this, the three non-label bytes in an ARINC word should be
-> taken as opaque payload. The only exception would be the parity most
-> significant bit, but I don't think it'd be an issue to have that in
-> the opaque payload.
+Am Mittwoch, 4. November 2015, 04:40:51 schrieb Eric Dumazet:
+> On Wed, 2015-11-04 at 13:19 +0100, Wolfgang Walter wrote:
+> > Today I found a problem: on a router forwarding GRE-packets (ipv4) =
+(it is
+> > not the endpount) the interface (intel igb) stops sending packets a=
+fter
+> > some time. I think this happens when an ISATAP packet is inside the
+> > GRE-packet.>=20
+> > 	gre packets arrives on eth0
+> > 	eth1 stops sending (receiving still works)
+> > 	ethtool -r eth1
+> > 	eth1 works again for some time
+> >=20
+> > Switching GRO off on eth0 "fixes" the problem.
+> >=20
+> > I didn't test vanilla 4.1.12 yet, though. Until today 4.1.11 has be=
+en
+> > running on the router. What I tested was your patch
+> >=20
+> > 	"gre_gso_segment() chokes if SIT frames were aggregated by GRO=20
+engine."
+> >=20
+> > but did not solve the problem.
+> >=20
+> > So I would not recommend to backport it to longterm 4.1.
+> >=20
+> > My plans are:
+> >=20
+> > * test vanilla 4.1.12
+> > * test 4.3
+> >=20
+> > I want to test 4.3 on another router first, though.
+>=20
+> If the NIC stops sending packets after some time, it might be an igb
+> issue.
 
-About the parity -- can we add some flag into the datagram to indicate we
-want hardware to calculate the parity for that particular datagram for us?
-And we'd also need to indicate what type of parity. I dunno if this is worth
-the hassle.
+Yes, maybe igb has a problem sending a gro-packet if it is an isatap in=
+ gre.
 
-Best regards,
-Marek Vasut
+igb has no problem sending gro-packets which are pure isatap or which a=
+re ipv4=20
+(tcp/udp) in gre with 4.1.12 + these patches.
+
+And it had no problem with 4.1.11 with isatap in gre.
+
+Disabling gso for the interface does help.
+
+I'll test pure 4.1.12 soon.
+
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
