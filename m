@@ -1,28 +1,90 @@
-From: Z Lim <zlim.lnx@gmail.com>
-Subject: Re: [PATCH] bpf: add mod default A and X test cases
-Date: Wed, 4 Nov 2015 14:05:05 -0800
-Message-ID: <CABg9mcsQnZrwWSck85JD6djoysq69unTWCeLzCTOb7oD7mtCVQ@mail.gmail.com>
-References: <1446665797-21400-1-git-send-email-yang.shi@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <ast@kernel.org>, daniel@iogearbox.net,
-	Xi Wang <xi.wang@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	linaro-kernel@lists.linaro.org
-To: Yang Shi <yang.shi@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446665797-21400-1-git-send-email-yang.shi@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: [PATCH 1/8] mm: memcontrol: export root_mem_cgroup
+Date: Wed,  4 Nov 2015 17:22:07 -0500
+Message-ID: <1446675734-25671-2-git-send-email-hannes@cmpxchg.org>
+References: <1446675734-25671-1-git-send-email-hannes@cmpxchg.org>
+Cc: Michal Hocko <mhocko@suse.cz>,
+	Vladimir Davydov <vdavydov@virtuozzo.com>,
+	Tejun Heo <tj@kernel.org>,
+	netdev@vger.kernel.org,
+	linux-mm@kvack.org,
+	cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	kernel-team@fb.com
+To: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1446675734-25671-1-git-send-email-hannes@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 4, 2015 at 11:36 AM, Yang Shi <yang.shi@linaro.org> wrote:
-> When running "mod X" operation, if X is 0 the filter has to be halt.
-> Add new test cases to cover A = A mod X if X is 0, and A = A mod 1.
->
-> CC: Xi Wang <xi.wang@gmail.com>
-> CC: Zi Shen Lim <zlim.lnx@gmail.com>
-> Signed-off-by: Yang Shi <yang.shi@linaro.org>
-> ---
+A later patch will need this symbol in files other than memcontrol.c,
+so export it now and replace mem_cgroup_root_css at the same time.
 
-Acked-by: Zi Shen Lim <zlim.lnx@gmail.com>
+Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+Acked-by: Michal Hocko <mhocko@suse.com>
+---
+ include/linux/memcontrol.h | 3 ++-
+ mm/backing-dev.c           | 2 +-
+ mm/memcontrol.c            | 5 ++---
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index 805da1f..19ff87b 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -275,7 +275,8 @@ struct mem_cgroup {
+ 	struct mem_cgroup_per_node *nodeinfo[0];
+ 	/* WARNING: nodeinfo must be the last member here */
+ };
+-extern struct cgroup_subsys_state *mem_cgroup_root_css;
++
++extern struct mem_cgroup *root_mem_cgroup;
+ 
+ /**
+  * mem_cgroup_events - count memory events against a cgroup
+diff --git a/mm/backing-dev.c b/mm/backing-dev.c
+index 095b23b..73ab967 100644
+--- a/mm/backing-dev.c
++++ b/mm/backing-dev.c
+@@ -702,7 +702,7 @@ static int cgwb_bdi_init(struct backing_dev_info *bdi)
+ 
+ 	ret = wb_init(&bdi->wb, bdi, 1, GFP_KERNEL);
+ 	if (!ret) {
+-		bdi->wb.memcg_css = mem_cgroup_root_css;
++		bdi->wb.memcg_css = &root_mem_cgroup->css;
+ 		bdi->wb.blkcg_css = blkcg_root_css;
+ 	}
+ 	return ret;
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index c71fe40..7049e55 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -76,9 +76,9 @@
+ struct cgroup_subsys memory_cgrp_subsys __read_mostly;
+ EXPORT_SYMBOL(memory_cgrp_subsys);
+ 
++struct mem_cgroup *root_mem_cgroup __read_mostly;
++
+ #define MEM_CGROUP_RECLAIM_RETRIES	5
+-static struct mem_cgroup *root_mem_cgroup __read_mostly;
+-struct cgroup_subsys_state *mem_cgroup_root_css __read_mostly;
+ 
+ /* Whether the swap controller is active */
+ #ifdef CONFIG_MEMCG_SWAP
+@@ -4214,7 +4214,6 @@ mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
+ 	/* root ? */
+ 	if (parent_css == NULL) {
+ 		root_mem_cgroup = memcg;
+-		mem_cgroup_root_css = &memcg->css;
+ 		page_counter_init(&memcg->memory, NULL);
+ 		memcg->high = PAGE_COUNTER_MAX;
+ 		memcg->soft_limit = PAGE_COUNTER_MAX;
+-- 
+2.6.2
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
