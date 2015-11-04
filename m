@@ -1,64 +1,48 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
-Date: Wed, 4 Nov 2015 16:07:30 +0100
-Message-ID: <201511041607.30577.marex@denx.de>
-References: <1446419775-5215-1-git-send-email-marex@denx.de> <201511041454.16413.marex@denx.de> <338664525.20151104180316@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: gro: support sit protocol
+Date: Wed, 04 Nov 2015 07:13:07 -0800
+Message-ID: <1446649987.4184.22.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1438621878-1113072-1-git-send-email-tom@herbertland.com>
+	 <3363088.63t9TqhiQf@stwm.de>
+	 <1446640851.4184.20.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <2511200.aYIar34voW@stwm.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Aleksander Morgado <aleksander@aleksander.es>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	"Marc Kleine-Budde" <mkl@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>
+Cc: David Miller <davem@davemloft.net>, Jerry Chu <hkchu@google.com>,
+	JesseGross <jesse@nicira.com>, Tom Herbert <tom@herbertland.com>,
+	netdev <netdev@vger.kernel.org>, kernel-team@fb.com,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Wolfgang Walter <linux@stwm.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:48258 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932365AbbKDPHk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 10:07:40 -0500
-In-Reply-To: <338664525.20151104180316@cogentembedded.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:33186 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965471AbbKDPNL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 10:13:11 -0500
+Received: by pabfh17 with SMTP id fh17so55644599pab.0
+        for <netdev@vger.kernel.org>; Wed, 04 Nov 2015 07:13:10 -0800 (PST)
+In-Reply-To: <2511200.aYIar34voW@stwm.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, November 04, 2015 at 04:03:16 PM, Vostrikov Andrey wrote:
-> Hi, Marek.
+On Wed, 2015-11-04 at 15:09 +0100, Wolfgang Walter wrote:
 
-Hi,
-
-> > About the parity -- can we add some flag into the datagram to indicate we
-> > want hardware to calculate the parity for that particular datagram for
-> > us? And we'd also need to indicate what type of parity. I dunno if this
-> > is worth the hassle.
 > 
-> This  is HW configuration property, it does not belong to  datagram. Also
-> for TX channels,  parity could  be  two  kinds:  odd and even, for RX it
-> is only on/off.
+> Yes, maybe igb has a problem sending a gro-packet if it is an isatap in gre.
 
-There are datagrams which do contain parity and ones which do not contain it,
-correct ? Thus, it's a property of that particular datagram.
+We might detect this condition properly from igb ndo_features_check
+method.
 
-> Parity  is  not  the  only property that needs to be configured in HW,
-> following could be needed as well,
-> - label bit flipping (on or off)
+It currently uses plain passthru_features_check()
 
-This is hardware property.
 
-> - rate change (low / high)
 
-This is again hardware configuration -- you have to configure the link speed
-before you do RX/TX.
-
-> -  label  filters  and  label  priority matching (this could be HoltIC
-> specific)
 > 
-> I  suppose  all  these  properties  are  configured  only  once, at
-> interface initialization.
+> igb has no problem sending gro-packets which are pure isatap or which are ipv4 
+> (tcp/udp) in gre with 4.1.12 + these patches.
+> 
+> And it had no problem with 4.1.11 with isatap in gre.
+> 
+> Disabling gso for the interface does help.
 
-These three above, yes. Parity, I don't think so.
-
-Best regards,
-Marek Vasut
+My patch was aimed for 4.4, not sure about backports to old kernels...
