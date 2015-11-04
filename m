@@ -1,171 +1,123 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH v5] i40e: Look up MAC address in Open Firmware or IDPROM
-Date: Wed, 4 Nov 2015 14:39:56 -0500
-Message-ID: <20151104193956.GD14575@oracle.com>
+From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
+ hierarchy
+Date: Wed, 4 Nov 2015 14:50:37 -0500
+Message-ID: <20151104195037.GA6872@cmpxchg.org>
+References: <20151023131956.GA15375@dhcp22.suse.cz>
+ <20151023.065957.1690815054807881760.davem@davemloft.net>
+ <20151026165619.GB2214@cmpxchg.org>
+ <20151027122647.GG9891@dhcp22.suse.cz>
+ <20151027154138.GA4665@cmpxchg.org>
+ <20151027161554.GJ9891@dhcp22.suse.cz>
+ <20151027164227.GB7749@cmpxchg.org>
+ <20151029152546.GG23598@dhcp22.suse.cz>
+ <20151029161009.GA9160@cmpxchg.org>
+ <20151104104239.GG29607@dhcp22.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	andy.shevchenko@gmail.com
-To: sowmini.varadhan@oracle.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:26711 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756257AbbKDTkG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 14:40:06 -0500
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20151104104239.GG29607-2MMpYkNvuYDjFM9bn6wA6Q@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+On Wed, Nov 04, 2015 at 11:42:40AM +0100, Michal Hocko wrote:
+> On Thu 29-10-15 09:10:09, Johannes Weiner wrote:
+> > On Thu, Oct 29, 2015 at 04:25:46PM +0100, Michal Hocko wrote:
+> > > On Tue 27-10-15 09:42:27, Johannes Weiner wrote:
+> [...]
+> > > > You carefully skipped over this part. We can ignore it for socket
+> > > > memory but it's something we need to figure out when it comes to slab
+> > > > accounting and tracking.
+> > > 
+> > > I am sorry, I didn't mean to skip this part, I though it would be clear
+> > > from the previous text. I think kmem accounting falls into the same
+> > > category. Have a sane default and a global boottime knob to override it
+> > > for those that think differently - for whatever reason they might have.
+> > 
+> > Yes, that makes sense to me.
+> > 
+> > Like cgroup.memory=nosocket, would you think it makes sense to include
+> > slab in the default for functional/semantical completeness and provide
+> > a cgroup.memory=noslab for powerusers?
+> 
+> I am still not sure whether the kmem accounting is stable enough to be
+> enabled by default. If for nothing else the allocation failures, which
+> are not allowed for the global case and easily triggered by the hard
+> limit, might be a big problem. My last attempts to allow GFP_NOFS to
+> fail made me quite skeptical. I still believe this is something which
+> will be solved in the long term but the current state might be still too
+> fragile. So I would rather be conservative and have the kmem accounting
+> disabled by default with a config option and boot parameter to override.
+> If somebody is confident that the desired load is stable then the config
+> can be enabled easily.
+
+I agree with your assessment of the current kmem code state, but I
+think your conclusion is completely backwards here.
+
+The interface will be set in stone forever, whereas any stability
+issues will be transient and will have to be addressed in a finite
+amount of time anyway. It doesn't make sense to design an interface
+based on temporary quality of implementation. Only one of those two
+can ever be changed.
+
+Because it goes without saying that once the cgroupv2 interface is
+released, and people use it in production, there is no way we can then
+*add* dentry cache, inode cache, and others to memory.current. That
+would be an unacceptable change in interface behavior. On the other
+hand, people will be prepared for hiccups in the early stages of
+cgroupv2 release, and we're providing cgroup.memory=noslab to let them
+workaround severe problems in production until we fix it without
+forcing them to fully revert to cgroupv1.
+
+So if we agree that there are no fundamental architectural concerns
+with slab accounting, i.e. nothing that can't be addressed in the
+implementation, we have to make the call now.
+
+And I maintain that not accounting dentry cache and inode cache is a
+gaping hole in memory isolation, so it should be included by default.
+(The rest of the slabs is arguable, but IMO the risk of missing
+something important is higher than the cost of including them.)
 
 
-This is the i40e equivalent of commit c762dff24c06 ("ixgbe: Look up MAC
-address in Open Firmware or IDPROM").
+As far as your allocation failure concerns go, I think the kmem code
+is currently not behaving as Glauber originally intended, which is to
+force charge if reclaim and OOM killing weren't able to make enough
+space. See this recently rewritten section of the kmem charge path:
 
-As with that fix, attempt to look up the MAC address in Open Firmware
-on systems that support it, and use IDPROM on SPARC if no OF address
-is found.
+-               /*
+-                * try_charge() chose to bypass to root due to OOM kill or
+-                * fatal signal.  Since our only options are to either fail
+-                * the allocation or charge it to this cgroup, do it as a
+-                * temporary condition. But we can't fail. From a kmem/slab
+-                * perspective, the cache has already been selected, by
+-                * mem_cgroup_kmem_get_cache(), so it is too late to change
+-                * our minds.
+-                *
+-                * This condition will only trigger if the task entered
+-                * memcg_charge_kmem in a sane state, but was OOM-killed
+-                * during try_charge() above. Tasks that were already dying
+-                * when the allocation triggers should have been already
+-                * directed to the root cgroup in memcontrol.h
+-                */
+-               page_counter_charge(&memcg->memory, nr_pages);
+-               if (do_swap_account)
+-                       page_counter_charge(&memcg->memsw, nr_pages);
 
-In the case of the i40e there is an assumption that the default mac
-address has already been set up as the primary mac filter on probe,
-so if this filter is obtained from the Open Firmware or IDPROM, an
-explicit write is needed via i40e_aq_mac_address_write() and
-i40e_aq_add_macvlan() invocation.
+It could be that this never properly worked as it was tied to the
+-EINTR bypass trick, but the idea was these charges never fail.
 
-Reviewed-by: Martin K. Petersen <martin.petersen@oracle.com>
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
-v2, v3: Andy Shevchenko comments
-v4: Shannon Nelson review: explicitly set up mac filters before register_netdev
-v5: Shannon Nelson code style comments
+And this makes sense. If the allocator semantics are such that we
+never fail these page allocations for slab, and the callsites rely on
+that, surely we should not fail them in the memory controller, either.
 
- drivers/net/ethernet/intel/i40e/i40e_main.c |   84 ++++++++++++++++++++++++++-
- 1 files changed, 83 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b825f97..a3883cf 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -24,6 +24,15 @@
-  *
-  ******************************************************************************/
- 
-+#include <linux/etherdevice.h>
-+#include <linux/of_net.h>
-+#include <linux/pci.h>
-+
-+#ifdef CONFIG_SPARC
-+#include <asm/idprom.h>
-+#include <asm/prom.h>
-+#endif
-+
- /* Local includes */
- #include "i40e.h"
- #include "i40e_diag.h"
-@@ -9213,6 +9222,44 @@ static struct i40e_vsi *i40e_vsi_reinit_setup(struct i40e_vsi *vsi)
- }
- 
- /**
-+ * i40e_macaddr_init - explicitly write the mac address filters. This
-+ * is needed when the macaddr has been obtained by other means than
-+ * the default, e.g., from Open Firmware or IDPROM.
-+ *
-+ * @vsi: pointer to the vsi.
-+ * @macaddr: the MAC address
-+ *
-+ * Returns 0 on success, negative on failure
-+ **/
-+static int i40e_macaddr_init(struct i40e_vsi *vsi, u8 *macaddr)
-+{
-+	int ret, aq_err;
-+	struct i40e_aqc_add_macvlan_element_data element;
-+
-+	ret = i40e_aq_mac_address_write(&vsi->back->hw,
-+					I40E_AQC_WRITE_TYPE_LAA_WOL,
-+					macaddr, NULL);
-+	if (ret) {
-+		dev_info(&vsi->back->pdev->dev,
-+			 "Addr change for VSI failed: %d\n", ret);
-+		return -EADDRNOTAVAIL;
-+	}
-+
-+	memset(&element, 0, sizeof(element));
-+	ether_addr_copy(element.mac_addr, macaddr);
-+	element.flags = cpu_to_le16(I40E_AQC_MACVLAN_ADD_PERFECT_MATCH);
-+	ret = i40e_aq_add_macvlan(&vsi->back->hw, vsi->seid, &element, 1, NULL);
-+	aq_err = vsi->back->hw.aq.asq_last_status;
-+	if (aq_err != I40E_AQ_RC_OK) {
-+		dev_info(&vsi->back->pdev->dev,
-+			 "add filter failed err %s aq_err %s\n",
-+			 i40e_stat_str(&vsi->back->hw, ret),
-+			 i40e_aq_str(&vsi->back->hw, aq_err));
-+	}
-+	return ret;
-+}
-+
-+/**
-  * i40e_vsi_setup - Set up a VSI by a given type
-  * @pf: board private structure
-  * @type: VSI type
-@@ -9341,6 +9388,9 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
- 		ret = i40e_config_netdev(vsi);
- 		if (ret)
- 			goto err_netdev;
-+		ret = i40e_macaddr_init(vsi, pf->hw.mac.addr);
-+		if (ret)
-+			goto err_netdev;
- 		ret = register_netdev(vsi->netdev);
- 		if (ret)
- 			goto err_netdev;
-@@ -10163,6 +10213,36 @@ static void i40e_print_features(struct i40e_pf *pf)
- }
- 
- /**
-+ * i40e_get_platform_mac_addr - get mac address from Open Firmware
-+ * or IDPROM if supported by the platform
-+ *
-+ * @pdev: PCI device information struct
-+ * @mac_addr: the MAC address to be returned
-+ *
-+ * Look up the MAC address in Open Firmware  on systems that support it,
-+ * and use IDPROM on SPARC if no OF address is found.
-+ *
-+ * Returns 0 on success, negative on failure
-+ **/
-+static int i40e_get_platform_mac_addr(struct pci_dev *pdev, u8 *mac_addr)
-+{
-+	struct device_node *dp = pci_device_to_OF_node(pdev);
-+	const unsigned char *addr;
-+
-+	addr = of_get_mac_address(dp);
-+	if (addr) {
-+		ether_addr_copy(mac_addr, addr);
-+		return 0;
-+	}
-+#ifdef CONFIG_SPARC
-+	ether_addr_copy(mac_addr, idprom->id_ethaddr);
-+	return 0;
-+#else
-+	return -EINVAL;
-+#endif /* CONFIG_SPARC */
-+}
-+
-+/**
-  * i40e_probe - Device initialization routine
-  * @pdev: PCI device information struct
-  * @ent: entry in i40e_pci_tbl
-@@ -10360,7 +10440,9 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		i40e_aq_stop_lldp(hw, true, NULL);
- 	}
- 
--	i40e_get_mac_addr(hw, hw->mac.addr);
-+	err = i40e_get_platform_mac_addr(pdev, hw->mac.addr);
-+	if (err)
-+		i40e_get_mac_addr(hw, hw->mac.addr);
- 	if (!is_valid_ether_addr(hw->mac.addr)) {
- 		dev_info(&pdev->dev, "invalid MAC address %pM\n", hw->mac.addr);
- 		err = -EIO;
--- 
-1.7.1
+And it makes a lot more sense to account them in excess of the limit
+than pretend they don't exist. We might not be able to completely
+fullfill the containment part of the memory controller (although these
+slab charges will still create significant pressure before that), but
+at least we don't fail the accounting part on top of it.
