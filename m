@@ -1,42 +1,81 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: HTB, HFSC, PIE, FIFO stuck on 2.4Gbit on default values
-Date: Tue, 03 Nov 2015 20:28:37 -0800
-Message-ID: <1446611317.4184.3.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <14bd7629199800f798c8ab932e0285d3@visp.net.lb>
-	 <1446577894.23275.71.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <907cb54c0a27beed12381247ba29bca5@visp.net.lb>
-	 <1446580156.23275.74.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <f970215bd46efe3ea3dc5c7fccfa0509@visp.net.lb>
-	 <1446585826.23275.78.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <0394a0a8c8f65e367a596274719ed759@visp.net.lb>
+Subject: Re: kernel panic in 4.2.3, rb_erase in sch_fq
+Date: Tue, 03 Nov 2015 20:46:21 -0800
+Message-ID: <1446612381.4184.7.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <d66d455afe6dd28bed32ed3e17f797b7@visp.net.lb>
+	 <CAHA+R7MNxEkMfyQa56d0HRk2HxeqsduUfM3BkBh=Oxm2yNBVaA@mail.gmail.com>
+	 <0705e2b76150c28341d7e1915433450d@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
+Cc: Cong Wang <cwang@twopensource.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
 To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36311 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754851AbbKDE2j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2015 23:28:39 -0500
-Received: by pacdm15 with SMTP id dm15so15621902pac.3
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2015 20:28:38 -0800 (PST)
-In-Reply-To: <0394a0a8c8f65e367a596274719ed759@visp.net.lb>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0705e2b76150c28341d7e1915433450d@visp.net.lb>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-11-04 at 06:12 +0200, Denys Fedoryshchenko wrote:
-> Just enabling gro or gso (or together) is fine there. Thanks for advice. 
-> Seems only tso causing problems.
-> Also i guess if i keep tso disabled, it will solve my MTU issues (i had 
-> once issue, that traffic heading to pppoe users,
-> who have 14xx mtu, was blocked, when offloading enabled on transit 
-> server, but can't reproduce it quickly again).
-> Should i try to report to e1000e maintainers this bug? On similar setup 
-> it is happening only at specific locations,
-> but i am not definitely sure what can be the reason.
+On Wed, 2015-11-04 at 06:25 +0200, Denys Fedoryshchenko wrote:
+> On 2015-11-04 00:06, Cong Wang wrote:
+> > On Mon, Nov 2, 2015 at 6:11 AM, Denys Fedoryshchenko
+> > <nuclearcat@nuclearcat.com> wrote:
+> >> Hi!
+> >> 
+> >> Actually seems i was getting this panic for a while (once per week) on
+> >> loaded pppoe server, but just now was able to get full panic message.
+> >> After checking commit logs on sch_fq.c i didnt seen any fixes, so 
+> >> probably
+> >> upgrading to newer kernel wont help?
+> > 
+> > 
+> > Can you share your `tc qdisc show dev xxxx` with us? And how to 
+> > reproduce
+> > it? I tried to setup htb+fq and then flip the interface back and forth
+> > but I don't
+> > see any crash.
+> My guess it wont be easy to reproduce, it is happening on box with 4.5k 
+> interfaces, that constantly create/delete interfaces,
+> and even with that this problem may happen once per day, or may not 
+> happen for 1 week.
+> 
+> Here is script that is being fired after new ppp interface detected. But 
+> pppoe process are independent from
+> process that are "establishing" shapers.
 
-Not sure, have you tried per chance latest kernel (linux-4.3) for this
-e1000e issue ?
 
-Are you using vlan tags on this NIC ?
+It is probably a generic bug. sch_fq seems OK to me.
+
+Somehow nobody tries to change qdisc hundred times per second ;)
+
+Could you try following patch ?
+
+It seems to 'fix' the issue for me.
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8ce3f74cd6b9..bf136103bc7b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2880,6 +2880,12 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+ 		spin_lock(&q->busylock);
+ 
+ 	spin_lock(root_lock);
++	if (unlikely(q != rcu_dereference_bh(txq->qdisc))) {
++		pr_err_ratelimited("Arg, qdisc changed ! state %lx\n", q->state);
++		kfree_skb(skb);
++		rc = NET_XMIT_DROP;
++		goto end;
++	}
+ 	if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
+ 		kfree_skb(skb);
+ 		rc = NET_XMIT_DROP;
+@@ -2913,6 +2919,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+ 			__qdisc_run(q);
+ 		}
+ 	}
++end:
+ 	spin_unlock(root_lock);
+ 	if (unlikely(contended))
+ 		spin_unlock(&q->busylock);
