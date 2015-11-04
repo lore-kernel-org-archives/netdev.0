@@ -1,40 +1,32 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] qlogic/qed: remove bogus NULL check
-Date: Wed, 4 Nov 2015 16:27:16 +0300
-Message-ID: <20151104132716.GD20966@mwanda>
+Subject: [patch -next] qlogic: qed: fix a test for MODE_MF_SI
+Date: Wed, 4 Nov 2015 16:29:11 +0300
+Message-ID: <20151104132911.GE20966@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Ariel Elior <Ariel.Elior@qlogic.com>, everest-linux-l2@qlogic.com,
 	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
 To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:32419 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752448AbbKDN10 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 08:27:26 -0500
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We check if "p_hwfn" is NULL and then dereference it in the error
-handling code.  I read the code and it isn't NULL so let's remove the
-check.
+MODE_MF_SI is 9.  We should be testing bit 9 instead of AND 0x9.
 
+Fixes: fe56b9e6a8d9 ('qed: Add module with basic common support')
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
-index 2e399b6..de50e84 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_int.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
-@@ -251,11 +251,6 @@ void qed_int_sp_dpc(unsigned long hwfn_cookie)
- 	int arr_size;
- 	u16 rc = 0;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index b9b7b7e..774b223 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -562,7 +562,7 @@ static int qed_hw_init_pf(struct qed_hwfn *p_hwfn,
+ 	}
  
--	if (!p_hwfn) {
--		DP_ERR(p_hwfn->cdev, "DPC called - no hwfn!\n");
--		return;
--	}
--
- 	if (!p_hwfn->p_sp_sb) {
- 		DP_ERR(p_hwfn->cdev, "DPC called - no p_sp_sb\n");
- 		return;
+ 	/* Enable classification by MAC if needed */
+-	if (hw_mode & MODE_MF_SI) {
++	if (hw_mode & (1 << MODE_MF_SI)) {
+ 		DP_VERBOSE(p_hwfn, NETIF_MSG_HW,
+ 			   "Configuring TAGMAC_CLS_TYPE\n");
+ 		STORE_RT_REG(p_hwfn,
