@@ -1,195 +1,143 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: [PATCH 6/8] mm: memcontrol: prepare for unified hierarchy socket accounting
-Date: Wed,  4 Nov 2015 17:22:12 -0500
-Message-ID: <1446675734-25671-7-git-send-email-hannes@cmpxchg.org>
-References: <1446675734-25671-1-git-send-email-hannes@cmpxchg.org>
-Cc: Michal Hocko <mhocko@suse.cz>,
-	Vladimir Davydov <vdavydov@virtuozzo.com>,
-	Tejun Heo <tj@kernel.org>,
-	netdev@vger.kernel.org,
-	linux-mm@kvack.org,
-	cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	kernel-team@fb.com
-To: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1446675734-25671-1-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net] net: dsa: mv88e6xxx: isolate unbridged ports
+Date: Wed,  4 Nov 2015 17:23:40 -0500
+Message-ID: <1446675820-25608-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The unified hierarchy memory controller will account socket
-memory. Move the infrastructure functions accordingly.
+The DSA documentation specifies that each port must be capable of
+forwarding frames to the CPU port. The last changes on bridging support
+for the mv88e6xxx driver broke this requirement for non-bridged ports.
 
-Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
-Acked-by: Michal Hocko <mhocko@suse.com>
+So as for the bridged ports, reserve a few VLANs (4000+) in the switch
+to isolate ports that have not been bridged yet.
+
+By default, a port will be isolated with the CPU and DSA ports. When the
+port joins a bridge, it will leave its reserved port. When it is removed
+from a bridge, it will join its reserved VLAN again.
+
+Fixes: 5fe7f68016ff ("net: dsa: mv88e6xxx: fix hardware bridging")
+Reported-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- mm/memcontrol.c | 140 ++++++++++++++++++++++++++++----------------------------
- 1 file changed, 70 insertions(+), 70 deletions(-)
+ drivers/net/dsa/mv88e6171.c |  2 ++
+ drivers/net/dsa/mv88e6352.c |  2 ++
+ drivers/net/dsa/mv88e6xxx.c | 42 ++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx.h |  2 ++
+ 4 files changed, 48 insertions(+)
 
-diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index d649b56..85f212e 100644
---- a/mm/memcontrol.c
-+++ b/mm/memcontrol.c
-@@ -287,76 +287,6 @@ static inline struct mem_cgroup *mem_cgroup_from_id(unsigned short id)
- 	return mem_cgroup_from_css(css);
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 54aa000..6e18213 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -103,6 +103,8 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ #endif
+ 	.get_regs_len		= mv88e6xxx_get_regs_len,
+ 	.get_regs		= mv88e6xxx_get_regs,
++	.port_join_bridge	= mv88e6xxx_port_bridge_join,
++	.port_leave_bridge	= mv88e6xxx_port_bridge_leave,
+ 	.port_stp_update        = mv88e6xxx_port_stp_update,
+ 	.port_pvid_get		= mv88e6xxx_port_pvid_get,
+ 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index ff846d0..cc6c545 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -323,6 +323,8 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.set_eeprom		= mv88e6352_set_eeprom,
+ 	.get_regs_len		= mv88e6xxx_get_regs_len,
+ 	.get_regs		= mv88e6xxx_get_regs,
++	.port_join_bridge	= mv88e6xxx_port_bridge_join,
++	.port_leave_bridge	= mv88e6xxx_port_bridge_leave,
+ 	.port_stp_update	= mv88e6xxx_port_stp_update,
+ 	.port_pvid_get		= mv88e6xxx_port_pvid_get,
+ 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 04cff58..b06dba0 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1462,6 +1462,10 @@ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
+ 				const struct switchdev_obj_port_vlan *vlan,
+ 				struct switchdev_trans *trans)
+ {
++	/* We reserve a few VLANs to isolate unbridged ports */
++	if (vlan->vid_end >= 4000)
++		return -EOPNOTSUPP;
++
+ 	/* We don't need any dynamic resource from the kernel (yet),
+ 	 * so skip the prepare phase.
+ 	 */
+@@ -1870,6 +1874,36 @@ unlock:
+ 	return err;
  }
  
--/* Writing them here to avoid exposing memcg's inner layout */
--#if defined(CONFIG_INET) && defined(CONFIG_MEMCG_KMEM)
--
--DEFINE_STATIC_KEY_FALSE(mem_cgroup_sockets);
--
--void sock_update_memcg(struct sock *sk)
--{
--	struct mem_cgroup *memcg;
--	/*
--	 * Socket cloning can throw us here with sk_cgrp already
--	 * filled. It won't however, necessarily happen from
--	 * process context. So the test for root memcg given
--	 * the current task's memcg won't help us in this case.
--	 *
--	 * Respecting the original socket's memcg is a better
--	 * decision in this case.
--	 */
--	if (sk->sk_memcg) {
--		BUG_ON(mem_cgroup_is_root(sk->sk_memcg));
--		css_get(&sk->sk_memcg->css);
--		return;
--	}
--
--	rcu_read_lock();
--	memcg = mem_cgroup_from_task(current);
--	if (css_tryget_online(&memcg->css))
--		sk->sk_memcg = memcg;
--	rcu_read_unlock();
--}
--EXPORT_SYMBOL(sock_update_memcg);
--
--void sock_release_memcg(struct sock *sk)
--{
--	if (sk->sk_memcg)
--		css_put(&sk->sk_memcg->css);
--}
--
--/**
-- * mem_cgroup_charge_skmem - charge socket memory
-- * @memcg: memcg to charge
-- * @nr_pages: number of pages to charge
-- *
-- * Charges @nr_pages to @memcg. Returns %true if the charge fit within
-- * the memcg's configured limit, %false if the charge had to be forced.
-- */
--bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
--{
--	struct page_counter *counter;
--
--	if (page_counter_try_charge(&memcg->skmem, nr_pages, &counter)) {
--		memcg->skmem_breached = false;
--		return true;
--	}
--	page_counter_charge(&memcg->skmem, nr_pages);
--	memcg->skmem_breached = true;
--	return false;
--}
--
--/**
-- * mem_cgroup_uncharge_skmem - uncharge socket memory
-- * @memcg: memcg to uncharge
-- * @nr_pages: number of pages to uncharge
-- */
--void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
--{
--	page_counter_uncharge(&memcg->skmem, nr_pages);
--}
--
--#endif
--
- #ifdef CONFIG_MEMCG_KMEM
- /*
-  * This will be the memcg's index in each cache's ->memcg_params.memcg_caches.
-@@ -5523,6 +5453,76 @@ void mem_cgroup_replace_page(struct page *oldpage, struct page *newpage)
- 	commit_charge(newpage, memcg, true);
++int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port, u32 members)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	const u16 pvid = 4000 + ds->index * DSA_MAX_PORTS + port;
++	int err;
++
++	/* The port joined a bridge, so leave its reserved VLAN */
++	mutex_lock(&ps->smi_mutex);
++	err = _mv88e6xxx_port_vlan_del(ds, port, pvid);
++	if (!err)
++		err = _mv88e6xxx_port_pvid_set(ds, port, 0);
++	mutex_unlock(&ps->smi_mutex);
++	return err;
++}
++
++int mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port, u32 members)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	const u16 pvid = 4000 + ds->index * DSA_MAX_PORTS + port;
++	int err;
++
++	/* The port left the bridge, so join its reserved VLAN */
++	mutex_lock(&ps->smi_mutex);
++	err = _mv88e6xxx_port_vlan_add(ds, port, pvid, true);
++	if (!err)
++		err = _mv88e6xxx_port_pvid_set(ds, port, pvid);
++	mutex_unlock(&ps->smi_mutex);
++	return err;
++}
++
+ static void mv88e6xxx_bridge_work(struct work_struct *work)
+ {
+ 	struct mv88e6xxx_priv_state *ps;
+@@ -2140,6 +2174,14 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
+ 		ret = mv88e6xxx_setup_port(ds, i);
+ 		if (ret < 0)
+ 			return ret;
++
++		if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
++			continue;
++
++		/* setup the unbridged state */
++		ret = mv88e6xxx_port_bridge_leave(ds, i, 0);
++		if (ret < 0)
++			return ret;
+ 	}
+ 	return 0;
  }
- 
-+/* Writing them here to avoid exposing memcg's inner layout */
-+#if defined(CONFIG_INET) && defined(CONFIG_MEMCG_KMEM)
-+
-+DEFINE_STATIC_KEY_FALSE(mem_cgroup_sockets);
-+
-+void sock_update_memcg(struct sock *sk)
-+{
-+	struct mem_cgroup *memcg;
-+	/*
-+	 * Socket cloning can throw us here with sk_cgrp already
-+	 * filled. It won't however, necessarily happen from
-+	 * process context. So the test for root memcg given
-+	 * the current task's memcg won't help us in this case.
-+	 *
-+	 * Respecting the original socket's memcg is a better
-+	 * decision in this case.
-+	 */
-+	if (sk->sk_memcg) {
-+		BUG_ON(mem_cgroup_is_root(sk->sk_memcg));
-+		css_get(&sk->sk_memcg->css);
-+		return;
-+	}
-+
-+	rcu_read_lock();
-+	memcg = mem_cgroup_from_task(current);
-+	if (css_tryget_online(&memcg->css))
-+		sk->sk_memcg = memcg;
-+	rcu_read_unlock();
-+}
-+EXPORT_SYMBOL(sock_update_memcg);
-+
-+void sock_release_memcg(struct sock *sk)
-+{
-+	if (sk->sk_memcg)
-+		css_put(&sk->sk_memcg->css);
-+}
-+
-+/**
-+ * mem_cgroup_charge_skmem - charge socket memory
-+ * @memcg: memcg to charge
-+ * @nr_pages: number of pages to charge
-+ *
-+ * Charges @nr_pages to @memcg. Returns %true if the charge fit within
-+ * the memcg's configured limit, %false if the charge had to be forced.
-+ */
-+bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
-+{
-+	struct page_counter *counter;
-+
-+	if (page_counter_try_charge(&memcg->skmem, nr_pages, &counter)) {
-+		memcg->skmem_breached = false;
-+		return true;
-+	}
-+	page_counter_charge(&memcg->skmem, nr_pages);
-+	memcg->skmem_breached = true;
-+	return false;
-+}
-+
-+/**
-+ * mem_cgroup_uncharge_skmem - uncharge socket memory
-+ * @memcg: memcg to uncharge
-+ * @nr_pages: number of pages to uncharge
-+ */
-+void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
-+{
-+	page_counter_uncharge(&memcg->skmem, nr_pages);
-+}
-+
-+#endif
-+
- /*
-  * subsys_initcall() for memory controller.
-  *
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index fb9a873..21c8daa 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -468,6 +468,8 @@ int mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int addr, int regnum,
+ int mv88e6xxx_get_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e);
+ int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
+ 		      struct phy_device *phydev, struct ethtool_eee *e);
++int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port, u32 members);
++int mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port, u32 members);
+ int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state);
+ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
+ 				const struct switchdev_obj_port_vlan *vlan,
 -- 
 2.6.2
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
