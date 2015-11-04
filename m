@@ -1,65 +1,60 @@
-From: Aleksander Morgado <aleksander@aleksander.es>
-Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
-Date: Wed, 4 Nov 2015 10:51:25 +0100
-Message-ID: <CAAP7uc+ytdWWDQU0eFozK1d=HkQ5YnvOqNbLQcjdy9qdJbgKYQ@mail.gmail.com>
-References: <1446419775-5215-1-git-send-email-marex@denx.de>
-	<201511021916.18117.marex@denx.de>
-	<666821254.20151102231521@cogentembedded.com>
-	<201511022125.47892.marex@denx.de>
-	<CAAP7uc+3sJRJ9khC6x58ULy2vR8fTCi6gMwtgV_0GAWW49AwLg@mail.gmail.com>
-	<5638E86A.4090907@hartkopp.net>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
+ hierarchy
+Date: Wed, 4 Nov 2015 11:42:40 +0100
+Message-ID: <20151104104239.GG29607@dhcp22.suse.cz>
+References: <1445487696-21545-6-git-send-email-hannes@cmpxchg.org>
+ <20151023131956.GA15375@dhcp22.suse.cz>
+ <20151023.065957.1690815054807881760.davem@davemloft.net>
+ <20151026165619.GB2214@cmpxchg.org>
+ <20151027122647.GG9891@dhcp22.suse.cz>
+ <20151027154138.GA4665@cmpxchg.org>
+ <20151027161554.GJ9891@dhcp22.suse.cz>
+ <20151027164227.GB7749@cmpxchg.org>
+ <20151029152546.GG23598@dhcp22.suse.cz>
+ <20151029161009.GA9160@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Marek Vasut <marex@denx.de>,
-	Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:36797 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932303AbbKDJv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 04:51:26 -0500
-Received: by oiww189 with SMTP id w189so1447683oiw.3
-        for <netdev@vger.kernel.org>; Wed, 04 Nov 2015 01:51:25 -0800 (PST)
-In-Reply-To: <5638E86A.4090907@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	vdavydov@virtuozzo.com, tj@kernel.org, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151029161009.GA9160@cmpxchg.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 3, 2015 at 6:01 PM, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
->> Unrelated to all this, another key point in ARINC is the timing for
->> each label when transmitting. The common case you get is different
->> labels being sent continuously with a given rate for each. E.g. labels
->> 310 and 311 every 80ms, label 312 every 120ms and so on. I'm not sure
->> the HOLT chips have any specific way of configuring this, but I've
->> seen some USB devices which actually have APIs to say e.g. "send label
->> 310 every 80ms" and then you can just update the value being sent
->> without needing to take care of the TX rate. I'd have loved to see
->> that instead of the complex filtering :) I know this is way too much
->> for the generic kernel driver, though, so just a heads up of how this
->> usually works.
->>
->
-> The CAN stack already has a solution for this.
->
-> The CAN_BCM socket is a programmable (content) filter for cyclic messages
-> which are common in automotive setups to detect timeouts in cyclic messages
-> (sender fails).
->
-> An the best thing: You can use the Linux internal high-res timers to send
-> messages - just by creating a TX_SETUP configuration for the BCM.
->
-> Read this:
-> https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/tree/Documentation/networking/can.txt?h=linux-4.2.y#n634
->
-> Just one more reason to use PF_CAN :-)
+On Thu 29-10-15 09:10:09, Johannes Weiner wrote:
+> On Thu, Oct 29, 2015 at 04:25:46PM +0100, Michal Hocko wrote:
+> > On Tue 27-10-15 09:42:27, Johannes Weiner wrote:
+[...]
+> > > You carefully skipped over this part. We can ignore it for socket
+> > > memory but it's something we need to figure out when it comes to slab
+> > > accounting and tracking.
+> > 
+> > I am sorry, I didn't mean to skip this part, I though it would be clear
+> > from the previous text. I think kmem accounting falls into the same
+> > category. Have a sane default and a global boottime knob to override it
+> > for those that think differently - for whatever reason they might have.
+> 
+> Yes, that makes sense to me.
+> 
+> Like cgroup.memory=nosocket, would you think it makes sense to include
+> slab in the default for functional/semantical completeness and provide
+> a cgroup.memory=noslab for powerusers?
 
-This setup is actually very interesting for ARINC transmitters, indeed.
-
-
+I am still not sure whether the kmem accounting is stable enough to be
+enabled by default. If for nothing else the allocation failures, which
+are not allowed for the global case and easily triggered by the hard
+limit, might be a big problem. My last attempts to allow GFP_NOFS to
+fail made me quite skeptical. I still believe this is something which
+will be solved in the long term but the current state might be still too
+fragile. So I would rather be conservative and have the kmem accounting
+disabled by default with a config option and boot parameter to override.
+If somebody is confident that the desired load is stable then the config
+can be enabled easily.
 -- 
-Aleksander
-https://aleksander.es
+Michal Hocko
+SUSE Labs
