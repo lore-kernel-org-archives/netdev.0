@@ -1,95 +1,70 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: kernel panic in 4.2.3, rb_erase in sch_fq
-Date: Wed, 04 Nov 2015 07:13:24 +0200
-Message-ID: <99c4b2ab62df950de391ee7987781461@visp.net.lb>
-References: <d66d455afe6dd28bed32ed3e17f797b7@visp.net.lb>
- <CAHA+R7MNxEkMfyQa56d0HRk2HxeqsduUfM3BkBh=Oxm2yNBVaA@mail.gmail.com>
- <0705e2b76150c28341d7e1915433450d@visp.net.lb>
- <1446612381.4184.7.camel@edumazet-glaptop2.roam.corp.google.com>
- <1446613120.4184.9.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [kbuild-all] [PATCH] mpls: fix semicolon.cocci warnings
+Date: Wed, 4 Nov 2015 07:50:05 +0100 (CET)
+Message-ID: <alpine.DEB.2.02.1511040746350.2068@localhost6.localdomain6>
+References: <201511032333.Lf2mqx0D%fengguang.wu@intel.com> <1446562191-22416-1-git-send-email-roopa@cumulusnetworks.com> <20151103152539.GA63052@cairo> <20151103.111736.1351482614470057979.davem@davemloft.net>
+ <20151104020151.GA25902@wfg-t540p.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <cwang@twopensource.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	roopa@cumulusnetworks.com, rshearma@brocade.com, kbuild-all@01.org,
+	ebiederm@xmission.com
+To: Fengguang Wu <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:43525 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751105AbbKDFN2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 00:13:28 -0500
-Received: from hosting.visp.net.lb (localhost [127.0.0.1])
-	by hosting.visp.net.lb (Postfix) with ESMTP id C102B481717
-	for <netdev@vger.kernel.org>; Wed,  4 Nov 2015 07:13:26 +0200 (EET)
-In-Reply-To: <1446613120.4184.9.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:37019 "EHLO
+	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750741AbbKDGuI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 01:50:08 -0500
+In-Reply-To: <20151104020151.GA25902@wfg-t540p.sh.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2015-11-04 06:58, Eric Dumazet wrote:
-> On Tue, 2015-11-03 at 20:46 -0800, Eric Dumazet wrote:
->> On Wed, 2015-11-04 at 06:25 +0200, Denys Fedoryshchenko wrote:
->> > On 2015-11-04 00:06, Cong Wang wrote:
->> > > On Mon, Nov 2, 2015 at 6:11 AM, Denys Fedoryshchenko
->> > > <nuclearcat@nuclearcat.com> wrote:
->> > >> Hi!
->> > >>
->> > >> Actually seems i was getting this panic for a while (once per week) on
->> > >> loaded pppoe server, but just now was able to get full panic message.
->> > >> After checking commit logs on sch_fq.c i didnt seen any fixes, so
->> > >> probably
->> > >> upgrading to newer kernel wont help?
->> > >
->> > >
->> > > Can you share your `tc qdisc show dev xxxx` with us? And how to
->> > > reproduce
->> > > it? I tried to setup htb+fq and then flip the interface back and forth
->> > > but I don't
->> > > see any crash.
->> > My guess it wont be easy to reproduce, it is happening on box with 4.5k
->> > interfaces, that constantly create/delete interfaces,
->> > and even with that this problem may happen once per day, or may not
->> > happen for 1 week.
->> >
->> > Here is script that is being fired after new ppp interface detected. But
->> > pppoe process are independent from
->> > process that are "establishing" shapers.
->> 
->> 
->> It is probably a generic bug. sch_fq seems OK to me.
->> 
->> Somehow nobody tries to change qdisc hundred times per second ;)
->> 
->> Could you try following patch ?
->> 
->> It seems to 'fix' the issue for me.
-> 
-> Following patch would be more appropriate.
-> Prior one was meant to 'show' the issue.
-> 
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index cb5d4ad32946..7f5f3e8a10f5 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -706,9 +706,11 @@ struct Qdisc *dev_graft_qdisc(struct netdev_queue
-> *dev_queue,
->  	spin_lock_bh(root_lock);
-> 
->  	/* Prune old scheduler */
-> -	if (oqdisc && atomic_read(&oqdisc->refcnt) <= 1)
-> -		qdisc_reset(oqdisc);
-> -
-> +	if (oqdisc) {
-> +		if (atomic_read(&oqdisc->refcnt) <= 1)
-> +			qdisc_reset(oqdisc);
-> +		set_bit(__QDISC_STATE_DEACTIVATED, &oqdisc->state);
-> +	}
->  	/* ... and graft new one */
->  	if (qdisc == NULL)
->  		qdisc = &noop_qdisc;
 
-Applied, will test it, but this bug might be triggered rarely.
-I will try to push it to more pppoe servers in order to stress test them 
-(and 4.3) more.
+
+On Wed, 4 Nov 2015, Fengguang Wu wrote:
+
+> On Tue, Nov 03, 2015 at 11:17:36AM -0500, David Miller wrote:
+> > From: kbuild test robot <lkp@intel.com>
+> > Date: Tue, 3 Nov 2015 23:25:39 +0800
+> > 
+> > > net/mpls/af_mpls.c:722:22-23: Unneeded semicolon
+> > > 
+> > > 
+> > >  Remove unneeded semicolon.
+> > > 
+> > > Generated by: scripts/coccinelle/misc/semicolon.cocci
+> > > 
+> > > CC: Roopa Prabhu <roopa@cumulusnetworks.com>
+> > > Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+> > > ---
+> > > 
+> > >  af_mpls.c |    4 ++--
+> > >  1 file changed, 2 insertions(+), 2 deletions(-)
+> > > 
+> > > --- a/net/mpls/af_mpls.c
+> > > +++ b/net/mpls/af_mpls.c
+> > > @@ -719,9 +719,9 @@ static int mpls_nh_build_multi(struct mp
+> > >  
+> > >  		rtnh = rtnh_next(rtnh, &remaining);
+> > >  		nhs++;
+> > > -	} endfor_nexthops(rt);
+> > > +	} endfor_nexthops(rt)
+> > >  
+> > > -	rt->rt_nhn = nhs;
+> > > +		rt->rt_nhn = nhs;
+> > 
+> > This new indentation of "rt->rt_nhn = nhs;" is not correct.
+> 
+> Yes. CC Julia for coccinelle.
+
+I will look into it, but Coccinelle is probably thrown off by there being 
+what looks like a function call on the same line as a close brace.
+
+I saw that quite a lot of other calls to endfor_nexthops also have 
+semicolons.
+
+The whole idea of a macro that declares variables some of which are then 
+used in the code under the macro also seems quite unpleasant.  Other 
+iterators don't do this, and so they don't need the end marker.
+
+julia
