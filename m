@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sh_eth: merge sh_eth_free_dma_buffer() into
- sh_eth_ring_free()
-Date: Thu, 05 Nov 2015 13:29:15 -0500 (EST)
-Message-ID: <20151105.132915.657570201175401158.davem@davemloft.net>
-References: <563B5144.8050800@cogentembedded.com>
-	<20151105.111348.1315362570048541764.davem@davemloft.net>
-	<563B8F95.9000507@cogentembedded.com>
+Subject: Re: [PATCH v6] i40e: Look up MAC address in Open Firmware or IDPROM
+Date: Thu, 05 Nov 2015 13:31:31 -0500 (EST)
+Message-ID: <20151105.133131.1900833527415923596.davem@davemloft.net>
+References: <20151105.103126.148818796422971143.davem@davemloft.net>
+	<20151105.110506.1901401372160830603.davem@davemloft.net>
+	<CAHp75VfiV6DVb-2piCxmEWFP4Gi-+n0qNhhscvd=UsqXrivVYg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37458 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965705AbbKES3T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 13:29:19 -0500
-In-Reply-To: <563B8F95.9000507@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sowmini.varadhan@oracle.com, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com
+To: andy.shevchenko@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHp75VfiV6DVb-2piCxmEWFP4Gi-+n0qNhhscvd=UsqXrivVYg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Thu, 5 Nov 2015 20:19:17 +0300
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Date: Thu, 5 Nov 2015 20:13:21 +0200
 
->    Hmm, I hadn't seen your announcement, else I would have refrained from
->    sending. Will look for it now...
+> What about
+> 
+> if (!addr)
+>  return -ENODATA;
 
-I really don't know how to better get people's attention than this:
-
-	http://marc.info/?l=linux-netdev&m=144652382428132&w=2
-
-Do I have to use all CAPS?  Flashing LEDs in the Subject?
-
-Just tell me, I'll do it...
+I totally disagree.  of_get_phy_mode() and other similar attribute
+probing mechanisms use -ENODEV.
