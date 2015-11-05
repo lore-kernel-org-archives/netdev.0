@@ -1,7 +1,7 @@
 From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: [PATCH v3 4/4] ipv6: add option to drop unsolicited neighbor advertisements
-Date: Thu,  5 Nov 2015 09:42:03 +0100
-Message-ID: <1446712923-9136-4-git-send-email-johannes@sipsolutions.net>
+Subject: [PATCH v3 3/4] ipv6: add option to drop unicast encapsulated in L2 multicast
+Date: Thu,  5 Nov 2015 09:42:02 +0100
+Message-ID: <1446712923-9136-3-git-send-email-johannes@sipsolutions.net>
 References: <1446712923-9136-1-git-send-email-johannes@sipsolutions.net>
 Cc: Julian Anastasov <ja-FgGsKACvmQM@public.gmane.org>,
 	Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
@@ -13,34 +13,34 @@ List-Id: netdev.vger.kernel.org
 
 From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-In certain 802.11 wireless deployments, there will be NA proxies
-that use knowledge of the network to correctly answer requests.
-To prevent unsolicitd advertisements on the shared medium from
-being a problem, on such deployments wireless needs to drop them.
-
-Enable this by providing an option called "drop_unsolicited_na".
+In order to solve a problem with 802.11, the so-called hole-196 attack,
+add an option (sysctl) called "drop_unicast_in_l2_multicast" which, if
+enabled, causes the stack to drop IPv6 unicast packets encapsulated in
+link-layer multi- or broadcast frames. Such frames can (as an attack)
+be created by any member of the same wireless network and transmitted
+as valid encrypted frames since the symmetric key for broadcast frames
+is shared between all stations.
 
 Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- Documentation/networking/ip-sysctl.txt | 7 +++++++
- include/linux/ipv6.h                   | 1 +
- include/uapi/linux/ipv6.h              | 1 +
- net/ipv6/addrconf.c                    | 8 ++++++++
- net/ipv6/ndisc.c                       | 9 +++++++++
+ Documentation/networking/ip-sysctl.txt |  6 ++++++
+ include/linux/ipv6.h                   |  1 +
+ include/uapi/linux/ipv6.h              |  1 +
+ net/ipv6/addrconf.c                    |  8 ++++++++
+ net/ipv6/ip6_input.c                   | 10 ++++++++++
  5 files changed, 26 insertions(+)
 
 diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 428fb48a19fc..77992f1173c3 100644
+index 56bb6dd881bd..428fb48a19fc 100644
 --- a/Documentation/networking/ip-sysctl.txt
 +++ b/Documentation/networking/ip-sysctl.txt
-@@ -1672,6 +1672,13 @@ drop_unicast_in_l2_multicast - BOOLEAN
+@@ -1666,6 +1666,12 @@ stable_secret - IPv6 address
  
- 	By default this is turned off.
+ 	By default the stable secret is unset.
  
-+drop_unsolicited_na - BOOLEAN
-+	Drop all unsolicited neighbor advertisements, for example if there's
-+	a known good NA proxy on the network and such frames need not be used
-+	(or in the case of 802.11, must not be used to prevent attacks.)
++drop_unicast_in_l2_multicast - BOOLEAN
++	Drop any unicast IPv6 packets that are received in link-layer
++	multicast (or broadcast) frames.
 +
 +	By default this is turned off.
 +
@@ -48,47 +48,47 @@ index 428fb48a19fc..77992f1173c3 100644
  ratelimit - INTEGER
  	Limit the maximal rates for sending ICMPv6 packets.
 diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 34317cb6a6fc..9231bfdc7c92 100644
+index 0ef2a97ccdb5..34317cb6a6fc 100644
 --- a/include/linux/ipv6.h
 +++ b/include/linux/ipv6.h
-@@ -56,6 +56,7 @@ struct ipv6_devconf {
+@@ -50,6 +50,7 @@ struct ipv6_devconf {
+ 	__s32		mc_forwarding;
+ #endif
+ 	__s32		disable_ipv6;
++	__s32		drop_unicast_in_l2_multicast;
+ 	__s32		accept_dad;
+ 	__s32		force_tllao;
  	__s32           ndisc_notify;
- 	__s32		suppress_frag_ndisc;
- 	__s32		accept_ra_mtu;
-+	__s32		drop_unsolicited_na;
- 	struct ipv6_stable_secret {
- 		bool initialized;
- 		struct in6_addr secret;
 diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index 4c413570efe8..ec117b65d5a5 100644
+index 38b4fef20219..4c413570efe8 100644
 --- a/include/uapi/linux/ipv6.h
 +++ b/include/uapi/linux/ipv6.h
-@@ -175,6 +175,7 @@ enum {
+@@ -174,6 +174,7 @@ enum {
+ 	DEVCONF_USE_OIF_ADDRS_ONLY,
  	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
  	DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
- 	DEVCONF_DROP_UNICAST_IN_L2_MULTICAST,
-+	DEVCONF_DROP_UNSOLICITED_NA,
++	DEVCONF_DROP_UNICAST_IN_L2_MULTICAST,
  	DEVCONF_MAX
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 35f880bcf626..e7dd0a0c5126 100644
+index d72fa90d6feb..35f880bcf626 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -4673,6 +4673,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+@@ -4672,6 +4672,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN] = cnf->ignore_routes_with_linkdown;
  	/* we omit DEVCONF_STABLE_SECRET for now */
  	array[DEVCONF_USE_OIF_ADDRS_ONLY] = cnf->use_oif_addrs_only;
- 	array[DEVCONF_DROP_UNICAST_IN_L2_MULTICAST] = cnf->drop_unicast_in_l2_multicast;
-+	array[DEVCONF_DROP_UNSOLICITED_NA] = cnf->drop_unsolicited_na;
++	array[DEVCONF_DROP_UNICAST_IN_L2_MULTICAST] = cnf->drop_unicast_in_l2_multicast;
  }
  
  static inline size_t inet6_ifla6_size(void)
-@@ -5742,6 +5743,13 @@ static struct addrconf_sysctl_table
- 			.proc_handler	= proc_dointvec,
+@@ -5734,6 +5735,13 @@ static struct addrconf_sysctl_table
+ 			.proc_handler	= addrconf_sysctl_ignore_routes_with_linkdown,
  		},
  		{
-+			.procname	= "drop_unsolicited_na",
-+			.data		= &ipv6_devconf.drop_unsolicited_na,
++			.procname	= "drop_unicast_in_l2_multicast",
++			.data		= &ipv6_devconf.drop_unicast_in_l2_multicast,
 +			.maxlen		= sizeof(int),
 +			.mode		= 0644,
 +			.proc_handler	= proc_dointvec,
@@ -97,33 +97,27 @@ index 35f880bcf626..e7dd0a0c5126 100644
  			/* sentinel */
  		}
  	},
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 3e0f855e1bea..12c84a53df4f 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -887,6 +887,7 @@ static void ndisc_recv_na(struct sk_buff *skb)
- 				    offsetof(struct nd_msg, opt));
- 	struct ndisc_options ndopts;
- 	struct net_device *dev = skb->dev;
-+	struct inet6_dev *idev = __in6_dev_get(dev);
- 	struct inet6_ifaddr *ifp;
- 	struct neighbour *neigh;
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index 9075acf081dd..31ac3c56da4b 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -134,6 +134,16 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+ 	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) == 1)
+ 		goto err;
  
-@@ -906,6 +907,14 @@ static void ndisc_recv_na(struct sk_buff *skb)
- 		return;
- 	}
- 
-+	/* For some 802.11 wireless deployments (and possibly other networks),
-+	 * there will be a NA proxy and unsolicitd packets are attacks
-+	 * and thus should not be accepted.
++	/* If enabled, drop unicast packets that were encapsulated in link-layer
++	 * multicast or broadcast to protected against the so-called "hole-196"
++	 * attack in 802.11 wireless.
 +	 */
-+	if (!msg->icmph.icmp6_solicited && idev &&
-+	    idev->cnf.drop_unsolicited_na)
-+		return;
++	if (!ipv6_addr_is_multicast(&hdr->daddr) &&
++	    (skb->pkt_type == PACKET_BROADCAST ||
++	     skb->pkt_type == PACKET_MULTICAST) &&
++	    idev->cnf.drop_unicast_in_l2_multicast)
++		goto err;
 +
- 	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts)) {
- 		ND_PRINTK(2, warn, "NS: invalid ND option\n");
- 		return;
+ 	/* RFC4291 2.7
+ 	 * Nodes must not originate a packet to a multicast address whose scope
+ 	 * field contains the reserved value 0; if such a packet is received, it
 -- 
 2.6.2
 
