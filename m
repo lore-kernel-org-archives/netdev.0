@@ -1,62 +1,159 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] glibc: Terminate process on invalid netlink response from
- kernel [BZ #12926]
-Date: Thu, 05 Nov 2015 15:36:54 +0100
-Message-ID: <1446734214.3461783.430027857.36EF414F@webmail.messagingengine.com>
-References: <562A9391.1040806@redhat.com>
- <1446558492.1880442.427793993.78B20B4F@webmail.messagingengine.com>
- <5638BDE3.2040608@redhat.com>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
+ hierarchy
+Date: Thu, 5 Nov 2015 15:40:02 +0100
+Message-ID: <20151105144002.GB15111@dhcp22.suse.cz>
+References: <20151023.065957.1690815054807881760.davem@davemloft.net>
+ <20151026165619.GB2214@cmpxchg.org>
+ <20151027122647.GG9891@dhcp22.suse.cz>
+ <20151027154138.GA4665@cmpxchg.org>
+ <20151027161554.GJ9891@dhcp22.suse.cz>
+ <20151027164227.GB7749@cmpxchg.org>
+ <20151029152546.GG23598@dhcp22.suse.cz>
+ <20151029161009.GA9160@cmpxchg.org>
+ <20151104104239.GG29607@dhcp22.suse.cz>
+ <20151104195037.GA6872@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Sowa <hannes@redhat.com>, netdev@vger.kernel.org
-To: Florian Weimer <fweimer@redhat.com>,
- GNU C Library <libc-alpha@sourceware.org>, davem@davemloft.net
-Return-path: <libc-alpha-return-64746-glibc-alpha=m.gmane.org@sourceware.org>
-List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
-List-Archive: <http://sourceware.org/ml/libc-alpha/>
-List-Post: <mailto:libc-alpha@sourceware.org>
-List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
-Sender: libc-alpha-owner@sourceware.org
-In-Reply-To: <5638BDE3.2040608@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	vdavydov@virtuozzo.com, tj@kernel.org, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20151104195037.GA6872@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Wed 04-11-15 14:50:37, Johannes Weiner wrote:
+[...]
+> Because it goes without saying that once the cgroupv2 interface is
+> released, and people use it in production, there is no way we can then
+> *add* dentry cache, inode cache, and others to memory.current. That
+> would be an unacceptable change in interface behavior.
 
-On Tue, Nov 3, 2015, at 15:00, Florian Weimer wrote:
-> On 11/03/2015 02:48 PM, Hannes Frederic Sowa wrote:
-> > Hello,
-> > 
-> > On Fri, Oct 23, 2015, at 21:07, Florian Weimer wrote:
-> >> (By the way, we'd also love to have a better kernel interface to fulfill
-> >> the needs for getaddrinfo address sorting.  The netlink requests we
-> >> currently use are much too slow if the host has many addresses
-> >> configured.)
-> > 
-> > One solution would be to finish the IPv6 ioctl interface to list
-> > addresses. The ioctl interface would need less memory allocations and is
-> > a synchronous interface which would make it much more easier for glibc
-> > to deal with. No timeouts and retries like with netlink are necessary.
+They would still have to _enable_ the config option _explicitly_. make
+oldconfig wouldn't change it silently for them. I do not think
+it is an unacceptable change of behavior if the config is changed
+explicitly.
+
+> On the other
+> hand, people will be prepared for hiccups in the early stages of
+> cgroupv2 release, and we're providing cgroup.memory=noslab to let them
+> workaround severe problems in production until we fix it without
+> forcing them to fully revert to cgroupv1.
+
+This would be true if they moved on to the new cgroup API intentionally.
+The reality is more complicated though. AFAIK sysmted is waiting for
+cgroup2 already and privileged services enable all available resource
+controllers by default as I've learned just recently. If we know that
+the interface is not stable enough then we are basically forcing _most_
+users to use the kernel boot parameter if we stay with the current
+kmem semantic. More on that below.
+
+> So if we agree that there are no fundamental architectural concerns
+> with slab accounting, i.e. nothing that can't be addressed in the
+> implementation, we have to make the call now.
+
+We are on the same page here.
+
+> And I maintain that not accounting dentry cache and inode cache is a
+> gaping hole in memory isolation, so it should be included by default.
+> (The rest of the slabs is arguable, but IMO the risk of missing
+> something important is higher than the cost of including them.)
+
+More on that below.
+ 
+> As far as your allocation failure concerns go, I think the kmem code
+> is currently not behaving as Glauber originally intended, which is to
+> force charge if reclaim and OOM killing weren't able to make enough
+> space. See this recently rewritten section of the kmem charge path:
 > 
-> The more fundamental question is whether we actually have to copy all
-> the addresses to userspace.  In the end, it may be better to hand a list
-> of destination addresses to the kernel and have it sort them according
-> to some algorithm.  But for the algorithm proposed in RFC 6724 section
-> 6, this may be not worth the effort because there are so many
-> configurable bits.
+> -               /*
+> -                * try_charge() chose to bypass to root due to OOM kill or
+> -                * fatal signal.  Since our only options are to either fail
+> -                * the allocation or charge it to this cgroup, do it as a
+> -                * temporary condition. But we can't fail. From a kmem/slab
+> -                * perspective, the cache has already been selected, by
+> -                * mem_cgroup_kmem_get_cache(), so it is too late to change
+> -                * our minds.
+> -                *
+> -                * This condition will only trigger if the task entered
+> -                * memcg_charge_kmem in a sane state, but was OOM-killed
+> -                * during try_charge() above. Tasks that were already dying
+> -                * when the allocation triggers should have been already
+> -                * directed to the root cgroup in memcontrol.h
+> -                */
+> -               page_counter_charge(&memcg->memory, nr_pages);
+> -               if (do_swap_account)
+> -                       page_counter_charge(&memcg->memsw, nr_pages);
+> 
+> It could be that this never properly worked as it was tied to the
+> -EINTR bypass trick, but the idea was these charges never fail.
 
-I would rather not provide a holistic sort function in the kernel for
-both IPv4 and IPv6 which would a requirement by glibc, no?
+I have always understood this path as a corner case when the task is an
+oom victim or exiting. So this would be only a temporal condition which
+cannot cause a complete runaway.
 
-> I still think most of the address sorting is bogus because it appears to
-> make guarantees which can break after renumbering.
+> And this makes sense. If the allocator semantics are such that we
+> never fail these page allocations for slab, and the callsites rely on
+> that, surely we should not fail them in the memory controller, either.
 
-Yes, of course.
+Then we can only bypass them or loop inside the charge code for ever
+like we do in the page allocator. The later one is really fragile and
+it would be much more in the restricted environment as we have learned
+with the memcg OOM killer in the past. 
+ 
+> And it makes a lot more sense to account them in excess of the limit
+> than pretend they don't exist. We might not be able to completely
+> fullfill the containment part of the memory controller (although these
+> slab charges will still create significant pressure before that), but
+> at least we don't fail the accounting part on top of it.
 
-Your patch for glibc looks fine to me, so
+Hmm, wouldn't that kill the whole purpose of the kmem accounting? Any
+load could simply runaway via kernel allocations. What is even worse we
+might even not trigger memcg OOM killer before we hit the global OOM. So
+the whole containment goes straight to hell.
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+I can see four options here:
+1) enable kmem by default with the current semantic which we know can
+   BUG_ON (at least btrfs is known to hit this) or lead to other issues.
+2) enable kmem by default and change the semantic for cgroup2 to allow
+   runaway charges above the hard limit which would defeat the whole
+   purpose of the containment for cgroup2. This can be a temporary
+   workaround until we can afford kmem failures. This has a big risk
+   that we will end up with this permanently because there is a strong
+   pressure that GFP_KERNEL allocations should never fail. Yet this is
+   the most common type of request. Or do we change the consistency with
+   the global case at some point?
+3) keep only some (safe) cache types enabled by default with the current
+   failing semantic and require an explicit enabling for the complete
+   kmem accounting. [di]cache code paths should be quite robust to
+   handle allocation failures.
+4) disable kmem by default and change the config default later to signal
+   the accounting is safe as far as we are aware and let people enable
+   the functionality on those basis. We would keep the current failing
+   semantic.
 
-Bye,
-Hannes
+To me 4) sounds like the safest option because it still keeps the
+functionality available to those who can benefit from it in v1 already
+while we are not exposing a potentially buggy behavior to the majority
+(many of them even unintentionally).  Moreover we still allow to change
+the default later on an explicit basis. 3) sounds like the second best
+option but I am not really sure whether we can do that very easily
+without bringing up a lot of unmaintainable mess. 2) sounds like the
+third best approach but I am afraid it would render the basic use cases
+unusable for a very long time and kill any interest in cgroup2 for even
+longer (cargo cults are really hard to get rid of). 1) sounds like a
+land mine approach which would force many/most users to simply keep
+using the boot option and force us to re-evaluate the default hard way.
+-- 
+Michal Hocko
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
