@@ -1,130 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6] i40e: Look up MAC address in Open Firmware or IDPROM
-Date: Thu, 05 Nov 2015 11:05:06 -0500 (EST)
-Message-ID: <20151105.110506.1901401372160830603.davem@davemloft.net>
-References: <20151104232100.GJ14575@oracle.com>
-	<20151105.103126.148818796422971143.davem@davemloft.net>
+Subject: Re: [PATCH] sh_eth: merge sh_eth_free_dma_buffer() into
+ sh_eth_ring_free()
+Date: Thu, 05 Nov 2015 11:13:48 -0500 (EST)
+Message-ID: <20151105.111348.1315362570048541764.davem@davemloft.net>
+References: <6672379.kyQ5eFYq8y@wasted.cogentembedded.com>
+	<20151104.205939.1680085474215420643.davem@davemloft.net>
+	<563B5144.8050800@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, shannon.nelson@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	matthew.vick@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com, andy.shevchenko@gmail.com
-To: sowmini.varadhan@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151105.103126.148818796422971143.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36269 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1033088AbbKEQNu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 11:13:50 -0500
+In-Reply-To: <563B5144.8050800@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 05 Nov 2015 10:31:26 -0500 (EST)
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Thu, 5 Nov 2015 15:53:24 +0300
 
-> I'll see if I can cook something up.
+> Hello.
+> 
+> On 11/5/2015 4:59 AM, David Miller wrote:
+> 
+>>> While the ring allocation is done by a single function,
+>>> sh_eth_ring_init(),
+>>> the ring deallocation was split into two functions (almost always
+>>> called
+>>> one after the other) for no good reason. Merge
+>>> sh_eth_free_dma_buffer()
+>>> into sh_eth_ring_free() which allows us  to save space not only on the
+>>> direct calls of the former function but also on the
+>>> sh_eth_ring_init()'s
+>>> simplified error path...
+>>>
+>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>
+>> Applied.
+> 
+>    Hum, I'm seeing both patches in the net.git repo, while they were
+>    clearly targeted to net-next.git... Did you really consider these 2
+>    patches fixes?
 
-How does this look?
+It was more work for me to let the patches rot in patchwork until I openned
+net-next back up than to simply just apply them to net.
 
-====================
-net: Add eth_platform_get_mac_address() helper.
-
-A repeating pattern in drivers has become to use OF node information
-and, if not found, platform specific host information to extract the
-ethernet address for a given device.
-
-Currently this is done with a call to of_get_mac_mac_address() and
-then some ifdef'd stuff for SPARC.
-
-Consolidate this into a portable routine, and provide the
-arch_get_platform_mac_address() weak function hook for all
-architectures to implement if they want.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/arch/sparc/kernel/idprom.c b/arch/sparc/kernel/idprom.c
-index 6bd7501..f95dd11 100644
---- a/arch/sparc/kernel/idprom.c
-+++ b/arch/sparc/kernel/idprom.c
-@@ -9,6 +9,7 @@
- #include <linux/types.h>
- #include <linux/init.h>
- #include <linux/export.h>
-+#include <linux/etherdevice.h>
- 
- #include <asm/oplib.h>
- #include <asm/idprom.h>
-@@ -60,6 +61,12 @@ static void __init display_system_type(unsigned char machtype)
- {
- }
- #endif
-+
-+unsigned char *arch_get_platform_mac_address(void)
-+{
-+	return idprom->id_ethaddr;
-+}
-+
- /* Calculate the IDPROM checksum (xor of the data bytes). */
- static unsigned char __init calc_idprom_cksum(struct idprom *idprom)
- {
-diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-index eb049c6..37ff4a6 100644
---- a/include/linux/etherdevice.h
-+++ b/include/linux/etherdevice.h
-@@ -29,6 +29,9 @@
- #include <asm/bitsperlong.h>
- 
- #ifdef __KERNEL__
-+struct device;
-+int eth_platform_get_mac_address(struct device *dev, u8 *mac_addr);
-+unsigned char *arch_get_platform_get_mac_address(void);
- u32 eth_get_headlen(void *data, unsigned int max_len);
- __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev);
- extern const struct header_ops eth_header_ops;
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 9e63f25..1cb9204f 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -52,6 +52,8 @@
- #include <linux/errno.h>
- #include <linux/init.h>
- #include <linux/if_ether.h>
-+#include <linux/of_net.h>
-+#include <linux/pci.h>
- #include <net/dst.h>
- #include <net/arp.h>
- #include <net/sock.h>
-@@ -485,3 +487,33 @@ static int __init eth_offload_init(void)
- }
- 
- fs_initcall(eth_offload_init);
-+
-+unsigned char * __weak arch_get_platform_mac_address(void)
-+{
-+	return NULL;
-+}
-+
-+int eth_platform_get_mac_address(struct device *dev, u8 *mac_addr)
-+{
-+	const unsigned char *addr;
-+	struct device_node *dp;
-+
-+	if (dev_is_pci(dev))
-+		dp = pci_device_to_OF_node(to_pci_dev(dev));
-+	else
-+		dp = dev->of_node;
-+
-+	addr = NULL;
-+	if (dp)
-+		addr = of_get_mac_address(dp);
-+	if (!addr)
-+		addr = arch_get_platform_mac_address();
-+
-+	if (addr) {
-+		ether_addr_copy(mac_addr, addr);
-+		return 0;
-+	}
-+
-+	return -ENODEV;
-+}
-+EXPORT_SYMBOL(eth_platform_get_mac_address);
+You guys really make an enormous amount of work and stress for me when you
+submit net-next patches when I _CLEARLY_ and _EXPLICITLY_ state that the
+tree is closed right now.
