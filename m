@@ -1,34 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: AF_PACKET mmap() v4...
-Date: Thu, 05 Nov 2015 10:32:13 -0500 (EST)
-Message-ID: <20151105.103213.2242523229143446058.davem@davemloft.net>
-References: <20151105.000414.1682124328670738318.davem@davemloft.net>
-	<AECBA5BB-2284-4C1E-ADCC-09B730D6EF9A@alum.mit.edu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: NETIF_F_GSO_SOFTWARE vs NETIF_F_GSO
+Date: Thu, 05 Nov 2015 07:56:07 -0800
+Message-ID: <1446738967.4184.35.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAHmME9rGvViDN2iFa8xfXvUJpQThJnrCcZ1yHgQrdgEQRUWtfg@mail.gmail.com>
+	 <20151105121501.GA5776@gondor.apana.org.au>
+	 <CAHmME9pP1E64CCc7+XW8X1duYGQZdYj9s_r8UNq3KMh6xey_Hw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arnd@arndb.de
-To: guy@alum.mit.edu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35844 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031333AbbKEPcP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 10:32:15 -0500
-In-Reply-To: <AECBA5BB-2284-4C1E-ADCC-09B730D6EF9A@alum.mit.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9pP1E64CCc7+XW8X1duYGQZdYj9s_r8UNq3KMh6xey_Hw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Guy Harris <guy@alum.mit.edu>
-Date: Thu, 5 Nov 2015 00:14:51 -0800
+On Thu, 2015-11-05 at 16:00 +0100, Jason A. Donenfeld wrote:
 
-> As a core libpcap developer, I will at least state that it works a
-> *lot* better than v1 and v2 did.  Having buffer slots that can hold
-> only one packet is *really* suboptimal for packet capture; having
-> buffer slots that can hold multiple packets works a lot better, as
-> there's less wasted memory.
+> Right -- I saw the expansion in the header file -- it gets the various
+> TSOs plus UFO. So what this means is that the packet hasn't yet been
+> split up? So were I to add this option, then my driver would have to
+> be responsible for splitting up the super-packets manually? In which
+> case, there would be no performance benefit in using it, since GSO
+> already does this just prior to ndo_start_xmit? Or would there be a
+> performance benefit in receiving the super-packets and splitting them
+> myself?
 
-No doubt.
+It is a performance benefit only if you use the helpers from
+net/core/tso.c as some drivers already do.
 
-> I'll see whether there are any changes that *would* make libpcap's life better.
-
-Thanks.
+Otherwise, calling the skb_gso_segment() from your driver has no gain
+compared to the one done from core networking stack.
