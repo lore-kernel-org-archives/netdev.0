@@ -1,37 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv4: use sk_fullsock() in ipv4_conntrack_defrag()
-Date: Thu, 05 Nov 2015 14:37:05 -0500 (EST)
-Message-ID: <20151105.143705.1683546745658073293.davem@davemloft.net>
-References: <1446752046.4184.49.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH] decnet: remove macro-local declarations
+Date: Thu, 5 Nov 2015 20:38:59 +0100 (CET)
+Message-ID: <alpine.DEB.2.02.1511052038400.2065@localhost6.localdomain6>
+References: <1446718696-32505-1-git-send-email-Julia.Lawall@lip6.fr> <20151105.142619.983467860147585345.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dvyukov@google.com, pablo@netfilter.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38199 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752986AbbKEThH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 14:37:07 -0500
-In-Reply-To: <1446752046.4184.49.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Julia.Lawall@lip6.fr, kernel-janitors@vger.kernel.org,
+	linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, lkp@intel.com,
+	roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151105.142619.983467860147585345.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 05 Nov 2015 11:34:06 -0800
+On Thu, 5 Nov 2015, David Miller wrote:
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
+> Date: Thu,  5 Nov 2015 11:18:16 +0100
 > 
-> Before converting a 'socket pointer' into inet socket,
-> use sk_fullsock() to detect timewait or request sockets.
+> > Move the variable declarations from the for_nexthops macro to the
+> > surrounding context, so that it is clear where these variables are
+> > declared.  This also makes it possible to remove the endfor_nexthops macro.
+> > 
+> > This change adds new arguments to the macro for_nexthops.  They are ordered
+> > such that a pointer to the referenced object comes first, the index in the
+> > list comes next, and the list itself comes last, roughly in analogy with
+> > the list_for_each macros.
+> > 
+> > Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> > 
+> > ---
+> > 
+> > This patch takes care of a single file, where the macros are defined
+> > locally.  If the basic transformation looks OK, I will change the other
+> > files that either likewise define their own macros or use the macros in
+> > net/mpls/internal.h.  The potentially affected files are:
+>  ...
 > 
-> Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Tested-by: Dmitry Vyukov <dvyukov@google.com>
-> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-> ---
-> Please David merge this directly into net tree, I am sure Pablo
-> wont object for a fast track. Thanks !
+> This looks fine to me.
+> 
+> Please resubmit this when net-next opens back up, which should be
+> shortly after -rc1.
 
-Yep, applied, thanks Eric.
+OK, I'll do the others then too.
+
+julia
