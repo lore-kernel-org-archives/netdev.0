@@ -1,159 +1,40 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
- hierarchy
-Date: Thu, 5 Nov 2015 15:40:02 +0100
-Message-ID: <20151105144002.GB15111@dhcp22.suse.cz>
-References: <20151023.065957.1690815054807881760.davem@davemloft.net>
- <20151026165619.GB2214@cmpxchg.org>
- <20151027122647.GG9891@dhcp22.suse.cz>
- <20151027154138.GA4665@cmpxchg.org>
- <20151027161554.GJ9891@dhcp22.suse.cz>
- <20151027164227.GB7749@cmpxchg.org>
- <20151029152546.GG23598@dhcp22.suse.cz>
- <20151029161009.GA9160@cmpxchg.org>
- <20151104104239.GG29607@dhcp22.suse.cz>
- <20151104195037.GA6872@cmpxchg.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: NETIF_F_GSO_SOFTWARE vs NETIF_F_GSO
+Date: Thu, 5 Nov 2015 16:00:55 +0100
+Message-ID: <CAHmME9pP1E64CCc7+XW8X1duYGQZdYj9s_r8UNq3KMh6xey_Hw@mail.gmail.com>
+References: <CAHmME9rGvViDN2iFa8xfXvUJpQThJnrCcZ1yHgQrdgEQRUWtfg@mail.gmail.com>
+	<20151105121501.GA5776@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	vdavydov@virtuozzo.com, tj@kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151104195037.GA6872@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151105121501.GA5776@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed 04-11-15 14:50:37, Johannes Weiner wrote:
-[...]
-> Because it goes without saying that once the cgroupv2 interface is
-> released, and people use it in production, there is no way we can then
-> *add* dentry cache, inode cache, and others to memory.current. That
-> would be an unacceptable change in interface behavior.
+Hi Herbert,
 
-They would still have to _enable_ the config option _explicitly_. make
-oldconfig wouldn't change it silently for them. I do not think
-it is an unacceptable change of behavior if the config is changed
-explicitly.
+Thanks for your response!
 
-> On the other
-> hand, people will be prepared for hiccups in the early stages of
-> cgroupv2 release, and we're providing cgroup.memory=noslab to let them
-> workaround severe problems in production until we fix it without
-> forcing them to fully revert to cgroupv1.
+On Thu, Nov 5, 2015 at 1:15 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> The NETIF_F_GSO flag turns on software GSO which should be on
+> anyway.  So that could be why it seems to make no difference.
 
-This would be true if they moved on to the new cgroup API intentionally.
-The reality is more complicated though. AFAIK sysmted is waiting for
-cgroup2 already and privileged services enable all available resource
-controllers by default as I've learned just recently. If we know that
-the interface is not stable enough then we are basically forcing _most_
-users to use the kernel boot parameter if we stay with the current
-kmem semantic. More on that below.
+GSO is on by default? That makes sense, okay.
 
-> So if we agree that there are no fundamental architectural concerns
-> with slab accounting, i.e. nothing that can't be addressed in the
-> implementation, we have to make the call now.
+>
+> NETIF_F_GSO_SOFTWARE is actually a collection of bits that lists
+> the protocols for which we support software GSO.  The bits themselves
+> are in fact an indication that the hardware supports GSO directly.
+> So by turning them on you're electing to receive GSO packets
+> directly.
 
-We are on the same page here.
-
-> And I maintain that not accounting dentry cache and inode cache is a
-> gaping hole in memory isolation, so it should be included by default.
-> (The rest of the slabs is arguable, but IMO the risk of missing
-> something important is higher than the cost of including them.)
-
-More on that below.
- 
-> As far as your allocation failure concerns go, I think the kmem code
-> is currently not behaving as Glauber originally intended, which is to
-> force charge if reclaim and OOM killing weren't able to make enough
-> space. See this recently rewritten section of the kmem charge path:
-> 
-> -               /*
-> -                * try_charge() chose to bypass to root due to OOM kill or
-> -                * fatal signal.  Since our only options are to either fail
-> -                * the allocation or charge it to this cgroup, do it as a
-> -                * temporary condition. But we can't fail. From a kmem/slab
-> -                * perspective, the cache has already been selected, by
-> -                * mem_cgroup_kmem_get_cache(), so it is too late to change
-> -                * our minds.
-> -                *
-> -                * This condition will only trigger if the task entered
-> -                * memcg_charge_kmem in a sane state, but was OOM-killed
-> -                * during try_charge() above. Tasks that were already dying
-> -                * when the allocation triggers should have been already
-> -                * directed to the root cgroup in memcontrol.h
-> -                */
-> -               page_counter_charge(&memcg->memory, nr_pages);
-> -               if (do_swap_account)
-> -                       page_counter_charge(&memcg->memsw, nr_pages);
-> 
-> It could be that this never properly worked as it was tied to the
-> -EINTR bypass trick, but the idea was these charges never fail.
-
-I have always understood this path as a corner case when the task is an
-oom victim or exiting. So this would be only a temporal condition which
-cannot cause a complete runaway.
-
-> And this makes sense. If the allocator semantics are such that we
-> never fail these page allocations for slab, and the callsites rely on
-> that, surely we should not fail them in the memory controller, either.
-
-Then we can only bypass them or loop inside the charge code for ever
-like we do in the page allocator. The later one is really fragile and
-it would be much more in the restricted environment as we have learned
-with the memcg OOM killer in the past. 
- 
-> And it makes a lot more sense to account them in excess of the limit
-> than pretend they don't exist. We might not be able to completely
-> fullfill the containment part of the memory controller (although these
-> slab charges will still create significant pressure before that), but
-> at least we don't fail the accounting part on top of it.
-
-Hmm, wouldn't that kill the whole purpose of the kmem accounting? Any
-load could simply runaway via kernel allocations. What is even worse we
-might even not trigger memcg OOM killer before we hit the global OOM. So
-the whole containment goes straight to hell.
-
-I can see four options here:
-1) enable kmem by default with the current semantic which we know can
-   BUG_ON (at least btrfs is known to hit this) or lead to other issues.
-2) enable kmem by default and change the semantic for cgroup2 to allow
-   runaway charges above the hard limit which would defeat the whole
-   purpose of the containment for cgroup2. This can be a temporary
-   workaround until we can afford kmem failures. This has a big risk
-   that we will end up with this permanently because there is a strong
-   pressure that GFP_KERNEL allocations should never fail. Yet this is
-   the most common type of request. Or do we change the consistency with
-   the global case at some point?
-3) keep only some (safe) cache types enabled by default with the current
-   failing semantic and require an explicit enabling for the complete
-   kmem accounting. [di]cache code paths should be quite robust to
-   handle allocation failures.
-4) disable kmem by default and change the config default later to signal
-   the accounting is safe as far as we are aware and let people enable
-   the functionality on those basis. We would keep the current failing
-   semantic.
-
-To me 4) sounds like the safest option because it still keeps the
-functionality available to those who can benefit from it in v1 already
-while we are not exposing a potentially buggy behavior to the majority
-(many of them even unintentionally).  Moreover we still allow to change
-the default later on an explicit basis. 3) sounds like the second best
-option but I am not really sure whether we can do that very easily
-without bringing up a lot of unmaintainable mess. 2) sounds like the
-third best approach but I am afraid it would render the basic use cases
-unusable for a very long time and kill any interest in cgroup2 for even
-longer (cargo cults are really hard to get rid of). 1) sounds like a
-land mine approach which would force many/most users to simply keep
-using the boot option and force us to re-evaluate the default hard way.
--- 
-Michal Hocko
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Right -- I saw the expansion in the header file -- it gets the various
+TSOs plus UFO. So what this means is that the packet hasn't yet been
+split up? So were I to add this option, then my driver would have to
+be responsible for splitting up the super-packets manually? In which
+case, there would be no performance benefit in using it, since GSO
+already does this just prior to ndo_start_xmit? Or would there be a
+performance benefit in receiving the super-packets and splitting them
+myself?
