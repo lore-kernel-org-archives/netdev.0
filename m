@@ -1,55 +1,38 @@
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: RE: [PATCH v6] i40e: Look up MAC address in Open Firmware or IDPROM
-Date: Thu, 5 Nov 2015 17:41:10 +0000
-Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFAF10E@fmsmsx115.amr.corp.intel.com>
-References: <20151105.103126.148818796422971143.davem@davemloft.net>
-	<20151105.110506.1901401372160830603.davem@davemloft.net>
-	<20151105162831.GA5642@oracle.com>
- <20151105.112920.2123583342530330617.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: merge sh_eth_free_dma_buffer() into
+ sh_eth_ring_free()
+Date: Thu, 5 Nov 2015 20:42:29 +0300
+Message-ID: <563B9505.2060109@cogentembedded.com>
+References: <6672379.kyQ5eFYq8y@wasted.cogentembedded.com>
+ <20151104.205939.1680085474215420643.davem@davemloft.net>
+ <563B5144.8050800@cogentembedded.com>
+ <20151105.111348.1315362570048541764.davem@davemloft.net>
+ <563B8F95.9000507@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"andy.shevchenko@gmail.com" <andy.shevchenko@gmail.com>
-To: David Miller <davem@davemloft.net>,
-	"sowmini.varadhan@oracle.com" <sowmini.varadhan@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151105.112920.2123583342530330617.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:35309 "EHLO
+	mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932525AbbKERmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 12:42:33 -0500
+Received: by lfbn126 with SMTP id n126so61377127lfb.2
+        for <netdev@vger.kernel.org>; Thu, 05 Nov 2015 09:42:32 -0800 (PST)
+In-Reply-To: <563B8F95.9000507@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, November 05, 2015 8:29 AM
-> 
-> From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> Date: Thu, 5 Nov 2015 11:28:31 -0500
-> 
-> > On (11/05/15 11:05), David Miller wrote:
-> >> From: David Miller <davem@davemloft.net>
-> >> Date: Thu, 05 Nov 2015 10:31:26 -0500 (EST)
-> >>
-> >> > I'll see if I can cook something up.
-> >>
-> >> How does this look?
-> >
-> > Looks good to me,
-> >
-> > Do you want me to respin patch v7 with this? Or update ixgbe/i40e to
-> use
-> > this later, after this goes in?
-> 
-> The intention is to let your patch go in as-is, then try and update
-> ixgbe/i40e later in net-next or similar.
+On 11/05/2015 08:19 PM, Sergei Shtylyov wrote:
 
-That works for us as well - thanks!
-sln
+>> You guys really make an enormous amount of work and stress for me when you
+>> submit net-next patches when I _CLEARLY_ and _EXPLICITLY_ state that the
+>> tree is closed right now.
+>
+>     Hmm, I hadn't seen your announcement, else I would have refrained from
+> sending. Will look for it now...
+
+    Nay, still not seeing anything...
+
+MBR, Sergei
