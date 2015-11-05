@@ -1,49 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] packet: race condition in packet_bind
-Date: Thu, 05 Nov 2015 14:51:08 -0500 (EST)
-Message-ID: <20151105.145108.906695545091791915.davem@davemloft.net>
-References: <20151105161614.9C57658016E@fruggeri-AK-3.18.sjc.aristanetworks.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org, noureddine@arista.com,
-	fruggeri@arista.com
-To: fruggeri@aristanetworks.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] iproute2: Ignore EADDRNOTAVAIL errors during address flush operation
+Date: Thu,  5 Nov 2015 14:54:17 -0500
+Message-ID: <1446753257-10716-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38356 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751499AbbKETvM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 14:51:12 -0500
-In-Reply-To: <20151105161614.9C57658016E@fruggeri-AK-3.18.sjc.aristanetworks.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36554 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752241AbbKETyr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 14:54:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: fruggeri@aristanetworks.com (Francesco Ruggeri)
-Date: Thu, 05 Nov 2015 08:16:14 -0800
+I found recently that, if I disabled address promotion in the kernel, that
+ip addr flush dev <dev>
 
-> There is a race conditions between packet_notifier and packet_bind{_spkt}.
-> 
-> It happens if packet_notifier(NETDEV_UNREGISTER) executes between the
-> time packet_bind{_spkt} takes a reference on the new netdevice and the
-> time packet_do_bind sets po->ifindex.
-> In this case the notification can be missed.
-> If this happens during a dev_change_net_namespace this can result in the
-> netdevice to be moved to the new namespace while the packet_sock in the
-> old namespace still holds a reference on it. When the netdevice is later
-> deleted in the new namespace the deletion hangs since the packet_sock
-> is not found in the new namespace' &net->packet.sklist.
-> It can be reproduced with the script below.
-> 
-> This patch makes packet_do_bind check again for the presence of the
-> netdevice in the packet_sock's namespace after the synchronize_net
-> in unregister_prot_hook.
-> More in general it also uses the rcu lock for the duration of the bind
-> to stop dev_change_net_namespace/rollback_registered_many from
-> going past the synchronize_net following unlist_netdevice, so that
-> no NETDEV_UNREGISTER notifications can happen on the new netdevice
-> while the bind is executing. In order to do this some code from
-> packet_bind{_spkt} is consolidated into packet_do_dev.
- ...
-> Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
+would fail with an EADDRNOTAVAIL errno (though the flush operation would in fact
+flush all addresses from an interface properly)
 
-Looks good, applied and queued up for -stable, thanks.
+Whats happening is that, if I add a primary and multiple secondary addresses to
+an interface, the flush operation first ennumerates them all with a GETADDR |
+DUMP operation, then sends a delete request for each address.  But the kernel,
+having promotion disabled, deletes all secondary addresses when the primary is
+removed.  That means, that several delete requests may still be pending in the
+netlink request for addresses that have been removed on our behalf, resulting in
+EADDRNOTAVAIL return codes.
+
+It seems the simplest thing to do is to understand that EADDRUNAVAIL isn't a
+fatal outcome on a flush operation, as it just indicates that an address which
+you want to remove is already removed, so it can safely be ignored.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Stephen Hemminger <stephen@networkplumber.org>
+CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+---
+ ip/ipaddress.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index f290205..05358c9 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -893,7 +893,17 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 
+ static int flush_update(void)
+ {
+-	if (rtnl_send_check(&rth, filter.flushb, filter.flushp) < 0) {
++
++	/*
++	 * Note that the kernel may delete multiple addresses for one
++	 * delete request (e.g. if ipv4 address promotion is disabled).
++	 * Since a flush operation is really a series of delete requests
++	 * its possible that we may request an address delete that has
++	 * already been done by the kernel. Therefore, ignore EADDRNOTAVAIL
++	 * errors returned from a flush request
++	 */
++	if ((rtnl_send_check(&rth, filter.flushb, filter.flushp) < 0) &&
++	    (errno != EADDRNOTAVAIL)) {
+ 		perror("Failed to send flush request");
+ 		return -1;
+ 	}
+-- 
+2.1.0
