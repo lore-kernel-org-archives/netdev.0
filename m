@@ -1,57 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net v2] ipv4: fix a potential deadlock in mcast
- getsockopt() path
-Date: Wed, 04 Nov 2015 21:30:51 -0500 (EST)
-Message-ID: <20151104.213051.484467040401799871.davem@davemloft.net>
-References: <1446594076-3304-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net: Fix prefsrc lookups
+Date: Wed, 04 Nov 2015 21:35:09 -0500 (EST)
+Message-ID: <20151104.213509.738680895043467025.davem@davemloft.net>
+References: <1446595168-27323-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sasha.levin@oracle.com,
-	marcelo.leitner@gmail.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, vladi@aresgate.net
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59548 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59580 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030897AbbKECax (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 21:30:53 -0500
-In-Reply-To: <1446594076-3304-1-git-send-email-xiyou.wangcong@gmail.com>
+	with ESMTP id S1030897AbbKECfL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 21:35:11 -0500
+In-Reply-To: <1446595168-27323-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue,  3 Nov 2015 15:41:16 -0800
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue,  3 Nov 2015 15:59:28 -0800
 
-> Sasha reported the following lockdep warning:
+> A bug report (https://bugzilla.kernel.org/show_bug.cgi?id=107071) noted
+> that the follwoing ip command is failing with v4.3:
 > 
->   Possible unsafe locking scenario:
+>     $ ip route add 10.248.5.0/24 dev bond0.250 table vlan_250 src 10.248.5.154
+>     RTNETLINK answers: Invalid argument
 > 
->         CPU0                    CPU1
->         ----                    ----
->    lock(sk_lock-AF_INET);
->                                 lock(rtnl_mutex);
->                                 lock(sk_lock-AF_INET);
->    lock(rtnl_mutex);
+> 021dd3b8a142d changed the lookup of the given preferred source address to
+> use the table id passed in, but this assumes the local entries are in the
+> given table which is not necessarily true for non-VRF use cases. When
+> validating the preferred source fallback to the local table on failure.
 > 
-> This is due to that for IP_MSFILTER and MCAST_MSFILTER, we take
-> rtnl lock before the socket lock in setsockopt() path, but take
-> the socket lock before rtnl lock in getsockopt() path. All the
-> rest optnames are setsockopt()-only.
-> 
-> Fix this by aligning the getsockopt() path with the setsockopt()
-> path, so that all mcast socket path would be locked in the same
-> order.
-> 
-> Note, IPv6 part is different where rtnl lock is not held.
-> 
-> Fixes: 54ff9ef36bdf ("ipv4, ipv6: kill ip_mc_{join, leave}_group and ipv6_sock_mc_{join, drop}")
-> Reported-by: Sasha Levin <sasha.levin@oracle.com>
-> Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Fixes: 021dd3b8a142d ("net: Add routes to the table associated with the device")
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-I don't like conditional locking, but I can't think of a better
-way to suggest fixing this, so applied.
-
-And queued up for -stable as well.
-
-Thanks!
+Applied and queued up for -stable, thanks.
