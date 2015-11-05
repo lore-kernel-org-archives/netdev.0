@@ -1,97 +1,55 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: [PATCH net 3/5] bnxt_en: map CAG_REG_LEGACY_INT_STATUS_MASK to GRC window #4
-Date: Thu, 5 Nov 2015 16:25:49 -0500
-Message-ID: <1446758751-27999-4-git-send-email-mchan@broadcom.com>
-References: <1446758751-27999-1-git-send-email-mchan@broadcom.com>
+From: "ronny.hegewald@online.de" <ronny.hegewald@online.de>
+Subject: question about checksumming and tcp_sendpage
+Date: Thu, 5 Nov 2015 22:34:48 +0100
+Message-ID: <trinity-80ad84c3-456a-4f51-a3e9-afee4e8ae504-1446759288452@3capp-1and1-bs03>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Jeffrey Huang <huangjw@broadcom.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:29804 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756992AbbKEVZx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 16:25:53 -0500
-In-Reply-To: <1446758751-27999-1-git-send-email-mchan@broadcom.com>
+Received: from mout.kundenserver.de ([212.227.126.130]:55268 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751512AbbKEVev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 16:34:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeffrey Huang <huangjw@broadcom.com>
+While reading through net-code i came across some code in tcp_sendpage which i think 
+it is not working in the intended way all tie time. But as this code is at that a 
+central place and pretty old, im suspicious if my analysis is really right.
 
-In order to use offset 0x4014 for reading CAG interrupt status,
-the actual CAG register must be mapped to GRC bar0 window #4.
-Otherwise, the driver is reading garbage. This patch corrects
-this issue.
+The code in question is this
 
-Signed-off-by: Jeffrey Huang <huangjw@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 19 ++++++++++++++++---
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  4 ++++
- 2 files changed, 20 insertions(+), 3 deletions(-)
+(from net/ipv4/tcp.c)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 6c2e0c6..a62deff 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -1292,8 +1292,6 @@ static inline int bnxt_has_work(struct bnxt *bp, struct bnxt_cp_ring_info *cpr)
- 	return TX_CMP_VALID(txcmp, raw_cons);
- }
+       if (!(sk->sk_route_caps & NETIF_F_SG) ||
+           !(sk->sk_route_caps & NETIF_F_ALL_CSUM))
+                 return sock_no_sendpage(sk->sk_socket, page, offset, size,
+                                         flags);
  
--#define CAG_LEGACY_INT_STATUS	0x2014
--
- static irqreturn_t bnxt_inta(int irq, void *dev_instance)
- {
- 	struct bnxt_napi *bnapi = dev_instance;
-@@ -1305,7 +1303,7 @@ static irqreturn_t bnxt_inta(int irq, void *dev_instance)
- 	prefetch(&cpr->cp_desc_ring[CP_RING(cons)][CP_IDX(cons)]);
- 
- 	if (!bnxt_has_work(bp, cpr)) {
--		int_status = readl(bp->bar0 + CAG_LEGACY_INT_STATUS);
-+		int_status = readl(bp->bar0 + BNXT_CAG_REG_LEGACY_INT_STATUS);
- 		/* return if erroneous interrupt */
- 		if (!(int_status & (0x10000 << cpr->cp_ring_struct.fw_ring_id)))
- 			return IRQ_NONE;
-@@ -4527,10 +4525,25 @@ static int bnxt_update_phy_setting(struct bnxt *bp)
- 	return rc;
- }
- 
-+/* Common routine to pre-map certain register block to different GRC window.
-+ * A PF has 16 4K windows and a VF has 4 4K windows. However, only 15 windows
-+ * in PF and 3 windows in VF that can be customized to map in different
-+ * register blocks.
-+ */
-+static void bnxt_preset_reg_win(struct bnxt *bp)
-+{
-+	if (BNXT_PF(bp)) {
-+		/* CAG registers map to GRC window #4 */
-+		writel(BNXT_CAG_REG_BASE,
-+		       bp->bar0 + BNXT_GRCPF_REG_WINDOW_BASE_OUT + 12);
-+	}
-+}
-+
- static int __bnxt_open_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
- {
- 	int rc = 0;
- 
-+	bnxt_preset_reg_win(bp);
- 	netif_carrier_off(bp->dev);
- 	if (irq_re_init) {
- 		rc = bnxt_setup_int_mode(bp);
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 5afe65d..674bc51 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -841,6 +841,10 @@ struct bnxt_queue_info {
- 	u8	queue_profile;
- };
- 
-+#define BNXT_GRCPF_REG_WINDOW_BASE_OUT	0x400
-+#define BNXT_CAG_REG_LEGACY_INT_STATUS	0x4014
-+#define BNXT_CAG_REG_BASE		0x300000
-+
- struct bnxt {
- 	void __iomem		*bar0;
- 	void __iomem		*bar1;
--- 
-1.8.3.1
+
+especially this part.
+
+      !(sk->sk_route_caps & NETIF_F_ALL_CSUM)
+
+The problem occurs if a device only supports checksumming for ipv4 or ipv6. In 
+this cases only NETIF_F_IP_CSUM or NETIF_F_IPV6_CSUM is set.
+
+Lets assume a device is only supporting checksumming in ipv6 via NETIF_F_IPV6_CSUM,
+and we are calling tcp_sendpage for a ipv4 connection. From my understanding the intend
+of the above code is that in this case sock_no_sendpage should be called. But the bit-check 
+against NETIF_F_ALL_CSUM will be always > 0, as it is defined as
+
+(from include/linux/netdev_features.h)
+
+#define NETIF_F_V4_CSUM         (NETIF_F_GEN_CSUM | NETIF_F_IP_CSUM)
+#define NETIF_F_V6_CSUM         (NETIF_F_GEN_CSUM | NETIF_F_IPV6_CSUM)
+#define NETIF_F_ALL_CSUM        (NETIF_F_V4_CSUM | NETIF_F_V6_CSUM)
+
+so it will never get in that branch.
+
+So imo the code should be something like this (in pseudocode) 
+
+      (!(sk->sk_route_caps & NETIF_F_V4_CSUM) && proto == IPV4) ||
+      (!(sk->sk_route_caps & NETIF_F_V6_CSUM) && proto == IPV6)
+
+So what am i missing?
