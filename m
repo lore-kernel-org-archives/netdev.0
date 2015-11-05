@@ -1,43 +1,26 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] sh_eth: merge sh_eth_free_dma_buffer() into
- sh_eth_ring_free()
-Date: Thu, 5 Nov 2015 21:38:29 +0300
-Message-ID: <563BA225.40908@cogentembedded.com>
-References: <563B5144.8050800@cogentembedded.com>
- <20151105.111348.1315362570048541764.davem@davemloft.net>
- <563B8F95.9000507@cogentembedded.com>
- <20151105.132915.657570201175401158.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch -next] qlogic: qed: fix error codes in qed_resc_alloc()
+Date: Thu, 05 Nov 2015 13:40:04 -0500 (EST)
+Message-ID: <20151105.134004.2208461190213502633.davem@davemloft.net>
+References: <20151105084128.GC19405@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20151105.132915.657570201175401158.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
+	everest-linux-l2@qlogic.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20151105084128.GC19405@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/05/2015 09:29 PM, David Miller wrote:
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 5 Nov 2015 11:41:28 +0300
 
->>     Hmm, I hadn't seen your announcement, else I would have refrained from
->>     sending. Will look for it now...
->
-> I really don't know how to better get people's attention than this:
->
-> 	http://marc.info/?l=linux-netdev&m=144652382428132&w=2
+> We accidentally return success instead of -ENOMEM here.
+> 
+> Fixes: fe56b9e6a8d9 ('qed: Add module with basic common support')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-    Umm, I'm seeing it now, it's been even marked as read but I for the life 
-of me couldn't remember reading it. Now I'll have to say I'm really sorry for 
-sending out my last 2 or 3 patches, I was under full impression your tree is 
-still open... :-<
-
-> Do I have to use all CAPS?
-
-    Well, perhaps that would have drawn more attention (it has in the past). :-)
-
->  Flashing LEDs in the Subject?
-
-    :-)
-
-MBR, Sergei
-
+Applied, thanks Dan.
