@@ -1,38 +1,36 @@
-From: Chistinam Hammock <yesajo66@gmail.com>
-Subject: hallo
-Date: Thu, 5 Nov 2015 08:08:21 +0000
-Message-ID: <CAPdaQSEXYSJry8O_YxLOSnY1SyDTdFiA77MGCnjxoJP9eebH=A@mail.gmail.com>
-Reply-To: christinamhammock2@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-To: undisclosed-recipients:;
+From: Guy Harris <guy@alum.mit.edu>
+Subject: Re: AF_PACKET mmap() v4...
+Date: Thu, 5 Nov 2015 00:14:51 -0800
+Message-ID: <AECBA5BB-2284-4C1E-ADCC-09B730D6EF9A@alum.mit.edu>
+References: <20151105.000414.1682124328670738318.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, arnd@arndb.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f195.google.com ([209.85.160.195]:35029 "EHLO
-	mail-yk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030947AbbKEIIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 03:08:22 -0500
-Received: by ykek133 with SMTP id k133so10992053yke.2
-        for <netdev@vger.kernel.org>; Thu, 05 Nov 2015 00:08:21 -0800 (PST)
+Received: from c.mail.sonic.net ([64.142.111.80]:42007 "EHLO c.mail.sonic.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030399AbbKEIO6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 03:14:58 -0500
+In-Reply-To: <20151105.000414.1682124328670738318.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-0J/RgNC40LLQtdGCLCDQtNC+0YDQvtCz0L7QuSDQtNGA0YPQsywNCkRvIHlvdSBzcGVhayBFbmds
-aXNoDQpJJ00g0JrRgNC40YHRgtC40L3QsCDQnCDQk9Cw0LzQsNC6LiDQryDQtdC00LjQvdC+0LPQ
-viDQs9C+0YHRg9C00LDRgNGB0YLQstCwINCS0L7QtdC90L3Ri9C1IC8g0J3QkNCh0JAuDQrQmNC3
-INC10LTQuNC90L7Qs9C+INCz0L7RgdGD0LTQsNGA0YHRgtCy0LAg0JDQvNC10YDQuNC60LguINCc
-0L7Qs9GDINC/0L7QtNC00LXRgNC20LrRgyDQuCDQt9Cw0LHQvtGC0YMsINGBINC90LXRgtC10YDQ
-v9C10L3QuNC10LwNCtC20LTRgywg0YfRgtC+0LHRiyDQv9C+0LvRg9GH0LjRgtGMDQrRhdC+0YDQ
-vtGI0LjQuSDQtNGA0YPQsy4g0K8g0L/RgNC+0YfQuNGC0LDQuyDQstCw0Ygg0L/RgNC+0YTQuNC7
-0Ywg0LjQtyBmYWNlYm9vay5jb20g0Lgg0LfQsNCx0YDQsNGC0Ywg0LjQvdGC0LXRgNC10YENCtC9
-0LAg0LLQsNGBLiDQryDRhdC+0YLQtdC7INCx0YsNCtGD0YHRgtCw0L3QvtCy0LjRgtGMINCy0LfQ
-sNC40LzQvdGD0Y4g0LTRgNGD0LbQsdGDINGBINCy0LDQvNC4LiDQn9C+0LbQsNC70YPQudGB0YLQ
-sCwg0LTQsNC50YLQtSDQv9GA0L7QtNC+0LvQttC40Lwg0L3QsNGIINGA0LDQt9Cz0L7QstC+0YAN
-CtGH0LXRgNC10Lcg0LzQvtC10LPQviDRh9Cw0YHRgtC90L7Qs9C+INGN0LvQtdC60YLRgNC+0L3Q
-vdC+0Lkg0L/QvtGH0YLRiyDQv9C+0LvQtS4g0JLQvtGCINC80L7QuSDRjdC70LXQutGC0YDQvtC9
-0L3Ri9C5INCw0LTRgNC10YENCnt9IGNocmlzdGluYW1oYW1tb2NrMkBnbWFpbC5jb20uY29tINGP
-INC/0YDQtdC00YHRgtCw0LLQu9GOINGB0LXQsdGPINC70YPRh9GI0LUg0LgNCtC+0YLQv9GA0LDQ
-stC40YLRjCDQstCw0Lwg0LzQvtGOINGE0L7RgtC+0LPRgNCw0YTQuNGOLCDQutCw0Log0YLQvtC7
-0YzQutC+INGPINC/0L7Qu9GD0YfQuNGC0YwNCtCi0LLQvtC1INC/0LjRgdGM0LzQvi4NCtCh0L/Q
-sNGB0LjQsdC+INC4INGD0LLQsNC20LXQvdC40LXQvC4NCtCa0YDQuNGB0YLQuNC90LAg0Jwg0JPQ
-sNC80LDQui4NCiAgY2hyaXN0aW5hbWhhbW1vY2syQGdtYWlsLmNvbQ0K
+
+On Nov 4, 2015, at 9:04 PM, David Miller <davem@davemloft.net> wrote:
+
+> As part of fixing y2038 problems, Arnd is going to have to make a new
+> version fo the AF_PACKET mmap() tpacker descriptors in order to extend
+> the time values to 64-bit.
+> 
+> So I want everyone to think about whether there are any other changes
+> we might want to make given that we have to make a v4 anyways.
+> 
+> Particularly, I am rather certain that the buffer management could be
+> improved.  Some have complained that v3 is kinda awkward to use and/or
+> suboptimal is various ways.
+
+As a core libpcap developer, I will at least state that it works a *lot* better than v1 and v2 did.  Having buffer slots that can hold only one packet is *really* suboptimal for packet capture; having buffer slots that can hold multiple packets works a lot better, as there's less wasted memory.
+
+I'll see whether there are any changes that *would* make libpcap's life better.
