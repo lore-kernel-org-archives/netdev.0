@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] VSOCK: call sk->sk_data_ready() on accept()
-Date: Wed, 04 Nov 2015 22:03:32 -0500 (EST)
-Message-ID: <20151104.220332.1882923396348027768.davem@davemloft.net>
-References: <1446641922-32243-1-git-send-email-stefanha@redhat.com>
+Subject: Re: [patch -next] qlogic/qed: remove bogus NULL check
+Date: Wed, 04 Nov 2015 22:06:30 -0500 (EST)
+Message-ID: <20151104.220630.829229766192345475.davem@davemloft.net>
+References: <20151104132716.GD20966@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, thellstrom@vmware.com, asarwade@vmware.com,
-	jhansen@vmware.com, linux-kernel@vger.kernel.org
-To: stefanha@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446641922-32243-1-git-send-email-stefanha@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
+	everest-linux-l2@qlogic.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59718 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031599AbbKEDGd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 22:06:33 -0500
+In-Reply-To: <20151104132716.GD20966@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Date: Wed,  4 Nov 2015 12:58:42 +0000
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 4 Nov 2015 16:27:16 +0300
 
-> When a listen socket enqueues a connection for userspace to accept(),
-> the sk->sk_data_ready() callback should be invoked.  In-kernel socket
-> users rely on this callback to detect when incoming connections are
-> available.
+> We check if "p_hwfn" is NULL and then dereference it in the error
+> handling code.  I read the code and it isn't NULL so let's remove the
+> check.
 > 
-> Currently the sk->sk_state_change() callback is invoked by
-> vmci_transport.c.  This happens to work for userspace applications since
-> sk->sk_state_change = sock_def_wakeup() and sk->sk_data_ready =
-> sock_def_readable() both wake up the accept() waiter.  In-kernel socket
-> users, on the other hand, fail to detect incoming connections.
-> 
-> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
