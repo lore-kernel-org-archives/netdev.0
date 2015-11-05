@@ -1,26 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch -next] qlogic: qed: fix a test for MODE_MF_SI
-Date: Wed, 04 Nov 2015 22:06:37 -0500 (EST)
-Message-ID: <20151104.220637.2147977492516549425.davem@davemloft.net>
-References: <20151104132911.GE20966@mwanda>
+Subject: Re: [PATCH net v3] ipv6: clean up dev_snmp6 proc entry when we
+ fail to initialize inet6_dev
+Date: Wed, 04 Nov 2015 23:56:32 -0500 (EST)
+Message-ID: <20151104.235632.744952191731338440.davem@davemloft.net>
+References: <94ceff1a1f708ce80664370c783f7bfb066fccb5.1446577025.git.sd@queasysnail.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
-	everest-linux-l2@qlogic.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20151104132911.GE20966@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, dvyukov@google.com,
+	hannes@stressinduktion.org, cwang@twopensource.com
+To: sd@queasysnail.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60287 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965163AbbKEE7X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 23:59:23 -0500
+In-Reply-To: <94ceff1a1f708ce80664370c783f7bfb066fccb5.1446577025.git.sd@queasysnail.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 4 Nov 2015 16:29:11 +0300
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Wed,  4 Nov 2015 18:00:13 +0100
 
-> MODE_MF_SI is 9.  We should be testing bit 9 instead of AND 0x9.
+> In ipv6_add_dev, when addrconf_sysctl_register fails, we do not clean up
+> the dev_snmp6 entry that we have already registered for this device.
+> Call snmp6_unregister_dev in this case.
 > 
-> Fixes: fe56b9e6a8d9 ('qed: Add module with basic common support')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Fixes: a317a2f19da7d ("ipv6: fail early when creating netdev named all or default")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 
-Applied.
+Applied, thanks.
