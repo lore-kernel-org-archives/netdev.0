@@ -1,65 +1,51 @@
-From: Patrick Schaaf <netdev@bof.de>
-Subject: Re: kernel 3.14.53 + bnx2x loss of connectivity / parity errors / MCP SCPAD
-Date: Thu, 05 Nov 2015 09:25:30 +0100
-Message-ID: <6380451.UzJpC4z4kH@rofl>
-References: <1727409.Ct3NHyBiXb@rofl> <B5657A6538887040AD3A81F1008BEC63E6B99B@avmb3.qlogic.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v2 1/4] ipv4: add option to drop unicast encapsulated in
+ L2 multicast
+Date: Thu, 5 Nov 2015 10:25:01 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1511051017220.1651@ja.home.ssi.bg>
+References: <1446654127-26826-1-git-send-email-johannes@sipsolutions.net>  <alpine.LFD.2.11.1511042215570.2194@ja.home.ssi.bg> <1446672958.13649.4.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Greg KH <gregkh@linuxfoundation.org>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811672-1750584350-1446711901=:1651"
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mars.intermailgate.com ([80.242.145.70]:58808 "EHLO
-	mars.intermailgate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030562AbbKEIZc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 03:25:32 -0500
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63E6B99B@avmb3.qlogic.org>
+Received: from ja.ssi.bg ([178.16.129.10]:38864 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1030939AbbKEI0z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Nov 2015 03:26:55 -0500
+In-Reply-To: <1446672958.13649.4.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Yuval,
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-thanks for your notes.
+---1463811672-1750584350-1446711901=:1651
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
-> 4. The patch you've listed merely removes the MCP SCPAD prints, as they're
-> unavoidable in certain scenarios; It doesn't actually solve anything.
 
-I also thought so, thanks for confirming. Do you know whether the messages 
-might have hidden earlier messages pointing to the real problem?
+	Hello,
 
-> Having said that, do you know if anything happened to the setup that
-> triggered this? I.e., so configuration change, new utility, etc.?
-> Alternatively, did the log show anything else in addition to the MCP SCPAD?
+On Wed, 4 Nov 2015, Johannes Berg wrote:
 
-There was no update or configuration activity on the box, it was just running 
-along as usual, operating some virtual machines. Uptime was about 22 days. I 
-have a second, practically identical server, running pretty much the same 
-workload, which is still up + running nicely.
+> On Wed, 2015-11-04 at 22:59 +0200, Julian Anastasov wrote:
+> > 
+> >         } else if (unlikely(skb->pkt_type != PACKET_HOST)) {
+> > 
+> >         May be such check can save some cycles because
+> > it is more common to see PACKET_HOST packets...
+> 
+> I had thought about that based on your earlier comments, but then I
+> didn't quite see the point. However, perhaps we could invert the check
+> below to check the pkt_type first, hoping it'll have some kind of cache
+> effect?
 
-I was a bit overeager to reboot the server (power reset) and didn't even try 
-whether I could still log in (shame on me). After the reset the virtual 
-machines all came up fine, so at least filesystem flushing was still working 
-properly during the network breakage event.
+	Yes, looks like it would be better if the checks
+are reordered, the IN_DEV_* methods look more complex recently.
 
-The systemd journal logged a vast amount of the messages I've shown (with lots 
-of "missed kernel messages" too), for a duration of about 8 seconds. In total, 
-including the suppressions, it would have been over 1 million messages during 
-the 8 seconds. Running a "sort|uniq" over the visibly logged messages I see:
+Regards
 
-   8786 kernel: bnx2x 0000:04:00.0 eth0: Parity errors detected in blocks:
-   8768 kernel: bnx2x 0000:04:00.1 eth1: Parity errors detected in blocks:
-   1583 kernel: bnx2x: [bnx2x_attn_int_deasserted3:4080(eth0)]LATCHED 
-attention 0x80000000 (masked)
-   1743 kernel: bnx2x: [bnx2x_attn_int_deasserted3:4080(eth1)]LATCHED 
-attention 0x80000000 (masked)
-  36092 kernel: MCP SCPAD:
-      1 kernel: RAX: 0000000000000000 RBX: 000000198111fb67 RCX: 
-00000000ffffffff
-
-I'll now see that I backport that "MCP SCPAD" logging suppression patch to the 
-latest 3.14 kernel, and reboot the boxes with that, hoping to learn more if 
-the situation reoccurs.
-
-best regards
-  Patrick
+--
+Julian Anastasov <ja@ssi.bg>
+---1463811672-1750584350-1446711901=:1651--
