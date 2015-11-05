@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6] i40e: Look up MAC address in Open Firmware or IDPROM
-Date: Thu, 05 Nov 2015 13:31:31 -0500 (EST)
-Message-ID: <20151105.133131.1900833527415923596.davem@davemloft.net>
-References: <20151105.103126.148818796422971143.davem@davemloft.net>
-	<20151105.110506.1901401372160830603.davem@davemloft.net>
-	<CAHp75VfiV6DVb-2piCxmEWFP4Gi-+n0qNhhscvd=UsqXrivVYg@mail.gmail.com>
+Subject: Re: [PATCH net] net: dsa: mv88e6xxx: isolate unbridged ports
+Date: Thu, 05 Nov 2015 13:37:41 -0500 (EST)
+Message-ID: <20151105.133741.920416694054745930.davem@davemloft.net>
+References: <1446675820-25608-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sowmini.varadhan@oracle.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com
-To: andy.shevchenko@gmail.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHp75VfiV6DVb-2piCxmEWFP4Gi-+n0qNhhscvd=UsqXrivVYg@mail.gmail.com>
+In-Reply-To: <1446675820-25608-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Date: Thu, 5 Nov 2015 20:13:21 +0200
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Wed,  4 Nov 2015 17:23:40 -0500
 
-> What about
+> The DSA documentation specifies that each port must be capable of
+> forwarding frames to the CPU port. The last changes on bridging support
+> for the mv88e6xxx driver broke this requirement for non-bridged ports.
 > 
-> if (!addr)
->  return -ENODATA;
+> So as for the bridged ports, reserve a few VLANs (4000+) in the switch
+> to isolate ports that have not been bridged yet.
+> 
+> By default, a port will be isolated with the CPU and DSA ports. When the
+> port joins a bridge, it will leave its reserved port. When it is removed
+> from a bridge, it will join its reserved VLAN again.
+> 
+> Fixes: 5fe7f68016ff ("net: dsa: mv88e6xxx: fix hardware bridging")
+> Reported-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-I totally disagree.  of_get_phy_mode() and other similar attribute
-probing mechanisms use -ENODEV.
+Applied, thanks Vivien.
