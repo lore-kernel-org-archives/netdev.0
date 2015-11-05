@@ -1,54 +1,54 @@
-From: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
- hierarchy
-Date: Thu, 5 Nov 2015 17:28:03 +0100
-Message-ID: <20151105162803.GD15111@dhcp22.suse.cz>
-References: <20151104104239.GG29607@dhcp22.suse.cz>
- <20151104195037.GA6872@cmpxchg.org>
- <20151105144002.GB15111@dhcp22.suse.cz>
- <20151105.111609.1695015438589063316.davem@davemloft.net>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: NETIF_F_GSO_SOFTWARE vs NETIF_F_GSO
+Date: Thu, 5 Nov 2015 17:28:42 +0100
+Message-ID: <CAHmME9ptruMW4MFZ1q3=tgTANro1_CdwnCWS5O_0_WwbFKgUAw@mail.gmail.com>
+References: <CAHmME9rGvViDN2iFa8xfXvUJpQThJnrCcZ1yHgQrdgEQRUWtfg@mail.gmail.com>
+	<20151105121501.GA5776@gondor.apana.org.au>
+	<CAHmME9pP1E64CCc7+XW8X1duYGQZdYj9s_r8UNq3KMh6xey_Hw@mail.gmail.com>
+	<1446738967.4184.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151105.111609.1695015438589063316.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446738967.4184.35.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu 05-11-15 11:16:09, David S. Miller wrote:
-> From: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Date: Thu, 5 Nov 2015 15:40:02 +0100
-> 
-> > On Wed 04-11-15 14:50:37, Johannes Weiner wrote:
-> > [...]
-> >> Because it goes without saying that once the cgroupv2 interface is
-> >> released, and people use it in production, there is no way we can then
-> >> *add* dentry cache, inode cache, and others to memory.current. That
-> >> would be an unacceptable change in interface behavior.
-> > 
-> > They would still have to _enable_ the config option _explicitly_. make
-> > oldconfig wouldn't change it silently for them. I do not think
-> > it is an unacceptable change of behavior if the config is changed
-> > explicitly.
-> 
-> Every user is going to get this config option when they update their
-> distibution kernel or whatever.
-> 
-> Then they will all wonder why their networking performance went down.
-> 
-> This is why I do not want the networking accounting bits on by default
-> even if the kconfig option is enabled.  They must be off by default
-> and guarded by a static branch so the cost is exactly zero.
+On Thu, Nov 5, 2015 at 4:56 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> It is a performance benefit only if you use the helpers from
+> net/core/tso.c as some drivers already do.
+>
+> Otherwise, calling the skb_gso_segment() from your driver has no gain
+> compared to the one done from core networking stack.
 
-Yes, that part is clear and Johannes made it clear that the kmem tcp
-part is disabled by default. Or are you considering also all the slab
-usage by the networking code as well?
+Interesting, okay. It looks like it will be, in fact, useful to be
+able to call skb_gso_segment() from my own driver. The reasoning is as
+follows:
 
--- 
-Michal Hocko
-SUSE Labs
+As mentioned, I receive packets on ndo_start_xmit, "do something to
+them with function magic()", and then push them out of a UDP socket
+using udp_tunnel_xmit_skb. There appears to be significant overhead
+from calling udp_tunnel_xmit_skb over and over. What I'd really like
+to do is pass the NETIF_F_GSO_SOFTWARE-provided super packet directly
+to udp_tunnel_xmit_skb, but in fact the magic() function mentioned
+above needs to work on an entire MTU-sized IP packet, not a a super
+packet. So, instead, what it's looking like is:
+
+1. Set NETIF_F_GSO_SOFTWARE to receive super packets.
+2. For each super packet, break it down using skb_gso_segment().
+     2a. For each segmented packet, "do my magic() function"
+3. After having done the magic() to each of the segmented packets, I
+*repack the results* into a new super packet. I then pass that super
+packet to udp_tunnel_xmit_skb().
+
+Is this approach a real possibility?
+
+If so, it seems like the best way to get GSO-like qualities out of
+udp_tunnel_xmit_skb. I've successfully done (1) and (2), following the
+example of validate_xmit_skb() from net/core/dev.c. Now I need to
+figure out how to do (3). Hopefully I'll find some nice convenience
+functions for this...
+
+Jason
