@@ -1,67 +1,79 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH] decnet: remove macro-local declarations
-Date: Thu, 5 Nov 2015 23:21:54 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1511052320130.2065@localhost6.localdomain6>
-References: <1446718696-32505-1-git-send-email-Julia.Lawall@lip6.fr>  <20151105.142619.983467860147585345.davem@davemloft.net>  <alpine.DEB.2.02.1511052038400.2065@localhost6.localdomain6> <1446760973.21133.92.camel@perches.com>
+From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
+ hierarchy
+Date: Thu, 5 Nov 2015 17:32:51 -0500
+Message-ID: <20151105223251.GA4427@cmpxchg.org>
+References: <20151104104239.GG29607@dhcp22.suse.cz>
+ <20151104195037.GA6872@cmpxchg.org>
+ <20151105144002.GB15111@dhcp22.suse.cz>
+ <20151105.111609.1695015438589063316.davem@davemloft.net>
+ <20151105162803.GD15111@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	kernel-janitors@vger.kernel.org,
-	linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, lkp@intel.com,
-	roopa@cumulusnetworks.com, rshearma@brocade.com,
-	ebiederm@xmission.com
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446760973.21133.92.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20151105162803.GD15111-2MMpYkNvuYDjFM9bn6wA6Q@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On Thu, 5 Nov 2015, Joe Perches wrote:
-
-> On Thu, 2015-11-05 at 20:38 +0100, Julia Lawall wrote:
-> > On Thu, 5 Nov 2015, David Miller wrote:
-> > > From: Julia Lawall <Julia.Lawall@lip6.fr>
-> > > Date: Thu,  5 Nov 2015 11:18:16 +0100> 
-> > > > Move the variable declarations from the for_nexthops macro to the
-> > > > surrounding context, so that it is clear where these variables are
-> > > > declared.  This also makes it possible to remove the endfor_nexthops macro.
-> > > > 
-> > > > This change adds new arguments to the macro for_nexthops.  They are ordered
-> > > > such that a pointer to the referenced object comes first, the index in the
-> > > > list comes next, and the list itself comes last, roughly in analogy with
-> > > > the list_for_each macros.
-> []
-> > > > This patch takes care of a single file, where the macros are defined
-> > > > locally.  If the basic transformation looks OK, I will change the other
-> > > > files that either likewise define their own macros or use the macros in
-> > > > net/mpls/internal.h.  The potentially affected files are:
-> > >  ...
-> > > 
-> > > This looks fine to me.
-> > > 
-> > > Please resubmit this when net-next opens back up, which should be
-> > > shortly after -rc1.
+On Thu, Nov 05, 2015 at 05:28:03PM +0100, Michal Hocko wrote:
+> On Thu 05-11-15 11:16:09, David S. Miller wrote:
+> > From: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> > Date: Thu, 5 Nov 2015 15:40:02 +0100
 > > 
-> > OK, I'll do the others then too.
+> > > On Wed 04-11-15 14:50:37, Johannes Weiner wrote:
+> > > [...]
+> > >> Because it goes without saying that once the cgroupv2 interface is
+> > >> released, and people use it in production, there is no way we can then
+> > >> *add* dentry cache, inode cache, and others to memory.current. That
+> > >> would be an unacceptable change in interface behavior.
+> > > 
+> > > They would still have to _enable_ the config option _explicitly_. make
+> > > oldconfig wouldn't change it silently for them. I do not think
+> > > it is an unacceptable change of behavior if the config is changed
+> > > explicitly.
+> > 
+> > Every user is going to get this config option when they update their
+> > distibution kernel or whatever.
+> > 
+> > Then they will all wonder why their networking performance went down.
+> > 
+> > This is why I do not want the networking accounting bits on by default
+> > even if the kconfig option is enabled.  They must be off by default
+> > and guarded by a static branch so the cost is exactly zero.
 > 
-> If you do can you please parenthesize the macro arguments?
-> 
-> #define for_nexthops(nh, nhsel, fi) \
->  	for (nhsel = 0, nh = (fi)->fib_nh; nhsel < (fi)->fib_nhs; (nh)++, (nhsel)++)
-> instead of
-> 	for(nhsel = 0, nh = (fi)->fib_nh; nhsel < (fi)->fib_nhs; nh++, nhsel++)
+> Yes, that part is clear and Johannes made it clear that the kmem tcp
+> part is disabled by default. Or are you considering also all the slab
+> usage by the networking code as well?
 
-OK
+Michal, there shouldn't be any tracking or accounting going on per
+default when you boot into a fresh system.
 
-> And perhaps a renaming might be better
-> 
-> 	s/for_nexthops/for_each_nexthop/
+I removed all accounting and statistics on the system level in
+cgroupv2, so distribution kernels can compile-time enable a single,
+feature-complete CONFIG_MEMCG that provides a full memory controller
+while at the same time puts no overhead on users that don't benefit
+from mem control at all and just want to use the machine bare-metal.
 
-OK
+This is completely doable. My new series does it for skmem, but I also
+want to retrofit the code to eliminate that current overhead for page
+cache, anonymous memory, slab memory and so forth.
 
-Thanks for the suggestions.
+This is the only sane way to make the memory controller powerful and
+generally useful without having to make unreasonable compromises with
+memory consumers. We shouldn't even be *having* the discussion about
+whether we should sacrifice the quality of our interface in order to
+compromise with a class of users that doesn't care about any of this
+in the first place.
 
-julia
+So let's eliminate the cost for non-users, but make the memory
+controller feature-complete and useful--with reasonable cost,
+implementation, and interface--for our actual userbase.
+
+Paying the necessary cost for a functionality you actually want is not
+the problem. Paying for something that doesn't benefit you is.
