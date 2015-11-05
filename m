@@ -1,43 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] selinux: fix random read in
- selinux_ip_postroute_compat()
-Date: Thu, 05 Nov 2015 16:46:13 -0500 (EST)
-Message-ID: <20151105.164613.618044250901993825.davem@davemloft.net>
-References: <CACT4Y+ZVnfoqeJZ5cOKu70d3N9LuPMeotarKGBx-EHwYrOe-Eg@mail.gmail.com>
-	<1446752806.4184.50.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1446759564.4184.65.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] decnet: remove macro-local declarations
+Date: Thu, 05 Nov 2015 14:02:53 -0800
+Message-ID: <1446760973.21133.92.camel@perches.com>
+References: <1446718696-32505-1-git-send-email-Julia.Lawall@lip6.fr>
+	 <20151105.142619.983467860147585345.davem@davemloft.net>
+	 <alpine.DEB.2.02.1511052038400.2065@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, netdev@vger.kernel.org, paul@paul-moore.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39748 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751470AbbKEVqP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 16:46:15 -0500
-In-Reply-To: <1446759564.4184.65.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kernel-janitors@vger.kernel.org,
+	linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, lkp@intel.com,
+	roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com
+To: Julia Lawall <julia.lawall@lip6.fr>,
+	David Miller <davem@davemloft.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1511052038400.2065@localhost6.localdomain6>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 05 Nov 2015 13:39:24 -0800
+On Thu, 2015-11-05 at 20:38 +0100, Julia Lawall wrote:
+> On Thu, 5 Nov 2015, David Miller wrote:
+> > From: Julia Lawall <Julia.Lawall@lip6.fr>
+> > Date: Thu,  5 Nov 2015 11:18:16 +0100> 
+> > > Move the variable declarations from the for_nexthops macro to the
+> > > surrounding context, so that it is clear where these variables are
+> > > declared.  This also makes it possible to remove the endfor_nexthops macro.
+> > > 
+> > > This change adds new arguments to the macro for_nexthops.  They are ordered
+> > > such that a pointer to the referenced object comes first, the index in the
+> > > list comes next, and the list itself comes last, roughly in analogy with
+> > > the list_for_each macros.
+[]
+> > > This patch takes care of a single file, where the macros are defined
+> > > locally.  If the basic transformation looks OK, I will change the other
+> > > files that either likewise define their own macros or use the macros in
+> > > net/mpls/internal.h.  The potentially affected files are:
+> >  ...
+> > 
+> > This looks fine to me.
+> > 
+> > Please resubmit this when net-next opens back up, which should be
+> > shortly after -rc1.
+> 
+> OK, I'll do the others then too.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> In commit e446f9dfe17b ("net: synack packets can be attached to request
-> sockets"), I missed one remaining case of invalid skb->sk->sk_security
-> access.
-> 
-> Dmitry Vyukov got a KASan report pointing to it.
-> 
-> Add selinux_skb_sk() helper that is responsible to get back to the
-> listener if skb is attached to a request socket, instead of
-> duplicating the logic.
-> 
-> Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Cc: Paul Moore <paul@paul-moore.com>
+If you do can you please parenthesize the macro arguments?
 
-Looks good, applied, thanks Eric!
+#define for_nexthops(nh, nhsel, fi) \
+ 	for (nhsel = 0, nh = (fi)->fib_nh; nhsel < (fi)->fib_nhs; (nh)++, (nhsel)++)
+instead of
+	for(nhsel = 0, nh = (fi)->fib_nh; nhsel < (fi)->fib_nhs; nh++, nhsel++)
+
+And perhaps a renaming might be better
+
+	s/for_nexthops/for_each_nexthop/
