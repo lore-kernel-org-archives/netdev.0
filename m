@@ -1,44 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
- hierarchy
-Date: Thu, 05 Nov 2015 11:16:09 -0500 (EST)
-Message-ID: <20151105.111609.1695015438589063316.davem@davemloft.net>
-References: <20151104104239.GG29607@dhcp22.suse.cz>
-	<20151104195037.GA6872@cmpxchg.org>
-	<20151105144002.GB15111@dhcp22.suse.cz>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: AF_PACKET mmap() v4...
+Date: Thu, 05 Nov 2015 08:17:59 -0800
+Message-ID: <1446740279.4184.40.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151105.000414.1682124328670738318.davem@davemloft.net>
+	 <4931220.z2MFa8LzkQ@wuerfel> <563B23C3.5070406@iogearbox.net>
+	 <1446723516.4184.33.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <563B5202.1020207@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: hannes@cmpxchg.org, akpm@linux-foundation.org,
-	vdavydov@virtuozzo.com, tj@kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mhocko@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151105144002.GB15111@dhcp22.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, tklauser@distanz.ch
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36270 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1162166AbbKEQSC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 11:18:02 -0500
+Received: by pacdm15 with SMTP id dm15so67316647pac.3
+        for <netdev@vger.kernel.org>; Thu, 05 Nov 2015 08:18:01 -0800 (PST)
+In-Reply-To: <563B5202.1020207@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michal Hocko <mhocko@kernel.org>
-Date: Thu, 5 Nov 2015 15:40:02 +0100
+On Thu, 2015-11-05 at 13:56 +0100, Daniel Borkmann wrote:
+> On 11/05/2015 12:38 PM, Eric Dumazet wrote:
 
-> On Wed 04-11-15 14:50:37, Johannes Weiner wrote:
-> [...]
->> Because it goes without saying that once the cgroupv2 interface is
->> released, and people use it in production, there is no way we can then
->> *add* dentry cache, inode cache, and others to memory.current. That
->> would be an unacceptable change in interface behavior.
+> > If I am not mistaken, af_packet also lacks the ability to properly set
+> > skb->protocol
+> >
+> > I noticed this using trafgen on a bonding device, when I did my SYNFLOOD
+> > tests for TCP listener rewrite.
+> >
+> > The bonding hash function might uses flow dissector, but as this flow
+> > dissection depends on skb->protocol, all the traffic is directed on a
+> > single slave.
 > 
-> They would still have to _enable_ the config option _explicitly_. make
-> oldconfig wouldn't change it silently for them. I do not think
-> it is an unacceptable change of behavior if the config is changed
-> explicitly.
+> Right, if I see this correctly, when you trigger the flushing of TX_RING
+> via sendmsg(), one can hand over a sockaddr_ll, where we infer sll_protocol
+> and tag every skb's skb->protocol with that in tpacket_fill_skb() for the
+> current flushing run. Otherwise, we use the po->num specified at socket
+> creation / bind time for everything (trafgen case).
+> 
+> If needed on a per skb basis, perhaps we could map some tpacket_hdr{,2}
+> member that is not used from TX_RING side (perhaps union on tp_snaplen)?
 
-Every user is going to get this config option when they update their
-distibution kernel or whatever.
 
-Then they will all wonder why their networking performance went down.
+If po->num is 0 (as in trafgen case), we could also get the proto from
+Ethernet header provided by the user.
 
-This is why I do not want the networking accounting bits on by default
-even if the kconfig option is enabled.  They must be off by default
-and guarded by a static branch so the cost is exactly zero.
+The skb_probe_transport_header() call from tpacket_fill_skb() is useless
+in the current kernel.
+
+Let say an application wants to mix IPv6 and IPv4 packets, using a
+single TX ring....
