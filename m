@@ -1,61 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Use-after-free in selinux_ip_postroute_compat
-Date: Thu, 05 Nov 2015 11:46:46 -0800
-Message-ID: <1446752806.4184.50.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+ZVnfoqeJZ5cOKu70d3N9LuPMeotarKGBx-EHwYrOe-Eg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] packet: race condition in packet_bind
+Date: Thu, 05 Nov 2015 14:51:08 -0500 (EST)
+Message-ID: <20151105.145108.906695545091791915.davem@davemloft.net>
+References: <20151105161614.9C57658016E@fruggeri-AK-3.18.sjc.aristanetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	David Miller <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Kees Cook <keescook@google.com>,
-	Julien Tinnes <jln@google.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+ZVnfoqeJZ5cOKu70d3N9LuPMeotarKGBx-EHwYrOe-Eg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: edumazet@google.com, netdev@vger.kernel.org, noureddine@arista.com,
+	fruggeri@arista.com
+To: fruggeri@aristanetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38356 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751499AbbKETvM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 14:51:12 -0500
+In-Reply-To: <20151105161614.9C57658016E@fruggeri-AK-3.18.sjc.aristanetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-11-05 at 20:36 +0100, Dmitry Vyukov wrote:
-> Hello,
+From: fruggeri@aristanetworks.com (Francesco Ruggeri)
+Date: Thu, 05 Nov 2015 08:16:14 -0800
+
+> There is a race conditions between packet_notifier and packet_bind{_spkt}.
 > 
-> I've updated from bcee19f424a0d8c26ecf2607b73c690802658b29 (Sep 21) to
-> 8e483ed1342a4ea45b70f0f33ac54eff7a33d918 (Nov 4) and start seeing the
-> following use-after-free reports:
+> It happens if packet_notifier(NETDEV_UNREGISTER) executes between the
+> time packet_bind{_spkt} takes a reference on the new netdevice and the
+> time packet_do_bind sets po->ifindex.
+> In this case the notification can be missed.
+> If this happens during a dev_change_net_namespace this can result in the
+> netdevice to be moved to the new namespace while the packet_sock in the
+> old namespace still holds a reference on it. When the netdevice is later
+> deleted in the new namespace the deletion hangs since the packet_sock
+> is not found in the new namespace' &net->packet.sklist.
+> It can be reproduced with the script below.
 > 
+> This patch makes packet_do_bind check again for the presence of the
+> netdevice in the packet_sock's namespace after the synchronize_net
+> in unregister_prot_hook.
+> More in general it also uses the rcu lock for the duration of the bind
+> to stop dev_change_net_namespace/rollback_registered_many from
+> going past the synchronize_net following unlist_netdevice, so that
+> no NETDEV_UNREGISTER notifications can happen on the new netdevice
+> while the bind is executing. In order to do this some code from
+> packet_bind{_spkt} is consolidated into packet_do_dev.
+ ...
+> Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
 
-Thanks for your report, I will add a followup to this fix :
-
-commit e446f9dfe17bbaa76a1fe22912636f38be1e1af8
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Thu Oct 8 05:01:55 2015 -0700
-
-    net: synack packets can be attached to request sockets
-    
-    selinux needs few changes to accommodate fact that SYNACK messages
-    can be attached to a request socket, lacking sk_security pointer
-    
-    (Only syncookies are still attached to a TCP_LISTEN socket)
-    
-    Adds a new sk_listener() helper, and use it in selinux and sch_fq
-    
-    Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
-    Signed-off-by: Eric Dumazet <edumazet@google.com>
-    Reported by: kernel test robot <ying.huang@linux.intel.com>
-    Cc: Paul Moore <paul@paul-moore.com>
-    Cc: Stephen Smalley <sds@tycho.nsa.gov>
-    Cc: Eric Paris <eparis@parisplace.org>
-    Acked-by: Paul Moore <paul@paul-moore.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Looks good, applied and queued up for -stable, thanks.
