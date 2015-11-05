@@ -1,30 +1,40 @@
-From: Matthew Fernandez <matthew.fernandez@gmail.com>
-Subject: [PATCH net v2] bpf: fix trivial comment typo
-Date: Thu, 5 Nov 2015 11:09:52 +1100
-Message-ID: <563A9E50.9020105@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] Netfilter fixes for net
+Date: Wed, 04 Nov 2015 20:55:26 -0500 (EST)
+Message-ID: <20151104.205526.21913366211196665.davem@davemloft.net>
+References: <1446645638-3625-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, ast@kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1446645638-3625-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-bpf: fix trivial comment typo
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Wed,  4 Nov 2015 15:00:35 +0100
 
-Signed-off-by: Matthew Fernandez <matthew.fernandez@gmail.com>
+> The following patchset contains Netfilter fixes for your net tree,
+> they are:
+> 
+> 1) Fix crash when TEE target is used with no --oif, from Eric Dumazet.
+> 
+> 2) Oneliner to fix a crash on the redirect traffic to localhost
+>    infrastructure when interface has not yet an address, from
+>    Munehisa Kamata.
+> 
+> 3) Oneliner not to request module all the time from nfnetlink due to
+>    wrong type value, from Florian Westphal.
+> 
+> I'll make sure these patches 1 and 2 hit -stable.
 
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 334b1bd..0bd41f5 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -462,7 +462,7 @@ select_insn:
+Pulled.
 
-  		/* ARG1 at this point is guaranteed to point to CTX from
-  		 * the verifier side due to the fact that the tail call is
--		 * handeled like a helper, that is, bpf_tail_call_proto,
-+		 * handled like a helper, that is, bpf_tail_call_proto,
-  		 * where arg1_type is ARG_PTR_TO_CTX.
-  		 */
-  		insn = prog->insnsi;
+Since net-next got merged, and I fast-forwarded net to Linus's
+tree, there were some minor conflicts.
+
+Please double check my work.
+
+Thanks.
