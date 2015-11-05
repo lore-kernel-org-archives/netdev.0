@@ -1,34 +1,130 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: NETIF_F_GSO_SOFTWARE vs NETIF_F_GSO
-Date: Thu, 05 Nov 2015 07:56:07 -0800
-Message-ID: <1446738967.4184.35.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAHmME9rGvViDN2iFa8xfXvUJpQThJnrCcZ1yHgQrdgEQRUWtfg@mail.gmail.com>
-	 <20151105121501.GA5776@gondor.apana.org.au>
-	 <CAHmME9pP1E64CCc7+XW8X1duYGQZdYj9s_r8UNq3KMh6xey_Hw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v6] i40e: Look up MAC address in Open Firmware or IDPROM
+Date: Thu, 05 Nov 2015 11:05:06 -0500 (EST)
+Message-ID: <20151105.110506.1901401372160830603.davem@davemloft.net>
+References: <20151104232100.GJ14575@oracle.com>
+	<20151105.103126.148818796422971143.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, shannon.nelson@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	matthew.vick@intel.com, john.ronciak@intel.com,
+	mitch.a.williams@intel.com, andy.shevchenko@gmail.com
+To: sowmini.varadhan@oracle.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9pP1E64CCc7+XW8X1duYGQZdYj9s_r8UNq3KMh6xey_Hw@mail.gmail.com>
+In-Reply-To: <20151105.103126.148818796422971143.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-11-05 at 16:00 +0100, Jason A. Donenfeld wrote:
+From: David Miller <davem@davemloft.net>
+Date: Thu, 05 Nov 2015 10:31:26 -0500 (EST)
 
-> Right -- I saw the expansion in the header file -- it gets the various
-> TSOs plus UFO. So what this means is that the packet hasn't yet been
-> split up? So were I to add this option, then my driver would have to
-> be responsible for splitting up the super-packets manually? In which
-> case, there would be no performance benefit in using it, since GSO
-> already does this just prior to ndo_start_xmit? Or would there be a
-> performance benefit in receiving the super-packets and splitting them
-> myself?
+> I'll see if I can cook something up.
 
-It is a performance benefit only if you use the helpers from
-net/core/tso.c as some drivers already do.
+How does this look?
 
-Otherwise, calling the skb_gso_segment() from your driver has no gain
-compared to the one done from core networking stack.
+====================
+net: Add eth_platform_get_mac_address() helper.
+
+A repeating pattern in drivers has become to use OF node information
+and, if not found, platform specific host information to extract the
+ethernet address for a given device.
+
+Currently this is done with a call to of_get_mac_mac_address() and
+then some ifdef'd stuff for SPARC.
+
+Consolidate this into a portable routine, and provide the
+arch_get_platform_mac_address() weak function hook for all
+architectures to implement if they want.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/arch/sparc/kernel/idprom.c b/arch/sparc/kernel/idprom.c
+index 6bd7501..f95dd11 100644
+--- a/arch/sparc/kernel/idprom.c
++++ b/arch/sparc/kernel/idprom.c
+@@ -9,6 +9,7 @@
+ #include <linux/types.h>
+ #include <linux/init.h>
+ #include <linux/export.h>
++#include <linux/etherdevice.h>
+ 
+ #include <asm/oplib.h>
+ #include <asm/idprom.h>
+@@ -60,6 +61,12 @@ static void __init display_system_type(unsigned char machtype)
+ {
+ }
+ #endif
++
++unsigned char *arch_get_platform_mac_address(void)
++{
++	return idprom->id_ethaddr;
++}
++
+ /* Calculate the IDPROM checksum (xor of the data bytes). */
+ static unsigned char __init calc_idprom_cksum(struct idprom *idprom)
+ {
+diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+index eb049c6..37ff4a6 100644
+--- a/include/linux/etherdevice.h
++++ b/include/linux/etherdevice.h
+@@ -29,6 +29,9 @@
+ #include <asm/bitsperlong.h>
+ 
+ #ifdef __KERNEL__
++struct device;
++int eth_platform_get_mac_address(struct device *dev, u8 *mac_addr);
++unsigned char *arch_get_platform_get_mac_address(void);
+ u32 eth_get_headlen(void *data, unsigned int max_len);
+ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev);
+ extern const struct header_ops eth_header_ops;
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 9e63f25..1cb9204f 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -52,6 +52,8 @@
+ #include <linux/errno.h>
+ #include <linux/init.h>
+ #include <linux/if_ether.h>
++#include <linux/of_net.h>
++#include <linux/pci.h>
+ #include <net/dst.h>
+ #include <net/arp.h>
+ #include <net/sock.h>
+@@ -485,3 +487,33 @@ static int __init eth_offload_init(void)
+ }
+ 
+ fs_initcall(eth_offload_init);
++
++unsigned char * __weak arch_get_platform_mac_address(void)
++{
++	return NULL;
++}
++
++int eth_platform_get_mac_address(struct device *dev, u8 *mac_addr)
++{
++	const unsigned char *addr;
++	struct device_node *dp;
++
++	if (dev_is_pci(dev))
++		dp = pci_device_to_OF_node(to_pci_dev(dev));
++	else
++		dp = dev->of_node;
++
++	addr = NULL;
++	if (dp)
++		addr = of_get_mac_address(dp);
++	if (!addr)
++		addr = arch_get_platform_mac_address();
++
++	if (addr) {
++		ether_addr_copy(mac_addr, addr);
++		return 0;
++	}
++
++	return -ENODEV;
++}
++EXPORT_SYMBOL(eth_platform_get_mac_address);
