@@ -1,56 +1,241 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: AF_PACKET mmap() v4...
-Date: Thu, 05 Nov 2015 08:17:59 -0800
-Message-ID: <1446740279.4184.40.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151105.000414.1682124328670738318.davem@davemloft.net>
-	 <4931220.z2MFa8LzkQ@wuerfel> <563B23C3.5070406@iogearbox.net>
-	 <1446723516.4184.33.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <563B5202.1020207@iogearbox.net>
+From: fruggeri@aristanetworks.com (Francesco Ruggeri)
+Subject: [PATCH 1/1] packet: race condition in packet_bind
+Date: Thu, 05 Nov 2015 08:16:14 -0800
+Message-ID: <20151105161614.9C57658016E@fruggeri-AK-3.18.sjc.aristanetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, tklauser@distanz.ch
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: noureddine@arista.com, fruggeri@arista.com
+To: edumazet@google.com, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36270 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1162166AbbKEQSC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 11:18:02 -0500
-Received: by pacdm15 with SMTP id dm15so67316647pac.3
-        for <netdev@vger.kernel.org>; Thu, 05 Nov 2015 08:18:01 -0800 (PST)
-In-Reply-To: <563B5202.1020207@iogearbox.net>
+Received: from prod-mx.aristanetworks.com ([162.210.130.12]:7625 "EHLO
+	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1161984AbbKEQWT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 11:22:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-11-05 at 13:56 +0100, Daniel Borkmann wrote:
-> On 11/05/2015 12:38 PM, Eric Dumazet wrote:
+There is a race conditions between packet_notifier and packet_bind{_spkt}.
 
-> > If I am not mistaken, af_packet also lacks the ability to properly set
-> > skb->protocol
-> >
-> > I noticed this using trafgen on a bonding device, when I did my SYNFLOOD
-> > tests for TCP listener rewrite.
-> >
-> > The bonding hash function might uses flow dissector, but as this flow
-> > dissection depends on skb->protocol, all the traffic is directed on a
-> > single slave.
-> 
-> Right, if I see this correctly, when you trigger the flushing of TX_RING
-> via sendmsg(), one can hand over a sockaddr_ll, where we infer sll_protocol
-> and tag every skb's skb->protocol with that in tpacket_fill_skb() for the
-> current flushing run. Otherwise, we use the po->num specified at socket
-> creation / bind time for everything (trafgen case).
-> 
-> If needed on a per skb basis, perhaps we could map some tpacket_hdr{,2}
-> member that is not used from TX_RING side (perhaps union on tp_snaplen)?
+It happens if packet_notifier(NETDEV_UNREGISTER) executes between the
+time packet_bind{_spkt} takes a reference on the new netdevice and the
+time packet_do_bind sets po->ifindex.
+In this case the notification can be missed.
+If this happens during a dev_change_net_namespace this can result in the
+netdevice to be moved to the new namespace while the packet_sock in the
+old namespace still holds a reference on it. When the netdevice is later
+deleted in the new namespace the deletion hangs since the packet_sock
+is not found in the new namespace' &net->packet.sklist.
+It can be reproduced with the script below.
 
+This patch makes packet_do_bind check again for the presence of the
+netdevice in the packet_sock's namespace after the synchronize_net
+in unregister_prot_hook.
+More in general it also uses the rcu lock for the duration of the bind
+to stop dev_change_net_namespace/rollback_registered_many from
+going past the synchronize_net following unlist_netdevice, so that
+no NETDEV_UNREGISTER notifications can happen on the new netdevice
+while the bind is executing. In order to do this some code from
+packet_bind{_spkt} is consolidated into packet_do_dev.
 
-If po->num is 0 (as in trafgen case), we could also get the proto from
-Ethernet header provided by the user.
+import socket, os, time, sys
+proto=7
+realDev='em1'
+vlanId=400
+if len(sys.argv) > 1:
+   vlanId=int(sys.argv[1])
+dev='vlan%d' % vlanId
 
-The skb_probe_transport_header() call from tpacket_fill_skb() is useless
-in the current kernel.
+os.system('taskset -p 0x10 %d' % os.getpid())
 
-Let say an application wants to mix IPv6 and IPv4 packets, using a
-single TX ring....
+s = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, proto)
+os.system('ip link add link %s name %s type vlan id %d' %
+          (realDev, dev, vlanId))
+os.system('ip netns add dummy')
+
+pid=os.fork()
+
+if pid == 0:
+   # dev should be moved while packet_do_bind is in synchronize net
+   os.system('taskset -p 0x20000 %d' % os.getpid())
+   os.system('ip link set %s netns dummy' % dev)
+   os.system('ip netns exec dummy ip link del %s' % dev)
+   s.close()
+   sys.exit(0)
+
+time.sleep(.004)
+try:
+   s.bind(('%s' % dev, proto+1))
+except:
+   print 'Could not bind socket'
+   s.close()
+   os.system('ip netns del dummy')
+   sys.exit(0)
+
+os.waitpid(pid, 0)
+s.close()
+os.system('ip netns del dummy')
+sys.exit(0)
+
+Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
+---
+ net/packet/af_packet.c | 80 +++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 49 insertions(+), 31 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index aa4b15c..27b2898 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2903,22 +2903,40 @@ static int packet_release(struct socket *sock)
+  *	Attach a packet hook.
+  */
+ 
+-static int packet_do_bind(struct sock *sk, struct net_device *dev, __be16 proto)
++static int packet_do_bind(struct sock *sk, const char *name, int ifindex,
++			  __be16 proto)
+ {
+ 	struct packet_sock *po = pkt_sk(sk);
+ 	struct net_device *dev_curr;
+ 	__be16 proto_curr;
+ 	bool need_rehook;
++	struct net_device *dev = NULL;
++	int ret = 0;
++	bool unlisted = false;
+ 
+-	if (po->fanout) {
+-		if (dev)
+-			dev_put(dev);
+-
++	if (po->fanout)
+ 		return -EINVAL;
+-	}
+ 
+ 	lock_sock(sk);
+ 	spin_lock(&po->bind_lock);
++	rcu_read_lock();
++
++	if (name) {
++		dev = dev_get_by_name_rcu(sock_net(sk), name);
++		if (!dev) {
++			ret = -ENODEV;
++			goto out_unlock;
++		}
++	} else if (ifindex) {
++		dev = dev_get_by_index_rcu(sock_net(sk), ifindex);
++		if (!dev) {
++			ret = -ENODEV;
++			goto out_unlock;
++		}
++	}
++
++	if (dev)
++		dev_hold(dev);
+ 
+ 	proto_curr = po->prot_hook.type;
+ 	dev_curr = po->prot_hook.dev;
+@@ -2926,14 +2944,29 @@ static int packet_do_bind(struct sock *sk, struct net_device *dev, __be16 proto)
+ 	need_rehook = proto_curr != proto || dev_curr != dev;
+ 
+ 	if (need_rehook) {
+-		unregister_prot_hook(sk, true);
++		if (po->running) {
++			rcu_read_unlock();
++			__unregister_prot_hook(sk, true);
++			rcu_read_lock();
++			dev_curr = po->prot_hook.dev;
++			if (dev)
++				unlisted = !dev_get_by_index_rcu(sock_net(sk),
++								 dev->ifindex);
++		}
+ 
+ 		po->num = proto;
+ 		po->prot_hook.type = proto;
+-		po->prot_hook.dev = dev;
+ 
+-		po->ifindex = dev ? dev->ifindex : 0;
+-		packet_cached_dev_assign(po, dev);
++		if (unlikely(unlisted)) {
++			dev_put(dev);
++			po->prot_hook.dev = NULL;
++			po->ifindex = -1;
++			packet_cached_dev_reset(po);
++		} else {
++			po->prot_hook.dev = dev;
++			po->ifindex = dev ? dev->ifindex : 0;
++			packet_cached_dev_assign(po, dev);
++		}
+ 	}
+ 	if (dev_curr)
+ 		dev_put(dev_curr);
+@@ -2941,7 +2974,7 @@ static int packet_do_bind(struct sock *sk, struct net_device *dev, __be16 proto)
+ 	if (proto == 0 || !need_rehook)
+ 		goto out_unlock;
+ 
+-	if (!dev || (dev->flags & IFF_UP)) {
++	if (!unlisted && (!dev || (dev->flags & IFF_UP))) {
+ 		register_prot_hook(sk);
+ 	} else {
+ 		sk->sk_err = ENETDOWN;
+@@ -2950,9 +2983,10 @@ static int packet_do_bind(struct sock *sk, struct net_device *dev, __be16 proto)
+ 	}
+ 
+ out_unlock:
++	rcu_read_unlock();
+ 	spin_unlock(&po->bind_lock);
+ 	release_sock(sk);
+-	return 0;
++	return ret;
+ }
+ 
+ /*
+@@ -2964,8 +2998,6 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
+ {
+ 	struct sock *sk = sock->sk;
+ 	char name[15];
+-	struct net_device *dev;
+-	int err = -ENODEV;
+ 
+ 	/*
+ 	 *	Check legality
+@@ -2975,19 +3007,13 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
+ 		return -EINVAL;
+ 	strlcpy(name, uaddr->sa_data, sizeof(name));
+ 
+-	dev = dev_get_by_name(sock_net(sk), name);
+-	if (dev)
+-		err = packet_do_bind(sk, dev, pkt_sk(sk)->num);
+-	return err;
++	return packet_do_bind(sk, name, 0, pkt_sk(sk)->num);
+ }
+ 
+ static int packet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ {
+ 	struct sockaddr_ll *sll = (struct sockaddr_ll *)uaddr;
+ 	struct sock *sk = sock->sk;
+-	struct net_device *dev = NULL;
+-	int err;
+-
+ 
+ 	/*
+ 	 *	Check legality
+@@ -2998,16 +3024,8 @@ static int packet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len
+ 	if (sll->sll_family != AF_PACKET)
+ 		return -EINVAL;
+ 
+-	if (sll->sll_ifindex) {
+-		err = -ENODEV;
+-		dev = dev_get_by_index(sock_net(sk), sll->sll_ifindex);
+-		if (dev == NULL)
+-			goto out;
+-	}
+-	err = packet_do_bind(sk, dev, sll->sll_protocol ? : pkt_sk(sk)->num);
+-
+-out:
+-	return err;
++	return packet_do_bind(sk, NULL, sll->sll_ifindex,
++			      sll->sll_protocol ? : pkt_sk(sk)->num);
+ }
+ 
+ static struct proto packet_proto = {
+-- 
+1.8.1.4
