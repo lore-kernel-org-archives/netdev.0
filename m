@@ -1,40 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Netfilter fixes for net
-Date: Wed, 04 Nov 2015 20:55:26 -0500 (EST)
-Message-ID: <20151104.205526.21913366211196665.davem@davemloft.net>
-References: <1446645638-3625-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH] drivers: net: cpsw: Add support for fixed-link PHY
+Date: Wed, 04 Nov 2015 20:57:59 -0500 (EST)
+Message-ID: <20151104.205759.1038232882311804742.davem@davemloft.net>
+References: <2251323.UEGYDRRlj7@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1446645638-3625-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-omap@vger.kernel.org
+To: systemprogrammierung.brunner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59339 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030498AbbKEB6B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 20:58:01 -0500
+In-Reply-To: <2251323.UEGYDRRlj7@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Wed,  4 Nov 2015 15:00:35 +0100
+From: Markus Brunner <systemprogrammierung.brunner@gmail.com>
+Date: Tue, 03 Nov 2015 22:09:51 +0100
 
-> The following patchset contains Netfilter fixes for your net tree,
-> they are:
+> Add support for a fixed-link devicetree sub-node in case the the 
+> cpsw MAC is directly connected to a non-mdio PHY/device. 
 > 
-> 1) Fix crash when TEE target is used with no --oif, from Eric Dumazet.
-> 
-> 2) Oneliner to fix a crash on the redirect traffic to localhost
->    infrastructure when interface has not yet an address, from
->    Munehisa Kamata.
-> 
-> 3) Oneliner not to request module all the time from nfnetlink due to
->    wrong type value, from Florian Westphal.
-> 
-> I'll make sure these patches 1 and 2 hit -stable.
+> Signed-off-by: Markus Brunner <systemprogrammierung.brunner@gmail.com>
 
-Pulled.
-
-Since net-next got merged, and I fast-forwarded net to Linus's
-tree, there were some minor conflicts.
-
-Please double check my work.
-
-Thanks.
+Applied.
