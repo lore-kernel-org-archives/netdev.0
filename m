@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnxt_en: add VXLAN dependency
-Date: Thu, 05 Nov 2015 00:00:41 -0500 (EST)
-Message-ID: <20151105.000041.1943232712662050944.davem@davemloft.net>
-References: <10667823.xAtO4QOJMM@wuerfel>
+Subject: AF_PACKET mmap() v4...
+Date: Thu, 05 Nov 2015 00:04:14 -0500 (EST)
+Message-ID: <20151105.000414.1682124328670738318.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, eddie.wai@broadcom.com,
-	huangjw@broadcom.com, prashant@broadcom.com, mchan@broadcom.com
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <10667823.xAtO4QOJMM@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: arnd@arndb.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60316 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750718AbbKEFEP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 00:04:15 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 04 Nov 2015 16:00:32 +0100
 
-> VXLAN may be a loadable module, and this driver cannot be built-in
-> in that case, or we get a link error:
-> 
-> drivers/built-in.o: In function `__bnxt_open_nic':
-> drivers/net/ethernet/broadcom/bnxt/bnxt.c:4581: undefined reference to `vxlan_get_rx_port'
-> 
-> This adds a Kconfig dependency that ensures that either VXLAN is
-> disabled (which the driver handles correctly), or we depend on
-> VXLAN itself and disallow built-in compilation when VXLAN is
-> a module.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: c0c050c58d84 ("bnxt_en: New Broadcom ethernet driver.")
+As part of fixing y2038 problems, Arnd is going to have to make a new
+version fo the AF_PACKET mmap() tpacker descriptors in order to extend
+the time values to 64-bit.
 
-Applied, thanks.
+So I want everyone to think about whether there are any other changes
+we might want to make given that we have to make a v4 anyways.
+
+Particularly, I am rather certain that the buffer management could be
+improved.  Some have complained that v3 is kinda awkward to use and/or
+suboptimal is various ways.
+
+Thanks.
