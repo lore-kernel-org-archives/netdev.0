@@ -1,60 +1,63 @@
 From: Michael Chan <mchan@broadcom.com>
-Subject: [PATCH net 2/5] bnxt_en: Determine tcp/ipv6 RSS hash type correctly.
-Date: Thu, 5 Nov 2015 16:25:48 -0500
-Message-ID: <1446758751-27999-3-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net 4/5] bnxt_en: Fix comparison of u16 sw_id against negative value.
+Date: Thu, 5 Nov 2015 16:25:50 -0500
+Message-ID: <1446758751-27999-5-git-send-email-mchan@broadcom.com>
 References: <1446758751-27999-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, Dan Carpenter <dan.carpenter@oracle.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:6079 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757193AbbKEVZw (ORCPT
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:64059 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757025AbbKEVZw (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 16:25:52 -0500
 In-Reply-To: <1446758751-27999-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The profile ID in the completion record needs to be ANDed with the
-profile ID mask of 0x1f.  This bug was causing the SKB hash type
-and the gso_type to be wrong in some cases.
+Assign the return value from bitmap_find_free_region() to an integer
+variable and check for negative error codes first, before assigning
+the bit ID to the unsigned sw_id field.
 
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.h | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 4cae492..5afe65d 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -166,9 +166,11 @@ struct rx_cmp {
- #define RX_CMP_HASH_VALID(rxcmp)				\
- 	((rxcmp)->rx_cmp_len_flags_type & cpu_to_le32(RX_CMP_FLAGS_RSS_VALID))
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index a62deff..db15c5e 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -5307,7 +5307,7 @@ static int bnxt_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
+ 	struct bnxt_ntuple_filter *fltr, *new_fltr;
+ 	struct flow_keys *fkeys;
+ 	struct ethhdr *eth = (struct ethhdr *)skb_mac_header(skb);
+-	int rc = 0, idx;
++	int rc = 0, idx, bit_id;
+ 	struct hlist_head *head;
  
-+#define RSS_PROFILE_ID_MASK	0x1f
-+
- #define RX_CMP_HASH_TYPE(rxcmp)					\
--	((le32_to_cpu((rxcmp)->rx_cmp_misc_v1) & RX_CMP_RSS_HASH_TYPE) >>\
--	 RX_CMP_RSS_HASH_TYPE_SHIFT)
-+	(((le32_to_cpu((rxcmp)->rx_cmp_misc_v1) & RX_CMP_RSS_HASH_TYPE) >>\
-+	  RX_CMP_RSS_HASH_TYPE_SHIFT) & RSS_PROFILE_ID_MASK)
+ 	if (skb->encapsulation)
+@@ -5345,14 +5345,15 @@ static int bnxt_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
+ 	rcu_read_unlock();
  
- struct rx_cmp_ext {
- 	__le32 rx_cmp_flags2;
-@@ -282,9 +284,9 @@ struct rx_tpa_start_cmp {
- 	 cpu_to_le32(RX_TPA_START_CMP_FLAGS_RSS_VALID))
+ 	spin_lock_bh(&bp->ntp_fltr_lock);
+-	new_fltr->sw_id = bitmap_find_free_region(bp->ntp_fltr_bmap,
+-						  BNXT_NTP_FLTR_MAX_FLTR, 0);
+-	if (new_fltr->sw_id < 0) {
++	bit_id = bitmap_find_free_region(bp->ntp_fltr_bmap,
++					 BNXT_NTP_FLTR_MAX_FLTR, 0);
++	if (bit_id < 0) {
+ 		spin_unlock_bh(&bp->ntp_fltr_lock);
+ 		rc = -ENOMEM;
+ 		goto err_free;
+ 	}
  
- #define TPA_START_HASH_TYPE(rx_tpa_start)				\
--	((le32_to_cpu((rx_tpa_start)->rx_tpa_start_cmp_misc_v1) &	\
--	  RX_TPA_START_CMP_RSS_HASH_TYPE) >>				\
--	 RX_TPA_START_CMP_RSS_HASH_TYPE_SHIFT)
-+	(((le32_to_cpu((rx_tpa_start)->rx_tpa_start_cmp_misc_v1) &	\
-+	   RX_TPA_START_CMP_RSS_HASH_TYPE) >>				\
-+	  RX_TPA_START_CMP_RSS_HASH_TYPE_SHIFT) & RSS_PROFILE_ID_MASK)
- 
- #define TPA_START_AGG_ID(rx_tpa_start)					\
- 	((le32_to_cpu((rx_tpa_start)->rx_tpa_start_cmp_misc_v1) &	\
++	new_fltr->sw_id = (u16)bit_id;
+ 	new_fltr->flow_id = flow_id;
+ 	new_fltr->rxq = rxq_index;
+ 	hlist_add_head_rcu(&new_fltr->hash, head);
 -- 
 1.8.3.1
