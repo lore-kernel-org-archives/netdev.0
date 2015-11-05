@@ -1,67 +1,36 @@
-From: Thomas F Herbert <thomasfherbert@gmail.com>
-Subject: [PATCH net-dev V20 1/3] openvswitch: 802.1ad uapi changes.
-Date: Thu,  5 Nov 2015 14:34:03 -0500
-Message-ID: <1446752045-5227-2-git-send-email-thomasfherbert@gmail.com>
-References: <1446752045-5227-1-git-send-email-thomasfherbert@gmail.com>
-Cc: therbert@redhat.com, dev@openvswitch.org,
-	Thomas F Herbert <thomasfherbert@gmail.com>
-To: netdev@vger.kernel.org, pshelar@nicira.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: fix req->saved_syn race
+Date: Thu, 05 Nov 2015 14:36:40 -0500 (EST)
+Message-ID: <20151105.143640.1782532662947816312.davem@davemloft.net>
+References: <1446750433.4184.45.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ycai@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:33303 "EHLO
-	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751924AbbKETeW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 14:34:22 -0500
-Received: by qkas77 with SMTP id s77so33377879qka.0
-        for <netdev@vger.kernel.org>; Thu, 05 Nov 2015 11:34:21 -0800 (PST)
-In-Reply-To: <1446752045-5227-1-git-send-email-thomasfherbert@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38183 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750813AbbKETgo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 14:36:44 -0500
+In-Reply-To: <1446750433.4184.45.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-openvswitch: Add support for 8021.AD
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 05 Nov 2015 11:07:13 -0800
 
-Change the description of the VLAN tpid field.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> For the reasons explained in commit ce1050089c96 ("tcp/dccp: fix
+> ireq->pktopts race"), we need to make sure we do not access
+> req->saved_syn unless we own the request sock.
+> 
+> This fixes races for listeners using TCP_SAVE_SYN option.
+> 
+> Fixes: e994b2f0fb92 ("tcp: do not lock listener to process SYN packets")
+> Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Ying Cai <ycai@google.com>
 
-Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
----
- include/uapi/linux/openvswitch.h | 17 +++++++++--------
- 1 file changed, 9 insertions(+), 8 deletions(-)
-
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 28ccedd..2e7339d 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -587,13 +587,13 @@ struct ovs_action_push_mpls {
-  * @vlan_tci: Tag control identifier (TCI) to push.  The CFI bit must be set
-  * (but it will not be set in the 802.1Q header that is pushed).
-  *
-- * The @vlan_tpid value is typically %ETH_P_8021Q.  The only acceptable TPID
-- * values are those that the kernel module also parses as 802.1Q headers, to
-- * prevent %OVS_ACTION_ATTR_PUSH_VLAN followed by %OVS_ACTION_ATTR_POP_VLAN
-- * from having surprising results.
-+ * The @vlan_tpid value is typically %ETH_P_8021Q or %ETH_P_8021AD.
-+ * The only acceptable TPID values are those that the kernel module also parses
-+ * as 802.1Q or 802.1AD headers, to prevent %OVS_ACTION_ATTR_PUSH_VLAN followed
-+ * by %OVS_ACTION_ATTR_POP_VLAN from having surprising results.
-  */
- struct ovs_action_push_vlan {
--	__be16 vlan_tpid;	/* 802.1Q TPID. */
-+	__be16 vlan_tpid;	/* 802.1Q or 802.1ad TPID. */
- 	__be16 vlan_tci;	/* 802.1Q TCI (VLAN ID and priority). */
- };
- 
-@@ -661,9 +661,10 @@ enum ovs_ct_attr {
-  * is copied from the value to the packet header field, rest of the bits are
-  * left unchanged.  The non-masked value bits must be passed in as zeroes.
-  * Masking is not supported for the %OVS_KEY_ATTR_TUNNEL attribute.
-- * @OVS_ACTION_ATTR_PUSH_VLAN: Push a new outermost 802.1Q header onto the
-- * packet.
-- * @OVS_ACTION_ATTR_POP_VLAN: Pop the outermost 802.1Q header off the packet.
-+ * @OVS_ACTION_ATTR_PUSH_VLAN: Push a new outermost 802.1Q or 802.1ad header
-+ * onto the packet.
-+ * @OVS_ACTION_ATTR_POP_VLAN: Pop the outermost 802.1Q or 802.1ad header
-+ * from the packet.
-  * @OVS_ACTION_ATTR_SAMPLE: Probabilitically executes actions, as specified in
-  * the nested %OVS_SAMPLE_ATTR_* attributes.
-  * @OVS_ACTION_ATTR_PUSH_MPLS: Push a new MPLS label stack entry onto the
--- 
-2.4.3
+Applied.
