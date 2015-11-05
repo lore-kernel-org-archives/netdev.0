@@ -1,27 +1,61 @@
-From: Ani Sinha <ani@arista.com>
-Subject: Re: [PATCH 1/1] commit c6825c0976fa7893692e0e43b09740b419b23c09 upstream.
-Date: Wed, 4 Nov 2015 15:46:54 -0800
-Message-ID: <CAOxq_8M5wB=nfQ3O=rvmGL83yef3UkszMveQrMAbEWcDeVZ0Ww@mail.gmail.com>
-References: <alpine.OSX.2.20.1510261144390.3919@athabasca.local> <20151026200633.GA13476@salvia>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: [PATCH v6] i40e: Look up MAC address in Open Firmware or IDPROM
+Date: Thu, 5 Nov 2015 00:01:05 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFAEB02@fmsmsx115.amr.corp.intel.com>
+References: <20151104232100.GJ14575@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"andy.shevchenko@gmail.com" <andy.shevchenko@gmail.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Florian Westphal <fw@strlen.de>, Zefan Li <lizefan@huawei.com>,
-	"Neal P. Murphy" <neal.p.murphy@alum.wpi.edu>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20151026200633.GA13476@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:31699 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932288AbbKEABI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2015 19:01:08 -0500
+In-Reply-To: <20151104232100.GJ14575@oracle.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(removed a bunch of people from CC list)
+> From: Sowmini Varadhan [mailto:sowmini.varadhan@oracle.com]
+> Sent: Wednesday, November 04, 2015 3:21 PM
+> 
+> This is the i40e equivalent of commit c762dff24c06 ("ixgbe: Look up MAC
+> address in Open Firmware or IDPROM").
+> 
+> As with that fix, attempt to look up the MAC address in Open Firmware
+> on systems that support it, and use IDPROM on SPARC if no OF address
+> is found.
+> 
+> In the case of the i40e there is an assumption that the default mac
+> address has already been set up as the primary mac filter on probe,
+> so if this filter is obtained from the Open Firmware or IDPROM, an
+> explicit write is needed via i40e_aq_mac_address_write() and
+> i40e_aq_add_macvlan() invocation.
+> 
+> Reviewed-by: Martin K. Petersen <martin.petersen@oracle.com>
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> ---
+> v2, v3: Andy Shevchenko comments
+> v4: Shannon Nelson review: explicitly set up mac filters before
+> register_netdev
+> v5: Shannon Nelson code style comments
+> v6: Shannon Nelson code style comments
+> 
+>  drivers/net/ethernet/intel/i40e/i40e_main.c |   83
+> ++++++++++++++++++++++++++-
+>  1 files changed, 82 insertions(+), 1 deletions(-)
+> 
 
-On Mon, Oct 26, 2015 at 1:06 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-
-> Then we can review and, if no major concerns, I can submit this to
-> -stable.
-
-Now that Neal has sufficiently tested the patches, is it OK to apply
-to -stable or do you guys want me to do anything more?
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
