@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6] i40e: Look up MAC address in Open Firmware or IDPROM
-Date: Thu, 05 Nov 2015 11:29:20 -0500 (EST)
-Message-ID: <20151105.112920.2123583342530330617.davem@davemloft.net>
-References: <20151105.103126.148818796422971143.davem@davemloft.net>
-	<20151105.110506.1901401372160830603.davem@davemloft.net>
-	<20151105162831.GA5642@oracle.com>
+Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
+ hierarchy
+Date: Thu, 05 Nov 2015 11:30:12 -0500 (EST)
+Message-ID: <20151105.113012.433525933573324396.davem@davemloft.net>
+References: <20151105144002.GB15111@dhcp22.suse.cz>
+	<20151105.111609.1695015438589063316.davem@davemloft.net>
+	<20151105162803.GD15111@dhcp22.suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, shannon.nelson@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	matthew.vick@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com, andy.shevchenko@gmail.com
-To: sowmini.varadhan@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151105162831.GA5642@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: hannes@cmpxchg.org, akpm@linux-foundation.org, vdavydov@virtuozzo.com,
+ tj@kernel.org, netdev@vger.kernel.org, linux-mm@kvack.org,
+ cgroups@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mhocko@kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20151105162803.GD15111@dhcp22.suse.cz>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Thu, 5 Nov 2015 11:28:31 -0500
+From: Michal Hocko <mhocko@kernel.org>
+Date: Thu, 5 Nov 2015 17:28:03 +0100
 
-> On (11/05/15 11:05), David Miller wrote:
->> From: David Miller <davem@davemloft.net>
->> Date: Thu, 05 Nov 2015 10:31:26 -0500 (EST)
->> 
->> > I'll see if I can cook something up.
->> 
->> How does this look?
-> 
-> Looks good to me,
-> 
-> Do you want me to respin patch v7 with this? Or update ixgbe/i40e to use
-> this later, after this goes in?
+> Yes, that part is clear and Johannes made it clear that the kmem tcp
+> part is disabled by default. Or are you considering also all the slab
+> usage by the networking code as well?
 
-The intention is to let your patch go in as-is, then try and update
-ixgbe/i40e later in net-next or similar.
+I'm still thinking about the implications of that aspect, and will
+comment when I have something coherent to say about it.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
