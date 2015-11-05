@@ -1,82 +1,38 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: kernel 3.14.53 + bnx2x loss of connectivity / parity errors /
- MCP SCPAD
-Date: Thu, 5 Nov 2015 06:45:20 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63E6B99B@avmb3.qlogic.org>
-References: <1727409.Ct3NHyBiXb@rofl>
+From: Chistinam Hammock <yesajo66@gmail.com>
+Subject: hallo
+Date: Thu, 5 Nov 2015 08:08:21 +0000
+Message-ID: <CAPdaQSEXYSJry8O_YxLOSnY1SyDTdFiA77MGCnjxoJP9eebH=A@mail.gmail.com>
+Reply-To: christinamhammock2@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-	"ariele@broadcom.com" <ariele@broadcom.com>
-To: Patrick Schaaf <netdev@bof.de>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:29058 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1033954AbbKEGp2 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Nov 2015 01:45:28 -0500
-In-Reply-To: <1727409.Ct3NHyBiXb@rofl>
-Content-Language: en-US
+Received: from mail-yk0-f195.google.com ([209.85.160.195]:35029 "EHLO
+	mail-yk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030947AbbKEIIW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 03:08:22 -0500
+Received: by ykek133 with SMTP id k133so10992053yke.2
+        for <netdev@vger.kernel.org>; Thu, 05 Nov 2015 00:08:21 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> on a production server (HP DL380 Gen9 with HP 10GE dual port card - bnx2x
-> driver), I just encountered a full loss of connectivity through the 10 GE ports.
-> Kernel in use is vanilla 3.14.53.
-> 
-> On the console I could see this (timestamps omitted, have to type by hand,
-> damn ILO console does not let me copy+paste text...)
-> 
-> MCP SCPAD
-> MCP SCPAD
-> bnx2x 0000:04:00.1 eth1: Parity errors detected in blocks:
-> MCP SCPAD
-> MCP SCPAD
-> bnx2x 0000:04:00.0 eth0: Parity errors detected in blocks:
-> bnx2x: [bnx2x_attn_int_deasserted3:4080(eth0)]LATCHED attention
-> 0x80000000
-> (masked)
-> MCP SCPAD
-> ...
-> systemd-journald[491]: /dev/kmsg buffer overrun, some messages lost.
-> 
-> Some googling around finds:
-> 
-> https://github.com/torvalds/linux/commit/ad6afbe9578d1fa26680faf78c846bd
-> 8c00d1d6e
-> 
-> which might be related. If I read that correctly (and I have no real idea what I'm
-> talking about, sorry...) that patch removes superflous printks which might, e.g. in
-> our case, hide the real cause. i.e. even with that patch we would have had a
-> problem / loss of connectivity, but we might know better why.
-
-> 
-> Maybe that changeset would be suitable for backporting to long term stable
-> kernels?
-> 
-> Incidentally, how should these parity events be judged generally? Hope it's a one
-> time cosmic ray incident? Cry "faulty hardware, please repair" to the supplier?
-> Anything else?
-
-A couple of things to note - 
-1. On older kernels, MCP SCPAD parity on its own would have resulted in
-Entering the parity recovery flows, and assuming those would have failed
-resulting in an adapter in an unsteady state.
-But 3.14.53 should be passed that point, and only log MCP SCPAD errors
-instead of initiating recovery.
-
-2. Since the SCPAD is not on the datapath, even assuming a real parity
-would occur, if that's the only problem then it shouldn't have stopped traffic.
-
-3. In most cases SCPAD is due to utilities, e.g., `ethtool -d' or `ethtool -t'
-that are ran on the adapter's network interface; Theoretically, if there's some
-unexpected incompatibility between driver and management FW it might
-also happen.
-
-4. The patch you've listed merely removes the MCP SCPAD prints, as they're
-unavoidable in certain scenarios; It doesn't actually solve anything.
-
-Having said that, do you know if anything happened to the setup that
-triggered this? I.e., so configuration change, new utility, etc.?
-Alternatively, did the log show anything else in addition to the MCP SCPAD?
+0J/RgNC40LLQtdGCLCDQtNC+0YDQvtCz0L7QuSDQtNGA0YPQsywNCkRvIHlvdSBzcGVhayBFbmds
+aXNoDQpJJ00g0JrRgNC40YHRgtC40L3QsCDQnCDQk9Cw0LzQsNC6LiDQryDQtdC00LjQvdC+0LPQ
+viDQs9C+0YHRg9C00LDRgNGB0YLQstCwINCS0L7QtdC90L3Ri9C1IC8g0J3QkNCh0JAuDQrQmNC3
+INC10LTQuNC90L7Qs9C+INCz0L7RgdGD0LTQsNGA0YHRgtCy0LAg0JDQvNC10YDQuNC60LguINCc
+0L7Qs9GDINC/0L7QtNC00LXRgNC20LrRgyDQuCDQt9Cw0LHQvtGC0YMsINGBINC90LXRgtC10YDQ
+v9C10L3QuNC10LwNCtC20LTRgywg0YfRgtC+0LHRiyDQv9C+0LvRg9GH0LjRgtGMDQrRhdC+0YDQ
+vtGI0LjQuSDQtNGA0YPQsy4g0K8g0L/RgNC+0YfQuNGC0LDQuyDQstCw0Ygg0L/RgNC+0YTQuNC7
+0Ywg0LjQtyBmYWNlYm9vay5jb20g0Lgg0LfQsNCx0YDQsNGC0Ywg0LjQvdGC0LXRgNC10YENCtC9
+0LAg0LLQsNGBLiDQryDRhdC+0YLQtdC7INCx0YsNCtGD0YHRgtCw0L3QvtCy0LjRgtGMINCy0LfQ
+sNC40LzQvdGD0Y4g0LTRgNGD0LbQsdGDINGBINCy0LDQvNC4LiDQn9C+0LbQsNC70YPQudGB0YLQ
+sCwg0LTQsNC50YLQtSDQv9GA0L7QtNC+0LvQttC40Lwg0L3QsNGIINGA0LDQt9Cz0L7QstC+0YAN
+CtGH0LXRgNC10Lcg0LzQvtC10LPQviDRh9Cw0YHRgtC90L7Qs9C+INGN0LvQtdC60YLRgNC+0L3Q
+vdC+0Lkg0L/QvtGH0YLRiyDQv9C+0LvQtS4g0JLQvtGCINC80L7QuSDRjdC70LXQutGC0YDQvtC9
+0L3Ri9C5INCw0LTRgNC10YENCnt9IGNocmlzdGluYW1oYW1tb2NrMkBnbWFpbC5jb20uY29tINGP
+INC/0YDQtdC00YHRgtCw0LLQu9GOINGB0LXQsdGPINC70YPRh9GI0LUg0LgNCtC+0YLQv9GA0LDQ
+stC40YLRjCDQstCw0Lwg0LzQvtGOINGE0L7RgtC+0LPRgNCw0YTQuNGOLCDQutCw0Log0YLQvtC7
+0YzQutC+INGPINC/0L7Qu9GD0YfQuNGC0YwNCtCi0LLQvtC1INC/0LjRgdGM0LzQvi4NCtCh0L/Q
+sNGB0LjQsdC+INC4INGD0LLQsNC20LXQvdC40LXQvC4NCtCa0YDQuNGB0YLQuNC90LAg0Jwg0JPQ
+sNC80LDQui4NCiAgY2hyaXN0aW5hbWhhbW1vY2syQGdtYWlsLmNvbQ0K
