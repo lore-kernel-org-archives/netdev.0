@@ -1,49 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6] i40e: Look up MAC address in Open Firmware or IDPROM
-Date: Thu, 05 Nov 2015 10:31:26 -0500 (EST)
-Message-ID: <20151105.103126.148818796422971143.davem@davemloft.net>
-References: <20151104232100.GJ14575@oracle.com>
+Subject: Re: AF_PACKET mmap() v4...
+Date: Thu, 05 Nov 2015 10:32:13 -0500 (EST)
+Message-ID: <20151105.103213.2242523229143446058.davem@davemloft.net>
+References: <20151105.000414.1682124328670738318.davem@davemloft.net>
+	<AECBA5BB-2284-4C1E-ADCC-09B730D6EF9A@alum.mit.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, shannon.nelson@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	matthew.vick@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com, andy.shevchenko@gmail.com
-To: sowmini.varadhan@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151104232100.GJ14575@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, arnd@arndb.de
+To: guy@alum.mit.edu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35844 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031333AbbKEPcP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 10:32:15 -0500
+In-Reply-To: <AECBA5BB-2284-4C1E-ADCC-09B730D6EF9A@alum.mit.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Wed, 4 Nov 2015 18:21:00 -0500
+From: Guy Harris <guy@alum.mit.edu>
+Date: Thu, 5 Nov 2015 00:14:51 -0800
 
-> This is the i40e equivalent of commit c762dff24c06 ("ixgbe: Look up MAC
-> address in Open Firmware or IDPROM").
-> 
-> As with that fix, attempt to look up the MAC address in Open Firmware
-> on systems that support it, and use IDPROM on SPARC if no OF address
-> is found.
-> 
-> In the case of the i40e there is an assumption that the default mac
-> address has already been set up as the primary mac filter on probe,
-> so if this filter is obtained from the Open Firmware or IDPROM, an
-> explicit write is needed via i40e_aq_mac_address_write() and
-> i40e_aq_add_macvlan() invocation.
-> 
-> Reviewed-by: Martin K. Petersen <martin.petersen@oracle.com>
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> As a core libpcap developer, I will at least state that it works a
+> *lot* better than v1 and v2 did.  Having buffer slots that can hold
+> only one packet is *really* suboptimal for packet capture; having
+> buffer slots that can hold multiple packets works a lot better, as
+> there's less wasted memory.
 
-Thanks for doing this.
+No doubt.
 
-Longer term we really need an abstract interface by which
-architectures can provide a "system" or "firmware" MAC address
-which applies to a given 'dev'.
+> I'll see whether there are any changes that *would* make libpcap's life better.
 
-Because these SPARC ifdef'y things really should propagate to
-driver after driver after driver.
-
-I'll see if I can cook something up.
+Thanks.
