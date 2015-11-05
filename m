@@ -1,54 +1,36 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: NETIF_F_GSO_SOFTWARE vs NETIF_F_GSO
-Date: Thu, 5 Nov 2015 17:28:42 +0100
-Message-ID: <CAHmME9ptruMW4MFZ1q3=tgTANro1_CdwnCWS5O_0_WwbFKgUAw@mail.gmail.com>
-References: <CAHmME9rGvViDN2iFa8xfXvUJpQThJnrCcZ1yHgQrdgEQRUWtfg@mail.gmail.com>
-	<20151105121501.GA5776@gondor.apana.org.au>
-	<CAHmME9pP1E64CCc7+XW8X1duYGQZdYj9s_r8UNq3KMh6xey_Hw@mail.gmail.com>
-	<1446738967.4184.35.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH v6] i40e: Look up MAC address in Open Firmware or IDPROM
+Date: Thu, 5 Nov 2015 11:28:31 -0500
+Message-ID: <20151105162831.GA5642@oracle.com>
+References: <20151104232100.GJ14575@oracle.com>
+ <20151105.103126.148818796422971143.davem@davemloft.net>
+ <20151105.110506.1901401372160830603.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, shannon.nelson@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	matthew.vick@intel.com, john.ronciak@intel.com,
+	mitch.a.williams@intel.com, andy.shevchenko@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446738967.4184.35.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Disposition: inline
+In-Reply-To: <20151105.110506.1901401372160830603.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 5, 2015 at 4:56 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> It is a performance benefit only if you use the helpers from
-> net/core/tso.c as some drivers already do.
->
-> Otherwise, calling the skb_gso_segment() from your driver has no gain
-> compared to the one done from core networking stack.
+On (11/05/15 11:05), David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Thu, 05 Nov 2015 10:31:26 -0500 (EST)
+> 
+> > I'll see if I can cook something up.
+> 
+> How does this look?
 
-Interesting, okay. It looks like it will be, in fact, useful to be
-able to call skb_gso_segment() from my own driver. The reasoning is as
-follows:
+Looks good to me,
 
-As mentioned, I receive packets on ndo_start_xmit, "do something to
-them with function magic()", and then push them out of a UDP socket
-using udp_tunnel_xmit_skb. There appears to be significant overhead
-from calling udp_tunnel_xmit_skb over and over. What I'd really like
-to do is pass the NETIF_F_GSO_SOFTWARE-provided super packet directly
-to udp_tunnel_xmit_skb, but in fact the magic() function mentioned
-above needs to work on an entire MTU-sized IP packet, not a a super
-packet. So, instead, what it's looking like is:
+Do you want me to respin patch v7 with this? Or update ixgbe/i40e to use
+this later, after this goes in?
 
-1. Set NETIF_F_GSO_SOFTWARE to receive super packets.
-2. For each super packet, break it down using skb_gso_segment().
-     2a. For each segmented packet, "do my magic() function"
-3. After having done the magic() to each of the segmented packets, I
-*repack the results* into a new super packet. I then pass that super
-packet to udp_tunnel_xmit_skb().
-
-Is this approach a real possibility?
-
-If so, it seems like the best way to get GSO-like qualities out of
-udp_tunnel_xmit_skb. I've successfully done (1) and (2), following the
-example of validate_xmit_skb() from net/core/dev.c. Now I need to
-figure out how to do (3). Hopefully I'll find some nice convenience
-functions for this...
-
-Jason
+--Sowmini
