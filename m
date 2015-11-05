@@ -1,35 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: dsa: mv88e6xxx: isolate unbridged ports
-Date: Thu, 05 Nov 2015 13:37:41 -0500 (EST)
-Message-ID: <20151105.133741.920416694054745930.davem@davemloft.net>
-References: <1446675820-25608-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: merge sh_eth_free_dma_buffer() into
+ sh_eth_ring_free()
+Date: Thu, 5 Nov 2015 21:38:29 +0300
+Message-ID: <563BA225.40908@cogentembedded.com>
+References: <563B5144.8050800@cogentembedded.com>
+ <20151105.111348.1315362570048541764.davem@davemloft.net>
+ <563B8F95.9000507@cogentembedded.com>
+ <20151105.132915.657570201175401158.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446675820-25608-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20151105.132915.657570201175401158.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Wed,  4 Nov 2015 17:23:40 -0500
+On 11/05/2015 09:29 PM, David Miller wrote:
 
-> The DSA documentation specifies that each port must be capable of
-> forwarding frames to the CPU port. The last changes on bridging support
-> for the mv88e6xxx driver broke this requirement for non-bridged ports.
-> 
-> So as for the bridged ports, reserve a few VLANs (4000+) in the switch
-> to isolate ports that have not been bridged yet.
-> 
-> By default, a port will be isolated with the CPU and DSA ports. When the
-> port joins a bridge, it will leave its reserved port. When it is removed
-> from a bridge, it will join its reserved VLAN again.
-> 
-> Fixes: 5fe7f68016ff ("net: dsa: mv88e6xxx: fix hardware bridging")
-> Reported-by: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>>     Hmm, I hadn't seen your announcement, else I would have refrained from
+>>     sending. Will look for it now...
+>
+> I really don't know how to better get people's attention than this:
+>
+> 	http://marc.info/?l=linux-netdev&m=144652382428132&w=2
 
-Applied, thanks Vivien.
+    Umm, I'm seeing it now, it's been even marked as read but I for the life 
+of me couldn't remember reading it. Now I'll have to say I'm really sorry for 
+sending out my last 2 or 3 patches, I was under full impression your tree is 
+still open... :-<
+
+> Do I have to use all CAPS?
+
+    Well, perhaps that would have drawn more attention (it has in the past). :-)
+
+>  Flashing LEDs in the Subject?
+
+    :-)
+
+MBR, Sergei
+
