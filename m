@@ -1,36 +1,65 @@
-From: Guy Harris <guy@alum.mit.edu>
-Subject: Re: AF_PACKET mmap() v4...
-Date: Thu, 5 Nov 2015 00:14:51 -0800
-Message-ID: <AECBA5BB-2284-4C1E-ADCC-09B730D6EF9A@alum.mit.edu>
-References: <20151105.000414.1682124328670738318.davem@davemloft.net>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, arnd@arndb.de
-To: David Miller <davem@davemloft.net>
+From: Patrick Schaaf <netdev@bof.de>
+Subject: Re: kernel 3.14.53 + bnx2x loss of connectivity / parity errors / MCP SCPAD
+Date: Thu, 05 Nov 2015 09:25:30 +0100
+Message-ID: <6380451.UzJpC4z4kH@rofl>
+References: <1727409.Ct3NHyBiXb@rofl> <B5657A6538887040AD3A81F1008BEC63E6B99B@avmb3.qlogic.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Greg KH <gregkh@linuxfoundation.org>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c.mail.sonic.net ([64.142.111.80]:42007 "EHLO c.mail.sonic.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030399AbbKEIO6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 03:14:58 -0500
-In-Reply-To: <20151105.000414.1682124328670738318.davem@davemloft.net>
+Received: from mars.intermailgate.com ([80.242.145.70]:58808 "EHLO
+	mars.intermailgate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030562AbbKEIZc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 03:25:32 -0500
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63E6B99B@avmb3.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Yuval,
 
-On Nov 4, 2015, at 9:04 PM, David Miller <davem@davemloft.net> wrote:
+thanks for your notes.
 
-> As part of fixing y2038 problems, Arnd is going to have to make a new
-> version fo the AF_PACKET mmap() tpacker descriptors in order to extend
-> the time values to 64-bit.
-> 
-> So I want everyone to think about whether there are any other changes
-> we might want to make given that we have to make a v4 anyways.
-> 
-> Particularly, I am rather certain that the buffer management could be
-> improved.  Some have complained that v3 is kinda awkward to use and/or
-> suboptimal is various ways.
+> 4. The patch you've listed merely removes the MCP SCPAD prints, as they're
+> unavoidable in certain scenarios; It doesn't actually solve anything.
 
-As a core libpcap developer, I will at least state that it works a *lot* better than v1 and v2 did.  Having buffer slots that can hold only one packet is *really* suboptimal for packet capture; having buffer slots that can hold multiple packets works a lot better, as there's less wasted memory.
+I also thought so, thanks for confirming. Do you know whether the messages 
+might have hidden earlier messages pointing to the real problem?
 
-I'll see whether there are any changes that *would* make libpcap's life better.
+> Having said that, do you know if anything happened to the setup that
+> triggered this? I.e., so configuration change, new utility, etc.?
+> Alternatively, did the log show anything else in addition to the MCP SCPAD?
+
+There was no update or configuration activity on the box, it was just running 
+along as usual, operating some virtual machines. Uptime was about 22 days. I 
+have a second, practically identical server, running pretty much the same 
+workload, which is still up + running nicely.
+
+I was a bit overeager to reboot the server (power reset) and didn't even try 
+whether I could still log in (shame on me). After the reset the virtual 
+machines all came up fine, so at least filesystem flushing was still working 
+properly during the network breakage event.
+
+The systemd journal logged a vast amount of the messages I've shown (with lots 
+of "missed kernel messages" too), for a duration of about 8 seconds. In total, 
+including the suppressions, it would have been over 1 million messages during 
+the 8 seconds. Running a "sort|uniq" over the visibly logged messages I see:
+
+   8786 kernel: bnx2x 0000:04:00.0 eth0: Parity errors detected in blocks:
+   8768 kernel: bnx2x 0000:04:00.1 eth1: Parity errors detected in blocks:
+   1583 kernel: bnx2x: [bnx2x_attn_int_deasserted3:4080(eth0)]LATCHED 
+attention 0x80000000 (masked)
+   1743 kernel: bnx2x: [bnx2x_attn_int_deasserted3:4080(eth1)]LATCHED 
+attention 0x80000000 (masked)
+  36092 kernel: MCP SCPAD:
+      1 kernel: RAX: 0000000000000000 RBX: 000000198111fb67 RCX: 
+00000000ffffffff
+
+I'll now see that I backport that "MCP SCPAD" logging suppression patch to the 
+latest 3.14 kernel, and reboot the boxes with that, hoping to learn more if 
+the situation reoccurs.
+
+best regards
+  Patrick
