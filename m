@@ -1,114 +1,111 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: AF_PACKET mmap() v4...
-Date: Thu, 05 Nov 2015 23:56:37 +0100
-Message-ID: <563BDEA5.9080907@iogearbox.net>
-References: <20151105.000414.1682124328670738318.davem@davemloft.net>	 <4931220.z2MFa8LzkQ@wuerfel> <563B23C3.5070406@iogearbox.net>	 <1446723516.4184.33.camel@edumazet-glaptop2.roam.corp.google.com>	 <563B5202.1020207@iogearbox.net> <1446740279.4184.40.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Toby Corkindale <tjc@wintrmute.net>
+Subject: Re: Regression in bonding driver - devices without set_mac
+Date: Fri, 6 Nov 2015 10:12:13 +1100
+Message-ID: <CABEgq976udiL1nAjNte0dOTreeX2PvJOJggaKT_fs_9WYH4w-w@mail.gmail.com>
+References: <CABEgq95FYdt86-KEgkarUr-9g_mHoesV6B7OtrFut4pBR0UGcQ@mail.gmail.com>
+	<CABEgq97hxgNJWne48amV9M74VbMaTG7fuxfyRti0qCBFGAW1jg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, tklauser@distanz.ch
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57223 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756348AbbKEW4m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 17:56:42 -0500
-In-Reply-To: <1446740279.4184.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-yk0-f180.google.com ([209.85.160.180]:36137 "EHLO
+	mail-yk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757014AbbKEXMP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 18:12:15 -0500
+Received: by ykba4 with SMTP id a4so159978051ykb.3
+        for <netdev@vger.kernel.org>; Thu, 05 Nov 2015 15:12:14 -0800 (PST)
+In-Reply-To: <CABEgq97hxgNJWne48amV9M74VbMaTG7fuxfyRti0qCBFGAW1jg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/05/2015 05:17 PM, Eric Dumazet wrote:
-> On Thu, 2015-11-05 at 13:56 +0100, Daniel Borkmann wrote:
->> On 11/05/2015 12:38 PM, Eric Dumazet wrote:
+OK, wow, this list is super high traffic. I'm going to unsubscribe now.
+
+Feel free to get in contact with me directly (not via the list) if you like.
+
+It'd be lovely if someone wants to fix the regression I reported,
+especially as it looks pretty simple to achieve. (Just don't silently fail
+if you can't get a MAC address for the netlink info).
+
+Bye,
+Toby
+
+On 4 November 2015 at 18:45, Toby Corkindale <tjc@wintrmute.net> wrote:
 >
->>> If I am not mistaken, af_packet also lacks the ability to properly set
->>> skb->protocol
->>>
->>> I noticed this using trafgen on a bonding device, when I did my SYNFLOOD
->>> tests for TCP listener rewrite.
->>>
->>> The bonding hash function might uses flow dissector, but as this flow
->>> dissection depends on skb->protocol, all the traffic is directed on a
->>> single slave.
->>
->> Right, if I see this correctly, when you trigger the flushing of TX_RING
->> via sendmsg(), one can hand over a sockaddr_ll, where we infer sll_protocol
->> and tag every skb's skb->protocol with that in tpacket_fill_skb() for the
->> current flushing run. Otherwise, we use the po->num specified at socket
->> creation / bind time for everything (trafgen case).
->>
->> If needed on a per skb basis, perhaps we could map some tpacket_hdr{,2}
->> member that is not used from TX_RING side (perhaps union on tp_snaplen)?
+> On 4 November 2015 at 14:49, Toby Corkindale <tjc@wintrmute.net> wrote:
+> > Hi,
+> > I've subscribed to this list to try and sort out a regression in the
+> > bonding network driver.
+> > I originally reported this in Dec 2014, as:
+> > https://bugzilla.kernel.org/show_bug.cgi?id=89161
+> >
+> > The bug is still present in the 4.2 Linux kernel.
+> >
+> > If you look at the code, here:
+> > https://github.com/torvalds/linux/commit/f54424412b6b2f64cae4d7c39d981ca14ce0052c
+> >
+> > Then you see that the intention is for devices without set_mac support
+> > to be supported. Although in older code they DID work, and that
+> > ability died sometime near this commit. And has never returned since.
+> >
+> > The code path in current kernels does allow devices through that block
+> > of code, but it fails somewhere else -- the devices are not
+> > successfully added as slaves, but the only error printed is the
+> > warning about not supporting MAC address setting.
+> >
+> > Is there anything I can do to try and sort this regression out, with you?
+> >
+> > I can explain how to set up two virtual machines with PPPoE client and
+> > server in order to test, if you like? Or I can try out patches and
+> > give feedback.
+> >
+> > Cheers
+> > Toby
 >
-> If po->num is 0 (as in trafgen case), we could also get the proto from
-> Ethernet header provided by the user.
 >
-> The skb_probe_transport_header() call from tpacket_fill_skb() is useless
-> in the current kernel.
+> The following patch fixes the regression, for me, although I suspect
+> it's not suitable for direct application.
+> But maybe knowing that it fixes the issue, helps you create something
+> appropriate?
 >
-> Let say an application wants to mix IPv6 and IPv4 packets, using a
-> single TX ring....
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 771a449..3f44875 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1460,8 +1460,8 @@ int bond_enslave(struct net_device *bond_dev,
+> struct net_device *slave_dev
+> )
+>        addr.sa_family = slave_dev->type;
+>        res = dev_set_mac_address(slave_dev, &addr);
+>        if (res) {
+> -           netdev_dbg(bond_dev, "Error %d calling set_mac_address\n", res);
+> -           goto err_restore_mtu;
+> +           netdev_warn(bond_dev, "Error %d calling set_mac_address\n", res);
+>        }
+>    }
+>
+> diff --git a/drivers/net/bonding/bond_netlink.c
+> b/drivers/net/bonding/bond_netlink.c
+> index db760e8..e4ffc94 100644
+> --- a/drivers/net/bonding/bond_netlink.c
+> +++ b/drivers/net/bonding/bond_netlink.c
+> @@ -49,9 +49,8 @@ static int bond_fill_slave_info(struct sk_buff *skb,
+>            slave->link_failure_count))
+>        goto nla_put_failure;
+>
+> -   if (nla_put(skb, IFLA_BOND_SLAVE_PERM_HWADDR,
+> -           slave_dev->addr_len, slave->perm_hwaddr))
+> -       goto nla_put_failure;
+> +   nla_put(skb, IFLA_BOND_SLAVE_PERM_HWADDR, slave_dev->addr_len,
+> slave->perm_hwaddr);
+>
+>    if (nla_put_u16(skb, IFLA_BOND_SLAVE_QUEUE_ID, slave->queue_id))
+>        goto nla_put_failure;
 
-Sorry for the late answer.
 
-For the skb->protocol issue, perhaps something like this. Also noticed that
-we should rather do the vlan check when we have the actual linear data from
-the ring slot, the current way seems buggy if I see this correctly. Both
-patches squashed below.
 
-Thanks,
-Daniel
 
-  net/packet/af_packet.c | 27 ++++++++++++++-------------
-  1 file changed, 14 insertions(+), 13 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 691660b..8415ebd 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2399,8 +2399,22 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
-  	} else {
-  		data = ph.raw + po->tp_hdrlen - sizeof(struct sockaddr_ll);
-  	}
-+
-  	to_write = tp_len;
-
-+	/* If skb->protocol is still 0, try to infer it. */
-+	if (!skb->protocol && tp_len >= sizeof(struct ethhdr))
-+		skb->protocol = ((struct ethhdr *)data)->h_proto;
-+	if (tp_len > dev->mtu + dev->hard_header_len) {
-+		/* Earlier code assumed this would be a VLAN pkt,
-+		 * double-check this now that we have the actual
-+		 * (linear) packet data at hand.
-+		 */
-+		if (unlikely(((struct ethhdr *)data)->h_proto !=
-+			     htons(ETH_P_8021Q)))
-+			return -EMSGSIZE;
-+	}
-+
-  	if (sock->type == SOCK_DGRAM) {
-  		err = dev_hard_header(skb, dev, ntohs(proto), addr,
-  				NULL, tp_len);
-@@ -2524,19 +2538,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
-  		}
-  		tp_len = tpacket_fill_skb(po, skb, ph, dev, size_max, proto,
-  					  addr, hlen);
--		if (likely(tp_len >= 0) &&
--		    tp_len > dev->mtu + dev->hard_header_len) {
--			struct ethhdr *ehdr;
--			/* Earlier code assumed this would be a VLAN pkt,
--			 * double-check this now that we have the actual
--			 * packet in hand.
--			 */
--
--			skb_reset_mac_header(skb);
--			ehdr = eth_hdr(skb);
--			if (ehdr->h_proto != htons(ETH_P_8021Q))
--				tp_len = -EMSGSIZE;
--		}
-  		if (unlikely(tp_len < 0)) {
-  			if (po->tp_loss) {
-  				__packet_set_status(po, ph,
 -- 
-1.9.3
+Turning and turning in the widening gyre
+The falcon cannot hear the falconer
+Things fall apart; the center cannot hold
+Mere anarchy is loosed upon the world
