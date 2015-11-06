@@ -1,34 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] selinux: fix random read in
- selinux_ip_postroute_compat()
-Date: Fri, 06 Nov 2015 06:46:07 -0800
-Message-ID: <1446821167.4184.66.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+ZVnfoqeJZ5cOKu70d3N9LuPMeotarKGBx-EHwYrOe-Eg@mail.gmail.com>
-	 <1446752806.4184.50.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1446759564.4184.65.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151105.164613.618044250901993825.davem@davemloft.net>
-	 <CACT4Y+ZsiydE4BL_6pGS=LcmS19Dr0+HoJ19AY-4UNNxm3eNXA@mail.gmail.com>
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: Use-after-free in ep_remove_wait_queue
+Date: Fri, 6 Nov 2015 09:58:10 -0500
+Message-ID: <563CC002.5050307@akamai.com>
+References: <CACT4Y+b3xsLsKVFCz2M7nqqfXnyuMHEVYtJS2wN4WHLWs9A5ng@mail.gmail.com>
+ <20151012120249.GB16370@unicorn.suse.cz>
+ <1444652071.27760.156.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CACT4Y+Z2H8xPg1Dq0Z=HC3WKm+Uw+ZjK6zOLvxhPwFd4D0CsZw@mail.gmail.com>
+ <CACT4Y+Zu7J0n6dU1dSfiW3F9Q0Us3_DBVcD5Pi9NG9LER8MmRg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Paul Moore <paul@paul-moore.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:35294 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161411AbbKFOqJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 09:46:09 -0500
-Received: by pasz6 with SMTP id z6so129071466pas.2
-        for <netdev@vger.kernel.org>; Fri, 06 Nov 2015 06:46:09 -0800 (PST)
-In-Reply-To: <CACT4Y+ZsiydE4BL_6pGS=LcmS19Dr0+HoJ19AY-4UNNxm3eNXA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michal Kubecek <mkubecek@suse.cz>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Howells <dhowells@redhat.com>,
+	Paul Moore <paul@paul-moore.com>, salyzyn@android.com,
+	sds@tycho.nsa.gov, ying.xue@windriver.com,
+	netdev <netdev@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Andrey Konovalov <andreyknvl@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Julien Tinnes <jln@google.com>,
+	Kees Cook <keescook@google.com>,
+	Mathias Krause <minipli@googlemail.com>
+To: Dmitry Vyukov <dvyukov@google.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+Zu7J0n6dU1dSfiW3F9Q0Us3_DBVcD5Pi9NG9LER8MmRg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-11-06 at 14:52 +0100, Dmitry Vyukov wrote:
+On 11/06/2015 08:06 AM, Dmitry Vyukov wrote:
+> On Mon, Oct 12, 2015 at 2:17 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>> On Mon, Oct 12, 2015 at 2:14 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>> On Mon, 2015-10-12 at 14:02 +0200, Michal Kubecek wrote:
+>>>
+>>>> Probably the issue discussed in
+>>>>
+>>>>   http://thread.gmane.org/gmane.linux.kernel/2057497/
+>>>>
+>>>> and previous related threads.
+>>>>
+>>>
+>>> Same issue, but Dmitry apparently did not trust me.
+>>
+>> Just wanted to make sure. Let's consider this as fixed.
+> 
+> 
+> Is it meant to be fixed now?
+> 
+> I am still seeing use-after-free reports in ep_unregister_pollwait on
+> d1e41ff11941784f469f17795a4d9425c2eb4b7a (Nov 5).
+> 
 
-> Fixed the issue for me.
+Hi,
 
-Thanks Dmitry
+Indeed - No formal patch has been posted for this yet - we've agreed
+that Rainer is going to post the patch for this issue.
 
-I'll submit ~6 additional patches, after doing a long due audit.
+Thanks,
+
+-Jason
