@@ -1,72 +1,49 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
- hierarchy
-Date: Fri, 6 Nov 2015 11:19:53 -0500
-Message-ID: <20151106161953.GA7813@cmpxchg.org>
-References: <20151027161554.GJ9891@dhcp22.suse.cz>
- <20151027164227.GB7749@cmpxchg.org>
- <20151029152546.GG23598@dhcp22.suse.cz>
- <20151029161009.GA9160@cmpxchg.org>
- <20151104104239.GG29607@dhcp22.suse.cz>
- <20151104195037.GA6872@cmpxchg.org>
- <20151105144002.GB15111@dhcp22.suse.cz>
- <20151105205522.GA1067@cmpxchg.org>
- <20151105225200.GA5432@cmpxchg.org>
- <20151106105724.GG4390@dhcp22.suse.cz>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Please backport commit to 3.12+
+Date: Fri, 6 Nov 2015 17:21:19 +0100
+Message-ID: <20151106162119.GA23564@1wt.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	vdavydov@virtuozzo.com, tj@kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Michal Hocko <mhocko@kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>
+To: stable@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:49887 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932318AbbKFQVe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Nov 2015 11:21:34 -0500
 Content-Disposition: inline
-In-Reply-To: <20151106105724.GG4390@dhcp22.suse.cz>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 06, 2015 at 11:57:24AM +0100, Michal Hocko wrote:
-> On Thu 05-11-15 17:52:00, Johannes Weiner wrote:
-> > On Thu, Nov 05, 2015 at 03:55:22PM -0500, Johannes Weiner wrote:
-> > > On Thu, Nov 05, 2015 at 03:40:02PM +0100, Michal Hocko wrote:
-> > > > This would be true if they moved on to the new cgroup API intentionally.
-> > > > The reality is more complicated though. AFAIK sysmted is waiting for
-> > > > cgroup2 already and privileged services enable all available resource
-> > > > controllers by default as I've learned just recently.
-> > > 
-> > > Have you filed a report with them? I don't think they should turn them
-> > > on unless users explicitely configure resource control for the unit.
-> > 
-> > Okay, verified with systemd people that they're not planning on
-> > enabling resource control per default.
-> > 
-> > Inflammatory half-truths, man. This is not constructive.
-> 
-> What about Delegate=yes feature then? We have just been burnt by this
-> quite heavily. AFAIU nspawn@.service and nspawn@.service have this
-> enabled by default
-> http://lists.freedesktop.org/archives/systemd-commits/2014-November/007400.html
+Hi,
 
-That's when you launch a *container* and want it to be able to use
-nested resource control.
+We recently faced the issue described in the patch below on 3.14.56. This fix
+was merged in 4.2-rc7. I checked Davem's queue and stable queue and it's not
+there yet. Could we please have it in 3.12 and above ? (feature was introduced
+in 3.11). I can confirm that it properly fixes the problem for us.
 
-We're talking about actual container users here. It's not turning on
-resource control for all "privileged services", which is what we were
-worried about here. Can you at least admit that when you yourself link
-to the refuting evidence?
+Mainline commit is :
 
-And if you've been "burnt quite heavily" by this, where is your bug
-report to stop other users from getting "burnt quite heavily" as well?
+  commit 3c16241c445303a90529565e7437e1f240acfef2
+  Author: Phil Sutter <phil@nwl.cc>
+  Date:   Tue Jul 28 00:53:26 2015 +0200
 
-All I read here is vague inflammatory language to spread FUD.
+    netfilter: SYNPROXY: fix sending window update to client
+    
+    Upon receipt of SYNACK from the server, ipt_SYNPROXY first sends back an ACK to
+    finish the server handshake, then calls nf_ct_seqadj_init() to initiate
+    sequence number adjustment of forwarded packets to the client and finally sends
+    a window update to the client to unblock it's TX queue.
+    
+    Since synproxy_send_client_ack() does not set synproxy_send_tcp()'s nfct
+    parameter, no sequence number adjustment happens and the client receives the
+    window update with incorrect sequence number. Depending on client TCP
+    implementation, this leads to a significant delay (until a window probe is
+    being sent).
+    
+    Signed-off-by: Phil Sutter <phil@nwl.cc>
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-You might think sending these emails is helpful, but it really
-isn't. Not only is it not contributing code, insights, or solutions,
-you're now actively sabotaging someone else's effort to build something.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks,
+Willy
