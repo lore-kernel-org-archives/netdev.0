@@ -1,44 +1,56 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [GIT PULL] parisc architecture updates for v4.3
-Date: Fri, 6 Nov 2015 15:10:21 +0100
-Message-ID: <CAMuHMdVa1eXfN9gMC_ztUC=_g5RA3FQm2xivpvo1CnCJgwGrcQ@mail.gmail.com>
-References: <20151025114934.GA11108@ls3530.box>
-	<CA+55aFyJyY1FE_1k6Ks-2j4nYr7cbde_KvZ=J3fMUFJG5Okijg@mail.gmail.com>
-	<56393D46.6060903@gmx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Parisc List <linux-parisc@vger.kernel.org>,
-	James Bottomley <James.Bottomley@hansenpartnership.com>,
-	John David Anglin <dave.anglin@bell.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Helge Deller <deller@gmx.de>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH net] net/qlcnic: fix mac address restore in bond mode 5/6
+Date: Fri,  6 Nov 2015 09:25:31 -0500
+Message-ID: <1446819931-60897-1-git-send-email-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>, Dept-GELinuxNICDev@qlogic.com,
+	netdev@vger.kernel.org, Manish Chopra <manish.chopra@qlogic.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56393D46.6060903@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 4, 2015 at 12:03 AM, Helge Deller <deller@gmx.de> wrote:
->> Also, just looking at other things, we currently do have openrisc that has
->>
->>   #define L1_CACHE_BYTES 16
->>
->> so presumably openrisc would have had an issue with that XPS thing,
->
-> and mn10300.
+The bonding driver saves a copy of slaves' original mac address and then
+assigns whatever mac as needed to the slave, depending on mode. In at
+least modes 5 and 6 (balance-tlb, balance-alb), it often ends up being the
+mac address of another slave. On release from the bond, the original mac
+address is supposed to get restored via a dev_set_mac_address() call in
+the bonding driver's __bond_release_one() function, which calls the
+slave's ndo_set_mac_address function, which for qlcnic, is
+qlcnic_set_mac().
 
-And several other architectures that define L1_CACHE_BYTES using
-L1_CACHE_SHIFT.
+Now, this function tries to be somewhat intelligent and exit early if
+you're trying to set the mac address to the same thing that is already
+set. The problem here is that adapter->mac_addr isn't in sync with
+netdev->dev_addr. The qlcnic driver still has the original mac stored in
+adapter->mac_addr, while the bonding driver has updated netdev->dev_addr,
+so qlcnic thinks we're trying to set the same address it already has.
 
-Gr{oetje,eeting}s,
+I think the way to go here, since the function updates both netdev and
+adapter's stored mac addresses, is to check if either of them doesn't
+match the newly requested mac. Simply checking netdev's value only could
+result in a similar mismatch and non-update, so look at both.
 
-                        Geert
+CC: Dept-GELinuxNICDev@qlogic.com
+CC: netdev@vger.kernel.org
+CC: Manish Chopra <manish.chopra@qlogic.com>
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index d448145..1205f6f 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -353,7 +353,8 @@ static int qlcnic_set_mac(struct net_device *netdev, void *p)
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EINVAL;
+ 
+-	if (ether_addr_equal_unaligned(adapter->mac_addr, addr->sa_data))
++	if (ether_addr_equal_unaligned(adapter->mac_addr, addr->sa_data) &&
++	    ether_addr_equal_unaligned(netdev->dev_addr, addr->sa_data))
+ 		return 0;
+ 
+ 	if (test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
+-- 
+1.8.3.1
