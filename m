@@ -1,36 +1,52 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/1] commit c6825c0976fa7893692e0e43b09740b419b23c09
- upstream.
-Date: Fri, 6 Nov 2015 12:09:19 +0100
-Message-ID: <20151106110919.GB2503@salvia>
-References: <alpine.OSX.2.20.1510261144390.3919@athabasca.local>
- <20151026200633.GA13476@salvia>
- <CAOxq_8M5wB=nfQ3O=rvmGL83yef3UkszMveQrMAbEWcDeVZ0Ww@mail.gmail.com>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: [PATCH] NFC: nci: Fix error check of nci_hci_create_pipe() result
+Date: Fri,  6 Nov 2015 12:26:34 +0100
+Message-ID: <1446809194-25993-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Florian Westphal <fw@strlen.de>, Zefan Li <lizefan@huawei.com>,
-	"Neal P. Murphy" <neal.p.murphy@alum.wpi.edu>
-To: Ani Sinha <ani@arista.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAOxq_8M5wB=nfQ3O=rvmGL83yef3UkszMveQrMAbEWcDeVZ0Ww@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+To: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Christophe Ricard <christophe.ricard-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 04, 2015 at 03:46:54PM -0800, Ani Sinha wrote:
-> (removed a bunch of people from CC list)
-> 
-> On Mon, Oct 26, 2015 at 1:06 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> 
-> > Then we can review and, if no major concerns, I can submit this to
-> > -stable.
-> 
-> Now that Neal has sufficiently tested the patches, is it OK to apply
-> to -stable or do you guys want me to do anything more?
+net/nfc/nci/hci.c: In function =E2=80=98nci_hci_connect_gate=E2=80=99:
+net/nfc/nci/hci.c:679: warning: comparison is always false due to limit=
+ed range of data type
 
-I'll be passing up this to -stable asap.
+In case of error, nci_hci_create_pipe() returns NCI_HCI_INVALID_PIPE,
+and not a negative error code.
 
-Thanks.
+Correct the check to fix this.
+
+Signed-off-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+---
+ net/nfc/nci/hci.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/nfc/nci/hci.c b/net/nfc/nci/hci.c
+index 2aedac15cb592353..a0ab26d535dca749 100644
+--- a/net/nfc/nci/hci.c
++++ b/net/nfc/nci/hci.c
+@@ -676,7 +676,7 @@ int nci_hci_connect_gate(struct nci_dev *ndev,
+ 	break;
+ 	default:
+ 		pipe =3D nci_hci_create_pipe(ndev, dest_host, dest_gate, &r);
+-		if (pipe < 0)
++		if (pipe =3D=3D NCI_HCI_INVALID_PIPE)
+ 			return r;
+ 		pipe_created =3D true;
+ 		break;
+--=20
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
