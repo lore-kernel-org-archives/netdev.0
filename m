@@ -1,40 +1,48 @@
-From: Patrick Schaaf <netdev@bof.de>
-Subject: Re: [PATCH] [BACKPORT] [3.14.56] bnx2x: Don't notify about scratchpad parities
-Date: Fri, 06 Nov 2015 18:40:42 +0100
-Message-ID: <3468590.Shu13c2CDq@rofl>
-References: <2866398.tTChUFNQ37@rofl> <20151106173246.GA6771@kroah.com>
+From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
+ hierarchy
+Date: Fri, 6 Nov 2015 12:45:17 -0500
+Message-ID: <20151106174517.GA9315@cmpxchg.org>
+References: <20151029152546.GG23598@dhcp22.suse.cz>
+ <20151029161009.GA9160@cmpxchg.org>
+ <20151104104239.GG29607@dhcp22.suse.cz>
+ <20151104195037.GA6872@cmpxchg.org>
+ <20151105144002.GB15111@dhcp22.suse.cz>
+ <20151105205522.GA1067@cmpxchg.org>
+ <20151105225200.GA5432@cmpxchg.org>
+ <20151106105724.GG4390@dhcp22.suse.cz>
+ <20151106161953.GA7813@cmpxchg.org>
+ <20151106164657.GL4390@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mars.intermailgate.com ([80.242.145.70]:38845 "EHLO
-	mars.intermailgate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752569AbbKFRkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 12:40:45 -0500
-In-Reply-To: <20151106173246.GA6771@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20151106164657.GL4390-2MMpYkNvuYDjFM9bn6wA6Q@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 06 November 2015 09:32:46 Greg KH wrote:
-> On Thu, Nov 05, 2015 at 11:18:37AM +0100, Patrick Schaaf wrote:
-> > bnx2x: Don't notify about scratchpad parities
-> > 
-> > This is a (trivial) "backport" of ad6afbe9578d1fa26680faf78c846bd8c00d1d6e
-> > to stable kernel 3.14.56.
+On Fri, Nov 06, 2015 at 05:46:57PM +0100, Michal Hocko wrote:
+> The basic problem was that the Delegate feature has been backported to
+> our systemd package without further consideration and that has
+> invalidated a lot of performance testing because some resource
+> controllers have measurable effects on those benchmarks.
+
+You're talking about a userspace bug. No amount of fragmenting and
+layering and opt-in in the kernel's runtime configuration space is
+going to help you if you screw up and enable it all by accident.
+
+> > All I read here is vague inflammatory language to spread FUD.
 > 
-> This patch isn't in 4.1 either, do you want it there as well?
+> I was merely pointing out that memory controller might be enabled without
+> _user_ actually even noticing because the controller wasn't enabled
+> explicitly. I haven't blamed anybody for that.
 
-Personally I'll probably stay on 3.14 until 4.4 comes out, but the patch seems 
-to make huge sense generally, given the 1 million in 8 second printk's I 
-experienced :)
+Why does that have anything to do with how we design our interface?
 
-My 3 servers with the patch applied to 3.14.56 run rock solid so far (but the 
-issue I had manifested only after 22 days of uptime, on one of them)
-
-The cited commit from mainline applied nicely with some offset to 3.14.56, so 
-I think you could just pull it down to all stable kernels.
-
-best regards
-  Patrick
+We can't do more than present a sane interface in good faith and lobby
+userspace projects if we think they misuse it.
