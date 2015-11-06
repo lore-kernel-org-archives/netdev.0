@@ -1,152 +1,63 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next] drivers: net: xgene: fix RGMII 10/100Mb mode
-Date: Thu,  5 Nov 2015 21:35:06 -0800
-Message-ID: <1446788107-31856-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	fchen@apm.com, Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:35567 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095AbbKFFei (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 00:34:38 -0500
-Received: by pasz6 with SMTP id z6so115178567pas.2
-        for <netdev@vger.kernel.org>; Thu, 05 Nov 2015 21:34:37 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] DWC Ethernet QoS: Delete an unnecessary check before the
+ function call "of_node_put"
+Date: Fri, 6 Nov 2015 08:15:30 +0100
+Message-ID: <563C5392.6030309@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net>
+ <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+ <530A086E.8010901@users.sourceforge.net>
+ <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+ <530A72AA.3000601@users.sourceforge.net>
+ <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+ <530B5FB6.6010207@users.sourceforge.net>
+ <alpine.DEB.2.10.1402241710370.2074@hadrien>
+ <530C5E18.1020800@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Lars Persson <lars.persson@axis.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes the RGMII 10/100M mode by reprogramming the clock.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 6 Nov 2015 08:00:22 +0100
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Tested-by: Fushen Chen <fchen@apm.com>
+The of_node_put() function tests whether its argument is NULL and then
+returns immediately. Thus the test around the call is not needed.
+
+This issue was detected by using the Coccinelle software.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c   | 49 +++++++++++++++++++++++-
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h   |  1 +
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c |  1 -
- 3 files changed, 48 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-index 33850a0..269cba77 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -459,6 +459,45 @@ static void xgene_gmac_reset(struct xgene_enet_pdata *pdata)
- 	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, 0);
- }
- 
-+static void rgmii_speed_set(struct xgene_enet_pdata *pdata)
-+{
-+	struct device *dev = &pdata->pdev->dev;
-+
-+	if (dev->of_node) {
-+		struct clk *parent = clk_get_parent(pdata->clk);
-+
-+		switch (pdata->phy_speed) {
-+		case SPEED_10:
-+			clk_set_rate(parent, 2500000);
-+			break;
-+		case SPEED_100:
-+			clk_set_rate(parent, 25000000);
-+			break;
-+		default:
-+			clk_set_rate(parent, 125000000);
-+			break;
-+		}
-+	}
-+#ifdef CONFIG_ACPI
-+	else {
-+		switch (pdata->phy_speed) {
-+		case SPEED_10:
-+			acpi_evaluate_object(ACPI_HANDLE(dev),
-+					     "S10", NULL, NULL);
-+			break;
-+		case SPEED_100:
-+			acpi_evaluate_object(ACPI_HANDLE(dev),
-+					     "S100", NULL, NULL);
-+			break;
-+		default:
-+			acpi_evaluate_object(ACPI_HANDLE(dev),
-+					     "S1G", NULL, NULL);
-+			break;
-+		}
-+	}
-+#endif
-+}
-+
- static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
- {
- 	struct device *dev = &pdata->pdev->dev;
-@@ -477,12 +516,14 @@ static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
- 	switch (pdata->phy_speed) {
- 	case SPEED_10:
- 		ENET_INTERFACE_MODE2_SET(&mc2, 1);
-+		intf_ctl &= ~(ENET_LHD_MODE | ENET_GHD_MODE);
- 		CFG_MACMODE_SET(&icm0, 0);
- 		CFG_WAITASYNCRD_SET(&icm2, 500);
- 		rgmii &= ~CFG_SPEED_1250;
- 		break;
- 	case SPEED_100:
- 		ENET_INTERFACE_MODE2_SET(&mc2, 1);
-+		intf_ctl &= ~ENET_GHD_MODE;
- 		intf_ctl |= ENET_LHD_MODE;
- 		CFG_MACMODE_SET(&icm0, 1);
- 		CFG_WAITASYNCRD_SET(&icm2, 80);
-@@ -490,12 +531,15 @@ static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
- 		break;
- 	default:
- 		ENET_INTERFACE_MODE2_SET(&mc2, 2);
-+		intf_ctl &= ~ENET_LHD_MODE;
- 		intf_ctl |= ENET_GHD_MODE;
--
-+		CFG_MACMODE_SET(&icm0, 2);
-+		CFG_WAITASYNCRD_SET(&icm2, 0);
- 		if (dev->of_node) {
- 			CFG_TXCLK_MUXSEL0_SET(&rgmii, pdata->tx_delay);
- 			CFG_RXCLK_MUXSEL0_SET(&rgmii, pdata->rx_delay);
- 		}
-+		rgmii |= CFG_SPEED_1250;
- 
- 		xgene_enet_rd_csr(pdata, DEBUG_REG_ADDR, &value);
- 		value |= CFG_BYPASS_UNISEC_TX | CFG_BYPASS_UNISEC_RX;
-@@ -503,7 +547,7 @@ static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
- 		break;
- 	}
- 
--	mc2 |= FULL_DUPLEX2;
-+	mc2 |= FULL_DUPLEX2 | PAD_CRC;
- 	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_2_ADDR, mc2);
- 	xgene_enet_wr_mcx_mac(pdata, INTERFACE_CONTROL_ADDR, intf_ctl);
- 
-@@ -522,6 +566,7 @@ static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
- 	/* Rtype should be copied from FP */
- 	xgene_enet_wr_csr(pdata, RSIF_RAM_DBG_REG0_ADDR, 0);
- 	xgene_enet_wr_csr(pdata, RGMII_REG_0_ADDR, rgmii);
-+	rgmii_speed_set(pdata);
- 
- 	/* Rx-Tx traffic resume */
- 	xgene_enet_wr_csr(pdata, CFG_LINK_AGGR_RESUME_0_ADDR, TX_PORT0);
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-index 6dee73c..c153a1d 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-@@ -181,6 +181,7 @@ enum xgene_enet_rm {
- #define ENET_LHD_MODE			BIT(25)
- #define ENET_GHD_MODE			BIT(26)
- #define FULL_DUPLEX2			BIT(0)
-+#define PAD_CRC				BIT(2)
- #define SCAN_AUTO_INCR			BIT(5)
- #define TBYT_ADDR			0x38
- #define TPKT_ADDR			0x39
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index ce10687..991412c 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -698,7 +698,6 @@ static int xgene_enet_open(struct net_device *ndev)
- 	else
- 		schedule_delayed_work(&pdata->link_work, PHY_POLL_LINK_OFF);
- 
--	netif_carrier_off(ndev);
- 	netif_start_queue(ndev);
- 
+diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+index 85b3326..9066d7a 100644
+--- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
++++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+@@ -2970,8 +2970,7 @@ err_out_unregister_netdev:
+ err_out_clk_dis_aper:
+ 	clk_disable_unprepare(lp->apb_pclk);
+ err_out_free_netdev:
+-	if (lp->phy_node)
+-		of_node_put(lp->phy_node);
++	of_node_put(lp->phy_node);
+ 	free_netdev(ndev);
+ 	platform_set_drvdata(pdev, NULL);
  	return ret;
 -- 
-1.9.1
+2.6.2
