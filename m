@@ -1,66 +1,69 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Fri, 6 Nov 2015 15:07:30 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBCD484@AcuExch.aculab.com>
-References: <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
- <20151022215741.GW22011@ZenIV.linux.org.uk>
- <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
- <20151024023054.GZ22011@ZenIV.linux.org.uk>
- <201510270908.t9R9873a001683@room101.nl.oracle.com>
- <562F577E.6000901@oracle.com> <20151029145847.GA10859@netbsd.org>
- <063D6719AE5E284EB5DD2968C1650D6D1CBC66C8@AcuExch.aculab.com>
- <20151030210943.GJ22011@ZenIV.linux.org.uk>
- <063D6719AE5E284EB5DD2968C1650D6D1CBCC02B@AcuExch.aculab.com>
- <20151104162735.GS22011@ZenIV.linux.org.uk>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: Use-after-free in ep_remove_wait_queue
+Date: Fri, 06 Nov 2015 15:15:44 +0000
+Message-ID: <87ziyrcg67.fsf@doppelsaurus.mobileactivedefense.com>
+References: <CACT4Y+b3xsLsKVFCz2M7nqqfXnyuMHEVYtJS2wN4WHLWs9A5ng@mail.gmail.com>
+	<20151012120249.GB16370@unicorn.suse.cz>
+	<1444652071.27760.156.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CACT4Y+Z2H8xPg1Dq0Z=HC3WKm+Uw+ZjK6zOLvxhPwFd4D0CsZw@mail.gmail.com>
+	<CACT4Y+Zu7J0n6dU1dSfiW3F9Q0Us3_DBVcD5Pi9NG9LER8MmRg@mail.gmail.com>
+	<563CC002.5050307@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: 'David Holland' <dholland-tech@netbsd.org>,
-	Alan Burlison <Alan.Burlison@oracle.com>,
-	"Casper.Dik@oracle.com" <Casper.Dik@oracle.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Michal Kubecek <mkubecek@suse.cz>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"linux-fsdevel\@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Al Viro' <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.187]:57416 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754484AbbKFPIp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 10:08:45 -0500
-In-Reply-To: <20151104162735.GS22011@ZenIV.linux.org.uk>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Howells <dhowells@redhat.com>,
+	Paul Moore <paul@paul-moore.com>, salyzyn@android.com,
+	sds@tycho.nsa.gov, ying.xue@windriver.com,
+	netdev <netdev@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Andrey Konovalov <andreyknvl@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Julien Tinnes <jln@google.com>,
+	Kees Cook <keescook@google.com>,
+	Mathias Krause <minipli@googlemail.com>
+To: Jason Baron <jbaron@akamai.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <563CC002.5050307@akamai.com> (Jason Baron's message of "Fri, 6
+	Nov 2015 09:58:10 -0500")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Al Viro
-> Sent: 04 November 2015 16:28
-> On Wed, Nov 04, 2015 at 03:54:09PM +0000, David Laight wrote:
-> > > Sigh...  The kernel has no idea when other threads are done with "all
-> > > io activities using that fd" - it can wait for them to leave the
-> > > kernel mode, but there's fuck-all it can do about e.g. a userland
-> > > loop doing write() until there's more data to send.  And no, you can't
-> > > rely upon them catching EBADF on the next iteration - by the time they
-> > > get there, close() might very well have returned and open() from yet
-> > > another thread might've grabbed the same descriptor.  Welcome to your
-> > > data being written to hell knows what...
-> >
-> > That just means that the application must use dup2() rather than close().
-> > It must do that anyway since the thread it is trying to stop might be
-> > sleeping in the system call stub in libc at the time a close() and open()
-> > happen.
-> 
-> Oh, _lovely_.  So instead of continuation of that write(2) going down
-> the throat of something opened by unrelated thread, it (starting from a
-> pretty arbitrary point) will go into the descriptor the closing thread
-> passed to dup2().  Until it, in turn, gets closed, at which point we
-> are back to square one.  That, of course, makes it so much better -
-> whatever had I been thinking about that made me miss that?
+Jason Baron <jbaron@akamai.com> writes:
+> On 11/06/2015 08:06 AM, Dmitry Vyukov wrote:
+>> On Mon, Oct 12, 2015 at 2:17 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>>> On Mon, Oct 12, 2015 at 2:14 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>>> On Mon, 2015-10-12 at 14:02 +0200, Michal Kubecek wrote:
+>>>>
+>>>>> Probably the issue discussed in
+>>>>>
+>>>>>   http://thread.gmane.org/gmane.linux.kernel/2057497/
+>>>>>
+>>>>> and previous related threads.
+>>>>>
+>>>>
+>>>> Same issue, but Dmitry apparently did not trust me.
+>>>
+>>> Just wanted to make sure. Let's consider this as fixed.
+>> 
+>> 
+>> Is it meant to be fixed now?
+>> 
+>> I am still seeing use-after-free reports in ep_unregister_pollwait on
+>> d1e41ff11941784f469f17795a4d9425c2eb4b7a (Nov 5).
+>> 
+>
+> Indeed - No formal patch has been posted for this yet - we've agreed
+> that Rainer is going to post the patch for this issue.
 
-Do I detect a note of sarcasm.
-
-You'd open "/dev/null" (lacking a "/dev/error") and use that as the source fd.
-So any writes (etc) would be discarded in a safe manner, and nothing will block.
-
-	David
+I should be able to put some more work into this on Sunday or possibly
+(but unlikely) later today (supposed to mean that I'll also actually do
+that).
