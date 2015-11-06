@@ -1,46 +1,152 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: NETIF_F_GSO_SOFTWARE vs NETIF_F_GSO
-Date: Fri, 6 Nov 2015 12:58:42 +0800
-Message-ID: <20151106045842.GB14722@gondor.apana.org.au>
-References: <CAHmME9rGvViDN2iFa8xfXvUJpQThJnrCcZ1yHgQrdgEQRUWtfg@mail.gmail.com>
- <20151105121501.GA5776@gondor.apana.org.au>
- <CAHmME9pP1E64CCc7+XW8X1duYGQZdYj9s_r8UNq3KMh6xey_Hw@mail.gmail.com>
- <1446738967.4184.35.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAHmME9ptruMW4MFZ1q3=tgTANro1_CdwnCWS5O_0_WwbFKgUAw@mail.gmail.com>
- <CAHmME9ruZb=F+Nv5BqfS+9gEL4FriCgGkaD6Pvy2iD1FXv0EQg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH net-next] drivers: net: xgene: fix RGMII 10/100Mb mode
+Date: Thu,  5 Nov 2015 21:35:06 -0800
+Message-ID: <1446788107-31856-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
+	fchen@apm.com, Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:39348 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030793AbbKFE6p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 23:58:45 -0500
-Content-Disposition: inline
-In-Reply-To: <CAHmME9ruZb=F+Nv5BqfS+9gEL4FriCgGkaD6Pvy2iD1FXv0EQg@mail.gmail.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35567 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751095AbbKFFei (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 00:34:38 -0500
+Received: by pasz6 with SMTP id z6so115178567pas.2
+        for <netdev@vger.kernel.org>; Thu, 05 Nov 2015 21:34:37 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 06, 2015 at 02:31:59AM +0100, Jason A. Donenfeld wrote:
-> 
-> So far implementing (3) is failing miserably. Is there anything wrong
-> with my general idea that might make this a priori impossible? For
-> example, will udp_tunnel_xmit_skb not accept super-packets? Or, am I
-> just not making use of whatever nice convenience functions are
-> available for constructing super-packets, and thus am doing something
-> wrong?
+This patch fixes the RGMII 10/100M mode by reprogramming the clock.
 
-I don't see anything fundamentally wrong with your idea.  After
-all what you're describing is the basis of GSO, i.e., letting
-data stay in the form of super-packets for as long as we can.
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Tested-by: Fushen Chen <fchen@apm.com>
+---
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c   | 49 +++++++++++++++++++++++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h   |  1 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c |  1 -
+ 3 files changed, 48 insertions(+), 3 deletions(-)
 
-Of course there's going to be a lot of niggly bits that you'll
-have to sort out to get it to work.
-
-Good luck,
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+index 33850a0..269cba77 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+@@ -459,6 +459,45 @@ static void xgene_gmac_reset(struct xgene_enet_pdata *pdata)
+ 	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, 0);
+ }
+ 
++static void rgmii_speed_set(struct xgene_enet_pdata *pdata)
++{
++	struct device *dev = &pdata->pdev->dev;
++
++	if (dev->of_node) {
++		struct clk *parent = clk_get_parent(pdata->clk);
++
++		switch (pdata->phy_speed) {
++		case SPEED_10:
++			clk_set_rate(parent, 2500000);
++			break;
++		case SPEED_100:
++			clk_set_rate(parent, 25000000);
++			break;
++		default:
++			clk_set_rate(parent, 125000000);
++			break;
++		}
++	}
++#ifdef CONFIG_ACPI
++	else {
++		switch (pdata->phy_speed) {
++		case SPEED_10:
++			acpi_evaluate_object(ACPI_HANDLE(dev),
++					     "S10", NULL, NULL);
++			break;
++		case SPEED_100:
++			acpi_evaluate_object(ACPI_HANDLE(dev),
++					     "S100", NULL, NULL);
++			break;
++		default:
++			acpi_evaluate_object(ACPI_HANDLE(dev),
++					     "S1G", NULL, NULL);
++			break;
++		}
++	}
++#endif
++}
++
+ static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
+ {
+ 	struct device *dev = &pdata->pdev->dev;
+@@ -477,12 +516,14 @@ static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
+ 	switch (pdata->phy_speed) {
+ 	case SPEED_10:
+ 		ENET_INTERFACE_MODE2_SET(&mc2, 1);
++		intf_ctl &= ~(ENET_LHD_MODE | ENET_GHD_MODE);
+ 		CFG_MACMODE_SET(&icm0, 0);
+ 		CFG_WAITASYNCRD_SET(&icm2, 500);
+ 		rgmii &= ~CFG_SPEED_1250;
+ 		break;
+ 	case SPEED_100:
+ 		ENET_INTERFACE_MODE2_SET(&mc2, 1);
++		intf_ctl &= ~ENET_GHD_MODE;
+ 		intf_ctl |= ENET_LHD_MODE;
+ 		CFG_MACMODE_SET(&icm0, 1);
+ 		CFG_WAITASYNCRD_SET(&icm2, 80);
+@@ -490,12 +531,15 @@ static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
+ 		break;
+ 	default:
+ 		ENET_INTERFACE_MODE2_SET(&mc2, 2);
++		intf_ctl &= ~ENET_LHD_MODE;
+ 		intf_ctl |= ENET_GHD_MODE;
+-
++		CFG_MACMODE_SET(&icm0, 2);
++		CFG_WAITASYNCRD_SET(&icm2, 0);
+ 		if (dev->of_node) {
+ 			CFG_TXCLK_MUXSEL0_SET(&rgmii, pdata->tx_delay);
+ 			CFG_RXCLK_MUXSEL0_SET(&rgmii, pdata->rx_delay);
+ 		}
++		rgmii |= CFG_SPEED_1250;
+ 
+ 		xgene_enet_rd_csr(pdata, DEBUG_REG_ADDR, &value);
+ 		value |= CFG_BYPASS_UNISEC_TX | CFG_BYPASS_UNISEC_RX;
+@@ -503,7 +547,7 @@ static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
+ 		break;
+ 	}
+ 
+-	mc2 |= FULL_DUPLEX2;
++	mc2 |= FULL_DUPLEX2 | PAD_CRC;
+ 	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_2_ADDR, mc2);
+ 	xgene_enet_wr_mcx_mac(pdata, INTERFACE_CONTROL_ADDR, intf_ctl);
+ 
+@@ -522,6 +566,7 @@ static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
+ 	/* Rtype should be copied from FP */
+ 	xgene_enet_wr_csr(pdata, RSIF_RAM_DBG_REG0_ADDR, 0);
+ 	xgene_enet_wr_csr(pdata, RGMII_REG_0_ADDR, rgmii);
++	rgmii_speed_set(pdata);
+ 
+ 	/* Rx-Tx traffic resume */
+ 	xgene_enet_wr_csr(pdata, CFG_LINK_AGGR_RESUME_0_ADDR, TX_PORT0);
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+index 6dee73c..c153a1d 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+@@ -181,6 +181,7 @@ enum xgene_enet_rm {
+ #define ENET_LHD_MODE			BIT(25)
+ #define ENET_GHD_MODE			BIT(26)
+ #define FULL_DUPLEX2			BIT(0)
++#define PAD_CRC				BIT(2)
+ #define SCAN_AUTO_INCR			BIT(5)
+ #define TBYT_ADDR			0x38
+ #define TPKT_ADDR			0x39
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index ce10687..991412c 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -698,7 +698,6 @@ static int xgene_enet_open(struct net_device *ndev)
+ 	else
+ 		schedule_delayed_work(&pdata->link_work, PHY_POLL_LINK_OFF);
+ 
+-	netif_carrier_off(ndev);
+ 	netif_start_queue(ndev);
+ 
+ 	return ret;
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.9.1
