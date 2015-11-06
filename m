@@ -1,67 +1,44 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH -next] net: hisilicon: Never build on SPARC
-Date: Fri, 6 Nov 2015 11:16:52 -0800
-Message-ID: <20151106191652.GA4046@roeck-us.net>
-References: <1445437773-23261-1-git-send-email-linux@roeck-us.net>
- <4129407.LpDXnpSZOL@wuerfel>
- <5627C549.9080600@roeck-us.net>
- <5243548.YbVhhU6W8t@wuerfel>
- <20151021215320.GB23371@roeck-us.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Aw: Re: question about checksumming and tcp_sendpage
+Date: Fri, 06 Nov 2015 11:32:56 -0800
+Message-ID: <1446838376.4184.74.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <trinity-80ad84c3-456a-4f51-a3e9-afee4e8ae504-1446759288452@3capp-1and1-bs03>
+	, <CALx6S369t4iOKYnM=Qzc-oguVZECK93=VJXbhzt+objjs70W4Q@mail.gmail.com>
+	 <trinity-afda3924-c5a6-4998-98b5-ee047f5cbe74-1446837255645@3capp-1and1-bs04>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151021215320.GB23371@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org
+To: ronny.hegewald@online.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35127 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1032164AbbKFTc7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 14:32:59 -0500
+Received: by pasz6 with SMTP id z6so135715844pas.2
+        for <netdev@vger.kernel.org>; Fri, 06 Nov 2015 11:32:58 -0800 (PST)
+In-Reply-To: <trinity-afda3924-c5a6-4998-98b5-ee047f5cbe74-1446837255645@3capp-1and1-bs04>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd,
+On Fri, 2015-11-06 at 20:14 +0100, ronny.hegewald@online.de wrote:
 
-On Wed, Oct 21, 2015 at 02:53:20PM -0700, Guenter Roeck wrote:
-> On Wed, Oct 21, 2015 at 09:11:53PM +0200, Arnd Bergmann wrote:
-> > On Wednesday 21 October 2015 10:03:05 Guenter Roeck wrote:
-> > > >
-> > > > Something like this?
-> > > >
-> > > > static inline u64 of_translate_address(struct device_node *np, const __be32 *addr)
-> > > > {
-> > > > #if defined(CONFIG_SPARC) || defined(CONFIG_M68K)
-> > > >       int pna = of_n_addr_cells(np);
-> > > >       u64 ret = be32_to_cpu(addr[pna - 1]);
-> > > >
-> > > >       if (pna > 1)
-> > > >               ret += (u64)be32_to_cpu(addr[pna - 2]) << 32;
-> > > >
-> > > >       return ret;
-> > > 
-> > > That suggests that sparc would need a translation after all, which
-> > > seems to contradict what David said earlier.
-> > 
-> > No, not a translation: the value is used without any offset that
-> > factors in the location of the bus, the above is just the shortest
-> > possible way to read the 64-bit number from a big-endian property
-> > of variable length.
-> > 
-> Out of my realm .. David would have to comment on that.
+> I think the checksum-building is not broken because of this on itself. The
+> problem i see is for example in case pages are sent from a block-device 
+> over the net. 
 > 
-> > > Anyway, if it gets that complicated, I think we should stick with
-> > > just returning OF_BAD_ADDR. The above really suggests the need for
-> > > an architecture specific solution.
-> > 
-> > Probably no harm in this really: the far more common
-> > of_address_to_resource() and of_iomap() helpers are equally
-> > broken on SPARC and we just return a runtime error for those
-> > as well without CONFIG_OF_ADDRESS rather than breaking the build.
-> > 
-> Agreed. Given this, returning OF_BAD_ADDR sounds like a better choice.
-> 
-Arnd,
+> Depending on the block-device this pages might be changed at any time. 
+> Because of the described issue the page-data wouldn't be copied as a call 
+> to sock_no_sendpage would do it. So the page-data might change at any time
+> during or after the checksum-building. From my understanding this would just
+> cause a crc-error anytime after sending and would only lead to a resent 
+> of the data, probably with a new checksum which will then be correct So
+> there wouldn't be a obvious impact except some bad tcp packages.
 
-do you know if a fix for this problem is pending in some branch ?
-Mainline sparc builds are now affected.
+We handle the case just fine.
 
-Thanks,
-Guenter
+grep for SKBTX_SHARED_FRAG
+
+(successor of
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=cef401de7be8c4e155c6746bfccf721a4fa5fab
+)
