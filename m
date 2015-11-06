@@ -1,63 +1,42 @@
-From: Dmitry Safonov <0x7f454c46@gmail.com>
-Subject: Re: [PATCH] net: netfilter: fix GCC uninitialized warning
-Date: Fri, 6 Nov 2015 22:13:16 +0300
-Message-ID: <CAJwJo6Ybv9pXSFJqxtPR=W0+6JDfh8M7DtFQYV6VnuWjjWpTNA@mail.gmail.com>
-References: <1446835694-6967-1-git-send-email-0x7f454c46@gmail.com> <20151106191008.GA2362@salvia>
+From: ronny.hegewald@online.de
+Subject: Aw: Re: question about checksumming and tcp_sendpage
+Date: Fri, 6 Nov 2015 20:14:15 +0100
+Message-ID: <trinity-afda3924-c5a6-4998-98b5-ee047f5cbe74-1446837255645@3capp-1and1-bs04>
+References: <trinity-80ad84c3-456a-4f51-a3e9-afee4e8ae504-1446759288452@3capp-1and1-bs03>,
+ <CALx6S369t4iOKYnM=Qzc-oguVZECK93=VJXbhzt+objjs70W4Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>, kadlec@blackhole.kfki.hu,
-	davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151106191008.GA2362@salvia>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: "Tom Herbert" <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.24]:63787 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751284AbbKFTOR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 14:14:17 -0500
+In-Reply-To: <CALx6S369t4iOKYnM=Qzc-oguVZECK93=VJXbhzt+objjs70W4Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I thought, it was decided to use 0/NULL/whatever, than uninitialized_va=
-r()?
-Is right now?
-http://thread.gmane.org/gmane.linux.kernel/1383415
+> Well, looking at the code I don't readily see how this works either,
+> but note that tcp_sendmsg has the same check also. If your analysis is
+> correct then checksum for IPv6 would commonly be broken (i.e. several
+> devices support IPv4 checksum but not IPv6)-- so I find that hard to
+> believe so I'm probably missing something too! (at least this
+> ambiguity is one more reason why we need to get rid of NETIF_F_IP_CSUM
+> and NETIF_F_V6_CSUM!).
 
-2015-11-06 22:10 GMT+03:00 Pablo Neira Ayuso <pablo@netfilter.org>:
-> On Fri, Nov 06, 2015 at 09:48:14PM +0300, Dmitry Safonov wrote:
->> With x86_64_defconfig:
->> GCC thinks that in nfulnl_recv_config flags parameter is not inited =
-but
->> it was under the same condition (nfula[NFULA_CFG_FLAGS] =3D=3D true)=
-=2E
->> Suppress this warning:
->>       net/netfilter/nfnetlink_log.c: In function =E2=80=98nfulnl_rec=
-v_config=E2=80=99:
->>       net/netfilter/nfnetlink_log.c:320:14: warning: =E2=80=98flags=E2=
-=80=99 may be used uninitialized in this function [-Wmaybe-uninitialize=
-d]
->>       inst->flags =3D flags;
->>                   ^
->> Signed-off-by: Dmitry Safonov <0x7f454c46@gmail.com>
->> ---
->>  net/netfilter/nfnetlink_log.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink=
-_log.c
->> index 06eb48fceb42e4..d65f3b987b7f13 100644
->> --- a/net/netfilter/nfnetlink_log.c
->> +++ b/net/netfilter/nfnetlink_log.c
->> @@ -825,7 +825,7 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_=
-buff *skb,
->>       struct net *net =3D sock_net(ctnl);
->>       struct nfnl_log_net *log =3D nfnl_log_pernet(net);
->>       int ret =3D 0;
->> -     u16 flags;
->> +     u16 flags =3D 0; /* GCC uninitialized */
->
->         u16 uninitialized_var(flags); ?
->
->>       if (nfula[NFULA_CFG_CMD]) {
->>               u_int8_t pf =3D nfmsg->nfgen_family;
->> --
->> 2.6.2
->>
+I think the checksum-building is not broken because of this on itself. The
+problem i see is for example in case pages are sent from a block-device 
+over the net. 
+
+Depending on the block-device this pages might be changed at any time. 
+Because of the described issue the page-data wouldn't be copied as a call 
+to sock_no_sendpage would do it. So the page-data might change at any time
+during or after the checksum-building. From my understanding this would just
+cause a crc-error anytime after sending and would only lead to a resent 
+of the data, probably with a new checksum which will then be correct So
+there wouldn't be a obvious impact except some bad tcp packages.
+
+> Can you try to verify this a bug with some testing?
+
+Will do.
