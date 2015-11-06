@@ -1,64 +1,87 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] fjes: Delete an unnecessary check before the function call
- "vfree"
-Date: Fri, 6 Nov 2015 09:39:23 +0100
-Message-ID: <563C673B.1020605@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net>
- <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
- <530A086E.8010901@users.sourceforge.net>
- <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
- <530A72AA.3000601@users.sourceforge.net>
- <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
- <530B5FB6.6010207@users.sourceforge.net>
- <alpine.DEB.2.10.1402241710370.2074@hadrien>
- <530C5E18.1020800@users.sourceforge.net>
- <alpine.DEB.2.10.1402251014170.2080@hadrien>
- <530CD2C4.4050903@users.sourceforge.net>
- <alpine.DEB.2.10.1402251840450.7035@hadrien>
- <530CF8FF.8080600@users.sourceforge.net>
- <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
- <530DD06F.4090703@users.sourceforge.net>
- <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
- <5317A59D.4@users.sourceforge.net>
+From: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
+Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
+ hierarchy
+Date: Fri, 6 Nov 2015 12:05:55 +0300
+Message-ID: <20151106090555.GK29259@esperanza>
+References: <20151027122647.GG9891@dhcp22.suse.cz>
+ <20151027154138.GA4665@cmpxchg.org>
+ <20151027161554.GJ9891@dhcp22.suse.cz>
+ <20151027164227.GB7749@cmpxchg.org>
+ <20151029152546.GG23598@dhcp22.suse.cz>
+ <20151029161009.GA9160@cmpxchg.org>
+ <20151104104239.GG29607@dhcp22.suse.cz>
+ <20151104195037.GA6872@cmpxchg.org>
+ <20151105144002.GB15111@dhcp22.suse.cz>
+ <20151105205522.GA1067@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Taku Izumi <izumi.taku@jp.fujitsu.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5317A59D.4@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>, <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
+	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20151105205522.GA1067-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 6 Nov 2015 09:30:29 +0100
+On Thu, Nov 05, 2015 at 03:55:22PM -0500, Johannes Weiner wrote:
+> On Thu, Nov 05, 2015 at 03:40:02PM +0100, Michal Hocko wrote:
+...
+> > 3) keep only some (safe) cache types enabled by default with the current
+> >    failing semantic and require an explicit enabling for the complete
+> >    kmem accounting. [di]cache code paths should be quite robust to
+> >    handle allocation failures.
+> 
+> Vladimir, what would be your opinion on this?
 
-The vfree() function performs also input parameter validation.
-Thus the test around the call is not needed.
+I'm all for this option. Actually, I've been thinking about this since I
+introduced the __GFP_NOACCOUNT flag. Not because of the failing
+semantics, since we can always let kmem allocations breach the limit.
+This shouldn't be critical, because I don't think it's possible to issue
+a series of kmem allocations w/o a single user page allocation, which
+would reclaim/kill the excess.
 
-This issue was detected by using the Coccinelle software.
+The point is there are allocations that are shared system-wide and
+therefore shouldn't go to any memcg. Most obvious examples are: mempool
+users and radix_tree/idr preloads. Accounting them to memcg is likely to
+result in noticeable memory overhead as memory cgroups are
+created/destroyed, because they pin dead memory cgroups with all their
+kmem caches, which aren't tiny.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/fjes/fjes_hw.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+Another funny example is objects destroyed lazily for performance
+reasons, e.g. vmap_area. Such objects are usually very small, so
+delaying destruction of a bunch of them will normally go unnoticed.
+However, if kmemcg is used the effective memory consumption caused by
+such objects can be multiplied by many times due to dangling kmem
+caches.
 
-diff --git a/drivers/net/fjes/fjes_hw.c b/drivers/net/fjes/fjes_hw.c
-index 2d3848c..bb8b530 100644
---- a/drivers/net/fjes/fjes_hw.c
-+++ b/drivers/net/fjes/fjes_hw.c
-@@ -143,9 +143,7 @@ static int fjes_hw_alloc_epbuf(struct epbuf_handler *epbh)
- 
- static void fjes_hw_free_epbuf(struct epbuf_handler *epbh)
- {
--	if (epbh->buffer)
--		vfree(epbh->buffer);
--
-+	vfree(epbh->buffer);
- 	epbh->buffer = NULL;
- 	epbh->size = 0;
- 
--- 
-2.6.2
+We can, of course, mark all such allocations as __GFP_NOACCOUNT, but the
+problem is they are tricky to identify, because they are scattered all
+over the kernel source tree. E.g. Dave Chinner mentioned that XFS
+internals do a lot of allocations that are shared among all XFS
+filesystems and therefore should not be accounted (BTW that's why
+list_lru's used by XFS are not marked as memcg-aware). There must be
+more out there. Besides, kernel developers don't usually even know about
+kmemcg (they just write the code for their subsys, so why should they?)
+so they won't care thinking about using __GFP_NOACCOUNT, and hence new
+falsely-accounted allocations are likely to appear.
+
+That said, by switching from black-list (__GFP_NOACCOUNT) to white-list
+(__GFP_ACCOUNT) kmem accounting policy we would make the system more
+predictable and robust IMO. OTOH what would we lose? Security? Well,
+containers aren't secure IMHO. In fact, I doubt they will ever be (as
+secure as VMs). Anyway, if a runaway allocation is reported, it should
+be trivial to fix by adding __GFP_ACCOUNT where appropriate.
+
+If there are no objections, I'll prepare a patch switching to the
+white-list approach. Let's start from obvious things like fs_struct,
+mm_struct, task_struct, signal_struct, dentry, inode, which can be
+easily allocated from user space. This should cover 90% of all
+allocations that should be accounted AFAICS. The rest will be added
+later if necessarily.
+
+Thanks,
+Vladimir
