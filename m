@@ -1,58 +1,99 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
- hierarchy
-Date: Fri, 6 Nov 2015 11:57:24 +0100
-Message-ID: <20151106105724.GG4390@dhcp22.suse.cz>
-References: <20151027154138.GA4665@cmpxchg.org>
- <20151027161554.GJ9891@dhcp22.suse.cz>
- <20151027164227.GB7749@cmpxchg.org>
- <20151029152546.GG23598@dhcp22.suse.cz>
- <20151029161009.GA9160@cmpxchg.org>
- <20151104104239.GG29607@dhcp22.suse.cz>
- <20151104195037.GA6872@cmpxchg.org>
- <20151105144002.GB15111@dhcp22.suse.cz>
- <20151105205522.GA1067@cmpxchg.org>
- <20151105225200.GA5432@cmpxchg.org>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH] decnet: remove macro-local declarations
+Date: Fri, 6 Nov 2015 11:57:34 +0100 (CET)
+Message-ID: <alpine.DEB.2.10.1511061142440.2378@hadrien>
+References: <1446718696-32505-1-git-send-email-Julia.Lawall@lip6.fr> <20151105.142619.983467860147585345.davem@davemloft.net> <alpine.DEB.2.02.1511052107501.2065@localhost6.localdomain6> <20151105.151320.1646543343654766675.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	vdavydov@virtuozzo.com, tj@kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151105225200.GA5432@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kernel-janitors@vger.kernel.org,
+	linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, lkp@intel.com,
+	roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151105.151320.1646543343654766675.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu 05-11-15 17:52:00, Johannes Weiner wrote:
-> On Thu, Nov 05, 2015 at 03:55:22PM -0500, Johannes Weiner wrote:
-> > On Thu, Nov 05, 2015 at 03:40:02PM +0100, Michal Hocko wrote:
-> > > This would be true if they moved on to the new cgroup API intentionally.
-> > > The reality is more complicated though. AFAIK sysmted is waiting for
-> > > cgroup2 already and privileged services enable all available resource
-> > > controllers by default as I've learned just recently.
-> > 
-> > Have you filed a report with them? I don't think they should turn them
-> > on unless users explicitely configure resource control for the unit.
-> 
-> Okay, verified with systemd people that they're not planning on
-> enabling resource control per default.
-> 
-> Inflammatory half-truths, man. This is not constructive.
+> > Would it be preferable to remove the macro entirely and inline the for
+> > loop header?
+>
+> Could you show me an example of how this would look exactly?
 
-What about Delegate=yes feature then? We have just been burnt by this
-quite heavily. AFAIU nspawn@.service and nspawn@.service have this
-enabled by default
-http://lists.freedesktop.org/archives/systemd-commits/2014-November/007400.html
+One possible solution is below.  I moved the initialization of the nh
+pointer inside the loop to reduce the size of the loop header.  One could
+also inline fi->fib_nh[nhsel] where it occurs, but it seemed that that
+would make quite long expressions.
 
--- 
-Michal Hocko
-SUSE Labs
+julia
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/net/decnet/dn_table.c b/net/decnet/dn_table.c
+index 1540b50..509ae82 100644
+--- a/net/decnet/dn_table.c
++++ b/net/decnet/dn_table.c
+@@ -60,11 +60,6 @@ struct dn_hash
+
+ #define dz_key_0(key)		((key).datum = 0)
+
+-#define for_nexthops(fi) { int nhsel; const struct dn_fib_nh *nh;\
+-	for(nhsel = 0, nh = (fi)->fib_nh; nhsel < (fi)->fib_nhs; nh++, nhsel++)
+-
+-#define endfor_nexthops(fi) }
+-
+ #define DN_MAX_DIVISOR 1024
+ #define DN_S_ZOMBIE 1
+ #define DN_S_ACCESSED 2
+@@ -227,7 +222,7 @@ static struct dn_zone *dn_new_zone(struct dn_hash *table, int z)
+ static int dn_fib_nh_match(struct rtmsg *r, struct nlmsghdr *nlh, struct nlattr *attrs[], struct dn_fib_info *fi)
+ {
+ 	struct rtnexthop *nhp;
+-	int nhlen;
++	int nhlen, nhsel;
+
+ 	if (attrs[RTA_PRIORITY] &&
+ 	    nla_get_u32(attrs[RTA_PRIORITY]) != fi->fib_priority)
+@@ -246,8 +241,9 @@ static int dn_fib_nh_match(struct rtmsg *r, struct nlmsghdr *nlh, struct nlattr
+ 	nhp = nla_data(attrs[RTA_MULTIPATH]);
+ 	nhlen = nla_len(attrs[RTA_MULTIPATH]);
+
+-	for_nexthops(fi) {
++	for (nhsel = 0; nhsel < fi->fib_nhs; nhsel++) {
+ 		int attrlen = nhlen - sizeof(struct rtnexthop);
++		const struct dn_fib_nh *nh = &fi->fib_nh[nhsel];
+ 		__le16 gw;
+
+ 		if (attrlen < 0 || (nhlen -= nhp->rtnh_len) < 0)
+@@ -264,7 +260,7 @@ static int dn_fib_nh_match(struct rtmsg *r, struct nlmsghdr *nlh, struct nlattr
+ 				return 1;
+ 		}
+ 		nhp = RTNH_NEXT(nhp);
+-	} endfor_nexthops(fi);
++	}
+
+ 	return 0;
+ }
+@@ -345,11 +341,13 @@ static int dn_fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
+ 	if (fi->fib_nhs > 1) {
+ 		struct rtnexthop *nhp;
+ 		struct nlattr *mp_head;
++		int nhsel;
+
+ 		if (!(mp_head = nla_nest_start(skb, RTA_MULTIPATH)))
+ 			goto errout;
+
+-		for_nexthops(fi) {
++		for (nhsel = 0; nhsel < fi->fib_nhs; nhsel++) {
++			const struct dn_fib_nh *nh = &fi->fib_nh[nhsel];
+ 			if (!(nhp = nla_reserve_nohdr(skb, sizeof(*nhp))))
+ 				goto errout;
+
+@@ -362,7 +360,7 @@ static int dn_fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
+ 				goto errout;
+
+ 			nhp->rtnh_len = skb_tail_pointer(skb) - (unsigned char *)nhp;
+-		} endfor_nexthops(fi);
++		}
+
+ 		nla_nest_end(skb, mp_head);
+ 	}
