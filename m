@@ -1,111 +1,100 @@
-From: Toby Corkindale <tjc@wintrmute.net>
-Subject: Re: Regression in bonding driver - devices without set_mac
-Date: Fri, 6 Nov 2015 10:12:13 +1100
-Message-ID: <CABEgq976udiL1nAjNte0dOTreeX2PvJOJggaKT_fs_9WYH4w-w@mail.gmail.com>
-References: <CABEgq95FYdt86-KEgkarUr-9g_mHoesV6B7OtrFut4pBR0UGcQ@mail.gmail.com>
-	<CABEgq97hxgNJWne48amV9M74VbMaTG7fuxfyRti0qCBFGAW1jg@mail.gmail.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: NETIF_F_GSO_SOFTWARE vs NETIF_F_GSO
+Date: Fri, 6 Nov 2015 02:31:59 +0100
+Message-ID: <CAHmME9ruZb=F+Nv5BqfS+9gEL4FriCgGkaD6Pvy2iD1FXv0EQg@mail.gmail.com>
+References: <CAHmME9rGvViDN2iFa8xfXvUJpQThJnrCcZ1yHgQrdgEQRUWtfg@mail.gmail.com>
+	<20151105121501.GA5776@gondor.apana.org.au>
+	<CAHmME9pP1E64CCc7+XW8X1duYGQZdYj9s_r8UNq3KMh6xey_Hw@mail.gmail.com>
+	<1446738967.4184.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAHmME9ptruMW4MFZ1q3=tgTANro1_CdwnCWS5O_0_WwbFKgUAw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f180.google.com ([209.85.160.180]:36137 "EHLO
-	mail-yk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757014AbbKEXMP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2015 18:12:15 -0500
-Received: by ykba4 with SMTP id a4so159978051ykb.3
-        for <netdev@vger.kernel.org>; Thu, 05 Nov 2015 15:12:14 -0800 (PST)
-In-Reply-To: <CABEgq97hxgNJWne48amV9M74VbMaTG7fuxfyRti0qCBFGAW1jg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9ptruMW4MFZ1q3=tgTANro1_CdwnCWS5O_0_WwbFKgUAw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-OK, wow, this list is super high traffic. I'm going to unsubscribe now.
+Hi folks,
 
-Feel free to get in contact with me directly (not via the list) if you like.
+I'm still facing some considerable problems. Please see below.
 
-It'd be lovely if someone wants to fix the regression I reported,
-especially as it looks pretty simple to achieve. (Just don't silently fail
-if you can't get a MAC address for the netlink info).
-
-Bye,
-Toby
-
-On 4 November 2015 at 18:45, Toby Corkindale <tjc@wintrmute.net> wrote:
+On Thu, Nov 5, 2015 at 5:28 PM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
+> As mentioned, I receive packets on ndo_start_xmit, "do something to
+> them with function magic()", and then push them out of a UDP socket
+> using udp_tunnel_xmit_skb. There appears to be significant overhead
+> from calling udp_tunnel_xmit_skb over and over. What I'd really like
+> to do is pass the NETIF_F_GSO_SOFTWARE-provided super packet directly
+> to udp_tunnel_xmit_skb, but in fact the magic() function mentioned
+> above needs to work on an entire MTU-sized IP packet, not a a super
+> packet. So, instead, what it's looking like is:
 >
-> On 4 November 2015 at 14:49, Toby Corkindale <tjc@wintrmute.net> wrote:
-> > Hi,
-> > I've subscribed to this list to try and sort out a regression in the
-> > bonding network driver.
-> > I originally reported this in Dec 2014, as:
-> > https://bugzilla.kernel.org/show_bug.cgi?id=89161
-> >
-> > The bug is still present in the 4.2 Linux kernel.
-> >
-> > If you look at the code, here:
-> > https://github.com/torvalds/linux/commit/f54424412b6b2f64cae4d7c39d981ca14ce0052c
-> >
-> > Then you see that the intention is for devices without set_mac support
-> > to be supported. Although in older code they DID work, and that
-> > ability died sometime near this commit. And has never returned since.
-> >
-> > The code path in current kernels does allow devices through that block
-> > of code, but it fails somewhere else -- the devices are not
-> > successfully added as slaves, but the only error printed is the
-> > warning about not supporting MAC address setting.
-> >
-> > Is there anything I can do to try and sort this regression out, with you?
-> >
-> > I can explain how to set up two virtual machines with PPPoE client and
-> > server in order to test, if you like? Or I can try out patches and
-> > give feedback.
-> >
-> > Cheers
-> > Toby
+> 1. Set NETIF_F_GSO_SOFTWARE to receive super packets.
+> 2. For each super packet, break it down using skb_gso_segment().
+>      2a. For each segmented packet, "do my magic() function"
+> 3. After having done the magic() to each of the segmented packets, I
+> *repack the results* into a new super packet. I then pass that super
+> packet to udp_tunnel_xmit_skb().
 >
+> Is this approach a real possibility?
 >
-> The following patch fixes the regression, for me, although I suspect
-> it's not suitable for direct application.
-> But maybe knowing that it fixes the issue, helps you create something
-> appropriate?
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 771a449..3f44875 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1460,8 +1460,8 @@ int bond_enslave(struct net_device *bond_dev,
-> struct net_device *slave_dev
-> )
->        addr.sa_family = slave_dev->type;
->        res = dev_set_mac_address(slave_dev, &addr);
->        if (res) {
-> -           netdev_dbg(bond_dev, "Error %d calling set_mac_address\n", res);
-> -           goto err_restore_mtu;
-> +           netdev_warn(bond_dev, "Error %d calling set_mac_address\n", res);
->        }
->    }
->
-> diff --git a/drivers/net/bonding/bond_netlink.c
-> b/drivers/net/bonding/bond_netlink.c
-> index db760e8..e4ffc94 100644
-> --- a/drivers/net/bonding/bond_netlink.c
-> +++ b/drivers/net/bonding/bond_netlink.c
-> @@ -49,9 +49,8 @@ static int bond_fill_slave_info(struct sk_buff *skb,
->            slave->link_failure_count))
->        goto nla_put_failure;
->
-> -   if (nla_put(skb, IFLA_BOND_SLAVE_PERM_HWADDR,
-> -           slave_dev->addr_len, slave->perm_hwaddr))
-> -       goto nla_put_failure;
-> +   nla_put(skb, IFLA_BOND_SLAVE_PERM_HWADDR, slave_dev->addr_len,
-> slave->perm_hwaddr);
->
->    if (nla_put_u16(skb, IFLA_BOND_SLAVE_QUEUE_ID, slave->queue_id))
->        goto nla_put_failure;
+> If so, it seems like the best way to get GSO-like qualities out of
+> udp_tunnel_xmit_skb. I've successfully done (1) and (2), following the
+> example of validate_xmit_skb() from net/core/dev.c. Now I need to
+> figure out how to do (3). Hopefully I'll find some nice convenience
+> functions for this...
+
+So far implementing (3) is failing miserably. Is there anything wrong
+with my general idea that might make this a priori impossible? For
+example, will udp_tunnel_xmit_skb not accept super-packets? Or, am I
+just not making use of whatever nice convenience functions are
+available for constructing super-packets, and thus am doing something
+wrong?
+
+Currently, I'm doing essentially what follows below. It seems like it
+ought to be working, but it's not.
 
 
+    gso_segs = DIV_ROUND_UP(skb->len, skb_shinfo(skb)->gso_size);
+    segs = skb_gso_segment(skb, 0);
+    if (IS_ERR(segs)) {
+        kfree_skb(skb);
+        return PTR_ERR(segs);
+    }
+    dev_kfree_skb(skb);
+
+    gso_size = magic_len(segs->len);
+    len = gso_size * gso_segs;
+
+    outgoing = alloc_skb(len, GFP_ATOMIC);
+    if (!outgoing) {
+        kfree_skb_list(segs);
+        return -ENOMEM;
+    }
+    skb_shinfo(outgoing)->gso_type = SKB_GSO_UDP;
+    skb_shinfo(outgoing)->gso_size = gso_size;
+    skb_shinfo(outgoing)->gso_segs = 0;
+    outgoing->ip_summed = CHECKSUM_PARTIAL;
+
+    src = segs;
+    while (src) {
+        next = src->next;
+        dst_buffer = skb_put(outgoing, magic_len(src->len));
+        ret = do_magic(dst_buffer, src);
+        if (ret) {
+            dev_kfree_skb(outgoing);
+            return ret;
+        }
+        ++skb_shinfo(outgoing)->gso_segs;
+        src = next;
+    }
+    return eventually_udp_tunnel_xmit_skb(outgoing);
 
 
--- 
-Turning and turning in the widening gyre
-The falcon cannot hear the falconer
-Things fall apart; the center cannot hold
-Mere anarchy is loosed upon the world
+Let me know if there is something fundamentally wrong with this
+approach. Or if you have any other pointers...
+
+Regards,
+Jason
