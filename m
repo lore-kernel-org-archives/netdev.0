@@ -1,51 +1,94 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH net] net/qlcnic: fix mac address restore in bond mode
- 5/6
-Date: Fri, 06 Nov 2015 11:25:25 -0500
-Message-ID: <563CD475.5090801@redhat.com>
-References: <1446819931-60897-1-git-send-email-jarod@redhat.com>
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
+ hierarchy
+Date: Fri, 6 Nov 2015 11:35:55 -0500
+Message-ID: <20151106163555.GB7813@cmpxchg.org>
+References: <20151027154138.GA4665@cmpxchg.org>
+ <20151027161554.GJ9891@dhcp22.suse.cz>
+ <20151027164227.GB7749@cmpxchg.org>
+ <20151029152546.GG23598@dhcp22.suse.cz>
+ <20151029161009.GA9160@cmpxchg.org>
+ <20151104104239.GG29607@dhcp22.suse.cz>
+ <20151104195037.GA6872@cmpxchg.org>
+ <20151105144002.GB15111@dhcp22.suse.cz>
+ <20151105205522.GA1067@cmpxchg.org>
+ <20151106090555.GK29259@esperanza>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dept-GELinuxNICDev@qlogic.com, netdev@vger.kernel.org,
-	Manish Chopra <manish.chopra@qlogic.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446819931-60897-1-git-send-email-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michal Hocko <mhocko@kernel.org>, David Miller <davem@davemloft.net>,
+	akpm@linux-foundation.org, tj@kernel.org, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Vladimir Davydov <vdavydov@virtuozzo.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20151106090555.GK29259@esperanza>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Jarod Wilson wrote:
-> The bonding driver saves a copy of slaves' original mac address and then
-> assigns whatever mac as needed to the slave, depending on mode. In at
-> least modes 5 and 6 (balance-tlb, balance-alb), it often ends up being the
-> mac address of another slave. On release from the bond, the original mac
-> address is supposed to get restored via a dev_set_mac_address() call in
-> the bonding driver's __bond_release_one() function, which calls the
-> slave's ndo_set_mac_address function, which for qlcnic, is
-> qlcnic_set_mac().
+On Fri, Nov 06, 2015 at 12:05:55PM +0300, Vladimir Davydov wrote:
+> On Thu, Nov 05, 2015 at 03:55:22PM -0500, Johannes Weiner wrote:
+> > On Thu, Nov 05, 2015 at 03:40:02PM +0100, Michal Hocko wrote:
+> ...
+> > > 3) keep only some (safe) cache types enabled by default with the current
+> > >    failing semantic and require an explicit enabling for the complete
+> > >    kmem accounting. [di]cache code paths should be quite robust to
+> > >    handle allocation failures.
+> > 
+> > Vladimir, what would be your opinion on this?
+> 
+> I'm all for this option. Actually, I've been thinking about this since I
+> introduced the __GFP_NOACCOUNT flag. Not because of the failing
+> semantics, since we can always let kmem allocations breach the limit.
+> This shouldn't be critical, because I don't think it's possible to issue
+> a series of kmem allocations w/o a single user page allocation, which
+> would reclaim/kill the excess.
+> 
+> The point is there are allocations that are shared system-wide and
+> therefore shouldn't go to any memcg. Most obvious examples are: mempool
+> users and radix_tree/idr preloads. Accounting them to memcg is likely to
+> result in noticeable memory overhead as memory cgroups are
+> created/destroyed, because they pin dead memory cgroups with all their
+> kmem caches, which aren't tiny.
+> 
+> Another funny example is objects destroyed lazily for performance
+> reasons, e.g. vmap_area. Such objects are usually very small, so
+> delaying destruction of a bunch of them will normally go unnoticed.
+> However, if kmemcg is used the effective memory consumption caused by
+> such objects can be multiplied by many times due to dangling kmem
+> caches.
+> 
+> We can, of course, mark all such allocations as __GFP_NOACCOUNT, but the
+> problem is they are tricky to identify, because they are scattered all
+> over the kernel source tree. E.g. Dave Chinner mentioned that XFS
+> internals do a lot of allocations that are shared among all XFS
+> filesystems and therefore should not be accounted (BTW that's why
+> list_lru's used by XFS are not marked as memcg-aware). There must be
+> more out there. Besides, kernel developers don't usually even know about
+> kmemcg (they just write the code for their subsys, so why should they?)
+> so they won't care thinking about using __GFP_NOACCOUNT, and hence new
+> falsely-accounted allocations are likely to appear.
+> 
+> That said, by switching from black-list (__GFP_NOACCOUNT) to white-list
+> (__GFP_ACCOUNT) kmem accounting policy we would make the system more
+> predictable and robust IMO. OTOH what would we lose? Security? Well,
+> containers aren't secure IMHO. In fact, I doubt they will ever be (as
+> secure as VMs). Anyway, if a runaway allocation is reported, it should
+> be trivial to fix by adding __GFP_ACCOUNT where appropriate.
 
-I didn't entirely flesh out this comment with some other relevant 
-thoughts. The qlcnic interface getting assigned another interface's mac 
-while in the bond is even more of a problem when you release the qlcnic 
-interface and the interface that it was borrowing an address from, 
-because now you have two interfaces in the system claiming to have the 
-same mac address, which by itself can be problematic, and also causes 
-problems if/when you try to add them back into a bond.
+I wholeheartedly agree with all of this.
 
+> If there are no objections, I'll prepare a patch switching to the
+> white-list approach. Let's start from obvious things like fs_struct,
+> mm_struct, task_struct, signal_struct, dentry, inode, which can be
+> easily allocated from user space. This should cover 90% of all
+> allocations that should be accounted AFAICS. The rest will be added
+> later if necessarily.
 
-> Now, this function tries to be somewhat intelligent and exit early if
-> you're trying to set the mac address to the same thing that is already
-> set. The problem here is that adapter->mac_addr isn't in sync with
-> netdev->dev_addr. The qlcnic driver still has the original mac stored in
-> adapter->mac_addr, while the bonding driver has updated netdev->dev_addr,
-> so qlcnic thinks we're trying to set the same address it already has.
->
-> I think the way to go here, since the function updates both netdev and
-> adapter's stored mac addresses, is to check if either of them doesn't
-> match the newly requested mac. Simply checking netdev's value only could
-> result in a similar mismatch and non-update, so look at both.
+Awesome, I'm looking forward to that patch!
 
--- 
-Jarod Wilson
-jarod@redhat.com
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
