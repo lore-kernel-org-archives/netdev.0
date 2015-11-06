@@ -1,84 +1,158 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
- hierarchy
-Date: Fri, 6 Nov 2015 13:51:40 +0100
-Message-ID: <20151106125140.GI4390@dhcp22.suse.cz>
-References: <20151104104239.GG29607@dhcp22.suse.cz>
- <20151104195037.GA6872@cmpxchg.org>
- <20151105144002.GB15111@dhcp22.suse.cz>
- <20151105.111609.1695015438589063316.davem@davemloft.net>
- <20151105162803.GD15111@dhcp22.suse.cz>
- <20151105223251.GA4427@cmpxchg.org>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Deadlock between bind and splice
+Date: Fri, 6 Nov 2015 13:58:27 +0100
+Message-ID: <CACT4Y+brDX=C15jSs33zGaCBt2BDPPzBcgqtKA2dYMdviYjKww@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	vdavydov@virtuozzo.com, tj@kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151105223251.GA4427@cmpxchg.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:38216 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932747AbbKFM6s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 07:58:48 -0500
+Received: by wicll6 with SMTP id ll6so28230148wic.1
+        for <netdev@vger.kernel.org>; Fri, 06 Nov 2015 04:58:47 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu 05-11-15 17:32:51, Johannes Weiner wrote:
-> On Thu, Nov 05, 2015 at 05:28:03PM +0100, Michal Hocko wrote:
-[...]
-> > Yes, that part is clear and Johannes made it clear that the kmem tcp
-> > part is disabled by default. Or are you considering also all the slab
-> > usage by the networking code as well?
-> 
-> Michal, there shouldn't be any tracking or accounting going on per
-> default when you boot into a fresh system.
-> 
-> I removed all accounting and statistics on the system level in
-> cgroupv2, so distribution kernels can compile-time enable a single,
-> feature-complete CONFIG_MEMCG that provides a full memory controller
-> while at the same time puts no overhead on users that don't benefit
-> from mem control at all and just want to use the machine bare-metal.
+Hello,
 
-Yes that part is clear and I am not disputing it _at all_. It is just
-that changes are high that memory controller _will_ be enabled in a
-typical distribution systems. E.g. systemd _is_ enabling all resource
-controllers by default for some services with Delegate=yes option.
+I am on revision d1e41ff11941784f469f17795a4d9425c2eb4b7a (Nov 5) and
+seeing the following lockdep reports. I don't have exact reproducer
+program as it is caused by several independent programs (state
+accumulated in kernel across invocations); if the report is not enough
+I can try to cook a reproducer.
 
-> This is completely doable. My new series does it for skmem, but I also
-> want to retrofit the code to eliminate that current overhead for page
-> cache, anonymous memory, slab memory and so forth.
-> 
-> This is the only sane way to make the memory controller powerful and
-> generally useful without having to make unreasonable compromises with
-> memory consumers. We shouldn't even be *having* the discussion about
-> whether we should sacrifice the quality of our interface in order to
-> compromise with a class of users that doesn't care about any of this
-> in the first place.
-> 
-> So let's eliminate the cost for non-users, but make the memory
-> controller feature-complete and useful--with reasonable cost,
-> implementation, and interface--for our actual userbase.
-> 
-> Paying the necessary cost for a functionality you actually want is not
-> the problem. Paying for something that doesn't benefit you is.
+Thanks.
 
-I completely agree that a reasonable cost for those who _want_ the
-functionality. It hasn't been shown that people actually lack kmem
-accounting in the wild from the past in general. E.g. kmem controller
-is even not enabled in opensuse nor SLES kernels and I do not remember
-there was huge push to enable it.
+[ INFO: possible circular locking dependency detected ]
+4.3.0+ #30 Not tainted
+-------------------------------------------------------
+a.out/9972 is trying to acquire lock:
+ (&pipe->mutex/1){+.+.+.}, at: [<     inline     >] pipe_lock_nested
+fs/pipe.c:59
+ (&pipe->mutex/1){+.+.+.}, at: [<ffffffff814d6e46>]
+pipe_lock+0x56/0x70 fs/pipe.c:67
 
-I do understand that you want to have an out-of-the-box isolation
-behavior which I agree is a nice-to-have feature. Especially with
-a larger penetration of containerized workloads. But my point still
-holds. This is not something everybody wants to have. So have a
-configuration and a boot time option to override is the most reasonable
-way to go. You can clearly see that this is already demand from tcp
-kmem extension because they really _care_ about every single cpu cycle
-even though some part of the userspace happens to have memcg enabled.
+but task is already holding lock:
+ (sb_writers#5){.+.+.+}, at: [<ffffffff814c77ec>]
+__sb_start_write+0xec/0x130 fs/super.c:1198
 
-The question about the configuration default is a different question
-and we can discuss that because this is not an easy one to decide right
-now IMHO.
--- 
-Michal Hocko
-SUSE Labs
+which lock already depends on the new lock.
+
+the existing dependency chain (in reverse order) is:
+
+-> #2 (sb_writers#5){.+.+.+}:
+       [<ffffffff811f655d>] lock_acquire+0x16d/0x2f0
+kernel/locking/lockdep.c:3585
+       [<ffffffff811e434c>] percpu_down_read+0x3c/0xa0
+kernel/locking/percpu-rwsem.c:73
+       [<ffffffff814c77ec>] __sb_start_write+0xec/0x130 fs/super.c:1198
+       [<     inline     >] sb_start_write include/linux/fs.h:1449
+       [<ffffffff81526f4f>] mnt_want_write+0x3f/0xb0 fs/namespace.c:386
+       [<ffffffff814f43f6>] filename_create+0x106/0x450 fs/namei.c:3425
+       [<ffffffff814f4773>] kern_path_create+0x33/0x40 fs/namei.c:3471
+       [<     inline     >] unix_mknod net/unix/af_unix.c:849
+       [<ffffffff82acb27b>] unix_bind+0x41b/0xa10 net/unix/af_unix.c:917
+       [<ffffffff827636da>] SYSC_bind+0x1ea/0x250 net/socket.c:1383
+       [<ffffffff82766164>] SyS_bind+0x24/0x30 net/socket.c:1369
+       [<ffffffff82f21951>] entry_SYSCALL_64_fastpath+0x31/0x9a
+arch/x86/entry/entry_64.S:187
+
+-> #1 (&u->readlock){+.+.+.}:
+       [<ffffffff811f655d>] lock_acquire+0x16d/0x2f0
+kernel/locking/lockdep.c:3585
+       [<     inline     >] __mutex_lock_common kernel/locking/mutex.c:518
+       [<ffffffff82f196c9>] mutex_lock_interruptible_nested+0xa9/0xa30
+kernel/locking/mutex.c:647
+       [<ffffffff82ac32bc>] unix_stream_sendpage+0x23c/0x700
+net/unix/af_unix.c:1768
+       [<ffffffff82761690>] kernel_sendpage+0x90/0xe0 net/socket.c:3278
+       [<ffffffff82761785>] sock_sendpage+0xa5/0xd0 net/socket.c:765
+       [<ffffffff8155668a>] pipe_to_sendpage+0x26a/0x320 fs/splice.c:720
+       [<     inline     >] splice_from_pipe_feed fs/splice.c:772
+       [<ffffffff815579a8>] __splice_from_pipe+0x268/0x740 fs/splice.c:889
+       [<ffffffff8155c2f7>] splice_from_pipe+0xf7/0x140 fs/splice.c:924
+       [<ffffffff8155c380>] generic_splice_sendpage+0x40/0x50 fs/splice.c:1097
+       [<     inline     >] do_splice_from fs/splice.c:1116
+       [<     inline     >] do_splice fs/splice.c:1392
+       [<     inline     >] SYSC_splice fs/splice.c:1695
+       [<ffffffff8155d005>] SyS_splice+0x845/0x17c0 fs/splice.c:1678
+       [<ffffffff82f21951>] entry_SYSCALL_64_fastpath+0x31/0x9a
+arch/x86/entry/entry_64.S:187
+
+-> #0 (&pipe->mutex/1){+.+.+.}:
+       [<     inline     >] check_prev_add kernel/locking/lockdep.c:1853
+       [<     inline     >] check_prevs_add kernel/locking/lockdep.c:1958
+       [<     inline     >] validate_chain kernel/locking/lockdep.c:2144
+       [<ffffffff811f3769>] __lock_acquire+0x36d9/0x40e0
+kernel/locking/lockdep.c:3206
+       [<ffffffff811f655d>] lock_acquire+0x16d/0x2f0
+kernel/locking/lockdep.c:3585
+       [<     inline     >] __mutex_lock_common kernel/locking/mutex.c:518
+       [<ffffffff82f18dcc>] mutex_lock_nested+0x9c/0x8f0
+kernel/locking/mutex.c:618
+       [<     inline     >] pipe_lock_nested fs/pipe.c:59
+       [<ffffffff814d6e46>] pipe_lock+0x56/0x70 fs/pipe.c:67
+       [<ffffffff815581c9>] iter_file_splice_write+0x199/0xb20 fs/splice.c:962
+       [<     inline     >] do_splice_from fs/splice.c:1116
+       [<     inline     >] do_splice fs/splice.c:1392
+       [<     inline     >] SYSC_splice fs/splice.c:1695
+       [<ffffffff8155d005>] SyS_splice+0x845/0x17c0 fs/splice.c:1678
+       [<ffffffff82f21951>] entry_SYSCALL_64_fastpath+0x31/0x9a
+arch/x86/entry/entry_64.S:187
+
+other info that might help us debug this:
+
+Chain exists of:
+  &pipe->mutex/1 --> &u->readlock --> sb_writers#5
+
+ Possible unsafe locking scenario:
+
+       CPU0                    CPU1
+       ----                    ----
+  lock(sb_writers#5);
+                               lock(&u->readlock);
+                               lock(sb_writers#5);
+  lock(&pipe->mutex/1);
+
+ *** DEADLOCK ***
+
+1 lock held by a.out/9972:
+ #0:  (sb_writers#5){.+.+.+}, at: [<ffffffff814c77ec>]
+__sb_start_write+0xec/0x130 fs/super.c:1198
+
+stack backtrace:
+CPU: 1 PID: 9972 Comm: a.out Not tainted 4.3.0+ #30
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ 00000000ffffffff ffff88003d777938 ffffffff81aad406 ffffffff846046a0
+ ffffffff84606860 ffffffff846086c0 ffff88003d777980 ffffffff811ec511
+ ffff88003d777a80 000000003cf79640 ffff88003cf79df0 ffff88003cf79e12
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff81aad406>] dump_stack+0x68/0x92 lib/dump_stack.c:50
+ [<ffffffff811ec511>] print_circular_bug+0x2d1/0x390
+kernel/locking/lockdep.c:1226
+ [<     inline     >] check_prev_add kernel/locking/lockdep.c:1853
+ [<     inline     >] check_prevs_add kernel/locking/lockdep.c:1958
+ [<     inline     >] validate_chain kernel/locking/lockdep.c:2144
+ [<ffffffff811f3769>] __lock_acquire+0x36d9/0x40e0 kernel/locking/lockdep.c:3206
+ [<ffffffff811f655d>] lock_acquire+0x16d/0x2f0 kernel/locking/lockdep.c:3585
+ [<     inline     >] __mutex_lock_common kernel/locking/mutex.c:518
+ [<ffffffff82f18dcc>] mutex_lock_nested+0x9c/0x8f0 kernel/locking/mutex.c:618
+ [<     inline     >] pipe_lock_nested fs/pipe.c:59
+ [<ffffffff814d6e46>] pipe_lock+0x56/0x70 fs/pipe.c:67
+ [<ffffffff815581c9>] iter_file_splice_write+0x199/0xb20 fs/splice.c:962
+ [<     inline     >] do_splice_from fs/splice.c:1116
+ [<     inline     >] do_splice fs/splice.c:1392
+ [<     inline     >] SYSC_splice fs/splice.c:1695
+ [<ffffffff8155d005>] SyS_splice+0x845/0x17c0 fs/splice.c:1678
+ [<ffffffff82f21951>] entry_SYSCALL_64_fastpath+0x31/0x9a
+arch/x86/entry/entry_64.S:187
