@@ -1,177 +1,59 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] ip_common.h header cleanup
-Date: Fri,  6 Nov 2015 18:54:08 +0100
-Message-ID: <1446832448-26793-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: [PATCH net 4/5] bnxt_en: Fix comparison of u16 sw_id against
+ negative value.
+Date: Fri, 6 Nov 2015 09:55:08 -0800
+Message-ID: <1446832508.5220.14.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1446758751-27999-1-git-send-email-mchan@broadcom.com>
+	 <1446758751-27999-5-git-send-email-mchan@broadcom.com>
+	 <563C95C2.6060606@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="cp1252"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Dan Carpenter <dan.carpenter@oracle.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:35964 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932977AbbKFRyK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Nov 2015 12:54:10 -0500
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:4531 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161803AbbKFRzL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 12:55:11 -0500
+In-Reply-To: <563C95C2.6060606@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Drop 'extern' keyword from all function prototypes.
-- Make line breaking of print_* functions consistent.
-- Make print_ntable() and ipntable_reset_filter() static and remove
-  their declaration.
-- Drop declaration of non-existent ipaddr_list() and iproute_monitor().
+On Fri, 2015-11-06 at 14:57 +0300, Sergei Shtylyov wrote: 
+> Hello.
+> 
+> On 11/6/2015 12:25 AM, Michael Chan wrote:
+> 
+> > Assign the return value from bitmap_find_free_region() to an integer
+> > variable and check for negative error codes first, before assigning
+> > the bit ID to the unsigned sw_id field.
+> >
+> > Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > Cc: Dan Carpenter <dan.carpenter@oracle.com>
+> > Signed-off-by: Michael Chan <mchan@broadcom.com>
+> > ---
+> >   drivers/net/ethernet/broadcom/bnxt/bnxt.c | 9 +++++----
+> >   1 file changed, 5 insertions(+), 4 deletions(-)
+> >
+> > diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+> > index a62deff..db15c5e 100644
+> > --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+> > +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+> > @@ -5307,7 +5307,7 @@ static int bnxt_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
+> >   	struct bnxt_ntuple_filter *fltr, *new_fltr;
+> >   	struct flow_keys *fkeys;
+> >   	struct ethhdr *eth = (struct ethhdr *)skb_mac_header(skb);
+> > -	int rc = 0, idx;
+> > +	int rc = 0, idx, bit_id;
+> 
+>     I'd use the already declared 'rc' variable.
+> 
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/ip_common.h | 116 +++++++++++++++++++++++++++------------------------------
- ip/ipntable.c  |   4 +-
- 2 files changed, 56 insertions(+), 64 deletions(-)
+I agree with you.  Normally, rc should only contain 0 or negative error
+codes and is returned to the caller.  In this particular case, the
+caller expects negative or non negative values and we could have used
+rc.
 
-diff --git a/ip/ip_common.h b/ip/ip_common.h
-index f74face..9a846df 100644
---- a/ip/ip_common.h
-+++ b/ip/ip_common.h
-@@ -1,68 +1,60 @@
--extern int get_operstate(const char *name);
--extern int print_linkinfo(const struct sockaddr_nl *who,
--			  struct nlmsghdr *n,
--			  void *arg);
--extern int print_linkinfo_brief(const struct sockaddr_nl *who,
--				struct nlmsghdr *n,
--				void *arg);
--extern int print_addrinfo(const struct sockaddr_nl *who,
--			  struct nlmsghdr *n,
--			  void *arg);
--extern int print_addrlabel(const struct sockaddr_nl *who,
--			   struct nlmsghdr *n, void *arg);
--extern int print_neigh(const struct sockaddr_nl *who,
--		       struct nlmsghdr *n, void *arg);
--extern int print_ntable(const struct sockaddr_nl *who,
--			struct nlmsghdr *n, void *arg);
--extern int ipaddr_list(int argc, char **argv);
--extern int ipaddr_list_link(int argc, char **argv);
-+int get_operstate(const char *name);
-+int print_linkinfo(const struct sockaddr_nl *who,
-+		   struct nlmsghdr *n, void *arg);
-+int print_linkinfo_brief(const struct sockaddr_nl *who,
-+			 struct nlmsghdr *n, void *arg);
-+int print_addrinfo(const struct sockaddr_nl *who,
-+		   struct nlmsghdr *n, void *arg);
-+int print_addrlabel(const struct sockaddr_nl *who,
-+		    struct nlmsghdr *n, void *arg);
-+int print_neigh(const struct sockaddr_nl *who,
-+	        struct nlmsghdr *n, void *arg);
-+int ipaddr_list_link(int argc, char **argv);
- void ipaddr_get_vf_rate(int, int *, int *, int);
--extern int iproute_monitor(int argc, char **argv);
--extern void iplink_usage(void) __attribute__((noreturn));
-+void iplink_usage(void) __attribute__((noreturn));
- 
--extern void iproute_reset_filter(int ifindex);
--extern void ipmroute_reset_filter(int ifindex);
--extern void ipaddr_reset_filter(int oneline, int ifindex);
--extern void ipneigh_reset_filter(int ifindex);
--extern void ipntable_reset_filter(void);
--extern void ipnetconf_reset_filter(int ifindex);
-+void iproute_reset_filter(int ifindex);
-+void ipmroute_reset_filter(int ifindex);
-+void ipaddr_reset_filter(int oneline, int ifindex);
-+void ipneigh_reset_filter(int ifindex);
-+void ipnetconf_reset_filter(int ifindex);
- 
--extern int print_route(const struct sockaddr_nl *who,
--		       struct nlmsghdr *n, void *arg);
--extern int print_mroute(const struct sockaddr_nl *who,
--			struct nlmsghdr *n, void *arg);
--extern int print_prefix(const struct sockaddr_nl *who,
--			struct nlmsghdr *n, void *arg);
--extern int print_rule(const struct sockaddr_nl *who,
--		      struct nlmsghdr *n, void *arg);
--extern int print_netconf(const struct sockaddr_nl *who,
--			 struct rtnl_ctrl_data *ctrl,
--			 struct nlmsghdr *n, void *arg);
--extern void netns_map_init(void);
--extern int print_nsid(const struct sockaddr_nl *who,
--		      struct nlmsghdr *n, void *arg);
--extern int do_ipaddr(int argc, char **argv);
--extern int do_ipaddrlabel(int argc, char **argv);
--extern int do_iproute(int argc, char **argv);
--extern int do_iprule(int argc, char **argv);
--extern int do_ipneigh(int argc, char **argv);
--extern int do_ipntable(int argc, char **argv);
--extern int do_iptunnel(int argc, char **argv);
--extern int do_ip6tunnel(int argc, char **argv);
--extern int do_iptuntap(int argc, char **argv);
--extern int do_iplink(int argc, char **argv);
--extern int do_ipmonitor(int argc, char **argv);
--extern int do_multiaddr(int argc, char **argv);
--extern int do_multiroute(int argc, char **argv);
--extern int do_multirule(int argc, char **argv);
--extern int do_netns(int argc, char **argv);
--extern int do_xfrm(int argc, char **argv);
--extern int do_ipl2tp(int argc, char **argv);
--extern int do_ipfou(int argc, char **argv);
--extern int do_tcp_metrics(int argc, char **argv);
--extern int do_ipnetconf(int argc, char **argv);
--extern int do_iptoken(int argc, char **argv);
--extern int iplink_get(unsigned int flags, char *name, __u32 filt_mask);
-+int print_route(const struct sockaddr_nl *who,
-+		struct nlmsghdr *n, void *arg);
-+int print_mroute(const struct sockaddr_nl *who,
-+		 struct nlmsghdr *n, void *arg);
-+int print_prefix(const struct sockaddr_nl *who,
-+		 struct nlmsghdr *n, void *arg);
-+int print_rule(const struct sockaddr_nl *who,
-+	       struct nlmsghdr *n, void *arg);
-+int print_netconf(const struct sockaddr_nl *who,
-+		  struct rtnl_ctrl_data *ctrl,
-+		  struct nlmsghdr *n, void *arg);
-+void netns_map_init(void);
-+int print_nsid(const struct sockaddr_nl *who,
-+	       struct nlmsghdr *n, void *arg);
-+int do_ipaddr(int argc, char **argv);
-+int do_ipaddrlabel(int argc, char **argv);
-+int do_iproute(int argc, char **argv);
-+int do_iprule(int argc, char **argv);
-+int do_ipneigh(int argc, char **argv);
-+int do_ipntable(int argc, char **argv);
-+int do_iptunnel(int argc, char **argv);
-+int do_ip6tunnel(int argc, char **argv);
-+int do_iptuntap(int argc, char **argv);
-+int do_iplink(int argc, char **argv);
-+int do_ipmonitor(int argc, char **argv);
-+int do_multiaddr(int argc, char **argv);
-+int do_multiroute(int argc, char **argv);
-+int do_multirule(int argc, char **argv);
-+int do_netns(int argc, char **argv);
-+int do_xfrm(int argc, char **argv);
-+int do_ipl2tp(int argc, char **argv);
-+int do_ipfou(int argc, char **argv);
-+int do_tcp_metrics(int argc, char **argv);
-+int do_ipnetconf(int argc, char **argv);
-+int do_iptoken(int argc, char **argv);
-+int iplink_get(unsigned int flags, char *name, __u32 filt_mask);
- 
- static inline int rtm_get_table(struct rtmsg *r, struct rtattr **tb)
- {
-diff --git a/ip/ipntable.c b/ip/ipntable.c
-index 5e84b95..6eb84e7 100644
---- a/ip/ipntable.c
-+++ b/ip/ipntable.c
-@@ -349,7 +349,7 @@ static const char *ntable_strtime_delta(__u32 msec)
- 	return str;
- }
- 
--int print_ntable(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
-+static int print_ntable(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- {
- 	FILE *fp = (FILE*)arg;
- 	struct ndtmsg *ndtm = NLMSG_DATA(n);
-@@ -601,7 +601,7 @@ int print_ntable(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	return 0;
- }
- 
--void ipntable_reset_filter(void)
-+static void ipntable_reset_filter(void)
- {
- 	memset(&filter, 0, sizeof(filter));
- }
--- 
-2.1.2
+Perhaps I'll make the change in the next round of patches.  Thanks.
