@@ -1,75 +1,50 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: Regression in bonding driver - devices without set_mac
-Date: Fri, 06 Nov 2015 14:46:00 -0800
-Message-ID: <6968.1446849960@famine>
-References: <CABEgq95FYdt86-KEgkarUr-9g_mHoesV6B7OtrFut4pBR0UGcQ@mail.gmail.com>
-Cc: netdev@vger.kernel.org, Veaceslav Falico <vfalico@gmail.com>
-To: Toby Corkindale <tjc@wintrmute.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] inet: delay address promotion check until last request
+ in message
+Date: Sat, 7 Nov 2015 01:49:25 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1511062352270.1904@ja.home.ssi.bg>
+References: <1446839495-32719-1-git-send-email-nhorman@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:39578 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757697AbbKFWqE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 17:46:04 -0500
-In-reply-to: <CABEgq95FYdt86-KEgkarUr-9g_mHoesV6B7OtrFut4pBR0UGcQ@mail.gmail.com>
+Received: from ja.ssi.bg ([178.16.129.10]:35762 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757821AbbKFXu3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Nov 2015 18:50:29 -0500
+In-Reply-To: <1446839495-32719-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Toby Corkindale <tjc@wintrmute.net> wrote:
 
->I originally reported this in Dec 2014, as:
->https://bugzilla.kernel.org/show_bug.cgi?id=89161
->
->The bug is still present in the 4.2 Linux kernel.
+	Hello,
 
-	I had some time to look into this today, and there is a related
-code path that panics the kernel, so I'm working on a patch to resolve
-things, and will be posting that shortly.
+On Fri, 6 Nov 2015, Neil Horman wrote:
 
->If you look at the code, here:
->https://github.com/torvalds/linux/commit/f54424412b6b2f64cae4d7c39d981ca14ce0052c
->
->Then you see that the intention is for devices without set_mac support
->to be supported. Although in older code they DID work, and that
->ability died sometime near this commit. And has never returned since.
+> The solution is to recognize that its pointless to promote an address to be a
+> new primary, if there is a possibility that it will just be removed in the near
+> future.  As such this patch peeks ahead to the next request in the provided
+> netlink message, and, if it is both valid and a RTM_DELADDR request, skips the
+> promotion check.  This eliminates the need to iterate through a nested for loop
 
-	Unfortunately, I believe the referenced commit is in error.  The
-change log states:
+	flush can provide many parameters. As there is no
+any kind of indication in the netlink message that all addresses
+are removed, we can not avoid the promotion.
 
-	[...] It's wrong because we
-    only require ndo_set_mac_address in case bonding is in active-backup mode
-    and FOM isn't FOM_ACTIVE.
+> +	 * Only check for address promotion when this is the last request
+> +	 * in this netlink transaction.  It allows this operation to complete
+> +	 * in O(n) time rather than O(n^2)
 
-	This assertion is incorrect; ndo_set_mac_address is necessary
-for all modes with the only exception being active-backup with
-fail_over_mac enabled.
+	It is not correct to assume that one promotion per
+transaction is enough. The promotion happens in every subnet,
+it was not once per device.
 
-	All of the load balance modes (everything except active-backup)
-will change the MAC of the slave devices at some point, and thus require
-ndo_set_mac_address support.
+Regards
 
-	PPP devices should function in active-backup mode, and should
-enable fail_over_mac automatically (if the PPP device is the first
-slave) if f_o_m is not already enabled.
-
-	The prior discussion on this patch can be found here:
-
-http://www.spinics.net/lists/netdev/msg289311.html
-
->The code path in current kernels does allow devices through that block
->of code, but it fails somewhere else -- the devices are not
->successfully added as slaves, but the only error printed is the
->warning about not supporting MAC address setting.
-
-	What is happening in the current code is that, for load balance
-modes, e.g., balance-rr, the test for ndo_set_mac_address support
-passes, but, later, bond_enslave attempts to actually set the MAC of the
-new slave, and this fails (because there is no ndo_set_mac).
-
->Is there anything I can do to try and sort this regression out, with you?
-
-	As I said, I do not believe this is a regression.
-
-	-J
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+--
+Julian Anastasov <ja@ssi.bg>
