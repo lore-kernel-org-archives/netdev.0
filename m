@@ -1,47 +1,44 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: [PATCH net] selinux: fix random read in selinux_ip_postroute_compat()
-Date: Fri, 6 Nov 2015 14:52:38 +0100
-Message-ID: <CACT4Y+ZsiydE4BL_6pGS=LcmS19Dr0+HoJ19AY-4UNNxm3eNXA@mail.gmail.com>
-References: <CACT4Y+ZVnfoqeJZ5cOKu70d3N9LuPMeotarKGBx-EHwYrOe-Eg@mail.gmail.com>
- <1446752806.4184.50.camel@edumazet-glaptop2.roam.corp.google.com>
- <1446759564.4184.65.camel@edumazet-glaptop2.roam.corp.google.com> <20151105.164613.618044250901993825.davem@davemloft.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [GIT PULL] parisc architecture updates for v4.3
+Date: Fri, 6 Nov 2015 15:10:21 +0100
+Message-ID: <CAMuHMdVa1eXfN9gMC_ztUC=_g5RA3FQm2xivpvo1CnCJgwGrcQ@mail.gmail.com>
+References: <20151025114934.GA11108@ls3530.box>
+	<CA+55aFyJyY1FE_1k6Ks-2j4nYr7cbde_KvZ=J3fMUFJG5Okijg@mail.gmail.com>
+	<56393D46.6060903@gmx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>, Paul Moore <paul@paul-moore.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:35985 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932918AbbKFNw7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 08:52:59 -0500
-Received: by wimw2 with SMTP id w2so30751651wim.1
-        for <netdev@vger.kernel.org>; Fri, 06 Nov 2015 05:52:58 -0800 (PST)
-In-Reply-To: <20151105.164613.618044250901993825.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Parisc List <linux-parisc@vger.kernel.org>,
+	James Bottomley <James.Bottomley@hansenpartnership.com>,
+	John David Anglin <dave.anglin@bell.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Helge Deller <deller@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56393D46.6060903@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 5, 2015 at 10:46 PM, David Miller <davem@davemloft.net> wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 05 Nov 2015 13:39:24 -0800
+On Wed, Nov 4, 2015 at 12:03 AM, Helge Deller <deller@gmx.de> wrote:
+>> Also, just looking at other things, we currently do have openrisc that has
+>>
+>>   #define L1_CACHE_BYTES 16
+>>
+>> so presumably openrisc would have had an issue with that XPS thing,
 >
->> From: Eric Dumazet <edumazet@google.com>
->>
->> In commit e446f9dfe17b ("net: synack packets can be attached to request
->> sockets"), I missed one remaining case of invalid skb->sk->sk_security
->> access.
->>
->> Dmitry Vyukov got a KASan report pointing to it.
->>
->> Add selinux_skb_sk() helper that is responsible to get back to the
->> listener if skb is attached to a request socket, instead of
->> duplicating the logic.
->>
->> Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
->> Reported-by: Dmitry Vyukov <dvyukov@google.com>
->> Cc: Paul Moore <paul@paul-moore.com>
->
-> Looks good, applied, thanks Eric!
+> and mn10300.
 
-Fixed the issue for me.
+And several other architectures that define L1_CACHE_BYTES using
+L1_CACHE_SHIFT.
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
