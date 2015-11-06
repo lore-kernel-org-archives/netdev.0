@@ -1,55 +1,47 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
- hierarchy
-Date: Fri, 6 Nov 2015 14:29:40 +0100
-Message-ID: <20151106132940.GK4390@dhcp22.suse.cz>
-References: <20151027154138.GA4665@cmpxchg.org>
- <20151027161554.GJ9891@dhcp22.suse.cz>
- <20151027164227.GB7749@cmpxchg.org>
- <20151029152546.GG23598@dhcp22.suse.cz>
- <20151029161009.GA9160@cmpxchg.org>
- <20151104104239.GG29607@dhcp22.suse.cz>
- <20151104195037.GA6872@cmpxchg.org>
- <20151105144002.GB15111@dhcp22.suse.cz>
- <20151105205522.GA1067@cmpxchg.org>
- <20151106090555.GK29259@esperanza>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: [PATCH net] selinux: fix random read in selinux_ip_postroute_compat()
+Date: Fri, 6 Nov 2015 14:52:38 +0100
+Message-ID: <CACT4Y+ZsiydE4BL_6pGS=LcmS19Dr0+HoJ19AY-4UNNxm3eNXA@mail.gmail.com>
+References: <CACT4Y+ZVnfoqeJZ5cOKu70d3N9LuPMeotarKGBx-EHwYrOe-Eg@mail.gmail.com>
+ <1446752806.4184.50.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1446759564.4184.65.camel@edumazet-glaptop2.roam.corp.google.com> <20151105.164613.618044250901993825.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Weiner <hannes@cmpxchg.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	tj@kernel.org, netdev@vger.kernel.org, linux-mm@kvack.org,
-	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Vladimir Davydov <vdavydov@virtuozzo.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151106090555.GK29259@esperanza>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>, Paul Moore <paul@paul-moore.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:35985 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932918AbbKFNw7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 08:52:59 -0500
+Received: by wimw2 with SMTP id w2so30751651wim.1
+        for <netdev@vger.kernel.org>; Fri, 06 Nov 2015 05:52:58 -0800 (PST)
+In-Reply-To: <20151105.164613.618044250901993825.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri 06-11-15 12:05:55, Vladimir Davydov wrote:
-[...]
-> If there are no objections, I'll prepare a patch switching to the
-> white-list approach. Let's start from obvious things like fs_struct,
-> mm_struct, task_struct, signal_struct, dentry, inode, which can be
-> easily allocated from user space.
+On Thu, Nov 5, 2015 at 10:46 PM, David Miller <davem@davemloft.net> wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 05 Nov 2015 13:39:24 -0800
+>
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> In commit e446f9dfe17b ("net: synack packets can be attached to request
+>> sockets"), I missed one remaining case of invalid skb->sk->sk_security
+>> access.
+>>
+>> Dmitry Vyukov got a KASan report pointing to it.
+>>
+>> Add selinux_skb_sk() helper that is responsible to get back to the
+>> listener if skb is attached to a request socket, instead of
+>> duplicating the logic.
+>>
+>> Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+>> Cc: Paul Moore <paul@paul-moore.com>
+>
+> Looks good, applied, thanks Eric!
 
-pipe buffers, kernel stacks and who knows what more.
-
-> This should cover 90% of all
-> allocations that should be accounted AFAICS. The rest will be added
-> later if necessarily.
-
-The more I think about that the more I am convinced that is the only
-sane way forward. The only concerns I would have is how do we deal with
-the old interface in cgroup1? We do not want to break existing
-deployments which might depend on the current behavior. I doubt they are
-but...
--- 
-Michal Hocko
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Fixed the issue for me.
