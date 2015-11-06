@@ -1,42 +1,148 @@
-From: ronny.hegewald@online.de
-Subject: Aw: Re: question about checksumming and tcp_sendpage
-Date: Fri, 6 Nov 2015 20:14:15 +0100
-Message-ID: <trinity-afda3924-c5a6-4998-98b5-ee047f5cbe74-1446837255645@3capp-1and1-bs04>
-References: <trinity-80ad84c3-456a-4f51-a3e9-afee4e8ae504-1446759288452@3capp-1and1-bs03>,
- <CALx6S369t4iOKYnM=Qzc-oguVZECK93=VJXbhzt+objjs70W4Q@mail.gmail.com>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [RFC PATCH 2/2] net: mvneta: Add naive RSS support
+Date: Fri, 6 Nov 2015 20:15:31 +0100
+Message-ID: <CAPv3WKecZuSfk4LpCehWoijiA6Ea306qn5iyNbg4TucYuOZauw@mail.gmail.com>
+References: <1446834911-29910-1-git-send-email-gregory.clement@free-electrons.com>
+	<1446834911-29910-3-git-send-email-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: "Tom Herbert" <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.24]:63787 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751284AbbKFTOR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 14:14:17 -0500
-In-Reply-To: <CALx6S369t4iOKYnM=Qzc-oguVZECK93=VJXbhzt+objjs70W4Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446834911-29910-3-git-send-email-gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Well, looking at the code I don't readily see how this works either,
-> but note that tcp_sendmsg has the same check also. If your analysis is
-> correct then checksum for IPv6 would commonly be broken (i.e. several
-> devices support IPv4 checksum but not IPv6)-- so I find that hard to
-> believe so I'm probably missing something too! (at least this
-> ambiguity is one more reason why we need to get rid of NETIF_F_IP_CSUM
-> and NETIF_F_V6_CSUM!).
+Hi Gregory,
 
-I think the checksum-building is not broken because of this on itself. The
-problem i see is for example in case pages are sent from a block-device 
-over the net. 
+2015-11-06 19:35 GMT+01:00 Gregory CLEMENT <gregory.clement@free-electrons.com>:
+> This patch add the support for the RSS related ethtool
+> function. Currently it only use one entry in the indirection table which
+> allows associating an mveneta interface to a given CPU.
+>
+> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> ---
+>  drivers/net/ethernet/marvell/mvneta.c | 114 ++++++++++++++++++++++++++++++++++
+>  1 file changed, 114 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> index c38326b848f9..5f810a458443 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -259,6 +259,11 @@
+>
+>  #define MVNETA_TX_MTU_MAX              0x3ffff
+>
+> +/* The RSS lookup table actually has 256 entries but we do not use
+> + * them yet
+> + */
+> +#define MVNETA_RSS_LU_TABLE_SIZE       1
+> +
+>  /* TSO header size */
+>  #define TSO_HEADER_SIZE 128
+>
+> @@ -380,6 +385,8 @@ struct mvneta_port {
+>         int use_inband_status:1;
+>
+>         u64 ethtool_stats[ARRAY_SIZE(mvneta_statistics)];
+> +
+> +       u32 indir[MVNETA_RSS_LU_TABLE_SIZE];
+>  };
+>
+>  /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
+> @@ -3173,6 +3180,107 @@ static int mvneta_ethtool_get_sset_count(struct net_device *dev, int sset)
+>         return -EOPNOTSUPP;
+>  }
+>
+> +static u32 mvneta_ethtool_get_rxfh_indir_size(struct net_device *dev)
+> +{
+> +       return MVNETA_RSS_LU_TABLE_SIZE;
+> +}
+> +
+> +static int mvneta_ethtool_get_rxnfc(struct net_device *dev,
+> +                                   struct ethtool_rxnfc *info,
+> +                                   u32 *rules __always_unused)
+> +{
+> +       switch (info->cmd) {
+> +       case ETHTOOL_GRXRINGS:
+> +               info->data =  rxq_number;
+> +               return 0;
+> +       case ETHTOOL_GRXFH:
+> +               return -EOPNOTSUPP;
+> +       default:
+> +               return -EOPNOTSUPP;
+> +       }
+> +}
+> +
+> +static int  mvneta_config_rss(struct mvneta_port *pp)
+> +{
+> +       int cpu;
+> +       u32 val;
+> +
+> +       netif_tx_stop_all_queues(pp->dev);
+> +
+> +       /* Mask all ethernet port interrupts */
+> +       mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
 
-Depending on the block-device this pages might be changed at any time. 
-Because of the described issue the page-data wouldn't be copied as a call 
-to sock_no_sendpage would do it. So the page-data might change at any time
-during or after the checksum-building. From my understanding this would just
-cause a crc-error anytime after sending and would only lead to a resent 
-of the data, probably with a new checksum which will then be correct So
-there wouldn't be a obvious impact except some bad tcp packages.
+Shouldn't the interrupts be masked on each online cpu? There is percpu
+unmask function (mvneta_percpu_unmask_interrupt), so maybe ther should
+be also mvneta_percpu_mask_interrupt. With this masking should look
+like below:
 
-> Can you try to verify this a bug with some testing?
+     for_each_online_cpu(cpu)
+               smp_call_function_single(cpu, mvneta_percpu_unmask_interrupt,
+                                        pp, true);
 
-Will do.
+> +       mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
+> +       mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
+> +
+> +       /* We have to synchronise on the napi of each CPU */
+> +       for_each_online_cpu(cpu) {
+> +               struct mvneta_pcpu_port *pcpu_port =
+> +                       per_cpu_ptr(pp->ports, cpu);
+> +
+> +               napi_synchronize(&pcpu_port->napi);
+> +               napi_disable(&pcpu_port->napi);
+> +       }
+> +
+> +       pp->rxq_def = pp->indir[0];
+> +
+> +       /* update unicast mapping */
+> +       mvneta_set_rx_mode(pp->dev);
+> +
+> +       /* Update val of portCfg register accordingly with all RxQueue types */
+> +       val = MVNETA_PORT_CONFIG_DEFL_VALUE(pp->rxq_def);
+> +       mvreg_write(pp, MVNETA_PORT_CONFIG, val);
+> +
+> +       /* Update the elected CPU matching the new rxq_def */
+> +       mvneta_percpu_elect(pp);
+> +
+> +       /* We have to synchronise on the napi of each CPU */
+> +       for_each_online_cpu(cpu) {
+> +               struct mvneta_pcpu_port *pcpu_port =
+> +                       per_cpu_ptr(pp->ports, cpu);
+> +
+> +               napi_enable(&pcpu_port->napi);
+> +       }
+> +
+
+rxq_def changed, but txq vs CPU mapping remained as in the beginning -
+is it intentional?
+
+Best regards,
+Marcin
