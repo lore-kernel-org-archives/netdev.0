@@ -1,47 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/qlcnic: fix mac address restore in bond mode
- 5/6
-Date: Sat, 07 Nov 2015 13:17:49 -0500 (EST)
-Message-ID: <20151107.131749.1683961316470551613.davem@davemloft.net>
-References: <1446819931-60897-1-git-send-email-jarod@redhat.com>
+Subject: Re: [PATCH] decnet: remove macro-local declarations
+Date: Sat, 07 Nov 2015 13:18:34 -0500 (EST)
+Message-ID: <20151107.131834.2152455608881468661.davem@davemloft.net>
+References: <alpine.DEB.2.02.1511052107501.2065@localhost6.localdomain6>
+	<20151105.151320.1646543343654766675.davem@davemloft.net>
+	<alpine.DEB.2.10.1511061142440.2378@hadrien>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Dept-GELinuxNICDev@qlogic.com,
-	netdev@vger.kernel.org, manish.chopra@qlogic.com
-To: jarod@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446819931-60897-1-git-send-email-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org,
+	linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, lkp@intel.com,
+	roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com
+To: julia.lawall@lip6.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59596 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754111AbbKGSSh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 13:18:37 -0500
+In-Reply-To: <alpine.DEB.2.10.1511061142440.2378@hadrien>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jarod Wilson <jarod@redhat.com>
-Date: Fri,  6 Nov 2015 09:25:31 -0500
+From: Julia Lawall <julia.lawall@lip6.fr>
+Date: Fri, 6 Nov 2015 11:57:34 +0100 (CET)
 
-> The bonding driver saves a copy of slaves' original mac address and then
-> assigns whatever mac as needed to the slave, depending on mode. In at
-> least modes 5 and 6 (balance-tlb, balance-alb), it often ends up being the
-> mac address of another slave. On release from the bond, the original mac
-> address is supposed to get restored via a dev_set_mac_address() call in
-> the bonding driver's __bond_release_one() function, which calls the
-> slave's ndo_set_mac_address function, which for qlcnic, is
-> qlcnic_set_mac().
+>> > Would it be preferable to remove the macro entirely and inline the for
+>> > loop header?
+>>
+>> Could you show me an example of how this would look exactly?
 > 
-> Now, this function tries to be somewhat intelligent and exit early if
-> you're trying to set the mac address to the same thing that is already
-> set. The problem here is that adapter->mac_addr isn't in sync with
-> netdev->dev_addr. The qlcnic driver still has the original mac stored in
-> adapter->mac_addr, while the bonding driver has updated netdev->dev_addr,
-> so qlcnic thinks we're trying to set the same address it already has.
-> 
-> I think the way to go here, since the function updates both netdev and
-> adapter's stored mac addresses, is to check if either of them doesn't
-> match the newly requested mac. Simply checking netdev's value only could
-> result in a similar mismatch and non-update, so look at both.
-> 
-> CC: Dept-GELinuxNICDev@qlogic.com
-> CC: netdev@vger.kernel.org
-> CC: Manish Chopra <manish.chopra@qlogic.com>
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> One possible solution is below.  I moved the initialization of the nh
+> pointer inside the loop to reduce the size of the loop header.  One could
+> also inline fi->fib_nh[nhsel] where it occurs, but it seemed that that
+> would make quite long expressions.
 
-Applied.
+Personally I like the explicit named iterator.  It is descriptive and
+tells that we are walking over all of the nexthops for a route.
