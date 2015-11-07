@@ -1,54 +1,62 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] man: Syntax and warning fixes
-Date: Sat, 7 Nov 2015 09:40:47 -0700
-Message-ID: <563E298F.4070200@cumulusnetworks.com>
-References: <1446889471-22296-1-git-send-email-ville.skytta@iki.fi>
- <CAMu38xJwGcNgXKEZbuNFkEYDCtUoE1=xh6o3VziVOzwxdogkgg@mail.gmail.com>
- <CABr9L5B67DkOv8hY7eqogUxrcX+MaaYT3KKtM1W_V5eYpzPpXQ@mail.gmail.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: GSO with udp_tunnel_xmit_skb
+Date: Sat, 7 Nov 2015 09:19:50 -0800
+Message-ID: <CAHo-Oowk0Sk3dp_PTnZy6+N3_MgBSxO5csezXpmbF612duSeTA@mail.gmail.com>
+References: <CAHmME9pphqXyV_+LFQ6TTi4MjFB2Mopss6QQuT3YJQzvgtib2Q@mail.gmail.com>
+	<CALx6S379Ma+u1rKCwyDWEHDZpQUjr9mB_YQ4=iySo9Lgga2PaQ@mail.gmail.com>
+	<CAHmME9rp7ZJ_9=LHiQrO4ay_7mECj_jAmZBVHNT3Oi4uz8YxeQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?Q?Ville_Skytt=c3=a4?= <ville.skytta@iki.fi>,
-	Albino B Neto <bino@bino.us>
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <tom@herbertland.com>, Jiri Benc <jbenc@redhat.com>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:34092 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753669AbbKGQkt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 11:40:49 -0500
-Received: by iody8 with SMTP id y8so150447606iod.1
-        for <netdev@vger.kernel.org>; Sat, 07 Nov 2015 08:40:48 -0800 (PST)
-In-Reply-To: <CABr9L5B67DkOv8hY7eqogUxrcX+MaaYT3KKtM1W_V5eYpzPpXQ@mail.gmail.com>
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:34552 "EHLO
+	mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753943AbbKGRTw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 12:19:52 -0500
+In-Reply-To: <CAHmME9rp7ZJ_9=LHiQrO4ay_7mECj_jAmZBVHNT3Oi4uz8YxeQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/7/15 2:55 AM, Ville Skytt=C3=A4 wrote:
-> On Sat, Nov 7, 2015 at 11:47 AM, Albino B Neto <bino@bino.us> wrote:
->> 2015-11-07 7:44 GMT-02:00 Ville Skytt=C3=A4 <ville.skytta@iki.fi>:
->>> ---
->>>   man/man8/tc-bpf.8         | 2 +-
->>>   man/man8/tipc-bearer.8    | 4 ++--
->>>   man/man8/tipc-link.8      | 6 +++---
->>>   man/man8/tipc-media.8     | 4 ++--
->>>   man/man8/tipc-nametable.8 | 4 ++--
->>>   man/man8/tipc-node.8      | 4 ++--
->>>   man/man8/tipc-socket.8    | 4 ++--
->>>   7 files changed, 14 insertions(+), 14 deletions(-)
->>>
->>> diff --git a/man/man8/tc-bpf.8 b/man/man8/tc-bpf.8
->>> index 2c02ab2..f5201d3 100644
->>> --- a/man/man8/tc-bpf.8
->>> +++ b/man/man8/tc-bpf.8
->>> @@ -844,7 +844,7 @@ result in the default classid:
->>>   Basically, such a minimal generator is equivalent to:
->>
->> Signed-off-by and description ?
+> I suppose this is about UFO.
 >
-> Superseding patches sent separately. I suggest documenting the
-> requirement for Signed-off-by somewhere (README.devel?); git log show=
-s
-> lots of commits without it, especially a bunch of man page related
-> ones about a week ago.
+> Specifically -- let's say I have a list of 500 skbs, which have their
+> data in place but don't yet have an IP or UDP header etc. I want to
+> send out these out using udp_tunnel_xmit_skb. Right now, if I just
+> send them all out, one after another, they don't seem to be getting
+> assembled into a super packet suitable for UFO. Instead, they're just
+> sent one at a time, and I get the vast majority of `perf top` CPU
+> usage in my ethernet card's driver and along the path to it -- the
+> problem that UFO is supposed to solve.
+>
+> So my question is -- how can I make UFO happen with udp_tunnel_xmit_skb?
 
-I believe man page changes should cc linux-man@vger.kernel.org
+UFO will never collapse multiple (UDP) packets.
+
+It would be incorrect to do so, since UDP has to maintain packet
+framing boundaries, and the only way to mark that on the wire is via
+individual appropriately sized packets.
+
+UFO prevents the need to do IP fragmentation on overly large
+*singular* UDP packets.
+
+The case where UFO (should) help is if you are taking a TCP TSO
+segment of 10k and adding UDP headers and sending it out as an
+20+8+10k UDP packet.
+Without UFO this would now need to be software (potentially
+checksummed and) ip fragmented into (8+10k)/(1500-20) packets
+(assuming 1500 mtu), with UFO hw offload the nic deals with that (it
+does the checksumming and it does the ip fragmentation).
+
+Although note: in the case of UDP+TCP TSO this has reliability issues,
+since a loss of a single frame will now lose the entire fragmented IP
+UDP datagram and thus lose the entire TCP TSO segment,
+meaning that you probably do not want to use this unless your network
+is lossless (ie. loopback, veth and other virtual networks come to
+mind).
+
+I guess UDP encap of a larger than mtu UDP is probably a valid use
+case for UFO, since we'd have ip fragmented anyway, and it's cheaper
+to ip fragment on the outer IP header than on the inner.
