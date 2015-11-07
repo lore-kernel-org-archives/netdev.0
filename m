@@ -1,34 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fjes: Delete an unnecessary check before the function
- call "vfree"
-Date: Sat, 07 Nov 2015 13:18:43 -0500 (EST)
-Message-ID: <20151107.131843.218377814617040539.davem@davemloft.net>
-References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
-	<5317A59D.4@users.sourceforge.net>
-	<563C673B.1020605@users.sourceforge.net>
+Subject: Re: [PATCH net] bonding: fix panic on non-ARPHRD_ETHER enslave
+ failure
+Date: Sat, 07 Nov 2015 13:19:26 -0500 (EST)
+Message-ID: <20151107.131926.775188308059174697.davem@davemloft.net>
+References: <9700.1446859403@famine>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: izumi.taku@jp.fujitsu.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	julia.lawall@lip6.fr
-To: elfring@users.sourceforge.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <563C673B.1020605@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vfalico@gmail.com,
+	gospo@cumulusnetworks.com, nikolay@cumulusnetworks.com
+To: jay.vosburgh@canonical.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59614 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753944AbbKGST1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 13:19:27 -0500
+In-Reply-To: <9700.1446859403@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 6 Nov 2015 09:39:23 +0100
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Date: Fri, 06 Nov 2015 17:23:23 -0800
 
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Fri, 6 Nov 2015 09:30:29 +0100
 > 
-> The vfree() function performs also input parameter validation.
-> Thus the test around the call is not needed.
+> 	Since commit 7d5cd2ce529b, when bond_enslave fails on devices that
+> are not ARPHRD_ETHER, if needed, it resets the bonding device back to
+> ARPHRD_ETHER by calling ether_setup.
 > 
-> This issue was detected by using the Coccinelle software.
+> 	Unfortunately, ether_setup clobbers dev->flags, clearing IFF_UP
+> if the bond device is up, leaving it in a quasi-down state without
+> having actually gone through dev_close.  For bonding, if any periodic
+> work queue items are active (miimon, arp_interval, etc), those will
+> remain running, as they are stopped by bond_close.  At this point, if
+> the bonding module is unloaded or the bond is deleted, the system will
+> panic when the work function is called.
 > 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> 	This panic is resolved by calling dev_close on the bond itself
+> prior to calling ether_setup.
+> 
+> Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+> Fixes: 7d5cd2ce5292 ("bonding: correctly handle bonding type change on enslave failure")
 
-Applied.
+Applied and queued up for -stable, thanks.
