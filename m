@@ -1,101 +1,110 @@
-From: "Christopher Hall" <christopher.s.hall@intel.com>
-Subject: Re: [PATCH v4 3/4] Add PTP_SYS_OFFSET_PRECISE for driver
- crosstimestamping
-Date: Fri, 06 Nov 2015 18:15:21 -0800
-Message-ID: <op.x7pkjvdk1774gr@chall-mobl2.amr.corp.intel.com>
-References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com>
- <1444675522-4198-4-git-send-email-christopher.s.hall@intel.com>
- <20151013135925.GB5422@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"hpa@zytor.com" <hpa@zytor.com>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Stanton, Kevin B" <kevin.b.stanton@intel.com>
-To: "Richard Cochran" <richardcochran@gmail.com>,
-	"Thomas Gleixner" <tglx@linutronix.de>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: Regression in bonding driver - devices without set_mac
+Date: Fri, 06 Nov 2015 18:31:30 -0800
+Message-ID: <10340.1446863490@famine>
+References: <CABEgq95FYdt86-KEgkarUr-9g_mHoesV6B7OtrFut4pBR0UGcQ@mail.gmail.com> <6968.1446849960@famine> <CABEgq96o2dXi06rLh6xmLGYVzh0-fVPs0rpjv8X3NTsk_=8+JQ@mail.gmail.com>
+Cc: netdev@vger.kernel.org, Veaceslav Falico <vfalico@gmail.com>
+To: Toby Corkindale <tjc@wintrmute.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:26877 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751224AbbKGCPW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Nov 2015 21:15:22 -0500
-In-Reply-To: <20151013135925.GB5422@localhost.localdomain>
+Received: from youngberry.canonical.com ([91.189.89.112]:41516 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751068AbbKGCbe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 21:31:34 -0500
+In-reply-to: <CABEgq96o2dXi06rLh6xmLGYVzh0-fVPs0rpjv8X3NTsk_=8+JQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Richard/Thomas:
-
-On Tue, 13 Oct 2015 06:59:26 -0700, Richard Cochran  
-<richardcochran@gmail.com> wrote:
-> On Mon, Oct 12, 2015 at 11:45:21AM -0700, Christopher S. Hall wrote:
->>
->> +struct ptp_sys_offset_precise {
->> +	unsigned int rsv[4];    /* Reserved for future use. */
->> +	struct ptp_clock_time dev;
->> +	struct ptp_clock_time sys;
->> +};
->> +
+Toby Corkindale <tjc@wintrmute.net> wrote:
+[...]
+>The thing is, I've been running PPP devices in balance-rr mode for
+>quite a while. It worked fine, and I'd like to continue having that
+>functionality.  These changes to the kernel have broken that
+>functionality, by requiring the MAC address support unconditionally.
 >
-> Please put the reserved field at the bottom.  Also, since we reading
-> the raw monotonic time under the hood, we might as well return it in
-> this struct too.  It costs us almost nothing, and having that value
-> can be useful for characterizing the system oscillator.
+>I guess using PPP devices is a special case, but it would be great if
+>that special case could continue to be supported.
 
-Below is my proposal to implement your suggested changes adding monotonic  
-raw to the PTP_SYS_OFFSET_PRECISE ioctl:
+	Could you describe your configuration / use case a bit more?
 
-Move the reserved field to the end and add monotonic raw to
-ptp_sys_offset_precise:
+	The nominal reason for the MAC change in balance-rr or
+balance-xor modes is that those modes are designed to interoperate with
+Etherchannel (static link aggregation) type of systems, which expect all
+ports participating in the aggregation to use the same MAC address.
 
-struct ptp_sys_offset_precise {
-          struct ptp_clock_time dev;
-          struct ptp_clock_time sys_real;
-          struct ptp_clock_time sys_raw;
-          unsigned int rsv[4];    /* Reserved for future use. */
-};
+	Relaxing the restriction is likely a matter of causing
+fail_over_mac to be obeyed in addtional modes other than active-backup,
+which is actually what's catching the ppp case right now.  The check for
+the set_mac function passes, but later, the test for "should the slave's
+MAC be changed" is
 
-In my previous patch, the getsynctime() prototype is:
+        if (!bond->params.fail_over_mac ||
+            BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
+		[ change the slave MAC ]
+	}
 
-int (*getsynctime64)(struct ptp_clock_info *ptp, struct timespec64 *dev,
-struct timespec64 *sys);
+	so this block is entered for anything other than active-backup
+mode with fail_over_mac enabled.  This block was changed for
 
-To simplify the PTP callback arguments (not add an additional raw
-argument), it seems better to replace all of the arguments with a single
-argument:
+commit 00503b6f702eaf23e7257d6287da72805d7d014c
+Author: dingtianhong <dingtianhong@huawei.com>
+Date:   Sat Jan 25 13:00:29 2014 +0800
 
-int (*getsynctime)(struct ptp_clock_info *ptp, struct correlated_ts *cts);
+    bonding: fail_over_mac should only affect AB mode at enslave and removal pro
+cessing
 
-This requires adding a device time field to the correlated timestamp
-struct:
+	So that's probably when you saw the behavior change.
 
-struct correlated_ts {
-          int                     (*get_ts)(struct correlated_ts *ts);
-          u64                     system_ts;
-          u64                     device_ts;
-          ktime_t                 system_real;
-          ktime_t                 system_raw;
-+       ktime_t                 device;
-          void                    *private;
-};
+	Are you able to test a patch?  I believe the following would
+change the behavior, although some of the release logic may not be
+correct (I've not tested this).
 
-The device time field is filled out by the driver "on the way back"
-(following completion of get_correlated_timestamp()) to the PTP driver.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index b4351caf8e01..5f3632544d52 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1451,8 +1451,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	 */
+ 	ether_addr_copy(new_slave->perm_hwaddr, slave_dev->dev_addr);
+ 
+-	if (!bond->params.fail_over_mac ||
+-	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
++	if (!bond->params.fail_over_mac) {
+ 		/* Set slave to master's mac address.  The application already
+ 		 * set the master's mac address to that of the first slave
+ 		 */
+@@ -1725,8 +1724,7 @@ err_close:
+ 	dev_close(slave_dev);
+ 
+ err_restore_mac:
+-	if (!bond->params.fail_over_mac ||
+-	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
++	if (!bond->params.fail_over_mac) {
+ 		/* XXX TODO - fom follow mode needs to change master's
+ 		 * MAC if this slave's MAC is in use by the bond, or at
+ 		 * least print a warning.
+@@ -1823,8 +1821,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 
+ 	RCU_INIT_POINTER(bond->current_arp_slave, NULL);
+ 
+-	if (!all && (!bond->params.fail_over_mac ||
+-		     BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP)) {
++	if (!all && (!bond->params.fail_over_mac)) {
+ 		if (ether_addr_equal_64bits(bond_dev->dev_addr, slave->perm_hwaddr) &&
+ 		    bond_has_slaves(bond))
+ 			netdev_warn(bond_dev, "the permanent HWaddr of %s - %pM - is still in use by %s - set the HWaddr of %s to a different address to avoid conflicts\n",
+@@ -1905,8 +1902,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	/* close slave before restoring its mac address */
+ 	dev_close(slave_dev);
+ 
+-	if (bond->params.fail_over_mac != BOND_FOM_ACTIVE ||
+-	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
++	if (bond->params.fail_over_mac != BOND_FOM_ACTIVE) {
+ 		/* restore original ("permanent") mac address */
+ 		ether_addr_copy(addr.sa_data, slave->perm_hwaddr);
+ 		addr.sa_family = slave_dev->type;
 
-The call flow:
 
-PTP driver-> get_synctime() (Ethernet driver)-> get_correlated_timestamp()
-(Timekeeping)->get_ts (Ethernet driver)
+	-J
 
-The timestamp argument is the same (type struct correlated_ts *) for all
-of these calls.
-
-Thanks,
-Chris
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
