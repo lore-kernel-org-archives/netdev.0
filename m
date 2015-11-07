@@ -1,55 +1,72 @@
-From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [RFC PATCH net-next v2 4/8] openvswitch: Update the CT
-	state key only after nf_conntrack_in().
-Date: Fri,  6 Nov 2015 16:06:04 -0800
-Message-ID: <1446854768-38299-5-git-send-email-jrajahalme@nicira.com>
+From: Jarno Rajahalme <jrajahalme@nicira.com>
+Subject: [RFC PATCH net-next v2 7/8] openvswitch: Delay conntrack helper call for new connections.
+Date: Fri,  6 Nov 2015 16:06:07 -0800
+Message-ID: <1446854768-38299-8-git-send-email-jrajahalme@nicira.com>
 References: <1446854768-38299-1-git-send-email-jrajahalme@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1446854768-38299-1-git-send-email-jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: netfilter-devel@vger.kernel.org, dev@openvswitch.org,
+	jrajahalme@nicira.com
+To: netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1446854768-38299-1-git-send-email-jrajahalme@nicira.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T25seSBhIHN1Y2Nlc3NmdWwgbmZfY29ubnRyYWNrX2luKCkgY2FsbCBjYW4gZWZmZWN0IGEgY29u
-bmVjdGlvbiBzdGF0ZQpjaGFuZ2UsIHNvIGlmIHN1ZmZpY2VzIHRvIHVwZGF0ZSB0aGUga2V5IG9u
-bHkgYWZ0ZXIgdGhlCm5mX2Nvbm50cmFja19pbigpIHJldHVybnMuCgpUaGlzIGNoYW5nZSBpcyBu
-ZWVkZWQgZm9yIHRoZSBsYXRlciBOQVQgcGF0Y2hlcy4KClNpZ25lZC1vZmYtYnk6IEphcm5vIFJh
-amFoYWxtZSA8anJhamFoYWxtZUBuaWNpcmEuY29tPgotLS0KIG5ldC9vcGVudnN3aXRjaC9jb25u
-dHJhY2suYyB8IDkgKysrKysrLS0tCiAxIGZpbGUgY2hhbmdlZCwgNiBpbnNlcnRpb25zKCspLCAz
-IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYyBi
-L25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYwppbmRleCBhMjhhODE5Li4xMGY0YTZlIDEwMDY0
-NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKKysrIGIvbmV0L29wZW52c3dpdGNo
-L2Nvbm50cmFjay5jCkBAIC0xOTQsNyArMTk0LDYgQEAgc3RhdGljIGludCBvdnNfY3Rfc2V0X21h
-cmsoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXksCiAJc3RydWN0
-IG5mX2Nvbm4gKmN0OwogCXUzMiBuZXdfbWFyazsKIAotCiAJLyogVGhlIGNvbm5lY3Rpb24gY291
-bGQgYmUgaW52YWxpZCwgaW4gd2hpY2ggY2FzZSBzZXRfbWFyayBpcyBuby1vcC4gKi8KIAljdCA9
-IG5mX2N0X2dldChza2IsICZjdGluZm8pOwogCWlmICghY3QpCkBAIC0zODUsNiArMzg0LDEwIEBA
-IHN0YXRpYyBib29sIHNrYl9uZmN0X2NhY2hlZChjb25zdCBzdHJ1Y3QgbmV0ICpuZXQsIGNvbnN0
-IHN0cnVjdCBza19idWZmICpza2IsCiAJcmV0dXJuIHRydWU7CiB9CiAKKy8qIFBhc3MgJ3NrYicg
-dGhyb3VnaCBjb25udHJhY2sgaW4gJ25ldCcsIHVzaW5nIHpvbmUgY29uZmlndXJlZCBpbiAnaW5m
-bycsIGlmCisgKiBub3QgZG9uZSBhbHJlYWR5LiAgVXBkYXRlIGtleSB3aXRoIG5ldyBDVCBzdGF0
-ZSBhZnRlciBwYXNzaW5nIHRoZSBwYWNrZXQKKyAqIHRocm91Z2ggY29ubnRyYWNrLgorICovCiBz
-dGF0aWMgaW50IF9fb3ZzX2N0X2xvb2t1cChzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBzd19mbG93
-X2tleSAqa2V5LAogCQkJICAgY29uc3Qgc3RydWN0IG92c19jb25udHJhY2tfaW5mbyAqaW5mbywK
-IAkJCSAgIHN0cnVjdCBza19idWZmICpza2IpCkBAIC00MTAsMTQgKzQxMywxNCBAQCBzdGF0aWMg
-aW50IF9fb3ZzX2N0X2xvb2t1cChzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBzd19mbG93X2tleSAq
-a2V5LAogCQkJCSAgICBza2IpICE9IE5GX0FDQ0VQVCkKIAkJCXJldHVybiAtRU5PRU5UOwogCisJ
-CW92c19jdF91cGRhdGVfa2V5KHNrYiwga2V5LCB0cnVlKTsKKwogCQlpZiAob3ZzX2N0X2hlbHBl
-cihza2IsIGluZm8tPmZhbWlseSkgIT0gTkZfQUNDRVBUKSB7CiAJCQlXQVJOX09OQ0UoMSwgImhl
-bHBlciByZWplY3RlZCBwYWNrZXQiKTsKIAkJCXJldHVybiAtRUlOVkFMOwogCQl9CiAJfQogCi0J
-b3ZzX2N0X3VwZGF0ZV9rZXkoc2tiLCBrZXksIHRydWUpOwotCiAJcmV0dXJuIDA7CiB9CiAKLS0g
-CjIuMS40CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpk
-ZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9y
-Zy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+There is no need to help connections that are not confirmed, so we can
+delay helping new connections to the time when they are confirmed.
+This change is needed for NAT support, and having this as a separate
+patch will make the following NAT patch a bit easier to review.
+
+Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
+---
+ net/openvswitch/conntrack.c | 20 +++++++++++++++-----
+ 1 file changed, 15 insertions(+), 5 deletions(-)
+
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index 7aa38fa..ba44287 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -458,6 +458,7 @@ static bool skb_nfct_cached(struct net *net,
+ /* Pass 'skb' through conntrack in 'net', using zone configured in 'info', if
+  * not done already.  Update key with new CT state after passing the packet
+  * through conntrack.
++ * Note that invalid packets are accepted while the skb->nfct remains unset!
+  */
+ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 			   const struct ovs_conntrack_info *info,
+@@ -468,7 +469,11 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 	 * actually run the packet through conntrack twice unless it's for a
+ 	 * different zone.
+ 	 */
+-	if (!skb_nfct_cached(net, key, info, skb)) {
++	bool cached = skb_nfct_cached(net, key, info, skb);
++	enum ip_conntrack_info ctinfo;
++	struct nf_conn *ct;
++
++	if (!cached) {
+ 		struct nf_conn *tmpl = info->ct;
+ 		int err;
+ 
+@@ -491,11 +496,16 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 			return -ENOENT;
+ 
+ 		ovs_ct_update_key(skb, key, true);
++	}
+ 
+-		if (ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
+-			WARN_ONCE(1, "helper rejected packet");
+-			return -EINVAL;
+-		}
++	/* Call the helper right after nf_conntrack_in() for confirmed
++	 * connections, but only when commiting for unconfirmed connections.
++	 */
++	ct = nf_ct_get(skb, &ctinfo);
++	if (ct && (nf_ct_is_confirmed(ct) ? !cached : info->commit)
++	    && ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
++		WARN_ONCE(1, "helper rejected packet");
++		return -EINVAL;
+ 	}
+ 
+ 	return 0;
+-- 
+2.1.4
+
