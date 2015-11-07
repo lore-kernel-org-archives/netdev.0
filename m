@@ -1,47 +1,69 @@
-From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [RFC PATCH net-next v2 0/8] openvswitch: NAT support.
-Date: Fri,  6 Nov 2015 16:06:00 -0800
-Message-ID: <1446854768-38299-1-git-send-email-jrajahalme@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+From: Jarno Rajahalme <jrajahalme@nicira.com>
+Subject: [RFC PATCH net-next v2 1/8] netfilter: Remove IP_CT_NEW_REPLY definition.
+Date: Fri,  6 Nov 2015 16:06:01 -0800
+Message-ID: <1446854768-38299-2-git-send-email-jrajahalme@nicira.com>
+References: <1446854768-38299-1-git-send-email-jrajahalme@nicira.com>
+Cc: netfilter-devel@vger.kernel.org, dev@openvswitch.org,
+	jrajahalme@nicira.com
+To: netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1446854768-38299-1-git-send-email-jrajahalme@nicira.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VGhpcyBzZXJpZXMgYWRkcyBOQVQgc3VwcG9ydCB0byBvcGVudnN3aXRjaCBrZXJuZWwgbW9kdWxl
-LiAgQSBmZXcKY2hhbmdlcyBhcmUgbmVlZGVkIHRvIHRoZSBuZXRmaWx0ZXIgY29kZSB0byBmYWNp
-bGl0YXRlIHRoaXMgKHBhdGNoZXMKMS0zLzgpLiAgUGF0Y2hlcyA0LTcgbWFrZSB0aGUgb3BlbnZz
-d2l0Y2gga2VybmVsIG1vZHVsZSByZWFkeSBmb3IgdGhlCnBhdGNoIDggdGhhdCBhZGRzIHRoZSBO
-QVQgc3VwcG9ydCBmb3IgY2FsbGluZyBpbnRvIG5ldGZpbHRlciBOQVQgY29kZQpmcm9tIHRoZSBv
-cGVudnN3aXRjaCBjb25udHJhY2sgYWN0aW9uLgoKSmFybm8gUmFqYWhhbG1lICg4KToKICBuZXRm
-aWx0ZXI6IFJlbW92ZSBJUF9DVF9ORVdfUkVQTFkgZGVmaW5pdGlvbi4KICBuZXRmaWx0ZXI6IEZh
-Y3RvciBvdXQgbmZfY3RfZ2V0X2luZm8oKS4KICBuZXRmaWx0ZXI6IEFsbG93IGNhbGxpbmcgaW50
-byBuYXQgaGVscGVyIHdpdGhvdXQgc2tiX2RzdC4KICBvcGVudnN3aXRjaDogVXBkYXRlIHRoZSBD
-VCBzdGF0ZSBrZXkgb25seSBhZnRlciBuZl9jb25udHJhY2tfaW4oKS4KICBvcGVudnN3aXRjaDog
-RmluZCBleGlzdGluZyBjb25udHJhY2sgZW50cnkgYWZ0ZXIgdXBjYWxsLgogIG9wZW52c3dpdGNo
-OiBIYW5kbGUgTkZfUkVQRUFUIGluIGNvbm50cmFjayBhY3Rpb24uCiAgb3BlbnZzd2l0Y2g6IERl
-bGF5IGNvbm50cmFjayBoZWxwZXIgY2FsbCBmb3IgbmV3IGNvbm5lY3Rpb25zLgogIG9wZW52c3dp
-dGNoOiBJbnRlcmZhY2Ugd2l0aCBOQVQuCgogaW5jbHVkZS9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50
-cmFjay5oICAgICAgICAgICAgICAgfCAgMTUgKwogaW5jbHVkZS91YXBpL2xpbnV4L25ldGZpbHRl
-ci9uZl9jb25udHJhY2tfY29tbW9uLmggfCAgMTIgKy0KIGluY2x1ZGUvdWFwaS9saW51eC9vcGVu
-dnN3aXRjaC5oICAgICAgICAgICAgICAgICAgIHwgIDQ3ICsrCiBuZXQvaXB2NC9uZXRmaWx0ZXIv
-bmZfbmF0X2wzcHJvdG9faXB2NC5jICAgICAgICAgICB8ICAyOSArLQogbmV0L2lwdjYvbmV0Zmls
-dGVyL25mX25hdF9sM3Byb3RvX2lwdjYuYyAgICAgICAgICAgfCAgMjkgKy0KIG5ldC9uZXRmaWx0
-ZXIvbmZfY29ubnRyYWNrX2NvcmUuYyAgICAgICAgICAgICAgICAgIHwgIDIyICstCiBuZXQvb3Bl
-bnZzd2l0Y2gvY29ubnRyYWNrLmMgICAgICAgICAgICAgICAgICAgICAgICB8IDYzMiArKysrKysr
-KysrKysrKysrKysrLS0KIG5ldC9vcGVudnN3aXRjaC9jb25udHJhY2suaCAgICAgICAgICAgICAg
-ICAgICAgICAgIHwgICAzICstCiA4IGZpbGVzIGNoYW5nZWQsIDY4NiBpbnNlcnRpb25zKCspLCAx
-MDMgZGVsZXRpb25zKC0pCgotLSAKMi4xLjQKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpo
-dHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+Remove the definition of IP_CT_NEW_REPLY from the kernel as it does
+not make sense.  This allows the definition of IP_CT_NUMBER to be
+simplified as well.
+
+Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
+---
+ include/uapi/linux/netfilter/nf_conntrack_common.h | 12 +++++++++---
+ net/openvswitch/conntrack.c                        |  2 --
+ 2 files changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
+index 319f471..2f067cf 100644
+--- a/include/uapi/linux/netfilter/nf_conntrack_common.h
++++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
+@@ -20,9 +20,15 @@ enum ip_conntrack_info {
+ 
+ 	IP_CT_ESTABLISHED_REPLY = IP_CT_ESTABLISHED + IP_CT_IS_REPLY,
+ 	IP_CT_RELATED_REPLY = IP_CT_RELATED + IP_CT_IS_REPLY,
+-	IP_CT_NEW_REPLY = IP_CT_NEW + IP_CT_IS_REPLY,	
+-	/* Number of distinct IP_CT types (no NEW in reply dirn). */
+-	IP_CT_NUMBER = IP_CT_IS_REPLY * 2 - 1
++	/* No NEW in reply direction. */
++
++	/* Number of distinct IP_CT types. */
++	IP_CT_NUMBER
++
++	/* only for userspace compatibility */
++#ifndef __KERNEL__
++	IP_CT_NEW_REPLY = IP_CT_NUMBER;
++#endif
+ };
+ 
+ #define NF_CT_STATE_INVALID_BIT			(1 << 0)
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index c2cc111..a28a819 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -73,7 +73,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
+ 	switch (ctinfo) {
+ 	case IP_CT_ESTABLISHED_REPLY:
+ 	case IP_CT_RELATED_REPLY:
+-	case IP_CT_NEW_REPLY:
+ 		ct_state |= OVS_CS_F_REPLY_DIR;
+ 		break;
+ 	default:
+@@ -90,7 +89,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
+ 		ct_state |= OVS_CS_F_RELATED;
+ 		break;
+ 	case IP_CT_NEW:
+-	case IP_CT_NEW_REPLY:
+ 		ct_state |= OVS_CS_F_NEW;
+ 		break;
+ 	default:
+-- 
+2.1.4
+
