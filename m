@@ -1,91 +1,35 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: 4.3.0 r8169: "rtl_counters_cond == 1 (loop: 1000, delay: 10)."
- log spam
-Date: Sat, 7 Nov 2015 23:00:34 +0100
-Message-ID: <20151107220034.GA8795@electric-eye.fr.zoreil.com>
-References: <CAGmahrQeczagrfAc-cbGnDrDW4c3DNwAZCn=ZYkRo=q9wnge5g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/2] packet: do skb_probe_transport_header when we
+ actually have data
+Date: Sat, 07 Nov 2015 17:29:28 -0500 (EST)
+Message-ID: <20151107.172928.239564395518699740.davem@davemloft.net>
+References: <1446900176.17135.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20151107.133502.833614670001999282.davem@davemloft.net>
+	<1446922430.17135.13.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, andreas.reis@gmail.com
-To: Sverd Johnsen <sverd.johnsen@googlemail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, edumazet@google.com, willemb@google.com,
+	tklauser@distanz.ch, netdev@vger.kernel.org, jasowang@redhat.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:55368 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752400AbbKGWAi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 17:00:38 -0500
-Content-Disposition: inline
-In-Reply-To: <CAGmahrQeczagrfAc-cbGnDrDW4c3DNwAZCn=ZYkRo=q9wnge5g@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60796 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752400AbbKGW3c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 17:29:32 -0500
+In-Reply-To: <1446922430.17135.13.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sverd Johnsen <sverd.johnsen@googlemail.com> :
-> related:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 07 Nov 2015 10:53:50 -0800
+
+> Well, imagine following scenario (a real one, as I use it all of
+> time, thus how I discovered all trafgen traffic ends up on one slave
+> only)
 > 
-> https://bugzilla.kernel.org/show_bug.cgi?id=107421
+> Even if qdisc is bypassed on the bond0, the current handling does
+> not prevent going to the slave qdiscs.
 
-Let's start with yours.
-
-> https://bugzilla.kernel.org/show_bug.cgi?id=104351
-> 
-> 4.3.0 smp x86_64
-> 
-> [    4.384336] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> [    4.384747] r8169 0000:0e:00.0 eth0: RTL8101e at
-> 0xffffc90000060000, 00:1b:38:b5:9f:d6, XID 94200000 IRQ 29
-> [   13.288711] r8169 0000:0e:00.0 enp14s0: renamed from eth0
-> [   13.317747] r8169 0000:0e:00.0 enp14s0: rtl_counters_cond == 1
-> (loop: 1000, delay: 10).
-> [   28.238567] r8169 0000:0e:00.0 enp14s0: rtl_counters_cond == 1
-> (loop: 1000, delay: 10).
-> [   28.904171] r8169 0000:0e:00.0 enp14s0: rtl_counters_cond == 1
-> (loop: 1000, delay: 10).
-> [   28.923315] r8169 0000:0e:00.0 enp14s0: rtl_counters_cond == 1
-> (loop: 1000, delay: 10).
-> [   29.029901] r8169 0000:0e:00.0 enp14s0: rtl_counters_cond == 1
-> (loop: 1000, delay: 10).
-[snip]
-> [   36.148587] r8169 0000:0e:00.0 enp14s0: rtl_counters_cond == 1
-> (loop: 1000, delay: 10).
-
-Something enjoys harnessing the tally counters. I don't know why.
-
-> [   46.511024] r8169 0000:0e:00.0 enp14s0: rtl_counters_cond == 1
-> (loop: 1000, delay: 10).
-> [   48.304603] r8169 0000:0e:00.0 enp14s0: rtl_counters_cond == 1
-> (loop: 1000, delay: 10).
-> [   61.528387] r8169 0000:0e:00.0 enp14s0: rtl_counters_cond == 1
-> (loop: 1000, delay: 10).
-> [   76.545869] r8169 0000:0e:00.0 enp14s0: rtl_counters_cond == 1
-> (loop: 1000, delay: 10).
-
-Looks like stats retrieval every 15s.
-
-Is the link up at this point ?
-
-Can you temporarily increase the driver verbosity ? It may display
-some more messages at WARNING level if you enable "hw" context messages
-through ethtool (see "msglvl" option).
-
-Btw the patch below could make a difference.
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index b4f2123..b9817fec 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -2194,8 +2194,12 @@ static int rtl8169_get_sset_count(struct net_device *dev, int sset)
- DECLARE_RTL_COND(rtl_counters_cond)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
-+	u32 mask = CounterReset;
- 
--	return RTL_R32(CounterAddrLow) & (CounterReset | CounterDump);
-+	if (tp->mac_version >= RTL_GIGA_MAC_VER_19)
-+		mask |= CounterDump;
-+
-+	return RTL_R32(CounterAddrLow) & mask;
- }
- 
- static bool rtl8169_do_counters(struct net_device *dev, u32 counter_cmd)
-
--- 
-Ueimor
+Ok, depending upon the semantics Daniel intended, we may have to add
+a qdisc bypass boolean bit to SKBs.
