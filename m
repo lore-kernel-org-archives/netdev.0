@@ -1,69 +1,101 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net] bonding: fix panic on non-ARPHRD_ETHER enslave
- failure
-Date: Sat, 7 Nov 2015 02:31:14 +0100
-Message-ID: <563D5462.1040907@cumulusnetworks.com>
-References: <9700.1446859403@famine>
+From: "Christopher Hall" <christopher.s.hall@intel.com>
+Subject: Re: [PATCH v4 3/4] Add PTP_SYS_OFFSET_PRECISE for driver
+ crosstimestamping
+Date: Fri, 06 Nov 2015 18:15:21 -0800
+Message-ID: <op.x7pkjvdk1774gr@chall-mobl2.amr.corp.intel.com>
+References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com>
+ <1444675522-4198-4-git-send-email-christopher.s.hall@intel.com>
+ <20151013135925.GB5422@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=iso-8859-15; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>, netdev@vger.kernel.org
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"hpa@zytor.com" <hpa@zytor.com>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>,
+	"peterz@infradead.org" <peterz@infradead.org>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Stanton, Kevin B" <kevin.b.stanton@intel.com>
+To: "Richard Cochran" <richardcochran@gmail.com>,
+	"Thomas Gleixner" <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:38171 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754468AbbKGBbR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 20:31:17 -0500
-Received: by wicll6 with SMTP id ll6so38315067wic.1
-        for <netdev@vger.kernel.org>; Fri, 06 Nov 2015 17:31:16 -0800 (PST)
-In-Reply-To: <9700.1446859403@famine>
+Received: from mga14.intel.com ([192.55.52.115]:26877 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751224AbbKGCPW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Nov 2015 21:15:22 -0500
+In-Reply-To: <20151013135925.GB5422@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/07/2015 02:23 AM, Jay Vosburgh wrote:
-> 	Since commit 7d5cd2ce529b, when bond_enslave fails on devices that
-> are not ARPHRD_ETHER, if needed, it resets the bonding device back to
-> ARPHRD_ETHER by calling ether_setup.
-> 
-> 	Unfortunately, ether_setup clobbers dev->flags, clearing IFF_UP
-> if the bond device is up, leaving it in a quasi-down state without
-> having actually gone through dev_close.  For bonding, if any periodic
-> work queue items are active (miimon, arp_interval, etc), those will
-> remain running, as they are stopped by bond_close.  At this point, if
-> the bonding module is unloaded or the bond is deleted, the system will
-> panic when the work function is called.
-> 
-> 	This panic is resolved by calling dev_close on the bond itself
-> prior to calling ether_setup.
-> 
-> Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
-> Fixes: 7d5cd2ce5292 ("bonding: correctly handle bonding type change on enslave failure")
-> 
-> ---
->  drivers/net/bonding/bond_main.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index b4351ca..9e0f8a7 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1749,6 +1749,7 @@ err_undo_flags:
->  					    slave_dev->dev_addr))
->  			eth_hw_addr_random(bond_dev);
->  		if (bond_dev->type != ARPHRD_ETHER) {
-> +			dev_close(bond_dev);
->  			ether_setup(bond_dev);
->  			bond_dev->flags |= IFF_MASTER;
->  			bond_dev->priv_flags &= ~IFF_TX_SKB_SHARING;
-> 
+Richard/Thomas:
 
-Oh, I've missed it. Very good catch!
+On Tue, 13 Oct 2015 06:59:26 -0700, Richard Cochran  
+<richardcochran@gmail.com> wrote:
+> On Mon, Oct 12, 2015 at 11:45:21AM -0700, Christopher S. Hall wrote:
+>>
+>> +struct ptp_sys_offset_precise {
+>> +	unsigned int rsv[4];    /* Reserved for future use. */
+>> +	struct ptp_clock_time dev;
+>> +	struct ptp_clock_time sys;
+>> +};
+>> +
+>
+> Please put the reserved field at the bottom.  Also, since we reading
+> the raw monotonic time under the hood, we might as well return it in
+> this struct too.  It costs us almost nothing, and having that value
+> can be useful for characterizing the system oscillator.
 
-Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Below is my proposal to implement your suggested changes adding monotonic  
+raw to the PTP_SYS_OFFSET_PRECISE ioctl:
+
+Move the reserved field to the end and add monotonic raw to
+ptp_sys_offset_precise:
+
+struct ptp_sys_offset_precise {
+          struct ptp_clock_time dev;
+          struct ptp_clock_time sys_real;
+          struct ptp_clock_time sys_raw;
+          unsigned int rsv[4];    /* Reserved for future use. */
+};
+
+In my previous patch, the getsynctime() prototype is:
+
+int (*getsynctime64)(struct ptp_clock_info *ptp, struct timespec64 *dev,
+struct timespec64 *sys);
+
+To simplify the PTP callback arguments (not add an additional raw
+argument), it seems better to replace all of the arguments with a single
+argument:
+
+int (*getsynctime)(struct ptp_clock_info *ptp, struct correlated_ts *cts);
+
+This requires adding a device time field to the correlated timestamp
+struct:
+
+struct correlated_ts {
+          int                     (*get_ts)(struct correlated_ts *ts);
+          u64                     system_ts;
+          u64                     device_ts;
+          ktime_t                 system_real;
+          ktime_t                 system_raw;
++       ktime_t                 device;
+          void                    *private;
+};
+
+The device time field is filled out by the driver "on the way back"
+(following completion of get_correlated_timestamp()) to the PTP driver.
+
+The call flow:
+
+PTP driver-> get_synctime() (Ethernet driver)-> get_correlated_timestamp()
+(Timekeeping)->get_ts (Ethernet driver)
+
+The timestamp argument is the same (type struct correlated_ts *) for all
+of these calls.
 
 Thanks,
- Nik
- 
+Chris
