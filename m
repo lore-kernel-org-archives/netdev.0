@@ -1,47 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] inet: delay address promotion check until last request
- in message
-Date: Sat, 07 Nov 2015 13:17:14 -0500 (EST)
-Message-ID: <20151107.131714.232754521490501858.davem@davemloft.net>
-References: <1446839495-32719-1-git-send-email-nhorman@tuxdriver.com>
-	<alpine.LFD.2.11.1511062352270.1904@ja.home.ssi.bg>
+Subject: Re: [PATCH net] net/qlcnic: fix mac address restore in bond mode
+ 5/6
+Date: Sat, 07 Nov 2015 13:17:49 -0500 (EST)
+Message-ID: <20151107.131749.1683961316470551613.davem@davemloft.net>
+References: <1446819931-60897-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: ja@ssi.bg
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59578 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753938AbbKGSRR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 13:17:17 -0500
-In-Reply-To: <alpine.LFD.2.11.1511062352270.1904@ja.home.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, Dept-GELinuxNICDev@qlogic.com,
+	netdev@vger.kernel.org, manish.chopra@qlogic.com
+To: jarod@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1446819931-60897-1-git-send-email-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Sat, 7 Nov 2015 01:49:25 +0200 (EET)
+From: Jarod Wilson <jarod@redhat.com>
+Date: Fri,  6 Nov 2015 09:25:31 -0500
 
-> On Fri, 6 Nov 2015, Neil Horman wrote:
+> The bonding driver saves a copy of slaves' original mac address and then
+> assigns whatever mac as needed to the slave, depending on mode. In at
+> least modes 5 and 6 (balance-tlb, balance-alb), it often ends up being the
+> mac address of another slave. On release from the bond, the original mac
+> address is supposed to get restored via a dev_set_mac_address() call in
+> the bonding driver's __bond_release_one() function, which calls the
+> slave's ndo_set_mac_address function, which for qlcnic, is
+> qlcnic_set_mac().
 > 
->> The solution is to recognize that its pointless to promote an address to be a
->> new primary, if there is a possibility that it will just be removed in the near
->> future.  As such this patch peeks ahead to the next request in the provided
->> netlink message, and, if it is both valid and a RTM_DELADDR request, skips the
->> promotion check.  This eliminates the need to iterate through a nested for loop
+> Now, this function tries to be somewhat intelligent and exit early if
+> you're trying to set the mac address to the same thing that is already
+> set. The problem here is that adapter->mac_addr isn't in sync with
+> netdev->dev_addr. The qlcnic driver still has the original mac stored in
+> adapter->mac_addr, while the bonding driver has updated netdev->dev_addr,
+> so qlcnic thinks we're trying to set the same address it already has.
 > 
-> 	flush can provide many parameters. As there is no
-> any kind of indication in the netlink message that all addresses
-> are removed, we can not avoid the promotion.
+> I think the way to go here, since the function updates both netdev and
+> adapter's stored mac addresses, is to check if either of them doesn't
+> match the newly requested mac. Simply checking netdev's value only could
+> result in a similar mismatch and non-update, so look at both.
 > 
->> +	 * Only check for address promotion when this is the last request
->> +	 * in this netlink transaction.  It allows this operation to complete
->> +	 * in O(n) time rather than O(n^2)
-> 
-> 	It is not correct to assume that one promotion per
-> transaction is enough. The promotion happens in every subnet,
-> it was not once per device.
+> CC: Dept-GELinuxNICDev@qlogic.com
+> CC: netdev@vger.kernel.org
+> CC: Manish Chopra <manish.chopra@qlogic.com>
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
 
-Agreed, this optimization is invalid.
+Applied.
