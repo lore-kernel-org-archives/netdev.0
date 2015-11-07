@@ -1,44 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net 1/2] packet: do skb_probe_transport_header when we
- actually have data
-Date: Sat, 07 Nov 2015 11:06:05 -0800
-Message-ID: <1446923165.17135.18.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <cover.1446842228.git.daniel@iogearbox.net>
-	 <5cdcd969eec9228a18c0dc54f9cc4b7b6b07ce05.1446842228.git.daniel@iogearbox.net>
-	 <1446900176.17135.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151107.133502.833614670001999282.davem@davemloft.net>
-	 <1446922430.17135.13.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: use kmalloc() than kmalloc_array().
+Date: Sat, 07 Nov 2015 14:21:35 -0500 (EST)
+Message-ID: <20151107.142135.2089779750111099230.davem@davemloft.net>
+References: <1446911439-9235-1-git-send-email-penguin-kernel@I-love.SAKURA.ne.jp>
+	<1446922207.17135.9.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, edumazet@google.com, willemb@google.com,
-	tklauser@distanz.ch, netdev@vger.kernel.org, jasowang@redhat.com
-To: David Miller <davem@davemloft.net>
+Cc: penguin-kernel@I-love.SAKURA.ne.jp, edumazet@google.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:33138 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753311AbbKGTGH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 14:06:07 -0500
-Received: by pabfh17 with SMTP id fh17so155862043pab.0
-        for <netdev@vger.kernel.org>; Sat, 07 Nov 2015 11:06:06 -0800 (PST)
-In-Reply-To: <1446922430.17135.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59946 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753938AbbKGTVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 14:21:39 -0500
+In-Reply-To: <1446922207.17135.9.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-11-07 at 10:53 -0800, Eric Dumazet wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 07 Nov 2015 10:50:07 -0800
 
+> I do not feel we should go back to kmalloc() just because
+> vmalloc_array() does not exist yet.
 
-> Well, imagine following scenario (a real one, as I use it all of time,
-> thus how I discovered all trafgen traffic ends up on one slave only)
-> 
-> Even if qdisc is bypassed on the bond0, the current handling does not
-> prevent going to the slave qdiscs.
-> 
-> 
-> So it is not clear to me why we do a selective probe depending on the
-> bypass of first qdisc.
-
-Presumably the transport_header only needs to be set for gso packets in
-some drivers (look at igbvf_tso() for example)
-
-It looks like we might need an audit and/or some guidelines/fixes.
+Agreed.
