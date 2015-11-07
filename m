@@ -1,181 +1,71 @@
-From: Jarno Rajahalme <jrajahalme@nicira.com>
-Subject: [RFC PATCH net-next v2 5/8] openvswitch: Find existing conntrack entry after upcall.
-Date: Fri,  6 Nov 2015 16:06:05 -0800
-Message-ID: <1446854768-38299-6-git-send-email-jrajahalme@nicira.com>
-References: <1446854768-38299-1-git-send-email-jrajahalme@nicira.com>
-Cc: netfilter-devel@vger.kernel.org, dev@openvswitch.org,
-	jrajahalme@nicira.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:34929 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757810AbbKGAGU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 19:06:20 -0500
-Received: by pasz6 with SMTP id z6so141369166pas.2
-        for <netdev@vger.kernel.org>; Fri, 06 Nov 2015 16:06:20 -0800 (PST)
-In-Reply-To: <1446854768-38299-1-git-send-email-jrajahalme@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [GIT] Networking
+Date: Fri, 6 Nov 2015 16:49:19 -0800
+Message-ID: <CALCETrWCnf_egx3wgDAgRXQwx-gCnX0xNATtv=M5QM-OdefvPw@mail.gmail.com>
+References: <20151027.233235.1641084823622810663.davem@davemloft.net>
+ <CA+55aFx0o8e9J6ojHYjvOA5aRnKoW5j10fh76Ks1=VegPc4k6w@mail.gmail.com>
+ <5637C8DF.800@kernel.org> <CA+55aFwxDSYSB=bBfCxLadgCmFiOzAi0T0JHLFLK5nkR6cm8tg@mail.gmail.com>
+ <CA+55aFy6nC9tQFE_kRrF-YS9N7Jp18CnSxsLNcnAykNLyXQUtg@mail.gmail.com>
+ <CALCETrUxU_AVcQheeCXc0qTh=o2tmDbDct27QfTCb_+G6qc3gQ@mail.gmail.com>
+ <1446512176.17404.30.camel@kernel.crashing.org> <CA+55aFxas=6fg2LtcLjDB3jM9cHBj=7PnDf-8J31jc3yXNpXNQ@mail.gmail.com>
+ <CALCETrUijiLwtYRwc-UHPkuhh+PoMh0scwffewuJ+7wRBR=Jfg@mail.gmail.com>
+ <CA+55aFxgr=VteHvxj7EY===QbchRdLY56r7cyFxSnuF_G0rqVA@mail.gmail.com>
+ <1446555200.1870849.427743457.63139285@webmail.messagingengine.com>
+ <CA+55aFw-pzoSNnO_eot1c2ZJOWKrFeRhXw4oQQS9dwt4NziHfQ@mail.gmail.com>
+ <CA+55aFzSD=H8pAP7B48HCCdjiB3R-Zvx3Dn=x-BjyiL+3UBeiw@mail.gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1CBCD4A0@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Andy Lutomirski <luto@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBCD4A0@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add a new function ovs_ct_find_existing() to find an existing
-conntrack entry for which this packet was already applied to.  This is
-only to be called when there is evidence that the packet was already
-tracked and committed, but we lost the ct reference due to an
-userspace upcall.
+On Fri, Nov 6, 2015 at 7:27 AM, David Laight <David.Laight@aculab.com> wrote:
+>> From: Linus Torvalds
+>> Sent: 03 November 2015 20:45
+>> On Tue, Nov 3, 2015 at 12:05 PM, Linus Torvalds
+>> <torvalds@linux-foundation.org> wrote:
+>> >      result = add_overflow(
+>> >         mul_overflow(sec, SEC_CONVERSION, &overflow),
+>> >         mul_overflow(nsec, NSEC_CONVERSION, &overflow),
+>> >         &overflow);
+>> >
+>> >      return overflow ? MAX_JIFFIES : result;
+>>
+>> Thinking more about this example, I think the gcc interface for
+>> multiplication overflow is fine.
+>>
+>> It would end up something like
+>>
+>>     if (mul_overflow(sec, SEC_CONVERSION, &sec))
+>>         return MAX_JIFFY_OFFSET;
+>>     if (mul_overflow(nsec, NSEC_CONVERSION, &nsec))
+>>         return MAX_JIFFY_OFFSET;
+>>     sum = sec + nsec;
+>>     if (sum < sec || sum > MAX_JIFFY_OFFSET)
+>>         return MAX_JIFFY_OFFSET;
+>>     return sum;
+>>
+>> and that doesn't look horribly ugly to me.
+>
+> If mul_overflow() is a real function you've just forced some of the
+> values out to memory, generating a 'clobber' for all memory
+> (unless 'strict-aliasing' is enabled) and making a mess of other
+> optimisations.
+> (If it is a static inline that might not happen.)
 
-ovs_ct_find_existing() is called from skb_nfct_cached(), which can now
-hide the fact that the ct reference may have been lost due to an
-upcall.  This allows ovs_ct_commit() to be simplified.
+I doubt anyone would ever make it a real function.  On new gcc, it
+would be an inline backed by an intrinsic.  On old gcc it would be a
+normal inline or perhaps an inline with inline asm in it.
 
-This patch is needed by later "openvswitch: Interface with NAT" patch,
-as we need to be able to pass the packet through NAT using the
-original ct reference also after the reference is lost after an
-upcall.
-
-Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
----
- net/openvswitch/conntrack.c | 95 ++++++++++++++++++++++++++++++++++++++-------
- 1 file changed, 82 insertions(+), 13 deletions(-)
-
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 10f4a6e..0c371d0 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -359,16 +359,87 @@ ovs_ct_expect_find(struct net *net, const struct nf_conntrack_zone *zone,
- 	return __nf_ct_expect_find(net, zone, &tuple);
- }
- 
-+/* Find an existing conntrack entry for which this packet was already applied
-+ * to.  This is only called when there is evidence that the packet was already
-+ * tracked and commited, but we lost the ct reference due to an userspace
-+ * upcall. This means that on entry skb->nfct is NULL.
-+ * On success, returns conntrack ptr, sets skb->nfct and ctinfo.
-+ * Must be called rcu_read_lock()ed. */
-+static struct nf_conn *
-+ovs_ct_find_existing(struct net *net, const struct nf_conntrack_zone *zone,
-+		     u_int8_t l3num, struct sk_buff *skb,
-+		     enum ip_conntrack_info *ctinfo)
-+{
-+	struct nf_conntrack_l3proto *l3proto;
-+	struct nf_conntrack_l4proto *l4proto;
-+	struct nf_conntrack_tuple tuple;
-+	struct nf_conntrack_tuple_hash *h;
-+	struct nf_conn *ct;
-+	unsigned int dataoff;
-+	u_int8_t protonum;
-+
-+	BUG_ON(skb->nfct != NULL);
-+
-+	l3proto = __nf_ct_l3proto_find(l3num);
-+	if (!l3proto) {
-+		pr_debug("ovs_ct_find_existing: Can't get l3proto\n");
-+		return NULL;
-+	}
-+	if (l3proto->get_l4proto(skb, skb_network_offset(skb), &dataoff,
-+				 &protonum) <= 0) {
-+		pr_debug("ovs_ct_find_existing: Can't get protonum\n");
-+		return NULL;
-+	}
-+	l4proto = __nf_ct_l4proto_find(l3num, protonum);
-+	if (!l4proto) {
-+		pr_debug("ovs_ct_find_existing: Can't get l4proto\n");
-+		return NULL;
-+	}
-+	if (!nf_ct_get_tuple(skb, skb_network_offset(skb), dataoff, l3num,
-+			     protonum, net, &tuple, l3proto, l4proto)) {
-+		pr_debug("ovs_ct_find_existing: Can't get tuple\n");
-+		return NULL;
-+	}
-+
-+	/* look for tuple match */
-+	h = nf_conntrack_find_get(net, zone, &tuple);
-+	if (!h)
-+		return NULL;   /* Not found. */
-+
-+	ct = nf_ct_tuplehash_to_ctrack(h);
-+
-+	*ctinfo = nf_ct_get_info(h);
-+	if (*ctinfo == IP_CT_NEW) {
-+		/* This should not happen. */
-+		WARN_ONCE(1, "ovs_ct_find_existing: new packet for %p\n", ct);
-+	}
-+	skb->nfct = &ct->ct_general;
-+	skb->nfctinfo = *ctinfo;
-+	return ct;
-+}
-+
- /* Determine whether skb->nfct is equal to the result of conntrack lookup. */
--static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
--			    const struct ovs_conntrack_info *info)
-+static bool skb_nfct_cached(struct net *net,
-+			    const struct sw_flow_key *key,
-+			    const struct ovs_conntrack_info *info,
-+			    struct sk_buff *skb)
- {
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn *ct;
- 
- 	ct = nf_ct_get(skb, &ctinfo);
-+	/* If no ct, check if we have evidence that an existing conntrack entry
-+	 * might be found for this skb.  This happens when we lose a skb->nfct
-+	 * due to an upcall.  If the connection was not confirmed, it is not
-+	 * cached and needs to be run through conntrack again. */
-+	if (!ct && key->ct.state & OVS_CS_F_TRACKED
-+	    && !(key->ct.state & OVS_CS_F_INVALID)
-+	    && key->ct.zone == info->zone.id)
-+		ct = ovs_ct_find_existing(net, &info->zone, info->family, skb,
-+					  &ctinfo);
- 	if (!ct)
- 		return false;
-+
- 	if (!net_eq(net, read_pnet(&ct->ct_net)))
- 		return false;
- 	if (!nf_ct_zone_equal_any(info->ct, nf_ct_zone(ct)))
-@@ -397,7 +468,7 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- 	 * actually run the packet through conntrack twice unless it's for a
- 	 * different zone.
- 	 */
--	if (!skb_nfct_cached(net, skb, info)) {
-+	if (!skb_nfct_cached(net, key, info, skb)) {
- 		struct nf_conn *tmpl = info->ct;
- 
- 		/* Associate skb with specified zone. */
-@@ -431,6 +502,13 @@ static int ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- {
- 	struct nf_conntrack_expect *exp;
- 
-+	/* If we pass an expected packet through nf_conntrack_in() the
-+	 * expectiation will be removed, but the packet could still be lost in
-+	 * upcall processing.  To prevent this from happening we perform an
-+	 * explicit expectation lookup.  Expected connections are always new,
-+	 * and will be passed through conntrack only when they are committed,
-+	 * as it is OK to remove the expectation at that time.
-+	 */
- 	exp = ovs_ct_expect_find(net, &info->zone, info->family, skb);
- 	if (exp) {
- 		u8 state;
-@@ -453,21 +531,12 @@ static int ovs_ct_commit(struct net *net, struct sw_flow_key *key,
- 			 const struct ovs_conntrack_info *info,
- 			 struct sk_buff *skb)
- {
--	u8 state;
- 	int err;
- 
--	state = key->ct.state;
--	if (key->ct.zone == info->zone.id &&
--	    ((state & OVS_CS_F_TRACKED) && !(state & OVS_CS_F_NEW))) {
--		/* Previous lookup has shown that this connection is already
--		 * tracked and committed. Skip committing.
--		 */
--		return 0;
--	}
--
- 	err = __ovs_ct_lookup(net, key, info, skb);
- 	if (err)
- 		return err;
-+	/* This is a no-op if the connection has already been confirmed. */
- 	if (nf_conntrack_confirm(skb) != NF_ACCEPT)
- 		return -EINVAL;
- 
--- 
-2.1.4
+--Andy
