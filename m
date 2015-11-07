@@ -1,15 +1,22 @@
 From: Yang Shi <yang.shi@linaro.org>
 Subject: [PATCH] arm64: bpf: fix JIT stack setup
-Date: Fri,  6 Nov 2015 21:34:54 -0800
-Message-ID: <1446874494-14500-1-git-send-email-yang.shi@linaro.org>
+Date: Fri,  6 Nov 2015 21:36:17 -0800
+Message-ID: <1446874577-14539-1-git-send-email-yang.shi@linaro.org>
 Cc: zlim.lnx@gmail.com, xi.wang@gmail.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
 	linaro-kernel@lists.linaro.org, yang.shi@linaro.org
 To: ast@kernel.org, daniel@iogearbox.net, catalin.marinas@arm.com,
 	will.deacon@arm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:36439 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbbKGFyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 00:54:39 -0500
+Received: by pacdm15 with SMTP id dm15so119317379pac.3
+        for <netdev@vger.kernel.org>; Fri, 06 Nov 2015 21:54:38 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 ARM64 JIT used FP (x29) as eBPF fp register, but FP is subjected to
 change during function call so it may cause the BPF prog stack base address
