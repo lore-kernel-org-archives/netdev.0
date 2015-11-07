@@ -1,138 +1,38 @@
-From: "Shi, Yang" <yang.shi@linaro.org>
-Subject: Re: [PATCH] arm64: bpf: fix JIT stack setup
-Date: Fri, 06 Nov 2015 21:55:30 -0800
-Message-ID: <563D9252.6040402@linaro.org>
-References: <1446874494-14500-1-git-send-email-yang.shi@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: zlim.lnx@gmail.com, xi.wang@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linaro-kernel@lists.linaro.org
-To: ast@kernel.org, daniel@iogearbox.net, catalin.marinas@arm.com,
-	will.deacon@arm.com
+From: Yang Shi <yang.shi@linaro.org>
+Subject: [PATCH] bpf: doc: correct arch list for supported eBPF JIT
+Date: Fri,  6 Nov 2015 21:38:58 -0800
+Message-ID: <1446874738-14589-1-git-send-email-yang.shi@linaro.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linaro-kernel@lists.linaro.org, yang.shi@linaro.org
+To: ast@kernel.org, daniel@iogearbox.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446874494-14500-1-git-send-email-yang.shi@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please ignore this one, forgot to cc to linux-arm-kernel list.
+aarch64 and s390x support eBPF JIT too, correct document to reflect this and
+avoid any confusion.
 
-Sorry for the inconvenience.
+Signed-off-by: Yang Shi <yang.shi@linaro.org>
+---
+ Documentation/networking/filter.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Yang
-
-
-On 11/6/2015 9:34 PM, Yang Shi wrote:
-> ARM64 JIT used FP (x29) as eBPF fp register, but FP is subjected to
-> change during function call so it may cause the BPF prog stack base address
-> change too. Whenever, it pointed to the bottom of BPF prog stack instead of
-> the top.
->
-> So, when copying data via bpf_probe_read, it will be copied to (SP - offset),
-> then it may overwrite the saved FP/LR.
->
-> Use x25 to replace FP as BPF stack base register (fp). Since x25 is callee
-> saved register, so it will keep intact during function call.
-> It is initialized in BPF prog prologue when BPF prog is started to run
-> everytime. When BPF prog exits, it could be just tossed.
->
-> Other than this the BPf prog stack base need to be setup before function
-> call stack.
->
-> So, the BPF stack layout looks like:
->
->                                   high
->           original A64_SP =>   0:+-----+ BPF prologue
->                                  |     | FP/LR and callee saved registers
->           BPF fp register => +64:+-----+
->                                  |     |
->                                  | ... | BPF prog stack
->                                  |     |
->                                  |     |
->           current A64_SP =>      +-----+
->                                  |     |
->                                  | ... | Function call stack
->                                  |     |
->                                  +-----+
->                                    low
->
-> Signed-off-by: Yang Shi <yang.shi@linaro.org>
-> CC: Zi Shen Lim <zlim.lnx@gmail.com>
-> CC: Xi Wang <xi.wang@gmail.com>
-> ---
->   arch/arm64/net/bpf_jit_comp.c | 38 +++++++++++++++++++++++++++++++-------
->   1 file changed, 31 insertions(+), 7 deletions(-)
->
-> diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
-> index a44e529..6809647 100644
-> --- a/arch/arm64/net/bpf_jit_comp.c
-> +++ b/arch/arm64/net/bpf_jit_comp.c
-> @@ -50,7 +50,7 @@ static const int bpf2a64[] = {
->   	[BPF_REG_8] = A64_R(21),
->   	[BPF_REG_9] = A64_R(22),
->   	/* read-only frame pointer to access stack */
-> -	[BPF_REG_FP] = A64_FP,
-> +	[BPF_REG_FP] = A64_R(25),
->   	/* temporary register for internal BPF JIT */
->   	[TMP_REG_1] = A64_R(23),
->   	[TMP_REG_2] = A64_R(24),
-> @@ -155,18 +155,42 @@ static void build_prologue(struct jit_ctx *ctx)
->   	stack_size += 4; /* extra for skb_copy_bits buffer */
->   	stack_size = STACK_ALIGN(stack_size);
->
-> +	/*
-> +	 * BPF prog stack layout
-> +	 *
-> +	 *                         high
-> +	 * original A64_SP =>   0:+-----+ BPF prologue
-> +	 *                        |     | FP/LR and callee saved registers
-> +	 * BPF fp register => +64:+-----+
-> +	 *                        |     |
-> +         *                        | ... | BPF prog stack
-> +	 *                        |     |
-> +	 *                        |     |
-> +	 * current A64_SP =>      +-----+
-> +	 *                        |     |
-> +	 *                        | ... | Function call stack
-> +	 *                        |     |
-> +	 *                        +-----+
-> +	 *                          low
-> +	 *
-> +	 */
-> +
-> +	/* Save FP and LR registers to stay align with ARM64 AAPCS */
-> +	emit(A64_PUSH(A64_FP, A64_LR, A64_SP), ctx);
-> +
->   	/* Save callee-saved register */
->   	emit(A64_PUSH(r6, r7, A64_SP), ctx);
->   	emit(A64_PUSH(r8, r9, A64_SP), ctx);
->   	if (ctx->tmp_used)
->   		emit(A64_PUSH(tmp1, tmp2, A64_SP), ctx);
->
-> -	/* Set up BPF stack */
-> -	emit(A64_SUB_I(1, A64_SP, A64_SP, stack_size), ctx);
-> -
-> -	/* Set up frame pointer */
-> +	/* Set up BPF prog stack base register (x25) */
->   	emit(A64_MOV(1, fp, A64_SP), ctx);
->
-> +	/* Set up function call stack */
-> +	emit(A64_SUB_I(1, A64_SP, A64_SP, stack_size), ctx);
-> +	emit(A64_MOV(1, A64_FP, A64_SP), ctx);
-> +
->   	/* Clear registers A and X */
->   	emit_a64_mov_i64(ra, 0, ctx);
->   	emit_a64_mov_i64(rx, 0, ctx);
-> @@ -196,8 +220,8 @@ static void build_epilogue(struct jit_ctx *ctx)
->   	emit(A64_POP(r8, r9, A64_SP), ctx);
->   	emit(A64_POP(r6, r7, A64_SP), ctx);
->
-> -	/* Restore frame pointer */
-> -	emit(A64_MOV(1, fp, A64_SP), ctx);
-> +	/* Restore FP/LR registers */
-> +	emit(A64_POP(A64_FP, A64_LR, A64_SP), ctx);
->
->   	/* Set return value */
->   	emit(A64_MOV(1, A64_R(0), r0), ctx);
->
+diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
+index 135581f..96da119 100644
+--- a/Documentation/networking/filter.txt
++++ b/Documentation/networking/filter.txt
+@@ -596,9 +596,9 @@ skb pointer). All constraints and restrictions from bpf_check_classic() apply
+ before a conversion to the new layout is being done behind the scenes!
+ 
+ Currently, the classic BPF format is being used for JITing on most of the
+-architectures. Only x86-64 performs JIT compilation from eBPF instruction set,
+-however, future work will migrate other JIT compilers as well, so that they
+-will profit from the very same benefits.
++architectures. x86-64, aarch64 and s390x perform JIT compilation from eBPF
++instruction set, however, future work will migrate other JIT compilers as well,
++so that they will profit from the very same benefits.
+ 
+ Some core changes of the new internal format:
+ 
+-- 
+2.0.2
