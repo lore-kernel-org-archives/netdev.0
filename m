@@ -1,66 +1,49 @@
-From: Felix Fietkau <nbd@openwrt.org>
-Subject: Re: [PATCH] packet: Allow packets with only a header (but no payload)
-Date: Sat, 7 Nov 2015 14:11:17 +0100
-Message-ID: <563DF875.7090104@openwrt.org>
-References: <1437495247-471-1-git-send-email-martin.blumenstingl@googlemail.com>
- <CA+FuTScr0o0ZmwWxVP4FZoQosRRiQG6+MDvCahMCWmjLkg+33g@mail.gmail.com>
- <CAFBinCB4xOBzxwkEQYrpi1q7Xm4_-hpj2jUE2r-fQ5f2grjZ=Q@mail.gmail.com>
- <CA+FuTSctXr=2eC_-e793hvAPu=XyEhLeLoowH95tbOBx8CGj7g@mail.gmail.com>
- <CAFBinCDZDYJGjimsAD=+HFokc9ga0cLBD1KSAieagzWQNH+s=w@mail.gmail.com>
- <CA+FuTSfw+-6Xb_0xchM5E6vCMSsyiSvSYF3MbuE25pEt07RRbw@mail.gmail.com>
- <CAFBinCBYv44ttGNyny11gEwNMJDwYzO=YYJC5scwOE-PN2nn4A@mail.gmail.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] ethernet-synopsys: Delete an unnecessary check before
+ of_node_put()
+Date: Sat, 7 Nov 2015 15:15:24 +0100
+Message-ID: <563E077C.3090201@users.sourceforge.net>
+References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net> <563C5392.6030309@users.sourceforge.net>
+ <20151106.233311.2260896695923603885.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>, johann.baudy@gnu-log.net,
-	paulus@samba.org
-To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-	Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arrakis.dune.hu ([78.24.191.176]:36447 "EHLO arrakis.dune.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753194AbbKGNLc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Nov 2015 08:11:32 -0500
-In-Reply-To: <CAFBinCBYv44ttGNyny11gEwNMJDwYzO=YYJC5scwOE-PN2nn4A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	julia.lawall@lip6.fr
+To: David Miller <davem@davemloft.net>,
+	Lars Persson <lars.persson@axis.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151106.233311.2260896695923603885.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2015-07-31 00:15, Martin Blumenstingl wrote:
-> On Wed, Jul 29, 2015 at 8:05 AM, Willem de Bruijn <willemb@google.com> wrote:
->> Martin, to return to your initial statement that PPPoE PADI packets can
->> have a zero payload: the PPPoE RFC states that PADI packets "MUST
->> contain exactly one TAG of TAG_TYPE Service-Name, indicating the
->> service the Host is requesting, and any number of other TAG types."
->> (RFC 2516, 5.1). Is the observed behavior (no payload) perhaps
->> incorrect?
-> As far as I can see you are right, but the real world seems to be different.
-> My ISP for example lists the PPPoE connection settings, but they are
-> nowhere mentioning the "service name".
-> 
-> I have also re-read pppd's source code again and that seems to confirm
-> what you are reading in the RFC: Leaving the service name away makes
-> seems to violate the RFC, but pppd still accepts those configurations.
-> 
->> Even if it is, if this is breaking established userspace expectations,
->> we should look into it. Ethernet specifies a minimum payload size of
->> 46 on the wire, but perhaps that is handled with padding, so that
->> 0 length should be valid within the stack. Also, there may be other
->> valid uses of 0 length payload on top of link layers that are not Ethernet.
-> Good catch. I would also like to note that the documentation for
-> "hard_header_len" describes it as "Hardware header length". When the
-> purpose of this field we should check whether the documentation should
-> be updated to "Minimum hardware header length" -> that would mean the
-> condition has to be a "len < hard_header_len" instead of a "len <=
-> hard_header_len" (as it is now).
-> 
-> PS: I have also added the pppd maintainer (Paul Mackerras) to this
-> thread because I think he should know about this issue (and he can
-> probably provide more details if required).
-> As a quick summary for him: linux  >= 3.19 rejects PADI packets when
-> no service name is configured.
-Any news on this? Users are complaining about this regression:
-https://dev.openwrt.org/ticket/20707
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Sat, 7 Nov 2015 15:10:29 +0100
 
-- Felix
+The of_node_put() function tests whether its argument is NULL and then
+returns immediately. Thus the test around the call is not needed.
+
+This issue was detected by using the Coccinelle software.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+index 85b3326..9066d7a 100644
+--- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
++++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+@@ -2970,8 +2970,7 @@ err_out_unregister_netdev:
+ err_out_clk_dis_aper:
+ 	clk_disable_unprepare(lp->apb_pclk);
+ err_out_free_netdev:
+-	if (lp->phy_node)
+-		of_node_put(lp->phy_node);
++	of_node_put(lp->phy_node);
+ 	free_netdev(ndev);
+ 	platform_set_drvdata(pdev, NULL);
+ 	return ret;
+-- 
+2.6.2
