@@ -1,46 +1,69 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH -next] net: hisilicon: Never build on SPARC
-Date: Fri, 6 Nov 2015 17:24:36 -0800
-Message-ID: <563D52D4.2020607@roeck-us.net>
-References: <1445437773-23261-1-git-send-email-linux@roeck-us.net>
- <20151021215320.GB23371@roeck-us.net> <20151106191652.GA4046@roeck-us.net>
- <3819536.piFndcizrV@wuerfel>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net] bonding: fix panic on non-ARPHRD_ETHER enslave
+ failure
+Date: Sat, 7 Nov 2015 02:31:14 +0100
+Message-ID: <563D5462.1040907@cumulusnetworks.com>
+References: <9700.1446859403@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3819536.piFndcizrV@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:38171 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754468AbbKGBbR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2015 20:31:17 -0500
+Received: by wicll6 with SMTP id ll6so38315067wic.1
+        for <netdev@vger.kernel.org>; Fri, 06 Nov 2015 17:31:16 -0800 (PST)
+In-Reply-To: <9700.1446859403@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/06/2015 12:30 PM, Arnd Bergmann wrote:
-> On Friday 06 November 2015 11:16:52 Guenter Roeck wrote:
->> On Wed, Oct 21, 2015 at 02:53:20PM -0700, Guenter Roeck wrote:
->>> On Wed, Oct 21, 2015 at 09:11:53PM +0200, Arnd Bergmann wrote:
->>>> On Wednesday 21 October 2015 10:03:05 Guenter Roeck wrote:
->>>>> Anyway, if it gets that complicated, I think we should stick with
->>>>> just returning OF_BAD_ADDR. The above really suggests the need for
->>>>> an architecture specific solution.
->>>>
->>>> Probably no harm in this really: the far more common
->>>> of_address_to_resource() and of_iomap() helpers are equally
->>>> broken on SPARC and we just return a runtime error for those
->>>> as well without CONFIG_OF_ADDRESS rather than breaking the build.
->>>>
->>> Agreed. Given this, returning OF_BAD_ADDR sounds like a better choice.
->>>
->> Arnd,
->>
->> do you know if a fix for this problem is pending in some branch ?
->> Mainline sparc builds are now affected.
->>
->
-> I don't think anyone wrote the patch to do this. Can you send one?
->
+On 11/07/2015 02:23 AM, Jay Vosburgh wrote:
+> 	Since commit 7d5cd2ce529b, when bond_enslave fails on devices that
+> are not ARPHRD_ETHER, if needed, it resets the bonding device back to
+> ARPHRD_ETHER by calling ether_setup.
+> 
+> 	Unfortunately, ether_setup clobbers dev->flags, clearing IFF_UP
+> if the bond device is up, leaving it in a quasi-down state without
+> having actually gone through dev_close.  For bonding, if any periodic
+> work queue items are active (miimon, arp_interval, etc), those will
+> remain running, as they are stopped by bond_close.  At this point, if
+> the bonding module is unloaded or the bond is deleted, the system will
+> panic when the work function is called.
+> 
+> 	This panic is resolved by calling dev_close on the bond itself
+> prior to calling ether_setup.
+> 
+> Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+> Fixes: 7d5cd2ce5292 ("bonding: correctly handle bonding type change on enslave failure")
+> 
+> ---
+>  drivers/net/bonding/bond_main.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index b4351ca..9e0f8a7 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1749,6 +1749,7 @@ err_undo_flags:
+>  					    slave_dev->dev_addr))
+>  			eth_hw_addr_random(bond_dev);
+>  		if (bond_dev->type != ARPHRD_ETHER) {
+> +			dev_close(bond_dev);
+>  			ether_setup(bond_dev);
+>  			bond_dev->flags |= IFF_MASTER;
+>  			bond_dev->priv_flags &= ~IFF_TX_SKB_SHARING;
+> 
 
-I'll see what I can do.
+Oh, I've missed it. Very good catch!
 
-Guenter
+Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+
+Thanks,
+ Nik
+ 
