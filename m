@@ -1,122 +1,148 @@
 From: =?UTF-8?q?Ville=20Skytt=C3=A4?= <ville.skytta@iki.fi>
-Subject: [PATCH] man: Spelling fixes
-Date: Sat,  7 Nov 2015 11:47:40 +0200
-Message-ID: <1446889660-22578-1-git-send-email-ville.skytta@iki.fi>
+Subject: [PATCH 1/2] man: Syntax and warning fixes
+Date: Sat,  7 Nov 2015 11:52:59 +0200
+Message-ID: <1446889980-23970-1-git-send-email-ville.skytta@iki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:34227 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751378AbbKGJrn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 04:47:43 -0500
-Received: by lbbwb3 with SMTP id wb3so72350823lbb.1
-        for <netdev@vger.kernel.org>; Sat, 07 Nov 2015 01:47:42 -0800 (PST)
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:34135 "EHLO
+	mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752483AbbKGJxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 04:53:04 -0500
+Received: by lfgh9 with SMTP id h9so81415946lfg.1
+        for <netdev@vger.kernel.org>; Sat, 07 Nov 2015 01:53:02 -0800 (PST)
 Received: from viper.bobcat.mine.nu (62-78-200-229.bb.dnainternet.fi. [62.78.200.229])
-        by smtp.gmail.com with ESMTPSA id a2sm700213lbc.20.2015.11.07.01.47.41
+        by smtp.gmail.com with ESMTPSA id f138sm718320lfd.6.2015.11.07.01.53.01
         for <netdev@vger.kernel.org>
         (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Sat, 07 Nov 2015 01:47:41 -0800 (PST)
+        Sat, 07 Nov 2015 01:53:01 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
----
- man/man8/bridge.8         | 2 +-
- man/man8/ifcfg.8          | 2 +-
- man/man8/lnstat.8         | 2 +-
- man/man8/tc-bpf.8         | 2 +-
- man/man8/tc-cbq-details.8 | 2 +-
- man/man8/tc-mqprio.8      | 2 +-
- man/man8/tc.8             | 2 +-
- 7 files changed, 7 insertions(+), 7 deletions(-)
+=46ix syntax issues and warnings highlighted by `man --warnings=3Dw' fr=
+om
+man-db 2.7.1.
 
-diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index 222a438..deccb1c 100644
---- a/man/man8/bridge.8
-+++ b/man/man8/bridge.8
-@@ -237,7 +237,7 @@ state the port for list for STP BPDUs and drop all other traffic.
- .B 2
- - STP LEARNING state. Only valid if STP is enabled on the bridge. In this
- state the port will accept traffic only for the purpose of updating MAC
--adress tables.
-+address tables.
- .sp
- 
- .B 3
-diff --git a/man/man8/ifcfg.8 b/man/man8/ifcfg.8
-index 79033bd..1a3786c 100644
---- a/man/man8/ifcfg.8
-+++ b/man/man8/ifcfg.8
-@@ -1,6 +1,6 @@
- .TH IFCFG 8 "September 24 2009" "iproute2" "Linux"
- .SH NAME
--ifcfg \- simplistic script which replaces ifconfig IP managment
-+ifcfg \- simplistic script which replaces ifconfig IP management
- .SH SYNOPSIS
- .ad l
- .in +8
-diff --git a/man/man8/lnstat.8 b/man/man8/lnstat.8
-index 69fe876..acd5f4a 100644
---- a/man/man8/lnstat.8
-+++ b/man/man8/lnstat.8
-@@ -172,7 +172,7 @@ Number of dropped conntrack entries to make room for new ones, if maximum table
- size was reached.
- .sp
- .B icmp_error
--Number of packets wich could not be tracked due to error situation. This is a
-+Number of packets which could not be tracked due to error situation. This is a
- subset of \fBinvalid\fP.
- .sp
- .B expect_new
+Signed-off-by: Ville Skytt=C3=A4 <ville.skytta@iki.fi>
+---
+ man/man8/tc-bpf.8         | 2 +-
+ man/man8/tipc-bearer.8    | 4 ++--
+ man/man8/tipc-link.8      | 6 +++---
+ man/man8/tipc-media.8     | 4 ++--
+ man/man8/tipc-nametable.8 | 4 ++--
+ man/man8/tipc-node.8      | 4 ++--
+ man/man8/tipc-socket.8    | 4 ++--
+ 7 files changed, 14 insertions(+), 14 deletions(-)
+
 diff --git a/man/man8/tc-bpf.8 b/man/man8/tc-bpf.8
-index f5201d3..c8d5c5f 100644
+index 2c02ab2..f5201d3 100644
 --- a/man/man8/tc-bpf.8
 +++ b/man/man8/tc-bpf.8
-@@ -394,7 +394,7 @@ socket, and spawning an application such as
- \&. This approach's advantage is that tc will place the file descriptors
- into the environment and thus make them available just like stdin, stdout,
- stderr file descriptors, meaning, in case user applications run from within
--this fd-owner shell, they can terminate and restart without loosing eBPF
-+this fd-owner shell, they can terminate and restart without losing eBPF
- maps file descriptors. Example invocation with the previous classifier and
- action mixture:
- 
-diff --git a/man/man8/tc-cbq-details.8 b/man/man8/tc-cbq-details.8
-index ddaf3ca..86353b5 100644
---- a/man/man8/tc-cbq-details.8
-+++ b/man/man8/tc-cbq-details.8
-@@ -197,7 +197,7 @@ priority yielded a class, enter the fallback algorithm.
- The fallback algorithm resides outside of the loop and is as follows.
- .TP
- (i)
--Consult the defmap of the class at which the jump to fallback occured. If 
-+Consult the defmap of the class at which the jump to fallback occurred. If 
- the defmap contains a class for the 
- .B
- priority
-diff --git a/man/man8/tc-mqprio.8 b/man/man8/tc-mqprio.8
-index da3bf08..0e1d305 100644
---- a/man/man8/tc-mqprio.8
-+++ b/man/man8/tc-mqprio.8
-@@ -85,7 +85,7 @@ belong to an application. See kernel and cgroup documentation for details.
- .SH QDISC PARAMETERS
- .TP
- num_tc
--Number of traffic classes to use upto 16 classes supported.
-+Number of traffic classes to use. Up to 16 classes supported.
- 
- .TP
- map
-diff --git a/man/man8/tc.8 b/man/man8/tc.8
-index 700b960..7a1090b 100644
---- a/man/man8/tc.8
-+++ b/man/man8/tc.8
-@@ -609,7 +609,7 @@ to
- 
- .TP
- .BR "\-cf" , " \-conf " <FILENAME>
--specifies path to the config file. This option is used in conjuction with other options (e.g.
-+specifies path to the config file. This option is used in conjunction with other options (e.g.
- .BR -nm ")."
- 
- .SH FORMAT
--- 
+@@ -844,7 +844,7 @@ result in the default classid:
+ Basically, such a minimal generator is equivalent to:
+=20
+ .in +4n
+-.B tcpdump -iem1 -ddd 'tcp[tcpflags] & tcp-syn !=3D 0' | tr '\\n' ',' =
+> /var/bpf/tcp-syn
++.B tcpdump -iem1 -ddd 'tcp[tcpflags] & tcp-syn !=3D 0' | tr '\\\\n' ',=
+' > /var/bpf/tcp-syn
+ .in
+=20
+ Since
+diff --git a/man/man8/tipc-bearer.8 b/man/man8/tipc-bearer.8
+index f59c39d..50a1ed2 100644
+--- a/man/man8/tipc-bearer.8
++++ b/man/man8/tipc-bearer.8
+@@ -1,7 +1,7 @@
+ .TH TIPC-BEARER 8 "02 Jun 2015" "iproute2" "Linux"
+=20
+-./ For consistency, please keep padding right aligned.
+-./ For example '.B "foo " bar' and not '.B foo " bar"'
++.\" For consistency, please keep padding right aligned.
++.\" For example '.B "foo " bar' and not '.B foo " bar"'
+=20
+ .SH NAME
+ tipc-bearer \- show or modify TIPC bearers
+diff --git a/man/man8/tipc-link.8 b/man/man8/tipc-link.8
+index 899b882..3be8c9a 100644
+--- a/man/man8/tipc-link.8
++++ b/man/man8/tipc-link.8
+@@ -1,7 +1,7 @@
+ .TH TIPC-LINK 8 "02 Jun 2015" "iproute2" "Linux"
+=20
+-./ For consistency, please keep padding right aligned.
+-./ For example '.B "foo " bar' and not '.B foo " bar"'
++.\" For consistency, please keep padding right aligned.
++.\" For example '.B "foo " bar' and not '.B foo " bar"'
+=20
+ .SH NAME
+ tipc-link \- show links or modify link properties
+@@ -33,7 +33,7 @@ tipc-link \- show links or modify link properties
+ .I LINK
+ .RB "] | " "reset
+ .BI "link " "LINK "
+-.R }
++}
+=20
+ .ti -8
+ .B tipc link list
+diff --git a/man/man8/tipc-media.8 b/man/man8/tipc-media.8
+index 7f94efe..6c6e2b1 100644
+--- a/man/man8/tipc-media.8
++++ b/man/man8/tipc-media.8
+@@ -1,7 +1,7 @@
+ .TH TIPC-MEDIA 8 "02 Jun 2015" "iproute2" "Linux"
+=20
+-./ For consistency, please keep padding right aligned.
+-./ For example '.B "foo " bar' and not '.B foo " bar"'
++.\" For consistency, please keep padding right aligned.
++.\" For example '.B "foo " bar' and not '.B foo " bar"'
+=20
+ .SH NAME
+ tipc-media \- list or modify media properties
+diff --git a/man/man8/tipc-nametable.8 b/man/man8/tipc-nametable.8
+index c8d573f..d3397f9 100644
+--- a/man/man8/tipc-nametable.8
++++ b/man/man8/tipc-nametable.8
+@@ -1,7 +1,7 @@
+ .TH TIPC-NAMETABLE 8 "02 Jun 2015" "iproute2" "Linux"
+=20
+-./ For consistency, please keep padding right aligned.
+-./ For example '.B "foo " bar' and not '.B foo " bar"'
++.\" For consistency, please keep padding right aligned.
++.\" For example '.B "foo " bar' and not '.B foo " bar"'
+=20
+ .SH NAME
+ tipc-nametable \- show TIPC nametable
+diff --git a/man/man8/tipc-node.8 b/man/man8/tipc-node.8
+index 66418b3..ef32ec7 100644
+--- a/man/man8/tipc-node.8
++++ b/man/man8/tipc-node.8
+@@ -1,7 +1,7 @@
+ .TH TIPC-NODE 8 "02 Jun 2015" "iproute2" "Linux"
+=20
+-./ For consistency, please keep padding right aligned.
+-./ For example '.B "foo " bar' and not '.B foo " bar"'
++.\" For consistency, please keep padding right aligned.
++.\" For example '.B "foo " bar' and not '.B foo " bar"'
+=20
+ .SH NAME
+ tipc-node \- modify and show local node parameters or list peer nodes
+diff --git a/man/man8/tipc-socket.8 b/man/man8/tipc-socket.8
+index af18e35..23ec1e5 100644
+--- a/man/man8/tipc-socket.8
++++ b/man/man8/tipc-socket.8
+@@ -1,7 +1,7 @@
+ .TH TIPC-SOCKET 8 "02 Jun 2015" "iproute2" "Linux"
+=20
+-./ For consistency, please keep padding right aligned.
+-./ For example '.B "foo " bar' and not '.B foo " bar"'
++.\" For consistency, please keep padding right aligned.
++.\" For example '.B "foo " bar' and not '.B foo " bar"'
+=20
+ .SH NAME
+ tipc-socket \- show TIPC socket (port) information
+--=20
 2.4.3
