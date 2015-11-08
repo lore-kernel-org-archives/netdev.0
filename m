@@ -1,108 +1,49 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net 6/6] netfilter: nft_meta: use skb_to_full_sk() helper
-Date: Sun,  8 Nov 2015 10:54:12 -0800
-Message-ID: <1447008853-16060-7-git-send-email-edumazet@google.com>
-References: <1447008853-16060-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Paul Moore <paul@paul-moore.com>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH 6/6] iptoken: simplify iptoken_list a bit
+Date: Sun,  8 Nov 2015 20:21:11 +0100
+Message-ID: <1447010471-559-7-git-send-email-phil@nwl.cc>
+References: <1447010471-559-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:35390 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750741AbbKHSyp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2015 13:54:45 -0500
-Received: by pasz6 with SMTP id z6so179536977pas.2
-        for <netdev@vger.kernel.org>; Sun, 08 Nov 2015 10:54:44 -0800 (PST)
-In-Reply-To: <1447008853-16060-1-git-send-email-edumazet@google.com>
+Received: from orbit.nwl.cc ([176.31.251.142]:58936 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752135AbbKHTVQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Nov 2015 14:21:16 -0500
+In-Reply-To: <1447010471-559-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SYNACK packets might be attached to request sockets.
+Since it uses only a single filter, rtnl_dump_filter() can be used.
 
-Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- net/netfilter/nft_meta.c | 36 ++++++++++++++++++++----------------
- 1 file changed, 20 insertions(+), 16 deletions(-)
+ ip/iptoken.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
-index e4ad2c24bc41..9dfaf4d55ee0 100644
---- a/net/netfilter/nft_meta.c
-+++ b/net/netfilter/nft_meta.c
-@@ -31,6 +31,7 @@ void nft_meta_get_eval(const struct nft_expr *expr,
- 	const struct nft_meta *priv = nft_expr_priv(expr);
- 	const struct sk_buff *skb = pkt->skb;
- 	const struct net_device *in = pkt->in, *out = pkt->out;
-+	struct sock *sk;
- 	u32 *dest = &regs->data[priv->dreg];
+diff --git a/ip/iptoken.c b/ip/iptoken.c
+index a38194c..428f133 100644
+--- a/ip/iptoken.c
++++ b/ip/iptoken.c
+@@ -95,10 +95,6 @@ static int iptoken_list(int argc, char **argv)
+ {
+ 	int af = AF_INET6;
+ 	struct rtnl_dump_args da;
+-	const struct rtnl_dump_filter_arg a[2] = {
+-		{ .filter = print_token, .arg1 = &da, },
+-		{ .filter = NULL, .arg1 = NULL, },
+-	};
  
- 	switch (priv->key) {
-@@ -86,33 +87,35 @@ void nft_meta_get_eval(const struct nft_expr *expr,
- 		*(u16 *)dest = out->type;
- 		break;
- 	case NFT_META_SKUID:
--		if (skb->sk == NULL || !sk_fullsock(skb->sk))
-+		sk = skb_to_full_sk(skb);
-+		if (!sk || !sk_fullsock(sk))
- 			goto err;
+ 	memset(&da, 0, sizeof(da));
+ 	da.fp = stdout;
+@@ -118,7 +114,7 @@ static int iptoken_list(int argc, char **argv)
+ 		return -1;
+ 	}
  
--		read_lock_bh(&skb->sk->sk_callback_lock);
--		if (skb->sk->sk_socket == NULL ||
--		    skb->sk->sk_socket->file == NULL) {
--			read_unlock_bh(&skb->sk->sk_callback_lock);
-+		read_lock_bh(&sk->sk_callback_lock);
-+		if (sk->sk_socket == NULL ||
-+		    sk->sk_socket->file == NULL) {
-+			read_unlock_bh(&sk->sk_callback_lock);
- 			goto err;
- 		}
- 
- 		*dest =	from_kuid_munged(&init_user_ns,
--				skb->sk->sk_socket->file->f_cred->fsuid);
--		read_unlock_bh(&skb->sk->sk_callback_lock);
-+				sk->sk_socket->file->f_cred->fsuid);
-+		read_unlock_bh(&sk->sk_callback_lock);
- 		break;
- 	case NFT_META_SKGID:
--		if (skb->sk == NULL || !sk_fullsock(skb->sk))
-+		sk = skb_to_full_sk(skb);
-+		if (!sk || !sk_fullsock(sk))
- 			goto err;
- 
--		read_lock_bh(&skb->sk->sk_callback_lock);
--		if (skb->sk->sk_socket == NULL ||
--		    skb->sk->sk_socket->file == NULL) {
--			read_unlock_bh(&skb->sk->sk_callback_lock);
-+		read_lock_bh(&sk->sk_callback_lock);
-+		if (sk->sk_socket == NULL ||
-+		    sk->sk_socket->file == NULL) {
-+			read_unlock_bh(&sk->sk_callback_lock);
- 			goto err;
- 		}
- 		*dest =	from_kgid_munged(&init_user_ns,
--				 skb->sk->sk_socket->file->f_cred->fsgid);
--		read_unlock_bh(&skb->sk->sk_callback_lock);
-+				 sk->sk_socket->file->f_cred->fsgid);
-+		read_unlock_bh(&sk->sk_callback_lock);
- 		break;
- #ifdef CONFIG_IP_ROUTE_CLASSID
- 	case NFT_META_RTCLASSID: {
-@@ -168,9 +171,10 @@ void nft_meta_get_eval(const struct nft_expr *expr,
- 		break;
- #ifdef CONFIG_CGROUP_NET_CLASSID
- 	case NFT_META_CGROUP:
--		if (skb->sk == NULL || !sk_fullsock(skb->sk))
-+		sk = skb_to_full_sk(skb);
-+		if (!sk || !sk_fullsock(sk))
- 			goto err;
--		*dest = skb->sk->sk_classid;
-+		*dest = sk->sk_classid;
- 		break;
- #endif
- 	default:
+-	if (rtnl_dump_filter_l(&rth, a) < 0) {
++	if (rtnl_dump_filter(&rth, print_token, &da) < 0) {
+ 		fprintf(stderr, "Dump terminated\n");
+ 		return -1;
+ 	}
 -- 
-2.6.0.rc2.230.g3dd15c0
+2.1.2
