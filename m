@@ -1,42 +1,70 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 5/6] ipaddress: drop unnecessary check in ipaddr_list_flush_or_save()
-Date: Sun,  8 Nov 2015 21:22:20 +0100
-Message-ID: <1447014141-3565-6-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v2 0/6] flush many addresses and some cleanups
+Date: Sun,  8 Nov 2015 21:22:15 +0100
+Message-ID: <1447014141-3565-1-git-send-email-phil@nwl.cc>
 References: <1447010471-559-1-git-send-email-phil@nwl.cc>
- <1447014141-3565-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:49079 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:59824 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751499AbbKHUW0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Nov 2015 15:22:26 -0500
-In-Reply-To: <1447014141-3565-1-git-send-email-phil@nwl.cc>
+	id S1751346AbbKHUWY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Nov 2015 15:22:24 -0500
+In-Reply-To: <1447010471-559-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Right after ipaddr_reset_filter(), filter.family is always AF_UNSPEC.
+This patch series aims to silence spurious error messages when flushing
+an interface with many addresses assigned and provides a few cleanups
+found along the way.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/ipaddress.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+The original issue was a test-case adding 40k IPv4 addresses to an
+interface and calling 'ip addr flush' afterwards. Initially, this
+resulted in an error message:
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 23e0308..ff7f2a8 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -1446,10 +1446,7 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
- 
- 	ipaddr_reset_filter(oneline, 0);
- 	filter.showqueue = 1;
--
--	if (filter.family == AF_UNSPEC)
--		filter.family = preferred_family;
--
-+	filter.family = preferred_family;
- 	filter.group = -1;
- 
- 	if (action == IPADD_FLUSH) {
+| Failed to send flush request: Cannot assign requested address
+
+Iproute apparently tried to remove (secondary) addresses which didn't
+exist anymore since the primary one had already been removed. (This
+behaviour actually depends on the promote_secondaries sysctl setting.)
+Patch 1/6 makes iproute simply ignore this error, as when flushing it is
+not relevant. This also allows to remove iproute's previous workaround,
+which is to flush secondary addresses before primary ones (patch 2/6).
+
+Yet, still an error message is emitted on newer kernels, as they started
+to check consistency of netlink dumps (which is broken by iproute as it
+alters the data while it is dumped). This error may as well be ignored,
+as it's expected behaviour while flushing addresses. Though in order to
+do that, libnetlink API had to be extended a bit to actually allow to
+ignore certain nlmsg_flags bits. Patch 3/6 therefore extends libnetlink,
+patch 4/6 then makes use of the extended functionality.
+
+While debugging the issue, an unnecessary check has been discovered
+(patch 5/6) as well as a possible simplification in iptoken.c was found
+(patch 6/6).
+
+Please note that this series was built upon previously sent in patch
+"ip_common.h header cleanup".
+
+Changes since v1:
+- Add forgotten hint about dependent patch (see above).
+- Fix typo in patch 3/6 (sorry, I forgot to test-build a last-minute
+  cleanup).
+- All other patches remain unchanged.
+
+Phil Sutter (6):
+  ipaddress: make flush command more error-tolerant
+  ipaddress: simplify ipaddr_flush()
+  libnetlink: introduce nc_flags
+  ipaddress: fix ipaddr_flush for Linux >= 3.1
+  ipaddress: drop unnecessary check in ipaddr_list_flush_or_save()
+  iptoken: simplify iptoken_list a bit
+
+ include/libnetlink.h |  7 ++++++-
+ ip/ipaddress.c       | 51 +++++++++------------------------------------------
+ ip/iptoken.c         |  6 +-----
+ lib/libnetlink.c     | 10 ++++++----
+ 4 files changed, 22 insertions(+), 52 deletions(-)
+
 -- 
 2.1.2
