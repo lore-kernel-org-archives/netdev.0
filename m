@@ -1,55 +1,87 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 1/6] ipaddress: make flush command more error-tolerant
-Date: Sun,  8 Nov 2015 20:21:06 +0100
-Message-ID: <1447010471-559-2-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH 2/6] ipaddress: simplify ipaddr_flush()
+Date: Sun,  8 Nov 2015 20:21:07 +0100
+Message-ID: <1447010471-559-3-git-send-email-phil@nwl.cc>
 References: <1447010471-559-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:55961 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:39129 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752075AbbKHTVO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751973AbbKHTVO (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 8 Nov 2015 14:21:14 -0500
 In-Reply-To: <1447010471-559-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The core issue here is that with promote_secondaries sysctl setting
-being turned off, removing the primary address implicitly removes all
-secondaries as well. Iproute is aware of this and therefore tries to
-remove all secondary addresses first to circumvent errors due to
-removing non-existent addresses. But this works only if not too many IP
-addresses are assigned to an interface, otherwise the RTM_GETADDR
-response is split up into multiple buffers. In my test-case, flushing
-more than 42 IPv4 addresses was sufficient to trigger an error:
-
-Failed to send flush request: Cannot assign requested address
-
-This patch fixes the issue by simply ignoring EADDRNOTAVAIL when
-flushing.
+Since it's no longer relevant whether an IP address is primary or
+secondary when flushing, ipaddr_flush() can be simplified a bit.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- ip/ipaddress.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ ip/ipaddress.c | 38 +-------------------------------------
+ 1 file changed, 1 insertion(+), 37 deletions(-)
 
 diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index f290205..75b3e27 100644
+index 75b3e27..b5b444b 100644
 --- a/ip/ipaddress.c
 +++ b/ip/ipaddress.c
-@@ -893,7 +893,12 @@ int print_linkinfo(const struct sockaddr_nl *who,
+@@ -1143,28 +1143,6 @@ brief_exit:
+ 	return 0;
+ }
  
- static int flush_update(void)
+-static int print_addrinfo_primary(const struct sockaddr_nl *who,
+-				  struct nlmsghdr *n, void *arg)
+-{
+-	struct ifaddrmsg *ifa = NLMSG_DATA(n);
+-
+-	if (ifa->ifa_flags & IFA_F_SECONDARY)
+-		return 0;
+-
+-	return print_addrinfo(who, n, arg);
+-}
+-
+-static int print_addrinfo_secondary(const struct sockaddr_nl *who,
+-				    struct nlmsghdr *n, void *arg)
+-{
+-	struct ifaddrmsg *ifa = NLMSG_DATA(n);
+-
+-	if (!(ifa->ifa_flags & IFA_F_SECONDARY))
+-		return 0;
+-
+-	return print_addrinfo(who, n, arg);
+-}
+-
+ struct nlmsg_list
  {
--	if (rtnl_send_check(&rth, filter.flushb, filter.flushp) < 0) {
-+	int rc = rtnl_send_check(&rth, filter.flushb, filter.flushp);
-+
-+	/* if promote_secondaries sysctl setting is off, removing the primary
-+	 * address makes us try to remove non-existent secondaries. Since we're
-+	 * flushing, this can be sanely ignored. */
-+	if (rc < 0 && errno != EADDRNOTAVAIL) {
- 		perror("Failed to send flush request");
- 		return -1;
- 	}
+ 	struct nlmsg_list *next;
+@@ -1415,26 +1393,12 @@ static int ipaddr_flush(void)
+ 	filter.flushe = sizeof(flushb);
+ 
+ 	while ((max_flush_loops == 0) || (round < max_flush_loops)) {
+-		const struct rtnl_dump_filter_arg a[3] = {
+-			{
+-				.filter = print_addrinfo_secondary,
+-				.arg1 = stdout,
+-			},
+-			{
+-				.filter = print_addrinfo_primary,
+-				.arg1 = stdout,
+-			},
+-			{
+-				.filter = NULL,
+-				.arg1 = NULL,
+-			},
+-		};
+ 		if (rtnl_wilddump_request(&rth, filter.family, RTM_GETADDR) < 0) {
+ 			perror("Cannot send dump request");
+ 			exit(1);
+ 		}
+ 		filter.flushed = 0;
+-		if (rtnl_dump_filter_l(&rth, a) < 0) {
++		if (rtnl_dump_filter(&rth, print_addrinfo, stdout) < 0) {
+ 			fprintf(stderr, "Flush terminated\n");
+ 			exit(1);
+ 		}
 -- 
 2.1.2
