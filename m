@@ -1,83 +1,81 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 3/6] libnetlink: introduce nc_flags
-Date: Sun,  8 Nov 2015 21:22:18 +0100
-Message-ID: <1447014141-3565-4-git-send-email-phil@nwl.cc>
-References: <1447010471-559-1-git-send-email-phil@nwl.cc>
- <1447014141-3565-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] inet: delay address promotion check until last request
+ in message
+Date: Sun, 8 Nov 2015 16:56:41 -0500
+Message-ID: <20151108215641.GA16147@neilslaptop.think-freely.org>
+References: <1446839495-32719-1-git-send-email-nhorman@tuxdriver.com>
+ <alpine.LFD.2.11.1511062352270.1904@ja.home.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:57508 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751385AbbKHUWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Nov 2015 15:22:25 -0500
-In-Reply-To: <1447014141-3565-1-git-send-email-phil@nwl.cc>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44639 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750966AbbKHV5B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2015 16:57:01 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1511062352270.1904@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow for a filter to ignore certain nlmsg_flags.
+On Sat, Nov 07, 2015 at 01:49:25AM +0200, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Fri, 6 Nov 2015, Neil Horman wrote:
+> 
+> > The solution is to recognize that its pointless to promote an address to be a
+> > new primary, if there is a possibility that it will just be removed in the near
+> > future.  As such this patch peeks ahead to the next request in the provided
+> > netlink message, and, if it is both valid and a RTM_DELADDR request, skips the
+> > promotion check.  This eliminates the need to iterate through a nested for loop
+> 
+> 	flush can provide many parameters. As there is no
+> any kind of indication in the netlink message that all addresses
+> are removed, we can not avoid the promotion.
+> 
+This is true, but seems irrellevant to me.  A flush operation is a sequence of
+RTM_DELADDR operations in a one or more netlink packets.  The way my patch is
+written, if a set of DELADDR requests is interspersed with other non DELADDR
+requests, then we do a promotion check between each consecutive set of DELADDR
+requests.  As such, all that happens is that the promotion check happens
+possibly more often than needed.  Its not optimal, but not harmful either.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
-Changed since v1:
-- Fix typo in #define of rtnl_dump_filter().
 
- include/libnetlink.h |  7 ++++++-
- lib/libnetlink.c     | 10 ++++++----
- 2 files changed, 12 insertions(+), 5 deletions(-)
+> > +	 * Only check for address promotion when this is the last request
+> > +	 * in this netlink transaction.  It allows this operation to complete
+> > +	 * in O(n) time rather than O(n^2)
+> 
+> 	It is not correct to assume that one promotion per
+> transaction is enough. The promotion happens in every subnet,
+> it was not once per device.
+> 
 
-diff --git a/include/libnetlink.h b/include/libnetlink.h
-index 2280c39..431189e 100644
---- a/include/libnetlink.h
-+++ b/include/libnetlink.h
-@@ -60,11 +60,16 @@ struct rtnl_dump_filter_arg
- {
- 	rtnl_filter_t filter;
- 	void *arg1;
-+	__u16 nc_flags;
- };
- 
- int rtnl_dump_filter_l(struct rtnl_handle *rth,
- 			      const struct rtnl_dump_filter_arg *arg);
--int rtnl_dump_filter(struct rtnl_handle *rth, rtnl_filter_t filter, void *arg);
-+int rtnl_dump_filter_nc(struct rtnl_handle *rth,
-+			rtnl_filter_t filter,
-+			void *arg, __u16 nc_flags);
-+#define rtnl_dump_filter(rth, filter, arg) \
-+	rtnl_dump_filter_nc(rth, filter, arg, 0)
- int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
- 	      struct nlmsghdr *answer, size_t len)
- 	__attribute__((warn_unused_result));
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index 09b0e91..922ec2d 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -259,6 +259,8 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
- 			while (NLMSG_OK(h, msglen)) {
- 				int err = 0;
- 
-+				h->nlmsg_flags &= ~a->nc_flags;
-+
- 				if (nladdr.nl_pid != 0 ||
- 				    h->nlmsg_pid != rth->local.nl_pid ||
- 				    h->nlmsg_seq != rth->dump)
-@@ -317,13 +319,13 @@ skip_it:
- 	}
- }
- 
--int rtnl_dump_filter(struct rtnl_handle *rth,
-+int rtnl_dump_filter_nc(struct rtnl_handle *rth,
- 		     rtnl_filter_t filter,
--		     void *arg1)
-+		     void *arg1, __u16 nc_flags)
- {
- 	const struct rtnl_dump_filter_arg a[2] = {
--		{ .filter = filter, .arg1 = arg1, },
--		{ .filter = NULL,   .arg1 = NULL, },
-+		{ .filter = filter, .arg1 = arg1, .nc_flags = nc_flags, },
-+		{ .filter = NULL,   .arg1 = NULL, .nc_flags = 0, },
- 	};
- 
- 	return rtnl_dump_filter_l(rth, a);
--- 
-2.1.2
+I'm not sure I understand the relevance here.  All I'm doing is, in effect
+masking the promote_secondaries sysctl for an interface doing a flush operation.
+Its equivalent to doing this in user space:
+
+echo 0 > /proc/sys/net/ipv4/conf/<ifc>/promote_secondaries
+A=`some arbitrary address in <ifc>`
+ip addr del <every addressin in <ifc> except A>
+echo 1 > /proc/sys/net/ipv4/conf/<ifc>/promote_secondaries
+ip addr del A
+
+Can you please explain to me the use case in which delaying a promotion
+operation until we think we're done ('done' being defined by the above transition
+from a DELADDR operation to a non-DELADDR operation in a netlink packet)
+produces an outcome that differs from the expectation with this patch in place?
+
+Best
+Neil
+
+> Regards
+> 
+> --
+> Julian Anastasov <ja@ssi.bg>
+> 
