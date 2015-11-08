@@ -1,24 +1,50 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] bpf: doc: correct arch list for supported eBPF JIT
-Date: Sat, 7 Nov 2015 18:28:20 -0800
-Message-ID: <20151108022819.GC39441@ast-mbp.thefacebook.com>
-References: <1446874738-14589-1-git-send-email-yang.shi@linaro.org>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: AF_PACKET mmap() v4...
+Date: Sat, 07 Nov 2015 20:27:07 -0800
+Message-ID: <563ECF1B.1000306@gmail.com>
+References: <20151105.000414.1682124328670738318.davem@davemloft.net> <4931220.z2MFa8LzkQ@wuerfel> <563B23C3.5070406@iogearbox.net> <20151108021958.GA39441@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ast@kernel.org, daniel@iogearbox.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linaro-kernel@lists.linaro.org
-To: Yang Shi <yang.shi@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1446874738-14589-1-git-send-email-yang.shi@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33136 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752771AbbKHE12 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 23:27:28 -0500
+Received: by pabfh17 with SMTP id fh17so163409616pab.0
+        for <netdev@vger.kernel.org>; Sat, 07 Nov 2015 20:27:27 -0800 (PST)
+In-Reply-To: <20151108021958.GA39441@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 06, 2015 at 09:38:58PM -0800, Yang Shi wrote:
-> aarch64 and s390x support eBPF JIT too, correct document to reflect this and
-> avoid any confusion.
+On 15-11-07 06:19 PM, Alexei Starovoitov wrote:
+> On Thu, Nov 05, 2015 at 10:39:15AM +0100, Daniel Borkmann wrote:
+>> On 11/05/2015 10:07 AM, Arnd Bergmann wrote:
+>>> On Thursday 05 November 2015 00:04:14 David Miller wrote:
+>>>> As part of fixing y2038 problems, Arnd is going to have to make a new
+>>>> version fo the AF_PACKET mmap() tpacker descriptors in order to extend
+>>>> the time values to 64-bit.
 > 
-> Signed-off-by: Yang Shi <yang.shi@linaro.org>
+> would also be quite useful to add ability to attach metadata to packet
+> from bpf program.
+> Right now we can only trim the length. Would be great if program could
+> compute something and pass it along with packet as metadata.
 
-Thanks
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Also most modern NICs can generate metadata using packet filters
+it would be nice to allow these to populate any metadata fields as well.
+Ethtool already has a flow classifier feature that could be easily
+extended once the stack has support.
+
+.John
+
+
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
