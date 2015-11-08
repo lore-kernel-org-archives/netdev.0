@@ -1,185 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: deadlock between setsockopt/getsockopt
-Date: Sun, 08 Nov 2015 09:16:49 -0800
-Message-ID: <1447003009.17135.26.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+YvHCfKQsHi+wfCGyaZcOb1TG6vq2U+Fh08pfEt7b9Dvg@mail.gmail.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: Linux 4.2.4
+Date: Sun, 8 Nov 2015 09:20:22 -0800
+Message-ID: <20151108172022.GC29613@kroah.com>
+References: <20151023003306.GA25388@kroah.com>
+ <562C83FD.6010402@wiesinger.com>
+ <20151025082547.GA22300@kroah.com>
+ <20151025090308.GA17656@1wt.eu>
+ <562CA13C.90500@wiesinger.com>
+ <20151025094634.GA6832@1wt.eu>
+ <562CB396.2080509@wiesinger.com>
+ <20151025162955.GA8375@kroah.com>
+ <563F5345.7060001@wiesinger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Dmitry Vyukov <dvyukov@google.com>,
-	WANG Cong <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:34573 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751370AbbKHRQv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2015 12:16:51 -0500
-Received: by padhx2 with SMTP id hx2so165104116pad.1
-        for <netdev@vger.kernel.org>; Sun, 08 Nov 2015 09:16:51 -0800 (PST)
-In-Reply-To: <CACT4Y+YvHCfKQsHi+wfCGyaZcOb1TG6vq2U+Fh08pfEt7b9Dvg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Willy Tarreau <w@1wt.eu>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org, stable@vger.kernel.org, lwn@lwn.net,
+	Jiri Slaby <jslaby@suse.cz>
+To: Gerhard Wiesinger <lists@wiesinger.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <563F5345.7060001@wiesinger.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2015-11-08 at 11:15 +0100, Dmitry Vyukov wrote:
-> Hello,
+On Sun, Nov 08, 2015 at 02:51:01PM +0100, Gerhard Wiesinger wrote:
+> On 25.10.2015 17:29, Greg KH wrote:
+> >On Sun, Oct 25, 2015 at 11:48:54AM +0100, Gerhard Wiesinger wrote:
+> >>On 25.10.2015 10:46, Willy Tarreau wrote:
+> >>>ipset *triggered* the problem. The whole stack dump would tell more.
+> >>OK, find the stack traces in the bug report:
+> >>https://bugzilla.redhat.com/show_bug.cgi?id=1272645
+> >>
+> >>Kernel 4.1.10 triggered also a kernel dump when playing with ipset commands
+> >>and IPv6, details in the bug report  ....
+> >>
+> >>>>Kernel 4.2 seems to me not well tested in the netfilter parts at all
+> >>>>(Bug with already known bugfix
+> >>>>https://lists.debian.org/debian-kernel/2015/10/msg00034.html was
+> >>>>triggered on 2 of 3 of my machines, the new bug on 1 of 1 tested machine).
+> >>>There's a reason why Greg maintains stable and LTS kernels :-)
+> >>Stable kernels don't crash but definiton. :-)
+> >>
+> >>At least triggered 2 kernel panics in 5min, even with 4.1.10 and ipset
+> >>commands ...
+> >Does this happen also with Linus's tree?  I suggest you ask the
+> >networking developers about this on netdev@vger.kernel.org, there's
+> >nothing that I can do on my own about this, sorry.
 > 
-> I've got the following deadlock report on commit
-> d1e41ff11941784f469f17795a4d9425c2eb4b7a (Nov 5).
+> Patch is now available, see:
+> [PATCH 0/3] ipset patches for nf
+> https://marc.info/?l=netfilter-devel&m=144690007708041&w=2
+> https://marc.info/?l=netfilter-devel&m=144690007808042&w=2
+> https://marc.info/?l=netfilter-devel&m=144690008608043&w=2
+> https://marc.info/?l=netfilter-devel&m=144690007708039&w=2
+> [ANNOUNCE] ipset 6.27 released
+> https://marc.info/?l=netfilter-devel&m=144690048308099&w=2
 > 
+> Requires also new userland ipset version.
 > 
-> [ INFO: possible circular locking dependency detected ]
-> 4.3.0+ #39 Not tainted
-> -------------------------------------------------------
-> syzkaller_execu/18311 is trying to acquire lock:
->  (rtnl_mutex){+.+.+.}, at: [<ffffffff827f9917>] rtnl_lock+0x17/0x20
-> net/core/rtnetlink.c:70
+> Please integrate it upstream.
 > 
-> but task is already holding lock:
->  (sk_lock-AF_INET){+.+.+.}, at: [<     inline     >] lock_sock
-> include/net/sock.h:1477
->  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff8290b171>]
-> do_ip_getsockopt.part.9+0x111/0x1510 net/ipv4/ip_sockglue.c:1272
-> 
-> which lock already depends on the new lock.
-> 
-> the existing dependency chain (in reverse order) is:
-> 
-> -> #1 (sk_lock-AF_INET){+.+.+.}:
->        [<ffffffff811f655d>] lock_acquire+0x16d/0x2f0
-> kernel/locking/lockdep.c:3585
->        [<ffffffff8276bbc8>] lock_sock_nested+0xb8/0x110 net/core/sock.c:2443
->        [<     inline     >] lock_sock include/net/sock.h:1477
->        [<ffffffff8290d623>] do_ip_setsockopt.isra.12+0x193/0x2af0
-> net/ipv4/ip_sockglue.c:621
->        [<ffffffff8290ffba>] ip_setsockopt+0x3a/0xb0 net/ipv4/ip_sockglue.c:1202
->        [<ffffffff8292e712>] tcp_setsockopt+0x82/0xd0 net/ipv4/tcp.c:2616
->        [<ffffffff827697f5>] sock_common_setsockopt+0x95/0xd0
-> net/core/sock.c:2643
->        [<     inline     >] SYSC_setsockopt net/socket.c:1757
->        [<ffffffff82766728>] SyS_setsockopt+0x158/0x240 net/socket.c:1736
->        [<ffffffff82f21951>] entry_SYSCALL_64_fastpath+0x31/0x9a
-> arch/x86/entry/entry_64.S:187
-> 
-> -> #0 (rtnl_mutex){+.+.+.}:
->        [<     inline     >] check_prev_add kernel/locking/lockdep.c:1853
->        [<     inline     >] check_prevs_add kernel/locking/lockdep.c:1958
->        [<     inline     >] validate_chain kernel/locking/lockdep.c:2144
->        [<ffffffff811f3769>] __lock_acquire+0x36d9/0x40e0
-> kernel/locking/lockdep.c:3206
->        [<ffffffff811f655d>] lock_acquire+0x16d/0x2f0
-> kernel/locking/lockdep.c:3585
->        [<     inline     >] __mutex_lock_common kernel/locking/mutex.c:518
->        [<ffffffff82f18dcc>] mutex_lock_nested+0x9c/0x8f0
-> kernel/locking/mutex.c:618
->        [<ffffffff827f9917>] rtnl_lock+0x17/0x20 net/core/rtnetlink.c:70
->        [<ffffffff82a033a0>] ip_mc_msfget+0xe0/0x620 net/ipv4/igmp.c:2398
->        [<ffffffff8290b465>] do_ip_getsockopt.part.9+0x405/0x1510
-> net/ipv4/ip_sockglue.c:1399
->        [<     inline     >] do_ip_getsockopt net/ipv4/ip_sockglue.c:1264
->        [<ffffffff8290c808>] ip_getsockopt+0xa8/0x1c0 net/ipv4/ip_sockglue.c:1495
->        [<ffffffff8292b8f2>] tcp_getsockopt+0x82/0xd0 net/ipv4/tcp.c:2916
->        [<ffffffff82769415>] sock_common_getsockopt+0x95/0xd0
-> net/core/sock.c:2602
->        [<     inline     >] SYSC_getsockopt net/socket.c:1788
->        [<ffffffff82766952>] SyS_getsockopt+0x142/0x230 net/socket.c:1770
-> 
-> other info that might help us debug this:
-> 
->  Possible unsafe locking scenario:
-> 
->        CPU0                    CPU1
->        ----                    ----
->   lock(sk_lock-AF_INET);
->                                lock(rtnl_mutex);
->                                lock(sk_lock-AF_INET);
->   lock(rtnl_mutex);
-> 
->  *** DEADLOCK ***
-> 
-> 1 lock held by syzkaller_execu/18311:
->  #0:  (sk_lock-AF_INET){+.+.+.}, at: [<     inline     >] lock_sock
-> include/net/sock.h:1477
->  #0:  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff8290b171>]
-> do_ip_getsockopt.part.9+0x111/0x1510 net/ipv4/ip_sockglue.c:1272
-> 
-> stack backtrace:
-> CPU: 1 PID: 18311 Comm: syzkaller_execu Not tainted 4.3.0+ #39
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->  00000000ffffffff ffff88005b647598 ffffffff81aad406 ffffffff845cb400
->  ffffffff84612200 ffffffff845cb400 ffff88005b6475e0 ffffffff811ec511
->  ffff88005b6476e0 000000006c7d5800 ffff88006c7d5fb0 ffff88006c7d5fd2
-> Call Trace:
->  [<     inline     >] __dump_stack lib/dump_stack.c:15
->  [<ffffffff81aad406>] dump_stack+0x68/0x92 lib/dump_stack.c:50
->  [<ffffffff811ec511>] print_circular_bug+0x2d1/0x390
-> kernel/locking/lockdep.c:1226
->  [<     inline     >] check_prev_add kernel/locking/lockdep.c:1853
->  [<     inline     >] check_prevs_add kernel/locking/lockdep.c:1958
->  [<     inline     >] validate_chain kernel/locking/lockdep.c:2144
->  [<ffffffff811f3769>] __lock_acquire+0x36d9/0x40e0 kernel/locking/lockdep.c:3206
->  [<ffffffff811f655d>] lock_acquire+0x16d/0x2f0 kernel/locking/lockdep.c:3585
->  [<     inline     >] __mutex_lock_common kernel/locking/mutex.c:518
->  [<     inline     >] __mutex_lock_common kernel/locking/mutex.c:518
->  [<ffffffff82f18dcc>] mutex_lock_nested+0x9c/0x8f0 kernel/locking/mutex.c:618
->  [<ffffffff827f9917>] rtnl_lock+0x17/0x20 net/core/rtnetlink.c:70
->  [<ffffffff82a033a0>] ip_mc_msfget+0xe0/0x620 net/ipv4/igmp.c:2398
->  [<ffffffff8290b465>] do_ip_getsockopt.part.9+0x405/0x1510
-> net/ipv4/ip_sockglue.c:1399
->  [<     inline     >] do_ip_getsockopt net/ipv4/ip_sockglue.c:1264
->  [<ffffffff8290c808>] ip_getsockopt+0xa8/0x1c0 net/ipv4/ip_sockglue.c:1495
->  [<ffffffff8292b8f2>] tcp_getsockopt+0x82/0xd0 net/ipv4/tcp.c:2916
->  [<ffffffff82769415>] sock_common_getsockopt+0x95/0xd0 net/core/sock.c:2602
->  [<     inline     >] SYSC_getsockopt net/socket.c:1788
->  [<ffffffff82766952>] SyS_getsockopt+0x142/0x230 net/socket.c:1770
-> 
-> 
-> Found with syzkaller system call fuzzer (https://github.com/google/syzkaller).
-> --
+> Thanx to Jozsef Kadlecsik for fixing it.
 
-Can you check if the following commit, present in David Miller net tree
-solves this problem, as it looks like it ?
+That's great, can you let me know the git commits that end up in Linus's
+tree?  That's what we need for the stable kernel.
 
-commit 87e9f0315952b0dd8b5e51ba04beda03efc009d9
-Author: WANG Cong <xiyou.wangcong@gmail.com>
-Date:   Tue Nov 3 15:41:16 2015 -0800
+thanks,
 
-    ipv4: fix a potential deadlock in mcast getsockopt() path
-    
-    Sasha reported the following lockdep warning:
-    
-      Possible unsafe locking scenario:
-    
-            CPU0                    CPU1
-            ----                    ----
-       lock(sk_lock-AF_INET);
-                                    lock(rtnl_mutex);
-                                    lock(sk_lock-AF_INET);
-       lock(rtnl_mutex);
-    
-    This is due to that for IP_MSFILTER and MCAST_MSFILTER, we take
-    rtnl lock before the socket lock in setsockopt() path, but take
-    the socket lock before rtnl lock in getsockopt() path. All the
-    rest optnames are setsockopt()-only.
-    
-    Fix this by aligning the getsockopt() path with the setsockopt()
-    path, so that all mcast socket path would be locked in the same
-    order.
-    
-    Note, IPv6 part is different where rtnl lock is not held.
-    
-    Fixes: 54ff9ef36bdf ("ipv4, ipv6: kill ip_mc_{join, leave}_group and ipv6_sock_mc_{join, drop}")
-    Reported-by: Sasha Levin <sasha.levin@oracle.com>
-    Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-    Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-    Reviewed-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+greg k-h
