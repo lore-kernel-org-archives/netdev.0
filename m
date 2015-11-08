@@ -1,35 +1,60 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: AF_PACKET mmap() v4...
-Date: Sat, 7 Nov 2015 18:19:59 -0800
-Message-ID: <20151108021958.GA39441@ast-mbp.thefacebook.com>
-References: <20151105.000414.1682124328670738318.davem@davemloft.net>
- <4931220.z2MFa8LzkQ@wuerfel>
- <563B23C3.5070406@iogearbox.net>
+Subject: Re: [PATCH] arm64: bpf: fix JIT stack setup
+Date: Sat, 7 Nov 2015 18:27:27 -0800
+Message-ID: <20151108022726.GB39441@ast-mbp.thefacebook.com>
+References: <1446874577-14539-1-git-send-email-yang.shi@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:34260 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751802AbbKHCUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 21:20:06 -0500
-Received: by padhx2 with SMTP id hx2so153318873pad.1
-        for <netdev@vger.kernel.org>; Sat, 07 Nov 2015 18:20:05 -0800 (PST)
+Cc: ast@kernel.org, daniel@iogearbox.net, catalin.marinas@arm.com,
+	will.deacon@arm.com, zlim.lnx@gmail.com, xi.wang@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linaro-kernel@lists.linaro.org
+To: Yang Shi <yang.shi@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <563B23C3.5070406@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1446874577-14539-1-git-send-email-yang.shi@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 05, 2015 at 10:39:15AM +0100, Daniel Borkmann wrote:
-> On 11/05/2015 10:07 AM, Arnd Bergmann wrote:
-> >On Thursday 05 November 2015 00:04:14 David Miller wrote:
-> >>As part of fixing y2038 problems, Arnd is going to have to make a new
-> >>version fo the AF_PACKET mmap() tpacker descriptors in order to extend
-> >>the time values to 64-bit.
+On Fri, Nov 06, 2015 at 09:36:17PM -0800, Yang Shi wrote:
+> ARM64 JIT used FP (x29) as eBPF fp register, but FP is subjected to
+> change during function call so it may cause the BPF prog stack base address
+> change too. Whenever, it pointed to the bottom of BPF prog stack instead of
+> the top.
+> 
+> So, when copying data via bpf_probe_read, it will be copied to (SP - offset),
+> then it may overwrite the saved FP/LR.
+> 
+> Use x25 to replace FP as BPF stack base register (fp). Since x25 is callee
+> saved register, so it will keep intact during function call.
+> It is initialized in BPF prog prologue when BPF prog is started to run
+> everytime. When BPF prog exits, it could be just tossed.
+> 
+> Other than this the BPf prog stack base need to be setup before function
+> call stack.
+> 
+> So, the BPF stack layout looks like:
+> 
+>                                  high
+>          original A64_SP =>   0:+-----+ BPF prologue
+>                                 |     | FP/LR and callee saved registers
+>          BPF fp register => +64:+-----+
+>                                 |     |
+>                                 | ... | BPF prog stack
+>                                 |     |
+>                                 |     |
+>          current A64_SP =>      +-----+
+>                                 |     |
+>                                 | ... | Function call stack
+>                                 |     |
+>                                 +-----+
+>                                   low
+> 
+> Signed-off-by: Yang Shi <yang.shi@linaro.org>
+> CC: Zi Shen Lim <zlim.lnx@gmail.com>
+> CC: Xi Wang <xi.wang@gmail.com>
 
-would also be quite useful to add ability to attach metadata to packet
-from bpf program.
-Right now we can only trim the length. Would be great if program could
-compute something and pass it along with packet as metadata.
+Thanks for tracking it down.
+That looks like fundamental bug in arm64 jit. I'm surprised function calls worked at all.
+Zi please review.
