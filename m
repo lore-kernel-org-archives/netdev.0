@@ -1,87 +1,59 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 2/6] ipaddress: simplify ipaddr_flush()
-Date: Sun,  8 Nov 2015 20:21:07 +0100
-Message-ID: <1447010471-559-3-git-send-email-phil@nwl.cc>
-References: <1447010471-559-1-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH 0/6] flush many addresses and some cleanups
+Date: Sun,  8 Nov 2015 20:21:05 +0100
+Message-ID: <1447010471-559-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:39129 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:43849 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751973AbbKHTVO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752070AbbKHTVO (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 8 Nov 2015 14:21:14 -0500
-In-Reply-To: <1447010471-559-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since it's no longer relevant whether an IP address is primary or
-secondary when flushing, ipaddr_flush() can be simplified a bit.
+This patch series aims to silence spurious error messages when flushing
+an interface with many addresses assigned and provides a few cleanups
+found along the way.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/ipaddress.c | 38 +-------------------------------------
- 1 file changed, 1 insertion(+), 37 deletions(-)
+The original issue was a test-case adding 40k IPv4 addresses to an
+interface and calling 'ip addr flush' afterwards. Initially, this
+resulted in an error message:
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 75b3e27..b5b444b 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -1143,28 +1143,6 @@ brief_exit:
- 	return 0;
- }
- 
--static int print_addrinfo_primary(const struct sockaddr_nl *who,
--				  struct nlmsghdr *n, void *arg)
--{
--	struct ifaddrmsg *ifa = NLMSG_DATA(n);
--
--	if (ifa->ifa_flags & IFA_F_SECONDARY)
--		return 0;
--
--	return print_addrinfo(who, n, arg);
--}
--
--static int print_addrinfo_secondary(const struct sockaddr_nl *who,
--				    struct nlmsghdr *n, void *arg)
--{
--	struct ifaddrmsg *ifa = NLMSG_DATA(n);
--
--	if (!(ifa->ifa_flags & IFA_F_SECONDARY))
--		return 0;
--
--	return print_addrinfo(who, n, arg);
--}
--
- struct nlmsg_list
- {
- 	struct nlmsg_list *next;
-@@ -1415,26 +1393,12 @@ static int ipaddr_flush(void)
- 	filter.flushe = sizeof(flushb);
- 
- 	while ((max_flush_loops == 0) || (round < max_flush_loops)) {
--		const struct rtnl_dump_filter_arg a[3] = {
--			{
--				.filter = print_addrinfo_secondary,
--				.arg1 = stdout,
--			},
--			{
--				.filter = print_addrinfo_primary,
--				.arg1 = stdout,
--			},
--			{
--				.filter = NULL,
--				.arg1 = NULL,
--			},
--		};
- 		if (rtnl_wilddump_request(&rth, filter.family, RTM_GETADDR) < 0) {
- 			perror("Cannot send dump request");
- 			exit(1);
- 		}
- 		filter.flushed = 0;
--		if (rtnl_dump_filter_l(&rth, a) < 0) {
-+		if (rtnl_dump_filter(&rth, print_addrinfo, stdout) < 0) {
- 			fprintf(stderr, "Flush terminated\n");
- 			exit(1);
- 		}
+| Failed to send flush request: Cannot assign requested address
+
+Iproute apparently tried to remove (secondary) addresses which didn't
+exist anymore since the primary one had already been removed. (This
+behaviour actually depends on the promote_secondaries sysctl setting.)
+Patch 1/6 makes iproute simply ignore this error, as when flushing it is
+not relevant. This also allows to remove iproute's previous workaround,
+which is to flush secondary addresses before primary ones (patch 2/6).
+
+Yet, still an error message is emitted on newer kernels, as they started
+to check consistency of netlink dumps (which is broken by iproute as it
+alters the data while it is dumped). This error may as well be ignored,
+as it's expected behaviour while flushing addresses. Though in order to
+do that, libnetlink API had to be extended a bit to actually allow to
+ignore certain nlmsg_flags bits. Patch 3/6 therefore extends libnetlink,
+patch 4/6 then makes use of the extended functionality.
+
+While debugging the issue, an unnecessary check has been discovered
+(patch 5/6) as well as a possible simplification in iptoken.c was found
+(patch 6/6).
+
+Phil Sutter (6):
+  ipaddress: make flush command more error-tolerant
+  ipaddress: simplify ipaddr_flush()
+  libnetlink: introduce nc_flags
+  ipaddress: fix ipaddr_flush for Linux >= 3.1
+  ipaddress: drop unnecessary check in ipaddr_list_flush_or_save()
+  iptoken: simplify iptoken_list a bit
+
+ include/libnetlink.h |  7 ++++++-
+ ip/ipaddress.c       | 51 +++++++++------------------------------------------
+ ip/iptoken.c         |  6 +-----
+ lib/libnetlink.c     | 10 ++++++----
+ 4 files changed, 22 insertions(+), 52 deletions(-)
+
 -- 
 2.1.2
