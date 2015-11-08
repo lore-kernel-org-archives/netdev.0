@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net 3/6] netfilter: xt_owner: use skb_to_full_sk() helper
-Date: Sun,  8 Nov 2015 10:54:09 -0800
-Message-ID: <1447008853-16060-4-git-send-email-edumazet@google.com>
+Subject: [PATCH net 4/6] sched: cls_flow: use skb_to_full_sk() helper
+Date: Sun,  8 Nov 2015 10:54:10 -0800
+Message-ID: <1447008853-16060-5-git-send-email-edumazet@google.com>
 References: <1447008853-16060-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Pablo Neira Ayuso <pablo@netfilter.org>,
@@ -11,56 +11,63 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:34083 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751275AbbKHSye (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2015 13:54:34 -0500
-Received: by padhx2 with SMTP id hx2so166373843pad.1
-        for <netdev@vger.kernel.org>; Sun, 08 Nov 2015 10:54:33 -0800 (PST)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36825 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751275AbbKHSyh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2015 13:54:37 -0500
+Received: by pacdm15 with SMTP id dm15so150500106pac.3
+        for <netdev@vger.kernel.org>; Sun, 08 Nov 2015 10:54:37 -0800 (PST)
 In-Reply-To: <1447008853-16060-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SYNACK packets might be attached to a request socket,
-xt_owner wants to gte the listener in this case.
+SYNACK packets might be attached to request sockets.
 
 Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/netfilter/xt_owner.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ net/sched/cls_flow.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/xt_owner.c b/net/netfilter/xt_owner.c
-index ca2e577ed8ac..1302b475abcb 100644
---- a/net/netfilter/xt_owner.c
-+++ b/net/netfilter/xt_owner.c
-@@ -14,6 +14,7 @@
- #include <linux/skbuff.h>
- #include <linux/file.h>
- #include <net/sock.h>
+diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
+index 536838b657bf..fbfec6a18839 100644
+--- a/net/sched/cls_flow.c
++++ b/net/sched/cls_flow.c
+@@ -22,6 +22,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/slab.h>
+ #include <linux/module.h>
 +#include <net/inet_sock.h>
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter/xt_owner.h>
  
-@@ -33,8 +34,9 @@ owner_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ #include <net/pkt_cls.h>
+ #include <net/ip.h>
+@@ -197,8 +198,11 @@ static u32 flow_get_rtclassid(const struct sk_buff *skb)
+ 
+ static u32 flow_get_skuid(const struct sk_buff *skb)
  {
- 	const struct xt_owner_match_info *info = par->matchinfo;
- 	const struct file *filp;
+-	if (skb->sk && skb->sk->sk_socket && skb->sk->sk_socket->file) {
+-		kuid_t skuid = skb->sk->sk_socket->file->f_cred->fsuid;
 +	struct sock *sk = skb_to_full_sk(skb);
++
++	if (sk && sk->sk_socket && sk->sk_socket->file) {
++		kuid_t skuid = sk->sk_socket->file->f_cred->fsuid;
++
+ 		return from_kuid(&init_user_ns, skuid);
+ 	}
+ 	return 0;
+@@ -206,8 +210,11 @@ static u32 flow_get_skuid(const struct sk_buff *skb)
  
--	if (skb->sk == NULL || skb->sk->sk_socket == NULL)
-+	if (sk == NULL || sk->sk_socket == NULL)
- 		return (info->match ^ info->invert) == 0;
- 	else if (info->match & info->invert & XT_OWNER_SOCKET)
- 		/*
-@@ -43,7 +45,7 @@ owner_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 		 */
- 		return false;
- 
--	filp = skb->sk->sk_socket->file;
-+	filp = sk->sk_socket->file;
- 	if (filp == NULL)
- 		return ((info->match ^ info->invert) &
- 		       (XT_OWNER_UID | XT_OWNER_GID)) == 0;
+ static u32 flow_get_skgid(const struct sk_buff *skb)
+ {
+-	if (skb->sk && skb->sk->sk_socket && skb->sk->sk_socket->file) {
+-		kgid_t skgid = skb->sk->sk_socket->file->f_cred->fsgid;
++	struct sock *sk = skb_to_full_sk(skb);
++
++	if (sk && sk->sk_socket && sk->sk_socket->file) {
++		kgid_t skgid = sk->sk_socket->file->f_cred->fsgid;
++
+ 		return from_kgid(&init_user_ns, skgid);
+ 	}
+ 	return 0;
 -- 
 2.6.0.rc2.230.g3dd15c0
