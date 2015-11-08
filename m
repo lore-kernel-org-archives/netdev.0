@@ -1,23 +1,35 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] bpf: doc: correct arch list for supported eBPF JIT
-Date: Sun, 08 Nov 2015 01:47:28 +0100
-Message-ID: <563E9BA0.20004@iogearbox.net>
-References: <1446874738-14589-1-git-send-email-yang.shi@linaro.org>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: AF_PACKET mmap() v4...
+Date: Sat, 7 Nov 2015 18:19:59 -0800
+Message-ID: <20151108021958.GA39441@ast-mbp.thefacebook.com>
+References: <20151105.000414.1682124328670738318.davem@davemloft.net>
+ <4931220.z2MFa8LzkQ@wuerfel>
+ <563B23C3.5070406@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linaro-kernel@lists.linaro.org
-To: Yang Shi <yang.shi@linaro.org>, ast@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446874738-14589-1-git-send-email-yang.shi@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34260 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751802AbbKHCUG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2015 21:20:06 -0500
+Received: by padhx2 with SMTP id hx2so153318873pad.1
+        for <netdev@vger.kernel.org>; Sat, 07 Nov 2015 18:20:05 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <563B23C3.5070406@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/07/2015 06:38 AM, Yang Shi wrote:
-> aarch64 and s390x support eBPF JIT too, correct document to reflect this and
-> avoid any confusion.
->
-> Signed-off-by: Yang Shi <yang.shi@linaro.org>
+On Thu, Nov 05, 2015 at 10:39:15AM +0100, Daniel Borkmann wrote:
+> On 11/05/2015 10:07 AM, Arnd Bergmann wrote:
+> >On Thursday 05 November 2015 00:04:14 David Miller wrote:
+> >>As part of fixing y2038 problems, Arnd is going to have to make a new
+> >>version fo the AF_PACKET mmap() tpacker descriptors in order to extend
+> >>the time values to 64-bit.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+would also be quite useful to add ability to attach metadata to packet
+from bpf program.
+Right now we can only trim the length. Would be great if program could
+compute something and pass it along with packet as metadata.
