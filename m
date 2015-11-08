@@ -1,149 +1,112 @@
-From: Peter Hurley <peter@hurleysoftware.com>
-Subject: [PATCH 4/4] tty: Remove drivers' extra tty_ldisc_flush()
-Date: Sun,  8 Nov 2015 17:02:53 -0500
-Message-ID: <1447020173-32207-5-git-send-email-peter@hurleysoftware.com>
-References: <1447020173-32207-1-git-send-email-peter@hurleysoftware.com>
-Cc: Jiri Slaby <jslaby@suse.cz>, linux-kernel@vger.kernel.org,
-	linux-serial@vger.kernel.org, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Jesper Nilsson <jesper.nilsson@axis.com>,
-	Mikael Starvik <starvik@axis.com>,
-	Jiri Kosina <jikos@kernel.org>,
-	David Sterba <dsterba@suse.com>,
-	Mark Hounschell <markh@compro.net>,
-	Peter Hurley <peter@hurleysoftware.com>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+From: Z Lim <zlim.lnx@gmail.com>
+Subject: Re: [PATCH] arm64: bpf: fix JIT stack setup
+Date: Sun, 8 Nov 2015 14:29:48 -0800
+Message-ID: <CABg9mcv8W4_pvkEQKtjBPi5ycMgLPksYoPtYnGr6tdcb5ER8YQ@mail.gmail.com>
+References: <1446874577-14539-1-git-send-email-yang.shi@linaro.org>
+	<20151108022726.GB39441@ast-mbp.thefacebook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <ast@kernel.org>, daniel@iogearbox.net,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>, Xi Wang <xi.wang@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	linaro-kernel@lists.linaro.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Yang Shi <yang.shi@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:33395 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751793AbbKHWDN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2015 17:03:13 -0500
-Received: by igvi2 with SMTP id i2so64157168igv.0
-        for <netdev@vger.kernel.org>; Sun, 08 Nov 2015 14:03:13 -0800 (PST)
-In-Reply-To: <1447020173-32207-1-git-send-email-peter@hurleysoftware.com>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:35282 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750894AbbKHW3t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2015 17:29:49 -0500
+In-Reply-To: <20151108022726.GB39441@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tty_port_close_start() helper already flushes the tty and ldisc
-buffers on final close; tty drivers which use this helper need not
-repeat tty_ldisc_flush().
+On Sat, Nov 7, 2015 at 6:27 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Fri, Nov 06, 2015 at 09:36:17PM -0800, Yang Shi wrote:
+>> ARM64 JIT used FP (x29) as eBPF fp register, but FP is subjected to
+>> change during function call so it may cause the BPF prog stack base address
+>> change too. Whenever, it pointed to the bottom of BPF prog stack instead of
+>> the top.
+>>
+>> So, when copying data via bpf_probe_read, it will be copied to (SP - offset),
+>> then it may overwrite the saved FP/LR.
+>>
+>> Use x25 to replace FP as BPF stack base register (fp). Since x25 is callee
+>> saved register, so it will keep intact during function call.
+>> It is initialized in BPF prog prologue when BPF prog is started to run
+>> everytime. When BPF prog exits, it could be just tossed.
+>>
+>> Other than this the BPf prog stack base need to be setup before function
+>> call stack.
+>>
+>> So, the BPF stack layout looks like:
+>>
+>>                                  high
+>>          original A64_SP =>   0:+-----+ BPF prologue
+>>                                 |     | FP/LR and callee saved registers
+>>          BPF fp register => +64:+-----+
+>>                                 |     |
+>>                                 | ... | BPF prog stack
+>>                                 |     |
+>>                                 |     |
+>>          current A64_SP =>      +-----+
+>>                                 |     |
+>>                                 | ... | Function call stack
+>>                                 |     |
+>>                                 +-----+
+>>                                   low
+>>
+>> Signed-off-by: Yang Shi <yang.shi@linaro.org>
+>> CC: Zi Shen Lim <zlim.lnx@gmail.com>
+>> CC: Xi Wang <xi.wang@gmail.com>
+>
+> Thanks for tracking it down.
+> That looks like fundamental bug in arm64 jit. I'm surprised function calls worked at all.
+> Zi please review.
+>
 
-Signed-off-by: Peter Hurley <peter@hurleysoftware.com>
----
- drivers/char/pcmcia/synclink_cs.c | 3 ---
- drivers/tty/amiserial.c           | 2 --
- drivers/tty/rocket.c              | 2 --
- drivers/tty/serial/serial_core.c  | 2 --
- drivers/tty/synclink.c            | 1 -
- drivers/tty/synclink_gt.c         | 1 -
- drivers/tty/synclinkmp.c          | 1 -
- drivers/tty/tty_port.c            | 2 --
- 8 files changed, 14 deletions(-)
+For function calls (BPF_JMP | BPF_CALL), we are compliant with AAPCS64
+[1]. That part is okay.
 
-diff --git a/drivers/char/pcmcia/synclink_cs.c b/drivers/char/pcmcia/synclink_cs.c
-index 45df4bf..3f74677 100644
---- a/drivers/char/pcmcia/synclink_cs.c
-+++ b/drivers/char/pcmcia/synclink_cs.c
-@@ -2354,10 +2354,7 @@ static void mgslpc_close(struct tty_struct *tty, struct file * filp)
- 		mgslpc_wait_until_sent(tty, info->timeout);
- 
- 	mgslpc_flush_buffer(tty);
+
+bpf_probe_read accesses the BPF program stack, which is based on BPF_REG_FP.
+
+This exposes an issue with how BPF_REG_FP was setup, as Yang pointed out.
+Instead of having BPF_REG_FP point to top of stack, we erroneously
+point it to the bottom of stack. When there are function calls, we run
+the risk of clobbering of BPF stack. Bad idea.
+
+Otherwise, since BPF_REG_FP is read-only, and is setup exactly once in
+prologue, it remains consistent throughout lifetime of the BPF
+program.
+
+
+Yang, can you please try the following?
+
+8<-----
+--- a/arch/arm64/net/bpf_jit_comp.c
++++ b/arch/arm64/net/bpf_jit_comp.c
+@@ -161,12 +161,12 @@ static void build_prologue(struct jit_ctx *ctx)
+        if (ctx->tmp_used)
+                emit(A64_PUSH(tmp1, tmp2, A64_SP), ctx);
+
+-       /* Set up BPF stack */
+-       emit(A64_SUB_I(1, A64_SP, A64_SP, stack_size), ctx);
 -
--	tty_ldisc_flush(tty);
- 	shutdown(info, tty);
--	
- 	tty_port_close_end(port, tty);
- 	tty_port_tty_set(port, NULL);
- cleanup:
-diff --git a/drivers/tty/amiserial.c b/drivers/tty/amiserial.c
-index 2caaf5a..bffc0a4 100644
---- a/drivers/tty/amiserial.c
-+++ b/drivers/tty/amiserial.c
-@@ -1420,8 +1420,6 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
- 	}
- 	shutdown(tty, state);
- 	rs_flush_buffer(tty);
--		
--	tty_ldisc_flush(tty);
- 	port->tty = NULL;
- 
- 	tty_port_close_end(port, tty);
-diff --git a/drivers/tty/rocket.c b/drivers/tty/rocket.c
-index a6b5ce0..5905200 100644
---- a/drivers/tty/rocket.c
-+++ b/drivers/tty/rocket.c
-@@ -1022,8 +1022,6 @@ static void rp_close(struct tty_struct *tty, struct file *filp)
- 		sClrDTR(cp);
- 
- 	rp_flush_buffer(tty);
--		
--	tty_ldisc_flush(tty);
- 
- 	clear_bit((info->aiop * 8) + info->chan, (void *) &xmit_flags[info->board]);
- 
-diff --git a/drivers/tty/serial/serial_core.c b/drivers/tty/serial/serial_core.c
-index db27a40..418587f 100644
---- a/drivers/tty/serial/serial_core.c
-+++ b/drivers/tty/serial/serial_core.c
-@@ -1439,8 +1439,6 @@ static void uart_close(struct tty_struct *tty, struct file *filp)
- 	wake_up_interruptible(&port->open_wait);
- 
- 	mutex_unlock(&port->mutex);
--
--	tty_ldisc_flush(tty);
- }
- 
- static void uart_wait_until_sent(struct tty_struct *tty, int timeout)
-diff --git a/drivers/tty/synclink.c b/drivers/tty/synclink.c
-index 6188059..1334498 100644
---- a/drivers/tty/synclink.c
-+++ b/drivers/tty/synclink.c
-@@ -3099,7 +3099,6 @@ static void mgsl_close(struct tty_struct *tty, struct file * filp)
-  	if (info->port.flags & ASYNC_INITIALIZED)
-  		mgsl_wait_until_sent(tty, info->timeout);
- 	mgsl_flush_buffer(tty);
--	tty_ldisc_flush(tty);
- 	shutdown(info);
- 	mutex_unlock(&info->port.mutex);
- 
-diff --git a/drivers/tty/synclink_gt.c b/drivers/tty/synclink_gt.c
-index 5505ea8..1987fb4 100644
---- a/drivers/tty/synclink_gt.c
-+++ b/drivers/tty/synclink_gt.c
-@@ -729,7 +729,6 @@ static void close(struct tty_struct *tty, struct file *filp)
-  	if (info->port.flags & ASYNC_INITIALIZED)
-  		wait_until_sent(tty, info->timeout);
- 	flush_buffer(tty);
--	tty_ldisc_flush(tty);
- 
- 	shutdown(info);
- 	mutex_unlock(&info->port.mutex);
-diff --git a/drivers/tty/synclinkmp.c b/drivers/tty/synclinkmp.c
-index fb00a06..fb17dac 100644
---- a/drivers/tty/synclinkmp.c
-+++ b/drivers/tty/synclinkmp.c
-@@ -816,7 +816,6 @@ static void close(struct tty_struct *tty, struct file *filp)
-  		wait_until_sent(tty, info->timeout);
- 
- 	flush_buffer(tty);
--	tty_ldisc_flush(tty);
- 	shutdown(info);
- 	mutex_unlock(&info->port.mutex);
- 
-diff --git a/drivers/tty/tty_port.c b/drivers/tty/tty_port.c
-index ecb6435..c30525a 100644
---- a/drivers/tty/tty_port.c
-+++ b/drivers/tty/tty_port.c
-@@ -503,8 +503,6 @@ void tty_port_close_end(struct tty_port *port, struct tty_struct *tty)
- {
- 	unsigned long flags;
- 
--	tty_ldisc_flush(tty);
--
- 	spin_lock_irqsave(&port->lock, flags);
- 
- 	if (port->blocked_open) {
--- 
-2.6.3
+        /* Set up frame pointer */
+        emit(A64_MOV(1, fp, A64_SP), ctx);
+
++       /* Set up BPF stack */
++       emit(A64_SUB_I(1, A64_SP, A64_SP, stack_size), ctx);
++
+        /* Clear registers A and X */
+        emit_a64_mov_i64(ra, 0, ctx);
+        emit_a64_mov_i64(rx, 0, ctx);
+----->8
+
+[1] http://infocenter.arm.com/help/topic/com.arm.doc.ihi0055b/IHI0055B_aapcs64.pdf
