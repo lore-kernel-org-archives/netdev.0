@@ -1,140 +1,178 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: deadlock between setsockopt/getsockopt
-Date: Sun, 8 Nov 2015 11:15:30 +0100
-Message-ID: <CACT4Y+YvHCfKQsHi+wfCGyaZcOb1TG6vq2U+Fh08pfEt7b9Dvg@mail.gmail.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: GSO with udp_tunnel_xmit_skb
+Date: Sun, 8 Nov 2015 11:36:53 +0100
+Message-ID: <CAHmME9qYAvewm6m-ex0Ds051mgDPtpmYniHzZtgM+B6seo8Cng@mail.gmail.com>
+References: <CAHmME9pphqXyV_+LFQ6TTi4MjFB2Mopss6QQuT3YJQzvgtib2Q@mail.gmail.com>
+	<CALx6S379Ma+u1rKCwyDWEHDZpQUjr9mB_YQ4=iySo9Lgga2PaQ@mail.gmail.com>
+	<CAHmME9rp7ZJ_9=LHiQrO4ay_7mECj_jAmZBVHNT3Oi4uz8YxeQ@mail.gmail.com>
+	<CAHo-Oowk0Sk3dp_PTnZy6+N3_MgBSxO5csezXpmbF612duSeTA@mail.gmail.com>
+	<CAHmME9ptb2pwtKQ1b0yC6FBmXrvZfDKVZ8UTjGoneNw+DMuxBg@mail.gmail.com>
+	<CAHo-OoxJpW+=+X6dNdLqiikeStnj4+TBoqhcSGZOSspfc4oGKQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: David Miller <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tom Herbert <tom@herbertland.com>, Jiri Benc <jbenc@redhat.com>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:35876 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751039AbbKHKPv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2015 05:15:51 -0500
-Received: by wmww144 with SMTP id w144so56193875wmw.1
-        for <netdev@vger.kernel.org>; Sun, 08 Nov 2015 02:15:50 -0800 (PST)
+Received: from frisell.zx2c4.com ([192.95.5.64]:34340 "EHLO frisell.zx2c4.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750943AbbKHKhB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2015 05:37:01 -0500
+In-Reply-To: <CAHo-OoxJpW+=+X6dNdLqiikeStnj4+TBoqhcSGZOSspfc4oGKQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hi Maciej,
 
-I've got the following deadlock report on commit
-d1e41ff11941784f469f17795a4d9425c2eb4b7a (Nov 5).
+On Sun, Nov 8, 2015 at 12:40 AM, Maciej =C5=BBenczykowski
+<zenczykowski@gmail.com> wrote:
+> This isn't particularly efficient.  This is basically equivalent to d=
+oing
+> GSO before the superpacket reaches your driver (you might get some
+> savings by not bothering to look at the packet headers of the second
+> and on packets, but that's most likely minimal savings).
+
+Actually, in my benchmarking, this results in enormous speedups in two =
+places:
+
+- In fact, I do have to examine the header of each incoming packet in
+ndo_start_xmit(), and make a potentially expensive calculation on it
+(due to the nature of my particular virtual driver). Having to only do
+this once gets me about 100 additional megabits of bandwidth.
+- Before sending the packet with udp_tunnel_xmit_skb, I can do only
+one ip_route_output_flow() call, and reuse the rtable/dst_entry struct
+for each send, instead of having to recompute it each time. This winds
+up getting me around 400 more megabits.
+
+> In particular you're allocating a new skb and clearing it for each of=
+ those
+> 1300 byte packets (and deallocating the superpacket skb).  And then y=
+ou
+> are presumably deallocating all those freshly allocated skbs - since
+> I'm guessing
+> you are creating new skbs for transmit.
+>
+> What you really want to do (although of course it's much harder)
+> is not call skb_gso_segment() at all for packet formats you know how
+> to handle (ideally you can handle anything you claim to be able to
+> handle via the features bits)
+> and instead reach directly into the skb and grab the right portions
+> of it and handle them directly.  This way you only ever have the one
+> incoming skb,
+> but yes it requires considerable effort.
+>
+> This should get you a fair bit of savings.
+
+Yes, I agree wholeheartedly; it would be much nicer to not have to
+call skb_gso_segment at all, and just being able to operate on the
+superpacket directly. Unfortunately, I'm not able to do this, because
+I'm not simply adding or changing a header on the packet. I'm actually
+making a calculation on the full bytes of the packet, which includes
+the UDP and IP headers that are only added by skb_gso_segment, and
+then I'm playing with ("scrambling" in some way) all of the bytes of
+the entire packet. So, I really do need to decompose it into
+individual packets, unfortunately.
+
+>
+> Are you in control of the receiver?  Can you modify packet format?
+
+Yes, I am in control of the receiver. I suppose I could augment the
+protocol to do this kind of reassembly. But that might conflict with
+some other design goals, so I don't think that's going to happen.
+
+>
+> Theoretically you could manually add the proper headers to each
+> of the new packets, and create a chain and send that, although
+> honestly I'm not sure if the stack is at all capable of dealing with
+> that atm.
+>
+> Alternatively instead of sending through the stack, put on full ether=
+net
+> headers and send straight to the nic via the nic's xmit function.
+
+My initial prototype did that, actually, simply because I knew how to
+build an ethernet frame but I didn't know (yet) how to use the
+kernel's various APIs. This wasn't viable in the end, though, because
+I do need to run the packets through netfilter and the full stack.
+
+> UFO =3D UDP Fragmentation Offload =3D really meaning 'UDP transmit
+> checksum offload + IP fragmentation offload'
+>
+> so when you send that out you get ip fragments of 1 udp packet, not
+> many individual udp packets.
+
+Shucks, really? So UFO really only works for single UDP packets?
+That's a shame. I had hoped that since all the packets are the same
+size, I could set gso_size to that, and then the splitting would take
+place on those boundaries precisely. But I guess since the
+fragmentation here actually does IP fragmentation, this would run
+counter to my goals, since new UDP headers wouldn't be added in the
+end. Total bummer.
+
+Wouldn't there be some significant savings from bundling together
+several UDP packets meant for the same destination, and sending those
+all as one super-packet, so they don't each have to traverse the whole
+networking and netfilter stack? By asking that question, it doesn't
+feel as though I've come up with a new idea; is there a reason why
+that isn't implemented or why (if) it was rejected?
+
+>
+> It is possible some hardware (possibly some intel nics, maybe bnx2x)
+> could be tricked into doing udp segmentation with their tcp segmentat=
+ion
+> engine.  Theoretically (based on having glanced at the datasheets) th=
+e
+> intel nic segmentation is pretty generic, and it would appear at firs=
+t
+> glance that with the right driver hacks (populating the transmit desc=
+riptor
+> correctly) it could be made to work.  I mention bnx2x because
+> they managed to make tcp segmentation work with tunnels,
+> so it's possible that the support is generic enough for it to be poss=
+ible (with
+> driver changes).  Who knows.
+>
+> It may or may not require putting on a fake 20 byte TCP header.
+> There's some tunnel spec that basically does that (should be able to =
+find
+> an RFC online [perhaps I'm thinking of STT - Stateless Transport Tunn=
+eling].
+>
+> I don't think there is currently any way to setup a linux skb with th=
+e
+> right metadata for it to just happen though.
+>
+> It does seem like something that could be potentially worth adding th=
+ough.
+
+These are glorious dirty tricks. Awesome. It appears, NIC-wise, that
+only the neterion driver currently supports UFO natively. I wonder if
+the Intel folks will add it to their drivers, since the segmentation
+is generic as you said.
+
+Still, though, regardless of NIC support, using superpackets to reduce
+the number of skbs that have to traverse the networking stack appears
+to be worthwhile. It'd be nice to make this happen for clusters of UDP
+packets.
 
 
-[ INFO: possible circular locking dependency detected ]
-4.3.0+ #39 Not tainted
--------------------------------------------------------
-syzkaller_execu/18311 is trying to acquire lock:
- (rtnl_mutex){+.+.+.}, at: [<ffffffff827f9917>] rtnl_lock+0x17/0x20
-net/core/rtnetlink.c:70
+I'm adding to the CC Herbert Xu, who mentioned in another thread:
 
-but task is already holding lock:
- (sk_lock-AF_INET){+.+.+.}, at: [<     inline     >] lock_sock
-include/net/sock.h:1477
- (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff8290b171>]
-do_ip_getsockopt.part.9+0x111/0x1510 net/ipv4/ip_sockglue.c:1272
+> I don't see anything fundamentally wrong with your idea.  After
+> all what you're describing is the basis of GSO, i.e., letting
+> data stay in the form of super-packets for as long as we can.
+>
+> Of course there's going to be a lot of niggly bits that you'll
+> have to sort out to get it to work.
 
-which lock already depends on the new lock.
-
-the existing dependency chain (in reverse order) is:
-
--> #1 (sk_lock-AF_INET){+.+.+.}:
-       [<ffffffff811f655d>] lock_acquire+0x16d/0x2f0
-kernel/locking/lockdep.c:3585
-       [<ffffffff8276bbc8>] lock_sock_nested+0xb8/0x110 net/core/sock.c:2443
-       [<     inline     >] lock_sock include/net/sock.h:1477
-       [<ffffffff8290d623>] do_ip_setsockopt.isra.12+0x193/0x2af0
-net/ipv4/ip_sockglue.c:621
-       [<ffffffff8290ffba>] ip_setsockopt+0x3a/0xb0 net/ipv4/ip_sockglue.c:1202
-       [<ffffffff8292e712>] tcp_setsockopt+0x82/0xd0 net/ipv4/tcp.c:2616
-       [<ffffffff827697f5>] sock_common_setsockopt+0x95/0xd0
-net/core/sock.c:2643
-       [<     inline     >] SYSC_setsockopt net/socket.c:1757
-       [<ffffffff82766728>] SyS_setsockopt+0x158/0x240 net/socket.c:1736
-       [<ffffffff82f21951>] entry_SYSCALL_64_fastpath+0x31/0x9a
-arch/x86/entry/entry_64.S:187
-
--> #0 (rtnl_mutex){+.+.+.}:
-       [<     inline     >] check_prev_add kernel/locking/lockdep.c:1853
-       [<     inline     >] check_prevs_add kernel/locking/lockdep.c:1958
-       [<     inline     >] validate_chain kernel/locking/lockdep.c:2144
-       [<ffffffff811f3769>] __lock_acquire+0x36d9/0x40e0
-kernel/locking/lockdep.c:3206
-       [<ffffffff811f655d>] lock_acquire+0x16d/0x2f0
-kernel/locking/lockdep.c:3585
-       [<     inline     >] __mutex_lock_common kernel/locking/mutex.c:518
-       [<ffffffff82f18dcc>] mutex_lock_nested+0x9c/0x8f0
-kernel/locking/mutex.c:618
-       [<ffffffff827f9917>] rtnl_lock+0x17/0x20 net/core/rtnetlink.c:70
-       [<ffffffff82a033a0>] ip_mc_msfget+0xe0/0x620 net/ipv4/igmp.c:2398
-       [<ffffffff8290b465>] do_ip_getsockopt.part.9+0x405/0x1510
-net/ipv4/ip_sockglue.c:1399
-       [<     inline     >] do_ip_getsockopt net/ipv4/ip_sockglue.c:1264
-       [<ffffffff8290c808>] ip_getsockopt+0xa8/0x1c0 net/ipv4/ip_sockglue.c:1495
-       [<ffffffff8292b8f2>] tcp_getsockopt+0x82/0xd0 net/ipv4/tcp.c:2916
-       [<ffffffff82769415>] sock_common_getsockopt+0x95/0xd0
-net/core/sock.c:2602
-       [<     inline     >] SYSC_getsockopt net/socket.c:1788
-       [<ffffffff82766952>] SyS_getsockopt+0x142/0x230 net/socket.c:1770
-
-other info that might help us debug this:
-
- Possible unsafe locking scenario:
-
-       CPU0                    CPU1
-       ----                    ----
-  lock(sk_lock-AF_INET);
-                               lock(rtnl_mutex);
-                               lock(sk_lock-AF_INET);
-  lock(rtnl_mutex);
-
- *** DEADLOCK ***
-
-1 lock held by syzkaller_execu/18311:
- #0:  (sk_lock-AF_INET){+.+.+.}, at: [<     inline     >] lock_sock
-include/net/sock.h:1477
- #0:  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff8290b171>]
-do_ip_getsockopt.part.9+0x111/0x1510 net/ipv4/ip_sockglue.c:1272
-
-stack backtrace:
-CPU: 1 PID: 18311 Comm: syzkaller_execu Not tainted 4.3.0+ #39
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
- 00000000ffffffff ffff88005b647598 ffffffff81aad406 ffffffff845cb400
- ffffffff84612200 ffffffff845cb400 ffff88005b6475e0 ffffffff811ec511
- ffff88005b6476e0 000000006c7d5800 ffff88006c7d5fb0 ffff88006c7d5fd2
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff81aad406>] dump_stack+0x68/0x92 lib/dump_stack.c:50
- [<ffffffff811ec511>] print_circular_bug+0x2d1/0x390
-kernel/locking/lockdep.c:1226
- [<     inline     >] check_prev_add kernel/locking/lockdep.c:1853
- [<     inline     >] check_prevs_add kernel/locking/lockdep.c:1958
- [<     inline     >] validate_chain kernel/locking/lockdep.c:2144
- [<ffffffff811f3769>] __lock_acquire+0x36d9/0x40e0 kernel/locking/lockdep.c:3206
- [<ffffffff811f655d>] lock_acquire+0x16d/0x2f0 kernel/locking/lockdep.c:3585
- [<     inline     >] __mutex_lock_common kernel/locking/mutex.c:518
- [<     inline     >] __mutex_lock_common kernel/locking/mutex.c:518
- [<ffffffff82f18dcc>] mutex_lock_nested+0x9c/0x8f0 kernel/locking/mutex.c:618
- [<ffffffff827f9917>] rtnl_lock+0x17/0x20 net/core/rtnetlink.c:70
- [<ffffffff82a033a0>] ip_mc_msfget+0xe0/0x620 net/ipv4/igmp.c:2398
- [<ffffffff8290b465>] do_ip_getsockopt.part.9+0x405/0x1510
-net/ipv4/ip_sockglue.c:1399
- [<     inline     >] do_ip_getsockopt net/ipv4/ip_sockglue.c:1264
- [<ffffffff8290c808>] ip_getsockopt+0xa8/0x1c0 net/ipv4/ip_sockglue.c:1495
- [<ffffffff8292b8f2>] tcp_getsockopt+0x82/0xd0 net/ipv4/tcp.c:2916
- [<ffffffff82769415>] sock_common_getsockopt+0x95/0xd0 net/core/sock.c:2602
- [<     inline     >] SYSC_getsockopt net/socket.c:1788
- [<ffffffff82766952>] SyS_getsockopt+0x142/0x230 net/socket.c:1770
+So I wonder if he has any ideas about this too.
 
 
-Found with syzkaller system call fuzzer (https://github.com/google/syzkaller).
+Anyway, thanks so much for your insight about this. I really
+appreciate the pointers.
+
+Regards,
+Jason
