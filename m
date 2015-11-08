@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net 2/6] smack: use skb_to_full_sk() helper
-Date: Sun,  8 Nov 2015 10:54:08 -0800
-Message-ID: <1447008853-16060-3-git-send-email-edumazet@google.com>
+Subject: [PATCH net 3/6] netfilter: xt_owner: use skb_to_full_sk() helper
+Date: Sun,  8 Nov 2015 10:54:09 -0800
+Message-ID: <1447008853-16060-4-git-send-email-edumazet@google.com>
 References: <1447008853-16060-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Pablo Neira Ayuso <pablo@netfilter.org>,
@@ -11,66 +11,56 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34058 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751275AbbKHSya (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2015 13:54:30 -0500
-Received: by padhx2 with SMTP id hx2so166373018pad.1
-        for <netdev@vger.kernel.org>; Sun, 08 Nov 2015 10:54:30 -0800 (PST)
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:34083 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751275AbbKHSye (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2015 13:54:34 -0500
+Received: by padhx2 with SMTP id hx2so166373843pad.1
+        for <netdev@vger.kernel.org>; Sun, 08 Nov 2015 10:54:33 -0800 (PST)
 In-Reply-To: <1447008853-16060-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This module wants to access sk->sk_security, which is not
-available for request sockets.
+SYNACK packets might be attached to a request socket,
+xt_owner wants to gte the listener in this case.
 
 Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- security/smack/smack_netfilter.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ net/netfilter/xt_owner.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/security/smack/smack_netfilter.c b/security/smack/smack_netfilter.c
-index 6d1706c9777e..aa6bf1b22ec5 100644
---- a/security/smack/smack_netfilter.c
-+++ b/security/smack/smack_netfilter.c
-@@ -17,6 +17,7 @@
- #include <linux/netfilter_ipv4.h>
- #include <linux/netfilter_ipv6.h>
- #include <linux/netdevice.h>
+diff --git a/net/netfilter/xt_owner.c b/net/netfilter/xt_owner.c
+index ca2e577ed8ac..1302b475abcb 100644
+--- a/net/netfilter/xt_owner.c
++++ b/net/netfilter/xt_owner.c
+@@ -14,6 +14,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/file.h>
+ #include <net/sock.h>
 +#include <net/inet_sock.h>
- #include "smack.h"
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/xt_owner.h>
  
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-@@ -25,11 +26,12 @@ static unsigned int smack_ipv6_output(void *priv,
- 					struct sk_buff *skb,
- 					const struct nf_hook_state *state)
+@@ -33,8 +34,9 @@ owner_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
+ 	const struct xt_owner_match_info *info = par->matchinfo;
+ 	const struct file *filp;
 +	struct sock *sk = skb_to_full_sk(skb);
- 	struct socket_smack *ssp;
- 	struct smack_known *skp;
  
--	if (skb && skb->sk && skb->sk->sk_security) {
--		ssp = skb->sk->sk_security;
-+	if (sk && sk->sk_security) {
-+		ssp = sk->sk_security;
- 		skp = ssp->smk_out;
- 		skb->secmark = skp->smk_secid;
- 	}
-@@ -42,11 +44,12 @@ static unsigned int smack_ipv4_output(void *priv,
- 					struct sk_buff *skb,
- 					const struct nf_hook_state *state)
- {
-+	struct sock *sk = skb_to_full_sk(skb);
- 	struct socket_smack *ssp;
- 	struct smack_known *skp;
+-	if (skb->sk == NULL || skb->sk->sk_socket == NULL)
++	if (sk == NULL || sk->sk_socket == NULL)
+ 		return (info->match ^ info->invert) == 0;
+ 	else if (info->match & info->invert & XT_OWNER_SOCKET)
+ 		/*
+@@ -43,7 +45,7 @@ owner_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 		 */
+ 		return false;
  
--	if (skb && skb->sk && skb->sk->sk_security) {
--		ssp = skb->sk->sk_security;
-+	if (sk && sk->sk_security) {
-+		ssp = sk->sk_security;
- 		skp = ssp->smk_out;
- 		skb->secmark = skp->smk_secid;
- 	}
+-	filp = skb->sk->sk_socket->file;
++	filp = sk->sk_socket->file;
+ 	if (filp == NULL)
+ 		return ((info->match ^ info->invert) &
+ 		       (XT_OWNER_UID | XT_OWNER_GID)) == 0;
 -- 
 2.6.0.rc2.230.g3dd15c0
