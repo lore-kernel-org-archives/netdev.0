@@ -1,43 +1,76 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: Linux 4.2.4
-Date: Mon, 9 Nov 2015 13:41:54 +0100
-Message-ID: <20151109124154.GA2778@salvia>
-References: <562C83FD.6010402@wiesinger.com>
- <20151025082547.GA22300@kroah.com>
- <20151025090308.GA17656@1wt.eu>
- <562CA13C.90500@wiesinger.com>
- <20151025094634.GA6832@1wt.eu>
- <562CB396.2080509@wiesinger.com>
- <20151025162955.GA8375@kroah.com>
- <563F5345.7060001@wiesinger.com>
- <20151108172022.GC29613@kroah.com>
- <564092FF.2070100@wiesinger.com>
+From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Subject: Re: [RFC PATCH net-next v2 7/8] openvswitch: Delay
+ conntrack helper call for new connections.
+Date: Mon, 9 Nov 2015 13:26:01 +0000
+Message-ID: <20151109132601.GB8098@macbook.localdomain>
+References: <1446854768-38299-1-git-send-email-jrajahalme@nicira.com>
+ <1446854768-38299-8-git-send-email-jrajahalme@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <gregkh@linuxfoundation.org>, Willy Tarreau <w@1wt.eu>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org, stable@vger.kernel.org, lwn@lwn.net,
-	Jiri Slaby <jslaby@suse.cz>
-To: Gerhard Wiesinger <lists@wiesinger.com>
-Return-path: <stable-owner@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <564092FF.2070100@wiesinger.com>
-Sender: stable-owner@vger.kernel.org
+In-Reply-To: <1446854768-38299-8-git-send-email-jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 09, 2015 at 01:35:11PM +0100, Gerhard Wiesinger wrote:
-> On 08.11.2015 18:20, Greg KH wrote:
-> >That's great, can you let me know the git commits that end up in Linus's
-> >tree?  That's what we need for the stable kernel.
-> 
-> Find the commits here:
-> https://git.kernel.org/cgit/linux/kernel/git/pablo/nf.git/
-> https://git.kernel.org/cgit/linux/kernel/git/pablo/nf.git/commit/?id=e75cb467df29a428612c162e6f1451c5c0717091
-> 
-> Don't know exactly the merging processes, so feel free to merge or contact
-> Pablo.
-
-I'll take care of that, this is already following its path to -stable,
-will take a little while though as usual.
+T24gMDYuMTEsIEphcm5vIFJhamFoYWxtZSB3cm90ZToKPiBUaGVyZSBpcyBubyBuZWVkIHRvIGhl
+bHAgY29ubmVjdGlvbnMgdGhhdCBhcmUgbm90IGNvbmZpcm1lZCwgc28gd2UgY2FuCj4gZGVsYXkg
+aGVscGluZyBuZXcgY29ubmVjdGlvbnMgdG8gdGhlIHRpbWUgd2hlbiB0aGV5IGFyZSBjb25maXJt
+ZWQuCj4gVGhpcyBjaGFuZ2UgaXMgbmVlZGVkIGZvciBOQVQgc3VwcG9ydCwgYW5kIGhhdmluZyB0
+aGlzIGFzIGEgc2VwYXJhdGUKPiBwYXRjaCB3aWxsIG1ha2UgdGhlIGZvbGxvd2luZyBOQVQgcGF0
+Y2ggYSBiaXQgZWFzaWVyIHRvIHJldmlldy4KCkZvciB0aGUgZmlyc3QgcGFja2V0IGEgaGVscGVy
+IHJlY2VpdmVzIHRoZSBjb25uZWN0aW9uIGlzIGFsd2F5cyB1bmNvbmZpcm1lZC4KSXQgbWFrZXMg
+bm8gc2Vuc2UgdG8gY29uZmlybSBpdCBpZiB0aGUgaGVscGVyIGRyb3BzIHRoZSBwYWNrZXQuCgo+
+IFNpZ25lZC1vZmYtYnk6IEphcm5vIFJhamFoYWxtZSA8anJhamFoYWxtZUBuaWNpcmEuY29tPgo+
+IC0tLQo+ICBuZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgfCAyMCArKysrKysrKysrKysrKyst
+LS0tLQo+ICAxIGZpbGUgY2hhbmdlZCwgMTUgaW5zZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkK
+PiAKPiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jIGIvbmV0L29wZW52
+c3dpdGNoL2Nvbm50cmFjay5jCj4gaW5kZXggN2FhMzhmYS4uYmE0NDI4NyAxMDA2NDQKPiAtLS0g
+YS9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKPiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvY29u
+bnRyYWNrLmMKPiBAQCAtNDU4LDYgKzQ1OCw3IEBAIHN0YXRpYyBib29sIHNrYl9uZmN0X2NhY2hl
+ZChzdHJ1Y3QgbmV0ICpuZXQsCj4gIC8qIFBhc3MgJ3NrYicgdGhyb3VnaCBjb25udHJhY2sgaW4g
+J25ldCcsIHVzaW5nIHpvbmUgY29uZmlndXJlZCBpbiAnaW5mbycsIGlmCj4gICAqIG5vdCBkb25l
+IGFscmVhZHkuICBVcGRhdGUga2V5IHdpdGggbmV3IENUIHN0YXRlIGFmdGVyIHBhc3NpbmcgdGhl
+IHBhY2tldAo+ICAgKiB0aHJvdWdoIGNvbm50cmFjay4KPiArICogTm90ZSB0aGF0IGludmFsaWQg
+cGFja2V0cyBhcmUgYWNjZXB0ZWQgd2hpbGUgdGhlIHNrYi0+bmZjdCByZW1haW5zIHVuc2V0IQo+
+ICAgKi8KPiAgc3RhdGljIGludCBfX292c19jdF9sb29rdXAoc3RydWN0IG5ldCAqbmV0LCBzdHJ1
+Y3Qgc3dfZmxvd19rZXkgKmtleSwKPiAgCQkJICAgY29uc3Qgc3RydWN0IG92c19jb25udHJhY2tf
+aW5mbyAqaW5mbywKPiBAQCAtNDY4LDcgKzQ2OSwxMSBAQCBzdGF0aWMgaW50IF9fb3ZzX2N0X2xv
+b2t1cChzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBzd19mbG93X2tleSAqa2V5LAo+ICAJICogYWN0
+dWFsbHkgcnVuIHRoZSBwYWNrZXQgdGhyb3VnaCBjb25udHJhY2sgdHdpY2UgdW5sZXNzIGl0J3Mg
+Zm9yIGEKPiAgCSAqIGRpZmZlcmVudCB6b25lLgo+ICAJICovCj4gLQlpZiAoIXNrYl9uZmN0X2Nh
+Y2hlZChuZXQsIGtleSwgaW5mbywgc2tiKSkgewo+ICsJYm9vbCBjYWNoZWQgPSBza2JfbmZjdF9j
+YWNoZWQobmV0LCBrZXksIGluZm8sIHNrYik7Cj4gKwllbnVtIGlwX2Nvbm50cmFja19pbmZvIGN0
+aW5mbzsKPiArCXN0cnVjdCBuZl9jb25uICpjdDsKPiArCj4gKwlpZiAoIWNhY2hlZCkgewo+ICAJ
+CXN0cnVjdCBuZl9jb25uICp0bXBsID0gaW5mby0+Y3Q7Cj4gIAkJaW50IGVycjsKPiAgCj4gQEAg
+LTQ5MSwxMSArNDk2LDE2IEBAIHN0YXRpYyBpbnQgX19vdnNfY3RfbG9va3VwKHN0cnVjdCBuZXQg
+Km5ldCwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXksCj4gIAkJCXJldHVybiAtRU5PRU5UOwo+ICAK
+PiAgCQlvdnNfY3RfdXBkYXRlX2tleShza2IsIGtleSwgdHJ1ZSk7Cj4gKwl9Cj4gIAo+IC0JCWlm
+IChvdnNfY3RfaGVscGVyKHNrYiwgaW5mby0+ZmFtaWx5KSAhPSBORl9BQ0NFUFQpIHsKPiAtCQkJ
+V0FSTl9PTkNFKDEsICJoZWxwZXIgcmVqZWN0ZWQgcGFja2V0Iik7Cj4gLQkJCXJldHVybiAtRUlO
+VkFMOwo+IC0JCX0KPiArCS8qIENhbGwgdGhlIGhlbHBlciByaWdodCBhZnRlciBuZl9jb25udHJh
+Y2tfaW4oKSBmb3IgY29uZmlybWVkCj4gKwkgKiBjb25uZWN0aW9ucywgYnV0IG9ubHkgd2hlbiBj
+b21taXRpbmcgZm9yIHVuY29uZmlybWVkIGNvbm5lY3Rpb25zLgo+ICsJICovCj4gKwljdCA9IG5m
+X2N0X2dldChza2IsICZjdGluZm8pOwo+ICsJaWYgKGN0ICYmIChuZl9jdF9pc19jb25maXJtZWQo
+Y3QpID8gIWNhY2hlZCA6IGluZm8tPmNvbW1pdCkKPiArCSAgICAmJiBvdnNfY3RfaGVscGVyKHNr
+YiwgaW5mby0+ZmFtaWx5KSAhPSBORl9BQ0NFUFQpIHsKPiArCQlXQVJOX09OQ0UoMSwgImhlbHBl
+ciByZWplY3RlZCBwYWNrZXQiKTsKPiArCQlyZXR1cm4gLUVJTlZBTDsKPiAgCX0KPiAgCj4gIAly
+ZXR1cm4gMDsKPiAtLSAKPiAyLjEuNAo+IAo+IC0tCj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlz
+IGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGZpbHRlci1kZXZlbCIgaW4KPiB0
+aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZwo+IE1vcmUg
+bWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8u
+aHRtbAo+IApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpk
+ZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9y
+Zy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
