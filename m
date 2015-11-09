@@ -1,55 +1,80 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] mvneta: add FIXED_PHY dependency
-Date: Mon, 09 Nov 2015 15:08:57 +0100
-Message-ID: <4225885.EYXTHjRPmX@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Stas Sergeev <stsp@users.sourceforge.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH] macvtap: Resolve possible __might_sleep warning in macvtap_do_read()
+Date: Mon,  9 Nov 2015 09:14:17 -0500
+Message-ID: <1447078457-4965-1-git-send-email-vyasevic@redhat.com>
+Cc: jasowang@redhat.com, mst@redhat.com,
+	Vladislav Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f172.google.com ([209.85.220.172]:34672 "EHLO
+	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342AbbKIOO0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 09:14:26 -0500
+Received: by qkcn129 with SMTP id n129so71607468qkc.1
+        for <netdev@vger.kernel.org>; Mon, 09 Nov 2015 06:14:25 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The fixed_phy infrastructure is done in a way that is optional,
-by providing 'static inline' helper functions doing nothing in
-include/linux/phy_fixed.h for all its APIs. However, three out
-of the four users (DSA, BCMGENET, and SYSTEMPORT) always
-'select FIXED_PHY', presumably because they need that.
-MVNETA is the fourth one, and if that is built-in but FIXED_PHY
-is configured as a loadable module, we get a link error:
+macvtap_do_read code calls macvtap_put_user while it might be set up
+to wait for the user.  This results in the following warning:
 
-drivers/built-in.o: In function `mvneta_fixed_link_update':
-fpga-mgr.c:(.text+0x33ed80): undefined reference to `fixed_phy_update_state'
+Jun 23 16:25:26 galen kernel: ------------[ cut here ]------------
+Jun 23 16:25:26 galen kernel: WARNING: CPU: 0 PID: 30433 at kernel/sched/core.c:
+7286 __might_sleep+0x7f/0x90()
+Jun 23 16:25:26 galen kernel: do not call blocking ops when !TASK_RUNNING; state
+=1 set at [<ffffffff810f1c1f>] prepare_to_wait+0x2f/0x90
+Jun 23 16:25:26 galen kernel: CPU: 0 PID: 30433 Comm: cat Not tainted 4.1.0-rc6+
+ #11
+Jun 23 16:25:26 galen kernel: Call Trace:
+Jun 23 16:25:26 galen kernel: [<ffffffff817f76ba>] dump_stack+0x4c/0x65
+Jun 23 16:25:26 galen kernel: [<ffffffff810a07ca>] warn_slowpath_common+0x8a/0xc
+0
+Jun 23 16:25:26 galen kernel: [<ffffffff810a0846>] warn_slowpath_fmt+0x46/0x50
+Jun 23 16:25:26 galen kernel: [<ffffffff810f1c1f>] ?  prepare_to_wait+0x2f/0x90
+Jun 23 16:25:26 galen kernel: [<ffffffff810f1c1f>] ?  prepare_to_wait+0x2f/0x90
+Jun 23 16:25:26 galen kernel: [<ffffffff810cdc1f>] __might_sleep+0x7f/0x90
+Jun 23 16:25:26 galen kernel: [<ffffffff811f8e15>] might_fault+0x55/0xb0
+Jun 23 16:25:26 galen kernel: [<ffffffff810fab9d>] ?  trace_hardirqs_on_caller+0x fd/0x1c0
+Jun 23 16:25:26 galen kernel: [<ffffffff813f639c>] copy_to_iter+0x7c/0x360
+Jun 23 16:25:26 galen kernel: [<ffffffffa052da86>] macvtap_do_read+0x256/0x3d0 [macvtap]
+Jun 23 16:25:26 galen kernel: [<ffffffff810f20e0>] ?  prepare_to_wait_event+0x110/0x110
+Jun 23 16:25:26 galen kernel: [<ffffffffa052dcab>] macvtap_read_iter+0x2b/0x50 [macvtap]
+Jun 23 16:25:26 galen kernel: [<ffffffff81247f2e>] __vfs_read+0xae/0xe0
+Jun 23 16:25:26 galen kernel: [<ffffffff81248526>] vfs_read+0x86/0x140
+Jun 23 16:25:26 galen kernel: [<ffffffff812493b9>] SyS_read+0x49/0xb0
+Jun 23 16:25:26 galen kernel: [<ffffffff8180182e>] system_call_fastpath+0x12/0x76
+Jun 23 16:25:26 galen kernel: ---[ end trace 22e33f67e70c0c2a ]---
 
-Presumably this driver has the same dependency as the others,
-so this patch also uses 'select' to ensure that the fixed-phy
-support is built-in.
+Make sure thet we call finish_wait() if we have the skb to process
+before trying to actually process it.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 898b2970e2c9 ("mvneta: implement SGMII-based in-band link state signaling")
+Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
-Found using ARM randconfig tests. An alternative here would be
-to use 'depends on FIXED_PHY || FIXED_PHY=n', I picked the 'select'
-approach for consistency.
+ drivers/net/macvtap.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Should we perhaps make 'FIXED_PHY' a silent option and remove the
-inline helpers, based on the assumption that a driver that wants these
-will not work without them?
-
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index 80af9ffce5ea..a1c862b4664d 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -44,6 +44,7 @@ config MVNETA
- 	tristate "Marvell Armada 370/38x/XP network interface support"
- 	depends on PLAT_ORION
- 	select MVMDIO
-+	select FIXED_PHY
- 	---help---
- 	  This driver supports the network interface units in the
- 	  Marvell ARMADA XP, ARMADA 370 and ARMADA 38x SoC family.
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 248478c..844a442 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -935,6 +935,9 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q,
+ 		/* Nothing to read, let's sleep */
+ 		schedule();
+ 	}
++	if (!noblock)
++		finish_wait(sk_sleep(&q->sk), &wait);
++
+ 	if (skb) {
+ 		ret = macvtap_put_user(q, skb, to);
+ 		if (unlikely(ret < 0))
+@@ -942,8 +945,6 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q,
+ 		else
+ 			consume_skb(skb);
+ 	}
+-	if (!noblock)
+-		finish_wait(sk_sleep(&q->sk), &wait);
+ 	return ret;
+ }
+ 
+-- 
+1.9.3
