@@ -1,45 +1,64 @@
-From: Albino B Neto <bino@bino.us>
-Subject: Re: [PATCH] man: Syntax and warning fixes
-Date: Mon, 9 Nov 2015 07:40:49 -0200
-Message-ID: <CAMu38x+0-AnizLA-SeamWYxkeF_eVRYELTG8X=S-M3N8UaRcZA@mail.gmail.com>
-References: <1446889471-22296-1-git-send-email-ville.skytta@iki.fi>
-	<CAMu38xJwGcNgXKEZbuNFkEYDCtUoE1=xh6o3VziVOzwxdogkgg@mail.gmail.com>
-	<CABr9L5B67DkOv8hY7eqogUxrcX+MaaYT3KKtM1W_V5eYpzPpXQ@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next ] net: ipv4: memset addr before calling
+ copy_to_user()
+Date: Mon, 09 Nov 2015 11:09:06 +0100
+Message-ID: <1447063746.377490.433562497.7B532277@webmail.messagingengine.com>
+References: <20151109065236.GA2271@mx.elandsys.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?Q?Ville_Skytt=C3=A4?= <ville.skytta@iki.fi>
+To: Loganaden Velvindron <logan@elandsys.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway31.websitewelcome.com ([192.185.143.4]:44283 "EHLO
-	gateway31.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751715AbbKIKBJ convert rfc822-to-8bit
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:48354 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753220AbbKIKJK convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Nov 2015 05:01:09 -0500
-Received: from ham06.websitewelcome.com (unknown [108.179.254.230])
-	by gateway31.websitewelcome.com (Postfix) with ESMTP id B8CD4223BB1C8
-	for <netdev@vger.kernel.org>; Mon,  9 Nov 2015 03:40:50 -0600 (CST)
-Received: from br538.hostgator.com.br (br538.hostgator.com.br [108.179.252.175])
-	by ham06.websitewelcome.com (Postfix) with ESMTP id 2269440009
-	for <netdev@vger.kernel.org>; Mon,  9 Nov 2015 03:40:50 -0600 (CST)
-Received: from [209.85.192.51] (port=33133 helo=mail-qg0-f51.google.com)
-	by br538.hostgator.com.br with esmtpsa (TLSv1.2:AES128-GCM-SHA256:128)
-	(Exim 4.85)
-	(envelope-from <bino@bino.us>)
-	id 1ZviwT-00053V-FC
-	for netdev@vger.kernel.org; Mon, 09 Nov 2015 03:40:49 -0600
-Received: by qgea14 with SMTP id a14so56680613qge.0
-        for <netdev@vger.kernel.org>; Mon, 09 Nov 2015 01:40:49 -0800 (PST)
-In-Reply-To: <CABr9L5B67DkOv8hY7eqogUxrcX+MaaYT3KKtM1W_V5eYpzPpXQ@mail.gmail.com>
+	Mon, 9 Nov 2015 05:09:10 -0500
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id 28FAD203F4
+	for <netdev@vger.kernel.org>; Mon,  9 Nov 2015 05:09:07 -0500 (EST)
+In-Reply-To: <20151109065236.GA2271@mx.elandsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-11-07 7:55 GMT-02:00 Ville Skytt=C3=A4 <ville.skytta@iki.fi>:
->> Signed-off-by and description ?
->
-> Superseding patches sent separately. I suggest documenting the
-> requirement for Signed-off-by somewhere (README.devel?);
+Hello,
 
-Please read the Documentation/SubmittingPatches.
+On Mon, Nov 9, 2015, at 07:52, Loganaden Velvindron wrote:
+> zero addr before calling copy_to_user()
+> =20
+> Signed-off-by: Loganaden Velvindron <logan@elandsys.com>
+> ---
+>  net/ipv4/ip_sockglue.c | 1 +
+>  1 file changed, 1 insertion(+)
+>=20
+> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+> index c3c359a..d7a5a8b 100644
+> --- a/net/ipv4/ip_sockglue.c
+> +++ b/net/ipv4/ip_sockglue.c
+> @@ -1373,6 +1373,7 @@ static int do_ip_getsockopt(struct sock *sk, in=
+t
+> level, int optname,
+>  	case IP_MULTICAST_IF:
+>  	{
+>  		struct in_addr addr;
+> +               memset(&addr, 0, sizeof(addr));
+>  		len =3D min_t(unsigned int, len, sizeof(struct in_addr));
+>  		addr.s_addr =3D inet->mc_addr;
+>  		release_sock(sk);
 
-    Albino
+There is no possibility we leak any unwanted data to user space here.
+
+If you are not sure if sizeof(addr) > sizeof(addr.s_addr) use a
+designated initializer:
+
+addr =3D { .s_addr =3D inet->mc_addr };
+
+which clears all other non-initialized elements. But here we are very
+certain.
+
+We do not do defensive programming, we try to do logical things, and
+only logical things.
+=E2=80=94 Eric Dumazet (Thanks to Dan Carpenter.)
+
+Bye,
+Hannes
