@@ -1,80 +1,88 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH] macvtap: Resolve possible __might_sleep warning in macvtap_do_read()
-Date: Mon,  9 Nov 2015 09:14:17 -0500
-Message-ID: <1447078457-4965-1-git-send-email-vyasevic@redhat.com>
-Cc: jasowang@redhat.com, mst@redhat.com,
-	Vladislav Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:34672 "EHLO
-	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751342AbbKIOO0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 09:14:26 -0500
-Received: by qkcn129 with SMTP id n129so71607468qkc.1
-        for <netdev@vger.kernel.org>; Mon, 09 Nov 2015 06:14:25 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: Re: [GIT] Networking
+Date: Mon, 09 Nov 2015 15:16:56 +0100
+Message-ID: <87a8qnz293.fsf@rasmusvillemoes.dk>
+References: <20151027.233235.1641084823622810663.davem@davemloft.net>
+	<CA+55aFx0o8e9J6ojHYjvOA5aRnKoW5j10fh76Ks1=VegPc4k6w@mail.gmail.com>
+	<1446030209.105419.422375497.14563933@webmail.messagingengine.com>
+	<87pozzvzj6.fsf@rasmusvillemoes.dk>
+	<1447070962.399769.433652241.038FDB6A@webmail.messagingengine.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447070962.399769.433652241.038FDB6A@webmail.messagingengine.com>
+	(Hannes Frederic Sowa's message of "Mon, 09 Nov 2015 13:09:22 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-macvtap_do_read code calls macvtap_put_user while it might be set up
-to wait for the user.  This results in the following warning:
+On Mon, Nov 09 2015, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
 
-Jun 23 16:25:26 galen kernel: ------------[ cut here ]------------
-Jun 23 16:25:26 galen kernel: WARNING: CPU: 0 PID: 30433 at kernel/sched/core.c:
-7286 __might_sleep+0x7f/0x90()
-Jun 23 16:25:26 galen kernel: do not call blocking ops when !TASK_RUNNING; state
-=1 set at [<ffffffff810f1c1f>] prepare_to_wait+0x2f/0x90
-Jun 23 16:25:26 galen kernel: CPU: 0 PID: 30433 Comm: cat Not tainted 4.1.0-rc6+
- #11
-Jun 23 16:25:26 galen kernel: Call Trace:
-Jun 23 16:25:26 galen kernel: [<ffffffff817f76ba>] dump_stack+0x4c/0x65
-Jun 23 16:25:26 galen kernel: [<ffffffff810a07ca>] warn_slowpath_common+0x8a/0xc
-0
-Jun 23 16:25:26 galen kernel: [<ffffffff810a0846>] warn_slowpath_fmt+0x46/0x50
-Jun 23 16:25:26 galen kernel: [<ffffffff810f1c1f>] ?  prepare_to_wait+0x2f/0x90
-Jun 23 16:25:26 galen kernel: [<ffffffff810f1c1f>] ?  prepare_to_wait+0x2f/0x90
-Jun 23 16:25:26 galen kernel: [<ffffffff810cdc1f>] __might_sleep+0x7f/0x90
-Jun 23 16:25:26 galen kernel: [<ffffffff811f8e15>] might_fault+0x55/0xb0
-Jun 23 16:25:26 galen kernel: [<ffffffff810fab9d>] ?  trace_hardirqs_on_caller+0x fd/0x1c0
-Jun 23 16:25:26 galen kernel: [<ffffffff813f639c>] copy_to_iter+0x7c/0x360
-Jun 23 16:25:26 galen kernel: [<ffffffffa052da86>] macvtap_do_read+0x256/0x3d0 [macvtap]
-Jun 23 16:25:26 galen kernel: [<ffffffff810f20e0>] ?  prepare_to_wait_event+0x110/0x110
-Jun 23 16:25:26 galen kernel: [<ffffffffa052dcab>] macvtap_read_iter+0x2b/0x50 [macvtap]
-Jun 23 16:25:26 galen kernel: [<ffffffff81247f2e>] __vfs_read+0xae/0xe0
-Jun 23 16:25:26 galen kernel: [<ffffffff81248526>] vfs_read+0x86/0x140
-Jun 23 16:25:26 galen kernel: [<ffffffff812493b9>] SyS_read+0x49/0xb0
-Jun 23 16:25:26 galen kernel: [<ffffffff8180182e>] system_call_fastpath+0x12/0x76
-Jun 23 16:25:26 galen kernel: ---[ end trace 22e33f67e70c0c2a ]---
+> Hi,
+>
+> On Wed, Oct 28, 2015, at 15:27, Rasmus Villemoes wrote:
+>> 
+>> I agree - proper overflow checking can be really hard. Quick, assuming a
+>> and b have the same unsigned integer type, is 'a+b<a' sufficient to
+>> check overflow? Of course not (hint: promotion rules). And as you say,
+>> it gets even more complicated for signed types.
+>> 
+>> A few months ago I tried posting a complete set of fallbacks for older
+>> compilers (https://lkml.org/lkml/2015/7/19/358), but nothing really
+>> happened. Now I know where Linus stands, so I guess I can just delete
+>> that branch.
+>
+> I actually like your approach of being type agnostic a bit more (in
+> comparison to static inline functions), mostly because of one specific
+> reason:
+>
+> The type agnostic __builtin_*_overflow function even do the correct
+> things if you deal with types smaller than int. Imagine e.g. you want to
+> add to unsigned chars a and b,
 
-Make sure thet we call finish_wait() if we have the skb to process
-before trying to actually process it.
+If you read my mail again you'll see that I mentioned exactly this :-)
+so obviously I agree that this is a nice part of it.
 
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
----
- drivers/net/macvtap.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+> unsigned char a, b;
+> if (a + b < a)
+>   goto overflow;
+> else
+>   a += b;
+>
+> The overflow condition will never trigger, as the comparisons will
+> always be done in the integer domain and a + b < a is never true. I
+> actually think that this is easy to overlook and the functions should
+> handle that.
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 248478c..844a442 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -935,6 +935,9 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q,
- 		/* Nothing to read, let's sleep */
- 		schedule();
- 	}
-+	if (!noblock)
-+		finish_wait(sk_sleep(&q->sk), &wait);
-+
- 	if (skb) {
- 		ret = macvtap_put_user(q, skb, to);
- 		if (unlikely(ret < 0))
-@@ -942,8 +945,6 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q,
- 		else
- 			consume_skb(skb);
- 	}
--	if (!noblock)
--		finish_wait(sk_sleep(&q->sk), &wait);
- 	return ret;
- }
- 
--- 
-1.9.3
+Yes. While people very rarely use local u8 or u16 variables for
+computations, I think one could imagine a and b being struct members,
+which for one reason or another happens to be of a type narrower than
+int (which would also make the issue much harder to spot since the
+struct definition is far away). Something like
+
+combine_packets(struct foo *a, const struct foo *b)
+{
+  if (a->len + b->len < a->len)
+    return -EOVERFLOW;
+  /* ensure a->payload is big enough...*/
+  memcpy(a->payload + a->len, b->payload, b->len);
+  a->len += b->len;
+  ...
+}
+
+which, depending on details, would either lead to memory corruption or
+loss of parts of the packets.
+
+I haven't actually found any instance of this in the kernel, but that
+doesn't mean it couldn't get introduced (or that it doesn't exist).
+
+Aside: It turns out clang is smart enough to optimize away the broken
+overflow check, but gcc isn't. Neither issue a warning, despite the
+intention being rather clear.
+
+Rasmus
