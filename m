@@ -1,30 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND] net: Documentation: Fix default value
- tcp_limit_output_bytes
-Date: Mon, 09 Nov 2015 12:17:51 -0500 (EST)
-Message-ID: <20151109.121751.1553624859438610838.davem@davemloft.net>
-References: <1447081140-16955-1-git-send-email-niklass@axis.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: network stream fairness
+Date: Mon, 09 Nov 2015 09:23:02 -0800
+Message-ID: <1447089782.17135.48.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5640BEAC.10404@axis.com>
+	 <1447084258.17135.39.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5640C15E.805@axis.com>
+	 <1447085271.17135.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1447086271.17135.45.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5640CED5.6040103@axis.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, niklass@axis.com
-To: niklas.cassel@axis.com
+Cc: "edumazet@google.com" <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35460 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751302AbbKIRRx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 12:17:53 -0500
-In-Reply-To: <1447081140-16955-1-git-send-email-niklass@axis.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33704 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751872AbbKIRXF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 12:23:05 -0500
+Received: by pabfh17 with SMTP id fh17so205160322pab.0
+        for <netdev@vger.kernel.org>; Mon, 09 Nov 2015 09:23:04 -0800 (PST)
+In-Reply-To: <5640CED5.6040103@axis.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Niklas Cassel <niklas.cassel@axis.com>
-Date: Mon, 9 Nov 2015 15:59:00 +0100
+On Mon, 2015-11-09 at 17:50 +0100, Niklas Cassel wrote:
 
-> Commit c39c4c6abb89 ("tcp: double default TSQ output bytes limit")
-> updated default value for tcp_limit_output_bytes
 > 
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+> for i in `seq 1 20`; do ss -temoi dst 192.168.0.141; sleep 1; done
+...
+> ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+> State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+> ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+> ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+> ESTAB      1448   0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
 
-Applied, thanks.
+This is the receiver, I would like to see the sender side, since the
+changes we talk about are at his side, of course.
+
+Thanks.
