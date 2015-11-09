@@ -1,36 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: caif: check return value of alloc_netdev
-Date: Mon, 09 Nov 2015 11:31:41 -0500 (EST)
-Message-ID: <20151109.113141.2248149943645747388.davem@davemloft.net>
-References: <1447071550-20103-1-git-send-email-linux@rasmusvillemoes.dk>
+Subject: Re: [PATCH] mvneta: add FIXED_PHY dependency
+Date: Mon, 09 Nov 2015 11:36:22 -0500 (EST)
+Message-ID: <20151109.113622.1309064405711224118.davem@davemloft.net>
+References: <4225885.EYXTHjRPmX@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dmitry.tarnyagin@lockless.no, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linux@rasmusvillemoes.dk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447071550-20103-1-git-send-email-linux@rasmusvillemoes.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, stsp@users.sourceforge.net,
+	f.fainelli@gmail.com, thomas.petazzoni@free-electrons.com,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34847 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752363AbbKIQgZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 11:36:25 -0500
+In-Reply-To: <4225885.EYXTHjRPmX@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Date: Mon,  9 Nov 2015 13:19:10 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 09 Nov 2015 15:08:57 +0100
 
-> I don't know if dev can actually be NULL here, but the test should be
-> above alloc_netdev(), to avoid leaking the struct net_device in case
-> dev is actually NULL. And of course the return value from alloc_netdev
-> should be tested.
+> The fixed_phy infrastructure is done in a way that is optional,
+> by providing 'static inline' helper functions doing nothing in
+> include/linux/phy_fixed.h for all its APIs. However, three out
+> of the four users (DSA, BCMGENET, and SYSTEMPORT) always
+> 'select FIXED_PHY', presumably because they need that.
+> MVNETA is the fourth one, and if that is built-in but FIXED_PHY
+> is configured as a loadable module, we get a link error:
 > 
-> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+> drivers/built-in.o: In function `mvneta_fixed_link_update':
+> fpga-mgr.c:(.text+0x33ed80): undefined reference to `fixed_phy_update_state'
+> 
+> Presumably this driver has the same dependency as the others,
+> so this patch also uses 'select' to ensure that the fixed-phy
+> support is built-in.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 898b2970e2c9 ("mvneta: implement SGMII-based in-band link state signaling")
 > ---
-> Maybe the existing code was supposed to be "if (!ndev)", and dev
-> cannot be NULL, but then -ENODEV is a slightly odd return
-> value. Doing both tests seems to be the safe choice.
+> Found using ARM randconfig tests. An alternative here would be
+> to use 'depends on FIXED_PHY || FIXED_PHY=n', I picked the 'select'
+> approach for consistency.
+> 
+> Should we perhaps make 'FIXED_PHY' a silent option and remove the
+> inline helpers, based on the assumption that a driver that wants these
+> will not work without them?
 
-This is made painfully impossible to figure out because there seems
-to be no in-tree code instantiating platform_device objects for
-this caif_spi framework, nor are there even in-tree implementations
-of the init_xfer et al. required methods.
+This seems reasonable to fix the problem for the time being, applied.
 
-So your fix is as good as any, applied, thanks.
+Thanks Arnd.
