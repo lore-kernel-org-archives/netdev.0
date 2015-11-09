@@ -1,65 +1,77 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: GSO with udp_tunnel_xmit_skb
-Date: Mon, 9 Nov 2015 03:23:18 +0100
-Message-ID: <CAHmME9rfbkn+5M0zPQKEtjrmieBjsvPWG9o9q+YHVkpuLGzuKQ@mail.gmail.com>
-References: <CAHmME9pphqXyV_+LFQ6TTi4MjFB2Mopss6QQuT3YJQzvgtib2Q@mail.gmail.com>
-	<CALx6S379Ma+u1rKCwyDWEHDZpQUjr9mB_YQ4=iySo9Lgga2PaQ@mail.gmail.com>
-	<CAHmME9rp7ZJ_9=LHiQrO4ay_7mECj_jAmZBVHNT3Oi4uz8YxeQ@mail.gmail.com>
-	<CAHo-Oowk0Sk3dp_PTnZy6+N3_MgBSxO5csezXpmbF612duSeTA@mail.gmail.com>
-	<CAHmME9ptb2pwtKQ1b0yC6FBmXrvZfDKVZ8UTjGoneNw+DMuxBg@mail.gmail.com>
-	<CAHo-OoxJpW+=+X6dNdLqiikeStnj4+TBoqhcSGZOSspfc4oGKQ@mail.gmail.com>
-	<CAHmME9qYAvewm6m-ex0Ds051mgDPtpmYniHzZtgM+B6seo8Cng@mail.gmail.com>
-	<20151108105710.GA30282@gondor.apana.org.au>
-	<CAHmME9rSGbfNFeQMCXr+0j=mSTfyxFkyLEJ0rMqnOgH6L4OSng@mail.gmail.com>
-	<20151109014045.GA1358@gondor.apana.org.au>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: linux-next network throughput performance regression
+Date: Mon, 9 Nov 2015 02:39:24 +0000
+Message-ID: <6c0fed5fc63a4c3488f5f08409f508ee@HKXPR30MB0039.064d.mgd.msft.net>
+References: <CY1PR03MB13760C9F1AABC4EBC455B85CC4280@CY1PR03MB1376.namprd03.prod.outlook.com>
+ <563D1180.60206@cumulusnetworks.com>
+ <CY1PR03MB13763CB0C0A9C822660E248AC4280@CY1PR03MB1376.namprd03.prod.outlook.com>
+ <563D1BE0.2070107@cumulusnetworks.com>
+ <1446924959.17135.23.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Jiri Benc <jbenc@redhat.com>, Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:45740 "EHLO frisell.zx2c4.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752381AbbKICX0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Nov 2015 21:23:26 -0500
-In-Reply-To: <20151109014045.GA1358@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Haiyang Zhang <haiyangz@microsoft.com>, David Miller <davem@davemloft.net>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>, David Ahern
+ <dsa@cumulusnetworks.com>, Simon Xiao <sixiao@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1446924959.17135.23.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 9, 2015 at 2:40 AM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> You're right.  I don't think the ordering matters.
+> From: devel [mailto:driverdev-devel-bounces@linuxdriverproject.org] On Behalf
+> Of Eric Dumazet
+> Sent: Sunday, November 8, 2015 3:36
+> To: David Ahern <dsa@cumulusnetworks.com>
+> Cc: netdev@vger.kernel.org; Haiyang Zhang <haiyangz@microsoft.com>; linux-
+> kernel@vger.kernel.org; devel@linuxdriverproject.org; David Miller
+> <davem@davemloft.net>
+> Subject: Re: linux-next network throughput performance regression
+> 
+> On Fri, 2015-11-06 at 14:30 -0700, David Ahern wrote:
+> > On 11/6/15 2:18 PM, Simon Xiao wrote:
+> > > The .config file used to build linux-next kernel is attached to this mail.
+> >
+> > Thanks.
+> >
+> > Failed to notice this on the first response; my brain filled in. Why
+> > linux-next tree? Can you try net-next which is more relevant for this
+> > mailing list, post the top commit id and config file used?
+> 
+> Throughput on a single TCP flow for a 40G NIC can be tricky to tune.
+Why is a single TCP flow trickier than multiple TCP flows?
+IMO it should be easier to analyze the issue of a single TCP flow?
 
-Cool, so we're on the same page then.
+Here the perf drop in Simon's test is very obvious -- 50%, but it looks Eric
+can't reproduce it, so I suppose some net-related kernel config options may
+do the magic?
 
-In that case, any ideas about constructing UDP super-packets for GSO?
-As Maciej pointed out, UFO is actually just IP fragmentation and UDP
-checksums, but doesn't actually add on new UDP headers as we'd wish.
-But I was digging a bit deeper and I found this gem:
-skb_udp_tunnel_segment. This is the segmentation function called for
-SKB_GSO_UDP_TUNNEL. For this, it does something sort of neat.
+Maybe Simon can narrow the regression down by bisecting. :-)
+ 
+> Make sure IRQ are properly setup/balanced, as I know that IRQ names were
+> changed recently and your scripts might have not noticed...
+> 
+> Also "ethtool -c eth0" might show very different interrupt coalescing
+> params ?
+> 
+> I too have a Mellanox 40Gb in my lab and saw no difference in
+> performance with recent kernels.
+> 
+> Of course, a simple "perf record -a -g sleep 4 ; perf report" might
+> point to some obvious issue. Like unexpected segmentation in case of
+> forwarding...
+> 
 
-If the skb's inner_protocol_type is ENCAP_TYPE_IPPROTO, then it looks
-up an "gso_inner_segment" function based on the skb->inner_ipproto
-field. The lookup happens on a list of functions (called
-inet6_offloads and inet_offloads) that has some nice setter/getter
-methods for various modules to call.
-
-Once it figures out which gso_inner_segment to use, it calls
-__skb_udp_tunnel_segment with it, which then does some curious header
-calculations on various lengths (that I need to read carefully), and
-then proceeds to split the segments using our gso_inner_segment
-function of choice, and then adds the length and checksum header
-fields. Unfortunately, it doesn't add the UDP source and destination
-port header fields. That means I might as well be building the UDP
-headers ahead of time myself, which is a bit of a bummer.
-
-Anyway, the idea would be to [ab]use SKB_GSO_UDP_TUNNEL with a
-scintillating gso_inner_segment function for a custom inner_ipproto
-field, in order to make a superpacket.
-
-How's this looking as a strategy (and an outline of the "niggly bits"
-as you put it)?
-
-Jason
+Thanks,
+-- Dexuan
