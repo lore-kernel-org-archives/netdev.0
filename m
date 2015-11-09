@@ -1,44 +1,98 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH RFC 5/6] net/faraday: Enable NCSI interface
-Date: Tue, 10 Nov 2015 07:28:24 +1100
-Message-ID: <1447100904.31884.26.camel@kernel.crashing.org>
-References: <1447027806-4744-1-git-send-email-gwshan@linux.vnet.ibm.com>
-	 <1447027806-4744-6-git-send-email-gwshan@linux.vnet.ibm.com>
-	 <1447029127.8727.29.camel@kernel.crashing.org>
-	 <20151109073032.GA10235@gwshan>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] inet: delay address promotion check until last request
+ in message
+Date: Mon, 9 Nov 2015 22:35:42 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1511092149400.1635@ja.home.ssi.bg>
+References: <1446839495-32719-1-git-send-email-nhorman@tuxdriver.com> <alpine.LFD.2.11.1511062352270.1904@ja.home.ssi.bg> <20151108215641.GA16147@neilslaptop.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	sergei.shtylyov@cogentembedded.com
-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:42098 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750819AbbKIU2e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Nov 2015 15:28:34 -0500
-In-Reply-To: <20151109073032.GA10235@gwshan>
+Received: from ja.ssi.bg ([178.16.129.10]:43630 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750746AbbKIUgq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Nov 2015 15:36:46 -0500
+In-Reply-To: <20151108215641.GA16147@neilslaptop.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-11-09 at 18:30 +1100, Gavin Shan wrote:
+
+	Hello,
+
+On Sun, 8 Nov 2015, Neil Horman wrote:
+
+> On Sat, Nov 07, 2015 at 01:49:25AM +0200, Julian Anastasov wrote:
+> > 
+> > 	flush can provide many parameters. As there is no
+> > any kind of indication in the netlink message that all addresses
+> > are removed, we can not avoid the promotion.
+> > 
+> This is true, but seems irrellevant to me.  A flush operation is a sequence of
+> RTM_DELADDR operations in a one or more netlink packets.  The way my patch is
+> written, if a set of DELADDR requests is interspersed with other non DELADDR
+> requests, then we do a promotion check between each consecutive set of DELADDR
+> requests.  As such, all that happens is that the promotion check happens
+> possibly more often than needed.  Its not optimal, but not harmful either.
+
+	It is harmful, you miss promotion for some of the
+subnets, see below...
+
+> > > +	 * Only check for address promotion when this is the last request
+> > > +	 * in this netlink transaction.  It allows this operation to complete
+> > > +	 * in O(n) time rather than O(n^2)
+> > 
+> > 	It is not correct to assume that one promotion per
+> > transaction is enough. The promotion happens in every subnet,
+> > it was not once per device.
+> > 
 > 
-> Yeah, It's something that I hilighed in the cover letter. I was
-> thinking we might need a better way to enable Tx/Rx before the
-> interrupt is up, but couldn't figure out one way. So I need some
-> advice here.
+> I'm not sure I understand the relevance here.  All I'm doing is, in effect
+> masking the promote_secondaries sysctl for an interface doing a flush operation.
+> Its equivalent to doing this in user space:
+> 
+> echo 0 > /proc/sys/net/ipv4/conf/<ifc>/promote_secondaries
+> A=`some arbitrary address in <ifc>`
+> ip addr del <every addressin in <ifc> except A>
+> echo 1 > /proc/sys/net/ipv4/conf/<ifc>/promote_secondaries
+> ip addr del A
+> 
+> Can you please explain to me the use case in which delaying a promotion
+> operation until we think we're done ('done' being defined by the above transition
+> from a DELADDR operation to a non-DELADDR operation in a netlink packet)
+> produces an outcome that differs from the expectation with this patch in place?
 
-No, that's not right. For Tx/Rx to work the interface must be opened,
-there is simply no way around that and that's perfectly fine. The
-situation with an MDIO PHY is the same, most drivers can't talk to
-their PHY until the interface has been opened because the chip is
-basically powered down otherwise.
+	Here is how we can miss promotion...
 
-So we require the interface to be opened to talk, so far so good,
-the NC-SI stack doesn't even need to open it itself, it's acceptable
-to require userspace to do it. IE. Userspace will chose what interface
-to use, open it (for DHCP etc... or whatever other reason) and *that*
-will then trigger the NC-SI negociation.
+dev=eth1
+ifconfig $dev up
+ip addr add 1.2.3.4/24 dev $dev
+ip addr add 1.2.3.4/16 dev $dev
+ip addr add 1.2.3.44/24 dev $dev
+ip addr add 1.2.3.44/16 dev $dev
+echo 1 > /proc/sys/net/ipv4/conf/$dev/promote_secondaries
+ip addr flush dev $dev to 1.2.3.4/30
+ip -V
+ip utility, iproute2-ss010824
 
-Cheers,
-Ben.
+What happens is a request to delete just primary addresses:
+1.2.3.4/24 and 1.2.3.4/16. The /30 is chosen in such a way,
+so that any repeating attempts to flush the secondary
+addresses are avoided. As result, with your patch, only
+1.2.3.44/16 is promoted (the last secondary), 1.2.3.44/24
+which is first in the list of the secondaries, is not
+promoted, it is removed. You can even use 1.2.3.4/24,
+1.2.3.5/16, 1.2.3.44/24 and 1.2.3.55/16 in case the
+equal IPs are not a good example.
+
+The problem will be more visible if one builds netlink message
+by hand containing DEL for different primaries.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
