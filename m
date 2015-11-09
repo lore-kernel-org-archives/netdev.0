@@ -1,21 +1,29 @@
-From: Unknown <unknown@unknown.invalid>
-Subject: I NEED YOUR ASSISTANCE.
-Date: Mon, 9 Nov 2015 21:48:46 +0530
-Message-ID: <MA1PR01MB0181466E74858466A613BDE8B8150@MA1PR01MB0181.INDPRD01.PROD.OUTLOOK.COM>
-Reply-To: <sgtweintz.dpa@aol.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: hisilicon: NET_VENDOR_HISILICON should depend on
+ HAS_DMA
+Date: Mon, 09 Nov 2015 11:22:43 -0500 (EST)
+Message-ID: <20151109.112243.1323660785793515062.davem@davemloft.net>
+References: <1447061670-19681-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ma1ind01hn0241.outbound.protection.outlook.com ([104.47.100.241]:55107
-	"EHLO IND01-MA1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752598AbbKIQTF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 11:19:05 -0500
-Content-Description: Mail message body
-From: <>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: huangdaode@hisilicon.com, arnd@arndb.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447061670-19681-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I NEED YOUR ASSISTANCE.CAN YOU BE TRUSTED?IF YES CONTACT FOR MORE INFO
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Mon,  9 Nov 2015 10:34:30 +0100
+
+> If NO_DMA=y:
+ ...
+> As this affects all of HNS_ENET, HNS_DSAF, HNS, HIX5HD2_GMAC, and
+> HIP04_ETH, add a dependency on HAS_DMA to the main NET_VENDOR_HISILICON
+> symbol to fix this.
+> 
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+
+Applied, thanks.
