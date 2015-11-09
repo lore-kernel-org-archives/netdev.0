@@ -1,29 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: hisilicon: NET_VENDOR_HISILICON should depend on
- HAS_DMA
-Date: Mon, 09 Nov 2015 11:22:43 -0500 (EST)
-Message-ID: <20151109.112243.1323660785793515062.davem@davemloft.net>
-References: <1447061670-19681-1-git-send-email-geert@linux-m68k.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: network stream fairness
+Date: Mon, 09 Nov 2015 08:24:31 -0800
+Message-ID: <1447086271.17135.45.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5640BEAC.10404@axis.com>
+	 <1447084258.17135.39.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5640C15E.805@axis.com>
+	 <1447085271.17135.44.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: huangdaode@hisilicon.com, arnd@arndb.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447061670-19681-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "edumazet@google.com" <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34774 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751952AbbKIQYd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 11:24:33 -0500
+Received: by padhx2 with SMTP id hx2so195211662pad.1
+        for <netdev@vger.kernel.org>; Mon, 09 Nov 2015 08:24:33 -0800 (PST)
+In-Reply-To: <1447085271.17135.44.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Mon,  9 Nov 2015 10:34:30 +0100
+On Mon, 2015-11-09 at 08:07 -0800, Eric Dumazet wrote:
 
-> If NO_DMA=y:
- ...
-> As this affects all of HNS_ENET, HNS_DSAF, HNS, HIX5HD2_GMAC, and
-> HIP04_ETH, add a dependency on HAS_DMA to the main NET_VENDOR_HISILICON
-> symbol to fix this.
+> Your numbers suggest a cwnd growth then, which might show a CC bug.
 > 
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> Please run the following when your iper3 runs on regular 4.3 kernel
+> 
+> for i in `seq 1 10`
+> do
+> ss -temoi dst 192.168.0.141
+> sleep 1
+> done
+> 
 
-Applied, thanks.
+Another thing to try is to change tcp_limit_output_bytes back to 131072
+
+Of course, your driver be the problem as well, but I am guessing it is
+not upstream ?
