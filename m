@@ -1,42 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: network stream fairness
-Date: Mon, 09 Nov 2015 09:23:02 -0800
-Message-ID: <1447089782.17135.48.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5640BEAC.10404@axis.com>
-	 <1447084258.17135.39.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5640C15E.805@axis.com>
-	 <1447085271.17135.44.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1447086271.17135.45.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5640CED5.6040103@axis.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH] mvneta: add FIXED_PHY dependency
+Date: Mon, 9 Nov 2015 17:31:30 +0000
+Message-ID: <20151109173130.GF8644@n2100.arm.linux.org.uk>
+References: <4225885.EYXTHjRPmX@wuerfel>
+ <6910088.dNmooXDTJR@wuerfel>
+ <20151109170834.GE8644@n2100.arm.linux.org.uk>
+ <4827390.CWKT8ytt79@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "edumazet@google.com" <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Niklas Cassel <niklas.cassel@axis.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33704 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751872AbbKIRXF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 12:23:05 -0500
-Received: by pabfh17 with SMTP id fh17so205160322pab.0
-        for <netdev@vger.kernel.org>; Mon, 09 Nov 2015 09:23:04 -0800 (PST)
-In-Reply-To: <5640CED5.6040103@axis.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.infradead.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Stas Sergeev <stsp@users.sourceforge.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4827390.CWKT8ytt79@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-11-09 at 17:50 +0100, Niklas Cassel wrote:
-
+On Mon, Nov 09, 2015 at 06:12:02PM +0100, Arnd Bergmann wrote:
+> On Monday 09 November 2015 17:08:34 Russell King - ARM Linux wrote:
+> > They are "optional" because when you're using a DSA switch, you don't
+> > specify a PHY (because, there isn't one).  For example, this is what
+> > I'm using with an Armada 388 board with a Marvell DSA switch.  The
+> > DSA does not appear as a PHY, and no node in the DSA stanza can be
+> > referenced for a phy entry in the ethernet device's stanza.
+> > 
+> >                         eth1: ethernet@30000 {
+> >                                 compatible = "marvell,armada-370-neta";
+> >                                 reg = <0x30000 0x4000>;
+> >                                 interrupts-extended = <&mpic 10>;
+> >                                 clocks = <&gateclk 3>;
+> >                                 managed = "in-band-status";
+> >                                 phy-mode = "sgmii";
+> >                                 status = "okay";
+> >                         };
+> > 
+> > 
 > 
-> for i in `seq 1 20`; do ss -temoi dst 192.168.0.141; sleep 1; done
-...
-> ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
-> State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
-> ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
-> ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
-> ESTAB      1448   0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+> Ok, then it would be nice to change the binding to reflect that,
+> and also document the "managed" property there.
 
-This is the receiver, I would like to see the sender side, since the
-changes we talk about are at his side, of course.
+"managed" is already documented.  See
+Documentation/devicetree/bindings/net/ethernet.txt:
 
-Thanks.
+- managed: string, specifies the PHY management type. Supported values are:
+  "auto", "in-band-status". "auto" is the default, it usess MDIO for
+  management if fixed-link is not specified.
+
+-- 
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
