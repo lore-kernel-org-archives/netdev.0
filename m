@@ -1,42 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tree wide: Use kvfree() than conditional
- kfree()/vfree()
-Date: Mon, 09 Nov 2015 11:26:29 -0500 (EST)
-Message-ID: <20151109.112629.1860510744923009883.davem@davemloft.net>
-References: <1447070170-8512-1-git-send-email-penguin-kernel@I-love.SAKURA.ne.jp>
-	<20151109121126.GD11149@quack.suse.cz>
+Subject: Re: [PATCH] net: caif: check return value of alloc_netdev
+Date: Mon, 09 Nov 2015 11:31:41 -0500 (EST)
+Message-ID: <20151109.113141.2248149943645747388.davem@davemloft.net>
+References: <1447071550-20103-1-git-send-email-linux@rasmusvillemoes.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: penguin-kernel@I-love.SAKURA.ne.jp, akpm@linux-foundation.org,
- linux-mm@kvack.org, linux@arm.linux.org.uk, linux-acpi@vger.kernel.org,
- drbd-user@lists.linbit.com, linux-kernel@vger.kernel.org,
- dri-devel@lists.freedesktop.org, oleg.drokin@intel.com,
- andreas.dilger@intel.com, codalist@coda.cs.cmu.edu,
- linux-mtd@lists.infradead.org, jack@suse.com,
- linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: jack@suse.cz
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20151109121126.GD11149@quack.suse.cz>
-Sender: owner-linux-mm@kvack.org
+Cc: dmitry.tarnyagin@lockless.no, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linux@rasmusvillemoes.dk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447071550-20103-1-git-send-email-linux@rasmusvillemoes.dk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jan Kara <jack@suse.cz>
-Date: Mon, 9 Nov 2015 13:11:26 +0100
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Date: Mon,  9 Nov 2015 13:19:10 +0100
 
-> You can add
+> I don't know if dev can actually be NULL here, but the test should be
+> above alloc_netdev(), to avoid leaking the struct net_device in case
+> dev is actually NULL. And of course the return value from alloc_netdev
+> should be tested.
 > 
-> Acked-by: Jan Kara <jack@suse.com>
-> 
-> for the UDF and fs/xattr.c parts.
+> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+> ---
+> Maybe the existing code was supposed to be "if (!ndev)", and dev
+> cannot be NULL, but then -ENODEV is a slightly odd return
+> value. Doing both tests seems to be the safe choice.
 
-Please do not quote and entire large patch just to give an ACK.
+This is made painfully impossible to figure out because there seems
+to be no in-tree code instantiating platform_device objects for
+this caif_spi framework, nor are there even in-tree implementations
+of the init_xfer et al. required methods.
 
-Just quote the minimum necessary context, which is usually just
-the commit message.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+So your fix is as good as any, applied, thanks.
