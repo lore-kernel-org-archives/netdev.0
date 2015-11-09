@@ -1,52 +1,30 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] mvneta: add FIXED_PHY dependency
-Date: Mon, 09 Nov 2015 18:14:06 +0100
-Message-ID: <6970717.h7VjJkXjcM@wuerfel>
-References: <4225885.EYXTHjRPmX@wuerfel> <6910088.dNmooXDTJR@wuerfel> <20151109170849.GC3388@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RESEND] net: Documentation: Fix default value
+ tcp_limit_output_bytes
+Date: Mon, 09 Nov 2015 12:17:51 -0500 (EST)
+Message-ID: <20151109.121751.1553624859438610838.davem@davemloft.net>
+References: <1447081140-16955-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151109170849.GC3388@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, niklass@axis.com
+To: niklas.cassel@axis.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35460 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751302AbbKIRRx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 12:17:53 -0500
+In-Reply-To: <1447081140-16955-1-git-send-email-niklass@axis.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 09 November 2015 18:08:49 Andrew Lunn wrote:
-> > > I suppose it comes down to, are we allowed to optionally implement
-> > > part of the DT binding?
-> > 
-> > I'm not sure what you are asking. A lot of DT bindings have both
-> > optional and mandatory properties. For mvneta, the "phy" and "phy-mode"
-> > properties are listed as mandatory, so the driver can safely assume
-> > that they are always present. If there are reasons to leave them out,
-> > and for the driver to handle that case correctly, the binding
-> > should be updated to mark them as optional.
+From: Niklas Cassel <niklas.cassel@axis.com>
+Date: Mon, 9 Nov 2015 15:59:00 +0100
+
+> Commit c39c4c6abb89 ("tcp: double default TSQ output bytes limit")
+> updated default value for tcp_limit_output_bytes
 > 
-> Hi Arnd
-> 
-> You are looking at it from the perspective of the driver. I was
-> meaning from the perspective of the DT blob. Can be blob assume the
-> driver implements all of the binding, all of the time?
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
 
-That question is not really relevant: the DT describes the hardware,
-it doesn't matter whether there are drivers for all the bits or
-whether all properties are read.
-
-> You use fixed-phy when the MAC is connected to a switch, not a phy. Or
-> when the MAC is connected to an SFP module. The driver can currently
-> be built to not implement the fixed-phy party of the binding. Is that
-> O.K. from the perspective of the DT blob? Or should the driver always
-> implement all of the binding, in which these NOP stubs should be
-> removed and fixed phy always be enabled for the drivers that use it.
-
-Sure, that is ok.
-
-	Arnd
+Applied, thanks.
