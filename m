@@ -1,86 +1,41 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [RFC PATCH 0/2] net: mvneta: Introduce RSS support
-Date: Mon, 09 Nov 2015 19:19:23 +0100
-Message-ID: <87wptr593o.fsf@free-electrons.com>
-References: <1446834911-29910-1-git-send-email-gregory.clement@free-electrons.com>
-	<CAPv3WKcOLsjGj1iyEiPdPkdkNS2O1-RytNMZUCgUCv9QUdY6FA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue
+Date: Mon, 09 Nov 2015 13:25:23 -0500 (EST)
+Message-ID: <20151109.132523.624907753522887529.davem@davemloft.net>
+References: <563CC002.5050307@akamai.com>
+	<87ziyrcg67.fsf@doppelsaurus.mobileactivedefense.com>
+	<87fv0fnslr.fsf_-_@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	"linux-arm-kernel\@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Lior Amsalem <alior@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Willy Tarreau <w@1wt.eu>
-To: Marcin Wojtas <mw@semihalf.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jbaron@akamai.com, dvyukov@google.com, syzkaller@googlegroups.com,
+	mkubecek@suse.cz, viro@zeniv.linux.org.uk,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	hannes@stressinduktion.org, dhowells@redhat.com,
+	paul@paul-moore.com, salyzyn@android.com, sds@tycho.nsa.gov,
+	ying.xue@windriver.com, netdev@vger.kernel.org, kcc@google.com,
+	glider@google.com, andreyknvl@google.com, sasha.levin@oracle.com,
+	jln@google.com, keescook@google.com, minipli@googlemail.com
+To: rweikusat@mobileactivedefense.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPv3WKcOLsjGj1iyEiPdPkdkNS2O1-RytNMZUCgUCv9QUdY6FA@mail.gmail.com>
-	(Marcin Wojtas's message of "Fri, 6 Nov 2015 20:37:38 +0100")
+In-Reply-To: <87fv0fnslr.fsf_-_@doppelsaurus.mobileactivedefense.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Marcin,
- 
- On ven., nov. 06 2015, Marcin Wojtas <mw@semihalf.com> wrote:
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Date: Mon, 09 Nov 2015 14:40:48 +0000
 
-> Hi Gregory,
->
->
->> I also choose to associate all the TX queues on the same CPU that the
->> one associated to the RX queue. It allows to contain all the
->> interrupts on the same CPU. I think that an improvement on this side
->> would be the support of the XPS.
->>
->
-> Did you make some tries? E.g. after mapping certain txqs to CPU1, when
-> using them was mvneta_tx() executing only on this CPU? Or it rather
-> means that the irq will hit according to the mapping? As far as I know
-> the HW, the latter should be true, which would mean the real XPS with
-> this controller is impossible and the maximum we can control is the
-> irq.
+> +	__remove_wait_queue(&unix_sk(u->peer_wake.private)->peer_wait,
+> +			    &u->peer_wake);
 
-I hoped that with XPS we can associate CPUs to all the tx queues of a
-ethernet port. For example choosing for eth2, that all the tx queues will
-be handled by CPU0 and CPU3. And for this it would involve allowing
-receiving the tx interrupts only on CPU0 and CPU3. This kind of feature
-seems to be doable with the hardware.
+This is more simply:
 
-But after reading more carefully what XPS is about and how it is used in
-the kernel, it seems we can't configure the hardware from the sysfs
-interface. From my understanding we can only indicate to the kernel
-which tx queue use for a given CPU.
+	__remove_wait_queue(&unix_sk(u->peer_wake.private)->peer_wait, q);
 
->
-> I think it may be worth to unmask TX irqs on all cpus, so all percpu
-> napi's would be able to read tx_cause and process sent packets. I'm
-> looking forward to your opinion.
+> +static inline int unix_dgram_peer_recv_ready(struct sock *sk,
+> +					     struct sock *other)
 
-By doing, this my understanding is that when an TX interrupt occurs then
-all the CPUs enter in the interrupt handler but only one can manage
-it. So, for me it looks like a big waste of CPU load. I could understand
-that it would be interesting in some situation but it doesn't seem to be
-the good default behavior. That's why I was looking for a way to let the
-use configure it according to his needs.
+Please do not us the inline keyword in foo.c files, let the compiler
+decide.
 
-Please correct me if I am wrong somewhere, because currently I don't
-find a good solution for it.
-
-
-Thanks,
-
-Gregory
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+Thanks.
