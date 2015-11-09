@@ -1,45 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: GSO with udp_tunnel_xmit_skb
-Date: Mon, 9 Nov 2015 09:40:45 +0800
-Message-ID: <20151109014045.GA1358@gondor.apana.org.au>
-References: <CAHmME9pphqXyV_+LFQ6TTi4MjFB2Mopss6QQuT3YJQzvgtib2Q@mail.gmail.com>
- <CALx6S379Ma+u1rKCwyDWEHDZpQUjr9mB_YQ4=iySo9Lgga2PaQ@mail.gmail.com>
- <CAHmME9rp7ZJ_9=LHiQrO4ay_7mECj_jAmZBVHNT3Oi4uz8YxeQ@mail.gmail.com>
- <CAHo-Oowk0Sk3dp_PTnZy6+N3_MgBSxO5csezXpmbF612duSeTA@mail.gmail.com>
- <CAHmME9ptb2pwtKQ1b0yC6FBmXrvZfDKVZ8UTjGoneNw+DMuxBg@mail.gmail.com>
- <CAHo-OoxJpW+=+X6dNdLqiikeStnj4+TBoqhcSGZOSspfc4oGKQ@mail.gmail.com>
- <CAHmME9qYAvewm6m-ex0Ds051mgDPtpmYniHzZtgM+B6seo8Cng@mail.gmail.com>
- <20151108105710.GA30282@gondor.apana.org.au>
- <CAHmME9rSGbfNFeQMCXr+0j=mSTfyxFkyLEJ0rMqnOgH6L4OSng@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT] [4.4] NFC fixes
+Date: Sun, 08 Nov 2015 20:48:37 -0500 (EST)
+Message-ID: <20151108.204837.780942913213576696.davem@davemloft.net>
+References: <20151109010231.GA31406@zurbaran.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Maciej =?utf-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Jiri Benc <jbenc@redhat.com>, Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-nfc@lists.01.org
+To: sameo@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:41280 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752029AbbKIBk6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2015 20:40:58 -0500
-Content-Disposition: inline
-In-Reply-To: <CAHmME9rSGbfNFeQMCXr+0j=mSTfyxFkyLEJ0rMqnOgH6L4OSng@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50810 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752062AbbKIB4C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2015 20:56:02 -0500
+In-Reply-To: <20151109010231.GA31406@zurbaran.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 08, 2015 at 03:57:24PM +0100, Jason A. Donenfeld wrote:
-> On Sun, Nov 8, 2015 at 11:57 AM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> > UDP carries no ordering information so this doesn't work.
+From: Samuel Ortiz <sameo@linux.intel.com>
+Date: Mon, 9 Nov 2015 02:02:31 +0100
+
+> This is the 1st NFC fixes pull request for 4.4.
 > 
-> But if there's no ordering information, what's the problem? Isn't it
-> good enough to send the packets in the order they were sendto()d? Or
-> in any order at all?
+> It includes bug fixes and one fix for a build failure, all of them
+> introduced with the first NFC pull request for 4.4.
+> 
+> We have:
+> 
+> - Fix nfcmrvl SPI driver potential build error due to a broken Kconfig
+>   dependency.
+> - A few fixes for the firmware download implementation for the nfcmrvl
+>   UART driver.
+> - A GPIO allocation leak for the nfcmrvl driver.
+> - One code simplification for the nfcmrvl DT handling.
 
-You're right.  I don't think the ordering matters.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Pulled, thanks Samuel.
