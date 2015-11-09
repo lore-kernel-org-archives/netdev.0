@@ -1,298 +1,254 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: Re: [RFC PATCH net-next v2 0/8] openvswitch: NAT support.
-Date: Mon, 9 Nov 2015 15:48:19 -0800
-Message-ID: <A8FC05BD-6124-482F-A817-62814771B66B@ovn.org>
-References: <1446854768-38299-1-git-send-email-jrajahalme@nicira.com> <20151109133122.GC8098@macbook.localdomain>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org, dev@openvswitch.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20151109133122.GC8098@macbook.localdomain>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Benjamin Poirier <bpoirier@suse.com>
+Subject: [PATCH v3 0/4] e1000e msi-x fixes
+Date: Mon,  9 Nov 2015 15:50:17 -0800
+Message-ID: <1447113021-1611-1-git-send-email-bpoirier@suse.com>
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	Frank Steiner <steiner-reg@bio.ifi.lmu.de>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[Resending as plain text]
+Hi,
 
-> On Nov 9, 2015, at 5:31 AM, Patrick McHardy <kaber@trash.net> wrote:
->=20
-> On 06.11, Jarno Rajahalme wrote:
->> This series adds NAT support to openvswitch kernel module.  A few
->> changes are needed to the netfilter code to facilitate this (patches
->> 1-3/8).  Patches 4-7 make the openvswitch kernel module ready for th=
-e
->> patch 8 that adds the NAT support for calling into netfilter NAT cod=
-e
->> from the openvswitch conntrack action.
->=20
-> I'm missing some high level description, especially how it is invoked=
-, how
-> it makes sure expectations of the NAT code about its invocation are m=
-et
-> (it is my understanding that OVS simply invokes this based on actions
-> specified by the user) and how it interacts with the remaining netfil=
-ter
-> features.
->=20
-
-The corresponding OVS userspace patches contain the new test cases for =
-the NAT features (http://openvswitch.org/pipermail/dev/2015-November/06=
-1920.html) in tests/system-traffic.at. I=E2=80=99ll walk through two of=
- them below.
-
-Test case: conntrack - simple SNAT
-
-In these tests ports 1 and 2 are in different namespaces. The flow tabl=
-e below allows all IPv4 traffic between port 1 to port 2, but IP connec=
-tions from port 1 to port 2 are source NATted:
-
-    in_port=3D1,ip,action=3Dct(commit,zone=3D1,nat(src=3D10.1.1.240-10.=
-1.1.255)),2
-    in_port=3D2,ct_state=3D-trk,ip,action=3Dct(table=3D0,zone=3D1,nat)
-    in_port=3D2,ct_state=3D+trk,ct_zone=3D1,ip,action=3D1
-
-This flow table matches all IPv4 traffic from port 1, runs them through=
- conntrack in zone 1 and NATs them. The NAT is initialized to do source=
- IP mapping to the given range for the first packet of each connection,=
- after which the new connection is committed. For further packets of al=
-ready tracked connections NAT is done according to the connection state=
- and the commit is a no-op. Each packet that is not flagged as a drop b=
-y the CT action is forwarded to port 2. The CT action does an implicit =
-fragmentation reassembly, so that only complete packets are run through=
- conntrack. Reassembled packets are re-fragmented on output.
-
-The IPv4 traffic coming from port 2 is first matched for the non-tracke=
-d state (-trk), which means that the packet has not been through a CT a=
-ction yet. Such traffic is run trough the conntrack in zone 1 and all p=
-ackets associated with a NATted connection are NATted also in the retur=
-n direction. After the packet has been through conntrack it is recircul=
-ated back to table 0 (which is the default table, so all the rules abov=
-e are in table 0). The CT action changes the =E2=80=98trk=E2=80=99 flag=
- to being set, so the packets after recirculation match the third rule =
-(+trk), and the packet is output on port 1. Since also the ct_zone is m=
-atched, only packets that were actually tracked by conntrack can match =
-the 3rd rule and output to 1.
-
-I=E2=80=99m skipped the rules for ARP handling in this walkthrough, but=
- the test case has rules to match on the ARP request on the NATted addr=
-ess and reply to it.
-
-The above is verified with a HTTP request and a subsequent conntrack en=
-try listing in the test case:
-
-    dnl HTTP requests from p0->p1 should work fine.
-    NETNS_DAEMONIZE([at_ns1], [[$PYTHON $srcdir/test-l7.py]], [http0.pi=
-d])
-    NS_CHECK_EXEC([at_ns0], [wget 10.1.1.2 -t 5 -T 1 --retry-connrefuse=
-d -v -o wget0.log])
-
-    AT_CHECK([conntrack -L 2>&1 | FORMAT_CT(10.1.1.2) | sed -e 's/dst=3D=
-10.1.1.2[[45]][[0-9]]/dst=3D10.1.1.2XX/'], [0], [dnl
-    TIME_WAIT src=3D10.1.1.1 dst=3D10.1.1.2 sport=3D<cleared> dport=3D<=
-cleared> src=3D10.1.1.2 dst=3D10.1.1.2XX sport=3D<cleared> dport=3D<cle=
-ared> [[ASSURED]] mark=3D0 zone=3D1 use=3D1
-    ])
+For this series:
 
 
-As a second example, I=E2=80=99ll walk through a test case of NAT with =
-=46TP on IPv6:
+Benjamin Poirier (4):
+  e1000e: Remove unreachable code
+  e1000e: Do not read icr in Other interrupt
+  e1000e: Do not write lsc to ics in msi-x mode
+  e1000e: Fix msi-x interrupt automask
 
-As before, ports 1 (p0) and 2 (p1) reside in different namespaces (=E2=80=
-=98at_ns0=E2=80=99 and =E2=80=98at_ns1=E2=80=99, respectively). A stati=
-c neighbor cache entry for the NATted address is created in at_ns1. In =
-a more realistic scenario a controller would need to implement a ND pro=
-xy instead:
+ drivers/net/ethernet/intel/e1000e/defines.h |  3 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c  | 66 ++++++++++++-----------------
+ 2 files changed, 30 insertions(+), 39 deletions(-)
 
-    ADD_VETH(p0, at_ns0, br0, "fc00::1/96")
-    NS_CHECK_EXEC([at_ns0], [ip link set dev p0 address 80:88:88:88:88:=
-88])
-    ADD_VETH(p1, at_ns1, br0, "fc00::2/96")
-    dnl Would be nice if NAT could translate neighbor discovery message=
-s, too.
-    NS_CHECK_EXEC([at_ns1], [ip -6 neigh add fc00::240 lladdr 80:88:88:=
-88:88:88 dev p1])
+Changes in v3:
+Preserve LSC in IMS, LSC events are not delivered otherwise.
+Disable CTRL_EXT.IAME to prevent IMC write on ICR read from external
+program.
 
-
-The OpenFlow rules are split into two tables (table 0 and table 1).
-
-Table 0 tracks all IPv6 traffic and drops all other traffic. Packets ar=
-e recirculated to table 1 after conntrack. Existing connections are NAT=
-ted before recirculation:
-
-    table=3D0 priority=3D10 ip6, action=3Dct(nat,table=3D1)
-    table=3D0 priority=3D0 action=3Ddrop
-
-Table 1:
-
-=46TP control connections from the =E2=80=9Cprivate=E2=80=9D address to=
- port 21 are output to port 1 after being tracked, NATted, and committe=
-d (=3D=3D confirmed).
-
-    table=3D1 in_port=3D1 ct_state=3D+new tcp6 ipv6_src=3Dfc00::1 tp_ds=
-t=3D21  action=3Dct(alg=3Dftp,commit,nat(src=3Dfc00::240)),2
-
-The matches on the source/dest IP address below are not really needed, =
-but in the test case they are to make sure the NATting actually happens=
-=2E
-
-Related TCP connections to the reverse direction are NATted, committed =
-and output to port 1:
-
-    table=3D1 in_port=3D2 ct_state=3D+new+rel tcp6 ipv6_dst=3Dfc00::240=
- action=3Dct(commit,nat),1
-
-Packets on established TCP connections are allowed both ways (the CT ac=
-tion in table 0 NATted these before recirculation, so we see the mapped=
- address going from port 1 to port 2, and the reverse-mapped (=3D=3D or=
-iginal) address on return traffic):
-
-    table=3D1 in_port=3D1 ct_state=3D+est tcp6 ipv6_src=3Dfc00::240   a=
-ction=3D2
-    table=3D1 in_port=3D2 ct_state=3D+est tcp6 ipv6_dst=3Dfc00::1     a=
-ction=3D1=20
-
-We pass icmp6 packets both ways:
-
-    table=3D1 priority=3D100 in_port=3D1 icmp6, action=3D2
-    table=3D1 priority=3D100 in_port=3D2 icmp6, action=3D1
-
-Everything else is dropped:
-
-    table=3D1 priority=3D0, action=3Ddrop
-
-=46unctionality is verified with a Python FTP server in at_ns1 and wget=
- to it from at_ns0:
-
-    NETNS_DAEMONIZE([at_ns1], [[$PYTHON $srcdir/test-l7.py ftp]], [ftp0=
-=2Epid])
-
-    dnl FTP requests from p0->p1 should work fine.
-    NS_CHECK_EXEC([at_ns0], [wget=20
-ftp://[[fc00::2
-]] -6 --no-passive-ftp -t 3 -T 1 --retry-connrefused -v --server-respon=
-se --no-proxy --no-remove-listing -o wget0.log -d])
-
-Both the control connection and the data connection were NATted:
-
-    AT_CHECK([conntrack -L -f ipv6 2>&1 | FORMAT_CT(fc00::2) | grep -v =
-"FIN" | grep -v "CLOSE"], [0], [dnl
-    TIME_WAIT src=3Dfc00::1 dst=3Dfc00::2 sport=3D<cleared> dport=3D<cl=
-eared> src=3Dfc00::2 dst=3Dfc00::240 sport=3D<cleared> dport=3D<cleared=
-> [[ASSURED]] mark=3D0 helper=3Dftp use=3D2
-    TIME_WAIT src=3Dfc00::2 dst=3Dfc00::240 sport=3D<cleared> dport=3D<=
-cleared> src=3Dfc00::1 dst=3Dfc00::2 sport=3D<cleared> dport=3D<cleared=
-> [[ASSURED]] mark=3D0 use=3D1
-    ])
-
-The flow tables in the test cases are OpenFlow tables, which are transl=
-ated to kernel flows by ovs-vswitchd. I have included the relevant kern=
-el datapath flows generated in the IPv6 NAT test case above below for y=
-our reference. Please note that the kernel port numbers are different f=
-rom the OpenFlow port numbers, as each bridge has it=E2=80=99s own rang=
-e of OpenFlow port numbers, but they all share the same kernel datapath=
-=2E In this case OpenFlow port 1 is kernel port 2, and OpenFlow port 2 =
-is kernel port 3. Kernel flows are all in the same table and they have =
-no priorities (so they should have mutually exclusive matches). Recircu=
-lation IDs are allocated on-demand, here the recirculation ID 1 deals w=
-ith traffic to the original direction and 2 to the return direction (re=
-circ_id(0) designates no recirculation). ovs_vswitchd always exact matc=
-hes IP frag, so since the test traffic had no fragments, you=E2=80=99ll=
- see (frag=3Dno) in each flow below. Also, the packet that causes the f=
-low to be created is executed independently (but with the same actions)=
- of the newly created flow, so the kernel datapath flow counts do not r=
-eflect the first packet (OpenFlow counters do), this explains 0 counts =
-on some flows below:
-
-    recirc_id(0),in_port(2),eth_type(0x86dd),ipv6(frag=3Dno), packets:2=
-8, bytes:2541, used:0.048s, flags:SFPR., actions:ct(nat),recirc(0x1)
-    recirc_id(0x1),in_port(2),ct_state(+new),eth_type(0x86dd),ipv6(src=3D=
-fc00::1,proto=3D6,frag=3Dno),tcp(dst=3D21), packets:1, bytes:94, used:0=
-=2E072s, flags:S, actions:ct(commit,helper=3Dftp,nat(src=3Dfc00::240)),=
-3
-    recirc_id(0x1),in_port(2),ct_state(-new+est+rel),eth_type(0x86dd),i=
-pv6(src=3Dfc00::240,proto=3D6,frag=3Dno), packets:4, bytes:344, used:0.=
-048s, flags:F., actions:3
-    recirc_id(0x1),in_port(2),ct_state(-new+est-rel),eth_type(0x86dd),i=
-pv6(src=3Dfc00::240,proto=3D6,frag=3Dno), packets:12, bytes:1145, used:=
-0.048s, flags:FP., actions:3
-
-    recirc_id(0),in_port(3),eth_type(0x86dd),ipv6(frag=3Dno), packets:2=
-6, bytes:4939, used:0.048s, flags:SFP., actions:ct(nat),recirc(0x2)
-    recirc_id(0x2),in_port(3),ct_state(+new+rel),eth_type(0x86dd),ipv6(=
-dst=3Dfc00::240,proto=3D6,frag=3Dno), packets:0, bytes:0, used:never, a=
-ctions:ct(commit,nat),2
-    recirc_id(0x2),in_port(3),ct_state(-new+est-rel),eth_type(0x86dd),i=
-pv6(dst=3Dfc00::1,proto=3D6,frag=3Dno), packets:12, bytes:1323, used:0.=
-048s, flags:SFP., actions:2
-    recirc_id(0x2),in_port(3),ct_state(-new+est+rel),eth_type(0x86dd),i=
-pv6(dst=3Dfc00::1,proto=3D6,frag=3Dno), packets:3, bytes:1113, used:0.0=
-48s, flags:FP., actions:2
+Changes in v2:
+Address review comments from Alexander Duyck: extend cleanup of Other
+interrupt handler and use tx_ring->ims_val.
 
 
-The generated matches depend on the order of processing of rules in the=
- OpenFlow tables, which can be influenced by specifying rule priorities=
- to OpenFlow rules. For example, with a different set of priorities the=
- datapath rules become (In this test run the first IP (ICMPv6) packet w=
-as received from at_ns1, so the recirc_ids are reversed from above, ICM=
-Pv6 flows not included here.):
+The first three patches cleanup handling of Other interrupts and the
+last patch fixes tx and rx interrupts. Please consider reading the
+description for that patch before proceeding. I believe that the
+following simple tracing statements are helpful in detecting the problem
+fixed by the last patch.
 
-    recirc_id(0),in_port(2),eth_type(0x86dd),ipv6(frag=3Dno), packets:2=
-7, bytes:2455, used:0.040s, flags:SFPR., actions:ct(nat),recirc(0x2)
-    recirc_id(0x2),in_port(2),ct_state(+est),eth_type(0x86dd),ipv6(src=3D=
-fc00::240,proto=3D6,frag=3Dno), packets:16, bytes:1497, used:0.040s, fl=
-ags:SFP., actions:3
-    recirc_id(0x2),in_port(2),ct_state(+new-est),eth_type(0x86dd),ipv6(=
-src=3Dfc00::1,proto=3D6,frag=3Dno),tcp(dst=3D21), packets:1, bytes:94, =
-used:0.108s, flags:S, actions:ct(commit,helper=3Dftp,nat(src=3Dfc00::24=
-0)),3
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index a09d1e4..29b8c6e 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1942,6 +1942,9 @@ static irqreturn_t e1000_intr_msix_rx(int __always_unused irq, void *data)
+ 	struct net_device *netdev = data;
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_ring *rx_ring = adapter->rx_ring;
++	struct e1000_hw *hw = &adapter->hw;
++
++	trace_printk("%s: rxq0 irq ims 0x%08x\n", netdev->name, er32(IMS));
+ 
+ 	/* Write the ITR value calculated at the end of the
+ 	 * previous interrupt.
+@@ -1956,6 +1959,7 @@ static irqreturn_t e1000_intr_msix_rx(int __always_unused irq, void *data)
+ 		adapter->total_rx_bytes = 0;
+ 		adapter->total_rx_packets = 0;
+ 		__napi_schedule(&adapter->napi);
++		trace_printk("%s: scheduling napi\n", netdev->name);
+ 	}
+ 	return IRQ_HANDLED;
+ }
+@@ -2663,6 +2667,8 @@ static int e1000e_poll(struct napi_struct *napi, int weight)
+ 	struct net_device *poll_dev = adapter->netdev;
+ 	int tx_cleaned = 1, work_done = 0;
+ 
++	trace_printk("%s: poll starting ims 0x%08x\n", poll_dev->name,
++		     er32(IMS));
+ 	adapter = netdev_priv(poll_dev);
+ 
+ 	if (!adapter->msix_entries ||
+@@ -2680,6 +2686,8 @@ static int e1000e_poll(struct napi_struct *napi, int weight)
+ 			e1000_set_itr(adapter);
+ 		napi_complete_done(napi, work_done);
+ 		if (!test_bit(__E1000_DOWN, &adapter->state)) {
++			trace_printk("%s: will enable rxq0 irq\n",
++				     poll_dev->name);
+ 			if (adapter->msix_entries)
+ 				ew32(IMS, adapter->rx_ring->ims_val);
+ 			else
 
-    recirc_id(0),in_port(3),eth_type(0x86dd),ipv6(frag=3Dno), packets:2=
-8, bytes:5111, used:0.040s, flags:SFP., actions:ct(nat),recirc(0x1)
-    recirc_id(0x1),in_port(3),ct_state(+est),eth_type(0x86dd),ipv6(dst=3D=
-fc00::1,proto=3D6,frag=3Dno), packets:19, bytes:4281, used:0.040s, flag=
-s:SFP., actions:2
-    recirc_id(0x1),in_port(3),ct_state(+new-est+rel),eth_type(0x86dd),i=
-pv6(dst=3Dfc00::240,proto=3D6,frag=3Dno), packets:0, bytes:0, used:neve=
-r, actions:ct(commit,nat),2
+-------- 8< --------
 
-Hope this helps,
+With that patch but without the patches in this series we can see that rx irqs
+occur at unexpected times:
 
-  Jarno
+          <idle>-0     [000] .Ns.  1986.887517: e1000e_poll: eth1: will enable rxq0 irq
+          <idle>-0     [000] d.h.  1986.896654: e1000_intr_msix_rx: eth1: rxq0 irq ims 0x01500004
+          <idle>-0     [000] d.h.  1986.896657: e1000_intr_msix_rx: eth1: scheduling napi
+          <idle>-0     [000] d.H.  1986.896662: e1000_intr_msix_rx: eth1: rxq0 irq ims 0x01500004
+          <idle>-0     [000] ..s.  1986.896667: e1000e_poll: eth1: poll starting ims 0x01500004
+Warning: many interrupts (2) before napi
+          <idle>-0     [000] ..s.  1986.896685: e1000e_poll: eth1: will enable rxq0 irq
 
->> Jarno Rajahalme (8):
->>  netfilter: Remove IP_CT_NEW_REPLY definition.
->>  netfilter: Factor out nf_ct_get_info().
->>  netfilter: Allow calling into nat helper without skb_dst.
->>  openvswitch: Update the CT state key only after nf_conntrack_in().
->>  openvswitch: Find existing conntrack entry after upcall.
->>  openvswitch: Handle NF_REPEAT in conntrack action.
->>  openvswitch: Delay conntrack helper call for new connections.
->>  openvswitch: Interface with NAT.
->>=20
->> include/net/netfilter/nf_conntrack.h               |  15 +
->> include/uapi/linux/netfilter/nf_conntrack_common.h |  12 +-
->> include/uapi/linux/openvswitch.h                   |  47 ++
->> net/ipv4/netfilter/nf_nat_l3proto_ipv4.c           |  29 +-
->> net/ipv6/netfilter/nf_nat_l3proto_ipv6.c           |  29 +-
->> net/netfilter/nf_conntrack_core.c                  |  22 +-
->> net/openvswitch/conntrack.c                        | 632 +++++++++++=
-++++++++--
->> net/openvswitch/conntrack.h                        |   3 +-
->> 8 files changed, 686 insertions(+), 103 deletions(-)
->>=20
->> --=20
->> 2.1.4
->>=20
->> --
->> To unsubscribe from this list: send the line "unsubscribe netfilter-=
-devel" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+          <idle>-0     [000] d.h.  1990.688870: e1000_intr_msix_rx: eth1: scheduling napi
+          <idle>-0     [000] ..s.  1990.688875: e1000e_poll: eth1: poll starting ims 0x01500004
+          <idle>-0     [000] dNH.  1990.688913: e1000_intr_msix_rx: eth1: rxq0 irq ims 0x01500004
+Warning: interrupt inside napi
+          <idle>-0     [000] .Ns.  1990.688916: e1000e_poll: eth1: will enable rxq0 irq
+          <idle>-0     [000] d.h.  1990.729688: e1000_intr_msix_rx: eth1: rxq0 irq ims 0x01500004
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Here's a typical sequence after applying the patches in this series. Notice
+that ims is changed. Another printk at the end of e1000e_poll would show it to
+be 0x01500004.
+
+          <idle>-0     [000] d.h. 23547.977917: e1000_intr_msix_rx: eth1: rxq0 irq ims 0x01400004
+          <idle>-0     [000] d.h. 23547.977922: e1000_intr_msix_rx: eth1: scheduling napi
+          <idle>-0     [000] ..s. 23547.977928: e1000e_poll: eth1: poll starting ims 0x01400004
+          <idle>-0     [000] ..s. 23547.977961: e1000e_poll: eth1: will enable rxq0 irq
+
+Finally, here's the script I used to generate the warnings above:
+
+#!/usr/bin/python3
+
+import sys
+import re
+import pprint
+
+
+class NaE(Exception):
+    "Not an Event"
+    pass
+
+class Event:
+    def __init__(self, line):
+        # sample events:
+        #  <idle>-0     [000] d.h.  2025.256536: e1000_intr_msix_rx: eth1: rxq0 irq ims 0x01500004
+        #  <idle>-0     [000] d.h.  2025.256539: e1000_intr_msix_rx: eth1: scheduling napi
+        #  <idle>-0     [000] ..s.  2025.256544: e1000e_poll: eth1: poll starting ims 0x01500004
+        #  <idle>-0     [000] ..s.  2025.256558: e1000e_poll: eth1: will enable rxq0 irq
+        retval = re.match(" +<?(?P<comm>.*)>?-(?P<pid>[0-9]+) +\[(?P<cpu>.*)\] (?P<flags>[^ ]+) +(?P<time>[0-9.]+): (?P<funcname>[^:]+): (?P<ifname>[^:]+): (?P<args>.*)", line)
+        if retval:
+            self.comm = retval.group("comm")
+            self.pid = retval.group("pid")
+            self.cpu = retval.group("cpu")
+            self.flags = retval.group("flags")
+            self.time = retval.group("time")
+            self.funcname = retval.group("funcname")
+            self.ifname = retval.group("ifname")
+            self.args = retval.group("args")
+        else:
+            raise NaE
+
+
+class Machine:
+    pass
+
+class State:
+    def __init__(self, machine):
+        self.machine = machine
+
+    def entry(self, event):
+        pass
+
+    def transition(self, event):
+        "self.machine should be considered read-only in transition"
+        return State(self.machine)
+
+    def run(self, event):
+        pass
+
+    def exit(self, event):
+        pass
+
+    def advance(self, event):
+            nextState = self.transition(event)
+            if (nextState != self):
+                self.exit(event)
+                nextState.entry(event)
+            nextState.run(event)
+            return nextState
+
+# general receive processing machine
+def enteringNapi(machine, event):
+    if event.args.startswith("poll starting"):
+        return True
+    else:
+        return False
+
+def exitingNapi(machine, event):
+    if event.args.startswith("will enable"):
+        return True
+    else:
+        return False
+
+class OutsideNapi(State):
+    def entry(self, event):
+        self.machine.intr = []
+
+    def transition(self, event):
+        if enteringNapi(self.machine, event):
+            return InsideNapi(self.machine)
+        else:
+            return self
+
+    def run(self, event):
+        if event.args.startswith("rxq0 irq"):
+            self.machine.intr.append(event)
+
+    def exit(self, event):
+        if len(self.machine.intr) > 1:
+            print("Warning: many interrupts (%d) before napi at %s" % (
+                len(self.machine.intr), event.time,))
+
+class InsideNapi(State):
+    def transition(self, event):
+        if exitingNapi(self.machine, event):
+            return OutsideNapi(self.machine)
+        else:
+            return self
+
+    def run(self, event):
+        if event.args.startswith("rxq0 irq"):
+            print("Warning: interrupt inside napi")
+
+class UnknownState(State):
+    def transition(self, event):
+        if enteringNapi(self.machine, event):
+            return InsideNapi(self.machine)
+        elif exitingNapi(self.machine, event):
+            return ExitingNapi(self.machine)
+        else:
+            return self
+
+
+if __name__ == '__main__':
+    debug = False
+
+    state = UnknownState(Machine())
+
+    for line in sys.stdin:
+        print(line, end='')
+        try:
+            event = Event(line)
+        except NaE:
+            pass
+        else:
+            if debug:
+                pprinter.pprint(event)
+            state = state.advance(event)
+
+-- 
+2.6.2
