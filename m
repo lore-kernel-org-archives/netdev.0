@@ -1,60 +1,144 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] mvneta: add FIXED_PHY dependency
-Date: Mon, 9 Nov 2015 17:42:32 +0100
-Message-ID: <20151109164232.GB3388@lunn.ch>
-References: <4225885.EYXTHjRPmX@wuerfel>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: Re: network stream fairness
+Date: Mon, 9 Nov 2015 17:50:29 +0100
+Message-ID: <5640CED5.6040103@axis.com>
+References: <5640BEAC.10404@axis.com>	 <1447084258.17135.39.camel@edumazet-glaptop2.roam.corp.google.com>	 <5640C15E.805@axis.com>	 <1447085271.17135.44.camel@edumazet-glaptop2.roam.corp.google.com> <1447086271.17135.45.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "edumazet@google.com" <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48390 "EHLO vps0.lunn.ch"
+Received: from bes.se.axis.com ([195.60.68.10]:36280 "EHLO bes.se.axis.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751168AbbKIQmh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Nov 2015 11:42:37 -0500
-Content-Disposition: inline
-In-Reply-To: <4225885.EYXTHjRPmX@wuerfel>
+	id S1751302AbbKIQud (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Nov 2015 11:50:33 -0500
+In-Reply-To: <1447086271.17135.45.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 09, 2015 at 03:08:57PM +0100, Arnd Bergmann wrote:
-> The fixed_phy infrastructure is done in a way that is optional,
-> by providing 'static inline' helper functions doing nothing in
-> include/linux/phy_fixed.h for all its APIs. However, three out
-> of the four users (DSA, BCMGENET, and SYSTEMPORT) always
-> 'select FIXED_PHY', presumably because they need that.
-
-Hi Arnd
-
-Need is probably too strong, it could be considered an optional
-feature. If you don't have a fixed_phy property in your DT blob, you
-don't need fixed phy support in your image.
-
-> MVNETA is the fourth one, and if that is built-in but FIXED_PHY
-> is configured as a loadable module, we get a link error:
+On 11/09/2015 05:24 PM, Eric Dumazet wrote:
+> On Mon, 2015-11-09 at 08:07 -0800, Eric Dumazet wrote:
 > 
-> drivers/built-in.o: In function `mvneta_fixed_link_update':
-> fpga-mgr.c:(.text+0x33ed80): undefined reference to `fixed_phy_update_state'
+>> Your numbers suggest a cwnd growth then, which might show a CC bug.
+>>
+>> Please run the following when your iper3 runs on regular 4.3 kernel
+>>
+>> for i in `seq 1 10`
+>> do
+>> ss -temoi dst 192.168.0.141
+>> sleep 1
+>> done
+>>
+
+See output at the end of the mail.
+
+iperf3 output sample:
+[  4]  24.00-24.53  sec  1.92 MBytes  30.2 Mbits/sec                  
+[  6]  24.00-24.53  sec  3.84 MBytes  60.5 Mbits/sec                  
+[SUM]  24.00-24.53  sec  5.76 MBytes  90.7 Mbits/sec     
+
+
 > 
-> Presumably this driver has the same dependency as the others,
-> so this patch also uses 'select' to ensure that the fixed-phy
-> support is built-in.
+> Another thing to try is to change tcp_limit_output_bytes back to 131072
 
-This will work, and is uniform with the other instances. But maybe a
-more correct fix is to ensure fixed-phy is never a module when there
-is a builtin user.
+I tried both
 
-> Should we perhaps make 'FIXED_PHY' a silent option and remove the
-> inline helpers, based on the assumption that a driver that wants these
-> will not work without them?
+sysctl -w net.ipv4.tcp_limit_output_bytes=131072
+sysctl -w net.ipv4.tcp_limit_output_bytes=13107
 
-I suppose it comes down to, are we allowed to optionally implement
-part of the DT binding?
+Neither appears to solve the problem.
 
-     Andrew
+I don't know why but
+echo 3000 > /sys/class/net/eth0/queues/tx-0/byte_queue_limits/limit_max
+solves it. Feels weird that setting tcp_limit_output_bytes doesn't fix it.
+
+> 
+> Of course, your driver be the problem as well, but I am guessing it is
+> not upstream ?
+
+It's not upstreamed, but it is GPL, so I could probably upload it somewhere
+if that helps.
+
+
+
+
+
+
+for i in `seq 1 20`; do ss -temoi dst 192.168.0.141; sleep 1; done
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      106                              192.168.0.1:54574                           192.168.0.141:5201     timer:(on,190ms,0) rto:0.2 ato:0.04 cwnd:10 qack:14 bidir uid:20283 ino:7902591 sk:ffff880223311800
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      1448   0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      1448   0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      1448   0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      1448   0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
