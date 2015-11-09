@@ -1,48 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/2] packet: do skb_probe_transport_header when we
- actually have data
-Date: Sun, 08 Nov 2015 22:11:21 -0500 (EST)
-Message-ID: <20151108.221121.799120546619596684.davem@davemloft.net>
-References: <1446922430.17135.13.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1446923165.17135.18.camel@edumazet-glaptop2.roam.corp.google.com>
-	<563E9874.6040403@iogearbox.net>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: linux-next network throughput performance regression
+Date: Mon, 9 Nov 2015 03:11:35 +0000
+Message-ID: <eaea78c44de44abcb7936ab070f1b09d@HKXPR30MB0039.064d.mgd.msft.net>
+References: <563D1BE0.2070107@cumulusnetworks.com>
+ <1446924959.17135.23.camel@edumazet-glaptop2.roam.corp.google.com>
+ <6c0fed5fc63a4c3488f5f08409f508ee@HKXPR30MB0039.064d.mgd.msft.net>
+ <20151108.215247.1161049251544860672.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, edumazet@google.com, willemb@google.com,
-	tklauser@distanz.ch, netdev@vger.kernel.org, jasowang@redhat.com
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52467 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752455AbbKIDLX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2015 22:11:23 -0500
-In-Reply-To: <563E9874.6040403@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Haiyang Zhang <haiyangz@microsoft.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "dsa@cumulusnetworks.com" <dsa@cumulusnetworks.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20151108.215247.1161049251544860672.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Sun, 08 Nov 2015 01:33:56 +0100
-
-> Hmm, yeah, on a (only quick) look, it seems this is mostly needed for
-> the
-> virtio_net related code in packet_snd() / packet_recvmsg(), not
-> handled in
-> RX/TX ring paths actually.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Monday, November 9, 2015 10:53
+> To: Dexuan Cui <decui@microsoft.com>
+> Cc: eric.dumazet@gmail.com; dsa@cumulusnetworks.com; Simon Xiao
+> <sixiao@microsoft.com>; netdev@vger.kernel.org; Haiyang Zhang
+> <haiyangz@microsoft.com>; linux-kernel@vger.kernel.org;
+> devel@linuxdriverproject.org
+> Subject: Re: linux-next network throughput performance regression
 > 
-> $ git grep -n gso_size net/packet/
-> net/packet/af_packet.c:2748: if (vnet_hdr.gso_size == 0)
-> net/packet/af_packet.c:2825:            skb_shinfo(skb)->gso_size =
-> net/packet/af_packet.c:2826: __virtio16_to_cpu(vio_le(),
-> vnet_hdr.gso_size);
-> net/packet/af_packet.c:3219:                    vnet_hdr.gso_size =
-> net/packet/af_packet.c:3220: __cpu_to_virtio16(vio_le(),
-> sinfo->gso_size);
+> From: Dexuan Cui <decui@microsoft.com>
+> Date: Mon, 9 Nov 2015 02:39:24 +0000
 > 
-> Need to take a closer look on Monday.
+> >> Throughput on a single TCP flow for a 40G NIC can be tricky to tune.
+> > Why is a single TCP flow trickier than multiple TCP flows?
+> > IMO it should be easier to analyze the issue of a single TCP flow?
+> 
+> Because a single TCP flow can only use one of the many TX queues
+> that such modern NICs have.
+> 
+> The single TX queue becomes the bottleneck.
+> 
+> Whereas if you have several TCP flows, all of them can use independant
+> TX queues on the NIC in parallel to fill the link with traffic.
+> 
+> That's why.
 
-I think for complete safety, we need the transport header set for
-all SKBs once they hit the device.
+Thanks, David!
+I understand 1 TX queue is the bottleneck (however in Simon's
+test, TX=1 => 36.7Gb/s, TX=8 => 37.7 Gb/s, so it looks the TX=1 bottleneck
+is not so obvious).
+I'm just wondering how the bottleneck became much narrower with
+recent linux-next in Simon's result (36.7 Gb/s vs. 18.2 Gb/s). IMO there
+must be some latency somewhere.
 
-I know this is separate from the bugs you are trying to fix, but
-let's take care of this in this series ok?
+Thanks,
+-- Dexuan
