@@ -1,81 +1,57 @@
-From: Daniel Trautmann <dtrautmann@ibhsoftec.com>
-Subject: [PATCH] drivers: net: cpsw: add support for fixed-links.
-Date: Mon, 9 Nov 2015 20:24:14 +0100
-Message-ID: <1447097054-4658-1-git-send-email-dtrautmann@ibhsoftec.com>
+From: "=?UTF-8?Q?Bendik_R=c3=b8nning_Opstad?=" <bro.devel@gmail.com>
+Subject: Re: [PATCH RFC net-next 0/2] tcp: Redundant Data Bundling (RDB)
+Date: Mon, 9 Nov 2015 20:40:41 +0100
+Message-ID: <5640F6B9.4030306@gmail.com>
+References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
+ <CAK6E8=eSYoxo6BLPh=jpmfudcRSJ3uT3YhZ0n-XP_dnxKCNH3A@mail.gmail.com>
+ <61F74109-9FDC-485A-978B-714B7AA27445@ifi.uio.no>
+ <1445691445.22974.200.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <mugunthanvnm@ti.com>, <balbi@ti.com>,
-	Daniel Trautmann <dtrautmann@ibhsoftec.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jonas Markussen <jonassm@ifi.uio.no>,
+	Yuchung Cheng <ycheng@google.com>,
+	=?UTF-8?Q?Bendik_R=c3=b8nning_Opstad?= <bro.devel@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Andreas Petlund <apetlund@simula.no>,
+	Carsten Griwodz <griff@simula.no>,
+	=?UTF-8?Q?P=c3=a5l_Halvorsen?= <paalh@simula.no>,
+	Kristian Evensen <kristian.evensen@gmail.com>,
+	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.221]:60399 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751101AbbKITae (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 14:30:34 -0500
+Received: from mail-lb0-f194.google.com ([209.85.217.194]:35730 "EHLO
+	mail-lb0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752371AbbKITky (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 14:40:54 -0500
+Received: by lblw10 with SMTP id w10so8000527lbl.2
+        for <netdev@vger.kernel.org>; Mon, 09 Nov 2015 11:40:52 -0800 (PST)
+In-Reply-To: <1445691445.22974.200.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for fixed-links in configurations without PHY.
-(e.g. connection to a switch, SGMII point to point, SFPs)
+On 24/10/15 14:57, Eric Dumazet wrote:
+> Thank you for this very high quality patch submission.
+>
+> Please give us a few days for proper evaluation.
+>
+> Thanks !
 
-Check: Documentation/devicetree/bindings/net/fixed-link.txt.
+Guys, thank you very much for taking the time to evaluate this.
 
-Signed-off-by: Daniel Trautmann <dtrautmann@ibhsoftec.com>
----
- drivers/net/ethernet/ti/cpsw.c | 40 ++++++++++++++++++++++++++++------------
- 1 file changed, 28 insertions(+), 12 deletions(-)
+Since there haven't been any more feedback or comments I'll submit an
+RFCv2 with a few changes which includes removing the Nagle
+modification.
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 040fbc1..3e32365 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2039,19 +2039,35 @@ static int cpsw_probe_dt(struct cpsw_priv *priv,
- 		priv->phy_node = of_parse_phandle(slave_node, "phy-handle", 0);
- 		parp = of_get_property(slave_node, "phy_id", &lenp);
- 		if ((parp == NULL) || (lenp != (sizeof(void *) * 2))) {
--			dev_err(&pdev->dev, "Missing slave[%d] phy_id property\n", i);
--			goto no_phy_slave;
--		}
--		mdio_node = of_find_node_by_phandle(be32_to_cpup(parp));
--		phyid = be32_to_cpup(parp+1);
--		mdio = of_find_device_by_node(mdio_node);
--		of_node_put(mdio_node);
--		if (!mdio) {
--			dev_err(&pdev->dev, "Missing mdio platform device\n");
--			return -EINVAL;
-+			if (!of_phy_is_fixed_link(slave_node)) {
-+				dev_err(&pdev->dev,
-+					"Missing slave[%d] phy_id property\n",
-+					i);
-+				goto no_phy_slave;
-+			}
-+
-+			ret = of_phy_register_fixed_link(slave_node);
-+			if (ret) {
-+				dev_err(&pdev->dev, "cannot register fixed PHY\n");
-+				return ret;
-+			}
-+
-+			/* In the case of a fixed PHY, the DT node associated
-+			 * to the PHY is the Ethernet MAC DT node.
-+			 */
-+			priv->phy_node = of_node_get(slave_node);
-+		} else {
-+			mdio_node = of_find_node_by_phandle(be32_to_cpup(parp));
-+			phyid = be32_to_cpup(parp + 1);
-+			mdio = of_find_device_by_node(mdio_node);
-+			of_node_put(mdio_node);
-+			if (!mdio) {
-+				dev_err(&pdev->dev, "Missing mdio platform device\n");
-+				return -EINVAL;
-+			}
-+			snprintf(slave_data->phy_id, sizeof(slave_data->phy_id),
-+				 PHY_ID_FMT, mdio->name, phyid);
- 		}
--		snprintf(slave_data->phy_id, sizeof(slave_data->phy_id),
--			 PHY_ID_FMT, mdio->name, phyid);
- 		slave_data->phy_if = of_get_phy_mode(slave_node);
- 		if (slave_data->phy_if < 0) {
- 			dev_err(&pdev->dev, "Missing or malformed slave[%d] phy-mode property\n",
--- 
-1.9.1
+After discussing the Nagle change on setsockopt we realize that it
+should be evaluated more thoroughly, and is better left for a later
+patch submission.
+
+Bendik
+
+P.S.
+Trimming the CC list to only those who have responded as gmail says
+I'm spamming :-)
