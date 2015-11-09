@@ -1,63 +1,45 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: linux-next network throughput performance regression
-Date: Sun, 8 Nov 2015 21:30:29 -0800
-Message-ID: <CALx6S34iGMPYF9AaHNNjtK03PXjTrW-Pxq6eFUwusoa=TbJsGQ@mail.gmail.com>
-References: <6c0fed5fc63a4c3488f5f08409f508ee@HKXPR30MB0039.064d.mgd.msft.net>
-	<20151108.215247.1161049251544860672.davem@davemloft.net>
-	<eaea78c44de44abcb7936ab070f1b09d@HKXPR30MB0039.064d.mgd.msft.net>
-	<20151108.222343.882542189870767346.davem@davemloft.net>
-	<948e8dc00b4a4b6894111a17eaf89b03@HKXPR30MB0039.064d.mgd.msft.net>
+From: Loganaden Velvindron <logan@elandsys.com>
+Subject: [PATCH net-next ] net: ipv4: memset addr before calling
+ copy_to_user()
+Date: Sun, 8 Nov 2015 22:52:36 -0800
+Message-ID: <20151109065236.GA2271@mx.elandsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"dsa@cumulusnetworks.com" <dsa@cumulusnetworks.com>,
-	Simon Xiao <sixiao@microsoft.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: Dexuan Cui <decui@microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <948e8dc00b4a4b6894111a17eaf89b03@HKXPR30MB0039.064d.mgd.msft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns1.qubic.net ([208.69.177.116]:55282 "EHLO mx.elandsys.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750814AbbKIGwj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Nov 2015 01:52:39 -0500
+Received: from mx.elandsys.com (IDENT:logan@localhost [127.0.0.1])
+	by mx.elandsys.com (8.14.5/8.14.5) with ESMTP id tA96qbx7012084
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Sun, 8 Nov 2015 22:52:38 -0800 (PST)
+Received: (from logan@localhost)
+	by mx.elandsys.com (8.14.5/8.14.5/Submit) id tA96qaaC018261
+	for netdev@vger.kernel.org; Sun, 8 Nov 2015 22:52:36 -0800 (PST)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 8, 2015 at 7:31 PM, Dexuan Cui <decui@microsoft.com> wrote:
->> From: David Miller [mailto:davem@davemloft.net]
->> Sent: Monday, November 9, 2015 11:24
->> ...
->> > Thanks, David!
->> > I understand 1 TX queue is the bottleneck (however in Simon's
->> > test, TX=1 => 36.7Gb/s, TX=8 => 37.7 Gb/s, so it looks the TX=1 bottleneck
->> > is not so obvious).
->> > I'm just wondering how the bottleneck became much narrower with
->> > recent linux-next in Simon's result (36.7 Gb/s vs. 18.2 Gb/s). IMO there
->> > must be some latency somewhere.
->>
->> I think the whole thing here is that you misinterpreted what Eric said.
->>
->> He is not arguing that some regression did, or did not, happen.
->>
->> He instead was making the basic statement about the fact that due to
->> the lack of paralellness a single stream TCP case is harder to
->> optimize for high speed NICs.
->>
->> That is all.
-> Thanks, I got it.
-> I'm actually new to network performance tuning, trying to understand
-> all the related details. :-)
->
+zero addr before calling copy_to_user()
+ 
+Signed-off-by: Loganaden Velvindron <logan@elandsys.com>
+---
+ net/ipv4/ip_sockglue.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-You might want to look at
-https://www.kernel.org/doc/Documentation/networking/scaling.txt as an
-introduction to the scaling capabilities of the stack.
-
-Tom
-
-> Thanks,
-> -- Dexuan
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index c3c359a..d7a5a8b 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -1373,6 +1373,7 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 	case IP_MULTICAST_IF:
+ 	{
+ 		struct in_addr addr;
++		memset(&addr, 0, sizeof(addr));
+ 		len = min_t(unsigned int, len, sizeof(struct in_addr));
+ 		addr.s_addr = inet->mc_addr;
+ 		release_sock(sk);
+-- 
+2.6.2
