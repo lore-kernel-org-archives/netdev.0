@@ -1,239 +1,298 @@
-From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+From: Jarno Rajahalme <jarno@ovn.org>
 Subject: Re: [RFC PATCH net-next v2 0/8] openvswitch: NAT support.
-Date: Mon, 9 Nov 2015 15:45:00 -0800
-Message-ID: <0CD93725-3285-4EA0-BB68-E59FAD9BE00F@ovn.org>
-References: <1446854768-38299-1-git-send-email-jrajahalme@nicira.com>
- <20151109133122.GC8098@macbook.localdomain>
+Date: Mon, 9 Nov 2015 15:48:19 -0800
+Message-ID: <A8FC05BD-6124-482F-A817-62814771B66B@ovn.org>
+References: <1446854768-38299-1-git-send-email-jrajahalme@nicira.com> <20151109133122.GC8098@macbook.localdomain>
 Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20151109133122.GC8098-uXGAPMMVk8YB9AHHLWeGtNQXobZC6xk2@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org, dev@openvswitch.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20151109133122.GC8098@macbook.localdomain>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-W1Jlc2VuZGluZyBmcm9tIG15IG5ldyBhZGRyZXNzXQoKPiBPbiBOb3YgOSwgMjAxNSwgYXQgNToz
-MSBBTSwgUGF0cmljayBNY0hhcmR5IDxrYWJlckB0cmFzaC5uZXQgPG1haWx0bzprYWJlckB0cmFz
-aC5uZXQ+PiB3cm90ZToKPiAKPiBPbiAwNi4xMSwgSmFybm8gUmFqYWhhbG1lIHdyb3RlOgo+PiBU
-aGlzIHNlcmllcyBhZGRzIE5BVCBzdXBwb3J0IHRvIG9wZW52c3dpdGNoIGtlcm5lbCBtb2R1bGUu
-ICBBIGZldwo+PiBjaGFuZ2VzIGFyZSBuZWVkZWQgdG8gdGhlIG5ldGZpbHRlciBjb2RlIHRvIGZh
-Y2lsaXRhdGUgdGhpcyAocGF0Y2hlcwo+PiAxLTMvOCkuICBQYXRjaGVzIDQtNyBtYWtlIHRoZSBv
-cGVudnN3aXRjaCBrZXJuZWwgbW9kdWxlIHJlYWR5IGZvciB0aGUKPj4gcGF0Y2ggOCB0aGF0IGFk
-ZHMgdGhlIE5BVCBzdXBwb3J0IGZvciBjYWxsaW5nIGludG8gbmV0ZmlsdGVyIE5BVCBjb2RlCj4+
-IGZyb20gdGhlIG9wZW52c3dpdGNoIGNvbm50cmFjayBhY3Rpb24uCj4gCj4gSSdtIG1pc3Npbmcg
-c29tZSBoaWdoIGxldmVsIGRlc2NyaXB0aW9uLCBlc3BlY2lhbGx5IGhvdyBpdCBpcyBpbnZva2Vk
-LCBob3cKPiBpdCBtYWtlcyBzdXJlIGV4cGVjdGF0aW9ucyBvZiB0aGUgTkFUIGNvZGUgYWJvdXQg
-aXRzIGludm9jYXRpb24gYXJlIG1ldAo+IChpdCBpcyBteSB1bmRlcnN0YW5kaW5nIHRoYXQgT1ZT
-IHNpbXBseSBpbnZva2VzIHRoaXMgYmFzZWQgb24gYWN0aW9ucwo+IHNwZWNpZmllZCBieSB0aGUg
-dXNlcikgYW5kIGhvdyBpdCBpbnRlcmFjdHMgd2l0aCB0aGUgcmVtYWluaW5nIG5ldGZpbHRlcgo+
-IGZlYXR1cmVzLgo+IAoKVGhlIGNvcnJlc3BvbmRpbmcgT1ZTIHVzZXJzcGFjZSBwYXRjaGVzIGNv
-bnRhaW4gdGhlIG5ldyB0ZXN0IGNhc2VzIGZvciB0aGUgTkFUIGZlYXR1cmVzIChodHRwOi8vb3Bl
-bnZzd2l0Y2gub3JnL3BpcGVybWFpbC9kZXYvMjAxNS1Ob3ZlbWJlci8wNjE5MjAuaHRtbCA8aHR0
-cDovL29wZW52c3dpdGNoLm9yZy9waXBlcm1haWwvZGV2LzIwMTUtTm92ZW1iZXIvMDYxOTIwLmh0
-bWw+KSBpbiB0ZXN0cy9zeXN0ZW0tdHJhZmZpYy5hdCA8aHR0cDovL3N5c3RlbS10cmFmZmljLmF0
-Lz4uIEnigJlsbCB3YWxrIHRocm91Z2ggdHdvIG9mIHRoZW0gYmVsb3cuClRlc3QgY2FzZTogY29u
-bnRyYWNrIC0gc2ltcGxlIFNOQVQKSW4gdGhlc2UgdGVzdHMgcG9ydHMgMSBhbmQgMiBhcmUgaW4g
-ZGlmZmVyZW50IG5hbWVzcGFjZXMuIFRoZSBmbG93IHRhYmxlIGJlbG93IGFsbG93cyBhbGwgSVB2
-NCB0cmFmZmljIGJldHdlZW4gcG9ydCAxIHRvIHBvcnQgMiwgYnV0IElQIGNvbm5lY3Rpb25zIGZy
-b20gcG9ydCAxIHRvIHBvcnQgMiBhcmUgc291cmNlIE5BVHRlZDoKICAgIGluX3BvcnQ9MSxpcCxh
-Y3Rpb249Y3QoY29tbWl0LHpvbmU9MSxuYXQoc3JjPTEwLjEuMS4yNDAtMTAuMS4xLjI1NSkpLDIK
-ICAgIGluX3BvcnQ9MixjdF9zdGF0ZT0tdHJrLGlwLGFjdGlvbj1jdCh0YWJsZT0wLHpvbmU9MSxu
-YXQpCiAgICBpbl9wb3J0PTIsY3Rfc3RhdGU9K3RyayxjdF96b25lPTEsaXAsYWN0aW9uPTEKVGhp
-cyBmbG93IHRhYmxlIG1hdGNoZXMgYWxsIElQdjQgdHJhZmZpYyBmcm9tIHBvcnQgMSwgcnVucyB0
-aGVtIHRocm91Z2ggY29ubnRyYWNrIGluIHpvbmUgMSBhbmQgTkFUcyB0aGVtLiBUaGUgTkFUIGlz
-IGluaXRpYWxpemVkIHRvIGRvIHNvdXJjZSBJUCBtYXBwaW5nIHRvIHRoZSBnaXZlbiByYW5nZSBm
-b3IgdGhlIGZpcnN0IHBhY2tldCBvZiBlYWNoIGNvbm5lY3Rpb24sIGFmdGVyIHdoaWNoIHRoZSBu
-ZXcgY29ubmVjdGlvbiBpcyBjb21taXR0ZWQuIEZvciBmdXJ0aGVyIHBhY2tldHMgb2YgYWxyZWFk
-eSB0cmFja2VkIGNvbm5lY3Rpb25zIE5BVCBpcyBkb25lIGFjY29yZGluZyB0byB0aGUgY29ubmVj
-dGlvbiBzdGF0ZSBhbmQgdGhlIGNvbW1pdCBpcyBhIG5vLW9wLiBFYWNoIHBhY2tldCB0aGF0IGlz
-IG5vdCBmbGFnZ2VkIGFzIGEgZHJvcCBieSB0aGUgQ1QgYWN0aW9uIGlzIGZvcndhcmRlZCB0byBw
-b3J0IDIuIFRoZSBDVCBhY3Rpb24gZG9lcyBhbiBpbXBsaWNpdCBmcmFnbWVudGF0aW9uIHJlYXNz
-ZW1ibHksIHNvIHRoYXQgb25seSBjb21wbGV0ZSBwYWNrZXRzIGFyZSBydW4gdGhyb3VnaCBjb25u
-dHJhY2suIFJlYXNzZW1ibGVkIHBhY2tldHMgYXJlIHJlLWZyYWdtZW50ZWQgb24gb3V0cHV0LgoK
-VGhlIElQdjQgdHJhZmZpYyBjb21pbmcgZnJvbSBwb3J0IDIgaXMgZmlyc3QgbWF0Y2hlZCBmb3Ig
-dGhlIG5vbi10cmFja2VkIHN0YXRlICgtdHJrKSwgd2hpY2ggbWVhbnMgdGhhdCB0aGUgcGFja2V0
-IGhhcyBub3QgYmVlbiB0aHJvdWdoIGEgQ1QgYWN0aW9uIHlldC4gU3VjaCB0cmFmZmljIGlzIHJ1
-biB0cm91Z2ggdGhlIGNvbm50cmFjayBpbiB6b25lIDEgYW5kIGFsbCBwYWNrZXRzIGFzc29jaWF0
-ZWQgd2l0aCBhIE5BVHRlZCBjb25uZWN0aW9uIGFyZSBOQVR0ZWQgYWxzbyBpbiB0aGUgcmV0dXJu
-IGRpcmVjdGlvbi4gQWZ0ZXIgdGhlIHBhY2tldCBoYXMgYmVlbiB0aHJvdWdoIGNvbm50cmFjayBp
-dCBpcyByZWNpcmN1bGF0ZWQgYmFjayB0byB0YWJsZSAwICh3aGljaCBpcyB0aGUgZGVmYXVsdCB0
-YWJsZSwgc28gYWxsIHRoZSBydWxlcyBhYm92ZSBhcmUgaW4gdGFibGUgMCkuIFRoZSBDVCBhY3Rp
-b24gY2hhbmdlcyB0aGUg4oCYdHJr4oCZIGZsYWcgdG8gYmVpbmcgc2V0LCBzbyB0aGUgcGFja2V0
-cyBhZnRlciByZWNpcmN1bGF0aW9uIG1hdGNoIHRoZSB0aGlyZCBydWxlICgrdHJrKSwgYW5kIHRo
-ZSBwYWNrZXQgaXMgb3V0cHV0IG9uIHBvcnQgMS4gU2luY2UgYWxzbyB0aGUgY3Rfem9uZSBpcyBt
-YXRjaGVkLCBvbmx5IHBhY2tldHMgdGhhdCB3ZXJlIGFjdHVhbGx5IHRyYWNrZWQgYnkgY29ubnRy
-YWNrIGNhbiBtYXRjaCB0aGUgM3JkIHJ1bGUgYW5kIG91dHB1dCB0byAxLgoKSeKAmW0gc2tpcHBl
-ZCB0aGUgcnVsZXMgZm9yIEFSUCBoYW5kbGluZyBpbiB0aGlzIHdhbGt0aHJvdWdoLCBidXQgdGhl
-IHRlc3QgY2FzZSBoYXMgcnVsZXMgdG8gbWF0Y2ggb24gdGhlIEFSUCByZXF1ZXN0IG9uIHRoZSBO
-QVR0ZWQgYWRkcmVzcyBhbmQgcmVwbHkgdG8gaXQuCgpUaGUgYWJvdmUgaXMgdmVyaWZpZWQgd2l0
-aCBhIEhUVFAgcmVxdWVzdCBhbmQgYSBzdWJzZXF1ZW50IGNvbm50cmFjayBlbnRyeSBsaXN0aW5n
-IGluIHRoZSB0ZXN0IGNhc2U6CiAgICBkbmwgSFRUUCByZXF1ZXN0cyBmcm9tIHAwLT5wMSBzaG91
-bGQgd29yayBmaW5lLgogICAgTkVUTlNfREFFTU9OSVpFKFthdF9uczFdLCBbWyRQWVRIT04gJHNy
-Y2Rpci90ZXN0LWw3LnB5XV0sIFtodHRwMC5waWRdKQogICAgTlNfQ0hFQ0tfRVhFQyhbYXRfbnMw
-XSwgW3dnZXQgMTAuMS4xLjIgLXQgNSAtVCAxIC0tcmV0cnktY29ubnJlZnVzZWQgLXYgLW8gd2dl
-dDAubG9nXSkKCiAgICBBVF9DSEVDSyhbY29ubnRyYWNrIC1MIDI+JjEgfCBGT1JNQVRfQ1QoMTAu
-MS4xLjIpIHwgc2VkIC1lICdzL2RzdD0xMC4xLjEuMltbNDVdXVtbMC05XV0vZHN0PTEwLjEuMS4y
-WFgvJ10sIFswXSwgW2RubAogICAgVElNRV9XQUlUIHNyYz0xMC4xLjEuMSBkc3Q9MTAuMS4xLjIg
-c3BvcnQ9PGNsZWFyZWQ+IGRwb3J0PTxjbGVhcmVkPiBzcmM9MTAuMS4xLjIgZHN0PTEwLjEuMS4y
-WFggc3BvcnQ9PGNsZWFyZWQ+IGRwb3J0PTxjbGVhcmVkPiBbW0FTU1VSRURdXSBtYXJrPTAgem9u
-ZT0xIHVzZT0xCiAgICBdKQoKQXMgYSBzZWNvbmQgZXhhbXBsZSwgSeKAmWxsIHdhbGsgdGhyb3Vn
-aCBhIHRlc3QgY2FzZSBvZiBOQVQgd2l0aCBGVFAgb24gSVB2NjoKCkFzIGJlZm9yZSwgcG9ydHMg
-MSAocDApIGFuZCAyIChwMSkgcmVzaWRlIGluIGRpZmZlcmVudCBuYW1lc3BhY2VzICjigJhhdF9u
-czDigJkgYW5kIOKAmGF0X25zMeKAmSwgcmVzcGVjdGl2ZWx5KS4gQSBzdGF0aWMgbmVpZ2hib3Ig
-Y2FjaGUgZW50cnkgZm9yIHRoZSBOQVR0ZWQgYWRkcmVzcyBpcyBjcmVhdGVkIGluIGF0X25zMS4g
-SW4gYSBtb3JlIHJlYWxpc3RpYyBzY2VuYXJpbyBhIGNvbnRyb2xsZXIgd291bGQgbmVlZCB0byBp
-bXBsZW1lbnQgYSBORCBwcm94eSBpbnN0ZWFkOgogICAgQUREX1ZFVEgocDAsIGF0X25zMCwgYnIw
-LCAiZmMwMDo6MS85NiIpCiAgICBOU19DSEVDS19FWEVDKFthdF9uczBdLCBbaXAgbGluayBzZXQg
-ZGV2IHAwIGFkZHJlc3MgODA6ODg6ODg6ODg6ODg6ODhdKQogICAgQUREX1ZFVEgocDEsIGF0X25z
-MSwgYnIwLCAiZmMwMDo6Mi85NiIpCiAgICBkbmwgV291bGQgYmUgbmljZSBpZiBOQVQgY291bGQg
-dHJhbnNsYXRlIG5laWdoYm9yIGRpc2NvdmVyeSBtZXNzYWdlcywgdG9vLgogICAgTlNfQ0hFQ0tf
-RVhFQyhbYXRfbnMxXSwgW2lwIC02IG5laWdoIGFkZCBmYzAwOjoyNDAgbGxhZGRyIDgwOjg4Ojg4
-Ojg4Ojg4Ojg4IGRldiBwMV0pCgpUaGUgT3BlbkZsb3cgcnVsZXMgYXJlIHNwbGl0IGludG8gdHdv
-IHRhYmxlcyAodGFibGUgMCBhbmQgdGFibGUgMSkuCgpUYWJsZSAwIHRyYWNrcyBhbGwgSVB2NiB0
-cmFmZmljIGFuZCBkcm9wcyBhbGwgb3RoZXIgdHJhZmZpYy4gUGFja2V0cyBhcmUgcmVjaXJjdWxh
-dGVkIHRvIHRhYmxlIDEgYWZ0ZXIgY29ubnRyYWNrLiBFeGlzdGluZyBjb25uZWN0aW9ucyBhcmUg
-TkFUdGVkIGJlZm9yZSByZWNpcmN1bGF0aW9uOgogICAgdGFibGU9MCBwcmlvcml0eT0xMCBpcDYs
-IGFjdGlvbj1jdChuYXQsdGFibGU9MSkKICAgIHRhYmxlPTAgcHJpb3JpdHk9MCBhY3Rpb249ZHJv
-cApUYWJsZSAxOgoKRlRQIGNvbnRyb2wgY29ubmVjdGlvbnMgZnJvbSB0aGUg4oCccHJpdmF0ZeKA
-nSBhZGRyZXNzIHRvIHBvcnQgMjEgYXJlIG91dHB1dCB0byBwb3J0IDEgYWZ0ZXIgYmVpbmcgdHJh
-Y2tlZCwgTkFUdGVkLCBhbmQgY29tbWl0dGVkICg9PSBjb25maXJtZWQpLgogICAgdGFibGU9MSBp
-bl9wb3J0PTEgY3Rfc3RhdGU9K25ldyB0Y3A2IGlwdjZfc3JjPWZjMDA6OjEgdHBfZHN0PTIxICBh
-Y3Rpb249Y3QoYWxnPWZ0cCxjb21taXQsbmF0KHNyYz1mYzAwOjoyNDApKSwyClRoZSBtYXRjaGVz
-IG9uIHRoZSBzb3VyY2UvZGVzdCBJUCBhZGRyZXNzIGJlbG93IGFyZSBub3QgcmVhbGx5IG5lZWRl
-ZCwgYnV0IGluIHRoZSB0ZXN0IGNhc2UgdGhleSBhcmUgdG8gbWFrZSBzdXJlIHRoZSBOQVR0aW5n
-IGFjdHVhbGx5IGhhcHBlbnMuCgpSZWxhdGVkIFRDUCBjb25uZWN0aW9ucyB0byB0aGUgcmV2ZXJz
-ZSBkaXJlY3Rpb24gYXJlIE5BVHRlZCwgY29tbWl0dGVkIGFuZCBvdXRwdXQgdG8gcG9ydCAxOgog
-ICAgdGFibGU9MSBpbl9wb3J0PTIgY3Rfc3RhdGU9K25ldytyZWwgdGNwNiBpcHY2X2RzdD1mYzAw
-OjoyNDAgYWN0aW9uPWN0KGNvbW1pdCxuYXQpLDEKUGFja2V0cyBvbiBlc3RhYmxpc2hlZCBUQ1Ag
-Y29ubmVjdGlvbnMgYXJlIGFsbG93ZWQgYm90aCB3YXlzICh0aGUgQ1QgYWN0aW9uIGluIHRhYmxl
-IDAgTkFUdGVkIHRoZXNlIGJlZm9yZSByZWNpcmN1bGF0aW9uLCBzbyB3ZSBzZWUgdGhlIG1hcHBl
-ZCBhZGRyZXNzIGdvaW5nIGZyb20gcG9ydCAxIHRvIHBvcnQgMiwgYW5kIHRoZSByZXZlcnNlLW1h
-cHBlZCAoPT0gb3JpZ2luYWwpIGFkZHJlc3Mgb24gcmV0dXJuIHRyYWZmaWMpOgogICAgdGFibGU9
-MSBpbl9wb3J0PTEgY3Rfc3RhdGU9K2VzdCB0Y3A2IGlwdjZfc3JjPWZjMDA6OjI0MCAgIGFjdGlv
-bj0yCiAgICB0YWJsZT0xIGluX3BvcnQ9MiBjdF9zdGF0ZT0rZXN0IHRjcDYgaXB2Nl9kc3Q9ZmMw
-MDo6MSAgICAgYWN0aW9uPTEgCldlIHBhc3MgaWNtcDYgcGFja2V0cyBib3RoIHdheXM6CiAgICB0
-YWJsZT0xIHByaW9yaXR5PTEwMCBpbl9wb3J0PTEgaWNtcDYsIGFjdGlvbj0yCiAgICB0YWJsZT0x
-IHByaW9yaXR5PTEwMCBpbl9wb3J0PTIgaWNtcDYsIGFjdGlvbj0xCkV2ZXJ5dGhpbmcgZWxzZSBp
-cyBkcm9wcGVkOgogICAgdGFibGU9MSBwcmlvcml0eT0wLCBhY3Rpb249ZHJvcApGdW5jdGlvbmFs
-aXR5IGlzIHZlcmlmaWVkIHdpdGggYSBQeXRob24gRlRQIHNlcnZlciBpbiBhdF9uczEgYW5kIHdn
-ZXQgdG8gaXQgZnJvbSBhdF9uczA6CiAgICBORVROU19EQUVNT05JWkUoW2F0X25zMV0sIFtbJFBZ
-VEhPTiAkc3JjZGlyL3Rlc3QtbDcucHkgZnRwXV0sIFtmdHAwLnBpZF0pCgogICAgZG5sIEZUUCBy
-ZXF1ZXN0cyBmcm9tIHAwLT5wMSBzaG91bGQgd29yayBmaW5lLgogICAgTlNfQ0hFQ0tfRVhFQyhb
-YXRfbnMwXSwgW3dnZXQgZnRwOi8vW1tmYzAwOjoyIDxmdHA6Ly9bW2ZjMDA6OjI+XV0gLTYgLS1u
-by1wYXNzaXZlLWZ0cCAtdCAzIC1UIDEgLS1yZXRyeS1jb25ucmVmdXNlZCAtdiAtLXNlcnZlci1y
-ZXNwb25zZSAtLW5vLXByb3h5IC0tbm8tcmVtb3ZlLWxpc3RpbmcgLW8gd2dldDAubG9nIC1kXSkK
-Qm90aCB0aGUgY29udHJvbCBjb25uZWN0aW9uIGFuZCB0aGUgZGF0YSBjb25uZWN0aW9uIHdlcmUg
-TkFUdGVkOgogICAgQVRfQ0hFQ0soW2Nvbm50cmFjayAtTCAtZiBpcHY2IDI+JjEgfCBGT1JNQVRf
-Q1QoZmMwMDo6MikgfCBncmVwIC12ICJGSU4iIHwgZ3JlcCAtdiAiQ0xPU0UiXSwgWzBdLCBbZG5s
-CiAgICBUSU1FX1dBSVQgc3JjPWZjMDA6OjEgZHN0PWZjMDA6OjIgc3BvcnQ9PGNsZWFyZWQ+IGRw
-b3J0PTxjbGVhcmVkPiBzcmM9ZmMwMDo6MiBkc3Q9ZmMwMDo6MjQwIHNwb3J0PTxjbGVhcmVkPiBk
-cG9ydD08Y2xlYXJlZD4gW1tBU1NVUkVEXV0gbWFyaz0wIGhlbHBlcj1mdHAgdXNlPTIKICAgIFRJ
-TUVfV0FJVCBzcmM9ZmMwMDo6MiBkc3Q9ZmMwMDo6MjQwIHNwb3J0PTxjbGVhcmVkPiBkcG9ydD08
-Y2xlYXJlZD4gc3JjPWZjMDA6OjEgZHN0PWZjMDA6OjIgc3BvcnQ9PGNsZWFyZWQ+IGRwb3J0PTxj
-bGVhcmVkPiBbW0FTU1VSRURdXSBtYXJrPTAgdXNlPTEKICAgIF0pClRoZSBmbG93IHRhYmxlcyBp
-biB0aGUgdGVzdCBjYXNlcyBhcmUgT3BlbkZsb3cgdGFibGVzLCB3aGljaCBhcmUgdHJhbnNsYXRl
-ZCB0byBrZXJuZWwgZmxvd3MgYnkgb3ZzLXZzd2l0Y2hkLiBJIGhhdmUgaW5jbHVkZWQgdGhlIHJl
-bGV2YW50IGtlcm5lbCBkYXRhcGF0aCBmbG93cyBnZW5lcmF0ZWQgaW4gdGhlIElQdjYgTkFUIHRl
-c3QgY2FzZSBhYm92ZSBiZWxvdyBmb3IgeW91ciByZWZlcmVuY2UuIFBsZWFzZSBub3RlIHRoYXQg
-dGhlIGtlcm5lbCBwb3J0IG51bWJlcnMgYXJlIGRpZmZlcmVudCBmcm9tIHRoZSBPcGVuRmxvdyBw
-b3J0IG51bWJlcnMsIGFzIGVhY2ggYnJpZGdlIGhhcyBpdOKAmXMgb3duIHJhbmdlIG9mIE9wZW5G
-bG93IHBvcnQgbnVtYmVycywgYnV0IHRoZXkgYWxsIHNoYXJlIHRoZSBzYW1lIGtlcm5lbCBkYXRh
-cGF0aC4gSW4gdGhpcyBjYXNlIE9wZW5GbG93IHBvcnQgMSBpcyBrZXJuZWwgcG9ydCAyLCBhbmQg
-T3BlbkZsb3cgcG9ydCAyIGlzIGtlcm5lbCBwb3J0IDMuIEtlcm5lbCBmbG93cyBhcmUgYWxsIGlu
-IHRoZSBzYW1lIHRhYmxlIGFuZCB0aGV5IGhhdmUgbm8gcHJpb3JpdGllcyAoc28gdGhleSBzaG91
-bGQgaGF2ZSBtdXR1YWxseSBleGNsdXNpdmUgbWF0Y2hlcykuIFJlY2lyY3VsYXRpb24gSURzIGFy
-ZSBhbGxvY2F0ZWQgb24tZGVtYW5kLCBoZXJlIHRoZSByZWNpcmN1bGF0aW9uIElEIDEgZGVhbHMg
-d2l0aCB0cmFmZmljIHRvIHRoZSBvcmlnaW5hbCBkaXJlY3Rpb24gYW5kIDIgdG8gdGhlIHJldHVy
-biBkaXJlY3Rpb24gKHJlY2lyY19pZCgwKSBkZXNpZ25hdGVzIG5vIHJlY2lyY3VsYXRpb24pLiBv
-dnNfdnN3aXRjaGQgYWx3YXlzIGV4YWN0IG1hdGNoZXMgSVAgZnJhZywgc28gc2luY2UgdGhlIHRl
-c3QgdHJhZmZpYyBoYWQgbm8gZnJhZ21lbnRzLCB5b3XigJlsbCBzZWUgKGZyYWc9bm8pIGluIGVh
-Y2ggZmxvdyBiZWxvdy4gQWxzbywgdGhlIHBhY2tldCB0aGF0IGNhdXNlcyB0aGUgZmxvdyB0byBi
-ZSBjcmVhdGVkIGlzIGV4ZWN1dGVkIGluZGVwZW5kZW50bHkgKGJ1dCB3aXRoIHRoZSBzYW1lIGFj
-dGlvbnMpIG9mIHRoZSBuZXdseSBjcmVhdGVkIGZsb3csIHNvIHRoZSBrZXJuZWwgZGF0YXBhdGgg
-ZmxvdyBjb3VudHMgZG8gbm90IHJlZmxlY3QgdGhlIGZpcnN0IHBhY2tldCAoT3BlbkZsb3cgY291
-bnRlcnMgZG8pLCB0aGlzIGV4cGxhaW5zIDAgY291bnRzIG9uIHNvbWUgZmxvd3MgYmVsb3c6Cgog
-ICAgcmVjaXJjX2lkKDApLGluX3BvcnQoMiksZXRoX3R5cGUoMHg4NmRkKSxpcHY2KGZyYWc9bm8p
-LCBwYWNrZXRzOjI4LCBieXRlczoyNTQxLCB1c2VkOjAuMDQ4cywgZmxhZ3M6U0ZQUi4sIGFjdGlv
-bnM6Y3QobmF0KSxyZWNpcmMoMHgxKQogICAgcmVjaXJjX2lkKDB4MSksaW5fcG9ydCgyKSxjdF9z
-dGF0ZSgrbmV3KSxldGhfdHlwZSgweDg2ZGQpLGlwdjYoc3JjPWZjMDA6OjEscHJvdG89NixmcmFn
-PW5vKSx0Y3AoZHN0PTIxKSwgcGFja2V0czoxLCBieXRlczo5NCwgdXNlZDowLjA3MnMsIGZsYWdz
-OlMsIGFjdGlvbnM6Y3QoY29tbWl0LGhlbHBlcj1mdHAsbmF0KHNyYz1mYzAwOjoyNDApKSwzCiAg
-ICByZWNpcmNfaWQoMHgxKSxpbl9wb3J0KDIpLGN0X3N0YXRlKC1uZXcrZXN0K3JlbCksZXRoX3R5
-cGUoMHg4NmRkKSxpcHY2KHNyYz1mYzAwOjoyNDAscHJvdG89NixmcmFnPW5vKSwgcGFja2V0czo0
-LCBieXRlczozNDQsIHVzZWQ6MC4wNDhzLCBmbGFnczpGLiwgYWN0aW9uczozCiAgICByZWNpcmNf
-aWQoMHgxKSxpbl9wb3J0KDIpLGN0X3N0YXRlKC1uZXcrZXN0LXJlbCksZXRoX3R5cGUoMHg4NmRk
-KSxpcHY2KHNyYz1mYzAwOjoyNDAscHJvdG89NixmcmFnPW5vKSwgcGFja2V0czoxMiwgYnl0ZXM6
-MTE0NSwgdXNlZDowLjA0OHMsIGZsYWdzOkZQLiwgYWN0aW9uczozCgogICAgcmVjaXJjX2lkKDAp
-LGluX3BvcnQoMyksZXRoX3R5cGUoMHg4NmRkKSxpcHY2KGZyYWc9bm8pLCBwYWNrZXRzOjI2LCBi
-eXRlczo0OTM5LCB1c2VkOjAuMDQ4cywgZmxhZ3M6U0ZQLiwgYWN0aW9uczpjdChuYXQpLHJlY2ly
-YygweDIpCiAgICByZWNpcmNfaWQoMHgyKSxpbl9wb3J0KDMpLGN0X3N0YXRlKCtuZXcrcmVsKSxl
-dGhfdHlwZSgweDg2ZGQpLGlwdjYoZHN0PWZjMDA6OjI0MCxwcm90bz02LGZyYWc9bm8pLCBwYWNr
-ZXRzOjAsIGJ5dGVzOjAsIHVzZWQ6bmV2ZXIsIGFjdGlvbnM6Y3QoY29tbWl0LG5hdCksMgogICAg
-cmVjaXJjX2lkKDB4MiksaW5fcG9ydCgzKSxjdF9zdGF0ZSgtbmV3K2VzdC1yZWwpLGV0aF90eXBl
-KDB4ODZkZCksaXB2Nihkc3Q9ZmMwMDo6MSxwcm90bz02LGZyYWc9bm8pLCBwYWNrZXRzOjEyLCBi
-eXRlczoxMzIzLCB1c2VkOjAuMDQ4cywgZmxhZ3M6U0ZQLiwgYWN0aW9uczoyCiAgICByZWNpcmNf
-aWQoMHgyKSxpbl9wb3J0KDMpLGN0X3N0YXRlKC1uZXcrZXN0K3JlbCksZXRoX3R5cGUoMHg4NmRk
-KSxpcHY2KGRzdD1mYzAwOjoxLHByb3RvPTYsZnJhZz1ubyksIHBhY2tldHM6MywgYnl0ZXM6MTEx
-MywgdXNlZDowLjA0OHMsIGZsYWdzOkZQLiwgYWN0aW9uczoyCgoKVGhlIGdlbmVyYXRlZCBtYXRj
-aGVzIGRlcGVuZCBvbiB0aGUgb3JkZXIgb2YgcHJvY2Vzc2luZyBvZiBydWxlcyBpbiB0aGUgT3Bl
-bkZsb3cgdGFibGVzLCB3aGljaCBjYW4gYmUgaW5mbHVlbmNlZCBieSBzcGVjaWZ5aW5nIHJ1bGUg
-cHJpb3JpdGllcyB0byBPcGVuRmxvdyBydWxlcy4gRm9yIGV4YW1wbGUsIHdpdGggYSBkaWZmZXJl
-bnQgc2V0IG9mIHByaW9yaXRpZXMgdGhlIGRhdGFwYXRoIHJ1bGVzIGJlY29tZSAoSW4gdGhpcyB0
-ZXN0IHJ1biB0aGUgZmlyc3QgSVAgKElDTVB2NikgcGFja2V0IHdhcyByZWNlaXZlZCBmcm9tIGF0
-X25zMSwgc28gdGhlIHJlY2lyY19pZHMgYXJlIHJldmVyc2VkIGZyb20gYWJvdmUsIElDTVB2NiBm
-bG93cyBub3QgaW5jbHVkZWQgaGVyZS4pOgoKICAgIHJlY2lyY19pZCgwKSxpbl9wb3J0KDIpLGV0
-aF90eXBlKDB4ODZkZCksaXB2NihmcmFnPW5vKSwgcGFja2V0czoyNywgYnl0ZXM6MjQ1NSwgdXNl
-ZDowLjA0MHMsIGZsYWdzOlNGUFIuLCBhY3Rpb25zOmN0KG5hdCkscmVjaXJjKDB4MikKICAgIHJl
-Y2lyY19pZCgweDIpLGluX3BvcnQoMiksY3Rfc3RhdGUoK2VzdCksZXRoX3R5cGUoMHg4NmRkKSxp
-cHY2KHNyYz1mYzAwOjoyNDAscHJvdG89NixmcmFnPW5vKSwgcGFja2V0czoxNiwgYnl0ZXM6MTQ5
-NywgdXNlZDowLjA0MHMsIGZsYWdzOlNGUC4sIGFjdGlvbnM6MwogICAgcmVjaXJjX2lkKDB4Miks
-aW5fcG9ydCgyKSxjdF9zdGF0ZSgrbmV3LWVzdCksZXRoX3R5cGUoMHg4NmRkKSxpcHY2KHNyYz1m
-YzAwOjoxLHByb3RvPTYsZnJhZz1ubyksdGNwKGRzdD0yMSksIHBhY2tldHM6MSwgYnl0ZXM6OTQs
-IHVzZWQ6MC4xMDhzLCBmbGFnczpTLCBhY3Rpb25zOmN0KGNvbW1pdCxoZWxwZXI9ZnRwLG5hdChz
-cmM9ZmMwMDo6MjQwKSksMwoKICAgIHJlY2lyY19pZCgwKSxpbl9wb3J0KDMpLGV0aF90eXBlKDB4
-ODZkZCksaXB2NihmcmFnPW5vKSwgcGFja2V0czoyOCwgYnl0ZXM6NTExMSwgdXNlZDowLjA0MHMs
-IGZsYWdzOlNGUC4sIGFjdGlvbnM6Y3QobmF0KSxyZWNpcmMoMHgxKQogICAgcmVjaXJjX2lkKDB4
-MSksaW5fcG9ydCgzKSxjdF9zdGF0ZSgrZXN0KSxldGhfdHlwZSgweDg2ZGQpLGlwdjYoZHN0PWZj
-MDA6OjEscHJvdG89NixmcmFnPW5vKSwgcGFja2V0czoxOSwgYnl0ZXM6NDI4MSwgdXNlZDowLjA0
-MHMsIGZsYWdzOlNGUC4sIGFjdGlvbnM6MgogICAgcmVjaXJjX2lkKDB4MSksaW5fcG9ydCgzKSxj
-dF9zdGF0ZSgrbmV3LWVzdCtyZWwpLGV0aF90eXBlKDB4ODZkZCksaXB2Nihkc3Q9ZmMwMDo6MjQw
-LHByb3RvPTYsZnJhZz1ubyksIHBhY2tldHM6MCwgYnl0ZXM6MCwgdXNlZDpuZXZlciwgYWN0aW9u
-czpjdChjb21taXQsbmF0KSwyCgpIb3BlIHRoaXMgaGVscHMsCgogIEphcm5vCgo+PiBKYXJubyBS
-YWphaGFsbWUgKDgpOgo+PiAgbmV0ZmlsdGVyOiBSZW1vdmUgSVBfQ1RfTkVXX1JFUExZIGRlZmlu
-aXRpb24uCj4+ICBuZXRmaWx0ZXI6IEZhY3RvciBvdXQgbmZfY3RfZ2V0X2luZm8oKS4KPj4gIG5l
-dGZpbHRlcjogQWxsb3cgY2FsbGluZyBpbnRvIG5hdCBoZWxwZXIgd2l0aG91dCBza2JfZHN0Lgo+
-PiAgb3BlbnZzd2l0Y2g6IFVwZGF0ZSB0aGUgQ1Qgc3RhdGUga2V5IG9ubHkgYWZ0ZXIgbmZfY29u
-bnRyYWNrX2luKCkuCj4+ICBvcGVudnN3aXRjaDogRmluZCBleGlzdGluZyBjb25udHJhY2sgZW50
-cnkgYWZ0ZXIgdXBjYWxsLgo+PiAgb3BlbnZzd2l0Y2g6IEhhbmRsZSBORl9SRVBFQVQgaW4gY29u
-bnRyYWNrIGFjdGlvbi4KPj4gIG9wZW52c3dpdGNoOiBEZWxheSBjb25udHJhY2sgaGVscGVyIGNh
-bGwgZm9yIG5ldyBjb25uZWN0aW9ucy4KPj4gIG9wZW52c3dpdGNoOiBJbnRlcmZhY2Ugd2l0aCBO
-QVQuCj4+IAo+PiBpbmNsdWRlL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrLmggICAgICAgICAg
-ICAgICB8ICAxNSArCj4+IGluY2x1ZGUvdWFwaS9saW51eC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNr
-X2NvbW1vbi5oIHwgIDEyICstCj4+IGluY2x1ZGUvdWFwaS9saW51eC9vcGVudnN3aXRjaC5oICAg
-ICAgICAgICAgICAgICAgIHwgIDQ3ICsrCj4+IG5ldC9pcHY0L25ldGZpbHRlci9uZl9uYXRfbDNw
-cm90b19pcHY0LmMgICAgICAgICAgIHwgIDI5ICstCj4+IG5ldC9pcHY2L25ldGZpbHRlci9uZl9u
-YXRfbDNwcm90b19pcHY2LmMgICAgICAgICAgIHwgIDI5ICstCj4+IG5ldC9uZXRmaWx0ZXIvbmZf
-Y29ubnRyYWNrX2NvcmUuYyAgICAgICAgICAgICAgICAgIHwgIDIyICstCj4+IG5ldC9vcGVudnN3
-aXRjaC9jb25udHJhY2suYyAgICAgICAgICAgICAgICAgICAgICAgIHwgNjMyICsrKysrKysrKysr
-KysrKysrKystLQo+PiBuZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmggICAgICAgICAgICAgICAg
-ICAgICAgICB8ICAgMyArLQo+PiA4IGZpbGVzIGNoYW5nZWQsIDY4NiBpbnNlcnRpb25zKCspLCAx
-MDMgZGVsZXRpb25zKC0pCj4+IAo+PiAtLSAKPj4gMi4xLjQKPj4gCj4+IC0tCj4+IFRvIHVuc3Vi
-c2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRmaWx0
-ZXItZGV2ZWwiIGluCj4+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5r
-ZXJuZWwub3JnIDxtYWlsdG86bWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZz4KPj4gTW9yZSBtYWpv
-cmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1s
-IDxodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWw+Cl9fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2
-QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8v
-ZGV2Cg==
+[Resending as plain text]
+
+> On Nov 9, 2015, at 5:31 AM, Patrick McHardy <kaber@trash.net> wrote:
+>=20
+> On 06.11, Jarno Rajahalme wrote:
+>> This series adds NAT support to openvswitch kernel module.  A few
+>> changes are needed to the netfilter code to facilitate this (patches
+>> 1-3/8).  Patches 4-7 make the openvswitch kernel module ready for th=
+e
+>> patch 8 that adds the NAT support for calling into netfilter NAT cod=
+e
+>> from the openvswitch conntrack action.
+>=20
+> I'm missing some high level description, especially how it is invoked=
+, how
+> it makes sure expectations of the NAT code about its invocation are m=
+et
+> (it is my understanding that OVS simply invokes this based on actions
+> specified by the user) and how it interacts with the remaining netfil=
+ter
+> features.
+>=20
+
+The corresponding OVS userspace patches contain the new test cases for =
+the NAT features (http://openvswitch.org/pipermail/dev/2015-November/06=
+1920.html) in tests/system-traffic.at. I=E2=80=99ll walk through two of=
+ them below.
+
+Test case: conntrack - simple SNAT
+
+In these tests ports 1 and 2 are in different namespaces. The flow tabl=
+e below allows all IPv4 traffic between port 1 to port 2, but IP connec=
+tions from port 1 to port 2 are source NATted:
+
+    in_port=3D1,ip,action=3Dct(commit,zone=3D1,nat(src=3D10.1.1.240-10.=
+1.1.255)),2
+    in_port=3D2,ct_state=3D-trk,ip,action=3Dct(table=3D0,zone=3D1,nat)
+    in_port=3D2,ct_state=3D+trk,ct_zone=3D1,ip,action=3D1
+
+This flow table matches all IPv4 traffic from port 1, runs them through=
+ conntrack in zone 1 and NATs them. The NAT is initialized to do source=
+ IP mapping to the given range for the first packet of each connection,=
+ after which the new connection is committed. For further packets of al=
+ready tracked connections NAT is done according to the connection state=
+ and the commit is a no-op. Each packet that is not flagged as a drop b=
+y the CT action is forwarded to port 2. The CT action does an implicit =
+fragmentation reassembly, so that only complete packets are run through=
+ conntrack. Reassembled packets are re-fragmented on output.
+
+The IPv4 traffic coming from port 2 is first matched for the non-tracke=
+d state (-trk), which means that the packet has not been through a CT a=
+ction yet. Such traffic is run trough the conntrack in zone 1 and all p=
+ackets associated with a NATted connection are NATted also in the retur=
+n direction. After the packet has been through conntrack it is recircul=
+ated back to table 0 (which is the default table, so all the rules abov=
+e are in table 0). The CT action changes the =E2=80=98trk=E2=80=99 flag=
+ to being set, so the packets after recirculation match the third rule =
+(+trk), and the packet is output on port 1. Since also the ct_zone is m=
+atched, only packets that were actually tracked by conntrack can match =
+the 3rd rule and output to 1.
+
+I=E2=80=99m skipped the rules for ARP handling in this walkthrough, but=
+ the test case has rules to match on the ARP request on the NATted addr=
+ess and reply to it.
+
+The above is verified with a HTTP request and a subsequent conntrack en=
+try listing in the test case:
+
+    dnl HTTP requests from p0->p1 should work fine.
+    NETNS_DAEMONIZE([at_ns1], [[$PYTHON $srcdir/test-l7.py]], [http0.pi=
+d])
+    NS_CHECK_EXEC([at_ns0], [wget 10.1.1.2 -t 5 -T 1 --retry-connrefuse=
+d -v -o wget0.log])
+
+    AT_CHECK([conntrack -L 2>&1 | FORMAT_CT(10.1.1.2) | sed -e 's/dst=3D=
+10.1.1.2[[45]][[0-9]]/dst=3D10.1.1.2XX/'], [0], [dnl
+    TIME_WAIT src=3D10.1.1.1 dst=3D10.1.1.2 sport=3D<cleared> dport=3D<=
+cleared> src=3D10.1.1.2 dst=3D10.1.1.2XX sport=3D<cleared> dport=3D<cle=
+ared> [[ASSURED]] mark=3D0 zone=3D1 use=3D1
+    ])
+
+
+As a second example, I=E2=80=99ll walk through a test case of NAT with =
+=46TP on IPv6:
+
+As before, ports 1 (p0) and 2 (p1) reside in different namespaces (=E2=80=
+=98at_ns0=E2=80=99 and =E2=80=98at_ns1=E2=80=99, respectively). A stati=
+c neighbor cache entry for the NATted address is created in at_ns1. In =
+a more realistic scenario a controller would need to implement a ND pro=
+xy instead:
+
+    ADD_VETH(p0, at_ns0, br0, "fc00::1/96")
+    NS_CHECK_EXEC([at_ns0], [ip link set dev p0 address 80:88:88:88:88:=
+88])
+    ADD_VETH(p1, at_ns1, br0, "fc00::2/96")
+    dnl Would be nice if NAT could translate neighbor discovery message=
+s, too.
+    NS_CHECK_EXEC([at_ns1], [ip -6 neigh add fc00::240 lladdr 80:88:88:=
+88:88:88 dev p1])
+
+
+The OpenFlow rules are split into two tables (table 0 and table 1).
+
+Table 0 tracks all IPv6 traffic and drops all other traffic. Packets ar=
+e recirculated to table 1 after conntrack. Existing connections are NAT=
+ted before recirculation:
+
+    table=3D0 priority=3D10 ip6, action=3Dct(nat,table=3D1)
+    table=3D0 priority=3D0 action=3Ddrop
+
+Table 1:
+
+=46TP control connections from the =E2=80=9Cprivate=E2=80=9D address to=
+ port 21 are output to port 1 after being tracked, NATted, and committe=
+d (=3D=3D confirmed).
+
+    table=3D1 in_port=3D1 ct_state=3D+new tcp6 ipv6_src=3Dfc00::1 tp_ds=
+t=3D21  action=3Dct(alg=3Dftp,commit,nat(src=3Dfc00::240)),2
+
+The matches on the source/dest IP address below are not really needed, =
+but in the test case they are to make sure the NATting actually happens=
+=2E
+
+Related TCP connections to the reverse direction are NATted, committed =
+and output to port 1:
+
+    table=3D1 in_port=3D2 ct_state=3D+new+rel tcp6 ipv6_dst=3Dfc00::240=
+ action=3Dct(commit,nat),1
+
+Packets on established TCP connections are allowed both ways (the CT ac=
+tion in table 0 NATted these before recirculation, so we see the mapped=
+ address going from port 1 to port 2, and the reverse-mapped (=3D=3D or=
+iginal) address on return traffic):
+
+    table=3D1 in_port=3D1 ct_state=3D+est tcp6 ipv6_src=3Dfc00::240   a=
+ction=3D2
+    table=3D1 in_port=3D2 ct_state=3D+est tcp6 ipv6_dst=3Dfc00::1     a=
+ction=3D1=20
+
+We pass icmp6 packets both ways:
+
+    table=3D1 priority=3D100 in_port=3D1 icmp6, action=3D2
+    table=3D1 priority=3D100 in_port=3D2 icmp6, action=3D1
+
+Everything else is dropped:
+
+    table=3D1 priority=3D0, action=3Ddrop
+
+=46unctionality is verified with a Python FTP server in at_ns1 and wget=
+ to it from at_ns0:
+
+    NETNS_DAEMONIZE([at_ns1], [[$PYTHON $srcdir/test-l7.py ftp]], [ftp0=
+=2Epid])
+
+    dnl FTP requests from p0->p1 should work fine.
+    NS_CHECK_EXEC([at_ns0], [wget=20
+ftp://[[fc00::2
+]] -6 --no-passive-ftp -t 3 -T 1 --retry-connrefused -v --server-respon=
+se --no-proxy --no-remove-listing -o wget0.log -d])
+
+Both the control connection and the data connection were NATted:
+
+    AT_CHECK([conntrack -L -f ipv6 2>&1 | FORMAT_CT(fc00::2) | grep -v =
+"FIN" | grep -v "CLOSE"], [0], [dnl
+    TIME_WAIT src=3Dfc00::1 dst=3Dfc00::2 sport=3D<cleared> dport=3D<cl=
+eared> src=3Dfc00::2 dst=3Dfc00::240 sport=3D<cleared> dport=3D<cleared=
+> [[ASSURED]] mark=3D0 helper=3Dftp use=3D2
+    TIME_WAIT src=3Dfc00::2 dst=3Dfc00::240 sport=3D<cleared> dport=3D<=
+cleared> src=3Dfc00::1 dst=3Dfc00::2 sport=3D<cleared> dport=3D<cleared=
+> [[ASSURED]] mark=3D0 use=3D1
+    ])
+
+The flow tables in the test cases are OpenFlow tables, which are transl=
+ated to kernel flows by ovs-vswitchd. I have included the relevant kern=
+el datapath flows generated in the IPv6 NAT test case above below for y=
+our reference. Please note that the kernel port numbers are different f=
+rom the OpenFlow port numbers, as each bridge has it=E2=80=99s own rang=
+e of OpenFlow port numbers, but they all share the same kernel datapath=
+=2E In this case OpenFlow port 1 is kernel port 2, and OpenFlow port 2 =
+is kernel port 3. Kernel flows are all in the same table and they have =
+no priorities (so they should have mutually exclusive matches). Recircu=
+lation IDs are allocated on-demand, here the recirculation ID 1 deals w=
+ith traffic to the original direction and 2 to the return direction (re=
+circ_id(0) designates no recirculation). ovs_vswitchd always exact matc=
+hes IP frag, so since the test traffic had no fragments, you=E2=80=99ll=
+ see (frag=3Dno) in each flow below. Also, the packet that causes the f=
+low to be created is executed independently (but with the same actions)=
+ of the newly created flow, so the kernel datapath flow counts do not r=
+eflect the first packet (OpenFlow counters do), this explains 0 counts =
+on some flows below:
+
+    recirc_id(0),in_port(2),eth_type(0x86dd),ipv6(frag=3Dno), packets:2=
+8, bytes:2541, used:0.048s, flags:SFPR., actions:ct(nat),recirc(0x1)
+    recirc_id(0x1),in_port(2),ct_state(+new),eth_type(0x86dd),ipv6(src=3D=
+fc00::1,proto=3D6,frag=3Dno),tcp(dst=3D21), packets:1, bytes:94, used:0=
+=2E072s, flags:S, actions:ct(commit,helper=3Dftp,nat(src=3Dfc00::240)),=
+3
+    recirc_id(0x1),in_port(2),ct_state(-new+est+rel),eth_type(0x86dd),i=
+pv6(src=3Dfc00::240,proto=3D6,frag=3Dno), packets:4, bytes:344, used:0.=
+048s, flags:F., actions:3
+    recirc_id(0x1),in_port(2),ct_state(-new+est-rel),eth_type(0x86dd),i=
+pv6(src=3Dfc00::240,proto=3D6,frag=3Dno), packets:12, bytes:1145, used:=
+0.048s, flags:FP., actions:3
+
+    recirc_id(0),in_port(3),eth_type(0x86dd),ipv6(frag=3Dno), packets:2=
+6, bytes:4939, used:0.048s, flags:SFP., actions:ct(nat),recirc(0x2)
+    recirc_id(0x2),in_port(3),ct_state(+new+rel),eth_type(0x86dd),ipv6(=
+dst=3Dfc00::240,proto=3D6,frag=3Dno), packets:0, bytes:0, used:never, a=
+ctions:ct(commit,nat),2
+    recirc_id(0x2),in_port(3),ct_state(-new+est-rel),eth_type(0x86dd),i=
+pv6(dst=3Dfc00::1,proto=3D6,frag=3Dno), packets:12, bytes:1323, used:0.=
+048s, flags:SFP., actions:2
+    recirc_id(0x2),in_port(3),ct_state(-new+est+rel),eth_type(0x86dd),i=
+pv6(dst=3Dfc00::1,proto=3D6,frag=3Dno), packets:3, bytes:1113, used:0.0=
+48s, flags:FP., actions:2
+
+
+The generated matches depend on the order of processing of rules in the=
+ OpenFlow tables, which can be influenced by specifying rule priorities=
+ to OpenFlow rules. For example, with a different set of priorities the=
+ datapath rules become (In this test run the first IP (ICMPv6) packet w=
+as received from at_ns1, so the recirc_ids are reversed from above, ICM=
+Pv6 flows not included here.):
+
+    recirc_id(0),in_port(2),eth_type(0x86dd),ipv6(frag=3Dno), packets:2=
+7, bytes:2455, used:0.040s, flags:SFPR., actions:ct(nat),recirc(0x2)
+    recirc_id(0x2),in_port(2),ct_state(+est),eth_type(0x86dd),ipv6(src=3D=
+fc00::240,proto=3D6,frag=3Dno), packets:16, bytes:1497, used:0.040s, fl=
+ags:SFP., actions:3
+    recirc_id(0x2),in_port(2),ct_state(+new-est),eth_type(0x86dd),ipv6(=
+src=3Dfc00::1,proto=3D6,frag=3Dno),tcp(dst=3D21), packets:1, bytes:94, =
+used:0.108s, flags:S, actions:ct(commit,helper=3Dftp,nat(src=3Dfc00::24=
+0)),3
+
+    recirc_id(0),in_port(3),eth_type(0x86dd),ipv6(frag=3Dno), packets:2=
+8, bytes:5111, used:0.040s, flags:SFP., actions:ct(nat),recirc(0x1)
+    recirc_id(0x1),in_port(3),ct_state(+est),eth_type(0x86dd),ipv6(dst=3D=
+fc00::1,proto=3D6,frag=3Dno), packets:19, bytes:4281, used:0.040s, flag=
+s:SFP., actions:2
+    recirc_id(0x1),in_port(3),ct_state(+new-est+rel),eth_type(0x86dd),i=
+pv6(dst=3Dfc00::240,proto=3D6,frag=3Dno), packets:0, bytes:0, used:neve=
+r, actions:ct(commit,nat),2
+
+Hope this helps,
+
+  Jarno
+
+>> Jarno Rajahalme (8):
+>>  netfilter: Remove IP_CT_NEW_REPLY definition.
+>>  netfilter: Factor out nf_ct_get_info().
+>>  netfilter: Allow calling into nat helper without skb_dst.
+>>  openvswitch: Update the CT state key only after nf_conntrack_in().
+>>  openvswitch: Find existing conntrack entry after upcall.
+>>  openvswitch: Handle NF_REPEAT in conntrack action.
+>>  openvswitch: Delay conntrack helper call for new connections.
+>>  openvswitch: Interface with NAT.
+>>=20
+>> include/net/netfilter/nf_conntrack.h               |  15 +
+>> include/uapi/linux/netfilter/nf_conntrack_common.h |  12 +-
+>> include/uapi/linux/openvswitch.h                   |  47 ++
+>> net/ipv4/netfilter/nf_nat_l3proto_ipv4.c           |  29 +-
+>> net/ipv6/netfilter/nf_nat_l3proto_ipv6.c           |  29 +-
+>> net/netfilter/nf_conntrack_core.c                  |  22 +-
+>> net/openvswitch/conntrack.c                        | 632 +++++++++++=
+++++++++--
+>> net/openvswitch/conntrack.h                        |   3 +-
+>> 8 files changed, 686 insertions(+), 103 deletions(-)
+>>=20
+>> --=20
+>> 2.1.4
+>>=20
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netfilter-=
+devel" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
