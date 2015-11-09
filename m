@@ -1,35 +1,65 @@
-From: Matthew Fernandez <matthew.fernandez@gmail.com>
-Subject: Re: [PATCH net v2] bpf: fix trivial comment typo
-Date: Mon, 9 Nov 2015 21:45:38 +1100
-Message-ID: <56407952.1020104@gmail.com>
-References: <563A9E50.9020105@gmail.com>
- <20151105.003211.656660473992383014.davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: AF_PACKET mmap() v4...
+Date: Mon, 09 Nov 2015 11:54:02 +0100
+Message-ID: <56407B4A.6020809@iogearbox.net>
+References: <20151105.000414.1682124328670738318.davem@davemloft.net> <4931220.z2MFa8LzkQ@wuerfel> <563B23C3.5070406@iogearbox.net> <20151108021958.GA39441@ast-mbp.thefacebook.com> <563ECF1B.1000306@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, trivial@kernel.org, ast@kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, horms@verge.net.au
+To: John Fastabend <john.fastabend@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:35773 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752337AbbKIKpp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 05:45:45 -0500
-In-Reply-To: <20151105.003211.656660473992383014.davem@davemloft.net>
+Received: from www62.your-server.de ([213.133.104.62]:58613 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751749AbbKIKyK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 05:54:10 -0500
+In-Reply-To: <563ECF1B.1000306@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/11/15 16:32, David Miller wrote:
-> From: Matthew Fernandez <matthew.fernandez@gmail.com>
-> Date: Thu, 5 Nov 2015 11:09:52 +1100
->
->> bpf: fix trivial comment typo
+On 11/08/2015 05:27 AM, John Fastabend wrote:
+> On 15-11-07 06:19 PM, Alexei Starovoitov wrote:
+>> On Thu, Nov 05, 2015 at 10:39:15AM +0100, Daniel Borkmann wrote:
+>>> On 11/05/2015 10:07 AM, Arnd Bergmann wrote:
+>>>> On Thursday 05 November 2015 00:04:14 David Miller wrote:
+>>>>> As part of fixing y2038 problems, Arnd is going to have to make a new
+>>>>> version fo the AF_PACKET mmap() tpacker descriptors in order to extend
+>>>>> the time values to 64-bit.
 >>
->> Signed-off-by: Matthew Fernandez <matthew.fernandez@gmail.com>
+>> would also be quite useful to add ability to attach metadata to packet
+>> from bpf program.
+>> Right now we can only trim the length. Would be great if program could
+>> compute something and pass it along with packet as metadata.
 >
-> This does not apply.  It looks like your email client has
-> corrupted the patch.
+> Also most modern NICs can generate metadata using packet filters
+> it would be nice to allow these to populate any metadata fields as well.
+> Ethtool already has a flow classifier feature that could be easily
+> extended once the stack has support.
 
-Well I managed to foul that up nicely, didn't I? I don't know which tree you'd prefer this to go into, so I'll wait 
-until net-next reopens to resubmit a corrected version. I'll try to be more thorough and avoid embarrassing myself and 
-wasting your time for the third time running. Thanks for your patience.
+If I understand this correctly, that would be something independent from
+packet sockets, right? Attaching metadata to the skb could be currently done
+via mark, tc_index, tc_classid, priority, but I presume you mean something
+else. ;)
+
+Or, do you mean to push meta data into skb->data f.e. in front of the frame.
+As in having some sort of a 'dynamic-sized', reserved scratch space or stack
+at the head or tail of the skb (not visible to the network itself, but only
+to the local NIC)?
+
+It would be interesting if it could be used to interact with the NIC, as
+John says, e.g. from incoming side to place a tag or additional meta data
+there as a result of the NIC's flow classifier, which might then be read out
+from an eBPF program to perform further actions on the skb.
+
+If you even want to take this one step further for data center environments,
+there was the idea floating around [1], where you encapsulate a restricted
+set of instructions together with some scratch space between Ethernet header
+and payload.
+
+These "tiny packet programs" could then query switch meta data on the fly
+that is being stored into the scratch space. Of course, this requires vendor
+support, but this seems really powerful.
+
+   [1] http://jvimal.github.io/tpp/
