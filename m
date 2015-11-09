@@ -1,32 +1,41 @@
-From: David Miller <davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: [PATCH] mvneta: add FIXED_PHY dependency
-Date: Mon, 09 Nov 2015 11:36:22 -0500 (EST)
-Message-ID: <20151109.113622.1309064405711224118.davem@davemloft.net>
+Date: Mon, 9 Nov 2015 17:42:32 +0100
+Message-ID: <20151109164232.GB3388@lunn.ch>
 References: <4225885.EYXTHjRPmX@wuerfel>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stsp@users.sourceforge.net,
-	f.fainelli@gmail.com, thomas.petazzoni@free-electrons.com,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: arnd@arndb.de
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	Stas Sergeev <stsp@users.sourceforge.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34847 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752363AbbKIQgZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 11:36:25 -0500
+Received: from vps0.lunn.ch ([178.209.37.122]:48390 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751168AbbKIQmh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Nov 2015 11:42:37 -0500
+Content-Disposition: inline
 In-Reply-To: <4225885.EYXTHjRPmX@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Mon, 09 Nov 2015 15:08:57 +0100
-
+On Mon, Nov 09, 2015 at 03:08:57PM +0100, Arnd Bergmann wrote:
 > The fixed_phy infrastructure is done in a way that is optional,
 > by providing 'static inline' helper functions doing nothing in
 > include/linux/phy_fixed.h for all its APIs. However, three out
 > of the four users (DSA, BCMGENET, and SYSTEMPORT) always
 > 'select FIXED_PHY', presumably because they need that.
+
+Hi Arnd
+
+Need is probably too strong, it could be considered an optional
+feature. If you don't have a fixed_phy property in your DT blob, you
+don't need fixed phy support in your image.
+
 > MVNETA is the fourth one, and if that is built-in but FIXED_PHY
 > is configured as a loadable module, we get a link error:
 > 
@@ -36,18 +45,16 @@ Date: Mon, 09 Nov 2015 15:08:57 +0100
 > Presumably this driver has the same dependency as the others,
 > so this patch also uses 'select' to ensure that the fixed-phy
 > support is built-in.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 898b2970e2c9 ("mvneta: implement SGMII-based in-band link state signaling")
-> ---
-> Found using ARM randconfig tests. An alternative here would be
-> to use 'depends on FIXED_PHY || FIXED_PHY=n', I picked the 'select'
-> approach for consistency.
-> 
+
+This will work, and is uniform with the other instances. But maybe a
+more correct fix is to ensure fixed-phy is never a module when there
+is a builtin user.
+
 > Should we perhaps make 'FIXED_PHY' a silent option and remove the
 > inline helpers, based on the assumption that a driver that wants these
 > will not work without them?
 
-This seems reasonable to fix the problem for the time being, applied.
+I suppose it comes down to, are we allowed to optionally implement
+part of the DT binding?
 
-Thanks Arnd.
+     Andrew
