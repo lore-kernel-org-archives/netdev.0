@@ -1,57 +1,48 @@
-From: "=?UTF-8?Q?Bendik_R=c3=b8nning_Opstad?=" <bro.devel@gmail.com>
-Subject: Re: [PATCH RFC net-next 0/2] tcp: Redundant Data Bundling (RDB)
-Date: Mon, 9 Nov 2015 20:40:41 +0100
-Message-ID: <5640F6B9.4030306@gmail.com>
-References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
- <CAK6E8=eSYoxo6BLPh=jpmfudcRSJ3uT3YhZ0n-XP_dnxKCNH3A@mail.gmail.com>
- <61F74109-9FDC-485A-978B-714B7AA27445@ifi.uio.no>
- <1445691445.22974.200.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Z Lim <zlim.lnx@gmail.com>
+Subject: Re: [PATCH] arm64: bpf: fix JIT stack setup
+Date: Mon, 9 Nov 2015 12:00:29 -0800
+Message-ID: <CABg9mcvACuVK2=GBbnur94CsckN2TXRCCiXhX7A8jYQ7arMM+Q@mail.gmail.com>
+References: <1446874577-14539-1-git-send-email-yang.shi@linaro.org>
+	<20151108022726.GB39441@ast-mbp.thefacebook.com>
+	<CABg9mcv8W4_pvkEQKtjBPi5ycMgLPksYoPtYnGr6tdcb5ER8YQ@mail.gmail.com>
+	<5640E135.2020007@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Jonas Markussen <jonassm@ifi.uio.no>,
-	Yuchung Cheng <ycheng@google.com>,
-	=?UTF-8?Q?Bendik_R=c3=b8nning_Opstad?= <bro.devel@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Andreas Petlund <apetlund@simula.no>,
-	Carsten Griwodz <griff@simula.no>,
-	=?UTF-8?Q?P=c3=a5l_Halvorsen?= <paalh@simula.no>,
-	Kristian Evensen <kristian.evensen@gmail.com>,
-	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f194.google.com ([209.85.217.194]:35730 "EHLO
-	mail-lb0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752371AbbKITky (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 14:40:54 -0500
-Received: by lblw10 with SMTP id w10so8000527lbl.2
-        for <netdev@vger.kernel.org>; Mon, 09 Nov 2015 11:40:52 -0800 (PST)
-In-Reply-To: <1445691445.22974.200.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Alexei Starovoitov <ast@kernel.org>, daniel@iogearbox.net,
+	Xi Wang <xi.wang@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	linaro-kernel@lists.linaro.org
+To: "Shi, Yang" <yang.shi@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5640E135.2020007@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 24/10/15 14:57, Eric Dumazet wrote:
-> Thank you for this very high quality patch submission.
+On Mon, Nov 9, 2015 at 10:08 AM, Shi, Yang <yang.shi@linaro.org> wrote:
+> I added it to stay align with ARMv8 AAPCS to maintain the correct FP during
+> function call. It makes us get correct stack backtrace.
 >
-> Please give us a few days for proper evaluation.
+> I think we'd better to keep compliant with ARMv8 AAPCS in BPF JIT prologue
+> too.
 >
-> Thanks !
+> If nobody thinks it is necessary, we definitely could remove that change.
 
-Guys, thank you very much for taking the time to evaluate this.
+Oh no, I don't think anyone will say it's unnecessary!
+I agree the A64_FP-related change is a good idea, so stack unwinding works.
 
-Since there haven't been any more feedback or comments I'll submit an
-RFCv2 with a few changes which includes removing the Nagle
-modification.
+How about splitting this into two patches? One for the BPF-related
+bug, and another for A64 FP-handling.
 
-After discussing the Nagle change on setsockopt we realize that it
-should be evaluated more thoroughly, and is better left for a later
-patch submission.
+Thanks again for tracking this down and improving things overall for arm64 :)
 
-Bendik
-
-P.S.
-Trimming the CC list to only those who have responded as gmail says
-I'm spamming :-)
+>
+> Thanks,
+> Yang
+>
+>
