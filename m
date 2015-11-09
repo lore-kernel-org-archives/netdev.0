@@ -1,7 +1,7 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: [GIT] Networking
-Date: Mon, 09 Nov 2015 11:38:10 +0100
-Message-ID: <87io5bh2zx.fsf@stressinduktion.org>
+Date: Mon, 09 Nov 2015 11:38:23 +0100
+Message-ID: <87h9kvh2zk.fsf@stressinduktion.org>
 References: <CA+55aFwxDSYSB=bBfCxLadgCmFiOzAi0T0JHLFLK5nkR6cm8tg@mail.gmail.com> <CA+55aFy6nC9tQFE_kRrF-YS9N7Jp18CnSxsLNcnAykNLyXQUtg@mail.gmail.com> <CALCETrUxU_AVcQheeCXc0qTh=o2tmDbDct27QfTCb_+G6qc3gQ@mail.gmail.com> <1446512176.17404.30.camel@kernel.crashing.org> <CA+55aFxas=6fg2LtcLjDB3jM9cHBj=7PnDf-8J31jc3yXNpXNQ@mail.gmail.com> <CALCETrUijiLwtYRwc-UHPkuhh+PoMh0scwffewuJ+7wRBR=Jfg@mail.gmail.com> <CA+55aFxgr=VteHvxj7EY===QbchRdLY56r7cyFxSnuF_G0rqVA@mail.gmail.com> <1446555200.1870849.427743457.63139285@webmail.messagingengine.com> <CA+55aFw-pzoSNnO_eot1c2ZJOWKrFeRhXw4oQQS9dwt4NziHfQ@mail.gmail.com> <CA+55aFzSD=H8pAP7B48HCCdjiB3R-Zvx3Dn=x-BjyiL+3UBeiw@mail.gmail.com> <20151109081219.GA11321@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,17 +15,10 @@ Cc: Andy Lutomirski <luto@amacapital.net>,
 	Sasha Levin <sasha.levin@oracle.com>
 To: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:38581 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750770AbbKIKiM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 05:38:12 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id DE5612016B
-	for <netdev@vger.kernel.org>; Mon,  9 Nov 2015 05:38:11 -0500 (EST)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20151109081219.GA11321@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hello,
 
