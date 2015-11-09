@@ -1,57 +1,44 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] net: hisilicon: NET_VENDOR_HISILICON should depend on HAS_DMA
-Date: Mon, 09 Nov 2015 10:46:34 +0100
-Message-ID: <6095433.PbGKVamcAs@wuerfel>
-References: <1447061670-19681-1-git-send-email-geert@linux-m68k.org>
+From: Johannes Stezenbach <js@sig21.net>
+Subject: Re: [PATCH 3/4] tty: Abstract and encapsulate tty->closing behavior
+Date: Mon, 9 Nov 2015 10:12:14 +0100
+Message-ID: <20151109091214.GD16715@sig21.net>
+References: <1447020173-32207-1-git-send-email-peter@hurleysoftware.com>
+ <1447020173-32207-4-git-send-email-peter@hurleysoftware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	huangdaode <huangdaode@hisilicon.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Slaby <jslaby@suse.cz>, linux-kernel@vger.kernel.org,
+	linux-serial@vger.kernel.org, netdev@vger.kernel.org,
+	Karsten Keil <isdn@linux-pingi.de>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Jesper Nilsson <jesper.nilsson@axis.com>,
+	Mikael Starvik <starvik@axis.com>,
+	Jiri Kosina <jikos@kernel.org>,
+	David Sterba <dsterba@suse.com>,
+	Mark Hounschell <markh@compro.net>
+To: Peter Hurley <peter@hurleysoftware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:60376 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752417AbbKIJv5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 04:51:57 -0500
-In-Reply-To: <1447061670-19681-1-git-send-email-geert@linux-m68k.org>
+Received: from mail.sig21.net ([80.244.240.74]:53432 "EHLO mail.sig21.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751549AbbKIJwi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Nov 2015 04:52:38 -0500
+Content-Disposition: inline
+In-Reply-To: <1447020173-32207-4-git-send-email-peter@hurleysoftware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 09 November 2015 10:34:30 Geert Uytterhoeven wrote:
-> If NO_DMA=y:
-> 
->     ERROR: "dma_set_mask" [drivers/net/ethernet/hisilicon/hns/hns_enet_drv.ko] undefined!
->     ERROR: "dma_unmap_single" [drivers/net/ethernet/hisilicon/hns/hns_enet_drv.ko] undefined!
->     ERROR: "dma_unmap_page" [drivers/net/ethernet/hisilicon/hns/hns_enet_drv.ko] undefined!
->     ERROR: "dma_mapping_error" [drivers/net/ethernet/hisilicon/hns/hns_enet_drv.ko] undefined!
->     ERROR: "dma_map_page" [drivers/net/ethernet/hisilicon/hns/hns_enet_drv.ko] undefined!
->     ERROR: "dma_supported" [drivers/net/ethernet/hisilicon/hns/hns_enet_drv.ko] undefined!
->     ERROR: "dma_map_single" [drivers/net/ethernet/hisilicon/hns/hns_enet_drv.ko] undefined!
->     ERROR: "dma_set_mask" [drivers/net/ethernet/hisilicon/hns/hns_dsaf.ko] undefined!
->     ERROR: "dma_supported" [drivers/net/ethernet/hisilicon/hns/hns_dsaf.ko] undefined!
->     ERROR: "dma_unmap_single" [drivers/net/ethernet/hisilicon/hns/hnae.ko] undefined!
->     ERROR: "dma_unmap_page" [drivers/net/ethernet/hisilicon/hns/hnae.ko] undefined!
->     ERROR: "dma_mapping_error" [drivers/net/ethernet/hisilicon/hns/hnae.ko] undefined!
->     ERROR: "dma_map_page" [drivers/net/ethernet/hisilicon/hns/hnae.ko] undefined!
->     ERROR: "dma_map_single" [drivers/net/ethernet/hisilicon/hns/hnae.ko] undefined!
->     ERROR: "dma_alloc_coherent" [drivers/net/ethernet/hisilicon/hix5hd2_gmac.ko] undefined!
->     ERROR: "dma_mapping_error" [drivers/net/ethernet/hisilicon/hix5hd2_gmac.ko] undefined!
->     ERROR: "dma_map_single" [drivers/net/ethernet/hisilicon/hix5hd2_gmac.ko] undefined!
->     ERROR: "dma_unmap_single" [drivers/net/ethernet/hisilicon/hix5hd2_gmac.ko] undefined!
->     ERROR: "dma_free_coherent" [drivers/net/ethernet/hisilicon/hix5hd2_gmac.ko] undefined!
->     ERROR: "dma_alloc_coherent" [drivers/net/ethernet/hisilicon/hip04_eth.ko] undefined!
->     ERROR: "dma_mapping_error" [drivers/net/ethernet/hisilicon/hip04_eth.ko] undefined!
->     ERROR: "dma_map_single" [drivers/net/ethernet/hisilicon/hip04_eth.ko] undefined!
->     ERROR: "dma_unmap_single" [drivers/net/ethernet/hisilicon/hip04_eth.ko] undefined!
->     ERROR: "dma_free_coherent" [drivers/net/ethernet/hisilicon/hip04_eth.ko] undefined!
-> 
-> As this affects all of HNS_ENET, HNS_DSAF, HNS, HIX5HD2_GMAC, and
-> HIP04_ETH, add a dependency on HAS_DMA to the main NET_VENDOR_HISILICON
-> symbol to fix this.
-> 
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> 
+On Sun, Nov 08, 2015 at 05:02:52PM -0500, Peter Hurley wrote:
+> +void tty_ldisc_closing(struct tty_struct *tty)
+> +{
+> +	struct tty_ldisc *ld = tty_ldisc_ref(tty);
+> +
+> +	if (ld->ops->closing)
+> +		ld->ops->closing(tty);
+> +	if (ld)
+> +		tty_ldisc_deref(ld);
+> +}
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+That looks strange.  Do you need to check ld _before_ dereferencing?
+
+Johannes
