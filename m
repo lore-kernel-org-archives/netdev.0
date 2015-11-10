@@ -1,69 +1,64 @@
-From: Yang Shi <yang.shi@linaro.org>
-Subject: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
-Date: Tue, 10 Nov 2015 14:41:41 -0800
-Message-ID: <1447195301-16757-3-git-send-email-yang.shi@linaro.org>
-References: <1447195301-16757-1-git-send-email-yang.shi@linaro.org>
-Cc: zlim.lnx@gmail.com, xi.wang@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linaro-kernel@lists.linaro.org, yang.shi@linaro.org
-To: ast@kernel.org, daniel@iogearbox.net, catalin.marinas@arm.com,
-	will.deacon@arm.com
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
+Date: Tue, 10 Nov 2015 23:07:24 +0000
+Message-ID: <yw1xmvulpi6r.fsf@unicorn.mansr.com>
+References: <1447172063-27234-1-git-send-email-mans@mansr.com>
+	<CAHp75Vch3vJEqYsCRUoctEmF0EoFx+0y7ZO+LjmdpQKAoikiOA@mail.gmail.com>
+	<yw1xr3jxpjoy.fsf@unicorn.mansr.com>
+	<CAHp75VfsswYAvkkkHuaEvkTAgZhoGZQ1oQ_R9BwZgyZ3xRVDeg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, slash.tmp@free.fr
+To: Andy Shevchenko <andy.shevchenko@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447195301-16757-1-git-send-email-yang.shi@linaro.org>
+In-Reply-To: <CAHp75VfsswYAvkkkHuaEvkTAgZhoGZQ1oQ_R9BwZgyZ3xRVDeg@mail.gmail.com>
+	(Andy Shevchenko's message of "Wed, 11 Nov 2015 00:40:53 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-aarch64 doesn't have native support for XADD instruction, implement it by
-the below instruction sequence:
+Andy Shevchenko <andy.shevchenko@gmail.com> writes:
 
-Load (dst + off) to a register
-Add src to it
-Store it back to (dst + off)
+> On Wed, Nov 11, 2015 at 12:34 AM, M=C3=A5ns Rullg=C3=A5rd <mans@mansr=
+=2Ecom> wrote:
+>> Andy Shevchenko <andy.shevchenko@gmail.com> writes:
+>>
+>>>> +static inline void nb8800_maskb(struct nb8800_priv *priv, int reg=
+,
+>>>> +                               u32 mask, u32 val)
+>>>> +{
+>>>> +       u32 old =3D nb8800_readb(priv, reg);
+>>>> +       u32 new =3D (old & ~mask) | val;
+>>>
+>>> Shoudn't be "=E2=80=A6 | (val & mask);" ?
+>>
+>> No, it's meant to replace the bits in mask with the corresponding bi=
+ts
+>> from val.
+>
+> But you unconditionally use entire val value which might bring bits
+> outside of mask.
 
-Signed-off-by: Yang Shi <yang.shi@linaro.org>
-CC: Zi Shen Lim <zlim.lnx@gmail.com>
-CC: Xi Wang <xi.wang@gmail.com>
----
- arch/arm64/net/bpf_jit_comp.c | 19 +++++++++++++++----
- 1 file changed, 15 insertions(+), 4 deletions(-)
+Very well, I'll apply the mask to both then.
 
-diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
-index 49c1f1b..0b1d2d3 100644
---- a/arch/arm64/net/bpf_jit_comp.c
-+++ b/arch/arm64/net/bpf_jit_comp.c
-@@ -609,7 +609,21 @@ emit_cond_jmp:
- 	case BPF_STX | BPF_XADD | BPF_W:
- 	/* STX XADD: lock *(u64 *)(dst + off) += src */
- 	case BPF_STX | BPF_XADD | BPF_DW:
--		goto notyet;
-+		ctx->tmp_used = 1;
-+		emit_a64_mov_i(1, tmp2, off, ctx);
-+		switch (BPF_SIZE(code)) {
-+		case BPF_W:
-+			emit(A64_LDR32(tmp, dst, tmp2), ctx);
-+			emit(A64_ADD(is64, tmp, tmp, src), ctx);
-+			emit(A64_STR32(tmp, dst, tmp2), ctx);
-+			break;
-+		case BPF_DW:
-+			emit(A64_LDR64(tmp, dst, tmp2), ctx);
-+			emit(A64_ADD(is64, tmp, tmp, src), ctx);
-+			emit(A64_STR64(tmp, dst, tmp2), ctx);
-+			break;
-+		}
-+		break;
- 
- 	/* R0 = ntohx(*(size *)(((struct sk_buff *)R6)->data + imm)) */
- 	case BPF_LD | BPF_ABS | BPF_W:
-@@ -679,9 +693,6 @@ emit_cond_jmp:
- 		}
- 		break;
- 	}
--notyet:
--		pr_info_once("*** NOT YET: opcode %02x ***\n", code);
--		return -EFAULT;
- 
- 	default:
- 		pr_err_once("unknown opcode %02x\n", code);
--- 
-2.0.2
+>>>> +       nb8800_writel(priv, NB8800_TX_DESC_ADDR, txb->dma_desc);
+>>>> +       wmb();          /* ensure desc addr is written before star=
+ting DMA */
+>>>
+>>> Hm=E2=80=A6 Have I missed corresponding rmb() ? If it's about MMIO,=
+ perhaps mmiowb() ?
+>>
+>> Possibly.
+>
+> Standalone wmb() doesn't make sense.
+
+It does if you need to enforce ordering between normal and I/O memory.
+In fact, since the descriptor is filled in using normal memory accesses=
+,
+my understanding is that mmiowb() would be insufficient here.  The
+comment could be improved, however.
+
+--=20
+M=C3=A5ns Rullg=C3=A5rd
+mans@mansr.com
