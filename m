@@ -1,40 +1,58 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 5/6] net: dsa: mv88e6060: add register defines header file
-Date: Tue, 10 Nov 2015 15:30:50 +0100
-Message-ID: <20151110143050.GA23891@lunn.ch>
-References: <5641F04A.9060303@baylibre.com>
- <20151110142550.GB29568@ketchup.mtl.sfl>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] af-unix: fix use-after-free with concurrent readers
+ while splicing
+Date: Tue, 10 Nov 2015 15:33:32 +0100
+Message-ID: <1447166012.759777.434994833.3D15D18F@webmail.messagingengine.com>
+References: <1447165595-28340-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Armstrong <narmstrong@baylibre.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151110142550.GB29568@ketchup.mtl.sfl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:60976 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752323AbbKJOdd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2015 09:33:33 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id 6EFF5212A0
+	for <netdev@vger.kernel.org>; Tue, 10 Nov 2015 09:33:32 -0500 (EST)
+In-Reply-To: <1447165595-28340-1-git-send-email-hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 10, 2015 at 09:25:51AM -0500, Vivien Didelot wrote:
-> Hi Neil,
+On Tue, Nov 10, 2015, at 15:26, Hannes Frederic Sowa wrote:
+>  net/unix/af_unix.c | 18 +++++++++++++++++-
+>  1 file changed, 17 insertions(+), 1 deletion(-)
 > 
-> On Nov. Tuesday 10 (46) 02:25 PM, Neil Armstrong wrote:
-> > To align with the mv88e6xxx code, add a similar header file
-> > with all the register defines.
-> > The file is based on the mv88e6xxx header for coherency.
-> > 
-> > Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
-> 
-> In the RFC patchset, Andrew mentioned that there is not that much things in
-> common with mv88e6xxx, so I don't really see a value to add a separate header
-> file. Would that make sense to you guys to add the defines directly in
-> mv88e6060.c and squash that in the last patch?
+> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> index aaa0b58..b2c4131 100644
+> --- a/net/unix/af_unix.c
+> +++ b/net/unix/af_unix.c
+> @@ -441,6 +441,7 @@ static void unix_release_sock(struct sock *sk, int
+> embrion)
+>  		if (state == TCP_LISTEN)
+>  			unix_release_sock(skb->sk, 1);
+>  		/* passed fds are erased in the kfree_skb hook	      */
+> +               UNIXCB(skb).consumed = skb->len;
+>  		kfree_skb(skb);
+>  	}
+>  
+> @@ -2152,7 +2153,7 @@ unlock:
+>  		}
+>  
+>  		chunk = min_t(unsigned int, unix_skb_len(skb) - skip, size);
+> -               chunk = state->recv_actor(skb, skip, chunk, state);
+> +               chunk = state->recv_actor(skb_get(skb), skip, chunk,
+> state);
+>  		if (chunk < 0) {
+>  			if (copied == 0)
+>  				copied = -EFAULT;
 
-It is personal taste, but i think there are enough defines that having
-a separate header file is useful. For < 10 i would agree with Vivien,
-but with ~100, i prefer a header file. 
+I forgot a consume_skb here. Will send v2. Seems like I can review
+patches much better in a mail client. :}
 
-  Andrew
+Bye,
+Hannes
