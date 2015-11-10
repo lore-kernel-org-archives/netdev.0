@@ -1,59 +1,42 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] bpf_trace: Make dependent on PERF_EVENTS
-Date: Tue, 10 Nov 2015 21:39:54 +0100
-Message-ID: <48940555.m1MPQSFTCK@wuerfel>
-References: <20151110152817.144195a0@gandalf.local.home>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Revert "bridge: Allow forward delay to be cfgd when
+ STP enabled"
+Date: Tue, 10 Nov 2015 15:42:19 -0500 (EST)
+Message-ID: <20151110.154219.28142723661620451.davem@davemloft.net>
+References: <1447154132-13879-1-git-send-email-vyasevich@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Wang Nan <wangnan0@huawei.com>, Kaixu Xia <xiakaixu@huawei.com>,
- Daniel Borkmann <daniel@iogearbox.net>, Peter Zijlstra <peterz@infradead.org>,
- netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
- Steven Rostedt <rostedt@goodmis.org>, Alexei Starovoitov <ast@kernel.org>,
- Ingo Molnar <mingo@redhat.com>, Arnaldo Carvalho de Melo <acme@kernel.org>,
- Hannes Frederic Sowa <hannes@stressinduktion.org>,
- "David S. Miller" <davem@davemloft.net>
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20151110152817.144195a0@gandalf.local.home>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	vyasevic@redhat.com
+To: vyasevich@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34219 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751781AbbKJUmV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2015 15:42:21 -0500
+In-Reply-To: <1447154132-13879-1-git-send-email-vyasevich@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 10 November 2015 15:28:17 Steven Rostedt wrote:
-> Arnd Bergmann reported:
-> 
->   In my ARM randconfig tests, I'm getting a build error for
->   newly added code in bpf_perf_event_read and bpf_perf_event_output
->   whenever CONFIG_PERF_EVENTS is disabled:
-> 
->   kernel/trace/bpf_trace.c: In function 'bpf_perf_event_read':
->   kernel/trace/bpf_trace.c:203:11: error: 'struct perf_event' has no member named 'oncpu'
->   if (event->oncpu != smp_processor_id() ||
->            ^
->   kernel/trace/bpf_trace.c:204:11: error: 'struct perf_event' has no member named 'pmu'
->         event->pmu->count)
-> 
->   This can happen when UPROBE_EVENT is enabled but KPROBE_EVENT
->   is disabled. I'm not sure if that is a configuration we care
->   about, otherwise we could prevent this case from occuring by
->   adding Kconfig dependencies.
-> 
-> Looking at this further, it's really that UPROBE_EVENT enables PERF_EVENTS.
-> By just having BPF_EVENTS depend on PERF_EVENTS, then all is fine.
-> 
-> Link: http://lkml.kernel.org/r/4525348.Aq9YoXkChv@wuerfel
-> Reported-by: Arnd Bergmann <arnd@arndb.de>
-> Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
-> 
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Date: Tue, 10 Nov 2015 06:15:32 -0500
 
-Ok, sounds good.
+> This reverts commit 34c2d9fb0498c066afbe610b15e18995fd8be792.
+> 
+> There are 2 reasons for this revert:
+>  1)  The commit in question doesn't do what it says it does.  The
+>      description reads: "Allow bridge forward delay to be configured
+>      when Spanning Tree is enabled."  This was already the case before
+>      the commit was made.  What the commit actually do was disallow
+>      invalid values or 'forward_delay' when STP was turned off.
+> 
+>  2)  The above change was actually a change in the user observed
+>      behavior and broke things like libvirt and other network configs
+>      that set 'forward_delay' to 0 without enabling STP.  The value
+>      of 0 is actually used when STP is turned off to immediately mark
+>      the bridge as forwarding.
+> 
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+Fair enough, applied, thanks Vlad.
