@@ -1,27 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: PING: [PATCH] net: smsc911x: Reset PHY during initialization
-Date: Tue, 10 Nov 2015 11:51:49 -0500 (EST)
-Message-ID: <20151110.115149.604622279273759756.davem@davemloft.net>
-References: <006801d11b82$1f5704b0$5e050e10$@samsung.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	steve.glendinning@shawell.net
-To: p.fedin@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56693 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754346AbbKJQvz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2015 11:51:55 -0500
-In-Reply-To: <006801d11b82$1f5704b0$5e050e10$@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thierry Reding <thierry.reding@gmail.com>
+Subject: [PATCH] mac80211: Remove kerneldoc for beacon_loss_count
+Date: Tue, 10 Nov 2015 17:58:52 +0100
+Message-ID: <1447174732-28449-1-git-send-email-thierry.reding@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pavel Fedin <p.fedin@samsung.com>
-Date: Tue, 10 Nov 2015 09:36:24 +0300
+From: Thierry Reding <treding@nvidia.com>
 
->  Hello! So, what should we do with this?
+The beacon_loss_count field was removed from the structure in commit
+976bd9efdae6 ("mac80211: move beacon_loss_count into ifmgd"). This
+updates the kerneldoc comment to match the structure definition.
 
-If you think I should reconsider the patch, you should resubmit it.
-The ball is always in your court.
+Signed-off-by: Thierry Reding <treding@nvidia.com>
+---
+Applies on top of next-20151110.
+
+ net/mac80211/sta_info.h | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/net/mac80211/sta_info.h b/net/mac80211/sta_info.h
+index 2cafb21b422f..fb77ece9a8c8 100644
+--- a/net/mac80211/sta_info.h
++++ b/net/mac80211/sta_info.h
+@@ -370,7 +370,6 @@ DECLARE_EWMA(signal, 1024, 8)
+  * @uploaded: set to true when sta is uploaded to the driver
+  * @sta: station information we share with the driver
+  * @sta_state: duplicates information about station state (for debug)
+- * @beacon_loss_count: number of times beacon loss has triggered
+  * @rcu_head: RCU head used for freeing this station struct
+  * @cur_max_bandwidth: maximum bandwidth to use for TX to the station,
+  *	taken from HT/VHT capabilities or VHT operating mode notification
+-- 
+2.5.0
