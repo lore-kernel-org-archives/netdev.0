@@ -1,52 +1,79 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] netfilter: nfnetlink_log: work around uninitialized variable warning
-Date: Tue, 10 Nov 2015 13:08:15 +0100
-Message-ID: <17817903.Md6b3ydRpX@wuerfel>
+Subject: [PATCH] netfilter: fix xt_TEE and xt_TPROXY dependencies
+Date: Tue, 10 Nov 2015 13:22:15 +0100
+Message-ID: <8068952.JJURCanWFy@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
 Cc: Patrick McHardy <kaber@trash.net>,
 	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
 	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, Ken-ichirou MATSUZAWA <chamaken@gmail.com>,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-After a recent (correct) change, gcc started warning about the use
-of the 'flags' variable in nfulnl_recv_config()
+Kconfig is too smart for its own good: a Kconfig line that states
 
-net/netfilter/nfnetlink_log.c: In function 'nfulnl_recv_config':
-net/netfilter/nfnetlink_log.c:320:14: warning: 'flags' may be used uninitialized in this function [-Wmaybe-uninitialized]
-net/netfilter/nfnetlink_log.c:828:6: note: 'flags' was declared here
+	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES
 
-The warning first shows up in ARM s3c2410_defconfig with gcc-4.3 or
-higher (including 5.2.1, which is the latest version I checked) I
-tried working around it by rearranging the code but had no success
-with that.
+means that if IP6_NF_IPTABLES is set to 'm', then NF_DEFRAG_IPV6 will
+also be set to 'm', regardless of the state of the symbol from which
+it is selected. When the xt_TEE driver is built-in and nothing else
+forces NF_DEFRAG_IPV6 to be built-in, this causes a link-time error:
 
-As a last resort, this initializes the variable to zero, which shuts
-up the warning, but means that we don't get a warning if the code
-is ever changed in a way that actually causes the variable to be
-used without first being written.
+net/built-in.o: In function `tee_tg6':
+net/netfilter/xt_TEE.c:46: undefined reference to `nf_dup_ipv6'
+
+This works around that behavior by changing the dependency to
+'if IP6_NF_IPTABLES != n', which is interpreted as boolean expression
+rather than a tristate and causes the NF_DEFRAG_IPV6 symbol to
+be built-in as well.
+
+The bug only occurs once in thousands of 'randconfig' builds and
+does not really impact real users. From inspecting the other
+surrounding Kconfig symbols, I am guessing that NETFILTER_XT_TARGET_TPROXY
+and NETFILTER_XT_MATCH_SOCKET have the same issue. If not, this
+change should still be harmless.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 8cbc870829ec ("netfilter: nfnetlink_log: validate dependencies to avoid breaking atomicity")
 ---
+I have done a few thousand randconfig builds with this applied, and the
+problem did not come back, but it is super-rare.
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 06eb48fceb42..740cce4685ac 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -825,7 +825,7 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
- 	struct net *net = sock_net(ctnl);
- 	struct nfnl_log_net *log = nfnl_log_pernet(net);
- 	int ret = 0;
--	u16 flags;
-+	u16 flags = 0;
- 
- 	if (nfula[NFULA_CFG_CMD]) {
- 		u_int8_t pf = nfmsg->nfgen_family;
+Several people have tried to fix this in the past, but so far
+every patch was wrong. Maybe this one is lucky.
 
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index e22349ea7256..4692782b5280 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -869,7 +869,7 @@ config NETFILTER_XT_TARGET_TEE
+ 	depends on IPV6 || IPV6=n
+ 	depends on !NF_CONNTRACK || NF_CONNTRACK
+ 	select NF_DUP_IPV4
+-	select NF_DUP_IPV6 if IP6_NF_IPTABLES
++	select NF_DUP_IPV6 if IP6_NF_IPTABLES != n
+ 	---help---
+ 	This option adds a "TEE" target with which a packet can be cloned and
+ 	this clone be rerouted to another nexthop.
+@@ -882,7 +882,7 @@ config NETFILTER_XT_TARGET_TPROXY
+ 	depends on IP6_NF_IPTABLES || IP6_NF_IPTABLES=n
+ 	depends on IP_NF_MANGLE
+ 	select NF_DEFRAG_IPV4
+-	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES
++	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES != n
+ 	help
+ 	  This option adds a `TPROXY' target, which is somewhat similar to
+ 	  REDIRECT.  It can only be used in the mangle table and is useful
+@@ -1375,7 +1375,7 @@ config NETFILTER_XT_MATCH_SOCKET
+ 	depends on IPV6 || IPV6=n
+ 	depends on IP6_NF_IPTABLES || IP6_NF_IPTABLES=n
+ 	select NF_DEFRAG_IPV4
+-	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES
++	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES != n
+ 	help
+ 	  This option adds a `socket' match, which can be used to match
+ 	  packets for which a TCP or UDP socket lookup finds a valid socket.
