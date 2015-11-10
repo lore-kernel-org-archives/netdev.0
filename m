@@ -1,40 +1,60 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 5/6] net: dsa: mv88e6060: add register defines header file
-Date: Tue, 10 Nov 2015 15:53:24 +0100
-Message-ID: <20151110145324.GB23891@lunn.ch>
-References: <5641F04A.9060303@baylibre.com>
- <20151110142550.GB29568@ketchup.mtl.sfl>
- <56420268.90806@baylibre.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v2] af-unix: fix use-after-free with concurrent
+ readers while splicing
+Date: Tue, 10 Nov 2015 07:18:44 -0800
+Message-ID: <1447168724.17135.73.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1447166859-11766-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>
-To: Neil Armstrong <narmstrong@baylibre.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56420268.90806@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Dmitry Vyukov <dvyukov@google.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:34176 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752071AbbKJPSr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2015 10:18:47 -0500
+Received: by padhx2 with SMTP id hx2so228568600pad.1
+        for <netdev@vger.kernel.org>; Tue, 10 Nov 2015 07:18:47 -0800 (PST)
+In-Reply-To: <1447166859-11766-1-git-send-email-hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Is something like this OK ?
-> /*
->  * drivers/net/dsa/mv88e6060.h - Marvell 88e6060 switch chip support
->  * Copyright (c) 2015 Neil Armstrong
->  *
->  * Based on mv88e6xxx.h
->  * Copyright (c) 2008 Marvell Semiconductor
->  *
->  * This program is free software; you can redistribute it and/or modify
->  * it under the terms of the GNU General Public License as published by
->  * the Free Software Foundation; either version 2 of the License, or
->  * (at your option) any later version.
->  */
+On Tue, 2015-11-10 at 15:47 +0100, Hannes Frederic Sowa wrote:
+> During splicing an af-unix socket to a pipe we have to drop all
+> af-unix socket locks. While doing so we allow another reader to enter
+> unix_stream_read_generic which can read, copy and finally free another
+> skb. If exactly this skb is just in process of being spliced we get a
+> use-after-free report by kasan.
+> 
+> First, we must make sure to not have a free while the skb is used during
+> the splice operation. We simply increment its use counter before unlocking
+> the reader lock.
+> 
+> Stream sockets have the nice characteristic that we don't care about
+> zero length writes and they never reach the peer socket's queue. That
+> said, we can take the UNIXCB.consumed field as the indicator if the
+> skb was already freed from the socket's receive queue. If the skb was
+> fully consumed after we locked the reader side again we know it has been
+> dropped by a second reader. We indicate a short read to user space and
+> abort the current splice operation.
+> 
+> This bug has been found with syzkaller
+> (http://github.com/google/syzkaller) by Dmitry Vyukov.
+> 
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Cc: Dmitry Vyukov <dvyukov@google.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Yes, that is good, and i really should add my copyright to mv88e6xxx.h
-the next time i edit it.
+Please Hannes include the Fixes: tag.
 
-     Thanks
-	Andrew
+As you might already know, patchwork does not catch it later
+
+Fixes: 2b514574f7e8 ("net: af_unix: implement splice for stream af_unix sockets")
+Acked-by: Eric Dumazet <edumazet@google.com>
+
+Also I would prefer skb_get() being on a separate line, to ease future
+understanding of the code.
+
+Thanks.
