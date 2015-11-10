@@ -1,54 +1,57 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH, REPORT] bpf_trace: build error without PERF_EVENTS
-Date: Tue, 10 Nov 2015 14:31:38 +0100
-Message-ID: <5641F1BA.6040701@iogearbox.net>
-References: <4525348.Aq9YoXkChv@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@redhat.com>, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Kaixu Xia <xiakaixu@huawei.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
-	Arnaldo Carvalho de Melo <acme@kernel.org>,
-	linux-arm-kernel@lists.infradead.org
-To: Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4525348.Aq9YoXkChv@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mirza Krak <mirza.krak@hostmobility.com>
+Subject: [PATCH 1/1] can: sja1000: clear interrupts on start
+Date: Tue, 10 Nov 2015 14:59:34 +0100
+Message-ID: <1447163974-24514-1-git-send-email-mirza.krak@hostmobility.com>
+Cc: andri.yngvason@marel.com, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mirza Krak <mirza.krak@hostmobility.com>
+To: wg@grandegger.com, mkl@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:34280 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753012AbbKJN7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2015 08:59:40 -0500
+Received: by lbbcs9 with SMTP id cs9so14907316lbb.1
+        for <netdev@vger.kernel.org>; Tue, 10 Nov 2015 05:59:39 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/10/2015 01:55 PM, Arnd Bergmann wrote:
-> In my ARM randconfig tests, I'm getting a build error for
-> newly added code in bpf_perf_event_read and bpf_perf_event_output
-> whenever CONFIG_PERF_EVENTS is disabled:
->
-> kernel/trace/bpf_trace.c: In function 'bpf_perf_event_read':
-> kernel/trace/bpf_trace.c:203:11: error: 'struct perf_event' has no member named 'oncpu'
-> if (event->oncpu != smp_processor_id() ||
->           ^
-> kernel/trace/bpf_trace.c:204:11: error: 'struct perf_event' has no member named 'pmu'
->        event->pmu->count)
->
-> This can happen when UPROBE_EVENT is enabled but KPROBE_EVENT
-> is disabled. I'm not sure if that is a configuration we care
-> about, otherwise we could prevent this case from occuring by
-> adding Kconfig dependencies.
+From: Mirza Krak <mirza.krak@hostmobility.com>
 
-I think that seems better than spreading #if IS_ENABLEDs into the code.
-Probably enough to add a 'depends on PERF_EVENTS' to config BPF_EVENTS,
-so it's also explicitly documented.
+According to SJA1000 data sheet error-warning (EI) interrupt is not
+cleared by setting the controller in to reset-mode.
 
-> Simply hiding the broken code inside #ifdef CONFIG_PERF_EVENTS
-> as this patch does seems to reliably fix the error as well,
-> I have built thousands of randconfig kernels since I started
-> seeing this and added the workaround.
->
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 62544ce8e01c ("bpf: fix bpf_perf_event_read() helper")
-> Fixes: a43eec304259 ("bpf: introduce bpf_perf_event_output() helper")
+Then if we have the following case:
+- system is suspended (echo mem > /sys/power/state) and SJA1000 is left
+in operating state
+- A bus error condition occurs which activates EI interrupt, system is
+still suspended which means EI interrupt will be not be handled nor
+cleared.
 
-Thanks,
-Daniel
+If the above two events occur, on resume there is no way to return the
+SJA1000 to operating state, except to cycle power to it.
+
+By simply reading the IR register on start we will clear any previous
+conditions that could be present.
+
+Signed-off-by: Mirza Krak <mirza.krak@hostmobility.com>
+---
+ drivers/net/can/sja1000/sja1000.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
+index 7b92e911a616..f10834be48a5 100644
+--- a/drivers/net/can/sja1000/sja1000.c
++++ b/drivers/net/can/sja1000/sja1000.c
+@@ -218,6 +218,9 @@ static void sja1000_start(struct net_device *dev)
+ 	priv->write_reg(priv, SJA1000_RXERR, 0x0);
+ 	priv->read_reg(priv, SJA1000_ECC);
+ 
++	/* clear interrupt flags */
++	priv->read_reg(priv, SJA1000_IR);
++
+ 	/* leave reset mode */
+ 	set_normal_mode(dev);
+ }
+-- 
+2.1.0
