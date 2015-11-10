@@ -1,8 +1,7 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH 6/6] net: dsa: mv88e6060: replace magic values with register
- defines
-Date: Tue, 10 Nov 2015 14:25:35 +0100
-Message-ID: <5641F04F.3050802@baylibre.com>
+Subject: [PATCH 5/6] net: dsa: mv88e6060: add register defines header file
+Date: Tue, 10 Nov 2015 14:25:30 +0100
+Message-ID: <5641F04A.9060303@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -18,166 +17,129 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To align with the mv88e6xxx code, use the register defines to
-access all the register addresses and bit fields.
+To align with the mv88e6xxx code, add a similar header file
+with all the register defines.
+The file is based on the mv88e6xxx header for coherency.
 
 Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 ---
- drivers/net/dsa/mv88e6060.c | 64 ++++++++++++++++++++++++++-------------------
- 1 file changed, 37 insertions(+), 27 deletions(-)
+ drivers/net/dsa/mv88e6060.h | 108 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 108 insertions(+)
+ create mode 100644 drivers/net/dsa/mv88e6060.h
 
-diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
-index 449499d..6b5353e 100644
---- a/drivers/net/dsa/mv88e6060.c
-+++ b/drivers/net/dsa/mv88e6060.c
-@@ -15,9 +15,7 @@
- #include <linux/netdevice.h>
- #include <linux/phy.h>
- #include <net/dsa.h>
--
--#define REG_PORT(p)		(8 + (p))
--#define REG_GLOBAL		0x0f
-+#include "mv88e6060.h"
-
- static int reg_read(struct dsa_switch *ds, int addr, int reg)
- {
-@@ -67,13 +65,14 @@ static char *mv88e6060_probe(struct device *host_dev, int sw_addr)
- 	if (bus == NULL)
- 		return NULL;
-
--	ret = mdiobus_read(bus, sw_addr + REG_PORT(0), 0x03);
-+	ret = mdiobus_read(bus, sw_addr + REG_PORT(0), PORT_SWITCH_ID);
- 	if (ret >= 0) {
--		if (ret == 0x0600)
-+		if (ret == PORT_SWITCH_ID_6060)
- 			return "Marvell 88E6060 (A0)";
--		if (ret == 0x0601 || ret == 0x0602)
-+		if (ret == PORT_SWITCH_ID_6060_R1 ||
-+		    ret == PORT_SWITCH_ID_6060_R2)
- 			return "Marvell 88E6060 (B0)";
--		if ((ret & 0xfff0) == 0x0600)
-+		if ((ret & PORT_SWITCH_ID_6060_MASK) == PORT_SWITCH_ID_6060)
- 			return "Marvell 88E6060";
- 	}
-
-@@ -87,22 +86,26 @@ static int mv88e6060_switch_reset(struct dsa_switch *ds)
- 	unsigned long timeout;
-
- 	/* Set all ports to the disabled state. */
--	for (i = 0; i < 6; i++) {
--		ret = REG_READ(REG_PORT(i), 0x04);
--		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
-+	for (i = 0; i < MV88E6060_PORTS; i++) {
-+		ret = REG_READ(REG_PORT(i), PORT_CONTROL);
-+		REG_WRITE(REG_PORT(i), PORT_CONTROL,
-+			  ret & ~PORT_CONTROL_STATE_MASK);
- 	}
-
- 	/* Wait for transmit queues to drain. */
- 	usleep_range(2000, 4000);
-
- 	/* Reset the switch. */
--	REG_WRITE(REG_GLOBAL, 0x0a, 0xa130);
-+	REG_WRITE(REG_GLOBAL, GLOBAL_ATU_CONTROL,
-+		  GLOBAL_ATU_CONTROL_SWRESET |
-+		  GLOBAL_ATU_CONTROL_ATUSIZE_1024 |
-+		  GLOBAL_ATU_CONTROL_ATE_AGE_5MIN);
-
- 	/* Wait up to one second for reset to complete. */
- 	timeout = jiffies + 1 * HZ;
- 	while (time_before(jiffies, timeout)) {
--		ret = REG_READ(REG_GLOBAL, 0x00);
--		if ((ret & 0x800))
-+		ret = REG_READ(REG_GLOBAL, GLOBAL_STATUS);
-+		if ((ret & GLOBAL_STATUS_INIT_READY))
- 			break;
-
- 		usleep_range(1000, 2000);
-@@ -119,13 +122,15 @@ static int mv88e6060_setup_global(struct dsa_switch *ds)
- 	 * set the maximum frame size to 1536 bytes, and mask all
- 	 * interrupt sources.
- 	 */
--	REG_WRITE(REG_GLOBAL, 0x04, 0x400);
-+	REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL, GLOBAL_CONTROL_MAX_FRAME_1536);
-
- 	/* Enable automatic address learning, set the address
- 	 * database size to 1024 entries, and set the default aging
- 	 * time to 5 minutes.
- 	 */
--	REG_WRITE(REG_GLOBAL, 0x0a, 0x2130);
-+	REG_WRITE(REG_GLOBAL, GLOBAL_ATU_CONTROL,
-+		  GLOBAL_ATU_CONTROL_ATUSIZE_1024 |
-+		  GLOBAL_ATU_CONTROL_ATE_AGE_5MIN);
-
- 	return 0;
- }
-@@ -139,25 +144,30 @@ static int mv88e6060_setup_port(struct dsa_switch *ds, int p)
- 	 * state to Forwarding.  Additionally, if this is the CPU
- 	 * port, enable Ingress and Egress Trailer tagging mode.
- 	 */
--	REG_WRITE(addr, 0x04, dsa_is_cpu_port(ds, p) ?  0x4103 : 0x0003);
-+	REG_WRITE(addr, PORT_CONTROL,
-+		  dsa_is_cpu_port(ds, p) ?
-+			PORT_CONTROL_TRAILER |
-+			PORT_CONTROL_INGRESS_MODE |
-+			PORT_CONTROL_STATE_FORWARDING :
-+			PORT_CONTROL_STATE_FORWARDING);
-
- 	/* Port based VLAN map: give each port its own address
- 	 * database, allow the CPU port to talk to each of the 'real'
- 	 * ports, and allow each of the 'real' ports to only talk to
- 	 * the CPU port.
- 	 */
--	REG_WRITE(addr, 0x06,
--			((p & 0xf) << 12) |
--			 (dsa_is_cpu_port(ds, p) ?
--				ds->phys_port_mask :
--				(1 << ds->dst->cpu_port)));
-+	REG_WRITE(addr, PORT_VLAN_MAP,
-+		  ((p & 0xf) << PORT_VLAN_MAP_DBNUM_SHIFT) |
-+		   (dsa_is_cpu_port(ds, p) ?
-+			ds->phys_port_mask :
-+			BIT(ds->dst->cpu_port)));
-
- 	/* Port Association Vector: when learning source addresses
- 	 * of packets, add the address to the address database using
- 	 * a port bitmap that has only the bit for this port set and
- 	 * the other bits clear.
- 	 */
--	REG_WRITE(addr, 0x0b, 1 << p);
-+	REG_WRITE(addr, PORT_ASSOC_VECTOR, BIT(p));
-
- 	return 0;
- }
-@@ -177,7 +187,7 @@ static int mv88e6060_setup(struct dsa_switch *ds)
- 	if (ret < 0)
- 		return ret;
-
--	for (i = 0; i < 6; i++) {
-+	for (i = 0; i < MV88E6060_PORTS; i++) {
- 		ret = mv88e6060_setup_port(ds, i);
- 		if (ret < 0)
- 			return ret;
-@@ -189,16 +199,16 @@ static int mv88e6060_setup(struct dsa_switch *ds)
- static int mv88e6060_set_addr(struct dsa_switch *ds, u8 *addr)
- {
- 	/* Use the same MAC Address as FD Pause frames for all ports */
--	REG_WRITE(REG_GLOBAL, 0x01, (addr[0] << 9) | addr[1]);
--	REG_WRITE(REG_GLOBAL, 0x02, (addr[2] << 8) | addr[3]);
--	REG_WRITE(REG_GLOBAL, 0x03, (addr[4] << 8) | addr[5]);
-+	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_01, (addr[0] << 9) | addr[1]);
-+	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_23, (addr[2] << 8) | addr[3]);
-+	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_45, (addr[4] << 8) | addr[5]);
-
- 	return 0;
- }
-
- static int mv88e6060_port_to_phy_addr(int port)
- {
--	if (port >= 0 && port <= 5)
-+	if (port >= 0 && port < MV88E6060_PORTS)
- 		return port;
- 	return -1;
- }
+diff --git a/drivers/net/dsa/mv88e6060.h b/drivers/net/dsa/mv88e6060.h
+new file mode 100644
+index 0000000..adbc894
+--- /dev/null
++++ b/drivers/net/dsa/mv88e6060.h
+@@ -0,0 +1,108 @@
++/*
++ * net/dsa/mv88e6060.h - Marvell 88e6060 switch chip support
++ * Copyright (c) 2008 Marvell Semiconductor
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef __MV88E6060_H
++#define __MV88E6060_H
++
++#define MV88E6060_PORTS	6
++
++#define REG_PORT(p)		(0x8 + (p))
++#define PORT_STATUS		0x00
++#define PORT_STATUS_PAUSE_EN	BIT(15)
++#define PORT_STATUS_MY_PAUSE	BIT(14)
++#define PORT_STATUS_FC		(PORT_STATUS_MY_PAUSE | PORT_STATUS_PAUSE_EN)
++#define PORT_STATUS_RESOLVED	BIT(13)
++#define PORT_STATUS_LINK	BIT(12)
++#define PORT_STATUS_PORTMODE	BIT(11)
++#define PORT_STATUS_PHYMODE	BIT(10)
++#define PORT_STATUS_DUPLEX	BIT(9)
++#define PORT_STATUS_SPEED	BIT(8)
++#define PORT_SWITCH_ID		0x03
++#define PORT_SWITCH_ID_6060	0x0600
++#define PORT_SWITCH_ID_6060_MASK	0xfff0
++#define PORT_SWITCH_ID_6060_R1	0x0601
++#define PORT_SWITCH_ID_6060_R2	0x0602
++#define PORT_CONTROL		0x04
++#define PORT_CONTROL_FORCE_FLOW_CTRL	BIT(15)
++#define PORT_CONTROL_TRAILER	BIT(14)
++#define PORT_CONTROL_HEADER	BIT(11)
++#define PORT_CONTROL_INGRESS_MODE	BIT(8)
++#define PORT_CONTROL_VLAN_TUNNEL	BIT(7)
++#define PORT_CONTROL_STATE_MASK	0x03
++#define PORT_CONTROL_STATE_DISABLED	0x00
++#define PORT_CONTROL_STATE_BLOCKING	0x01
++#define PORT_CONTROL_STATE_LEARNING	0x02
++#define PORT_CONTROL_STATE_FORWARDING	0x03
++#define PORT_VLAN_MAP		0x06
++#define PORT_VLAN_MAP_DBNUM_SHIFT	12
++#define PORT_VLAN_MAP_TABLE_MASK	0x1f
++#define PORT_ASSOC_VECTOR	0x0b
++#define PORT_ASSOC_VECTOR_MONITOR	BIT(15)
++#define PORT_ASSOC_VECTOR_PAV_MASK	0x1f
++#define PORT_RX_CNTR		0x10
++#define PORT_TX_CNTR		0x11
++
++#define REG_GLOBAL		0x0f
++#define GLOBAL_STATUS		0x00
++#define GLOBAL_STATUS_SW_MODE_MASK	(0x3 << 12)
++#define GLOBAL_STATUS_SW_MODE_0	(0x0 << 12)
++#define GLOBAL_STATUS_SW_MODE_1	(0x1 << 12)
++#define GLOBAL_STATUS_SW_MODE_2	(0x2 << 12)
++#define GLOBAL_STATUS_SW_MODE_3	(0x3 << 12)
++#define GLOBAL_STATUS_INIT_READY	BIT(11)
++#define GLOBAL_STATUS_ATU_FULL		BIT(3)
++#define GLOBAL_STATUS_ATU_DONE		BIT(2)
++#define GLOBAL_STATUS_PHY_INT	BIT(1)
++#define GLOBAL_STATUS_EEINT	BIT(0)
++#define GLOBAL_MAC_01		0x01
++#define GLOBAL_MAC_01_DIFF_ADDR	BIT(8)
++#define GLOBAL_MAC_23		0x02
++#define GLOBAL_MAC_45		0x03
++#define GLOBAL_CONTROL		0x04
++#define GLOBAL_CONTROL_DISCARD_EXCESS	BIT(13)
++#define GLOBAL_CONTROL_MAX_FRAME_1536	BIT(10)
++#define GLOBAL_CONTROL_RELOAD_EEPROM	BIT(9)
++#define GLOBAL_CONTROL_CTRMODE		BIT(8)
++#define GLOBAL_CONTROL_ATU_FULL_EN	BIT(3)
++#define GLOBAL_CONTROL_ATU_DONE_EN	BIT(2)
++#define GLOBAL_CONTROL_PHYINT_EN	BIT(1)
++#define GLOBAL_CONTROL_EEPROM_DONE_EN	BIT(0)
++#define GLOBAL_ATU_CONTROL	0x0a
++#define GLOBAL_ATU_CONTROL_SWRESET	BIT(15)
++#define GLOBAL_ATU_CONTROL_LEARNDIS	BIT(14)
++#define GLOBAL_ATU_CONTROL_ATUSIZE_256	(0x0 << 12)
++#define GLOBAL_ATU_CONTROL_ATUSIZE_512	(0x1 << 12)
++#define GLOBAL_ATU_CONTROL_ATUSIZE_1024	(0x2 << 12)
++#define GLOBAL_ATU_CONTROL_ATE_AGE_SHIFT	4
++#define GLOBAL_ATU_CONTROL_ATE_AGE_MASK	(0xff << 4)
++#define GLOBAL_ATU_CONTROL_ATE_AGE_5MIN	(0x13 << 4)
++#define GLOBAL_ATU_OP		0x0b
++#define GLOBAL_ATU_OP_BUSY	BIT(15)
++#define GLOBAL_ATU_OP_NOP		(0 << 12)
++#define GLOBAL_ATU_OP_FLUSH_ALL	((1 << 12) | GLOBAL_ATU_OP_BUSY)
++#define GLOBAL_ATU_OP_FLUSH_UNLOCKED	((2 << 12) | GLOBAL_ATU_OP_BUSY)
++#define GLOBAL_ATU_OP_LOAD_DB		((3 << 12) | GLOBAL_ATU_OP_BUSY)
++#define GLOBAL_ATU_OP_GET_NEXT_DB	((4 << 12) | GLOBAL_ATU_OP_BUSY)
++#define GLOBAL_ATU_OP_FLUSH_DB		((5 << 12) | GLOBAL_ATU_OP_BUSY)
++#define GLOBAL_ATU_OP_FLUSH_UNLOCKED_DB ((6 << 12) | GLOBAL_ATU_OP_BUSY)
++#define GLOBAL_ATU_DATA		0x0c
++#define GLOBAL_ATU_DATA_PORT_VECTOR_MASK	0x3f0
++#define GLOBAL_ATU_DATA_PORT_VECTOR_SHIFT	4
++#define GLOBAL_ATU_DATA_STATE_MASK		0x0f
++#define GLOBAL_ATU_DATA_STATE_UNUSED		0x00
++#define GLOBAL_ATU_DATA_STATE_UC_STATIC		0x0e
++#define GLOBAL_ATU_DATA_STATE_UC_LOCKED		0x0f
++#define GLOBAL_ATU_DATA_STATE_MC_STATIC		0x07
++#define GLOBAL_ATU_DATA_STATE_MC_LOCKED		0x0e
++#define GLOBAL_ATU_MAC_01	0x0d
++#define GLOBAL_ATU_MAC_23	0x0e
++#define GLOBAL_ATU_MAC_45	0x0f
++
++#endif
 -- 
 1.9.1
