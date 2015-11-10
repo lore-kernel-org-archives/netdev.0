@@ -1,36 +1,52 @@
-From: Daniel Trautmann <dtrautmann@ibhsoftec.com>
-Subject: Re: [PATCH] drivers: net: cpsw: add support for fixed-links.
-Date: Tue, 10 Nov 2015 12:39:34 +0100
-Message-ID: <20151110113931.GB20442@dt-ub1404lts.ENTWDOM.local>
-References: <1447097054-4658-1-git-send-email-dtrautmann@ibhsoftec.com>
- <20151109.224951.1754592431174323682.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] netfilter: nfnetlink_log: work around uninitialized variable warning
+Date: Tue, 10 Nov 2015 13:08:15 +0100
+Message-ID: <17817903.Md6b3ydRpX@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <mugunthanvnm@ti.com>, <balbi@ti.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.216]:65343 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751027AbbKJLji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2015 06:39:38 -0500
-Content-Disposition: inline
-In-Reply-To: <20151109.224951.1754592431174323682.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7Bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, Ken-ichirou MATSUZAWA <chamaken@gmail.com>,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 09, 2015 at 10:49:51PM -0500, David Miller wrote:
-> From: Daniel Trautmann <dtrautmann@ibhsoftec.com>
-> Date: Mon, 9 Nov 2015 20:24:14 +0100
-> 
-> > Add support for fixed-links in configurations without PHY.
-> > (e.g. connection to a switch, SGMII point to point, SFPs)
-> > 
-> > Check: Documentation/devicetree/bindings/net/fixed-link.txt.
-> > 
-> > Signed-off-by: Daniel Trautmann <dtrautmann@ibhsoftec.com>
-> 
-> This patch doesn't apply cleanly at all.
+After a recent (correct) change, gcc started warning about the use
+of the 'flags' variable in nfulnl_recv_config()
 
-Sorry, I was working on the wrong branch.
-I found there is a similar patch already in netdev-next, I will
-check this an submit a new Patch if necessary.
+net/netfilter/nfnetlink_log.c: In function 'nfulnl_recv_config':
+net/netfilter/nfnetlink_log.c:320:14: warning: 'flags' may be used uninitialized in this function [-Wmaybe-uninitialized]
+net/netfilter/nfnetlink_log.c:828:6: note: 'flags' was declared here
+
+The warning first shows up in ARM s3c2410_defconfig with gcc-4.3 or
+higher (including 5.2.1, which is the latest version I checked) I
+tried working around it by rearranging the code but had no success
+with that.
+
+As a last resort, this initializes the variable to zero, which shuts
+up the warning, but means that we don't get a warning if the code
+is ever changed in a way that actually causes the variable to be
+used without first being written.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 8cbc870829ec ("netfilter: nfnetlink_log: validate dependencies to avoid breaking atomicity")
+---
+
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index 06eb48fceb42..740cce4685ac 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -825,7 +825,7 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
+ 	struct net *net = sock_net(ctnl);
+ 	struct nfnl_log_net *log = nfnl_log_pernet(net);
+ 	int ret = 0;
+-	u16 flags;
++	u16 flags = 0;
+ 
+ 	if (nfula[NFULA_CFG_CMD]) {
+ 		u_int8_t pf = nfmsg->nfgen_family;
+
