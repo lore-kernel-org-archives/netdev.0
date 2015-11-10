@@ -1,38 +1,72 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue
-Date: Tue, 10 Nov 2015 17:16:35 +0000
-Message-ID: <878u65n5ak.fsf@doppelsaurus.mobileactivedefense.com>
-References: <563CC002.5050307@akamai.com>
-	<87ziyrcg67.fsf@doppelsaurus.mobileactivedefense.com>
-	<87fv0fnslr.fsf_-_@doppelsaurus.mobileactivedefense.com>
-	<20151109.132523.624907753522887529.davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH, REPORT] bpf_trace: build error without PERF_EVENTS
+Date: Tue, 10 Nov 2015 18:23:14 +0100
+Message-ID: <56422802.5050901@iogearbox.net>
+References: <4525348.Aq9YoXkChv@wuerfel> <5641F1BA.6040701@iogearbox.net> <20151110092501.0bc676c9@gandalf.local.home> <20151110171421.GA21650@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rweikusat@mobileactivedefense.com, jbaron@akamai.com,
-	dvyukov@google.com, syzkaller@googlegroups.com, mkubecek@suse.cz,
-	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
-	linux-kernel@vger.kernel.org, hannes@stressinduktion.org,
-	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
-	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org,
-	kcc@google.com, glider@google.com, andreyknvl@google.com,
-	sasha.levin@oracle.com, jln@google.com, keescook@google.com,
-	minipli@googlemail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151109.132523.624907753522887529.davem@davemloft.net> (David
-	Miller's message of "Mon, 09 Nov 2015 13:25:23 -0500 (EST)")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, Ingo Molnar <mingo@redhat.com>,
+	linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Kaixu Xia <xiakaixu@huawei.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@kernel.org>,
+	linux-arm-kernel@lists.infradead.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Steven Rostedt <rostedt@goodmis.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:38684 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765AbbKJRXW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2015 12:23:22 -0500
+In-Reply-To: <20151110171421.GA21650@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
-> From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-> Date: Mon, 09 Nov 2015 14:40:48 +0000
+On 11/10/2015 06:14 PM, Alexei Starovoitov wrote:
+> On Tue, Nov 10, 2015 at 09:25:01AM -0500, Steven Rostedt wrote:
+>> On Tue, 10 Nov 2015 14:31:38 +0100
+>> Daniel Borkmann <daniel@iogearbox.net> wrote:
+>>
+>>> On 11/10/2015 01:55 PM, Arnd Bergmann wrote:
+>>>> In my ARM randconfig tests, I'm getting a build error for
+>>>> newly added code in bpf_perf_event_read and bpf_perf_event_output
+>>>> whenever CONFIG_PERF_EVENTS is disabled:
+>>>>
+>>>> kernel/trace/bpf_trace.c: In function 'bpf_perf_event_read':
+>>>> kernel/trace/bpf_trace.c:203:11: error: 'struct perf_event' has no member named 'oncpu'
+>>>> if (event->oncpu != smp_processor_id() ||
+>>>>            ^
+>>>> kernel/trace/bpf_trace.c:204:11: error: 'struct perf_event' has no member named 'pmu'
+>>>>         event->pmu->count)
+>>>>
+>>>> This can happen when UPROBE_EVENT is enabled but KPROBE_EVENT
+>>>> is disabled. I'm not sure if that is a configuration we care
+>>>> about, otherwise we could prevent this case from occuring by
+>>>> adding Kconfig dependencies.
+>>>
+>>> I think that seems better than spreading #if IS_ENABLEDs into the code.
+>>> Probably enough to add a 'depends on PERF_EVENTS' to config BPF_EVENTS,
+>>> so it's also explicitly documented.
+>>>
+>>
+>> So just do the following then?
+>>
+>> -- Steve
+>>
+>> diff --git a/kernel/trace/Kconfig b/kernel/trace/Kconfig
+>> index 8d6363f42169..f5aecff2d243 100644
+>> --- a/kernel/trace/Kconfig
+>> +++ b/kernel/trace/Kconfig
+>> @@ -434,7 +434,7 @@ config UPROBE_EVENT
+>>
+>>   config BPF_EVENTS
+>>   	depends on BPF_SYSCALL
+>> -	depends on KPROBE_EVENT || UPROBE_EVENT
+>> +	depends on KPROBE_EVENT && UPROBE_EVENT
 >
->> +	__remove_wait_queue(&unix_sk(u->peer_wake.private)->peer_wait,
->> +			    &u->peer_wake);
->
-> This is more simply:
->
-> 	__remove_wait_queue(&unix_sk(u->peer_wake.private)->peer_wait, q);
+> yeah that's definitely cleaner and avoids ifdef creep in the future.
 
-Thank you for pointing this out.
+Agreed, that's better.
