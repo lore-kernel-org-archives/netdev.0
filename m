@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -stable] virtio-net: drop NETIF_F_FRAGLIST
-Date: Tue, 10 Nov 2015 15:11:26 -0500 (EST)
-Message-ID: <20151110.151126.611293958922280322.davem@davemloft.net>
-References: <1447179965.2645.5.camel@gmail.com>
+Subject: Re: [PATCH nf 1/2] net: add __netdev_alloc_pcpu_stats() to
+ indicate gfp flags
+Date: Tue, 10 Nov 2015 15:12:46 -0500 (EST)
+Message-ID: <20151110.151246.88783320600707924.davem@davemloft.net>
+References: <1447173390-2993-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: 3chas3@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33358 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751123AbbKJUL2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2015 15:11:28 -0500
-In-Reply-To: <1447179965.2645.5.camel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, kaber@trash.net,
+	netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1447173390-2993-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Charles (Chas) Williams" <3chas3@gmail.com>
-Date: Tue, 10 Nov 2015 13:26:05 -0500
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue, 10 Nov 2015 17:36:28 +0100
 
-> Dave, could you please add
+> nf_tables may create percpu counters from the packet path through its
+> dynamic set instantiation infrastructure, so we need a way to allocate
+> this through GFP_ATOMIC.
 > 
-> commit 48900cb6af4282fa0fb6ff4d72a81aa3dadb5c39
-> virtio-net: drop NETIF_F_FRAGLIST
-> 
-> to your stable queues for 3.14.y and 4.1.y?
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Ok, queued up.
+Acked-by: David S. Miller <davem@davemloft.net>
