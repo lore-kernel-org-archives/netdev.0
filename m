@@ -1,38 +1,67 @@
-From: Thierry Reding <thierry.reding@gmail.com>
-Subject: [PATCH] mac80211: Remove kerneldoc for beacon_loss_count
-Date: Tue, 10 Nov 2015 17:58:52 +0100
-Message-ID: <1447174732-28449-1-git-send-email-thierry.reding@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH, REPORT] bpf_trace: build error without PERF_EVENTS
+Date: Tue, 10 Nov 2015 09:14:22 -0800
+Message-ID: <20151110171421.GA21650@ast-mbp.thefacebook.com>
+References: <4525348.Aq9YoXkChv@wuerfel>
+ <5641F1BA.6040701@iogearbox.net>
+ <20151110092501.0bc676c9@gandalf.local.home>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Arnd Bergmann <arnd@arndb.de>, Ingo Molnar <mingo@redhat.com>,
+	linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Kaixu Xia <xiakaixu@huawei.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@kernel.org>,
+	linux-arm-kernel@lists.infradead.org
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151110092501.0bc676c9@gandalf.local.home>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thierry Reding <treding@nvidia.com>
+On Tue, Nov 10, 2015 at 09:25:01AM -0500, Steven Rostedt wrote:
+> On Tue, 10 Nov 2015 14:31:38 +0100
+> Daniel Borkmann <daniel@iogearbox.net> wrote:
+> 
+> > On 11/10/2015 01:55 PM, Arnd Bergmann wrote:
+> > > In my ARM randconfig tests, I'm getting a build error for
+> > > newly added code in bpf_perf_event_read and bpf_perf_event_output
+> > > whenever CONFIG_PERF_EVENTS is disabled:
+> > >
+> > > kernel/trace/bpf_trace.c: In function 'bpf_perf_event_read':
+> > > kernel/trace/bpf_trace.c:203:11: error: 'struct perf_event' has no member named 'oncpu'
+> > > if (event->oncpu != smp_processor_id() ||
+> > >           ^
+> > > kernel/trace/bpf_trace.c:204:11: error: 'struct perf_event' has no member named 'pmu'
+> > >        event->pmu->count)
+> > >
+> > > This can happen when UPROBE_EVENT is enabled but KPROBE_EVENT
+> > > is disabled. I'm not sure if that is a configuration we care
+> > > about, otherwise we could prevent this case from occuring by
+> > > adding Kconfig dependencies.  
+> > 
+> > I think that seems better than spreading #if IS_ENABLEDs into the code.
+> > Probably enough to add a 'depends on PERF_EVENTS' to config BPF_EVENTS,
+> > so it's also explicitly documented.
+> > 
+> 
+> So just do the following then?
+> 
+> -- Steve
+> 
+> diff --git a/kernel/trace/Kconfig b/kernel/trace/Kconfig
+> index 8d6363f42169..f5aecff2d243 100644
+> --- a/kernel/trace/Kconfig
+> +++ b/kernel/trace/Kconfig
+> @@ -434,7 +434,7 @@ config UPROBE_EVENT
+>  
+>  config BPF_EVENTS
+>  	depends on BPF_SYSCALL
+> -	depends on KPROBE_EVENT || UPROBE_EVENT
+> +	depends on KPROBE_EVENT && UPROBE_EVENT
 
-The beacon_loss_count field was removed from the structure in commit
-976bd9efdae6 ("mac80211: move beacon_loss_count into ifmgd"). This
-updates the kerneldoc comment to match the structure definition.
-
-Signed-off-by: Thierry Reding <treding@nvidia.com>
----
-Applies on top of next-20151110.
-
- net/mac80211/sta_info.h | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/mac80211/sta_info.h b/net/mac80211/sta_info.h
-index 2cafb21b422f..fb77ece9a8c8 100644
---- a/net/mac80211/sta_info.h
-+++ b/net/mac80211/sta_info.h
-@@ -370,7 +370,6 @@ DECLARE_EWMA(signal, 1024, 8)
-  * @uploaded: set to true when sta is uploaded to the driver
-  * @sta: station information we share with the driver
-  * @sta_state: duplicates information about station state (for debug)
-- * @beacon_loss_count: number of times beacon loss has triggered
-  * @rcu_head: RCU head used for freeing this station struct
-  * @cur_max_bandwidth: maximum bandwidth to use for TX to the station,
-  *	taken from HT/VHT capabilities or VHT operating mode notification
--- 
-2.5.0
+yeah that's definitely cleaner and avoids ifdef creep in the future.
