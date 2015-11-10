@@ -1,66 +1,41 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH] Revert "bridge: Allow forward delay to be cfgd when STP enabled"
-Date: Tue, 10 Nov 2015 06:15:32 -0500
-Message-ID: <1447154132-13879-1-git-send-email-vyasevich@gmail.com>
-Cc: stephen@networkplumber.org,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute PATCH v2 4/6] ipaddress: fix ipaddr_flush for Linux >=
+ 3.1
+Date: Tue, 10 Nov 2015 12:21:30 +0100
+Message-ID: <20151110112130.GN26876@orbit.nwl.cc>
+References: <1447010471-559-1-git-send-email-phil@nwl.cc>
+ <1447014141-3565-1-git-send-email-phil@nwl.cc>
+ <1447014141-3565-5-git-send-email-phil@nwl.cc>
+ <5640EB36.306@cogentembedded.com>
+ <5640ECEA.8020808@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemming@brocade.com>, netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f180.google.com ([209.85.220.180]:32953 "EHLO
-	mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752235AbbKJLPs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2015 06:15:48 -0500
-Received: by qkas77 with SMTP id s77so80145669qka.0
-        for <netdev@vger.kernel.org>; Tue, 10 Nov 2015 03:15:47 -0800 (PST)
+Received: from orbit.nwl.cc ([176.31.251.142]:58586 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752245AbbKJLVc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Nov 2015 06:21:32 -0500
+Content-Disposition: inline
+In-Reply-To: <5640ECEA.8020808@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 34c2d9fb0498c066afbe610b15e18995fd8be792.
+On Mon, Nov 09, 2015 at 09:58:50PM +0300, Sergei Shtylyov wrote:
+> On 11/09/2015 09:51 PM, Sergei Shtylyov wrote:
+> 
+> >> Linux version 3.1 introduced a consistency check for netlink dumps in
+> >> commit 670dc28 ("netlink: advertise incomplete dumps"). This bites
+> >
+> >     The scripts/checkpatch.pl now enforces 12-digit commit ID...
+> 
+>     Sorry, didn't realize it wasn't a kernel patch. :-)
 
-There are 2 reasons for this revert:
- 1)  The commit in question doesn't do what it says it does.  The
-     description reads: "Allow bridge forward delay to be configured
-     when Spanning Tree is enabled."  This was already the case before
-     the commit was made.  What the commit actually do was disallow
-     invalid values or 'forward_delay' when STP was turned off.
+Heh, no problem! If more projects used checkpatch.pl, the world would be
+a better place.
 
- 2)  The above change was actually a change in the user observed
-     behavior and broke things like libvirt and other network configs
-     that set 'forward_delay' to 0 without enabling STP.  The value
-     of 0 is actually used when STP is turned off to immediately mark
-     the bridge as forwarding.
+My quoting commits was usually a matter of copying what 'git --oneline
+show' outputs. Thanks for the heads-up, I've adjusted core.abbrev now.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- net/bridge/br_stp.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
-
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index 80c34d7..f7e8dee 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -600,12 +600,17 @@ void __br_set_forward_delay(struct net_bridge *br, unsigned long t)
- int br_set_forward_delay(struct net_bridge *br, unsigned long val)
- {
- 	unsigned long t = clock_t_to_jiffies(val);
--
--	if (t < BR_MIN_FORWARD_DELAY || t > BR_MAX_FORWARD_DELAY)
--		return -ERANGE;
-+	int err = -ERANGE;
- 
- 	spin_lock_bh(&br->lock);
-+	if (br->stp_enabled != BR_NO_STP &&
-+	    (t < BR_MIN_FORWARD_DELAY || t > BR_MAX_FORWARD_DELAY))
-+		goto unlock;
-+
- 	__br_set_forward_delay(br, t);
-+	err = 0;
-+
-+unlock:
- 	spin_unlock_bh(&br->lock);
--	return 0;
-+	return err;
- }
--- 
-1.9.3
+Cheers, Phil
