@@ -1,7 +1,7 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH 0/6] net: dsa: mv88e6060: cleanup and fix setup
-Date: Tue, 10 Nov 2015 14:25:05 +0100
-Message-ID: <5641F031.4080904@baylibre.com>
+Subject: [PATCH 3/6] net: dsa: mv88e6060: use the correct MaxFrameSize bit
+Date: Tue, 10 Nov 2015 14:25:20 +0100
+Message-ID: <5641F040.8050508@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -17,25 +17,27 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patchset introduces somes fixes and a registers addressing cleanup for
-the mv88e6060 DSA driver.
+According to the mv88e6060 datasheet, the MaxFrameSize bit position
+is 10 instead of 11 which is reserved.
+Use the bit correctly to setup max frame size to 1536.
 
-The first patch removes the poll_link as mv88e6xxx.
-The 3 following patches fixes the setup in regards of the datasheet.
-The 2 last patches introduces a clean header and replaces all magic values.
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+---
+ drivers/net/dsa/mv88e6060.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Neil Armstrong (6):
-  net: dsa: mv88e6060: remove poll_link callback
-  net: dsa: mv88e6060: use the correct InitReady bit
-  net: dsa: mv88e6060: use the correct MaxFrameSize bit
-  net: dsa: mv88e6060: use the correct bit shift for mac0
-  net: dsa: mv88e6060: add register defines header file
-  net: dsa: mv88e6060: replace magic values with register defines
+diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
+index 26f668c..6a35e3f 100644
+--- a/drivers/net/dsa/mv88e6060.c
++++ b/drivers/net/dsa/mv88e6060.c
+@@ -119,7 +119,7 @@ static int mv88e6060_setup_global(struct dsa_switch *ds)
+ 	 * set the maximum frame size to 1536 bytes, and mask all
+ 	 * interrupt sources.
+ 	 */
+-	REG_WRITE(REG_GLOBAL, 0x04, 0x0800);
++	REG_WRITE(REG_GLOBAL, 0x04, 0x400);
 
- drivers/net/dsa/mv88e6060.c | 114 +++++++++++++++-----------------------------
- drivers/net/dsa/mv88e6060.h | 108 +++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 146 insertions(+), 76 deletions(-)
- create mode 100644 drivers/net/dsa/mv88e6060.h
-
+ 	/* Enable automatic address learning, set the address
+ 	 * database size to 1024 entries, and set the default aging
 -- 
 1.9.1
