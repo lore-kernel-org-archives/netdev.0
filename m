@@ -1,78 +1,119 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800
- Ethernet controller
-Date: Wed, 11 Nov 2015 00:34:48 +0100
-Message-ID: <20151110233448.GA8646@electric-eye.fr.zoreil.com>
-References: <1447172063-27234-1-git-send-email-mans@mansr.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net v2 3/3] packet: fix tpacket_snd max frame and vlan
+ handling
+Date: Wed, 11 Nov 2015 00:51:35 +0100
+Message-ID: <56428307.1010200@iogearbox.net>
+References: <cover.1447191361.git.daniel@iogearbox.net> <f664dc9cf1d33a001fcdb0265833c96644db5bfd.1447191361.git.daniel@iogearbox.net> <CA+FuTSfkD4aMciGeqon0cLp=EJ7fWis56nGQsbku82ZC+=nNWg@mail.gmail.com> <564279DF.4080400@iogearbox.net> <CA+FuTSep5RRghDMbPJh-OcJDZo8BFr-9hyHBrdXiOh2vck4_zA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	slash.tmp@free.fr
-To: Mans Rullgard <mans@mansr.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1447172063-27234-1-git-send-email-mans@mansr.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Tobias Klauser <tklauser@distanz.ch>,
+	Network Development <netdev@vger.kernel.org>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:41438 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751724AbbKJXvj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2015 18:51:39 -0500
+In-Reply-To: <CA+FuTSep5RRghDMbPJh-OcJDZo8BFr-9hyHBrdXiOh2vck4_zA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mans Rullgard <mans@mansr.com> :
-> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-> new file mode 100644
-> index 0000000..11cd389
-> --- /dev/null
-> +++ b/drivers/net/ethernet/aurora/nb8800.c
-[...]
-> +static int nb8800_xmit(struct sk_buff *skb, struct net_device *dev)
-> +{
-[...]
-> +
-> +	netdev_sent_queue(dev, skb->len);
-> +
-> +	smp_mb__before_spinlock();
-> +	spin_lock_irqsave(&priv->tx_lock, flags);
+On 11/11/2015 12:24 AM, Willem de Bruijn wrote:
+> On Tue, Nov 10, 2015 at 6:12 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> On 11/10/2015 11:52 PM, Willem de Bruijn wrote:
+>>>>
+>>>>           if (sock->type == SOCK_DGRAM) {
+>>>> -               err = dev_hard_header(skb, dev, ntohs(proto), addr,
+>>>> -                               NULL, tp_len);
+>>>> +               /* In DGRAM sockets, we expect struct sockaddr_ll was
+>>>> filled
+>>>> +                * via struct msghdr, so we have dest mac and
+>>>> skb->protocol.
+>>>> +                * Otherwise there's not too much useful things we can do
+>>>> in
+>>>> +                * this flush run.
+>>>> +                */
+>>>> +               err = dev_hard_header(skb, dev, ntohs(skb->protocol),
+>>>> addr,
+>>>> +                                     NULL, tp_len);
+>>>
+>>>
+>>> This change is not really necessary.
+>>
+>>
+>> Sure agreed, I found it helpful though. Don't mind removing it.
+>>
+>>>>                   if (unlikely(err < 0))
+>>>>                           return -EINVAL;
+>>>> -       } else if (dev->hard_header_len) {
+>>>
+>>>
+>>> Why remove the check on hard_header_len?
+>>
+>>
+>> Hmm, the patch doesn't remove the check (it's moved further below).
+>>
+>>>> -               if (ll_header_truncated(dev, tp_len))
+>>>> -                       return -EINVAL;
+>>>> +       } else {
+>>>> +               /* If skb->protocol is still 0, try to infer/guess it.
+>>>> Might
+>>>> +                * not be fully reliable in the sense that a user could
+>>>> still
+>>>> +                * change/race data afterwards, but on the other hand the
+>>>> proto
+>>>
+>>>
+>>> The race goes away when probing it after the copy in skb_store_bits.
+>>> Then it is also certain that tp_len is long enough to hold the entire
+>>> link layer header.
+>>
+>>
+>> The skb_store_bits() is only done in case we do have a dev->hard_header_len
+>> or in case where we run into a possible situation where we have the
+>> additional
+>> 4 bytes on a full frame. In that case we need to check them properly, which
+>> requires copying, otherwise we don't copy any header.
+>
+> I assumed that hard_header_len has to be non-zero if there
+> is a link layer header to probe. If we only intend to implement
+> probing in the case of Ethernet, then it certainly holds.
 
-At some point you may consider performing both Tx and Rx from napi context
-and thus replacing priv->tx_lock with netif_tx_lock.
+Yeah, I guess we only care about ether_setup() alike devices, so we'd have
+ETH_HLEN room as dev->hard_header_len. That will hold, yes.
 
-> +
-> +	if (!skb->xmit_more) {
-> +		priv->tx_chain->ready = true;
-> +		priv->tx_chain = NULL;
-> +		nb8800_tx_dma_start(dev);
-> +	}
-> +
-> +	spin_unlock_irqrestore(&priv->tx_lock, flags);
-> +
-> +	priv->tx_next = next;
+>>>> +                * can be set arbitrarily anyways. We only need to take
+>>>> care
+>>>> +                * in case of extra large VLAN frames.
+>>>> +                */
+>>>> +               if (!skb->protocol && tp_len >= ETH_HLEN)
+>>>> +                       skb->protocol = ((struct ethhdr *)data)->h_proto;
+>>>
+>>>
+>>> Packet sockets are not restricted to link layer of type Ethernet.
+>>>
+>>> There are a few other points in this file that also cast mac header
+>>> to eth_hdr(skb).
+>>
+>>
+>> Ok, the set doesn't address this assumption which we have elsewhere, too.
+>> Do you suggest to also check on dev->type for these cases?
+>
+> Yes. If I'm right, then the other cases have to be fixed, too. One of the
+> eth_hdr(skb) calls was introduced by patch 09effa67a18d, where the
+> deleted code shows how it is safely restricted to ethernet:
+>
+>    -       if (dev->type == ARPHRD_ETHER) {
+>    -               skb->protocol = eth_type_trans(skb, dev);
+>    -               if (skb->protocol == htons(ETH_P_8021Q))
 
-Are there strong reasons why nb8800_tx_done could not kick between
-spin_unlock_irqrestore and the non-local update of priv->tx_next ?
+Saw that, so we need the check as one more fix for 57f89bfa2140 ("network:
+Allow af_packet to transmit +4 bytes for VLAN packets.") as well.
 
-[...]
-> +static irqreturn_t nb8800_irq(int irq, void *dev_id)
-> +{
-> +	struct net_device *dev = dev_id;
-> +	struct nb8800_priv *priv = netdev_priv(dev);
-> +	u32 val;
-> +
-> +	/* tx interrupt */
-> +	val = nb8800_readl(priv, NB8800_TXC_SR);
-> +	if (val) {
-[...]
-> +	}
-> +
-> +	/* rx interrupt */
-> +	val = nb8800_readl(priv, NB8800_RXC_SR);
-> +	if (val) {
-[...]
-> +	}
-> +
-> +	return IRQ_HANDLED;
+I'll see to respin a v3 tomorrow.
 
-Returning IRQ_HANDLED is fine if one of those hold:
-1. you're sure that at least one of the "if" branch is used
-2. you'll be able to quickly figure out what's happening whenever 1. stops
-   being true.
-
--- 
-Ueimor
+Thanks,
+Daniel
