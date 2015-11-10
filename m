@@ -1,68 +1,28 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
-Date: Tue, 10 Nov 2015 18:07:59 +0000
-Message-ID: <yw1xmvulram8.fsf@unicorn.mansr.com>
-References: <1447172063-27234-1-git-send-email-mans@mansr.com>
-	<1447178287.17135.77.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Charles (Chas) Williams" <3chas3@gmail.com>
+Subject: [PATCH -stable] virtio-net: drop NETIF_F_FRAGLIST
+Date: Tue, 10 Nov 2015 13:26:05 -0500
+Message-ID: <1447179965.2645.5.camel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	slash.tmp@free.fr
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447178287.17135.77.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Tue, 10 Nov 2015 09:58:07 -0800")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f172.google.com ([209.85.160.172]:35960 "EHLO
+	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750885AbbKJS0I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2015 13:26:08 -0500
+Received: by ykdr82 with SMTP id r82so8290078ykd.3
+        for <netdev@vger.kernel.org>; Tue, 10 Nov 2015 10:26:07 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+Dave, could you please add
 
-> On Tue, 2015-11-10 at 16:14 +0000, Mans Rullgard wrote:
->> This adds a driver for the Aurora VLSI NB8800 Ethernet controller.
->> It is an almost complete rewrite of a driver originally found in
->> a Sigma Designs 2.6.22 tree.
->
-> ...
->
->> +
->> +static int nb8800_xmit(struct sk_buff *skb, struct net_device *dev)
->> +{
->> +	struct nb8800_priv *priv =3D netdev_priv(dev);
->> +	struct nb8800_tx_desc *txd;
->> +	struct nb8800_tx_buf *txb;
->> +	struct nb8800_dma_desc *dma;
->> +	dma_addr_t dma_addr;
->> +	unsigned int dma_len;
->> +	unsigned long flags;
->> +	int align;
->> +	int next;
->> +
->> +	if (atomic_read(&priv->tx_free) <=3D NB8800_DESC_LOW) {
->> +		netif_stop_queue(dev);
->> +		return NETDEV_TX_BUSY;
->> +	}
->> +
->> +	align =3D (8 - (uintptr_t)skb->data) & 7;
->> +
->> +	dma_len =3D skb->len - align;
->> +	dma_addr =3D dma_map_single(&dev->dev, skb->data + align,
->> +				  dma_len, DMA_TO_DEVICE);
->> +
->> +	if (dma_mapping_error(&dev->dev, dma_addr)) {
->> +		netdev_err(dev, "tx dma mapping error\n");
->> +		kfree_skb(skb);
->> +		dev->stats.tx_dropped++;
->> +		return NETDEV_TX_OK;
->> +	}
->> +
->> +	if (atomic_dec_return(&priv->tx_free) <=3D NB8800_DESC_LOW)
->> +		netif_stop_queue(dev);
->
-> You probably also want to clear skb->xmit_more or risk a stall
+commit 48900cb6af4282fa0fb6ff4d72a81aa3dadb5c39
+virtio-net: drop NETIF_F_FRAGLIST
 
-Very true, will fix.
+to your stable queues for 3.14.y and 4.1.y?
 
---=20
-M=E5ns Rullg=E5rd
-mans@mansr.com
+This fixes CVE-2015-5156,
+https://security-tracker.debian.org/tracker/CVE-2015-5156
