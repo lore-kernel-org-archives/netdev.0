@@ -1,425 +1,178 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [PATCH v8] can: xilinx: Convert to runtime_pm
-Date: Tue, 10 Nov 2015 08:33:12 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A4FA2C2@XAP-PVEXMBX01.xlnx.xilinx.com>
-References: <1445839914-26249-1-git-send-email-appanad@xilinx.com>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: Re: network stream fairness
+Date: Tue, 10 Nov 2015 10:38:44 +0100
+Message-ID: <5641BB24.4060301@axis.com>
+References: <5640BEAC.10404@axis.com>	 <1447084258.17135.39.camel@edumazet-glaptop2.roam.corp.google.com>	 <5640C15E.805@axis.com>	 <1447085271.17135.44.camel@edumazet-glaptop2.roam.corp.google.com>	 <1447086271.17135.45.camel@edumazet-glaptop2.roam.corp.google.com>	 <5640CED5.6040103@axis.com> <1447089782.17135.48.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Appana Durga Kedareswara Rao <appanad@xilinx.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	"wg@grandegger.com" <wg@grandegger.com>,
-	"mkl@pengutronix.de" <mkl@pengutronix.de>,
-	Michal Simek <michals@xilinx.com>,
-	Soren Brinkmann <sorenb@xilinx.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1445839914-26249-1-git-send-email-appanad@xilinx.com>
-Content-Language: en-US
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "edumazet@google.com" <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bes.se.axis.com ([195.60.68.10]:53996 "EHLO bes.se.axis.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751977AbbKJJiv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Nov 2015 04:38:51 -0500
+In-Reply-To: <1447089782.17135.48.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ping!!
+On 11/09/2015 06:23 PM, Eric Dumazet wrote:
+> On Mon, 2015-11-09 at 17:50 +0100, Niklas Cassel wrote:
+> 
+>>
+>> for i in `seq 1 20`; do ss -temoi dst 192.168.0.141; sleep 1; done
+> ...
+>> ESTAB      0      0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+>> State      Recv-Q Send-Q                         Local Address:Port                             Peer Address:Port   
+>> ESTAB      0      0                                192.168.0.1:54576                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901837 sk:ffff880143735800
+>> ESTAB      0      0                                192.168.0.1:54574                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 qack:10 uid:20283 ino:7902591 sk:ffff880223311800
+>> ESTAB      1448   0                                192.168.0.1:54578                           192.168.0.141:5201     rto:0.2 ato:0.04 cwnd:10 uid:20283 ino:7901838 sk:ffff880143735040
+> 
+> This is the receiver, I would like to see the sender side, since the
+> changes we talk about are at his side, of course.
 
-> -----Original Message-----
-> From: Kedareswara rao Appana [mailto:appana.durga.rao@xilinx.com]
-> Sent: Monday, October 26, 2015 11:42 AM
-> To: Anirudha Sarangi; wg@grandegger.com; mkl@pengutronix.de; Michal
-> Simek; Soren Brinkmann
-> Cc: linux-can@vger.kernel.org; netdev@vger.kernel.org; linux-arm-
-> kernel@lists.infradead.org; linux-kernel@vger.kernel.org; Appana Durga
-> Kedareswara Rao
-> Subject: [PATCH v8] can: xilinx: Convert to runtime_pm
-> 
-> Instead of enabling/disabling clocks at several locations in the driver,
-> Use the runtime_pm framework. This consolidates the actions for runtime PM
-> In the appropriate callbacks and makes the driver more readable and
-> mantainable.
-> 
-> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
-> ---
-> Changes for v8:
->   - Remove pm_runtime_irq_safe() API call from the probe as
-> clk_prepare_enable
->     Call canbe called from the atomic context as suggested by Marc.
-> Changes for v7:
->   - Removed the unnecessary clk_prepare/clk_unprepare calls
->     From  the probe and remove as suggested by Soren.
-> Changes for v6:
->  - Updated the driver with review comments as suggested by Marc.
-> Changes for v5:
->  - Updated with the review comments.
->    Updated the remove fuction to use runtime_pm.
-> Chnages for v4:
->  - Updated with the review comments.
-> Changes for v3:
->   - Converted the driver to use runtime_pm.
-> Changes for v2:
->   - Removed the struct platform_device* from suspend/resume
->     as suggest by Lothar
-> 
->  drivers/net/can/xilinx_can.c | 176 +++++++++++++++++++++++++-----------------
-> -
->  1 file changed, 101 insertions(+), 75 deletions(-)
-> 
-> diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_can.c
-> index fc55e8e..ad38065 100644
-> --- a/drivers/net/can/xilinx_can.c
-> +++ b/drivers/net/can/xilinx_can.c
-> @@ -32,6 +32,7 @@
->  #include <linux/can/dev.h>
->  #include <linux/can/error.h>
->  #include <linux/can/led.h>
-> +#include <linux/pm_runtime.h>
-> 
->  #define DRIVER_NAME	"xilinx_can"
-> 
-> @@ -138,7 +139,7 @@ struct xcan_priv {
->  	u32 (*read_reg)(const struct xcan_priv *priv, enum xcan_reg reg);
->  	void (*write_reg)(const struct xcan_priv *priv, enum xcan_reg reg,
->  			u32 val);
-> -	struct net_device *dev;
-> +	struct device *dev;
->  	void __iomem *reg_base;
->  	unsigned long irq_flags;
->  	struct clk *bus_clk;
-> @@ -843,6 +844,13 @@ static int xcan_open(struct net_device *ndev)
->  	struct xcan_priv *priv = netdev_priv(ndev);
->  	int ret;
-> 
-> +	ret = pm_runtime_get_sync(priv->dev);
-> +	if (ret < 0) {
-> +		netdev_err(ndev, "%s: pm_runtime_get failed(%d)\n",
-> +				__func__, ret);
-> +		return ret;
-> +	}
-> +
->  	ret = request_irq(ndev->irq, xcan_interrupt, priv->irq_flags,
->  			ndev->name, ndev);
->  	if (ret < 0) {
-> @@ -850,29 +858,17 @@ static int xcan_open(struct net_device *ndev)
->  		goto err;
->  	}
-> 
-> -	ret = clk_prepare_enable(priv->can_clk);
-> -	if (ret) {
-> -		netdev_err(ndev, "unable to enable device clock\n");
-> -		goto err_irq;
-> -	}
-> -
-> -	ret = clk_prepare_enable(priv->bus_clk);
-> -	if (ret) {
-> -		netdev_err(ndev, "unable to enable bus clock\n");
-> -		goto err_can_clk;
-> -	}
-> -
->  	/* Set chip into reset mode */
->  	ret = set_reset_mode(ndev);
->  	if (ret < 0) {
->  		netdev_err(ndev, "mode resetting failed!\n");
-> -		goto err_bus_clk;
-> +		goto err_irq;
->  	}
-> 
->  	/* Common open */
->  	ret = open_candev(ndev);
->  	if (ret)
-> -		goto err_bus_clk;
-> +		goto err_irq;
-> 
->  	ret = xcan_chip_start(ndev);
->  	if (ret < 0) {
-> @@ -888,13 +884,11 @@ static int xcan_open(struct net_device *ndev)
-> 
->  err_candev:
->  	close_candev(ndev);
-> -err_bus_clk:
-> -	clk_disable_unprepare(priv->bus_clk);
-> -err_can_clk:
-> -	clk_disable_unprepare(priv->can_clk);
->  err_irq:
->  	free_irq(ndev->irq, ndev);
->  err:
-> +	pm_runtime_put(priv->dev);
-> +
->  	return ret;
->  }
-> 
-> @@ -911,12 +905,11 @@ static int xcan_close(struct net_device *ndev)
->  	netif_stop_queue(ndev);
->  	napi_disable(&priv->napi);
->  	xcan_chip_stop(ndev);
-> -	clk_disable_unprepare(priv->bus_clk);
-> -	clk_disable_unprepare(priv->can_clk);
->  	free_irq(ndev->irq, ndev);
->  	close_candev(ndev);
-> 
->  	can_led_event(ndev, CAN_LED_EVENT_STOP);
-> +	pm_runtime_put(priv->dev);
-> 
->  	return 0;
->  }
-> @@ -935,27 +928,20 @@ static int xcan_get_berr_counter(const struct
-> net_device *ndev,
->  	struct xcan_priv *priv = netdev_priv(ndev);
->  	int ret;
-> 
-> -	ret = clk_prepare_enable(priv->can_clk);
-> -	if (ret)
-> -		goto err;
-> -
-> -	ret = clk_prepare_enable(priv->bus_clk);
-> -	if (ret)
-> -		goto err_clk;
-> +	ret = pm_runtime_get_sync(priv->dev);
-> +	if (ret < 0) {
-> +		netdev_err(ndev, "%s: pm_runtime_get failed(%d)\n",
-> +				__func__, ret);
-> +		return ret;
-> +	}
-> 
->  	bec->txerr = priv->read_reg(priv, XCAN_ECR_OFFSET) &
-> XCAN_ECR_TEC_MASK;
->  	bec->rxerr = ((priv->read_reg(priv, XCAN_ECR_OFFSET) &
->  			XCAN_ECR_REC_MASK) >> XCAN_ESR_REC_SHIFT);
-> 
-> -	clk_disable_unprepare(priv->bus_clk);
-> -	clk_disable_unprepare(priv->can_clk);
-> +	pm_runtime_put(priv->dev);
-> 
->  	return 0;
-> -
-> -err_clk:
-> -	clk_disable_unprepare(priv->can_clk);
-> -err:
-> -	return ret;
->  }
-> 
-> 
-> @@ -968,15 +954,45 @@ static const struct net_device_ops xcan_netdev_ops
-> = {
-> 
->  /**
->   * xcan_suspend - Suspend method for the driver
-> - * @dev:	Address of the platform_device structure
-> + * @dev:	Address of the device structure
->   *
->   * Put the driver into low power mode.
-> - * Return: 0 always
-> + * Return: 0 on success and failure value on error
->   */
->  static int __maybe_unused xcan_suspend(struct device *dev)
->  {
-> -	struct platform_device *pdev = dev_get_drvdata(dev);
-> -	struct net_device *ndev = platform_get_drvdata(pdev);
-> +	if (!device_may_wakeup(dev))
-> +		return pm_runtime_force_suspend(dev);
-> +
-> +	return 0;
-> +}
-> +
-> +/**
-> + * xcan_resume - Resume from suspend
-> + * @dev:	Address of the device structure
-> + *
-> + * Resume operation after suspend.
-> + * Return: 0 on success and failure value on error
-> + */
-> +static int __maybe_unused xcan_resume(struct device *dev)
-> +{
-> +	if (!device_may_wakeup(dev))
-> +		return pm_runtime_force_resume(dev);
-> +
-> +	return 0;
-> +
-> +}
-> +
-> +/**
-> + * xcan_runtime_suspend - Runtime suspend method for the driver
-> + * @dev:	Address of the device structure
-> + *
-> + * Put the driver into low power mode.
-> + * Return: 0 always
-> + */
-> +static int __maybe_unused xcan_runtime_suspend(struct device *dev)
-> +{
-> +	struct net_device *ndev = dev_get_drvdata(dev);
->  	struct xcan_priv *priv = netdev_priv(ndev);
-> 
->  	if (netif_running(ndev)) {
-> @@ -987,43 +1003,55 @@ static int __maybe_unused xcan_suspend(struct
-> device *dev)
->  	priv->write_reg(priv, XCAN_MSR_OFFSET, XCAN_MSR_SLEEP_MASK);
->  	priv->can.state = CAN_STATE_SLEEPING;
-> 
-> -	clk_disable(priv->bus_clk);
-> -	clk_disable(priv->can_clk);
-> +	clk_disable_unprepare(priv->bus_clk);
-> +	clk_disable_unprepare(priv->can_clk);
-> 
->  	return 0;
->  }
-> 
->  /**
-> - * xcan_resume - Resume from suspend
-> - * @dev:	Address of the platformdevice structure
-> + * xcan_runtime_resume - Runtime resume from suspend
-> + * @dev:	Address of the device structure
->   *
->   * Resume operation after suspend.
->   * Return: 0 on success and failure value on error
->   */
-> -static int __maybe_unused xcan_resume(struct device *dev)
-> +static int __maybe_unused xcan_runtime_resume(struct device *dev)
->  {
-> -	struct platform_device *pdev = dev_get_drvdata(dev);
-> -	struct net_device *ndev = platform_get_drvdata(pdev);
-> +	struct net_device *ndev = dev_get_drvdata(dev);
->  	struct xcan_priv *priv = netdev_priv(ndev);
->  	int ret;
-> +	u32 isr, status;
-> 
-> -	ret = clk_enable(priv->bus_clk);
-> +	ret = clk_prepare_enable(priv->bus_clk);
->  	if (ret) {
->  		dev_err(dev, "Cannot enable clock.\n");
->  		return ret;
->  	}
-> -	ret = clk_enable(priv->can_clk);
-> +	ret = clk_prepare_enable(priv->can_clk);
->  	if (ret) {
->  		dev_err(dev, "Cannot enable clock.\n");
->  		clk_disable_unprepare(priv->bus_clk);
->  		return ret;
->  	}
-> 
-> -	priv->write_reg(priv, XCAN_MSR_OFFSET, 0);
-> -	priv->write_reg(priv, XCAN_SRR_OFFSET, XCAN_SRR_CEN_MASK);
-> -	priv->can.state = CAN_STATE_ERROR_ACTIVE;
-> +	priv->write_reg(priv, XCAN_SRR_OFFSET, XCAN_SRR_RESET_MASK);
-> +	isr = priv->read_reg(priv, XCAN_ISR_OFFSET);
-> +	status = priv->read_reg(priv, XCAN_SR_OFFSET);
-> 
->  	if (netif_running(ndev)) {
-> +		if (isr & XCAN_IXR_BSOFF_MASK) {
-> +			priv->can.state = CAN_STATE_BUS_OFF;
-> +			priv->write_reg(priv, XCAN_SRR_OFFSET,
-> +					XCAN_SRR_RESET_MASK);
-> +		} else if ((status & XCAN_SR_ESTAT_MASK) ==
-> +					XCAN_SR_ESTAT_MASK) {
-> +			priv->can.state = CAN_STATE_ERROR_PASSIVE;
-> +		} else if (status & XCAN_SR_ERRWRN_MASK) {
-> +			priv->can.state = CAN_STATE_ERROR_WARNING;
-> +		} else {
-> +			priv->can.state = CAN_STATE_ERROR_ACTIVE;
-> +		}
->  		netif_device_attach(ndev);
->  		netif_start_queue(ndev);
->  	}
-> @@ -1031,7 +1059,10 @@ static int __maybe_unused xcan_resume(struct
-> device *dev)
->  	return 0;
->  }
-> 
-> -static SIMPLE_DEV_PM_OPS(xcan_dev_pm_ops, xcan_suspend, xcan_resume);
-> +static const struct dev_pm_ops xcan_dev_pm_ops = {
-> +	SET_SYSTEM_SLEEP_PM_OPS(xcan_suspend, xcan_resume)
-> +	SET_RUNTIME_PM_OPS(xcan_runtime_suspend, xcan_runtime_resume,
-> NULL)
-> +};
-> 
->  /**
->   * xcan_probe - Platform registration call
-> @@ -1072,7 +1103,7 @@ static int xcan_probe(struct platform_device *pdev)
->  		return -ENOMEM;
-> 
->  	priv = netdev_priv(ndev);
-> -	priv->dev = ndev;
-> +	priv->dev = &pdev->dev;
->  	priv->can.bittiming_const = &xcan_bittiming_const;
->  	priv->can.do_set_mode = xcan_do_set_mode;
->  	priv->can.do_get_berr_counter = xcan_get_berr_counter;
-> @@ -1114,21 +1145,17 @@ static int xcan_probe(struct platform_device
-> *pdev)
->  		}
->  	}
-> 
-> -	ret = clk_prepare_enable(priv->can_clk);
-> -	if (ret) {
-> -		dev_err(&pdev->dev, "unable to enable device clock\n");
-> -		goto err_free;
-> -	}
-> -
-> -	ret = clk_prepare_enable(priv->bus_clk);
-> -	if (ret) {
-> -		dev_err(&pdev->dev, "unable to enable bus clock\n");
-> -		goto err_unprepare_disable_dev;
-> -	}
-> -
->  	priv->write_reg = xcan_write_reg_le;
->  	priv->read_reg = xcan_read_reg_le;
-> 
-> +	pm_runtime_enable(&pdev->dev);
-> +	ret = pm_runtime_get_sync(&pdev->dev);
-> +	if (ret < 0) {
-> +		netdev_err(ndev, "%s: pm_runtime_get failed(%d)\n",
-> +			__func__, ret);
-> +		goto err_pmdisable;
-> +	}
-> +
->  	if (priv->read_reg(priv, XCAN_SR_OFFSET) != XCAN_SR_CONFIG_MASK) {
->  		priv->write_reg = xcan_write_reg_be;
->  		priv->read_reg = xcan_read_reg_be;
-> @@ -1141,22 +1168,23 @@ static int xcan_probe(struct platform_device
-> *pdev)
->  	ret = register_candev(ndev);
->  	if (ret) {
->  		dev_err(&pdev->dev, "fail to register failed (err=%d)\n", ret);
-> -		goto err_unprepare_disable_busclk;
-> +		goto err_disableclks;
->  	}
-> 
->  	devm_can_led_init(ndev);
-> -	clk_disable_unprepare(priv->bus_clk);
-> -	clk_disable_unprepare(priv->can_clk);
-> +
-> +	pm_runtime_put(&pdev->dev);
-> +
->  	netdev_dbg(ndev, "reg_base=0x%p irq=%d clock=%d, tx fifo
-> depth:%d\n",
->  			priv->reg_base, ndev->irq, priv->can.clock.freq,
->  			priv->tx_max);
-> 
->  	return 0;
-> 
-> -err_unprepare_disable_busclk:
-> -	clk_disable_unprepare(priv->bus_clk);
-> -err_unprepare_disable_dev:
-> -	clk_disable_unprepare(priv->can_clk);
-> +err_disableclks:
-> +	pm_runtime_put(priv->dev);
-> +err_pmdisable:
-> +	pm_runtime_disable(&pdev->dev);
->  err_free:
->  	free_candev(ndev);
->  err:
-> @@ -1175,10 +1203,8 @@ static int xcan_remove(struct platform_device
-> *pdev)
->  	struct net_device *ndev = platform_get_drvdata(pdev);
->  	struct xcan_priv *priv = netdev_priv(ndev);
-> 
-> -	if (set_reset_mode(ndev) < 0)
-> -		netdev_err(ndev, "mode resetting failed!\n");
-> -
->  	unregister_candev(ndev);
-> +	pm_runtime_disable(&pdev->dev);
->  	netif_napi_del(&priv->napi);
->  	free_candev(ndev);
-> 
-> --
-> 2.1.2
+Sorry for that.
 
+iperf3 sample. most samples were equal to this.
+[  4]  10.00-11.00  sec  3.75 MBytes  31.5 Mbits/sec
+[  6]  10.00-11.00  sec  7.05 MBytes  59.2 Mbits/sec
+[SUM]  10.00-11.00  sec  10.8 MBytes  90.7 Mbits/sec
+
+
+# for i in `seq 1 20`; do ./ss -temoi dst 192.168.0.1; sleep 1; done
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t0,tb44800,f20480,w0,o0,bl0) ts sack cubic wscale:7,5 rto:200 ato:40 mss:1448 cwnd:10 bytes_received:37 segs_out:1 segs_in:1 rcv_space:28960
+ESTAB      0      1       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 timer:(on,210ms,0) ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f1856,w2240,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:0.03/0.06 ato:40 mss:1448 cwnd:10 bytes_acked:1 bytes_received:143 segs_out:5 segs_in:4 send 3861.3Mbps lastack:40 pacing_rate 7690.6Mbps unacked:1 rcv_space:28960
+ESTAB      37     0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 ino:0 sk:6 <->
+	 skmem:(r16576,rb328320,t0,tb44800,f3904,w0,o0,bl0) ts sack cubic wscale:7,5 rto:200 ato:40 mss:1448 cwnd:10 bytes_received:37 segs_out:1 segs_in:1 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      159280  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t27472,tb192640,f120048,w162576,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:5.326/0.789 ato:40 mss:1448 cwnd:43 ssthresh:16 bytes_acked:4500384 bytes_received:37 segs_out:3126 segs_in:1586 send 93.5Mbps lastsnd:10 lastrcv:1040 pacing_rate 112.2Mbps unacked:17 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:940 lastrcv:1040 lastack:940 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      273672  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,200ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t55576,tb277760,f44024,w279560,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:4.578/0.644 ato:40 mss:1448 cwnd:62 ssthresh:19 bytes_acked:6114904 bytes_received:37 segs_out:4261 segs_in:2147 send 156.9Mbps lastsnd:10 lastrcv:1040 lastack:10 pacing_rate 188.2Mbps unacked:37 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      136112  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t15776,tb201600,f142512,w140112,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:6.518/1.397 ato:40 mss:1448 cwnd:45 ssthresh:16 bytes_acked:8954432 bytes_received:37 segs_out:6196 segs_in:3124 send 80.0Mbps lastsnd:10 lastrcv:2090 pacing_rate 96.0Mbps unacked:11 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:1990 lastrcv:2090 lastack:1990 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      360552  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,210ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t31112,tb344960,f48776,w364920,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:5.294/0.545 ato:40 mss:1448 cwnd:77 ssthresh:19 bytes_acked:13586584 bytes_received:37 segs_out:9405 segs_in:4727 send 168.5Mbps lastsnd:10 lastrcv:2090 pacing_rate 202.2Mbps unacked:21 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      141904  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t25168,tb201600,f136720,w145904,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:7.163/0.728 ato:40 mss:1448 cwnd:45 ssthresh:16 bytes_acked:12727920 bytes_received:37 segs_out:8806 segs_in:4427 send 72.8Mbps lastrcv:3130 pacing_rate 87.3Mbps unacked:15 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:3030 lastrcv:3130 lastack:3030 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      295392  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,210ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t32560,tb362880,f146704,w299760,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:5.195/1.377 ato:40 mss:1448 cwnd:81 ssthresh:19 bytes_acked:21666424 bytes_received:37 segs_out:14987 segs_in:7517 send 180.6Mbps lastrcv:3130 pacing_rate 216.7Mbps unacked:23 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      222992  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t20936,tb201600,f55040,w227584,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:7.367/2.105 ato:40 mss:1448 cwnd:45 ssthresh:16 bytes_acked:16295792 bytes_received:37 segs_out:11268 segs_in:5659 send 70.8Mbps lastrcv:4170 pacing_rate 84.9Mbps unacked:13 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:4070 lastrcv:4170 lastack:4070 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      422816  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,210ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t55576,tb421120,f66432,w429184,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:6.213/1.45 ato:40 mss:1448 cwnd:94 ssthresh:19 bytes_acked:29879480 bytes_received:37 segs_out:20671 segs_in:10353 send 175.3Mbps lastrcv:4170 pacing_rate 210.3Mbps unacked:35 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      156384  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t20936,tb201600,f122240,w160384,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:7.188/2.283 ato:40 mss:1448 cwnd:45 ssthresh:16 bytes_acked:19620400 bytes_received:37 segs_out:13564 segs_in:6807 send 72.5Mbps lastrcv:5230 pacing_rate 87.0Mbps unacked:13 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:5130 lastrcv:5230 lastack:5130 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      403992  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,210ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t92480,tb443520,f105032,w411064,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:5.042/0.588 ato:40 mss:1448 cwnd:99 ssthresh:19 bytes_acked:38564584 bytes_received:37 segs_out:26688 segs_in:13352 send 227.5Mbps lastrcv:5230 pacing_rate 272.9Mbps unacked:54 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      217200  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t20232,tb201600,f61536,w221088,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:6.221/0.969 ato:40 mss:1448 cwnd:45 ssthresh:16 bytes_acked:22947904 bytes_received:37 segs_out:15862 segs_in:7956 send 83.8Mbps lastrcv:6270 pacing_rate 100.5Mbps unacked:13 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:6170 lastrcv:6270 lastack:6170 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      338832  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,210ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t70056,tb443520,f167968,w348128,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:6.561/1.376 ato:40 mss:1448 cwnd:99 ssthresh:19 bytes_acked:47035384 bytes_received:37 segs_out:32515 segs_in:16277 send 174.8Mbps lastrcv:6270 pacing_rate 209.7Mbps unacked:31 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      165072  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,200ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t23088,tb201600,f112144,w170480,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:7.989/1.849 ato:40 mss:1448 cwnd:45 ssthresh:16 bytes_acked:26258032 bytes_received:37 segs_out:18149 segs_in:9099 send 65.2Mbps lastsnd:10 lastrcv:7320 lastack:10 pacing_rate 78.3Mbps unacked:14 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:7220 lastrcv:7320 lastack:7220 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      375784  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,210ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t78744,tb443520,f133160,w382936,o0,bl198912) ts sack cubic wscale:7,5 rto:210 rtt:4.957/1.656 ato:40 mss:1448 cwnd:99 ssthresh:19 bytes_acked:55535144 bytes_received:37 segs_out:38415 segs_in:19222 send 231.4Mbps lastrcv:7320 pacing_rate 277.6Mbps unacked:61 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      247608  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t30368,tb313600,f128136,w252792,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:7.656/0.514 ato:40 mss:1448 cwnd:70 ssthresh:16 bytes_acked:29498656 bytes_received:37 segs_out:20394 segs_in:10218 send 105.9Mbps lastrcv:8360 pacing_rate 127.1Mbps unacked:21 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:8260 lastrcv:8360 lastack:8260 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      677664  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,210ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t81640,tb663040,f47488,w685696,o0,bl66304) ts sack cubic wscale:7,5 rto:210 rtt:6.851/1.229 ato:40 mss:1448 cwnd:148 ssthresh:19 bytes_acked:64159432 bytes_received:37 segs_out:44357 segs_in:22193 send 250.2Mbps lastrcv:8360 pacing_rate 310.5Mbps unacked:47 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      249056  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t28176,tb313600,f125984,w254944,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:8.744/0.863 ato:40 mss:1448 cwnd:70 ssthresh:16 bytes_acked:33406808 bytes_received:37 segs_out:23091 segs_in:11567 send 92.7Mbps lastrcv:9400 pacing_rate 111.3Mbps unacked:19 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:9300 lastrcv:9400 lastack:9300 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      464808  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,210ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t65008,tb663040,f262120,w471064,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:7.134/0.497 ato:40 mss:1448 cwnd:148 ssthresh:19 bytes_acked:72061168 bytes_received:37 segs_out:49795 segs_in:24945 send 240.3Mbps lastsnd:10 lastrcv:9410 pacing_rate 288.4Mbps unacked:28 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      288152  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t15184,tb313600,f86888,w294040,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:9.285/1.307 ato:40 mss:1448 cwnd:70 ssthresh:16 bytes_acked:37212152 bytes_received:37 segs_out:25710 segs_in:12881 send 87.3Mbps lastrcv:10450 pacing_rate 104.8Mbps unacked:10 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:10350 lastrcv:10450 lastack:10350 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      564720  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,210ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t51272,tb663040,f162432,w570752,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:8.322/1.752 ato:40 mss:1448 cwnd:148 ssthresh:19 bytes_acked:80106256 bytes_received:37 segs_out:55343 segs_in:27723 send 206.0Mbps lastsnd:10 lastrcv:10450 pacing_rate 247.2Mbps unacked:20 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      267880  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t35304,tb313600,f107864,w273064,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:8.76/0.731 ato:40 mss:1448 cwnd:70 ssthresh:16 bytes_acked:41011704 bytes_received:37 segs_out:28347 segs_in:14193 send 92.6Mbps lastrcv:11490 pacing_rate 111.1Mbps unacked:23 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:11390 lastrcv:11490 lastack:11390 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      486528  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,210ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t88880,tb663040,f240400,w492784,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:5.538/0.738 ato:40 mss:1448 cwnd:148 ssthresh:19 bytes_acked:88133968 bytes_received:37 segs_out:60921 segs_in:30495 send 309.6Mbps lastrcv:11490 pacing_rate 371.4Mbps unacked:54 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      298288  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t33264,tb313600,f77456,w303472,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:5.306/0.724 ato:40 mss:1448 cwnd:70 ssthresh:16 bytes_acked:45347016 bytes_received:37 segs_out:31341 segs_in:15707 send 152.8Mbps lastrcv:12540 pacing_rate 183.4Mbps unacked:23 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:12440 lastrcv:12540 lastack:12440 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      435848  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,210ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t65008,tb663040,f291784,w441400,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:5.295/0.793 ato:40 mss:1448 cwnd:148 ssthresh:19 bytes_acked:95678048 bytes_received:37 segs_out:66107 segs_in:33100 send 323.8Mbps lastrcv:12540 pacing_rate 388.5Mbps unacked:30 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      272224  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t42544,tb313600,f103520,w277408,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:7.634/0.526 ato:40 mss:1448 cwnd:70 ssthresh:16 bytes_acked:49413000 bytes_received:37 segs_out:34154 segs_in:17111 send 106.2Mbps lastrcv:13590 pacing_rate 127.5Mbps unacked:28 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:13490 lastrcv:13590 lastack:13490 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      637120  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,210ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t100352,tb663040,f87328,w645856,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:6.989/0.565 ato:40 mss:1448 cwnd:148 ssthresh:19 bytes_acked:103491456 bytes_received:37 segs_out:71531 segs_in:35798 send 245.3Mbps lastrcv:13590 pacing_rate 294.3Mbps unacked:58 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      249056  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t47000,tb313600,f126688,w254240,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:5.486/1.174 ato:40 mss:1448 cwnd:70 ssthresh:16 bytes_acked:53345768 bytes_received:37 segs_out:36874 segs_in:18469 send 147.8Mbps lastrcv:14630 pacing_rate 177.3Mbps unacked:32 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:14530 lastrcv:14630 lastack:14530 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      525624  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,210ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t70800,tb663040,f201416,w531768,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:5.716/0.694 ato:40 mss:1448 cwnd:148 ssthresh:19 bytes_acked:111356992 bytes_received:37 segs_out:76933 segs_in:38514 send 299.9Mbps lastrcv:14630 pacing_rate 359.9Mbps unacked:28 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      267880  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t31664,tb313600,f106456,w274472,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:9.387/1.297 ato:40 mss:1448 cwnd:70 ssthresh:16 bytes_acked:57432024 bytes_received:37 segs_out:39685 segs_in:19880 send 86.4Mbps lastrcv:15670 pacing_rate 103.7Mbps unacked:21 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:15570 lastrcv:15670 lastack:15570 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      553136  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,220ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t45480,tb663040,f174016,w559168,o0,bl0) ts sack cubic wscale:7,5 rto:220 rtt:10.243/1.677 ato:40 mss:1448 cwnd:148 ssthresh:19 bytes_acked:119083520 bytes_received:37 segs_out:82249 segs_in:41182 send 167.4Mbps lastsnd:10 lastrcv:15670 pacing_rate 200.8Mbps unacked:8 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      330144  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,210ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t43992,tb461440,f171984,w335920,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:9.143/1.799 ato:40 mss:1448 cwnd:103 ssthresh:16 bytes_acked:61605160 bytes_received:37 segs_out:42575 segs_in:21321 send 130.5Mbps lastrcv:16730 pacing_rate 156.6Mbps unacked:29 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:16630 lastrcv:16730 lastack:16630 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      641464  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,210ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t52720,tb663040,f85096,w648088,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:7.014/1.233 ato:40 mss:1448 cwnd:148 ssthresh:19 bytes_acked:126879552 bytes_received:37 segs_out:87654 segs_in:43875 send 244.4Mbps lastsnd:10 lastrcv:16730 pacing_rate 293.3Mbps unacked:29 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      376480  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,200ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t34712,tb461440,f125760,w382144,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:7.648/0.774 ato:40 mss:1448 cwnd:103 ssthresh:16 bytes_acked:66510984 bytes_received:37 segs_out:45958 segs_in:23015 send 156.0Mbps lastsnd:10 lastrcv:17770 lastack:10 pacing_rate 187.2Mbps unacked:24 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:17670 lastrcv:17770 lastack:17670 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      682008  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,220ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t45480,tb663040,f43256,w689928,o0,bl0) ts sack cubic wscale:7,5 rto:220 rtt:13.254/1.111 ato:40 mss:1448 cwnd:148 ssthresh:19 bytes_acked:133745968 bytes_received:37 segs_out:92374 segs_in:46245 send 129.4Mbps lastsnd:20 lastrcv:17770 pacing_rate 155.2Mbps unacked:7 rcv_space:28960
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+ESTAB      0      372136  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55404                 timer:(on,200ms,0) ino:17349 sk:4 <->
+	 skmem:(r0,rb328320,t26768,tb461440,f130104,w377800,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:7.694/0.761 ato:40 mss:1448 cwnd:103 ssthresh:16 bytes_acked:71402328 bytes_received:37 segs_out:49331 segs_in:24704 send 155.1Mbps lastsnd:10 lastrcv:18810 lastack:10 pacing_rate 186.1Mbps unacked:19 rcv_space:28960
+ESTAB      0      0       ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55402                 ino:18856 sk:5 <->
+	 skmem:(r0,rb328320,t0,tb44800,f0,w0,o0,bl0) ts sack cubic wscale:7,5 rto:210 rtt:3.738/6.898 ato:40 mss:1448 cwnd:10 bytes_acked:4 bytes_received:143 segs_out:7 segs_in:7 send 31.0Mbps lastsnd:18710 lastrcv:18810 lastack:18710 pacing_rate 62.0Mbps rcv_space:28960
+ESTAB      0      556032  ::ffff:192.168.0.143:5201                    ::ffff:192.168.0.1:55406                 timer:(on,200ms,0) ino:17351 sk:6 <->
+	 skmem:(r0,rb328320,t38944,tb663040,f168896,w564288,o0,bl149184) ts sack cubic wscale:7,5 rto:210 rtt:8.519/1.818 ato:40 mss:1448 cwnd:148 ssthresh:19 bytes_acked:140583424 bytes_received:37 segs_out:97134 segs_in:48615 send 201.2Mbps lastsnd:10 lastrcv:18810 lastack:10 pacing_rate 241.5Mbps unacked:45 rcv_space:28960
