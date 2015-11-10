@@ -1,36 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: fix a race in dst_release()
-Date: Mon, 09 Nov 2015 21:56:39 -0500 (EST)
-Message-ID: <20151109.215639.72685911796993165.davem@davemloft.net>
-References: <1447120283.17135.64.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: Deadlock between bind and splice
+Date: Tue, 10 Nov 2015 02:59:06 +0000
+Message-ID: <20151110025906.GA22011@ZenIV.linux.org.uk>
+References: <CACT4Y+brDX=C15jSs33zGaCBt2BDPPzBcgqtKA2dYMdviYjKww@mail.gmail.com>
+ <1446824535.4184.69.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151110023854.GZ22011@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gthelen@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47628 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751353AbbKJC4k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 21:56:40 -0500
-In-Reply-To: <1447120283.17135.64.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dmitry Vyukov <dvyukov@google.com>, linux-fsdevel@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151110023854.GZ22011@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 09 Nov 2015 17:51:23 -0800
-
-> From: Eric Dumazet <edumazet@google.com>
+On Tue, Nov 10, 2015 at 02:38:54AM +0000, Al Viro wrote:
+> On Fri, Nov 06, 2015 at 07:42:15AM -0800, Eric Dumazet wrote:
 > 
-> Only cpu seeing dst refcount going to 0 can safely
-> dereference dst->flags. 
+> > Thank you for this report.
+> > 
+> > pipe is part of fs, not net ;)
 > 
-> Otherwise an other cpu might already have freed the dst.
-> 
-> Fixes: 27b75c95f10d ("net: avoid RCU for NOCACHE dst")
-> Reported-by: Greg Thelen <gthelen@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> AF_UNIX bind() vs. socketpair() interplay, OTOH...
 
-Ouch...
+FWIW, BSD folks unlock the socket for the duration of mknod - mark it as
+"somebody's trying to bind it" to avoid the fun with racing double bind(),
+but that's about it.  Tempting, to be honest...
 
-Applied and queued up for -stable, thanks.
+BTW, why does unix_autobind() do allocation under ->readlock?  The allocation
+will be normally used - that if (u->addr) return; part is just dealing with
+an unlikely race, as far as I can see...
