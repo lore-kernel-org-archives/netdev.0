@@ -1,50 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH nf 2/2] netfilter: nf_tables: add clone interface to
- expression operations
-Date: Tue, 10 Nov 2015 19:05:35 +0000
-Message-ID: <20151110190534.GH25929@macbook.localdomain>
-References: <1447173390-2993-1-git-send-email-pablo@netfilter.org>
- <1447173390-2993-3-git-send-email-pablo@netfilter.org>
- <20151110183034.GE25929@macbook.localdomain>
- <20151110183905.GA1656@salvia>
- <20151110185804.GG25929@macbook.localdomain>
- <20151110185939.GA1919@salvia>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800
+ Ethernet controller
+Date: Tue, 10 Nov 2015 20:13:03 +0100
+Message-ID: <564241BF.4020700@free.fr>
+References: <1447172063-27234-1-git-send-email-mans@mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 161-169.trash.net ([213.144.137.169]:62349 "EHLO
-	stinky.trash.net" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751691AbbKJTFj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2015 14:05:39 -0500
-Content-Disposition: inline
-In-Reply-To: <20151110185939.GA1919@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Mans Rullgard <mans@mansr.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447172063-27234-1-git-send-email-mans@mansr.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10.11, Pablo Neira Ayuso wrote:
-> On Tue, Nov 10, 2015 at 06:58:05PM +0000, Patrick McHardy wrote:
-> > On 10.11, Pablo Neira Ayuso wrote:
-> > > On Tue, Nov 10, 2015 at 06:30:34PM +0000, Patrick McHardy wrote:
-> > > > >  	__module_get(src->ops->type->owner);
-> > > > > -	memcpy(dst, src, src->ops->size);
-> > > > > +	if (src->ops->clone) {
-> > > > > +		memcpy(dst, src, sizeof(*src));
-> > > > 
-> > > > Why copy if we clone? The function should do a full initialization if it is
-> > > > present I would say.
-> > > 
-> > > This is not copying the variable length data area of the expression,
-> > > just the expression head.
-> > 
-> > Ah right. But that is only ->ops. We can set this directly, should generate
-> > better code and be easier to understand.
-> 
-> I left the memcpy just to avoid that we forget in case we ever get
-> more data there (unlikely). So I'll set the pointer instead.
-> 
-> If no further objections, will make those two changes locally and will
-> push this upstream.
+On 10/11/2015 17:14, Mans Rullgard wrote:
 
-No further objections :)
+> This adds a driver for the Aurora VLSI NB8800 Ethernet controller.
+> It is an almost complete rewrite of a driver originally found in
+> a Sigma Designs 2.6.22 tree.
+> 
+> Signed-off-by: Mans Rullgard <mans@mansr.com>
+> ---
+> Changes:
+> - Refactored mdio access functions
+> - Refactored register access helpers
+> - Improved error handling in rx buffer allocation
+> - Optimised some fifo parameters
+> - Overhauled tx dma. Multiple packets are now chained in a single dma
+>   operation if xmit_more is set, improving performance.
+> - Improved rx irq handling. It's not possible to disable interrupts
+>   entirely for napi poll, but they can be slowed down a little.
+> - Use readx_poll_timeout in various places
+> - Improved error detection
+> - Improved statistics
+> - Report hardware statistics counters through ethtool
+> - Improved tangox-specific setup
+> - Support for flow control using pause frames
+> - Explanatory comments added
+> - Various minor stylistic changes
+> ---
+>  drivers/net/ethernet/Kconfig         |    1 +
+>  drivers/net/ethernet/Makefile        |    1 +
+>  drivers/net/ethernet/aurora/Kconfig  |   20 +
+>  drivers/net/ethernet/aurora/Makefile |    1 +
+>  drivers/net/ethernet/aurora/nb8800.c | 1530 ++++++++++++++++++++++++++++++++++
+>  drivers/net/ethernet/aurora/nb8800.h |  314 +++++++
+>  6 files changed, 1867 insertions(+)
+
+The code has grown much since the previous patch, despite some
+refactoring. Is this mostly due to ethtool_ops support?
+
+ drivers/net/ethernet/aurora/nb8800.c | 1146 ++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/aurora/nb8800.h |  230 +++++++
+
+Regards.
