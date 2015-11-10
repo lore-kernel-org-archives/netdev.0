@@ -1,48 +1,65 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH 2/6] net: dsa: mv88e6060: use the correct InitReady bit
-Date: Tue, 10 Nov 2015 09:16:00 -0500
-Message-ID: <20151110141600.GA29568@ketchup.mtl.sfl>
-References: <5641F03C.3030809@baylibre.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH, REPORT] bpf_trace: build error without PERF_EVENTS
+Date: Tue, 10 Nov 2015 09:25:01 -0500
+Message-ID: <20151110092501.0bc676c9@gandalf.local.home>
+References: <4525348.Aq9YoXkChv@wuerfel>
+	<5641F1BA.6040701@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, Ingo Molnar <mingo@redhat.com>,
+	linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Guenter Roeck <linux@roeck-us.net>
-To: Neil Armstrong <narmstrong@baylibre.com>
+	Kaixu Xia <xiakaixu@huawei.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@kernel.org>,
+	linux-arm-kernel@lists.infradead.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5641F03C.3030809@baylibre.com>
+In-Reply-To: <5641F1BA.6040701@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Nov. Tuesday 10 (46) 02:25 PM, Neil Armstrong wrote:
-> According to the mv88e6060 datasheet, the InitReady bit position
-> is 11 and the polarity is inverted.
-> Use the bit correctly to detect the end of initialization.
-> 
-> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
-> ---
->  drivers/net/dsa/mv88e6060.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
-> index 6885ef5..26f668c 100644
-> --- a/drivers/net/dsa/mv88e6060.c
-> +++ b/drivers/net/dsa/mv88e6060.c
-> @@ -102,7 +102,7 @@ static int mv88e6060_switch_reset(struct dsa_switch *ds)
->  	timeout = jiffies + 1 * HZ;
->  	while (time_before(jiffies, timeout)) {
->  		ret = REG_READ(REG_GLOBAL, 0x00);
-> -		if ((ret & 0x8000) == 0x0000)
-> +		if ((ret & 0x800))
->  			break;
+On Tue, 10 Nov 2015 14:31:38 +0100
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-You can drop a pair of parenthesis here.
-
+> On 11/10/2015 01:55 PM, Arnd Bergmann wrote:
+> > In my ARM randconfig tests, I'm getting a build error for
+> > newly added code in bpf_perf_event_read and bpf_perf_event_output
+> > whenever CONFIG_PERF_EVENTS is disabled:
+> >
+> > kernel/trace/bpf_trace.c: In function 'bpf_perf_event_read':
+> > kernel/trace/bpf_trace.c:203:11: error: 'struct perf_event' has no member named 'oncpu'
+> > if (event->oncpu != smp_processor_id() ||
+> >           ^
+> > kernel/trace/bpf_trace.c:204:11: error: 'struct perf_event' has no member named 'pmu'
+> >        event->pmu->count)
+> >
+> > This can happen when UPROBE_EVENT is enabled but KPROBE_EVENT
+> > is disabled. I'm not sure if that is a configuration we care
+> > about, otherwise we could prevent this case from occuring by
+> > adding Kconfig dependencies.  
 > 
->  		usleep_range(1000, 2000);
+> I think that seems better than spreading #if IS_ENABLEDs into the code.
+> Probably enough to add a 'depends on PERF_EVENTS' to config BPF_EVENTS,
+> so it's also explicitly documented.
+> 
 
-Thanks,
--v
+So just do the following then?
+
+-- Steve
+
+diff --git a/kernel/trace/Kconfig b/kernel/trace/Kconfig
+index 8d6363f42169..f5aecff2d243 100644
+--- a/kernel/trace/Kconfig
++++ b/kernel/trace/Kconfig
+@@ -434,7 +434,7 @@ config UPROBE_EVENT
+ 
+ config BPF_EVENTS
+ 	depends on BPF_SYSCALL
+-	depends on KPROBE_EVENT || UPROBE_EVENT
++	depends on KPROBE_EVENT && UPROBE_EVENT
+ 	bool
+ 	default y
+ 	help
