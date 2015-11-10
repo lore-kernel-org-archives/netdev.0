@@ -1,73 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 4/4] net: af_unix: implement splice for
- stream af_unix sockets
-Date: Mon, 09 Nov 2015 17:11:58 -0800
-Message-ID: <1447117918.17135.59.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <cover.1432220158.git.hannes@stressinduktion.org>
-	 <2608f83f33225b05eb8a4bf0275f05dce83edfd3.1432220158.git.hannes@stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, cwang@twopensource.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Justin Maggard <jmaggard10@gmail.com>
+Subject: [PATCH] net: mvneta: Fix memory use after free.
+Date: Mon,  9 Nov 2015 17:21:05 -0800
+Message-ID: <1447118465-9860-1-git-send-email-jmaggard@netgear.com>
+Cc: Justin Maggard <jmaggard@netgear.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:32808 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751030AbbKJBMA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 20:12:00 -0500
-Received: by pabfh17 with SMTP id fh17so216516572pab.0
-        for <netdev@vger.kernel.org>; Mon, 09 Nov 2015 17:12:00 -0800 (PST)
-In-Reply-To: <2608f83f33225b05eb8a4bf0275f05dce83edfd3.1432220158.git.hannes@stressinduktion.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34648 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751035AbbKJBVL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2015 20:21:11 -0500
+Received: by padhx2 with SMTP id hx2so208185143pad.1
+        for <netdev@vger.kernel.org>; Mon, 09 Nov 2015 17:21:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-05-21 at 17:00 +0200, Hannes Frederic Sowa wrote:
+After changing an interface's MTU, then bringing the interface down and
+back up again, I immediately saw tons of kernel messages like below.
+The reason for this bad behavior is mvneta_rxq_drop_pkts(), which calls
+dma_unmap_single() on already-freed memory.  So we need to switch the
+order of those two operations.
 
-> +
-> +static ssize_t skb_unix_socket_splice(struct sock *sk,
-> +				      struct pipe_inode_info *pipe,
-> +				      struct splice_pipe_desc *spd)
-> +{
-> +	int ret;
-> +	struct unix_sock *u = unix_sk(sk);
-> +
-> +	mutex_unlock(&u->readlock);
-> +	ret = splice_to_pipe(pipe, spd);
-> +	mutex_lock(&u->readlock);
-> +
-> +	return ret;
-> +}
-> +
+[  152.388518] BUG: Bad page state in process ifconfig  pfn:1b518
+[  152.388526] page:dff3dbc0 count:0 mapcount:0 mapping:  (null) index:0x0
+[  152.395178] flags: 0x200(arch_1)
+[  152.398441] page dumped because: PAGE_FLAGS_CHECK_AT_PREP flag set
+[  152.398446] bad because of flags:
+[  152.398450] flags: 0x200(arch_1)
+[  152.401716] Modules linked in:
+[  152.401728] CPU: 0 PID: 1453 Comm: ifconfig Tainted: P    B      O    4.1.12.armada.1 #1
+[  152.401733] Hardware name: Marvell Armada 370/XP (Device Tree)
+[  152.401749] [<c0015b1c>] (unwind_backtrace) from [<c0011d8c>] (show_stack+0x10/0x14)
+[  152.401762] [<c0011d8c>] (show_stack) from [<c06aa68c>] (dump_stack+0x74/0x90)
+[  152.401772] [<c06aa68c>] (dump_stack) from [<c0096c08>] (bad_page+0xc4/0x124)
+[  152.401783] [<c0096c08>] (bad_page) from [<c0099378>] (get_page_from_freelist+0x4e4/0x644)
+[  152.401794] [<c0099378>] (get_page_from_freelist) from [<c0099620>] (__alloc_pages_nodemask+0x148/0x784)
+[  152.401805] [<c0099620>] (__alloc_pages_nodemask) from [<c00ac658>] (kmalloc_order+0x10/0x20)
+[  152.401818] [<c00ac658>] (kmalloc_order) from [<c04c6f44>] (mvneta_rx_refill+0xc4/0xe8)
+[  152.401830] [<c04c6f44>] (mvneta_rx_refill) from [<c04c96c0>] (mvneta_setup_rxqs+0x298/0x39c)
+[  152.401842] [<c04c96c0>] (mvneta_setup_rxqs) from [<c04c9904>] (mvneta_open+0x3c/0x150)
+[  152.401853] [<c04c9904>] (mvneta_open) from [<c0597764>] (__dev_open+0xac/0x124)
+[  152.401864] [<c0597764>] (__dev_open) from [<c05979e4>] (__dev_change_flags+0x8c/0x148)
+[  152.401875] [<c05979e4>] (__dev_change_flags) from [<c0597ac0>] (dev_change_flags+0x18/0x48)
+[  152.401886] [<c0597ac0>] (dev_change_flags) from [<c060d308>] (devinet_ioctl+0x620/0x6d0)
+[  152.401897] [<c060d308>] (devinet_ioctl) from [<c057d810>] (sock_ioctl+0x64/0x288)
+[  152.401908] [<c057d810>] (sock_ioctl) from [<c00dcb7c>] (do_vfs_ioctl+0x78/0x608)
+[  152.401918] [<c00dcb7c>] (do_vfs_ioctl) from [<c00dd170>] (SyS_ioctl+0x64/0x74)
+[  152.401930] [<c00dd170>] (SyS_ioctl) from [<c000f3a0>] (ret_fast_syscall+0x0/0x3c)
 
-Hi Hannes
+Signed-off-by: Justin Maggard <jmaggard@netgear.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Since we release u->readlock, what prevents another thread to read() the
-same af_unix socket and consume the skb while we splice it ?
-
-TCP stack has special code to take care of this possibility.
-
-tcp_read_sock() :
-
-                        used = recv_actor(desc, skb, offset, len);
-                        if (used <= 0) {
-                                if (!copied)
-                                        copied = used;
-                                break;
-                        } else if (used <= len) {
-                                seq += used;
-                                copied += used;
-                                offset += used;
-                        }
-                        /* If recv_actor drops the lock (e.g. TCP splice
-                         * receive) the skb pointer might be invalid when
-                         * getting here: tcp_collapse might have deleted it
-                         * while aggregating skbs from the socket queue.
-                         */
-                        skb = tcp_recv_skb(sk, seq - 1, &offset);
-                        if (!skb)
-                                break;
-                        /* TCP coalescing might have appended data to the skb.
-                         * Try to splice more frags
-                         */
-                        if (offset + 1 != skb->len)
-                                continue;
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index a47496a..e84c7f2 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -1493,9 +1493,9 @@ static void mvneta_rxq_drop_pkts(struct mvneta_port *pp,
+ 		struct mvneta_rx_desc *rx_desc = rxq->descs + i;
+ 		void *data = (void *)rx_desc->buf_cookie;
+ 
+-		mvneta_frag_free(pp, data);
+ 		dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
+ 				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
++		mvneta_frag_free(pp, data);
+ 	}
+ 
+ 	if (rx_done)
+-- 
+2.6.3
