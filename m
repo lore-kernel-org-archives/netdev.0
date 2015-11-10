@@ -1,68 +1,55 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
-Date: Tue, 10 Nov 2015 19:25:40 +0000
-Message-ID: <yw1xbnb1r70r.fsf@unicorn.mansr.com>
-References: <1447172063-27234-1-git-send-email-mans@mansr.com>
-	<564241BF.4020700@free.fr>
+From: "Shi, Yang" <yang.shi@linaro.org>
+Subject: Re: [PATCH] arm64: bpf: fix JIT stack setup
+Date: Tue, 10 Nov 2015 11:46:42 -0800
+Message-ID: <564249A2.1070903@linaro.org>
+References: <1446874577-14539-1-git-send-email-yang.shi@linaro.org>	<20151108022726.GB39441@ast-mbp.thefacebook.com>	<CABg9mcv8W4_pvkEQKtjBPi5ycMgLPksYoPtYnGr6tdcb5ER8YQ@mail.gmail.com>	<5640E135.2020007@linaro.org> <CABg9mcvACuVK2=GBbnur94CsckN2TXRCCiXhX7A8jYQ7arMM+Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Mason <slash.tmp@free.fr>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Alexei Starovoitov <ast@kernel.org>, daniel@iogearbox.net,
+	Xi Wang <xi.wang@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	linaro-kernel@lists.linaro.org
+To: Z Lim <zlim.lnx@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <564241BF.4020700@free.fr> (Mason's message of "Tue, 10 Nov 2015
-	20:13:03 +0100")
+In-Reply-To: <CABg9mcvACuVK2=GBbnur94CsckN2TXRCCiXhX7A8jYQ7arMM+Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mason <slash.tmp@free.fr> writes:
-
-> On 10/11/2015 17:14, Mans Rullgard wrote:
+On 11/9/2015 12:00 PM, Z Lim wrote:
+> On Mon, Nov 9, 2015 at 10:08 AM, Shi, Yang <yang.shi@linaro.org> wrote:
+>> I added it to stay align with ARMv8 AAPCS to maintain the correct FP during
+>> function call. It makes us get correct stack backtrace.
+>>
+>> I think we'd better to keep compliant with ARMv8 AAPCS in BPF JIT prologue
+>> too.
+>>
+>> If nobody thinks it is necessary, we definitely could remove that change.
 >
->> This adds a driver for the Aurora VLSI NB8800 Ethernet controller.
->> It is an almost complete rewrite of a driver originally found in
->> a Sigma Designs 2.6.22 tree.
->>=20
->> Signed-off-by: Mans Rullgard <mans@mansr.com>
->> ---
->> Changes:
->> - Refactored mdio access functions
->> - Refactored register access helpers
->> - Improved error handling in rx buffer allocation
->> - Optimised some fifo parameters
->> - Overhauled tx dma. Multiple packets are now chained in a single dm=
-a
->>   operation if xmit_more is set, improving performance.
->> - Improved rx irq handling. It's not possible to disable interrupts
->>   entirely for napi poll, but they can be slowed down a little.
->> - Use readx_poll_timeout in various places
->> - Improved error detection
->> - Improved statistics
->> - Report hardware statistics counters through ethtool
->> - Improved tangox-specific setup
->> - Support for flow control using pause frames
->> - Explanatory comments added
->> - Various minor stylistic changes
->> ---
->>  drivers/net/ethernet/Kconfig         |    1 +
->>  drivers/net/ethernet/Makefile        |    1 +
->>  drivers/net/ethernet/aurora/Kconfig  |   20 +
->>  drivers/net/ethernet/aurora/Makefile |    1 +
->>  drivers/net/ethernet/aurora/nb8800.c | 1530 +++++++++++++++++++++++=
-+++++++++++
->>  drivers/net/ethernet/aurora/nb8800.h |  314 +++++++
->>  6 files changed, 1867 insertions(+)
+> Oh no, I don't think anyone will say it's unnecessary!
+> I agree the A64_FP-related change is a good idea, so stack unwinding works.
 >
-> The code has grown much since the previous patch, despite some
-> refactoring. Is this mostly due to ethtool_ops support?
+> How about splitting this into two patches? One for the BPF-related
+> bug, and another for A64 FP-handling.
+
+I'm not sure if this is a good approach or not. IMHO, they are kind of 
+atomic. Without A64 FP-handling, that fix looks incomplete and 
+introduces another problem (stack backtrace).
+
+Thanks,
+Yang
+
 >
->  drivers/net/ethernet/aurora/nb8800.c | 1146 ++++++++++++++++++++++++=
-++++++++++
->  drivers/net/ethernet/aurora/nb8800.h |  230 +++++++
-
-Some of the increase is from new features, some from improvements, and
-then there are a bunch of new comments.
-
---=20
-M=E5ns Rullg=E5rd
-mans@mansr.com
+> Thanks again for tracking this down and improving things overall for arm64 :)
+>
+>>
+>> Thanks,
+>> Yang
+>>
+>>
