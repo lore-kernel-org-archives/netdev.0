@@ -1,57 +1,36 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
-Date: Wed, 11 Nov 2015 00:44:26 +0000
-Message-ID: <yw1xegfxpdp1.fsf@unicorn.mansr.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800
+ Ethernet controller
+Date: Tue, 10 Nov 2015 21:11:21 -0500 (EST)
+Message-ID: <20151110.211121.422193831316296487.davem@davemloft.net>
 References: <1447172063-27234-1-git-send-email-mans@mansr.com>
-	<CAHp75Vch3vJEqYsCRUoctEmF0EoFx+0y7ZO+LjmdpQKAoikiOA@mail.gmail.com>
-	<yw1xr3jxpjoy.fsf@unicorn.mansr.com>
-	<CAHp75VfsswYAvkkkHuaEvkTAgZhoGZQ1oQ_R9BwZgyZ3xRVDeg@mail.gmail.com>
-	<yw1xmvulpi6r.fsf@unicorn.mansr.com>
-	<CAHp75VfeABnw6AipxWf2w-EDPUCA2xzFuQhaPrq=b12gb3Y0KQ@mail.gmail.com>
+	<20151110233448.GA8646@electric-eye.fr.zoreil.com>
+	<yw1xio59pdw6.fsf@unicorn.mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, slash.tmp@free.fr
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
+Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, slash.tmp@free.fr
+To: mans@mansr.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHp75VfeABnw6AipxWf2w-EDPUCA2xzFuQhaPrq=b12gb3Y0KQ@mail.gmail.com>
-	(Andy Shevchenko's message of "Wed, 11 Nov 2015 02:36:43 +0200")
+In-Reply-To: <yw1xio59pdw6.fsf@unicorn.mansr.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andy Shevchenko <andy.shevchenko@gmail.com> writes:
+=46rom: M=E5ns Rullg=E5rd <mans@mansr.com>
+Date: Wed, 11 Nov 2015 00:40:09 +0000
 
-> On Wed, Nov 11, 2015 at 1:07 AM, M=C3=A5ns Rullg=C3=A5rd <mans@mansr.=
-com> wrote:
->> Andy Shevchenko <andy.shevchenko@gmail.com> writes:
->
->>>>>> +       nb8800_writel(priv, NB8800_TX_DESC_ADDR, txb->dma_desc);
->>>>>> +       wmb();          /* ensure desc addr is written before st=
-arting DMA */
->>>>>
->>>>> Hm=E2=80=A6 Have I missed corresponding rmb() ? If it's about MMI=
-O, perhaps mmiowb() ?
->>>>
->>>> Possibly.
->>>
->>> Standalone wmb() doesn't make sense.
->>
->> It does if you need to enforce ordering between normal and I/O memor=
-y.
->> In fact, since the descriptor is filled in using normal memory acces=
-ses,
->> my understanding is that mmiowb() would be insufficient here.  The
->> comment could be improved, however.
->
-> Can you then explain what exactly you are assured against in all case=
-s
-> where you are using wmb()s? It seems I don't recognize this part in
-> some excerpts.
+> When the DMA complete interrupt arrives, the next chain should be
+> kicked off as quickly as possible, and I don't see why that would
+> benefit from being done in napi context.
 
-Certainly.  I'll re-read memory-barriers.txt to make sure I'm doing the
-right thing, then write a better comment.
+NAPI isn't about low latency, it's about fairness and interrupt
+mitigation.
 
---=20
-M=C3=A5ns Rullg=C3=A5rd
-mans@mansr.com
+You probably don't even realize that all of the TX SKB freeing you do
+in the hardware interrupt handler end up being actually processed by a
+scheduled software interrupt anyways.
+
+So you are gaining almost nothing by not doing TX completion in NAPI
+context, whereas by doing so you would be gaining a lot including
+more simplified locking or even the ability to do no locking at all.
