@@ -1,58 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v3] af-unix: fix use-after-free with concurrent
- readers while splicing
-Date: Wed, 11 Nov 2015 11:42:49 -0800
-Message-ID: <1447270969.22599.6.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1447168995-25820-1-git-send-email-hannes@stressinduktion.org>
-	 <1447268331.17135.116.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1447269259.3708910.436352857.78EBF47C@webmail.messagingengine.com>
-	 <1447270092.22599.3.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1447270544.3713125.436369065.0FEEDEDA@webmail.messagingengine.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800
+ Ethernet controller
+Date: Wed, 11 Nov 2015 14:48:40 -0500 (EST)
+Message-ID: <20151111.144840.430771235700359719.davem@davemloft.net>
+References: <yw1x7flonxs5.fsf@unicorn.mansr.com>
+	<20151111.142650.1297832998846138251.davem@davemloft.net>
+	<yw1x37wcnxcm.fsf@unicorn.mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dmitry Vyukov <dvyukov@google.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, slash.tmp@free.fr
+To: mans@mansr.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36617 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142AbbKKTmv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 14:42:51 -0500
-Received: by pacdm15 with SMTP id dm15so39388696pac.3
-        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 11:42:51 -0800 (PST)
-In-Reply-To: <1447270544.3713125.436369065.0FEEDEDA@webmail.messagingengine.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50574 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752416AbbKKTsm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 14:48:42 -0500
+In-Reply-To: <yw1x37wcnxcm.fsf@unicorn.mansr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-11-11 at 20:35 +0100, Hannes Frederic Sowa wrote:
-> 
-> On Wed, Nov 11, 2015, at 20:28, Eric Dumazet wrote:
-> > On Wed, 2015-11-11 at 20:14 +0100, Hannes Frederic Sowa wrote:
-> > > On Wed, Nov 11, 2015, at 19:58, Eric Dumazet wrote:
-> > 
-> > > Can you elaborate?
-> > > 
-> > > I use tail as a cookie and check if we already tried to append to the
-> > > same tail skb with skb_append_pagefrags. If during allocation, which we
-> > > do outside of the locks, a new skb arrives, we take that and try to
-> > > append again (and free the old skb), to correctly not create any
-> > > reordering in the data stream.
-> > > 
-> > > You think that tail could be reused in the meanwhile?
-> > 
-> > Hmmm, there is some funky stuff at least.
-> > 
-> > Are you sure the __skb_queue_tail(&other->sk_receive_queue, newskb)
-> > is appropriate ?
-> > 
-> > (Why not locking sk_receive_queue is safe ?)
-> 
-> We hold the other's state lock at that time.
+=46rom: M=E5ns Rullg=E5rd <mans@mansr.com>
+Date: Wed, 11 Nov 2015 19:35:05 +0000
 
-Well, this is not safe enough :(
+>> I don't think it's silly at all.
+>=20
+> I'm sure I read somewhere that the time spent spinning on a lock shou=
+ld
+> be kept as small as possible.
+>=20
+>> And unless you can measure it making a difference, don't knock the i=
+dea.
+>=20
+> I tried using netif_tx_lock() in the IRQ handler instead, and it lock=
+ed
+> up solid.  Clearly that was the wrong thing to do.
 
-Look at unix_stream_sendmsg() : It uses skb_queue_tail(), not
-__skb_queue_tail()
+Oh that's right, it's a BH lock not an IRQ one.
 
-Think of concurrent splice() (or sendfile()) and sendmsg() on the same
-af_unix socket.
+Yet another argument for doing everything in ->poll(), thus making all
+operations outside of NAPI scheduling run in software interrupt
+context, and therefore being able to make use of the TXQ lock for
+this.
