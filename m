@@ -1,98 +1,71 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
-Date: Wed, 11 Nov 2015 16:23:41 +0000
-Message-ID: <20151111162341.GN9562@arm.com>
-References: <20151111004208.GA47378@ast-mbp.thefacebook.com>
- <CABg9mcux0wEC5=nWuR9o8NwUTp73zqZ-N2e67_f7oS_mX1XGdg@mail.gmail.com>
- <4902833.k8y8bz0YLV@wuerfel>
- <20151111102406.GB9562@arm.com>
- <56431B83.5060500@iogearbox.net>
- <20151111115851.GE9562@arm.com>
- <564332B0.2090103@iogearbox.net>
- <20151111123831.GJ9562@arm.com>
- <20151111125807.GP17308@twins.programming.kicks-ass.net>
- <56436420.9090401@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800
+ Ethernet controller
+Date: Wed, 11 Nov 2015 11:24:23 -0500 (EST)
+Message-ID: <20151111.112423.1751428739163066569.davem@davemloft.net>
+References: <20151110.211121.422193831316296487.davem@davemloft.net>
+	<yw1xa8qkpvy3.fsf@unicorn.mansr.com>
+	<yw1x6118pu0o.fsf@unicorn.mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Arnd Bergmann <arnd@arndb.de>,
-	"Shi, Yang" <yang.shi@linaro.org>, linaro-kernel@lists.linaro.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Z Lim <zlim.lnx@gmail.com>,
-	Alexei Starovoitov <ast@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Xi Wang <xi.wang@gmail.com>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>, yhs@plumgrid.com,
-	bblanco@plumgrid.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, slash.tmp@free.fr
+To: mans@mansr.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56436420.9090401@iogearbox.net>
+In-Reply-To: <yw1x6118pu0o.fsf@unicorn.mansr.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Daniel,
+=46rom: M=E5ns Rullg=E5rd <mans@mansr.com>
+Date: Wed, 11 Nov 2015 13:04:07 +0000
 
-Thanks for investigating this further.
+> M=E5ns Rullg=E5rd <mans@mansr.com> writes:
+>=20
+>> David Miller <davem@davemloft.net> writes:
+>>
+>>> From: M=E5ns Rullg=E5rd <mans@mansr.com>
+>>> Date: Wed, 11 Nov 2015 00:40:09 +0000
+>>>
+>>>> When the DMA complete interrupt arrives, the next chain should be
+>>>> kicked off as quickly as possible, and I don't see why that would
+>>>> benefit from being done in napi context.
+>>>
+>>> NAPI isn't about low latency, it's about fairness and interrupt
+>>> mitigation.
+>>>
+>>> You probably don't even realize that all of the TX SKB freeing you =
+do
+>>> in the hardware interrupt handler end up being actually processed b=
+y a
+>>> scheduled software interrupt anyways.
+>>>
+>>> So you are gaining almost nothing by not doing TX completion in NAP=
+I
+>>> context, whereas by doing so you would be gaining a lot including
+>>> more simplified locking or even the ability to do no locking at all=
+=2E
+>>
+>> TX completion is separate from restarting the DMA, and moving that t=
+o
+>> NAPI may well be a good idea.  Should I simply napi_schedule() if th=
+e
+>> hardware indicates TX is complete and do the cleanup in the NAPI pol=
+l
+>> function?
+>=20
+> I tried that, and throughput (as measured by iperf3) dropped by 2%.
+> Maybe I did something wrong.
 
-On Wed, Nov 11, 2015 at 04:52:00PM +0100, Daniel Borkmann wrote:
-> I played a bit around with eBPF code to assign the __sync_fetch_and_add()
-> return value to a var and dump it to trace pipe, or use it as return code.
-> llvm compiles it (with the result assignment) and it looks like:
-> 
-> [...]
-> 206: (b7) r3 = 3
-> 207: (db) lock *(u64 *)(r0 +0) += r3
-> 208: (bf) r1 = r10
-> 209: (07) r1 += -16
-> 210: (b7) r2 = 10
-> 211: (85) call 6 // r3 dumped here
-> [...]
-> 
-> [...]
-> 206: (b7) r5 = 3
-> 207: (db) lock *(u64 *)(r0 +0) += r5
-> 208: (bf) r1 = r10
-> 209: (07) r1 += -16
-> 210: (b7) r2 = 10
-> 211: (b7) r3 = 43
-> 212: (b7) r4 = 42
-> 213: (85) call 6 // r5 dumped here
-> [...]
-> 
-> [...]
-> 11: (b7) r0 = 3
-> 12: (db) lock *(u64 *)(r1 +0) += r0
-> 13: (95) exit // r0 returned here
-> [...]
-> 
-> What it seems is that we 'get back' the value (== 3 here in r3, r5, r0)
-> that we're adding, at least that's what seems to be generated wrt
-> register assignments. Hmm, the semantic differences of bpf target
-> should be documented somewhere for people writing eBPF programs to
-> be aware of.
+Did you fix all the locking in that change?
 
-If we're going to document it, a bug tracker might be a good place to
-start. The behaviour, as it stands, is broken wrt the definition of the
-__sync primitives. That is, there is no way to build __sync_fetch_and_add
-out of BPF_XADD without changing its semantics.
+Since all of your TX handling runs in software interrupt context, you
+can stop using IRQ locking and use BH locking driver-wide instead.
 
-We could fix this by either:
+And actually, no locking is really needed for TX processing.  With
+proper memory barriers and properly crafter queue state tests, you
+can run completely lockless.
 
-(1) Defining BPF_XADD to match __sync_fetch_and_add (including memory
-    barriers).
-
-(2) Introducing some new BPF_ atomics, that map to something like the
-    C11 __atomic builtins and deprecating BPF_XADD in favour of these.
-
-(3) Introducing new source-language intrinsics to match what BPF can do
-    (unlikely to be popular).
-
-As it stands, I'm not especially keen on adding BPF_XADD to the arm64
-JIT backend until we have at least (1) and preferably (2) as well.
-
-Will
+Again, look at example drivers.  I know, for example, that
+drivers/net/ethernet/broadcom/tg3.c runs TX lockless.  You'll
+see that tg3_tx() takes no locks at all.
