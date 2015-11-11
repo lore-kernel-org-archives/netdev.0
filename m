@@ -1,35 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PING: [PATCH] net: smsc911x: Reset PHY during initialization
-Date: Wed, 11 Nov 2015 11:14:45 -0500 (EST)
-Message-ID: <20151111.111445.2097467355844936194.davem@davemloft.net>
-References: <006801d11b82$1f5704b0$5e050e10$@samsung.com>
-	<20151110.115149.604622279273759756.davem@davemloft.net>
-	<009b01d11c4f$57f6ef10$07e4cd30$@samsung.com>
+Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800
+ Ethernet controller
+Date: Wed, 11 Nov 2015 11:20:56 -0500 (EST)
+Message-ID: <20151111.112056.1931193644379757340.davem@davemloft.net>
+References: <yw1xio59pdw6.fsf@unicorn.mansr.com>
+	<20151110.211121.422193831316296487.davem@davemloft.net>
+	<yw1xa8qkpvy3.fsf@unicorn.mansr.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	steve.glendinning@shawell.net
-To: p.fedin@samsung.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, slash.tmp@free.fr
+To: mans@mansr.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <009b01d11c4f$57f6ef10$07e4cd30$@samsung.com>
+In-Reply-To: <yw1xa8qkpvy3.fsf@unicorn.mansr.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Fedin <p.fedin@samsung.com>
-Date: Wed, 11 Nov 2015 10:05:24 +0300
+=46rom: M=E5ns Rullg=E5rd <mans@mansr.com>
+Date: Wed, 11 Nov 2015 12:22:28 +0000
 
->  Hello!
-> 
->> If you think I should reconsider the patch, you should resubmit it.
-> 
->  I understand this, of course. But, before doing this i'd like to
-> clarify your concern, why exactly you think that loopback test will
-> break.
+> David Miller <davem@davemloft.net> writes:
+>=20
+>> From: M=E5ns Rullg=E5rd <mans@mansr.com>
+>> Date: Wed, 11 Nov 2015 00:40:09 +0000
+>>
+>>> When the DMA complete interrupt arrives, the next chain should be
+>>> kicked off as quickly as possible, and I don't see why that would
+>>> benefit from being done in napi context.
+>>
+>> NAPI isn't about low latency, it's about fairness and interrupt
+>> mitigation.
+>>
+>> You probably don't even realize that all of the TX SKB freeing you d=
+o
+>> in the hardware interrupt handler end up being actually processed by=
+ a
+>> scheduled software interrupt anyways.
+>>
+>> So you are gaining almost nothing by not doing TX completion in NAPI
+>> context, whereas by doing so you would be gaining a lot including
+>> more simplified locking or even the ability to do no locking at all.
+>=20
+> TX completion is separate from restarting the DMA, and moving that to
+> NAPI may well be a good idea.  Should I simply napi_schedule() if the
+> hardware indicates TX is complete and do the cleanup in the NAPI poll
+> function?
 
-If I didn't reply it means I don't have anything constructive to say
-to you, and probably I'll end up agreeing with your analysis of the
-loopback test issue.
-
-I'm not going to ask more than one more time for you to repost your
-patch.
+=2E.. just like every other high end driver... Yes.
