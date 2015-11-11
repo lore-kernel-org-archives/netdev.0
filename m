@@ -1,61 +1,50 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
-Date: Wed, 11 Nov 2015 13:04:07 +0000
-Message-ID: <yw1x6118pu0o.fsf@unicorn.mansr.com>
-References: <1447172063-27234-1-git-send-email-mans@mansr.com>
-	<20151110233448.GA8646@electric-eye.fr.zoreil.com>
-	<yw1xio59pdw6.fsf@unicorn.mansr.com>
-	<20151110.211121.422193831316296487.davem@davemloft.net>
-	<yw1xa8qkpvy3.fsf@unicorn.mansr.com>
+From: Christian Magnusson <Christian.Magnusson@semcon.com>
+Subject: RE: [PATCH 1/1] can: sja1000: clear interrupts on start
+Date: Wed, 11 Nov 2015 12:49:19 +0000
+Message-ID: <43dd06fc9e734f5e9f7832bc472869a8@SE-GOT-MB03.semcon.se>
+References: <1447163974-24514-1-git-send-email-mirza.krak@hostmobility.com>
+	<5642F6A5.5070301@pengutronix.de>
+	<CAJ=nTssqwtYAos67GRr8fOzsm63v_Bx+GKEWriOjbTALuzv-0g@mail.gmail.com>
+	<5643132A.7080504@pengutronix.de>
+	<CAJ=nTstPCev0TGjZCYkzf4qX+6NUUv8+-6PeVEKL9bcOwBKc0A@mail.gmail.com>
+	<56433678.1090104@pengutronix.de>
+ <CAJ=nTstmat5gmtpGmvn5nCpuFAfKzYC2zfZA-08UZ_FCfBXVcg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, slash.tmp@free.fr
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:44104 "EHLO unicorn.mansr.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752432AbbKKNEK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 08:04:10 -0500
-In-Reply-To: <yw1xa8qkpvy3.fsf@unicorn.mansr.com> (=?iso-8859-1?Q?=22M=E5n?=
- =?iso-8859-1?Q?s_Rullg=E5rd=22's?= message
-	of "Wed, 11 Nov 2015 12:22:28 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "wg@grandegger.com" <wg@grandegger.com>,
+	"andri.yngvason@marel.com" <andri.yngvason@marel.com>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Mirza Krak <mirza.krak@hostmobility.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJ=nTstmat5gmtpGmvn5nCpuFAfKzYC2zfZA-08UZ_FCfBXVcg@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-M=E5ns Rullg=E5rd <mans@mansr.com> writes:
-
-> David Miller <davem@davemloft.net> writes:
->
->> From: M=E5ns Rullg=E5rd <mans@mansr.com>
->> Date: Wed, 11 Nov 2015 00:40:09 +0000
->>
->>> When the DMA complete interrupt arrives, the next chain should be
->>> kicked off as quickly as possible, and I don't see why that would
->>> benefit from being done in napi context.
->>
->> NAPI isn't about low latency, it's about fairness and interrupt
->> mitigation.
->>
->> You probably don't even realize that all of the TX SKB freeing you d=
-o
->> in the hardware interrupt handler end up being actually processed by=
- a
->> scheduled software interrupt anyways.
->>
->> So you are gaining almost nothing by not doing TX completion in NAPI
->> context, whereas by doing so you would be gaining a lot including
->> more simplified locking or even the ability to do no locking at all.
->
-> TX completion is separate from restarting the DMA, and moving that to
-> NAPI may well be a good idea.  Should I simply napi_schedule() if the
-> hardware indicates TX is complete and do the cleanup in the NAPI poll
-> function?
-
-I tried that, and throughput (as measured by iperf3) dropped by 2%.
-Maybe I did something wrong.
-
---=20
-M=E5ns Rullg=E5rd
-mans@mansr.com
+VGhhbmtzLi4gSXQncyBvayBmb3IgbWUuIEdvb2QgdGhhdCB3ZSBmaW5hbGx5IGZvdW5kIHRoZSBw
+cm9ibGVtIHdpdGggdGhlIGhhbmdpbmcgY2FuLWludGVyZmFjZXMuIDopDQoNCi9DaHJpc3RpYW4N
+Cg0KDQpDaHJpc3RpYW4gTWFnbnVzc29uDQpjaHJpc3RpYW4ubWFnbnVzc29uQHNlbWNvbi5jb20N
+Cg0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogTWlyemEgS3JhayBbbWFpbHRv
+Om1pcnphLmtyYWtAaG9zdG1vYmlsaXR5LmNvbV0gDQpTZW50OiBkZW4gMTEgbm92ZW1iZXIgMjAx
+NSAxMzo0Ng0KVG86IE1hcmMgS2xlaW5lLUJ1ZGRlDQpDYzogd2dAZ3JhbmRlZ2dlci5jb207IGFu
+ZHJpLnluZ3Zhc29uQG1hcmVsLmNvbTsgbGludXgtY2FuQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2
+QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsOyBDaHJpc3RpYW4gTWFnbnVzc29uDQpTdWJq
+ZWN0OiBSZTogW1BBVENIIDEvMV0gY2FuOiBzamExMDAwOiBjbGVhciBpbnRlcnJ1cHRzIG9uIHN0
+YXJ0DQoNCjIwMTUtMTEtMTEgMTM6MzcgR01UKzAxOjAwIE1hcmMgS2xlaW5lLUJ1ZGRlIDxta2xA
+cGVuZ3V0cm9uaXguZGU+Og0KPj4gU29tZSBjcmVkIHNob3VsZCBnbyB0byBDaHJpc3RpYW4gKGFk
+ZGVkIGhpbSB0byBDQykgZm9yIGZpbmRpbmcgdGhpcyANCj4+IHByb2JsZW0gYW5kIHJlcG9ydGlu
+ZyBpdCB0byBtZS4NCj4NCj4gSSdsbCBhZGQgYQ0KPg0KPiBSZXBvcnRlZC1ieTogQ2hyaXN0aWFu
+IE1hZ251c3NvbiA8Q2hyaXN0aWFuLk1hZ251c3NvbkBzZW1jb24uY29tPg0KPg0KPiB0byB0aGUg
+cGF0Y2guDQo+DQoNCkNhbiB3ZSBqdXN0IGdldCBhbiBBQ0sgdGhhdCBpdCBpcyBPSyBmcm9tIENo
+cmlzdGlhbiBiZWZvcmUgd2UgZG8gaXQuDQoNCg0KDQotLQ0KTWVkIFbDpG5saWdhIEjDpGxzbmlu
+Z2FyIC8gQmVzdCBSZWdhcmRzDQoNCioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioNCk1pcnphIEtyYWsNCkhvc3QgTW9iaWxp
+dHkgQUINCm1pcnphLmtyYWtAaG9zdG1vYmlsaXR5LmNvbQ0KQW5kZXJzIFBlcnNvbnNnYXRhbiAx
+MiwgNDE2IDY0IEfDtnRlYm9yZw0KU3dlZGVuDQpodHRwOi8vd3d3Lmhvc3Rtb2JpbGl0eS5jb20N
+CkRpcmVjdDogKzQ2IDMxIDMxIDMyIDcwNA0KUGhvbmU6ICs0NiAzMSAzMSAzMiA3MDANCkZheDog
+KzQ2IDMxIDgwIDY3IDUxDQpNb2JpbGU6ICs0NiA3MzAgMjggMDYgMjINCioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioNCg==
