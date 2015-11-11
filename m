@@ -1,96 +1,188 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net v3] af-unix: fix use-after-free with concurrent readers
- while splicing
-Date: Wed, 11 Nov 2015 21:12:11 +0100
-Message-ID: <1447272731.3722073.436403569.0CF9C462@webmail.messagingengine.com>
-References: <1447168995-25820-1-git-send-email-hannes@stressinduktion.org>
- <1447268331.17135.116.camel@edumazet-glaptop2.roam.corp.google.com>
- <1447269259.3708910.436352857.78EBF47C@webmail.messagingengine.com>
- <1447270092.22599.3.camel@edumazet-glaptop2.roam.corp.google.com>
- <1447270544.3713125.436369065.0FEEDEDA@webmail.messagingengine.com>
- <1447270969.22599.6.camel@edumazet-glaptop2.roam.corp.google.com>
- <1447271909.3719084.436387065.64388554@webmail.messagingengine.com>
- <1447272545.22599.7.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: regression in ixgbe SFP detection patch
+Date: Wed, 11 Nov 2015 20:33:13 +0000
+Message-ID: <87618083B2453E4A8714035B62D67992504DF0AA@FMSMSX105.amr.corp.intel.com>
+References: <20151111173527.GA3641@gandi.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dmitry Vyukov <dvyukov@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Schmitt, Phillip J" <phillip.j.schmitt@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: William Dauchy <william@gandi.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:48521 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751522AbbKKUMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 15:12:32 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id B8CC120DA7
-	for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 15:12:11 -0500 (EST)
-In-Reply-To: <1447272545.22599.7.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mga09.intel.com ([134.134.136.24]:56599 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752046AbbKKUdT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 15:33:19 -0500
+In-Reply-To: <20151111173527.GA3641@gandi.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+>-----Original Message-----
+>From: William Dauchy [mailto:william@gandi.net]
+>Sent: Wednesday, November 11, 2015 9:35 AM
+>To: Kirsher, Jeffrey T; Tantilov, Emil S
+>Cc: davem@davemloft.net; netdev@vger.kernel.org; Schmitt, Phillip J; intel-
+>wired-lan@lists.osuosl.org
+>Subject: regression in ixgbe SFP detection patch
+>
+>Hello,
+>
+>I upgraded a machine from 3.14.x to v4.1.x and noted that I now have two
+>kworker very often on D state, just after boot while I am not doing
+>anything special. This issue remains indefinitely.
+>
+>This machine has four network interfaces:
+>
+>
+>01:00.0 Ethernet controller: Intel Corporation 82576 Gigabit Network
+>Connection (rev 01)
+>        Subsystem: Inventec Corporation Device 004a
+>        Flags: bus master, fast devsel, latency 0, IRQ 17
+>        Memory at fbce0000 (32-bit, non-prefetchable) [size=128K]
+>        Memory at fbcc0000 (32-bit, non-prefetchable) [size=128K]
+>        I/O ports at cc00 [size=32]
+>        Memory at fbc9c000 (32-bit, non-prefetchable) [size=16K]
+>        Expansion ROM at fbca0000 [disabled] [size=128K]
+>        Capabilities: [40] Power Management version 3
+>        Capabilities: [50] MSI: Enable- Count=1/1 Maskable+ 64bit+
+>        Capabilities: [70] MSI-X: Enable+ Count=10 Masked-
+>        Capabilities: [a0] Express Endpoint, MSI 00
+>        Capabilities: [100] Advanced Error Reporting
+>        Capabilities: [140] Device Serial Number 00-26-6c-ff-ff-ff-af-71
+>        Capabilities: [150] Alternative Routing-ID Interpretation (ARI)
+>        Capabilities: [160] Single Root I/O Virtualization (SR-IOV)
+>        Kernel driver in use: igb
+>
+>01:00.1 Ethernet controller: Intel Corporation 82576 Gigabit Network
+>Connection (rev 01)
+>        Subsystem: Inventec Corporation Device 004a
+>        Flags: bus master, fast devsel, latency 0, IRQ 16
+>        Memory at fbc20000 (32-bit, non-prefetchable) [size=128K]
+>        Memory at fbc00000 (32-bit, non-prefetchable) [size=128K]
+>        I/O ports at c880 [size=32]
+>        Memory at fbbdc000 (32-bit, non-prefetchable) [size=16K]
+>        Expansion ROM at fbbe0000 [disabled] [size=128K]
+>        Capabilities: [40] Power Management version 3
+>        Capabilities: [50] MSI: Enable- Count=1/1 Maskable+ 64bit+
+>        Capabilities: [70] MSI-X: Enable+ Count=10 Masked-
+>        Capabilities: [a0] Express Endpoint, MSI 00
+>        Capabilities: [100] Advanced Error Reporting
+>        Capabilities: [140] Device Serial Number 00-26-6c-ff-ff-ff-af-71
+>        Capabilities: [150] Alternative Routing-ID Interpretation (ARI)
+>        Capabilities: [160] Single Root I/O Virtualization (SR-IOV)
+>        Kernel driver in use: igb
+>
+>03:00.0 Ethernet controller: Intel Corporation 82599ES 10-Gigabit SFI/SFP+
+>Network Connection (rev 01)
+>        Subsystem: Inventec Corporation Device 004c
+>        Flags: bus master, fast devsel, latency 0, IRQ 56
+>        Memory at fbdc0000 (64-bit, non-prefetchable) [size=256K]
+>        I/O ports at dc00 [size=32]
+>        Memory at fbd9c000 (64-bit, non-prefetchable) [size=16K]
+>        Expansion ROM at fbda0000 [disabled] [size=128K]
+>        Capabilities: [40] Power Management version 3
+>        Capabilities: [50] MSI: Enable- Count=1/1 Maskable+ 64bit+
+>        Capabilities: [70] MSI-X: Enable+ Count=64 Masked-
+>        Capabilities: [a0] Express Endpoint, MSI 00
+>        Capabilities: [e0] Vital Product Data
+>        Capabilities: [100] Advanced Error Reporting
+>        Capabilities: [140] Device Serial Number 00-8c-fa-ff-ff-01-cf-c2
+>        Capabilities: [150] Alternative Routing-ID Interpretation (ARI)
+>        Capabilities: [160] Single Root I/O Virtualization (SR-IOV)
+>        Kernel driver in use: ixgbe
+>
+>03:00.1 Ethernet controller: Intel Corporation 82599ES 10-Gigabit SFI/SFP+
+>Network Connection (rev 01)
+>        Subsystem: Inventec Corporation Device 004c
+>        Flags: bus master, fast devsel, latency 0, IRQ 82
+>        Memory at fbd40000 (64-bit, non-prefetchable) [size=256K]
+>        I/O ports at d880 [size=32]
+>        Memory at fbd1c000 (64-bit, non-prefetchable) [size=16K]
+>        Expansion ROM at fbd20000 [disabled] [size=128K]
+>        Capabilities: [40] Power Management version 3
+>        Capabilities: [50] MSI: Enable- Count=1/1 Maskable+ 64bit+
+>        Capabilities: [70] MSI-X: Enable+ Count=64 Masked-
+>        Capabilities: [a0] Express Endpoint, MSI 00
+>        Capabilities: [e0] Vital Product Data
+>        Capabilities: [100] Advanced Error Reporting
+>        Capabilities: [140] Device Serial Number 00-8c-fa-ff-ff-01-cf-c2
+>        Capabilities: [150] Alternative Routing-ID Interpretation (ARI)
+>        Capabilities: [160] Single Root I/O Virtualization (SR-IOV)
+>        Kernel driver in use: ixgbe
+>
+>
+>The two ixgbe interfaces are not used (UP but no-carrier):
+>
+>2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdisc mq state UP group
+>defa
+>    link/ether 00:26:6c:ff:af:70 brd ff:ff:ff:ff:ff:ff
+>    inet 10.5.5.58/24 brd 10.5.5.255 scope global eth0
+>       valid_lft forever preferred_lft forever
+>3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdisc mq state UP group
+>defa
+>    link/ether 00:26:6c:ff:af:71 brd ff:ff:ff:ff:ff:ff
+>4: eth2: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN
+>group
+>    link/ether 00:8c:fa:01:cf:c2 brd ff:ff:ff:ff:ff:ff
+>5: eth3: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN
+>group
+>    link/ether 00:8c:fa:01:cf:c3 brd ff:ff:ff:ff:ff:ff
+>
+>
+>if I turn them down (ip link set dev eth{2,3} down); the problem
+>disappear, the two kworker in D disappear as well.
+The kworkers are needed to detect the SFP+ modules when they are plugged in.
 
-On Wed, Nov 11, 2015, at 21:09, Eric Dumazet wrote:
-> On Wed, 2015-11-11 at 20:58 +0100, Hannes Frederic Sowa wrote:
-> > 
-> > On Wed, Nov 11, 2015, at 20:42, Eric Dumazet wrote:
-> > > On Wed, 2015-11-11 at 20:35 +0100, Hannes Frederic Sowa wrote:
-> > > > 
-> > > > On Wed, Nov 11, 2015, at 20:28, Eric Dumazet wrote:
-> > > > > On Wed, 2015-11-11 at 20:14 +0100, Hannes Frederic Sowa wrote:
-> > > > > > On Wed, Nov 11, 2015, at 19:58, Eric Dumazet wrote:
-> > > > > 
-> > > > > > Can you elaborate?
-> > > > > > 
-> > > > > > I use tail as a cookie and check if we already tried to append to the
-> > > > > > same tail skb with skb_append_pagefrags. If during allocation, which we
-> > > > > > do outside of the locks, a new skb arrives, we take that and try to
-> > > > > > append again (and free the old skb), to correctly not create any
-> > > > > > reordering in the data stream.
-> > > > > > 
-> > > > > > You think that tail could be reused in the meanwhile?
-> > > > > 
-> > > > > Hmmm, there is some funky stuff at least.
-> > > > > 
-> > > > > Are you sure the __skb_queue_tail(&other->sk_receive_queue, newskb)
-> > > > > is appropriate ?
-> > > > > 
-> > > > > (Why not locking sk_receive_queue is safe ?)
-> > > > 
-> > > > We hold the other's state lock at that time.
-> > > 
-> > > Well, this is not safe enough :(
-> > > 
-> > > Look at unix_stream_sendmsg() : It uses skb_queue_tail(), not
-> > > __skb_queue_tail()
-> > > 
-> > > Think of concurrent splice() (or sendfile()) and sendmsg() on the same
-> > > af_unix socket.
-> > 
-> > Well,
-> > 
-> > unix_stream_sendmsg:
-> > 
-> > unix_state_lock(other);
-> > skb_queue_tail(&other->sk_receive_queue);
-> > unix_state_unlock(other);
-> > 
-> > unix_stream_sendpage:
-> > 
-> > unix_state_lock(other);
-> > __skb_queue_tail(&other->sk_receive_queue, skb);
-> > unix_state_unlock(other);
-> > 
-> > unix_stream_read_generic:
-> > 
-> > I only see the skb_unlink as a dangerous operation because outside of
-> > other lock and solely taking the sk_receivie_queue lock. Actually I
-> > think skb_queue_tail can be converted to __skb_queue_tail.
-> 
-> Nope. See unix_inq_len() you definitely need to take the list lock,
-> or make a full audit.
+>Since I consider this as a regression because I only change the kernel
+>version, I did a bisection in order to localize the issue.
 
-Found it right after sending the last mail. :) I do a full audit of all
-sk_receive_queue accesses.
+It's a change and the below commit explains in good detail why it is needed.
 
-Bye,
-Hannes
+>What I got at the end is: (bisected between v3.14.x and v4.1.x)
+># first bad commit: [d9cd46cd391a132a43cbde7bdac12c16284b618f] ixgbe: fix
+>detection of SFP+ capable interfaces
+>
+>After some tests, I reverted the only part present in ixgbe_main:
+>
+>--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>@@ -4786,8 +4786,6 @@
+> 	case ixgbe_phy_qsfp_active_unknown:
+> 	case ixgbe_phy_qsfp_intel:
+> 	case ixgbe_phy_qsfp_unknown:
+>-	/* ixgbe_phy_none is set when no SFP module is present */
+>-	case ixgbe_phy_none:
+> 		return true;
+> 	case ixgbe_phy_nl:
+> 		if (hw->mac.type == ixgbe_mac_82598EB)
+>
+>
+>It also fixes my issue: even if eth{2,3} are still up with no carrier, I
+>don't have any kworker in D state.
+
+It appears that you have 2 ports with empty cages. If that is the case there 
+is no reason to keep the interfaces up. If you bring them down, or plug the SFP+
+modules the kworkers should stop.
+
+>
+>
+>So, is it something we should consider as a regression, in that case I
+>can send a formal patch, or do you need some more information to help
+>you debug it?
+
+If the diff above is the patch you are referring to then you will break the
+SFP+ detection in the case where the driver was loaded while there were no
+SFP+ modules present in the cages.
+
+Thanks,
+Emil
+
+>
+>Thanks,
+>--
+>William
