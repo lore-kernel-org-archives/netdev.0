@@ -1,69 +1,61 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
-Date: Wed, 11 Nov 2015 13:58:07 +0100
-Message-ID: <20151111125807.GP17308@twins.programming.kicks-ass.net>
-References: <1447195301-16757-1-git-send-email-yang.shi@linaro.org>
- <20151111004208.GA47378@ast-mbp.thefacebook.com>
- <CABg9mcux0wEC5=nWuR9o8NwUTp73zqZ-N2e67_f7oS_mX1XGdg@mail.gmail.com>
- <4902833.k8y8bz0YLV@wuerfel>
- <20151111102406.GB9562@arm.com>
- <56431B83.5060500@iogearbox.net>
- <20151111115851.GE9562@arm.com>
- <564332B0.2090103@iogearbox.net>
- <20151111123831.GJ9562@arm.com>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
+Date: Wed, 11 Nov 2015 13:04:07 +0000
+Message-ID: <yw1x6118pu0o.fsf@unicorn.mansr.com>
+References: <1447172063-27234-1-git-send-email-mans@mansr.com>
+	<20151110233448.GA8646@electric-eye.fr.zoreil.com>
+	<yw1xio59pdw6.fsf@unicorn.mansr.com>
+	<20151110.211121.422193831316296487.davem@davemloft.net>
+	<yw1xa8qkpvy3.fsf@unicorn.mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Arnd Bergmann <arnd@arndb.de>,
-	"Shi, Yang" <yang.shi@linaro.org>, linaro-kernel@lists.linaro.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Z Lim <zlim.lnx@gmail.com>,
-	Alexei Starovoitov <ast@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Xi Wang <xi.wang@gmail.com>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Will Deacon <will.deacon@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151111123831.GJ9562@arm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, slash.tmp@free.fr
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from unicorn.mansr.com ([81.2.72.234]:44104 "EHLO unicorn.mansr.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752432AbbKKNEK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 08:04:10 -0500
+In-Reply-To: <yw1xa8qkpvy3.fsf@unicorn.mansr.com> (=?iso-8859-1?Q?=22M=E5n?=
+ =?iso-8859-1?Q?s_Rullg=E5rd=22's?= message
+	of "Wed, 11 Nov 2015 12:22:28 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 11, 2015 at 12:38:31PM +0000, Will Deacon wrote:
-> > Hmm, gcc doesn't have an eBPF compiler backend, so this won't work on
-> > gcc at all. The eBPF backend in LLVM recognizes the __sync_fetch_and_add()
-> > keyword and maps that to a BPF_XADD version (BPF_W or BPF_DW). In the
-> > interpreter (__bpf_prog_run()), as Eric mentioned, this maps to atomic_add()
-> > and atomic64_add(), respectively. So the struct bpf_insn prog[] you saw
-> > from sock_example.c can be regarded as one possible equivalent program
-> > section output from the compiler.
-> 
-> Ok, so if I understand you correctly, then __sync_fetch_and_add() has
-> different semantics depending on the backend target. That seems counter
-> to the LLVM atomics Documentation:
-> 
->   http://llvm.org/docs/Atomics.html
-> 
-> which specifically calls out the __sync_* primitives as being
-> sequentially-consistent and requiring barriers on ARM (which isn't the
-> case for atomic[64]_add in the kernel).
-> 
-> If we re-use the __sync_* naming scheme in the source language, I don't
-> think we can overlay our own semantics in the backend. The
-> __sync_fetch_and_add primitive is also expected to return the old value,
-> which doesn't appear to be the case for BPF_XADD.
+M=E5ns Rullg=E5rd <mans@mansr.com> writes:
 
-Yikes. That's double fail. Please don't do this.
+> David Miller <davem@davemloft.net> writes:
+>
+>> From: M=E5ns Rullg=E5rd <mans@mansr.com>
+>> Date: Wed, 11 Nov 2015 00:40:09 +0000
+>>
+>>> When the DMA complete interrupt arrives, the next chain should be
+>>> kicked off as quickly as possible, and I don't see why that would
+>>> benefit from being done in napi context.
+>>
+>> NAPI isn't about low latency, it's about fairness and interrupt
+>> mitigation.
+>>
+>> You probably don't even realize that all of the TX SKB freeing you d=
+o
+>> in the hardware interrupt handler end up being actually processed by=
+ a
+>> scheduled software interrupt anyways.
+>>
+>> So you are gaining almost nothing by not doing TX completion in NAPI
+>> context, whereas by doing so you would be gaining a lot including
+>> more simplified locking or even the ability to do no locking at all.
+>
+> TX completion is separate from restarting the DMA, and moving that to
+> NAPI may well be a good idea.  Should I simply napi_schedule() if the
+> hardware indicates TX is complete and do the cleanup in the NAPI poll
+> function?
 
-If you use the __sync stuff (and I agree with Will, you should not) it
-really _SHOULD_ be sequentially consistent, which means full barriers
-all over the place.
+I tried that, and throughput (as measured by iperf3) dropped by 2%.
+Maybe I did something wrong.
 
-And if you name something XADD (exchange and add, or fetch-add) then it
-had better return the previous value.
-
-atomic*_add() does neither.
+--=20
+M=E5ns Rullg=E5rd
+mans@mansr.com
