@@ -1,57 +1,70 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2] wait: add comment before waitqueue_active noting
- memory barrier is required
-Date: Wed, 11 Nov 2015 17:48:29 +0800
-Message-ID: <20151111094829.GA23202@gondor.apana.org.au>
-References: <20151023124006.GA17308@twins.programming.kicks-ass.net>
+From: Mirza Krak <mirza.krak@hostmobility.com>
+Subject: Re: [PATCH 1/1] can: sja1000: clear interrupts on start
+Date: Wed, 11 Nov 2015 10:54:26 +0100
+Message-ID: <CAJ=nTssqwtYAos67GRr8fOzsm63v_Bx+GKEWriOjbTALuzv-0g@mail.gmail.com>
+References: <1447163974-24514-1-git-send-email-mirza.krak@hostmobility.com>
+	<5642F6A5.5070301@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tatsu@ab.jp.nec.com, mingo@redhat.com,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jiri Olsa <jolsa@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151023124006.GA17308@twins.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: wg@grandegger.com, andri.yngvason@marel.com,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <5642F6A5.5070301@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Peter Zijlstra <peterz@infradead.org> wrote:
->
->> >> Second, on the waiting thread side, the CPU can reorder the load of
->> >> CONDITION to occur during add_wait_queue active, before the entry is
->> >> added to the wait queue.
->> >>      wake_up thread                 waiting thread
->> >>                                       (reordered)
->> >> ------------------------------------------------------------------------
->> >>                                 spin_lock_irqsave(...)      <add_wait_queue>
->> >>                                 if (CONDITION)
->> >> CONDITION = 1;
->> >> if (waitqueue_active(wq))
->> >     wake_up();
->> >>                                 __add_wait_queue(...)       <add_wait_queue>
->> >>                                 spin_unlock_irqrestore(...) <add_wait_queue>
->> >>                                 wait_woken(&wait, ...);
->> >> ------------------------------------------------------------------------
->> > 
->> > This isn't actually a problem IIRC, because wait_woken() will test
->> > WQ_FLAG_WOKEN and not actually sleep.
->> 
->> In the above figure, waitqueue_active(wq) will return 0 (queue is
->> inactive) and skip the whole wake_up() call, because __add_wait_queue()
->> hasn't been called yet.  This actually does occur using a reproducer.
-> 
-> Duh, indeed.
+2015-11-11 9:04 GMT+01:00 Marc Kleine-Budde <mkl@pengutronix.de>:
+> This problem occurs only an hardware, where the SJA1000 is powered
+> during system suspend?
 
-BTW, the networking folks found this years ago and even added
-helpers to deal with this.  See for example wq_has_sleeper in
-include/net/sock.h.  It would be good if we can move some of
-those helpers into wait.h instead.
+Correct, and the controller is in UP state.
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+> Doesn't the SJA1000 trigger an interrupt that is detected after
+> resuming? You add the fix to the open() function, which is triggered
+> during $(ifconfig up), how is related to suspend/resume? Does the
+> network layer call $(ifconfig down) during shutdown?
+
+It does not trigger another interrupt.
+
+In our tests we have seen that IE and EPI flags are set in the IR
+registered when we resume the system. If we do not clear these two
+flags it does not produce any other interrupts. Setting the controller
+in to reset mode does not clear the IE and EPI flags, I can understand
+that IE flag is not cleared as this is stated in the data-sheet, can
+not explain why EPI flag is not cleared though as data-sheet states 0
+(reset) for both hardware reset and SETTING MOD.0 BY SOFTWARE (which
+is the reset-mode)
+
+Reason I put it in open() is so at least a DOWN/UP procedure returns
+the controller to an operating state. Also if we do an UP we should
+clear any earlier states that might exist in the registers like we do
+with error counters and error code capture.
+
+Network layer does not call $(ifconfig down) during shutdown.
+
+> There isn't any suspend/resume code in the sja1000 driver, for me it
+> seems that we should add resume code that handles this problem.
+
+Yes, resume code should be implemented to handle this and other
+problems (receive data). But still a DOWN/UP procedure should clear
+any previous state that could exist in the controller registers.
+
+--=20
+Med V=C3=A4nliga H=C3=A4lsningar / Best Regards
+
+*******************************************************************
+Mirza Krak
+Host Mobility AB
+mirza.krak@hostmobility.com
+Anders Personsgatan 12, 416 64 G=C3=B6teborg
+Sweden
+http://www.hostmobility.com
+Direct: +46 31 31 32 704
+Phone: +46 31 31 32 700
+=46ax: +46 31 80 67 51
+Mobile: +46 730 28 06 22
+*******************************************************************
