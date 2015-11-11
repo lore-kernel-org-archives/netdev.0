@@ -1,61 +1,25 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
-Date: Wed, 11 Nov 2015 11:42:11 +0100
-Message-ID: <56431B83.5060500@iogearbox.net>
-References: <1447195301-16757-1-git-send-email-yang.shi@linaro.org> <20151111004208.GA47378@ast-mbp.thefacebook.com> <CABg9mcux0wEC5=nWuR9o8NwUTp73zqZ-N2e67_f7oS_mX1XGdg@mail.gmail.com> <4902833.k8y8bz0YLV@wuerfel> <20151111102406.GB9562@arm.com>
+Subject: Re: [iproute PATCH v2 6/6] iptoken: simplify iptoken_list a bit
+Date: Wed, 11 Nov 2015 12:03:47 +0100
+Message-ID: <56432093.7000702@iogearbox.net>
+References: <1447010471-559-1-git-send-email-phil@nwl.cc> <1447014141-3565-1-git-send-email-phil@nwl.cc> <1447014141-3565-7-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linaro-kernel@lists.linaro.org, Z Lim <zlim.lnx@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	"Shi, Yang" <yang.shi@linaro.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Alexei Starovoitov <ast@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Xi Wang <xi.wang@gmail.com>
-To: Will Deacon <will.deacon@arm.com>, Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151111102406.GB9562@arm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>, Stephen Hemminger <shemming@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:56433 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751621AbbKKLDv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 06:03:51 -0500
+In-Reply-To: <1447014141-3565-7-git-send-email-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/11/2015 11:24 AM, Will Deacon wrote:
-> On Wed, Nov 11, 2015 at 09:49:48AM +0100, Arnd Bergmann wrote:
->> On Tuesday 10 November 2015 18:52:45 Z Lim wrote:
->>> On Tue, Nov 10, 2015 at 4:42 PM, Alexei Starovoitov
->>> <alexei.starovoitov@gmail.com> wrote:
->>>> On Tue, Nov 10, 2015 at 04:26:02PM -0800, Shi, Yang wrote:
->>>>> On 11/10/2015 4:08 PM, Eric Dumazet wrote:
->>>>>> On Tue, 2015-11-10 at 14:41 -0800, Yang Shi wrote:
->>>>>>> aarch64 doesn't have native support for XADD instruction, implement it by
->>>>>>> the below instruction sequence:
->>>
->>> aarch64 supports atomic add in ARMv8.1.
->>> For ARMv8(.0), please consider using LDXR/STXR sequence.
->>
->> Is it worth optimizing for the 8.1 case? It would add a bit of complexity
->> to make the code depend on the CPU feature, but it's certainly doable.
+On 11/08/2015 09:22 PM, Phil Sutter wrote:
+> Since it uses only a single filter, rtnl_dump_filter() can be used.
 >
-> What's the atomicity required for? Put another way, what are we racing
-> with (I thought bpf was single-threaded)? Do we need to worry about
-> memory barriers?
->
-> Apologies if these are stupid questions, but all I could find was
-> samples/bpf/sock_example.c and it didn't help much :(
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
-The equivalent code more readable in restricted C syntax (that can be
-compiled by llvm) can be found in samples/bpf/sockex1_kern.c. So the
-built-in __sync_fetch_and_add() will be translated into a BPF_XADD
-insn variant.
-
-What you can race against is that an eBPF map can be _shared_ by
-multiple eBPF programs that are attached somewhere in the system, and
-they could all update a particular entry/counter from the map at the
-same time.
-
-Best,
-Daniel
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
