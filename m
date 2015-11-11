@@ -1,52 +1,29 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: fix xt_TEE and xt_TPROXY dependencies
-Date: Wed, 11 Nov 2015 14:19:00 +0100
-Message-ID: <20151111131900.GB6079@salvia>
-References: <8068952.JJURCanWFy@wuerfel>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800
+ Ethernet controller
+Date: Wed, 11 Nov 2015 05:29:55 -0800
+Message-ID: <1447248595.17135.98.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1447172063-27234-1-git-send-email-mans@mansr.com>
+	 <20151110233448.GA8646@electric-eye.fr.zoreil.com>
+	 <yw1xio59pdw6.fsf@unicorn.mansr.com>
+	 <20151110.211121.422193831316296487.davem@davemloft.net>
+	 <yw1xa8qkpvy3.fsf@unicorn.mansr.com> <yw1x6118pu0o.fsf@unicorn.mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8068952.JJURCanWFy@wuerfel>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, romieu@fr.zoreil.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	slash.tmp@free.fr
+To: =?ISO-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <yw1x6118pu0o.fsf@unicorn.mansr.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 10, 2015 at 01:22:15PM +0100, Arnd Bergmann wrote:
-> Kconfig is too smart for its own good: a Kconfig line that states
-> 
-> 	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES
-> 
-> means that if IP6_NF_IPTABLES is set to 'm', then NF_DEFRAG_IPV6 will
-> also be set to 'm', regardless of the state of the symbol from which
-> it is selected. When the xt_TEE driver is built-in and nothing else
-> forces NF_DEFRAG_IPV6 to be built-in, this causes a link-time error:
-> 
-> net/built-in.o: In function `tee_tg6':
-> net/netfilter/xt_TEE.c:46: undefined reference to `nf_dup_ipv6'
-> 
-> This works around that behavior by changing the dependency to
-> 'if IP6_NF_IPTABLES != n', which is interpreted as boolean expression
-> rather than a tristate and causes the NF_DEFRAG_IPV6 symbol to
-> be built-in as well.
-> 
-> The bug only occurs once in thousands of 'randconfig' builds and
-> does not really impact real users. From inspecting the other
-> surrounding Kconfig symbols, I am guessing that NETFILTER_XT_TARGET_TPROXY
-> and NETFILTER_XT_MATCH_SOCKET have the same issue. If not, this
-> change should still be harmless.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
-> I have done a few thousand randconfig builds with this applied, and the
-> problem did not come back, but it is super-rare.
-> 
-> Several people have tried to fix this in the past, but so far
-> every patch was wrong. Maybe this one is lucky.
+On Wed, 2015-11-11 at 13:04 +0000, M=C3=A5ns Rullg=C3=A5rd wrote:
 
-Also applied, thanks Arnd!
+> I tried that, and throughput (as measured by iperf3) dropped by 2%.
+> Maybe I did something wrong.
+
+What link speed have you used, what was the throughput you got,
+and is the receiver using the same NIC ?
