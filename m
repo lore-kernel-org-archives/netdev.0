@@ -1,73 +1,98 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
- drain mode
-Date: Wed, 11 Nov 2015 10:23:30 -0800
-Message-ID: <CALx6S37B4mGqYe63JkLmPeQNuOX_WMK2NHaOe7Dtt79Nv9Mo4g@mail.gmail.com>
-References: <1443313848-751-1-git-send-email-tolga.ceylan@gmail.com>
-	<877fnc7i0i.fsf@bytheb.org>
-	<CALmu+Sx8L5mWf3Nnbz=x0qt7pC5n5oVPRJd7dnLATVpmmO+nrA@mail.gmail.com>
-	<1443320655.3273.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CALx6S34PkfKS47_FxuqwDbqP9P0C5J7YRR5e_-BLjfkPwPRgXw@mail.gmail.com>
-	<1447222769.17135.92.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CALx6S37FOq+JVs8LKh5ezR9JhATrz2=NhmbEYPUxUt8Cyb9xaw@mail.gmail.com>
-	<1447262610.17135.114.camel@edumazet-glaptop2.roam.corp.google.com>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
+Date: Wed, 11 Nov 2015 18:25:05 +0000
+Message-ID: <yw1xk2poo0la.fsf@unicorn.mansr.com>
+References: <20151110.211121.422193831316296487.davem@davemloft.net>
+	<yw1xa8qkpvy3.fsf@unicorn.mansr.com>
+	<yw1x6118pu0o.fsf@unicorn.mansr.com>
+	<20151111.112423.1751428739163066569.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tolga Ceylan <tolga.ceylan@gmail.com>,
-	Aaron Conole <aconole@bytheb.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:35412 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751152AbbKKSXb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 13:23:31 -0500
-Received: by igl9 with SMTP id 9so81377858igl.0
-        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 10:23:30 -0800 (PST)
-In-Reply-To: <1447262610.17135.114.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, slash.tmp@free.fr
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151111.112423.1751428739163066569.davem@davemloft.net> (David
+	Miller's message of "Wed, 11 Nov 2015 11:24:23 -0500 (EST)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 11, 2015 at 9:23 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2015-11-11 at 09:05 -0800, Tom Herbert wrote:
->> On Tue, Nov 10, 2015 at 10:19 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Tue, 2015-11-10 at 21:41 -0800, Tom Herbert wrote:
->> >> Tolga, are you still planning to respin this patch (when tree opens?)
->> >
->> > I was planning to add an union on skc_tx_queue_mapping and
->> > sk_max_ack_backlog, so that adding a check on sk_max_ack_backlog in
->> > listener lookup would not add an additional cache line miss.
->> >
->> > This would remove false sharing because sk_ack_backlog is often dirtied
->> > when a socket is added into accept queue.
->> >
->> That's sounds like good fixes, but my question was more about the
->> problem originally described by Tolga where we are transitioning
->> processing for a listener port from one process to another. I think
->> the conclusion in this thread was to modify the code so that
->> listen(fd, 0) would stop new connections from being assigned to a
->> socket (as opposed to explicit SO_REUSEPORT_LISTEN_OFF option). Does
->> this still seem reasonable?
->
-> Actually listen(fd, 0) is not going to work well :
->
-> For request_sock that were created (by incoming SYN packet) before this
-> listen(fd, 0) call, the 3rd packet (ACK coming from client) would not be
-> able to create a child attached to this listener.
->
-> sk_acceptq_is_full() test in tcp_v4_syn_recv_sock() would simply drop
-> the thing.
->
-> I was mainly objecting adding yet another socket option.
->
-> Maybe setsockopt(... SO_REUSEPORT, &off, sizeof(off)) could detect the
-> condition automatically ?
->
-How about doing this in shutdown called for a listener?
+David Miller <davem@davemloft.net> writes:
 
-> (I am not sure current behavior of setting sk->sk_reuseport = valbool;
-> is correct if valbool==0 and current sk_reuseport is 1)
+> From: M=E5ns Rullg=E5rd <mans@mansr.com>
+> Date: Wed, 11 Nov 2015 13:04:07 +0000
 >
+>> M=E5ns Rullg=E5rd <mans@mansr.com> writes:
+>>=20
+>>> David Miller <davem@davemloft.net> writes:
+>>>
+>>>> From: M=E5ns Rullg=E5rd <mans@mansr.com>
+>>>> Date: Wed, 11 Nov 2015 00:40:09 +0000
+>>>>
+>>>>> When the DMA complete interrupt arrives, the next chain should be
+>>>>> kicked off as quickly as possible, and I don't see why that would
+>>>>> benefit from being done in napi context.
+>>>>
+>>>> NAPI isn't about low latency, it's about fairness and interrupt
+>>>> mitigation.
+>>>>
+>>>> You probably don't even realize that all of the TX SKB freeing you=
+ do
+>>>> in the hardware interrupt handler end up being actually processed =
+by a
+>>>> scheduled software interrupt anyways.
+>>>>
+>>>> So you are gaining almost nothing by not doing TX completion in NA=
+PI
+>>>> context, whereas by doing so you would be gaining a lot including
+>>>> more simplified locking or even the ability to do no locking at al=
+l.
+>>>
+>>> TX completion is separate from restarting the DMA, and moving that =
+to
+>>> NAPI may well be a good idea.  Should I simply napi_schedule() if t=
+he
+>>> hardware indicates TX is complete and do the cleanup in the NAPI po=
+ll
+>>> function?
+>>=20
+>> I tried that, and throughput (as measured by iperf3) dropped by 2%.
+>> Maybe I did something wrong.
 >
+> Did you fix all the locking in that change?
 >
+> Since all of your TX handling runs in software interrupt context, you
+> can stop using IRQ locking and use BH locking driver-wide instead.
+>
+> And actually, no locking is really needed for TX processing.  With
+> proper memory barriers and properly crafter queue state tests, you
+> can run completely lockless.
+>
+> Again, look at example drivers.  I know, for example, that
+> drivers/net/ethernet/broadcom/tg3.c runs TX lockless.  You'll
+> see that tg3_tx() takes no locks at all.
+
+The way the hardware works, once a DMA operation has been started,
+adding more packets to the active chain can't be done reliably.  For
+that reason, if start_xmit is called (with xmit_more zero) while a DMA
+operation is in progress, the new packet(s) must be queued until the
+hardware raises the DMA complete interrupt.  At that time, the next
+pending DMA chain, if any, can be kicked off.  If the TX DMA channel is
+idle when start_xmit is called, it can be started immediately.  Checkin=
+g
+the DMA status and starting it if idle has to be done atomically
+somehow.
+
+There is a separate indication for actual TX completion, and the
+interrupt for that can be set to only fire every 7 frames or when a
+timeout expires.  When this happens, the TX cleanup needs to run, and
+that can obviously be done from NAPI without using any locks.
+
+Bear in mind that this hardware is quite primitive compared to modern
+high-performance Ethernet controllers from the likes of Intel and
+Broadcom.  The documentation I have is dated 2003.
+
+--=20
+M=E5ns Rullg=E5rd
+mans@mansr.com
