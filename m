@@ -1,74 +1,54 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] NetDev 1.1 Registration open
-Date: Wed, 11 Nov 2015 21:51:01 +0100
-Message-ID: <20151111205055.GA1466@salvia>
+From: William Dauchy <william@gandi.net>
+Subject: Re: regression in ixgbe SFP detection patch
+Date: Wed, 11 Nov 2015 22:34:58 +0100
+Message-ID: <20151111213458.GD3641@gandi.net>
+References: <20151111173527.GA3641@gandi.net>
+ <87618083B2453E4A8714035B62D67992504DF0AA@FMSMSX105.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lwn@lwn.net, info@netdevconf.org
-To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="d9ADC0YsG2v16Js0"
+Cc: William Dauchy <william@gandi.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Schmitt, Phillip J" <phillip.j.schmitt@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail4.gandi.net ([217.70.183.210]:38405 "EHLO gandi.net"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752274AbbKKVfB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Nov 2015 16:35:01 -0500
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <87618083B2453E4A8714035B62D67992504DF0AA@FMSMSX105.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
 
-We are pleased to announce that registration is now open for netdev 1.1=
-,
-the community-driven Linux networking conference held back-to-back with
-netconf in Sevilla, Spain, February 10-12, 2016.
+--d9ADC0YsG2v16Js0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Registration is now open at: https://www.netdevconf.org/1.1/registratio=
-n.html
+On Nov11 20:33, Tantilov, Emil S wrote:
+> If the diff above is the patch you are referring to then you will break t=
+he
+> SFP+ detection in the case where the driver was loaded while there were no
+> SFP+ modules present in the cages.
 
-=3D Fees =3D
+understood, I was surprised of the modification of behavior.=20
+--=20
+William
 
-* Regular registration (EUR300) for 3 days, this year we're including
-  three coffee-snack breaks, three lunches at restaurants and one speci=
-al
-  evening closing event on friday.
+--d9ADC0YsG2v16Js0
+Content-Type: application/pgp-signature; name="signature.asc"
 
-* Reduced price for students (EUR50), we have limited tickets for this.
-  To apply for this discount, you have to credit previous work on FOSS,
-  we will specifically value previous participation in GSoC, Outreachy
-  and similar programs that promote FOSS development.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-=3D Travel and Hotel =3D
+iEYEARECAAYFAlZDtIIACgkQ1I6eqOUidQHBYwCfZpMzVYJT9/3irrA6wpCy2GaE
+qyYAnjCP8FdkPV7QUJrgzhOC7TP/acc5
+=Uv7s
+-----END PGP SIGNATURE-----
 
-* Hotel: We got an agreement with a hotel that is located close to the
-  venue.
-
-  Single room: 65=E2=82=AC (breakfast included).
-  Double room: 75=E2=82=AC (breakfast included).
-
-  Until December 31th, please follow the link below for more info.
-
-* Flights: Local airport is SVQ, although main international airports
-  in Spain are MAD, XRY, BCN and AGP.
-
-* Train: If you get to Spain via MAD, XRY or AGP, you may consider
-  changing train to get here. Specifically AVE and ALVIA (high speed)
-  are usually confortable ones. And we got a fair good discount from
-  the Spanish rail company.
-
-=46or more info: http://www.netdevconf.org/1.1/travel-hotel.html
-
-=3D Why you should register =3D
-
-If you yearn for the old community tech driven conferences where you
-mingle with fellow geeks (only these would be Linux networking geeks)
-then this would be it. There will be no marketing flashy openings.
-There will just be a pure feed of Linux networking.
-
-=46or more info, visit:
-* netdev 1.1: https://www.netdevconf.org/1.1/
-* netconf 2016: http://vger.kernel.org/netconf2016.html
-
-See you at netdev 1.1 in Sevilla, Spain!
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--d9ADC0YsG2v16Js0--
