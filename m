@@ -1,71 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800
- Ethernet controller
-Date: Wed, 11 Nov 2015 11:24:23 -0500 (EST)
-Message-ID: <20151111.112423.1751428739163066569.davem@davemloft.net>
-References: <20151110.211121.422193831316296487.davem@davemloft.net>
-	<yw1xa8qkpvy3.fsf@unicorn.mansr.com>
-	<yw1x6118pu0o.fsf@unicorn.mansr.com>
+From: Jonathan Corbet <corbet@lwn.net>
+Subject: Re: [PATCH RESEND] net: Documentation: Fix default value
+ tcp_limit_output_bytes
+Date: Wed, 11 Nov 2015 09:50:02 -0700
+Message-ID: <20151111095002.2311dada@xps>
+References: <1447077529-9200-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, slash.tmp@free.fr
-To: mans@mansr.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <yw1x6118pu0o.fsf@unicorn.mansr.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8bit
+Cc: <edumazet@google.com>, <tom@herbertland.com>,
+	<linux-doc@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Niklas Cassel <niklass@axis.com>, netdev@vger.kernel.org
+To: Niklas Cassel <niklas.cassel@axis.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1447077529-9200-1-git-send-email-niklass@axis.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: M=E5ns Rullg=E5rd <mans@mansr.com>
-Date: Wed, 11 Nov 2015 13:04:07 +0000
+On Mon, 9 Nov 2015 14:58:49 +0100
+Niklas Cassel <niklas.cassel@axis.com> wrote:
 
-> M=E5ns Rullg=E5rd <mans@mansr.com> writes:
->=20
->> David Miller <davem@davemloft.net> writes:
->>
->>> From: M=E5ns Rullg=E5rd <mans@mansr.com>
->>> Date: Wed, 11 Nov 2015 00:40:09 +0000
->>>
->>>> When the DMA complete interrupt arrives, the next chain should be
->>>> kicked off as quickly as possible, and I don't see why that would
->>>> benefit from being done in napi context.
->>>
->>> NAPI isn't about low latency, it's about fairness and interrupt
->>> mitigation.
->>>
->>> You probably don't even realize that all of the TX SKB freeing you =
-do
->>> in the hardware interrupt handler end up being actually processed b=
-y a
->>> scheduled software interrupt anyways.
->>>
->>> So you are gaining almost nothing by not doing TX completion in NAP=
-I
->>> context, whereas by doing so you would be gaining a lot including
->>> more simplified locking or even the ability to do no locking at all=
-=2E
->>
->> TX completion is separate from restarting the DMA, and moving that t=
-o
->> NAPI may well be a good idea.  Should I simply napi_schedule() if th=
-e
->> hardware indicates TX is complete and do the cleanup in the NAPI pol=
-l
->> function?
->=20
-> I tried that, and throughput (as measured by iperf3) dropped by 2%.
-> Maybe I did something wrong.
+> Commit c39c4c6abb89 ("tcp: double default TSQ output bytes limit")
+> updated default value for tcp_limit_output_bytes
 
-Did you fix all the locking in that change?
+I left this last time because Dave usually likes to pick up networking
+docs patches himself.  This wasn't sent to netdev, though, so that's
+unlikely to happen.  I've gone ahead and applied it, since it seems
+clearly correct.
 
-Since all of your TX handling runs in software interrupt context, you
-can stop using IRQ locking and use BH locking driver-wide instead.
+Thanks,
 
-And actually, no locking is really needed for TX processing.  With
-proper memory barriers and properly crafter queue state tests, you
-can run completely lockless.
+jon
 
-Again, look at example drivers.  I know, for example, that
-drivers/net/ethernet/broadcom/tg3.c runs TX lockless.  You'll
-see that tg3_tx() takes no locks at all.
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+> ---
+>  Documentation/networking/ip-sysctl.txt | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index 05915be..2ea4c45 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -709,7 +709,7 @@ tcp_limit_output_bytes - INTEGER
+>  	typical pfifo_fast qdiscs.
+>  	tcp_limit_output_bytes limits the number of bytes on qdisc
+>  	or device to reduce artificial RTT/cwnd and reduce bufferbloat.
+> -	Default: 131072
+> +	Default: 262144
+>  
+>  tcp_challenge_ack_limit - INTEGER
+>  	Limits number of Challenge ACK sent per second, as recommended
+> -- 
+> 2.1.4
+> 
