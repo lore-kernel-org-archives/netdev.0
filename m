@@ -1,94 +1,78 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
-Date: Wed, 11 Nov 2015 19:35:05 +0000
-Message-ID: <yw1x37wcnxcm.fsf@unicorn.mansr.com>
-References: <yw1xbnb0ny6k.fsf@unicorn.mansr.com>
-	<20151111.141956.1056130800039910138.davem@davemloft.net>
-	<yw1x7flonxs5.fsf@unicorn.mansr.com>
-	<20151111.142650.1297832998846138251.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net v3] af-unix: fix use-after-free with concurrent readers
+ while splicing
+Date: Wed, 11 Nov 2015 20:35:44 +0100
+Message-ID: <1447270544.3713125.436369065.0FEEDEDA@webmail.messagingengine.com>
+References: <1447168995-25820-1-git-send-email-hannes@stressinduktion.org>
+ <1447268331.17135.116.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1447269259.3708910.436352857.78EBF47C@webmail.messagingengine.com>
+ <1447270092.22599.3.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, slash.tmp@free.fr
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151111.142650.1297832998846138251.davem@davemloft.net> (David
-	Miller's message of "Wed, 11 Nov 2015 14:26:50 -0500 (EST)")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Dmitry Vyukov <dvyukov@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:44902 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751591AbbKKTfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 14:35:45 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id D590720EB5
+	for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 14:35:44 -0500 (EST)
+In-Reply-To: <1447270092.22599.3.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
 
-> From: M=E5ns Rullg=E5rd <mans@mansr.com>
-> Date: Wed, 11 Nov 2015 19:25:46 +0000
->
->> David Miller <davem@davemloft.net> writes:
->>=20
->>> From: M=E5ns Rullg=E5rd <mans@mansr.com>
->>> Date: Wed, 11 Nov 2015 19:17:07 +0000
->>>
->>>> David Miller <davem@davemloft.net> writes:
->>>>=20
->>>>> From: M=E5ns Rullg=E5rd <mans@mansr.com>
->>>>> Date: Wed, 11 Nov 2015 19:09:19 +0000
->>>>>
->>>>>> David Miller <davem@davemloft.net> writes:
->>>>>>=20
->>>>>>> From: M=E5ns Rullg=E5rd <mans@mansr.com>
->>>>>>> Date: Wed, 11 Nov 2015 18:25:05 +0000
->>>>>>>
->>>>>>>> If the TX DMA channel is idle when start_xmit is called, it ca=
-n be
->>>>>>>> started immediately.  Checking the DMA status and starting it =
-if
->>>>>>>> idle has to be done atomically somehow.
->>>>>>>
->>>>>>> ->ndo_start_xmit() is guaranteed to be invoked atomically, prot=
-ected
->>>>>>> by the TX queue spinlock.
->>>>>>=20
->>>>>> Yes, but the DMA needs to be restarted from some other context i=
-f it was
->>>>>> busy when start_xmit checked.
->>>>>
->>>>> Then you can probably use the TXQ lock in the interrupt handler j=
-ust for
->>>>> that.
->>>>=20
->>>> That seems a bit heavy-handed when the critical section for this i=
-s only
->>>> a tiny part of the start_xmit function.
->>>
->>> Then what synchornization primitive other than spin locks are you g=
-oing
->>> to use for this?
->>>
->>> My point is that there is a spinlock the core code is _already_ tak=
-ing,
->>> unconditionally, when ->ndo_start_xmit() executes.  And you can the=
-refore
->>> take advantage of that rather than using another lock of your own.
->>=20
->> I get that.  But that remains locked for the duration of ndo_start_x=
-mit()
->> whereas the part that needs to be synchronised with the DMA completi=
-on
->> IRQ handler is tiny.  Having the IRQ handler spin for the duration o=
-f
->> ndo_start_xmit() seemed silly to me.
->
-> I don't think it's silly at all.
 
-I'm sure I read somewhere that the time spent spinning on a lock should
-be kept as small as possible.
+On Wed, Nov 11, 2015, at 20:28, Eric Dumazet wrote:
+> On Wed, 2015-11-11 at 20:14 +0100, Hannes Frederic Sowa wrote:
+> > On Wed, Nov 11, 2015, at 19:58, Eric Dumazet wrote:
+> 
+> > Can you elaborate?
+> > 
+> > I use tail as a cookie and check if we already tried to append to the
+> > same tail skb with skb_append_pagefrags. If during allocation, which we
+> > do outside of the locks, a new skb arrives, we take that and try to
+> > append again (and free the old skb), to correctly not create any
+> > reordering in the data stream.
+> > 
+> > You think that tail could be reused in the meanwhile?
+> 
+> Hmmm, there is some funky stuff at least.
+> 
+> Are you sure the __skb_queue_tail(&other->sk_receive_queue, newskb)
+> is appropriate ?
+> 
+> (Why not locking sk_receive_queue is safe ?)
 
-> And unless you can measure it making a difference, don't knock the id=
-ea.
+We hold the other's state lock at that time.
 
-I tried using netif_tx_lock() in the IRQ handler instead, and it locked
-up solid.  Clearly that was the wrong thing to do.
+But I see another problem in unix_stream_read_generic:
 
---=20
-M=E5ns Rullg=E5rd
-mans@mansr.com
+
+		/* Mark read part of skb as used */
+		if (!(flags & MSG_PEEK)) {
+			UNIXCB(skb).consumed += chunk;
+
+			sk_peek_offset_bwd(sk, chunk);
+
+			if (UNIXCB(skb).fp)
+				unix_detach_fds(&scm, skb);
+
+			if (unix_skb_len(skb))
+				break;
+
+			skb_unlink(skb, &sk->sk_receive_queue);
+			consume_skb(skb);
+
+			if (scm.fp)
+				break;
+
+
+The skb_unlink happens solely on the list lock and not on the state lock
+of the sk, so it is not synchronized to the other locks.
+
+Bye,
+Hannes
