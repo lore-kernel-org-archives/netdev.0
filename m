@@ -1,72 +1,69 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 1/1] can: sja1000: clear interrupts on start
-Date: Wed, 11 Nov 2015 13:48:58 +0100
-Message-ID: <5643393A.3040004@pengutronix.de>
-References: <1447163974-24514-1-git-send-email-mirza.krak@hostmobility.com>
- <5642F6A5.5070301@pengutronix.de>
- <CAJ=nTssqwtYAos67GRr8fOzsm63v_Bx+GKEWriOjbTALuzv-0g@mail.gmail.com>
- <5643132A.7080504@pengutronix.de>
- <CAJ=nTstPCev0TGjZCYkzf4qX+6NUUv8+-6PeVEKL9bcOwBKc0A@mail.gmail.com>
- <56433678.1090104@pengutronix.de>
- <CAJ=nTstmat5gmtpGmvn5nCpuFAfKzYC2zfZA-08UZ_FCfBXVcg@mail.gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
+Date: Wed, 11 Nov 2015 13:58:07 +0100
+Message-ID: <20151111125807.GP17308@twins.programming.kicks-ass.net>
+References: <1447195301-16757-1-git-send-email-yang.shi@linaro.org>
+ <20151111004208.GA47378@ast-mbp.thefacebook.com>
+ <CABg9mcux0wEC5=nWuR9o8NwUTp73zqZ-N2e67_f7oS_mX1XGdg@mail.gmail.com>
+ <4902833.k8y8bz0YLV@wuerfel>
+ <20151111102406.GB9562@arm.com>
+ <56431B83.5060500@iogearbox.net>
+ <20151111115851.GE9562@arm.com>
+ <564332B0.2090103@iogearbox.net>
+ <20151111123831.GJ9562@arm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="BSEmoTtMCFDobsncLCUCtlqV38PPUPJxx"
-Cc: wg@grandegger.com, andri.yngvason@marel.com,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Christian Magnusson <Christian.Magnusson@semcon.com>
-To: Mirza Krak <mirza.krak@hostmobility.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <CAJ=nTstmat5gmtpGmvn5nCpuFAfKzYC2zfZA-08UZ_FCfBXVcg@mail.gmail.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"Shi, Yang" <yang.shi@linaro.org>, linaro-kernel@lists.linaro.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Z Lim <zlim.lnx@gmail.com>,
+	Alexei Starovoitov <ast@kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Xi Wang <xi.wang@gmail.com>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Will Deacon <will.deacon@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151111123831.GJ9562@arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---BSEmoTtMCFDobsncLCUCtlqV38PPUPJxx
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On Wed, Nov 11, 2015 at 12:38:31PM +0000, Will Deacon wrote:
+> > Hmm, gcc doesn't have an eBPF compiler backend, so this won't work on
+> > gcc at all. The eBPF backend in LLVM recognizes the __sync_fetch_and_add()
+> > keyword and maps that to a BPF_XADD version (BPF_W or BPF_DW). In the
+> > interpreter (__bpf_prog_run()), as Eric mentioned, this maps to atomic_add()
+> > and atomic64_add(), respectively. So the struct bpf_insn prog[] you saw
+> > from sock_example.c can be regarded as one possible equivalent program
+> > section output from the compiler.
+> 
+> Ok, so if I understand you correctly, then __sync_fetch_and_add() has
+> different semantics depending on the backend target. That seems counter
+> to the LLVM atomics Documentation:
+> 
+>   http://llvm.org/docs/Atomics.html
+> 
+> which specifically calls out the __sync_* primitives as being
+> sequentially-consistent and requiring barriers on ARM (which isn't the
+> case for atomic[64]_add in the kernel).
+> 
+> If we re-use the __sync_* naming scheme in the source language, I don't
+> think we can overlay our own semantics in the backend. The
+> __sync_fetch_and_add primitive is also expected to return the old value,
+> which doesn't appear to be the case for BPF_XADD.
 
-On 11/11/2015 01:46 PM, Mirza Krak wrote:
-> 2015-11-11 13:37 GMT+01:00 Marc Kleine-Budde <mkl@pengutronix.de>:
->>> Some cred should go to Christian (added him to CC) for finding this
->>> problem and reporting it to me.
->>
->> I'll add a
->>
->> Reported-by: Christian Magnusson <Christian.Magnusson@semcon.com>
->>
->> to the patch.
->=20
-> Can we just get an ACK that it is OK from Christian before we do it.
+Yikes. That's double fail. Please don't do this.
 
-Sure.
+If you use the __sync stuff (and I agree with Will, you should not) it
+really _SHOULD_ be sequentially consistent, which means full barriers
+all over the place.
 
-Marc
+And if you name something XADD (exchange and add, or fetch-add) then it
+had better return the previous value.
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---BSEmoTtMCFDobsncLCUCtlqV38PPUPJxx
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWQzk6AAoJEP5prqPJtc/H2dgH/R9wqw6jM2KxYHJpVI+uhalH
-vEOyZfgULCQzqfc4i8aOYTGd1lQWeJR9C8yk0IfeQDp8UWVr4GA9P98Sd7hM6UWj
-EpbAFsbVvAGAEtA/7Mj6+gj3MsTfI4D9XTn5d0080V7J1YICRGIbfnyKJlcWcCFl
-5wNowKPmtlP5R6G5G+x4DXJb3cPmWmvI8AgxFuqtivR+JuU62SxI69lKima/AEtT
-sfJJU7FTzaQk3+/DbcWv9Csxu7ljoJsGlhs4khfWGmyhhbz3mMQMRxz8WS2t/Rnb
-4gJTMWnXuks2/vupOBS5e2DnphrHJVEk+TnXXDXkohV4r9fVbRcHTr9Qix5NWZc=
-=B5RD
------END PGP SIGNATURE-----
-
---BSEmoTtMCFDobsncLCUCtlqV38PPUPJxx--
+atomic*_add() does neither.
