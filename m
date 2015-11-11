@@ -1,45 +1,54 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH 1/2] arm64: bpf: add 'store immediate' instruction
-Date: Wed, 11 Nov 2015 12:39:56 +0000
-Message-ID: <20151111123955.GK9562@arm.com>
-References: <1447195301-16757-1-git-send-email-yang.shi@linaro.org>
- <1447195301-16757-2-git-send-email-yang.shi@linaro.org>
- <CABg9mct-_AF9+kvZ0OG_JTMHkfj+OEsR2vonrxF=yD-yA6ihQw@mail.gmail.com>
- <20151111121256.GI9562@arm.com>
+From: Mirza Krak <mirza.krak@hostmobility.com>
+Subject: Re: [PATCH 1/1] can: sja1000: clear interrupts on start
+Date: Wed, 11 Nov 2015 13:46:28 +0100
+Message-ID: <CAJ=nTstmat5gmtpGmvn5nCpuFAfKzYC2zfZA-08UZ_FCfBXVcg@mail.gmail.com>
+References: <1447163974-24514-1-git-send-email-mirza.krak@hostmobility.com>
+	<5642F6A5.5070301@pengutronix.de>
+	<CAJ=nTssqwtYAos67GRr8fOzsm63v_Bx+GKEWriOjbTALuzv-0g@mail.gmail.com>
+	<5643132A.7080504@pengutronix.de>
+	<CAJ=nTstPCev0TGjZCYkzf4qX+6NUUv8+-6PeVEKL9bcOwBKc0A@mail.gmail.com>
+	<56433678.1090104@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yang Shi <yang.shi@linaro.org>,
-	Alexei Starovoitov <ast@kernel.org>, daniel@iogearbox.net,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Xi Wang <xi.wang@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	linaro-kernel@lists.linaro.org
-To: Z Lim <zlim.lnx@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: wg@grandegger.com, andri.yngvason@marel.com,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Christian Magnusson <Christian.Magnusson@semcon.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151111121256.GI9562@arm.com>
+In-Reply-To: <56433678.1090104@pengutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 11, 2015 at 12:12:56PM +0000, Will Deacon wrote:
-> On Tue, Nov 10, 2015 at 06:45:39PM -0800, Z Lim wrote:
-> > On Tue, Nov 10, 2015 at 2:41 PM, Yang Shi <yang.shi@linaro.org> wrote:
-> > > aarch64 doesn't have native store immediate instruction, such operation
-> > 
-> > Actually, aarch64 does have "STR (immediate)". For arm64 JIT, we can
-> > consider using it as an optimization.
-> 
-> Yes, I'd definitely like to see that in preference to moving via a
-> temporary register.
+2015-11-11 13:37 GMT+01:00 Marc Kleine-Budde <mkl@pengutronix.de>:
+>> Some cred should go to Christian (added him to CC) for finding this
+>> problem and reporting it to me.
+>
+> I'll add a
+>
+> Reported-by: Christian Magnusson <Christian.Magnusson@semcon.com>
+>
+> to the patch.
+>
 
-Wait a second, we're both talking rubbish here :) The STR (immediate)
-form is referring to the addressing mode, whereas this patch wants to
-store an immediate value to memory, which does need moving to a register
-first.
+Can we just get an ACK that it is OK from Christian before we do it.
 
-So the original patch is fine.
 
-Will
+
+--=20
+Med V=C3=A4nliga H=C3=A4lsningar / Best Regards
+
+*******************************************************************
+Mirza Krak
+Host Mobility AB
+mirza.krak@hostmobility.com
+Anders Personsgatan 12, 416 64 G=C3=B6teborg
+Sweden
+http://www.hostmobility.com
+Direct: +46 31 31 32 704
+Phone: +46 31 31 32 700
+=46ax: +46 31 80 67 51
+Mobile: +46 730 28 06 22
+*******************************************************************
