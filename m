@@ -1,41 +1,51 @@
-From: "Shi, Yang" <yang.shi@linaro.org>
-Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
-Date: Tue, 10 Nov 2015 16:26:02 -0800
-Message-ID: <56428B1A.5090303@linaro.org>
-References: <1447195301-16757-1-git-send-email-yang.shi@linaro.org>	 <1447195301-16757-3-git-send-email-yang.shi@linaro.org> <1447200535.17135.88.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800
+ Ethernet controller
+Date: Wed, 11 Nov 2015 02:36:43 +0200
+Message-ID: <CAHp75VfeABnw6AipxWf2w-EDPUCA2xzFuQhaPrq=b12gb3Y0KQ@mail.gmail.com>
+References: <1447172063-27234-1-git-send-email-mans@mansr.com>
+	<CAHp75Vch3vJEqYsCRUoctEmF0EoFx+0y7ZO+LjmdpQKAoikiOA@mail.gmail.com>
+	<yw1xr3jxpjoy.fsf@unicorn.mansr.com>
+	<CAHp75VfsswYAvkkkHuaEvkTAgZhoGZQ1oQ_R9BwZgyZ3xRVDeg@mail.gmail.com>
+	<yw1xmvulpi6r.fsf@unicorn.mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, daniel@iogearbox.net, catalin.marinas@arm.com,
-	will.deacon@arm.com, zlim.lnx@gmail.com, xi.wang@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linaro-kernel@lists.linaro.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, slash.tmp@free.fr
+To: =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447200535.17135.88.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <yw1xmvulpi6r.fsf@unicorn.mansr.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/10/2015 4:08 PM, Eric Dumazet wrote:
-> On Tue, 2015-11-10 at 14:41 -0800, Yang Shi wrote:
->> aarch64 doesn't have native support for XADD instruction, implement it by
->> the below instruction sequence:
+On Wed, Nov 11, 2015 at 1:07 AM, M=C3=A5ns Rullg=C3=A5rd <mans@mansr.co=
+m> wrote:
+> Andy Shevchenko <andy.shevchenko@gmail.com> writes:
+
+>>>>> +       nb8800_writel(priv, NB8800_TX_DESC_ADDR, txb->dma_desc);
+>>>>> +       wmb();          /* ensure desc addr is written before sta=
+rting DMA */
+>>>>
+>>>> Hm=E2=80=A6 Have I missed corresponding rmb() ? If it's about MMIO=
+, perhaps mmiowb() ?
+>>>
+>>> Possibly.
 >>
->> Load (dst + off) to a register
->> Add src to it
->> Store it back to (dst + off)
+>> Standalone wmb() doesn't make sense.
 >
-> Not really what is needed ?
->
-> See this BPF_XADD as an atomic_add() equivalent.
+> It does if you need to enforce ordering between normal and I/O memory=
+=2E
+> In fact, since the descriptor is filled in using normal memory access=
+es,
+> my understanding is that mmiowb() would be insufficient here.  The
+> comment could be improved, however.
 
-I see. Thanks. The documentation doesn't say too much about "exclusive" 
-add. If so it should need load-acquire/store-release.
+Can you then explain what exactly you are assured against in all cases
+where you are using wmb()s? It seems I don't recognize this part in
+some excerpts.
 
-I will rework it.
 
-Yang
-
->
->
+--=20
+With Best Regards,
+Andy Shevchenko
