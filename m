@@ -1,59 +1,63 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH] net: brcm80211: Delete an unnecessary check before the
- function call "release_firmware"
-Date: Wed, 11 Nov 2015 10:18:23 +0100
-Message-ID: <564307DF.5050308@broadcom.com>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net> <546E0DC8.3050906@users.sourceforge.net> <546E2D2A.6090101@broadcom.com> <563C5DA2.3000005@users.sourceforge.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: kasan r8169 use-after-free trace.
+Date: Wed, 11 Nov 2015 10:19:28 +0100
+Message-ID: <20151111091928.GA14531@electric-eye.fr.zoreil.com>
+References: <20151111033028.GA25018@codemonkey.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	<kernel-janitors@vger.kernel.org>,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>,
-	Brett Rudley <brudley@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	<brcm80211-dev-list@broadcom.com>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Dave Jones <davej@codemonkey.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:17168 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751069AbbKKJS1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 04:18:27 -0500
-In-Reply-To: <563C5DA2.3000005@users.sourceforge.net>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:35246 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751497AbbKKJTk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 04:19:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20151111033028.GA25018@codemonkey.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/06/2015 08:58 AM, SF Markus Elfring wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Fri, 6 Nov 2015 08:48:23 +0100
->
-> The release_firmware() function tests whether its argument is NULL and then
-> returns immediately. Thus the test around the call is not needed.
->
-> This issue was detected by using the Coccinelle software.
+Dave Jones <davej@codemonkey.org.uk> :
+> This happens during boot, (and then there's a flood of traces that happen so fast
+> afterwards it completely overwhelms serial console; not sure if they're the
+> same/related or not).
+> 
+> ==================================================================
+> BUG: KASAN: use-after-free in rtl8169_poll+0x4b6/0xb70 at addr ffff8801d43b3288
+> Read of size 1 by task kworker/0:3/188
+> =============================================================================
+> BUG kmalloc-256 (Not tainted): kasan: bad access detected
+> -----------------------------------------------------------------------------
+> 
+> Disabling lock debugging due to kernel taint
+> INFO: Slab 0xffffea000750ecc0 objects=16 used=16 fp=0x          (null) flags=0x8000000000000080
+> INFO: Object 0xffff8801d43b3200 @offset=512 fp=0xffff8801d43b3800
+> 
+> Bytes b4 ffff8801d43b31f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+> Object ffff8801d43b3200: 00 38 3b d4 01 88 ff ff 00 00 00 00 00 00 00 00  .8;.............
 
-Acked-by: Arend van Spriel <arend@broadcom.com>
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-> ---
->   drivers/net/wireless/brcm80211/brcmfmac/firmware.c | 3 +--
->   1 file changed, 1 insertion(+), 2 deletions(-)
->
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/firmware.c b/drivers/net/wireless/brcm80211/brcmfmac/firmware.c
-> index 4248f3c..33afb9a 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/firmware.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/firmware.c
-> @@ -449,8 +449,7 @@ static void brcmf_fw_request_nvram_done(const struct firmware *fw, void *ctx)
->
->   	if (raw_nvram)
->   		bcm47xx_nvram_release_contents(data);
-> -	if (fw)
-> -		release_firmware(fw);
-> +	release_firmware(fw);
->   	if (!nvram && !(fwctx->flags & BRCMF_FW_REQ_NV_OPTIONAL))
->   		goto fail;
->
->
+Does the patch below cure it ?
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index b4f2123..79ef799 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -7429,15 +7429,15 @@ process_pkt:
+ 
+ 			rtl8169_rx_vlan_tag(desc, skb);
+ 
++			if (skb->pkt_type == PACKET_MULTICAST)
++				dev->stats.multicast++;
++
+ 			napi_gro_receive(&tp->napi, skb);
+ 
+ 			u64_stats_update_begin(&tp->rx_stats.syncp);
+ 			tp->rx_stats.packets++;
+ 			tp->rx_stats.bytes += pkt_size;
+ 			u64_stats_update_end(&tp->rx_stats.syncp);
+-
+-			if (skb->pkt_type == PACKET_MULTICAST)
+-				dev->stats.multicast++;
+ 		}
+ release_descriptor:
+ 		desc->opts2 = 0;
