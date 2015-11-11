@@ -1,38 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
- drain mode
-Date: Wed, 11 Nov 2015 10:43:44 -0800
-Message-ID: <1447267424.17135.115.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1443313848-751-1-git-send-email-tolga.ceylan@gmail.com>
-	 <877fnc7i0i.fsf@bytheb.org>
-	 <CALmu+Sx8L5mWf3Nnbz=x0qt7pC5n5oVPRJd7dnLATVpmmO+nrA@mail.gmail.com>
-	 <1443320655.3273.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S34PkfKS47_FxuqwDbqP9P0C5J7YRR5e_-BLjfkPwPRgXw@mail.gmail.com>
-	 <1447222769.17135.92.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S37FOq+JVs8LKh5ezR9JhATrz2=NhmbEYPUxUt8Cyb9xaw@mail.gmail.com>
-	 <1447262610.17135.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S37B4mGqYe63JkLmPeQNuOX_WMK2NHaOe7Dtt79Nv9Mo4g@mail.gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
+Date: Wed, 11 Nov 2015 19:44:27 +0100
+Message-ID: <20151111184427.GH11639@twins.programming.kicks-ass.net>
+References: <56436420.9090401@iogearbox.net>
+ <20151111162341.GN9562@arm.com>
+ <20151111172659.GA86334@ast-mbp.thefacebook.com>
+ <20151111.123548.1039494689070388545.davem@davemloft.net>
+ <20151111175741.GR17308@twins.programming.kicks-ass.net>
+ <20151111181132.GA90947@ast-mbp.thefacebook.com>
+ <20151111183128.GS17308@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tolga Ceylan <tolga.ceylan@gmail.com>,
-	Aaron Conole <aconole@bytheb.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36425 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751013AbbKKSnq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 13:43:46 -0500
-Received: by pacdm15 with SMTP id dm15so38068172pac.3
-        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 10:43:45 -0800 (PST)
-In-Reply-To: <CALx6S37B4mGqYe63JkLmPeQNuOX_WMK2NHaOe7Dtt79Nv9Mo4g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, will.deacon@arm.com,
+	daniel@iogearbox.net, arnd@arndb.de, yang.shi@linaro.org,
+	linaro-kernel@lists.linaro.org, eric.dumazet@gmail.com,
+	zlim.lnx@gmail.com, ast@kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, xi.wang@gmail.com, catalin.marinas@arm.com,
+	linux-arm-kernel@lists.infradead.org, yhs@plumgrid.com,
+	bblanco@plumgrid.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151111183128.GS17308@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-11-11 at 10:23 -0800, Tom Herbert wrote:
+On Wed, Nov 11, 2015 at 07:31:28PM +0100, Peter Zijlstra wrote:
+> > Add new one that does 'fetch_and_add' ? What is the real use case it
+> > will be used for?
+> 
+> Look at all the atomic_{add,dec}_return*() users in the kernel. A typical
+> example would be a reader-writer lock implementations. See
+> include/asm-generic/rwsem.h for examples.
 
-> How about doing this in shutdown called for a listener?
+Maybe a better example would be refcounting, where you free on 0.
 
-Seems a good idea, I will try it, thanks !
+	if (!fetch_add(&obj->ref, -1))
+		free(obj);
