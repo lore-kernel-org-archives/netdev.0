@@ -1,57 +1,78 @@
-From: "Miller, Darin J" <darin.j.miller@intel.com>
-Subject: RE: [Intel-wired-lan] [net-next PATCH 1/3] ixgbe: Refactor MAC
- address	configuration code
-Date: Wed, 11 Nov 2015 23:34:26 +0000
-Message-ID: <A91205FD8A6E14448BD4414C06E9C3D37522189C@fmsmsx115.amr.corp.intel.com>
-References: <20151022232228.24612.81341.stgit@ahduyck-vm-fedora22>
- <20151022232630.24612.50134.stgit@ahduyck-vm-fedora22>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
+Date: Wed, 11 Nov 2015 15:40:15 -0800
+Message-ID: <20151111234014.GA17014@ast-mbp.thefacebook.com>
+References: <20151111162341.GN9562@arm.com>
+ <20151111172659.GA86334@ast-mbp.thefacebook.com>
+ <20151111.123548.1039494689070388545.davem@davemloft.net>
+ <20151111175741.GR17308@twins.programming.kicks-ass.net>
+ <20151111181132.GA90947@ast-mbp.thefacebook.com>
+ <20151111183128.GS17308@twins.programming.kicks-ass.net>
+ <20151111184427.GH11639@twins.programming.kicks-ass.net>
+ <20151111185415.GI11639@twins.programming.kicks-ass.net>
+ <20151111195558.GA4173@ast-mbp.thefacebook.com>
+ <20151111222135.GU17308@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: 'Alexander Duyck' <aduyck@mirantis.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:31658 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751152AbbKKXeg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 18:34:36 -0500
-In-Reply-To: <20151022232630.24612.50134.stgit@ahduyck-vm-fedora22>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: yang.shi@linaro.org, yhs@plumgrid.com, linaro-kernel@lists.linaro.org,
+ catalin.marinas@arm.com, daniel@iogearbox.net, arnd@arndb.de,
+ zlim.lnx@gmail.com, bblanco@plumgrid.com, will.deacon@arm.com, ast@kernel.org,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ netdev@vger.kernel.org, eric.dumazet@gmail.com,
+ David Miller <davem@davemloft.net>, xi.wang@gmail.com
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20151111222135.GU17308@twins.programming.kicks-ass.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Nov 11, 2015 at 11:21:35PM +0100, Peter Zijlstra wrote:
+> On Wed, Nov 11, 2015 at 11:55:59AM -0800, Alexei Starovoitov wrote:
+> > Therefore things like memory barriers, full set of atomics are not applicable
+> > in bpf world.
+> 
+> There are still plenty of wait-free constructs one can make using them.
 
+yes, but all such lock-free algos are typically based on cmpxchg8b and
+tight loop, so it would be very hard for verifier to proof termination
+of such loops. I think when we'd need to add something like this, we'll
+add new bpf insn that will be membarrier+cmpxhg8b+check+loop as
+a single insn, so it cannot be misused.
+I don't know of any concrete use case yet. All possible though.
 
------Original Message-----
-From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Alexander Duyck
-Sent: Thursday, October 22, 2015 4:27 PM
-To: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; Kirsher, Jeffrey T
-Subject: [Intel-wired-lan] [net-next PATCH 1/3] ixgbe: Refactor MAC address configuration code
+> Say a barrier/rendezvous construct for knowing when an event has
+> happened on all CPUs.
+> 
+> But if you really do not want any of that, I suppose that is a valid
+> choice.
 
-In the process of tracking down a memory leak when adding/removing fdb entries I had to go through the MAC address configuration code for ixgbe.
-In the process of doing so I found a number of issues that impacted readability and performance.  This change updates the code in general to clean it up so it becomes clear what each step is doing.  From what I can tell there a couple of bugs cleaned up in this code.
+I do want it :) and I think in the future we'll add a bunch
+of interesting stuff. May be including things like above. I just
+don't want to rush things in just because x86 has such insn
+or because gcc has a builtin for it.
+Like we discussed adding popcnt insn. It can be useful in some cases,
+but doesn't seem to worth the pain of adding it to interpreter, JITs
+and llvm backends... as of today... May be tomorrow it will be must have.
 
-First is the fact that the MAC addresses were being double counted for the PF.  As a result once entries up to 63 had been used you could no longer add additional filters.
+> Is even privileged (e)BPF not allowed things like this? I was thinking
+> the strict no loops stuff was for unpriv (e)BPF only.
 
-A simple test case for this:
-  for i in `seq 0 96`
-  do
-    ip link add link ens8 name mv$i type macvlan
-    ip link set dev mv$i up
-  done
+the only difference between unpriv and priv is the ability to send
+all values (including kernel addresses) to user space (like tracing
+needs to see all registers). The rest is the same.
+root should never crash the kernel as well. If we relax even little bit
+for root then the whole bpf stuff is no better than kernel module.
 
-Test script:
-  ethregs -s 0:8.0 | grep -e "RAH" | grep 8000....$
-
-When things are working correctly RAL/H registers 1 - 97 will be consumed.
-In the failing case it will stop at 63 and prevent any further filters from being added.
-
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    7 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  163 +++++++++++++++----------
- 2 files changed, 100 insertions(+), 70 deletions(-)
-
-Tested-by: Darin Miller <darin.j.miller@intel.com>
+btw, support for mini loops was requested many times in the past.
+I guess we'd have to add something like this, but it's tricky.
+Mainly because control flow graph analysis becomes much more complicated.
