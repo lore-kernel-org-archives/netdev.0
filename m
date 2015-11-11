@@ -1,98 +1,165 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: OVS VXLAN decap rule has full match on TTL for the outer headers?
-Date: Wed, 11 Nov 2015 16:47:36 +0200
-Message-ID: <56435508.9070802@mellanox.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net v2 3/3] packet: fix tpacket_snd max frame and vlan handling
+Date: Wed, 11 Nov 2015 09:56:56 -0500
+Message-ID: <CA+FuTSf9nY3PewO0=jDJ7ppv1RsriXg_S+w=owhXsAFKJYkZbg@mail.gmail.com>
+References: <cover.1447191361.git.daniel@iogearbox.net> <f664dc9cf1d33a001fcdb0265833c96644db5bfd.1447191361.git.daniel@iogearbox.net>
+ <CA+FuTSfkD4aMciGeqon0cLp=EJ7fWis56nGQsbku82ZC+=nNWg@mail.gmail.com>
+ <564279DF.4080400@iogearbox.net> <CA+FuTSep5RRghDMbPJh-OcJDZo8BFr-9hyHBrdXiOh2vck4_zA@mail.gmail.com>
+ <56428307.1010200@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ilya Lesokhin <ilyal@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>
-To: Joe Stringer <joestringer@nicira.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Haggai Eran <haggaie@mellanox.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Tobias Klauser <tklauser@distanz.ch>,
+	Network Development <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0054.outbound.protection.outlook.com ([157.56.112.54]:41047
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750818AbbKKOsL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Nov 2015 09:48:11 -0500
+Received: from mail-yk0-f180.google.com ([209.85.160.180]:34636 "EHLO
+	mail-yk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752391AbbKKO52 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 09:57:28 -0500
+Received: by ykfs79 with SMTP id s79so52152615ykf.1
+        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 06:57:28 -0800 (PST)
+Received: from mail-yk0-f180.google.com (mail-yk0-f180.google.com. [209.85.160.180])
+        by smtp.gmail.com with ESMTPSA id m128sm10913311ywm.34.2015.11.11.06.57.26
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 11 Nov 2015 06:57:26 -0800 (PST)
+Received: by ykdr82 with SMTP id r82so51826087ykd.3
+        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 06:57:26 -0800 (PST)
+In-Reply-To: <56428307.1010200@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Joe/Jesse,
+On Tue, Nov 10, 2015 at 6:51 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 11/11/2015 12:24 AM, Willem de Bruijn wrote:
+>>
+>> On Tue, Nov 10, 2015 at 6:12 PM, Daniel Borkmann <daniel@iogearbox.net>
+>> wrote:
+>>>
+>>> On 11/10/2015 11:52 PM, Willem de Bruijn wrote:
+>>>>>
+>>>>>
+>>>>>           if (sock->type == SOCK_DGRAM) {
+>>>>> -               err = dev_hard_header(skb, dev, ntohs(proto), addr,
+>>>>> -                               NULL, tp_len);
+>>>>> +               /* In DGRAM sockets, we expect struct sockaddr_ll was
+>>>>> filled
+>>>>> +                * via struct msghdr, so we have dest mac and
+>>>>> skb->protocol.
+>>>>> +                * Otherwise there's not too much useful things we can
+>>>>> do
+>>>>> in
+>>>>> +                * this flush run.
+>>>>> +                */
+>>>>> +               err = dev_hard_header(skb, dev, ntohs(skb->protocol),
+>>>>> addr,
+>>>>> +                                     NULL, tp_len);
+>>>>
+>>>>
+>>>>
+>>>> This change is not really necessary.
+>>>
+>>>
+>>>
+>>> Sure agreed, I found it helpful though. Don't mind removing it.
+>>>
+>>>>>                   if (unlikely(err < 0))
+>>>>>                           return -EINVAL;
+>>>>> -       } else if (dev->hard_header_len) {
+>>>>
+>>>>
+>>>>
+>>>> Why remove the check on hard_header_len?
+>>>
+>>>
+>>>
+>>> Hmm, the patch doesn't remove the check (it's moved further below).
+>>>
+>>>>> -               if (ll_header_truncated(dev, tp_len))
+>>>>> -                       return -EINVAL;
+>>>>> +       } else {
+>>>>> +               /* If skb->protocol is still 0, try to infer/guess it.
+>>>>> Might
+>>>>> +                * not be fully reliable in the sense that a user could
+>>>>> still
+>>>>> +                * change/race data afterwards, but on the other hand
+>>>>> the
+>>>>> proto
+>>>>
+>>>>
+>>>>
+>>>> The race goes away when probing it after the copy in skb_store_bits.
+>>>> Then it is also certain that tp_len is long enough to hold the entire
+>>>> link layer header.
+>>>
+>>>
+>>>
+>>> The skb_store_bits() is only done in case we do have a
+>>> dev->hard_header_len
+>>> or in case where we run into a possible situation where we have the
+>>> additional
+>>> 4 bytes on a full frame. In that case we need to check them properly,
+>>> which
+>>> requires copying, otherwise we don't copy any header.
+>>
+>>
+>> I assumed that hard_header_len has to be non-zero if there
+>> is a link layer header to probe. If we only intend to implement
+>> probing in the case of Ethernet, then it certainly holds.
+>
+>
+> Yeah, I guess we only care about ether_setup() alike devices, so we'd have
+> ETH_HLEN room as dev->hard_header_len. That will hold, yes.
+>
+>>>>> +                * can be set arbitrarily anyways. We only need to take
+>>>>> care
+>>>>> +                * in case of extra large VLAN frames.
+>>>>> +                */
+>>>>> +               if (!skb->protocol && tp_len >= ETH_HLEN)
+>>>>> +                       skb->protocol = ((struct ethhdr
+>>>>> *)data)->h_proto;
+>>>>
+>>>>
+>>>>
+>>>> Packet sockets are not restricted to link layer of type Ethernet.
+>>>>
+>>>> There are a few other points in this file that also cast mac header
+>>>> to eth_hdr(skb).
+>>>
+>>>
+>>>
+>>> Ok, the set doesn't address this assumption which we have elsewhere, too.
+>>> Do you suggest to also check on dev->type for these cases?
+>>
+>>
+>> Yes. If I'm right, then the other cases have to be fixed, too. One of the
+>> eth_hdr(skb) calls was introduced by patch 09effa67a18d, where the
+>> deleted code shows how it is safely restricted to ethernet:
+>>
+>>    -       if (dev->type == ARPHRD_ETHER) {
+>>    -               skb->protocol = eth_type_trans(skb, dev);
+>>    -               if (skb->protocol == htons(ETH_P_8021Q))
+>
+>
+> Saw that, so we need the check as one more fix for 57f89bfa2140 ("network:
+> Allow af_packet to transmit +4 bytes for VLAN packets.") as well.
+>
+> I'll see to respin a v3 tomorrow.
 
-We've noticed that VXLAN decap rules set by OVS in the below trivial 
-VXLAN config contain full match on TTL=64 for the outer headers, can you 
-explain the reasoning behind it? is that justa typo in dumping the flow?
+Thanks, Daniel.
 
-I also noticed that on my systems (upstream kernel 4.3.0-rc6+, veth 
-emulating a VM network 192.168.52/24 and host network 192.168.31/24, ovs 
-user-space 2.3.2) something is broken in the encap rule reporting, 
-traffic goes fine (below)
+The three existing uses of eth_hdr were applied in 2.6.39, 3.12 and 3.15.
+We probably need a patch per occurrence to allow backporting to the
+relevant stable branches. I can create the fixes independent from your
+patch set, if you prefer.
 
-I tried downgrading the ovs 2.0.90 and ovs-dpctl dump-flows crashes, the 
-core dump (...) doesn't say much.
-
-Is there a kernel patch that can assist here? if not, what user-space 
-version you recommend to make that dumping work
-better?
-
-Or.
-
-# ovs-vsctl show
-0ea2d6c6-93d0-4e5d-ad99-d47213bb0bf1
-     Bridge ovs-tun
-         Port ovs-tun
-             Interface ovs-tun
-                 type: internal
-         Port "vxlan0"
-             Interface "vxlan0"
-                 type: vxlan
-                 options: {dst_port="4789", key="98", 
-remote_ip="192.168.31.18"}
-         Port "veth1"
-             Interface "veth1"
-     ovs_version: "2.3.2"
-
-# ovs-dpctl show
-system@ovs-system:
-         lookups: hit:41456 missed:1364 lost:15
-         flows: 4
-         masks: hit:54475 total:6 hit/pkt:1.27
-         port 0: ovs-system (internal)
-         port 1: ovs-tun (internal)
-         port 2: vxlan_sys_4789 (vxlan: df_default=false, ttl=0)
-         port 3: veth1
-
-# ovs-dpctl dump-flows
-
-decap rule:
-
-recirc_id(0),skb_priority(0),tunnel(tun_id=0x62,src=192.168.31.18,dst=192.168.31.17,tos=0x0,ttl=64,flags(key)),in_port(2),skb_mark(0),eth(src=9e:1e:90:87:27:1a,dst=ce:57:32:ec:06:1a),eth_type(0x0800),ipv4(src=192.168.52.18/0.0.0.0,dst=192.168.52.17/0.0.0.0,proto=1/0,tos=0/0,ttl=64/0,frag=no/0xff), 
-packets:3, bytes:294, used:0.012s, actions:3
-
-encap rule:
-
-recirc_id(0),skb_priority(0),in_port(3),eth(src=ce:57:32:ec:06:1a,dst=9e:1e:90:87:27:1a),eth_type(0x0800),ipv4(src=192.168.52.17/0.0.0.0,dst=192.168.52.18/0.0.0.0,proto=1/0,tos=0/0x3,ttl=64/0,frag=no/0xff), 
-packets:2, bytes:196, used:0.012s, actions:set(unspec(bad key length 8, 
-expected -1)(00 00 00 00 00 00 00 62)),2
-
-
-[root@r-dcs54 vxlan]# tcpdump -nnei veth0 icmp -c 2
-16:41:06.037788 0e:35:5a:35:13:5c > 9e:1e:90:87:27:1a, ethertype IPv4 
-(0x0800), length 98: 192.168.52.17 > 192.168.52.18: ICMP echo request, 
-id 5946, seq 1566, length 64
-16:41:06.037903 9e:1e:90:87:27:1a > 0e:35:5a:35:13:5c, ethertype IPv4 
-(0x0800), length 98: 192.168.52.18 > 192.168.52.17: ICMP echo reply, id 
-5946, seq 1566, length 64
-
-
-[root@r-dcs54 vxlan]# tcpdump -nnei eth3 udp -c 2
-16:40:56.037061 00:02:c9:e9:bf:32 > f4:52:14:01:da:82, ethertype IPv4 
-(0x0800), length 148: 192.168.31.17.51757 > 192.168.31.18.4789: UDP, 
-length 106
-16:40:56.037121 f4:52:14:01:da:82 > 00:02:c9:e9:bf:32, ethertype IPv4 
-(0x0800), length 148: 192.168.31.18.53633 > 192.168.31.17.4789: UDP, 
-length 106
+>
+>
+> Thanks,
+> Daniel
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
