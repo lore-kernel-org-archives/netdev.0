@@ -1,107 +1,93 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 1/1] can: sja1000: clear interrupts on start
-Date: Wed, 11 Nov 2015 13:37:12 +0100
-Message-ID: <56433678.1090104@pengutronix.de>
-References: <1447163974-24514-1-git-send-email-mirza.krak@hostmobility.com>
- <5642F6A5.5070301@pengutronix.de>
- <CAJ=nTssqwtYAos67GRr8fOzsm63v_Bx+GKEWriOjbTALuzv-0g@mail.gmail.com>
- <5643132A.7080504@pengutronix.de>
- <CAJ=nTstPCev0TGjZCYkzf4qX+6NUUv8+-6PeVEKL9bcOwBKc0A@mail.gmail.com>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
+Date: Wed, 11 Nov 2015 12:38:31 +0000
+Message-ID: <20151111123831.GJ9562@arm.com>
+References: <1447195301-16757-1-git-send-email-yang.shi@linaro.org>
+ <20151111004208.GA47378@ast-mbp.thefacebook.com>
+ <CABg9mcux0wEC5=nWuR9o8NwUTp73zqZ-N2e67_f7oS_mX1XGdg@mail.gmail.com>
+ <4902833.k8y8bz0YLV@wuerfel>
+ <20151111102406.GB9562@arm.com>
+ <56431B83.5060500@iogearbox.net>
+ <20151111115851.GE9562@arm.com>
+ <564332B0.2090103@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="aUmr3vLjdsBaCOFWei9nSTrEK8wna2DWb"
-Cc: wg@grandegger.com, andri.yngvason@marel.com,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Christian Magnusson <Christian.Magnusson@semcon.com>
-To: Mirza Krak <mirza.krak@hostmobility.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <CAJ=nTstPCev0TGjZCYkzf4qX+6NUUv8+-6PeVEKL9bcOwBKc0A@mail.gmail.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, "Shi, Yang" <yang.shi@linaro.org>,
+	linaro-kernel@lists.linaro.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Z Lim <zlim.lnx@gmail.com>,
+	Alexei Starovoitov <ast@kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Xi Wang <xi.wang@gmail.com>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, peterz@infradead.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <564332B0.2090103@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---aUmr3vLjdsBaCOFWei9nSTrEK8wna2DWb
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On Wed, Nov 11, 2015 at 01:21:04PM +0100, Daniel Borkmann wrote:
+> On 11/11/2015 12:58 PM, Will Deacon wrote:
+> >On Wed, Nov 11, 2015 at 11:42:11AM +0100, Daniel Borkmann wrote:
+> >>On 11/11/2015 11:24 AM, Will Deacon wrote:
+> >>>On Wed, Nov 11, 2015 at 09:49:48AM +0100, Arnd Bergmann wrote:
+> >>>>On Tuesday 10 November 2015 18:52:45 Z Lim wrote:
+> >>>>>On Tue, Nov 10, 2015 at 4:42 PM, Alexei Starovoitov
+> >>>>><alexei.starovoitov@gmail.com> wrote:
+> >>>>>>On Tue, Nov 10, 2015 at 04:26:02PM -0800, Shi, Yang wrote:
+> >>>>>>>On 11/10/2015 4:08 PM, Eric Dumazet wrote:
+> >>>>>>>>On Tue, 2015-11-10 at 14:41 -0800, Yang Shi wrote:
+> >>>>>>>>>aarch64 doesn't have native support for XADD instruction, implement it by
+> >>>>>>>>>the below instruction sequence:
+> >>>>>
+> >>>>>aarch64 supports atomic add in ARMv8.1.
+> >>>>>For ARMv8(.0), please consider using LDXR/STXR sequence.
+> >>>>
+> >>>>Is it worth optimizing for the 8.1 case? It would add a bit of complexity
+> >>>>to make the code depend on the CPU feature, but it's certainly doable.
+> >>>
+> >>>What's the atomicity required for? Put another way, what are we racing
+> >>>with (I thought bpf was single-threaded)? Do we need to worry about
+> >>>memory barriers?
+> >>>
+> >>>Apologies if these are stupid questions, but all I could find was
+> >>>samples/bpf/sock_example.c and it didn't help much :(
+> >>
+> >>The equivalent code more readable in restricted C syntax (that can be
+> >>compiled by llvm) can be found in samples/bpf/sockex1_kern.c. So the
+> >>built-in __sync_fetch_and_add() will be translated into a BPF_XADD
+> >>insn variant.
+> >
+> >Yikes, so the memory-model for BPF is based around the deprecated GCC
+> >__sync builtins, that inherit their semantics from ia64? Any reason not
+> >to use the C11-compatible __atomic builtins[1] as a base?
+> 
+> Hmm, gcc doesn't have an eBPF compiler backend, so this won't work on
+> gcc at all. The eBPF backend in LLVM recognizes the __sync_fetch_and_add()
+> keyword and maps that to a BPF_XADD version (BPF_W or BPF_DW). In the
+> interpreter (__bpf_prog_run()), as Eric mentioned, this maps to atomic_add()
+> and atomic64_add(), respectively. So the struct bpf_insn prog[] you saw
+> from sock_example.c can be regarded as one possible equivalent program
+> section output from the compiler.
 
-On 11/11/2015 01:29 PM, Mirza Krak wrote:
->> Can you put a scope on the interrupt pin and see if it's a problem of
->> the SoC and/or Linux or the SJA1000 not pulling the IRQ line.
->=20
-> A little demonstration on what it looks like when the system is
-> resumed (added a printk in sja1000_start without my patch, though my
-> printk also clears IR register):
->=20
-> root@mx4-vcc:/opt/hm# ip -det link show can0
-> 33: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state
-> UNKNOWN mode DEFAULT qlen 10
->     link/can
->     can state ERROR-ACTIVE (berr-counter tx 0 rx 128) restart-ms 0
->     bitrate 500000 sample-point 0.875
->     tq 250 prop-seg 3 phase-seg1 3 phase-seg2 1 sjw 1
->     sja1000: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
->     clock 12000000
-> root@mx4-vcc:/opt/hm# ifconfig can0 down
-> root@mx4-vcc:/opt/hm# ifconfig can0 up
-> [ 1612.621187] sja1000: MOD: 0x1
-> [ 1612.640992] sja1000: SR: 0x7c
-> [ 1612.660039] sja1000: IR: 0x24
->=20
-> Also did a measurement with the scope, it is the SJA1000 chip not
-> pulling the IRQ line.
->=20
-> I can actually send one frame when the controller is in this state but
-> never get a TI interrupt.
+Ok, so if I understand you correctly, then __sync_fetch_and_add() has
+different semantics depending on the backend target. That seems counter
+to the LLVM atomics Documentation:
 
-Thanks for testing.
+  http://llvm.org/docs/Atomics.html
 
-[...]
+which specifically calls out the __sync_* primitives as being
+sequentially-consistent and requiring barriers on ARM (which isn't the
+case for atomic[64]_add in the kernel).
 
->>> Yes, resume code should be implemented to handle this and other
->>> problems (receive data). But still a DOWN/UP procedure should clear
->>> any previous state that could exist in the controller registers.
->>
->> I'll add your patch to can/master and add stable on Cc. Looking forwar=
-d
->> for some suspend/resume code :)
->=20
-> Looking forward to writing suspend/resume code :).
->=20
-> Some cred should go to Christian (added him to CC) for finding this
-> problem and reporting it to me.
+If we re-use the __sync_* naming scheme in the source language, I don't
+think we can overlay our own semantics in the backend. The
+__sync_fetch_and_add primitive is also expected to return the old value,
+which doesn't appear to be the case for BPF_XADD.
 
-I'll add a
-
-Reported-by: Christian Magnusson <Christian.Magnusson@semcon.com>
-
-to the patch.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---aUmr3vLjdsBaCOFWei9nSTrEK8wna2DWb
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWQzZ4AAoJEP5prqPJtc/HEIMIALxPUeTnFaScWM+EpXTCAvLg
-YPsoWPubcn9MF6PAhiAgltTtZY9OY2oZBveoN5fGTJfYASYsipzVYmuOK4lA4vWk
-a9Z/iJqbeC9o5rFOba5JgyKz+izUurz+X94J6CYJyBIfuNCrG84zp1iz0iE//4aP
-yPMJKlgp/UJ/k1ZfyL3gQuG1vymozKLrZQNRasd5A6Ez7jIOL/L9llvavpjhTM0S
-KlI4/xWK15MWDTQFDa5uYf12bt90Qwb8qXhGGLGtywpQLIvEsbn1v6rJzIj4dsxI
-Uy+Fk9IevyoOXyZmv/ZuL/52GOA3rqNouT/zDG/EZweB/UL5mCWEby2d1Hg+0qA=
-=zQre
------END PGP SIGNATURE-----
-
---aUmr3vLjdsBaCOFWei9nSTrEK8wna2DWb--
+Will
