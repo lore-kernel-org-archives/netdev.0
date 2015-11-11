@@ -1,60 +1,48 @@
 From: Z Lim <zlim.lnx@gmail.com>
-Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
-Date: Tue, 10 Nov 2015 18:52:45 -0800
-Message-ID: <CABg9mcux0wEC5=nWuR9o8NwUTp73zqZ-N2e67_f7oS_mX1XGdg@mail.gmail.com>
-References: <1447195301-16757-1-git-send-email-yang.shi@linaro.org>
-	<1447195301-16757-3-git-send-email-yang.shi@linaro.org>
-	<1447200535.17135.88.camel@edumazet-glaptop2.roam.corp.google.com>
-	<56428B1A.5090303@linaro.org>
-	<20151111004208.GA47378@ast-mbp.thefacebook.com>
+Subject: Re: [PATCH] arm64: bpf: fix JIT stack setup
+Date: Tue, 10 Nov 2015 19:11:12 -0800
+Message-ID: <CABg9mct8EnLAZoc5YyM5DFhw1PhdyTysxwsHiq9H5pNXh8ChLw@mail.gmail.com>
+References: <1446874577-14539-1-git-send-email-yang.shi@linaro.org>
+	<20151108022726.GB39441@ast-mbp.thefacebook.com>
+	<CABg9mcv8W4_pvkEQKtjBPi5ycMgLPksYoPtYnGr6tdcb5ER8YQ@mail.gmail.com>
+	<5640E135.2020007@linaro.org>
+	<CABg9mcvACuVK2=GBbnur94CsckN2TXRCCiXhX7A8jYQ7arMM+Q@mail.gmail.com>
+	<564249A2.1070903@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexei Starovoitov <ast@kernel.org>, daniel@iogearbox.net,
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
 	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>, Xi Wang <xi.wang@gmail.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Alexei Starovoitov <ast@kernel.org>, daniel@iogearbox.net,
+	Xi Wang <xi.wang@gmail.com>,
 	LKML <linux-kernel@vger.kernel.org>,
 	Network Development <netdev@vger.kernel.org>,
 	"linux-arm-kernel@lists.infradead.org"
 	<linux-arm-kernel@lists.infradead.org>,
 	linaro-kernel@lists.linaro.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	"Shi, Yang" <yang.shi@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:33319 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751519AbbKKCwq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2015 21:52:46 -0500
-In-Reply-To: <20151111004208.GA47378@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Shi, Yang" <yang.shi@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <564249A2.1070903@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Yang,
-
-On Tue, Nov 10, 2015 at 4:42 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Tue, Nov 10, 2015 at 04:26:02PM -0800, Shi, Yang wrote:
->> On 11/10/2015 4:08 PM, Eric Dumazet wrote:
->> >On Tue, 2015-11-10 at 14:41 -0800, Yang Shi wrote:
->> >>aarch64 doesn't have native support for XADD instruction, implement it by
->> >>the below instruction sequence:
-
-aarch64 supports atomic add in ARMv8.1.
-For ARMv8(.0), please consider using LDXR/STXR sequence.
-
->> >>
->> >>Load (dst + off) to a register
->> >>Add src to it
->> >>Store it back to (dst + off)
->> >
->> >Not really what is needed ?
->> >
->> >See this BPF_XADD as an atomic_add() equivalent.
+On Tue, Nov 10, 2015 at 11:46 AM, Shi, Yang <yang.shi@linaro.org> wrote:
+> On 11/9/2015 12:00 PM, Z Lim wrote:
 >>
->> I see. Thanks. The documentation doesn't say too much about "exclusive" add.
->> If so it should need load-acquire/store-release.
+>> How about splitting this into two patches? One for the BPF-related
+>> bug, and another for A64 FP-handling.
 >
-> I think doc is clear enough, but it can always be improved. Pls suggest a patch.
-> It's quite hard to write a test for atomicity in test_bpf framework, so
-> code review is the key. Eric, thanks for catching it!
+> I'm not sure if this is a good approach or not. IMHO, they are kind of
+> atomic. Without A64 FP-handling, that fix looks incomplete and introduces
+> another problem (stack backtrace).
 >
+
+The first, even on its own, doesn't make things worse, only better.
+The second, which we agree needs to be fixed also, addresses a different issue.
+
+Either way, please also note that these patches fix the original
+implementation. We do want -stable to pick these up.
+
+Suggestions for the diagram:
+- As an enhancement, would you mind showing the A64_FP also?
+- Please revisit "+64:"
