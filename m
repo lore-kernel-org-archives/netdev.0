@@ -1,45 +1,44 @@
-From: David Miller <davem@davemloft.net>
+From: Jonathan Corbet <corbet@lwn.net>
 Subject: Re: [PATCH RESEND] net: Documentation: Fix default value
  tcp_limit_output_bytes
-Date: Wed, 11 Nov 2015 11:57:24 -0500 (EST)
-Message-ID: <20151111.115724.1455490917002925021.davem@davemloft.net>
+Date: Wed, 11 Nov 2015 10:02:28 -0700
+Message-ID: <20151111100228.55a5bc5b@xps>
 References: <1447077529-9200-1-git-send-email-niklass@axis.com>
 	<20151111095002.2311dada@xps>
+	<20151111.115724.1455490917002925021.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8bit
 Cc: niklas.cassel@axis.com, edumazet@google.com, tom@herbertland.com,
 	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
 	niklass@axis.com, netdev@vger.kernel.org
-To: corbet@lwn.net
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20151111095002.2311dada@xps>
+In-Reply-To: <20151111.115724.1455490917002925021.davem@davemloft.net>
 Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jonathan Corbet <corbet@lwn.net>
-Date: Wed, 11 Nov 2015 09:50:02 -0700
+On Wed, 11 Nov 2015 11:57:24 -0500 (EST)
+David Miller <davem@davemloft.net> wrote:
 
-> On Mon, 9 Nov 2015 14:58:49 +0100
-> Niklas Cassel <niklas.cassel@axis.com> wrote:
+> > I left this last time because Dave usually likes to pick up networking
+> > docs patches himself.  This wasn't sent to netdev, though, so that's
+> > unlikely to happen.  I've gone ahead and applied it, since it seems
+> > clearly correct.  
 > 
->> Commit c39c4c6abb89 ("tcp: double default TSQ output bytes limit")
->> updated default value for tcp_limit_output_bytes
+> I already took this into my tree as per:
 > 
-> I left this last time because Dave usually likes to pick up networking
-> docs patches himself.  This wasn't sent to netdev, though, so that's
-> unlikely to happen.  I've gone ahead and applied it, since it seems
-> clearly correct.
+> 	http://marc.info/?l=linux-netdev&m=144708947814679&w=2
+> 
+> and patchwork entry:
+> 
+> 	http://patchwork.ozlabs.org/patch/541786/
+> 
+> and since Linus pulled my tree in earlier today it's now in
+> his tree as well.
 
-I already took this into my tree as per:
+Ah...I'm so behind the times...then I won't take it here after all.
 
-	http://marc.info/?l=linux-netdev&m=144708947814679&w=2
+Thanks,
 
-and patchwork entry:
-
-	http://patchwork.ozlabs.org/patch/541786/
-
-and since Linus pulled my tree in earlier today it's now in
-his tree as well.
-
-Thanks.
+jon
