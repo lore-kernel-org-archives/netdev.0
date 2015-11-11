@@ -1,64 +1,103 @@
-From: Pavel Fedin <p.fedin@samsung.com>
-Subject: RE: PING: [PATCH] net: smsc911x: Reset PHY during initialization
-Date: Wed, 11 Nov 2015 10:05:24 +0300
-Message-ID: <009b01d11c4f$57f6ef10$07e4cd30$@samsung.com>
-References: <006801d11b82$1f5704b0$5e050e10$@samsung.com>
- <20151110.115149.604622279273759756.davem@davemloft.net>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 1/1] can: sja1000: clear interrupts on start
+Date: Wed, 11 Nov 2015 09:04:53 +0100
+Message-ID: <5642F6A5.5070301@pengutronix.de>
+References: <1447163974-24514-1-git-send-email-mirza.krak@hostmobility.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	steve.glendinning@shawell.net
-To: 'David Miller' <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <20151110.115149.604622279273759756.davem@davemloft.net>
-Content-language: ru
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="ULHt5o2hAqNJOUKwPdN0E7TFP1g9p5H2F"
+Cc: andri.yngvason@marel.com, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Mirza Krak <mirza.krak@hostmobility.com>, wg@grandegger.com
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1447163974-24514-1-git-send-email-mirza.krak@hostmobility.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- Hello!
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--ULHt5o2hAqNJOUKwPdN0E7TFP1g9p5H2F
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-> If you think I should reconsider the patch, you should resubmit it.
+On 11/10/2015 02:59 PM, Mirza Krak wrote:
+> From: Mirza Krak <mirza.krak@hostmobility.com>
+>=20
+> According to SJA1000 data sheet error-warning (EI) interrupt is not
+> cleared by setting the controller in to reset-mode.
+>=20
+> Then if we have the following case:
+> - system is suspended (echo mem > /sys/power/state) and SJA1000 is left=
 
- I understand this, of course. But, before doing this i'd like to
-clarify your concern, why exactly you think that loopback test will
-break. Because the (simplified) algorithm is:
+> in operating state
 
-do {
-    result = loopback_test()
-    if (result == failed)
-        reset_phy()
-} while (result == ok)
+This problem occurs only an hardware, where the SJA1000 is powered
+during system suspend?
 
- So, if loopback test works for the first time, PHY reset will never
-be done. So, the conclusion is: in real situation it is never used at all.
- Conclusion no 2, coming from my tests: if loopback test fails, phy reset
-actually does not fix it. So, perhaps, it's not needed there at all.
+> - A bus error condition occurs which activates EI interrupt, system is
+> still suspended which means EI interrupt will be not be handled nor
+> cleared.
+>=20
+> If the above two events occur, on resume there is no way to return the
+> SJA1000 to operating state, except to cycle power to it.
+>=20
+> By simply reading the IR register on start we will clear any previous
+> conditions that could be present.
 
- I understand, that some other boards might behave differently, and loopback test was written this very way for some reason. Also, i
-understand that you, as a maintainer, have rights for the final decision. And in order to rework the patch, i'd like to discuss with
-you, which rework you would prefer. I came up with three possibilities:
---- cut ---
- a) Leave PHY reset inside loopback test as it is, but add a second routine and call it only before smsc911x_soft_reset().
- b) Reset PHY only conditionally, using the following algorithm:
-    if smsc911x_soft_reset() {
-        /* NIC reset failed, kick the PHY and retry */
-        smsc911x_phy_reset()
-        if (smsc_911x_soft_reset())
-            return -ENODEV;
-    }
- c) Do extra PHY reset only if some hint in device tree is specified (or the machine is known to have the problem)
---- cut ---
- I can even try to guess your thoughts (because you never elaborated them for me):
+Doesn't the SJA1000 trigger an interrupt that is detected after
+resuming? You add the fix to the open() function, which is triggered
+during $(ifconfig up), how is related to suspend/resume? Does the
+network layer call $(ifconfig down) during shutdown?
 
- 1. loopback test will break because PHY has been reset before. In this case, (b) or (c) is a way to go.
- 2. loopback test will break because of reset method change. In this case (a) is the way to go.
+There isn't any suspend/resume code in the sja1000 driver, for me it
+seems that we should add resume code that handles this problem.
 
- So, what do you really think?
+>=20
+> Signed-off-by: Mirza Krak <mirza.krak@hostmobility.com>
+> ---
+>  drivers/net/can/sja1000/sja1000.c | 3 +++
+>  1 file changed, 3 insertions(+)
+>=20
+> diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja100=
+0/sja1000.c
+> index 7b92e911a616..f10834be48a5 100644
+> --- a/drivers/net/can/sja1000/sja1000.c
+> +++ b/drivers/net/can/sja1000/sja1000.c
+> @@ -218,6 +218,9 @@ static void sja1000_start(struct net_device *dev)
+>  	priv->write_reg(priv, SJA1000_RXERR, 0x0);
+>  	priv->read_reg(priv, SJA1000_ECC);
+> =20
+> +	/* clear interrupt flags */
+> +	priv->read_reg(priv, SJA1000_IR);
+> +
+>  	/* leave reset mode */
+>  	set_normal_mode(dev);
+>  }
+>=20
 
- BTW, where is Steve, whose address is specified in MAINTAINERS for this code? Is it abandonware?
+Marc
 
-Kind regards,
-Pavel Fedin
-Expert Engineer
-Samsung Electronics Research center Russia
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--ULHt5o2hAqNJOUKwPdN0E7TFP1g9p5H2F
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJWQvamAAoJEP5prqPJtc/HnmwH/2KKU0NdmoAaGYN4EEgfXPd7
+UXQzPVijRO0tYhJ6Yt8j21Zi9kQ+GE2dTw3ax1clLAkJ9R/HjwqZwKSb0/wKk5n5
+a7oGDKJkzhRiVCwPf7/LbNakW8XLC6yrrKIn4Svy4+Dj1Ufv02/8wBVHHXPKQ2Zt
+1guWmREojZJte6TPR5b7Xw+DzjCkEAjuOwgVPDzpMH8I2BEvcELQrjwipycwUUMI
+KEWUXvt5GZFGyIYyFegRYrOtNW7ZsCa0xADhiirFKib13PaAllKqGrGC7OcMvso9
+cz7J9olfSE16sC8vBHwiZW/vEm5J7px1uywAmwquMICWGrc6GGDQ10aZl+cSStk=
+=vUt4
+-----END PGP SIGNATURE-----
+
+--ULHt5o2hAqNJOUKwPdN0E7TFP1g9p5H2F--
