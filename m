@@ -1,133 +1,82 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net v3 3/5] packet: only allow extra vlan len on ethernet devices
-Date: Wed, 11 Nov 2015 23:25:42 +0100
-Message-ID: <45cbb079a6f1c88aff9da37198c8f8bb0414aefd.1447278504.git.daniel@iogearbox.net>
+Subject: [PATCH net v3 4/5] packet: infer protocol from ethernet header if unset
+Date: Wed, 11 Nov 2015 23:25:43 +0100
+Message-ID: <1ff9ac2b71fd4d65bec94db62e3750c88ada5d80.1447278504.git.daniel@iogearbox.net>
 References: <cover.1447278504.git.daniel@iogearbox.net>
 Cc: edumazet@google.com, willemb@google.com, tklauser@distanz.ch,
 	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57170 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:57178 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753357AbbKKWZu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 17:25:50 -0500
+	with ESMTP id S1753401AbbKKWZv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 17:25:51 -0500
 In-Reply-To: <cover.1447278504.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1447278504.git.daniel@iogearbox.net>
 References: <cover.1447278504.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Packet sockets can be used by various net devices and are not
-really restricted to ARPHRD_ETHER device types. However, when
-currently checking for the extra 4 bytes that can be transmitted
-in VLAN case, our assumption is that we generally probe on
-ARPHRD_ETHER devices. Therefore, before looking into Ethernet
-header, check the device type first.
+In case no struct sockaddr_ll has been passed to packet
+socket's sendmsg() when doing a TX_RING flush run, then
+skb->protocol is set to po->num instead, which is the protocol
+passed via socket(2)/bind(2).
 
-This also fixes the issue where non-ARPHRD_ETHER devices could
-have no dev->hard_header_len in TX_RING SOCK_RAW case, and thus
-the check would test unfilled linear part of the skb (instead
-of non-linear).
+Applications only xmitting can go the path of allocating the
+socket as socket(PF_PACKET, <mode>, 0) and do a bind(2) on the
+TX_RING with sll_protocol of 0. That way, register_prot_hook()
+is neither called on creation nor on bind time, which saves
+cycles when there's no interest in capturing anyway.
 
-Fixes: 57f89bfa2140 ("network: Allow af_packet to transmit +4 bytes for VLAN packets.")
-Fixes: 52f1454f629f ("packet: allow to transmit +4 byte in TX_RING slot for VLAN case")
+That leaves us however with po->num 0 instead and therefore
+the TX_RING flush run sets skb->protocol to 0 as well. Eric
+reported that this leads to problems when using tools like
+trafgen over bonding device. I.e. the bonding's hash function
+could invoke the kernel's flow dissector, which depends on
+skb->protocol being properly set. In the current situation, all
+the traffic is then directed to a single slave.
+
+Fix it up by inferring skb->protocol from the Ethernet header
+when not set and we have ARPHRD_ETHER device type. This is only
+done in case of SOCK_RAW and where we have a dev->hard_header_len
+length. In case of ARPHRD_ETHER devices, this is guaranteed to
+cover ETH_HLEN, and therefore being accessed on the skb after
+the skb_store_bits().
+
+Reported-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- net/packet/af_packet.c | 60 +++++++++++++++++++++-----------------------------
- 1 file changed, 25 insertions(+), 35 deletions(-)
+ net/packet/af_packet.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index bdecf17..8795b0f 100644
+index 8795b0f..0066da2 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -1741,6 +1741,20 @@ static void fanout_release(struct sock *sk)
- 		kfree_rcu(po->rollover, rcu);
+@@ -2338,6 +2338,15 @@ static bool ll_header_truncated(const struct net_device *dev, int len)
+ 	return false;
  }
  
-+static bool packet_extra_vlan_len_allowed(const struct net_device *dev,
-+					  struct sk_buff *skb)
++static void tpacket_set_protocol(const struct net_device *dev,
++				 struct sk_buff *skb)
 +{
-+	/* Earlier code assumed this would be a VLAN pkt, double-check
-+	 * this now that we have the actual packet in hand. We can only
-+	 * do this check on Ethernet devices.
-+	 */
-+	if (unlikely(dev->type != ARPHRD_ETHER))
-+		return false;
-+
-+	skb_reset_mac_header(skb);
-+	return likely(eth_hdr(skb)->h_proto == htons(ETH_P_8021Q));
++	if (dev->type == ARPHRD_ETHER) {
++		skb_reset_mac_header(skb);
++		skb->protocol = eth_hdr(skb)->h_proto;
++	}
 +}
 +
- static const struct proto_ops packet_ops;
+ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 		void *frame, struct net_device *dev, int size_max,
+ 		__be16 proto, unsigned char *addr, int hlen)
+@@ -2419,6 +2428,8 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 				dev->hard_header_len);
+ 		if (unlikely(err))
+ 			return err;
++		if (!skb->protocol)
++			tpacket_set_protocol(dev, skb);
  
- static const struct proto_ops packet_ops_spkt;
-@@ -1902,18 +1916,10 @@ retry:
- 		goto retry;
- 	}
- 
--	if (len > (dev->mtu + dev->hard_header_len + extra_len)) {
--		/* Earlier code assumed this would be a VLAN pkt,
--		 * double-check this now that we have the actual
--		 * packet in hand.
--		 */
--		struct ethhdr *ehdr;
--		skb_reset_mac_header(skb);
--		ehdr = eth_hdr(skb);
--		if (ehdr->h_proto != htons(ETH_P_8021Q)) {
--			err = -EMSGSIZE;
--			goto out_unlock;
--		}
-+	if (len > (dev->mtu + dev->hard_header_len + extra_len) &&
-+	    !packet_extra_vlan_len_allowed(dev, skb)) {
-+		err = -EMSGSIZE;
-+		goto out_unlock;
- 	}
- 
- 	skb->protocol = proto;
-@@ -2525,18 +2531,10 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 		tp_len = tpacket_fill_skb(po, skb, ph, dev, size_max, proto,
- 					  addr, hlen);
- 		if (likely(tp_len >= 0) &&
--		    tp_len > dev->mtu + dev->hard_header_len) {
--			struct ethhdr *ehdr;
--			/* Earlier code assumed this would be a VLAN pkt,
--			 * double-check this now that we have the actual
--			 * packet in hand.
--			 */
-+		    tp_len > dev->mtu + dev->hard_header_len &&
-+		    !packet_extra_vlan_len_allowed(dev, skb))
-+			tp_len = -EMSGSIZE;
- 
--			skb_reset_mac_header(skb);
--			ehdr = eth_hdr(skb);
--			if (ehdr->h_proto != htons(ETH_P_8021Q))
--				tp_len = -EMSGSIZE;
--		}
- 		if (unlikely(tp_len < 0)) {
- 			if (po->tp_loss) {
- 				__packet_set_status(po, ph,
-@@ -2765,18 +2763,10 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- 
- 	sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
- 
--	if (!gso_type && (len > dev->mtu + reserve + extra_len)) {
--		/* Earlier code assumed this would be a VLAN pkt,
--		 * double-check this now that we have the actual
--		 * packet in hand.
--		 */
--		struct ethhdr *ehdr;
--		skb_reset_mac_header(skb);
--		ehdr = eth_hdr(skb);
--		if (ehdr->h_proto != htons(ETH_P_8021Q)) {
--			err = -EMSGSIZE;
--			goto out_free;
--		}
-+	if (!gso_type && (len > dev->mtu + reserve + extra_len) &&
-+	    !packet_extra_vlan_len_allowed(dev, skb)) {
-+		err = -EMSGSIZE;
-+		goto out_free;
- 	}
- 
- 	skb->protocol = proto;
+ 		data += dev->hard_header_len;
+ 		to_write -= dev->hard_header_len;
 -- 
 1.9.3
