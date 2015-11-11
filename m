@@ -1,82 +1,61 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net v3 4/5] packet: infer protocol from ethernet header if unset
-Date: Wed, 11 Nov 2015 23:25:43 +0100
-Message-ID: <1ff9ac2b71fd4d65bec94db62e3750c88ada5d80.1447278504.git.daniel@iogearbox.net>
+Subject: [PATCH net v3 2/5] packet: always probe for transport header
+Date: Wed, 11 Nov 2015 23:25:41 +0100
+Message-ID: <1cd5726cca14aaa93480f87f029ace4ec375df78.1447278504.git.daniel@iogearbox.net>
 References: <cover.1447278504.git.daniel@iogearbox.net>
 Cc: edumazet@google.com, willemb@google.com, tklauser@distanz.ch,
 	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57178 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:57164 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753401AbbKKWZv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 17:25:51 -0500
+	with ESMTP id S1753334AbbKKWZt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 17:25:49 -0500
 In-Reply-To: <cover.1447278504.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1447278504.git.daniel@iogearbox.net>
 References: <cover.1447278504.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case no struct sockaddr_ll has been passed to packet
-socket's sendmsg() when doing a TX_RING flush run, then
-skb->protocol is set to po->num instead, which is the protocol
-passed via socket(2)/bind(2).
+We concluded that the skb_probe_transport_header() should better be
+called unconditionally. Avoiding the call into the flow dissector has
+also not really much to do with the direct xmit mode.
 
-Applications only xmitting can go the path of allocating the
-socket as socket(PF_PACKET, <mode>, 0) and do a bind(2) on the
-TX_RING with sll_protocol of 0. That way, register_prot_hook()
-is neither called on creation nor on bind time, which saves
-cycles when there's no interest in capturing anyway.
+While it seems that only virtio_net code makes use of GSO from non
+RX/TX ring packet socket paths, we should probe for a transport header
+nevertheless before they hit devices.
 
-That leaves us however with po->num 0 instead and therefore
-the TX_RING flush run sets skb->protocol to 0 as well. Eric
-reported that this leads to problems when using tools like
-trafgen over bonding device. I.e. the bonding's hash function
-could invoke the kernel's flow dissector, which depends on
-skb->protocol being properly set. In the current situation, all
-the traffic is then directed to a single slave.
-
-Fix it up by inferring skb->protocol from the Ethernet header
-when not set and we have ARPHRD_ETHER device type. This is only
-done in case of SOCK_RAW and where we have a dev->hard_header_len
-length. In case of ARPHRD_ETHER devices, this is guaranteed to
-cover ETH_HLEN, and therefore being accessed on the skb after
-the skb_store_bits().
-
-Reported-by: Eric Dumazet <edumazet@google.com>
+Reference: http://thread.gmane.org/gmane.linux.network/386173/
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Jason Wang <jasowang@redhat.com>
 ---
- net/packet/af_packet.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ net/packet/af_packet.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 8795b0f..0066da2 100644
+index 80c36c0..bdecf17 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -2338,6 +2338,15 @@ static bool ll_header_truncated(const struct net_device *dev, int len)
- 	return false;
+@@ -2447,8 +2447,7 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 		len = ((to_write > len_max) ? len_max : to_write);
+ 	}
+ 
+-	if (!packet_use_direct_xmit(po))
+-		skb_probe_transport_header(skb, 0);
++	skb_probe_transport_header(skb, 0);
+ 
+ 	return tp_len;
  }
+@@ -2808,8 +2807,8 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 		len += vnet_hdr_len;
+ 	}
  
-+static void tpacket_set_protocol(const struct net_device *dev,
-+				 struct sk_buff *skb)
-+{
-+	if (dev->type == ARPHRD_ETHER) {
-+		skb_reset_mac_header(skb);
-+		skb->protocol = eth_hdr(skb)->h_proto;
-+	}
-+}
+-	if (!packet_use_direct_xmit(po))
+-		skb_probe_transport_header(skb, reserve);
++	skb_probe_transport_header(skb, reserve);
 +
- static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 		void *frame, struct net_device *dev, int size_max,
- 		__be16 proto, unsigned char *addr, int hlen)
-@@ -2419,6 +2428,8 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 				dev->hard_header_len);
- 		if (unlikely(err))
- 			return err;
-+		if (!skb->protocol)
-+			tpacket_set_protocol(dev, skb);
+ 	if (unlikely(extra_len == 4))
+ 		skb->no_fcs = 1;
  
- 		data += dev->hard_header_len;
- 		to_write -= dev->hard_header_len;
 -- 
 1.9.3
