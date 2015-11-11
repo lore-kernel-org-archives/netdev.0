@@ -1,92 +1,55 @@
-From: Vincent Li <vincent.mc.li@gmail.com>
-Subject: Why my NIC shows NUMA -1?
-Date: Wed, 11 Nov 2015 14:41:00 -0800
-Message-ID: <CAK3+h2wTdCVHLpwoKF93aGeKd2MTtgMK2cNstw94a=Fv_94iGQ@mail.gmail.com>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: OVS VXLAN decap rule has full match on TTL for the outer headers?
+Date: Wed, 11 Nov 2015 14:44:32 -0800
+Message-ID: <CAEh+42jT44TQUcX=KOh9j495ObAJrQ1F_8YQF5Lz6CJUNkuh=w@mail.gmail.com>
+References: <56435508.9070802@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: Joe Stringer <joestringer@nicira.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Haggai Eran <haggaie@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ilya Lesokhin <ilyal@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:33302 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752480AbbKKWlD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 17:41:03 -0500
-Received: by lbbkw15 with SMTP id kw15so25173157lbb.0
-        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 14:41:01 -0800 (PST)
+Received: from mail.kernel.org ([198.145.29.136]:33377 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752910AbbKKWoy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Nov 2015 17:44:54 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id C4944206B7
+	for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 22:44:53 +0000 (UTC)
+Received: from mail-qg0-f49.google.com (mail-qg0-f49.google.com [209.85.192.49])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id 6E1A620619
+	for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 22:44:52 +0000 (UTC)
+Received: by qgea14 with SMTP id a14so35240476qge.0
+        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 14:44:51 -0800 (PST)
+In-Reply-To: <56435508.9070802@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+On Wed, Nov 11, 2015 at 6:47 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+> Hi Joe/Jesse,
+>
+> We've noticed that VXLAN decap rules set by OVS in the below trivial VXLAN
+> config contain full match on TTL=64 for the outer headers, can you explain
+> the reasoning behind it? is that justa typo in dumping the flow?
 
-Sorry I am not sure if this is the right list to ask this question,
-please direct me to the correct one. thanks!
+Looking at the code, this does indeed seem to be the case. To the best
+of my knowledge, there was no particular reasoning behind it - it
+simply was never an issue so the wildcard generation wasn't improved.
 
-I am using Intel 82599 on Dell PowerEdge R710 which should support
-NUMA node, the box is running ubuntu 14.01.1 LTS , I am wondering why I
-get NUMA socket -1.
+> I also noticed that on my systems (upstream kernel 4.3.0-rc6+, veth
+> emulating a VM network 192.168.52/24 and host network 192.168.31/24, ovs
+> user-space 2.3.2) something is broken in the encap rule reporting, traffic
+> goes fine (below)
 
-in BIOS, the memory "Node Interleaving" is
-disabled by default and  I am using DPDK and DPDK sees my NIC NUMA -1,
-but i guess it is
-not related to DPDK since the sysfs  shows NUMA -1,  any clue?
-
- # uname -a
-Linux pktgen 3.13.0-32-generic #57-Ubuntu SMP Tue Jul 15 03:51:08 UTC
-2014 x86_64 x86_64 x86_64 GNU/Linux
-
-
-EAL: Master lcore 0 is ready (tid=79b78900;cpuset=[0])
-EAL: lcore 8 is ready (tid=f2deb700;cpuset=[8])
-EAL: lcore 15 is ready (tid=ef5e4700;cpuset=[15])
-EAL: lcore 5 is ready (tid=f45ee700;cpuset=[5])
-EAL: lcore 2 is ready (tid=f5df1700;cpuset=[2])
-EAL: lcore 10 is ready (tid=f1de9700;cpuset=[10])
-EAL: lcore 6 is ready (tid=f3ded700;cpuset=[6])
-EAL: lcore 7 is ready (tid=f35ec700;cpuset=[7])
-EAL: lcore 11 is ready (tid=f15e8700;cpuset=[11])
-EAL: lcore 1 is ready (tid=f65f2700;cpuset=[1])
-EAL: lcore 13 is ready (tid=f05e6700;cpuset=[13])
-EAL: lcore 4 is ready (tid=f4def700;cpuset=[4])
-EAL: lcore 9 is ready (tid=f25ea700;cpuset=[9])
-EAL: lcore 3 is ready (tid=f55f0700;cpuset=[3])
-EAL: lcore 12 is ready (tid=f0de7700;cpuset=[12])
-EAL: lcore 14 is ready (tid=efde5700;cpuset=[14])
-EAL: PCI device 0000:04:00.0 on NUMA socket -1 <========
-EAL:   probe driver: 8086:10fb rte_ixgbe_pmd
-EAL:   Not managed by a supported kernel driver, skipped
-EAL: PCI device 0000:04:00.1 on NUMA socket -1 <==============
-EAL:   probe driver: 8086:10fb rte_ixgbe_pmd
-EAL:   PCI memory mapped at 0x7feb77c00000
-EAL:   PCI memory mapped at 0x7feb77c80000
-PMD: eth_ixgbe_dev_init(): MAC: 2, PHY: 14, SFP+: 6
-PMD: eth_ixgbe_dev_init(): port 0 vendorID=0x8086 deviceID=0x10fb
-Total number of attached devices: 1
-Interface name: dpdk0
-
-kernel sysfs output:
-
-#cat /sys/devices/pci0000:00/0000:00:05.0/0000:04:00.0/numa_node
--1
-
-#cat /sys/devices/pci0000:00/0000:00:05.0/0000:04:00.1/numa_node
--1
-
-# numactl --show
-policy: default
-preferred node: current
-physcpubind: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
-cpubind: 0 1
-nodebind: 0 1
-membind: 0 1
-
-# numactl --hardware
-available: 2 nodes (0-1)
-node 0 cpus: 0 2 4 6 8 10 12 14
-node 0 size: 40317 MB
-node 0 free: 38699 MB
-node 1 cpus: 1 3 5 7 9 11 13 15
-node 1 size: 32166 MB
-node 1 free: 30706 MB
-node distances:
-node   0   1
-  0:  10  20
-  1:  20  10
+That is pretty strange, I have never seen that before. It seems that
+the key to be set is being reported as UNSPEC, which is weird if
+traffic is flowing normally. I guess you could try a newer version of
+userspace but I'm not aware of any patches that went in that would
+have fixed a bug in this area.
