@@ -1,67 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
- drain mode
-Date: Wed, 11 Nov 2015 09:23:30 -0800
-Message-ID: <1447262610.17135.114.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1443313848-751-1-git-send-email-tolga.ceylan@gmail.com>
-	 <877fnc7i0i.fsf@bytheb.org>
-	 <CALmu+Sx8L5mWf3Nnbz=x0qt7pC5n5oVPRJd7dnLATVpmmO+nrA@mail.gmail.com>
-	 <1443320655.3273.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S34PkfKS47_FxuqwDbqP9P0C5J7YRR5e_-BLjfkPwPRgXw@mail.gmail.com>
-	 <1447222769.17135.92.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S37FOq+JVs8LKh5ezR9JhATrz2=NhmbEYPUxUt8Cyb9xaw@mail.gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
+Date: Wed, 11 Nov 2015 09:27:00 -0800
+Message-ID: <20151111172659.GA86334@ast-mbp.thefacebook.com>
+References: <CABg9mcux0wEC5=nWuR9o8NwUTp73zqZ-N2e67_f7oS_mX1XGdg@mail.gmail.com>
+ <4902833.k8y8bz0YLV@wuerfel>
+ <20151111102406.GB9562@arm.com>
+ <56431B83.5060500@iogearbox.net>
+ <20151111115851.GE9562@arm.com>
+ <564332B0.2090103@iogearbox.net>
+ <20151111123831.GJ9562@arm.com>
+ <20151111125807.GP17308@twins.programming.kicks-ass.net>
+ <56436420.9090401@iogearbox.net>
+ <20151111162341.GN9562@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tolga Ceylan <tolga.ceylan@gmail.com>,
-	Aaron Conole <aconole@bytheb.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33960 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752394AbbKKRXc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 12:23:32 -0500
-Received: by padhx2 with SMTP id hx2so36403455pad.1
-        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 09:23:31 -0800 (PST)
-In-Reply-To: <CALx6S37FOq+JVs8LKh5ezR9JhATrz2=NhmbEYPUxUt8Cyb9xaw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"Shi, Yang" <yang.shi@linaro.org>, linaro-kernel@lists.linaro.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Z Lim <zlim.lnx@gmail.com>,
+	Alexei Starovoitov <ast@kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Xi Wang <xi.wang@gmail.com>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, yhs@plumgrid.com,
+	bblanco@plumgrid.com
+To: Will Deacon <will.deacon@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151111162341.GN9562@arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-11-11 at 09:05 -0800, Tom Herbert wrote:
-> On Tue, Nov 10, 2015 at 10:19 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Tue, 2015-11-10 at 21:41 -0800, Tom Herbert wrote:
-> >> Tolga, are you still planning to respin this patch (when tree opens?)
-> >
-> > I was planning to add an union on skc_tx_queue_mapping and
-> > sk_max_ack_backlog, so that adding a check on sk_max_ack_backlog in
-> > listener lookup would not add an additional cache line miss.
-> >
-> > This would remove false sharing because sk_ack_backlog is often dirtied
-> > when a socket is added into accept queue.
-> >
-> That's sounds like good fixes, but my question was more about the
-> problem originally described by Tolga where we are transitioning
-> processing for a listener port from one process to another. I think
-> the conclusion in this thread was to modify the code so that
-> listen(fd, 0) would stop new connections from being assigned to a
-> socket (as opposed to explicit SO_REUSEPORT_LISTEN_OFF option). Does
-> this still seem reasonable?
+On Wed, Nov 11, 2015 at 04:23:41PM +0000, Will Deacon wrote:
+> 
+> If we're going to document it, a bug tracker might be a good place to
+> start. The behaviour, as it stands, is broken wrt the definition of the
+> __sync primitives. That is, there is no way to build __sync_fetch_and_add
+> out of BPF_XADD without changing its semantics.
 
-Actually listen(fd, 0) is not going to work well :
+BPF_XADD == atomic_add() in kernel. period.
+we are not going to deprecate it or introduce something else.
+Semantics of __sync* or atomic in C standard and/or gcc/llvm has
+nothing to do with this.
+arm64 JIT needs to JIT bpf_xadd insn equivalent to the code
+of atomic_add() which is 'stadd' in armv8.1.
+The cpu check can be done by jit and for older cpus just fall back
+to interpreter. trivial.
 
-For request_sock that were created (by incoming SYN packet) before this
-listen(fd, 0) call, the 3rd packet (ACK coming from client) would not be
-able to create a child attached to this listener.
+> We could fix this by either:
+> 
+> (1) Defining BPF_XADD to match __sync_fetch_and_add (including memory
+>     barriers).
 
-sk_acceptq_is_full() test in tcp_v4_syn_recv_sock() would simply drop
-the thing.
+nope.
 
-I was mainly objecting adding yet another socket option.
+> (2) Introducing some new BPF_ atomics, that map to something like the
+>     C11 __atomic builtins and deprecating BPF_XADD in favour of these.
 
-Maybe setsockopt(... SO_REUSEPORT, &off, sizeof(off)) could detect the
-condition automatically ?
+nope.
 
-(I am not sure current behavior of setting sk->sk_reuseport = valbool;
-is correct if valbool==0 and current sk_reuseport is 1)
+> (3) Introducing new source-language intrinsics to match what BPF can do
+>     (unlikely to be popular).
+
+llvm's __sync intrinsic is used temporarily until we have time to do
+new intrinsic in llvm that matches kernel's atomic_add() properly.
+It will be done similar to llvm-bpf load_byte/word intrinsics.
+Note that we've been hiding it under lock_xadd() wrapper, like here:
+https://github.com/iovisor/bcc/blob/master/examples/networking/tunnel_monitor/monitor.c#L130
