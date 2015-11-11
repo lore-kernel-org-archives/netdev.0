@@ -1,38 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
- drain mode
-Date: Tue, 10 Nov 2015 22:19:29 -0800
-Message-ID: <1447222769.17135.92.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1443313848-751-1-git-send-email-tolga.ceylan@gmail.com>
-	 <877fnc7i0i.fsf@bytheb.org>
-	 <CALmu+Sx8L5mWf3Nnbz=x0qt7pC5n5oVPRJd7dnLATVpmmO+nrA@mail.gmail.com>
-	 <1443320655.3273.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S34PkfKS47_FxuqwDbqP9P0C5J7YRR5e_-BLjfkPwPRgXw@mail.gmail.com>
+From: Pavel Fedin <p.fedin@samsung.com>
+Subject: RE: PING: [PATCH] net: smsc911x: Reset PHY during initialization
+Date: Wed, 11 Nov 2015 10:05:24 +0300
+Message-ID: <009b01d11c4f$57f6ef10$07e4cd30$@samsung.com>
+References: <006801d11b82$1f5704b0$5e050e10$@samsung.com>
+ <20151110.115149.604622279273759756.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Tolga Ceylan <tolga.ceylan@gmail.com>,
-	Aaron Conole <aconole@bytheb.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35781 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750714AbbKKGTc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 01:19:32 -0500
-Received: by pasz6 with SMTP id z6so22544716pas.2
-        for <netdev@vger.kernel.org>; Tue, 10 Nov 2015 22:19:32 -0800 (PST)
-In-Reply-To: <CALx6S34PkfKS47_FxuqwDbqP9P0C5J7YRR5e_-BLjfkPwPRgXw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	steve.glendinning@shawell.net
+To: 'David Miller' <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <20151110.115149.604622279273759756.davem@davemloft.net>
+Content-language: ru
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-11-10 at 21:41 -0800, Tom Herbert wrote:
-> Tolga, are you still planning to respin this patch (when tree opens?)
+ Hello!
 
-I was planning to add an union on skc_tx_queue_mapping and
-sk_max_ack_backlog, so that adding a check on sk_max_ack_backlog in
-listener lookup would not add an additional cache line miss.
+> If you think I should reconsider the patch, you should resubmit it.
 
-This would remove false sharing because sk_ack_backlog is often dirtied
-when a socket is added into accept queue.
+ I understand this, of course. But, before doing this i'd like to
+clarify your concern, why exactly you think that loopback test will
+break. Because the (simplified) algorithm is:
+
+do {
+    result = loopback_test()
+    if (result == failed)
+        reset_phy()
+} while (result == ok)
+
+ So, if loopback test works for the first time, PHY reset will never
+be done. So, the conclusion is: in real situation it is never used at all.
+ Conclusion no 2, coming from my tests: if loopback test fails, phy reset
+actually does not fix it. So, perhaps, it's not needed there at all.
+
+ I understand, that some other boards might behave differently, and loopback test was written this very way for some reason. Also, i
+understand that you, as a maintainer, have rights for the final decision. And in order to rework the patch, i'd like to discuss with
+you, which rework you would prefer. I came up with three possibilities:
+--- cut ---
+ a) Leave PHY reset inside loopback test as it is, but add a second routine and call it only before smsc911x_soft_reset().
+ b) Reset PHY only conditionally, using the following algorithm:
+    if smsc911x_soft_reset() {
+        /* NIC reset failed, kick the PHY and retry */
+        smsc911x_phy_reset()
+        if (smsc_911x_soft_reset())
+            return -ENODEV;
+    }
+ c) Do extra PHY reset only if some hint in device tree is specified (or the machine is known to have the problem)
+--- cut ---
+ I can even try to guess your thoughts (because you never elaborated them for me):
+
+ 1. loopback test will break because PHY has been reset before. In this case, (b) or (c) is a way to go.
+ 2. loopback test will break because of reset method change. In this case (a) is the way to go.
+
+ So, what do you really think?
+
+ BTW, where is Steve, whose address is specified in MAINTAINERS for this code? Is it abandonware?
+
+Kind regards,
+Pavel Fedin
+Expert Engineer
+Samsung Electronics Research center Russia
