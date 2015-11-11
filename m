@@ -1,8 +1,8 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net v3 3/5] packet: only allow extra vlan len on ethernet devices
-Date: Wed, 11 Nov 2015 17:55:34 -0500
-Message-ID: <CA+FuTSeg9tyi+yd+2LuuzPcHs=H4NkPQXqEb+yrR9tQOKqim3A@mail.gmail.com>
-References: <cover.1447278504.git.daniel@iogearbox.net> <45cbb079a6f1c88aff9da37198c8f8bb0414aefd.1447278504.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net v3 5/5] packet: fix tpacket_snd max frame len
+Date: Wed, 11 Nov 2015 17:56:30 -0500
+Message-ID: <CA+FuTScyeTKgg0ZgF9WH53Sa+Ugyx5s3A_LAQDa5UfKg1hKDCQ@mail.gmail.com>
+References: <cover.1447278504.git.daniel@iogearbox.net> <45ebab096c421823fdf50bd3ff8b2fafd55a0402.1447278504.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: David Miller <davem@davemloft.net>,
@@ -11,157 +11,74 @@ Cc: David Miller <davem@davemloft.net>,
 	Network Development <netdev@vger.kernel.org>
 To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f50.google.com ([209.85.213.50]:33622 "EHLO
-	mail-vk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752805AbbKKW4I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 17:56:08 -0500
-Received: by vkbk63 with SMTP id k63so316274vkb.0
-        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 14:56:05 -0800 (PST)
-Received: from mail-vk0-f52.google.com (mail-vk0-f52.google.com. [209.85.213.52])
-        by smtp.gmail.com with ESMTPSA id z139sm99082vkd.11.2015.11.11.14.56.03
+Received: from mail-vk0-f53.google.com ([209.85.213.53]:32888 "EHLO
+	mail-vk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752878AbbKKW5C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 17:57:02 -0500
+Received: by vkbk63 with SMTP id k63so327677vkb.0
+        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 14:57:01 -0800 (PST)
+Received: from mail-vk0-f49.google.com (mail-vk0-f49.google.com. [209.85.213.49])
+        by smtp.gmail.com with ESMTPSA id 14sm102446vko.9.2015.11.11.14.57.00
         for <netdev@vger.kernel.org>
         (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 11 Nov 2015 14:56:04 -0800 (PST)
-Received: by vkgy188 with SMTP id y188so314607vkg.1
-        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 14:56:03 -0800 (PST)
-In-Reply-To: <45cbb079a6f1c88aff9da37198c8f8bb0414aefd.1447278504.git.daniel@iogearbox.net>
+        Wed, 11 Nov 2015 14:57:00 -0800 (PST)
+Received: by vkas68 with SMTP id s68so324997vka.2
+        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 14:57:00 -0800 (PST)
+In-Reply-To: <45ebab096c421823fdf50bd3ff8b2fafd55a0402.1447278504.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Wed, Nov 11, 2015 at 5:25 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> Packet sockets can be used by various net devices and are not
-> really restricted to ARPHRD_ETHER device types. However, when
-> currently checking for the extra 4 bytes that can be transmitted
-> in VLAN case, our assumption is that we generally probe on
-> ARPHRD_ETHER devices. Therefore, before looking into Ethernet
-> header, check the device type first.
+> Since it's introduction in commit 69e3c75f4d54 ("net: TX_RING and
+> packet mmap"), TX_RING could be used from SOCK_DGRAM and SOCK_RAW
+> side. When used with SOCK_DGRAM only, the size_max > dev->mtu +
+> reserve check should have reserve as 0, but currently, this is
+> unconditionally set (in it's original form as dev->hard_header_len).
 >
-> This also fixes the issue where non-ARPHRD_ETHER devices could
-> have no dev->hard_header_len in TX_RING SOCK_RAW case, and thus
-> the check would test unfilled linear part of the skb (instead
-> of non-linear).
+> I think this is not correct since tpacket_fill_skb() would then
+> take dev->mtu and dev->hard_header_len into account for SOCK_DGRAM,
+> the extra VLAN_HLEN could be possible in both cases. Presumably, the
+> reserve code was copied from packet_snd(), but later on missed the
+> check. Make it similar as we have it in packet_snd().
 >
-> Fixes: 57f89bfa2140 ("network: Allow af_packet to transmit +4 bytes for VLAN packets.")
-> Fixes: 52f1454f629f ("packet: allow to transmit +4 byte in TX_RING slot for VLAN case")
-
-Fixes: 09effa67a18d ("packet: Revert recent header parsing changes.")
-
+> Fixes: 69e3c75f4d54 ("net: TX_RING and packet mmap")
 > Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Separate patches would probably be preferable, to be able to backport
-to stable branches. But I won't press that point further. A minor
-comment inline, but feel free to ignore. Otherwise,
-
 Acked-by: Willem de Bruijn <willemb@google.com>
-
-Thanks for fixing all occurrences, Daniel.
-
 > ---
->  net/packet/af_packet.c | 60 +++++++++++++++++++++-----------------------------
->  1 file changed, 25 insertions(+), 35 deletions(-)
+>  net/packet/af_packet.c | 9 +++++----
+>  1 file changed, 5 insertions(+), 4 deletions(-)
 >
 > diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index bdecf17..8795b0f 100644
+> index 0066da2..242bce1 100644
 > --- a/net/packet/af_packet.c
 > +++ b/net/packet/af_packet.c
-> @@ -1741,6 +1741,20 @@ static void fanout_release(struct sock *sk)
->                 kfree_rcu(po->rollover, rcu);
->  }
+> @@ -2510,12 +2510,13 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+>         if (unlikely(!(dev->flags & IFF_UP)))
+>                 goto out_put;
 >
-> +static bool packet_extra_vlan_len_allowed(const struct net_device *dev,
-> +                                         struct sk_buff *skb)
-> +{
-> +       /* Earlier code assumed this would be a VLAN pkt, double-check
-> +        * this now that we have the actual packet in hand. We can only
-> +        * do this check on Ethernet devices.
-> +        */
-> +       if (unlikely(dev->type != ARPHRD_ETHER))
-> +               return false;
-> +
-> +       skb_reset_mac_header(skb);
-> +       return likely(eth_hdr(skb)->h_proto == htons(ETH_P_8021Q));
-> +}
-> +
->  static const struct proto_ops packet_ops;
+> -       reserve = dev->hard_header_len + VLAN_HLEN;
+> +       if (po->sk.sk_socket->type == SOCK_RAW)
+> +               reserve = dev->hard_header_len;
+>         size_max = po->tx_ring.frame_size
+>                 - (po->tp_hdrlen - sizeof(struct sockaddr_ll));
 >
->  static const struct proto_ops packet_ops_spkt;
-> @@ -1902,18 +1916,10 @@ retry:
->                 goto retry;
->         }
+> -       if (size_max > dev->mtu + reserve)
+> -               size_max = dev->mtu + reserve;
+> +       if (size_max > dev->mtu + reserve + VLAN_HLEN)
+> +               size_max = dev->mtu + reserve + VLAN_HLEN;
 >
-> -       if (len > (dev->mtu + dev->hard_header_len + extra_len)) {
-> -               /* Earlier code assumed this would be a VLAN pkt,
-> -                * double-check this now that we have the actual
-> -                * packet in hand.
-> -                */
-> -               struct ethhdr *ehdr;
-> -               skb_reset_mac_header(skb);
-> -               ehdr = eth_hdr(skb);
-> -               if (ehdr->h_proto != htons(ETH_P_8021Q)) {
-> -                       err = -EMSGSIZE;
-> -                       goto out_unlock;
-> -               }
-> +       if (len > (dev->mtu + dev->hard_header_len + extra_len) &&
-> +           !packet_extra_vlan_len_allowed(dev, skb)) {
-> +               err = -EMSGSIZE;
-> +               goto out_unlock;
->         }
->
->         skb->protocol = proto;
-> @@ -2525,18 +2531,10 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+>         do {
+>                 ph = packet_current_frame(po, &po->tx_ring,
+> @@ -2542,7 +2543,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
 >                 tp_len = tpacket_fill_skb(po, skb, ph, dev, size_max, proto,
 >                                           addr, hlen);
 >                 if (likely(tp_len >= 0) &&
-> -                   tp_len > dev->mtu + dev->hard_header_len) {
-> -                       struct ethhdr *ehdr;
-> -                       /* Earlier code assumed this would be a VLAN pkt,
-> -                        * double-check this now that we have the actual
-> -                        * packet in hand.
-> -                        */
-> +                   tp_len > dev->mtu + dev->hard_header_len &&
-> +                   !packet_extra_vlan_len_allowed(dev, skb))
-> +                       tp_len = -EMSGSIZE;
+> -                   tp_len > dev->mtu + dev->hard_header_len &&
+> +                   tp_len > dev->mtu + reserve &&
+>                     !packet_extra_vlan_len_allowed(dev, skb))
+>                         tp_len = -EMSGSIZE;
 >
-> -                       skb_reset_mac_header(skb);
-> -                       ehdr = eth_hdr(skb);
-> -                       if (ehdr->h_proto != htons(ETH_P_8021Q))
-> -                               tp_len = -EMSGSIZE;
-> -               }
->                 if (unlikely(tp_len < 0)) {
->                         if (po->tp_loss) {
->                                 __packet_set_status(po, ph,
-> @@ -2765,18 +2763,10 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
->
->         sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
->
-> -       if (!gso_type && (len > dev->mtu + reserve + extra_len)) {
-> -               /* Earlier code assumed this would be a VLAN pkt,
-> -                * double-check this now that we have the actual
-> -                * packet in hand.
-> -                */
-> -               struct ethhdr *ehdr;
-> -               skb_reset_mac_header(skb);
-> -               ehdr = eth_hdr(skb);
-> -               if (ehdr->h_proto != htons(ETH_P_8021Q)) {
-> -                       err = -EMSGSIZE;
-> -                       goto out_free;
-> -               }
-> +       if (!gso_type && (len > dev->mtu + reserve + extra_len) &&
-> +           !packet_extra_vlan_len_allowed(dev, skb)) {
-> +               err = -EMSGSIZE;
-> +               goto out_free;
-
-This nicely reuses the same code in three locations.
-
-If you end up having to send a v4, it would be nice to also fold the
-repeated len check into the shared code. Variable reserve here is
-just dev->hard_header_len. No need to spin a patch just for that
-cleanup, though.
-
-
->         }
->
->         skb->protocol = proto;
 > --
 > 1.9.3
 >
