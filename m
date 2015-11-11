@@ -1,15 +1,15 @@
-From: Will Deacon <will.deacon@arm.com>
+From: Peter Zijlstra <peterz@infradead.org>
 Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
-Date: Wed, 11 Nov 2015 17:44:01 +0000
-Message-ID: <20151111174401.GO9562@arm.com>
+Date: Wed, 11 Nov 2015 18:57:41 +0100
+Message-ID: <20151111175741.GR17308@twins.programming.kicks-ass.net>
 References: <56436420.9090401@iogearbox.net>
  <20151111162341.GN9562@arm.com>
  <20151111172659.GA86334@ast-mbp.thefacebook.com>
  <20151111.123548.1039494689070388545.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net,
-	peterz@infradead.org, arnd@arndb.de, yang.shi@linaro.org,
+Cc: alexei.starovoitov@gmail.com, will.deacon@arm.com,
+	daniel@iogearbox.net, arnd@arndb.de, yang.shi@linaro.org,
 	linaro-kernel@lists.linaro.org, eric.dumazet@gmail.com,
 	zlim.lnx@gmail.com, ast@kernel.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, xi.wang@gmail.com, catalin.marinas@arm.com,
@@ -33,10 +33,16 @@ On Wed, Nov 11, 2015 at 12:35:48PM -0500, David Miller wrote:
 > semantics to something that is already clearly defined to have
 > exactly kernel atomic_add() semantics.
 
-... and which is emitted by LLVM when asked to compile __sync_fetch_and_add,
-which has clearly defined (yet conflicting) semantics.
+Dave, this really doesn't make any sense to me. __sync primitives have
+well defined semantics and (e)BPF is violating this.
 
-If the discrepancy is in LLVM (and it sounds like it is), then I'll raise
-a bug over there instead.
+Furthermore, the fetch_and_add (or XADD) name has well defined
+semantics, which (e)BPF also violates.
 
-Will
+Atomicy is hard enough as it is, backends giving random interpretations
+to them isn't helping anybody.
+
+It also baffles me that Alexei is seemingly unwilling to change/rev the
+(e)BPF instructions, which would be invisible to the regular user, he
+does want to change the language itself, which will impact all
+'scripts'.
