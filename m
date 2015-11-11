@@ -1,74 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kasan r8169 use-after-free trace.
-Date: Wed, 11 Nov 2015 05:16:21 -0800
-Message-ID: <1447247781.17135.95.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151111033028.GA25018@codemonkey.org.uk>
-	 <20151111091928.GA14531@electric-eye.fr.zoreil.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: nfnetlink_log: work around uninitialized
+ variable warning
+Date: Wed, 11 Nov 2015 14:17:42 +0100
+Message-ID: <20151111131742.GA6079@salvia>
+References: <17817903.Md6b3ydRpX@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dave Jones <davej@codemonkey.org.uk>, netdev@vger.kernel.org,
-	Corinna Vinschen <vinschen@redhat.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:35158 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752216AbbKKNQX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 08:16:23 -0500
-Received: by pasz6 with SMTP id z6so32050481pas.2
-        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 05:16:23 -0800 (PST)
-In-Reply-To: <20151111091928.GA14531@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, Ken-ichirou MATSUZAWA <chamaken@gmail.com>,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <17817903.Md6b3ydRpX@wuerfel>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-11-11 at 10:19 +0100, Francois Romieu wrote:
-> Dave Jones <davej@codemonkey.org.uk> :
-> > This happens during boot, (and then there's a flood of traces that happen so fast
-> > afterwards it completely overwhelms serial console; not sure if they're the
-> > same/related or not).
-> > 
-> > ==================================================================
-> > BUG: KASAN: use-after-free in rtl8169_poll+0x4b6/0xb70 at addr ffff8801d43b3288
-> > Read of size 1 by task kworker/0:3/188
-> > =============================================================================
-> > BUG kmalloc-256 (Not tainted): kasan: bad access detected
-> > -----------------------------------------------------------------------------
-> > 
-> > Disabling lock debugging due to kernel taint
-> > INFO: Slab 0xffffea000750ecc0 objects=16 used=16 fp=0x          (null) flags=0x8000000000000080
-> > INFO: Object 0xffff8801d43b3200 @offset=512 fp=0xffff8801d43b3800
-> > 
-> > Bytes b4 ffff8801d43b31f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-> > Object ffff8801d43b3200: 00 38 3b d4 01 88 ff ff 00 00 00 00 00 00 00 00  .8;.............
+On Tue, Nov 10, 2015 at 01:08:15PM +0100, Arnd Bergmann wrote:
+> After a recent (correct) change, gcc started warning about the use
+> of the 'flags' variable in nfulnl_recv_config()
 > 
-> Does the patch below cure it ?
+> net/netfilter/nfnetlink_log.c: In function 'nfulnl_recv_config':
+> net/netfilter/nfnetlink_log.c:320:14: warning: 'flags' may be used uninitialized in this function [-Wmaybe-uninitialized]
+> net/netfilter/nfnetlink_log.c:828:6: note: 'flags' was declared here
 > 
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index b4f2123..79ef799 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -7429,15 +7429,15 @@ process_pkt:
->  
->  			rtl8169_rx_vlan_tag(desc, skb);
->  
-> +			if (skb->pkt_type == PACKET_MULTICAST)
-> +				dev->stats.multicast++;
-> +
->  			napi_gro_receive(&tp->napi, skb);
->  
->  			u64_stats_update_begin(&tp->rx_stats.syncp);
->  			tp->rx_stats.packets++;
->  			tp->rx_stats.bytes += pkt_size;
->  			u64_stats_update_end(&tp->rx_stats.syncp);
-> -
-> -			if (skb->pkt_type == PACKET_MULTICAST)
-> -				dev->stats.multicast++;
->  		}
->  release_descriptor:
->  		desc->opts2 = 0;
+> The warning first shows up in ARM s3c2410_defconfig with gcc-4.3 or
+> higher (including 5.2.1, which is the latest version I checked) I
+> tried working around it by rearranging the code but had no success
+> with that.
+> 
+> As a last resort, this initializes the variable to zero, which shuts
+> up the warning, but means that we don't get a warning if the code
+> is ever changed in a way that actually causes the variable to be
+> used without first being written.
 
-This looks obvious indeed, please submit this formally Francois ;)
-
-Fixes: d7d2d89d4b0af ("r8169: Add software counter for multicast packages")
-Acked-by: Eric Dumazet <edumazet@google.com>
-Cc: Corinna Vinschen <vinschen@redhat.com>
+Applied, thanks!
