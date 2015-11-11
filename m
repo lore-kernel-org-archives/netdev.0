@@ -1,50 +1,74 @@
-From: Christian Magnusson <Christian.Magnusson@semcon.com>
-Subject: RE: [PATCH 1/1] can: sja1000: clear interrupts on start
-Date: Wed, 11 Nov 2015 12:49:19 +0000
-Message-ID: <43dd06fc9e734f5e9f7832bc472869a8@SE-GOT-MB03.semcon.se>
-References: <1447163974-24514-1-git-send-email-mirza.krak@hostmobility.com>
-	<5642F6A5.5070301@pengutronix.de>
-	<CAJ=nTssqwtYAos67GRr8fOzsm63v_Bx+GKEWriOjbTALuzv-0g@mail.gmail.com>
-	<5643132A.7080504@pengutronix.de>
-	<CAJ=nTstPCev0TGjZCYkzf4qX+6NUUv8+-6PeVEKL9bcOwBKc0A@mail.gmail.com>
-	<56433678.1090104@pengutronix.de>
- <CAJ=nTstmat5gmtpGmvn5nCpuFAfKzYC2zfZA-08UZ_FCfBXVcg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: kasan r8169 use-after-free trace.
+Date: Wed, 11 Nov 2015 05:16:21 -0800
+Message-ID: <1447247781.17135.95.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151111033028.GA25018@codemonkey.org.uk>
+	 <20151111091928.GA14531@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "wg@grandegger.com" <wg@grandegger.com>,
-	"andri.yngvason@marel.com" <andri.yngvason@marel.com>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Mirza Krak <mirza.krak@hostmobility.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJ=nTstmat5gmtpGmvn5nCpuFAfKzYC2zfZA-08UZ_FCfBXVcg@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dave Jones <davej@codemonkey.org.uk>, netdev@vger.kernel.org,
+	Corinna Vinschen <vinschen@redhat.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:35158 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752216AbbKKNQX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 08:16:23 -0500
+Received: by pasz6 with SMTP id z6so32050481pas.2
+        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 05:16:23 -0800 (PST)
+In-Reply-To: <20151111091928.GA14531@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhhbmtzLi4gSXQncyBvayBmb3IgbWUuIEdvb2QgdGhhdCB3ZSBmaW5hbGx5IGZvdW5kIHRoZSBw
-cm9ibGVtIHdpdGggdGhlIGhhbmdpbmcgY2FuLWludGVyZmFjZXMuIDopDQoNCi9DaHJpc3RpYW4N
-Cg0KDQpDaHJpc3RpYW4gTWFnbnVzc29uDQpjaHJpc3RpYW4ubWFnbnVzc29uQHNlbWNvbi5jb20N
-Cg0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogTWlyemEgS3JhayBbbWFpbHRv
-Om1pcnphLmtyYWtAaG9zdG1vYmlsaXR5LmNvbV0gDQpTZW50OiBkZW4gMTEgbm92ZW1iZXIgMjAx
-NSAxMzo0Ng0KVG86IE1hcmMgS2xlaW5lLUJ1ZGRlDQpDYzogd2dAZ3JhbmRlZ2dlci5jb207IGFu
-ZHJpLnluZ3Zhc29uQG1hcmVsLmNvbTsgbGludXgtY2FuQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2
-QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsOyBDaHJpc3RpYW4gTWFnbnVzc29uDQpTdWJq
-ZWN0OiBSZTogW1BBVENIIDEvMV0gY2FuOiBzamExMDAwOiBjbGVhciBpbnRlcnJ1cHRzIG9uIHN0
-YXJ0DQoNCjIwMTUtMTEtMTEgMTM6MzcgR01UKzAxOjAwIE1hcmMgS2xlaW5lLUJ1ZGRlIDxta2xA
-cGVuZ3V0cm9uaXguZGU+Og0KPj4gU29tZSBjcmVkIHNob3VsZCBnbyB0byBDaHJpc3RpYW4gKGFk
-ZGVkIGhpbSB0byBDQykgZm9yIGZpbmRpbmcgdGhpcyANCj4+IHByb2JsZW0gYW5kIHJlcG9ydGlu
-ZyBpdCB0byBtZS4NCj4NCj4gSSdsbCBhZGQgYQ0KPg0KPiBSZXBvcnRlZC1ieTogQ2hyaXN0aWFu
-IE1hZ251c3NvbiA8Q2hyaXN0aWFuLk1hZ251c3NvbkBzZW1jb24uY29tPg0KPg0KPiB0byB0aGUg
-cGF0Y2guDQo+DQoNCkNhbiB3ZSBqdXN0IGdldCBhbiBBQ0sgdGhhdCBpdCBpcyBPSyBmcm9tIENo
-cmlzdGlhbiBiZWZvcmUgd2UgZG8gaXQuDQoNCg0KDQotLQ0KTWVkIFbDpG5saWdhIEjDpGxzbmlu
-Z2FyIC8gQmVzdCBSZWdhcmRzDQoNCioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioNCk1pcnphIEtyYWsNCkhvc3QgTW9iaWxp
-dHkgQUINCm1pcnphLmtyYWtAaG9zdG1vYmlsaXR5LmNvbQ0KQW5kZXJzIFBlcnNvbnNnYXRhbiAx
-MiwgNDE2IDY0IEfDtnRlYm9yZw0KU3dlZGVuDQpodHRwOi8vd3d3Lmhvc3Rtb2JpbGl0eS5jb20N
-CkRpcmVjdDogKzQ2IDMxIDMxIDMyIDcwNA0KUGhvbmU6ICs0NiAzMSAzMSAzMiA3MDANCkZheDog
-KzQ2IDMxIDgwIDY3IDUxDQpNb2JpbGU6ICs0NiA3MzAgMjggMDYgMjINCioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioNCg==
+On Wed, 2015-11-11 at 10:19 +0100, Francois Romieu wrote:
+> Dave Jones <davej@codemonkey.org.uk> :
+> > This happens during boot, (and then there's a flood of traces that happen so fast
+> > afterwards it completely overwhelms serial console; not sure if they're the
+> > same/related or not).
+> > 
+> > ==================================================================
+> > BUG: KASAN: use-after-free in rtl8169_poll+0x4b6/0xb70 at addr ffff8801d43b3288
+> > Read of size 1 by task kworker/0:3/188
+> > =============================================================================
+> > BUG kmalloc-256 (Not tainted): kasan: bad access detected
+> > -----------------------------------------------------------------------------
+> > 
+> > Disabling lock debugging due to kernel taint
+> > INFO: Slab 0xffffea000750ecc0 objects=16 used=16 fp=0x          (null) flags=0x8000000000000080
+> > INFO: Object 0xffff8801d43b3200 @offset=512 fp=0xffff8801d43b3800
+> > 
+> > Bytes b4 ffff8801d43b31f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+> > Object ffff8801d43b3200: 00 38 3b d4 01 88 ff ff 00 00 00 00 00 00 00 00  .8;.............
+> 
+> Does the patch below cure it ?
+> 
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index b4f2123..79ef799 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -7429,15 +7429,15 @@ process_pkt:
+>  
+>  			rtl8169_rx_vlan_tag(desc, skb);
+>  
+> +			if (skb->pkt_type == PACKET_MULTICAST)
+> +				dev->stats.multicast++;
+> +
+>  			napi_gro_receive(&tp->napi, skb);
+>  
+>  			u64_stats_update_begin(&tp->rx_stats.syncp);
+>  			tp->rx_stats.packets++;
+>  			tp->rx_stats.bytes += pkt_size;
+>  			u64_stats_update_end(&tp->rx_stats.syncp);
+> -
+> -			if (skb->pkt_type == PACKET_MULTICAST)
+> -				dev->stats.multicast++;
+>  		}
+>  release_descriptor:
+>  		desc->opts2 = 0;
+
+This looks obvious indeed, please submit this formally Francois ;)
+
+Fixes: d7d2d89d4b0af ("r8169: Add software counter for multicast packages")
+Acked-by: Eric Dumazet <edumazet@google.com>
+Cc: Corinna Vinschen <vinschen@redhat.com>
