@@ -1,53 +1,74 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
-Date: Wed, 11 Nov 2015 20:47:55 +0000
-Message-ID: <yw1xvb98mfes.fsf@unicorn.mansr.com>
-References: <yw1x7flonxs5.fsf@unicorn.mansr.com>
-	<20151111.142650.1297832998846138251.davem@davemloft.net>
-	<yw1x37wcnxcm.fsf@unicorn.mansr.com>
-	<20151111.144840.430771235700359719.davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] NetDev 1.1 Registration open
+Date: Wed, 11 Nov 2015 21:51:01 +0100
+Message-ID: <20151111205055.GA1466@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, slash.tmp@free.fr
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151111.144840.430771235700359719.davem@davemloft.net> (David
-	Miller's message of "Wed, 11 Nov 2015 14:48:40 -0500 (EST)")
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: lwn@lwn.net, info@netdevconf.org
+To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+Hi!
 
-> From: M=E5ns Rullg=E5rd <mans@mansr.com>
-> Date: Wed, 11 Nov 2015 19:35:05 +0000
->
->>> I don't think it's silly at all.
->>=20
->> I'm sure I read somewhere that the time spent spinning on a lock sho=
-uld
->> be kept as small as possible.
->>=20
->>> And unless you can measure it making a difference, don't knock the =
-idea.
->>=20
->> I tried using netif_tx_lock() in the IRQ handler instead, and it loc=
-ked
->> up solid.  Clearly that was the wrong thing to do.
->
-> Oh that's right, it's a BH lock not an IRQ one.
->
-> Yet another argument for doing everything in ->poll(), thus making al=
-l
-> operations outside of NAPI scheduling run in software interrupt
-> context, and therefore being able to make use of the TXQ lock for
-> this.
+We are pleased to announce that registration is now open for netdev 1.1=
+,
+the community-driven Linux networking conference held back-to-back with
+netconf in Sevilla, Spain, February 10-12, 2016.
 
-Well, I tried calling the DMA restart function from NAPI poll under
-netif_tx_lock().  Now it works only as long as there is incoming
-traffic.
+Registration is now open at: https://www.netdevconf.org/1.1/registratio=
+n.html
 
---=20
-M=E5ns Rullg=E5rd
-mans@mansr.com
+=3D Fees =3D
+
+* Regular registration (EUR300) for 3 days, this year we're including
+  three coffee-snack breaks, three lunches at restaurants and one speci=
+al
+  evening closing event on friday.
+
+* Reduced price for students (EUR50), we have limited tickets for this.
+  To apply for this discount, you have to credit previous work on FOSS,
+  we will specifically value previous participation in GSoC, Outreachy
+  and similar programs that promote FOSS development.
+
+=3D Travel and Hotel =3D
+
+* Hotel: We got an agreement with a hotel that is located close to the
+  venue.
+
+  Single room: 65=E2=82=AC (breakfast included).
+  Double room: 75=E2=82=AC (breakfast included).
+
+  Until December 31th, please follow the link below for more info.
+
+* Flights: Local airport is SVQ, although main international airports
+  in Spain are MAD, XRY, BCN and AGP.
+
+* Train: If you get to Spain via MAD, XRY or AGP, you may consider
+  changing train to get here. Specifically AVE and ALVIA (high speed)
+  are usually confortable ones. And we got a fair good discount from
+  the Spanish rail company.
+
+=46or more info: http://www.netdevconf.org/1.1/travel-hotel.html
+
+=3D Why you should register =3D
+
+If you yearn for the old community tech driven conferences where you
+mingle with fellow geeks (only these would be Linux networking geeks)
+then this would be it. There will be no marketing flashy openings.
+There will just be a pure feed of Linux networking.
+
+=46or more info, visit:
+* netdev 1.1: https://www.netdevconf.org/1.1/
+* netconf 2016: http://vger.kernel.org/netconf2016.html
+
+See you at netdev 1.1 in Sevilla, Spain!
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
