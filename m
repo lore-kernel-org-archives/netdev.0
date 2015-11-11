@@ -1,44 +1,58 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
-Date: Wed, 11 Nov 2015 20:41:16 +0100
-Message-ID: <564399DC.6010209@iogearbox.net>
-References: <56436420.9090401@iogearbox.net> <20151111162341.GN9562@arm.com> <20151111172659.GA86334@ast-mbp.thefacebook.com> <20151111.123548.1039494689070388545.davem@davemloft.net> <20151111175741.GR17308@twins.programming.kicks-ass.net> <20151111181132.GA90947@ast-mbp.thefacebook.com> <20151111183128.GS17308@twins.programming.kicks-ass.net> <56438DE7.4080300@iogearbox.net> <20151111192352.GT17308@twins.programming.kicks-ass.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v3] af-unix: fix use-after-free with concurrent
+ readers while splicing
+Date: Wed, 11 Nov 2015 11:42:49 -0800
+Message-ID: <1447270969.22599.6.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1447168995-25820-1-git-send-email-hannes@stressinduktion.org>
+	 <1447268331.17135.116.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1447269259.3708910.436352857.78EBF47C@webmail.messagingengine.com>
+	 <1447270092.22599.3.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1447270544.3713125.436369065.0FEEDEDA@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	David Miller <davem@davemloft.net>, will.deacon@arm.com,
-	arnd@arndb.de, yang.shi@linaro.org, linaro-kernel@lists.linaro.org,
-	eric.dumazet@gmail.com, zlim.lnx@gmail.com, ast@kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	xi.wang@gmail.com, catalin.marinas@arm.com,
-	linux-arm-kernel@lists.infradead.org, yhs@plumgrid.com,
-	bblanco@plumgrid.com
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151111192352.GT17308@twins.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Dmitry Vyukov <dvyukov@google.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:36617 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751142AbbKKTmv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 14:42:51 -0500
+Received: by pacdm15 with SMTP id dm15so39388696pac.3
+        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 11:42:51 -0800 (PST)
+In-Reply-To: <1447270544.3713125.436369065.0FEEDEDA@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/11/2015 08:23 PM, Peter Zijlstra wrote:
-> On Wed, Nov 11, 2015 at 07:50:15PM +0100, Daniel Borkmann wrote:
->> Well, on that note, it's not like you just change the target to bpf in your
->> Makefile and can compile (& load into the kernel) anything you want with it.
->> You do have to write small, restricted programs from scratch for a specific
->> use-case with the limited set of helper functions and intrinsics that are
->> available from the kernel. So I don't think that "Programs that used to work
->> will now no longer work." holds if you regard it as such.
->
-> So I don't get this argument. If everything is so targeted, then why are
-> the BPF instructions an ABI.
->
-> If OTOH you're expected to be able to transfer these small proglets,
-> then too I would expect to transfer the source of these proglets.
->
-> You cannot argue both ways.
+On Wed, 2015-11-11 at 20:35 +0100, Hannes Frederic Sowa wrote:
+> 
+> On Wed, Nov 11, 2015, at 20:28, Eric Dumazet wrote:
+> > On Wed, 2015-11-11 at 20:14 +0100, Hannes Frederic Sowa wrote:
+> > > On Wed, Nov 11, 2015, at 19:58, Eric Dumazet wrote:
+> > 
+> > > Can you elaborate?
+> > > 
+> > > I use tail as a cookie and check if we already tried to append to the
+> > > same tail skb with skb_append_pagefrags. If during allocation, which we
+> > > do outside of the locks, a new skb arrives, we take that and try to
+> > > append again (and free the old skb), to correctly not create any
+> > > reordering in the data stream.
+> > > 
+> > > You think that tail could be reused in the meanwhile?
+> > 
+> > Hmmm, there is some funky stuff at least.
+> > 
+> > Are you sure the __skb_queue_tail(&other->sk_receive_queue, newskb)
+> > is appropriate ?
+> > 
+> > (Why not locking sk_receive_queue is safe ?)
+> 
+> We hold the other's state lock at that time.
 
-Ohh, I think we were talking past each other. ;) So, yeah, you'd likely need
-to add new intrinstics that then map to the existing BPF_XADD instructions,
-and perhaps spill a warning when __sync_fetch_and_add() is being used to
-advise the developer to switch to the new intrinstics instead. From kernel
-ABI PoV nothing would change.
+Well, this is not safe enough :(
+
+Look at unix_stream_sendmsg() : It uses skb_queue_tail(), not
+__skb_queue_tail()
+
+Think of concurrent splice() (or sendfile()) and sendmsg() on the same
+af_unix socket.
