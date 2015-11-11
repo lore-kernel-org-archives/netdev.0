@@ -1,43 +1,57 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
-Date: Tue, 10 Nov 2015 16:42:09 -0800
-Message-ID: <20151111004208.GA47378@ast-mbp.thefacebook.com>
-References: <1447195301-16757-1-git-send-email-yang.shi@linaro.org>
- <1447195301-16757-3-git-send-email-yang.shi@linaro.org>
- <1447200535.17135.88.camel@edumazet-glaptop2.roam.corp.google.com>
- <56428B1A.5090303@linaro.org>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
+Date: Wed, 11 Nov 2015 00:44:26 +0000
+Message-ID: <yw1xegfxpdp1.fsf@unicorn.mansr.com>
+References: <1447172063-27234-1-git-send-email-mans@mansr.com>
+	<CAHp75Vch3vJEqYsCRUoctEmF0EoFx+0y7ZO+LjmdpQKAoikiOA@mail.gmail.com>
+	<yw1xr3jxpjoy.fsf@unicorn.mansr.com>
+	<CAHp75VfsswYAvkkkHuaEvkTAgZhoGZQ1oQ_R9BwZgyZ3xRVDeg@mail.gmail.com>
+	<yw1xmvulpi6r.fsf@unicorn.mansr.com>
+	<CAHp75VfeABnw6AipxWf2w-EDPUCA2xzFuQhaPrq=b12gb3Y0KQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, ast@kernel.org,
-	daniel@iogearbox.net, catalin.marinas@arm.com, will.deacon@arm.com,
-	zlim.lnx@gmail.com, xi.wang@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linaro-kernel@lists.linaro.org
-To: "Shi, Yang" <yang.shi@linaro.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, slash.tmp@free.fr
+To: Andy Shevchenko <andy.shevchenko@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56428B1A.5090303@linaro.org>
+In-Reply-To: <CAHp75VfeABnw6AipxWf2w-EDPUCA2xzFuQhaPrq=b12gb3Y0KQ@mail.gmail.com>
+	(Andy Shevchenko's message of "Wed, 11 Nov 2015 02:36:43 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 10, 2015 at 04:26:02PM -0800, Shi, Yang wrote:
-> On 11/10/2015 4:08 PM, Eric Dumazet wrote:
-> >On Tue, 2015-11-10 at 14:41 -0800, Yang Shi wrote:
-> >>aarch64 doesn't have native support for XADD instruction, implement it by
-> >>the below instruction sequence:
-> >>
-> >>Load (dst + off) to a register
-> >>Add src to it
-> >>Store it back to (dst + off)
-> >
-> >Not really what is needed ?
-> >
-> >See this BPF_XADD as an atomic_add() equivalent.
-> 
-> I see. Thanks. The documentation doesn't say too much about "exclusive" add.
-> If so it should need load-acquire/store-release.
+Andy Shevchenko <andy.shevchenko@gmail.com> writes:
 
-I think doc is clear enough, but it can always be improved. Pls suggest a patch.
-It's quite hard to write a test for atomicity in test_bpf framework, so
-code review is the key. Eric, thanks for catching it!
+> On Wed, Nov 11, 2015 at 1:07 AM, M=C3=A5ns Rullg=C3=A5rd <mans@mansr.=
+com> wrote:
+>> Andy Shevchenko <andy.shevchenko@gmail.com> writes:
+>
+>>>>>> +       nb8800_writel(priv, NB8800_TX_DESC_ADDR, txb->dma_desc);
+>>>>>> +       wmb();          /* ensure desc addr is written before st=
+arting DMA */
+>>>>>
+>>>>> Hm=E2=80=A6 Have I missed corresponding rmb() ? If it's about MMI=
+O, perhaps mmiowb() ?
+>>>>
+>>>> Possibly.
+>>>
+>>> Standalone wmb() doesn't make sense.
+>>
+>> It does if you need to enforce ordering between normal and I/O memor=
+y.
+>> In fact, since the descriptor is filled in using normal memory acces=
+ses,
+>> my understanding is that mmiowb() would be insufficient here.  The
+>> comment could be improved, however.
+>
+> Can you then explain what exactly you are assured against in all case=
+s
+> where you are using wmb()s? It seems I don't recognize this part in
+> some excerpts.
+
+Certainly.  I'll re-read memory-barriers.txt to make sure I'm doing the
+right thing, then write a better comment.
+
+--=20
+M=C3=A5ns Rullg=C3=A5rd
+mans@mansr.com
