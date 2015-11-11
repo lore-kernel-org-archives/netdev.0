@@ -1,55 +1,86 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: OVS VXLAN decap rule has full match on TTL for the outer headers?
-Date: Wed, 11 Nov 2015 14:44:32 -0800
-Message-ID: <CAEh+42jT44TQUcX=KOh9j495ObAJrQ1F_8YQF5Lz6CJUNkuh=w@mail.gmail.com>
-References: <56435508.9070802@mellanox.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: ipv4: ip unreachable with SO_BINDTODEVICE socket
+Date: Thu, 12 Nov 2015 00:54:23 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1511112252001.1699@ja.home.ssi.bg>
+References: <87egfxjd9o.fsf@pingu.sky.yk.fujitsu.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Joe Stringer <joestringer@nicira.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Haggai Eran <haggaie@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ilya Lesokhin <ilyal@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:33377 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752910AbbKKWoy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Nov 2015 17:44:54 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id C4944206B7
-	for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 22:44:53 +0000 (UTC)
-Received: from mail-qg0-f49.google.com (mail-qg0-f49.google.com [209.85.192.49])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 6E1A620619
-	for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 22:44:52 +0000 (UTC)
-Received: by qgea14 with SMTP id a14so35240476qge.0
-        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 14:44:51 -0800 (PST)
-In-Reply-To: <56435508.9070802@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Kouya Shimura <kouya@jp.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87egfxjd9o.fsf@pingu.sky.yk.fujitsu.co.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 11, 2015 at 6:47 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> Hi Joe/Jesse,
->
-> We've noticed that VXLAN decap rules set by OVS in the below trivial VXLAN
-> config contain full match on TTL=64 for the outer headers, can you explain
-> the reasoning behind it? is that justa typo in dumping the flow?
 
-Looking at the code, this does indeed seem to be the case. To the best
-of my knowledge, there was no particular reasoning behind it - it
-simply was never an issue so the wildcard generation wasn't improved.
+	Hello,
 
-> I also noticed that on my systems (upstream kernel 4.3.0-rc6+, veth
-> emulating a VM network 192.168.52/24 and host network 192.168.31/24, ovs
-> user-space 2.3.2) something is broken in the encap rule reporting, traffic
-> goes fine (below)
+On Wed, 11 Nov 2015, Kouya Shimura wrote:
 
-That is pretty strange, I have never seen that before. It seems that
-the key to be set is being reported as UNSPEC, which is weird if
-traffic is flowing normally. I guess you could try a newer version of
-userspace but I'm not aware of any patches that went in that would
-have fixed a bug in this area.
+> Hi
+> 
+> When both server and client are on the same machine and each their
+> socket option is set to SO_BINDTODEVICE, sometimes a packet doesn't
+> reach to the server.
+> 
+> The reproducible test program is attached. (modify "IF_ADDR=, IP_ADDR=,
+> PORT=" lines appropriately).  Please try 'taskset -c 1 python test.py'
+> since per cpu data (rt_cache) affects results.  Also 'tcpdump -i lo'
+> is helpful for testing.  you can see "ICMP udp port unreachable".
+> 
+> In this test program, a packet doesn't pass through the bound
+> interface but 'lo' interface. So, it might be granted that local
+> communication with SO_BINDTODEVICE socket fails. However, dnsmasq and
+> dhcp_release commands rely on it (Actually I've found this issue on
+> the OpenStack envirionment) and the test program works well on
+> linux-2.6.32 but doesn't work on linux-3.10.0 and 4.3.0.
+> 
+> I'd like to know whether this is a kernel bug or the specification of
+> SO_BINDTODEVICE.
+
+	My man page does not indicate that SO_BINDTODEVICE
+should be relaxed for traffic from loopback but for old
+kernels it was really working in this way due to caching
+of different orig_oif values and even for mcast/bcast
+because ip_mc_output() does not use "lo" for loopback.
+
+> The attached patch fixes this issue, but no confidence this is a
+> right modification.
+
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 85f184e..546cabe 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -2027,7 +2027,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+>                         prth = raw_cpu_ptr(nh->nh_pcpu_rth_output);
+>                 }
+>                 rth = rcu_dereference(*prth);
+> -               if (rt_cache_valid(rth)) {
+> +               if (rt_cache_valid(rth) && rth->rt_iif == orig_oif) {
+>                         dst_hold(&rth->dst);
+>                         return rth;
+>                 }
+
+	So, if the cache contains same orig_oif we will
+use it and if it is different we will replace the cache.
+While traffics use same orig_oif we will not have
+frequent rt_cache_route() calls that replace the cache.
+
+	Patch looks ok to me but I'm not sure if we should
+worry for the unicast traffic. If we want frequent
+updates only for loopback then the check could be:
+
+if (rt_cache_valid(rth) &&
+    (!(flags & RTCF_LOCAL) || rth->rt_iif == orig_oif)) {
+
+	Or the following, it should better cache mcast because 
+mcast does not use/need the rt_iif check:
+
+if (rt_cache_valid(rth) &&
+    (type != RTN_LOCAL || rth->rt_iif == orig_oif)) {
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
