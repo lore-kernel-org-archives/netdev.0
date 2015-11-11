@@ -1,29 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Mason <slash.tmp@free.fr>
 Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800
  Ethernet controller
-Date: Wed, 11 Nov 2015 05:29:55 -0800
-Message-ID: <1447248595.17135.98.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1447172063-27234-1-git-send-email-mans@mansr.com>
-	 <20151110233448.GA8646@electric-eye.fr.zoreil.com>
-	 <yw1xio59pdw6.fsf@unicorn.mansr.com>
-	 <20151110.211121.422193831316296487.davem@davemloft.net>
-	 <yw1xa8qkpvy3.fsf@unicorn.mansr.com> <yw1x6118pu0o.fsf@unicorn.mansr.com>
+Date: Wed, 11 Nov 2015 14:41:24 +0100
+Message-ID: <56434584.2090802@free.fr>
+References: <yw1xr3jxraqs.fsf@unicorn.mansr.com>
+ <20151110.150403.1195107307226924000.davem@davemloft.net>
+ <yw1xziylpoe8.fsf@unicorn.mansr.com>
+ <20151110.160615.1511568572619688788.davem@davemloft.net>
+ <yw1xvb99pn43.fsf@unicorn.mansr.com>
+ <1447192280.17135.83.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, romieu@fr.zoreil.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	slash.tmp@free.fr
-To: =?ISO-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Cc: Mans Rullgard <mans@mansr.com>, David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <yw1x6118pu0o.fsf@unicorn.mansr.com>
+In-Reply-To: <1447192280.17135.83.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-11-11 at 13:04 +0000, M=C3=A5ns Rullg=C3=A5rd wrote:
+On 10/11/2015 22:51, Eric Dumazet wrote:
 
-> I tried that, and throughput (as measured by iperf3) dropped by 2%.
-> Maybe I did something wrong.
+> On Tue, 2015-11-10 at 21:21 +0000, M=E5ns Rullg=E5rd wrote:
+>=20
+>> Even ixgbe uses napi_complete() while netdevice.h says one should
+>> "consider using napi_complete_done() instead."  Did the author consi=
+der
+>> it and decide not to, or has the driver simply not been updated?
+>=20
+> napi_complete_done() is quite new, very few drivers use it.
 
-What link speed have you used, what was the throughput you got,
-and is the receiver using the same NIC ?
+I was hoping to back-port this driver for my platform. Are the recent
+features used in the driver available in 4.1? What about 3.14?
+
+Regards.
