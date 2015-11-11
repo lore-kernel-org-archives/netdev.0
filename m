@@ -1,76 +1,73 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
-Date: Wed, 11 Nov 2015 10:11:33 -0800
-Message-ID: <20151111181132.GA90947@ast-mbp.thefacebook.com>
-References: <56436420.9090401@iogearbox.net>
- <20151111162341.GN9562@arm.com>
- <20151111172659.GA86334@ast-mbp.thefacebook.com>
- <20151111.123548.1039494689070388545.davem@davemloft.net>
- <20151111175741.GR17308@twins.programming.kicks-ass.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
+ drain mode
+Date: Wed, 11 Nov 2015 10:23:30 -0800
+Message-ID: <CALx6S37B4mGqYe63JkLmPeQNuOX_WMK2NHaOe7Dtt79Nv9Mo4g@mail.gmail.com>
+References: <1443313848-751-1-git-send-email-tolga.ceylan@gmail.com>
+	<877fnc7i0i.fsf@bytheb.org>
+	<CALmu+Sx8L5mWf3Nnbz=x0qt7pC5n5oVPRJd7dnLATVpmmO+nrA@mail.gmail.com>
+	<1443320655.3273.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CALx6S34PkfKS47_FxuqwDbqP9P0C5J7YRR5e_-BLjfkPwPRgXw@mail.gmail.com>
+	<1447222769.17135.92.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CALx6S37FOq+JVs8LKh5ezR9JhATrz2=NhmbEYPUxUt8Cyb9xaw@mail.gmail.com>
+	<1447262610.17135.114.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, will.deacon@arm.com,
-	daniel@iogearbox.net, arnd@arndb.de, yang.shi@linaro.org,
-	linaro-kernel@lists.linaro.org, eric.dumazet@gmail.com,
-	zlim.lnx@gmail.com, ast@kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, xi.wang@gmail.com, catalin.marinas@arm.com,
-	linux-arm-kernel@lists.infradead.org, yhs@plumgrid.com,
-	bblanco@plumgrid.com
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Tolga Ceylan <tolga.ceylan@gmail.com>,
+	Aaron Conole <aconole@bytheb.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:32775 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751808AbbKKSLi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 13:11:38 -0500
-Content-Disposition: inline
-In-Reply-To: <20151111175741.GR17308@twins.programming.kicks-ass.net>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:35412 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751152AbbKKSXb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 13:23:31 -0500
+Received: by igl9 with SMTP id 9so81377858igl.0
+        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 10:23:30 -0800 (PST)
+In-Reply-To: <1447262610.17135.114.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 11, 2015 at 06:57:41PM +0100, Peter Zijlstra wrote:
-> On Wed, Nov 11, 2015 at 12:35:48PM -0500, David Miller wrote:
-> > From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-> > Date: Wed, 11 Nov 2015 09:27:00 -0800
-> > 
-> > > BPF_XADD == atomic_add() in kernel. period.
-> > > we are not going to deprecate it or introduce something else.
-> > 
-> > Agreed, it makes no sense to try and tie C99 or whatever atomic
-> > semantics to something that is already clearly defined to have
-> > exactly kernel atomic_add() semantics.
-> 
-> Dave, this really doesn't make any sense to me. __sync primitives have
-> well defined semantics and (e)BPF is violating this.
+On Wed, Nov 11, 2015 at 9:23 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2015-11-11 at 09:05 -0800, Tom Herbert wrote:
+>> On Tue, Nov 10, 2015 at 10:19 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Tue, 2015-11-10 at 21:41 -0800, Tom Herbert wrote:
+>> >> Tolga, are you still planning to respin this patch (when tree opens?)
+>> >
+>> > I was planning to add an union on skc_tx_queue_mapping and
+>> > sk_max_ack_backlog, so that adding a check on sk_max_ack_backlog in
+>> > listener lookup would not add an additional cache line miss.
+>> >
+>> > This would remove false sharing because sk_ack_backlog is often dirtied
+>> > when a socket is added into accept queue.
+>> >
+>> That's sounds like good fixes, but my question was more about the
+>> problem originally described by Tolga where we are transitioning
+>> processing for a listener port from one process to another. I think
+>> the conclusion in this thread was to modify the code so that
+>> listen(fd, 0) would stop new connections from being assigned to a
+>> socket (as opposed to explicit SO_REUSEPORT_LISTEN_OFF option). Does
+>> this still seem reasonable?
+>
+> Actually listen(fd, 0) is not going to work well :
+>
+> For request_sock that were created (by incoming SYN packet) before this
+> listen(fd, 0) call, the 3rd packet (ACK coming from client) would not be
+> able to create a child attached to this listener.
+>
+> sk_acceptq_is_full() test in tcp_v4_syn_recv_sock() would simply drop
+> the thing.
+>
+> I was mainly objecting adding yet another socket option.
+>
+> Maybe setsockopt(... SO_REUSEPORT, &off, sizeof(off)) could detect the
+> condition automatically ?
+>
+How about doing this in shutdown called for a listener?
 
-bpf_xadd was never meant to be __sync_fetch_and_add equivalent.
->From the day one it meant to be atomic_add() as kernel does it.
-I did piggy back on __sync in the llvm backend because it was the quick
-and dirty way to move forward.
-In retrospect I should have introduced a clean intrinstic for that instead,
-but it's not too late to do it now. user space we can change at any time
-unlike kernel.
-
-> Furthermore, the fetch_and_add (or XADD) name has well defined
-> semantics, which (e)BPF also violates.
-
-bpf_xadd also didn't meant to be 'fetch'. It was void return from the beginning.
-
-> Atomicy is hard enough as it is, backends giving random interpretations
-> to them isn't helping anybody.
-
-no randomness. bpf_xadd == atomic_add() in kernel.
-imo that is the simplest and cleanest intepretantion one can have, no?
-
-> It also baffles me that Alexei is seemingly unwilling to change/rev the
-> (e)BPF instructions, which would be invisible to the regular user, he
-> does want to change the language itself, which will impact all
-> 'scripts'.
-
-well, we cannot change it in kernel because it's ABI.
-I'm not against adding new insns. We definitely can, but let's figure out why?
-Is anything broken? No. So what new insns make sense?
-Add new one that does 'fetch_and_add' ? What is the real use case it
-will be used for?
-Adding new intrinsic to llvm is not a big deal. I'll add it as soon
-as I have time to work on it or if somebody beats me to it I would be
-glad to test it and apply it.
+> (I am not sure current behavior of setting sk->sk_reuseport = valbool;
+> is correct if valbool==0 and current sk_reuseport is 1)
+>
+>
+>
