@@ -1,63 +1,57 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: kasan r8169 use-after-free trace.
-Date: Wed, 11 Nov 2015 10:19:28 +0100
-Message-ID: <20151111091928.GA14531@electric-eye.fr.zoreil.com>
-References: <20151111033028.GA25018@codemonkey.org.uk>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v2] wait: add comment before waitqueue_active noting
+ memory barrier is required
+Date: Wed, 11 Nov 2015 17:48:29 +0800
+Message-ID: <20151111094829.GA23202@gondor.apana.org.au>
+References: <20151023124006.GA17308@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@codemonkey.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:35246 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751497AbbKKJTk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 04:19:40 -0500
+Cc: tatsu@ab.jp.nec.com, mingo@redhat.com,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jiri Olsa <jolsa@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20151111033028.GA25018@codemonkey.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20151023124006.GA17308@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dave Jones <davej@codemonkey.org.uk> :
-> This happens during boot, (and then there's a flood of traces that happen so fast
-> afterwards it completely overwhelms serial console; not sure if they're the
-> same/related or not).
+Peter Zijlstra <peterz@infradead.org> wrote:
+>
+>> >> Second, on the waiting thread side, the CPU can reorder the load of
+>> >> CONDITION to occur during add_wait_queue active, before the entry is
+>> >> added to the wait queue.
+>> >>      wake_up thread                 waiting thread
+>> >>                                       (reordered)
+>> >> ------------------------------------------------------------------------
+>> >>                                 spin_lock_irqsave(...)      <add_wait_queue>
+>> >>                                 if (CONDITION)
+>> >> CONDITION = 1;
+>> >> if (waitqueue_active(wq))
+>> >     wake_up();
+>> >>                                 __add_wait_queue(...)       <add_wait_queue>
+>> >>                                 spin_unlock_irqrestore(...) <add_wait_queue>
+>> >>                                 wait_woken(&wait, ...);
+>> >> ------------------------------------------------------------------------
+>> > 
+>> > This isn't actually a problem IIRC, because wait_woken() will test
+>> > WQ_FLAG_WOKEN and not actually sleep.
+>> 
+>> In the above figure, waitqueue_active(wq) will return 0 (queue is
+>> inactive) and skip the whole wake_up() call, because __add_wait_queue()
+>> hasn't been called yet.  This actually does occur using a reproducer.
 > 
-> ==================================================================
-> BUG: KASAN: use-after-free in rtl8169_poll+0x4b6/0xb70 at addr ffff8801d43b3288
-> Read of size 1 by task kworker/0:3/188
-> =============================================================================
-> BUG kmalloc-256 (Not tainted): kasan: bad access detected
-> -----------------------------------------------------------------------------
-> 
-> Disabling lock debugging due to kernel taint
-> INFO: Slab 0xffffea000750ecc0 objects=16 used=16 fp=0x          (null) flags=0x8000000000000080
-> INFO: Object 0xffff8801d43b3200 @offset=512 fp=0xffff8801d43b3800
-> 
-> Bytes b4 ffff8801d43b31f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-> Object ffff8801d43b3200: 00 38 3b d4 01 88 ff ff 00 00 00 00 00 00 00 00  .8;.............
+> Duh, indeed.
 
-Does the patch below cure it ?
+BTW, the networking folks found this years ago and even added
+helpers to deal with this.  See for example wq_has_sleeper in
+include/net/sock.h.  It would be good if we can move some of
+those helpers into wait.h instead.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index b4f2123..79ef799 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -7429,15 +7429,15 @@ process_pkt:
- 
- 			rtl8169_rx_vlan_tag(desc, skb);
- 
-+			if (skb->pkt_type == PACKET_MULTICAST)
-+				dev->stats.multicast++;
-+
- 			napi_gro_receive(&tp->napi, skb);
- 
- 			u64_stats_update_begin(&tp->rx_stats.syncp);
- 			tp->rx_stats.packets++;
- 			tp->rx_stats.bytes += pkt_size;
- 			u64_stats_update_end(&tp->rx_stats.syncp);
--
--			if (skb->pkt_type == PACKET_MULTICAST)
--				dev->stats.multicast++;
- 		}
- release_descriptor:
- 		desc->opts2 = 0;
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
