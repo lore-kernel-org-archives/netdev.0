@@ -1,38 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
-Date: Wed, 11 Nov 2015 14:01:47 -0500 (EST)
-Message-ID: <20151111.140147.946865774411167562.davem@davemloft.net>
-References: <20151111.123548.1039494689070388545.davem@davemloft.net>
-	<20151111175741.GR17308@twins.programming.kicks-ass.net>
-	<20151111181132.GA90947@ast-mbp.thefacebook.com>
+Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800
+ Ethernet controller
+Date: Wed, 11 Nov 2015 14:02:52 -0500 (EST)
+Message-ID: <20151111.140252.2214540370641368590.davem@davemloft.net>
+References: <yw1x6118pu0o.fsf@unicorn.mansr.com>
+	<20151111.112423.1751428739163066569.davem@davemloft.net>
+	<yw1xk2poo0la.fsf@unicorn.mansr.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peterz@infradead.org, will.deacon@arm.com, daniel@iogearbox.net,
-	arnd@arndb.de, yang.shi@linaro.org, linaro-kernel@lists.linaro.org,
-	eric.dumazet@gmail.com, zlim.lnx@gmail.com, ast@kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	xi.wang@gmail.com, catalin.marinas@arm.com,
-	linux-arm-kernel@lists.infradead.org, yhs@plumgrid.com,
-	bblanco@plumgrid.com
-To: alexei.starovoitov@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, slash.tmp@free.fr
+To: mans@mansr.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151111181132.GA90947@ast-mbp.thefacebook.com>
+In-Reply-To: <yw1xk2poo0la.fsf@unicorn.mansr.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Date: Wed, 11 Nov 2015 10:11:33 -0800
+=46rom: M=E5ns Rullg=E5rd <mans@mansr.com>
+Date: Wed, 11 Nov 2015 18:25:05 +0000
 
-> bpf_xadd was never meant to be __sync_fetch_and_add equivalent.
-> From the day one it meant to be atomic_add() as kernel does it.
+> If the TX DMA channel is idle when start_xmit is called, it can be
+> started immediately.  Checking the DMA status and starting it if
+> idle has to be done atomically somehow.
 
-+1
-
-> I did piggy back on __sync in the llvm backend because it was the quick
-> and dirty way to move forward.
-> In retrospect I should have introduced a clean intrinstic for that instead,
-> but it's not too late to do it now. user space we can change at any time
-> unlike kernel.
-
-+1
+->ndo_start_xmit() is guaranteed to be invoked atomically, protected
+by the TX queue spinlock.
