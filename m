@@ -1,69 +1,131 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH stable <= 3.18] net: add length argument to
- skb_copy_and_csum_datagram_iovec
-Date: Thu, 12 Nov 2015 10:48:22 +0100
-Message-ID: <20151112094822.GA21732@bistromath.redhat.com>
-References: <c1b23313f94ba3fd9977c6fba61483edf6489b5f.1444910940.git.sd@queasysnail.net>
- <20151029100021.GA17588@bistromath.redhat.com>
- <CAKA=qzZCi_OEDJKgy1WQ1QdMBpHBure1tY7NYtsgSr0fMva5jQ@mail.gmail.com>
- <20151111000352.GA5134@kroah.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Josh Hunt <joshhunt00@gmail.com>, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, stable <stable@vger.kernel.org>,
-	hannes@stressinduktion.org
-To: David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151111000352.GA5134@kroah.com>
-Sender: stable-owner@vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next RFC V3 0/3] basic busy polling support for vhost_net
+Date: Thu, 12 Nov 2015 18:16:32 +0800
+Message-ID: <1447323395-28052-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+To: mst@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2015-11-10, 16:03:52 -0800, Greg Kroah-Hartman wrote:
-> On Tue, Nov 10, 2015 at 05:59:26PM -0600, Josh Hunt wrote:
-> > On Thu, Oct 29, 2015 at 5:00 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
-> > > 2015-10-15, 14:25:03 +0200, Sabrina Dubroca wrote:
-> > >> Without this length argument, we can read past the end of the iovec in
-> > >> memcpy_toiovec because we have no way of knowing the total length of the
-> > >> iovec's buffers.
-> > >>
-> > >> This is needed for stable kernels where 89c22d8c3b27 ("net: Fix skb
-> > >> csum races when peeking") has been backported but that don't have the
-> > >> ioviter conversion, which is almost all the stable trees <= 3.18.
-> > >>
-> > >> This also fixes a kernel crash for NFS servers when the client uses
-> > >>  -onfsvers=3,proto=udp to mount the export.
-> > >>
-> > >> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> > >> Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > >
-> > > Fixes CVE-2015-8019.
-> > > http://www.openwall.com/lists/oss-security/2015/10/29/1
-> > >
-> > > --
-> > > Sabrina
-> > > --
-> > > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > > the body of a message to majordomo@vger.kernel.org
-> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > 
-> > Greg
-> > 
-> > Do you have this in your queue? I saw a few other stables pick this
-> > up, but haven't seen it in 3.14 or 3.18 yet. It wasn't clear to me if
-> > this had been fully reviewed yet.
-> 
-> I rely on Dave to package up networking stable patches and forward them
-> on to me, that's why you haven't seen it be picked up yet.
-> 
-> thanks,
-> 
-> greg k-h
+Hi all:
 
-David, can you queue this up?
+This series tries to add basic busy polling for vhost net. The idea is
+simple: at the end of tx/rx processing, busy polling for new tx added
+descriptor and rx receive socket for a while. The maximum number of
+time (in us) could be spent on busy polling was specified ioctl.
 
-Thanks,
+Test were done through:
+
+- 50 us as busy loop timeout
+- Netperf 2.6
+- Two machines with back to back connected ixgbe
+- Guest with 1 vcpu and 1 queue
+
+Results:
+- For stream workload, ioexits were reduced dramatically in medium
+  size (1024-2048) of tx (at most -39%) and almost all rx (at most
+  -79%) as a result of polling. This compensate for the possible
+  wasted cpu cycles more or less. That porbably why we can still see
+  some increasing in the normalized throughput in some cases.
+- Throughput of tx were increased (at most 105%) expect for the huge
+  write (16384). And we can send more packets in the case (+tpkts were
+  increased).
+- Very minor rx regression in some cases.
+- Improvemnt on TCP_RR (at most 16%).
+
+size/session/+thu%/+normalize%/+tpkts%/+rpkts%/+ioexits%/
+   64/     1/   +9%/  -17%/   +5%/  +10%/   -2%
+   64/     2/   +8%/  -18%/   +6%/  +10%/   -1%
+   64/     4/   +4%/  -21%/   +6%/  +10%/   -1%
+   64/     8/   +9%/  -17%/   +6%/   +9%/   -2%
+  256/     1/  +20%/   -1%/  +15%/  +11%/   -9%
+  256/     2/  +15%/   -6%/  +15%/   +8%/   -8%
+  256/     4/  +17%/   -4%/  +16%/   +8%/   -8%
+  256/     8/  -61%/  -69%/  +16%/  +10%/  -10%
+  512/     1/  +15%/   -3%/  +19%/  +18%/  -11%
+  512/     2/  +19%/    0%/  +19%/  +13%/  -10%
+  512/     4/  +18%/   -2%/  +18%/  +15%/  -10%
+  512/     8/  +17%/   -1%/  +18%/  +15%/  -11%
+ 1024/     1/  +25%/   +4%/  +27%/  +16%/  -21%
+ 1024/     2/  +28%/   +8%/  +25%/  +15%/  -22%
+ 1024/     4/  +25%/   +5%/  +25%/  +14%/  -21%
+ 1024/     8/  +27%/   +7%/  +25%/  +16%/  -21%
+ 2048/     1/  +32%/  +12%/  +31%/  +22%/  -38%
+ 2048/     2/  +33%/  +12%/  +30%/  +23%/  -36%
+ 2048/     4/  +31%/  +10%/  +31%/  +24%/  -37%
+ 2048/     8/ +105%/  +75%/  +33%/  +23%/  -39%
+16384/     1/    0%/  -14%/   +2%/    0%/  +19%
+16384/     2/    0%/  -13%/  +19%/  -13%/  +17%
+16384/     4/    0%/  -12%/   +3%/    0%/   +2%
+16384/     8/    0%/  -11%/   -2%/   +1%/   +1%
+size/session/+thu%/+normalize%/+tpkts%/+rpkts%/+ioexits%/
+   64/     1/   -7%/  -23%/   +4%/   +6%/  -74%
+   64/     2/   -2%/  -12%/   +2%/   +2%/  -55%
+   64/     4/   +2%/   -5%/  +10%/   -2%/  -43%
+   64/     8/   -5%/   -5%/  +11%/  -34%/  -59%
+  256/     1/   -6%/  -16%/   +9%/  +11%/  -60%
+  256/     2/   +3%/   -4%/   +6%/   -3%/  -28%
+  256/     4/    0%/   -5%/   -9%/   -9%/  -10%
+  256/     8/   -3%/   -6%/  -12%/   -9%/  -40%
+  512/     1/   -4%/  -17%/  -10%/  +21%/  -34%
+  512/     2/    0%/   -9%/  -14%/   -3%/  -30%
+  512/     4/    0%/   -4%/  -18%/  -12%/   -4%
+  512/     8/   -1%/   -4%/   -1%/   -5%/   +4%
+ 1024/     1/    0%/  -16%/  +12%/  +11%/  -10%
+ 1024/     2/    0%/  -11%/    0%/   +5%/  -31%
+ 1024/     4/    0%/   -4%/   -7%/   +1%/  -22%
+ 1024/     8/   -5%/   -6%/  -17%/  -29%/  -79%
+ 2048/     1/    0%/  -16%/   +1%/   +9%/  -10%
+ 2048/     2/    0%/  -12%/   +7%/   +9%/  -26%
+ 2048/     4/    0%/   -7%/   -4%/   +3%/  -64%
+ 2048/     8/   -1%/   -5%/   -6%/   +4%/  -20%
+16384/     1/    0%/  -12%/  +11%/   +7%/  -20%
+16384/     2/    0%/   -7%/   +1%/   +5%/  -26%
+16384/     4/    0%/   -5%/  +12%/  +22%/  -23%
+16384/     8/    0%/   -1%/   -8%/   +5%/   -3%
+size/session/+thu%/+normalize%/+tpkts%/+rpkts%/+ioexits%/
+    1/     1/   +9%/  -29%/   +9%/   +9%/   +9%
+    1/    25/   +6%/  -18%/   +6%/   +6%/   -1%
+    1/    50/   +6%/  -19%/   +5%/   +5%/   -2%
+    1/   100/   +5%/  -19%/   +4%/   +4%/   -3%
+   64/     1/  +10%/  -28%/  +10%/  +10%/  +10%
+   64/    25/   +8%/  -18%/   +7%/   +7%/   -2%
+   64/    50/   +8%/  -17%/   +8%/   +8%/   -1%
+   64/   100/   +8%/  -17%/   +8%/   +8%/   -1%
+  256/     1/  +10%/  -28%/  +10%/  +10%/  +10%
+  256/    25/  +15%/  -13%/  +15%/  +15%/    0%
+  256/    50/  +16%/  -14%/  +18%/  +18%/   +2%
+  256/   100/  +15%/  -13%/  +12%/  +12%/   -2%
+
+Changes from V2:
+- poll also at the end of rx handling
+- factor out the polling logic and optimize the code a little bit
+- add two ioctls to get and set the busy poll timeout
+- test on ixgbe (which can give more stable and reproducable numbers)
+  instead of mlx4.
+
+Changes from V1:
+- Add a comment for vhost_has_work() to explain why it could be
+  lockless
+- Add param description for busyloop_timeout
+- Split out the busy polling logic into a new helper
+- Check and exit the loop when there's a pending signal
+- Disable preemption during busy looping to make sure lock_clock() was
+  correctly used.
+
+Jason Wang (3):
+  vhost: introduce vhost_has_work()
+  vhost: introduce vhost_vq_more_avail()
+  vhost_net: basic polling support
+
+ drivers/vhost/net.c        | 77 +++++++++++++++++++++++++++++++++++++++++++---
+ drivers/vhost/vhost.c      | 48 +++++++++++++++++++++++------
+ drivers/vhost/vhost.h      |  3 ++
+ include/uapi/linux/vhost.h | 11 +++++++
+ 4 files changed, 125 insertions(+), 14 deletions(-)
 
 -- 
-Sabrina
+2.1.4
