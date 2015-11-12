@@ -1,49 +1,38 @@
-From: Yang Shi <yang.shi@linaro.org>
-Subject: [PATCH 1/2] arm64: bpf: fix JIT frame pointer setup
-Date: Thu, 12 Nov 2015 13:57:00 -0800
-Message-ID: <1447365421-1309-2-git-send-email-yang.shi@linaro.org>
-References: <1447365421-1309-1-git-send-email-yang.shi@linaro.org>
-Cc: zlim.lnx@gmail.com, xi.wang@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linaro-kernel@lists.linaro.org, yang.shi@linaro.org
-To: ast@kernel.org, daniel@iogearbox.net, catalin.marinas@arm.com,
-	will.deacon@arm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447365421-1309-1-git-send-email-yang.shi@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chris Siebenmann <cks-rhbugzilla@cs.toronto.edu>
+Subject: Re: [PATCH net 1/3] ipv6: Avoid creating RTF_CACHE from a rt that is not managed by fib6 tree
+Date: Thu, 12 Nov 2015 17:01:01 -0500
+Message-ID: <20151112220101.47E8B7A080D@apps0.cs.toronto.edu>
+References: <1447271468-3930566-2-git-send-email-kafai@fb.com>
+Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>,
+	Chris Siebenmann <cks-rhbugzilla@cs.toronto.edu>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cliff.cs.toronto.edu ([128.100.3.120]:40090 "EHLO
+	cliff.cs.toronto.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752940AbbKLWRA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2015 17:17:00 -0500
+In-reply-to: kafai's message of Wed, 11 Nov 2015 11:51:06 -0800.
+             <1447271468-3930566-2-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-BPF fp should point to the top of the BPF prog stack. The original
-implementation made it point to the bottom incorrectly.
-Move A64_SP to fp before reserve BPF prog stack space.
+> The original bug report:
+> https://bugzilla.redhat.com/show_bug.cgi?id=1272571
+> 
+> The setup has a IPv4 GRE tunnel running in a IPSec.  The bug
+> happens when ndisc starts sending router solicitation at the gre
+> interface.  The simplified oops stack is like:
+[...]
+> Reported-by: Chris Siebenmann <cks-rhbugzilla@cs.toronto.edu>
 
-CC: Zi Shen Lim <zlim.lnx@gmail.com>
-CC: Xi Wang <xi.wang@gmail.com>
-Signed-off-by: Yang Shi <yang.shi@linaro.org>
----
- arch/arm64/net/bpf_jit_comp.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ For what it's worth, this change appears to fix my issue in preliminary
+testing. I haven't actually brought it up on a production machine with a
+GRE tunnel that actually works, but the sequence of operations on my
+test machine that used to reliably oops no longer does so.
 
-diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
-index a44e529..ac8b548 100644
---- a/arch/arm64/net/bpf_jit_comp.c
-+++ b/arch/arm64/net/bpf_jit_comp.c
-@@ -161,12 +161,12 @@ static void build_prologue(struct jit_ctx *ctx)
- 	if (ctx->tmp_used)
- 		emit(A64_PUSH(tmp1, tmp2, A64_SP), ctx);
- 
--	/* Set up BPF stack */
--	emit(A64_SUB_I(1, A64_SP, A64_SP, stack_size), ctx);
--
- 	/* Set up frame pointer */
- 	emit(A64_MOV(1, fp, A64_SP), ctx);
- 
-+	/* Set up BPF stack */
-+	emit(A64_SUB_I(1, A64_SP, A64_SP, stack_size), ctx);
-+
- 	/* Clear registers A and X */
- 	emit_a64_mov_i64(ra, 0, ctx);
- 	emit_a64_mov_i64(rx, 0, ctx);
--- 
-2.0.2
+(I tested this against both a quite recent upstream git pull and the
+current Fedora 22 kernel source with this patch blindly shoved in on top
+by just running 'patch'.)
+
+	- cks
