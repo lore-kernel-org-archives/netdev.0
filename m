@@ -1,36 +1,60 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net 1/1] r8169: fix kasan reported skb use-after-free.
-Date: Thu, 12 Nov 2015 13:51:41 -0500 (EST)
-Message-ID: <20151112.135141.1605194071638702692.davem@redhat.com>
-References: <20151111223518.GA29672@electric-eye.fr.zoreil.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [PATCH] net: phy: at803x: support interrupt on 8030 and 8035
+Date: Thu, 12 Nov 2015 20:06:23 +0100
+Message-ID: <5644E32F.6010104@free.fr>
+References: <1447350020-27969-1-git-send-email-mans@mansr.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davej@codemonkey.org.uk,
-	edumazet@google.com, vinschen@redhat.com
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34094 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754399AbbKLSvt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Nov 2015 13:51:49 -0500
-In-Reply-To: <20151111223518.GA29672@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Mans Rullgard <mans@mansr.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447350020-27969-1-git-send-email-mans@mansr.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Wed, 11 Nov 2015 23:35:18 +0100
-
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Reported-by: Dave Jones <davej@codemonkey.org.uk>
-> Fixes: d7d2d89d4b0af ("r8169: Add software counter for multicast packages")
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> Acked-by: Corinna Vinschen <vinschen@redhat.com>
+On 12/11/2015 18:40, Mans Rullgard wrote:
+> Commit 77a993942 "phy/at8031: enable at8031 to work on interrupt mode"
+> added interrupt support for the 8031 PHY but left out the other two
+> chips supported by this driver.
+> 
+> This patch sets the .ack_interrupt and .config_intr functions for the
+> 8030 and 8035 drivers as well.
+> 
+> Signed-off-by: Mans Rullgard <mans@mansr.com>
 > ---
+> I have only tested this with an 8035.  I can't find a datasheet for
+> the 8030, but since 8031, 8032, and 8035 all have the same register
+> layout, there's a good chance 8030 does as well.
+> ---
+>  drivers/net/phy/at803x.c | 4 ++++
+>  1 file changed, 4 insertions(+)
 > 
->  Applies to davem's net as of c5a37883f42be712a989e54d5d6c0159b0e56599
->  ("Merge branch 'akpm' (patches from Andrew)")
-> 
->  4.2 needs it as well.
+> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+> index fabf11d..2d020a3 100644
+> --- a/drivers/net/phy/at803x.c
+> +++ b/drivers/net/phy/at803x.c
+> @@ -308,6 +308,8 @@ static struct phy_driver at803x_driver[] = {
+>  	.flags			= PHY_HAS_INTERRUPT,
+>  	.config_aneg		= genphy_config_aneg,
+>  	.read_status		= genphy_read_status,
+> +	.ack_interrupt		= at803x_ack_interrupt,
+> +	.config_intr		= at803x_config_intr,
+>  	.driver			= {
+>  		.owner = THIS_MODULE,
+>  	},
+> @@ -327,6 +329,8 @@ static struct phy_driver at803x_driver[] = {
+>  	.flags			= PHY_HAS_INTERRUPT,
+>  	.config_aneg		= genphy_config_aneg,
+>  	.read_status		= genphy_read_status,
+> +	.ack_interrupt		= at803x_ack_interrupt,
+> +	.config_intr		= at803x_config_intr,
+>  	.driver			= {
+>  		.owner = THIS_MODULE,
+>  	},
 
-Applied and queued up for -stable, thanks!
+Shouldn't we take the opportunity to clean up the duplicated register
+definitions? (I'll send an informal patch to spur discussion.)
+
+Regards.
