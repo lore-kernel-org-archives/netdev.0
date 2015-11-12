@@ -1,61 +1,36 @@
-From: Mans Rullgard <mans@mansr.com>
-Subject: [PATCH] net: phy: vitesse: add support for VSC8601
-Date: Thu, 12 Nov 2015 18:41:12 +0000
-Message-ID: <1447353672-4365-1-git-send-email-mans@mansr.com>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH net 1/1] r8169: fix kasan reported skb use-after-free.
+Date: Thu, 12 Nov 2015 13:51:41 -0500 (EST)
+Message-ID: <20151112.135141.1605194071638702692.davem@redhat.com>
+References: <20151111223518.GA29672@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davej@codemonkey.org.uk,
+	edumazet@google.com, vinschen@redhat.com
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:34094 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754399AbbKLSvt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Nov 2015 13:51:49 -0500
+In-Reply-To: <20151111223518.GA29672@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This adds support for the Vitesse VSC8601 PHY. Generic functions are
-used for everything except interrupt handling.
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Wed, 11 Nov 2015 23:35:18 +0100
 
-Signed-off-by: Mans Rullgard <mans@mansr.com>
----
- drivers/net/phy/vitesse.c | 16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Reported-by: Dave Jones <davej@codemonkey.org.uk>
+> Fixes: d7d2d89d4b0af ("r8169: Add software counter for multicast packages")
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> Acked-by: Corinna Vinschen <vinschen@redhat.com>
+> ---
+> 
+>  Applies to davem's net as of c5a37883f42be712a989e54d5d6c0159b0e56599
+>  ("Merge branch 'akpm' (patches from Andrew)")
+> 
+>  4.2 needs it as well.
 
-diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
-index 76cad71..dd295db 100644
---- a/drivers/net/phy/vitesse.c
-+++ b/drivers/net/phy/vitesse.c
-@@ -66,6 +66,7 @@
- #define PHY_ID_VSC8244			0x000fc6c0
- #define PHY_ID_VSC8514			0x00070670
- #define PHY_ID_VSC8574			0x000704a0
-+#define PHY_ID_VSC8601			0x00070420
- #define PHY_ID_VSC8662			0x00070660
- #define PHY_ID_VSC8221			0x000fc550
- #define PHY_ID_VSC8211			0x000fc4b0
-@@ -133,7 +134,8 @@ static int vsc82xx_config_intr(struct phy_device *phydev)
- 			(phydev->drv->phy_id == PHY_ID_VSC8234 ||
- 			 phydev->drv->phy_id == PHY_ID_VSC8244 ||
- 			 phydev->drv->phy_id == PHY_ID_VSC8514 ||
--			 phydev->drv->phy_id == PHY_ID_VSC8574) ?
-+			 phydev->drv->phy_id == PHY_ID_VSC8574 ||
-+			 phydev->drv->phy_id == PHY_ID_VSC8601) ?
- 				MII_VSC8244_IMASK_MASK :
- 				MII_VSC8221_IMASK_MASK);
- 	else {
-@@ -272,6 +274,18 @@ static struct phy_driver vsc82xx_driver[] = {
- 	.config_intr    = &vsc82xx_config_intr,
- 	.driver         = { .owner = THIS_MODULE,},
- }, {
-+	.phy_id         = PHY_ID_VSC8601,
-+	.name           = "Vitesse VSC8601",
-+	.phy_id_mask    = 0x000ffff0,
-+	.features       = PHY_GBIT_FEATURES,
-+	.flags          = PHY_HAS_INTERRUPT,
-+	.config_init    = &genphy_config_init,
-+	.config_aneg    = &genphy_config_aneg,
-+	.read_status    = &genphy_read_status,
-+	.ack_interrupt  = &vsc824x_ack_interrupt,
-+	.config_intr    = &vsc82xx_config_intr,
-+	.driver         = { .owner = THIS_MODULE,},
-+}, {
- 	.phy_id         = PHY_ID_VSC8662,
- 	.name           = "Vitesse VSC8662",
- 	.phy_id_mask    = 0x000ffff0,
--- 
-2.6.3
+Applied and queued up for -stable, thanks!
