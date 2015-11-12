@@ -1,81 +1,26 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: [PATCH] net: phy: at803x: support interrupt on 8030 and 8035
-Date: Thu, 12 Nov 2015 23:14:11 +0100
-Message-ID: <56450F33.2000504@free.fr>
-References: <1447350020-27969-1-git-send-email-mans@mansr.com>
- <5644E32F.6010104@free.fr> <E36D31CC-04BA-4BE5-83C5-DE3264B617D4@mansr.com>
- <5644E530.7010101@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mans Rullgard <mans@mansr.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Yang Shi <yang.shi@linaro.org>
+Subject: [PATCH V2 0/2] arm64: bpf: correct JIT stack setup and make it align with ARM64 AAPCS
+Date: Thu, 12 Nov 2015 13:56:59 -0800
+Message-ID: <1447365421-1309-1-git-send-email-yang.shi@linaro.org>
+Cc: zlim.lnx@gmail.com, xi.wang@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linaro-kernel@lists.linaro.org, yang.shi@linaro.org
+To: ast@kernel.org, daniel@iogearbox.net, catalin.marinas@arm.com,
+	will.deacon@arm.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5644E530.7010101@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/11/2015 20:14, Florian Fainelli wrote:
-> On 12/11/15 11:09, M=E5ns Rullg=E5rd wrote:
->> On 12 November 2015 19:06:23 GMT+00:00, Mason wrote:
->>> On 12/11/2015 18:40, Mans Rullgard wrote:
->>>> Commit 77a993942 "phy/at8031: enable at8031 to work on interrupt m=
-ode"
->>>> added interrupt support for the 8031 PHY but left out the other tw=
-o
->>>> chips supported by this driver.
->>>>
->>>> This patch sets the .ack_interrupt and .config_intr functions for =
-the
->>>> 8030 and 8035 drivers as well.
->>>>
->>>> Signed-off-by: Mans Rullgard <mans@mansr.com>
->>>> ---
->>>> I have only tested this with an 8035.  I can't find a datasheet fo=
-r
->>>> the 8030, but since 8031, 8032, and 8035 all have the same registe=
-r
->>>> layout, there's a good chance 8030 does as well.
->>>> ---
->>>>  drivers/net/phy/at803x.c | 4 ++++
->>>>  1 file changed, 4 insertions(+)
->>>>
->>>> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
->>>> index fabf11d..2d020a3 100644
->>>> --- a/drivers/net/phy/at803x.c
->>>> +++ b/drivers/net/phy/at803x.c
->>>> @@ -308,6 +308,8 @@ static struct phy_driver at803x_driver[] =3D {
->>>>  	.flags			=3D PHY_HAS_INTERRUPT,
->>>>  	.config_aneg		=3D genphy_config_aneg,
->>>>  	.read_status		=3D genphy_read_status,
->>>> +	.ack_interrupt		=3D at803x_ack_interrupt,
->>>> +	.config_intr		=3D at803x_config_intr,
->>>>  	.driver			=3D {
->>>>  		.owner =3D THIS_MODULE,
->>>>  	},
->>>> @@ -327,6 +329,8 @@ static struct phy_driver at803x_driver[] =3D {
->>>>  	.flags			=3D PHY_HAS_INTERRUPT,
->>>>  	.config_aneg		=3D genphy_config_aneg,
->>>>  	.read_status		=3D genphy_read_status,
->>>> +	.ack_interrupt		=3D at803x_ack_interrupt,
->>>> +	.config_intr		=3D at803x_config_intr,
->>>>  	.driver			=3D {
->>>>  		.owner =3D THIS_MODULE,
->>>>  	},
->>>
->>> Shouldn't we take the opportunity to clean up the duplicated regist=
-er
->>> definitions? (I'll send an informal patch to spur discussion.)
->>>
->>> Regards.
->>
->> That can be done independently. Feel free to send a patch.
->=20
-> Agreed, that deserve a separate patch.
 
-Isn't there a problem when at803x_set_wol() sets the AT803X_WOL_ENABLE
-bit, but a DISABLE/ENABLE cycle through at803x_config_intr() will
-discard that bit?
+Changelog in V2:
+Split to two patches according to the suggestion from Zi Shen Lim
+Show A64_FP in stack layout diagram
+Correct "+64" to "-64"
 
-Regards.
+Yang Shi (2):
+      arm64: bpf: fix JIT frame pointer setup
+      arm64: bpf: make BPF prologue and epilogue align with ARM64 AAPCS
+
+ arch/arm64/net/bpf_jit_comp.c | 38 +++++++++++++++++++++++++++++++-------
+ 1 file changed, 31 insertions(+), 7 deletions(-)
