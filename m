@@ -1,102 +1,54 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 5/6] net/mlx4_core: Fix sleeping while holding spinlock at rem_slave_counters
-Date: Thu, 12 Nov 2015 19:35:29 +0200
-Message-ID: <1447349730-19832-6-git-send-email-ogerlitz@mellanox.com>
-References: <1447349730-19832-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net 0/6] Mellanox NIC driver update, Nov 12, 2015
+Date: Thu, 12 Nov 2015 19:35:24 +0200
+Message-ID: <1447349730-19832-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:46763 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:46721 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753157AbbKLRgC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Nov 2015 12:36:02 -0500
-In-Reply-To: <1447349730-19832-1-git-send-email-ogerlitz@mellanox.com>
+	id S1752883AbbKLRfz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Nov 2015 12:35:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+Hi Dave,
 
-When cleaning slave's counter resources, we hold a spinlock that
-protects the slave's counters list. As part of the clean, we call
-__mlx4_clear_if_stat which calls mlx4_alloc_cmd_mailbox which is a
-sleepable function.
+Few small mlx5 and mlx4 fixes from the team... done over
+net commit c5a3788 "Merge branch 'akpm' (patches from Andrew)"
 
-In order to fix this issue, hold the spinlock, and copy all counter
-indices into a temporary array, and release the spinlock. Afterwards,
-iterate over this array and free every counter. Repeat this scenario
-until the original list is empty (a new counter might have been added
-while releasing the counters from the temporary array).
+Eran's patch needs to go to 4.2 and 4.3 stable kernels.
 
-Fixes: b72ca7e96acf ("net/mlx4_core: Reset counters data when freed")
-Reported-by: Moni Shoua <monis@mellanox.com>
-Tested-by: Moni Shoua <monis@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  | 39 +++++++++++++++-------
- 1 file changed, 27 insertions(+), 12 deletions(-)
+Tariq's patch need to go to 4.3 stable too.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 9813d34..6fec3e9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -4952,26 +4952,41 @@ static void rem_slave_counters(struct mlx4_dev *dev, int slave)
- 	struct res_counter *counter;
- 	struct res_counter *tmp;
- 	int err;
--	int index;
-+	int *counters_arr = NULL;
-+	int i, j;
- 
- 	err = move_all_busy(dev, slave, RES_COUNTER);
- 	if (err)
- 		mlx4_warn(dev, "rem_slave_counters: Could not move all counters - too busy for slave %d\n",
- 			  slave);
- 
--	spin_lock_irq(mlx4_tlock(dev));
--	list_for_each_entry_safe(counter, tmp, counter_list, com.list) {
--		if (counter->com.owner == slave) {
--			index = counter->com.res_id;
--			rb_erase(&counter->com.node,
--				 &tracker->res_tree[RES_COUNTER]);
--			list_del(&counter->com.list);
--			kfree(counter);
--			__mlx4_counter_free(dev, index);
-+	counters_arr = kmalloc_array(dev->caps.max_counters,
-+				     sizeof(*counters_arr), GFP_KERNEL);
-+	if (!counters_arr)
-+		return;
-+
-+	do {
-+		i = 0;
-+		j = 0;
-+		spin_lock_irq(mlx4_tlock(dev));
-+		list_for_each_entry_safe(counter, tmp, counter_list, com.list) {
-+			if (counter->com.owner == slave) {
-+				counters_arr[i++] = counter->com.res_id;
-+				rb_erase(&counter->com.node,
-+					 &tracker->res_tree[RES_COUNTER]);
-+				list_del(&counter->com.list);
-+				kfree(counter);
-+			}
-+		}
-+		spin_unlock_irq(mlx4_tlock(dev));
-+
-+		while (j < i) {
-+			__mlx4_counter_free(dev, counters_arr[j++]);
- 			mlx4_release_resource(dev, slave, RES_COUNTER, 1, 0);
- 		}
--	}
--	spin_unlock_irq(mlx4_tlock(dev));
-+	} while (i);
-+
-+	kfree(counters_arr);
- }
- 
- static void rem_slave_xrcdns(struct mlx4_dev *dev, int slave)
+Or.
+
+Achiad Shochat (1):
+  net/mlx5e: Use the right DMA free function on TX path
+
+Doron Tsur (1):
+  net/mlx5e: Max mtu comparison fix
+
+Eran Ben Elisha (1):
+  net/mlx4_core: Fix sleeping while holding spinlock at rem_slave_counters
+
+Noa Osherovich (1):
+  net/mlx4_core: Avoid returning success in case of an error flow
+
+Saeed Mahameed (1):
+  net/mlx5e: Fix inline header size calculation
+
+Tariq Toukan (1):
+  net/mlx5e: Added self loopback prevention
+
+ drivers/net/ethernet/mellanox/mlx4/main.c          |  8 ++-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  | 39 +++++++----
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       | 10 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 50 ++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    | 76 +++++++++++++---------
+ include/linux/mlx5/mlx5_ifc.h                      | 24 ++++---
+ 6 files changed, 148 insertions(+), 59 deletions(-)
+
 -- 
 2.3.7
