@@ -1,90 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ipvs: use skb_to_full_sk() helper
-Date: Thu, 12 Nov 2015 09:14:12 -0800
-Message-ID: <1447348452.22599.28.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <06dc952f98f54da2c4d85b31e5fa9826@eikelenboom.it>
-	 <1447337353.22599.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <b95f4a06d7d9b13849ad277128690436@eikelenboom.it>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
+Date: Thu, 12 Nov 2015 17:20:29 +0000
+Message-ID: <yw1xziyjkuci.fsf@unicorn.mansr.com>
+References: <1447172063-27234-1-git-send-email-mans@mansr.com>
+	<564241BF.4020700@free.fr> <yw1xbnb1r70r.fsf@unicorn.mansr.com>
+	<5644953C.8000800@free.fr> <yw1xfv0bmhz3.fsf@unicorn.mansr.com>
+	<5644BC1B.1000109@free.fr> <yw1x4mgrm9ys.fsf@unicorn.mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org
-To: Sander Eikelenboom <linux@eikelenboom.it>,
-	David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <b95f4a06d7d9b13849ad277128690436@eikelenboom.it>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Daniel Mack <daniel@zonque.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <festevam@gmail.com>
+To: Mason <slash.tmp@free.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <yw1x4mgrm9ys.fsf@unicorn.mansr.com> (=?iso-8859-1?Q?=22M=E5n?=
+ =?iso-8859-1?Q?s_Rullg=E5rd=22's?= message
+	of "Thu, 12 Nov 2015 16:57:47 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+M=E5ns Rullg=E5rd <mans@mansr.com> writes:
 
-SYNACK packets might be attached to request sockets.
+> Mason <slash.tmp@free.fr> writes:
+>
+>> [ CCing a few knowledgeable people ]
+>>
+>> Despite the subject, this is about an Atheros 8035 PHY :-)
+>>
+>> On 12/11/2015 15:04, M=E5ns Rullg=E5rd wrote:
+>>
+>>> Mason wrote:
+>>>=20
+>>>> BTW, you're not using the PHY IRQ, right? I think I remember you s=
+aying
+>>>> it didn't work reliably?
+>>>=20
+>>> It doesn't seem to be wired up on any of my boards, or there's some
+>>> magic required to activate it that I'm unaware of.
+>>
+>> Weird. The board schematics for the 1172 show Tango ETH0_MDINT# pin
+>> properly connected to AR8035 INT pin (pin 20).
+>
+> I have a different board.
+>
+>> <Thinking out loud>
+>>
+>> http://www.redeszone.net/app/uploads/2014/04/AR8035.pdf
+>>
+>> INT pin 20
+>> I/O, D, PD
+>> Interrupt Signal to System; default OD-gate, needs an external
+>> 10Kohm pull-up, active low; can be configured to I/O by register,
+>> active high.
+>>
+>> 4.1.17 Interrupt Enable
+>> Offset: 0x12
+>> Mode: Read/Write
+>> Hardware Reset: 0
+>>
+>> Strange... it looks like AT803X_INER and AT803X_INTR_ENABLE refer to
+>> the same "Interrupt Enable" register?
+>
+> Seems like someone missed that it was already defined.
+>
+>> In fact, AT803X_INER_INIT =3D=3D 0xec00 makes sense for register 0x1=
+2:
+>> link success/fail, speed/duplex changed, autoneg error
+>>
+>> Looks like at803x_config_intr() is used for 8031, but not for 8035..=
+=2E
+>>
+>> Relevant commit:
+>> 77a9939426f7a "phy/at8031: enable at8031 to work on interrupt mode"
+>>
+>> If I add .config_intr and .ack_interrupt to the 8035 struct, then I =
+get
+>> (also added some traces)
+>
+> I tried that just now, and I get nothing.  What interrupt did you
+> specify in your device tree?
 
-Use skb_to_full_sk() helper to avoid illegal accesses to
-inet_sk(skb->sk)
+It works with the interrupt set to trigger on rising edge.
 
-Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
----
- net/netfilter/ipvs/ip_vs_core.c |   16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 1e24fff53e4b..f57b4dcdb233 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1176,6 +1176,7 @@ ip_vs_out(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, in
- 	struct ip_vs_protocol *pp;
- 	struct ip_vs_proto_data *pd;
- 	struct ip_vs_conn *cp;
-+	struct sock *sk;
- 
- 	EnterFunction(11);
- 
-@@ -1183,13 +1184,12 @@ ip_vs_out(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, in
- 	if (skb->ipvs_property)
- 		return NF_ACCEPT;
- 
-+	sk = skb_to_full_sk(skb);
- 	/* Bad... Do not break raw sockets */
--	if (unlikely(skb->sk != NULL && hooknum == NF_INET_LOCAL_OUT &&
-+	if (unlikely(sk && hooknum == NF_INET_LOCAL_OUT &&
- 		     af == AF_INET)) {
--		struct sock *sk = skb->sk;
--		struct inet_sock *inet = inet_sk(skb->sk);
- 
--		if (inet && sk->sk_family == PF_INET && inet->nodefrag)
-+		if (sk->sk_family == PF_INET && inet_sk(sk)->nodefrag)
- 			return NF_ACCEPT;
- 	}
- 
-@@ -1681,6 +1681,7 @@ ip_vs_in(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, int
- 	struct ip_vs_conn *cp;
- 	int ret, pkts;
- 	int conn_reuse_mode;
-+	struct sock *sk;
- 
- 	/* Already marked as IPVS request or reply? */
- 	if (skb->ipvs_property)
-@@ -1708,12 +1709,11 @@ ip_vs_in(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, int
- 	ip_vs_fill_iph_skb(af, skb, false, &iph);
- 
- 	/* Bad... Do not break raw sockets */
--	if (unlikely(skb->sk != NULL && hooknum == NF_INET_LOCAL_OUT &&
-+	sk = skb_to_full_sk(skb);
-+	if (unlikely(sk && hooknum == NF_INET_LOCAL_OUT &&
- 		     af == AF_INET)) {
--		struct sock *sk = skb->sk;
--		struct inet_sock *inet = inet_sk(skb->sk);
- 
--		if (inet && sk->sk_family == PF_INET && inet->nodefrag)
-+		if (sk->sk_family == PF_INET && inet_sk(sk)->nodefrag)
- 			return NF_ACCEPT;
- 	}
- 
-
-
+--=20
+M=E5ns Rullg=E5rd
+mans@mansr.com
