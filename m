@@ -1,35 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [linux-4.4-mw] BUG: unable to handle kernel paging request
- ip_vs_out.constprop
-Date: Thu, 12 Nov 2015 08:52:26 -0800
-Message-ID: <1447347146.22599.22.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <06dc952f98f54da2c4d85b31e5fa9826@eikelenboom.it>
-	 <1447337353.22599.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <b95f4a06d7d9b13849ad277128690436@eikelenboom.it>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH] ip_tunnel: disable preemption when updating per-cpu tstats
+Date: Thu, 12 Nov 2015 17:52:18 +0100
+Message-ID: <CAHmME9r5bJqX-XRK4iPkkB_bL77=kAO4askgb4DZ_cvAHfSxfA@mail.gmail.com>
+References: <1447342212-5543-1-git-send-email-Jason@zx2c4.com>
+	<1447345509.2333208.438003833.012C1A95@webmail.messagingengine.com>
+	<CAHmME9qF2Xi91BTWNSXBoDmzxyPyqSPbFg8ZDN4S-0kSq-RtKA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Sander Eikelenboom <linux@eikelenboom.it>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <b95f4a06d7d9b13849ad277128690436@eikelenboom.it>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, tgraf@suug.ch,
+	Tom Herbert <tom@herbertland.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9qF2Xi91BTWNSXBoDmzxyPyqSPbFg8ZDN4S-0kSq-RtKA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-11-12 at 16:16 +0100, Sander Eikelenboom wrote:
-
-> > Thanks for the report, please try following patch :
-> 
-> Hi Eric,
-> 
-> Thanks for the patch!
-> Got it up and running at the moment, but since i don't have a clear 
-> trigger it
-> will take 1 or 2 days before i can report something back.
-
-Don't worry, I have a pretty good picture of the bug and patch must fix
-it.
-
-I'll submit it formally asap.
-
-
+By the way, in case anybody is interested, I've done a little bit of
+historical digging work. The functions in question date back to
+aa0010f8 from 2012. Before that commit, statistics structures would be
+incremented after each tunnel's driver itself dereferenced the per-cpu
+variable. When this got factored out into iptunnel_xmit_stats, the
+author of aa0010f8 simply took the code from the tunnel drivers, which
+included the use of "this_cpu_ptr" instead of "get_cpu_ptr", because
+presumably each driver was able to ensure preemption was disabled in
+its codepath. With the generalization of this functionality into the
+globally useful iptunnel_xmit_stats, we'll need to be using
+"get_cpu_ptr" instead.
