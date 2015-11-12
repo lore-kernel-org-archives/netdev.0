@@ -1,138 +1,124 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost: move is_le setup to the backend
-Date: Thu, 12 Nov 2015 15:46:30 +0200
-Message-ID: <20151112154610-mutt-send-email-mst@redhat.com>
-References: <20151030114235.28847.63465.stgit@bahia.huguette.org>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: Fw: [Bug 107141] New: [1177853.192071] INFO: task
+ accel-pppd:24263 blocked for more than 120 seconds.
+Date: Thu, 12 Nov 2015 14:51:45 +0100
+Message-ID: <20151112135145.GA3162@alphalink.fr>
+References: <20151111085715.337c6958@xeon-e3>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Greg Kurz <gkurz@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: pstaszewski@artcom.pl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:42234 "EHLO
+	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753118AbbKLNv4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2015 08:51:56 -0500
 Content-Disposition: inline
-In-Reply-To: <20151030114235.28847.63465.stgit@bahia.huguette.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20151111085715.337c6958@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 30, 2015 at 12:42:35PM +0100, Greg Kurz wrote:
-> The vq->is_le field is used to fix endianness when accessing the vring via
-> the cpu_to_vhost16() and vhost16_to_cpu() helpers in the following cases:
+On Wed, Nov 11, 2015 at 08:57:15AM -0800, Stephen Hemminger wrote:
 > 
-> 1) host is big endian and device is modern virtio
 > 
-> 2) host has cross-endian support and device is legacy virtio with a different
->    endianness than the host
+> Begin forwarded message:
 > 
-> Both cases rely on the VHOST_SET_FEATURES ioctl, but 2) also needs the
-> VHOST_SET_VRING_ENDIAN ioctl to be called by userspace. Since vq->is_le
-> is only needed when the backend is active, it was decided to set it at
-> backend start.
+> Date: Wed, 4 Nov 2015 10:46:56 +0000
+> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+> To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+> Subject: [Bug 107141] New: [1177853.192071] INFO: task accel-pppd:24263 blocked for more than 120 seconds.
 > 
-> This is currently done in vhost_init_used()->vhost_init_is_le() but it
-> obfuscates the core vhost code. This patch moves the is_le setup to a
-> dedicated function that is called from the backend code.
 > 
-> Note vhost_net is the only backend that can pass vq->private_data == NULL to
-> vhost_init_used(), hence the "if (sock)" branch.
+> https://bugzilla.kernel.org/show_bug.cgi?id=107141
 > 
-> No behaviour change.
+>             Bug ID: 107141
+>            Summary: [1177853.192071] INFO: task accel-pppd:24263 blocked
+>                     for more than 120 seconds.
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 4.1.12 , 4.2.0 , 4.3
+>           Hardware: All
+>                 OS: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: Other
+>           Assignee: shemminger@linux-foundation.org
+>           Reporter: pstaszewski@artcom.pl
+>         Regression: No
 > 
-> Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
+> Latest checked kernel where no problem exist:
+> 3.13.0
+> 
+> 
+> 
+> On any kernel >4.0 I have always same problem as below:
+> 
+[...]
 
-I plan to look at this next week, busy with QEMU 2.5 now.
+> [1177853.192196] INFO: task accel-pppd:10821 blocked for more than 120 seconds.
+> [1177853.192196]       Not tainted 4.2.0 #1
+> [1177853.192197] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables
+> this message.
+> [1177853.192198] accel-pppd      D ffff88021fd14680     0 10821      1
+> 0x00000000
+> [1177853.192199]  ffff8800d771fd08 0000000000000082 ffff8800d771fcd8
+> ffff8802161c0000
+> [1177853.192201]  ffff8800d7720000 ffff8801fe650bc0 ffff8800d771fce8
+> ffff8800d7720000
+> [1177853.192202]  ffff8801fe650bc0 ffffffff81a9d264 ffffffff81a9d268
+> 00000000ffffffff
+> [1177853.192203] Call Trace:
+> [1177853.192205]  [<ffffffff815ceb86>] schedule+0x71/0x80
+> [1177853.192207]  [<ffffffff815cecbc>] schedule_preempt_disabled+0x9/0xb
+> [1177853.192208]  [<ffffffff815cf918>] __mutex_lock_slowpath+0xa6/0x104
+> [1177853.192210]  [<ffffffff815cf989>] mutex_lock+0x13/0x24
+> [1177853.192212]  [<ffffffff814ca63c>] rtnl_lock+0x10/0x12
+> [1177853.192214]  [<ffffffff814c14b2>] register_netdev+0x11/0x27
+> [1177853.192215]  [<ffffffff8141ba62>] ppp_ioctl+0x2ee/0xb9d
+> [1177853.192218]  [<ffffffff8111d8de>] do_vfs_ioctl+0x418/0x460
+> [1177853.192219]  [<ffffffff815d0da9>] ? _raw_spin_lock+0x9/0xb
+> [1177853.192221]  [<ffffffff811250c2>] ? __fget+0x2a/0x69
+> [1177853.192222]  [<ffffffff8111d974>] SyS_ioctl+0x4e/0x7e
+> [1177853.192224]  [<ffffffff815d0fd7>] entry_SYSCALL_64_fastpath+0x12/0x6a
 
-> ---
->  drivers/vhost/net.c   |    6 ++++++
->  drivers/vhost/scsi.c  |    3 +++
->  drivers/vhost/test.c  |    2 ++
->  drivers/vhost/vhost.c |   12 +++++++-----
->  drivers/vhost/vhost.h |    1 +
->  5 files changed, 19 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 9eda69e40678..d6319cb2664c 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -917,6 +917,12 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
->  
->  		vhost_net_disable_vq(n, vq);
->  		vq->private_data = sock;
-> +
-> +		if (sock)
-> +			vhost_set_is_le(vq);
-> +		else
-> +			vq->is_le = virtio_legacy_is_little_endian();
-> +
->  		r = vhost_init_used(vq);
->  		if (r)
->  			goto err_used;
-> diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-> index e25a23692822..e2644a301fa5 100644
-> --- a/drivers/vhost/scsi.c
-> +++ b/drivers/vhost/scsi.c
-> @@ -1276,6 +1276,9 @@ vhost_scsi_set_endpoint(struct vhost_scsi *vs,
->  			vq = &vs->vqs[i].vq;
->  			mutex_lock(&vq->mutex);
->  			vq->private_data = vs_tpg;
-> +
-> +			vhost_set_is_le(vq);
-> +
->  			vhost_init_used(vq);
->  			mutex_unlock(&vq->mutex);
->  		}
-> diff --git a/drivers/vhost/test.c b/drivers/vhost/test.c
-> index f2882ac98726..b1c7df502211 100644
-> --- a/drivers/vhost/test.c
-> +++ b/drivers/vhost/test.c
-> @@ -196,6 +196,8 @@ static long vhost_test_run(struct vhost_test *n, int test)
->  		oldpriv = vq->private_data;
->  		vq->private_data = priv;
->  
-> +		vhost_set_is_le(vq);
-> +
->  		r = vhost_init_used(&n->vqs[index]);
->  
->  		mutex_unlock(&vq->mutex);
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index eec2f11809ff..6be863dcbd13 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -113,6 +113,12 @@ static void vhost_init_is_le(struct vhost_virtqueue *vq)
->  }
->  #endif /* CONFIG_VHOST_CROSS_ENDIAN_LEGACY */
->  
-> +void vhost_set_is_le(struct vhost_virtqueue *vq)
-> +{
-> +	vhost_init_is_le(vq);
-> +}
-> +EXPORT_SYMBOL_GPL(vhost_set_is_le);
-> +
->  static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
->  			    poll_table *pt)
->  {
-> @@ -1156,12 +1162,8 @@ int vhost_init_used(struct vhost_virtqueue *vq)
->  {
->  	__virtio16 last_used_idx;
->  	int r;
-> -	if (!vq->private_data) {
-> -		vq->is_le = virtio_legacy_is_little_endian();
-> +	if (!vq->private_data)
->  		return 0;
-> -	}
-> -
-> -	vhost_init_is_le(vq);
->  
->  	r = vhost_update_used_flags(vq);
->  	if (r)
-> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> index 4772862b71a7..8a62041959fe 100644
-> --- a/drivers/vhost/vhost.h
-> +++ b/drivers/vhost/vhost.h
-> @@ -162,6 +162,7 @@ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
->  
->  int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
->  		    unsigned int log_num, u64 len);
-> +void vhost_set_is_le(struct vhost_virtqueue *vq);
->  
->  #define vq_err(vq, fmt, ...) do {                                  \
->  		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
+[...]
+
+> [1177853.192306] INFO: task accel-pppd:6838 blocked for more than 120 seconds.
+> [1177853.192307]       Not tainted 4.2.0 #1
+> [1177853.192308] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables
+> this message.
+> [1177853.192308] accel-pppd      D ffff88021fc14680     0  6838      1
+> 0x00000000
+> [1177853.192310]  ffff8800c5ca7d08 0000000000000082 00000000000380ef
+> ffffffff81a114c0
+> [1177853.192311]  000000000f48ff3a ffff8800d76c3ac0 0000000000000000
+> ffff8800c5ca8000
+> [1177853.192313]  ffff8800d76c3ac0 ffff880215e3cdac ffff880215e3cdb0
+> 00000000ffffffff
+> [1177853.192314] Call Trace:
+> [1177853.192316]  [<ffffffff815ceb86>] schedule+0x71/0x80
+> [1177853.192317]  [<ffffffff815cecbc>] schedule_preempt_disabled+0x9/0xb
+> [1177853.192319]  [<ffffffff815cf918>] __mutex_lock_slowpath+0xa6/0x104
+> [1177853.192320]  [<ffffffff815cf989>] mutex_lock+0x13/0x24
+> [1177853.192322]  [<ffffffff8141ab77>] ppp_dev_uninit+0x62/0xae
+> [1177853.192324]  [<ffffffff814bd4e2>] rollback_registered_many+0x19e/0x252
+> [1177853.192325]  [<ffffffff814bd600>] rollback_registered+0x29/0x38
+> [1177853.192327]  [<ffffffff814bd679>] unregister_netdevice_queue+0x6a/0x77
+> [1177853.192328]  [<ffffffff8141b740>] ppp_release+0x3f/0x73
+> [1177853.192330]  [<ffffffff81110a49>] __fput+0xdf/0x184
+> [1177853.192332]  [<ffffffff81110b1e>] ____fput+0x9/0xb
+> [1177853.192335]  [<ffffffff8104fac7>] task_work_run+0x7b/0x94
+> [1177853.192336]  [<ffffffff81003615>] do_notify_resume+0x40/0x44
+> [1177853.192338]  [<ffffffff815d1182>] int_signal+0x12/0x17
+
+This should be fixed by 58a89ecaca53 ("ppp: fix lockdep splat in
+ppp_dev_uninit()").
+
+Only Linux 4.2 is impacted (not counting -rcX versions). The fix has
+been integrated into the -stable tree with Linux 4.2.3.
+
+If lockups occur on Linux 4.1.12 or Linux 4.3, they most likely have
+another origin.
