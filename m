@@ -1,88 +1,29 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v2] ip_tunnel: disable preemption when updating per-cpu tstats
-Date: Thu, 12 Nov 2015 17:35:58 +0100
-Message-ID: <1447346158-19257-1-git-send-email-Jason@zx2c4.com>
+Subject: Re: [PATCH] ip_tunnel: disable preemption when updating per-cpu tstats
+Date: Thu, 12 Nov 2015 17:36:24 +0100
+Message-ID: <CAHmME9qF2Xi91BTWNSXBoDmzxyPyqSPbFg8ZDN4S-0kSq-RtKA@mail.gmail.com>
 References: <1447342212-5543-1-git-send-email-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
-To: Netdev <netdev@vger.kernel.org>,
+	<1447345509.2333208.438003833.012C1A95@webmail.messagingengine.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>,
 	David Miller <davem@davemloft.net>, tgraf@suug.ch,
 	Tom Herbert <tom@herbertland.com>,
 	Jiri Benc <jbenc@redhat.com>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447342212-5543-1-git-send-email-Jason@zx2c4.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from frisell.zx2c4.com ([192.95.5.64]:36732 "EHLO frisell.zx2c4.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932269AbbKLQgc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Nov 2015 11:36:32 -0500
+In-Reply-To: <1447345509.2333208.438003833.012C1A95@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Drivers like vxlan use the recently introduced
-udp_tunnel_xmit_skb/udp_tunnel6_xmit_skb APIs. udp_tunnel6_xmit_skb
-makes use of ip6tunnel_xmit, and ip6tunnel_xmit, after sending the
-packet, updates the struct stats using the usual
-u64_stats_update_begin/end calls on this_cpu_ptr(dev->tstats).
-udp_tunnel_xmit_skb makes use of iptunnel_xmit, which doesn't touch
-tstats, so drivers like vxlan, immediately after, call
-iptunnel_xmit_stats, which does the same thing - calls
-u64_stats_update_begin/end on this_cpu_ptr(dev->tstats).
+On Thu, Nov 12, 2015 at 5:25 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> The canonical way is get_cpu_ptr(stats) / put_cpu_ptr.
 
-While vxlan is probably fine (I don't know?), calling a similar function
-from, say, an unbound workqueue, on a fully preemptable kernel causes
-real issues:
-
-[  188.434537] BUG: using smp_processor_id() in preemptible [00000000] code: kworker/u8:0/6
-[  188.435579] caller is debug_smp_processor_id+0x17/0x20
-[  188.435583] CPU: 0 PID: 6 Comm: kworker/u8:0 Not tainted 4.2.6 #2
-[  188.435607] Call Trace:
-[  188.435611]  [<ffffffff8234e936>] dump_stack+0x4f/0x7b
-[  188.435615]  [<ffffffff81915f3d>] check_preemption_disabled+0x19d/0x1c0
-[  188.435619]  [<ffffffff81915f77>] debug_smp_processor_id+0x17/0x20
-
-The solution would be to protect the whole
-this_cpu_ptr(dev->tstats)/u64_stats_update_begin/end blocks with
-disabling preemption and then reenabling it.
-
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
----
- include/net/ip6_tunnel.h | 3 ++-
- include/net/ip_tunnels.h | 3 ++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
-index fa915fa..d49a8f8 100644
---- a/include/net/ip6_tunnel.h
-+++ b/include/net/ip6_tunnel.h
-@@ -90,11 +90,12 @@ static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
- 	err = ip6_local_out_sk(sk, skb);
- 
- 	if (net_xmit_eval(err) == 0) {
--		struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
-+		struct pcpu_sw_netstats *tstats = get_cpu_ptr(dev->tstats);
- 		u64_stats_update_begin(&tstats->syncp);
- 		tstats->tx_bytes += pkt_len;
- 		tstats->tx_packets++;
- 		u64_stats_update_end(&tstats->syncp);
-+		put_cpu_ptr(tstats);
- 	} else {
- 		stats->tx_errors++;
- 		stats->tx_aborted_errors++;
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index f6dafec..62a750a 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -287,12 +287,13 @@ static inline void iptunnel_xmit_stats(int err,
- 				       struct pcpu_sw_netstats __percpu *stats)
- {
- 	if (err > 0) {
--		struct pcpu_sw_netstats *tstats = this_cpu_ptr(stats);
-+		struct pcpu_sw_netstats *tstats = get_cpu_ptr(stats);
- 
- 		u64_stats_update_begin(&tstats->syncp);
- 		tstats->tx_bytes += err;
- 		tstats->tx_packets++;
- 		u64_stats_update_end(&tstats->syncp);
-+		put_cpu_ptr(tstats);
- 	} else if (err < 0) {
- 		err_stats->tx_errors++;
- 		err_stats->tx_aborted_errors++;
--- 
-2.6.2
+Thanks for the pointer. Fixed in v2.
