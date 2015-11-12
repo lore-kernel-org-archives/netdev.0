@@ -1,65 +1,117 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: translate host order to network order when
- setting a hmacid
-Date: Thu, 12 Nov 2015 08:13:01 -0500
-Message-ID: <20151112131301.GB10933@hmsreliant.think-freely.org>
-References: <8cede44279b2f01a58fa02d4bb46b40fb630563f.1447304827.git.lucien.xin@gmail.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [PATCH v5] net: ethernet: add driver for Aurora VLSI NB8800
+ Ethernet controller
+Date: Thu, 12 Nov 2015 14:33:48 +0100
+Message-ID: <5644953C.8000800@free.fr>
+References: <1447172063-27234-1-git-send-email-mans@mansr.com>
+ <564241BF.4020700@free.fr> <yw1xbnb1r70r.fsf@unicorn.mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	marcelo.leitner@gmail.com, vyasevic@redhat.com, davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46256 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751847AbbKLNNR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2015 08:13:17 -0500
-Content-Disposition: inline
-In-Reply-To: <8cede44279b2f01a58fa02d4bb46b40fb630563f.1447304827.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Mans Rullgard <mans@mansr.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <yw1xbnb1r70r.fsf@unicorn.mansr.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 12, 2015 at 01:07:07PM +0800, Xin Long wrote:
-> now sctp auth cannot work well when setting a hmacid manually, which
-> is caused by that we didn't use the network order for hmacid, so fix
-> it by adding the transformation in sctp_auth_ep_set_hmacs.
-> 
-> even we set hmacid with the network order in userspace, it still
-> can't work, because of this condition in sctp_auth_ep_set_hmacs():
-> 
-> 		if (id > SCTP_AUTH_HMAC_ID_MAX)
-> 			return -EOPNOTSUPP;
-> 
-> so this wasn't working before and thus it won't break compatibility.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> ---
->  net/sctp/auth.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sctp/auth.c b/net/sctp/auth.c
-> index 4f15b7d..1543e39 100644
-> --- a/net/sctp/auth.c
-> +++ b/net/sctp/auth.c
-> @@ -809,8 +809,8 @@ int sctp_auth_ep_set_hmacs(struct sctp_endpoint *ep,
->  	if (!has_sha1)
->  		return -EINVAL;
->  
-> -	memcpy(ep->auth_hmacs_list->hmac_ids, &hmacs->shmac_idents[0],
-> -		hmacs->shmac_num_idents * sizeof(__u16));
-> +	for (i = 0; i < hmacs->shmac_num_idents; i++)
-> +		ep->auth_hmacs_list->hmac_ids[i] = htons(hmacs->shmac_idents[i]);
->  	ep->auth_hmacs_list->param_hdr.length = htons(sizeof(sctp_paramhdr_t) +
->  				hmacs->shmac_num_idents * sizeof(__u16));
->  	return 0;
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+On 10/11/2015 20:25, M=E5ns Rullg=E5rd wrote:
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> Mason writes:
+>=20
+>> On 10/11/2015 17:14, Mans Rullgard wrote:
+>>
+>>> This adds a driver for the Aurora VLSI NB8800 Ethernet controller.
+>>> It is an almost complete rewrite of a driver originally found in
+>>> a Sigma Designs 2.6.22 tree.
+>>>
+>>> Signed-off-by: Mans Rullgard <mans@mansr.com>
+>>> ---
+>>> Changes:
+>>> - Refactored mdio access functions
+>>> - Refactored register access helpers
+>>> - Improved error handling in rx buffer allocation
+>>> - Optimised some fifo parameters
+>>> - Overhauled tx dma. Multiple packets are now chained in a single d=
+ma
+>>>   operation if xmit_more is set, improving performance.
+>>> - Improved rx irq handling. It's not possible to disable interrupts
+>>>   entirely for napi poll, but they can be slowed down a little.
+>>> - Use readx_poll_timeout in various places
+>>> - Improved error detection
+>>> - Improved statistics
+>>> - Report hardware statistics counters through ethtool
+>>> - Improved tangox-specific setup
+>>> - Support for flow control using pause frames
+>>> - Explanatory comments added
+>>> - Various minor stylistic changes
+>>> ---
+>>>  drivers/net/ethernet/Kconfig         |    1 +
+>>>  drivers/net/ethernet/Makefile        |    1 +
+>>>  drivers/net/ethernet/aurora/Kconfig  |   20 +
+>>>  drivers/net/ethernet/aurora/Makefile |    1 +
+>>>  drivers/net/ethernet/aurora/nb8800.c | 1530 ++++++++++++++++++++++=
+++++++++++++
+>>>  drivers/net/ethernet/aurora/nb8800.h |  314 +++++++
+>>>  6 files changed, 1867 insertions(+)
+>>
+>> The code has grown much since the previous patch, despite some
+>> refactoring. Is this mostly due to ethtool_ops support?
+>>
+>>  drivers/net/ethernet/aurora/nb8800.c | 1146 +++++++++++++++++++++++=
++++++++++++
+>>  drivers/net/ethernet/aurora/nb8800.h |  230 +++++++
+>=20
+> Some of the increase is from new features, some from improvements, an=
+d
+> then there are a bunch of new comments.
+
+Sweet.
+
+With this version, my kernel boots faster than before
+(I had been using a 5 month-old version.)
+
+Before:
+
+[    0.613623] tangox-enet 26000.ethernet: SMP86xx internal Ethernet at=
+ 0x26000
+[    0.623638] libphy: tangox-mii: probed
+[    0.686527] tangox-enet 26000.ethernet: PHY: found Atheros 8035 ethe=
+rnet at 0x4
+[    0.697169] tangox-enet 26000.ethernet eth0: MAC address 00:16:e8:02=
+:08:42
+=2E..
+[    1.306360] Sending DHCP requests ..
+[    4.699969] tangox-enet 26000.ethernet eth0: Link is Up - 1Gbps/Full=
+ - flow control rx/tx
+[    8.899671] ., OK
+[    8.926343] IP-Config: Got DHCP answer from 172.27.200.1, my address=
+ is 172.27.64.49
+=2E..
+[    8.987327] Freeing unused kernel memory: 168K (c039e000 - c03c8000)
+
+After:
+
+[    0.623526] libphy: nb8800-mii: probed
+[    0.628092] nb8800 26000.ethernet eth0: MAC address 00:16:e8:02:08:4=
+2
+=2E..
+[    4.732948] nb8800 26000.ethernet eth0: Link is Up - 1Gbps/Full - fl=
+ow control rx/tx
+[    4.752655] Sending DHCP requests ., OK
+[    4.782644] IP-Config: Got DHCP answer from 172.27.200.1, my address=
+ is 172.27.64.49
+=2E..
+[    4.849298] Freeing unused kernel memory: 164K (c039f000 - c03c8000)
+
+
+The DHCP request is sent later, but the kernel doesn't twiddle its thum=
+bs
+for 4 seconds after the link comes up. Does this come from not probing =
+the
+PHY anymore?
+
+BTW, you're not using the PHY IRQ, right? I think I remember you saying
+it didn't work reliably?
+
+Regards.
