@@ -1,90 +1,88 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Is ndo_do_ioctl still acceptable?
-Date: Thu, 12 Nov 2015 08:34:43 -0800
-Message-ID: <20151112083443.48785696@xeon-e3>
-References: <CAHmME9puHv8uaUKX4AOjEaTNN6bHqNKqvaCqubc5erk+jnDOEw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH v2] ip_tunnel: disable preemption when updating per-cpu tstats
+Date: Thu, 12 Nov 2015 17:35:58 +0100
+Message-ID: <1447346158-19257-1-git-send-email-Jason@zx2c4.com>
+References: <1447342212-5543-1-git-send-email-Jason@zx2c4.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: Netdev <netdev@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+	David Miller <davem@davemloft.net>, tgraf@suug.ch,
+	Tom Herbert <tom@herbertland.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9puHv8uaUKX4AOjEaTNN6bHqNKqvaCqubc5erk+jnDOEw@mail.gmail.com>
+In-Reply-To: <1447342212-5543-1-git-send-email-Jason@zx2c4.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Nov 2015 05:59:03 +0100
-"Jason A. Donenfeld" <Jason@zx2c4.com> wrote:
+Drivers like vxlan use the recently introduced
+udp_tunnel_xmit_skb/udp_tunnel6_xmit_skb APIs. udp_tunnel6_xmit_skb
+makes use of ip6tunnel_xmit, and ip6tunnel_xmit, after sending the
+packet, updates the struct stats using the usual
+u64_stats_update_begin/end calls on this_cpu_ptr(dev->tstats).
+udp_tunnel_xmit_skb makes use of iptunnel_xmit, which doesn't touch
+tstats, so drivers like vxlan, immediately after, call
+iptunnel_xmit_stats, which does the same thing - calls
+u64_stats_update_begin/end on this_cpu_ptr(dev->tstats).
 
-> Hi David & Folks,
-> 
-> Soon I will submit a virtual tunnel device driver to LKML for review.
-> It uses rtnl_link_register to create a virtual network interface,
-> which then handles encryption, authentication, and some other things,
-> amongst various configured peers.
-> 
-> Right now the device is configurable via Netlink. It receives new
-> peers and configuration via a rtnl_link_ops->changelink function, and
-> it reports information back to userspace via a
-> rtnl_link_ops->fill_info function.
-> 
-> Configuration works fine, though it is rather cumbersome to do this
-> all via Netlink.
-> 
-> Reporting information back to userspace does not work fine. The reason
-> is that sometimes there's too much information to report back to
-> userspace than what can fit in a single preallocated Netlink skb. And
-> since rtnl_link_ops->fill_info doesn't receive any information from
-> userspace, I'm unable to use it to send back information in smaller
-> pieces.
-> 
-> I realize I could register a whole new rtnl packet family and related
-> set of functions with rtnl_register, such as what's done at the bottom
-> of `net/core/rtnetlink.c`. This is extremely cumbersome and invasive
-> though. It would require adding a new protocol family (like the
-> already existing rtnl_register-ified functions for PF_UNSPEC and
-> PF_BRIDGE), and I don't have enough clout to confidently submit a
-> patch that augments `include/linux/socket.h` with a new PF/AF define.
-> This seems very invasive and not appropriate for my driver.
-> 
-> What I'd really like to do is just implement ndo_do_ioctl. It seems to
-> me that this gives me a precise interface to do exactly what I want in
-> the cleanest and easiest to read possible way. I could have differing
-> ioctls for differing things. I could write memory back to userspace in
-> proper chunks, with the proper size. It's clear and straightforward
-> how to do it, and what the completed result looks like. It doesn't
-> require invasive changes into other parts of the kernel, as this would
-> be self-contained. It's hard to imagine a better interface to use than
-> ndo_do_ioctl.
-> 
-> But. But the word on the street is that kernel hipsters hate ioctls
-> and espouse the use of netlink everywhere with religious fervor, and
-> will burn at the stake any submissions I might send that go anywhere
-> near using ndo_do_ioctl rather than (the most likely ill-fitting for
-> the task) netlink. That, and the maintainers of the `ip` tool will be
-> upset too (even though they do already make use of several ioctls
-> instead of netlink). I'm told everybody will leer and jeer at me if I
-> use ndo_do_ioctl instead of netlink.
-> 
-> Except ndo_do_ioctl is *so* perfectly fitting here for my use case!
-> 
-> So what's the verdict on this? Do these aforementioned kernel hipsters
-> not really matter so much, and ndo_do_ioctl is actually perfectly
-> fine? Or must I really affix netlink onto my forthcoming submission?
+While vxlan is probably fine (I don't know?), calling a similar function
+from, say, an unbound workqueue, on a fully preemptable kernel causes
+real issues:
 
-The problem is ioctl's are device specific, and therefore create dependency
-on the unique features supported by your device.
-Also doing security validation on ioctl's is much harder.
+[  188.434537] BUG: using smp_processor_id() in preemptible [00000000] code: kworker/u8:0/6
+[  188.435579] caller is debug_smp_processor_id+0x17/0x20
+[  188.435583] CPU: 0 PID: 6 Comm: kworker/u8:0 Not tainted 4.2.6 #2
+[  188.435607] Call Trace:
+[  188.435611]  [<ffffffff8234e936>] dump_stack+0x4f/0x7b
+[  188.435615]  [<ffffffff81915f3d>] check_preemption_disabled+0x19d/0x1c0
+[  188.435619]  [<ffffffff81915f77>] debug_smp_processor_id+0x17/0x20
 
-The question always comes up, why is this new API not something general?
-And if you are dumping such a huge mound of information that only your driver
-could love, then why are you doing it? Is there anything in there that
-really matters? 
+The solution would be to protect the whole
+this_cpu_ptr(dev->tstats)/u64_stats_update_begin/end blocks with
+disabling preemption and then reenabling it.
 
-If all you are really doing is dumping statistics then look at ethtool.
-If you are dealing with lots of virtual function devices, look how existing
-netlink info is trimmed.
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+---
+ include/net/ip6_tunnel.h | 3 ++-
+ include/net/ip_tunnels.h | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-Don't overanalyze this.
+diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+index fa915fa..d49a8f8 100644
+--- a/include/net/ip6_tunnel.h
++++ b/include/net/ip6_tunnel.h
+@@ -90,11 +90,12 @@ static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
+ 	err = ip6_local_out_sk(sk, skb);
+ 
+ 	if (net_xmit_eval(err) == 0) {
+-		struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
++		struct pcpu_sw_netstats *tstats = get_cpu_ptr(dev->tstats);
+ 		u64_stats_update_begin(&tstats->syncp);
+ 		tstats->tx_bytes += pkt_len;
+ 		tstats->tx_packets++;
+ 		u64_stats_update_end(&tstats->syncp);
++		put_cpu_ptr(tstats);
+ 	} else {
+ 		stats->tx_errors++;
+ 		stats->tx_aborted_errors++;
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index f6dafec..62a750a 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -287,12 +287,13 @@ static inline void iptunnel_xmit_stats(int err,
+ 				       struct pcpu_sw_netstats __percpu *stats)
+ {
+ 	if (err > 0) {
+-		struct pcpu_sw_netstats *tstats = this_cpu_ptr(stats);
++		struct pcpu_sw_netstats *tstats = get_cpu_ptr(stats);
+ 
+ 		u64_stats_update_begin(&tstats->syncp);
+ 		tstats->tx_bytes += err;
+ 		tstats->tx_packets++;
+ 		u64_stats_update_end(&tstats->syncp);
++		put_cpu_ptr(tstats);
+ 	} else if (err < 0) {
+ 		err_stats->tx_errors++;
+ 		err_stats->tx_aborted_errors++;
+-- 
+2.6.2
