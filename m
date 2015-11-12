@@ -1,78 +1,44 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 2/2] arm64: bpf: add BPF XADD instruction
-Date: Wed, 11 Nov 2015 15:40:15 -0800
-Message-ID: <20151111234014.GA17014@ast-mbp.thefacebook.com>
-References: <20151111162341.GN9562@arm.com>
- <20151111172659.GA86334@ast-mbp.thefacebook.com>
- <20151111.123548.1039494689070388545.davem@davemloft.net>
- <20151111175741.GR17308@twins.programming.kicks-ass.net>
- <20151111181132.GA90947@ast-mbp.thefacebook.com>
- <20151111183128.GS17308@twins.programming.kicks-ass.net>
- <20151111184427.GH11639@twins.programming.kicks-ass.net>
- <20151111185415.GI11639@twins.programming.kicks-ass.net>
- <20151111195558.GA4173@ast-mbp.thefacebook.com>
- <20151111222135.GU17308@twins.programming.kicks-ass.net>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: Re: Why my NIC shows NUMA -1?
+Date: Wed, 11 Nov 2015 16:21:46 -0800
+Message-ID: <CAK3+h2w_neDt9rX5e90Sn8np993_XjPSDWy+YgnrDUhQcE+uuA@mail.gmail.com>
+References: <CAK3+h2wTdCVHLpwoKF93aGeKd2MTtgMK2cNstw94a=Fv_94iGQ@mail.gmail.com>
+	<5643CE75.3060709@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: yang.shi@linaro.org, yhs@plumgrid.com, linaro-kernel@lists.linaro.org,
- catalin.marinas@arm.com, daniel@iogearbox.net, arnd@arndb.de,
- zlim.lnx@gmail.com, bblanco@plumgrid.com, will.deacon@arm.com, ast@kernel.org,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- netdev@vger.kernel.org, eric.dumazet@gmail.com,
- David Miller <davem@davemloft.net>, xi.wang@gmail.com
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20151111222135.GU17308@twins.programming.kicks-ass.net>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f193.google.com ([209.85.217.193]:34375 "EHLO
+	mail-lb0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752067AbbKLAVr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2015 19:21:47 -0500
+Received: by lbvs9 with SMTP id s9so2524016lbv.1
+        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 16:21:46 -0800 (PST)
+In-Reply-To: <5643CE75.3060709@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 11, 2015 at 11:21:35PM +0100, Peter Zijlstra wrote:
-> On Wed, Nov 11, 2015 at 11:55:59AM -0800, Alexei Starovoitov wrote:
-> > Therefore things like memory barriers, full set of atomics are not applicable
-> > in bpf world.
-> 
-> There are still plenty of wait-free constructs one can make using them.
+Yes PowerEdge R710 is Nehalem based Intel system. thank you for the answer
 
-yes, but all such lock-free algos are typically based on cmpxchg8b and
-tight loop, so it would be very hard for verifier to proof termination
-of such loops. I think when we'd need to add something like this, we'll
-add new bpf insn that will be membarrier+cmpxhg8b+check+loop as
-a single insn, so it cannot be misused.
-I don't know of any concrete use case yet. All possible though.
-
-> Say a barrier/rendezvous construct for knowing when an event has
-> happened on all CPUs.
-> 
-> But if you really do not want any of that, I suppose that is a valid
-> choice.
-
-I do want it :) and I think in the future we'll add a bunch
-of interesting stuff. May be including things like above. I just
-don't want to rush things in just because x86 has such insn
-or because gcc has a builtin for it.
-Like we discussed adding popcnt insn. It can be useful in some cases,
-but doesn't seem to worth the pain of adding it to interpreter, JITs
-and llvm backends... as of today... May be tomorrow it will be must have.
-
-> Is even privileged (e)BPF not allowed things like this? I was thinking
-> the strict no loops stuff was for unpriv (e)BPF only.
-
-the only difference between unpriv and priv is the ability to send
-all values (including kernel addresses) to user space (like tracing
-needs to see all registers). The rest is the same.
-root should never crash the kernel as well. If we relax even little bit
-for root then the whole bpf stuff is no better than kernel module.
-
-btw, support for mini loops was requested many times in the past.
-I guess we'd have to add something like this, but it's tricky.
-Mainly because control flow graph analysis becomes much more complicated.
+On Wed, Nov 11, 2015 at 3:25 PM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On 11/11/2015 02:41 PM, Vincent Li wrote:
+>>
+>> Hi
+>>
+>> Sorry I am not sure if this is the right list to ask this question,
+>> please direct me to the correct one. thanks!
+>>
+>> I am using Intel 82599 on Dell PowerEdge R710 which should support
+>> NUMA node, the box is running ubuntu 14.01.1 LTS , I am wondering why I
+>> get NUMA socket -1.
+>
+>
+> The PowerEdge R710 is an older Nehalem based Intel system isn't it? Those
+> didn't have the PCIe controller built into the socket.  As such what you may
+> have is both sockets hanging off of one I/O Hub and if that is the case the
+> PCIe device is the same distance from either socket.  In that case it would
+> be correct for it to report -1 since either socket is the same distance.
+>
+> - Alex
