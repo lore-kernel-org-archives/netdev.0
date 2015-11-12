@@ -1,62 +1,65 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: Re: [PATCH] vhost: move is_le setup to the backend
-Date: Thu, 12 Nov 2015 13:37:14 +0100
-Message-ID: <20151112133714.58bd33dc.cornelia.huck@de.ibm.com>
-References: <20151030114235.28847.63465.stgit@bahia.huguette.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net] sctp: translate host order to network order when
+ setting a hmacid
+Date: Thu, 12 Nov 2015 08:13:01 -0500
+Message-ID: <20151112131301.GB10933@hmsreliant.think-freely.org>
+References: <8cede44279b2f01a58fa02d4bb46b40fb630563f.1447304827.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Greg Kurz <gkurz@linux.vnet.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20151030114235.28847.63465.stgit@bahia.huguette.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	marcelo.leitner@gmail.com, vyasevic@redhat.com, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46256 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751847AbbKLNNR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2015 08:13:17 -0500
+Content-Disposition: inline
+In-Reply-To: <8cede44279b2f01a58fa02d4bb46b40fb630563f.1447304827.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 30 Oct 2015 12:42:35 +0100
-Greg Kurz <gkurz@linux.vnet.ibm.com> wrote:
-
-> The vq->is_le field is used to fix endianness when accessing the vring via
-> the cpu_to_vhost16() and vhost16_to_cpu() helpers in the following cases:
+On Thu, Nov 12, 2015 at 01:07:07PM +0800, Xin Long wrote:
+> now sctp auth cannot work well when setting a hmacid manually, which
+> is caused by that we didn't use the network order for hmacid, so fix
+> it by adding the transformation in sctp_auth_ep_set_hmacs.
 > 
-> 1) host is big endian and device is modern virtio
+> even we set hmacid with the network order in userspace, it still
+> can't work, because of this condition in sctp_auth_ep_set_hmacs():
 > 
-> 2) host has cross-endian support and device is legacy virtio with a different
->    endianness than the host
+> 		if (id > SCTP_AUTH_HMAC_ID_MAX)
+> 			return -EOPNOTSUPP;
 > 
-> Both cases rely on the VHOST_SET_FEATURES ioctl, but 2) also needs the
-> VHOST_SET_VRING_ENDIAN ioctl to be called by userspace. Since vq->is_le
-> is only needed when the backend is active, it was decided to set it at
-> backend start.
+> so this wasn't working before and thus it won't break compatibility.
 > 
-> This is currently done in vhost_init_used()->vhost_init_is_le() but it
-> obfuscates the core vhost code. This patch moves the is_le setup to a
-> dedicated function that is called from the backend code.
-> 
-> Note vhost_net is the only backend that can pass vq->private_data == NULL to
-> vhost_init_used(), hence the "if (sock)" branch.
-> 
-> No behaviour change.
-> 
-> Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 > ---
->  drivers/vhost/net.c   |    6 ++++++
->  drivers/vhost/scsi.c  |    3 +++
->  drivers/vhost/test.c  |    2 ++
->  drivers/vhost/vhost.c |   12 +++++++-----
->  drivers/vhost/vhost.h |    1 +
->  5 files changed, 19 insertions(+), 5 deletions(-)
+>  net/sctp/auth.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+> index 4f15b7d..1543e39 100644
+> --- a/net/sctp/auth.c
+> +++ b/net/sctp/auth.c
+> @@ -809,8 +809,8 @@ int sctp_auth_ep_set_hmacs(struct sctp_endpoint *ep,
+>  	if (!has_sha1)
+>  		return -EINVAL;
+>  
+> -	memcpy(ep->auth_hmacs_list->hmac_ids, &hmacs->shmac_idents[0],
+> -		hmacs->shmac_num_idents * sizeof(__u16));
+> +	for (i = 0; i < hmacs->shmac_num_idents; i++)
+> +		ep->auth_hmacs_list->hmac_ids[i] = htons(hmacs->shmac_idents[i]);
+>  	ep->auth_hmacs_list->param_hdr.length = htons(sizeof(sctp_paramhdr_t) +
+>  				hmacs->shmac_num_idents * sizeof(__u16));
+>  	return 0;
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-Makes sense.
-
-Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
