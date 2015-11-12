@@ -1,63 +1,61 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] stmmac: avoid ipq806x constant overflow warning
-Date: Thu, 12 Nov 2015 21:52:30 +0100
-Message-ID: <3729464.5X0HBxzvx5@wuerfel>
-References: <4391788.dtYArQ4mVi@wuerfel> <20151112.122528.1794206832971213176.davem@davemloft.net>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net] sctp: translate host order to network order when
+ setting a hmacid
+Date: Thu, 12 Nov 2015 16:02:57 -0500
+Message-ID: <5644FE81.9070900@gmail.com>
+References: <8cede44279b2f01a58fa02d4bb46b40fb630563f.1447304827.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, mathieu@codeaurora.org,
-	peppe.cavallaro@st.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151112.122528.1794206832971213176.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: marcelo.leitner@gmail.com, vyasevic@redhat.com, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>,
+	linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f176.google.com ([209.85.160.176]:33984 "EHLO
+	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750802AbbKLVDA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2015 16:03:00 -0500
+In-Reply-To: <8cede44279b2f01a58fa02d4bb46b40fb630563f.1447304827.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 12 November 2015 12:25:28 David Miller wrote:
-> From: Arnd Bergmann <arnd@arndb.de>
-> Date: Thu, 12 Nov 2015 15:12:48 +0100
+On 11/12/2015 12:07 AM, Xin Long wrote:
+> now sctp auth cannot work well when setting a hmacid manually, which
+> is caused by that we didn't use the network order for hmacid, so fix
+> it by adding the transformation in sctp_auth_ep_set_hmacs.
 > 
-> > Building dwmac-ipq806x on a 64-bit architecture produces a harmless
-> > warning from gcc:
-> > 
-> > stmmac/dwmac-ipq806x.c: In function 'ipq806x_gmac_probe':
-> > include/linux/bitops.h:6:19: warning: overflow in implicit constant conversion [-Woverflow]
-> >   val = QSGMII_PHY_CDR_EN |
-> > stmmac/dwmac-ipq806x.c:333:8: note: in expansion of macro 'QSGMII_PHY_CDR_EN'
-> >  #define QSGMII_PHY_CDR_EN   BIT(0)
-> >  #define BIT(nr)   (1UL << (nr))
-> > 
-> > The compiler warns about the fact that a 64-bit literal is passed
-> > into a function that takes a 32-bit argument. I could not fully understand
-> > why it warns despite the fact that this number is always small enough
-> > to fit, but changing the use of BIT() macros into the equivalent hexadecimal
-> > representation avoids the warning
-> > 
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > Fixes: b1c17215d718 ("stmmac: add ipq806x glue layer")
+> even we set hmacid with the network order in userspace, it still
+> can't work, because of this condition in sctp_auth_ep_set_hmacs():
 > 
-> I've seen this warning too on x86_64 and had been meaning to look
-> into it, thanks for taking the initiative. 
+> 		if (id > SCTP_AUTH_HMAC_ID_MAX)
+> 			return -EOPNOTSUPP;
 > 
-> Moving away from using BIT() is somewhat disappointing, because we
-> want to encourage people to use these macros.
-
-Ok, I never really liked that macro, so I didn't mind removing it. ;-)
-
-I spent too much time working at IBM where all internal documentation
-uses bit numbers that call the MSB bit 0, and drivers use randomly
-either the IBM notation or the one that everyone else uses, so I always
-found the hex numbers way more intuitive.
-
-> Also I don't even understand the compiler's behavior, it's warning
-> about QSGMII_PHY_CDR_EN but if you define only that to "0x1u" it still
-> warns about QSGMII_PHY_CDR_EN.
+> so this wasn't working before and thus it won't break compatibility.
 > 
-> The warning goes away only if you change all 5 BIT() uses.
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> ---
+>  net/sctp/auth.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+> index 4f15b7d..1543e39 100644
+> --- a/net/sctp/auth.c
+> +++ b/net/sctp/auth.c
+> @@ -809,8 +809,8 @@ int sctp_auth_ep_set_hmacs(struct sctp_endpoint *ep,
+>  	if (!has_sha1)
+>  		return -EINVAL;
+>  
+> -	memcpy(ep->auth_hmacs_list->hmac_ids, &hmacs->shmac_idents[0],
+> -		hmacs->shmac_num_idents * sizeof(__u16));
+> +	for (i = 0; i < hmacs->shmac_num_idents; i++)
+> +		ep->auth_hmacs_list->hmac_ids[i] = htons(hmacs->shmac_idents[i]);
+>  	ep->auth_hmacs_list->param_hdr.length = htons(sizeof(sctp_paramhdr_t) +
+>  				hmacs->shmac_num_idents * sizeof(__u16));
+>  	return 0;
+> 
 
-Yes, I have spent the time to analyze the problem now and it all makes
-sense. A proper patch follows.
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-	Arnd
+-vlad
