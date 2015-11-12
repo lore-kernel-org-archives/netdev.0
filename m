@@ -1,38 +1,35 @@
-From: Chris Siebenmann <cks-rhbugzilla@cs.toronto.edu>
-Subject: Re: [PATCH net 1/3] ipv6: Avoid creating RTF_CACHE from a rt that is not managed by fib6 tree
-Date: Thu, 12 Nov 2015 17:01:01 -0500
-Message-ID: <20151112220101.47E8B7A080D@apps0.cs.toronto.edu>
-References: <1447271468-3930566-2-git-send-email-kafai@fb.com>
-Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>,
-	Chris Siebenmann <cks-rhbugzilla@cs.toronto.edu>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Martin KaFai Lau <kafai@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cliff.cs.toronto.edu ([128.100.3.120]:40090 "EHLO
-	cliff.cs.toronto.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752940AbbKLWRA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2015 17:17:00 -0500
-In-reply-to: kafai's message of Wed, 11 Nov 2015 11:51:06 -0800.
-             <1447271468-3930566-2-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: Is ndo_do_ioctl still acceptable?
+Date: Thu, 12 Nov 2015 23:19:06 +0100
+Message-ID: <CAHmME9pHg7iAorj22DvWKhrH4HXPne7ZBAr7X1wyR7VEkJfk8w@mail.gmail.com>
+References: <CAHmME9puHv8uaUKX4AOjEaTNN6bHqNKqvaCqubc5erk+jnDOEw@mail.gmail.com>
+	<20151112083443.48785696@xeon-e3>
+	<CAHmME9p31NYxhUeiK=S-6XmKxEBigUyiqEz3SJJrA1zNXaaXLA@mail.gmail.com>
+	<5644F6E7.4060901@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Austin S Hemmelgarn <ahferroin7@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5644F6E7.4060901@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> The original bug report:
-> https://bugzilla.redhat.com/show_bug.cgi?id=1272571
-> 
-> The setup has a IPv4 GRE tunnel running in a IPSec.  The bug
-> happens when ndisc starts sending router solicitation at the gre
-> interface.  The simplified oops stack is like:
-[...]
-> Reported-by: Chris Siebenmann <cks-rhbugzilla@cs.toronto.edu>
+On Thu, Nov 12, 2015 at 9:30 PM, Austin S Hemmelgarn
+<ahferroin7@gmail.com> wrote:
+>>
+> On the other hand, based on what you are saying about your device, it sounds
+> like you are working on some kind of cryptographically secured (either
+> authenticated or encrypted or both) tunnel, in which case the fact that
+> security is easier to handle with netlink than ioctls becomes important.  If
+> you can't ensure security of the endpoint configuration, you can't ensure
+> security of the tunnel itself.
 
- For what it's worth, this change appears to fix my issue in preliminary
-testing. I haven't actually brought it up on a production machine with a
-GRE tunnel that actually works, but the sequence of operations on my
-test machine that used to reliably oops no longer does so.
-
-(I tested this against both a quite recent upstream git pull and the
-current Fedora 22 kernel source with this patch blindly shoved in on top
-by just running 'patch'.)
-
-	- cks
+Could you substantiate these claims that "security is easier to handle
+with netlink". I've never heard this and I don't know why it'd be the
+case. Are you referring to the fact that the copy_to/from_user dance
+of ioctl opens up more potential vulnerabilities than netlink's
+abstracted validation? Or something else? Just confused here...
