@@ -1,32 +1,90 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ip_tunnel: disable preemption when updating per-cpu tstats
-Date: Thu, 12 Nov 2015 17:25:09 +0100
-Message-ID: <1447345509.2333208.438003833.012C1A95@webmail.messagingengine.com>
-References: <1447342212-5543-1-git-send-email-Jason@zx2c4.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: Is ndo_do_ioctl still acceptable?
+Date: Thu, 12 Nov 2015 08:34:43 -0800
+Message-ID: <20151112083443.48785696@xeon-e3>
+References: <CAHmME9puHv8uaUKX4AOjEaTNN6bHqNKqvaCqubc5erk+jnDOEw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-	Netdev <netdev@vger.kernel.org>,
+Cc: David Miller <davem@davemloft.net>,
 	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, tgraf@suug.ch,
-	Tom Herbert <tom@herbertland.com>,
-	Jiri Benc <jbenc@redhat.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+	Netdev <netdev@vger.kernel.org>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447342212-5543-1-git-send-email-Jason@zx2c4.com>
+In-Reply-To: <CAHmME9puHv8uaUKX4AOjEaTNN6bHqNKqvaCqubc5erk+jnDOEw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 12, 2015, at 16:30, Jason A. Donenfeld wrote:
->  	if (err > 0) {
-> -               struct pcpu_sw_netstats *tstats = this_cpu_ptr(stats);
-> -
-> +               struct pcpu_sw_netstats *tstats;
-> +               preempt_disable();
-> +               tstats = this_cpu_ptr(stats);
+On Thu, 12 Nov 2015 05:59:03 +0100
+"Jason A. Donenfeld" <Jason@zx2c4.com> wrote:
 
-The canonical way is get_cpu_ptr(stats) / put_cpu_ptr.
+> Hi David & Folks,
+> 
+> Soon I will submit a virtual tunnel device driver to LKML for review.
+> It uses rtnl_link_register to create a virtual network interface,
+> which then handles encryption, authentication, and some other things,
+> amongst various configured peers.
+> 
+> Right now the device is configurable via Netlink. It receives new
+> peers and configuration via a rtnl_link_ops->changelink function, and
+> it reports information back to userspace via a
+> rtnl_link_ops->fill_info function.
+> 
+> Configuration works fine, though it is rather cumbersome to do this
+> all via Netlink.
+> 
+> Reporting information back to userspace does not work fine. The reason
+> is that sometimes there's too much information to report back to
+> userspace than what can fit in a single preallocated Netlink skb. And
+> since rtnl_link_ops->fill_info doesn't receive any information from
+> userspace, I'm unable to use it to send back information in smaller
+> pieces.
+> 
+> I realize I could register a whole new rtnl packet family and related
+> set of functions with rtnl_register, such as what's done at the bottom
+> of `net/core/rtnetlink.c`. This is extremely cumbersome and invasive
+> though. It would require adding a new protocol family (like the
+> already existing rtnl_register-ified functions for PF_UNSPEC and
+> PF_BRIDGE), and I don't have enough clout to confidently submit a
+> patch that augments `include/linux/socket.h` with a new PF/AF define.
+> This seems very invasive and not appropriate for my driver.
+> 
+> What I'd really like to do is just implement ndo_do_ioctl. It seems to
+> me that this gives me a precise interface to do exactly what I want in
+> the cleanest and easiest to read possible way. I could have differing
+> ioctls for differing things. I could write memory back to userspace in
+> proper chunks, with the proper size. It's clear and straightforward
+> how to do it, and what the completed result looks like. It doesn't
+> require invasive changes into other parts of the kernel, as this would
+> be self-contained. It's hard to imagine a better interface to use than
+> ndo_do_ioctl.
+> 
+> But. But the word on the street is that kernel hipsters hate ioctls
+> and espouse the use of netlink everywhere with religious fervor, and
+> will burn at the stake any submissions I might send that go anywhere
+> near using ndo_do_ioctl rather than (the most likely ill-fitting for
+> the task) netlink. That, and the maintainers of the `ip` tool will be
+> upset too (even though they do already make use of several ioctls
+> instead of netlink). I'm told everybody will leer and jeer at me if I
+> use ndo_do_ioctl instead of netlink.
+> 
+> Except ndo_do_ioctl is *so* perfectly fitting here for my use case!
+> 
+> So what's the verdict on this? Do these aforementioned kernel hipsters
+> not really matter so much, and ndo_do_ioctl is actually perfectly
+> fine? Or must I really affix netlink onto my forthcoming submission?
 
-Bye,
-Hannes
+The problem is ioctl's are device specific, and therefore create dependency
+on the unique features supported by your device.
+Also doing security validation on ioctl's is much harder.
+
+The question always comes up, why is this new API not something general?
+And if you are dumping such a huge mound of information that only your driver
+could love, then why are you doing it? Is there anything in there that
+really matters? 
+
+If all you are really doing is dumping statistics then look at ethtool.
+If you are dealing with lots of virtual function devices, look how existing
+netlink info is trimmed.
+
+Don't overanalyze this.
