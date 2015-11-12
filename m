@@ -1,49 +1,46 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: translate host order to network order when setting a hmacid
-Date: Thu, 12 Nov 2015 13:07:07 +0800
-Message-ID: <8cede44279b2f01a58fa02d4bb46b40fb630563f.1447304827.git.lucien.xin@gmail.com>
-Cc: marcelo.leitner@gmail.com, vyasevic@redhat.com, davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [net-next PATCH 2/3] ixgbe: Use __dev_uc_sync
+ and __dev_uc_unsync for unicast addresses
+Date: Wed, 11 Nov 2015 21:21:42 -0800
+Message-ID: <564421E6.5020600@gmail.com>
+References: <20151022232228.24612.81341.stgit@ahduyck-vm-fedora22>
+ <20151022232636.24612.12045.stgit@ahduyck-vm-fedora22>
+ <20151111173557.6eb25df5@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33545 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751022AbbKLFHL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2015 00:07:11 -0500
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35984 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751084AbbKLFVo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2015 00:21:44 -0500
+Received: by pacdm15 with SMTP id dm15so53416502pac.3
+        for <netdev@vger.kernel.org>; Wed, 11 Nov 2015 21:21:44 -0800 (PST)
+In-Reply-To: <20151111173557.6eb25df5@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-now sctp auth cannot work well when setting a hmacid manually, which
-is caused by that we didn't use the network order for hmacid, so fix
-it by adding the transformation in sctp_auth_ep_set_hmacs.
+On 11/11/2015 05:35 PM, Stephen Hemminger wrote:
+> On Thu, 22 Oct 2015 16:26:36 -0700
+> Alexander Duyck <aduyck@mirantis.com> wrote:
+>
+>> +static int ixgbe_uc_unsync(struct net_device *netdev, const unsigned char *addr)
+>> +{
+>> +	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+>> +
+>> +	ixgbe_del_mac_filter(adapter, addr, VMDQ_P(0));
+>> +
+>> +	return 0;
+> Why add an internal function that always returns 0?
+> Rather than making it void.
 
-even we set hmacid with the network order in userspace, it still
-can't work, because of this condition in sctp_auth_ep_set_hmacs():
+Because the function pointer is passed to the __dev_uc_sync call and it 
+requires a return value on the unsync function.  Basically if we 
+returned an error it would delay flushing the address from the device 
+until we could complete the call successfully, or __dev_uc_unsysnc was 
+called without a function pointer.
 
-		if (id > SCTP_AUTH_HMAC_ID_MAX)
-			return -EOPNOTSUPP;
-
-so this wasn't working before and thus it won't break compatibility.
-
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/sctp/auth.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/sctp/auth.c b/net/sctp/auth.c
-index 4f15b7d..1543e39 100644
---- a/net/sctp/auth.c
-+++ b/net/sctp/auth.c
-@@ -809,8 +809,8 @@ int sctp_auth_ep_set_hmacs(struct sctp_endpoint *ep,
- 	if (!has_sha1)
- 		return -EINVAL;
- 
--	memcpy(ep->auth_hmacs_list->hmac_ids, &hmacs->shmac_idents[0],
--		hmacs->shmac_num_idents * sizeof(__u16));
-+	for (i = 0; i < hmacs->shmac_num_idents; i++)
-+		ep->auth_hmacs_list->hmac_ids[i] = htons(hmacs->shmac_idents[i]);
- 	ep->auth_hmacs_list->param_hdr.length = htons(sizeof(sctp_paramhdr_t) +
- 				hmacs->shmac_num_idents * sizeof(__u16));
- 	return 0;
--- 
-2.1.0
+- Alex
