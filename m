@@ -1,43 +1,76 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
- hierarchy
-Date: Thu, 12 Nov 2015 14:12:20 -0500
-Message-ID: <20151112191220.GA25750@cmpxchg.org>
-References: <20151029152546.GG23598@dhcp22.suse.cz>
- <20151029161009.GA9160@cmpxchg.org>
- <20151104104239.GG29607@dhcp22.suse.cz>
- <20151104195037.GA6872@cmpxchg.org>
- <20151105144002.GB15111@dhcp22.suse.cz>
- <20151105205522.GA1067@cmpxchg.org>
- <20151105225200.GA5432@cmpxchg.org>
- <20151106105724.GG4390@dhcp22.suse.cz>
- <20151106161953.GA7813@cmpxchg.org>
- <20151112183620.GC14880@techsingularity.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: at803x: support interrupt on 8030 and 8035
+Date: Thu, 12 Nov 2015 11:14:56 -0800
+Message-ID: <5644E530.7010101@gmail.com>
+References: <1447350020-27969-1-git-send-email-mans@mansr.com> <5644E32F.6010104@free.fr> <E36D31CC-04BA-4BE5-83C5-DE3264B617D4@mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michal Hocko <mhocko@kernel.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	vdavydov@virtuozzo.com, tj@kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Mel Gorman <mgorman@techsingularity.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151112183620.GC14880@techsingularity.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>,
+	Mason <slash.tmp@free.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34824 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752834AbbKLTPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2015 14:15:53 -0500
+In-Reply-To: <E36D31CC-04BA-4BE5-83C5-DE3264B617D4@mansr.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 12, 2015 at 06:36:20PM +0000, Mel Gorman wrote:
-> Bottom line, there is legimate confusion over whether cgroup controllers
-> are going to be enabled by default or not in the future. If they are
-> enabled by default, there is a non-zero cost to that and a change in
-> semantics that people may or may not be surprised by.
+On 12/11/15 11:09, M=C3=A5ns Rullg=C3=A5rd wrote:
+> On 12 November 2015 19:06:23 GMT+00:00, Mason <slash.tmp@free.fr> wro=
+te:
+>> On 12/11/2015 18:40, Mans Rullgard wrote:
+>>> Commit 77a993942 "phy/at8031: enable at8031 to work on interrupt
+>> mode"
+>>> added interrupt support for the 8031 PHY but left out the other two
+>>> chips supported by this driver.
+>>>
+>>> This patch sets the .ack_interrupt and .config_intr functions for t=
+he
+>>> 8030 and 8035 drivers as well.
+>>>
+>>> Signed-off-by: Mans Rullgard <mans@mansr.com>
+>>> ---
+>>> I have only tested this with an 8035.  I can't find a datasheet for
+>>> the 8030, but since 8031, 8032, and 8035 all have the same register
+>>> layout, there's a good chance 8030 does as well.
+>>> ---
+>>>  drivers/net/phy/at803x.c | 4 ++++
+>>>  1 file changed, 4 insertions(+)
+>>>
+>>> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+>>> index fabf11d..2d020a3 100644
+>>> --- a/drivers/net/phy/at803x.c
+>>> +++ b/drivers/net/phy/at803x.c
+>>> @@ -308,6 +308,8 @@ static struct phy_driver at803x_driver[] =3D {
+>>>  	.flags			=3D PHY_HAS_INTERRUPT,
+>>>  	.config_aneg		=3D genphy_config_aneg,
+>>>  	.read_status		=3D genphy_read_status,
+>>> +	.ack_interrupt		=3D at803x_ack_interrupt,
+>>> +	.config_intr		=3D at803x_config_intr,
+>>>  	.driver			=3D {
+>>>  		.owner =3D THIS_MODULE,
+>>>  	},
+>>> @@ -327,6 +329,8 @@ static struct phy_driver at803x_driver[] =3D {
+>>>  	.flags			=3D PHY_HAS_INTERRUPT,
+>>>  	.config_aneg		=3D genphy_config_aneg,
+>>>  	.read_status		=3D genphy_read_status,
+>>> +	.ack_interrupt		=3D at803x_ack_interrupt,
+>>> +	.config_intr		=3D at803x_config_intr,
+>>>  	.driver			=3D {
+>>>  		.owner =3D THIS_MODULE,
+>>>  	},
+>>
+>> Shouldn't we take the opportunity to clean up the duplicated registe=
+r
+>> definitions? (I'll send an informal patch to spur discussion.)
+>>
+>> Regards.
+>=20
+> That can be done independently. Feel free to send a patch.
 
-Thanks for elaborating, Mel.
-
-My understanding is that this is a plain bug. I don't think anybody
-wants to put costs without benefits on their users.
-
-But I'll keep an eye on these reports, and I'll work with the systemd
-people should issues with the kernel interface materialize that would
-force them to enable resource control prematurely.
+Agreed, that deserve a separate patch.
+--=20
+=46lorian
