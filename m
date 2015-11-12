@@ -1,36 +1,61 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] bonding: Offloading bonds to hardware
-Date: Thu, 12 Nov 2015 18:08:01 +0100
-Message-ID: <20151112170801.GG20177@lunn.ch>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9A9FD653@SJEXCHMB14.corp.ad.broadcom.com>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [linux-4.4-mw] BUG: unable to handle kernel paging request
+ =?UTF-8?Q?ip=5Fvs=5Fout=2Econstprop?=
+Date: Thu, 12 Nov 2015 18:12:03 +0100
+Message-ID: <fef480295a9499b1990ca881316516d6@eikelenboom.it>
+References: <06dc952f98f54da2c4d85b31e5fa9826@eikelenboom.it>
+ <1447337353.22599.14.camel@edumazet-glaptop2.roam.corp.google.com>
+ <b95f4a06d7d9b13849ad277128690436@eikelenboom.it>
+ <1447347146.22599.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Premkumar Jonnala <pjonnala@broadcom.com>
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:60232 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750824AbbKLRIE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Nov 2015 12:08:04 -0500
-Content-Disposition: inline
-In-Reply-To: <77EF4405DD4BB54AACCE7DB593DF6A9A9FD653@SJEXCHMB14.corp.ad.broadcom.com>
+Received: from vserver.eikelenboom.it ([84.200.39.61]:57806 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752802AbbKLROR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2015 12:14:17 -0500
+In-Reply-To: <1447347146.22599.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 12, 2015 at 04:02:18PM +0000, Premkumar Jonnala wrote:
-> Packet forwarding to/from bond interfaces is done in software.
+On 2015-11-12 17:52, Eric Dumazet wrote:
+> On Thu, 2015-11-12 at 16:16 +0100, Sander Eikelenboom wrote:
 > 
-> This patch enables certain platforms to bridge traffic to/from
-> bond interfaces in hardware.  Notifications are sent out when 
-> the "active" slave set for a bond interface is updated in 
-> software.  Platforms use the notifications to program the 
-> hardware accordingly.  The changes have been verified to work 
-> with configured and 802.3ad bond interfaces.
+>> > Thanks for the report, please try following patch :
+>> 
+>> Hi Eric,
+>> 
+>> Thanks for the patch!
+>> Got it up and running at the moment, but since i don't have a clear
+>> trigger it
+>> will take 1 or 2 days before i can report something back.
+> 
+> Don't worry, I have a pretty good picture of the bug and patch must fix
+> it.
+> 
+> I'll submit it formally asap.
 
-Hi Premkumar
+Ok.
 
-Nice to see this. Do you also have patches for a switch using these
-notification? Are you targeting Starfighter 2?
+Do you know were these new warnings are for ?
+(apparently all networking including bridging works fine, so is this 
+just too verbose logging ?)
 
-Thanks
-	Andrew
+[  207.033768] vif vif-1-0 vif1.0: set_features() failed (-1); wanted
+0x0000000400004803, left 0x0000000400114813
+[  207.033780] vif vif-1-0 vif1.0: set_features() failed (-1); wanted
+0x0000000400004803, left 0x0000000400114813
+[  207.245435] xen_bridge: error setting offload STP state on port
+1(vif1.0)
+[  207.245442] vif vif-1-0 vif1.0: failed to set HW ageing time
+[  207.245443] xen_bridge: error setting offload STP state on port
+1(vif1.0)
+[  207.245491] vif vif-1-0 vif1.0: set_features() failed (-1); wanted
+0x0000000400004803, left 0x0000000400114813
+
+--
+Sander
