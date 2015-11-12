@@ -1,57 +1,62 @@
-From: William Dauchy <william@gandi.net>
-Subject: Re: [Intel-wired-lan] regression in ixgbe SFP detection patch
-Date: Thu, 12 Nov 2015 13:22:57 +0100
-Message-ID: <20151112122257.GE3641@gandi.net>
-References: <20151111173527.GA3641@gandi.net>
- <87618083B2453E4A8714035B62D67992504DF0AA@FMSMSX105.amr.corp.intel.com>
- <424516AF-C3E7-4D00-8889-ED7EA8EF315E@intel.com>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH] vhost: move is_le setup to the backend
+Date: Thu, 12 Nov 2015 13:37:14 +0100
+Message-ID: <20151112133714.58bd33dc.cornelia.huck@de.ibm.com>
+References: <20151030114235.28847.63465.stgit@bahia.huguette.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="MIdTMoZhcV1D07fI"
-Cc: William Dauchy <william@gandi.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>
-To: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.gandi.net ([217.70.183.210]:52350 "EHLO gandi.net"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754489AbbKLMXA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Nov 2015 07:23:00 -0500
-Content-Disposition: inline
-In-Reply-To: <424516AF-C3E7-4D00-8889-ED7EA8EF315E@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Greg Kurz <gkurz@linux.vnet.ibm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20151030114235.28847.63465.stgit@bahia.huguette.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, 30 Oct 2015 12:42:35 +0100
+Greg Kurz <gkurz@linux.vnet.ibm.com> wrote:
 
---MIdTMoZhcV1D07fI
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> The vq->is_le field is used to fix endianness when accessing the vring via
+> the cpu_to_vhost16() and vhost16_to_cpu() helpers in the following cases:
+> 
+> 1) host is big endian and device is modern virtio
+> 
+> 2) host has cross-endian support and device is legacy virtio with a different
+>    endianness than the host
+> 
+> Both cases rely on the VHOST_SET_FEATURES ioctl, but 2) also needs the
+> VHOST_SET_VRING_ENDIAN ioctl to be called by userspace. Since vq->is_le
+> is only needed when the backend is active, it was decided to set it at
+> backend start.
+> 
+> This is currently done in vhost_init_used()->vhost_init_is_le() but it
+> obfuscates the core vhost code. This patch moves the is_le setup to a
+> dedicated function that is called from the backend code.
+> 
+> Note vhost_net is the only backend that can pass vq->private_data == NULL to
+> vhost_init_used(), hence the "if (sock)" branch.
+> 
+> No behaviour change.
+> 
+> Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
+> ---
+>  drivers/vhost/net.c   |    6 ++++++
+>  drivers/vhost/scsi.c  |    3 +++
+>  drivers/vhost/test.c  |    2 ++
+>  drivers/vhost/vhost.c |   12 +++++++-----
+>  drivers/vhost/vhost.h |    1 +
+>  5 files changed, 19 insertions(+), 5 deletions(-)
 
-On Nov11 22:13, Rustad, Mark D wrote:
-> Just so you know, there are patches in queue that will improve this situa=
-tion in two ways:
-> 1) When the I2C probe times out, the code assumes that the cage is empty =
-and does not retry the access until the next probe.
-> 2) The driver will use its own private workqueue, so it will not affect t=
-he system workqueues at all.
+Makes sense.
 
-Thanks guys for the details,  I will have a look.
---=20
-William
-
---MIdTMoZhcV1D07fI
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlZEhKEACgkQ1I6eqOUidQHpGgCghjBQ5/6bmlinp4C6Ah+B+zw6
-lGQAn1w1LxEInaoNK01/+6ZRNOlWt4Kx
-=wcNA
------END PGP SIGNATURE-----
-
---MIdTMoZhcV1D07fI--
+Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
