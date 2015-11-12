@@ -1,46 +1,92 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Is ndo_do_ioctl still acceptable?
-Date: Thu, 12 Nov 2015 14:27:17 -0800
-Message-ID: <20151112142717.7144e931@xeon-e3>
-References: <CAHmME9puHv8uaUKX4AOjEaTNN6bHqNKqvaCqubc5erk+jnDOEw@mail.gmail.com>
-	<20151112083443.48785696@xeon-e3>
-	<CAHmME9p31NYxhUeiK=S-6XmKxEBigUyiqEz3SJJrA1zNXaaXLA@mail.gmail.com>
-	<5644F6E7.4060901@gmail.com>
-	<CAHmME9pHg7iAorj22DvWKhrH4HXPne7ZBAr7X1wyR7VEkJfk8w@mail.gmail.com>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH] net: phy: at803x: support interrupt on 8030 and 8035
+Date: Thu, 12 Nov 2015 22:28:36 +0000
+Message-ID: <yw1xoaeylunf.fsf@unicorn.mansr.com>
+References: <1447350020-27969-1-git-send-email-mans@mansr.com>
+	<5644E32F.6010104@free.fr>
+	<E36D31CC-04BA-4BE5-83C5-DE3264B617D4@mansr.com>
+	<5644E530.7010101@gmail.com> <56450F33.2000504@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Austin S Hemmelgarn <ahferroin7@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Mason <slash.tmp@free.fr>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9pHg7iAorj22DvWKhrH4HXPne7ZBAr7X1wyR7VEkJfk8w@mail.gmail.com>
+In-Reply-To: <56450F33.2000504@free.fr> (Mason's message of "Thu, 12 Nov 2015
+	23:14:11 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Nov 2015 23:19:06 +0100
-"Jason A. Donenfeld" <Jason@zx2c4.com> wrote:
+Mason <slash.tmp@free.fr> writes:
 
-> On Thu, Nov 12, 2015 at 9:30 PM, Austin S Hemmelgarn
-> <ahferroin7@gmail.com> wrote:
-> >>
-> > On the other hand, based on what you are saying about your device, it sounds
-> > like you are working on some kind of cryptographically secured (either
-> > authenticated or encrypted or both) tunnel, in which case the fact that
-> > security is easier to handle with netlink than ioctls becomes important.  If
-> > you can't ensure security of the endpoint configuration, you can't ensure
-> > security of the tunnel itself.
-> 
-> Could you substantiate these claims that "security is easier to handle
-> with netlink". I've never heard this and I don't know why it'd be the
-> case. Are you referring to the fact that the copy_to/from_user dance
-> of ioctl opens up more potential vulnerabilities than netlink's
-> abstracted validation? Or something else? Just confused here...
+> On 12/11/2015 20:14, Florian Fainelli wrote:
+>> On 12/11/15 11:09, M=E5ns Rullg=E5rd wrote:
+>>> On 12 November 2015 19:06:23 GMT+00:00, Mason wrote:
+>>>> On 12/11/2015 18:40, Mans Rullgard wrote:
+>>>>> Commit 77a993942 "phy/at8031: enable at8031 to work on interrupt =
+mode"
+>>>>> added interrupt support for the 8031 PHY but left out the other t=
+wo
+>>>>> chips supported by this driver.
+>>>>>
+>>>>> This patch sets the .ack_interrupt and .config_intr functions for=
+ the
+>>>>> 8030 and 8035 drivers as well.
+>>>>>
+>>>>> Signed-off-by: Mans Rullgard <mans@mansr.com>
+>>>>> ---
+>>>>> I have only tested this with an 8035.  I can't find a datasheet f=
+or
+>>>>> the 8030, but since 8031, 8032, and 8035 all have the same regist=
+er
+>>>>> layout, there's a good chance 8030 does as well.
+>>>>> ---
+>>>>>  drivers/net/phy/at803x.c | 4 ++++
+>>>>>  1 file changed, 4 insertions(+)
+>>>>>
+>>>>> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+>>>>> index fabf11d..2d020a3 100644
+>>>>> --- a/drivers/net/phy/at803x.c
+>>>>> +++ b/drivers/net/phy/at803x.c
+>>>>> @@ -308,6 +308,8 @@ static struct phy_driver at803x_driver[] =3D =
+{
+>>>>>  	.flags			=3D PHY_HAS_INTERRUPT,
+>>>>>  	.config_aneg		=3D genphy_config_aneg,
+>>>>>  	.read_status		=3D genphy_read_status,
+>>>>> +	.ack_interrupt		=3D at803x_ack_interrupt,
+>>>>> +	.config_intr		=3D at803x_config_intr,
+>>>>>  	.driver			=3D {
+>>>>>  		.owner =3D THIS_MODULE,
+>>>>>  	},
+>>>>> @@ -327,6 +329,8 @@ static struct phy_driver at803x_driver[] =3D =
+{
+>>>>>  	.flags			=3D PHY_HAS_INTERRUPT,
+>>>>>  	.config_aneg		=3D genphy_config_aneg,
+>>>>>  	.read_status		=3D genphy_read_status,
+>>>>> +	.ack_interrupt		=3D at803x_ack_interrupt,
+>>>>> +	.config_intr		=3D at803x_config_intr,
+>>>>>  	.driver			=3D {
+>>>>>  		.owner =3D THIS_MODULE,
+>>>>>  	},
+>>>>
+>>>> Shouldn't we take the opportunity to clean up the duplicated regis=
+ter
+>>>> definitions? (I'll send an informal patch to spur discussion.)
+>>>>
+>>>> Regards.
+>>>
+>>> That can be done independently. Feel free to send a patch.
+>>=20
+>> Agreed, that deserve a separate patch.
+>
+> Isn't there a problem when at803x_set_wol() sets the AT803X_WOL_ENABL=
+E
+> bit, but a DISABLE/ENABLE cycle through at803x_config_intr() will
+> discard that bit?
 
-It means that with netlink it possible to checks on field types and lengths
-in generic manner. Ioctl's have the whole compat mess to deal with.
-Also when using seccomp it is possible to write code to look at netlink
-messages. With ioctl's that is much more difficult especially since the
-same ioctl may have different meanings for each device type.
+Possibly, but fixing that should be yet another patch.
+
+--=20
+M=E5ns Rullg=E5rd
+mans@mansr.com
