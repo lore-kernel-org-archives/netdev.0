@@ -1,28 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/10] Netfilter fixes for net
-Date: Thu, 12 Nov 2015 14:20:06 -0500 (EST)
-Message-ID: <20151112.142006.2125441817641815067.davem@davemloft.net>
-References: <1447263223-22662-1-git-send-email-pablo@netfilter.org>
+From: "Shi, Yang" <yang.shi@linaro.org>
+Subject: Re: [PATCH 1/2] arm64: bpf: add 'store immediate' instruction
+Date: Thu, 12 Nov 2015 11:33:15 -0800
+Message-ID: <5644E97B.6050203@linaro.org>
+References: <1447195301-16757-1-git-send-email-yang.shi@linaro.org> <1447195301-16757-2-git-send-email-yang.shi@linaro.org> <CABg9mct-_AF9+kvZ0OG_JTMHkfj+OEsR2vonrxF=yD-yA6ihQw@mail.gmail.com> <20151111121256.GI9562@arm.com> <20151111123955.GK9562@arm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1447263223-22662-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: Alexei Starovoitov <ast@kernel.org>, daniel@iogearbox.net,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Xi Wang <xi.wang@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	linaro-kernel@lists.linaro.org
+To: Will Deacon <will.deacon@arm.com>, Z Lim <zlim.lnx@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151111123955.GK9562@arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Wed, 11 Nov 2015 18:33:33 +0100
+On 11/11/2015 4:39 AM, Will Deacon wrote:
+> On Wed, Nov 11, 2015 at 12:12:56PM +0000, Will Deacon wrote:
+>> On Tue, Nov 10, 2015 at 06:45:39PM -0800, Z Lim wrote:
+>>> On Tue, Nov 10, 2015 at 2:41 PM, Yang Shi <yang.shi@linaro.org> wrote:
+>>>> aarch64 doesn't have native store immediate instruction, such operation
+>>>
+>>> Actually, aarch64 does have "STR (immediate)". For arm64 JIT, we can
+>>> consider using it as an optimization.
+>>
+>> Yes, I'd definitely like to see that in preference to moving via a
+>> temporary register.
+>
+> Wait a second, we're both talking rubbish here :) The STR (immediate)
+> form is referring to the addressing mode, whereas this patch wants to
+> store an immediate value to memory, which does need moving to a register
+> first.
 
-> The following patchset contains Netfilter fixes for your net tree. This
-> large batch that includes fixes for ipset, netfilter ingress, nf_tables
-> dynamic set instantiation and a longstanding Kconfig dependency problem.
-> More specifically, they are:
- ...
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+Yes, the immediate means immediate offset for addressing index. Doesn't 
+mean to store immediate to memory.
 
-Pulled, thanks a lot Pablo.
+I don't think any load-store architecture has store immediate instruction.
+
+Thanks,
+Yang
+
+>
+> So the original patch is fine.
+>
+> Will
+>
