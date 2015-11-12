@@ -1,74 +1,63 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [linux-4.4-mw] BUG: unable to handle kernel paging request
- ip_vs_out.constprop
-Date: Thu, 12 Nov 2015 22:39:47 +0200
-Message-ID: <20151112203947.GA8113@colbert.Home>
-References: <06dc952f98f54da2c4d85b31e5fa9826@eikelenboom.it>
- <1447337353.22599.14.camel@edumazet-glaptop2.roam.corp.google.com>
- <b95f4a06d7d9b13849ad277128690436@eikelenboom.it>
- <1447347146.22599.22.camel@edumazet-glaptop2.roam.corp.google.com>
- <fef480295a9499b1990ca881316516d6@eikelenboom.it>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] stmmac: avoid ipq806x constant overflow warning
+Date: Thu, 12 Nov 2015 21:52:30 +0100
+Message-ID: <3729464.5X0HBxzvx5@wuerfel>
+References: <4391788.dtYArQ4mVi@wuerfel> <20151112.122528.1794206832971213176.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
-	<netfilter-devel@vger.kernel.org>
-To: Sander Eikelenboom <linux@eikelenboom.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0064.outbound.protection.outlook.com ([157.56.112.64]:22701
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751035AbbKLUj4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Nov 2015 15:39:56 -0500
-Content-Disposition: inline
-In-Reply-To: <fef480295a9499b1990ca881316516d6@eikelenboom.it>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, mathieu@codeaurora.org,
+	peppe.cavallaro@st.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151112.122528.1794206832971213176.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Nov 12, 2015 at 07:12:03PM IST, linux@eikelenboom.it wrote:
->On 2015-11-12 17:52, Eric Dumazet wrote:
->> On Thu, 2015-11-12 at 16:16 +0100, Sander Eikelenboom wrote:
->> 
->>> > Thanks for the report, please try following patch :
->>> 
->>> Hi Eric,
->>> 
->>> Thanks for the patch!
->>> Got it up and running at the moment, but since i don't have a clear
->>> trigger it
->>> will take 1 or 2 days before i can report something back.
->> 
->> Don't worry, I have a pretty good picture of the bug and patch must fix
->> it.
->> 
->> I'll submit it formally asap.
->
->Ok.
->
->Do you know were these new warnings are for ?
->(apparently all networking including bridging works fine, so is this 
->just too verbose logging ?)
+On Thursday 12 November 2015 12:25:28 David Miller wrote:
+> From: Arnd Bergmann <arnd@arndb.de>
+> Date: Thu, 12 Nov 2015 15:12:48 +0100
+> 
+> > Building dwmac-ipq806x on a 64-bit architecture produces a harmless
+> > warning from gcc:
+> > 
+> > stmmac/dwmac-ipq806x.c: In function 'ipq806x_gmac_probe':
+> > include/linux/bitops.h:6:19: warning: overflow in implicit constant conversion [-Woverflow]
+> >   val = QSGMII_PHY_CDR_EN |
+> > stmmac/dwmac-ipq806x.c:333:8: note: in expansion of macro 'QSGMII_PHY_CDR_EN'
+> >  #define QSGMII_PHY_CDR_EN   BIT(0)
+> >  #define BIT(nr)   (1UL << (nr))
+> > 
+> > The compiler warns about the fact that a 64-bit literal is passed
+> > into a function that takes a 32-bit argument. I could not fully understand
+> > why it warns despite the fact that this number is always small enough
+> > to fit, but changing the use of BIT() macros into the equivalent hexadecimal
+> > representation avoids the warning
+> > 
+> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> > Fixes: b1c17215d718 ("stmmac: add ipq806x glue layer")
+> 
+> I've seen this warning too on x86_64 and had been meaning to look
+> into it, thanks for taking the initiative. 
+> 
+> Moving away from using BIT() is somewhat disappointing, because we
+> want to encourage people to use these macros.
 
-Yes, I think I do. I can send a patch tomorrow morning unless someone
-beats me to it.
+Ok, I never really liked that macro, so I didn't mind removing it. ;-)
 
-Thanks for reporting!
+I spent too much time working at IBM where all internal documentation
+uses bit numbers that call the MSB bit 0, and drivers use randomly
+either the IBM notation or the one that everyone else uses, so I always
+found the hex numbers way more intuitive.
 
->
->[  207.033768] vif vif-1-0 vif1.0: set_features() failed (-1); wanted
->0x0000000400004803, left 0x0000000400114813
->[  207.033780] vif vif-1-0 vif1.0: set_features() failed (-1); wanted
->0x0000000400004803, left 0x0000000400114813
->[  207.245435] xen_bridge: error setting offload STP state on port
->1(vif1.0)
->[  207.245442] vif vif-1-0 vif1.0: failed to set HW ageing time
->[  207.245443] xen_bridge: error setting offload STP state on port
->1(vif1.0)
->[  207.245491] vif vif-1-0 vif1.0: set_features() failed (-1); wanted
->0x0000000400004803, left 0x0000000400114813
->
->--
->Sander
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Also I don't even understand the compiler's behavior, it's warning
+> about QSGMII_PHY_CDR_EN but if you define only that to "0x1u" it still
+> warns about QSGMII_PHY_CDR_EN.
+> 
+> The warning goes away only if you change all 5 BIT() uses.
+
+Yes, I have spent the time to analyze the problem now and it all makes
+sense. A proper patch follows.
+
+	Arnd
