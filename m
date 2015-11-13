@@ -1,96 +1,42 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next 04/17] drivers/net/intel: use napi_complete_done()
-Date: Fri, 13 Nov 2015 10:49:54 -0800
-Message-ID: <564630D2.4020307@gmail.com>
-References: <1444945404-30654-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1444945404-30654-5-git-send-email-jeffrey.t.kirsher@intel.com>
- <1447391896.22599.36.camel@edumazet-glaptop2.roam.corp.google.com>
- <56460A86.2000501@gmail.com>
- <1447433362.22599.43.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH 00/10] Netfilter fixes for net
+Date: Fri, 13 Nov 2015 19:52:58 +0100 (CET)
+Message-ID: <alpine.DEB.2.10.1511131951410.29408@blackhole.kfki.hu>
+References: <1447263223-22662-1-git-send-email-pablo@netfilter.org> <CA+5PVA7bbnn+29+pc-JwXDUtNn36Eab0K7U1hOY09hf3T-7q1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Josh Boyer <jwboyer@fedoraproject.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:34183 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754732AbbKMSt4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 13:49:56 -0500
-Received: by padhx2 with SMTP id hx2so107829897pad.1
-        for <netdev@vger.kernel.org>; Fri, 13 Nov 2015 10:49:55 -0800 (PST)
-In-Reply-To: <1447433362.22599.43.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtp-in.kfki.hu ([148.6.0.26]:57024 "EHLO smtp1.kfki.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754969AbbKMSvU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Nov 2015 13:51:20 -0500
+In-Reply-To: <CA+5PVA7bbnn+29+pc-JwXDUtNn36Eab0K7U1hOY09hf3T-7q1Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/13/2015 08:49 AM, Eric Dumazet wrote:
-> On Fri, 2015-11-13 at 08:06 -0800, Alexander Duyck wrote:
->
->> Yes, I'm pretty certain you cannot use this napi_complete_done with
->> anything that support busy poll sockets.  The problem is you need to
->> flush any existing lists before yielding to the socket polling in order
->> to avoid packet ordering issues between the NAPI polling routine and the
->> socket polling routine.
-> My plan is to make busy poll independent of GRO / RPS / RFS, and generic
-> if possible, for all NAPI drivers. (No need to absolutely provide
-> ndo_busy_poll()
->
-> I really do not see GRO being a problem for low latency : RPC messages
-> are terminated by PSH flag that take care of flushing GRO engine.
+On Fri, 13 Nov 2015, Josh Boyer wrote:
 
-Right.  I wasn't thinking so much about GRO delaying the frames as the 
-fact that ixgbe will call netif_receive_skb if busy polling instead of 
-napi_gro_receive.  So you might have frames left in the GRO list that 
-would get bypassed if pulled out during busy polling.
+> On Wed, Nov 11, 2015 at 12:33 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> > Jozsef Kadlecsik (3):
+> >       netfilter: ipset: Fix extension alignment
+> >       netfilter: ipset: Fix hash:* type expiration
+> >       netfilter: ipset: Fix hash type expire: release empty hash bucket block
+> 
+> Should these three go to stable?  We've had reports in Fedora about
+> ipset crashing on e.g. ARM architectures with 4.2.y kernels.  If not
+> all three, then perhaps just the alignment fix?
 
-> For mixed use, (low latency and other kind of flows), GRO is a win.
+Yes, those should definitely go to stable, at least the first two ones.
 
-Agreed.
-
-> With the following sk_busy_loop() , we :
->
-> - allow tunneling traffic to use busy poll as well as native traffic.
-> - allow RFS/RPS being used (sending IPI to other cpus if needed)
-> - use the 'lets burn cpu cycles' to do useful work (like TX completions, RCU callbacks...)
-> - Implement busy poll for all NAPI drivers.
->
->          rcu_read_lock();
->          napi = napi_by_id(sk->sk_napi_id);
->          if (!napi)
->                  goto out;
->          ops = napi->dev->netdev_ops;
->
->          for (;;) {
->                  local_bh_disable();
->                  rc = 0;
->                  if (ops->ndo_busy_poll) {
->                          rc = ops->ndo_busy_poll(napi);
->                  } else if (napi_schedule_prep(napi)) {
->                          rc = napi->poll(napi, 4);
->                          if (rc == 4) {
->                                  napi_complete_done(napi, rc);
->                                  napi_schedule(napi);
->                          }
->                  }
->                  if (rc > 0)
->                          NET_ADD_STATS_BH(sock_net(sk),
->                                           LINUX_MIB_BUSYPOLLRXPACKETS, rc);
->                  local_bh_enable();
->
->                  if (rc == LL_FLUSH_FAILED ||
->                      nonblock ||
->                      !skb_queue_empty(&sk->sk_receive_queue) ||
->                      need_resched() ||
->                      busy_loop_timeout(end_time))
->                          break;
->
->                  cpu_relax();
->          }
->          rcu_read_unlock();
-
-Sounds good.
-
-- Alex
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
