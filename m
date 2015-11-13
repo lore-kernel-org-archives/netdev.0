@@ -1,40 +1,43 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net] be2net: check properly status in lancer_cmd_get_file_len()
-Date: Fri, 13 Nov 2015 10:52:41 +0100
-Message-ID: <1447408361-7498-1-git-send-email-ivecera@redhat.com>
-Cc: sriharsha.basavapatna@avagotech.com, sathya.perla@avagotech.com,
-	ajit.khaparde@avagotech.com, padmanabh.ratnakar@avagotech.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21380 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754748AbbKMJwo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Nov 2015 04:52:44 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH] net: phy: vitesse: add support for VSC8601
+Date: Fri, 13 Nov 2015 10:06:19 +0000
+Message-ID: <yw1xk2pmkyck.fsf@unicorn.mansr.com>
+References: <1447353672-4365-1-git-send-email-mans@mansr.com>
+	<5645A48E.9090402@free.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Mason <slash.tmp@free.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5645A48E.9090402@free.fr> (Mason's message of "Fri, 13 Nov 2015
+	09:51:26 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The lancer_cmd_get_file_len() calls lancer_cmd_read_object() to get
-the current size of registers for ethtool registers dump. The size
-is stored in data_read but only when the returned status is 0 otherwise
-it is uninitialized thus random.
+Mason <slash.tmp@free.fr> writes:
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/emulex/benet/be_ethtool.c | 2 ++
- 1 file changed, 2 insertions(+)
+> On 12/11/2015 19:41, Mans Rullgard wrote:
+>
+>> +	.phy_id         =3D PHY_ID_VSC8601,
+>> +	.name           =3D "Vitesse VSC8601",
+>> +	.phy_id_mask    =3D 0x000ffff0,
+>> +	.features       =3D PHY_GBIT_FEATURES,
+>> +	.flags          =3D PHY_HAS_INTERRUPT,
+>> +	.config_init    =3D &genphy_config_init,
+>> +	.config_aneg    =3D &genphy_config_aneg,
+>> +	.read_status    =3D &genphy_read_status,
+>> +	.ack_interrupt  =3D &vsc824x_ack_interrupt,
+>> +	.config_intr    =3D &vsc82xx_config_intr,
+>
+> I expected Documentation/CodingStyle to forbid taking the address
+> of functions.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index f4cb8e4..26b6192 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -248,6 +248,8 @@ static u32 lancer_cmd_get_file_len(struct be_adapter *adapter, u8 *file_name)
- 	status = lancer_cmd_read_object(adapter, &data_len_cmd, 0, 0,
- 					file_name, &data_read, &eof,
- 					&addn_status);
-+	if (status)
-+		return 0;
- 
- 	return data_read;
- }
--- 
-2.4.10
+I can't find anything to that effect.  That said, it's not something I
+would normally do, but all the other phy_driver entries in that file
+look like that.
+
+--=20
+M=E5ns Rullg=E5rd
+mans@mansr.com
