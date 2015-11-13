@@ -1,39 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 06/14] net: tcp_memcontrol: remove dead per-memcg count
- of allocated sockets
-Date: Fri, 13 Nov 2015 11:01:37 -0500 (EST)
-Message-ID: <20151113.110137.1839985112517581850.davem@davemloft.net>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
-	<1447371693-25143-7-git-send-email-hannes@cmpxchg.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next 04/17] drivers/net/intel: use napi_complete_done()
+Date: Fri, 13 Nov 2015 08:06:30 -0800
+Message-ID: <56460A86.2000501@gmail.com>
+References: <1444945404-30654-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1444945404-30654-5-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1447391896.22599.36.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, vdavydov@virtuozzo.com, tj@kernel.org,
- mhocko@suse.cz, netdev@vger.kernel.org, linux-mm@kvack.org,
- cgroups@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-team@fb.com
-To: hannes@cmpxchg.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1447371693-25143-7-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:36326 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932151AbbKMQGc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 11:06:32 -0500
+Received: by pacdm15 with SMTP id dm15so103789473pac.3
+        for <netdev@vger.kernel.org>; Fri, 13 Nov 2015 08:06:32 -0800 (PST)
+In-Reply-To: <1447391896.22599.36.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Weiner <hannes@cmpxchg.org>
-Date: Thu, 12 Nov 2015 18:41:25 -0500
+On 11/12/2015 09:18 PM, Eric Dumazet wrote:
+> On Thu, 2015-10-15 at 14:43 -0700, Jeff Kirsher wrote:
+>> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>>
+>> As per Eric Dumazet's previous patches:
+>> (see commit (24d2e4a50737) - tg3: use napi_complete_done())
+>>
+>> Quoting verbatim:
+>> Using napi_complete_done() instead of napi_complete() allows
+>> us to use /sys/class/net/ethX/gro_flush_timeout
+>>
+>> GRO layer can aggregate more packets if the flush is delayed a bit,
+>> without having to set too big coalescing parameters that impact
+>> latencies.
+>> </end quote>
+>>
+>> Tested
+>> configuration: low latency via ethtool -C ethx adaptive-rx off
+>> 				rx-usecs 10 adaptive-tx off tx-usecs 15
+>> workload: streaming rx using netperf TCP_MAERTS
+>>
+>> igb:
+>> MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.0.0.1 () port 0 AF_INET : demo
+>> ...
+>> Interim result:  941.48 10^6bits/s over 1.000 seconds ending at 1440193171.589
+>>
+>> Alignment      Offset         Bytes    Bytes       Recvs   Bytes    Sends
+>> Local  Remote  Local  Remote  Xfered   Per                 Per
+>> Recv   Send    Recv   Send             Recv (avg)          Send (avg)
+>>      8       8      0       0 1176930056  1475.36    797726   16384.00  71905
+>>
+>> MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.0.0.1 () port 0 AF_INET : demo
+>> ...
+>> Interim result:  941.49 10^6bits/s over 0.997 seconds ending at 1440193142.763
+>>
+>> Alignment      Offset         Bytes    Bytes       Recvs   Bytes    Sends
+>> Local  Remote  Local  Remote  Xfered   Per                 Per
+>> Recv   Send    Recv   Send             Recv (avg)          Send (avg)
+>>      8       8      0       0 1175182320  50476.00     23282   16384.00  71816
+>>
+>> i40e:
+>> Hard to test because the traffic is incoming so fast (24Gb/s) that GRO
+>> always receives 87kB, even at the highest interrupt rate.
+>>
+>> Other drivers were only compile tested.
+>>
+>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>
+> Hi guys
+>
+> I am not sure the ixgbe part is working :
+>
+> ixgbe_qv_unlock_napi() does :
+>
+> /* flush any outstanding Rx frames */
+> if (q_vector->napi.gro_list)
+>          napi_gro_flush(&q_vector->napi, false);
+>
+> And it is called before napi_complete_done(napi, work_done);
 
-> The number of allocated sockets is used for calculations in the soft
-> limit phase, where packets are accepted but the socket is under memory
-> pressure. Since there is no soft limit phase in tcp_memcontrol, and
-> memory pressure is only entered when packets are already dropped, this
-> is actually dead code. Remove it.
-> 
-> As this is the last user of parent_cg_proto(), remove that too.
-> 
-> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+Yes, I'm pretty certain you cannot use this napi_complete_done with 
+anything that support busy poll sockets.  The problem is you need to 
+flush any existing lists before yielding to the socket polling in order 
+to avoid packet ordering issues between the NAPI polling routine and the 
+socket polling routine.
 
-Acked-by: David S. Miller <davem@davemloft.net>
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+- Alex
