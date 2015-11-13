@@ -1,74 +1,85 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 08/14] net: tcp_memcontrol: sanitize tcp memory
- accounting callbacks
-Date: Thu, 12 Nov 2015 20:53:38 -0800
-Message-ID: <1447390418.22599.34.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
-	 <1447371693-25143-9-git-send-email-hannes@cmpxchg.org>
+Subject: Re: [net-next 04/17] drivers/net/intel: use napi_complete_done()
+Date: Thu, 12 Nov 2015 21:18:16 -0800
+Message-ID: <1447391896.22599.36.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1444945404-30654-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1444945404-30654-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Andrew Morton
- <akpm@linux-foundation.org>, Vladimir Davydov <vdavydov@virtuozzo.com>,
- Tejun Heo <tj@kernel.org>, Michal Hocko <mhocko@suse.cz>,
- netdev@vger.kernel.org, linux-mm@kvack.org,  cgroups@vger.kernel.org,
- linux-kernel@vger.kernel.org, kernel-team@fb.com
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1447371693-25143-9-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:36275 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751183AbbKMFSS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 00:18:18 -0500
+Received: by pacdm15 with SMTP id dm15so88532274pac.3
+        for <netdev@vger.kernel.org>; Thu, 12 Nov 2015 21:18:18 -0800 (PST)
+In-Reply-To: <1444945404-30654-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-11-12 at 18:41 -0500, Johannes Weiner wrote:
+On Thu, 2015-10-15 at 14:43 -0700, Jeff Kirsher wrote:
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> 
+> As per Eric Dumazet's previous patches:
+> (see commit (24d2e4a50737) - tg3: use napi_complete_done())
+> 
+> Quoting verbatim:
+> Using napi_complete_done() instead of napi_complete() allows
+> us to use /sys/class/net/ethX/gro_flush_timeout
+> 
+> GRO layer can aggregate more packets if the flush is delayed a bit,
+> without having to set too big coalescing parameters that impact
+> latencies.
+> </end quote>
+> 
+> Tested
+> configuration: low latency via ethtool -C ethx adaptive-rx off
+> 				rx-usecs 10 adaptive-tx off tx-usecs 15
+> workload: streaming rx using netperf TCP_MAERTS
+> 
+> igb:
+> MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.0.0.1 () port 0 AF_INET : demo
+> ...
+> Interim result:  941.48 10^6bits/s over 1.000 seconds ending at 1440193171.589
+> 
+> Alignment      Offset         Bytes    Bytes       Recvs   Bytes    Sends
+> Local  Remote  Local  Remote  Xfered   Per                 Per
+> Recv   Send    Recv   Send             Recv (avg)          Send (avg)
+>     8       8      0       0 1176930056  1475.36    797726   16384.00  71905
+> 
+> MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.0.0.1 () port 0 AF_INET : demo
+> ...
+> Interim result:  941.49 10^6bits/s over 0.997 seconds ending at 1440193142.763
+> 
+> Alignment      Offset         Bytes    Bytes       Recvs   Bytes    Sends
+> Local  Remote  Local  Remote  Xfered   Per                 Per
+> Recv   Send    Recv   Send             Recv (avg)          Send (avg)
+>     8       8      0       0 1175182320  50476.00     23282   16384.00  71816
+> 
+> i40e:
+> Hard to test because the traffic is incoming so fast (24Gb/s) that GRO
+> always receives 87kB, even at the highest interrupt rate.
+> 
+> Other drivers were only compile tested.
+> 
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 
-> @@ -711,6 +705,12 @@ static inline void mem_cgroup_wb_stats(struct bdi_writeback *wb,
->  struct sock;
->  void sock_update_memcg(struct sock *sk);
->  void sock_release_memcg(struct sock *sk);
-> +bool mem_cgroup_charge_skmem(struct cg_proto *proto, unsigned int nr_pages);
-> +void mem_cgroup_uncharge_skmem(struct cg_proto *proto, unsigned int nr_pages);
-> +static inline bool mem_cgroup_under_socket_pressure(struct cg_proto *proto)
-> +{
-> +	return proto->memory_pressure;
-> +}
->  #endif /* CONFIG_INET && CONFIG_MEMCG_KMEM */
->  
->  #ifdef CONFIG_MEMCG_KMEM
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index 2eefc99..8cc7613 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -1126,8 +1126,8 @@ static inline bool sk_under_memory_pressure(const struct sock *sk)
->  	if (!sk->sk_prot->memory_pressure)
->  		return false;
->  
-> -	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
-> -		return !!sk->sk_cgrp->memory_pressure;
-> +	if (mem_cgroup_sockets_enabled && sk->sk_cgrp &&
-> +	    mem_cgroup_under_socket_pressure(sk->sk_cgrp))
->  
->  	return !!*sk->sk_prot->memory_pressure;
->  }
+Hi guys
 
+I am not sure the ixgbe part is working :
 
-This looks wrong ?
+ixgbe_qv_unlock_napi() does :
 
-if (A && B && C)
-    return !!*sk->sk_prot->memory_pressure;
+/* flush any outstanding Rx frames */
+if (q_vector->napi.gro_list)
+        napi_gro_flush(&q_vector->napi, false);
 
-<compiler should eventually barf, 
-as this function should not return void>
-}
-
-
-
-
-
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+And it is called before napi_complete_done(napi, work_done);
