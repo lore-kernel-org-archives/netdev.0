@@ -1,94 +1,37 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue
-Date: Fri, 13 Nov 2015 19:06:11 +0000
-Message-ID: <876115sorg.fsf@doppelsaurus.mobileactivedefense.com>
-References: <CACT4Y+b3xsLsKVFCz2M7nqqfXnyuMHEVYtJS2wN4WHLWs9A5ng@mail.gmail.com>
-	<20151012120249.GB16370@unicorn.suse.cz>
-	<1444652071.27760.156.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CACT4Y+Z2H8xPg1Dq0Z=HC3WKm+Uw+ZjK6zOLvxhPwFd4D0CsZw@mail.gmail.com>
-	<CACT4Y+Zu7J0n6dU1dSfiW3F9Q0Us3_DBVcD5Pi9NG9LER8MmRg@mail.gmail.com>
-	<563CC002.5050307@akamai.com>
-	<87ziyrcg67.fsf@doppelsaurus.mobileactivedefense.com>
-	<87fv0fnslr.fsf_-_@doppelsaurus.mobileactivedefense.com>
-	<877flp34fl.fsf@doppelsaurus.mobileactivedefense.com>
-	<1447244898.1936942.435925969.525D20D9@webmail.messagingengine.com>
-	<87ziyk347o.fsf@doppelsaurus.mobileactivedefense.com>
-	<1447267928.3704532.436332953.6FB2A816@webmail.messagingengine.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bonding: Offloading bonds to hardware
+Date: Fri, 13 Nov 2015 14:10:06 -0500 (EST)
+Message-ID: <20151113.141006.1048458234203733687.davem@davemloft.net>
+References: <77EF4405DD4BB54AACCE7DB593DF6A9A9FD653@SJEXCHMB14.corp.ad.broadcom.com>
+	<56462E38.5090600@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Jason Baron <jbaron@akamai.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Michal Kubecek <mkubecek@suse.cz>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	linux-fsdevel@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	David Howells <dhowells@redhat.com>,
-	Paul Moore <paul@paul-moore.com>, salyzyn@android.com,
-	sds@tycho.nsa.gov, ying.xue@windriver.com,
-	netdev <netdev@vger.kernel.org>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Andrey Konovalov <andreyknvl@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Julien Tinnes <jln@google.com>,
-	Kees Cook <keescook@google.com>,
-	Mathias Krause <minipli@googlemail.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447267928.3704532.436332953.6FB2A816@webmail.messagingengine.com>
-	(Hannes Frederic Sowa's message of "Wed, 11 Nov 2015 19:52:08 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pjonnala@broadcom.com, netdev@vger.kernel.org, sfeldma@gmail.com,
+	jiri@resnulli.us, nikolay@cumulusnetworks.com, idosch@mellanox.com,
+	gospo@cumulusnetworks.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39092 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753138AbbKMTKK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 14:10:10 -0500
+In-Reply-To: <56462E38.5090600@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
-> On Wed, Nov 11, 2015, at 17:12, Rainer Weikusat wrote:
->> Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
->> > On Tue, Nov 10, 2015, at 22:55, Rainer Weikusat wrote:
->> >> An AF_UNIX datagram socket being the client in an n:1 association with
->> >> some server socket is only allowed to send messages to the server if the
->> >> receive queue of this socket contains at most sk_max_ack_backlog
->> >> datagrams.
->> 
->> [...]
->> 
->> > This whole patch seems pretty complicated to me.
->> >
->> > Can't we just remove the unix_recvq_full checks alltogether and unify
->> > unix_dgram_poll with unix_poll?
->> >
->> > If we want to be cautious we could simply make unix_max_dgram_qlen limit
->> > the number of skbs which are in flight from a sending socket. The skb
->> > destructor can then decrement this. This seems much simpler.
->> >
->> > Would this work?
->> 
->> In the way this is intended to work, cf
->> 
->> http://marc.info/?t=115627606000002&r=1&w=2
->
-> Oh, I see, we don't limit closed but still referenced sockets. This
-> actually makes sense on how fd handling is implemented, just as a range
-> check.
->
-> Have you checked if we can somehow deregister the socket in the poll
-> event framework? You wrote that it does not provide such a function but
-> maybe it would be easy to add?
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Fri, 13 Nov 2015 10:38:48 -0800
 
-I thought about this but this would amount to adding a general interface
-for the sole purpose of enabling the af_unix code to talk to the
-eventpoll code and I don't really like this idea: IMHO, there should be
-at least two users (preferably three) before creating any kind of
-'abstract interface'. An even more ideal "castle in the air"
-(hypothetical) solution would be "change the eventpoll.c code such that
-it won't be affected if a wait queue just goes away". That's at least
-theoretically possible (although it might not be in practice).
+> This is a good explanation of why you want the changes, and how this is
+> implemented in a system utilizing that, but this is not documenting why
+> you are making these changes to the bonding code, nor how they are
+> supposed to be used by an implementor driver, since there is no such
+> user posted (yet?).
 
-I wouldn't mind doing that (assuming it was possible) if it was just
-for the kernels my employer uses because I'm aware of the uses these
-will be put to and in control of the corresponding userland code. But
-for "general Linux code", changing epoll in order to help the af_unix
-code is more potential trouble than it's worth: Exchanging a relatively
-unimportant bug in some module for a much more visibly damaging bug in a
-central facility would be a bad tradeoff.
+I am basically not even going to look at proposals for new device ops
+that don't also show an actual user of the new interfaces.
+
+That's not how we do development, and not providing a real example
+user of a new set of interfaces makes it impossible to properly review
+such changes.
