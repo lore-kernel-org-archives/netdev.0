@@ -1,57 +1,69 @@
-From: David Herrmann <dh.herrmann@gmail.com>
-Subject: Re: [patch] netlink: fix a limit in NETLINK_LIST_MEMBERSHIPS
-Date: Fri, 13 Nov 2015 15:43:31 +0100
-Message-ID: <CANq1E4Rh60iS6WRq6xypV_ahG5N=uErL_hMnVcncc=DTSPvdUw@mail.gmail.com>
-References: <20151113142044.GA1445@mwanda>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] net: hisilicon: fix binding document of mdio
+Date: Fri, 13 Nov 2015 08:44:57 -0600
+Message-ID: <20151113144457.GA18563@rob-hp-laptop>
+References: <1447381424-107248-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Florian Westphal <fw@strlen.de>,
-	netdev <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20151113142044.GA1445@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	kenneth-lee-2012-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org, xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org,
+	lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1447381424-107248-1-git-send-email-huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi
+On Fri, Nov 13, 2015 at 10:23:44AM +0800, huangdaode wrote:
+> This patch fixes explain the occasion of "hisilcon,mdio" according to
+> Arnd's comments. specify it is only used for hip04.
+> 
+> First, please give your commnents.
+> 
+> Signed-off-by: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+> ---
+>  Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
+> index 9c23fdf..f650e78 100644
+> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
+> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
+> @@ -1,7 +1,9 @@
+>  Hisilicon MDIO bus controller
+>  
+>  Properties:
+> -- compatible: "hisilicon,mdio","hisilicon,hns-mdio".
+> +- compatible: can be one of "hisilicon,hns-mdio","hisilicon,mdio",
+> +  for hip04 board, please use "hisilicon,mdio",
+> +  other boards, "hisilicon,hns-mdio" is OK.
 
-On Fri, Nov 13, 2015 at 3:20 PM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
-> This condition doesn't work when len is smaller than expected and not a
-> multiple of 4.  In that situation "len - pos" is negative and type
-> promoted to a high unsigned value and we do not break out of the loop.
-> It causes the program calling it to crash.
+Please reformat like this:
 
-Could you give an example how this can happen? The loop-invariant
-should be "len >= pos", as such, this shouldn't happen. "pos" starts
-out as 0, "len" is guaranteed to be >=0. "pos" is only incremented by
-4, if "len - pos >= 4".
+- compatible: can be one of:
+	"hisilicon,hns-mdio"
+	"hisilicon,mdio"
+  For hip04 board, must be "hisilicon,mdio".
+  Otherwise, must be "hisilicon,hns-mdio".
 
-What am I missing?
-
-Thanks
-David
-
-> Fixes: b42be38b2778 ('netlink: add API to retrieve all group memberships')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 59651af..76a8466 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -2373,7 +2373,7 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
->                 err = 0;
->                 netlink_lock_table();
->                 for (pos = 0; pos * 8 < nlk->ngroups; pos += sizeof(u32)) {
-> -                       if (len - pos < sizeof(u32))
-> +                       if (len < pos + sizeof(u32))
->                                 break;
->
->                         idx = pos / sizeof(unsigned long);
+>  - reg: The base address of the MDIO bus controller register bank.
+>  - #address-cells: Must be <1>.
+>  - #size-cells: Must be <0>.  MDIO addresses have no size component.
+> -- 
+> 1.9.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe devicetree" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
