@@ -1,211 +1,64 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: [PATCH 14/14] mm: memcontrol: hook up vmpressure to socket pressure
-Date: Thu, 12 Nov 2015 18:41:33 -0500
-Message-ID: <1447371693-25143-15-git-send-email-hannes@cmpxchg.org>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
-Cc: Vladimir Davydov <vdavydov@virtuozzo.com>,
-	Tejun Heo <tj@kernel.org>,
-	Michal Hocko <mhocko@suse.cz>,
-	netdev@vger.kernel.org,
-	linux-mm@kvack.org,
-	cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	kernel-team@fb.com
-To: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 net-next] net/core: ensure features get disabled on
+ new lower devs
+Date: Thu, 12 Nov 2015 16:26:18 -0800
+Message-ID: <56452E2A.9050501@gmail.com>
+References: <1446583017-19021-1-git-send-email-jarod@redhat.com>	<1446610172-21420-1-git-send-email-jarod@redhat.com> <20151104.215632.964832400121049446.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, edumazet@google.com,
+	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	jiri@resnulli.us, razor@blackwall.org, mkubecek@suse.cz,
+	alexander.duyck@gmail.com, netdev@vger.kernel.org,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: David Miller <davem@davemloft.net>, jarod@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151104.215632.964832400121049446.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Let the networking stack know when a memcg is under reclaim pressure
-so that it can clamp its transmit windows accordingly.
+On 04/11/15 18:56, David Miller wrote:
+>> Fixes: fd867d51f889 ("net/core: generic support for disabling netdev features down stack")
+>  ...
+>> Reported-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+>> ---
+>> v2: Based on suggestions from Alex, and with not changing err to ret, this
+>> patch actually becomes quite minimal and doesn't ugly up the code much.
+> 
+> Applied, thanks.
 
-Whenever the reclaim efficiency of a cgroup's LRU lists drops low
-enough for a MEDIUM or HIGH vmpressure event to occur, assert a
-pressure state in the socket and tcp memory code that tells it to curb
-consumption growth from sockets associated with said control group.
+This causes some warnings to be displayed for DSA stacked devices:
 
-vmpressure events are naturally edge triggered, so for hysteresis
-assert socket pressure for a second to allow for subsequent vmpressure
-events to occur before letting the socket code return to normal.
+[    1.272297] brcm-sf2 f0b00000.ethernet_switch: Starfighter 2 top:
+4.00, core: 2.00 base: 0xf0c80000, IRQs: 68, 69
+[    1.283181] libphy: dsa slave smi: probed
+[    1.344088] f0b403c0.mdio:05: Broadcom BCM7445 PHY revision: 0xd0,
+patch: 3
+[    1.658917] brcm-sf2 f0b00000.ethernet_switch gphy (uninitialized):
+attached PHY at address 5 [Broadcom BCM7445]
+[    1.669414] brcm-sf2 f0b00000.ethernet_switch gphy: set_features()
+failed (-1); wanted 0x0000000000004020, left 0x0000000000004820
+[    1.734202] brcm-sf2 f0b00000.ethernet_switch rgmii_1
+(uninitialized): attached PHY at address 0 [Generic PHY]
+[    1.744486] brcm-sf2 f0b00000.ethernet_switch rgmii_1: set_features()
+failed (-1); wanted 0x0000000000004020, left 0x0000000000004820
+[    1.809091] brcm-sf2 f0b00000.ethernet_switch rgmii_2
+(uninitialized): attached PHY at address 1 [Generic PHY]
+[    1.819364] brcm-sf2 f0b00000.ethernet_switch rgmii_2: set_features()
+failed (-1); wanted 0x0000000000004020, left 0x0000000000004820
+[    1.884090] brcm-sf2 f0b00000.ethernet_switch moca (uninitialized):
+attached PHY at address 2 [Generic PHY]
+[    1.894109] brcm-sf2 f0b00000.ethernet_switch moca: set_features()
+failed (-1); wanted 0x0000000000004020, left 0x0000000000004820
 
-This will likely need finetuning for a wider variety of workloads, but
-for now stick to the vmpressure presets and keep hysteresis simple.
+DSA slave network devices are not associated with their master network
+device using the typical lower/upper netdev helpers.
 
-Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
----
- include/linux/memcontrol.h | 29 +++++++++++++++++++++++++----
- mm/memcontrol.c            | 15 +--------------
- mm/vmpressure.c            | 25 ++++++++++++++++++++-----
- 3 files changed, 46 insertions(+), 23 deletions(-)
-
-diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
-index 809d6de..dba43cb 100644
---- a/include/linux/memcontrol.h
-+++ b/include/linux/memcontrol.h
-@@ -258,6 +258,7 @@ struct mem_cgroup {
- 
- #ifdef CONFIG_INET
- 	struct work_struct	socket_work;
-+	unsigned long		socket_pressure;
- #endif
- 
- 	/* List of events which userspace want to receive */
-@@ -303,18 +304,34 @@ struct lruvec *mem_cgroup_page_lruvec(struct page *, struct zone *);
- 
- bool task_in_mem_cgroup(struct task_struct *task, struct mem_cgroup *memcg);
- struct mem_cgroup *mem_cgroup_from_task(struct task_struct *p);
--struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *memcg);
- 
- static inline
- struct mem_cgroup *mem_cgroup_from_css(struct cgroup_subsys_state *css){
- 	return css ? container_of(css, struct mem_cgroup, css) : NULL;
- }
- 
-+#define mem_cgroup_from_counter(counter, member)	\
-+	container_of(counter, struct mem_cgroup, member)
-+
- struct mem_cgroup *mem_cgroup_iter(struct mem_cgroup *,
- 				   struct mem_cgroup *,
- 				   struct mem_cgroup_reclaim_cookie *);
- void mem_cgroup_iter_break(struct mem_cgroup *, struct mem_cgroup *);
- 
-+/**
-+ * parent_mem_cgroup - find the accounting parent of a memcg
-+ * @memcg: memcg whose parent to find
-+ *
-+ * Returns the parent memcg, or NULL if this is the root or the memory
-+ * controller is in legacy no-hierarchy mode.
-+ */
-+static inline struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *memcg)
-+{
-+	if (!memcg->memory.parent)
-+		return NULL;
-+	return mem_cgroup_from_counter(memcg->memory.parent, memory);
-+}
-+
- static inline bool mem_cgroup_is_descendant(struct mem_cgroup *memcg,
- 			      struct mem_cgroup *root)
- {
-@@ -706,10 +723,14 @@ void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
- static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
- {
- #ifdef CONFIG_MEMCG_KMEM
--	return memcg->tcp_mem.memory_pressure;
--#else
--	return false;
-+	if (memcg->tcp_mem.memory_pressure)
-+		return true;
- #endif
-+	do {
-+		if (time_before(jiffies, memcg->socket_pressure))
-+			return true;
-+	} while ((memcg = parent_mem_cgroup(memcg)));
-+	return false;
- }
- #else
- #define mem_cgroup_sockets_enabled 0
-diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index cad9525..4068662 100644
---- a/mm/memcontrol.c
-+++ b/mm/memcontrol.c
-@@ -1091,9 +1091,6 @@ bool task_in_mem_cgroup(struct task_struct *task, struct mem_cgroup *memcg)
- 	return ret;
- }
- 
--#define mem_cgroup_from_counter(counter, member)	\
--	container_of(counter, struct mem_cgroup, member)
--
- /**
-  * mem_cgroup_margin - calculate chargeable space of a memory cgroup
-  * @memcg: the memory cgroup
-@@ -4138,17 +4135,6 @@ static void __mem_cgroup_free(struct mem_cgroup *memcg)
- 	kfree(memcg);
- }
- 
--/*
-- * Returns the parent mem_cgroup in memcgroup hierarchy with hierarchy enabled.
-- */
--struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *memcg)
--{
--	if (!memcg->memory.parent)
--		return NULL;
--	return mem_cgroup_from_counter(memcg->memory.parent, memory);
--}
--EXPORT_SYMBOL(parent_mem_cgroup);
--
- static void socket_work_func(struct work_struct *work);
- 
- static struct cgroup_subsys_state * __ref
-@@ -4192,6 +4178,7 @@ mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
- #endif
- #ifdef CONFIG_INET
- 	INIT_WORK(&memcg->socket_work, socket_work_func);
-+	memcg->socket_pressure = jiffies;
- #endif
- 	return &memcg->css;
- 
-diff --git a/mm/vmpressure.c b/mm/vmpressure.c
-index 4c25e62..07e8440 100644
---- a/mm/vmpressure.c
-+++ b/mm/vmpressure.c
-@@ -137,14 +137,11 @@ struct vmpressure_event {
- };
- 
- static bool vmpressure_event(struct vmpressure *vmpr,
--			     unsigned long scanned, unsigned long reclaimed)
-+			     enum vmpressure_levels level)
- {
- 	struct vmpressure_event *ev;
--	enum vmpressure_levels level;
- 	bool signalled = false;
- 
--	level = vmpressure_calc_level(scanned, reclaimed);
--
- 	mutex_lock(&vmpr->events_lock);
- 
- 	list_for_each_entry(ev, &vmpr->events, node) {
-@@ -162,6 +159,7 @@ static bool vmpressure_event(struct vmpressure *vmpr,
- static void vmpressure_work_fn(struct work_struct *work)
- {
- 	struct vmpressure *vmpr = work_to_vmpressure(work);
-+	enum vmpressure_levels level;
- 	unsigned long scanned;
- 	unsigned long reclaimed;
- 
-@@ -185,8 +183,25 @@ static void vmpressure_work_fn(struct work_struct *work)
- 	vmpr->reclaimed = 0;
- 	spin_unlock(&vmpr->sr_lock);
- 
-+	level = vmpressure_calc_level(scanned, reclaimed);
-+
-+	if (level > VMPRESSURE_LOW) {
-+		struct mem_cgroup *memcg;
-+		/*
-+		 * Let the socket buffer allocator know that we are
-+		 * having trouble reclaiming LRU pages.
-+		 *
-+		 * For hysteresis, keep the pressure state asserted
-+		 * for a second in which subsequent pressure events
-+		 * can occur.
-+		 */
-+		memcg = container_of(vmpr, struct mem_cgroup, vmpressure);
-+		if (memcg != root_mem_cgroup)
-+			memcg->socket_pressure = jiffies + HZ;
-+	}
-+
- 	do {
--		if (vmpressure_event(vmpr, scanned, reclaimed))
-+		if (vmpressure_event(vmpr, level))
- 			break;
- 		/*
- 		 * If not handled, propagate the event upward into the
+I do not have a good fix to come up with yet, but if you see something
+obvious with net/dsa/slave.c, feel free to send patches for testing, I
+can boot net-next on this platform.
 -- 
-2.6.2
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Florian
