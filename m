@@ -1,52 +1,42 @@
-From: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Subject: [PATCH] net: hisilicon: fix binding document of mdio
-Date: Fri, 13 Nov 2015 10:23:44 +0800
-Message-ID: <1447381424-107248-1-git-send-email-huangdaode@hisilicon.com>
+From: Z Lim <zlim.lnx@gmail.com>
+Subject: Re: [PATCH 1/2] arm64: bpf: fix JIT frame pointer setup
+Date: Thu, 12 Nov 2015 19:21:13 -0800
+Message-ID: <CABg9mctFoXuttJkGaqOBWm-beDKzui_Fwhj4u+iBBWPXAFsYwQ@mail.gmail.com>
+References: <1447365421-1309-1-git-send-email-yang.shi@linaro.org>
+	<1447365421-1309-2-git-send-email-yang.shi@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	<liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <kenneth-lee-2012-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>,
-	<xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <ast@kernel.org>, daniel@iogearbox.net,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>, Xi Wang <xi.wang@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	linaro-kernel@lists.linaro.org
+To: Yang Shi <yang.shi@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:36449 "EHLO
+	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754469AbbKMDVP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2015 22:21:15 -0500
+In-Reply-To: <1447365421-1309-2-git-send-email-yang.shi@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes explain the occasion of "hisilcon,mdio" according to
-Arnd's comments. specify it is only used for hip04.
+On Thu, Nov 12, 2015 at 1:57 PM, Yang Shi <yang.shi@linaro.org> wrote:
+> BPF fp should point to the top of the BPF prog stack. The original
+> implementation made it point to the bottom incorrectly.
+> Move A64_SP to fp before reserve BPF prog stack space.
+>
+> CC: Zi Shen Lim <zlim.lnx@gmail.com>
+> CC: Xi Wang <xi.wang@gmail.com>
+> Signed-off-by: Yang Shi <yang.shi@linaro.org>
+> ---
 
-First, please give your commnents.
+Reviewed-by: Zi Shen Lim <zlim.lnx@gmail.com>
 
-Signed-off-by: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
----
- Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+Also,
 
-diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-index 9c23fdf..f650e78 100644
---- a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-+++ b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-@@ -1,7 +1,9 @@
- Hisilicon MDIO bus controller
- 
- Properties:
--- compatible: "hisilicon,mdio","hisilicon,hns-mdio".
-+- compatible: can be one of "hisilicon,hns-mdio","hisilicon,mdio",
-+  for hip04 board, please use "hisilicon,mdio",
-+  other boards, "hisilicon,hns-mdio" is OK.
- - reg: The base address of the MDIO bus controller register bank.
- - #address-cells: Must be <1>.
- - #size-cells: Must be <0>.  MDIO addresses have no size component.
--- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Fixes: e54bcde3d69d ("arm64: eBPF JIT compiler")
+Cc: <stable@vger.kernel.org> # 3.18+
