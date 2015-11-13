@@ -1,34 +1,37 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch] netlink: fix a limit in NETLINK_LIST_MEMBERSHIPS
-Date: Fri, 13 Nov 2015 22:53:09 +0300
-Message-ID: <20151113195309.GV7289@mwanda>
-References: <20151113142044.GA1445@mwanda>
- <CANq1E4Rh60iS6WRq6xypV_ahG5N=uErL_hMnVcncc=DTSPvdUw@mail.gmail.com>
+From: "Charles (Chas) Williams" <3chas3@gmail.com>
+Subject: [PATCH -stable] multiple backports requested
+Date: Fri, 13 Nov 2015 15:13:11 -0500
+Message-ID: <1447445591.2645.17.camel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Florian Westphal <fw@strlen.de>,
-	netdev <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: David Herrmann <dh.herrmann@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:43583 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754225AbbKMTx4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 14:53:56 -0500
-Content-Disposition: inline
-In-Reply-To: <CANq1E4Rh60iS6WRq6xypV_ahG5N=uErL_hMnVcncc=DTSPvdUw@mail.gmail.com>
+Received: from mail-qk0-f178.google.com ([209.85.220.178]:34492 "EHLO
+	mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754594AbbKMUNO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 15:13:14 -0500
+Received: by qkfo3 with SMTP id o3so58760213qkf.1
+        for <netdev@vger.kernel.org>; Fri, 13 Nov 2015 12:13:13 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oh.  Crap...  My mistake.  Sorry for the noise.  The original code is
-fine.
+Dave, could you please add the following backports?
 
-regards,
-dan carpenter
+For the 3.14.y stable queue:
+	commit 77751427a1ff25b27d47a4c36b12c3c8667855ac
+	ipv6: addrconf: validate new MTU before applying it
+	This addresses CVE-2015-0272
+
+	commit 74e98eb085889b0d2d4908f59f6e00026063014f
+	RDS: verify the underlying transport exists before creating a connection
+	This addresses CVE-2015-6937
+
+For the 4.1.y stable queue:
+
+	commit 74e98eb085889b0d2d4908f59f6e00026063014f
+	RDS: verify the underlying transport exists before creating a connection
+	This addresses CVE-2015-6937
+
+Thanks!
