@@ -1,50 +1,53 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH net] net: fix feature changes on devices without
- ndo_set_features
-Date: Fri, 13 Nov 2015 09:06:38 -0500
-Message-ID: <20151113140606.GQ12970@gospo.home.greyhouse.net>
-References: <5645C0A5.2080506@cumulusnetworks.com>
- <1447422841-2333-1-git-send-email-razor@blackwall.org>
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net] net: fix __netdev_update_features return on ndo_set_features failure
+Date: Fri, 13 Nov 2015 15:20:24 +0100
+Message-ID: <1447424424-4419-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Jarod Wilson <jarod@redhat.com>, Jiri Pirko <jiri@resnulli.us>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Sander Eikelenboom <linux@eikelenboom.it>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Nikolay Aleksandrov <razor@blackwall.org>
+	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f50.google.com ([209.85.218.50]:33469 "EHLO
-	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754719AbbKMOHT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 09:07:19 -0500
-Received: by oixx65 with SMTP id x65so38232126oix.0
-        for <netdev@vger.kernel.org>; Fri, 13 Nov 2015 06:07:18 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1447422841-2333-1-git-send-email-razor@blackwall.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:35420 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753162AbbKMOV0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 09:21:26 -0500
+Received: by wmdw130 with SMTP id w130so30910052wmd.0
+        for <netdev@vger.kernel.org>; Fri, 13 Nov 2015 06:21:25 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 13, 2015 at 02:54:01PM +0100, Nikolay Aleksandrov wrote:
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> When __netdev_update_features() was updated to ensure some features are
-> disabled on new lower devices, an error was introduced for devices which
-> don't have the ndo_set_features() method set. Before we'll just set the
-> new features, but now we return an error and don't set them. Fix this by
-> returning the old behaviour and setting err to 0 when ndo_set_features
-> is not present.
+=46rom: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Thanks for the quick turnaround.
+If ndo_set_features fails __netdev_update_features() will return -1 but
+this is wrong because it is expected to return 0 if no features were
+changed (see netdev_update_features()), which will cause a netdev
+notifier to be called without any actual changes. Fix this by returning
+0 if ndo_set_features fails.
 
-> Fixes: e7868a85e1b2 ("net/core: ensure features get disabled on new lower devs")
-> CC: Jarod Wilson <jarod@redhat.com>
-> CC: Jiri Pirko <jiri@resnulli.us>
-> CC: Ido Schimmel <idosch@mellanox.com>
-> CC: Sander Eikelenboom <linux@eikelenboom.it>
-> CC: Andy Gospodarek <gospo@cumulusnetworks.com>
-> CC: Florian Fainelli <f.fainelli@gmail.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+=46ixes: 6cb6a27c45ce ("net: Call netdev_features_change() from netdev_=
+update_features()")
+CC: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ net/core/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Reviewed-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4a1d198dbbff..1974aee005a6 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6433,7 +6433,7 @@ int __netdev_update_features(struct net_device *d=
+ev)
+ 		netdev_err(dev,
+ 			"set_features() failed (%d); wanted %pNF, left %pNF\n",
+ 			err, &features, &dev->features);
+-		return -1;
++		return 0;
+ 	}
+=20
+ sync_lower:
+--=20
+2.4.3
