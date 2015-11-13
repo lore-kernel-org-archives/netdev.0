@@ -1,53 +1,42 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net] net: fix __netdev_update_features return on ndo_set_features failure
-Date: Fri, 13 Nov 2015 15:20:24 +0100
-Message-ID: <1447424424-4419-1-git-send-email-razor@blackwall.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] netlink: fix a limit in NETLINK_LIST_MEMBERSHIPS
+Date: Fri, 13 Nov 2015 17:20:44 +0300
+Message-ID: <20151113142044.GA1445@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:35420 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753162AbbKMOV0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 09:21:26 -0500
-Received: by wmdw130 with SMTP id w130so30910052wmd.0
-        for <netdev@vger.kernel.org>; Fri, 13 Nov 2015 06:21:25 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	David Herrmann <dh.herrmann@gmail.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+This condition doesn't work when len is smaller than expected and not a
+multiple of 4.  In that situation "len - pos" is negative and type
+promoted to a high unsigned value and we do not break out of the loop.
+It causes the program calling it to crash.
 
-If ndo_set_features fails __netdev_update_features() will return -1 but
-this is wrong because it is expected to return 0 if no features were
-changed (see netdev_update_features()), which will cause a netdev
-notifier to be called without any actual changes. Fix this by returning
-0 if ndo_set_features fails.
+Fixes: b42be38b2778 ('netlink: add API to retrieve all group memberships')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-=46ixes: 6cb6a27c45ce ("net: Call netdev_features_change() from netdev_=
-update_features()")
-CC: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/core/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 4a1d198dbbff..1974aee005a6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6433,7 +6433,7 @@ int __netdev_update_features(struct net_device *d=
-ev)
- 		netdev_err(dev,
- 			"set_features() failed (%d); wanted %pNF, left %pNF\n",
- 			err, &features, &dev->features);
--		return -1;
-+		return 0;
- 	}
-=20
- sync_lower:
---=20
-2.4.3
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 59651af..76a8466 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2373,7 +2373,7 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
+ 		err = 0;
+ 		netlink_lock_table();
+ 		for (pos = 0; pos * 8 < nlk->ngroups; pos += sizeof(u32)) {
+-			if (len - pos < sizeof(u32))
++			if (len < pos + sizeof(u32))
+ 				break;
+ 
+ 			idx = pos / sizeof(unsigned long);
