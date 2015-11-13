@@ -1,78 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH stable <= 3.18] net: add length argument to
- skb_copy_and_csum_datagram_iovec
-Date: Fri, 13 Nov 2015 16:29:10 -0500 (EST)
-Message-ID: <20151113.162910.1252310731575005299.davem@davemloft.net>
-References: <CAKA=qzZCi_OEDJKgy1WQ1QdMBpHBure1tY7NYtsgSr0fMva5jQ@mail.gmail.com>
-	<20151111000352.GA5134@kroah.com>
-	<20151112094822.GA21732@bistromath.redhat.com>
+From: Jens Axboe <axboe@kernel.dk>
+Subject: 4.3.0+ breaks software VPN
+Date: Fri, 13 Nov 2015 14:37:00 -0700
+Message-ID: <564657FC.4050206@kernel.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, joshhunt00@gmail.com,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	stable@vger.kernel.org, hannes@stressinduktion.org
-To: sd@queasysnail.net
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jarod Wilson <jarod@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40222 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779AbbKMV3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 16:29:12 -0500
-In-Reply-To: <20151112094822.GA21732@bistromath.redhat.com>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:34214 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751358AbbKMVhE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 16:37:04 -0500
+Received: by igvg19 with SMTP id g19so44388583igv.1
+        for <netdev@vger.kernel.org>; Fri, 13 Nov 2015 13:37:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Thu, 12 Nov 2015 10:48:22 +0100
+Hi,
 
-> 2015-11-10, 16:03:52 -0800, Greg Kroah-Hartman wrote:
->> On Tue, Nov 10, 2015 at 05:59:26PM -0600, Josh Hunt wrote:
->> > On Thu, Oct 29, 2015 at 5:00 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
->> > > 2015-10-15, 14:25:03 +0200, Sabrina Dubroca wrote:
->> > >> Without this length argument, we can read past the end of the iovec in
->> > >> memcpy_toiovec because we have no way of knowing the total length of the
->> > >> iovec's buffers.
->> > >>
->> > >> This is needed for stable kernels where 89c22d8c3b27 ("net: Fix skb
->> > >> csum races when peeking") has been backported but that don't have the
->> > >> ioviter conversion, which is almost all the stable trees <= 3.18.
->> > >>
->> > >> This also fixes a kernel crash for NFS servers when the client uses
->> > >>  -onfsvers=3,proto=udp to mount the export.
->> > >>
->> > >> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
->> > >> Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> > >
->> > > Fixes CVE-2015-8019.
->> > > http://www.openwall.com/lists/oss-security/2015/10/29/1
->> > >
->> > > --
->> > > Sabrina
->> > > --
->> > > To unsubscribe from this list: send the line "unsubscribe netdev" in
->> > > the body of a message to majordomo@vger.kernel.org
->> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> > 
->> > Greg
->> > 
->> > Do you have this in your queue? I saw a few other stables pick this
->> > up, but haven't seen it in 3.14 or 3.18 yet. It wasn't clear to me if
->> > this had been fully reviewed yet.
->> 
->> I rely on Dave to package up networking stable patches and forward them
->> on to me, that's why you haven't seen it be picked up yet.
->> 
->> thanks,
->> 
->> greg k-h
-> 
-> David, can you queue this up?
+Tried to connect to sw vpn today, and it isn't working. Running git 
+as-of yesterday. In dmesg:
 
-This doesn't even apply to v3.18.24, the patched call site in
-net/rxrpc/ar-recvmsg.c doesn't even exist.
+[23703.921542] vpn0: set_features() failed (-1); wanted 
+0x00000080000048c1, left 0x00000080001b48c9
 
-Once you fix this up just submit it to -stable directly, I'm
-fine with that for this.  I'm only handling submissions back
-to v3.18 (4 releases) anyways.
+Reverting:
 
-Thanks.
+fd867d51f889
+5ba3f7d61a3a
+e7868a85e1b2
+
+in reverse order makes it work again. How do we get this fixed so that 
+4.4-rc1 doesn't break basic VPN support?
+
+-- 
+Jens Axboe
