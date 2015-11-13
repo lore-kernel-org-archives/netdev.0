@@ -1,64 +1,52 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 net-next] net/core: ensure features get disabled on
- new lower devs
-Date: Thu, 12 Nov 2015 16:26:18 -0800
-Message-ID: <56452E2A.9050501@gmail.com>
-References: <1446583017-19021-1-git-send-email-jarod@redhat.com>	<1446610172-21420-1-git-send-email-jarod@redhat.com> <20151104.215632.964832400121049446.davem@davemloft.net>
+From: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Subject: [PATCH] net: hisilicon: fix binding document of mdio
+Date: Fri, 13 Nov 2015 10:23:44 +0800
+Message-ID: <1447381424-107248-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, edumazet@google.com,
-	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	jiri@resnulli.us, razor@blackwall.org, mkubecek@suse.cz,
-	alexander.duyck@gmail.com, netdev@vger.kernel.org,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: David Miller <davem@davemloft.net>, jarod@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151104.215632.964832400121049446.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <kenneth-lee-2012-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>,
+	<xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 04/11/15 18:56, David Miller wrote:
->> Fixes: fd867d51f889 ("net/core: generic support for disabling netdev features down stack")
->  ...
->> Reported-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->> Signed-off-by: Jarod Wilson <jarod@redhat.com>
->> ---
->> v2: Based on suggestions from Alex, and with not changing err to ret, this
->> patch actually becomes quite minimal and doesn't ugly up the code much.
-> 
-> Applied, thanks.
+This patch fixes explain the occasion of "hisilcon,mdio" according to
+Arnd's comments. specify it is only used for hip04.
 
-This causes some warnings to be displayed for DSA stacked devices:
+First, please give your commnents.
 
-[    1.272297] brcm-sf2 f0b00000.ethernet_switch: Starfighter 2 top:
-4.00, core: 2.00 base: 0xf0c80000, IRQs: 68, 69
-[    1.283181] libphy: dsa slave smi: probed
-[    1.344088] f0b403c0.mdio:05: Broadcom BCM7445 PHY revision: 0xd0,
-patch: 3
-[    1.658917] brcm-sf2 f0b00000.ethernet_switch gphy (uninitialized):
-attached PHY at address 5 [Broadcom BCM7445]
-[    1.669414] brcm-sf2 f0b00000.ethernet_switch gphy: set_features()
-failed (-1); wanted 0x0000000000004020, left 0x0000000000004820
-[    1.734202] brcm-sf2 f0b00000.ethernet_switch rgmii_1
-(uninitialized): attached PHY at address 0 [Generic PHY]
-[    1.744486] brcm-sf2 f0b00000.ethernet_switch rgmii_1: set_features()
-failed (-1); wanted 0x0000000000004020, left 0x0000000000004820
-[    1.809091] brcm-sf2 f0b00000.ethernet_switch rgmii_2
-(uninitialized): attached PHY at address 1 [Generic PHY]
-[    1.819364] brcm-sf2 f0b00000.ethernet_switch rgmii_2: set_features()
-failed (-1); wanted 0x0000000000004020, left 0x0000000000004820
-[    1.884090] brcm-sf2 f0b00000.ethernet_switch moca (uninitialized):
-attached PHY at address 2 [Generic PHY]
-[    1.894109] brcm-sf2 f0b00000.ethernet_switch moca: set_features()
-failed (-1); wanted 0x0000000000004020, left 0x0000000000004820
+Signed-off-by: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+---
+ Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-DSA slave network devices are not associated with their master network
-device using the typical lower/upper netdev helpers.
-
-I do not have a good fix to come up with yet, but if you see something
-obvious with net/dsa/slave.c, feel free to send patches for testing, I
-can boot net-next on this platform.
+diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
+index 9c23fdf..f650e78 100644
+--- a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
++++ b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
+@@ -1,7 +1,9 @@
+ Hisilicon MDIO bus controller
+ 
+ Properties:
+-- compatible: "hisilicon,mdio","hisilicon,hns-mdio".
++- compatible: can be one of "hisilicon,hns-mdio","hisilicon,mdio",
++  for hip04 board, please use "hisilicon,mdio",
++  other boards, "hisilicon,hns-mdio" is OK.
+ - reg: The base address of the MDIO bus controller register bank.
+ - #address-cells: Must be <1>.
+ - #size-cells: Must be <0>.  MDIO addresses have no size component.
 -- 
-Florian
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
