@@ -1,84 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next 04/17] drivers/net/intel: use napi_complete_done()
-Date: Fri, 13 Nov 2015 08:49:22 -0800
-Message-ID: <1447433362.22599.43.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1444945404-30654-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1444945404-30654-5-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1447391896.22599.36.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <56460A86.2000501@gmail.com>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: via-velocity skb_over_panic
+Date: Fri, 13 Nov 2015 18:49:47 +0200
+Message-ID: <20151113184947.09d57da5@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
+To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:33674 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932444AbbKMQtY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 11:49:24 -0500
-Received: by pabfh17 with SMTP id fh17so105067005pab.0
-        for <netdev@vger.kernel.org>; Fri, 13 Nov 2015 08:49:24 -0800 (PST)
-In-Reply-To: <56460A86.2000501@gmail.com>
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:34005 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932444AbbKMQty (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 11:49:54 -0500
+Received: by lbbcs9 with SMTP id cs9so57053677lbb.1
+        for <netdev@vger.kernel.org>; Fri, 13 Nov 2015 08:49:52 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-11-13 at 08:06 -0800, Alexander Duyck wrote:
+Hi,
 
-> Yes, I'm pretty certain you cannot use this napi_complete_done with 
-> anything that support busy poll sockets.  The problem is you need to 
-> flush any existing lists before yielding to the socket polling in order 
-> to avoid packet ordering issues between the NAPI polling routine and the 
-> socket polling routine.
+I recently saw via-velocity skb_over_panic() on one of my locations.
+The panic happened with two separate hardware devices, so it appears to
+be network related, not broken hardware.
 
-My plan is to make busy poll independent of GRO / RPS / RFS, and generic
-if possible, for all NAPI drivers. (No need to absolutely provide
-ndo_busy_poll()
+I did not get the actual over_panic printk, as I got only screen shot
+of them monitor. But the visible part of call trace says:
+ <IRQ>
+ skb_put
+ velocity_poll
+ net_rx_action
+ __do_softirq
+ irq_exit
+ common_interrupt
+ <EOI>
 
-I really do not see GRO being a problem for low latency : RPC messages
-are terminated by PSH flag that take care of flushing GRO engine.
+The was recurring every few hours, so I patched via-velocity with the
+following after looking the code a bit:
 
-For mixed use, (low latency and other kind of flows), GRO is a win.
+--- a/drivers/net/ethernet/via/via-velocity.c
++++ b/drivers/net/ethernet/via/via-velocity.c
+@@ -2060,6 +2060,11 @@ static int velocity_receive_frame(struct velocity_info *vptr, int idx)
+ 		stats->rx_length_errors++;
+ 		return -EINVAL;
+ 	}
++	if (pkt_len < 4 || pkt_len > vptr->rx.buf_sz) {
++		VELOCITY_PRT(MSG_LEVEL_VERBOSE, KERN_ERR " %s : the received frame size %d is inconsistent.\n", vptr->netdev->name, pkt_len);
++		stats->rx_length_errors++;
++		return -EINVAL;
++	}
+ 
+ 	if (rd->rdesc0.RSR & RSR_MAR)
+ 		stats->multicast++;
 
-With the following sk_busy_loop() , we :
+This seems to have fixed the panics. And I do see one of the NIC's
+ethtool report's in_range_length_errors increasing once in a while. For
+some reason I don't see the above debug message though, so I'm not sure
+on what pkt_len triggers it.
 
-- allow tunneling traffic to use busy poll as well as native traffic.
-- allow RFS/RPS being used (sending IPI to other cpus if needed)
-- use the 'lets burn cpu cycles' to do useful work (like TX completions, RCU callbacks...)
-- Implement busy poll for all NAPI drivers.
+In any case, the cade a bit later on does unconditionally:
+	skb_put(skb, pkt_len - 4);
 
-        rcu_read_lock();
-        napi = napi_by_id(sk->sk_napi_id);
-        if (!napi)
-                goto out;
-        ops = napi->dev->netdev_ops;
+So it's possible that some bad packets make the NIC return unexpected
+packet sizes, and the current code can panic on it.
 
-        for (;;) {
-                local_bh_disable();
-                rc = 0;
-                if (ops->ndo_busy_poll) {
-                        rc = ops->ndo_busy_poll(napi);
-                } else if (napi_schedule_prep(napi)) {
-                        rc = napi->poll(napi, 4);
-                        if (rc == 4) {
-                                napi_complete_done(napi, rc);
-                                napi_schedule(napi);
-                        }
-                }
-                if (rc > 0)
-                        NET_ADD_STATS_BH(sock_net(sk),
-                                         LINUX_MIB_BUSYPOLLRXPACKETS, rc);
-                local_bh_enable();
+Any suggestions for better fix?
 
-                if (rc == LL_FLUSH_FAILED ||
-                    nonblock ||
-                    !skb_queue_empty(&sk->sk_receive_queue) ||
-                    need_resched() ||
-                    busy_loop_timeout(end_time))
-                        break;
-
-                cpu_relax();
-        }
-        rcu_read_unlock();
+Thanks,
+Timo
