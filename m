@@ -1,9 +1,10 @@
 From: Z Lim <zlim.lnx@gmail.com>
-Subject: Re: [PATCH 1/2] arm64: bpf: fix JIT frame pointer setup
-Date: Thu, 12 Nov 2015 19:21:13 -0800
-Message-ID: <CABg9mctFoXuttJkGaqOBWm-beDKzui_Fwhj4u+iBBWPXAFsYwQ@mail.gmail.com>
+Subject: Re: [PATCH 2/2] arm64: bpf: make BPF prologue and epilogue align with
+ ARM64 AAPCS
+Date: Thu, 12 Nov 2015 19:28:12 -0800
+Message-ID: <CABg9mctTj2M7Mw+bPgkDYtorW21uTuLxWnxLFucWPtM4TQ-7VA@mail.gmail.com>
 References: <1447365421-1309-1-git-send-email-yang.shi@linaro.org>
-	<1447365421-1309-2-git-send-email-yang.shi@linaro.org>
+	<1447365421-1309-3-git-send-email-yang.shi@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Alexei Starovoitov <ast@kernel.org>, daniel@iogearbox.net,
@@ -15,28 +16,45 @@ Cc: Alexei Starovoitov <ast@kernel.org>, daniel@iogearbox.net,
 	<linux-arm-kernel@lists.infradead.org>,
 	linaro-kernel@lists.linaro.org
 To: Yang Shi <yang.shi@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:36449 "EHLO
-	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754469AbbKMDVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2015 22:21:15 -0500
-In-Reply-To: <1447365421-1309-2-git-send-email-yang.shi@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447365421-1309-3-git-send-email-yang.shi@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On Thu, Nov 12, 2015 at 1:57 PM, Yang Shi <yang.shi@linaro.org> wrote:
-> BPF fp should point to the top of the BPF prog stack. The original
-> implementation made it point to the bottom incorrectly.
-> Move A64_SP to fp before reserve BPF prog stack space.
 >
-> CC: Zi Shen Lim <zlim.lnx@gmail.com>
-> CC: Xi Wang <xi.wang@gmail.com>
-> Signed-off-by: Yang Shi <yang.shi@linaro.org>
-> ---
+> Save and restore FP/LR in BPF prog prologue and epilogue, save SP to FP
+> in prologue in order to get the correct stack backtrace.
+>
+> However, ARM64 JIT used FP (x29) as eBPF fp register, FP is subjected to
+> change during function call so it may cause the BPF prog stack base address
+> change too.
+>
+> Use x25 to replace FP as BPF stack base register (fp). Since x25 is callee
+> saved register, so it will keep intact during function call.
+> It is initialized in BPF prog prologue when BPF prog is started to run
+> everytime. When BPF prog exits, it could be just tossed.
+>
+> So, the BPF stack layout looks like:
+>
+>                                  high
+>          original A64_SP =>   0:+-----+ BPF prologue
+>                                 |     | FP/LR and callee saved registers
+>          BPF fp register => -64:+-----+
+>                                 |     |
+>                                 | ... | BPF prog stack
+>                                 |     |
+>                                 |     |
+>          current A64_SP/FP =>   +-----+
+>                                 |     |
+>                                 | ... | Function call stack
+>                                 |     |
+>                                 +-----+
+>                                   low
+>
 
-Reviewed-by: Zi Shen Lim <zlim.lnx@gmail.com>
+Yang, for stack unwinding to work, shouldn't it be something like the following?
 
-Also,
-
-Fixes: e54bcde3d69d ("arm64: eBPF JIT compiler")
-Cc: <stable@vger.kernel.org> # 3.18+
+          | LR |
+A64_FP => | FP |
+          | .. |
