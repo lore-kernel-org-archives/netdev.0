@@ -1,364 +1,144 @@
-From: Bastian Stender <bst@pengutronix.de>
-Subject: [PATCH] net ipv4: use preferred log methods
-Date: Fri, 13 Nov 2015 11:40:34 +0100
-Message-ID: <1447411234-2067-2-git-send-email-bst@pengutronix.de>
-References: <1443625231-1871-1-git-send-email-bst@pengutronix.de>
- <1447411234-2067-1-git-send-email-bst@pengutronix.de>
-Cc: netdev@vger.kernel.org, trivial@kernel.org, kernel@pengutronix.de,
-	Bastian Stender <bst@pengutronix.de>
-To: "David S . Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:49712 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932829AbbKMKmP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 05:42:15 -0500
-In-Reply-To: <1447411234-2067-1-git-send-email-bst@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 10/14] mm: memcontrol: generalize the socket accounting
+ jump label
+Date: Fri, 13 Nov 2015 11:43:09 +0100
+Message-ID: <20151113104308.GD2632@dhcp22.suse.cz>
+References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
+ <1447371693-25143-11-git-send-email-hannes@cmpxchg.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Vladimir Davydov <vdavydov@virtuozzo.com>,
+	Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1447371693-25143-11-git-send-email-hannes@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Replace printk calls with preferred unconditional log method calls to keep
-kernel messages clean.
+On Thu 12-11-15 18:41:29, Johannes Weiner wrote:
+> The unified hierarchy memory controller is going to use this jump
+> label as well to control the networking callbacks. Move it to the
+> memory controller code and give it a more generic name.
+> 
+> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
 
-Added newline to "too small MTU" message.
+Yes it makes more sense in memcg proper
+Acked-by: Michal Hocko <mhocko@suse.com>
 
-Signed-off-by: Bastian Stender <bst@pengutronix.de>
----
- net/ipv4/ipconfig.c                            | 73 ++++++++++----------------
- net/ipv4/netfilter/arp_tables.c                |  6 +--
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  2 +-
- net/ipv4/netfilter/nf_nat_snmp_basic.c         | 22 ++++----
- 4 files changed, 44 insertions(+), 59 deletions(-)
+> ---
+>  include/linux/memcontrol.h | 4 ++++
+>  include/net/sock.h         | 7 -------
+>  mm/memcontrol.c            | 3 +++
+>  net/core/sock.c            | 5 -----
+>  net/ipv4/tcp_memcontrol.c  | 4 ++--
+>  5 files changed, 9 insertions(+), 14 deletions(-)
+> 
+> diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+> index 1c71f27..4cf5afa 100644
+> --- a/include/linux/memcontrol.h
+> +++ b/include/linux/memcontrol.h
+> @@ -693,6 +693,8 @@ static inline void mem_cgroup_wb_stats(struct bdi_writeback *wb,
+>  
+>  #if defined(CONFIG_INET) && defined(CONFIG_MEMCG_KMEM)
+>  struct sock;
+> +extern struct static_key memcg_sockets_enabled_key;
+> +#define mem_cgroup_sockets_enabled static_key_false(&memcg_sockets_enabled_key)
+>  void sock_update_memcg(struct sock *sk);
+>  void sock_release_memcg(struct sock *sk);
+>  bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
+> @@ -701,6 +703,8 @@ static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
+>  {
+>  	return memcg->tcp_mem.memory_pressure;
+>  }
+> +#else
+> +#define mem_cgroup_sockets_enabled 0
+>  #endif /* CONFIG_INET && CONFIG_MEMCG_KMEM */
+>  
+>  #ifdef CONFIG_MEMCG_KMEM
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index b439dcc..bf1b901 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -1065,13 +1065,6 @@ static inline void sk_refcnt_debug_release(const struct sock *sk)
+>  #define sk_refcnt_debug_release(sk) do { } while (0)
+>  #endif /* SOCK_REFCNT_DEBUG */
+>  
+> -#if defined(CONFIG_MEMCG_KMEM) && defined(CONFIG_NET)
+> -extern struct static_key memcg_socket_limit_enabled;
+> -#define mem_cgroup_sockets_enabled static_key_false(&memcg_socket_limit_enabled)
+> -#else
+> -#define mem_cgroup_sockets_enabled 0
+> -#endif
+> -
+>  static inline bool sk_stream_memory_free(const struct sock *sk)
+>  {
+>  	if (sk->sk_wmem_queued >= sk->sk_sndbuf)
+> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+> index 89b1d9e..658bef2 100644
+> --- a/mm/memcontrol.c
+> +++ b/mm/memcontrol.c
+> @@ -291,6 +291,9 @@ static inline struct mem_cgroup *mem_cgroup_from_id(unsigned short id)
+>  /* Writing them here to avoid exposing memcg's inner layout */
+>  #if defined(CONFIG_INET) && defined(CONFIG_MEMCG_KMEM)
+>  
+> +struct static_key memcg_sockets_enabled_key;
+> +EXPORT_SYMBOL(memcg_sockets_enabled_key);
+> +
+>  void sock_update_memcg(struct sock *sk)
+>  {
+>  	struct mem_cgroup *memcg;
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 6486b0d..c5435b5 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -201,11 +201,6 @@ EXPORT_SYMBOL(sk_net_capable);
+>  static struct lock_class_key af_family_keys[AF_MAX];
+>  static struct lock_class_key af_family_slock_keys[AF_MAX];
+>  
+> -#if defined(CONFIG_MEMCG_KMEM)
+> -struct static_key memcg_socket_limit_enabled;
+> -EXPORT_SYMBOL(memcg_socket_limit_enabled);
+> -#endif
+> -
+>  /*
+>   * Make lock validator output more readable. (we pre-construct these
+>   * strings build-time, so that runtime initialization of socket
+> diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
+> index 47addc3..17df9dd 100644
+> --- a/net/ipv4/tcp_memcontrol.c
+> +++ b/net/ipv4/tcp_memcontrol.c
+> @@ -34,7 +34,7 @@ void tcp_destroy_cgroup(struct mem_cgroup *memcg)
+>  		return;
+>  
+>  	if (test_bit(MEMCG_SOCK_ACTIVATED, &memcg->tcp_mem.flags))
+> -		static_key_slow_dec(&memcg_socket_limit_enabled);
+> +		static_key_slow_dec(&memcg_sockets_enabled_key);
+>  }
+>  
+>  static int tcp_update_limit(struct mem_cgroup *memcg, unsigned long nr_pages)
+> @@ -73,7 +73,7 @@ static int tcp_update_limit(struct mem_cgroup *memcg, unsigned long nr_pages)
+>  		 */
+>  		if (!test_and_set_bit(MEMCG_SOCK_ACTIVATED,
+>  				      &memcg->tcp_mem.flags))
+> -			static_key_slow_inc(&memcg_socket_limit_enabled);
+> +			static_key_slow_inc(&memcg_sockets_enabled_key);
+>  		set_bit(MEMCG_SOCK_ACTIVE, &memcg->tcp_mem.flags);
+>  	}
+>  
+> -- 
+> 2.6.2
 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 0bc7412..e86e8a9 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -65,15 +65,6 @@
- #include <net/checksum.h>
- #include <asm/processor.h>
- 
--/* Define this to allow debugging output */
--#undef IPCONFIG_DEBUG
--
--#ifdef IPCONFIG_DEBUG
--#define DBG(x) printk x
--#else
--#define DBG(x) do { } while(0)
--#endif
--
- #if defined(CONFIG_IP_PNP_DHCP)
- #define IPCONFIG_DHCP
- #endif
-@@ -227,7 +218,7 @@ static int __init ic_open_devs(void)
- 			if (dev->mtu >= 364)
- 				able |= IC_BOOTP;
- 			else
--				pr_warn("DHCP/BOOTP: Ignoring device %s, MTU %d too small",
-+				pr_warn("DHCP/BOOTP: Ignoring device %s, MTU %d too small\n",
- 					dev->name, dev->mtu);
- 			if (!(dev->flags & IFF_NOARP))
- 				able |= IC_RARP;
-@@ -254,8 +245,8 @@ static int __init ic_open_devs(void)
- 			else
- 				d->xid = 0;
- 			ic_proto_have_if |= able;
--			DBG(("IP-Config: %s UP (able=%d, xid=%08x)\n",
--				dev->name, able, d->xid));
-+			pr_debug("IP-Config: %s UP (able=%d, xid=%08x)\n",
-+				 dev->name, able, d->xid);
- 		}
- 	}
- 
-@@ -311,7 +302,7 @@ static void __init ic_close_devs(void)
- 		next = d->next;
- 		dev = d->dev;
- 		if (dev != ic_dev && !netdev_uses_dsa(dev)) {
--			DBG(("IP-Config: Downing %s\n", dev->name));
-+			pr_debug("IP-Config: Downing %s\n", dev->name);
- 			dev_change_flags(dev, d->flags);
- 		}
- 		kfree(d);
-@@ -464,7 +455,8 @@ static int __init ic_defaults(void)
- 			       &ic_myaddr);
- 			return -1;
- 		}
--		printk("IP-Config: Guessing netmask %pI4\n", &ic_netmask);
-+		pr_notice("IP-Config: Guessing netmask %pI4\n",
-+			  &ic_netmask);
- 	}
- 
- 	return 0;
-@@ -675,9 +667,7 @@ ic_dhcp_init_options(u8 *options)
- 	u8 *e = options;
- 	int len;
- 
--#ifdef IPCONFIG_DEBUG
--	printk("DHCP: Sending message type %d\n", mt);
--#endif
-+	pr_debug("DHCP: Sending message type %d\n", mt);
- 
- 	memcpy(e, ic_bootp_cookie, 4);	/* RFC1048 Magic Cookie */
- 	e += 4;
-@@ -847,7 +837,8 @@ static void __init ic_bootp_send_if(struct ic_device *d, unsigned long jiffies_d
- 	else if (dev->type == ARPHRD_FDDI)
- 		b->htype = ARPHRD_ETHER;
- 	else {
--		printk("Unknown ARP type 0x%04x for device %s\n", dev->type, dev->name);
-+		pr_warn("Unknown ARP type 0x%04x for device %s\n", dev->type,
-+			dev->name);
- 		b->htype = dev->type; /* can cause undefined behavior */
- 	}
- 
-@@ -904,14 +895,12 @@ static void __init ic_do_bootp_ext(u8 *ext)
- 	int i;
- 	__be16 mtu;
- 
--#ifdef IPCONFIG_DEBUG
- 	u8 *c;
- 
--	printk("DHCP/BOOTP: Got extension %d:",*ext);
-+	pr_debug("DHCP/BOOTP: Got extension %d:", *ext);
- 	for (c=ext+2; c<ext+2+ext[1]; c++)
--		printk(" %02x", *c);
--	printk("\n");
--#endif
-+		pr_debug(" %02x", *c);
-+	pr_debug("\n");
- 
- 	switch (*ext++) {
- 	case 1:		/* Subnet mask */
-@@ -1080,9 +1069,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
- 				}
- 			}
- 
--#ifdef IPCONFIG_DEBUG
--			printk("DHCP: Got message type %d\n", mt);
--#endif
-+			pr_debug("DHCP: Got message type %d\n", mt);
- 
- 			switch (mt) {
- 			case DHCPOFFER:
-@@ -1095,10 +1082,8 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
- 				/* Let's accept that offer. */
- 				ic_myaddr = b->your_ip;
- 				ic_servaddr = server_id;
--#ifdef IPCONFIG_DEBUG
--				printk("DHCP: Offered address %pI4 by server %pI4\n",
--				       &ic_myaddr, &b->iph.saddr);
--#endif
-+				pr_debug("DHCP: Offered address %pI4 by server %pI4\n",
-+					 &ic_myaddr, &b->iph.saddr);
- 				/* The DHCP indicated server address takes
- 				 * precedence over the bootp header one if
- 				 * they are different.
-@@ -1254,13 +1239,13 @@ static int __init ic_dynamic(void)
- 		    (ic_proto_enabled & IC_USE_DHCP) &&
- 		    ic_dhcp_msgtype != DHCPACK) {
- 			ic_got_reply = 0;
--			pr_cont(",");
-+			pr_notice(",");
- 			continue;
- 		}
- #endif /* IPCONFIG_DHCP */
- 
- 		if (ic_got_reply) {
--			pr_cont(" OK\n");
-+			pr_notice(" OK\n");
- 			break;
- 		}
- 
-@@ -1268,7 +1253,7 @@ static int __init ic_dynamic(void)
- 			continue;
- 
- 		if (! --retries) {
--			pr_cont(" timed out!\n");
-+			pr_notice(" timed out!\n");
- 			break;
- 		}
- 
-@@ -1278,7 +1263,7 @@ static int __init ic_dynamic(void)
- 		if (timeout > CONF_TIMEOUT_MAX)
- 			timeout = CONF_TIMEOUT_MAX;
- 
--		pr_cont(".");
-+		pr_notice(".");
- 	}
- 
- #ifdef IPCONFIG_BOOTP
-@@ -1295,11 +1280,11 @@ static int __init ic_dynamic(void)
- 		return -1;
- 	}
- 
--	printk("IP-Config: Got %s answer from %pI4, ",
-+	pr_info("IP-Config: Got %s answer from %pI4, ",
- 		((ic_got_reply & IC_RARP) ? "RARP"
--		 : (ic_proto_enabled & IC_USE_DHCP) ? "DHCP" : "BOOTP"),
--	       &ic_addrservaddr);
--	pr_cont("my address is %pI4\n", &ic_myaddr);
-+		: (ic_proto_enabled & IC_USE_DHCP) ? "DHCP" : "BOOTP"),
-+		&ic_addrservaddr);
-+	pr_info("my address is %pI4\n", &ic_myaddr);
- 
- 	return 0;
- }
-@@ -1426,7 +1411,7 @@ static int __init ip_auto_config(void)
- 	if (!ic_enable)
- 		return 0;
- 
--	DBG(("IP-Config: Entered.\n"));
-+	pr_debug("IP-Config: Entered.\n");
- #ifdef IPCONFIG_DYNAMIC
-  try_try_again:
- #endif
-@@ -1548,8 +1533,8 @@ static int __init ip_auto_config(void)
- 		}
- 	for (i++; i < CONF_NAMESERVERS_MAX; i++)
- 		if (ic_nameservers[i] != NONE)
--			pr_cont(", nameserver%u=%pI4", i, &ic_nameservers[i]);
--	pr_cont("\n");
-+			pr_info(", nameserver%u=%pI4", i, &ic_nameservers[i]);
-+	pr_info("\n");
- #endif /* !SILENT */
- 
- 	return 0;
-@@ -1585,7 +1570,7 @@ static int __init ic_proto_name(char *name)
- 				return 1;
- 			*v = 0;
- 			if (kstrtou8(client_id, 0, dhcp_client_identifier))
--				DBG("DHCP: Invalid client identifier type\n");
-+				pr_debug("DHCP: Invalid client identifier type\n");
- 			strncpy(dhcp_client_identifier + 1, v + 1, 251);
- 			*v = ',';
- 		}
-@@ -1644,7 +1629,7 @@ static int __init ip_auto_config_setup(char *addrs)
- 		if ((cp = strchr(ip, ':')))
- 			*cp++ = '\0';
- 		if (strlen(ip) > 0) {
--			DBG(("IP-Config: Parameter #%d: `%s'\n", num, ip));
-+			pr_debug("IP-Config: Parameter #%d: `%s'\n", num, ip);
- 			switch (num) {
- 			case 0:
- 				if ((ic_myaddr = in_aton(ip)) == ANY)
-@@ -1716,7 +1701,7 @@ static int __init vendor_class_identifier_setup(char *addrs)
- 	if (strlcpy(vendor_class_identifier, addrs,
- 		    sizeof(vendor_class_identifier))
- 	    >= sizeof(vendor_class_identifier))
--		pr_warn("DHCP: vendorclass too long, truncated to \"%s\"",
-+		pr_warn("DHCP: vendorclass too long, truncated to \"%s\"\n",
- 			vendor_class_identifier);
- 	return 1;
- }
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 11dccba..b488cac 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -38,13 +38,13 @@ MODULE_DESCRIPTION("arptables core");
- /*#define DEBUG_ARP_TABLES_USER*/
- 
- #ifdef DEBUG_ARP_TABLES
--#define dprintf(format, args...)  printk(format , ## args)
-+#define dprintf(format, args...)  pr_debug(format, ## args)
- #else
- #define dprintf(format, args...)
- #endif
- 
- #ifdef DEBUG_ARP_TABLES_USER
--#define duprintf(format, args...) printk(format , ## args)
-+#define duprintf(format, args...) pr_debug(format, ## args)
- #else
- #define duprintf(format, args...)
- #endif
-@@ -1905,7 +1905,7 @@ static int __init arp_tables_init(void)
- 	if (ret < 0)
- 		goto err4;
- 
--	printk(KERN_INFO "arp_tables: (C) 2002 David S. Miller\n");
-+	pr_info("arp_tables: (C) 2002 David S. Miller\n");
- 	return 0;
- 
- err4:
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index 461ca92..e3c46e8 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -451,7 +451,7 @@ static int __init nf_conntrack_l3proto_ipv4_init(void)
- 
- 	ret = nf_register_sockopt(&so_getorigdst);
- 	if (ret < 0) {
--		printk(KERN_ERR "Unable to register netfilter socket option\n");
-+		pr_err("Unable to register netfilter socket option\n");
- 		return ret;
- 	}
- 
-diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-index ddb894a..c9b52c3 100644
---- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
-+++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-@@ -1048,7 +1048,7 @@ static int snmp_parse_mangle(unsigned char *msg,
- 	if (!asn1_uint_decode (&ctx, end, &vers))
- 		return 0;
- 	if (debug > 1)
--		printk(KERN_DEBUG "bsalg: snmp version: %u\n", vers + 1);
-+		pr_debug("bsalg: snmp version: %u\n", vers + 1);
- 	if (vers > 1)
- 		return 1;
- 
-@@ -1064,10 +1064,10 @@ static int snmp_parse_mangle(unsigned char *msg,
- 	if (debug > 1) {
- 		unsigned int i;
- 
--		printk(KERN_DEBUG "bsalg: community: ");
-+		pr_debug("bsalg: community: ");
- 		for (i = 0; i < comm.len; i++)
--			printk("%c", comm.data[i]);
--		printk("\n");
-+			pr_cont("%c", comm.data[i]);
-+		pr_cont("\n");
- 	}
- 	kfree(comm.data);
- 
-@@ -1091,9 +1091,9 @@ static int snmp_parse_mangle(unsigned char *msg,
- 		};
- 
- 		if (pdutype > SNMP_PDU_TRAP2)
--			printk(KERN_DEBUG "bsalg: bad pdu type %u\n", pdutype);
-+			pr_debug("bsalg: bad pdu type %u\n", pdutype);
- 		else
--			printk(KERN_DEBUG "bsalg: pdu: %s\n", pdus[pdutype]);
-+			pr_debug("bsalg: pdu: %s\n", pdus[pdutype]);
- 	}
- 	if (pdutype != SNMP_PDU_RESPONSE &&
- 	    pdutype != SNMP_PDU_TRAP1 && pdutype != SNMP_PDU_TRAP2)
-@@ -1119,7 +1119,7 @@ static int snmp_parse_mangle(unsigned char *msg,
- 			return 0;
- 
- 		if (debug > 1)
--			printk(KERN_DEBUG "bsalg: request: id=0x%lx error_status=%u "
-+			pr_debug("bsalg: request: id=0x%lx error_status=%u "
- 			"error_index=%u\n", req.id, req.error_status,
- 			req.error_index);
- 	}
-@@ -1145,13 +1145,13 @@ static int snmp_parse_mangle(unsigned char *msg,
- 		}
- 
- 		if (debug > 1) {
--			printk(KERN_DEBUG "bsalg: object: ");
-+			pr_debug("bsalg: object: ");
- 			for (i = 0; i < obj->id_len; i++) {
- 				if (i > 0)
--					printk(".");
--				printk("%lu", obj->id[i]);
-+					pr_cont(".");
-+				pr_cont("%lu", obj->id[i]);
- 			}
--			printk(": type=%u\n", obj->type);
-+			pr_cont(": type=%u\n", obj->type);
- 
- 		}
- 
 -- 
-2.6.1
+Michal Hocko
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
