@@ -1,51 +1,61 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH net] ravb: Fix int mask value overwritten issue
-Date: Fri, 13 Nov 2015 19:24:49 +0900
-Message-ID: <1447410289-3741-1-git-send-email-ykaneko0929@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH net-next 1/2] be2net: remove unused local rsstable array
+Date: Fri, 13 Nov 2015 11:36:57 +0100
+Message-ID: <1447411018-11745-1-git-send-email-ivecera@redhat.com>
+Cc: sriharsha.basavapatna@avagotech.com, sathya.perla@avagotech.com,
+	ajit.khaparde@avagotech.com, padmanabh.ratnakar@avagotech.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33092 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933294AbbKMK3e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 05:29:34 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:46316 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932959AbbKMKhB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Nov 2015 05:37:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Masaru Nagai <masaru.nagai.vx@renesas.com>
+Remove rsstable array and its initialization from be_set_rss_hash_opts().
+The array became unused after "e255787 be2net: Support for configurable
+RSS hash key". The initial RSS table is now filled and stored for later
+usage during Rx queue creation.
 
-When RX/TX interrupt for Network Control queue and Best Effort queue
-is issued at the same time, the interrupt mask of Network Control
-queue will be reset when the mask of Best Effort queue is set.
-This patch fixes this problem.
-
-Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
-Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 ---
+ drivers/net/ethernet/emulex/benet/be_ethtool.c | 16 ++--------------
+ 1 file changed, 2 insertions(+), 14 deletions(-)
 
-This patch is based on the master branch of David Miller's networking tree.
-
- drivers/net/ethernet/renesas/ravb_main.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index aa7b208..7180e26 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -733,8 +733,10 @@ static irqreturn_t ravb_interrupt(int irq, void *dev_id)
- 			    ((tis  & tic)  & BIT(q))) {
- 				if (napi_schedule_prep(&priv->napi[q])) {
- 					/* Mask RX and TX interrupts */
--					ravb_write(ndev, ric0 & ~BIT(q), RIC0);
--					ravb_write(ndev, tic  & ~BIT(q), TIC);
-+					ric0 &= ~BIT(q);
-+					tic &= ~BIT(q);
-+					ravb_write(ndev, ric0, RIC0);
-+					ravb_write(ndev, tic, TIC);
- 					__napi_schedule(&priv->napi[q]);
- 				} else {
- 					netdev_warn(ndev,
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index 26b6192..3d8c6c1 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -1064,9 +1064,7 @@ static int be_get_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd,
+ static int be_set_rss_hash_opts(struct be_adapter *adapter,
+ 				struct ethtool_rxnfc *cmd)
+ {
+-	struct be_rx_obj *rxo;
+-	int status = 0, i, j;
+-	u8 rsstable[128];
++	int status;
+ 	u32 rss_flags = adapter->rss_info.rss_flags;
+ 
+ 	if (cmd->data != L3_RSS_FLAGS &&
+@@ -1115,17 +1113,7 @@ static int be_set_rss_hash_opts(struct be_adapter *adapter,
+ 	}
+ 
+ 	if (rss_flags == adapter->rss_info.rss_flags)
+-		return status;
+-
+-	if (be_multi_rxq(adapter)) {
+-		for (j = 0; j < 128; j += adapter->num_rss_qs) {
+-			for_all_rss_queues(adapter, rxo, i) {
+-				if ((j + i) >= 128)
+-					break;
+-				rsstable[j + i] = rxo->rss_id;
+-			}
+-		}
+-	}
++		return 0;
+ 
+ 	status = be_cmd_rss_config(adapter, adapter->rss_info.rsstable,
+ 				   rss_flags, 128, adapter->rss_info.rss_hkey);
 -- 
-1.9.1
+2.4.10
