@@ -1,44 +1,86 @@
-From: Vladimir Davydov <vdavydov@virtuozzo.com>
-Subject: Re: [PATCH 05/14] net: tcp_memcontrol: protect all tcp_memcontrol
- calls by jump-label
-Date: Sat, 14 Nov 2015 19:33:10 +0300
-Message-ID: <20151114163309.GL31308@esperanza>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
- <1447371693-25143-6-git-send-email-hannes@cmpxchg.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, Andrew Morton
-	<akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>, Michal Hocko
-	<mhocko@suse.cz>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
-	<cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1447371693-25143-6-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+From: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+Subject: [PATCH] brcmfmac: constify brcmf_bus_ops structures
+Date: Sat, 14 Nov 2015 17:22:07 +0100
+Message-ID: <1447518127-1994-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 12, 2015 at 06:41:24PM -0500, Johannes Weiner wrote:
-> Move the jump-label from sock_update_memcg() and sock_release_memcg()
-> to the callsite, and so eliminate those function calls when socket
-> accounting is not enabled.
+The brcmf_bus_ops structures are never modified, so declare them as const.
 
-I don't believe this patch's necessary, because these functions aren't
-hot paths. Neither do I think it makes the code look better. Anyway,
-it's rather a matter of personal preference, and the patch looks correct
-to me, so
+Done with the help of Coccinelle.
 
-Reviewed-by: Vladimir Davydov <vdavydov@virtuozzo.com>
+Signed-off-by: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
 
-> 
-> This also eliminates the need for dummy functions because the calls
-> will be optimized away if the Kconfig options are not enabled.
-> 
-> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+---
+ drivers/net/wireless/brcm80211/brcmfmac/bus.h  |    2 +-
+ drivers/net/wireless/brcm80211/brcmfmac/pcie.c |    2 +-
+ drivers/net/wireless/brcm80211/brcmfmac/sdio.c |    2 +-
+ drivers/net/wireless/brcm80211/brcmfmac/usb.c  |    2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bus.h b/drivers/net/wireless/brcm80211/brcmfmac/bus.h
+index 230cad7..36093f9 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/bus.h
++++ b/drivers/net/wireless/brcm80211/brcmfmac/bus.h
+@@ -137,7 +137,7 @@ struct brcmf_bus {
+ 	bool always_use_fws_queue;
+ 	bool wowl_supported;
+ 
+-	struct brcmf_bus_ops *ops;
++	const struct brcmf_bus_ops *ops;
+ 	struct brcmf_bus_msgbuf *msgbuf;
+ };
+ 
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/pcie.c b/drivers/net/wireless/brcm80211/brcmfmac/pcie.c
+index 83d8042..65ae3b0 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/pcie.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/pcie.c
+@@ -1419,7 +1419,7 @@ static int brcmf_pcie_get_memdump(struct device *dev, void *data, size_t len)
+ }
+ 
+ 
+-static struct brcmf_bus_ops brcmf_pcie_bus_ops = {
++static const struct brcmf_bus_ops brcmf_pcie_bus_ops = {
+ 	.txdata = brcmf_pcie_tx,
+ 	.stop = brcmf_pcie_down,
+ 	.txctl = brcmf_pcie_tx_ctlpkt,
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+index 7e74ac3..01f359e 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+@@ -4025,7 +4025,7 @@ brcmf_sdio_watchdog(unsigned long data)
+ 	}
+ }
+ 
+-static struct brcmf_bus_ops brcmf_sdio_bus_ops = {
++static const struct brcmf_bus_ops brcmf_sdio_bus_ops = {
+ 	.stop = brcmf_sdio_bus_stop,
+ 	.preinit = brcmf_sdio_bus_preinit,
+ 	.txdata = brcmf_sdio_bus_txdata,
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/usb.c b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
+index 689e64d..4bdd3b3 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/usb.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
+@@ -1163,7 +1163,7 @@ static void brcmf_usb_wowl_config(struct device *dev, bool enabled)
+ 		device_set_wakeup_enable(devinfo->dev, false);
+ }
+ 
+-static struct brcmf_bus_ops brcmf_usb_bus_ops = {
++static const struct brcmf_bus_ops brcmf_usb_bus_ops = {
+ 	.txdata = brcmf_usb_tx,
+ 	.stop = brcmf_usb_down,
+ 	.txctl = brcmf_usb_tx_ctlpkt,
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
