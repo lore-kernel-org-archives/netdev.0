@@ -1,100 +1,39 @@
-From: Vladimir Davydov <vdavydov@virtuozzo.com>
-Subject: Re: [PATCH 02/14] mm: vmscan: simplify memcg vs. global shrinker
- invocation
-Date: Sat, 14 Nov 2015 15:36:50 +0300
-Message-ID: <20151114123650.GH31308@esperanza>
+From: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
+Subject: Re: [PATCH 03/14] net: tcp_memcontrol: properly detect ancestor
+ socket pressure
+Date: Sat, 14 Nov 2015 15:45:52 +0300
+Message-ID: <20151114124552.GI31308@esperanza>
 References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
- <1447371693-25143-3-git-send-email-hannes@cmpxchg.org>
+ <1447371693-25143-4-git-send-email-hannes@cmpxchg.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, Andrew Morton
-	<akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>, Michal Hocko
-	<mhocko@suse.cz>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
-	<cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
+	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<kernel-team-b10kYP2dOMg@public.gmane.org>
+To: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1447371693-25143-3-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <1447371693-25143-4-git-send-email-hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 12, 2015 at 06:41:21PM -0500, Johannes Weiner wrote:
-...
-> diff --git a/mm/vmscan.c b/mm/vmscan.c
-> index a4507ec..e4f5b3c 100644
-> --- a/mm/vmscan.c
-> +++ b/mm/vmscan.c
-> @@ -411,6 +411,10 @@ static unsigned long shrink_slab(gfp_t gfp_mask, int nid,
->  	struct shrinker *shrinker;
->  	unsigned long freed = 0;
->  
-> +	/* Global shrinker mode */
-> +	if (memcg == root_mem_cgroup)
-> +		memcg = NULL;
-> +
->  	if (memcg && !memcg_kmem_is_active(memcg))
->  		return 0;
->  
-> @@ -2410,11 +2414,22 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
->  			shrink_lruvec(lruvec, swappiness, sc, &lru_pages);
->  			zone_lru_pages += lru_pages;
->  
-> -			if (memcg && is_classzone)
-> +			/*
-> +			 * Shrink the slab caches in the same proportion that
-> +			 * the eligible LRU pages were scanned.
-> +			 */
-> +			if (is_classzone) {
->  				shrink_slab(sc->gfp_mask, zone_to_nid(zone),
->  					    memcg, sc->nr_scanned - scanned,
->  					    lru_pages);
->  
-> +				if (reclaim_state) {
-> +					sc->nr_reclaimed +=
-> +						reclaim_state->reclaimed_slab;
-> +					reclaim_state->reclaimed_slab = 0;
-> +				}
-> +			}
-> +
->  			/*
->  			 * Direct reclaim and kswapd have to scan all memory
->  			 * cgroups to fulfill the overall scan target for the
-> @@ -2432,20 +2447,6 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
->  			}
->  		} while ((memcg = mem_cgroup_iter(root, memcg, &reclaim)));
->  
-> -		/*
-> -		 * Shrink the slab caches in the same proportion that
-> -		 * the eligible LRU pages were scanned.
-> -		 */
-> -		if (global_reclaim(sc) && is_classzone)
-> -			shrink_slab(sc->gfp_mask, zone_to_nid(zone), NULL,
-> -				    sc->nr_scanned - nr_scanned,
-> -				    zone_lru_pages);
-> -
-> -		if (reclaim_state) {
-> -			sc->nr_reclaimed += reclaim_state->reclaimed_slab;
-> -			reclaim_state->reclaimed_slab = 0;
-> -		}
-> -
+On Thu, Nov 12, 2015 at 06:41:22PM -0500, Johannes Weiner wrote:
+> When charging socket memory, the code currently checks only the local
+> page counter for excess to determine whether the memcg is under socket
+> pressure. But even if the local counter is fine, one of the ancestors
+> could have breached its limit, which should also force this child to
+> enter socket pressure. This currently doesn't happen.
+> 
+> Fix this by using page_counter_try_charge() first. If that fails, it
+> means that either the local counter or one of the ancestors are in
+> excess of their limit, and the child should enter socket pressure.
+> 
+> Signed-off-by: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
 
-AFAICS this patch deadly breaks memcg-unaware shrinkers vs LRU balance:
-currently we scan (*total* LRU scanned / *total* LRU pages) of all such
-objects; with this patch we'd use the numbers from the root cgroup
-instead. If most processes reside in memory cgroups, the root cgroup
-will have only a few LRU pages and hence the pressure exerted upon such
-objects will be unfairly severe.
+Reviewed-by: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
 
-Thanks,
-Vladimir
-
->  		vmpressure(sc->gfp_mask, sc->target_mem_cgroup,
->  			   sc->nr_scanned - nr_scanned,
->  			   sc->nr_reclaimed - nr_reclaimed);
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+For the record: it was broken by commit 3e32cb2e0a12 ("mm: memcontrol:
+lockless page counters").
