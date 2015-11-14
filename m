@@ -1,220 +1,3168 @@
 From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH 1/2] dl2k: Add support for IP1000A-based cards
-Date: Sat, 14 Nov 2015 23:05:37 +0100
-Message-ID: <1447538738-28605-1-git-send-email-linux@rainbow-software.org>
+Subject: [PATCH 2/2] ipg: Remove ipg driver
+Date: Sat, 14 Nov 2015 23:05:38 +0100
+Message-ID: <1447538738-28605-2-git-send-email-linux@rainbow-software.org>
+References: <1447538738-28605-1-git-send-email-linux@rainbow-software.org>
 Cc: Francois Romieu <romieu@fr.zoreil.com>,
 	David Miller <davem@davemloft.net>,
 	Kernel development list <linux-kernel@vger.kernel.org>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.gsystem.sk ([62.176.172.50]:43478 "EHLO gsystem.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751673AbbKNWFy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Nov 2015 17:05:54 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447538738-28605-1-git-send-email-linux@rainbow-software.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add support for IP1000A chips to dl2k driver.
-IP1000A chip looks like a TC9020 with integrated PHY.
+Now that IP1000A chips are supported by dl2k driver, the buggy ipg
+driver can be removed. The ipg driver loses packets under load and then
+completely stops transmitting data.
 
-This allows IP1000A chips to work reliably because the ipg driver is
-buggy - it loses packets under load and then completely stops
-transmitting data.
-
-Tested with Asus NX1101 v2.0 at 10, 100 and 1000Mbps.
-Also verified that it does not break D-Link DGE-550T.
 
 Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
 ---
- drivers/net/ethernet/dlink/Kconfig |    5 ++--
- drivers/net/ethernet/dlink/dl2k.c  |   51 +++++++++++++++++++++++++++++++++---
- drivers/net/ethernet/dlink/dl2k.h  |   15 ++++++++++-
- 3 files changed, 65 insertions(+), 6 deletions(-)
+ MAINTAINERS                          |    7 -
+ drivers/net/ethernet/Kconfig         |    1 -
+ drivers/net/ethernet/Makefile        |    1 -
+ drivers/net/ethernet/icplus/Kconfig  |   13 -
+ drivers/net/ethernet/icplus/Makefile |    5 -
+ drivers/net/ethernet/icplus/ipg.c    | 2300 ----------------------------------
+ drivers/net/ethernet/icplus/ipg.h    |  748 -----------
+ 7 files changed, 3075 deletions(-)
+ delete mode 100644 drivers/net/ethernet/icplus/Kconfig
+ delete mode 100644 drivers/net/ethernet/icplus/Makefile
+ delete mode 100644 drivers/net/ethernet/icplus/ipg.c
+ delete mode 100644 drivers/net/ethernet/icplus/ipg.h
 
-diff --git a/drivers/net/ethernet/dlink/Kconfig b/drivers/net/ethernet/dlink/Kconfig
-index f6e858d..ebdc832 100644
---- a/drivers/net/ethernet/dlink/Kconfig
-+++ b/drivers/net/ethernet/dlink/Kconfig
-@@ -17,15 +17,16 @@ config NET_VENDOR_DLINK
- if NET_VENDOR_DLINK
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 7ba7ab7..b683820 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5588,13 +5588,6 @@ M:	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>
+ S:	Maintained
+ F:	net/ipv4/netfilter/ipt_MASQUERADE.c
  
- config DL2K
--	tristate "DL2000/TC902x-based Gigabit Ethernet support"
-+	tristate "DL2000/TC902x/IP1000A-based Gigabit Ethernet support"
- 	depends on PCI
- 	select CRC32
- 	---help---
--	  This driver supports DL2000/TC902x-based Gigabit ethernet cards,
-+	  This driver supports DL2000/TC902x/IP1000A-based Gigabit ethernet cards,
- 	  which includes
- 	  D-Link DGE-550T Gigabit Ethernet Adapter.
- 	  D-Link DL2000-based Gigabit Ethernet Adapter.
- 	  Sundance/Tamarack TC902x Gigabit Ethernet Adapter.
-+	  ICPlus IP1000A-based cards
+-IP1000A 10/100/1000 GIGABIT ETHERNET DRIVER
+-M:	Francois Romieu <romieu@fr.zoreil.com>
+-M:	Sorbica Shieh <sorbica@icplus.com.tw>
+-L:	netdev@vger.kernel.org
+-S:	Maintained
+-F:	drivers/net/ethernet/icplus/ipg.*
+-
+ IPATH DRIVER
+ M:	Mike Marciniszyn <infinipath@intel.com>
+ L:	linux-rdma@vger.kernel.org
+diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
+index 05aa759..955d06b 100644
+--- a/drivers/net/ethernet/Kconfig
++++ b/drivers/net/ethernet/Kconfig
+@@ -78,7 +78,6 @@ source "drivers/net/ethernet/ibm/Kconfig"
+ source "drivers/net/ethernet/intel/Kconfig"
+ source "drivers/net/ethernet/i825xx/Kconfig"
+ source "drivers/net/ethernet/xscale/Kconfig"
+-source "drivers/net/ethernet/icplus/Kconfig"
  
- 	  To compile this driver as a module, choose M here: the
- 	  module will be called dl2k.
-diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
-index cf0a5fc..c8a1cfd 100644
---- a/drivers/net/ethernet/dlink/dl2k.c
-+++ b/drivers/net/ethernet/dlink/dl2k.c
-@@ -253,6 +253,18 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		goto err_out_unmap_rx;
- 
-+	if (np->chip_id == CHIP_IP1000A &&
-+	    (np->pdev->revision == 0x40 || np->pdev->revision == 0x41)) {
-+		/* PHY magic taken from ipg driver */
-+		mii_write(dev, np->phy_addr, 31, 0x0001);
-+		mii_write(dev, np->phy_addr, 27, 0x01e0);
-+		mii_write(dev, np->phy_addr, 31, 0x0002);
-+		mii_write(dev, np->phy_addr, 27, 0xeb8e);
-+		mii_write(dev, np->phy_addr, 31, 0x0000);
-+		mii_write(dev, np->phy_addr, 30, 0x005e);
-+		mii_write(dev, np->phy_addr, 9, 0x0700);
-+	}
-+
- 	/* Fiber device? */
- 	np->phy_media = (dr16(ASICCtrl) & PhyMedia) ? 1 : 0;
- 	np->link_status = 0;
-@@ -361,6 +373,11 @@ parse_eeprom (struct net_device *dev)
- 	for (i = 0; i < 6; i++)
- 		dev->dev_addr[i] = psrom->mac_addr[i];
- 
-+	if (np->chip_id == CHIP_IP1000A) {
-+		np->led_mode = psrom->led_mode;
-+		return 0;
-+	}
-+
- 	if (np->pdev->vendor != PCI_VENDOR_ID_DLINK) {
- 		return 0;
- 	}
-@@ -406,6 +423,28 @@ parse_eeprom (struct net_device *dev)
- 	return 0;
- }
- 
-+static void rio_set_led_mode(struct net_device *dev)
-+{
-+	struct netdev_private *np = netdev_priv(dev);
-+	void __iomem *ioaddr = np->ioaddr;
-+	u32 mode;
-+
-+	if (np->chip_id != CHIP_IP1000A)
-+		return;
-+
-+	mode = dr32(ASICCtrl);
-+	mode &= ~(IPG_AC_LED_MODE_BIT_1 | IPG_AC_LED_MODE | IPG_AC_LED_SPEED);
-+
-+	if ((np->led_mode & 0x03) > 1)
-+		mode |= IPG_AC_LED_MODE_BIT_1;
-+	if ((np->led_mode & 0x01) == 1)
-+		mode |= IPG_AC_LED_MODE;
-+	if ((np->led_mode & 0x08) == 8)
-+		mode |= IPG_AC_LED_SPEED;
-+
-+	dw32(ASICCtrl, mode);
-+}
-+
- static int
- rio_open (struct net_device *dev)
- {
-@@ -424,6 +463,8 @@ rio_open (struct net_device *dev)
- 	     GlobalReset | DMAReset | FIFOReset | NetworkReset | HostReset);
- 	mdelay(10);
- 
-+	rio_set_led_mode(dev);
-+
- 	/* DebugCtrl bit 4, 5, 9 must set */
- 	dw32(DebugCtrl, dr32(DebugCtrl) | 0x0230);
- 
-@@ -433,9 +474,10 @@ rio_open (struct net_device *dev)
- 
- 	alloc_list (dev);
- 
--	/* Get station address */
--	for (i = 0; i < 6; i++)
--		dw8(StationAddr0 + i, dev->dev_addr[i]);
-+	/* Set station address */
-+	for (i = 0; i < 3; i++)
-+		dw16(StationAddr0 + 2 * i,
-+		     cpu_to_le16(((u16 *)dev->dev_addr)[i]));
- 
- 	set_multicast (dev);
- 	if (np->coalesce) {
-@@ -780,6 +822,7 @@ tx_error (struct net_device *dev, int tx_status)
- 				break;
- 			mdelay (1);
- 		}
-+		rio_set_led_mode(dev);
- 		rio_free_tx (dev, 1);
- 		/* Reset TFDListPtr */
- 		dw32(TFDListPtr0, np->tx_ring_dma +
-@@ -799,6 +842,7 @@ tx_error (struct net_device *dev, int tx_status)
- 				break;
- 			mdelay (1);
- 		}
-+		rio_set_led_mode(dev);
- 		/* Let TxStartThresh stay default value */
- 	}
- 	/* Maximum Collisions */
-@@ -965,6 +1009,7 @@ rio_error (struct net_device *dev, int int_status)
- 			dev->name, int_status);
- 		dw16(ASICCtrl + 2, GlobalReset | HostReset);
- 		mdelay (500);
-+		rio_set_led_mode(dev);
- 	}
- }
- 
-diff --git a/drivers/net/ethernet/dlink/dl2k.h b/drivers/net/ethernet/dlink/dl2k.h
-index 23c07b0..8f4f612 100644
---- a/drivers/net/ethernet/dlink/dl2k.h
-+++ b/drivers/net/ethernet/dlink/dl2k.h
-@@ -211,6 +211,10 @@ enum ASICCtrl_HiWord_bits {
- 	ResetBusy = 0x0400,
- };
- 
-+#define IPG_AC_LED_MODE		BIT(14)
-+#define IPG_AC_LED_SPEED	BIT(27)
-+#define IPG_AC_LED_MODE_BIT_1	BIT(29)
-+
- /* Transmit Frame Control bits */
- enum TFC_bits {
- 	DwordAlign = 0x00000000,
-@@ -332,7 +336,10 @@ typedef struct t_SROM {
- 	u16 asic_ctrl;		/* 0x02 */
- 	u16 sub_vendor_id;	/* 0x04 */
- 	u16 sub_system_id;	/* 0x06 */
--	u16 reserved1[12];	/* 0x08-0x1f */
-+	u16 pci_base_1;		/* 0x08 (IP1000A only) */
-+	u16 pci_base_2;		/* 0x0a (IP1000A only) */
-+	u16 led_mode;		/* 0x0c (IP1000A only) */
-+	u16 reserved1[9];	/* 0x0e-0x1f */
- 	u8 mac_addr[6];		/* 0x20-0x25 */
- 	u8 reserved2[10];	/* 0x26-0x2f */
- 	u8 sib[204];		/* 0x30-0xfb */
-@@ -397,6 +404,7 @@ struct netdev_private {
- 	u16 advertising;	/* NWay media advertisement */
- 	u16 negotiate;		/* Negotiated media */
- 	int phy_addr;		/* PHY addresses. */
-+	u16 led_mode;		/* LED mode read from EEPROM (IP1000A only) */
- };
- 
- /* The station address location in the EEPROM. */
-@@ -407,10 +415,15 @@ struct netdev_private {
-         class_mask              of the class are honored during the comparison.
-         driver_data             Data private to the driver.
- */
-+#define CHIP_IP1000A	1
- 
- static const struct pci_device_id rio_pci_tbl[] = {
- 	{0x1186, 0x4000, PCI_ANY_ID, PCI_ANY_ID, },
- 	{0x13f0, 0x1021, PCI_ANY_ID, PCI_ANY_ID, },
-+	{ PCI_VDEVICE(SUNDANCE,	0x1023), CHIP_IP1000A },
-+	{ PCI_VDEVICE(SUNDANCE,	0x2021), CHIP_IP1000A },
-+	{ PCI_VDEVICE(DLINK,	0x9021), CHIP_IP1000A },
-+	{ PCI_VDEVICE(DLINK,	0x4020), CHIP_IP1000A },
- 	{ }
- };
- MODULE_DEVICE_TABLE (pci, rio_pci_tbl);
+ config JME
+ 	tristate "JMicron(R) PCI-Express Gigabit Ethernet support"
+diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+index ddfc808..4a2ee98 100644
+--- a/drivers/net/ethernet/Makefile
++++ b/drivers/net/ethernet/Makefile
+@@ -41,7 +41,6 @@ obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
+ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
+ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+ obj-$(CONFIG_NET_VENDOR_XSCALE) += xscale/
+-obj-$(CONFIG_IP1000) += icplus/
+ obj-$(CONFIG_JME) += jme.o
+ obj-$(CONFIG_KORINA) += korina.o
+ obj-$(CONFIG_LANTIQ_ETOP) += lantiq_etop.o
+diff --git a/drivers/net/ethernet/icplus/Kconfig b/drivers/net/ethernet/icplus/Kconfig
+deleted file mode 100644
+index 14a66e9..0000000
+--- a/drivers/net/ethernet/icplus/Kconfig
++++ /dev/null
+@@ -1,13 +0,0 @@
+-#
+-# IC Plus device configuration
+-#
+-
+-config IP1000
+-	tristate "IP1000 Gigabit Ethernet support"
+-	depends on PCI
+-	select MII
+-	---help---
+-	  This driver supports IP1000 gigabit Ethernet cards.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called ipg.  This is recommended.
+diff --git a/drivers/net/ethernet/icplus/Makefile b/drivers/net/ethernet/icplus/Makefile
+deleted file mode 100644
+index 5bc87c1..0000000
+--- a/drivers/net/ethernet/icplus/Makefile
++++ /dev/null
+@@ -1,5 +0,0 @@
+-#
+-# Makefile for the IC Plus device drivers
+-#
+-
+-obj-$(CONFIG_IP1000) += ipg.o
+diff --git a/drivers/net/ethernet/icplus/ipg.c b/drivers/net/ethernet/icplus/ipg.c
+deleted file mode 100644
+index c3b6af8..0000000
+--- a/drivers/net/ethernet/icplus/ipg.c
++++ /dev/null
+@@ -1,2300 +0,0 @@
+-/*
+- * ipg.c: Device Driver for the IP1000 Gigabit Ethernet Adapter
+- *
+- * Copyright (C) 2003, 2007  IC Plus Corp
+- *
+- * Original Author:
+- *
+- *   Craig Rich
+- *   Sundance Technology, Inc.
+- *   www.sundanceti.com
+- *   craig_rich@sundanceti.com
+- *
+- * Current Maintainer:
+- *
+- *   Sorbica Shieh.
+- *   http://www.icplus.com.tw
+- *   sorbica@icplus.com.tw
+- *
+- *   Jesse Huang
+- *   http://www.icplus.com.tw
+- *   jesse@icplus.com.tw
+- */
+-
+-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+-
+-#include <linux/crc32.h>
+-#include <linux/ethtool.h>
+-#include <linux/interrupt.h>
+-#include <linux/gfp.h>
+-#include <linux/mii.h>
+-#include <linux/mutex.h>
+-
+-#include <asm/div64.h>
+-
+-#define IPG_RX_RING_BYTES	(sizeof(struct ipg_rx) * IPG_RFDLIST_LENGTH)
+-#define IPG_TX_RING_BYTES	(sizeof(struct ipg_tx) * IPG_TFDLIST_LENGTH)
+-#define IPG_RESET_MASK \
+-	(IPG_AC_GLOBAL_RESET | IPG_AC_RX_RESET | IPG_AC_TX_RESET | \
+-	 IPG_AC_DMA | IPG_AC_FIFO | IPG_AC_NETWORK | IPG_AC_HOST | \
+-	 IPG_AC_AUTO_INIT)
+-
+-#define ipg_w32(val32, reg)	iowrite32((val32), ioaddr + (reg))
+-#define ipg_w16(val16, reg)	iowrite16((val16), ioaddr + (reg))
+-#define ipg_w8(val8, reg)	iowrite8((val8), ioaddr + (reg))
+-
+-#define ipg_r32(reg)		ioread32(ioaddr + (reg))
+-#define ipg_r16(reg)		ioread16(ioaddr + (reg))
+-#define ipg_r8(reg)		ioread8(ioaddr + (reg))
+-
+-enum {
+-	netdev_io_size = 128
+-};
+-
+-#include "ipg.h"
+-#define DRV_NAME	"ipg"
+-
+-MODULE_AUTHOR("IC Plus Corp. 2003");
+-MODULE_DESCRIPTION("IC Plus IP1000 Gigabit Ethernet Adapter Linux Driver");
+-MODULE_LICENSE("GPL");
+-
+-/*
+- * Defaults
+- */
+-#define IPG_MAX_RXFRAME_SIZE	0x0600
+-#define IPG_RXFRAG_SIZE		0x0600
+-#define IPG_RXSUPPORT_SIZE	0x0600
+-#define IPG_IS_JUMBO		false
+-
+-/*
+- * Variable record -- index by leading revision/length
+- * Revision/Length(=N*4), Address1, Data1, Address2, Data2,...,AddressN,DataN
+- */
+-static const unsigned short DefaultPhyParam[] = {
+-	/* 11/12/03 IP1000A v1-3 rev=0x40 */
+-	/*--------------------------------------------------------------------------
+-	(0x4000|(15*4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002, 22, 0x85bd, 24, 0xfff2,
+-				 27, 0x0c10, 28, 0x0c10, 29, 0x2c10, 31, 0x0003, 23, 0x92f6,
+-				 31, 0x0000, 23, 0x003d, 30, 0x00de, 20, 0x20e7,  9, 0x0700,
+-	  --------------------------------------------------------------------------*/
+-	/* 12/17/03 IP1000A v1-4 rev=0x40 */
+-	(0x4000 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002, 27, 0xeb8e, 31,
+-	    0x0000,
+-	30, 0x005e, 9, 0x0700,
+-	/* 01/09/04 IP1000A v1-5 rev=0x41 */
+-	(0x4100 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002, 27, 0xeb8e, 31,
+-	    0x0000,
+-	30, 0x005e, 9, 0x0700,
+-	0x0000
+-};
+-
+-static const char * const ipg_brand_name[] = {
+-	"IC PLUS IP1000 1000/100/10 based NIC",
+-	"Sundance Technology ST2021 based NIC",
+-	"Tamarack Microelectronics TC9020/9021 based NIC",
+-	"D-Link NIC IP1000A"
+-};
+-
+-static const struct pci_device_id ipg_pci_tbl[] = {
+-	{ PCI_VDEVICE(SUNDANCE,	0x1023), 0 },
+-	{ PCI_VDEVICE(SUNDANCE,	0x2021), 1 },
+-	{ PCI_VDEVICE(DLINK,	0x9021), 2 },
+-	{ PCI_VDEVICE(DLINK,	0x4020), 3 },
+-	{ 0, }
+-};
+-
+-MODULE_DEVICE_TABLE(pci, ipg_pci_tbl);
+-
+-static inline void __iomem *ipg_ioaddr(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	return sp->ioaddr;
+-}
+-
+-#ifdef IPG_DEBUG
+-static void ipg_dump_rfdlist(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-	unsigned int i;
+-	u32 offset;
+-
+-	IPG_DEBUG_MSG("_dump_rfdlist\n");
+-
+-	netdev_info(dev, "rx_current = %02x\n", sp->rx_current);
+-	netdev_info(dev, "rx_dirty   = %02x\n", sp->rx_dirty);
+-	netdev_info(dev, "RFDList start address = %016lx\n",
+-		    (unsigned long)sp->rxd_map);
+-	netdev_info(dev, "RFDListPtr register   = %08x%08x\n",
+-		    ipg_r32(IPG_RFDLISTPTR1), ipg_r32(IPG_RFDLISTPTR0));
+-
+-	for (i = 0; i < IPG_RFDLIST_LENGTH; i++) {
+-		offset = (u32) &sp->rxd[i].next_desc - (u32) sp->rxd;
+-		netdev_info(dev, "%02x %04x RFDNextPtr = %016lx\n",
+-			    i, offset, (unsigned long)sp->rxd[i].next_desc);
+-		offset = (u32) &sp->rxd[i].rfs - (u32) sp->rxd;
+-		netdev_info(dev, "%02x %04x RFS        = %016lx\n",
+-			    i, offset, (unsigned long)sp->rxd[i].rfs);
+-		offset = (u32) &sp->rxd[i].frag_info - (u32) sp->rxd;
+-		netdev_info(dev, "%02x %04x frag_info   = %016lx\n",
+-			    i, offset, (unsigned long)sp->rxd[i].frag_info);
+-	}
+-}
+-
+-static void ipg_dump_tfdlist(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-	unsigned int i;
+-	u32 offset;
+-
+-	IPG_DEBUG_MSG("_dump_tfdlist\n");
+-
+-	netdev_info(dev, "tx_current         = %02x\n", sp->tx_current);
+-	netdev_info(dev, "tx_dirty = %02x\n", sp->tx_dirty);
+-	netdev_info(dev, "TFDList start address = %016lx\n",
+-		    (unsigned long) sp->txd_map);
+-	netdev_info(dev, "TFDListPtr register   = %08x%08x\n",
+-		    ipg_r32(IPG_TFDLISTPTR1), ipg_r32(IPG_TFDLISTPTR0));
+-
+-	for (i = 0; i < IPG_TFDLIST_LENGTH; i++) {
+-		offset = (u32) &sp->txd[i].next_desc - (u32) sp->txd;
+-		netdev_info(dev, "%02x %04x TFDNextPtr = %016lx\n",
+-			    i, offset, (unsigned long)sp->txd[i].next_desc);
+-
+-		offset = (u32) &sp->txd[i].tfc - (u32) sp->txd;
+-		netdev_info(dev, "%02x %04x TFC        = %016lx\n",
+-			    i, offset, (unsigned long) sp->txd[i].tfc);
+-		offset = (u32) &sp->txd[i].frag_info - (u32) sp->txd;
+-		netdev_info(dev, "%02x %04x frag_info   = %016lx\n",
+-			    i, offset, (unsigned long) sp->txd[i].frag_info);
+-	}
+-}
+-#endif
+-
+-static void ipg_write_phy_ctl(void __iomem *ioaddr, u8 data)
+-{
+-	ipg_w8(IPG_PC_RSVD_MASK & data, PHY_CTRL);
+-	ndelay(IPG_PC_PHYCTRLWAIT_NS);
+-}
+-
+-static void ipg_drive_phy_ctl_low_high(void __iomem *ioaddr, u8 data)
+-{
+-	ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_LO | data);
+-	ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_HI | data);
+-}
+-
+-static void send_three_state(void __iomem *ioaddr, u8 phyctrlpolarity)
+-{
+-	phyctrlpolarity |= (IPG_PC_MGMTDATA & 0) | IPG_PC_MGMTDIR;
+-
+-	ipg_drive_phy_ctl_low_high(ioaddr, phyctrlpolarity);
+-}
+-
+-static void send_end(void __iomem *ioaddr, u8 phyctrlpolarity)
+-{
+-	ipg_w8((IPG_PC_MGMTCLK_LO | (IPG_PC_MGMTDATA & 0) | IPG_PC_MGMTDIR |
+-		phyctrlpolarity) & IPG_PC_RSVD_MASK, PHY_CTRL);
+-}
+-
+-static u16 read_phy_bit(void __iomem *ioaddr, u8 phyctrlpolarity)
+-{
+-	u16 bit_data;
+-
+-	ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_LO | phyctrlpolarity);
+-
+-	bit_data = ((ipg_r8(PHY_CTRL) & IPG_PC_MGMTDATA) >> 1) & 1;
+-
+-	ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_HI | phyctrlpolarity);
+-
+-	return bit_data;
+-}
+-
+-/*
+- * Read a register from the Physical Layer device located
+- * on the IPG NIC, using the IPG PHYCTRL register.
+- */
+-static int mdio_read(struct net_device *dev, int phy_id, int phy_reg)
+-{
+-	void __iomem *ioaddr = ipg_ioaddr(dev);
+-	/*
+-	 * The GMII mangement frame structure for a read is as follows:
+-	 *
+-	 * |Preamble|st|op|phyad|regad|ta|      data      |idle|
+-	 * |< 32 1s>|01|10|AAAAA|RRRRR|z0|DDDDDDDDDDDDDDDD|z   |
+-	 *
+-	 * <32 1s> = 32 consecutive logic 1 values
+-	 * A = bit of Physical Layer device address (MSB first)
+-	 * R = bit of register address (MSB first)
+-	 * z = High impedance state
+-	 * D = bit of read data (MSB first)
+-	 *
+-	 * Transmission order is 'Preamble' field first, bits transmitted
+-	 * left to right (first to last).
+-	 */
+-	struct {
+-		u32 field;
+-		unsigned int len;
+-	} p[] = {
+-		{ GMII_PREAMBLE,	32 },	/* Preamble */
+-		{ GMII_ST,		2  },	/* ST */
+-		{ GMII_READ,		2  },	/* OP */
+-		{ phy_id,		5  },	/* PHYAD */
+-		{ phy_reg,		5  },	/* REGAD */
+-		{ 0x0000,		2  },	/* TA */
+-		{ 0x0000,		16 },	/* DATA */
+-		{ 0x0000,		1  }	/* IDLE */
+-	};
+-	unsigned int i, j;
+-	u8 polarity, data;
+-
+-	polarity  = ipg_r8(PHY_CTRL);
+-	polarity &= (IPG_PC_DUPLEX_POLARITY | IPG_PC_LINK_POLARITY);
+-
+-	/* Create the Preamble, ST, OP, PHYAD, and REGAD field. */
+-	for (j = 0; j < 5; j++) {
+-		for (i = 0; i < p[j].len; i++) {
+-			/* For each variable length field, the MSB must be
+-			 * transmitted first. Rotate through the field bits,
+-			 * starting with the MSB, and move each bit into the
+-			 * the 1st (2^1) bit position (this is the bit position
+-			 * corresponding to the MgmtData bit of the PhyCtrl
+-			 * register for the IPG).
+-			 *
+-			 * Example: ST = 01;
+-			 *
+-			 *          First write a '0' to bit 1 of the PhyCtrl
+-			 *          register, then write a '1' to bit 1 of the
+-			 *          PhyCtrl register.
+-			 *
+-			 * To do this, right shift the MSB of ST by the value:
+-			 * [field length - 1 - #ST bits already written]
+-			 * then left shift this result by 1.
+-			 */
+-			data  = (p[j].field >> (p[j].len - 1 - i)) << 1;
+-			data &= IPG_PC_MGMTDATA;
+-			data |= polarity | IPG_PC_MGMTDIR;
+-
+-			ipg_drive_phy_ctl_low_high(ioaddr, data);
+-		}
+-	}
+-
+-	send_three_state(ioaddr, polarity);
+-
+-	read_phy_bit(ioaddr, polarity);
+-
+-	/*
+-	 * For a read cycle, the bits for the next two fields (TA and
+-	 * DATA) are driven by the PHY (the IPG reads these bits).
+-	 */
+-	for (i = 0; i < p[6].len; i++) {
+-		p[6].field |=
+-		    (read_phy_bit(ioaddr, polarity) << (p[6].len - 1 - i));
+-	}
+-
+-	send_three_state(ioaddr, polarity);
+-	send_three_state(ioaddr, polarity);
+-	send_three_state(ioaddr, polarity);
+-	send_end(ioaddr, polarity);
+-
+-	/* Return the value of the DATA field. */
+-	return p[6].field;
+-}
+-
+-/*
+- * Write to a register from the Physical Layer device located
+- * on the IPG NIC, using the IPG PHYCTRL register.
+- */
+-static void mdio_write(struct net_device *dev, int phy_id, int phy_reg, int val)
+-{
+-	void __iomem *ioaddr = ipg_ioaddr(dev);
+-	/*
+-	 * The GMII mangement frame structure for a read is as follows:
+-	 *
+-	 * |Preamble|st|op|phyad|regad|ta|      data      |idle|
+-	 * |< 32 1s>|01|10|AAAAA|RRRRR|z0|DDDDDDDDDDDDDDDD|z   |
+-	 *
+-	 * <32 1s> = 32 consecutive logic 1 values
+-	 * A = bit of Physical Layer device address (MSB first)
+-	 * R = bit of register address (MSB first)
+-	 * z = High impedance state
+-	 * D = bit of write data (MSB first)
+-	 *
+-	 * Transmission order is 'Preamble' field first, bits transmitted
+-	 * left to right (first to last).
+-	 */
+-	struct {
+-		u32 field;
+-		unsigned int len;
+-	} p[] = {
+-		{ GMII_PREAMBLE,	32 },	/* Preamble */
+-		{ GMII_ST,		2  },	/* ST */
+-		{ GMII_WRITE,		2  },	/* OP */
+-		{ phy_id,		5  },	/* PHYAD */
+-		{ phy_reg,		5  },	/* REGAD */
+-		{ 0x0002,		2  },	/* TA */
+-		{ val & 0xffff,		16 },	/* DATA */
+-		{ 0x0000,		1  }	/* IDLE */
+-	};
+-	unsigned int i, j;
+-	u8 polarity, data;
+-
+-	polarity  = ipg_r8(PHY_CTRL);
+-	polarity &= (IPG_PC_DUPLEX_POLARITY | IPG_PC_LINK_POLARITY);
+-
+-	/* Create the Preamble, ST, OP, PHYAD, and REGAD field. */
+-	for (j = 0; j < 7; j++) {
+-		for (i = 0; i < p[j].len; i++) {
+-			/* For each variable length field, the MSB must be
+-			 * transmitted first. Rotate through the field bits,
+-			 * starting with the MSB, and move each bit into the
+-			 * the 1st (2^1) bit position (this is the bit position
+-			 * corresponding to the MgmtData bit of the PhyCtrl
+-			 * register for the IPG).
+-			 *
+-			 * Example: ST = 01;
+-			 *
+-			 *          First write a '0' to bit 1 of the PhyCtrl
+-			 *          register, then write a '1' to bit 1 of the
+-			 *          PhyCtrl register.
+-			 *
+-			 * To do this, right shift the MSB of ST by the value:
+-			 * [field length - 1 - #ST bits already written]
+-			 * then left shift this result by 1.
+-			 */
+-			data  = (p[j].field >> (p[j].len - 1 - i)) << 1;
+-			data &= IPG_PC_MGMTDATA;
+-			data |= polarity | IPG_PC_MGMTDIR;
+-
+-			ipg_drive_phy_ctl_low_high(ioaddr, data);
+-		}
+-	}
+-
+-	/* The last cycle is a tri-state, so read from the PHY. */
+-	ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_LO | polarity);
+-	ipg_r8(PHY_CTRL);
+-	ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_HI | polarity);
+-}
+-
+-static void ipg_set_led_mode(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-	u32 mode;
+-
+-	mode = ipg_r32(ASIC_CTRL);
+-	mode &= ~(IPG_AC_LED_MODE_BIT_1 | IPG_AC_LED_MODE | IPG_AC_LED_SPEED);
+-
+-	if ((sp->led_mode & 0x03) > 1)
+-		mode |= IPG_AC_LED_MODE_BIT_1;	/* Write Asic Control Bit 29 */
+-
+-	if ((sp->led_mode & 0x01) == 1)
+-		mode |= IPG_AC_LED_MODE;	/* Write Asic Control Bit 14 */
+-
+-	if ((sp->led_mode & 0x08) == 8)
+-		mode |= IPG_AC_LED_SPEED;	/* Write Asic Control Bit 27 */
+-
+-	ipg_w32(mode, ASIC_CTRL);
+-}
+-
+-static void ipg_set_phy_set(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-	int physet;
+-
+-	physet = ipg_r8(PHY_SET);
+-	physet &= ~(IPG_PS_MEM_LENB9B | IPG_PS_MEM_LEN9 | IPG_PS_NON_COMPDET);
+-	physet |= ((sp->led_mode & 0x70) >> 4);
+-	ipg_w8(physet, PHY_SET);
+-}
+-
+-static int ipg_reset(struct net_device *dev, u32 resetflags)
+-{
+-	/* Assert functional resets via the IPG AsicCtrl
+-	 * register as specified by the 'resetflags' input
+-	 * parameter.
+-	 */
+-	void __iomem *ioaddr = ipg_ioaddr(dev);
+-	unsigned int timeout_count = 0;
+-
+-	IPG_DEBUG_MSG("_reset\n");
+-
+-	ipg_w32(ipg_r32(ASIC_CTRL) | resetflags, ASIC_CTRL);
+-
+-	/* Delay added to account for problem with 10Mbps reset. */
+-	mdelay(IPG_AC_RESETWAIT);
+-
+-	while (IPG_AC_RESET_BUSY & ipg_r32(ASIC_CTRL)) {
+-		mdelay(IPG_AC_RESETWAIT);
+-		if (++timeout_count > IPG_AC_RESET_TIMEOUT)
+-			return -ETIME;
+-	}
+-	/* Set LED Mode in Asic Control */
+-	ipg_set_led_mode(dev);
+-
+-	/* Set PHYSet Register Value */
+-	ipg_set_phy_set(dev);
+-	return 0;
+-}
+-
+-/* Find the GMII PHY address. */
+-static int ipg_find_phyaddr(struct net_device *dev)
+-{
+-	unsigned int phyaddr, i;
+-
+-	for (i = 0; i < 32; i++) {
+-		u32 status;
+-
+-		/* Search for the correct PHY address among 32 possible. */
+-		phyaddr = (IPG_NIC_PHY_ADDRESS + i) % 32;
+-
+-		/* 10/22/03 Grace change verify from GMII_PHY_STATUS to
+-		   GMII_PHY_ID1
+-		 */
+-
+-		status = mdio_read(dev, phyaddr, MII_BMSR);
+-
+-		if ((status != 0xFFFF) && (status != 0))
+-			return phyaddr;
+-	}
+-
+-	return 0x1f;
+-}
+-
+-/*
+- * Configure IPG based on result of IEEE 802.3 PHY
+- * auto-negotiation.
+- */
+-static int ipg_config_autoneg(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-	unsigned int txflowcontrol;
+-	unsigned int rxflowcontrol;
+-	unsigned int fullduplex;
+-	u32 mac_ctrl_val;
+-	u32 asicctrl;
+-	u8 phyctrl;
+-	const char *speed;
+-	const char *duplex;
+-	const char *tx_desc;
+-	const char *rx_desc;
+-
+-	IPG_DEBUG_MSG("_config_autoneg\n");
+-
+-	asicctrl = ipg_r32(ASIC_CTRL);
+-	phyctrl = ipg_r8(PHY_CTRL);
+-	mac_ctrl_val = ipg_r32(MAC_CTRL);
+-
+-	/* Set flags for use in resolving auto-negotiation, assuming
+-	 * non-1000Mbps, half duplex, no flow control.
+-	 */
+-	fullduplex = 0;
+-	txflowcontrol = 0;
+-	rxflowcontrol = 0;
+-
+-	/* To accommodate a problem in 10Mbps operation,
+-	 * set a global flag if PHY running in 10Mbps mode.
+-	 */
+-	sp->tenmbpsmode = 0;
+-
+-	/* Determine actual speed of operation. */
+-	switch (phyctrl & IPG_PC_LINK_SPEED) {
+-	case IPG_PC_LINK_SPEED_10MBPS:
+-		speed = "10Mbps";
+-		sp->tenmbpsmode = 1;
+-		break;
+-	case IPG_PC_LINK_SPEED_100MBPS:
+-		speed = "100Mbps";
+-		break;
+-	case IPG_PC_LINK_SPEED_1000MBPS:
+-		speed = "1000Mbps";
+-		break;
+-	default:
+-		speed = "undefined!";
+-		return 0;
+-	}
+-
+-	netdev_info(dev, "Link speed = %s\n", speed);
+-	if (sp->tenmbpsmode == 1)
+-		netdev_info(dev, "10Mbps operational mode enabled\n");
+-
+-	if (phyctrl & IPG_PC_DUPLEX_STATUS) {
+-		fullduplex = 1;
+-		txflowcontrol = 1;
+-		rxflowcontrol = 1;
+-	}
+-
+-	/* Configure full duplex, and flow control. */
+-	if (fullduplex == 1) {
+-
+-		/* Configure IPG for full duplex operation. */
+-
+-		duplex = "full";
+-
+-		mac_ctrl_val |= IPG_MC_DUPLEX_SELECT_FD;
+-
+-		if (txflowcontrol == 1) {
+-			tx_desc  = "";
+-			mac_ctrl_val |= IPG_MC_TX_FLOW_CONTROL_ENABLE;
+-		} else {
+-			tx_desc = "no ";
+-			mac_ctrl_val &= ~IPG_MC_TX_FLOW_CONTROL_ENABLE;
+-		}
+-
+-		if (rxflowcontrol == 1) {
+-			rx_desc = "";
+-			mac_ctrl_val |= IPG_MC_RX_FLOW_CONTROL_ENABLE;
+-		} else {
+-			rx_desc = "no ";
+-			mac_ctrl_val &= ~IPG_MC_RX_FLOW_CONTROL_ENABLE;
+-		}
+-	} else {
+-		duplex = "half";
+-		tx_desc = "no ";
+-		rx_desc = "no ";
+-		mac_ctrl_val &= (~IPG_MC_DUPLEX_SELECT_FD &
+-				 ~IPG_MC_TX_FLOW_CONTROL_ENABLE &
+-				 ~IPG_MC_RX_FLOW_CONTROL_ENABLE);
+-	}
+-
+-	netdev_info(dev, "setting %s duplex, %sTX, %sRX flow control\n",
+-		    duplex, tx_desc, rx_desc);
+-	ipg_w32(mac_ctrl_val, MAC_CTRL);
+-
+-	return 0;
+-}
+-
+-/* Determine and configure multicast operation and set
+- * receive mode for IPG.
+- */
+-static void ipg_nic_set_multicast_list(struct net_device *dev)
+-{
+-	void __iomem *ioaddr = ipg_ioaddr(dev);
+-	struct netdev_hw_addr *ha;
+-	unsigned int hashindex;
+-	u32 hashtable[2];
+-	u8 receivemode;
+-
+-	IPG_DEBUG_MSG("_nic_set_multicast_list\n");
+-
+-	receivemode = IPG_RM_RECEIVEUNICAST | IPG_RM_RECEIVEBROADCAST;
+-
+-	if (dev->flags & IFF_PROMISC) {
+-		/* NIC to be configured in promiscuous mode. */
+-		receivemode = IPG_RM_RECEIVEALLFRAMES;
+-	} else if ((dev->flags & IFF_ALLMULTI) ||
+-		   ((dev->flags & IFF_MULTICAST) &&
+-		    (netdev_mc_count(dev) > IPG_MULTICAST_HASHTABLE_SIZE))) {
+-		/* NIC to be configured to receive all multicast
+-		 * frames. */
+-		receivemode |= IPG_RM_RECEIVEMULTICAST;
+-	} else if ((dev->flags & IFF_MULTICAST) && !netdev_mc_empty(dev)) {
+-		/* NIC to be configured to receive selected
+-		 * multicast addresses. */
+-		receivemode |= IPG_RM_RECEIVEMULTICASTHASH;
+-	}
+-
+-	/* Calculate the bits to set for the 64 bit, IPG HASHTABLE.
+-	 * The IPG applies a cyclic-redundancy-check (the same CRC
+-	 * used to calculate the frame data FCS) to the destination
+-	 * address all incoming multicast frames whose destination
+-	 * address has the multicast bit set. The least significant
+-	 * 6 bits of the CRC result are used as an addressing index
+-	 * into the hash table. If the value of the bit addressed by
+-	 * this index is a 1, the frame is passed to the host system.
+-	 */
+-
+-	/* Clear hashtable. */
+-	hashtable[0] = 0x00000000;
+-	hashtable[1] = 0x00000000;
+-
+-	/* Cycle through all multicast addresses to filter. */
+-	netdev_for_each_mc_addr(ha, dev) {
+-		/* Calculate CRC result for each multicast address. */
+-		hashindex = crc32_le(0xffffffff, ha->addr,
+-				     ETH_ALEN);
+-
+-		/* Use only the least significant 6 bits. */
+-		hashindex = hashindex & 0x3F;
+-
+-		/* Within "hashtable", set bit number "hashindex"
+-		 * to a logic 1.
+-		 */
+-		set_bit(hashindex, (void *)hashtable);
+-	}
+-
+-	/* Write the value of the hashtable, to the 4, 16 bit
+-	 * HASHTABLE IPG registers.
+-	 */
+-	ipg_w32(hashtable[0], HASHTABLE_0);
+-	ipg_w32(hashtable[1], HASHTABLE_1);
+-
+-	ipg_w8(IPG_RM_RSVD_MASK & receivemode, RECEIVE_MODE);
+-
+-	IPG_DEBUG_MSG("ReceiveMode = %x\n", ipg_r8(RECEIVE_MODE));
+-}
+-
+-static int ipg_io_config(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = ipg_ioaddr(dev);
+-	u32 origmacctrl;
+-	u32 restoremacctrl;
+-
+-	IPG_DEBUG_MSG("_io_config\n");
+-
+-	origmacctrl = ipg_r32(MAC_CTRL);
+-
+-	restoremacctrl = origmacctrl | IPG_MC_STATISTICS_ENABLE;
+-
+-	/* Based on compilation option, determine if FCS is to be
+-	 * stripped on receive frames by IPG.
+-	 */
+-	if (!IPG_STRIP_FCS_ON_RX)
+-		restoremacctrl |= IPG_MC_RCV_FCS;
+-
+-	/* Determine if transmitter and/or receiver are
+-	 * enabled so we may restore MACCTRL correctly.
+-	 */
+-	if (origmacctrl & IPG_MC_TX_ENABLED)
+-		restoremacctrl |= IPG_MC_TX_ENABLE;
+-
+-	if (origmacctrl & IPG_MC_RX_ENABLED)
+-		restoremacctrl |= IPG_MC_RX_ENABLE;
+-
+-	/* Transmitter and receiver must be disabled before setting
+-	 * IFSSelect.
+-	 */
+-	ipg_w32((origmacctrl & (IPG_MC_RX_DISABLE | IPG_MC_TX_DISABLE)) &
+-		IPG_MC_RSVD_MASK, MAC_CTRL);
+-
+-	/* Now that transmitter and receiver are disabled, write
+-	 * to IFSSelect.
+-	 */
+-	ipg_w32((origmacctrl & IPG_MC_IFS_96BIT) & IPG_MC_RSVD_MASK, MAC_CTRL);
+-
+-	/* Set RECEIVEMODE register. */
+-	ipg_nic_set_multicast_list(dev);
+-
+-	ipg_w16(sp->max_rxframe_size, MAX_FRAME_SIZE);
+-
+-	ipg_w8(IPG_RXDMAPOLLPERIOD_VALUE,   RX_DMA_POLL_PERIOD);
+-	ipg_w8(IPG_RXDMAURGENTTHRESH_VALUE, RX_DMA_URGENT_THRESH);
+-	ipg_w8(IPG_RXDMABURSTTHRESH_VALUE,  RX_DMA_BURST_THRESH);
+-	ipg_w8(IPG_TXDMAPOLLPERIOD_VALUE,   TX_DMA_POLL_PERIOD);
+-	ipg_w8(IPG_TXDMAURGENTTHRESH_VALUE, TX_DMA_URGENT_THRESH);
+-	ipg_w8(IPG_TXDMABURSTTHRESH_VALUE,  TX_DMA_BURST_THRESH);
+-	ipg_w16((IPG_IE_HOST_ERROR | IPG_IE_TX_DMA_COMPLETE |
+-		 IPG_IE_TX_COMPLETE | IPG_IE_INT_REQUESTED |
+-		 IPG_IE_UPDATE_STATS | IPG_IE_LINK_EVENT |
+-		 IPG_IE_RX_DMA_COMPLETE | IPG_IE_RX_DMA_PRIORITY), INT_ENABLE);
+-	ipg_w16(IPG_FLOWONTHRESH_VALUE,  FLOW_ON_THRESH);
+-	ipg_w16(IPG_FLOWOFFTHRESH_VALUE, FLOW_OFF_THRESH);
+-
+-	/* IPG multi-frag frame bug workaround.
+-	 * Per silicon revision B3 eratta.
+-	 */
+-	ipg_w16(ipg_r16(DEBUG_CTRL) | 0x0200, DEBUG_CTRL);
+-
+-	/* IPG TX poll now bug workaround.
+-	 * Per silicon revision B3 eratta.
+-	 */
+-	ipg_w16(ipg_r16(DEBUG_CTRL) | 0x0010, DEBUG_CTRL);
+-
+-	/* IPG RX poll now bug workaround.
+-	 * Per silicon revision B3 eratta.
+-	 */
+-	ipg_w16(ipg_r16(DEBUG_CTRL) | 0x0020, DEBUG_CTRL);
+-
+-	/* Now restore MACCTRL to original setting. */
+-	ipg_w32(IPG_MC_RSVD_MASK & restoremacctrl, MAC_CTRL);
+-
+-	/* Disable unused RMON statistics. */
+-	ipg_w32(IPG_RZ_ALL, RMON_STATISTICS_MASK);
+-
+-	/* Disable unused MIB statistics. */
+-	ipg_w32(IPG_SM_MACCONTROLFRAMESXMTD | IPG_SM_MACCONTROLFRAMESRCVD |
+-		IPG_SM_BCSTOCTETXMTOK_BCSTFRAMESXMTDOK | IPG_SM_TXJUMBOFRAMES |
+-		IPG_SM_MCSTOCTETXMTOK_MCSTFRAMESXMTDOK | IPG_SM_RXJUMBOFRAMES |
+-		IPG_SM_BCSTOCTETRCVDOK_BCSTFRAMESRCVDOK |
+-		IPG_SM_UDPCHECKSUMERRORS | IPG_SM_TCPCHECKSUMERRORS |
+-		IPG_SM_IPCHECKSUMERRORS, STATISTICS_MASK);
+-
+-	return 0;
+-}
+-
+-/*
+- * Create a receive buffer within system memory and update
+- * NIC private structure appropriately.
+- */
+-static int ipg_get_rxbuff(struct net_device *dev, int entry)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	struct ipg_rx *rxfd = sp->rxd + entry;
+-	struct sk_buff *skb;
+-	u64 rxfragsize;
+-
+-	IPG_DEBUG_MSG("_get_rxbuff\n");
+-
+-	skb = netdev_alloc_skb_ip_align(dev, sp->rxsupport_size);
+-	if (!skb) {
+-		sp->rx_buff[entry] = NULL;
+-		return -ENOMEM;
+-	}
+-
+-	/* Save the address of the sk_buff structure. */
+-	sp->rx_buff[entry] = skb;
+-
+-	rxfd->frag_info = cpu_to_le64(pci_map_single(sp->pdev, skb->data,
+-		sp->rx_buf_sz, PCI_DMA_FROMDEVICE));
+-
+-	/* Set the RFD fragment length. */
+-	rxfragsize = sp->rxfrag_size;
+-	rxfd->frag_info |= cpu_to_le64((rxfragsize << 48) & IPG_RFI_FRAGLEN);
+-
+-	return 0;
+-}
+-
+-static int init_rfdlist(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-	unsigned int i;
+-
+-	IPG_DEBUG_MSG("_init_rfdlist\n");
+-
+-	for (i = 0; i < IPG_RFDLIST_LENGTH; i++) {
+-		struct ipg_rx *rxfd = sp->rxd + i;
+-
+-		if (sp->rx_buff[i]) {
+-			pci_unmap_single(sp->pdev,
+-				le64_to_cpu(rxfd->frag_info) & ~IPG_RFI_FRAGLEN,
+-				sp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+-			dev_kfree_skb_irq(sp->rx_buff[i]);
+-			sp->rx_buff[i] = NULL;
+-		}
+-
+-		/* Clear out the RFS field. */
+-		rxfd->rfs = 0x0000000000000000;
+-
+-		if (ipg_get_rxbuff(dev, i) < 0) {
+-			/*
+-			 * A receive buffer was not ready, break the
+-			 * RFD list here.
+-			 */
+-			IPG_DEBUG_MSG("Cannot allocate Rx buffer\n");
+-
+-			/* Just in case we cannot allocate a single RFD.
+-			 * Should not occur.
+-			 */
+-			if (i == 0) {
+-				netdev_err(dev, "No memory available for RFD list\n");
+-				return -ENOMEM;
+-			}
+-		}
+-
+-		rxfd->next_desc = cpu_to_le64(sp->rxd_map +
+-			sizeof(struct ipg_rx)*(i + 1));
+-	}
+-	sp->rxd[i - 1].next_desc = cpu_to_le64(sp->rxd_map);
+-
+-	sp->rx_current = 0;
+-	sp->rx_dirty = 0;
+-
+-	/* Write the location of the RFDList to the IPG. */
+-	ipg_w32((u32) sp->rxd_map, RFD_LIST_PTR_0);
+-	ipg_w32(0x00000000, RFD_LIST_PTR_1);
+-
+-	return 0;
+-}
+-
+-static void init_tfdlist(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-	unsigned int i;
+-
+-	IPG_DEBUG_MSG("_init_tfdlist\n");
+-
+-	for (i = 0; i < IPG_TFDLIST_LENGTH; i++) {
+-		struct ipg_tx *txfd = sp->txd + i;
+-
+-		txfd->tfc = cpu_to_le64(IPG_TFC_TFDDONE);
+-
+-		if (sp->tx_buff[i]) {
+-			dev_kfree_skb_irq(sp->tx_buff[i]);
+-			sp->tx_buff[i] = NULL;
+-		}
+-
+-		txfd->next_desc = cpu_to_le64(sp->txd_map +
+-			sizeof(struct ipg_tx)*(i + 1));
+-	}
+-	sp->txd[i - 1].next_desc = cpu_to_le64(sp->txd_map);
+-
+-	sp->tx_current = 0;
+-	sp->tx_dirty = 0;
+-
+-	/* Write the location of the TFDList to the IPG. */
+-	IPG_DDEBUG_MSG("Starting TFDListPtr = %08x\n",
+-		       (u32) sp->txd_map);
+-	ipg_w32((u32) sp->txd_map, TFD_LIST_PTR_0);
+-	ipg_w32(0x00000000, TFD_LIST_PTR_1);
+-
+-	sp->reset_current_tfd = 1;
+-}
+-
+-/*
+- * Free all transmit buffers which have already been transferred
+- * via DMA to the IPG.
+- */
+-static void ipg_nic_txfree(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	unsigned int released, pending, dirty;
+-
+-	IPG_DEBUG_MSG("_nic_txfree\n");
+-
+-	pending = sp->tx_current - sp->tx_dirty;
+-	dirty = sp->tx_dirty % IPG_TFDLIST_LENGTH;
+-
+-	for (released = 0; released < pending; released++) {
+-		struct sk_buff *skb = sp->tx_buff[dirty];
+-		struct ipg_tx *txfd = sp->txd + dirty;
+-
+-		IPG_DEBUG_MSG("TFC = %016lx\n", (unsigned long) txfd->tfc);
+-
+-		/* Look at each TFD's TFC field beginning
+-		 * at the last freed TFD up to the current TFD.
+-		 * If the TFDDone bit is set, free the associated
+-		 * buffer.
+-		 */
+-		if (!(txfd->tfc & cpu_to_le64(IPG_TFC_TFDDONE)))
+-                        break;
+-
+-		/* Free the transmit buffer. */
+-		if (skb) {
+-			pci_unmap_single(sp->pdev,
+-				le64_to_cpu(txfd->frag_info) & ~IPG_TFI_FRAGLEN,
+-				skb->len, PCI_DMA_TODEVICE);
+-
+-			dev_kfree_skb_irq(skb);
+-
+-			sp->tx_buff[dirty] = NULL;
+-		}
+-		dirty = (dirty + 1) % IPG_TFDLIST_LENGTH;
+-	}
+-
+-	sp->tx_dirty += released;
+-
+-	if (netif_queue_stopped(dev) &&
+-	    (sp->tx_current != (sp->tx_dirty + IPG_TFDLIST_LENGTH))) {
+-		netif_wake_queue(dev);
+-	}
+-}
+-
+-static void ipg_tx_timeout(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-
+-	ipg_reset(dev, IPG_AC_TX_RESET | IPG_AC_DMA | IPG_AC_NETWORK |
+-		  IPG_AC_FIFO);
+-
+-	spin_lock_irq(&sp->lock);
+-
+-	/* Re-configure after DMA reset. */
+-	if (ipg_io_config(dev) < 0)
+-		netdev_info(dev, "Error during re-configuration\n");
+-
+-	init_tfdlist(dev);
+-
+-	spin_unlock_irq(&sp->lock);
+-
+-	ipg_w32((ipg_r32(MAC_CTRL) | IPG_MC_TX_ENABLE) & IPG_MC_RSVD_MASK,
+-		MAC_CTRL);
+-}
+-
+-/*
+- * For TxComplete interrupts, free all transmit
+- * buffers which have already been transferred via DMA
+- * to the IPG.
+- */
+-static void ipg_nic_txcleanup(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-	unsigned int i;
+-
+-	IPG_DEBUG_MSG("_nic_txcleanup\n");
+-
+-	for (i = 0; i < IPG_TFDLIST_LENGTH; i++) {
+-		/* Reading the TXSTATUS register clears the
+-		 * TX_COMPLETE interrupt.
+-		 */
+-		u32 txstatusdword = ipg_r32(TX_STATUS);
+-
+-		IPG_DEBUG_MSG("TxStatus = %08x\n", txstatusdword);
+-
+-		/* Check for Transmit errors. Error bits only valid if
+-		 * TX_COMPLETE bit in the TXSTATUS register is a 1.
+-		 */
+-		if (!(txstatusdword & IPG_TS_TX_COMPLETE))
+-			break;
+-
+-		/* If in 10Mbps mode, indicate transmit is ready. */
+-		if (sp->tenmbpsmode) {
+-			netif_wake_queue(dev);
+-		}
+-
+-		/* Transmit error, increment stat counters. */
+-		if (txstatusdword & IPG_TS_TX_ERROR) {
+-			IPG_DEBUG_MSG("Transmit error\n");
+-			sp->stats.tx_errors++;
+-		}
+-
+-		/* Late collision, re-enable transmitter. */
+-		if (txstatusdword & IPG_TS_LATE_COLLISION) {
+-			IPG_DEBUG_MSG("Late collision on transmit\n");
+-			ipg_w32((ipg_r32(MAC_CTRL) | IPG_MC_TX_ENABLE) &
+-				IPG_MC_RSVD_MASK, MAC_CTRL);
+-		}
+-
+-		/* Maximum collisions, re-enable transmitter. */
+-		if (txstatusdword & IPG_TS_TX_MAX_COLL) {
+-			IPG_DEBUG_MSG("Maximum collisions on transmit\n");
+-			ipg_w32((ipg_r32(MAC_CTRL) | IPG_MC_TX_ENABLE) &
+-				IPG_MC_RSVD_MASK, MAC_CTRL);
+-		}
+-
+-		/* Transmit underrun, reset and re-enable
+-		 * transmitter.
+-		 */
+-		if (txstatusdword & IPG_TS_TX_UNDERRUN) {
+-			IPG_DEBUG_MSG("Transmitter underrun\n");
+-			sp->stats.tx_fifo_errors++;
+-			ipg_reset(dev, IPG_AC_TX_RESET | IPG_AC_DMA |
+-				  IPG_AC_NETWORK | IPG_AC_FIFO);
+-
+-			/* Re-configure after DMA reset. */
+-			if (ipg_io_config(dev) < 0) {
+-				netdev_info(dev, "Error during re-configuration\n");
+-			}
+-			init_tfdlist(dev);
+-
+-			ipg_w32((ipg_r32(MAC_CTRL) | IPG_MC_TX_ENABLE) &
+-				IPG_MC_RSVD_MASK, MAC_CTRL);
+-		}
+-	}
+-
+-	ipg_nic_txfree(dev);
+-}
+-
+-/* Provides statistical information about the IPG NIC. */
+-static struct net_device_stats *ipg_nic_get_stats(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-	u16 temp1;
+-	u16 temp2;
+-
+-	IPG_DEBUG_MSG("_nic_get_stats\n");
+-
+-	/* Check to see if the NIC has been initialized via nic_open,
+-	 * before trying to read statistic registers.
+-	 */
+-	if (!netif_running(dev))
+-		return &sp->stats;
+-
+-	sp->stats.rx_packets += ipg_r32(IPG_FRAMESRCVDOK);
+-	sp->stats.tx_packets += ipg_r32(IPG_FRAMESXMTDOK);
+-	sp->stats.rx_bytes += ipg_r32(IPG_OCTETRCVOK);
+-	sp->stats.tx_bytes += ipg_r32(IPG_OCTETXMTOK);
+-	temp1 = ipg_r16(IPG_FRAMESLOSTRXERRORS);
+-	sp->stats.rx_errors += temp1;
+-	sp->stats.rx_missed_errors += temp1;
+-	temp1 = ipg_r32(IPG_SINGLECOLFRAMES) + ipg_r32(IPG_MULTICOLFRAMES) +
+-		ipg_r32(IPG_LATECOLLISIONS);
+-	temp2 = ipg_r16(IPG_CARRIERSENSEERRORS);
+-	sp->stats.collisions += temp1;
+-	sp->stats.tx_dropped += ipg_r16(IPG_FRAMESABORTXSCOLLS);
+-	sp->stats.tx_errors += ipg_r16(IPG_FRAMESWEXDEFERRAL) +
+-		ipg_r32(IPG_FRAMESWDEFERREDXMT) + temp1 + temp2;
+-	sp->stats.multicast += ipg_r32(IPG_MCSTOCTETRCVDOK);
+-
+-	/* detailed tx_errors */
+-	sp->stats.tx_carrier_errors += temp2;
+-
+-	/* detailed rx_errors */
+-	sp->stats.rx_length_errors += ipg_r16(IPG_INRANGELENGTHERRORS) +
+-		ipg_r16(IPG_FRAMETOOLONGERRORS);
+-	sp->stats.rx_crc_errors += ipg_r16(IPG_FRAMECHECKSEQERRORS);
+-
+-	/* Unutilized IPG statistic registers. */
+-	ipg_r32(IPG_MCSTFRAMESRCVDOK);
+-
+-	return &sp->stats;
+-}
+-
+-/* Restore used receive buffers. */
+-static int ipg_nic_rxrestore(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	const unsigned int curr = sp->rx_current;
+-	unsigned int dirty = sp->rx_dirty;
+-
+-	IPG_DEBUG_MSG("_nic_rxrestore\n");
+-
+-	for (dirty = sp->rx_dirty; curr - dirty > 0; dirty++) {
+-		unsigned int entry = dirty % IPG_RFDLIST_LENGTH;
+-
+-		/* rx_copybreak may poke hole here and there. */
+-		if (sp->rx_buff[entry])
+-			continue;
+-
+-		/* Generate a new receive buffer to replace the
+-		 * current buffer (which will be released by the
+-		 * Linux system).
+-		 */
+-		if (ipg_get_rxbuff(dev, entry) < 0) {
+-			IPG_DEBUG_MSG("Cannot allocate new Rx buffer\n");
+-
+-			break;
+-		}
+-
+-		/* Reset the RFS field. */
+-		sp->rxd[entry].rfs = 0x0000000000000000;
+-	}
+-	sp->rx_dirty = dirty;
+-
+-	return 0;
+-}
+-
+-/* use jumboindex and jumbosize to control jumbo frame status
+- * initial status is jumboindex=-1 and jumbosize=0
+- * 1. jumboindex = -1 and jumbosize=0 : previous jumbo frame has been done.
+- * 2. jumboindex != -1 and jumbosize != 0 : jumbo frame is not over size and receiving
+- * 3. jumboindex = -1 and jumbosize != 0 : jumbo frame is over size, already dump
+- *               previous receiving and need to continue dumping the current one
+- */
+-enum {
+-	NORMAL_PACKET,
+-	ERROR_PACKET
+-};
+-
+-enum {
+-	FRAME_NO_START_NO_END	= 0,
+-	FRAME_WITH_START		= 1,
+-	FRAME_WITH_END		= 10,
+-	FRAME_WITH_START_WITH_END = 11
+-};
+-
+-static void ipg_nic_rx_free_skb(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	unsigned int entry = sp->rx_current % IPG_RFDLIST_LENGTH;
+-
+-	if (sp->rx_buff[entry]) {
+-		struct ipg_rx *rxfd = sp->rxd + entry;
+-
+-		pci_unmap_single(sp->pdev,
+-			le64_to_cpu(rxfd->frag_info) & ~IPG_RFI_FRAGLEN,
+-			sp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+-		dev_kfree_skb_irq(sp->rx_buff[entry]);
+-		sp->rx_buff[entry] = NULL;
+-	}
+-}
+-
+-static int ipg_nic_rx_check_frame_type(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	struct ipg_rx *rxfd = sp->rxd + (sp->rx_current % IPG_RFDLIST_LENGTH);
+-	int type = FRAME_NO_START_NO_END;
+-
+-	if (le64_to_cpu(rxfd->rfs) & IPG_RFS_FRAMESTART)
+-		type += FRAME_WITH_START;
+-	if (le64_to_cpu(rxfd->rfs) & IPG_RFS_FRAMEEND)
+-		type += FRAME_WITH_END;
+-	return type;
+-}
+-
+-static int ipg_nic_rx_check_error(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	unsigned int entry = sp->rx_current % IPG_RFDLIST_LENGTH;
+-	struct ipg_rx *rxfd = sp->rxd + entry;
+-
+-	if (IPG_DROP_ON_RX_ETH_ERRORS && (le64_to_cpu(rxfd->rfs) &
+-	     (IPG_RFS_RXFIFOOVERRUN | IPG_RFS_RXRUNTFRAME |
+-	      IPG_RFS_RXALIGNMENTERROR | IPG_RFS_RXFCSERROR |
+-	      IPG_RFS_RXOVERSIZEDFRAME | IPG_RFS_RXLENGTHERROR))) {
+-		IPG_DEBUG_MSG("Rx error, RFS = %016lx\n",
+-			      (unsigned long) rxfd->rfs);
+-
+-		/* Increment general receive error statistic. */
+-		sp->stats.rx_errors++;
+-
+-		/* Increment detailed receive error statistics. */
+-		if (le64_to_cpu(rxfd->rfs) & IPG_RFS_RXFIFOOVERRUN) {
+-			IPG_DEBUG_MSG("RX FIFO overrun occurred\n");
+-
+-			sp->stats.rx_fifo_errors++;
+-		}
+-
+-		if (le64_to_cpu(rxfd->rfs) & IPG_RFS_RXRUNTFRAME) {
+-			IPG_DEBUG_MSG("RX runt occurred\n");
+-			sp->stats.rx_length_errors++;
+-		}
+-
+-		/* Do nothing for IPG_RFS_RXOVERSIZEDFRAME,
+-		 * error count handled by a IPG statistic register.
+-		 */
+-
+-		if (le64_to_cpu(rxfd->rfs) & IPG_RFS_RXALIGNMENTERROR) {
+-			IPG_DEBUG_MSG("RX alignment error occurred\n");
+-			sp->stats.rx_frame_errors++;
+-		}
+-
+-		/* Do nothing for IPG_RFS_RXFCSERROR, error count
+-		 * handled by a IPG statistic register.
+-		 */
+-
+-		/* Free the memory associated with the RX
+-		 * buffer since it is erroneous and we will
+-		 * not pass it to higher layer processes.
+-		 */
+-		if (sp->rx_buff[entry]) {
+-			pci_unmap_single(sp->pdev,
+-				le64_to_cpu(rxfd->frag_info) & ~IPG_RFI_FRAGLEN,
+-				sp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+-
+-			dev_kfree_skb_irq(sp->rx_buff[entry]);
+-			sp->rx_buff[entry] = NULL;
+-		}
+-		return ERROR_PACKET;
+-	}
+-	return NORMAL_PACKET;
+-}
+-
+-static void ipg_nic_rx_with_start_and_end(struct net_device *dev,
+-					  struct ipg_nic_private *sp,
+-					  struct ipg_rx *rxfd, unsigned entry)
+-{
+-	struct ipg_jumbo *jumbo = &sp->jumbo;
+-	struct sk_buff *skb;
+-	int framelen;
+-
+-	if (jumbo->found_start) {
+-		dev_kfree_skb_irq(jumbo->skb);
+-		jumbo->found_start = 0;
+-		jumbo->current_size = 0;
+-		jumbo->skb = NULL;
+-	}
+-
+-	/* 1: found error, 0 no error */
+-	if (ipg_nic_rx_check_error(dev) != NORMAL_PACKET)
+-		return;
+-
+-	skb = sp->rx_buff[entry];
+-	if (!skb)
+-		return;
+-
+-	/* accept this frame and send to upper layer */
+-	framelen = le64_to_cpu(rxfd->rfs) & IPG_RFS_RXFRAMELEN;
+-	if (framelen > sp->rxfrag_size)
+-		framelen = sp->rxfrag_size;
+-
+-	skb_put(skb, framelen);
+-	skb->protocol = eth_type_trans(skb, dev);
+-	skb_checksum_none_assert(skb);
+-	netif_rx(skb);
+-	sp->rx_buff[entry] = NULL;
+-}
+-
+-static void ipg_nic_rx_with_start(struct net_device *dev,
+-				  struct ipg_nic_private *sp,
+-				  struct ipg_rx *rxfd, unsigned entry)
+-{
+-	struct ipg_jumbo *jumbo = &sp->jumbo;
+-	struct pci_dev *pdev = sp->pdev;
+-	struct sk_buff *skb;
+-
+-	/* 1: found error, 0 no error */
+-	if (ipg_nic_rx_check_error(dev) != NORMAL_PACKET)
+-		return;
+-
+-	/* accept this frame and send to upper layer */
+-	skb = sp->rx_buff[entry];
+-	if (!skb)
+-		return;
+-
+-	if (jumbo->found_start)
+-		dev_kfree_skb_irq(jumbo->skb);
+-
+-	pci_unmap_single(pdev, le64_to_cpu(rxfd->frag_info) & ~IPG_RFI_FRAGLEN,
+-			 sp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+-
+-	skb_put(skb, sp->rxfrag_size);
+-
+-	jumbo->found_start = 1;
+-	jumbo->current_size = sp->rxfrag_size;
+-	jumbo->skb = skb;
+-
+-	sp->rx_buff[entry] = NULL;
+-}
+-
+-static void ipg_nic_rx_with_end(struct net_device *dev,
+-				struct ipg_nic_private *sp,
+-				struct ipg_rx *rxfd, unsigned entry)
+-{
+-	struct ipg_jumbo *jumbo = &sp->jumbo;
+-
+-	/* 1: found error, 0 no error */
+-	if (ipg_nic_rx_check_error(dev) == NORMAL_PACKET) {
+-		struct sk_buff *skb = sp->rx_buff[entry];
+-
+-		if (!skb)
+-			return;
+-
+-		if (jumbo->found_start) {
+-			int framelen, endframelen;
+-
+-			framelen = le64_to_cpu(rxfd->rfs) & IPG_RFS_RXFRAMELEN;
+-
+-			endframelen = framelen - jumbo->current_size;
+-			if (framelen > sp->rxsupport_size)
+-				dev_kfree_skb_irq(jumbo->skb);
+-			else {
+-				memcpy(skb_put(jumbo->skb, endframelen),
+-				       skb->data, endframelen);
+-
+-				jumbo->skb->protocol =
+-				    eth_type_trans(jumbo->skb, dev);
+-
+-				skb_checksum_none_assert(jumbo->skb);
+-				netif_rx(jumbo->skb);
+-			}
+-		}
+-
+-		jumbo->found_start = 0;
+-		jumbo->current_size = 0;
+-		jumbo->skb = NULL;
+-
+-		ipg_nic_rx_free_skb(dev);
+-	} else {
+-		dev_kfree_skb_irq(jumbo->skb);
+-		jumbo->found_start = 0;
+-		jumbo->current_size = 0;
+-		jumbo->skb = NULL;
+-	}
+-}
+-
+-static void ipg_nic_rx_no_start_no_end(struct net_device *dev,
+-				       struct ipg_nic_private *sp,
+-				       struct ipg_rx *rxfd, unsigned entry)
+-{
+-	struct ipg_jumbo *jumbo = &sp->jumbo;
+-
+-	/* 1: found error, 0 no error */
+-	if (ipg_nic_rx_check_error(dev) == NORMAL_PACKET) {
+-		struct sk_buff *skb = sp->rx_buff[entry];
+-
+-		if (skb) {
+-			if (jumbo->found_start) {
+-				jumbo->current_size += sp->rxfrag_size;
+-				if (jumbo->current_size <= sp->rxsupport_size) {
+-					memcpy(skb_put(jumbo->skb,
+-						       sp->rxfrag_size),
+-					       skb->data, sp->rxfrag_size);
+-				}
+-			}
+-			ipg_nic_rx_free_skb(dev);
+-		}
+-	} else {
+-		dev_kfree_skb_irq(jumbo->skb);
+-		jumbo->found_start = 0;
+-		jumbo->current_size = 0;
+-		jumbo->skb = NULL;
+-	}
+-}
+-
+-static int ipg_nic_rx_jumbo(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	unsigned int curr = sp->rx_current;
+-	void __iomem *ioaddr = sp->ioaddr;
+-	unsigned int i;
+-
+-	IPG_DEBUG_MSG("_nic_rx\n");
+-
+-	for (i = 0; i < IPG_MAXRFDPROCESS_COUNT; i++, curr++) {
+-		unsigned int entry = curr % IPG_RFDLIST_LENGTH;
+-		struct ipg_rx *rxfd = sp->rxd + entry;
+-
+-		if (!(rxfd->rfs & cpu_to_le64(IPG_RFS_RFDDONE)))
+-			break;
+-
+-		switch (ipg_nic_rx_check_frame_type(dev)) {
+-		case FRAME_WITH_START_WITH_END:
+-			ipg_nic_rx_with_start_and_end(dev, sp, rxfd, entry);
+-			break;
+-		case FRAME_WITH_START:
+-			ipg_nic_rx_with_start(dev, sp, rxfd, entry);
+-			break;
+-		case FRAME_WITH_END:
+-			ipg_nic_rx_with_end(dev, sp, rxfd, entry);
+-			break;
+-		case FRAME_NO_START_NO_END:
+-			ipg_nic_rx_no_start_no_end(dev, sp, rxfd, entry);
+-			break;
+-		}
+-	}
+-
+-	sp->rx_current = curr;
+-
+-	if (i == IPG_MAXRFDPROCESS_COUNT) {
+-		/* There are more RFDs to process, however the
+-		 * allocated amount of RFD processing time has
+-		 * expired. Assert Interrupt Requested to make
+-		 * sure we come back to process the remaining RFDs.
+-		 */
+-		ipg_w32(ipg_r32(ASIC_CTRL) | IPG_AC_INT_REQUEST, ASIC_CTRL);
+-	}
+-
+-	ipg_nic_rxrestore(dev);
+-
+-	return 0;
+-}
+-
+-static int ipg_nic_rx(struct net_device *dev)
+-{
+-	/* Transfer received Ethernet frames to higher network layers. */
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	unsigned int curr = sp->rx_current;
+-	void __iomem *ioaddr = sp->ioaddr;
+-	struct ipg_rx *rxfd;
+-	unsigned int i;
+-
+-	IPG_DEBUG_MSG("_nic_rx\n");
+-
+-#define __RFS_MASK \
+-	cpu_to_le64(IPG_RFS_RFDDONE | IPG_RFS_FRAMESTART | IPG_RFS_FRAMEEND)
+-
+-	for (i = 0; i < IPG_MAXRFDPROCESS_COUNT; i++, curr++) {
+-		unsigned int entry = curr % IPG_RFDLIST_LENGTH;
+-		struct sk_buff *skb = sp->rx_buff[entry];
+-		unsigned int framelen;
+-
+-		rxfd = sp->rxd + entry;
+-
+-		if (((rxfd->rfs & __RFS_MASK) != __RFS_MASK) || !skb)
+-			break;
+-
+-		/* Get received frame length. */
+-		framelen = le64_to_cpu(rxfd->rfs) & IPG_RFS_RXFRAMELEN;
+-
+-		/* Check for jumbo frame arrival with too small
+-		 * RXFRAG_SIZE.
+-		 */
+-		if (framelen > sp->rxfrag_size) {
+-			IPG_DEBUG_MSG
+-			    ("RFS FrameLen > allocated fragment size\n");
+-
+-			framelen = sp->rxfrag_size;
+-		}
+-
+-		if ((IPG_DROP_ON_RX_ETH_ERRORS && (le64_to_cpu(rxfd->rfs) &
+-		       (IPG_RFS_RXFIFOOVERRUN | IPG_RFS_RXRUNTFRAME |
+-			IPG_RFS_RXALIGNMENTERROR | IPG_RFS_RXFCSERROR |
+-			IPG_RFS_RXOVERSIZEDFRAME | IPG_RFS_RXLENGTHERROR)))) {
+-
+-			IPG_DEBUG_MSG("Rx error, RFS = %016lx\n",
+-				      (unsigned long int) rxfd->rfs);
+-
+-			/* Increment general receive error statistic. */
+-			sp->stats.rx_errors++;
+-
+-			/* Increment detailed receive error statistics. */
+-			if (le64_to_cpu(rxfd->rfs) & IPG_RFS_RXFIFOOVERRUN) {
+-				IPG_DEBUG_MSG("RX FIFO overrun occurred\n");
+-				sp->stats.rx_fifo_errors++;
+-			}
+-
+-			if (le64_to_cpu(rxfd->rfs) & IPG_RFS_RXRUNTFRAME) {
+-				IPG_DEBUG_MSG("RX runt occurred\n");
+-				sp->stats.rx_length_errors++;
+-			}
+-
+-			if (le64_to_cpu(rxfd->rfs) & IPG_RFS_RXOVERSIZEDFRAME) ;
+-			/* Do nothing, error count handled by a IPG
+-			 * statistic register.
+-			 */
+-
+-			if (le64_to_cpu(rxfd->rfs) & IPG_RFS_RXALIGNMENTERROR) {
+-				IPG_DEBUG_MSG("RX alignment error occurred\n");
+-				sp->stats.rx_frame_errors++;
+-			}
+-
+-			if (le64_to_cpu(rxfd->rfs) & IPG_RFS_RXFCSERROR) ;
+-			/* Do nothing, error count handled by a IPG
+-			 * statistic register.
+-			 */
+-
+-			/* Free the memory associated with the RX
+-			 * buffer since it is erroneous and we will
+-			 * not pass it to higher layer processes.
+-			 */
+-			if (skb) {
+-				__le64 info = rxfd->frag_info;
+-
+-				pci_unmap_single(sp->pdev,
+-					le64_to_cpu(info) & ~IPG_RFI_FRAGLEN,
+-					sp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+-
+-				dev_kfree_skb_irq(skb);
+-			}
+-		} else {
+-
+-			/* Adjust the new buffer length to accommodate the size
+-			 * of the received frame.
+-			 */
+-			skb_put(skb, framelen);
+-
+-			/* Set the buffer's protocol field to Ethernet. */
+-			skb->protocol = eth_type_trans(skb, dev);
+-
+-			/* The IPG encountered an error with (or
+-			 * there were no) IP/TCP/UDP checksums.
+-			 * This may or may not indicate an invalid
+-			 * IP/TCP/UDP frame was received. Let the
+-			 * upper layer decide.
+-			 */
+-			skb_checksum_none_assert(skb);
+-
+-			/* Hand off frame for higher layer processing.
+-			 * The function netif_rx() releases the sk_buff
+-			 * when processing completes.
+-			 */
+-			netif_rx(skb);
+-		}
+-
+-		/* Assure RX buffer is not reused by IPG. */
+-		sp->rx_buff[entry] = NULL;
+-	}
+-
+-	/*
+-	 * If there are more RFDs to process and the allocated amount of RFD
+-	 * processing time has expired, assert Interrupt Requested to make
+-	 * sure we come back to process the remaining RFDs.
+-	 */
+-	if (i == IPG_MAXRFDPROCESS_COUNT)
+-		ipg_w32(ipg_r32(ASIC_CTRL) | IPG_AC_INT_REQUEST, ASIC_CTRL);
+-
+-#ifdef IPG_DEBUG
+-	/* Check if the RFD list contained no receive frame data. */
+-	if (!i)
+-		sp->EmptyRFDListCount++;
+-#endif
+-	while ((le64_to_cpu(rxfd->rfs) & IPG_RFS_RFDDONE) &&
+-	       !((le64_to_cpu(rxfd->rfs) & IPG_RFS_FRAMESTART) &&
+-		 (le64_to_cpu(rxfd->rfs) & IPG_RFS_FRAMEEND))) {
+-		unsigned int entry = curr++ % IPG_RFDLIST_LENGTH;
+-
+-		rxfd = sp->rxd + entry;
+-
+-		IPG_DEBUG_MSG("Frame requires multiple RFDs\n");
+-
+-		/* An unexpected event, additional code needed to handle
+-		 * properly. So for the time being, just disregard the
+-		 * frame.
+-		 */
+-
+-		/* Free the memory associated with the RX
+-		 * buffer since it is erroneous and we will
+-		 * not pass it to higher layer processes.
+-		 */
+-		if (sp->rx_buff[entry]) {
+-			pci_unmap_single(sp->pdev,
+-				le64_to_cpu(rxfd->frag_info) & ~IPG_RFI_FRAGLEN,
+-				sp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+-			dev_kfree_skb_irq(sp->rx_buff[entry]);
+-		}
+-
+-		/* Assure RX buffer is not reused by IPG. */
+-		sp->rx_buff[entry] = NULL;
+-	}
+-
+-	sp->rx_current = curr;
+-
+-	/* Check to see if there are a minimum number of used
+-	 * RFDs before restoring any (should improve performance.)
+-	 */
+-	if ((curr - sp->rx_dirty) >= IPG_MINUSEDRFDSTOFREE)
+-		ipg_nic_rxrestore(dev);
+-
+-	return 0;
+-}
+-
+-static void ipg_reset_after_host_error(struct work_struct *work)
+-{
+-	struct ipg_nic_private *sp =
+-		container_of(work, struct ipg_nic_private, task.work);
+-	struct net_device *dev = sp->dev;
+-
+-	/*
+-	 * Acknowledge HostError interrupt by resetting
+-	 * IPG DMA and HOST.
+-	 */
+-	ipg_reset(dev, IPG_AC_GLOBAL_RESET | IPG_AC_HOST | IPG_AC_DMA);
+-
+-	init_rfdlist(dev);
+-	init_tfdlist(dev);
+-
+-	if (ipg_io_config(dev) < 0) {
+-		netdev_info(dev, "Cannot recover from PCI error\n");
+-		schedule_delayed_work(&sp->task, HZ);
+-	}
+-}
+-
+-static irqreturn_t ipg_interrupt_handler(int irq, void *dev_inst)
+-{
+-	struct net_device *dev = dev_inst;
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-	unsigned int handled = 0;
+-	u16 status;
+-
+-	IPG_DEBUG_MSG("_interrupt_handler\n");
+-
+-	if (sp->is_jumbo)
+-		ipg_nic_rxrestore(dev);
+-
+-	spin_lock(&sp->lock);
+-
+-	/* Get interrupt source information, and acknowledge
+-	 * some (i.e. TxDMAComplete, RxDMAComplete, RxEarly,
+-	 * IntRequested, MacControlFrame, LinkEvent) interrupts
+-	 * if issued. Also, all IPG interrupts are disabled by
+-	 * reading IntStatusAck.
+-	 */
+-	status = ipg_r16(INT_STATUS_ACK);
+-
+-	IPG_DEBUG_MSG("IntStatusAck = %04x\n", status);
+-
+-	/* Shared IRQ of remove event. */
+-	if (!(status & IPG_IS_RSVD_MASK))
+-		goto out_enable;
+-
+-	handled = 1;
+-
+-	if (unlikely(!netif_running(dev)))
+-		goto out_unlock;
+-
+-	/* If RFDListEnd interrupt, restore all used RFDs. */
+-	if (status & IPG_IS_RFD_LIST_END) {
+-		IPG_DEBUG_MSG("RFDListEnd Interrupt\n");
+-
+-		/* The RFD list end indicates an RFD was encountered
+-		 * with a 0 NextPtr, or with an RFDDone bit set to 1
+-		 * (indicating the RFD is not read for use by the
+-		 * IPG.) Try to restore all RFDs.
+-		 */
+-		ipg_nic_rxrestore(dev);
+-
+-#ifdef IPG_DEBUG
+-		/* Increment the RFDlistendCount counter. */
+-		sp->RFDlistendCount++;
+-#endif
+-	}
+-
+-	/* If RFDListEnd, RxDMAPriority, RxDMAComplete, or
+-	 * IntRequested interrupt, process received frames. */
+-	if ((status & IPG_IS_RX_DMA_PRIORITY) ||
+-	    (status & IPG_IS_RFD_LIST_END) ||
+-	    (status & IPG_IS_RX_DMA_COMPLETE) ||
+-	    (status & IPG_IS_INT_REQUESTED)) {
+-#ifdef IPG_DEBUG
+-		/* Increment the RFD list checked counter if interrupted
+-		 * only to check the RFD list. */
+-		if (status & (~(IPG_IS_RX_DMA_PRIORITY | IPG_IS_RFD_LIST_END |
+-				IPG_IS_RX_DMA_COMPLETE | IPG_IS_INT_REQUESTED) &
+-			       (IPG_IS_HOST_ERROR | IPG_IS_TX_DMA_COMPLETE |
+-				IPG_IS_LINK_EVENT | IPG_IS_TX_COMPLETE |
+-				IPG_IS_UPDATE_STATS)))
+-			sp->RFDListCheckedCount++;
+-#endif
+-
+-		if (sp->is_jumbo)
+-			ipg_nic_rx_jumbo(dev);
+-		else
+-			ipg_nic_rx(dev);
+-	}
+-
+-	/* If TxDMAComplete interrupt, free used TFDs. */
+-	if (status & IPG_IS_TX_DMA_COMPLETE)
+-		ipg_nic_txfree(dev);
+-
+-	/* TxComplete interrupts indicate one of numerous actions.
+-	 * Determine what action to take based on TXSTATUS register.
+-	 */
+-	if (status & IPG_IS_TX_COMPLETE)
+-		ipg_nic_txcleanup(dev);
+-
+-	/* If UpdateStats interrupt, update Linux Ethernet statistics */
+-	if (status & IPG_IS_UPDATE_STATS)
+-		ipg_nic_get_stats(dev);
+-
+-	/* If HostError interrupt, reset IPG. */
+-	if (status & IPG_IS_HOST_ERROR) {
+-		IPG_DDEBUG_MSG("HostError Interrupt\n");
+-
+-		schedule_delayed_work(&sp->task, 0);
+-	}
+-
+-	/* If LinkEvent interrupt, resolve autonegotiation. */
+-	if (status & IPG_IS_LINK_EVENT) {
+-		if (ipg_config_autoneg(dev) < 0)
+-			netdev_info(dev, "Auto-negotiation error\n");
+-	}
+-
+-	/* If MACCtrlFrame interrupt, do nothing. */
+-	if (status & IPG_IS_MAC_CTRL_FRAME)
+-		IPG_DEBUG_MSG("MACCtrlFrame interrupt\n");
+-
+-	/* If RxComplete interrupt, do nothing. */
+-	if (status & IPG_IS_RX_COMPLETE)
+-		IPG_DEBUG_MSG("RxComplete interrupt\n");
+-
+-	/* If RxEarly interrupt, do nothing. */
+-	if (status & IPG_IS_RX_EARLY)
+-		IPG_DEBUG_MSG("RxEarly interrupt\n");
+-
+-out_enable:
+-	/* Re-enable IPG interrupts. */
+-	ipg_w16(IPG_IE_TX_DMA_COMPLETE | IPG_IE_RX_DMA_COMPLETE |
+-		IPG_IE_HOST_ERROR | IPG_IE_INT_REQUESTED | IPG_IE_TX_COMPLETE |
+-		IPG_IE_LINK_EVENT | IPG_IE_UPDATE_STATS, INT_ENABLE);
+-out_unlock:
+-	spin_unlock(&sp->lock);
+-
+-	return IRQ_RETVAL(handled);
+-}
+-
+-static void ipg_rx_clear(struct ipg_nic_private *sp)
+-{
+-	unsigned int i;
+-
+-	for (i = 0; i < IPG_RFDLIST_LENGTH; i++) {
+-		if (sp->rx_buff[i]) {
+-			struct ipg_rx *rxfd = sp->rxd + i;
+-
+-			dev_kfree_skb_irq(sp->rx_buff[i]);
+-			sp->rx_buff[i] = NULL;
+-			pci_unmap_single(sp->pdev,
+-				le64_to_cpu(rxfd->frag_info) & ~IPG_RFI_FRAGLEN,
+-				sp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+-		}
+-	}
+-}
+-
+-static void ipg_tx_clear(struct ipg_nic_private *sp)
+-{
+-	unsigned int i;
+-
+-	for (i = 0; i < IPG_TFDLIST_LENGTH; i++) {
+-		if (sp->tx_buff[i]) {
+-			struct ipg_tx *txfd = sp->txd + i;
+-
+-			pci_unmap_single(sp->pdev,
+-				le64_to_cpu(txfd->frag_info) & ~IPG_TFI_FRAGLEN,
+-				sp->tx_buff[i]->len, PCI_DMA_TODEVICE);
+-
+-			dev_kfree_skb_irq(sp->tx_buff[i]);
+-
+-			sp->tx_buff[i] = NULL;
+-		}
+-	}
+-}
+-
+-static int ipg_nic_open(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-	struct pci_dev *pdev = sp->pdev;
+-	int rc;
+-
+-	IPG_DEBUG_MSG("_nic_open\n");
+-
+-	sp->rx_buf_sz = sp->rxsupport_size;
+-
+-	/* Check for interrupt line conflicts, and request interrupt
+-	 * line for IPG.
+-	 *
+-	 * IMPORTANT: Disable IPG interrupts prior to registering
+-	 *            IRQ.
+-	 */
+-	ipg_w16(0x0000, INT_ENABLE);
+-
+-	/* Register the interrupt line to be used by the IPG within
+-	 * the Linux system.
+-	 */
+-	rc = request_irq(pdev->irq, ipg_interrupt_handler, IRQF_SHARED,
+-			 dev->name, dev);
+-	if (rc < 0) {
+-		netdev_info(dev, "Error when requesting interrupt\n");
+-		goto out;
+-	}
+-
+-	dev->irq = pdev->irq;
+-
+-	rc = -ENOMEM;
+-
+-	sp->rxd = dma_alloc_coherent(&pdev->dev, IPG_RX_RING_BYTES,
+-				     &sp->rxd_map, GFP_KERNEL);
+-	if (!sp->rxd)
+-		goto err_free_irq_0;
+-
+-	sp->txd = dma_alloc_coherent(&pdev->dev, IPG_TX_RING_BYTES,
+-				     &sp->txd_map, GFP_KERNEL);
+-	if (!sp->txd)
+-		goto err_free_rx_1;
+-
+-	rc = init_rfdlist(dev);
+-	if (rc < 0) {
+-		netdev_info(dev, "Error during configuration\n");
+-		goto err_free_tx_2;
+-	}
+-
+-	init_tfdlist(dev);
+-
+-	rc = ipg_io_config(dev);
+-	if (rc < 0) {
+-		netdev_info(dev, "Error during configuration\n");
+-		goto err_release_tfdlist_3;
+-	}
+-
+-	/* Resolve autonegotiation. */
+-	if (ipg_config_autoneg(dev) < 0)
+-		netdev_info(dev, "Auto-negotiation error\n");
+-
+-	/* initialize JUMBO Frame control variable */
+-	sp->jumbo.found_start = 0;
+-	sp->jumbo.current_size = 0;
+-	sp->jumbo.skb = NULL;
+-
+-	/* Enable transmit and receive operation of the IPG. */
+-	ipg_w32((ipg_r32(MAC_CTRL) | IPG_MC_RX_ENABLE | IPG_MC_TX_ENABLE) &
+-		 IPG_MC_RSVD_MASK, MAC_CTRL);
+-
+-	netif_start_queue(dev);
+-out:
+-	return rc;
+-
+-err_release_tfdlist_3:
+-	ipg_tx_clear(sp);
+-	ipg_rx_clear(sp);
+-err_free_tx_2:
+-	dma_free_coherent(&pdev->dev, IPG_TX_RING_BYTES, sp->txd, sp->txd_map);
+-err_free_rx_1:
+-	dma_free_coherent(&pdev->dev, IPG_RX_RING_BYTES, sp->rxd, sp->rxd_map);
+-err_free_irq_0:
+-	free_irq(pdev->irq, dev);
+-	goto out;
+-}
+-
+-static int ipg_nic_stop(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-	struct pci_dev *pdev = sp->pdev;
+-
+-	IPG_DEBUG_MSG("_nic_stop\n");
+-
+-	netif_stop_queue(dev);
+-
+-	IPG_DUMPTFDLIST(dev);
+-
+-	do {
+-		(void) ipg_r16(INT_STATUS_ACK);
+-
+-		ipg_reset(dev, IPG_AC_GLOBAL_RESET | IPG_AC_HOST | IPG_AC_DMA);
+-
+-		synchronize_irq(pdev->irq);
+-	} while (ipg_r16(INT_ENABLE) & IPG_IE_RSVD_MASK);
+-
+-	ipg_rx_clear(sp);
+-
+-	ipg_tx_clear(sp);
+-
+-	pci_free_consistent(pdev, IPG_RX_RING_BYTES, sp->rxd, sp->rxd_map);
+-	pci_free_consistent(pdev, IPG_TX_RING_BYTES, sp->txd, sp->txd_map);
+-
+-	free_irq(pdev->irq, dev);
+-
+-	return 0;
+-}
+-
+-static netdev_tx_t ipg_nic_hard_start_xmit(struct sk_buff *skb,
+-					   struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-	unsigned int entry = sp->tx_current % IPG_TFDLIST_LENGTH;
+-	unsigned long flags;
+-	struct ipg_tx *txfd;
+-
+-	IPG_DDEBUG_MSG("_nic_hard_start_xmit\n");
+-
+-	/* If in 10Mbps mode, stop the transmit queue so
+-	 * no more transmit frames are accepted.
+-	 */
+-	if (sp->tenmbpsmode)
+-		netif_stop_queue(dev);
+-
+-	if (sp->reset_current_tfd) {
+-		sp->reset_current_tfd = 0;
+-		entry = 0;
+-	}
+-
+-	txfd = sp->txd + entry;
+-
+-	sp->tx_buff[entry] = skb;
+-
+-	/* Clear all TFC fields, except TFDDONE. */
+-	txfd->tfc = cpu_to_le64(IPG_TFC_TFDDONE);
+-
+-	/* Specify the TFC field within the TFD. */
+-	txfd->tfc |= cpu_to_le64(IPG_TFC_WORDALIGNDISABLED |
+-		(IPG_TFC_FRAMEID & sp->tx_current) |
+-		(IPG_TFC_FRAGCOUNT & (1 << 24)));
+-	/*
+-	 * 16--17 (WordAlign) <- 3 (disable),
+-	 * 0--15 (FrameId) <- sp->tx_current,
+-	 * 24--27 (FragCount) <- 1
+-	 */
+-
+-	/* Request TxComplete interrupts at an interval defined
+-	 * by the constant IPG_FRAMESBETWEENTXCOMPLETES.
+-	 * Request TxComplete interrupt for every frame
+-	 * if in 10Mbps mode to accommodate problem with 10Mbps
+-	 * processing.
+-	 */
+-	if (sp->tenmbpsmode)
+-		txfd->tfc |= cpu_to_le64(IPG_TFC_TXINDICATE);
+-	txfd->tfc |= cpu_to_le64(IPG_TFC_TXDMAINDICATE);
+-	/* Based on compilation option, determine if FCS is to be
+-	 * appended to transmit frame by IPG.
+-	 */
+-	if (!(IPG_APPEND_FCS_ON_TX))
+-		txfd->tfc |= cpu_to_le64(IPG_TFC_FCSAPPENDDISABLE);
+-
+-	/* Based on compilation option, determine if IP, TCP and/or
+-	 * UDP checksums are to be added to transmit frame by IPG.
+-	 */
+-	if (IPG_ADD_IPCHECKSUM_ON_TX)
+-		txfd->tfc |= cpu_to_le64(IPG_TFC_IPCHECKSUMENABLE);
+-
+-	if (IPG_ADD_TCPCHECKSUM_ON_TX)
+-		txfd->tfc |= cpu_to_le64(IPG_TFC_TCPCHECKSUMENABLE);
+-
+-	if (IPG_ADD_UDPCHECKSUM_ON_TX)
+-		txfd->tfc |= cpu_to_le64(IPG_TFC_UDPCHECKSUMENABLE);
+-
+-	/* Based on compilation option, determine if VLAN tag info is to be
+-	 * inserted into transmit frame by IPG.
+-	 */
+-	if (IPG_INSERT_MANUAL_VLAN_TAG) {
+-		txfd->tfc |= cpu_to_le64(IPG_TFC_VLANTAGINSERT |
+-			((u64) IPG_MANUAL_VLAN_VID << 32) |
+-			((u64) IPG_MANUAL_VLAN_CFI << 44) |
+-			((u64) IPG_MANUAL_VLAN_USERPRIORITY << 45));
+-	}
+-
+-	/* The fragment start location within system memory is defined
+-	 * by the sk_buff structure's data field. The physical address
+-	 * of this location within the system's virtual memory space
+-	 * is determined using the IPG_HOST2BUS_MAP function.
+-	 */
+-	txfd->frag_info = cpu_to_le64(pci_map_single(sp->pdev, skb->data,
+-		skb->len, PCI_DMA_TODEVICE));
+-
+-	/* The length of the fragment within system memory is defined by
+-	 * the sk_buff structure's len field.
+-	 */
+-	txfd->frag_info |= cpu_to_le64(IPG_TFI_FRAGLEN &
+-		((u64) (skb->len & 0xffff) << 48));
+-
+-	/* Clear the TFDDone bit last to indicate the TFD is ready
+-	 * for transfer to the IPG.
+-	 */
+-	txfd->tfc &= cpu_to_le64(~IPG_TFC_TFDDONE);
+-
+-	spin_lock_irqsave(&sp->lock, flags);
+-
+-	sp->tx_current++;
+-
+-	mmiowb();
+-
+-	ipg_w32(IPG_DC_TX_DMA_POLL_NOW, DMA_CTRL);
+-
+-	if (sp->tx_current == (sp->tx_dirty + IPG_TFDLIST_LENGTH))
+-		netif_stop_queue(dev);
+-
+-	spin_unlock_irqrestore(&sp->lock, flags);
+-
+-	return NETDEV_TX_OK;
+-}
+-
+-static void ipg_set_phy_default_param(unsigned char rev,
+-				      struct net_device *dev, int phy_address)
+-{
+-	unsigned short length;
+-	unsigned char revision;
+-	const unsigned short *phy_param;
+-	unsigned short address, value;
+-
+-	phy_param = &DefaultPhyParam[0];
+-	length = *phy_param & 0x00FF;
+-	revision = (unsigned char)((*phy_param) >> 8);
+-	phy_param++;
+-	while (length != 0) {
+-		if (rev == revision) {
+-			while (length > 1) {
+-				address = *phy_param;
+-				value = *(phy_param + 1);
+-				phy_param += 2;
+-				mdio_write(dev, phy_address, address, value);
+-				length -= 4;
+-			}
+-			break;
+-		} else {
+-			phy_param += length / 2;
+-			length = *phy_param & 0x00FF;
+-			revision = (unsigned char)((*phy_param) >> 8);
+-			phy_param++;
+-		}
+-	}
+-}
+-
+-static int read_eeprom(struct net_device *dev, int eep_addr)
+-{
+-	void __iomem *ioaddr = ipg_ioaddr(dev);
+-	unsigned int i;
+-	int ret = 0;
+-	u16 value;
+-
+-	value = IPG_EC_EEPROM_READOPCODE | (eep_addr & 0xff);
+-	ipg_w16(value, EEPROM_CTRL);
+-
+-	for (i = 0; i < 1000; i++) {
+-		u16 data;
+-
+-		mdelay(10);
+-		data = ipg_r16(EEPROM_CTRL);
+-		if (!(data & IPG_EC_EEPROM_BUSY)) {
+-			ret = ipg_r16(EEPROM_DATA);
+-			break;
+-		}
+-	}
+-	return ret;
+-}
+-
+-static void ipg_init_mii(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	struct mii_if_info *mii_if = &sp->mii_if;
+-	int phyaddr;
+-
+-	mii_if->dev          = dev;
+-	mii_if->mdio_read    = mdio_read;
+-	mii_if->mdio_write   = mdio_write;
+-	mii_if->phy_id_mask  = 0x1f;
+-	mii_if->reg_num_mask = 0x1f;
+-
+-	mii_if->phy_id = phyaddr = ipg_find_phyaddr(dev);
+-
+-	if (phyaddr != 0x1f) {
+-		u16 mii_phyctrl, mii_1000cr;
+-
+-		mii_1000cr  = mdio_read(dev, phyaddr, MII_CTRL1000);
+-		mii_1000cr |= ADVERTISE_1000FULL | ADVERTISE_1000HALF |
+-			GMII_PHY_1000BASETCONTROL_PreferMaster;
+-		mdio_write(dev, phyaddr, MII_CTRL1000, mii_1000cr);
+-
+-		mii_phyctrl = mdio_read(dev, phyaddr, MII_BMCR);
+-
+-		/* Set default phyparam */
+-		ipg_set_phy_default_param(sp->pdev->revision, dev, phyaddr);
+-
+-		/* Reset PHY */
+-		mii_phyctrl |= BMCR_RESET | BMCR_ANRESTART;
+-		mdio_write(dev, phyaddr, MII_BMCR, mii_phyctrl);
+-
+-	}
+-}
+-
+-static int ipg_hw_init(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->ioaddr;
+-	unsigned int i;
+-	int rc;
+-
+-	/* Read/Write and Reset EEPROM Value */
+-	/* Read LED Mode Configuration from EEPROM */
+-	sp->led_mode = read_eeprom(dev, 6);
+-
+-	/* Reset all functions within the IPG. Do not assert
+-	 * RST_OUT as not compatible with some PHYs.
+-	 */
+-	rc = ipg_reset(dev, IPG_RESET_MASK);
+-	if (rc < 0)
+-		goto out;
+-
+-	ipg_init_mii(dev);
+-
+-	/* Read MAC Address from EEPROM */
+-	for (i = 0; i < 3; i++)
+-		sp->station_addr[i] = read_eeprom(dev, 16 + i);
+-
+-	for (i = 0; i < 3; i++)
+-		ipg_w16(sp->station_addr[i], STATION_ADDRESS_0 + 2*i);
+-
+-	/* Set station address in ethernet_device structure. */
+-	dev->dev_addr[0] =  ipg_r16(STATION_ADDRESS_0) & 0x00ff;
+-	dev->dev_addr[1] = (ipg_r16(STATION_ADDRESS_0) & 0xff00) >> 8;
+-	dev->dev_addr[2] =  ipg_r16(STATION_ADDRESS_1) & 0x00ff;
+-	dev->dev_addr[3] = (ipg_r16(STATION_ADDRESS_1) & 0xff00) >> 8;
+-	dev->dev_addr[4] =  ipg_r16(STATION_ADDRESS_2) & 0x00ff;
+-	dev->dev_addr[5] = (ipg_r16(STATION_ADDRESS_2) & 0xff00) >> 8;
+-out:
+-	return rc;
+-}
+-
+-static int ipg_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	int rc;
+-
+-	mutex_lock(&sp->mii_mutex);
+-	rc = generic_mii_ioctl(&sp->mii_if, if_mii(ifr), cmd, NULL);
+-	mutex_unlock(&sp->mii_mutex);
+-
+-	return rc;
+-}
+-
+-static int ipg_nic_change_mtu(struct net_device *dev, int new_mtu)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	int err;
+-
+-	/* Function to accommodate changes to Maximum Transfer Unit
+-	 * (or MTU) of IPG NIC. Cannot use default function since
+-	 * the default will not allow for MTU > 1500 bytes.
+-	 */
+-
+-	IPG_DEBUG_MSG("_nic_change_mtu\n");
+-
+-	/*
+-	 * Check that the new MTU value is between 68 (14 byte header, 46 byte
+-	 * payload, 4 byte FCS) and 10 KB, which is the largest supported MTU.
+-	 */
+-	if (new_mtu < 68 || new_mtu > 10240)
+-		return -EINVAL;
+-
+-	err = ipg_nic_stop(dev);
+-	if (err)
+-		return err;
+-
+-	dev->mtu = new_mtu;
+-
+-	sp->max_rxframe_size = new_mtu;
+-
+-	sp->rxfrag_size = new_mtu;
+-	if (sp->rxfrag_size > 4088)
+-		sp->rxfrag_size = 4088;
+-
+-	sp->rxsupport_size = sp->max_rxframe_size;
+-
+-	if (new_mtu > 0x0600)
+-		sp->is_jumbo = true;
+-	else
+-		sp->is_jumbo = false;
+-
+-	return ipg_nic_open(dev);
+-}
+-
+-static int ipg_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	int rc;
+-
+-	mutex_lock(&sp->mii_mutex);
+-	rc = mii_ethtool_gset(&sp->mii_if, cmd);
+-	mutex_unlock(&sp->mii_mutex);
+-
+-	return rc;
+-}
+-
+-static int ipg_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	int rc;
+-
+-	mutex_lock(&sp->mii_mutex);
+-	rc = mii_ethtool_sset(&sp->mii_if, cmd);
+-	mutex_unlock(&sp->mii_mutex);
+-
+-	return rc;
+-}
+-
+-static int ipg_nway_reset(struct net_device *dev)
+-{
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-	int rc;
+-
+-	mutex_lock(&sp->mii_mutex);
+-	rc = mii_nway_restart(&sp->mii_if);
+-	mutex_unlock(&sp->mii_mutex);
+-
+-	return rc;
+-}
+-
+-static const struct ethtool_ops ipg_ethtool_ops = {
+-	.get_settings = ipg_get_settings,
+-	.set_settings = ipg_set_settings,
+-	.nway_reset   = ipg_nway_reset,
+-};
+-
+-static void ipg_remove(struct pci_dev *pdev)
+-{
+-	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-
+-	IPG_DEBUG_MSG("_remove\n");
+-
+-	/* Un-register Ethernet device. */
+-	unregister_netdev(dev);
+-
+-	pci_iounmap(pdev, sp->ioaddr);
+-
+-	pci_release_regions(pdev);
+-
+-	free_netdev(dev);
+-	pci_disable_device(pdev);
+-}
+-
+-static const struct net_device_ops ipg_netdev_ops = {
+-	.ndo_open		= ipg_nic_open,
+-	.ndo_stop		= ipg_nic_stop,
+-	.ndo_start_xmit		= ipg_nic_hard_start_xmit,
+-	.ndo_get_stats		= ipg_nic_get_stats,
+-	.ndo_set_rx_mode	= ipg_nic_set_multicast_list,
+-	.ndo_do_ioctl		= ipg_ioctl,
+-	.ndo_tx_timeout 	= ipg_tx_timeout,
+-	.ndo_change_mtu 	= ipg_nic_change_mtu,
+-	.ndo_set_mac_address	= eth_mac_addr,
+-	.ndo_validate_addr	= eth_validate_addr,
+-};
+-
+-static int ipg_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+-{
+-	unsigned int i = id->driver_data;
+-	struct ipg_nic_private *sp;
+-	struct net_device *dev;
+-	void __iomem *ioaddr;
+-	int rc;
+-
+-	rc = pci_enable_device(pdev);
+-	if (rc < 0)
+-		goto out;
+-
+-	pr_info("%s: %s\n", pci_name(pdev), ipg_brand_name[i]);
+-
+-	pci_set_master(pdev);
+-
+-	rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(40));
+-	if (rc < 0) {
+-		rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+-		if (rc < 0) {
+-			pr_err("%s: DMA config failed\n", pci_name(pdev));
+-			goto err_disable_0;
+-		}
+-	}
+-
+-	/*
+-	 * Initialize net device.
+-	 */
+-	dev = alloc_etherdev(sizeof(struct ipg_nic_private));
+-	if (!dev) {
+-		rc = -ENOMEM;
+-		goto err_disable_0;
+-	}
+-
+-	sp = netdev_priv(dev);
+-	spin_lock_init(&sp->lock);
+-	mutex_init(&sp->mii_mutex);
+-
+-	sp->is_jumbo = IPG_IS_JUMBO;
+-	sp->rxfrag_size = IPG_RXFRAG_SIZE;
+-	sp->rxsupport_size = IPG_RXSUPPORT_SIZE;
+-	sp->max_rxframe_size = IPG_MAX_RXFRAME_SIZE;
+-
+-	/* Declare IPG NIC functions for Ethernet device methods.
+-	 */
+-	dev->netdev_ops = &ipg_netdev_ops;
+-	SET_NETDEV_DEV(dev, &pdev->dev);
+-	dev->ethtool_ops = &ipg_ethtool_ops;
+-
+-	rc = pci_request_regions(pdev, DRV_NAME);
+-	if (rc)
+-		goto err_free_dev_1;
+-
+-	ioaddr = pci_iomap(pdev, 1, pci_resource_len(pdev, 1));
+-	if (!ioaddr) {
+-		pr_err("%s: cannot map MMIO\n", pci_name(pdev));
+-		rc = -EIO;
+-		goto err_release_regions_2;
+-	}
+-
+-	/* Save the pointer to the PCI device information. */
+-	sp->ioaddr = ioaddr;
+-	sp->pdev = pdev;
+-	sp->dev = dev;
+-
+-	INIT_DELAYED_WORK(&sp->task, ipg_reset_after_host_error);
+-
+-	pci_set_drvdata(pdev, dev);
+-
+-	rc = ipg_hw_init(dev);
+-	if (rc < 0)
+-		goto err_unmap_3;
+-
+-	rc = register_netdev(dev);
+-	if (rc < 0)
+-		goto err_unmap_3;
+-
+-	netdev_info(dev, "Ethernet device registered\n");
+-out:
+-	return rc;
+-
+-err_unmap_3:
+-	pci_iounmap(pdev, ioaddr);
+-err_release_regions_2:
+-	pci_release_regions(pdev);
+-err_free_dev_1:
+-	free_netdev(dev);
+-err_disable_0:
+-	pci_disable_device(pdev);
+-	goto out;
+-}
+-
+-static struct pci_driver ipg_pci_driver = {
+-	.name		= IPG_DRIVER_NAME,
+-	.id_table	= ipg_pci_tbl,
+-	.probe		= ipg_probe,
+-	.remove		= ipg_remove,
+-};
+-
+-module_pci_driver(ipg_pci_driver);
+diff --git a/drivers/net/ethernet/icplus/ipg.h b/drivers/net/ethernet/icplus/ipg.h
+deleted file mode 100644
+index de60628..0000000
+--- a/drivers/net/ethernet/icplus/ipg.h
++++ /dev/null
+@@ -1,748 +0,0 @@
+-/*
+- * Include file for Gigabit Ethernet device driver for Network
+- * Interface Cards (NICs) utilizing the Tamarack Microelectronics
+- * Inc. IPG Gigabit or Triple Speed Ethernet Media Access
+- * Controller.
+- */
+-#ifndef __LINUX_IPG_H
+-#define __LINUX_IPG_H
+-
+-#include <linux/module.h>
+-
+-#include <linux/kernel.h>
+-#include <linux/pci.h>
+-#include <linux/ioport.h>
+-#include <linux/errno.h>
+-#include <asm/io.h>
+-#include <linux/delay.h>
+-#include <linux/types.h>
+-#include <linux/netdevice.h>
+-#include <linux/etherdevice.h>
+-#include <linux/skbuff.h>
+-#include <asm/bitops.h>
+-
+-/*
+- *	Constants
+- */
+-
+-/* GMII based PHY IDs */
+-#define		NS				0x2000
+-#define		MARVELL				0x0141
+-#define		ICPLUS_PHY			0x243
+-
+-/* NIC Physical Layer Device MII register fields. */
+-#define         MII_PHY_SELECTOR_IEEE8023       0x0001
+-#define         MII_PHY_TECHABILITYFIELD        0x1FE0
+-
+-/* GMII_PHY_1000 need to set to prefer master */
+-#define         GMII_PHY_1000BASETCONTROL_PreferMaster 0x0400
+-
+-/* NIC Physical Layer Device GMII constants. */
+-#define         GMII_PREAMBLE                    0xFFFFFFFF
+-#define         GMII_ST                          0x1
+-#define         GMII_READ                        0x2
+-#define         GMII_WRITE                       0x1
+-#define         GMII_TA_READ_MASK                0x1
+-#define         GMII_TA_WRITE                    0x2
+-
+-/* I/O register offsets. */
+-enum ipg_regs {
+-	DMA_CTRL		= 0x00,
+-	RX_DMA_STATUS		= 0x08, /* Unused + reserved */
+-	TFD_LIST_PTR_0		= 0x10,
+-	TFD_LIST_PTR_1		= 0x14,
+-	TX_DMA_BURST_THRESH	= 0x18,
+-	TX_DMA_URGENT_THRESH	= 0x19,
+-	TX_DMA_POLL_PERIOD	= 0x1a,
+-	RFD_LIST_PTR_0		= 0x1c,
+-	RFD_LIST_PTR_1		= 0x20,
+-	RX_DMA_BURST_THRESH	= 0x24,
+-	RX_DMA_URGENT_THRESH	= 0x25,
+-	RX_DMA_POLL_PERIOD	= 0x26,
+-	DEBUG_CTRL		= 0x2c,
+-	ASIC_CTRL		= 0x30,
+-	FIFO_CTRL		= 0x38, /* Unused */
+-	FLOW_OFF_THRESH		= 0x3c,
+-	FLOW_ON_THRESH		= 0x3e,
+-	EEPROM_DATA		= 0x48,
+-	EEPROM_CTRL		= 0x4a,
+-	EXPROM_ADDR		= 0x4c, /* Unused */
+-	EXPROM_DATA		= 0x50, /* Unused */
+-	WAKE_EVENT		= 0x51, /* Unused */
+-	COUNTDOWN		= 0x54, /* Unused */
+-	INT_STATUS_ACK		= 0x5a,
+-	INT_ENABLE		= 0x5c,
+-	INT_STATUS		= 0x5e, /* Unused */
+-	TX_STATUS		= 0x60,
+-	MAC_CTRL		= 0x6c,
+-	VLAN_TAG		= 0x70, /* Unused */
+-	PHY_SET			= 0x75,
+-	PHY_CTRL		= 0x76,
+-	STATION_ADDRESS_0	= 0x78,
+-	STATION_ADDRESS_1	= 0x7a,
+-	STATION_ADDRESS_2	= 0x7c,
+-	MAX_FRAME_SIZE		= 0x86,
+-	RECEIVE_MODE		= 0x88,
+-	HASHTABLE_0		= 0x8c,
+-	HASHTABLE_1		= 0x90,
+-	RMON_STATISTICS_MASK	= 0x98,
+-	STATISTICS_MASK		= 0x9c,
+-	RX_JUMBO_FRAMES		= 0xbc, /* Unused */
+-	TCP_CHECKSUM_ERRORS	= 0xc0, /* Unused */
+-	IP_CHECKSUM_ERRORS	= 0xc2, /* Unused */
+-	UDP_CHECKSUM_ERRORS	= 0xc4, /* Unused */
+-	TX_JUMBO_FRAMES		= 0xf4  /* Unused */
+-};
+-
+-/* Ethernet MIB statistic register offsets. */
+-#define	IPG_OCTETRCVOK			0xA8
+-#define	IPG_MCSTOCTETRCVDOK		0xAC
+-#define	IPG_BCSTOCTETRCVOK		0xB0
+-#define	IPG_FRAMESRCVDOK		0xB4
+-#define	IPG_MCSTFRAMESRCVDOK		0xB8
+-#define	IPG_BCSTFRAMESRCVDOK		0xBE
+-#define	IPG_MACCONTROLFRAMESRCVD	0xC6
+-#define	IPG_FRAMETOOLONGERRORS		0xC8
+-#define	IPG_INRANGELENGTHERRORS		0xCA
+-#define	IPG_FRAMECHECKSEQERRORS		0xCC
+-#define	IPG_FRAMESLOSTRXERRORS		0xCE
+-#define	IPG_OCTETXMTOK			0xD0
+-#define	IPG_MCSTOCTETXMTOK		0xD4
+-#define	IPG_BCSTOCTETXMTOK		0xD8
+-#define	IPG_FRAMESXMTDOK		0xDC
+-#define	IPG_MCSTFRAMESXMTDOK		0xE0
+-#define	IPG_FRAMESWDEFERREDXMT		0xE4
+-#define	IPG_LATECOLLISIONS		0xE8
+-#define	IPG_MULTICOLFRAMES		0xEC
+-#define	IPG_SINGLECOLFRAMES		0xF0
+-#define	IPG_BCSTFRAMESXMTDOK		0xF6
+-#define	IPG_CARRIERSENSEERRORS		0xF8
+-#define	IPG_MACCONTROLFRAMESXMTDOK	0xFA
+-#define	IPG_FRAMESABORTXSCOLLS		0xFC
+-#define	IPG_FRAMESWEXDEFERRAL		0xFE
+-
+-/* RMON statistic register offsets. */
+-#define	IPG_ETHERSTATSCOLLISIONS			0x100
+-#define	IPG_ETHERSTATSOCTETSTRANSMIT			0x104
+-#define	IPG_ETHERSTATSPKTSTRANSMIT			0x108
+-#define	IPG_ETHERSTATSPKTS64OCTESTSTRANSMIT		0x10C
+-#define	IPG_ETHERSTATSPKTS65TO127OCTESTSTRANSMIT	0x110
+-#define	IPG_ETHERSTATSPKTS128TO255OCTESTSTRANSMIT	0x114
+-#define	IPG_ETHERSTATSPKTS256TO511OCTESTSTRANSMIT	0x118
+-#define	IPG_ETHERSTATSPKTS512TO1023OCTESTSTRANSMIT	0x11C
+-#define	IPG_ETHERSTATSPKTS1024TO1518OCTESTSTRANSMIT	0x120
+-#define	IPG_ETHERSTATSCRCALIGNERRORS			0x124
+-#define	IPG_ETHERSTATSUNDERSIZEPKTS			0x128
+-#define	IPG_ETHERSTATSFRAGMENTS				0x12C
+-#define	IPG_ETHERSTATSJABBERS				0x130
+-#define	IPG_ETHERSTATSOCTETS				0x134
+-#define	IPG_ETHERSTATSPKTS				0x138
+-#define	IPG_ETHERSTATSPKTS64OCTESTS			0x13C
+-#define	IPG_ETHERSTATSPKTS65TO127OCTESTS		0x140
+-#define	IPG_ETHERSTATSPKTS128TO255OCTESTS		0x144
+-#define	IPG_ETHERSTATSPKTS256TO511OCTESTS		0x148
+-#define	IPG_ETHERSTATSPKTS512TO1023OCTESTS		0x14C
+-#define	IPG_ETHERSTATSPKTS1024TO1518OCTESTS		0x150
+-
+-/* RMON statistic register equivalents. */
+-#define	IPG_ETHERSTATSMULTICASTPKTSTRANSMIT		0xE0
+-#define	IPG_ETHERSTATSBROADCASTPKTSTRANSMIT		0xF6
+-#define	IPG_ETHERSTATSMULTICASTPKTS			0xB8
+-#define	IPG_ETHERSTATSBROADCASTPKTS			0xBE
+-#define	IPG_ETHERSTATSOVERSIZEPKTS			0xC8
+-#define	IPG_ETHERSTATSDROPEVENTS			0xCE
+-
+-/* Serial EEPROM offsets */
+-#define	IPG_EEPROM_CONFIGPARAM		0x00
+-#define	IPG_EEPROM_ASICCTRL		0x01
+-#define	IPG_EEPROM_SUBSYSTEMVENDORID	0x02
+-#define	IPG_EEPROM_SUBSYSTEMID		0x03
+-#define	IPG_EEPROM_STATIONADDRESS0	0x10
+-#define	IPG_EEPROM_STATIONADDRESS1	0x11
+-#define	IPG_EEPROM_STATIONADDRESS2	0x12
+-
+-/* Register & data structure bit masks */
+-
+-/* PCI register masks. */
+-
+-/* IOBaseAddress */
+-#define         IPG_PIB_RSVD_MASK		0xFFFFFE01
+-#define         IPG_PIB_IOBASEADDRESS		0xFFFFFF00
+-#define         IPG_PIB_IOBASEADDRIND		0x00000001
+-
+-/* MemBaseAddress */
+-#define         IPG_PMB_RSVD_MASK		0xFFFFFE07
+-#define         IPG_PMB_MEMBASEADDRIND		0x00000001
+-#define         IPG_PMB_MEMMAPTYPE		0x00000006
+-#define         IPG_PMB_MEMMAPTYPE0		0x00000002
+-#define         IPG_PMB_MEMMAPTYPE1		0x00000004
+-#define         IPG_PMB_MEMBASEADDRESS		0xFFFFFE00
+-
+-/* ConfigStatus */
+-#define IPG_CS_RSVD_MASK                0xFFB0
+-#define IPG_CS_CAPABILITIES             0x0010
+-#define IPG_CS_66MHZCAPABLE             0x0020
+-#define IPG_CS_FASTBACK2BACK            0x0080
+-#define IPG_CS_DATAPARITYREPORTED       0x0100
+-#define IPG_CS_DEVSELTIMING             0x0600
+-#define IPG_CS_SIGNALEDTARGETABORT      0x0800
+-#define IPG_CS_RECEIVEDTARGETABORT      0x1000
+-#define IPG_CS_RECEIVEDMASTERABORT      0x2000
+-#define IPG_CS_SIGNALEDSYSTEMERROR      0x4000
+-#define IPG_CS_DETECTEDPARITYERROR      0x8000
+-
+-/* TFD data structure masks. */
+-
+-/* TFDList, TFC */
+-#define	IPG_TFC_RSVD_MASK			0x0000FFFF9FFFFFFFULL
+-#define	IPG_TFC_FRAMEID				0x000000000000FFFFULL
+-#define	IPG_TFC_WORDALIGN			0x0000000000030000ULL
+-#define	IPG_TFC_WORDALIGNTODWORD		0x0000000000000000ULL
+-#define	IPG_TFC_WORDALIGNTOWORD			0x0000000000020000ULL
+-#define	IPG_TFC_WORDALIGNDISABLED		0x0000000000030000ULL
+-#define	IPG_TFC_TCPCHECKSUMENABLE		0x0000000000040000ULL
+-#define	IPG_TFC_UDPCHECKSUMENABLE		0x0000000000080000ULL
+-#define	IPG_TFC_IPCHECKSUMENABLE		0x0000000000100000ULL
+-#define	IPG_TFC_FCSAPPENDDISABLE		0x0000000000200000ULL
+-#define	IPG_TFC_TXINDICATE			0x0000000000400000ULL
+-#define	IPG_TFC_TXDMAINDICATE			0x0000000000800000ULL
+-#define	IPG_TFC_FRAGCOUNT			0x000000000F000000ULL
+-#define	IPG_TFC_VLANTAGINSERT			0x0000000010000000ULL
+-#define	IPG_TFC_TFDDONE				0x0000000080000000ULL
+-#define	IPG_TFC_VID				0x00000FFF00000000ULL
+-#define	IPG_TFC_CFI				0x0000100000000000ULL
+-#define	IPG_TFC_USERPRIORITY			0x0000E00000000000ULL
+-
+-/* TFDList, FragInfo */
+-#define	IPG_TFI_RSVD_MASK			0xFFFF00FFFFFFFFFFULL
+-#define	IPG_TFI_FRAGADDR			0x000000FFFFFFFFFFULL
+-#define	IPG_TFI_FRAGLEN				0xFFFF000000000000ULL
+-
+-/* RFD data structure masks. */
+-
+-/* RFDList, RFS */
+-#define	IPG_RFS_RSVD_MASK			0x0000FFFFFFFFFFFFULL
+-#define	IPG_RFS_RXFRAMELEN			0x000000000000FFFFULL
+-#define	IPG_RFS_RXFIFOOVERRUN			0x0000000000010000ULL
+-#define	IPG_RFS_RXRUNTFRAME			0x0000000000020000ULL
+-#define	IPG_RFS_RXALIGNMENTERROR		0x0000000000040000ULL
+-#define	IPG_RFS_RXFCSERROR			0x0000000000080000ULL
+-#define	IPG_RFS_RXOVERSIZEDFRAME		0x0000000000100000ULL
+-#define	IPG_RFS_RXLENGTHERROR			0x0000000000200000ULL
+-#define	IPG_RFS_VLANDETECTED			0x0000000000400000ULL
+-#define	IPG_RFS_TCPDETECTED			0x0000000000800000ULL
+-#define	IPG_RFS_TCPERROR			0x0000000001000000ULL
+-#define	IPG_RFS_UDPDETECTED			0x0000000002000000ULL
+-#define	IPG_RFS_UDPERROR			0x0000000004000000ULL
+-#define	IPG_RFS_IPDETECTED			0x0000000008000000ULL
+-#define	IPG_RFS_IPERROR				0x0000000010000000ULL
+-#define	IPG_RFS_FRAMESTART			0x0000000020000000ULL
+-#define	IPG_RFS_FRAMEEND			0x0000000040000000ULL
+-#define	IPG_RFS_RFDDONE				0x0000000080000000ULL
+-#define	IPG_RFS_TCI				0x0000FFFF00000000ULL
+-
+-/* RFDList, FragInfo */
+-#define	IPG_RFI_RSVD_MASK			0xFFFF00FFFFFFFFFFULL
+-#define	IPG_RFI_FRAGADDR			0x000000FFFFFFFFFFULL
+-#define	IPG_RFI_FRAGLEN				0xFFFF000000000000ULL
+-
+-/* I/O Register masks. */
+-
+-/* RMON Statistics Mask */
+-#define	IPG_RZ_ALL					0x0FFFFFFF
+-
+-/* Statistics Mask */
+-#define	IPG_SM_ALL					0x0FFFFFFF
+-#define	IPG_SM_OCTETRCVOK_FRAMESRCVDOK			0x00000001
+-#define	IPG_SM_MCSTOCTETRCVDOK_MCSTFRAMESRCVDOK		0x00000002
+-#define	IPG_SM_BCSTOCTETRCVDOK_BCSTFRAMESRCVDOK		0x00000004
+-#define	IPG_SM_RXJUMBOFRAMES				0x00000008
+-#define	IPG_SM_TCPCHECKSUMERRORS			0x00000010
+-#define	IPG_SM_IPCHECKSUMERRORS				0x00000020
+-#define	IPG_SM_UDPCHECKSUMERRORS			0x00000040
+-#define	IPG_SM_MACCONTROLFRAMESRCVD			0x00000080
+-#define	IPG_SM_FRAMESTOOLONGERRORS			0x00000100
+-#define	IPG_SM_INRANGELENGTHERRORS			0x00000200
+-#define	IPG_SM_FRAMECHECKSEQERRORS			0x00000400
+-#define	IPG_SM_FRAMESLOSTRXERRORS			0x00000800
+-#define	IPG_SM_OCTETXMTOK_FRAMESXMTOK			0x00001000
+-#define	IPG_SM_MCSTOCTETXMTOK_MCSTFRAMESXMTDOK		0x00002000
+-#define	IPG_SM_BCSTOCTETXMTOK_BCSTFRAMESXMTDOK		0x00004000
+-#define	IPG_SM_FRAMESWDEFERREDXMT			0x00008000
+-#define	IPG_SM_LATECOLLISIONS				0x00010000
+-#define	IPG_SM_MULTICOLFRAMES				0x00020000
+-#define	IPG_SM_SINGLECOLFRAMES				0x00040000
+-#define	IPG_SM_TXJUMBOFRAMES				0x00080000
+-#define	IPG_SM_CARRIERSENSEERRORS			0x00100000
+-#define	IPG_SM_MACCONTROLFRAMESXMTD			0x00200000
+-#define	IPG_SM_FRAMESABORTXSCOLLS			0x00400000
+-#define	IPG_SM_FRAMESWEXDEFERAL				0x00800000
+-
+-/* Countdown */
+-#define	IPG_CD_RSVD_MASK		0x0700FFFF
+-#define	IPG_CD_COUNT			0x0000FFFF
+-#define	IPG_CD_COUNTDOWNSPEED		0x01000000
+-#define	IPG_CD_COUNTDOWNMODE		0x02000000
+-#define	IPG_CD_COUNTINTENABLED		0x04000000
+-
+-/* TxDMABurstThresh */
+-#define IPG_TB_RSVD_MASK                0xFF
+-
+-/* TxDMAUrgentThresh */
+-#define IPG_TU_RSVD_MASK                0xFF
+-
+-/* TxDMAPollPeriod */
+-#define IPG_TP_RSVD_MASK                0xFF
+-
+-/* RxDMAUrgentThresh */
+-#define IPG_RU_RSVD_MASK                0xFF
+-
+-/* RxDMAPollPeriod */
+-#define IPG_RP_RSVD_MASK                0xFF
+-
+-/* ReceiveMode */
+-#define IPG_RM_RSVD_MASK                0x3F
+-#define IPG_RM_RECEIVEUNICAST           0x01
+-#define IPG_RM_RECEIVEMULTICAST         0x02
+-#define IPG_RM_RECEIVEBROADCAST         0x04
+-#define IPG_RM_RECEIVEALLFRAMES         0x08
+-#define IPG_RM_RECEIVEMULTICASTHASH     0x10
+-#define IPG_RM_RECEIVEIPMULTICAST       0x20
+-
+-/* PhySet */
+-#define IPG_PS_MEM_LENB9B               0x01
+-#define IPG_PS_MEM_LEN9                 0x02
+-#define IPG_PS_NON_COMPDET              0x04
+-
+-/* PhyCtrl */
+-#define IPG_PC_RSVD_MASK                0xFF
+-#define IPG_PC_MGMTCLK_LO               0x00
+-#define IPG_PC_MGMTCLK_HI               0x01
+-#define IPG_PC_MGMTCLK                  0x01
+-#define IPG_PC_MGMTDATA                 0x02
+-#define IPG_PC_MGMTDIR                  0x04
+-#define IPG_PC_DUPLEX_POLARITY          0x08
+-#define IPG_PC_DUPLEX_STATUS            0x10
+-#define IPG_PC_LINK_POLARITY            0x20
+-#define IPG_PC_LINK_SPEED               0xC0
+-#define IPG_PC_LINK_SPEED_10MBPS        0x40
+-#define IPG_PC_LINK_SPEED_100MBPS       0x80
+-#define IPG_PC_LINK_SPEED_1000MBPS      0xC0
+-
+-/* DMACtrl */
+-#define IPG_DC_RSVD_MASK                0xC07D9818
+-#define IPG_DC_RX_DMA_COMPLETE          0x00000008
+-#define IPG_DC_RX_DMA_POLL_NOW          0x00000010
+-#define IPG_DC_TX_DMA_COMPLETE          0x00000800
+-#define IPG_DC_TX_DMA_POLL_NOW          0x00001000
+-#define IPG_DC_TX_DMA_IN_PROG           0x00008000
+-#define IPG_DC_RX_EARLY_DISABLE         0x00010000
+-#define IPG_DC_MWI_DISABLE              0x00040000
+-#define IPG_DC_TX_WRITE_BACK_DISABLE    0x00080000
+-#define IPG_DC_TX_BURST_LIMIT           0x00700000
+-#define IPG_DC_TARGET_ABORT             0x40000000
+-#define IPG_DC_MASTER_ABORT             0x80000000
+-
+-/* ASICCtrl */
+-#define IPG_AC_RSVD_MASK                0x07FFEFF2
+-#define IPG_AC_EXP_ROM_SIZE             0x00000002
+-#define IPG_AC_PHY_SPEED10              0x00000010
+-#define IPG_AC_PHY_SPEED100             0x00000020
+-#define IPG_AC_PHY_SPEED1000            0x00000040
+-#define IPG_AC_PHY_MEDIA                0x00000080
+-#define IPG_AC_FORCED_CFG               0x00000700
+-#define IPG_AC_D3RESETDISABLE           0x00000800
+-#define IPG_AC_SPEED_UP_MODE            0x00002000
+-#define IPG_AC_LED_MODE                 0x00004000
+-#define IPG_AC_RST_OUT_POLARITY         0x00008000
+-#define IPG_AC_GLOBAL_RESET             0x00010000
+-#define IPG_AC_RX_RESET                 0x00020000
+-#define IPG_AC_TX_RESET                 0x00040000
+-#define IPG_AC_DMA                      0x00080000
+-#define IPG_AC_FIFO                     0x00100000
+-#define IPG_AC_NETWORK                  0x00200000
+-#define IPG_AC_HOST                     0x00400000
+-#define IPG_AC_AUTO_INIT                0x00800000
+-#define IPG_AC_RST_OUT                  0x01000000
+-#define IPG_AC_INT_REQUEST              0x02000000
+-#define IPG_AC_RESET_BUSY               0x04000000
+-#define IPG_AC_LED_SPEED                0x08000000
+-#define IPG_AC_LED_MODE_BIT_1           0x20000000
+-
+-/* EepromCtrl */
+-#define IPG_EC_RSVD_MASK                0x83FF
+-#define IPG_EC_EEPROM_ADDR              0x00FF
+-#define IPG_EC_EEPROM_OPCODE            0x0300
+-#define IPG_EC_EEPROM_SUBCOMMAD         0x0000
+-#define IPG_EC_EEPROM_WRITEOPCODE       0x0100
+-#define IPG_EC_EEPROM_READOPCODE        0x0200
+-#define IPG_EC_EEPROM_ERASEOPCODE       0x0300
+-#define IPG_EC_EEPROM_BUSY              0x8000
+-
+-/* FIFOCtrl */
+-#define IPG_FC_RSVD_MASK                0xC001
+-#define IPG_FC_RAM_TEST_MODE            0x0001
+-#define IPG_FC_TRANSMITTING             0x4000
+-#define IPG_FC_RECEIVING                0x8000
+-
+-/* TxStatus */
+-#define IPG_TS_RSVD_MASK                0xFFFF00DD
+-#define IPG_TS_TX_ERROR                 0x00000001
+-#define IPG_TS_LATE_COLLISION           0x00000004
+-#define IPG_TS_TX_MAX_COLL              0x00000008
+-#define IPG_TS_TX_UNDERRUN              0x00000010
+-#define IPG_TS_TX_IND_REQD              0x00000040
+-#define IPG_TS_TX_COMPLETE              0x00000080
+-#define IPG_TS_TX_FRAMEID               0xFFFF0000
+-
+-/* WakeEvent */
+-#define IPG_WE_WAKE_PKT_ENABLE          0x01
+-#define IPG_WE_MAGIC_PKT_ENABLE         0x02
+-#define IPG_WE_LINK_EVT_ENABLE          0x04
+-#define IPG_WE_WAKE_POLARITY            0x08
+-#define IPG_WE_WAKE_PKT_EVT             0x10
+-#define IPG_WE_MAGIC_PKT_EVT            0x20
+-#define IPG_WE_LINK_EVT                 0x40
+-#define IPG_WE_WOL_ENABLE               0x80
+-
+-/* IntEnable */
+-#define IPG_IE_RSVD_MASK                0x1FFE
+-#define IPG_IE_HOST_ERROR               0x0002
+-#define IPG_IE_TX_COMPLETE              0x0004
+-#define IPG_IE_MAC_CTRL_FRAME           0x0008
+-#define IPG_IE_RX_COMPLETE              0x0010
+-#define IPG_IE_RX_EARLY                 0x0020
+-#define IPG_IE_INT_REQUESTED            0x0040
+-#define IPG_IE_UPDATE_STATS             0x0080
+-#define IPG_IE_LINK_EVENT               0x0100
+-#define IPG_IE_TX_DMA_COMPLETE          0x0200
+-#define IPG_IE_RX_DMA_COMPLETE          0x0400
+-#define IPG_IE_RFD_LIST_END             0x0800
+-#define IPG_IE_RX_DMA_PRIORITY          0x1000
+-
+-/* IntStatus */
+-#define IPG_IS_RSVD_MASK                0x1FFF
+-#define IPG_IS_INTERRUPT_STATUS         0x0001
+-#define IPG_IS_HOST_ERROR               0x0002
+-#define IPG_IS_TX_COMPLETE              0x0004
+-#define IPG_IS_MAC_CTRL_FRAME           0x0008
+-#define IPG_IS_RX_COMPLETE              0x0010
+-#define IPG_IS_RX_EARLY                 0x0020
+-#define IPG_IS_INT_REQUESTED            0x0040
+-#define IPG_IS_UPDATE_STATS             0x0080
+-#define IPG_IS_LINK_EVENT               0x0100
+-#define IPG_IS_TX_DMA_COMPLETE          0x0200
+-#define IPG_IS_RX_DMA_COMPLETE          0x0400
+-#define IPG_IS_RFD_LIST_END             0x0800
+-#define IPG_IS_RX_DMA_PRIORITY          0x1000
+-
+-/* MACCtrl */
+-#define IPG_MC_RSVD_MASK                0x7FE33FA3
+-#define IPG_MC_IFS_SELECT               0x00000003
+-#define IPG_MC_IFS_4352BIT              0x00000003
+-#define IPG_MC_IFS_1792BIT              0x00000002
+-#define IPG_MC_IFS_1024BIT              0x00000001
+-#define IPG_MC_IFS_96BIT                0x00000000
+-#define IPG_MC_DUPLEX_SELECT            0x00000020
+-#define IPG_MC_DUPLEX_SELECT_FD         0x00000020
+-#define IPG_MC_DUPLEX_SELECT_HD         0x00000000
+-#define IPG_MC_TX_FLOW_CONTROL_ENABLE   0x00000080
+-#define IPG_MC_RX_FLOW_CONTROL_ENABLE   0x00000100
+-#define IPG_MC_RCV_FCS                  0x00000200
+-#define IPG_MC_FIFO_LOOPBACK            0x00000400
+-#define IPG_MC_MAC_LOOPBACK             0x00000800
+-#define IPG_MC_AUTO_VLAN_TAGGING        0x00001000
+-#define IPG_MC_AUTO_VLAN_UNTAGGING      0x00002000
+-#define IPG_MC_COLLISION_DETECT         0x00010000
+-#define IPG_MC_CARRIER_SENSE            0x00020000
+-#define IPG_MC_STATISTICS_ENABLE        0x00200000
+-#define IPG_MC_STATISTICS_DISABLE       0x00400000
+-#define IPG_MC_STATISTICS_ENABLED       0x00800000
+-#define IPG_MC_TX_ENABLE                0x01000000
+-#define IPG_MC_TX_DISABLE               0x02000000
+-#define IPG_MC_TX_ENABLED               0x04000000
+-#define IPG_MC_RX_ENABLE                0x08000000
+-#define IPG_MC_RX_DISABLE               0x10000000
+-#define IPG_MC_RX_ENABLED               0x20000000
+-#define IPG_MC_PAUSED                   0x40000000
+-
+-/*
+- *	Tune
+- */
+-
+-/* Assign IPG_APPEND_FCS_ON_TX > 0 for auto FCS append on TX. */
+-#define         IPG_APPEND_FCS_ON_TX         1
+-
+-/* Assign IPG_APPEND_FCS_ON_TX > 0 for auto FCS strip on RX. */
+-#define         IPG_STRIP_FCS_ON_RX          1
+-
+-/* Assign IPG_DROP_ON_RX_ETH_ERRORS > 0 to drop RX frames with
+- * Ethernet errors.
+- */
+-#define         IPG_DROP_ON_RX_ETH_ERRORS    1
+-
+-/* Assign IPG_INSERT_MANUAL_VLAN_TAG > 0 to insert VLAN tags manually
+- * (via TFC).
+- */
+-#define		IPG_INSERT_MANUAL_VLAN_TAG   0
+-
+-/* Assign IPG_ADD_IPCHECKSUM_ON_TX > 0 for auto IP checksum on TX. */
+-#define         IPG_ADD_IPCHECKSUM_ON_TX     0
+-
+-/* Assign IPG_ADD_TCPCHECKSUM_ON_TX > 0 for auto TCP checksum on TX.
+- * DO NOT USE FOR SILICON REVISIONS B3 AND EARLIER.
+- */
+-#define         IPG_ADD_TCPCHECKSUM_ON_TX    0
+-
+-/* Assign IPG_ADD_UDPCHECKSUM_ON_TX > 0 for auto UDP checksum on TX.
+- * DO NOT USE FOR SILICON REVISIONS B3 AND EARLIER.
+- */
+-#define         IPG_ADD_UDPCHECKSUM_ON_TX    0
+-
+-/* If inserting VLAN tags manually, assign the IPG_MANUAL_VLAN_xx
+- * constants as desired.
+- */
+-#define		IPG_MANUAL_VLAN_VID		0xABC
+-#define		IPG_MANUAL_VLAN_CFI		0x1
+-#define		IPG_MANUAL_VLAN_USERPRIORITY 0x5
+-
+-#define         IPG_IO_REG_RANGE		0xFF
+-#define         IPG_MEM_REG_RANGE		0x154
+-#define         IPG_DRIVER_NAME		"Sundance Technology IPG Triple-Speed Ethernet"
+-#define         IPG_NIC_PHY_ADDRESS          0x01
+-#define		IPG_DMALIST_ALIGN_PAD	0x07
+-#define		IPG_MULTICAST_HASHTABLE_SIZE	0x40
+-
+-/* Number of milliseconds to wait after issuing a software reset.
+- * 0x05 <= IPG_AC_RESETWAIT to account for proper 10Mbps operation.
+- */
+-#define         IPG_AC_RESETWAIT             0x05
+-
+-/* Number of IPG_AC_RESETWAIT timeperiods before declaring timeout. */
+-#define         IPG_AC_RESET_TIMEOUT         0x0A
+-
+-/* Minimum number of nanoseconds used to toggle MDC clock during
+- * MII/GMII register access.
+- */
+-#define		IPG_PC_PHYCTRLWAIT_NS		200
+-
+-#define		IPG_TFDLIST_LENGTH		0x100
+-
+-/* Number of frames between TxDMAComplete interrupt.
+- * 0 < IPG_FRAMESBETWEENTXDMACOMPLETES <= IPG_TFDLIST_LENGTH
+- */
+-#define		IPG_FRAMESBETWEENTXDMACOMPLETES 0x1
+-
+-#define		IPG_RFDLIST_LENGTH		0x100
+-
+-/* Maximum number of RFDs to process per interrupt.
+- * 1 < IPG_MAXRFDPROCESS_COUNT < IPG_RFDLIST_LENGTH
+- */
+-#define		IPG_MAXRFDPROCESS_COUNT	0x80
+-
+-/* Minimum margin between last freed RFD, and current RFD.
+- * 1 < IPG_MINUSEDRFDSTOFREE < IPG_RFDLIST_LENGTH
+- */
+-#define		IPG_MINUSEDRFDSTOFREE	0x80
+-
+-/* specify the jumbo frame maximum size
+- * per unit is 0x600 (the rx_buffer size that one RFD can carry)
+- */
+-#define     MAX_JUMBOSIZE	        0x8	/* max is 12K */
+-
+-/* Key register values loaded at driver start up. */
+-
+-/* TXDMAPollPeriod is specified in 320ns increments.
+- *
+- * Value	Time
+- * ---------------------
+- * 0x00-0x01	320ns
+- * 0x03		~1us
+- * 0x1F		~10us
+- * 0xFF		~82us
+- */
+-#define		IPG_TXDMAPOLLPERIOD_VALUE	0x26
+-
+-/* TxDMAUrgentThresh specifies the minimum amount of
+- * data in the transmit FIFO before asserting an
+- * urgent transmit DMA request.
+- *
+- * Value	Min TxFIFO occupied space before urgent TX request
+- * ---------------------------------------------------------------
+- * 0x00-0x04	128 bytes (1024 bits)
+- * 0x27		1248 bytes (~10000 bits)
+- * 0x30		1536 bytes (12288 bits)
+- * 0xFF		8192 bytes (65535 bits)
+- */
+-#define		IPG_TXDMAURGENTTHRESH_VALUE	0x04
+-
+-/* TxDMABurstThresh specifies the minimum amount of
+- * free space in the transmit FIFO before asserting an
+- * transmit DMA request.
+- *
+- * Value	Min TxFIFO free space before TX request
+- * ----------------------------------------------------
+- * 0x00-0x08	256 bytes
+- * 0x30		1536 bytes
+- * 0xFF		8192 bytes
+- */
+-#define		IPG_TXDMABURSTTHRESH_VALUE	0x30
+-
+-/* RXDMAPollPeriod is specified in 320ns increments.
+- *
+- * Value	Time
+- * ---------------------
+- * 0x00-0x01	320ns
+- * 0x03		~1us
+- * 0x1F		~10us
+- * 0xFF		~82us
+- */
+-#define		IPG_RXDMAPOLLPERIOD_VALUE	0x01
+-
+-/* RxDMAUrgentThresh specifies the minimum amount of
+- * free space within the receive FIFO before asserting
+- * a urgent receive DMA request.
+- *
+- * Value	Min RxFIFO free space before urgent RX request
+- * ---------------------------------------------------------------
+- * 0x00-0x04	128 bytes (1024 bits)
+- * 0x27		1248 bytes (~10000 bits)
+- * 0x30		1536 bytes (12288 bits)
+- * 0xFF		8192 bytes (65535 bits)
+- */
+-#define		IPG_RXDMAURGENTTHRESH_VALUE	0x30
+-
+-/* RxDMABurstThresh specifies the minimum amount of
+- * occupied space within the receive FIFO before asserting
+- * a receive DMA request.
+- *
+- * Value	Min TxFIFO free space before TX request
+- * ----------------------------------------------------
+- * 0x00-0x08	256 bytes
+- * 0x30		1536 bytes
+- * 0xFF		8192 bytes
+- */
+-#define		IPG_RXDMABURSTTHRESH_VALUE	0x30
+-
+-/* FlowOnThresh specifies the maximum amount of occupied
+- * space in the receive FIFO before a PAUSE frame with
+- * maximum pause time transmitted.
+- *
+- * Value	Max RxFIFO occupied space before PAUSE
+- * ---------------------------------------------------
+- * 0x0000	0 bytes
+- * 0x0740	29,696 bytes
+- * 0x07FF	32,752 bytes
+- */
+-#define		IPG_FLOWONTHRESH_VALUE	0x0740
+-
+-/* FlowOffThresh specifies the minimum amount of occupied
+- * space in the receive FIFO before a PAUSE frame with
+- * zero pause time is transmitted.
+- *
+- * Value	Max RxFIFO occupied space before PAUSE
+- * ---------------------------------------------------
+- * 0x0000	0 bytes
+- * 0x00BF	3056 bytes
+- * 0x07FF	32,752 bytes
+- */
+-#define		IPG_FLOWOFFTHRESH_VALUE	0x00BF
+-
+-/*
+- * Miscellaneous macros.
+- */
+-
+-/* Macros for printing debug statements. */
+-#ifdef IPG_DEBUG
+-#  define IPG_DEBUG_MSG(fmt, args...)			\
+-do {							\
+-	if (0)						\
+-		printk(KERN_DEBUG "IPG: " fmt, ##args);	\
+-} while (0)
+-#  define IPG_DDEBUG_MSG(fmt, args...)			\
+-	printk(KERN_DEBUG "IPG: " fmt, ##args)
+-#  define IPG_DUMPRFDLIST(args) ipg_dump_rfdlist(args)
+-#  define IPG_DUMPTFDLIST(args) ipg_dump_tfdlist(args)
+-#else
+-#  define IPG_DEBUG_MSG(fmt, args...)			\
+-do {							\
+-	if (0)						\
+-		printk(KERN_DEBUG "IPG: " fmt, ##args);	\
+-} while (0)
+-#  define IPG_DDEBUG_MSG(fmt, args...)			\
+-do {							\
+-	if (0)						\
+-		printk(KERN_DEBUG "IPG: " fmt, ##args);	\
+-} while (0)
+-#  define IPG_DUMPRFDLIST(args)
+-#  define IPG_DUMPTFDLIST(args)
+-#endif
+-
+-/*
+- * End miscellaneous macros.
+- */
+-
+-/* Transmit Frame Descriptor. The IPG supports 15 fragments,
+- * however Linux requires only a single fragment. Note, each
+- * TFD field is 64 bits wide.
+- */
+-struct ipg_tx {
+-	__le64 next_desc;
+-	__le64 tfc;
+-	__le64 frag_info;
+-};
+-
+-/* Receive Frame Descriptor. Note, each RFD field is 64 bits wide.
+- */
+-struct ipg_rx {
+-	__le64 next_desc;
+-	__le64 rfs;
+-	__le64 frag_info;
+-};
+-
+-struct ipg_jumbo {
+-	int found_start;
+-	int current_size;
+-	struct sk_buff *skb;
+-};
+-
+-/* Structure of IPG NIC specific data. */
+-struct ipg_nic_private {
+-	void __iomem *ioaddr;
+-	struct ipg_tx *txd;
+-	struct ipg_rx *rxd;
+-	dma_addr_t txd_map;
+-	dma_addr_t rxd_map;
+-	struct sk_buff *tx_buff[IPG_TFDLIST_LENGTH];
+-	struct sk_buff *rx_buff[IPG_RFDLIST_LENGTH];
+-	unsigned int tx_current;
+-	unsigned int tx_dirty;
+-	unsigned int rx_current;
+-	unsigned int rx_dirty;
+-	bool is_jumbo;
+-	struct ipg_jumbo jumbo;
+-	unsigned long rxfrag_size;
+-	unsigned long rxsupport_size;
+-	unsigned long max_rxframe_size;
+-	unsigned int rx_buf_sz;
+-	struct pci_dev *pdev;
+-	struct net_device *dev;
+-	struct net_device_stats stats;
+-	spinlock_t lock;
+-	int tenmbpsmode;
+-
+-	u16 led_mode;
+-	u16 station_addr[3];	/* Station Address in EEPROM Reg 0x10..0x12 */
+-
+-	struct mutex		mii_mutex;
+-	struct mii_if_info	mii_if;
+-	int reset_current_tfd;
+-#ifdef IPG_DEBUG
+-	int RFDlistendCount;
+-	int RFDListCheckedCount;
+-	int EmptyRFDListCount;
+-#endif
+-	struct delayed_work task;
+-};
+-
+-#endif				/* __LINUX_IPG_H */
 -- 
 Ondrej Zary
