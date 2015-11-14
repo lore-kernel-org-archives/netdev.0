@@ -1,86 +1,64 @@
-From: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
-Subject: [PATCH] brcmfmac: constify brcmf_bus_ops structures
-Date: Sat, 14 Nov 2015 17:22:07 +0100
-Message-ID: <1447518127-1994-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] net: dsa: Delete an unnecessary check before the function
+ call "put_device"
+Date: Sat, 14 Nov 2015 18:12:44 +0100
+Message-ID: <56476B8C.7020309@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net>
+ <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+ <530A086E.8010901@users.sourceforge.net>
+ <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+ <530A72AA.3000601@users.sourceforge.net>
+ <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+ <530B5FB6.6010207@users.sourceforge.net>
+ <alpine.DEB.2.10.1402241710370.2074@hadrien>
+ <530C5E18.1020800@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The brcmf_bus_ops structures are never modified, so declare them as const.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Sat, 14 Nov 2015 17:58:00 +0100
 
-Done with the help of Coccinelle.
+The put_device() function tests whether its argument is NULL and then
+returns immediately. Thus the test around the call is not needed.
 
-Signed-off-by: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+This issue was detected by using the Coccinelle software.
 
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/wireless/brcm80211/brcmfmac/bus.h  |    2 +-
- drivers/net/wireless/brcm80211/brcmfmac/pcie.c |    2 +-
- drivers/net/wireless/brcm80211/brcmfmac/sdio.c |    2 +-
- drivers/net/wireless/brcm80211/brcmfmac/usb.c  |    2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
+ net/dsa/dsa.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bus.h b/drivers/net/wireless/brcm80211/brcmfmac/bus.h
-index 230cad7..36093f9 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/bus.h
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/bus.h
-@@ -137,7 +137,7 @@ struct brcmf_bus {
- 	bool always_use_fws_queue;
- 	bool wowl_supported;
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 1eba07f..045d776 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -671,8 +671,7 @@ static void dsa_of_free_platform_data(struct dsa_platform_data *pd)
+ 		kfree(pd->chip[i].rtable);
  
--	struct brcmf_bus_ops *ops;
-+	const struct brcmf_bus_ops *ops;
- 	struct brcmf_bus_msgbuf *msgbuf;
- };
- 
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/pcie.c b/drivers/net/wireless/brcm80211/brcmfmac/pcie.c
-index 83d8042..65ae3b0 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/pcie.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/pcie.c
-@@ -1419,7 +1419,7 @@ static int brcmf_pcie_get_memdump(struct device *dev, void *data, size_t len)
- }
- 
- 
--static struct brcmf_bus_ops brcmf_pcie_bus_ops = {
-+static const struct brcmf_bus_ops brcmf_pcie_bus_ops = {
- 	.txdata = brcmf_pcie_tx,
- 	.stop = brcmf_pcie_down,
- 	.txctl = brcmf_pcie_tx_ctlpkt,
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-index 7e74ac3..01f359e 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-@@ -4025,7 +4025,7 @@ brcmf_sdio_watchdog(unsigned long data)
+ 		/* Drop our reference to the MDIO bus device */
+-		if (pd->chip[i].host_dev)
+-			put_device(pd->chip[i].host_dev);
++		put_device(pd->chip[i].host_dev);
  	}
+ 	kfree(pd->chip);
  }
- 
--static struct brcmf_bus_ops brcmf_sdio_bus_ops = {
-+static const struct brcmf_bus_ops brcmf_sdio_bus_ops = {
- 	.stop = brcmf_sdio_bus_stop,
- 	.preinit = brcmf_sdio_bus_preinit,
- 	.txdata = brcmf_sdio_bus_txdata,
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/usb.c b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-index 689e64d..4bdd3b3 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-@@ -1163,7 +1163,7 @@ static void brcmf_usb_wowl_config(struct device *dev, bool enabled)
- 		device_set_wakeup_enable(devinfo->dev, false);
- }
- 
--static struct brcmf_bus_ops brcmf_usb_bus_ops = {
-+static const struct brcmf_bus_ops brcmf_usb_bus_ops = {
- 	.txdata = brcmf_usb_tx,
- 	.stop = brcmf_usb_down,
- 	.txctl = brcmf_usb_tx_ctlpkt,
+-- 
+2.6.2
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
