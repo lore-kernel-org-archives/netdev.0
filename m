@@ -1,33 +1,49 @@
-From: SYSTEM UPDATE <lbatista@evolutirh.com.br>
-Subject: Warning!!
-Date: Sat, 14 Nov 2015 00:33:56 +0100
-Message-ID: <20151113233354.87EA068983@mail.baliprov.go.id>
-Reply-To: No-Reply@mail.baliprov.go.id
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net] ravb: Fix int mask value overwritten issue
+Date: Sat, 14 Nov 2015 09:16:27 +0900
+Message-ID: <20151114001627.GB25806@verge.net.au>
+References: <1447410289-3741-1-git-send-email-ykaneko0929@gmail.com>
+ <CAMuHMdXLtR84Cormbh6HbB7fE6mMh9e-0EX5kavmSGHJKLZRAA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <lbatista@evolutirh.com.br>
+Content-Type: text/plain; charset=us-ascii
+Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.baliprov.go.id ([182.23.65.58]:60922 "EHLO
-	mail.baliprov.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750908AbbKNACG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 19:02:06 -0500
-Content-Description: Mail message body
+Received: from kirsty.vergenet.net ([202.4.237.240]:42753 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751664AbbKNAQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2015 19:16:31 -0500
+Content-Disposition: inline
+In-Reply-To: <CAMuHMdXLtR84Cormbh6HbB7fE6mMh9e-0EX5kavmSGHJKLZRAA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear:  Account User,
-This message is from the System Administrator support center. Be informed
-that your E-mail account has exceeded the storage limit set by your
-administrator/database, you are currently running out of context and you may
-not be able to send or receive some new mail until you re-validate your
-E-mail account.
-To prevent your email account from been closed, re-validate your mailbox
-below please click and visit this site of lick: >>>
-http://admin-webmail-survey.ezweb123.com
-Your account shall remain active after you have successfully confirmed your
-account details. Thank you for your swift response to this notification we
-apologize for any inconvenience.
-We appreciate your continued help and support.
-Regards,
-SYSTEM ADMINISTRATOR HELPDESK TEAM 2015.
+On Fri, Nov 13, 2015 at 11:45:28AM +0100, Geert Uytterhoeven wrote:
+> Hi Kaneko-san,
+> 
+> On Fri, Nov 13, 2015 at 11:24 AM, Yoshihiro Kaneko
+> <ykaneko0929@gmail.com> wrote:
+> > From: Masaru Nagai <masaru.nagai.vx@renesas.com>
+> >
+> > When RX/TX interrupt for Network Control queue and Best Effort queue
+> > is issued at the same time, the interrupt mask of Network Control
+> > queue will be reset when the mask of Best Effort queue is set.
+> 
+> Nice catch!
+> 
+> At first I was a bit puzzled why this would make a difference, but
+> the key is "will be reset in the next iteration of the for loop", which
+> falls outside of the visible context.
+> 
+> > This patch fixes this problem.
+> >
+> > Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
+> > Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+> 
+> Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
+
+Acked-by: Simon Horman <horms+renesas@verge.net.au>
