@@ -1,237 +1,74 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH 1/2] dl2k: Add support for IP1000A-based cards
-Date: Sun, 15 Nov 2015 04:30:25 +0200
-Message-ID: <CAHp75VehDXoMNsXD08Et9Z5Pds+7Xf5+PXHE2pFzh4Srs-Tw+A@mail.gmail.com>
-References: <1447538738-28605-1-git-send-email-linux@rainbow-software.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] tcp: ensure proper barriers in lockless contexts
+Date: Sat, 14 Nov 2015 19:21:41 -0800
+Message-ID: <1447557701.22599.57.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151115012032.GA21282@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	David Miller <davem@davemloft.net>,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Ondrej Zary <linux@rainbow-software.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f172.google.com ([209.85.160.172]:36424 "EHLO
-	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752151AbbKOCa0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2015 21:30:26 -0500
-In-Reply-To: <1447538738-28605-1-git-send-email-linux@rainbow-software.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34210 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752061AbbKODVn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2015 22:21:43 -0500
+Received: by padhx2 with SMTP id hx2so138856087pad.1
+        for <netdev@vger.kernel.org>; Sat, 14 Nov 2015 19:21:43 -0800 (PST)
+In-Reply-To: <20151115012032.GA21282@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 15, 2015 at 12:05 AM, Ondrej Zary
-<linux@rainbow-software.org> wrote:
-> Add support for IP1000A chips to dl2k driver.
-> IP1000A chip looks like a TC9020 with integrated PHY.
->
-> This allows IP1000A chips to work reliably because the ipg driver is
-> buggy - it loses packets under load and then completely stops
-> transmitting data.
->
-> Tested with Asus NX1101 v2.0 at 10, 100 and 1000Mbps.
-> Also verified that it does not break D-Link DGE-550T.
->
-> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+On Sun, 2015-11-15 at 09:20 +0800, Herbert Xu wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Some functions access TCP sockets without holding a lock and
+> > might output non consistent data, depending on compiler and or
+> > architecture.
+> > 
+> > tcp_diag_get_info(), tcp_get_info(), tcp_poll(), get_tcp4_sock() ...
+> 
+> For the information gathering ones such as tcp_diag_get_info I'm
+> wondering whether we really need these memory barriers.  After all,
+> if it's truly lockless then surely the TCP socket state can change
+> again after you load the state the first time, in which case the
+> barrier becomes completely meaningless.
 
-Nitpicks below.
+Not a big deal, no crash or kernel instability, just making the
+information a bit more consistent.
 
-> --- a/drivers/net/ethernet/dlink/dl2k.c
-> +++ b/drivers/net/ethernet/dlink/dl2k.c
-> @@ -253,6 +253,18 @@ rio_probe1 (struct pci_dev *pdev, const struct p=
-ci_device_id *ent)
->         if (err)
->                 goto err_out_unmap_rx;
->
-> +       if (np->chip_id =3D=3D CHIP_IP1000A &&
-> +           (np->pdev->revision =3D=3D 0x40 || np->pdev->revision =3D=
-=3D 0x41)) {
-> +               /* PHY magic taken from ipg driver */
-> +               mii_write(dev, np->phy_addr, 31, 0x0001);
-> +               mii_write(dev, np->phy_addr, 27, 0x01e0);
-> +               mii_write(dev, np->phy_addr, 31, 0x0002);
-> +               mii_write(dev, np->phy_addr, 27, 0xeb8e);
-> +               mii_write(dev, np->phy_addr, 31, 0x0000);
-> +               mii_write(dev, np->phy_addr, 30, 0x005e);
-> +               mii_write(dev, np->phy_addr, 9, 0x0700);
+They are not truly needed, but the patch avoids some discrepancies when
+an observer gets the data, for a minimum cost ( compiler barrier() in
+most cases)
 
-Isn't too many magic numbers?
+Like : 
 
-> +       }
-> +
->         /* Fiber device? */
->         np->phy_media =3D (dr16(ASICCtrl) & PhyMedia) ? 1 : 0;
->         np->link_status =3D 0;
-> @@ -361,6 +373,11 @@ parse_eeprom (struct net_device *dev)
->         for (i =3D 0; i < 6; i++)
->                 dev->dev_addr[i] =3D psrom->mac_addr[i];
->
-> +       if (np->chip_id =3D=3D CHIP_IP1000A) {
-> +               np->led_mode =3D psrom->led_mode;
-> +               return 0;
-> +       }
-> +
->         if (np->pdev->vendor !=3D PCI_VENDOR_ID_DLINK) {
->                 return 0;
->         }
-> @@ -406,6 +423,28 @@ parse_eeprom (struct net_device *dev)
->         return 0;
->  }
->
-> +static void rio_set_led_mode(struct net_device *dev)
-> +{
-> +       struct netdev_private *np =3D netdev_priv(dev);
-> +       void __iomem *ioaddr =3D np->ioaddr;
-> +       u32 mode;
-> +
-> +       if (np->chip_id !=3D CHIP_IP1000A)
-> +               return;
-> +
-> +       mode =3D dr32(ASICCtrl);
-> +       mode &=3D ~(IPG_AC_LED_MODE_BIT_1 | IPG_AC_LED_MODE | IPG_AC_=
-LED_SPEED);
-> +
-> +       if ((np->led_mode & 0x03) > 1)
+       state = sk_state_load(sp);
+       if (state == TCP_LISTEN)
+               rx_queue = sp->sk_ack_backlog;
+       else
+               /* Because we don't lock the socket,
+                * we might find a transient negative value.
+                */
+               rx_queue = max_t(int, tp->rcv_nxt - tp->copied_seq, 0);
 
-Isn't "& 0x03) > 1" the same as plain "& 0x02"?
+or :
 
-> +               mode |=3D IPG_AC_LED_MODE_BIT_1;
-> +       if ((np->led_mode & 0x01) =3D=3D 1)
-
-Hmm=E2=80=A6 Seems redundant =3D=3D 1.
-
-> +               mode |=3D IPG_AC_LED_MODE;
-> +       if ((np->led_mode & 0x08) =3D=3D 8)
-
-Similar here.
-
-> +               mode |=3D IPG_AC_LED_SPEED;
-> +
-> +       dw32(ASICCtrl, mode);
-> +}
-> +
->  static int
->  rio_open (struct net_device *dev)
->  {
-> @@ -424,6 +463,8 @@ rio_open (struct net_device *dev)
->              GlobalReset | DMAReset | FIFOReset | NetworkReset | Host=
-Reset);
->         mdelay(10);
->
-> +       rio_set_led_mode(dev);
-> +
->         /* DebugCtrl bit 4, 5, 9 must set */
->         dw32(DebugCtrl, dr32(DebugCtrl) | 0x0230);
->
-> @@ -433,9 +474,10 @@ rio_open (struct net_device *dev)
->
->         alloc_list (dev);
->
-> -       /* Get station address */
-> -       for (i =3D 0; i < 6; i++)
-> -               dw8(StationAddr0 + i, dev->dev_addr[i]);
-> +       /* Set station address */
-> +       for (i =3D 0; i < 3; i++)
-> +               dw16(StationAddr0 + 2 * i,
-> +                    cpu_to_le16(((u16 *)dev->dev_addr)[i]));
-
-Is it specific requirement for new HW? If not, may be another patch
-with micro optimizations.
-
->
->         set_multicast (dev);
->         if (np->coalesce) {
-> @@ -780,6 +822,7 @@ tx_error (struct net_device *dev, int tx_status)
->                                 break;
->                         mdelay (1);
->                 }
-> +               rio_set_led_mode(dev);
->                 rio_free_tx (dev, 1);
->                 /* Reset TFDListPtr */
->                 dw32(TFDListPtr0, np->tx_ring_dma +
-> @@ -799,6 +842,7 @@ tx_error (struct net_device *dev, int tx_status)
->                                 break;
->                         mdelay (1);
->                 }
-> +               rio_set_led_mode(dev);
->                 /* Let TxStartThresh stay default value */
->         }
->         /* Maximum Collisions */
-> @@ -965,6 +1009,7 @@ rio_error (struct net_device *dev, int int_statu=
-s)
->                         dev->name, int_status);
->                 dw16(ASICCtrl + 2, GlobalReset | HostReset);
->                 mdelay (500);
-> +               rio_set_led_mode(dev);
->         }
->  }
->
-> diff --git a/drivers/net/ethernet/dlink/dl2k.h b/drivers/net/ethernet=
-/dlink/dl2k.h
-> index 23c07b0..8f4f612 100644
-> --- a/drivers/net/ethernet/dlink/dl2k.h
-> +++ b/drivers/net/ethernet/dlink/dl2k.h
-> @@ -211,6 +211,10 @@ enum ASICCtrl_HiWord_bits {
->         ResetBusy =3D 0x0400,
->  };
->
-> +#define IPG_AC_LED_MODE                BIT(14)
-> +#define IPG_AC_LED_SPEED       BIT(27)
-> +#define IPG_AC_LED_MODE_BIT_1  BIT(29)
-> +
->  /* Transmit Frame Control bits */
->  enum TFC_bits {
->         DwordAlign =3D 0x00000000,
-> @@ -332,7 +336,10 @@ typedef struct t_SROM {
->         u16 asic_ctrl;          /* 0x02 */
->         u16 sub_vendor_id;      /* 0x04 */
->         u16 sub_system_id;      /* 0x06 */
-> -       u16 reserved1[12];      /* 0x08-0x1f */
-> +       u16 pci_base_1;         /* 0x08 (IP1000A only) */
-> +       u16 pci_base_2;         /* 0x0a (IP1000A only) */
-> +       u16 led_mode;           /* 0x0c (IP1000A only) */
-> +       u16 reserved1[9];       /* 0x0e-0x1f */
->         u8 mac_addr[6];         /* 0x20-0x25 */
->         u8 reserved2[10];       /* 0x26-0x2f */
->         u8 sib[204];            /* 0x30-0xfb */
-> @@ -397,6 +404,7 @@ struct netdev_private {
->         u16 advertising;        /* NWay media advertisement */
->         u16 negotiate;          /* Negotiated media */
->         int phy_addr;           /* PHY addresses. */
-> +       u16 led_mode;           /* LED mode read from EEPROM (IP1000A=
- only) */
->  };
->
->  /* The station address location in the EEPROM. */
-> @@ -407,10 +415,15 @@ struct netdev_private {
->          class_mask              of the class are honored during the =
-comparison.
->          driver_data             Data private to the driver.
->  */
-> +#define CHIP_IP1000A   1
->
->  static const struct pci_device_id rio_pci_tbl[] =3D {
->         {0x1186, 0x4000, PCI_ANY_ID, PCI_ANY_ID, },
->         {0x13f0, 0x1021, PCI_ANY_ID, PCI_ANY_ID, },
-> +       { PCI_VDEVICE(SUNDANCE, 0x1023), CHIP_IP1000A },
-> +       { PCI_VDEVICE(SUNDANCE, 0x2021), CHIP_IP1000A },
-> +       { PCI_VDEVICE(DLINK,    0x9021), CHIP_IP1000A },
-> +       { PCI_VDEVICE(DLINK,    0x4020), CHIP_IP1000A },
->         { }
->  };
->  MODULE_DEVICE_TABLE (pci, rio_pci_tbl);
-> --
-> Ondrej Zary
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+       if (sk_state_load(sk) == TCP_LISTEN) {
+                r->idiag_rqueue = sk->sk_ack_backlog;
+                r->idiag_wqueue = sk->sk_max_ack_backlog;
 
 
+This patch makes sure sk_ack_backlog is written before sk_state is set
+to TCP_LISTEN, otherwise one could see a '0' listener backlog.
 
---=20
-With Best Regards,
-Andy Shevchenko
+We had a spurious kernel log for a similar issue that was solved in
+commit f985c65c908f6b26c30019a83dc5ea295f5fcf62
+("tcp: avoid spurious SYN flood detection at listen() time")
+
+Sure, we can live with a spurious log, but experience showed that taking
+care of this early could avoid lot of hassle, say in 12 months when
+people start using linux-4.4 
+
+Thanks.
