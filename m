@@ -1,114 +1,64 @@
-From: Dave Young <dyoung@redhat.com>
-Subject: [PATCH] wireless: change cfg80211 regulatory domain info as debug
- messages
-Date: Sun, 15 Nov 2015 15:31:05 +0800
-Message-ID: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
+From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Subject: [PATCH 0/2] batman-adv: Deletion of some unnecessary
+	checks
+Date: Sun, 15 Nov 2015 09:40:34 +0100
+Message-ID: <56484502.8000206@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net>
+ <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+ <530A086E.8010901@users.sourceforge.net>
+ <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+ <530A72AA.3000601@users.sourceforge.net>
+ <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+ <530B5FB6.6010207@users.sourceforge.net>
+ <alpine.DEB.2.10.1402241710370.2074@hadrien>
+ <530C5E18.1020800@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, johannes@sipsolutions.net
-To: linux-wireless@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>,
+ Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <5317A59D.4-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-cfg80211 module prints a lot of messages like below. Actually printing
-once is acceptable but sometimes it will print again and again, it looks
-very annoying. It is better to change these detail messages to debugging
-only.
+From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Date: Sun, 15 Nov 2015 09:34:12 +0100
 
-cfg80211: World regulatory domain updated:
-cfg80211:  DFS Master region: unset
-cfg80211:   (start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp), (dfs_cac_time)
-cfg80211:   (2402000 KHz - 2472000 KHz @ 40000 KHz), (N/A, 2000 mBm), (N/A)
-cfg80211:   (2457000 KHz - 2482000 KHz @ 40000 KHz), (N/A, 2000 mBm), (N/A)
-cfg80211:   (2474000 KHz - 2494000 KHz @ 20000 KHz), (N/A, 2000 mBm), (N/A)
-cfg80211:   (5170000 KHz - 5250000 KHz @ 80000 KHz, 160000 KHz AUTO), (N/A, 2000 mBm), (N/A)
-cfg80211:   (5250000 KHz - 5330000 KHz @ 80000 KHz, 160000 KHz AUTO), (N/A, 2000 mBm), (0 s)
-cfg80211:   (5490000 KHz - 5730000 KHz @ 160000 KHz), (N/A, 2000 mBm), (0 s)
-cfg80211:   (5735000 KHz - 5835000 KHz @ 80000 KHz), (N/A, 2000 mBm), (N/A)
-cfg80211:   (57240000 KHz - 63720000 KHz @ 2160000 KHz), (N/A, 0 mBm), (N/A)
+Another update suggestion was taken into account after a patch was applied
+from static source code analysis.
 
-The changes in this patch is to replace pr_info with pr_debug in function
-print_rd_rules and print_regdomain_info
+Markus Elfring (2):
+  Delete unnecessary checks before the function call "kfree_skb"
+  Less checks in batadv_tvlv_unicast_send()
 
-Signed-off-by: Dave Young <dyoung@redhat.com>
----
- net/wireless/reg.c |   24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
+ net/batman-adv/main.c           | 15 +++++----------
+ net/batman-adv/network-coding.c |  4 +---
+ net/batman-adv/send.c           |  3 +--
+ 3 files changed, 7 insertions(+), 15 deletions(-)
 
---- linux.orig/net/wireless/reg.c
-+++ linux/net/wireless/reg.c
-@@ -2763,7 +2763,7 @@ static void print_rd_rules(const struct
- 	const struct ieee80211_power_rule *power_rule = NULL;
- 	char bw[32], cac_time[32];
- 
--	pr_info("  (start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp), (dfs_cac_time)\n");
-+	pr_debug("  (start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp), (dfs_cac_time)\n");
- 
- 	for (i = 0; i < rd->n_reg_rules; i++) {
- 		reg_rule = &rd->reg_rules[i];
-@@ -2790,7 +2790,7 @@ static void print_rd_rules(const struct
- 		 * in certain regions
- 		 */
- 		if (power_rule->max_antenna_gain)
--			pr_info("  (%d KHz - %d KHz @ %s), (%d mBi, %d mBm), (%s)\n",
-+			pr_debug("  (%d KHz - %d KHz @ %s), (%d mBi, %d mBm), (%s)\n",
- 				freq_range->start_freq_khz,
- 				freq_range->end_freq_khz,
- 				bw,
-@@ -2798,7 +2798,7 @@ static void print_rd_rules(const struct
- 				power_rule->max_eirp,
- 				cac_time);
- 		else
--			pr_info("  (%d KHz - %d KHz @ %s), (N/A, %d mBm), (%s)\n",
-+			pr_debug("  (%d KHz - %d KHz @ %s), (N/A, %d mBm), (%s)\n",
- 				freq_range->start_freq_khz,
- 				freq_range->end_freq_khz,
- 				bw,
-@@ -2831,35 +2831,35 @@ static void print_regdomain(const struct
- 			struct cfg80211_registered_device *rdev;
- 			rdev = cfg80211_rdev_by_wiphy_idx(lr->wiphy_idx);
- 			if (rdev) {
--				pr_info("Current regulatory domain updated by AP to: %c%c\n",
-+				pr_debug("Current regulatory domain updated by AP to: %c%c\n",
- 					rdev->country_ie_alpha2[0],
- 					rdev->country_ie_alpha2[1]);
- 			} else
--				pr_info("Current regulatory domain intersected:\n");
-+				pr_debug("Current regulatory domain intersected:\n");
- 		} else
--			pr_info("Current regulatory domain intersected:\n");
-+			pr_debug("Current regulatory domain intersected:\n");
- 	} else if (is_world_regdom(rd->alpha2)) {
--		pr_info("World regulatory domain updated:\n");
-+		pr_debug("World regulatory domain updated:\n");
- 	} else {
- 		if (is_unknown_alpha2(rd->alpha2))
--			pr_info("Regulatory domain changed to driver built-in settings (unknown country)\n");
-+			pr_debug("Regulatory domain changed to driver built-in settings (unknown country)\n");
- 		else {
- 			if (reg_request_cell_base(lr))
--				pr_info("Regulatory domain changed to country: %c%c by Cell Station\n",
-+				pr_debug("Regulatory domain changed to country: %c%c by Cell Station\n",
- 					rd->alpha2[0], rd->alpha2[1]);
- 			else
--				pr_info("Regulatory domain changed to country: %c%c\n",
-+				pr_debug("Regulatory domain changed to country: %c%c\n",
- 					rd->alpha2[0], rd->alpha2[1]);
- 		}
- 	}
- 
--	pr_info(" DFS Master region: %s", reg_dfs_region_str(rd->dfs_region));
-+	pr_debug(" DFS Master region: %s", reg_dfs_region_str(rd->dfs_region));
- 	print_rd_rules(rd);
- }
- 
- static void print_regdomain_info(const struct ieee80211_regdomain *rd)
- {
--	pr_info("Regulatory domain: %c%c\n", rd->alpha2[0], rd->alpha2[1]);
-+	pr_debug("Regulatory domain: %c%c\n", rd->alpha2[0], rd->alpha2[1]);
- 	print_rd_rules(rd);
- }
- 
+-- 
+2.6.2
