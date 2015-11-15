@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3 0/5] packet fixes
-Date: Sun, 15 Nov 2015 18:01:44 -0500 (EST)
-Message-ID: <20151115.180144.569374750493313448.davem@davemloft.net>
-References: <cover.1447278504.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net] sctp: translate host order to network order when
+ setting a hmacid
+Date: Sun, 15 Nov 2015 18:28:32 -0500 (EST)
+Message-ID: <20151115.182832.1464025397909135510.davem@davemloft.net>
+References: <8cede44279b2f01a58fa02d4bb46b40fb630563f.1447304827.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, willemb@google.com, tklauser@distanz.ch,
-	netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	marcelo.leitner@gmail.com, vyasevic@redhat.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54895 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55808 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751687AbbKOXBt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2015 18:01:49 -0500
-In-Reply-To: <cover.1447278504.git.daniel@iogearbox.net>
+	with ESMTP id S1751620AbbKOX2e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2015 18:28:34 -0500
+In-Reply-To: <8cede44279b2f01a58fa02d4bb46b40fb630563f.1447304827.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed, 11 Nov 2015 23:25:39 +0100
+From: Xin Long <lucien.xin@gmail.com>
+Date: Thu, 12 Nov 2015 13:07:07 +0800
 
-> Fixes a couple of issues in packet sockets, i.e. on TX ring side. See
-> individual patches for details.
+> now sctp auth cannot work well when setting a hmacid manually, which
+> is caused by that we didn't use the network order for hmacid, so fix
+> it by adding the transformation in sctp_auth_ep_set_hmacs.
 > 
-> v2 -> v3:
->  - First two patches unchanged, kept Jason's Ack
->  - Reworked 3rd patch and split into 3:
->   - check for dev type as discussed with Willem
->   - infer skb->protocol
->   - fix max len for dgram
-> v1 -> v2:
->  - Added patch 2 as suggested by Dave
->  - Rest is unchanged from previous submission
+> even we set hmacid with the network order in userspace, it still
+> can't work, because of this condition in sctp_auth_ep_set_hmacs():
+> 
+> 		if (id > SCTP_AUTH_HMAC_ID_MAX)
+> 			return -EOPNOTSUPP;
+> 
+> so this wasn't working before and thus it won't break compatibility.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Series applied and queued up for -stable, thanks.
+Applied and queued up for -stable, thanks.
