@@ -1,53 +1,72 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: net-ipv6: Delete unnecessary checks before the function call
- "kfree_skb"
-Date: Sun, 15 Nov 2015 07:17:46 +0100
-Message-ID: <5648238A.20109@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net>
- <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
- <530A086E.8010901@users.sourceforge.net>
- <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
- <530A72AA.3000601@users.sourceforge.net>
- <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
- <530B5FB6.6010207@users.sourceforge.net>
- <alpine.DEB.2.10.1402241710370.2074@hadrien>
- <530C5E18.1020800@users.sourceforge.net>
- <alpine.DEB.2.10.1402251014170.2080@hadrien>
- <530CD2C4.4050903@users.sourceforge.net>
- <alpine.DEB.2.10.1402251840450.7035@hadrien>
- <530CF8FF.8080600@users.sourceforge.net>
- <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
- <530DD06F.4090703@users.sourceforge.net>
- <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
- <5317A59D.4@users.sourceforge.net> <564785ED.1040906@users.sourceforge.net>
- <1447558345.22599.64.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dave Young <dyoung@redhat.com>
+Subject: Re: [net] net: fix feature changes on devices without
+ ndo_set_features
+Date: Sun, 15 Nov 2015 15:25:44 +0800
+Message-ID: <20151115072544.GA18705@dhcp-128-65.nay.redhat.com>
+References: <1447422841-2333-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hideaki Yoshfuji <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447558345.22599.64.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Jarod Wilson <jarod@redhat.com>, Jiri Pirko <jiri@resnulli.us>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Sander Eikelenboom <linux@eikelenboom.it>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Nikolay Aleksandrov <razor@blackwall.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51103 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751243AbbKOHZz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Nov 2015 02:25:55 -0500
+Content-Disposition: inline
+In-Reply-To: <1447422841-2333-1-git-send-email-razor@blackwall.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> While if the test is done in kfree_skb(), the branch predictor of the
-> cpu wont be able to predict things.
+On 11/13/15 at 02:54pm, Nikolay Aleksandrov wrote:
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > 
-> By feeding too many NULL pointers to kfree_skb(), we slow down it.
+> When __netdev_update_features() was updated to ensure some features are
+> disabled on new lower devices, an error was introduced for devices which
+> don't have the ndo_set_features() method set. Before we'll just set the
+> new features, but now we return an error and don't set them. Fix this by
+> returning the old behaviour and setting err to 0 when ndo_set_features
+> is not present.
+> 
+> Fixes: e7868a85e1b2 ("net/core: ensure features get disabled on new lower devs")
+> CC: Jarod Wilson <jarod@redhat.com>
+> CC: Jiri Pirko <jiri@resnulli.us>
+> CC: Ido Schimmel <idosch@mellanox.com>
+> CC: Sander Eikelenboom <linux@eikelenboom.it>
+> CC: Andy Gospodarek <gospo@cumulusnetworks.com>
+> CC: Florian Fainelli <f.fainelli@gmail.com>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+> Reviewed-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Reviewed-by: Jarod Wilson <jarod@redhat.com>
+> Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+> Sander please feel free to give your Tested-by.
+> 
+>  net/core/dev.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index ab9b8d0d115e..4a1d198dbbff 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -6426,6 +6426,8 @@ int __netdev_update_features(struct net_device *dev)
+>  
+>  	if (dev->netdev_ops->ndo_set_features)
+>  		err = dev->netdev_ops->ndo_set_features(dev, features);
+> +	else
+> +		err = 0;
+>  
+>  	if (unlikely(err < 0)) {
+>  		netdev_err(dev,
 
-Would it make sense to annotate checks before such function calls
-as "UNLIKELY"?
+Tested-by: Dave Young <dyoung@redhat.com>
 
-Regards,
-Markus
+Thanks
+Dave
