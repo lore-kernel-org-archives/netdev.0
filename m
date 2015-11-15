@@ -1,46 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] dl2k: Add support for IP1000A-based cards
-Date: Sun, 15 Nov 2015 12:59:05 -0500 (EST)
-Message-ID: <20151115.125905.63907005203700143.davem@davemloft.net>
-References: <1447538738-28605-1-git-send-email-linux@rainbow-software.org>
-	<CAHp75VehDXoMNsXD08Et9Z5Pds+7Xf5+PXHE2pFzh4Srs-Tw+A@mail.gmail.com>
+Subject: Re: [PATCH net v3] af-unix: fix use-after-free with concurrent
+ readers while splicing
+Date: Sun, 15 Nov 2015 13:17:27 -0500 (EST)
+Message-ID: <20151115.131727.1107378090051512985.davem@davemloft.net>
+References: <1447168995-25820-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux@rainbow-software.org, netdev@vger.kernel.org,
-	romieu@fr.zoreil.com, linux-kernel@vger.kernel.org
-To: andy.shevchenko@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHp75VehDXoMNsXD08Et9Z5Pds+7Xf5+PXHE2pFzh4Srs-Tw+A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dvyukov@google.com, eric.dumazet@gmail.com
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51486 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751095AbbKOSR3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2015 13:17:29 -0500
+In-Reply-To: <1447168995-25820-1-git-send-email-hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Date: Sun, 15 Nov 2015 04:30:25 +0200
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Tue, 10 Nov 2015 16:23:15 +0100
 
-> On Sun, Nov 15, 2015 at 12:05 AM, Ondrej Zary
->> @@ -433,9 +474,10 @@ rio_open (struct net_device *dev)
->>
->>         alloc_list (dev);
->>
->> -       /* Get station address */
->> -       for (i = 0; i < 6; i++)
->> -               dw8(StationAddr0 + i, dev->dev_addr[i]);
->> +       /* Set station address */
->> +       for (i = 0; i < 3; i++)
->> +               dw16(StationAddr0 + 2 * i,
->> +                    cpu_to_le16(((u16 *)dev->dev_addr)[i]));
+> During splicing an af-unix socket to a pipe we have to drop all
+> af-unix socket locks. While doing so we allow another reader to enter
+> unix_stream_read_generic which can read, copy and finally free another
+> skb. If exactly this skb is just in process of being spliced we get a
+> use-after-free report by kasan.
 > 
-> Is it specific requirement for new HW? If not, may be another patch
-> with micro optimizations.
+> First, we must make sure to not have a free while the skb is used during
+> the splice operation. We simply increment its use counter before unlocking
+> the reader lock.
+> 
+> Stream sockets have the nice characteristic that we don't care about
+> zero length writes and they never reach the peer socket's queue. That
+> said, we can take the UNIXCB.consumed field as the indicator if the
+> skb was already freed from the socket's receive queue. If the skb was
+> fully consumed after we locked the reader side again we know it has been
+> dropped by a second reader. We indicate a short read to user space and
+> abort the current splice operation.
+> 
+> This bug has been found with syzkaller
+> (http://github.com/google/syzkaller) by Dmitry Vyukov.
+> 
+> Fixes: 2b514574f7e8 ("net: af_unix: implement splice for stream af_unix sockets")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Cc: Dmitry Vyukov <dvyukov@google.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-I absolutely agree, this definitely should not just be blindly copied
-over from the other driver.
-
-And if it is a requirement:
-
-1) It must be documented as per why, both in a comment above the loop
-   and in the commit log message.
-
-2) It must therefore be tested on dl2k chips that worked with the
-   dl2k driver beforehand to prove that it doesn't break them.
+Applied and queued up for -stable, thanks.
