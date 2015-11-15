@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: ensure proper barriers in lockless contexts
-Date: Sun, 15 Nov 2015 18:37:03 -0500 (EST)
-Message-ID: <20151115.183703.577812988592183622.davem@davemloft.net>
-References: <1447346598.22599.21.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net] ipvs: use skb_to_full_sk() helper
+Date: Sun, 15 Nov 2015 18:40:22 -0500 (EST)
+Message-ID: <20151115.184022.199593714221031833.davem@davemloft.net>
+References: <1447337353.22599.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	<b95f4a06d7d9b13849ad277128690436@eikelenboom.it>
+	<1447348452.22599.28.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: linux@eikelenboom.it, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, wensong@linux-vs.org,
+	horms@verge.net.au, ja@ssi.bg, lvs-devel@vger.kernel.org
 To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55914 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751740AbbKOXhF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2015 18:37:05 -0500
-In-Reply-To: <1447346598.22599.21.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1447348452.22599.28.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 12 Nov 2015 08:43:18 -0800
+Date: Thu, 12 Nov 2015 09:14:12 -0800
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> Some functions access TCP sockets without holding a lock and
-> might output non consistent data, depending on compiler and or
-> architecture.
+> SYNACK packets might be attached to request sockets.
 > 
-> tcp_diag_get_info(), tcp_get_info(), tcp_poll(), get_tcp4_sock() ...
+> Use skb_to_full_sk() helper to avoid illegal accesses to
+> inet_sk(skb->sk)
 > 
-> Introduce sk_state_load() and sk_state_store() to fix the issues,
-> and more clearly document where this lack of locking is happening.
-> 
+> Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
 
-Applied, thanks.
+I'll apply this directly, thanks.
