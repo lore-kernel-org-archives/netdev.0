@@ -1,29 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] ipv6: Fixes for pmtu update and DST_NOCACHE
- route
-Date: Sun, 15 Nov 2015 17:18:38 -0500 (EST)
-Message-ID: <20151115.171838.1737045138252643160.davem@davemloft.net>
-References: <1447271468-3930566-1-git-send-email-kafai@fb.com>
+Subject: Re: [PATCH] tools/net: Use include/uapi with __EXPORTED_HEADERS__
+Date: Sun, 15 Nov 2015 17:25:24 -0500 (EST)
+Message-ID: <20151115.172524.1085087126036976521.davem@davemloft.net>
+References: <1447280667-1145-1-git-send-email-kamal@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: kafai@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54467 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751731AbbKOWSk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2015 17:18:40 -0500
-In-Reply-To: <1447271468-3930566-1-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: kamal@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447280667-1145-1-git-send-email-kamal@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Wed, 11 Nov 2015 11:51:05 -0800
+From: Kamal Mostafa <kamal@canonical.com>
+Date: Wed, 11 Nov 2015 14:24:27 -0800
 
-> This patchset fixes:
-> 1. An oops during IPv6 pmtu update on a IPv4 GRE running
->    in an IPSec setup
-> 2. Misc fixes on DST_NOCACHE route
+> Use the local uapi headers to keep in sync with "recently" added #define's
+> (e.g. SKF_AD_VLAN_TPID).  Refactored CFLAGS, and bpf_asm doesn't need -I.
+> 
+> Fixes: 3f356385e8a449e1d7cfc6b6f8d634ac4f5581a0
+> Signed-off-by: Kamal Mostafa <kamal@canonical.com>
 
-Series applied and queued up for -stable, thanks.
+Applied and queued up for -stable, thanks.
