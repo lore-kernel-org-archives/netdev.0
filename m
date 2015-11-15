@@ -1,39 +1,39 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] mac802154: Delete an unnecessary check before the function call "kfree_skb"
-Date: Sun, 15 Nov 2015 09:20:45 +0900
-Message-ID: <9C51A102-B15D-45F4-8034-A9D4986A93DF@holtmann.org>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net> <56478B2A.6030808@users.sourceforge.net>
-Mime-Version: 1.0 (Mac OS X Mail 9.1 \(3096.5\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Aring <alex.aring@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <56478B2A.6030808@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net] tcp: ensure proper barriers in lockless contexts
+Date: Sun, 15 Nov 2015 09:20:32 +0800
+Message-ID: <20151115012032.GA21282@gondor.apana.org.au>
+References: <1447346598.22599.21.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:58590 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751670AbbKOBUg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2015 20:20:36 -0500
+Content-Disposition: inline
+In-Reply-To: <1447346598.22599.21.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Markus,
-
-> The kfree_skb() function tests whether its argument is NULL and then
-> returns immediately. Thus the test around the call is not needed.
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> This issue was detected by using the Coccinelle software.
+> Some functions access TCP sockets without holding a lock and
+> might output non consistent data, depending on compiler and or
+> architecture.
 > 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-> ---
-> net/mac802154/rx.c | 3 +--
-> 1 file changed, 1 insertion(+), 2 deletions(-)
+> tcp_diag_get_info(), tcp_get_info(), tcp_poll(), get_tcp4_sock() ...
 
-patch has been applied to bluetooth-next tree.
+For the information gathering ones such as tcp_diag_get_info I'm
+wondering whether we really need these memory barriers.  After all,
+if it's truly lockless then surely the TCP socket state can change
+again after you load the state the first time, in which case the
+barrier becomes completely meaningless.
 
-Regards
-
-Marcel
-
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
