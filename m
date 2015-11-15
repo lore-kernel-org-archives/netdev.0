@@ -1,108 +1,99 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue
-Date: Sun, 15 Nov 2015 18:32:55 +0000
-Message-ID: <87vb93dsfc.fsf@doppelsaurus.mobileactivedefense.com>
-References: <CACT4Y+b3xsLsKVFCz2M7nqqfXnyuMHEVYtJS2wN4WHLWs9A5ng@mail.gmail.com>
-	<20151012120249.GB16370@unicorn.suse.cz>
-	<1444652071.27760.156.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CACT4Y+Z2H8xPg1Dq0Z=HC3WKm+Uw+ZjK6zOLvxhPwFd4D0CsZw@mail.gmail.com>
-	<CACT4Y+Zu7J0n6dU1dSfiW3F9Q0Us3_DBVcD5Pi9NG9LER8MmRg@mail.gmail.com>
-	<563CC002.5050307@akamai.com>
-	<87ziyrcg67.fsf@doppelsaurus.mobileactivedefense.com>
-	<87fv0fnslr.fsf_-_@doppelsaurus.mobileactivedefense.com>
-	<877flp34fl.fsf@doppelsaurus.mobileactivedefense.com>
-	<87a8qhspfm.fsf@doppelsaurus.mobileactivedefense.com>
-	<5646617C.9080506@akamai.com>
+From: David Madore <david+ml@madore.org>
+Subject: "hw csum failure" error on skge driver with 4.3 kernel upon
+ receiving ICMPv6 multicast listener discovery packets
+Date: Sun, 15 Nov 2015 19:44:02 +0100
+Message-ID: <20151115184402.GA6614@achernar.madore.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Michal Kubecek <mkubecek@suse.cz>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	"linux-fsdevel\@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Howells <dhowells@redhat.com>,
-	Paul Moore <paul@paul-moore.com>, salyzyn@android.com,
-	sds@tycho.nsa.gov, ying.xue@windriver.com,
-	netdev <netdev@vger.kernel.org>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Andrey Konovalov <andreyknvl@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Julien Tinnes <jln@google.com>,
-	Kees Cook <keescook@google.com>,
-	Mathias Krause <minipli@googlemail.com>
-To: Jason Baron <jbaron@akamai.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <5646617C.9080506@akamai.com> (Jason Baron's message of "Fri, 13
-	Nov 2015 17:17:32 -0500")
-Sender: linux-fsdevel-owner@vger.kernel.org
+To: Linux Kernel mailing-list <linux-kernel@vger.kernel.org>,
+	Linux network mailing-list <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jason Baron <jbaron@akamai.com> writes:
-> On 11/13/2015 01:51 PM, Rainer Weikusat wrote:
->
-> [...]
->
->>  
->> -	if (unix_peer(other) != sk && unix_recvq_full(other)) {
->> -		if (!timeo) {
->> -			err = -EAGAIN;
->> -			goto out_unlock;
->> -		}
->> +	if (unix_peer(sk) == other && !unix_dgram_peer_recv_ready(sk, other)) {
->
-> Remind me why the 'unix_peer(sk) == other' is added here? If the remote
-> is not connected we still want to make sure that we don't overflow the
-> the remote rcv queue, right?
+The skge driver in the 4.3 kernel reports hardware checksum errors
+upon receiving (certain?) IPv6 multicast packets containing ICMPv6
+multicast listener discovery messages.  This is a regression since 4.1
+(I believe between 4.1 and 4.2).  The e1000e driver on a different
+Ethernet port of the same machine is not affected.  Disabling offload
+rx checksumming suppresses the errors.  Nor are all IPv6 multicast
+packets affected: for some reason, it seems only those containing
+ICMPv6 multicast listener discovery messages trigger the problem.
 
-Good point. The check is actually wrong there as the original code would
-also check the limit in case of an unconnected send to a socket found
-via address lookup. It belongs into the 2nd if (were I originally put
-it).
+In case it also matters, the skge interface in question (eth1 in what
+follows) is part of a bridge that contains another Ethernet interface
+and a Wifi card.
 
->
-> In terms of this added 'double' lock for both sk and other, where
-> previously we just held the 'other' lock. I think we could continue to
-> just hold the 'other' lock unless the remote queue is full, so something
-> like:
->
->         if (unix_peer(other) != sk && unix_recvq_full(other)) {
->                 bool need_wakeup = false;
->
-> 		....skipping the blocking case...
->
->                 err = -EAGAIN;
->                 if (!other_connected)
->                         goto out_unlock;
->                 unix_state_unlock(other);
->                 unix_state_lock(sk);
+Here is a frame, with its link-level headers, that caused an error
+when received by skge:
 
-That was my original idea. The problem with this is that the code
-starting after the _lock and running until the main code path unlock has
-to be executed in one go with the other lock held as the results of the
-tests above this one may become invalid as soon as the other lock is
-released. This means instead of continuing execution with the send code
-proper after the block in case other became receive-ready between the
-first and the second test (possible because _dgram_recvmsg does not
-take the unix state lock), the whole procedure starting with acquiring
-the other lock would need to be restarted. Given sufficiently unfavorable
-circumstances, this could even turn into an endless loop which couldn't
-be interrupted. (unless code for this was added). 
+0000   33 33 ff 62 30 d8 60 fb 42 f1 b1 36 86 dd 60 00  33.b0.`.B..6..`.
+0010   00 00 00 20 00 01 fe 80 00 00 00 00 00 00 62 fb  ... ..........b.
+0020   42 ff fe f1 b1 36 ff 02 00 00 00 00 00 00 00 00  B....6..........
+0030   00 01 ff 62 30 d8 3a 00 01 00 05 02 00 00 83 00  ...b0.:.........
+0040   c9 8a 00 00 00 00 ff 02 00 00 00 00 00 00 00 00  ................
+0050   00 01 ff 62 30 d8                                ...b0.
 
-[...]
+(Network dumps performed on another network device suggest that the
+checksum is, indeed, correct.)
 
-> we currently wake the entire queue on every remote read even when we
-> have room in the rcv buffer. So this patch will cut down on ctxt
-> switching rate dramatically from what we currently have.
+And here is the syslog produced upon receiving the above packet:
 
-In my opinion, this could be improved by making the throttling mechanism
-work like a flip flop: If the queue lenght hits the limit after a
-_sendmsg, set a "no more applicants" flag blocking future sends until
-cleared (checking the flag would replace the present
-check). After the receive queue ran empty (or almost empty),
-_dgram_sendmsg would clear the flag and do a wakeup. But this should be
-an independent patch (if implemented).
+Nov 15 17:52:13 pleiades kernel: [  661.393163] eth1: hw csum failure
+Nov 15 17:52:13 pleiades kernel: [  661.394203] CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W       4.3.0-pleiades #1
+Nov 15 17:52:13 pleiades kernel: [  661.395192] Hardware name: System manufacturer System Product Name/P5WD2-Premium, BIOS 0709     03/31/2006
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  ffff88013a9d5d00 ffff88013fc03aa8 ffffffff8129a186 ffff88013afe0000
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  ffff88013fc03ac0 ffffffff81436425 0000000000000000 ffff88013fc03af0
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  ffffffff8142b87a 1027316b3fc03b30 ffff88013a9d5d00 0000000000000030
+Nov 15 17:52:13 pleiades kernel: [  661.395192] Call Trace:
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  <IRQ>  [<ffffffff8129a186>] dump_stack+0x44/0x5e
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81436425>] netdev_rx_csum_fault+0x35/0x40
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8142b87a>] __skb_checksum_complete+0xca/0xd0
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff815062db>] ipv6_mc_validate_checksum+0xab/0x140
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8142858f>] skb_checksum_trimmed+0x8f/0x180
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81506475>] ipv6_mc_check_mld+0x105/0x330
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffffa0d2840c>] br_multicast_rcv+0x8c/0xce0 [bridge]
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff814364d3>] ? __netif_receive_skb+0x13/0x60
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8143654e>] ? netif_receive_skb_internal+0x2e/0x90
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffffa0d2006c>] br_handle_frame_finish+0x28c/0x5b0 [bridge]
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffffa00217e4>] ? usb_hcd_submit_urb+0xa4/0x960 [usbcore]
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffffa0d204e1>] br_handle_frame+0x151/0x270 [bridge]
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffffa0023092>] ? usb_submit_urb+0x2d2/0x510 [usbcore]
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81433c82>] __netif_receive_skb_core+0x1c2/0x990
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffffa0020472>] ? __usb_hcd_giveback_urb+0x82/0xe0 [usbcore]
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff814364d3>] __netif_receive_skb+0x13/0x60
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8143654e>] netif_receive_skb_internal+0x2e/0x90
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81436d70>] napi_gro_receive+0xa0/0xd0
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffffa01cecc0>] skge_poll+0x380/0x7a0 [skge]
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81032438>] ? lapic_next_event+0x18/0x20
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81437cec>] net_rx_action+0x13c/0x300
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8104fef7>] __do_softirq+0xc7/0x240
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81050240>] irq_exit+0x70/0x90
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff810060b1>] do_IRQ+0x51/0xd0
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8151ee7c>] common_interrupt+0x7c/0x7c
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  <EOI>  [<ffffffff8100da47>] ? mwait_idle+0x87/0x140
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8100dffa>] arch_cpu_idle+0xa/0x10
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81081f45>] default_idle_call+0x25/0x30
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8108223c>] cpu_startup_entry+0x29c/0x310
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff815194e2>] rest_init+0x72/0x80
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff817db00f>] start_kernel+0x471/0x47e
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff817da989>] ? set_init_arg+0x55/0x55
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff817da5ad>] x86_64_start_reservations+0x2a/0x2c
+Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff817da694>] x86_64_start_kernel+0xe5/0xe8
+
+
+I can unfortunately offer no additional information: I will no longer
+be using this Ethernet hardware and can only access the machine
+physically on rare occasions, so I can do no further tests.  Here are
+links to the basic config information, though:
+
+Kernel config:
+http://www.madore.org/~david/.tmp/config.20151115
+
+Initial dmesg:
+http://www.madore.org/~david/.tmp/dmesg.20151115
+
+-- 
+     David A. Madore
+   ( http://www.madore.org/~david/ )
