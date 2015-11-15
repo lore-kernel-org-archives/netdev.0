@@ -1,37 +1,38 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] wireless: change cfg80211 regulatory domain info as
- debug messages
-Date: Sun, 15 Nov 2015 09:38:54 -0800
-Message-ID: <1447609134.6012.15.camel@perches.com>
-References: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -stable] multiple backports requested
+Date: Sun, 15 Nov 2015 12:46:18 -0500 (EST)
+Message-ID: <20151115.124618.676797029950520826.davem@davemloft.net>
+References: <1447445591.2645.17.camel@gmail.com>
+	<20151113.161032.1223894063965320473.davem@davemloft.net>
+	<1447586349.2645.20.camel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, johannes@sipsolutions.net
-To: Dave Young <dyoung@redhat.com>, linux-wireless@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: 3chas3@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51193 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751977AbbKORqX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2015 12:46:23 -0500
+In-Reply-To: <1447586349.2645.20.camel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2015-11-15 at 15:31 +0800, Dave Young wrote:
-> cfg80211 module prints a lot of messages like below. Actually printing
-> once is acceptable but sometimes it will print again and again, it looks
-> very annoying. It is better to change these detail messages to debugging
-> only.
+From: "Charles (Chas) Williams" <3chas3@gmail.com>
+Date: Sun, 15 Nov 2015 06:19:09 -0500
 
-So maybe add some wrapper that does a pr_info then
-a pr_debug for the second and subsequent uses like:
+> On Fri, 2015-11-13 at 16:10 -0500, David Miller wrote:
+>> From: "Charles (Chas) Williams" <3chas3@gmail.com>
+>> Date: Fri, 13 Nov 2015 15:13:11 -0500
+>> 
+>> > Dave, could you please add the following backports?
+>> > 
+>> > For the 3.14.y stable queue:
+>> 
+>> I am no longer handling 3.14.y -stable submissions, sorry...
+> 
+> To whom should I send these requests?
 
-#define pr_info_once_then_debug(fmt, ...)			\
-({								\
-	static bool __print_once __read_mostly;			\
-								\
-	if (!__print_once) {					\
-		__print_once = true;				\
-		pr_info(fmt, ##__VA_ARGS__);			\
-	} else {						\
-		pr_debug(fmt, ##__VA_ARGS__);			\
-	}							\
-})
+Traditionally the maintainers of the older -stable kernels just
+take them in directly.
