@@ -1,40 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: translate host order to network order when
- setting a hmacid
-Date: Sun, 15 Nov 2015 18:28:32 -0500 (EST)
-Message-ID: <20151115.182832.1464025397909135510.davem@davemloft.net>
-References: <8cede44279b2f01a58fa02d4bb46b40fb630563f.1447304827.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH] net: thunder: Fix crash upon shutdown after failed
+ probe
+Date: Sun, 15 Nov 2015 18:30:37 -0500 (EST)
+Message-ID: <20151115.183037.1090427973434503108.davem@davemloft.net>
+References: <1447329318-7840-1-git-send-email-p.fedin@samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	marcelo.leitner@gmail.com, vyasevic@redhat.com
-To: lucien.xin@gmail.com
+Cc: netdev@vger.kernel.org, sgoutham@cavium.com, rric@kernel.org,
+	youngmin.lee@cavium.com, kin-yip.liu@cavium.com
+To: p.fedin@samsung.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55808 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55816 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751620AbbKOX2e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2015 18:28:34 -0500
-In-Reply-To: <8cede44279b2f01a58fa02d4bb46b40fb630563f.1447304827.git.lucien.xin@gmail.com>
+	with ESMTP id S1751750AbbKOXak (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2015 18:30:40 -0500
+In-Reply-To: <1447329318-7840-1-git-send-email-p.fedin@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Thu, 12 Nov 2015 13:07:07 +0800
+From: Pavel Fedin <p.fedin@samsung.com>
+Date: Thu, 12 Nov 2015 14:55:18 +0300
 
-> now sctp auth cannot work well when setting a hmacid manually, which
-> is caused by that we didn't use the network order for hmacid, so fix
-> it by adding the transformation in sctp_auth_ep_set_hmacs.
+> If device probe fails, driver remains bound to the PCI device. However,
+> driver data has been reset to NULL. This causes crash upon dereferencing
+> it in nicvf_remove()
 > 
-> even we set hmacid with the network order in userspace, it still
-> can't work, because of this condition in sctp_auth_ep_set_hmacs():
-> 
-> 		if (id > SCTP_AUTH_HMAC_ID_MAX)
-> 			return -EOPNOTSUPP;
-> 
-> so this wasn't working before and thus it won't break compatibility.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Signed-off-by: Pavel Fedin <p.fedin@samsung.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
