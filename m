@@ -1,72 +1,114 @@
 From: Dave Young <dyoung@redhat.com>
-Subject: Re: [net] net: fix feature changes on devices without
- ndo_set_features
-Date: Sun, 15 Nov 2015 15:25:44 +0800
-Message-ID: <20151115072544.GA18705@dhcp-128-65.nay.redhat.com>
-References: <1447422841-2333-1-git-send-email-razor@blackwall.org>
+Subject: [PATCH] wireless: change cfg80211 regulatory domain info as debug
+ messages
+Date: Sun, 15 Nov 2015 15:31:05 +0800
+Message-ID: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Jarod Wilson <jarod@redhat.com>, Jiri Pirko <jiri@resnulli.us>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Sander Eikelenboom <linux@eikelenboom.it>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Nikolay Aleksandrov <razor@blackwall.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51103 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751243AbbKOHZz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Nov 2015 02:25:55 -0500
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, johannes@sipsolutions.net
+To: linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1447422841-2333-1-git-send-email-razor@blackwall.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/13/15 at 02:54pm, Nikolay Aleksandrov wrote:
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> When __netdev_update_features() was updated to ensure some features are
-> disabled on new lower devices, an error was introduced for devices which
-> don't have the ndo_set_features() method set. Before we'll just set the
-> new features, but now we return an error and don't set them. Fix this by
-> returning the old behaviour and setting err to 0 when ndo_set_features
-> is not present.
-> 
-> Fixes: e7868a85e1b2 ("net/core: ensure features get disabled on new lower devs")
-> CC: Jarod Wilson <jarod@redhat.com>
-> CC: Jiri Pirko <jiri@resnulli.us>
-> CC: Ido Schimmel <idosch@mellanox.com>
-> CC: Sander Eikelenboom <linux@eikelenboom.it>
-> CC: Andy Gospodarek <gospo@cumulusnetworks.com>
-> CC: Florian Fainelli <f.fainelli@gmail.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-> Reviewed-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-> Reviewed-by: Jarod Wilson <jarod@redhat.com>
-> Tested-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
-> Sander please feel free to give your Tested-by.
-> 
->  net/core/dev.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index ab9b8d0d115e..4a1d198dbbff 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -6426,6 +6426,8 @@ int __netdev_update_features(struct net_device *dev)
->  
->  	if (dev->netdev_ops->ndo_set_features)
->  		err = dev->netdev_ops->ndo_set_features(dev, features);
-> +	else
-> +		err = 0;
->  
->  	if (unlikely(err < 0)) {
->  		netdev_err(dev,
+cfg80211 module prints a lot of messages like below. Actually printing
+once is acceptable but sometimes it will print again and again, it looks
+very annoying. It is better to change these detail messages to debugging
+only.
 
-Tested-by: Dave Young <dyoung@redhat.com>
+cfg80211: World regulatory domain updated:
+cfg80211:  DFS Master region: unset
+cfg80211:   (start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp), (dfs_cac_time)
+cfg80211:   (2402000 KHz - 2472000 KHz @ 40000 KHz), (N/A, 2000 mBm), (N/A)
+cfg80211:   (2457000 KHz - 2482000 KHz @ 40000 KHz), (N/A, 2000 mBm), (N/A)
+cfg80211:   (2474000 KHz - 2494000 KHz @ 20000 KHz), (N/A, 2000 mBm), (N/A)
+cfg80211:   (5170000 KHz - 5250000 KHz @ 80000 KHz, 160000 KHz AUTO), (N/A, 2000 mBm), (N/A)
+cfg80211:   (5250000 KHz - 5330000 KHz @ 80000 KHz, 160000 KHz AUTO), (N/A, 2000 mBm), (0 s)
+cfg80211:   (5490000 KHz - 5730000 KHz @ 160000 KHz), (N/A, 2000 mBm), (0 s)
+cfg80211:   (5735000 KHz - 5835000 KHz @ 80000 KHz), (N/A, 2000 mBm), (N/A)
+cfg80211:   (57240000 KHz - 63720000 KHz @ 2160000 KHz), (N/A, 0 mBm), (N/A)
 
-Thanks
-Dave
+The changes in this patch is to replace pr_info with pr_debug in function
+print_rd_rules and print_regdomain_info
+
+Signed-off-by: Dave Young <dyoung@redhat.com>
+---
+ net/wireless/reg.c |   24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
+
+--- linux.orig/net/wireless/reg.c
++++ linux/net/wireless/reg.c
+@@ -2763,7 +2763,7 @@ static void print_rd_rules(const struct
+ 	const struct ieee80211_power_rule *power_rule = NULL;
+ 	char bw[32], cac_time[32];
+ 
+-	pr_info("  (start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp), (dfs_cac_time)\n");
++	pr_debug("  (start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp), (dfs_cac_time)\n");
+ 
+ 	for (i = 0; i < rd->n_reg_rules; i++) {
+ 		reg_rule = &rd->reg_rules[i];
+@@ -2790,7 +2790,7 @@ static void print_rd_rules(const struct
+ 		 * in certain regions
+ 		 */
+ 		if (power_rule->max_antenna_gain)
+-			pr_info("  (%d KHz - %d KHz @ %s), (%d mBi, %d mBm), (%s)\n",
++			pr_debug("  (%d KHz - %d KHz @ %s), (%d mBi, %d mBm), (%s)\n",
+ 				freq_range->start_freq_khz,
+ 				freq_range->end_freq_khz,
+ 				bw,
+@@ -2798,7 +2798,7 @@ static void print_rd_rules(const struct
+ 				power_rule->max_eirp,
+ 				cac_time);
+ 		else
+-			pr_info("  (%d KHz - %d KHz @ %s), (N/A, %d mBm), (%s)\n",
++			pr_debug("  (%d KHz - %d KHz @ %s), (N/A, %d mBm), (%s)\n",
+ 				freq_range->start_freq_khz,
+ 				freq_range->end_freq_khz,
+ 				bw,
+@@ -2831,35 +2831,35 @@ static void print_regdomain(const struct
+ 			struct cfg80211_registered_device *rdev;
+ 			rdev = cfg80211_rdev_by_wiphy_idx(lr->wiphy_idx);
+ 			if (rdev) {
+-				pr_info("Current regulatory domain updated by AP to: %c%c\n",
++				pr_debug("Current regulatory domain updated by AP to: %c%c\n",
+ 					rdev->country_ie_alpha2[0],
+ 					rdev->country_ie_alpha2[1]);
+ 			} else
+-				pr_info("Current regulatory domain intersected:\n");
++				pr_debug("Current regulatory domain intersected:\n");
+ 		} else
+-			pr_info("Current regulatory domain intersected:\n");
++			pr_debug("Current regulatory domain intersected:\n");
+ 	} else if (is_world_regdom(rd->alpha2)) {
+-		pr_info("World regulatory domain updated:\n");
++		pr_debug("World regulatory domain updated:\n");
+ 	} else {
+ 		if (is_unknown_alpha2(rd->alpha2))
+-			pr_info("Regulatory domain changed to driver built-in settings (unknown country)\n");
++			pr_debug("Regulatory domain changed to driver built-in settings (unknown country)\n");
+ 		else {
+ 			if (reg_request_cell_base(lr))
+-				pr_info("Regulatory domain changed to country: %c%c by Cell Station\n",
++				pr_debug("Regulatory domain changed to country: %c%c by Cell Station\n",
+ 					rd->alpha2[0], rd->alpha2[1]);
+ 			else
+-				pr_info("Regulatory domain changed to country: %c%c\n",
++				pr_debug("Regulatory domain changed to country: %c%c\n",
+ 					rd->alpha2[0], rd->alpha2[1]);
+ 		}
+ 	}
+ 
+-	pr_info(" DFS Master region: %s", reg_dfs_region_str(rd->dfs_region));
++	pr_debug(" DFS Master region: %s", reg_dfs_region_str(rd->dfs_region));
+ 	print_rd_rules(rd);
+ }
+ 
+ static void print_regdomain_info(const struct ieee80211_regdomain *rd)
+ {
+-	pr_info("Regulatory domain: %c%c\n", rd->alpha2[0], rd->alpha2[1]);
++	pr_debug("Regulatory domain: %c%c\n", rd->alpha2[0], rd->alpha2[1]);
+ 	print_rd_rules(rd);
+ }
+ 
