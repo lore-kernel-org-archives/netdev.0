@@ -1,25 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tools/net: Use include/uapi with __EXPORTED_HEADERS__
-Date: Sun, 15 Nov 2015 17:25:24 -0500 (EST)
-Message-ID: <20151115.172524.1085087126036976521.davem@davemloft.net>
-References: <1447280667-1145-1-git-send-email-kamal@canonical.com>
+Subject: Re: [PATCH net v3 0/5] packet fixes
+Date: Sun, 15 Nov 2015 18:01:44 -0500 (EST)
+Message-ID: <20151115.180144.569374750493313448.davem@davemloft.net>
+References: <cover.1447278504.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: kamal@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447280667-1145-1-git-send-email-kamal@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: edumazet@google.com, willemb@google.com, tklauser@distanz.ch,
+	netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54895 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751687AbbKOXBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2015 18:01:49 -0500
+In-Reply-To: <cover.1447278504.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kamal Mostafa <kamal@canonical.com>
-Date: Wed, 11 Nov 2015 14:24:27 -0800
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed, 11 Nov 2015 23:25:39 +0100
 
-> Use the local uapi headers to keep in sync with "recently" added #define's
-> (e.g. SKF_AD_VLAN_TPID).  Refactored CFLAGS, and bpf_asm doesn't need -I.
+> Fixes a couple of issues in packet sockets, i.e. on TX ring side. See
+> individual patches for details.
 > 
-> Fixes: 3f356385e8a449e1d7cfc6b6f8d634ac4f5581a0
-> Signed-off-by: Kamal Mostafa <kamal@canonical.com>
+> v2 -> v3:
+>  - First two patches unchanged, kept Jason's Ack
+>  - Reworked 3rd patch and split into 3:
+>   - check for dev type as discussed with Willem
+>   - infer skb->protocol
+>   - fix max len for dgram
+> v1 -> v2:
+>  - Added patch 2 as suggested by Dave
+>  - Rest is unchanged from previous submission
 
-Applied and queued up for -stable, thanks.
+Series applied and queued up for -stable, thanks.
