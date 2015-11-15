@@ -1,33 +1,42 @@
-From: "Charles (Chas) Williams" <3chas3@gmail.com>
-Subject: Re: [PATCH -stable] multiple backports requested
-Date: Sun, 15 Nov 2015 06:19:09 -0500
-Message-ID: <1447586349.2645.20.camel@gmail.com>
-References: <1447445591.2645.17.camel@gmail.com>
-	 <20151113.161032.1223894063965320473.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f170.google.com ([209.85.220.170]:36303 "EHLO
-	mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751033AbbKOLTP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2015 06:19:15 -0500
-Received: by qkda6 with SMTP id a6so14622636qkd.3
-        for <netdev@vger.kernel.org>; Sun, 15 Nov 2015 03:19:14 -0800 (PST)
-In-Reply-To: <20151113.161032.1223894063965320473.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: [PATCH net] ravb: remove unhandle int cause
+Date: Sun, 15 Nov 2015 21:34:42 +0900
+Message-ID: <1447590882-20742-1-git-send-email-ykaneko0929@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-11-13 at 16:10 -0500, David Miller wrote:
-> From: "Charles (Chas) Williams" <3chas3@gmail.com>
-> Date: Fri, 13 Nov 2015 15:13:11 -0500
-> 
-> > Dave, could you please add the following backports?
-> > 
-> > For the 3.14.y stable queue:
-> 
-> I am no longer handling 3.14.y -stable submissions, sorry...
+From: Masaru Nagai <masaru.nagai.vx@renesas.com>
 
-To whom should I send these requests?
+This driver does not handle the AVB-DMAC Receive FIFO Warning interrupt
+now, so the interrupt should not be enabled.
+
+Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
+Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+---
+
+This patch is based on the master branch of David Miller's networking tree.
+
+ drivers/net/ethernet/renesas/ravb_main.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index aa7b208..3d5c4ac 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -408,8 +408,6 @@ static int ravb_dmac_init(struct net_device *ndev)
+ 	/* Interrupt enable: */
+ 	/* Frame receive */
+ 	ravb_write(ndev, RIC0_FRE0 | RIC0_FRE1, RIC0);
+-	/* Receive FIFO full warning */
+-	ravb_write(ndev, RIC1_RFWE, RIC1);
+ 	/* Receive FIFO full error, descriptor empty */
+ 	ravb_write(ndev, RIC2_QFE0 | RIC2_QFE1 | RIC2_RFFE, RIC2);
+ 	/* Frame transmitted, timestamp FIFO updated */
+-- 
+1.9.1
+
