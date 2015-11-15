@@ -1,53 +1,37 @@
-From: Vladimir Davydov <vdavydov@virtuozzo.com>
-Subject: Re: [PATCH 14/14] mm: memcontrol: hook up vmpressure to socket
- pressure
-Date: Sun, 15 Nov 2015 16:54:57 +0300
-Message-ID: <20151115135457.GM31308@esperanza>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
- <1447371693-25143-15-git-send-email-hannes@cmpxchg.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] wireless: change cfg80211 regulatory domain info as
+ debug messages
+Date: Sun, 15 Nov 2015 09:38:54 -0800
+Message-ID: <1447609134.6012.15.camel@perches.com>
+References: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, Andrew Morton
-	<akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>, Michal Hocko
-	<mhocko@suse.cz>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
-	<cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1447371693-25143-15-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, johannes@sipsolutions.net
+To: Dave Young <dyoung@redhat.com>, linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 12, 2015 at 06:41:33PM -0500, Johannes Weiner wrote:
-> Let the networking stack know when a memcg is under reclaim pressure
-> so that it can clamp its transmit windows accordingly.
-> 
-> Whenever the reclaim efficiency of a cgroup's LRU lists drops low
-> enough for a MEDIUM or HIGH vmpressure event to occur, assert a
-> pressure state in the socket and tcp memory code that tells it to curb
-> consumption growth from sockets associated with said control group.
-> 
-> vmpressure events are naturally edge triggered, so for hysteresis
-> assert socket pressure for a second to allow for subsequent vmpressure
-> events to occur before letting the socket code return to normal.
+On Sun, 2015-11-15 at 15:31 +0800, Dave Young wrote:
+> cfg80211 module prints a lot of messages like below. Actually printing
+> once is acceptable but sometimes it will print again and again, it looks
+> very annoying. It is better to change these detail messages to debugging
+> only.
 
-AFAICS, in contrast to v1, now you don't modify vmpressure behavior,
-which means socket_pressure will only be set when cgroup hits its
-high/hard limit. On tightly packed system, this is unlikely IMO -
-cgroups will mostly experience pressure due to memory shortage at the
-global level and/or their low limit configuration, in which case no
-vmpressure events will be triggered and therefore tcp window won't be
-clamped accordingly.
+So maybe add some wrapper that does a pr_info then
+a pr_debug for the second and subsequent uses like:
 
-May be, we could use a per memcg slab shrinker to detect memory
-pressure? This looks like abusing shrinkers API though.
-
-Thanks,
-Vladimir
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+#define pr_info_once_then_debug(fmt, ...)			\
+({								\
+	static bool __print_once __read_mostly;			\
+								\
+	if (!__print_once) {					\
+		__print_once = true;				\
+		pr_info(fmt, ##__VA_ARGS__);			\
+	} else {						\
+		pr_debug(fmt, ##__VA_ARGS__);			\
+	}							\
+})
