@@ -1,106 +1,235 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: "hw csum failure" error on skge driver with 4.3 kernel upon
- receiving ICMPv6 multicast listener discovery packets
-Date: Sun, 15 Nov 2015 13:11:22 -0800
-Message-ID: <20151115131122.5501a1b5@xeon-e3>
-References: <20151115184402.GA6614@achernar.madore.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel mailing-list <linux-kernel@vger.kernel.org>,
-	Linux network mailing-list <netdev@vger.kernel.org>
-To: David Madore <david+ml@madore.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151115184402.GA6614@achernar.madore.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: [PATCH 1/2 v2] dl2k: Add support for IP1000A-based cards
+Date: Sun, 15 Nov 2015 22:36:11 +0100
+Message-ID: <1447623372-29031-1-git-send-email-linux@rainbow-software.org>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	David Miller <davem@davemloft.net>,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.gsystem.sk ([62.176.172.50]:47261 "EHLO gsystem.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751351AbbKOVgY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Nov 2015 16:36:24 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 15 Nov 2015 19:44:02 +0100
-David Madore <david+ml@madore.org> wrote:
+Add support for IP1000A chips to dl2k driver.
+IP1000A chip looks like a TC9020 with integrated PHY.
 
-> The skge driver in the 4.3 kernel reports hardware checksum errors
-> upon receiving (certain?) IPv6 multicast packets containing ICMPv6
-> multicast listener discovery messages.  This is a regression since 4.1
-> (I believe between 4.1 and 4.2).  The e1000e driver on a different
-> Ethernet port of the same machine is not affected.  Disabling offload
-> rx checksumming suppresses the errors.  Nor are all IPv6 multicast
-> packets affected: for some reason, it seems only those containing
-> ICMPv6 multicast listener discovery messages trigger the problem.
-> 
-> In case it also matters, the skge interface in question (eth1 in what
-> follows) is part of a bridge that contains another Ethernet interface
-> and a Wifi card.
-> 
-> Here is a frame, with its link-level headers, that caused an error
-> when received by skge:
-> 
-> 0000   33 33 ff 62 30 d8 60 fb 42 f1 b1 36 86 dd 60 00  33.b0.`.B..6..`.
-> 0010   00 00 00 20 00 01 fe 80 00 00 00 00 00 00 62 fb  ... ..........b.
-> 0020   42 ff fe f1 b1 36 ff 02 00 00 00 00 00 00 00 00  B....6..........
-> 0030   00 01 ff 62 30 d8 3a 00 01 00 05 02 00 00 83 00  ...b0.:.........
-> 0040   c9 8a 00 00 00 00 ff 02 00 00 00 00 00 00 00 00  ................
-> 0050   00 01 ff 62 30 d8                                ...b0.
-> 
-> (Network dumps performed on another network device suggest that the
-> checksum is, indeed, correct.)
-> 
-> And here is the syslog produced upon receiving the above packet:
-> 
-> Nov 15 17:52:13 pleiades kernel: [  661.393163] eth1: hw csum failure
-> Nov 15 17:52:13 pleiades kernel: [  661.394203] CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W       4.3.0-pleiades #1
-> Nov 15 17:52:13 pleiades kernel: [  661.395192] Hardware name: System manufacturer System Product Name/P5WD2-Premium, BIOS 0709     03/31/2006
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  ffff88013a9d5d00 ffff88013fc03aa8 ffffffff8129a186 ffff88013afe0000
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  ffff88013fc03ac0 ffffffff81436425 0000000000000000 ffff88013fc03af0
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  ffffffff8142b87a 1027316b3fc03b30 ffff88013a9d5d00 0000000000000030
-> Nov 15 17:52:13 pleiades kernel: [  661.395192] Call Trace:
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  <IRQ>  [<ffffffff8129a186>] dump_stack+0x44/0x5e
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81436425>] netdev_rx_csum_fault+0x35/0x40
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8142b87a>] __skb_checksum_complete+0xca/0xd0
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff815062db>] ipv6_mc_validate_checksum+0xab/0x140
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8142858f>] skb_checksum_trimmed+0x8f/0x180
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81506475>] ipv6_mc_check_mld+0x105/0x330
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffffa0d2840c>] br_multicast_rcv+0x8c/0xce0 [bridge]
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff814364d3>] ? __netif_receive_skb+0x13/0x60
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8143654e>] ? netif_receive_skb_internal+0x2e/0x90
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffffa0d2006c>] br_handle_frame_finish+0x28c/0x5b0 [bridge]
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffffa00217e4>] ? usb_hcd_submit_urb+0xa4/0x960 [usbcore]
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffffa0d204e1>] br_handle_frame+0x151/0x270 [bridge]
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffffa0023092>] ? usb_submit_urb+0x2d2/0x510 [usbcore]
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81433c82>] __netif_receive_skb_core+0x1c2/0x990
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffffa0020472>] ? __usb_hcd_giveback_urb+0x82/0xe0 [usbcore]
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff814364d3>] __netif_receive_skb+0x13/0x60
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8143654e>] netif_receive_skb_internal+0x2e/0x90
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81436d70>] napi_gro_receive+0xa0/0xd0
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffffa01cecc0>] skge_poll+0x380/0x7a0 [skge]
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81032438>] ? lapic_next_event+0x18/0x20
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81437cec>] net_rx_action+0x13c/0x300
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8104fef7>] __do_softirq+0xc7/0x240
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81050240>] irq_exit+0x70/0x90
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff810060b1>] do_IRQ+0x51/0xd0
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8151ee7c>] common_interrupt+0x7c/0x7c
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  <EOI>  [<ffffffff8100da47>] ? mwait_idle+0x87/0x140
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8100dffa>] arch_cpu_idle+0xa/0x10
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff81081f45>] default_idle_call+0x25/0x30
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff8108223c>] cpu_startup_entry+0x29c/0x310
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff815194e2>] rest_init+0x72/0x80
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff817db00f>] start_kernel+0x471/0x47e
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff817da989>] ? set_init_arg+0x55/0x55
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff817da5ad>] x86_64_start_reservations+0x2a/0x2c
-> Nov 15 17:52:13 pleiades kernel: [  661.395192]  [<ffffffff817da694>] x86_64_start_kernel+0xe5/0xe8
-> 
-> 
-> I can unfortunately offer no additional information: I will no longer
-> be using this Ethernet hardware and can only access the machine
-> physically on rare occasions, so I can do no further tests.  Here are
-> links to the basic config information, though:
-> 
-> Kernel config:
-> http://www.madore.org/~david/.tmp/config.20151115
-> 
-> Initial dmesg:
-> http://www.madore.org/~david/.tmp/dmesg.20151115
-> 
+This allows IP1000A chips to work reliably because the ipg driver is
+buggy - it loses packets under load and then completely stops
+transmitting data.
 
-skge is one of the few drivers which uses CHECKSUM_COMPLETE.
-When these errors showed up in the past it was because some part
-or the protocol stack forgot to call skb_postpull_rcsum
+Tested with Asus NX1101 v2.0 at 10, 100 and 1000Mbps:
+vendor=0x13f0 device=0x1023 (rev 0x41)
+subsystem vendor=0x1043 device=0x8180
+
+MAC address registers access needed to be changed from 8-bit to 16-bit
+because 8-bit does not work on IP1000A. 8-bit access is not even
+allowed in the TC9020 datasheet (although it worked). 16-bit access
+works on both.
+
+Tested that it does not break D-Link DGE-550T (DL-2000 chip, probably
+a rebranded TC9020):
+vendor=0x1186 device=0x4000 (rev 0x0c)
+subsystem vendor=0x1186 device=0x4000
+
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+---
+ drivers/net/ethernet/dlink/Kconfig |    5 ++--
+ drivers/net/ethernet/dlink/dl2k.c  |   55 ++++++++++++++++++++++++++++++++++--
+ drivers/net/ethernet/dlink/dl2k.h  |   15 +++++++++-
+ 3 files changed, 69 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/dlink/Kconfig b/drivers/net/ethernet/dlink/Kconfig
+index f6e858d..ebdc832 100644
+--- a/drivers/net/ethernet/dlink/Kconfig
++++ b/drivers/net/ethernet/dlink/Kconfig
+@@ -17,15 +17,16 @@ config NET_VENDOR_DLINK
+ if NET_VENDOR_DLINK
+ 
+ config DL2K
+-	tristate "DL2000/TC902x-based Gigabit Ethernet support"
++	tristate "DL2000/TC902x/IP1000A-based Gigabit Ethernet support"
+ 	depends on PCI
+ 	select CRC32
+ 	---help---
+-	  This driver supports DL2000/TC902x-based Gigabit ethernet cards,
++	  This driver supports DL2000/TC902x/IP1000A-based Gigabit ethernet cards,
+ 	  which includes
+ 	  D-Link DGE-550T Gigabit Ethernet Adapter.
+ 	  D-Link DL2000-based Gigabit Ethernet Adapter.
+ 	  Sundance/Tamarack TC902x Gigabit Ethernet Adapter.
++	  ICPlus IP1000A-based cards
+ 
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called dl2k.
+diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
+index cf0a5fc..ccca479 100644
+--- a/drivers/net/ethernet/dlink/dl2k.c
++++ b/drivers/net/ethernet/dlink/dl2k.c
+@@ -253,6 +253,19 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (err)
+ 		goto err_out_unmap_rx;
+ 
++	if (np->chip_id == CHIP_IP1000A &&
++	    (np->pdev->revision == 0x40 || np->pdev->revision == 0x41)) {
++		/* PHY magic taken from ipg driver, undocumented registers */
++		mii_write(dev, np->phy_addr, 31, 0x0001);
++		mii_write(dev, np->phy_addr, 27, 0x01e0);
++		mii_write(dev, np->phy_addr, 31, 0x0002);
++		mii_write(dev, np->phy_addr, 27, 0xeb8e);
++		mii_write(dev, np->phy_addr, 31, 0x0000);
++		mii_write(dev, np->phy_addr, 30, 0x005e);
++		/* advertise 1000BASE-T half & full duplex, prefer MASTER */
++		mii_write(dev, np->phy_addr, MII_CTRL1000, 0x0700);
++	}
++
+ 	/* Fiber device? */
+ 	np->phy_media = (dr16(ASICCtrl) & PhyMedia) ? 1 : 0;
+ 	np->link_status = 0;
+@@ -361,6 +374,11 @@ parse_eeprom (struct net_device *dev)
+ 	for (i = 0; i < 6; i++)
+ 		dev->dev_addr[i] = psrom->mac_addr[i];
+ 
++	if (np->chip_id == CHIP_IP1000A) {
++		np->led_mode = psrom->led_mode;
++		return 0;
++	}
++
+ 	if (np->pdev->vendor != PCI_VENDOR_ID_DLINK) {
+ 		return 0;
+ 	}
+@@ -406,6 +424,28 @@ parse_eeprom (struct net_device *dev)
+ 	return 0;
+ }
+ 
++static void rio_set_led_mode(struct net_device *dev)
++{
++	struct netdev_private *np = netdev_priv(dev);
++	void __iomem *ioaddr = np->ioaddr;
++	u32 mode;
++
++	if (np->chip_id != CHIP_IP1000A)
++		return;
++
++	mode = dr32(ASICCtrl);
++	mode &= ~(IPG_AC_LED_MODE_BIT_1 | IPG_AC_LED_MODE | IPG_AC_LED_SPEED);
++
++	if (np->led_mode & 0x01)
++		mode |= IPG_AC_LED_MODE;
++	if (np->led_mode & 0x02)
++		mode |= IPG_AC_LED_MODE_BIT_1;
++	if (np->led_mode & 0x08)
++		mode |= IPG_AC_LED_SPEED;
++
++	dw32(ASICCtrl, mode);
++}
++
+ static int
+ rio_open (struct net_device *dev)
+ {
+@@ -424,6 +464,8 @@ rio_open (struct net_device *dev)
+ 	     GlobalReset | DMAReset | FIFOReset | NetworkReset | HostReset);
+ 	mdelay(10);
+ 
++	rio_set_led_mode(dev);
++
+ 	/* DebugCtrl bit 4, 5, 9 must set */
+ 	dw32(DebugCtrl, dr32(DebugCtrl) | 0x0230);
+ 
+@@ -433,9 +475,13 @@ rio_open (struct net_device *dev)
+ 
+ 	alloc_list (dev);
+ 
+-	/* Get station address */
+-	for (i = 0; i < 6; i++)
+-		dw8(StationAddr0 + i, dev->dev_addr[i]);
++	/* Set station address */
++	/* 16 or 32-bit access is required by TC9020 datasheet but 8-bit works
++	 * too. However, it doesn't work on IP1000A so we use 16-bit access.
++	 */
++	for (i = 0; i < 3; i++)
++		dw16(StationAddr0 + 2 * i,
++		     cpu_to_le16(((u16 *)dev->dev_addr)[i]));
+ 
+ 	set_multicast (dev);
+ 	if (np->coalesce) {
+@@ -780,6 +826,7 @@ tx_error (struct net_device *dev, int tx_status)
+ 				break;
+ 			mdelay (1);
+ 		}
++		rio_set_led_mode(dev);
+ 		rio_free_tx (dev, 1);
+ 		/* Reset TFDListPtr */
+ 		dw32(TFDListPtr0, np->tx_ring_dma +
+@@ -799,6 +846,7 @@ tx_error (struct net_device *dev, int tx_status)
+ 				break;
+ 			mdelay (1);
+ 		}
++		rio_set_led_mode(dev);
+ 		/* Let TxStartThresh stay default value */
+ 	}
+ 	/* Maximum Collisions */
+@@ -965,6 +1013,7 @@ rio_error (struct net_device *dev, int int_status)
+ 			dev->name, int_status);
+ 		dw16(ASICCtrl + 2, GlobalReset | HostReset);
+ 		mdelay (500);
++		rio_set_led_mode(dev);
+ 	}
+ }
+ 
+diff --git a/drivers/net/ethernet/dlink/dl2k.h b/drivers/net/ethernet/dlink/dl2k.h
+index 23c07b0..8f4f612 100644
+--- a/drivers/net/ethernet/dlink/dl2k.h
++++ b/drivers/net/ethernet/dlink/dl2k.h
+@@ -211,6 +211,10 @@ enum ASICCtrl_HiWord_bits {
+ 	ResetBusy = 0x0400,
+ };
+ 
++#define IPG_AC_LED_MODE		BIT(14)
++#define IPG_AC_LED_SPEED	BIT(27)
++#define IPG_AC_LED_MODE_BIT_1	BIT(29)
++
+ /* Transmit Frame Control bits */
+ enum TFC_bits {
+ 	DwordAlign = 0x00000000,
+@@ -332,7 +336,10 @@ typedef struct t_SROM {
+ 	u16 asic_ctrl;		/* 0x02 */
+ 	u16 sub_vendor_id;	/* 0x04 */
+ 	u16 sub_system_id;	/* 0x06 */
+-	u16 reserved1[12];	/* 0x08-0x1f */
++	u16 pci_base_1;		/* 0x08 (IP1000A only) */
++	u16 pci_base_2;		/* 0x0a (IP1000A only) */
++	u16 led_mode;		/* 0x0c (IP1000A only) */
++	u16 reserved1[9];	/* 0x0e-0x1f */
+ 	u8 mac_addr[6];		/* 0x20-0x25 */
+ 	u8 reserved2[10];	/* 0x26-0x2f */
+ 	u8 sib[204];		/* 0x30-0xfb */
+@@ -397,6 +404,7 @@ struct netdev_private {
+ 	u16 advertising;	/* NWay media advertisement */
+ 	u16 negotiate;		/* Negotiated media */
+ 	int phy_addr;		/* PHY addresses. */
++	u16 led_mode;		/* LED mode read from EEPROM (IP1000A only) */
+ };
+ 
+ /* The station address location in the EEPROM. */
+@@ -407,10 +415,15 @@ struct netdev_private {
+         class_mask              of the class are honored during the comparison.
+         driver_data             Data private to the driver.
+ */
++#define CHIP_IP1000A	1
+ 
+ static const struct pci_device_id rio_pci_tbl[] = {
+ 	{0x1186, 0x4000, PCI_ANY_ID, PCI_ANY_ID, },
+ 	{0x13f0, 0x1021, PCI_ANY_ID, PCI_ANY_ID, },
++	{ PCI_VDEVICE(SUNDANCE,	0x1023), CHIP_IP1000A },
++	{ PCI_VDEVICE(SUNDANCE,	0x2021), CHIP_IP1000A },
++	{ PCI_VDEVICE(DLINK,	0x9021), CHIP_IP1000A },
++	{ PCI_VDEVICE(DLINK,	0x4020), CHIP_IP1000A },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE (pci, rio_pci_tbl);
+-- 
+Ondrej Zary
