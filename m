@@ -1,55 +1,92 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net] tcp: ensure proper barriers in lockless contexts
-Date: Sun, 15 Nov 2015 11:32:10 +0800
-Message-ID: <20151115033210.GA21848@gondor.apana.org.au>
-References: <20151115012032.GA21282@gondor.apana.org.au>
- <1447557701.22599.57.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net-ipv6: Delete unnecessary checks before the function
+ call "kfree_skb"
+Date: Sat, 14 Nov 2015 19:32:25 -0800
+Message-ID: <1447558345.22599.64.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5307CAA2.8060406@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+	 <530A086E.8010901@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+	 <530A72AA.3000601@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+	 <530B5FB6.6010207@users.sourceforge.net>
+	 <alpine.DEB.2.10.1402241710370.2074@hadrien>
+	 <530C5E18.1020800@users.sourceforge.net>
+	 <alpine.DEB.2.10.1402251014170.2080@hadrien>
+	 <530CD2C4.4050903@users.sourceforge.net>
+	 <alpine.DEB.2.10.1402251840450.7035@hadrien>
+	 <530CF8FF.8080600@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+	 <530DD06F.4090703@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+	 <5317A59D.4@users.sourceforge.net> <564785ED.1040906@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:47256 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752023AbbKODcM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2015 22:32:12 -0500
-Content-Disposition: inline
-In-Reply-To: <1447557701.22599.57.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hideaki Yoshfuji <yoshfuji@linux-ipv6.org>,
+	James Morris <jmorris@namei.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <564785ED.1040906@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 14, 2015 at 07:21:41PM -0800, Eric Dumazet wrote:
->
-> This patch makes sure sk_ack_backlog is written before sk_state is set
-> to TCP_LISTEN, otherwise one could see a '0' listener backlog.
+On Sat, 2015-11-14 at 20:05 +0100, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Sat, 14 Nov 2015 19:55:00 +0100
 > 
-> We had a spurious kernel log for a similar issue that was solved in
-> commit f985c65c908f6b26c30019a83dc5ea295f5fcf62
-> ("tcp: avoid spurious SYN flood detection at listen() time")
+> The kfree_skb() function tests whether its argument is NULL and then
+> returns immediately. Thus the test around the calls is not needed.
 > 
-> Sure, we can live with a spurious log, but experience showed that taking
-> care of this early could avoid lot of hassle, say in 12 months when
-> people start using linux-4.4 
+> This issue was detected by using the Coccinelle software.
+> 
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> ---
+>  net/ipv6/af_inet6.c                     | 7 ++-----
+>  net/ipv6/netfilter/nf_conntrack_reasm.c | 3 +--
+>  2 files changed, 3 insertions(+), 7 deletions(-)
+> 
+> diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+> index 44bb66b..4cd9259 100644
+> --- a/net/ipv6/af_inet6.c
+> +++ b/net/ipv6/af_inet6.c
+> @@ -416,12 +416,9 @@ void inet6_destroy_sock(struct sock *sk)
+>  	/* Release rx options */
+>  
+>  	skb = xchg(&np->pktoptions, NULL);
+> -	if (skb)
+> -		kfree_skb(skb);
+> -
+> +	kfree_skb(skb);
+>  	skb = xchg(&np->rxpmtu, NULL);
+> -	if (skb)
+> -		kfree_skb(skb);
+> +	kfree_skb(skb);
+>  
 
-Oh I have no problems whatsoever with adding barriers where they
-are needed, such as in this particular spot.  What I do have an
-issue with though is the fact that your patch in its current form
-may give future TCP developers a false sense of security.
+There is no 'issue' here, or not this one.
 
-I know that you as the person who added these helpers know exactly
-what they do and don't do.  But the next guy who comes along may
-not have that complete understanding and they may think that these
-helpers give them the right to do things locklessly.
+In most cases, these pointers are NULL, so the test can be predicted by
+the processor.
 
-So personally I'd prefer explicit barriers in the spots where they
-are needed with detailed comments as opposed to these helpers which
-appear to offer guarrantees that they can't really give.
+While if the test is done in kfree_skb(), the branch predictor of the
+cpu wont be able to predict things.
 
-Or perhaps give these helpers names that make people think twice,
-e.g., tcp_load_state_unsafe.
+By feeding too many NULL pointers to kfree_skb(), we slow down it.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Branch misses and hits were considered important years ago...
+
+But seeing this inet6_destroy_sock() is (ab)using xchg() three times, I
+am not sure author cared that much about performance.
+
+
+
