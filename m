@@ -1,331 +1,150 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH] dl2k: Implement suspend
-Date: Mon, 16 Nov 2015 23:41:51 +0100
-Message-ID: <1447713711-32471-1-git-send-email-linux@rainbow-software.org>
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	David Miller <davem@davemloft.net>,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.gsystem.sk ([62.176.172.50]:52733 "EHLO gsystem.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752413AbbKPWmF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Nov 2015 17:42:05 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yang Shi <yang.shi@linaro.org>
+Subject: [PATCH V4 2/2] arm64: bpf: make BPF prologue and epilogue align with ARM64 AAPCS
+Date: Mon, 16 Nov 2015 14:35:35 -0800
+Message-ID: <1447713335-29707-1-git-send-email-yang.shi@linaro.org>
+References: <CABg9mcvomep=M1As_Vj=XuTNk=jiGwXQqQWbjotMXP2csKX=Bg@mail.gmail.com>
+Cc: zlim.lnx@gmail.com, xi.wang@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linaro-kernel@lists.linaro.org, yang.shi@linaro.org
+To: ast@kernel.org, daniel@iogearbox.net, catalin.marinas@arm.com,
+	will.deacon@arm.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CABg9mcvomep=M1As_Vj=XuTNk=jiGwXQqQWbjotMXP2csKX=Bg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add suspend/resume support to dl2k driver.
-Tested on Asus NX1101 (IP1000A) and D-Link DGE-550T (DL-2000).
+Save and restore FP/LR in BPF prog prologue and epilogue, save SP to FP
+in prologue in order to get the correct stack backtrace.
 
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+However, ARM64 JIT used FP (x29) as eBPF fp register, FP is subjected to
+change during function call so it may cause the BPF prog stack base address
+change too.
+
+Use x25 to replace FP as BPF stack base register (fp). Since x25 is callee
+saved register, so it will keep intact during function call.
+It is initialized in BPF prog prologue when BPF prog is started to run
+everytime. Save and restore x25/x26 in BPF prologue and epilogue to keep
+them intact for the outside of BPF. Actually, x26 is unnecessary, but SP
+requires 16 bytes alignment.
+
+So, the BPF stack layout looks like:
+
+                                 high
+         original A64_SP =>   0:+-----+ BPF prologue
+                                |FP/LR|
+         current A64_FP =>  -16:+-----+
+                                | ... | callee saved registers
+                                +-----+
+                                |     | x25/x26
+         BPF fp register => -80:+-----+
+                                |     |
+                                | ... | BPF prog stack
+                                |     |
+                                |     |
+         current A64_SP =>      +-----+
+                                |     |
+                                | ... | Function call stack
+                                |     |
+                                +-----+
+                                  low
+
+CC: Zi Shen Lim <zlim.lnx@gmail.com>
+CC: Xi Wang <xi.wang@gmail.com>
+Signed-off-by: Yang Shi <yang.shi@linaro.org>
 ---
- drivers/net/ethernet/dlink/dl2k.c |  189 +++++++++++++++++++++++++------------
- 1 file changed, 128 insertions(+), 61 deletions(-)
+V4 --> V3:
+* Save/restore x25 and x26
 
-diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
-index ccca479..23d13c5 100644
---- a/drivers/net/ethernet/dlink/dl2k.c
-+++ b/drivers/net/ethernet/dlink/dl2k.c
-@@ -253,19 +253,6 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		goto err_out_unmap_rx;
+V3 --> V2:
+* Make FP point to FP'
+* Fix a compile warning
+
+ arch/arm64/net/bpf_jit_comp.c | 44 ++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 39 insertions(+), 5 deletions(-)
+
+diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
+index ac8b548..86a3253 100644
+--- a/arch/arm64/net/bpf_jit_comp.c
++++ b/arch/arm64/net/bpf_jit_comp.c
+@@ -50,7 +50,7 @@ static const int bpf2a64[] = {
+ 	[BPF_REG_8] = A64_R(21),
+ 	[BPF_REG_9] = A64_R(22),
+ 	/* read-only frame pointer to access stack */
+-	[BPF_REG_FP] = A64_FP,
++	[BPF_REG_FP] = A64_R(25),
+ 	/* temporary register for internal BPF JIT */
+ 	[TMP_REG_1] = A64_R(23),
+ 	[TMP_REG_2] = A64_R(24),
+@@ -155,16 +155,47 @@ static void build_prologue(struct jit_ctx *ctx)
+ 	stack_size += 4; /* extra for skb_copy_bits buffer */
+ 	stack_size = STACK_ALIGN(stack_size);
  
--	if (np->chip_id == CHIP_IP1000A &&
--	    (np->pdev->revision == 0x40 || np->pdev->revision == 0x41)) {
--		/* PHY magic taken from ipg driver, undocumented registers */
--		mii_write(dev, np->phy_addr, 31, 0x0001);
--		mii_write(dev, np->phy_addr, 27, 0x01e0);
--		mii_write(dev, np->phy_addr, 31, 0x0002);
--		mii_write(dev, np->phy_addr, 27, 0xeb8e);
--		mii_write(dev, np->phy_addr, 31, 0x0000);
--		mii_write(dev, np->phy_addr, 30, 0x005e);
--		/* advertise 1000BASE-T half & full duplex, prefer MASTER */
--		mii_write(dev, np->phy_addr, MII_CTRL1000, 0x0700);
--	}
--
- 	/* Fiber device? */
- 	np->phy_media = (dr16(ASICCtrl) & PhyMedia) ? 1 : 0;
- 	np->link_status = 0;
-@@ -275,13 +262,11 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
- 	 	if (np->an_enable == 2) {
- 			np->an_enable = 1;
- 		}
--		mii_set_media_pcs (dev);
- 	} else {
- 		/* Auto-Negotiation is mandatory for 1000BASE-T,
- 		   IEEE 802.3ab Annex 28D page 14 */
- 		if (np->speed == 1000)
- 			np->an_enable = 1;
--		mii_set_media (dev);
- 	}
- 
- 	err = register_netdev (dev);
-@@ -446,19 +431,13 @@ static void rio_set_led_mode(struct net_device *dev)
- 	dw32(ASICCtrl, mode);
- }
- 
--static int
--rio_open (struct net_device *dev)
-+static void rio_hw_init(struct net_device *dev)
- {
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem *ioaddr = np->ioaddr;
--	const int irq = np->pdev->irq;
- 	int i;
- 	u16 macctrl;
- 
--	i = request_irq(irq, rio_interrupt, IRQF_SHARED, dev->name, dev);
--	if (i)
--		return i;
--
- 	/* Reset all logic functions */
- 	dw16(ASICCtrl + 2,
- 	     GlobalReset | DMAReset | FIFOReset | NetworkReset | HostReset);
-@@ -469,11 +448,31 @@ rio_open (struct net_device *dev)
- 	/* DebugCtrl bit 4, 5, 9 must set */
- 	dw32(DebugCtrl, dr32(DebugCtrl) | 0x0230);
- 
-+	if (np->chip_id == CHIP_IP1000A &&
-+	    (np->pdev->revision == 0x40 || np->pdev->revision == 0x41)) {
-+		/* PHY magic taken from ipg driver, undocumented registers */
-+		mii_write(dev, np->phy_addr, 31, 0x0001);
-+		mii_write(dev, np->phy_addr, 27, 0x01e0);
-+		mii_write(dev, np->phy_addr, 31, 0x0002);
-+		mii_write(dev, np->phy_addr, 27, 0xeb8e);
-+		mii_write(dev, np->phy_addr, 31, 0x0000);
-+		mii_write(dev, np->phy_addr, 30, 0x005e);
-+		/* advertise 1000BASE-T half & full duplex, prefer MASTER */
-+		mii_write(dev, np->phy_addr, MII_CTRL1000, 0x0700);
-+	}
++	/*
++	 * BPF prog stack layout
++	 *
++	 *                         high
++	 * original A64_SP =>   0:+-----+ BPF prologue
++	 *                        |FP/LR|
++	 * current A64_FP =>  -16:+-----+
++	 *                        | ... | callee saved registers
++	 *                        +-----+
++	 *                        |     | x25/x26
++	 * BPF fp register => -80:+-----+
++	 *                        |     |
++	 *                        | ... | BPF prog stack
++	 *                        |     |
++	 *                        |     |
++	 * current A64_SP =>      +-----+
++	 *                        |     |
++	 *                        | ... | Function call stack
++	 *                        |     |
++	 *                        +-----+
++	 *                          low
++	 *
++	 */
 +
-+	if (np->phy_media)
-+		mii_set_media_pcs(dev);
-+	else
-+		mii_set_media(dev);
++	/* Save FP and LR registers to stay align with ARM64 AAPCS */
++	emit(A64_PUSH(A64_FP, A64_LR, A64_SP), ctx);
++	emit(A64_MOV(1, A64_FP, A64_SP), ctx);
 +
- 	/* Jumbo frame */
- 	if (np->jumbo != 0)
- 		dw16(MaxFrameSize, MAX_JUMBO+14);
+ 	/* Save callee-saved register */
+ 	emit(A64_PUSH(r6, r7, A64_SP), ctx);
+ 	emit(A64_PUSH(r8, r9, A64_SP), ctx);
+ 	if (ctx->tmp_used)
+ 		emit(A64_PUSH(tmp1, tmp2, A64_SP), ctx);
  
--	alloc_list (dev);
-+	/* Set RFDListPtr */
-+	dw32(RFDListPtr0, np->rx_ring_dma);
-+	dw32(RFDListPtr1, 0);
+-	/* Set up frame pointer */
++	/* Save fp (x25) and x26. SP requires 16 bytes alignment */
++	emit(A64_PUSH(fp, A64_R(26), A64_SP), ctx);
++
++	/* Set up BPF prog stack base register (x25) */
+ 	emit(A64_MOV(1, fp, A64_SP), ctx);
  
- 	/* Set station address */
- 	/* 16 or 32-bit access is required by TC9020 datasheet but 8-bit works
-@@ -493,8 +492,6 @@ rio_open (struct net_device *dev)
- 	dw8(RxDMABurstThresh, 0x30);
- 	dw8(RxDMAUrgentThresh, 0x30);
- 	dw32(RmonStatMask, 0x0007ffff);
--	/* clear statistics */
--	clear_stats (dev);
+-	/* Set up BPF stack */
++	/* Set up function call stack */
+ 	emit(A64_SUB_I(1, A64_SP, A64_SP, stack_size), ctx);
  
- 	/* VLAN supported */
- 	if (np->vlan) {
-@@ -509,10 +506,6 @@ rio_open (struct net_device *dev)
- 		dw32(MACCtrl, dr32(MACCtrl) | AutoVLANuntagging);
- 	}
+ 	/* Clear registers A and X */
+@@ -190,14 +221,17 @@ static void build_epilogue(struct jit_ctx *ctx)
+ 	/* We're done with BPF stack */
+ 	emit(A64_ADD_I(1, A64_SP, A64_SP, stack_size), ctx);
  
--	setup_timer(&np->timer, rio_timer, (unsigned long)dev);
--	np->timer.expires = jiffies + 1*HZ;
--	add_timer (&np->timer);
--
- 	/* Start Tx/Rx */
- 	dw32(MACCtrl, dr32(MACCtrl) | StatsEnable | RxEnable | TxEnable);
++	/* Restore fs (x25) and x26 */
++	emit(A64_POP(fp, A64_R(26), A64_SP), ctx);
++
+ 	/* Restore callee-saved register */
+ 	if (ctx->tmp_used)
+ 		emit(A64_POP(tmp1, tmp2, A64_SP), ctx);
+ 	emit(A64_POP(r8, r9, A64_SP), ctx);
+ 	emit(A64_POP(r6, r7, A64_SP), ctx);
  
-@@ -522,6 +515,28 @@ rio_open (struct net_device *dev)
- 	macctrl |= (np->tx_flow) ? TxFlowControlEnable : 0;
- 	macctrl |= (np->rx_flow) ? RxFlowControlEnable : 0;
- 	dw16(MACCtrl, macctrl);
-+}
-+
-+static int rio_open(struct net_device *dev)
-+{
-+	struct netdev_private *np = netdev_priv(dev);
-+	const int irq = np->pdev->irq;
-+	int i;
-+
-+	i = request_irq(irq, rio_interrupt, IRQF_SHARED, dev->name, dev);
-+	if (i)
-+		return i;
-+
-+	alloc_list(dev);
-+
-+	rio_hw_init(dev);
-+
-+	/* clear statistics */
-+	clear_stats(dev);
-+
-+	setup_timer(&np->timer, rio_timer, (unsigned long)dev);
-+	np->timer.expires = jiffies + 1 * HZ;
-+	add_timer(&np->timer);
+-	/* Restore frame pointer */
+-	emit(A64_MOV(1, fp, A64_SP), ctx);
++	/* Restore FP/LR registers */
++	emit(A64_POP(A64_FP, A64_LR, A64_SP), ctx);
  
- 	netif_start_queue (dev);
- 
-@@ -591,7 +606,6 @@ static void
- alloc_list (struct net_device *dev)
- {
- 	struct netdev_private *np = netdev_priv(dev);
--	void __iomem *ioaddr = np->ioaddr;
- 	int i;
- 
- 	np->cur_rx = np->cur_tx = 0;
-@@ -634,10 +648,40 @@ alloc_list (struct net_device *dev)
- 				  PCI_DMA_FROMDEVICE));
- 		np->rx_ring[i].fraginfo |= cpu_to_le64((u64)np->rx_buf_sz << 48);
- 	}
-+}
- 
--	/* Set RFDListPtr */
--	dw32(RFDListPtr0, np->rx_ring_dma);
--	dw32(RFDListPtr1, 0);
-+static inline dma_addr_t desc_to_dma(struct netdev_desc *desc)
-+{
-+	return le64_to_cpu(desc->fraginfo) & DMA_BIT_MASK(48);
-+}
-+
-+static void free_list(struct net_device *dev)
-+{
-+	struct netdev_private *np = netdev_priv(dev);
-+	struct sk_buff *skb;
-+	int i;
-+
-+	/* Free all the skbuffs in the queue. */
-+	for (i = 0; i < RX_RING_SIZE; i++) {
-+		skb = np->rx_skbuff[i];
-+		if (skb) {
-+			pci_unmap_single(np->pdev, desc_to_dma(&np->rx_ring[i]),
-+					 skb->len, PCI_DMA_FROMDEVICE);
-+			dev_kfree_skb(skb);
-+			np->rx_skbuff[i] = NULL;
-+		}
-+		np->rx_ring[i].status = 0;
-+		np->rx_ring[i].fraginfo = 0;
-+	}
-+	for (i = 0; i < TX_RING_SIZE; i++) {
-+		skb = np->tx_skbuff[i];
-+		if (skb) {
-+			pci_unmap_single(np->pdev, desc_to_dma(&np->tx_ring[i]),
-+					 skb->len, PCI_DMA_TODEVICE);
-+			dev_kfree_skb(skb);
-+			np->tx_skbuff[i] = NULL;
-+		}
-+	}
- }
- 
- static netdev_tx_t
-@@ -748,11 +792,6 @@ rio_interrupt (int irq, void *dev_instance)
- 	return IRQ_RETVAL(handled);
- }
- 
--static inline dma_addr_t desc_to_dma(struct netdev_desc *desc)
--{
--	return le64_to_cpu(desc->fraginfo) & DMA_BIT_MASK(48);
--}
--
- static void
- rio_free_tx (struct net_device *dev, int irq)
- {
-@@ -1733,8 +1772,6 @@ rio_close (struct net_device *dev)
- 	void __iomem *ioaddr = np->ioaddr;
- 
- 	struct pci_dev *pdev = np->pdev;
--	struct sk_buff *skb;
--	int i;
- 
- 	netif_stop_queue (dev);
- 
-@@ -1747,27 +1784,7 @@ rio_close (struct net_device *dev)
- 	free_irq(pdev->irq, dev);
- 	del_timer_sync (&np->timer);
- 
--	/* Free all the skbuffs in the queue. */
--	for (i = 0; i < RX_RING_SIZE; i++) {
--		skb = np->rx_skbuff[i];
--		if (skb) {
--			pci_unmap_single(pdev, desc_to_dma(&np->rx_ring[i]),
--					 skb->len, PCI_DMA_FROMDEVICE);
--			dev_kfree_skb (skb);
--			np->rx_skbuff[i] = NULL;
--		}
--		np->rx_ring[i].status = 0;
--		np->rx_ring[i].fraginfo = 0;
--	}
--	for (i = 0; i < TX_RING_SIZE; i++) {
--		skb = np->tx_skbuff[i];
--		if (skb) {
--			pci_unmap_single(pdev, desc_to_dma(&np->tx_ring[i]),
--					 skb->len, PCI_DMA_TODEVICE);
--			dev_kfree_skb (skb);
--			np->tx_skbuff[i] = NULL;
--		}
--	}
-+	free_list(dev);
- 
- 	return 0;
- }
-@@ -1795,11 +1812,61 @@ rio_remove1 (struct pci_dev *pdev)
- 	}
- }
- 
-+#ifdef CONFIG_PM
-+static int rio_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct netdev_private *np = netdev_priv(dev);
-+	void __iomem *ioaddr = np->ioaddr;
-+
-+	pci_save_state(pdev);
-+
-+	if (netif_running(dev)) {
-+		netif_device_detach(dev);
-+		del_timer_sync(&np->timer);
-+		/* Disable interrupts */
-+		dw16(IntEnable, 0);
-+		/* Stop Tx and Rx logics */
-+		dw32(MACCtrl, TxDisable | RxDisable | StatsDisable);
-+		free_list(dev);
-+	}
-+
-+	pci_set_power_state(pdev, PCI_D3hot);
-+
-+	return 0;
-+}
-+
-+static int rio_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct netdev_private *np = netdev_priv(dev);
-+
-+	pci_set_power_state(pdev, PCI_D0);
-+	pci_restore_state(pdev);
-+
-+	if (netif_running(dev)) {
-+		alloc_list(dev);
-+		rio_hw_init(dev);
-+		np->timer.expires = jiffies + 1 * HZ;
-+		add_timer(&np->timer);
-+		netif_device_attach(dev);
-+		dl2k_enable_int(np);
-+	}
-+
-+	return 0;
-+}
-+
-+#endif /* CONFIG_PM */
-+
- static struct pci_driver rio_driver = {
- 	.name		= "dl2k",
- 	.id_table	= rio_pci_tbl,
- 	.probe		= rio_probe1,
- 	.remove		= rio_remove1,
-+#ifdef CONFIG_PM
-+	.suspend	= rio_suspend,
-+	.resume		= rio_resume,
-+#endif /* CONFIG_PM */
- };
- 
- module_pci_driver(rio_driver);
+ 	/* Set return value */
+ 	emit(A64_MOV(1, A64_R(0), r0), ctx);
 -- 
-Ondrej Zary
+2.0.2
