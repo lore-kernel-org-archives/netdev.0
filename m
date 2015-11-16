@@ -1,42 +1,44 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: What's the expected path to recover from a PHY_HALTED transition?
-Date: Mon, 16 Nov 2015 11:48:46 -0800
-Message-ID: <564A331E.6090603@gmail.com>
-References: <CAJ-Vmon_s0o7G84CBOb_V5Y-D-3TMNDq7AOhr9fdiOmxYaFBZg@mail.gmail.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: irq_fpu_usable() is false in ndo_start_xmit() for UDP packets
+Date: Mon, 16 Nov 2015 20:52:28 +0100
+Message-ID: <CAHmME9qQz-uTFDjUuVaqpO9ODt3KZWEdYVQJ8qsXWa5YkYAoWA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Adrian Chadd <adrian@freebsd.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:34398 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752291AbbKPTto (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 14:49:44 -0500
-Received: by pacfl14 with SMTP id fl14so25938659pac.1
-        for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 11:49:44 -0800 (PST)
-In-Reply-To: <CAJ-Vmon_s0o7G84CBOb_V5Y-D-3TMNDq7AOhr9fdiOmxYaFBZg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>
+To: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16/11/15 11:29, Adrian Chadd wrote:
-> hi,
-> 
-> I'm debugging an issue on the Broadcom parts (using unimac-mdio.c as
-> the mdio bus) where i occasionally see MDIO bus read failures, which
-> causes phy.c to transition the PHY to PHY_HALTED. It stays in this
-> state until the link is bounced.
+Hi David & Folks,
 
-There is a known problem with some Broadcom PHYs where the first MDIO
-read may fail, and this can actually show up randomly in time, not just
-the first read and that caused the PHY library to enter PHY_HALTED.
-Which part are you seeing this? unimac-mdio.c has a reset hook just for
-that cases.
+I have a virtual device driver that does some fancy processing of
+packets in ndo_start_xmit before forwarding them onward out of a
+tunnel elsewhere. In order to make that fancy processing fast, I have
+AVX and AVX2 implementations. This means I need to use the FPU.
 
-> 
-> So, what's the expectation to handle this and recover from it? is
-> there some userland piece monitoring things that I'm missing?
+So, I do the usual pattern found throughout the kernel:
 
-There is not much you can do typically, but ignore or retry the read, or
-workaround it if you can, like what bcm7xxx.c does.
--- 
-Florian
+        if (!irq_fpu_usable())
+                generic_c(...);
+        else {
+                kernel_fpu_begin();
+                optimized_avx(...);
+                kernel_fpu_end();
+         }
+
+This works fine with, say, iperf3 in TCP mode. The AVX performance is
+great. However, when using iperf3 in UDP mode, irq_fpu_usable() is
+mostly false! I added a dump_stack() call to see why, except nothing
+looks strange; the initial call in the stack trace is
+entry_SYSCALL_64_fastpath. Why would irq_fpu_usable() return false
+when we're in a syscall? Doesn't that mean this is in process context?
+
+So, I find this a bit disturbing. If anybody has an explanation, and a
+way to work around it, I'd be quite happy. Or, simply if there is a
+debugging technique you'd recommend, I'd be happy to try something and
+report back.
+
+Thanks,
+Jason
