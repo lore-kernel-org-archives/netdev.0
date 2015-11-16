@@ -1,58 +1,38 @@
-From: huangdaode <huangdaode@hisilicon.com>
-Subject: [PATCH v2 net-next] net: hisilicon: fix binding document of mdio
-Date: Mon, 16 Nov 2015 17:38:24 +0800
-Message-ID: <1447666704-200773-1-git-send-email-huangdaode@hisilicon.com>
+From: Premkumar Jonnala <pjonnala@broadcom.com>
+Subject: Hardware capabilities and bonding offload
+Date: Mon, 16 Nov 2015 09:29:12 +0000
+Message-ID: <77EF4405DD4BB54AACCE7DB593DF6A9AA0D643@SJEXCHMB14.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
-	<dingtianhong@huawei.com>, <zhangfei.gao@linaro.org>,
-	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	<linuxarm@huawei.com>, <salil.mehta@huawei.com>,
-	<huangdaode@hisilicon.com>, <kenneth-lee-2012@foxmail.com>,
-	<xuwei5@hisilicon.com>, <lisheng011@huawei.com>
-To: <davem@davemloft.net>, <robh+dt@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:50911 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751718AbbKPJ3N convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 04:29:13 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch explains the occasion of "hisilcon,mdio" and
-"hisilicon,hns-mdio" according to Arnd's comments.
-and reformat it according to comments from Rob<robh@kernel.org>.
+Hello,
 
-chang log:
+I am looking to offload bond interfaces to hardware for forwarding.  Linux allows for configuring 
+a variety of parameters on bonds or slave interfaces.  Not all configurations can be offloaded to 
+hardware.  For example, certain hardware cannot support bonds with mode of adaptive load balancing.
 
-v2:
-  1) reformat the style.
-  2) make it more clearity.
+When such a configuration is provided by user, we have two options at hand (for platforms supporting
+hardware offloads):
 
-v1:
-  initial version.
+1. Reject the configuration.  
 
-Signed-off-by: huangdaode <huangdaode@hisilicon.com>
----
- Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+2. Handle the bond interface in software.  In a scenario where this bond interface is part
+of a bridge interface, for simplicity purpose, all other interfaces in the bridge need to be 
+handled in software - which results in a very low packet processing performance.
 
-diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-index 9c23fdf..4942d20 100644
---- a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-+++ b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-@@ -1,7 +1,12 @@
- Hisilicon MDIO bus controller
- 
- Properties:
--- compatible: "hisilicon,mdio","hisilicon,hns-mdio".
-+- compatible: can be one of:
-+	"hisilicon,hns-mdio"
-+	"hisilicon,mdio"
-+  "hisilicon,hns-mdio" is recommendly to be used for hip05 and later SOCs,
-+  while "hisilicon,mdio" is optional for backwards compatibility, only
-+  support for hip04 Soc.
- - reg: The base address of the MDIO bus controller register bank.
- - #address-cells: Must be <1>.
- - #size-cells: Must be <0>.  MDIO addresses have no size component.
--- 
-1.9.1
+I'm writing to gather feedback on the approach to take, including any other suggestions.
+We have discussed this briefly in our weekly netdev meeting, and I received votes for
+option #1.
+
+Thanks
+Prem
