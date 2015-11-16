@@ -1,42 +1,36 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v2] ip_tunnel: disable preemption when updating per-cpu tstats
-Date: Mon, 16 Nov 2015 20:33:42 +0100
-Message-ID: <CAHmME9oQuiHfZmW-c0VN9ivQLjC0nPuuprv7-ryS+AqFvAfXMg@mail.gmail.com>
-References: <1447342212-5543-1-git-send-email-Jason@zx2c4.com>
-	<1447346158-19257-1-git-send-email-Jason@zx2c4.com>
-	<20151116.141737.420755936779587001.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] arm64: bpf: fix JIT frame pointer setup
+Date: Mon, 16 Nov 2015 14:39:27 -0500 (EST)
+Message-ID: <20151116.143927.1891085632150496414.davem@davemloft.net>
+References: <1447365421-1309-1-git-send-email-yang.shi@linaro.org>
+	<1447365421-1309-2-git-send-email-yang.shi@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, tgraf@suug.ch,
-	Tom Herbert <tom@herbertland.com>,
-	Jiri Benc <jbenc@redhat.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151116.141737.420755936779587001.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@kernel.org, daniel@iogearbox.net, catalin.marinas@arm.com,
+	will.deacon@arm.com, zlim.lnx@gmail.com, xi.wang@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linaro-kernel@lists.linaro.org
+To: yang.shi@linaro.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40242 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751059AbbKPTja (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 14:39:30 -0500
+In-Reply-To: <1447365421-1309-2-git-send-email-yang.shi@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 16, 2015 at 8:17 PM, David Miller <davem@davemloft.net> wrote:
-> So another fix could have been to do local_bh_disable() in the
-> udp_tunnel6_xmit_skb() helper.
+From: Yang Shi <yang.shi@linaro.org>
+Date: Thu, 12 Nov 2015 13:57:00 -0800
 
-This would have fixed one problem, but everywhere
-udp_tunnel_xmit_skb() (4, not 6) is called, iptunnel_xmit_stats is
-called right after it, so there would have to be a modicum of patches
-for all of these places too.
+> BPF fp should point to the top of the BPF prog stack. The original
+> implementation made it point to the bottom incorrectly.
+> Move A64_SP to fp before reserve BPF prog stack space.
+> 
+> CC: Zi Shen Lim <zlim.lnx@gmail.com>
+> CC: Xi Wang <xi.wang@gmail.com>
+> Signed-off-by: Yang Shi <yang.shi@linaro.org>
 
-By the way, there's something else I noticed about this in dealing
-with these functions: the return value of udp_tunnel_xmit_skb is
-different from that of udp_tunnel6_xmit_skb. Nobody is using them
-incorrectly, so far as I can see, but it is confusing that they return
-different things. I had started to clean this up and send a patch, but
-it got a bit invasive in drivers I shouldn't really touch. But if
-somebody with a bit more top-down command of things wants to poke at
-this, it's a low hanging fruit as far as I can see.
-
->
-> Thanks again.
-
-My pleasure.
+Applied.
