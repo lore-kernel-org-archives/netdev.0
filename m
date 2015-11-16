@@ -1,57 +1,69 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH 0/2] Fix issues with vlans without REORDER_HEADER
-Date: Mon, 16 Nov 2015 15:43:43 -0500
-Message-ID: <1447706625-25979-1-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH 2/2] vlan: Do not put vlan headers back on bridge and macvlan ports
+Date: Mon, 16 Nov 2015 15:43:45 -0500
+Message-ID: <1447706625-25979-3-git-send-email-vyasevic@redhat.com>
+References: <1447706625-25979-1-git-send-email-vyasevic@redhat.com>
 Cc: phil@nwl.cc, kaber@trash.net,
 	Vladislav Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f45.google.com ([209.85.192.45]:35753 "EHLO
-	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751041AbbKPUnx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 15:43:53 -0500
-Received: by qgec40 with SMTP id c40so58326759qge.2
-        for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 12:43:52 -0800 (PST)
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:35784 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751732AbbKPUn4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 15:43:56 -0500
+Received: by qgec40 with SMTP id c40so58327707qge.2
+        for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 12:43:55 -0800 (PST)
+In-Reply-To: <1447706625-25979-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A while ago Phil Sutter brought up an issue with vlans without
-REORDER_HEADER and bridges.  The problem was that if a vlan
-without REORDER_HEADER was a port in the bridge, the bridge ended
-up forwarding corrupted packets that still contained the vlan header.
-The same issue exists for bridge mode macvlan/macvtap devices.
+When a vlan is configured with REORDER_HEADER set to 0, the vlan
+header is put back into the packet and makes it appear that
+the vlan header is still there even after it's been processed.
+This posses a problem for bridge and macvlan ports.  The packets
+passed to those device may be forwarded and at the time of the
+forward, vlan headers end up being unexpectedly present.
 
-An additional issue with vlans without REORDER_HEADER is that stacking
-them also doesn't work.  The reason here is that skb_reorder_vlan_header()
-function assumes that it on ETH_HLEN bytes deep into the packet.  That
-is not the case, when you a vlan without REORRDER_HEADER flag set.
+With the patch, we make sure that we do not put the vlan header
+back (when REORDER_HEADER is 0) if a bridge or macvlan has
+been configured on top of the vlan device.
 
-This series attempts to correct these 2 issues.
-
-1) To solve the stacked vlans problem, the patch simply use
-skb->mac_len as an offset to start copying mac addresses that
-is part of header reordering.
-
-2) To fix the issue with bridge/macvlan/macvtap, the second patch
-simply doesn't write the vlan header back to the packet if the
-vlan device is either a bridge or a macvlan port.  This ends up
-being the simplest and least performance intrussive solution.
-
-I've considered extending patch 2 to all stacked devices (essentially
-checked for the presense of rx_handler), but that feels like a broader
-restriction and _may_ break existing uses.  
-
-Thanks
--vlad
-
-Vladislav Yasevich (2):
-  vlan: Fix untag operations of stacked vlans with REORDER_HEADER off
-  vlan: Do not put vlan headers back on bridge and macvlan ports
-
+Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+---
  include/linux/netdevice.h | 5 +++++
  net/8021q/vlan_core.c     | 4 +++-
- net/core/skbuff.c         | 3 ++-
- 3 files changed, 10 insertions(+), 2 deletions(-)
+ 2 files changed, 8 insertions(+), 1 deletion(-)
 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 2d15e38..2f9d47e 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3842,6 +3842,11 @@ static inline bool netif_is_bridge_master(const struct net_device *dev)
+ 	return dev->priv_flags & IFF_EBRIDGE;
+ }
+ 
++static inline bool netif_is_bridge_port(const struct net_device *dev)
++{
++	return dev->priv_flags & IFF_BRIDGE_PORT;
++}
++
+ static inline bool netif_is_ovs_master(const struct net_device *dev)
+ {
+ 	return dev->priv_flags & IFF_OPENVSWITCH;
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 61bf2a0..c2c9a0f 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -30,7 +30,9 @@ bool vlan_do_receive(struct sk_buff **skbp)
+ 			skb->pkt_type = PACKET_HOST;
+ 	}
+ 
+-	if (!(vlan_dev_priv(vlan_dev)->flags & VLAN_FLAG_REORDER_HDR)) {
++	if (!(vlan_dev_priv(vlan_dev)->flags & VLAN_FLAG_REORDER_HDR) &&
++	    !netif_is_macvlan_port(vlan_dev) &&
++	    !netif_is_bridge_port(vlan_dev)) {
+ 		unsigned int offset = skb->data - skb_mac_header(skb);
+ 
+ 		/*
 -- 
 1.9.3
