@@ -1,35 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: thunder: Fix crash upon shutdown after failed
- probe
-Date: Mon, 16 Nov 2015 09:27:00 -0500 (EST)
-Message-ID: <20151116.092700.699331527594997509.davem@davemloft.net>
-References: <1447680146-8680-1-git-send-email-p.fedin@samsung.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sgoutham@cavium.com, rric@kernel.org,
-	youngmin.lee@cavium.com, kin-yip.liu@cavium.com
-To: p.fedin@samsung.com
+From: Pavel Fedin <p.fedin@samsung.com>
+Subject: [PATCH] net: thunder: Check for driver data in nicvf_remove()
+Date: Mon, 16 Nov 2015 17:51:34 +0300
+Message-ID: <1447685494-9836-1-git-send-email-p.fedin@samsung.com>
+Cc: Sunil Goutham <sgoutham@cavium.com>,
+	Robert Richter <rric@kernel.org>, youngmin.lee@cavium.com,
+	kin-yip.liu@cavium.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34692 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751361AbbKPO1C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 09:27:02 -0500
-In-Reply-To: <1447680146-8680-1-git-send-email-p.fedin@samsung.com>
+Received: from mailout1.w1.samsung.com ([210.118.77.11]:18383 "EHLO
+	mailout1.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751139AbbKPOvm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 09:51:42 -0500
+Received: from eucpsbgm1.samsung.com (unknown [203.254.199.244])
+ by mailout1.w1.samsung.com
+ (Oracle Communications Messaging Server 7.0.5.31.0 64bit (built May  5 2014))
+ with ESMTP id <0NXW006BTXA4H790@mailout1.w1.samsung.com> for
+ netdev@vger.kernel.org; Mon, 16 Nov 2015 14:51:40 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Fedin <p.fedin@samsung.com>
-Date: Mon, 16 Nov 2015 16:22:26 +0300
+In some cases the crash is caused by nicvf_remove() being called from
+outside. For example, if we try to feed the device to vfio after the
+probe has failed for some reason. So, move the check to better place.
 
-> If device probe fails, driver remains bound to the PCI device. However,
-> driver data has been reset to NULL. This causes crash upon dereferencing
-> it in nicvf_remove()
-> 
-> Signed-off-by: Pavel Fedin <p.fedin@samsung.com>
-> ---
-> v1 => v2:
-> - Do the test in nicvf_remove(), this allows to cover more situations
+Signed-off-by: Pavel Fedin <p.fedin@samsung.com>
+---
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
-Please send me a relative fix on top of the other change, rather
-than a complete replacement patch.
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 372c39e..7f709cb 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -1583,8 +1583,14 @@ err_disable_device:
+ static void nicvf_remove(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+-	struct nicvf *nic = netdev_priv(netdev);
+-	struct net_device *pnetdev = nic->pnicvf->netdev;
++	struct nicvf *nic;
++	struct net_device *pnetdev;
++
++	if (!netdev)
++		return;
++
++	nic = netdev_priv(netdev);
++	pnetdev = nic->pnicvf->netdev;
+ 
+ 	/* Check if this Qset is assigned to different VF.
+ 	 * If yes, clean primary and all secondary Qsets.
+@@ -1600,9 +1606,6 @@ static void nicvf_remove(struct pci_dev *pdev)
+ 
+ static void nicvf_shutdown(struct pci_dev *pdev)
+ {
+-	if (!pci_get_drvdata(pdev))
+-		return;
+-
+ 	nicvf_remove(pdev);
+ }
+ 
+-- 
+2.4.4
