@@ -1,48 +1,56 @@
-From: Dragos Tatulea <dragos@endocode.com>
-Subject: [PATCH] net: switchdev: fix return code of fdb_dump stub
-Date: Mon, 16 Nov 2015 10:52:48 +0100
-Message-ID: <5649A770.8090909@endocode.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2] ip_tunnel: disable preemption when updating per-cpu
+ tstats
+Date: Mon, 16 Nov 2015 11:04:20 +0100
+Message-ID: <1447668260.141421.440863153.156433F8@webmail.messagingengine.com>
+References: <1447342212-5543-1-git-send-email-Jason@zx2c4.com>
+ <1447346158-19257-1-git-send-email-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	Jiri Pirko <jiri@mellanox.com>, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:36954 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752688AbbKPJwv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 04:52:51 -0500
-Received: by wmww144 with SMTP id w144so110916106wmw.0
-        for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 01:52:50 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, tgraf@suug.ch,
+	Tom Herbert <tom@herbertland.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447346158-19257-1-git-send-email-Jason@zx2c4.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-rtnl_fdb_dump always expects an index to be returned by the ndo_fdb_dump op,
-but when CONFIG_NET_SWITCHDEV is off, it returns an error.
+On Thu, Nov 12, 2015, at 17:35, Jason A. Donenfeld wrote:
+> Drivers like vxlan use the recently introduced
+> udp_tunnel_xmit_skb/udp_tunnel6_xmit_skb APIs. udp_tunnel6_xmit_skb
+> makes use of ip6tunnel_xmit, and ip6tunnel_xmit, after sending the
+> packet, updates the struct stats using the usual
+> u64_stats_update_begin/end calls on this_cpu_ptr(dev->tstats).
+> udp_tunnel_xmit_skb makes use of iptunnel_xmit, which doesn't touch
+> tstats, so drivers like vxlan, immediately after, call
+> iptunnel_xmit_stats, which does the same thing - calls
+> u64_stats_update_begin/end on this_cpu_ptr(dev->tstats).
+> 
+> While vxlan is probably fine (I don't know?), calling a similar function
+> from, say, an unbound workqueue, on a fully preemptable kernel causes
+> real issues:
+> 
+> [  188.434537] BUG: using smp_processor_id() in preemptible [00000000]
+> code: kworker/u8:0/6
+> [  188.435579] caller is debug_smp_processor_id+0x17/0x20
+> [  188.435583] CPU: 0 PID: 6 Comm: kworker/u8:0 Not tainted 4.2.6 #2
+> [  188.435607] Call Trace:
+> [  188.435611]  [<ffffffff8234e936>] dump_stack+0x4f/0x7b
+> [  188.435615]  [<ffffffff81915f3d>]
+> check_preemption_disabled+0x19d/0x1c0
+> [  188.435619]  [<ffffffff81915f77>] debug_smp_processor_id+0x17/0x20
+> 
+> The solution would be to protect the whole
+> this_cpu_ptr(dev->tstats)/u64_stats_update_begin/end blocks with
+> disabling preemption and then reenabling it.
+> 
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 
-Fix that by returning the given unmodified idx.
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-A similar fix was 0890cf6cb6ab ("switchdev: fix return value of
-switchdev_port_fdb_dump in case of error") but for the CONFIG_NET_SWITCHDEV=y
-case.
-
-Fixes: 45d4122ca7cd ("switchdev: add support for fdb add/del/dump via switchdev_port_obj ops.")
-Signed-off-by: Dragos Tatulea <dragos@endocode.com>
----
- include/net/switchdev.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index bc865e2..bc5765a 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -323,7 +323,7 @@ static inline int switchdev_port_fdb_dump(struct sk_buff *skb,
-                                          struct net_device *filter_dev,
-                                          int idx)
- {
--       return -EOPNOTSUPP;
-+       return idx;
- }
- 
- static inline void switchdev_port_fwd_mark_set(struct net_device *dev,
+Thanks!
