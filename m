@@ -1,35 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel 4.1 hang, apparently in __inet_lookup_established
-Date: Mon, 16 Nov 2015 07:07:49 -0800
-Message-ID: <1447686469.22599.67.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5726932.6r4XOZ2Km2@rofl>
-	 <1443025879.29850.116.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <56492A39.2060307@fastly.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v2 net-next] net: hisilicon: fix binding document of mdio
+Date: Mon, 16 Nov 2015 09:20:51 -0600
+Message-ID: <20151116152051.GA7183@rob-hp-laptop>
+References: <1447666704-200773-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Patrick Schaaf <kernelorg@bof.de>, NETDEV <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Grant Zhang <gzhang@fastly.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56492A39.2060307@fastly.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
+	dingtianhong@huawei.com, zhangfei.gao@linaro.org,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	linuxarm@huawei.com, salil.mehta@huawei.com,
+	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
+	lisheng011@huawei.com
+To: huangdaode <huangdaode@hisilicon.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:47335 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751824AbbKPPU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Nov 2015 10:20:57 -0500
+Content-Disposition: inline
+In-Reply-To: <1447666704-200773-1-git-send-email-huangdaode@hisilicon.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2015-11-15 at 16:58 -0800, Grant Zhang wrote:
-> Hi Patrick,
+On Mon, Nov 16, 2015 at 05:38:24PM +0800, huangdaode wrote:
+> This patch explains the occasion of "hisilcon,mdio" and
+> "hisilicon,hns-mdio" according to Arnd's comments.
+> and reformat it according to comments from Rob<robh@kernel.org>.
 > 
-> Have you tried the two patches Eric mentioned? One of my 4.1.11 server 
-> just hanged with very similar stack trace and I am wondering whether the 
-> aforementioned patches would help.
+> chang log:
 > 
-> Thanks,
+> v2:
+>   1) reformat the style.
+>   2) make it more clearity.
+> 
+> v1:
+>   initial version.
+> 
+> Signed-off-by: huangdaode <huangdaode@hisilicon.com>
+> ---
+>  Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt | 7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
+> index 9c23fdf..4942d20 100644
+> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
+> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
+> @@ -1,7 +1,12 @@
+>  Hisilicon MDIO bus controller
+>  
+>  Properties:
+> -- compatible: "hisilicon,mdio","hisilicon,hns-mdio".
+> +- compatible: can be one of:
+> +	"hisilicon,hns-mdio"
+> +	"hisilicon,mdio"
+> +  "hisilicon,hns-mdio" is recommendly to be used for hip05 and later SOCs,
 
-linux-4.1.12 definitely contains the fixes.
+s/recommendly/recommended/
 
-8ae3dfacdd82 inet: fix race in reqsk_queue_unlink()
-31b8abd140ad inet: fix races in reqsk_queue_hash_req()
+> +  while "hisilicon,mdio" is optional for backwards compatibility, only
+> +  support for hip04 Soc.
 
-Please upgrade to 4.1.13 and you should be fine.
+...compatibility only on hip04 SOC.
 
-Thanks.
+>  - reg: The base address of the MDIO bus controller register bank.
+>  - #address-cells: Must be <1>.
+>  - #size-cells: Must be <0>.  MDIO addresses have no size component.
+> -- 
+> 1.9.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe devicetree" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
