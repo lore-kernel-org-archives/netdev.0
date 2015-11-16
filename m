@@ -1,47 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/core: use netdev name in warning if no parent
-Date: Mon, 16 Nov 2015 16:22:21 -0500 (EST)
-Message-ID: <20151116.162221.1821905374061673605.davem@davemloft.net>
-References: <1447697800-6959-1-git-send-email-bjorn@mork.no>
+Subject: Re: [PATCH] net: thunder: Check for driver data in nicvf_remove()
+Date: Mon, 16 Nov 2015 16:25:17 -0500 (EST)
+Message-ID: <20151116.162517.200378372662377994.davem@davemloft.net>
+References: <1447685494-9836-1-git-send-email-p.fedin@samsung.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: bjorn@mork.no
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sgoutham@cavium.com, rric@kernel.org,
+	youngmin.lee@cavium.com, kin-yip.liu@cavium.com
+To: p.fedin@samsung.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41705 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41716 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751172AbbKPVWX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 16:22:23 -0500
-In-Reply-To: <1447697800-6959-1-git-send-email-bjorn@mork.no>
+	with ESMTP id S1752514AbbKPVZU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 16:25:20 -0500
+In-Reply-To: <1447685494-9836-1-git-send-email-p.fedin@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Mon, 16 Nov 2015 19:16:40 +0100
+From: Pavel Fedin <p.fedin@samsung.com>
+Date: Mon, 16 Nov 2015 17:51:34 +0300
 
-> A recent flaw in the netdev feature setting resulted in warnings
-> like this one from VLAN interfaces:
->=20
->  WARNING: CPU: 1 PID: 4975 at net/core/dev.c:2419 skb_warn_bad_offloa=
-d+0xbc/0xcb()
->  : caps=3D(0x00000000001b5820, 0x00000000001b5829) len=3D2782 data_le=
-n=3D0 gso_size=3D1348 gso_type=3D16 ip_summed=3D3
->=20
-> The ":" is supposed to be preceded by a driver name, but in this
-> case it is an empty string since the device has no parent.
->=20
-> There are many types of network devices without a parent. The
-> anonymous warnings for these devices can be hard to debug.  Log
-> the network device name instead in these cases to assist further
-> debugging.
->=20
-> This is mostly similar to how __netdev_printk() handles orphan
-> devices.
->=20
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+> In some cases the crash is caused by nicvf_remove() being called from
+> outside. For example, if we try to feed the device to vfio after the
+> probe has failed for some reason. So, move the check to better place.
+> 
+> Signed-off-by: Pavel Fedin <p.fedin@samsung.com>
 
-Yeah that seems reasonable, applied, thanks!
-
-I wonder if we open-code this in a lot of other places, and
-therefore this deserves a helper and some auditing.
+Applied, thanks.
