@@ -1,150 +1,63 @@
-From: Yang Shi <yang.shi@linaro.org>
-Subject: [PATCH V4 2/2] arm64: bpf: make BPF prologue and epilogue align with ARM64 AAPCS
-Date: Mon, 16 Nov 2015 14:35:35 -0800
-Message-ID: <1447713335-29707-1-git-send-email-yang.shi@linaro.org>
-References: <CABg9mcvomep=M1As_Vj=XuTNk=jiGwXQqQWbjotMXP2csKX=Bg@mail.gmail.com>
-Cc: zlim.lnx@gmail.com, xi.wang@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linaro-kernel@lists.linaro.org, yang.shi@linaro.org
-To: ast@kernel.org, daniel@iogearbox.net, catalin.marinas@arm.com,
-	will.deacon@arm.com, davem@davemloft.net
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] dl2k: Implement suspend
+Date: Tue, 17 Nov 2015 00:55:25 +0100
+Message-ID: <20151116235525.GA3700@electric-eye.fr.zoreil.com>
+References: <1447713711-32471-1-git-send-email-linux@rainbow-software.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: Ondrej Zary <linux@rainbow-software.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABg9mcvomep=M1As_Vj=XuTNk=jiGwXQqQWbjotMXP2csKX=Bg@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <1447713711-32471-1-git-send-email-linux@rainbow-software.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Save and restore FP/LR in BPF prog prologue and epilogue, save SP to FP
-in prologue in order to get the correct stack backtrace.
+Ondrej Zary <linux@rainbow-software.org> :
+[...]
+> diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
+> index ccca479..23d13c5 100644
+> --- a/drivers/net/ethernet/dlink/dl2k.c
+> +++ b/drivers/net/ethernet/dlink/dl2k.c
+[..]
+> @@ -522,6 +515,28 @@ rio_open (struct net_device *dev)
+>  	macctrl |= (np->tx_flow) ? TxFlowControlEnable : 0;
+>  	macctrl |= (np->rx_flow) ? RxFlowControlEnable : 0;
+>  	dw16(MACCtrl, macctrl);
+> +}
+> +
+> +static int rio_open(struct net_device *dev)
+> +{
+> +	struct netdev_private *np = netdev_priv(dev);
+> +	const int irq = np->pdev->irq;
+> +	int i;
+> +
+> +	i = request_irq(irq, rio_interrupt, IRQF_SHARED, dev->name, dev);
+> +	if (i)
+> +		return i;
+> +
+> +	alloc_list(dev);
+> +
+> +	rio_hw_init(dev);
 
-However, ARM64 JIT used FP (x29) as eBPF fp register, FP is subjected to
-change during function call so it may cause the BPF prog stack base address
-change too.
+- request shared irq
+- allocate memory
+- init chipset
 
-Use x25 to replace FP as BPF stack base register (fp). Since x25 is callee
-saved register, so it will keep intact during function call.
-It is initialized in BPF prog prologue when BPF prog is started to run
-everytime. Save and restore x25/x26 in BPF prologue and epilogue to keep
-them intact for the outside of BPF. Actually, x26 is unnecessary, but SP
-requires 16 bytes alignment.
+It may have worked so far but you ought to nail it before your
+changes start to look like regression (if shit can happen, it will).
 
-So, the BPF stack layout looks like:
+Btw:
+- alloc_list should not be allowed to return partially filled receive
+  ring. Please make it return a proper status code.
+  The driver itself should rather drop received data than leave holes
+  in its receive ring.
+- the suspend / resume logic does not need a complete free / alloc
+  cycle. Use the same buffers and reset the cur_tx, cur_rx indexes
+  as needed.
 
-                                 high
-         original A64_SP =>   0:+-----+ BPF prologue
-                                |FP/LR|
-         current A64_FP =>  -16:+-----+
-                                | ... | callee saved registers
-                                +-----+
-                                |     | x25/x26
-         BPF fp register => -80:+-----+
-                                |     |
-                                | ... | BPF prog stack
-                                |     |
-                                |     |
-         current A64_SP =>      +-----+
-                                |     |
-                                | ... | Function call stack
-                                |     |
-                                +-----+
-                                  low
+Go wild.
 
-CC: Zi Shen Lim <zlim.lnx@gmail.com>
-CC: Xi Wang <xi.wang@gmail.com>
-Signed-off-by: Yang Shi <yang.shi@linaro.org>
----
-V4 --> V3:
-* Save/restore x25 and x26
-
-V3 --> V2:
-* Make FP point to FP'
-* Fix a compile warning
-
- arch/arm64/net/bpf_jit_comp.c | 44 ++++++++++++++++++++++++++++++++++++++-----
- 1 file changed, 39 insertions(+), 5 deletions(-)
-
-diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
-index ac8b548..86a3253 100644
---- a/arch/arm64/net/bpf_jit_comp.c
-+++ b/arch/arm64/net/bpf_jit_comp.c
-@@ -50,7 +50,7 @@ static const int bpf2a64[] = {
- 	[BPF_REG_8] = A64_R(21),
- 	[BPF_REG_9] = A64_R(22),
- 	/* read-only frame pointer to access stack */
--	[BPF_REG_FP] = A64_FP,
-+	[BPF_REG_FP] = A64_R(25),
- 	/* temporary register for internal BPF JIT */
- 	[TMP_REG_1] = A64_R(23),
- 	[TMP_REG_2] = A64_R(24),
-@@ -155,16 +155,47 @@ static void build_prologue(struct jit_ctx *ctx)
- 	stack_size += 4; /* extra for skb_copy_bits buffer */
- 	stack_size = STACK_ALIGN(stack_size);
- 
-+	/*
-+	 * BPF prog stack layout
-+	 *
-+	 *                         high
-+	 * original A64_SP =>   0:+-----+ BPF prologue
-+	 *                        |FP/LR|
-+	 * current A64_FP =>  -16:+-----+
-+	 *                        | ... | callee saved registers
-+	 *                        +-----+
-+	 *                        |     | x25/x26
-+	 * BPF fp register => -80:+-----+
-+	 *                        |     |
-+	 *                        | ... | BPF prog stack
-+	 *                        |     |
-+	 *                        |     |
-+	 * current A64_SP =>      +-----+
-+	 *                        |     |
-+	 *                        | ... | Function call stack
-+	 *                        |     |
-+	 *                        +-----+
-+	 *                          low
-+	 *
-+	 */
-+
-+	/* Save FP and LR registers to stay align with ARM64 AAPCS */
-+	emit(A64_PUSH(A64_FP, A64_LR, A64_SP), ctx);
-+	emit(A64_MOV(1, A64_FP, A64_SP), ctx);
-+
- 	/* Save callee-saved register */
- 	emit(A64_PUSH(r6, r7, A64_SP), ctx);
- 	emit(A64_PUSH(r8, r9, A64_SP), ctx);
- 	if (ctx->tmp_used)
- 		emit(A64_PUSH(tmp1, tmp2, A64_SP), ctx);
- 
--	/* Set up frame pointer */
-+	/* Save fp (x25) and x26. SP requires 16 bytes alignment */
-+	emit(A64_PUSH(fp, A64_R(26), A64_SP), ctx);
-+
-+	/* Set up BPF prog stack base register (x25) */
- 	emit(A64_MOV(1, fp, A64_SP), ctx);
- 
--	/* Set up BPF stack */
-+	/* Set up function call stack */
- 	emit(A64_SUB_I(1, A64_SP, A64_SP, stack_size), ctx);
- 
- 	/* Clear registers A and X */
-@@ -190,14 +221,17 @@ static void build_epilogue(struct jit_ctx *ctx)
- 	/* We're done with BPF stack */
- 	emit(A64_ADD_I(1, A64_SP, A64_SP, stack_size), ctx);
- 
-+	/* Restore fs (x25) and x26 */
-+	emit(A64_POP(fp, A64_R(26), A64_SP), ctx);
-+
- 	/* Restore callee-saved register */
- 	if (ctx->tmp_used)
- 		emit(A64_POP(tmp1, tmp2, A64_SP), ctx);
- 	emit(A64_POP(r8, r9, A64_SP), ctx);
- 	emit(A64_POP(r6, r7, A64_SP), ctx);
- 
--	/* Restore frame pointer */
--	emit(A64_MOV(1, fp, A64_SP), ctx);
-+	/* Restore FP/LR registers */
-+	emit(A64_POP(A64_FP, A64_LR, A64_SP), ctx);
- 
- 	/* Set return value */
- 	emit(A64_MOV(1, A64_R(0), r0), ctx);
 -- 
-2.0.2
+Ueimor
