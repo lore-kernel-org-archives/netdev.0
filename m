@@ -1,39 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] macvlan: fix leak in macvlan_handle_frame
-Date: Mon, 16 Nov 2015 17:07:38 -0500 (EST)
-Message-ID: <20151116.170738.762655257161553595.davem@davemloft.net>
-References: <d4141a7c4841ae5f631858a8537968419f0e396b.1447705984.git.sd@queasysnail.net>
+Subject: Re: [PATCH 1/2 v2] dl2k: Add support for IP1000A-based cards
+Date: Mon, 16 Nov 2015 17:11:56 -0500 (EST)
+Message-ID: <20151116.171156.1040843400451886484.davem@davemloft.net>
+References: <1447623372-29031-1-git-send-email-linux@rainbow-software.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, kaber@trash.net
-To: sd@queasysnail.net
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com,
+	linux-kernel@vger.kernel.org
+To: linux@rainbow-software.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42428 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42472 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752706AbbKPWHl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 17:07:41 -0500
-In-Reply-To: <d4141a7c4841ae5f631858a8537968419f0e396b.1447705984.git.sd@queasysnail.net>
+	with ESMTP id S1750878AbbKPWL6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 17:11:58 -0500
+In-Reply-To: <1447623372-29031-1-git-send-email-linux@rainbow-software.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Mon, 16 Nov 2015 22:54:20 +0100
+From: Ondrej Zary <linux@rainbow-software.org>
+Date: Sun, 15 Nov 2015 22:36:11 +0100
 
-> Reset pskb in macvlan_handle_frame in case skb_share_check returned a
-> clone.
+> Add support for IP1000A chips to dl2k driver.
+> IP1000A chip looks like a TC9020 with integrated PHY.
 > 
-> Fixes: 8a4eb5734e8d ("net: introduce rx_handler results and logic around that")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> This allows IP1000A chips to work reliably because the ipg driver is
+> buggy - it loses packets under load and then completely stops
+> transmitting data.
+> 
+> Tested with Asus NX1101 v2.0 at 10, 100 and 1000Mbps:
+> vendor=0x13f0 device=0x1023 (rev 0x41)
+> subsystem vendor=0x1043 device=0x8180
+> 
+> MAC address registers access needed to be changed from 8-bit to 16-bit
+> because 8-bit does not work on IP1000A. 8-bit access is not even
+> allowed in the TC9020 datasheet (although it worked). 16-bit access
+> works on both.
+> 
+> Tested that it does not break D-Link DGE-550T (DL-2000 chip, probably
+> a rebranded TC9020):
+> vendor=0x1186 device=0x4000 (rev 0x0c)
+> subsystem vendor=0x1186 device=0x4000
+> 
+> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
 
-Thanks for finding all of these bugs which seem to have the same
-signature.
+Ok, this is a major step forward, thanks for doing this work.
 
-I always find pass by reference handling of SKBs to be extremely error
-prone, and it's a very inefficient calling convention anyways.
-
-I wondered if we could do better with the interface for rx_handler,
-for example returning an error-pointer for the 'new_skb', but nothing
-I came up with could provide the same semantics we have now.
-
-Sigh...
+Applied.
