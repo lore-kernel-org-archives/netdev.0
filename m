@@ -1,59 +1,39 @@
-From: Geliang Tang <geliangtang@163.com>
-Subject: [PATCH 2/3] libceph: use list_next_entry instead of list_entry_next
-Date: Mon, 16 Nov 2015 21:46:32 +0800
-Message-ID: <b6930bdf479389886e7b999d207419836893af78.1447681244.git.geliangtang@163.com>
-References: <6a47dadb3a625d7f5b20b4e98bb8af4d30db66a3.1447681244.git.geliangtang@163.com>
-Cc: Geliang Tang <geliangtang@163.com>, ceph-devel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ilya Dryomov <idryomov@gmail.com>, "Yan, Zheng" <zyan@redhat.com>,
-	Sage Weil <sage@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6a47dadb3a625d7f5b20b4e98bb8af4d30db66a3.1447681244.git.geliangtang@163.com>
-In-Reply-To: <6a47dadb3a625d7f5b20b4e98bb8af4d30db66a3.1447681244.git.geliangtang@163.com>
-References: <6a47dadb3a625d7f5b20b4e98bb8af4d30db66a3.1447681244.git.geliangtang@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: thunder: Fix crash upon shutdown after failed
+ probe
+Date: Mon, 16 Nov 2015 09:26:24 -0500 (EST)
+Message-ID: <20151116.092624.744220990052005545.davem@davemloft.net>
+References: <1447329318-7840-1-git-send-email-p.fedin@samsung.com>
+	<20151115.183037.1090427973434503108.davem@davemloft.net>
+	<00c301d12071$c4b8be50$4e2a3af0$@samsung.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sgoutham@cavium.com, rric@kernel.org,
+	youngmin.lee@cavium.com, kin-yip.liu@cavium.com
+To: p.fedin@samsung.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34686 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750781AbbKPO03 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 09:26:29 -0500
+In-Reply-To: <00c301d12071$c4b8be50$4e2a3af0$@samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-list_next_entry has been defined in list.h, so I replace list_entry_next
-with it.
+From: Pavel Fedin <p.fedin@samsung.com>
+Date: Mon, 16 Nov 2015 16:21:06 +0300
 
-Signed-off-by: Geliang Tang <geliangtang@163.com>
----
- net/ceph/messenger.c | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+>  Thank you very much, however i've just found one more case where i
+> still get this crash. I should have done this from the beginning,
+> but please revert it in your repo, i'm sending v2, which covers more
+> cases.  The new case is feeding the device to vfio after the probe
+> failed. In this case nicvf_remove() is called upon unbind.
 
-diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
-index 9981039..b1d1489 100644
---- a/net/ceph/messenger.c
-+++ b/net/ceph/messenger.c
-@@ -23,9 +23,6 @@
- #include <linux/ceph/pagelist.h>
- #include <linux/export.h>
- 
--#define list_entry_next(pos, member)					\
--	list_entry(pos->member.next, typeof(*pos), member)
--
- /*
-  * Ceph uses the messenger to exchange ceph_msg messages with other
-  * hosts in the system.  The messenger provides ordered and reliable
-@@ -1042,7 +1039,7 @@ static bool ceph_msg_data_pagelist_advance(struct ceph_msg_data_cursor *cursor,
- 	/* Move on to the next page */
- 
- 	BUG_ON(list_is_last(&cursor->page->lru, &pagelist->head));
--	cursor->page = list_entry_next(cursor->page, lru);
-+	cursor->page = list_next_entry(cursor->page, lru);
- 	cursor->last_piece = cursor->resid <= PAGE_SIZE;
- 
- 	return true;
-@@ -1166,7 +1163,7 @@ static bool ceph_msg_data_advance(struct ceph_msg_data_cursor *cursor,
- 	if (!cursor->resid && cursor->total_resid) {
- 		WARN_ON(!cursor->last_piece);
- 		BUG_ON(list_is_last(&cursor->data->links, cursor->data_head));
--		cursor->data = list_entry_next(cursor->data, links);
-+		cursor->data = list_next_entry(cursor->data, links);
- 		__ceph_msg_data_cursor_init(cursor);
- 		new_piece = true;
- 	}
--- 
-2.5.0
+Commits installed in my tree are part of the permanent commit
+reccord, and will not be reverted.
+
+Please instead send me a relative patch which takes care of
+the other cases.
+
+Thanks.
