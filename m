@@ -1,77 +1,98 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: Hardware capabilities and bonding offload
-Date: Mon, 16 Nov 2015 08:10:27 -0800
-Message-ID: <5649FFF3.9080401@gmail.com>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9AA0D643@SJEXCHMB14.corp.ad.broadcom.com> <20151116153032.GC2217@nanopsycho.orion>
+Subject: Re: [PATCH] bonding: Offloading bonds to hardware
+Date: Mon, 16 Nov 2015 08:24:25 -0800
+Message-ID: <564A0339.5050708@gmail.com>
+References: <77EF4405DD4BB54AACCE7DB593DF6A9A9FD653@SJEXCHMB14.corp.ad.broadcom.com> <20151114093920.GA2188@nanopsycho.orion> <56481D60.10209@gmail.com> <20151115090109.GA2193@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>,
-	Premkumar Jonnala <pjonnala@broadcom.com>
+Cc: Premkumar Jonnala <pjonnala@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, andrew@lunn.ch,
+	f.fainelli@gmail.com, idosch@mellanox.com,
+	nikolay@cumulusnetworks.com, sfeldma@gmail.com,
+	gospo@cumulusnetworks.com, davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33465 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751824AbbKPQKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 11:10:40 -0500
-Received: by pabfh17 with SMTP id fh17so181951013pab.0
-        for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 08:10:40 -0800 (PST)
-In-Reply-To: <20151116153032.GC2217@nanopsycho.orion>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33926 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751611AbbKPQYm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 11:24:42 -0500
+Received: by padhx2 with SMTP id hx2so179652410pad.1
+        for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 08:24:42 -0800 (PST)
+In-Reply-To: <20151115090109.GA2193@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15-11-16 07:30 AM, Jiri Pirko wrote:
-> Mon, Nov 16, 2015 at 10:29:12AM CET, pjonnala@broadcom.com wrote:
->> Hello,
+On 15-11-15 01:01 AM, Jiri Pirko wrote:
+> Sun, Nov 15, 2015 at 06:51:28AM CET, john.fastabend@gmail.com wrote:
+>> On 15-11-14 01:39 AM, Jiri Pirko wrote:
+>>> Thu, Nov 12, 2015 at 05:02:18PM CET, pjonnala@broadcom.com wrote:
+>>>> Packet forwarding to/from bond interfaces is done in software.
+>>>>
+>>>> This patch enables certain platforms to bridge traffic to/from
+>>>> bond interfaces in hardware.  Notifications are sent out when 
+>>>> the "active" slave set for a bond interface is updated in 
+>>>> software.  Platforms use the notifications to program the 
+>>>> hardware accordingly.  The changes have been verified to work 
+>>>> with configured and 802.3ad bond interfaces.
+>>>>
+>>>> Signed-off-by: Premkumar Jonnala <pjonnala@broadcom.com>
+>>>
+>>> This patch is wrong, in many different acpects. Leaving the submission
+>>> style, and no in-tree consumer aside, adding ndos for this thing is
+>>> unacceptable. It should be handled as a part of switchdev attrs.
 >>
->> I am looking to offload bond interfaces to hardware for forwarding.  Linux allows for configuring 
->> a variety of parameters on bonds or slave interfaces.  Not all configurations can be offloaded to 
->> hardware.  For example, certain hardware cannot support bonds with mode of adaptive load balancing.
->>
->> When such a configuration is provided by user, we have two options at hand (for platforms supporting
->> hardware offloads):
->>
->> 1. Reject the configuration.  
->>
->> 2. Handle the bond interface in software.  In a scenario where this bond interface is part
->> of a bridge interface, for simplicity purpose, all other interfaces in the bridge need to be 
->> handled in software - which results in a very low packet processing performance.
+>> Why is it unacceptable? I think its at least worth debating. If I
+>> have a nic that can do bonding but none of the other switchdev
+>> things then implementing another ndo is certainly more straight
+>> forward. As it is heading many of the 10+Gbps nics may need to
+>> implement just enough of the switchdev infrastructure to get things
+>> like bonding up and working. Not necessarily a bad thing if we make
+>> the switchdev infrastructure light but does sort of make the name
+>> confusing if my nic is not doing any switching ;)
 > 
-> Although it might sound intriguing to fallback to sw here, it makes no
-> sense and user certainly does not want that. For example in case of our
-> HW, we have 100gbit forwarding which would be degraded to ~1gbit (for one
-> port pair). Another thing is that for some HW this mignt not be even
-> possible. In our case it would be very complicated.
-> 
-> I believe that the correct approach is to let driver decide if the
-> configuration is acceptable or not and reject it in case it is not.
+> Can you please describe what exaclty such a NIC functionality would look
+> like? If there's not switching/forwarding, then the packets would go
+> trought slow-path (kernel bonding/team driver). So why would we need to
+> tell anything to driver/hw?
 > 
 
-+1 I agree the best approach is to throw a hard error and reject
-it if there is no mapping on to the hardware. This lets your
-management software propagate that error up so you can handle it
-correctly at higher levels in the stack.
+Mostly I was thinking about direct assigned functions into a container
+or VM. In this case the hardware may be able to create a virtual
+function or physical function that does bonding in hardware and exposes
+this to the OS.
 
-You could if needed add a bit to enable setup in software only
-if that is needed.
+This seems a bit different then switchdev at the moment because
+functions are a PCIe concept and we don't have netdev for each VF
+necessarily in the host/hypervisor. Also the traffic endpoint is the
+host albeit a VM/container.
 
-Thanks,
+The current situation is to create a ndo op to manage every knob on
+the functions by passing an index,
+
+> 
+>       int                     (*ndo_set_vf_mac)(struct net_device *dev,
+>                                                   int queue, u8 *mac);
+>       int                     (*ndo_set_vf_vlan)(struct net_device *dev,
+>                                                    int queue, u16 vlan, u8 qos);
+>	[...]
+
+at linux plumbers conference in Seattle some of us kicked around an
+idea to create "management" netdevs similar in style to what Florian(?)
+proposed with his L2 only netdevs. This might provide a mechanism to
+bring SR-IOV into the switchdev fold. But on the other hand I don't
+want to manage an edge NIC the same way as a switch but this doesn't
+necessarily mean the low level driver API can't be the same.
+
+So I think it needs more thought is all and also to your point SR-IOV
+does really imply some sort of switching/forwarding logic. It might be a
+good topic for netdev conference in Seville.
+
+Thanks!
 John
 
-> 
->>
->> I'm writing to gather feedback on the approach to take, including any other suggestions.
->> We have discussed this briefly in our weekly netdev meeting, and I received votes for
->> option #1.
->>
->> Thanks
->> Prem
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+> Thanks.
 > 
