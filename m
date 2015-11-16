@@ -1,35 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6] net: ethernet: add driver for Aurora VLSI NB8800
- Ethernet controller
-Date: Mon, 16 Nov 2015 15:53:27 -0500 (EST)
-Message-ID: <20151116.155327.1432148371996261050.davem@davemloft.net>
-References: <1447698216-7635-1-git-send-email-mans@mansr.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: Routing loops & TTL tracking with tunnel devices
+Date: Mon, 16 Nov 2015 21:55:19 +0100
+Message-ID: <CAHmME9pNCqbcoqbOnx6p8poehAntyyy1jQhy=0_HjkJ8nvMQdw@mail.gmail.com>
+References: <CAHmME9r_DbZWe4FsfebHSSf_iPctSe5S-w9bU3o8BN43raeURg@mail.gmail.com>
+	<20151116203709.GA27178@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: mans@mansr.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Benc <jbenc@redhat.com>, therbert@google.com,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447698216-7635-1-git-send-email-mans@mansr.com>
+In-Reply-To: <20151116203709.GA27178@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mans Rullgard <mans@mansr.com>
-Date: Mon, 16 Nov 2015 18:23:35 +0000
+Hi Sowmini,
 
-> +static int nb8800_alloc_rx(struct net_device *dev, int i, bool napi)
+Neat. Though, in my case, I'm not actually just prepending a header.
+I'm doing some more substantial transformations of a packet. And this
+needs to work with v4 too. So I'm not sure implementing a v6 spec will
+help with things. I need to identify the right mechanism inside the
+kernel to assist with this, like, say, a member in sk_buff.
 
-"i" is passed in as a signed int here, but:
-
-> +static void nb8800_receive(struct net_device *dev, unsigned i, unsigned len)
- ...
-> +		err = nb8800_alloc_rx(dev, i, true);
-
-It comes from an 'unsigned' value.
-
-Please pick one type and use it consistently.
-
-Also, always fully spell out "unsigned int" rather than use "unsigned"
-as a shorthand.
-
-Thanks.
+Jason
