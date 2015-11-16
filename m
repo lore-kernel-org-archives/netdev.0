@@ -1,8 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/2] mISDN: Delete an unnecessary check before the function
- call "kfree_skb"
-Date: Mon, 16 Nov 2015 10:45:51 +0100
-Message-ID: <5649A5CF.3090403@users.sourceforge.net>
+Subject: [PATCH 2/2] mISDN: One function call less in mISDN_sock_sendmsg()
+ after error detection
+Date: Mon, 16 Nov 2015 10:47:37 +0100
+Message-ID: <5649A639.2040503@users.sourceforge.net>
 References: <5307CAA2.8060406@users.sourceforge.net>
  <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
  <530A086E.8010901@users.sourceforge.net>
@@ -33,29 +33,38 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 16 Nov 2015 10:10:53 +0100
+Date: Mon, 16 Nov 2015 10:30:29 +0100
 
-The kfree_skb() function tests whether its argument is NULL and then
-returns immediately. Thus the test around the call is not needed.
+The kfree_skb() function was called in one case by the
+mISDN_sock_sendmsg() function during error handling even if a call of
+the _l2_alloc_skb() function returned a null pointer.
 
-This issue was detected by using the Coccinelle software.
+This implementation detail could be improved by the introduction
+of another jump label.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/isdn/mISDN/socket.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/isdn/mISDN/socket.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/isdn/mISDN/socket.c b/drivers/isdn/mISDN/socket.c
-index 0d29b5a..edd16ef 100644
+index edd16ef..430ac8c 100644
 --- a/drivers/isdn/mISDN/socket.c
 +++ b/drivers/isdn/mISDN/socket.c
-@@ -236,8 +236,7 @@ mISDN_sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
- 	}
+@@ -200,7 +200,7 @@ mISDN_sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ 
+ 	skb = _l2_alloc_skb(len, GFP_KERNEL);
+ 	if (!skb)
+-		goto done;
++		goto release_socket;
+ 
+ 	if (memcpy_from_msg(skb_put(skb, len), msg, len)) {
+ 		err = -EFAULT;
+@@ -237,6 +237,7 @@ mISDN_sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
  
  done:
--	if (skb)
--		kfree_skb(skb);
-+	kfree_skb(skb);
+ 	kfree_skb(skb);
++release_socket:
  	release_sock(sk);
  	return err;
  }
