@@ -1,81 +1,62 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] rtnetlink: fix frame size warning in rtnl_fill_ifinfo
-Date: Mon, 16 Nov 2015 12:05:03 +0100
-Message-ID: <1447671903-17975-1-git-send-email-hannes@stressinduktion.org>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] ixp4xx_eth: Delete an unnecessary check before the function
+ call "dma_pool_destroy"
+Date: Mon, 16 Nov 2015 12:28:53 +0100
+Message-ID: <5649BDF5.5040405@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net>
+ <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+ <530A086E.8010901@users.sourceforge.net>
+ <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+ <530A72AA.3000601@users.sourceforge.net>
+ <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+ <530B5FB6.6010207@users.sourceforge.net>
+ <alpine.DEB.2.10.1402241710370.2074@hadrien>
+ <530C5E18.1020800@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:49505 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751151AbbKPLFN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 06:05:13 -0500
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id D37D22071B
-	for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 06:05:12 -0500 (EST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: netdev@vger.kernel.org, Krzysztof Halasa <khalasa@piap.pl>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46ix the following warning:
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 16 Nov 2015 12:23:23 +0100
 
-  CC      net/core/rtnetlink.o
-net/core/rtnetlink.c: In function =E2=80=98rtnl_fill_ifinfo=E2=80=99:
-net/core/rtnetlink.c:1308:1: warning: the frame size of 2864 bytes is l=
-arger than 2048 bytes [-Wframe-larger-than=3D]
- }
- ^
+The dma_pool_destroy() function tests whether its argument is NULL
+and then returns immediately. Thus the test around the call is not needed.
 
-By declaring the huge stack allocations as static. We can do so because
-we hold rtnl.
+This issue was detected by using the Coccinelle software.
 
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- net/core/rtnetlink.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/xscale/ixp4xx_eth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 504bd17..4bee37e 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1051,7 +1051,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, =
-struct net_device *dev,
- {
- 	struct ifinfomsg *ifm;
- 	struct nlmsghdr *nlh;
--	struct rtnl_link_stats64 temp;
-+	static struct rtnl_link_stats64 temp;
- 	const struct rtnl_link_stats64 *stats;
- 	struct nlattr *attr, *af_spec;
- 	struct rtnl_af_ops *af_ops;
-@@ -1153,16 +1153,16 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb=
-, struct net_device *dev,
- 		if (!vfinfo)
- 			goto nla_put_failure;
- 		for (i =3D 0; i < num_vfs; i++) {
--			struct ifla_vf_info ivi;
--			struct ifla_vf_mac vf_mac;
--			struct ifla_vf_vlan vf_vlan;
--			struct ifla_vf_rate vf_rate;
--			struct ifla_vf_tx_rate vf_tx_rate;
--			struct ifla_vf_spoofchk vf_spoofchk;
--			struct ifla_vf_link_state vf_linkstate;
--			struct ifla_vf_rss_query_en vf_rss_query_en;
--			struct ifla_vf_stats vf_stats;
--			struct ifla_vf_trust vf_trust;
-+			static struct ifla_vf_info ivi;
-+			static struct ifla_vf_mac vf_mac;
-+			static struct ifla_vf_vlan vf_vlan;
-+			static struct ifla_vf_rate vf_rate;
-+			static struct ifla_vf_tx_rate vf_tx_rate;
-+			static struct ifla_vf_spoofchk vf_spoofchk;
-+			static struct ifla_vf_link_state vf_linkstate;
-+			static struct ifla_vf_rss_query_en vf_rss_query_en;
-+			static struct ifla_vf_stats vf_stats;
-+			static struct ifla_vf_trust vf_trust;
-=20
- 			/*
- 			 * Not all SR-IOV capable drivers support the
---=20
-2.5.0
+diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+index 5138407..6705951 100644
+--- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
++++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+@@ -1192,7 +1192,7 @@ static void destroy_queues(struct port *port)
+ 		port->desc_tab = NULL;
+ 	}
+ 
+-	if (!ports_open && dma_pool) {
++	if (!ports_open) {
+ 		dma_pool_destroy(dma_pool);
+ 		dma_pool = NULL;
+ 	}
+-- 
+2.6.2
+
