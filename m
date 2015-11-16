@@ -1,25 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: vitesse: add support for VSC8601
-Date: Mon, 16 Nov 2015 14:19:07 -0500 (EST)
-Message-ID: <20151116.141907.1790357499102773928.davem@davemloft.net>
-References: <1447353672-4365-1-git-send-email-mans@mansr.com>
+From: Adrian Chadd <adrian@freebsd.org>
+Subject: What's the expected path to recover from a PHY_HALTED transition?
+Date: Mon, 16 Nov 2015 11:29:42 -0800
+Message-ID: <CAJ-Vmon_s0o7G84CBOb_V5Y-D-3TMNDq7AOhr9fdiOmxYaFBZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mans@mansr.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447353672-4365-1-git-send-email-mans@mansr.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f170.google.com ([209.85.223.170]:35851 "EHLO
+	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750982AbbKPT3m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 14:29:42 -0500
+Received: by iofh3 with SMTP id h3so171049759iof.3
+        for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 11:29:42 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mans Rullgard <mans@mansr.com>
-Date: Thu, 12 Nov 2015 18:41:12 +0000
+hi,
 
-> This adds support for the Vitesse VSC8601 PHY. Generic functions are
-> used for everything except interrupt handling.
-> 
-> Signed-off-by: Mans Rullgard <mans@mansr.com>
+I'm debugging an issue on the Broadcom parts (using unimac-mdio.c as
+the mdio bus) where i occasionally see MDIO bus read failures, which
+causes phy.c to transition the PHY to PHY_HALTED. It stays in this
+state until the link is bounced.
 
-Applied.
+So, what's the expectation to handle this and recover from it? is
+there some userland piece monitoring things that I'm missing?
+
+Thanks,
+
+
+-a
