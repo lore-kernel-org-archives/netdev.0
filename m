@@ -1,8 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] rtlwifi: Delete unnecessary checks before the function call
- "kfree_skb"
-Date: Mon, 16 Nov 2015 13:18:38 +0100
-Message-ID: <5649C99E.2070602@users.sourceforge.net>
+Subject: [PATCH] ixp4xx_hss: Delete an unnecessary check before the function
+ call "dma_pool_destroy"
+Date: Mon, 16 Nov 2015 13:36:33 +0100
+Message-ID: <5649CDD1.6050600@users.sourceforge.net>
 References: <5307CAA2.8060406@users.sourceforge.net>
  <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
  <530A086E.8010901@users.sourceforge.net>
@@ -25,55 +25,37 @@ Content-Type: text/plain; charset=iso-8859-15
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
 	Julia Lawall <julia.lawall@lip6.fr>
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Kalle Valo <kvalo@codeaurora.org>
+To: netdev@vger.kernel.org, Krzysztof Halasa <khalasa@piap.pl>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <5317A59D.4@users.sourceforge.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 16 Nov 2015 13:12:25 +0100
+Date: Mon, 16 Nov 2015 13:30:37 +0100
 
-The kfree_skb() function tests whether its argument is NULL and then
-returns immediately. Thus the test around the calls is not needed.
+The dma_pool_destroy() function tests whether its argument is NULL
+and then returns immediately. Thus the test around the call is not needed.
 
 This issue was detected by using the Coccinelle software.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/wireless/realtek/rtlwifi/core.c                 | 3 +--
- drivers/net/wireless/realtek/rtlwifi/rtl8723com/fw_common.c | 4 +---
- 2 files changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/wan/ixp4xx_hss.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
-index c925a4d..4ae421e 100644
---- a/drivers/net/wireless/realtek/rtlwifi/core.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/core.c
-@@ -1833,8 +1833,7 @@ bool rtl_cmd_send_packet(struct ieee80211_hw *hw, struct sk_buff *skb)
+diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx_hss.c
+index e7bbdb7..0d2593a 100644
+--- a/drivers/net/wan/ixp4xx_hss.c
++++ b/drivers/net/wan/ixp4xx_hss.c
+@@ -1037,7 +1037,7 @@ static void destroy_hdlc_queues(struct port *port)
+ 		port->desc_tab = NULL;
+ 	}
  
- 	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
- 	pskb = __skb_dequeue(&ring->queue);
--	if (pskb)
--		kfree_skb(pskb);
-+	kfree_skb(pskb);
- 
- 	/*this is wrong, fill_tx_cmddesc needs update*/
- 	pdesc = &ring->desc[0];
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723com/fw_common.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723com/fw_common.c
-index a2f5e89..6e51862 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8723com/fw_common.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723com/fw_common.c
-@@ -318,9 +318,7 @@ bool rtl8723_cmd_send_packet(struct ieee80211_hw *hw,
- 	ring = &rtlpci->tx_ring[BEACON_QUEUE];
- 
- 	pskb = __skb_dequeue(&ring->queue);
--	if (pskb)
--		kfree_skb(pskb);
--
-+	kfree_skb(pskb);
- 	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
- 
- 	pdesc = &ring->desc[0];
+-	if (!ports_open && dma_pool) {
++	if (!ports_open) {
+ 		dma_pool_destroy(dma_pool);
+ 		dma_pool = NULL;
+ 	}
 -- 
 2.6.2
