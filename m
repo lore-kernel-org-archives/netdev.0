@@ -1,50 +1,44 @@
-From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH 05/14] net: tcp_memcontrol: protect all tcp_memcontrol
- calls by jump-label
-Date: Mon, 16 Nov 2015 12:52:04 -0500
-Message-ID: <20151116175204.GA32544@cmpxchg.org>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
- <1447371693-25143-6-git-send-email-hannes@cmpxchg.org>
- <20151114163309.GL31308@esperanza>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH stable <= 3.18] net: add length argument to
+ skb_copy_and_csum_datagram_iovec
+Date: Mon, 16 Nov 2015 19:06:46 +0100
+Message-ID: <20151116180646.GA21594@bistromath.redhat.com>
+References: <c1b23313f94ba3fd9977c6fba61483edf6489b5f.1444910940.git.sd@queasysnail.net>
+ <20151029100021.GA17588@bistromath.redhat.com>
+ <CAKA=qzZCi_OEDJKgy1WQ1QdMBpHBure1tY7NYtsgSr0fMva5jQ@mail.gmail.com>
+ <20151111000352.GA5134@kroah.com>
+ <20151112094822.GA21732@bistromath.redhat.com>
+ <1447349202.22599.30.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-team-b10kYP2dOMg@public.gmane.org
-To: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Josh Hunt <joshhunt00@gmail.com>, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au, stable <stable@vger.kernel.org>,
+	hannes@stressinduktion.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <stable-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20151114163309.GL31308@esperanza>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1447349202.22599.30.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 14, 2015 at 07:33:10PM +0300, Vladimir Davydov wrote:
-> On Thu, Nov 12, 2015 at 06:41:24PM -0500, Johannes Weiner wrote:
-> > Move the jump-label from sock_update_memcg() and sock_release_memcg()
-> > to the callsite, and so eliminate those function calls when socket
-> > accounting is not enabled.
+Hello Eric
+
+2015-11-12, 09:26:42 -0800, Eric Dumazet wrote:
+> Note that the following patch (and corresponding part for ipv6) might
+> also have solve the issue ?
 > 
-> I don't believe this patch's necessary, because these functions aren't
-> hot paths. Neither do I think it makes the code look better. Anyway,
-> it's rather a matter of personal preference, and the patch looks correct
-> to me, so
+> This would supposedly save some cycles when MSG_PEEK is used and user
+> provides short buffers.
 
-Yeah, it's not a hotpath. What I like primarily about this patch I
-guess is that makes it more consistent how memcg entry is gated. You
-don't have to remember which functions have the checks in the caller
-and which have it in the function themselves. And I really hate the
+Your patch looks correct to me, feel free to submit it.
 
-static inline void foo(void)
-{
-	if (foo_enabled())
-		__foo()
-}
+Since some stable trees already include my patch, maybe it should be
+reverted there to keep all trees in sync and ease future backports?
 
-in the headerfile pattern.
 
-> Reviewed-by: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
+Thanks,
 
-Thanks, I appreciate you acking it despite your personal preference!
+-- 
+Sabrina
