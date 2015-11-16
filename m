@@ -1,78 +1,48 @@
-From: Grant Zhang <gzhang@fastly.com>
-Subject: Re: Kernel 4.1 hang, apparently in __inet_lookup_established
-Date: Sun, 15 Nov 2015 16:58:33 -0800
-Message-ID: <56492A39.2060307@fastly.com>
-References: <5726932.6r4XOZ2Km2@rofl>
- <1443025879.29850.116.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dave Young <dyoung-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] wireless: change cfg80211 regulatory domain info as
+ debug messages
+Date: Mon, 16 Nov 2015 09:58:45 +0800
+Message-ID: <20151116015845.GA3439@dhcp-128-65.nay.redhat.com>
+References: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
+ <20151115192547.3fd1b3cc@mir>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: NETDEV <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick Schaaf <kernelorg@bof.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33485 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752505AbbKPA6g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2015 19:58:36 -0500
-Received: by pabfh17 with SMTP id fh17so158306138pab.0
-        for <netdev@vger.kernel.org>; Sun, 15 Nov 2015 16:58:35 -0800 (PST)
-In-Reply-To: <1443025879.29850.116.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+To: Stefan Lippers-Hollmann <s.l-h-Mmb7MZpHnFY@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20151115192547.3fd1b3cc@mir>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Patrick,
+Hi,
 
-Have you tried the two patches Eric mentioned? One of my 4.1.11 server 
-just hanged with very similar stack trace and I am wondering whether the 
-aforementioned patches would help.
+On 11/15/15 at 07:25pm, Stefan Lippers-Hollmann wrote:
+> Hi
+> 
+> On 2015-11-15, Dave Young wrote:
+> > cfg80211 module prints a lot of messages like below. Actually printing
+> > once is acceptable but sometimes it will print again and again, it looks
+> > very annoying. It is better to change these detail messages to debugging
+> > only.
+> 
+> It is a lot of info, easily repeated 3 times on boot, but it's also the
+> only real chance to determine why you ended up with the regulatory 
+> domain settings you got, rather than just the values itself. Given that
+> a lot (most?) of officially shipping wireless devices are misconfigured
+> (wrong EEPROM regdom settings for the region they're sold in) and 
+> considering that the limits can even change at runtime (IEEE 802.11d), 
+> it is imho quite important not just to be able what the current 
+> restrictions (iw reg get) are, but also why the kernel settled on those.
 
-Thanks,
+If it is really important then a kernel cmdline param to disable the logs
+sounds better?
 
-Grant
-
-On 23/09/2015 09:31, Eric Dumazet wrote:
-> On Wed, 2015-09-23 at 10:25 +0200, Patrick Schaaf wrote:
->> Dear kernel developers,
->>
->> I recently started to upgrade my production hosts and VMs from the 3.14 series
->> to 4.1 kernels, starting with 4.1.6. Yesterday, for the second time after I
->> started these upgrades, I experienced one of our webserver VMs hanging.
->>
->> The first time this happened, the VM hung completely, all 5 virtual cores
->> spinning at 100%, ping still worked, but nothing else, including no virsh
->> console reaction - I had to destroy and restart that VM. No messages were to
->> be found.
->>
->> Yesterday, when it happened the second time, I found the VM spinning on a
->> single core only, and could still connect to it via ssh - but it stopped
->> accepting apache connections. The core it spun on showed 100% time used in
->> "si", with top, and it produced the messages appended below. The VM did not
->> shutdown properly when told to, and had to be destroyed again.
->>
->> If I read that dmesg output correctly it spins in __inet_lookup_established,
->> which indeed reads like it has infinite spin potential. But that code itself
->> did not change relative to the 3.14 series we've been running for a long time
->> without the issues - so the root cause would be something else.
->>
->> For our production systems I'll revert to the 3.14 series, but maybe this
->> report may help somebody understand what's going on.
->>
->> best regards
->>    Patrick
->
->
-> You could try following commits :
->
-> http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=ed2e923945892a8372ab70d2f61d364b0b6d9054
->
-> http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=29c6852602e259d2c1882f320b29d5c3fec0de04
->
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Thanks
+Dave
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
