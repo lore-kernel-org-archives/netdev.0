@@ -1,51 +1,80 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] rtnetlink: fix frame size warning in rtnl_fill_ifinfo
-Date: Mon, 16 Nov 2015 23:18:49 +0100
-Message-ID: <1447712329.2095039.441554865.621B2AF9@webmail.messagingengine.com>
-References: <1447671903-17975-1-git-send-email-hannes@stressinduktion.org>
- <20151116.153837.635003227845494331.davem@davemloft.net>
+Subject: Re: Routing loops & TTL tracking with tunnel devices
+Date: Mon, 16 Nov 2015 23:25:02 +0100
+Message-ID: <1447712702.2096268.441562113.30345320@webmail.messagingengine.com>
+References: <CAHmME9r_DbZWe4FsfebHSSf_iPctSe5S-w9bU3o8BN43raeURg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:40833 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751526AbbKPWSu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 17:18:50 -0500
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id E35052062A
-	for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 17:18:49 -0500 (EST)
-In-Reply-To: <20151116.153837.635003227845494331.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+	Jiri Benc <jbenc@redhat.com>, therbert@google.com,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9r_DbZWe4FsfebHSSf_iPctSe5S-w9bU3o8BN43raeURg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Jason,
 
-On Mon, Nov 16, 2015, at 21:38, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Mon, 16 Nov 2015 12:05:03 +0100
+On Mon, Nov 16, 2015, at 21:14, Jason A. Donenfeld wrote:
+> A few tunnel devices, like geneve or vxlan, are using
+> udp_tunnel_xmit_skb, or related functions for transmitting packets,
+> and are doing the usual FIB lookup to get the dst entry. I see a lot
+> of code like this:
 > 
-> > By declaring the huge stack allocations as static. We can do so
-> > because we hold rtnl.
+>                 if (rt->dst.dev == dev) {
+>                         netdev_dbg(dev, "circular route to %pI4\n",
+>                                    &dst->sin.sin_addr.s_addr);
+>                         dev->stats.collisions++;
+>                         goto rt_tx_error;
+>                 }
 > 
-> Look across the tree, this is an idiom copied all over the place.
-> If putting a rtnl_link_stats64 object on the stack is truly a
-> problem, we have a lot of spots to fix.
+> This one is from vxlan, but there are other similar blocks elsewhere.
+> The basic idea is "am I about to send this packet to my own device?"
 > 
-> I do not think, therefore, that this solution is tenable, we
-> need something that handles all cases properly.
+> This is a bit crude. For starters, two interfaces could be pointed at
+> each other, bouncing the packet back and forth indefinitely, causing
+> the feared routing loop. Hopefully as more headers got tacked on,
+> allocations would eventually fail, and the queen would be saved.
+> 
+> But what about in devices for which self-routing might actually be
+> useful? For example, let's say that if an incoming skb is headed for
+> dst X, it gets encapsulated and sent to dst A, and for dst Y it gets
+> encapsulated and sent to dst B, and for dst Z it gets encapsulated and
+> sent to dst C. I can imagine situations in which setting A==Y and B==Z
+> might be useful to do multiple levels of encapsulation on one device,
+> so that skbs headed for dst X get sent to dst C, but with intermediate
+> transformations of dst A and dst B.
+> 
+> This isn't merely theoretical. I'm working on a driver right now that
+> could benefit from this.
+> 
+> So, in implementing this, the question of avoiding routing loops comes
+> into play. The most straight forward way to do this is to use a TTL
+> value that's decreased. But we have a problem. A packet sent to dst X
+> that is encapsulated and sent to dst A will have a ttl calculated for
+> its journey to dst A. How do we preserve TTLs across multiple
+> traversals of the networking stack? We can't simply stay with the TTL
+> of the packet when it comes in, because it's tunnel destination might
+> require a different TTL. The best thing would be to have a "tunnel
+> TTL" value as part of skb->cb, except the cb gets overwritten when
+> traversing the networking stack. The best thing I can think of is some
+> other member of sk_buff, but I don't see any that look good for this.
+> 
+> So perhaps it would be worthwhile to add this to struct sk_buff? David
+> - are you interested in this if I submit a patch?
+> 
+> Or, alternatively, does a fast solution for this already exist that I
+> overlooked?
 
-I just wanted to shut up the gcc warning which is added if a function
-uses more than 2048 bytes of stack space. We normally don't have the
-problem and could also divide the function into two, but I don't see a
-general solution to the problem. Mostly they need to be custom tailored
-to the specific usage.
+Have a look at __dev_queue_xmit and the per_cpu recursion limits
+implemented there:
 
-I can have a look if we can use kmalloc based storage for the stats, but
-this also means that we add another NULL pointer check and error
-handling for those cases. Let me have a look!
+                        if (__this_cpu_read(xmit_recursion) >
+                        RECURSION_LIMIT)
+                                goto recursion_alert;
 
 Bye,
 Hannes
