@@ -1,56 +1,42 @@
-From: "Shi, Yang" <yang.shi@linaro.org>
-Subject: Re: [PATCH V3 2/2] arm64: bpf: make BPF prologue and epilogue align
- with ARM64 AAPCS
-Date: Mon, 16 Nov 2015 11:48:57 -0800
-Message-ID: <564A3329.1070504@linaro.org>
-References: <CABg9mct-hnEhvT6y9ZgCC8nMan5YbmByQa_ViUWzeea6ToqG4A@mail.gmail.com>	<1447438197-31838-1-git-send-email-yang.shi@linaro.org> <CABg9mcvomep=M1As_Vj=XuTNk=jiGwXQqQWbjotMXP2csKX=Bg@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: What's the expected path to recover from a PHY_HALTED transition?
+Date: Mon, 16 Nov 2015 11:48:46 -0800
+Message-ID: <564A331E.6090603@gmail.com>
+References: <CAJ-Vmon_s0o7G84CBOb_V5Y-D-3TMNDq7AOhr9fdiOmxYaFBZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>, Xi Wang <xi.wang@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	linaro-kernel@lists.linaro.org
-To: Z Lim <zlim.lnx@gmail.com>
+To: Adrian Chadd <adrian@freebsd.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:36588 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750982AbbKPTs7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 14:48:59 -0500
-Received: by pacdm15 with SMTP id dm15so184522462pac.3
-        for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 11:48:59 -0800 (PST)
-In-Reply-To: <CABg9mcvomep=M1As_Vj=XuTNk=jiGwXQqQWbjotMXP2csKX=Bg@mail.gmail.com>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:34398 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752291AbbKPTto (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 14:49:44 -0500
+Received: by pacfl14 with SMTP id fl14so25938659pac.1
+        for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 11:49:44 -0800 (PST)
+In-Reply-To: <CAJ-Vmon_s0o7G84CBOb_V5Y-D-3TMNDq7AOhr9fdiOmxYaFBZg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/13/2015 6:39 PM, Z Lim wrote:
-> Yang, I noticed another thing...
->
-> On Fri, Nov 13, 2015 at 10:09 AM, Yang Shi <yang.shi@linaro.org> wrote:
->> Save and restore FP/LR in BPF prog prologue and epilogue, save SP to FP
->> in prologue in order to get the correct stack backtrace.
->>
->> However, ARM64 JIT used FP (x29) as eBPF fp register, FP is subjected to
->> change during function call so it may cause the BPF prog stack base address
->> change too.
->>
->> Use x25 to replace FP as BPF stack base register (fp). Since x25 is callee
->> saved register, so it will keep intact during function call.
->
-> Can you please add save/restore for x25 also? :)
+On 16/11/15 11:29, Adrian Chadd wrote:
+> hi,
+> 
+> I'm debugging an issue on the Broadcom parts (using unimac-mdio.c as
+> the mdio bus) where i occasionally see MDIO bus read failures, which
+> causes phy.c to transition the PHY to PHY_HALTED. It stays in this
+> state until the link is bounced.
 
-Sure. BTW, since PUSH invokes stp instruction and SP need 16-bytes 
-alignment, so we have to save x26 with x25 together. Anyway, it won't 
-introduce any harm overhead since one instruction saves two registers.
+There is a known problem with some Broadcom PHYs where the first MDIO
+read may fail, and this can actually show up randomly in time, not just
+the first read and that caused the PHY library to enter PHY_HALTED.
+Which part are you seeing this? unimac-mdio.c has a reset hook just for
+that cases.
 
-Yang
+> 
+> So, what's the expectation to handle this and recover from it? is
+> there some userland piece monitoring things that I'm missing?
 
->
->> It is initialized in BPF prog prologue when BPF prog is started to run
->> everytime. When BPF prog exits, it could be just tossed.
->>
+There is not much you can do typically, but ignore or retry the read, or
+workaround it if you can, like what bcm7xxx.c does.
+-- 
+Florian
