@@ -1,50 +1,35 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] vhost: relax log address alignment
-Date: Mon, 16 Nov 2015 17:00:06 +0200
-Message-ID: <1447685995-16282-1-git-send-email-mst@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Kernel 4.1 hang, apparently in __inet_lookup_established
+Date: Mon, 16 Nov 2015 07:07:49 -0800
+Message-ID: <1447686469.22599.67.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5726932.6r4XOZ2Km2@rofl>
+	 <1443025879.29850.116.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <56492A39.2060307@fastly.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Patrick Schaaf <kernelorg@bof.de>, NETDEV <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Grant Zhang <gzhang@fastly.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56492A39.2060307@fastly.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit 5d9a07b0de512b77bf28d2401e5fe3351f00a240 ("vhost: relax used
-address alignment") fixed the alignment for the used virtual address,
-but not for the physical address used for logging.
+On Sun, 2015-11-15 at 16:58 -0800, Grant Zhang wrote:
+> Hi Patrick,
+> 
+> Have you tried the two patches Eric mentioned? One of my 4.1.11 server 
+> just hanged with very similar stack trace and I am wondering whether the 
+> aforementioned patches would help.
+> 
+> Thanks,
 
-That's a mistake: alignment should clearly be the same for virtual and
-physical addresses,
+linux-4.1.12 definitely contains the fixes.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/vhost/vhost.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+8ae3dfacdd82 inet: fix race in reqsk_queue_unlink()
+31b8abd140ad inet: fix races in reqsk_queue_hash_req()
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index eec2f11..080422f 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -819,7 +819,7 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
- 		BUILD_BUG_ON(__alignof__ *vq->used > VRING_USED_ALIGN_SIZE);
- 		if ((a.avail_user_addr & (VRING_AVAIL_ALIGN_SIZE - 1)) ||
- 		    (a.used_user_addr & (VRING_USED_ALIGN_SIZE - 1)) ||
--		    (a.log_guest_addr & (sizeof(u64) - 1))) {
-+		    (a.log_guest_addr & (VRING_USED_ALIGN_SIZE - 1))) {
- 			r = -EINVAL;
- 			break;
- 		}
--- 
-MST
+Please upgrade to 4.1.13 and you should be fine.
+
+Thanks.
