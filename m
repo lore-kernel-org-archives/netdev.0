@@ -1,30 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: irq_fpu_usable() is false in ndo_start_xmit() for UDP packets
-Date: Mon, 16 Nov 2015 15:32:14 -0500 (EST)
-Message-ID: <20151116.153214.1125103075112383723.davem@davemloft.net>
-References: <CAHmME9qQz-uTFDjUuVaqpO9ODt3KZWEdYVQJ8qsXWa5YkYAoWA@mail.gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: Routing loops & TTL tracking with tunnel devices
+Date: Mon, 16 Nov 2015 15:37:09 -0500
+Message-ID: <20151116203709.GA27178@oracle.com>
+References: <CAHmME9r_DbZWe4FsfebHSSf_iPctSe5S-w9bU3o8BN43raeURg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jason@zx2c4.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9qQz-uTFDjUuVaqpO9ODt3KZWEdYVQJ8qsXWa5YkYAoWA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Benc <jbenc@redhat.com>, therbert@google.com,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:20872 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751041AbbKPUhY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 15:37:24 -0500
+Content-Disposition: inline
+In-Reply-To: <CAHmME9r_DbZWe4FsfebHSSf_iPctSe5S-w9bU3o8BN43raeURg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Date: Mon, 16 Nov 2015 20:52:28 +0100
+On (11/16/15 21:14), Jason A. Donenfeld wrote:
+> 
+> But what about in devices for which self-routing might actually be
+> useful? For example, let's say that if an incoming skb is headed for
+> dst X, it gets encapsulated and sent to dst A, and for dst Y it gets
+> encapsulated and sent to dst B, and for dst Z it gets encapsulated and
+> sent to dst C. I can imagine situations in which setting A==Y and B==Z
+> might be useful to do multiple levels of encapsulation on one device,
+> so that skbs headed for dst X get sent to dst C, but with intermediate
+> transformations of dst A and dst B.
 
-> This works fine with, say, iperf3 in TCP mode. The AVX performance
-> is great. However, when using iperf3 in UDP mode, irq_fpu_usable()
-> is mostly false! I added a dump_stack() call to see why, except
-> nothing looks strange; the initial call in the stack trace is
-> entry_SYSCALL_64_fastpath. Why would irq_fpu_usable() return false
-> when we're in a syscall? Doesn't that mean this is in process
-> context?
+I believe that what you are talking about is basically nested encapsulation-
+see https://tools.ietf.org/html/rfc2473. 
 
-Network device driver transmit executes with software interrupts
-disabled.
+The tunnelling endpoint could track the number of encapsulations and keep
+a limit on that? (conceptually this may be the same thing as your ttl
+proposal, except that "ttl" has other meanings in other contexts, so
+a bit non-intuitive) 
 
-Therefore on x86, you cannot use the FPU.
+--Sowmini
+
+(fwiw, RFC 2473 proposes an ipv6 option to track nested encapsulation,
+and that never took off, because, among other reasons, its hard to
+offload such options to hardware. Anyway, you are not trying to carry
+this around in the packet).
