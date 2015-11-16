@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] raw: increment correct SNMP counters for ICMP
- messages
-Date: Mon, 16 Nov 2015 15:09:00 -0500 (EST)
-Message-ID: <20151116.150900.193988253386004564.davem@davemloft.net>
-References: <20151114151358.GA11387@benjojo.co.uk>
+Subject: Re: [PATCH] net: dsa: Delete an unnecessary check before the
+ function call "put_device"
+Date: Mon, 16 Nov 2015 15:11:56 -0500 (EST)
+Message-ID: <20151116.151156.22243959928293016.davem@davemloft.net>
+References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+	<5317A59D.4@users.sourceforge.net>
+	<56476B8C.7020309@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	ben+patches@benjojo.co.uk
-To: Ben@Benjojo.co.uk
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, julia.lawall@lip6.fr
+To: elfring@users.sourceforge.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151114151358.GA11387@benjojo.co.uk>
+In-Reply-To: <56476B8C.7020309@users.sourceforge.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Cartwright-Cox <Ben@Benjojo.co.uk>
-Date: Sat, 14 Nov 2015 15:13:58 +0000
 
-> Sending ICMP packets with raw sockets ends up in the SNMP counters
-> logging the type as the first byte of the IPv4 header rather than
-> the ICMP header. This is fixed by adding the IP Header Length to
-> the casting into a icmphdr struct.
-> 
-> Signed-off-by: Ben Cartwright-Cox <ben@benjojo.co.uk>
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+I'm starting to grow quite weary of these "unnecessary check" changes.
 
-Applied.
+Sometimes it is better to have them, either because the path is a hot
+path or some atomic sequence is involved.
+
+But there is never harm in them being there.
+
+All of this is a matter of taste, of course.  But one thing I know for
+sure, it is undisputable that there are much more important things to
+work on than this kind of stuff...
+
+So I'm not applying these changes any more and directing my time and
+effort to reviewing and applying patches that fix bugs, really
+restructure the code in useful ways that increase maintainability over
+the long time, and add interesting new features.
+
+These patches do none of the above.
