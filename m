@@ -1,48 +1,47 @@
-From: Dave Young <dyoung-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+From: Dave Young <dyoung@redhat.com>
 Subject: Re: [PATCH] wireless: change cfg80211 regulatory domain info as
  debug messages
-Date: Mon, 16 Nov 2015 09:58:45 +0800
-Message-ID: <20151116015845.GA3439@dhcp-128-65.nay.redhat.com>
+Date: Mon, 16 Nov 2015 09:59:41 +0800
+Message-ID: <20151116015941.GB3439@dhcp-128-65.nay.redhat.com>
 References: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
- <20151115192547.3fd1b3cc@mir>
+ <1447609134.6012.15.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-To: Stefan Lippers-Hollmann <s.l-h-Mmb7MZpHnFY@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	johannes@sipsolutions.net
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20151115192547.3fd1b3cc@mir>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1447609134.6012.15.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-On 11/15/15 at 07:25pm, Stefan Lippers-Hollmann wrote:
-> Hi
-> 
-> On 2015-11-15, Dave Young wrote:
+On 11/15/15 at 09:38am, Joe Perches wrote:
+> On Sun, 2015-11-15 at 15:31 +0800, Dave Young wrote:
 > > cfg80211 module prints a lot of messages like below. Actually printing
 > > once is acceptable but sometimes it will print again and again, it looks
 > > very annoying. It is better to change these detail messages to debugging
 > > only.
 > 
-> It is a lot of info, easily repeated 3 times on boot, but it's also the
-> only real chance to determine why you ended up with the regulatory 
-> domain settings you got, rather than just the values itself. Given that
-> a lot (most?) of officially shipping wireless devices are misconfigured
-> (wrong EEPROM regdom settings for the region they're sold in) and 
-> considering that the limits can even change at runtime (IEEE 802.11d), 
-> it is imho quite important not just to be able what the current 
-> restrictions (iw reg get) are, but also why the kernel settled on those.
+> So maybe add some wrapper that does a pr_info then
+> a pr_debug for the second and subsequent uses like:
+> 
+> #define pr_info_once_then_debug(fmt, ...)			\
+> ({								\
+> 	static bool __print_once __read_mostly;			\
+> 								\
+> 	if (!__print_once) {					\
+> 		__print_once = true;				\
+> 		pr_info(fmt, ##__VA_ARGS__);			\
+> 	} else {						\
+> 		pr_debug(fmt, ##__VA_ARGS__);			\
+> 	}							\
+> })
+> 
 
-If it is really important then a kernel cmdline param to disable the logs
-sounds better?
+Hmm, it looks too much for this issue, I'm thinking about to add a cmdline
+param to disable mute it.
 
 Thanks
 Dave
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
