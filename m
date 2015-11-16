@@ -1,49 +1,32 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v6] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
-Date: Mon, 16 Nov 2015 20:59:18 +0000
-Message-ID: <yw1xsi45irtl.fsf@unicorn.mansr.com>
-References: <1447698216-7635-1-git-send-email-mans@mansr.com>
-	<20151116.155327.1432148371996261050.davem@davemloft.net>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: Routing loops & TTL tracking with tunnel devices
+Date: Mon, 16 Nov 2015 15:59:50 -0500
+Message-ID: <20151116205950.GB27178@oracle.com>
+References: <CAHmME9r_DbZWe4FsfebHSSf_iPctSe5S-w9bU3o8BN43raeURg@mail.gmail.com>
+ <20151116203709.GA27178@oracle.com>
+ <CAHmME9pNCqbcoqbOnx6p8poehAntyyy1jQhy=0_HjkJ8nvMQdw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Benc <jbenc@redhat.com>, therbert@google.com,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151116.155327.1432148371996261050.davem@davemloft.net> (David
-	Miller's message of "Mon, 16 Nov 2015 15:53:27 -0500 (EST)")
+Content-Disposition: inline
+In-Reply-To: <CAHmME9pNCqbcoqbOnx6p8poehAntyyy1jQhy=0_HjkJ8nvMQdw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+> Neat. Though, in my case, I'm not actually just prepending a header.
+> I'm doing some more substantial transformations of a packet. And this
+> needs to work with v4 too. So I'm not sure implementing a v6 spec will
 
-> From: Mans Rullgard <mans@mansr.com>
-> Date: Mon, 16 Nov 2015 18:23:35 +0000
->
->> +static int nb8800_alloc_rx(struct net_device *dev, int i, bool napi=
-)
->
-> "i" is passed in as a signed int here, but:
->
->> +static void nb8800_receive(struct net_device *dev, unsigned i, unsi=
-gned len)
->  ...
->> +		err =3D nb8800_alloc_rx(dev, i, true);
->
-> It comes from an 'unsigned' value.
->
-> Please pick one type and use it consistently.
+Understood, that spec was just referenced to indicate that there
+are more issues (mtu reduction etc) with nested encapsulation,
+and this is actually applicable even without the recursion issue
+(i.e even if you dont have a tunnelling loop, and even if it
+is not ipv6, there are some non-trivial problems here. Luckily,
+nested encaps is somewhat uncommon).
 
-Darn, missed one.
-
-> Also, always fully spell out "unsigned int" rather than use "unsigned=
-"
-> as a shorthand.
-
-OK
-
-Anything else?
-
---=20
-M=E5ns Rullg=E5rd
-mans@mansr.com
+--Sowmini
