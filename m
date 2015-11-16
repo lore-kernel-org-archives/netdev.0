@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/9] net: cavium: liquidio: constify pci_error_handlers
- structures
-Date: Mon, 16 Nov 2015 15:07:45 -0500 (EST)
-Message-ID: <20151116.150745.188460724093737913.davem@davemloft.net>
-References: <1447495621-9161-1-git-send-email-Julia.Lawall@lip6.fr>
-	<1447495621-9161-2-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [PATCH v2 net] raw: increment correct SNMP counters for ICMP
+ messages
+Date: Mon, 16 Nov 2015 15:09:00 -0500 (EST)
+Message-ID: <20151116.150900.193988253386004564.davem@davemloft.net>
+References: <20151114151358.GA11387@benjojo.co.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: derek.chickles@caviumnetworks.com, kernel-janitors@vger.kernel.org,
-	satananda.burla@caviumnetworks.com,
-	felix.manlunas@caviumnetworks.com,
-	raghu.vatsavayi@caviumnetworks.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40790 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752303AbbKPUHr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 15:07:47 -0500
-In-Reply-To: <1447495621-9161-2-git-send-email-Julia.Lawall@lip6.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	ben+patches@benjojo.co.uk
+To: Ben@Benjojo.co.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151114151358.GA11387@benjojo.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Sat, 14 Nov 2015 11:06:53 +0100
+From: Ben Cartwright-Cox <Ben@Benjojo.co.uk>
+Date: Sat, 14 Nov 2015 15:13:58 +0000
 
-> This pci_error_handlers structure is never modified, like all the other
-> pci_error_handlers structures, so declare it as const.
+> Sending ICMP packets with raw sockets ends up in the SNMP counters
+> logging the type as the first byte of the IPv4 header rather than
+> the ICMP header. This is fixed by adding the IP Header Length to
+> the casting into a icmphdr struct.
 > 
-> Done with the help of Coccinelle.
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> Signed-off-by: Ben Cartwright-Cox <ben@benjojo.co.uk>
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 Applied.
