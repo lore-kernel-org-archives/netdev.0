@@ -1,44 +1,36 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: irq_fpu_usable() is false in ndo_start_xmit() for UDP packets
-Date: Mon, 16 Nov 2015 20:52:28 +0100
-Message-ID: <CAHmME9qQz-uTFDjUuVaqpO9ODt3KZWEdYVQJ8qsXWa5YkYAoWA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] switchdev: bridge: Check return code is not
+ EOPNOTSUPP
+Date: Mon, 16 Nov 2015 14:56:27 -0500 (EST)
+Message-ID: <20151116.145627.1996085836389504022.davem@davemloft.net>
+References: <1447412772-29745-1-git-send-email-idosch@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>
-To: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	eladr@mellanox.com, linux@eikelenboom.it, jiri@mellanox.com
+To: idosch@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40482 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751451AbbKPT43 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 14:56:29 -0500
+In-Reply-To: <1447412772-29745-1-git-send-email-idosch@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David & Folks,
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Fri, 13 Nov 2015 13:06:12 +0200
 
-I have a virtual device driver that does some fancy processing of
-packets in ndo_start_xmit before forwarding them onward out of a
-tunnel elsewhere. In order to make that fancy processing fast, I have
-AVX and AVX2 implementations. This means I need to use the FPU.
+> When NET_SWITCHDEV=n, switchdev_port_attr_set simply returns EOPNOTSUPP.
+> In this case we should not emit errors and warnings to the kernel log.
+> 
+> Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
+> Fixes: 0bc05d585d38 ("switchdev: allow caller to explicitly request
+> attr_set as deferred")
+> Fixes: 6ac311ae8bfb ("Adding switchdev ageing notification on port
+> bridged")
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-So, I do the usual pattern found throughout the kernel:
-
-        if (!irq_fpu_usable())
-                generic_c(...);
-        else {
-                kernel_fpu_begin();
-                optimized_avx(...);
-                kernel_fpu_end();
-         }
-
-This works fine with, say, iperf3 in TCP mode. The AVX performance is
-great. However, when using iperf3 in UDP mode, irq_fpu_usable() is
-mostly false! I added a dump_stack() call to see why, except nothing
-looks strange; the initial call in the stack trace is
-entry_SYSCALL_64_fastpath. Why would irq_fpu_usable() return false
-when we're in a syscall? Doesn't that mean this is in process context?
-
-So, I find this a bit disturbing. If anybody has an explanation, and a
-way to work around it, I'd be quite happy. Or, simply if there is a
-debugging technique you'd recommend, I'd be happy to try something and
-report back.
-
-Thanks,
-Jason
+Applied.
