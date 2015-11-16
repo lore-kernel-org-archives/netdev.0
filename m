@@ -1,38 +1,67 @@
-From: Premkumar Jonnala <pjonnala@broadcom.com>
-Subject: Hardware capabilities and bonding offload
-Date: Mon, 16 Nov 2015 09:29:12 +0000
-Message-ID: <77EF4405DD4BB54AACCE7DB593DF6A9AA0D643@SJEXCHMB14.corp.ad.broadcom.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 net-next] net: hisilicon: fix binding document of mdio
+Date: Mon, 16 Nov 2015 10:38:54 +0100
+Message-ID: <6897029.2fyR9qGpEn@wuerfel>
+References: <1447666704-200773-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:50911 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751718AbbKPJ3N convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 04:29:13 -0500
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, liguozhu@hisilicon.com,
+	Yisen.Zhuang@huawei.com, dingtianhong@huawei.com,
+	zhangfei.gao@linaro.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, linuxarm@huawei.com,
+	salil.mehta@huawei.com, kenneth-lee-2012@foxmail.com,
+	xuwei5@hisilicon.com, lisheng011@huawei.com
+To: huangdaode <huangdaode@hisilicon.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447666704-200773-1-git-send-email-huangdaode@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Monday 16 November 2015 17:38:24 huangdaode wrote:
+> This patch explains the occasion of "hisilcon,mdio" and
+> "hisilicon,hns-mdio" according to Arnd's comments.
+> and reformat it according to comments from Rob<robh@kernel.org>.
+> 
+> chang log:
+> 
+> v2:
+>   1) reformat the style.
+>   2) make it more clearity.
+> 
+> v1:
+>   initial version.
+> 
+> Signed-off-by: huangdaode <huangdaode@hisilicon.com>
+> ---
 
-I am looking to offload bond interfaces to hardware for forwarding.  Linux allows for configuring 
-a variety of parameters on bonds or slave interfaces.  Not all configurations can be offloaded to 
-hardware.  For example, certain hardware cannot support bonds with mode of adaptive load balancing.
+The new version looks ok, but your changelog above is formatted
+incorrectly. Please put only the contents you want in the git history
+above the '---' line and your Signed-off-by, but put the parts that
+refer to previous versions of the submission below the ---.
 
-When such a configuration is provided by user, we have two options at hand (for platforms supporting
-hardware offloads):
-
-1. Reject the configuration.  
-
-2. Handle the bond interface in software.  In a scenario where this bond interface is part
-of a bridge interface, for simplicity purpose, all other interfaces in the bridge need to be 
-handled in software - which results in a very low packet processing performance.
-
-I'm writing to gather feedback on the approach to take, including any other suggestions.
-We have discussed this briefly in our weekly netdev meeting, and I received votes for
-option #1.
-
-Thanks
-Prem
+>  Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt | 7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
+> index 9c23fdf..4942d20 100644
+> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
+> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
+> @@ -1,7 +1,12 @@
+>  Hisilicon MDIO bus controller
+>  
+>  Properties:
+> -- compatible: "hisilicon,mdio","hisilicon,hns-mdio".
+> +- compatible: can be one of:
+> +	"hisilicon,hns-mdio"
+> +	"hisilicon,mdio"
+> +  "hisilicon,hns-mdio" is recommendly to be used for hip05 and later SOCs,
+> +  while "hisilicon,mdio" is optional for backwards compatibility, only
+> +  support for hip04 Soc.
+>  - reg: The base address of the MDIO bus controller register bank.
+>  - #address-cells: Must be <1>.
+>  - #size-cells: Must be <0>.  MDIO addresses have no size component.
+> 
