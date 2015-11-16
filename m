@@ -1,31 +1,42 @@
-From: Adrian Chadd <adrian@freebsd.org>
-Subject: What's the expected path to recover from a PHY_HALTED transition?
-Date: Mon, 16 Nov 2015 11:29:42 -0800
-Message-ID: <CAJ-Vmon_s0o7G84CBOb_V5Y-D-3TMNDq7AOhr9fdiOmxYaFBZg@mail.gmail.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v2] ip_tunnel: disable preemption when updating per-cpu tstats
+Date: Mon, 16 Nov 2015 20:33:42 +0100
+Message-ID: <CAHmME9oQuiHfZmW-c0VN9ivQLjC0nPuuprv7-ryS+AqFvAfXMg@mail.gmail.com>
+References: <1447342212-5543-1-git-send-email-Jason@zx2c4.com>
+	<1447346158-19257-1-git-send-email-Jason@zx2c4.com>
+	<20151116.141737.420755936779587001.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:35851 "EHLO
-	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750982AbbKPT3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 14:29:42 -0500
-Received: by iofh3 with SMTP id h3so171049759iof.3
-        for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 11:29:42 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, tgraf@suug.ch,
+	Tom Herbert <tom@herbertland.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151116.141737.420755936779587001.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-hi,
+On Mon, Nov 16, 2015 at 8:17 PM, David Miller <davem@davemloft.net> wrote:
+> So another fix could have been to do local_bh_disable() in the
+> udp_tunnel6_xmit_skb() helper.
 
-I'm debugging an issue on the Broadcom parts (using unimac-mdio.c as
-the mdio bus) where i occasionally see MDIO bus read failures, which
-causes phy.c to transition the PHY to PHY_HALTED. It stays in this
-state until the link is bounced.
+This would have fixed one problem, but everywhere
+udp_tunnel_xmit_skb() (4, not 6) is called, iptunnel_xmit_stats is
+called right after it, so there would have to be a modicum of patches
+for all of these places too.
 
-So, what's the expectation to handle this and recover from it? is
-there some userland piece monitoring things that I'm missing?
+By the way, there's something else I noticed about this in dealing
+with these functions: the return value of udp_tunnel_xmit_skb is
+different from that of udp_tunnel6_xmit_skb. Nobody is using them
+incorrectly, so far as I can see, but it is confusing that they return
+different things. I had started to clean this up and send a patch, but
+it got a bit invasive in drivers I shouldn't really touch. But if
+somebody with a bit more top-down command of things wants to poke at
+this, it's a low hanging fruit as far as I can see.
 
-Thanks,
+>
+> Thanks again.
 
-
--a
+My pleasure.
