@@ -1,72 +1,48 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 2/2] mISDN: One function call less in mISDN_sock_sendmsg()
- after error detection
-Date: Mon, 16 Nov 2015 10:47:37 +0100
-Message-ID: <5649A639.2040503@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net>
- <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
- <530A086E.8010901@users.sourceforge.net>
- <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
- <530A72AA.3000601@users.sourceforge.net>
- <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
- <530B5FB6.6010207@users.sourceforge.net>
- <alpine.DEB.2.10.1402241710370.2074@hadrien>
- <530C5E18.1020800@users.sourceforge.net>
- <alpine.DEB.2.10.1402251014170.2080@hadrien>
- <530CD2C4.4050903@users.sourceforge.net>
- <alpine.DEB.2.10.1402251840450.7035@hadrien>
- <530CF8FF.8080600@users.sourceforge.net>
- <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
- <530DD06F.4090703@users.sourceforge.net>
- <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
- <5317A59D.4@users.sourceforge.net> <5649A524.6030407@users.sourceforge.net>
+From: Dragos Tatulea <dragos@endocode.com>
+Subject: [PATCH] net: switchdev: fix return code of fdb_dump stub
+Date: Mon, 16 Nov 2015 10:52:48 +0100
+Message-ID: <5649A770.8090909@endocode.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5649A524.6030407@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+	Jiri Pirko <jiri@mellanox.com>, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:36954 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752688AbbKPJwv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 04:52:51 -0500
+Received: by wmww144 with SMTP id w144so110916106wmw.0
+        for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 01:52:50 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 16 Nov 2015 10:30:29 +0100
+rtnl_fdb_dump always expects an index to be returned by the ndo_fdb_dump op,
+but when CONFIG_NET_SWITCHDEV is off, it returns an error.
 
-The kfree_skb() function was called in one case by the
-mISDN_sock_sendmsg() function during error handling even if a call of
-the _l2_alloc_skb() function returned a null pointer.
+Fix that by returning the given unmodified idx.
 
-This implementation detail could be improved by the introduction
-of another jump label.
+A similar fix was 0890cf6cb6ab ("switchdev: fix return value of
+switchdev_port_fdb_dump in case of error") but for the CONFIG_NET_SWITCHDEV=y
+case.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Fixes: 45d4122ca7cd ("switchdev: add support for fdb add/del/dump via switchdev_port_obj ops.")
+Signed-off-by: Dragos Tatulea <dragos@endocode.com>
 ---
- drivers/isdn/mISDN/socket.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ include/net/switchdev.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/isdn/mISDN/socket.c b/drivers/isdn/mISDN/socket.c
-index edd16ef..430ac8c 100644
---- a/drivers/isdn/mISDN/socket.c
-+++ b/drivers/isdn/mISDN/socket.c
-@@ -200,7 +200,7 @@ mISDN_sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
- 
- 	skb = _l2_alloc_skb(len, GFP_KERNEL);
- 	if (!skb)
--		goto done;
-+		goto release_socket;
- 
- 	if (memcpy_from_msg(skb_put(skb, len), msg, len)) {
- 		err = -EFAULT;
-@@ -237,6 +237,7 @@ mISDN_sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
- 
- done:
- 	kfree_skb(skb);
-+release_socket:
- 	release_sock(sk);
- 	return err;
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index bc865e2..bc5765a 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -323,7 +323,7 @@ static inline int switchdev_port_fdb_dump(struct sk_buff *skb,
+                                          struct net_device *filter_dev,
+                                          int idx)
+ {
+-       return -EOPNOTSUPP;
++       return idx;
  }
--- 
-2.6.2
+ 
+ static inline void switchdev_port_fwd_mark_set(struct net_device *dev,
