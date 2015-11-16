@@ -1,77 +1,53 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v2 net-next] net: hisilicon: fix binding document of mdio
-Date: Mon, 16 Nov 2015 09:20:51 -0600
-Message-ID: <20151116152051.GA7183@rob-hp-laptop>
-References: <1447666704-200773-1-git-send-email-huangdaode@hisilicon.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
-	dingtianhong@huawei.com, zhangfei.gao@linaro.org,
-	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	linuxarm@huawei.com, salil.mehta@huawei.com,
-	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
-	lisheng011@huawei.com
-To: huangdaode <huangdaode@hisilicon.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net] af_unix: don't append consumed skbs to sk_receive_queue
+Date: Mon, 16 Nov 2015 16:25:56 +0100
+Message-ID: <1447687556-22712-1-git-send-email-hannes@stressinduktion.org>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:47335 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751824AbbKPPU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Nov 2015 10:20:57 -0500
-Content-Disposition: inline
-In-Reply-To: <1447666704-200773-1-git-send-email-huangdaode@hisilicon.com>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:36593 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751606AbbKPP0M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 10:26:12 -0500
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id 39E77207B1
+	for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 10:26:09 -0500 (EST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 16, 2015 at 05:38:24PM +0800, huangdaode wrote:
-> This patch explains the occasion of "hisilcon,mdio" and
-> "hisilicon,hns-mdio" according to Arnd's comments.
-> and reformat it according to comments from Rob<robh@kernel.org>.
-> 
-> chang log:
-> 
-> v2:
->   1) reformat the style.
->   2) make it more clearity.
-> 
-> v1:
->   initial version.
-> 
-> Signed-off-by: huangdaode <huangdaode@hisilicon.com>
-> ---
->  Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt | 7 ++++++-
->  1 file changed, 6 insertions(+), 1 deletion(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-> index 9c23fdf..4942d20 100644
-> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-> @@ -1,7 +1,12 @@
->  Hisilicon MDIO bus controller
->  
->  Properties:
-> -- compatible: "hisilicon,mdio","hisilicon,hns-mdio".
-> +- compatible: can be one of:
-> +	"hisilicon,hns-mdio"
-> +	"hisilicon,mdio"
-> +  "hisilicon,hns-mdio" is recommendly to be used for hip05 and later SOCs,
+In case multiple writes to a unix stream socket race we could end up in a
+situation where we pre-allocate a new skb for use in unix_stream_sendpage
+but have to free it again in the locked section because another skb
+has been appended meanwhile, which we must use. Accidentally we didn't
+clear the pointer after consuming it and so we touched freed memory
+while appending it to the sk_receive_queue. So, clear the pointer after
+consuming the skb.
 
-s/recommendly/recommended/
+This bug has been found with syzkaller
+(http://github.com/google/syzkaller) by Dmitry Vyukov.
 
-> +  while "hisilicon,mdio" is optional for backwards compatibility, only
-> +  support for hip04 Soc.
+Fixes: 869e7c62486e ("net: af_unix: implement stream sendpage support")
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Cc: Dmitry Vyukov <dvyukov@google.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/unix/af_unix.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-...compatibility only on hip04 SOC.
-
->  - reg: The base address of the MDIO bus controller register bank.
->  - #address-cells: Must be <1>.
->  - #size-cells: Must be <0>.  MDIO addresses have no size component.
-> -- 
-> 1.9.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe devicetree" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index aaa0b58..c6eb2e8 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1799,6 +1799,7 @@ alloc_skb:
+ 		 * this - does no harm
+ 		 */
+ 		consume_skb(newskb);
++		newskb = NULL;
+ 	}
+ 
+ 	if (skb_append_pagefrags(skb, page, offset, size)) {
+-- 
+2.5.0
