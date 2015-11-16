@@ -1,40 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: fix __netdev_update_features return on
- ndo_set_features failure
-Date: Mon, 16 Nov 2015 14:56:40 -0500 (EST)
-Message-ID: <20151116.145640.946535191930162699.davem@davemloft.net>
-References: <1447424424-4419-1-git-send-email-razor@blackwall.org>
+Subject: Re: [PATCH net] net: fix feature changes on devices without
+ ndo_set_features
+Date: Mon, 16 Nov 2015 14:56:35 -0500 (EST)
+Message-ID: <20151116.145635.1625494915754780979.davem@davemloft.net>
+References: <5645C0A5.2080506@cumulusnetworks.com>
+	<1447422841-2333-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
-	mirq-linux@rere.qmqm.pl
+	jarod@redhat.com, jiri@resnulli.us, idosch@mellanox.com,
+	linux@eikelenboom.it, gospo@cumulusnetworks.com,
+	f.fainelli@gmail.com
 To: razor@blackwall.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40503 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40494 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751746AbbKPT4m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 14:56:42 -0500
-In-Reply-To: <1447424424-4419-1-git-send-email-razor@blackwall.org>
+	with ESMTP id S1751746AbbKPT4h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 14:56:37 -0500
+In-Reply-To: <1447422841-2333-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Nikolay Aleksandrov <razor@blackwall.org>
-Date: Fri, 13 Nov 2015 15:20:24 +0100
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Date: Fri, 13 Nov 2015 14:54:01 +0100
 
 > From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->=20
-> If ndo_set_features fails __netdev_update_features() will return -1 b=
-ut
-> this is wrong because it is expected to return 0 if no features were
-> changed (see netdev_update_features()), which will cause a netdev
-> notifier to be called without any actual changes. Fix this by returni=
-ng
-> 0 if ndo_set_features fails.
->=20
-> Fixes: 6cb6a27c45ce ("net: Call netdev_features_change() from netdev_=
-update_features()")
-> CC: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+> 
+> When __netdev_update_features() was updated to ensure some features are
+> disabled on new lower devices, an error was introduced for devices which
+> don't have the ndo_set_features() method set. Before we'll just set the
+> new features, but now we return an error and don't set them. Fix this by
+> returning the old behaviour and setting err to 0 when ndo_set_features
+> is not present.
+> 
+> Fixes: e7868a85e1b2 ("net/core: ensure features get disabled on new lower devs")
+> CC: Jarod Wilson <jarod@redhat.com>
+> CC: Jiri Pirko <jiri@resnulli.us>
+> CC: Ido Schimmel <idosch@mellanox.com>
+> CC: Sander Eikelenboom <linux@eikelenboom.it>
+> CC: Andy Gospodarek <gospo@cumulusnetworks.com>
+> CC: Florian Fainelli <f.fainelli@gmail.com>
 > Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
 Applied.
