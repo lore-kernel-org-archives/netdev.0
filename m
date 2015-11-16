@@ -1,59 +1,79 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH net] bpf, arm: start flushing icache range from header
-Date: Mon, 16 Nov 2015 12:00:54 +0000
-Message-ID: <20151116120053.GF20696@leverpostej>
-References: <971980449d680e6b26e273130d74546c5148893c.1447446440.git.daniel@iogearbox.net>
- <20151116114055.GC20696@leverpostej>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] rtlwifi: Delete unnecessary checks before the function call
+ "kfree_skb"
+Date: Mon, 16 Nov 2015 13:18:38 +0100
+Message-ID: <5649C99E.2070602@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net>
+ <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+ <530A086E.8010901@users.sourceforge.net>
+ <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+ <530A72AA.3000601@users.sourceforge.net>
+ <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+ <530B5FB6.6010207@users.sourceforge.net>
+ <alpine.DEB.2.10.1402241710370.2074@hadrien>
+ <530C5E18.1020800@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nschichan@freebox.fr, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, ast@kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:48797 "EHLO foss.arm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750932AbbKPMBA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Nov 2015 07:01:00 -0500
-Content-Disposition: inline
-In-Reply-To: <20151116114055.GC20696@leverpostej>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 16, 2015 at 11:40:55AM +0000, Mark Rutland wrote:
-> On Sat, Nov 14, 2015 at 01:26:53AM +0100, Daniel Borkmann wrote:
-> > During review I noticed that the icache range we're flushing should
-> > start at header already and not at ctx.image.
-> > 
-> > Reason is that after 55309dd3d4cd ("net: bpf: arm: address randomize
-> > and write protect JIT code"), we also want to make sure to flush the
-> > random-sized trap in front of the start of the actual program (analogous
-> > to x86). No operational differences from user side.
-> > 
-> > Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> > Tested-by: Nicolas Schichan <nschichan@freebox.fr>
-> > Cc: Alexei Starovoitov <ast@kernel.org>
-> > ---
-> >  ( As arm32 fixes usually go via Dave's tree, targeting -net. )
-> > 
-> >  arch/arm/net/bpf_jit_32.c | 2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
-> > index 2f4b14c..591f9db 100644
-> > --- a/arch/arm/net/bpf_jit_32.c
-> > +++ b/arch/arm/net/bpf_jit_32.c
-> > @@ -1061,7 +1061,7 @@ void bpf_jit_compile(struct bpf_prog *fp)
-> >  	}
-> >  	build_epilogue(&ctx);
-> >  
-> > -	flush_icache_range((u32)ctx.target, (u32)(ctx.target + ctx.idx));
-> > +	flush_icache_range((u32)header, (u32)(ctx.target + ctx.idx));
-> 
-> As with the arm64 patch, doesn't this prevent us from flushing the end
-> of the image? ctx.idx doesn't seem to take into account the header size.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 16 Nov 2015 13:12:25 +0100
 
-I'd misread the patch; it is fine.
+The kfree_skb() function tests whether its argument is NULL and then
+returns immediately. Thus the test around the calls is not needed.
 
-Sorry for the noise.
+This issue was detected by using the Coccinelle software.
 
-Mark.
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/wireless/realtek/rtlwifi/core.c                 | 3 +--
+ drivers/net/wireless/realtek/rtlwifi/rtl8723com/fw_common.c | 4 +---
+ 2 files changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
+index c925a4d..4ae421e 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/core.c
++++ b/drivers/net/wireless/realtek/rtlwifi/core.c
+@@ -1833,8 +1833,7 @@ bool rtl_cmd_send_packet(struct ieee80211_hw *hw, struct sk_buff *skb)
+ 
+ 	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
+ 	pskb = __skb_dequeue(&ring->queue);
+-	if (pskb)
+-		kfree_skb(pskb);
++	kfree_skb(pskb);
+ 
+ 	/*this is wrong, fill_tx_cmddesc needs update*/
+ 	pdesc = &ring->desc[0];
+diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723com/fw_common.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723com/fw_common.c
+index a2f5e89..6e51862 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/rtl8723com/fw_common.c
++++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723com/fw_common.c
+@@ -318,9 +318,7 @@ bool rtl8723_cmd_send_packet(struct ieee80211_hw *hw,
+ 	ring = &rtlpci->tx_ring[BEACON_QUEUE];
+ 
+ 	pskb = __skb_dequeue(&ring->queue);
+-	if (pskb)
+-		kfree_skb(pskb);
+-
++	kfree_skb(pskb);
+ 	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
+ 
+ 	pdesc = &ring->desc[0];
+-- 
+2.6.2
