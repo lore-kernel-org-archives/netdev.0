@@ -1,67 +1,48 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 net-next] net: hisilicon: fix binding document of mdio
-Date: Mon, 16 Nov 2015 10:38:54 +0100
-Message-ID: <6897029.2fyR9qGpEn@wuerfel>
-References: <1447666704-200773-1-git-send-email-huangdaode@hisilicon.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 0/2] mISDN: Deletion of an unnecessary check
+Date: Mon, 16 Nov 2015 10:43:00 +0100
+Message-ID: <5649A524.6030407@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net>
+ <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+ <530A086E.8010901@users.sourceforge.net>
+ <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+ <530A72AA.3000601@users.sourceforge.net>
+ <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+ <530B5FB6.6010207@users.sourceforge.net>
+ <alpine.DEB.2.10.1402241710370.2074@hadrien>
+ <530C5E18.1020800@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, liguozhu@hisilicon.com,
-	Yisen.Zhuang@huawei.com, dingtianhong@huawei.com,
-	zhangfei.gao@linaro.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, linuxarm@huawei.com,
-	salil.mehta@huawei.com, kenneth-lee-2012@foxmail.com,
-	xuwei5@hisilicon.com, lisheng011@huawei.com
-To: huangdaode <huangdaode@hisilicon.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447666704-200773-1-git-send-email-huangdaode@hisilicon.com>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 16 November 2015 17:38:24 huangdaode wrote:
-> This patch explains the occasion of "hisilcon,mdio" and
-> "hisilicon,hns-mdio" according to Arnd's comments.
-> and reformat it according to comments from Rob<robh@kernel.org>.
-> 
-> chang log:
-> 
-> v2:
->   1) reformat the style.
->   2) make it more clearity.
-> 
-> v1:
->   initial version.
-> 
-> Signed-off-by: huangdaode <huangdaode@hisilicon.com>
-> ---
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 16 Nov 2015 10:40:11 +0100
 
-The new version looks ok, but your changelog above is formatted
-incorrectly. Please put only the contents you want in the git history
-above the '---' line and your Signed-off-by, but put the parts that
-refer to previous versions of the submission below the ---.
+Another update suggestion was taken into account after a patch was applied
+from static source code analysis.
 
->  Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt | 7 ++++++-
->  1 file changed, 6 insertions(+), 1 deletion(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-> index 9c23fdf..4942d20 100644
-> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-> @@ -1,7 +1,12 @@
->  Hisilicon MDIO bus controller
->  
->  Properties:
-> -- compatible: "hisilicon,mdio","hisilicon,hns-mdio".
-> +- compatible: can be one of:
-> +	"hisilicon,hns-mdio"
-> +	"hisilicon,mdio"
-> +  "hisilicon,hns-mdio" is recommendly to be used for hip05 and later SOCs,
-> +  while "hisilicon,mdio" is optional for backwards compatibility, only
-> +  support for hip04 Soc.
->  - reg: The base address of the MDIO bus controller register bank.
->  - #address-cells: Must be <1>.
->  - #size-cells: Must be <0>.  MDIO addresses have no size component.
-> 
+Markus Elfring (2):
+  Delete an unnecessary check before the function call "kfree_skb"
+  One function call less in mISDN_sock_sendmsg() after error detection
+
+ drivers/isdn/mISDN/socket.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+-- 
+2.6.2
