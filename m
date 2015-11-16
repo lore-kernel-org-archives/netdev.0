@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ravb: remove unhandle int cause
-Date: Mon, 16 Nov 2015 15:12:42 -0500 (EST)
-Message-ID: <20151116.151242.944204466671951295.davem@davemloft.net>
-References: <1447590882-20742-1-git-send-email-ykaneko0929@gmail.com>
+Subject: Re: [PATCH net] bnx2x: Fix VLANs null-pointer for 57710, 57711
+Date: Mon, 16 Nov 2015 15:13:21 -0500 (EST)
+Message-ID: <20151116.151321.1735337274070931231.davem@davemloft.net>
+References: <1447592536-15744-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, horms@verge.net.au, magnus.damm@gmail.com,
-	linux-sh@vger.kernel.org
-To: ykaneko0929@gmail.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1447590882-20742-1-git-send-email-ykaneko0929@gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, osbart@redhat.com, Ariel.Elior@qlogic.com
+To: Yuval.Mintz@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40855 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751498AbbKPUNW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 15:13:22 -0500
+In-Reply-To: <1447592536-15744-1-git-send-email-Yuval.Mintz@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Date: Sun, 15 Nov 2015 21:34:42 +0900
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Sun, 15 Nov 2015 15:02:16 +0200
 
-> From: Masaru Nagai <masaru.nagai.vx@renesas.com>
+> Commit 05cc5a39ddb7 "bnx2x: add vlan filtering offload" introduced
+> a regression in regard for vlans for 57710, 57711 adapters -
+> Loading 8021q module on a machine with such an adapter would cause
+> a null pointer dereference, as the driver mistakenly publishes it
+> has capabilities for vlan CTAG filtering.
 > 
-> This driver does not handle the AVB-DMAC Receive FIFO Warning interrupt
-> now, so the interrupt should not be enabled.
-> 
-> Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
-> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+> Reported-by: Otto Sabart <osabart@redhat.com>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+> Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
 
 Applied, thanks.
