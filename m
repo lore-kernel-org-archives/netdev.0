@@ -1,75 +1,65 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: Re: [PATCH 14/14] mm: memcontrol: hook up vmpressure to socket
- pressure
-Date: Mon, 16 Nov 2015 13:53:16 -0500
-Message-ID: <20151116185316.GC32544@cmpxchg.org>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
- <1447371693-25143-15-git-send-email-hannes@cmpxchg.org>
- <20151115135457.GM31308@esperanza>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] ip_tunnel: disable preemption when updating per-cpu
+ tstats
+Date: Mon, 16 Nov 2015 14:17:37 -0500 (EST)
+Message-ID: <20151116.141737.420755936779587001.davem@davemloft.net>
+References: <1447342212-5543-1-git-send-email-Jason@zx2c4.com>
+	<1447346158-19257-1-git-send-email-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>, Michal Hocko <mhocko@suse.cz>,
-	netdev@vger.kernel.org, linux-mm@kvack.org,
-	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-team@fb.com
-To: Vladimir Davydov <vdavydov@virtuozzo.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tgraf@suug.ch, tom@herbertland.com, jbenc@redhat.com,
+	kuznet@ms2.inr.ac.ru
+To: Jason@zx2c4.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gum.cmpxchg.org ([85.214.110.215]:43956 "EHLO gum.cmpxchg.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753319AbbKPSx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Nov 2015 13:53:29 -0500
-Content-Disposition: inline
-In-Reply-To: <20151115135457.GM31308@esperanza>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40057 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750777AbbKPTRn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 14:17:43 -0500
+In-Reply-To: <1447346158-19257-1-git-send-email-Jason@zx2c4.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 15, 2015 at 04:54:57PM +0300, Vladimir Davydov wrote:
-> On Thu, Nov 12, 2015 at 06:41:33PM -0500, Johannes Weiner wrote:
-> > Let the networking stack know when a memcg is under reclaim pressure
-> > so that it can clamp its transmit windows accordingly.
-> > 
-> > Whenever the reclaim efficiency of a cgroup's LRU lists drops low
-> > enough for a MEDIUM or HIGH vmpressure event to occur, assert a
-> > pressure state in the socket and tcp memory code that tells it to curb
-> > consumption growth from sockets associated with said control group.
-> > 
-> > vmpressure events are naturally edge triggered, so for hysteresis
-> > assert socket pressure for a second to allow for subsequent vmpressure
-> > events to occur before letting the socket code return to normal.
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Date: Thu, 12 Nov 2015 17:35:58 +0100
+
+> Drivers like vxlan use the recently introduced
+> udp_tunnel_xmit_skb/udp_tunnel6_xmit_skb APIs. udp_tunnel6_xmit_skb
+> makes use of ip6tunnel_xmit, and ip6tunnel_xmit, after sending the
+> packet, updates the struct stats using the usual
+> u64_stats_update_begin/end calls on this_cpu_ptr(dev->tstats).
+> udp_tunnel_xmit_skb makes use of iptunnel_xmit, which doesn't touch
+> tstats, so drivers like vxlan, immediately after, call
+> iptunnel_xmit_stats, which does the same thing - calls
+> u64_stats_update_begin/end on this_cpu_ptr(dev->tstats).
 > 
-> AFAICS, in contrast to v1, now you don't modify vmpressure behavior,
-> which means socket_pressure will only be set when cgroup hits its
-> high/hard limit. On tightly packed system, this is unlikely IMO -
-> cgroups will mostly experience pressure due to memory shortage at the
-> global level and/or their low limit configuration, in which case no
-> vmpressure events will be triggered and therefore tcp window won't be
-> clamped accordingly.
+> While vxlan is probably fine (I don't know?), calling a similar function
+> from, say, an unbound workqueue, on a fully preemptable kernel causes
+> real issues:
+> 
+> [  188.434537] BUG: using smp_processor_id() in preemptible [00000000] code: kworker/u8:0/6
+> [  188.435579] caller is debug_smp_processor_id+0x17/0x20
+> [  188.435583] CPU: 0 PID: 6 Comm: kworker/u8:0 Not tainted 4.2.6 #2
+> [  188.435607] Call Trace:
+> [  188.435611]  [<ffffffff8234e936>] dump_stack+0x4f/0x7b
+> [  188.435615]  [<ffffffff81915f3d>] check_preemption_disabled+0x19d/0x1c0
+> [  188.435619]  [<ffffffff81915f77>] debug_smp_processor_id+0x17/0x20
+> 
+> The solution would be to protect the whole
+> this_cpu_ptr(dev->tstats)/u64_stats_update_begin/end blocks with
+> disabling preemption and then reenabling it.
+> 
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 
-Yeah, this is an inherent problem in the vmpressure design and it
-makes the feature significantly less useful than it could be IMO.
+Applied and queued up for -stable, thanks Jason
 
-But you guys were wary about the patch that changed it, and this
-series has kicked up enough dust already, so I backed it out.
+Arguably, ip6tunnel_xmit() is primarily a ->ndo_start_xmit() and
+therefore could assume that it only ran inside of a BH disabled code
+sequence.  And as you noted, when this was turned into a general case
+helper function that guarantee was no longer necessarily there.
 
-But this will still be useful. Yes, it won't help in rebalancing an
-regularly working system, which would be cool, but it'll still help
-contain a worklad that is growing beyond expectations, which is the
-scenario that kickstarted this work.
+So another fix could have been to do local_bh_disable() in the
+udp_tunnel6_xmit_skb() helper.
 
-> May be, we could use a per memcg slab shrinker to detect memory
-> pressure? This looks like abusing shrinkers API though.
-
-Actually, I thought about doing this long-term.
-
-Shrinkers are a nice way to export VM pressure to auxiliary allocators
-and caches. But currently, the only metric we export is LRU scan rate,
-whose application is limited to ageable caches: it doesn't make sense
-to cause auxiliary workingsets to shrink when the VM is merely picking
-up the drop-behind pages of a one-off page cache stream. I think it
-would make sense for shrinkers to include reclaim efficiency so that
-they can be used by caches that don't have 'accessed' bits and object
-rotation, but are able to shrink based on the cost they're imposing.
-
-But a change like this is beyond the scope of this series, IMO.
+Thanks again.
