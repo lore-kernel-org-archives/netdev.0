@@ -1,68 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] bpf, skb_do_redirect: clear sender_cpu before
- xmit
-Date: Mon, 16 Nov 2015 10:07:56 -0800
-Message-ID: <1447697276.22599.73.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <ceae3b812d3e01f73efcfdff0a7817b3c61ae24e.1444205375.git.daniel@iogearbox.net>
-	 <56153E6C.9050202@plumgrid.com>
-	 <CADe=ujYvfU_h46cQXiG6Vt1iZfs+A7fYqeZ_vWtob2Kef08ukQ@mail.gmail.com>
-	 <561727D5.2070001@plumgrid.com> <5617FA5A.9090406@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"Devon H. O'Dell" <dho@fastly.com>, davem@davemloft.net,
-	edumazet@google.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] snmp: Remove duplicate OUTMCAST stat increment
+Date: Mon, 16 Nov 2015 13:09:10 -0500
+Message-ID: <1447697350-28652-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Claus Jensen <claus.jensen@microsemi.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:35997 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752003AbbKPSH7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 13:07:59 -0500
-Received: by pacdm15 with SMTP id dm15so182058964pac.3
-        for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 10:07:59 -0800 (PST)
-In-Reply-To: <5617FA5A.9090406@iogearbox.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38004 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751845AbbKPSJh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 13:09:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-10-09 at 19:33 +0200, Daniel Borkmann wrote:
-> On 10/09/2015 04:35 AM, Alexei Starovoitov wrote:
-> > On 10/8/15 5:50 PM, Devon H. O'Dell wrote:
-> >>> with the amount of skb_sender_cpu_clear() all over the code base
-> >>> >I wonder whether there is a better solution to all of these.
-> >> I think there is. We found that splitting the union of sender_cpu and
-> >> napi_id solved the issue for us. In general, I think this is an OK
-> >> solution as long as the following hold:
-> >>
-> >>   * skbs are always allocated via kzalloc
-> >>   * out -> out cloned skbs are always cloned on the same CPU
-> >>   * an extra four bytes in skbuff isn't a bad thing
-> >
-> > I'm pretty sure extending sk_buff for this is not acceptable.
-> 
-> +1, I agree.
-> 
-> > I was thinking may be we can use sign bit to distinguish between
-> > napi_id and sender_cpu.
-> > Like:
-> >          if ((int)skb->sender_cpu >= 0)
-> >                  skb->sender_cpu = - (raw_smp_processor_id() + 1);
-> > and inside get_xps_queue() use it only if it's negative.
-> > Then we can remove skb_sender_cpu_clear() from everywhere.
-> > Adding a check to napi_hash_add() to make sure that napi_id is not
-> > negative is probably ok too.
-> > Thoughts?
-> 
-> I think this doesn't make it any more maintainable.
-> 
-> skb_sender_cpu_clear(), one can at least git-grep to easily find
-> out and review call-sites in the code. There are various members
-> already used differently depending on the context.
+the OUTMCAST stat is double incremented, getting bumped once in the mcast code
+itself, and again in the common ip output path.  Remove the mcast bump, as its
+not needed
 
-Extending busy polling support for tunnels devices actually requires to
-make some changes in this area.
+Validated by the reporter, with good results
 
-We need to keep skb->napi_id set until skb reaches a socket, but
-skb_scrub_packet() currently defeats the thing.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: Claus Jensen <claus.jensen@microsemi.com>
+CC: Claus Jensen <claus.jensen@microsemi.com>
+CC: David Miller <davem@davemloft.net>
+---
+ net/ipv6/mcast.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-I will leave skb_sender_cpu_clear() in place but it will be empty.
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 124338a..5ee56d0 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -1651,7 +1651,6 @@ out:
+ 	if (!err) {
+ 		ICMP6MSGOUT_INC_STATS(net, idev, ICMPV6_MLD2_REPORT);
+ 		ICMP6_INC_STATS(net, idev, ICMP6_MIB_OUTMSGS);
+-		IP6_UPD_PO_STATS(net, idev, IPSTATS_MIB_OUTMCAST, payload_len);
+ 	} else {
+ 		IP6_INC_STATS(net, idev, IPSTATS_MIB_OUTDISCARDS);
+ 	}
+@@ -2015,7 +2014,6 @@ out:
+ 	if (!err) {
+ 		ICMP6MSGOUT_INC_STATS(net, idev, type);
+ 		ICMP6_INC_STATS(net, idev, ICMP6_MIB_OUTMSGS);
+-		IP6_UPD_PO_STATS(net, idev, IPSTATS_MIB_OUTMCAST, full_len);
+ 	} else
+ 		IP6_INC_STATS(net, idev, IPSTATS_MIB_OUTDISCARDS);
+ 
+-- 
+2.5.0
