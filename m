@@ -1,32 +1,36 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] wireless: change cfg80211 regulatory domain info as
- debug messages
-Date: Mon, 16 Nov 2015 11:38:05 +0100
-Message-ID: <1447670285.2417.9.camel@sipsolutions.net>
-References: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
-	 <1447609134.6012.15.camel@perches.com>
+From: Jiri Pirko <jiri@mellanox.com>
+Subject: Re: [PATCH] net: switchdev: fix return code of fdb_dump stub
+Date: Mon, 16 Nov 2015 11:17:24 +0100
+Message-ID: <20151116101724.GG2220@nanopsycho.orion>
+References: <5649A770.8090909@endocode.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, Dave Young <dyoung-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1447609134.6012.15.camel-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>,
+	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+	<davem@davemloft.net>
+To: Dragos Tatulea <dragos@endocode.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3on0087.outbound.protection.outlook.com ([157.55.234.87]:13318
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750944AbbKPKun (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Nov 2015 05:50:43 -0500
+Content-Disposition: inline
+In-Reply-To: <5649A770.8090909@endocode.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Mon, Nov 16, 2015 at 10:52:48AM CET, dragos@endocode.com wrote:
+>rtnl_fdb_dump always expects an index to be returned by the ndo_fdb_dump op,
+>but when CONFIG_NET_SWITCHDEV is off, it returns an error.
+>
+>Fix that by returning the given unmodified idx.
+>
+>A similar fix was 0890cf6cb6ab ("switchdev: fix return value of
+>switchdev_port_fdb_dump in case of error") but for the CONFIG_NET_SWITCHDEV=y
+>case.
+>
+>Fixes: 45d4122ca7cd ("switchdev: add support for fdb add/del/dump via switchdev_port_obj ops.")
+>Signed-off-by: Dragos Tatulea <dragos@endocode.com>
 
-> So maybe add some wrapper that does a pr_info then
-> a pr_debug for the second and subsequent uses like:
-> 
-
-That seems like a bad idea - one might be tricked into think that one
-saw the current data, but the actually current data is later hidden.
-
-johannes
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Jiri Pirko <jiri@mellanox.com>
