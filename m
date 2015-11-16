@@ -1,107 +1,331 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] rtnetlink: fix frame size warning in
- rtnl_fill_ifinfo
-Date: Mon, 16 Nov 2015 14:40:59 -0800
-Message-ID: <1447713659.22599.80.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1447671903-17975-1-git-send-email-hannes@stressinduktion.org>
-	 <20151116.153837.635003227845494331.davem@davemloft.net>
-	 <1447712329.2095039.441554865.621B2AF9@webmail.messagingengine.com>
-	 <1447713039.22599.78.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: [PATCH] dl2k: Implement suspend
+Date: Mon, 16 Nov 2015 23:41:51 +0100
+Message-ID: <1447713711-32471-1-git-send-email-linux@rainbow-software.org>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	David Miller <davem@davemloft.net>,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:33882 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751172AbbKPWlA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 17:41:00 -0500
-Received: by padhx2 with SMTP id hx2so188736110pad.1
-        for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 14:41:00 -0800 (PST)
-In-Reply-To: <1447713039.22599.78.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from ns.gsystem.sk ([62.176.172.50]:52733 "EHLO gsystem.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752413AbbKPWmF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Nov 2015 17:42:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-11-16 at 14:30 -0800, Eric Dumazet wrote:
-> On Mon, 2015-11-16 at 23:18 +0100, Hannes Frederic Sowa wrote:
-> > > need something that handles all cases properly.
-> > 
-> > I just wanted to shut up the gcc warning which is added if a function
-> > uses more than 2048 bytes of stack space. We normally don't have the
-> > problem and could also divide the function into two, but I don't see a
-> > general solution to the problem. Mostly they need to be custom tailored
-> > to the specific usage.
-> > 
-> > I can have a look if we can use kmalloc based storage for the stats, but
-> > this also means that we add another NULL pointer check and error
-> > handling for those cases. Let me have a look!
-> 
-> Simply put the code different functions with noinline_for_stack
+Add suspend/resume support to dl2k driver.
+Tested on Asus NX1101 (IP1000A) and D-Link DGE-550T (DL-2000).
 
-First step : 
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+---
+ drivers/net/ethernet/dlink/dl2k.c |  189 +++++++++++++++++++++++++------------
+ 1 file changed, 128 insertions(+), 61 deletions(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 504bd17b7456..ff109fad5a7f 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1045,15 +1045,35 @@ static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
- 	return 0;
+diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
+index ccca479..23d13c5 100644
+--- a/drivers/net/ethernet/dlink/dl2k.c
++++ b/drivers/net/ethernet/dlink/dl2k.c
+@@ -253,19 +253,6 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (err)
+ 		goto err_out_unmap_rx;
+ 
+-	if (np->chip_id == CHIP_IP1000A &&
+-	    (np->pdev->revision == 0x40 || np->pdev->revision == 0x41)) {
+-		/* PHY magic taken from ipg driver, undocumented registers */
+-		mii_write(dev, np->phy_addr, 31, 0x0001);
+-		mii_write(dev, np->phy_addr, 27, 0x01e0);
+-		mii_write(dev, np->phy_addr, 31, 0x0002);
+-		mii_write(dev, np->phy_addr, 27, 0xeb8e);
+-		mii_write(dev, np->phy_addr, 31, 0x0000);
+-		mii_write(dev, np->phy_addr, 30, 0x005e);
+-		/* advertise 1000BASE-T half & full duplex, prefer MASTER */
+-		mii_write(dev, np->phy_addr, MII_CTRL1000, 0x0700);
+-	}
+-
+ 	/* Fiber device? */
+ 	np->phy_media = (dr16(ASICCtrl) & PhyMedia) ? 1 : 0;
+ 	np->link_status = 0;
+@@ -275,13 +262,11 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	 	if (np->an_enable == 2) {
+ 			np->an_enable = 1;
+ 		}
+-		mii_set_media_pcs (dev);
+ 	} else {
+ 		/* Auto-Negotiation is mandatory for 1000BASE-T,
+ 		   IEEE 802.3ab Annex 28D page 14 */
+ 		if (np->speed == 1000)
+ 			np->an_enable = 1;
+-		mii_set_media (dev);
+ 	}
+ 
+ 	err = register_netdev (dev);
+@@ -446,19 +431,13 @@ static void rio_set_led_mode(struct net_device *dev)
+ 	dw32(ASICCtrl, mode);
  }
  
-+static noinline_for_stack bool rtnl_fill_stats(struct sk_buff *skb,
-+					       struct net_device *dev)
-+{
-+	const struct rtnl_link_stats64 *stats;
-+	struct rtnl_link_stats64 temp;
-+	struct nlattr *attr;
+-static int
+-rio_open (struct net_device *dev)
++static void rio_hw_init(struct net_device *dev)
+ {
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem *ioaddr = np->ioaddr;
+-	const int irq = np->pdev->irq;
+ 	int i;
+ 	u16 macctrl;
+ 
+-	i = request_irq(irq, rio_interrupt, IRQF_SHARED, dev->name, dev);
+-	if (i)
+-		return i;
+-
+ 	/* Reset all logic functions */
+ 	dw16(ASICCtrl + 2,
+ 	     GlobalReset | DMAReset | FIFOReset | NetworkReset | HostReset);
+@@ -469,11 +448,31 @@ rio_open (struct net_device *dev)
+ 	/* DebugCtrl bit 4, 5, 9 must set */
+ 	dw32(DebugCtrl, dr32(DebugCtrl) | 0x0230);
+ 
++	if (np->chip_id == CHIP_IP1000A &&
++	    (np->pdev->revision == 0x40 || np->pdev->revision == 0x41)) {
++		/* PHY magic taken from ipg driver, undocumented registers */
++		mii_write(dev, np->phy_addr, 31, 0x0001);
++		mii_write(dev, np->phy_addr, 27, 0x01e0);
++		mii_write(dev, np->phy_addr, 31, 0x0002);
++		mii_write(dev, np->phy_addr, 27, 0xeb8e);
++		mii_write(dev, np->phy_addr, 31, 0x0000);
++		mii_write(dev, np->phy_addr, 30, 0x005e);
++		/* advertise 1000BASE-T half & full duplex, prefer MASTER */
++		mii_write(dev, np->phy_addr, MII_CTRL1000, 0x0700);
++	}
 +
-+	attr = nla_reserve(skb, IFLA_STATS,
-+			   sizeof(struct rtnl_link_stats));
-+	if (!attr)
-+		return true;
-+	stats = dev_get_stats(dev, &temp);
-+	copy_rtnl_link_stats(nla_data(attr), stats);
++	if (np->phy_media)
++		mii_set_media_pcs(dev);
++	else
++		mii_set_media(dev);
 +
-+	attr = nla_reserve(skb, IFLA_STATS64,
-+			   sizeof(struct rtnl_link_stats64));
-+	if (!attr)
-+		return true;
-+	copy_rtnl_link_stats64(nla_data(attr), stats);
-+	return false;
+ 	/* Jumbo frame */
+ 	if (np->jumbo != 0)
+ 		dw16(MaxFrameSize, MAX_JUMBO+14);
+ 
+-	alloc_list (dev);
++	/* Set RFDListPtr */
++	dw32(RFDListPtr0, np->rx_ring_dma);
++	dw32(RFDListPtr1, 0);
+ 
+ 	/* Set station address */
+ 	/* 16 or 32-bit access is required by TC9020 datasheet but 8-bit works
+@@ -493,8 +492,6 @@ rio_open (struct net_device *dev)
+ 	dw8(RxDMABurstThresh, 0x30);
+ 	dw8(RxDMAUrgentThresh, 0x30);
+ 	dw32(RmonStatMask, 0x0007ffff);
+-	/* clear statistics */
+-	clear_stats (dev);
+ 
+ 	/* VLAN supported */
+ 	if (np->vlan) {
+@@ -509,10 +506,6 @@ rio_open (struct net_device *dev)
+ 		dw32(MACCtrl, dr32(MACCtrl) | AutoVLANuntagging);
+ 	}
+ 
+-	setup_timer(&np->timer, rio_timer, (unsigned long)dev);
+-	np->timer.expires = jiffies + 1*HZ;
+-	add_timer (&np->timer);
+-
+ 	/* Start Tx/Rx */
+ 	dw32(MACCtrl, dr32(MACCtrl) | StatsEnable | RxEnable | TxEnable);
+ 
+@@ -522,6 +515,28 @@ rio_open (struct net_device *dev)
+ 	macctrl |= (np->tx_flow) ? TxFlowControlEnable : 0;
+ 	macctrl |= (np->rx_flow) ? RxFlowControlEnable : 0;
+ 	dw16(MACCtrl, macctrl);
 +}
 +
- static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			    int type, u32 pid, u32 seq, u32 change,
- 			    unsigned int flags, u32 ext_filter_mask)
++static int rio_open(struct net_device *dev)
++{
++	struct netdev_private *np = netdev_priv(dev);
++	const int irq = np->pdev->irq;
++	int i;
++
++	i = request_irq(irq, rio_interrupt, IRQF_SHARED, dev->name, dev);
++	if (i)
++		return i;
++
++	alloc_list(dev);
++
++	rio_hw_init(dev);
++
++	/* clear statistics */
++	clear_stats(dev);
++
++	setup_timer(&np->timer, rio_timer, (unsigned long)dev);
++	np->timer.expires = jiffies + 1 * HZ;
++	add_timer(&np->timer);
+ 
+ 	netif_start_queue (dev);
+ 
+@@ -591,7 +606,6 @@ static void
+ alloc_list (struct net_device *dev)
  {
- 	struct ifinfomsg *ifm;
- 	struct nlmsghdr *nlh;
--	struct rtnl_link_stats64 temp;
--	const struct rtnl_link_stats64 *stats;
--	struct nlattr *attr, *af_spec;
-+	struct nlattr *af_spec;
- 	struct rtnl_af_ops *af_ops;
- 	struct net_device *upper_dev = netdev_master_upper_dev_get(dev);
+ 	struct netdev_private *np = netdev_priv(dev);
+-	void __iomem *ioaddr = np->ioaddr;
+ 	int i;
  
-@@ -1124,19 +1144,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	if (rtnl_phys_switch_id_fill(skb, dev))
- 		goto nla_put_failure;
+ 	np->cur_rx = np->cur_tx = 0;
+@@ -634,10 +648,40 @@ alloc_list (struct net_device *dev)
+ 				  PCI_DMA_FROMDEVICE));
+ 		np->rx_ring[i].fraginfo |= cpu_to_le64((u64)np->rx_buf_sz << 48);
+ 	}
++}
  
--	attr = nla_reserve(skb, IFLA_STATS,
--			sizeof(struct rtnl_link_stats));
--	if (attr == NULL)
--		goto nla_put_failure;
+-	/* Set RFDListPtr */
+-	dw32(RFDListPtr0, np->rx_ring_dma);
+-	dw32(RFDListPtr1, 0);
++static inline dma_addr_t desc_to_dma(struct netdev_desc *desc)
++{
++	return le64_to_cpu(desc->fraginfo) & DMA_BIT_MASK(48);
++}
++
++static void free_list(struct net_device *dev)
++{
++	struct netdev_private *np = netdev_priv(dev);
++	struct sk_buff *skb;
++	int i;
++
++	/* Free all the skbuffs in the queue. */
++	for (i = 0; i < RX_RING_SIZE; i++) {
++		skb = np->rx_skbuff[i];
++		if (skb) {
++			pci_unmap_single(np->pdev, desc_to_dma(&np->rx_ring[i]),
++					 skb->len, PCI_DMA_FROMDEVICE);
++			dev_kfree_skb(skb);
++			np->rx_skbuff[i] = NULL;
++		}
++		np->rx_ring[i].status = 0;
++		np->rx_ring[i].fraginfo = 0;
++	}
++	for (i = 0; i < TX_RING_SIZE; i++) {
++		skb = np->tx_skbuff[i];
++		if (skb) {
++			pci_unmap_single(np->pdev, desc_to_dma(&np->tx_ring[i]),
++					 skb->len, PCI_DMA_TODEVICE);
++			dev_kfree_skb(skb);
++			np->tx_skbuff[i] = NULL;
++		}
++	}
+ }
+ 
+ static netdev_tx_t
+@@ -748,11 +792,6 @@ rio_interrupt (int irq, void *dev_instance)
+ 	return IRQ_RETVAL(handled);
+ }
+ 
+-static inline dma_addr_t desc_to_dma(struct netdev_desc *desc)
+-{
+-	return le64_to_cpu(desc->fraginfo) & DMA_BIT_MASK(48);
+-}
 -
--	stats = dev_get_stats(dev, &temp);
--	copy_rtnl_link_stats(nla_data(attr), stats);
--
--	attr = nla_reserve(skb, IFLA_STATS64,
--			sizeof(struct rtnl_link_stats64));
--	if (attr == NULL)
-+	if (rtnl_fill_stats(skb, dev))
- 		goto nla_put_failure;
--	copy_rtnl_link_stats64(nla_data(attr), stats);
+ static void
+ rio_free_tx (struct net_device *dev, int irq)
+ {
+@@ -1733,8 +1772,6 @@ rio_close (struct net_device *dev)
+ 	void __iomem *ioaddr = np->ioaddr;
  
- 	if (dev->dev.parent && (ext_filter_mask & RTEXT_FILTER_VF) &&
- 	    nla_put_u32(skb, IFLA_NUM_VF, dev_num_vf(dev->dev.parent)))
+ 	struct pci_dev *pdev = np->pdev;
+-	struct sk_buff *skb;
+-	int i;
+ 
+ 	netif_stop_queue (dev);
+ 
+@@ -1747,27 +1784,7 @@ rio_close (struct net_device *dev)
+ 	free_irq(pdev->irq, dev);
+ 	del_timer_sync (&np->timer);
+ 
+-	/* Free all the skbuffs in the queue. */
+-	for (i = 0; i < RX_RING_SIZE; i++) {
+-		skb = np->rx_skbuff[i];
+-		if (skb) {
+-			pci_unmap_single(pdev, desc_to_dma(&np->rx_ring[i]),
+-					 skb->len, PCI_DMA_FROMDEVICE);
+-			dev_kfree_skb (skb);
+-			np->rx_skbuff[i] = NULL;
+-		}
+-		np->rx_ring[i].status = 0;
+-		np->rx_ring[i].fraginfo = 0;
+-	}
+-	for (i = 0; i < TX_RING_SIZE; i++) {
+-		skb = np->tx_skbuff[i];
+-		if (skb) {
+-			pci_unmap_single(pdev, desc_to_dma(&np->tx_ring[i]),
+-					 skb->len, PCI_DMA_TODEVICE);
+-			dev_kfree_skb (skb);
+-			np->tx_skbuff[i] = NULL;
+-		}
+-	}
++	free_list(dev);
+ 
+ 	return 0;
+ }
+@@ -1795,11 +1812,61 @@ rio_remove1 (struct pci_dev *pdev)
+ 	}
+ }
+ 
++#ifdef CONFIG_PM
++static int rio_suspend(struct pci_dev *pdev, pm_message_t state)
++{
++	struct net_device *dev = pci_get_drvdata(pdev);
++	struct netdev_private *np = netdev_priv(dev);
++	void __iomem *ioaddr = np->ioaddr;
++
++	pci_save_state(pdev);
++
++	if (netif_running(dev)) {
++		netif_device_detach(dev);
++		del_timer_sync(&np->timer);
++		/* Disable interrupts */
++		dw16(IntEnable, 0);
++		/* Stop Tx and Rx logics */
++		dw32(MACCtrl, TxDisable | RxDisable | StatsDisable);
++		free_list(dev);
++	}
++
++	pci_set_power_state(pdev, PCI_D3hot);
++
++	return 0;
++}
++
++static int rio_resume(struct pci_dev *pdev)
++{
++	struct net_device *dev = pci_get_drvdata(pdev);
++	struct netdev_private *np = netdev_priv(dev);
++
++	pci_set_power_state(pdev, PCI_D0);
++	pci_restore_state(pdev);
++
++	if (netif_running(dev)) {
++		alloc_list(dev);
++		rio_hw_init(dev);
++		np->timer.expires = jiffies + 1 * HZ;
++		add_timer(&np->timer);
++		netif_device_attach(dev);
++		dl2k_enable_int(np);
++	}
++
++	return 0;
++}
++
++#endif /* CONFIG_PM */
++
+ static struct pci_driver rio_driver = {
+ 	.name		= "dl2k",
+ 	.id_table	= rio_pci_tbl,
+ 	.probe		= rio_probe1,
+ 	.remove		= rio_remove1,
++#ifdef CONFIG_PM
++	.suspend	= rio_suspend,
++	.resume		= rio_resume,
++#endif /* CONFIG_PM */
+ };
+ 
+ module_pci_driver(rio_driver);
+-- 
+Ondrej Zary
