@@ -1,72 +1,63 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: next build: 235 warnings 3 failures (next/next-20151117)
-Date: Tue, 17 Nov 2015 09:57:30 +0100
-Message-ID: <4694362.ZPL12j6kR2@wuerfel>
-References: <564a9961.878b420a.331b8.fffffd62@mx.google.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH v2 net-next] net/core: ensure features get disabled on new
+ lower devs
+Date: Tue, 17 Nov 2015 10:02:37 +0100
+Message-ID: <CAMuHMdWHLmfB3hEfwOCkHMrHPOBt-xk2S95Tq1yyH1bwk29DNA@mail.gmail.com>
+References: <1446583017-19021-1-git-send-email-jarod@redhat.com>
+	<1446610172-21420-1-git-send-email-jarod@redhat.com>
+	<20151104.215632.964832400121049446.davem@davemloft.net>
+	<56452E2A.9050501@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: kernel-build-reports@lists.linaro.org, olof@lixom.net,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Catalin Marinas <catalin.marinas@arm.com>, will.deacon@arm.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <564a9961.878b420a.331b8.fffffd62@mx.google.com>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Jarod Wilson <jarod@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Nikolay Aleksandrov <razor@blackwall.org>,
+	Michal Kubecek <mkubecek@suse.cz>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <56452E2A.9050501@gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 16 November 2015 19:05:05 Olof's autobuilder wrote:
-> 
-> Errors:
-> 
->         arm64.allmodconfig:
-> arch/arm64/include/asm/barrier.h:71:3: error: read-only variable '___p1' used as 'asm' output
-> arch/arm64/include/asm/barrier.h:75:3: error: read-only variable '___p1' used as 'asm' output
-> arch/arm64/include/asm/barrier.h:79:3: error: read-only variable '___p1' used as 'asm' output
-> arch/arm64/include/asm/barrier.h:83:3: error: read-only variable '___p1' used as 'asm' output
-> arch/arm64/include/asm/barrier.h:71:3: error: read-only variable '___p1' used as 'asm' output
-> arch/arm64/include/asm/barrier.h:75:3: error: read-only variable '___p1' used as 'asm' output
-> arch/arm64/include/asm/barrier.h:79:3: error: read-only variable '___p1' used as 'asm' output
-> arch/arm64/include/asm/barrier.h:83:3: error: read-only variable '___p1' used as 'asm' output
-> arch/arm64/include/asm/barrier.h:71:3: error: read-only variable '___p1' used as 'asm' output
+On Fri, Nov 13, 2015 at 1:26 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 04/11/15 18:56, David Miller wrote:
+>>> Fixes: fd867d51f889 ("net/core: generic support for disabling netdev features down stack")
+>>  ...
+>>> Reported-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+>>> ---
+>>> v2: Based on suggestions from Alex, and with not changing err to ret, this
+>>> patch actually becomes quite minimal and doesn't ugly up the code much.
+>>
+>> Applied, thanks.
+>
+> This causes some warnings to be displayed for DSA stacked devices:
 
-The patch below seems to fix it. Please review/apply.
+And a few more:
 
-8<----
-Subject: ARM64: make smp_load_acquire() work with const arguments
+sh-eth ee700000.ethernet eth0: set_features() failed (-1); wanted
+0x0000000000004000, left 0x0000000000004800
+g_ether gadget usb0: set_features() failed (-1); wanted
+0x0000000000004000, left 0x0000000000004800
 
-smp_load_acquire() uses typeof() to declare a local variable for temporarily
-storing the output of the memory access. This fails when the argument is
-constant, because the assembler complains about using a constant register
-as output:
+Gr{oetje,eeting}s,
 
- arch/arm64/include/asm/barrier.h:71:3: error: read-only variable '___p1' used as 'asm' output
+                        Geert
 
-This changes the implementation to use an 'unsigned long' for the temporary value
-and only cast it to the original type in the end.
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-diff --git a/arch/arm64/include/asm/barrier.h b/arch/arm64/include/asm/barrier.h
-index 624f9679f4b0..05fa329467f6 100644
---- a/arch/arm64/include/asm/barrier.h
-+++ b/arch/arm64/include/asm/barrier.h
-@@ -64,7 +64,7 @@ do {									\
- 
- #define smp_load_acquire(p)						\
- ({									\
--	typeof(*p) ___p1;						\
-+	unsigned long ___p1;						\
- 	compiletime_assert_atomic_type(*p);				\
- 	switch (sizeof(*p)) {						\
- 	case 1:								\
-@@ -84,7 +84,7 @@ do {									\
- 			: "=r" (___p1) : "Q" (*p) : "memory");		\
- 		break;							\
- 	}								\
--	___p1;								\
-+	(typeof(*p))___p1;								\
- })
- 
- #define read_barrier_depends()		do { } while(0)
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
