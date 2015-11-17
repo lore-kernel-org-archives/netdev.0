@@ -1,42 +1,57 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH net] net: fix __netdev_update_features return on
- ndo_set_features failure
-Date: Tue, 17 Nov 2015 14:54:18 +0100
-Message-ID: <20151117135418.GA30197@rere.qmqm.pl>
-References: <1447424424-4419-1-git-send-email-razor@blackwall.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Nikolay Aleksandrov <razor@blackwall.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([84.10.57.10]:60373 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751822AbbKQOAu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Nov 2015 09:00:50 -0500
-Content-Disposition: inline
-In-Reply-To: <1447424424-4419-1-git-send-email-razor@blackwall.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] ieee802154-atusb: Delete an unnecessary check before the function call "kfree_skb"
+Date: Tue, 17 Nov 2015 15:01:28 +0100
+Message-ID: <FB4ECAF8-4F55-4F5C-AF13-D402BEE9CE74@holtmann.org>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net> <5649D2AE.60100@users.sourceforge.net> <5649DE40.6030405@osg.samsung.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.1 \(3096.5\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
+	Alexander Aring <alex.aring@gmail.com>,
+	linux-wpan@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Stefan Schmidt <stefan@osg.samsung.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <5649DE40.6030405@osg.samsung.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 13, 2015 at 03:20:24PM +0100, Nikolay Aleksandrov wrote:
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->=20
-> If ndo_set_features fails __netdev_update_features() will return -1 b=
-ut
-> this is wrong because it is expected to return 0 if no features were
-> changed (see netdev_update_features()), which will cause a netdev
-> notifier to be called without any actual changes. Fix this by returni=
-ng
-> 0 if ndo_set_features fails.
+Hi Stefan,
 
-Hmm. In case ndo_update_features() failed it might have changed the fea=
-tures.
-The assumption I made was that we're better off initiating spurious not=
-ification
-than miss one. This is an unlikely event - a bug in a driver or problem=
- with the HW.
+>> The kfree_skb() function tests whether its argument is NULL and then
+>> returns immediately. Thus the test around the call is not needed.
+>> 
+>> This issue was detected by using the Coccinelle software.
+>> 
+>> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+>> ---
+>>  drivers/net/ieee802154/atusb.c | 3 +--
+>>  1 file changed, 1 insertion(+), 2 deletions(-)
+>> 
+>> diff --git a/drivers/net/ieee802154/atusb.c b/drivers/net/ieee802154/atusb.c
+>> index 199a94a..b1cd865 100644
+>> --- a/drivers/net/ieee802154/atusb.c
+>> +++ b/drivers/net/ieee802154/atusb.c
+>> @@ -310,8 +310,7 @@ static void atusb_free_urbs(struct atusb *atusb)
+>>  		urb = usb_get_from_anchor(&atusb->idle_urbs);
+>>  		if (!urb)
+>>  			break;
+>> -		if (urb->context)
+>> -			kfree_skb(urb->context);
+>> +		kfree_skb(urb->context);
+>>  		usb_free_urb(urb);
+>>  	}
+>>  }
+> 
+> Acked-by: Stefan Schmidt <stefan@osg.samsung.com>
 
-Best Regards,
-Micha=B3 Miros=B3aw
+for some reason I am missing the original patch, can someone resend it please.
+
+Regards
+
+Marcel
+
