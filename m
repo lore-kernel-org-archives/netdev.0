@@ -1,196 +1,342 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next RFC V3 0/3] basic busy polling support for
-	vhost_net
-Date: Tue, 17 Nov 2015 14:31:15 +0800
-Message-ID: <564AC9B3.8050100@redhat.com>
-References: <1447323395-28052-1-git-send-email-jasowang@redhat.com>
-	<564467E9.9080409@redhat.com>
-	<F61F5796-38D7-42A0-9590-75840230A576@nutanix.com>
-	<5645AB73.7060808@redhat.com>
+From: Ethan Zhao <ethan.kernel@gmail.com>
+Subject: Re: Hit regression with TCP_TW REUSE/RECYCLE
+Date: Tue, 17 Nov 2015 14:35:44 +0800
+Message-ID: <CABawtvPOYUAqwF2j_dZWMfkmcee+2LV00si2cbVs9zqYBZ6Ynw@mail.gmail.com>
+References: <CABawtvO_b_zofYfCgGA2oF5VhPtWAsaD4FNsSexzf8pPy6k4iw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>
-To: Felipe Franciosi <felipe@nutanix.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <5645AB73.7060808@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CABawtvO_b_zofYfCgGA2oF5VhPtWAsaD4FNsSexzf8pPy6k4iw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAxMS8xMy8yMDE1IDA1OjIwIFBNLCBKYXNvbiBXYW5nIHdyb3RlOgo+Cj4gT24gMTEvMTIv
-MjAxNSAwODowMiBQTSwgRmVsaXBlIEZyYW5jaW9zaSB3cm90ZToKPj4gSGkgSmFzb24sCj4+Cj4+
-IEkgdW5kZXJzdGFuZCB5b3VyIGJ1c3kgbG9vcCB0aW1lb3V0IGlzIHF1aXRlIGNvbnNlcnZhdGl2
-ZSBhdCA1MHVzLiBEaWQgeW91IHRyeSBhbnkgb3RoZXIgdmFsdWVzPwo+IEkndmUgYWxzbyB0cmll
-ZCAyMHVzLiBBbmQgcmVzdWx0cyBzaG93cyA1MHVzIHdhcyBiZXR0ZXIgaW46Cj4KPiAtIHZlcnkg
-c21hbGwgcGFja2V0IHR4IChlLmcgNjRieXRlcyBhdCBtb3N0IDQ2JSBpbXByb3ZlbWVudCkKPiAt
-IFRDUF9SUiAoYXQgbW9zdCAxMSUgaW1wcm92ZW1lbnQpCj4KPiBCdXQgSSB3aWxsIHRlc3QgYmln
-Z2VyIHZhbHVlcy4gSW4gZmFjdCwgZm9yIG5ldCBpdHNlbGYsIHdlIGNhbiBiZSBldmVuCj4gbW9y
-ZSBhZ2dyZXNzaXZlOiBtYWtlIHZob3N0IHBvbGwgZm9yZXZlciBidXQgSSBoYXZlbid0IHRpcmVk
-IHRoaXMuCj4KPj4gQWxzbywgZGlkIHlvdSBtZWFzdXJlIGhvdyBwb2xsaW5nIGFmZmVjdHMgbWFu
-eSBWTXMgdGFsa2luZyB0byBlYWNoIG90aGVyIChlLmcuIDIwIFZNcyBvbiBlYWNoIGhvc3QsIHBl
-cmhhcHMgd2l0aCBzZXZlcmFsIHZOSUNzIGVhY2gsIHRyYW5zbWl0dGluZyB0byBhIGNvcnJlc3Bv
-bmRpbmcgVk0vdk5JQyBwYWlyIG9uIGFub3RoZXIgaG9zdCk/Cj4gTm90IHlldCwgaW4gbXkgdG9k
-byBsaXN0Lgo+Cj4+Cj4+IE9uIGEgY29tcGxldGUgc2VwYXJhdGUgZXhwZXJpbWVudCAoYnVzeSB3
-YWl0aW5nIG9uIHN0b3JhZ2UgSS9PIHJpbmdzIG9uIFhlbiksIEkgaGF2ZSBvYnNlcnZlZCB0aGF0
-IGJpZ2dlciB0aW1lb3V0cyBnYXZlIGJpZ2dlciBiZW5lZml0cy4gT24gdGhlIG90aGVyIGhhbmQs
-IGFsbCBjYXNlcyB0aGF0IGNvbnRlbmRlZCBmb3IgQ1BVIHdlcmUgYmFkbHkgaHVydCB3aXRoIGFu
-eSBzb3J0IG9mIHBvbGxpbmcuCj4+Cj4+IFRoZSBjYXNlcyB0aGF0IGNvbnRlbmRlZCBmb3IgQ1BV
-IGNvbnNpc3RlZCBvZiBtYW55IFZNcyBnZW5lcmF0aW5nIHdvcmtsb2FkIG92ZXIgdmVyeSBmYXN0
-IEkvTyBkZXZpY2VzIChpbiB0aGF0IGNhc2UsIHNldmVyYWwgTlZNZSBkZXZpY2VzIG9uIGEgc2lu
-Z2xlIGhvc3QpLiBBbmQgdGhlIG1ldHJpYyB0aGF0IGdvdCBhZmZlY3RlZCB3YXMgYWdncmVnYXRl
-IHRocm91Z2hwdXQgZnJvbSBhbGwgVk1zLgo+Pgo+PiBUaGUgc29sdXRpb24gd2FzIHRvIGRldGVy
-bWluZSB3aGV0aGVyIHRvIHBvbGwgZGVwZW5kaW5nIG9uIHRoZSBob3N0J3Mgb3ZlcmFsbCBDUFUg
-dXRpbGlzYXRpb24gYXQgdGhhdCBtb21lbnQuIFRoYXQgZ2F2ZSBtZSB0aGUgYmVzdCBvZiBib3Ro
-IHdvcmxkcyBhcyBwb2xsaW5nIG1hZGUgZXZlcnl0aGluZyBmYXN0ZXIgd2l0aG91dCBzbG93aW5n
-IGRvd24gYW55IG90aGVyIG1ldHJpYy4KPiBZb3UgbWVhbiBhIHRocmVzaG9sZCBhbmQgZXhpdCBw
-b2xsaW5nIHdoZW4gaXQgZXhjZWVkcyB0aGlzPyBJIHVzZSBhCj4gc2ltcGxlciBtZXRob2Q6IGp1
-c3QgZXhpdCB0aGUgYnVzeSBsb29wIHdoZW4gdGhlcmUncyBtb3JlIHRoYW4gb25lCj4gcHJvY2Vz
-c2VzIGlzIGluIHJ1bm5pbmcgc3RhdGUuIEkgdGVzdCB0aGlzIG1ldGhvZCBpbiB0aGUgcGFzdCBm
-b3Igc29ja2V0Cj4gYnVzeSByZWFkIChodHRwOi8vd3d3Lmdvc3NhbWVyLXRocmVhZHMuY29tL2xp
-c3RzL2xpbnV4L2tlcm5lbC8xOTk3NTMxKQo+IHdoaWNoIHNlZW1zIGNhbiBzb2x2ZSB0aGUgaXNz
-dWUuIEJ1dCBoYXZlbid0IHRlc3RlZCB0aGlzIGZvciB2aG9zdAo+IHBvbGxpbmcuIFdpbGwgcnVu
-IHNvbWUgc2ltcGxlIHRlc3QgKGUuZyBwaW4gdHdvIHZob3N0IHRocmVhZHMgaW4gb25lCj4gaG9z
-dCBjcHUpLCBhbmQgc2VlIGhvdyB3ZWxsIGl0IHBlcmZvcm0uCj4KPiBUaGFua3MKClJ1biBzaW1w
-bGUgdGVzdCBsaWtlOgoKLSBzdGFydGluZyB0d28gVk1zLCBlYWNoIHZtIGhhcyBvbmUgdmNwdQot
-IHBpbiBib3RoIHR3byB2aG9zdCB0aHJlYWRzIG9mIFZNcyB0byBjcHUgMAotIHBpbiB2Y3B1MCBv
-ZiBWTTEgdG8gY3B1MQotIHBpbiB2Y3B1MCBvZiBWTTIgdG8gY3B1MgoKVHJ5IHR3byBUQ1BfUlIg
-bmV0cGVyZiB0ZXN0cyBpbiBwYXJhbGxlbGw6CgovYnVzeSBsb29wIHRpbWVvdXRzL3RyYXRlMSt0
-cmF0ZTIvLSslLwovbm8gYnVzeSBsb29wLzEzOTY2Ljc2KzEzOTg3LjMxLyswJS8KLzIwdXMvMTQw
-OTcuODkrMTQwODguODIvKzAuMDglKQovNTB1cy8xNTEwMy45OCsxNTEwMy43My8rOC4wNiUvCgoK
-QnVzeSBsb29wIGNhbiBzdGlsbCBnaXZlIGltcHJvdmVtZW50cyBldmVuIGlmIHR3byB2aG9zdCB0
-aHJlYWRzIGFyZQpjb250ZW5kaW5nIG9uZSBjcHUgb24gaG9zdC4KCj4KPj4gVGhhbmtzLAo+PiBG
-ZWxpcGUKPj4KPj4KPj4KPj4gT24gMTIvMTEvMjAxNSAxMDoyMCwgImt2bS1vd25lckB2Z2VyLmtl
-cm5lbC5vcmcgb24gYmVoYWxmIG9mIEphc29uIFdhbmciIDxrdm0tb3duZXJAdmdlci5rZXJuZWwu
-b3JnIG9uIGJlaGFsZiBvZiBqYXNvd2FuZ0ByZWRoYXQuY29tPiB3cm90ZToKPj4KPj4+IE9uIDEx
-LzEyLzIwMTUgMDY6MTYgUE0sIEphc29uIFdhbmcgd3JvdGU6Cj4+Pj4gSGkgYWxsOgo+Pj4+Cj4+
-Pj4gVGhpcyBzZXJpZXMgdHJpZXMgdG8gYWRkIGJhc2ljIGJ1c3kgcG9sbGluZyBmb3Igdmhvc3Qg
-bmV0LiBUaGUgaWRlYSBpcwo+Pj4+IHNpbXBsZTogYXQgdGhlIGVuZCBvZiB0eC9yeCBwcm9jZXNz
-aW5nLCBidXN5IHBvbGxpbmcgZm9yIG5ldyB0eCBhZGRlZAo+Pj4+IGRlc2NyaXB0b3IgYW5kIHJ4
-IHJlY2VpdmUgc29ja2V0IGZvciBhIHdoaWxlLiBUaGUgbWF4aW11bSBudW1iZXIgb2YKPj4+PiB0
-aW1lIChpbiB1cykgY291bGQgYmUgc3BlbnQgb24gYnVzeSBwb2xsaW5nIHdhcyBzcGVjaWZpZWQg
-aW9jdGwuCj4+Pj4KPj4+PiBUZXN0IHdlcmUgZG9uZSB0aHJvdWdoOgo+Pj4+Cj4+Pj4gLSA1MCB1
-cyBhcyBidXN5IGxvb3AgdGltZW91dAo+Pj4+IC0gTmV0cGVyZiAyLjYKPj4+PiAtIFR3byBtYWNo
-aW5lcyB3aXRoIGJhY2sgdG8gYmFjayBjb25uZWN0ZWQgaXhnYmUKPj4+PiAtIEd1ZXN0IHdpdGgg
-MSB2Y3B1IGFuZCAxIHF1ZXVlCj4+Pj4KPj4+PiBSZXN1bHRzOgo+Pj4+IC0gRm9yIHN0cmVhbSB3
-b3JrbG9hZCwgaW9leGl0cyB3ZXJlIHJlZHVjZWQgZHJhbWF0aWNhbGx5IGluIG1lZGl1bQo+Pj4+
-ICAgc2l6ZSAoMTAyNC0yMDQ4KSBvZiB0eCAoYXQgbW9zdCAtMzklKSBhbmQgYWxtb3N0IGFsbCBy
-eCAoYXQgbW9zdAo+Pj4+ICAgLTc5JSkgYXMgYSByZXN1bHQgb2YgcG9sbGluZy4gVGhpcyBjb21w
-ZW5zYXRlIGZvciB0aGUgcG9zc2libGUKPj4+PiAgIHdhc3RlZCBjcHUgY3ljbGVzIG1vcmUgb3Ig
-bGVzcy4gVGhhdCBwb3JiYWJseSB3aHkgd2UgY2FuIHN0aWxsIHNlZQo+Pj4+ICAgc29tZSBpbmNy
-ZWFzaW5nIGluIHRoZSBub3JtYWxpemVkIHRocm91Z2hwdXQgaW4gc29tZSBjYXNlcy4KPj4+PiAt
-IFRocm91Z2hwdXQgb2YgdHggd2VyZSBpbmNyZWFzZWQgKGF0IG1vc3QgMTA1JSkgZXhwZWN0IGZv
-ciB0aGUgaHVnZQo+Pj4+ICAgd3JpdGUgKDE2Mzg0KS4gQW5kIHdlIGNhbiBzZW5kIG1vcmUgcGFj
-a2V0cyBpbiB0aGUgY2FzZSAoK3Rwa3RzIHdlcmUKPj4+PiAgIGluY3JlYXNlZCkuCj4+Pj4gLSBW
-ZXJ5IG1pbm9yIHJ4IHJlZ3Jlc3Npb24gaW4gc29tZSBjYXNlcy4KPj4+PiAtIEltcHJvdmVtbnQg
-b24gVENQX1JSIChhdCBtb3N0IDE2JSkuCj4+PiBGb3JnZXQgdG8gbWVudGlvbiwgdGhlIGZvbGxv
-d2luZyB0ZXN0IHJlc3VsdHMgYnkgb3JkZXIgYXJlOgo+Pj4KPj4+IDEpIEd1ZXN0IFRYCj4+PiAy
-KSBHdWVzdCBSWAo+Pj4gMykgVENQX1JSCj4+Pgo+Pj4+IHNpemUvc2Vzc2lvbi8rdGh1JS8rbm9y
-bWFsaXplJS8rdHBrdHMlLytycGt0cyUvK2lvZXhpdHMlLwo+Pj4+ICAgIDY0LyAgICAgMS8gICAr
-OSUvICAtMTclLyAgICs1JS8gICsxMCUvICAgLTIlCj4+Pj4gICAgNjQvICAgICAyLyAgICs4JS8g
-IC0xOCUvICAgKzYlLyAgKzEwJS8gICAtMSUKPj4+PiAgICA2NC8gICAgIDQvICAgKzQlLyAgLTIx
-JS8gICArNiUvICArMTAlLyAgIC0xJQo+Pj4+ICAgIDY0LyAgICAgOC8gICArOSUvICAtMTclLyAg
-ICs2JS8gICArOSUvICAgLTIlCj4+Pj4gICAyNTYvICAgICAxLyAgKzIwJS8gICAtMSUvICArMTUl
-LyAgKzExJS8gICAtOSUKPj4+PiAgIDI1Ni8gICAgIDIvICArMTUlLyAgIC02JS8gICsxNSUvICAg
-KzglLyAgIC04JQo+Pj4+ICAgMjU2LyAgICAgNC8gICsxNyUvICAgLTQlLyAgKzE2JS8gICArOCUv
-ICAgLTglCj4+Pj4gICAyNTYvICAgICA4LyAgLTYxJS8gIC02OSUvICArMTYlLyAgKzEwJS8gIC0x
-MCUKPj4+PiAgIDUxMi8gICAgIDEvICArMTUlLyAgIC0zJS8gICsxOSUvICArMTglLyAgLTExJQo+
-Pj4+ICAgNTEyLyAgICAgMi8gICsxOSUvICAgIDAlLyAgKzE5JS8gICsxMyUvICAtMTAlCj4+Pj4g
-ICA1MTIvICAgICA0LyAgKzE4JS8gICAtMiUvICArMTglLyAgKzE1JS8gIC0xMCUKPj4+PiAgIDUx
-Mi8gICAgIDgvICArMTclLyAgIC0xJS8gICsxOCUvICArMTUlLyAgLTExJQo+Pj4+ICAxMDI0LyAg
-ICAgMS8gICsyNSUvICAgKzQlLyAgKzI3JS8gICsxNiUvICAtMjElCj4+Pj4gIDEwMjQvICAgICAy
-LyAgKzI4JS8gICArOCUvICArMjUlLyAgKzE1JS8gIC0yMiUKPj4+PiAgMTAyNC8gICAgIDQvICAr
-MjUlLyAgICs1JS8gICsyNSUvICArMTQlLyAgLTIxJQo+Pj4+ICAxMDI0LyAgICAgOC8gICsyNyUv
-ICAgKzclLyAgKzI1JS8gICsxNiUvICAtMjElCj4+Pj4gIDIwNDgvICAgICAxLyAgKzMyJS8gICsx
-MiUvICArMzElLyAgKzIyJS8gIC0zOCUKPj4+PiAgMjA0OC8gICAgIDIvICArMzMlLyAgKzEyJS8g
-ICszMCUvICArMjMlLyAgLTM2JQo+Pj4+ICAyMDQ4LyAgICAgNC8gICszMSUvICArMTAlLyAgKzMx
-JS8gICsyNCUvICAtMzclCj4+Pj4gIDIwNDgvICAgICA4LyArMTA1JS8gICs3NSUvICArMzMlLyAg
-KzIzJS8gIC0zOSUKPj4+PiAxNjM4NC8gICAgIDEvICAgIDAlLyAgLTE0JS8gICArMiUvICAgIDAl
-LyAgKzE5JQo+Pj4+IDE2Mzg0LyAgICAgMi8gICAgMCUvICAtMTMlLyAgKzE5JS8gIC0xMyUvICAr
-MTclCj4+Pj4gMTYzODQvICAgICA0LyAgICAwJS8gIC0xMiUvICAgKzMlLyAgICAwJS8gICArMiUK
-Pj4+PiAxNjM4NC8gICAgIDgvICAgIDAlLyAgLTExJS8gICAtMiUvICAgKzElLyAgICsxJQo+Pj4+
-IHNpemUvc2Vzc2lvbi8rdGh1JS8rbm9ybWFsaXplJS8rdHBrdHMlLytycGt0cyUvK2lvZXhpdHMl
-Lwo+Pj4+ICAgIDY0LyAgICAgMS8gICAtNyUvICAtMjMlLyAgICs0JS8gICArNiUvICAtNzQlCj4+
-Pj4gICAgNjQvICAgICAyLyAgIC0yJS8gIC0xMiUvICAgKzIlLyAgICsyJS8gIC01NSUKPj4+PiAg
-ICA2NC8gICAgIDQvICAgKzIlLyAgIC01JS8gICsxMCUvICAgLTIlLyAgLTQzJQo+Pj4+ICAgIDY0
-LyAgICAgOC8gICAtNSUvICAgLTUlLyAgKzExJS8gIC0zNCUvICAtNTklCj4+Pj4gICAyNTYvICAg
-ICAxLyAgIC02JS8gIC0xNiUvICAgKzklLyAgKzExJS8gIC02MCUKPj4+PiAgIDI1Ni8gICAgIDIv
-ICAgKzMlLyAgIC00JS8gICArNiUvICAgLTMlLyAgLTI4JQo+Pj4+ICAgMjU2LyAgICAgNC8gICAg
-MCUvICAgLTUlLyAgIC05JS8gICAtOSUvICAtMTAlCj4+Pj4gICAyNTYvICAgICA4LyAgIC0zJS8g
-ICAtNiUvICAtMTIlLyAgIC05JS8gIC00MCUKPj4+PiAgIDUxMi8gICAgIDEvICAgLTQlLyAgLTE3
-JS8gIC0xMCUvICArMjElLyAgLTM0JQo+Pj4+ICAgNTEyLyAgICAgMi8gICAgMCUvICAgLTklLyAg
-LTE0JS8gICAtMyUvICAtMzAlCj4+Pj4gICA1MTIvICAgICA0LyAgICAwJS8gICAtNCUvICAtMTgl
-LyAgLTEyJS8gICAtNCUKPj4+PiAgIDUxMi8gICAgIDgvICAgLTElLyAgIC00JS8gICAtMSUvICAg
-LTUlLyAgICs0JQo+Pj4+ICAxMDI0LyAgICAgMS8gICAgMCUvICAtMTYlLyAgKzEyJS8gICsxMSUv
-ICAtMTAlCj4+Pj4gIDEwMjQvICAgICAyLyAgICAwJS8gIC0xMSUvICAgIDAlLyAgICs1JS8gIC0z
-MSUKPj4+PiAgMTAyNC8gICAgIDQvICAgIDAlLyAgIC00JS8gICAtNyUvICAgKzElLyAgLTIyJQo+
-Pj4+ICAxMDI0LyAgICAgOC8gICAtNSUvICAgLTYlLyAgLTE3JS8gIC0yOSUvICAtNzklCj4+Pj4g
-IDIwNDgvICAgICAxLyAgICAwJS8gIC0xNiUvICAgKzElLyAgICs5JS8gIC0xMCUKPj4+PiAgMjA0
-OC8gICAgIDIvICAgIDAlLyAgLTEyJS8gICArNyUvICAgKzklLyAgLTI2JQo+Pj4+ICAyMDQ4LyAg
-ICAgNC8gICAgMCUvICAgLTclLyAgIC00JS8gICArMyUvICAtNjQlCj4+Pj4gIDIwNDgvICAgICA4
-LyAgIC0xJS8gICAtNSUvICAgLTYlLyAgICs0JS8gIC0yMCUKPj4+PiAxNjM4NC8gICAgIDEvICAg
-IDAlLyAgLTEyJS8gICsxMSUvICAgKzclLyAgLTIwJQo+Pj4+IDE2Mzg0LyAgICAgMi8gICAgMCUv
-ICAgLTclLyAgICsxJS8gICArNSUvICAtMjYlCj4+Pj4gMTYzODQvICAgICA0LyAgICAwJS8gICAt
-NSUvICArMTIlLyAgKzIyJS8gIC0yMyUKPj4+PiAxNjM4NC8gICAgIDgvICAgIDAlLyAgIC0xJS8g
-ICAtOCUvICAgKzUlLyAgIC0zJQo+Pj4+IHNpemUvc2Vzc2lvbi8rdGh1JS8rbm9ybWFsaXplJS8r
-dHBrdHMlLytycGt0cyUvK2lvZXhpdHMlLwo+Pj4+ICAgICAxLyAgICAgMS8gICArOSUvICAtMjkl
-LyAgICs5JS8gICArOSUvICAgKzklCj4+Pj4gICAgIDEvICAgIDI1LyAgICs2JS8gIC0xOCUvICAg
-KzYlLyAgICs2JS8gICAtMSUKPj4+PiAgICAgMS8gICAgNTAvICAgKzYlLyAgLTE5JS8gICArNSUv
-ICAgKzUlLyAgIC0yJQo+Pj4+ICAgICAxLyAgIDEwMC8gICArNSUvICAtMTklLyAgICs0JS8gICAr
-NCUvICAgLTMlCj4+Pj4gICAgNjQvICAgICAxLyAgKzEwJS8gIC0yOCUvICArMTAlLyAgKzEwJS8g
-ICsxMCUKPj4+PiAgICA2NC8gICAgMjUvICAgKzglLyAgLTE4JS8gICArNyUvICAgKzclLyAgIC0y
-JQo+Pj4+ICAgIDY0LyAgICA1MC8gICArOCUvICAtMTclLyAgICs4JS8gICArOCUvICAgLTElCj4+
-Pj4gICAgNjQvICAgMTAwLyAgICs4JS8gIC0xNyUvICAgKzglLyAgICs4JS8gICAtMSUKPj4+PiAg
-IDI1Ni8gICAgIDEvICArMTAlLyAgLTI4JS8gICsxMCUvICArMTAlLyAgKzEwJQo+Pj4+ICAgMjU2
-LyAgICAyNS8gICsxNSUvICAtMTMlLyAgKzE1JS8gICsxNSUvICAgIDAlCj4+Pj4gICAyNTYvICAg
-IDUwLyAgKzE2JS8gIC0xNCUvICArMTglLyAgKzE4JS8gICArMiUKPj4+PiAgIDI1Ni8gICAxMDAv
-ICArMTUlLyAgLTEzJS8gICsxMiUvICArMTIlLyAgIC0yJQo+Pj4+Cj4+Pj4gQ2hhbmdlcyBmcm9t
-IFYyOgo+Pj4+IC0gcG9sbCBhbHNvIGF0IHRoZSBlbmQgb2YgcnggaGFuZGxpbmcKPj4+PiAtIGZh
-Y3RvciBvdXQgdGhlIHBvbGxpbmcgbG9naWMgYW5kIG9wdGltaXplIHRoZSBjb2RlIGEgbGl0dGxl
-IGJpdAo+Pj4+IC0gYWRkIHR3byBpb2N0bHMgdG8gZ2V0IGFuZCBzZXQgdGhlIGJ1c3kgcG9sbCB0
-aW1lb3V0Cj4+Pj4gLSB0ZXN0IG9uIGl4Z2JlICh3aGljaCBjYW4gZ2l2ZSBtb3JlIHN0YWJsZSBh
-bmQgcmVwcm9kdWNhYmxlIG51bWJlcnMpCj4+Pj4gICBpbnN0ZWFkIG9mIG1seDQuCj4+Pj4KPj4+
-PiBDaGFuZ2VzIGZyb20gVjE6Cj4+Pj4gLSBBZGQgYSBjb21tZW50IGZvciB2aG9zdF9oYXNfd29y
-aygpIHRvIGV4cGxhaW4gd2h5IGl0IGNvdWxkIGJlCj4+Pj4gICBsb2NrbGVzcwo+Pj4+IC0gQWRk
-IHBhcmFtIGRlc2NyaXB0aW9uIGZvciBidXN5bG9vcF90aW1lb3V0Cj4+Pj4gLSBTcGxpdCBvdXQg
-dGhlIGJ1c3kgcG9sbGluZyBsb2dpYyBpbnRvIGEgbmV3IGhlbHBlcgo+Pj4+IC0gQ2hlY2sgYW5k
-IGV4aXQgdGhlIGxvb3Agd2hlbiB0aGVyZSdzIGEgcGVuZGluZyBzaWduYWwKPj4+PiAtIERpc2Fi
-bGUgcHJlZW1wdGlvbiBkdXJpbmcgYnVzeSBsb29waW5nIHRvIG1ha2Ugc3VyZSBsb2NrX2Nsb2Nr
-KCkgd2FzCj4+Pj4gICBjb3JyZWN0bHkgdXNlZC4KPj4+Pgo+Pj4+IEphc29uIFdhbmcgKDMpOgo+
-Pj4+ICAgdmhvc3Q6IGludHJvZHVjZSB2aG9zdF9oYXNfd29yaygpCj4+Pj4gICB2aG9zdDogaW50
-cm9kdWNlIHZob3N0X3ZxX21vcmVfYXZhaWwoKQo+Pj4+ICAgdmhvc3RfbmV0OiBiYXNpYyBwb2xs
-aW5nIHN1cHBvcnQKPj4+Pgo+Pj4+ICBkcml2ZXJzL3Zob3N0L25ldC5jICAgICAgICB8IDc3ICsr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKystLS0KPj4+PiAgZHJpdmVy
-cy92aG9zdC92aG9zdC5jICAgICAgfCA0OCArKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLQo+
-Pj4+ICBkcml2ZXJzL3Zob3N0L3Zob3N0LmggICAgICB8ICAzICsrCj4+Pj4gIGluY2x1ZGUvdWFw
-aS9saW51eC92aG9zdC5oIHwgMTEgKysrKysrKwo+Pj4+ICA0IGZpbGVzIGNoYW5nZWQsIDEyNSBp
-bnNlcnRpb25zKCspLCAxNCBkZWxldGlvbnMoLSkKPj4+Pgo+Pj4gLS0KPj4+IFRvIHVuc3Vic2Ny
-aWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBrdm0iIGluCj4+
-PiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZwo+Pj4g
-TW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8t
-aW5mby5odG1sCj4+IE7vv73vv73vv73vv73vv71y77+977+9ee+/ve+/ve+/vWLvv71Y77+977+9
-x6d277+9Xu+/vSneunsubu+/vSvvv73vv73vv73vv71777+977+977+977+9eljvv73vv70X77+9
-77+93Kh977+977+977+9xqB677+9Jmo6K3bvv73vv73vv70H77+977+977+977+9elor77+977+9
-K3pm77+977+977+9aO+/ve+/ve+/vX7vv73vv73vv73vv71p77+977+977+9eu+/vR7vv71377+9
-77+977+9P++/ve+/ve+/ve+/vSbvv70p36IbZu+/ve+/vV5qx6t577+9be+/ve+/vUBB77+9Ye+/
-ve+/vX/vv70MMO+/ve+/vWjvv70P77+9aX8KPiAtLQo+IFRvIHVuc3Vic2NyaWJlIGZyb20gdGhp
-cyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBsaW51eC1rZXJuZWwiIGluCj4gdGhl
-IGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcKPiBNb3JlIG1h
-am9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0
-bWwKPiBQbGVhc2UgcmVhZCB0aGUgRkFRIGF0ICBodHRwOi8vd3d3LnR1eC5vcmcvbGttbC8KCl9f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0
-aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9y
-ZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0
-dWFsaXphdGlvbg==
+Tested the same case with 4.4-RC1, it was fixed in 4.4-RC1.
+But don't know which commit fixed it.
+
+ # echo 1024 65535 > /proc/sys/net/ipv4/ip_local_port_range
+ # cat /proc/sys/net/ipv4/ip_local_port_range
+1024    65535
+ # echo 1 > /proc/sys/net/ipv4/tcp_tw_reuse
+ #  cat /proc/sys/net/ipv4/tcp_tw_reuse
+1
+ # echo 1 > /proc/sys/net/ipv4/tcp_tw_recycle
+ #  cat /proc/sys/net/ipv4/tcp_tw_reuse
+1
+ # ./accept -n 5 -r &
+[1] 11866
+ # port: 7954
+ninst: 5
+reuseport: 1
+
+ # ./connect -i 127.0.0.1 -n 5 -d 10
+78578.50
+ # uname -a
+Linux localhost.localdomain 4.4.0-rc1 #49 SMP Tue Nov 17 15:04:18 KST
+2015 x86_64 x86_64 x86_64 GNU/Linux
+
+----
+
+Thanks,
+Ethan
+
+On Sun, Nov 15, 2015 at 12:14 PM, Ethan Zhao <ethan.kernel@gmail.com> wrote:
+> Hi,
+>
+>    When we tested network with following case, found there is
+> regression with stable 4.1 kernel, connect() returns EADDRNOTAVAIL,
+> while a pretty old kernel 3.8 doesn't.  anybody knows about this issue
+> and if it was fixed later ? (I am looking for devices and will do a
+> test with the last stable).
+>
+>
+> #echo 1024 65535 > /proc/sys/net/ipv4/ip_local_port_range
+> #echo 1 > /proc/sys/net/ipv4/tcp_tw_reuse
+> #echo 1 > /proc/sys/net/ipv4/tcp_tw_recycle
+> #./accept -n 5 -r &
+> #./connect -i 127.0.0.1 -n 5 -d 10
+>
+>
+> ------------------------------------
+> connect.c
+> ------------------------------------
+> #include <stdio.h>
+> #include <stdlib.h>
+> #include <string.h>
+> #include <errno.h>
+> #include <unistd.h>
+> #include <libgen.h>
+> #include <signal.h>
+> #include <arpa/inet.h>
+> #include <sys/mman.h>
+> #include <sys/wait.h>
+> #include <sys/time.h>
+>
+> static void
+> usage(const char *cmd)
+> {
+>     fprintf(stderr, "Usage: %s -i IPv4 [-p port] "
+>                     "[-n n_instance] [-d duration]\n", cmd);
+>     exit(1);
+> }
+>
+> static int global_run = 1;
+>
+> static void
+> signal_handler(int signum)
+> {
+>     global_run = 0;
+> }
+>
+> static void
+> connect_loop(const struct sockaddr_in *in, const int duration, u_long *result)
+> {
+>     struct itimerval it;
+>     int sock;
+>     u_long count = 0;
+>
+>     if (signal(SIGALRM, signal_handler) == SIG_ERR) {
+>         fprintf(stderr, "signal() failed: %s\n", strerror(errno));
+>         return;
+>     }
+>
+>     it.it_interval.tv_sec = 0;
+>     it.it_interval.tv_usec = 0;
+>     it.it_value.tv_sec = duration;
+>     it.it_value.tv_usec = 0;
+>     if (setitimer(ITIMER_REAL, &it, NULL) < 0) {
+>         fprintf(stderr, "setitimer() failed: %s\n", strerror(errno));
+>         return;
+>     }
+>
+>     while (global_run) {
+>         sock = socket(AF_INET, SOCK_STREAM, 0);
+>         if (sock < 0) {
+>             fprintf(stderr, "socket() failed: %s\n", strerror(errno));
+>         }
+>         if (connect(sock, (const struct sockaddr *)in, sizeof(*in)) < 0) {
+>             fprintf(stderr, "connect() failed: %s\n", strerror(errno));
+>         }
+>         count++;
+>         close(sock);
+>     }
+>
+>     *result = count;
+> }
+>
+> int
+> main(int argc, char *argv[])
+> {
+>     char *bname;
+>     struct sockaddr_in in;
+>     int opt, port, ninst, duration, i;
+>     ulong *result, sum;
+>
+>     memset(&in, 0, sizeof(in));
+>     in.sin_family = AF_INET;
+>
+>     port = 7954;
+>     ninst = 1;
+>     duration = 10;
+>     bname = basename(argv[0]);
+>     while ((opt = getopt(argc, argv, "i:p:n:d:")) != -1) {
+>         switch (opt) {
+>             case 'i':
+>                 if (inet_pton(AF_INET, optarg, &in.sin_addr) <= 0) {
+>                     fprintf(stderr, "Invalid IPv4 address: %s\n", optarg);
+>                     usage(bname);
+>                 }
+>                 break;
+>             case 'p':
+>                 port = atoi(optarg);
+>                 break;
+>             case 'n':
+>                 ninst = atoi(optarg);
+>                 break;
+>             case 'd':
+>                 duration = atoi(optarg);
+>                 break;
+>             default:
+>                 usage(bname);
+>         }
+>     }
+>
+>     if (port == 0 || ninst < 1 || duration < 1
+>         || in.sin_addr.s_addr == INADDR_ANY) {
+>         usage(bname);
+>     }
+>
+>     in.sin_port = htons(port);
+>
+>     result = mmap(NULL, ninst * sizeof(u_long), PROT_READ | PROT_WRITE,
+>                     MAP_ANON | MAP_SHARED, -1, 0);
+>     if (result == MAP_FAILED) {
+>         fprintf(stderr, "mmap() failed: %s\n", strerror(errno));
+>         exit(1);
+>     }
+>     memset(result, 0, ninst * sizeof(u_long));
+>
+>     for (i = 0; i < ninst; i++) {
+>         pid_t pid;
+>         pid = fork();
+>         if (pid == 0) { /* fork() succeeded, in child */
+>             connect_loop(&in, duration, &result[i]);
+>             exit(0);
+>         } else {
+>             if (pid < 0) { /* fork() failed */
+>                 fprintf(stderr, "fork() failed: %s\n", strerror(errno));
+>                 exit(1);
+>             }
+>         }
+>     }
+>
+>     /* waiting for all children to terminate */
+>     while (wait(NULL)) {
+>         if (errno == ECHILD) {
+>             break;
+>         }
+>     }
+>
+>     sum = 0;
+>     for (i = 0; i < ninst; i++) {
+>         sum += result[i];
+>     }
+>     printf("%.2f\n", (double)sum / (double)duration);
+>
+>     exit(0);
+> }
+> -------------------------------
+> accept.c
+> --------------------------------
+> #include <stdio.h>
+> #include <stdlib.h>
+> #include <unistd.h>
+> #include <errno.h>
+> #include <string.h>
+> #include <libgen.h>
+> #include <arpa/inet.h>
+>
+> static void
+> usage(const char *cmd)
+> {
+>     fprintf(stderr, "%s -p port [-n n_instance] [-r]\n", cmd);
+>     exit(1);
+> }
+>
+> static int
+> create_bind_listen(const struct sockaddr_in *in, const int reuseport)
+> {
+>     int sock, ov;
+>
+>     sock = socket(AF_INET, SOCK_STREAM, 0);
+>     if (sock < 0) {
+>         fprintf(stderr, "socket() failed: %s\n", strerror(errno));
+>         exit(1);
+>     }
+>
+>     ov = 1;
+>     if (reuseport) {
+>         if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &ov, sizeof(ov)) < 0) {
+>             fprintf(stderr, "setsockopt(REUSEPORT) failed: %s\n",
+>                     strerror(errno));
+>             exit(1);
+>         }
+>     } else {
+>         if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &ov, sizeof(ov)) < 0) {
+>             fprintf(stderr, "setsockopt(REUSEADDR) failed: %s\n",
+>                     strerror(errno));
+>             exit(1);
+>         }
+>     }
+>
+>     if (bind(sock, (const struct sockaddr *)in, sizeof(*in)) < 0) {
+>         fprintf(stderr, "bind() failed: %s\n", strerror(errno));
+>         exit(1);
+>     }
+>
+>     if (listen(sock, -1) < 0) {
+>         fprintf(stderr, "listen() failed: %s\n", strerror(errno));
+>         exit(1);
+>     }
+>
+>     return sock;
+> }
+>
+> static void
+> accept_loop(int sock, const struct sockaddr_in *in)
+> {
+>     if (sock < 0) {
+>         sock = create_bind_listen(in, 1);
+>     }
+>
+>     for (;;) {
+>         int s;
+>         s = accept(sock, NULL, NULL);
+>         if (s >= 0) {
+>             close(s);
+>         }
+>     }
+>     /* never reached */
+> }
+>
+> int
+> main(int argc, char *argv[])
+> {
+>     struct sockaddr_in in;
+>     int opt, port, ninst, reuseport, sock, i;
+>
+>     port = 7954;
+>     ninst = 1;
+>     reuseport = 0;
+>     while ((opt = getopt(argc, argv, "p:n:r")) != -1) {
+>         switch (opt) {
+>             case 'p':
+>                 port = atoi(optarg);
+>                 break;
+>             case 'n':
+>                 ninst = atoi(optarg);
+>                 break;
+>             case 'r':
+>                 reuseport = 1;
+>                 break;
+>             default:
+>                 usage(basename(argv[0]));
+>         }
+>     }
+>
+>     if (port == 0 || ninst < 1) {
+>         usage(basename(argv[0]));
+>     }
+>
+>     printf("port: %d\n", port);
+>     printf("ninst: %d\n", ninst);
+>     printf("reuseport: %d\n", reuseport);
+>
+>     in.sin_port = htons(port);
+>     in.sin_family = AF_INET;
+>     in.sin_addr.s_addr = INADDR_ANY;
+>
+>     sock = -1;
+>     if (!reuseport) {
+>         sock = create_bind_listen(&in, 0);
+>     }
+>
+>     for (i = 1; i < ninst; i++) {
+>         pid_t pid;
+>         pid = fork();
+>         if (pid == 0) { /* child */
+>             accept_loop(sock, &in);
+>             exit(0);
+>         } else {
+>             if (pid < 0) {
+>                 fprintf(stderr, "fork() failed: %s\n", strerror(errno));
+>             }
+>         }
+>     }
+>
+>     /* parent */
+>     accept_loop(sock, &in);
+>     return 0;
+> }
