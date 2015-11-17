@@ -1,38 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] af_unix: take receive queue lock while appending
- new skb
-Date: Tue, 17 Nov 2015 06:42:40 -0800
-Message-ID: <1447771360.22599.99.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1447769459-30452-1-git-send-email-hannes@stressinduktion.org>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Asterisk deadlocks since Kernel 4.1
+Date: Tue, 17 Nov 2015 15:46:21 +0100
+Message-ID: <564B3DBD.60500@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:33611 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750708AbbKQOmm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 09:42:42 -0500
-Received: by pabfh17 with SMTP id fh17so11429128pab.0
-        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 06:42:42 -0800 (PST)
-In-Reply-To: <1447769459-30452-1-git-send-email-hannes@stressinduktion.org>
+Received: from mail-ph.de-nserver.de ([85.158.179.214]:23691 "EHLO
+	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751711AbbKQOqX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 09:46:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-11-17 at 15:10 +0100, Hannes Frederic Sowa wrote:
-> While possibly in future we don't necessarily need to use
-> sk_buff_head.lock this is a rather larger change, as it affects the
-> af_unix fd garbage collector, diag and socket cleanups. This is too much
-> for a stable patch.
-> 
-> For the time being grab sk_buff_head.lock without disabling bh and irqs,
-> so don't use locked skb_queue_tail.
+Hello,
 
-I would use skb_queue_tail() as we already use it in two different
-places in af_unix.c, like unix_stream_sendmsg()
+since Upgrading our Asterisk System from Kernel 3.18.17 to 4.1.13 it
+deadlocks every few hours (kill -9 is the only thing working). Booting
+with 3.18 again let it run smooth again.
 
-It is hardly a fast path anyway, so lets keep code short.
+An strace shows asterisk is looping like this:
 
-Then, in net-next, if you really want, add a new skb_queue_tail_lock()
-or similar helper ?
+[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
+it_value={0, 140592906050976}}) = 0
+[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
+[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
+2, 1000) = 1 ([{fd=8, revents=POLLIN}])
+[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
+it_value={0, 140592906050976}}) = 0
+[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
+[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
+2, 1000) = 1 ([{fd=8, revents=POLLIN}])
+[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
+it_value={0, 140592906050976}}) = 0
+[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
+[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
+2, 1000) = 1 ([{fd=8, revents=POLLIN}])
+[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
+it_value={0, 140592906050976}}) = 0
+[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
+[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
+2, 1000) = 1 ([{fd=8, revents=POLLIN}])
+[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
+it_value={0, 140592906050976}}) = 0
+[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
+[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
+2, 1000) = 1 ([{fd=8, revents=POLLIN}])
+[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
+it_value={0, 140592906050976}}) = 0
+[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
+[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
+2, 1000) = 1 ([{fd=8, revents=POLLIN}])
+[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
+it_value={0, 140592906050976}}) = 0
+[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
+[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
+2, 1000) = 1 ([{fd=8, revents=POLLIN}])
+[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
+it_value={0, 140592906050976}}) = 0
+[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
+[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
+2, 1000) = 1 ([{fd=8, revents=POLLIN}])
+[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
+it_value={0, 140592906050976}}) = 0
+[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
+[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
+2, 1000) = 1 ([{fd=8, revents=POLLIN}])
+[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
+it_value={0, 140592906050976}}) = 0
+
+fd 8 is:
+
+lrwx------ 1 root root 64 Nov 17 15:27 /proc/6025/fd/8 ->
+anon_inode:[timerfd]
+
+
+# cat /proc/6025/stack
+[<ffffffff941d60e9>] poll_schedule_timeout+0x49/0x70
+[<ffffffff941d76c7>] do_sys_poll+0x3d7/0x590
+[<ffffffff941d78bc>] do_restart_poll+0x3c/0x70
+[<ffffffff9408e7ff>] sys_restart_syscall+0x1f/0x30
+[<ffffffff9463f1ee>] system_call_fastpath+0x12/0x71
+[<ffffffffffffffff>] 0xffffffffffffffff
+
+Any ideas how to debug this?
+
+Greets,
+Stefan
