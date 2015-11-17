@@ -1,38 +1,55 @@
-From: Aaro Koskinen <aaro.koskinen@nokia.com>
-Subject: [iproute PATCH] misc/Makefile: use PKG_CONFIG
-Date: Tue, 17 Nov 2015 16:08:00 +0200
-Message-ID: <1447769280-11421-1-git-send-email-aaro.koskinen@nokia.com>
-Cc: Aaro Koskinen <aaro.koskinen@nokia.com>
-To: Stephen Hemminger <shemming@brocade.com>, netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/9] net: un-inline sk_busy_loop()
+Date: Tue, 17 Nov 2015 06:15:51 -0800
+Message-ID: <1447769751.22599.95.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1447768624-14962-1-git-send-email-edumazet@google.com>
+	 <1447768624-14962-4-git-send-email-edumazet@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Eli Cohen <eli@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Rida Assaf <rida@google.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd002.nsn-inter.net ([93.183.12.31]:43761 "EHLO
-	demumfd002.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752058AbbKQOPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 09:15:16 -0500
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:35645 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750708AbbKQOPy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 09:15:54 -0500
+Received: by pacej9 with SMTP id ej9so10343406pac.2
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 06:15:54 -0800 (PST)
+In-Reply-To: <1447768624-14962-4-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use PKG_CONFIG from Config - it works better when cross-compiling.
+On Tue, 2015-11-17 at 05:56 -0800, Eric Dumazet wrote:
+> There is really little gain from inlining this big function.
+> We'll soon make it even bigger in following patches.
 
-Signed-off-by: Aaro Koskinen <aaro.koskinen@nokia.com>
----
- misc/Makefile | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+I forgot to guard sk_busy_poll() with appropriate #ifdef :
 
-diff --git a/misc/Makefile b/misc/Makefile
-index 389c1b0..f50e740 100644
---- a/misc/Makefile
-+++ b/misc/Makefile
-@@ -10,8 +10,8 @@ ifeq ($(HAVE_BERKELEY_DB),y)
- endif
+This will be added in v2
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 21a7d4093fde..c87c8486ea21 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4673,6 +4673,7 @@ static struct napi_struct *napi_by_id(unsigned int napi_id)
+ 	return NULL;
+ }
  
- ifeq ($(HAVE_SELINUX),y)
--	LDLIBS += $(shell pkg-config --libs libselinux)
--	CFLAGS += $(shell pkg-config --cflags libselinux) -DHAVE_SELINUX
-+	LDLIBS += $(shell $(PKG_CONFIG) --libs libselinux)
-+	CFLAGS += $(shell $(PKG_CONFIG) --cflags libselinux) -DHAVE_SELINUX
- endif
++#if defined(CONFIG_NET_RX_BUSY_POLL)
+ #define BUSY_POLL_BUDGET 8
+ bool sk_busy_loop(struct sock *sk, int nonblock)
+ {
+@@ -4726,6 +4727,7 @@ out:
+ 	return rc;
+ }
+ EXPORT_SYMBOL(sk_busy_loop);
++#endif
  
- ifeq ($(IP_CONFIG_SETNS),y)
--- 
-2.1.4
+ void napi_hash_add(struct napi_struct *napi)
+ {
