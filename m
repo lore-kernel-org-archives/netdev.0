@@ -1,78 +1,44 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue (w/ Fixes:)
-Date: Tue, 17 Nov 2015 22:09:40 +0000
-Message-ID: <878u5w5lcr.fsf@doppelsaurus.mobileactivedefense.com>
-References: <87a8qhspfm.fsf@doppelsaurus.mobileactivedefense.com>
-	<876111wpza.fsf@doppelsaurus.mobileactivedefense.com>
-	<87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
-	<20151117.151421.249423864481324472.davem@davemloft.net>
-	<87d1v85mtx.fsf@doppelsaurus.mobileactivedefense.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH 4/5] sock, cgroup: add sock->sk_cgroup
+Date: Tue, 17 Nov 2015 17:17:57 -0500
+Message-ID: <20151117221757.GI22864@mtj.duckdns.org>
+References: <1447789240-29394-1-git-send-email-tj@kernel.org>
+ <1447789240-29394-5-git-send-email-tj@kernel.org>
+ <20151117.162554.314531574043190960.davem@davemloft.net>
+ <20151117213126.GH22864@mtj.duckdns.org>
+ <564BA0BE.7050302@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: rweikusat@mobileactivedefense.com, jbaron@akamai.com,
-	dvyukov@google.com, syzkaller@googlegroups.com, mkubecek@suse.cz,
-	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
-	linux-kernel@vger.kernel.org, hannes@stressinduktion.org,
-	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
-	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org,
-	kcc@google.com, glider@google.com, andreyknvl@google.com,
-	sasha.levin@oracle.com, jln@google.com, keescook@google.com,
-	minipli@googlemail.com
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, pablo@netfilter.org,
+	kaber@trash.net, kadlec@blackhole.kfki.hu, lizefan@huawei.com,
+	hannes@cmpxchg.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-team@fb.com, daniel.wagner@bmw-carit.de,
+	nhorman@tuxdriver.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87d1v85mtx.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
-	Weikusat's message of "Tue, 17 Nov 2015 21:37:46 +0000")
+Content-Disposition: inline
+In-Reply-To: <564BA0BE.7050302@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
+Hello, Daniel.
 
-[...]
+On Tue, Nov 17, 2015 at 10:48:46PM +0100, Daniel Borkmann wrote:
+> >Unfortunately, sk->sk_cgrp_prioidx is an arbitrary value which can be
+> >configured through "net_cls.classid".  :(
+> 
+> Hmm, isn't net_prio independent of net_cls?
 
-> The basic options would be
->
-> 	- return EAGAIN even if sending became possible (Jason's most
->           recent suggestions)
->
-> 	- retry sending a limited number of times, eg, once, before
->           returning EAGAIN, on the grounds that this is nicer to the
->           application and that redoing all the stuff up to the _lock in
->           dgram_sendmsg can possibly/ likely be avoided
+Ah, yeah, I was mixing up the two but the story is the same for both.
+net_prio configures the prioidx and net_cls the classid and the two
+may or may not (but more likely not) be on the same hierarchy and
+definitely not on the cgroup2 hierarchy, so you can't really access
+them through a single ->sk_cgroup pointer.  After all, that's why we
+ended up with these controllers.
 
-A third option: Use trylock to acquire the sk lock. If this succeeds,
-there's no risk of deadlocking anyone even if acquiring the locks in the
-wrong order. This could look as follows (NB: I didn't even compile this,
-I just wrote the code to get an idea how complicated it would be):
+Thanks.
 
-		int need_wakeup;
-
-[...]
-
-		need_wakeup = 0;
-		err = 0;
-		if (spin_lock_trylock(unix_sk(sk)->lock)) {
-			if (unix_peer(sk) != other ||
-				unix_dgram_peer_wake_me(sk, other))
-				err = -EAGAIN;
-		} else {
-			err = -EAGAIN;
-			
-			unix_state_unlock(other);
-			unix_state_lock(sk);
-			
-			need_wakeup = unix_peer(sk) != other &&
-				      unix_dgram_peer_wake_connect(sk, other) &&
-				      sk_receive_queue_len(other) == 0;
-		}
-		
-		unix_state_unlock(sk);
-		
-		if (err) {
-			if (need_wakeup)
-				wake_up_interruptible_poll(sk_sleep(sk),
-							   POLLOUT |
-							   POLLWRNORM |
-							   POLLWRBAND);
-
-			goto out_free;
-		}
+-- 
+tejun
