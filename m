@@ -1,64 +1,78 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: Hardware capabilities and bonding offload
-Date: Tue, 17 Nov 2015 14:03:51 -0800
-Message-ID: <20151117220349.GA7762@penelope.isobedori.kobe.vergenet.net>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9AA0D643@SJEXCHMB14.corp.ad.broadcom.com>
- <20151116153032.GC2217@nanopsycho.orion>
- <5649FFF3.9080401@gmail.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue (w/ Fixes:)
+Date: Tue, 17 Nov 2015 22:09:40 +0000
+Message-ID: <878u5w5lcr.fsf@doppelsaurus.mobileactivedefense.com>
+References: <87a8qhspfm.fsf@doppelsaurus.mobileactivedefense.com>
+	<876111wpza.fsf@doppelsaurus.mobileactivedefense.com>
+	<87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<20151117.151421.249423864481324472.davem@davemloft.net>
+	<87d1v85mtx.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Premkumar Jonnala <pjonnala@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:35628 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751465AbbKQWDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 17:03:54 -0500
-Received: by pacej9 with SMTP id ej9so21257772pac.2
-        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 14:03:54 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <5649FFF3.9080401@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rweikusat@mobileactivedefense.com, jbaron@akamai.com,
+	dvyukov@google.com, syzkaller@googlegroups.com, mkubecek@suse.cz,
+	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, hannes@stressinduktion.org,
+	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
+	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org,
+	kcc@google.com, glider@google.com, andreyknvl@google.com,
+	sasha.levin@oracle.com, jln@google.com, keescook@google.com,
+	minipli@googlemail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87d1v85mtx.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
+	Weikusat's message of "Tue, 17 Nov 2015 21:37:46 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 16, 2015 at 08:10:27AM -0800, John Fastabend wrote:
-> On 15-11-16 07:30 AM, Jiri Pirko wrote:
-> > Mon, Nov 16, 2015 at 10:29:12AM CET, pjonnala@broadcom.com wrote:
-> >> Hello,
-> >>
-> >> I am looking to offload bond interfaces to hardware for forwarding.  Linux allows for configuring 
-> >> a variety of parameters on bonds or slave interfaces.  Not all configurations can be offloaded to 
-> >> hardware.  For example, certain hardware cannot support bonds with mode of adaptive load balancing.
-> >>
-> >> When such a configuration is provided by user, we have two options at hand (for platforms supporting
-> >> hardware offloads):
-> >>
-> >> 1. Reject the configuration.  
-> >>
-> >> 2. Handle the bond interface in software.  In a scenario where this bond interface is part
-> >> of a bridge interface, for simplicity purpose, all other interfaces in the bridge need to be 
-> >> handled in software - which results in a very low packet processing performance.
-> > 
-> > Although it might sound intriguing to fallback to sw here, it makes no
-> > sense and user certainly does not want that. For example in case of our
-> > HW, we have 100gbit forwarding which would be degraded to ~1gbit (for one
-> > port pair). Another thing is that for some HW this mignt not be even
-> > possible. In our case it would be very complicated.
-> > 
-> > I believe that the correct approach is to let driver decide if the
-> > configuration is acceptable or not and reject it in case it is not.
-> > 
-> 
-> +1 I agree the best approach is to throw a hard error and reject
-> it if there is no mapping on to the hardware. This lets your
-> management software propagate that error up so you can handle it
-> correctly at higher levels in the stack.
-> 
-> You could if needed add a bit to enable setup in software only
-> if that is needed.
+Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
 
-FWIW, I agree that such a scheme ought to cover the bases.
-But perhaps it would be best to old off on adding the software only
-bit until a use-case arises. John, perhaps you already have one?
+[...]
+
+> The basic options would be
+>
+> 	- return EAGAIN even if sending became possible (Jason's most
+>           recent suggestions)
+>
+> 	- retry sending a limited number of times, eg, once, before
+>           returning EAGAIN, on the grounds that this is nicer to the
+>           application and that redoing all the stuff up to the _lock in
+>           dgram_sendmsg can possibly/ likely be avoided
+
+A third option: Use trylock to acquire the sk lock. If this succeeds,
+there's no risk of deadlocking anyone even if acquiring the locks in the
+wrong order. This could look as follows (NB: I didn't even compile this,
+I just wrote the code to get an idea how complicated it would be):
+
+		int need_wakeup;
+
+[...]
+
+		need_wakeup = 0;
+		err = 0;
+		if (spin_lock_trylock(unix_sk(sk)->lock)) {
+			if (unix_peer(sk) != other ||
+				unix_dgram_peer_wake_me(sk, other))
+				err = -EAGAIN;
+		} else {
+			err = -EAGAIN;
+			
+			unix_state_unlock(other);
+			unix_state_lock(sk);
+			
+			need_wakeup = unix_peer(sk) != other &&
+				      unix_dgram_peer_wake_connect(sk, other) &&
+				      sk_receive_queue_len(other) == 0;
+		}
+		
+		unix_state_unlock(sk);
+		
+		if (err) {
+			if (need_wakeup)
+				wake_up_interruptible_poll(sk_sleep(sk),
+							   POLLOUT |
+							   POLLWRNORM |
+							   POLLWRBAND);
+
+			goto out_free;
+		}
