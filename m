@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 9/9] mlx4: remove mlx4_en_low_latency_recv()
-Date: Tue, 17 Nov 2015 05:57:04 -0800
-Message-ID: <1447768624-14962-10-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 8/9] bnx2x: remove bnx2x_low_latency_recv() support
+Date: Tue, 17 Nov 2015 05:57:03 -0800
+Message-ID: <1447768624-14962-9-git-send-email-edumazet@google.com>
 References: <1447768624-14962-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>, Eli Cohen <eli@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>,
@@ -12,368 +12,339 @@ Cc: netdev <netdev@vger.kernel.org>, Eli Cohen <eli@mellanox.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:36573 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753879AbbKQN54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 08:57:56 -0500
-Received: by pacdm15 with SMTP id dm15so9904178pac.3
-        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 05:57:56 -0800 (PST)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35140 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753766AbbKQN5x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 08:57:53 -0500
+Received: by pacej9 with SMTP id ej9so9938859pac.2
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 05:57:53 -0800 (PST)
 In-Reply-To: <1447768624-14962-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Busy polling can now be handled in generic NAPI poll infrastructure.
-This removes complexity and fast path overhead :
+Switch to native NAPI polling, as this reduces overhead and complexity.
 
-mlx4 used two spin_lock()/spin_unlock() pair per napi->poll() call
-in mlx4_en_cq_lock_napi()/mlx4_en_cq_unlock_napi()
+Normal path is faster, since one cmpxchg() is not anymore requested,
+and busy polling with the NAPI polling has same performance.
 
 Tested:
-
-Without busy polling :
-
-lpaa23:~# echo 0 >/proc/sys/net/core/busy_read
-lpaa24:~# echo 0 >/proc/sys/net/core/busy_read
-lpaa23:~# ./netperf -H lpaa24 -t TCP_RR
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to lpaa24.prod.google.com () port 0 AF_INET : first burst 0
+lpk50:~# cat /proc/sys/net/core/busy_read
+70
+lpk50:~# nstat >/dev/null;./netperf -H lpk55 -t TCP_RR;nstat
+MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to lpk55.prod.google.com () port 0 AF_INET : first burst 0
 Local /Remote
 Socket Size   Request  Resp.   Elapsed  Trans.
 Send   Recv   Size     Size    Time     Rate
 bytes  Bytes  bytes    bytes   secs.    per sec
 
-16384  87380  1        1       10.00    47330.78
-
-With busy polling :
-
-lpaa23:~# echo 70 >/proc/sys/net/core/busy_read
-lpaa24:~# echo 70 >/proc/sys/net/core/busy_read
-lpaa23:~# ./netperf -H lpaa24 -t TCP_RR
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to lpaa24.prod.google.com () port 0 AF_INET : first burst 0
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate
-bytes  Bytes  bytes    bytes   secs.    per sec
-
-16384  87380  1        1       10.00    97643.55
+16384  87380  1        1       10.00    40095.07
+16384  87380
+IpInReceives                    401062             0.0
+IpInDelivers                    401062             0.0
+IpOutRequests                   401079             0.0
+TcpActiveOpens                  7                  0.0
+TcpPassiveOpens                 3                  0.0
+TcpAttemptFails                 3                  0.0
+TcpEstabResets                  5                  0.0
+TcpInSegs                       401036             0.0
+TcpOutSegs                      401052             0.0
+TcpOutRsts                      38                 0.0
+UdpInDatagrams                  26                 0.0
+UdpOutDatagrams                 27                 0.0
+Ip6OutNoRoutes                  1                  0.0
+TcpExtDelayedACKs               1                  0.0
+TcpExtTCPPrequeued              98                 0.0
+TcpExtTCPDirectCopyFromPrequeue 98                 0.0
+TcpExtTCPHPHits                 4                  0.0
+TcpExtTCPHPHitsToUser           98                 0.0
+TcpExtTCPPureAcks               5                  0.0
+TcpExtTCPHPAcks                 101                0.0
+TcpExtTCPAbortOnData            6                  0.0
+TcpExtBusyPollRxPackets         400832             0.0
+TcpExtTCPOrigDataSent           400983             0.0
+IpExtInOctets                   21273867           0.0
+IpExtOutOctets                  21261254           0.0
+IpExtInNoECTPkts                401064             0.0
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  17 ----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |  40 --------
- drivers/net/ethernet/mellanox/mlx4/en_rx.c      |  15 +--
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    | 128 ------------------------
- 4 files changed, 2 insertions(+), 198 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      | 113 -----------------------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |  46 +--------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |   7 --
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   3 -
+ 4 files changed, 2 insertions(+), 167 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index ddb5541882f5..dd84cabb2a51 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -337,11 +337,7 @@ static int mlx4_en_get_sset_count(struct net_device *dev, int sset)
- 	case ETH_SS_STATS:
- 		return bitmap_iterator_count(&it) +
- 			(priv->tx_ring_num * 2) +
--#ifdef CONFIG_NET_RX_BUSY_POLL
--			(priv->rx_ring_num * 5);
--#else
- 			(priv->rx_ring_num * 2);
--#endif
- 	case ETH_SS_TEST:
- 		return MLX4_EN_NUM_SELF_TEST - !(priv->mdev->dev->caps.flags
- 					& MLX4_DEV_CAP_FLAG_UC_LOOPBACK) * 2;
-@@ -408,11 +404,6 @@ static void mlx4_en_get_ethtool_stats(struct net_device *dev,
- 	for (i = 0; i < priv->rx_ring_num; i++) {
- 		data[index++] = priv->rx_ring[i]->packets;
- 		data[index++] = priv->rx_ring[i]->bytes;
--#ifdef CONFIG_NET_RX_BUSY_POLL
--		data[index++] = priv->rx_ring[i]->yields;
--		data[index++] = priv->rx_ring[i]->misses;
--		data[index++] = priv->rx_ring[i]->cleaned;
--#endif
- 	}
- 	spin_unlock_bh(&priv->stats_lock);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index b5e64b02200c..0b214b5d944a 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -540,10 +540,6 @@ struct bnx2x_fastpath {
  
-@@ -486,14 +477,6 @@ static void mlx4_en_get_strings(struct net_device *dev,
- 				"rx%d_packets", i);
- 			sprintf(data + (index++) * ETH_GSTRING_LEN,
- 				"rx%d_bytes", i);
--#ifdef CONFIG_NET_RX_BUSY_POLL
--			sprintf(data + (index++) * ETH_GSTRING_LEN,
--				"rx%d_napi_yield", i);
--			sprintf(data + (index++) * ETH_GSTRING_LEN,
--				"rx%d_misses", i);
--			sprintf(data + (index++) * ETH_GSTRING_LEN,
--				"rx%d_cleaned", i);
--#endif
- 		}
- 		break;
- 	case ETH_SS_PRIV_FLAGS:
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 886e1bc86374..659209ff7af6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -69,34 +69,6 @@ int mlx4_en_setup_tc(struct net_device *dev, u8 up)
- 	return 0;
- }
+ 	struct napi_struct	napi;
  
 -#ifdef CONFIG_NET_RX_BUSY_POLL
--/* must be called with local_bh_disable()d */
--static int mlx4_en_low_latency_recv(struct napi_struct *napi)
+-	unsigned long		busy_poll_state;
+-#endif
+-
+ 	union host_hc_status_block	status_blk;
+ 	/* chip independent shortcuts into sb structure */
+ 	__le16			*sb_index_values;
+@@ -617,115 +613,6 @@ struct bnx2x_fastpath {
+ #define bnx2x_fp_stats(bp, fp)	(&((bp)->fp_stats[(fp)->index]))
+ #define bnx2x_fp_qstats(bp, fp)	(&((bp)->fp_stats[(fp)->index].eth_q_stats))
+ 
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-
+-enum bnx2x_fp_state {
+-	BNX2X_STATE_FP_NAPI	= BIT(0), /* NAPI handler owns the queue */
+-
+-	BNX2X_STATE_FP_NAPI_REQ_BIT = 1, /* NAPI would like to own the queue */
+-	BNX2X_STATE_FP_NAPI_REQ = BIT(1),
+-
+-	BNX2X_STATE_FP_POLL_BIT = 2,
+-	BNX2X_STATE_FP_POLL     = BIT(2), /* busy_poll owns the queue */
+-
+-	BNX2X_STATE_FP_DISABLE_BIT = 3, /* queue is dismantled */
+-};
+-
+-static inline void bnx2x_fp_busy_poll_init(struct bnx2x_fastpath *fp)
 -{
--	struct mlx4_en_cq *cq = container_of(napi, struct mlx4_en_cq, napi);
--	struct net_device *dev = cq->dev;
--	struct mlx4_en_priv *priv = netdev_priv(dev);
--	struct mlx4_en_rx_ring *rx_ring = priv->rx_ring[cq->ring];
--	int done;
--
--	if (!priv->port_up)
--		return LL_FLUSH_FAILED;
--
--	if (!mlx4_en_cq_lock_poll(cq))
--		return LL_FLUSH_BUSY;
--
--	done = mlx4_en_process_rx_cq(dev, cq, 4);
--	if (likely(done))
--		rx_ring->cleaned += done;
--	else
--		rx_ring->misses++;
--
--	mlx4_en_cq_unlock_poll(cq);
--
--	return done;
+-	WRITE_ONCE(fp->busy_poll_state, 0);
 -}
--#endif	/* CONFIG_NET_RX_BUSY_POLL */
 -
- #ifdef CONFIG_RFS_ACCEL
- 
- struct mlx4_en_filter {
-@@ -1561,8 +1533,6 @@ int mlx4_en_start_port(struct net_device *dev)
- 	for (i = 0; i < priv->rx_ring_num; i++) {
- 		cq = priv->rx_cq[i];
- 
--		mlx4_en_cq_init_lock(cq);
+-/* called from the device poll routine to get ownership of a FP */
+-static inline bool bnx2x_fp_lock_napi(struct bnx2x_fastpath *fp)
+-{
+-	unsigned long prev, old = READ_ONCE(fp->busy_poll_state);
 -
- 		err = mlx4_en_init_affinity_hint(priv, i);
- 		if (err) {
- 			en_err(priv, "Failed preparing IRQ affinity hint\n");
-@@ -1859,13 +1829,6 @@ void mlx4_en_stop_port(struct net_device *dev, int detach)
- 	for (i = 0; i < priv->rx_ring_num; i++) {
- 		struct mlx4_en_cq *cq = priv->rx_cq[i];
- 
--		local_bh_disable();
--		while (!mlx4_en_cq_lock_napi(cq)) {
--			pr_info("CQ %d locked\n", i);
--			mdelay(1);
+-	while (1) {
+-		switch (old) {
+-		case BNX2X_STATE_FP_POLL:
+-			/* make sure bnx2x_fp_lock_poll() wont starve us */
+-			set_bit(BNX2X_STATE_FP_NAPI_REQ_BIT,
+-				&fp->busy_poll_state);
+-			/* fallthrough */
+-		case BNX2X_STATE_FP_POLL | BNX2X_STATE_FP_NAPI_REQ:
+-			return false;
+-		default:
+-			break;
 -		}
--		local_bh_enable();
--
- 		napi_synchronize(&cq->napi);
- 		mlx4_en_deactivate_rx_ring(priv, priv->rx_ring[i]);
- 		mlx4_en_deactivate_cq(priv, cq);
-@@ -2504,9 +2467,6 @@ static const struct net_device_ops mlx4_netdev_ops = {
- #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
- #endif
--#ifdef CONFIG_NET_RX_BUSY_POLL
--	.ndo_busy_poll		= mlx4_en_low_latency_recv,
--#endif
- 	.ndo_get_phys_port_id	= mlx4_en_get_phys_port_id,
- #ifdef CONFIG_MLX4_EN_VXLAN
- 	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index e7a5000aa12c..1feead34093b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -873,10 +873,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		 * - TCP/IP (v4)
- 		 * - without IP options
- 		 * - not an IP fragment
--		 * - no LLS polling in progress
- 		 */
--		if (!mlx4_en_cq_busy_polling(cq) &&
--		    (dev->features & NETIF_F_GRO)) {
-+		if (dev->features & NETIF_F_GRO) {
- 			struct sk_buff *gro_skb = napi_get_frags(&cq->napi);
- 			if (!gro_skb)
- 				goto next;
-@@ -992,11 +990,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 
- 		skb_mark_napi_id(skb, &cq->napi);
- 
--		if (!mlx4_en_cq_busy_polling(cq))
--			napi_gro_receive(&cq->napi, skb);
--		else
--			netif_receive_skb(skb);
--
-+		napi_gro_receive(&cq->napi, skb);
- next:
- 		for (nr = 0; nr < priv->num_frags; nr++)
- 			mlx4_en_free_frag(priv, frags, nr);
-@@ -1038,13 +1032,8 @@ int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget)
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	int done;
- 
--	if (!mlx4_en_cq_lock_napi(cq))
--		return budget;
--
- 	done = mlx4_en_process_rx_cq(dev, cq, budget);
- 
--	mlx4_en_cq_unlock_napi(cq);
--
- 	/* If we used up all the quota - we're probably not done yet... */
- 	if (done == budget) {
- 		const struct cpumask *aff;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 965c8f016ac4..35de7d2e6b34 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -320,11 +320,6 @@ struct mlx4_en_rx_ring {
- 	void *rx_info;
- 	unsigned long bytes;
- 	unsigned long packets;
--#ifdef CONFIG_NET_RX_BUSY_POLL
--	unsigned long yields;
--	unsigned long misses;
--	unsigned long cleaned;
--#endif
- 	unsigned long csum_ok;
- 	unsigned long csum_none;
- 	unsigned long csum_complete;
-@@ -347,18 +342,6 @@ struct mlx4_en_cq {
- 	struct mlx4_cqe *buf;
- #define MLX4_EN_OPCODE_ERROR	0x1e
- 
--#ifdef CONFIG_NET_RX_BUSY_POLL
--	unsigned int state;
--#define MLX4_EN_CQ_STATE_IDLE        0
--#define MLX4_EN_CQ_STATE_NAPI     1    /* NAPI owns this CQ */
--#define MLX4_EN_CQ_STATE_POLL     2    /* poll owns this CQ */
--#define MLX4_CQ_LOCKED (MLX4_EN_CQ_STATE_NAPI | MLX4_EN_CQ_STATE_POLL)
--#define MLX4_EN_CQ_STATE_NAPI_YIELD  4    /* NAPI yielded this CQ */
--#define MLX4_EN_CQ_STATE_POLL_YIELD  8    /* poll yielded this CQ */
--#define CQ_YIELD (MLX4_EN_CQ_STATE_NAPI_YIELD | MLX4_EN_CQ_STATE_POLL_YIELD)
--#define CQ_USER_PEND (MLX4_EN_CQ_STATE_POLL | MLX4_EN_CQ_STATE_POLL_YIELD)
--	spinlock_t poll_lock; /* protects from LLS/napi conflicts */
--#endif  /* CONFIG_NET_RX_BUSY_POLL */
- 	struct irq_desc *irq_desc;
- };
- 
-@@ -622,117 +605,6 @@ static inline struct mlx4_cqe *mlx4_en_get_cqe(void *buf, int idx, int cqe_sz)
- 	return buf + idx * cqe_sz;
- }
- 
--#ifdef CONFIG_NET_RX_BUSY_POLL
--static inline void mlx4_en_cq_init_lock(struct mlx4_en_cq *cq)
--{
--	spin_lock_init(&cq->poll_lock);
--	cq->state = MLX4_EN_CQ_STATE_IDLE;
+-		prev = cmpxchg(&fp->busy_poll_state, old, BNX2X_STATE_FP_NAPI);
+-		if (unlikely(prev != old)) {
+-			old = prev;
+-			continue;
+-		}
+-		return true;
+-	}
 -}
 -
--/* called from the device poll rutine to get ownership of a cq */
--static inline bool mlx4_en_cq_lock_napi(struct mlx4_en_cq *cq)
+-static inline void bnx2x_fp_unlock_napi(struct bnx2x_fastpath *fp)
 -{
--	int rc = true;
--	spin_lock(&cq->poll_lock);
--	if (cq->state & MLX4_CQ_LOCKED) {
--		WARN_ON(cq->state & MLX4_EN_CQ_STATE_NAPI);
--		cq->state |= MLX4_EN_CQ_STATE_NAPI_YIELD;
--		rc = false;
--	} else
--		/* we don't care if someone yielded */
--		cq->state = MLX4_EN_CQ_STATE_NAPI;
--	spin_unlock(&cq->poll_lock);
--	return rc;
+-	smp_wmb();
+-	fp->busy_poll_state = 0;
 -}
 -
--/* returns true is someone tried to get the cq while napi had it */
--static inline bool mlx4_en_cq_unlock_napi(struct mlx4_en_cq *cq)
+-/* called from bnx2x_low_latency_poll() */
+-static inline bool bnx2x_fp_lock_poll(struct bnx2x_fastpath *fp)
 -{
--	int rc = false;
--	spin_lock(&cq->poll_lock);
--	WARN_ON(cq->state & (MLX4_EN_CQ_STATE_POLL |
--			       MLX4_EN_CQ_STATE_NAPI_YIELD));
--
--	if (cq->state & MLX4_EN_CQ_STATE_POLL_YIELD)
--		rc = true;
--	cq->state = MLX4_EN_CQ_STATE_IDLE;
--	spin_unlock(&cq->poll_lock);
--	return rc;
+-	return cmpxchg(&fp->busy_poll_state, 0, BNX2X_STATE_FP_POLL) == 0;
 -}
 -
--/* called from mlx4_en_low_latency_recv(), BH are disabled */
--static inline bool mlx4_en_cq_lock_poll(struct mlx4_en_cq *cq)
+-static inline void bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
 -{
--	int rc = true;
--
--	spin_lock(&cq->poll_lock);
--	if ((cq->state & MLX4_CQ_LOCKED)) {
--		struct net_device *dev = cq->dev;
--		struct mlx4_en_priv *priv = netdev_priv(dev);
--		struct mlx4_en_rx_ring *rx_ring = priv->rx_ring[cq->ring];
--
--		cq->state |= MLX4_EN_CQ_STATE_POLL_YIELD;
--		rc = false;
--		rx_ring->yields++;
--	} else
--		/* preserve yield marks */
--		cq->state |= MLX4_EN_CQ_STATE_POLL;
--	spin_unlock(&cq->poll_lock);
--	return rc;
+-	smp_mb__before_atomic();
+-	clear_bit(BNX2X_STATE_FP_POLL_BIT, &fp->busy_poll_state);
 -}
 -
--/* returns true if someone tried to get the cq while it was locked */
--static inline bool mlx4_en_cq_unlock_poll(struct mlx4_en_cq *cq)
+-/* true if a socket is polling */
+-static inline bool bnx2x_fp_ll_polling(struct bnx2x_fastpath *fp)
 -{
--	int rc = false;
--
--	spin_lock(&cq->poll_lock);
--	WARN_ON(cq->state & (MLX4_EN_CQ_STATE_NAPI));
--
--	if (cq->state & MLX4_EN_CQ_STATE_POLL_YIELD)
--		rc = true;
--	cq->state = MLX4_EN_CQ_STATE_IDLE;
--	spin_unlock(&cq->poll_lock);
--	return rc;
+-	return READ_ONCE(fp->busy_poll_state) & BNX2X_STATE_FP_POLL;
 -}
 -
--/* true if a socket is polling, even if it did not get the lock */
--static inline bool mlx4_en_cq_busy_polling(struct mlx4_en_cq *cq)
+-/* false if fp is currently owned */
+-static inline bool bnx2x_fp_ll_disable(struct bnx2x_fastpath *fp)
 -{
--	WARN_ON(!(cq->state & MLX4_CQ_LOCKED));
--	return cq->state & CQ_USER_PEND;
+-	set_bit(BNX2X_STATE_FP_DISABLE_BIT, &fp->busy_poll_state);
+-	return !bnx2x_fp_ll_polling(fp);
+-
 -}
 -#else
--static inline void mlx4_en_cq_init_lock(struct mlx4_en_cq *cq)
+-static inline void bnx2x_fp_busy_poll_init(struct bnx2x_fastpath *fp)
 -{
 -}
 -
--static inline bool mlx4_en_cq_lock_napi(struct mlx4_en_cq *cq)
+-static inline bool bnx2x_fp_lock_napi(struct bnx2x_fastpath *fp)
 -{
 -	return true;
 -}
 -
--static inline bool mlx4_en_cq_unlock_napi(struct mlx4_en_cq *cq)
+-static inline void bnx2x_fp_unlock_napi(struct bnx2x_fastpath *fp)
+-{
+-}
+-
+-static inline bool bnx2x_fp_lock_poll(struct bnx2x_fastpath *fp)
 -{
 -	return false;
 -}
 -
--static inline bool mlx4_en_cq_lock_poll(struct mlx4_en_cq *cq)
+-static inline void bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
+-{
+-}
+-
+-static inline bool bnx2x_fp_ll_polling(struct bnx2x_fastpath *fp)
 -{
 -	return false;
 -}
--
--static inline bool mlx4_en_cq_unlock_poll(struct mlx4_en_cq *cq)
+-static inline bool bnx2x_fp_ll_disable(struct bnx2x_fastpath *fp)
 -{
--	return false;
--}
--
--static inline bool mlx4_en_cq_busy_polling(struct mlx4_en_cq *cq)
--{
--	return false;
+-	return true;
 -}
 -#endif /* CONFIG_NET_RX_BUSY_POLL */
 -
- #define MLX4_EN_WOL_DO_MODIFY (1ULL << 63)
+ /* Use 2500 as a mini-jumbo MTU for FCoE */
+ #define BNX2X_FCOE_MINI_JUMBO_MTU	2500
  
- void mlx4_en_update_loopback_state(struct net_device *dev,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index f8d7a2f06950..ca208a7eecd5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -1096,10 +1096,7 @@ reuse_rx:
+ 
+ 		skb_mark_napi_id(skb, &fp->napi);
+ 
+-		if (bnx2x_fp_ll_polling(fp))
+-			netif_receive_skb(skb);
+-		else
+-			napi_gro_receive(&fp->napi, skb);
++		napi_gro_receive(&fp->napi, skb);
+ next_rx:
+ 		rx_buf->data = NULL;
+ 
+@@ -1869,7 +1866,6 @@ static void bnx2x_napi_enable_cnic(struct bnx2x *bp)
+ 	int i;
+ 
+ 	for_each_rx_queue_cnic(bp, i) {
+-		bnx2x_fp_busy_poll_init(&bp->fp[i]);
+ 		napi_enable(&bnx2x_fp(bp, i, napi));
+ 	}
+ }
+@@ -1879,7 +1875,6 @@ static void bnx2x_napi_enable(struct bnx2x *bp)
+ 	int i;
+ 
+ 	for_each_eth_queue(bp, i) {
+-		bnx2x_fp_busy_poll_init(&bp->fp[i]);
+ 		napi_enable(&bnx2x_fp(bp, i, napi));
+ 	}
+ }
+@@ -1890,8 +1885,6 @@ static void bnx2x_napi_disable_cnic(struct bnx2x *bp)
+ 
+ 	for_each_rx_queue_cnic(bp, i) {
+ 		napi_disable(&bnx2x_fp(bp, i, napi));
+-		while (!bnx2x_fp_ll_disable(&bp->fp[i]))
+-			usleep_range(1000, 2000);
+ 	}
+ }
+ 
+@@ -1901,8 +1894,6 @@ static void bnx2x_napi_disable(struct bnx2x *bp)
+ 
+ 	for_each_eth_queue(bp, i) {
+ 		napi_disable(&bnx2x_fp(bp, i, napi));
+-		while (!bnx2x_fp_ll_disable(&bp->fp[i]))
+-			usleep_range(1000, 2000);
+ 	}
+ }
+ 
+@@ -3232,9 +3223,6 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
+ 			return 0;
+ 		}
+ #endif
+-		if (!bnx2x_fp_lock_napi(fp))
+-			return budget;
+-
+ 		for_each_cos_in_tx_queue(fp, cos)
+ 			if (bnx2x_tx_queue_has_work(fp->txdata_ptr[cos]))
+ 				bnx2x_tx_int(bp, fp->txdata_ptr[cos]);
+@@ -3243,14 +3231,10 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
+ 			work_done += bnx2x_rx_int(fp, budget - work_done);
+ 
+ 			/* must not complete if we consumed full budget */
+-			if (work_done >= budget) {
+-				bnx2x_fp_unlock_napi(fp);
++			if (work_done >= budget)
+ 				break;
+-			}
+ 		}
+ 
+-		bnx2x_fp_unlock_napi(fp);
+-
+ 		/* Fall out from the NAPI loop if needed */
+ 		if (!(bnx2x_has_rx_work(fp) || bnx2x_has_tx_work(fp))) {
+ 
+@@ -3294,32 +3278,6 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
+ 	return work_done;
+ }
+ 
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-/* must be called with local_bh_disable()d */
+-int bnx2x_low_latency_recv(struct napi_struct *napi)
+-{
+-	struct bnx2x_fastpath *fp = container_of(napi, struct bnx2x_fastpath,
+-						 napi);
+-	struct bnx2x *bp = fp->bp;
+-	int found = 0;
+-
+-	if ((bp->state == BNX2X_STATE_CLOSED) ||
+-	    (bp->state == BNX2X_STATE_ERROR) ||
+-	    (bp->dev->features & (NETIF_F_LRO | NETIF_F_GRO)))
+-		return LL_FLUSH_FAILED;
+-
+-	if (!bnx2x_fp_lock_poll(fp))
+-		return LL_FLUSH_BUSY;
+-
+-	if (bnx2x_has_rx_work(fp))
+-		found = bnx2x_rx_int(fp, 4);
+-
+-	bnx2x_fp_unlock_poll(fp);
+-
+-	return found;
+-}
+-#endif
+-
+ /* we split the first BD into headers and data BDs
+  * to ease the pain of our fellow microcode engineers
+  * we use one mapping for both BDs
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index b7d32e8412f1..4cbb03f87b5a 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -570,13 +570,6 @@ int bnx2x_enable_msix(struct bnx2x *bp);
+ int bnx2x_enable_msi(struct bnx2x *bp);
+ 
+ /**
+- * bnx2x_low_latency_recv - LL callback
+- *
+- * @napi:	napi structure
+- */
+-int bnx2x_low_latency_recv(struct napi_struct *napi);
+-
+-/**
+  * bnx2x_alloc_mem_bp - allocate memories outsize main driver structure
+  *
+  * @bp:		driver handle
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index f1d62d5dbaff..4c26aff9c0e5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -13004,9 +13004,6 @@ static const struct net_device_ops bnx2x_netdev_ops = {
+ 	.ndo_fcoe_get_wwn	= bnx2x_fcoe_get_wwn,
+ #endif
+ 
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-	.ndo_busy_poll		= bnx2x_low_latency_recv,
+-#endif
+ 	.ndo_get_phys_port_id	= bnx2x_get_phys_port_id,
+ 	.ndo_set_vf_link_state	= bnx2x_set_vf_link_state,
+ 	.ndo_features_check	= bnx2x_features_check,
 -- 
 2.6.0.rc2.230.g3dd15c0
