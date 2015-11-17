@@ -1,68 +1,77 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH iptables] libxt_cgroup2: add support for cgroup2 path
- matching
-Date: Tue, 17 Nov 2015 18:09:24 -0500
-Message-ID: <20151117230924.GL22864@mtj.duckdns.org>
-References: <1447789240-29394-1-git-send-email-tj@kernel.org>
- <20151117194221.GB22864@mtj.duckdns.org>
- <alpine.LSU.2.20.1511172356570.13966@nerf40.vanv.qr>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net] net: fix feature changes on devices without
+ ndo_set_features
+Date: Wed, 18 Nov 2015 00:10:07 +0100
+Message-ID: <564BB3CF.2080507@cumulusnetworks.com>
+References: <5645C0A5.2080506@cumulusnetworks.com>
+ <1447422841-2333-1-git-send-email-razor@blackwall.org>
+ <564BB22C.2000606@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org,
-	daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org,
-	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: Jan Engelhardt <jengelh-9+2X+4sQBs8@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.20.1511172356570.13966-Og55a6x16tXH9RFtKMg/Ng@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Jarod Wilson <jarod@redhat.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Sander Eikelenboom <linux@eikelenboom.it>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Nikolay Aleksandrov <razor@blackwall.org>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:35514 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755087AbbKQXKK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 18:10:10 -0500
+Received: by wmdw130 with SMTP id w130so176293178wmd.0
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 15:10:09 -0800 (PST)
+In-Reply-To: <564BB22C.2000606@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-On Wed, Nov 18, 2015 at 12:02:01AM +0100, Jan Engelhardt wrote:
-> On Tuesday 2015-11-17 20:42, Tejun Heo wrote:
-> >+static void cgroup2_save(const void *ip, const struct xt_entry_match *match)
-> >+{
-> >+	const struct xt_cgroup2_info *info = (void *)match->data;
-> >+
-> >+	printf("%s --path %s", info->invert ? " !" : "", info->path);
-> >+}
+On 11/18/2015 12:03 AM, Sergei Shtylyov wrote:
+> Hello.
 > 
-> Can cgroup path names contain anything fancy, like spaces, backslashes, etc.?
-> If so, xtables_save_string() will be needed here.
-
-Will update.
-
-> >+static struct xtables_match cgroup2_match = {
-> >+	.family		= NFPROTO_UNSPEC,
-> >+	.name		= "cgroup2",
-> >+	.version	= XTABLES_VERSION,
-> >+	.size		= XT_ALIGN(sizeof(struct xt_cgroup2_info)),
-> >+	.userspacesize	= XT_ALIGN(sizeof(struct xt_cgroup2_info)),
+> On 11/13/2015 04:54 PM, Nikolay Aleksandrov wrote:
 > 
-> userspacesize must not include xt_cgroup2_info.priv.
-> Change to offsetof(...), cf. other .c modules which do this.
-
-Ah, okay.
-
-...
-> >+\fBIMPORTANT\fP: when being used in the INPUT chain, the cgroup2
-> >+matcher is currently only of limited functionality, meaning it
-> >+will only match on packets that are processed for local sockets
-> >+through early socket demuxing. Therefore, general usage on the
-> >+INPUT chain is disadviced unless the implications are well
+>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>
+>> When __netdev_update_features() was updated to ensure some features are
+>> disabled on new lower devices, an error was introduced for devices which
+>> don't have the ndo_set_features() method set. Before we'll just set the
+>> new features, but now we return an error and don't set them. Fix this by
+>> returning the old behaviour and setting err to 0 when ndo_set_features
+>> is not present.
+>>
+>> Fixes: e7868a85e1b2 ("net/core: ensure features get disabled on new lower devs")
+>> CC: Jarod Wilson <jarod@redhat.com>
+>> CC: Jiri Pirko <jiri@resnulli.us>
+>> CC: Ido Schimmel <idosch@mellanox.com>
+>> CC: Sander Eikelenboom <linux@eikelenboom.it>
+>> CC: Andy Gospodarek <gospo@cumulusnetworks.com>
+>> CC: Florian Fainelli <f.fainelli@gmail.com>
+>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>> ---
+>> Sander please feel free to give your Tested-by.
+>>
+>>   net/core/dev.c | 2 ++
+>>   1 file changed, 2 insertions(+)
+>>
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index ab9b8d0d115e..4a1d198dbbff 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -6426,6 +6426,8 @@ int __netdev_update_features(struct net_device *dev)
+>>
+>>       if (dev->netdev_ops->ndo_set_features)
+>>           err = dev->netdev_ops->ndo_set_features(dev, features);
+>> +    else
+>> +        err = 0;
 > 
-> is disadviced (sic)  -> is not advised
+>    This makes the 'err' initializer pointless.
+> 
+> MBR, Sergei
+> 
 
-Will update.  That's copied verbatim from xt_cgroup tho.  Will create
-a patch to update that too.
-
-Thanks.
-
--- 
-tejun
+It doesn't, there's a previous goto statement that might get hit and we
+need it to be -1 so we don't signal a feature change.
