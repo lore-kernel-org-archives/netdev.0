@@ -1,41 +1,67 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: Routing loops & TTL tracking with tunnel devices
-Date: Tue, 17 Nov 2015 03:57:10 +0100
-Message-ID: <CAHmME9odyPcXSv5Vc5LCYiMANZKjhZ3+WbNdh8wFmG2BVdkHoA@mail.gmail.com>
-References: <CAHmME9r_DbZWe4FsfebHSSf_iPctSe5S-w9bU3o8BN43raeURg@mail.gmail.com>
-	<1447712702.2096268.441562113.30345320@webmail.messagingengine.com>
+From: Z Lim <zlim.lnx@gmail.com>
+Subject: Re: [PATCH V4 2/2] arm64: bpf: make BPF prologue and epilogue align
+ with ARM64 AAPCS
+Date: Mon, 16 Nov 2015 20:37:11 -0800
+Message-ID: <CABg9mcvh+SLK-1iF28pCQgXt5WM_H4tH3ntgKSkMHCyMygThgw@mail.gmail.com>
+References: <CABg9mcvomep=M1As_Vj=XuTNk=jiGwXQqQWbjotMXP2csKX=Bg@mail.gmail.com>
+	<1447713335-29707-1-git-send-email-yang.shi@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Benc <jbenc@redhat.com>, therbert@google.com,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Alexei Starovoitov <ast@kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Xi Wang <xi.wang@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	linaro-kernel@lists.linaro.org
+To: Yang Shi <yang.shi@linaro.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447712702.2096268.441562113.30345320@webmail.messagingengine.com>
+In-Reply-To: <1447713335-29707-1-git-send-email-yang.shi@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 16, 2015 at 11:25 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> Have a look at __dev_queue_xmit and the per_cpu recursion limits
-> implemented there:
+On Mon, Nov 16, 2015 at 2:35 PM, Yang Shi <yang.shi@linaro.org> wrote:
+> Save and restore FP/LR in BPF prog prologue and epilogue, save SP to FP
+> in prologue in order to get the correct stack backtrace.
 >
->                         if (__this_cpu_read(xmit_recursion) >
->                         RECURSION_LIMIT)
->                                 goto recursion_alert;
+> However, ARM64 JIT used FP (x29) as eBPF fp register, FP is subjected to
+> change during function call so it may cause the BPF prog stack base address
+> change too.
+>
+> Use x25 to replace FP as BPF stack base register (fp). Since x25 is callee
+> saved register, so it will keep intact during function call.
+> It is initialized in BPF prog prologue when BPF prog is started to run
+> everytime. Save and restore x25/x26 in BPF prologue and epilogue to keep
+> them intact for the outside of BPF. Actually, x26 is unnecessary, but SP
+> requires 16 bytes alignment.
+>
+> So, the BPF stack layout looks like:
+>
+>                                  high
+>          original A64_SP =>   0:+-----+ BPF prologue
+>                                 |FP/LR|
+>          current A64_FP =>  -16:+-----+
+>                                 | ... | callee saved registers
+>                                 +-----+
+>                                 |     | x25/x26
+>          BPF fp register => -80:+-----+
+>                                 |     |
+>                                 | ... | BPF prog stack
+>                                 |     |
+>                                 |     |
+>          current A64_SP =>      +-----+
+>                                 |     |
+>                                 | ... | Function call stack
+>                                 |     |
+>                                 +-----+
+>                                   low
+>
+> CC: Zi Shen Lim <zlim.lnx@gmail.com>
+> CC: Xi Wang <xi.wang@gmail.com>
+> Signed-off-by: Yang Shi <yang.shi@linaro.org>
 
-Ahh, thanks for pointing that out. So this works with virtual devices
-with no queue. As of some recent changes, that now applies to what I'm
-doing.
-
-Unfortunately, I get a complete hard crash, with the blinking
-keyboard. The only thing written to serial before it dies is:
-[  171.347446] Dead loop on virtual device wg0, fix it urgently!
-This means it did hit that recursion condition, which is good.
-I assume the recursion limit is just too high, and this has something
-to do with me overflowing the stack. I'll test this hypothesis and see
-if I can add a similar check inside my driver to make it lower. If
-this works, I'm satisfied.
-
-Thanks a lot for the pointer here.
+Acked-by: Zi Shen Lim <zlim.lnx@gmail.com>
