@@ -1,45 +1,40 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: net-scm: Delete an unnecessary check before the function call
- "kfree"
-Date: Tue, 17 Nov 2015 19:05:35 +0100
-Message-ID: <564B6C6F.3070809@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net>
- <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
- <530A086E.8010901@users.sourceforge.net>
- <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
- <530A72AA.3000601@users.sourceforge.net>
- <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
- <530B5FB6.6010207@users.sourceforge.net>
- <alpine.DEB.2.10.1402241710370.2074@hadrien>
- <530C5E18.1020800@users.sourceforge.net>
- <alpine.DEB.2.10.1402251014170.2080@hadrien>
- <530CD2C4.4050903@users.sourceforge.net>
- <alpine.DEB.2.10.1402251840450.7035@hadrien>
- <530CF8FF.8080600@users.sourceforge.net>
- <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
- <530DD06F.4090703@users.sourceforge.net>
- <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
- <5317A59D.4@users.sourceforge.net> <564B5937.1070707@users.sourceforge.net>
- <564B602F.2020302@iogearbox.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: How to do TCP tx checksums
+Date: Tue, 17 Nov 2015 10:26:47 -0800
+Message-ID: <1447784807.22599.125.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <564A72D3.1050407@candelatech.com>
+	 <CALx6S37AZz6UZctRxY9DOO+-x6MQ2gB9FQ2wSt8frEnegyh82Q@mail.gmail.com>
+	 <564B677C.8000603@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>, eric.dumazet@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <564B602F.2020302@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Tom Herbert <tom@herbertland.com>, netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33883 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751701AbbKQS0t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 13:26:49 -0500
+Received: by padhx2 with SMTP id hx2so16225211pad.1
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 10:26:48 -0800 (PST)
+In-Reply-To: <564B677C.8000603@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Eric already mentioned that in some situations where it's critical,
-> it actually slows down the code, i.e. you'll have an extra
-> function call to get there and inside kfree() / kfree_skb() / etc,
-> the test is actually marked as unlikely().
+On Tue, 2015-11-17 at 09:44 -0800, Ben Greear wrote:
 
-How do you think about to add similar annotations to any more
-source code places?
+> And in case it helps, here is the output from dmesg.
+> 
+> This is an Ethernet frame, and in this case csum-start is the
+> index of the first byte of the TCP header as far as I can tell.
+> 
+> [64967.194251] check: 0xf51b  csum-start: 34  offset: 16 summed: 0x3  saddr: 0x201010a  daddr: 0x101010a len: 1514
+> 
 
-Regards,
-Markus
+You forgot to clear tcp header @check before calling
+__tcp_v4_send_check(), I think.
+
+( th->check = 0; )
+
+
+Anyway, just use trafgen and get ~6 Mpps, more easily than with pktgen.
