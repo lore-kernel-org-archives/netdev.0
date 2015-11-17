@@ -1,98 +1,68 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue (w/
- Fixes:)
-Date: Tue, 17 Nov 2015 11:13:43 -0500
-Message-ID: <564B5237.8080803@akamai.com>
-References: <CACT4Y+b3xsLsKVFCz2M7nqqfXnyuMHEVYtJS2wN4WHLWs9A5ng@mail.gmail.com>
- <20151012120249.GB16370@unicorn.suse.cz>
- <1444652071.27760.156.camel@edumazet-glaptop2.roam.corp.google.com>
- <CACT4Y+Z2H8xPg1Dq0Z=HC3WKm+Uw+ZjK6zOLvxhPwFd4D0CsZw@mail.gmail.com>
- <CACT4Y+Zu7J0n6dU1dSfiW3F9Q0Us3_DBVcD5Pi9NG9LER8MmRg@mail.gmail.com>
- <563CC002.5050307@akamai.com>
- <87ziyrcg67.fsf@doppelsaurus.mobileactivedefense.com>
- <87fv0fnslr.fsf_-_@doppelsaurus.mobileactivedefense.com>
- <877flp34fl.fsf@doppelsaurus.mobileactivedefense.com>
- <87a8qhspfm.fsf@doppelsaurus.mobileactivedefense.com>
- <876111wpza.fsf@doppelsaurus.mobileactivedefense.com>
- <87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
+From: Stefan Schmidt <stefan@osg.samsung.com>
+Subject: [PATCH] ieee802154-atusb: Delete an unnecessary check before the
+ function call "kfree_skb"
+Date: Tue, 17 Nov 2015 17:17:43 +0100
+Message-ID: <564B5327.4010307@osg.samsung.com>
+References: <5307CAA2.8060406@users.sourceforge.net>
+ <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+ <530A086E.8010901@users.sourceforge.net>
+ <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+ <530A72AA.3000601@users.sourceforge.net>
+ <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+ <530B5FB6.6010207@users.sourceforge.net>
+ <alpine.DEB.2.10.1402241710370.2074@hadrien>
+ <530C5E18.1020800@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=iso-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Michal Kubecek <mkubecek@suse.cz>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Howells <dhowells@redhat.com>,
-	Paul Moore <paul@paul-moore.com>, salyzyn@android.com,
-	sds@tycho.nsa.gov, ying.xue@windriver.com,
-	netdev <netdev@vger.kernel.org>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Andrey Konovalov <andreyknvl@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Julien Tinnes <jln@google.com>,
-	Kees Cook <keescook@google.com>,
-	Mathias Krause <minipli@googlemail.com>
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Alexander Aring <alex.aring@gmail.com>,
+	Stefan Schmidt <stefan@osg.samsung.com>,
+	linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+	Marcel Holtmann <marcel@holtmann.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 16 Nov 2015 13:50:23 +0100
 
+The kfree_skb() function tests whether its argument is NULL and then
+returns immediately. Thus the test around the call is not needed.
 
-On 11/16/2015 05:28 PM, Rainer Weikusat wrote:
-> An AF_UNIX datagram socket being the client in an n:1 association with
-> some server socket is only allowed to send messages to the server if the
-> receive queue of this socket contains at most sk_max_ack_backlog
-> datagrams. This implies that prospective writers might be forced to go
-> to sleep despite none of the message presently enqueued on the server
-> receive queue were sent by them. In order to ensure that these will be
-> woken up once space becomes again available, the present unix_dgram_poll
-> routine does a second sock_poll_wait call with the peer_wait wait queue
-> of the server socket as queue argument (unix_dgram_recvmsg does a wake
-> up on this queue after a datagram was received). This is inherently
-> problematic because the server socket is only guaranteed to remain alive
-> for as long as the client still holds a reference to it. In case the
-> connection is dissolved via connect or by the dead peer detection logic
-> in unix_dgram_sendmsg, the server socket may be freed despite "the
-> polling mechanism" (in particular, epoll) still has a pointer to the
-> corresponding peer_wait queue. There's no way to forcibly deregister a
-> wait queue with epoll.
-> 
-> Based on an idea by Jason Baron, the patch below changes the code such
-> that a wait_queue_t belonging to the client socket is enqueued on the
-> peer_wait queue of the server whenever the peer receive queue full
-> condition is detected by either a sendmsg or a poll. A wake up on the
-> peer queue is then relayed to the ordinary wait queue of the client
-> socket via wake function. The connection to the peer wait queue is again
-> dissolved if either a wake up is about to be relayed or the client
-> socket reconnects or a dead peer is detected or the client socket is
-> itself closed. This enables removing the second sock_poll_wait from
-> unix_dgram_poll, thus avoiding the use-after-free, while still ensuring
-> that no blocked writer sleeps forever.
-> 
-> Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-> Fixes: ec0d215f9420 ("af_unix: fix 'poll for write'/connected DGRAM sockets")
-> ---
-> 
-> Additional remark about "5456f09aaf88/ af_unix: fix unix_dgram_poll()
-> behavior for EPOLLOUT event": This shouldn't be an issue anymore with
-> this change despite it restores the "only when writable" behaviour" as
-> the wake up relay will also be set up once _dgram_sendmsg returned
-> EAGAIN for a send attempt on a n:1 connected socket.
-> 
-> 
+This issue was detected by using the Coccinelle software.
 
-Hi,
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+  drivers/net/ieee802154/atusb.c | 3 +--
+  1 file changed, 1 insertion(+), 2 deletions(-)
 
-My only comment was about potentially avoiding the double lock in the
-write path, otherwise this looks ok to me.
+diff --git a/drivers/net/ieee802154/atusb.c b/drivers/net/ieee802154/atusb.c
+index 199a94a..b1cd865 100644
+--- a/drivers/net/ieee802154/atusb.c
++++ b/drivers/net/ieee802154/atusb.c
+@@ -310,8 +310,7 @@ static void atusb_free_urbs(struct atusb *atusb)
+  		urb = usb_get_from_anchor(&atusb->idle_urbs);
+  		if (!urb)
+  			break;
+-		if (urb->context)
+-			kfree_skb(urb->context);
++		kfree_skb(urb->context);
+  		usb_free_urb(urb);
+  	}
+  }
+-- 
+2.6.2
 
-Thanks,
-
--Jason
+--
