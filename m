@@ -1,65 +1,51 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net] net/core: revert "net: fix __netdev_update_features return.." and add comment
-Date: Tue, 17 Nov 2015 15:49:06 +0100
-Message-ID: <1447771746-17943-1-git-send-email-razor@blackwall.org>
-References: <564B3A3E.50905@cumulusnetworks.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] af_unix: take receive queue lock while appending new skb
+Date: Tue, 17 Nov 2015 15:55:40 +0100
+Message-ID: <1447772140.544921.442208625.2042D49B@webmail.messagingengine.com>
+References: <1447769459-30452-1-git-send-email-hannes@stressinduktion.org>
+ <1447771360.22599.99.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:32942 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751526AbbKQOti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 09:49:38 -0500
-Received: by wmec201 with SMTP id c201so231460624wme.0
-        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 06:49:37 -0800 (PST)
-In-Reply-To: <564B3A3E.50905@cumulusnetworks.com>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:39268 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751903AbbKQOzl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 09:55:41 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id 86BC82087D
+	for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 09:55:40 -0500 (EST)
+In-Reply-To: <1447771360.22599.99.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Hi Eric,
 
-This reverts commit 00ee59271777 ("net: fix __netdev_update_features re=
-turn
-on ndo_set_features failure")
-and adds a comment explaining why it's okay to return a value other tha=
-n
-0 upon error. Some drivers might actually change flags and return an
-error so it's better to fire a spurious notification rather than miss
-these.
+On Tue, Nov 17, 2015, at 15:42, Eric Dumazet wrote:
+> On Tue, 2015-11-17 at 15:10 +0100, Hannes Frederic Sowa wrote:
+> > While possibly in future we don't necessarily need to use
+> > sk_buff_head.lock this is a rather larger change, as it affects the
+> > af_unix fd garbage collector, diag and socket cleanups. This is too much
+> > for a stable patch.
+> > 
+> > For the time being grab sk_buff_head.lock without disabling bh and irqs,
+> > so don't use locked skb_queue_tail.
+> 
+> I would use skb_queue_tail() as we already use it in two different
+> places in af_unix.c, like unix_stream_sendmsg()
+> 
+> It is hardly a fast path anyway, so lets keep code short.
+> 
+> Then, in net-next, if you really want, add a new skb_queue_tail_lock()
+> or similar helper ?
 
-CC: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-Thanks to Michal for the explanation on why it was made to act like tha=
-t.
-Also sorry for the noise, unfortunately I missed this. IMO this should'=
-ve
-been an all or nothing op from the beginning.
+I want to move to unix_state_lock and completely drop sk_buff_head.lock
+in af_unix, as such I would prefer to keep it this way as in some other
+places in af_unix.c (e.g. unix_stream_connect).
 
- net/core/dev.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Or do you have a strong opinion on that?
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5dbc86ea6b58..ae00b894e675 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6436,7 +6436,10 @@ int __netdev_update_features(struct net_device *=
-dev)
- 		netdev_err(dev,
- 			"set_features() failed (%d); wanted %pNF, left %pNF\n",
- 			err, &features, &dev->features);
--		return 0;
-+		/* return non-0 since some features might have changed and
-+		 * it's better to fire a spurious notification than miss it
-+		 */
-+		return -1;
- 	}
-=20
- sync_lower:
---=20
-2.4.3
+Thanks,
+Hannes
