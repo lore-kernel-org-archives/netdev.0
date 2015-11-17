@@ -1,41 +1,48 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: next build: 235 warnings 3 failures (next/next-20151117)
-Date: Tue, 17 Nov 2015 18:03:40 +0100
-Message-ID: <6370082.rfihnaNWhf@wuerfel>
-References: <564a9961.878b420a.331b8.fffffd62@mx.google.com> <4694362.ZPL12j6kR2@wuerfel> <20151117164453.GF30101@arm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net-scm: Delete an unnecessary check before the
+ function call "kfree"
+Date: Tue, 17 Nov 2015 12:10:21 -0500 (EST)
+Message-ID: <20151117.121021.367627373283927784.davem@davemloft.net>
+References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+	<5317A59D.4@users.sourceforge.net>
+	<564B5937.1070707@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Catalin Marinas <catalin.marinas@arm.com>,
-	kernel-build-reports@lists.linaro.org, olof@lixom.net,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Will Deacon <will.deacon@arm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, julia.lawall@lip6.fr
+To: elfring@users.sourceforge.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151117164453.GF30101@arm.com>
+In-Reply-To: <564B5937.1070707@users.sourceforge.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 17 November 2015 16:44:53 Will Deacon wrote:
-> > 8<----
-> > Subject: ARM64: make smp_load_acquire() work with const arguments
-> > 
-> > smp_load_acquire() uses typeof() to declare a local variable for temporarily
-> > storing the output of the memory access. This fails when the argument is
-> > constant, because the assembler complains about using a constant register
-> > as output:
-> > 
-> >  arch/arm64/include/asm/barrier.h:71:3: error: read-only variable '___p1'
-> >  used as 'asm' output
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Tue, 17 Nov 2015 17:43:35 +0100
+
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Tue, 17 Nov 2015 17:37:22 +0100
 > 
-> Do you know the usage in the kernel causing this warning?
+> The kfree() function tests whether its argument is NULL and then
+> returns immediately. Thus the test around the call is not needed.
+> 
+> This issue was detected by using the Coccinelle software.
+> 
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 
-A newly introduced function in include/net/sock.h:
+STOP submitting this crap, NOW!
 
-static inline int sk_state_load(const struct sock *sk)
-{
-        return smp_load_acquire(&sk->sk_state);
-}
+I told you I won't review nor apply these patches any more.
 
-	Arnd
+And ever worse, this one is BUGGY.
+
+We're testing p->fp so we know if we can safely dereference
+it or not.
+
+You're adding an OOPS to the kernel.
+
+This is why these mindless mechanical transformations are not
+only often a waste of time, they are dangerous as well.
+
+I am silently rejecting from patchwork, immediately, any and all
+patches you submit of this nature.
