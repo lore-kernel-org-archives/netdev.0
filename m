@@ -1,48 +1,68 @@
-From: "Shi, Yang" <yang.shi@linaro.org>
-Subject: Re: [PATCH V4 2/2] arm64: bpf: make BPF prologue and epilogue align
- with ARM64 AAPCS
-Date: Mon, 16 Nov 2015 20:43:52 -0800
-Message-ID: <564AB088.8030903@linaro.org>
-References: <CABg9mcvomep=M1As_Vj=XuTNk=jiGwXQqQWbjotMXP2csKX=Bg@mail.gmail.com> <1447713335-29707-1-git-send-email-yang.shi@linaro.org> <CABg9mcvh+SLK-1iF28pCQgXt5WM_H4tH3ntgKSkMHCyMygThgw@mail.gmail.com> <20151117044145.GA71069@ast-mbp.thefacebook.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: How to do TCP tx checksums
+Date: Mon, 16 Nov 2015 21:02:13 -0800
+Message-ID: <CALx6S37AZz6UZctRxY9DOO+-x6MQ2gB9FQ2wSt8frEnegyh82Q@mail.gmail.com>
+References: <564A72D3.1050407@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Xi Wang <xi.wang@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	linaro-kernel@lists.linaro.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Z Lim <zlim.lnx@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151117044145.GA71069@ast-mbp.thefacebook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:34788 "EHLO
+	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750853AbbKQFCO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 00:02:14 -0500
+Received: by ioir85 with SMTP id r85so7746231ioi.1
+        for <netdev@vger.kernel.org>; Mon, 16 Nov 2015 21:02:14 -0800 (PST)
+In-Reply-To: <564A72D3.1050407@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/16/2015 8:41 PM, Alexei Starovoitov wrote:
-> On Mon, Nov 16, 2015 at 08:37:11PM -0800, Z Lim wrote:
->> On Mon, Nov 16, 2015 at 2:35 PM, Yang Shi <yang.shi@linaro.org> wrote:
->>> Save and restore FP/LR in BPF prog prologue and epilogue, save SP to FP
->>> in prologue in order to get the correct stack backtrace.
-> ...
->>> CC: Zi Shen Lim <zlim.lnx@gmail.com>
->>> CC: Xi Wang <xi.wang@gmail.com>
->>> Signed-off-by: Yang Shi <yang.shi@linaro.org>
->>
->> Acked-by: Zi Shen Lim <zlim.lnx@gmail.com>
+On Mon, Nov 16, 2015 at 4:20 PM, Ben Greear <greearb@candelatech.com> wrote:
+> Hello!
 >
-> great that it's finalized.
-> Yang, please resubmit both patches to netdev as fresh submission so it
-> gets picked up by patchwork.
-
-OK, btw the first one has been applied by David.
-
-Yang
-
+> I'm hacking on (my already hacked) pktgen, trying to get it to send TCP
+> frames.
 >
+> And, having issues getting checksums to work properly.
+>
+> I'm trying this:
+>         struct iphdr *iph = ip_hdr(skb);
+>         struct net_device *odev = pkt_dev->odev;
+>
+>         if (pkt_dev->flags & F_TCP) {
+>                 if (odev->features & NETIF_F_V4_CSUM) {
+>                         skb->ip_summed = CHECKSUM_PARTIAL;
+>                 } else {
+>                         skb->ip_summed = CHECKSUM_NONE;
+>                 }
+>                 skb->csum = 0;
+>                 __tcp_v4_send_check(skb, iph->saddr, iph->daddr);
+>
+> I added an export so I could call that __tcp_v4_send_check method
+> w/out having to put a fake socket struct on the stack.
+>
+> But, the receiving NIC reports 100% checksum failure, so obviously
+> I'm not doing it correct.
+>
+> Any suggestions on what I might be doing wrong or the proper method(s)
+> to call?
+>
+It's really hard to tell what is happening without seeing the full
+patch your using. Maybe you're not setting the TCP correctly or
+transport header is not set right in skb.
+
+Tom
+
+> Thanks,
+> Ben
+>
+>
+> --
+> Ben Greear <greearb@candelatech.com>
+> Candela Technologies Inc  http://www.candelatech.com
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
