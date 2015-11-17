@@ -1,51 +1,65 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: next build: 235 warnings 3 failures (next/next-20151117)
-Date: Tue, 17 Nov 2015 20:17:17 +0100
-Message-ID: <3723928.99NZh1TC6E@wuerfel>
-References: <564a9961.878b420a.331b8.fffffd62@mx.google.com> <6370082.rfihnaNWhf@wuerfel> <20151117171236.GJ30101@arm.com>
+From: Stefan Priebe <s.priebe@profihost.ag>
+Subject: Re: Asterisk deadlocks since Kernel 4.1
+Date: Tue, 17 Nov 2015 20:27:25 +0100
+Message-ID: <564B7F9D.5060701@profihost.ag>
+References: <564B3D35.50004@profihost.ag>
+ <alpine.DEB.2.11.1511171936030.3761@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Catalin Marinas <catalin.marinas@arm.com>,
-	kernel-build-reports@lists.linaro.org, olof@lixom.net,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Will Deacon <will.deacon@arm.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151117171236.GJ30101@arm.com>
+In-Reply-To: <alpine.DEB.2.11.1511171936030.3761@nanos>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 17 November 2015 17:12:37 Will Deacon wrote:
-> On Tue, Nov 17, 2015 at 06:03:40PM +0100, Arnd Bergmann wrote:
-> > On Tuesday 17 November 2015 16:44:53 Will Deacon wrote:
-> > > > 8<----
-> > > > Subject: ARM64: make smp_load_acquire() work with const arguments
-> > > > 
-> > > > smp_load_acquire() uses typeof() to declare a local variable for temporarily
-> > > > storing the output of the memory access. This fails when the argument is
-> > > > constant, because the assembler complains about using a constant register
-> > > > as output:
-> > > > 
-> > > >  arch/arm64/include/asm/barrier.h:71:3: error: read-only variable '___p1'
-> > > >  used as 'asm' output
-> > > 
-> > > Do you know the usage in the kernel causing this warning?
-> > 
-> > A newly introduced function in include/net/sock.h:
-> > 
-> > static inline int sk_state_load(const struct sock *sk)
-> > {
-> >         return smp_load_acquire(&sk->sk_state);
-> > }
-> 
-> Hmm, maybe we could play a similar trick to READ_ONCE by declaring an
-> anonymous union and writing through the non-const member?
+Am 17.11.2015 um 20:15 schrieb Thomas Gleixner:
+> On Tue, 17 Nov 2015, Stefan Priebe - Profihost AG wrote:
+>> since Upgrading our Asterisk System from Kernel 3.18.17 to 4.1.13 it
+>> deadlocks every few hours (kill -9 is the only thing working). Booting
+>> with 3.18 again let it run smooth again.
+>>
+>> An strace shows asterisk is looping like this:
+>>
+>> [pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
+>> it_value={0, 140592906050976}}) = 0
+>> [pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
+>> [pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
+>> 2, 1000) = 1 ([{fd=8, revents=POLLIN}])
+>> [pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
+>> it_value={0, 140592906050976}}) = 0
+>> [pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
+>>
+>> fd 8 is:
+>>
+>> lrwx------ 1 root root 64 Nov 17 15:27 /proc/6025/fd/8 ->
+>> anon_inode:[timerfd]
+>>
+>>
+>> # cat /proc/6025/stack
+>> [<ffffffff941d60e9>] poll_schedule_timeout+0x49/0x70
+>> [<ffffffff941d76c7>] do_sys_poll+0x3d7/0x590
+>> [<ffffffff941d78bc>] do_restart_poll+0x3c/0x70
+>> [<ffffffff9408e7ff>] sys_restart_syscall+0x1f/0x30
+>> [<ffffffff9463f1ee>] system_call_fastpath+0x12/0x71
+>> [<ffffffffffffffff>] 0xffffffffffffffff
+>>
+>> Any ideas how to debug this?
+>
+> fd 8 is probably not really interesting. That looks like a interval
+> timer firing periodically. So it probably waits for fd 9 ...
 
-Yes, I think that would work, if you think we need to care about the
-case where we read into a structure.
+I've now also two gdb backtraces from two crashes:
+http://pastebin.com/raw.php?i=yih5jNt8
 
-Can you come up with a patch for that?
+http://pastebin.com/raw.php?i=kGEcvH4T
 
-	Arnd
+Stefan
+
+>
+> Thanks,
+>
+> 	tglx
+>
