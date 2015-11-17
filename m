@@ -1,43 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] af_unix: take receive queue lock while appending
- new skb
-Date: Tue, 17 Nov 2015 08:29:42 -0800
-Message-ID: <1447777782.22599.121.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1447769459-30452-1-git-send-email-hannes@stressinduktion.org>
-	 <1447771360.22599.99.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1447772140.544921.442208625.2042D49B@webmail.messagingengine.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] net-scm: Delete an unnecessary check before the function call
+ "kfree"
+Date: Tue, 17 Nov 2015 17:43:35 +0100
+Message-ID: <564B5937.1070707@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net>
+ <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+ <530A086E.8010901@users.sourceforge.net>
+ <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+ <530A72AA.3000601@users.sourceforge.net>
+ <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+ <530B5FB6.6010207@users.sourceforge.net>
+ <alpine.DEB.2.10.1402241710370.2074@hadrien>
+ <530C5E18.1020800@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34388 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754298AbbKQQ3p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 11:29:45 -0500
-Received: by padhx2 with SMTP id hx2so13417738pad.1
-        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 08:29:44 -0800 (PST)
-In-Reply-To: <1447772140.544921.442208625.2042D49B@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-11-17 at 15:55 +0100, Hannes Frederic Sowa wrote:
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Tue, 17 Nov 2015 17:37:22 +0100
 
-> I want to move to unix_state_lock and completely drop sk_buff_head.lock
-> in af_unix, as such I would prefer to keep it this way as in some other
-> places in af_unix.c (e.g. unix_stream_connect).
-> 
-> Or do you have a strong opinion on that?
+The kfree() function tests whether its argument is NULL and then
+returns immediately. Thus the test around the call is not needed.
 
+This issue was detected by using the Coccinelle software.
 
-I am saying we use 2 times skb_queue_tail(), one time skb_unlink(),
-and 2 times skb_queue_purge(), all using spin_lock_irqsave()
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ net/core/scm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-But you took the single __skb_queue_tail() that was present in this
-file ;)
-
-No strong opinion, just a matter of simplicity and code size.
-
-Reported-by: Eric Dumazet <edumazet@google.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
+diff --git a/net/core/scm.c b/net/core/scm.c
+index 3b6899b..4f64173 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -193,7 +193,7 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
+ 		}
+ 	}
+ 
+-	if (p->fp && !p->fp->count)
++	if (likely(!p->fp->count))
+ 	{
+ 		kfree(p->fp);
+ 		p->fp = NULL;
+-- 
+2.6.2
