@@ -1,40 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: ensure proper barriers in lockless contexts
-Date: Mon, 16 Nov 2015 20:55:26 -0500 (EST)
-Message-ID: <20151116.205526.851300695363409790.davem@davemloft.net>
-References: <1447346598.22599.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151115.183703.577812988592183622.davem@davemloft.net>
-	<CAP=VYLoykaLLJgv00qnm7D=EfcSdF7F-9vop+Nsv2Q8a28YO0w@mail.gmail.com>
+From: Jonathan Woithe <jwoithe@atrad.com.au>
+Subject: Re: r8169 regression: UDP packets dropped intermittantly
+Date: Tue, 17 Nov 2015 12:26:05 +1030
+Message-ID: <20151117015605.GI22941@marvin.atrad.com.au>
+References: <20130309064647.GC4984@marvin.atrad.com.au>
+ <20130311000216.GA31808@zoreil.com>
+ <20130405001526.GC19253@marvin.atrad.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org
-To: paul.gortmaker@windriver.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CAP=VYLoykaLLJgv00qnm7D=EfcSdF7F-9vop+Nsv2Q8a28YO0w@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server.atrad.com.au ([150.101.241.2]:37505 "EHLO
+	server.atrad.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752077AbbKQCL3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2015 21:11:29 -0500
+Content-Disposition: inline
+In-Reply-To: <20130405001526.GC19253@marvin.atrad.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Mon, 16 Nov 2015 20:45:25 -0500
+Hi all
 
-> Just a heads up that this breaks all arm64 builds in linux-next from
-> Monday; bisect says:
-> 
-> 00fd38d938db3f1ab1c486549afc450cb7e751b1 is the first bad commit
-> commit 00fd38d938db3f1ab1c486549afc450cb7e751b1
-> Author: Eric Dumazet
-> <edumazet@google.com>http://kisskb.ellerman.id.au/kisskb/buildresult/12548450/
-> Date:   Thu Nov 12 08:43:18 2015 -0800
-> 
->     tcp: ensure proper barriers in lockless contexts
-> 
-> Here is one of the linux-next fails:
-> 
-> http://kisskb.ellerman.id.au/kisskb/buildresult/12548450/
+Back in March/April 2013 I instigated this thread in connection with what
+appeared to be a regression in the r8169 driver.  To briefly recap, we have
+external hardware which transfers data at moderate rates (150-300 Mbits/sec)
+to a Linux system using UDP packets.  The transfer stream lasts for around
+55 seconds and restarts after a 5 second wait.  During the 5 second wait,
+various systems are reconfigured, again using UDP.  The reconfiguration
+involves the sending of around 5 UDP packets with payloads less than 32
+bytes.
 
-Thanks for the report Paul.
+Under the fault which was noticed by us when Linux 3.8 was tried, UDP
+packets associated with the reconfiguration - never the high speed streaming
+- seemed to be lost, or at least delayed for many seconds.
 
-I think Eric's patch is correct.  I see what ARM is trying to do here,
-but it really has to accomodate const arguments to smp_load_acquire().
+A git bisect had suggested that the errant behaviour was introduced with:
+
+  Commit: da78dbff2e05630921c551dbbc70a4b7981a8fff
+  Author: Francois Romieu <romieu@fr.zoreil.com>
+  Date:   Thu Jan 26 14:18:23 2012 +0100
+  r8169: remove work from irq handler.
+
+Through a series of circumstances this problem was not resolved at the time.
+
+Recently I have been looking at upgrading the kernel used by the system and
+installed Linux 4.3 to see whether anything had changed in the years since. 
+The short answer is that the reconfiguration still fails in much the same
+way as it did before, although it seems to happen a lot more frequently now.
+Of course that doesn't rule out the option that the original problem has
+been fixed and a new one - with very similar symptoms - has developed.
+
+Using tcpdump on the system with the r8169 card it appears that in the fault
+condition, the outgoing UDP packet is sent at the correct time and the
+targetted equipment sends the reply within microseconds.  However, tcpdump
+only sees the response many seconds later - after we've timed out waiting
+for a response.  At least sometimes the old response is delivered at the
+time another outgoing UDP packet is sent.  I have not yet determined whether
+this happens all the time.
+
+The same software on the same hardware running under 2.6.35.11 does not
+suffer from any such problems.
+
+The card in use is a Netgear GA311.  Lspic identifies it as a Realtek
+Semiconductor Co., Ltd. RTL-8169 Gigabit Ethernet (rev 10).  The kernel is
+32-bit.
+
+It would be advantageous if we could upgrade this Linux system to a kernel
+more recent than 2.6.35.11, but that will require a resolution to this
+problem.  Since 2.6.35.11 works while current kernels do not, the only other
+option is to stick with 2.6.35.11.  Is there anything we can do to try to
+track down the problem?  I'm willing and able to run further tests on the
+system as required.
+
+Regards
+  jonathan
