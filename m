@@ -1,51 +1,62 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] af_unix: take receive queue lock while appending new skb
-Date: Tue, 17 Nov 2015 15:55:40 +0100
-Message-ID: <1447772140.544921.442208625.2042D49B@webmail.messagingengine.com>
-References: <1447769459-30452-1-git-send-email-hannes@stressinduktion.org>
- <1447771360.22599.99.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH net-next 5/9] net: network drivers no longer need to
+ implement ndo_busy_poll()
+Date: Tue, 17 Nov 2015 17:14:11 +0200
+Message-ID: <564B4443.90108@linux.intel.com>
+References: <1447768624-14962-1-git-send-email-edumazet@google.com>
+ <1447768624-14962-6-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>, Eli Cohen <eli@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Rida Assaf <rida@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:39268 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751903AbbKQOzl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 09:55:41 -0500
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id 86BC82087D
-	for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 09:55:40 -0500 (EST)
-In-Reply-To: <1447771360.22599.99.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mga09.intel.com ([134.134.136.24]:14150 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750867AbbKQPOR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Nov 2015 10:14:17 -0500
+In-Reply-To: <1447768624-14962-6-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+On 17/11/2015 15:57, Eric Dumazet wrote:
+> Instead of having to implement complex ndo_busy_poll() method,
+> drivers can simply rely on NAPI poll logic.
 
-On Tue, Nov 17, 2015, at 15:42, Eric Dumazet wrote:
-> On Tue, 2015-11-17 at 15:10 +0100, Hannes Frederic Sowa wrote:
-> > While possibly in future we don't necessarily need to use
-> > sk_buff_head.lock this is a rather larger change, as it affects the
-> > af_unix fd garbage collector, diag and socket cleanups. This is too much
-> > for a stable patch.
-> > 
-> > For the time being grab sk_buff_head.lock without disabling bh and irqs,
-> > so don't use locked skb_queue_tail.
+I really like where you are going with this series.
+
+...
+
+> We could go one step further, and make busy polling
+> available for all NAPI drivers, but this would require
+> that all netif_napi_del() calls are done in process context
+> so that we can call synchronize_rcu().
+> Full audit would be required.
 > 
-> I would use skb_queue_tail() as we already use it in two different
-> places in af_unix.c, like unix_stream_sendmsg()
+> Before this is done, a driver still needs to call :
 > 
-> It is hardly a fast path anyway, so lets keep code short.
+> - skb_mark_napi_id() for each skb provided to the stack, although we can
+>   easily do this directly in core networking stack in a future patch.
 > 
-> Then, in net-next, if you really want, add a new skb_queue_tail_lock()
-> or similar helper ?
+> - napi_hash_add() and napi_hash_del() to allocate/free a napi_id per napi.
+> 
+> - Make sure RCU grace period is respected after napi_hash_del() before
+>   memory containing napi structure is freed.
 
-I want to move to unix_state_lock and completely drop sk_buff_head.lock
-in af_unix, as such I would prefer to keep it this way as in some other
-places in af_unix.c (e.g. unix_stream_connect).
+Can we move all of these into the NAPI infrastructure?
+Maybe hash add/del can be inside netif_napi_add/del.
+Some way to force the right RCU behavior, and busy polling is
+completely driver-agnostic, which IMHO outweighs the small gains
+you can have by micro-optimizing ndo_busy_poll.
 
-Or do you have a strong opinion on that?
+On another note, any thoughts about unifying poll_controller with
+regular poll?
 
-Thanks,
-Hannes
+cheers,
+Eliezer
