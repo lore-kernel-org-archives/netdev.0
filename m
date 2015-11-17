@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 6/9] mlx5: add busy polling support
-Date: Tue, 17 Nov 2015 05:57:01 -0800
-Message-ID: <1447768624-14962-7-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 5/9] net: network drivers no longer need to implement ndo_busy_poll()
+Date: Tue, 17 Nov 2015 05:57:00 -0800
+Message-ID: <1447768624-14962-6-git-send-email-edumazet@google.com>
 References: <1447768624-14962-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>, Eli Cohen <eli@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>,
@@ -12,114 +12,99 @@ Cc: netdev <netdev@vger.kernel.org>, Eli Cohen <eli@mellanox.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:34209 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753914AbbKQN5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 08:57:47 -0500
-Received: by padhx2 with SMTP id hx2so10026763pad.1
-        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 05:57:46 -0800 (PST)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35018 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753765AbbKQN5n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 08:57:43 -0500
+Received: by pacej9 with SMTP id ej9so9935485pac.2
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 05:57:43 -0800 (PST)
 In-Reply-To: <1447768624-14962-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is now easy to add busy polling support to a NAPI driver,
-with very little impact on normal input path.
+Instead of having to implement complex ndo_busy_poll() method,
+drivers can simply rely on NAPI poll logic.
 
-This patch serves as a reference implementation.
+Busy polling gains are mainly coming from polling itself,
+not on exact details on how we poll the device.
 
-Note:
+ndo_busy_poll() if implemented can avoid touching
+napi state, but it adds extra synchronization between
+normal napi->poll() and busy poll handler, slowing down
+the common path (non busy polling) with extra atomic operations.
+In practice few drivers ever got busy poll because of the complexity.
 
-A followup patch will add proper napi_complete_done() in mlx5,
-so that LINUX_MIB_BUSYPOLLRXPACKETS snmp counter is properly handled.
+We could go one step further, and make busy polling
+available for all NAPI drivers, but this would require
+that all netif_napi_del() calls are done in process context
+so that we can call synchronize_rcu().
+Full audit would be required.
 
-Tested:
+Before this is done, a driver still needs to call :
 
-Normal TCP_RR results without busy polling :
+- skb_mark_napi_id() for each skb provided to the stack, although we can
+  easily do this directly in core networking stack in a future patch.
 
-lpk51:~# echo 0 >/proc/sys/net/core/busy_read
-lpk52:~# echo 0 >/proc/sys/net/core/busy_read
+- napi_hash_add() and napi_hash_del() to allocate/free a napi_id per napi.
 
-lpk51:~# ./netperf -H 192.168.4.52 -t TCP_RR -l 10
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.4.52 () port 0 AF_INET : first burst 0
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate
-bytes  Bytes  bytes    bytes   secs.    per sec
+- Make sure RCU grace period is respected after napi_hash_del() before
+  memory containing napi structure is freed.
 
-16384  87380  1        1       10.00    53509.49
-16384  87380
-
-Now enable busy polling :
-
-lpk51:~# echo 70 >/proc/sys/net/core/busy_read
-lpk52:~# echo 70 >/proc/sys/net/core/busy_read
-
-lpk51:~# ./netperf -H 192.168.4.52 -t TCP_RR -l 10
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.4.52 () port 0 AF_INET : first burst 0
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate
-bytes  Bytes  bytes    bytes   secs.    per sec
-
-16384  87380  1        1       10.00    97530.92
-16384  87380
+Followup patch implements busy poll for mlx5 driver as an example.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 6 ++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 2 ++
- 2 files changed, 8 insertions(+)
+ net/core/dev.c | 25 ++++++++++++++++++++-----
+ 1 file changed, 20 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 5fc4d2d78cdf..174b7e19290a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -982,6 +982,7 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 	mlx5e_build_channeltc_to_txq_map(priv, ix);
- 
- 	netif_napi_add(netdev, &c->napi, mlx5e_napi_poll, 64);
-+	napi_hash_add(&c->napi);
- 
- 	err = mlx5e_open_tx_cqs(c, cparam);
- 	if (err)
-@@ -1020,6 +1021,7 @@ err_close_tx_cqs:
- 
- err_napi_del:
- 	netif_napi_del(&c->napi);
-+	napi_hash_del(&c->napi);
- 	kfree(c);
- 
- 	return err;
-@@ -1033,6 +1035,10 @@ static void mlx5e_close_channel(struct mlx5e_channel *c)
- 	mlx5e_close_cq(&c->rq.cq);
- 	mlx5e_close_tx_cqs(c);
- 	netif_napi_del(&c->napi);
-+
-+	napi_hash_del(&c->napi);
-+	synchronize_rcu();
-+
- 	kfree(c);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4d0fbf5987ff..21a7d4093fde 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4673,10 +4673,11 @@ static struct napi_struct *napi_by_id(unsigned int napi_id)
+ 	return NULL;
  }
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index cf0098596e85..54800c61a563 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -33,6 +33,7 @@
- #include <linux/ip.h>
- #include <linux/ipv6.h>
- #include <linux/tcp.h>
-+#include <net/busy_poll.h>
- #include "en.h"
++#define BUSY_POLL_BUDGET 8
+ bool sk_busy_loop(struct sock *sk, int nonblock)
+ {
+ 	unsigned long end_time = !nonblock ? sk_busy_loop_end_time(sk) : 0;
+-	const struct net_device_ops *ops;
++	int (*busy_poll)(struct napi_struct *dev);
+ 	struct napi_struct *napi;
+ 	int rc = false;
  
- static inline int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq,
-@@ -242,6 +243,7 @@ bool mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
- 		wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
- 		skb            = rq->skb[wqe_counter];
- 		prefetch(skb->data);
-+		skb_mark_napi_id(skb, cq->napi);
- 		rq->skb[wqe_counter] = NULL;
+@@ -4686,13 +4687,27 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
+ 	if (!napi)
+ 		goto out;
  
- 		dma_unmap_single(rq->pdev,
+-	ops = napi->dev->netdev_ops;
+-	if (!ops->ndo_busy_poll)
+-		goto out;
++	/* Note: ndo_busy_poll method is optional in linux-4.5 */
++	busy_poll = napi->dev->netdev_ops->ndo_busy_poll;
+ 
+ 	do {
++		rc = 0;
+ 		local_bh_disable();
+-		rc = ops->ndo_busy_poll(napi);
++		if (busy_poll) {
++			rc = busy_poll(napi);
++		} else if (napi_schedule_prep(napi)) {
++			void *have = netpoll_poll_lock(napi);
++
++			if (test_bit(NAPI_STATE_SCHED, &napi->state)) {
++				rc = napi->poll(napi, BUSY_POLL_BUDGET);
++				trace_napi_poll(napi);
++				if (rc == BUSY_POLL_BUDGET) {
++					napi_complete_done(napi, rc);
++					napi_schedule(napi);
++				}
++			}
++			netpoll_poll_unlock(have);
++		}
+ 		if (rc > 0)
+ 			NET_ADD_STATS_BH(sock_net(sk),
+ 					 LINUX_MIB_BUSYPOLLRXPACKETS, rc);
 -- 
 2.6.0.rc2.230.g3dd15c0
