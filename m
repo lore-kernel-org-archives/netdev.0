@@ -1,58 +1,70 @@
-From: Jan Engelhardt <jengelh-9+2X+4sQBs8@public.gmane.org>
-Subject: Re: [PATCH 5/5] netfilter: implement xt_cgroup2 match
-Date: Tue, 17 Nov 2015 23:56:00 +0100 (CET)
-Message-ID: <alpine.LSU.2.20.1511172351200.13966@nerf40.vanv.qr>
-References: <1447789240-29394-1-git-send-email-tj@kernel.org> <1447789240-29394-6-git-send-email-tj@kernel.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 3/3] dl2k: Implement suspend
+Date: Tue, 17 Nov 2015 23:56:10 +0100
+Message-ID: <20151117225610.GB3362@electric-eye.fr.zoreil.com>
+References: <1447781298-19785-1-git-send-email-linux@rainbow-software.org>
+ <1447781298-19785-3-git-send-email-linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org,
-	daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org,
-	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1447789240-29394-6-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Kernel development list <linux-kernel@vger.kernel.org>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>
+To: Ondrej Zary <linux@rainbow-software.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1447781298-19785-3-git-send-email-linux@rainbow-software.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Ondrej Zary <linux@rainbow-software.org> :
+[...]
+> diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
+> index 9e9baa0..b53dfa7 100644
+> --- a/drivers/net/ethernet/dlink/dl2k.c
+> +++ b/drivers/net/ethernet/dlink/dl2k.c
+> @@ -1824,11 +1824,57 @@ rio_remove1 (struct pci_dev *pdev)
+>  	}
+>  }
+>  
+> +#ifdef CONFIG_PM
+> +static int rio_suspend(struct pci_dev *pdev, pm_message_t state)
+> +{
+> +	struct net_device *dev = pci_get_drvdata(pdev);
+> +	struct netdev_private *np = netdev_priv(dev);
+> +
+> +	pci_save_state(pdev);
 
-On Tuesday 2015-11-17 20:40, Tejun Heo wrote:
->@@ -0,0 +1,14 @@
->+#ifndef _XT_CGROUP2_H
->+#define _XT_CGROUP2_H
->+
->+#include <linux/types.h>
->+
->+struct xt_cgroup2_info {
->+	char				path[PATH_MAX];
->+	__u8				invert;
+Cargo-cultism ?
 
-Should <linux/limits.h> be included? (For PATH_MAX)
+> +
+> +	if (netif_running(dev)) {
+> +		netif_device_detach(dev);
+> +		del_timer_sync(&np->timer);
+> +		rio_hw_stop(dev);
+> +		free_list(dev);
 
->+	/* kernel internal data */
->+	void				*priv;
->+};
+If free_list is used here, so must alloc_list be in resume, whence
+an extra failure opportunity.
 
-void *priv __attribute__((aligned(8)));
+You may not need to free both Tx and Rx here.
 
->+static bool cgroup2_mt(const struct sk_buff *skb, struct xt_action_pa=
-ram *par)
->+{
->+	const struct xt_cgroup2_info *info =3D par->matchinfo;
->+	struct cgroup *ancestor =3D info->priv;
+[...]
+>  static struct pci_driver rio_driver = {
+>  	.name		= "dl2k",
+>  	.id_table	= rio_pci_tbl,
+>  	.probe		= rio_probe1,
+>  	.remove		= rio_remove1,
+> +#ifdef CONFIG_PM
+> +	.suspend	= rio_suspend,
+> +	.resume		= rio_resume,
+> +#endif /* CONFIG_PM */
 
-There is no modification planned on the cgroup, so this too can be cons=
-t struct
-cgroup=C2=A0* if-and-when cgroup_is_descendant is made to take const pt=
-rs as well.
+It looks a bit old school.
 
->+	if (!skb->sk || !sk_fullsock(skb->sk))
->+		return false;
->+
->+	return cgroup_is_descendant(skb->sk->sk_cgroup, ancestor) ^ info->in=
-vert;
->+}
+See Documentation/power/pci.txt and drivers/net/ethernet/via/via-rhine.c
+for an instance of SIMPLE_DEV_PM_OPS.
+
+At some point you'll probably support runtime power management though.
+
+-- 
+Ueimor
