@@ -1,42 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V4 2/2] arm64: bpf: make BPF prologue and epilogue
- align with ARM64 AAPCS
-Date: Tue, 17 Nov 2015 11:51:44 -0500 (EST)
-Message-ID: <20151117.115144.1827467904902947864.davem@davemloft.net>
-References: <1447713335-29707-1-git-send-email-yang.shi@linaro.org>
-	<CABg9mcvh+SLK-1iF28pCQgXt5WM_H4tH3ntgKSkMHCyMygThgw@mail.gmail.com>
-	<20151117044145.GA71069@ast-mbp.thefacebook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: next build: 235 warnings 3 failures (next/next-20151117)
+Date: Tue, 17 Nov 2015 09:01:56 -0800
+Message-ID: <1447779716.22599.123.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <564a9961.878b420a.331b8.fffffd62@mx.google.com>
+	 <4694362.ZPL12j6kR2@wuerfel> <20151117164453.GF30101@arm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: zlim.lnx@gmail.com, yang.shi@linaro.org, ast@kernel.org,
-	daniel@iogearbox.net, catalin.marinas@arm.com, will.deacon@arm.com,
-	xi.wang@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linaro-kernel@lists.linaro.org
-To: alexei.starovoitov@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151117044145.GA71069@ast-mbp.thefacebook.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	kernel-build-reports@lists.linaro.org, olof@lixom.net,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Will Deacon <will.deacon@arm.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20151117164453.GF30101@arm.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Date: Mon, 16 Nov 2015 20:41:46 -0800
+On Tue, 2015-11-17 at 16:44 +0000, Will Deacon wrote:
 
-> On Mon, Nov 16, 2015 at 08:37:11PM -0800, Z Lim wrote:
->> On Mon, Nov 16, 2015 at 2:35 PM, Yang Shi <yang.shi@linaro.org> wrote:
->> > Save and restore FP/LR in BPF prog prologue and epilogue, save SP to FP
->> > in prologue in order to get the correct stack backtrace.
-> ...
->> > CC: Zi Shen Lim <zlim.lnx@gmail.com>
->> > CC: Xi Wang <xi.wang@gmail.com>
->> > Signed-off-by: Yang Shi <yang.shi@linaro.org>
->> 
->> Acked-by: Zi Shen Lim <zlim.lnx@gmail.com>
-> 
-> great that it's finalized.
-> Yang, please resubmit both patches to netdev as fresh submission so it
-> gets picked up by patchwork.
+> Do you know the usage in the kernel causing this warning?
 
-He doesn't need to, I applied patch #1 independently the other day while
-the details of #2 were being worked out.
+/**
+ * sk_state_load - read sk->sk_state for lockless contexts
+ * @sk: socket pointer
+ *
+ * Paired with sk_state_store(). Used in places we do not hold socket lock :
+ * tcp_diag_get_info(), tcp_get_info(), tcp_poll(), get_tcp4_sock() ...
+ */
+static inline int sk_state_load(const struct sock *sk)
+{
+        return smp_load_acquire(&sk->sk_state);
+}
