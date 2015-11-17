@@ -1,59 +1,44 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue (w/ Fixes:)
-Date: Tue, 17 Nov 2015 21:37:46 +0000
-Message-ID: <87d1v85mtx.fsf@doppelsaurus.mobileactivedefense.com>
-References: <87a8qhspfm.fsf@doppelsaurus.mobileactivedefense.com>
-	<876111wpza.fsf@doppelsaurus.mobileactivedefense.com>
-	<87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
-	<20151117.151421.249423864481324472.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rweikusat@mobileactivedefense.com, jbaron@akamai.com,
-	dvyukov@google.com, syzkaller@googlegroups.com, mkubecek@suse.cz,
-	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
-	linux-kernel@vger.kernel.org, hannes@stressinduktion.org,
-	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
-	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org,
-	kcc@google.com, glider@google.com, andreyknvl@google.com,
-	sasha.levin@oracle.com, jln@google.com, keescook@google.com,
-	minipli@googlemail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151117.151421.249423864481324472.davem@davemloft.net> (David
-	Miller's message of "Tue, 17 Nov 2015 15:14:21 -0500 (EST)")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: jon@ringle.org
+Subject: [PATCH net-next] net: encx24j600: quiet logging noise on open
+Date: Tue, 17 Nov 2015 16:42:31 -0500
+Message-ID: <1447796551-8522-1-git-send-email-jon@ringle.org>
+Cc: Jon Ringle <jringle@gridpoint.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:36574 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752730AbbKQVmj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 16:42:39 -0500
+Received: by qgad10 with SMTP id d10so15579540qga.3
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 13:42:38 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
-> From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-> Date: Mon, 16 Nov 2015 22:28:40 +0000
->
->> An AF_UNIX datagram socket being the client in an n:1 association with
->> some server socket is only allowed to send messages to the server if the
->> receive queue of this socket contains at most sk_max_ack_backlog
->> datagrams.
+From: Jon Ringle <jringle@gridpoint.com>
 
-[...]
+When encx24j600 is open and closed many times due to userspace polling the
+interface, the log gets noise with this log message. Change logging level
+to debug
 
->> Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
->> Fixes: ec0d215f9420 ("af_unix: fix 'poll for write'/connected DGRAM sockets")
->
-> So because of a corner case of epoll handling and sender socket release,
-> every single datagram sendmsg has to do a double lock now?
->
-> I do not dispute the correctness of your fix at this point, but that
-> added cost in the fast path is really too high.
+Signed-off-by: Jon Ringle <jringle@gridpoint.com>
+---
+ drivers/net/ethernet/microchip/encx24j600.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-This leaves only the option of a somewhat incorrect solution and what is
-or isn't acceptable in this respect is somewhat difficult to decide. The
-basic options would be
-
-	- return EAGAIN even if sending became possible (Jason's most
-          recent suggestions)
-
-	- retry sending a limited number of times, eg, once, before
-          returning EAGAIN, on the grounds that this is nicer to the
-          application and that redoing all the stuff up to the _lock in
-          dgram_sendmsg can possibly/ likely be avoided
-
-Which one do you prefer?
+diff --git a/drivers/net/ethernet/microchip/encx24j600.c b/drivers/net/ethernet/microchip/encx24j600.c
+index bf08ce2..a6763c3 100644
+--- a/drivers/net/ethernet/microchip/encx24j600.c
++++ b/drivers/net/ethernet/microchip/encx24j600.c
+@@ -613,8 +613,8 @@ static int encx24j600_hw_init(struct encx24j600_priv *priv)
+ 		goto err_out;
+ 	}
+ 
+-	netif_info(priv, drv, dev, "Silicon rev ID: 0x%02x\n",
+-		   (eidled & REVID_MASK) >> REVID_SHIFT);
++	netif_dbg(priv, drv, dev, "Silicon rev ID: 0x%02x\n",
++		  (eidled & REVID_MASK) >> REVID_SHIFT);
+ 
+ 	/* PHY Leds: link status,
+ 	 * LEDA: Link State + collision events
+-- 
+2.4.1
