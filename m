@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipvlan: fix use after free of skb
-Date: Tue, 17 Nov 2015 14:40:01 -0500 (EST)
-Message-ID: <20151117.144001.631233956285820166.davem@davemloft.net>
-References: <fc05eb243454762cf3c2d1ebf2266215d61b23e2.1447704740.git.sd@queasysnail.net>
+Subject: Re: [PATCH net] macvlan: fix leak in macvlan_handle_frame
+Date: Tue, 17 Nov 2015 14:40:14 -0500 (EST)
+Message-ID: <20151117.144014.402280202991903863.davem@davemloft.net>
+References: <d4141a7c4841ae5f631858a8537968419f0e396b.1447705984.git.sd@queasysnail.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maheshb@google.com
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, kaber@trash.net
 To: sd@queasysnail.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58146 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58153 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753912AbbKQTkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 14:40:05 -0500
-In-Reply-To: <fc05eb243454762cf3c2d1ebf2266215d61b23e2.1447704740.git.sd@queasysnail.net>
+	with ESMTP id S932085AbbKQTkR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 14:40:17 -0500
+In-Reply-To: <d4141a7c4841ae5f631858a8537968419f0e396b.1447705984.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Mon, 16 Nov 2015 22:44:53 +0100
+Date: Mon, 16 Nov 2015 22:54:20 +0100
 
-> ipvlan_handle_frame is a rx_handler, and when it returns a value other
-> than RX_HANDLER_CONSUMED (here, NET_RX_DROP aka RX_HANDLER_ANOTHER),
-> __netif_receive_skb_core expects that the skb still exists and will
-> process it further, but we just freed it.
+> Reset pskb in macvlan_handle_frame in case skb_share_check returned a
+> clone.
 > 
-> Fixes: 2ad7bf363841 ("ipvlan: Initial check-in of the IPVLAN driver.")
+> Fixes: 8a4eb5734e8d ("net: introduce rx_handler results and logic around that")
 > Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 
 Applied.
