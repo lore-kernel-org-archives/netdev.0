@@ -1,75 +1,268 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: How to do TCP tx checksums
-Date: Tue, 17 Nov 2015 09:19:36 -0800
-Message-ID: <564B61A8.5050205@candelatech.com>
-References: <564A72D3.1050407@candelatech.com>
- <CALx6S37AZz6UZctRxY9DOO+-x6MQ2gB9FQ2wSt8frEnegyh82Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:36344 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751218AbbKQRTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 12:19:36 -0500
-In-Reply-To: <CALx6S37AZz6UZctRxY9DOO+-x6MQ2gB9FQ2wSt8frEnegyh82Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: [PATCH 1/3] dl2k: Handle memory allocation errors in alloc_list
+Date: Tue, 17 Nov 2015 18:28:16 +0100
+Message-ID: <1447781298-19785-1-git-send-email-linux@rainbow-software.org>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	David Miller <davem@davemloft.net>,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/16/2015 09:02 PM, Tom Herbert wrote:
-> On Mon, Nov 16, 2015 at 4:20 PM, Ben Greear <greearb@candelatech.com> wrote:
->> Hello!
->>
->> I'm hacking on (my already hacked) pktgen, trying to get it to send TCP
->> frames.
->>
->> And, having issues getting checksums to work properly.
->>
->> I'm trying this:
->>          struct iphdr *iph = ip_hdr(skb);
->>          struct net_device *odev = pkt_dev->odev;
->>
->>          if (pkt_dev->flags & F_TCP) {
->>                  if (odev->features & NETIF_F_V4_CSUM) {
->>                          skb->ip_summed = CHECKSUM_PARTIAL;
->>                  } else {
->>                          skb->ip_summed = CHECKSUM_NONE;
->>                  }
->>                  skb->csum = 0;
->>                  __tcp_v4_send_check(skb, iph->saddr, iph->daddr);
->>
->> I added an export so I could call that __tcp_v4_send_check method
->> w/out having to put a fake socket struct on the stack.
->>
->> But, the receiving NIC reports 100% checksum failure, so obviously
->> I'm not doing it correct.
->>
->> Any suggestions on what I might be doing wrong or the proper method(s)
->> to call?
->>
-> It's really hard to tell what is happening without seeing the full
-> patch your using. Maybe you're not setting the TCP correctly or
-> transport header is not set right in skb.
+If memory allocation fails in alloc_list(), free the already allocated
+memory and return -ENODEV. In rio_open(), call alloc_list() first and
+abort if it fails. Move HW access (set RFDListPtr) out ot alloc_list().
 
-Unfortunately, my pktgen has diverged significantly from upstream, so
-a patch is probably not so useful.
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+---
+ drivers/net/ethernet/dlink/dl2k.c |  182 ++++++++++++++++++++-----------------
+ 1 file changed, 97 insertions(+), 85 deletions(-)
 
-The full pktgen.[ch] files are here:
-
-http://www.candelatech.com/~greearb/patches/
-
-If you look for 'F_TCP' you can find the pertinent bits
-that I'm mucking with.  I have changed it a bit since I last posted
-the patch above...but still the receiving NIC is reporting 100%
-csum failure, so I must still be doing something wrong.
-
-I have also tweaked how UDP is done, but that seems to be working.
-
-Thanks,
-Ben
-
+diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
+index ccca479..ec0eb7f 100644
+--- a/drivers/net/ethernet/dlink/dl2k.c
++++ b/drivers/net/ethernet/dlink/dl2k.c
+@@ -70,7 +70,6 @@ static const int multicast_filter_limit = 0x40;
+ static int rio_open (struct net_device *dev);
+ static void rio_timer (unsigned long data);
+ static void rio_tx_timeout (struct net_device *dev);
+-static void alloc_list (struct net_device *dev);
+ static netdev_tx_t start_xmit (struct sk_buff *skb, struct net_device *dev);
+ static irqreturn_t rio_interrupt (int irq, void *dev_instance);
+ static void rio_free_tx (struct net_device *dev, int irq);
+@@ -446,6 +445,92 @@ static void rio_set_led_mode(struct net_device *dev)
+ 	dw32(ASICCtrl, mode);
+ }
+ 
++static inline dma_addr_t desc_to_dma(struct netdev_desc *desc)
++{
++	return le64_to_cpu(desc->fraginfo) & DMA_BIT_MASK(48);
++}
++
++static void free_list(struct net_device *dev)
++{
++	struct netdev_private *np = netdev_priv(dev);
++	struct sk_buff *skb;
++	int i;
++
++	/* Free all the skbuffs in the queue. */
++	for (i = 0; i < RX_RING_SIZE; i++) {
++		skb = np->rx_skbuff[i];
++		if (skb) {
++			pci_unmap_single(np->pdev, desc_to_dma(&np->rx_ring[i]),
++					 skb->len, PCI_DMA_FROMDEVICE);
++			dev_kfree_skb(skb);
++			np->rx_skbuff[i] = NULL;
++		}
++		np->rx_ring[i].status = 0;
++		np->rx_ring[i].fraginfo = 0;
++	}
++	for (i = 0; i < TX_RING_SIZE; i++) {
++		skb = np->tx_skbuff[i];
++		if (skb) {
++			pci_unmap_single(np->pdev, desc_to_dma(&np->tx_ring[i]),
++					 skb->len, PCI_DMA_TODEVICE);
++			dev_kfree_skb(skb);
++			np->tx_skbuff[i] = NULL;
++		}
++	}
++}
++
++ /* allocate and initialize Tx and Rx descriptors */
++static int alloc_list(struct net_device *dev)
++{
++	struct netdev_private *np = netdev_priv(dev);
++	int i;
++
++	np->cur_rx = np->cur_tx = 0;
++	np->old_rx = np->old_tx = 0;
++	np->rx_buf_sz = (dev->mtu <= 1500 ? PACKET_SIZE : dev->mtu + 32);
++
++	/* Initialize Tx descriptors, TFDListPtr leaves in start_xmit(). */
++	for (i = 0; i < TX_RING_SIZE; i++) {
++		np->tx_skbuff[i] = NULL;
++		np->tx_ring[i].status = cpu_to_le64(TFDDone);
++		np->tx_ring[i].next_desc = cpu_to_le64(np->tx_ring_dma +
++					      ((i + 1) % TX_RING_SIZE) *
++					      sizeof(struct netdev_desc));
++	}
++
++	/* Initialize Rx descriptors */
++	for (i = 0; i < RX_RING_SIZE; i++) {
++		np->rx_ring[i].next_desc = cpu_to_le64(np->rx_ring_dma +
++						((i + 1) % RX_RING_SIZE) *
++						sizeof(struct netdev_desc));
++		np->rx_ring[i].status = 0;
++		np->rx_ring[i].fraginfo = 0;
++		np->rx_skbuff[i] = NULL;
++	}
++
++	/* Allocate the rx buffers */
++	for (i = 0; i < RX_RING_SIZE; i++) {
++		/* Allocated fixed size of skbuff */
++		struct sk_buff *skb;
++
++		skb = netdev_alloc_skb_ip_align(dev, np->rx_buf_sz);
++		np->rx_skbuff[i] = skb;
++		if (!skb) {
++			free_list(dev);
++			return -ENOMEM;
++		}
++
++		/* Rubicon now supports 40 bits of addressing space. */
++		np->rx_ring[i].fraginfo =
++		    cpu_to_le64(pci_map_single(
++				  np->pdev, skb->data, np->rx_buf_sz,
++				  PCI_DMA_FROMDEVICE));
++		np->rx_ring[i].fraginfo |= cpu_to_le64((u64)np->rx_buf_sz << 48);
++	}
++
++	return 0;
++}
++
+ static int
+ rio_open (struct net_device *dev)
+ {
+@@ -455,10 +540,16 @@ rio_open (struct net_device *dev)
+ 	int i;
+ 	u16 macctrl;
+ 
+-	i = request_irq(irq, rio_interrupt, IRQF_SHARED, dev->name, dev);
++	i = alloc_list(dev);
+ 	if (i)
+ 		return i;
+ 
++	i = request_irq(irq, rio_interrupt, IRQF_SHARED, dev->name, dev);
++	if (i) {
++		free_list(dev);
++		return i;
++	}
++
+ 	/* Reset all logic functions */
+ 	dw16(ASICCtrl + 2,
+ 	     GlobalReset | DMAReset | FIFOReset | NetworkReset | HostReset);
+@@ -473,7 +564,9 @@ rio_open (struct net_device *dev)
+ 	if (np->jumbo != 0)
+ 		dw16(MaxFrameSize, MAX_JUMBO+14);
+ 
+-	alloc_list (dev);
++	/* Set RFDListPtr */
++	dw32(RFDListPtr0, np->rx_ring_dma);
++	dw32(RFDListPtr1, 0);
+ 
+ 	/* Set station address */
+ 	/* 16 or 32-bit access is required by TC9020 datasheet but 8-bit works
+@@ -586,60 +679,6 @@ rio_tx_timeout (struct net_device *dev)
+ 	dev->trans_start = jiffies; /* prevent tx timeout */
+ }
+ 
+- /* allocate and initialize Tx and Rx descriptors */
+-static void
+-alloc_list (struct net_device *dev)
+-{
+-	struct netdev_private *np = netdev_priv(dev);
+-	void __iomem *ioaddr = np->ioaddr;
+-	int i;
+-
+-	np->cur_rx = np->cur_tx = 0;
+-	np->old_rx = np->old_tx = 0;
+-	np->rx_buf_sz = (dev->mtu <= 1500 ? PACKET_SIZE : dev->mtu + 32);
+-
+-	/* Initialize Tx descriptors, TFDListPtr leaves in start_xmit(). */
+-	for (i = 0; i < TX_RING_SIZE; i++) {
+-		np->tx_skbuff[i] = NULL;
+-		np->tx_ring[i].status = cpu_to_le64 (TFDDone);
+-		np->tx_ring[i].next_desc = cpu_to_le64 (np->tx_ring_dma +
+-					      ((i+1)%TX_RING_SIZE) *
+-					      sizeof (struct netdev_desc));
+-	}
+-
+-	/* Initialize Rx descriptors */
+-	for (i = 0; i < RX_RING_SIZE; i++) {
+-		np->rx_ring[i].next_desc = cpu_to_le64 (np->rx_ring_dma +
+-						((i + 1) % RX_RING_SIZE) *
+-						sizeof (struct netdev_desc));
+-		np->rx_ring[i].status = 0;
+-		np->rx_ring[i].fraginfo = 0;
+-		np->rx_skbuff[i] = NULL;
+-	}
+-
+-	/* Allocate the rx buffers */
+-	for (i = 0; i < RX_RING_SIZE; i++) {
+-		/* Allocated fixed size of skbuff */
+-		struct sk_buff *skb;
+-
+-		skb = netdev_alloc_skb_ip_align(dev, np->rx_buf_sz);
+-		np->rx_skbuff[i] = skb;
+-		if (skb == NULL)
+-			break;
+-
+-		/* Rubicon now supports 40 bits of addressing space. */
+-		np->rx_ring[i].fraginfo =
+-		    cpu_to_le64 ( pci_map_single (
+-			 	  np->pdev, skb->data, np->rx_buf_sz,
+-				  PCI_DMA_FROMDEVICE));
+-		np->rx_ring[i].fraginfo |= cpu_to_le64((u64)np->rx_buf_sz << 48);
+-	}
+-
+-	/* Set RFDListPtr */
+-	dw32(RFDListPtr0, np->rx_ring_dma);
+-	dw32(RFDListPtr1, 0);
+-}
+-
+ static netdev_tx_t
+ start_xmit (struct sk_buff *skb, struct net_device *dev)
+ {
+@@ -748,11 +787,6 @@ rio_interrupt (int irq, void *dev_instance)
+ 	return IRQ_RETVAL(handled);
+ }
+ 
+-static inline dma_addr_t desc_to_dma(struct netdev_desc *desc)
+-{
+-	return le64_to_cpu(desc->fraginfo) & DMA_BIT_MASK(48);
+-}
+-
+ static void
+ rio_free_tx (struct net_device *dev, int irq)
+ {
+@@ -1733,8 +1767,6 @@ rio_close (struct net_device *dev)
+ 	void __iomem *ioaddr = np->ioaddr;
+ 
+ 	struct pci_dev *pdev = np->pdev;
+-	struct sk_buff *skb;
+-	int i;
+ 
+ 	netif_stop_queue (dev);
+ 
+@@ -1747,27 +1779,7 @@ rio_close (struct net_device *dev)
+ 	free_irq(pdev->irq, dev);
+ 	del_timer_sync (&np->timer);
+ 
+-	/* Free all the skbuffs in the queue. */
+-	for (i = 0; i < RX_RING_SIZE; i++) {
+-		skb = np->rx_skbuff[i];
+-		if (skb) {
+-			pci_unmap_single(pdev, desc_to_dma(&np->rx_ring[i]),
+-					 skb->len, PCI_DMA_FROMDEVICE);
+-			dev_kfree_skb (skb);
+-			np->rx_skbuff[i] = NULL;
+-		}
+-		np->rx_ring[i].status = 0;
+-		np->rx_ring[i].fraginfo = 0;
+-	}
+-	for (i = 0; i < TX_RING_SIZE; i++) {
+-		skb = np->tx_skbuff[i];
+-		if (skb) {
+-			pci_unmap_single(pdev, desc_to_dma(&np->tx_ring[i]),
+-					 skb->len, PCI_DMA_TODEVICE);
+-			dev_kfree_skb (skb);
+-			np->tx_skbuff[i] = NULL;
+-		}
+-	}
++	free_list(dev);
+ 
+ 	return 0;
+ }
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Ondrej Zary
