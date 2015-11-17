@@ -1,90 +1,65 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Asterisk deadlocks since Kernel 4.1
-Date: Tue, 17 Nov 2015 15:46:21 +0100
-Message-ID: <564B3DBD.60500@profihost.ag>
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net] net/core: revert "net: fix __netdev_update_features return.." and add comment
+Date: Tue, 17 Nov 2015 15:49:06 +0100
+Message-ID: <1447771746-17943-1-git-send-email-razor@blackwall.org>
+References: <564B3A3E.50905@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ph.de-nserver.de ([85.158.179.214]:23691 "EHLO
-	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751711AbbKQOqX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 09:46:23 -0500
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:32942 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751526AbbKQOti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 09:49:38 -0500
+Received: by wmec201 with SMTP id c201so231460624wme.0
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 06:49:37 -0800 (PST)
+In-Reply-To: <564B3A3E.50905@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+=46rom: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-since Upgrading our Asterisk System from Kernel 3.18.17 to 4.1.13 it
-deadlocks every few hours (kill -9 is the only thing working). Booting
-with 3.18 again let it run smooth again.
+This reverts commit 00ee59271777 ("net: fix __netdev_update_features re=
+turn
+on ndo_set_features failure")
+and adds a comment explaining why it's okay to return a value other tha=
+n
+0 upon error. Some drivers might actually change flags and return an
+error so it's better to fire a spurious notification rather than miss
+these.
 
-An strace shows asterisk is looping like this:
+CC: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+Thanks to Michal for the explanation on why it was made to act like tha=
+t.
+Also sorry for the noise, unfortunately I missed this. IMO this should'=
+ve
+been an all or nothing op from the beginning.
 
-[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
-it_value={0, 140592906050976}}) = 0
-[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
-[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
-2, 1000) = 1 ([{fd=8, revents=POLLIN}])
-[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
-it_value={0, 140592906050976}}) = 0
-[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
-[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
-2, 1000) = 1 ([{fd=8, revents=POLLIN}])
-[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
-it_value={0, 140592906050976}}) = 0
-[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
-[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
-2, 1000) = 1 ([{fd=8, revents=POLLIN}])
-[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
-it_value={0, 140592906050976}}) = 0
-[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
-[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
-2, 1000) = 1 ([{fd=8, revents=POLLIN}])
-[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
-it_value={0, 140592906050976}}) = 0
-[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
-[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
-2, 1000) = 1 ([{fd=8, revents=POLLIN}])
-[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
-it_value={0, 140592906050976}}) = 0
-[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
-[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
-2, 1000) = 1 ([{fd=8, revents=POLLIN}])
-[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
-it_value={0, 140592906050976}}) = 0
-[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
-[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
-2, 1000) = 1 ([{fd=8, revents=POLLIN}])
-[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
-it_value={0, 140592906050976}}) = 0
-[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
-[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
-2, 1000) = 1 ([{fd=8, revents=POLLIN}])
-[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
-it_value={0, 140592906050976}}) = 0
-[pid  6068] read(8, "\1\0\0\0\0\0\0\0", 8) = 8
-[pid  6068] poll([{fd=9, events=POLLIN}, {fd=8, events=POLLIN|POLLPRI}],
-2, 1000) = 1 ([{fd=8, revents=POLLIN}])
-[pid  6068] timerfd_gettime(8, , {it_interval={0, 20000000},
-it_value={0, 140592906050976}}) = 0
+ net/core/dev.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-fd 8 is:
-
-lrwx------ 1 root root 64 Nov 17 15:27 /proc/6025/fd/8 ->
-anon_inode:[timerfd]
-
-
-# cat /proc/6025/stack
-[<ffffffff941d60e9>] poll_schedule_timeout+0x49/0x70
-[<ffffffff941d76c7>] do_sys_poll+0x3d7/0x590
-[<ffffffff941d78bc>] do_restart_poll+0x3c/0x70
-[<ffffffff9408e7ff>] sys_restart_syscall+0x1f/0x30
-[<ffffffff9463f1ee>] system_call_fastpath+0x12/0x71
-[<ffffffffffffffff>] 0xffffffffffffffff
-
-Any ideas how to debug this?
-
-Greets,
-Stefan
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 5dbc86ea6b58..ae00b894e675 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6436,7 +6436,10 @@ int __netdev_update_features(struct net_device *=
+dev)
+ 		netdev_err(dev,
+ 			"set_features() failed (%d); wanted %pNF, left %pNF\n",
+ 			err, &features, &dev->features);
+-		return 0;
++		/* return non-0 since some features might have changed and
++		 * it's better to fire a spurious notification than miss it
++		 */
++		return -1;
+ 	}
+=20
+ sync_lower:
+--=20
+2.4.3
