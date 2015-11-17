@@ -1,69 +1,41 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [RFCv2 bluetooth-next 2/3] ipv6: add ipv6_addr_prefix_cpy
-Date: Tue, 17 Nov 2015 23:33:13 +0100
-Message-ID: <1447799594-6050-3-git-send-email-alex.aring@gmail.com>
-References: <1447799594-6050-1-git-send-email-alex.aring@gmail.com>
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, lukasz.duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org,
-	martin.gergeleit-6wGqcYweBVc@public.gmane.org, Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1447799594-6050-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Jan Engelhardt <jengelh-9+2X+4sQBs8@public.gmane.org>
+Subject: Re: [PATCH 2/5] kernfs: implement kernfs_walk_and_get()
+Date: Tue, 17 Nov 2015 23:48:55 +0100 (CET)
+Message-ID: <alpine.LSU.2.20.1511172348110.13966@nerf40.vanv.qr>
+References: <1447789240-29394-1-git-send-email-tj@kernel.org> <1447789240-29394-3-git-send-email-tj@kernel.org> <20151117.162040.1412296298973879057.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org,
+	daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org,
+	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151117.162040.1412296298973879057.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a static inline function ipv6_addr_prefix_cpy which
-copies a ipv6 address prefix(argument pfx) into the ipv6 address prefix.
-The prefix len is given by plen as bits. This function mainly based on
-ipv6_addr_prefix which copies one address prefix from address into a new
-ipv6 address destination and zero all other address bits.
 
-The difference is that ipv6_addr_prefix_cpy don't get a prefix from an
-ipv6 address, it sets a prefix to an ipv6 address with keeping other
-address bits. The use case is for context based address compression
-inside 6LoWPAN IPHC header which keeping ipv6 prefixes inside a context
-table to lookup address-bits without sending them.
+On Tuesday 2015-11-17 22:20, David Miller wrote:
+>> +	static char path_buf[PATH_MAX];	/* protected by kernfs_mutex */
+>> +	int len = strlen(path);
+> ...
+>> +	if (len >= PATH_MAX)
+>> +		return NULL;
+>> +
+>> +	memcpy(path_buf, path, len + 1);
+>
+>	static char path_buf[PATH_MAX];	/* protected by kernfs_mutex */
+>	int len = strlcpy(path_buf, path, PATH_MAX);
+> ...
+>	if (len >= PATH_MAX)
+>		return NULL;
 
-Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
-Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- include/net/ipv6.h | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+	if (len < 0 || len >= PATH_MAX)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index e1a10b0..9d38fc2 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -382,6 +382,21 @@ static inline void ipv6_addr_prefix(struct in6_addr *pfx,
- 		pfx->s6_addr[o] = addr->s6_addr[o] & (0xff00 >> b);
- }
- 
-+static inline void ipv6_addr_prefix_cpy(struct in6_addr *addr,
-+					const struct in6_addr *pfx,
-+					int plen)
-+{
-+	/* caller must guarantee 0 <= plen <= 128 */
-+	int o = plen >> 3,
-+	    b = plen & 0x7;
-+
-+	memcpy(addr->s6_addr, pfx, o);
-+	if (b != 0) {
-+		addr->s6_addr[o] &= ~(0xff00 >> b);
-+		addr->s6_addr[o] |= (pfx->s6_addr[o] & (0xff00 >> b));
-+	}
-+}
-+
- static inline void __ipv6_addr_set_half(__be32 *addr,
- 					__be32 wh, __be32 wl)
- {
--- 
-2.6.1
+strlcpy returns a size_t, which, when coerced into an int, could lead to
+negative numbers. In that sense, "size_t len" probably seems like an even
+better bet yet.
