@@ -1,79 +1,60 @@
-From: Stefan Schmidt <stefan@osg.samsung.com>
-Subject: Re: [PATCH] ieee802154-atusb: Delete an unnecessary check before the
- function call "kfree_skb"
-Date: Tue, 17 Nov 2015 17:19:39 +0100
-Message-ID: <564B539B.9080003@osg.samsung.com>
-References: <5307CAA2.8060406@users.sourceforge.net>
- <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
- <530A086E.8010901@users.sourceforge.net>
- <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
- <530A72AA.3000601@users.sourceforge.net>
- <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
- <530B5FB6.6010207@users.sourceforge.net>
- <alpine.DEB.2.10.1402241710370.2074@hadrien>
- <530C5E18.1020800@users.sourceforge.net>
- <alpine.DEB.2.10.1402251014170.2080@hadrien>
- <530CD2C4.4050903@users.sourceforge.net>
- <alpine.DEB.2.10.1402251840450.7035@hadrien>
- <530CF8FF.8080600@users.sourceforge.net>
- <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
- <530DD06F.4090703@users.sourceforge.net>
- <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
- <5317A59D.4@users.sourceforge.net> <5649D2AE.60100@users.sourceforge.net>
- <5649DE40.6030405@osg.samsung.com>
- <FB4ECAF8-4F55-4F5C-AF13-D402BEE9CE74@holtmann.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
-	Alexander Aring <alex.aring@gmail.com>,
-	linux-wpan@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <FB4ECAF8-4F55-4F5C-AF13-D402BEE9CE74@holtmann.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net] MAINTAINERS: Update Mellanox's Eth NIC driver entries
+Date: Tue, 17 Nov 2015 18:25:07 +0200
+Message-ID: <1447777507-22326-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:37387 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752301AbbKQQZn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Nov 2015 11:25:43 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Eugenia (Jenny) Emantayev is replacing Amir Vadai as the 
+mlx4 Ethernet driver maintainer.
 
-On 17/11/15 15:01, Marcel Holtmann wrote:
-> Hi Stefan,
->
->>> The kfree_skb() function tests whether its argument is NULL and then
->>> returns immediately. Thus the test around the call is not needed.
->>>
->>> This issue was detected by using the Coccinelle software.
->>>
->>> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
->>> ---
->>>   drivers/net/ieee802154/atusb.c | 3 +--
->>>   1 file changed, 1 insertion(+), 2 deletions(-)
->>>
->>> diff --git a/drivers/net/ieee802154/atusb.c b/drivers/net/ieee802154/atusb.c
->>> index 199a94a..b1cd865 100644
->>> --- a/drivers/net/ieee802154/atusb.c
->>> +++ b/drivers/net/ieee802154/atusb.c
->>> @@ -310,8 +310,7 @@ static void atusb_free_urbs(struct atusb *atusb)
->>>   		urb = usb_get_from_anchor(&atusb->idle_urbs);
->>>   		if (!urb)
->>>   			break;
->>> -		if (urb->context)
->>> -			kfree_skb(urb->context);
->>> +		kfree_skb(urb->context);
->>>   		usb_free_urb(urb);
->>>   	}
->>>   }
->> Acked-by: Stefan Schmidt <stefan@osg.samsung.com>
-> for some reason I am missing the original patch, can someone resend it please.
->
+Saeed Mahameed is assigned to maintain mlx5 Eth functionality.
 
-Done. Resend the original message from my address but with the From line 
-intact inside the patch. Please check if it really lists Markus as 
-author when applying. Acked-by also resend as reply to the resend patch.
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
 
-regards
-Stefan Schmidt
+Thanks you so much Amir for the endless time you invested in the driver, it 
+has been a pleasure to work with you, and I hope we'll keep doing so soon...
+
+ MAINTAINERS | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 4532067..902cdab 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -6914,13 +6914,21 @@ F:	drivers/scsi/megaraid.*
+ F:	drivers/scsi/megaraid/
+ 
+ MELLANOX ETHERNET DRIVER (mlx4_en)
+-M:	Amir Vadai <amirv@mellanox.com>
++M: 	Eugenia Emantayev <eugenia@mellanox.com>
+ L:	netdev@vger.kernel.org
+ S:	Supported
+ W:	http://www.mellanox.com
+ Q:	http://patchwork.ozlabs.org/project/netdev/list/
+ F:	drivers/net/ethernet/mellanox/mlx4/en_*
+ 
++MELLANOX ETHERNET DRIVER (mlx5e)
++M:	Saeed Mahameed <saeedm@mellanox.com>
++L:	netdev@vger.kernel.org
++S:	Supported
++W:	http://www.mellanox.com
++Q:	http://patchwork.ozlabs.org/project/netdev/list/
++F:	drivers/net/ethernet/mellanox/mlx5/core/en_*
++
+ MELLANOX ETHERNET SWITCH DRIVERS
+ M:	Jiri Pirko <jiri@mellanox.com>
+ M:	Ido Schimmel <idosch@mellanox.com>
+-- 
+2.3.7
