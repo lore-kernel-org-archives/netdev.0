@@ -1,32 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] MAINTAINERS: Update Mellanox's Eth NIC driver
- entries
-Date: Tue, 17 Nov 2015 15:27:44 -0500 (EST)
-Message-ID: <20151117.152744.1111500542597027929.davem@davemloft.net>
-References: <1447777507-22326-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH 2/5] kernfs: implement kernfs_walk_and_get()
+Date: Tue, 17 Nov 2015 16:20:40 -0500 (EST)
+Message-ID: <20151117.162040.1412296298973879057.davem@davemloft.net>
+References: <1447789240-29394-1-git-send-email-tj@kernel.org>
+	<1447789240-29394-3-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, saeedm@mellanox.com, talal@mellanox.com,
-	eugenia@mellanox.com
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60018 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751705AbbKQU1q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 15:27:46 -0500
-In-Reply-To: <1447777507-22326-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	lizefan@huawei.com, hannes@cmpxchg.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-team@fb.com, daniel@iogearbox.net,
+	daniel.wagner@bmw-carit.de, nhorman@tuxdriver.com,
+	gregkh@linuxfoundation.org
+To: tj@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447789240-29394-3-git-send-email-tj@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Tue, 17 Nov 2015 18:25:07 +0200
+From: Tejun Heo <tj@kernel.org>
+Date: Tue, 17 Nov 2015 14:40:37 -0500
 
-> Eugenia (Jenny) Emantayev is replacing Amir Vadai as the 
-> mlx4 Ethernet driver maintainer.
-> 
-> Saeed Mahameed is assigned to maintain mlx5 Eth functionality.
-> 
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> +	static char path_buf[PATH_MAX];	/* protected by kernfs_mutex */
+> +	int len = strlen(path);
+ ...
+> +	if (len >= PATH_MAX)
+> +		return NULL;
+> +
+> +	memcpy(path_buf, path, len + 1);
 
-Applied.
+	static char path_buf[PATH_MAX];	/* protected by kernfs_mutex */
+	int len = strlcpy(path_buf, path, PATH_MAX);
+ ...
+	if (len >= PATH_MAX)
+		return NULL;
