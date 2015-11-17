@@ -1,54 +1,32 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: How to do TCP tx checksums
-Date: Tue, 17 Nov 2015 10:32:28 -0800
-Message-ID: <564B72BC.6060702@candelatech.com>
-References: <564A72D3.1050407@candelatech.com>
- <CALx6S37AZz6UZctRxY9DOO+-x6MQ2gB9FQ2wSt8frEnegyh82Q@mail.gmail.com>
- <564B677C.8000603@candelatech.com>
- <1447784807.22599.125.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: net-scm: Delete an unnecessary check before the function call
+ "kfree"
+Date: Tue, 17 Nov 2015 19:37:11 +0100
+Message-ID: <564B73D7.7040501@iogearbox.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net> <564B5937.1070707@users.sourceforge.net> <564B602F.2020302@iogearbox.net> <564B6C6F.3070809@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:37649 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753645AbbKQSc3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 13:32:29 -0500
-In-Reply-To: <1447784807.22599.125.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>, eric.dumazet@gmail.com
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <564B6C6F.3070809@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/17/2015 10:26 AM, Eric Dumazet wrote:
-> On Tue, 2015-11-17 at 09:44 -0800, Ben Greear wrote:
+On 11/17/2015 07:05 PM, SF Markus Elfring wrote:
+>> Eric already mentioned that in some situations where it's critical,
+>> it actually slows down the code, i.e. you'll have an extra
+>> function call to get there and inside kfree() / kfree_skb() / etc,
+>> the test is actually marked as unlikely().
 >
->> And in case it helps, here is the output from dmesg.
->>
->> This is an Ethernet frame, and in this case csum-start is the
->> index of the first byte of the TCP header as far as I can tell.
->>
->> [64967.194251] check: 0xf51b  csum-start: 34  offset: 16 summed: 0x3  saddr: 0x201010a  daddr: 0x101010a len: 1514
->>
->
-> You forgot to clear tcp header @check before calling
-> __tcp_v4_send_check(), I think.
->
-> ( th->check = 0; )
+> How do you think about to add similar annotations to any more
+> source code places?
 
- From printk I added to e1000e, it looks like I have bad offsets
-somehow.  I'll try clearing check as well, however.
-
-> Anyway, just use trafgen and get ~6 Mpps, more easily than with pktgen.
-
-I do plan to look at this...but need to make sure I can get similar
-features before I ditch pktgen.  It's not just raw throughput that is
-of interest to me, but also randomizing, sequential, etc header fields
-to test various network equipment (routers, MAC tables in switches, etc).
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+You mean this likely() annotation of yours? It doesn't make any sense
+to me to place it there, and since you've spend the second thinking
+about it when adding it to the diff, you should have already realized
+that your code was buggy ...
