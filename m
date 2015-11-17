@@ -1,40 +1,59 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] xen-netfront crash when detaching network while some
- network activity
-Date: Tue, 17 Nov 2015 11:59:17 +0000
-Message-ID: <564B1695.8000009@citrix.com>
-References: <20150522114932.GC8664@mail-itl> <55645140.1050209@citrix.com>
-	<20150526220312.GA1358@mail-itl> <20151021185734.GD31646@mail-itl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Hit regression with TCP_TW REUSE/RECYCLE
+Date: Tue, 17 Nov 2015 04:07:49 -0800
+Message-ID: <1447762069.22599.88.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CABawtvO_b_zofYfCgGA2oF5VhPtWAsaD4FNsSexzf8pPy6k4iw@mail.gmail.com>
+	 <CABawtvPOYUAqwF2j_dZWMfkmcee+2LV00si2cbVs9zqYBZ6Ynw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	xen-devel <xen-devel@lists.xen.org>,
-	Annie Li <annie.li@oracle.com>
-To: =?windows-1252?Q?Marek_Marczykowski-G=F3recki?=
-	<marmarek@invisiblethingslab.com>,
-	David Vrabel <david.vrabel@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:5493 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751202AbbKQL7W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Nov 2015 06:59:22 -0500
-In-Reply-To: <20151021185734.GD31646@mail-itl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Ethan Zhao <ethan.kernel@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CABawtvPOYUAqwF2j_dZWMfkmcee+2LV00si2cbVs9zqYBZ6Ynw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 21/10/15 19:57, Marek Marczykowski-G=F3recki wrote:
->=20
-> Any ideas?
+On Tue, 2015-11-17 at 14:35 +0800, Ethan Zhao wrote:
+> Tested the same case with 4.4-RC1, it was fixed in 4.4-RC1.
+> But don't know which commit fixed it.
+> 
+>  # echo 1024 65535 > /proc/sys/net/ipv4/ip_local_port_range
+>  # cat /proc/sys/net/ipv4/ip_local_port_range
+> 1024    65535
+>  # echo 1 > /proc/sys/net/ipv4/tcp_tw_reuse
+>  #  cat /proc/sys/net/ipv4/tcp_tw_reuse
+> 1
+>  # echo 1 > /proc/sys/net/ipv4/tcp_tw_recycle
+>  #  cat /proc/sys/net/ipv4/tcp_tw_reuse
+> 1
+>  # ./accept -n 5 -r &
+> [1] 11866
+>  # port: 7954
+> ninst: 5
+> reuseport: 1
+> 
+>  # ./connect -i 127.0.0.1 -n 5 -d 10
+> 78578.50
+>  # uname -a
+> Linux localhost.localdomain 4.4.0-rc1 #49 SMP Tue Nov 17 15:04:18 KST
+> 2015 x86_64 x86_64 x86_64 GNU/Linux
 
-No, sorry.  Netfront looks correct to me.
+Maybe run a reverse bisection ?
 
-We take an additional ref for the ref released by
-gnttab_release_grant_reference().  The get_page() here is safe since we
-haven't freed the page yet (this is done in the subsequent call to
-skb_kfree_irq()).
+tcp_tw_reuse and tcp_tw_recycle both set to one have never been
+supported in linux.
 
-get_page()/put_page() also look fine when used with tail pages.
+tcp_tw_recycle - BOOLEAN
+        Enable fast recycling TIME-WAIT sockets. Default value is 0.
+        It should not be changed without advice/request of technical
+        experts.
 
-David
+tcp_tw_reuse - BOOLEAN
+        Allow to reuse TIME-WAIT sockets for new connections when it is
+        safe from protocol viewpoint. Default value is 0.
+        It should not be changed without advice/request of technical
+        experts.
+
+Thanks.
