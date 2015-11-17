@@ -1,55 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/9] net: un-inline sk_busy_loop()
-Date: Tue, 17 Nov 2015 06:15:51 -0800
-Message-ID: <1447769751.22599.95.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1447768624-14962-1-git-send-email-edumazet@google.com>
-	 <1447768624-14962-4-git-send-email-edumazet@google.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net] net: fix __netdev_update_features return on
+ ndo_set_features failure
+Date: Tue, 17 Nov 2015 15:31:26 +0100
+Message-ID: <564B3A3E.50905@cumulusnetworks.com>
+References: <1447424424-4419-1-git-send-email-razor@blackwall.org>
+ <20151117135418.GA30197@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Eli Cohen <eli@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Rida Assaf <rida@google.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	Nikolay Aleksandrov <razor@blackwall.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:35645 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750708AbbKQOPy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 09:15:54 -0500
-Received: by pacej9 with SMTP id ej9so10343406pac.2
-        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 06:15:54 -0800 (PST)
-In-Reply-To: <1447768624-14962-4-git-send-email-edumazet@google.com>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:38566 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750708AbbKQOb3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 09:31:29 -0500
+Received: by wmec201 with SMTP id c201so28744032wme.1
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 06:31:28 -0800 (PST)
+In-Reply-To: <20151117135418.GA30197@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-11-17 at 05:56 -0800, Eric Dumazet wrote:
-> There is really little gain from inlining this big function.
-> We'll soon make it even bigger in following patches.
+On 11/17/2015 02:54 PM, Micha=B3 Miros=B3aw wrote:
+> On Fri, Nov 13, 2015 at 03:20:24PM +0100, Nikolay Aleksandrov wrote:
+>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>
+>> If ndo_set_features fails __netdev_update_features() will return -1 =
+but
+>> this is wrong because it is expected to return 0 if no features were
+>> changed (see netdev_update_features()), which will cause a netdev
+>> notifier to be called without any actual changes. Fix this by return=
+ing
+>> 0 if ndo_set_features fails.
+>=20
+> Hmm. In case ndo_update_features() failed it might have changed the f=
+eatures.
+> The assumption I made was that we're better off initiating spurious n=
+otification
+> than miss one. This is an unlikely event - a bug in a driver or probl=
+em with the HW.
+>=20
+> Best Regards,
+> Micha=B3 Miros=B3aw
+>=20
 
-I forgot to guard sk_busy_poll() with appropriate #ifdef :
+Hmm, good point. I went over a dozen drivers and I can see that some mi=
+ght
+actually do that (e.g. bnx2x in bnx2x_set_features()). It's rare but po=
+ssible,
+most of them return only 0.
+Okay then, I'll revert this change and add a comment with this so it's =
+clear
+in the future.
 
-This will be added in v2
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 21a7d4093fde..c87c8486ea21 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4673,6 +4673,7 @@ static struct napi_struct *napi_by_id(unsigned int napi_id)
- 	return NULL;
- }
- 
-+#if defined(CONFIG_NET_RX_BUSY_POLL)
- #define BUSY_POLL_BUDGET 8
- bool sk_busy_loop(struct sock *sk, int nonblock)
- {
-@@ -4726,6 +4727,7 @@ out:
- 	return rc;
- }
- EXPORT_SYMBOL(sk_busy_loop);
-+#endif
- 
- void napi_hash_add(struct napi_struct *napi)
- {
+Thanks for the feedback,
+ Nik
