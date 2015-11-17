@@ -1,46 +1,64 @@
-From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Subject: Re: [PATCH 4/5] sock, cgroup: add sock->sk_cgroup
-Date: Tue, 17 Nov 2015 22:48:46 +0100
-Message-ID: <564BA0BE.7050302@iogearbox.net>
-References: <1447789240-29394-1-git-send-email-tj@kernel.org> <1447789240-29394-5-git-send-email-tj@kernel.org> <20151117.162554.314531574043190960.davem@davemloft.net> <20151117213126.GH22864@mtj.duckdns.org>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: Hardware capabilities and bonding offload
+Date: Tue, 17 Nov 2015 14:03:51 -0800
+Message-ID: <20151117220349.GA7762@penelope.isobedori.kobe.vergenet.net>
+References: <77EF4405DD4BB54AACCE7DB593DF6A9AA0D643@SJEXCHMB14.corp.ad.broadcom.com>
+ <20151116153032.GC2217@nanopsycho.orion>
+ <5649FFF3.9080401@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org,
-	lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-team-b10kYP2dOMg@public.gmane.org, daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org,
-	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151117213126.GH22864-qYNAdHglDFBN0TnZuCh8vA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	Premkumar Jonnala <pjonnala@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:35628 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751465AbbKQWDy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 17:03:54 -0500
+Received: by pacej9 with SMTP id ej9so21257772pac.2
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 14:03:54 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <5649FFF3.9080401@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/17/2015 10:31 PM, Tejun Heo wrote:
-> Hello, David.
->
-> On Tue, Nov 17, 2015 at 04:25:54PM -0500, David Miller wrote:
->>> In preparation, this patch adds sock->sk_cgroup which points to the
->>> associated cgroup.  A sock is associated on creation and stays
->>> associated to the same cgroup until freed; unfortunately, this ends up
->>> adding another cgroup field to struct sock on top of sk_cgrp_prioidx
->>> and sk_classid.  I tried to think of a way to somehow overload the
->>> existing fields but couldn't come up with a reasonable one.
->>
->> sk->sk_cgrp_prioidx is simply sk->sk_cgroup->id, is it not?
->
-> Unfortunately, sk->sk_cgrp_prioidx is an arbitrary value which can be
-> configured through "net_cls.classid".  :(
+On Mon, Nov 16, 2015 at 08:10:27AM -0800, John Fastabend wrote:
+> On 15-11-16 07:30 AM, Jiri Pirko wrote:
+> > Mon, Nov 16, 2015 at 10:29:12AM CET, pjonnala@broadcom.com wrote:
+> >> Hello,
+> >>
+> >> I am looking to offload bond interfaces to hardware for forwarding.  Linux allows for configuring 
+> >> a variety of parameters on bonds or slave interfaces.  Not all configurations can be offloaded to 
+> >> hardware.  For example, certain hardware cannot support bonds with mode of adaptive load balancing.
+> >>
+> >> When such a configuration is provided by user, we have two options at hand (for platforms supporting
+> >> hardware offloads):
+> >>
+> >> 1. Reject the configuration.  
+> >>
+> >> 2. Handle the bond interface in software.  In a scenario where this bond interface is part
+> >> of a bridge interface, for simplicity purpose, all other interfaces in the bridge need to be 
+> >> handled in software - which results in a very low packet processing performance.
+> > 
+> > Although it might sound intriguing to fallback to sw here, it makes no
+> > sense and user certainly does not want that. For example in case of our
+> > HW, we have 100gbit forwarding which would be degraded to ~1gbit (for one
+> > port pair). Another thing is that for some HW this mignt not be even
+> > possible. In our case it would be very complicated.
+> > 
+> > I believe that the correct approach is to let driver decide if the
+> > configuration is acceptable or not and reject it in case it is not.
+> > 
+> 
+> +1 I agree the best approach is to throw a hard error and reject
+> it if there is no mapping on to the hardware. This lets your
+> management software propagate that error up so you can handle it
+> correctly at higher levels in the stack.
+> 
+> You could if needed add a bit to enable setup in software only
+> if that is needed.
 
-Hmm, isn't net_prio independent of net_cls?
-
->> We really need to consolidate this before we stuff even more members
->> into the socket for control group support, sorry.
->
-> Yeah, it is messy.  I'll see if I can come up with a non-crazy way to
-> combine the other two fields with ->sk_cgroup.
->
-> Thanks.
->
+FWIW, I agree that such a scheme ought to cover the bases.
+But perhaps it would be best to old off on adding the software only
+bit until a use-case arises. John, perhaps you already have one?
