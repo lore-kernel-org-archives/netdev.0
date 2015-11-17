@@ -1,111 +1,29 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 3/5] cgroup: implement cgroup_get_from_path() and expose cgroup_put()
-Date: Tue, 17 Nov 2015 14:40:38 -0500
-Message-ID: <1447789240-29394-4-git-send-email-tj@kernel.org>
-References: <1447789240-29394-1-git-send-email-tj@kernel.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org,
-	daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org,
-	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1447789240-29394-1-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: Asterisk deadlocks since Kernel 4.1
+Date: Tue, 17 Nov 2015 20:43:31 +0100 (CET)
+Message-ID: <alpine.DEB.2.11.1511172041480.3761@nanos>
+References: <564B3D35.50004@profihost.ag> <alpine.DEB.2.11.1511171936030.3761@nanos> <564B7F9D.5060701@profihost.ag>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stefan Priebe <s.priebe@profihost.ag>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <564B7F9D.5060701@profihost.ag>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement cgroup_get_path() using kernfs_walk_and_get() which obtains
-a default hierarchy cgroup from its path.  This will be used to allow
-cgroup path based matching from outside cgroup proper -
-e.g. networking and perf.
+On Tue, 17 Nov 2015, Stefan Priebe wrote:
+> I've now also two gdb backtraces from two crashes:
+> http://pastebin.com/raw.php?i=yih5jNt8
+> 
+> http://pastebin.com/raw.php?i=kGEcvH4T
 
-Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
----
- include/linux/cgroup.h |  7 +++++++
- kernel/cgroup.c        | 38 +++++++++++++++++++++++++++++++++-----
- 2 files changed, 40 insertions(+), 5 deletions(-)
+They don't tell me anything as I have no idea of the inner workings of
+asterisk. You might be better of to talk to the asterisk folks to help
+you track down what that thing is waiting for, so we can actually look
+at a well defined area.
 
-diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
-index b5ee2c4..4c3ffab 100644
---- a/include/linux/cgroup.h
-+++ b/include/linux/cgroup.h
-@@ -81,6 +81,8 @@ struct cgroup_subsys_state *cgroup_get_e_css(struct cgroup *cgroup,
- struct cgroup_subsys_state *css_tryget_online_from_dir(struct dentry *dentry,
- 						       struct cgroup_subsys *ss);
- 
-+struct cgroup *cgroup_get_from_path(const char *path);
-+
- int cgroup_attach_task_all(struct task_struct *from, struct task_struct *);
- int cgroup_transfer_tasks(struct cgroup *to, struct cgroup *from);
- 
-@@ -351,6 +353,11 @@ static inline void css_put_many(struct cgroup_subsys_state *css, unsigned int n)
- 		percpu_ref_put_many(&css->refcnt, n);
- }
- 
-+static inline void cgroup_put(struct cgroup *cgrp)
-+{
-+	css_put(&cgrp->self);
-+}
-+
- /**
-  * task_css_set_check - obtain a task's css_set with extra access conditions
-  * @task: the task to obtain css_set for
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index 3190040..49947c1 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -434,11 +434,6 @@ static bool cgroup_tryget(struct cgroup *cgrp)
- 	return css_tryget(&cgrp->self);
- }
- 
--static void cgroup_put(struct cgroup *cgrp)
--{
--	css_put(&cgrp->self);
--}
--
- struct cgroup_subsys_state *of_css(struct kernfs_open_file *of)
- {
- 	struct cgroup *cgrp = of->kn->parent->priv;
-@@ -5753,6 +5748,39 @@ struct cgroup_subsys_state *css_from_id(int id, struct cgroup_subsys *ss)
- 	return id > 0 ? idr_find(&ss->css_idr, id) : NULL;
- }
- 
-+/**
-+ * cgroup_get_from_path - lookup and get a cgroup from its default hierarchy path
-+ * @path: path on the default hierarchy
-+ *
-+ * Find the cgroup at @path on the default hierarchy, increment its
-+ * reference count and return it.  Returns pointer to the found cgroup on
-+ * success, ERR_PTR(-ENOENT) if @path doens't exist and ERR_PTR(-ENOTDIR)
-+ * if @path points to a non-directory.
-+ */
-+struct cgroup *cgroup_get_from_path(const char *path)
-+{
-+	struct kernfs_node *kn;
-+	struct cgroup *cgrp;
-+
-+	mutex_lock(&cgroup_mutex);
-+
-+	kn = kernfs_walk_and_get(cgrp_dfl_root.cgrp.kn, path);
-+	if (kn) {
-+		if (kernfs_type(kn) == KERNFS_DIR) {
-+			cgrp = kn->priv;
-+			cgroup_get(cgrp);
-+		} else {
-+			cgrp = ERR_PTR(-ENOTDIR);
-+		}
-+		kernfs_put(kn);
-+	} else {
-+		cgrp = ERR_PTR(-ENOENT);
-+	}
-+
-+	mutex_unlock(&cgroup_mutex);
-+	return cgrp;
-+}
-+
- #ifdef CONFIG_CGROUP_DEBUG
- static struct cgroup_subsys_state *
- debug_css_alloc(struct cgroup_subsys_state *parent_css)
--- 
-2.5.0
+Thanks,
+
+	tglx
