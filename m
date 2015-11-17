@@ -1,59 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Hit regression with TCP_TW REUSE/RECYCLE
-Date: Tue, 17 Nov 2015 04:07:49 -0800
-Message-ID: <1447762069.22599.88.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CABawtvO_b_zofYfCgGA2oF5VhPtWAsaD4FNsSexzf8pPy6k4iw@mail.gmail.com>
-	 <CABawtvPOYUAqwF2j_dZWMfkmcee+2LV00si2cbVs9zqYBZ6Ynw@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: irq_fpu_usable() is false in ndo_start_xmit() for UDP packets
+Date: Tue, 17 Nov 2015 12:38:08 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBD4126@AcuExch.aculab.com>
+References: <CAHmME9qQz-uTFDjUuVaqpO9ODt3KZWEdYVQJ8qsXWa5YkYAoWA@mail.gmail.com>
+ <20151116.153214.1125103075112383723.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Ethan Zhao <ethan.kernel@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'David Miller' <davem@davemloft.net>,
+	"Jason@zx2c4.com" <Jason@zx2c4.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABawtvPOYUAqwF2j_dZWMfkmcee+2LV00si2cbVs9zqYBZ6Ynw@mail.gmail.com>
+In-Reply-To: <20151116.153214.1125103075112383723.davem@davemloft.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-11-17 at 14:35 +0800, Ethan Zhao wrote:
-> Tested the same case with 4.4-RC1, it was fixed in 4.4-RC1.
-> But don't know which commit fixed it.
+From: David Miller
+> Sent: 16 November 2015 20:32
+> From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+> Date: Mon, 16 Nov 2015 20:52:28 +0100
 > 
->  # echo 1024 65535 > /proc/sys/net/ipv4/ip_local_port_range
->  # cat /proc/sys/net/ipv4/ip_local_port_range
-> 1024    65535
->  # echo 1 > /proc/sys/net/ipv4/tcp_tw_reuse
->  #  cat /proc/sys/net/ipv4/tcp_tw_reuse
-> 1
->  # echo 1 > /proc/sys/net/ipv4/tcp_tw_recycle
->  #  cat /proc/sys/net/ipv4/tcp_tw_reuse
-> 1
->  # ./accept -n 5 -r &
-> [1] 11866
->  # port: 7954
-> ninst: 5
-> reuseport: 1
+> > This works fine with, say, iperf3 in TCP mode. The AVX performance
+> > is great. However, when using iperf3 in UDP mode, irq_fpu_usable()
+> > is mostly false! I added a dump_stack() call to see why, except
+> > nothing looks strange; the initial call in the stack trace is
+> > entry_SYSCALL_64_fastpath. Why would irq_fpu_usable() return false
+> > when we're in a syscall? Doesn't that mean this is in process
+> > context?
 > 
->  # ./connect -i 127.0.0.1 -n 5 -d 10
-> 78578.50
->  # uname -a
-> Linux localhost.localdomain 4.4.0-rc1 #49 SMP Tue Nov 17 15:04:18 KST
-> 2015 x86_64 x86_64 x86_64 GNU/Linux
+> Network device driver transmit executes with software interrupts
+> disabled.
+> 
+> Therefore on x86, you cannot use the FPU.
 
-Maybe run a reverse bisection ?
+I had some thoughts about driver access to AVX instructions when
+I was adding AVX support to NetBSD.
 
-tcp_tw_reuse and tcp_tw_recycle both set to one have never been
-supported in linux.
+The fpu state is almost certainly 'lazy switched' this means that
+the fpu registers can contain data for a process that is currently
+running on a different cpu.
+At any time the other cpu might request (by IPI) that they be flushed
+to the process data area so that it can reload them.
+Kernel code could request them be flushed, but that can only happen once.
+If a nested function requires them it would have to supply a local
+save area. But the full save area is too big to go on stack.
+Not only that, the save and restore instructions are slow.
 
-tcp_tw_recycle - BOOLEAN
-        Enable fast recycling TIME-WAIT sockets. Default value is 0.
-        It should not be changed without advice/request of technical
-        experts.
+It is also worth noting that all the AVX registers are callee saved.
+This means that the syscall entry need not preserve them, instead
+it can mark that they will be 'restored as zero'. However this
+isn't true of any other kernel entry points.
 
-tcp_tw_reuse - BOOLEAN
-        Allow to reuse TIME-WAIT sockets for new connections when it is
-        safe from protocol viewpoint. Default value is 0.
-        It should not be changed without advice/request of technical
-        experts.
+Back to my thoughts...
 
-Thanks.
+Kernel code is likely to want to use special SSE/AVX instructions (eg
+the crc and crypto ones) rather than generic FP calculations.
+As such just saving a two of three of AVX registers would suffice.
+This could be done using a small on-stack save structure that
+can be referenced from the process's save area so that any IPI
+can copy over the correct values after saving the full state.
+
+This would allow kernel code (including interrupts) to execute
+some AVX instructions without having to save the entire cpu
+extended state anywhere.
+
+I suspect there is a big hole in the above though...
+
+	David
