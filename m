@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 net] net: use skb_clone to avoid alloc_pages failure.
-Date: Tue, 17 Nov 2015 15:26:53 -0500 (EST)
-Message-ID: <20151117.152653.2114816969798118712.davem@davemloft.net>
-References: <1447764570-22647-1-git-send-email-martinbj2008@gmail.com>
+Subject: Re: [PATCH net v2] rtnetlink: fix frame size warning in
+ rtnl_fill_ifinfo
+Date: Tue, 17 Nov 2015 15:27:02 -0500 (EST)
+Message-ID: <20151117.152702.306913708555395298.davem@davemloft.net>
+References: <1447766212-26339-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linggao.zjw@alibaba-inc.com
-To: martinbj2008@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59932 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59941 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753951AbbKQU0y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 15:26:54 -0500
-In-Reply-To: <1447764570-22647-1-git-send-email-martinbj2008@gmail.com>
+	with ESMTP id S1751705AbbKQU1D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 15:27:03 -0500
+In-Reply-To: <1447766212-26339-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: martinbj2008@gmail.com
-Date: Tue, 17 Nov 2015 20:49:30 +0800
-
-> From: Martin Zhang <martinbj2008@gmail.com>
-> 
-> 1. new skb only need dst and ip address(v4 or v6).
-> 2. skb_copy may need high order pages, which is very rare on long running server.
-> 
-> Signed-off-by: Junwei Zhang <linggao.zjw@alibaba-inc.com>
-> Signed-off-by: Martin Zhang <martinbj2008@gmail.com>
-
-Applied, thanks.
+RnJvbTogSGFubmVzIEZyZWRlcmljIFNvd2EgPGhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnPg0K
+RGF0ZTogVHVlLCAxNyBOb3YgMjAxNSAxNDoxNjo1MiArMDEwMA0KDQo+IEZpeCB0aGUgZm9sbG93
+aW5nIHdhcm5pbmc6DQo+IA0KPiAgIENDICAgICAgbmV0L2NvcmUvcnRuZXRsaW5rLm8NCj4gbmV0
+L2NvcmUvcnRuZXRsaW5rLmM6IEluIGZ1bmN0aW9uIKFydG5sX2ZpbGxfaWZpbmZvojoNCj4gbmV0
+L2NvcmUvcnRuZXRsaW5rLmM6MTMwODoxOiB3YXJuaW5nOiB0aGUgZnJhbWUgc2l6ZSBvZiAyODY0
+IGJ5dGVzIGlzIGxhcmdlciB0aGFuIDIwNDggYnl0ZXMgWy1XZnJhbWUtbGFyZ2VyLXRoYW49XQ0K
+PiAgfQ0KPiAgXg0KPiBieSBzcGxpdHRpbmcgdXAgdGhlIGh1Z2UgcnRubF9maWxsX2lmaW5mbyBp
+bnRvIHNvbWUgc21hbGxlciBvbmVzLCBzbyB3ZQ0KPiBkb24ndCBoYXZlIHRoZSBodWdlIGZyYW1l
+IGFsbG9jYXRpb25zIGF0IHRoZSBzYW1lIHRpbWUuDQo+IA0KPiBDYzogRXJpYyBEdW1hemV0IDxl
+ZHVtYXpldEBnb29nbGUuY29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBIYW5uZXMgRnJlZGVyaWMgU293
+YSA8aGFubmVzQHN0cmVzc2luZHVrdGlvbi5vcmc+DQoNCkFwcGxpZWQuDQo=
