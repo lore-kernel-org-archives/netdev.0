@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 1/9] net: better skb->sender_cpu and skb->napi_id cohabitation
-Date: Tue, 17 Nov 2015 05:56:56 -0800
-Message-ID: <1447768624-14962-2-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 3/9] net: un-inline sk_busy_loop()
+Date: Tue, 17 Nov 2015 05:56:58 -0800
+Message-ID: <1447768624-14962-4-git-send-email-edumazet@google.com>
 References: <1447768624-14962-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>, Eli Cohen <eli@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>,
@@ -12,113 +12,175 @@ Cc: netdev <netdev@vger.kernel.org>, Eli Cohen <eli@mellanox.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34854 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752983AbbKQN5a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 08:57:30 -0500
-Received: by pacej9 with SMTP id ej9so9930843pac.2
-        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 05:57:29 -0800 (PST)
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:34941 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752983AbbKQN5h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 08:57:37 -0500
+Received: by pacej9 with SMTP id ej9so9933227pac.2
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 05:57:37 -0800 (PST)
 In-Reply-To: <1447768624-14962-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-skb->sender_cpu and skb->napi_id share a common storage,
-and we had various bugs about this.
+There is really little gain from inlining this big function.
+We'll soon make it even bigger in following patches.
 
-We had to call skb_sender_cpu_clear() in some places to
-not leave a prior skb->napi_id and fool netdev_pick_tx()
-
-As suggested by Alexei, we could split the space so that
-these errors can not happen.
-
-0 value being reserved as the common (not initialized) value,
-let's reserve [1 .. NR_CPUS] range for valid sender_cpu,
-and [NR_CPUS+1 .. ~0U] for valid napi_id.
-
-This will allow proper busy polling support over tunnels.
+This means we no longer need to export napi_by_id()
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
-Suggested-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/linux/skbuff.h |  3 ---
- net/core/dev.c         | 33 ++++++++++++++++-----------------
- 2 files changed, 16 insertions(+), 20 deletions(-)
+ include/linux/netdevice.h |  9 ---------
+ include/net/busy_poll.h   | 45 +--------------------------------------------
+ net/core/dev.c            | 47 +++++++++++++++++++++++++++++++++++++++++++++--
+ 3 files changed, 46 insertions(+), 55 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 4355129fff91..c9c394bf0771 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1082,9 +1082,6 @@ static inline void skb_copy_hash(struct sk_buff *to, const struct sk_buff *from)
- 
- static inline void skb_sender_cpu_clear(struct sk_buff *skb)
- {
--#ifdef CONFIG_XPS
--	skb->sender_cpu = 0;
--#endif
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d20891465247..5695c5efa188 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -461,15 +461,6 @@ static inline void napi_complete(struct napi_struct *n)
  }
  
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
+ /**
+- *	napi_by_id - lookup a NAPI by napi_id
+- *	@napi_id: hashed napi_id
+- *
+- * lookup @napi_id in napi_hash table
+- * must be called under rcu_read_lock()
+- */
+-struct napi_struct *napi_by_id(unsigned int napi_id);
+-
+-/**
+  *	napi_hash_add - add a NAPI to global hashtable
+  *	@napi: napi context
+  *
+diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+index 1d67fb6b23a0..2fbeb1313c0f 100644
+--- a/include/net/busy_poll.h
++++ b/include/net/busy_poll.h
+@@ -72,50 +72,7 @@ static inline bool busy_loop_timeout(unsigned long end_time)
+ 	return time_after(now, end_time);
+ }
+ 
+-/* when used in sock_poll() nonblock is known at compile time to be true
+- * so the loop and end_time will be optimized out
+- */
+-static inline bool sk_busy_loop(struct sock *sk, int nonblock)
+-{
+-	unsigned long end_time = !nonblock ? sk_busy_loop_end_time(sk) : 0;
+-	const struct net_device_ops *ops;
+-	struct napi_struct *napi;
+-	int rc = false;
+-
+-	/*
+-	 * rcu read lock for napi hash
+-	 * bh so we don't race with net_rx_action
+-	 */
+-	rcu_read_lock_bh();
+-
+-	napi = napi_by_id(sk->sk_napi_id);
+-	if (!napi)
+-		goto out;
+-
+-	ops = napi->dev->netdev_ops;
+-	if (!ops->ndo_busy_poll)
+-		goto out;
+-
+-	do {
+-		rc = ops->ndo_busy_poll(napi);
+-
+-		if (rc == LL_FLUSH_FAILED)
+-			break; /* permanent failure */
+-
+-		if (rc > 0)
+-			/* local bh are disabled so it is ok to use _BH */
+-			NET_ADD_STATS_BH(sock_net(sk),
+-					 LINUX_MIB_BUSYPOLLRXPACKETS, rc);
+-		cpu_relax();
+-
+-	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
+-		 !need_resched() && !busy_loop_timeout(end_time));
+-
+-	rc = !skb_queue_empty(&sk->sk_receive_queue);
+-out:
+-	rcu_read_unlock_bh();
+-	return rc;
+-}
++bool sk_busy_loop(struct sock *sk, int nonblock);
+ 
+ /* used in the NIC receive handler to mark the skb */
+ static inline void skb_mark_napi_id(struct sk_buff *skb,
 diff --git a/net/core/dev.c b/net/core/dev.c
-index ab9b8d0d115e..0014f0e11db6 100644
+index 0014f0e11db6..8902b01a827b 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -182,7 +182,7 @@ EXPORT_SYMBOL(dev_base_lock);
- /* protects napi_hash addition/deletion and napi_gen_id */
- static DEFINE_SPINLOCK(napi_hash_lock);
+@@ -96,6 +96,7 @@
+ #include <linux/skbuff.h>
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
++#include <net/busy_poll.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/stat.h>
+ #include <net/dst.h>
+@@ -4660,7 +4661,7 @@ void napi_complete_done(struct napi_struct *n, int work_done)
+ EXPORT_SYMBOL(napi_complete_done);
  
--static unsigned int napi_gen_id;
-+static unsigned int napi_gen_id = NR_CPUS;
- static DEFINE_HASHTABLE(napi_hash, 8);
+ /* must be called under rcu_read_lock(), as we dont take a reference */
+-struct napi_struct *napi_by_id(unsigned int napi_id)
++static struct napi_struct *napi_by_id(unsigned int napi_id)
+ {
+ 	unsigned int hash = napi_id % HASH_SIZE(napi_hash);
+ 	struct napi_struct *napi;
+@@ -4671,7 +4672,49 @@ struct napi_struct *napi_by_id(unsigned int napi_id)
  
- static seqcount_t devnet_rename_seq;
-@@ -3018,7 +3018,9 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
- 	int queue_index = 0;
- 
- #ifdef CONFIG_XPS
--	if (skb->sender_cpu == 0)
-+	u32 sender_cpu = skb->sender_cpu - 1;
+ 	return NULL;
+ }
+-EXPORT_SYMBOL_GPL(napi_by_id);
 +
-+	if (sender_cpu >= (u32)NR_CPUS)
- 		skb->sender_cpu = raw_smp_processor_id() + 1;
- #endif
- 
-@@ -4673,25 +4675,22 @@ EXPORT_SYMBOL_GPL(napi_by_id);
++bool sk_busy_loop(struct sock *sk, int nonblock)
++{
++	unsigned long end_time = !nonblock ? sk_busy_loop_end_time(sk) : 0;
++	const struct net_device_ops *ops;
++	struct napi_struct *napi;
++	int rc = false;
++
++	/*
++	 * rcu read lock for napi hash
++	 * bh so we don't race with net_rx_action
++	 */
++	rcu_read_lock_bh();
++
++	napi = napi_by_id(sk->sk_napi_id);
++	if (!napi)
++		goto out;
++
++	ops = napi->dev->netdev_ops;
++	if (!ops->ndo_busy_poll)
++		goto out;
++
++	do {
++		rc = ops->ndo_busy_poll(napi);
++
++		if (rc == LL_FLUSH_FAILED)
++			break; /* permanent failure */
++
++		if (rc > 0)
++			/* local bh are disabled so it is ok to use _BH */
++			NET_ADD_STATS_BH(sock_net(sk),
++					 LINUX_MIB_BUSYPOLLRXPACKETS, rc);
++		cpu_relax();
++
++	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
++		 !need_resched() && !busy_loop_timeout(end_time));
++
++	rc = !skb_queue_empty(&sk->sk_receive_queue);
++out:
++	rcu_read_unlock_bh();
++	return rc;
++}
++EXPORT_SYMBOL(sk_busy_loop);
  
  void napi_hash_add(struct napi_struct *napi)
  {
--	if (!test_and_set_bit(NAPI_STATE_HASHED, &napi->state)) {
-+	if (test_and_set_bit(NAPI_STATE_HASHED, &napi->state))
-+		return;
- 
--		spin_lock(&napi_hash_lock);
-+	spin_lock(&napi_hash_lock);
- 
--		/* 0 is not a valid id, we also skip an id that is taken
--		 * we expect both events to be extremely rare
--		 */
--		napi->napi_id = 0;
--		while (!napi->napi_id) {
--			napi->napi_id = ++napi_gen_id;
--			if (napi_by_id(napi->napi_id))
--				napi->napi_id = 0;
--		}
-+	/* 0..NR_CPUS+1 range is reserved for sender_cpu use */
-+	do {
-+		if (unlikely(++napi_gen_id < NR_CPUS + 1))
-+			napi_gen_id = NR_CPUS + 1;
-+	} while (napi_by_id(napi_gen_id));
-+	napi->napi_id = napi_gen_id;
- 
--		hlist_add_head_rcu(&napi->napi_hash_node,
--			&napi_hash[napi->napi_id % HASH_SIZE(napi_hash)]);
-+	hlist_add_head_rcu(&napi->napi_hash_node,
-+			   &napi_hash[napi->napi_id % HASH_SIZE(napi_hash)]);
- 
--		spin_unlock(&napi_hash_lock);
--	}
-+	spin_unlock(&napi_hash_lock);
- }
- EXPORT_SYMBOL_GPL(napi_hash_add);
- 
 -- 
 2.6.0.rc2.230.g3dd15c0
