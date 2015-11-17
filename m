@@ -1,70 +1,65 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 3/3] dl2k: Implement suspend
-Date: Tue, 17 Nov 2015 23:56:10 +0100
-Message-ID: <20151117225610.GB3362@electric-eye.fr.zoreil.com>
-References: <1447781298-19785-1-git-send-email-linux@rainbow-software.org>
- <1447781298-19785-3-git-send-email-linux@rainbow-software.org>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: [PATCH iptables] libxt_cgroup2: add support for cgroup2 path
+ matching
+Date: Wed, 18 Nov 2015 00:02:01 +0100 (CET)
+Message-ID: <alpine.LSU.2.20.1511172356570.13966@nerf40.vanv.qr>
+References: <1447789240-29394-1-git-send-email-tj@kernel.org> <20151117194221.GB22864@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Kernel development list <linux-kernel@vger.kernel.org>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>
-To: Ondrej Zary <linux@rainbow-software.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, pablo@netfilter.org, kaber@trash.net,
+	kadlec@blackhole.kfki.hu, lizefan@huawei.com, hannes@cmpxchg.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com,
+	daniel@iogearbox.net, daniel.wagner@bmw-carit.de,
+	nhorman@tuxdriver.com
+To: Tejun Heo <tj@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1447781298-19785-3-git-send-email-linux@rainbow-software.org>
+In-Reply-To: <20151117194221.GB22864@mtj.duckdns.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ondrej Zary <linux@rainbow-software.org> :
-[...]
-> diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
-> index 9e9baa0..b53dfa7 100644
-> --- a/drivers/net/ethernet/dlink/dl2k.c
-> +++ b/drivers/net/ethernet/dlink/dl2k.c
-> @@ -1824,11 +1824,57 @@ rio_remove1 (struct pci_dev *pdev)
->  	}
->  }
->  
-> +#ifdef CONFIG_PM
-> +static int rio_suspend(struct pci_dev *pdev, pm_message_t state)
-> +{
-> +	struct net_device *dev = pci_get_drvdata(pdev);
-> +	struct netdev_private *np = netdev_priv(dev);
-> +
-> +	pci_save_state(pdev);
 
-Cargo-cultism ?
+On Tuesday 2015-11-17 20:42, Tejun Heo wrote:
+>+static void cgroup2_save(const void *ip, const struct xt_entry_match *match)
+>+{
+>+	const struct xt_cgroup2_info *info = (void *)match->data;
+>+
+>+	printf("%s --path %s", info->invert ? " !" : "", info->path);
+>+}
 
-> +
-> +	if (netif_running(dev)) {
-> +		netif_device_detach(dev);
-> +		del_timer_sync(&np->timer);
-> +		rio_hw_stop(dev);
-> +		free_list(dev);
+Can cgroup path names contain anything fancy, like spaces, backslashes, etc.?
+If so, xtables_save_string() will be needed here.
 
-If free_list is used here, so must alloc_list be in resume, whence
-an extra failure opportunity.
+>+static struct xtables_match cgroup2_match = {
+>+	.family		= NFPROTO_UNSPEC,
+>+	.name		= "cgroup2",
+>+	.version	= XTABLES_VERSION,
+>+	.size		= XT_ALIGN(sizeof(struct xt_cgroup2_info)),
+>+	.userspacesize	= XT_ALIGN(sizeof(struct xt_cgroup2_info)),
 
-You may not need to free both Tx and Rx here.
+userspacesize must not include xt_cgroup2_info.priv.
+Change to offsetof(...), cf. other .c modules which do this.
 
-[...]
->  static struct pci_driver rio_driver = {
->  	.name		= "dl2k",
->  	.id_table	= rio_pci_tbl,
->  	.probe		= rio_probe1,
->  	.remove		= rio_remove1,
-> +#ifdef CONFIG_PM
-> +	.suspend	= rio_suspend,
-> +	.resume		= rio_resume,
-> +#endif /* CONFIG_PM */
 
-It looks a bit old school.
+>+++ b/extensions/libxt_cgroup2.man
+>@@ -0,0 +1,24 @@
+>+.TP
+>+[\fB!\fP] \fB\-\-path\fP \fIpath\fP
+>+Match cgroup2 membership.
+>+
+>+Each socket is associated with the v2 cgroup of the creating process.
+>+This matches packets coming from or going to all sockets in the
+>+sub-hierarchy of the specified path.  The path should be relative to
+>+the root of the cgroup2 hierarchy.  Can be used in the OUTPUT and
+>+INPUT chains to assign particular firewall policies for aggregated
+>+processes on the system. This allows for more fine-grained firewall
+>+policies that only match for a subset of the system's processes.
+>+
+>+\fBIMPORTANT\fP: when being used in the INPUT chain, the cgroup2
+>+matcher is currently only of limited functionality, meaning it
+>+will only match on packets that are processed for local sockets
+>+through early socket demuxing. Therefore, general usage on the
+>+INPUT chain is disadviced unless the implications are well
 
-See Documentation/power/pci.txt and drivers/net/ethernet/via/via-rhine.c
-for an instance of SIMPLE_DEV_PM_OPS.
-
-At some point you'll probably support runtime power management though.
-
--- 
-Ueimor
+is disadviced (sic)  -> is not advised
