@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 4/9] net: allow BH servicing in sk_busy_loop()
-Date: Tue, 17 Nov 2015 05:56:59 -0800
-Message-ID: <1447768624-14962-5-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 6/9] mlx5: add busy polling support
+Date: Tue, 17 Nov 2015 05:57:01 -0800
+Message-ID: <1447768624-14962-7-git-send-email-edumazet@google.com>
 References: <1447768624-14962-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>, Eli Cohen <eli@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>,
@@ -12,113 +12,114 @@ Cc: netdev <netdev@vger.kernel.org>, Eli Cohen <eli@mellanox.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34125 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751975AbbKQN5k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 08:57:40 -0500
-Received: by padhx2 with SMTP id hx2so10024443pad.1
-        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 05:57:40 -0800 (PST)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:34209 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753914AbbKQN5r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 08:57:47 -0500
+Received: by padhx2 with SMTP id hx2so10026763pad.1
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 05:57:46 -0800 (PST)
 In-Reply-To: <1447768624-14962-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of blocking BH in whole sk_busy_loop(), block them
-only around ->ndo_busy_poll() calls.
+It is now easy to add busy polling support to a NAPI driver,
+with very little impact on normal input path.
 
-This has many benefits.
+This patch serves as a reference implementation.
 
-1) allow tunneled traffic to use busy poll as well as native traffic.
-   Tunnels handlers usually call netif_rx() and depend on net_rx_action()
-   being run (from sofirq handler)
+Note:
 
-2) allow RFS/RPS being used (sending IPI to other cpus if needed)
-
-3) use the 'lets burn cpu cycles' budget to do useful work
-   (like TX completions, timers, RCU callbacks...)
-
-4) reduce BH latencies, making busy poll a better citizen.
+A followup patch will add proper napi_complete_done() in mlx5,
+so that LINUX_MIB_BUSYPOLLRXPACKETS snmp counter is properly handled.
 
 Tested:
 
-Tested with SIT tunnel
+Normal TCP_RR results without busy polling :
 
-lpaa5:~# echo 0 >/proc/sys/net/core/busy_read
-lpaa5:~# ./netperf -H 2002:af6:786::1 -t TCP_RR
-MIGRATED TCP REQUEST/RESPONSE TEST from ::0 (::) port 0 AF_INET6 to 2002:af6:786::1 () port 0 AF_INET6 : first burst 0
+lpk51:~# echo 0 >/proc/sys/net/core/busy_read
+lpk52:~# echo 0 >/proc/sys/net/core/busy_read
+
+lpk51:~# ./netperf -H 192.168.4.52 -t TCP_RR -l 10
+MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.4.52 () port 0 AF_INET : first burst 0
 Local /Remote
 Socket Size   Request  Resp.   Elapsed  Trans.
 Send   Recv   Size     Size    Time     Rate
 bytes  Bytes  bytes    bytes   secs.    per sec
 
-16384  87380  1        1       10.00    37373.93
+16384  87380  1        1       10.00    53509.49
 16384  87380
 
-Now enable busy poll on both hosts
+Now enable busy polling :
 
-lpaa5:~# echo 70 >/proc/sys/net/core/busy_read
-lpaa6:~# echo 70 >/proc/sys/net/core/busy_read
+lpk51:~# echo 70 >/proc/sys/net/core/busy_read
+lpk52:~# echo 70 >/proc/sys/net/core/busy_read
 
-lpaa5:~# ./netperf -H 2002:af6:786::1 -t TCP_RR
-MIGRATED TCP REQUEST/RESPONSE TEST from ::0 (::) port 0 AF_INET6 to 2002:af6:786::1 () port 0 AF_INET6 : first burst 0
+lpk51:~# ./netperf -H 192.168.4.52 -t TCP_RR -l 10
+MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.4.52 () port 0 AF_INET : first burst 0
 Local /Remote
 Socket Size   Request  Resp.   Elapsed  Trans.
 Send   Recv   Size     Size    Time     Rate
 bytes  Bytes  bytes    bytes   secs.    per sec
 
-16384  87380  1        1       10.00    58314.77
+16384  87380  1        1       10.00    97530.92
 16384  87380
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/core/dev.c | 18 +++++++-----------
- 1 file changed, 7 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 6 ++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 2 ++
+ 2 files changed, 8 insertions(+)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8902b01a827b..4d0fbf5987ff 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4680,11 +4680,7 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
- 	struct napi_struct *napi;
- 	int rc = false;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 5fc4d2d78cdf..174b7e19290a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -982,6 +982,7 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
+ 	mlx5e_build_channeltc_to_txq_map(priv, ix);
  
--	/*
--	 * rcu read lock for napi hash
--	 * bh so we don't race with net_rx_action
--	 */
--	rcu_read_lock_bh();
-+	rcu_read_lock();
+ 	netif_napi_add(netdev, &c->napi, mlx5e_napi_poll, 64);
++	napi_hash_add(&c->napi);
  
- 	napi = napi_by_id(sk->sk_napi_id);
- 	if (!napi)
-@@ -4695,23 +4691,23 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
- 		goto out;
+ 	err = mlx5e_open_tx_cqs(c, cparam);
+ 	if (err)
+@@ -1020,6 +1021,7 @@ err_close_tx_cqs:
  
- 	do {
-+		local_bh_disable();
- 		rc = ops->ndo_busy_poll(napi);
-+		if (rc > 0)
-+			NET_ADD_STATS_BH(sock_net(sk),
-+					 LINUX_MIB_BUSYPOLLRXPACKETS, rc);
-+		local_bh_enable();
+ err_napi_del:
+ 	netif_napi_del(&c->napi);
++	napi_hash_del(&c->napi);
+ 	kfree(c);
  
- 		if (rc == LL_FLUSH_FAILED)
- 			break; /* permanent failure */
- 
--		if (rc > 0)
--			/* local bh are disabled so it is ok to use _BH */
--			NET_ADD_STATS_BH(sock_net(sk),
--					 LINUX_MIB_BUSYPOLLRXPACKETS, rc);
- 		cpu_relax();
--
- 	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
- 		 !need_resched() && !busy_loop_timeout(end_time));
- 
- 	rc = !skb_queue_empty(&sk->sk_receive_queue);
- out:
--	rcu_read_unlock_bh();
-+	rcu_read_unlock();
- 	return rc;
+ 	return err;
+@@ -1033,6 +1035,10 @@ static void mlx5e_close_channel(struct mlx5e_channel *c)
+ 	mlx5e_close_cq(&c->rq.cq);
+ 	mlx5e_close_tx_cqs(c);
+ 	netif_napi_del(&c->napi);
++
++	napi_hash_del(&c->napi);
++	synchronize_rcu();
++
+ 	kfree(c);
  }
- EXPORT_SYMBOL(sk_busy_loop);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index cf0098596e85..54800c61a563 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -33,6 +33,7 @@
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/tcp.h>
++#include <net/busy_poll.h>
+ #include "en.h"
+ 
+ static inline int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq,
+@@ -242,6 +243,7 @@ bool mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
+ 		wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
+ 		skb            = rq->skb[wqe_counter];
+ 		prefetch(skb->data);
++		skb_mark_napi_id(skb, cq->napi);
+ 		rq->skb[wqe_counter] = NULL;
+ 
+ 		dma_unmap_single(rq->pdev,
 -- 
 2.6.0.rc2.230.g3dd15c0
