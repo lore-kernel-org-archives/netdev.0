@@ -1,60 +1,66 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] MAINTAINERS: Update Mellanox's Eth NIC driver entries
-Date: Tue, 17 Nov 2015 18:25:07 +0200
-Message-ID: <1447777507-22326-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:37387 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752301AbbKQQZn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Nov 2015 11:25:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ilya Dryomov <idryomov@gmail.com>
+Subject: Re: [PATCH 2/3] libceph: use list_next_entry instead of list_entry_next
+Date: Tue, 17 Nov 2015 17:27:24 +0100
+Message-ID: <CAOi1vP-Nq0LNNX1JpJc4d+oTvMDjxGwW4U_BY_6H4-H+SGUNAg@mail.gmail.com>
+References: <6a47dadb3a625d7f5b20b4e98bb8af4d30db66a3.1447681244.git.geliangtang@163.com>
+	<b6930bdf479389886e7b999d207419836893af78.1447681244.git.geliangtang@163.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Yan, Zheng" <zyan@redhat.com>, Sage Weil <sage@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ceph Development <ceph-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Geliang Tang <geliangtang@163.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <b6930bdf479389886e7b999d207419836893af78.1447681244.git.geliangtang@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eugenia (Jenny) Emantayev is replacing Amir Vadai as the 
-mlx4 Ethernet driver maintainer.
+On Mon, Nov 16, 2015 at 2:46 PM, Geliang Tang <geliangtang@163.com> wrote:
+> list_next_entry has been defined in list.h, so I replace list_entry_next
+> with it.
+>
+> Signed-off-by: Geliang Tang <geliangtang@163.com>
+> ---
+>  net/ceph/messenger.c | 7 ++-----
+>  1 file changed, 2 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
+> index 9981039..b1d1489 100644
+> --- a/net/ceph/messenger.c
+> +++ b/net/ceph/messenger.c
+> @@ -23,9 +23,6 @@
+>  #include <linux/ceph/pagelist.h>
+>  #include <linux/export.h>
+>
+> -#define list_entry_next(pos, member)                                   \
+> -       list_entry(pos->member.next, typeof(*pos), member)
+> -
+>  /*
+>   * Ceph uses the messenger to exchange ceph_msg messages with other
+>   * hosts in the system.  The messenger provides ordered and reliable
+> @@ -1042,7 +1039,7 @@ static bool ceph_msg_data_pagelist_advance(struct ceph_msg_data_cursor *cursor,
+>         /* Move on to the next page */
+>
+>         BUG_ON(list_is_last(&cursor->page->lru, &pagelist->head));
+> -       cursor->page = list_entry_next(cursor->page, lru);
+> +       cursor->page = list_next_entry(cursor->page, lru);
+>         cursor->last_piece = cursor->resid <= PAGE_SIZE;
+>
+>         return true;
+> @@ -1166,7 +1163,7 @@ static bool ceph_msg_data_advance(struct ceph_msg_data_cursor *cursor,
+>         if (!cursor->resid && cursor->total_resid) {
+>                 WARN_ON(!cursor->last_piece);
+>                 BUG_ON(list_is_last(&cursor->data->links, cursor->data_head));
+> -               cursor->data = list_entry_next(cursor->data, links);
+> +               cursor->data = list_next_entry(cursor->data, links);
+>                 __ceph_msg_data_cursor_init(cursor);
+>                 new_piece = true;
+>         }
 
-Saeed Mahameed is assigned to maintain mlx5 Eth functionality.
+Applied.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
+Thanks,
 
-Thanks you so much Amir for the endless time you invested in the driver, it 
-has been a pleasure to work with you, and I hope we'll keep doing so soon...
-
- MAINTAINERS | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 4532067..902cdab 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -6914,13 +6914,21 @@ F:	drivers/scsi/megaraid.*
- F:	drivers/scsi/megaraid/
- 
- MELLANOX ETHERNET DRIVER (mlx4_en)
--M:	Amir Vadai <amirv@mellanox.com>
-+M: 	Eugenia Emantayev <eugenia@mellanox.com>
- L:	netdev@vger.kernel.org
- S:	Supported
- W:	http://www.mellanox.com
- Q:	http://patchwork.ozlabs.org/project/netdev/list/
- F:	drivers/net/ethernet/mellanox/mlx4/en_*
- 
-+MELLANOX ETHERNET DRIVER (mlx5e)
-+M:	Saeed Mahameed <saeedm@mellanox.com>
-+L:	netdev@vger.kernel.org
-+S:	Supported
-+W:	http://www.mellanox.com
-+Q:	http://patchwork.ozlabs.org/project/netdev/list/
-+F:	drivers/net/ethernet/mellanox/mlx5/core/en_*
-+
- MELLANOX ETHERNET SWITCH DRIVERS
- M:	Jiri Pirko <jiri@mellanox.com>
- M:	Ido Schimmel <idosch@mellanox.com>
--- 
-2.3.7
+                Ilya
