@@ -1,68 +1,68 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: RFC: right userspace interface for providing 6lowpan contexts
-Date: Wed, 18 Nov 2015 00:03:57 +0100
-Message-ID: <20151117230332.GA6219@omega>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH iptables] libxt_cgroup2: add support for cgroup2 path
+ matching
+Date: Tue, 17 Nov 2015 18:09:24 -0500
+Message-ID: <20151117230924.GL22864@mtj.duckdns.org>
+References: <1447789240-29394-1-git-send-email-tj@kernel.org>
+ <20151117194221.GB22864@mtj.duckdns.org>
+ <alpine.LSU.2.20.1511172356570.13966@nerf40.vanv.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-bluetooth@vger.kernel.org, linux-wpan@vger.kernel.org,
-	kernel@pengutronix.de, mcr@sandelman.ca, lukasz.duda@nordicsemi.no,
-	martin.gergeleit@hs-rm.de, marcel@holtmann.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:37869 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932286AbbKQXEF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 18:04:05 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org,
+	daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org,
+	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: Jan Engelhardt <jengelh-9+2X+4sQBs8@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.20.1511172356570.13966-Og55a6x16tXH9RFtKMg/Ng@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello,
 
-I recently sent some 6lowpan stateful compression patches to netdev. It
-provides to setup 6lowpan contexts entries (ipv6 prefixes and prefix-length
-by id) via debugfs manually at the moment.
+On Wed, Nov 18, 2015 at 12:02:01AM +0100, Jan Engelhardt wrote:
+> On Tuesday 2015-11-17 20:42, Tejun Heo wrote:
+> >+static void cgroup2_save(const void *ip, const struct xt_entry_match *match)
+> >+{
+> >+	const struct xt_cgroup2_info *info = (void *)match->data;
+> >+
+> >+	printf("%s --path %s", info->invert ? " !" : "", info->path);
+> >+}
+> 
+> Can cgroup path names contain anything fancy, like spaces, backslashes, etc.?
+> If so, xtables_save_string() will be needed here.
 
-This means, it works when all other "network nodes" also sets the same
-ID's inside the table _manually_.
+Will update.
 
-Well, it exists a RFC (and others) [0] to share the prefixes (contexts) inside
-the network without manually manipulate the tables.
+> >+static struct xtables_match cgroup2_match = {
+> >+	.family		= NFPROTO_UNSPEC,
+> >+	.name		= "cgroup2",
+> >+	.version	= XTABLES_VERSION,
+> >+	.size		= XT_ALIGN(sizeof(struct xt_cgroup2_info)),
+> >+	.userspacesize	= XT_ALIGN(sizeof(struct xt_cgroup2_info)),
+> 
+> userspacesize must not include xt_cgroup2_info.priv.
+> Change to offsetof(...), cf. other .c modules which do this.
 
-The rfc6775 describes new ICMPv6 option fields and ICMPv6 messages. I
-want to talk about the ICMPv6 messages which are handled by userspace to
-handle the necessary option fields.
+Ah, okay.
 
-The case is now, rfc6775 describes 6CO option fields for RA [1]. For this
-reason we need an userspace interface to manipulate/get the current
-context entries which are currently stored inside the kernel.
+...
+> >+\fBIMPORTANT\fP: when being used in the INPUT chain, the cgroup2
+> >+matcher is currently only of limited functionality, meaning it
+> >+will only match on packets that are processed for local sockets
+> >+through early socket demuxing. Therefore, general usage on the
+> >+INPUT chain is disadviced unless the implications are well
+> 
+> is disadviced (sic)  -> is not advised
 
-These context tables are:
+Will update.  That's copied verbatim from xt_cgroup tho.  Will create
+a patch to update that too.
 
- - A per interface declaration.
- - Maximum 16 entries.
- - Provides: ID, address prefix (can also 128 bit) and prefix-len
+Thanks.
 
-My question is what would be the best to do a userspace interface:
-
-Note:
- These context tables should only available for 6LoWPAN interface types,
- which means: ARPHRD_6LOWPAN.
-
-- netlink entry?
-   - RTNL netlink?
-   - 6lowpan netlink?
-     - We don't currently has any netlink connection for net/6lowpan
-       branch, but it's possible to add one special "6lowpan" netlink
-       family to provide all 6LoWPAN configuration which belongs to
-       ARPHRD_6LOWPAN. We need such interface of course for other
-       settings as well.
-- per interface, sysfs entry
-  - should _maybe_ looks like the debugfs entries.
-
-Thanks for any suggestion.
-
-- Alex
-
-[0] https://tools.ietf.org/html/rfc6775
-[1] https://tools.ietf.org/html/rfc6775#section-5.4
+-- 
+tejun
