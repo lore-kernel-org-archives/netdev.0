@@ -1,69 +1,40 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH v2 net-next] net/core: ensure features get disabled on new
- lower devs
-Date: Tue, 17 Nov 2015 11:04:17 +0100
-Message-ID: <CAMuHMdWZQfBM-KKUEHnz89D82pBsLtcFuabrqj504tFcnOz9yg@mail.gmail.com>
-References: <1446583017-19021-1-git-send-email-jarod@redhat.com>
-	<1446610172-21420-1-git-send-email-jarod@redhat.com>
-	<20151104.215632.964832400121049446.davem@davemloft.net>
-	<56452E2A.9050501@gmail.com>
-	<CAMuHMdWHLmfB3hEfwOCkHMrHPOBt-xk2S95Tq1yyH1bwk29DNA@mail.gmail.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] xen-netfront crash when detaching network while some
+ network activity
+Date: Tue, 17 Nov 2015 11:59:17 +0000
+Message-ID: <564B1695.8000009@citrix.com>
+References: <20150522114932.GC8664@mail-itl> <55645140.1050209@citrix.com>
+	<20150526220312.GA1358@mail-itl> <20151021185734.GD31646@mail-itl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Jarod Wilson <jarod@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	Michal Kubecek <mkubecek@suse.cz>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdWHLmfB3hEfwOCkHMrHPOBt-xk2S95Tq1yyH1bwk29DNA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	xen-devel <xen-devel@lists.xen.org>,
+	Annie Li <annie.li@oracle.com>
+To: =?windows-1252?Q?Marek_Marczykowski-G=F3recki?=
+	<marmarek@invisiblethingslab.com>,
+	David Vrabel <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:5493 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751202AbbKQL7W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Nov 2015 06:59:22 -0500
+In-Reply-To: <20151021185734.GD31646@mail-itl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 17, 2015 at 10:02 AM, Geert Uytterhoeven
-<geert@linux-m68k.org> wrote:
-> On Fri, Nov 13, 2015 at 1:26 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> On 04/11/15 18:56, David Miller wrote:
->>>> Fixes: fd867d51f889 ("net/core: generic support for disabling netdev features down stack")
->>>  ...
->>>> Reported-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>>> Signed-off-by: Jarod Wilson <jarod@redhat.com>
->>>> ---
->>>> v2: Based on suggestions from Alex, and with not changing err to ret, this
->>>> patch actually becomes quite minimal and doesn't ugly up the code much.
->>>
->>> Applied, thanks.
->>
->> This causes some warnings to be displayed for DSA stacked devices:
->
-> And a few more:
->
-> sh-eth ee700000.ethernet eth0: set_features() failed (-1); wanted
-> 0x0000000000004000, left 0x0000000000004800
-> g_ether gadget usb0: set_features() failed (-1); wanted
-> 0x0000000000004000, left 0x0000000000004800
+On 21/10/15 19:57, Marek Marczykowski-G=F3recki wrote:
+>=20
+> Any ideas?
 
-smsc911x 8000000.ethernet eth0: set_features() failed (-1); wanted
-0x0000000000004000, left 0x0000000000004800
+No, sorry.  Netfront looks correct to me.
 
-Gr{oetje,eeting}s,
+We take an additional ref for the ref released by
+gnttab_release_grant_reference().  The get_page() here is safe since we
+haven't freed the page yet (this is done in the subsequent call to
+skb_kfree_irq()).
 
-                        Geert
+get_page()/put_page() also look fine when used with tail pages.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+David
