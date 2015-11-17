@@ -1,44 +1,33 @@
-From: martinbj2008@gmail.com
-Subject: [PATCH v1 net] net: use skb_clone to avoid alloc_pages failure.
-Date: Tue, 17 Nov 2015 20:49:30 +0800
-Message-ID: <1447764570-22647-1-git-send-email-martinbj2008@gmail.com>
-Cc: netdev@vger.kernel.org, Martin Zhang <martinbj2008@gmail.com>,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v1 net] net: use skb_clone to avoid alloc_pages failure.
+Date: Tue, 17 Nov 2015 05:07:23 -0800
+Message-ID: <1447765643.22599.89.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1447764570-22647-1-git-send-email-martinbj2008@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	Junwei Zhang <linggao.zjw@alibaba-inc.com>
-To: davem@davemloft.net
+To: martinbj2008@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35790 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752901AbbKQMth (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 07:49:37 -0500
-Received: by pacej9 with SMTP id ej9so8491579pac.2
-        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 04:49:37 -0800 (PST)
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:36318 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752416AbbKQNHZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 08:07:25 -0500
+Received: by pacdm15 with SMTP id dm15so8837807pac.3
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 05:07:24 -0800 (PST)
+In-Reply-To: <1447764570-22647-1-git-send-email-martinbj2008@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin Zhang <martinbj2008@gmail.com>
+On Tue, 2015-11-17 at 20:49 +0800, martinbj2008@gmail.com wrote:
+> From: Martin Zhang <martinbj2008@gmail.com>
+> 
+> 1. new skb only need dst and ip address(v4 or v6).
+> 2. skb_copy may need high order pages, which is very rare on long running server.
+> 
+> Signed-off-by: Junwei Zhang <linggao.zjw@alibaba-inc.com>
+> Signed-off-by: Martin Zhang <martinbj2008@gmail.com>
+> ---
 
-1. new skb only need dst and ip address(v4 or v6).
-2. skb_copy may need high order pages, which is very rare on long running server.
-
-Signed-off-by: Junwei Zhang <linggao.zjw@alibaba-inc.com>
-Signed-off-by: Martin Zhang <martinbj2008@gmail.com>
----
-
- net/core/neighbour.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 1aa8437..e6af42d 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -857,7 +857,7 @@ static void neigh_probe(struct neighbour *neigh)
- 	struct sk_buff *skb = skb_peek_tail(&neigh->arp_queue);
- 	/* keep skb alive even if arp_queue overflows */
- 	if (skb)
--		skb = skb_copy(skb, GFP_ATOMIC);
-+		skb = skb_clone(skb, GFP_ATOMIC);
- 	write_unlock(&neigh->lock);
- 	neigh->ops->solicit(neigh, skb);
- 	atomic_inc(&neigh->probes);
--- 
-2.1.4
+Acked-by: Eric Dumazet <edumazet@google.com>
