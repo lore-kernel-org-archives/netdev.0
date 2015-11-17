@@ -1,47 +1,59 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 4/5] sock, cgroup: add sock->sk_cgroup
-Date: Tue, 17 Nov 2015 16:31:26 -0500
-Message-ID: <20151117213126.GH22864@mtj.duckdns.org>
-References: <1447789240-29394-1-git-send-email-tj@kernel.org>
- <1447789240-29394-5-git-send-email-tj@kernel.org>
- <20151117.162554.314531574043190960.davem@davemloft.net>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue (w/ Fixes:)
+Date: Tue, 17 Nov 2015 21:37:46 +0000
+Message-ID: <87d1v85mtx.fsf@doppelsaurus.mobileactivedefense.com>
+References: <87a8qhspfm.fsf@doppelsaurus.mobileactivedefense.com>
+	<876111wpza.fsf@doppelsaurus.mobileactivedefense.com>
+	<87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<20151117.151421.249423864481324472.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org,
-	lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-team-b10kYP2dOMg@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
-	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151117.162554.314531574043190960.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: rweikusat@mobileactivedefense.com, jbaron@akamai.com,
+	dvyukov@google.com, syzkaller@googlegroups.com, mkubecek@suse.cz,
+	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, hannes@stressinduktion.org,
+	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
+	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org,
+	kcc@google.com, glider@google.com, andreyknvl@google.com,
+	sasha.levin@oracle.com, jln@google.com, keescook@google.com,
+	minipli@googlemail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151117.151421.249423864481324472.davem@davemloft.net> (David
+	Miller's message of "Tue, 17 Nov 2015 15:14:21 -0500 (EST)")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, David.
+David Miller <davem@davemloft.net> writes:
+> From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+> Date: Mon, 16 Nov 2015 22:28:40 +0000
+>
+>> An AF_UNIX datagram socket being the client in an n:1 association with
+>> some server socket is only allowed to send messages to the server if the
+>> receive queue of this socket contains at most sk_max_ack_backlog
+>> datagrams.
 
-On Tue, Nov 17, 2015 at 04:25:54PM -0500, David Miller wrote:
-> > In preparation, this patch adds sock->sk_cgroup which points to the
-> > associated cgroup.  A sock is associated on creation and stays
-> > associated to the same cgroup until freed; unfortunately, this ends up
-> > adding another cgroup field to struct sock on top of sk_cgrp_prioidx
-> > and sk_classid.  I tried to think of a way to somehow overload the
-> > existing fields but couldn't come up with a reasonable one.
-> 
-> sk->sk_cgrp_prioidx is simply sk->sk_cgroup->id, is it not?
+[...]
 
-Unfortunately, sk->sk_cgrp_prioidx is an arbitrary value which can be
-configured through "net_cls.classid".  :(
+>> Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+>> Fixes: ec0d215f9420 ("af_unix: fix 'poll for write'/connected DGRAM sockets")
+>
+> So because of a corner case of epoll handling and sender socket release,
+> every single datagram sendmsg has to do a double lock now?
+>
+> I do not dispute the correctness of your fix at this point, but that
+> added cost in the fast path is really too high.
 
-> We really need to consolidate this before we stuff even more members
-> into the socket for control group support, sorry.
+This leaves only the option of a somewhat incorrect solution and what is
+or isn't acceptable in this respect is somewhat difficult to decide. The
+basic options would be
 
-Yeah, it is messy.  I'll see if I can come up with a non-crazy way to
-combine the other two fields with ->sk_cgroup.
+	- return EAGAIN even if sending became possible (Jason's most
+          recent suggestions)
 
-Thanks.
+	- retry sending a limited number of times, eg, once, before
+          returning EAGAIN, on the grounds that this is nicer to the
+          application and that redoing all the stuff up to the _lock in
+          dgram_sendmsg can possibly/ likely be avoided
 
--- 
-tejun
+Which one do you prefer?
