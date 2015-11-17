@@ -1,41 +1,84 @@
-From: Jan Engelhardt <jengelh-9+2X+4sQBs8@public.gmane.org>
-Subject: Re: [PATCH 2/5] kernfs: implement kernfs_walk_and_get()
-Date: Tue, 17 Nov 2015 23:48:55 +0100 (CET)
-Message-ID: <alpine.LSU.2.20.1511172348110.13966@nerf40.vanv.qr>
-References: <1447789240-29394-1-git-send-email-tj@kernel.org> <1447789240-29394-3-git-send-email-tj@kernel.org> <20151117.162040.1412296298973879057.davem@davemloft.net>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue (w/ Fixes:)
+Date: Tue, 17 Nov 2015 22:48:52 +0000
+Message-ID: <874mgk5jjf.fsf@doppelsaurus.mobileactivedefense.com>
+References: <87a8qhspfm.fsf@doppelsaurus.mobileactivedefense.com>
+	<876111wpza.fsf@doppelsaurus.mobileactivedefense.com>
+	<87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<20151117.151421.249423864481324472.davem@davemloft.net>
+	<87d1v85mtx.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org,
-	daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org,
-	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151117.162040.1412296298973879057.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jbaron@akamai.com,
+	dvyukov@google.com, syzkaller@googlegroups.com, mkubecek@suse.cz,
+	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, hannes@stressinduktion.org,
+	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
+	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org,
+	kcc@google.com, glider@google.com, andreyknvl@google.com,
+	sasha.levin@oracle.com, jln@google.com, keescook@google.com,
+	minipli@googlemail.com
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87d1v85mtx.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
+	Weikusat's message of "Tue, 17 Nov 2015 21:37:46 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Rainer Weikusat <rweikusat@mobileactivedefense.com> writes:
 
-On Tuesday 2015-11-17 22:20, David Miller wrote:
->> +	static char path_buf[PATH_MAX];	/* protected by kernfs_mutex */
->> +	int len = strlen(path);
-> ...
->> +	if (len >= PATH_MAX)
->> +		return NULL;
->> +
->> +	memcpy(path_buf, path, len + 1);
->
->	static char path_buf[PATH_MAX];	/* protected by kernfs_mutex */
->	int len = strlcpy(path_buf, path, PATH_MAX);
-> ...
->	if (len >= PATH_MAX)
->		return NULL;
+[...]
 
-	if (len < 0 || len >= PATH_MAX)
+> This leaves only the option of a somewhat incorrect solution and what is
+> or isn't acceptable in this respect is somewhat difficult to decide. The
+> basic options would be
 
-strlcpy returns a size_t, which, when coerced into an int, could lead to
-negative numbers. In that sense, "size_t len" probably seems like an even
-better bet yet.
+[...]
+> 	- retry sending a limited number of times, eg, once, before
+>           returning EAGAIN, on the grounds that this is nicer to the
+>           application and that redoing all the stuff up to the _lock in
+>           dgram_sendmsg can possibly/ likely be avoided
+
+Since it's better to have a specific example of something: Here's
+another 'code sketch' of this option (hopefully with less errors this
+time, there's an int restart = 0 above):
+
+	if (unix_peer(other) != sk && unix_recvq_full(other)) {
+		int need_wakeup;
+		
+
+[...]
+
+		need_wakeup = 0;
+		err = 0;
+		unix_state_unlock(other);
+		unix_state_lock(sk);
+
+		if (unix_peer(sk) == other) {
+			if (++restart == 2) {
+				need_wakeup = unix_dgram_peer_wake_connect(sk, other) &&
+					      sk_receive_queue_len(other) == 0;
+				err = -EAGAIN;
+			} else if (unix_dgram_peer_wake_me(sk, other))
+				err = -EAGAIN;
+		} else
+			err = -EAGAIN;
+
+		unix_state_unlock(sk);
+
+		if (err || !restart) {
+			if (need_wakeup)
+				wake_up_interruptible_poll(sk_sleep(sk),
+							   POLLOUT |
+							   POLLWRNORM |
+							   POLLWRBAND);
+			
+			goto out_free;
+		}
+		
+		goto restart;
+	}
+
+I don't particularly like that, either, and to me, the best option seems
+to be to return the spurious EAGAIN if taking both locks unconditionally
+is not an option as that's the simplest choice.
