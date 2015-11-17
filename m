@@ -1,13 +1,14 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 5/5] netfilter: implement xt_cgroup2 match
-Date: Tue, 17 Nov 2015 14:40:40 -0500
-Message-ID: <1447789240-29394-6-git-send-email-tj@kernel.org>
+Subject: [PATCH 2/5] kernfs: implement kernfs_walk_and_get()
+Date: Tue, 17 Nov 2015 14:40:37 -0500
+Message-ID: <1447789240-29394-3-git-send-email-tj@kernel.org>
 References: <1447789240-29394-1-git-send-email-tj@kernel.org>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	coreteam@netfilter.org, cgroups@vger.kernel.org,
 	linux-kernel@vger.kernel.org, kernel-team@fb.com,
 	daniel@iogearbox.net, daniel.wagner@bmw-carit.de,
-	nhorman@tuxdriver.com, Tejun Heo <tj@kernel.org>
+	nhorman@tuxdriver.com, Tejun Heo <tj@kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 To: davem@davemloft.net, pablo@netfilter.org, kaber@trash.net,
 	kadlec@blackhole.kfki.hu, lizefan@huawei.com, hannes@cmpxchg.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -15,157 +16,118 @@ In-Reply-To: <1447789240-29394-1-git-send-email-tj@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch implements xt_cgroup2 which matches cgroup2 membership of
-the associated socket.  The match is recursive and invertible.
-
-For rationales on introducing another cgroup based match, please refer
-to a preceding commit "sock, cgroup: add sock->sk_cgroup".
+Implement kernfs_walk_and_get() which is similar to
+kernfs_find_and_get() but can walk a path instead of just a name.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Daniel Wagner <daniel.wagner@bmw-carit.de>
-CC: Neil Horman <nhorman@tuxdriver.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 ---
- include/uapi/linux/netfilter/xt_cgroup2.h | 14 ++++++
- net/netfilter/Kconfig                     |  9 ++++
- net/netfilter/Makefile                    |  1 +
- net/netfilter/xt_cgroup2.c                | 75 +++++++++++++++++++++++++++++++
- 4 files changed, 99 insertions(+)
- create mode 100644 include/uapi/linux/netfilter/xt_cgroup2.h
- create mode 100644 net/netfilter/xt_cgroup2.c
+ fs/kernfs/dir.c        | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/kernfs.h | 12 ++++++++++++
+ 2 files changed, 60 insertions(+)
 
-diff --git a/include/uapi/linux/netfilter/xt_cgroup2.h b/include/uapi/linux/netfilter/xt_cgroup2.h
-new file mode 100644
-index 0000000..8726d31
---- /dev/null
-+++ b/include/uapi/linux/netfilter/xt_cgroup2.h
-@@ -0,0 +1,14 @@
-+#ifndef _XT_CGROUP2_H
-+#define _XT_CGROUP2_H
-+
-+#include <linux/types.h>
-+
-+struct xt_cgroup2_info {
-+	char				path[PATH_MAX];
-+	__u8				invert;
-+
-+	/* kernel internal data */
-+	void				*priv;
-+};
-+
-+#endif /* _XT_CGROUP2_H */
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index e22349e..55d3afe 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -974,6 +974,15 @@ config NETFILTER_XT_MATCH_BPF
+diff --git a/fs/kernfs/dir.c b/fs/kernfs/dir.c
+index 91e0045..95dc415 100644
+--- a/fs/kernfs/dir.c
++++ b/fs/kernfs/dir.c
+@@ -694,6 +694,31 @@ static struct kernfs_node *kernfs_find_ns(struct kernfs_node *parent,
+ 	return NULL;
+ }
  
- 	  To compile it as a module, choose M here.  If unsure, say N.
- 
-+config NETFILTER_XT_MATCH_CGROUP2
-+	tristate '"cgroup2" match support'
-+	depends on NETFILTER_ADVANCED
-+	depends on CGROUPS
-+	help
-+	  cgroup2 matching allows you to match locally generated and
-+	  early demuxed packets based on the v2 cgroup the socket is
-+	  associated with on creation.
-+
- config NETFILTER_XT_MATCH_CGROUP
- 	tristate '"control group" match support'
- 	depends on NETFILTER_ADVANCED
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 7638c36..86cee05 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -152,6 +152,7 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_MULTIPORT) += xt_multiport.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_NFACCT) += xt_nfacct.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_OSF) += xt_osf.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_OWNER) += xt_owner.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_CGROUP2) += xt_cgroup2.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_CGROUP) += xt_cgroup.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_PHYSDEV) += xt_physdev.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_PKTTYPE) += xt_pkttype.o
-diff --git a/net/netfilter/xt_cgroup2.c b/net/netfilter/xt_cgroup2.c
-new file mode 100644
-index 0000000..cf99524
---- /dev/null
-+++ b/net/netfilter/xt_cgroup2.c
-@@ -0,0 +1,75 @@
-+#include <linux/skbuff.h>
-+#include <linux/module.h>
-+#include <linux/cgroup.h>
-+#include <linux/netfilter/x_tables.h>
-+#include <linux/netfilter/xt_cgroup2.h>
-+#include <net/sock.h>
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Tejun Heo <tj@kernel.org>");
-+MODULE_DESCRIPTION("Xtables: cgroup2 socket ownership matching");
-+MODULE_ALIAS("ipt_cgroup2");
-+MODULE_ALIAS("ip6t_cgroup2");
-+
-+static int cgroup2_mt_check(const struct xt_mtchk_param *par)
++static struct kernfs_node *kernfs_walk_ns(struct kernfs_node *parent,
++					  const unsigned char *path,
++					  const void *ns)
 +{
-+	struct xt_cgroup2_info *info = par->matchinfo;
-+	struct cgroup *cgrp;
++	static char path_buf[PATH_MAX];	/* protected by kernfs_mutex */
++	int len = strlen(path);
++	char *p, *name;
 +
-+	if (info->invert & ~1)
-+		return -EINVAL;
++	lockdep_assert_held(&kernfs_mutex);
 +
-+	cgrp = cgroup_get_from_path(info->path);
-+	if (IS_ERR(cgrp)) {
-+		pr_info("xt_cgroup2: invalid path, errno=%ld\n", PTR_ERR(cgrp));
-+		return -EINVAL;
++	if (len >= PATH_MAX)
++		return NULL;
++
++	memcpy(path_buf, path, len + 1);
++	p = path_buf;
++
++	while ((name = strsep(&p, "/")) && parent) {
++		if (*name == '\0')
++			continue;
++		parent = kernfs_find_ns(parent, name, ns);
 +	}
-+	info->priv = cgrp;
 +
-+	return 0;
++	return parent;
 +}
 +
-+static bool cgroup2_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ /**
+  * kernfs_find_and_get_ns - find and get kernfs_node with the given name
+  * @parent: kernfs_node to search under
+@@ -719,6 +744,29 @@ struct kernfs_node *kernfs_find_and_get_ns(struct kernfs_node *parent,
+ EXPORT_SYMBOL_GPL(kernfs_find_and_get_ns);
+ 
+ /**
++ * kernfs_walk_and_get_ns - find and get kernfs_node with the given path
++ * @parent: kernfs_node to search under
++ * @path: path to look for
++ * @ns: the namespace tag to use
++ *
++ * Look for kernfs_node with path @path under @parent and get a reference
++ * if found.  This function may sleep and returns pointer to the found
++ * kernfs_node on success, %NULL on failure.
++ */
++struct kernfs_node *kernfs_walk_and_get_ns(struct kernfs_node *parent,
++					   const char *path, const void *ns)
 +{
-+	const struct xt_cgroup2_info *info = par->matchinfo;
-+	struct cgroup *ancestor = info->priv;
++	struct kernfs_node *kn;
 +
-+	if (!skb->sk || !sk_fullsock(skb->sk))
-+		return false;
++	mutex_lock(&kernfs_mutex);
++	kn = kernfs_walk_ns(parent, path, ns);
++	kernfs_get(kn);
++	mutex_unlock(&kernfs_mutex);
 +
-+	return cgroup_is_descendant(skb->sk->sk_cgroup, ancestor) ^ info->invert;
++	return kn;
 +}
 +
-+static void cgroup2_mt_destroy(const struct xt_mtdtor_param *par)
++/**
+  * kernfs_create_root - create a new kernfs hierarchy
+  * @scops: optional syscall operations for the hierarchy
+  * @flags: KERNFS_ROOT_* flags
+diff --git a/include/linux/kernfs.h b/include/linux/kernfs.h
+index 5d4e9c4..af51df3 100644
+--- a/include/linux/kernfs.h
++++ b/include/linux/kernfs.h
+@@ -274,6 +274,8 @@ void pr_cont_kernfs_path(struct kernfs_node *kn);
+ struct kernfs_node *kernfs_get_parent(struct kernfs_node *kn);
+ struct kernfs_node *kernfs_find_and_get_ns(struct kernfs_node *parent,
+ 					   const char *name, const void *ns);
++struct kernfs_node *kernfs_walk_and_get_ns(struct kernfs_node *parent,
++					   const char *path, const void *ns);
+ void kernfs_get(struct kernfs_node *kn);
+ void kernfs_put(struct kernfs_node *kn);
+ 
+@@ -350,6 +352,10 @@ static inline struct kernfs_node *
+ kernfs_find_and_get_ns(struct kernfs_node *parent, const char *name,
+ 		       const void *ns)
+ { return NULL; }
++static inline struct kernfs_node *
++kernfs_walk_and_get_ns(struct kernfs_node *parent, const char *path,
++		       const void *ns)
++{ return NULL; }
+ 
+ static inline void kernfs_get(struct kernfs_node *kn) { }
+ static inline void kernfs_put(struct kernfs_node *kn) { }
+@@ -431,6 +437,12 @@ kernfs_find_and_get(struct kernfs_node *kn, const char *name)
+ }
+ 
+ static inline struct kernfs_node *
++kernfs_walk_and_get(struct kernfs_node *kn, const char *path)
 +{
-+	struct xt_cgroup2_info *info = par->matchinfo;
-+
-+	cgroup_put(info->priv);
++	return kernfs_walk_and_get_ns(kn, path, NULL);
 +}
 +
-+static struct xt_match cgroup2_mt_reg __read_mostly = {
-+	.name		= "cgroup2",
-+	.revision	= 0,
-+	.family		= NFPROTO_UNSPEC,
-+	.checkentry	= cgroup2_mt_check,
-+	.match		= cgroup2_mt,
-+	.matchsize	= sizeof(struct xt_cgroup2_info),
-+	.destroy	= cgroup2_mt_destroy,
-+	.me		= THIS_MODULE,
-+	.hooks		= (1 << NF_INET_LOCAL_OUT) |
-+			  (1 << NF_INET_POST_ROUTING) |
-+			  (1 << NF_INET_LOCAL_IN),
-+};
-+
-+static int __init cgroup2_mt_init(void)
-+{
-+	return xt_register_match(&cgroup2_mt_reg);
-+}
-+
-+static void __exit cgroup2_mt_exit(void)
-+{
-+	xt_unregister_match(&cgroup2_mt_reg);
-+}
-+
-+module_init(cgroup2_mt_init);
-+module_exit(cgroup2_mt_exit);
++static inline struct kernfs_node *
+ kernfs_create_dir(struct kernfs_node *parent, const char *name, umode_t mode,
+ 		  void *priv)
+ {
 -- 
 2.5.0
