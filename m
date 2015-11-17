@@ -1,35 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/3] dl2k: Handle memory allocation errors in alloc_list
-Date: Tue, 17 Nov 2015 23:54:03 +0100
-Message-ID: <20151117225403.GA3362@electric-eye.fr.zoreil.com>
-References: <1447781298-19785-1-git-send-email-linux@rainbow-software.org>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: [PATCH 1/5] cgroup: record ancestor IDs and reimplement
+ cgroup_is_descendant() using it
+Date: Tue, 17 Nov 2015 23:54:54 +0100 (CET)
+Message-ID: <alpine.LSU.2.20.1511172353350.13966@nerf40.vanv.qr>
+References: <1447789240-29394-1-git-send-email-tj@kernel.org> <1447789240-29394-2-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Ondrej Zary <linux@rainbow-software.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, pablo@netfilter.org, kaber@trash.net,
+	kadlec@blackhole.kfki.hu, lizefan@huawei.com, hannes@cmpxchg.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com,
+	daniel@iogearbox.net, daniel.wagner@bmw-carit.de,
+	nhorman@tuxdriver.com
+To: Tejun Heo <tj@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1447781298-19785-1-git-send-email-linux@rainbow-software.org>
+In-Reply-To: <1447789240-29394-2-git-send-email-tj@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ondrej Zary <linux@rainbow-software.org> :
-> If memory allocation fails in alloc_list(), free the already allocated
-> memory and return -ENODEV. In rio_open(), call alloc_list() first and
-> abort if it fails. Move HW access (set RFDListPtr) out ot alloc_list().
-> 
-> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
 
-ENODEV vs ENOMEM aside, it's ok with me.
+On Tuesday 2015-11-17 20:40, Tejun Heo wrote:
+>+static inline bool cgroup_is_descendant(struct cgroup *cgrp,
+>+					struct cgroup *ancestor)
 
-The driver may avoid depleting the receive ring when netdev_alloc_skb_ip_align
-fails in receive_packet (drop and increase stats->rx_dropped).
+(const struct group *cgrp, const struct group *ancestor)
 
-Then you may replace the pci_* dma helpers with the plain dma_* ones (they
-can fail).
-
-And perform a plain napi conversion.
-
--- 
-Ueimor
+>+{
+>+	if (cgrp->root != ancestor->root || cgrp->level < ancestor->level)
+>+		return false;
+>+	return cgrp->ancestor_ids[ancestor->level] == ancestor->id;
+>+}
