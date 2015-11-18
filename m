@@ -1,125 +1,70 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 1/2] net: dsa: Add support for a switch reset gpio
-Date: Thu, 19 Nov 2015 00:29:24 +0100
-Message-ID: <1447889365-25256-2-git-send-email-andrew@lunn.ch>
-References: <1447889365-25256-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Neil Armstrong <narmstrong@baylibre.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:36887 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757337AbbKRX3i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Nov 2015 18:29:38 -0500
-In-Reply-To: <1447889365-25256-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] ravb: fix WARNING in __free_irq()
+Date: Wed, 18 Nov 2015 15:29:45 -0800
+Message-ID: <20151118232944.GF21136@verge.net.au>
+References: <4607844.sdhchmu5cM@wasted.cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	kazuya.mizuguchi.ks@renesas.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4607844.sdhchmu5cM@wasted.cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Some boards have a gpio line tied to the switch reset pin. Allow this
-gpio to be retrieved from the device tree, and take the switch out of
-reset before performing the probe.
+On Thu, Nov 19, 2015 at 01:39:51AM +0300, Sergei Shtylyov wrote:
+> When the R8A7795 support was  added to the driver, little attention was paid
+> to the ravb_open() error path: free_irq()  for the EMAC interrupt was called
+> uncoditionally, unlike request_irq(), and in  a wrong order as well...
+> As a result, on the R-Car gen2 SoCs I started getting the following in case
+> of a device  opening error:
+> 
+> WARNING: CPU: 0 PID: 1 at kernel/irq/manage.c:1448 __free_irq+0x8c/0x228()
+> Trying to free already-free IRQ 0
+> Modules linked in:
+> CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.4.0-rc1-dirty #1005
+> Hardware name: Generic R8A7791 (Flattened Device Tree)
+> Backtrace:
+> [<c0013818>] (dump_backtrace) from [<c00139b4>] (show_stack+0x18/0x1c)
+>  r6:c063cdd6 r5:00000009 r4:00000000 r3:00204140
+> [<c001399c>] (show_stack) from [<c022a578>] (dump_stack+0x74/0x90)
+> [<c022a504>] (dump_stack) from [<c0025f04>] (warn_slowpath_common+0x8c/0xb8)
+>  r4:ef04fd38 r3:c0714770
+> [<c0025e78>] (warn_slowpath_common) from [<c0025fd4>] (warn_slowpath_fmt+0x38/0x40)                                                                             
+>  r8:ee8ad800 r7:ef0030a0 r6:00000000 r5:00000000 r4:ef003040
+> [<c0025fa0>] (warn_slowpath_fmt) from [<c0064cc0>] (__free_irq+0x8c/0x228)
+>  r3:00000000 r2:c063ce9f
+> [<c0064c34>] (__free_irq) from [<c0064ecc>] (free_irq+0x70/0xa4)
+>  r10:0000016b r8:00000000 r7:00000000 r6:ee8ad800 r5:00000000 r4:ef003040
+> [<c0064e5c>] (free_irq) from [<c033472c>] (ravb_open+0x224/0x274)  
+>  r7:fffffffe r6:00000000 r5:fffffffe r4:ee8ad800
+> [<c0334508>] (ravb_open) from [<c041ac78>] (__dev_open+0x84/0x104)
+>  r7:ee8ad830 r6:c0566334 r5:00000000 r4:ee8ad800
+> [<c041abf4>] (__dev_open) from [<c041af08>] (__dev_change_flags+0x94/0x13c)
+>  r7:00001002 r6:00000001 r5:00001003 r4:ee8ad800
+> [<c041ae74>] (__dev_change_flags) from [<c041afe8>] (dev_change_flags+0x20/0x50)
+>  r7:c072e6e0 r6:00000138 r5:00001002 r4:ee8ad800
+> [<c041afc8>] (dev_change_flags) from [<c06ec06c>] (ip_auto_config+0x174/0xfb8)
+>  r8:00001002 r7:c072e6e0 r6:c0703344 r5:00000001 r4:ee8ad800 r3:00000101
+> [<c06ebef8>] (ip_auto_config) from [<c000a810>] (do_one_initcall+0x100/0x1cc)
+>  r10:c06fb83c r9:00000000 r8:c06ebef8 r7:c0736000 r6:c0710918 r5:c0710918
+>  r4:ef2f8f80
+> [<c000a710>] (do_one_initcall) from [<c06ccddc>] (kernel_init_freeable+0x11c/0x1
+> ec)                                                                
+>  r10:c06fb83c r9:00000000 r8:0000009a r7:c0736000 r6:c0706bf0 r5:c06fb834
+>  r4:00000007
+> [<c06cccc0>] (kernel_init_freeable) from [<c0514c54>] (kernel_init+0x14/0xec)
+>  r10:00000000 r8:00000000 r7:00000000 r6:00000000 r5:c0514c40 r4:c0736000
+> [<c0514c40>] (kernel_init) from [<c0010458>] (ret_from_fork+0x14/0x3c)
+>  r4:00000000 r3:ef04e000
+> 
+> Fix up the free_irq() call order and add a new label on the error path.
+> 
+> Fixes: 22d4df8ff3a3 ("ravb: Add support for r8a7795 SoC")
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- Documentation/devicetree/bindings/net/dsa/dsa.txt |  3 +++
- include/net/dsa.h                                 |  9 +++++++++
- net/dsa/dsa.c                                     | 19 +++++++++++++++++++
- 3 files changed, 31 insertions(+)
+Thanks for fixing my mistake.
 
-diff --git a/Documentation/devicetree/bindings/net/dsa/dsa.txt b/Documentation/devicetree/bindings/net/dsa/dsa.txt
-index 04e6bef3ac3f..5fdbbcdf8c4b 100644
---- a/Documentation/devicetree/bindings/net/dsa/dsa.txt
-+++ b/Documentation/devicetree/bindings/net/dsa/dsa.txt
-@@ -31,6 +31,8 @@ A switch child node has the following optional property:
- 			  switch. Must be set if the switch can not detect
- 			  the presence and/or size of a connected EEPROM,
- 			  otherwise optional.
-+- reset-gpios		: phandle and specifier to a gpio line connected to
-+			  reset pin of the switch chip.
- 
- A switch may have multiple "port" children nodes
- 
-@@ -114,6 +116,7 @@ Example:
- 			#size-cells = <0>;
- 			reg = <17 1>;	/* MDIO address 17, switch 1 in tree */
- 			mii-bus = <&mii_bus1>;
-+			reset-gpios = <&gpio5 1 GPIO_ACTIVE_LOW>;
- 
- 			switch1port0: port@0 {
- 				reg = <0>;
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 82a4c6011173..913a61ea81d3 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -16,6 +16,7 @@
- #include <linux/timer.h>
- #include <linux/workqueue.h>
- #include <linux/of.h>
-+#include <linux/of_gpio.h>
- #include <linux/phy.h>
- #include <linux/phy_fixed.h>
- #include <linux/ethtool.h>
-@@ -64,6 +65,14 @@ struct dsa_chip_data {
- 	 * NULL if there is only one switch chip.
- 	 */
- 	s8		*rtable;
-+
-+	/*
-+	 * A switch may have a GPIO line tied to its reset pin. Parse
-+	 * this from the device tree, and use it before performing
-+	 * switch soft reset.
-+	 */
-+	int reset;
-+	enum of_gpio_flags reset_flags;
- };
- 
- struct dsa_platform_data {
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 1eba07feb34a..39cd19eaaf4e 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -21,6 +21,8 @@
- #include <linux/of_mdio.h>
- #include <linux/of_platform.h>
- #include <linux/of_net.h>
-+#include <linux/nvmem-consumer.h>
-+#include <linux/of_gpio.h>
- #include <linux/sysfs.h>
- #include <linux/phy_fixed.h>
- #include "dsa_priv.h"
-@@ -688,6 +690,9 @@ static int dsa_of_probe(struct device *dev)
- 	const char *port_name;
- 	int chip_index, port_index;
- 	const unsigned int *sw_addr, *port_reg;
-+	int gpio;
-+	enum of_gpio_flags flags;
-+	int off;
- 	u32 eeprom_len;
- 	int ret;
- 
-@@ -767,6 +772,20 @@ static int dsa_of_probe(struct device *dev)
- 			cd->host_dev = &mdio_bus_switch->dev;
- 		}
- 
-+		gpio = of_get_named_gpio_flags(child, "reset-gpios", 0,
-+					       &flags);
-+		if (gpio_is_valid(gpio)) {
-+			ret = devm_gpio_request_one(dev, gpio, flags,
-+						    "switch_reset");
-+			if (ret)
-+				goto out_free_chip;
-+
-+			cd->reset = gpio;
-+			cd->reset_flags = flags;
-+			off = (flags && OF_GPIO_ACTIVE_LOW ? 1 : 0);
-+			gpio_direction_output(cd->reset, off);
-+		}
-+
- 		for_each_available_child_of_node(child, port) {
- 			port_reg = of_get_property(port, "reg", NULL);
- 			if (!port_reg)
--- 
-2.6.2
+Acked-by: Simon Horman <horms+renesas@verge.net.au>
