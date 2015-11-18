@@ -1,72 +1,51 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [RFCv2 bluetooth-next 2/3] ipv6: add ipv6_addr_prefix_cpy
-Date: Wed, 18 Nov 2015 16:55:02 +0300
-Message-ID: <564C8336.7000100@cogentembedded.com>
-References: <1447799594-6050-1-git-send-email-alex.aring@gmail.com>
- <1447799594-6050-3-git-send-email-alex.aring@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ethernet/atheros/alx: add Killer E2400 device ID
+Date: Wed, 18 Nov 2015 17:01:35 +0300
+Message-ID: <564C84BF.1090202@cogentembedded.com>
+References: <1447809667-9454-1-git-send-email-jason@system76.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, lukasz.duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org,
-	martin.gergeleit-6wGqcYweBVc@public.gmane.org,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1447799594-6050-3-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Ben Pope <benpope81@gmail.com>
+To: Jason Gerard DeRose <jason@system76.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:35652 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755900AbbKROBj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 09:01:39 -0500
+Received: by lbbsy6 with SMTP id sy6so24793030lbb.2
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 06:01:37 -0800 (PST)
+In-Reply-To: <1447809667-9454-1-git-send-email-jason@system76.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 11/18/2015 1:33 AM, Alexander Aring wrote:
+On 11/18/2015 4:21 AM, Jason Gerard DeRose wrote:
 
-> This patch adds a static inline function ipv6_addr_prefix_cpy which
+> From: Ben Pope <benpope81@gmail.com>
+>
+> This patch adds the PCI device ID (0xe0a1) and alx_pci_tbl entry for the
+> Killer E2400 Ethernet controller, modeled after the Killer E2200
+> controller support (0xe091) already present in the alx driver.
+>
+> This patch was originally authored by Ben Pope, but it got held up by
+> issues in the commit message, so I'm resubmitting it on his behalf.
+>
+> I've extensively used a kernel with this patch on a System76 serw9
+> laptop and am quite confident it works well (at least on the hardware I
+> have available for testing).
+>
+> Note that as a favor to System76, Ubuntu has been carrying this as a
+> sauce patch in their 4.2 based Wily kernel, which presumably has given
+> it real-world testing on other E2400 equipped hardware (I don't know of
+> any Ubuntu kernel bugs filed about it):
+>
+> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1498633
+>
+> Signed-off-by: Jason Gerard DeRose <jason@system76.com>
 
-    I suggest not to reduce "copy".
-
-> copies a ipv6 address prefix(argument pfx) into the ipv6 address prefix.
-> The prefix len is given by plen as bits. This function mainly based on
-> ipv6_addr_prefix which copies one address prefix from address into a new
-> ipv6 address destination and zero all other address bits.
->
-> The difference is that ipv6_addr_prefix_cpy don't get a prefix from an
-> ipv6 address, it sets a prefix to an ipv6 address with keeping other
-> address bits. The use case is for context based address compression
-> inside 6LoWPAN IPHC header which keeping ipv6 prefixes inside a context
-> table to lookup address-bits without sending them.
->
-> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
-> Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-> Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-> Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->   include/net/ipv6.h | 15 +++++++++++++++
->   1 file changed, 15 insertions(+)
->
-> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> index e1a10b0..9d38fc2 100644
-> --- a/include/net/ipv6.h
-> +++ b/include/net/ipv6.h
-> @@ -382,6 +382,21 @@ static inline void ipv6_addr_prefix(struct in6_addr *pfx,
->   		pfx->s6_addr[o] = addr->s6_addr[o] & (0xff00 >> b);
->   }
->
-> +static inline void ipv6_addr_prefix_cpy(struct in6_addr *addr,
-> +					const struct in6_addr *pfx,
-> +					int plen)
-> +{
-> +	/* caller must guarantee 0 <= plen <= 128 */
-> +	int o = plen >> 3,
-> +	    b = plen & 0x7;
-
-    Unusual declaration style, why not just have *int* on both lines?
+    No sign-off from Ben?
 
 [...]
 
