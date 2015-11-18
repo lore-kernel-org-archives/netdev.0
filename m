@@ -1,87 +1,43 @@
-From: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Subject: Re: [PATCH v2 net-next] net: hisilicon: fix binding document of mdio
-Date: Wed, 18 Nov 2015 09:42:08 +0800
-Message-ID: <564BD770.1080205@hisilicon.com>
-References: <1447666704-200773-1-git-send-email-huangdaode@hisilicon.com> <6897029.2fyR9qGpEn@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	<mark.rutland-5wv7dgnIgG8@public.gmane.org>, <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	<galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, <liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
-	<Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<kenneth-lee-2012-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>, <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
-	<lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <6897029.2fyR9qGpEn@wuerfel>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Add a SOCK_DESTROY operation to close sockets from userspace
+Date: Wed, 18 Nov 2015 10:43:40 +0900
+Message-ID: <1447811024-8553-1-git-send-email-lorenzo@google.com>
+Cc: edumazet@google.com, ek@google.com, maze@google.com,
+	dtor@google.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:35106 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754309AbbKRBnx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 20:43:53 -0500
+Received: by pacej9 with SMTP id ej9so26791265pac.2
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 17:43:52 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2015/11/16 17:38, Arnd Bergmann wrote:
-> On Monday 16 November 2015 17:38:24 huangdaode wrote:
->> This patch explains the occasion of "hisilcon,mdio" and
->> "hisilicon,hns-mdio" according to Arnd's comments.
->> and reformat it according to comments from Rob<robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>.
->>
->> chang log:
->>
->> v2:
->>    1) reformat the style.
->>    2) make it more clearity.
->>
->> v1:
->>    initial version.
->>
->> Signed-off-by: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
->> ---
-> The new version looks ok, but your changelog above is formatted
-> incorrectly. Please put only the contents you want in the git history
-> above the '---' line and your Signed-off-by, but put the parts that
-> refer to previous versions of the submission below the ---.
+This patch series adds the ability for a privileged process to
+destroy sockets belonging to other userspace processes via the
+sock_diag interface, and implements that for TCP sockets.
 
-Got it.
-thanks Arnd.
+This functionality is needed on laptops and mobile hosts to
+ensure that network switches / disconnects do not result in
+applications being blocked for long periods of time (minutes) in
+read or connect calls on TCP sockets that will never succeed
+because the IP address they are bound to is gone. Closing the
+sockets in the protocol layer causes these calls to fail fast and
+allows applications to reconnect on another network.
 
-Daode
+For many years Android kernels have done this via an out-of-tree
+SIOCKILLADDR ioctl that is called when networks disconnect, but
+this solution is cleaner, more robust and more flexible. The
+system can iterate over all connections on the deleted IP address
+and close all of them. But it can also close all sockets opened
+by a given process on a given network, for example if the user
+has restricted that process from using that network, or if a
+secure network such as a VPN is now being applied to the
+application and thus previously-established connections are
+blackholed.
 
->>   Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt | 7 ++++++-
->>   1 file changed, 6 insertions(+), 1 deletion(-)
->>
->> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
->> index 9c23fdf..4942d20 100644
->> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
->> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
->> @@ -1,7 +1,12 @@
->>   Hisilicon MDIO bus controller
->>   
->>   Properties:
->> -- compatible: "hisilicon,mdio","hisilicon,hns-mdio".
->> +- compatible: can be one of:
->> +	"hisilicon,hns-mdio"
->> +	"hisilicon,mdio"
->> +  "hisilicon,hns-mdio" is recommendly to be used for hip05 and later SOCs,
->> +  while "hisilicon,mdio" is optional for backwards compatibility, only
->> +  support for hip04 Soc.
->>   - reg: The base address of the MDIO bus controller register bank.
->>   - #address-cells: Must be <1>.
->>   - #size-cells: Must be <0>.  MDIO addresses have no size component.
->>
->
-> .
->
-
-
--- 
-Best Regards
-Daode Huang
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The patch series only implements SOCK_DESTROY for TCP sockets,
+but the mechanism can be extended to any protocol family that
+supports the sock_diag interface.
