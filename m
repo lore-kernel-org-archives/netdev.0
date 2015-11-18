@@ -1,79 +1,73 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Wed, 18 Nov 2015 14:31:55 +0100
-Message-ID: <1447853515.875338.443199993.7D592088@webmail.messagingengine.com>
-References: <1447811024-8553-1-git-send-email-lorenzo@google.com>
- <20151117192738.365145d7@samsung9>
- <1447819493.22599.137.camel@edumazet-glaptop2.roam.corp.google.com>
- <1447841988.834928.443071345.1AAFF2A9@webmail.messagingengine.com>
- <CAKD1Yr0Gpr6Ex2i1TXEWyETn48P4g5vBvFZ9=_g+Lz_7-PqBDQ@mail.gmail.com>
- <1447845552.846962.443112033.03C5152B@webmail.messagingengine.com>
- <CAKD1Yr1URnEWDpF9JUo_K3w+31YjfrO6tzL6QBcrKmSYu1_fhA@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [RFCv2 bluetooth-next 2/3] ipv6: add ipv6_addr_prefix_cpy
+Date: Wed, 18 Nov 2015 16:55:02 +0300
+Message-ID: <564C8336.7000100@cogentembedded.com>
+References: <1447799594-6050-1-git-send-email-alex.aring@gmail.com>
+ <1447799594-6050-3-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Erik Kline <ek@google.com>,
-	=?UTF-8?Q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
-	Dmitry Torokhov <dtor@google.com>
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:51802 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755898AbbKRNb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 08:31:56 -0500
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id 1853920B2E
-	for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 08:31:56 -0500 (EST)
-In-Reply-To: <CAKD1Yr1URnEWDpF9JUo_K3w+31YjfrO6tzL6QBcrKmSYu1_fhA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, lukasz.duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org,
+	martin.gergeleit-6wGqcYweBVc@public.gmane.org,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1447799594-6050-3-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+Hello.
 
-On Wed, Nov 18, 2015, at 14:04, Lorenzo Colitti wrote:
-> On Wed, Nov 18, 2015 at 8:19 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > I was wondering why you didn't use tcp_close function, because still we
-> > could have the address and we would like to do a proper shutdown of the
-> > connection. While this patchset wants to tear down sockets for addresses
-> > no longer alive, it still can be used with full sockets.
-> 
-> From the perspective of the TCP state machine, there's not much
-> difference. In most TCP states, tcp_close takes the socket straight to
-> TCP_CLOSE (not into TCP_TIME_WAIT).
+On 11/18/2015 1:33 AM, Alexander Aring wrote:
 
-Active close will end up in time wait in the end anyway (with some
-exceptions).
+> This patch adds a static inline function ipv6_addr_prefix_cpy which
 
-> There is a difference in that tcp_close() sends a RST by calling
-> tcp_send_active_reset. We could make tcp_diag_destroy do that too. Not
-> sure it's worth it because in most of the the cases where you'd want
-> to use SOCK_DESTROY (e.g., you've lost a network connection, a VPN
-> connected, etc.), tcp_send_active_reset is either not going to send a
-> RST at all or it's going send on the wrong network. Even if we're
-> still connected to the same network (e.g., in the case where you're
-> running "ss --kill" to close a socket instead of the bad old days
-> where you had to load your process in gdb and call close() from there
-> :-)), not sending a RST is not the end of the world, because as soon
-> as the peer sends us a packet we'll send a RST anyway.
+    I suggest not to reduce "copy".
 
-Ack. I don't think it makes sense to provide a FIN/RST less way of
-closing a socket, just invoke a shutdown() from an interface might be
-okayish IMHO.
+> copies a ipv6 address prefix(argument pfx) into the ipv6 address prefix.
+> The prefix len is given by plen as bits. This function mainly based on
+> ipv6_addr_prefix which copies one address prefix from address into a new
+> ipv6 address destination and zero all other address bits.
+>
+> The difference is that ipv6_addr_prefix_cpy don't get a prefix from an
+> ipv6 address, it sets a prefix to an ipv6 address with keeping other
+> address bits. The use case is for context based address compression
+> inside 6LoWPAN IPHC header which keeping ipv6 prefixes inside a context
+> table to lookup address-bits without sending them.
+>
+> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
+> Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
+> Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
+> Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+> Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>   include/net/ipv6.h | 15 +++++++++++++++
+>   1 file changed, 15 insertions(+)
+>
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index e1a10b0..9d38fc2 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -382,6 +382,21 @@ static inline void ipv6_addr_prefix(struct in6_addr *pfx,
+>   		pfx->s6_addr[o] = addr->s6_addr[o] & (0xff00 >> b);
+>   }
+>
+> +static inline void ipv6_addr_prefix_cpy(struct in6_addr *addr,
+> +					const struct in6_addr *pfx,
+> +					int plen)
+> +{
+> +	/* caller must guarantee 0 <= plen <= 128 */
+> +	int o = plen >> 3,
+> +	    b = plen & 0x7;
 
-> In any case calling tcp_close itself won't work - that's intended for
-> userspace closes. It calls sock_orphan, which nulls out the
-> backpointer to the userspace socket structure, and assumes that there
-> are no userspace references to the protocol socket. If we make
-> SOCK_DESTROY call tcp_close without releasing the userspace
-> components, things blow up as soon as the app calls close().
+    Unusual declaration style, why not just have *int* on both lines?
 
-I was not saying using tcp_close literally, sorry for not making that
-clear, but just model the state transitions after tcp_close. At least it
-seems like a normal close to me.
+[...]
 
-Thanks,
-Hannes
+MBR, Sergei
