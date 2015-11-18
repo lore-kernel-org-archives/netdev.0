@@ -1,63 +1,107 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: Hardware capabilities and bonding offload
-Date: Wed, 18 Nov 2015 15:29:23 +0100
-Message-ID: <20151118142923.GA2192@nanopsycho.orion>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9AA0D643@SJEXCHMB14.corp.ad.broadcom.com>
- <20151116153032.GC2217@nanopsycho.orion>
- <5649FFF3.9080401@gmail.com>
- <20151117220349.GA7762@penelope.isobedori.kobe.vergenet.net>
- <564BCD12.4010804@gmail.com>
- <20151118140512.GC6123@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Simon Horman <simon.horman@netronome.com>,
-	Premkumar Jonnala <pjonnala@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 00/14] net: extend busy polling support
+Date: Wed, 18 Nov 2015 06:30:49 -0800
+Message-ID: <1447857063-618-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	Eli Cohen <eli@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Rida Assaf <rida@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:34871 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932297AbbKRO31 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 09:29:27 -0500
-Received: by wmdw130 with SMTP id w130so200979024wmd.0
-        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 06:29:25 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20151118140512.GC6123@lunn.ch>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:33035 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752859AbbKRObI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 09:31:08 -0500
+Received: by pabfh17 with SMTP id fh17so48234353pab.0
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 06:31:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Nov 18, 2015 at 03:05:12PM CET, andrew@lunn.ch wrote:
->> To be honest though this is more of an argument in theory versus
->> some existing management agent I know of today. If you need to do
->> bonding type X in your network and the particular switch doesn't support
->> it I'm not even sure what the mgmt layer is going to do. Maybe just
->> put the switch offline for that network segment.
->> 
->> If you leave the sw bit out in the first iteration I'm OK with that
->> we can easily add it when we have software that needs it.
->
->Taking a step back...
->
->Have we defined a consistent way for signalling:
->
->1) Failed to offload to the hardware, because the hardware cannot do
->   what you requested.
->2) Do this in software, rather than trying and failing to offload to
->   hardware.
->
->At least in DSA, we return EOPNOTSUP for 1).
+This patch series extends busy polling range to tunnels devices,
+and adds busy polling generic support to all NAPI drivers.
 
-Well for example in case of bonding there is quite impossible to do
-things in software in case the hardware datapath simply cannot pass
-packets to kernel. Driver should know and should forbid such
-non-functional setup.
+No need to provide ndo_busy_poll() method and extra synchronization
+between ndo_busy_poll() and normal napi->poll() method.
+This was proven very difficult and bug prone.
 
+mlx5 driver is changed to support busy polling using this new method,
+and a second mlx5 patch adds napi_complete_done() support and proper
+SNMP accounting.
 
->
->   Andrew
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+bnx2x and mlx4 drivers are converted to new infrastructure,
+reducing kernel bloat and improving performance.
+
+Latest patch, adding generic support, adds a new requirement :
+
+ -free_netdev() and netif_napi_del() must be called from process context.
+
+Since this might not be the case in some drivers, we might have to
+either : fix the non conformant drivers (by disabling busy polling on them)
+or revert this last patch.
+
+Eric Dumazet (14):
+  net: better skb->sender_cpu and skb->napi_id cohabitation
+  mlx4: mlx4_en_low_latency_recv() called with BH disabled
+  net: un-inline sk_busy_loop()
+  net: allow BH servicing in sk_busy_loop()
+  net: network drivers no longer need to implement ndo_busy_poll()
+  mlx5: add busy polling support
+  mlx5: support napi_complete_done()
+  bnx2x: remove bnx2x_low_latency_recv() support
+  mlx4: remove mlx4_en_low_latency_recv()
+  net: move skb_mark_napi_id() into core networking stack
+  net: add netif_tx_napi_add()
+  net: move napi_hash[] into read mostly section
+  net: napi_hash_del() returns a boolean status
+  net: provide generic busy polling to all NAPI drivers
+
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |   1 -
+ drivers/net/ethernet/broadcom/bcmsysport.c         |   2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        | 113 ------------------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |  50 +-------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |   7 --
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |   3 -
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c          |   2 -
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c     |   4 +-
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           |   2 -
+ drivers/net/ethernet/cisco/enic/enic_main.c        |   2 -
+ drivers/net/ethernet/emulex/benet/be_main.c        |   2 -
+ .../net/ethernet/freescale/fs_enet/fs_enet-main.c  |   2 +-
+ drivers/net/ethernet/freescale/gianfar.c           |   4 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   1 -
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |   1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c       |   1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   2 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  |   3 -
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c         |  10 +-
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |  17 ---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  40 -------
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c         |  18 +--
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       | 126 ---------------------
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   5 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  15 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |  11 +-
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c   |   3 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |   4 +-
+ drivers/net/ethernet/rocker/rocker.c               |   2 +-
+ drivers/net/ethernet/sfc/efx.c                     |   1 -
+ drivers/net/ethernet/sfc/rx.c                      |   1 -
+ drivers/net/ethernet/ti/cpsw.c                     |   2 +-
+ drivers/net/ethernet/ti/netcp_core.c               |   2 +-
+ drivers/net/virtio_net.c                           |   3 -
+ drivers/net/wireless/ath/wil6210/netdev.c          |   2 +-
+ include/linux/hashtable.h                          |   4 +
+ include/linux/netdevice.h                          |  44 +++++--
+ include/linux/skbuff.h                             |   3 -
+ include/net/busy_poll.h                            |  45 +-------
+ net/core/dev.c                                     | 116 +++++++++++++++----
+ 41 files changed, 171 insertions(+), 507 deletions(-)
+
+-- 
+2.6.0.rc2.230.g3dd15c0
