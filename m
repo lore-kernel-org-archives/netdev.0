@@ -1,74 +1,65 @@
-From: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>
-Subject: [PATCH] net: macb: Add support for sgmii phy interface
-Date: Wed, 18 Nov 2015 09:03:50 +0530
-Message-ID: <1447817630-4336-1-git-send-email-punnaia@xilinx.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
+Date: Tue, 17 Nov 2015 19:56:08 -0800
+Message-ID: <CALx6S37kctONYwuud_0QPMf=8pa6g8bfpT9Vq8aR2FF_MO7oYw@mail.gmail.com>
+References: <1447811024-8553-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<michals@xilinx.com>, <harinik@xilinx.com>,
-	<kalluripunnaiahchoudary@gmail.com>, <kpc528@gmail.com>,
-	"Punnaiah Choudary Kalluri" <punnaia@xilinx.com>
-To: <nicolas.ferre@atmel.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
+	maze@google.com, dtor@google.com
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0064.outbound.protection.outlook.com ([104.47.38.64]:5548
-	"EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752944AbbKRDtF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Nov 2015 22:49:05 -0500
+Received: from mail-io0-f179.google.com ([209.85.223.179]:34463 "EHLO
+	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754376AbbKRD4K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 22:56:10 -0500
+Received: by ioir85 with SMTP id r85so41230097ioi.1
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 19:56:09 -0800 (PST)
+In-Reply-To: <1447811024-8553-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for the sgmii phy interface.
+On Tue, Nov 17, 2015 at 5:43 PM, Lorenzo Colitti <lorenzo@google.com> wrote:
+> This patch series adds the ability for a privileged process to
+> destroy sockets belonging to other userspace processes via the
+> sock_diag interface, and implements that for TCP sockets.
+>
+> This functionality is needed on laptops and mobile hosts to
+> ensure that network switches / disconnects do not result in
+> applications being blocked for long periods of time (minutes) in
+> read or connect calls on TCP sockets that will never succeed
+> because the IP address they are bound to is gone. Closing the
+> sockets in the protocol layer causes these calls to fail fast and
+> allows applications to reconnect on another network.
+>
+> For many years Android kernels have done this via an out-of-tree
+> SIOCKILLADDR ioctl that is called when networks disconnect, but
+> this solution is cleaner, more robust and more flexible. The
+> system can iterate over all connections on the deleted IP address
+> and close all of them. But it can also close all sockets opened
+> by a given process on a given network, for example if the user
+> has restricted that process from using that network, or if a
+> secure network such as a VPN is now being applied to the
+> application and thus previously-established connections are
+> blackholed.
+>
+> The patch series only implements SOCK_DESTROY for TCP sockets,
+> but the mechanism can be extended to any protocol family that
+> supports the sock_diag interface.
+>
+I assume that SIOCKILLADDR was restricted to only closing connections
+related to add addresses going away, but SOCK_DESTROY seems to allow
+arbitrarily killing connections without publicized cause. This
+interface, even though it is for a privileged user, should be no more
+powerful than it needs to be. Minimally, the application should get at
+least get a clear error that the local host administratively killed
+the connection, ETIMEDOUT does not provide that.
 
-Signed-off-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
----
- drivers/net/ethernet/cadence/macb.c | 4 ++++
- drivers/net/ethernet/cadence/macb.h | 5 +++++
- 2 files changed, 9 insertions(+)
+Tom
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 88c1e1a..169059c 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1682,6 +1682,8 @@ static void macb_init_hw(struct macb *bp)
- 	macb_set_hwaddr(bp);
- 
- 	config = macb_mdc_clk_div(bp);
-+	if (bp->phy_interface == PHY_INTERFACE_MODE_SGMII)
-+		config |= GEM_BIT(SGMIIEN) | GEM_BIT(PCSSEL);
- 	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
- 	config |= MACB_BIT(PAE);		/* PAuse Enable */
- 	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
-@@ -2416,6 +2418,8 @@ static int macb_init(struct platform_device *pdev)
- 	/* Set MII management clock divider */
- 	val = macb_mdc_clk_div(bp);
- 	val |= macb_dbw(bp);
-+	if (bp->phy_interface == PHY_INTERFACE_MODE_SGMII)
-+		val |= GEM_BIT(SGMIIEN) | GEM_BIT(PCSSEL);
- 	macb_writel(bp, NCFGR, val);
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 6e1faea..d83b0db 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -215,12 +215,17 @@
- /* GEM specific NCFGR bitfields. */
- #define GEM_GBE_OFFSET		10 /* Gigabit mode enable */
- #define GEM_GBE_SIZE		1
-+#define GEM_PCSSEL_OFFSET	11
-+#define GEM_PCSSEL_SIZE		1
- #define GEM_CLK_OFFSET		18 /* MDC clock division */
- #define GEM_CLK_SIZE		3
- #define GEM_DBW_OFFSET		21 /* Data bus width */
- #define GEM_DBW_SIZE		2
- #define GEM_RXCOEN_OFFSET	24
- #define GEM_RXCOEN_SIZE		1
-+#define GEM_SGMIIEN_OFFSET	27
-+#define GEM_SGMIIEN_SIZE	1
-+
- 
- /* Constants for data bus width. */
- #define GEM_DBW32		0 /* 32 bit AMBA AHB data bus width */
--- 
-2.1.2
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
