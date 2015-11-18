@@ -1,65 +1,68 @@
-From: Tom Herbert <tom@herbertland.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
 Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Tue, 17 Nov 2015 19:56:08 -0800
-Message-ID: <CALx6S37kctONYwuud_0QPMf=8pa6g8bfpT9Vq8aR2FF_MO7oYw@mail.gmail.com>
+Date: Tue, 17 Nov 2015 19:57:00 -0800
+Message-ID: <CAHo-OoyuH=XFFNs+J_s0ws_RsAXkzF5AuafFPaevg8UV35iT+w@mail.gmail.com>
 References: <1447811024-8553-1-git-send-email-lorenzo@google.com>
+	<20151117192738.365145d7@samsung9>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
-	maze@google.com, dtor@google.com
-To: Lorenzo Colitti <lorenzo@google.com>
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+	Linux NetDev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>, ek@google.com,
+	dtor@google.com
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:34463 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754376AbbKRD4K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 22:56:10 -0500
-Received: by ioir85 with SMTP id r85so41230097ioi.1
-        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 19:56:09 -0800 (PST)
-In-Reply-To: <1447811024-8553-1-git-send-email-lorenzo@google.com>
+Received: from mail-lf0-f51.google.com ([209.85.215.51]:35514 "EHLO
+	mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753560AbbKRD5C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 22:57:02 -0500
+Received: by lfdo63 with SMTP id o63so18389764lfd.2
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 19:57:00 -0800 (PST)
+In-Reply-To: <20151117192738.365145d7@samsung9>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 17, 2015 at 5:43 PM, Lorenzo Colitti <lorenzo@google.com> wrote:
-> This patch series adds the ability for a privileged process to
-> destroy sockets belonging to other userspace processes via the
-> sock_diag interface, and implements that for TCP sockets.
->
-> This functionality is needed on laptops and mobile hosts to
-> ensure that network switches / disconnects do not result in
-> applications being blocked for long periods of time (minutes) in
-> read or connect calls on TCP sockets that will never succeed
-> because the IP address they are bound to is gone. Closing the
-> sockets in the protocol layer causes these calls to fail fast and
-> allows applications to reconnect on another network.
->
-> For many years Android kernels have done this via an out-of-tree
-> SIOCKILLADDR ioctl that is called when networks disconnect, but
-> this solution is cleaner, more robust and more flexible. The
-> system can iterate over all connections on the deleted IP address
-> and close all of them. But it can also close all sockets opened
-> by a given process on a given network, for example if the user
-> has restricted that process from using that network, or if a
-> secure network such as a VPN is now being applied to the
-> application and thus previously-established connections are
-> blackholed.
->
-> The patch series only implements SOCK_DESTROY for TCP sockets,
-> but the mechanism can be extended to any protocol family that
-> supports the sock_diag interface.
->
-I assume that SIOCKILLADDR was restricted to only closing connections
-related to add addresses going away, but SOCK_DESTROY seems to allow
-arbitrarily killing connections without publicized cause. This
-interface, even though it is for a privileged user, should be no more
-powerful than it needs to be. Minimally, the application should get at
-least get a clear error that the local host administratively killed
-the connection, ETIMEDOUT does not provide that.
+I don't know what the right fix is...
 
-Tom
+However, speaking as an end user with laptops on wifi and/or home
+gateways on dialup connections where the IP address occasionally (or
+constantly) changes, I find it very frustrating that by default as IP
+addresses get removed from interfaces all the related state (whether
+conntrack or open connections) doesn't get cleaned up.
 
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+[side note: I realize there is tooling to do this manually from
+userspace for conntrack and that there are even some gateways that
+correctly make use of it.]
+
+Sure this might not be desirable on servers (where configuration is
+usually static and complex) but on most end user devices (CPE, cell
+phone, laptop) - that are prone to roaming in todays world - this (or
+something like this) would be super useful.
+
+I would almost argue it should be the default (or controlled by
+sysctl) - hung connections are super frustrating, and they often
+prevent normal retry logic (ie. establishing a new connection) from
+functioning correctly, because the kernel is just waiting for some
+enormous tcp (retransmit) timeouts that only make sense if we still
+own the IP, and userspace thinks everything is still ok...  If we
+don't even own the IP any more often retransmits just get blackholed
+so you don't even get notifications from the network of packet
+delivery problems.
+
+Something like this either needs to be implemented in kernel, or APIs
+need to be provided so that network manager (or your favourite
+userspace network management utility) can act on behalf of the user to
+clean stuff up.
+
+In general I'm not in favour of embedding logic like this in the
+kernel since you usually get more configurability if you leave it in
+userspace.
+
+Sure you can hack something together via firewall hacks and routing
+hacks or injecting tcp resets via raw sockets, but that requires a lot
+of work, and still doesn't cover everything (firewall and routing
+hacks won't fix idle sockets, in particular those waiting for a
+message from the other side of the connection, ie. push notifications
+for a cell phone).
+
+- Maciej
