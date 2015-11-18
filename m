@@ -1,7 +1,7 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: [PATCH v2 23/27] rt2x00: move under ralink vendor directory
-Date: Wed, 18 Nov 2015 16:46:02 +0200
-Message-ID: <1447857966-19560-24-git-send-email-kvalo@codeaurora.org>
+Subject: [PATCH v2 19/27] orinoco: move under intersil vendor directory
+Date: Wed, 18 Nov 2015 16:45:58 +0200
+Message-ID: <1447857966-19560-20-git-send-email-kvalo@codeaurora.org>
 References: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: linux-wireless@vger.kernel.org
@@ -15,372 +15,255 @@ Part of reorganising wireless drivers directory and Kconfig.
 Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
 ---
  MAINTAINERS                                        |    2 +-
- drivers/net/wireless/Kconfig                       |    2 +-
- drivers/net/wireless/Makefile                      |    3 +--
- drivers/net/wireless/ralink/Kconfig                |   16 ++++++++++++++++
- drivers/net/wireless/ralink/Makefile               |    1 +
- drivers/net/wireless/{ => ralink}/rt2x00/Kconfig   |    0
- drivers/net/wireless/{ => ralink}/rt2x00/Makefile  |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2400pci.c   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2400pci.h   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2500pci.c   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2500pci.h   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2500usb.c   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2500usb.h   |    0
- drivers/net/wireless/{ => ralink}/rt2x00/rt2800.h  |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2800lib.c   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2800lib.h   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2800mmio.c  |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2800mmio.h  |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2800pci.c   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2800pci.h   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2800soc.c   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2800usb.c   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2800usb.h   |    0
- drivers/net/wireless/{ => ralink}/rt2x00/rt2x00.h  |    0
- .../wireless/{ => ralink}/rt2x00/rt2x00config.c    |    0
- .../wireless/{ => ralink}/rt2x00/rt2x00crypto.c    |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00debug.c |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00debug.h |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00dev.c   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00dump.h  |    0
- .../wireless/{ => ralink}/rt2x00/rt2x00firmware.c  |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00leds.c  |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00leds.h  |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00lib.h   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00link.c  |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00mac.c   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00mmio.c  |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00mmio.h  |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00pci.c   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00pci.h   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00queue.c |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00queue.h |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00reg.h   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00soc.c   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00soc.h   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00usb.c   |    0
- .../net/wireless/{ => ralink}/rt2x00/rt2x00usb.h   |    0
- drivers/net/wireless/{ => ralink}/rt2x00/rt61pci.c |    0
- drivers/net/wireless/{ => ralink}/rt2x00/rt61pci.h |    0
- drivers/net/wireless/{ => ralink}/rt2x00/rt73usb.c |    0
- drivers/net/wireless/{ => ralink}/rt2x00/rt73usb.h |    0
- 51 files changed, 20 insertions(+), 4 deletions(-)
- create mode 100644 drivers/net/wireless/ralink/Kconfig
- create mode 100644 drivers/net/wireless/ralink/Makefile
- rename drivers/net/wireless/{ => ralink}/rt2x00/Kconfig (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/Makefile (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2400pci.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2400pci.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2500pci.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2500pci.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2500usb.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2500usb.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2800.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2800lib.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2800lib.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2800mmio.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2800mmio.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2800pci.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2800pci.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2800soc.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2800usb.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2800usb.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00config.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00crypto.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00debug.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00debug.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00dev.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00dump.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00firmware.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00leds.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00leds.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00lib.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00link.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00mac.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00mmio.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00mmio.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00pci.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00pci.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00queue.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00queue.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00reg.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00soc.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00soc.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00usb.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt2x00usb.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt61pci.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt61pci.h (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt73usb.c (100%)
- rename drivers/net/wireless/{ => ralink}/rt2x00/rt73usb.h (100%)
+ drivers/net/wireless/Kconfig                       |    1 -
+ drivers/net/wireless/Makefile                      |    2 --
+ drivers/net/wireless/intersil/Kconfig              |    1 +
+ drivers/net/wireless/intersil/Makefile             |    1 +
+ .../net/wireless/{ => intersil}/orinoco/Kconfig    |    0
+ .../net/wireless/{ => intersil}/orinoco/Makefile   |    0
+ .../net/wireless/{ => intersil}/orinoco/airport.c  |    0
+ drivers/net/wireless/{ => intersil}/orinoco/cfg.c  |    0
+ drivers/net/wireless/{ => intersil}/orinoco/cfg.h  |    0
+ drivers/net/wireless/{ => intersil}/orinoco/fw.c   |    0
+ drivers/net/wireless/{ => intersil}/orinoco/fw.h   |    0
+ .../net/wireless/{ => intersil}/orinoco/hermes.c   |    0
+ .../net/wireless/{ => intersil}/orinoco/hermes.h   |    0
+ .../wireless/{ => intersil}/orinoco/hermes_dld.c   |    0
+ .../wireless/{ => intersil}/orinoco/hermes_dld.h   |    0
+ .../wireless/{ => intersil}/orinoco/hermes_rid.h   |    0
+ drivers/net/wireless/{ => intersil}/orinoco/hw.c   |    0
+ drivers/net/wireless/{ => intersil}/orinoco/hw.h   |    0
+ drivers/net/wireless/{ => intersil}/orinoco/main.c |    0
+ drivers/net/wireless/{ => intersil}/orinoco/main.h |    0
+ drivers/net/wireless/{ => intersil}/orinoco/mic.c  |    0
+ drivers/net/wireless/{ => intersil}/orinoco/mic.h  |    0
+ .../net/wireless/{ => intersil}/orinoco/orinoco.h  |    0
+ .../wireless/{ => intersil}/orinoco/orinoco_cs.c   |    0
+ .../{ => intersil}/orinoco/orinoco_nortel.c        |    0
+ .../wireless/{ => intersil}/orinoco/orinoco_pci.c  |    0
+ .../wireless/{ => intersil}/orinoco/orinoco_pci.h  |    0
+ .../wireless/{ => intersil}/orinoco/orinoco_plx.c  |    0
+ .../wireless/{ => intersil}/orinoco/orinoco_tmd.c  |    0
+ .../wireless/{ => intersil}/orinoco/orinoco_usb.c  |    0
+ drivers/net/wireless/{ => intersil}/orinoco/scan.c |    0
+ drivers/net/wireless/{ => intersil}/orinoco/scan.h |    0
+ .../wireless/{ => intersil}/orinoco/spectrum_cs.c  |    0
+ drivers/net/wireless/{ => intersil}/orinoco/wext.c |    0
+ drivers/net/wireless/{ => intersil}/orinoco/wext.h |    0
+ 36 files changed, 3 insertions(+), 4 deletions(-)
+ rename drivers/net/wireless/{ => intersil}/orinoco/Kconfig (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/Makefile (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/airport.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/cfg.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/cfg.h (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/fw.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/fw.h (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/hermes.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/hermes.h (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/hermes_dld.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/hermes_dld.h (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/hermes_rid.h (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/hw.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/hw.h (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/main.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/main.h (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/mic.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/mic.h (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/orinoco.h (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/orinoco_cs.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/orinoco_nortel.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/orinoco_pci.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/orinoco_pci.h (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/orinoco_plx.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/orinoco_tmd.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/orinoco_usb.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/scan.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/scan.h (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/spectrum_cs.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/wext.c (100%)
+ rename drivers/net/wireless/{ => intersil}/orinoco/wext.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index a9f7f968f64e..38c049d07966 100644
+index 818899a4c268..53c15af0d967 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -8801,7 +8801,7 @@ M:	Stanislaw Gruszka <sgruszka@redhat.com>
- M:	Helmut Schaa <helmut.schaa@googlemail.com>
- L:	linux-wireless@vger.kernel.org
- S:	Maintained
--F:	drivers/net/wireless/rt2x00/
-+F:	drivers/net/wireless/ralink/rt2x00/
+@@ -7930,7 +7930,7 @@ L:	linux-wireless@vger.kernel.org
+ W:	http://wireless.kernel.org/en/users/Drivers/orinoco
+ W:	http://www.nongnu.org/orinoco/
+ S:	Orphan
+-F:	drivers/net/wireless/orinoco/
++F:	drivers/net/wireless/intersil/orinoco/
  
- RAMDISK RAM BLOCK DEVICE DRIVER
- M:	Jens Axboe <axboe@kernel.dk>
+ OSD LIBRARY and FILESYSTEM
+ M:	Boaz Harrosh <ooo@electrozaur.com>
 diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
-index 518608403bd3..c58e244b5079 100644
+index bea2fbb4a238..cc1f168603dc 100644
 --- a/drivers/net/wireless/Kconfig
 +++ b/drivers/net/wireless/Kconfig
-@@ -24,6 +24,7 @@ source "drivers/net/wireless/cisco/Kconfig"
- source "drivers/net/wireless/intel/Kconfig"
- source "drivers/net/wireless/intersil/Kconfig"
- source "drivers/net/wireless/marvell/Kconfig"
-+source "drivers/net/wireless/ralink/Kconfig"
- source "drivers/net/wireless/realtek/Kconfig"
- source "drivers/net/wireless/rsi/Kconfig"
- source "drivers/net/wireless/st/Kconfig"
-@@ -97,7 +98,6 @@ config MAC80211_HWSIM
+@@ -117,7 +117,6 @@ config MAC80211_HWSIM
  	  called mac80211_hwsim.  If unsure, say N.
  
  source "drivers/net/wireless/ath/Kconfig"
--source "drivers/net/wireless/rt2x00/Kconfig"
+-source "drivers/net/wireless/orinoco/Kconfig"
+ source "drivers/net/wireless/rt2x00/Kconfig"
  source "drivers/net/wireless/mediatek/Kconfig"
- source "drivers/net/wireless/ti/Kconfig"
- 
+ source "drivers/net/wireless/realtek/rtlwifi/Kconfig"
 diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
-index d38b6cc338df..8ac72fd44d17 100644
+index 046963fc3958..dd6d17cc4b7e 100644
 --- a/drivers/net/wireless/Makefile
 +++ b/drivers/net/wireless/Makefile
-@@ -9,6 +9,7 @@ obj-$(CONFIG_WLAN_VENDOR_CISCO) += cisco/
- obj-$(CONFIG_WLAN_VENDOR_INTEL) += intel/
- obj-$(CONFIG_WLAN_VENDOR_INTERSIL) += intersil/
- obj-$(CONFIG_WLAN_VENDOR_MARVELL) += marvell/
-+obj-$(CONFIG_WLAN_VENDOR_RALINK) += ralink/
- obj-$(CONFIG_WLAN_VENDOR_REALTEK) += realtek/
- obj-$(CONFIG_WLAN_VENDOR_RSI) += rsi/
+@@ -12,8 +12,6 @@ obj-$(CONFIG_WLAN_VENDOR_MARVELL) += marvell/
  obj-$(CONFIG_WLAN_VENDOR_ST) += st/
-@@ -20,8 +21,6 @@ obj-$(CONFIG_PCMCIA_WL3501)	+= wl3501_cs.o
+ obj-$(CONFIG_WLAN_VENDOR_ZYDAS) += zydas/
  
- obj-$(CONFIG_USB_NET_RNDIS_WLAN)	+= rndis_wlan.o
- 
--obj-$(CONFIG_RT2X00)	+= rt2x00/
+-obj-$(CONFIG_HERMES)		+= orinoco/
 -
- obj-$(CONFIG_WL_MEDIATEK)	+= mediatek/
+ obj-$(CONFIG_PRISM54)		+= prism54/
  
- obj-$(CONFIG_ATH_CARDS)		+= ath/
-diff --git a/drivers/net/wireless/ralink/Kconfig b/drivers/net/wireless/ralink/Kconfig
-new file mode 100644
-index 000000000000..41dbf3130e2b
---- /dev/null
-+++ b/drivers/net/wireless/ralink/Kconfig
-@@ -0,0 +1,16 @@
-+config WLAN_VENDOR_RALINK
-+	bool "Ralink devices"
-+	default y
-+	---help---
-+	  If you have a wireless card belonging to this class, say Y.
-+
-+	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about  cards. If you say Y, you will be asked for
-+	  your specific card in the following questions.
-+
-+if WLAN_VENDOR_RALINK
-+
-+source "drivers/net/wireless/ralink/rt2x00/Kconfig"
-+
-+endif # WLAN_VENDOR_RALINK
-diff --git a/drivers/net/wireless/ralink/Makefile b/drivers/net/wireless/ralink/Makefile
-new file mode 100644
-index 000000000000..f84c0a2e4f4d
---- /dev/null
-+++ b/drivers/net/wireless/ralink/Makefile
-@@ -0,0 +1 @@
-+obj-$(CONFIG_RT2X00)	+= rt2x00/
-diff --git a/drivers/net/wireless/rt2x00/Kconfig b/drivers/net/wireless/ralink/rt2x00/Kconfig
+ obj-$(CONFIG_WLAN)		+= realtek/
+diff --git a/drivers/net/wireless/intersil/Kconfig b/drivers/net/wireless/intersil/Kconfig
+index 4bc3688bfa93..2b056b6daef8 100644
+--- a/drivers/net/wireless/intersil/Kconfig
++++ b/drivers/net/wireless/intersil/Kconfig
+@@ -12,6 +12,7 @@ config WLAN_VENDOR_INTERSIL
+ if WLAN_VENDOR_INTERSIL
+ 
+ source "drivers/net/wireless/intersil/hostap/Kconfig"
++source "drivers/net/wireless/intersil/orinoco/Kconfig"
+ source "drivers/net/wireless/intersil/p54/Kconfig"
+ 
+ endif # WLAN_VENDOR_INTERSIL
+diff --git a/drivers/net/wireless/intersil/Makefile b/drivers/net/wireless/intersil/Makefile
+index 90a72830b1ae..aedb713da746 100644
+--- a/drivers/net/wireless/intersil/Makefile
++++ b/drivers/net/wireless/intersil/Makefile
+@@ -1,2 +1,3 @@
+ obj-$(CONFIG_HOSTAP)		+= hostap/
++obj-$(CONFIG_HERMES)		+= orinoco/
+ obj-$(CONFIG_P54_COMMON)	+= p54/
+diff --git a/drivers/net/wireless/orinoco/Kconfig b/drivers/net/wireless/intersil/orinoco/Kconfig
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/Kconfig
-rename to drivers/net/wireless/ralink/rt2x00/Kconfig
-diff --git a/drivers/net/wireless/rt2x00/Makefile b/drivers/net/wireless/ralink/rt2x00/Makefile
+rename from drivers/net/wireless/orinoco/Kconfig
+rename to drivers/net/wireless/intersil/orinoco/Kconfig
+diff --git a/drivers/net/wireless/orinoco/Makefile b/drivers/net/wireless/intersil/orinoco/Makefile
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/Makefile
-rename to drivers/net/wireless/ralink/rt2x00/Makefile
-diff --git a/drivers/net/wireless/rt2x00/rt2400pci.c b/drivers/net/wireless/ralink/rt2x00/rt2400pci.c
+rename from drivers/net/wireless/orinoco/Makefile
+rename to drivers/net/wireless/intersil/orinoco/Makefile
+diff --git a/drivers/net/wireless/orinoco/airport.c b/drivers/net/wireless/intersil/orinoco/airport.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2400pci.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2400pci.c
-diff --git a/drivers/net/wireless/rt2x00/rt2400pci.h b/drivers/net/wireless/ralink/rt2x00/rt2400pci.h
+rename from drivers/net/wireless/orinoco/airport.c
+rename to drivers/net/wireless/intersil/orinoco/airport.c
+diff --git a/drivers/net/wireless/orinoco/cfg.c b/drivers/net/wireless/intersil/orinoco/cfg.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2400pci.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2400pci.h
-diff --git a/drivers/net/wireless/rt2x00/rt2500pci.c b/drivers/net/wireless/ralink/rt2x00/rt2500pci.c
+rename from drivers/net/wireless/orinoco/cfg.c
+rename to drivers/net/wireless/intersil/orinoco/cfg.c
+diff --git a/drivers/net/wireless/orinoco/cfg.h b/drivers/net/wireless/intersil/orinoco/cfg.h
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2500pci.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2500pci.c
-diff --git a/drivers/net/wireless/rt2x00/rt2500pci.h b/drivers/net/wireless/ralink/rt2x00/rt2500pci.h
+rename from drivers/net/wireless/orinoco/cfg.h
+rename to drivers/net/wireless/intersil/orinoco/cfg.h
+diff --git a/drivers/net/wireless/orinoco/fw.c b/drivers/net/wireless/intersil/orinoco/fw.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2500pci.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2500pci.h
-diff --git a/drivers/net/wireless/rt2x00/rt2500usb.c b/drivers/net/wireless/ralink/rt2x00/rt2500usb.c
+rename from drivers/net/wireless/orinoco/fw.c
+rename to drivers/net/wireless/intersil/orinoco/fw.c
+diff --git a/drivers/net/wireless/orinoco/fw.h b/drivers/net/wireless/intersil/orinoco/fw.h
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2500usb.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2500usb.c
-diff --git a/drivers/net/wireless/rt2x00/rt2500usb.h b/drivers/net/wireless/ralink/rt2x00/rt2500usb.h
+rename from drivers/net/wireless/orinoco/fw.h
+rename to drivers/net/wireless/intersil/orinoco/fw.h
+diff --git a/drivers/net/wireless/orinoco/hermes.c b/drivers/net/wireless/intersil/orinoco/hermes.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2500usb.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2500usb.h
-diff --git a/drivers/net/wireless/rt2x00/rt2800.h b/drivers/net/wireless/ralink/rt2x00/rt2800.h
+rename from drivers/net/wireless/orinoco/hermes.c
+rename to drivers/net/wireless/intersil/orinoco/hermes.c
+diff --git a/drivers/net/wireless/orinoco/hermes.h b/drivers/net/wireless/intersil/orinoco/hermes.h
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2800.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2800.h
-diff --git a/drivers/net/wireless/rt2x00/rt2800lib.c b/drivers/net/wireless/ralink/rt2x00/rt2800lib.c
+rename from drivers/net/wireless/orinoco/hermes.h
+rename to drivers/net/wireless/intersil/orinoco/hermes.h
+diff --git a/drivers/net/wireless/orinoco/hermes_dld.c b/drivers/net/wireless/intersil/orinoco/hermes_dld.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2800lib.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2800lib.c
-diff --git a/drivers/net/wireless/rt2x00/rt2800lib.h b/drivers/net/wireless/ralink/rt2x00/rt2800lib.h
+rename from drivers/net/wireless/orinoco/hermes_dld.c
+rename to drivers/net/wireless/intersil/orinoco/hermes_dld.c
+diff --git a/drivers/net/wireless/orinoco/hermes_dld.h b/drivers/net/wireless/intersil/orinoco/hermes_dld.h
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2800lib.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2800lib.h
-diff --git a/drivers/net/wireless/rt2x00/rt2800mmio.c b/drivers/net/wireless/ralink/rt2x00/rt2800mmio.c
+rename from drivers/net/wireless/orinoco/hermes_dld.h
+rename to drivers/net/wireless/intersil/orinoco/hermes_dld.h
+diff --git a/drivers/net/wireless/orinoco/hermes_rid.h b/drivers/net/wireless/intersil/orinoco/hermes_rid.h
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2800mmio.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2800mmio.c
-diff --git a/drivers/net/wireless/rt2x00/rt2800mmio.h b/drivers/net/wireless/ralink/rt2x00/rt2800mmio.h
+rename from drivers/net/wireless/orinoco/hermes_rid.h
+rename to drivers/net/wireless/intersil/orinoco/hermes_rid.h
+diff --git a/drivers/net/wireless/orinoco/hw.c b/drivers/net/wireless/intersil/orinoco/hw.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2800mmio.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2800mmio.h
-diff --git a/drivers/net/wireless/rt2x00/rt2800pci.c b/drivers/net/wireless/ralink/rt2x00/rt2800pci.c
+rename from drivers/net/wireless/orinoco/hw.c
+rename to drivers/net/wireless/intersil/orinoco/hw.c
+diff --git a/drivers/net/wireless/orinoco/hw.h b/drivers/net/wireless/intersil/orinoco/hw.h
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2800pci.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2800pci.c
-diff --git a/drivers/net/wireless/rt2x00/rt2800pci.h b/drivers/net/wireless/ralink/rt2x00/rt2800pci.h
+rename from drivers/net/wireless/orinoco/hw.h
+rename to drivers/net/wireless/intersil/orinoco/hw.h
+diff --git a/drivers/net/wireless/orinoco/main.c b/drivers/net/wireless/intersil/orinoco/main.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2800pci.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2800pci.h
-diff --git a/drivers/net/wireless/rt2x00/rt2800soc.c b/drivers/net/wireless/ralink/rt2x00/rt2800soc.c
+rename from drivers/net/wireless/orinoco/main.c
+rename to drivers/net/wireless/intersil/orinoco/main.c
+diff --git a/drivers/net/wireless/orinoco/main.h b/drivers/net/wireless/intersil/orinoco/main.h
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2800soc.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2800soc.c
-diff --git a/drivers/net/wireless/rt2x00/rt2800usb.c b/drivers/net/wireless/ralink/rt2x00/rt2800usb.c
+rename from drivers/net/wireless/orinoco/main.h
+rename to drivers/net/wireless/intersil/orinoco/main.h
+diff --git a/drivers/net/wireless/orinoco/mic.c b/drivers/net/wireless/intersil/orinoco/mic.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2800usb.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2800usb.c
-diff --git a/drivers/net/wireless/rt2x00/rt2800usb.h b/drivers/net/wireless/ralink/rt2x00/rt2800usb.h
+rename from drivers/net/wireless/orinoco/mic.c
+rename to drivers/net/wireless/intersil/orinoco/mic.c
+diff --git a/drivers/net/wireless/orinoco/mic.h b/drivers/net/wireless/intersil/orinoco/mic.h
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2800usb.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2800usb.h
-diff --git a/drivers/net/wireless/rt2x00/rt2x00.h b/drivers/net/wireless/ralink/rt2x00/rt2x00.h
+rename from drivers/net/wireless/orinoco/mic.h
+rename to drivers/net/wireless/intersil/orinoco/mic.h
+diff --git a/drivers/net/wireless/orinoco/orinoco.h b/drivers/net/wireless/intersil/orinoco/orinoco.h
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00.h
-diff --git a/drivers/net/wireless/rt2x00/rt2x00config.c b/drivers/net/wireless/ralink/rt2x00/rt2x00config.c
+rename from drivers/net/wireless/orinoco/orinoco.h
+rename to drivers/net/wireless/intersil/orinoco/orinoco.h
+diff --git a/drivers/net/wireless/orinoco/orinoco_cs.c b/drivers/net/wireless/intersil/orinoco/orinoco_cs.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00config.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00config.c
-diff --git a/drivers/net/wireless/rt2x00/rt2x00crypto.c b/drivers/net/wireless/ralink/rt2x00/rt2x00crypto.c
+rename from drivers/net/wireless/orinoco/orinoco_cs.c
+rename to drivers/net/wireless/intersil/orinoco/orinoco_cs.c
+diff --git a/drivers/net/wireless/orinoco/orinoco_nortel.c b/drivers/net/wireless/intersil/orinoco/orinoco_nortel.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00crypto.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00crypto.c
-diff --git a/drivers/net/wireless/rt2x00/rt2x00debug.c b/drivers/net/wireless/ralink/rt2x00/rt2x00debug.c
+rename from drivers/net/wireless/orinoco/orinoco_nortel.c
+rename to drivers/net/wireless/intersil/orinoco/orinoco_nortel.c
+diff --git a/drivers/net/wireless/orinoco/orinoco_pci.c b/drivers/net/wireless/intersil/orinoco/orinoco_pci.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00debug.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00debug.c
-diff --git a/drivers/net/wireless/rt2x00/rt2x00debug.h b/drivers/net/wireless/ralink/rt2x00/rt2x00debug.h
+rename from drivers/net/wireless/orinoco/orinoco_pci.c
+rename to drivers/net/wireless/intersil/orinoco/orinoco_pci.c
+diff --git a/drivers/net/wireless/orinoco/orinoco_pci.h b/drivers/net/wireless/intersil/orinoco/orinoco_pci.h
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00debug.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00debug.h
-diff --git a/drivers/net/wireless/rt2x00/rt2x00dev.c b/drivers/net/wireless/ralink/rt2x00/rt2x00dev.c
+rename from drivers/net/wireless/orinoco/orinoco_pci.h
+rename to drivers/net/wireless/intersil/orinoco/orinoco_pci.h
+diff --git a/drivers/net/wireless/orinoco/orinoco_plx.c b/drivers/net/wireless/intersil/orinoco/orinoco_plx.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00dev.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00dev.c
-diff --git a/drivers/net/wireless/rt2x00/rt2x00dump.h b/drivers/net/wireless/ralink/rt2x00/rt2x00dump.h
+rename from drivers/net/wireless/orinoco/orinoco_plx.c
+rename to drivers/net/wireless/intersil/orinoco/orinoco_plx.c
+diff --git a/drivers/net/wireless/orinoco/orinoco_tmd.c b/drivers/net/wireless/intersil/orinoco/orinoco_tmd.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00dump.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00dump.h
-diff --git a/drivers/net/wireless/rt2x00/rt2x00firmware.c b/drivers/net/wireless/ralink/rt2x00/rt2x00firmware.c
+rename from drivers/net/wireless/orinoco/orinoco_tmd.c
+rename to drivers/net/wireless/intersil/orinoco/orinoco_tmd.c
+diff --git a/drivers/net/wireless/orinoco/orinoco_usb.c b/drivers/net/wireless/intersil/orinoco/orinoco_usb.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00firmware.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00firmware.c
-diff --git a/drivers/net/wireless/rt2x00/rt2x00leds.c b/drivers/net/wireless/ralink/rt2x00/rt2x00leds.c
+rename from drivers/net/wireless/orinoco/orinoco_usb.c
+rename to drivers/net/wireless/intersil/orinoco/orinoco_usb.c
+diff --git a/drivers/net/wireless/orinoco/scan.c b/drivers/net/wireless/intersil/orinoco/scan.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00leds.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00leds.c
-diff --git a/drivers/net/wireless/rt2x00/rt2x00leds.h b/drivers/net/wireless/ralink/rt2x00/rt2x00leds.h
+rename from drivers/net/wireless/orinoco/scan.c
+rename to drivers/net/wireless/intersil/orinoco/scan.c
+diff --git a/drivers/net/wireless/orinoco/scan.h b/drivers/net/wireless/intersil/orinoco/scan.h
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00leds.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00leds.h
-diff --git a/drivers/net/wireless/rt2x00/rt2x00lib.h b/drivers/net/wireless/ralink/rt2x00/rt2x00lib.h
+rename from drivers/net/wireless/orinoco/scan.h
+rename to drivers/net/wireless/intersil/orinoco/scan.h
+diff --git a/drivers/net/wireless/orinoco/spectrum_cs.c b/drivers/net/wireless/intersil/orinoco/spectrum_cs.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00lib.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00lib.h
-diff --git a/drivers/net/wireless/rt2x00/rt2x00link.c b/drivers/net/wireless/ralink/rt2x00/rt2x00link.c
+rename from drivers/net/wireless/orinoco/spectrum_cs.c
+rename to drivers/net/wireless/intersil/orinoco/spectrum_cs.c
+diff --git a/drivers/net/wireless/orinoco/wext.c b/drivers/net/wireless/intersil/orinoco/wext.c
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00link.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00link.c
-diff --git a/drivers/net/wireless/rt2x00/rt2x00mac.c b/drivers/net/wireless/ralink/rt2x00/rt2x00mac.c
+rename from drivers/net/wireless/orinoco/wext.c
+rename to drivers/net/wireless/intersil/orinoco/wext.c
+diff --git a/drivers/net/wireless/orinoco/wext.h b/drivers/net/wireless/intersil/orinoco/wext.h
 similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00mac.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00mac.c
-diff --git a/drivers/net/wireless/rt2x00/rt2x00mmio.c b/drivers/net/wireless/ralink/rt2x00/rt2x00mmio.c
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00mmio.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00mmio.c
-diff --git a/drivers/net/wireless/rt2x00/rt2x00mmio.h b/drivers/net/wireless/ralink/rt2x00/rt2x00mmio.h
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00mmio.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00mmio.h
-diff --git a/drivers/net/wireless/rt2x00/rt2x00pci.c b/drivers/net/wireless/ralink/rt2x00/rt2x00pci.c
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00pci.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00pci.c
-diff --git a/drivers/net/wireless/rt2x00/rt2x00pci.h b/drivers/net/wireless/ralink/rt2x00/rt2x00pci.h
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00pci.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00pci.h
-diff --git a/drivers/net/wireless/rt2x00/rt2x00queue.c b/drivers/net/wireless/ralink/rt2x00/rt2x00queue.c
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00queue.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00queue.c
-diff --git a/drivers/net/wireless/rt2x00/rt2x00queue.h b/drivers/net/wireless/ralink/rt2x00/rt2x00queue.h
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00queue.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00queue.h
-diff --git a/drivers/net/wireless/rt2x00/rt2x00reg.h b/drivers/net/wireless/ralink/rt2x00/rt2x00reg.h
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00reg.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00reg.h
-diff --git a/drivers/net/wireless/rt2x00/rt2x00soc.c b/drivers/net/wireless/ralink/rt2x00/rt2x00soc.c
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00soc.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00soc.c
-diff --git a/drivers/net/wireless/rt2x00/rt2x00soc.h b/drivers/net/wireless/ralink/rt2x00/rt2x00soc.h
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00soc.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00soc.h
-diff --git a/drivers/net/wireless/rt2x00/rt2x00usb.c b/drivers/net/wireless/ralink/rt2x00/rt2x00usb.c
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00usb.c
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00usb.c
-diff --git a/drivers/net/wireless/rt2x00/rt2x00usb.h b/drivers/net/wireless/ralink/rt2x00/rt2x00usb.h
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt2x00usb.h
-rename to drivers/net/wireless/ralink/rt2x00/rt2x00usb.h
-diff --git a/drivers/net/wireless/rt2x00/rt61pci.c b/drivers/net/wireless/ralink/rt2x00/rt61pci.c
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt61pci.c
-rename to drivers/net/wireless/ralink/rt2x00/rt61pci.c
-diff --git a/drivers/net/wireless/rt2x00/rt61pci.h b/drivers/net/wireless/ralink/rt2x00/rt61pci.h
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt61pci.h
-rename to drivers/net/wireless/ralink/rt2x00/rt61pci.h
-diff --git a/drivers/net/wireless/rt2x00/rt73usb.c b/drivers/net/wireless/ralink/rt2x00/rt73usb.c
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt73usb.c
-rename to drivers/net/wireless/ralink/rt2x00/rt73usb.c
-diff --git a/drivers/net/wireless/rt2x00/rt73usb.h b/drivers/net/wireless/ralink/rt2x00/rt73usb.h
-similarity index 100%
-rename from drivers/net/wireless/rt2x00/rt73usb.h
-rename to drivers/net/wireless/ralink/rt2x00/rt73usb.h
+rename from drivers/net/wireless/orinoco/wext.h
+rename to drivers/net/wireless/intersil/orinoco/wext.h
 -- 
 1.7.9.5
