@@ -1,7 +1,7 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: [PATCH v2 03/27] atmel: move under atmel vendor directory
-Date: Wed, 18 Nov 2015 16:45:42 +0200
-Message-ID: <1447857966-19560-4-git-send-email-kvalo@codeaurora.org>
+Subject: [PATCH v2 02/27] airo: move under cisco vendor directory
+Date: Wed, 18 Nov 2015 16:45:41 +0200
+Message-ID: <1447857966-19560-3-git-send-email-kvalo@codeaurora.org>
 References: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: linux-wireless@vger.kernel.org
@@ -14,135 +14,117 @@ Part of reorganising wireless drivers directory and Kconfig.
 
 Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
 ---
- MAINTAINERS                                     |    2 +-
- drivers/net/wireless/Kconfig                    |   44 +----------------
- drivers/net/wireless/Makefile                   |    7 +--
- drivers/net/wireless/atmel/Kconfig              |   57 +++++++++++++++++++++++
- drivers/net/wireless/atmel/Makefile             |    5 ++
- drivers/net/wireless/{ => atmel}/at76c50x-usb.c |    0
- drivers/net/wireless/{ => atmel}/at76c50x-usb.h |    0
- drivers/net/wireless/{ => atmel}/atmel.c        |    0
- drivers/net/wireless/{ => atmel}/atmel.h        |    0
- drivers/net/wireless/{ => atmel}/atmel_cs.c     |    0
- drivers/net/wireless/{ => atmel}/atmel_pci.c    |    0
- 11 files changed, 65 insertions(+), 50 deletions(-)
- create mode 100644 drivers/net/wireless/atmel/Kconfig
- create mode 100644 drivers/net/wireless/atmel/Makefile
- rename drivers/net/wireless/{ => atmel}/at76c50x-usb.c (100%)
- rename drivers/net/wireless/{ => atmel}/at76c50x-usb.h (100%)
- rename drivers/net/wireless/{ => atmel}/atmel.c (100%)
- rename drivers/net/wireless/{ => atmel}/atmel.h (100%)
- rename drivers/net/wireless/{ => atmel}/atmel_cs.c (100%)
- rename drivers/net/wireless/{ => atmel}/atmel_pci.c (100%)
+ drivers/net/wireless/Kconfig               |   43 +--------------------
+ drivers/net/wireless/Makefile              |    4 +-
+ drivers/net/wireless/cisco/Kconfig         |   56 ++++++++++++++++++++++++++++
+ drivers/net/wireless/cisco/Makefile        |    2 +
+ drivers/net/wireless/{ => cisco}/airo.c    |    0
+ drivers/net/wireless/{ => cisco}/airo.h    |    0
+ drivers/net/wireless/{ => cisco}/airo_cs.c |    0
+ 7 files changed, 60 insertions(+), 45 deletions(-)
+ create mode 100644 drivers/net/wireless/cisco/Kconfig
+ create mode 100644 drivers/net/wireless/cisco/Makefile
+ rename drivers/net/wireless/{ => cisco}/airo.c (100%)
+ rename drivers/net/wireless/{ => cisco}/airo.h (100%)
+ rename drivers/net/wireless/{ => cisco}/airo_cs.c (100%)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index f1adb66094f1..2f3ea01c101c 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1992,7 +1992,7 @@ L:	linux-wireless@vger.kernel.org
- W:	http://www.thekelleys.org.uk/atmel
- W:	http://atmelwlandriver.sourceforge.net/
- S:	Maintained
--F:	drivers/net/wireless/atmel*
-+F:	drivers/net/wireless/atmel/atmel*
- 
- ATMEL MAXTOUCH DRIVER
- M:	Nick Dyer <nick.dyer@itdev.co.uk>
 diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
-index ce5211ba1b29..275b6ed93f15 100644
+index 7d8f47117c4d..ce5211ba1b29 100644
 --- a/drivers/net/wireless/Kconfig
 +++ b/drivers/net/wireless/Kconfig
 @@ -18,6 +18,7 @@ menuconfig WLAN
  if WLAN
  
  source "drivers/net/wireless/admtek/Kconfig"
-+source "drivers/net/wireless/atmel/Kconfig"
- source "drivers/net/wireless/cisco/Kconfig"
++source "drivers/net/wireless/cisco/Kconfig"
  
  config PCMCIA_RAYCS
-@@ -54,49 +55,6 @@ config LIBERTAS_THINFIRM_USB
+ 	tristate "Aviator/Raytheon 2.4GHz wireless support"
+@@ -53,26 +54,6 @@ config LIBERTAS_THINFIRM_USB
  	---help---
  	  A driver for Marvell Libertas 8388 USB devices using thinfirm.
  
--config ATMEL
--      tristate "Atmel at76c50x chipset  802.11b support"
--      depends on CFG80211 && (PCI || PCMCIA)
--      select WIRELESS_EXT
--      select WEXT_PRIV
--      select FW_LOADER
--      select CRC32
--       ---help---
--        A driver 802.11b wireless cards based on the Atmel fast-vnet
--        chips. This driver supports standard Linux wireless extensions.
--
--        Many  cards based on this chipset do not have flash memory
--        and need their firmware loaded at start-up. If yours is
--        one of these, you will need to provide a firmware image
--        to be loaded into the card by the driver. The Atmel
--        firmware package can be downloaded from
--        <http://www.thekelleys.org.uk/atmel>
--
--config PCI_ATMEL
--      tristate "Atmel at76c506 PCI cards"
--      depends on ATMEL && PCI
--       ---help---
--        Enable support for PCI and mini-PCI cards containing the
--        Atmel at76c506 chip.
--
--config PCMCIA_ATMEL
--	tristate "Atmel at76c502/at76c504 PCMCIA cards"
--	depends on ATMEL && PCMCIA
+-config AIRO
+-	tristate "Cisco/Aironet 34X/35X/4500/4800 ISA and PCI cards"
+-	depends on CFG80211 && ISA_DMA_API && (PCI || BROKEN)
 -	select WIRELESS_EXT
--	select FW_LOADER
--	select CRC32
+-	select CRYPTO
+-	select WEXT_SPY
+-	select WEXT_PRIV
 -	---help---
--	  Enable support for PCMCIA cards containing the
--	  Atmel at76c502 and at76c504 chips.
+-	  This is the standard Linux driver to support Cisco/Aironet ISA and
+-	  PCI 802.11 wireless cards.
+-	  It supports the new 802.11b cards from Cisco (Cisco 34X, Cisco 35X
+-	  - with or without encryption) as well as card before the Cisco
+-	  acquisition (Aironet 4500, Aironet 4800, Aironet 4800B).
 -
--config AT76C50X_USB
--        tristate "Atmel at76c503/at76c505/at76c505a USB cards"
--        depends on MAC80211 && USB
--        select FW_LOADER
--        ---help---
--          Enable support for USB Wireless devices using Atmel at76c503,
--          at76c505 or at76c505a chips.
+-	  This driver support both the standard Linux Wireless Extensions
+-	  and Cisco proprietary API, so both the Linux Wireless Tools and the
+-	  Cisco Linux utilities can be used to configure the card.
+-
+-	  The driver can be compiled as a module and will be named "airo".
+-
+ config ATMEL
+       tristate "Atmel at76c50x chipset  802.11b support"
+       depends on CFG80211 && (PCI || PCMCIA)
+@@ -116,28 +97,6 @@ config AT76C50X_USB
+           Enable support for USB Wireless devices using Atmel at76c503,
+           at76c505 or at76c505a chips.
+ 
+-config AIRO_CS
+-	tristate "Cisco/Aironet 34X/35X/4500/4800 PCMCIA cards"
+-	depends on CFG80211 && PCMCIA && (BROKEN || !M32R)
+-	select WIRELESS_EXT
+-	select WEXT_SPY
+-	select WEXT_PRIV
+-	select CRYPTO
+-	select CRYPTO_AES
+-	---help---
+-	  This is the standard Linux driver to support Cisco/Aironet PCMCIA
+-	  802.11 wireless cards.  This driver is the same as the Aironet
+-	  driver part of the Linux Pcmcia package.
+-	  It supports the new 802.11b cards from Cisco (Cisco 34X, Cisco 35X
+-	  - with or without encryption) as well as card before the Cisco
+-	  acquisition (Aironet 4500, Aironet 4800, Aironet 4800B). It also
+-	  supports OEM of Cisco such as the DELL TrueMobile 4800 and Xircom
+-	  802.11b cards.
+-
+-	  This driver support both the standard Linux Wireless Extensions
+-	  and Cisco proprietary API, so both the Linux Wireless Tools and the
+-	  Cisco Linux utilities can be used to configure the card.
 -
  config PCMCIA_WL3501
  	tristate "Planet WL3501 PCMCIA cards"
  	depends on CFG80211 && PCMCIA
 diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
-index 853294d84fa9..87eb6b2f3227 100644
+index be215f43ec1d..853294d84fa9 100644
 --- a/drivers/net/wireless/Makefile
 +++ b/drivers/net/wireless/Makefile
-@@ -3,6 +3,7 @@
+@@ -3,15 +3,13 @@
  #
  
  obj-$(CONFIG_WLAN_VENDOR_ADMTEK) += admtek/
-+obj-$(CONFIG_WLAN_VENDOR_ATMEL) += atmel/
- obj-$(CONFIG_WLAN_VENDOR_CISCO) += cisco/
++obj-$(CONFIG_WLAN_VENDOR_CISCO) += cisco/
  
  obj-$(CONFIG_IPW2100) += ipw2x00/
-@@ -10,12 +11,6 @@ obj-$(CONFIG_IPW2200) += ipw2x00/
+ obj-$(CONFIG_IPW2200) += ipw2x00/
  
  obj-$(CONFIG_HERMES)		+= orinoco/
  
--obj-$(CONFIG_ATMEL)             += atmel.o
--obj-$(CONFIG_PCI_ATMEL)         += atmel_pci.o 
--obj-$(CONFIG_PCMCIA_ATMEL)      += atmel_cs.o
+-obj-$(CONFIG_AIRO)		+= airo.o
+-obj-$(CONFIG_AIRO_CS)		+= airo_cs.o airo.o
 -
--obj-$(CONFIG_AT76C50X_USB)      += at76c50x-usb.o
--
- obj-$(CONFIG_PRISM54)		+= prism54/
- 
- obj-$(CONFIG_HOSTAP)		+= hostap/
-diff --git a/drivers/net/wireless/atmel/Kconfig b/drivers/net/wireless/atmel/Kconfig
+ obj-$(CONFIG_ATMEL)             += atmel.o
+ obj-$(CONFIG_PCI_ATMEL)         += atmel_pci.o 
+ obj-$(CONFIG_PCMCIA_ATMEL)      += atmel_cs.o
+diff --git a/drivers/net/wireless/cisco/Kconfig b/drivers/net/wireless/cisco/Kconfig
 new file mode 100644
-index 000000000000..a43cfd163254
+index 000000000000..b22567dff893
 --- /dev/null
-+++ b/drivers/net/wireless/atmel/Kconfig
-@@ -0,0 +1,57 @@
-+config WLAN_VENDOR_ATMEL
-+	bool "Atmel devices"
++++ b/drivers/net/wireless/cisco/Kconfig
+@@ -0,0 +1,56 @@
++config WLAN_VENDOR_CISCO
++	bool "Cisco devices"
 +	default y
 +	---help---
 +	  If you have a wireless card belonging to this class, say Y.
@@ -152,86 +134,70 @@ index 000000000000..a43cfd163254
 +	  the questions about  cards. If you say Y, you will be asked for
 +	  your specific card in the following questions.
 +
-+if WLAN_VENDOR_ATMEL
++if WLAN_VENDOR_CISCO
 +
-+config ATMEL
-+      tristate "Atmel at76c50x chipset  802.11b support"
-+      depends on CFG80211 && (PCI || PCMCIA)
-+      select WIRELESS_EXT
-+      select WEXT_PRIV
-+      select FW_LOADER
-+      select CRC32
-+       ---help---
-+        A driver 802.11b wireless cards based on the Atmel fast-vnet
-+        chips. This driver supports standard Linux wireless extensions.
-+
-+        Many  cards based on this chipset do not have flash memory
-+        and need their firmware loaded at start-up. If yours is
-+        one of these, you will need to provide a firmware image
-+        to be loaded into the card by the driver. The Atmel
-+        firmware package can be downloaded from
-+        <http://www.thekelleys.org.uk/atmel>
-+
-+config PCI_ATMEL
-+      tristate "Atmel at76c506 PCI cards"
-+      depends on ATMEL && PCI
-+       ---help---
-+        Enable support for PCI and mini-PCI cards containing the
-+        Atmel at76c506 chip.
-+
-+config PCMCIA_ATMEL
-+	tristate "Atmel at76c502/at76c504 PCMCIA cards"
-+	depends on ATMEL && PCMCIA
++config AIRO
++	tristate "Cisco/Aironet 34X/35X/4500/4800 ISA and PCI cards"
++	depends on CFG80211 && ISA_DMA_API && (PCI || BROKEN)
 +	select WIRELESS_EXT
-+	select FW_LOADER
-+	select CRC32
++	select CRYPTO
++	select WEXT_SPY
++	select WEXT_PRIV
 +	---help---
-+	  Enable support for PCMCIA cards containing the
-+	  Atmel at76c502 and at76c504 chips.
++	  This is the standard Linux driver to support Cisco/Aironet ISA and
++	  PCI 802.11 wireless cards.
++	  It supports the new 802.11b cards from Cisco (Cisco 34X, Cisco 35X
++	  - with or without encryption) as well as card before the Cisco
++	  acquisition (Aironet 4500, Aironet 4800, Aironet 4800B).
 +
-+config AT76C50X_USB
-+        tristate "Atmel at76c503/at76c505/at76c505a USB cards"
-+        depends on MAC80211 && USB
-+        select FW_LOADER
-+        ---help---
-+          Enable support for USB Wireless devices using Atmel at76c503,
-+          at76c505 or at76c505a chips.
++	  This driver support both the standard Linux Wireless Extensions
++	  and Cisco proprietary API, so both the Linux Wireless Tools and the
++	  Cisco Linux utilities can be used to configure the card.
 +
-+endif # WLAN_VENDOR_ATMEL
-diff --git a/drivers/net/wireless/atmel/Makefile b/drivers/net/wireless/atmel/Makefile
++	  The driver can be compiled as a module and will be named "airo".
++
++config AIRO_CS
++	tristate "Cisco/Aironet 34X/35X/4500/4800 PCMCIA cards"
++	depends on CFG80211 && PCMCIA && (BROKEN || !M32R)
++	select WIRELESS_EXT
++	select WEXT_SPY
++	select WEXT_PRIV
++	select CRYPTO
++	select CRYPTO_AES
++	---help---
++	  This is the standard Linux driver to support Cisco/Aironet PCMCIA
++	  802.11 wireless cards.  This driver is the same as the Aironet
++	  driver part of the Linux Pcmcia package.
++	  It supports the new 802.11b cards from Cisco (Cisco 34X, Cisco 35X
++	  - with or without encryption) as well as card before the Cisco
++	  acquisition (Aironet 4500, Aironet 4800, Aironet 4800B). It also
++	  supports OEM of Cisco such as the DELL TrueMobile 4800 and Xircom
++	  802.11b cards.
++
++	  This driver support both the standard Linux Wireless Extensions
++	  and Cisco proprietary API, so both the Linux Wireless Tools and the
++	  Cisco Linux utilities can be used to configure the card.
++
++endif # WLAN_VENDOR_CISCO
+diff --git a/drivers/net/wireless/cisco/Makefile b/drivers/net/wireless/cisco/Makefile
 new file mode 100644
-index 000000000000..e62e345f7af6
+index 000000000000..d4110b19d6ef
 --- /dev/null
-+++ b/drivers/net/wireless/atmel/Makefile
-@@ -0,0 +1,5 @@
-+obj-$(CONFIG_ATMEL)             += atmel.o
-+obj-$(CONFIG_PCI_ATMEL)         += atmel_pci.o 
-+obj-$(CONFIG_PCMCIA_ATMEL)      += atmel_cs.o
-+
-+obj-$(CONFIG_AT76C50X_USB)      += at76c50x-usb.o
-diff --git a/drivers/net/wireless/at76c50x-usb.c b/drivers/net/wireless/atmel/at76c50x-usb.c
++++ b/drivers/net/wireless/cisco/Makefile
+@@ -0,0 +1,2 @@
++obj-$(CONFIG_AIRO)		+= airo.o
++obj-$(CONFIG_AIRO_CS)		+= airo_cs.o airo.o
+diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/cisco/airo.c
 similarity index 100%
-rename from drivers/net/wireless/at76c50x-usb.c
-rename to drivers/net/wireless/atmel/at76c50x-usb.c
-diff --git a/drivers/net/wireless/at76c50x-usb.h b/drivers/net/wireless/atmel/at76c50x-usb.h
+rename from drivers/net/wireless/airo.c
+rename to drivers/net/wireless/cisco/airo.c
+diff --git a/drivers/net/wireless/airo.h b/drivers/net/wireless/cisco/airo.h
 similarity index 100%
-rename from drivers/net/wireless/at76c50x-usb.h
-rename to drivers/net/wireless/atmel/at76c50x-usb.h
-diff --git a/drivers/net/wireless/atmel.c b/drivers/net/wireless/atmel/atmel.c
+rename from drivers/net/wireless/airo.h
+rename to drivers/net/wireless/cisco/airo.h
+diff --git a/drivers/net/wireless/airo_cs.c b/drivers/net/wireless/cisco/airo_cs.c
 similarity index 100%
-rename from drivers/net/wireless/atmel.c
-rename to drivers/net/wireless/atmel/atmel.c
-diff --git a/drivers/net/wireless/atmel.h b/drivers/net/wireless/atmel/atmel.h
-similarity index 100%
-rename from drivers/net/wireless/atmel.h
-rename to drivers/net/wireless/atmel/atmel.h
-diff --git a/drivers/net/wireless/atmel_cs.c b/drivers/net/wireless/atmel/atmel_cs.c
-similarity index 100%
-rename from drivers/net/wireless/atmel_cs.c
-rename to drivers/net/wireless/atmel/atmel_cs.c
-diff --git a/drivers/net/wireless/atmel_pci.c b/drivers/net/wireless/atmel/atmel_pci.c
-similarity index 100%
-rename from drivers/net/wireless/atmel_pci.c
-rename to drivers/net/wireless/atmel/atmel_pci.c
+rename from drivers/net/wireless/airo_cs.c
+rename to drivers/net/wireless/cisco/airo_cs.c
 -- 
 1.7.9.5
