@@ -1,7 +1,7 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: [PATCH v2 01/27] adm80211: move under admtek vendor directory
-Date: Wed, 18 Nov 2015 16:45:40 +0200
-Message-ID: <1447857966-19560-2-git-send-email-kvalo@codeaurora.org>
+Subject: [PATCH v2 14/27] mwl8k: move under marvell vendor directory
+Date: Wed, 18 Nov 2015 16:45:53 +0200
+Message-ID: <1447857966-19560-15-git-send-email-kvalo@codeaurora.org>
 References: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: linux-wireless@vger.kernel.org
@@ -14,162 +14,92 @@ Part of reorganising wireless drivers directory and Kconfig.
 
 Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
 ---
- MAINTAINERS                                 |    2 +-
- drivers/net/wireless/Kconfig                |   29 ++-----------------
- drivers/net/wireless/Makefile               |    4 +--
- drivers/net/wireless/admtek/Kconfig         |   41 +++++++++++++++++++++++++++
- drivers/net/wireless/admtek/Makefile        |    1 +
- drivers/net/wireless/{ => admtek}/adm8211.c |    0
- drivers/net/wireless/{ => admtek}/adm8211.h |    0
- 7 files changed, 47 insertions(+), 30 deletions(-)
- create mode 100644 drivers/net/wireless/admtek/Kconfig
- create mode 100644 drivers/net/wireless/admtek/Makefile
- rename drivers/net/wireless/{ => admtek}/adm8211.c (100%)
- rename drivers/net/wireless/{ => admtek}/adm8211.h (100%)
+ MAINTAINERS                                |    2 +-
+ drivers/net/wireless/Kconfig               |    9 ---------
+ drivers/net/wireless/Makefile              |    2 --
+ drivers/net/wireless/marvell/Kconfig       |    9 +++++++++
+ drivers/net/wireless/marvell/Makefile      |    2 ++
+ drivers/net/wireless/{ => marvell}/mwl8k.c |    0
+ 6 files changed, 12 insertions(+), 12 deletions(-)
+ rename drivers/net/wireless/{ => marvell}/mwl8k.c (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 35fe7ae0492e..f1adb66094f1 100644
+index 5b889f6972c0..e622877aaab4 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -388,7 +388,7 @@ ADM8211 WIRELESS DRIVER
+@@ -6734,7 +6734,7 @@ MARVELL MWL8K WIRELESS DRIVER
+ M:	Lennert Buytenhek <buytenh@wantstofly.org>
  L:	linux-wireless@vger.kernel.org
- W:	http://wireless.kernel.org/
- S:	Orphan
--F:	drivers/net/wireless/adm8211.*
-+F:	drivers/net/wireless/admtek/adm8211.*
+ S:	Odd Fixes
+-F:	drivers/net/wireless/mwl8k.c
++F:	drivers/net/wireless/marvell/mwl8k.c
  
- ADP1653 FLASH CONTROLLER DRIVER
- M:	Sakari Ailus <sakari.ailus@iki.fi>
+ MARVELL SOC MMC/SD/SDIO CONTROLLER DRIVER
+ M:	Nicolas Pitre <nico@fluxnic.net>
 diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
-index f9f94229bf1b..7d8f47117c4d 100644
+index 465665237308..315982a5ee73 100644
 --- a/drivers/net/wireless/Kconfig
 +++ b/drivers/net/wireless/Kconfig
-@@ -17,6 +17,8 @@ menuconfig WLAN
+@@ -133,15 +133,6 @@ config MAC80211_HWSIM
+ 	  To compile this driver as a module, choose M here: the module will be
+ 	  called mac80211_hwsim.  If unsure, say N.
  
- if WLAN
- 
-+source "drivers/net/wireless/admtek/Kconfig"
-+
- config PCMCIA_RAYCS
- 	tristate "Aviator/Raytheon 2.4GHz wireless support"
- 	depends on PCMCIA
-@@ -214,33 +216,6 @@ config USB_NET_RNDIS_WLAN
- 
- 	  If you choose to build a module, it'll be called rndis_wlan.
- 
--config ADM8211
--	tristate "ADMtek ADM8211 support"
+-config MWL8K
+-	tristate "Marvell 88W8xxx PCI/PCIe Wireless support"
 -	depends on MAC80211 && PCI
--	select CRC32
--	select EEPROM_93CX6
 -	---help---
--	  This driver is for ADM8211A, ADM8211B, and ADM8211C based cards.
--	  These are PCI/mini-PCI/Cardbus 802.11b chips found in cards such as:
+-	  This driver supports Marvell TOPDOG 802.11 wireless cards.
 -
--	  Xterasys Cardbus XN-2411b
--	  Blitz NetWave Point PC
--	  TrendNet 221pc
--	  Belkin F5D6001
--	  SMC 2635W
--	  Linksys WPC11 v1
--	  Fiberline FL-WL-200X
--	  3com Office Connect (3CRSHPW796)
--	  Corega WLPCIB-11
--	  SMC 2602W V2 EU
--	  D-Link DWL-520 Revision C
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called mwl8k.  If unsure, say N.
 -
--	  However, some of these cards have been replaced with other chips
--	  like the RTL8180L (Xterasys Cardbus XN-2411b, Belkin F5D6001) or
--	  the Ralink RT2400 (SMC2635W) without a model number change.
--
--	  Thanks to Infineon-ADMtek for their support of this driver.
--
- source "drivers/net/wireless/realtek/rtl818x/Kconfig"
- 
- config MAC80211_HWSIM
+ source "drivers/net/wireless/ath/Kconfig"
+ source "drivers/net/wireless/hostap/Kconfig"
+ source "drivers/net/wireless/orinoco/Kconfig"
 diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
-index 740fdd353c5d..be215f43ec1d 100644
+index 7a95b58a5c76..9498753f596b 100644
 --- a/drivers/net/wireless/Makefile
 +++ b/drivers/net/wireless/Makefile
-@@ -2,6 +2,8 @@
- # Makefile for the Linux Wireless network device drivers.
- #
+@@ -26,8 +26,6 @@ obj-$(CONFIG_USB_NET_RNDIS_WLAN)	+= rndis_wlan.o
  
-+obj-$(CONFIG_WLAN_VENDOR_ADMTEK) += admtek/
+ obj-$(CONFIG_USB_ZD1201)	+= zd1201.o
+ 
+-obj-$(CONFIG_MWL8K)	+= mwl8k.o
+-
+ obj-$(CONFIG_RT2X00)	+= rt2x00/
+ 
+ obj-$(CONFIG_WL_MEDIATEK)	+= mediatek/
+diff --git a/drivers/net/wireless/marvell/Kconfig b/drivers/net/wireless/marvell/Kconfig
+index bbdbac9a2a45..4938c7ec0009 100644
+--- a/drivers/net/wireless/marvell/Kconfig
++++ b/drivers/net/wireless/marvell/Kconfig
+@@ -15,4 +15,13 @@ source "drivers/net/wireless/marvell/libertas/Kconfig"
+ source "drivers/net/wireless/marvell/libertas_tf/Kconfig"
+ source "drivers/net/wireless/marvell/mwifiex/Kconfig"
+ 
++config MWL8K
++	tristate "Marvell 88W8xxx PCI/PCIe Wireless support"
++	depends on MAC80211 && PCI
++	---help---
++	  This driver supports Marvell TOPDOG 802.11 wireless cards.
 +
- obj-$(CONFIG_IPW2100) += ipw2x00/
- obj-$(CONFIG_IPW2200) += ipw2x00/
- 
-@@ -35,8 +37,6 @@ obj-$(CONFIG_LIBERTAS)		+= libertas/
++	  To compile this driver as a module, choose M here: the module
++	  will be called mwl8k.  If unsure, say N.
++
+ endif # WLAN_VENDOR_MARVELL
+diff --git a/drivers/net/wireless/marvell/Makefile b/drivers/net/wireless/marvell/Makefile
+index f4ab48aaff3c..1b0a7d2bc8e6 100644
+--- a/drivers/net/wireless/marvell/Makefile
++++ b/drivers/net/wireless/marvell/Makefile
+@@ -2,3 +2,5 @@ obj-$(CONFIG_LIBERTAS)		+= libertas/
  
  obj-$(CONFIG_LIBERTAS_THINFIRM)	+= libertas_tf/
- 
--obj-$(CONFIG_ADM8211)	+= adm8211.o
--
- obj-$(CONFIG_MWL8K)	+= mwl8k.o
- 
- obj-$(CONFIG_IWLWIFI)	+= iwlwifi/
-diff --git a/drivers/net/wireless/admtek/Kconfig b/drivers/net/wireless/admtek/Kconfig
-new file mode 100644
-index 000000000000..d5a2dc728078
---- /dev/null
-+++ b/drivers/net/wireless/admtek/Kconfig
-@@ -0,0 +1,41 @@
-+config WLAN_VENDOR_ADMTEK
-+	bool "ADMtek devices"
-+	default y
-+	---help---
-+	  If you have a wireless card belonging to this class, say Y.
+ obj-$(CONFIG_MWIFIEX)	+= mwifiex/
 +
-+	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about  cards. If you say Y, you will be asked for
-+	  your specific card in the following questions.
-+
-+if WLAN_VENDOR_ADMTEK
-+
-+config ADM8211
-+	tristate "ADMtek ADM8211 support"
-+	depends on MAC80211 && PCI
-+	select CRC32
-+	select EEPROM_93CX6
-+	---help---
-+	  This driver is for ADM8211A, ADM8211B, and ADM8211C based cards.
-+	  These are PCI/mini-PCI/Cardbus 802.11b chips found in cards such as:
-+
-+	  Xterasys Cardbus XN-2411b
-+	  Blitz NetWave Point PC
-+	  TrendNet 221pc
-+	  Belkin F5D6001
-+	  SMC 2635W
-+	  Linksys WPC11 v1
-+	  Fiberline FL-WL-200X
-+	  3com Office Connect (3CRSHPW796)
-+	  Corega WLPCIB-11
-+	  SMC 2602W V2 EU
-+	  D-Link DWL-520 Revision C
-+
-+	  However, some of these cards have been replaced with other chips
-+	  like the RTL8180L (Xterasys Cardbus XN-2411b, Belkin F5D6001) or
-+	  the Ralink RT2400 (SMC2635W) without a model number change.
-+
-+	  Thanks to Infineon-ADMtek for their support of this driver.
-+
-+endif # WLAN_VENDOR_ADMTEK
-diff --git a/drivers/net/wireless/admtek/Makefile b/drivers/net/wireless/admtek/Makefile
-new file mode 100644
-index 000000000000..9cca7e571cdd
---- /dev/null
-+++ b/drivers/net/wireless/admtek/Makefile
-@@ -0,0 +1 @@
-+obj-$(CONFIG_ADM8211)	+= adm8211.o
-diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/admtek/adm8211.c
++obj-$(CONFIG_MWL8K)	+= mwl8k.o
+diff --git a/drivers/net/wireless/mwl8k.c b/drivers/net/wireless/marvell/mwl8k.c
 similarity index 100%
-rename from drivers/net/wireless/adm8211.c
-rename to drivers/net/wireless/admtek/adm8211.c
-diff --git a/drivers/net/wireless/adm8211.h b/drivers/net/wireless/admtek/adm8211.h
-similarity index 100%
-rename from drivers/net/wireless/adm8211.h
-rename to drivers/net/wireless/admtek/adm8211.h
+rename from drivers/net/wireless/mwl8k.c
+rename to drivers/net/wireless/marvell/mwl8k.c
 -- 
 1.7.9.5
