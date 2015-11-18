@@ -1,138 +1,82 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: more statistics (was: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue (w/ Fixes:))
-Date: Wed, 18 Nov 2015 23:39:32 +0000
-Message-ID: <87wpteq3m3.fsf_-_@doppelsaurus.mobileactivedefense.com>
-References: <87a8qhspfm.fsf@doppelsaurus.mobileactivedefense.com>
-	<876111wpza.fsf@doppelsaurus.mobileactivedefense.com>
-	<87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
-	<20151117.151421.249423864481324472.davem@davemloft.net>
-	<87ziyb6uo0.fsf@doppelsaurus.mobileactivedefense.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 2/2] dsa: mv88e6xxx.c: Hardware reset the chip
+ if available
+Date: Wed, 18 Nov 2015 15:51:22 -0800
+Message-ID: <564D0EFA.7050806@gmail.com>
+References: <1447889365-25256-1-git-send-email-andrew@lunn.ch> <1447889365-25256-3-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rweikusat@mobileactivedefense.com, jbaron@akamai.com,
-	dvyukov@google.com, syzkaller@googlegroups.com, mkubecek@suse.cz,
-	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
-	linux-kernel@vger.kernel.org, hannes@stressinduktion.org,
-	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
-	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org,
-	kcc@google.com, glider@google.com, andreyknvl@google.com,
-	sasha.levin@oracle.com, jln@google.com, keescook@google.com,
-	minipli@googlemail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87ziyb6uo0.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
-	Weikusat's message of "Wed, 18 Nov 2015 18:15:27 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Neil Armstrong <narmstrong@baylibre.com>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33265 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756183AbbKRXwW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 18:52:22 -0500
+Received: by pabfh17 with SMTP id fh17so62069616pab.0
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 15:52:22 -0800 (PST)
+In-Reply-To: <1447889365-25256-3-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
+On 18/11/15 15:29, Andrew Lunn wrote:
+> The device tree binding now allows a gpio to be specified which is
+> attached to the switch chips reset line. If it is defined, perform
+> a hardware reset on the switch during setup.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+>  drivers/net/dsa/mv88e6xxx.c | 14 ++++++++++++++
+>  1 file changed, 14 insertions(+)
+> 
+> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+> index b06dba05594a..c0bbbe7713c5 100644
+> --- a/drivers/net/dsa/mv88e6xxx.c
+> +++ b/drivers/net/dsa/mv88e6xxx.c
+> @@ -19,6 +19,7 @@
+>  #include <linux/list.h>
+>  #include <linux/module.h>
+>  #include <linux/netdevice.h>
+> +#include <linux/gpio/consumer.h>
+>  #include <linux/phy.h>
+>  #include <net/dsa.h>
+>  #include <net/switchdev.h>
+> @@ -2323,7 +2324,10 @@ int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active)
+>  {
+>  	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+>  	u16 is_reset = (ppu_active ? 0x8800 : 0xc800);
+> +	int gpio = ds->pd->reset;
+> +	int flags = ds->pd->reset_flags;
+>  	unsigned long timeout;
+> +	int on = 1;
+>  	int ret;
+>  	int i;
+>  
+> @@ -2336,6 +2340,16 @@ int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active)
+>  	/* Wait for transmit queues to drain. */
+>  	usleep_range(2000, 4000);
+>  
+> +	/* If there is a gpio connected to the reset pin, toggle it */
+> +	if (gpio_is_valid(gpio)) {
+> +		if (flags && OF_GPIO_ACTIVE_LOW)
+> +			on = !on;
+> +		gpio_set_value_cansleep(gpio, on);
+> +		usleep_range(10000, 20000);
+> +		gpio_set_value_cansleep(gpio, !on);
+> +		usleep_range(10000, 20000);
+> +	}
 
-[...]
+We are embedding reset logic here about the delays and polarity, while
+there is now a proper abstraction for this within the reset controller
+subsystem under drivers/reset/core.c. Could we utilize that facility
+instead which would make us more robust wrt. non-GPIO reset lines (for
+instance some SF2 switches on DSL gateways could definitively benefit
+from this).
 
-> Some more information on this: Running the test program included below
-> on my 'work' system (otherwise idle, after logging in via VT with no GUI
-> running)/ quadcore AMD A10-5700, 3393.984 for 20 times/ patched 4.3 resulted in the
-> following throughput statistics[*]:
-
-Since the results were too variable with only 20 runs, I've also tested
-this with 100 for three kernels, stock 4.3, 4.3 plus the published
-patch, 4.3 plus the published patch plus the "just return EAGAIN"
-modification". The 1st and the 3rd perform about identical for the
-test program I used (slightly modified version included below), the 2nd
-is markedly slower. This is most easily visible when grouping the
-printed data rates (B/s) 'by millions':
-
-stock 4.3
----------
-13000000.000-13999999.000       3       (3%)
-14000000.000-14999999.000       82      (82%)
-15000000.000-15999999.000       15      (15%)
-
-
-4.3 + patch
------------
-13000000.000-13999999.000       54      (54%)
-14000000.000-14999999.000       35      (35%)
-15000000.000-15999999.000       7       (7%)
-16000000.000-16999999.000       1       (1%)
-18000000.000-18999999.000       1       (1%)
-22000000.000-22999999.000       2       (2%)
-
-
-4.3 + modified patch
---------------------
-13000000.000-13999999.000       3       (3%)
-14000000.000-14999999.000       82      (82%)
-15000000.000-15999999.000       14      (14%)
-24000000.000-24999999.000       1       (1%)
-
-
-IMHO, the 3rd option would be the way to go if this was considered an
-acceptable option (ie, despite it returns spurious errors in 'rare
-cases').
-
-
-modified test program
-=====================
-#include <inttypes.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
-enum {
-    MSG_SZ =	16,
-    MSGS =	1000000
-};
-
-static char msg[MSG_SZ];
-
-static uint64_t tv2u(struct timeval *tv)
-{
-    uint64_t u;
-
-    u = tv->tv_sec;
-    u *= 1000000;
-    return u + tv->tv_usec;
-}
-
-int main(void)
-{
-    struct timeval start, stop;
-    uint64_t t_diff;
-    double rate;
-    int sks[2];
-    unsigned remain;
-    char buf[MSG_SZ];
-
-    socketpair(AF_UNIX, SOCK_SEQPACKET, 0, sks);
-
-    if (fork() == 0) {
-	close(*sks);
-	
-	gettimeofday(&start, 0);
-	while (read(sks[1], buf, sizeof(buf)) > 0);
-	gettimeofday(&stop, 0);
-
-	t_diff = tv2u(&stop);
-	t_diff -= tv2u(&start);
-	rate = MSG_SZ * MSGS;
-	rate /= t_diff;
-	rate *= 1000000;
-	printf("%f\n", rate);
-
-	fflush(stdout);
-	_exit(0);
-    }
-
-    close(sks[1]);
-    
-    remain = MSGS;
-    do write(*sks, msg, sizeof(msg)); while (--remain);
-    close(*sks);
-
-    wait(NULL);
-    return 0;
-}
+There does not seem to be a reset controller GPIO binding and generic
+driver, but this seems like an appropriate candidate?
+-- 
+Florian
