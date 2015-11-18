@@ -1,52 +1,47 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ethernet/atheros/alx: add Killer E2400 device ID
-Date: Wed, 18 Nov 2015 17:01:35 +0300
-Message-ID: <564C84BF.1090202@cogentembedded.com>
-References: <1447809667-9454-1-git-send-email-jason@system76.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Hardware capabilities and bonding offload
+Date: Wed, 18 Nov 2015 15:05:12 +0100
+Message-ID: <20151118140512.GC6123@lunn.ch>
+References: <77EF4405DD4BB54AACCE7DB593DF6A9AA0D643@SJEXCHMB14.corp.ad.broadcom.com>
+ <20151116153032.GC2217@nanopsycho.orion>
+ <5649FFF3.9080401@gmail.com>
+ <20151117220349.GA7762@penelope.isobedori.kobe.vergenet.net>
+ <564BCD12.4010804@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ben Pope <benpope81@gmail.com>
-To: Jason Gerard DeRose <jason@system76.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <simon.horman@netronome.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Premkumar Jonnala <pjonnala@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:35652 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755900AbbKROBj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 09:01:39 -0500
-Received: by lbbsy6 with SMTP id sy6so24793030lbb.2
-        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 06:01:37 -0800 (PST)
-In-Reply-To: <1447809667-9454-1-git-send-email-jason@system76.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:36374 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752859AbbKROFR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Nov 2015 09:05:17 -0500
+Content-Disposition: inline
+In-Reply-To: <564BCD12.4010804@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+> To be honest though this is more of an argument in theory versus
+> some existing management agent I know of today. If you need to do
+> bonding type X in your network and the particular switch doesn't support
+> it I'm not even sure what the mgmt layer is going to do. Maybe just
+> put the switch offline for that network segment.
+> 
+> If you leave the sw bit out in the first iteration I'm OK with that
+> we can easily add it when we have software that needs it.
 
-On 11/18/2015 4:21 AM, Jason Gerard DeRose wrote:
+Taking a step back...
 
-> From: Ben Pope <benpope81@gmail.com>
->
-> This patch adds the PCI device ID (0xe0a1) and alx_pci_tbl entry for the
-> Killer E2400 Ethernet controller, modeled after the Killer E2200
-> controller support (0xe091) already present in the alx driver.
->
-> This patch was originally authored by Ben Pope, but it got held up by
-> issues in the commit message, so I'm resubmitting it on his behalf.
->
-> I've extensively used a kernel with this patch on a System76 serw9
-> laptop and am quite confident it works well (at least on the hardware I
-> have available for testing).
->
-> Note that as a favor to System76, Ubuntu has been carrying this as a
-> sauce patch in their 4.2 based Wily kernel, which presumably has given
-> it real-world testing on other E2400 equipped hardware (I don't know of
-> any Ubuntu kernel bugs filed about it):
->
-> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1498633
->
-> Signed-off-by: Jason Gerard DeRose <jason@system76.com>
+Have we defined a consistent way for signalling:
 
-    No sign-off from Ben?
+1) Failed to offload to the hardware, because the hardware cannot do
+   what you requested.
+2) Do this in software, rather than trying and failing to offload to
+   hardware.
 
-[...]
+At least in DSA, we return EOPNOTSUP for 1).
 
-MBR, Sergei
+   Andrew
