@@ -1,67 +1,63 @@
-From: Stefan Priebe <s.priebe@profihost.ag>
-Subject: Re: Asterisk deadlocks since Kernel 4.1
-Date: Wed, 18 Nov 2015 22:42:20 +0100
-Message-ID: <564CF0BC.3070109@profihost.ag>
-References: <564B3D35.50004@profihost.ag>
- <alpine.DEB.2.11.1511171936030.3761@nanos> <564B7F9D.5060701@profihost.ag>
- <alpine.DEB.2.11.1511172041480.3761@nanos> <564CDE2F.8000201@profihost.ag>
- <564CEB0C.40006@redhat.com> <564CEF5D.3080005@profihost.ag>
- <1447882827.575319.443677441.6F45D05F@webmail.messagingengine.com>
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: Re: [PATCH 13/14] mm: memcontrol: account socket memory in unified
+ hierarchy memory controller
+Date: Wed, 18 Nov 2015 16:48:22 -0500
+Message-ID: <20151118214822.GA1365@cmpxchg.org>
+References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
+ <1447371693-25143-14-git-send-email-hannes@cmpxchg.org>
+ <20151116155923.GH14116@dhcp22.suse.cz>
+ <20151116181810.GB32544@cmpxchg.org>
+ <20151118162256.GK19145@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Weimer <fweimer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Vladimir Davydov <vdavydov@virtuozzo.com>,
+	Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com
+To: Michal Hocko <mhocko@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447882827.575319.443677441.6F45D05F@webmail.messagingengine.com>
+Content-Disposition: inline
+In-Reply-To: <20151118162256.GK19145@dhcp22.suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Nov 18, 2015 at 05:22:56PM +0100, Michal Hocko wrote:
+> On Mon 16-11-15 13:18:10, Johannes Weiner wrote:
+> > What load would you test and what would be the baseline to compare it
+> > to?
+> 
+> It seems like netperf with a stream load running in a memcg with no
+> limits vs. in root memcg (and no other cgroups) should give at least a
+> hint about the runtime overhead, no?
 
-Am 18.11.2015 um 22:40 schrieb Hannes Frederic Sowa:
-> On Wed, Nov 18, 2015, at 22:36, Stefan Priebe wrote:
->> sorry here it is. What I'm wondering is why is there ipv6 stuff? I don't
->> have ipv6 except for link local. Could it be this one?
->>
->> https://bugzilla.redhat.com/show_bug.cgi?id=505105#c79
->>
->> Thread 31 (Thread 0x7f295c011700 (LWP 26654)):
->> #0  0x00007f295de3287d in recvmsg () at
->> ../sysdeps/unix/syscall-template.S:82
->> #1  0x00007f295de52fcc in make_request (fd=35, pid=26631,
->> seen_ipv4=<optimized out>, seen_ipv6=<optimized out>,
->>       in6ai=<optimized out>, in6ailen=<optimized out>) at
->> ../sysdeps/unix/sysv/linux/check_pf.c:119
->> #2  0x00007f295de5344a in __check_pf (seen_ipv4=0x7f295c00e85f,
->> seen_ipv6=0x7f295c00e85e, in6ai=0x7f295c00e840,
->>       in6ailen=0x7f295c00e838) at
->>       ../sysdeps/unix/sysv/linux/check_pf.c:271
->> #3  0x00007f295de10007 in *__GI_getaddrinfo (name=0x7f295c00e8b0
->> "10.12.12.55", service=0x7f295c00e8bc "2135",
->>       hints=0x7f295c00e910, pai=0x7f295c00e908) at
->> ../sysdeps/posix/getaddrinfo.c:2389
->
-> Can you also get a /proc/pid/stack stacktrace?
+Comparing root vs. dedicated group generally doesn't make sense since
+you either need containment or you don't. It makes more sense to test
+both times inside a memory-controlled cgroup, one with a regular boot,
+one with cgroup.memory=nosocket.
 
-Sure:
+So I ran perf record -g -a netperf -t TCP_STREAM multiple times inside
+a memory-controlled cgroup, but mostly mem_cgroup_charge_skmem() does
+not show up in the profile at all. Once it was there with 0.00%.
 
-For the thread:
-# cat /proc/26631/task/26654/stack
-[<ffffffffb34e5cdb>] __skb_recv_datagram+0x52b/0x5d0
-[<ffffffffb34e5db2>] skb_recv_datagram+0x32/0x40
-[<ffffffffb35227bc>] netlink_recvmsg+0x4c/0x300
-[<ffffffffb34d3863>] sock_recvmsg+0x13/0x20
-[<ffffffffb34d679e>] ___sys_recvmsg+0xee/0x230
-[<ffffffffb34d7739>] __sys_recvmsg+0x49/0x90
-[<ffffffffb34d7792>] SyS_recvmsg+0x12/0x20
-[<ffffffffb363f1ee>] system_call_fastpath+0x12/0x71
-[<ffffffffffffffff>] 0xffffffffffffffff
+I ran another test that downloads the latest kernel image from
+kernel.org at 13MB/s (on my i5 laptop) and it looks like this:
 
-Stefan
+     0.02%     0.01%  irq/44-iwlwifi   [kernel.kallsyms]           [k] mem_cgroup_charge_skmem
+             |
+             ---mem_cgroup_charge_skmem
+                __sk_mem_schedule
+                tcp_try_rmem_schedule
+                tcp_data_queue
+                tcp_rcv_established
+                tcp_v4_do_rcv
+                tcp_v4_rcv
+                ip_local_deliver
+                ip_rcv
+                __netif_receive_skb_core
+                __netif_receive_skb
+                netif_receive_skb_internal
+                napi_gro_complete
 
->
-> Thanks,
-> Hannes
->
+The runs vary too much for this to be measurable in elapsed time.
