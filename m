@@ -1,69 +1,53 @@
-From: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Subject: [PATCH v3 net-next] net: hisilicon: fix binding document of mdio
-Date: Wed, 18 Nov 2015 10:08:00 +0800
-Message-ID: <1447812480-190001-1-git-send-email-huangdaode@hisilicon.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [ss PATCH 2/2] ss: support closing inet sockets via SOCK_DIAG.
+Date: Tue, 17 Nov 2015 19:12:39 -0800
+Message-ID: <1447816359.22599.129.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1447811530-10756-1-git-send-email-lorenzo@google.com>
+	 <1447811530-10756-3-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	<liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <kenneth-lee-2012-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>,
-	<xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, ek@google.com,
+	maze@google.com, dtor@google.com
+To: Lorenzo Colitti <lorenzo@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:35799 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751768AbbKRDMm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 22:12:42 -0500
+Received: by pacej9 with SMTP id ej9so29222828pac.2
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 19:12:42 -0800 (PST)
+In-Reply-To: <1447811530-10756-3-git-send-email-lorenzo@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch explains the occasion of "hisilcon,mdio" and
-"hisilicon,hns-mdio" according to Arnd's comments.
-and reformat it according to comments from Rob<robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>.
+On Wed, 2015-11-18 at 10:52 +0900, Lorenzo Colitti wrote:
+>  
+> +static int kill_inet_sock(const struct sockaddr_nl *addr,
+> +		struct nlmsghdr *h, void *arg)
+> +{
+> +	struct rtnl_handle rth;
+> +	if (rtnl_open_byproto(&rth, 0, NETLINK_SOCK_DIAG))
+> +		return -1;
+> +
+> +	struct inet_diag_arg *diag_arg = arg;
+> +	struct inet_diag_msg *d = NLMSG_DATA(h);
+> +	DIAG_REQUEST(req, struct inet_diag_req_v2 r);
+> +	req.nlh.nlmsg_type = SOCK_DESTROY;
+> +	req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+> +	req.r.sdiag_family = d->idiag_family;
+> +	req.r.sdiag_protocol = diag_arg->protocol;
+> +	req.r.id = d->id;
+> +
+> +	int err = rtnl_talk(&rth, &req.nlh, NULL, 0);
+> +	rtnl_close(&rth);
+> +	return err;
+> +}
 
-Signed-off-by: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
----
-change log:
-v3:
-  1)move change log under '---' line.
-  2)change minor syntax error on description.
 
-v2:
-  1) reformat the style.
-  2) make it more clearity.
+1) Please do not mix variables and code.
 
-v1:
-  initial version.
+2) opening/closing a control socket for every killed TCP socket is going
+to consume a lot of cpu cycles.
 
-v2 patch reference:https://lkml.org/lkml/2015/11/16/88
-v1 patch reference:https://lkml.org/lkml/2015/11/12/913
-
- Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-index 9c23fdf..4a7ede9 100644
---- a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-+++ b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
-@@ -1,7 +1,12 @@
- Hisilicon MDIO bus controller
  
- Properties:
--- compatible: "hisilicon,mdio","hisilicon,hns-mdio".
-+- compatible: can be one of:
-+	"hisilicon,hns-mdio"
-+	"hisilicon,mdio"
-+  "hisilicon,hns-mdio" is recommended to be used for hip05 and later SOCs,
-+  while "hisilicon,mdio" is optional for backwards compatibility only on
-+  hip04 Soc.
- - reg: The base address of the MDIO bus controller register bank.
- - #address-cells: Must be <1>.
- - #size-cells: Must be <0>.  MDIO addresses have no size component.
--- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
