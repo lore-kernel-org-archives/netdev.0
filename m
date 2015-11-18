@@ -1,83 +1,68 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: Hardware capabilities and bonding offload
-Date: Tue, 17 Nov 2015 16:57:54 -0800
-Message-ID: <564BCD12.4010804@gmail.com>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9AA0D643@SJEXCHMB14.corp.ad.broadcom.com> <20151116153032.GC2217@nanopsycho.orion> <5649FFF3.9080401@gmail.com> <20151117220349.GA7762@penelope.isobedori.kobe.vergenet.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Premkumar Jonnala <pjonnala@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Simon Horman <simon.horman@netronome.com>
+From: Jason Gerard DeRose <jason@system76.com>
+Subject: [PATCH] ethernet/atheros/alx: add Killer E2400 device ID
+Date: Tue, 17 Nov 2015 18:21:07 -0700
+Message-ID: <1447809667-9454-1-git-send-email-jason@system76.com>
+Cc: Ben Pope <benpope81@gmail.com>,
+	Jason Gerard DeRose <jason@system76.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36447 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752860AbbKRA6J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 19:58:09 -0500
-Received: by pacdm15 with SMTP id dm15so25540315pac.3
-        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 16:58:09 -0800 (PST)
-In-Reply-To: <20151117220349.GA7762@penelope.isobedori.kobe.vergenet.net>
+Received: from mail.system76.com ([38.75.196.72]:33306 "EHLO mail.system76.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751702AbbKRB3x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Nov 2015 20:29:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15-11-17 02:03 PM, Simon Horman wrote:
-> On Mon, Nov 16, 2015 at 08:10:27AM -0800, John Fastabend wrote:
->> On 15-11-16 07:30 AM, Jiri Pirko wrote:
->>> Mon, Nov 16, 2015 at 10:29:12AM CET, pjonnala@broadcom.com wrote:
->>>> Hello,
->>>>
->>>> I am looking to offload bond interfaces to hardware for forwarding.  Linux allows for configuring 
->>>> a variety of parameters on bonds or slave interfaces.  Not all configurations can be offloaded to 
->>>> hardware.  For example, certain hardware cannot support bonds with mode of adaptive load balancing.
->>>>
->>>> When such a configuration is provided by user, we have two options at hand (for platforms supporting
->>>> hardware offloads):
->>>>
->>>> 1. Reject the configuration.  
->>>>
->>>> 2. Handle the bond interface in software.  In a scenario where this bond interface is part
->>>> of a bridge interface, for simplicity purpose, all other interfaces in the bridge need to be 
->>>> handled in software - which results in a very low packet processing performance.
->>>
->>> Although it might sound intriguing to fallback to sw here, it makes no
->>> sense and user certainly does not want that. For example in case of our
->>> HW, we have 100gbit forwarding which would be degraded to ~1gbit (for one
->>> port pair). Another thing is that for some HW this mignt not be even
->>> possible. In our case it would be very complicated.
->>>
->>> I believe that the correct approach is to let driver decide if the
->>> configuration is acceptable or not and reject it in case it is not.
->>>
->>
->> +1 I agree the best approach is to throw a hard error and reject
->> it if there is no mapping on to the hardware. This lets your
->> management software propagate that error up so you can handle it
->> correctly at higher levels in the stack.
->>
->> You could if needed add a bit to enable setup in software only
->> if that is needed.
-> 
-> FWIW, I agree that such a scheme ought to cover the bases.
-> But perhaps it would be best to old off on adding the software only
-> bit until a use-case arises. John, perhaps you already have one?
-> 
+From: Ben Pope <benpope81@gmail.com>
 
-I suspect the use case here would be the hardware can't support
-the offloaded bond _but_ I really want to bond my traffic and I'm OK
-with the performance penalty that is going to be incurred because
-either (a) I know the traffic rate is low enough my CPU(s) can handle
-it or (b) it wont completely trash my network to have a slow link in
-the middle for whatever reason.
+This patch adds the PCI device ID (0xe0a1) and alx_pci_tbl entry for the
+Killer E2400 Ethernet controller, modeled after the Killer E2200
+controller support (0xe091) already present in the alx driver.
 
-To be honest though this is more of an argument in theory versus
-some existing management agent I know of today. If you need to do
-bonding type X in your network and the particular switch doesn't support
-it I'm not even sure what the mgmt layer is going to do. Maybe just
-put the switch offline for that network segment.
+This patch was originally authored by Ben Pope, but it got held up by
+issues in the commit message, so I'm resubmitting it on his behalf.
 
-If you leave the sw bit out in the first iteration I'm OK with that
-we can easily add it when we have software that needs it.
+I've extensively used a kernel with this patch on a System76 serw9
+laptop and am quite confident it works well (at least on the hardware I
+have available for testing).
 
-Thanks,
-John
+Note that as a favor to System76, Ubuntu has been carrying this as a
+sauce patch in their 4.2 based Wily kernel, which presumably has given
+it real-world testing on other E2400 equipped hardware (I don't know of
+any Ubuntu kernel bugs filed about it):
+
+https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1498633
+
+Signed-off-by: Jason Gerard DeRose <jason@system76.com>
+---
+ drivers/net/ethernet/atheros/alx/main.c | 2 ++
+ drivers/net/ethernet/atheros/alx/reg.h  | 1 +
+ 2 files changed, 3 insertions(+)
+
+diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
+index c8af3ce..bd377a6 100644
+--- a/drivers/net/ethernet/atheros/alx/main.c
++++ b/drivers/net/ethernet/atheros/alx/main.c
+@@ -1534,6 +1534,8 @@ static const struct pci_device_id alx_pci_tbl[] = {
+ 	  .driver_data = ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
+ 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_E2200),
+ 	  .driver_data = ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
++	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_E2400),
++	  .driver_data = ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
+ 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8162),
+ 	  .driver_data = ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
+ 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8171) },
+diff --git a/drivers/net/ethernet/atheros/alx/reg.h b/drivers/net/ethernet/atheros/alx/reg.h
+index af006b4..0959e68 100644
+--- a/drivers/net/ethernet/atheros/alx/reg.h
++++ b/drivers/net/ethernet/atheros/alx/reg.h
+@@ -37,6 +37,7 @@
+ 
+ #define ALX_DEV_ID_AR8161				0x1091
+ #define ALX_DEV_ID_E2200				0xe091
++#define ALX_DEV_ID_E2400				0xe0a1
+ #define ALX_DEV_ID_AR8162				0x1090
+ #define ALX_DEV_ID_AR8171				0x10A1
+ #define ALX_DEV_ID_AR8172				0x10A0
+-- 
+2.5.0
