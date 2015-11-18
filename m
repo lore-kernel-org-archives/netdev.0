@@ -1,83 +1,120 @@
-From: Jason Gerard DeRose <jason@system76.com>
-Subject: Re: [PATCH] ethernet/atheros/alx: add Killer E2400 device ID
-Date: Wed, 18 Nov 2015 11:15:45 -0700
-Message-ID: <564CC051.7030805@system76.com>
-References: <1447809667-9454-1-git-send-email-jason@system76.com>
- <564C84BF.1090202@cogentembedded.com> <564C90BB.2040104@system76.com>
- <564CB9C4.3030100@cogentembedded.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue (w/ Fixes:)
+Date: Wed, 18 Nov 2015 18:15:27 +0000
+Message-ID: <87ziyb6uo0.fsf@doppelsaurus.mobileactivedefense.com>
+References: <87a8qhspfm.fsf@doppelsaurus.mobileactivedefense.com>
+	<876111wpza.fsf@doppelsaurus.mobileactivedefense.com>
+	<87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<20151117.151421.249423864481324472.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ben Pope <benpope81@gmail.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.system76.com ([38.75.196.72]:40435 "EHLO mail.system76.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755244AbbKRSPr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Nov 2015 13:15:47 -0500
-In-Reply-To: <564CB9C4.3030100@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: rweikusat@mobileactivedefense.com, jbaron@akamai.com,
+	dvyukov@google.com, syzkaller@googlegroups.com, mkubecek@suse.cz,
+	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, hannes@stressinduktion.org,
+	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
+	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org,
+	kcc@google.com, glider@google.com, andreyknvl@google.com,
+	sasha.levin@oracle.com, jln@google.com, keescook@google.com,
+	minipli@googlemail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151117.151421.249423864481324472.davem@davemloft.net> (David
+	Miller's message of "Tue, 17 Nov 2015 15:14:21 -0500 (EST)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 11/18/2015 10:47 AM, Sergei Shtylyov wrote:
-> On 11/18/2015 05:52 PM, Jason Gerard DeRose wrote:
+David Miller <davem@davemloft.net> writes:
+> From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+> Date: Mon, 16 Nov 2015 22:28:40 +0000
 >
->>>> From: Ben Pope <benpope81@gmail.com>
->>>>
->>>> This patch adds the PCI device ID (0xe0a1) and alx_pci_tbl entry for
->>>> the
->>>> Killer E2400 Ethernet controller, modeled after the Killer E2200
->>>> controller support (0xe091) already present in the alx driver.
->>>>
->>>> This patch was originally authored by Ben Pope, but it got held up by
->>>> issues in the commit message, so I'm resubmitting it on his behalf.
->>>>
->>>> I've extensively used a kernel with this patch on a System76 serw9
->>>> laptop and am quite confident it works well (at least on the hardware I
->>>> have available for testing).
->>>>
->>>> Note that as a favor to System76, Ubuntu has been carrying this as a
->>>> sauce patch in their 4.2 based Wily kernel, which presumably has given
->>>> it real-world testing on other E2400 equipped hardware (I don't know of
->>>> any Ubuntu kernel bugs filed about it):
->>>>
->>>> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1498633
->>>>
->>>> Signed-off-by: Jason Gerard DeRose <jason@system76.com>
->>>
->>>     No sign-off from Ben?
->>
->> Apologies, this is my first time submitting a kernel patch :)
->>
->> Should I use git send-email to send this again,
->
->     I didn't notice if your mailer corrupted the patch but if it did
-> 'git send-email' should be used indeed.
+>> An AF_UNIX datagram socket being the client in an n:1
 
-I originally used `git send-email`, so the patch should not have been 
-corrupted.
+[...]
 
->> this time with the sign-off from Ben?
+> So because of a corner case of epoll handling and sender socket release,
+> every single datagram sendmsg has to do a double lock now?
 >
->     No need to resend if it wasn't corrupted. Just replying to this
-> patch with his sign-off should be enough -- patchwork should collect the
-> tags from the follow-ups.
+> I do not dispute the correctness of your fix at this point, but that
+> added cost in the fast path is really too high.
 
-Okay, thanks for the clarification!
+Some more information on this: Running the test program included below
+on my 'work' system (otherwise idle, after logging in via VT with no GUI
+running)/ quadcore AMD A10-5700, 3393.984 for 20 times/ patched 4.3 resulted in the
+following throughput statistics[*]:
 
->> And if so, should I do so as a reply to this thread?
->
->     No, not on this list. DaveM prefers the patch reposts to be done as
-> the fresh new postings.
->
->> Thanks for you time!
->
->     Your, I guess? Not at all. :-)
+avg		13.617  M/s
+median		13.393  M/s
+max		17.14   M/s
+min		13.047  M/s
+deviation	0.85
 
-Also thank you for enduring my typos ;)
+I'll try to post the results for 'unpatched' later as I'm also working
+on a couple of other things.
 
-> MBR, Sergei
->
+[*] I do not use my fingers for counting, hence, these are binary and
+not decimal units.
+
+------------
+#include <inttypes.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+enum {
+    MSG_SZ =	16,
+    MSGS =	1000000
+};
+
+static char msg[MSG_SZ];
+
+static uint64_t tv2u(struct timeval *tv)
+{
+    uint64_t u;
+
+    u = tv->tv_sec;
+    u *= 1000000;
+    return u + tv->tv_usec;
+}
+
+int main(void)
+{
+    struct timeval start, stop;
+    uint64_t t_diff;
+    double rate;
+    int sks[2];
+    unsigned remain;
+    char buf[MSG_SZ];
+
+    socketpair(AF_UNIX, SOCK_SEQPACKET, 0, sks);
+
+    if (fork() == 0) {
+	close(*sks);
+	
+	gettimeofday(&start, 0);
+	while (read(sks[1], buf, sizeof(buf)) > 0);
+	gettimeofday(&stop, 0);
+
+	t_diff = tv2u(&stop);
+	t_diff -= tv2u(&start);
+	rate = MSG_SZ * MSGS;
+	rate /= t_diff;
+	rate *= 1000000;
+	printf("rate %fM/s\n", rate / (1 << 20));
+
+	fflush(stdout);
+	_exit(0);
+    }
+
+    close(sks[1]);
+    
+    remain = MSGS;
+    do write(*sks, msg, sizeof(msg)); while (--remain);
+    close(*sks);
+
+    wait(NULL);
+    return 0;
+}
