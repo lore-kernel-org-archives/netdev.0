@@ -1,93 +1,21 @@
-From: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Subject: Re: [PATCH v2 net-next] net: hisilicon: fix binding document of mdio
-Date: Wed, 18 Nov 2015 09:43:28 +0800
-Message-ID: <564BD7C0.9070602@hisilicon.com>
-References: <1447666704-200773-1-git-send-email-huangdaode@hisilicon.com> <20151116152051.GA7183@rob-hp-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	<mark.rutland-5wv7dgnIgG8@public.gmane.org>, <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	<galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, <liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
-	<Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<kenneth-lee-2012-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>, <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
-	<lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151116152051.GA7183@rob-hp-laptop>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Support SOCK_DESTROY in ss
+Date: Wed, 18 Nov 2015 10:52:08 +0900
+Message-ID: <1447811530-10756-1-git-send-email-lorenzo@google.com>
+Cc: edumazet@google.com, ek@google.com, maze@google.com,
+	dtor@google.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:32932 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752944AbbKRBwZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 20:52:25 -0500
+Received: by pabfh17 with SMTP id fh17so28050414pab.0
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 17:52:24 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2015/11/16 23:20, Rob Herring wrote:
-> On Mon, Nov 16, 2015 at 05:38:24PM +0800, huangdaode wrote:
->> This patch explains the occasion of "hisilcon,mdio" and
->> "hisilicon,hns-mdio" according to Arnd's comments.
->> and reformat it according to comments from Rob<robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>.
->>
->> chang log:
->>
->> v2:
->>    1) reformat the style.
->>    2) make it more clearity.
->>
->> v1:
->>    initial version.
->>
->> Signed-off-by: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
->> ---
->>   Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt | 7 ++++++-
->>   1 file changed, 6 insertions(+), 1 deletion(-)
->>
->> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
->> index 9c23fdf..4942d20 100644
->> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
->> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
->> @@ -1,7 +1,12 @@
->>   Hisilicon MDIO bus controller
->>   
->>   Properties:
->> -- compatible: "hisilicon,mdio","hisilicon,hns-mdio".
->> +- compatible: can be one of:
->> +	"hisilicon,hns-mdio"
->> +	"hisilicon,mdio"
->> +  "hisilicon,hns-mdio" is recommendly to be used for hip05 and later SOCs,
-> s/recommendly/recommended/
->
->> +  while "hisilicon,mdio" is optional for backwards compatibility, only
->> +  support for hip04 Soc.
-> ...compatibility only on hip04 SOC.
->
->>   - reg: The base address of the MDIO bus controller register bank.
->>   - #address-cells: Must be <1>.
->>   - #size-cells: Must be <0>.  MDIO addresses have no size component.
->> -- 
->> 1.9.1
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe devicetree" in
->> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-Agreed.
-Will fix this in v3 patch.
-
-thanks
-Daode.
-
-> .
->
-
-
--- 
-Best Regards
-Daode Huang
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This patch adds ss support for the SOCK_DESTROY operation just
+submitted to net-next: http://patchwork.ozlabs.org/patch/545843/ .
+It allows a user with CAP_NET_ADMIN to close sockets using
+"ss --kill".
