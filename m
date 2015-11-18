@@ -1,48 +1,79 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net-next] be2net: remove local variable 'status'
-Date: Wed, 18 Nov 2015 14:06:34 +0100
-Message-ID: <1447851994-12075-1-git-send-email-ivecera@redhat.com>
-Cc: sriharsha.basavapatna@avagotech.com, sathya.perla@avagotech.com,
-	ajit.khaparde@avagotech.com, padmanabh.ratnakar@avagotech.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47991 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753953AbbKRNGi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Nov 2015 08:06:38 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ilya Dryomov <idryomov@gmail.com>
+Subject: Re: [PATCH 2/3] net/ceph: do not define list_entry_next
+Date: Wed, 18 Nov 2015 14:13:28 +0100
+Message-ID: <CAOi1vP8u-zP6+7sSbAq7Vnutt5o=AKh-MdazC8fz-Vu++gypxw@mail.gmail.com>
+References: <1447848780-7672-1-git-send-email-sergey.senozhatsky@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Yan Zheng <zyan@redhat.com>,
+	Ceph Development <ceph-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Return-path: <ceph-devel-owner@vger.kernel.org>
+In-Reply-To: <1447848780-7672-1-git-send-email-sergey.senozhatsky@gmail.com>
+Sender: ceph-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The lancer_cmd_get_file_len() uses lancer_cmd_read_object() to get
-the current size of registers for ethtool registers dump. Returned status
-value is stored but not checked. The check itself is not necessary as
-the data_read output variable is initialized to 0 and status variable
-can be removed.
+On Wed, Nov 18, 2015 at 1:13 PM, Sergey Senozhatsky
+<sergey.senozhatsky@gmail.com> wrote:
+> Cosmetic.
+>
+> Do not define list_entry_next() and use list_next_entry()
+> from list.h.
+>
+> Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+> ---
+>  net/ceph/messenger.c | 8 +++-----
+>  1 file changed, 3 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
+> index 9981039..77ccca9 100644
+> --- a/net/ceph/messenger.c
+> +++ b/net/ceph/messenger.c
+> @@ -10,6 +10,7 @@
+>  #include <linux/slab.h>
+>  #include <linux/socket.h>
+>  #include <linux/string.h>
+> +#include <linux/list.h>
+>  #ifdef CONFIG_BLOCK
+>  #include <linux/bio.h>
+>  #endif /* CONFIG_BLOCK */
+> @@ -23,9 +24,6 @@
+>  #include <linux/ceph/pagelist.h>
+>  #include <linux/export.h>
+>
+> -#define list_entry_next(pos, member)                                   \
+> -       list_entry(pos->member.next, typeof(*pos), member)
+> -
+>  /*
+>   * Ceph uses the messenger to exchange ceph_msg messages with other
+>   * hosts in the system.  The messenger provides ordered and reliable
+> @@ -1042,7 +1040,7 @@ static bool ceph_msg_data_pagelist_advance(struct ceph_msg_data_cursor *cursor,
+>         /* Move on to the next page */
+>
+>         BUG_ON(list_is_last(&cursor->page->lru, &pagelist->head));
+> -       cursor->page = list_entry_next(cursor->page, lru);
+> +       cursor->page = list_next_entry(cursor->page, lru);
+>         cursor->last_piece = cursor->resid <= PAGE_SIZE;
+>
+>         return true;
+> @@ -1166,7 +1164,7 @@ static bool ceph_msg_data_advance(struct ceph_msg_data_cursor *cursor,
+>         if (!cursor->resid && cursor->total_resid) {
+>                 WARN_ON(!cursor->last_piece);
+>                 BUG_ON(list_is_last(&cursor->data->links, cursor->data_head));
+> -               cursor->data = list_entry_next(cursor->data, links);
+> +               cursor->data = list_next_entry(cursor->data, links);
+>                 __ceph_msg_data_cursor_init(cursor);
+>                 new_piece = true;
+>         }
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/emulex/benet/be_ethtool.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Someone beat you to it ;)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index 734f655..d2a5baf 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -241,13 +241,11 @@ static u32 lancer_cmd_get_file_len(struct be_adapter *adapter, u8 *file_name)
- 	u32 data_read = 0, eof;
- 	u8 addn_status;
- 	struct be_dma_mem data_len_cmd;
--	int status;
- 
- 	memset(&data_len_cmd, 0, sizeof(data_len_cmd));
- 	/* data_offset and data_size should be 0 to get reg len */
--	status = lancer_cmd_read_object(adapter, &data_len_cmd, 0, 0,
--					file_name, &data_read, &eof,
--					&addn_status);
-+	lancer_cmd_read_object(adapter, &data_len_cmd, 0, 0, file_name,
-+			       &data_read, &eof, &addn_status);
- 
- 	return data_read;
- }
--- 
-2.4.10
+https://github.com/ceph/ceph-client/commit/76b4a27faebb369c1c50df01ef08b614a2854fc5
+
+Thanks,
+
+                Ilya
