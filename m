@@ -1,43 +1,126 @@
 From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Wed, 18 Nov 2015 10:43:40 +0900
-Message-ID: <1447811024-8553-1-git-send-email-lorenzo@google.com>
+Subject: [PATCH 1/4] net: diag: split inet_diag_dump_one_icsk into two
+Date: Wed, 18 Nov 2015 10:43:41 +0900
+Message-ID: <1447811024-8553-2-git-send-email-lorenzo@google.com>
+References: <1447811024-8553-1-git-send-email-lorenzo@google.com>
 Cc: edumazet@google.com, ek@google.com, maze@google.com,
-	dtor@google.com
+	dtor@google.com, Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:35106 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754309AbbKRBnx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 20:43:53 -0500
-Received: by pacej9 with SMTP id ej9so26791265pac.2
-        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 17:43:52 -0800 (PST)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34400 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754240AbbKRBoF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 20:44:05 -0500
+Received: by padhx2 with SMTP id hx2so26857676pad.1
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 17:44:04 -0800 (PST)
+In-Reply-To: <1447811024-8553-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series adds the ability for a privileged process to
-destroy sockets belonging to other userspace processes via the
-sock_diag interface, and implements that for TCP sockets.
+Currently, inet_diag_dump_one_icsk finds a socket and then dumps
+its information to userspace. Split it into a part that finds the
+socket and a part that dumps the information.
 
-This functionality is needed on laptops and mobile hosts to
-ensure that network switches / disconnects do not result in
-applications being blocked for long periods of time (minutes) in
-read or connect calls on TCP sockets that will never succeed
-because the IP address they are bound to is gone. Closing the
-sockets in the protocol layer causes these calls to fail fast and
-allows applications to reconnect on another network.
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+---
+ include/linux/inet_diag.h |  5 +++++
+ net/ipv4/inet_diag.c      | 41 ++++++++++++++++++++++++++---------------
+ 2 files changed, 31 insertions(+), 15 deletions(-)
 
-For many years Android kernels have done this via an out-of-tree
-SIOCKILLADDR ioctl that is called when networks disconnect, but
-this solution is cleaner, more robust and more flexible. The
-system can iterate over all connections on the deleted IP address
-and close all of them. But it can also close all sockets opened
-by a given process on a given network, for example if the user
-has restricted that process from using that network, or if a
-secure network such as a VPN is now being applied to the
-application and thus previously-established connections are
-blackholed.
-
-The patch series only implements SOCK_DESTROY for TCP sockets,
-but the mechanism can be extended to any protocol family that
-supports the sock_diag interface.
+diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+index 0e707f0..e7032f04 100644
+--- a/include/linux/inet_diag.h
++++ b/include/linux/inet_diag.h
+@@ -3,6 +3,7 @@
+ 
+ #include <uapi/linux/inet_diag.h>
+ 
++struct net;
+ struct sock;
+ struct inet_hashinfo;
+ struct nlattr;
+@@ -41,6 +42,10 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
+ 			    struct sk_buff *in_skb, const struct nlmsghdr *nlh,
+ 			    const struct inet_diag_req_v2 *req);
+ 
++struct sock *inet_diag_find_one_icsk(struct net *net,
++				     struct inet_hashinfo *hashinfo,
++				     const struct inet_diag_req_v2 *req);
++
+ int inet_diag_bc_sk(const struct nlattr *_bc, struct sock *sk);
+ 
+ extern int  inet_diag_register(const struct inet_diag_handler *handler);
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index ab9f8a6..a4c7ef4 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -350,17 +350,12 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 				  nlmsg_flags, unlh);
+ }
+ 
+-int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
+-			    struct sk_buff *in_skb,
+-			    const struct nlmsghdr *nlh,
+-			    const struct inet_diag_req_v2 *req)
++struct sock *inet_diag_find_one_icsk(struct net *net,
++				     struct inet_hashinfo *hashinfo,
++				     const struct inet_diag_req_v2 *req)
+ {
+-	struct net *net = sock_net(in_skb->sk);
+-	struct sk_buff *rep;
+ 	struct sock *sk;
+-	int err;
+ 
+-	err = -EINVAL;
+ 	if (req->sdiag_family == AF_INET)
+ 		sk = inet_lookup(net, hashinfo, req->id.idiag_dst[0],
+ 				 req->id.idiag_dport, req->id.idiag_src[0],
+@@ -375,15 +370,32 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
+ 				  req->id.idiag_if);
+ #endif
+ 	else
+-		goto out_nosk;
++		return ERR_PTR(-EINVAL);
+ 
+-	err = -ENOENT;
+ 	if (!sk)
+-		goto out_nosk;
++		return ERR_PTR(-ENOENT);
+ 
+-	err = sock_diag_check_cookie(sk, req->id.idiag_cookie);
+-	if (err)
+-		goto out;
++	if (sock_diag_check_cookie(sk, req->id.idiag_cookie)) {
++		sock_gen_put(sk);
++		return ERR_PTR(-ENOENT);
++	}
++
++	return sk;
++}
++
++int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
++			    struct sk_buff *in_skb,
++			    const struct nlmsghdr *nlh,
++			    const struct inet_diag_req_v2 *req)
++{
++	struct net *net = sock_net(in_skb->sk);
++	struct sk_buff *rep;
++	struct sock *sk;
++	int err;
++
++	sk = inet_diag_find_one_icsk(net, hashinfo, req);
++	if (IS_ERR(sk))
++		return PTR_ERR(sk);
+ 
+ 	rep = nlmsg_new(inet_sk_attr_size(), GFP_KERNEL);
+ 	if (!rep) {
+@@ -409,7 +421,6 @@ out:
+ 	if (sk)
+ 		sock_gen_put(sk);
+ 
+-out_nosk:
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(inet_diag_dump_one_icsk);
+-- 
+2.6.0.rc2.230.g3dd15c0
