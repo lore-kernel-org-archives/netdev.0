@@ -1,68 +1,87 @@
-From: Jason Gerard DeRose <jason@system76.com>
-Subject: [PATCH] ethernet/atheros/alx: add Killer E2400 device ID
-Date: Tue, 17 Nov 2015 18:21:07 -0700
-Message-ID: <1447809667-9454-1-git-send-email-jason@system76.com>
-Cc: Ben Pope <benpope81@gmail.com>,
-	Jason Gerard DeRose <jason@system76.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.system76.com ([38.75.196.72]:33306 "EHLO mail.system76.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751702AbbKRB3x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Nov 2015 20:29:53 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Subject: Re: [PATCH v2 net-next] net: hisilicon: fix binding document of mdio
+Date: Wed, 18 Nov 2015 09:42:08 +0800
+Message-ID: <564BD770.1080205@hisilicon.com>
+References: <1447666704-200773-1-git-send-email-huangdaode@hisilicon.com> <6897029.2fyR9qGpEn@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	<mark.rutland-5wv7dgnIgG8@public.gmane.org>, <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	<galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, <liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
+	<Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<kenneth-lee-2012-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>, <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
+	<lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <6897029.2fyR9qGpEn@wuerfel>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Pope <benpope81@gmail.com>
+On 2015/11/16 17:38, Arnd Bergmann wrote:
+> On Monday 16 November 2015 17:38:24 huangdaode wrote:
+>> This patch explains the occasion of "hisilcon,mdio" and
+>> "hisilicon,hns-mdio" according to Arnd's comments.
+>> and reformat it according to comments from Rob<robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>.
+>>
+>> chang log:
+>>
+>> v2:
+>>    1) reformat the style.
+>>    2) make it more clearity.
+>>
+>> v1:
+>>    initial version.
+>>
+>> Signed-off-by: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+>> ---
+> The new version looks ok, but your changelog above is formatted
+> incorrectly. Please put only the contents you want in the git history
+> above the '---' line and your Signed-off-by, but put the parts that
+> refer to previous versions of the submission below the ---.
 
-This patch adds the PCI device ID (0xe0a1) and alx_pci_tbl entry for the
-Killer E2400 Ethernet controller, modeled after the Killer E2200
-controller support (0xe091) already present in the alx driver.
+Got it.
+thanks Arnd.
 
-This patch was originally authored by Ben Pope, but it got held up by
-issues in the commit message, so I'm resubmitting it on his behalf.
+Daode
 
-I've extensively used a kernel with this patch on a System76 serw9
-laptop and am quite confident it works well (at least on the hardware I
-have available for testing).
+>>   Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt | 7 ++++++-
+>>   1 file changed, 6 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
+>> index 9c23fdf..4942d20 100644
+>> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
+>> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-mdio.txt
+>> @@ -1,7 +1,12 @@
+>>   Hisilicon MDIO bus controller
+>>   
+>>   Properties:
+>> -- compatible: "hisilicon,mdio","hisilicon,hns-mdio".
+>> +- compatible: can be one of:
+>> +	"hisilicon,hns-mdio"
+>> +	"hisilicon,mdio"
+>> +  "hisilicon,hns-mdio" is recommendly to be used for hip05 and later SOCs,
+>> +  while "hisilicon,mdio" is optional for backwards compatibility, only
+>> +  support for hip04 Soc.
+>>   - reg: The base address of the MDIO bus controller register bank.
+>>   - #address-cells: Must be <1>.
+>>   - #size-cells: Must be <0>.  MDIO addresses have no size component.
+>>
+>
+> .
+>
 
-Note that as a favor to System76, Ubuntu has been carrying this as a
-sauce patch in their 4.2 based Wily kernel, which presumably has given
-it real-world testing on other E2400 equipped hardware (I don't know of
-any Ubuntu kernel bugs filed about it):
 
-https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1498633
-
-Signed-off-by: Jason Gerard DeRose <jason@system76.com>
----
- drivers/net/ethernet/atheros/alx/main.c | 2 ++
- drivers/net/ethernet/atheros/alx/reg.h  | 1 +
- 2 files changed, 3 insertions(+)
-
-diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-index c8af3ce..bd377a6 100644
---- a/drivers/net/ethernet/atheros/alx/main.c
-+++ b/drivers/net/ethernet/atheros/alx/main.c
-@@ -1534,6 +1534,8 @@ static const struct pci_device_id alx_pci_tbl[] = {
- 	  .driver_data = ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
- 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_E2200),
- 	  .driver_data = ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
-+	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_E2400),
-+	  .driver_data = ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
- 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8162),
- 	  .driver_data = ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
- 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8171) },
-diff --git a/drivers/net/ethernet/atheros/alx/reg.h b/drivers/net/ethernet/atheros/alx/reg.h
-index af006b4..0959e68 100644
---- a/drivers/net/ethernet/atheros/alx/reg.h
-+++ b/drivers/net/ethernet/atheros/alx/reg.h
-@@ -37,6 +37,7 @@
- 
- #define ALX_DEV_ID_AR8161				0x1091
- #define ALX_DEV_ID_E2200				0xe091
-+#define ALX_DEV_ID_E2400				0xe0a1
- #define ALX_DEV_ID_AR8162				0x1090
- #define ALX_DEV_ID_AR8171				0x10A1
- #define ALX_DEV_ID_AR8172				0x10A0
 -- 
-2.5.0
+Best Regards
+Daode Huang
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
