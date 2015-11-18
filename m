@@ -1,64 +1,33 @@
-From: "Shi, Yang" <yang.shi@linaro.org>
-Subject: Re: [PATCH] arm64: bpf: fix buffer pointer
-Date: Wed, 18 Nov 2015 14:59:17 -0800
-Message-ID: <564D02C5.1020200@linaro.org>
-References: <1447836962-4086-1-git-send-email-zlim.lnx@gmail.com>	<564CE886.5010109@linaro.org> <CABg9mcud=quxDbAGwXo0CyHjDa4aOL_yuk9hwRp1asu-z+fOAQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexei Starovoitov <ast@kernel.org>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Xi Wang <xi.wang@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Z Lim <zlim.lnx@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABg9mcud=quxDbAGwXo0CyHjDa4aOL_yuk9hwRp1asu-z+fOAQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next 0/2] DSA: GPIO to reset switches
+Date: Thu, 19 Nov 2015 00:29:23 +0100
+Message-ID: <1447889365-25256-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Neil Armstrong <narmstrong@baylibre.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:36874 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757337AbbKRX3a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Nov 2015 18:29:30 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/18/2015 1:41 PM, Z Lim wrote:
-> On Wed, Nov 18, 2015 at 1:07 PM, Shi, Yang <yang.shi@linaro.org> wrote:
->> On 11/18/2015 12:56 AM, Zi Shen Lim wrote:
->>>                  emit_a64_mov_i64(r3, size, ctx);
->>> -               emit(A64_ADD_I(1, r4, fp, MAX_BPF_STACK), ctx);
->>> +               emit(A64_SUB_I(1, r4, fp, STACK_SIZE), ctx);
->>
->>
->> Should not it sub MAX_BPF_STACK?
->
-> No, if it's at (BPF_FP - MAX_BPF_STACK), we'll be writing into the BPF
-> stack area, which should only be used by the BPF program.
->
->> If you sub STACK_SIZE here, the buffer pointer will point to bottom of the
->> reserved area.
->
-> Yes, that's the idea. The buffer is allocated in here. Right now we're
-> using this "reserved" space for this buffer only.
+These two patches add support for using a GPIO to hard reset a switch
+during setup.
 
-OK, I see. The buffer grows from low to high.
+Andrew Lunn (2):
+  net: dsa: Add support for a switch reset gpio
+  dsa: mv88e6xxx.c: Hardware reset the chip if available
 
-Thanks for the elaboration.
+ Documentation/devicetree/bindings/net/dsa/dsa.txt |  3 +++
+ drivers/net/dsa/mv88e6xxx.c                       | 14 ++++++++++++++
+ include/net/dsa.h                                 |  9 +++++++++
+ net/dsa/dsa.c                                     | 19 +++++++++++++++++++
+ 4 files changed, 45 insertions(+)
 
-Acked-by: Yang Shi <yang.shi@linaro.org>
-
-Yang
-
->
->>
->> You stack layout change also shows this:
->>
->> +        *                        +-----+ <= (BPF_FP - MAX_BPF_STACK)
->> +        *                        |RSVD | JIT scratchpad
->> +        * current A64_SP =>      +-----+ <= (BPF_FP - STACK_SIZE)
->
-> Yes, this diagram reflects the code and intention.
->
->
-> Thanks for reviewing, we definitely need more of these :)
->
+-- 
+2.6.2
