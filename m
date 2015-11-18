@@ -1,61 +1,130 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Hardware capabilities and bonding offload
-Date: Wed, 18 Nov 2015 15:50:38 +0100
-Message-ID: <20151118145038.GC3232@lunn.ch>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9AA0D643@SJEXCHMB14.corp.ad.broadcom.com>
- <20151116153032.GC2217@nanopsycho.orion>
- <5649FFF3.9080401@gmail.com>
- <20151117220349.GA7762@penelope.isobedori.kobe.vergenet.net>
- <564BCD12.4010804@gmail.com>
- <20151118140512.GC6123@lunn.ch>
- <20151118142923.GA2192@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Simon Horman <simon.horman@netronome.com>,
-	Premkumar Jonnala <pjonnala@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:36472 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933394AbbKROun (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Nov 2015 09:50:43 -0500
-Content-Disposition: inline
-In-Reply-To: <20151118142923.GA2192@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: [PATCH v2 21/27] realtek: create separate Kconfig file
+Date: Wed, 18 Nov 2015 16:46:00 +0200
+Message-ID: <1447857966-19560-22-git-send-email-kvalo@codeaurora.org>
+References: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 18, 2015 at 03:29:23PM +0100, Jiri Pirko wrote:
-> Wed, Nov 18, 2015 at 03:05:12PM CET, andrew@lunn.ch wrote:
-> >> To be honest though this is more of an argument in theory versus
-> >> some existing management agent I know of today. If you need to do
-> >> bonding type X in your network and the particular switch doesn't support
-> >> it I'm not even sure what the mgmt layer is going to do. Maybe just
-> >> put the switch offline for that network segment.
-> >> 
-> >> If you leave the sw bit out in the first iteration I'm OK with that
-> >> we can easily add it when we have software that needs it.
-> >
-> >Taking a step back...
-> >
-> >Have we defined a consistent way for signalling:
-> >
-> >1) Failed to offload to the hardware, because the hardware cannot do
-> >   what you requested.
-> >2) Do this in software, rather than trying and failing to offload to
-> >   hardware.
-> >
-> >At least in DSA, we return EOPNOTSUP for 1).
-> 
-> Well for example in case of bonding there is quite impossible to do
-> things in software in case the hardware datapath simply cannot pass
-> packets to kernel. Driver should know and should forbid such
-> non-functional setup.
+Add new a Kconfig file and a vendor config for realtek. Also update MAINTAINERS
+which we missed to do when earlier moving rtlwifi.
 
-I said, "taking a step back..." meaning, in the general case, do we
-have a well defined way to do this. What we don't want is X different
-ways for Y difference API calls to say, if offload of this to hardware
-fails, do it in software, if that is possible.
+Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
+---
+ MAINTAINERS                          |    8 ++++----
+ drivers/net/wireless/Kconfig         |    5 +----
+ drivers/net/wireless/Makefile        |    3 +--
+ drivers/net/wireless/realtek/Kconfig |   18 ++++++++++++++++++
+ 4 files changed, 24 insertions(+), 10 deletions(-)
+ create mode 100644 drivers/net/wireless/realtek/Kconfig
 
-       Andrew
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 2c41981e4fdd..a9f7f968f64e 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -9035,7 +9035,7 @@ L:	linux-wireless@vger.kernel.org
+ W:	http://wireless.kernel.org/
+ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-testing.git
+ S:	Orphan
+-F:	drivers/net/wireless/rtl818x/rtl8180/
++F:	drivers/net/wireless/realtek/rtl818x/rtl8180/
+ 
+ RTL8187 WIRELESS DRIVER
+ M:	Herton Ronaldo Krzesinski <herton@canonical.com>
+@@ -9045,7 +9045,7 @@ L:	linux-wireless@vger.kernel.org
+ W:	http://wireless.kernel.org/
+ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-testing.git
+ S:	Maintained
+-F:	drivers/net/wireless/rtl818x/rtl8187/
++F:	drivers/net/wireless/realtek/rtl818x/rtl8187/
+ 
+ RTL8192CE WIRELESS DRIVER
+ M:	Larry Finger <Larry.Finger@lwfinger.net>
+@@ -9054,8 +9054,8 @@ L:	linux-wireless@vger.kernel.org
+ W:	http://wireless.kernel.org/
+ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-testing.git
+ S:	Maintained
+-F:	drivers/net/wireless/rtlwifi/
+-F:	drivers/net/wireless/rtlwifi/rtl8192ce/
++F:	drivers/net/wireless/realtek/rtlwifi/
++F:	drivers/net/wireless/realtek/rtlwifi/rtl8192ce/
+ 
+ RTL8XXXU WIRELESS DRIVER (rtl8xxxu)
+ M:	Jes Sorensen <Jes.Sorensen@redhat.com>
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index c92671f8b1c6..28af8b10a66e 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -24,6 +24,7 @@ source "drivers/net/wireless/cisco/Kconfig"
+ source "drivers/net/wireless/intel/Kconfig"
+ source "drivers/net/wireless/intersil/Kconfig"
+ source "drivers/net/wireless/marvell/Kconfig"
++source "drivers/net/wireless/realtek/Kconfig"
+ source "drivers/net/wireless/st/Kconfig"
+ source "drivers/net/wireless/zydas/Kconfig"
+ 
+@@ -81,8 +82,6 @@ config USB_NET_RNDIS_WLAN
+ 
+ 	  If you choose to build a module, it'll be called rndis_wlan.
+ 
+-source "drivers/net/wireless/realtek/rtl818x/Kconfig"
+-
+ config MAC80211_HWSIM
+ 	tristate "Simulated radio testing tool for mac80211"
+ 	depends on MAC80211
+@@ -99,8 +98,6 @@ config MAC80211_HWSIM
+ source "drivers/net/wireless/ath/Kconfig"
+ source "drivers/net/wireless/rt2x00/Kconfig"
+ source "drivers/net/wireless/mediatek/Kconfig"
+-source "drivers/net/wireless/realtek/rtlwifi/Kconfig"
+-source "drivers/net/wireless/realtek/rtl8xxxu/Kconfig"
+ source "drivers/net/wireless/ti/Kconfig"
+ source "drivers/net/wireless/rsi/Kconfig"
+ 
+diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
+index 679a1a0a048d..12f6c59668a5 100644
+--- a/drivers/net/wireless/Makefile
++++ b/drivers/net/wireless/Makefile
+@@ -9,11 +9,10 @@ obj-$(CONFIG_WLAN_VENDOR_CISCO) += cisco/
+ obj-$(CONFIG_WLAN_VENDOR_INTEL) += intel/
+ obj-$(CONFIG_WLAN_VENDOR_INTERSIL) += intersil/
+ obj-$(CONFIG_WLAN_VENDOR_MARVELL) += marvell/
++obj-$(CONFIG_WLAN_VENDOR_REALTEK) += realtek/
+ obj-$(CONFIG_WLAN_VENDOR_ST) += st/
+ obj-$(CONFIG_WLAN_VENDOR_ZYDAS) += zydas/
+ 
+-obj-$(CONFIG_WLAN)		+= realtek/
+-
+ # 16-bit wireless PCMCIA client drivers
+ obj-$(CONFIG_PCMCIA_RAYCS)	+= ray_cs.o
+ obj-$(CONFIG_PCMCIA_WL3501)	+= wl3501_cs.o
+diff --git a/drivers/net/wireless/realtek/Kconfig b/drivers/net/wireless/realtek/Kconfig
+new file mode 100644
+index 000000000000..8a8ba2003964
+--- /dev/null
++++ b/drivers/net/wireless/realtek/Kconfig
+@@ -0,0 +1,18 @@
++config WLAN_VENDOR_REALTEK
++	bool "Realtek devices"
++	default y
++	---help---
++	  If you have a wireless card belonging to this class, say Y.
++
++	  Note that the answer to this question doesn't directly affect the
++	  kernel: saying N will just cause the configurator to skip all
++	  the questions about  cards. If you say Y, you will be asked for
++	  your specific card in the following questions.
++
++if WLAN_VENDOR_REALTEK
++
++source "drivers/net/wireless/realtek/rtl818x/Kconfig"
++source "drivers/net/wireless/realtek/rtlwifi/Kconfig"
++source "drivers/net/wireless/realtek/rtl8xxxu/Kconfig"
++
++endif # WLAN_VENDOR_REALTEK
+-- 
+1.7.9.5
