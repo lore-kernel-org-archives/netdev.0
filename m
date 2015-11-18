@@ -1,81 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: md5: fix lockdep annotation
-Date: Wed, 18 Nov 2015 12:40:13 -0800
-Message-ID: <1447879213.22599.182.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
+Date: Wed, 18 Nov 2015 21:43:36 +0100
+Message-ID: <1447879416.562854.443622857.62708268@webmail.messagingengine.com>
+References: <1447819493.22599.137.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1447841988.834928.443071345.1AAFF2A9@webmail.messagingengine.com>
+ <CAKD1Yr0Gpr6Ex2i1TXEWyETn48P4g5vBvFZ9=_g+Lz_7-PqBDQ@mail.gmail.com>
+ <20151118.153508.123902005995190872.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Willem de Bruijn <willemb@google.com>
-To: David Miller <davem@davemloft.net>
+Cc: eric.dumazet@gmail.com, stephen@networkplumber.org,
+	netdev@vger.kernel.org, edumazet@google.com, ek@google.com,
+	maze@google.com, dtor@google.com
+To: David Miller <davem@davemloft.net>, lorenzo@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34731 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756041AbbKRUkR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 15:40:17 -0500
-Received: by padhx2 with SMTP id hx2so55571933pad.1
-        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 12:40:16 -0800 (PST)
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:36503 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933203AbbKRUnh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 15:43:37 -0500
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id B6C8520327
+	for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 15:43:36 -0500 (EST)
+In-Reply-To: <20151118.153508.123902005995190872.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, Nov 18, 2015, at 21:35, David Miller wrote:
+> From: Lorenzo Colitti <lorenzo@google.com>
+> Date: Wed, 18 Nov 2015 19:47:21 +0900
+> 
+> > On Wed, Nov 18, 2015 at 7:19 PM, Hannes Frederic Sowa
+> > <hannes@stressinduktion.org> wrote:
+> >> I bet there will soon be a timewaitd which handles the not configurable
+> >> (David has rejected all those patches so far) timeout of TIME_WAIT
+> >> sockets. And I bet it will be used. :/
+> > 
+> > No, SOCK_DESTROY has no effect on TCP_TIME_WAIT sockets or any other
+> > non-full socket.
+> > 
+> > When called on any socket where sk_fullsock(sk) is false, it returns
+> > EOPNOTSUPP because there is nothing to do. Its purpose is to interrupt
+> > blocked userspace socket calls, not to release resources.
+> 
+> +1
 
-When a passive TCP is created, we eventually call tcp_md5_do_add()
-with sk pointing to the child. It is not owner by the user yet (we
-will add this socket into listener accept queue a bit later anyway)
+Basically my concern is the same one I tried to express in the other
+patch about Florian's patch "[PATCH -next] net: tcp: move to timewait
+when receiving data post active-close": we could give the socket back
+way too early so the quadruple can be reused. If timestamps are not in
+use or we are dealing with NAT were we have dozens of synchronized
+clocks behind the masquerading device, we could end up in accepting
+delayed data. Especially this scenario can come up when the address is
+actually not released but someone uses this feature on a server.
 
-But we do own the spinlock, so amend the lockdep annotation to avoid
-following splat :
-
-[ 8451.090932] net/ipv4/tcp_ipv4.c:923 suspicious rcu_dereference_protected() usage!
-[ 8451.090932]
-[ 8451.090932] other info that might help us debug this:
-[ 8451.090932]
-[ 8451.090934]
-[ 8451.090934] rcu_scheduler_active = 1, debug_locks = 1
-[ 8451.090936] 3 locks held by socket_sockopt_/214795:
-[ 8451.090936]  #0:  (rcu_read_lock){.+.+..}, at: [<ffffffff855c6ac1>] __netif_receive_skb_core+0x151/0xe90
-[ 8451.090947]  #1:  (rcu_read_lock){.+.+..}, at: [<ffffffff85618143>] ip_local_deliver_finish+0x43/0x2b0
-[ 8451.090952]  #2:  (slock-AF_INET){+.-...}, at: [<ffffffff855acda5>] sk_clone_lock+0x1c5/0x500
-[ 8451.090958]
-[ 8451.090958] stack backtrace:
-[ 8451.090960] CPU: 7 PID: 214795 Comm: socket_sockopt_ 
-
-[ 8451.091215] Call Trace:
-[ 8451.091216]  <IRQ>  [<ffffffff856fb29c>] dump_stack+0x55/0x76
-[ 8451.091229]  [<ffffffff85123b5b>] lockdep_rcu_suspicious+0xeb/0x110
-[ 8451.091235]  [<ffffffff8564544f>] tcp_md5_do_add+0x1bf/0x1e0
-[ 8451.091239]  [<ffffffff85645751>] tcp_v4_syn_recv_sock+0x1f1/0x4c0
-[ 8451.091242]  [<ffffffff85642b27>] ? tcp_v4_md5_hash_skb+0x167/0x190
-[ 8451.091246]  [<ffffffff85647c78>] tcp_check_req+0x3c8/0x500
-[ 8451.091249]  [<ffffffff856451ae>] ? tcp_v4_inbound_md5_hash+0x11e/0x190
-[ 8451.091253]  [<ffffffff85647170>] tcp_v4_rcv+0x3c0/0x9f0
-[ 8451.091256]  [<ffffffff85618143>] ? ip_local_deliver_finish+0x43/0x2b0
-[ 8451.091260]  [<ffffffff856181b6>] ip_local_deliver_finish+0xb6/0x2b0
-[ 8451.091263]  [<ffffffff85618143>] ? ip_local_deliver_finish+0x43/0x2b0
-[ 8451.091267]  [<ffffffff85618d38>] ip_local_deliver+0x48/0x80
-[ 8451.091270]  [<ffffffff85618510>] ip_rcv_finish+0x160/0x700
-[ 8451.091273]  [<ffffffff8561900e>] ip_rcv+0x29e/0x3d0
-[ 8451.091277]  [<ffffffff855c74b7>] __netif_receive_skb_core+0xb47/0xe90
-
-Fixes: a8afca0329988 ("tcp: md5: protects md5sig_info with RCU")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Willem de Bruijn <willemb@google.com>
----
- net/ipv4/tcp_ipv4.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index ba09016d1bfd..db003438aaf5 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -921,7 +921,8 @@ int tcp_md5_do_add(struct sock *sk, const union tcp_md5_addr *addr,
- 	}
- 
- 	md5sig = rcu_dereference_protected(tp->md5sig_info,
--					   sock_owned_by_user(sk));
-+					   sock_owned_by_user(sk) ||
-+					   lockdep_is_held(&sk->sk_lock.slock));
- 	if (!md5sig) {
- 		md5sig = kmalloc(sizeof(*md5sig), gfp);
- 		if (!md5sig)
+Bye,
+Hannes
