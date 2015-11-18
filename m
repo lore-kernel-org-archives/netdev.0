@@ -1,73 +1,70 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: next build: 235 warnings 3 failures (next/next-20151117)
-Date: Wed, 18 Nov 2015 12:11:25 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBD53BB@AcuExch.aculab.com>
-References: <564a9961.878b420a.331b8.fffffd62@mx.google.com>
- <6370082.rfihnaNWhf@wuerfel> <20151117171236.GJ30101@arm.com>
- <3723928.99NZh1TC6E@wuerfel> <20151118101427.GC22731@arm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Catalin Marinas <catalin.marinas@arm.com>,
-	"kernel-build-reports@lists.linaro.org"
-	<kernel-build-reports@lists.linaro.org>,
-	"olof@lixom.net" <olof@lixom.net>,
-	David Miller <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: 'Will Deacon' <will.deacon@arm.com>, Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151118101427.GC22731@arm.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Subject: [PATCH 2/3] net/ceph: do not define list_entry_next
+Date: Wed, 18 Nov 2015 21:13:00 +0900
+Message-ID: <1447848780-7672-1-git-send-email-sergey.senozhatsky@gmail.com>
+Cc: Ilya Dryomov <idryomov@gmail.com>, Yan Zheng <zyan@redhat.com>,
+	ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
+	Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:34398 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751122AbbKRMOc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 07:14:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Will Deacon
-> Sent: 18 November 2015 10:14
-> On Tue, Nov 17, 2015 at 08:17:17PM +0100, Arnd Bergmann wrote:
-> > On Tuesday 17 November 2015 17:12:37 Will Deacon wrote:
-> > > On Tue, Nov 17, 2015 at 06:03:40PM +0100, Arnd Bergmann wrote:
-> > > > On Tuesday 17 November 2015 16:44:53 Will Deacon wrote:
-> > > > > > 8<----
-> > > > > > Subject: ARM64: make smp_load_acquire() work with const arguments
-> > > > > >
-> > > > > > smp_load_acquire() uses typeof() to declare a local variable for temporarily
-> > > > > > storing the output of the memory access. This fails when the argument is
-> > > > > > constant, because the assembler complains about using a constant register
-> > > > > > as output:
-> > > > > >
-> > > > > >  arch/arm64/include/asm/barrier.h:71:3: error: read-only variable '___p1'
-> > > > > >  used as 'asm' output
-> > > > >
-> > > > > Do you know the usage in the kernel causing this warning?
-> > > >
-> > > > A newly introduced function in include/net/sock.h:
-> > > >
-> > > > static inline int sk_state_load(const struct sock *sk)
-> > > > {
-> > > >         return smp_load_acquire(&sk->sk_state);
-> > > > }
-> > >
-> > > Hmm, maybe we could play a similar trick to READ_ONCE by declaring an
-> > > anonymous union and writing through the non-const member?
-> >
-> > Yes, I think that would work, if you think we need to care about the
-> > case where we read into a structure.
-> >
-> > Can you come up with a patch for that?
-> 
-> Done:
-> 
->   http://lists.infradead.org/pipermail/linux-arm-kernel/2015-November/386094.html
+Cosmetic.
 
-That patch forces a memory write-read and returns uninitialised stack
-for short reads.
-Who knows what happens on big-endian systems.
+Do not define list_entry_next() and use list_next_entry()
+from list.h.
 
-You need a static inline function with separate temporaries in each branch.
+Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+---
+ net/ceph/messenger.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-	David
+diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
+index 9981039..77ccca9 100644
+--- a/net/ceph/messenger.c
++++ b/net/ceph/messenger.c
+@@ -10,6 +10,7 @@
+ #include <linux/slab.h>
+ #include <linux/socket.h>
+ #include <linux/string.h>
++#include <linux/list.h>
+ #ifdef	CONFIG_BLOCK
+ #include <linux/bio.h>
+ #endif	/* CONFIG_BLOCK */
+@@ -23,9 +24,6 @@
+ #include <linux/ceph/pagelist.h>
+ #include <linux/export.h>
+ 
+-#define list_entry_next(pos, member)					\
+-	list_entry(pos->member.next, typeof(*pos), member)
+-
+ /*
+  * Ceph uses the messenger to exchange ceph_msg messages with other
+  * hosts in the system.  The messenger provides ordered and reliable
+@@ -1042,7 +1040,7 @@ static bool ceph_msg_data_pagelist_advance(struct ceph_msg_data_cursor *cursor,
+ 	/* Move on to the next page */
+ 
+ 	BUG_ON(list_is_last(&cursor->page->lru, &pagelist->head));
+-	cursor->page = list_entry_next(cursor->page, lru);
++	cursor->page = list_next_entry(cursor->page, lru);
+ 	cursor->last_piece = cursor->resid <= PAGE_SIZE;
+ 
+ 	return true;
+@@ -1166,7 +1164,7 @@ static bool ceph_msg_data_advance(struct ceph_msg_data_cursor *cursor,
+ 	if (!cursor->resid && cursor->total_resid) {
+ 		WARN_ON(!cursor->last_piece);
+ 		BUG_ON(list_is_last(&cursor->data->links, cursor->data_head));
+-		cursor->data = list_entry_next(cursor->data, links);
++		cursor->data = list_next_entry(cursor->data, links);
+ 		__ceph_msg_data_cursor_init(cursor);
+ 		new_piece = true;
+ 	}
+-- 
+2.6.2.280.g74301d6
