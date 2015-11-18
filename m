@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 06/14] mlx5: add busy polling support
-Date: Wed, 18 Nov 2015 06:30:55 -0800
-Message-ID: <1447857063-618-7-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 07/14] mlx5: support napi_complete_done()
+Date: Wed, 18 Nov 2015 06:30:56 -0800
+Message-ID: <1447857063-618-8-git-send-email-edumazet@google.com>
 References: <1447857063-618-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
@@ -14,114 +14,137 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:33356 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932841AbbKROb3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 09:31:29 -0500
-Received: by pabfh17 with SMTP id fh17so48243005pab.0
-        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 06:31:29 -0800 (PST)
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35807 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932841AbbKRObd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 09:31:33 -0500
+Received: by pacej9 with SMTP id ej9so46602600pac.2
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 06:31:32 -0800 (PST)
 In-Reply-To: <1447857063-618-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is now easy to add busy polling support to a NAPI driver,
-with very little impact on normal input path.
+A NAPI poll handler should return number of RX packets processed,
+instead of 0 / budget.
 
-This patch serves as a reference implementation.
+This allows proper busy poll accounting through LINUX_MIB_BUSYPOLLRXPACKETS
+SNMP counter.
 
-Note:
-
-A followup patch will add proper napi_complete_done() in mlx5,
-so that LINUX_MIB_BUSYPOLLRXPACKETS snmp counter is properly handled.
+napi_complete_done() allows /sys/class/net/ethX/gro_flush_timeout
+to be used for finer GRO aggregation control.
 
 Tested:
 
-Normal TCP_RR results without busy polling :
+Enabled busy polling, and checked TcpExtBusyPollRxPackets counter is increasing.
 
-lpk51:~# echo 0 >/proc/sys/net/core/busy_read
-lpk52:~# echo 0 >/proc/sys/net/core/busy_read
-
-lpk51:~# ./netperf -H 192.168.4.52 -t TCP_RR -l 10
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.4.52 () port 0 AF_INET : first burst 0
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate
-bytes  Bytes  bytes    bytes   secs.    per sec
-
-16384  87380  1        1       10.00    53509.49
-16384  87380
-
-Now enable busy polling :
-
-lpk51:~# echo 70 >/proc/sys/net/core/busy_read
-lpk52:~# echo 70 >/proc/sys/net/core/busy_read
-
-lpk51:~# ./netperf -H 192.168.4.52 -t TCP_RR -l 10
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.4.52 () port 0 AF_INET : first burst 0
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate
-bytes  Bytes  bytes    bytes   secs.    per sec
-
-16384  87380  1        1       10.00    97530.92
-16384  87380
+echo 70 >/proc/sys/net/core/busy_read
+nstat >/dev/null
+netperf -H target -t TCP_RR >/dev/null
+nstat | grep TcpExtBusyPollRxPackets
+TcpExtBusyPollRxPackets         490958             0.0
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Eli Cohen <eli@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 6 ++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 2 ++
- 2 files changed, 8 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 14 ++++++--------
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c | 11 ++++++-----
+ 3 files changed, 13 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 1e52db32c73d..ffb1f9c1b973 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -982,6 +982,7 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 	mlx5e_build_channeltc_to_txq_map(priv, ix);
- 
- 	netif_napi_add(netdev, &c->napi, mlx5e_napi_poll, 64);
-+	napi_hash_add(&c->napi);
- 
- 	err = mlx5e_open_tx_cqs(c, cparam);
- 	if (err)
-@@ -1020,6 +1021,7 @@ err_close_tx_cqs:
- 
- err_napi_del:
- 	netif_napi_del(&c->napi);
-+	napi_hash_del(&c->napi);
- 	kfree(c);
- 
- 	return err;
-@@ -1033,6 +1035,10 @@ static void mlx5e_close_channel(struct mlx5e_channel *c)
- 	mlx5e_close_cq(&c->rq.cq);
- 	mlx5e_close_tx_cqs(c);
- 	netif_napi_del(&c->napi);
-+
-+	napi_hash_del(&c->napi);
-+	synchronize_rcu();
-+
- 	kfree(c);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 22e72bf1ae48..69f1c1a412b4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -564,7 +564,7 @@ void mlx5e_completion_event(struct mlx5_core_cq *mcq);
+ void mlx5e_cq_error_event(struct mlx5_core_cq *mcq, enum mlx5_event event);
+ int mlx5e_napi_poll(struct napi_struct *napi, int budget);
+ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq);
+-bool mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget);
++int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget);
+ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq);
+ struct mlx5_cqe64 *mlx5e_get_cqe(struct mlx5e_cq *cq);
  
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index cf0098596e85..54800c61a563 100644
+index 54800c61a563..fe752f8e24b9 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -33,6 +33,7 @@
- #include <linux/ip.h>
- #include <linux/ipv6.h>
- #include <linux/tcp.h>
-+#include <net/busy_poll.h>
- #include "en.h"
+@@ -216,16 +216,16 @@ static inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
+ 				       be16_to_cpu(cqe->vlan_info));
+ }
  
- static inline int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq,
-@@ -242,6 +243,7 @@ bool mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
- 		wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
- 		skb            = rq->skb[wqe_counter];
- 		prefetch(skb->data);
-+		skb_mark_napi_id(skb, cq->napi);
- 		rq->skb[wqe_counter] = NULL;
+-bool mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
++int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
+ {
+ 	struct mlx5e_rq *rq = container_of(cq, struct mlx5e_rq, cq);
+-	int i;
++	int work_done;
  
- 		dma_unmap_single(rq->pdev,
+ 	/* avoid accessing cq (dma coherent memory) if not needed */
+ 	if (!test_and_clear_bit(MLX5E_CQ_HAS_CQES, &cq->flags))
+-		return false;
++		return 0;
+ 
+-	for (i = 0; i < budget; i++) {
++	for (work_done = 0; work_done < budget; work_done++) {
+ 		struct mlx5e_rx_wqe *wqe;
+ 		struct mlx5_cqe64 *cqe;
+ 		struct sk_buff *skb;
+@@ -271,10 +271,8 @@ wq_ll_pop:
+ 	/* ensure cq space is freed before enabling more cqes */
+ 	wmb();
+ 
+-	if (i == budget) {
++	if (work_done == budget)
+ 		set_bit(MLX5E_CQ_HAS_CQES, &cq->flags);
+-		return true;
+-	}
+ 
+-	return false;
++	return work_done;
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+index 2c7cb6755d1d..4ac8d716dbdd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+@@ -54,6 +54,7 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
+ 	struct mlx5e_channel *c = container_of(napi, struct mlx5e_channel,
+ 					       napi);
+ 	bool busy = false;
++	int work_done;
+ 	int i;
+ 
+ 	clear_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags);
+@@ -61,26 +62,26 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
+ 	for (i = 0; i < c->num_tc; i++)
+ 		busy |= mlx5e_poll_tx_cq(&c->sq[i].cq);
+ 
+-	busy |= mlx5e_poll_rx_cq(&c->rq.cq, budget);
+-
++	work_done = mlx5e_poll_rx_cq(&c->rq.cq, budget);
++	busy |= work_done == budget;
+ 	busy |= mlx5e_post_rx_wqes(&c->rq);
+ 
+ 	if (busy)
+ 		return budget;
+ 
+-	napi_complete(napi);
++	napi_complete_done(napi, work_done);
+ 
+ 	/* avoid losing completion event during/after polling cqs */
+ 	if (test_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags)) {
+ 		napi_schedule(napi);
+-		return 0;
++		return work_done;
+ 	}
+ 
+ 	for (i = 0; i < c->num_tc; i++)
+ 		mlx5e_cq_arm(&c->sq[i].cq);
+ 	mlx5e_cq_arm(&c->rq.cq);
+ 
+-	return 0;
++	return work_done;
+ }
+ 
+ void mlx5e_completion_event(struct mlx5_core_cq *mcq)
 -- 
 2.6.0.rc2.230.g3dd15c0
