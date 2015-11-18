@@ -1,59 +1,98 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: [PATCH v2 27/27] mac80211_hwsim: move Kconfig entry for sorting alphabetically
-Date: Wed, 18 Nov 2015 16:46:06 +0200
-Message-ID: <1447857966-19560-28-git-send-email-kvalo@codeaurora.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: [PATCH v2 26/27] ath: unify Kconfig with other vendors
+Date: Wed, 18 Nov 2015 16:46:05 +0200
+Message-ID: <1447857966-19560-27-git-send-email-kvalo@codeaurora.org>
 References: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1447857966-19560-1-git-send-email-kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-mac80211_hwsim was not placed alphabetically correctly in menuconfig, fix that.
+Change menuconfig to config to keep the Kconfig entries unified. Part of
+reorganising wireless drivers directory and Kconfig.
 
-Signed-off-by: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
 ---
- drivers/net/wireless/Kconfig |   26 +++++++++++++-------------
- 1 file changed, 13 insertions(+), 13 deletions(-)
+ drivers/net/wireless/Kconfig     |    3 +--
+ drivers/net/wireless/Makefile    |    3 +--
+ drivers/net/wireless/ath/Kconfig |   17 ++++++++++-------
+ 3 files changed, 12 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
-index 3af6d0b9ca21..8c8edaf1bba6 100644
+index cb115db309ce..3af6d0b9ca21 100644
 --- a/drivers/net/wireless/Kconfig
 +++ b/drivers/net/wireless/Kconfig
-@@ -58,6 +58,19 @@ config PCMCIA_WL3501
- 	  It has basic support for Linux wireless extensions and initial
- 	  micro support for ethtool.
+@@ -18,6 +18,7 @@ menuconfig WLAN
+ if WLAN
  
-+config MAC80211_HWSIM
-+	tristate "Simulated radio testing tool for mac80211"
-+	depends on MAC80211
-+	---help---
-+	  This driver is a developer testing tool that can be used to test
-+	  IEEE 802.11 networking stack (mac80211) functionality. This is not
-+	  needed for normal wireless LAN usage and is only for testing. See
-+	  Documentation/networking/mac80211_hwsim for more information on how
-+	  to use this tool.
-+
-+	  To compile this driver as a module, choose M here: the module will be
-+	  called mac80211_hwsim.  If unsure, say N.
-+
- config USB_NET_RNDIS_WLAN
- 	tristate "Wireless RNDIS USB support"
- 	depends on USB
-@@ -87,17 +100,4 @@ config USB_NET_RNDIS_WLAN
+ source "drivers/net/wireless/admtek/Kconfig"
++source "drivers/net/wireless/ath/Kconfig"
+ source "drivers/net/wireless/atmel/Kconfig"
+ source "drivers/net/wireless/broadcom/Kconfig"
+ source "drivers/net/wireless/cisco/Kconfig"
+@@ -99,6 +100,4 @@ config MAC80211_HWSIM
+ 	  To compile this driver as a module, choose M here: the module will be
+ 	  called mac80211_hwsim.  If unsure, say N.
  
- 	  If you choose to build a module, it'll be called rndis_wlan.
- 
--config MAC80211_HWSIM
--	tristate "Simulated radio testing tool for mac80211"
--	depends on MAC80211
--	---help---
--	  This driver is a developer testing tool that can be used to test
--	  IEEE 802.11 networking stack (mac80211) functionality. This is not
--	  needed for normal wireless LAN usage and is only for testing. See
--	  Documentation/networking/mac80211_hwsim for more information on how
--	  to use this tool.
+-source "drivers/net/wireless/ath/Kconfig"
 -
--	  To compile this driver as a module, choose M here: the module will be
--	  called mac80211_hwsim.  If unsure, say N.
+ endif # WLAN
+diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
+index 8c99b9faab09..f00d42953fb8 100644
+--- a/drivers/net/wireless/Makefile
++++ b/drivers/net/wireless/Makefile
+@@ -3,6 +3,7 @@
+ #
+ 
+ obj-$(CONFIG_WLAN_VENDOR_ADMTEK) += admtek/
++obj-$(CONFIG_WLAN_VENDOR_ATH) += ath/
+ obj-$(CONFIG_WLAN_VENDOR_ATMEL) += atmel/
+ obj-$(CONFIG_WLAN_VENDOR_BROADCOM) += broadcom/
+ obj-$(CONFIG_WLAN_VENDOR_CISCO) += cisco/
+@@ -23,6 +24,4 @@ obj-$(CONFIG_PCMCIA_WL3501)	+= wl3501_cs.o
+ 
+ obj-$(CONFIG_USB_NET_RNDIS_WLAN)	+= rndis_wlan.o
+ 
+-obj-$(CONFIG_ATH_CARDS)		+= ath/
+-
+ obj-$(CONFIG_MAC80211_HWSIM)	+= mac80211_hwsim.o
+diff --git a/drivers/net/wireless/ath/Kconfig b/drivers/net/wireless/ath/Kconfig
+index ce7826009eeb..44b2470af81d 100644
+--- a/drivers/net/wireless/ath/Kconfig
++++ b/drivers/net/wireless/ath/Kconfig
+@@ -1,13 +1,16 @@
+ config ATH_COMMON
+ 	tristate
+ 
+-menuconfig ATH_CARDS
+-	tristate "Atheros Wireless Cards"
+-	depends on CFG80211 && (!UML || BROKEN)
++config WLAN_VENDOR_ATH
++	bool "Atheros/Qualcomm devices"
++	default y
+ 	---help---
+-	  This will enable the support for the Atheros wireless drivers.
+-	  ath5k, ath9k, ath9k_htc and ar9170 drivers share some common code, this option
+-	  enables the common ath.ko module which shares common helpers.
++	  If you have a wireless card belonging to this class, say Y.
++
++	  Note that the answer to this question doesn't directly affect the
++	  kernel: saying N will just cause the configurator to skip all
++	  the questions about  cards. If you say Y, you will be asked for
++	  your specific card in the following questions.
+ 
+ 	  For more information and documentation on this module you can visit:
+ 
+@@ -17,7 +20,7 @@ menuconfig ATH_CARDS
+ 
+ 	  http://wireless.kernel.org/en/users/Drivers/Atheros
+ 
+-if ATH_CARDS
++if WLAN_VENDOR_ATH
+ 
+ config ATH_DEBUG
+ 	bool "Atheros wireless debugging"
+-- 
+1.7.9.5
