@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 14/14] net: provide generic busy polling to all NAPI drivers
-Date: Wed, 18 Nov 2015 06:31:03 -0800
-Message-ID: <1447857063-618-15-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 04/14] net: allow BH servicing in sk_busy_loop()
+Date: Wed, 18 Nov 2015 06:30:53 -0800
+Message-ID: <1447857063-618-5-git-send-email-edumazet@google.com>
 References: <1447857063-618-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
@@ -14,289 +14,113 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35124 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932898AbbKROb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 09:31:57 -0500
-Received: by pacej9 with SMTP id ej9so46611984pac.2
-        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 06:31:56 -0800 (PST)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:36305 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932825AbbKRObX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 09:31:23 -0500
+Received: by pacdm15 with SMTP id dm15so46621660pac.3
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 06:31:22 -0800 (PST)
 In-Reply-To: <1447857063-618-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NAPI drivers no longer need to observe a particular protocol
-to benefit from busy polling (CONFIG_NET_RX_BUSY_POLL=y)
+Instead of blocking BH in whole sk_busy_loop(), block them
+only around ->ndo_busy_poll() calls.
 
-napi_hash_add() and napi_hash_del() are automatically called
-from core networking stack, respectively from
-netif_napi_add() and netif_napi_del()
+This has many benefits.
 
-This patch depends on free_netdev() and netif_napi_del() being
-called from process context, which seems to be the norm.
+1) allow tunneled traffic to use busy poll as well as native traffic.
+   Tunnels handlers usually call netif_rx() and depend on net_rx_action()
+   being run (from sofirq handler)
 
-Drivers might still prefer to call napi_hash_del() on their
-own, since they might combine all the rcu grace periods into
-a single one, knowing their NAPI structures lifetime, while
-core networking stack has no idea of a possible combining.
+2) allow RFS/RPS being used (sending IPI to other cpus if needed)
 
-Once this patch proves to not bring serious regressions,
-we will cleanup drivers to either remove napi_hash_del()
-or provide appropriate rcu grace periods combining.
+3) use the 'lets burn cpu cycles' budget to do useful work
+   (like TX completions, timers, RCU callbacks...)
+
+4) reduce BH latencies, making busy poll a better citizen.
+
+Tested:
+
+Tested with SIT tunnel
+
+lpaa5:~# echo 0 >/proc/sys/net/core/busy_read
+lpaa5:~# ./netperf -H 2002:af6:786::1 -t TCP_RR
+MIGRATED TCP REQUEST/RESPONSE TEST from ::0 (::) port 0 AF_INET6 to 2002:af6:786::1 () port 0 AF_INET6 : first burst 0
+Local /Remote
+Socket Size   Request  Resp.   Elapsed  Trans.
+Send   Recv   Size     Size    Time     Rate
+bytes  Bytes  bytes    bytes   secs.    per sec
+
+16384  87380  1        1       10.00    37373.93
+16384  87380
+
+Now enable busy poll on both hosts
+
+lpaa5:~# echo 70 >/proc/sys/net/core/busy_read
+lpaa6:~# echo 70 >/proc/sys/net/core/busy_read
+
+lpaa5:~# ./netperf -H 2002:af6:786::1 -t TCP_RR
+MIGRATED TCP REQUEST/RESPONSE TEST from ::0 (::) port 0 AF_INET6 to 2002:af6:786::1 () port 0 AF_INET6 : first burst 0
+Local /Remote
+Socket Size   Request  Resp.   Elapsed  Trans.
+Send   Recv   Size     Size    Time     Rate
+bytes  Bytes  bytes    bytes   secs.    per sec
+
+16384  87380  1        1       10.00    58314.77
+16384  87380
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c   | 2 --
- drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 2 --
- drivers/net/ethernet/chelsio/cxgb4/sge.c          | 1 -
- drivers/net/ethernet/cisco/enic/enic_main.c       | 2 --
- drivers/net/ethernet/emulex/benet/be_main.c       | 1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c      | 1 -
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 3 ---
- drivers/net/ethernet/mellanox/mlx4/en_cq.c        | 6 ++----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 1 -
- drivers/net/ethernet/myricom/myri10ge/myri10ge.c  | 1 -
- drivers/net/ethernet/sfc/efx.c                    | 1 -
- drivers/net/virtio_net.c                          | 1 -
- include/linux/netdevice.h                         | 7 +++++++
- net/core/dev.c                                    | 7 +++++++
- 14 files changed, 16 insertions(+), 20 deletions(-)
+ net/core/dev.c | 18 +++++++-----------
+ 1 file changed, 7 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index ab9222924bd9..d9add7c02e42 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -46,7 +46,6 @@ static void bnx2x_add_all_napi_cnic(struct bnx2x *bp)
- 	for_each_rx_queue_cnic(bp, i) {
- 		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
- 			       bnx2x_poll, NAPI_POLL_WEIGHT);
--		napi_hash_add(&bnx2x_fp(bp, i, napi));
- 	}
- }
- 
-@@ -58,7 +57,6 @@ static void bnx2x_add_all_napi(struct bnx2x *bp)
- 	for_each_eth_queue(bp, i) {
- 		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
- 			       bnx2x_poll, NAPI_POLL_WEIGHT);
--		napi_hash_add(&bnx2x_fp(bp, i, napi));
- 	}
- }
- 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index db15c5ee09c5..f2d0dc9b1c41 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4227,12 +4227,10 @@ static void bnxt_init_napi(struct bnxt *bp)
- 			bnapi = bp->bnapi[i];
- 			netif_napi_add(bp->dev, &bnapi->napi,
- 				       bnxt_poll, 64);
--			napi_hash_add(&bnapi->napi);
- 		}
- 	} else {
- 		bnapi = bp->bnapi[0];
- 		netif_napi_add(bp->dev, &bnapi->napi, bnxt_poll, 64);
--		napi_hash_add(&bnapi->napi);
- 	}
- }
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index f650f295f264..48d8fbb1c220 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2527,7 +2527,6 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 		goto err;
- 
- 	netif_napi_add(dev, &iq->napi, napi_rx_handler, 64);
--	napi_hash_add(&iq->napi);
- 	iq->cur_desc = iq->desc;
- 	iq->cidx = 0;
- 	iq->gen = 1;
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index b36643ef0593..b2182d3ba3cc 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -2458,13 +2458,11 @@ static int enic_dev_init(struct enic *enic)
- 	switch (vnic_dev_get_intr_mode(enic->vdev)) {
- 	default:
- 		netif_napi_add(netdev, &enic->napi[0], enic_poll, 64);
--		napi_hash_add(&enic->napi[0]);
- 		break;
- 	case VNIC_DEV_INTR_MODE_MSIX:
- 		for (i = 0; i < enic->rq_count; i++) {
- 			netif_napi_add(netdev, &enic->napi[i],
- 				enic_poll_msix_rq, NAPI_POLL_WEIGHT);
--			napi_hash_add(&enic->napi[i]);
- 		}
- 		for (i = 0; i < enic->wq_count; i++)
- 			netif_napi_add(netdev, &enic->napi[enic_cq_wq(enic, i)],
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index c29d62496ad9..4cab8879f5ae 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2630,7 +2630,6 @@ static int be_evt_queues_create(struct be_adapter *adapter)
- 				eqo->affinity_mask);
- 		netif_napi_add(adapter->netdev, &eqo->napi, be_poll,
- 			       BE_NAPI_WEIGHT);
--		napi_hash_add(&eqo->napi);
- 	}
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-index f3168bcc7d87..e771e764daa3 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-@@ -844,7 +844,6 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
- 	/* initialize NAPI */
- 	netif_napi_add(adapter->netdev, &q_vector->napi,
- 		       ixgbe_poll, 64);
--	napi_hash_add(&q_vector->napi);
- 
- #ifdef CONFIG_NET_RX_BUSY_POLL
- 	/* initialize busy poll */
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 592ff237d692..2955186cd4f6 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -2483,9 +2483,6 @@ static int ixgbevf_alloc_q_vectors(struct ixgbevf_adapter *adapter)
- 		q_vector->v_idx = q_idx;
- 		netif_napi_add(adapter->netdev, &q_vector->napi,
- 			       ixgbevf_poll, 64);
--#ifdef CONFIG_NET_RX_BUSY_POLL
--		napi_hash_add(&q_vector->napi);
--#endif
- 		adapter->q_vector[q_idx] = q_vector;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-index 3a6176fea78d..af975a2b74c6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-@@ -155,13 +155,11 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
- 	cq->mcq.comp  = cq->is_tx ? mlx4_en_tx_irq : mlx4_en_rx_irq;
- 	cq->mcq.event = mlx4_en_cq_event;
- 
--	if (cq->is_tx) {
-+	if (cq->is_tx)
- 		netif_tx_napi_add(cq->dev, &cq->napi, mlx4_en_poll_tx_cq,
- 				  NAPI_POLL_WEIGHT);
--	} else {
-+	else
- 		netif_napi_add(cq->dev, &cq->napi, mlx4_en_poll_rx_cq, 64);
--		napi_hash_add(&cq->napi);
--	}
- 
- 	napi_enable(&cq->napi);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index ffb1f9c1b973..f6a8cc787603 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -982,7 +982,6 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 	mlx5e_build_channeltc_to_txq_map(priv, ix);
- 
- 	netif_napi_add(netdev, &c->napi, mlx5e_napi_poll, 64);
--	napi_hash_add(&c->napi);
- 
- 	err = mlx5e_open_tx_cqs(c, cparam);
- 	if (err)
-diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-index acf866147d65..270c9eeb7ab6 100644
---- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-+++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-@@ -3814,7 +3814,6 @@ static int myri10ge_alloc_slices(struct myri10ge_priv *mgp)
- 		ss->dev = mgp->dev;
- 		netif_napi_add(ss->dev, &ss->napi, myri10ge_poll,
- 			       myri10ge_napi_weight);
--		napi_hash_add(&ss->napi);
- 	}
- 	return 0;
- abort:
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index a3c42a376741..4e82bcfbe3e0 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -2059,7 +2059,6 @@ static void efx_init_napi_channel(struct efx_channel *channel)
- 	channel->napi_dev = efx->net_dev;
- 	netif_napi_add(channel->napi_dev, &channel->napi_str,
- 		       efx_poll, napi_weight);
--	napi_hash_add(&channel->napi_str);
- 	efx_channel_busy_poll_init(channel);
- }
- 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index d1d14cecf450..b1ae4cbf2453 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1610,7 +1610,6 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
- 		vi->rq[i].pages = NULL;
- 		netif_napi_add(vi->dev, &vi->rq[i].napi, virtnet_poll,
- 			       napi_weight);
--		napi_hash_add(&vi->rq[i].napi);
- 
- 		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
- 		ewma_pkt_len_init(&vi->rq[i].mrg_avg_pkt_len);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index e5c33b29471b..7d2d1d7aaec7 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -466,6 +466,9 @@ static inline void napi_complete(struct napi_struct *n)
-  *	@napi: napi context
-  *
-  * generate a new napi_id and store a @napi under it in napi_hash
-+ * Used for busy polling (CONFIG_NET_RX_BUSY_POLL)
-+ * Note: This is normally automatically done from netif_napi_add(),
-+ * so might disappear in a future linux version.
-  */
- void napi_hash_add(struct napi_struct *napi);
- 
-@@ -476,6 +479,10 @@ void napi_hash_add(struct napi_struct *napi);
-  * Warning: caller must observe rcu grace period
-  * before freeing memory containing @napi, if
-  * this function returns true.
-+ * Note: core networking stack automatically calls it
-+ * from netif_napi_del()
-+ * Drivers might want to call this helper to combine all
-+ * the needed rcu grace periods into a single one.
-  */
- bool napi_hash_del(struct napi_struct *napi);
- 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 59dddac1c2e7..41cef3e3f558 100644
+index 74a816b299df..2002eec2617d 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -4807,6 +4807,7 @@ void netif_napi_add(struct net_device *dev, struct napi_struct *napi,
- 	napi->poll_owner = -1;
- #endif
- 	set_bit(NAPI_STATE_SCHED, &napi->state);
-+	napi_hash_add(napi);
+@@ -4684,11 +4684,7 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
+ 	struct napi_struct *napi;
+ 	int rc = false;
+ 
+-	/*
+-	 * rcu read lock for napi hash
+-	 * bh so we don't race with net_rx_action
+-	 */
+-	rcu_read_lock_bh();
++	rcu_read_lock();
+ 
+ 	napi = napi_by_id(sk->sk_napi_id);
+ 	if (!napi)
+@@ -4699,23 +4695,23 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
+ 		goto out;
+ 
+ 	do {
++		local_bh_disable();
+ 		rc = ops->ndo_busy_poll(napi);
++		if (rc > 0)
++			NET_ADD_STATS_BH(sock_net(sk),
++					 LINUX_MIB_BUSYPOLLRXPACKETS, rc);
++		local_bh_enable();
+ 
+ 		if (rc == LL_FLUSH_FAILED)
+ 			break; /* permanent failure */
+ 
+-		if (rc > 0)
+-			/* local bh are disabled so it is ok to use _BH */
+-			NET_ADD_STATS_BH(sock_net(sk),
+-					 LINUX_MIB_BUSYPOLLRXPACKETS, rc);
+ 		cpu_relax();
+-
+ 	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
+ 		 !need_resched() && !busy_loop_timeout(end_time));
+ 
+ 	rc = !skb_queue_empty(&sk->sk_receive_queue);
+ out:
+-	rcu_read_unlock_bh();
++	rcu_read_unlock();
+ 	return rc;
  }
- EXPORT_SYMBOL(netif_napi_add);
- 
-@@ -4826,8 +4827,12 @@ void napi_disable(struct napi_struct *n)
- }
- EXPORT_SYMBOL(napi_disable);
- 
-+/* Must be called in process context */
- void netif_napi_del(struct napi_struct *napi)
- {
-+	might_sleep();
-+	if (napi_hash_del(napi))
-+		synchronize_net();
- 	list_del_init(&napi->dev_list);
- 	napi_free_frags(napi);
- 
-@@ -7227,11 +7232,13 @@ EXPORT_SYMBOL(alloc_netdev_mqs);
-  *	This function does the last stage of destroying an allocated device
-  * 	interface. The reference to the device object is released.
-  *	If this is the last reference then it will be freed.
-+ *	Must be called in process context.
-  */
- void free_netdev(struct net_device *dev)
- {
- 	struct napi_struct *p, *n;
- 
-+	might_sleep();
- 	netif_free_tx_queues(dev);
- #ifdef CONFIG_SYSFS
- 	kvfree(dev->_rx);
+ EXPORT_SYMBOL(sk_busy_loop);
 -- 
 2.6.0.rc2.230.g3dd15c0
