@@ -1,124 +1,79 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 4/4] ravb: Add support for r8a7795 SoC
-Date: Wed, 18 Nov 2015 16:29:18 +0300
-Message-ID: <564C7D2E.4030608@cogentembedded.com>
-References: <1443593755-20991-1-git-send-email-horms+renesas@verge.net.au>
- <1443593755-20991-5-git-send-email-horms+renesas@verge.net.au>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
+Date: Wed, 18 Nov 2015 14:31:55 +0100
+Message-ID: <1447853515.875338.443199993.7D592088@webmail.messagingengine.com>
+References: <1447811024-8553-1-git-send-email-lorenzo@google.com>
+ <20151117192738.365145d7@samsung9>
+ <1447819493.22599.137.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1447841988.834928.443071345.1AAFF2A9@webmail.messagingengine.com>
+ <CAKD1Yr0Gpr6Ex2i1TXEWyETn48P4g5vBvFZ9=_g+Lz_7-PqBDQ@mail.gmail.com>
+ <1447845552.846962.443112033.03C5152B@webmail.messagingengine.com>
+ <CAKD1Yr1URnEWDpF9JUo_K3w+31YjfrO6tzL6QBcrKmSYu1_fhA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Simon Horman <horms+renesas@verge.net.au>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1443593755-20991-5-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Erik Kline <ek@google.com>,
+	=?UTF-8?Q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+	Dmitry Torokhov <dtor@google.com>
+To: Lorenzo Colitti <lorenzo@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:51802 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755898AbbKRNb4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 08:31:56 -0500
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id 1853920B2E
+	for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 08:31:56 -0500 (EST)
+In-Reply-To: <CAKD1Yr1URnEWDpF9JUo_K3w+31YjfrO6tzL6QBcrKmSYu1_fhA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hello,
 
-On 9/30/2015 9:15 AM, Simon Horman wrote:
+On Wed, Nov 18, 2015, at 14:04, Lorenzo Colitti wrote:
+> On Wed, Nov 18, 2015 at 8:19 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > I was wondering why you didn't use tcp_close function, because still we
+> > could have the address and we would like to do a proper shutdown of the
+> > connection. While this patchset wants to tear down sockets for addresses
+> > no longer alive, it still can be used with full sockets.
+> 
+> From the perspective of the TCP state machine, there's not much
+> difference. In most TCP states, tcp_close takes the socket straight to
+> TCP_CLOSE (not into TCP_TIME_WAIT).
 
-> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->
-> This patch supports the r8a7795 SoC by:
-> - Using two interrupts
->    + One for E-MAC
->    + One for everything else
->    + Both can be handled by the existing common interrupt handler, which
->      affords a simpler update to support the new SoC. In future some
->      consideration may be given to implementing multiple interrupt handlers
-> - Limiting the phy speed to 100Mbit/s for the new SoC;
->    at this time it is not clear how this restriction may be lifted
->    but I hope it will be possible as more information comes to light
->
-> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> [horms: reworked]
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
->
-> ---
-> v0 [Kazuya Mizuguchi]
->
-> v1 [Simon Horman]
-> * Updated patch subject
->
-> v2 [Simon Horman]
-> * Reworked based on extensive feedback from
->    Geert Uytterhoeven and Sergei Shtylyov.
-> * Broke binding update out into separate patch
->
-> v3 [Simon Horman]
-> * Check new return value of phy_set_max_speed()
->
-> v4
-> * No change
-> ---
->   drivers/net/ethernet/renesas/ravb.h      |  7 ++++
->   drivers/net/ethernet/renesas/ravb_main.c | 63 ++++++++++++++++++++++++++++----
->   2 files changed, 62 insertions(+), 8 deletions(-)
->
-> diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
-> index a157aaaaff6a..0623fff932e4 100644
-> --- a/drivers/net/ethernet/renesas/ravb.h
-> +++ b/drivers/net/ethernet/renesas/ravb.h
-> @@ -766,6 +766,11 @@ struct ravb_ptp {
->   	struct ravb_ptp_perout perout[N_PER_OUT];
->   };
->
-> +enum ravb_chip_id {
-> +	RCAR_GEN2,
-> +	RCAR_GEN3,
-> +};
-> +
->   struct ravb_private {
->   	struct net_device *ndev;
->   	struct platform_device *pdev;
-> @@ -806,6 +811,8 @@ struct ravb_private {
->   	int msg_enable;
->   	int speed;
->   	int duplex;
-> +	int emac_irq;
-> +	enum ravb_chip_id chip_id;
->
->   	unsigned no_avb_link:1;
->   	unsigned avb_link_active_low:1;
-> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-> index 4ca093d033f8..8cc5ec5ed19a 100644
-> --- a/drivers/net/ethernet/renesas/ravb_main.c
-> +++ b/drivers/net/ethernet/renesas/ravb_main.c
-[...]
-> @@ -1197,6 +1213,15 @@ static int ravb_open(struct net_device *ndev)
->   		goto out_napi_off;
->   	}
->
-> +	if (priv->chip_id == RCAR_GEN3) {
-> +		error = request_irq(priv->emac_irq, ravb_interrupt,
-> +				    IRQF_SHARED, ndev->name, ndev);
-> +		if (error) {
-> +			netdev_err(ndev, "cannot request IRQ\n");
-> +			goto out_free_irq;
-> +		}
-> +	}
-> +
->   	/* Device init */
->   	error = ravb_dmac_init(ndev);
->   	if (error)
-> @@ -1220,6 +1245,7 @@ out_ptp_stop:
->   	ravb_ptp_stop(ndev);
->   out_free_irq:
->   	free_irq(ndev->irq, ndev);
-> +	free_irq(priv->emac_irq, ndev);
+Active close will end up in time wait in the end anyway (with some
+exceptions).
 
-    Grr, this sloppy code causes WARNING in __free_irq() on gen2 SoCs. I'll 
-deal with it...
+> There is a difference in that tcp_close() sends a RST by calling
+> tcp_send_active_reset. We could make tcp_diag_destroy do that too. Not
+> sure it's worth it because in most of the the cases where you'd want
+> to use SOCK_DESTROY (e.g., you've lost a network connection, a VPN
+> connected, etc.), tcp_send_active_reset is either not going to send a
+> RST at all or it's going send on the wrong network. Even if we're
+> still connected to the same network (e.g., in the case where you're
+> running "ss --kill" to close a socket instead of the bad old days
+> where you had to load your process in gdb and call close() from there
+> :-)), not sending a RST is not the end of the world, because as soon
+> as the peer sends us a packet we'll send a RST anyway.
 
->   out_napi_off:
->   	napi_disable(&priv->napi[RAVB_NC]);
->   	napi_disable(&priv->napi[RAVB_BE]);
-[...]
+Ack. I don't think it makes sense to provide a FIN/RST less way of
+closing a socket, just invoke a shutdown() from an interface might be
+okayish IMHO.
 
-MBR, Sergei
+> In any case calling tcp_close itself won't work - that's intended for
+> userspace closes. It calls sock_orphan, which nulls out the
+> backpointer to the userspace socket structure, and assumes that there
+> are no userspace references to the protocol socket. If we make
+> SOCK_DESTROY call tcp_close without releasing the userspace
+> components, things blow up as soon as the app calls close().
 
+I was not saying using tcp_close literally, sorry for not making that
+clear, but just model the state transitions after tcp_close. At least it
+seems like a normal close to me.
+
+Thanks,
+Hannes
