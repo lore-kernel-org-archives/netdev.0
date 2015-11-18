@@ -1,74 +1,70 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH -next] net: tcp: move to timewait when receiving data
- post active-close
-Date: Wed, 18 Nov 2015 16:36:21 +0100
-Message-ID: <20151118153621.GA5860@breakpoint.cc>
-References: <1447859024-1040-1-git-send-email-fw@strlen.de>
- <1447860480.22599.151.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: next build: 235 warnings 3 failures (next/next-20151117)
+Date: Wed, 18 Nov 2015 15:36:34 +0000
+Message-ID: <20151118153634.GH1588@arm.com>
+References: <564a9961.878b420a.331b8.fffffd62@mx.google.com>
+ <6370082.rfihnaNWhf@wuerfel>
+ <20151117171236.GJ30101@arm.com>
+ <3723928.99NZh1TC6E@wuerfel>
+ <20151118101427.GC22731@arm.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CBD53BB@AcuExch.aculab.com>
+ <20151118122804.GD1588@arm.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CBD57A5@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	marcelo.leitner@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:46012 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755008AbbKRPgX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 10:36:23 -0500
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	"kernel-build-reports@lists.linaro.org"
+	<kernel-build-reports@lists.linaro.org>,
+	"olof@lixom.net" <olof@lixom.net>,
+	David Miller <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1447860480.22599.151.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBD57A5@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2015-11-18 at 16:03 +0100, Florian Westphal wrote:
-> > RFC 1122, 4.2.2.13:
-> >  [..] if new data is received after CLOSE is called, its TCP
-> >  SHOULD send a RST to show that data was lost.
+On Wed, Nov 18, 2015 at 03:21:19PM +0000, David Laight wrote:
+> From: Will Deacon
+> > Sent: 18 November 2015 12:28
+> > On Wed, Nov 18, 2015 at 12:11:25PM +0000, David Laight wrote:
+> > > From: Will Deacon
+> > > >   http://lists.infradead.org/pipermail/linux-arm-kernel/2015-November/386094.html
+> > >
+> > > That patch forces a memory write-read and returns uninitialised stack
+> > > for short reads.
 > > 
-> >  When a connection is closed actively, it MUST linger in
-> >  TIME-WAIT state [..].
+> > Really? The disassembly looks fine to me. Do you have a concrete example
+> > of where you think it goes wrong, please?
 > > 
-> > We reset a connection, but destroy state immediately.
+> > > Who knows what happens on big-endian systems.
 > > 
-> > After discussing this with Hannes, we decided it was preferable
-> > to also move to TW state to avoid immediate port reuse.
-> > 
-> > packetdrill testcase:
-> > 
-> > 0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-> > 0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-> > 0.000 bind(3, ..., ...) = 0
-> > 0.000 listen(3, 1) = 0
-> > 0.100 < S 0:0(0) win 29200 <mss 1460>
-> > 0.100 > S. 0:0(0) ack 1 <mss 1460>
-> > 0.200 < . 1:1(0) ack 1 win 257
-> > 0.200 accept(3, ..., ...) = 4
-> > // close our side.
-> > 0.210 close(4) = 0
-> > // we should expect to see FIN now, sk moves to FIN_WAIT_1
-> > 0.210 > F. 1:1(0) ack 1 win 29200
-> > // receive data, but sk already closed -> Reset
-> > 0.300 < P. 1:1001(1000) ack 1 win 46
-> > 0.300 > R 1:1(0) win 0
+> > The same thing as READ_ONCE? I'll test it there to make sure, but I
+> > don't see a problem.
+> 
+> Ah, god, it is absolutely horrid. But probably right :-(
 
+Yeah, I wasn't pretending it was nice :) FWIW, I've given it a reasonable
+testing in both little-endian and big-endian configurations and it seems
+to be happy.
 
-> This packetdrill test shows nothing special regarding your patch, it
-> should work right now with current kernels ???
+> Do all the lda variants zero extend to 64 bits ?
 
-Yes, but we kill the socket.
+Yes.
 
-I should have added
+> If so maybe you could use a single 64 bit variable for the result of the read
+> and then cast it to typeof(*p) to get the required sign extension for
+> small integer types.
 
-0.400 `ss -nito state time-wait`
+That was the original proposal from Arnd, but I want this to work with
+structures smaller than 64-bit (e.g. arch_spinlock_t), so that's why
+I decided to follow the approach laid down by READ_ONCE.
 
-as last line...
-
-Before patch: no output
-after patch: tw socket shown.
-
-The on-wire behavior doesn't change unless further packets arrive.
-Old behaviour: more RST
-New behaviour: acks+tw timer restart
-
-Sorry for the confusion.
+Will
