@@ -1,66 +1,55 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH -next] net: tcp: move to timewait when receiving data post
- active-close
-Date: Wed, 18 Nov 2015 18:35:59 +0100
-Message-ID: <1447868159.400039.443456489.4AB3FECE@webmail.messagingengine.com>
-References: <1447859024-1040-1-git-send-email-fw@strlen.de>
- <1447860480.22599.151.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151118153621.GA5860@breakpoint.cc>
- <1447861591.22599.157.camel@edumazet-glaptop2.roam.corp.google.com>
- <1447862057.909111.443349025.5B7D067D@webmail.messagingengine.com>
- <1447867736.22599.169.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net] net/ip6_tunnel: fix dst leak
+Date: Wed, 18 Nov 2015 09:37:52 -0800
+Message-ID: <20151118173730.GA22676@kafai-mba.local>
+References: <9dd416a82166a27f5cf5eda71a63222a0eb96c04.1447859978.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	marcelo.leitner@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:57156 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756441AbbKRRgA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 12:36:00 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 2719520C19
-	for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 12:36:00 -0500 (EST)
-In-Reply-To: <1447867736.22599.169.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:14734 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755212AbbKRRiB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 12:38:01 -0500
+Content-Disposition: inline
+In-Reply-To: <9dd416a82166a27f5cf5eda71a63222a0eb96c04.1447859978.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 18, 2015, at 18:28, Eric Dumazet wrote:
-> On Wed, 2015-11-18 at 16:54 +0100, Hannes Frederic Sowa wrote:
-> 
-> > Still, the RST packet can be dropped along the way. So the teardown of
-> > the socket on the other side might not happen.
-> 
-> This is why it is better to send RST for every incoming in-excess packet
+On Wed, Nov 18, 2015 at 04:40:19PM +0100, Paolo Abeni wrote:
+> the commit cdf3464e6c6b ("ipv6: Fix dst_entry refcnt bugs in ip6_tunnel")
+> introduced percpu storage for ip6_tunnel dst cache, but while clearing
+> such cache it used raw_cpu_ptr to walk the per cpu entries, so cached
+> dst on non current cpu are not actually reset.
+>
+> This patch replaces raw_cpu_ptr with per_cpu_ptr, properly cleaning
+> such storage.
+Thanks for fixing it.
 
-I agree it would be better to send a RST than ACK incoming data. Just
-thinking out loud, would it make sense to add a sub-state to timewait so
-we RST all other packets for TIMEWAIT_LEN duration?
+Acked-by: Martin KaFai Lau <kafai@fb.com>
 
-> Try following packetdrill test, before and after your patch :
-> 
-> 0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-> 0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-> 0.000 bind(3, ..., ...) = 0
-> 0.000 listen(3, 1) = 0
-> 0.100 < S 0:0(0) win 29200 <mss 1460>
-> 0.100 > S. 0:0(0) ack 1 <mss 1460>
-> 0.200 < . 1:1(0) ack 1 win 257
-> 0.200 accept(3, ..., ...) = 4
-> // close our side.
-> 0.210 close(4) = 0
-> // we should expect to see FIN now, sk moves to FIN_WAIT_1
-> 0.210 > F. 1:1(0) ack 1 win 29200
-> 
-> // receive data, but sk already closed -> Reset
-> +.010 < P. 1:1001(1000) ack 1 win 46
-> +0    > R 1:1(0) win 0
-> 
-> // Are we properly sending a RST like prior packet did ?
-> +.010 < P. 1001:2001(1000) ack 1 win 46
-> +0    > R 1:1(0) win 0
-
-Thanks,
-Hannes
+>
+> Fixes: cdf3464e6c6b ("ipv6: Fix dst_entry refcnt bugs in ip6_tunnel")
+>
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> ---
+>  net/ipv6/ip6_tunnel.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+> index eabffbb..137fca4 100644
+> --- a/net/ipv6/ip6_tunnel.c
+> +++ b/net/ipv6/ip6_tunnel.c
+> @@ -177,7 +177,7 @@ void ip6_tnl_dst_reset(struct ip6_tnl *t)
+>  	int i;
+>
+>  	for_each_possible_cpu(i)
+> -		ip6_tnl_per_cpu_dst_set(raw_cpu_ptr(t->dst_cache), NULL);
+> +		ip6_tnl_per_cpu_dst_set(per_cpu_ptr(t->dst_cache, i), NULL);
+>  }
+>  EXPORT_SYMBOL_GPL(ip6_tnl_dst_reset);
+>
+> --
+> 1.8.3.1
+>
