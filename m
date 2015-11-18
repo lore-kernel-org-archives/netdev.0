@@ -1,30 +1,49 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH 4/4] net: diag: Support destroying TCP sockets.
-Date: Wed, 18 Nov 2015 13:46:16 +0900
-Message-ID: <CAKD1Yr3p=jj_+VuDhhVnpJhxfR+jznkibgmjRSujtSwkHvc3jA@mail.gmail.com>
-References: <1447811024-8553-5-git-send-email-lorenzo@google.com> <201511181134.PgceICPP%fengguang.wu@intel.com>
+From: Jonathan Woithe <jwoithe@atrad.com.au>
+Subject: Re: r8169 regression: UDP packets dropped intermittantly
+Date: Wed, 18 Nov 2015 15:39:19 +1030
+Message-ID: <20151118050919.GR25216@marvin.atrad.com.au>
+References: <20130309064647.GC4984@marvin.atrad.com.au>
+ <20130311000216.GA31808@zoreil.com>
+ <20130405001526.GC19253@marvin.atrad.com.au>
+ <20151117015605.GI22941@marvin.atrad.com.au>
+ <20151117232108.GC3362@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kbuild-all@01.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
-	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>,
-	Dmitry Torokhov <dtor@google.com>
-To: kbuild test robot <lkp@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f178.google.com ([209.85.160.178]:35365 "EHLO
-	mail-yk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751982AbbKREqg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2015 23:46:36 -0500
-Received: by ykba77 with SMTP id a77so45158765ykb.2
-        for <netdev@vger.kernel.org>; Tue, 17 Nov 2015 20:46:35 -0800 (PST)
-In-Reply-To: <201511181134.PgceICPP%fengguang.wu@intel.com>
+Received: from server.atrad.com.au ([150.101.241.2]:38641 "EHLO
+	server.atrad.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750763AbbKRFJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 00:09:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20151117232108.GC3362@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 18, 2015 at 12:43 PM, kbuild test robot <lkp@intel.com> wrote:
-> All errors (new ones prefixed by >>):
->
->>> ERROR: "inet_diag_find_one_icsk" [net/ipv4/tcp_diag.ko] undefined!
+On Wed, Nov 18, 2015 at 12:21:08AM +0100, Francois Romieu wrote:
+> Jonathan Woithe <jwoithe@atrad.com.au> :
+> [...]
+> > It would be advantageous if we could upgrade this Linux system to a kernel
+> > more recent than 2.6.35.11, but that will require a resolution to this
+> > problem.  Since 2.6.35.11 works while current kernels do not, the only other
+> > option is to stick with 2.6.35.11.  Is there anything we can do to try to
+> > track down the problem?  I'm willing and able to run further tests on the
+> > system as required.
+> 
+> If you were tracking the hardware stats (ethtool -S), would you be able to
+> tell if the hardware sees the relevant UDP packets long before the driver
+> does ?
 
-Oops. Missing export. Should be fixed in v2.
+Possibly.  The packet flow at the time of fault is quite low so it might be
+doable.  What would be the best way to approach this?  Query "ethtool -S"
+regularly around the point of failure?
+
+> Would you be able to ascertain that the interrupt mask register (ethtool -d)
+> is not set for an excessive amount of time ?
+
+I could try.  What's the most reliable way to determine this?  Use regular
+ethtool queries about the time of the failures?
+
+Regards
+  jonathan
