@@ -1,39 +1,102 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH] net: dns_resolver: convert time_t to time64_t
-Date: Wed, 18 Nov 2015 22:27:50 +0000
-Message-ID: <9583.1447885670@warthog.procyon.org.uk>
-References: <20151118.152025.1846834961092956563.davem@davemloft.net> <20151118063643.GA16239@waves>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] ravb: fix WARNING in __free_irq()
+Date: Thu, 19 Nov 2015 01:39:51 +0300
+Message-ID: <4607844.sdhchmu5cM@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: dhowells@redhat.com, mahfouz.saif.elyazal@gmail.com, arnd@arndb.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151118.152025.1846834961092956563.davem@davemloft.net>
-Content-ID: <7751.1447879727.1@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org, kazuya.mizuguchi.ks@renesas.com,
+	horms+renesas@verge.net.au
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:33082 "EHLO
+	mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756110AbbKRWjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 17:39:55 -0500
+Received: by lfaz4 with SMTP id z4so36593524lfa.0
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 14:39:53 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
+When the R8A7795 support was  added to the driver, little attention was paid
+to the ravb_open() error path: free_irq()  for the EMAC interrupt was called
+uncoditionally, unlike request_irq(), and in  a wrong order as well...
+As a result, on the R-Car gen2 SoCs I started getting the following in case
+of a device  opening error:
 
-> From: Aya Mahfouz <mahfouz.saif.elyazal@gmail.com>
-> Date: Wed, 18 Nov 2015 08:36:44 +0200
-> 
-> > Changes the definition of the pointer _expiry from time_t to
-> > time64_t. This is to handle the Y2038 problem where time_t
-> > will overflow in the year 2038. The change is safe because
-> > the kernel subsystems that call dns_query pass NULL.
-> > 
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > Signed-off-by: Aya Mahfouz <mahfouz.saif.elyazal@gmail.com>
-> > ---
-> > Changelog:
-> > v1: The changes were originally made by Arnd Bergmann in
-> > relation to time_t. I've broken down a patch sent to me
-> > into two independent patches.
-> 
-> Want me to apply this to 'net'?
+WARNING: CPU: 0 PID: 1 at kernel/irq/manage.c:1448 __free_irq+0x8c/0x228()
+Trying to free already-free IRQ 0
+Modules linked in:
+CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.4.0-rc1-dirty #1005
+Hardware name: Generic R8A7791 (Flattened Device Tree)
+Backtrace:
+[<c0013818>] (dump_backtrace) from [<c00139b4>] (show_stack+0x18/0x1c)
+ r6:c063cdd6 r5:00000009 r4:00000000 r3:00204140
+[<c001399c>] (show_stack) from [<c022a578>] (dump_stack+0x74/0x90)
+[<c022a504>] (dump_stack) from [<c0025f04>] (warn_slowpath_common+0x8c/0xb8)
+ r4:ef04fd38 r3:c0714770
+[<c0025e78>] (warn_slowpath_common) from [<c0025fd4>] (warn_slowpath_fmt+0x38/0x40)                                                                             
+ r8:ee8ad800 r7:ef0030a0 r6:00000000 r5:00000000 r4:ef003040
+[<c0025fa0>] (warn_slowpath_fmt) from [<c0064cc0>] (__free_irq+0x8c/0x228)
+ r3:00000000 r2:c063ce9f
+[<c0064c34>] (__free_irq) from [<c0064ecc>] (free_irq+0x70/0xa4)
+ r10:0000016b r8:00000000 r7:00000000 r6:ee8ad800 r5:00000000 r4:ef003040
+[<c0064e5c>] (free_irq) from [<c033472c>] (ravb_open+0x224/0x274)  
+ r7:fffffffe r6:00000000 r5:fffffffe r4:ee8ad800
+[<c0334508>] (ravb_open) from [<c041ac78>] (__dev_open+0x84/0x104)
+ r7:ee8ad830 r6:c0566334 r5:00000000 r4:ee8ad800
+[<c041abf4>] (__dev_open) from [<c041af08>] (__dev_change_flags+0x94/0x13c)
+ r7:00001002 r6:00000001 r5:00001003 r4:ee8ad800
+[<c041ae74>] (__dev_change_flags) from [<c041afe8>] (dev_change_flags+0x20/0x50)
+ r7:c072e6e0 r6:00000138 r5:00001002 r4:ee8ad800
+[<c041afc8>] (dev_change_flags) from [<c06ec06c>] (ip_auto_config+0x174/0xfb8)
+ r8:00001002 r7:c072e6e0 r6:c0703344 r5:00000001 r4:ee8ad800 r3:00000101
+[<c06ebef8>] (ip_auto_config) from [<c000a810>] (do_one_initcall+0x100/0x1cc)
+ r10:c06fb83c r9:00000000 r8:c06ebef8 r7:c0736000 r6:c0710918 r5:c0710918
+ r4:ef2f8f80
+[<c000a710>] (do_one_initcall) from [<c06ccddc>] (kernel_init_freeable+0x11c/0x1
+ec)                                                                
+ r10:c06fb83c r9:00000000 r8:0000009a r7:c0736000 r6:c0706bf0 r5:c06fb834
+ r4:00000007
+[<c06cccc0>] (kernel_init_freeable) from [<c0514c54>] (kernel_init+0x14/0xec)
+ r10:00000000 r8:00000000 r7:00000000 r6:00000000 r5:c0514c40 r4:c0736000
+[<c0514c40>] (kernel_init) from [<c0010458>] (ret_from_fork+0x14/0x3c)
+ r4:00000000 r3:ef04e000
 
-Fine by me.
+Fix up the free_irq() call order and add a new label on the error path.
 
-Acked-by: David Howells <dhowells@redhat.com>
+Fixes: 22d4df8ff3a3 ("ravb: Add support for r8a7795 SoC")
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+---
+The patch is against DaveM's 'net.git' repo.
+
+drivers/net/ethernet/renesas/ravb_main.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+Index: net/drivers/net/ethernet/renesas/ravb_main.c
+===================================================================
+--- net.orig/drivers/net/ethernet/renesas/ravb_main.c
++++ net/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1225,7 +1225,7 @@ static int ravb_open(struct net_device *
+ 	/* Device init */
+ 	error = ravb_dmac_init(ndev);
+ 	if (error)
+-		goto out_free_irq;
++		goto out_free_irq2;
+ 	ravb_emac_init(ndev);
+ 
+ 	/* Initialise PTP Clock driver */
+@@ -1243,9 +1243,11 @@ static int ravb_open(struct net_device *
+ out_ptp_stop:
+ 	/* Stop PTP Clock driver */
+ 	ravb_ptp_stop(ndev);
++out_free_irq2:
++	if (priv->chip_id == RCAR_GEN3)
++		free_irq(priv->emac_irq, ndev);
+ out_free_irq:
+ 	free_irq(ndev->irq, ndev);
+-	free_irq(priv->emac_irq, ndev);
+ out_napi_off:
+ 	napi_disable(&priv->napi[RAVB_NC]);
+ 	napi_disable(&priv->napi[RAVB_BE]);
