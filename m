@@ -1,65 +1,30 @@
-From: Aya Mahfouz <mahfouz.saif.elyazal@gmail.com>
-Subject: [PATCH] net: dns_resolver: convert time_t to time64_t
-Date: Wed, 18 Nov 2015 08:36:44 +0200
-Message-ID: <20151118063643.GA16239@waves>
+From: infocontact@ghurair.ae
+Subject: Re: Business Opportunity
+Date: Wed, 18 Nov 2015 06:49:38 -0800
+Message-ID: <0NXZ001JPX00WS10@acacia4.qatar.net.qa>
+Reply-To: alghurairmohamedsaifo@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>,
-	Arnd Bergmann <arnd@arndb.de>,
-	David Howells <dhowells@redhat.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; CHARSET=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <infocontact@ghurair.ae>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from acacia4.qatar.net.qa ([82.148.101.61]:63507 "EHLO
+	mail.qatar.net.qa" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751513AbbKRHXh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 02:23:37 -0500
+Content-description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Changes the definition of the pointer _expiry from time_t to
-time64_t. This is to handle the Y2038 problem where time_t
-will overflow in the year 2038. The change is safe because
-the kernel subsystems that call dns_query pass NULL.
+Dear Friend,
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Signed-off-by: Aya Mahfouz <mahfouz.saif.elyazal@gmail.com>
----
-Changelog:
-v1: The changes were originally made by Arnd Bergmann in
-relation to time_t. I've broken down a patch sent to me
-into two independent patches.
+Are you looking for investor in your company or your business.or do you need a Loan?
 
- include/linux/dns_resolver.h | 2 +-
- net/dns_resolver/dns_query.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+Please kindly let me know what you are into perhaps i can invest some of my money in your company or Loan you money to boast your business.
 
-diff --git a/include/linux/dns_resolver.h b/include/linux/dns_resolver.h
-index cc92268..6ac3cad 100644
---- a/include/linux/dns_resolver.h
-+++ b/include/linux/dns_resolver.h
-@@ -27,7 +27,7 @@
- #ifdef __KERNEL__
- 
- extern int dns_query(const char *type, const char *name, size_t namelen,
--		     const char *options, char **_result, time_t *_expiry);
-+		     const char *options, char **_result, time64_t *_expiry);
- 
- #endif /* KERNEL */
- 
-diff --git a/net/dns_resolver/dns_query.c b/net/dns_resolver/dns_query.c
-index 4677b6f..ecc28cf 100644
---- a/net/dns_resolver/dns_query.c
-+++ b/net/dns_resolver/dns_query.c
-@@ -67,7 +67,7 @@
-  * Returns the size of the result on success, -ve error code otherwise.
-  */
- int dns_query(const char *type, const char *name, size_t namelen,
--	      const char *options, char **_result, time_t *_expiry)
-+	      const char *options, char **_result, time64_t *_expiry)
- {
- 	struct key *rkey;
- 	const struct user_key_payload *upayload;
--- 
-2.4.3
+Acknowledge the receipt of this mail for more details.
 
-
--- 
-Kind Regards,
-Aya Saif El-yazal Mahfouz
+Regards,
+Mohamed Saif Al Ghurair
+Al Ghurair Group.
+Dubai,UAE
