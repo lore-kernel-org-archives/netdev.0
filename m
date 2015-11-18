@@ -1,88 +1,53 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: next build: 235 warnings 3 failures (next/next-20151117)
-Date: Wed, 18 Nov 2015 12:28:04 +0000
-Message-ID: <20151118122804.GD1588@arm.com>
-References: <564a9961.878b420a.331b8.fffffd62@mx.google.com>
- <6370082.rfihnaNWhf@wuerfel>
- <20151117171236.GJ30101@arm.com>
- <3723928.99NZh1TC6E@wuerfel>
- <20151118101427.GC22731@arm.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CBD53BB@AcuExch.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net-scm: Macro for special pattern?
+Date: Wed, 18 Nov 2015 04:43:50 -0800
+Message-ID: <1447850630.22599.140.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5307CAA2.8060406@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+	 <530A086E.8010901@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+	 <530A72AA.3000601@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+	 <530B5FB6.6010207@users.sourceforge.net>
+	 <alpine.DEB.2.10.1402241710370.2074@hadrien>
+	 <530C5E18.1020800@users.sourceforge.net>
+	 <alpine.DEB.2.10.1402251014170.2080@hadrien>
+	 <530CD2C4.4050903@users.sourceforge.net>
+	 <alpine.DEB.2.10.1402251840450.7035@hadrien>
+	 <530CF8FF.8080600@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+	 <530DD06F.4090703@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+	 <5317A59D.4@users.sourceforge.net> <564B5937.1070707@users.sourceforge.net>
+	 <564B602F.2020302@iogearbox.net> <564B6C6F.3070809@users.sourceforge.net>
+	 <564B73D7.7040501@iogearbox.net> <564C2CB5.5010507@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	"kernel-build-reports@lists.linaro.org"
-	<kernel-build-reports@lists.linaro.org>,
-	"olof@lixom.net" <olof@lixom.net>,
-	David Miller <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBD53BB@AcuExch.aculab.com>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <564C2CB5.5010507@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 18, 2015 at 12:11:25PM +0000, David Laight wrote:
-> From: Will Deacon
-> > Sent: 18 November 2015 10:14
-> > On Tue, Nov 17, 2015 at 08:17:17PM +0100, Arnd Bergmann wrote:
-> > > On Tuesday 17 November 2015 17:12:37 Will Deacon wrote:
-> > > > On Tue, Nov 17, 2015 at 06:03:40PM +0100, Arnd Bergmann wrote:
-> > > > > On Tuesday 17 November 2015 16:44:53 Will Deacon wrote:
-> > > > > > > 8<----
-> > > > > > > Subject: ARM64: make smp_load_acquire() work with const arguments
-> > > > > > >
-> > > > > > > smp_load_acquire() uses typeof() to declare a local variable for temporarily
-> > > > > > > storing the output of the memory access. This fails when the argument is
-> > > > > > > constant, because the assembler complains about using a constant register
-> > > > > > > as output:
-> > > > > > >
-> > > > > > >  arch/arm64/include/asm/barrier.h:71:3: error: read-only variable '___p1'
-> > > > > > >  used as 'asm' output
-> > > > > >
-> > > > > > Do you know the usage in the kernel causing this warning?
-> > > > >
-> > > > > A newly introduced function in include/net/sock.h:
-> > > > >
-> > > > > static inline int sk_state_load(const struct sock *sk)
-> > > > > {
-> > > > >         return smp_load_acquire(&sk->sk_state);
-> > > > > }
-> > > >
-> > > > Hmm, maybe we could play a similar trick to READ_ONCE by declaring an
-> > > > anonymous union and writing through the non-const member?
-> > >
-> > > Yes, I think that would work, if you think we need to care about the
-> > > case where we read into a structure.
-> > >
-> > > Can you come up with a patch for that?
-> > 
-> > Done:
-> > 
-> >   http://lists.infradead.org/pipermail/linux-arm-kernel/2015-November/386094.html
+On Wed, 2015-11-18 at 08:45 +0100, SF Markus Elfring wrote:
+> > You mean this likely() annotation of yours?
 > 
-> That patch forces a memory write-read and returns uninitialised stack
-> for short reads.
+> How do you think about to express the software design pattern
+> which is applied at the mentioned source code place by a dedicated
+> preprocessor macro?
 
-Really? The disassembly looks fine to me. Do you have a concrete example
-of where you think it goes wrong, please?
+likely()/unlikely() are not always applicable.
 
-> Who knows what happens on big-endian systems.
+In the Ipv6 case I mentioned to you, it all depends if an application
+for some reason absolutely wants the sockets to store the extra skb
 
-The same thing as READ_ONCE? I'll test it there to make sure, but I
-don't see a problem.
+There are seldom used socket options. _if_/_when_ they are used, a
+likely()/unlikely() would give the wrong signal.
 
-> You need a static inline function with separate temporaries in each
-> branch.
-
-I'm just following the precedent set out by READ_ONCE, since that's
-tackling exactly the same problem and appears to be working for people.
-
-Will
+likely() should only be used in contexts we know better than branch
+predictor/compiler.
