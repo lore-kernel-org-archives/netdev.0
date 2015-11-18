@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: dns_resolver: convert time_t to time64_t
-Date: Wed, 18 Nov 2015 15:20:25 -0500 (EST)
-Message-ID: <20151118.152025.1846834961092956563.davem@davemloft.net>
-References: <20151118063643.GA16239@waves>
+Subject: Re: [PATCH net-next] be2net: remove local variable 'status'
+Date: Wed, 18 Nov 2015 15:22:09 -0500 (EST)
+Message-ID: <20151118.152209.326518985754435984.davem@davemloft.net>
+References: <1447851994-12075-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, dhowells@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: mahfouz.saif.elyazal@gmail.com
+Cc: netdev@vger.kernel.org, sriharsha.basavapatna@avagotech.com,
+	sathya.perla@avagotech.com, ajit.khaparde@avagotech.com,
+	padmanabh.ratnakar@avagotech.com
+To: ivecera@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53298 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53461 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754683AbbKRUU2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 15:20:28 -0500
-In-Reply-To: <20151118063643.GA16239@waves>
+	with ESMTP id S1753515AbbKRUWL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 15:22:11 -0500
+In-Reply-To: <1447851994-12075-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Aya Mahfouz <mahfouz.saif.elyazal@gmail.com>
-Date: Wed, 18 Nov 2015 08:36:44 +0200
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Wed, 18 Nov 2015 14:06:34 +0100
 
-> Changes the definition of the pointer _expiry from time_t to
-> time64_t. This is to handle the Y2038 problem where time_t
-> will overflow in the year 2038. The change is safe because
-> the kernel subsystems that call dns_query pass NULL.
+> The lancer_cmd_get_file_len() uses lancer_cmd_read_object() to get
+> the current size of registers for ethtool registers dump. Returned status
+> value is stored but not checked. The check itself is not necessary as
+> the data_read output variable is initialized to 0 and status variable
+> can be removed.
 > 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Signed-off-by: Aya Mahfouz <mahfouz.saif.elyazal@gmail.com>
-> ---
-> Changelog:
-> v1: The changes were originally made by Arnd Bergmann in
-> relation to time_t. I've broken down a patch sent to me
-> into two independent patches.
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-Want me to apply this to 'net'?
+Applied.
