@@ -1,63 +1,157 @@
-From: Jason Gerard DeRose <jason@system76.com>
-Subject: Re: [PATCH] ethernet/atheros/alx: add Killer E2400 device ID
-Date: Wed, 18 Nov 2015 07:52:43 -0700
-Message-ID: <564C90BB.2040104@system76.com>
-References: <1447809667-9454-1-git-send-email-jason@system76.com>
- <564C84BF.1090202@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ben Pope <benpope81@gmail.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.system76.com ([38.75.196.72]:38310 "EHLO mail.system76.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756020AbbKROwp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Nov 2015 09:52:45 -0500
-In-Reply-To: <564C84BF.1090202@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: [PATCH v2 15/27] zd1201: move under zydas vendor directory
+Date: Wed, 18 Nov 2015 16:45:54 +0200
+Message-ID: <1447857966-19560-16-git-send-email-kvalo@codeaurora.org>
+References: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sergei,
+Part of reorganising wireless drivers directory and Kconfig.
 
-On 11/18/2015 07:01 AM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 11/18/2015 4:21 AM, Jason Gerard DeRose wrote:
->
->> From: Ben Pope <benpope81@gmail.com>
->>
->> This patch adds the PCI device ID (0xe0a1) and alx_pci_tbl entry for the
->> Killer E2400 Ethernet controller, modeled after the Killer E2200
->> controller support (0xe091) already present in the alx driver.
->>
->> This patch was originally authored by Ben Pope, but it got held up by
->> issues in the commit message, so I'm resubmitting it on his behalf.
->>
->> I've extensively used a kernel with this patch on a System76 serw9
->> laptop and am quite confident it works well (at least on the hardware I
->> have available for testing).
->>
->> Note that as a favor to System76, Ubuntu has been carrying this as a
->> sauce patch in their 4.2 based Wily kernel, which presumably has given
->> it real-world testing on other E2400 equipped hardware (I don't know of
->> any Ubuntu kernel bugs filed about it):
->>
->> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1498633
->>
->> Signed-off-by: Jason Gerard DeRose <jason@system76.com>
->
->     No sign-off from Ben?
+Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
+---
+ MAINTAINERS                               |    2 +-
+ drivers/net/wireless/Kconfig              |   20 +----------------
+ drivers/net/wireless/Makefile             |    3 +--
+ drivers/net/wireless/zydas/Kconfig        |   33 +++++++++++++++++++++++++++++
+ drivers/net/wireless/zydas/Makefile       |    1 +
+ drivers/net/wireless/{ => zydas}/zd1201.c |    0
+ drivers/net/wireless/{ => zydas}/zd1201.h |    0
+ 7 files changed, 37 insertions(+), 22 deletions(-)
+ create mode 100644 drivers/net/wireless/zydas/Kconfig
+ create mode 100644 drivers/net/wireless/zydas/Makefile
+ rename drivers/net/wireless/{ => zydas}/zd1201.c (100%)
+ rename drivers/net/wireless/{ => zydas}/zd1201.h (100%)
 
-Apologies, this is my first time submitting a kernel patch :)
-
-Should I use git send-email to send this again, this time with the 
-sign-off from Ben? And if so, should I do so as a reply to this thread?
-
-Thanks for you time!
-
-> [...]
->
-> MBR, Sergei
->
+diff --git a/MAINTAINERS b/MAINTAINERS
+index e622877aaab4..ec098370ef3d 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -11252,7 +11252,7 @@ USB ZD1201 DRIVER
+ L:	linux-wireless@vger.kernel.org
+ W:	http://linux-lc100020.sourceforge.net
+ S:	Orphan
+-F:	drivers/net/wireless/zd1201.*
++F:	drivers/net/wireless/zydas/zd1201.*
+ 
+ USB ZR364XX DRIVER
+ M:	Antoine Jacquet <royale@zerezo.com>
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index 315982a5ee73..35155e2dc8bf 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -24,6 +24,7 @@ source "drivers/net/wireless/cisco/Kconfig"
+ source "drivers/net/wireless/intel/Kconfig"
+ source "drivers/net/wireless/marvell/Kconfig"
+ source "drivers/net/wireless/st/Kconfig"
++source "drivers/net/wireless/zydas/Kconfig"
+ 
+ config PCMCIA_RAYCS
+ 	tristate "Aviator/Raytheon 2.4GHz wireless support"
+@@ -70,25 +71,6 @@ config PRISM54
+ 
+ 	  When built as module you get the module prism54
+ 
+-config USB_ZD1201
+-	tristate "USB ZD1201 based Wireless device support"
+-	depends on CFG80211 && USB
+-	select WIRELESS_EXT
+-	select WEXT_PRIV
+-	select FW_LOADER
+-	---help---
+-	  Say Y if you want to use wireless LAN adapters based on the ZyDAS
+-	  ZD1201 chip.
+-
+-	  This driver makes the adapter appear as a normal Ethernet interface,
+-	  typically on wlan0.
+-
+-	  The zd1201 device requires external firmware to be loaded.
+-	  This can be found at http://linux-lc100020.sourceforge.net/
+-
+-	  To compile this driver as a module, choose M here: the
+-	  module will be called zd1201.
+-
+ config USB_NET_RNDIS_WLAN
+ 	tristate "Wireless RNDIS USB support"
+ 	depends on USB
+diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
+index 9498753f596b..4ee6d6d08743 100644
+--- a/drivers/net/wireless/Makefile
++++ b/drivers/net/wireless/Makefile
+@@ -9,6 +9,7 @@ obj-$(CONFIG_WLAN_VENDOR_CISCO) += cisco/
+ obj-$(CONFIG_WLAN_VENDOR_INTEL) += intel/
+ obj-$(CONFIG_WLAN_VENDOR_MARVELL) += marvell/
+ obj-$(CONFIG_WLAN_VENDOR_ST) += st/
++obj-$(CONFIG_WLAN_VENDOR_ZYDAS) += zydas/
+ 
+ obj-$(CONFIG_HERMES)		+= orinoco/
+ 
+@@ -24,8 +25,6 @@ obj-$(CONFIG_PCMCIA_WL3501)	+= wl3501_cs.o
+ 
+ obj-$(CONFIG_USB_NET_RNDIS_WLAN)	+= rndis_wlan.o
+ 
+-obj-$(CONFIG_USB_ZD1201)	+= zd1201.o
+-
+ obj-$(CONFIG_RT2X00)	+= rt2x00/
+ 
+ obj-$(CONFIG_WL_MEDIATEK)	+= mediatek/
+diff --git a/drivers/net/wireless/zydas/Kconfig b/drivers/net/wireless/zydas/Kconfig
+new file mode 100644
+index 000000000000..6140dfa04fed
+--- /dev/null
++++ b/drivers/net/wireless/zydas/Kconfig
+@@ -0,0 +1,33 @@
++config WLAN_VENDOR_ZYDAS
++	bool "ZyDAS devices"
++	default y
++	---help---
++	  If you have a wireless card belonging to this class, say Y.
++
++	  Note that the answer to this question doesn't directly affect the
++	  kernel: saying N will just cause the configurator to skip all
++	  the questions about  cards. If you say Y, you will be asked for
++	  your specific card in the following questions.
++
++if WLAN_VENDOR_ZYDAS
++
++config USB_ZD1201
++	tristate "USB ZD1201 based Wireless device support"
++	depends on CFG80211 && USB
++	select WIRELESS_EXT
++	select WEXT_PRIV
++	select FW_LOADER
++	---help---
++	  Say Y if you want to use wireless LAN adapters based on the ZyDAS
++	  ZD1201 chip.
++
++	  This driver makes the adapter appear as a normal Ethernet interface,
++	  typically on wlan0.
++
++	  The zd1201 device requires external firmware to be loaded.
++	  This can be found at http://linux-lc100020.sourceforge.net/
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called zd1201.
++
++endif # WLAN_VENDOR_ZYDAS
+diff --git a/drivers/net/wireless/zydas/Makefile b/drivers/net/wireless/zydas/Makefile
+new file mode 100644
+index 000000000000..37179ef890ea
+--- /dev/null
++++ b/drivers/net/wireless/zydas/Makefile
+@@ -0,0 +1 @@
++obj-$(CONFIG_USB_ZD1201)	+= zd1201.o
+diff --git a/drivers/net/wireless/zd1201.c b/drivers/net/wireless/zydas/zd1201.c
+similarity index 100%
+rename from drivers/net/wireless/zd1201.c
+rename to drivers/net/wireless/zydas/zd1201.c
+diff --git a/drivers/net/wireless/zd1201.h b/drivers/net/wireless/zydas/zd1201.h
+similarity index 100%
+rename from drivers/net/wireless/zd1201.h
+rename to drivers/net/wireless/zydas/zd1201.h
+-- 
+1.7.9.5
