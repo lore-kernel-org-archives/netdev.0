@@ -1,35 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/ip6_tunnel: fix dst leak
-Date: Wed, 18 Nov 2015 16:26:07 -0500 (EST)
-Message-ID: <20151118.162607.1152602905195888144.davem@davemloft.net>
-References: <9dd416a82166a27f5cf5eda71a63222a0eb96c04.1447859978.git.pabeni@redhat.com>
+Subject: Re: [PATCH] net: dns_resolver: convert time_t to time64_t
+Date: Wed, 18 Nov 2015 16:30:15 -0500 (EST)
+Message-ID: <20151118.163015.168193621097563379.davem@davemloft.net>
+References: <20151118063643.GA16239@waves>
+	<20151118.152025.1846834961092956563.davem@davemloft.net>
+	<4702816.H75zDcB06x@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kafai@fb.com
-To: pabeni@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54181 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756394AbbKRV0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 16:26:09 -0500
-In-Reply-To: <9dd416a82166a27f5cf5eda71a63222a0eb96c04.1447859978.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mahfouz.saif.elyazal@gmail.com, dhowells@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4702816.H75zDcB06x@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Wed, 18 Nov 2015 16:40:19 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 18 Nov 2015 22:08:54 +0100
 
-> the commit cdf3464e6c6b ("ipv6: Fix dst_entry refcnt bugs in ip6_tunnel")
-> introduced percpu storage for ip6_tunnel dst cache, but while clearing
-> such cache it used raw_cpu_ptr to walk the per cpu entries, so cached
-> dst on non current cpu are not actually reset.
+> On Wednesday 18 November 2015 15:20:25 David Miller wrote:
+>> From: Aya Mahfouz <mahfouz.saif.elyazal@gmail.com>
+>> Date: Wed, 18 Nov 2015 08:36:44 +0200
+>> 
+>> > Changes the definition of the pointer _expiry from time_t to
+>> > time64_t. This is to handle the Y2038 problem where time_t
+>> > will overflow in the year 2038. The change is safe because
+>> > the kernel subsystems that call dns_query pass NULL.
+>> > 
+>> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>> > Signed-off-by: Aya Mahfouz <mahfouz.saif.elyazal@gmail.com>
+>> > ---
+>> > Changelog:
+>> > v1: The changes were originally made by Arnd Bergmann in
+>> > relation to time_t. I've broken down a patch sent to me
+>> > into two independent patches.
+>> 
+>> Want me to apply this to 'net'?
 > 
-> This patch replaces raw_cpu_ptr with per_cpu_ptr, properly cleaning
-> such storage.
-> 
-> Fixes: cdf3464e6c6b ("ipv6: Fix dst_entry refcnt bugs in ip6_tunnel")
-> 
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> Yes, I think that would be good. The original patch was touching
+> both the key and net subsystems, but this patch makes sense by itself
+> now, and it helps keep the other half isolated to the key code.
 
-Applied and queued up for -stable, thank you.
+OK, it sounds like we can simply delete the argument if nobody in-tree
+uses it.
+
+But whatever... applied thanks.
