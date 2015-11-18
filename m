@@ -1,7 +1,7 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Wed, 18 Nov 2015 16:32:07 +0100
-Message-ID: <1447860727.903100.443315089.118EA15D@webmail.messagingengine.com>
+Date: Wed, 18 Nov 2015 16:33:34 +0100
+Message-ID: <1447860814.903288.443330057.1FFB6459@webmail.messagingengine.com>
 References: <1447811024-8553-1-git-send-email-lorenzo@google.com>
  <20151117192738.365145d7@samsung9>
  <1447819493.22599.137.camel@edumazet-glaptop2.roam.corp.google.com>
@@ -13,6 +13,7 @@ References: <1447811024-8553-1-git-send-email-lorenzo@google.com>
  <CAKD1Yr3jDozbnZsJy80uPFYAcqv+0ai0EN64i+jKorMe3-ggFA@mail.gmail.com>
  <1447858590.895715.443293345.0FE778BF@webmail.messagingengine.com>
  <1447859760.22599.149.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1447860727.903100.443315089.118EA15D@webmail.messagingengine.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -24,42 +25,51 @@ Cc: Lorenzo Colitti <lorenzo@google.com>,
 	Dmitry Torokhov <dtor@google.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:36457 "EHLO
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:60660 "EHLO
 	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755885AbbKRPcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 10:32:08 -0500
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 4DF2320BE0
-	for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 10:32:07 -0500 (EST)
-In-Reply-To: <1447859760.22599.149.camel@edumazet-glaptop2.roam.corp.google.com>
+	by vger.kernel.org with ESMTP id S1755885AbbKRPde (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 10:33:34 -0500
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id 690FF2088E
+	for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 10:33:34 -0500 (EST)
+In-Reply-To: <1447860727.903100.443315089.118EA15D@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 18, 2015, at 16:16, Eric Dumazet wrote:
-> On Wed, 2015-11-18 at 15:56 +0100, Hannes Frederic Sowa wrote:
-> > On Wed, Nov 18, 2015, at 15:45, Lorenzo Colitti wrote:
-> > > On Wed, Nov 18, 2015 at 10:31 PM, Hannes Frederic Sowa
-> > > <hannes@stressinduktion.org> wrote:
-> > > > I was not saying using tcp_close literally, sorry for not making that
-> > > > clear, but just model the state transitions after tcp_close. At least it
-> > > > seems like a normal close to me.
-> > > 
-> > > But it shouldn't be a normal close. Consider calling SOCK_DESTROY on a
-> > > socket that is streaming data to a peer. If SOCK_DESTROY results in
-> > > the kernel sending a FIN, the remote side might think that the sender
-> > > closed the connection gracefully, even though the local side aborted
-> > > the connection.
-> > 
-> > Oh, yes, I understand. The connection wasn't closed by the application
-> > but by the administrator forcefully. So we should never indicate a
-> > successful TCP shutdown with FIN but with RST. A TIME_WAIT period
-> > actuallty still seems useful to me, maybe with different semantics, only
-> > RST incoming data?
-> 
-> There is some confusion.
-> 
-> TIME_WAIT are used to be able to send ACK packets to incoming valid
-> packets.
 
-I was only talking to prevent fast address/port reuse on the same socket
-and preventing delayed packets being accepted by a 
+On Wed, Nov 18, 2015, at 16:32, Hannes Frederic Sowa wrote:
+> On Wed, Nov 18, 2015, at 16:16, Eric Dumazet wrote:
+> > On Wed, 2015-11-18 at 15:56 +0100, Hannes Frederic Sowa wrote:
+> > > On Wed, Nov 18, 2015, at 15:45, Lorenzo Colitti wrote:
+> > > > On Wed, Nov 18, 2015 at 10:31 PM, Hannes Frederic Sowa
+> > > > <hannes@stressinduktion.org> wrote:
+> > > > > I was not saying using tcp_close literally, sorry for not making that
+> > > > > clear, but just model the state transitions after tcp_close. At least it
+> > > > > seems like a normal close to me.
+> > > > 
+> > > > But it shouldn't be a normal close. Consider calling SOCK_DESTROY on a
+> > > > socket that is streaming data to a peer. If SOCK_DESTROY results in
+> > > > the kernel sending a FIN, the remote side might think that the sender
+> > > > closed the connection gracefully, even though the local side aborted
+> > > > the connection.
+> > > 
+> > > Oh, yes, I understand. The connection wasn't closed by the application
+> > > but by the administrator forcefully. So we should never indicate a
+> > > successful TCP shutdown with FIN but with RST. A TIME_WAIT period
+> > > actuallty still seems useful to me, maybe with different semantics, only
+> > > RST incoming data?
+> > 
+> > There is some confusion.
+> > 
+> > TIME_WAIT are used to be able to send ACK packets to incoming valid
+> > packets.
+> 
+> I was only talking to prevent fast address/port reuse on the same socket
+> and preventing delayed packets being accepted by a 
+
+sorry...
+
+accepted by a later connection reusing the same quadrupel.
+
+Bye,
+Hannes
