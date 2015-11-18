@@ -1,68 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH -next] net: tcp: move to timewait when receiving data
- post active-close
-Date: Wed, 18 Nov 2015 07:28:00 -0800
-Message-ID: <1447860480.22599.151.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1447859024-1040-1-git-send-email-fw@strlen.de>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
+Date: Wed, 18 Nov 2015 16:32:07 +0100
+Message-ID: <1447860727.903100.443315089.118EA15D@webmail.messagingengine.com>
+References: <1447811024-8553-1-git-send-email-lorenzo@google.com>
+ <20151117192738.365145d7@samsung9>
+ <1447819493.22599.137.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1447841988.834928.443071345.1AAFF2A9@webmail.messagingengine.com>
+ <CAKD1Yr0Gpr6Ex2i1TXEWyETn48P4g5vBvFZ9=_g+Lz_7-PqBDQ@mail.gmail.com>
+ <1447845552.846962.443112033.03C5152B@webmail.messagingengine.com>
+ <CAKD1Yr1URnEWDpF9JUo_K3w+31YjfrO6tzL6QBcrKmSYu1_fhA@mail.gmail.com>
+ <1447853515.875338.443199993.7D592088@webmail.messagingengine.com>
+ <CAKD1Yr3jDozbnZsJy80uPFYAcqv+0ai0EN64i+jKorMe3-ggFA@mail.gmail.com>
+ <1447858590.895715.443293345.0FE778BF@webmail.messagingengine.com>
+ <1447859760.22599.149.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, marcelo.leitner@gmail.com
-To: Florian Westphal <fw@strlen.de>
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Erik Kline <ek@google.com>,
+	=?UTF-8?Q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+	Dmitry Torokhov <dtor@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:33624 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755799AbbKRP2D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 10:28:03 -0500
-Received: by pabfh17 with SMTP id fh17so49635605pab.0
-        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 07:28:03 -0800 (PST)
-In-Reply-To: <1447859024-1040-1-git-send-email-fw@strlen.de>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:36457 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755885AbbKRPcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 10:32:08 -0500
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id 4DF2320BE0
+	for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 10:32:07 -0500 (EST)
+In-Reply-To: <1447859760.22599.149.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-11-18 at 16:03 +0100, Florian Westphal wrote:
-> RFC 1122, 4.2.2.13:
->  [..] if new data is received after CLOSE is called, its TCP
->  SHOULD send a RST to show that data was lost.
+On Wed, Nov 18, 2015, at 16:16, Eric Dumazet wrote:
+> On Wed, 2015-11-18 at 15:56 +0100, Hannes Frederic Sowa wrote:
+> > On Wed, Nov 18, 2015, at 15:45, Lorenzo Colitti wrote:
+> > > On Wed, Nov 18, 2015 at 10:31 PM, Hannes Frederic Sowa
+> > > <hannes@stressinduktion.org> wrote:
+> > > > I was not saying using tcp_close literally, sorry for not making that
+> > > > clear, but just model the state transitions after tcp_close. At least it
+> > > > seems like a normal close to me.
+> > > 
+> > > But it shouldn't be a normal close. Consider calling SOCK_DESTROY on a
+> > > socket that is streaming data to a peer. If SOCK_DESTROY results in
+> > > the kernel sending a FIN, the remote side might think that the sender
+> > > closed the connection gracefully, even though the local side aborted
+> > > the connection.
+> > 
+> > Oh, yes, I understand. The connection wasn't closed by the application
+> > but by the administrator forcefully. So we should never indicate a
+> > successful TCP shutdown with FIN but with RST. A TIME_WAIT period
+> > actuallty still seems useful to me, maybe with different semantics, only
+> > RST incoming data?
 > 
->  When a connection is closed actively, it MUST linger in
->  TIME-WAIT state [..].
+> There is some confusion.
 > 
-> We reset a connection, but destroy state immediately.
-> 
-> After discussing this with Hannes, we decided it was preferable
-> to also move to TW state to avoid immediate port reuse.
-> 
-> packetdrill testcase:
-> 
-> 0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-> 0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-> 0.000 bind(3, ..., ...) = 0
-> 0.000 listen(3, 1) = 0
-> 0.100 < S 0:0(0) win 29200 <mss 1460>
-> 0.100 > S. 0:0(0) ack 1 <mss 1460>
-> 0.200 < . 1:1(0) ack 1 win 257
-> 0.200 accept(3, ..., ...) = 4
-> // close our side.
-> 0.210 close(4) = 0
-> // we should expect to see FIN now, sk moves to FIN_WAIT_1
-> 0.210 > F. 1:1(0) ack 1 win 29200
-> // receive data, but sk already closed -> Reset
-> 0.300 < P. 1:1001(1000) ack 1 win 46
-> 0.300 > R 1:1(0) win 0
+> TIME_WAIT are used to be able to send ACK packets to incoming valid
+> packets.
 
-Thanks for using packetdrill ;)
-
-This packetdrill test shows nothing special regarding your patch, it
-should work right now with current kernels ???
-
-lpk51:~# tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on any, link-type LINUX_SLL (Linux cooked), capture size 262144 bytes
-lpk51:~# ./packetdrill Florian.pkt 
-07:26:49.656548 IP 192.0.2.1.59883 > 192.168.155.177.8080: Flags [S], seq 0, win 29200, options [mss 1460], length 0
-07:26:49.656611 IP 192.168.155.177.8080 > 192.0.2.1.59883: Flags [S.], seq 1433468786, ack 1, win 29200, options [mss 1460], length 0
-07:26:49.756530 IP 192.0.2.1.59883 > 192.168.155.177.8080: Flags [.], ack 1, win 257, length 0
-07:26:49.766529 IP 192.168.155.177.8080 > 192.0.2.1.59883: Flags [F.], seq 1, ack 1, win 29200, length 0
-07:26:49.856529 IP 192.0.2.1.59883 > 192.168.155.177.8080: Flags [P.], seq 1:1001, ack 1, win 46, length 1000: HTTP
-07:26:49.856560 IP 192.168.155.177.8080 > 192.0.2.1.59883: Flags [R], seq 1433468787, win 0, length 0
-07:26:49.856806 IP 192.0.2.1.59883 > 192.168.155.177.8080: Flags [R.], seq 1001, ack 1, win 46, length 0
+I was only talking to prevent fast address/port reuse on the same socket
+and preventing delayed packets being accepted by a 
