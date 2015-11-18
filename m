@@ -1,60 +1,86 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 2/2] lnstat: fix header displaying mechanism
-Date: Wed, 18 Nov 2015 16:57:47 +0100
-Message-ID: <1447862267-13603-3-git-send-email-phil@nwl.cc>
-References: <1447862267-13603-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:60666 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755854AbbKRP6M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Nov 2015 10:58:12 -0500
-In-Reply-To: <1447862267-13603-1-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: next build: 235 warnings 3 failures (next/next-20151117)
+Date: Wed, 18 Nov 2015 15:57:03 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBD582E@AcuExch.aculab.com>
+References: <564a9961.878b420a.331b8.fffffd62@mx.google.com>
+ <6370082.rfihnaNWhf@wuerfel> <20151117171236.GJ30101@arm.com>
+ <3723928.99NZh1TC6E@wuerfel> <20151118101427.GC22731@arm.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CBD53BB@AcuExch.aculab.com>
+ <20151118122804.GD1588@arm.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CBD57A5@AcuExch.aculab.com>
+ <20151118153634.GH1588@arm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	"kernel-build-reports@lists.linaro.org"
+	<kernel-build-reports@lists.linaro.org>,
+	"olof@lixom.net" <olof@lixom.net>,
+	David Miller <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: 'Will Deacon' <will.deacon@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151118153634.GH1588@arm.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The algorithm depends on the loop counter ('i') to increment by one in
-each iteration. Though if running endlessly (count==0), the counter was
-not incremented at all.
+From: Will Deacon [mailto:will.deacon@arm.com]
+> Sent: 18 November 2015 15:37
+> On Wed, Nov 18, 2015 at 03:21:19PM +0000, David Laight wrote:
+> > From: Will Deacon
+> > > Sent: 18 November 2015 12:28
+> > > On Wed, Nov 18, 2015 at 12:11:25PM +0000, David Laight wrote:
+> > > > From: Will Deacon
+> > > > >   http://lists.infradead.org/pipermail/linux-arm-kernel/2015-November/386094.html
+> > > >
+> > > > That patch forces a memory write-read and returns uninitialised stack
+> > > > for short reads.
+> > >
+> > > Really? The disassembly looks fine to me. Do you have a concrete example
+> > > of where you think it goes wrong, please?
+> > >
+> > > > Who knows what happens on big-endian systems.
+> > >
+> > > The same thing as READ_ONCE? I'll test it there to make sure, but I
+> > > don't see a problem.
+> >
+> > Ah, god, it is absolutely horrid. But probably right :-(
+> 
+> Yeah, I wasn't pretending it was nice :) FWIW, I've given it a reasonable
+> testing in both little-endian and big-endian configurations and it seems
+> to be happy.
 
-Also change formatting of the header printing conditional a bit so it's
-hopefully easier to read.
+I was missing the fact that the *(int_type *)&union is always reading
+the full union.
+The next version of the compiler might decide to barf at the code
+that appears to be reading beyond the end of the union.
 
-Fixes: e7e2913 ("lnstat: run indefinitely by default")
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- misc/lnstat.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+> > Do all the lda variants zero extend to 64 bits ?
+> 
+> Yes.
+> 
+> > If so maybe you could use a single 64 bit variable for the result of the read
+> > and then cast it to typeof(*p) to get the required sign extension for
+> > small integer types.
+> 
+> That was the original proposal from Arnd, but I want this to work with
+> structures smaller than 64-bit (e.g. arch_spinlock_t), so that's why
+> I decided to follow the approach laid down by READ_ONCE.
 
-diff --git a/misc/lnstat.c b/misc/lnstat.c
-index 529bc33..264c953 100644
---- a/misc/lnstat.c
-+++ b/misc/lnstat.c
-@@ -359,21 +359,19 @@ int main(int argc, char **argv)
- 		if (interval < 1 )
- 			interval = 1;
- 
--		for (i = 0; i < count || !count; ) {
-+		for (i = 0; i < count || !count; i++) {
- 			lnstat_update(lnstat_files);
- 			if (mode == MODE_JSON)
- 				print_json(stdout, lnstat_files, &fp);
- 			else {
--				if  ((hdr > 1 &&
--				      (! (i % 20))) || (hdr == 1 && i == 0))
-+				if  ((hdr > 1 && !(i % 20)) ||
-+				     (hdr == 1 && i == 0))
- 					print_hdr(stdout, header);
- 				print_line(stdout, lnstat_files, &fp);
- 			}
- 			fflush(stdout);
- 			if (i < count - 1 || !count)
- 				sleep(interval);
--			if (count)
--				++i;
- 		}
- 		break;
- 	}
--- 
-2.5.0
+That would still be ok.
+You'd have something that is effectively:
+	_u64 val = *p;
+	return typeof(*p)val;
+The compiler might mask unsigned values - but it may be able to
+determine it isn't needed (which is probably true of your version).
+For signed types both versions require the compile sign-extend
+the value.
+
+	David
