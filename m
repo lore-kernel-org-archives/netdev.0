@@ -1,57 +1,63 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Wed, 18 Nov 2015 21:43:36 +0100
-Message-ID: <1447879416.562854.443622857.62708268@webmail.messagingengine.com>
-References: <1447819493.22599.137.camel@edumazet-glaptop2.roam.corp.google.com>
- <1447841988.834928.443071345.1AAFF2A9@webmail.messagingengine.com>
- <CAKD1Yr0Gpr6Ex2i1TXEWyETn48P4g5vBvFZ9=_g+Lz_7-PqBDQ@mail.gmail.com>
- <20151118.153508.123902005995190872.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] fm10k: fix memory leak
+Date: Wed, 18 Nov 2015 12:47:59 -0800
+Message-ID: <1447879679.3034.21.camel@intel.com>
+References: <20151117142427.37a4cc36@samsung9>
+	 <20151118.150612.1789333569072309866.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, stephen@networkplumber.org,
-	netdev@vger.kernel.org, edumazet@google.com, ek@google.com,
-	maze@google.com, dtor@google.com
-To: David Miller <davem@davemloft.net>, lorenzo@google.com
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-/ytERyDhZnZXgqc3d/oB"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, shemming@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:36503 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933203AbbKRUnh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 15:43:37 -0500
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id B6C8520327
-	for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 15:43:36 -0500 (EST)
-In-Reply-To: <20151118.153508.123902005995190872.davem@davemloft.net>
+Received: from mga14.intel.com ([192.55.52.115]:35347 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757001AbbKRUsH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Nov 2015 15:48:07 -0500
+In-Reply-To: <20151118.150612.1789333569072309866.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 18, 2015, at 21:35, David Miller wrote:
-> From: Lorenzo Colitti <lorenzo@google.com>
-> Date: Wed, 18 Nov 2015 19:47:21 +0900
-> 
-> > On Wed, Nov 18, 2015 at 7:19 PM, Hannes Frederic Sowa
-> > <hannes@stressinduktion.org> wrote:
-> >> I bet there will soon be a timewaitd which handles the not configurable
-> >> (David has rejected all those patches so far) timeout of TIME_WAIT
-> >> sockets. And I bet it will be used. :/
-> > 
-> > No, SOCK_DESTROY has no effect on TCP_TIME_WAIT sockets or any other
-> > non-full socket.
-> > 
-> > When called on any socket where sk_fullsock(sk) is false, it returns
-> > EOPNOTSUPP because there is nothing to do. Its purpose is to interrupt
-> > blocked userspace socket calls, not to release resources.
-> 
-> +1
 
-Basically my concern is the same one I tried to express in the other
-patch about Florian's patch "[PATCH -next] net: tcp: move to timewait
-when receiving data post active-close": we could give the socket back
-way too early so the quadruple can be reused. If timestamps are not in
-use or we are dealing with NAT were we have dozens of synchronized
-clocks behind the masquerading device, we could end up in accepting
-delayed data. Especially this scenario can come up when the address is
-actually not released but someone uses this feature on a server.
+--=-/ytERyDhZnZXgqc3d/oB
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Bye,
-Hannes
+On Wed, 2015-11-18 at 15:06 -0500, David Miller wrote:
+> From: Stephen Hemminger <shemming@brocade.com>
+> Date: Tue, 17 Nov 2015 14:24:27 -0800
+>=20
+> > This was detected by Coverity.
+> > The function skb_cow_head leaves skb alone on failure, so caller
+> > needs
+> > to free.
+> >=20
+> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>=20
+> Applied.
+
+Thanks, got slammed with emails and this got overlooked.
+--=-/ytERyDhZnZXgqc3d/oB
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAABCgAGBQJWTOP/AAoJEOVv75VaS+3OwzsP/jhwrObaFG22zLNuXKwglHNU
+5gYouHm3UcXNYQl9DcDhWkNjxx1ZwFFJ8szRJI9tKcZEc2o9bY7FWmLW9Yt7lgwz
+SCBQmdhUfiE3TqRLHEDL/rM5OtYi+ufRWa5GXaQb6vslfqhuXh+AmcUmZ4WO/md+
+BoCM40P8G2q2emmLl4jawj+84wGkIOoxGcKuCSpK9LrsDMMb6muuKz6TjbAVQ3Ns
+n58o3qsMQSd/UJN5GKZ0TeJ0Vhqp0LYjH/XykDdOUS1VZj73kO031ASMJIztwtC6
+F4qeuucfn0gIahi7yp5mzZmsP4UCdEMSGGBxWbhIXOuI0Mwxlg5CkH59ws7BAOt2
+tOnF9rQs92BP8jp2b+BaXzTfaYDzGmUJk5Bw0iecqXe7GnjrAMmhpFOwGYo7tUIG
+rfz9o+oHK4+zNdrKhQG9Ix4sQ/RwlC5MwDXdNqi3nseEZl2mgGT47BQvaHO0nuGu
++2mR4Y7UB66Du7qIflNIlVqJVNgHn/HaMbUv6uuGKueR4A9S3e22BIVqGpa5mZKT
+GgU+mY98EK5x7sQSraQkQp+nBd8EIKg6F5kouPLXW57eV3iYRIDPhcPLKN9XvYsl
+bcUUaNT8x1iq13Pi6LT2TkXxwfYaXi2rrwL3efO3k96Qpqn7f7xDj4zJMkUJVlsH
+7UaC7yY+qW9PeW1LPWIF
+=4QY1
+-----END PGP SIGNATURE-----
+
+--=-/ytERyDhZnZXgqc3d/oB--
