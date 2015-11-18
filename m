@@ -1,146 +1,72 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH v2 21/27] realtek: create separate Kconfig file
-Date: Wed, 18 Nov 2015 10:30:20 -0600
-Message-ID: <564CA79C.9050308@lwfinger.net>
-References: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
- <1447857966-19560-22-git-send-email-kvalo@codeaurora.org>
+From: Aleksander Morgado <aleksander@aleksander.es>
+Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
+Date: Wed, 18 Nov 2015 17:38:02 +0100
+Message-ID: <CAAP7ucKpH5LTV1pw-JBJ=mD4_QFBwKYU9tLANkM4s40c+Oc0Hg@mail.gmail.com>
+References: <1446419775-5215-1-git-send-email-marex@denx.de>
+	<201511041633.33504.marex@denx.de>
+	<CAAP7ucJZxqUdA-B4m=u-+-BGkydYaSdnutiPf4ik36EcfjiUzQ@mail.gmail.com>
+	<201511101715.39253.marex@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1447857966-19560-22-git-send-email-kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Marek Vasut <marex@denx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:34911 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755480AbbKRQiE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 11:38:04 -0500
+Received: by obbnk6 with SMTP id nk6so37587560obb.2
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 08:38:03 -0800 (PST)
+In-Reply-To: <201511101715.39253.marex@denx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/18/2015 08:46 AM, Kalle Valo wrote:
-> Add new a Kconfig file and a vendor config for realtek. Also update MAINTAINERS
-> which we missed to do when earlier moving rtlwifi.
+On Tue, Nov 10, 2015 at 5:15 PM, Marek Vasut <marex@denx.de> wrote:
+>> >> >>> > About the parity -- can we add some flag into the datagram to
+>> >> >>> > indicate we want hardware to calculate the parity for that
+>> >> >>> > particular datagram for us? And we'd also need to indicate what
+>> >> >>> > type of parity. I dunno if this is worth the hassle.
+>> >> >>>
+>> >> >>> This  is HW configuration property, it does not belong to  datagram.
+>> >> >>> Also for TX channels,  parity could  be  two  kinds:  odd and even,
+>> >> >>> for RX it is only on/off.
+>> >> >>
+>> >> >> There are datagrams which do contain parity and ones which do not
+>> >> >> contain it, correct ? Thus, it's a property of that particular
+>> >> >> datagram.
+>> >>
+>> >> All ARINC words have bit #31 as parity bit; whether it's used or not
+>> >> depends on the setup as Andrey says below.
+>> >
+>> > Can bit 31 be ever used for DATA instead of parity ? Or is this just me
+>> > not understanding the parlance of the specification, where "DATA"
+>> > actually means "DATA with parity" ?
+>>
+>> Well, as far as I know bit 31 is always parity bit, never used for
+>> actual data contents. Which is the spec section that got you confused?
+>> Maybe I'm the one which didn't read it well?
 >
-> Signed-off-by: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-> ---
+> Sorry for being so late into the discussion.
+>
+> I got confused by hi-3585_v-rev-l.pdf page 7 right, CR4 lets you treat bit
+> 32 as either data or parity. But I guess this is not the general case.
+>
+> So I wonder, does it make sense to treat the P bit as data always and do
+> parity in software or not ?
 
-Acked-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+I don't have an strong opinion on this, truth be told. It really
+depends on whether we can tell the HW "go compute the parity
+yourself". If we can ask for that, maybe we should allow configuring
+that in the API with some flag. But anyway, treating P as data (i.e.
+software should set parity bit to whatever is needed) is the most
+generic thing you could do for a start, that shouldn't be wrong.
 
-Thanks,
-
-Larry
-
->   MAINTAINERS                          |    8 ++++----
->   drivers/net/wireless/Kconfig         |    5 +----
->   drivers/net/wireless/Makefile        |    3 +--
->   drivers/net/wireless/realtek/Kconfig |   18 ++++++++++++++++++
->   4 files changed, 24 insertions(+), 10 deletions(-)
->   create mode 100644 drivers/net/wireless/realtek/Kconfig
->
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index 2c41981e4fdd..a9f7f968f64e 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -9035,7 +9035,7 @@ L:	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->   W:	http://wireless.kernel.org/
->   T:	git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-testing.git
->   S:	Orphan
-> -F:	drivers/net/wireless/rtl818x/rtl8180/
-> +F:	drivers/net/wireless/realtek/rtl818x/rtl8180/
->
->   RTL8187 WIRELESS DRIVER
->   M:	Herton Ronaldo Krzesinski <herton-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> @@ -9045,7 +9045,7 @@ L:	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->   W:	http://wireless.kernel.org/
->   T:	git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-testing.git
->   S:	Maintained
-> -F:	drivers/net/wireless/rtl818x/rtl8187/
-> +F:	drivers/net/wireless/realtek/rtl818x/rtl8187/
->
->   RTL8192CE WIRELESS DRIVER
->   M:	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-> @@ -9054,8 +9054,8 @@ L:	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->   W:	http://wireless.kernel.org/
->   T:	git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-testing.git
->   S:	Maintained
-> -F:	drivers/net/wireless/rtlwifi/
-> -F:	drivers/net/wireless/rtlwifi/rtl8192ce/
-> +F:	drivers/net/wireless/realtek/rtlwifi/
-> +F:	drivers/net/wireless/realtek/rtlwifi/rtl8192ce/
->
->   RTL8XXXU WIRELESS DRIVER (rtl8xxxu)
->   M:	Jes Sorensen <Jes.Sorensen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
-> index c92671f8b1c6..28af8b10a66e 100644
-> --- a/drivers/net/wireless/Kconfig
-> +++ b/drivers/net/wireless/Kconfig
-> @@ -24,6 +24,7 @@ source "drivers/net/wireless/cisco/Kconfig"
->   source "drivers/net/wireless/intel/Kconfig"
->   source "drivers/net/wireless/intersil/Kconfig"
->   source "drivers/net/wireless/marvell/Kconfig"
-> +source "drivers/net/wireless/realtek/Kconfig"
->   source "drivers/net/wireless/st/Kconfig"
->   source "drivers/net/wireless/zydas/Kconfig"
->
-> @@ -81,8 +82,6 @@ config USB_NET_RNDIS_WLAN
->
->   	  If you choose to build a module, it'll be called rndis_wlan.
->
-> -source "drivers/net/wireless/realtek/rtl818x/Kconfig"
-> -
->   config MAC80211_HWSIM
->   	tristate "Simulated radio testing tool for mac80211"
->   	depends on MAC80211
-> @@ -99,8 +98,6 @@ config MAC80211_HWSIM
->   source "drivers/net/wireless/ath/Kconfig"
->   source "drivers/net/wireless/rt2x00/Kconfig"
->   source "drivers/net/wireless/mediatek/Kconfig"
-> -source "drivers/net/wireless/realtek/rtlwifi/Kconfig"
-> -source "drivers/net/wireless/realtek/rtl8xxxu/Kconfig"
->   source "drivers/net/wireless/ti/Kconfig"
->   source "drivers/net/wireless/rsi/Kconfig"
->
-> diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
-> index 679a1a0a048d..12f6c59668a5 100644
-> --- a/drivers/net/wireless/Makefile
-> +++ b/drivers/net/wireless/Makefile
-> @@ -9,11 +9,10 @@ obj-$(CONFIG_WLAN_VENDOR_CISCO) += cisco/
->   obj-$(CONFIG_WLAN_VENDOR_INTEL) += intel/
->   obj-$(CONFIG_WLAN_VENDOR_INTERSIL) += intersil/
->   obj-$(CONFIG_WLAN_VENDOR_MARVELL) += marvell/
-> +obj-$(CONFIG_WLAN_VENDOR_REALTEK) += realtek/
->   obj-$(CONFIG_WLAN_VENDOR_ST) += st/
->   obj-$(CONFIG_WLAN_VENDOR_ZYDAS) += zydas/
->
-> -obj-$(CONFIG_WLAN)		+= realtek/
-> -
->   # 16-bit wireless PCMCIA client drivers
->   obj-$(CONFIG_PCMCIA_RAYCS)	+= ray_cs.o
->   obj-$(CONFIG_PCMCIA_WL3501)	+= wl3501_cs.o
-> diff --git a/drivers/net/wireless/realtek/Kconfig b/drivers/net/wireless/realtek/Kconfig
-> new file mode 100644
-> index 000000000000..8a8ba2003964
-> --- /dev/null
-> +++ b/drivers/net/wireless/realtek/Kconfig
-> @@ -0,0 +1,18 @@
-> +config WLAN_VENDOR_REALTEK
-> +	bool "Realtek devices"
-> +	default y
-> +	---help---
-> +	  If you have a wireless card belonging to this class, say Y.
-> +
-> +	  Note that the answer to this question doesn't directly affect the
-> +	  kernel: saying N will just cause the configurator to skip all
-> +	  the questions about  cards. If you say Y, you will be asked for
-> +	  your specific card in the following questions.
-> +
-> +if WLAN_VENDOR_REALTEK
-> +
-> +source "drivers/net/wireless/realtek/rtl818x/Kconfig"
-> +source "drivers/net/wireless/realtek/rtlwifi/Kconfig"
-> +source "drivers/net/wireless/realtek/rtl8xxxu/Kconfig"
-> +
-> +endif # WLAN_VENDOR_REALTEK
->
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Aleksander
+https://aleksander.es
