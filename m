@@ -1,75 +1,74 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Wed, 18 Nov 2015 16:33:34 +0100
-Message-ID: <1447860814.903288.443330057.1FFB6459@webmail.messagingengine.com>
-References: <1447811024-8553-1-git-send-email-lorenzo@google.com>
- <20151117192738.365145d7@samsung9>
- <1447819493.22599.137.camel@edumazet-glaptop2.roam.corp.google.com>
- <1447841988.834928.443071345.1AAFF2A9@webmail.messagingengine.com>
- <CAKD1Yr0Gpr6Ex2i1TXEWyETn48P4g5vBvFZ9=_g+Lz_7-PqBDQ@mail.gmail.com>
- <1447845552.846962.443112033.03C5152B@webmail.messagingengine.com>
- <CAKD1Yr1URnEWDpF9JUo_K3w+31YjfrO6tzL6QBcrKmSYu1_fhA@mail.gmail.com>
- <1447853515.875338.443199993.7D592088@webmail.messagingengine.com>
- <CAKD1Yr3jDozbnZsJy80uPFYAcqv+0ai0EN64i+jKorMe3-ggFA@mail.gmail.com>
- <1447858590.895715.443293345.0FE778BF@webmail.messagingengine.com>
- <1447859760.22599.149.camel@edumazet-glaptop2.roam.corp.google.com>
- <1447860727.903100.443315089.118EA15D@webmail.messagingengine.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next] net: tcp: move to timewait when receiving data
+ post active-close
+Date: Wed, 18 Nov 2015 16:36:21 +0100
+Message-ID: <20151118153621.GA5860@breakpoint.cc>
+References: <1447859024-1040-1-git-send-email-fw@strlen.de>
+ <1447860480.22599.151.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Lorenzo Colitti <lorenzo@google.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Erik Kline <ek@google.com>,
-	=?UTF-8?Q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
-	Dmitry Torokhov <dtor@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	marcelo.leitner@gmail.com
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:60660 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755885AbbKRPde (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 10:33:34 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 690FF2088E
-	for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 10:33:34 -0500 (EST)
-In-Reply-To: <1447860727.903100.443315089.118EA15D@webmail.messagingengine.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:46012 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755008AbbKRPgX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 10:36:23 -0500
+Content-Disposition: inline
+In-Reply-To: <1447860480.22599.151.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Wed, Nov 18, 2015, at 16:32, Hannes Frederic Sowa wrote:
-> On Wed, Nov 18, 2015, at 16:16, Eric Dumazet wrote:
-> > On Wed, 2015-11-18 at 15:56 +0100, Hannes Frederic Sowa wrote:
-> > > On Wed, Nov 18, 2015, at 15:45, Lorenzo Colitti wrote:
-> > > > On Wed, Nov 18, 2015 at 10:31 PM, Hannes Frederic Sowa
-> > > > <hannes@stressinduktion.org> wrote:
-> > > > > I was not saying using tcp_close literally, sorry for not making that
-> > > > > clear, but just model the state transitions after tcp_close. At least it
-> > > > > seems like a normal close to me.
-> > > > 
-> > > > But it shouldn't be a normal close. Consider calling SOCK_DESTROY on a
-> > > > socket that is streaming data to a peer. If SOCK_DESTROY results in
-> > > > the kernel sending a FIN, the remote side might think that the sender
-> > > > closed the connection gracefully, even though the local side aborted
-> > > > the connection.
-> > > 
-> > > Oh, yes, I understand. The connection wasn't closed by the application
-> > > but by the administrator forcefully. So we should never indicate a
-> > > successful TCP shutdown with FIN but with RST. A TIME_WAIT period
-> > > actuallty still seems useful to me, maybe with different semantics, only
-> > > RST incoming data?
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2015-11-18 at 16:03 +0100, Florian Westphal wrote:
+> > RFC 1122, 4.2.2.13:
+> >  [..] if new data is received after CLOSE is called, its TCP
+> >  SHOULD send a RST to show that data was lost.
 > > 
-> > There is some confusion.
+> >  When a connection is closed actively, it MUST linger in
+> >  TIME-WAIT state [..].
 > > 
-> > TIME_WAIT are used to be able to send ACK packets to incoming valid
-> > packets.
-> 
-> I was only talking to prevent fast address/port reuse on the same socket
-> and preventing delayed packets being accepted by a 
+> > We reset a connection, but destroy state immediately.
+> > 
+> > After discussing this with Hannes, we decided it was preferable
+> > to also move to TW state to avoid immediate port reuse.
+> > 
+> > packetdrill testcase:
+> > 
+> > 0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+> > 0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+> > 0.000 bind(3, ..., ...) = 0
+> > 0.000 listen(3, 1) = 0
+> > 0.100 < S 0:0(0) win 29200 <mss 1460>
+> > 0.100 > S. 0:0(0) ack 1 <mss 1460>
+> > 0.200 < . 1:1(0) ack 1 win 257
+> > 0.200 accept(3, ..., ...) = 4
+> > // close our side.
+> > 0.210 close(4) = 0
+> > // we should expect to see FIN now, sk moves to FIN_WAIT_1
+> > 0.210 > F. 1:1(0) ack 1 win 29200
+> > // receive data, but sk already closed -> Reset
+> > 0.300 < P. 1:1001(1000) ack 1 win 46
+> > 0.300 > R 1:1(0) win 0
 
-sorry...
 
-accepted by a later connection reusing the same quadrupel.
+> This packetdrill test shows nothing special regarding your patch, it
+> should work right now with current kernels ???
 
-Bye,
-Hannes
+Yes, but we kill the socket.
+
+I should have added
+
+0.400 `ss -nito state time-wait`
+
+as last line...
+
+Before patch: no output
+after patch: tw socket shown.
+
+The on-wire behavior doesn't change unless further packets arrive.
+Old behaviour: more RST
+New behaviour: acks+tw timer restart
+
+Sorry for the confusion.
