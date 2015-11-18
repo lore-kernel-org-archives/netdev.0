@@ -1,75 +1,55 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: Re: [PATCH 14/14] mm: memcontrol: hook up vmpressure to socket
- pressure
-Date: Wed, 18 Nov 2015 13:27:46 -0500
-Message-ID: <20151118182746.GA5093@cmpxchg.org>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
- <1447371693-25143-15-git-send-email-hannes@cmpxchg.org>
- <20151115135457.GM31308@esperanza>
- <20151116185316.GC32544@cmpxchg.org>
- <20151117201849.GQ31308@esperanza>
- <20151117222217.GA20394@cmpxchg.org>
- <20151118160253.GR31308@esperanza>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH -next] net: tcp: move to timewait when receiving data
+ post active-close
+Date: Wed, 18 Nov 2015 10:35:12 -0800
+Message-ID: <1447871712.22599.175.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1447859024-1040-1-git-send-email-fw@strlen.de>
+	 <1447860480.22599.151.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151118153621.GA5860@breakpoint.cc>
+	 <1447861591.22599.157.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1447862057.909111.443349025.5B7D067D@webmail.messagingengine.com>
+	 <1447867736.22599.169.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1447868159.400039.443456489.4AB3FECE@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>, Michal Hocko <mhocko@suse.cz>,
-	netdev@vger.kernel.org, linux-mm@kvack.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-team@fb.com
-To: Vladimir Davydov <vdavydov@virtuozzo.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151118160253.GR31308@esperanza>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	marcelo.leitner@gmail.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34803 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754276AbbKRSfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 13:35:15 -0500
+Received: by padhx2 with SMTP id hx2so52590517pad.1
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 10:35:15 -0800 (PST)
+In-Reply-To: <1447868159.400039.443456489.4AB3FECE@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 18, 2015 at 07:02:54PM +0300, Vladimir Davydov wrote:
-> On Tue, Nov 17, 2015 at 05:22:17PM -0500, Johannes Weiner wrote:
-> > On Tue, Nov 17, 2015 at 11:18:50PM +0300, Vladimir Davydov wrote:
-> > > And with this patch it will work this way, but only if sum limits <
-> > > total ram, which is rather rare in practice. On tightly packed
-> > > systems it does nothing.
+On Wed, 2015-11-18 at 18:35 +0100, Hannes Frederic Sowa wrote:
+> On Wed, Nov 18, 2015, at 18:28, Eric Dumazet wrote:
+> > On Wed, 2015-11-18 at 16:54 +0100, Hannes Frederic Sowa wrote:
 > > 
-> > That's not true, it's still useful when things go south inside a
-> > cgroup, even with overcommitted limits. See above.
+> > > Still, the RST packet can be dropped along the way. So the teardown of
+> > > the socket on the other side might not happen.
+> > 
+> > This is why it is better to send RST for every incoming in-excess packet
 > 
-> I meant solely this patch here, not the rest of the patch set. In the
-> overcommitted case there is no difference if we have the last patch or
-> not AFAIU.
+> I agree it would be better to send a RST than ACK incoming data. Just
+> thinking out loud, would it make sense to add a sub-state to timewait so
+> we RST all other packets for TIMEWAIT_LEN duration?
 
-Even this patch, and even in the overcommitted case. When things go
-bad inside a cgroup it can steal free memory (it's rare that machines
-are at 100% utilization in practice) or memory from other groups until
-it hits its own limit. I expect most users except, for some largescale
-deployments, to frequently hit memory.high (or max) in practice.
+Intuitively this timewait creation looks dangerous to me, maybe from
+an attack surface perspective.
 
-Obviously the utopian case of full utilization will be even smoother
-when we make vmpressure more finegrained, but why would that be an
-argument *against* this patch here, which is useful everywhere else?
+An out of sequence packet sends an advisory RST packet, which is already
+a hint for building some kinds of attacks.
 
-> Why can't we apply all patches but the last one (they look OK at first
-> glance, but I need more time to review them carefully) and disable
-> socket accounting by default for now? Then you or someone else would
-> prepare a separate patch set introducing vmpressure propagation to
-> socket code, so that socket accounting could be enabled by default.
+Now if we also create a timewait socket, and its associated timer, we
+also add quite a risk of memory and cpu consumption.
 
-This is not going to happen, and we discussed this several times
-before. I really wish Michal and you would put more thought into
-interface implications. It's trivial to fix up implementation if
-actual shortcomings are observed, but it's nigh impossible to fix
-interfaces and user-visible behavior once published. It requires
-enormous undertakings such as unified hierarchy to rectify things.
+So I am fine you create a timewait, only if you can prove there is no
+change in security.
 
-Please take your time to review this series, no problem.
-
-But I'm no longer reacting to suggestions to make interface tradeoffs
-because new code is not proven to work 99% of the time. That's simply
-ridiculous. Any problems will have to be fixed either way, and we're
-giving users the cmdline options to work around them in the meantime.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks !
