@@ -1,55 +1,71 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net] net/ip6_tunnel: fix dst leak
-Date: Wed, 18 Nov 2015 09:37:52 -0800
-Message-ID: <20151118173730.GA22676@kafai-mba.local>
-References: <9dd416a82166a27f5cf5eda71a63222a0eb96c04.1447859978.git.pabeni@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ethernet/atheros/alx: add Killer E2400 device ID
+Date: Wed, 18 Nov 2015 20:47:48 +0300
+Message-ID: <564CB9C4.3030100@cogentembedded.com>
+References: <1447809667-9454-1-git-send-email-jason@system76.com>
+ <564C84BF.1090202@cogentembedded.com> <564C90BB.2040104@system76.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Pope <benpope81@gmail.com>
+To: Jason Gerard DeRose <jason@system76.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:14734 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755212AbbKRRiB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 12:38:01 -0500
-Content-Disposition: inline
-In-Reply-To: <9dd416a82166a27f5cf5eda71a63222a0eb96c04.1447859978.git.pabeni@redhat.com>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:33453 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753236AbbKRRrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 12:47:52 -0500
+Received: by lbbkw15 with SMTP id kw15so29125486lbb.0
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 09:47:51 -0800 (PST)
+In-Reply-To: <564C90BB.2040104@system76.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 18, 2015 at 04:40:19PM +0100, Paolo Abeni wrote:
-> the commit cdf3464e6c6b ("ipv6: Fix dst_entry refcnt bugs in ip6_tunnel")
-> introduced percpu storage for ip6_tunnel dst cache, but while clearing
-> such cache it used raw_cpu_ptr to walk the per cpu entries, so cached
-> dst on non current cpu are not actually reset.
->
-> This patch replaces raw_cpu_ptr with per_cpu_ptr, properly cleaning
-> such storage.
-Thanks for fixing it.
+On 11/18/2015 05:52 PM, Jason Gerard DeRose wrote:
 
-Acked-by: Martin KaFai Lau <kafai@fb.com>
+>>> From: Ben Pope <benpope81@gmail.com>
+>>>
+>>> This patch adds the PCI device ID (0xe0a1) and alx_pci_tbl entry for the
+>>> Killer E2400 Ethernet controller, modeled after the Killer E2200
+>>> controller support (0xe091) already present in the alx driver.
+>>>
+>>> This patch was originally authored by Ben Pope, but it got held up by
+>>> issues in the commit message, so I'm resubmitting it on his behalf.
+>>>
+>>> I've extensively used a kernel with this patch on a System76 serw9
+>>> laptop and am quite confident it works well (at least on the hardware I
+>>> have available for testing).
+>>>
+>>> Note that as a favor to System76, Ubuntu has been carrying this as a
+>>> sauce patch in their 4.2 based Wily kernel, which presumably has given
+>>> it real-world testing on other E2400 equipped hardware (I don't know of
+>>> any Ubuntu kernel bugs filed about it):
+>>>
+>>> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1498633
+>>>
+>>> Signed-off-by: Jason Gerard DeRose <jason@system76.com>
+>>
+>>     No sign-off from Ben?
+>
+> Apologies, this is my first time submitting a kernel patch :)
+>
+> Should I use git send-email to send this again,
 
->
-> Fixes: cdf3464e6c6b ("ipv6: Fix dst_entry refcnt bugs in ip6_tunnel")
->
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> ---
->  net/ipv6/ip6_tunnel.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-> index eabffbb..137fca4 100644
-> --- a/net/ipv6/ip6_tunnel.c
-> +++ b/net/ipv6/ip6_tunnel.c
-> @@ -177,7 +177,7 @@ void ip6_tnl_dst_reset(struct ip6_tnl *t)
->  	int i;
->
->  	for_each_possible_cpu(i)
-> -		ip6_tnl_per_cpu_dst_set(raw_cpu_ptr(t->dst_cache), NULL);
-> +		ip6_tnl_per_cpu_dst_set(per_cpu_ptr(t->dst_cache, i), NULL);
->  }
->  EXPORT_SYMBOL_GPL(ip6_tnl_dst_reset);
->
-> --
-> 1.8.3.1
->
+    I didn't notice if your mailer corrupted the patch but if it did 'git 
+send-email' should be used indeed.
+
+> this time with the sign-off from Ben?
+
+    No need to resend if it wasn't corrupted. Just replying to this patch with 
+his sign-off should be enough -- patchwork should collect the tags from the 
+follow-ups.
+
+> And if so, should I do so as a reply to this thread?
+
+    No, not on this list. DaveM prefers the patch reposts to be done as the 
+fresh new postings.
+
+> Thanks for you time!
+
+    Your, I guess? Not at all. :-)
+
+MBR, Sergei
