@@ -1,38 +1,95 @@
-From: Emmanuel Grumbach <egrumbach@gmail.com>
-Subject: Re: [PATCH v2 10/27] iwlwifi: move under intel vendor directory
-Date: Wed, 18 Nov 2015 23:21:31 +0200
-Message-ID: <CANUX_P0TpjGhvvo3EyPqLr6An4ERrgDCTY-suzsdjZY-e_NgcA@mail.gmail.com>
-References: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
-	<1447857966-19560-11-git-send-email-kvalo@codeaurora.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447857966-19560-11-git-send-email-kvalo@codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: jon@ringle.org
+Subject: [PATCH net-next] net: encx24j600: move rev announcement to probe function
+Date: Wed, 18 Nov 2015 16:22:21 -0500
+Message-ID: <1447881741-30386-1-git-send-email-jon@ringle.org>
+Cc: Jon Ringle <jringle@gridpoint.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f45.google.com ([209.85.192.45]:33746 "EHLO
+	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756831AbbKRVW1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 16:22:27 -0500
+Received: by qgea14 with SMTP id a14so38243933qge.0
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 13:22:27 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Kalle,
+From: Jon Ringle <jringle@gridpoint.com>
 
-On Wed, Nov 18, 2015 at 4:45 PM, Kalle Valo <kvalo@codeaurora.org> wrote:
->
-> Part of reorganising wireless drivers directory and Kconfig.
->
+When encx24j600 is open and closed many times due to userspace polling the
+interface, the log gets noise with this log message.
 
-I am sorry but I'd prefer to wait with this. We have a big machinery
-of scripts / builds and alike that will break. I did give a heads up a
-while ago to the people in charge of these scripts that this change is
-on the way, but they are not done yet. I will get back to them and ask
-them when we can be ready for such a change and then it'll come from
-my tree. I promise to try to make it happen ASAP.
-The above is relevant for iwlwifi only. As far as I am concerned, you
-can move the iwlwifi and ipw.
+Moving this to encx24j600_spi_probe function where it belongs.
 
-Thank you.
+Signed-off-by: Jon Ringle <jringle@gridpoint.com>
+---
+ drivers/net/ethernet/microchip/encx24j600.c | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
-> Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
-> ---
->  MAINTAINERS                                        |    2 +-
+diff --git a/drivers/net/ethernet/microchip/encx24j600.c b/drivers/net/ethernet/microchip/encx24j600.c
+index bf08ce2..f13c489 100644
+--- a/drivers/net/ethernet/microchip/encx24j600.c
++++ b/drivers/net/ethernet/microchip/encx24j600.c
+@@ -600,22 +600,11 @@ static void encx24j600_set_rxfilter_mode(struct encx24j600_priv *priv)
+ 
+ static int encx24j600_hw_init(struct encx24j600_priv *priv)
+ {
+-	struct net_device *dev = priv->ndev;
+ 	int ret = 0;
+-	u16 eidled;
+ 	u16 macon2;
+ 
+ 	priv->hw_enabled = false;
+ 
+-	eidled = encx24j600_read_reg(priv, EIDLED);
+-	if (((eidled & DEVID_MASK) >> DEVID_SHIFT) != ENCX24J600_DEV_ID) {
+-		ret = -EINVAL;
+-		goto err_out;
+-	}
+-
+-	netif_info(priv, drv, dev, "Silicon rev ID: 0x%02x\n",
+-		   (eidled & REVID_MASK) >> REVID_SHIFT);
+-
+ 	/* PHY Leds: link status,
+ 	 * LEDA: Link State + collision events
+ 	 * LEDB: Link State + transmit/receive events
+@@ -655,7 +644,6 @@ static int encx24j600_hw_init(struct encx24j600_priv *priv)
+ 	if (netif_msg_hw(priv))
+ 		encx24j600_dump_config(priv, "Hw is initialized");
+ 
+-err_out:
+ 	return ret;
+ }
+ 
+@@ -1004,6 +992,7 @@ static int encx24j600_spi_probe(struct spi_device *spi)
+ 
+ 	struct net_device *ndev;
+ 	struct encx24j600_priv *priv;
++	u16 eidled;
+ 
+ 	ndev = alloc_etherdev(sizeof(struct encx24j600_priv));
+ 
+@@ -1072,10 +1061,21 @@ static int encx24j600_spi_probe(struct spi_device *spi)
+ 		goto out_free;
+ 	}
+ 
++	eidled = encx24j600_read_reg(priv, EIDLED);
++	if (((eidled & DEVID_MASK) >> DEVID_SHIFT) != ENCX24J600_DEV_ID) {
++		ret = -EINVAL;
++		goto out_unregister;
++	}
++
++	netif_info(priv, probe, ndev, "Silicon rev ID: 0x%02x\n",
++		   (eidled & REVID_MASK) >> REVID_SHIFT);
++
+ 	netif_info(priv, drv, priv->ndev, "MAC address %pM\n", ndev->dev_addr);
+ 
+ 	return ret;
+ 
++out_unregister:
++	unregister_netdev(priv->ndev);
+ out_free:
+ 	free_netdev(ndev);
+ 
+-- 
+2.4.1
