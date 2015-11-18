@@ -1,67 +1,146 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 13/14] mm: memcontrol: account socket memory in unified
- hierarchy memory controller
-Date: Wed, 18 Nov 2015 17:22:56 +0100
-Message-ID: <20151118162256.GK19145@dhcp22.suse.cz>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
- <1447371693-25143-14-git-send-email-hannes@cmpxchg.org>
- <20151116155923.GH14116@dhcp22.suse.cz>
- <20151116181810.GB32544@cmpxchg.org>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH v2 21/27] realtek: create separate Kconfig file
+Date: Wed, 18 Nov 2015 10:30:20 -0600
+Message-ID: <564CA79C.9050308@lwfinger.net>
+References: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
+ <1447857966-19560-22-git-send-email-kvalo@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Vladimir Davydov <vdavydov@virtuozzo.com>,
-	Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
-	linux-mm@kvack.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-team@fb.com
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151116181810.GB32544@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1447857966-19560-22-git-send-email-kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon 16-11-15 13:18:10, Johannes Weiner wrote:
-> On Mon, Nov 16, 2015 at 04:59:25PM +0100, Michal Hocko wrote:
-> > On Thu 12-11-15 18:41:32, Johannes Weiner wrote:
-> > > Socket memory can be a significant share of overall memory consumed by
-> > > common workloads. In order to provide reasonable resource isolation in
-> > > the unified hierarchy, this type of memory needs to be included in the
-> > > tracking/accounting of a cgroup under active memory resource control.
-> > > 
-> > > Overhead is only incurred when a non-root control group is created AND
-> > > the memory controller is instructed to track and account the memory
-> > > footprint of that group. cgroup.memory=nosocket can be specified on
-> > > the boot commandline to override any runtime configuration and
-> > > forcibly exclude socket memory from active memory resource control.
-> > 
-> > Do you have any numbers about the overhead?
-> 
-> Hm? Performance numbers make sense when you have a specific scenario
-> and a theory on how to optimize the implementation for it.
+On 11/18/2015 08:46 AM, Kalle Valo wrote:
+> Add new a Kconfig file and a vendor config for realtek. Also update MAINTAINERS
+> which we missed to do when earlier moving rtlwifi.
+>
+> Signed-off-by: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+> ---
 
-The fact that there was a strong push to use static branches to put
-the code out of line to reduce an overhead before the feature was
-merged shows that people are sensitive to network performance and that
-significant effort has been spent to eliminate it. My point was that you
-are enabling the feature for all memcg users in unified hierarchy now
-without having a performance impact overview which users can use
-to judge whether to keep it enabled or disable before they start seeing
-regressions or to make regression easier to track once it happens.
+Acked-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 
-> What load would you test and what would be the baseline to compare it
-> to?
+Thanks,
 
-It seems like netperf with a stream load running in a memcg with no
-limits vs. in root memcg (and no other cgroups) should give at least a
-hint about the runtime overhead, no?
--- 
-Michal Hocko
-SUSE Labs
+Larry
+
+>   MAINTAINERS                          |    8 ++++----
+>   drivers/net/wireless/Kconfig         |    5 +----
+>   drivers/net/wireless/Makefile        |    3 +--
+>   drivers/net/wireless/realtek/Kconfig |   18 ++++++++++++++++++
+>   4 files changed, 24 insertions(+), 10 deletions(-)
+>   create mode 100644 drivers/net/wireless/realtek/Kconfig
+>
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 2c41981e4fdd..a9f7f968f64e 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -9035,7 +9035,7 @@ L:	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>   W:	http://wireless.kernel.org/
+>   T:	git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-testing.git
+>   S:	Orphan
+> -F:	drivers/net/wireless/rtl818x/rtl8180/
+> +F:	drivers/net/wireless/realtek/rtl818x/rtl8180/
+>
+>   RTL8187 WIRELESS DRIVER
+>   M:	Herton Ronaldo Krzesinski <herton-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> @@ -9045,7 +9045,7 @@ L:	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>   W:	http://wireless.kernel.org/
+>   T:	git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-testing.git
+>   S:	Maintained
+> -F:	drivers/net/wireless/rtl818x/rtl8187/
+> +F:	drivers/net/wireless/realtek/rtl818x/rtl8187/
+>
+>   RTL8192CE WIRELESS DRIVER
+>   M:	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+> @@ -9054,8 +9054,8 @@ L:	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>   W:	http://wireless.kernel.org/
+>   T:	git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-testing.git
+>   S:	Maintained
+> -F:	drivers/net/wireless/rtlwifi/
+> -F:	drivers/net/wireless/rtlwifi/rtl8192ce/
+> +F:	drivers/net/wireless/realtek/rtlwifi/
+> +F:	drivers/net/wireless/realtek/rtlwifi/rtl8192ce/
+>
+>   RTL8XXXU WIRELESS DRIVER (rtl8xxxu)
+>   M:	Jes Sorensen <Jes.Sorensen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+> index c92671f8b1c6..28af8b10a66e 100644
+> --- a/drivers/net/wireless/Kconfig
+> +++ b/drivers/net/wireless/Kconfig
+> @@ -24,6 +24,7 @@ source "drivers/net/wireless/cisco/Kconfig"
+>   source "drivers/net/wireless/intel/Kconfig"
+>   source "drivers/net/wireless/intersil/Kconfig"
+>   source "drivers/net/wireless/marvell/Kconfig"
+> +source "drivers/net/wireless/realtek/Kconfig"
+>   source "drivers/net/wireless/st/Kconfig"
+>   source "drivers/net/wireless/zydas/Kconfig"
+>
+> @@ -81,8 +82,6 @@ config USB_NET_RNDIS_WLAN
+>
+>   	  If you choose to build a module, it'll be called rndis_wlan.
+>
+> -source "drivers/net/wireless/realtek/rtl818x/Kconfig"
+> -
+>   config MAC80211_HWSIM
+>   	tristate "Simulated radio testing tool for mac80211"
+>   	depends on MAC80211
+> @@ -99,8 +98,6 @@ config MAC80211_HWSIM
+>   source "drivers/net/wireless/ath/Kconfig"
+>   source "drivers/net/wireless/rt2x00/Kconfig"
+>   source "drivers/net/wireless/mediatek/Kconfig"
+> -source "drivers/net/wireless/realtek/rtlwifi/Kconfig"
+> -source "drivers/net/wireless/realtek/rtl8xxxu/Kconfig"
+>   source "drivers/net/wireless/ti/Kconfig"
+>   source "drivers/net/wireless/rsi/Kconfig"
+>
+> diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
+> index 679a1a0a048d..12f6c59668a5 100644
+> --- a/drivers/net/wireless/Makefile
+> +++ b/drivers/net/wireless/Makefile
+> @@ -9,11 +9,10 @@ obj-$(CONFIG_WLAN_VENDOR_CISCO) += cisco/
+>   obj-$(CONFIG_WLAN_VENDOR_INTEL) += intel/
+>   obj-$(CONFIG_WLAN_VENDOR_INTERSIL) += intersil/
+>   obj-$(CONFIG_WLAN_VENDOR_MARVELL) += marvell/
+> +obj-$(CONFIG_WLAN_VENDOR_REALTEK) += realtek/
+>   obj-$(CONFIG_WLAN_VENDOR_ST) += st/
+>   obj-$(CONFIG_WLAN_VENDOR_ZYDAS) += zydas/
+>
+> -obj-$(CONFIG_WLAN)		+= realtek/
+> -
+>   # 16-bit wireless PCMCIA client drivers
+>   obj-$(CONFIG_PCMCIA_RAYCS)	+= ray_cs.o
+>   obj-$(CONFIG_PCMCIA_WL3501)	+= wl3501_cs.o
+> diff --git a/drivers/net/wireless/realtek/Kconfig b/drivers/net/wireless/realtek/Kconfig
+> new file mode 100644
+> index 000000000000..8a8ba2003964
+> --- /dev/null
+> +++ b/drivers/net/wireless/realtek/Kconfig
+> @@ -0,0 +1,18 @@
+> +config WLAN_VENDOR_REALTEK
+> +	bool "Realtek devices"
+> +	default y
+> +	---help---
+> +	  If you have a wireless card belonging to this class, say Y.
+> +
+> +	  Note that the answer to this question doesn't directly affect the
+> +	  kernel: saying N will just cause the configurator to skip all
+> +	  the questions about  cards. If you say Y, you will be asked for
+> +	  your specific card in the following questions.
+> +
+> +if WLAN_VENDOR_REALTEK
+> +
+> +source "drivers/net/wireless/realtek/rtl818x/Kconfig"
+> +source "drivers/net/wireless/realtek/rtlwifi/Kconfig"
+> +source "drivers/net/wireless/realtek/rtl8xxxu/Kconfig"
+> +
+> +endif # WLAN_VENDOR_REALTEK
+>
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
