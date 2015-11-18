@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 11/14] net: add netif_tx_napi_add()
-Date: Wed, 18 Nov 2015 06:31:00 -0800
-Message-ID: <1447857063-618-12-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 13/14] net: napi_hash_del() returns a boolean status
+Date: Wed, 18 Nov 2015 06:31:02 -0800
+Message-ID: <1447857063-618-14-git-send-email-edumazet@google.com>
 References: <1447857063-618-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
@@ -14,246 +14,71 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:36669 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933050AbbKRObr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 09:31:47 -0500
-Received: by pacdm15 with SMTP id dm15so46631647pac.3
-        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 06:31:47 -0800 (PST)
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:36763 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933050AbbKROby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 09:31:54 -0500
+Received: by pacdm15 with SMTP id dm15so46634432pac.3
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 06:31:53 -0800 (PST)
 In-Reply-To: <1447857063-618-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netif_tx_napi_add() is a variant of netif_napi_add()
+napi_hash_del() will soon be used from both drivers (if they want)
+or core networking stack.
 
-It should be used by drivers that use a napi structure
-to exclusively poll TX.
-
-We do not want to add this kind of napi in napi_hash[] in following
-patches, adding generic busy polling to all NAPI drivers.
+Callers are responsibles to ensure an RCU grace period is respected
+before freeing napi structure : napi_hash_del() can signal if
+this RCU grace period is needed or not.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/broadcom/bcmsysport.c         |  2 +-
- drivers/net/ethernet/broadcom/genet/bcmgenet.c     |  4 ++--
- .../net/ethernet/freescale/fs_enet/fs_enet-main.c  |  2 +-
- drivers/net/ethernet/freescale/gianfar.c           |  4 ++--
- drivers/net/ethernet/mellanox/mlx4/en_cq.c         |  4 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |  4 ++--
- drivers/net/ethernet/rocker/rocker.c               |  2 +-
- drivers/net/ethernet/ti/cpsw.c                     |  2 +-
- drivers/net/ethernet/ti/netcp_core.c               |  2 +-
- drivers/net/wireless/ath/wil6210/netdev.c          |  2 +-
- include/linux/netdevice.h                          | 23 +++++++++++++++++++++-
- net/core/dev.c                                     |  3 ++-
- 12 files changed, 38 insertions(+), 16 deletions(-)
+ include/linux/netdevice.h |  5 +++--
+ net/core/dev.c            | 10 +++++++---
+ 2 files changed, 10 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index 858106352ce9..993c780bdfab 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -1216,7 +1216,7 @@ static int bcm_sysport_init_tx_ring(struct bcm_sysport_priv *priv,
- 	/* Initialize SW view of the ring */
- 	spin_lock_init(&ring->lock);
- 	ring->priv = priv;
--	netif_napi_add(priv->netdev, &ring->napi, bcm_sysport_tx_poll, 64);
-+	netif_tx_napi_add(priv->netdev, &ring->napi, bcm_sysport_tx_poll, 64);
- 	ring->index = index;
- 	ring->size = size;
- 	ring->alloc_size = ring->size;
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 17f017ab4dac..b15a60d787c7 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -2041,11 +2041,11 @@ static void bcmgenet_init_tx_napi(struct bcmgenet_priv *priv)
- 
- 	for (i = 0; i < priv->hw_params->tx_queues; ++i) {
- 		ring = &priv->tx_rings[i];
--		netif_napi_add(priv->dev, &ring->napi, bcmgenet_tx_poll, 64);
-+		netif_tx_napi_add(priv->dev, &ring->napi, bcmgenet_tx_poll, 64);
- 	}
- 
- 	ring = &priv->tx_rings[DESC_INDEX];
--	netif_napi_add(priv->dev, &ring->napi, bcmgenet_tx_poll, 64);
-+	netif_tx_napi_add(priv->dev, &ring->napi, bcmgenet_tx_poll, 64);
- }
- 
- static void bcmgenet_enable_tx_napi(struct bcmgenet_priv *priv)
-diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-index cf8e54652df9..48a9c176e0d1 100644
---- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-@@ -1050,7 +1050,7 @@ static int fs_enet_probe(struct platform_device *ofdev)
- 	ndev->netdev_ops = &fs_enet_netdev_ops;
- 	ndev->watchdog_timeo = 2 * HZ;
- 	netif_napi_add(ndev, &fep->napi, fs_enet_rx_napi, fpi->napi_weight);
--	netif_napi_add(ndev, &fep->napi_tx, fs_enet_tx_napi, 2);
-+	netif_tx_napi_add(ndev, &fep->napi_tx, fs_enet_tx_napi, 2);
- 
- 	ndev->ethtool_ops = &fs_ethtool_ops;
- 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 3e6b9b437497..c8bc43e99a35 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1347,12 +1347,12 @@ static int gfar_probe(struct platform_device *ofdev)
- 		if (priv->poll_mode == GFAR_SQ_POLLING) {
- 			netif_napi_add(dev, &priv->gfargrp[i].napi_rx,
- 				       gfar_poll_rx_sq, GFAR_DEV_WEIGHT);
--			netif_napi_add(dev, &priv->gfargrp[i].napi_tx,
-+			netif_tx_napi_add(dev, &priv->gfargrp[i].napi_tx,
- 				       gfar_poll_tx_sq, 2);
- 		} else {
- 			netif_napi_add(dev, &priv->gfargrp[i].napi_rx,
- 				       gfar_poll_rx, GFAR_DEV_WEIGHT);
--			netif_napi_add(dev, &priv->gfargrp[i].napi_tx,
-+			netif_tx_napi_add(dev, &priv->gfargrp[i].napi_tx,
- 				       gfar_poll_tx, 2);
- 		}
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-index eb8a4988de63..3a6176fea78d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-@@ -156,8 +156,8 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
- 	cq->mcq.event = mlx4_en_cq_event;
- 
- 	if (cq->is_tx) {
--		netif_napi_add(cq->dev, &cq->napi, mlx4_en_poll_tx_cq,
--			       NAPI_POLL_WEIGHT);
-+		netif_tx_napi_add(cq->dev, &cq->napi, mlx4_en_poll_tx_cq,
-+				  NAPI_POLL_WEIGHT);
- 	} else {
- 		netif_napi_add(cq->dev, &cq->napi, mlx4_en_poll_rx_cq, 64);
- 		napi_hash_add(&cq->napi);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index d4b5085a21fa..7bd6f25b4625 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -1604,7 +1604,7 @@ int qlcnic_82xx_napi_add(struct qlcnic_adapter *adapter,
- 	if (qlcnic_check_multi_tx(adapter) && !adapter->ahw->diag_test) {
- 		for (ring = 0; ring < adapter->drv_tx_rings; ring++) {
- 			tx_ring = &adapter->tx_ring[ring];
--			netif_napi_add(netdev, &tx_ring->napi, qlcnic_tx_poll,
-+			netif_tx_napi_add(netdev, &tx_ring->napi, qlcnic_tx_poll,
- 				       NAPI_POLL_WEIGHT);
- 		}
- 	}
-@@ -2135,7 +2135,7 @@ int qlcnic_83xx_napi_add(struct qlcnic_adapter *adapter,
- 	    !(adapter->flags & QLCNIC_TX_INTR_SHARED)) {
- 		for (ring = 0; ring < adapter->drv_tx_rings; ring++) {
- 			tx_ring = &adapter->tx_ring[ring];
--			netif_napi_add(netdev, &tx_ring->napi,
-+			netif_tx_napi_add(netdev, &tx_ring->napi,
- 				       qlcnic_83xx_msix_tx_poll,
- 				       NAPI_POLL_WEIGHT);
- 		}
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index e9f2349e98bc..a4ab71d43e4e 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4998,7 +4998,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
- 	dev->netdev_ops = &rocker_port_netdev_ops;
- 	dev->ethtool_ops = &rocker_port_ethtool_ops;
- 	dev->switchdev_ops = &rocker_port_switchdev_ops;
--	netif_napi_add(dev, &rocker_port->napi_tx, rocker_port_poll_tx,
-+	netif_tx_napi_add(dev, &rocker_port->napi_tx, rocker_port_poll_tx,
- 		       NAPI_POLL_WEIGHT);
- 	netif_napi_add(dev, &rocker_port->napi_rx, rocker_port_poll_rx,
- 		       NAPI_POLL_WEIGHT);
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 48b92c9de12a..15322c08de80 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2469,7 +2469,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 	ndev->netdev_ops = &cpsw_netdev_ops;
- 	ndev->ethtool_ops = &cpsw_ethtool_ops;
- 	netif_napi_add(ndev, &priv->napi_rx, cpsw_rx_poll, CPSW_POLL_WEIGHT);
--	netif_napi_add(ndev, &priv->napi_tx, cpsw_tx_poll, CPSW_POLL_WEIGHT);
-+	netif_tx_napi_add(ndev, &priv->napi_tx, cpsw_tx_poll, CPSW_POLL_WEIGHT);
- 
- 	/* register the network device */
- 	SET_NETDEV_DEV(ndev, &pdev->dev);
-diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index 37b9b39192ec..e5e20e734f21 100644
---- a/drivers/net/ethernet/ti/netcp_core.c
-+++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -1990,7 +1990,7 @@ static int netcp_create_interface(struct netcp_device *netcp_device,
- 
- 	/* NAPI register */
- 	netif_napi_add(ndev, &netcp->rx_napi, netcp_rx_poll, NETCP_NAPI_WEIGHT);
--	netif_napi_add(ndev, &netcp->tx_napi, netcp_tx_poll, NETCP_NAPI_WEIGHT);
-+	netif_tx_napi_add(ndev, &netcp->tx_napi, netcp_tx_poll, NETCP_NAPI_WEIGHT);
- 
- 	/* Register the network device */
- 	ndev->dev_id		= 0;
-diff --git a/drivers/net/wireless/ath/wil6210/netdev.c b/drivers/net/wireless/ath/wil6210/netdev.c
-index e3b3c8fb4605..56aaa2d4fb0e 100644
---- a/drivers/net/wireless/ath/wil6210/netdev.c
-+++ b/drivers/net/wireless/ath/wil6210/netdev.c
-@@ -183,7 +183,7 @@ void *wil_if_alloc(struct device *dev)
- 
- 	netif_napi_add(ndev, &wil->napi_rx, wil6210_netdev_poll_rx,
- 		       WIL6210_NAPI_BUDGET);
--	netif_napi_add(ndev, &wil->napi_tx, wil6210_netdev_poll_tx,
-+	netif_tx_napi_add(ndev, &wil->napi_tx, wil6210_netdev_poll_tx,
- 		       WIL6210_NAPI_BUDGET);
- 
- 	netif_tx_stop_all_queues(ndev);
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 2020a89df12b..838935d1cdbb 100644
+index 838935d1cdbb..e5c33b29471b 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -326,7 +326,8 @@ enum {
- 	NAPI_STATE_SCHED,	/* Poll is scheduled */
- 	NAPI_STATE_DISABLE,	/* Disable pending */
- 	NAPI_STATE_NPSVC,	/* Netpoll - don't dequeue from poll_list */
--	NAPI_STATE_HASHED,	/* In NAPI hash */
-+	NAPI_STATE_HASHED,	/* In NAPI hash (busy polling possible) */
-+	NAPI_STATE_NO_BUSY_POLL,/* Do not add in napi_hash, no busy polling */
- };
- 
- enum gro_result {
-@@ -1939,6 +1940,26 @@ void netif_napi_add(struct net_device *dev, struct napi_struct *napi,
- 		    int (*poll)(struct napi_struct *, int), int weight);
+@@ -474,9 +474,10 @@ void napi_hash_add(struct napi_struct *napi);
+  *	@napi: napi context
+  *
+  * Warning: caller must observe rcu grace period
+- * before freeing memory containing @napi
++ * before freeing memory containing @napi, if
++ * this function returns true.
+  */
+-void napi_hash_del(struct napi_struct *napi);
++bool napi_hash_del(struct napi_struct *napi);
  
  /**
-+ *	netif_tx_napi_add - initialize a napi context
-+ *	@dev:  network device
-+ *	@napi: napi context
-+ *	@poll: polling function
-+ *	@weight: default weight
-+ *
-+ * This variant of netif_napi_add() should be used from drivers using NAPI
-+ * to exclusively poll a TX queue.
-+ * This will avoid we add it into napi_hash[], thus polluting this hash table.
-+ */
-+static inline void netif_tx_napi_add(struct net_device *dev,
-+				     struct napi_struct *napi,
-+				     int (*poll)(struct napi_struct *, int),
-+				     int weight)
-+{
-+	set_bit(NAPI_STATE_NO_BUSY_POLL, &napi->state);
-+	netif_napi_add(dev, napi, poll, weight);
-+}
-+
-+/**
-  *  netif_napi_del - remove a napi context
-  *  @napi: napi context
-  *
+  *	napi_disable - prevent NAPI from scheduling
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 83b48747928c..ff58a8bc5e3c 100644
+index 02dfbd91a8e4..59dddac1c2e7 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -4737,7 +4737,8 @@ EXPORT_SYMBOL(sk_busy_loop);
- 
- void napi_hash_add(struct napi_struct *napi)
+@@ -4760,14 +4760,18 @@ EXPORT_SYMBOL_GPL(napi_hash_add);
+ /* Warning : caller is responsible to make sure rcu grace period
+  * is respected before freeing memory containing @napi
+  */
+-void napi_hash_del(struct napi_struct *napi)
++bool napi_hash_del(struct napi_struct *napi)
  {
--	if (test_and_set_bit(NAPI_STATE_HASHED, &napi->state))
-+	if (test_bit(NAPI_STATE_NO_BUSY_POLL, &napi->state) ||
-+	    test_and_set_bit(NAPI_STATE_HASHED, &napi->state))
- 		return;
- 
++	bool rcu_sync_needed = false;
++
  	spin_lock(&napi_hash_lock);
+ 
+-	if (test_and_clear_bit(NAPI_STATE_HASHED, &napi->state))
++	if (test_and_clear_bit(NAPI_STATE_HASHED, &napi->state)) {
++		rcu_sync_needed = true;
+ 		hlist_del_rcu(&napi->napi_hash_node);
+-
++	}
+ 	spin_unlock(&napi_hash_lock);
++	return rcu_sync_needed;
+ }
+ EXPORT_SYMBOL_GPL(napi_hash_del);
+ 
 -- 
 2.6.0.rc2.230.g3dd15c0
