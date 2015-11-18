@@ -1,70 +1,138 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] ravb: fix WARNING in __free_irq()
-Date: Wed, 18 Nov 2015 15:29:45 -0800
-Message-ID: <20151118232944.GF21136@verge.net.au>
-References: <4607844.sdhchmu5cM@wasted.cogentembedded.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: more statistics (was: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue (w/ Fixes:))
+Date: Wed, 18 Nov 2015 23:39:32 +0000
+Message-ID: <87wpteq3m3.fsf_-_@doppelsaurus.mobileactivedefense.com>
+References: <87a8qhspfm.fsf@doppelsaurus.mobileactivedefense.com>
+	<876111wpza.fsf@doppelsaurus.mobileactivedefense.com>
+	<87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<20151117.151421.249423864481324472.davem@davemloft.net>
+	<87ziyb6uo0.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	kazuya.mizuguchi.ks@renesas.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4607844.sdhchmu5cM@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: rweikusat@mobileactivedefense.com, jbaron@akamai.com,
+	dvyukov@google.com, syzkaller@googlegroups.com, mkubecek@suse.cz,
+	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, hannes@stressinduktion.org,
+	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
+	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org,
+	kcc@google.com, glider@google.com, andreyknvl@google.com,
+	sasha.levin@oracle.com, jln@google.com, keescook@google.com,
+	minipli@googlemail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87ziyb6uo0.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
+	Weikusat's message of "Wed, 18 Nov 2015 18:15:27 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 19, 2015 at 01:39:51AM +0300, Sergei Shtylyov wrote:
-> When the R8A7795 support was  added to the driver, little attention was paid
-> to the ravb_open() error path: free_irq()  for the EMAC interrupt was called
-> uncoditionally, unlike request_irq(), and in  a wrong order as well...
-> As a result, on the R-Car gen2 SoCs I started getting the following in case
-> of a device  opening error:
-> 
-> WARNING: CPU: 0 PID: 1 at kernel/irq/manage.c:1448 __free_irq+0x8c/0x228()
-> Trying to free already-free IRQ 0
-> Modules linked in:
-> CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.4.0-rc1-dirty #1005
-> Hardware name: Generic R8A7791 (Flattened Device Tree)
-> Backtrace:
-> [<c0013818>] (dump_backtrace) from [<c00139b4>] (show_stack+0x18/0x1c)
->  r6:c063cdd6 r5:00000009 r4:00000000 r3:00204140
-> [<c001399c>] (show_stack) from [<c022a578>] (dump_stack+0x74/0x90)
-> [<c022a504>] (dump_stack) from [<c0025f04>] (warn_slowpath_common+0x8c/0xb8)
->  r4:ef04fd38 r3:c0714770
-> [<c0025e78>] (warn_slowpath_common) from [<c0025fd4>] (warn_slowpath_fmt+0x38/0x40)                                                                             
->  r8:ee8ad800 r7:ef0030a0 r6:00000000 r5:00000000 r4:ef003040
-> [<c0025fa0>] (warn_slowpath_fmt) from [<c0064cc0>] (__free_irq+0x8c/0x228)
->  r3:00000000 r2:c063ce9f
-> [<c0064c34>] (__free_irq) from [<c0064ecc>] (free_irq+0x70/0xa4)
->  r10:0000016b r8:00000000 r7:00000000 r6:ee8ad800 r5:00000000 r4:ef003040
-> [<c0064e5c>] (free_irq) from [<c033472c>] (ravb_open+0x224/0x274)  
->  r7:fffffffe r6:00000000 r5:fffffffe r4:ee8ad800
-> [<c0334508>] (ravb_open) from [<c041ac78>] (__dev_open+0x84/0x104)
->  r7:ee8ad830 r6:c0566334 r5:00000000 r4:ee8ad800
-> [<c041abf4>] (__dev_open) from [<c041af08>] (__dev_change_flags+0x94/0x13c)
->  r7:00001002 r6:00000001 r5:00001003 r4:ee8ad800
-> [<c041ae74>] (__dev_change_flags) from [<c041afe8>] (dev_change_flags+0x20/0x50)
->  r7:c072e6e0 r6:00000138 r5:00001002 r4:ee8ad800
-> [<c041afc8>] (dev_change_flags) from [<c06ec06c>] (ip_auto_config+0x174/0xfb8)
->  r8:00001002 r7:c072e6e0 r6:c0703344 r5:00000001 r4:ee8ad800 r3:00000101
-> [<c06ebef8>] (ip_auto_config) from [<c000a810>] (do_one_initcall+0x100/0x1cc)
->  r10:c06fb83c r9:00000000 r8:c06ebef8 r7:c0736000 r6:c0710918 r5:c0710918
->  r4:ef2f8f80
-> [<c000a710>] (do_one_initcall) from [<c06ccddc>] (kernel_init_freeable+0x11c/0x1
-> ec)                                                                
->  r10:c06fb83c r9:00000000 r8:0000009a r7:c0736000 r6:c0706bf0 r5:c06fb834
->  r4:00000007
-> [<c06cccc0>] (kernel_init_freeable) from [<c0514c54>] (kernel_init+0x14/0xec)
->  r10:00000000 r8:00000000 r7:00000000 r6:00000000 r5:c0514c40 r4:c0736000
-> [<c0514c40>] (kernel_init) from [<c0010458>] (ret_from_fork+0x14/0x3c)
->  r4:00000000 r3:ef04e000
-> 
-> Fix up the free_irq() call order and add a new label on the error path.
-> 
-> Fixes: 22d4df8ff3a3 ("ravb: Add support for r8a7795 SoC")
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
 
-Thanks for fixing my mistake.
+[...]
 
-Acked-by: Simon Horman <horms+renesas@verge.net.au>
+> Some more information on this: Running the test program included below
+> on my 'work' system (otherwise idle, after logging in via VT with no GUI
+> running)/ quadcore AMD A10-5700, 3393.984 for 20 times/ patched 4.3 resulted in the
+> following throughput statistics[*]:
+
+Since the results were too variable with only 20 runs, I've also tested
+this with 100 for three kernels, stock 4.3, 4.3 plus the published
+patch, 4.3 plus the published patch plus the "just return EAGAIN"
+modification". The 1st and the 3rd perform about identical for the
+test program I used (slightly modified version included below), the 2nd
+is markedly slower. This is most easily visible when grouping the
+printed data rates (B/s) 'by millions':
+
+stock 4.3
+---------
+13000000.000-13999999.000       3       (3%)
+14000000.000-14999999.000       82      (82%)
+15000000.000-15999999.000       15      (15%)
+
+
+4.3 + patch
+-----------
+13000000.000-13999999.000       54      (54%)
+14000000.000-14999999.000       35      (35%)
+15000000.000-15999999.000       7       (7%)
+16000000.000-16999999.000       1       (1%)
+18000000.000-18999999.000       1       (1%)
+22000000.000-22999999.000       2       (2%)
+
+
+4.3 + modified patch
+--------------------
+13000000.000-13999999.000       3       (3%)
+14000000.000-14999999.000       82      (82%)
+15000000.000-15999999.000       14      (14%)
+24000000.000-24999999.000       1       (1%)
+
+
+IMHO, the 3rd option would be the way to go if this was considered an
+acceptable option (ie, despite it returns spurious errors in 'rare
+cases').
+
+
+modified test program
+=====================
+#include <inttypes.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+enum {
+    MSG_SZ =	16,
+    MSGS =	1000000
+};
+
+static char msg[MSG_SZ];
+
+static uint64_t tv2u(struct timeval *tv)
+{
+    uint64_t u;
+
+    u = tv->tv_sec;
+    u *= 1000000;
+    return u + tv->tv_usec;
+}
+
+int main(void)
+{
+    struct timeval start, stop;
+    uint64_t t_diff;
+    double rate;
+    int sks[2];
+    unsigned remain;
+    char buf[MSG_SZ];
+
+    socketpair(AF_UNIX, SOCK_SEQPACKET, 0, sks);
+
+    if (fork() == 0) {
+	close(*sks);
+	
+	gettimeofday(&start, 0);
+	while (read(sks[1], buf, sizeof(buf)) > 0);
+	gettimeofday(&stop, 0);
+
+	t_diff = tv2u(&stop);
+	t_diff -= tv2u(&start);
+	rate = MSG_SZ * MSGS;
+	rate /= t_diff;
+	rate *= 1000000;
+	printf("%f\n", rate);
+
+	fflush(stdout);
+	_exit(0);
+    }
+
+    close(sks[1]);
+    
+    remain = MSGS;
+    do write(*sks, msg, sizeof(msg)); while (--remain);
+    close(*sks);
+
+    wait(NULL);
+    return 0;
+}
