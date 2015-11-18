@@ -1,75 +1,56 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [RFC][PATCH] net: arinc429: Add ARINC-429 stack
-Date: Wed, 18 Nov 2015 17:41:31 +0100
-Message-ID: <201511181741.31744.marex@denx.de>
-References: <1446419775-5215-1-git-send-email-marex@denx.de> <201511101715.39253.marex@denx.de> <CAAP7ucKpH5LTV1pw-JBJ=mD4_QFBwKYU9tLANkM4s40c+Oc0Hg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH -next] net: tcp: move to timewait when receiving data
+ post active-close
+Date: Wed, 18 Nov 2015 09:28:56 -0800
+Message-ID: <1447867736.22599.169.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1447859024-1040-1-git-send-email-fw@strlen.de>
+	 <1447860480.22599.151.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151118153621.GA5860@breakpoint.cc>
+	 <1447861591.22599.157.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1447862057.909111.443349025.5B7D067D@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Vostrikov Andrey <andrey.vostrikov@cogentembedded.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	"Marc Kleine-Budde" <mkl@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Aleksander Morgado <aleksander@aleksander.es>
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	marcelo.leitner@gmail.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:59864 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756242AbbKRQll (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 11:41:41 -0500
-In-Reply-To: <CAAP7ucKpH5LTV1pw-JBJ=mD4_QFBwKYU9tLANkM4s40c+Oc0Hg@mail.gmail.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34105 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754241AbbKRR3K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 12:29:10 -0500
+Received: by padhx2 with SMTP id hx2so50983120pad.1
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 09:29:10 -0800 (PST)
+In-Reply-To: <1447862057.909111.443349025.5B7D067D@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, November 18, 2015 at 05:38:02 PM, Aleksander Morgado wrote:
-> On Tue, Nov 10, 2015 at 5:15 PM, Marek Vasut <marex@denx.de> wrote:
-> >> >> >>> > About the parity -- can we add some flag into the datagram to
-> >> >> >>> > indicate we want hardware to calculate the parity for that
-> >> >> >>> > particular datagram for us? And we'd also need to indicate what
-> >> >> >>> > type of parity. I dunno if this is worth the hassle.
-> >> >> >>> 
-> >> >> >>> This  is HW configuration property, it does not belong to 
-> >> >> >>> datagram. Also for TX channels,  parity could  be  two  kinds: 
-> >> >> >>> odd and even, for RX it is only on/off.
-> >> >> >> 
-> >> >> >> There are datagrams which do contain parity and ones which do not
-> >> >> >> contain it, correct ? Thus, it's a property of that particular
-> >> >> >> datagram.
-> >> >> 
-> >> >> All ARINC words have bit #31 as parity bit; whether it's used or not
-> >> >> depends on the setup as Andrey says below.
-> >> > 
-> >> > Can bit 31 be ever used for DATA instead of parity ? Or is this just
-> >> > me not understanding the parlance of the specification, where "DATA"
-> >> > actually means "DATA with parity" ?
-> >> 
-> >> Well, as far as I know bit 31 is always parity bit, never used for
-> >> actual data contents. Which is the spec section that got you confused?
-> >> Maybe I'm the one which didn't read it well?
-> > 
-> > Sorry for being so late into the discussion.
-> > 
-> > I got confused by hi-3585_v-rev-l.pdf page 7 right, CR4 lets you treat
-> > bit 32 as either data or parity. But I guess this is not the general
-> > case.
-> > 
-> > So I wonder, does it make sense to treat the P bit as data always and do
-> > parity in software or not ?
-> 
-> I don't have an strong opinion on this, truth be told. It really
-> depends on whether we can tell the HW "go compute the parity
-> yourself". If we can ask for that, maybe we should allow configuring
-> that in the API with some flag. But anyway, treating P as data (i.e.
-> software should set parity bit to whatever is needed) is the most
-> generic thing you could do for a start, that shouldn't be wrong.
+On Wed, 2015-11-18 at 16:54 +0100, Hannes Frederic Sowa wrote:
 
-OK, let's treat it as data.
+> Still, the RST packet can be dropped along the way. So the teardown of
+> the socket on the other side might not happen.
 
-Since RC1 is out, I should start reworking the framework into more sensible
-shape and repost before I miss the opportunity.
+This is why it is better to send RST for every incoming in-excess packet
 
-Best regards,
-Marek Vasut
+Try following packetdrill test, before and after your patch :
+
+0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+0.000 bind(3, ..., ...) = 0
+0.000 listen(3, 1) = 0
+0.100 < S 0:0(0) win 29200 <mss 1460>
+0.100 > S. 0:0(0) ack 1 <mss 1460>
+0.200 < . 1:1(0) ack 1 win 257
+0.200 accept(3, ..., ...) = 4
+// close our side.
+0.210 close(4) = 0
+// we should expect to see FIN now, sk moves to FIN_WAIT_1
+0.210 > F. 1:1(0) ack 1 win 29200
+
+// receive data, but sk already closed -> Reset
++.010 < P. 1:1001(1000) ack 1 win 46
++0    > R 1:1(0) win 0
+
+// Are we properly sending a RST like prior packet did ?
++.010 < P. 1001:2001(1000) ack 1 win 46
++0    > R 1:1(0) win 0
