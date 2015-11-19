@@ -1,41 +1,77 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 regression: UDP packets dropped intermittantly
-Date: Thu, 19 Nov 2015 22:44:16 +0100
-Message-ID: <20151119214416.GB30304@electric-eye.fr.zoreil.com>
-References: <20130309064647.GC4984@marvin.atrad.com.au>
- <20130311000216.GA31808@zoreil.com>
- <20130405001526.GC19253@marvin.atrad.com.au>
- <20151117015605.GI22941@marvin.atrad.com.au>
- <20151117232108.GC3362@electric-eye.fr.zoreil.com>
- <20151118050919.GR25216@marvin.atrad.com.au>
- <20151119005608.GB4882@electric-eye.fr.zoreil.com>
- <20151119065718.GT8170@marvin.atrad.com.au>
- <1447935754.22599.194.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
+Date: Thu, 19 Nov 2015 22:53:02 +0100
+Message-ID: <1447969982.3054314.444761185.363F62E7@webmail.messagingengine.com>
+References: <CAKD1Yr2OgJT0GsrTuws0oapobrU+ML3NpBNBXizg6q035PH4MA@mail.gmail.com>
+ <20151119.005318.838757439536205791.davem@davemloft.net>
+ <CANP3RGcPRzSL06qZB9oewrvN_AUUodnYzXQO=itoK40z64x8Yw@mail.gmail.com>
+ <20151119.104811.1447518072450380661.davem@davemloft.net>
+ <1447949964.22599.220.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CALx6S363gYA37GnEuArp+PKVjFdLchB_66zuLF5kJnSFKF4t6Q@mail.gmail.com>
+ <1447969264.22599.253.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jonathan Woithe <jwoithe@atrad.com.au>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	zenczykowski <zenczykowski@gmail.com>,
+	Lorenzo Colitti <lorenzo@google.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
+	Dmitry Torokhov <dtor@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:58857 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751501AbbKSVoZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 16:44:25 -0500
-Content-Disposition: inline
-In-Reply-To: <1447935754.22599.194.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:34838 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751220AbbKSVxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 16:53:03 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id 57210204BA
+	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 16:53:02 -0500 (EST)
+In-Reply-To: <1447969264.22599.253.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> :
-[...]
-> This looks like a race when/if RX happens very shortly after one
-> transmit.
+
+
+On Thu, Nov 19, 2015, at 22:41, Eric Dumazet wrote:
+> On Thu, 2015-11-19 at 13:29 -0800, Tom Herbert wrote:
+> > > We (TCP stack) compete with QUIC, based on UDP, which has no issues like
+> > > that. We need to allow TCP sessions being signaled of a non temporary
+> > > network disruption.
+> > >
+> > 
+> > Eric, can you provide some detail on this statement?
+> > 
+> > I don't understand why QUIC wouldn't have this same issue. Seems like
+> > it is still connection oriented just like TCP, so if the application
+> > does a read expecting data from a peer and reverse reachability is
+> > lost, the the read on the socket hang just like reading a TCP would.
+> > If this is true, then the TCP solution would might actually be a
+> > better since it allows a means for a third party (presumably a daemon
+> > monitoring the network) to signal the application via closing specific
+> > TCP sockets. I don't see how this could work in UDP especially if
+> > these are unconnected sockets. What am I missing?
 > 
-> Francois, are we really saving lot of cpu cycles testing status ?
+> Quic simply sends UDP packets to a destination IP, port 443 (generally)
+> 
+> Say your UDP client binds to 0.0.0.0:<allocated/ephemeral port>
+> 
+> Kernel pick up source address given current working routing, on a per
+> packet basis.
+> 
+> Their notion of 'flow' is provided by the use of an unique connection
+> ID, included somewhere in the payload.
+> 
+> The replies from QUIC server will then reach the UDP port, because
+> server learned the latest source IP known for the client.
 
-I'm not sure. An extra smp_rmb and three cache lines at most when
-there really isn't any work ? Probably not worth it.
+You don't steer QUIC source addresses at all? I think most networking
+failures are of transient nature thus the kernel routing subsystem is
+not aware of link quality and packets get lost anyway e.g. in the air?
+Thus binding on multiple interfaces and keepalives seem still
+appropriate, no?
 
-Can you clarify which kind of race you're thinking about ?
-
--- 
-Ueimor
+Bye,
+Hannes
