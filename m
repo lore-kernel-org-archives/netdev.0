@@ -1,31 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ravb: fix WARNING in __free_irq()
-Date: Wed, 18 Nov 2015 22:04:17 -0500 (EST)
-Message-ID: <20151118.220417.711975268777866760.davem@davemloft.net>
-References: <4607844.sdhchmu5cM@wasted.cogentembedded.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/2] net: dsa: Add support for a switch reset
+ gpio
+Date: Thu, 19 Nov 2015 04:06:05 +0100
+Message-ID: <20151119030605.GG25930@lunn.ch>
+References: <1447889365-25256-1-git-send-email-andrew@lunn.ch>
+ <1447889365-25256-2-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	kazuya.mizuguchi.ks@renesas.com, horms+renesas@verge.net.au
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <4607844.sdhchmu5cM@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Neil Armstrong <narmstrong@baylibre.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:36983 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754900AbbKSDGI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Nov 2015 22:06:08 -0500
+Content-Disposition: inline
+In-Reply-To: <1447889365-25256-2-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Thu, 19 Nov 2015 01:39:51 +0300
+> index 1eba07feb34a..39cd19eaaf4e 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -21,6 +21,8 @@
+>  #include <linux/of_mdio.h>
+>  #include <linux/of_platform.h>
+>  #include <linux/of_net.h>
+> +#include <linux/nvmem-consumer.h>
 
-> When the R8A7795 support was  added to the driver, little attention was paid
-> to the ravb_open() error path: free_irq()  for the EMAC interrupt was called
-> uncoditionally, unlike request_irq(), and in  a wrong order as well...
-> As a result, on the R-Car gen2 SoCs I started getting the following in case
-> of a device  opening error:
- ...
-> Fix up the free_irq() call order and add a new label on the error path.
-> 
-> Fixes: 22d4df8ff3a3 ("ravb: Add support for r8a7795 SoC")
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Comment to self:
 
-Applied, thanks.
+That include should not be there.
+
+I will post a v2 once the discussion has stopped.
+
+  Andrew
