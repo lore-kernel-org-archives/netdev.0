@@ -1,43 +1,54 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Fri, 20 Nov 2015 08:47:50 +0900
-Message-ID: <CAKD1Yr1u9gWefNDYT6fQxGtbJ_v+RZ5afc1xQhrRW0rPDFQ05Q@mail.gmail.com>
-References: <1447949964.22599.220.camel@edumazet-glaptop2.roam.corp.google.com>
- <1447952902.2049284.444501617.7C422D07@webmail.messagingengine.com>
- <CALx6S379hXL=QEBF-HmOvPr3K55tS87HV=wKOySro1A0ogmWcQ@mail.gmail.com>
- <20151119.130923.186891318318651425.davem@davemloft.net> <1447957669.2293924.444570833.0E151DD6@webmail.messagingengine.com>
- <1447974142.3068929.444817369.068F6E50@webmail.messagingengine.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue (w/ Fixes:)
+Date: Thu, 19 Nov 2015 23:48:45 +0000
+Message-ID: <87h9kh7dpe.fsf@doppelsaurus.mobileactivedefense.com>
+References: <87a8qhspfm.fsf@doppelsaurus.mobileactivedefense.com>
+	<876111wpza.fsf@doppelsaurus.mobileactivedefense.com>
+	<87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<20151117.151421.249423864481324472.davem@davemloft.net>
+	<87d1v85mtx.fsf@doppelsaurus.mobileactivedefense.com>
+	<878u5w5lcr.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Tom Herbert <tom@herbertland.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
-	Dmitry Torokhov <dtor@google.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f181.google.com ([209.85.160.181]:33236 "EHLO
-	mail-yk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752163AbbKSXsL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 18:48:11 -0500
-Received: by ykdv3 with SMTP id v3so135142678ykd.0
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 15:48:10 -0800 (PST)
-In-Reply-To: <1447974142.3068929.444817369.068F6E50@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jbaron@akamai.com,
+	dvyukov@google.com, syzkaller@googlegroups.com, mkubecek@suse.cz,
+	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, hannes@stressinduktion.org,
+	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
+	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org,
+	kcc@google.com, glider@google.com, andreyknvl@google.com,
+	sasha.levin@oracle.com, jln@google.com, keescook@google.com,
+	minipli@googlemail.com
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <878u5w5lcr.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
+	Weikusat's message of "Tue, 17 Nov 2015 22:09:40 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 20, 2015 at 8:02 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On Thu, Nov 19, 2015, at 19:27, Hannes Frederic Sowa wrote:
->> I will research the semantics behind tcpdrop:
->> <http://www.freebsd.org/cgi/man.cgi?query=tcpdrop&apropos=0&sektion=0&manpath=FreeBSD+10.2-RELEASE&arch=default&format=html>
+Rainer Weikusat <rweikusat@mobileactivedefense.com> writes:
+> Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
 >
-> Fyi, my research shows that it just sends RST and discards complete
-> socket state.
+> [...]
+>
+>> The basic options would be
+>>
+>> 	- return EAGAIN even if sending became possible (Jason's most
+>>           recent suggestions)
+>>
+>> 	- retry sending a limited number of times, eg, once, before
+>>           returning EAGAIN, on the grounds that this is nicer to the
+>>           application and that redoing all the stuff up to the _lock in
+>>           dgram_sendmsg can possibly/ likely be avoided
+>
+> A third option:
 
-That makes sense. It is what RFC 793 calls ABORT:
-
-http://tools.ietf.org/html/rfc793#page-50
+A fourth and even one that's reasonably simple to implement: In case
+other became ready during the checks, drop other lock, do a double-lock
+sk, other, set a flag variable indicating this and restart the procedure
+after the unix_state_lock_other[*], using the value of the flag to lock/
+unlock sk as needed. Should other still be ready to receive data,
+execution can then continue with the 'queue it' code as the other lock
+was held all the time this time. Combined with a few unlikely
+annotations in place where they're IMHO appropriate, this is speed-wise
+comparable to the stock kernel.
