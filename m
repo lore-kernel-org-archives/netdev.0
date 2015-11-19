@@ -1,51 +1,55 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next] net: remove useless check in napi_gro_frags()
-Date: Thu, 19 Nov 2015 11:54:20 -0800
-Message-ID: <20151119195419.GA6728@ast-mbp.thefacebook.com>
-References: <1447962170.22599.240.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH 01/15] net: Add skb_inner_transport_offset function
+Date: Thu, 19 Nov 2015 11:55:47 -0800
+Message-ID: <1447962961-2106059-2-git-send-email-tom@herbertland.com>
+References: <1447962961-2106059-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33923 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759068AbbKSTyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 14:54:23 -0500
-Received: by padhx2 with SMTP id hx2so90661165pad.1
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 11:54:23 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1447962170.22599.240.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:54154 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759041AbbKST4M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 14:56:12 -0500
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id tAJJsEua022559
+	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 11:56:11 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 1y8r6u785m-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 11:56:11 -0800
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.102.107.97) with ESMTP	id
+ 947d29ac8ef711e581b20002c99331b0-989fa230 for <netdev@vger.kernel.org>;	Thu,
+ 19 Nov 2015 11:56:10 -0800
+In-Reply-To: <1447962961-2106059-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 19, 2015 at 11:42:50AM -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Checking if skb is NULL in napi_gro_frags() is too late.
-> 
-> If skb was NULL, we would crash earlier in napi_frags_skb()
-> 
-> Drivers normally catch napi_get_frags() NULL return value
-> before calling napi_gro_frags()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  net/core/dev.c |    3 ---
->  1 file changed, 3 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 41cef3e3f558b857a9093a83f6b0c73f32b8b45f..8d8d34ff68f5800dbcb2958b6a937b9db478e359 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4465,9 +4465,6 @@ gro_result_t napi_gro_frags(struct napi_struct *napi)
->  {
->  	struct sk_buff *skb = napi_frags_skb(napi);
->  
-> -	if (!skb)
-> -		return GRO_DROP;
-> -
+Same thing as skb_transport_offset but returns the offset of the inner
+transport header (when skb->encpasulation is set).
 
-I don't get it. napi_frags_skb() can return valid NULL.
-Should it be fixed there as well?
-Must be missing something...
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ include/linux/skbuff.h | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index c9c394b..0713080 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1939,6 +1939,11 @@ static inline unsigned char *skb_inner_transport_header(const struct sk_buff
+ 	return skb->head + skb->inner_transport_header;
+ }
+ 
++static inline int skb_inner_transport_offset(const struct sk_buff *skb)
++{
++	return skb_inner_transport_header(skb) - skb->data;
++}
++
+ static inline void skb_reset_inner_transport_header(struct sk_buff *skb)
+ {
+ 	skb->inner_transport_header = skb->data - skb->head;
+-- 
+2.4.6
