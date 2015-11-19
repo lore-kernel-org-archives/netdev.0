@@ -1,75 +1,75 @@
-From: Aaron Conole <aconole@redhat.com>
-Subject: Re: [PATCH net-next] net: remove useless check in napi_gro_frags()
-Date: Thu, 19 Nov 2015 16:06:40 -0500
-Message-ID: <f7tfv01pulb.fsf@aconole.bos.csb>
-References: <1447962170.22599.240.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151119195419.GA6728@ast-mbp.thefacebook.com>
-	<1447964139.22599.246.camel@edumazet-glaptop2.roam.corp.google.com>
-	<87oaepzqq2.fsf@nemi.mork.no>
-	<1447965199.22599.252.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] phylib: Make PHYs children of their MDIO bus, not the
+ bus' parent.
+Date: Thu, 19 Nov 2015 22:06:51 +0100
+Message-ID: <20151119210651.GA5044@lunn.ch>
+References: <1440198963-20080-1-git-send-email-ddaney.cavm@gmail.com>
+ <564E3659.1040709@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?Q?Bj=C3=B8rn?= Mork <bjorn@mork.no>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48020 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030227AbbKSVGl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 16:06:41 -0500
-In-Reply-To: <1447965199.22599.252.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Thu, 19 Nov 2015 12:33:19 -0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Daney <ddaney.cavm@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	David Daney <david.daney@cavium.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Grant Likely <grant.likely@secretlab.ca>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <564E3659.1040709@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+On Thu, Nov 19, 2015 at 11:51:37PM +0300, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 08/22/2015 02:16 AM, David Daney wrote:
+> 
+> >From: David Daney <david.daney@cavium.com>
+> >
+> >commit 18ee49ddb0d2 ("phylib: rename mii_bus::dev to mii_bus::parent")
+> >changed the parent of PHY devices from the bus to the bus parent.
+> >
+> >Then, commit 4dea547fef1b ("phylib: rework to prepare for OF
+> >registration of PHYs") moved the code into phy_device.c
+> >
+> >At this point, it is somewhat unclear why the change was seen as
+> >necessary.  But, when we look at the device model tree in
+> >/sys/devices, it is clearly incorrect.  The PHYs should be children of
+> >their MDIO bus.
+> >
+> >Change the PHY's parent device to be the MDIO bus device.
+> >
+> >Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+> >Cc: Grant Likely <grant.likely@secretlab.ca>
+> >Signed-off-by: David Daney <david.daney@cavium.com>
+> >---
+> >  drivers/net/phy/phy_device.c | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> >
+> >diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> >index 0302483..55f0178 100644
+> >--- a/drivers/net/phy/phy_device.c
+> >+++ b/drivers/net/phy/phy_device.c
+> >@@ -176,7 +176,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
+> >  	if (c45_ids)
+> >  		dev->c45_ids = *c45_ids;
+> >  	dev->bus = bus;
+> >-	dev->dev.parent = bus->parent;
+> >+	dev->dev.parent = &bus->dev;
+> >  	dev->dev.bus = &mdio_bus_type;
+> >  	dev->irq = bus->irq != NULL ? bus->irq[addr] : PHY_POLL;
+> >  	dev_set_name(&dev->dev, PHY_ID_FMT, bus->id, addr);
+> 
+>    This patch makes my sh_eth driver fail to connect to PHY usinjg
+> of_phy_connect(). (The ravb driver fails too but for some other
+> reason.)
+ 
+Hi Sergei
 
-> On Thu, 2015-11-19 at 21:20 +0100, Bj=C3=B8rn Mork wrote:
->> Eric Dumazet <eric.dumazet@gmail.com> writes:
->>=20
->> > How many times should we crash before napi_frags_skb() returns NUL=
-L ?
->> ..
->> >                         return NULL;
->>=20
->> Huh?  Now I'm lost here, too.
->
->
-> Well, Ethernet drivers should not feed GRO with frames with less than=
- 14 bytes.
->
-> ( eth_type_trans() would crash the same )
->
-> Lets fix buggy drivers instead of adding defensive code all over the =
-stack.
->
-> napi_gro_frags() is used by exactly 10 drivers, and I am pretty sure
-> they are OK.
->
+What phy is it?
 
-Would the following be an appropriate change in addition to the one
-you've posted, then? If so I can repost as a formal patch, if you'd
-like. At present, there's only one user of napi_frags_skb(), and your
-patch removes the NULL check. If this can really only be the result of
-buggy driver, then perhaps we should just call out the bug?
+Do you have phy DT properties in the MAC node?
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 41cef3e..b71c8b4 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4440,10 +4440,7 @@ static struct sk_buff *napi_frags_skb(struct nap=
-i_struct *napi)
- 	eth =3D skb_gro_header_fast(skb, 0);
- 	if (unlikely(skb_gro_header_hard(skb, hlen))) {
- 		eth =3D skb_gro_header_slow(skb, hlen, 0);
--		if (unlikely(!eth)) {
--			napi_reuse_skb(napi, skb);
--			return NULL;
--		}
-+		BUG_ON(!eth);
- 	} else {
- 		gro_pull_from_frag0(skb, hlen);
- 		NAPI_GRO_CB(skb)->frag0 +=3D hlen;
+   Andrew
