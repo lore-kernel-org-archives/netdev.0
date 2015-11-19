@@ -1,48 +1,48 @@
 From: Florian Weimer <fweimer@redhat.com>
 Subject: Re: Asterisk deadlocks since Kernel 4.1
-Date: Thu, 19 Nov 2015 10:39:36 +0100
-Message-ID: <564D98D8.9050000@redhat.com>
+Date: Thu, 19 Nov 2015 10:44:55 +0100
+Message-ID: <564D9A17.6080305@redhat.com>
 References: <564B3D35.50004@profihost.ag>
  <alpine.DEB.2.11.1511171936030.3761@nanos> <564B7F9D.5060701@profihost.ag>
  <alpine.DEB.2.11.1511172041480.3761@nanos> <564CDE2F.8000201@profihost.ag>
- <564CEB0C.40006@redhat.com> <564CEC65.4080901@profihost.ag>
+ <564CEB0C.40006@redhat.com> <564CEF5D.3080005@profihost.ag>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
+Content-Transfer-Encoding: 7bit
 Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
 	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Stefan Priebe <s.priebe@profihost.ag>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <564CEC65.4080901@profihost.ag>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43889 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756210AbbKSJpB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Nov 2015 04:45:01 -0500
+In-Reply-To: <564CEF5D.3080005@profihost.ag>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/18/2015 10:23 PM, Stefan Priebe wrote:
+On 11/18/2015 10:36 PM, Stefan Priebe wrote:
 
 >> please try to get a backtrace with debugging information.  It is likely
 >> that this is the make_request/__check_pf functionality in glibc, but it
 >> would be nice to get some certainty.
->>
->> Which glibc version do you use?  Has it got a fix for CVE-2013-7423?
 > 
-> It's Debians 2.13-38+deb7u8 Debians issue tracker says it is fixed:
-> https://security-tracker.debian.org/tracker/CVE-2013-7423
+> sorry here it is. What I'm wondering is why is there ipv6 stuff? I don't
+> have ipv6 except for link local.
 
-I checked, and the patch is there and applied.
+glibc needs to know if the system has global unicast addresses if it
+receives AAAA records.
 
->> Theoretically, recvmsg could also hang if the Netlink query was dropped
->> by the kernel, or the final packet in the response was dropped.  We
->> never saw that happen, even under extreme load, but I didn't test with
->> recent kernels.
+It's curious that net.ipv6.conf.all.disable_ipv6=1 makes the problem go
+away.  Even with that setting, the kernel seems to send two Netlink
+responses.  So either this is enough to narrow the window for the race
+so that no longer triggers, or there is a genuine kernel issue with
+supplying the requested IPv6 Netlink response.
+
+> Could it be this one?
 > 
-> The load is very low in this system. Just 30 phones and only 1-6 calling.
+> https://bugzilla.redhat.com/show_bug.cgi?id=505105#c79
 
-This is rather odd.
-
-I'm not sure if we can do anything simple on the glibc to help to debug
-this.  If something in the process consumes the Netlink message from the
-kernel (incorrectly reading from the internal glibc file descriptor),
-this is fairly difficult detect inside glibc (it would require rather
-large changes which do not currently exist at all).
+No, that's on the DNS/UDP side, not in the Netlink code.
 
 Florian
