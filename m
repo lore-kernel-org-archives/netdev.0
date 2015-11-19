@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH iproute2 1/2] Avoid in6_addr redefinition
-Date: Thu, 19 Nov 2015 22:05:39 +0100
-Message-ID: <1447967140-29909-2-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH iproute2 2/2] Add missing <sys/types.h> include
+Date: Thu, 19 Nov 2015 22:05:40 +0100
+Message-ID: <1447967140-29909-3-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1447967140-29909-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -9,102 +9,41 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:51872 "EHLO
+Received: from down.free-electrons.com ([37.187.137.238]:51874 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S934149AbbKSVF6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 16:05:58 -0500
+	with ESMTP id S934549AbbKSVGH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 16:06:07 -0500
 In-Reply-To: <1447967140-29909-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Due to both <netinet/in.h> and <linux/in6.h> being included, the
-in6_addr is being redefined: once from the C library headers and once
-from the kernel headers. This causes some build failures with for
-example the musl C library:
+The u_intXX_t types are defined in <sys/types.h>, so it should be
+included before using those types. Otherwise, with certain C
+libraries, the build fails with:
 
-In file included from ../include/linux/xfrm.h:4:0,
-                 from xfrm.h:29,
-                 from ipxfrm.c:39:
-=2E./include/linux/in6.h:32:8: error: redefinition of =E2=80=98struct i=
-n6_addr=E2=80=99
- struct in6_addr {
-        ^
-In file included from .../output/host/usr/x86_64-buildroot-linux-musl/s=
-ysroot/usr/include/netdb.h:9:0,
-                 from ipxfrm.c:34:
-=2E../output/host/usr/x86_64-buildroot-linux-musl/sysroot/usr/include/n=
-etinet/in.h:24:8: note: originally defined here
- struct in6_addr
-        ^
-
-In order to fix this, use just the C library header <netinet/in.h>.
-
-Original patch taken from
-http://git.alpinelinux.org/cgit/aports/tree/main/iproute2/musl-fixes.pa=
-tch.
+In file included from ../include/iptables.h:4:0,
+                 from m_ipt.c:18:
+=2E./include/iptables_common.h:47:16: error: unknown type name =E2=80=98=
+u_int32_t=E2=80=99
+ #define __le32 u_int32_t
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- include/libiptc/ipt_kernel_headers.h | 2 --
- include/linux/if_bridge.h            | 1 -
- include/linux/netfilter.h            | 2 --
- include/linux/xfrm.h                 | 1 -
- 4 files changed, 6 deletions(-)
+ include/iptables_common.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/include/libiptc/ipt_kernel_headers.h b/include/libiptc/ipt=
-_kernel_headers.h
-index 7e87828..9566be5 100644
---- a/include/libiptc/ipt_kernel_headers.h
-+++ b/include/libiptc/ipt_kernel_headers.h
-@@ -15,12 +15,10 @@
- #else /* libc5 */
- #include <sys/socket.h>
- #include <linux/ip.h>
--#include <linux/in.h>
- #include <linux/if.h>
- #include <linux/icmp.h>
- #include <linux/tcp.h>
- #include <linux/udp.h>
- #include <linux/types.h>
--#include <linux/in6.h>
+diff --git a/include/iptables_common.h b/include/iptables_common.h
+index 9099667..2c27a4b 100644
+--- a/include/iptables_common.h
++++ b/include/iptables_common.h
+@@ -43,6 +43,8 @@ extern char *lib_dir;
+   extern void init_extensions(void);
  #endif
- #endif
-diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
-index ee197a3..f823aa4 100644
---- a/include/linux/if_bridge.h
-+++ b/include/linux/if_bridge.h
-@@ -15,7 +15,6 @@
 =20
- #include <linux/types.h>
- #include <linux/if_ether.h>
--#include <linux/in6.h>
-=20
- #define SYSFS_BRIDGE_ATTR	"bridge"
- #define SYSFS_BRIDGE_FDB	"brforward"
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index b71b4c9..3e4e6ae 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -4,8 +4,6 @@
- #include <linux/types.h>
-=20
- #include <linux/sysctl.h>
--#include <linux/in.h>
--#include <linux/in6.h>
-=20
- /* Responses from hook functions. */
- #define NF_DROP 0
-diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index b8f5451..a9761a5 100644
---- a/include/linux/xfrm.h
-+++ b/include/linux/xfrm.h
-@@ -1,7 +1,6 @@
- #ifndef _LINUX_XFRM_H
- #define _LINUX_XFRM_H
-=20
--#include <linux/in6.h>
- #include <linux/types.h>
-=20
- /* All of the structures in this file may not change size as they are
++#include <sys/types.h>
++
+ #define __be32	u_int32_t
+ #define __le32	u_int32_t
+ #define __be16	u_int16_t
 --=20
 2.6.3
