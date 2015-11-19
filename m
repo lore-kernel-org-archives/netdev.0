@@ -1,48 +1,42 @@
-From: David Miller <davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Thu, 19 Nov 2015 10:48:11 -0500 (EST)
-Message-ID: <20151119.104811.1447518072450380661.davem@davemloft.net>
-References: <CAKD1Yr2OgJT0GsrTuws0oapobrU+ML3NpBNBXizg6q035PH4MA@mail.gmail.com>
-	<20151119.005318.838757439536205791.davem@davemloft.net>
-	<CANP3RGcPRzSL06qZB9oewrvN_AUUodnYzXQO=itoK40z64x8Yw@mail.gmail.com>
+Date: Thu, 19 Nov 2015 16:54:29 +0100
+Message-ID: <1447948469.2030778.444426889.4F4A5648@webmail.messagingengine.com>
+References: <CAKD1Yr0Gpr6Ex2i1TXEWyETn48P4g5vBvFZ9=_g+Lz_7-PqBDQ@mail.gmail.com>
+ <20151118.153508.123902005995190872.davem@davemloft.net>
+ <1447879416.562854.443622857.62708268@webmail.messagingengine.com>
+ <20151118.224919.452852815199526735.davem@davemloft.net>
+ <CALx6S36-tBwAGFFpdrhXjAXvNmxUXsbRV17Wayjr6-hsKsCeNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lorenzo@google.com, hannes@stressinduktion.org,
-	eric.dumazet@gmail.com, stephen@networkplumber.org,
-	netdev@vger.kernel.org, edumazet@google.com, ek@google.com,
-	dtor@google.com
-To: zenczykowski@gmail.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
+	=?UTF-8?Q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+	Dmitry Torokhov <dtor@google.com>
+To: Tom Herbert <tom@herbertland.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43208 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934149AbbKSPsN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 10:48:13 -0500
-In-Reply-To: <CANP3RGcPRzSL06qZB9oewrvN_AUUodnYzXQO=itoK40z64x8Yw@mail.gmail.com>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:50154 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934018AbbKSPyd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 10:54:33 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id 34A782075E
+	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 10:54:30 -0500 (EST)
+In-Reply-To: <CALx6S36-tBwAGFFpdrhXjAXvNmxUXsbRV17Wayjr6-hsKsCeNg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
-Date: Wed, 18 Nov 2015 23:19:03 -0800
+On Thu, Nov 19, 2015, at 06:12, Tom Herbert wrote:
+> I think this solution presumes some out of band signaling about a path
+> failure deep in the network that is not reported via the TCP
+> connection. This solution is obviously only as good as the signaling,
+> but clearly the most general solution to maintaining reachability has
+> been (and unfortunately will probably continue to be) application
+> keepalives.
 
-> Privileged userspace can already make these decisions today, whether
-> it is by killing processes with open sockets, or by turning interface=
-s
-> up and down or by reconfiguring the firewall and/or the routing
-> rules/tables, or by injecting spoofed TCP reset packets (via tap).
-> It's just *very* inconvenient to do and error prone.
->=20
-> Another example: privileged userspace could ptrace the userspace apps
-> and via code injection call close() on the app's behalf and reopen th=
-e
-> file descriptor to some null routed destination so it behaves like if
-> it was timed out / unreachable.
-
-At least if they do it this way, and someone claims that Linux TCP
-behaves outside the spec or improperly, it's not directly because of
-any code I am responsible for.
-
-That's the difference, and frankly an important one to me.
-
-If I'm going to give userspace a direct tool by which to do things,
-then it's suddenly my responsibility and my problem.
+Ack. With emphasis of *application*. :)
