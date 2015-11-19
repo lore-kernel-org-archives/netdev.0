@@ -1,91 +1,96 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH] net: tulip: turn compile-time warning into dev_warn()
-Date: Thu, 19 Nov 2015 12:26:10 +0000
-Message-ID: <20151119122610.GF22786@arm.com>
-References: <9720627.53btSdPcQU@wuerfel>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: WARN due to local_bh_disable called with interrupts disabled
+Date: Thu, 19 Nov 2015 04:28:32 -0800
+Message-ID: <1447936112.22599.197.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <94ad7f112d565984ffdc4aaafe002803.squirrel@www.codeaurora.org>
+	 <20151119114208.3b8e67c3@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	ard.biesheuvel@linaro.org,
-	Grant Grundler <grundler@parisc-linux.org>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: subashab@codeaurora.org, netfilter-devel@vger.kernel.org,
+	pablo@netfilter.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:39790 "EHLO foss.arm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752185AbbKSM0M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Nov 2015 07:26:12 -0500
-Content-Disposition: inline
-In-Reply-To: <9720627.53btSdPcQU@wuerfel>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:32968 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758493AbbKSM2d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 07:28:33 -0500
+In-Reply-To: <20151119114208.3b8e67c3@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 19, 2015 at 11:42:26AM +0100, Arnd Bergmann wrote:
-> The tulip driver causes annoying build-time warnings for allmodconfig
-> builds for all recent architectures:
+On Thu, 2015-11-19 at 11:42 +0100, Jesper Dangaard Brouer wrote:
+> On Thu, 19 Nov 2015 02:37:54 -0000 subashab@codeaurora.org wrote:
 > 
-> dec/tulip/winbond-840.c:910:2: warning: #warning Processor architecture undefined
-> dec/tulip/tulip_core.c:101:2: warning: #warning Processor architecture undefined!
+> > We are seeing a WARN due to local_bh_disable called with interrupts
+> > disabled with CONFIG_IRQSOFF_TRACER / CONFIG_PREEMPT_TRACER.
 > 
-> This is the last remaining warning for arm64, and I'd like to get rid of
-> it. We don't really know the cache line size, architecturally it would
-> be at least 16 bytes, but all implementations I found have 64 or 128
-> bytes. Configuring tulip for 32-byte lines as we do on ARM32 seems to
-> be the safe but slow default, and nobody who cares about performance these
-> days would use a tulip chip anyway, so we can just use that.
+> AFAIK this WARN happens due to a being called from hardware interrupt
+> context.  __local_bh_disable_ip calls:  WARN_ON_ONCE(in_irq());
 > 
-> To save the next person the job of trying to find out what this is for
-> and picking a default for their architecture just to kill off the warning,
-> I'm now removing the preprocessor #warning and turning it into a pr_warn
-> or dev_warn that prints the equivalent information when the driver gets
-> loaded.
+> > Here is the WARN trace
+> > 
+> >   1833.210427:   <6> Call trace:
+> >   1833.212833:   <2> [<ffffffc000088530>] dump_backtrace+0x0/0x270
+> >   1833.212838:   <2> [<ffffffc0000887b0>] show_stack+0x10/0x1c
+> >   1833.212853:   <2> [<ffffffc000c6edac>] dump_stack+0x74/0xb8
+> >   1833.212862:   <2> [<ffffffc0000a0fe4>] warn_slowpath_common+0x88/0xb0
+> >   1833.212865:   <2> [<ffffffc0000a10d0>] warn_slowpath_null+0x14/0x20
+> >   1833.212870:   <2> [<ffffffc0000a46dc>] __local_bh_disable_ip+0x4c/0xc8
+> >   1833.212882:   <2> [<ffffffc000ae2788>] destroy_conntrack+0x90/0x184
+> >   1833.212888:   <2> [<ffffffc000adcd50>] nf_conntrack_destroy+0x28/0x38
+> >   1833.212896:   <2> [<ffffffc000a97550>] skb_release_head_state+0xa4/0xe0
+> >   1833.212900:   <2> [<ffffffc000a977e0>] __kfree_skb+0x10/0xbc
+> >   1833.212904:   <2> [<ffffffc000a976bc>] kfree_skb+0xb4/0xdc
+> >   1833.212912:   <2> [<ffffffc000aa4660>] flush_backlog+0x88/0x120
+> >   1833.212922:   <2> [<ffffffc00010e544>] flush_smp_call_function_queue+0xb4/0x154
+> >   1833.212926:   <2> [<ffffffc00010efcc>] generic_smp_call_function_single_interrupt+0xc/0x18
+> >   1833.212932:   <2> [<ffffffc000091050>] handle_IPI+0x120/0x338
+> >   1833.212937:   <2> [<ffffffc000081580>] gic_handle_irq+0xb8/0xdc
 > 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> The call gic_handle_irq() sounds like a hardware IRQ func/context.
 > 
-> diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
-> index ed41559bae77..b553409e04ad 100644
-> --- a/drivers/net/ethernet/dec/tulip/tulip_core.c
-> +++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
-> @@ -98,8 +98,7 @@ static int csr0 = 0x01A00000 | 0x4800;
->  #elif defined(__mips__)
->  static int csr0 = 0x00200000 | 0x4000;
->  #else
-> -#warning Processor architecture undefined!
-> -static int csr0 = 0x00A00000 | 0x4800;
-> +static int csr0;
->  #endif
->  
->  /* Operational parameters that usually are not changed. */
-> @@ -1982,6 +1981,12 @@ static int __init tulip_init (void)
->  	pr_info("%s", version);
->  #endif
->  
-> +	if (!csr0) {
-> +		pr_warn("tulip: unknown CPU architecture, using default csr0\n");
-> +		/* default to 8 longword cache line alignment */
-> +		csr0 = 0x00A00000 | 0x4800;
+> The flush_backlog() call is due to the device is being unregistered. 
+> 
+> 
+> > Here is the callstack which leads to this WARN.
+> > 
+> > netdev_run_todo
+> > on_each_cpu //This disables irq with local_irq_save(flags)
+> > flush_backlog
+> > kfree_skb
+> > ..
+> > destroy_conntrack //This disables irq's again through local_bh_disable
+> 
+> __local_bh_disable_ip() (when CONFIG_TRACE_IRQFLAGS is enabled) calls:
+>  raw_local_irq_save(flags);
+>  raw_local_irq_restore(flags);
+> 
+> Thus, it should be safe, as the save/restore variants are used.
+> 
+> > I noticed that this was introduced by commit ca7433df3a ("netfilter:
+> > conntrack: seperate expect locking from nf_conntrack_lock ").
+> > 
+> > Since interrupts are already disabled when flush_backlog is called, is it
+> > expected to disable bottom halves in destroy_conntrack?
+> 
+> I'm surprised to see kfree_skb() being called from hardirq context, I
+> though that was not allowed.
+> 
+> AFAIK this is the reason we have: __dev_kfree_skb_any() which defer
+> freeing the SKB if (in_irq() || irqs_disabled()).
+> 
+> Code:
+>  void __dev_kfree_skb_any(struct sk_buff *skb, enum skb_free_reason reason)
+>  {
+> 	if (in_irq() || irqs_disabled())
+> 		__dev_kfree_skb_irq(skb, reason);
+> 	else
+> 		dev_kfree_skb(skb);
+>  }
 
-Maybe print "defaulting to 8 longword cache line alignment" instead of
-"default csr0"?
+Right, but flush_backlog() is processing packets coming from RX, that
+should have no conntracking attached at all.
 
-> diff --git a/drivers/net/ethernet/dec/tulip/winbond-840.c b/drivers/net/ethernet/dec/tulip/winbond-840.c
-> index 9beb3d34d4ba..3c0e4d5c5fef 100644
-> --- a/drivers/net/ethernet/dec/tulip/winbond-840.c
-> +++ b/drivers/net/ethernet/dec/tulip/winbond-840.c
-> @@ -907,7 +907,7 @@ static void init_registers(struct net_device *dev)
->  #elif defined(CONFIG_SPARC) || defined (CONFIG_PARISC) || defined(CONFIG_ARM)
->  	i |= 0x4800;
->  #else
-> -#warning Processor architecture undefined
-> +	dev_warn(&dev->dev, "unknown CPU architecture, using default csr0 setting\n");
->  	i |= 0x4800;
-
-Then we could print the default csr0 value here.
-
-But, to be honest, this patch fixes a #warning on arm64 for a driver that
-I never expect to be used. So whatever you do to silence it:
-
-  Acked-by: Will Deacon <will.deacon@arm.com>
-
-/me waits for on-soc tulip integration.
-
-Will
+Might be a bug in a tunnel ?
