@@ -1,61 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Thu, 19 Nov 2015 14:07:55 -0800
-Message-ID: <1447970875.22599.265.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Thu, 19 Nov 2015 23:09:16 +0100
+Message-ID: <1447970956.3057330.444776169.61AEFA6C@webmail.messagingengine.com>
 References: <CAKD1Yr2OgJT0GsrTuws0oapobrU+ML3NpBNBXizg6q035PH4MA@mail.gmail.com>
-	 <20151119.005318.838757439536205791.davem@davemloft.net>
-	 <CANP3RGcPRzSL06qZB9oewrvN_AUUodnYzXQO=itoK40z64x8Yw@mail.gmail.com>
-	 <20151119.104811.1447518072450380661.davem@davemloft.net>
-	 <1447949964.22599.220.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S363gYA37GnEuArp+PKVjFdLchB_66zuLF5kJnSFKF4t6Q@mail.gmail.com>
-	 <1447969264.22599.253.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S374xUUzWXUgA27PubceyDckrrfTiq7wvkLxXa0NacqqZA@mail.gmail.com>
+ <20151119.005318.838757439536205791.davem@davemloft.net>
+ <CANP3RGcPRzSL06qZB9oewrvN_AUUodnYzXQO=itoK40z64x8Yw@mail.gmail.com>
+ <20151119.104811.1447518072450380661.davem@davemloft.net>
+ <1447949964.22599.220.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CALx6S363gYA37GnEuArp+PKVjFdLchB_66zuLF5kJnSFKF4t6Q@mail.gmail.com>
+ <1447969264.22599.253.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1447969982.3054314.444761185.363F62E7@webmail.messagingengine.com>
+ <1447970641.22599.261.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
+Cc: Tom Herbert <tom@herbertland.com>,
+	David Miller <davem@davemloft.net>,
 	zenczykowski <zenczykowski@gmail.com>,
 	Lorenzo Colitti <lorenzo@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
 	Dmitry Torokhov <dtor@google.com>
-To: Tom Herbert <tom@herbertland.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:32996 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934406AbbKSWH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 17:07:57 -0500
-Received: by pabfh17 with SMTP id fh17so96839066pab.0
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 14:07:57 -0800 (PST)
-In-Reply-To: <CALx6S374xUUzWXUgA27PubceyDckrrfTiq7wvkLxXa0NacqqZA@mail.gmail.com>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:44311 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759342AbbKSWJR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 17:09:17 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id 3BF94204F0
+	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 17:09:17 -0500 (EST)
+In-Reply-To: <1447970641.22599.261.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-11-19 at 13:53 -0800, Tom Herbert wrote:
 
-> That covers the case where the local address is removed, but the not
-> the case where the network manager is informed of an error in the path
-> and wants to signal the application. My understanding was that
-> SIOCKILLADDR would work for the first case, but this patch was need to
-> cover the second case.
+
+On Thu, Nov 19, 2015, at 23:04, Eric Dumazet wrote:
+> On Thu, 2015-11-19 at 22:53 +0100, Hannes Frederic Sowa wrote:
+> > 
 > 
-> btw, instead of closing the TCP socket can we just report an error and
-> wake up the application without affecting the connection? That is this
-> just becomes an error on the socket. The response by the application
-> will be the same in any case, porbablly just close the socket and try
-> to reestablish the connection.
+> > You don't steer QUIC source addresses at all? I think most networking
+> > failures are of transient nature thus the kernel routing subsystem is
+> > not aware of link quality and packets get lost anyway e.g. in the air?
+> > Thus binding on multiple interfaces and keepalives seem still
+> > appropriate, no?
+> 
+> Imagine you are in your home near a wifi AP, then you close a door and
+> switch to 3G, or another AP.
+> 
+> No down time. packet will eventually reach its destination.
+> 
+> Application does not have to care.
+> 
+> Why QUIC should absolutely use '4-tuple UDP connections' when this is
+> likely to fail in this scenario ?
 
-I thought this was the patch intent ?
-
-Application gets a EPOLLIN|EPOLLOUT|POLLERR notification (if it is
-willing to receive it, or blocked in a socket syscall) and closes the
-socket.
-
-         sk->sk_err = ETIMEDOUT;
-         sk->sk_error_report(sk);
-         tcp_done(sk);
-
-If this sequence is not doing the job, then we have other worries in our
-stack.
+My point is the "eventually" and the very much increased latency until
+the kernel learns about new better source addresses it has available. I
+would monitor link quality over time and decide source address based on
+this on the sending side.
