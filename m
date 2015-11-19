@@ -1,240 +1,65 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V3 net-next 3/5] net:hns: Add Hip06 "TSO(TCP Segment Offload)" support HNS Driver
-Date: Fri, 20 Nov 2015 04:58:24 +0800
-Message-ID: <1447966706-16219-4-git-send-email-salil.mehta@huawei.com>
-References: <1447966706-16219-1-git-send-email-salil.mehta@huawei.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] phylib: Make PHYs children of their MDIO bus, not the
+ bus' parent.
+Date: Thu, 19 Nov 2015 23:51:37 +0300
+Message-ID: <564E3659.1040709@cogentembedded.com>
+References: <1440198963-20080-1-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <davem@davemloft.net>, <robh+dt@kernel.org>, <pawel.moll@arm.com>,
-	<mark.rutland@arm.com>, <paul.gortmaker@windriver.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<catalin.marinas@arm.com>, <will.deacon@arm.com>, <arnd@arndb.de>,
-	<liguozhu@hisilicon.com>, <yisen.zhuang@huawei.com>,
-	<dingtianhong@huawei.com>, <zhangfei.gao@linaro.org>,
-	<huangdaode@hisilicon.com>, <kenneth-lee-2012@foxmail.com>,
-	<salil.mehta@huawei.com>, <mehta.salil.lnk@gmail.com>,
-	<xuwei5@hisilicon.com>, <lisheng011@huawei.com>,
-	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	<linuxarm@huawei.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Daney <david.daney@cavium.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Grant Likely <grant.likely@secretlab.ca>
+To: David Daney <ddaney.cavm@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447966706-16219-1-git-send-email-salil.mehta@huawei.com>
+In-Reply-To: <1440198963-20080-1-git-send-email-ddaney.cavm@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the support of "TSO (TCP Segment Offload)" feature
-provided by the Hip06 ethernet hardware to the HNS ethernet
-driver.
+Hello.
 
-Enabling this feature would help offload the TCP Segmentation
-process to the Hip06 ethernet hardware. This eventually would help
-in saving precious cpu cycles.
+On 08/22/2015 02:16 AM, David Daney wrote:
 
-Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
-Signed-off-by: lisheng <lisheng011@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hnae.h         |    1 +
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c |    8 ++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c |    5 ++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h |    2 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h |    1 +
- drivers/net/ethernet/hisilicon/hns/hns_enet.c     |   82 ++++++++++++++++++++-
- 6 files changed, 95 insertions(+), 4 deletions(-)
+> From: David Daney <david.daney@cavium.com>
+>
+> commit 18ee49ddb0d2 ("phylib: rename mii_bus::dev to mii_bus::parent")
+> changed the parent of PHY devices from the bus to the bus parent.
+>
+> Then, commit 4dea547fef1b ("phylib: rework to prepare for OF
+> registration of PHYs") moved the code into phy_device.c
+>
+> At this point, it is somewhat unclear why the change was seen as
+> necessary.  But, when we look at the device model tree in
+> /sys/devices, it is clearly incorrect.  The PHYs should be children of
+> their MDIO bus.
+>
+> Change the PHY's parent device to be the MDIO bus device.
+>
+> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+> Cc: Grant Likely <grant.likely@secretlab.ca>
+> Signed-off-by: David Daney <david.daney@cavium.com>
+> ---
+>   drivers/net/phy/phy_device.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index 0302483..55f0178 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -176,7 +176,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
+>   	if (c45_ids)
+>   		dev->c45_ids = *c45_ids;
+>   	dev->bus = bus;
+> -	dev->dev.parent = bus->parent;
+> +	dev->dev.parent = &bus->dev;
+>   	dev->dev.bus = &mdio_bus_type;
+>   	dev->irq = bus->irq != NULL ? bus->irq[addr] : PHY_POLL;
+>   	dev_set_name(&dev->dev, PHY_ID_FMT, bus->id, addr);
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
-index 1ee42cb..6ec5bd7 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
-@@ -472,6 +472,7 @@ struct hnae_ae_ops {
- 	int (*set_mac_addr)(struct hnae_handle *handle, void *p);
- 	int (*set_mc_addr)(struct hnae_handle *handle, void *addr);
- 	int (*set_mtu)(struct hnae_handle *handle, int new_mtu);
-+	void (*set_tso_stats)(struct hnae_handle *handle, int enable);
- 	void (*update_stats)(struct hnae_handle *handle,
- 			     struct net_device_stats *net_stats);
- 	void (*get_stats)(struct hnae_handle *handle, u64 *data);
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-index e5a31bc..d02fa58 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-@@ -277,6 +277,13 @@ static int hns_ae_set_mtu(struct hnae_handle *handle, int new_mtu)
- 	return hns_mac_set_mtu(mac_cb, new_mtu);
- }
- 
-+static void hns_ae_set_tso_stats(struct hnae_handle *handle, int enable)
-+{
-+	struct hns_ppe_cb *ppe_cb = hns_get_ppe_cb(handle);
-+
-+	hns_ppe_set_tso_enable(ppe_cb, enable);
-+}
-+
- static int hns_ae_start(struct hnae_handle *handle)
- {
- 	int ret;
-@@ -824,6 +831,7 @@ static struct hnae_ae_ops hns_dsaf_ops = {
- 	.set_mc_addr = hns_ae_set_multicast_one,
- 	.set_mtu = hns_ae_set_mtu,
- 	.update_stats = hns_ae_update_stats,
-+	.set_tso_stats = hns_ae_set_tso_stats,
- 	.get_stats = hns_ae_get_stats,
- 	.get_strings = hns_ae_get_strings,
- 	.get_sset_count = hns_ae_get_sset_count,
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-index 824fe50..b6bf292 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-@@ -19,6 +19,11 @@
- 
- #include "hns_dsaf_ppe.h"
- 
-+void hns_ppe_set_tso_enable(struct hns_ppe_cb *ppe_cb, u32 value)
-+{
-+	dsaf_set_dev_bit(ppe_cb, PPEV2_CFG_TSO_EN_REG, 0, !!value);
-+}
-+
- void hns_ppe_set_rss_key(struct hns_ppe_cb *ppe_cb,
- 			 const u32 rss_key[HNS_PPEV2_RSS_KEY_NUM])
- {
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
-index dac8532..0f5cb69 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
-@@ -113,7 +113,7 @@ void hns_ppe_get_regs(struct hns_ppe_cb *ppe_cb, void *data);
- 
- void hns_ppe_get_strings(struct hns_ppe_cb *ppe_cb, int stringset, u8 *data);
- void hns_ppe_get_stats(struct hns_ppe_cb *ppe_cb, u64 *data);
--
-+void hns_ppe_set_tso_enable(struct hns_ppe_cb *ppe_cb, u32 value);
- void hns_ppe_set_rss_key(struct hns_ppe_cb *ppe_cb,
- 			 const u32 rss_key[HNS_PPEV2_RSS_KEY_NUM]);
- void hns_ppe_set_indir_table(struct hns_ppe_cb *ppe_cb,
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index b070d57..98c163e 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -317,6 +317,7 @@
- #define PPE_CFG_TAG_GEN_REG			0x90
- #define PPE_CFG_PARSE_TAG_REG			0x94
- #define PPE_CFG_PRO_CHECK_EN_REG		0x98
-+#define PPEV2_CFG_TSO_EN_REG                    0xA0
- #define PPE_INTEN_REG				0x100
- #define PPE_RINT_REG				0x104
- #define PPE_INTSTS_REG				0x108
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index e235714..055e14c 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -223,6 +223,71 @@ static int hns_nic_maybe_stop_tx(
- 	return 0;
- }
- 
-+static int hns_nic_maybe_stop_tso(
-+	struct sk_buff **out_skb, int *bnum, struct hnae_ring *ring)
-+{
-+	int i;
-+	int size;
-+	int buf_num;
-+	int frag_num;
-+	struct sk_buff *skb = *out_skb;
-+	struct sk_buff *new_skb = NULL;
-+	struct skb_frag_struct *frag;
-+
-+	size = skb_headlen(skb);
-+	buf_num = (size + BD_MAX_SEND_SIZE - 1) / BD_MAX_SEND_SIZE;
-+
-+	frag_num = skb_shinfo(skb)->nr_frags;
-+	for (i = 0; i < frag_num; i++) {
-+		frag = &skb_shinfo(skb)->frags[i];
-+		size = skb_frag_size(frag);
-+		buf_num += (size + BD_MAX_SEND_SIZE - 1) / BD_MAX_SEND_SIZE;
-+	}
-+
-+	if (unlikely(buf_num > ring->max_desc_num_per_pkt)) {
-+		buf_num = (skb->len + BD_MAX_SEND_SIZE - 1) / BD_MAX_SEND_SIZE;
-+		if (ring_space(ring) < buf_num)
-+			return -EBUSY;
-+		/* manual split the send packet */
-+		new_skb = skb_copy(skb, GFP_ATOMIC);
-+		if (!new_skb)
-+			return -ENOMEM;
-+		dev_kfree_skb_any(skb);
-+		*out_skb = new_skb;
-+
-+	} else if (ring_space(ring) < buf_num) {
-+		return -EBUSY;
-+	}
-+
-+	*bnum = buf_num;
-+	return 0;
-+}
-+
-+static void fill_tso_desc(struct hnae_ring *ring, void *priv,
-+			  int size, dma_addr_t dma, int frag_end,
-+			  int buf_num, enum hns_desc_type type, int mtu)
-+{
-+	int frag_buf_num;
-+	int sizeoflast;
-+	int k;
-+
-+	frag_buf_num = (size + BD_MAX_SEND_SIZE - 1) / BD_MAX_SEND_SIZE;
-+	sizeoflast = size % BD_MAX_SEND_SIZE;
-+	sizeoflast = sizeoflast ? sizeoflast : BD_MAX_SEND_SIZE;
-+
-+	/* when the frag size is bigger than hardware, split this frag */
-+	for (k = 0; k < frag_buf_num; k++)
-+		fill_v2_desc(ring, priv,
-+			     (k == frag_buf_num - 1) ?
-+					sizeoflast : BD_MAX_SEND_SIZE,
-+			     dma + BD_MAX_SEND_SIZE * k,
-+			     frag_end && (k == frag_buf_num - 1) ? 1 : 0,
-+			     buf_num,
-+			     (type == DESC_TYPE_SKB && !k) ?
-+					DESC_TYPE_SKB : DESC_TYPE_PAGE,
-+			     mtu);
-+}
-+
- int hns_nic_net_xmit_hw(struct net_device *ndev,
- 			struct sk_buff *skb,
- 			struct hns_nic_ring_data *ring_data)
-@@ -1639,6 +1704,7 @@ static void hns_nic_uninit_ring_data(struct hns_nic_priv *priv)
- static void hns_nic_set_priv_ops(struct net_device *netdev)
- {
- 	struct hns_nic_priv *priv = netdev_priv(netdev);
-+	struct hnae_handle *h = priv->ae_handle;
- 
- 	if (AE_IS_VER1(priv->enet_ver)) {
- 		priv->ops.fill_desc = fill_desc;
-@@ -1646,8 +1712,17 @@ static void hns_nic_set_priv_ops(struct net_device *netdev)
- 		priv->ops.maybe_stop_tx = hns_nic_maybe_stop_tx;
- 	} else {
- 		priv->ops.get_rxd_bnum = get_v2rx_desc_bnum;
--		priv->ops.fill_desc = fill_v2_desc;
--		priv->ops.maybe_stop_tx = hns_nic_maybe_stop_tx;
-+		if ((netdev->features & NETIF_F_TSO) ||
-+		    (netdev->features & NETIF_F_TSO6)) {
-+			priv->ops.fill_desc = fill_tso_desc;
-+			priv->ops.maybe_stop_tx = hns_nic_maybe_stop_tso;
-+			/* This chip only support 7*4096 */
-+			netif_set_gso_max_size(netdev, 7 * 4096);
-+			h->dev->ops->set_tso_stats(h, 1);
-+		} else {
-+			priv->ops.fill_desc = fill_v2_desc;
-+			priv->ops.maybe_stop_tx = hns_nic_maybe_stop_tx;
-+		}
- 	}
- }
- 
-@@ -1760,9 +1835,10 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
- 
- 	switch (priv->enet_ver) {
- 	case AE_VERSION_2:
-+		ndev->features |= NETIF_F_TSO | NETIF_F_TSO6;
- 		ndev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 			NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_GSO |
--			NETIF_F_GRO;
-+			NETIF_F_GRO | NETIF_F_TSO | NETIF_F_TSO6;
- 		break;
- 	default:
- 		break;
--- 
-1.7.9.5
+    This patch makes my sh_eth driver fail to connect to PHY usinjg 
+of_phy_connect(). (The ravb driver fails too but for some other reason.)
+
+MBR, Sergei
