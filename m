@@ -1,110 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] tcp: fix potential huge kmalloc() calls in
- TCP_REPAIR
-Date: Thu, 19 Nov 2015 04:31:32 -0800
-Message-ID: <1447936292.22599.199.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1447909413.22599.191.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <564DA9AD.80400@parallels.com>
-	 <1447935955.22599.195.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Asterisk deadlocks since Kernel 4.1
+Date: Thu, 19 Nov 2015 13:41:42 +0100
+Message-ID: <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com>
+References: <564B3D35.50004@profihost.ag> <alpine.DEB.2.11.1511171936030.3761@nanos>
+ <564B7F9D.5060701@profihost.ag>
+ <alpine.DEB.2.11.1511172041480.3761@nanos>
+ <564CDE2F.8000201@profihost.ag> <564CEB0C.40006@redhat.com>
+ <564CEF5D.3080005@profihost.ag> <564D9A17.6080305@redhat.com>
+ <564D9B21.302@profihost.ag> <564D9CE6.2090104@profihost.ag>
+ <1447933294.1974772.444210441.67F1AC5E@webmail.messagingengine.com>
+ <564DB5F5.9060208@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:36365 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758550AbbKSMbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 07:31:34 -0500
-Received: by pacdm15 with SMTP id dm15so80201472pac.3
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 04:31:33 -0800 (PST)
-In-Reply-To: <1447935955.22599.195.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Stefan Priebe - Profihost AG" <s.priebe@profihost.ag>,
+	Florian Weimer <fweimer@redhat.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <564DB5F5.9060208@profihost.ag>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-11-19 at 04:25 -0800, Eric Dumazet wrote:
-> On Thu, 2015-11-19 at 13:51 +0300, Pavel Emelyanov wrote:
-> > On 11/19/2015 08:03 AM, Eric Dumazet wrote:
-> > > From: Eric Dumazet <edumazet@google.com>
-> > > 
-> > > tcp_send_rcvq() is used for re-injecting data into tcp receive queue.
-> > > 
-> > > Problems :
-> > > 
-> > > - No check against size is performed, allowed user to fool kernel in
-> > >   attempting very large memory allocations, eventually triggering
-> > >   OOM when memory is fragmented.
-> > 
-> > Doesn't the tcp_try_rmem_schedule() protect us from doing this "eventually"?
-> > I mean first we would be allowed to do it, but then the sock will be charged
-> > with the previous allocations and will not add more memory to socket.
+On Thu, Nov 19, 2015, at 12:43, Stefan Priebe - Profihost AG wrote:
 > 
-> But this tcp_try_rmem_schedule() is done _after_ allocation was
-> attempted. This is too late :(
+> Am 19.11.2015 um 12:41 schrieb Hannes Frederic Sowa:
+> > On Thu, Nov 19, 2015, at 10:56, Stefan Priebe - Profihost AG wrote:
+> >> OK it had a livelock again. It just took more time.
+> >>
+> >> So here is the data:
+> > 
+> > Thanks, I couldn't reproduce it so far with simple threaded resolver
+> > loop on your kernel. :/
+> > 
+> > Your data is useless if you don't also provide the file descriptor which
+> > you are blocking on right now. ;)
+> > 
+> > Thanks,
+> > Hannes
+> 
+> ah sorry. So we need the gdb backtrace with the rcvmsg and then the fd
+> list + netlink list?
 
-Simple reproducer allocating 2 Mbytes of contiguous kernel memory :
+Yes, albeit the probability we find something new is minimal. We already
+know it blocks deep down in netlink code. I tried to reproduce it in
+multithreaded environment with no results so far. Can you even try a
+newer kernel?
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/tcp.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-
-static void fail(const char *str)
-{
-        perror(str);
-        exit(1);
-}
-
-void usage(int code)
-{
-        exit(1);
-}
-
-int main(int argc, char *argv[])
-{
-        int res, c, repair = 1;
-        int queue = TCP_RECV_QUEUE;
-        int fd = socket(AF_INET, SOCK_STREAM, 0);
-        size_t sz = 2*1024*1024 - 1024;
-        char *buffer;
-        struct sockaddr_in src, dst;
-
-        while ((c = getopt(argc, argv, "m:")) != -1) {
-                switch (c) {
-                case 'm' :
-                        sz = atoi(optarg);
-                        break;
-                default : usage(1);
-                }
-        }
-        if (setsockopt(fd, SOL_TCP, TCP_REPAIR, &repair, sizeof(repair)) == -1)
-                fail("TCP_REPAIR");
-        memset(&src, 0, sizeof(src));
-        src.sin_family = AF_INET;
-        src.sin_port = htons(8888);
-        src.sin_addr.s_addr = htonl(0x7f000001);
-        if (bind(fd, (struct sockaddr *)&src, sizeof(src)) == -1)
-                fail("bind");
-        memset(&dst, 0, sizeof(dst));
-        dst.sin_family = AF_INET;
-        dst.sin_port = htons(9999);
-        dst.sin_addr.s_addr = htonl(0x7f000001);
-        if (connect(fd, (struct sockaddr *)&dst, sizeof(dst)) == -1)
-                fail("connect");
-        if (setsockopt(fd, SOL_TCP, TCP_REPAIR_QUEUE, &queue, sizeof(queue)) == -1)
-                fail("TCP_REPAIR_QUEUE");
-        buffer = malloc(sz);
-        if (!buffer)
-                buffer = malloc(1000);
-        res = send(fd, buffer, sz, 0);
-        printf("send() res=%d errno=%d\n", res, errno);
-        if (res != -1)
-                sleep(1000);
-        return 0;
-} 
+Bye,
+Hannes
