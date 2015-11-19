@@ -1,47 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: remove useless check in napi_gro_frags()
-Date: Thu, 19 Nov 2015 11:42:50 -0800
-Message-ID: <1447962170.22599.240.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stefan Priebe <s.priebe@profihost.ag>
+Subject: Re: Asterisk deadlocks since Kernel 4.1
+Date: Thu, 19 Nov 2015 20:51:46 +0100
+Message-ID: <564E2852.8000200@profihost.ag>
+References: <564B3D35.50004@profihost.ag>
+ <alpine.DEB.2.11.1511171936030.3761@nanos> <564B7F9D.5060701@profihost.ag>
+ <alpine.DEB.2.11.1511172041480.3761@nanos> <564CDE2F.8000201@profihost.ag>
+ <564CEB0C.40006@redhat.com> <564CEF5D.3080005@profihost.ag>
+ <564D9A17.6080305@redhat.com> <564D9B21.302@profihost.ag>
+ <564D9CE6.2090104@profihost.ag>
+ <1447933294.1974772.444210441.67F1AC5E@webmail.messagingengine.com>
+ <564DB5F5.9060208@profihost.ag>
+ <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com>
+ <564DC4A5.70104@profihost.ag> <564DCC4C.1090009@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=iso-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:35798 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755529AbbKSTmw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 14:42:52 -0500
-Received: by pacej9 with SMTP id ej9so90332815pac.2
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 11:42:51 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Florian Weimer <fweimer@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <564DCC4C.1090009@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
 
-Checking if skb is NULL in napi_gro_frags() is too late.
+Am 19.11.2015 um 14:19 schrieb Florian Weimer:
+> On 11/19/2015 01:46 PM, Stefan Priebe - Profihost AG wrote:
+>
+>> I can try Kernel 4.4-rc1 next week. Or something else?
+>
+> I found this bug report which indicates that 4.1.10 works:
+>
+>    <https://issues.asterisk.org/jira/browse/ASTERISK-25251>
+>
+> But in your original report, you said that 4.1.13 is broken.
 
-If skb was NULL, we would crash earlier in napi_frags_skb()
+That's correct i'm running 4.1.13.
 
-Drivers normally catch napi_get_frags() NULL return value
-before calling napi_gro_frags()
+> This backtrace:
+>
+>    <https://issues.asterisk.org/jira/secure/attachment/52702/bt.txt>
+>
+> shows a lot of waiting on quite different netlink sockets.  So if this
+> is due to a race in Asterisk, it must have happened several times in a row.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/dev.c |    3 ---
- 1 file changed, 3 deletions(-)
+Might be I've always only one waiting.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 41cef3e3f558b857a9093a83f6b0c73f32b8b45f..8d8d34ff68f5800dbcb2958b6a937b9db478e359 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4465,9 +4465,6 @@ gro_result_t napi_gro_frags(struct napi_struct *napi)
- {
- 	struct sk_buff *skb = napi_frags_skb(napi);
- 
--	if (!skb)
--		return GRO_DROP;
--
- 	trace_napi_gro_frags_entry(skb);
- 
- 	return napi_frags_finish(napi, skb, dev_gro_receive(napi, skb));
+Stefan
+
+
+> Thanks,
+> Florian
+>
