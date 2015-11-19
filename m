@@ -1,43 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: remove useless check in napi_gro_frags()
-Date: Thu, 19 Nov 2015 13:43:45 -0800
-Message-ID: <1447969425.22599.254.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1447962170.22599.240.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151119195419.GA6728@ast-mbp.thefacebook.com>
-	 <1447964139.22599.246.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87oaepzqq2.fsf@nemi.mork.no>
-	 <1447965199.22599.252.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <f7tfv01pulb.fsf@aconole.bos.csb>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 regression: UDP packets dropped intermittantly
+Date: Thu, 19 Nov 2015 22:44:16 +0100
+Message-ID: <20151119214416.GB30304@electric-eye.fr.zoreil.com>
+References: <20130309064647.GC4984@marvin.atrad.com.au>
+ <20130311000216.GA31808@zoreil.com>
+ <20130405001526.GC19253@marvin.atrad.com.au>
+ <20151117015605.GI22941@marvin.atrad.com.au>
+ <20151117232108.GC3362@electric-eye.fr.zoreil.com>
+ <20151118050919.GR25216@marvin.atrad.com.au>
+ <20151119005608.GB4882@electric-eye.fr.zoreil.com>
+ <20151119065718.GT8170@marvin.atrad.com.au>
+ <1447935754.22599.194.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Aaron Conole <aconole@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jonathan Woithe <jwoithe@atrad.com.au>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:36058 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759150AbbKSVnr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 16:43:47 -0500
-Received: by pacdm15 with SMTP id dm15so93223960pac.3
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 13:43:47 -0800 (PST)
-In-Reply-To: <f7tfv01pulb.fsf@aconole.bos.csb>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:58857 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751501AbbKSVoZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 16:44:25 -0500
+Content-Disposition: inline
+In-Reply-To: <1447935754.22599.194.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-11-19 at 16:06 -0500, Aaron Conole wrote:
-
-> >
+Eric Dumazet <eric.dumazet@gmail.com> :
+[...]
+> This looks like a race when/if RX happens very shortly after one
+> transmit.
 > 
-> Would the following be an appropriate change in addition to the one
-> you've posted, then? If so I can repost as a formal patch, if you'd
-> like. At present, there's only one user of napi_frags_skb(), and your
-> patch removes the NULL check. If this can really only be the result of
-> buggy driver, then perhaps we should just call out the bug?
+> Francois, are we really saving lot of cpu cycles testing status ?
 
-Lets mark my patch as "premature" optimization, and revisit whole thing
-after audit of the 10 drivers using this interface ;)
+I'm not sure. An extra smp_rmb and three cache lines at most when
+there really isn't any work ? Probably not worth it.
 
-Thanks.
+Can you clarify which kind of race you're thinking about ?
+
+-- 
+Ueimor
