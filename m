@@ -1,152 +1,85 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] net, scm: fix PaX detected msg_controllen overflow in scm_detach_fds
-Date: Fri, 20 Nov 2015 00:11:56 +0100
-Message-ID: <dc443f68cd163bfd40c4bcc845272d7a790c01da.1447974020.git.daniel@iogearbox.net>
-Cc: hannes@stressinduktion.org, dave@jikos.cz, hackurx@gmail.com,
-	pageexec@freemail.hu, re.emese@gmail.com, spender@grsecurity.net,
-	yongjun_wei@trendmicro.com.cn, edumazet@google.com,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
+Date: Thu, 19 Nov 2015 15:24:26 -0800
+Message-ID: <CALx6S34_ZHrJg5rtt-72LoHUdKNcBc=7qNNrAxnBAKVMjo7LZQ@mail.gmail.com>
+References: <CAKD1Yr2OgJT0GsrTuws0oapobrU+ML3NpBNBXizg6q035PH4MA@mail.gmail.com>
+	<20151119.005318.838757439536205791.davem@davemloft.net>
+	<CANP3RGcPRzSL06qZB9oewrvN_AUUodnYzXQO=itoK40z64x8Yw@mail.gmail.com>
+	<20151119.104811.1447518072450380661.davem@davemloft.net>
+	<1447949964.22599.220.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1447952902.2049284.444501617.7C422D07@webmail.messagingengine.com>
+	<CALx6S379hXL=QEBF-HmOvPr3K55tS87HV=wKOySro1A0ogmWcQ@mail.gmail.com>
+	<CAKD1Yr1ji7AP-YKJ5kG8xYhgksNbXKKKcLoQPRsEtN020Gb_0g@mail.gmail.com>
+	<1447972681.3063104.444798817.76BFD7A6@webmail.messagingengine.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
+	Dmitry Torokhov <dtor@google.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41332 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758294AbbKSXMW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 18:12:22 -0500
+Received: from mail-io0-f174.google.com ([209.85.223.174]:34869 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934042AbbKSXY2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 18:24:28 -0500
+Received: by ioc74 with SMTP id 74so106285454ioc.2
+        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 15:24:27 -0800 (PST)
+In-Reply-To: <1447972681.3063104.444798817.76BFD7A6@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David and HacKurx reported a following/similar size overflow triggered
-in a grsecurity kernel, thanks to PaX's gcc size overflow plugin:
+On Thu, Nov 19, 2015 at 2:38 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+>
+>
+> On Thu, Nov 19, 2015, at 23:33, Lorenzo Colitti wrote:
+>> On Fri, Nov 20, 2015 at 2:38 AM, Tom Herbert <tom@herbertland.com> wrote:
+>> >> I actually don't have an issue with killing from user space that much. I
+>> >> still recommend (and actually have started to look at it today) to add a
+>> >> new substate for TCP TIMEWAIT and don't have any issue if we block the
+>> >> socket for 60 seconds and send RSTs to all incoming data. This way we
+>> >> can solve the problem Florian indicated as well as this problem. Users
+>> >> can happily kill TCP connections then.
+>> >>
+>> > Neither do I have a problem with killing connections from userspace,
+>> > but we do have to acknowledge that this is a powerful and invasive
+>> > mechanism. I suggest:
+>> >
+>> > 1) We need transparency. If a third party kills a TCP connection then
+>> > the application should be informed of specifically that. This seems
+>> > easy enough to just pick an appropriate error number as I suggested.
+>>
+>> I'm not wedded to ETIMEDOUT. If it means we can get this code
+>> upstream, then we can likely do the userspace work that is needed to
+>> ensure that applications respond correctly. Mot
+>>
+>> > 2) We need constraints. This feature seems to be specific to a very
+>> > narrow use case. It is not at all clear to me if there are any
+>> > legitimate uses cases beyond Android, enabling this by default in the
+>> > stack creates a non-zero amount of risk and liability for abuse. It
+>> > seems like this should be an opt-in sort of feature, with a kernel
+>> > CONFIG or maybe opt-in per socket.
+>>
+>> I am perfectly happy for this to be behind a config option.
+>
+> Why? If it is an administrator only option it does not make sense to
+> hide it behind a sysctl. Applications using this interface could also
+> easily change the sysctl because they probably have the same privileges.
+> A Kconfig option seems to be not useful to me either.
+>
 
-(Already fixed in later grsecurity versions by Brad and PaX Team.)
+A sysctl is obviously useless, but Kconfig option is good. There is no
+way I want this option enabled in my data center without any
+demonstrated need for it. History has shown many times, that once we
+allow options like this to be enabled in the kernel, they will
+inevitably be used often without our (kernel experts') knowledge or
+supervision. In too many cases this blows up in our faces (there has
+been at least one outage @FB caused by someone inadvertently
+exercising an otherwise obscure kernel feature).
 
-[ 1002.296137] PAX: size overflow detected in function scm_detach_fds net/core/scm.c:314
-               cicus.202_127 min, count: 4, decl: msg_controllen; num: 0; context: msghdr;
-[ 1002.296145] CPU: 0 PID: 3685 Comm: scm_rights_recv Not tainted 4.2.3-grsec+ #7
-[ 1002.296149] Hardware name: Apple Inc. MacBookAir5,1/Mac-66F35F19FE2A0D05, [...]
-[ 1002.296153]  ffffffff81c27366 0000000000000000 ffffffff81c27375 ffffc90007843aa8
-[ 1002.296162]  ffffffff818129ba 0000000000000000 ffffffff81c27366 ffffc90007843ad8
-[ 1002.296169]  ffffffff8121f838 fffffffffffffffc fffffffffffffffc ffffc90007843e60
-[ 1002.296176] Call Trace:
-[ 1002.296190]  [<ffffffff818129ba>] dump_stack+0x45/0x57
-[ 1002.296200]  [<ffffffff8121f838>] report_size_overflow+0x38/0x60
-[ 1002.296209]  [<ffffffff816a979e>] scm_detach_fds+0x2ce/0x300
-[ 1002.296220]  [<ffffffff81791899>] unix_stream_read_generic+0x609/0x930
-[ 1002.296228]  [<ffffffff81791c9f>] unix_stream_recvmsg+0x4f/0x60
-[ 1002.296236]  [<ffffffff8178dc00>] ? unix_set_peek_off+0x50/0x50
-[ 1002.296243]  [<ffffffff8168fac7>] sock_recvmsg+0x47/0x60
-[ 1002.296248]  [<ffffffff81691522>] ___sys_recvmsg+0xe2/0x1e0
-[ 1002.296257]  [<ffffffff81693496>] __sys_recvmsg+0x46/0x80
-[ 1002.296263]  [<ffffffff816934fc>] SyS_recvmsg+0x2c/0x40
-[ 1002.296271]  [<ffffffff8181a3ab>] entry_SYSCALL_64_fastpath+0x12/0x85
-
-Further investigation showed that this can happen when an *odd* number of
-fds are being passed over AF_UNIX sockets.
-
-In these cases CMSG_LEN(i * sizeof(int)) and CMSG_SPACE(i * sizeof(int)),
-where i is the number of successfully passed fds, differ by 4 bytes due
-to the extra CMSG_ALIGN() padding in CMSG_SPACE() to an 8 byte boundary
-on 64 bit. The padding is used to align subsequent cmsg headers in the
-control buffer.
-
-When the control buffer passed in from the receiver side *lacks* these 4
-bytes (e.g. due to buggy/wrong API usage), then msg->msg_controllen will
-overflow in scm_detach_fds():
-
-  int cmlen = CMSG_LEN(i * sizeof(int));  <--- cmlen w/o tail-padding
-  err = put_user(SOL_SOCKET, &cm->cmsg_level);
-  if (!err)
-    err = put_user(SCM_RIGHTS, &cm->cmsg_type);
-  if (!err)
-    err = put_user(cmlen, &cm->cmsg_len);
-  if (!err) {
-    cmlen = CMSG_SPACE(i * sizeof(int));  <--- cmlen w/ 4 byte extra tail-padding
-    msg->msg_control += cmlen;
-    msg->msg_controllen -= cmlen;         <--- iff no tail-padding space here ...
-  }                                            ... wrap-around
-
-F.e. it will wrap to a length of 18446744073709551612 bytes in case the
-receiver passed in msg->msg_controllen of 20 bytes, and the sender
-properly transferred 1 fd to the receiver, so that its CMSG_LEN results
-in 20 bytes and CMSG_SPACE in 24 bytes.
-
-In case of MSG_CMSG_COMPAT (scm_detach_fds_compat()), I haven't seen an
-issue in my tests as alignment seems always on 4 byte boundary. Same
-should be in case of native 32 bit, where we end up with 4 byte boundaries
-as well.
-
-In practice, passing msg->msg_controllen of 20 to recvmsg() while receiving
-a single fd would mean that on successful return, msg->msg_controllen is
-being set by the kernel to 24 bytes instead, thus more than the input
-buffer advertised. It could f.e. become an issue if such application later
-on zeroes or copies the control buffer based on the returned msg->msg_controllen
-elsewhere.
-
-Maximum number of fds we can send is a hard upper limit SCM_MAX_FD (253).
-
-Going over the code, it seems like msg->msg_controllen is not being read
-after scm_detach_fds() in scm_recv() anymore by the kernel, good!
-
-Relevant recvmsg() handler are unix_dgram_recvmsg() (unix_seqpacket_recvmsg())
-and unix_stream_recvmsg(). Both return back to their recvmsg() caller,
-and ___sys_recvmsg() places the updated length, that is, new msg_control -
-old msg_control pointer into msg->msg_controllen (hence the 24 bytes seen
-in the example).
-
-Long time ago, Wei Yongjun fixed something related in commit 1ac70e7ad24a
-("[NET]: Fix function put_cmsg() which may cause usr application memory
-overflow").
-
-RFC3542, section 20.2. says:
-
-  The fields shown as "XX" are possible padding, between the cmsghdr
-  structure and the data, and between the data and the next cmsghdr
-  structure, if required by the implementation. While sending an
-  application may or may not include padding at the end of last
-  ancillary data in msg_controllen and implementations must accept both
-  as valid. On receiving a portable application must provide space for
-  padding at the end of the last ancillary data as implementations may
-  copy out the padding at the end of the control message buffer and
-  include it in the received msg_controllen. When recvmsg() is called
-  if msg_controllen is too small for all the ancillary data items
-  including any trailing padding after the last item an implementation
-  may set MSG_CTRUNC.
-
-Since we didn't place MSG_CTRUNC for already quite a long time, just do
-the same as in 1ac70e7ad24a to avoid an overflow.
-
-Btw, even man-page author got this wrong :/ See db939c9b26e9 ("cmsg.3: Fix
-error in SCM_RIGHTS code sample"). Some people must have copied this (?),
-thus it got triggered in the wild (reported several times during boot by
-David and HacKurx).
-
-No Fixes tag this time as pre 2002 (that is, pre history tree).
-
-Reported-by: David Sterba <dave@jikos.cz>
-Reported-by: HacKurx <hackurx@gmail.com>
-Cc: PaX Team <pageexec@freemail.hu>
-Cc: Emese Revfy <re.emese@gmail.com>
-Cc: Brad Spengler <spender@grsecurity.net>
-Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-Cc: Eric Dumazet <edumazet@google.com>
-Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- net/core/scm.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/core/scm.c b/net/core/scm.c
-index 3b6899b..8a1741b 100644
---- a/net/core/scm.c
-+++ b/net/core/scm.c
-@@ -305,6 +305,8 @@ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
- 			err = put_user(cmlen, &cm->cmsg_len);
- 		if (!err) {
- 			cmlen = CMSG_SPACE(i*sizeof(int));
-+			if (msg->msg_controllen < cmlen)
-+				cmlen = msg->msg_controllen;
- 			msg->msg_control += cmlen;
- 			msg->msg_controllen -= cmlen;
- 		}
--- 
-1.9.3
+Tom
