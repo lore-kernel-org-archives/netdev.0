@@ -1,40 +1,30 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/2] net: dsa: Add support for a switch reset
- gpio
-Date: Thu, 19 Nov 2015 04:06:05 +0100
-Message-ID: <20151119030605.GG25930@lunn.ch>
-References: <1447889365-25256-1-git-send-email-andrew@lunn.ch>
- <1447889365-25256-2-git-send-email-andrew@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] arm64: bpf: fix buffer pointer
+Date: Wed, 18 Nov 2015 22:38:37 -0500 (EST)
+Message-ID: <20151118.223837.1209898089030584083.davem@davemloft.net>
+References: <1447836962-4086-1-git-send-email-zlim.lnx@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Neil Armstrong <narmstrong@baylibre.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:36983 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754900AbbKSDGI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Nov 2015 22:06:08 -0500
-Content-Disposition: inline
-In-Reply-To: <1447889365-25256-2-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com,
+	daniel@iogearbox.net, yang.shi@linaro.org, xi.wang@gmail.com,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org
+To: zlim.lnx@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447836962-4086-1-git-send-email-zlim.lnx@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> index 1eba07feb34a..39cd19eaaf4e 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -21,6 +21,8 @@
->  #include <linux/of_mdio.h>
->  #include <linux/of_platform.h>
->  #include <linux/of_net.h>
-> +#include <linux/nvmem-consumer.h>
+From: Zi Shen Lim <zlim.lnx@gmail.com>
+Date: Wed, 18 Nov 2015 00:56:02 -0800
 
-Comment to self:
+> During code review, I noticed we were passing a bad buffer pointer
+> to bpf_load_pointer helper function called by jitted code.
+> 
+> Point to the buffer allocated by JIT, so we don't silently corrupt
+> other parts of the stack.
+> 
+> Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
 
-That include should not be there.
-
-I will post a v2 once the discussion has stopped.
-
-  Andrew
+Applied, thank you.
