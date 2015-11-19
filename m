@@ -1,43 +1,54 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net 2/2] tcp: fix Fast Open snmp over-counting bug
-Date: Wed, 18 Nov 2015 18:17:31 -0800
-Message-ID: <1447899451-24584-2-git-send-email-ycheng@google.com>
-References: <1447899451-24584-1-git-send-email-ycheng@google.com>
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: davem@davemloft.net
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 2/2] dsa: mv88e6xxx.c: Hardware reset the chip
+ if available
+Date: Thu, 19 Nov 2015 03:25:14 +0100
+Message-ID: <20151119022514.GE25930@lunn.ch>
+References: <1447889365-25256-1-git-send-email-andrew@lunn.ch>
+ <1447889365-25256-3-git-send-email-andrew@lunn.ch>
+ <564D2F16.1020701@electromag.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Neil Armstrong <narmstrong@baylibre.com>
+To: Phil Reid <preid@electromag.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36072 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756239AbbKSCSP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 21:18:15 -0500
-Received: by pacdm15 with SMTP id dm15so63961906pac.3
-        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 18:18:15 -0800 (PST)
-In-Reply-To: <1447899451-24584-1-git-send-email-ycheng@google.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:36970 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756537AbbKSCZU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Nov 2015 21:25:20 -0500
+Content-Disposition: inline
+In-Reply-To: <564D2F16.1020701@electromag.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix incrementing TCPFastOpenActiveFailed snmp stats multiple times
-when the handshake experiences multiple SYN timeouts.
+> This is a general query about what is the preferred method of allocating gpios.
+> The gpiod* family of functions provided similar functionality and automatically
+> deal with active low / high outputs, direction, inital value  etc...
+> I raise this more for knowledge on what method I should use for my patches.
 
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_timer.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I first tried using gpiod, but failed. The API requires that the gpios
+be in the root of the device's subtree in the DT blob. But here the
+gpios are associated to a switch, and the switch part of the subtree
+is one level down. gpiod has no way to get them from there.
 
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 448603a..193ba1f 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -168,7 +168,7 @@ static int tcp_write_timeout(struct sock *sk)
- 			dst_negative_advice(sk);
- 			if (tp->syn_fastopen || tp->syn_data)
- 				tcp_fastopen_cache_set(sk, 0, NULL, true, 0);
--			if (tp->syn_data)
-+			if (tp->syn_data && icsk->icsk_retransmits == 1)
- 				NET_INC_STATS_BH(sock_net(sk),
- 						 LINUX_MIB_TCPFASTOPENACTIVEFAIL);
- 		}
--- 
-2.6.0.rc2.230.g3dd15c0
+> Other than that the concept looks good and something I has been
+> looking at adding.
+
+Please feel free to test it on your hardware and send a Tested-by :-)
+
+> Would it be worth considering placing the chip in reset on driver
+> remove?  I have an battery powered hardware platform using one of
+> this marvell devices and for certain configurations we don't need
+> the switch active. So unloading the module to place the device in
+> reset and would save power.  Reloading would reinitialise the port.
+
+I think we first need to get module unload/load working reliably.
+This is being worked on. But i'm not against this in principle.  Power
+saving in general needs working on for Marvall devices. There is no
+suspend/resume support for example. It would also be good to ensure
+the PHYs are powered off when not needed, etc.
+
+    Andrew
