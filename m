@@ -1,37 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v7] net: ethernet: add driver for Aurora VLSI NB8800
- Ethernet controller
-Date: Wed, 18 Nov 2015 23:01:01 -0500 (EST)
-Message-ID: <20151118.230101.2199889775612098415.davem@davemloft.net>
-References: <1447867764-23075-1-git-send-email-mans@mansr.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net,stable] net: qmi_wwan: add XS Stick W100-2 from 4G
+ Systems
+Date: Wed, 18 Nov 2015 23:02:19 -0500 (EST)
+Message-ID: <20151118.230219.927310142409944747.davem@davemloft.net>
+References: <1447877587-19986-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: mans@mansr.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447867764-23075-1-git-send-email-mans@mansr.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	tschaefer-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org
+To: bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1447877587-19986-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Mans Rullgard <mans@mansr.com>
-Date: Wed, 18 Nov 2015 17:29:24 +0000
+=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Date: Wed, 18 Nov 2015 21:13:07 +0100
 
-> +static int nb8800_poll(struct napi_struct *napi, int budget)
-> +{
-> +	struct net_device *dev = napi->dev;
-> +	struct nb8800_priv *priv = netdev_priv(dev);
-> +	struct nb8800_rx_desc *rxd;
-> +	int work = 0;
-> +	int last = priv->rx_eoc;
-> +	int next;
+> Thomas reports
  ...
-> +		next = (last + 1) % RX_DESC_COUNT;
+> Reported-by: Thomas Sch=E4fer <tschaefer-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org>
+> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 
-You should look at what the assembler looks like for these modulo
-operations.
-
-They will be much simpler (ie. one instruction) if you use unsigned
-variables to hold the queue indices.
-
-Please fix this in the entire driver.
+Applied and queued up for -stable, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
