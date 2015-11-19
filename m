@@ -1,181 +1,105 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: IPv6 fib lookup tracepoint
-Date: Thu, 19 Nov 2015 12:24:22 -0800
-Message-ID: <1447964662-39263-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: tulip: turn compile-time warning into dev_warn()
+Date: Thu, 19 Nov 2015 12:29:47 -0800
+Message-ID: <564E313B.6000801@gmail.com>
+References: <9720627.53btSdPcQU@wuerfel> <20151119122610.GF22786@arm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	ard.biesheuvel@linaro.org,
+	Grant Grundler <grundler@parisc-linux.org>
+To: Will Deacon <will.deacon@arm.com>, Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35733 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934327AbbKSUYd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 15:24:33 -0500
-Received: by pacej9 with SMTP id ej9so91318558pac.2
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 12:24:33 -0800 (PST)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34366 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161233AbbKSUas (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 15:30:48 -0500
+Received: by padhx2 with SMTP id hx2so91518489pad.1
+        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 12:30:48 -0800 (PST)
+In-Reply-To: <20151119122610.GF22786@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add tracepoint to show fib6 table lookups and result.
+On 19/11/15 04:26, Will Deacon wrote:
+> On Thu, Nov 19, 2015 at 11:42:26AM +0100, Arnd Bergmann wrote:
+>> The tulip driver causes annoying build-time warnings for allmodconfig
+>> builds for all recent architectures:
+>>
+>> dec/tulip/winbond-840.c:910:2: warning: #warning Processor architecture undefined
+>> dec/tulip/tulip_core.c:101:2: warning: #warning Processor architecture undefined!
+>>
+>> This is the last remaining warning for arm64, and I'd like to get rid of
+>> it. We don't really know the cache line size, architecturally it would
+>> be at least 16 bytes, but all implementations I found have 64 or 128
+>> bytes. Configuring tulip for 32-byte lines as we do on ARM32 seems to
+>> be the safe but slow default, and nobody who cares about performance these
+>> days would use a tulip chip anyway, so we can just use that.
+>>
+>> To save the next person the job of trying to find out what this is for
+>> and picking a default for their architecture just to kill off the warning,
+>> I'm now removing the preprocessor #warning and turning it into a pr_warn
+>> or dev_warn that prints the equivalent information when the driver gets
+>> loaded.
+>>
+>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>>
+>> diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
+>> index ed41559bae77..b553409e04ad 100644
+>> --- a/drivers/net/ethernet/dec/tulip/tulip_core.c
+>> +++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
+>> @@ -98,8 +98,7 @@ static int csr0 = 0x01A00000 | 0x4800;
+>>  #elif defined(__mips__)
+>>  static int csr0 = 0x00200000 | 0x4000;
+>>  #else
+>> -#warning Processor architecture undefined!
+>> -static int csr0 = 0x00A00000 | 0x4800;
+>> +static int csr0;
+>>  #endif
+>>  
+>>  /* Operational parameters that usually are not changed. */
+>> @@ -1982,6 +1981,12 @@ static int __init tulip_init (void)
+>>  	pr_info("%s", version);
+>>  #endif
+>>  
+>> +	if (!csr0) {
+>> +		pr_warn("tulip: unknown CPU architecture, using default csr0\n");
+>> +		/* default to 8 longword cache line alignment */
+>> +		csr0 = 0x00A00000 | 0x4800;
+> 
+> Maybe print "defaulting to 8 longword cache line alignment" instead of
+> "default csr0"?
+> 
+>> diff --git a/drivers/net/ethernet/dec/tulip/winbond-840.c b/drivers/net/ethernet/dec/tulip/winbond-840.c
+>> index 9beb3d34d4ba..3c0e4d5c5fef 100644
+>> --- a/drivers/net/ethernet/dec/tulip/winbond-840.c
+>> +++ b/drivers/net/ethernet/dec/tulip/winbond-840.c
+>> @@ -907,7 +907,7 @@ static void init_registers(struct net_device *dev)
+>>  #elif defined(CONFIG_SPARC) || defined (CONFIG_PARISC) || defined(CONFIG_ARM)
+>>  	i |= 0x4800;
+>>  #else
+>> -#warning Processor architecture undefined
+>> +	dev_warn(&dev->dev, "unknown CPU architecture, using default csr0 setting\n");
+>>  	i |= 0x4800;
+> 
+> Then we could print the default csr0 value here.
+> 
+> But, to be honest, this patch fixes a #warning on arm64 for a driver that
+> I never expect to be used. So whatever you do to silence it:
+> 
+>   Acked-by: Will Deacon <will.deacon@arm.com>
+> 
+> /me waits for on-soc tulip integration.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- include/trace/events/fib6.h | 76 +++++++++++++++++++++++++++++++++++++++++++++
- net/core/net-traces.c       |  4 +++
- net/ipv6/route.c            | 10 ++++++
- 3 files changed, 90 insertions(+)
- create mode 100644 include/trace/events/fib6.h
+FWIW, this already happened, the ADMtek/Infineon ADM8668 actually
+integrated a Tulip chip. I have not submitted these patches below from
+the OpenWrt tree because the chip is barely used nowadays, and it was
+only mostly popular with the Linksys WRTU54G.
 
-diff --git a/include/trace/events/fib6.h b/include/trace/events/fib6.h
-new file mode 100644
-index 000000000000..4cf6bac4686d
---- /dev/null
-+++ b/include/trace/events/fib6.h
-@@ -0,0 +1,76 @@
-+#undef TRACE_SYSTEM
-+#define TRACE_SYSTEM fib6
-+
-+#if !defined(_TRACE_FIB6_H) || defined(TRACE_HEADER_MULTI_READ)
-+#define _TRACE_FIB6_H
-+
-+#include <linux/in6.h>
-+#include <net/flow.h>
-+#include <net/ip6_fib.h>
-+#include <linux/tracepoint.h>
-+
-+TRACE_EVENT(fib6_table_lookup,
-+
-+	TP_PROTO(const struct net *net, const struct rt6_info *rt,
-+		 u32 tb_id, const struct flowi6 *flp),
-+
-+	TP_ARGS(net, rt, tb_id, flp),
-+
-+	TP_STRUCT__entry(
-+		__field(	u32,	tb_id		)
-+
-+		__field(	int,	oif		)
-+		__field(	int,	iif		)
-+		__field(	__u8,	tos		)
-+		__field(	__u8,	scope		)
-+		__field(	__u8,	flags		)
-+		__array(	__u8,	src,	16	)
-+		__array(	__u8,	dst,	16	)
-+
-+		__dynamic_array(	char,	name,	IFNAMSIZ )
-+		__array(		__u8,	gw,	16	 )
-+	),
-+
-+	TP_fast_assign(
-+		struct in6_addr *in6;
-+
-+		__entry->tb_id = tb_id;
-+		__entry->oif = flp->flowi6_oif;
-+		__entry->iif = flp->flowi6_iif;
-+		__entry->tos = flp->flowi6_tos;
-+		__entry->scope = flp->flowi6_scope;
-+		__entry->flags = flp->flowi6_flags;
-+
-+		in6 = (struct in6_addr *)__entry->src;
-+		*in6 = flp->saddr;
-+
-+		in6 = (struct in6_addr *)__entry->dst;
-+		*in6 = flp->daddr;
-+
-+		if (rt->rt6i_idev) {
-+			__assign_str(name, rt->rt6i_idev->dev->name);
-+		} else {
-+			__assign_str(name, "");
-+		}
-+		if (rt == net->ipv6.ip6_null_entry) {
-+			struct in6_addr in6_zero = {};
-+
-+			in6 = (struct in6_addr *)__entry->gw;
-+			*in6 = in6_zero;
-+
-+		} else if (rt) {
-+			in6 = (struct in6_addr *)__entry->gw;
-+			*in6 = rt->rt6i_gateway;
-+		}
-+	),
-+
-+	TP_printk("table %3u oif %d iif %d src %pI6c dst %pI6c tos %d scope %d flags %x ==> dev %s gw %pI6c",
-+		  __entry->tb_id, __entry->oif, __entry->iif,
-+		  __entry->src, __entry->dst, __entry->tos, __entry->scope,
-+		  __entry->flags, __get_str(name), __entry->gw)
-+);
-+
-+#endif /* _TRACE_FIB6_H */
-+
-+/* This part must be outside protection */
-+#include <trace/define_trace.h>
-diff --git a/net/core/net-traces.c b/net/core/net-traces.c
-index adef015b2f41..92da5e4ceb4f 100644
---- a/net/core/net-traces.c
-+++ b/net/core/net-traces.c
-@@ -32,6 +32,10 @@
- #include <trace/events/sock.h>
- #include <trace/events/udp.h>
- #include <trace/events/fib.h>
-+#if IS_ENABLED(CONFIG_IPV6)
-+#include <trace/events/fib6.h>
-+EXPORT_TRACEPOINT_SYMBOL_GPL(fib6_table_lookup);
-+#endif
- 
- EXPORT_TRACEPOINT_SYMBOL_GPL(kfree_skb);
- 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 6f01fe122abd..89758be9c6a6 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -62,6 +62,7 @@
- #include <net/lwtunnel.h>
- #include <net/ip_tunnels.h>
- #include <net/l3mdev.h>
-+#include <trace/events/fib6.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -865,6 +866,9 @@ static struct rt6_info *ip6_pol_route_lookup(struct net *net,
- 	}
- 	dst_use(&rt->dst, jiffies);
- 	read_unlock_bh(&table->tb6_lock);
-+
-+	trace_fib6_table_lookup(net, rt, table->tb6_id, fl6);
-+
- 	return rt;
- 
- }
-@@ -1078,6 +1082,8 @@ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
- 		read_unlock_bh(&table->tb6_lock);
- 
- 		rt6_dst_from_metrics_check(rt);
-+
-+		trace_fib6_table_lookup(net, rt, table->tb6_id, fl6);
- 		return rt;
- 	} else if (unlikely((fl6->flowi6_flags & FLOWI_FLAG_KNOWN_NH) &&
- 			    !(rt->rt6i_flags & RTF_GATEWAY))) {
-@@ -1101,6 +1107,8 @@ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
- 			uncached_rt = net->ipv6.ip6_null_entry;
- 
- 		dst_hold(&uncached_rt->dst);
-+
-+		trace_fib6_table_lookup(net, uncached_rt, table->tb6_id, fl6);
- 		return uncached_rt;
- 
- 	} else {
-@@ -1125,6 +1133,7 @@ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
- 			dst_release(&rt->dst);
- 		}
- 
-+		trace_fib6_table_lookup(net, pcpu_rt, table->tb6_id, fl6);
- 		return pcpu_rt;
- 
- 	}
-@@ -1474,6 +1483,7 @@ static struct rt6_info *__ip6_route_redirect(struct net *net,
- 
- 	read_unlock_bh(&table->tb6_lock);
- 
-+	trace_fib6_table_lookup(net, rt, table->tb6_id, fl6);
- 	return rt;
- };
- 
+The patches could be made less intrusive if we did convert the pci_dma*
+calls into regular DMA-API calls, which they are nowadays, oh well!
+
+https://dev.openwrt.org/browser/trunk/target/linux/adm8668/patches-3.18/004-tulip_pci_split.patch
+https://dev.openwrt.org/browser/trunk/target/linux/adm8668/patches-3.18/005-tulip_platform.patch
 -- 
-1.9.1
+Florian
