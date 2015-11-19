@@ -1,83 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Lorenzo Colitti <lorenzo@google.com>
 Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Thu, 19 Nov 2015 14:33:01 -0800
-Message-ID: <1447972381.22599.278.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Fri, 20 Nov 2015 07:33:53 +0900
+Message-ID: <CAKD1Yr1ji7AP-YKJ5kG8xYhgksNbXKKKcLoQPRsEtN020Gb_0g@mail.gmail.com>
 References: <CAKD1Yr2OgJT0GsrTuws0oapobrU+ML3NpBNBXizg6q035PH4MA@mail.gmail.com>
-	 <20151119.005318.838757439536205791.davem@davemloft.net>
-	 <CANP3RGcPRzSL06qZB9oewrvN_AUUodnYzXQO=itoK40z64x8Yw@mail.gmail.com>
-	 <20151119.104811.1447518072450380661.davem@davemloft.net>
-	 <1447949964.22599.220.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S363gYA37GnEuArp+PKVjFdLchB_66zuLF5kJnSFKF4t6Q@mail.gmail.com>
-	 <1447969264.22599.253.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S374xUUzWXUgA27PubceyDckrrfTiq7wvkLxXa0NacqqZA@mail.gmail.com>
-	 <1447970875.22599.265.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S35CxmsN6Cx0BXCyqzWE67HF9SwTPAyzRnbVFKun8AOTYQ@mail.gmail.com>
+ <20151119.005318.838757439536205791.davem@davemloft.net> <CANP3RGcPRzSL06qZB9oewrvN_AUUodnYzXQO=itoK40z64x8Yw@mail.gmail.com>
+ <20151119.104811.1447518072450380661.davem@davemloft.net> <1447949964.22599.220.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1447952902.2049284.444501617.7C422D07@webmail.messagingengine.com> <CALx6S379hXL=QEBF-HmOvPr3K55tS87HV=wKOySro1A0ogmWcQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	zenczykowski <zenczykowski@gmail.com>,
-	Lorenzo Colitti <lorenzo@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
 	Dmitry Torokhov <dtor@google.com>
 To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35155 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751221AbbKSWdF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 17:33:05 -0500
-Received: by pacej9 with SMTP id ej9so94300443pac.2
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 14:33:03 -0800 (PST)
-In-Reply-To: <CALx6S35CxmsN6Cx0BXCyqzWE67HF9SwTPAyzRnbVFKun8AOTYQ@mail.gmail.com>
+Received: from mail-yk0-f171.google.com ([209.85.160.171]:32966 "EHLO
+	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758799AbbKSWeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 17:34:14 -0500
+Received: by ykdv3 with SMTP id v3so132317264ykd.0
+        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 14:34:13 -0800 (PST)
+In-Reply-To: <CALx6S379hXL=QEBF-HmOvPr3K55tS87HV=wKOySro1A0ogmWcQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-11-19 at 14:14 -0800, Tom Herbert wrote:
-> On Thu, Nov 19, 2015 at 2:07 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Thu, 2015-11-19 at 13:53 -0800, Tom Herbert wrote:
-> >
-> >> That covers the case where the local address is removed, but the not
-> >> the case where the network manager is informed of an error in the path
-> >> and wants to signal the application. My understanding was that
-> >> SIOCKILLADDR would work for the first case, but this patch was need to
-> >> cover the second case.
-> >>
-> >> btw, instead of closing the TCP socket can we just report an error and
-> >> wake up the application without affecting the connection? That is this
-> >> just becomes an error on the socket. The response by the application
-> >> will be the same in any case, porbablly just close the socket and try
-> >> to reestablish the connection.
-> >
-> > I thought this was the patch intent ?
-> >
-> > Application gets a EPOLLIN|EPOLLOUT|POLLERR notification (if it is
-> > willing to receive it, or blocked in a socket syscall) and closes the
-> > socket.
-> >
-> >          sk->sk_err = ETIMEDOUT;
-> >          sk->sk_error_report(sk);
-> >          tcp_done(sk);
-> >
-> The tcp_done is not needed here. This is the difference between the
-> application having the connection closed underneath them, versus the
-> application performing a close to terminate the connection. The latter
-> behavior preserves the semantics that only the stack or the
-> application owning the socket can initiate a state change on the
-> connection.
+On Fri, Nov 20, 2015 at 2:38 AM, Tom Herbert <tom@herbertland.com> wrote:
+>> I actually don't have an issue with killing from user space that much. I
+>> still recommend (and actually have started to look at it today) to add a
+>> new substate for TCP TIMEWAIT and don't have any issue if we block the
+>> socket for 60 seconds and send RSTs to all incoming data. This way we
+>> can solve the problem Florian indicated as well as this problem. Users
+>> can happily kill TCP connections then.
+>>
+> Neither do I have a problem with killing connections from userspace,
+> but we do have to acknowledge that this is a powerful and invasive
+> mechanism. I suggest:
+>
+> 1) We need transparency. If a third party kills a TCP connection then
+> the application should be informed of specifically that. This seems
+> easy enough to just pick an appropriate error number as I suggested.
 
+I'm not wedded to ETIMEDOUT. If it means we can get this code
+upstream, then we can likely do the userspace work that is needed to
+ensure that applications respond correctly. Mot
 
-The code behaves like we received a formal RST : 
+> 2) We need constraints. This feature seems to be specific to a very
+> narrow use case. It is not at all clear to me if there are any
+> legitimate uses cases beyond Android, enabling this by default in the
+> stack creates a non-zero amount of risk and liability for abuse. It
+> seems like this should be an opt-in sort of feature, with a kernel
+> CONFIG or maybe opt-in per socket.
 
-Please do not even bother trying to send additional data, it is not
-worth wasting precious resource.
+I am perfectly happy for this to be behind a config option.
 
-There is currently no system call telling the stack : 
-
-Please remove all outstanding data for this socket.
-
-And even if it was present, how many applications need to be changed,
-because all they do is probably a close(), after a shutdown() if they
-really were cautious...
+I do think this kernel functionality is useful in general, and as a
+linux-on-laptop user I wish it was available to NetworkManager as
+well, because I use Linux as well, but I think it will work for
+Android if this requires a per-socket opt in setsockopt. For other
+reasons we pipe all connected sockets through a userspace daemon
+anyway. (But please don't tell me that that daemon should keep state
+on *all* connected sockets it ever sees :-))
