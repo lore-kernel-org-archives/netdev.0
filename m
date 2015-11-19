@@ -1,42 +1,51 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 regression: UDP packets dropped intermittantly
-Date: Thu, 19 Nov 2015 01:56:08 +0100
-Message-ID: <20151119005608.GB4882@electric-eye.fr.zoreil.com>
-References: <20130309064647.GC4984@marvin.atrad.com.au>
- <20130311000216.GA31808@zoreil.com>
- <20130405001526.GC19253@marvin.atrad.com.au>
- <20151117015605.GI22941@marvin.atrad.com.au>
- <20151117232108.GC3362@electric-eye.fr.zoreil.com>
- <20151118050919.GR25216@marvin.atrad.com.au>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 2/2] dsa: mv88e6xxx.c: Hardware reset the chip
+ if available
+Date: Thu, 19 Nov 2015 02:13:27 +0100
+Message-ID: <20151119011327.GA25930@lunn.ch>
+References: <1447889365-25256-1-git-send-email-andrew@lunn.ch>
+ <1447889365-25256-3-git-send-email-andrew@lunn.ch>
+ <564D0EFA.7050806@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jonathan Woithe <jwoithe@atrad.com.au>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Neil Armstrong <narmstrong@baylibre.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:55854 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756214AbbKSA4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 19:56:17 -0500
+Received: from vps0.lunn.ch ([178.209.37.122]:36929 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756509AbbKSBNa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Nov 2015 20:13:30 -0500
 Content-Disposition: inline
-In-Reply-To: <20151118050919.GR25216@marvin.atrad.com.au>
+In-Reply-To: <564D0EFA.7050806@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jonathan Woithe <jwoithe@atrad.com.au> :
-[...]
-> I could try.  What's the most reliable way to determine this?  Use regular
-> ethtool queries about the time of the failures?
+> We are embedding reset logic here about the delays and polarity, while
+> there is now a proper abstraction for this within the reset controller
+> subsystem under drivers/reset/core.c. Could we utilize that facility
+> instead which would make us more robust wrt. non-GPIO reset lines (for
+> instance some SF2 switches on DSL gateways could definitively benefit
+> from this).
+> 
+> There does not seem to be a reset controller GPIO binding and generic
+> driver, but this seems like an appropriate candidate?
 
-If you are neither space nor cpu constrained:
+Hi Florian
 
-while : ; do
-	echo $(date +%s.%N):$(ethtool -d eth0 raw on | base64 -w 0):$(ethtool -S eth0 | base64 -w 0)
-	sleep 1
-done > gloubi
+That was my first thought as well. But then i went searching and found
 
-Expect 2.5~3Mo per hour.
+http://permalink.gmane.org/gmane.linux.ports.arm.kernel/257149
 
-(I like gnuplot with lots of points and repetitive patterns)
+where Mark Rutland says no to the idea. reset-gpios should be handle
+by the device.
 
--- 
-Ueimor
+Anyway, delays are hard coded, but polarity not. That is in the
+generic device tree binding for a GPIO, you can say GPIO_ACTIVE_LOW or
+GPIO_ACTIVE_HIGH. The delays are also hard coded in the Marvell
+specific part, so should not cause a problem to other manufactures
+chips.
+
+	Andrew
