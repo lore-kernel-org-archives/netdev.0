@@ -1,45 +1,63 @@
-From: Florian Weimer <fweimer@redhat.com>
-Subject: Re: Asterisk deadlocks since Kernel 4.1
-Date: Thu, 19 Nov 2015 14:19:08 +0100
-Message-ID: <564DCC4C.1090009@redhat.com>
-References: <564B3D35.50004@profihost.ag>
- <alpine.DEB.2.11.1511171936030.3761@nanos> <564B7F9D.5060701@profihost.ag>
- <alpine.DEB.2.11.1511172041480.3761@nanos> <564CDE2F.8000201@profihost.ag>
- <564CEB0C.40006@redhat.com> <564CEF5D.3080005@profihost.ag>
- <564D9A17.6080305@redhat.com> <564D9B21.302@profihost.ag>
- <564D9CE6.2090104@profihost.ag>
- <1447933294.1974772.444210441.67F1AC5E@webmail.messagingengine.com>
- <564DB5F5.9060208@profihost.ag>
- <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com>
- <564DC4A5.70104@profihost.ag>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 13/14] mm: memcontrol: account socket memory in unified
+ hierarchy memory controller
+Date: Thu, 19 Nov 2015 14:50:24 +0100
+Message-ID: <20151119135023.GH8494@dhcp22.suse.cz>
+References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
+ <1447371693-25143-14-git-send-email-hannes@cmpxchg.org>
+ <20151116155923.GH14116@dhcp22.suse.cz>
+ <20151116181810.GB32544@cmpxchg.org>
+ <20151118162256.GK19145@dhcp22.suse.cz>
+ <20151118214822.GA1365@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <564DC4A5.70104@profihost.ag>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Vladimir Davydov <vdavydov@virtuozzo.com>,
+	Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151118214822.GA1365@cmpxchg.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/19/2015 01:46 PM, Stefan Priebe - Profihost AG wrote:
+On Wed 18-11-15 16:48:22, Johannes Weiner wrote:
+[...]
+> So I ran perf record -g -a netperf -t TCP_STREAM multiple times inside
+> a memory-controlled cgroup, but mostly mem_cgroup_charge_skmem() does
+> not show up in the profile at all. Once it was there with 0.00%.
 
-> I can try Kernel 4.4-rc1 next week. Or something else?
+OK, this sounds very good! This means that most workloads which are not
+focusing solely on the network traffic shouldn't even notice. I can
+imagine that workloads with high throughput demands would notice but I
+would also expect them to disable the feature.
 
-I found this bug report which indicates that 4.1.10 works:
+Could you add this information to the changelog, please?
 
-  <https://issues.asterisk.org/jira/browse/ASTERISK-25251>
+> I ran another test that downloads the latest kernel image from
+> kernel.org at 13MB/s (on my i5 laptop) and it looks like this:
+> 
+>      0.02%     0.01%  irq/44-iwlwifi   [kernel.kallsyms]           [k] mem_cgroup_charge_skmem
+>              |
+>              ---mem_cgroup_charge_skmem
+>                 __sk_mem_schedule
+>                 tcp_try_rmem_schedule
+>                 tcp_data_queue
+>                 tcp_rcv_established
+>                 tcp_v4_do_rcv
+>                 tcp_v4_rcv
+>                 ip_local_deliver
+>                 ip_rcv
+>                 __netif_receive_skb_core
+>                 __netif_receive_skb
+>                 netif_receive_skb_internal
+>                 napi_gro_complete
+> 
+> The runs vary too much for this to be measurable in elapsed time.
 
-But in your original report, you said that 4.1.13 is broken.
-
-This backtrace:
-
-  <https://issues.asterisk.org/jira/secure/attachment/52702/bt.txt>
-
-shows a lot of waiting on quite different netlink sockets.  So if this
-is due to a race in Asterisk, it must have happened several times in a row.
-
-Thanks,
-Florian
+-- 
+Michal Hocko
+SUSE Labs
