@@ -1,64 +1,62 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: Asterisk deadlocks since Kernel 4.1
-Date: Thu, 19 Nov 2015 13:46:29 +0100
-Message-ID: <564DC4A5.70104@profihost.ag>
-References: <564B3D35.50004@profihost.ag>
- <alpine.DEB.2.11.1511171936030.3761@nanos> <564B7F9D.5060701@profihost.ag>
- <alpine.DEB.2.11.1511172041480.3761@nanos> <564CDE2F.8000201@profihost.ag>
- <564CEB0C.40006@redhat.com> <564CEF5D.3080005@profihost.ag>
- <564D9A17.6080305@redhat.com> <564D9B21.302@profihost.ag>
- <564D9CE6.2090104@profihost.ag>
- <1447933294.1974772.444210441.67F1AC5E@webmail.messagingengine.com>
- <564DB5F5.9060208@profihost.ag>
- <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] netfilter: avoid harmless unnitialized variable warnings
+Date: Thu, 19 Nov 2015 13:49:59 +0100
+Message-ID: <5585663.OcpAQiytKY@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Weimer <fweimer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ph.de-nserver.de ([85.158.179.214]:22895 "EHLO
-	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750935AbbKSMqb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 07:46:31 -0500
-In-Reply-To: <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: coreteam@netfilter.org, Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
+To: pablo@netfilter.org, netfilter-devel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Several ARM default configurations give us warnings on recent
+compilers about potentially uninitialized variables in the
+nfnetlink code in two functions:
 
-Am 19.11.2015 um 13:41 schrieb Hannes Frederic Sowa:
-> On Thu, Nov 19, 2015, at 12:43, Stefan Priebe - Profihost AG wrote:
->>
->> Am 19.11.2015 um 12:41 schrieb Hannes Frederic Sowa:
->>> On Thu, Nov 19, 2015, at 10:56, Stefan Priebe - Profihost AG wrote:
->>>> OK it had a livelock again. It just took more time.
->>>>
->>>> So here is the data:
->>>
->>> Thanks, I couldn't reproduce it so far with simple threaded resolver
->>> loop on your kernel. :/
->>>
->>> Your data is useless if you don't also provide the file descriptor which
->>> you are blocking on right now. ;)
->>>
->>> Thanks,
->>> Hannes
->>
->> ah sorry. So we need the gdb backtrace with the rcvmsg and then the fd
->> list + netlink list?
-> 
-> Yes, albeit the probability we find something new is minimal. We already
-> know it blocks deep down in netlink code. I tried to reproduce it in
-> multithreaded environment with no results so far. Can you even try a
-> newer kernel?
+net/netfilter/nfnetlink_queue.c: In function 'nfqnl_build_packet_message':
+net/netfilter/nfnetlink_queue.c:519:19: warning: 'nfnl_ct' may be used uninitialized in this function [-Wmaybe-uninitialized]
+  if (ct && nfnl_ct->build(skb, ct, ctinfo, NFQA_CT, NFQA_CT_INFO) < 0)
 
-I can try Kernel 4.4-rc1 next week. Or something else?
+Moving the rcu_dereference(nfnl_ct_hook) call outside of the
+conditional code avoids the warning without forcing us to
+preinitialize the variable.
 
-Stefan
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: a4b4766c3ceb ("netfilter: nfnetlink_queue: rename related to nfqueue attaching conntrack info")
 
-> 
-> Bye,
-> Hannes
-> 
+---
+
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index 7d81d280cb4f..3e240544f346 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -365,8 +365,9 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 		break;
+ 	}
+ 
++	nfnl_ct = rcu_dereference(nfnl_ct_hook);
++
+ 	if (queue->flags & NFQA_CFG_F_CONNTRACK) {
+-		nfnl_ct = rcu_dereference(nfnl_ct_hook);
+ 		if (nfnl_ct != NULL) {
+ 			ct = nfnl_ct->get_ct(entskb, &ctinfo);
+ 			if (ct != NULL)
+@@ -1064,9 +1065,10 @@ nfqnl_recv_verdict(struct sock *ctnl, struct sk_buff *skb,
+ 	if (entry == NULL)
+ 		return -ENOENT;
+ 
++	/* rcu lock already held from nfnl->call_rcu. */
++	nfnl_ct = rcu_dereference(nfnl_ct_hook);
++
+ 	if (nfqa[NFQA_CT]) {
+-		/* rcu lock already held from nfnl->call_rcu. */
+-		nfnl_ct = rcu_dereference(nfnl_ct_hook);
+ 		if (nfnl_ct != NULL)
+ 			ct = nfqnl_ct_parse(nfnl_ct, nlh, nfqa, entry, &ctinfo);
+ 	}
