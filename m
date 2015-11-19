@@ -1,196 +1,47 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 4/8] tipc: introduce per-link
-	spinlock
-Date: Thu, 19 Nov 2015 14:30:43 -0500
-Message-ID: <1447961447-13025-6-git-send-email-jon.maloy@ericsson.com>
-References: <1447961447-13025-1-git-send-email-jon.maloy@ericsson.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: remove useless check in napi_gro_frags()
+Date: Thu, 19 Nov 2015 11:42:50 -0800
+Message-ID: <1447962170.22599.240.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>,
-	parthasarathy.xx.bhuvaragan@ericsson.com, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1447961447-13025-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35798 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755529AbbKSTmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 14:42:52 -0500
+Received: by pacej9 with SMTP id ej9so90332815pac.2
+        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 11:42:51 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As a preparation to allow parallel links to work more independently
-from each other we introduce a per-link spinlock, to be stored in the
-struct nodes's link entry area. Since the node lock still is a regular
-spinlock there is no increase in parallellism at this stage.
+From: Eric Dumazet <edumazet@google.com>
 
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Checking if skb is NULL in napi_gro_frags() is too late.
+
+If skb was NULL, we would crash earlier in napi_frags_skb()
+
+Drivers normally catch napi_get_frags() NULL return value
+before calling napi_gro_frags()
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/tipc/link.c |  9 +++++----
- net/tipc/node.c | 39 ++++++++++++++++++---------------------
- net/tipc/node.h |  3 ++-
- 3 files changed, 25 insertions(+), 26 deletions(-)
+ net/core/dev.c |    3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index fa452fb..b5e895c 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1995,6 +1995,7 @@ int tipc_nl_link_reset_stats(struct sk_buff *skb, struct genl_info *info)
- 	struct tipc_node *node;
- 	struct nlattr *attrs[TIPC_NLA_LINK_MAX + 1];
- 	struct net *net = sock_net(skb->sk);
-+	struct tipc_link_entry *le;
- 
- 	if (!info->attrs[TIPC_NLA_LINK])
- 		return -EINVAL;
-@@ -2020,17 +2021,17 @@ int tipc_nl_link_reset_stats(struct sk_buff *skb, struct genl_info *info)
- 	node = tipc_link_find_owner(net, link_name, &bearer_id);
- 	if (!node)
- 		return -EINVAL;
--
-+	le = &node->links[bearer_id];
- 	tipc_node_lock(node);
--
--	link = node->links[bearer_id].link;
-+	spin_lock_bh(&le->lock);
-+	link = le->link;
- 	if (!link) {
- 		tipc_node_unlock(node);
- 		return -EINVAL;
- 	}
- 
- 	link_reset_statistics(link);
--
-+	spin_unlock_bh(&le->lock);
- 	tipc_node_unlock(node);
- 
- 	return 0;
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 9321952..572063a 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -339,11 +339,13 @@ static void tipc_node_timeout(unsigned long data)
- 	for (bearer_id = 0; bearer_id < MAX_BEARERS; bearer_id++) {
- 		tipc_node_lock(n);
- 		le = &n->links[bearer_id];
-+		spin_lock_bh(&le->lock);
- 		if (le->link) {
- 			/* Link tolerance may change asynchronously: */
- 			tipc_node_calculate_timer(n, le->link);
- 			rc = tipc_link_timeout(le->link, &xmitq);
- 		}
-+		spin_unlock_bh(&le->lock);
- 		tipc_node_unlock(n);
- 		tipc_bearer_xmit(n->net, bearer_id, &xmitq, &le->maddr);
- 		if (rc & TIPC_LINK_DOWN_EVT)
-@@ -654,6 +656,7 @@ void tipc_node_check_dest(struct net *net, u32 onode,
- 		if (n->state == NODE_FAILINGOVER)
- 			tipc_link_fsm_evt(l, LINK_FAILOVER_BEGIN_EVT);
- 		le->link = l;
-+		spin_lock_init(&le->lock);
- 		n->link_cnt++;
- 		tipc_node_calculate_timer(n, l);
- 		if (n->link_cnt == 1)
-@@ -1033,20 +1036,6 @@ msg_full:
- 	return -EMSGSIZE;
- }
- 
--static struct tipc_link *tipc_node_select_link(struct tipc_node *n, int sel,
--					       int *bearer_id,
--					       struct tipc_media_addr **maddr)
--{
--	int id = n->active_links[sel & 1];
--
--	if (unlikely(id < 0))
--		return NULL;
--
--	*bearer_id = id;
--	*maddr = &n->links[id].maddr;
--	return n->links[id].link;
--}
--
- /**
-  * tipc_node_xmit() is the general link level function for message sending
-  * @net: the applicable net namespace
-@@ -1059,26 +1048,32 @@ static struct tipc_link *tipc_node_select_link(struct tipc_node *n, int sel,
- int tipc_node_xmit(struct net *net, struct sk_buff_head *list,
- 		   u32 dnode, int selector)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 41cef3e3f558b857a9093a83f6b0c73f32b8b45f..8d8d34ff68f5800dbcb2958b6a937b9db478e359 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4465,9 +4465,6 @@ gro_result_t napi_gro_frags(struct napi_struct *napi)
  {
--	struct tipc_link *l = NULL;
-+	struct tipc_link_entry *le;
- 	struct tipc_node *n;
- 	struct sk_buff_head xmitq;
--	struct tipc_media_addr *maddr;
--	int bearer_id;
-+	struct tipc_media_addr *maddr = NULL;
-+	int bearer_id = -1;
- 	int rc = -EHOSTUNREACH;
+ 	struct sk_buff *skb = napi_frags_skb(napi);
  
- 	__skb_queue_head_init(&xmitq);
- 	n = tipc_node_find(net, dnode);
- 	if (likely(n)) {
- 		tipc_node_lock(n);
--		l = tipc_node_select_link(n, selector, &bearer_id, &maddr);
--		if (likely(l))
--			rc = tipc_link_xmit(l, list, &xmitq);
-+		bearer_id = n->active_links[selector & 1];
-+		if (bearer_id >= 0) {
-+			le = &n->links[bearer_id];
-+			maddr = &le->maddr;
-+			spin_lock_bh(&le->lock);
-+			if (likely(le->link))
-+				rc = tipc_link_xmit(le->link, list, &xmitq);
-+			spin_unlock_bh(&le->lock);
-+		}
- 		tipc_node_unlock(n);
- 		if (unlikely(rc == -ENOBUFS))
- 			tipc_node_link_down(n, bearer_id, false);
- 		tipc_node_put(n);
- 	}
--	if (likely(!rc)) {
-+	if (likely(!skb_queue_empty(&xmitq))) {
- 		tipc_bearer_xmit(net, bearer_id, &xmitq, maddr);
- 		return 0;
- 	}
-@@ -1374,7 +1369,9 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b)
+-	if (!skb)
+-		return GRO_DROP;
+-
+ 	trace_napi_gro_frags_entry(skb);
  
- 	/* Check and if necessary update node state */
- 	if (likely(tipc_node_check_state(n, skb, bearer_id, &xmitq))) {
-+		spin_lock_bh(&le->lock);
- 		rc = tipc_link_rcv(le->link, skb, &xmitq);
-+		spin_unlock_bh(&le->lock);
- 		skb = NULL;
- 	}
- unlock:
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index dd79e97..8784907 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -69,6 +69,7 @@ enum {
- 
- struct tipc_link_entry {
- 	struct tipc_link *link;
-+	spinlock_t lock;   /* per-link */
- 	u32 mtu;
- 	struct sk_buff_head inputq;
- 	struct tipc_media_addr maddr;
-@@ -86,7 +87,7 @@ struct tipc_bclink_entry {
-  * struct tipc_node - TIPC node structure
-  * @addr: network address of node
-  * @ref: reference counter to node object
-- * @lock: spinlock governing access to structure
-+ * @lock: rwlock governing access to structure
-  * @net: the applicable net namespace
-  * @hash: links to adjacent nodes in unsorted hash chain
-  * @inputq: pointer to input queue containing messages for msg event
--- 
-1.9.1
-
-
-------------------------------------------------------------------------------
+ 	return napi_frags_finish(napi, skb, dev_gro_receive(napi, skb));
