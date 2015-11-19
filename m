@@ -1,41 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] tcp: fix potential huge kmalloc() calls in
- TCP_REPAIR
-Date: Thu, 19 Nov 2015 04:25:55 -0800
-Message-ID: <1447935955.22599.195.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1447909413.22599.191.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <564DA9AD.80400@parallels.com>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH] net: tulip: turn compile-time warning into dev_warn()
+Date: Thu, 19 Nov 2015 12:26:10 +0000
+Message-ID: <20151119122610.GF22786@arm.com>
+References: <9720627.53btSdPcQU@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@parallels.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	ard.biesheuvel@linaro.org,
+	Grant Grundler <grundler@parisc-linux.org>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34972 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750935AbbKSMZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 07:25:57 -0500
-Received: by pacej9 with SMTP id ej9so79981730pac.2
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 04:25:56 -0800 (PST)
-In-Reply-To: <564DA9AD.80400@parallels.com>
+Received: from foss.arm.com ([217.140.101.70]:39790 "EHLO foss.arm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752185AbbKSM0M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Nov 2015 07:26:12 -0500
+Content-Disposition: inline
+In-Reply-To: <9720627.53btSdPcQU@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-11-19 at 13:51 +0300, Pavel Emelyanov wrote:
-> On 11/19/2015 08:03 AM, Eric Dumazet wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > tcp_send_rcvq() is used for re-injecting data into tcp receive queue.
-> > 
-> > Problems :
-> > 
-> > - No check against size is performed, allowed user to fool kernel in
-> >   attempting very large memory allocations, eventually triggering
-> >   OOM when memory is fragmented.
+On Thu, Nov 19, 2015 at 11:42:26AM +0100, Arnd Bergmann wrote:
+> The tulip driver causes annoying build-time warnings for allmodconfig
+> builds for all recent architectures:
 > 
-> Doesn't the tcp_try_rmem_schedule() protect us from doing this "eventually"?
-> I mean first we would be allowed to do it, but then the sock will be charged
-> with the previous allocations and will not add more memory to socket.
+> dec/tulip/winbond-840.c:910:2: warning: #warning Processor architecture undefined
+> dec/tulip/tulip_core.c:101:2: warning: #warning Processor architecture undefined!
+> 
+> This is the last remaining warning for arm64, and I'd like to get rid of
+> it. We don't really know the cache line size, architecturally it would
+> be at least 16 bytes, but all implementations I found have 64 or 128
+> bytes. Configuring tulip for 32-byte lines as we do on ARM32 seems to
+> be the safe but slow default, and nobody who cares about performance these
+> days would use a tulip chip anyway, so we can just use that.
+> 
+> To save the next person the job of trying to find out what this is for
+> and picking a default for their architecture just to kill off the warning,
+> I'm now removing the preprocessor #warning and turning it into a pr_warn
+> or dev_warn that prints the equivalent information when the driver gets
+> loaded.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> 
+> diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
+> index ed41559bae77..b553409e04ad 100644
+> --- a/drivers/net/ethernet/dec/tulip/tulip_core.c
+> +++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
+> @@ -98,8 +98,7 @@ static int csr0 = 0x01A00000 | 0x4800;
+>  #elif defined(__mips__)
+>  static int csr0 = 0x00200000 | 0x4000;
+>  #else
+> -#warning Processor architecture undefined!
+> -static int csr0 = 0x00A00000 | 0x4800;
+> +static int csr0;
+>  #endif
+>  
+>  /* Operational parameters that usually are not changed. */
+> @@ -1982,6 +1981,12 @@ static int __init tulip_init (void)
+>  	pr_info("%s", version);
+>  #endif
+>  
+> +	if (!csr0) {
+> +		pr_warn("tulip: unknown CPU architecture, using default csr0\n");
+> +		/* default to 8 longword cache line alignment */
+> +		csr0 = 0x00A00000 | 0x4800;
 
-But this tcp_try_rmem_schedule() is done _after_ allocation was
-attempted. This is too late :(
+Maybe print "defaulting to 8 longword cache line alignment" instead of
+"default csr0"?
+
+> diff --git a/drivers/net/ethernet/dec/tulip/winbond-840.c b/drivers/net/ethernet/dec/tulip/winbond-840.c
+> index 9beb3d34d4ba..3c0e4d5c5fef 100644
+> --- a/drivers/net/ethernet/dec/tulip/winbond-840.c
+> +++ b/drivers/net/ethernet/dec/tulip/winbond-840.c
+> @@ -907,7 +907,7 @@ static void init_registers(struct net_device *dev)
+>  #elif defined(CONFIG_SPARC) || defined (CONFIG_PARISC) || defined(CONFIG_ARM)
+>  	i |= 0x4800;
+>  #else
+> -#warning Processor architecture undefined
+> +	dev_warn(&dev->dev, "unknown CPU architecture, using default csr0 setting\n");
+>  	i |= 0x4800;
+
+Then we could print the default csr0 value here.
+
+But, to be honest, this patch fixes a #warning on arm64 for a driver that
+I never expect to be used. So whatever you do to silence it:
+
+  Acked-by: Will Deacon <will.deacon@arm.com>
+
+/me waits for on-soc tulip integration.
+
+Will
