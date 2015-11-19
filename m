@@ -1,64 +1,58 @@
-From: Jacob Pan <jacob.jun.pan@intel.com>
-Subject: Re: [PATCH v4 2/4] Always running timer correlated clocksource
-Date: Wed, 18 Nov 2015 15:53:53 -0800
-Message-ID: <20151118155353.4b37a06f@yairi>
-References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com>
-	<1444675522-4198-3-git-send-email-christopher.s.hall@intel.com>
+From: David Rientjes <rientjes@google.com>
+Subject: Re: [PATCH] tree wide: Use kvfree() than conditional
+ kfree()/vfree()
+Date: Wed, 18 Nov 2015 16:23:37 -0800 (PST)
+Message-ID: <alpine.DEB.2.10.1511181623240.1381@chino.kir.corp.google.com>
+References: <1447070170-8512-1-git-send-email-penguin-kernel@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"hpa@zytor.com" <hpa@zytor.com>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Stanton, Kevin B" <kevin.b.stanton@intel.com>,
-	jacob.jun.pan@intel.com
-To: "Hall, Christopher S" <christopher.s.hall@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444675522-4198-3-git-send-email-christopher.s.hall@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: akpm@linux-foundation.org, linux-mm@kvack.org,
+    Russell King <linux@arm.linux.org.uk>, linux-acpi@vger.kernel.org,
+    drbd-user@lists.linbit.com, linux-kernel@vger.kernel.org,
+    dri-devel@lists.freedesktop.org, Oleg Drokin <oleg.drokin@intel.com>,
+    Andreas Dilger <andreas.dilger@intel.com>, codalist@coda.cs.cmu.edu,
+    linux-mtd@lists.infradead.org, Jan Kara <jack@suse.com>,
+    linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1447070170-8512-1-git-send-email-penguin-kernel@I-love.SAKURA.ne.jp>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 12 Oct 2015 11:45:20 -0700
-"Hall, Christopher S" <christopher.s.hall@intel.com> wrote:
-took a while to read the code, i have a few comments/questions
->
-> diff --git a/arch/x86/kernel/tsc.c b/arch/x86/kernel/tsc.c
-> index c3f7602..c3f098c 100644
-> --- a/arch/x86/kernel/tsc.c
-> +++ b/arch/x86/kernel/tsc.c
-> @@ -820,7 +820,7 @@ int recalibrate_cpu_khz(void)
->  #ifndef CONFIG_SMP
-This code is used by old p4/k7 clock modulation driver, why do we care?
+On Mon, 9 Nov 2015, Tetsuo Handa wrote:
 
->         unsigned long cpu_khz_old = cpu_khz;
+> There are many locations that do
 > 
-> -       if (cpu_has_tsc) {
-> +       if (boot_cpu_has(X86_FEATURE_ART)) {
->                 tsc_khz = x86_platform.calibrate_tsc();
->                 cpu_khz = tsc_khz;
->                 cpu_data(0).loops_per_jiffy =
-
-
+>   if (memory_was_allocated_by_vmalloc)
+>     vfree(ptr);
+>   else
+>     kfree(ptr);
 > 
-> +/*
-> + * Convert ART to TSC given numerator/denominator found in
-> detect_art()
-> + */
-> +static u64 convert_art_to_tsc(struct correlated_cs *cs, u64 cycles)
-> +{
-> +       u64 tmp, res;
-> +
-> +       res = (cycles / art_to_tsc_denominator) *
-> art_to_tsc_numerator;
-> +       tmp = (cycles % art_to_tsc_denominator) *
-> art_to_tsc_numerator;
-> +       res += tmp / art_to_tsc_denominator;
-> +
-iirc there are some issues with 32bit, better use div64_u64()
+> but kvfree() can handle both kmalloc()ed memory and vmalloc()ed memory
+> using is_vmalloc_addr(). Unless callers have special reasons, we can
+> replace this branch with kvfree(). Please check and reply if you found
+> problems.
+> 
+> Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> Acked-by: Michal Hocko <mhocko@suse.com>
+> Cc: Russell King <linux@arm.linux.org.uk> # arm
+> Cc: <linux-acpi@vger.kernel.org> # apei
+> Cc: <drbd-user@lists.linbit.com> # drbd
+> Cc: <linux-kernel@vger.kernel.org> # mspec
+> Cc: <dri-devel@lists.freedesktop.org> # drm
+> Cc: Oleg Drokin <oleg.drokin@intel.com> # lustre
+> Cc: Andreas Dilger <andreas.dilger@intel.com> # lustre
+> Cc: <codalist@coda.cs.cmu.edu> # coda
+> Cc: <linux-mtd@lists.infradead.org> # jffs2
+> Cc: Jan Kara <jack@suse.com> # udf
+> Cc: <linux-fsdevel@vger.kernel.org> # xattr
+> Cc: <linux-mm@kvack.org> # ipc + mm
+> Cc: <netdev@vger.kernel.org> # ipv4
+
+Acked-by: David Rientjes <rientjes@google.com>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
