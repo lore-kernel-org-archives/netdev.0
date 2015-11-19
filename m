@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 3/8] tipc: reduce code dependency
-	between binding table and node layer
-Date: Thu, 19 Nov 2015 14:30:42 -0500
-Message-ID: <1447961447-13025-5-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 8/8] tipc: eliminate remnants of
+	hungarian notation
+Date: Thu, 19 Nov 2015 14:30:47 -0500
+Message-ID: <1447961447-13025-10-git-send-email-jon.maloy@ericsson.com>
 References: <1447961447-13025-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,281 +24,624 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The file name_distr.c currently contains three functions,
-named_cluster_distribute(), tipc_publ_subcscribe() and
-tipc_publ_unsubscribe() that all directly access fields in
-struct tipc_node. We want to eliminate such dependencies, so
-we move those functions to the file node.c and rename them to
-tipc_node_broadcast(), tipc_node_subscribe() and tipc_node_unsubscribe()
-respectively.
+The number of variables with Hungarian notation (l_ptr, n_ptr etc.)
+has been significantly reduced over the last couple of years.
+
+We now root out the last traces of this practice.
+There are no functional changes in this commit.
 
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/core.h       |  5 ++++
- net/tipc/name_distr.c | 67 +++------------------------------------------------
- net/tipc/name_distr.h |  1 -
- net/tipc/name_table.c |  5 ++--
- net/tipc/node.c       | 60 +++++++++++++++++++++++++++++++++++++++++++++
- net/tipc/node.h       |  3 +++
- 6 files changed, 74 insertions(+), 67 deletions(-)
+ net/tipc/bearer.c   | 140 ++++++++++++++++++++++++++--------------------------
+ net/tipc/bearer.h   |   8 +--
+ net/tipc/discover.c |  38 +++++++-------
+ net/tipc/link.c     |   4 +-
+ net/tipc/link.h     |   2 +-
+ net/tipc/node.c     |  74 +++++++++++++--------------
+ 6 files changed, 133 insertions(+), 133 deletions(-)
 
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index 18e95a8..5504d63 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -118,6 +118,11 @@ static inline int tipc_netid(struct net *net)
- 	return tipc_net(net)->net_id;
- }
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 648f2a6..802ffad 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -71,7 +71,7 @@ static const struct nla_policy tipc_nl_media_policy[TIPC_NLA_MEDIA_MAX + 1] = {
+ 	[TIPC_NLA_MEDIA_PROP]		= { .type = NLA_NESTED }
+ };
  
-+static inline struct list_head *tipc_nodes(struct net *net)
-+{
-+	return &tipc_net(net)->node_list;
-+}
-+
- static inline u16 mod(u16 x)
+-static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr);
++static void bearer_disable(struct net *net, struct tipc_bearer *b);
+ 
+ /**
+  * tipc_media_find - locates specified media object by name
+@@ -107,13 +107,13 @@ static struct tipc_media *media_find_id(u8 type)
+ void tipc_media_addr_printf(char *buf, int len, struct tipc_media_addr *a)
  {
- 	return x & 0xffffu;
-diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index f51c8bd..ebe9d0f 100644
---- a/net/tipc/name_distr.c
-+++ b/net/tipc/name_distr.c
-@@ -84,31 +84,6 @@ static struct sk_buff *named_prepare_buf(struct net *net, u32 type, u32 size,
- 	return buf;
- }
+ 	char addr_str[MAX_ADDR_STR];
+-	struct tipc_media *m_ptr;
++	struct tipc_media *m;
+ 	int ret;
  
--void named_cluster_distribute(struct net *net, struct sk_buff *skb)
--{
--	struct tipc_net *tn = net_generic(net, tipc_net_id);
--	struct sk_buff *oskb;
--	struct tipc_node *node;
--	u32 dnode;
--
--	rcu_read_lock();
--	list_for_each_entry_rcu(node, &tn->node_list, list) {
--		dnode = node->addr;
--		if (in_own_node(net, dnode))
--			continue;
--		if (!tipc_node_is_up(node))
--			continue;
--		oskb = pskb_copy(skb, GFP_ATOMIC);
--		if (!oskb)
--			break;
--		msg_set_destnode(buf_msg(oskb), dnode);
--		tipc_node_xmit_skb(net, oskb, dnode, 0);
--	}
--	rcu_read_unlock();
--
--	kfree_skb(skb);
--}
--
- /**
-  * tipc_named_publish - tell other nodes about a new publication by this node
-  */
-@@ -226,42 +201,6 @@ void tipc_named_node_up(struct net *net, u32 dnode)
- 	tipc_node_xmit(net, &head, dnode, 0);
- }
+-	m_ptr = media_find_id(a->media_id);
++	m = media_find_id(a->media_id);
  
--static void tipc_publ_subscribe(struct net *net, struct publication *publ,
--				u32 addr)
--{
--	struct tipc_node *node;
--
--	if (in_own_node(net, addr))
--		return;
--
--	node = tipc_node_find(net, addr);
--	if (!node) {
--		pr_warn("Node subscription rejected, unknown node 0x%x\n",
--			addr);
--		return;
--	}
--
--	tipc_node_lock(node);
--	list_add_tail(&publ->nodesub_list, &node->publ_list);
--	tipc_node_unlock(node);
--	tipc_node_put(node);
--}
--
--static void tipc_publ_unsubscribe(struct net *net, struct publication *publ,
--				  u32 addr)
--{
--	struct tipc_node *node;
--
--	node = tipc_node_find(net, addr);
--	if (!node)
--		return;
--
--	tipc_node_lock(node);
--	list_del_init(&publ->nodesub_list);
--	tipc_node_unlock(node);
--	tipc_node_put(node);
--}
--
- /**
-  * tipc_publ_purge - remove publication associated with a failed node
-  *
-@@ -277,7 +216,7 @@ static void tipc_publ_purge(struct net *net, struct publication *publ, u32 addr)
- 	p = tipc_nametbl_remove_publ(net, publ->type, publ->lower,
- 				     publ->node, publ->ref, publ->key);
- 	if (p)
--		tipc_publ_unsubscribe(net, p, addr);
-+		tipc_node_unsubscribe(net, &p->nodesub_list, addr);
- 	spin_unlock_bh(&tn->nametbl_lock);
+-	if (m_ptr && !m_ptr->addr2str(a, addr_str, sizeof(addr_str)))
+-		ret = scnprintf(buf, len, "%s(%s)", m_ptr->name, addr_str);
++	if (m && !m->addr2str(a, addr_str, sizeof(addr_str)))
++		ret = scnprintf(buf, len, "%s(%s)", m->name, addr_str);
+ 	else {
+ 		u32 i;
  
- 	if (p != publ) {
-@@ -317,7 +256,7 @@ static bool tipc_update_nametbl(struct net *net, struct distr_item *i,
- 						TIPC_CLUSTER_SCOPE, node,
- 						ntohl(i->ref), ntohl(i->key));
- 		if (publ) {
--			tipc_publ_subscribe(net, publ, node);
-+			tipc_node_subscribe(net, &publ->nodesub_list, node);
- 			return true;
- 		}
- 	} else if (dtype == WITHDRAWAL) {
-@@ -326,7 +265,7 @@ static bool tipc_update_nametbl(struct net *net, struct distr_item *i,
- 						node, ntohl(i->ref),
- 						ntohl(i->key));
- 		if (publ) {
--			tipc_publ_unsubscribe(net, publ, node);
-+			tipc_node_unsubscribe(net, &publ->nodesub_list, node);
- 			kfree_rcu(publ, rcu);
- 			return true;
- 		}
-diff --git a/net/tipc/name_distr.h b/net/tipc/name_distr.h
-index dd2d9fd..1264ba0 100644
---- a/net/tipc/name_distr.h
-+++ b/net/tipc/name_distr.h
-@@ -69,7 +69,6 @@ struct distr_item {
+@@ -175,13 +175,13 @@ static int bearer_name_validate(const char *name,
+ struct tipc_bearer *tipc_bearer_find(struct net *net, const char *name)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+-	struct tipc_bearer *b_ptr;
++	struct tipc_bearer *b;
+ 	u32 i;
  
- struct sk_buff *tipc_named_publish(struct net *net, struct publication *publ);
- struct sk_buff *tipc_named_withdraw(struct net *net, struct publication *publ);
--void named_cluster_distribute(struct net *net, struct sk_buff *buf);
- void tipc_named_node_up(struct net *net, u32 dnode);
- void tipc_named_rcv(struct net *net, struct sk_buff_head *msg_queue);
- void tipc_named_reinit(struct net *net);
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index 0f47f08..91fce70 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -42,6 +42,7 @@
- #include "subscr.h"
- #include "bcast.h"
- #include "addr.h"
-+#include "node.h"
- #include <net/genetlink.h>
- 
- #define TIPC_NAMETBL_SIZE 1024		/* must be a power of 2 */
-@@ -677,7 +678,7 @@ struct publication *tipc_nametbl_publish(struct net *net, u32 type, u32 lower,
- 	spin_unlock_bh(&tn->nametbl_lock);
- 
- 	if (buf)
--		named_cluster_distribute(net, buf);
-+		tipc_node_broadcast(net, buf);
- 	return publ;
- }
- 
-@@ -709,7 +710,7 @@ int tipc_nametbl_withdraw(struct net *net, u32 type, u32 lower, u32 ref,
- 	spin_unlock_bh(&tn->nametbl_lock);
- 
- 	if (skb) {
--		named_cluster_distribute(net, skb);
-+		tipc_node_broadcast(net, skb);
- 		return 1;
+ 	for (i = 0; i < MAX_BEARERS; i++) {
+-		b_ptr = rtnl_dereference(tn->bearer_list[i]);
+-		if (b_ptr && (!strcmp(b_ptr->name, name)))
+-			return b_ptr;
++		b = rtnl_dereference(tn->bearer_list[i]);
++		if (b && (!strcmp(b->name, name)))
++			return b;
  	}
+ 	return NULL;
+ }
+@@ -189,24 +189,24 @@ struct tipc_bearer *tipc_bearer_find(struct net *net, const char *name)
+ void tipc_bearer_add_dest(struct net *net, u32 bearer_id, u32 dest)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+-	struct tipc_bearer *b_ptr;
++	struct tipc_bearer *b;
+ 
+ 	rcu_read_lock();
+-	b_ptr = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
+-	if (b_ptr)
+-		tipc_disc_add_dest(b_ptr->link_req);
++	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
++	if (b)
++		tipc_disc_add_dest(b->link_req);
+ 	rcu_read_unlock();
+ }
+ 
+ void tipc_bearer_remove_dest(struct net *net, u32 bearer_id, u32 dest)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+-	struct tipc_bearer *b_ptr;
++	struct tipc_bearer *b;
+ 
+ 	rcu_read_lock();
+-	b_ptr = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
+-	if (b_ptr)
+-		tipc_disc_remove_dest(b_ptr->link_req);
++	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
++	if (b)
++		tipc_disc_remove_dest(b->link_req);
+ 	rcu_read_unlock();
+ }
+ 
+@@ -218,8 +218,8 @@ static int tipc_enable_bearer(struct net *net, const char *name,
+ 			      struct nlattr *attr[])
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+-	struct tipc_bearer *b_ptr;
+-	struct tipc_media *m_ptr;
++	struct tipc_bearer *b;
++	struct tipc_media *m;
+ 	struct tipc_bearer_names b_names;
+ 	char addr_string[16];
+ 	u32 bearer_id;
+@@ -255,31 +255,31 @@ static int tipc_enable_bearer(struct net *net, const char *name,
+ 		return -EINVAL;
+ 	}
+ 
+-	m_ptr = tipc_media_find(b_names.media_name);
+-	if (!m_ptr) {
++	m = tipc_media_find(b_names.media_name);
++	if (!m) {
+ 		pr_warn("Bearer <%s> rejected, media <%s> not registered\n",
+ 			name, b_names.media_name);
+ 		return -EINVAL;
+ 	}
+ 
+ 	if (priority == TIPC_MEDIA_LINK_PRI)
+-		priority = m_ptr->priority;
++		priority = m->priority;
+ 
+ restart:
+ 	bearer_id = MAX_BEARERS;
+ 	with_this_prio = 1;
+ 	for (i = MAX_BEARERS; i-- != 0; ) {
+-		b_ptr = rtnl_dereference(tn->bearer_list[i]);
+-		if (!b_ptr) {
++		b = rtnl_dereference(tn->bearer_list[i]);
++		if (!b) {
+ 			bearer_id = i;
+ 			continue;
+ 		}
+-		if (!strcmp(name, b_ptr->name)) {
++		if (!strcmp(name, b->name)) {
+ 			pr_warn("Bearer <%s> rejected, already enabled\n",
+ 				name);
+ 			return -EINVAL;
+ 		}
+-		if ((b_ptr->priority == priority) &&
++		if ((b->priority == priority) &&
+ 		    (++with_this_prio > 2)) {
+ 			if (priority-- == 0) {
+ 				pr_warn("Bearer <%s> rejected, duplicate priority\n",
+@@ -297,35 +297,35 @@ restart:
+ 		return -EINVAL;
+ 	}
+ 
+-	b_ptr = kzalloc(sizeof(*b_ptr), GFP_ATOMIC);
+-	if (!b_ptr)
++	b = kzalloc(sizeof(*b), GFP_ATOMIC);
++	if (!b)
+ 		return -ENOMEM;
+ 
+-	strcpy(b_ptr->name, name);
+-	b_ptr->media = m_ptr;
+-	res = m_ptr->enable_media(net, b_ptr, attr);
++	strcpy(b->name, name);
++	b->media = m;
++	res = m->enable_media(net, b, attr);
+ 	if (res) {
+ 		pr_warn("Bearer <%s> rejected, enable failure (%d)\n",
+ 			name, -res);
+ 		return -EINVAL;
+ 	}
+ 
+-	b_ptr->identity = bearer_id;
+-	b_ptr->tolerance = m_ptr->tolerance;
+-	b_ptr->window = m_ptr->window;
+-	b_ptr->domain = disc_domain;
+-	b_ptr->net_plane = bearer_id + 'A';
+-	b_ptr->priority = priority;
++	b->identity = bearer_id;
++	b->tolerance = m->tolerance;
++	b->window = m->window;
++	b->domain = disc_domain;
++	b->net_plane = bearer_id + 'A';
++	b->priority = priority;
+ 
+-	res = tipc_disc_create(net, b_ptr, &b_ptr->bcast_addr);
++	res = tipc_disc_create(net, b, &b->bcast_addr);
+ 	if (res) {
+-		bearer_disable(net, b_ptr);
++		bearer_disable(net, b);
+ 		pr_warn("Bearer <%s> rejected, discovery object creation failed\n",
+ 			name);
+ 		return -EINVAL;
+ 	}
+ 
+-	rcu_assign_pointer(tn->bearer_list[bearer_id], b_ptr);
++	rcu_assign_pointer(tn->bearer_list[bearer_id], b);
+ 
+ 	pr_info("Enabled bearer <%s>, discovery domain %s, priority %u\n",
+ 		name,
+@@ -336,11 +336,11 @@ restart:
+ /**
+  * tipc_reset_bearer - Reset all links established over this bearer
+  */
+-static int tipc_reset_bearer(struct net *net, struct tipc_bearer *b_ptr)
++static int tipc_reset_bearer(struct net *net, struct tipc_bearer *b)
+ {
+-	pr_info("Resetting bearer <%s>\n", b_ptr->name);
+-	tipc_node_delete_links(net, b_ptr->identity);
+-	tipc_disc_reset(net, b_ptr);
++	pr_info("Resetting bearer <%s>\n", b->name);
++	tipc_node_delete_links(net, b->identity);
++	tipc_disc_reset(net, b);
  	return 0;
+ }
+ 
+@@ -349,26 +349,26 @@ static int tipc_reset_bearer(struct net *net, struct tipc_bearer *b_ptr)
+  *
+  * Note: This routine assumes caller holds RTNL lock.
+  */
+-static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr)
++static void bearer_disable(struct net *net, struct tipc_bearer *b)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	u32 i;
+ 
+-	pr_info("Disabling bearer <%s>\n", b_ptr->name);
+-	b_ptr->media->disable_media(b_ptr);
++	pr_info("Disabling bearer <%s>\n", b->name);
++	b->media->disable_media(b);
+ 
+-	tipc_node_delete_links(net, b_ptr->identity);
+-	RCU_INIT_POINTER(b_ptr->media_ptr, NULL);
+-	if (b_ptr->link_req)
+-		tipc_disc_delete(b_ptr->link_req);
++	tipc_node_delete_links(net, b->identity);
++	RCU_INIT_POINTER(b->media_ptr, NULL);
++	if (b->link_req)
++		tipc_disc_delete(b->link_req);
+ 
+ 	for (i = 0; i < MAX_BEARERS; i++) {
+-		if (b_ptr == rtnl_dereference(tn->bearer_list[i])) {
++		if (b == rtnl_dereference(tn->bearer_list[i])) {
+ 			RCU_INIT_POINTER(tn->bearer_list[i], NULL);
+ 			break;
+ 		}
+ 	}
+-	kfree_rcu(b_ptr, rcu);
++	kfree_rcu(b, rcu);
+ }
+ 
+ int tipc_enable_l2_media(struct net *net, struct tipc_bearer *b,
+@@ -411,7 +411,7 @@ void tipc_disable_l2_media(struct tipc_bearer *b)
+ /**
+  * tipc_l2_send_msg - send a TIPC packet out over an L2 interface
+  * @buf: the packet to be sent
+- * @b_ptr: the bearer through which the packet is to be sent
++ * @b: the bearer through which the packet is to be sent
+  * @dest: peer destination address
+  */
+ int tipc_l2_send_msg(struct net *net, struct sk_buff *skb,
+@@ -532,14 +532,14 @@ void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
+ static int tipc_l2_rcv_msg(struct sk_buff *buf, struct net_device *dev,
+ 			   struct packet_type *pt, struct net_device *orig_dev)
+ {
+-	struct tipc_bearer *b_ptr;
++	struct tipc_bearer *b;
+ 
+ 	rcu_read_lock();
+-	b_ptr = rcu_dereference_rtnl(dev->tipc_ptr);
+-	if (likely(b_ptr)) {
++	b = rcu_dereference_rtnl(dev->tipc_ptr);
++	if (likely(b)) {
+ 		if (likely(buf->pkt_type <= PACKET_BROADCAST)) {
+ 			buf->next = NULL;
+-			tipc_rcv(dev_net(dev), buf, b_ptr);
++			tipc_rcv(dev_net(dev), buf, b);
+ 			rcu_read_unlock();
+ 			return NET_RX_SUCCESS;
+ 		}
+@@ -564,13 +564,13 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
+ {
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+ 	struct net *net = dev_net(dev);
+-	struct tipc_bearer *b_ptr;
++	struct tipc_bearer *b;
+ 
+-	b_ptr = rtnl_dereference(dev->tipc_ptr);
+-	if (!b_ptr)
++	b = rtnl_dereference(dev->tipc_ptr);
++	if (!b)
+ 		return NOTIFY_DONE;
+ 
+-	b_ptr->mtu = dev->mtu;
++	b->mtu = dev->mtu;
+ 
+ 	switch (evt) {
+ 	case NETDEV_CHANGE:
+@@ -578,16 +578,16 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
+ 			break;
+ 	case NETDEV_GOING_DOWN:
+ 	case NETDEV_CHANGEMTU:
+-		tipc_reset_bearer(net, b_ptr);
++		tipc_reset_bearer(net, b);
+ 		break;
+ 	case NETDEV_CHANGEADDR:
+-		b_ptr->media->raw2addr(b_ptr, &b_ptr->addr,
++		b->media->raw2addr(b, &b->addr,
+ 				       (char *)dev->dev_addr);
+-		tipc_reset_bearer(net, b_ptr);
++		tipc_reset_bearer(net, b);
+ 		break;
+ 	case NETDEV_UNREGISTER:
+ 	case NETDEV_CHANGENAME:
+-		bearer_disable(dev_net(dev), b_ptr);
++		bearer_disable(dev_net(dev), b);
+ 		break;
+ 	}
+ 	return NOTIFY_OK;
+@@ -623,13 +623,13 @@ void tipc_bearer_cleanup(void)
+ void tipc_bearer_stop(struct net *net)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+-	struct tipc_bearer *b_ptr;
++	struct tipc_bearer *b;
+ 	u32 i;
+ 
+ 	for (i = 0; i < MAX_BEARERS; i++) {
+-		b_ptr = rtnl_dereference(tn->bearer_list[i]);
+-		if (b_ptr) {
+-			bearer_disable(net, b_ptr);
++		b = rtnl_dereference(tn->bearer_list[i]);
++		if (b) {
++			bearer_disable(net, b);
+ 			tn->bearer_list[i] = NULL;
+ 		}
+ 	}
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 552185b..e318205 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -103,11 +103,11 @@ struct tipc_bearer;
+  */
+ struct tipc_media {
+ 	int (*send_msg)(struct net *net, struct sk_buff *buf,
+-			struct tipc_bearer *b_ptr,
++			struct tipc_bearer *b,
+ 			struct tipc_media_addr *dest);
+-	int (*enable_media)(struct net *net, struct tipc_bearer *b_ptr,
++	int (*enable_media)(struct net *net, struct tipc_bearer *b,
+ 			    struct nlattr *attr[]);
+-	void (*disable_media)(struct tipc_bearer *b_ptr);
++	void (*disable_media)(struct tipc_bearer *b);
+ 	int (*addr2str)(struct tipc_media_addr *addr,
+ 			char *strbuf,
+ 			int bufsz);
+@@ -176,7 +176,7 @@ struct tipc_bearer_names {
+  * TIPC routines available to supported media types
+  */
+ 
+-void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b_ptr);
++void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b);
+ 
+ /*
+  * Routines made available to TIPC by supported media types
+diff --git a/net/tipc/discover.c b/net/tipc/discover.c
+index afe8c47..f1e738e 100644
+--- a/net/tipc/discover.c
++++ b/net/tipc/discover.c
+@@ -75,14 +75,14 @@ struct tipc_link_req {
+  * tipc_disc_init_msg - initialize a link setup message
+  * @net: the applicable net namespace
+  * @type: message type (request or response)
+- * @b_ptr: ptr to bearer issuing message
++ * @b: ptr to bearer issuing message
+  */
+ static void tipc_disc_init_msg(struct net *net, struct sk_buff *buf, u32 type,
+-			       struct tipc_bearer *b_ptr)
++			       struct tipc_bearer *b)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	struct tipc_msg *msg;
+-	u32 dest_domain = b_ptr->domain;
++	u32 dest_domain = b->domain;
+ 
+ 	msg = buf_msg(buf);
+ 	tipc_msg_init(tn->own_addr, msg, LINK_CONFIG, type,
+@@ -92,16 +92,16 @@ static void tipc_disc_init_msg(struct net *net, struct sk_buff *buf, u32 type,
+ 	msg_set_node_capabilities(msg, TIPC_NODE_CAPABILITIES);
+ 	msg_set_dest_domain(msg, dest_domain);
+ 	msg_set_bc_netid(msg, tn->net_id);
+-	b_ptr->media->addr2msg(msg_media_addr(msg), &b_ptr->addr);
++	b->media->addr2msg(msg_media_addr(msg), &b->addr);
+ }
+ 
+ /**
+  * disc_dupl_alert - issue node address duplication alert
+- * @b_ptr: pointer to bearer detecting duplication
++ * @b: pointer to bearer detecting duplication
+  * @node_addr: duplicated node address
+  * @media_addr: media address advertised by duplicated node
+  */
+-static void disc_dupl_alert(struct tipc_bearer *b_ptr, u32 node_addr,
++static void disc_dupl_alert(struct tipc_bearer *b, u32 node_addr,
+ 			    struct tipc_media_addr *media_addr)
+ {
+ 	char node_addr_str[16];
+@@ -111,7 +111,7 @@ static void disc_dupl_alert(struct tipc_bearer *b_ptr, u32 node_addr,
+ 	tipc_media_addr_printf(media_addr_str, sizeof(media_addr_str),
+ 			       media_addr);
+ 	pr_warn("Duplicate %s using %s seen on <%s>\n", node_addr_str,
+-		media_addr_str, b_ptr->name);
++		media_addr_str, b->name);
+ }
+ 
+ /**
+@@ -261,13 +261,13 @@ exit:
+ /**
+  * tipc_disc_create - create object to send periodic link setup requests
+  * @net: the applicable net namespace
+- * @b_ptr: ptr to bearer issuing requests
++ * @b: ptr to bearer issuing requests
+  * @dest: destination address for request messages
+  * @dest_domain: network domain to which links can be established
+  *
+  * Returns 0 if successful, otherwise -errno.
+  */
+-int tipc_disc_create(struct net *net, struct tipc_bearer *b_ptr,
++int tipc_disc_create(struct net *net, struct tipc_bearer *b,
+ 		     struct tipc_media_addr *dest)
+ {
+ 	struct tipc_link_req *req;
+@@ -282,17 +282,17 @@ int tipc_disc_create(struct net *net, struct tipc_bearer *b_ptr,
+ 		return -ENOMEM;
+ 	}
+ 
+-	tipc_disc_init_msg(net, req->buf, DSC_REQ_MSG, b_ptr);
++	tipc_disc_init_msg(net, req->buf, DSC_REQ_MSG, b);
+ 	memcpy(&req->dest, dest, sizeof(*dest));
+ 	req->net = net;
+-	req->bearer_id = b_ptr->identity;
+-	req->domain = b_ptr->domain;
++	req->bearer_id = b->identity;
++	req->domain = b->domain;
+ 	req->num_nodes = 0;
+ 	req->timer_intv = TIPC_LINK_REQ_INIT;
+ 	spin_lock_init(&req->lock);
+ 	setup_timer(&req->timer, disc_timeout, (unsigned long)req);
+ 	mod_timer(&req->timer, jiffies + req->timer_intv);
+-	b_ptr->link_req = req;
++	b->link_req = req;
+ 	skb = skb_clone(req->buf, GFP_ATOMIC);
+ 	if (skb)
+ 		tipc_bearer_xmit_skb(net, req->bearer_id, skb, &req->dest);
+@@ -313,19 +313,19 @@ void tipc_disc_delete(struct tipc_link_req *req)
+ /**
+  * tipc_disc_reset - reset object to send periodic link setup requests
+  * @net: the applicable net namespace
+- * @b_ptr: ptr to bearer issuing requests
++ * @b: ptr to bearer issuing requests
+  * @dest_domain: network domain to which links can be established
+  */
+-void tipc_disc_reset(struct net *net, struct tipc_bearer *b_ptr)
++void tipc_disc_reset(struct net *net, struct tipc_bearer *b)
+ {
+-	struct tipc_link_req *req = b_ptr->link_req;
++	struct tipc_link_req *req = b->link_req;
+ 	struct sk_buff *skb;
+ 
+ 	spin_lock_bh(&req->lock);
+-	tipc_disc_init_msg(net, req->buf, DSC_REQ_MSG, b_ptr);
++	tipc_disc_init_msg(net, req->buf, DSC_REQ_MSG, b);
+ 	req->net = net;
+-	req->bearer_id = b_ptr->identity;
+-	req->domain = b_ptr->domain;
++	req->bearer_id = b->identity;
++	req->domain = b->domain;
+ 	req->num_nodes = 0;
+ 	req->timer_intv = TIPC_LINK_REQ_INIT;
+ 	mod_timer(&req->timer, jiffies + req->timer_intv);
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 4380eb1..b11afe7 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -245,7 +245,7 @@ static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
+ static void tipc_link_build_proto_msg(struct tipc_link *l, int mtyp, bool probe,
+ 				      u16 rcvgap, int tolerance, int priority,
+ 				      struct sk_buff_head *xmitq);
+-static void link_print(struct tipc_link *l_ptr, const char *str);
++static void link_print(struct tipc_link *l, const char *str);
+ static void tipc_link_build_nack_msg(struct tipc_link *l,
+ 				     struct sk_buff_head *xmitq);
+ static void tipc_link_build_bc_init_msg(struct tipc_link *l,
+@@ -1707,7 +1707,7 @@ void tipc_link_set_queue_limits(struct tipc_link *l, u32 win)
+ 
+ /**
+  * link_reset_stats - reset link statistics
+- * @l_ptr: pointer to link
++ * @l: pointer to link
+  */
+ void tipc_link_reset_stats(struct tipc_link *l)
+ {
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index 616fc80..b2ae0f4 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -99,7 +99,7 @@ bool tipc_link_is_synching(struct tipc_link *l);
+ bool tipc_link_is_failingover(struct tipc_link *l);
+ bool tipc_link_is_blocked(struct tipc_link *l);
+ void tipc_link_set_active(struct tipc_link *l, bool active);
+-void tipc_link_reset(struct tipc_link *l_ptr);
++void tipc_link_reset(struct tipc_link *l);
+ void tipc_link_reset_stats(struct tipc_link *l);
+ int tipc_link_xmit(struct tipc_link *link, struct sk_buff_head *list,
+ 		   struct sk_buff_head *xmitq);
 diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 7756804..9321952 100644
+index 82c05e9..3f7a4ed 100644
 --- a/net/tipc/node.c
 +++ b/net/tipc/node.c
-@@ -234,6 +234,42 @@ void tipc_node_stop(struct net *net)
- 	spin_unlock_bh(&tn->node_list_lock);
- }
- 
-+void tipc_node_subscribe(struct net *net, struct list_head *subscr, u32 addr)
-+{
-+	struct tipc_node *n;
-+
-+	if (in_own_node(net, addr))
-+		return;
-+
-+	n = tipc_node_find(net, addr);
-+	if (!n) {
-+		pr_warn("Node subscribe rejected, unknown node 0x%x\n", addr);
-+		return;
-+	}
-+	tipc_node_lock(n);
-+	list_add_tail(subscr, &n->publ_list);
-+	tipc_node_unlock(n);
-+	tipc_node_put(n);
-+}
-+
-+void tipc_node_unsubscribe(struct net *net, struct list_head *subscr, u32 addr)
-+{
-+	struct tipc_node *n;
-+
-+	if (in_own_node(net, addr))
-+		return;
-+
-+	n = tipc_node_find(net, addr);
-+	if (!n) {
-+		pr_warn("Node unsubscribe rejected, unknown node 0x%x\n", addr);
-+		return;
-+	}
-+	tipc_node_lock(n);
-+	list_del_init(subscr);
-+	tipc_node_unlock(n);
-+	tipc_node_put(n);
-+}
-+
- int tipc_node_add_conn(struct net *net, u32 dnode, u32 port, u32 peer_port)
+@@ -319,62 +319,62 @@ static void tipc_node_write_unlock(struct tipc_node *n)
+ struct tipc_node *tipc_node_create(struct net *net, u32 addr, u16 capabilities)
  {
- 	struct tipc_node *node;
-@@ -1075,6 +1111,30 @@ int tipc_node_xmit_skb(struct net *net, struct sk_buff *skb, u32 dnode,
- 	return 0;
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+-	struct tipc_node *n_ptr, *temp_node;
++	struct tipc_node *n, *temp_node;
+ 	int i;
+ 
+ 	spin_lock_bh(&tn->node_list_lock);
+-	n_ptr = tipc_node_find(net, addr);
+-	if (n_ptr)
++	n = tipc_node_find(net, addr);
++	if (n)
+ 		goto exit;
+-	n_ptr = kzalloc(sizeof(*n_ptr), GFP_ATOMIC);
+-	if (!n_ptr) {
++	n = kzalloc(sizeof(*n), GFP_ATOMIC);
++	if (!n) {
+ 		pr_warn("Node creation failed, no memory\n");
+ 		goto exit;
+ 	}
+-	n_ptr->addr = addr;
+-	n_ptr->net = net;
+-	n_ptr->capabilities = capabilities;
+-	kref_init(&n_ptr->kref);
+-	rwlock_init(&n_ptr->lock);
+-	INIT_HLIST_NODE(&n_ptr->hash);
+-	INIT_LIST_HEAD(&n_ptr->list);
+-	INIT_LIST_HEAD(&n_ptr->publ_list);
+-	INIT_LIST_HEAD(&n_ptr->conn_sks);
+-	skb_queue_head_init(&n_ptr->bc_entry.namedq);
+-	skb_queue_head_init(&n_ptr->bc_entry.inputq1);
+-	__skb_queue_head_init(&n_ptr->bc_entry.arrvq);
+-	skb_queue_head_init(&n_ptr->bc_entry.inputq2);
++	n->addr = addr;
++	n->net = net;
++	n->capabilities = capabilities;
++	kref_init(&n->kref);
++	rwlock_init(&n->lock);
++	INIT_HLIST_NODE(&n->hash);
++	INIT_LIST_HEAD(&n->list);
++	INIT_LIST_HEAD(&n->publ_list);
++	INIT_LIST_HEAD(&n->conn_sks);
++	skb_queue_head_init(&n->bc_entry.namedq);
++	skb_queue_head_init(&n->bc_entry.inputq1);
++	__skb_queue_head_init(&n->bc_entry.arrvq);
++	skb_queue_head_init(&n->bc_entry.inputq2);
+ 	for (i = 0; i < MAX_BEARERS; i++)
+-		spin_lock_init(&n_ptr->links[i].lock);
+-	hlist_add_head_rcu(&n_ptr->hash, &tn->node_htable[tipc_hashfn(addr)]);
++		spin_lock_init(&n->links[i].lock);
++	hlist_add_head_rcu(&n->hash, &tn->node_htable[tipc_hashfn(addr)]);
+ 	list_for_each_entry_rcu(temp_node, &tn->node_list, list) {
+-		if (n_ptr->addr < temp_node->addr)
++		if (n->addr < temp_node->addr)
+ 			break;
+ 	}
+-	list_add_tail_rcu(&n_ptr->list, &temp_node->list);
+-	n_ptr->state = SELF_DOWN_PEER_LEAVING;
+-	n_ptr->signature = INVALID_NODE_SIG;
+-	n_ptr->active_links[0] = INVALID_BEARER_ID;
+-	n_ptr->active_links[1] = INVALID_BEARER_ID;
+-	if (!tipc_link_bc_create(net, tipc_own_addr(net), n_ptr->addr,
++	list_add_tail_rcu(&n->list, &temp_node->list);
++	n->state = SELF_DOWN_PEER_LEAVING;
++	n->signature = INVALID_NODE_SIG;
++	n->active_links[0] = INVALID_BEARER_ID;
++	n->active_links[1] = INVALID_BEARER_ID;
++	if (!tipc_link_bc_create(net, tipc_own_addr(net), n->addr,
+ 				 U16_MAX,
+ 				 tipc_link_window(tipc_bc_sndlink(net)),
+-				 n_ptr->capabilities,
+-				 &n_ptr->bc_entry.inputq1,
+-				 &n_ptr->bc_entry.namedq,
++				 n->capabilities,
++				 &n->bc_entry.inputq1,
++				 &n->bc_entry.namedq,
+ 				 tipc_bc_sndlink(net),
+-				 &n_ptr->bc_entry.link)) {
++				 &n->bc_entry.link)) {
+ 		pr_warn("Broadcast rcv link creation failed, no memory\n");
+-		kfree(n_ptr);
+-		n_ptr = NULL;
++		kfree(n);
++		n = NULL;
+ 		goto exit;
+ 	}
+-	tipc_node_get(n_ptr);
+-	setup_timer(&n_ptr->timer, tipc_node_timeout, (unsigned long)n_ptr);
+-	n_ptr->keepalive_intv = U32_MAX;
++	tipc_node_get(n);
++	setup_timer(&n->timer, tipc_node_timeout, (unsigned long)n);
++	n->keepalive_intv = U32_MAX;
+ exit:
+ 	spin_unlock_bh(&tn->node_list_lock);
+-	return n_ptr;
++	return n;
  }
  
-+void tipc_node_broadcast(struct net *net, struct sk_buff *skb)
-+{
-+	struct sk_buff *txskb;
-+	struct tipc_node *n;
-+	u32 dst;
-+
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(n, tipc_nodes(net), list) {
-+		dst = n->addr;
-+		if (in_own_node(net, dst))
-+			continue;
-+		if (!tipc_node_is_up(n))
-+			continue;
-+		txskb = pskb_copy(skb, GFP_ATOMIC);
-+		if (!txskb)
-+			break;
-+		msg_set_destnode(buf_msg(txskb), dst);
-+		tipc_node_xmit_skb(net, txskb, dst, 0);
-+	}
-+	rcu_read_unlock();
-+
-+	kfree_skb(skb);
-+}
-+
- /**
-  * tipc_node_bc_rcv - process TIPC broadcast packet arriving from off-node
-  * @net: the applicable net namespace
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 6734562..dd79e97 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -149,6 +149,9 @@ int tipc_node_xmit(struct net *net, struct sk_buff_head *list, u32 dnode,
- 		   int selector);
- int tipc_node_xmit_skb(struct net *net, struct sk_buff *skb, u32 dest,
- 		       u32 selector);
-+void tipc_node_subscribe(struct net *net, struct list_head *subscr, u32 addr);
-+void tipc_node_unsubscribe(struct net *net, struct list_head *subscr, u32 addr);
-+void tipc_node_broadcast(struct net *net, struct sk_buff *skb);
- int tipc_node_add_conn(struct net *net, u32 dnode, u32 port, u32 peer_port);
- void tipc_node_remove_conn(struct net *net, u32 dnode, u32 port);
- int tipc_nl_node_dump(struct sk_buff *skb, struct netlink_callback *cb);
+ static void tipc_node_calculate_timer(struct tipc_node *n, struct tipc_link *l)
 -- 
 1.9.1
 
