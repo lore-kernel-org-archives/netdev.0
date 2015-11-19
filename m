@@ -1,104 +1,63 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [PATCH] net: tulip: turn compile-time warning into dev_warn()
-Date: Thu, 19 Nov 2015 13:37:45 -0800
-Message-ID: <CAP6odjipdG2PinRXCdk9cgEnGBFb3W6TcXt=teJo5EdrBBLY8w@mail.gmail.com>
-References: <9720627.53btSdPcQU@wuerfel>
-	<20151119122610.GF22786@arm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
+Date: Thu, 19 Nov 2015 13:41:04 -0800
+Message-ID: <1447969264.22599.253.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAKD1Yr2OgJT0GsrTuws0oapobrU+ML3NpBNBXizg6q035PH4MA@mail.gmail.com>
+	 <20151119.005318.838757439536205791.davem@davemloft.net>
+	 <CANP3RGcPRzSL06qZB9oewrvN_AUUodnYzXQO=itoK40z64x8Yw@mail.gmail.com>
+	 <20151119.104811.1447518072450380661.davem@davemloft.net>
+	 <1447949964.22599.220.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALx6S363gYA37GnEuArp+PKVjFdLchB_66zuLF5kJnSFKF4t6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, ard.biesheuvel@linaro.org,
-	Grant Grundler <grundler@parisc-linux.org>
-To: Will Deacon <will.deacon@arm.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	zenczykowski <zenczykowski@gmail.com>,
+	Lorenzo Colitti <lorenzo@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
+	Dmitry Torokhov <dtor@google.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:33062 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751664AbbKSVhq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 16:37:46 -0500
-Received: by wmec201 with SMTP id c201so46106070wme.0
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 13:37:45 -0800 (PST)
-In-Reply-To: <20151119122610.GF22786@arm.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:35927 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751220AbbKSVlH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 16:41:07 -0500
+Received: by pacdm15 with SMTP id dm15so93163545pac.3
+        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 13:41:06 -0800 (PST)
+In-Reply-To: <CALx6S363gYA37GnEuArp+PKVjFdLchB_66zuLF5kJnSFKF4t6Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 19, 2015 at 4:26 AM, Will Deacon <will.deacon@arm.com> wrote:
-> On Thu, Nov 19, 2015 at 11:42:26AM +0100, Arnd Bergmann wrote:
->> The tulip driver causes annoying build-time warnings for allmodconfig
->> builds for all recent architectures:
->>
->> dec/tulip/winbond-840.c:910:2: warning: #warning Processor architecture undefined
->> dec/tulip/tulip_core.c:101:2: warning: #warning Processor architecture undefined!
->>
->> This is the last remaining warning for arm64, and I'd like to get rid of
->> it. We don't really know the cache line size, architecturally it would
->> be at least 16 bytes, but all implementations I found have 64 or 128
->> bytes. Configuring tulip for 32-byte lines as we do on ARM32 seems to
->> be the safe but slow default, and nobody who cares about performance these
->> days would use a tulip chip anyway, so we can just use that.
->>
->> To save the next person the job of trying to find out what this is for
->> and picking a default for their architecture just to kill off the warning,
->> I'm now removing the preprocessor #warning and turning it into a pr_warn
->> or dev_warn that prints the equivalent information when the driver gets
->> loaded.
->>
->> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->>
->> diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
->> index ed41559bae77..b553409e04ad 100644
->> --- a/drivers/net/ethernet/dec/tulip/tulip_core.c
->> +++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
->> @@ -98,8 +98,7 @@ static int csr0 = 0x01A00000 | 0x4800;
->>  #elif defined(__mips__)
->>  static int csr0 = 0x00200000 | 0x4000;
->>  #else
->> -#warning Processor architecture undefined!
->> -static int csr0 = 0x00A00000 | 0x4800;
->> +static int csr0;
->>  #endif
->>
->>  /* Operational parameters that usually are not changed. */
->> @@ -1982,6 +1981,12 @@ static int __init tulip_init (void)
->>       pr_info("%s", version);
->>  #endif
->>
->> +     if (!csr0) {
->> +             pr_warn("tulip: unknown CPU architecture, using default csr0\n");
->> +             /* default to 8 longword cache line alignment */
->> +             csr0 = 0x00A00000 | 0x4800;
->
-> Maybe print "defaulting to 8 longword cache line alignment" instead of
-> "default csr0"?
+On Thu, 2015-11-19 at 13:29 -0800, Tom Herbert wrote:
+> > We (TCP stack) compete with QUIC, based on UDP, which has no issues like
+> > that. We need to allow TCP sessions being signaled of a non temporary
+> > network disruption.
+> >
+> 
+> Eric, can you provide some detail on this statement?
+> 
+> I don't understand why QUIC wouldn't have this same issue. Seems like
+> it is still connection oriented just like TCP, so if the application
+> does a read expecting data from a peer and reverse reachability is
+> lost, the the read on the socket hang just like reading a TCP would.
+> If this is true, then the TCP solution would might actually be a
+> better since it allows a means for a third party (presumably a daemon
+> monitoring the network) to signal the application via closing specific
+> TCP sockets. I don't see how this could work in UDP especially if
+> these are unconnected sockets. What am I missing?
 
-This is a good idea.
+Quic simply sends UDP packets to a destination IP, port 443 (generally)
 
->> diff --git a/drivers/net/ethernet/dec/tulip/winbond-840.c b/drivers/net/ethernet/dec/tulip/winbond-840.c
->> index 9beb3d34d4ba..3c0e4d5c5fef 100644
->> --- a/drivers/net/ethernet/dec/tulip/winbond-840.c
->> +++ b/drivers/net/ethernet/dec/tulip/winbond-840.c
->> @@ -907,7 +907,7 @@ static void init_registers(struct net_device *dev)
->>  #elif defined(CONFIG_SPARC) || defined (CONFIG_PARISC) || defined(CONFIG_ARM)
->>       i |= 0x4800;
->>  #else
->> -#warning Processor architecture undefined
->> +     dev_warn(&dev->dev, "unknown CPU architecture, using default csr0 setting\n");
->>       i |= 0x4800;
->
-> Then we could print the default csr0 value here.
->
-> But, to be honest, this patch fixes a #warning on arm64 for a driver that
-> I never expect to be used. So whatever you do to silence it:
->
->   Acked-by: Will Deacon <will.deacon@arm.com>
+Say your UDP client binds to 0.0.0.0:<allocated/ephemeral port>
 
-yeah - same here:
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
+Kernel pick up source address given current working routing, on a per
+packet basis.
 
-cheers,
-grant
+Their notion of 'flow' is provided by the use of an unique connection
+ID, included somewhere in the payload.
 
->
-> /me waits for on-soc tulip integration.
->
-> Will
+The replies from QUIC server will then reach the UDP port, because
+server learned the latest source IP known for the client.
