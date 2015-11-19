@@ -1,8 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
 Subject: [PATCH net-next 0/8] tipc: some cleanups and improvements
-Date: Thu, 19 Nov 2015 14:30:39 -0500
-Message-ID: <1447961447-13025-2-git-send-email-jon.maloy@ericsson.com>
-References: <1447961447-13025-1-git-send-email-jon.maloy@ericsson.com>
+Date: Thu, 19 Nov 2015 14:30:38 -0500
+Message-ID: <1447961447-13025-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	parthasarathy.xx.bhuvaragan@ericsson.com,
@@ -11,16 +10,15 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:33643 "EHLO
+Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:33619 "EHLO
 	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754787AbbKSTay (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 14:30:54 -0500
-In-Reply-To: <1447961447-13025-1-git-send-email-jon.maloy@ericsson.com>
+	by vger.kernel.org with ESMTP id S1754787AbbKSTaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 14:30:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This series mostly contains cleanups and cosmetic code changes.
-The only real functional change is in #3 and #4, where we change the
+The only real functional change is in #4 and #5, where we change the
 locking structure for nodes and links in order to permit full
 concurrency between links working in parallel on different interfaces.
 Since the groundwork for this has been done in previous commit series,
