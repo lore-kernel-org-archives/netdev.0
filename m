@@ -1,75 +1,50 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] phylib: Make PHYs children of their MDIO bus, not the
- bus' parent.
-Date: Thu, 19 Nov 2015 22:06:51 +0100
-Message-ID: <20151119210651.GA5044@lunn.ch>
-References: <1440198963-20080-1-git-send-email-ddaney.cavm@gmail.com>
- <564E3659.1040709@cogentembedded.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
+Date: Thu, 19 Nov 2015 13:29:18 -0800
+Message-ID: <CALx6S363gYA37GnEuArp+PKVjFdLchB_66zuLF5kJnSFKF4t6Q@mail.gmail.com>
+References: <CAKD1Yr2OgJT0GsrTuws0oapobrU+ML3NpBNBXizg6q035PH4MA@mail.gmail.com>
+	<20151119.005318.838757439536205791.davem@davemloft.net>
+	<CANP3RGcPRzSL06qZB9oewrvN_AUUodnYzXQO=itoK40z64x8Yw@mail.gmail.com>
+	<20151119.104811.1447518072450380661.davem@davemloft.net>
+	<1447949964.22599.220.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Daney <ddaney.cavm@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	David Daney <david.daney@cavium.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Grant Likely <grant.likely@secretlab.ca>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <564E3659.1040709@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	zenczykowski <zenczykowski@gmail.com>,
+	Lorenzo Colitti <lorenzo@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
+	Dmitry Torokhov <dtor@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f171.google.com ([209.85.223.171]:34974 "EHLO
+	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933930AbbKSV3T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 16:29:19 -0500
+Received: by ioc74 with SMTP id 74so103491714ioc.2
+        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 13:29:18 -0800 (PST)
+In-Reply-To: <1447949964.22599.220.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 19, 2015 at 11:51:37PM +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 08/22/2015 02:16 AM, David Daney wrote:
-> 
-> >From: David Daney <david.daney@cavium.com>
-> >
-> >commit 18ee49ddb0d2 ("phylib: rename mii_bus::dev to mii_bus::parent")
-> >changed the parent of PHY devices from the bus to the bus parent.
-> >
-> >Then, commit 4dea547fef1b ("phylib: rework to prepare for OF
-> >registration of PHYs") moved the code into phy_device.c
-> >
-> >At this point, it is somewhat unclear why the change was seen as
-> >necessary.  But, when we look at the device model tree in
-> >/sys/devices, it is clearly incorrect.  The PHYs should be children of
-> >their MDIO bus.
-> >
-> >Change the PHY's parent device to be the MDIO bus device.
-> >
-> >Cc: Lennert Buytenhek <buytenh@wantstofly.org>
-> >Cc: Grant Likely <grant.likely@secretlab.ca>
-> >Signed-off-by: David Daney <david.daney@cavium.com>
-> >---
-> >  drivers/net/phy/phy_device.c | 2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> >
-> >diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> >index 0302483..55f0178 100644
-> >--- a/drivers/net/phy/phy_device.c
-> >+++ b/drivers/net/phy/phy_device.c
-> >@@ -176,7 +176,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
-> >  	if (c45_ids)
-> >  		dev->c45_ids = *c45_ids;
-> >  	dev->bus = bus;
-> >-	dev->dev.parent = bus->parent;
-> >+	dev->dev.parent = &bus->dev;
-> >  	dev->dev.bus = &mdio_bus_type;
-> >  	dev->irq = bus->irq != NULL ? bus->irq[addr] : PHY_POLL;
-> >  	dev_set_name(&dev->dev, PHY_ID_FMT, bus->id, addr);
-> 
->    This patch makes my sh_eth driver fail to connect to PHY usinjg
-> of_phy_connect(). (The ravb driver fails too but for some other
-> reason.)
- 
-Hi Sergei
+> We (TCP stack) compete with QUIC, based on UDP, which has no issues like
+> that. We need to allow TCP sessions being signaled of a non temporary
+> network disruption.
+>
 
-What phy is it?
+Eric, can you provide some detail on this statement?
 
-Do you have phy DT properties in the MAC node?
+I don't understand why QUIC wouldn't have this same issue. Seems like
+it is still connection oriented just like TCP, so if the application
+does a read expecting data from a peer and reverse reachability is
+lost, the the read on the socket hang just like reading a TCP would.
+If this is true, then the TCP solution would might actually be a
+better since it allows a means for a third party (presumably a daemon
+monitoring the network) to signal the application via closing specific
+TCP sockets. I don't see how this could work in UDP especially if
+these are unconnected sockets. What am I missing?
 
-   Andrew
+Thanks,
+Tom
