@@ -1,42 +1,84 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Thu, 19 Nov 2015 16:54:29 +0100
-Message-ID: <1447948469.2030778.444426889.4F4A5648@webmail.messagingengine.com>
-References: <CAKD1Yr0Gpr6Ex2i1TXEWyETn48P4g5vBvFZ9=_g+Lz_7-PqBDQ@mail.gmail.com>
- <20151118.153508.123902005995190872.davem@davemloft.net>
- <1447879416.562854.443622857.62708268@webmail.messagingengine.com>
- <20151118.224919.452852815199526735.davem@davemloft.net>
- <CALx6S36-tBwAGFFpdrhXjAXvNmxUXsbRV17Wayjr6-hsKsCeNg@mail.gmail.com>
+Date: Thu, 19 Nov 2015 08:19:24 -0800
+Message-ID: <1447949964.22599.220.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAKD1Yr2OgJT0GsrTuws0oapobrU+ML3NpBNBXizg6q035PH4MA@mail.gmail.com>
+	 <20151119.005318.838757439536205791.davem@davemloft.net>
+	 <CANP3RGcPRzSL06qZB9oewrvN_AUUodnYzXQO=itoK40z64x8Yw@mail.gmail.com>
+	 <20151119.104811.1447518072450380661.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Lorenzo Colitti <lorenzo@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
-	=?UTF-8?Q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
-	Dmitry Torokhov <dtor@google.com>
-To: Tom Herbert <tom@herbertland.com>,
-	David Miller <davem@davemloft.net>
+Cc: zenczykowski@gmail.com, lorenzo@google.com,
+	hannes@stressinduktion.org, stephen@networkplumber.org,
+	netdev@vger.kernel.org, edumazet@google.com, ek@google.com,
+	dtor@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:50154 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934018AbbKSPyd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 10:54:33 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 34A782075E
-	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 10:54:30 -0500 (EST)
-In-Reply-To: <CALx6S36-tBwAGFFpdrhXjAXvNmxUXsbRV17Wayjr6-hsKsCeNg@mail.gmail.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:36125 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756284AbbKSQT1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 11:19:27 -0500
+Received: by pacdm15 with SMTP id dm15so85408338pac.3
+        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 08:19:27 -0800 (PST)
+In-Reply-To: <20151119.104811.1447518072450380661.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 19, 2015, at 06:12, Tom Herbert wrote:
-> I think this solution presumes some out of band signaling about a path
-> failure deep in the network that is not reported via the TCP
-> connection. This solution is obviously only as good as the signaling,
-> but clearly the most general solution to maintaining reachability has
-> been (and unfortunately will probably continue to be) application
-> keepalives.
+On Thu, 2015-11-19 at 10:48 -0500, David Miller wrote:
+> At least if they do it this way, and someone claims that Linux TCP
+> behaves outside the spec or improperly, it's not directly because of
+> any code I am responsible for.
+> 
+> That's the difference, and frankly an important one to me.
+> 
+> If I'm going to give userspace a direct tool by which to do things,
+> then it's suddenly my responsibility and my problem.
 
-Ack. With emphasis of *application*. :)
+Here is the thing :
+
+- Android powered phones and devices have a similar code since 2008.
+There is _no_ way they can avoid having this functionality.
+
+Every-time I make a change in linux TCP stack, this code breaks, and
+this a  real pain because Android changes need to be carried over to
+vendors.
+
+I worked closely with Lorenzo, removing the ugly code Android had, and
+proposed an implementation based on inet_diag.
+
+We have a clear business case here, and I would like we find a solution.
+
+Having this code in upstream kernel will save me time and energy to deal
+with real issues and improvements, not with bugs opened by Android
+engineers 9 months after I did changes in upstream kernels.
+
+Having comments like "look, just implement application keepalives" is
+not going to work [1][2]. This is terrible, and show lack of
+understanding of the problem. We are not dealing with DC communications
+here. (I wish !)
+
+We (TCP stack) compete with QUIC, based on UDP, which has no issues like
+that. We need to allow TCP sessions being signaled of a non temporary
+network disruption.
+
+[1] Phones are very often in very polluted radio environments.
+
+  I remember the terrible wifi we had during Linux Kernel Summit in
+Chicago, where ping had more than 40 seconds delay.
+
+Here the network manager can avoid this 40 seconds penalty.
+
+[2] Taking air time to send keepalive(s) and receive their answers is
+going to make all radio providers shout really loud. They are already
+installing stupid proxies filtering/compressing ACK messages and
+breaking TCP clocking.
+
+Please add
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+Please wait one month for people submitting a working alternative,
+I am fine with it as long it is upstream.
+
+Thanks.
