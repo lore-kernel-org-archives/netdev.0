@@ -1,58 +1,42 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 3/3 v2] dl2k: Implement suspend
-Date: Thu, 19 Nov 2015 01:55:56 +0100
-Message-ID: <20151119005556.GA4882@electric-eye.fr.zoreil.com>
-References: <1447882589-11264-1-git-send-email-linux@rainbow-software.org>
- <1447882589-11264-3-git-send-email-linux@rainbow-software.org>
+Subject: Re: r8169 regression: UDP packets dropped intermittantly
+Date: Thu, 19 Nov 2015 01:56:08 +0100
+Message-ID: <20151119005608.GB4882@electric-eye.fr.zoreil.com>
+References: <20130309064647.GC4984@marvin.atrad.com.au>
+ <20130311000216.GA31808@zoreil.com>
+ <20130405001526.GC19253@marvin.atrad.com.au>
+ <20151117015605.GI22941@marvin.atrad.com.au>
+ <20151117232108.GC3362@electric-eye.fr.zoreil.com>
+ <20151118050919.GR25216@marvin.atrad.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Ondrej Zary <linux@rainbow-software.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Jonathan Woithe <jwoithe@atrad.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:55854 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756214AbbKSA4R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2015 19:56:17 -0500
 Content-Disposition: inline
-In-Reply-To: <1447882589-11264-3-git-send-email-linux@rainbow-software.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20151118050919.GR25216@marvin.atrad.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ondrej Zary <linux@rainbow-software.org> :
+Jonathan Woithe <jwoithe@atrad.com.au> :
 [...]
-> diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
-> index 9e9baa0..28a96d3 100644
-> --- a/drivers/net/ethernet/dlink/dl2k.c
-> +++ b/drivers/net/ethernet/dlink/dl2k.c
-[...]
-> @@ -1824,11 +1831,55 @@ rio_remove1 (struct pci_dev *pdev)
->  	}
->  }
->  
-> +#ifdef CONFIG_PM_SLEEP
-> +static int rio_suspend(struct device *device)
-> +{
-> +	struct net_device *dev = dev_get_drvdata(device);
-> +	struct netdev_private *np = netdev_priv(dev);
-> +
-> +	if (!netif_running(dev))
-> +		return 0;
-> +
-> +	netif_device_detach(dev);
-> +	del_timer_sync(&np->timer);
-> +	rio_hw_stop(dev);
-> +
-> +	return 0;
-> +}
-> +
-> +static int rio_resume(struct device *device)
-> +{
-> +	struct net_device *dev = dev_get_drvdata(device);
-> +	struct netdev_private *np = netdev_priv(dev);
-> +
-> +	if (!netif_running(dev))
-> +		return 0;
-> +
-> +	rio_reset_ring(np);
+> I could try.  What's the most reliable way to determine this?  Use regular
+> ethtool queries about the time of the failures?
 
-Almost. You should give the Rx/Tx descriptor 'status' word some love.
+If you are neither space nor cpu constrained:
+
+while : ; do
+	echo $(date +%s.%N):$(ethtool -d eth0 raw on | base64 -w 0):$(ethtool -S eth0 | base64 -w 0)
+	sleep 1
+done > gloubi
+
+Expect 2.5~3Mo per hour.
+
+(I like gnuplot with lots of points and repetitive patterns)
 
 -- 
 Ueimor
