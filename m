@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 2/8] tipc: small cleanup of
-	function tipc_node_check_state()
-Date: Thu, 19 Nov 2015 14:30:41 -0500
-Message-ID: <1447961447-13025-4-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 3/8] tipc: reduce code dependency
+	between binding table and node layer
+Date: Thu, 19 Nov 2015 14:30:42 -0500
+Message-ID: <1447961447-13025-5-git-send-email-jon.maloy@ericsson.com>
 References: <1447961447-13025-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,64 +24,281 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The function tipc_node_check_state() contains the core logics
-for handling link synchronization and failover. For this reason,
-it is important to keep it as comprehensible as possible.
-
-In this commit, we make three small cleanups.
-
-1) If the node is in state SELF_DOWN_PEER_LEAVING and the received
-   packet confirms that the peer has lost contact, there will be no
-   further action in this function. To make this clearer, we return
-   from the function directly after the state change.
-
-2) Since commit 0f8b8e28fb3241f9fd ("tipc: eliminate risk of stalled
-   link synchronization") only the logically first TUNNEL_PROTO/SYNCH
-   packet can alter the link state and set the synch point,
-   independently of arrival order. Hence, there is not any longer any
-   need to adjust the synch value in case such packets arrive in
-   disorder. We remove this adjustment.
-
-3) It is the intention that any message arriving on any of the links
-   may trig a check for and possible termination of a node SYNCH state.
-   A redundant and unnoticed check for tipc_link_is_synching() obviously
-   beats this purpose, with the effect that only packets arriving on the
-   synching link may currently end the synch state. We remove this check.
-   This change will further shorten the synchronization period between
-   parallel links.
+The file name_distr.c currently contains three functions,
+named_cluster_distribute(), tipc_publ_subcscribe() and
+tipc_publ_unsubscribe() that all directly access fields in
+struct tipc_node. We want to eliminate such dependencies, so
+we move those functions to the file node.c and rename them to
+tipc_node_broadcast(), tipc_node_subscribe() and tipc_node_unsubscribe()
+respectively.
 
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/node.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ net/tipc/core.h       |  5 ++++
+ net/tipc/name_distr.c | 67 +++------------------------------------------------
+ net/tipc/name_distr.h |  1 -
+ net/tipc/name_table.c |  5 ++--
+ net/tipc/node.c       | 60 +++++++++++++++++++++++++++++++++++++++++++++
+ net/tipc/node.h       |  3 +++
+ 6 files changed, 74 insertions(+), 67 deletions(-)
 
+diff --git a/net/tipc/core.h b/net/tipc/core.h
+index 18e95a8..5504d63 100644
+--- a/net/tipc/core.h
++++ b/net/tipc/core.h
+@@ -118,6 +118,11 @@ static inline int tipc_netid(struct net *net)
+ 	return tipc_net(net)->net_id;
+ }
+ 
++static inline struct list_head *tipc_nodes(struct net *net)
++{
++	return &tipc_net(net)->node_list;
++}
++
+ static inline u16 mod(u16 x)
+ {
+ 	return x & 0xffffu;
+diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
+index f51c8bd..ebe9d0f 100644
+--- a/net/tipc/name_distr.c
++++ b/net/tipc/name_distr.c
+@@ -84,31 +84,6 @@ static struct sk_buff *named_prepare_buf(struct net *net, u32 type, u32 size,
+ 	return buf;
+ }
+ 
+-void named_cluster_distribute(struct net *net, struct sk_buff *skb)
+-{
+-	struct tipc_net *tn = net_generic(net, tipc_net_id);
+-	struct sk_buff *oskb;
+-	struct tipc_node *node;
+-	u32 dnode;
+-
+-	rcu_read_lock();
+-	list_for_each_entry_rcu(node, &tn->node_list, list) {
+-		dnode = node->addr;
+-		if (in_own_node(net, dnode))
+-			continue;
+-		if (!tipc_node_is_up(node))
+-			continue;
+-		oskb = pskb_copy(skb, GFP_ATOMIC);
+-		if (!oskb)
+-			break;
+-		msg_set_destnode(buf_msg(oskb), dnode);
+-		tipc_node_xmit_skb(net, oskb, dnode, 0);
+-	}
+-	rcu_read_unlock();
+-
+-	kfree_skb(skb);
+-}
+-
+ /**
+  * tipc_named_publish - tell other nodes about a new publication by this node
+  */
+@@ -226,42 +201,6 @@ void tipc_named_node_up(struct net *net, u32 dnode)
+ 	tipc_node_xmit(net, &head, dnode, 0);
+ }
+ 
+-static void tipc_publ_subscribe(struct net *net, struct publication *publ,
+-				u32 addr)
+-{
+-	struct tipc_node *node;
+-
+-	if (in_own_node(net, addr))
+-		return;
+-
+-	node = tipc_node_find(net, addr);
+-	if (!node) {
+-		pr_warn("Node subscription rejected, unknown node 0x%x\n",
+-			addr);
+-		return;
+-	}
+-
+-	tipc_node_lock(node);
+-	list_add_tail(&publ->nodesub_list, &node->publ_list);
+-	tipc_node_unlock(node);
+-	tipc_node_put(node);
+-}
+-
+-static void tipc_publ_unsubscribe(struct net *net, struct publication *publ,
+-				  u32 addr)
+-{
+-	struct tipc_node *node;
+-
+-	node = tipc_node_find(net, addr);
+-	if (!node)
+-		return;
+-
+-	tipc_node_lock(node);
+-	list_del_init(&publ->nodesub_list);
+-	tipc_node_unlock(node);
+-	tipc_node_put(node);
+-}
+-
+ /**
+  * tipc_publ_purge - remove publication associated with a failed node
+  *
+@@ -277,7 +216,7 @@ static void tipc_publ_purge(struct net *net, struct publication *publ, u32 addr)
+ 	p = tipc_nametbl_remove_publ(net, publ->type, publ->lower,
+ 				     publ->node, publ->ref, publ->key);
+ 	if (p)
+-		tipc_publ_unsubscribe(net, p, addr);
++		tipc_node_unsubscribe(net, &p->nodesub_list, addr);
+ 	spin_unlock_bh(&tn->nametbl_lock);
+ 
+ 	if (p != publ) {
+@@ -317,7 +256,7 @@ static bool tipc_update_nametbl(struct net *net, struct distr_item *i,
+ 						TIPC_CLUSTER_SCOPE, node,
+ 						ntohl(i->ref), ntohl(i->key));
+ 		if (publ) {
+-			tipc_publ_subscribe(net, publ, node);
++			tipc_node_subscribe(net, &publ->nodesub_list, node);
+ 			return true;
+ 		}
+ 	} else if (dtype == WITHDRAWAL) {
+@@ -326,7 +265,7 @@ static bool tipc_update_nametbl(struct net *net, struct distr_item *i,
+ 						node, ntohl(i->ref),
+ 						ntohl(i->key));
+ 		if (publ) {
+-			tipc_publ_unsubscribe(net, publ, node);
++			tipc_node_unsubscribe(net, &publ->nodesub_list, node);
+ 			kfree_rcu(publ, rcu);
+ 			return true;
+ 		}
+diff --git a/net/tipc/name_distr.h b/net/tipc/name_distr.h
+index dd2d9fd..1264ba0 100644
+--- a/net/tipc/name_distr.h
++++ b/net/tipc/name_distr.h
+@@ -69,7 +69,6 @@ struct distr_item {
+ 
+ struct sk_buff *tipc_named_publish(struct net *net, struct publication *publ);
+ struct sk_buff *tipc_named_withdraw(struct net *net, struct publication *publ);
+-void named_cluster_distribute(struct net *net, struct sk_buff *buf);
+ void tipc_named_node_up(struct net *net, u32 dnode);
+ void tipc_named_rcv(struct net *net, struct sk_buff_head *msg_queue);
+ void tipc_named_reinit(struct net *net);
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index 0f47f08..91fce70 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -42,6 +42,7 @@
+ #include "subscr.h"
+ #include "bcast.h"
+ #include "addr.h"
++#include "node.h"
+ #include <net/genetlink.h>
+ 
+ #define TIPC_NAMETBL_SIZE 1024		/* must be a power of 2 */
+@@ -677,7 +678,7 @@ struct publication *tipc_nametbl_publish(struct net *net, u32 type, u32 lower,
+ 	spin_unlock_bh(&tn->nametbl_lock);
+ 
+ 	if (buf)
+-		named_cluster_distribute(net, buf);
++		tipc_node_broadcast(net, buf);
+ 	return publ;
+ }
+ 
+@@ -709,7 +710,7 @@ int tipc_nametbl_withdraw(struct net *net, u32 type, u32 lower, u32 ref,
+ 	spin_unlock_bh(&tn->nametbl_lock);
+ 
+ 	if (skb) {
+-		named_cluster_distribute(net, skb);
++		tipc_node_broadcast(net, skb);
+ 		return 1;
+ 	}
+ 	return 0;
 diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 20cddec..7756804 100644
+index 7756804..9321952 100644
 --- a/net/tipc/node.c
 +++ b/net/tipc/node.c
-@@ -1187,6 +1187,7 @@ static bool tipc_node_check_state(struct tipc_node *n, struct sk_buff *skb,
- 		if (msg_peer_node_is_up(hdr))
- 			return false;
- 		tipc_node_fsm_evt(n, PEER_LOST_CONTACT_EVT);
-+		return true;
- 	}
+@@ -234,6 +234,42 @@ void tipc_node_stop(struct net *net)
+ 	spin_unlock_bh(&tn->node_list_lock);
+ }
  
- 	/* Ignore duplicate packets */
-@@ -1232,12 +1233,10 @@ static bool tipc_node_check_state(struct tipc_node *n, struct sk_buff *skb,
- 			tipc_link_fsm_evt(l, LINK_SYNCH_BEGIN_EVT);
- 			tipc_node_fsm_evt(n, NODE_SYNCH_BEGIN_EVT);
- 		}
--		if (less(syncpt, n->sync_point))
--			n->sync_point = syncpt;
- 	}
++void tipc_node_subscribe(struct net *net, struct list_head *subscr, u32 addr)
++{
++	struct tipc_node *n;
++
++	if (in_own_node(net, addr))
++		return;
++
++	n = tipc_node_find(net, addr);
++	if (!n) {
++		pr_warn("Node subscribe rejected, unknown node 0x%x\n", addr);
++		return;
++	}
++	tipc_node_lock(n);
++	list_add_tail(subscr, &n->publ_list);
++	tipc_node_unlock(n);
++	tipc_node_put(n);
++}
++
++void tipc_node_unsubscribe(struct net *net, struct list_head *subscr, u32 addr)
++{
++	struct tipc_node *n;
++
++	if (in_own_node(net, addr))
++		return;
++
++	n = tipc_node_find(net, addr);
++	if (!n) {
++		pr_warn("Node unsubscribe rejected, unknown node 0x%x\n", addr);
++		return;
++	}
++	tipc_node_lock(n);
++	list_del_init(subscr);
++	tipc_node_unlock(n);
++	tipc_node_put(n);
++}
++
+ int tipc_node_add_conn(struct net *net, u32 dnode, u32 port, u32 peer_port)
+ {
+ 	struct tipc_node *node;
+@@ -1075,6 +1111,30 @@ int tipc_node_xmit_skb(struct net *net, struct sk_buff *skb, u32 dnode,
+ 	return 0;
+ }
  
- 	/* Open tunnel link when parallel link reaches synch point */
--	if ((n->state == NODE_SYNCHING) && tipc_link_is_synching(l)) {
-+	if (n->state == NODE_SYNCHING) {
- 		if (tipc_link_is_synching(l)) {
- 			tnl = l;
- 		} else {
++void tipc_node_broadcast(struct net *net, struct sk_buff *skb)
++{
++	struct sk_buff *txskb;
++	struct tipc_node *n;
++	u32 dst;
++
++	rcu_read_lock();
++	list_for_each_entry_rcu(n, tipc_nodes(net), list) {
++		dst = n->addr;
++		if (in_own_node(net, dst))
++			continue;
++		if (!tipc_node_is_up(n))
++			continue;
++		txskb = pskb_copy(skb, GFP_ATOMIC);
++		if (!txskb)
++			break;
++		msg_set_destnode(buf_msg(txskb), dst);
++		tipc_node_xmit_skb(net, txskb, dst, 0);
++	}
++	rcu_read_unlock();
++
++	kfree_skb(skb);
++}
++
+ /**
+  * tipc_node_bc_rcv - process TIPC broadcast packet arriving from off-node
+  * @net: the applicable net namespace
+diff --git a/net/tipc/node.h b/net/tipc/node.h
+index 6734562..dd79e97 100644
+--- a/net/tipc/node.h
++++ b/net/tipc/node.h
+@@ -149,6 +149,9 @@ int tipc_node_xmit(struct net *net, struct sk_buff_head *list, u32 dnode,
+ 		   int selector);
+ int tipc_node_xmit_skb(struct net *net, struct sk_buff *skb, u32 dest,
+ 		       u32 selector);
++void tipc_node_subscribe(struct net *net, struct list_head *subscr, u32 addr);
++void tipc_node_unsubscribe(struct net *net, struct list_head *subscr, u32 addr);
++void tipc_node_broadcast(struct net *net, struct sk_buff *skb);
+ int tipc_node_add_conn(struct net *net, u32 dnode, u32 port, u32 peer_port);
+ void tipc_node_remove_conn(struct net *net, u32 dnode, u32 port);
+ int tipc_nl_node_dump(struct sk_buff *skb, struct netlink_callback *cb);
 -- 
 1.9.1
 
