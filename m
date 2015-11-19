@@ -1,79 +1,70 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net-next 2/2] ppp: remove PPPOX_ZOMBIE socket state
-Date: Thu, 19 Nov 2015 12:53:21 +0100
-Message-ID: <d58f44d163d4f4176f331c22e3c22ac9caa501b3.1447931252.git.g.nault@alphalink.fr>
-References: <cover.1447931252.git.g.nault@alphalink.fr>
+From: Ariel Elior <Ariel.Elior@qlogic.com>
+Subject: RE: [PATCH] bnx2x:Fix error handling and return statement in the
+ function bnx2x_vf_init
+Date: Thu, 19 Nov 2015 12:13:37 +0000
+Message-ID: <81D78EA7F834FA4C83B64260D494C859087C45CD@avmb3.qlogic.org>
+References: <1447903880-9369-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Michal Ostrowski <mostrows@earthlink.net>,
-	Simon Farnsworth <simon@farnz.org.uk>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:42721 "EHLO
-	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757385AbbKSLxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 06:53:24 -0500
-Content-Disposition: inline
-In-Reply-To: <cover.1447931252.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: Nicholas Krause <xerofoify@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447903880-9369-1-git-send-email-xerofoify@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PPPOX_ZOMBIE is never set anymore.
+> -----Original Message-----
+> From: Nicholas Krause [mailto:xerofoify@gmail.com]
+> Sent: Thursday, November 19, 2015 5:31 AM
+> To: Ariel Elior <Ariel.Elior@qlogic.com>
+> Cc: netdev <netdev@vger.kernel.org>; linux-kernel <linux-kernel@vger.kernel.org>
+> Subject: [PATCH] bnx2x:Fix error handling and return statement in the function
+> bnx2x_vf_init
+> 
+> This fixes error handling and the return statement in the function
+> bnx2x_vf_init to properly check and return the error code returned
+> by the call to the function bnx2x_post_vf_bulletin in order to
+> allow callers of bnx2x_vf_init to be properly signaled and be able to
+> handle in their own intended error paths if a error code is returned
+> by this particular function call.
+> 
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> index 9d02734..4434cdb 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> @@ -2087,6 +2087,7 @@ int bnx2x_vf_init(struct bnx2x *bp, struct bnx2x_virtf *vf,
+> dma_addr_t *sb_map)
+>  {
+>  	struct bnx2x_func_init_params func_init = {0};
+>  	int i;
+> +	int rc;
+> 
+>  	/* the sb resources are initialized at this point, do the
+>  	 * FW/HW initializations
+> @@ -2129,9 +2130,9 @@ int bnx2x_vf_init(struct bnx2x *bp, struct bnx2x_virtf *vf,
+> dma_addr_t *sb_map)
+>  	vf->state = VF_ENABLED;
+> 
+>  	/* update vf bulletin board */
+> -	bnx2x_post_vf_bulletin(bp, vf->index);
+> +	rc = bnx2x_post_vf_bulletin(bp, vf->index);
+> 
+> -	return 0;
+> +	return rc;
+>  }
+> 
+>  struct set_vf_state_cookie {
+> --
+> 2.5.0
 
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
----
- drivers/net/ppp/pppoe.c  | 4 ++--
- drivers/net/ppp/pppox.c  | 2 +-
- include/linux/if_pppox.h | 1 -
- 3 files changed, 3 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
-index 1dedfbf..277e682 100644
---- a/drivers/net/ppp/pppoe.c
-+++ b/drivers/net/ppp/pppoe.c
-@@ -311,7 +311,7 @@ static void pppoe_flush_dev(struct net_device *dev)
- 			lock_sock(sk);
- 
- 			if (po->pppoe_dev == dev &&
--			    sk->sk_state & (PPPOX_CONNECTED | PPPOX_BOUND | PPPOX_ZOMBIE)) {
-+			    sk->sk_state & (PPPOX_CONNECTED | PPPOX_BOUND)) {
- 				pppox_unbind_sock(sk);
- 				sk->sk_state_change(sk);
- 				po->pppoe_dev = NULL;
-@@ -775,7 +775,7 @@ static int pppoe_ioctl(struct socket *sock, unsigned int cmd,
- 		struct pppox_sock *relay_po;
- 
- 		err = -EBUSY;
--		if (sk->sk_state & (PPPOX_BOUND | PPPOX_ZOMBIE | PPPOX_DEAD))
-+		if (sk->sk_state & (PPPOX_BOUND | PPPOX_DEAD))
- 			break;
- 
- 		err = -ENOTCONN;
-diff --git a/drivers/net/ppp/pppox.c b/drivers/net/ppp/pppox.c
-index 0e1b306..0200de7 100644
---- a/drivers/net/ppp/pppox.c
-+++ b/drivers/net/ppp/pppox.c
-@@ -58,7 +58,7 @@ void pppox_unbind_sock(struct sock *sk)
- {
- 	/* Clear connection to ppp device, if attached. */
- 
--	if (sk->sk_state & (PPPOX_BOUND | PPPOX_CONNECTED | PPPOX_ZOMBIE)) {
-+	if (sk->sk_state & (PPPOX_BOUND | PPPOX_CONNECTED)) {
- 		ppp_unregister_channel(&pppox_sk(sk)->chan);
- 		sk->sk_state = PPPOX_DEAD;
- 	}
-diff --git a/include/linux/if_pppox.h b/include/linux/if_pppox.h
-index b49cf92..ba7a9b0 100644
---- a/include/linux/if_pppox.h
-+++ b/include/linux/if_pppox.h
-@@ -91,7 +91,6 @@ enum {
-     PPPOX_CONNECTED	= 1,  /* connection established ==TCP_ESTABLISHED */
-     PPPOX_BOUND		= 2,  /* bound to ppp device */
-     PPPOX_RELAY		= 4,  /* forwarding is enabled */
--    PPPOX_ZOMBIE	= 8,  /* dead, but still bound to ppp device */
-     PPPOX_DEAD		= 16  /* dead, useless, please clean me up!*/
- };
- 
--- 
-2.6.2
+Acked-by: Ariel Elior <ariel.elior@qlogic.com>
