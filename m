@@ -1,204 +1,301 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH 02/15] sctp: Rename NETIF_F_SCTP_CSUM to NETIF_F_SCTP_CRC
-Date: Thu, 19 Nov 2015 11:55:48 -0800
-Message-ID: <1447962961-2106059-3-git-send-email-tom@herbertland.com>
+Subject: [PATCH 07/15] net: Add driver helper functions to determine checksum offloadability
+Date: Thu, 19 Nov 2015 11:55:53 -0800
+Message-ID: <1447962961-2106059-8-git-send-email-tom@herbertland.com>
 References: <1447962961-2106059-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:15614 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:46023 "EHLO
 	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754580AbbKST4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 14:56:13 -0500
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.15.0.59/8.15.0.59) with SMTP id tAJJscQv018581
-	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 11:56:12 -0800
+	by vger.kernel.org with ESMTP id S1759277AbbKST4S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 14:56:18 -0500
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.15.0.59/8.15.0.59) with SMTP id tAJJrA2U032540
+	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 11:56:17 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 1y8rt9ehe2-1
+	by m0001303.ppops.net with ESMTP id 1y8rtt6nca-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 11:56:12 -0800
+	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 11:56:17 -0800
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.102.107.97) with ESMTP	id
- 953e33ae8ef711e581b20002c99331b0-989fa230 for <netdev@vger.kernel.org>;	Thu,
- 19 Nov 2015 11:56:11 -0800
+ 97fc1c828ef711e581b20002c99331b0-989fa230 for <netdev@vger.kernel.org>;	Thu,
+ 19 Nov 2015 11:56:16 -0800
 In-Reply-To: <1447962961-2106059-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The SCTP checksum is really a CRC and is very different from the
-standards 1's complement checksum that serves as the checksum
-for IP protocols. This offload interface is also very different.
-Rename NETIF_F_SCTP_CSUM to NETIF_F_SCTP_CRC to highlight these
-differences. The term CSUM should be reserved in the stack to refer
-to the standard 1's complement IP checksum.
+Add skb_csum_offload_chk driver helper function to determine if a
+device with limited checksum offload capabilities is able to offload the
+checksum for a given packet.
+
+This patch includes:
+  - The skb_csum_offload_chk function. Returns true if checksum is
+    offloadable, else false. Optionally, in the case that the checksum
+    is not offloable, the function can call skb_checksum_help to resolve
+    the checksum. skb_csum_offload_chk also returns whether the checksum
+    refers to an encapsulated checksum.
+  - Definition of skb_csum_offl_spec structure that caller uses to
+    indicate rules about what it can offload (e.g. IPv4/v6, TCP/UDP only,
+    whether encapsulated checksums can be offloaded, whether checksum with
+    IPv6 extension headers can be offloaded).
+  - Ancilary functions called skb_csum_offload_chk_help,
+    skb_csum_off_chk_help_cmn, skb_csum_off_chk_help_cmn_v4_only.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- drivers/net/ethernet/intel/igb/igb_main.c       | 4 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 4 ++--
- drivers/net/loopback.c                          | 2 +-
- include/linux/netdev_features.h                 | 4 ++--
- net/8021q/vlan_dev.c                            | 2 +-
- net/core/ethtool.c                              | 4 ++--
- net/netfilter/ipvs/ip_vs_proto_sctp.c           | 2 +-
- net/sctp/output.c                               | 2 +-
- 10 files changed, 14 insertions(+), 14 deletions(-)
+ include/linux/netdevice.h |  78 +++++++++++++++++++++++++++
+ net/core/dev.c            | 133 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 211 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b825f97..fc4ee0a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8638,7 +8638,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 52b41c8..14c2ea9 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2491,6 +2491,71 @@ static inline void skb_gro_remcsum_cleanup(struct sk_buff *skb,
+ 	remcsum_unadjust((__sum16 *)ptr, grc->delta);
+ }
  
- 	netdev->features = NETIF_F_SG		       |
- 			   NETIF_F_IP_CSUM	       |
--			   NETIF_F_SCTP_CSUM	       |
-+			   NETIF_F_SCTP_CRC	       |
- 			   NETIF_F_HIGHDMA	       |
- 			   NETIF_F_GSO_UDP_TUNNEL      |
- 			   NETIF_F_GSO_GRE	       |
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index d962164..1b22b71 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2137,7 +2137,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
- 	netdev->features |= NETIF_F_HIGHDMA |
- 			    NETIF_F_SG |
- 			    NETIF_F_IP_CSUM |
--			    NETIF_F_SCTP_CSUM |
-+			    NETIF_F_SCTP_CRC |
- 			    NETIF_F_IPV6_CSUM |
- 			    NETIF_F_TSO |
- 			    NETIF_F_TSO6 |
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index ea7b098..1e21db3 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2378,8 +2378,8 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
++struct skb_csum_offl_spec {
++	__u16		ipv4_okay:1,
++			ipv6_okay:1,
++			encap_okay:1,
++			ip_options_okay:1,
++			ext_hdrs_okay:1,
++			tcp_okay:1,
++			udp_okay:1,
++			sctp_okay:1,
++			vlan_okay:1,
++			no_encapped_ipv6:1,
++			no_not_encapped:1;
++};
++
++bool __skb_csum_offload_chk(struct sk_buff *skb,
++			    const struct skb_csum_offl_spec *spec,
++			    bool *csum_encapped,
++			    bool csum_help);
++
++static inline bool skb_csum_offload_chk(struct sk_buff *skb,
++					const struct skb_csum_offl_spec *spec,
++					bool *csum_encapped,
++					bool csum_help)
++{
++	if (skb->ip_summed != CHECKSUM_PARTIAL)
++		return false;
++
++	return __skb_csum_offload_chk(skb, spec, csum_encapped, csum_help);
++}
++
++static inline bool skb_csum_offload_chk_help(struct sk_buff *skb,
++					     const struct skb_csum_offl_spec *spec)
++{
++	bool csum_encapped;
++
++	return skb_csum_offload_chk(skb, spec, &csum_encapped, true);
++}
++
++static inline bool skb_csum_off_chk_help_cmn(struct sk_buff *skb)
++{
++	static const struct skb_csum_offl_spec csum_offl_spec = {
++		.ipv4_okay = 1,
++		.ip_options_okay = 1,
++		.ipv6_okay = 1,
++		.vlan_okay = 1,
++		.tcp_okay = 1,
++		.udp_okay = 1,
++	};
++
++	return skb_csum_offload_chk_help(skb, &csum_offl_spec);
++}
++
++static inline bool skb_csum_off_chk_help_cmn_v4_only(struct sk_buff *skb)
++{
++	static const struct skb_csum_offl_spec csum_offl_spec = {
++		.ipv4_okay = 1,
++		.ip_options_okay = 1,
++		.tcp_okay = 1,
++		.udp_okay = 1,
++		.vlan_okay = 1,
++	};
++
++	return skb_csum_offload_chk_help(skb, &csum_offl_spec);
++}
++
+ static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 				  unsigned short type,
+ 				  const void *daddr, const void *saddr,
+@@ -3680,6 +3745,19 @@ static inline bool can_checksum_protocol(netdev_features_t features,
  	}
+ }
  
- 	if (hw->mac.type >= e1000_82576) {
--		netdev->hw_features |= NETIF_F_SCTP_CSUM;
--		netdev->features |= NETIF_F_SCTP_CSUM;
-+		netdev->hw_features |= NETIF_F_SCTP_CRC;
-+		netdev->features |= NETIF_F_SCTP_CRC;
- 	}
++/* Map an ethertype into IP protocol if possible */
++static inline int eproto_to_ipproto(int eproto)
++{
++	switch (eproto) {
++	case htons(ETH_P_IP):
++		return IPPROTO_IP;
++	case htons(ETH_P_IPV6):
++		return IPPROTO_IPV6;
++	default:
++		return -1;
++	}
++}
++
+ #ifdef CONFIG_BUG
+ void netdev_rx_csum_fault(struct net_device *dev);
+ #else
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 65784f0..7c21747 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -138,6 +138,7 @@
+ #include <linux/errqueue.h>
+ #include <linux/hrtimer.h>
+ #include <linux/netfilter_ingress.h>
++#include <linux/sctp.h>
  
- 	netdev->priv_flags |= IFF_UNICAST_FLT;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 4089d77..3e8b3d7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8781,8 +8781,8 @@ skip_sriov:
- 	case ixgbe_mac_X540:
- 	case ixgbe_mac_X550:
- 	case ixgbe_mac_X550EM_x:
--		netdev->features |= NETIF_F_SCTP_CSUM;
--		netdev->hw_features |= NETIF_F_SCTP_CSUM |
-+		netdev->features |= NETIF_F_SCTP_CRC;
-+		netdev->hw_features |= NETIF_F_SCTP_CRC |
- 				       NETIF_F_NTUPLE;
- 		break;
- 	default:
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index dc7d970..a400288 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -175,7 +175,7 @@ static void loopback_setup(struct net_device *dev)
- 		| NETIF_F_UFO
- 		| NETIF_F_HW_CSUM
- 		| NETIF_F_RXCSUM
--		| NETIF_F_SCTP_CSUM
-+		| NETIF_F_SCTP_CRC
- 		| NETIF_F_HIGHDMA
- 		| NETIF_F_LLTX
- 		| NETIF_F_NETNS_LOCAL
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index f0d8734..6395f83 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -52,7 +52,7 @@ enum {
- 		NETIF_F_GSO_TUNNEL_REMCSUM_BIT,
+ #include "net-sysfs.h"
  
- 	NETIF_F_FCOE_CRC_BIT,		/* FCoE CRC32 */
--	NETIF_F_SCTP_CSUM_BIT,		/* SCTP checksum offload */
-+	NETIF_F_SCTP_CRC_BIT,		/* SCTP checksum offload */
- 	NETIF_F_FCOE_MTU_BIT,		/* Supports max FCoE MTU, 2158 bytes*/
- 	NETIF_F_NTUPLE_BIT,		/* N-tuple filters supported */
- 	NETIF_F_RXHASH_BIT,		/* Receive hashing offload */
-@@ -103,7 +103,7 @@ enum {
- #define NETIF_F_NTUPLE		__NETIF_F(NTUPLE)
- #define NETIF_F_RXCSUM		__NETIF_F(RXCSUM)
- #define NETIF_F_RXHASH		__NETIF_F(RXHASH)
--#define NETIF_F_SCTP_CSUM	__NETIF_F(SCTP_CSUM)
-+#define NETIF_F_SCTP_CRC	__NETIF_F(SCTP_CRC)
- #define NETIF_F_SG		__NETIF_F(SG)
- #define NETIF_F_TSO6		__NETIF_F(TSO6)
- #define NETIF_F_TSO_ECN		__NETIF_F(TSO_ECN)
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index fded865..c2bf37f 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -544,7 +544,7 @@ static int vlan_dev_init(struct net_device *dev)
+@@ -2471,6 +2472,138 @@ out:
+ }
+ EXPORT_SYMBOL(skb_checksum_help);
  
- 	dev->hw_features = NETIF_F_ALL_CSUM | NETIF_F_SG |
- 			   NETIF_F_FRAGLIST | NETIF_F_GSO_SOFTWARE |
--			   NETIF_F_HIGHDMA | NETIF_F_SCTP_CSUM |
-+			   NETIF_F_HIGHDMA | NETIF_F_SCTP_CRC |
- 			   NETIF_F_ALL_FCOE;
- 
- 	dev->features |= real_dev->vlan_features | NETIF_F_LLTX |
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 29edf74..4a0cab8 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -87,7 +87,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
- 	[NETIF_F_GSO_UDP_TUNNEL_BIT] =	 "tx-udp_tnl-segmentation",
- 
- 	[NETIF_F_FCOE_CRC_BIT] =         "tx-checksum-fcoe-crc",
--	[NETIF_F_SCTP_CSUM_BIT] =        "tx-checksum-sctp",
-+	[NETIF_F_SCTP_CRC_BIT] =        "tx-checksum-sctp",
- 	[NETIF_F_FCOE_MTU_BIT] =         "fcoe-mtu",
- 	[NETIF_F_NTUPLE_BIT] =           "rx-ntuple-filter",
- 	[NETIF_F_RXHASH_BIT] =           "rx-hashing",
-@@ -235,7 +235,7 @@ static netdev_features_t ethtool_get_feature_mask(u32 eth_cmd)
- 	switch (eth_cmd) {
- 	case ETHTOOL_GTXCSUM:
- 	case ETHTOOL_STXCSUM:
--		return NETIF_F_ALL_CSUM | NETIF_F_SCTP_CSUM;
-+		return NETIF_F_ALL_CSUM | NETIF_F_SCTP_CRC;
- 	case ETHTOOL_GRXCSUM:
- 	case ETHTOOL_SRXCSUM:
- 		return NETIF_F_RXCSUM;
-diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-index 010ddee..d952d67 100644
---- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-@@ -169,7 +169,7 @@ sctp_dnat_handler(struct sk_buff *skb, struct ip_vs_protocol *pp,
- 	/* Only update csum if we really have to */
- 	if (sctph->dest != cp->dport || payload_csum ||
- 	    (skb->ip_summed == CHECKSUM_PARTIAL &&
--	     !(skb_dst(skb)->dev->features & NETIF_F_SCTP_CSUM))) {
-+	     !(skb_dst(skb)->dev->features & NETIF_F_SCTP_CRC))) {
- 		sctph->dest = cp->dport;
- 		sctp_nat_csum(skb, sctph, sctphoff);
- 	} else if (skb->ip_summed != CHECKSUM_PARTIAL) {
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index abe7c2d..9d610ed 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -534,7 +534,7 @@ int sctp_packet_transmit(struct sctp_packet *packet)
- 	 * by CRC32-C as described in <draft-ietf-tsvwg-sctpcsum-02.txt>.
- 	 */
- 	if (!sctp_checksum_disable) {
--		if (!(dst->dev->features & NETIF_F_SCTP_CSUM) ||
-+		if (!(dst->dev->features & NETIF_F_SCTP_CRC) ||
- 		    (dst_xfrm(dst) != NULL) || packet->ipfragok) {
- 			sh->checksum = sctp_compute_cksum(nskb, 0);
- 		} else {
++/* skb_csum_offload_check - Driver helper function to determine if a device
++ * with limited checksum offload capabilities is able to offload the checksum
++ * for a given packet.
++ *
++ * Arguments:
++ *   skb - sk_buff for the packet in question
++ *   spec - contains the description of what device can offload
++ *   csum_encapped - returns true if the checksum being offloaded is
++ *	      encpasulated. That is it is checksum for the transport header
++ *	      in the inner headers.
++ *   checksum_help - when set indicates that helper function should
++ *	      call skb_checksum_help if offload checks fail
++ *
++ * Returns:
++ *   true: Packet has passed the checksum checks and should be offloadable to
++ *	   the device (a driver may still need to check for additional
++ *	   restrictions of its device)
++ *   false: Checksum is not offloadable. If checksum_help was set then
++ *	   skb_checksum_help was called to resolve checksum for non-GSO
++ *	   packets and when IP protocol is not SCTP
++ */
++bool __skb_csum_offload_chk(struct sk_buff *skb,
++			    const struct skb_csum_offl_spec *spec,
++			    bool *csum_encapped,
++			    bool csum_help)
++{
++	struct iphdr *iph;
++	struct ipv6hdr *ipv6;
++	void *nhdr;
++	int protocol;
++	u8 ip_proto;
++
++	if (skb->protocol == htons(ETH_P_8021Q) ||
++	    skb->protocol == htons(ETH_P_8021AD)) {
++		if (!spec->vlan_okay)
++			goto need_help;
++	}
++
++	/* We are assuming that checksum start must coincide with the inner or
++	 * outer transport header. This is true for TCP, UDP, and SCTP-- but if
++	 * support is ever added for GRE checksum offload this would not hold.
++	 */
++	if (skb_checksum_start_offset(skb) == skb_transport_offset(skb)) {
++		/* Non-encapsulated checksum */
++		protocol = eproto_to_ipproto(vlan_get_protocol(skb));
++		nhdr = skb_network_header(skb);
++		*csum_encapped = false;
++		if (spec->no_not_encapped)
++			goto need_help;
++	} else if (skb->encapsulation && spec->encap_okay &&
++		   skb_checksum_start_offset(skb) ==
++		   skb_inner_transport_offset(skb)) {
++		/* Encapsulated checksum */
++		*csum_encapped = true;
++		switch (skb->inner_protocol_type) {
++		case ENCAP_TYPE_ETHER:
++			protocol = eproto_to_ipproto(skb->inner_protocol);
++			break;
++		case ENCAP_TYPE_IPPROTO:
++			protocol = skb->inner_protocol;
++			break;
++		}
++		nhdr = skb_inner_network_header(skb);
++	} else {
++		goto need_help;
++	}
++
++	switch (protocol) {
++	case IPPROTO_IP:
++		if (!spec->ipv4_okay)
++			goto need_help;
++		iph = nhdr;
++		ip_proto = iph->protocol;
++		if (iph->ihl != 5 && !spec->ip_options_okay)
++			goto need_help;
++		break;
++	case IPPROTO_IPV6:
++		if (!spec->ipv6_okay)
++			goto need_help;
++		ipv6 = nhdr;
++		nhdr += sizeof(*ipv6);
++		ip_proto = ipv6->nexthdr;
++		break;
++	default:
++		goto need_help;
++	}
++
++ip_proto_again:
++	switch (ip_proto) {
++	case IPPROTO_TCP:
++		if (!spec->tcp_okay ||
++		    skb->csum_offset != offsetof(struct tcphdr, check))
++			goto need_help;
++		break;
++	case IPPROTO_UDP:
++		if (!spec->udp_okay ||
++		    skb->csum_offset != offsetof(struct udphdr, check))
++			goto need_help;
++		break;
++	case IPPROTO_SCTP:
++		if (!spec->sctp_okay ||
++		    skb->csum_offset != offsetof(struct sctphdr, checksum))
++			goto cant_help;
++		break;
++	case NEXTHDR_HOP:
++	case NEXTHDR_ROUTING:
++	case NEXTHDR_DEST: {
++		u8 *opthdr = nhdr;
++
++		if (protocol != IPPROTO_IPV6 || !spec->ext_hdrs_okay)
++			goto need_help;
++
++		ip_proto = opthdr[0];
++		nhdr += (opthdr[1] + 1) << 3;
++
++		goto ip_proto_again;
++	}
++	default:
++		goto need_help;
++	}
++
++	/* Passed the tests */
++	return true;
++
++need_help:
++	if (csum_help && !skb_shinfo(skb)->gso_size)
++		skb_checksum_help(skb);
++cant_help:
++	return false;
++}
++EXPORT_SYMBOL(__skb_csum_offload_chk);
++
+ __be16 skb_network_protocol(struct sk_buff *skb, int *depth)
+ {
+ 	__be16 type = skb->protocol;
 -- 
 2.4.6
