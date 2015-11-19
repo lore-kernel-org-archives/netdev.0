@@ -1,65 +1,110 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] phylib: Make PHYs children of their MDIO bus, not the
- bus' parent.
-Date: Thu, 19 Nov 2015 23:51:37 +0300
-Message-ID: <564E3659.1040709@cogentembedded.com>
-References: <1440198963-20080-1-git-send-email-ddaney.cavm@gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH iproute2 1/2] Avoid in6_addr redefinition
+Date: Thu, 19 Nov 2015 22:05:39 +0100
+Message-ID: <1447967140-29909-2-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1447967140-29909-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Daney <david.daney@cavium.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Grant Likely <grant.likely@secretlab.ca>
-To: David Daney <ddaney.cavm@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440198963-20080-1-git-send-email-ddaney.cavm@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from down.free-electrons.com ([37.187.137.238]:51872 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S934149AbbKSVF6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 16:05:58 -0500
+In-Reply-To: <1447967140-29909-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Due to both <netinet/in.h> and <linux/in6.h> being included, the
+in6_addr is being redefined: once from the C library headers and once
+from the kernel headers. This causes some build failures with for
+example the musl C library:
 
-On 08/22/2015 02:16 AM, David Daney wrote:
+In file included from ../include/linux/xfrm.h:4:0,
+                 from xfrm.h:29,
+                 from ipxfrm.c:39:
+=2E./include/linux/in6.h:32:8: error: redefinition of =E2=80=98struct i=
+n6_addr=E2=80=99
+ struct in6_addr {
+        ^
+In file included from .../output/host/usr/x86_64-buildroot-linux-musl/s=
+ysroot/usr/include/netdb.h:9:0,
+                 from ipxfrm.c:34:
+=2E../output/host/usr/x86_64-buildroot-linux-musl/sysroot/usr/include/n=
+etinet/in.h:24:8: note: originally defined here
+ struct in6_addr
+        ^
 
-> From: David Daney <david.daney@cavium.com>
->
-> commit 18ee49ddb0d2 ("phylib: rename mii_bus::dev to mii_bus::parent")
-> changed the parent of PHY devices from the bus to the bus parent.
->
-> Then, commit 4dea547fef1b ("phylib: rework to prepare for OF
-> registration of PHYs") moved the code into phy_device.c
->
-> At this point, it is somewhat unclear why the change was seen as
-> necessary.  But, when we look at the device model tree in
-> /sys/devices, it is clearly incorrect.  The PHYs should be children of
-> their MDIO bus.
->
-> Change the PHY's parent device to be the MDIO bus device.
->
-> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
-> Cc: Grant Likely <grant.likely@secretlab.ca>
-> Signed-off-by: David Daney <david.daney@cavium.com>
-> ---
->   drivers/net/phy/phy_device.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 0302483..55f0178 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -176,7 +176,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
->   	if (c45_ids)
->   		dev->c45_ids = *c45_ids;
->   	dev->bus = bus;
-> -	dev->dev.parent = bus->parent;
-> +	dev->dev.parent = &bus->dev;
->   	dev->dev.bus = &mdio_bus_type;
->   	dev->irq = bus->irq != NULL ? bus->irq[addr] : PHY_POLL;
->   	dev_set_name(&dev->dev, PHY_ID_FMT, bus->id, addr);
+In order to fix this, use just the C library header <netinet/in.h>.
 
-    This patch makes my sh_eth driver fail to connect to PHY usinjg 
-of_phy_connect(). (The ravb driver fails too but for some other reason.)
+Original patch taken from
+http://git.alpinelinux.org/cgit/aports/tree/main/iproute2/musl-fixes.pa=
+tch.
 
-MBR, Sergei
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ include/libiptc/ipt_kernel_headers.h | 2 --
+ include/linux/if_bridge.h            | 1 -
+ include/linux/netfilter.h            | 2 --
+ include/linux/xfrm.h                 | 1 -
+ 4 files changed, 6 deletions(-)
+
+diff --git a/include/libiptc/ipt_kernel_headers.h b/include/libiptc/ipt=
+_kernel_headers.h
+index 7e87828..9566be5 100644
+--- a/include/libiptc/ipt_kernel_headers.h
++++ b/include/libiptc/ipt_kernel_headers.h
+@@ -15,12 +15,10 @@
+ #else /* libc5 */
+ #include <sys/socket.h>
+ #include <linux/ip.h>
+-#include <linux/in.h>
+ #include <linux/if.h>
+ #include <linux/icmp.h>
+ #include <linux/tcp.h>
+ #include <linux/udp.h>
+ #include <linux/types.h>
+-#include <linux/in6.h>
+ #endif
+ #endif
+diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
+index ee197a3..f823aa4 100644
+--- a/include/linux/if_bridge.h
++++ b/include/linux/if_bridge.h
+@@ -15,7 +15,6 @@
+=20
+ #include <linux/types.h>
+ #include <linux/if_ether.h>
+-#include <linux/in6.h>
+=20
+ #define SYSFS_BRIDGE_ATTR	"bridge"
+ #define SYSFS_BRIDGE_FDB	"brforward"
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index b71b4c9..3e4e6ae 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -4,8 +4,6 @@
+ #include <linux/types.h>
+=20
+ #include <linux/sysctl.h>
+-#include <linux/in.h>
+-#include <linux/in6.h>
+=20
+ /* Responses from hook functions. */
+ #define NF_DROP 0
+diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+index b8f5451..a9761a5 100644
+--- a/include/linux/xfrm.h
++++ b/include/linux/xfrm.h
+@@ -1,7 +1,6 @@
+ #ifndef _LINUX_XFRM_H
+ #define _LINUX_XFRM_H
+=20
+-#include <linux/in6.h>
+ #include <linux/types.h>
+=20
+ /* All of the structures in this file may not change size as they are
+--=20
+2.6.3
