@@ -1,13 +1,14 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 4/7] netprio_cgroup: limit the maximum css->id to USHRT_MAX
-Date: Thu, 19 Nov 2015 13:52:48 -0500
-Message-ID: <1447959171-20749-5-git-send-email-tj@kernel.org>
+Subject: [PATCH 7/7] netfilter: implement xt_cgroup2 match
+Date: Thu, 19 Nov 2015 13:52:51 -0500
+Message-ID: <1447959171-20749-8-git-send-email-tj@kernel.org>
 References: <1447959171-20749-1-git-send-email-tj@kernel.org>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	coreteam@netfilter.org, cgroups@vger.kernel.org,
 	linux-kernel@vger.kernel.org, kernel-team@fb.com,
 	daniel@iogearbox.net, daniel.wagner@bmw-carit.de,
-	nhorman@tuxdriver.com, Tejun Heo <tj@kernel.org>
+	nhorman@tuxdriver.com, Tejun Heo <tj@kernel.org>,
+	Jan Engelhardt <jengelh@inai.de>
 To: davem@davemloft.net, pablo@netfilter.org, kaber@trash.net,
 	kadlec@blackhole.kfki.hu, lizefan@huawei.com, hannes@cmpxchg.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -15,94 +16,166 @@ In-Reply-To: <1447959171-20749-1-git-send-email-tj@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netprio builds per-netdev contiguous priomap array which is indexed by
-css->id.  The array is allocated using kzalloc() effectively limiting
-the maximum ID supported to some thousand range.  This patch caps the
-maximum supported css->id to USHRT_MAX which should be way above what
-is actually useable.
+This patch implements xt_cgroup2 which matches cgroup2 membership of
+the associated socket.  The match is recursive and invertible.
 
-This allows reducing sock->sk_cgrp_prioidx to u16 from u32.  The freed
-up part will be used to overload the cgroup related fields.
-sock->sk_cgrp_prioidx's position is swapped with sk_mark so that the
-two cgroup related fields are adjacent.
+For rationales on introducing another cgroup based match, please refer
+to a preceding commit "sock, cgroup: add sock->sk_cgroup".
+
+v2: Included linux/limits.h from xt_cgroup2.h for PATH_MAX.  Added
+    explicit alignment to the priv field.  Both suggested by Jan.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
 Cc: Daniel Wagner <daniel.wagner@bmw-carit.de>
 CC: Neil Horman <nhorman@tuxdriver.com>
+Cc: Jan Engelhardt <jengelh@inai.de>
 ---
- include/net/sock.h        | 10 +++++-----
- net/core/netprio_cgroup.c |  9 +++++++++
- 2 files changed, 14 insertions(+), 5 deletions(-)
+ include/uapi/linux/netfilter/xt_cgroup2.h | 15 ++++++
+ net/netfilter/Kconfig                     | 10 ++++
+ net/netfilter/Makefile                    |  1 +
+ net/netfilter/xt_cgroup2.c                | 78 +++++++++++++++++++++++++++++++
+ 4 files changed, 104 insertions(+)
+ create mode 100644 include/uapi/linux/netfilter/xt_cgroup2.h
+ create mode 100644 net/netfilter/xt_cgroup2.c
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index bbf7c2c..b517351 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -288,7 +288,6 @@ struct cg_proto;
-   *	@sk_ack_backlog: current listen backlog
-   *	@sk_max_ack_backlog: listen backlog set in listen()
-   *	@sk_priority: %SO_PRIORITY setting
--  *	@sk_cgrp_prioidx: socket group's priority map index
-   *	@sk_type: socket type (%SOCK_STREAM, etc)
-   *	@sk_protocol: which protocol this socket belongs in this network family
-   *	@sk_peer_pid: &struct pid for this socket's peer
-@@ -309,6 +308,7 @@ struct cg_proto;
-   *	@sk_send_head: front of stuff to transmit
-   *	@sk_security: used by security modules
-   *	@sk_mark: generic packet mark
-+  *	@sk_cgrp_prioidx: socket group's priority map index
-   *	@sk_classid: this socket's cgroup classid
-   *	@sk_cgrp: this socket's cgroup-specific proto data
-   *	@sk_write_pending: a write to stream socket waits to start
-@@ -423,9 +423,7 @@ struct sock {
- 	u32			sk_ack_backlog;
- 	u32			sk_max_ack_backlog;
- 	__u32			sk_priority;
--#if IS_ENABLED(CONFIG_CGROUP_NET_PRIO)
--	__u32			sk_cgrp_prioidx;
--#endif
-+	__u32			sk_mark;
- 	struct pid		*sk_peer_pid;
- 	const struct cred	*sk_peer_cred;
- 	long			sk_rcvtimeo;
-@@ -443,7 +441,9 @@ struct sock {
- #ifdef CONFIG_SECURITY
- 	void			*sk_security;
- #endif
--	__u32			sk_mark;
-+#if IS_ENABLED(CONFIG_CGROUP_NET_PRIO)
-+	u16			sk_cgrp_prioidx;
-+#endif
- #ifdef CONFIG_CGROUP_NET_CLASSID
- 	u32			sk_classid;
- #endif
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index cbd0a19..2b9159b 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -27,6 +27,12 @@
- 
- #include <linux/fdtable.h>
- 
-+/*
-+ * netprio allocates per-net_device priomap array which is indexed by
-+ * css->id.  Limiting css ID to 16bits doesn't lose anything.
-+ */
-+#define NETPRIO_ID_MAX		USHRT_MAX
+diff --git a/include/uapi/linux/netfilter/xt_cgroup2.h b/include/uapi/linux/netfilter/xt_cgroup2.h
+new file mode 100644
+index 0000000..ea51335
+--- /dev/null
++++ b/include/uapi/linux/netfilter/xt_cgroup2.h
+@@ -0,0 +1,15 @@
++#ifndef _XT_CGROUP2_H
++#define _XT_CGROUP2_H
 +
- #define PRIOMAP_MIN_SZ		128
- 
- /*
-@@ -144,6 +150,9 @@ static int cgrp_css_online(struct cgroup_subsys_state *css)
- 	struct net_device *dev;
- 	int ret = 0;
- 
-+	if (css->id > NETPRIO_ID_MAX)
-+		return -ENOSPC;
++#include <linux/types.h>
++#include <linux/limits.h>
 +
- 	if (!parent_css)
- 		return 0;
++struct xt_cgroup2_info {
++	char		path[PATH_MAX];
++	__u8		invert;
++
++	/* kernel internal data */
++	void		*priv __attribute__((aligned(8)));
++};
++
++#endif /* _XT_CGROUP2_H */
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index e22349e..5fd12dd 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -974,6 +974,16 @@ config NETFILTER_XT_MATCH_BPF
  
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
++config NETFILTER_XT_MATCH_CGROUP2
++	tristate '"cgroup2" match support'
++	depends on NETFILTER_ADVANCED
++	depends on CGROUPS
++	select SOCK_CGROUP_DATA
++	help
++	  cgroup2 matching allows you to match locally generated and
++	  early demuxed packets based on the v2 cgroup the socket is
++	  associated with on creation.
++
+ config NETFILTER_XT_MATCH_CGROUP
+ 	tristate '"control group" match support'
+ 	depends on NETFILTER_ADVANCED
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 7638c36..86cee05 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -152,6 +152,7 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_MULTIPORT) += xt_multiport.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_NFACCT) += xt_nfacct.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_OSF) += xt_osf.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_OWNER) += xt_owner.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_CGROUP2) += xt_cgroup2.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_CGROUP) += xt_cgroup.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_PHYSDEV) += xt_physdev.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_PKTTYPE) += xt_pkttype.o
+diff --git a/net/netfilter/xt_cgroup2.c b/net/netfilter/xt_cgroup2.c
+new file mode 100644
+index 0000000..39884b3
+--- /dev/null
++++ b/net/netfilter/xt_cgroup2.c
+@@ -0,0 +1,78 @@
++#include <linux/skbuff.h>
++#include <linux/module.h>
++#include <linux/cgroup.h>
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_cgroup2.h>
++#include <net/sock.h>
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Tejun Heo <tj@kernel.org>");
++MODULE_DESCRIPTION("Xtables: cgroup2 socket ownership matching");
++MODULE_ALIAS("ipt_cgroup2");
++MODULE_ALIAS("ip6t_cgroup2");
++
++static int cgroup2_mt_check(const struct xt_mtchk_param *par)
++{
++	struct xt_cgroup2_info *info = par->matchinfo;
++	struct cgroup *cgrp;
++
++	if (info->invert & ~1)
++		return -EINVAL;
++
++	cgrp = cgroup_get_from_path(info->path);
++	if (IS_ERR(cgrp)) {
++		pr_info("xt_cgroup2: invalid path, errno=%ld\n", PTR_ERR(cgrp));
++		return -EINVAL;
++	}
++	info->priv = cgrp;
++
++	return 0;
++}
++
++static bool cgroup2_mt(const struct sk_buff *skb, struct xt_action_param *par)
++{
++	const struct xt_cgroup2_info *info = par->matchinfo;
++	struct cgroup *ancestor = info->priv;
++	struct cgroup *cgrp;
++
++	if (!skb->sk || !sk_fullsock(skb->sk))
++		return false;
++
++	cgrp = sock_cgroup_ptr(&skb->sk->sk_cgrp_data);
++
++	return cgroup_is_descendant(cgrp, ancestor) ^ info->invert;
++}
++
++static void cgroup2_mt_destroy(const struct xt_mtdtor_param *par)
++{
++	struct xt_cgroup2_info *info = par->matchinfo;
++
++	cgroup_put(info->priv);
++}
++
++static struct xt_match cgroup2_mt_reg __read_mostly = {
++	.name		= "cgroup2",
++	.revision	= 0,
++	.family		= NFPROTO_UNSPEC,
++	.checkentry	= cgroup2_mt_check,
++	.match		= cgroup2_mt,
++	.matchsize	= sizeof(struct xt_cgroup2_info),
++	.destroy	= cgroup2_mt_destroy,
++	.me		= THIS_MODULE,
++	.hooks		= (1 << NF_INET_LOCAL_OUT) |
++			  (1 << NF_INET_POST_ROUTING) |
++			  (1 << NF_INET_LOCAL_IN),
++};
++
++static int __init cgroup2_mt_init(void)
++{
++	return xt_register_match(&cgroup2_mt_reg);
++}
++
++static void __exit cgroup2_mt_exit(void)
++{
++	xt_unregister_match(&cgroup2_mt_reg);
++}
++
++module_init(cgroup2_mt_init);
++module_exit(cgroup2_mt_exit);
 -- 
 2.5.0
