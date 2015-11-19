@@ -1,84 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Thu, 19 Nov 2015 08:19:24 -0800
-Message-ID: <1447949964.22599.220.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAKD1Yr2OgJT0GsrTuws0oapobrU+ML3NpBNBXizg6q035PH4MA@mail.gmail.com>
-	 <20151119.005318.838757439536205791.davem@davemloft.net>
-	 <CANP3RGcPRzSL06qZB9oewrvN_AUUodnYzXQO=itoK40z64x8Yw@mail.gmail.com>
-	 <20151119.104811.1447518072450380661.davem@davemloft.net>
+Date: Thu, 19 Nov 2015 11:33:36 -0500 (EST)
+Message-ID: <20151119.113336.1788979303067913870.davem@davemloft.net>
+References: <CANP3RGcPRzSL06qZB9oewrvN_AUUodnYzXQO=itoK40z64x8Yw@mail.gmail.com>
+	<20151119.104811.1447518072450380661.davem@davemloft.net>
+	<1447949964.22599.220.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: zenczykowski@gmail.com, lorenzo@google.com,
 	hannes@stressinduktion.org, stephen@networkplumber.org,
 	netdev@vger.kernel.org, edumazet@google.com, ek@google.com,
 	dtor@google.com
-To: David Miller <davem@davemloft.net>
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:36125 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756284AbbKSQT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 11:19:27 -0500
-Received: by pacdm15 with SMTP id dm15so85408338pac.3
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 08:19:27 -0800 (PST)
-In-Reply-To: <20151119.104811.1447518072450380661.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43593 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758477AbbKSQdl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 11:33:41 -0500
+In-Reply-To: <1447949964.22599.220.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-11-19 at 10:48 -0500, David Miller wrote:
-> At least if they do it this way, and someone claims that Linux TCP
-> behaves outside the spec or improperly, it's not directly because of
-> any code I am responsible for.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 19 Nov 2015 08:19:24 -0800
+
+> Here is the thing :
 > 
-> That's the difference, and frankly an important one to me.
-> 
-> If I'm going to give userspace a direct tool by which to do things,
-> then it's suddenly my responsibility and my problem.
+> - Android powered phones and devices have a similar code since 2008.
+> There is _no_ way they can avoid having this functionality.
 
-Here is the thing :
+Weren't we given similar story about initial wake locks
+implementation?  There is no other way, Android does this forever,
+we have to have this!
 
-- Android powered phones and devices have a similar code since 2008.
-There is _no_ way they can avoid having this functionality.
+> Every-time I make a change in linux TCP stack, this code breaks, and
+> this a  real pain because Android changes need to be carried over to
+> vendors.
 
-Every-time I make a change in linux TCP stack, this code breaks, and
-this a  real pain because Android changes need to be carried over to
-vendors.
+I'm very glad that you felt the pain enough that you finally had
+to reluctantly try and upstream something.  I'm sorry that doing
+hackish things locally in the Android kernel tree is so painful :-/
 
-I worked closely with Lorenzo, removing the ugly code Android had, and
-proposed an implementation based on inet_diag.
+Android folks really do not care about upstream, and it is probably
+bottom of their priority.  Their actions consistently support this.
 
-We have a clear business case here, and I would like we find a solution.
+Now I am supposed to urgently care about some of their problems.
 
-Having this code in upstream kernel will save me time and energy to deal
-with real issues and improvements, not with bugs opened by Android
-engineers 9 months after I did changes in upstream kernels.
+What kind of relationship is this?  It sounds quite one sided if you
+ask me.
 
-Having comments like "look, just implement application keepalives" is
-not going to work [1][2]. This is terrible, and show lack of
-understanding of the problem. We are not dealing with DC communications
-here. (I wish !)
+> We have a clear business case here, and I would like we find a solution.
 
-We (TCP stack) compete with QUIC, based on UDP, which has no issues like
-that. We need to allow TCP sessions being signaled of a non temporary
-network disruption.
+I'm sorry, I thought the plan was to stay on 3.10 kernel in Android
+forever, that putting upstream issues as far down the road as
+possible.
 
-[1] Phones are very often in very polluted radio environments.
+> Having this code in upstream kernel will save me time and energy to deal
+> with real issues and improvements, not with bugs opened by Android
+> engineers 9 months after I did changes in upstream kernels.
 
-  I remember the terrible wifi we had during Linux Kernel Summit in
-Chicago, where ping had more than 40 seconds delay.
+I think the timeline is more like 2+ years.
 
-Here the network manager can avoid this 40 seconds penalty.
+Guess what, it's frustrating for me too!
 
-[2] Taking air time to send keepalive(s) and receive their answers is
-going to make all radio providers shout really loud. They are already
-installing stupid proxies filtering/compressing ACK messages and
-breaking TCP clocking.
+> [2] Taking air time to send keepalive(s) and receive their answers is
+> going to make all radio providers shout really loud. They are already
+> installing stupid proxies filtering/compressing ACK messages and
+> breaking TCP clocking.
 
-Please add
+I understand.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+But you know what, if you just toss some major facility like this onto
+the list you have to expect some discussion, disagreement, and
+suggestions of alternate schemes.
 
-Please wait one month for people submitting a working alternative,
-I am fine with it as long it is upstream.
+Some of which you may not like nor consider appropriate at all.
+
+You have been considering this non-stop for whatever time you have
+been working on this, everyone else is now considering and thinking
+about this for the first time right now.
+
+Therefore you must be understanding and patient.  Just like I've been
+patiently waiting for my Nexus 6 to be updated to something newer than
+2+ year old kernel technology.
+
+You cannot just say "I signoff on this, it's the only reasonable
+scheme, apply it."  That's not how we do things here.
+
+Frankly, that kind of attitude makes me want to apply this series even
+less, and encourage attempts to find alternate schemes even more.
 
 Thanks.
