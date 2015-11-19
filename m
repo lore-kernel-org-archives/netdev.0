@@ -1,93 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: fix potential huge kmalloc() calls in TCP_REPAIR
-Date: Wed, 18 Nov 2015 21:03:33 -0800
-Message-ID: <1447909413.22599.191.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
+Date: Wed, 18 Nov 2015 21:12:39 -0800
+Message-ID: <CALx6S36-tBwAGFFpdrhXjAXvNmxUXsbRV17Wayjr6-hsKsCeNg@mail.gmail.com>
+References: <CAKD1Yr0Gpr6Ex2i1TXEWyETn48P4g5vBvFZ9=_g+Lz_7-PqBDQ@mail.gmail.com>
+	<20151118.153508.123902005995190872.davem@davemloft.net>
+	<1447879416.562854.443622857.62708268@webmail.messagingengine.com>
+	<20151118.224919.452852815199526735.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Pavel Emelyanov <xemul@parallels.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Lorenzo Colitti <lorenzo@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>,
+	Dmitry Torokhov <dtor@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:33855 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750701AbbKSFDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 00:03:35 -0500
-Received: by padhx2 with SMTP id hx2so68375681pad.1
-        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 21:03:35 -0800 (PST)
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:38302 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750715AbbKSFMk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 00:12:40 -0500
+Received: by igbxm8 with SMTP id xm8so55769052igb.1
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 21:12:40 -0800 (PST)
+In-Reply-To: <20151118.224919.452852815199526735.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, Nov 18, 2015 at 7:49 PM, David Miller <davem@davemloft.net> wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Wed, 18 Nov 2015 21:43:36 +0100
+>
+>> Basically my concern is the same one I tried to express in the other
+>> patch about Florian's patch "[PATCH -next] net: tcp: move to
+>> timewait when receiving data post active-close": we could give the
+>> socket back way too early so the quadruple can be reused. If
+>> timestamps are not in use or we are dealing with NAT were we have
+>> dozens of synchronized clocks behind the masquerading device, we
+>> could end up in accepting delayed data. Especially this scenario can
+>> come up when the address is actually not released but someone uses
+>> this feature on a server.
+>
+> Ok, these are legitimate concerns.
+>
+> What if we implemented this the other way.  The operations that make
+> the sockets no longer connected to the world, close them.  The route
+> delete during address removal does the socket scan and then the done
+> calls on those sockets.
+>
+> Likewise a VPN or network realm/namespace configuration change can do
+> similarly.
+>
+> That way we are guaranteed to only tcp_done() these sockets strictly
+> in situations where we know that they have been fully disconnected
+> from the network.
+>
+> The more I think about it more the more I agree with him and dislike
+> having user space make sure "it's ok", that isn't where TCP protocol
+> semantic rules are implemented.  It belongs in the kernel.
+>
+> Whether we do this or not, that's the policy part and userland can
+> therefore tell us what it wants when it removes addresses or whatever.
+>
+> But userland should not be doing the socket scan and triggering the
+> closes, _no_ _way_.
 
-tcp_send_rcvq() is used for re-injecting data into tcp receive queue.
+I think this solution presumes some out of band signaling about a path
+failure deep in the network that is not reported via the TCP
+connection. This solution is obviously only as good as the signaling,
+but clearly the most general solution to maintaining reachability has
+been (and unfortunately will probably continue to be) application
+keepalives.
 
-Problems :
+btw, the commit log mentioned that the long timeout problem applies to
+sockets doing reads or connects. For connects this should be
+uninteresting since the connect can be configured for a quick timeout.
 
-- No check against size is performed, allowed user to fool kernel in
-  attempting very large memory allocations, eventually triggering
-  OOM when memory is fragmented.
-
-- In case of fault during the copy we do not return correct errno.
-
-Lets use alloc_skb_with_frags() to cook optimal skbs.
-
-Fixes: 292e8d8c8538 ("tcp: Move rcvq sending to tcp_input.c")
-Fixes: c0e88ff0f256 ("tcp: Repair socket queues")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Pavel Emelyanov <xemul@parallels.com>
----
- net/ipv4/tcp_input.c |   22 +++++++++++++++++++---
- 1 file changed, 19 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index fdd88c3803a6..a4a0b6b3bcf2 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4481,19 +4481,34 @@ static int __must_check tcp_queue_rcv(struct sock *sk, struct sk_buff *skb, int
- int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size)
- {
- 	struct sk_buff *skb;
-+	int err = -ENOMEM;
-+	int data_len = 0;
- 	bool fragstolen;
- 
- 	if (size == 0)
- 		return 0;
- 
--	skb = alloc_skb(size, sk->sk_allocation);
-+	if (size > PAGE_SIZE) {
-+		int npages = min_t(size_t, size >> PAGE_SHIFT, MAX_SKB_FRAGS);
-+
-+		data_len = npages << PAGE_SHIFT;
-+		size = data_len + (size & ~PAGE_MASK);
-+	}
-+	skb = alloc_skb_with_frags(size - data_len, data_len,
-+				   PAGE_ALLOC_COSTLY_ORDER,
-+				   &err, sk->sk_allocation);
- 	if (!skb)
- 		goto err;
- 
-+	skb_put(skb, size - data_len);
-+	skb->data_len = data_len;
-+	skb->len = size;
-+
- 	if (tcp_try_rmem_schedule(sk, skb, skb->truesize))
- 		goto err_free;
- 
--	if (memcpy_from_msg(skb_put(skb, size), msg, size))
-+	err = skb_copy_datagram_from_iter(skb, 0, &msg->msg_iter, size);
-+	if (err)
- 		goto err_free;
- 
- 	TCP_SKB_CB(skb)->seq = tcp_sk(sk)->rcv_nxt;
-@@ -4509,7 +4524,8 @@ int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size)
- err_free:
- 	kfree_skb(skb);
- err:
--	return -ENOMEM;
-+	return err;
-+
- }
- 
- static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
