@@ -1,56 +1,93 @@
-From: "Yang, Wenyou" <Wenyou.Yang@atmel.com>
-Subject: RE: [PATCH 1/2] can: m_can: Increase delay to ensure written INIT
- accepted
-Date: Thu, 19 Nov 2015 04:25:17 +0000
-Message-ID: <B256D81BAE5131468A838E5D7A243641D636B722@penmbx01>
-References: <1447841049-5010-1-git-send-email-wenyou.yang@atmel.com>
- <1447841049-5010-2-git-send-email-wenyou.yang@atmel.com>
- <564C5234.40708@pengutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: fix potential huge kmalloc() calls in TCP_REPAIR
+Date: Wed, 18 Nov 2015 21:03:33 -0800
+Message-ID: <1447909413.22599.191.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ferre, Nicolas" <Nicolas.FERRE@atmel.com>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <564C5234.40708@pengutronix.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Pavel Emelyanov <xemul@parallels.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:33855 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750701AbbKSFDf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 00:03:35 -0500
+Received: by padhx2 with SMTP id hx2so68375681pad.1
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 21:03:35 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgTWFyYywNCg0KVGhhbmsgeW91IGZvciBwcm9tcHQgZmVlZGJhY2suDQoNCj4gLS0tLS1Pcmln
-aW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogTWFyYyBLbGVpbmUtQnVkZGUgW21haWx0bzpta2xA
-cGVuZ3V0cm9uaXguZGVdDQo+IFNlbnQ6IDIwMTXlubQxMeaciDE45pelIDE4OjI2DQo+IFRvOiBZ
-YW5nLCBXZW55b3U7IFdvbGZnYW5nIEdyYW5kZWdnZXINCj4gQ2M6IGxpbnV4LWNhbkB2Z2VyLmtl
-cm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LQ0KPiBrZXJuZWxAdmdlci5r
-ZXJuZWwub3JnOyBGZXJyZSwgTmljb2xhcw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIDEvMl0gY2Fu
-OiBtX2NhbjogSW5jcmVhc2UgZGVsYXkgdG8gZW5zdXJlIHdyaXR0ZW4gSU5JVA0KPiBhY2NlcHRl
-ZA0KPiANCj4gT24gMTEvMTgvMjAxNSAxMTowNCBBTSwgV2VueW91IFlhbmcgd3JvdGU6DQo+ID4g
-SW5jcmVhc2UgdGhlIGRlbGF5IHRpbWUgdW50aWwgdGhlIHZhbHVlIHdyaXR0ZW4gdG8gSU5JVCBj
-YW4gYmUgcmVhZA0KPiA+IGJhY2sgdG8gZW5zdXJlIHRoYXQgdGhlIHByZXZpb3VzIHZhbHVlIHdy
-aXR0ZW4gdG8gSU5JVCBoYXMgYmVlbg0KPiA+IGFjY2VwdGVkLg0KDQpJIHRlc3RlZCBpdCBhZ2Fp
-biB3aXRoIGRpZmZlcmVudCBjbG9jayBmcmVxdWVuY2llcywgaXQgd29ya3Mgd2l0aG91dCB0aGlz
-IHBhdGNoLiBNYXliZSBJIG1hZGUgYSBtaXN0YWtlLg0KDQpTb3JyeSBhYm91dCBpdC4gDQoNClBs
-ZWFzZSBpZ25vcmUuDQoNCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IFdlbnlvdSBZYW5nIDx3ZW55
-b3UueWFuZ0BhdG1lbC5jb20+DQo+IA0KPiBUaGUgcGF0Y2ggbG9va3Mgb2ssIGNhbiB5b3UgcGxl
-YXNlIGFkZCB0byB5b3VyIGNvbW1pdCBtZXNzYWdlIHdoaWNoIFNvQ3MgYXJlDQo+IGFmZmVjdGVk
-IGJ5IHRoaXMgcHJvYmxlbS4NCj4gDQo+ID4gLS0tDQo+ID4NCj4gPiAgZHJpdmVycy9uZXQvY2Fu
-L21fY2FuL21fY2FuLmMgfCAgICAyICstDQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlv
-bigrKSwgMSBkZWxldGlvbigtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2Nh
-bi9tX2Nhbi9tX2Nhbi5jDQo+ID4gYi9kcml2ZXJzL25ldC9jYW4vbV9jYW4vbV9jYW4uYyBpbmRl
-eCBlZjY1NTE3Li5mZDFjYWEwIDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2Nhbi9tX2Nh
-bi9tX2Nhbi5jDQo+ID4gKysrIGIvZHJpdmVycy9uZXQvY2FuL21fY2FuL21fY2FuLmMNCj4gPiBA
-QCAtMzIwLDcgKzMyMCw3IEBAIHN0YXRpYyBpbmxpbmUgdm9pZCBtX2Nhbl9jb25maWdfZW5kaXNh
-YmxlKGNvbnN0IHN0cnVjdA0KPiBtX2Nhbl9wcml2ICpwcml2LA0KPiA+ICAJCQkJCSAgYm9vbCBl
-bmFibGUpDQo+ID4gIHsNCj4gPiAgCXUzMiBjY2NyID0gbV9jYW5fcmVhZChwcml2LCBNX0NBTl9D
-Q0NSKTsNCj4gPiAtCXUzMiB0aW1lb3V0ID0gMTA7DQo+ID4gKwl1MzIgdGltZW91dCA9IDEwMDA7
-DQo+ID4gIAl1MzIgdmFsID0gMDsNCj4gPg0KPiA+ICAJaWYgKGVuYWJsZSkgew0KPiA+DQo+IA0K
-PiBNYXJjDQo+IA0KPiAtLQ0KPiBQZW5ndXRyb25peCBlLksuICAgICAgICAgICAgICAgICAgfCBN
-YXJjIEtsZWluZS1CdWRkZSAgICAgICAgICAgfA0KPiBJbmR1c3RyaWFsIExpbnV4IFNvbHV0aW9u
-cyAgICAgICAgfCBQaG9uZTogKzQ5LTIzMS0yODI2LTkyNCAgICAgfA0KPiBWZXJ0cmV0dW5nIFdl
-c3QvRG9ydG11bmQgICAgICAgICAgfCBGYXg6ICAgKzQ5LTUxMjEtMjA2OTE3LTU1NTUgfA0KPiBB
-bXRzZ2VyaWNodCBIaWxkZXNoZWltLCBIUkEgMjY4NiAgfCBodHRwOi8vd3d3LnBlbmd1dHJvbml4
-LmRlICAgfA0KDQoNCkJlc3QgUmVnYXJkcywNCldlbnlvdSBZYW5nDQoNCg==
+From: Eric Dumazet <edumazet@google.com>
+
+tcp_send_rcvq() is used for re-injecting data into tcp receive queue.
+
+Problems :
+
+- No check against size is performed, allowed user to fool kernel in
+  attempting very large memory allocations, eventually triggering
+  OOM when memory is fragmented.
+
+- In case of fault during the copy we do not return correct errno.
+
+Lets use alloc_skb_with_frags() to cook optimal skbs.
+
+Fixes: 292e8d8c8538 ("tcp: Move rcvq sending to tcp_input.c")
+Fixes: c0e88ff0f256 ("tcp: Repair socket queues")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Pavel Emelyanov <xemul@parallels.com>
+---
+ net/ipv4/tcp_input.c |   22 +++++++++++++++++++---
+ 1 file changed, 19 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index fdd88c3803a6..a4a0b6b3bcf2 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4481,19 +4481,34 @@ static int __must_check tcp_queue_rcv(struct sock *sk, struct sk_buff *skb, int
+ int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size)
+ {
+ 	struct sk_buff *skb;
++	int err = -ENOMEM;
++	int data_len = 0;
+ 	bool fragstolen;
+ 
+ 	if (size == 0)
+ 		return 0;
+ 
+-	skb = alloc_skb(size, sk->sk_allocation);
++	if (size > PAGE_SIZE) {
++		int npages = min_t(size_t, size >> PAGE_SHIFT, MAX_SKB_FRAGS);
++
++		data_len = npages << PAGE_SHIFT;
++		size = data_len + (size & ~PAGE_MASK);
++	}
++	skb = alloc_skb_with_frags(size - data_len, data_len,
++				   PAGE_ALLOC_COSTLY_ORDER,
++				   &err, sk->sk_allocation);
+ 	if (!skb)
+ 		goto err;
+ 
++	skb_put(skb, size - data_len);
++	skb->data_len = data_len;
++	skb->len = size;
++
+ 	if (tcp_try_rmem_schedule(sk, skb, skb->truesize))
+ 		goto err_free;
+ 
+-	if (memcpy_from_msg(skb_put(skb, size), msg, size))
++	err = skb_copy_datagram_from_iter(skb, 0, &msg->msg_iter, size);
++	if (err)
+ 		goto err_free;
+ 
+ 	TCP_SKB_CB(skb)->seq = tcp_sk(sk)->rcv_nxt;
+@@ -4509,7 +4524,8 @@ int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size)
+ err_free:
+ 	kfree_skb(skb);
+ err:
+-	return -ENOMEM;
++	return err;
++
+ }
+ 
+ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
