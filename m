@@ -1,55 +1,204 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH 01/15] net: Add skb_inner_transport_offset function
-Date: Thu, 19 Nov 2015 11:55:47 -0800
-Message-ID: <1447962961-2106059-2-git-send-email-tom@herbertland.com>
+Subject: [PATCH 02/15] sctp: Rename NETIF_F_SCTP_CSUM to NETIF_F_SCTP_CRC
+Date: Thu, 19 Nov 2015 11:55:48 -0800
+Message-ID: <1447962961-2106059-3-git-send-email-tom@herbertland.com>
 References: <1447962961-2106059-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:54154 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759041AbbKST4M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 14:56:12 -0500
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id tAJJsEua022559
-	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 11:56:11 -0800
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:15614 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754580AbbKST4N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 14:56:13 -0500
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+	by m0089730.ppops.net (8.15.0.59/8.15.0.59) with SMTP id tAJJscQv018581
+	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 11:56:12 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1y8r6u785m-1
+	by m0089730.ppops.net with ESMTP id 1y8rt9ehe2-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 11:56:11 -0800
+	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 11:56:12 -0800
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.102.107.97) with ESMTP	id
- 947d29ac8ef711e581b20002c99331b0-989fa230 for <netdev@vger.kernel.org>;	Thu,
- 19 Nov 2015 11:56:10 -0800
+ 953e33ae8ef711e581b20002c99331b0-989fa230 for <netdev@vger.kernel.org>;	Thu,
+ 19 Nov 2015 11:56:11 -0800
 In-Reply-To: <1447962961-2106059-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Same thing as skb_transport_offset but returns the offset of the inner
-transport header (when skb->encpasulation is set).
+The SCTP checksum is really a CRC and is very different from the
+standards 1's complement checksum that serves as the checksum
+for IP protocols. This offload interface is also very different.
+Rename NETIF_F_SCTP_CSUM to NETIF_F_SCTP_CRC to highlight these
+differences. The term CSUM should be reserved in the stack to refer
+to the standard 1's complement IP checksum.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/linux/skbuff.h | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ drivers/net/ethernet/intel/igb/igb_main.c       | 4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 4 ++--
+ drivers/net/loopback.c                          | 2 +-
+ include/linux/netdev_features.h                 | 4 ++--
+ net/8021q/vlan_dev.c                            | 2 +-
+ net/core/ethtool.c                              | 4 ++--
+ net/netfilter/ipvs/ip_vs_proto_sctp.c           | 2 +-
+ net/sctp/output.c                               | 2 +-
+ 10 files changed, 14 insertions(+), 14 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index c9c394b..0713080 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1939,6 +1939,11 @@ static inline unsigned char *skb_inner_transport_header(const struct sk_buff
- 	return skb->head + skb->inner_transport_header;
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index b825f97..fc4ee0a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8638,7 +8638,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
  
-+static inline int skb_inner_transport_offset(const struct sk_buff *skb)
-+{
-+	return skb_inner_transport_header(skb) - skb->data;
-+}
-+
- static inline void skb_reset_inner_transport_header(struct sk_buff *skb)
- {
- 	skb->inner_transport_header = skb->data - skb->head;
+ 	netdev->features = NETIF_F_SG		       |
+ 			   NETIF_F_IP_CSUM	       |
+-			   NETIF_F_SCTP_CSUM	       |
++			   NETIF_F_SCTP_CRC	       |
+ 			   NETIF_F_HIGHDMA	       |
+ 			   NETIF_F_GSO_UDP_TUNNEL      |
+ 			   NETIF_F_GSO_GRE	       |
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index d962164..1b22b71 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2137,7 +2137,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
+ 	netdev->features |= NETIF_F_HIGHDMA |
+ 			    NETIF_F_SG |
+ 			    NETIF_F_IP_CSUM |
+-			    NETIF_F_SCTP_CSUM |
++			    NETIF_F_SCTP_CRC |
+ 			    NETIF_F_IPV6_CSUM |
+ 			    NETIF_F_TSO |
+ 			    NETIF_F_TSO6 |
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index ea7b098..1e21db3 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2378,8 +2378,8 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 
+ 	if (hw->mac.type >= e1000_82576) {
+-		netdev->hw_features |= NETIF_F_SCTP_CSUM;
+-		netdev->features |= NETIF_F_SCTP_CSUM;
++		netdev->hw_features |= NETIF_F_SCTP_CRC;
++		netdev->features |= NETIF_F_SCTP_CRC;
+ 	}
+ 
+ 	netdev->priv_flags |= IFF_UNICAST_FLT;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 4089d77..3e8b3d7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8781,8 +8781,8 @@ skip_sriov:
+ 	case ixgbe_mac_X540:
+ 	case ixgbe_mac_X550:
+ 	case ixgbe_mac_X550EM_x:
+-		netdev->features |= NETIF_F_SCTP_CSUM;
+-		netdev->hw_features |= NETIF_F_SCTP_CSUM |
++		netdev->features |= NETIF_F_SCTP_CRC;
++		netdev->hw_features |= NETIF_F_SCTP_CRC |
+ 				       NETIF_F_NTUPLE;
+ 		break;
+ 	default:
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index dc7d970..a400288 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -175,7 +175,7 @@ static void loopback_setup(struct net_device *dev)
+ 		| NETIF_F_UFO
+ 		| NETIF_F_HW_CSUM
+ 		| NETIF_F_RXCSUM
+-		| NETIF_F_SCTP_CSUM
++		| NETIF_F_SCTP_CRC
+ 		| NETIF_F_HIGHDMA
+ 		| NETIF_F_LLTX
+ 		| NETIF_F_NETNS_LOCAL
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index f0d8734..6395f83 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -52,7 +52,7 @@ enum {
+ 		NETIF_F_GSO_TUNNEL_REMCSUM_BIT,
+ 
+ 	NETIF_F_FCOE_CRC_BIT,		/* FCoE CRC32 */
+-	NETIF_F_SCTP_CSUM_BIT,		/* SCTP checksum offload */
++	NETIF_F_SCTP_CRC_BIT,		/* SCTP checksum offload */
+ 	NETIF_F_FCOE_MTU_BIT,		/* Supports max FCoE MTU, 2158 bytes*/
+ 	NETIF_F_NTUPLE_BIT,		/* N-tuple filters supported */
+ 	NETIF_F_RXHASH_BIT,		/* Receive hashing offload */
+@@ -103,7 +103,7 @@ enum {
+ #define NETIF_F_NTUPLE		__NETIF_F(NTUPLE)
+ #define NETIF_F_RXCSUM		__NETIF_F(RXCSUM)
+ #define NETIF_F_RXHASH		__NETIF_F(RXHASH)
+-#define NETIF_F_SCTP_CSUM	__NETIF_F(SCTP_CSUM)
++#define NETIF_F_SCTP_CRC	__NETIF_F(SCTP_CRC)
+ #define NETIF_F_SG		__NETIF_F(SG)
+ #define NETIF_F_TSO6		__NETIF_F(TSO6)
+ #define NETIF_F_TSO_ECN		__NETIF_F(TSO_ECN)
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index fded865..c2bf37f 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -544,7 +544,7 @@ static int vlan_dev_init(struct net_device *dev)
+ 
+ 	dev->hw_features = NETIF_F_ALL_CSUM | NETIF_F_SG |
+ 			   NETIF_F_FRAGLIST | NETIF_F_GSO_SOFTWARE |
+-			   NETIF_F_HIGHDMA | NETIF_F_SCTP_CSUM |
++			   NETIF_F_HIGHDMA | NETIF_F_SCTP_CRC |
+ 			   NETIF_F_ALL_FCOE;
+ 
+ 	dev->features |= real_dev->vlan_features | NETIF_F_LLTX |
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 29edf74..4a0cab8 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -87,7 +87,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_GSO_UDP_TUNNEL_BIT] =	 "tx-udp_tnl-segmentation",
+ 
+ 	[NETIF_F_FCOE_CRC_BIT] =         "tx-checksum-fcoe-crc",
+-	[NETIF_F_SCTP_CSUM_BIT] =        "tx-checksum-sctp",
++	[NETIF_F_SCTP_CRC_BIT] =        "tx-checksum-sctp",
+ 	[NETIF_F_FCOE_MTU_BIT] =         "fcoe-mtu",
+ 	[NETIF_F_NTUPLE_BIT] =           "rx-ntuple-filter",
+ 	[NETIF_F_RXHASH_BIT] =           "rx-hashing",
+@@ -235,7 +235,7 @@ static netdev_features_t ethtool_get_feature_mask(u32 eth_cmd)
+ 	switch (eth_cmd) {
+ 	case ETHTOOL_GTXCSUM:
+ 	case ETHTOOL_STXCSUM:
+-		return NETIF_F_ALL_CSUM | NETIF_F_SCTP_CSUM;
++		return NETIF_F_ALL_CSUM | NETIF_F_SCTP_CRC;
+ 	case ETHTOOL_GRXCSUM:
+ 	case ETHTOOL_SRXCSUM:
+ 		return NETIF_F_RXCSUM;
+diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+index 010ddee..d952d67 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+@@ -169,7 +169,7 @@ sctp_dnat_handler(struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 	/* Only update csum if we really have to */
+ 	if (sctph->dest != cp->dport || payload_csum ||
+ 	    (skb->ip_summed == CHECKSUM_PARTIAL &&
+-	     !(skb_dst(skb)->dev->features & NETIF_F_SCTP_CSUM))) {
++	     !(skb_dst(skb)->dev->features & NETIF_F_SCTP_CRC))) {
+ 		sctph->dest = cp->dport;
+ 		sctp_nat_csum(skb, sctph, sctphoff);
+ 	} else if (skb->ip_summed != CHECKSUM_PARTIAL) {
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index abe7c2d..9d610ed 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -534,7 +534,7 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+ 	 * by CRC32-C as described in <draft-ietf-tsvwg-sctpcsum-02.txt>.
+ 	 */
+ 	if (!sctp_checksum_disable) {
+-		if (!(dst->dev->features & NETIF_F_SCTP_CSUM) ||
++		if (!(dst->dev->features & NETIF_F_SCTP_CRC) ||
+ 		    (dst_xfrm(dst) != NULL) || packet->ipfragok) {
+ 			sh->checksum = sctp_compute_cksum(nskb, 0);
+ 		} else {
 -- 
 2.4.6
