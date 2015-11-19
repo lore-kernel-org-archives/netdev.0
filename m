@@ -1,404 +1,367 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] net: tulip: turn compile-time warning into dev_warn()
-Date: Fri, 20 Nov 2015 00:50:50 +0100
-Message-ID: <20151119235050.GA32745@electric-eye.fr.zoreil.com>
-References: <9720627.53btSdPcQU@wuerfel>
- <20151119122610.GF22786@arm.com>
- <564E313B.6000801@gmail.com>
- <CAP6odjiimR35N50uKP5Bj=STSbLwntcupsvcGFGcsi9wFFDCZA@mail.gmail.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue (w/ Fixes:)
+Date: Thu, 19 Nov 2015 23:52:56 +0000
+Message-ID: <87d1v57dif.fsf@doppelsaurus.mobileactivedefense.com>
+References: <CACT4Y+b3xsLsKVFCz2M7nqqfXnyuMHEVYtJS2wN4WHLWs9A5ng@mail.gmail.com>
+	<20151012120249.GB16370@unicorn.suse.cz>
+	<1444652071.27760.156.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CACT4Y+Z2H8xPg1Dq0Z=HC3WKm+Uw+ZjK6zOLvxhPwFd4D0CsZw@mail.gmail.com>
+	<CACT4Y+Zu7J0n6dU1dSfiW3F9Q0Us3_DBVcD5Pi9NG9LER8MmRg@mail.gmail.com>
+	<563CC002.5050307@akamai.com>
+	<87ziyrcg67.fsf@doppelsaurus.mobileactivedefense.com>
+	<87fv0fnslr.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<877flp34fl.fsf@doppelsaurus.mobileactivedefense.com>
+	<87a8qhspfm.fsf@doppelsaurus.mobileactivedefense.com>
+	<876111wpza.fsf@doppelsaurus.mobileactivedefense.com>
+	<87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, ard.biesheuvel@linaro.org,
-	Grant Grundler <grundler@parisc-linux.org>
-To: Grant Grundler <grantgrundler@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:59166 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751532AbbKSXvK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 18:51:10 -0500
-Content-Disposition: inline
-In-Reply-To: <CAP6odjiimR35N50uKP5Bj=STSbLwntcupsvcGFGcsi9wFFDCZA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jason Baron <jbaron@akamai.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Michal Kubecek <mkubecek@suse.cz>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"linux-fsdevel\@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Howells <dhowells@redhat.com>,
+	Paul Moore <paul@paul-moore.com>, salyzyn@android.com,
+	sds@tycho.nsa.gov, ying.xue@windriver.com,
+	netdev <netdev@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Andrey Konovalov <andreyknvl@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Julien Tinnes <jln@google.com>,
+	Kees Cook <keescook@google.com>,
+	Mathias Krause <minipli@googlemail.com>
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com> (Rainer
+	Weikusat's message of "Mon, 16 Nov 2015 22:28:40 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Grant Grundler <grantgrundler@gmail.com> :
-[...]
-> Some additional minor refactoring of the code could convert this into
-> a "multi-bus driver" if there is any system that could incorporate
-> both a platform device and a PCI device.
-> 
-> I expect the conversion to DMA API to be straight forward as the next
-> patch shows:
+An AF_UNIX datagram socket being the client in an n:1 association with
+some server socket is only allowed to send messages to the server if the
+receive queue of this socket contains at most sk_max_ack_backlog
+datagrams. This implies that prospective writers might be forced to go
+to sleep despite none of the message presently enqueued on the server
+receive queue were sent by them. In order to ensure that these will be
+woken up once space becomes again available, the present unix_dgram_poll
+routine does a second sock_poll_wait call with the peer_wait wait queue
+of the server socket as queue argument (unix_dgram_recvmsg does a wake
+up on this queue after a datagram was received). This is inherently
+problematic because the server socket is only guaranteed to remain alive
+for as long as the client still holds a reference to it. In case the
+connection is dissolved via connect or by the dead peer detection logic
+in unix_dgram_sendmsg, the server socket may be freed despite "the
+polling mechanism" (in particular, epoll) still has a pointer to the
+corresponding peer_wait queue. There's no way to forcibly deregister a
+wait queue with epoll.
 
-You may change your mind once error checking is factored in.
+Based on an idea by Jason Baron, the patch below changes the code such
+that a wait_queue_t belonging to the client socket is enqueued on the
+peer_wait queue of the server whenever the peer receive queue full
+condition is detected by either a sendmsg or a poll. A wake up on the
+peer queue is then relayed to the ordinary wait queue of the client
+socket via wake function. The connection to the peer wait queue is again
+dissolved if either a wake up is about to be relayed or the client
+socket reconnects or a dead peer is detected or the client socket is
+itself closed. This enables removing the second sock_poll_wait from
+unix_dgram_poll, thus avoiding the use-after-free, while still ensuring
+that no blocked writer sleeps forever.
 
-Uncompiled stuff below includes a remaining WTF I am no too sure about
-but it should be closer to what is needed.
+Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Fixes: ec0d215f9420 ("af_unix: fix 'poll for write'/connected DGRAM sockets")
+---
 
-diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
-index ed41559..0e18b5d9 100644
---- a/drivers/net/ethernet/dec/tulip/tulip_core.c
-+++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
-@@ -263,7 +263,6 @@ static netdev_tx_t tulip_start_xmit(struct sk_buff *skb,
- 					  struct net_device *dev);
- static int tulip_open(struct net_device *dev);
- static int tulip_close(struct net_device *dev);
--static void tulip_up(struct net_device *dev);
- static void tulip_down(struct net_device *dev);
- static struct net_device_stats *tulip_get_stats(struct net_device *dev);
- static int private_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
-@@ -291,7 +290,7 @@ static void tulip_set_power_state (struct tulip_private *tp,
+This has been created around midnight at the end of a work day. I've
+read through it a couple of times and found no errors. But I'm not
+"ideally awake and attentive" right now.
+
+
+diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+index b36d837..2a91a05 100644
+--- a/include/net/af_unix.h
++++ b/include/net/af_unix.h
+@@ -62,6 +62,7 @@ struct unix_sock {
+ #define UNIX_GC_CANDIDATE	0
+ #define UNIX_GC_MAYBE_CYCLE	1
+ 	struct socket_wq	peer_wq;
++	wait_queue_t		peer_wake;
+ };
+ 
+ static inline struct unix_sock *unix_sk(const struct sock *sk)
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 94f6582..6962ff1 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -326,6 +326,112 @@ found:
+ 	return s;
  }
  
- 
--static void tulip_up(struct net_device *dev)
-+static int tulip_up(struct net_device *dev)
- {
- 	struct tulip_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->base_addr;
-@@ -299,10 +298,6 @@ static void tulip_up(struct net_device *dev)
- 	u32 reg;
- 	int i;
- 
--#ifdef CONFIG_TULIP_NAPI
--	napi_enable(&tp->napi);
--#endif
--
- 	/* Wake the chip from sleep/snooze mode. */
- 	tulip_set_power_state (tp, 0, 0);
- 
-@@ -353,6 +348,7 @@ static void tulip_up(struct net_device *dev)
- 		/* This is set_rx_mode(), but without starting the transmitter. */
- 		u16 *eaddrs = (u16 *)dev->dev_addr;
- 		u16 *setup_frm = &tp->setup_frame[15*6];
-+		struct device *d = &tp->pdev->dev;
- 		dma_addr_t mapping;
- 
- 		/* 21140 bug: you must add the broadcast address. */
-@@ -362,9 +358,12 @@ static void tulip_up(struct net_device *dev)
- 		*setup_frm++ = eaddrs[1]; *setup_frm++ = eaddrs[1];
- 		*setup_frm++ = eaddrs[2]; *setup_frm++ = eaddrs[2];
- 
--		mapping = pci_map_single(tp->pdev, tp->setup_frame,
--					 sizeof(tp->setup_frame),
--					 PCI_DMA_TODEVICE);
-+		mapping = dma_map_single(d, tp->setup_frame,
-+					 sizeof(tp->setup_frame), DMA_TO_DEVICE);
-+		if (unlikely(dma_mapping_error(d, mapping))) {
-+			tulip_set_power_state(tp, 0, 1);
-+			return -EIO;
-+		}
- 		tp->tx_buffers[tp->cur_tx].skb = NULL;
- 		tp->tx_buffers[tp->cur_tx].mapping = mapping;
- 
-@@ -376,6 +375,10 @@ static void tulip_up(struct net_device *dev)
- 		tp->cur_tx++;
- 	}
- 
-+#ifdef CONFIG_TULIP_NAPI
-+	napi_enable(&tp->napi);
-+#endif
++/* Support code for asymmetrically connected dgram sockets
++ *
++ * If a datagram socket is connected to a socket not itself connected
++ * to the first socket (eg, /dev/log), clients may only enqueue more
++ * messages if the present receive queue of the server socket is not
++ * "too large". This means there's a second writeability condition
++ * poll and sendmsg need to test. The dgram recv code will do a wake
++ * up on the peer_wait wait queue of a socket upon reception of a
++ * datagram which needs to be propagated to sleeping would-be writers
++ * since these might not have sent anything so far. This can't be
++ * accomplished via poll_wait because the lifetime of the server
++ * socket might be less than that of its clients if these break their
++ * association with it or if the server socket is closed while clients
++ * are still connected to it and there's no way to inform "a polling
++ * implementation" that it should let go of a certain wait queue
++ *
++ * In order to propagate a wake up, a wait_queue_t of the client
++ * socket is enqueued on the peer_wait queue of the server socket
++ * whose wake function does a wake_up on the ordinary client socket
++ * wait queue. This connection is established whenever a write (or
++ * poll for write) hit the flow control condition and broken when the
++ * association to the server socket is dissolved or after a wake up
++ * was relayed.
++ */
 +
- 	tp->saved_if_port = dev->if_port;
- 	if (dev->if_port == 0)
- 		dev->if_port = tp->default_port;
-@@ -516,24 +519,30 @@ static int
- tulip_open(struct net_device *dev)
- {
- 	struct tulip_private *tp = netdev_priv(dev);
--	int retval;
-+	int irq = tp->pdev->irq;
-+	int rc;
- 
--	tulip_init_ring (dev);
-+	rc = tulip_init_ring(dev);
-+	if (rc < 0)
-+		goto out;
- 
--	retval = request_irq(tp->pdev->irq, tulip_interrupt, IRQF_SHARED,
--			     dev->name, dev);
--	if (retval)
--		goto free_ring;
-+	rc = request_irq(irq, tulip_interrupt, IRQF_SHARED, dev->name, dev);
-+	if (rc < 0)
-+		goto free_ring_0;
- 
--	tulip_up (dev);
-+	rc = tulip_up(dev);
-+	if (rc < 0)
-+		goto free_irq_1;
- 
- 	netif_start_queue (dev);
-+out:
-+	return rc;
- 
--	return 0;
--
--free_ring:
--	tulip_free_ring (dev);
--	return retval;
-+free_irq_1:
-+	free_irq(irq, dev);
-+free_ring_0:
-+	tulip_free_ring(dev);
-+	return rc;
- }
- 
- 
-@@ -614,9 +623,11 @@ out_unlock:
- 
- 
- /* Initialize the Rx and Tx rings, along with various 'dev' bits. */
--static void tulip_init_ring(struct net_device *dev)
-+static int tulip_init_ring(struct net_device *dev)
- {
- 	struct tulip_private *tp = netdev_priv(dev);
-+	struct device *d = &tp->pdev->dev;
-+	int rc;
- 	int i;
- 
- 	tp->susp_rx = 0;
-@@ -642,10 +653,17 @@ static void tulip_init_ring(struct net_device *dev)
- 		   use skb_reserve() to align the IP header! */
- 		struct sk_buff *skb = netdev_alloc_skb(dev, PKT_BUF_SZ);
- 		tp->rx_buffers[i].skb = skb;
--		if (skb == NULL)
--			break;
--		mapping = pci_map_single(tp->pdev, skb->data,
--					 PKT_BUF_SZ, PCI_DMA_FROMDEVICE);
-+		if (!skb) {
-+			rc = -ENOMEM;
-+			goto err_out;
-+		}
-+		mapping = dma_map_single(d, skb->data, PKT_BUF_SZ,
-+					 DMA_FROM_DEVICE);
-+		if (unlikely(dma_mapping_error(d, mapping))) {
-+			rc = -EIO;
-+			dev_kfree_skb(skb);
-+			goto err_out;
-+		}
- 		tp->rx_buffers[i].mapping = mapping;
- 		tp->rx_ring[i].status = cpu_to_le32(DescOwned);	/* Owned by Tulip chip */
- 		tp->rx_ring[i].buffer1 = cpu_to_le32(mapping);
-@@ -661,12 +679,24 @@ static void tulip_init_ring(struct net_device *dev)
- 		tp->tx_ring[i].buffer2 = cpu_to_le32(tp->tx_ring_dma + sizeof(struct tulip_tx_desc) * (i + 1));
- 	}
- 	tp->tx_ring[i-1].buffer2 = cpu_to_le32(tp->tx_ring_dma);
++static int unix_dgram_peer_wake_relay(wait_queue_t *q, unsigned mode, int flags,
++				      void *key)
++{
++	struct unix_sock *u;
++	wait_queue_head_t *u_sleep;
++
++	u = container_of(q, struct unix_sock, peer_wake);
++
++	__remove_wait_queue(&unix_sk(u->peer_wake.private)->peer_wait,
++			    q);
++	u->peer_wake.private = NULL;
++
++	/* relaying can only happen while the wq still exists */
++	u_sleep = sk_sleep(&u->sk);
++	if (u_sleep)
++		wake_up_interruptible_poll(u_sleep, key);
 +
 +	return 0;
++}
 +
-+err_out:
-+	while (--i) {
-+		struct ring_info *info = tp->rx_buffers + i;
++static int unix_dgram_peer_wake_connect(struct sock *sk, struct sock *other)
++{
++	struct unix_sock *u, *u_other;
++	int rc;
 +
-+		dma_unmap_single(d, info->mapping, PKT_BUF_SZ, DMA_FROM_DEVICE);
-+		dev_kfree_skb(info->skb);
++	u = unix_sk(sk);
++	u_other = unix_sk(other);
++	rc = 0;
++	spin_lock(&u_other->peer_wait.lock);
++
++	if (!u->peer_wake.private) {
++		u->peer_wake.private = other;
++		__add_wait_queue(&u_other->peer_wait, &u->peer_wake);
++
++		rc = 1;
 +	}
++
++	spin_unlock(&u_other->peer_wait.lock);
 +	return rc;
- }
- 
- static netdev_tx_t
- tulip_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct tulip_private *tp = netdev_priv(dev);
-+	struct device *d = &tp->pdev->dev;
- 	int entry;
- 	u32 flag;
- 	dma_addr_t mapping;
-@@ -678,8 +708,14 @@ tulip_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	entry = tp->cur_tx % TX_RING_SIZE;
- 
- 	tp->tx_buffers[entry].skb = skb;
--	mapping = pci_map_single(tp->pdev, skb->data,
--				 skb->len, PCI_DMA_TODEVICE);
++}
 +
-+	mapping = dma_map_single(d, skb->data, skb->len, DMA_TO_DEVICE);
-+	if (unlikely(dma_mapping_error(d, mapping))) {
-+		dev->stats.tx_dropped++;
-+		dev_kfree_skb_any(skb);
-+		goto out_unlock;
++static int unix_dgram_peer_wake_disconnect(struct sock *sk, struct sock *other)
++{
++	struct unix_sock *u, *u_other;
++	int rc;
++
++	u = unix_sk(sk);
++	u_other = unix_sk(other);
++	rc = 0;
++	spin_lock(&u_other->peer_wait.lock);
++
++	if (u->peer_wake.private == other) {
++		__remove_wait_queue(&u_other->peer_wait, &u->peer_wake);
++		u->peer_wake.private = NULL;
++
++		rc = 1;
 +	}
 +
- 	tp->tx_buffers[entry].mapping = mapping;
- 	tp->tx_ring[entry].buffer1 = cpu_to_le32(mapping);
- 
-@@ -707,6 +743,7 @@ tulip_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* Trigger an immediate transmit demand. */
- 	iowrite32(0, tp->base_addr + CSR1);
- 
-+out_unlock:
- 	spin_unlock_irqrestore(&tp->lock, flags);
- 
- 	return NETDEV_TX_OK;
-@@ -714,6 +751,7 @@ tulip_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- static void tulip_clean_tx_ring(struct tulip_private *tp)
++	spin_unlock(&u_other->peer_wait.lock);
++	return rc;
++}
++
++/* preconditions:
++ *	- unix_peer(sk) == other
++ *	- association is stable
++ */
++static int unix_dgram_peer_wake_me(struct sock *sk, struct sock *other)
++{
++	int connected;
++
++	connected = unix_dgram_peer_wake_connect(sk, other);
++
++	if (unix_recvq_full(other))
++		return 1;
++
++	if (connected)
++		unix_dgram_peer_wake_disconnect(sk, other);
++
++	return 0;
++}
++
+ static inline int unix_writable(struct sock *sk)
  {
-+	struct device *d = &tp->pdev->dev;
- 	unsigned int dirty_tx;
- 
- 	for (dirty_tx = tp->dirty_tx ; tp->cur_tx - dirty_tx > 0;
-@@ -730,16 +768,15 @@ static void tulip_clean_tx_ring(struct tulip_private *tp)
- 		if (tp->tx_buffers[entry].skb == NULL) {
- 			/* test because dummy frames not mapped */
- 			if (tp->tx_buffers[entry].mapping)
--				pci_unmap_single(tp->pdev,
-+				dma_unmap_single(d,
- 					tp->tx_buffers[entry].mapping,
- 					sizeof(tp->setup_frame),
--					PCI_DMA_TODEVICE);
-+					DMA_TO_DEVICE);
- 			continue;
+ 	return (atomic_read(&sk->sk_wmem_alloc) << 2) <= sk->sk_sndbuf;
+@@ -430,6 +536,8 @@ static void unix_release_sock(struct sock *sk, int embrion)
+ 			skpair->sk_state_change(skpair);
+ 			sk_wake_async(skpair, SOCK_WAKE_WAITD, POLL_HUP);
  		}
- 
--		pci_unmap_single(tp->pdev, tp->tx_buffers[entry].mapping,
--				tp->tx_buffers[entry].skb->len,
--				PCI_DMA_TODEVICE);
-+		dma_unmap_single(d, tp->tx_buffers[entry].mapping,
-+				 tp->tx_buffers[entry].skb->len, DMA_TO_DEVICE);
- 
- 		/* Free the original skb. */
- 		dev_kfree_skb_irq(tp->tx_buffers[entry].skb);
-@@ -796,6 +833,7 @@ static void tulip_down (struct net_device *dev)
- static void tulip_free_ring (struct net_device *dev)
- {
- 	struct tulip_private *tp = netdev_priv(dev);
-+	struct device *d = &tp->pdev->dev;
- 	int i;
- 
- 	/* Free all the skbuffs in the Rx queue. */
-@@ -811,8 +849,7 @@ static void tulip_free_ring (struct net_device *dev)
- 		/* An invalid address. */
- 		tp->rx_ring[i].buffer1 = cpu_to_le32(0xBADF00D0);
- 		if (skb) {
--			pci_unmap_single(tp->pdev, mapping, PKT_BUF_SZ,
--					 PCI_DMA_FROMDEVICE);
-+			dma_unmap_single(d, mapping, PKT_BUF_SZ, DMA_FROM_DEVICE);
- 			dev_kfree_skb (skb);
- 		}
++
++		unix_dgram_peer_wake_disconnect(sk, skpair);
+ 		sock_put(skpair); /* It may now die */
+ 		unix_peer(sk) = NULL;
  	}
-@@ -821,8 +858,8 @@ static void tulip_free_ring (struct net_device *dev)
- 		struct sk_buff *skb = tp->tx_buffers[i].skb;
+@@ -664,6 +772,7 @@ static struct sock *unix_create1(struct net *net, struct socket *sock, int kern)
+ 	INIT_LIST_HEAD(&u->link);
+ 	mutex_init(&u->readlock); /* single task reading lock */
+ 	init_waitqueue_head(&u->peer_wait);
++	init_waitqueue_func_entry(&u->peer_wake, unix_dgram_peer_wake_relay);
+ 	unix_insert_socket(unix_sockets_unbound(sk), sk);
+ out:
+ 	if (sk == NULL)
+@@ -1031,6 +1140,13 @@ restart:
+ 	if (unix_peer(sk)) {
+ 		struct sock *old_peer = unix_peer(sk);
+ 		unix_peer(sk) = other;
++
++		if (unix_dgram_peer_wake_disconnect(sk, old_peer))
++			wake_up_interruptible_poll(sk_sleep(sk),
++						   POLLOUT |
++						   POLLWRNORM |
++						   POLLWRBAND);
++
+ 		unix_state_double_unlock(sk, other);
  
- 		if (skb != NULL) {
--			pci_unmap_single(tp->pdev, tp->tx_buffers[i].mapping,
--					 skb->len, PCI_DMA_TODEVICE);
-+			dma_unmap_single(d, tp->tx_buffers[i].mapping, skb->len,
-+					 DMA_TO_DEVICE);
- 			dev_kfree_skb (skb);
+ 		if (other != old_peer)
+@@ -1470,6 +1586,7 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
+ 	struct scm_cookie scm;
+ 	int max_level;
+ 	int data_len = 0;
++	int sk_locked;
+ 
+ 	wait_for_unix_gc();
+ 	err = scm_send(sock, msg, &scm, false);
+@@ -1548,12 +1665,14 @@ restart:
+ 		goto out_free;
+ 	}
+ 
++	sk_locked = 0;
+ 	unix_state_lock(other);
++restart_locked:
+ 	err = -EPERM;
+ 	if (!unix_may_send(sk, other))
+ 		goto out_unlock;
+ 
+-	if (sock_flag(other, SOCK_DEAD)) {
++	if (unlikely(sock_flag(other, SOCK_DEAD))) {
+ 		/*
+ 		 *	Check with 1003.1g - what should
+ 		 *	datagram error
+@@ -1561,10 +1680,19 @@ restart:
+ 		unix_state_unlock(other);
+ 		sock_put(other);
+ 
++		if (!sk_locked)
++			unix_state_lock(sk);
++
+ 		err = 0;
+-		unix_state_lock(sk);
+ 		if (unix_peer(sk) == other) {
+ 			unix_peer(sk) = NULL;
++
++			if (unix_dgram_peer_wake_disconnect(sk, other))
++				wake_up_interruptible_poll(sk_sleep(sk),
++							   POLLOUT |
++							   POLLWRNORM |
++							   POLLWRBAND);
++
+ 			unix_state_unlock(sk);
+ 
+ 			unix_dgram_disconnected(sk, other);
+@@ -1590,21 +1718,35 @@ restart:
+ 			goto out_unlock;
+ 	}
+ 
+-	if (unix_peer(other) != sk && unix_recvq_full(other)) {
+-		if (!timeo) {
++	if (unlikely(unix_peer(other) != sk && unix_recvq_full(other))) {
++		if (timeo) {
++			timeo = unix_wait_for_peer(other, timeo);
++
++			err = sock_intr_errno(timeo);
++			if (signal_pending(current))
++				goto out_free;
++
++			goto restart;
++		}
++
++		if (unix_peer(sk) != other ||
++		    unix_dgram_peer_wake_me(sk, other)) {
+ 			err = -EAGAIN;
+ 			goto out_unlock;
  		}
- 		tp->tx_buffers[i].skb = NULL;
-@@ -1143,7 +1180,9 @@ static void set_rx_mode(struct net_device *dev)
- 		if (tp->cur_tx - tp->dirty_tx > TX_RING_SIZE - 2) {
- 			/* Same setup recently queued, we need not add it. */
- 		} else {
-+			struct device *d = &tp->pdev->dev;
- 			unsigned int entry;
-+			dma_addr_t mapping;
- 			int dummy = -1;
  
- 			/* Now add this frame to the Tx list. */
-@@ -1164,16 +1203,18 @@ static void set_rx_mode(struct net_device *dev)
- 			}
+-		timeo = unix_wait_for_peer(other, timeo);
++		if (!sk_locked) {
++			unix_state_unlock(other);
++			unix_state_double_lock(sk, other);
  
- 			tp->tx_buffers[entry].skb = NULL;
--			tp->tx_buffers[entry].mapping =
--				pci_map_single(tp->pdev, tp->setup_frame,
--					       sizeof(tp->setup_frame),
--					       PCI_DMA_TODEVICE);
-+			mapping = dma_map_single(d, tp->setup_frame,
-+						 sizeof(tp->setup_frame),
-+						 DMA_TO_DEVICE);
-+			if (unlikely(dma_mapping_error(d, mapping))) {
-+				// WTF ?
-+			}
-+			tp->tx_buffers[entry].mapping = mapping;
- 			/* Put the setup frame on the Tx list. */
- 			if (entry == TX_RING_SIZE-1)
- 				tx_flags |= DESC_RING_WRAP;		/* Wrap ring. */
- 			tp->tx_ring[entry].length = cpu_to_le32(tx_flags);
--			tp->tx_ring[entry].buffer1 =
--				cpu_to_le32(tp->tx_buffers[entry].mapping);
-+			tp->tx_ring[entry].buffer1 = cpu_to_le32(mapping);
- 			tp->tx_ring[entry].status = cpu_to_le32(DescOwned);
- 			if (dummy >= 0)
- 				tp->tx_ring[dummy].status = cpu_to_le32(DescOwned);
-@@ -1445,10 +1486,10 @@ static int tulip_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	tp = netdev_priv(dev);
- 	tp->dev = dev;
- 
--	tp->rx_ring = pci_alloc_consistent(pdev,
--					   sizeof(struct tulip_rx_desc) * RX_RING_SIZE +
--					   sizeof(struct tulip_tx_desc) * TX_RING_SIZE,
--					   &tp->rx_ring_dma);
-+	tp->rx_ring = dma_alloc_coherent(&pdev->dev,
-+					 sizeof(struct tulip_rx_desc) * RX_RING_SIZE +
-+					 sizeof(struct tulip_tx_desc) * TX_RING_SIZE,
-+					 &tp->rx_ring_dma, GFP_KERNEL);
- 	if (!tp->rx_ring)
- 		goto err_out_mtable;
- 	tp->tx_ring = (struct tulip_tx_desc *)(tp->rx_ring + RX_RING_SIZE);
-@@ -1783,10 +1824,10 @@ static int tulip_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	return 0;
- 
- err_out_free_ring:
--	pci_free_consistent (pdev,
--			     sizeof (struct tulip_rx_desc) * RX_RING_SIZE +
--			     sizeof (struct tulip_tx_desc) * TX_RING_SIZE,
--			     tp->rx_ring, tp->rx_ring_dma);
-+	dma_free_coherent(&pdev->dev,
-+			  sizeof(struct tulip_rx_desc) * RX_RING_SIZE +
-+			  sizeof(struct tulip_tx_desc) * TX_RING_SIZE,
-+			  tp->rx_ring, tp->rx_ring_dma);
- 
- err_out_mtable:
- 	kfree (tp->mtable);
-@@ -1874,8 +1915,8 @@ static int tulip_resume(struct pci_dev *pdev)
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct tulip_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->base_addr;
--	int retval;
- 	unsigned int tmp;
-+	int retval;
- 
- 	if (!dev)
- 		return -EINVAL;
-@@ -1913,9 +1954,9 @@ static int tulip_resume(struct pci_dev *pdev)
- 	netif_device_attach(dev);
- 
- 	if (netif_running(dev))
--		tulip_up(dev);
-+		retval = tulip_up(dev);
- 
--	return 0;
-+	return retval;
- }
- 
- #endif /* CONFIG_PM */
-@@ -1924,17 +1965,13 @@ static int tulip_resume(struct pci_dev *pdev)
- static void tulip_remove_one(struct pci_dev *pdev)
- {
- 	struct net_device *dev = pci_get_drvdata (pdev);
--	struct tulip_private *tp;
+-		err = sock_intr_errno(timeo);
+-		if (signal_pending(current))
+-			goto out_free;
 -
--	if (!dev)
--		return;
-+	struct tulip_private *tp = netdev_priv(dev);
+-		goto restart;
++			sk_locked = 1;
++			goto restart_locked;
++		}
+ 	}
  
--	tp = netdev_priv(dev);
- 	unregister_netdev(dev);
--	pci_free_consistent (pdev,
--			     sizeof (struct tulip_rx_desc) * RX_RING_SIZE +
--			     sizeof (struct tulip_tx_desc) * TX_RING_SIZE,
--			     tp->rx_ring, tp->rx_ring_dma);
-+	dma_free_coherent(&pdev->dev,
-+			  sizeof(struct tulip_rx_desc) * RX_RING_SIZE +
-+			  sizeof(struct tulip_tx_desc) * TX_RING_SIZE,
-+			  tp->rx_ring, tp->rx_ring_dma);
- 	kfree (tp->mtable);
- 	pci_iounmap(pdev, tp->base_addr);
- 	free_netdev (dev);
++	if (unlikely(sk_locked))
++		unix_state_unlock(sk);
++
+ 	if (sock_flag(other, SOCK_RCVTSTAMP))
+ 		__net_timestamp(skb);
+ 	maybe_add_creds(skb, sock, other);
+@@ -1618,6 +1760,8 @@ restart:
+ 	return len;
+ 
+ out_unlock:
++	if (sk_locked)
++		unix_state_unlock(sk);
+ 	unix_state_unlock(other);
+ out_free:
+ 	kfree_skb(skb);
+@@ -2453,14 +2597,16 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
+ 		return mask;
+ 
+ 	writable = unix_writable(sk);
+-	other = unix_peer_get(sk);
+-	if (other) {
+-		if (unix_peer(other) != sk) {
+-			sock_poll_wait(file, &unix_sk(other)->peer_wait, wait);
+-			if (unix_recvq_full(other))
+-				writable = 0;
+-		}
+-		sock_put(other);
++	if (writable) {
++		unix_state_lock(sk);
++
++		other = unix_peer(sk);
++		if (other && unix_peer(other) != sk &&
++		    unix_recvq_full(other) &&
++		    unix_dgram_peer_wake_me(sk, other))
++			writable = 0;
++
++		unix_state_unlock(sk);
+ 	}
+ 
+ 	if (writable)
