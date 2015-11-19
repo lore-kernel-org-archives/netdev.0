@@ -1,47 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: avoid NULL deref in napi_get_frags()
-Date: Thu, 19 Nov 2015 12:11:23 -0800
-Message-ID: <1447963883.22599.243.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] bpf: add show_fdinfo handler for maps
+Date: Thu, 19 Nov 2015 21:12:30 +0100
+Message-ID: <1447963950.3032383.444676081.5CE47461@webmail.messagingengine.com>
+References: <b3f1dd7e21d72dc47beac222d655640ee584c5cd.1447930253.git.daniel@iogearbox.net>
+ <1447957164.2292053.444566657.27F336C7@webmail.messagingengine.com>
+ <20151119183240.GA5993@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34888 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934659AbbKSULZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 15:11:25 -0500
-Received: by pacej9 with SMTP id ej9so91014963pac.2
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 12:11:25 -0800 (PST)
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:59286 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1161183AbbKSUMb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 15:12:31 -0500
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id 601DA20B4C
+	for <netdev@vger.kernel.org>; Thu, 19 Nov 2015 15:12:30 -0500 (EST)
+In-Reply-To: <20151119183240.GA5993@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, Nov 19, 2015, at 19:32, Alexei Starovoitov wrote:
+> On Thu, Nov 19, 2015 at 07:19:24PM +0100, Hannes Frederic Sowa wrote:
+> > On Thu, Nov 19, 2015, at 11:56, Daniel Borkmann wrote:
+> > > Add a handler for show_fdinfo() to be used by the anon-inodes
+> > > backend for eBPF maps, and dump the map specification there. Not
+> > > only useful for admins, but also it provides a minimal way to
+> > > compare specs from ELF vs pinned object.
+> > > 
+> > > Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> > 
+> > Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > 
+> > Does it make sense to include bpf_htab->count in case of a hashmap?
+> 
+> no. user space should not rely on such things. It can only be misused.
 
-napi_alloc_skb() can return NULL.
-We should not crash should this happen.
+Sorry, I don't get it. How can it be misused? As an admin it would
+certainly be interesting to know the pressure on the map? Do you expect
+kmsg messages from the eBPF program?
 
-Fixes: 93f93a440415 ("net: move skb_mark_napi_id() into core networking stack")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/dev.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 41cef3e3f558b857a9093a83f6b0c73f32b8b45f..5df6cbce727c140684b84129c26ffc0606260cbb 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4390,8 +4390,10 @@ struct sk_buff *napi_get_frags(struct napi_struct *napi)
- 
- 	if (!skb) {
- 		skb = napi_alloc_skb(napi, GRO_MAX_HEAD);
--		napi->skb = skb;
--		skb_mark_napi_id(skb, napi);
-+		if (skb) {
-+			napi->skb = skb;
-+			skb_mark_napi_id(skb, napi);
-+		}
- 	}
- 	return skb;
- }
+Thanks,
+Hannes
