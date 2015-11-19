@@ -1,57 +1,45 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Wed, 18 Nov 2015 23:19:03 -0800
-Message-ID: <CANP3RGcPRzSL06qZB9oewrvN_AUUodnYzXQO=itoK40z64x8Yw@mail.gmail.com>
-References: <1447879416.562854.443622857.62708268@webmail.messagingengine.com>
-	<20151118.224919.452852815199526735.davem@davemloft.net>
-	<CAKD1Yr2OgJT0GsrTuws0oapobrU+ML3NpBNBXizg6q035PH4MA@mail.gmail.com>
-	<20151119.005318.838757439536205791.davem@davemloft.net>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH v2 06/27] brcm80211: move under broadcom vendor directory
+Date: Thu, 19 Nov 2015 09:48:59 +0200
+Message-ID: <871tbmwhsk.fsf@kamboji.qca.qualcomm.com>
+References: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
+	<1447857966-19560-7-git-send-email-kvalo@codeaurora.org>
+	<564CCF2A.4030203@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Lorenzo Colitti <lorenzo@google.com>, hannes@stressinduktion.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	stephen@networkplumber.org, Linux NetDev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
-	Dmitry Torokhov <dtor@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:33051 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757871AbbKSHTE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 02:19:04 -0500
-Received: by igvi2 with SMTP id i2so5786440igv.0
-        for <netdev@vger.kernel.org>; Wed, 18 Nov 2015 23:19:03 -0800 (PST)
-In-Reply-To: <20151119.005318.838757439536205791.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Arend van Spriel <arend@broadcom.com>,
+	brcm80211-dev-list@broadcom.com
+To: Hauke Mehrtens <hauke@hauke-m.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <564CCF2A.4030203@hauke-m.de> (Hauke Mehrtens's message of "Wed,
+	18 Nov 2015 20:19:06 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> What I object to is userspace making reachability decisions, not
-> whether SOCK_DESTROY closes the socket in one way or the other.
+Hauke Mehrtens <hauke@hauke-m.de> writes:
 
-Privileged userspace can already make these decisions today, whether
-it is by killing processes with open sockets, or by turning interfaces
-up and down or by reconfiguring the firewall and/or the routing
-rules/tables, or by injecting spoofed TCP reset packets (via tap).
-It's just *very* inconvenient to do and error prone.
+> On 11/18/2015 03:45 PM, Kalle Valo wrote:
+>> Part of reorganising wireless drivers directory and Kconfig. Note that I had to
+>> edit Makefiles from subdirectories to use the new location.
+>> 
+>> Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
+>> ---
+>
+> I would prefer to remove the brcm80211 directory in this process and create:
+> drivers/net/wireless/broadcom/brcmfmac
+> drivers/net/wireless/broadcom/brcmsmac
+> drivers/net/wireless/broadcom/brcmutil
+> drivers/net/wireless/broadcom/include
+>
+> This way we have one directory less.
 
-Another example: privileged userspace could ptrace the userspace apps
-and via code injection call close() on the app's behalf and reopen the
-file descriptor to some null routed destination so it behaves like if
-it was timed out / unreachable.
+I think this could be done separately. This patchset is big enough
+already, I would not like to make it anymore complicated.
 
-In general the statement that (appropriately privileged) 'userspace
-should not be able to do something' is wrong - about the only
-exception I can think of being crashing the machine or burning the
-hardware.
+And I actually like the brcm80211 directory, I would not mind keeping it
+still.
 
-The kernel's purpose in life should be to enable userspace to do things.
-
-You make things too hard for people to do stuff via the kernel and you
-end up with the kernel being out of a job.  People either implement
-things entirely in userspace (userspace tcp stacks on raw sockets or
-tap or udp) or switch to a different kernel or create a local fork...
-
-I'm not saying the proposed solution is ideal (although honestly it
-doesn't seem bad), but this problem does deserve a clean *kernel*
-solution instead of insane userspace hacks or non vanilla Linux
-patches which then propagate to a billion devices...
+-- 
+Kalle Valo
