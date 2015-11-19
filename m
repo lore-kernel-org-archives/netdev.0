@@ -1,194 +1,155 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 1/7] cgroup: record ancestor IDs and reimplement cgroup_is_descendant() using it
-Date: Thu, 19 Nov 2015 13:52:45 -0500
-Message-ID: <1447959171-20749-2-git-send-email-tj@kernel.org>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH v2 iptables] libxt_cgroup2: add support for cgroup2 path
+ matching
+Date: Thu, 19 Nov 2015 13:57:15 -0500
+Message-ID: <20151119185715.GB28608@mtj.duckdns.org>
 References: <1447959171-20749-1-git-send-email-tj@kernel.org>
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-team@fb.com,
-	daniel@iogearbox.net, daniel.wagner@bmw-carit.de,
-	nhorman@tuxdriver.com, Tejun Heo <tj@kernel.org>
-To: davem@davemloft.net, pablo@netfilter.org, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, lizefan@huawei.com, hannes@cmpxchg.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f177.google.com ([209.85.160.177]:36459 "EHLO
-	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933081AbbKSSw5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2015 13:52:57 -0500
-In-Reply-To: <1447959171-20749-1-git-send-email-tj@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org,
+	daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org,
+	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1447959171-20749-1-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-cgroup_is_descendant() currently walks up the hierarchy and compares
-each ancestor to the cgroup in question.  While enough for cgroup core
-usages, this can't be used in hot paths to test cgroup membership.
-This patch adds cgroup->ancestor_ids[] which records the IDs of all
-ancestors including self and cgroup->level for the nesting level.
+This patch adds the extension for the xt_cgroup2 which matches packets
+based on the v2 cgroup path of the associated socket.
 
-This allows testing whether a given cgroup is a descendant of another
-in three finite steps - testing whether the two belong to the same
-hierarchy, whether the descendant candidate is at the same or a higher
-level than the ancestor and comparing the recorded ancestor_id at the
-matching level.  cgroup_is_descendant() is accordingly reimplmented
-and made inline.
+v2: cgroup2_match->userspacesize and ->save and man page updated as
+    per Jan.
 
-Signed-off-by: Tejun Heo <tj@kernel.org>
+Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: Jan Engelhardt <jengelh-9+2X+4sQBs8@public.gmane.org>
 ---
- include/linux/cgroup-defs.h | 14 ++++++++++++++
- include/linux/cgroup.h      | 18 +++++++++++++++++-
- kernel/cgroup.c             | 32 ++++++++++----------------------
- 3 files changed, 41 insertions(+), 23 deletions(-)
+ extensions/libxt_cgroup2.c           |   71 +++++++++++++++++++++++++++++++++++
+ extensions/libxt_cgroup2.man         |   24 +++++++++++
+ include/linux/netfilter/xt_cgroup2.h |   15 +++++++
+ 3 files changed, 110 insertions(+)
 
-diff --git a/include/linux/cgroup-defs.h b/include/linux/cgroup-defs.h
-index 60d44b2..504d859 100644
---- a/include/linux/cgroup-defs.h
-+++ b/include/linux/cgroup-defs.h
-@@ -235,6 +235,14 @@ struct cgroup {
- 	int id;
- 
- 	/*
-+	 * The depth this cgroup is at.  The root is at depth zero and each
-+	 * step down the hierarchy increments the level.  This along with
-+	 * ancestor_ids[] can determine whether a given cgroup is a
-+	 * descendant of another without traversing the hierarchy.
-+	 */
-+	int level;
+--- /dev/null
++++ b/extensions/libxt_cgroup2.c
+@@ -0,0 +1,71 @@
++#include <stdio.h>
++#include <mntent.h>
++#include <xtables.h>
++#include <linux/netfilter/xt_cgroup2.h>
++#include <linux/limits.h>
 +
-+	/*
- 	 * Each non-empty css_set associated with this cgroup contributes
- 	 * one to populated_cnt.  All children with non-zero popuplated_cnt
- 	 * of their own contribute one.  The count is zero iff there's no
-@@ -289,6 +297,9 @@ struct cgroup {
- 
- 	/* used to schedule release agent */
- 	struct work_struct release_agent_work;
++enum {
++	O_CGROUP2_PATH,
++};
 +
-+	/* ids of the ancestors at each level including self */
-+	int ancestor_ids[];
- };
- 
- /*
-@@ -308,6 +319,9 @@ struct cgroup_root {
- 	/* The root cgroup.  Root is destroyed on its release. */
- 	struct cgroup cgrp;
- 
-+	/* for cgrp->ancestor_ids[0] */
-+	int cgrp_ancestor_id_storage;
-+
- 	/* Number of cgroups in the hierarchy, used only for /proc/cgroups */
- 	atomic_t nr_cgrps;
- 
-diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
-index 22e3754..b5ee2c4 100644
---- a/include/linux/cgroup.h
-+++ b/include/linux/cgroup.h
-@@ -81,7 +81,6 @@ struct cgroup_subsys_state *cgroup_get_e_css(struct cgroup *cgroup,
- struct cgroup_subsys_state *css_tryget_online_from_dir(struct dentry *dentry,
- 						       struct cgroup_subsys *ss);
- 
--bool cgroup_is_descendant(struct cgroup *cgrp, struct cgroup *ancestor);
- int cgroup_attach_task_all(struct task_struct *from, struct task_struct *);
- int cgroup_transfer_tasks(struct cgroup *to, struct cgroup *from);
- 
-@@ -459,6 +458,23 @@ static inline struct cgroup *task_cgroup(struct task_struct *task,
- 	return task_css(task, subsys_id)->cgroup;
- }
- 
-+/**
-+ * cgroup_is_descendant - test ancestry
-+ * @cgrp: the cgroup to be tested
-+ * @ancestor: possible ancestor of @cgrp
-+ *
-+ * Test whether @cgrp is a descendant of @ancestor.  It also returns %true
-+ * if @cgrp == @ancestor.  This function is safe to call as long as @cgrp
-+ * and @ancestor are accessible.
-+ */
-+static inline bool cgroup_is_descendant(struct cgroup *cgrp,
-+					struct cgroup *ancestor)
++static void cgroup2_help(void)
 +{
-+	if (cgrp->root != ancestor->root || cgrp->level < ancestor->level)
-+		return false;
-+	return cgrp->ancestor_ids[ancestor->level] == ancestor->id;
++	printf(
++"cgroup2 match options:\n"
++"[!] --path path                 path relative to cgroup2 root, recursive match\n");
 +}
 +
- /* no synchronization, the result can only be used as a hint */
- static inline bool cgroup_is_populated(struct cgroup *cgrp)
- {
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index f1603c1..3190040 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -459,25 +459,6 @@ struct cgroup_subsys_state *of_css(struct kernfs_open_file *of)
- }
- EXPORT_SYMBOL_GPL(of_css);
- 
--/**
-- * cgroup_is_descendant - test ancestry
-- * @cgrp: the cgroup to be tested
-- * @ancestor: possible ancestor of @cgrp
-- *
-- * Test whether @cgrp is a descendant of @ancestor.  It also returns %true
-- * if @cgrp == @ancestor.  This function is safe to call as long as @cgrp
-- * and @ancestor are accessible.
-- */
--bool cgroup_is_descendant(struct cgroup *cgrp, struct cgroup *ancestor)
--{
--	while (cgrp) {
--		if (cgrp == ancestor)
--			return true;
--		cgrp = cgroup_parent(cgrp);
--	}
--	return false;
--}
--
- static int notify_on_release(const struct cgroup *cgrp)
- {
- 	return test_bit(CGRP_NOTIFY_ON_RELEASE, &cgrp->flags);
-@@ -1903,6 +1884,7 @@ static int cgroup_setup_root(struct cgroup_root *root, unsigned long ss_mask)
- 	if (ret < 0)
- 		goto out;
- 	root_cgrp->id = ret;
-+	root_cgrp->ancestor_ids[0] = ret;
- 
- 	ret = percpu_ref_init(&root_cgrp->self.refcnt, css_release, 0,
- 			      GFP_KERNEL);
-@@ -4846,11 +4828,11 @@ static int create_css(struct cgroup *cgrp, struct cgroup_subsys *ss,
- static int cgroup_mkdir(struct kernfs_node *parent_kn, const char *name,
- 			umode_t mode)
- {
--	struct cgroup *parent, *cgrp;
-+	struct cgroup *parent, *cgrp, *tcgrp;
- 	struct cgroup_root *root;
- 	struct cgroup_subsys *ss;
- 	struct kernfs_node *kn;
--	int ssid, ret;
-+	int level, ssid, ret;
- 
- 	/* Do not accept '\n' to prevent making /proc/<pid>/cgroup unparsable.
- 	 */
-@@ -4861,9 +4843,11 @@ static int cgroup_mkdir(struct kernfs_node *parent_kn, const char *name,
- 	if (!parent)
- 		return -ENODEV;
- 	root = parent->root;
-+	level = parent->level + 1;
- 
- 	/* allocate the cgroup and its ID, 0 is reserved for the root */
--	cgrp = kzalloc(sizeof(*cgrp), GFP_KERNEL);
-+	cgrp = kzalloc(sizeof(*cgrp) +
-+		       sizeof(cgrp->ancestor_ids[0]) * (level + 1), GFP_KERNEL);
- 	if (!cgrp) {
- 		ret = -ENOMEM;
- 		goto out_unlock;
-@@ -4887,6 +4871,10 @@ static int cgroup_mkdir(struct kernfs_node *parent_kn, const char *name,
- 
- 	cgrp->self.parent = &parent->self;
- 	cgrp->root = root;
-+	cgrp->level = level;
++static const struct xt_option_entry cgroup2_opts[] = {
++	{
++		.name = "path",
++		.id = O_CGROUP2_PATH,
++		.type = XTTYPE_STRING,
++		.flags = XTOPT_INVERT | XTOPT_MAND | XTOPT_PUT,
++		XTOPT_POINTER(struct xt_cgroup2_info, path)
++	},
++	XTOPT_TABLEEND,
++};
 +
-+	for (tcgrp = cgrp; tcgrp; tcgrp = cgroup_parent(tcgrp))
-+		cgrp->ancestor_ids[tcgrp->level] = tcgrp->id;
- 
- 	if (notify_on_release(parent))
- 		set_bit(CGRP_NOTIFY_ON_RELEASE, &cgrp->flags);
--- 
-2.5.0
++static void cgroup2_parse(struct xt_option_call *cb)
++{
++	struct xt_cgroup2_info *info = cb->data;
++
++	xtables_option_parse(cb);
++
++	if (cb->invert)
++		info->invert = true;
++}
++
++static void cgroup2_print(const void *ip, const struct xt_entry_match *match,
++			  int numeric)
++{
++	const struct xt_cgroup2_info *info = (void *)match->data;
++
++	printf(" cgroup2 %s%s", info->invert ? "! ":"", info->path);
++}
++
++static void cgroup2_save(const void *ip, const struct xt_entry_match *match)
++{
++	const struct xt_cgroup2_info *info = (void *)match->data;
++
++	printf("%s --path", info->invert ? " !" : "");
++	xtables_save_string(info->path);
++}
++
++static struct xtables_match cgroup2_match = {
++	.family		= NFPROTO_UNSPEC,
++	.name		= "cgroup2",
++	.version	= XTABLES_VERSION,
++	.size		= XT_ALIGN(sizeof(struct xt_cgroup2_info)),
++	.userspacesize	= offsetof(struct xt_cgroup2_info, priv),
++	.help		= cgroup2_help,
++	.print		= cgroup2_print,
++	.save		= cgroup2_save,
++	.x6_parse	= cgroup2_parse,
++	.x6_options	= cgroup2_opts,
++};
++
++void _init(void)
++{
++	xtables_register_match(&cgroup2_match);
++}
+--- /dev/null
++++ b/extensions/libxt_cgroup2.man
+@@ -0,0 +1,24 @@
++.TP
++[\fB!\fP] \fB\-\-path\fP \fIpath\fP
++Match cgroup2 membership.
++
++Each socket is associated with the v2 cgroup of the creating process.
++This matches packets coming from or going to all sockets in the
++sub-hierarchy of the specified path.  The path should be relative to
++the root of the cgroup2 hierarchy.  Can be used in the OUTPUT and
++INPUT chains to assign particular firewall policies for aggregated
++processes on the system. This allows for more fine-grained firewall
++policies that only match for a subset of the system's processes.
++
++\fBIMPORTANT\fP: when being used in the INPUT chain, the cgroup2
++matcher is currently only of limited functionality, meaning it
++will only match on packets that are processed for local sockets
++through early socket demuxing. Therefore, general usage on the
++INPUT chain is not advised unless the implications are well
++understood.
++.PP
++Example:
++.IP
++iptables \-A OUTPUT \-p tcp \-\-sport 80 \-m cgroup2 ! \-\-path service/http-server \-j DROP
++.PP
++Available since Linux 4.5.
+--- /dev/null
++++ b/include/linux/netfilter/xt_cgroup2.h
+@@ -0,0 +1,15 @@
++#ifndef _XT_CGROUP2_H
++#define _XT_CGROUP2_H
++
++#include <linux/types.h>
++#include <linux/limits.h>
++
++struct xt_cgroup2_info {
++	char		path[PATH_MAX];
++	__u8		invert;
++
++	/* kernel internal data */
++	void		*priv __attribute__((aligned(8)));
++};
++
++#endif /* _XT_CGROUP2_H */
