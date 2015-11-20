@@ -1,51 +1,53 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH] [V2] net: fsl: expands dependencies of NET_VENDOR_FREESCALE
-Date: Fri, 20 Nov 2015 11:54:08 +0800
-Message-ID: <1447991648-25424-1-git-send-email-shh.xie@gmail.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH v2] igb: improve handling of
+ disconnected	adapters
+Date: Fri, 20 Nov 2015 04:40:24 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81D3DA92@ORSMSX101.amr.corp.intel.com>
+References: <1444716624.2870.14.camel@intel.com>
+ <1445269924-26739-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Shaohui Xie <Shaohui.Xie@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0057.outbound.protection.outlook.com ([65.55.169.57]:12994
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S934262AbbKTEBZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Nov 2015 23:01:25 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: Jarod Wilson <jarod@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445269924-26739-1-git-send-email-jarod@redhat.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
+> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
+> Behalf Of Jarod Wilson
+> Sent: Monday, October 19, 2015 8:52 AM
+> To: linux-kernel@vger.kernel.org
+> Cc: netdev@vger.kernel.org; Jarod Wilson <jarod@redhat.com>; intel-wired-
+> lan@lists.osuosl.org
+> Subject: [Intel-wired-lan] [PATCH v2] igb: improve handling of disconnected
+> adapters
+> 
+> Clean up array_rd32 so that it uses igb_rd32 the same as rd32, per the
+> suggestion of Alexander Duyck, and use io_addr in more places, so that
+> we don't have the need to call E1000_REMOVED (which simply looks for a
+> null hw_addr) nearly as much.
+> 
+> CC: Mark Rustad <mark.d.rustad@intel.com>
+> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> CC: Alexander Duyck <alexander.duyck@gmail.com>
+> CC: intel-wired-lan@lists.osuosl.org
+> CC: netdev@vger.kernel.org
+> Acked-by: Alexander Duyck <aduyck@mirantis.com>
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> ---
+> Note: this patch is rebased on Jeff's next-queue/dev-queue branch, which
+> already had an earlier revision of this applied, so I've essentially
+> reverted a2675ab and applied the revised version of this, squashed them
+> together, and here is the end result, which matches the version Alex acked.
+> 
+>  drivers/net/ethernet/intel/igb/e1000_regs.h |  3 +--
+>  drivers/net/ethernet/intel/igb/igb_main.c   | 15 ++-------------
+>  2 files changed, 3 insertions(+), 15 deletions(-)
+> 
 
-Freescale hosts some ARMv8 based SoCs, and a generic convention
-ARCH_LAYERSCAPE is used to cover such SoCs. Adding ARCH_LAYERSCAPE
-to dependencies of NET_VENDOR_FREESCALE to support networking on those
-SoCs.
-
-The ARCH_LAYERSCAPE is introduced by:
-commit: 53a5fde05 arm64: Use generic Layerscape SoC family naming
-
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
----
-changes in v2:
-1. revises commit message to add commit which introduces ARCH_LAYERSCAPE.
-
- drivers/net/ethernet/freescale/Kconfig | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
-index ff76d4e..bee32a9 100644
---- a/drivers/net/ethernet/freescale/Kconfig
-+++ b/drivers/net/ethernet/freescale/Kconfig
-@@ -7,7 +7,8 @@ config NET_VENDOR_FREESCALE
- 	default y
- 	depends on FSL_SOC || QUICC_ENGINE || CPM1 || CPM2 || PPC_MPC512x || \
- 		   M523x || M527x || M5272 || M528x || M520x || M532x || \
--		   ARCH_MXC || ARCH_MXS || (PPC_MPC52xx && PPC_BESTCOMM)
-+		   ARCH_MXC || ARCH_MXS || (PPC_MPC52xx && PPC_BESTCOMM) || \
-+		   ARCH_LAYERSCAPE
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y.
- 
--- 
-2.1.0.27.g96db324
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
