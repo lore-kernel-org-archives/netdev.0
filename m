@@ -1,56 +1,50 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 4/6] kcm: Kernel Connection Multiplexor module
-Date: Fri, 20 Nov 2015 15:10:54 -0800
-Message-ID: <20151120231053.GA46238@ast-mbp.thefacebook.com>
-References: <1448054520-1464587-1-git-send-email-tom@herbertland.com>
- <1448054520-1464587-5-git-send-email-tom@herbertland.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: Kernel 4.1.12 crash
+Date: Fri, 20 Nov 2015 15:13:08 -0800
+Message-ID: <564FA904.7020603@gmail.com>
+References: <564F26FF.3040605@seti.kr.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com,
-	davewatson@fb.com
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Andrew <nitr0@seti.kr.ua>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:32868 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752048AbbKTXK5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 18:10:57 -0500
-Received: by pabfh17 with SMTP id fh17so133621985pab.0
-        for <netdev@vger.kernel.org>; Fri, 20 Nov 2015 15:10:57 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1448054520-1464587-5-git-send-email-tom@herbertland.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:33495 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751506AbbKTXNK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 18:13:10 -0500
+Received: by pabfh17 with SMTP id fh17so133666098pab.0
+        for <netdev@vger.kernel.org>; Fri, 20 Nov 2015 15:13:09 -0800 (PST)
+In-Reply-To: <564F26FF.3040605@seti.kr.ua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 20, 2015 at 01:21:58PM -0800, Tom Herbert wrote:
-> +
-> +	while (eaten < orig_len) {
-> +		/* Always clone since we will consume something */
-> +		skb = skb_clone(orig_skb, GFP_ATOMIC);
-> +		if (!skb) {
-> +			desc->error = -ENOMEM;
-> +			break;
-> +		}
-...
-> +		if (!pskb_pull(skb, offset + eaten)) {
+On 11/20/2015 05:58 AM, Andrew wrote:
+> Hi all.
+>
+> Today some BRASes on 4.1.12 kernel were crashed.
+>
+> Here's crash traces: http://pastebin.com/p68hNS8R
+> http://pastebin.com/36ieRAM2 http://pastebin.com/3BRTVEB6
+>
+> On 3.2 kernel same hardware works OK, troubles were noticed after kernel
+> upgrade.
+>
+> What additional info is needed?
 
-pskb_pull after clone == pskb_expand_head
-meaning that we'll be linearizing things all the time.
-can we try skb_share_check() first ?
-the packet shouldn't be shared at this point, so it might save a lot.
+Looking over the traces there seem to be two areas called out.
 
-> +			kfree_skb(skb);
-> +			desc->error = -ENOMEM;
-> +			break;
-> +		}
-...
-> +		/* Need to trim, should be rare? */
-> +		err = pskb_trim(skb, orig_len - eaten);
-...
-> +		if (!rxm->full_len) {
-> +			ssize_t len;
-> +
-> +			len = KCM_RUN_FILTER(psock->bpf_prog, head);
+The first is the fib_trie resize BUG_ON that was triggered due to the 
+parent and child not being associated.  I think that might be due to 
+memory corruption as I cannot find any spots where we are resizing 
+without correctly setting up the parent-child relationship of the nodes 
+first.
 
-bpf can read packet beyond linear header just fine.
-It's slower than reads from header, since extra calls invovled,
-but if that becomes a bottle neck we can optimize the way we do JIT there.
+The other spot that is showing up is ppp_shutdown_interface and it's 
+related path.  It looks like there are a couple of patches you could try 
+back-porting to see if it resolves the issue.  If they do then perhaps 
+they should be considered candidates for stable:
+
+8cb775bc0a3 ("ppp: fix device unregistration upon netns deletion")
+58a89ecaca5 ("ppp: fix lockdep splat in ppp_dev_uninit()")
+
+- Alex
