@@ -1,97 +1,93 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net 2/2] net: ip6mr: fix static mfc/dev leaks on table destruction
-Date: Fri, 20 Nov 2015 13:54:20 +0100
-Message-ID: <1448024060-20466-3-git-send-email-razor@blackwall.org>
-References: <1448024060-20466-1-git-send-email-razor@blackwall.org>
-Cc: yoshfuji@linux-ipv6.org, davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:34174 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760169AbbKTM4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 07:56:05 -0500
-Received: by wmvv187 with SMTP id v187so70712441wmv.1
-        for <netdev@vger.kernel.org>; Fri, 20 Nov 2015 04:56:04 -0800 (PST)
-In-Reply-To: <1448024060-20466-1-git-send-email-razor@blackwall.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
+Subject: Re: [PATCH 13/14] mm: memcontrol: account socket memory in unified
+ hierarchy memory controller
+Date: Fri, 20 Nov 2015 16:10:33 +0300
+Message-ID: <20151120131033.GF31308@esperanza>
+References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
+ <1447371693-25143-14-git-send-email-hannes@cmpxchg.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
+	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<kernel-team-b10kYP2dOMg@public.gmane.org>
+To: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1447371693-25143-14-git-send-email-hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On Thu, Nov 12, 2015 at 06:41:32PM -0500, Johannes Weiner wrote:
+...
+> @@ -5514,16 +5550,43 @@ void sock_release_memcg(struct sock *sk)
+>   */
+>  bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
+>  {
+> +	unsigned int batch = max(CHARGE_BATCH, nr_pages);
+>  	struct page_counter *counter;
+> +	bool force = false;
+>  
+> -	if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
+> -				    nr_pages, &counter)) {
+> -		memcg->tcp_mem.memory_pressure = 0;
+> +#ifdef CONFIG_MEMCG_KMEM
+> +	if (!cgroup_subsys_on_dfl(memory_cgrp_subsys)) {
+> +		if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
+> +					    nr_pages, &counter)) {
+> +			memcg->tcp_mem.memory_pressure = 0;
+> +			return true;
+> +		}
+> +		page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
+> +		memcg->tcp_mem.memory_pressure = 1;
+> +		return false;
+> +	}
+> +#endif
+> +	if (consume_stock(memcg, nr_pages))
+>  		return true;
+> +retry:
+> +	if (page_counter_try_charge(&memcg->memory, batch, &counter))
+> +		goto done;
+> +
+> +	if (batch > nr_pages) {
+> +		batch = nr_pages;
+> +		goto retry;
+>  	}
+> -	page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
+> -	memcg->tcp_mem.memory_pressure = 1;
+> -	return false;
+> +
+> +	page_counter_charge(&memcg->memory, batch);
+> +	force = true;
+> +done:
 
-Similar to ipv4, when destroying an mrt table the static mfc entries and
-the static devices are kept, which leads to devices that can never be
-destroyed (because of refcnt taken) and leaked memory. Make sure that
-everything is cleaned up on netns destruction.
+> +	css_get_many(&memcg->css, batch);
 
-Fixes: 8229efdaef1e ("netns: ip6mr: enable namespace support in ipv6 multicast forwarding code")
-CC: Benjamin Thery <benjamin.thery@bull.net>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/ipv6/ip6mr.c | 15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
+Is there any point to get css reference per each charged page? For kmem
+it is absolutely necessary, because dangling slabs must block
+destruction of memcg's kmem caches, which are destroyed on css_free. But
+for sockets there's no such problem: memcg will be destroyed only after
+all sockets are destroyed and therefore uncharged (since
+sock_update_memcg pins css).
 
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index ad19136086dd..7a4a1b81dbb6 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -118,7 +118,7 @@ static void mr6_netlink_event(struct mr6_table *mrt, struct mfc6_cache *mfc,
- 			      int cmd);
- static int ip6mr_rtm_dumproute(struct sk_buff *skb,
- 			       struct netlink_callback *cb);
--static void mroute_clean_tables(struct mr6_table *mrt);
-+static void mroute_clean_tables(struct mr6_table *mrt, bool all);
- static void ipmr_expire_process(unsigned long arg);
- 
- #ifdef CONFIG_IPV6_MROUTE_MULTIPLE_TABLES
-@@ -334,7 +334,7 @@ static struct mr6_table *ip6mr_new_table(struct net *net, u32 id)
- static void ip6mr_free_table(struct mr6_table *mrt)
- {
- 	del_timer_sync(&mrt->ipmr_expire_timer);
--	mroute_clean_tables(mrt);
-+	mroute_clean_tables(mrt, true);
- 	kfree(mrt);
- }
- 
-@@ -1542,7 +1542,7 @@ static int ip6mr_mfc_add(struct net *net, struct mr6_table *mrt,
-  *	Close the multicast socket, and clear the vif tables etc
-  */
- 
--static void mroute_clean_tables(struct mr6_table *mrt)
-+static void mroute_clean_tables(struct mr6_table *mrt, bool all)
- {
- 	int i;
- 	LIST_HEAD(list);
-@@ -1552,8 +1552,9 @@ static void mroute_clean_tables(struct mr6_table *mrt)
- 	 *	Shut down all active vif entries
- 	 */
- 	for (i = 0; i < mrt->maxvif; i++) {
--		if (!(mrt->vif6_table[i].flags & VIFF_STATIC))
--			mif6_delete(mrt, i, &list);
-+		if (!all && (mrt->vif6_table[i].flags & VIFF_STATIC))
-+			continue;
-+		mif6_delete(mrt, i, &list);
- 	}
- 	unregister_netdevice_many(&list);
- 
-@@ -1562,7 +1563,7 @@ static void mroute_clean_tables(struct mr6_table *mrt)
- 	 */
- 	for (i = 0; i < MFC6_LINES; i++) {
- 		list_for_each_entry_safe(c, next, &mrt->mfc6_cache_array[i], list) {
--			if (c->mfc_flags & MFC_STATIC)
-+			if (!all && (c->mfc_flags & MFC_STATIC))
- 				continue;
- 			write_lock_bh(&mrt_lock);
- 			list_del(&c->list);
-@@ -1625,7 +1626,7 @@ int ip6mr_sk_done(struct sock *sk)
- 						     net->ipv6.devconf_all);
- 			write_unlock_bh(&mrt_lock);
- 
--			mroute_clean_tables(mrt);
-+			mroute_clean_tables(mrt, false);
- 			err = 0;
- 			break;
- 		}
--- 
-2.4.3
+> +	if (batch > nr_pages)
+> +		refill_stock(memcg, batch - nr_pages);
+> +
+> +	schedule_work(&memcg->socket_work);
+
+I think it's suboptimal to schedule the work even if we are below the
+high threshold.
+
+BTW why do we need this work at all? Why is reclaim_high called from
+task_work not enough?
+
+Thanks,
+Vladimir
+
+> +
+> +	return !force;
+>  }
+>  
+>  /**
