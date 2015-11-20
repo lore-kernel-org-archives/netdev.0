@@ -1,56 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] tipc: correct settings of
-	broadcast link state
-Date: Fri, 20 Nov 2015 14:09:11 -0500 (EST)
-Message-ID: <20151120.140911.1260774272529972355.davem@davemloft.net>
-References: <1447960370-8306-1-git-send-email-jon.maloy@ericsson.com>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 6/7] sock, cgroup: add sock->sk_cgroup
+Date: Fri, 20 Nov 2015 14:12:28 -0500
+Message-ID: <20151120191228.GA28383@mtj.duckdns.org>
+References: <1447959171-20749-1-git-send-email-tj@kernel.org>
+ <1447959171-20749-7-git-send-email-tj@kernel.org>
+ <564EFE25.5000906@bmw-carit.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: parthasarathy.xx.bhuvaragan@ericsson.com, netdev@vger.kernel.org,
-	paul.gortmaker@windriver.com, tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1447960370-8306-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org,
+	daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <564EFE25.5000906-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Thu, 19 Nov 2015 14:12:50 -0500
+Hello, Daniel.
 
-> Since commit 5266698661401afc5e ("tipc: let broadcast packet
-> reception use new link receive function") the broadcast send
-> link state was meant to always be set to LINK_ESTABLISHED, since
-> we don't need this link to follow the regular link FSM rules. It
-> was also the intention that this state anyway shouldn't impact
-> the run-time working state of the link, since the latter in
-> reality is controlled by the number of registered peers.
+On Fri, Nov 20, 2015 at 12:04:05PM +0100, Daniel Wagner wrote:
+> >  static inline u16 sock_cgroup_prioidx(struct sock_cgroup_data *skcd)
+> >  {
+> > -	return skcd->prioidx;
+> > +	return (skcd->is_data & 1) ? skcd->prioidx : 1;
+> >  }
+> >  
+> >  static inline u32 sock_cgroup_classid(struct sock_cgroup_data *skcd)
+> >  {
+> > -	return skcd->classid;
+> > +	return (skcd->is_data & 1) ? skcd->classid : 0;
+> >  }
 > 
-> We have now discovered that this assumption is not quite correct.
-> If the broadcast link is reset because of too many retransmissions,
-> its state will inadvertently go to LINK_RESETTING, and never go
-> back to LINK_ESTABLISHED, because the LINK_FAILURE event was not
-> anticipated. This will work well once, but if it happens a second
-> time, the reset on a link in LINK_RESETTING has has no effect, and
-> neither the broadcast link nor the unicast links will go down as
-> they should.
 > 
-> Furthermore, it is confusing that the management tool shows that
-> this link is in UP state when that obviously isn't the case.
+> I still try to understand what the code does, hence this stupid question:
 > 
-> We now ensure that this state strictly follows the true working
-> state of the link. The state is set to LINK_ESTABLISHED when
-> the number of peers is non-zero, and to LINK_RESET otherwise.
-> 
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> Why is sock_cgroup_prioidx() returning 1 if is not data and
+> sock_cgroup_classid() a 0?
 
-Applied, thanks.
+I prolly should have added comments there.  prioidx carries the cgroup
+ID on the hierarchy net_prio is attached to, so if nothing is
+configured, the default value would be the ID of the root cgroup which
+is always 1.  For net_cls, the unconfigured default value is zero.
+Will refresh the patch with comments.
 
-------------------------------------------------------------------------------
+Thanks.
+
+-- 
+tejun
