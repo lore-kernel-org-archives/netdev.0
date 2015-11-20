@@ -1,45 +1,53 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH v2 0/4] improve fault-tolerance of rhashtable runtime-test
-Date: Fri, 20 Nov 2015 18:17:16 +0100
-Message-ID: <1448039840-11367-1-git-send-email-phil@nwl.cc>
+Subject: [PATCH v2 1/4] rhashtable-test: add cond_resched() to thread test
+Date: Fri, 20 Nov 2015 18:17:17 +0100
+Message-ID: <1448039840-11367-2-git-send-email-phil@nwl.cc>
+References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	tgraf@suug.ch, fengguang.wu@intel.com, wfg@linux.intel.com,
 	lkp@01.org
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448039840-11367-1-git-send-email-phil@nwl.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following series aims to improve lib/test_rhashtable in different
-situations:
+This should fix for soft lockup bugs triggered on slow systems.
 
-Patch 1 allows the kernel to reschedule so the test does not block too
-        long on slow systems.
-Patch 2 fixes behaviour under pressure, retrying inserts in non-permanent
-        error case (-EBUSY).
-Patch 3 auto-adjusts the upper table size limit according to the number
-        of threads (in concurrency test). In fact, the current default is
-	already too small.
-Patch 4 makes it possible to retry inserts even in supposedly permanent
-        error case (-ENOMEM) to expose rhashtable's remaining problem of
-	-ENOMEM being not as permanent as it is expected to be.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ lib/test_rhashtable.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-Changes since v1:
-- Introduce insert_retry() which is then used in single-threaded test as
-  well.
-- Do not retry inserts by default if -ENOMEM was returned.
-- Rename the retry counter to be a bit more verbose about what it
-  contains.
-- Add patch 4 as a debugging aid.
-
-Phil Sutter (4):
-  rhashtable-test: add cond_resched() to thread test
-  rhashtable-test: retry insert operations
-  rhashtable-test: calculate max_entries value by default
-  rhashtable-test: allow to retry even if -ENOMEM was returned
-
- lib/test_rhashtable.c | 76 +++++++++++++++++++++++++++++++++------------------
- 1 file changed, 50 insertions(+), 26 deletions(-)
-
+diff --git a/lib/test_rhashtable.c b/lib/test_rhashtable.c
+index 8c1ad1c..63654e3 100644
+--- a/lib/test_rhashtable.c
++++ b/lib/test_rhashtable.c
+@@ -236,6 +236,8 @@ static int thread_lookup_test(struct thread_data *tdata)
+ 			       obj->value, key);
+ 			err++;
+ 		}
++
++		cond_resched();
+ 	}
+ 	return err;
+ }
+@@ -251,6 +253,7 @@ static int threadfunc(void *data)
+ 
+ 	for (i = 0; i < entries; i++) {
+ 		tdata->objs[i].value = (tdata->id << 16) | i;
++		cond_resched();
+ 		err = rhashtable_insert_fast(&ht, &tdata->objs[i].node,
+ 		                             test_rht_params);
+ 		if (err == -ENOMEM || err == -EBUSY) {
+@@ -285,6 +288,8 @@ static int threadfunc(void *data)
+ 				goto out;
+ 			}
+ 			tdata->objs[i].value = TEST_INSERT_FAIL;
++
++			cond_resched();
+ 		}
+ 		err = thread_lookup_test(tdata);
+ 		if (err) {
 -- 
 2.1.2
