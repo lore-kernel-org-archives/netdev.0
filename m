@@ -1,45 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: tulip: turn compile-time warning into dev_warn()
-Date: Fri, 20 Nov 2015 11:03:14 -0500 (EST)
-Message-ID: <20151120.110314.213434169745300737.davem@davemloft.net>
-References: <9720627.53btSdPcQU@wuerfel>
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue (w/
+ Fixes:)
+Date: Fri, 20 Nov 2015 11:03:36 -0500
+Message-ID: <564F4458.8050309@akamai.com>
+References: <CACT4Y+b3xsLsKVFCz2M7nqqfXnyuMHEVYtJS2wN4WHLWs9A5ng@mail.gmail.com>
+ <20151012120249.GB16370@unicorn.suse.cz>
+ <1444652071.27760.156.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CACT4Y+Z2H8xPg1Dq0Z=HC3WKm+Uw+ZjK6zOLvxhPwFd4D0CsZw@mail.gmail.com>
+ <CACT4Y+Zu7J0n6dU1dSfiW3F9Q0Us3_DBVcD5Pi9NG9LER8MmRg@mail.gmail.com>
+ <563CC002.5050307@akamai.com>
+ <87ziyrcg67.fsf@doppelsaurus.mobileactivedefense.com>
+ <87fv0fnslr.fsf_-_@doppelsaurus.mobileactivedefense.com>
+ <877flp34fl.fsf@doppelsaurus.mobileactivedefense.com>
+ <87a8qhspfm.fsf@doppelsaurus.mobileactivedefense.com>
+ <876111wpza.fsf@doppelsaurus.mobileactivedefense.com>
+ <87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
+ <87d1v57dif.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, will.deacon@arm.com,
-	ard.biesheuvel@linaro.org, grundler@parisc-linux.org
-To: arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32800 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752014AbbKTQDQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 11:03:16 -0500
-In-Reply-To: <9720627.53btSdPcQU@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Michal Kubecek <mkubecek@suse.cz>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Howells <dhowells@redhat.com>,
+	Paul Moore <paul@paul-moore.com>, salyzyn@android.com,
+	sds@tycho.nsa.gov, ying.xue@windriver.com,
+	netdev <netdev@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Andrey Konovalov <andreyknvl@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Julien Tinnes <jln@google.com>,
+	Kees Cook <keescook@google.com>,
+	Mathias Krause <minipli@googlemail.com>
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87d1v57dif.fsf@doppelsaurus.mobileactivedefense.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 19 Nov 2015 11:42:26 +0100
+On 11/19/2015 06:52 PM, Rainer Weikusat wrote:
 
-> The tulip driver causes annoying build-time warnings for allmodconfig
-> builds for all recent architectures:
-> 
-> dec/tulip/winbond-840.c:910:2: warning: #warning Processor architecture undefined
-> dec/tulip/tulip_core.c:101:2: warning: #warning Processor architecture undefined!
-> 
-> This is the last remaining warning for arm64, and I'd like to get rid of
-> it. We don't really know the cache line size, architecturally it would
-> be at least 16 bytes, but all implementations I found have 64 or 128
-> bytes. Configuring tulip for 32-byte lines as we do on ARM32 seems to
-> be the safe but slow default, and nobody who cares about performance these
-> days would use a tulip chip anyway, so we can just use that.
-> 
-> To save the next person the job of trying to find out what this is for
-> and picking a default for their architecture just to kill off the warning,
-> I'm now removing the preprocessor #warning and turning it into a pr_warn
-> or dev_warn that prints the equivalent information when the driver gets
-> loaded.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+[...]
 
-Seems reasonable, applied, thanks Arnd!
+> @@ -1590,21 +1718,35 @@ restart:
+>  			goto out_unlock;
+>  	}
+>  
+> -	if (unix_peer(other) != sk && unix_recvq_full(other)) {
+> -		if (!timeo) {
+> +	if (unlikely(unix_peer(other) != sk && unix_recvq_full(other))) {
+> +		if (timeo) {
+> +			timeo = unix_wait_for_peer(other, timeo);
+> +
+> +			err = sock_intr_errno(timeo);
+> +			if (signal_pending(current))
+> +				goto out_free;
+> +
+> +			goto restart;
+> +		}
+> +
+> +		if (unix_peer(sk) != other ||
+> +		    unix_dgram_peer_wake_me(sk, other)) {
+>  			err = -EAGAIN;
+>  			goto out_unlock;
+>  		}
+
+Hi,
+
+So here we are calling unix_dgram_peer_wake_me() without the sk lock the first time
+through - right? In that case, we can end up registering on the queue of other for
+the callback but we might have already connected to a different remote. In that case,
+the wakeup will crash if 'sk' has freed in the meantime.
+
+Thanks,
+
+-Jason
