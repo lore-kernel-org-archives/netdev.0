@@ -1,28 +1,26 @@
-From: Kyle McMartin <kyle@infradead.org>
-Subject: Re: [PATCH linux-firmware] bnx2x: Add FW 7.13.1.0.
-Date: Fri, 20 Nov 2015 11:40:30 -0500
-Message-ID: <20151120164030.GF27752@merlin.infradead.org>
-References: <1447951286-5896-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v8] net: ethernet: add driver for Aurora VLSI NB8800
+ Ethernet controller
+Date: Fri, 20 Nov 2015 11:48:12 -0500 (EST)
+Message-ID: <20151120.114812.1006215725825146790.davem@davemloft.net>
+References: <1447938180-19651-1-git-send-email-mans@mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:59777 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760791AbbKTQkc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 11:40:32 -0500
-Content-Disposition: inline
-In-Reply-To: <1447951286-5896-1-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: mans@mansr.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1447938180-19651-1-git-send-email-mans@mansr.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 19, 2015 at 06:41:26PM +0200, Yuval Mintz wrote:
-> This adds new FW for bnx2x, which adds the following:
->  - Ability to change outer vlan ID for some multi-function modes.
->  - FW ability for Geneve RSS classification according to inner headers.
->  - Prevent VFs from sending MAC control frames.
+From: Mans Rullgard <mans@mansr.com>
+Date: Thu, 19 Nov 2015 13:02:59 +0000
+
+> This adds a driver for the Aurora VLSI NB8800 Ethernet controller.
+> It is an almost complete rewrite of a driver originally found in
+> a Sigma Designs 2.6.22 tree.
 > 
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+> Signed-off-by: Mans Rullgard <mans@mansr.com>
 
-applied, thanks.
+Applied, thank you.
