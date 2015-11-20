@@ -1,100 +1,114 @@
-From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH 13/14] mm: memcontrol: account socket memory in unified
- hierarchy memory controller
-Date: Fri, 20 Nov 2015 14:25:06 -0500
-Message-ID: <20151120192506.GD5623@cmpxchg.org>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
- <1447371693-25143-14-git-send-email-hannes@cmpxchg.org>
- <20151120131033.GF31308@esperanza>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-team-b10kYP2dOMg@public.gmane.org
-To: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151120131033.GF31308@esperanza>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH v3 net-next] ravb: use clock rate as basis for GTI.TIV
+Date: Fri, 20 Nov 2015 11:29:39 -0800
+Message-ID: <1448047779-21242-1-git-send-email-horms+renesas@verge.net.au>
+Cc: Magnus Damm <magnus.damm@gmail.com>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 20, 2015 at 04:10:33PM +0300, Vladimir Davydov wrote:
-> On Thu, Nov 12, 2015 at 06:41:32PM -0500, Johannes Weiner wrote:
-> ...
-> > @@ -5514,16 +5550,43 @@ void sock_release_memcg(struct sock *sk)
-> >   */
-> >  bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
-> >  {
-> > +	unsigned int batch = max(CHARGE_BATCH, nr_pages);
-> >  	struct page_counter *counter;
-> > +	bool force = false;
-> >  
-> > -	if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
-> > -				    nr_pages, &counter)) {
-> > -		memcg->tcp_mem.memory_pressure = 0;
-> > +#ifdef CONFIG_MEMCG_KMEM
-> > +	if (!cgroup_subsys_on_dfl(memory_cgrp_subsys)) {
-> > +		if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
-> > +					    nr_pages, &counter)) {
-> > +			memcg->tcp_mem.memory_pressure = 0;
-> > +			return true;
-> > +		}
-> > +		page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
-> > +		memcg->tcp_mem.memory_pressure = 1;
-> > +		return false;
-> > +	}
-> > +#endif
-> > +	if (consume_stock(memcg, nr_pages))
-> >  		return true;
-> > +retry:
-> > +	if (page_counter_try_charge(&memcg->memory, batch, &counter))
-> > +		goto done;
-> > +
-> > +	if (batch > nr_pages) {
-> > +		batch = nr_pages;
-> > +		goto retry;
-> >  	}
-> > -	page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
-> > -	memcg->tcp_mem.memory_pressure = 1;
-> > -	return false;
-> > +
-> > +	page_counter_charge(&memcg->memory, batch);
-> > +	force = true;
-> > +done:
-> 
-> > +	css_get_many(&memcg->css, batch);
-> 
-> Is there any point to get css reference per each charged page? For kmem
-> it is absolutely necessary, because dangling slabs must block
-> destruction of memcg's kmem caches, which are destroyed on css_free. But
-> for sockets there's no such problem: memcg will be destroyed only after
-> all sockets are destroyed and therefore uncharged (since
-> sock_update_memcg pins css).
+The GTI.TIV may be set to 2GHz^2 / rate, where rate is
+that of the clock of the device. Rather than assuming a
+rate of 130MHz use the actual rate of the clock.
 
-I'm afraid we have to when we want to share 'stock' with cache and
-anon pages, which hold individual references. drain_stock() always
-assumes one reference per cached page.
+The motivation for this is to use the correct rate on
+the r8a7795/Salvator-X which is advertised as 133MHz but
+may differ depending on the extal present on the Salvator-X.
 
-> > +	if (batch > nr_pages)
-> > +		refill_stock(memcg, batch - nr_pages);
-> > +
-> > +	schedule_work(&memcg->socket_work);
-> 
-> I think it's suboptimal to schedule the work even if we are below the
-> high threshold.
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
-Hm, it seemed unnecessary to duplicate the hierarchy check since this
-is in the batch-exhausted slowpath anyway.
+---
+v2
+* Corrected typos in changelog, as pointed out by Geert Uytterhoeven
+* Use do_div() rather than 64-bit division to allow compilation on
+  32-bit ARM
 
-> BTW why do we need this work at all? Why is reclaim_high called from
-> task_work not enough?
+v3
+* Dropped RFC prefix
+---
+ drivers/net/ethernet/renesas/ravb.h      |  3 +++
+ drivers/net/ethernet/renesas/ravb_main.c | 38 +++++++++++++++++++++++++++++++-
+ 2 files changed, 40 insertions(+), 1 deletion(-)
 
-The problem lies in the memcg association: the random task that gets
-interrupted by an arriving packet might not be in the same memcg as
-the one owning receiving socket. And multiple interrupts could happen
-while we're in the kernel already charging pages. We'd basically have
-to maintain a list of memcgs that need to run reclaim_high associated
-with current.
+diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
+index 0623fff932e4..f9dee7436e81 100644
+--- a/drivers/net/ethernet/renesas/ravb.h
++++ b/drivers/net/ethernet/renesas/ravb.h
+@@ -576,6 +576,9 @@ enum GTI_BIT {
+ 	GTI_TIV		= 0x0FFFFFFF,
+ };
+ 
++#define GTI_TIV_MAX	GTI_TIV
++#define GTI_TIV_MIN	0x20
++
+ /* GIC */
+ enum GIC_BIT {
+ 	GIC_PTCE	= 0x00000001,	/* Undocumented? */
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index ee8d1ec61fab..990dc55cdada 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -32,6 +32,8 @@
+ #include <linux/slab.h>
+ #include <linux/spinlock.h>
+ 
++#include <asm/div64.h>
++
+ #include "ravb.h"
+ 
+ #define RAVB_DEF_MSG_ENABLE \
+@@ -1659,6 +1661,38 @@ static const struct of_device_id ravb_match_table[] = {
+ };
+ MODULE_DEVICE_TABLE(of, ravb_match_table);
+ 
++static int ravb_set_gti(struct net_device *ndev)
++{
++
++	struct device *dev = ndev->dev.parent;
++	struct device_node *np = dev->of_node;
++	unsigned long rate;
++	struct clk *clk;
++	uint64_t inc;
++
++	clk = of_clk_get(np, 0);
++	if (IS_ERR(clk)) {
++		dev_err(dev, "could not get clock\n");
++		return PTR_ERR(clk);
++	}
++
++	rate = clk_get_rate(clk);
++	clk_put(clk);
++
++	inc = 1000000000ULL << 20;
++	do_div(inc, rate);
++
++	if (inc < GTI_TIV_MIN || inc > GTI_TIV_MAX) {
++		dev_err(dev, "gti.tiv increment 0x%llx is outside the range 0x%x - 0x%x\n",
++			inc, GTI_TIV_MIN, GTI_TIV_MAX);
++		return -EINVAL;
++	}
++
++	ravb_write(ndev, inc, GTI);
++
++	return 0;
++}
++
+ static int ravb_probe(struct platform_device *pdev)
+ {
+ 	struct device_node *np = pdev->dev.of_node;
+@@ -1755,7 +1789,9 @@ static int ravb_probe(struct platform_device *pdev)
+ 		   CCC);
+ 
+ 	/* Set GTI value */
+-	ravb_write(ndev, ((1000 << 20) / 130) & GTI_TIV, GTI);
++	error = ravb_set_gti(ndev);
++	if (error)
++		goto out_release;
+ 
+ 	/* Request GTI loading */
+ 	ravb_write(ndev, ravb_read(ndev, GCCR) | GCCR_LTI, GCCR);
+-- 
+2.1.4
+
