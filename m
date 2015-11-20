@@ -1,53 +1,100 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 6/7] sock, cgroup: add sock->sk_cgroup
-Date: Fri, 20 Nov 2015 14:12:28 -0500
-Message-ID: <20151120191228.GA28383@mtj.duckdns.org>
-References: <1447959171-20749-1-git-send-email-tj@kernel.org>
- <1447959171-20749-7-git-send-email-tj@kernel.org>
- <564EFE25.5000906@bmw-carit.de>
+From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH 13/14] mm: memcontrol: account socket memory in unified
+ hierarchy memory controller
+Date: Fri, 20 Nov 2015 14:25:06 -0500
+Message-ID: <20151120192506.GD5623@cmpxchg.org>
+References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
+ <1447371693-25143-14-git-send-email-hannes@cmpxchg.org>
+ <20151120131033.GF31308@esperanza>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org,
-	daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-team-b10kYP2dOMg@public.gmane.org
+To: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
 Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <564EFE25.5000906-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+In-Reply-To: <20151120131033.GF31308@esperanza>
 Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello, Daniel.
-
-On Fri, Nov 20, 2015 at 12:04:05PM +0100, Daniel Wagner wrote:
-> >  static inline u16 sock_cgroup_prioidx(struct sock_cgroup_data *skcd)
+On Fri, Nov 20, 2015 at 04:10:33PM +0300, Vladimir Davydov wrote:
+> On Thu, Nov 12, 2015 at 06:41:32PM -0500, Johannes Weiner wrote:
+> ...
+> > @@ -5514,16 +5550,43 @@ void sock_release_memcg(struct sock *sk)
+> >   */
+> >  bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
 > >  {
-> > -	return skcd->prioidx;
-> > +	return (skcd->is_data & 1) ? skcd->prioidx : 1;
-> >  }
+> > +	unsigned int batch = max(CHARGE_BATCH, nr_pages);
+> >  	struct page_counter *counter;
+> > +	bool force = false;
 > >  
-> >  static inline u32 sock_cgroup_classid(struct sock_cgroup_data *skcd)
-> >  {
-> > -	return skcd->classid;
-> > +	return (skcd->is_data & 1) ? skcd->classid : 0;
-> >  }
+> > -	if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
+> > -				    nr_pages, &counter)) {
+> > -		memcg->tcp_mem.memory_pressure = 0;
+> > +#ifdef CONFIG_MEMCG_KMEM
+> > +	if (!cgroup_subsys_on_dfl(memory_cgrp_subsys)) {
+> > +		if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
+> > +					    nr_pages, &counter)) {
+> > +			memcg->tcp_mem.memory_pressure = 0;
+> > +			return true;
+> > +		}
+> > +		page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
+> > +		memcg->tcp_mem.memory_pressure = 1;
+> > +		return false;
+> > +	}
+> > +#endif
+> > +	if (consume_stock(memcg, nr_pages))
+> >  		return true;
+> > +retry:
+> > +	if (page_counter_try_charge(&memcg->memory, batch, &counter))
+> > +		goto done;
+> > +
+> > +	if (batch > nr_pages) {
+> > +		batch = nr_pages;
+> > +		goto retry;
+> >  	}
+> > -	page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
+> > -	memcg->tcp_mem.memory_pressure = 1;
+> > -	return false;
+> > +
+> > +	page_counter_charge(&memcg->memory, batch);
+> > +	force = true;
+> > +done:
 > 
+> > +	css_get_many(&memcg->css, batch);
 > 
-> I still try to understand what the code does, hence this stupid question:
+> Is there any point to get css reference per each charged page? For kmem
+> it is absolutely necessary, because dangling slabs must block
+> destruction of memcg's kmem caches, which are destroyed on css_free. But
+> for sockets there's no such problem: memcg will be destroyed only after
+> all sockets are destroyed and therefore uncharged (since
+> sock_update_memcg pins css).
+
+I'm afraid we have to when we want to share 'stock' with cache and
+anon pages, which hold individual references. drain_stock() always
+assumes one reference per cached page.
+
+> > +	if (batch > nr_pages)
+> > +		refill_stock(memcg, batch - nr_pages);
+> > +
+> > +	schedule_work(&memcg->socket_work);
 > 
-> Why is sock_cgroup_prioidx() returning 1 if is not data and
-> sock_cgroup_classid() a 0?
+> I think it's suboptimal to schedule the work even if we are below the
+> high threshold.
 
-I prolly should have added comments there.  prioidx carries the cgroup
-ID on the hierarchy net_prio is attached to, so if nothing is
-configured, the default value would be the ID of the root cgroup which
-is always 1.  For net_cls, the unconfigured default value is zero.
-Will refresh the patch with comments.
+Hm, it seemed unnecessary to duplicate the hierarchy check since this
+is in the batch-exhausted slowpath anyway.
 
-Thanks.
+> BTW why do we need this work at all? Why is reclaim_high called from
+> task_work not enough?
 
--- 
-tejun
+The problem lies in the memcg association: the random task that gets
+interrupted by an arriving packet might not be in the same memcg as
+the one owning receiving socket. And multiple interrupts could happen
+while we're in the kernel already charging pages. We'd basically have
+to maintain a list of memcgs that need to run reclaim_high associated
+with current.
