@@ -1,63 +1,55 @@
-From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH 08/14] net: tcp_memcontrol: sanitize tcp memory
- accounting callbacks
-Date: Fri, 20 Nov 2015 13:42:54 -0500
-Message-ID: <20151120184254.GB5623@cmpxchg.org>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
- <1447371693-25143-9-git-send-email-hannes@cmpxchg.org>
- <20151120105857.GB31308@esperanza>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net 1/2] net: ipmr: fix static mfc/dev leaks on table destruction
+Date: Fri, 20 Nov 2015 10:52:00 -0800
+Message-ID: <CAHA+R7PL4X-FRuEU8pW_kr2AroQ-hFYbPOR83C_ew2ivF+o0Og@mail.gmail.com>
+References: <1448024060-20466-1-git-send-email-razor@blackwall.org>
+	<1448024060-20466-2-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-team-b10kYP2dOMg@public.gmane.org
-To: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151120105857.GB31308@esperanza>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	David Miller <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Nikolay Aleksandrov <razor@blackwall.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f176.google.com ([209.85.160.176]:33198 "EHLO
+	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759545AbbKTSwB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 13:52:01 -0500
+Received: by ykdv3 with SMTP id v3so175107574ykd.0
+        for <netdev@vger.kernel.org>; Fri, 20 Nov 2015 10:52:00 -0800 (PST)
+In-Reply-To: <1448024060-20466-2-git-send-email-razor@blackwall.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 20, 2015 at 01:58:57PM +0300, Vladimir Davydov wrote:
-> On Thu, Nov 12, 2015 at 06:41:27PM -0500, Johannes Weiner wrote:
-> > There won't be a tcp control soft limit, so integrating the memcg code
-> > into the global skmem limiting scheme complicates things
-> > unnecessarily. Replace this with simple and clear charge and uncharge
-> > calls--hidden behind a jump label--to account skb memory.
-> > 
-> > Note that this is not purely aesthetic: as a result of shoehorning the
-> > per-memcg code into the same memory accounting functions that handle
-> > the global level, the old code would compare the per-memcg consumption
-> > against the smaller of the per-memcg limit and the global limit. This
-> > allowed the total consumption of multiple sockets to exceed the global
-> > limit, as long as the individual sockets stayed within bounds. After
-> > this change, the code will always compare the per-memcg consumption to
-> > the per-memcg limit, and the global consumption to the global limit,
-> > and thus close this loophole.
-> > 
-> > Without a soft limit, the per-memcg memory pressure state in sockets
-> > is generally questionable. However, we did it until now, so we
-> > continue to enter it when the hard limit is hit, and packets are
-> > dropped, to let other sockets in the cgroup know that they shouldn't
-> > grow their transmit windows, either. However, keep it simple in the
-> > new callback model and leave memory pressure lazily when the next
-> > packet is accepted (as opposed to doing it synchroneously when packets
-> > are processed). When packets are dropped, network performance will
-> > already be in the toilet, so that should be a reasonable trade-off.
-> > 
-> > As described above, consumption is now checked on the per-memcg level
-> > and the global level separately. Likewise, memory pressure states are
-> > maintained on both the per-memcg level and the global level, and a
-> > socket is considered under pressure when either level asserts as much.
-> > 
-> > Signed-off-by: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-> 
-> It leaves the legacy functionality intact, while making the code look
-> much better.
-> 
-> Reviewed-by: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
+On Fri, Nov 20, 2015 at 4:54 AM, Nikolay Aleksandrov
+<razor@blackwall.org> wrote:
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>
+> When destroying an mrt table the static mfc entries and the static
+> devices are kept, which leads to devices that can never be destroyed
+> (because of refcnt taken) and leaked memory, for example:
+> unreferenced object 0xffff880034c144c0 (size 192):
+>   comm "mfc-broken", pid 4777, jiffies 4320349055 (age 46001.964s)
+>   hex dump (first 32 bytes):
+>     98 53 f0 34 00 88 ff ff 98 53 f0 34 00 88 ff ff  .S.4.....S.4....
+>     ef 0a 0a 14 01 02 03 04 00 00 00 00 01 00 00 00  ................
+>   backtrace:
+>     [<ffffffff815c1b9e>] kmemleak_alloc+0x4e/0xb0
+>     [<ffffffff811ea6e0>] kmem_cache_alloc+0x190/0x300
+>     [<ffffffff815931cb>] ip_mroute_setsockopt+0x5cb/0x910
+>     [<ffffffff8153d575>] do_ip_setsockopt.isra.11+0x105/0xff0
+>     [<ffffffff8153e490>] ip_setsockopt+0x30/0xa0
+>     [<ffffffff81564e13>] raw_setsockopt+0x33/0x90
+>     [<ffffffff814d1e14>] sock_common_setsockopt+0x14/0x20
+>     [<ffffffff814d0b51>] SyS_setsockopt+0x71/0xc0
+>     [<ffffffff815cdbf6>] entry_SYSCALL_64_fastpath+0x16/0x7a
+>     [<ffffffffffffffff>] 0xffffffffffffffff
+>
+> Make sure that everything is cleaned on netns destruction.
+>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Thank you very much!
+Looks good to me,
+
+Reviewed-by: Cong Wang <cwang@twopensource.com>
