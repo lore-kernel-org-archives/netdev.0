@@ -1,44 +1,56 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCHSET v2] netfilter, cgroup: implement xt_cgroup2 match
-Date: Fri, 20 Nov 2015 13:59:12 -0500 (EST)
-Message-ID: <20151120.135912.1506496112678349111.davem@davemloft.net>
-References: <1447959171-20749-1-git-send-email-tj@kernel.org>
+From: Christoph Schulz <develop@kristov.de>
+Subject: Re: [PATCH net] ppp: fix pppoe_dev deletion condition in
+ pppoe_release()
+Date: Fri, 20 Nov 2015 19:58:18 +0100
+Message-ID: <20151120195818.534169fzfht9eu6i@localhost>
+References: <6a9ae28f4128939528dcf64795f1de88b39a6118.1445525554.git.g.nault@alphalink.fr>
+ <20151023.033048.1984003889137051787.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=UTF-8;
+ DelSp="Yes";
+ format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org,
-	lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-team-b10kYP2dOMg@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
-	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1447959171-20749-1-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: g.nault@alphalink.fr, netdev@vger.kernel.org, paulus@samba.org,
+	nuclearcat@nuclearcat.com, Matt.Bennett@alliedtelesis.co.nz
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server1137-han.de-nserver.de ([77.75.249.171]:45088 "EHLO
+	server1137-han.de-nserver.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751654AbbKTTDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 14:03:47 -0500
+In-Reply-To: <20151023.033048.1984003889137051787.davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Date: Thu, 19 Nov 2015 13:52:44 -0500
+Hello!
 
-> This is the second take of the xt_cgroup2 patchset.  Changes from the
-> last take are
-> 
-> * Instead of adding sock->sk_cgroup separately, sock->sk_cgrp_data now
->   carries either (prioidx, classid) pair or cgroup2 pointer.  This
->   avoids inflating struct sock with yet another cgroup related field.
->   Unfortunately, this does add some complexity but that's the
->   trade-off and the complexity is contained in cgroup proper.
-> 
-> * Various small updats as per David and Jan's reviews.
+David Miller schrieb am Fri, 23 Oct 2015 03:30:48 -0700 (PDT):
 
-I like this a lot better, thanks.
+> From: Guillaume Nault <g.nault@alphalink.fr>
+> Date: Thu, 22 Oct 2015 16:57:10 +0200
+>
+>> We can't rely on PPPOX_ZOMBIE to decide whether to clear po->pppoe_dev.
+>> PPPOX_ZOMBIE can be set by pppoe_disc_rcv() even when po->pppoe_dev is
+>> NULL. So we have no guarantee that (sk->sk_state & PPPOX_ZOMBIE) implies
+>> (po->pppoe_dev != NULL).
+>> Since we're releasing a PPPoE socket, we want to release the pppoe_dev
+>> if it exists and reset sk_state to PPPOX_DEAD, no matter the previous
+>> value of sk_state. So we can just check for po->pppoe_dev and avoid any
+>> assumption on sk->sk_state.
+>>
+>> Fixes: 2b018d57ff18 ("pppoe: drop PPPOX_ZOMBIEs in pppoe_release")
+>> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+>
+> Applied and queued up for -stable, thanks.
 
-Please address Daniel's feedback on patch #6 and then I'm personally
-fine with this series.
+Somehow this commit (1acea4f6ce1b1c0941438aca75dd2e5c6b09db60) did not  
+make it into Linux 4.2.6, 4.1.13, or 3.18.24. But I don't find it in  
+your stable bundle on Patchwork either. Has this patch been  
+inadvertently "lost in translation"?
 
-Pablo, are you ok with me merging this into net-next directly or
-would you rather I take patches 1-6 into net-next and then you can
-merge and then add patch #7 on top?
 
-Thanks.
+Best regards,
+-- 
+Christoph Schulz
