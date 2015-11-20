@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: add show_fdinfo handler for maps
-Date: Fri, 20 Nov 2015 11:04:33 -0500 (EST)
-Message-ID: <20151120.110433.2203407808829606811.davem@davemloft.net>
-References: <b3f1dd7e21d72dc47beac222d655640ee584c5cd.1447930253.git.daniel@iogearbox.net>
+Subject: Re: [patch net-next 0/3] mlxsw: small driver update
+Date: Fri, 20 Nov 2015 11:06:58 -0500 (EST)
+Message-ID: <20151120.110658.1231418018880858288.davem@davemloft.net>
+References: <1447932460-4615-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32808 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:32830 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622AbbKTQEf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 11:04:35 -0500
-In-Reply-To: <b3f1dd7e21d72dc47beac222d655640ee584c5cd.1447930253.git.daniel@iogearbox.net>
+	with ESMTP id S1751415AbbKTQHA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 11:07:00 -0500
+In-Reply-To: <1447932460-4615-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Thu, 19 Nov 2015 11:56:22 +0100
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu, 19 Nov 2015 12:27:37 +0100
 
-> Add a handler for show_fdinfo() to be used by the anon-inodes
-> backend for eBPF maps, and dump the map specification there. Not
-> only useful for admins, but also it provides a minimal way to
-> compare specs from ELF vs pinned object.
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Couple of VLAN-related patches.
 
-Applied, thanks.
+Series applied.
+
+I'm really pleased with this driver and work you guys are doing
+on it.
+
+Thanks!
