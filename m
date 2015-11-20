@@ -1,57 +1,23 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [PATCH] e1000e: fix division by zero on jumbo MTUs
-Date: Fri, 20 Nov 2015 04:45:57 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81D3DAAE@ORSMSX101.amr.corp.intel.com>
-References: <1444729698-9441-1-git-send-email-leonid@daynix.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: rhashtable: how to deal with that rhashtable_lookup_insert_key return -EBUSY
+Date: Fri, 20 Nov 2015 13:14:18 +0800
+Message-ID: <CADvbK_drKzCbByS38==rkC8yRtQhRj6mOtKAgXeHLwOhdh6Z1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dmitry Fleytman <dmitry@daynix.com>
-To: Leonid Bloch <leonid@daynix.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: tgraf@suug.ch, herbert@gondor.apana.org.au,
+	davem <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org, network dev <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444729698-9441-1-git-send-email-leonid@daynix.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Leonid Bloch
-> Sent: Tuesday, October 13, 2015 2:48 AM
-> To: linux-kernel@vger.kernel.org
-> Cc: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>; Brandeburg, Jesse
-> <jesse.brandeburg@intel.com>; Nelson, Shannon
-> <shannon.nelson@intel.com>; Wyborny, Carolyn
-> <carolyn.wyborny@intel.com>; Skidmore, Donald C
-> <donald.c.skidmore@intel.com>; Vick, Matthew <matthew.vick@intel.com>;
-> Ronciak, John <john.ronciak@intel.com>; Williams, Mitch A
-> <mitch.a.williams@intel.com>; intel-wired-lan@lists.osuosl.org;
-> netdev@vger.kernel.org; Dmitry Fleytman <dmitry@daynix.com>
-> Subject: [PATCH] e1000e: fix division by zero on jumbo MTUs
-> 
-> From: Dmitry Fleytman <dmitry@daynix.com>
-> 
-> This patch fixes possible division by zero in receive
-> interrupt handler when working without adaptive interrupt
-> moderation.
-> 
-> The adaptive interrupt moderation mechanism is typically
-> disabled on jumbo MTUs.
-> 
-> Signed-off-by: Dmitry Fleytman <dmitry@daynix.com>
-> Signed-off-by: Leonid Bloch <leonid@daynix.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/netdev.c | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
+when I use rhashtable_lookup_insert_key, sometimes it will return -EBUSY.
+im not sure if there is a good way to workabout it.
+or I should just try again and again until it's inserted successfully ?
 
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+I have seen some use in kernel  by now, but it seems that no one consider
+this issue for their cases. but it indeed exists in my case.
+
+did I use it incorrectly or something else ?
+
+Thanks.
