@@ -1,56 +1,37 @@
-From: Christoph Schulz <develop@kristov.de>
-Subject: Re: [PATCH net] ppp: fix pppoe_dev deletion condition in
- pppoe_release()
-Date: Fri, 20 Nov 2015 19:58:18 +0100
-Message-ID: <20151120195818.534169fzfht9eu6i@localhost>
-References: <6a9ae28f4128939528dcf64795f1de88b39a6118.1445525554.git.g.nault@alphalink.fr>
- <20151023.033048.1984003889137051787.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/8] tipc: some cleanups and improvements
+Date: Fri, 20 Nov 2015 14:06:57 -0500 (EST)
+Message-ID: <20151120.140657.2023428662451748232.davem@davemloft.net>
+References: <1447961447-13025-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8;
- DelSp="Yes";
- format="flowed"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: g.nault@alphalink.fr, netdev@vger.kernel.org, paulus@samba.org,
-	nuclearcat@nuclearcat.com, Matt.Bennett@alliedtelesis.co.nz
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	parthasarathy.xx.bhuvaragan@ericsson.com,
+	richard.alpe@ericsson.com, ying.xue@windriver.com,
+	maloy@donjonn.com, tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server1137-han.de-nserver.de ([77.75.249.171]:45088 "EHLO
-	server1137-han.de-nserver.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751654AbbKTTDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 14:03:47 -0500
-In-Reply-To: <20151023.033048.1984003889137051787.davem@davemloft.net>
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:34006 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751666AbbKTTG7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 14:06:59 -0500
+In-Reply-To: <1447961447-13025-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Thu, 19 Nov 2015 14:30:38 -0500
 
-David Miller schrieb am Fri, 23 Oct 2015 03:30:48 -0700 (PDT):
+> This series mostly contains cleanups and cosmetic code changes.
+> The only real functional change is in #4 and #5, where we change the
+> locking structure for nodes and links in order to permit full
+> concurrency between links working in parallel on different interfaces.
+> Since the groundwork for this has been done in previous commit series,
+> this change constitutes only the final, small step to achieve that goal.
 
-> From: Guillaume Nault <g.nault@alphalink.fr>
-> Date: Thu, 22 Oct 2015 16:57:10 +0200
->
->> We can't rely on PPPOX_ZOMBIE to decide whether to clear po->pppoe_dev.
->> PPPOX_ZOMBIE can be set by pppoe_disc_rcv() even when po->pppoe_dev is
->> NULL. So we have no guarantee that (sk->sk_state & PPPOX_ZOMBIE) implies
->> (po->pppoe_dev != NULL).
->> Since we're releasing a PPPoE socket, we want to release the pppoe_dev
->> if it exists and reset sk_state to PPPOX_DEAD, no matter the previous
->> value of sk_state. So we can just check for po->pppoe_dev and avoid any
->> assumption on sk->sk_state.
->>
->> Fixes: 2b018d57ff18 ("pppoe: drop PPPOX_ZOMBIEs in pppoe_release")
->> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
->
-> Applied and queued up for -stable, thanks.
+Series applied, thanks.
 
-Somehow this commit (1acea4f6ce1b1c0941438aca75dd2e5c6b09db60) did not  
-make it into Linux 4.2.6, 4.1.13, or 3.18.24. But I don't find it in  
-your stable bundle on Patchwork either. Has this patch been  
-inadvertently "lost in translation"?
-
-
-Best regards,
--- 
-Christoph Schulz
+Generally speaking, rwlock usage really never buys you anything
+significant.  Therefore in the long run I think a single spinlock plus
+RCU is going to be much better for per-node locking in TIPC.
