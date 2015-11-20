@@ -1,44 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: fix potential huge kmalloc() calls in
- TCP_REPAIR
-Date: Fri, 20 Nov 2015 10:58:17 -0500 (EST)
-Message-ID: <20151120.105817.2021312996636736468.davem@davemloft.net>
-References: <1447909413.22599.191.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net] bnx2x: Fix vxlan removal
+Date: Fri, 20 Nov 2015 10:58:53 -0500 (EST)
+Message-ID: <20151120.105853.2181510807773696174.davem@davemloft.net>
+References: <1447927011-3282-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xemul@parallels.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com, jbenc@redhat.com
+To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60992 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:32769 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752989AbbKTP6T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 10:58:19 -0500
-In-Reply-To: <1447909413.22599.191.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1760087AbbKTP6z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 10:58:55 -0500
+In-Reply-To: <1447927011-3282-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 18 Nov 2015 21:03:33 -0800
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Thu, 19 Nov 2015 11:56:51 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> Commmit ac7eccd4d48fc "bnx2x: track vxlan port count" contains a bug -
+> Instead of achieving the required goal, vxlan configuration would not
+> be removed since we're decrementing the port instead of the counter.
 > 
-> tcp_send_rcvq() is used for re-injecting data into tcp receive queue.
-> 
-> Problems :
-> 
-> - No check against size is performed, allowed user to fool kernel in
->   attempting very large memory allocations, eventually triggering
->   OOM when memory is fragmented.
-> 
-> - In case of fault during the copy we do not return correct errno.
-> 
-> Lets use alloc_skb_with_frags() to cook optimal skbs.
-> 
-> Fixes: 292e8d8c8538 ("tcp: Move rcvq sending to tcp_input.c")
-> Fixes: c0e88ff0f256 ("tcp: Repair socket queues")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> CC: Jiri Benc <jbenc@redhat.com>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 
-Good catch, applied and queued up for -stable.
-
-Thanks!
+Applied, thank you.
