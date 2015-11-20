@@ -1,26 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v8] net: ethernet: add driver for Aurora VLSI NB8800
- Ethernet controller
-Date: Fri, 20 Nov 2015 11:48:12 -0500 (EST)
-Message-ID: <20151120.114812.1006215725825146790.davem@davemloft.net>
-References: <1447938180-19651-1-git-send-email-mans@mansr.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
+Date: Fri, 20 Nov 2015 09:51:06 -0700
+Message-ID: <564F4F7A.9000508@cumulusnetworks.com>
+References: <CAKD1Yr2OgJT0GsrTuws0oapobrU+ML3NpBNBXizg6q035PH4MA@mail.gmail.com>
+ <20151119.005318.838757439536205791.davem@davemloft.net>
+ <CAKD1Yr0Es9JqdDi_05Kif=TyCSA+n7yDHUNr-ND-SD4j4p=D9A@mail.gmail.com>
+ <20151119.195504.2050784646947745419.davem@davemloft.net>
+ <CAKD1Yr356LxAATZQ4O8CO5wuek2nFbPGrtRMGzMyda819FZdRA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: mans@mansr.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1447938180-19651-1-git-send-email-mans@mansr.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>, Erik Kline <ek@google.com>,
+	=?UTF-8?Q?Maciej_=c5=bbenczykowski?= <maze@google.com>,
+	Dmitry Torokhov <dtor@google.com>
+To: Lorenzo Colitti <lorenzo@google.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:38343 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760457AbbKTQvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 11:51:08 -0500
+Received: by igbxm8 with SMTP id xm8so16111169igb.1
+        for <netdev@vger.kernel.org>; Fri, 20 Nov 2015 08:51:08 -0800 (PST)
+In-Reply-To: <CAKD1Yr356LxAATZQ4O8CO5wuek2nFbPGrtRMGzMyda819FZdRA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mans Rullgard <mans@mansr.com>
-Date: Thu, 19 Nov 2015 13:02:59 +0000
+On 11/19/15 6:55 PM, Lorenzo Colitti wrote:
+> upstream alternatives. We might even be able to show up at netdev 1.1
+> for some higher-bandwidth conversations.
 
-> This adds a driver for the Aurora VLSI NB8800 Ethernet controller.
-> It is an almost complete rewrite of a driver originally found in
-> a Sigma Designs 2.6.22 tree.
-> 
-> Signed-off-by: Mans Rullgard <mans@mansr.com>
+This use case would make a great talk for netdev.
 
-Applied, thank you.
+There are similar problems when netdev's are moved between namespaces 
+(and VRFs).
