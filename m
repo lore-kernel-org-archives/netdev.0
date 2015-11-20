@@ -1,8 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V4 net-next 4/5] net:hns: Add support of ethtool TSO set option for Hip06 in HNS
-Date: Sat, 21 Nov 2015 03:49:11 +0800
-Message-ID: <1448048952-146714-5-git-send-email-salil.mehta@huawei.com>
-References: <1448048952-146714-1-git-send-email-salil.mehta@huawei.com>
+Subject: [PATCH V4 net-next 0/5] net:hns: Add support of Hip06 SoC to the Hislicon Network Subsystem
+Date: Sat, 21 Nov 2015 03:49:07 +0800
+Message-ID: <1448048952-146714-1-git-send-email-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <davem@davemloft.net>, <robh+dt@kernel.org>, <pawel.moll@arm.com>,
@@ -18,96 +17,71 @@ To: <davem@davemloft.net>, <robh+dt@kernel.org>, <pawel.moll@arm.com>,
 	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
 	<linuxarm@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448048952-146714-1-git-send-email-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Salil <salil.mehta@huawei.com>
+This PATCH V4 addresses the review comment provided by 
+Sergei Shtylyov. The changelog of every patch has also
+been modified.
 
-This patch adds the support of ethtool TSO option to support
-Hip06 SoC to HNS
+PATCH V3:
+ Addresses the review comment floated by David Miller 
 
-Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
-Signed-off-by: lisheng <lisheng011@huawei.com>
----
-
-PATCH V4:
-This fixes the comments given by Sergei Shtylyov over the PATCH V3:
- Link: https://lkml.org/lkml/2015/11/20/358
-
-PATCH V3/V2:
-- No change over the initial patch
+PATCH V2:
+1) Bug Fixes and Clean-up: Internally identified
+2) Addresses internal review comments by Kenneth Lee and
+   by Huang Daode
+3) Addresses the review comment from "Yisen.Zhuang(Zhuangyuzeng)"
+4) Adds fix from Fengguang Wu for an error generated from 
+   "kbuild test robot" from Intel
+5) Ethtool support for TSO set option from Lisheng
 
 PATCH V1:
-- Initial version of Ethtool support of TSO by Lisheng
----
- drivers/net/ethernet/hisilicon/hns/hns_enet.c |   47 +++++++++++++++++++++++++
- 1 file changed, 47 insertions(+)
+Adds initial support of Hip06 SoC with below changes:  
+This patch-set adds support of new Hisilicon Hip06 SoC to the existing
+(already part of net-next) HNS ethernet driver for Hip05 SoC. Hip06 is
+a multi-core SoC and is a derivative of Hip05 SoC with lots of new
+hardware featres supported like RSS, TSO, hardware VLAN assist etc. 
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 055e14c..09995d2 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -1386,6 +1386,51 @@ static int hns_nic_change_mtu(struct net_device *ndev, int new_mtu)
- 	return ret;
- }
- 
-+static int hns_nic_set_features(struct net_device *netdev,
-+				netdev_features_t features)
-+{
-+	struct hns_nic_priv *priv = netdev_priv(netdev);
-+	struct hnae_handle *h = priv->ae_handle;
-+
-+	switch (priv->enet_ver) {
-+	case AE_VERSION_1:
-+		if (features & (NETIF_F_TSO | NETIF_F_TSO6))
-+			netdev_info(netdev, "enet v1 do not support tso!\n");
-+		break;
-+	default:
-+		if (features & (NETIF_F_TSO | NETIF_F_TSO6)) {
-+			priv->ops.fill_desc = fill_tso_desc;
-+			priv->ops.maybe_stop_tx = hns_nic_maybe_stop_tso;
-+			/* The chip only support 7*4096 */
-+			netif_set_gso_max_size(netdev, 7 * 4096);
-+			h->dev->ops->set_tso_stats(h, 1);
-+		} else {
-+			priv->ops.fill_desc = fill_v2_desc;
-+			priv->ops.maybe_stop_tx = hns_nic_maybe_stop_tx;
-+			h->dev->ops->set_tso_stats(h, 0);
-+		}
-+		break;
-+	}
-+	netdev->features = features;
-+	return 0;
-+}
-+
-+static netdev_features_t hns_nic_fix_features(
-+		struct net_device *netdev, netdev_features_t features)
-+{
-+	struct hns_nic_priv *priv = netdev_priv(netdev);
-+
-+	switch (priv->enet_ver) {
-+	case AE_VERSION_1:
-+		features &= ~(NETIF_F_TSO | NETIF_F_TSO6 |
-+				NETIF_F_HW_VLAN_CTAG_FILTER);
-+		break;
-+	default:
-+		break;
-+	}
-+	return features;
-+}
-+
- /**
-  * nic_set_multicast_list - set mutl mac address
-  * @netdev: net device
-@@ -1481,6 +1526,8 @@ static const struct net_device_ops hns_nic_netdev_ops = {
- 	.ndo_set_mac_address = hns_nic_net_set_mac_address,
- 	.ndo_change_mtu = hns_nic_change_mtu,
- 	.ndo_do_ioctl = hns_nic_do_ioctl,
-+	.ndo_set_features = hns_nic_set_features,
-+	.ndo_fix_features = hns_nic_fix_features,
- 	.ndo_get_stats64 = hns_nic_get_stats64,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = hns_nic_poll_controller,
+The changes in the driver are mainly due to following:
+ 1) changes in the DMA descriptor provided by the Hip06 ethernet 
+    hardware. These changes need to co-exist with already present
+    Hip05 DMA descriptor and its operating functions. The decision
+    to choose the correct type of DMA descriptor is taken dynamically
+    depending upon the version of the hardware (i.e. V1/hip05 or
+    V2/hip06, see already existing hisilicon-hns-nic.txt binding file
+    for the detailed description version and naming).
+ 2) To support new features added to the Hip06 ethernet hardware:
+    a. RSS (Receive Side Scaling)
+    b. TSO (TCP Segment Offload)
+    c. Hardware VLAN support (currently we are initializing hardware
+       to not assist in stripping the vlan tag at hardware level.
+       Proper support of this feature and ethtool would come after
+       these patches have been accepted)
+
+Kindly note that, this patchset has been based on latest net-next.
+
+Salil Mehta (5):
+  net:hns: Add support of Hip06 SoC to the Hislicon Network Subsystem
+  net:hns: Add Hip06 "RSS(Receive Side Scaling)" support to HNS Driver
+  net:hns: Add Hip06 "TSO(TCP Segment Offload)" support HNS Driver
+  net:hns: Add support of ethtool TSO set option for Hip06 in HNS
+  net:hns: Add the init code to disable Hip06 "Hardware VLAN assist"
+
+ drivers/net/ethernet/hisilicon/hns/hnae.h          |   56 ++-
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |   90 +++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  213 +++++++--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |   25 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |    6 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |   79 +++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h  |   32 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c  |   68 ++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h  |    8 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |   88 +++-
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      |  487 +++++++++++++++++---
+ drivers/net/ethernet/hisilicon/hns/hns_enet.h      |   12 +
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   |   95 +++-
+ 13 files changed, 1072 insertions(+), 187 deletions(-)
+
 -- 
 1.7.9.5
