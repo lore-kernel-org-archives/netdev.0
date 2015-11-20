@@ -1,45 +1,50 @@
-From: =?UTF-8?Q?LendFair_Loans=C2=AE?= <info.cp@multivision.com.ve>
-Subject: =?UTF-8?Q?t=C3=A4rkeit=C3=A4=20viestej=C3=A4?=
-Date: Fri, 20 Nov 2015 12:19:28 +0100
-Message-ID: <4444f8a378f02d5773ddd280fd0f62fd@multivision.com.ve>
-Reply-To: <lendfair_loans@outlook.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] wireless: change cfg80211 regulatory domain info as
+ debug messages
+Date: Fri, 20 Nov 2015 12:55:33 +0100
+Message-ID: <1448020533.3141.27.camel@sipsolutions.net>
+References: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
+	 <20151115192547.3fd1b3cc@mir>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvx1.ifxnw.com.ve ([200.62.27.83]:21827 "EHLO mvx1.ifxnw.com.ve"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751113AbbKTLWV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Nov 2015 06:22:21 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+To: Stefan Lippers-Hollmann <s.l-h@gmx.de>,
+	Dave Young <dyoung@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151115192547.3fd1b3cc@mir>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Sun, 2015-11-15 at 19:25 +0100, Stefan Lippers-Hollmann wrote:
+> Hi
+> 
+> On 2015-11-15, Dave Young wrote:
+> > cfg80211 module prints a lot of messages like below. Actually
+> > printing once is acceptable but sometimes it will print again and
+> > again, it looks very annoying. It is better to change these detail
+> > messages to debugging only.
+> 
+> It is a lot of info, easily repeated 3 times on boot, but it's also
+> the only real chance to determine why you ended up with the
+> regulatory domain settings you got, rather than just the values
+> itself. Given that a lot (most?) of officially shipping wireless
+> devices are misconfigured (wrong EEPROM regdom settings for the
+> region they're sold in) and considering that the limits can even
+> change at runtime (IEEE 802.11d), it is imho quite important not just
+> to be able what the current restrictions (iw reg get) are, but also
+> why the kernel settled on those.
+> 
 
+Hm. I kinda sympathize with both points of view here, not sure what to
+do.
 
---=20
-Hyv=C3=A4=C3=A4 p=C3=A4iv=C3=A4=C3=A4,
+Maybe we could skip this for the world regdomain only? It doesn't
+really change, and we typically don't care that much for it? That'd
+probably get rid of most of the lines already.
 
-=C2=A0=C2=A0=C2=A0=C2=A0 Olen rouva Ruth Ashenden, toimeenpaneva aine h=
-yvin tunnustettu=20
-laillinen luotonanto yritys tunnetaan LendFair Loans=C2=AE. Onko sinull=
-a=20
-huono luotto tai olet tarvitsevat rahaa maksaa laskujaan? Annamme=20
-kaikenlaisia lainan henkil=C3=B6n tai yrityksen niinkin alhainen kuin 3=
-%=20
-korolla.
+Alternatively, perhaps the internal computations should be more
+transparently visible through some other mechanism?
 
-=C2=A0=C2=A0=C2=A0 T=C3=A4yt=C3=A4 alla oleva lomake jos kiinnostaa.
-
-=C2=A0=C2=A0 Koko nimi:
-=C2=A0=C2=A0 sukupuoli:
-=C2=A0=C2=A0 Tarvittava m=C3=A4=C3=A4r=C3=A4:
-=C2=A0=C2=A0 Kesto:
-
-=C2=A0=C2=A0 Voit ottaa meihin yhteytt=C3=A4 Puh: (+44) 703 1920 090 s=C3=
-=A4hk=C3=B6posti:=20
-lendfair_loans@outlook.com
-
-=C2=A0=C2=A0=C2=A0 Vilpitt=C3=B6m=C3=A4sti
-=C2=A0=C2=A0 Rouva Ruth Ashenden
+johannes
