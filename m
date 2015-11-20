@@ -1,45 +1,43 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH v2 4/4] rhashtable-test: allow to retry even if -ENOMEM
- was returned
-Date: Fri, 20 Nov 2015 18:28:41 +0100
-Message-ID: <20151120172841.GD16648@orbit.nwl.cc>
-References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
- <1448039840-11367-5-git-send-email-phil@nwl.cc>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net 1/2] tcp: disable Fast Open on timeouts after handshake
+Date: Fri, 20 Nov 2015 09:40:53 -0800
+Message-ID: <CAK6E8=eiL30svYbqSpRN=QKp4MEX7_ezmUNXm+b7api42QvPDg@mail.gmail.com>
+References: <1447899451-24584-1-git-send-email-ycheng@google.com> <20151120.105229.472836583674901954.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tgraf@suug.ch, fengguang.wu@intel.com, wfg@linux.intel.com,
-	lkp@01.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1448039840-11367-5-git-send-email-phil@nwl.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f45.google.com ([209.85.213.45]:36379 "EHLO
+	mail-vk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760086AbbKTRle (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 12:41:34 -0500
+Received: by vkay187 with SMTP id y187so2263699vka.3
+        for <netdev@vger.kernel.org>; Fri, 20 Nov 2015 09:41:33 -0800 (PST)
+In-Reply-To: <20151120.105229.472836583674901954.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 20, 2015 at 06:17:20PM +0100, Phil Sutter wrote:
-> This is rather a hack to expose the current issue with rhashtable to
-> under high pressure sometimes return -ENOMEM even though system memory
-> is not exhausted and a consecutive insert may succeed.
-
-Please note that this problem does not show every time when running the
-test in default configuration on my system. With increased number of
-threads though, it becomes very visible. Load test_rhashtable like so:
-
-modprobe test_rhashtable enomem_retry=1 tcount=20
-
-and grep dmesg for 'insertions retried after -ENOMEM'. In my case:
-
-# dmesg | grep -E '(insertions retried after -ENOMEM|Started)' | tail
-[   34.642980]  1 insertions retried after -ENOMEM
-[   34.642989]  1 insertions retried after -ENOMEM
-[   34.642994]  1 insertions retried after -ENOMEM
-[   34.648353]  28294 insertions retried after -ENOMEM
-[   34.689687]  31262 insertions retried after -ENOMEM
-[   34.714015]  16280 insertions retried after -ENOMEM
-[   34.736019]  15327 insertions retried after -ENOMEM
-[   34.755100]  39012 insertions retried after -ENOMEM
-[   34.769116]  49369 insertions retried after -ENOMEM
-[   35.387200] Started 20 threads, 0 failed
-
-Cheers, Phil
+On Fri, Nov 20, 2015 at 7:52 AM, David Miller <davem@davemloft.net> wrote:
+> From: Yuchung Cheng <ycheng@google.com>
+> Date: Wed, 18 Nov 2015 18:17:30 -0800
+>
+>> Some middle-boxes black-hole the data after the Fast Open handshake
+>> (https://www.ietf.org/proceedings/94/slides/slides-94-tcpm-13.pdf).
+>> The exact reason is unknown. The work-around is to disable Fast Open
+>> temporarily after multiple recurring timeouts with few or no data
+>> delivered in the established state.
+>>
+>> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> Reported-by: Christoph Paasch <cpaasch@apple.com>
+>
+> Applied and queued up for -stable.
+>
+> Just out of curiosity, why isn't a test for zero data sufficient?
+>
+> Do these middle-boxes sometimes not black-hole all of the data?
+Great question. I should be more clear in the commit message. The
+answer is yes it should be sufficient. The tricky part is
+tp->bytes_acked includes data acked in the SYN. Since we don't
+remember data size sent in SYN, hence the heuristic.
