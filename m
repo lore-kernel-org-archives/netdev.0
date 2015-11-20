@@ -1,91 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: network stream fairness
-Date: Fri, 20 Nov 2015 10:16:54 -0800
-Message-ID: <1448043414.22599.287.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5640BEAC.10404@axis.com>
-	 <1447084258.17135.39.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5640C15E.805@axis.com>
-	 <1447085271.17135.44.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <564F3D3D.7050004@axis.com>
+From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH 08/14] net: tcp_memcontrol: sanitize tcp memory
+ accounting callbacks
+Date: Fri, 20 Nov 2015 13:42:54 -0500
+Message-ID: <20151120184254.GB5623@cmpxchg.org>
+References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
+ <1447371693-25143-9-git-send-email-hannes@cmpxchg.org>
+ <20151120105857.GB31308@esperanza>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Niklas Cassel <niklas.cassel@axis.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:35180 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759999AbbKTSQ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 13:16:56 -0500
-Received: by pacej9 with SMTP id ej9so123316294pac.2
-        for <netdev@vger.kernel.org>; Fri, 20 Nov 2015 10:16:55 -0800 (PST)
-In-Reply-To: <564F3D3D.7050004@axis.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-team-b10kYP2dOMg@public.gmane.org
+To: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20151120105857.GB31308@esperanza>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-11-20 at 16:33 +0100, Niklas Cassel wrote:
-
-> I've been able to reproduce this on a ARMv7, single core, 100 Mbps NIC.
-> Kernel vanilla 4.3, driver has BQL implemented, but is unfortunately not upstreamed.
+On Fri, Nov 20, 2015 at 01:58:57PM +0300, Vladimir Davydov wrote:
+> On Thu, Nov 12, 2015 at 06:41:27PM -0500, Johannes Weiner wrote:
+> > There won't be a tcp control soft limit, so integrating the memcg code
+> > into the global skmem limiting scheme complicates things
+> > unnecessarily. Replace this with simple and clear charge and uncharge
+> > calls--hidden behind a jump label--to account skb memory.
+> > 
+> > Note that this is not purely aesthetic: as a result of shoehorning the
+> > per-memcg code into the same memory accounting functions that handle
+> > the global level, the old code would compare the per-memcg consumption
+> > against the smaller of the per-memcg limit and the global limit. This
+> > allowed the total consumption of multiple sockets to exceed the global
+> > limit, as long as the individual sockets stayed within bounds. After
+> > this change, the code will always compare the per-memcg consumption to
+> > the per-memcg limit, and the global consumption to the global limit,
+> > and thus close this loophole.
+> > 
+> > Without a soft limit, the per-memcg memory pressure state in sockets
+> > is generally questionable. However, we did it until now, so we
+> > continue to enter it when the hard limit is hit, and packets are
+> > dropped, to let other sockets in the cgroup know that they shouldn't
+> > grow their transmit windows, either. However, keep it simple in the
+> > new callback model and leave memory pressure lazily when the next
+> > packet is accepted (as opposed to doing it synchroneously when packets
+> > are processed). When packets are dropped, network performance will
+> > already be in the toilet, so that should be a reasonable trade-off.
+> > 
+> > As described above, consumption is now checked on the per-memcg level
+> > and the global level separately. Likewise, memory pressure states are
+> > maintained on both the per-memcg level and the global level, and a
+> > socket is considered under pressure when either level asserts as much.
+> > 
+> > Signed-off-by: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
 > 
-> ethtool -k eth0
-> Offload parameters for eth0:
-> rx-checksumming: off
-> tx-checksumming: on
-> scatter-gather: off
-> tcp segmentation offload: off
-> udp fragmentation offload: off
-> generic segmentation offload: off
+> It leaves the legacy functionality intact, while making the code look
+> much better.
 > 
-> ip addr show dev eth0
-> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
->     link/ether 00:40:8c:18:58:c8 brd ff:ff:ff:ff:ff:ff
->     inet 192.168.0.136/24 brd 192.168.0.255 scope global eth0
->        valid_lft forever preferred_lft forever
-> 
-> # before iperf3 run
-> tc -s -d qdisc
-> qdisc noqueue 0: dev lo root refcnt 2 
->  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
->  backlog 0b 0p requeues 0 
-> qdisc fq_codel 0: dev eth0 root refcnt 2 limit 10240p flows 1024 quantum 1514 target 5.0ms interval 100.0ms ecn 
->  Sent 21001 bytes 45 pkt (dropped 0, overlimits 0 requeues 0) 
->  backlog 0b 0p requeues 0 
->   maxpacket 0 drop_overlimit 0 new_flow_count 0 ecn_mark 0
->   new_flows_len 0 old_flows_len 0
-> 
-> sysctl net.ipv4.tcp_congestion_control
-> net.ipv4.tcp_congestion_control = cubic
-> 
-> # after iperf3 run
-> tc -s -d qdisc
-> qdisc noqueue 0: dev lo root refcnt 2 
->  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
->  backlog 0b 0p requeues 0 
-> qdisc fq_codel 0: dev eth0 root refcnt 2 limit 10240p flows 1024 quantum 1514 target 5.0ms interval 100.0ms ecn 
->  Sent 5618224754 bytes 3710914 pkt (dropped 0, overlimits 0 requeues 1) 
->  backlog 0b 0p requeues 1 
->   maxpacket 1514 drop_overlimit 0 new_flow_count 2 ecn_mark 0
->   new_flows_len 0 old_flows_len 0
-> 
-> Note that it appears stable for 411 seconds before you can see the
-> congestion window growth. It appears that the amount of time you have
-> to wait before things go downhill varies a lot.
-> No switch was used between the server and client; they were connected directly.
+> Reviewed-by: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
 
-Hi Niklas
-
-Your results seem to show there is no special issue ;)
-
-With TSO off and GSO off, there is no way a 'TSO autosizing' patch would
-have any effect, since this code path is not taken.
-
-You have to wait 400 seconds before getting into a mode where one of the
-flow gets bigger cwnd (25 instead of 16), and then TCP cubic simply
-shows typical unfairness ...
-
-If you absolutely need to guarantee a given throughput per flow, you
-might consider using fq packet scheduler and SO_MAX_PACING_RATE socket
-option.
-
-Thanks !
+Thank you very much!
