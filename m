@@ -1,32 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: rhashtable: how to deal with that rhashtable_lookup_insert_key
- return -EBUSY
-Date: Fri, 20 Nov 2015 20:25:44 +0800
-Message-ID: <20151120122544.GA17528@gondor.apana.org.au>
-References: <CADvbK_drKzCbByS38==rkC8yRtQhRj6mOtKAgXeHLwOhdh6Z1Q@mail.gmail.com>
- <20151120122401.GB16648@orbit.nwl.cc>
+From: Vladimir Davydov <vdavydov@virtuozzo.com>
+Subject: Re: [PATCH 09/14] net: tcp_memcontrol: simplify linkage between
+ socket and page counter
+Date: Fri, 20 Nov 2015 15:42:16 +0300
+Message-ID: <20151120124216.GD31308@esperanza>
+References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
+ <1447371693-25143-10-git-send-email-hannes@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Phil Sutter <phil@nwl.cc>, Xin Long <lucien.xin@gmail.com>,
-	linux-kernel@vger.kernel.org, network dev <netdev@vger.kernel.org>,
-	tgraf@suug.ch, davem <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem@davemloft.net>, Andrew Morton
+	<akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>, Michal Hocko
+	<mhocko@suse.cz>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+	<cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<kernel-team@fb.com>
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20151120122401.GB16648@orbit.nwl.cc>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1447371693-25143-10-git-send-email-hannes@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 20, 2015 at 01:24:01PM +0100, Phil Sutter wrote:
->
-> Herbert, did you manage to reproduce the problem meanwhile? If so, was
-> there any progress on fixing rhashtable? Otherwise, I could respin my
-> patch from [1] to cover only -EBUSY case by default and add a parameter
-> to make non-permanent -ENOMEM visible.
+On Thu, Nov 12, 2015 at 06:41:28PM -0500, Johannes Weiner wrote:
+> There won't be any separate counters for socket memory consumed by
+> protocols other than TCP in the future. Remove the indirection and
 
-No I have not been able to reproduce this yet.
+I really want to believe you're right. And with vmpressure propagation
+implemented properly you are likely to be right.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+However, we might still want to account other socket protos to
+memcg->memory in the unified hierarchy, e.g. UDP, or SCTP, or whatever
+else. Adding new consumers should be trivial, but it will break the
+legacy usecase, where only TCP sockets are supposed to be accounted.
+What about adding a check to sock_update_memcg() so that it would enable
+accounting only for TCP sockets in case legacy hierarchy is used?
+
+For the same reason, I think we'd better rename memcg->tcp_mem to
+something like memcg->sk_mem or we can even drop the cg_proto struct
+altogether embedding its fields directly to mem_cgroup struct.
+
+Also, I don't see any reason to have tcp_memcontrol.c file. It's tiny
+and with this patch it does not depend on tcp code any more. Let's move
+it to memcontrol.c?
+
+Other than that this patch looks OK to me.
+
+Thanks,
+Vladimir
+
+> link sockets directly to their owning memory cgroup.
+> 
+> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
