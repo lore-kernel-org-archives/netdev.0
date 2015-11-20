@@ -1,94 +1,88 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 108201] New: Can connect with Huawei E3131-s2 (Hi-Link) 3G
- modem only after reboot.
-Date: Fri, 20 Nov 2015 08:22:07 -0800
-Message-ID: <20151120082207.6bfdd28c@xeon-e3>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue (w/ Fixes:)
+Date: Fri, 20 Nov 2015 16:21:24 +0000
+Message-ID: <87lh9sfxq3.fsf@doppelsaurus.mobileactivedefense.com>
+References: <CACT4Y+b3xsLsKVFCz2M7nqqfXnyuMHEVYtJS2wN4WHLWs9A5ng@mail.gmail.com>
+	<20151012120249.GB16370@unicorn.suse.cz>
+	<1444652071.27760.156.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CACT4Y+Z2H8xPg1Dq0Z=HC3WKm+Uw+ZjK6zOLvxhPwFd4D0CsZw@mail.gmail.com>
+	<CACT4Y+Zu7J0n6dU1dSfiW3F9Q0Us3_DBVcD5Pi9NG9LER8MmRg@mail.gmail.com>
+	<563CC002.5050307@akamai.com>
+	<87ziyrcg67.fsf@doppelsaurus.mobileactivedefense.com>
+	<87fv0fnslr.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<877flp34fl.fsf@doppelsaurus.mobileactivedefense.com>
+	<87a8qhspfm.fsf@doppelsaurus.mobileactivedefense.com>
+	<876111wpza.fsf@doppelsaurus.mobileactivedefense.com>
+	<87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<87d1v57dif.fsf@doppelsaurus.mobileactivedefense.com>
+	<564F4458.8050309@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Oliver Neukum <oliver@neukum.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Michal Kubecek <mkubecek@suse.cz>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"linux-fsdevel\@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Howells <dhowells@redhat.com>,
+	Paul Moore <paul@paul-moore.com>, salyzyn@android.com,
+	sds@tycho.nsa.gov, ying.xue@windriver.com,
+	netdev <netdev@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Andrey Konovalov <andreyknvl@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Julien Tinnes <jln@google.com>,
+	Kees Cook <keescook@google.com>,
+	Mathias Krause <minipli@googlemail.com>
+To: Jason Baron <jbaron@akamai.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:34754 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759269AbbKTQV4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 11:21:56 -0500
-Received: by padhx2 with SMTP id hx2so120724566pad.1
-        for <netdev@vger.kernel.org>; Fri, 20 Nov 2015 08:21:55 -0800 (PST)
+Received: from tiger.mobileactivedefense.com ([217.174.251.109]:46832 "EHLO
+	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752011AbbKTQVz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 11:21:55 -0500
+In-Reply-To: <564F4458.8050309@akamai.com> (Jason Baron's message of "Fri, 20
+	Nov 2015 11:03:36 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Appears to be a cdc_ether driver bug. See Bugzilla for more followup info
+Jason Baron <jbaron@akamai.com> writes:
+> On 11/19/2015 06:52 PM, Rainer Weikusat wrote:
+>
+> [...]
+>
+>> @@ -1590,21 +1718,35 @@ restart:
+>>  			goto out_unlock;
+>>  	}
+>>  
+>> -	if (unix_peer(other) != sk && unix_recvq_full(other)) {
+>> -		if (!timeo) {
+>> +	if (unlikely(unix_peer(other) != sk && unix_recvq_full(other))) {
+>> +		if (timeo) {
+>> +			timeo = unix_wait_for_peer(other, timeo);
+>> +
+>> +			err = sock_intr_errno(timeo);
+>> +			if (signal_pending(current))
+>> +				goto out_free;
+>> +
+>> +			goto restart;
+>> +		}
+>> +
+>> +		if (unix_peer(sk) != other ||
+>> +		    unix_dgram_peer_wake_me(sk, other)) {
+>>  			err = -EAGAIN;
+>>  			goto out_unlock;
+>>  		}
+>
+> Hi,
+>
+> So here we are calling unix_dgram_peer_wake_me() without the sk lock the first time
+> through - right?
 
-Begin forwarded message:
-
-Date: Fri, 20 Nov 2015 11:11:26 +0000
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-Subject: [Bug 108201] New: Can connect with Huawei E3131-s2 (Hi-Link) 3G modem only after reboot.
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=108201
-
-            Bug ID: 108201
-           Summary: Can connect with Huawei E3131-s2 (Hi-Link) 3G modem
-                    only after reboot.
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 4.1.12-1-default
-          Hardware: x86-64
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Other
-          Assignee: shemminger@linux-foundation.org
-          Reporter: cameronpoe@poczta.fm
-        Regression: No
-
-When I start (boot) the system from shutdown state I can't connect to Internet
-because there is no network connection in pop-up network plasma menu (close to
-clock in right bottom of the screen) in new openSUSE Leap 42.1 with KDE 5.
-
-When I shutdown the laptop and start again (boot again) it still doesn't
-connect (no connection available), but if I restart (reboot) the system the
-connection works (shows in plasma networking pop-up menu).
-
->From what I can see in journalctl when I boot the laptop for the 1st time the
-system recognizes this modem as memory stick and there are errors in
-journalctl:
-
-NetworkManager[878]: <warn>  (eth1): failed to find device 4 'eth1' with udev
-NetworkManager[878]: <info>  (eth1): new Ethernet device (carrier: OFF, driver:
-'cdc_ether', ifindex: 4)
-kernel: cdc_ether 3-1:1.0 eth1: register 'cdc_ether' at usb-0000:00:12.2-1, CDC
-Ethernet Device, 58:2c:80:13:92:63
-kernel: usbcore: registered new interface driver cdc_ether
-NetworkManager[878]: <info>  (eth1): device state change: unmanaged ->
-unavailable (reason 'managed') [10 20 2]
-kernel: cdc_ether 3-1:1.0 eth1: kevent 12 may have been dropped
-NetworkManager[878]: <info>  (eth1): link connected
-NetworkManager[878]: <info>  (eth1): device state change: unavailable ->
-disconnected (reason 'none') [20 30 0]
-
-...but when I reboot the laptop the system recognizes it as modem strait away
-and there are no "failed" nor "dropped" messages. I will attach 2 files with
-journalctl from the 1st boot and the reboot.
-
-I have always been installing the Huawei E3131-s2 (Hi-Link) from Linux driver
-attached in the modem's internal memory and it always worked, but now when I
-reinstalled the openSUSE system to newer version 42.1 there was an "failed"
-error with runmbbservice so I deactivated it. Anyway, the connection did not
-work either.
-
-Another thing - when I unplug the modem and plug it back in it fails again and
-the connection vanishes (doesn't show up when I plug modem back) and I have to
-reboot the system to be able to connect to the Internet.
-
-I is annoying to always boot the system and reboot in order to connect t the
-Internet :( So, can anyone fix this please?
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Yes. And this is obviously wrong. I spend most of the 'evening time'
+(some people would call that 'night time') with testing this and didn't
+get to read through it again yet. Thank you for pointing this out. I'll
+send an updated patch shortly.
