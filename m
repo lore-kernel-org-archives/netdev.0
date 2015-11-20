@@ -1,49 +1,53 @@
-From: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH 2/7] kernfs: implement kernfs_walk_and_get()
-Date: Fri, 20 Nov 2015 13:41:55 -0800
-Message-ID: <20151120214155.GB21590@kroah.com>
-References: <1447959171-20749-1-git-send-email-tj@kernel.org>
- <1447959171-20749-3-git-send-email-tj@kernel.org>
- <20151120044104.GA10693@kroah.com>
- <20151120211254.GE1574@mtj.duckdns.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC 00/15] net: The beginning of the end for
+ NETIF_F_IP_CSUM and NETIF_F_IPV6_CSUM
+Date: Fri, 20 Nov 2015 16:42:34 -0500 (EST)
+Message-ID: <20151120.164234.575970217961631756.davem@davemloft.net>
+References: <1447962961-2106059-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org,
-	daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org,
-	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151120211254.GE1574-qYNAdHglDFBN0TnZuCh8vA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37245 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759815AbbKTVmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 16:42:37 -0500
+In-Reply-To: <1447962961-2106059-1-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 20, 2015 at 04:12:54PM -0500, Tejun Heo wrote:
-> On Thu, Nov 19, 2015 at 08:41:04PM -0800, Greg Kroah-Hartman wrote:
-> > On Thu, Nov 19, 2015 at 01:52:46PM -0500, Tejun Heo wrote:
-> > > Implement kernfs_walk_and_get() which is similar to
-> > > kernfs_find_and_get() but can walk a path instead of just a name.
-> > > 
-> > > v2: Use strlcpy() instead of strlen() + memcpy() as suggested by
-> > >     David.
-> > > 
-> > > Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> > > Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-> > > Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> > > ---
-> > >  fs/kernfs/dir.c        | 46 ++++++++++++++++++++++++++++++++++++++++++++++
-> > >  include/linux/kernfs.h | 12 ++++++++++++
-> > >  2 files changed, 58 insertions(+)
-> > 
-> > Acked-by: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+From: Tom Herbert <tom@herbertland.com>
+Date: Thu, 19 Nov 2015 11:55:46 -0800
+
+> Goals of this patch set:
 > 
-> Greg, would it be okay to route this one through either cgroup or net
-> tree?
+> We propose that drivers advertise NETIF_F_HW_CSUM instead of protocol
+> specific values of NETIF_F_IP_CSUM and NETIF_F_IPV6_CSUM.  If the
+> driver's device is constrained (for instance it can only offlaod simple
+> IPv4 and IPv6 packets) then these constraints can be checked in the
+> transmit path and skb_checksum_help would be called for packets that the
+> driver is unable to offload. In order to facilitate this, we add some
+> helper functions that takes a specification argument indicating the
+> type of packets a device is able to offload. If a packet does not match
+> the specification, the helper function calls skb_checksum_help.
 
-Either is fine with me, whatever works best for you.
+I very much like the direction this is taking things.  And I do sincerely
+hope that this does in fact actually encourage HW vendors to drop all of
+the protocol specific offloading, and just support 2's complement sums.
 
-greg k-h
+They can turn that _trivially_ into whatever the Windows et al. driver
+interfaces want in their respective drivers.
+
+There is absolutely no reason to implement protocol specific checksum
+offloads in silicon in this day and age.
+
+Absolutely none.
+
+So driver folks tell your hardware buddies to just stop doing it now
+and get with the program.  Even your marketing department shouldn't
+care, they can list support for every protocol on the planet in their
+specs and packaging if they want, and it might even look impressive...
+
+Thanks.
