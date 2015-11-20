@@ -1,32 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] ppp: Remove PPPOX_ZOMBIE socket state
-Date: Fri, 20 Nov 2015 11:31:43 -0500 (EST)
-Message-ID: <20151120.113143.1245084459937375038.davem@davemloft.net>
-References: <cover.1447931252.git.g.nault@alphalink.fr>
+From: Kyle McMartin <kyle@infradead.org>
+Subject: Re: [PATCH linux-firmware] bnx2x: Add FW 7.13.1.0.
+Date: Fri, 20 Nov 2015 11:40:30 -0500
+Message-ID: <20151120164030.GF27752@merlin.infradead.org>
+References: <1447951286-5896-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mostrows@earthlink.net, simon@farnz.org.uk
-To: g.nault@alphalink.fr
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32936 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759948AbbKTQbq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 11:31:46 -0500
-In-Reply-To: <cover.1447931252.git.g.nault@alphalink.fr>
+Received: from merlin.infradead.org ([205.233.59.134]:59777 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760791AbbKTQkc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2015 11:40:32 -0500
+Content-Disposition: inline
+In-Reply-To: <1447951286-5896-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Thu, 19 Nov 2015 12:52:30 +0100
-
-> Several issues have been found lately wrt. the PPPOX_ZOMBIE socket
-> state. This state is now only set upon reception of a PADT to stop
-> further transmissions. However this is redundant with the PADT
-> workqueue mechanism introduced by 287f3a943fef ("pppoe: Use workqueue
-> to die properly when a PADT is received").
+On Thu, Nov 19, 2015 at 06:41:26PM +0200, Yuval Mintz wrote:
+> This adds new FW for bnx2x, which adds the following:
+>  - Ability to change outer vlan ID for some multi-function modes.
+>  - FW ability for Geneve RSS classification according to inner headers.
+>  - Prevent VFs from sending MAC control frames.
 > 
-> We can thus simplify pppox socket state handling by getting rid of
-> PPPOX_ZOMBIE entirely.
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 
-Nice, applied to net-next, thanks!
+applied, thanks.
