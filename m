@@ -1,66 +1,44 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: Re: [PATCH 09/14] net: tcp_memcontrol: simplify linkage between
- socket and page counter
-Date: Fri, 20 Nov 2015 13:56:48 -0500
-Message-ID: <20151120185648.GC5623@cmpxchg.org>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
- <1447371693-25143-10-git-send-email-hannes@cmpxchg.org>
- <20151120124216.GD31308@esperanza>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHSET v2] netfilter, cgroup: implement xt_cgroup2 match
+Date: Fri, 20 Nov 2015 13:59:12 -0500 (EST)
+Message-ID: <20151120.135912.1506496112678349111.davem@davemloft.net>
+References: <1447959171-20749-1-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>, Michal Hocko <mhocko@suse.cz>,
-	netdev@vger.kernel.org, linux-mm@kvack.org,
-	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-team@fb.com
-To: Vladimir Davydov <vdavydov@virtuozzo.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151120124216.GD31308@esperanza>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org,
+	lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-team-b10kYP2dOMg@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
+	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1447959171-20749-1-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 20, 2015 at 03:42:16PM +0300, Vladimir Davydov wrote:
-> On Thu, Nov 12, 2015 at 06:41:28PM -0500, Johannes Weiner wrote:
-> > There won't be any separate counters for socket memory consumed by
-> > protocols other than TCP in the future. Remove the indirection and
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Date: Thu, 19 Nov 2015 13:52:44 -0500
+
+> This is the second take of the xt_cgroup2 patchset.  Changes from the
+> last take are
 > 
-> I really want to believe you're right. And with vmpressure propagation
-> implemented properly you are likely to be right.
+> * Instead of adding sock->sk_cgroup separately, sock->sk_cgrp_data now
+>   carries either (prioidx, classid) pair or cgroup2 pointer.  This
+>   avoids inflating struct sock with yet another cgroup related field.
+>   Unfortunately, this does add some complexity but that's the
+>   trade-off and the complexity is contained in cgroup proper.
 > 
-> However, we might still want to account other socket protos to
-> memcg->memory in the unified hierarchy, e.g. UDP, or SCTP, or whatever
-> else. Adding new consumers should be trivial, but it will break the
-> legacy usecase, where only TCP sockets are supposed to be accounted.
-> What about adding a check to sock_update_memcg() so that it would enable
-> accounting only for TCP sockets in case legacy hierarchy is used?
+> * Various small updats as per David and Jan's reviews.
 
-Yup, I was thinking the same thing. But we can cross that bridge when
-we come to it and are actually adding further packet types.
+I like this a lot better, thanks.
 
-> For the same reason, I think we'd better rename memcg->tcp_mem to
-> something like memcg->sk_mem or we can even drop the cg_proto struct
-> altogether embedding its fields directly to mem_cgroup struct.
-> 
-> Also, I don't see any reason to have tcp_memcontrol.c file. It's tiny
-> and with this patch it does not depend on tcp code any more. Let's move
-> it to memcontrol.c?
+Please address Daniel's feedback on patch #6 and then I'm personally
+fine with this series.
 
-I actually had all this at first, but then wondered if it makes more
-sense to keep the legacy code in isolation. Don't you think it would
-be easier to keep track of what's v1 and what's v2 if we keep the
-legacy stuff physically separate as much as possible? In particular I
-found that 'tcp_mem.' marker really useful while working on the code.
+Pablo, are you ok with me merging this into net-next directly or
+would you rather I take patches 1-6 into net-next and then you can
+merge and then add patch #7 on top?
 
-In the same vein, tcp_memcontrol.c doesn't really hurt anybody and I'd
-expect it to remain mostly unopened and unchanged in the future. But
-if we merge it into memcontrol.c, that code will likely be in the way
-and we'd have to make it explicit somehow that this is not actually
-part of the new memory controller anymore.
-
-What do you think?
-
-> Other than that this patch looks OK to me.
-
-Thank you!
+Thanks.
