@@ -1,64 +1,97 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: Re: [PATCH net-next 0/8] tipc: some cleanups and
-	improvements
-Date: Fri, 20 Nov 2015 20:18:20 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D2238A602@eusaamb103.ericsson.se>
-References: <1447961447-13025-1-git-send-email-jon.maloy@ericsson.com>
-	<20151120.140657.2023428662451748232.davem@davemloft.net>
+From: Nina Schiff <ninasc-b10kYP2dOMg@public.gmane.org>
+Subject: [PATCH RESEND] cgroups: Allow dynamically changing net_classid
+Date: Fri, 20 Nov 2015 12:31:39 -0800
+Message-ID: <1448051499-1885574-1-git-send-email-ninasc@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "parthasarathy.xx.bhuvaragan@ericsson.com"
-	<parthasarathy.xx.bhuvaragan@ericsson.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
-	"tipc-discussion@lists.sourceforge.net"
-	<tipc-discussion@lists.sourceforge.net>
-To: David Miller <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <20151120.140657.2023428662451748232.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: text/plain
+Cc: <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
+	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<kernel-team-b10kYP2dOMg@public.gmane.org>, <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Nina Schiff <ninasc-b10kYP2dOMg@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	<nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+The classid of a process is changed either when a process is moved to
+or from a cgroup or when the net_cls.classid file is updated.
+Previously net_cls only supported propogating these changes to the
+cgroup's related sockets when a process was added or removed from the
+cgroup. This means it was neccessary to remove and re-add all processes
+to a cgroup in order to update its classid. This change introduces
+support for doing this dynamically - i.e. when the value is changed in
+the net_cls_classid file, this will also trigger an update to the
+classid associated with all sockets controlled by the cgroup.
+This mimics the behaviour of other cgroup subsystems.
+net_prio circumvents this issue by storing an index into a table with
+each socket (and so any updates to the table, don't require updating
+the value associated with the socket). net_cls, however, passes the
+socket the classid directly, and so this additional step is needed.
 
+Signed-off-by: Nina Schiff <ninasc-b10kYP2dOMg@public.gmane.org>
+---
+Concatented two email addresses by mistake, so resending
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Friday, 20 November, 2015 14:07
-> To: Jon Maloy
-> Cc: netdev@vger.kernel.org; paul.gortmaker@windriver.com;
-> parthasarathy.xx.bhuvaragan@ericsson.com; Richard Alpe; Ying Xue;
-> maloy@donjonn.com; tipc-discussion@lists.sourceforge.net
-> Subject: Re: [PATCH net-next 0/8] tipc: some cleanups and improvements
-> 
-> From: Jon Maloy <jon.maloy@ericsson.com>
-> Date: Thu, 19 Nov 2015 14:30:38 -0500
-> 
-> > This series mostly contains cleanups and cosmetic code changes.
-> > The only real functional change is in #4 and #5, where we change the
-> > locking structure for nodes and links in order to permit full
-> > concurrency between links working in parallel on different interfaces.
-> > Since the groundwork for this has been done in previous commit series,
-> > this change constitutes only the final, small step to achieve that goal.
-> 
-> Series applied, thanks.
-> 
-> Generally speaking, rwlock usage really never buys you anything significant.
-> Therefore in the long run I think a single spinlock plus RCU is going to be
-> much better for per-node locking in TIPC.
+ net/core/netclassid_cgroup.c | 26 ++++++++++++++++++--------
+ 1 file changed, 18 insertions(+), 8 deletions(-)
 
-Thank you for the feedback.  My own benchmarking has already confirmed
-what you are stating.  I am currently looking at how to convert it to RCU.
-
-///jon
-
-
-------------------------------------------------------------------------------
+diff --git a/net/core/netclassid_cgroup.c b/net/core/netclassid_cgroup.c
+index 6441f47..2e4df84 100644
+--- a/net/core/netclassid_cgroup.c
++++ b/net/core/netclassid_cgroup.c
+@@ -56,7 +56,7 @@ static void cgrp_css_free(struct cgroup_subsys_state *css)
+ 	kfree(css_cls_state(css));
+ }
+ 
+-static int update_classid(const void *v, struct file *file, unsigned n)
++static int update_classid_sock(const void *v, struct file *file, unsigned n)
+ {
+ 	int err;
+ 	struct socket *sock = sock_from_file(file, &err);
+@@ -67,18 +67,25 @@ static int update_classid(const void *v, struct file *file, unsigned n)
+ 	return 0;
+ }
+ 
+-static void cgrp_attach(struct cgroup_subsys_state *css,
+-			struct cgroup_taskset *tset)
++static void update_classid(struct cgroup_subsys_state *css, void *v)
+ {
+-	struct cgroup_cls_state *cs = css_cls_state(css);
+-	void *v = (void *)(unsigned long)cs->classid;
++	struct css_task_iter it;
+ 	struct task_struct *p;
+ 
+-	cgroup_taskset_for_each(p, tset) {
++	css_task_iter_start(css, &it);
++	while ((p = css_task_iter_next(&it))) {
+ 		task_lock(p);
+-		iterate_fd(p->files, 0, update_classid, v);
++		iterate_fd(p->files, 0, update_classid_sock, v);
+ 		task_unlock(p);
+ 	}
++	css_task_iter_end(&it);
++}
++
++static void cgrp_attach(struct cgroup_subsys_state *css,
++			struct cgroup_taskset *tset)
++{
++	update_classid(css,
++		       (void *)(unsigned long)css_cls_state(css)->classid);
+ }
+ 
+ static u64 read_classid(struct cgroup_subsys_state *css, struct cftype *cft)
+@@ -89,8 +96,11 @@ static u64 read_classid(struct cgroup_subsys_state *css, struct cftype *cft)
+ static int write_classid(struct cgroup_subsys_state *css, struct cftype *cft,
+ 			 u64 value)
+ {
+-	css_cls_state(css)->classid = (u32) value;
++	struct cgroup_cls_state *cs = css_cls_state(css);
++
++	cs->classid = (u32)value;
+ 
++	update_classid(css, (void *)(unsigned long)cs->classid);
+ 	return 0;
+ }
+ 
+-- 
+2.4.6
