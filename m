@@ -1,50 +1,55 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] wireless: change cfg80211 regulatory domain info as
- debug messages
-Date: Fri, 20 Nov 2015 12:55:33 +0100
-Message-ID: <1448020533.3141.27.camel@sipsolutions.net>
-References: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
-	 <20151115192547.3fd1b3cc@mir>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: rhashtable: how to deal with that rhashtable_lookup_insert_key
+ return -EBUSY
+Date: Fri, 20 Nov 2015 13:24:01 +0100
+Message-ID: <20151120122401.GB16648@orbit.nwl.cc>
+References: <CADvbK_drKzCbByS38==rkC8yRtQhRj6mOtKAgXeHLwOhdh6Z1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Stefan Lippers-Hollmann <s.l-h@gmx.de>,
-	Dave Young <dyoung@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151115192547.3fd1b3cc@mir>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, network dev <netdev@vger.kernel.org>,
+	tgraf@suug.ch, herbert@gondor.apana.org.au,
+	davem <davem@davemloft.net>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([176.31.251.142]:40236 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760081AbbKTMYE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Nov 2015 07:24:04 -0500
+Content-Disposition: inline
+In-Reply-To: <CADvbK_drKzCbByS38==rkC8yRtQhRj6mOtKAgXeHLwOhdh6Z1Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2015-11-15 at 19:25 +0100, Stefan Lippers-Hollmann wrote:
-> Hi
+On Fri, Nov 20, 2015 at 01:14:18PM +0800, Xin Long wrote:
+> when I use rhashtable_lookup_insert_key, sometimes it will return -EBUSY.
+> im not sure if there is a good way to workabout it.
+> or I should just try again and again until it's inserted successfully ?
 > 
-> On 2015-11-15, Dave Young wrote:
-> > cfg80211 module prints a lot of messages like below. Actually
-> > printing once is acceptable but sometimes it will print again and
-> > again, it looks very annoying. It is better to change these detail
-> > messages to debugging only.
+> I have seen some use in kernel  by now, but it seems that no one consider
+> this issue for their cases. but it indeed exists in my case.
 > 
-> It is a lot of info, easily repeated 3 times on boot, but it's also
-> the only real chance to determine why you ended up with the
-> regulatory domain settings you got, rather than just the values
-> itself. Given that a lot (most?) of officially shipping wireless
-> devices are misconfigured (wrong EEPROM regdom settings for the
-> region they're sold in) and considering that the limits can even
-> change at runtime (IEEE 802.11d), it is imho quite important not just
-> to be able what the current restrictions (iw reg get) are, but also
-> why the kernel settled on those.
+> did I use it incorrectly or something else ?
+
+AFAIK, insert returning -EBUSY is a situation users have to be aware of
+and retry the insert. I sent a patch[1] to fix this in test_rhashtable.
+
+That patch though retried in case of -ENOMEM as well, which was
+considered wrong to do and therefore it wasn't accepted. But in my test
+runs, -ENOMEM happened quite frequently and it also wasn't a permanent
+error. For details, see the following discussion[2].
+
+Herbert, did you manage to reproduce the problem meanwhile? If so, was
+there any progress on fixing rhashtable? Otherwise, I could respin my
+patch from [1] to cover only -EBUSY case by default and add a parameter
+to make non-permanent -ENOMEM visible.
+
+Cheers, Phil
+
+[1]: https://lkml.org/lkml/2015/8/28/197
+[2]: https://lkml.org/lkml/2015/8/28/281
 > 
-
-Hm. I kinda sympathize with both points of view here, not sure what to
-do.
-
-Maybe we could skip this for the world regdomain only? It doesn't
-really change, and we typically don't care that much for it? That'd
-probably get rid of most of the lines already.
-
-Alternatively, perhaps the internal computations should be more
-transparently visible through some other mechanism?
-
-johannes
+> Thanks.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
