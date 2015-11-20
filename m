@@ -1,64 +1,50 @@
-From: Vladimir Davydov <vdavydov@virtuozzo.com>
-Subject: Re: [PATCH 08/14] net: tcp_memcontrol: sanitize tcp memory
- accounting callbacks
-Date: Fri, 20 Nov 2015 13:58:57 +0300
-Message-ID: <20151120105857.GB31308@esperanza>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
- <1447371693-25143-9-git-send-email-hannes@cmpxchg.org>
+From: Daniel Wagner <daniel.wagner@bmw-carit.de>
+Subject: Re: [PATCH 6/7] sock, cgroup: add sock->sk_cgroup
+Date: Fri, 20 Nov 2015 12:04:05 +0100
+Message-ID: <564EFE25.5000906@bmw-carit.de>
+References: <1447959171-20749-1-git-send-email-tj@kernel.org>
+ <1447959171-20749-7-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, Andrew Morton
-	<akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>, Michal Hocko
-	<mhocko@suse.cz>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
-	<cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1447371693-25143-9-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>,
+	<coreteam@netfilter.org>, <cgroups@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <kernel-team@fb.com>,
+	<daniel@iogearbox.net>, <nhorman@tuxdriver.com>
+To: Tejun Heo <tj@kernel.org>, <davem@davemloft.net>,
+	<pablo@netfilter.org>, <kaber@trash.net>,
+	<kadlec@blackhole.kfki.hu>, <lizefan@huawei.com>,
+	<hannes@cmpxchg.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1447959171-20749-7-git-send-email-tj@kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 12, 2015 at 06:41:27PM -0500, Johannes Weiner wrote:
-> There won't be a tcp control soft limit, so integrating the memcg code
-> into the global skmem limiting scheme complicates things
-> unnecessarily. Replace this with simple and clear charge and uncharge
-> calls--hidden behind a jump label--to account skb memory.
-> 
-> Note that this is not purely aesthetic: as a result of shoehorning the
-> per-memcg code into the same memory accounting functions that handle
-> the global level, the old code would compare the per-memcg consumption
-> against the smaller of the per-memcg limit and the global limit. This
-> allowed the total consumption of multiple sockets to exceed the global
-> limit, as long as the individual sockets stayed within bounds. After
-> this change, the code will always compare the per-memcg consumption to
-> the per-memcg limit, and the global consumption to the global limit,
-> and thus close this loophole.
-> 
-> Without a soft limit, the per-memcg memory pressure state in sockets
-> is generally questionable. However, we did it until now, so we
-> continue to enter it when the hard limit is hit, and packets are
-> dropped, to let other sockets in the cgroup know that they shouldn't
-> grow their transmit windows, either. However, keep it simple in the
-> new callback model and leave memory pressure lazily when the next
-> packet is accepted (as opposed to doing it synchroneously when packets
-> are processed). When packets are dropped, network performance will
-> already be in the toilet, so that should be a reasonable trade-off.
-> 
-> As described above, consumption is now checked on the per-memcg level
-> and the global level separately. Likewise, memory pressure states are
-> maintained on both the per-memcg level and the global level, and a
-> socket is considered under pressure when either level asserts as much.
-> 
-> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+Hi Tejun,
 
-It leaves the legacy functionality intact, while making the code look
-much better.
+On 11/19/2015 07:52 PM, Tejun Heo wrote:
+> +/*
+> + * There's a theoretical window where the following accessors race with
+> + * updaters and return part of the previous pointer as the prioidx or
+> + * classid.  Such races are short-lived and the result isn't critical.
+> + */
+>  static inline u16 sock_cgroup_prioidx(struct sock_cgroup_data *skcd)
+>  {
+> -	return skcd->prioidx;
+> +	return (skcd->is_data & 1) ? skcd->prioidx : 1;
+>  }
+>  
+>  static inline u32 sock_cgroup_classid(struct sock_cgroup_data *skcd)
+>  {
+> -	return skcd->classid;
+> +	return (skcd->is_data & 1) ? skcd->classid : 0;
+>  }
 
-Reviewed-by: Vladimir Davydov <vdavydov@virtuozzo.com>
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I still try to understand what the code does, hence this stupid question:
+
+Why is sock_cgroup_prioidx() returning 1 if is not data and
+sock_cgroup_classid() a 0?
+
+thanks,
+daniel
