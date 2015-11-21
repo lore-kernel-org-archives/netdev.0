@@ -1,47 +1,80 @@
-From: "Eugene A. Kravtsov" <ek@oborona.net>
-Subject: Linux 3.16.7: WARNING at kernfs_get+0x2a/0x30() and ida_remove+0xdd/0x120() in loop
-Date: Sat, 21 Nov 2015 17:34:57 +0500
-Message-ID: <1764882558.20151121173457@oborona.net>
-Reply-To: =?windows-1251?B?yvDg4vbu4iDF4uPl7ejpIMDr5erx4O3k8O7i6Pc=?=
-	  <ek@oborona.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251
-Content-Transfer-Encoding: 8BIT
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Guillaume Nault <g.nault@alphalink.fr>
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net-next 2/9] net: ipmr: always define mroute_reg_vif_num
+Date: Sat, 21 Nov 2015 14:01:35 +0100
+Message-ID: <1448110902-28793-3-git-send-email-razor@blackwall.org>
+References: <1448110902-28793-1-git-send-email-razor@blackwall.org>
+Cc: davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tms04.deltatelesystems.ru ([91.206.16.9]:44945 "EHLO
-	tms04.deltatelesystems.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751518AbbKUMnN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2015 07:43:13 -0500
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:35740 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752256AbbKUNBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2015 08:01:49 -0500
+Received: by wmuu63 with SMTP id u63so6065629wmu.0
+        for <netdev@vger.kernel.org>; Sat, 21 Nov 2015 05:01:48 -0800 (PST)
+In-Reply-To: <1448110902-28793-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
+Before mroute_reg_vif_num was defined only if any of the CONFIG_PIMSM_
+options were set, but that's not really necessary as the size of the
+struct is the same in both cases (checked with pahole, both cases size
+is 3256 bytes) and we can remove some unnecessary ifdefs to simplify the
+code.
 
-Last week I have a problem with kernel update my PPPoE BRAS server
-from Linux 3.2.0-4-686-pae #1 SMP Debian 3.2.68-1+deb7u1 i686 GNU/Linux
-to  3.16.0-4-686-pae #1 Debian  3.16.7-ckt11-1+deb8u5.
-At  any  time,  for  no reason, at any load server downed to oops with following
-trace http://spec.oborona.net/bras_panic
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ net/ipv4/ipmr.c | 8 --------
+ 1 file changed, 8 deletions(-)
 
-Server  software  is:  rp-pppoe + pppoe + tc htb shapers on ppp interfaces
-called  from  ip-ip  script.  No  special  settings are not using.
-
-I tried to install new debian kernel 4.2.6, but the problem is not solved,
-everything became worse, server worked with 4.2.6 about 15 minutes and downed to panic
-(no trace - network rsyslog is empty).
-
-After that, i decide to try stable kernel from kernel.org - 4.2.3,
-and saw the same panic with no network logs as with 4.2.6.
-
-Many  technical  staff from Russia and UA ISP confirmed these problems
-with ppp in all new kernels (accell-ppp and rp-pppoe).
-https://translate.google.ru/translate?hl=ru&sl=ru&tl=en&u=http%3A%2F%2Fforum.nag.ru%2Fforum%2Findex.php%3Fshowtopic%3D45266%26st%3D6220
-This is the same our problem from UA colleague http://www.spinics.net/lists/netdev/msg352992.html
-
-Last  kernel with no problem, for me - 3.2.68-1+deb7u1 i686 GNU/Linux.
-With 3.2 kerel server uptime is infinite.
-
-Can i help with additional information?
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 5271e2eee110..dd2462f70d34 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -84,9 +84,7 @@ struct mr_table {
+ 	atomic_t		cache_resolve_queue_len;
+ 	bool			mroute_do_assert;
+ 	bool			mroute_do_pim;
+-#if defined(CONFIG_IP_PIMSM_V1) || defined(CONFIG_IP_PIMSM_V2)
+ 	int			mroute_reg_vif_num;
+-#endif
+ };
+ 
+ struct ipmr_rule {
+@@ -347,9 +345,7 @@ static struct mr_table *ipmr_new_table(struct net *net, u32 id)
+ 	setup_timer(&mrt->ipmr_expire_timer, ipmr_expire_process,
+ 		    (unsigned long)mrt);
+ 
+-#ifdef CONFIG_IP_PIMSM
+ 	mrt->mroute_reg_vif_num = -1;
+-#endif
+ #ifdef CONFIG_IP_MROUTE_MULTIPLE_TABLES
+ 	list_add_tail_rcu(&mrt->list, &net->ipv4.mr_tables);
+ #endif
+@@ -584,10 +580,8 @@ static int vif_delete(struct mr_table *mrt, int vifi, int notify,
+ 		return -EADDRNOTAVAIL;
+ 	}
+ 
+-#ifdef CONFIG_IP_PIMSM
+ 	if (vifi == mrt->mroute_reg_vif_num)
+ 		mrt->mroute_reg_vif_num = -1;
+-#endif
+ 
+ 	if (vifi + 1 == mrt->maxvif) {
+ 		int tmp;
+@@ -824,10 +818,8 @@ static int vif_add(struct net *net, struct mr_table *mrt,
+ 	/* And finish update writing critical data */
+ 	write_lock_bh(&mrt_lock);
+ 	v->dev = dev;
+-#ifdef CONFIG_IP_PIMSM
+ 	if (v->flags & VIFF_REGISTER)
+ 		mrt->mroute_reg_vif_num = vifi;
+-#endif
+ 	if (vifi+1 > mrt->maxvif)
+ 		mrt->maxvif = vifi+1;
+ 	write_unlock_bh(&mrt_lock);
+-- 
+2.4.3
