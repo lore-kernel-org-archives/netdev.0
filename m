@@ -1,114 +1,363 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 3/9] cgroup: implement cgroup_get_from_path() and expose cgroup_put()
-Date: Sat, 21 Nov 2015 11:13:55 -0500
-Message-ID: <1448122441-9335-4-git-send-email-tj@kernel.org>
+From: Tejun Heo <tj@kernel.org>
+Subject: [PATCH 6/9] net: wrap sock->sk_cgrp_prioidx and ->sk_classid inside a struct
+Date: Sat, 21 Nov 2015 11:13:58 -0500
+Message-ID: <1448122441-9335-7-git-send-email-tj@kernel.org>
 References: <1448122441-9335-1-git-send-email-tj@kernel.org>
-Cc: lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-team-b10kYP2dOMg@public.gmane.org, ninasc-b10kYP2dOMg@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
-	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, nhorman-2XuSBdqkA4SvXiR4WA35Jg@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1448122441-9335-1-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: lizefan@huawei.com, hannes@cmpxchg.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-team@fb.com, ninasc@fb.com, Tejun Heo <tj@kernel.org>
+To: davem@davemloft.net, pablo@netfilter.org, kaber@trash.net,
+	kadlec@blackhole.kfki.hu, daniel@iogearbox.net,
+	daniel.wagner@bmw-carit.de, nhorman@tuxdriver.co
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1448122441-9335-1-git-send-email-tj@kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement cgroup_get_from_path() using kernfs_walk_and_get() which
-obtains a default hierarchy cgroup from its path.  This will be used
-to allow cgroup path based matching from outside cgroup proper -
-e.g. networking and perf.
+Introduce sock->sk_cgrp_data which is a struct sock_cgroup_data.
+->sk_cgroup_prioidx and ->sk_classid are moved into it.  The struct
+and its accessors are defined in cgroup-defs.h.  This is to prepare
+for overloading the fields with a cgroup pointer.
 
-v2: Add EXPORT_SYMBOL_GPL(cgroup_get_from_path).
+This patch mostly performs equivalent conversions but the followings
+are noteworthy.
 
-Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+* Equality test before updating classid is removed from
+  sock_update_classid().  This shouldn't make any noticeable
+  difference and a similar test will be implemented on the helper side
+  later.
+
+* sock_update_netprioidx() now takes struct sock_cgroup_data and can
+  be moved to netprio_cgroup.h without causing include dependency
+  loop.  Moved.
+
+* The dummy version of sock_update_netprioidx() converted to a static
+  inline function while at it.
+
+Signed-off-by: Tejun Heo <tj@kernel.org>
 ---
- include/linux/cgroup.h |  7 +++++++
- kernel/cgroup.c        | 39 ++++++++++++++++++++++++++++++++++-----
- 2 files changed, 41 insertions(+), 5 deletions(-)
+ include/linux/cgroup-defs.h  | 36 ++++++++++++++++++++++++++++++++++++
+ include/net/cls_cgroup.h     | 11 +++++------
+ include/net/netprio_cgroup.h | 16 +++++++++++++---
+ include/net/sock.h           | 11 +++--------
+ net/Kconfig                  |  6 ++++++
+ net/core/dev.c               |  3 ++-
+ net/core/netclassid_cgroup.c |  4 ++--
+ net/core/netprio_cgroup.c    |  3 ++-
+ net/core/scm.c               |  4 ++--
+ net/core/sock.c              | 15 ++-------------
+ net/netfilter/nft_meta.c     |  2 +-
+ net/netfilter/xt_cgroup.c    |  3 ++-
+ 12 files changed, 76 insertions(+), 38 deletions(-)
 
-diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
-index b5ee2c4..4c3ffab 100644
---- a/include/linux/cgroup.h
-+++ b/include/linux/cgroup.h
-@@ -81,6 +81,8 @@ struct cgroup_subsys_state *cgroup_get_e_css(struct cgroup *cgroup,
- struct cgroup_subsys_state *css_tryget_online_from_dir(struct dentry *dentry,
- 						       struct cgroup_subsys *ss);
+diff --git a/include/linux/cgroup-defs.h b/include/linux/cgroup-defs.h
+index 504d859..ed128fed 100644
+--- a/include/linux/cgroup-defs.h
++++ b/include/linux/cgroup-defs.h
+@@ -542,4 +542,40 @@ static inline void cgroup_threadgroup_change_end(struct task_struct *tsk) {}
  
-+struct cgroup *cgroup_get_from_path(const char *path);
+ #endif	/* CONFIG_CGROUPS */
+ 
++#ifdef CONFIG_SOCK_CGROUP_DATA
 +
- int cgroup_attach_task_all(struct task_struct *from, struct task_struct *);
- int cgroup_transfer_tasks(struct cgroup *to, struct cgroup *from);
- 
-@@ -351,6 +353,11 @@ static inline void css_put_many(struct cgroup_subsys_state *css, unsigned int n)
- 		percpu_ref_put_many(&css->refcnt, n);
- }
- 
-+static inline void cgroup_put(struct cgroup *cgrp)
++struct sock_cgroup_data {
++	u16	prioidx;
++	u32	classid;
++};
++
++static inline u16 sock_cgroup_prioidx(struct sock_cgroup_data *skcd)
 +{
-+	css_put(&cgrp->self);
++	return skcd->prioidx;
 +}
 +
- /**
-  * task_css_set_check - obtain a task's css_set with extra access conditions
-  * @task: the task to obtain css_set for
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index 3190040..3db5e8f 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -434,11 +434,6 @@ static bool cgroup_tryget(struct cgroup *cgrp)
- 	return css_tryget(&cgrp->self);
++static inline u32 sock_cgroup_classid(struct sock_cgroup_data *skcd)
++{
++	return skcd->classid;
++}
++
++static inline void sock_cgroup_set_prioidx(struct sock_cgroup_data *skcd,
++					   u16 prioidx)
++{
++	skcd->prioidx = prioidx;
++}
++
++static inline void sock_cgroup_set_classid(struct sock_cgroup_data *skcd,
++					   u32 classid)
++{
++	skcd->classid = classid;
++}
++
++#else	/* CONFIG_SOCK_CGROUP_DATA */
++
++struct sock_cgroup_data {
++};
++
++#endif	/* CONFIG_SOCK_CGROUP_DATA */
++
+ #endif	/* _LINUX_CGROUP_DEFS_H */
+diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
+index ccd6d8b..c0a92e2 100644
+--- a/include/net/cls_cgroup.h
++++ b/include/net/cls_cgroup.h
+@@ -41,13 +41,12 @@ static inline u32 task_cls_classid(struct task_struct *p)
+ 	return classid;
  }
  
--static void cgroup_put(struct cgroup *cgrp)
--{
--	css_put(&cgrp->self);
--}
--
- struct cgroup_subsys_state *of_css(struct kernfs_open_file *of)
+-static inline void sock_update_classid(struct sock *sk)
++static inline void sock_update_classid(struct sock_cgroup_data *skcd)
  {
- 	struct cgroup *cgrp = of->kn->parent->priv;
-@@ -5753,6 +5748,40 @@ struct cgroup_subsys_state *css_from_id(int id, struct cgroup_subsys *ss)
- 	return id > 0 ? idr_find(&ss->css_idr, id) : NULL;
+ 	u32 classid;
+ 
+ 	classid = task_cls_classid(current);
+-	if (classid != sk->sk_classid)
+-		sk->sk_classid = classid;
++	sock_cgroup_set_classid(skcd, classid);
  }
  
-+/**
-+ * cgroup_get_from_path - lookup and get a cgroup from its default hierarchy path
-+ * @path: path on the default hierarchy
-+ *
-+ * Find the cgroup at @path on the default hierarchy, increment its
-+ * reference count and return it.  Returns pointer to the found cgroup on
-+ * success, ERR_PTR(-ENOENT) if @path doens't exist and ERR_PTR(-ENOTDIR)
-+ * if @path points to a non-directory.
-+ */
-+struct cgroup *cgroup_get_from_path(const char *path)
+ static inline u32 task_get_classid(const struct sk_buff *skb)
+@@ -64,17 +63,17 @@ static inline u32 task_get_classid(const struct sk_buff *skb)
+ 	 * softirqs always disables bh.
+ 	 */
+ 	if (in_serving_softirq()) {
+-		/* If there is an sk_classid we'll use that. */
++		/* If there is an sock_cgroup_classid we'll use that. */
+ 		if (!skb->sk)
+ 			return 0;
+ 
+-		classid = skb->sk->sk_classid;
++		classid = sock_cgroup_classid(&skb->sk->sk_cgrp_data);
+ 	}
+ 
+ 	return classid;
+ }
+ #else /* !CONFIG_CGROUP_NET_CLASSID */
+-static inline void sock_update_classid(struct sock *sk)
++static inline void sock_update_classid(struct sock_cgroup_data *skcd)
+ {
+ }
+ 
+diff --git a/include/net/netprio_cgroup.h b/include/net/netprio_cgroup.h
+index f2a9597..6041905 100644
+--- a/include/net/netprio_cgroup.h
++++ b/include/net/netprio_cgroup.h
+@@ -25,8 +25,6 @@ struct netprio_map {
+ 	u32 priomap[];
+ };
+ 
+-void sock_update_netprioidx(struct sock *sk);
+-
+ static inline u32 task_netprioidx(struct task_struct *p)
+ {
+ 	struct cgroup_subsys_state *css;
+@@ -38,13 +36,25 @@ static inline u32 task_netprioidx(struct task_struct *p)
+ 	rcu_read_unlock();
+ 	return idx;
+ }
++
++static inline void sock_update_netprioidx(struct sock_cgroup_data *skcd)
 +{
-+	struct kernfs_node *kn;
-+	struct cgroup *cgrp;
++	if (in_interrupt())
++		return;
 +
-+	mutex_lock(&cgroup_mutex);
-+
-+	kn = kernfs_walk_and_get(cgrp_dfl_root.cgrp.kn, path);
-+	if (kn) {
-+		if (kernfs_type(kn) == KERNFS_DIR) {
-+			cgrp = kn->priv;
-+			cgroup_get(cgrp);
-+		} else {
-+			cgrp = ERR_PTR(-ENOTDIR);
-+		}
-+		kernfs_put(kn);
-+	} else {
-+		cgrp = ERR_PTR(-ENOENT);
-+	}
-+
-+	mutex_unlock(&cgroup_mutex);
-+	return cgrp;
++	sock_cgroup_set_prioidx(skcd, task_netprioidx(current));
 +}
-+EXPORT_SYMBOL_GPL(cgroup_get_from_path);
 +
- #ifdef CONFIG_CGROUP_DEBUG
- static struct cgroup_subsys_state *
- debug_css_alloc(struct cgroup_subsys_state *parent_css)
+ #else /* !CONFIG_CGROUP_NET_PRIO */
++
+ static inline u32 task_netprioidx(struct task_struct *p)
+ {
+ 	return 0;
+ }
+ 
+-#define sock_update_netprioidx(sk)
++static inline void sock_update_netprioidx(struct sock_cgroup_data *skcd)
++{
++}
+ 
+ #endif /* CONFIG_CGROUP_NET_PRIO */
+ #endif  /* _NET_CLS_CGROUP_H */
+diff --git a/include/net/sock.h b/include/net/sock.h
+index b517351..c4e3a30 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -58,6 +58,7 @@
+ #include <linux/memcontrol.h>
+ #include <linux/static_key.h>
+ #include <linux/sched.h>
++#include <linux/cgroup-defs.h>
+ 
+ #include <linux/filter.h>
+ #include <linux/rculist_nulls.h>
+@@ -308,8 +309,7 @@ struct cg_proto;
+   *	@sk_send_head: front of stuff to transmit
+   *	@sk_security: used by security modules
+   *	@sk_mark: generic packet mark
+-  *	@sk_cgrp_prioidx: socket group's priority map index
+-  *	@sk_classid: this socket's cgroup classid
++  *	@sk_cgrp_data: cgroup data for this cgroup
+   *	@sk_cgrp: this socket's cgroup-specific proto data
+   *	@sk_write_pending: a write to stream socket waits to start
+   *	@sk_state_change: callback to indicate change in the state of the sock
+@@ -441,12 +441,7 @@ struct sock {
+ #ifdef CONFIG_SECURITY
+ 	void			*sk_security;
+ #endif
+-#if IS_ENABLED(CONFIG_CGROUP_NET_PRIO)
+-	u16			sk_cgrp_prioidx;
+-#endif
+-#ifdef CONFIG_CGROUP_NET_CLASSID
+-	u32			sk_classid;
+-#endif
++	struct sock_cgroup_data	sk_cgrp_data;
+ 	struct cg_proto		*sk_cgrp;
+ 	void			(*sk_state_change)(struct sock *sk);
+ 	void			(*sk_data_ready)(struct sock *sk);
+diff --git a/net/Kconfig b/net/Kconfig
+index 127da94..11f8c22 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -250,9 +250,14 @@ config XPS
+ 	depends on SMP
+ 	default y
+ 
++config SOCK_CGROUP_DATA
++	bool
++	default n
++
+ config CGROUP_NET_PRIO
+ 	bool "Network priority cgroup"
+ 	depends on CGROUPS
++	select SOCK_CGROUP_DATA
+ 	---help---
+ 	  Cgroup subsystem for use in assigning processes to network priorities on
+ 	  a per-interface basis.
+@@ -260,6 +265,7 @@ config CGROUP_NET_PRIO
+ config CGROUP_NET_CLASSID
+ 	bool "Network classid cgroup"
+ 	depends on CGROUPS
++	select SOCK_CGROUP_DATA
+ 	---help---
+ 	  Cgroup subsystem for use as general purpose socket classid marker that is
+ 	  being used in cls_cgroup and for netfilter matching.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ab9b8d0..2346cfd 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2925,7 +2925,8 @@ static void skb_update_prio(struct sk_buff *skb)
+ 	struct netprio_map *map = rcu_dereference_bh(skb->dev->priomap);
+ 
+ 	if (!skb->priority && skb->sk && map) {
+-		unsigned int prioidx = skb->sk->sk_cgrp_prioidx;
++		unsigned int prioidx =
++			sock_cgroup_prioidx(&skb->sk->sk_cgrp_data);
+ 
+ 		if (prioidx < map->priomap_len)
+ 			skb->priority = map->priomap[prioidx];
+diff --git a/net/core/netclassid_cgroup.c b/net/core/netclassid_cgroup.c
+index 2e4df84..e60ded4 100644
+--- a/net/core/netclassid_cgroup.c
++++ b/net/core/netclassid_cgroup.c
+@@ -62,8 +62,8 @@ static int update_classid_sock(const void *v, struct file *file, unsigned n)
+ 	struct socket *sock = sock_from_file(file, &err);
+ 
+ 	if (sock)
+-		sock->sk->sk_classid = (u32)(unsigned long)v;
+-
++		sock_cgroup_set_classid(&sock->sk->sk_cgrp_data,
++					(unsigned long)v);
+ 	return 0;
+ }
+ 
+diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+index 2b9159b..de42aa7 100644
+--- a/net/core/netprio_cgroup.c
++++ b/net/core/netprio_cgroup.c
+@@ -223,7 +223,8 @@ static int update_netprio(const void *v, struct file *file, unsigned n)
+ 	int err;
+ 	struct socket *sock = sock_from_file(file, &err);
+ 	if (sock)
+-		sock->sk->sk_cgrp_prioidx = (u32)(unsigned long)v;
++		sock_cgroup_set_prioidx(&sock->sk->sk_cgrp_data,
++					(unsigned long)v);
+ 	return 0;
+ }
+ 
+diff --git a/net/core/scm.c b/net/core/scm.c
+index 3b6899b..2a3c7e2 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -289,8 +289,8 @@ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
+ 		/* Bump the usage count and install the file. */
+ 		sock = sock_from_file(fp[i], &err);
+ 		if (sock) {
+-			sock_update_netprioidx(sock->sk);
+-			sock_update_classid(sock->sk);
++			sock_update_netprioidx(&sock->sk->sk_cgrp_data);
++			sock_update_classid(&sock->sk->sk_cgrp_data);
+ 		}
+ 		fd_install(new_fd, get_file(fp[i]));
+ 	}
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 1e4dd54..35af060 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1393,17 +1393,6 @@ static void sk_prot_free(struct proto *prot, struct sock *sk)
+ 	module_put(owner);
+ }
+ 
+-#if IS_ENABLED(CONFIG_CGROUP_NET_PRIO)
+-void sock_update_netprioidx(struct sock *sk)
+-{
+-	if (in_interrupt())
+-		return;
+-
+-	sk->sk_cgrp_prioidx = task_netprioidx(current);
+-}
+-EXPORT_SYMBOL_GPL(sock_update_netprioidx);
+-#endif
+-
+ /**
+  *	sk_alloc - All socket objects are allocated here
+  *	@net: the applicable net namespace
+@@ -1432,8 +1421,8 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
+ 		sock_net_set(sk, net);
+ 		atomic_set(&sk->sk_wmem_alloc, 1);
+ 
+-		sock_update_classid(sk);
+-		sock_update_netprioidx(sk);
++		sock_update_classid(&sk->sk_cgrp_data);
++		sock_update_netprioidx(&sk->sk_cgrp_data);
+ 	}
+ 
+ 	return sk;
+diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
+index 9dfaf4d..1915cab 100644
+--- a/net/netfilter/nft_meta.c
++++ b/net/netfilter/nft_meta.c
+@@ -174,7 +174,7 @@ void nft_meta_get_eval(const struct nft_expr *expr,
+ 		sk = skb_to_full_sk(skb);
+ 		if (!sk || !sk_fullsock(sk))
+ 			goto err;
+-		*dest = sk->sk_classid;
++		*dest = sock_cgroup_classid(&sk->sk_cgrp_data);
+ 		break;
+ #endif
+ 	default:
+diff --git a/net/netfilter/xt_cgroup.c b/net/netfilter/xt_cgroup.c
+index a1d126f..54eaeb4 100644
+--- a/net/netfilter/xt_cgroup.c
++++ b/net/netfilter/xt_cgroup.c
+@@ -42,7 +42,8 @@ cgroup_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	if (skb->sk == NULL || !sk_fullsock(skb->sk))
+ 		return false;
+ 
+-	return (info->id == skb->sk->sk_classid) ^ info->invert;
++	return (info->id == sock_cgroup_classid(&skb->sk->sk_cgrp_data)) ^
++		info->invert;
+ }
+ 
+ static struct xt_match cgroup_mt_reg __read_mostly = {
 -- 
 2.5.0
+
