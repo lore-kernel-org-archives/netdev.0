@@ -1,61 +1,56 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: Re: [PATCH v2 06/27] brcm80211: move under broadcom vendor directory
-Date: Sat, 21 Nov 2015 14:46:13 +0100
-Message-ID: <565075A5.4020506@hauke-m.de>
-References: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
- <1447857966-19560-7-git-send-email-kvalo@codeaurora.org>
- <564CCF2A.4030203@hauke-m.de> <871tbmwhsk.fsf@kamboji.qca.qualcomm.com>
- <564F966A.7080300@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 7/9] net: ipmr: remove SLAB_PANIC
+Date: Sat, 21 Nov 2015 06:23:33 -0800
+Message-ID: <1448115813.22599.289.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1448110902-28793-1-git-send-email-razor@blackwall.org>
+	 <1448110902-28793-8-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, brcm80211-dev-list@broadcom.com
-To: Arend van Spriel <arend@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Nikolay Aleksandrov <razor@blackwall.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hauke-m.de ([5.39.93.123]:40140 "EHLO hauke-m.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751449AbbKUNqQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Nov 2015 08:46:16 -0500
-In-Reply-To: <564F966A.7080300@broadcom.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:36521 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752876AbbKUOXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2015 09:23:35 -0500
+Received: by pacdm15 with SMTP id dm15so145300090pac.3
+        for <netdev@vger.kernel.org>; Sat, 21 Nov 2015 06:23:35 -0800 (PST)
+In-Reply-To: <1448110902-28793-8-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/20/2015 10:53 PM, Arend van Spriel wrote:
-> On 11/19/2015 08:48 AM, Kalle Valo wrote:
->> Hauke Mehrtens <hauke@hauke-m.de> writes:
->>
->>> On 11/18/2015 03:45 PM, Kalle Valo wrote:
->>>> Part of reorganising wireless drivers directory and Kconfig. Note
->>>> that I had to
->>>> edit Makefiles from subdirectories to use the new location.
->>>>
->>>> Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
->>>> ---
->>>
->>> I would prefer to remove the brcm80211 directory in this process and
->>> create:
->>> drivers/net/wireless/broadcom/brcmfmac
->>> drivers/net/wireless/broadcom/brcmsmac
->>> drivers/net/wireless/broadcom/brcmutil
->>> drivers/net/wireless/broadcom/include
->>>
->>> This way we have one directory less.
->>
->> I think this could be done separately. This patchset is big enough
->> already, I would not like to make it anymore complicated.
->>
->> And I actually like the brcm80211 directory, I would not mind keeping it
->> still.
+On Sat, 2015-11-21 at 14:01 +0100, Nikolay Aleksandrov wrote:
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > 
-> I prefer to keep it as brcmsmac and brcmfmac rely on brcmutil module so
-> I want to keep them together under brcm80211.
+> It's not necessary to panic upon allocation failure, returning an error
+> at that point is okay because user-space won't be able to use any of the
+> ops since they didn't get registered and the default table is null.
 > 
-> So does this patch go in before or after the patches I submitted before
-> the merge window. I hope after :-p
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> ---
+>  net/ipv4/ipmr.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+> index a006d96d6cd9..2c7fa584a274 100644
+> --- a/net/ipv4/ipmr.c
+> +++ b/net/ipv4/ipmr.c
+> @@ -2675,7 +2675,7 @@ int __init ip_mr_init(void)
+>  
+>  	mrt_cachep = kmem_cache_create("ip_mrt_cache",
+>  				       sizeof(struct mfc_cache),
+> -				       0, SLAB_HWCACHE_ALIGN | SLAB_PANIC,
+> +				       0, SLAB_HWCACHE_ALIGN,
+>  				       NULL);
+>  	if (!mrt_cachep)
+>  		return -ENOMEM;
 
-Ok, then leave it like Kalle proposed. backports should work with both
-versions.
+This runs at boot time.
 
-Hauke
+I very much prefer a panic instead of having to deal with a host with a
+probable bug in mm layer at this point.
+
+For IPv6, it is a different matter as it might be a module, thus
+ip6_mr_init() does not use SLAB_PANIC
