@@ -1,135 +1,114 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 2/9] kernfs: implement kernfs_walk_and_get()
-Date: Sat, 21 Nov 2015 11:13:54 -0500
-Message-ID: <1448122441-9335-3-git-send-email-tj@kernel.org>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 3/9] cgroup: implement cgroup_get_from_path() and expose cgroup_put()
+Date: Sat, 21 Nov 2015 11:13:55 -0500
+Message-ID: <1448122441-9335-4-git-send-email-tj@kernel.org>
 References: <1448122441-9335-1-git-send-email-tj@kernel.org>
-Cc: lizefan@huawei.com, hannes@cmpxchg.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-team@fb.com, ninasc@fb.com, Tejun Heo <tj@kernel.org>
-To: davem@davemloft.net, pablo@netfilter.org, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, daniel@iogearbox.net,
-	daniel.wagner@bmw-carit.de, nhorman@tuxdriver.co
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1448122441-9335-1-git-send-email-tj@kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-team-b10kYP2dOMg@public.gmane.org, ninasc-b10kYP2dOMg@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
+	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, nhorman-2XuSBdqkA4SvXiR4WA35Jg@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1448122441-9335-1-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Implement kernfs_walk_and_get() which is similar to
-kernfs_find_and_get() but can walk a path instead of just a name.
+Implement cgroup_get_from_path() using kernfs_walk_and_get() which
+obtains a default hierarchy cgroup from its path.  This will be used
+to allow cgroup path based matching from outside cgroup proper -
+e.g. networking and perf.
 
-v2: Use strlcpy() instead of strlen() + memcpy() as suggested by
-    David.
+v2: Add EXPORT_SYMBOL_GPL(cgroup_get_from_path).
 
-Signed-off-by: Tejun Heo <tj@kernel.org>
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- fs/kernfs/dir.c        | 46 ++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/kernfs.h | 12 ++++++++++++
- 2 files changed, 58 insertions(+)
+ include/linux/cgroup.h |  7 +++++++
+ kernel/cgroup.c        | 39 ++++++++++++++++++++++++++++++++++-----
+ 2 files changed, 41 insertions(+), 5 deletions(-)
 
-diff --git a/fs/kernfs/dir.c b/fs/kernfs/dir.c
-index 91e0045..742bf4a 100644
---- a/fs/kernfs/dir.c
-+++ b/fs/kernfs/dir.c
-@@ -694,6 +694,29 @@ static struct kernfs_node *kernfs_find_ns(struct kernfs_node *parent,
- 	return NULL;
+diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
+index b5ee2c4..4c3ffab 100644
+--- a/include/linux/cgroup.h
++++ b/include/linux/cgroup.h
+@@ -81,6 +81,8 @@ struct cgroup_subsys_state *cgroup_get_e_css(struct cgroup *cgroup,
+ struct cgroup_subsys_state *css_tryget_online_from_dir(struct dentry *dentry,
+ 						       struct cgroup_subsys *ss);
+ 
++struct cgroup *cgroup_get_from_path(const char *path);
++
+ int cgroup_attach_task_all(struct task_struct *from, struct task_struct *);
+ int cgroup_transfer_tasks(struct cgroup *to, struct cgroup *from);
+ 
+@@ -351,6 +353,11 @@ static inline void css_put_many(struct cgroup_subsys_state *css, unsigned int n)
+ 		percpu_ref_put_many(&css->refcnt, n);
  }
  
-+static struct kernfs_node *kernfs_walk_ns(struct kernfs_node *parent,
-+					  const unsigned char *path,
-+					  const void *ns)
++static inline void cgroup_put(struct cgroup *cgrp)
 +{
-+	static char path_buf[PATH_MAX];	/* protected by kernfs_mutex */
-+	size_t len = strlcpy(path_buf, path, PATH_MAX);
-+	char *p = path_buf;
-+	char *name;
-+
-+	lockdep_assert_held(&kernfs_mutex);
-+
-+	if (len >= PATH_MAX)
-+		return NULL;
-+
-+	while ((name = strsep(&p, "/")) && parent) {
-+		if (*name == '\0')
-+			continue;
-+		parent = kernfs_find_ns(parent, name, ns);
-+	}
-+
-+	return parent;
++	css_put(&cgrp->self);
 +}
 +
  /**
-  * kernfs_find_and_get_ns - find and get kernfs_node with the given name
-  * @parent: kernfs_node to search under
-@@ -719,6 +742,29 @@ struct kernfs_node *kernfs_find_and_get_ns(struct kernfs_node *parent,
- EXPORT_SYMBOL_GPL(kernfs_find_and_get_ns);
+  * task_css_set_check - obtain a task's css_set with extra access conditions
+  * @task: the task to obtain css_set for
+diff --git a/kernel/cgroup.c b/kernel/cgroup.c
+index 3190040..3db5e8f 100644
+--- a/kernel/cgroup.c
++++ b/kernel/cgroup.c
+@@ -434,11 +434,6 @@ static bool cgroup_tryget(struct cgroup *cgrp)
+ 	return css_tryget(&cgrp->self);
+ }
  
- /**
-+ * kernfs_walk_and_get_ns - find and get kernfs_node with the given path
-+ * @parent: kernfs_node to search under
-+ * @path: path to look for
-+ * @ns: the namespace tag to use
+-static void cgroup_put(struct cgroup *cgrp)
+-{
+-	css_put(&cgrp->self);
+-}
+-
+ struct cgroup_subsys_state *of_css(struct kernfs_open_file *of)
+ {
+ 	struct cgroup *cgrp = of->kn->parent->priv;
+@@ -5753,6 +5748,40 @@ struct cgroup_subsys_state *css_from_id(int id, struct cgroup_subsys *ss)
+ 	return id > 0 ? idr_find(&ss->css_idr, id) : NULL;
+ }
+ 
++/**
++ * cgroup_get_from_path - lookup and get a cgroup from its default hierarchy path
++ * @path: path on the default hierarchy
 + *
-+ * Look for kernfs_node with path @path under @parent and get a reference
-+ * if found.  This function may sleep and returns pointer to the found
-+ * kernfs_node on success, %NULL on failure.
++ * Find the cgroup at @path on the default hierarchy, increment its
++ * reference count and return it.  Returns pointer to the found cgroup on
++ * success, ERR_PTR(-ENOENT) if @path doens't exist and ERR_PTR(-ENOTDIR)
++ * if @path points to a non-directory.
 + */
-+struct kernfs_node *kernfs_walk_and_get_ns(struct kernfs_node *parent,
-+					   const char *path, const void *ns)
++struct cgroup *cgroup_get_from_path(const char *path)
 +{
 +	struct kernfs_node *kn;
++	struct cgroup *cgrp;
 +
-+	mutex_lock(&kernfs_mutex);
-+	kn = kernfs_walk_ns(parent, path, ns);
-+	kernfs_get(kn);
-+	mutex_unlock(&kernfs_mutex);
++	mutex_lock(&cgroup_mutex);
 +
-+	return kn;
++	kn = kernfs_walk_and_get(cgrp_dfl_root.cgrp.kn, path);
++	if (kn) {
++		if (kernfs_type(kn) == KERNFS_DIR) {
++			cgrp = kn->priv;
++			cgroup_get(cgrp);
++		} else {
++			cgrp = ERR_PTR(-ENOTDIR);
++		}
++		kernfs_put(kn);
++	} else {
++		cgrp = ERR_PTR(-ENOENT);
++	}
++
++	mutex_unlock(&cgroup_mutex);
++	return cgrp;
 +}
++EXPORT_SYMBOL_GPL(cgroup_get_from_path);
 +
-+/**
-  * kernfs_create_root - create a new kernfs hierarchy
-  * @scops: optional syscall operations for the hierarchy
-  * @flags: KERNFS_ROOT_* flags
-diff --git a/include/linux/kernfs.h b/include/linux/kernfs.h
-index 5d4e9c4..af51df3 100644
---- a/include/linux/kernfs.h
-+++ b/include/linux/kernfs.h
-@@ -274,6 +274,8 @@ void pr_cont_kernfs_path(struct kernfs_node *kn);
- struct kernfs_node *kernfs_get_parent(struct kernfs_node *kn);
- struct kernfs_node *kernfs_find_and_get_ns(struct kernfs_node *parent,
- 					   const char *name, const void *ns);
-+struct kernfs_node *kernfs_walk_and_get_ns(struct kernfs_node *parent,
-+					   const char *path, const void *ns);
- void kernfs_get(struct kernfs_node *kn);
- void kernfs_put(struct kernfs_node *kn);
- 
-@@ -350,6 +352,10 @@ static inline struct kernfs_node *
- kernfs_find_and_get_ns(struct kernfs_node *parent, const char *name,
- 		       const void *ns)
- { return NULL; }
-+static inline struct kernfs_node *
-+kernfs_walk_and_get_ns(struct kernfs_node *parent, const char *path,
-+		       const void *ns)
-+{ return NULL; }
- 
- static inline void kernfs_get(struct kernfs_node *kn) { }
- static inline void kernfs_put(struct kernfs_node *kn) { }
-@@ -431,6 +437,12 @@ kernfs_find_and_get(struct kernfs_node *kn, const char *name)
- }
- 
- static inline struct kernfs_node *
-+kernfs_walk_and_get(struct kernfs_node *kn, const char *path)
-+{
-+	return kernfs_walk_and_get_ns(kn, path, NULL);
-+}
-+
-+static inline struct kernfs_node *
- kernfs_create_dir(struct kernfs_node *parent, const char *name, umode_t mode,
- 		  void *priv)
- {
+ #ifdef CONFIG_CGROUP_DEBUG
+ static struct cgroup_subsys_state *
+ debug_css_alloc(struct cgroup_subsys_state *parent_css)
 -- 
 2.5.0
-
