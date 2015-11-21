@@ -1,103 +1,112 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 1/9] net: ipmr: move the tbl id check in ipmr_new_table
-Date: Sat, 21 Nov 2015 14:01:34 +0100
-Message-ID: <1448110902-28793-2-git-send-email-razor@blackwall.org>
+Subject: [PATCH net-next 9/9] net: ipmr: factor out common vif init code
+Date: Sat, 21 Nov 2015 14:01:42 +0100
+Message-ID: <1448110902-28793-10-git-send-email-razor@blackwall.org>
 References: <1448110902-28793-1-git-send-email-razor@blackwall.org>
 Cc: davem@davemloft.net,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:33497 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751747AbbKUNBt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2015 08:01:49 -0500
-Received: by wmec201 with SMTP id c201so105470143wme.0
-        for <netdev@vger.kernel.org>; Sat, 21 Nov 2015 05:01:47 -0800 (PST)
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:34278 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759953AbbKUNBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2015 08:01:55 -0500
+Received: by wmvv187 with SMTP id v187so105479970wmv.1
+        for <netdev@vger.kernel.org>; Sat, 21 Nov 2015 05:01:53 -0800 (PST)
 In-Reply-To: <1448110902-28793-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Move the table id check in ipmr_new_table and make it return error
-pointer. We need this change for the upcoming netlink table manipulation
-support in order to avoid code duplication and a race condition.
+Factor out common vif init code used in both tunnel and pimreg
+initialization and create ipmr_init_vif_indev() function.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- net/ipv4/ipmr.c | 28 +++++++++++++++++-----------
- 1 file changed, 17 insertions(+), 11 deletions(-)
+ net/ipv4/ipmr.c | 40 +++++++++++++++++++---------------------
+ 1 file changed, 19 insertions(+), 21 deletions(-)
 
 diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 92dd4b74d513..5271e2eee110 100644
+index f2ea97fbb8a8..73361c908e5e 100644
 --- a/net/ipv4/ipmr.c
 +++ b/net/ipv4/ipmr.c
-@@ -252,8 +252,8 @@ static int __net_init ipmr_rules_init(struct net *net)
- 	INIT_LIST_HEAD(&net->ipv4.mr_tables);
- 
- 	mrt = ipmr_new_table(net, RT_TABLE_DEFAULT);
--	if (!mrt) {
--		err = -ENOMEM;
-+	if (IS_ERR(mrt)) {
-+		err = PTR_ERR(mrt);
- 		goto err1;
+@@ -391,6 +391,23 @@ static void ipmr_del_tunnel(struct net_device *dev, struct vifctl *v)
  	}
- 
-@@ -301,8 +301,13 @@ static int ipmr_fib_lookup(struct net *net, struct flowi4 *flp4,
- 
- static int __net_init ipmr_rules_init(struct net *net)
- {
--	net->ipv4.mrt = ipmr_new_table(net, RT_TABLE_DEFAULT);
--	return net->ipv4.mrt ? 0 : -ENOMEM;
-+	struct mr_table *mrt;
-+
-+	mrt = ipmr_new_table(net, RT_TABLE_DEFAULT);
-+	if (IS_ERR(mrt))
-+		return PTR_ERR(mrt);
-+	net->ipv4.mrt = mrt;
-+	return 0;
  }
  
- static void __net_exit ipmr_rules_exit(struct net *net)
-@@ -319,13 +324,17 @@ static struct mr_table *ipmr_new_table(struct net *net, u32 id)
- 	struct mr_table *mrt;
- 	unsigned int i;
- 
-+	/* "pimreg%u" should not exceed 16 bytes (IFNAMSIZ) */
-+	if (id != RT_TABLE_DEFAULT && id >= 1000000000)
-+		return ERR_PTR(-EINVAL);
++/* Initialize ipmr pimreg/tunnel in_device */
++static bool ipmr_init_vif_indev(const struct net_device *dev)
++{
++	struct in_device *in_dev;
 +
- 	mrt = ipmr_get_table(net, id);
- 	if (mrt)
- 		return mrt;
++	ASSERT_RTNL();
++
++	in_dev = __in_dev_get_rtnl(dev);
++	if (!in_dev)
++		return false;
++	ipv4_devconf_setall(in_dev);
++	neigh_parms_data_state_setall(in_dev->arp_parms);
++	IPV4_DEVCONF(in_dev->cnf, RP_FILTER) = 0;
++
++	return true;
++}
++
+ static struct net_device *ipmr_new_tunnel(struct net *net, struct vifctl *v)
+ {
+ 	struct net_device  *dev;
+@@ -402,7 +419,6 @@ static struct net_device *ipmr_new_tunnel(struct net *net, struct vifctl *v)
+ 		int err;
+ 		struct ifreq ifr;
+ 		struct ip_tunnel_parm p;
+-		struct in_device  *in_dev;
  
- 	mrt = kzalloc(sizeof(*mrt), GFP_KERNEL);
- 	if (!mrt)
--		return NULL;
-+		return ERR_PTR(-ENOMEM);
- 	write_pnet(&mrt->net, net);
- 	mrt->id = id;
- 
-@@ -1407,17 +1416,14 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
- 		if (get_user(v, (u32 __user *)optval))
- 			return -EFAULT;
- 
--		/* "pimreg%u" should not exceed 16 bytes (IFNAMSIZ) */
--		if (v != RT_TABLE_DEFAULT && v >= 1000000000)
--			return -EINVAL;
+ 		memset(&p, 0, sizeof(p));
+ 		p.iph.daddr = v->vifc_rmt_addr.s_addr;
+@@ -427,15 +443,8 @@ static struct net_device *ipmr_new_tunnel(struct net *net, struct vifctl *v)
+ 		if (err == 0 &&
+ 		    (dev = __dev_get_by_name(net, p.name)) != NULL) {
+ 			dev->flags |= IFF_MULTICAST;
 -
- 		rtnl_lock();
- 		ret = 0;
- 		if (sk == rtnl_dereference(mrt->mroute_sk)) {
- 			ret = -EBUSY;
- 		} else {
--			if (!ipmr_new_table(net, v))
--				ret = -ENOMEM;
-+			mrt = ipmr_new_table(net, v);
-+			if (IS_ERR(mrt))
-+				ret = PTR_ERR(mrt);
- 			else
- 				raw_sk(sk)->ipmr_table = v;
- 		}
+-			in_dev = __in_dev_get_rtnl(dev);
+-			if (!in_dev)
++			if (!ipmr_init_vif_indev(dev))
+ 				goto failure;
+-
+-			ipv4_devconf_setall(in_dev);
+-			neigh_parms_data_state_setall(in_dev->arp_parms);
+-			IPV4_DEVCONF(in_dev->cnf, RP_FILTER) = 0;
+-
+ 			if (dev_open(dev))
+ 				goto failure;
+ 			dev_hold(dev);
+@@ -502,7 +511,6 @@ static void reg_vif_setup(struct net_device *dev)
+ static struct net_device *ipmr_reg_vif(struct net *net, struct mr_table *mrt)
+ {
+ 	struct net_device *dev;
+-	struct in_device *in_dev;
+ 	char name[IFNAMSIZ];
+ 
+ 	if (mrt->id == RT_TABLE_DEFAULT)
+@@ -522,18 +530,8 @@ static struct net_device *ipmr_reg_vif(struct net *net, struct mr_table *mrt)
+ 		return NULL;
+ 	}
+ 
+-	rcu_read_lock();
+-	in_dev = __in_dev_get_rcu(dev);
+-	if (!in_dev) {
+-		rcu_read_unlock();
++	if (!ipmr_init_vif_indev(dev))
+ 		goto failure;
+-	}
+-
+-	ipv4_devconf_setall(in_dev);
+-	neigh_parms_data_state_setall(in_dev->arp_parms);
+-	IPV4_DEVCONF(in_dev->cnf, RP_FILTER) = 0;
+-	rcu_read_unlock();
+-
+ 	if (dev_open(dev))
+ 		goto failure;
+ 
 -- 
 2.4.3
