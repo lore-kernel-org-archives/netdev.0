@@ -1,46 +1,64 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] packet: Allow packets with only a header (but no payload)
-Date: Sun, 22 Nov 2015 00:32:12 +0300
-Message-ID: <5650E2DC.9060800@cogentembedded.com>
-References: <1437495247-471-1-git-send-email-martin.blumenstingl@googlemail.com>
- <1448067012-15090-1-git-send-email-martin.blumenstingl@googlemail.com>
+From: Marek Lindner <mareklindner@neomailbox.ch>
+Subject: Re: [B.A.T.M.A.N.] [PATCH 2/3] batman-adv: Split a condition check
+Date: Sun, 22 Nov 2015 05:51:04 +0800
+Message-ID: <2723284.fvSBmu6aJ3__2843.14265377379$1448142741$gmane$org@voltaire>
+References: <5307CAA2.8060406@users.sourceforge.net> <56391CF7.9080400@users.sourceforge.net> <56391F0B.2060102@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: willemb@google.com, edumazet@google.com, dborkman@redhat.com,
-	davem@davemloft.net, mostrows@earthlink.net, nbd@openwrt.org
-To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-	netdev@vger.kernel.org
+Content-Type: multipart/signed; boundary="nextPart5154744.fNLkcmSmS2"; micalg="pgp-sha256"; protocol="application/pgp-signature"
+Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
+	Antonio Quartulli <antonio@meshcoding.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Simon Wunderlich <sw@simonwunderlich.de>,
+	netdev@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>,
+	kernel-janitors@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: b.a.t.m.a.n@lists.open-mesh.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:35868 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751569AbbKUVcP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2015 16:32:15 -0500
-Received: by lbblt2 with SMTP id lt2so78948324lbb.3
-        for <netdev@vger.kernel.org>; Sat, 21 Nov 2015 13:32:14 -0800 (PST)
-In-Reply-To: <1448067012-15090-1-git-send-email-martin.blumenstingl@googlemail.com>
+Received: from s1.neomailbox.net ([5.148.176.57]:28458 "EHLO s1.neomailbox.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751641AbbKUVvO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Nov 2015 16:51:14 -0500
+In-Reply-To: <56391F0B.2060102@users.sourceforge.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+--nextPart5154744.fNLkcmSmS2
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="us-ascii"
 
-On 11/21/2015 3:50 AM, Martin Blumenstingl wrote:
+On Tuesday, November 03, 2015 21:54:35 SF Markus Elfring wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Tue, 3 Nov 2015 20:41:02 +0100
+> 
+> Let us split a check for a condition at the beginning of the
+> batadv_is_ap_isolated() function so that a direct return can be performed
+> in this function if the variable "vlan" contained a null pointer.
+> 
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> ---
+>  net/batman-adv/translation-table.c | 5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
 
-> 9c70776 added validation for the packet size in packet_snd. This change
+Applied in revision b1199c6.
 
-    Please run your patch thru scripts/checkpatch.pl -- it now enforces 
-certain commit citing style.
+Thanks,
+Marek
 
-> enforced that every packet needs a header with at least hard_header_len
-> bytes  and at least one byte payload.
->
-> This fixes PPPoE connections which do not have a "Service" or
-> "Host-Uniq" configured (which is violating the spec, but is still
-> widely used in real-world setups). Those are currently failing with the
-> following message: "pppd: packet size is too short (24 <= 24)"
->
-> Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+--nextPart5154744.fNLkcmSmS2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
 
-[...]
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-MBR, Sergei
+iQEcBAABCAAGBQJWUOdIAAoJEFNVTo/uthzAH6MH/1ZRFtHupThwVXcBfnoqGgUY
+qgd9VHY6TX1BEbSF79nydp8bqjIES8yXE8ltBXCwy3ixgkomZyxNyqnAXlFfZoOi
+QBwMQcS0LFKEoLFbP80P6JDU869DjqS8upKZ75klqne+kFxB6eA13joxpqJgVSYv
+lVeSL3i64JZSjqwFXmRFeDX7wUMfFfZoKDYeJoF3RU7Pu73vA0Jpa+d7SkoHrUKG
+g9PwApoZosqe/Wo46Wdm8DMr97iEynrOQBVkqcVO8wLXGMOGAmZ8/xEKd4gYAx9v
+CH5OJnMy06YH2B2Lil/c+mEmVl01rntn5I4mO3tCzqZ3PzQFDip9q/dzfZTCjYI=
+=6RRe
+-----END PGP SIGNATURE-----
+
+--nextPart5154744.fNLkcmSmS2--
