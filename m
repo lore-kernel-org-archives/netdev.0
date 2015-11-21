@@ -1,54 +1,67 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 9/9] netfilter: implement xt_cgroup cgroup2 path match
-Date: Sat, 21 Nov 2015 12:04:25 -0500
-Message-ID: <20151121170425.GD3428@htj.duckdns.org>
-References: <1448122441-9335-1-git-send-email-tj@kernel.org>
- <1448122441-9335-10-git-send-email-tj@kernel.org>
- <20151121165605.GC25336@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
-	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, nhorman-2XuSBdqkA4SvXiR4WA35Jg@public.gmane.org,
-	lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-team-b10kYP2dOMg@public.gmane.org, ninasc-b10kYP2dOMg@public.gmane.org,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Jan Engelhardt <jengelh-9+2X+4sQBs8@public.gmane.org>
-To: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151121165605.GC25336-E0PNVn5OA6ohrxcnuTQ+TQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH] net: atm: constify in_cache_ops and eg_cache_ops structures
+Date: Sat, 21 Nov 2015 18:28:05 +0100
+Message-ID: <1448126885-7666-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:32615
+	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751514AbbKURj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2015 12:39:56 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+The in_cache_ops and eg_cache_ops structures are never modified, so declare
+them as const.
 
-On Sat, Nov 21, 2015 at 05:56:06PM +0100, Florian Westphal wrote:
-> > +struct xt_cgroup_info_v1 {
-> > +	__u8		has_path;
-> > +	__u8		has_classid;
-> > +	__u8		invert_path;
-> > +	__u8		invert_classid;
-> > +	char		path[PATH_MAX];
-> > +	__u32		classid;
-> > +
-> > +	/* kernel internal data */
-> > +	void		*priv __attribute__((aligned(8)));
-> > +};
-> 
-> Ahem.  Am I reading this right? This struct is > 4k in size?
-> If so -- Ugh.  Does sizeof(path) really have to be PATH_MAX?
+Done with the help of Coccinelle.
 
-Hmmm... yeap but would this be an acutual problem?  We can try to make
-it shorter but idk it ultimately is a path.  Another solution would be
-trying to pass inode around but that is problematic with showing and
-printing rules as the only way to reverse-map inode to path is walking
-the tree and the cgroup may already be gone at that point.  While >4k
-struct isn't pretty, this looks like the path of least resistance.
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Thanks.
+---
+ net/atm/mpc.h         |    4 ++--
+ net/atm/mpoa_caches.c |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
--- 
-tejun
+diff --git a/net/atm/mpc.h b/net/atm/mpc.h
+index 0919a88..cfc7b74 100644
+--- a/net/atm/mpc.h
++++ b/net/atm/mpc.h
+@@ -21,11 +21,11 @@ struct mpoa_client {
+ 	uint8_t our_ctrl_addr[ATM_ESA_LEN];  /* MPC's control ATM address   */
+ 
+ 	rwlock_t ingress_lock;
+-	struct in_cache_ops *in_ops; /* ingress cache operations            */
++	const struct in_cache_ops *in_ops; /* ingress cache operations      */
+ 	in_cache_entry *in_cache;    /* the ingress cache of this MPC       */
+ 
+ 	rwlock_t egress_lock;
+-	struct eg_cache_ops *eg_ops; /* egress cache operations             */
++	const struct eg_cache_ops *eg_ops; /* egress cache operations       */
+ 	eg_cache_entry *eg_cache;    /* the egress  cache of this MPC       */
+ 
+ 	uint8_t *mps_macs;           /* array of MPS MAC addresses, >=1     */
+diff --git a/net/atm/mpoa_caches.c b/net/atm/mpoa_caches.c
+index d1b2d9a..9e60e74 100644
+--- a/net/atm/mpoa_caches.c
++++ b/net/atm/mpoa_caches.c
+@@ -534,7 +534,7 @@ static void eg_destroy_cache(struct mpoa_client *mpc)
+ }
+ 
+ 
+-static struct in_cache_ops ingress_ops = {
++static const struct in_cache_ops ingress_ops = {
+ 	in_cache_add_entry,               /* add_entry       */
+ 	in_cache_get,                     /* get             */
+ 	in_cache_get_with_mask,           /* get_with_mask   */
+@@ -548,7 +548,7 @@ static struct in_cache_ops ingress_ops = {
+ 	in_destroy_cache                  /* destroy_cache   */
+ };
+ 
+-static struct eg_cache_ops egress_ops = {
++static const struct eg_cache_ops egress_ops = {
+ 	eg_cache_add_entry,               /* add_entry        */
+ 	eg_cache_get_by_cache_id,         /* get_by_cache_id  */
+ 	eg_cache_get_by_tag,              /* get_by_tag       */
