@@ -1,50 +1,56 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 0/9] net: ipmr: cleanups and minor improvements
-Date: Sat, 21 Nov 2015 14:01:33 +0100
-Message-ID: <1448110902-28793-1-git-send-email-razor@blackwall.org>
+Subject: [PATCH net-next 6/9] net: ipmr: drop an instance of CONFIG_IP_MROUTE_MULTIPLE_TABLES
+Date: Sat, 21 Nov 2015 14:01:39 +0100
+Message-ID: <1448110902-28793-7-git-send-email-razor@blackwall.org>
+References: <1448110902-28793-1-git-send-email-razor@blackwall.org>
 Cc: davem@davemloft.net,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:34217 "EHLO
-	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751697AbbKUNBs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2015 08:01:48 -0500
-Received: by wmvv187 with SMTP id v187so105477637wmv.1
-        for <netdev@vger.kernel.org>; Sat, 21 Nov 2015 05:01:46 -0800 (PST)
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:34258 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759899AbbKUNBw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2015 08:01:52 -0500
+Received: by wmvv187 with SMTP id v187so105479265wmv.1
+        for <netdev@vger.kernel.org>; Sat, 21 Nov 2015 05:01:51 -0800 (PST)
+In-Reply-To: <1448110902-28793-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Hi,
-Since I'll have to work with ipmr, I decided to clean it up and do some
-minor improvements. Functionally there're almost no changes except the
-SLAB_PANIC removal. Most of the patches just re-design some functions to
-be clearer and more concise and try to remove the ifdef web that was
-inside. There's more information in each commit. This is the first set,
-the end goal is to introduce complete netlink support and control over
-the mfc and vif devices.
-I've tried to test all of the setsockopt/getsockopt options, and also
-made builds with various ipmr kconfig options turned on and off.
+Trivial replace of ifdef with IS_BUILTIN().
 
-Thank you,
- Nik
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ net/ipv4/ipmr.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Nikolay Aleksandrov (9):
-  net: ipmr: move the tbl id check in ipmr_new_table
-  net: ipmr: always define mroute_reg_vif_num
-  net: ipmr: remove some pimsm ifdefs and simplify
-  net: ipmr: fix code and comment style
-  net: ipmr: make ip_mroute_getsockopt more understandable
-  net: ipmr: drop an instance of CONFIG_IP_MROUTE_MULTIPLE_TABLES
-  net: ipmr: remove SLAB_PANIC
-  net: ipmr: rearrange and cleanup setsockopt
-  net: ipmr: factor out common vif init code
-
- include/uapi/linux/mroute.h |  59 ++---
- net/ipv4/ipmr.c             | 597 ++++++++++++++++++++------------------------
- 2 files changed, 285 insertions(+), 371 deletions(-)
-
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 694fecf7838e..a006d96d6cd9 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1396,11 +1396,12 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
+ 		rtnl_unlock();
+ 		return ret;
+ 	}
+-#ifdef CONFIG_IP_MROUTE_MULTIPLE_TABLES
+ 	case MRT_TABLE:
+ 	{
+ 		u32 v;
+ 
++		if (!IS_BUILTIN(CONFIG_IP_MROUTE_MULTIPLE_TABLES))
++			return -ENOPROTOOPT;
+ 		if (optlen != sizeof(u32))
+ 			return -EINVAL;
+ 		if (get_user(v, (u32 __user *)optval))
+@@ -1420,7 +1421,6 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
+ 		rtnl_unlock();
+ 		return ret;
+ 	}
+-#endif
+ 	/* Spurious command, or MRT_VERSION which you cannot set. */
+ 	default:
+ 		return -ENOPROTOOPT;
 -- 
 2.4.3
