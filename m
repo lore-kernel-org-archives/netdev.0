@@ -1,358 +1,103 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next v2 3/9] net: ipmr: remove some pimsm ifdefs and simplify
-Date: Sat, 21 Nov 2015 15:57:26 +0100
-Message-ID: <1448117852-4254-4-git-send-email-razor@blackwall.org>
+Subject: [PATCH net-next v2 1/9] net: ipmr: move the tbl id check in ipmr_new_table
+Date: Sat, 21 Nov 2015 15:57:24 +0100
+Message-ID: <1448117852-4254-2-git-send-email-razor@blackwall.org>
 References: <1448117852-4254-1-git-send-email-razor@blackwall.org>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:37073 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760742AbbKUO72 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2015 09:59:28 -0500
-Received: by wmww144 with SMTP id w144so54415210wmw.0
-        for <netdev@vger.kernel.org>; Sat, 21 Nov 2015 06:59:27 -0800 (PST)
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:33552 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760573AbbKUO70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2015 09:59:26 -0500
+Received: by wmec201 with SMTP id c201so107650636wme.0
+        for <netdev@vger.kernel.org>; Sat, 21 Nov 2015 06:59:25 -0800 (PST)
 In-Reply-To: <1448117852-4254-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Add the helper pimsm_enabled() which replaces the old CONFIG_IP_PIMSM
-define and is used to check if any version of PIM-SM has been enabled.
-Use a single if defined(CONFIG_IP_PIMSM_V1) || defined(CONFIG_IP_PIMSM_V2)
-for the pim-sm shared code. This is okay w.r.t IGMPMSG_WHOLEPKT because
-only a VIFF_REGISTER device can send such packet, and it can't be
-created if pimsm_enabled() is false.
+Move the table id check in ipmr_new_table and make it return error
+pointer. We need this change for the upcoming netlink table manipulation
+support in order to avoid code duplication and a race condition.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- net/ipv4/ipmr.c | 180 ++++++++++++++++++++++++++------------------------------
- 1 file changed, 84 insertions(+), 96 deletions(-)
+ net/ipv4/ipmr.c | 28 +++++++++++++++++-----------
+ 1 file changed, 17 insertions(+), 11 deletions(-)
 
 diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index dd2462f70d34..e153ab7b17a1 100644
+index 92dd4b74d513..5271e2eee110 100644
 --- a/net/ipv4/ipmr.c
 +++ b/net/ipv4/ipmr.c
-@@ -67,10 +67,6 @@
- #include <net/fib_rules.h>
- #include <linux/netconf.h>
+@@ -252,8 +252,8 @@ static int __net_init ipmr_rules_init(struct net *net)
+ 	INIT_LIST_HEAD(&net->ipv4.mr_tables);
  
--#if defined(CONFIG_IP_PIMSM_V1) || defined(CONFIG_IP_PIMSM_V2)
--#define CONFIG_IP_PIMSM	1
--#endif
--
- struct mr_table {
- 	struct list_head	list;
- 	possible_net_t		net;
-@@ -95,6 +91,11 @@ struct ipmr_result {
- 	struct mr_table		*mrt;
- };
+ 	mrt = ipmr_new_table(net, RT_TABLE_DEFAULT);
+-	if (!mrt) {
+-		err = -ENOMEM;
++	if (IS_ERR(mrt)) {
++		err = PTR_ERR(mrt);
+ 		goto err1;
+ 	}
  
-+static inline bool pimsm_enabled(void)
-+{
-+	return IS_BUILTIN(CONFIG_IP_PIMSM_V1) || IS_BUILTIN(CONFIG_IP_PIMSM_V2);
-+}
-+
- /* Big lock, protecting vif table, mrt cache and mroute socket state.
-  * Note that the changes are semaphored via rtnl_lock.
-  */
-@@ -454,8 +455,7 @@ failure:
- 	return NULL;
- }
+@@ -301,8 +301,13 @@ static int ipmr_fib_lookup(struct net *net, struct flowi4 *flp4,
  
--#ifdef CONFIG_IP_PIMSM
--
-+#if defined(CONFIG_IP_PIMSM_V1) || defined(CONFIG_IP_PIMSM_V2)
- static netdev_tx_t reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
+ static int __net_init ipmr_rules_init(struct net *net)
  {
- 	struct net *net = dev_net(dev);
-@@ -552,6 +552,51 @@ failure:
- 	unregister_netdevice(dev);
- 	return NULL;
+-	net->ipv4.mrt = ipmr_new_table(net, RT_TABLE_DEFAULT);
+-	return net->ipv4.mrt ? 0 : -ENOMEM;
++	struct mr_table *mrt;
++
++	mrt = ipmr_new_table(net, RT_TABLE_DEFAULT);
++	if (IS_ERR(mrt))
++		return PTR_ERR(mrt);
++	net->ipv4.mrt = mrt;
++	return 0;
  }
-+
-+/* called with rcu_read_lock() */
-+static int __pim_rcv(struct mr_table *mrt, struct sk_buff *skb,
-+		     unsigned int pimlen)
-+{
-+	struct net_device *reg_dev = NULL;
-+	struct iphdr *encap;
-+
-+	encap = (struct iphdr *)(skb_transport_header(skb) + pimlen);
-+	/*
-+	 * Check that:
-+	 * a. packet is really sent to a multicast group
-+	 * b. packet is not a NULL-REGISTER
-+	 * c. packet is not truncated
-+	 */
-+	if (!ipv4_is_multicast(encap->daddr) ||
-+	    encap->tot_len == 0 ||
-+	    ntohs(encap->tot_len) + pimlen > skb->len)
-+		return 1;
-+
-+	read_lock(&mrt_lock);
-+	if (mrt->mroute_reg_vif_num >= 0)
-+		reg_dev = mrt->vif_table[mrt->mroute_reg_vif_num].dev;
-+	read_unlock(&mrt_lock);
-+
-+	if (!reg_dev)
-+		return 1;
-+
-+	skb->mac_header = skb->network_header;
-+	skb_pull(skb, (u8 *)encap - skb->data);
-+	skb_reset_network_header(skb);
-+	skb->protocol = htons(ETH_P_IP);
-+	skb->ip_summed = CHECKSUM_NONE;
-+
-+	skb_tunnel_rx(skb, reg_dev, dev_net(reg_dev));
-+
-+	netif_rx(skb);
-+
-+	return NET_RX_SUCCESS;
-+}
-+#else
-+static struct net_device *ipmr_reg_vif(struct net *net, struct mr_table *mrt)
-+{
-+	return NULL;
-+}
- #endif
  
- /**
-@@ -734,10 +779,10 @@ static int vif_add(struct net *net, struct mr_table *mrt,
- 		return -EADDRINUSE;
+ static void __net_exit ipmr_rules_exit(struct net *net)
+@@ -319,13 +324,17 @@ static struct mr_table *ipmr_new_table(struct net *net, u32 id)
+ 	struct mr_table *mrt;
+ 	unsigned int i;
  
- 	switch (vifc->vifc_flags) {
--#ifdef CONFIG_IP_PIMSM
- 	case VIFF_REGISTER:
--		/*
--		 * Special Purpose VIF in PIM
-+		if (!pimsm_enabled())
-+			return -EINVAL;
-+		/* Special Purpose VIF in PIM
- 		 * All the packets will be sent to the daemon
- 		 */
- 		if (mrt->mroute_reg_vif_num >= 0)
-@@ -752,7 +797,6 @@ static int vif_add(struct net *net, struct mr_table *mrt,
- 			return err;
++	/* "pimreg%u" should not exceed 16 bytes (IFNAMSIZ) */
++	if (id != RT_TABLE_DEFAULT && id >= 1000000000)
++		return ERR_PTR(-EINVAL);
++
+ 	mrt = ipmr_get_table(net, id);
+ 	if (mrt)
+ 		return mrt;
+ 
+ 	mrt = kzalloc(sizeof(*mrt), GFP_KERNEL);
+ 	if (!mrt)
+-		return NULL;
++		return ERR_PTR(-ENOMEM);
+ 	write_pnet(&mrt->net, net);
+ 	mrt->id = id;
+ 
+@@ -1407,17 +1416,14 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
+ 		if (get_user(v, (u32 __user *)optval))
+ 			return -EFAULT;
+ 
+-		/* "pimreg%u" should not exceed 16 bytes (IFNAMSIZ) */
+-		if (v != RT_TABLE_DEFAULT && v >= 1000000000)
+-			return -EINVAL;
+-
+ 		rtnl_lock();
+ 		ret = 0;
+ 		if (sk == rtnl_dereference(mrt->mroute_sk)) {
+ 			ret = -EBUSY;
+ 		} else {
+-			if (!ipmr_new_table(net, v))
+-				ret = -ENOMEM;
++			mrt = ipmr_new_table(net, v);
++			if (IS_ERR(mrt))
++				ret = PTR_ERR(mrt);
+ 			else
+ 				raw_sk(sk)->ipmr_table = v;
  		}
- 		break;
--#endif
- 	case VIFF_TUNNEL:
- 		dev = ipmr_new_tunnel(net, vifc);
- 		if (!dev)
-@@ -942,34 +986,29 @@ static void ipmr_cache_resolve(struct net *net, struct mr_table *mrt,
- 	}
- }
- 
--/*
-- *	Bounce a cache query up to mrouted. We could use netlink for this but mrouted
-- *	expects the following bizarre scheme.
-+/* Bounce a cache query up to mrouted. We could use netlink for this but mrouted
-+ * expects the following bizarre scheme.
-  *
-- *	Called under mrt_lock.
-+ * Called under mrt_lock.
-  */
--
- static int ipmr_cache_report(struct mr_table *mrt,
- 			     struct sk_buff *pkt, vifi_t vifi, int assert)
- {
--	struct sk_buff *skb;
- 	const int ihl = ip_hdrlen(pkt);
-+	struct sock *mroute_sk;
- 	struct igmphdr *igmp;
- 	struct igmpmsg *msg;
--	struct sock *mroute_sk;
-+	struct sk_buff *skb;
- 	int ret;
- 
--#ifdef CONFIG_IP_PIMSM
- 	if (assert == IGMPMSG_WHOLEPKT)
- 		skb = skb_realloc_headroom(pkt, sizeof(struct iphdr));
- 	else
--#endif
- 		skb = alloc_skb(128, GFP_ATOMIC);
- 
- 	if (!skb)
- 		return -ENOBUFS;
- 
--#ifdef CONFIG_IP_PIMSM
- 	if (assert == IGMPMSG_WHOLEPKT) {
- 		/* Ugly, but we have no choice with this interface.
- 		 * Duplicate old header, fix ihl, length etc.
-@@ -987,28 +1026,23 @@ static int ipmr_cache_report(struct mr_table *mrt,
- 		ip_hdr(skb)->ihl = sizeof(struct iphdr) >> 2;
- 		ip_hdr(skb)->tot_len = htons(ntohs(ip_hdr(pkt)->tot_len) +
- 					     sizeof(struct iphdr));
--	} else
--#endif
--	{
--
--	/* Copy the IP header */
--
--	skb_set_network_header(skb, skb->len);
--	skb_put(skb, ihl);
--	skb_copy_to_linear_data(skb, pkt->data, ihl);
--	ip_hdr(skb)->protocol = 0;	/* Flag to the kernel this is a route add */
--	msg = (struct igmpmsg *)skb_network_header(skb);
--	msg->im_vif = vifi;
--	skb_dst_set(skb, dst_clone(skb_dst(pkt)));
--
--	/* Add our header */
--
--	igmp = (struct igmphdr *)skb_put(skb, sizeof(struct igmphdr));
--	igmp->type	=
--	msg->im_msgtype = assert;
--	igmp->code	= 0;
--	ip_hdr(skb)->tot_len = htons(skb->len);		/* Fix the length */
--	skb->transport_header = skb->network_header;
-+	} else {
-+		/* Copy the IP header */
-+		skb_set_network_header(skb, skb->len);
-+		skb_put(skb, ihl);
-+		skb_copy_to_linear_data(skb, pkt->data, ihl);
-+		/* Flag to the kernel this is a route add */
-+		ip_hdr(skb)->protocol = 0;
-+		msg = (struct igmpmsg *)skb_network_header(skb);
-+		msg->im_vif = vifi;
-+		skb_dst_set(skb, dst_clone(skb_dst(pkt)));
-+		/* Add our header */
-+		igmp = (struct igmphdr *)skb_put(skb, sizeof(struct igmphdr));
-+		igmp->type = assert;
-+		msg->im_msgtype = assert;
-+		igmp->code = 0;
-+		ip_hdr(skb)->tot_len = htons(skb->len);	/* Fix the length */
-+		skb->transport_header = skb->network_header;
- 	}
- 
- 	rcu_read_lock();
-@@ -1020,7 +1054,6 @@ static int ipmr_cache_report(struct mr_table *mrt,
- 	}
- 
- 	/* Deliver to mrouted */
--
- 	ret = sock_queue_rcv_skb(mroute_sk, skb);
- 	rcu_read_unlock();
- 	if (ret < 0) {
-@@ -1377,11 +1410,12 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
- 		mrt->mroute_do_assert = v;
- 		return 0;
- 	}
--#ifdef CONFIG_IP_PIMSM
- 	case MRT_PIM:
- 	{
- 		int v;
- 
-+		if (!pimsm_enabled())
-+			return -ENOPROTOOPT;
- 		if (optlen != sizeof(v))
- 			return -EINVAL;
- 		if (get_user(v, (int __user *)optval))
-@@ -1397,7 +1431,6 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
- 		rtnl_unlock();
- 		return ret;
- 	}
--#endif
- #ifdef CONFIG_IP_MROUTE_MULTIPLE_TABLES
- 	case MRT_TABLE:
- 	{
-@@ -1452,9 +1485,7 @@ int ip_mroute_getsockopt(struct sock *sk, int optname, char __user *optval, int
- 		return -ENOENT;
- 
- 	if (optname != MRT_VERSION &&
--#ifdef CONFIG_IP_PIMSM
- 	   optname != MRT_PIM &&
--#endif
- 	   optname != MRT_ASSERT)
- 		return -ENOPROTOOPT;
- 
-@@ -1467,14 +1498,15 @@ int ip_mroute_getsockopt(struct sock *sk, int optname, char __user *optval, int
- 
- 	if (put_user(olr, optlen))
- 		return -EFAULT;
--	if (optname == MRT_VERSION)
-+	if (optname == MRT_VERSION) {
- 		val = 0x0305;
--#ifdef CONFIG_IP_PIMSM
--	else if (optname == MRT_PIM)
-+	} else if (optname == MRT_PIM) {
-+		if (!pimsm_enabled())
-+			return -ENOPROTOOPT;
- 		val = mrt->mroute_do_pim;
--#endif
--	else
-+	} else {
- 		val = mrt->mroute_do_assert;
-+	}
- 	if (copy_to_user(optval, &val, olr))
- 		return -EFAULT;
- 	return 0;
-@@ -1707,7 +1739,6 @@ static void ipmr_queue_xmit(struct net *net, struct mr_table *mrt,
- 	if (!vif->dev)
- 		goto out_free;
- 
--#ifdef CONFIG_IP_PIMSM
- 	if (vif->flags & VIFF_REGISTER) {
- 		vif->pkt_out++;
- 		vif->bytes_out += skb->len;
-@@ -1716,7 +1747,6 @@ static void ipmr_queue_xmit(struct net *net, struct mr_table *mrt,
- 		ipmr_cache_report(mrt, skb, vifi, IGMPMSG_WHOLEPKT);
- 		goto out_free;
- 	}
--#endif
- 
- 	if (vif->flags & VIFF_TUNNEL) {
- 		rt = ip_route_output_ports(net, &fl4, NULL,
-@@ -2047,48 +2077,6 @@ dont_forward:
- 	return 0;
- }
- 
--#ifdef CONFIG_IP_PIMSM
--/* called with rcu_read_lock() */
--static int __pim_rcv(struct mr_table *mrt, struct sk_buff *skb,
--		     unsigned int pimlen)
--{
--	struct net_device *reg_dev = NULL;
--	struct iphdr *encap;
--
--	encap = (struct iphdr *)(skb_transport_header(skb) + pimlen);
--	/*
--	 * Check that:
--	 * a. packet is really sent to a multicast group
--	 * b. packet is not a NULL-REGISTER
--	 * c. packet is not truncated
--	 */
--	if (!ipv4_is_multicast(encap->daddr) ||
--	    encap->tot_len == 0 ||
--	    ntohs(encap->tot_len) + pimlen > skb->len)
--		return 1;
--
--	read_lock(&mrt_lock);
--	if (mrt->mroute_reg_vif_num >= 0)
--		reg_dev = mrt->vif_table[mrt->mroute_reg_vif_num].dev;
--	read_unlock(&mrt_lock);
--
--	if (!reg_dev)
--		return 1;
--
--	skb->mac_header = skb->network_header;
--	skb_pull(skb, (u8 *)encap - skb->data);
--	skb_reset_network_header(skb);
--	skb->protocol = htons(ETH_P_IP);
--	skb->ip_summed = CHECKSUM_NONE;
--
--	skb_tunnel_rx(skb, reg_dev, dev_net(reg_dev));
--
--	netif_rx(skb);
--
--	return NET_RX_SUCCESS;
--}
--#endif
--
- #ifdef CONFIG_IP_PIMSM_V1
- /*
-  * Handle IGMP messages of PIMv1
 -- 
 2.4.3
