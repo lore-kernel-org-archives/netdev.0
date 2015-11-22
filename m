@@ -1,7 +1,7 @@
 From: John Crispin <blogic@openwrt.org>
-Subject: [RFC 6/8] net-next: ralink: add support for rt3883
-Date: Sun, 22 Nov 2015 09:40:56 +0100
-Message-ID: <1448181658-38111-6-git-send-email-blogic@openwrt.org>
+Subject: [RFC 4/8] net-next: ralink: add support for rt2880
+Date: Sun, 22 Nov 2015 09:40:54 +0100
+Message-ID: <1448181658-38111-4-git-send-email-blogic@openwrt.org>
 References: <1448181658-38111-1-git-send-email-blogic@openwrt.org>
 Cc: netdev@vger.kernel.org, Michael Lee <igvtee@gmail.com>,
 	Felix Fietkau <nbd@openwrt.org>,
@@ -11,31 +11,302 @@ Cc: netdev@vger.kernel.org, Michael Lee <igvtee@gmail.com>,
 	<Fred.Chang@mediatek.com>, John Crispin <blogic@openwrt.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arrakis.dune.hu ([78.24.191.176]:46190 "EHLO arrakis.dune.hu"
+Received: from arrakis.dune.hu ([78.24.191.176]:46180 "EHLO arrakis.dune.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751375AbbKVIlX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Nov 2015 03:41:23 -0500
+	id S1751372AbbKVIlQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Nov 2015 03:41:16 -0500
 In-Reply-To: <1448181658-38111-1-git-send-email-blogic@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for rt3883 and its smaller version rt3662. They both have a single
-gBit port that will normally be attached to an external phy of switch.
+rt2880 is the oldest SoC with this core. It has a single gBit port that will
+normally be attached to an external phy of switch. The patch also adds the
+code required to drive the mdio bus.
 
 Signed-off-by: John Crispin <blogic@openwrt.org>
 Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 Signed-off-by: Michael Lee <igvtee@gmail.com>
 ---
- drivers/net/ethernet/ralink/soc_rt3883.c |   75 ++++++++++++++++++++++++++++++
- 1 file changed, 75 insertions(+)
- create mode 100644 drivers/net/ethernet/ralink/soc_rt3883.c
+ drivers/net/ethernet/ralink/mdio_rt2880.c |  231 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/ralink/mdio_rt2880.h |   23 +++
+ drivers/net/ethernet/ralink/soc_rt2880.c  |   76 ++++++++++
+ 3 files changed, 330 insertions(+)
+ create mode 100644 drivers/net/ethernet/ralink/mdio_rt2880.c
+ create mode 100644 drivers/net/ethernet/ralink/mdio_rt2880.h
+ create mode 100644 drivers/net/ethernet/ralink/soc_rt2880.c
 
-diff --git a/drivers/net/ethernet/ralink/soc_rt3883.c b/drivers/net/ethernet/ralink/soc_rt3883.c
+diff --git a/drivers/net/ethernet/ralink/mdio_rt2880.c b/drivers/net/ethernet/ralink/mdio_rt2880.c
 new file mode 100644
-index 0000000..f7b6769
+index 0000000..f3d19f0
 --- /dev/null
-+++ b/drivers/net/ethernet/ralink/soc_rt3883.c
-@@ -0,0 +1,75 @@
++++ b/drivers/net/ethernet/ralink/mdio_rt2880.c
+@@ -0,0 +1,231 @@
++/*   This program is free software; you can redistribute it and/or modify
++ *   it under the terms of the GNU General Public License as published by
++ *   the Free Software Foundation; version 2 of the License
++ *
++ *   This program is distributed in the hope that it will be useful,
++ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *   GNU General Public License for more details.
++ *
++ *   Copyright (C) 2009-2015 John Crispin <blogic@openwrt.org>
++ *   Copyright (C) 2009-2015 Felix Fietkau <nbd@openwrt.org>
++ *   Copyright (C) 2013-2015 Michael Lee <igvtee@gmail.com>
++ */
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/dma-mapping.h>
++#include <linux/init.h>
++#include <linux/skbuff.h>
++#include <linux/etherdevice.h>
++#include <linux/ethtool.h>
++#include <linux/platform_device.h>
++#include <linux/phy.h>
++#include <linux/of_device.h>
++#include <linux/clk.h>
++#include <linux/of_net.h>
++#include <linux/of_mdio.h>
++
++#include "ralink_soc_eth.h"
++#include "mdio_rt2880.h"
++#include "mdio.h"
++
++#define FE_MDIO_RETRY	1000
++
++static unsigned char *rt2880_speed_str(struct fe_priv *priv)
++{
++	switch (priv->phy->speed[0]) {
++	case SPEED_1000:
++		return "1000";
++	case SPEED_100:
++		return "100";
++	case SPEED_10:
++		return "10";
++	}
++
++	return "?";
++}
++
++void rt2880_mdio_link_adjust(struct fe_priv *priv, int port)
++{
++	u32 mdio_cfg;
++
++	if (!priv->link[0]) {
++		netif_carrier_off(priv->netdev);
++		netdev_info(priv->netdev, "link down\n");
++		return;
++	}
++
++	mdio_cfg = FE_MDIO_CFG_TX_CLK_SKEW_200 |
++		   FE_MDIO_CFG_RX_CLK_SKEW_200 |
++		   FE_MDIO_CFG_GP1_FRC_EN;
++
++	if (priv->phy->duplex[0] == DUPLEX_FULL)
++		mdio_cfg |= FE_MDIO_CFG_GP1_DUPLEX;
++
++	if (priv->phy->tx_fc[0])
++		mdio_cfg |= FE_MDIO_CFG_GP1_FC_TX;
++
++	if (priv->phy->rx_fc[0])
++		mdio_cfg |= FE_MDIO_CFG_GP1_FC_RX;
++
++	switch (priv->phy->speed[0]) {
++	case SPEED_10:
++		mdio_cfg |= FE_MDIO_CFG_GP1_SPEED_10;
++		break;
++	case SPEED_100:
++		mdio_cfg |= FE_MDIO_CFG_GP1_SPEED_100;
++		break;
++	case SPEED_1000:
++		mdio_cfg |= FE_MDIO_CFG_GP1_SPEED_1000;
++		break;
++	default:
++		BUG();
++	}
++
++	fe_w32(mdio_cfg, FE_MDIO_CFG);
++
++	netif_carrier_on(priv->netdev);
++	netdev_info(priv->netdev, "link up (%sMbps/%s duplex)\n",
++		    rt2880_speed_str(priv),
++		    (priv->phy->duplex[0] == DUPLEX_FULL) ? "Full" : "Half");
++}
++
++static int rt2880_mdio_wait_ready(struct fe_priv *priv)
++{
++	int retries;
++
++	retries = FE_MDIO_RETRY;
++	while (1) {
++		u32 t;
++
++		t = fe_r32(FE_MDIO_ACCESS);
++		if ((t & BIT(31)) == 0)
++			return 0;
++
++		if (retries-- == 0)
++			break;
++
++		udelay(1);
++	}
++
++	dev_err(priv->device, "MDIO operation timed out\n");
++	return -ETIMEDOUT;
++}
++
++int rt2880_mdio_read(struct mii_bus *bus, int phy_addr, int phy_reg)
++{
++	struct fe_priv *priv = bus->priv;
++	int err;
++	u32 t;
++
++	err = rt2880_mdio_wait_ready(priv);
++	if (err)
++		return 0xffff;
++
++	t = (phy_addr << 24) | (phy_reg << 16);
++	fe_w32(t, FE_MDIO_ACCESS);
++	t |= BIT(31);
++	fe_w32(t, FE_MDIO_ACCESS);
++
++	err = rt2880_mdio_wait_ready(priv);
++	if (err)
++		return 0xffff;
++
++	pr_debug("%s: addr=%04x, reg=%04x, value=%04x\n", __func__,
++		 phy_addr, phy_reg, fe_r32(FE_MDIO_ACCESS) & 0xffff);
++
++	return fe_r32(FE_MDIO_ACCESS) & 0xffff;
++}
++
++int rt2880_mdio_write(struct mii_bus *bus, int phy_addr, int phy_reg, u16 val)
++{
++	struct fe_priv *priv = bus->priv;
++	int err;
++	u32 t;
++
++	pr_debug("%s: addr=%04x, reg=%04x, value=%04x\n", __func__,
++		 phy_addr, phy_reg, fe_r32(FE_MDIO_ACCESS) & 0xffff);
++
++	err = rt2880_mdio_wait_ready(priv);
++	if (err)
++		return err;
++
++	t = (1 << 30) | (phy_addr << 24) | (phy_reg << 16) | val;
++	fe_w32(t, FE_MDIO_ACCESS);
++	t |= BIT(31);
++	fe_w32(t, FE_MDIO_ACCESS);
++
++	return rt2880_mdio_wait_ready(priv);
++}
++
++void rt2880_port_init(struct fe_priv *priv, struct device_node *np)
++{
++	const __be32 *id = of_get_property(np, "reg", NULL);
++	const __be32 *link;
++	int size;
++	int phy_mode;
++
++	if (!id || (be32_to_cpu(*id) != 0)) {
++		pr_err("%s: invalid port id\n", np->name);
++		return;
++	}
++
++	priv->phy->phy_fixed[0] = of_get_property(np,
++						  "ralink,fixed-link", &size);
++	if (priv->phy->phy_fixed[0] &&
++	    (size != (4 * sizeof(*priv->phy->phy_fixed[0])))) {
++		pr_err("%s: invalid fixed link property\n", np->name);
++		priv->phy->phy_fixed[0] = NULL;
++		return;
++	}
++
++	phy_mode = of_get_phy_mode(np);
++	switch (phy_mode) {
++	case PHY_INTERFACE_MODE_RGMII:
++		break;
++	case PHY_INTERFACE_MODE_MII:
++		break;
++	case PHY_INTERFACE_MODE_RMII:
++		break;
++	default:
++		if (!priv->phy->phy_fixed[0])
++			dev_err(priv->device, "port %d - invalid phy mode\n",
++				priv->phy->speed[0]);
++		break;
++	}
++
++	priv->phy->phy_node[0] = of_parse_phandle(np, "phy-handle", 0);
++	if (!priv->phy->phy_node[0] && !priv->phy->phy_fixed[0])
++		return;
++
++	if (priv->phy->phy_fixed[0]) {
++		link = priv->phy->phy_fixed[0];
++		priv->phy->speed[0] = be32_to_cpup(link++);
++		priv->phy->duplex[0] = be32_to_cpup(link++);
++		priv->phy->tx_fc[0] = be32_to_cpup(link++);
++		priv->phy->rx_fc[0] = be32_to_cpup(link++);
++
++		priv->link[0] = 1;
++		switch (priv->phy->speed[0]) {
++		case SPEED_10:
++			break;
++		case SPEED_100:
++			break;
++		case SPEED_1000:
++			break;
++		default:
++			dev_err(priv->device, "invalid link speed: %d\n",
++				priv->phy->speed[0]);
++			priv->phy->phy_fixed[0] = 0;
++			return;
++		}
++		dev_info(priv->device, "using fixed link parameters\n");
++		rt2880_mdio_link_adjust(priv, 0);
++		return;
++	}
++
++	if (priv->phy->phy_node[0] && priv->mii_bus->phy_map[0])
++		fe_connect_phy_node(priv, priv->phy->phy_node[0]);
++}
+diff --git a/drivers/net/ethernet/ralink/mdio_rt2880.h b/drivers/net/ethernet/ralink/mdio_rt2880.h
+new file mode 100644
+index 0000000..6884894
+--- /dev/null
++++ b/drivers/net/ethernet/ralink/mdio_rt2880.h
+@@ -0,0 +1,23 @@
++/*   This program is free software; you can redistribute it and/or modify
++ *   it under the terms of the GNU General Public License as published by
++ *   the Free Software Foundation; version 2 of the License
++ *
++ *   This program is distributed in the hope that it will be useful,
++ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *   GNU General Public License for more details.
++ *
++ *   Copyright (C) 2009-2015 John Crispin <blogic@openwrt.org>
++ *   Copyright (C) 2009-2015 Felix Fietkau <nbd@openwrt.org>
++ *   Copyright (C) 2013-2015 Michael Lee <igvtee@gmail.com>
++ */
++
++#ifndef _RALINK_MDIO_RT2880_H__
++#define _RALINK_MDIO_RT2880_H__
++
++void rt2880_mdio_link_adjust(struct fe_priv *priv, int port);
++int rt2880_mdio_read(struct mii_bus *bus, int phy_addr, int phy_reg);
++int rt2880_mdio_write(struct mii_bus *bus, int phy_addr, int phy_reg, u16 val);
++void rt2880_port_init(struct fe_priv *priv, struct device_node *np);
++
++#endif
+diff --git a/drivers/net/ethernet/ralink/soc_rt2880.c b/drivers/net/ethernet/ralink/soc_rt2880.c
+new file mode 100644
+index 0000000..eb9b9c2
+--- /dev/null
++++ b/drivers/net/ethernet/ralink/soc_rt2880.c
+@@ -0,0 +1,76 @@
 +/*   This program is free software; you can redistribute it and/or modify
 + *   it under the terms of the GNU General Public License as published by
 + *   the Free Software Foundation; version 2 of the License
@@ -57,14 +328,26 @@ index 0000000..f7b6769
 +#include "ralink_soc_eth.h"
 +#include "mdio_rt2880.h"
 +
-+#define RT3883_RSTCTRL_FE		BIT(21)
++#define RT2880_RESET_FE			BIT(18)
 +
-+static void rt3883_fe_reset(void)
++static void rt2880_init_data(struct fe_soc_data *data,
++			     struct net_device *netdev)
 +{
-+	fe_reset(RT3883_RSTCTRL_FE);
++	struct fe_priv *priv = netdev_priv(netdev);
++
++	priv->flags = FE_FLAG_PADDING_64B | FE_FLAG_PADDING_BUG |
++		FE_FLAG_JUMBO_FRAME;
++	netdev->hw_features = NETIF_F_SG | NETIF_F_HW_VLAN_CTAG_TX;
++	/* this should work according to the datasheet but actually does not*/
++	/* netdev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_RXCSUM; */
 +}
 +
-+static int rt3883_fwd_config(struct fe_priv *priv)
++void rt2880_fe_reset(void)
++{
++	fe_reset(RT2880_RESET_FE);
++}
++
++static int rt2880_fwd_config(struct fe_priv *priv)
 +{
 +	int ret;
 +
@@ -73,32 +356,21 @@ index 0000000..f7b6769
 +		return ret;
 +
 +	fe_fwd_config(priv);
-+	fe_w32(FE_PSE_FQFC_CFG_256Q, FE_PSE_FQ_CFG);
++	fe_w32(FE_PSE_FQFC_CFG_INIT, FE_PSE_FQ_CFG);
 +	fe_csum_config(priv);
 +
 +	return ret;
 +}
 +
-+static void rt3883_init_data(struct fe_soc_data *data,
-+			     struct net_device *netdev)
-+{
-+	struct fe_priv *priv = netdev_priv(netdev);
-+
-+	priv->flags = FE_FLAG_PADDING_64B | FE_FLAG_PADDING_BUG |
-+		FE_FLAG_JUMBO_FRAME;
-+	netdev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM |
-+		NETIF_F_RXCSUM | NETIF_F_HW_VLAN_CTAG_TX;
-+}
-+
-+static struct fe_soc_data rt3883_data = {
-+	.init_data = rt3883_init_data,
-+	.reset_fe = rt3883_fe_reset,
-+	.fwd_config = rt3883_fwd_config,
++struct fe_soc_data rt2880_data = {
++	.init_data = rt2880_init_data,
++	.reset_fe = rt2880_fe_reset,
++	.fwd_config = rt2880_fwd_config,
 +	.pdma_glo_cfg = FE_PDMA_SIZE_8DWORDS,
++	.checksum_bit = RX_DMA_L4VALID,
 +	.rx_int = FE_RX_DONE_INT,
 +	.tx_int = FE_TX_DONE_INT,
 +	.status_int = FE_CNT_GDM_AF,
-+	.checksum_bit = RX_DMA_L4VALID,
 +	.mdio_read = rt2880_mdio_read,
 +	.mdio_write = rt2880_mdio_write,
 +	.mdio_adjust_link = rt2880_mdio_link_adjust,
@@ -106,7 +378,7 @@ index 0000000..f7b6769
 +};
 +
 +const struct of_device_id of_fe_match[] = {
-+	{ .compatible = "ralink,rt3883-eth", .data = &rt3883_data },
++	{ .compatible = "ralink,rt2880-eth", .data = &rt2880_data },
 +	{},
 +};
 +
