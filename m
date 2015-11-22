@@ -1,8 +1,8 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 07/13] bus: mvebu-mbus: provide api for obtaining IO and DRAM window information
-Date: Sun, 22 Nov 2015 21:02:37 +0100
-Message-ID: <5746764.cNlI6PeatM@wuerfel>
-References: <1448178839-3541-1-git-send-email-mw@semihalf.com> <1448178839-3541-8-git-send-email-mw@semihalf.com>
+Subject: Re: [PATCH 00/13] mvneta Buffer Management and enhancements
+Date: Sun, 22 Nov 2015 21:06:34 +0100
+Message-ID: <12984648.7CKVgBs7pu@wuerfel>
+References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
@@ -16,25 +16,22 @@ Cc: Marcin Wojtas <mw@semihalf.com>, linux-kernel@vger.kernel.org,
 	sebastian.hesselbarth@gmail.com
 To: linux-arm-kernel@lists.infradead.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448178839-3541-8-git-send-email-mw@semihalf.com>
+In-Reply-To: <1448178839-3541-1-git-send-email-mw@semihalf.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 22 November 2015 08:53:53 Marcin Wojtas wrote:
-> This commit enables finding appropriate mbus window and obtaining its
-> target id and attribute for given physical address in two separate
-> routines, both for IO and DRAM windows. This functionality
-> is needed for Armada XP/38x Network Controller's Buffer Manager and
-> PnC configuration.
+On Sunday 22 November 2015 08:53:46 Marcin Wojtas wrote:
 > 
-> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
+> 3. Optimisations - concatenating TX descriptors' flush, basing on
+> xmit_more support and combined approach for finalizing egress processing.
+> Thanks to HR timer buffers can be released with small latency, which is
+> good for low transfer and small queues. Along with the timer, coalescing
+> irqs are used, whose threshold could be increased back to 15.
 > 
-> [DRAM window information reference in LKv3.10]
-> Signed-off-by: Evan Wang <xswang@marvell.com>
 > 
 
-It's too long ago to remember all the details, but I thought we
-had designed this so the configuration can just be done by
-describing it in DT. What am I missing?
+If you are already reworking the TX path, it probably makes sense to 
+support BQL as well, see the Marvell skge and sky2 drivers for examples
+using netdev_{tx_,}{sent,completed}_queue.
 
 	Arnd
