@@ -1,51 +1,45 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: Re: [PATCH 1/2 iptables] libxt_cgroup: prepare for multi revisions
-Date: Sun, 22 Nov 2015 21:34:47 +0100
-Message-ID: <20151122203447.GA3267@salvia>
-References: <1448122441-9335-1-git-send-email-tj@kernel.org>
- <20151121161846.GB3428@htj.duckdns.org>
- <20151122203128.GA3029@salvia>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: What's the benefit of large Rx rings?
+Date: Sun, 22 Nov 2015 20:19:02 +0000
+Message-ID: <CO2PR11MB008832EB5323120812FFDAF597180@CO2PR11MB0088.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org,
-	daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org,
-	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org, ninasc-b10kYP2dOMg@public.gmane.org
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151122203128.GA3029@salvia>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0120.outbound.protection.outlook.com ([65.55.169.120]:24112
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752239AbbKVUv6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 15:51:58 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 22, 2015 at 09:31:28PM +0100, Pablo Neira Ayuso wrote:
-> On Sat, Nov 21, 2015 at 11:18:46AM -0500, Tejun Heo wrote:
-> > --- a/extensions/libxt_cgroup.c
-> > +++ b/extensions/libxt_cgroup.c
-> > @@ -3,30 +3,30 @@
-> >  #include <linux/netfilter/xt_cgroup.h>
-> >  
-> >  enum {
-> > -	O_CGROUP = 0,
-> > +	O_CLASSID = 0,
-> >  };
-> >  
-> > -static void cgroup_help(void)
-> > +static void cgroup_help_v0(void)
-> >  {
-> >  	printf(
-> >  "cgroup match options:\n"
-> > -"[!] --cgroup fwid  Match cgroup fwid\n");
-> > +"[!] --cgroup classid            Match cgroup classid\n");
-> 
-> We have to keep the old cgroup integer ID around for a while,
-> otherwise we'll break users with old kernels and new iptables
-> utilities.
+Hi,
 
-Oh, I see.
+This might be a dumb question, but I recently touched this
+and felt like I'm missing something basic -
 
-This is just a rename to prepare the string based identifier.
+NAPI is being scheduled from soft-interrupt contex, and it
+has a ~strict quota for handling Rx packets [even though we're
+allowing practically unlimited handling of Tx completions].
+Given these facts, what's the benefit of having arbitrary large
+Rx buffer rings? Assuming quota is 64, I would have expected
+that having more than twice or thrice as many buffers could not
+help in real traffic scenarios - in any given time-unit
+[the time between 2 NAPI runs which should be relatively
+constant] CPU can't handle more than the quota; If HW is
+generating more packets on a regular basis the buffers are bound
+to get exhausted, no matter how many there are.
 
-Sorry for the noise.
+While there isn't any obvious downside to allowing drivers to
+increase ring sizes to be larger [other than memory footprint],
+I feel like I'm missing the scenarios where having Ks of
+buffers can actually help.
+And for the unlikely case that I'm not missing anything,
+why aren't we supplying some `default' max and min amounts
+in a common header?
+
+Thanks,
+Yuval
