@@ -1,33 +1,47 @@
-From: SYSTEM UPDATE <ocmugda@dmp.gov.bd>
-Subject: Dear:  Account User,
-Date: Sun, 22 Nov 2015 00:21:12 +0100
-Message-ID: <20151121232044.DFC2663347@mail.baliprov.go.id>
-Reply-To: No-reply@mail.baliprov.go.id
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: Kernel 4.1.12 crash
+Date: Sat, 21 Nov 2015 21:17:41 -0800
+Message-ID: <56514FF5.7060906@gmail.com>
+References: <564F26FF.3040605@seti.kr.ua> <564FA904.7020603@gmail.com>
+ <5650287B.9070901@seti.kr.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <ocmugda@dmp.gov.bd>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Andrew <nitr0@seti.kr.ua>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.baliprov.go.id ([182.23.65.58]:46707 "EHLO
-	mail.baliprov.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751466AbbKVBBI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2015 20:01:08 -0500
-Content-Description: Mail message body
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:34811 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750763AbbKVFRp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 00:17:45 -0500
+Received: by padhx2 with SMTP id hx2so157857137pad.1
+        for <netdev@vger.kernel.org>; Sat, 21 Nov 2015 21:17:45 -0800 (PST)
+In-Reply-To: <5650287B.9070901@seti.kr.ua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear:  Account User,
-This message is from the System Administrator support center. Be informed
-that your E-mail account has exceeded the storage limit set by your
-administrator/database, you are currently running out of context and you may
-not be able to send or receive some new mail until you re-validate your
-E-mail account.
-To prevent your email account from been closed, re-validate your mailbox
-below please click and visit this site of lick: >>>>
-http://admin-survey-hepldesk.ezweb123.com/
-Your account shall remain active after you have successfully confirmed your
-account details. Thank you for your swift response to this notification we
-apologize for any inconvenience.
-We appreciate your continued help and support.
-Regards,
-SYSTEM ADMINISTRATOR HELPDESK TEAM 2015.
+On 11/21/2015 12:16 AM, Andrew wrote:
+> Memory corruption, if happens, IMHO shouldn't be a hardware-related - 
+> almost all of these boxes, except H61M-based box from 1st log, works 
+> for a long time with uptime more than year; and only software was 
+> changed on it; H61M-based box runs memtest86 for a tens of hours w/o 
+> any error. If it was caused by hardware - they should crash even earlier.
+
+I wasn't saying it was hardware related.  My thought is that it could be 
+some sort of use after free or double free type issue. Basically what 
+you end up with is the memory getting corrupted by software that is 
+accessing regions it shouldn't be.
+
+> Rarely on different servers I saw 'zram decompression error' messages 
+> (in this case I've got such message on H61M-based box).
+>
+> Also, other people that uses accel-ppp as BRAS software, have 
+> different kernel panics/bugs/oopses on fresh kernels.
+>
+> I'll try to apply these patches, and I'll try to switch back to 
+> kernels that were stable on some boxes.
+
+If you could bisect this it would be useful.  Basically we just need to 
+determine where in the git history these issues started popping up so 
+that we can then narrow down on the root cause.
+
+- Alex
