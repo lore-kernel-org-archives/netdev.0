@@ -1,7 +1,8 @@
 From: John Crispin <blogic@openwrt.org>
-Subject: [RFC 1/8] Documentation: DT: net: add docs for ralink/mediatek SoC ethernet binding
-Date: Sun, 22 Nov 2015 09:40:51 +0100
-Message-ID: <1448181658-38111-1-git-send-email-blogic@openwrt.org>
+Subject: [RFC 8/8] net-next: ralink: add Kconfig and Makefile
+Date: Sun, 22 Nov 2015 09:40:58 +0100
+Message-ID: <1448181658-38111-8-git-send-email-blogic@openwrt.org>
+References: <1448181658-38111-1-git-send-email-blogic@openwrt.org>
 Cc: netdev@vger.kernel.org, Michael Lee <igvtee@gmail.com>,
 	Felix Fietkau <nbd@openwrt.org>,
 	=?UTF-8?q?Steven=20Liu=20=28=E5=8A=89=E4=BA=BA=E8=B1=AA=29?=
@@ -10,165 +11,131 @@ Cc: netdev@vger.kernel.org, Michael Lee <igvtee@gmail.com>,
 	<Fred.Chang@mediatek.com>, John Crispin <blogic@openwrt.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arrakis.dune.hu ([78.24.191.176]:46164 "EHLO arrakis.dune.hu"
+Received: from arrakis.dune.hu ([78.24.191.176]:46204 "EHLO arrakis.dune.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751105AbbKVIlM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Nov 2015 03:41:12 -0500
+	id S1751405AbbKVIli (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Nov 2015 03:41:38 -0500
+In-Reply-To: <1448181658-38111-1-git-send-email-blogic@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add three files. ralink,rt2880-net.txt  descibes the actual frame engine
-and the other two describe the switch forntend bindings.
+This patch adds the Makefile and Kconfig required to make the driver build.
 
 Signed-off-by: John Crispin <blogic@openwrt.org>
 Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 Signed-off-by: Michael Lee <igvtee@gmail.com>
-Cc: devicetree@vger.kernel.org
 ---
- .../bindings/net/mediatek,mt7620-gsw.txt           |   26 +++++++++
- .../devicetree/bindings/net/ralink,rt2880-net.txt  |   61 ++++++++++++++++++++
- .../devicetree/bindings/net/ralink,rt3050-esw.txt  |   32 ++++++++++
- 3 files changed, 119 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/mediatek,mt7620-gsw.txt
- create mode 100644 Documentation/devicetree/bindings/net/ralink,rt2880-net.txt
- create mode 100644 Documentation/devicetree/bindings/net/ralink,rt3050-esw.txt
+ drivers/net/ethernet/Kconfig         |    1 +
+ drivers/net/ethernet/Makefile        |    1 +
+ drivers/net/ethernet/ralink/Kconfig  |   49 ++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/ralink/Makefile |   19 +++++++++++++
+ 4 files changed, 70 insertions(+)
+ create mode 100644 drivers/net/ethernet/ralink/Kconfig
+ create mode 100644 drivers/net/ethernet/ralink/Makefile
 
-diff --git a/Documentation/devicetree/bindings/net/mediatek,mt7620-gsw.txt b/Documentation/devicetree/bindings/net/mediatek,mt7620-gsw.txt
+diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
+index 955d06b..2d24101 100644
+--- a/drivers/net/ethernet/Kconfig
++++ b/drivers/net/ethernet/Kconfig
+@@ -153,6 +153,7 @@ source "drivers/net/ethernet/packetengines/Kconfig"
+ source "drivers/net/ethernet/pasemi/Kconfig"
+ source "drivers/net/ethernet/qlogic/Kconfig"
+ source "drivers/net/ethernet/qualcomm/Kconfig"
++source "drivers/net/ethernet/ralink/Kconfig"
+ source "drivers/net/ethernet/realtek/Kconfig"
+ source "drivers/net/ethernet/renesas/Kconfig"
+ source "drivers/net/ethernet/rdc/Kconfig"
+diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+index 4a2ee98..fba816c 100644
+--- a/drivers/net/ethernet/Makefile
++++ b/drivers/net/ethernet/Makefile
+@@ -63,6 +63,7 @@ obj-$(CONFIG_NET_PACKET_ENGINE) += packetengines/
+ obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
+ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+ obj-$(CONFIG_NET_VENDOR_QUALCOMM) += qualcomm/
++obj-$(CONFIG_NET_RALINK) += ralink/
+ obj-$(CONFIG_NET_VENDOR_REALTEK) += realtek/
+ obj-$(CONFIG_NET_VENDOR_RENESAS) += renesas/
+ obj-$(CONFIG_NET_VENDOR_RDC) += rdc/
+diff --git a/drivers/net/ethernet/ralink/Kconfig b/drivers/net/ethernet/ralink/Kconfig
 new file mode 100644
-index 0000000..fb47d8e
+index 0000000..09639cd
 --- /dev/null
-+++ b/Documentation/devicetree/bindings/net/mediatek,mt7620-gsw.txt
-@@ -0,0 +1,26 @@
-+Mediatek Gigabit Switch
-+=======================
++++ b/drivers/net/ethernet/ralink/Kconfig
+@@ -0,0 +1,49 @@
++config NET_RALINK
++	tristate "Ralink ethernet driver"
++	depends on RALINK
++	help
++	  This driver supports the ethernet mac inside the ralink wisocs
 +
-+The mediatek gigabit switch can be found on Mediatek SoCs (mt7620, mt7621).
++if NET_RALINK
++choice
++	prompt "MAC type"
 +
-+Required properties:
-+- compatible: Should be "mediatek,mt7620-gsw"
-+- reg: Address and length of the register set for the device
-+- interrupt-parent: Should be the phandle for the interrupt controller
-+  that services interrupts for this device
-+- interrupts: Should contain the gigabit switches interrupt
-+- resets: Should contain the gigabit switches resets
-+- reset-names: Should contain the reset names "gsw"
++config NET_RALINK_RT2880
++	bool "RT2882"
++	depends on SOC_RT288X
 +
-+Example:
++config NET_RALINK_RT3050
++	bool "RT3050/MT7628"
++	depends on (SOC_RT305X || SOC_MT7620)
 +
-+gsw@10110000 {
-+	compatible = "ralink,mt7620-gsw";
-+	reg = <0x10110000 8000>;
++config NET_RALINK_RT3883
++	bool "RT3883"
++	depends on SOC_RT3883
 +
-+	resets = <&rstctrl 23>;
-+	reset-names = "gsw";
++config NET_RALINK_MT7620
++	bool "MT7620"
++	depends on (SOC_MT7620 || SOC_MT7621)
 +
-+	interrupt-parent = <&intc>;
-+	interrupts = <17>;
-+};
-diff --git a/Documentation/devicetree/bindings/net/ralink,rt2880-net.txt b/Documentation/devicetree/bindings/net/ralink,rt2880-net.txt
++endchoice
++
++config NET_RALINK_MDIO
++	def_bool NET_RALINK
++	depends on (NET_RALINK_RT2880 || NET_RALINK_RT3883 || NET_RALINK_MT7620 || NET_RALINK_MT7621)
++	select PHYLIB
++
++config NET_RALINK_MDIO_RT2880
++	def_bool NET_RALINK
++	depends on (NET_RALINK_RT2880 || NET_RALINK_RT3883)
++	select NET_RALINK_MDIO
++
++config NET_RALINK_ESW_RT3050
++	def_bool NET_RALINK
++	depends on NET_RALINK_RT3050
++	select PHYLIB
++
++config NET_RALINK_GSW_MT7620
++	def_bool NET_RALINK
++	depends on NET_RALINK_MT7620 || NET_RALINK_MT7621
++	select NET_RALINK_MDIO
++	select PHYLIB
++endif
+diff --git a/drivers/net/ethernet/ralink/Makefile b/drivers/net/ethernet/ralink/Makefile
 new file mode 100644
-index 0000000..88b095d
+index 0000000..eb90c56
 --- /dev/null
-+++ b/Documentation/devicetree/bindings/net/ralink,rt2880-net.txt
-@@ -0,0 +1,61 @@
-+Ralink Frame Engine Ethernet controller
-+=======================================
++++ b/drivers/net/ethernet/ralink/Makefile
+@@ -0,0 +1,19 @@
++#
++# Makefile for the Ralink SoCs built-in ethernet macs
++#
 +
-+The Ralink frame engine ethernet controller can be found on Ralink and
-+Mediatek SoCs (RT288x, RT3x5x, RT366x, RT388x, rt5350, mt7620, mt7621, mt76x8).
++ralink-eth-y					+= ralink_soc_eth.o ralink_ethtool.o
 +
-+Depending on the SoC, there is a number of ports connected to the CPU port
-+directly and/or via a (gigabit-)switch.
++ralink-eth-$(CONFIG_NET_RALINK_MDIO)		+= mdio.o
++ralink-eth-$(CONFIG_NET_RALINK_MDIO_RT2880)	+= mdio_rt2880.o
 +
-+* Ethernet controller node
++ralink-eth-$(CONFIG_NET_RALINK_ESW_RT3050)	+= esw_rt3050.o
++ralink-eth-$(CONFIG_NET_RALINK_GSW_MT7620)	+= gsw_mt7620.o
 +
-+Required properties:
-+- compatible: Should be one of "ralink,rt2880-eth", "ralink,rt3050-eth",
-+  "ralink,rt3050-eth", "ralink,rt3883-eth", "ralink,rt5350-eth",
-+  "mediatek,mt7620-eth", "mediatek,mt7621-eth"
-+- reg: Address and length of the register set for the device
-+- interrupt-parent: Should be the phandle for the interrupt controller
-+  that services interrupts for this device
-+- interrupts: Should contain the frame engines interrupt
-+- resets: Should contain the frame engines resets
-+- reset-names: Should contain the reset names "fe". If a switch is present
-+  "esw" is also required.
++ralink-eth-$(CONFIG_NET_RALINK_RT2880)		+= soc_rt2880.o
++ralink-eth-$(CONFIG_NET_RALINK_RT3050)		+= soc_rt3050.o
++ralink-eth-$(CONFIG_NET_RALINK_RT3883)		+= soc_rt3883.o
++ralink-eth-$(CONFIG_NET_RALINK_MT7620)		+= soc_mt7620.o
++ralink-eth-$(CONFIG_NET_RALINK_MT7621)		+= soc_mt7621.o
 +
-+
-+* Ethernet port node
-+
-+Required properties:
-+- compatible: Should be "ralink,eth-port"
-+- reg: The number of the physical port
-+- phy-handle: reference to the node describing the phy
-+
-+Example:
-+
-+mdio-bus {
-+	...
-+	phy0: ethernet-phy@0 {
-+		phy-mode = "mii";
-+		reg = <0>;
-+	};
-+};
-+
-+ethernet@400000 {
-+	compatible = "ralink,rt2880-eth";
-+	reg = <0x00400000 10000>;
-+
-+	#address-cells = <1>;
-+	#size-cells = <0>;
-+
-+	resets = <&rstctrl 18>;
-+	reset-names = "fe";
-+
-+	interrupt-parent = <&cpuintc>;
-+	interrupts = <5>;
-+
-+	port@0 {
-+		compatible = "ralink,eth-port";
-+		reg = <0>;
-+		phy-handle = <&phy0>;
-+	};
-+
-+};
-diff --git a/Documentation/devicetree/bindings/net/ralink,rt3050-esw.txt b/Documentation/devicetree/bindings/net/ralink,rt3050-esw.txt
-new file mode 100644
-index 0000000..ed32e21
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/ralink,rt3050-esw.txt
-@@ -0,0 +1,32 @@
-+Ralink Fast Ethernet Embedded Switch
-+====================================
-+
-+The ralink fast ethernet embedded switch can be found on Ralink and Mediatek
-+SoCs (RT3x5x, rt5350, mt76x8).
-+
-+Required properties:
-+- compatible: Should be "ralink,rt3050-esw"
-+- reg: Address and length of the register set for the device
-+- interrupt-parent: Should be the phandle for the interrupt controller
-+  that services interrupts for this device
-+- interrupts: Should contain the embedded switches interrupt
-+- resets: Should contain the embedded switches resets
-+- reset-names: Should contain the reset names "esw"
-+
-+Optional properties:
-+- ralink,portmap: can be used to choose if the default switch setup is
-+  llllw or wllll
-+- ralink,led_polarity: override the active high/low settings of the leds
-+
-+Example:
-+
-+esw@10110000 {
-+	compatible = "ralink,rt3050-esw";
-+	reg = <0x10110000 8000>;
-+
-+	resets = <&rstctrl 23>;
-+	reset-names = "esw";
-+
-+	interrupt-parent = <&intc>;
-+	interrupts = <17>;
-+};
++obj-$(CONFIG_NET_RALINK)			+= ralink-eth.o
 -- 
 1.7.10.4
