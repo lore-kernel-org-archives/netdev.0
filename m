@@ -1,82 +1,118 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH] tipc: avoid packets leaking on socket
-	receive queue
-Date: Sun, 22 Nov 2015 15:46:05 +0800
-Message-ID: <1448178365-14827-1-git-send-email-ying.xue@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: <davem@davemloft.net>, <jon.maloy@ericsson.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: [PATCH 00/13] mvneta Buffer Management and enhancements
+Date: Sun, 22 Nov 2015 08:53:46 +0100
+Message-ID: <1448178839-3541-1-git-send-email-mw@semihalf.com>
+Cc: davem@davemloft.net, linux@arm.linux.org.uk,
+	sebastian.hesselbarth@gmail.com, andrew@lunn.ch,
+	jason@lakedaemon.net, thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com, simon.guinot@sequanux.org,
+	nadavh@marvell.com, alior@marvell.com, xswang@marvell.com,
+	myair@marvell.com, nitroshift@yahoo.com, mw@semihalf.com,
+	jaz@semihalf.com, tn@semihalf.com
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f51.google.com ([209.85.215.51]:34138 "EHLO
+	mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750954AbbKVHxr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 02:53:47 -0500
+Received: by lffu14 with SMTP id u14so91374814lff.1
+        for <netdev@vger.kernel.org>; Sat, 21 Nov 2015 23:53:46 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Even if we drain receive queue thoroughly in tipc_release() after tipc
-socket is removed from rhashtable, it is possible that some packets
-are in flight because some CPU runs receiver and did rhashtable lookup
-before we removed socket. They will achieve receive queue, but nobody
-delete them at all. To avoid this leak, we register a private socket
-destructor to purge receive queue, meaning releasing packets pending
-on receive queue will be delayed until the last reference of tipc
-socket will be released.
+Hi,
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/socket.c |   10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+Hereby I submit a patchset that introduces various fixes and support
+for new features and enhancements to the mvneta driver:
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 552dbab..b53246f 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -105,6 +105,7 @@ struct tipc_sock {
- static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *skb);
- static void tipc_data_ready(struct sock *sk);
- static void tipc_write_space(struct sock *sk);
-+static void tipc_sock_destruct(struct sock *sk);
- static int tipc_release(struct socket *sock);
- static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags);
- static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p);
-@@ -381,6 +382,7 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
- 	sk->sk_rcvbuf = sysctl_tipc_rmem[1];
- 	sk->sk_data_ready = tipc_data_ready;
- 	sk->sk_write_space = tipc_write_space;
-+	sk->sk_destruct = tipc_sock_destruct;
- 	tsk->conn_timeout = CONN_TIMEOUT_DEFAULT;
- 	tsk->sent_unacked = 0;
- 	atomic_set(&tsk->dupl_rcvcnt, 0);
-@@ -470,9 +472,6 @@ static int tipc_release(struct socket *sock)
- 		tipc_node_remove_conn(net, dnode, tsk->portid);
- 	}
- 
--	/* Discard any remaining (connection-based) messages in receive queue */
--	__skb_queue_purge(&sk->sk_receive_queue);
--
- 	/* Reject any messages that accumulated in backlog queue */
- 	sock->state = SS_DISCONNECTING;
- 	release_sock(sk);
-@@ -1515,6 +1514,11 @@ static void tipc_data_ready(struct sock *sk)
- 	rcu_read_unlock();
- }
- 
-+static void tipc_sock_destruct(struct sock *sk)
-+{
-+	__skb_queue_purge(&sk->sk_receive_queue);
-+}
-+
- /**
-  * filter_connect - Handle all incoming messages for a connection-based socket
-  * @tsk: TIPC socket
+1. First three patches are minimal fixes, stable-CC'ed.
+
+2. Suspend to ram ('s2ram') support. Due to some stability problems
+Thomas Petazzoni's patches did not get merged yet, but I used them for
+verification. Contrary to wfi mode ('standby' - linux does not
+differentiate between them, so same routines are used) all registers'
+contents are lost due to power down, so the configuration has to be
+fully reconstructed during resume.
+
+3. Optimisations - concatenating TX descriptors' flush, basing on
+xmit_more support and combined approach for finalizing egress processing.
+Thanks to HR timer buffers can be released with small latency, which is
+good for low transfer and small queues. Along with the timer, coalescing
+irqs are used, whose threshold could be increased back to 15.
+
+4. Buffer manager (BM) support with two preparatory commits. As it is a
+separate block, common for all network ports, a new driver is introduced,
+which configures it and exposes API to the main network driver. It is
+throughly described in binding documentation and commit log. Please note,
+that enabling per-port BM usage is done using phandle and the data passed
+in mvneta_bm_probe. It is designed for usage of on-demand device probe
+and dev_set/get_drvdata, however it's awaiting merge to linux-next.
+Therefore, deferring probe is not used - if something goes wrong (same
+in case of errors during changing MTU or suspend/resume cycle) mvneta
+driver falls back to software buffer management and works in a regular way.
+
+Known issues:
+- problems with obtaining all mapped buffers from internal SRAM, when
+destroying the buffer pointer pool
+- problems with unmapping chunk of SRAM during driver removal
+Above do not have an impact on the operation, as they are called during
+driver removal or in error path.
+
+5. Enable BM on Armada XP and 38X development boards - those ones and
+A370 I could check on my own. In all cases they survived night-long
+linerate iperf. Also tests were performed with A388 SoC working as a
+network bridge between two packet generators. They showed increase of
+maximum processed 64B packets by ~20k (~555k packets with BM enabled
+vs ~535 packets without BM). Also when pushing 1500B-packets with a
+line rate achieved, CPU load decreased from around 25% without BM vs
+18-20% with BM.
+
+I'm looking forward to any remarks and comments.
+
+Best regards,
+Marcin Wojtas
+
+Marcin Wojtas (12):
+  net: mvneta: add configuration for MBUS windows access protection
+  net: mvneta: enable IP checksum with jumbo frames for Armada 38x on
+    Port0
+  net: mvneta: fix bit assignment in MVNETA_RXQ_CONFIG_REG
+  net: mvneta: enable suspend/resume support
+  net: mvneta: enable mixed egress processing using HR timer
+  bus: mvebu-mbus: provide api for obtaining IO and DRAM window
+    information
+  ARM: mvebu: enable SRAM support in mvebu_v7_defconfig
+  net: mvneta: bm: add support for hardware buffer management
+  ARM: mvebu: add buffer manager nodes to armada-38x.dtsi
+  ARM: mvebu: enable buffer manager support on Armada 38x boards
+  ARM: mvebu: add buffer manager nodes to armada-xp.dtsi
+  ARM: mvebu: enable buffer manager support on Armada XP boards
+
+Simon Guinot (1):
+  net: mvneta: add xmit_more support
+
+ .../bindings/net/marvell-armada-370-neta.txt       |  19 +-
+ .../devicetree/bindings/net/marvell-neta-bm.txt    |  49 ++
+ arch/arm/boot/dts/armada-385-db-ap.dts             |  20 +-
+ arch/arm/boot/dts/armada-388-db.dts                |  17 +-
+ arch/arm/boot/dts/armada-388-gp.dts                |  17 +-
+ arch/arm/boot/dts/armada-38x.dtsi                  |  20 +-
+ arch/arm/boot/dts/armada-xp-db.dts                 |  19 +-
+ arch/arm/boot/dts/armada-xp-gp.dts                 |  19 +-
+ arch/arm/boot/dts/armada-xp.dtsi                   |  18 +
+ arch/arm/configs/mvebu_v7_defconfig                |   1 +
+ drivers/bus/mvebu-mbus.c                           |  51 ++
+ drivers/net/ethernet/marvell/Kconfig               |  14 +
+ drivers/net/ethernet/marvell/Makefile              |   1 +
+ drivers/net/ethernet/marvell/mvneta.c              | 660 +++++++++++++++++++--
+ drivers/net/ethernet/marvell/mvneta_bm.c           | 642 ++++++++++++++++++++
+ drivers/net/ethernet/marvell/mvneta_bm.h           | 171 ++++++
+ include/linux/mbus.h                               |   3 +
+ 17 files changed, 1677 insertions(+), 64 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/marvell-neta-bm.txt
+ create mode 100644 drivers/net/ethernet/marvell/mvneta_bm.c
+ create mode 100644 drivers/net/ethernet/marvell/mvneta_bm.h
+
 -- 
-1.7.9.5
-
-
-------------------------------------------------------------------------------
+1.8.3.1
