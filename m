@@ -1,54 +1,51 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: What's the benefit of large Rx rings?
-Date: Sun, 22 Nov 2015 13:53:32 -0800
-Message-ID: <CAKgT0UeiuMM-AV=_6sGob6_mLS5F_dO47AQou8bo8Z1AoqNCxQ@mail.gmail.com>
-References: <CO2PR11MB008832EB5323120812FFDAF597180@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH 02/13] net: mvneta: enable IP checksum with jumbo frames
+ for Armada 38x on Port0
+Date: Sun, 22 Nov 2015 22:55:03 +0100
+Message-ID: <CAPv3WKfW+V+dohsqcM7OLm3EBTqM9v-_96=Bkfu-BKoJV7Ss=g@mail.gmail.com>
+References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
+	<4040597.3hXVb3XDMS@wuerfel>
+	<CAPv3WKdOVf4kXHfrawgybggHggAEJ9wJh=8gyp_mEhWp2i=YFw@mail.gmail.com>
+	<5578695.0ahxvoVWDX@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:33166 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752686AbbKVVxc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 16:53:32 -0500
-Received: by igcmv3 with SMTP id mv3so18461886igc.0
-        for <netdev@vger.kernel.org>; Sun, 22 Nov 2015 13:53:32 -0800 (PST)
-In-Reply-To: <CO2PR11MB008832EB5323120812FFDAF597180@CO2PR11MB0088.namprd11.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	linux-kernel@vger.kernel.org, Evan Wang <xswang@marvell.com>,
+	nadavh@marvell.com, nitroshift@yahoo.com,
+	Lior Amsalem <alior@marvell.com>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>,
+	Grzegorz Jaszczyk <jaz@semihalf.com>,
+	=?UTF-8?Q?Gregory_Cl=C3=A9ment?=
+	<gregory.clement@free-electrons.com>,
+	Tomasz Nowicki <tn@semihalf.com>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Yair Mahalalel <myair@marvell.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <5578695.0ahxvoVWDX@wuerfel>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 22, 2015 at 12:19 PM, Yuval Mintz <Yuval.Mintz@qlogic.com> wrote:
-> Hi,
->
-> This might be a dumb question, but I recently touched this
-> and felt like I'm missing something basic -
->
-> NAPI is being scheduled from soft-interrupt contex, and it
-> has a ~strict quota for handling Rx packets [even though we're
-> allowing practically unlimited handling of Tx completions].
-> Given these facts, what's the benefit of having arbitrary large
-> Rx buffer rings? Assuming quota is 64, I would have expected
-> that having more than twice or thrice as many buffers could not
-> help in real traffic scenarios - in any given time-unit
-> [the time between 2 NAPI runs which should be relatively
-> constant] CPU can't handle more than the quota; If HW is
-> generating more packets on a regular basis the buffers are bound
-> to get exhausted, no matter how many there are.
->
-> While there isn't any obvious downside to allowing drivers to
-> increase ring sizes to be larger [other than memory footprint],
-> I feel like I'm missing the scenarios where having Ks of
-> buffers can actually help.
-> And for the unlikely case that I'm not missing anything,
-> why aren't we supplying some `default' max and min amounts
-> in a common header?
+Arnd,
 
-The main benefit of large Rx rings is that you could theoretically
-support longer delays between device interrupts.  So for example if
-you have a protocol such as UDP that doesn't care about latency then
-you could theoretically set a large ring size, a large interrupt delay
-and process several hundred or possibly even several thousand packets
-per device interrupt instead of just a few.
+>
+> If the feature set depends on the port number, we should think about
+> the way it gets handled again, as this is probably better not described
+> as something that depends (just) on the SoC, but on the way it gets
+> integrated. Maybe we can introduce an additional property for the
+> checksums on jumbo frames and use that if present but fall back to
+> identifying by compatible string otherwise.
+>
 
-- Alex
+I think adding a property, taking also compatible strings will be the
+best solution.
+
+Best regards,
+Marcin
