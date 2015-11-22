@@ -1,58 +1,58 @@
-From: Andrew <nitr0@seti.kr.ua>
-Subject: Re: Kernel 4.1.12 crash
-Date: Sun, 22 Nov 2015 12:45:14 +0200
-Message-ID: <56519CBA.8010704@seti.kr.ua>
-References: <564F26FF.3040605@seti.kr.ua> <564FA904.7020603@gmail.com>
- <5650287B.9070901@seti.kr.ua> <56514FF5.7060906@gmail.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH V4 net-next 4/5] net:hns: Add support of ethtool TSO set
+ option for Hip06 in HNS
+Date: Sun, 22 Nov 2015 11:17:13 +0000
+Message-ID: <CO2PR11MB00885531F54375191E6F015597180__26970.5288847492$1448191108$gmane$org@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1448048952-146714-1-git-send-email-salil.mehta@huawei.com>
+ <1448048952-146714-5-git-send-email-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Salil Mehta <salil.mehta@huawei.com>,
+	David Miller <davem@davemloft.net>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"pawel.moll@arm.com" <pawel.moll@arm.com>,
+	"mark.rutland@arm.com" <mark.rutland@arm.com>,
+	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	"galak@codeaurora.org" <galak@codeaurora.org>,
+	"catalin.marinas@arm.com" <catalin.marinas@arm.com>,
+	"will.deacon@arm.com" <will.deacon@arm.com>,
+	"arnd@arndb.de" <arnd@arndb.de>,
+	"liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
+	"yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
+	"dingtianhong@huawei.com" <dingtianhong@huawei.com>,
+	"zhangfei.gao@linaro.org" <zhangfei.gao@linaro.org>,
+	"huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
+	"kenneth-lee-2012@foxmail.com" <kenneth-lee-2012@foxmail.com>,
+	"mehta.salil.lnk@gmail.com" <mehta.sal
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imap.seti.kr.ua ([91.202.132.4]:58829 "EHLO mail.seti.kr.ua"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751936AbbKVKpT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Nov 2015 05:45:19 -0500
-Received: from [91.202.135.100] (helo=[192.168.0.145])
-	by mail.seti.kr.ua with esmtpa (Exim 4.68)
-	(envelope-from <nitr0@seti.kr.ua>)
-	id 1a0S8w-0001aT-6p
-	for netdev@vger.kernel.org; Sun, 22 Nov 2015 12:45:16 +0200
-In-Reply-To: <56514FF5.7060906@gmail.com>
+Received: from mail-bn1on0144.outbound.protection.outlook.com ([157.56.110.144]:16224
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751229AbbKVLRT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 06:17:19 -0500
+In-Reply-To: <1448048952-146714-5-git-send-email-salil.mehta@huawei.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-22.11.2015 07:17, Alexander Duyck wrote:
-> On 11/21/2015 12:16 AM, Andrew wrote:
->> Memory corruption, if happens, IMHO shouldn't be a hardware-related -
->> almost all of these boxes, except H61M-based box from 1st log, works
->> for a long time with uptime more than year; and only software was
->> changed on it; H61M-based box runs memtest86 for a tens of hours w/o
->> any error. If it was caused by hardware - they should crash even
->> earlier.
->
-> I wasn't saying it was hardware related.  My thought is that it could
-> be some sort of use after free or double free type issue. Basically
-> what you end up with is the memory getting corrupted by software that
-> is accessing regions it shouldn't be.
->
->> Rarely on different servers I saw 'zram decompression error' messages
->> (in this case I've got such message on H61M-based box).
->>
->> Also, other people that uses accel-ppp as BRAS software, have
->> different kernel panics/bugs/oopses on fresh kernels.
->>
->> I'll try to apply these patches, and I'll try to switch back to
->> kernels that were stable on some boxes.
->
-> If you could bisect this it would be useful.  Basically we just need
-> to determine where in the git history these issues started popping up
-> so that we can then narrow down on the root cause.
->
-> - Alex
-IMHO bisecting will be too long, because these crashes aren't regular - 
-once box may work for a month w/o troubles, and then - may crash twice 
-per week with same load.
+> +static netdev_features_t hns_nic_fix_features(
+> +		struct net_device *netdev, netdev_features_t features) {
+> +	struct hns_nic_priv *priv = netdev_priv(netdev);
+> +
+> +	switch (priv->enet_ver) {
+> +	case AE_VERSION_1:
+> +		features &= ~(NETIF_F_TSO | NETIF_F_TSO6 |
+> +				NETIF_F_HW_VLAN_CTAG_FILTER);
+> +		break;
+> +	default:
+> +		break;
+> +	}
+> +	return features;
+> +}
+> +
 
-Maybe if I'll create 10-20k sessions in test environment, this will 
-cause crash - but I'm not sure about this. I'll try to check this.
+Isn't AE_VERSION_1 something fixed once you publish your features?
+If it can't be changed, why not simply remove the features from
+`hw_features' instead of having to implement this ndo?
