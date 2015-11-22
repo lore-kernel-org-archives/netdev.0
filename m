@@ -1,57 +1,74 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH V3 net-next 2/5] net:hns: Add Hip06 "RSS(Receive Side
- Scaling)" support to HNS Driver
-Date: Sun, 22 Nov 2015 09:30:30 +0000
-Message-ID: <CO2PR11MB0088B852596B9F86F7BDCF6F97180__36342.1422466219$1448184685$gmane$org@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1447966706-16219-1-git-send-email-salil.mehta@huawei.com>
- <1447966706-16219-3-git-send-email-salil.mehta@huawei.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 10/13] ARM: mvebu: add buffer manager nodes to
+ armada-38x.dtsi
+Date: Sun, 22 Nov 2015 12:41:34 +0300
+Message-ID: <56518DCE.2010309@cogentembedded.com>
+References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
+ <1448178839-3541-11-git-send-email-mw@semihalf.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Salil Mehta <salil.mehta@huawei.com>,
-	David Miller <davem@davemloft.net>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.com" <pawel.moll@arm.com>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	"galak@codeaurora.org" <galak@codeaurora.org>,
-	"catalin.marinas@arm.com" <catalin.marinas@arm.com>,
-	"will.deacon@arm.com" <will.deacon@arm.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
-	"yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
-	"dingtianhong@huawei.com" <dingtianhong@huawei.com>,
-	"zhangfei.gao@linaro.org" <zhangfei.gao@linaro.org>,
-	"huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-	"kenneth-lee-2012@foxmail.com" <kenneth-lee-2012@foxmail.com>,
-	"mehta.salil.lnk@gmail.com" <mehta.sal
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0139.outbound.protection.outlook.com ([65.55.169.139]:65216
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751223AbbKVJaf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 04:30:35 -0500
-In-Reply-To: <1447966706-16219-3-git-send-email-salil.mehta@huawei.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch, linux@arm.linux.org.uk,
+ jason@lakedaemon.net, myair@marvell.com, jaz@semihalf.com,
+ simon.guinot@sequanux.org, xswang@marvell.com, nadavh@marvell.com,
+ alior@marvell.com, tn@semihalf.com, gregory.clement@free-electrons.com,
+ nitroshift@yahoo.com, davem@davemloft.net, sebastian.hesselbarth@gmail.com
+To: Marcin Wojtas <mw@semihalf.com>, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1448178839-3541-11-git-send-email-mw@semihalf.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
->  static void hns_ppe_init_hw(struct hns_ppe_cb *ppe_cb)  {
-...
-> +	/* Set default RSS key and indrection table*/
-> +	const u32 rss_key[HNS_PPEV2_RSS_KEY_NUM] = {
-> +		0x6d5a56da, 0x255b0ec2,
-> +		0x4167253d, 0x43a38fb0,
-> +		0xd0ca2bcb, 0xae7b30b4,
-> +		0x77cb2da3, 0x8030f20c,
-> +		0x6a42b73b, 0xbeac01fa,
-> +	};
+Hello.
+
+On 11/22/2015 10:53 AM, Marcin Wojtas wrote:
+
+> Armada 38x network controller supports hardware buffer management (BM).
+> Since it is now enabled in mvneta driver, appropriate nodes can be added
+> to armada-38x.dtsi - for the actual common BM unit (bm@c8000) and its
+> internal SRAM (bm-bppi), which is used for indirect access to buffer
+> pointer ring residing in DRAM.
+>
+> Pools - ports mapping, bm-bppi entry in 'soc' node's ranges and optional
+> parameters are supposed to be set in board files.
+>
+> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
+> ---
+>   arch/arm/boot/dts/armada-38x.dtsi | 18 ++++++++++++++++++
+>   1 file changed, 18 insertions(+)
+>
+> diff --git a/arch/arm/boot/dts/armada-38x.dtsi b/arch/arm/boot/dts/armada-38x.dtsi
+> index b7868b2..b9f4ce2 100644
+> --- a/arch/arm/boot/dts/armada-38x.dtsi
+> +++ b/arch/arm/boot/dts/armada-38x.dtsi
+> @@ -539,6 +539,14 @@
+>   				status = "disabled";
+>   			};
+>
+> +			bm: bm@c8000 {
+
+    The ePAPR standard tells us to give generic names to the device nodes, 
+hence this should be named "buffer-manager" (?).
+
+[...]
+> @@ -617,6 +625,16 @@
+>   			#size-cells = <1>;
+>   			ranges = <0 MBUS_ID(0x09, 0x15) 0 0x800>;
+>   		};
 > +
-> +	/* set default RSS key and remember it */
-> +	for (i = 0; i < HNS_PPEV2_RSS_KEY_NUM; i++)
-> +		ppe_cb->rss_key[i]  = rss_key[i];
-> 
+> +		bm_bppi: bm-bppi {
 
-Is there any reason for the special default key?
-Why not use netdev_rss_key_fill()?
+    And this one "memory" (?).
+
+[...]
+
+MBR, Sergei
