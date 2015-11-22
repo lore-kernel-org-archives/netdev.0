@@ -1,40 +1,50 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: Use-after-free in ppoll
-Date: Sun, 22 Nov 2015 18:51:44 +0000
-Message-ID: <87vb8tq33z.fsf@doppelsaurus.mobileactivedefense.com>
-References: <CACT4Y+YRbhn+vUZqb9zY0X3fw_VSc_Ab5JKiEa5L-0g4U9zoSA@mail.gmail.com>
-	<8737vym7f3.fsf@doppelsaurus.mobileactivedefense.com>
-	<CACT4Y+YuBQH2tYt3hqCd6f5yR7iQcU6prf0VGPUoBxv6yCpJ7w@mail.gmail.com>
-	<87ziy5q3cy.fsf@doppelsaurus.mobileactivedefense.com>
+From: John Crispin <blogic@openwrt.org>
+Subject: Re: [RFC 5/8] net-next: ralink: add support for rt3050 family
+Date: Sun, 22 Nov 2015 20:06:56 +0100
+Message-ID: <56521250.1060001@openwrt.org>
+References: <1448181658-38111-1-git-send-email-blogic@openwrt.org>
+ <1448181658-38111-5-git-send-email-blogic@openwrt.org>
+ <20151122163632.GA7110@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	Jason Baron <jbaron@akamai.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Howells <dhowells@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87ziy5q3cy.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
-	Weikusat's message of "Sun, 22 Nov 2015 18:46:21 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Rainer Weikusat <rweikusat@mobileactivedefense.com> writes:
-
-[...]
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Michael Lee <igvtee@gmail.com>,
+	Felix Fietkau <nbd@openwrt.org>,
+	"Steven Liu (?????????)" <steven.liu@mediatek.com>,
+	"Fred Chang (?????????)" <Fred.Chang@mediatek.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arrakis.dune.hu ([78.24.191.176]:35356 "EHLO arrakis.dune.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751130AbbKVTHB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Nov 2015 14:07:01 -0500
+In-Reply-To: <20151122163632.GA7110@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> because of the close, this routine will be called with the peer_wait
-> wait_queue_head of the non-closed socket of the socket pair as
-> wait_address argument.
 
-This should have been "peer_wait wait_queue_head of the peer of the
-non-closed socket, ie, that of the closed socket"...
+On 22/11/2015 17:36, Andrew Lunn wrote:
+> On Sun, Nov 22, 2015 at 09:40:55AM +0100, John Crispin wrote:
+>> Add support for SoCs from the rt3050 family. This include rt3050, rt3052,
+>> rt3352 and rt5350. These all have a builtin 5 port 100mbit switch. This patch
+>> includes rudimentary code to power up the switch.
+> 
+> Hi John
+> 
+> How do you plan to control this switch?
+> 
+> Does it make sense to write a DSA driver for it?
+> 
+>      Andrew
+> 
+
+Hi Andrew,
+
+we have had a switch layer inside openwrt called swconfig for several
+years. at the moment i have an add-on patch in openwrt to provide an
+userland interface via that layer. the driver i have sent will bring up
+the switch to a point where traffic flow is possible.
+
+	John
