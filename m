@@ -1,15 +1,13 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH] tipc: fix error handling of expanding
-	buffer headroom
-Date: Sun, 22 Nov 2015 15:38:39 +0800
-Message-ID: <1448177919-8646-1-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH] tipc: avoid packets leaking on socket
+	receive queue
+Date: Sun, 22 Nov 2015 15:46:05 +0800
+Message-ID: <1448178365-14827-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, stephen@networkplumber.org,
-	tipc-discussion@lists.sourceforge.net, scan-admin@coverity.com,
-	netdev@vger.kernel.org
-To: <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
+To: <davem@davemloft.net>, <jon.maloy@ericsson.com>
 Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
@@ -21,57 +19,62 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Coverity says:
+Even if we drain receive queue thoroughly in tipc_release() after tipc
+socket is removed from rhashtable, it is possible that some packets
+are in flight because some CPU runs receiver and did rhashtable lookup
+before we removed socket. They will achieve receive queue, but nobody
+delete them at all. To avoid this leak, we register a private socket
+destructor to purge receive queue, meaning releasing packets pending
+on receive queue will be delayed until the last reference of tipc
+socket will be released.
 
-*** CID 1338065:  Error handling issues  (CHECKED_RETURN)
-/net/tipc/udp_media.c: 162 in tipc_udp_send_msg()
-156     	struct udp_media_addr *dst = (struct udp_media_addr *)&dest->value;
-157     	struct udp_media_addr *src = (struct udp_media_addr *)&b->addr.value;
-158     	struct sk_buff *clone;
-159     	struct rtable *rt;
-160
-161     	if (skb_headroom(skb) < UDP_MIN_HEADROOM)
->>>     CID 1338065:  Error handling issues  (CHECKED_RETURN)
->>>     Calling "pskb_expand_head" without checking return value (as is done elsewhere 51 out of 56 times).
-162     		pskb_expand_head(skb, UDP_MIN_HEADROOM, 0, GFP_ATOMIC);
-163
-164     	clone = skb_clone(skb, GFP_ATOMIC);
-165     	skb_set_inner_protocol(clone, htons(ETH_P_TIPC));
-166     	ub = rcu_dereference_rtnl(b->media_ptr);
-167     	if (!ub) {
-
-When expanding buffer headroom over udp tunnel with pskb_expand_head(),
-it's unfortunate that we don't check its return value. As a result, if
-the function returns an error code due to the lack of memory, it may
-cause unpredictable consequence as we unconditionally consider that
-it's always successful.
-
-Fixes: e53567948f82 ("tipc: conditionally expand buffer headroom over udp tunnel")
-Reported-by: <scan-admin@coverity.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/udp_media.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ net/tipc/socket.c |   10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index ad2719a..f01ff16 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -158,8 +158,11 @@ static int tipc_udp_send_msg(struct net *net, struct sk_buff *skb,
- 	struct udp_media_addr *src = (struct udp_media_addr *)&b->addr.value;
- 	struct rtable *rt;
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 552dbab..b53246f 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -105,6 +105,7 @@ struct tipc_sock {
+ static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *skb);
+ static void tipc_data_ready(struct sock *sk);
+ static void tipc_write_space(struct sock *sk);
++static void tipc_sock_destruct(struct sock *sk);
+ static int tipc_release(struct socket *sock);
+ static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags);
+ static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p);
+@@ -381,6 +382,7 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
+ 	sk->sk_rcvbuf = sysctl_tipc_rmem[1];
+ 	sk->sk_data_ready = tipc_data_ready;
+ 	sk->sk_write_space = tipc_write_space;
++	sk->sk_destruct = tipc_sock_destruct;
+ 	tsk->conn_timeout = CONN_TIMEOUT_DEFAULT;
+ 	tsk->sent_unacked = 0;
+ 	atomic_set(&tsk->dupl_rcvcnt, 0);
+@@ -470,9 +472,6 @@ static int tipc_release(struct socket *sock)
+ 		tipc_node_remove_conn(net, dnode, tsk->portid);
+ 	}
  
--	if (skb_headroom(skb) < UDP_MIN_HEADROOM)
--		pskb_expand_head(skb, UDP_MIN_HEADROOM, 0, GFP_ATOMIC);
-+	if (skb_headroom(skb) < UDP_MIN_HEADROOM) {
-+		err = pskb_expand_head(skb, UDP_MIN_HEADROOM, 0, GFP_ATOMIC);
-+		if (!err)
-+			goto tx_error;
-+	}
+-	/* Discard any remaining (connection-based) messages in receive queue */
+-	__skb_queue_purge(&sk->sk_receive_queue);
+-
+ 	/* Reject any messages that accumulated in backlog queue */
+ 	sock->state = SS_DISCONNECTING;
+ 	release_sock(sk);
+@@ -1515,6 +1514,11 @@ static void tipc_data_ready(struct sock *sk)
+ 	rcu_read_unlock();
+ }
  
- 	skb_set_inner_protocol(skb, htons(ETH_P_TIPC));
- 	ub = rcu_dereference_rtnl(b->media_ptr);
++static void tipc_sock_destruct(struct sock *sk)
++{
++	__skb_queue_purge(&sk->sk_receive_queue);
++}
++
+ /**
+  * filter_connect - Handle all incoming messages for a connection-based socket
+  * @tsk: TIPC socket
 -- 
 1.7.9.5
 
