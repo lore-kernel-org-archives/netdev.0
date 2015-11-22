@@ -1,7 +1,7 @@
 From: John Crispin <blogic@openwrt.org>
-Subject: [RFC 8/8] net-next: ralink: add Kconfig and Makefile
-Date: Sun, 22 Nov 2015 09:40:58 +0100
-Message-ID: <1448181658-38111-8-git-send-email-blogic@openwrt.org>
+Subject: [RFC 5/8] net-next: ralink: add support for rt3050 family
+Date: Sun, 22 Nov 2015 09:40:55 +0100
+Message-ID: <1448181658-38111-5-git-send-email-blogic@openwrt.org>
 References: <1448181658-38111-1-git-send-email-blogic@openwrt.org>
 Cc: netdev@vger.kernel.org, Michael Lee <igvtee@gmail.com>,
 	Felix Fietkau <nbd@openwrt.org>,
@@ -11,131 +11,915 @@ Cc: netdev@vger.kernel.org, Michael Lee <igvtee@gmail.com>,
 	<Fred.Chang@mediatek.com>, John Crispin <blogic@openwrt.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arrakis.dune.hu ([78.24.191.176]:46204 "EHLO arrakis.dune.hu"
+Received: from arrakis.dune.hu ([78.24.191.176]:46189 "EHLO arrakis.dune.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751405AbbKVIli (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Nov 2015 03:41:38 -0500
+	id S1751373AbbKVIlV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Nov 2015 03:41:21 -0500
 In-Reply-To: <1448181658-38111-1-git-send-email-blogic@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the Makefile and Kconfig required to make the driver build.
+Add support for SoCs from the rt3050 family. This include rt3050, rt3052,
+rt3352 and rt5350. These all have a builtin 5 port 100mbit switch. This patch
+includes rudimentary code to power up the switch. There are a lot of magic
+values that get written to the switch and the internal phys. These values
+come straight from the SDK driver and we do not know the meaning of most of
+them.
 
 Signed-off-by: John Crispin <blogic@openwrt.org>
 Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 Signed-off-by: Michael Lee <igvtee@gmail.com>
 ---
- drivers/net/ethernet/Kconfig         |    1 +
- drivers/net/ethernet/Makefile        |    1 +
- drivers/net/ethernet/ralink/Kconfig  |   49 ++++++++++++++++++++++++++++++++++
- drivers/net/ethernet/ralink/Makefile |   19 +++++++++++++
- 4 files changed, 70 insertions(+)
- create mode 100644 drivers/net/ethernet/ralink/Kconfig
- create mode 100644 drivers/net/ethernet/ralink/Makefile
+ drivers/net/ethernet/ralink/esw_rt3050.c |  682 ++++++++++++++++++++++++++++++
+ drivers/net/ethernet/ralink/esw_rt3050.h |   29 ++
+ drivers/net/ethernet/ralink/soc_rt3050.c |  154 +++++++
+ 3 files changed, 865 insertions(+)
+ create mode 100644 drivers/net/ethernet/ralink/esw_rt3050.c
+ create mode 100644 drivers/net/ethernet/ralink/esw_rt3050.h
+ create mode 100644 drivers/net/ethernet/ralink/soc_rt3050.c
 
-diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 955d06b..2d24101 100644
---- a/drivers/net/ethernet/Kconfig
-+++ b/drivers/net/ethernet/Kconfig
-@@ -153,6 +153,7 @@ source "drivers/net/ethernet/packetengines/Kconfig"
- source "drivers/net/ethernet/pasemi/Kconfig"
- source "drivers/net/ethernet/qlogic/Kconfig"
- source "drivers/net/ethernet/qualcomm/Kconfig"
-+source "drivers/net/ethernet/ralink/Kconfig"
- source "drivers/net/ethernet/realtek/Kconfig"
- source "drivers/net/ethernet/renesas/Kconfig"
- source "drivers/net/ethernet/rdc/Kconfig"
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 4a2ee98..fba816c 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -63,6 +63,7 @@ obj-$(CONFIG_NET_PACKET_ENGINE) += packetengines/
- obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
- obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_QUALCOMM) += qualcomm/
-+obj-$(CONFIG_NET_RALINK) += ralink/
- obj-$(CONFIG_NET_VENDOR_REALTEK) += realtek/
- obj-$(CONFIG_NET_VENDOR_RENESAS) += renesas/
- obj-$(CONFIG_NET_VENDOR_RDC) += rdc/
-diff --git a/drivers/net/ethernet/ralink/Kconfig b/drivers/net/ethernet/ralink/Kconfig
+diff --git a/drivers/net/ethernet/ralink/esw_rt3050.c b/drivers/net/ethernet/ralink/esw_rt3050.c
 new file mode 100644
-index 0000000..09639cd
+index 0000000..aae6dac
 --- /dev/null
-+++ b/drivers/net/ethernet/ralink/Kconfig
-@@ -0,0 +1,49 @@
-+config NET_RALINK
-+	tristate "Ralink ethernet driver"
-+	depends on RALINK
-+	help
-+	  This driver supports the ethernet mac inside the ralink wisocs
++++ b/drivers/net/ethernet/ralink/esw_rt3050.c
+@@ -0,0 +1,682 @@
++/*   This program is free software; you can redistribute it and/or modify
++ *   it under the terms of the GNU General Public License as published by
++ *   the Free Software Foundation; version 2 of the License
++ *
++ *   This program is distributed in the hope that it will be useful,
++ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *   GNU General Public License for more details.
++ *
++ *   Copyright (C) 2009-2015 John Crispin <blogic@openwrt.org>
++ *   Copyright (C) 2009-2015 Felix Fietkau <nbd@openwrt.org>
++ *   Copyright (C) 2013-2015 Michael Lee <igvtee@gmail.com>
++ */
 +
-+if NET_RALINK
-+choice
-+	prompt "MAC type"
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/dma-mapping.h>
++#include <linux/init.h>
++#include <linux/skbuff.h>
++#include <linux/etherdevice.h>
++#include <linux/ethtool.h>
++#include <linux/platform_device.h>
++#include <linux/of_device.h>
++#include <linux/clk.h>
++#include <linux/of_net.h>
++#include <linux/of_mdio.h>
 +
-+config NET_RALINK_RT2880
-+	bool "RT2882"
-+	depends on SOC_RT288X
++#include <asm/mach-ralink/ralink_regs.h>
 +
-+config NET_RALINK_RT3050
-+	bool "RT3050/MT7628"
-+	depends on (SOC_RT305X || SOC_MT7620)
++#include "ralink_soc_eth.h"
 +
-+config NET_RALINK_RT3883
-+	bool "RT3883"
-+	depends on SOC_RT3883
++#include <linux/ioport.h>
++#include <linux/mii.h>
 +
-+config NET_RALINK_MT7620
-+	bool "MT7620"
-+	depends on (SOC_MT7620 || SOC_MT7621)
++#include <ralink_regs.h>
 +
-+endchoice
++/* HW limitations for this switch:
++ * - No large frame support (PKT_MAX_LEN at most 1536)
++ * - Can't have untagged vlan and tagged vlan on one port at the same time,
++ *   though this might be possible using the undocumented PPE.
++ */
 +
-+config NET_RALINK_MDIO
-+	def_bool NET_RALINK
-+	depends on (NET_RALINK_RT2880 || NET_RALINK_RT3883 || NET_RALINK_MT7620 || NET_RALINK_MT7621)
-+	select PHYLIB
++#define RT305X_ESW_REG_ISR		0x00
++#define RT305X_ESW_REG_IMR		0x04
++#define RT305X_ESW_REG_FCT0		0x08
++#define RT305X_ESW_REG_PFC1		0x14
++#define RT305X_ESW_REG_ATS		0x24
++#define RT305X_ESW_REG_ATS0		0x28
++#define RT305X_ESW_REG_ATS1		0x2c
++#define RT305X_ESW_REG_ATS2		0x30
++#define RT305X_ESW_REG_PVIDC(_n)	(0x40 + 4 * (_n))
++#define RT305X_ESW_REG_VLANI(_n)	(0x50 + 4 * (_n))
++#define RT305X_ESW_REG_VMSC(_n)		(0x70 + 4 * (_n))
++#define RT305X_ESW_REG_POA		0x80
++#define RT305X_ESW_REG_FPA		0x84
++#define RT305X_ESW_REG_SOCPC		0x8c
++#define RT305X_ESW_REG_POC0		0x90
++#define RT305X_ESW_REG_POC1		0x94
++#define RT305X_ESW_REG_POC2		0x98
++#define RT305X_ESW_REG_SGC		0x9c
++#define RT305X_ESW_REG_STRT		0xa0
++#define RT305X_ESW_REG_PCR0		0xc0
++#define RT305X_ESW_REG_PCR1		0xc4
++#define RT305X_ESW_REG_FPA2		0xc8
++#define RT305X_ESW_REG_FCT2		0xcc
++#define RT305X_ESW_REG_SGC2		0xe4
++#define RT305X_ESW_REG_P0LED		0xa4
++#define RT305X_ESW_REG_P1LED		0xa8
++#define RT305X_ESW_REG_P2LED		0xac
++#define RT305X_ESW_REG_P3LED		0xb0
++#define RT305X_ESW_REG_P4LED		0xb4
++#define RT305X_ESW_REG_PXPC(_x)		(0xe8 + (4 * _x))
++#define RT305X_ESW_REG_P1PC		0xec
++#define RT305X_ESW_REG_P2PC		0xf0
++#define RT305X_ESW_REG_P3PC		0xf4
++#define RT305X_ESW_REG_P4PC		0xf8
++#define RT305X_ESW_REG_P5PC		0xfc
 +
-+config NET_RALINK_MDIO_RT2880
-+	def_bool NET_RALINK
-+	depends on (NET_RALINK_RT2880 || NET_RALINK_RT3883)
-+	select NET_RALINK_MDIO
++#define RT305X_ESW_LED_LINK		0
++#define RT305X_ESW_LED_100M		1
++#define RT305X_ESW_LED_DUPLEX		2
++#define RT305X_ESW_LED_ACTIVITY		3
++#define RT305X_ESW_LED_COLLISION	4
++#define RT305X_ESW_LED_LINKACT		5
++#define RT305X_ESW_LED_DUPLCOLL		6
++#define RT305X_ESW_LED_10MACT		7
++#define RT305X_ESW_LED_100MACT		8
++/* Additional led states not in datasheet: */
++#define RT305X_ESW_LED_BLINK		10
++#define RT305X_ESW_LED_ON		12
 +
-+config NET_RALINK_ESW_RT3050
-+	def_bool NET_RALINK
-+	depends on NET_RALINK_RT3050
-+	select PHYLIB
++#define RT305X_ESW_LINK_S		25
++#define RT305X_ESW_DUPLEX_S		9
++#define RT305X_ESW_SPD_S		0
 +
-+config NET_RALINK_GSW_MT7620
-+	def_bool NET_RALINK
-+	depends on NET_RALINK_MT7620 || NET_RALINK_MT7621
-+	select NET_RALINK_MDIO
-+	select PHYLIB
-+endif
-diff --git a/drivers/net/ethernet/ralink/Makefile b/drivers/net/ethernet/ralink/Makefile
++#define RT305X_ESW_PCR0_WT_NWAY_DATA_S	16
++#define RT305X_ESW_PCR0_WT_PHY_CMD	BIT(13)
++#define RT305X_ESW_PCR0_CPU_PHY_REG_S	8
++
++#define RT305X_ESW_PCR1_WT_DONE		BIT(0)
++
++#define RT305X_ESW_ATS_TIMEOUT		(5 * HZ)
++#define RT305X_ESW_PHY_TIMEOUT		(5 * HZ)
++
++#define RT305X_ESW_PVIDC_PVID_M		0xfff
++#define RT305X_ESW_PVIDC_PVID_S		12
++
++#define RT305X_ESW_VLANI_VID_M		0xfff
++#define RT305X_ESW_VLANI_VID_S		12
++
++#define RT305X_ESW_VMSC_MSC_M		0xff
++#define RT305X_ESW_VMSC_MSC_S		8
++
++#define RT305X_ESW_SOCPC_DISUN2CPU_S	0
++#define RT305X_ESW_SOCPC_DISMC2CPU_S	8
++#define RT305X_ESW_SOCPC_DISBC2CPU_S	16
++#define RT305X_ESW_SOCPC_CRC_PADDING	BIT(25)
++
++#define RT305X_ESW_POC0_EN_BP_S		0
++#define RT305X_ESW_POC0_EN_FC_S		8
++#define RT305X_ESW_POC0_DIS_RMC2CPU_S	16
++#define RT305X_ESW_POC0_DIS_PORT_M	0x7f
++#define RT305X_ESW_POC0_DIS_PORT_S	23
++
++#define RT305X_ESW_POC2_UNTAG_EN_M	0xff
++#define RT305X_ESW_POC2_UNTAG_EN_S	0
++#define RT305X_ESW_POC2_ENAGING_S	8
++#define RT305X_ESW_POC2_DIS_UC_PAUSE_S	16
++
++#define RT305X_ESW_SGC2_DOUBLE_TAG_M	0x7f
++#define RT305X_ESW_SGC2_DOUBLE_TAG_S	0
++#define RT305X_ESW_SGC2_LAN_PMAP_M	0x3f
++#define RT305X_ESW_SGC2_LAN_PMAP_S	24
++
++#define RT305X_ESW_PFC1_EN_VLAN_M	0xff
++#define RT305X_ESW_PFC1_EN_VLAN_S	16
++#define RT305X_ESW_PFC1_EN_TOS_S	24
++
++#define RT305X_ESW_VLAN_NONE		0xfff
++
++#define RT305X_ESW_GSC_BC_STROM_MASK	0x3
++#define RT305X_ESW_GSC_BC_STROM_SHIFT	4
++
++#define RT305X_ESW_GSC_LED_FREQ_MASK	0x3
++#define RT305X_ESW_GSC_LED_FREQ_SHIFT	23
++
++#define RT305X_ESW_POA_LINK_MASK	0x1f
++#define RT305X_ESW_POA_LINK_SHIFT	25
++
++#define RT305X_ESW_PORT_ST_CHG		BIT(26)
++#define RT305X_ESW_PORT0		0
++#define RT305X_ESW_PORT1		1
++#define RT305X_ESW_PORT2		2
++#define RT305X_ESW_PORT3		3
++#define RT305X_ESW_PORT4		4
++#define RT305X_ESW_PORT5		5
++#define RT305X_ESW_PORT6		6
++
++#define RT305X_ESW_PORTS_NONE		0
++
++#define RT305X_ESW_PMAP_LLLLLL		0x3f
++#define RT305X_ESW_PMAP_LLLLWL		0x2f
++#define RT305X_ESW_PMAP_WLLLLL		0x3e
++
++#define RT305X_ESW_PORTS_INTERNAL					\
++		(BIT(RT305X_ESW_PORT0) | BIT(RT305X_ESW_PORT1) |	\
++		 BIT(RT305X_ESW_PORT2) | BIT(RT305X_ESW_PORT3) |	\
++		 BIT(RT305X_ESW_PORT4))
++
++#define RT305X_ESW_PORTS_NOCPU						\
++		(RT305X_ESW_PORTS_INTERNAL | BIT(RT305X_ESW_PORT5))
++
++#define RT305X_ESW_PORTS_CPU	BIT(RT305X_ESW_PORT6)
++
++#define RT305X_ESW_PORTS_ALL						\
++		(RT305X_ESW_PORTS_NOCPU | RT305X_ESW_PORTS_CPU)
++
++#define RT305X_ESW_NUM_VLANS		16
++#define RT305X_ESW_NUM_VIDS		4096
++#define RT305X_ESW_NUM_PORTS		7
++#define RT305X_ESW_NUM_LANWAN		6
++#define RT305X_ESW_NUM_LEDS		5
++
++#define RT5350_ESW_REG_PXTPC(_x)	(0x150 + (4 * _x))
++#define RT5350_EWS_REG_LED_POLARITY	0x168
++#define RT5350_RESET_EPHY		BIT(24)
++
++enum {
++	/* Global attributes. */
++	RT305X_ESW_ATTR_ENABLE_VLAN,
++	RT305X_ESW_ATTR_ALT_VLAN_DISABLE,
++	RT305X_ESW_ATTR_BC_STATUS,
++	RT305X_ESW_ATTR_LED_FREQ,
++	/* Port attributes. */
++	RT305X_ESW_ATTR_PORT_DISABLE,
++	RT305X_ESW_ATTR_PORT_DOUBLETAG,
++	RT305X_ESW_ATTR_PORT_UNTAG,
++	RT305X_ESW_ATTR_PORT_LED,
++	RT305X_ESW_ATTR_PORT_LAN,
++	RT305X_ESW_ATTR_PORT_RECV_BAD,
++	RT305X_ESW_ATTR_PORT_RECV_GOOD,
++	RT5350_ESW_ATTR_PORT_TR_BAD,
++	RT5350_ESW_ATTR_PORT_TR_GOOD,
++};
++
++struct esw_port {
++	bool	disable;
++	bool	doubletag;
++	bool	untag;
++	u8	led;
++	u16	pvid;
++};
++
++struct esw_vlan {
++	u8	ports;
++	u16	vid;
++};
++
++enum {
++	RT305X_ESW_VLAN_CONFIG_NONE = 0,
++	RT305X_ESW_VLAN_CONFIG_LLLLW,
++	RT305X_ESW_VLAN_CONFIG_WLLLL,
++};
++
++struct rt305x_esw {
++	struct device		*dev;
++	void __iomem		*base;
++	int			irq;
++
++	/* Protects against concurrent register r/w operations. */
++	spinlock_t		reg_rw_lock;
++
++	unsigned char		port_map;
++	unsigned int		reg_led_polarity;
++
++	bool			global_vlan_enable;
++	bool			alt_vlan_disable;
++	int			bc_storm_protect;
++	int			led_frequency;
++	struct esw_vlan vlans[RT305X_ESW_NUM_VLANS];
++	struct esw_port ports[RT305X_ESW_NUM_PORTS];
++
++};
++
++static inline void esw_w32(struct rt305x_esw *esw, u32 val, unsigned reg)
++{
++	__raw_writel(val, esw->base + reg);
++}
++
++static inline u32 esw_r32(struct rt305x_esw *esw, unsigned reg)
++{
++	return __raw_readl(esw->base + reg);
++}
++
++static inline void esw_rmw_raw(struct rt305x_esw *esw, unsigned reg,
++			       unsigned long mask, unsigned long val)
++{
++	unsigned long t;
++
++	t = __raw_readl(esw->base + reg) & ~mask;
++	__raw_writel(t | val, esw->base + reg);
++}
++
++static void esw_rmw(struct rt305x_esw *esw, unsigned reg,
++		    unsigned long mask, unsigned long val)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&esw->reg_rw_lock, flags);
++	esw_rmw_raw(esw, reg, mask, val);
++	spin_unlock_irqrestore(&esw->reg_rw_lock, flags);
++}
++
++static u32 rt305x_mii_write(struct rt305x_esw *esw, u32 phy_addr,
++			    u32 phy_register, u32 write_data)
++{
++	unsigned long t_start = jiffies;
++	int ret = 0;
++
++	while (1) {
++		if (!(esw_r32(esw, RT305X_ESW_REG_PCR1) &
++		      RT305X_ESW_PCR1_WT_DONE))
++			break;
++		if (time_after(jiffies, t_start + RT305X_ESW_PHY_TIMEOUT)) {
++			ret = 1;
++			goto out;
++		}
++	}
++
++	write_data &= 0xffff;
++	esw_w32(esw, (write_data << RT305X_ESW_PCR0_WT_NWAY_DATA_S) |
++		      (phy_register << RT305X_ESW_PCR0_CPU_PHY_REG_S) |
++		      (phy_addr) | RT305X_ESW_PCR0_WT_PHY_CMD,
++		RT305X_ESW_REG_PCR0);
++
++	t_start = jiffies;
++	while (1) {
++		if (esw_r32(esw, RT305X_ESW_REG_PCR1) &
++		    RT305X_ESW_PCR1_WT_DONE)
++			break;
++
++		if (time_after(jiffies, t_start + RT305X_ESW_PHY_TIMEOUT)) {
++			ret = 1;
++			break;
++		}
++	}
++out:
++	if (ret)
++		dev_err(esw->dev, "ramips_eth: MDIO timeout\n");
++	return ret;
++}
++
++static unsigned esw_get_port_disable(struct rt305x_esw *esw)
++{
++	unsigned reg;
++
++	reg = esw_r32(esw, RT305X_ESW_REG_POC0);
++	return (reg >> RT305X_ESW_POC0_DIS_PORT_S) &
++	       RT305X_ESW_POC0_DIS_PORT_M;
++}
++
++static void esw_hw_init(struct rt305x_esw *esw)
++{
++	int i;
++	u8 port_disable = 0;
++	u8 port_map = RT305X_ESW_PMAP_LLLLLL;
++
++	/* vodoo from original driver */
++	esw_w32(esw, 0xC8A07850, RT305X_ESW_REG_FCT0);
++	esw_w32(esw, 0x00000000, RT305X_ESW_REG_SGC2);
++	/* Port priority 1 for all ports, vlan enabled. */
++	esw_w32(esw, 0x00005555 |
++		     (RT305X_ESW_PORTS_ALL << RT305X_ESW_PFC1_EN_VLAN_S),
++		RT305X_ESW_REG_PFC1);
++
++	/* Enable Back Pressure, and Flow Control */
++	esw_w32(esw, ((RT305X_ESW_PORTS_ALL << RT305X_ESW_POC0_EN_BP_S) |
++		      (RT305X_ESW_PORTS_ALL << RT305X_ESW_POC0_EN_FC_S)),
++		RT305X_ESW_REG_POC0);
++
++	/* Enable Aging, and VLAN TAG removal */
++	esw_w32(esw, ((RT305X_ESW_PORTS_ALL << RT305X_ESW_POC2_ENAGING_S) |
++		      (RT305X_ESW_PORTS_NOCPU << RT305X_ESW_POC2_UNTAG_EN_S)),
++		RT305X_ESW_REG_POC2);
++
++	esw_w32(esw, 0x00d6500c, RT305X_ESW_REG_FCT2);
++
++	/* 300s aging timer, max packet len 1536, broadcast storm prevention
++	 * disabled, disable collision abort, mac xor48 hash, 10 packet back
++	 * pressure jam, GMII disable was_transmit, back pressure disabled,
++	 * 30ms led flash, unmatched IGMP as broadcast, rmc tb fault to all
++	 * ports.
++	 */
++	esw_w32(esw, 0x0008a301, RT305X_ESW_REG_SGC);
++
++	/* Setup SoC Port control register */
++	esw_w32(esw,
++		(RT305X_ESW_SOCPC_CRC_PADDING |
++		(RT305X_ESW_PORTS_CPU << RT305X_ESW_SOCPC_DISUN2CPU_S) |
++		(RT305X_ESW_PORTS_CPU << RT305X_ESW_SOCPC_DISMC2CPU_S) |
++		(RT305X_ESW_PORTS_CPU << RT305X_ESW_SOCPC_DISBC2CPU_S)),
++		RT305X_ESW_REG_SOCPC);
++
++	/* ext phy base addr 31, enable port 5 polling, rx/tx clock skew 1,
++	 * turbo mii off, rgmi 3.3v off
++	 * port5: disabled
++	 * port6: enabled, gige, full-duplex, rx/tx-flow-control
++	 */
++	esw_w32(esw, 0x3f502b28, RT305X_ESW_REG_FPA2);
++	esw_w32(esw, 0x00000000, RT305X_ESW_REG_FPA);
++
++	/* Force Link/Activity on ports */
++	esw_w32(esw, 0x00000005, RT305X_ESW_REG_P0LED);
++	esw_w32(esw, 0x00000005, RT305X_ESW_REG_P1LED);
++	esw_w32(esw, 0x00000005, RT305X_ESW_REG_P2LED);
++	esw_w32(esw, 0x00000005, RT305X_ESW_REG_P3LED);
++	esw_w32(esw, 0x00000005, RT305X_ESW_REG_P4LED);
++
++	/* Copy disabled port configuration from bootloader setup */
++	port_disable = esw_get_port_disable(esw);
++	for (i = 0; i < 6; i++)
++		esw->ports[i].disable = (port_disable & (1 << i)) != 0;
++
++	if (ralink_soc == RT305X_SOC_RT3352) {
++		/* reset EPHY */
++		fe_reset(RT5350_RESET_EPHY);
++
++		rt305x_mii_write(esw, 0, 31, 0x8000);
++		for (i = 0; i < 5; i++) {
++			if (esw->ports[i].disable) {
++				rt305x_mii_write(esw, i, MII_BMCR, BMCR_PDOWN);
++			} else {
++				rt305x_mii_write(esw, i, MII_BMCR,
++						 BMCR_FULLDPLX |
++						 BMCR_ANENABLE |
++						 BMCR_SPEED100);
++			}
++			/* TX10 waveform coefficient LSB=0 disable PHY */
++			rt305x_mii_write(esw, i, 26, 0x1601);
++			/* TX100/TX10 AD/DA current bias */
++			rt305x_mii_write(esw, i, 29, 0x7016);
++			/* TX100 slew rate control */
++			rt305x_mii_write(esw, i, 30, 0x0038);
++		}
++
++		/* select global register */
++		rt305x_mii_write(esw, 0, 31, 0x0);
++		/* enlarge agcsel threshold 3 and threshold 2 */
++		rt305x_mii_write(esw, 0, 1, 0x4a40);
++		/* enlarge agcsel threshold 5 and threshold 4 */
++		rt305x_mii_write(esw, 0, 2, 0x6254);
++		/* enlarge agcsel threshold  */
++		rt305x_mii_write(esw, 0, 3, 0xa17f);
++		rt305x_mii_write(esw, 0, 12, 0x7eaa);
++		/* longer TP_IDL tail length */
++		rt305x_mii_write(esw, 0, 14, 0x65);
++		/* increased squelch pulse count threshold. */
++		rt305x_mii_write(esw, 0, 16, 0x0684);
++		/* set TX10 signal amplitude threshold to minimum */
++		rt305x_mii_write(esw, 0, 17, 0x0fe0);
++		/* set squelch amplitude to higher threshold */
++		rt305x_mii_write(esw, 0, 18, 0x40ba);
++		/* tune TP_IDL tail and head waveform, enable power
++		 * down slew rate control
++		 */
++		rt305x_mii_write(esw, 0, 22, 0x253f);
++		/* set PLL/Receive bias current are calibrated */
++		rt305x_mii_write(esw, 0, 27, 0x2fda);
++		/* change PLL/Receive bias current to internal(RT3350) */
++		rt305x_mii_write(esw, 0, 28, 0xc410);
++		/* change PLL bias current to internal(RT3052_MP3) */
++		rt305x_mii_write(esw, 0, 29, 0x598b);
++		/* select local register */
++		rt305x_mii_write(esw, 0, 31, 0x8000);
++	} else if (ralink_soc == RT305X_SOC_RT5350) {
++		/* reset EPHY */
++		fe_reset(RT5350_RESET_EPHY);
++
++		/* set the led polarity */
++		esw_w32(esw, esw->reg_led_polarity & 0x1F,
++			RT5350_EWS_REG_LED_POLARITY);
++
++		/* local registers */
++		rt305x_mii_write(esw, 0, 31, 0x8000);
++		for (i = 0; i < 5; i++) {
++			if (esw->ports[i].disable) {
++				rt305x_mii_write(esw, i, MII_BMCR, BMCR_PDOWN);
++			} else {
++				rt305x_mii_write(esw, i, MII_BMCR,
++						 BMCR_FULLDPLX |
++						 BMCR_ANENABLE |
++						 BMCR_SPEED100);
++			}
++			/* TX10 waveform coefficient LSB=0 disable PHY */
++			rt305x_mii_write(esw, i, 26, 0x1601);
++			/* TX100/TX10 AD/DA current bias */
++			rt305x_mii_write(esw, i, 29, 0x7015);
++			/* TX100 slew rate control */
++			rt305x_mii_write(esw, i, 30, 0x0038);
++		}
++
++		/* global registers */
++		rt305x_mii_write(esw, 0, 31, 0x0);
++		/* enlarge agcsel threshold 3 and threshold 2 */
++		rt305x_mii_write(esw, 0, 1, 0x4a40);
++		/* enlarge agcsel threshold 5 and threshold 4 */
++		rt305x_mii_write(esw, 0, 2, 0x6254);
++		/* enlarge agcsel threshold 6 */
++		rt305x_mii_write(esw, 0, 3, 0xa17f);
++		rt305x_mii_write(esw, 0, 12, 0x7eaa);
++		/* longer TP_IDL tail length */
++		rt305x_mii_write(esw, 0, 14, 0x65);
++		/* increased squelch pulse count threshold. */
++		rt305x_mii_write(esw, 0, 16, 0x0684);
++		/* set TX10 signal amplitude threshold to minimum */
++		rt305x_mii_write(esw, 0, 17, 0x0fe0);
++		/* set squelch amplitude to higher threshold */
++		rt305x_mii_write(esw, 0, 18, 0x40ba);
++		/* tune TP_IDL tail and head waveform, enable power
++		 * down slew rate control
++		 */
++		rt305x_mii_write(esw, 0, 22, 0x253f);
++		/* set PLL/Receive bias current are calibrated */
++		rt305x_mii_write(esw, 0, 27, 0x2fda);
++		/* change PLL/Receive bias current to internal(RT3350) */
++		rt305x_mii_write(esw, 0, 28, 0xc410);
++		/* change PLL bias current to internal(RT3052_MP3) */
++		rt305x_mii_write(esw, 0, 29, 0x598b);
++		/* select local register */
++		rt305x_mii_write(esw, 0, 31, 0x8000);
++	} else if (ralink_soc == MT762X_SOC_MT7628AN) {
++		int i;
++
++		/* reset EPHY */
++		fe_reset(RT5350_RESET_EPHY);
++
++		rt305x_mii_write(esw, 0, 31, 0x2000); /* change G2 page */
++		rt305x_mii_write(esw, 0, 26, 0x0020);
++
++		for (i = 0; i < 5; i++) {
++			rt305x_mii_write(esw, i, 31, 0x8000);
++			rt305x_mii_write(esw, i,  0, 0x3100);
++			rt305x_mii_write(esw, i, 30, 0xa000);
++			rt305x_mii_write(esw, i, 31, 0xa000);
++			rt305x_mii_write(esw, i, 16, 0x0606);
++			rt305x_mii_write(esw, i, 23, 0x0f0e);
++			rt305x_mii_write(esw, i, 24, 0x1610);
++			rt305x_mii_write(esw, i, 30, 0x1f15);
++			rt305x_mii_write(esw, i, 28, 0x6111);
++			rt305x_mii_write(esw, i, 31, 0x2000);
++			rt305x_mii_write(esw, i, 26, 0x0000);
++		}
++
++		/* 100Base AOI setting */
++		rt305x_mii_write(esw, 0, 31, 0x5000);
++		rt305x_mii_write(esw, 0, 19, 0x004a);
++		rt305x_mii_write(esw, 0, 20, 0x015a);
++		rt305x_mii_write(esw, 0, 21, 0x00ee);
++		rt305x_mii_write(esw, 0, 22, 0x0033);
++		rt305x_mii_write(esw, 0, 23, 0x020a);
++		rt305x_mii_write(esw, 0, 24, 0x0000);
++		rt305x_mii_write(esw, 0, 25, 0x024a);
++		rt305x_mii_write(esw, 0, 26, 0x035a);
++		rt305x_mii_write(esw, 0, 27, 0x02ee);
++		rt305x_mii_write(esw, 0, 28, 0x0233);
++		rt305x_mii_write(esw, 0, 29, 0x000a);
++		rt305x_mii_write(esw, 0, 30, 0x0000);
++	} else {
++		rt305x_mii_write(esw, 0, 31, 0x8000);
++		for (i = 0; i < 5; i++) {
++			if (esw->ports[i].disable) {
++				rt305x_mii_write(esw, i, MII_BMCR, BMCR_PDOWN);
++			} else {
++				rt305x_mii_write(esw, i, MII_BMCR,
++						 BMCR_FULLDPLX |
++						 BMCR_ANENABLE |
++						 BMCR_SPEED100);
++			}
++			/* TX10 waveform coefficient */
++			rt305x_mii_write(esw, i, 26, 0x1601);
++			/* TX100/TX10 AD/DA current bias */
++			rt305x_mii_write(esw, i, 29, 0x7058);
++			/* TX100 slew rate control */
++			rt305x_mii_write(esw, i, 30, 0x0018);
++		}
++
++		/* PHY IOT */
++		/* select global register */
++		rt305x_mii_write(esw, 0, 31, 0x0);
++		/* tune TP_IDL tail and head waveform */
++		rt305x_mii_write(esw, 0, 22, 0x052f);
++		/* set TX10 signal amplitude threshold to minimum */
++		rt305x_mii_write(esw, 0, 17, 0x0fe0);
++		/* set squelch amplitude to higher threshold */
++		rt305x_mii_write(esw, 0, 18, 0x40ba);
++		/* longer TP_IDL tail length */
++		rt305x_mii_write(esw, 0, 14, 0x65);
++		/* select local register */
++		rt305x_mii_write(esw, 0, 31, 0x8000);
++	}
++
++	if (esw->port_map)
++		port_map = esw->port_map;
++	else
++		port_map = RT305X_ESW_PMAP_LLLLLL;
++
++	/* Unused HW feature, but still nice to be consistent here...
++	 * This is also exported to userspace ('lan' attribute) so it's
++	 * conveniently usable to decide which ports go into the wan vlan by
++	 * default.
++	 */
++	esw_rmw(esw, RT305X_ESW_REG_SGC2,
++		RT305X_ESW_SGC2_LAN_PMAP_M << RT305X_ESW_SGC2_LAN_PMAP_S,
++		port_map << RT305X_ESW_SGC2_LAN_PMAP_S);
++
++	/* make the switch leds blink */
++	for (i = 0; i < RT305X_ESW_NUM_LEDS; i++)
++		esw->ports[i].led = 0x05;
++
++	/* Only unmask the port change interrupt */
++	esw_w32(esw, ~RT305X_ESW_PORT_ST_CHG, RT305X_ESW_REG_IMR);
++}
++
++static irqreturn_t esw_interrupt(int irq, void *_esw)
++{
++	struct rt305x_esw *esw = (struct rt305x_esw *)_esw;
++	u32 status;
++
++	status = esw_r32(esw, RT305X_ESW_REG_ISR);
++	if (status & RT305X_ESW_PORT_ST_CHG) {
++		u32 link = esw_r32(esw, RT305X_ESW_REG_POA);
++
++		link >>= RT305X_ESW_POA_LINK_SHIFT;
++		link &= RT305X_ESW_POA_LINK_MASK;
++		dev_info(esw->dev, "link changed 0x%02X\n", link);
++	}
++	esw_w32(esw, status, RT305X_ESW_REG_ISR);
++
++	return IRQ_HANDLED;
++}
++
++static int esw_probe(struct platform_device *pdev)
++{
++	struct device_node *np = pdev->dev.of_node;
++	const __be32 *port_map, *reg_init;
++	struct rt305x_esw *esw;
++	struct resource *res, *irq;
++	int ret;
++
++	esw = devm_kzalloc(&pdev->dev, sizeof(*esw), GFP_KERNEL);
++	if (!esw)
++		return -ENOMEM;
++
++	esw->dev = &pdev->dev;
++	esw->irq = irq->start;
++	esw->base = devm_ioremap_resource(&pdev->dev, res);
++	if (!esw->base)
++		return -EADDRNOTAVAIL;
++
++	port_map = of_get_property(np, "ralink,portmap", NULL);
++	if (port_map)
++		esw->port_map = be32_to_cpu(*port_map);
++
++	reg_init = of_get_property(np, "ralink,led_polarity", NULL);
++	if (reg_init)
++		esw->reg_led_polarity = be32_to_cpu(*reg_init);
++
++	platform_set_drvdata(pdev, esw);
++
++	spin_lock_init(&esw->reg_rw_lock);
++
++	esw_hw_init(esw);
++
++	ret = devm_request_irq(&pdev->dev, esw->irq, esw_interrupt, 0, "esw",
++			       esw);
++
++	if (!ret) {
++		esw_w32(esw, RT305X_ESW_PORT_ST_CHG, RT305X_ESW_REG_ISR);
++		esw_w32(esw, ~RT305X_ESW_PORT_ST_CHG, RT305X_ESW_REG_IMR);
++	}
++
++	return ret;
++}
++
++static int esw_remove(struct platform_device *pdev)
++{
++	struct rt305x_esw *esw = platform_get_drvdata(pdev);
++
++	if (esw) {
++		esw_w32(esw, ~0, RT305X_ESW_REG_IMR);
++		platform_set_drvdata(pdev, NULL);
++	}
++
++	return 0;
++}
++
++static const struct of_device_id ralink_esw_match[] = {
++	{ .compatible = "ralink,rt3050-esw" },
++	{},
++};
++MODULE_DEVICE_TABLE(of, ralink_esw_match);
++
++static struct platform_driver esw_driver = {
++	.probe = esw_probe,
++	.remove = esw_remove,
++	.driver = {
++		.name = "rt305x-esw",
++		.owner = THIS_MODULE,
++		.of_match_table = ralink_esw_match,
++	},
++};
++
++int __init rtesw_init(void)
++{
++	return platform_driver_register(&esw_driver);
++}
++
++void rtesw_exit(void)
++{
++	platform_driver_unregister(&esw_driver);
++}
+diff --git a/drivers/net/ethernet/ralink/esw_rt3050.h b/drivers/net/ethernet/ralink/esw_rt3050.h
 new file mode 100644
-index 0000000..eb90c56
+index 0000000..3af0b8d
 --- /dev/null
-+++ b/drivers/net/ethernet/ralink/Makefile
-@@ -0,0 +1,19 @@
-+#
-+# Makefile for the Ralink SoCs built-in ethernet macs
-+#
++++ b/drivers/net/ethernet/ralink/esw_rt3050.h
+@@ -0,0 +1,29 @@
++/*   This program is free software; you can redistribute it and/or modify
++ *   it under the terms of the GNU General Public License as published by
++ *   the Free Software Foundation; version 2 of the License
++ *
++ *   This program is distributed in the hope that it will be useful,
++ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *   GNU General Public License for more details.
++ *
++ *   Copyright (C) 2009-2015 John Crispin <blogic@openwrt.org>
++ *   Copyright (C) 2009-2015 Felix Fietkau <nbd@openwrt.org>
++ *   Copyright (C) 2013-2015 Michael Lee <igvtee@gmail.com>
++ */
 +
-+ralink-eth-y					+= ralink_soc_eth.o ralink_ethtool.o
++#ifndef _RALINK_ESW_RT3052_H__
++#define _RALINK_ESW_RT3052_H__
 +
-+ralink-eth-$(CONFIG_NET_RALINK_MDIO)		+= mdio.o
-+ralink-eth-$(CONFIG_NET_RALINK_MDIO_RT2880)	+= mdio_rt2880.o
++#ifdef CONFIG_NET_RALINK_ESW_RT3052
 +
-+ralink-eth-$(CONFIG_NET_RALINK_ESW_RT3050)	+= esw_rt3050.o
-+ralink-eth-$(CONFIG_NET_RALINK_GSW_MT7620)	+= gsw_mt7620.o
++int __init rtesw_init(void);
++void rtesw_exit(void);
 +
-+ralink-eth-$(CONFIG_NET_RALINK_RT2880)		+= soc_rt2880.o
-+ralink-eth-$(CONFIG_NET_RALINK_RT3050)		+= soc_rt3050.o
-+ralink-eth-$(CONFIG_NET_RALINK_RT3883)		+= soc_rt3883.o
-+ralink-eth-$(CONFIG_NET_RALINK_MT7620)		+= soc_mt7620.o
-+ralink-eth-$(CONFIG_NET_RALINK_MT7621)		+= soc_mt7621.o
++#else
 +
-+obj-$(CONFIG_NET_RALINK)			+= ralink-eth.o
++static inline int __init rtesw_init(void) { return 0; }
++static inline void rtesw_exit(void) { }
++
++#endif
++#endif
+diff --git a/drivers/net/ethernet/ralink/soc_rt3050.c b/drivers/net/ethernet/ralink/soc_rt3050.c
+new file mode 100644
+index 0000000..25f35b0
+--- /dev/null
++++ b/drivers/net/ethernet/ralink/soc_rt3050.c
+@@ -0,0 +1,154 @@
++/*   This program is free software; you can redistribute it and/or modify
++ *   it under the terms of the GNU General Public License as published by
++ *   the Free Software Foundation; version 2 of the License
++ *
++ *   This program is distributed in the hope that it will be useful,
++ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *   GNU General Public License for more details.
++ *
++ *   Copyright (C) 2009-2015 John Crispin <blogic@openwrt.org>
++ *   Copyright (C) 2009-2015 Felix Fietkau <nbd@openwrt.org>
++ *   Copyright (C) 2013-2015 Michael Lee <igvtee@gmail.com>
++ */
++
++#include <linux/module.h>
++
++#include <asm/mach-ralink/ralink_regs.h>
++
++#include "ralink_soc_eth.h"
++#include "mdio_rt2880.h"
++
++#define RT305X_RESET_FE         BIT(21)
++#define RT305X_RESET_ESW        BIT(23)
++
++static const u16 rt5350_reg_table[FE_REG_COUNT] = {
++	[FE_REG_PDMA_GLO_CFG] = RT5350_PDMA_GLO_CFG,
++	[FE_REG_PDMA_RST_CFG] = RT5350_PDMA_RST_CFG,
++	[FE_REG_DLY_INT_CFG] = RT5350_DLY_INT_CFG,
++	[FE_REG_TX_BASE_PTR0] = RT5350_TX_BASE_PTR0,
++	[FE_REG_TX_MAX_CNT0] = RT5350_TX_MAX_CNT0,
++	[FE_REG_TX_CTX_IDX0] = RT5350_TX_CTX_IDX0,
++	[FE_REG_TX_DTX_IDX0] = RT5350_TX_DTX_IDX0,
++	[FE_REG_RX_BASE_PTR0] = RT5350_RX_BASE_PTR0,
++	[FE_REG_RX_MAX_CNT0] = RT5350_RX_MAX_CNT0,
++	[FE_REG_RX_CALC_IDX0] = RT5350_RX_CALC_IDX0,
++	[FE_REG_RX_DRX_IDX0] = RT5350_RX_DRX_IDX0,
++	[FE_REG_FE_INT_ENABLE] = RT5350_FE_INT_ENABLE,
++	[FE_REG_FE_INT_STATUS] = RT5350_FE_INT_STATUS,
++	[FE_REG_FE_RST_GL] = 0,
++	[FE_REG_FE_DMA_VID_BASE] = 0,
++};
++
++static void rt305x_init_data(struct fe_soc_data *data,
++			     struct net_device *netdev)
++{
++	struct fe_priv *priv = netdev_priv(netdev);
++
++	priv->flags = FE_FLAG_PADDING_64B | FE_FLAG_PADDING_BUG;
++	netdev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM |
++		NETIF_F_RXCSUM | NETIF_F_HW_VLAN_CTAG_TX;
++}
++
++static int rt3050_fwd_config(struct fe_priv *priv)
++{
++	int ret;
++
++	if (ralink_soc != RT305X_SOC_RT3052) {
++		ret = fe_set_clock_cycle(priv);
++		if (ret)
++			return ret;
++	}
++
++	fe_fwd_config(priv);
++	if (ralink_soc != RT305X_SOC_RT3352)
++		fe_w32(FE_PSE_FQFC_CFG_INIT, FE_PSE_FQ_CFG);
++	fe_csum_config(priv);
++
++	return 0;
++}
++
++static void rt305x_fe_reset(void)
++{
++	fe_reset(RT305X_RESET_FE);
++}
++
++static void rt5350_init_data(struct fe_soc_data *data,
++			     struct net_device *netdev)
++{
++	netdev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM;
++}
++
++static void rt5350_set_mac(struct fe_priv *priv, unsigned char *mac)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->page_lock, flags);
++	fe_w32((mac[0] << 8) | mac[1], RT5350_SDM_MAC_ADRH);
++	fe_w32((mac[2] << 24) | (mac[3] << 16) | (mac[4] << 8) | mac[5],
++	       RT5350_SDM_MAC_ADRL);
++	spin_unlock_irqrestore(&priv->page_lock, flags);
++}
++
++static void rt5350_rxcsum_config(bool enable)
++{
++	if (enable)
++		fe_w32(fe_r32(RT5350_SDM_CFG) | (RT5350_SDM_ICS_EN |
++				RT5350_SDM_TCS_EN | RT5350_SDM_UCS_EN),
++				RT5350_SDM_CFG);
++	else
++		fe_w32(fe_r32(RT5350_SDM_CFG) & ~(RT5350_SDM_ICS_EN |
++				RT5350_SDM_TCS_EN | RT5350_SDM_UCS_EN),
++				RT5350_SDM_CFG);
++}
++
++static int rt5350_fwd_config(struct fe_priv *priv)
++{
++	struct net_device *dev = priv_netdev(priv);
++
++	rt5350_rxcsum_config((dev->features & NETIF_F_RXCSUM));
++
++	return 0;
++}
++
++static void rt5350_tx_dma(struct fe_tx_dma *txd)
++{
++	txd->txd4 = 0;
++}
++
++static void rt5350_fe_reset(void)
++{
++	fe_reset(RT305X_RESET_FE | RT305X_RESET_ESW);
++}
++
++static struct fe_soc_data rt3050_data = {
++	.init_data = rt305x_init_data,
++	.reset_fe = rt305x_fe_reset,
++	.fwd_config = rt3050_fwd_config,
++	.pdma_glo_cfg = FE_PDMA_SIZE_8DWORDS,
++	.checksum_bit = RX_DMA_L4VALID,
++	.rx_int = FE_RX_DONE_INT,
++	.tx_int = FE_TX_DONE_INT,
++	.status_int = FE_CNT_GDM_AF,
++};
++
++static struct fe_soc_data rt5350_data = {
++	.init_data = rt5350_init_data,
++	.reg_table = rt5350_reg_table,
++	.reset_fe = rt5350_fe_reset,
++	.set_mac = rt5350_set_mac,
++	.fwd_config = rt5350_fwd_config,
++	.tx_dma = rt5350_tx_dma,
++	.pdma_glo_cfg = FE_PDMA_SIZE_8DWORDS,
++	.checksum_bit = RX_DMA_L4VALID,
++	.rx_int = RT5350_RX_DONE_INT,
++	.tx_int = RT5350_TX_DONE_INT,
++};
++
++const struct of_device_id of_fe_match[] = {
++	{ .compatible = "ralink,rt3050-eth", .data = &rt3050_data },
++	{ .compatible = "ralink,rt5350-eth", .data = &rt5350_data },
++	{},
++};
++
++MODULE_DEVICE_TABLE(of, of_fe_match);
 -- 
 1.7.10.4
