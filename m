@@ -1,7 +1,7 @@
 From: Marcin Wojtas <mw@semihalf.com>
-Subject: [PATCH 02/13] net: mvneta: enable IP checksum with jumbo frames for Armada 38x on Port0
-Date: Sun, 22 Nov 2015 08:53:48 +0100
-Message-ID: <1448178839-3541-3-git-send-email-mw@semihalf.com>
+Subject: [PATCH 03/13] net: mvneta: fix bit assignment in MVNETA_RXQ_CONFIG_REG
+Date: Sun, 22 Nov 2015 08:53:49 +0100
+Message-ID: <1448178839-3541-4-git-send-email-mw@semihalf.com>
 References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
 Cc: davem@davemloft.net, linux@arm.linux.org.uk,
 	sebastian.hesselbarth@gmail.com, andrew@lunn.ch,
@@ -17,31 +17,27 @@ In-Reply-To: <1448178839-3541-1-git-send-email-mw@semihalf.com>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Ethernet controller found in the Armada 38x SoC's family support
-TCP/IP checksumming with frame sizes larger than 1600 bytes, however
-only on port 0.
-
-This commit enables this feature by using 'marvell,armada-xp-neta' in
-'ethernet@70000' node.
+MVNETA_RXQ_HW_BUF_ALLOC bit which controls enabling hardware buffer
+allocation was mistakenly set as BIT(1). This commit fixes the assignment.
 
 Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-Cc: <stable@vger.kernel.org> # v3.18+
+Cc: <stable@vger.kernel.org> # v3.8+
 ---
- arch/arm/boot/dts/armada-38x.dtsi | 2 +-
+ drivers/net/ethernet/marvell/mvneta.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/arm/boot/dts/armada-38x.dtsi b/arch/arm/boot/dts/armada-38x.dtsi
-index c6a0e9d..b7868b2 100644
---- a/arch/arm/boot/dts/armada-38x.dtsi
-+++ b/arch/arm/boot/dts/armada-38x.dtsi
-@@ -494,7 +494,7 @@
- 			};
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 0f30aaa..d12b8c6 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -36,7 +36,7 @@
  
- 			eth0: ethernet@70000 {
--				compatible = "marvell,armada-370-neta";
-+				compatible = "marvell,armada-xp-neta";
- 				reg = <0x70000 0x4000>;
- 				interrupts-extended = <&mpic 8>;
- 				clocks = <&gateclk 4>;
+ /* Registers */
+ #define MVNETA_RXQ_CONFIG_REG(q)                (0x1400 + ((q) << 2))
+-#define      MVNETA_RXQ_HW_BUF_ALLOC            BIT(1)
++#define      MVNETA_RXQ_HW_BUF_ALLOC            BIT(0)
+ #define      MVNETA_RXQ_PKT_OFFSET_ALL_MASK     (0xf    << 8)
+ #define      MVNETA_RXQ_PKT_OFFSET_MASK(offs)   ((offs) << 8)
+ #define MVNETA_RXQ_THRESHOLD_REG(q)             (0x14c0 + ((q) << 2))
 -- 
 1.8.3.1
