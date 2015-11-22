@@ -1,58 +1,140 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH V4 net-next 4/5] net:hns: Add support of ethtool TSO set
- option for Hip06 in HNS
-Date: Sun, 22 Nov 2015 11:17:13 +0000
-Message-ID: <CO2PR11MB00885531F54375191E6F015597180__26970.5288847492$1448191108$gmane$org@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1448048952-146714-1-git-send-email-salil.mehta@huawei.com>
- <1448048952-146714-5-git-send-email-salil.mehta@huawei.com>
+Subject: [PATCH net-next] bnx2x: Utilize FW 7.13.1.0.
+Date: Sun, 22 Nov 2015 15:01:29 +0200
+Message-ID: <1448197289-18906-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Salil Mehta <salil.mehta@huawei.com>,
-	David Miller <davem@davemloft.net>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.com" <pawel.moll@arm.com>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	"galak@codeaurora.org" <galak@codeaurora.org>,
-	"catalin.marinas@arm.com" <catalin.marinas@arm.com>,
-	"will.deacon@arm.com" <will.deacon@arm.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
-	"yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
-	"dingtianhong@huawei.com" <dingtianhong@huawei.com>,
-	"zhangfei.gao@linaro.org" <zhangfei.gao@linaro.org>,
-	"huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-	"kenneth-lee-2012@foxmail.com" <kenneth-lee-2012@foxmail.com>,
-	"mehta.salil.lnk@gmail.com" <mehta.sal
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0144.outbound.protection.outlook.com ([157.56.110.144]:16224
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751229AbbKVLRT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 06:17:19 -0500
-In-Reply-To: <1448048952-146714-5-git-send-email-salil.mehta@huawei.com>
-Content-Language: en-US
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:5078 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751458AbbKVNBn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 08:01:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +static netdev_features_t hns_nic_fix_features(
-> +		struct net_device *netdev, netdev_features_t features) {
-> +	struct hns_nic_priv *priv = netdev_priv(netdev);
-> +
-> +	switch (priv->enet_ver) {
-> +	case AE_VERSION_1:
-> +		features &= ~(NETIF_F_TSO | NETIF_F_TSO6 |
-> +				NETIF_F_HW_VLAN_CTAG_FILTER);
-> +		break;
-> +	default:
-> +		break;
-> +	}
-> +	return features;
-> +}
-> +
+Commit 46e8a249423ff "bnx2x: Add FW 7.13.1.0" added said .bin FW to
+linux-firmware; This patch incorporates the FW in the bnx2x driver.
 
-Isn't AE_VERSION_1 something fixed once you publish your features?
-If it can't be changed, why not simply remove the features from
-`hw_features' instead of having to implement this ndo?
+This introduces 2 fixes/enhancements:
+ - In some management protocols there are outer-vlan configurations
+that can be dynamically changed while device is running. This fixes
+some corner cases where such a change did not take effect.
+
+ - Prevent VFs from sending MAC control frames; FW would treat a VF
+sending such a packet as malicious and block any further communication
+done by the VF.
+
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+---
+Hi Dave,
+
+Please consider applying this to `net-next'.
+
+Thanks,
+Yuval
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h | 43 +++++++++++++------------
+ 1 file changed, 23 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+index cafd5de..27aa080 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+@@ -3013,8 +3013,8 @@ struct afex_stats {
+ };
+ 
+ #define BCM_5710_FW_MAJOR_VERSION			7
+-#define BCM_5710_FW_MINOR_VERSION			12
+-#define BCM_5710_FW_REVISION_VERSION		30
++#define BCM_5710_FW_MINOR_VERSION			13
++#define BCM_5710_FW_REVISION_VERSION		1
+ #define BCM_5710_FW_ENGINEERING_VERSION		0
+ #define BCM_5710_FW_COMPILE_FLAGS			1
+ 
+@@ -3583,7 +3583,7 @@ enum classify_rule {
+ 	CLASSIFY_RULE_OPCODE_MAC,
+ 	CLASSIFY_RULE_OPCODE_VLAN,
+ 	CLASSIFY_RULE_OPCODE_PAIR,
+-	CLASSIFY_RULE_OPCODE_VXLAN,
++	CLASSIFY_RULE_OPCODE_IMAC_VNI,
+ 	MAX_CLASSIFY_RULE
+ };
+ 
+@@ -3826,6 +3826,17 @@ struct eth_classify_header {
+ 	__le32 echo;
+ };
+ 
++/*
++ * Command for adding/removing a Inner-MAC/VNI classification rule
++ */
++struct eth_classify_imac_vni_cmd {
++	struct eth_classify_cmd_header header;
++	__le32 vni;
++	__le16 imac_lsb;
++	__le16 imac_mid;
++	__le16 imac_msb;
++	__le16 reserved1;
++};
+ 
+ /*
+  * Command for adding/removing a MAC classification rule
+@@ -3869,14 +3880,6 @@ struct eth_classify_vlan_cmd {
+ /*
+  * Command for adding/removing a VXLAN classification rule
+  */
+-struct eth_classify_vxlan_cmd {
+-	struct eth_classify_cmd_header header;
+-	__le32 vni;
+-	__le16 inner_mac_lsb;
+-	__le16 inner_mac_mid;
+-	__le16 inner_mac_msb;
+-	__le16 reserved1;
+-};
+ 
+ /*
+  * union for eth classification rule
+@@ -3885,7 +3888,7 @@ union eth_classify_rule_cmd {
+ 	struct eth_classify_mac_cmd mac;
+ 	struct eth_classify_vlan_cmd vlan;
+ 	struct eth_classify_pair_cmd pair;
+-	struct eth_classify_vxlan_cmd vxlan;
++	struct eth_classify_imac_vni_cmd imac_vni;
+ };
+ 
+ /*
+@@ -5623,6 +5626,14 @@ enum igu_mode {
+ 	MAX_IGU_MODE
+ };
+ 
++/*
++ * Inner Headers Classification Type
++ */
++enum inner_clss_type {
++	INNER_CLSS_DISABLED,
++	INNER_CLSS_USE_VLAN,
++	INNER_CLSS_USE_VNI,
++	MAX_INNER_CLSS_TYPE};
+ 
+ /*
+  * IP versions
+@@ -5953,14 +5964,6 @@ enum ts_offset_cmd {
+ 	MAX_TS_OFFSET_CMD
+ };
+ 
+-/* Tunnel Mode */
+-enum tunnel_mode {
+-	TUNN_MODE_NONE,
+-	TUNN_MODE_VXLAN,
+-	TUNN_MODE_GRE,
+-	MAX_TUNNEL_MODE
+-};
+-
+  /* zone A per-queue data */
+ struct ustorm_queue_zone_data {
+ 	struct ustorm_eth_rx_producers eth_rx_producers;
+-- 
+1.9.3
