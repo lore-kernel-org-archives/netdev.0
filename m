@@ -1,38 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: Utilize FW 7.13.1.0.
-Date: Sun, 22 Nov 2015 12:19:17 -0500 (EST)
-Message-ID: <20151122.121917.850044917970781029.davem@davemloft.net>
-References: <1448197289-18906-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH v2 06/27] brcm80211: move under broadcom vendor directory
+Date: Sun, 22 Nov 2015 19:23:37 +0200
+Message-ID: <87lh9qrlra.fsf@kamboji.qca.qualcomm.com>
+References: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
+	<1447857966-19560-7-git-send-email-kvalo@codeaurora.org>
+	<564CCF2A.4030203@hauke-m.de>
+	<871tbmwhsk.fsf@kamboji.qca.qualcomm.com>
+	<564F966A.7080300@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39486 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751812AbbKVRTT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 12:19:19 -0500
-In-Reply-To: <1448197289-18906-1-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hauke Mehrtens <hauke@hauke-m.de>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <brcm80211-dev-list@broadcom.com>
+To: Arend van Spriel <arend@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <564F966A.7080300@broadcom.com> (Arend van Spriel's message of
+	"Fri, 20 Nov 2015 22:53:46 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Sun, 22 Nov 2015 15:01:29 +0200
+Arend van Spriel <arend@broadcom.com> writes:
 
-> Commit 46e8a249423ff "bnx2x: Add FW 7.13.1.0" added said .bin FW to
-> linux-firmware; This patch incorporates the FW in the bnx2x driver.
-> 
-> This introduces 2 fixes/enhancements:
->  - In some management protocols there are outer-vlan configurations
-> that can be dynamically changed while device is running. This fixes
-> some corner cases where such a change did not take effect.
-> 
->  - Prevent VFs from sending MAC control frames; FW would treat a VF
-> sending such a packet as malicious and block any further communication
-> done by the VF.
-> 
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-> Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+> On 11/19/2015 08:48 AM, Kalle Valo wrote:
+>> Hauke Mehrtens <hauke@hauke-m.de> writes:
+>>
+>>> On 11/18/2015 03:45 PM, Kalle Valo wrote:
+>>>> Part of reorganising wireless drivers directory and Kconfig. Note that I had to
+>>>> edit Makefiles from subdirectories to use the new location.
+>>>>
+>>>> Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
+>>>> ---
+>>>
+>>> I would prefer to remove the brcm80211 directory in this process and create:
+>>> drivers/net/wireless/broadcom/brcmfmac
+>>> drivers/net/wireless/broadcom/brcmsmac
+>>> drivers/net/wireless/broadcom/brcmutil
+>>> drivers/net/wireless/broadcom/include
+>>>
+>>> This way we have one directory less.
+>>
+>> I think this could be done separately. This patchset is big enough
+>> already, I would not like to make it anymore complicated.
+>>
+>> And I actually like the brcm80211 directory, I would not mind keeping it
+>> still.
+>
+> I prefer to keep it as brcmsmac and brcmfmac rely on brcmutil module
+> so I want to keep them together under brcm80211.
+>
+> So does this patch go in before or after the patches I submitted
+> before the merge window. I hope after :-p
 
-Applied.
+Sorry, the vendor patches go in first :) It's much safer that way.
+
+But I think that git should be smart enough and your patchset from
+before the merge window should still apply without issues.
+
+-- 
+Kalle Valo
