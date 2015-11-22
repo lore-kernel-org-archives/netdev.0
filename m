@@ -1,74 +1,58 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 10/13] ARM: mvebu: add buffer manager nodes to
- armada-38x.dtsi
-Date: Sun, 22 Nov 2015 12:41:34 +0300
-Message-ID: <56518DCE.2010309@cogentembedded.com>
-References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
- <1448178839-3541-11-git-send-email-mw@semihalf.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: MULTIPLE_TABLES and IP_ADVANCED_ROUTER
+Date: Sun, 22 Nov 2015 11:03:18 +0100
+Message-ID: <CAMuHMdXZpxnrU=FfFcf3sgX+Ym3RCVLA7dn_8mgUBpby18uDzw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch, linux@arm.linux.org.uk,
- jason@lakedaemon.net, myair@marvell.com, jaz@semihalf.com,
- simon.guinot@sequanux.org, xswang@marvell.com, nadavh@marvell.com,
- alior@marvell.com, tn@semihalf.com, gregory.clement@free-electrons.com,
- nitroshift@yahoo.com, davem@davemloft.net, sebastian.hesselbarth@gmail.com
-To: Marcin Wojtas <mw@semihalf.com>, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1448178839-3541-11-git-send-email-mw@semihalf.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:35928 "EHLO
+	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751041AbbKVKDT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 05:03:19 -0500
+Received: by oiww189 with SMTP id w189so93234244oiw.3
+        for <netdev@vger.kernel.org>; Sun, 22 Nov 2015 02:03:18 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+        Hi,
 
-On 11/22/2015 10:53 AM, Marcin Wojtas wrote:
+Is there a reason why IP_MULTIPLE_TABLES and IP_MROUTE_MULTIPLE_TABLES
+depend on IP_ADVANCED_ROUTER, while their IPV6 counterparts don't?
 
-> Armada 38x network controller supports hardware buffer management (BM).
-> Since it is now enabled in mvneta driver, appropriate nodes can be added
-> to armada-38x.dtsi - for the actual common BM unit (bm@c8000) and its
-> internal SRAM (bm-bppi), which is used for indirect access to buffer
-> pointer ring residing in DRAM.
->
-> Pools - ports mapping, bm-bppi entry in 'soc' node's ranges and optional
-> parameters are supposed to be set in board files.
->
-> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-> ---
->   arch/arm/boot/dts/armada-38x.dtsi | 18 ++++++++++++++++++
->   1 file changed, 18 insertions(+)
->
-> diff --git a/arch/arm/boot/dts/armada-38x.dtsi b/arch/arm/boot/dts/armada-38x.dtsi
-> index b7868b2..b9f4ce2 100644
-> --- a/arch/arm/boot/dts/armada-38x.dtsi
-> +++ b/arch/arm/boot/dts/armada-38x.dtsi
-> @@ -539,6 +539,14 @@
->   				status = "disabled";
->   			};
->
-> +			bm: bm@c8000 {
+net/ipv4/Kconfig:
 
-    The ePAPR standard tells us to give generic names to the device nodes, 
-hence this should be named "buffer-manager" (?).
+    config IP_MULTIPLE_TABLES
+            bool "IP: policy routing"
+            depends on IP_ADVANCED_ROUTER
+            select FIB_RULES
 
-[...]
-> @@ -617,6 +625,16 @@
->   			#size-cells = <1>;
->   			ranges = <0 MBUS_ID(0x09, 0x15) 0 0x800>;
->   		};
-> +
-> +		bm_bppi: bm-bppi {
+    config IP_MROUTE_MULTIPLE_TABLES
+            bool "IP: multicast policy routing"
+            depends on IP_MROUTE && IP_ADVANCED_ROUTER
+            select FIB_RULES
 
-    And this one "memory" (?).
 
-[...]
+net/ipv6/Kconfig:
 
-MBR, Sergei
+    config IPV6_MULTIPLE_TABLES
+            bool "IPv6: Multiple Routing Tables"
+            select FIB_RULES
+
+    config IPV6_MROUTE_MULTIPLE_TABLES
+            bool "IPv6: multicast policy routing"
+            depends on IPV6_MROUTE
+            select FIB_RULES
+
+Thanks!
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
