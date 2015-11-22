@@ -1,27 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: IPv6 fib lookup tracepoint
-Date: Sun, 22 Nov 2015 12:11:51 -0500 (EST)
-Message-ID: <20151122.121151.2093608787722506284.davem@davemloft.net>
-References: <1447964662-39263-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bnx2x: Utilize FW 7.13.1.0.
+Date: Sun, 22 Nov 2015 12:19:17 -0500 (EST)
+Message-ID: <20151122.121917.850044917970781029.davem@davemloft.net>
+References: <1448197289-18906-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
+To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39443 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39486 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751966AbbKVRLz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 12:11:55 -0500
-In-Reply-To: <1447964662-39263-1-git-send-email-dsa@cumulusnetworks.com>
+	with ESMTP id S1751812AbbKVRTT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 12:19:19 -0500
+In-Reply-To: <1448197289-18906-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Thu, 19 Nov 2015 12:24:22 -0800
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Sun, 22 Nov 2015 15:01:29 +0200
 
-> Add tracepoint to show fib6 table lookups and result.
+> Commit 46e8a249423ff "bnx2x: Add FW 7.13.1.0" added said .bin FW to
+> linux-firmware; This patch incorporates the FW in the bnx2x driver.
 > 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> This introduces 2 fixes/enhancements:
+>  - In some management protocols there are outer-vlan configurations
+> that can be dynamically changed while device is running. This fixes
+> some corner cases where such a change did not take effect.
+> 
+>  - Prevent VFs from sending MAC control frames; FW would treat a VF
+> sending such a packet as malicious and block any further communication
+> done by the VF.
+> 
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+> Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
 
-Applied, thanks.
+Applied.
