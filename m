@@ -1,50 +1,59 @@
-From: John Crispin <blogic@openwrt.org>
-Subject: Re: [RFC 5/8] net-next: ralink: add support for rt3050 family
-Date: Sun, 22 Nov 2015 20:06:56 +0100
-Message-ID: <56521250.1060001@openwrt.org>
-References: <1448181658-38111-1-git-send-email-blogic@openwrt.org>
- <1448181658-38111-5-git-send-email-blogic@openwrt.org>
- <20151122163632.GA7110@lunn.ch>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 02/13] net: mvneta: enable IP checksum with jumbo frames for Armada 38x on Port0
+Date: Sun, 22 Nov 2015 21:00:28 +0100
+Message-ID: <4040597.3hXVb3XDMS@wuerfel>
+References: <1448178839-3541-1-git-send-email-mw@semihalf.com> <1448178839-3541-3-git-send-email-mw@semihalf.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Michael Lee <igvtee@gmail.com>,
-	Felix Fietkau <nbd@openwrt.org>,
-	"Steven Liu (?????????)" <steven.liu@mediatek.com>,
-	"Fred Chang (?????????)" <Fred.Chang@mediatek.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arrakis.dune.hu ([78.24.191.176]:35356 "EHLO arrakis.dune.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751130AbbKVTHB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Nov 2015 14:07:01 -0500
-In-Reply-To: <20151122163632.GA7110@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Marcin Wojtas <mw@semihalf.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com,
+	andrew@lunn.ch, linux@arm.linux.org.uk, jason@lakedaemon.net,
+	myair@marvell.com, jaz@semihalf.com, simon.guinot@sequanux.org,
+	xswang@marvell.com, nadavh@marvell.com, alior@marvell.com,
+	stable@vger.kernel.org, tn@semihalf.com,
+	gregory.clement@free-electrons.com, nitroshift@yahoo.com,
+	davem@davemloft.net, sebastian.hesselbarth@gmail.com
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1448178839-3541-3-git-send-email-mw@semihalf.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 22/11/2015 17:36, Andrew Lunn wrote:
-> On Sun, Nov 22, 2015 at 09:40:55AM +0100, John Crispin wrote:
->> Add support for SoCs from the rt3050 family. This include rt3050, rt3052,
->> rt3352 and rt5350. These all have a builtin 5 port 100mbit switch. This patch
->> includes rudimentary code to power up the switch.
+On Sunday 22 November 2015 08:53:48 Marcin Wojtas wrote:
+> The Ethernet controller found in the Armada 38x SoC's family support
+> TCP/IP checksumming with frame sizes larger than 1600 bytes, however
+> only on port 0.
 > 
-> Hi John
+> This commit enables this feature by using 'marvell,armada-xp-neta' in
+> 'ethernet@70000' node.
 > 
-> How do you plan to control this switch?
+> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
+> Cc: <stable@vger.kernel.org> # v3.18+
+> ---
+>  arch/arm/boot/dts/armada-38x.dtsi | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> Does it make sense to write a DSA driver for it?
-> 
->      Andrew
+> diff --git a/arch/arm/boot/dts/armada-38x.dtsi b/arch/arm/boot/dts/armada-38x.dtsi
+> index c6a0e9d..b7868b2 100644
+> --- a/arch/arm/boot/dts/armada-38x.dtsi
+> +++ b/arch/arm/boot/dts/armada-38x.dtsi
+> @@ -494,7 +494,7 @@
+>                         };
+>  
+>                         eth0: ethernet@70000 {
+> -                               compatible = "marvell,armada-370-neta";
+> +                               compatible = "marvell,armada-xp-neta";
+>                                 reg = <0x70000 0x4000>;
+>                                 interrupts-extended = <&mpic 8>;
+>                                 clocks = <&gateclk 4>;
 > 
 
-Hi Andrew,
+As it's clear that they are not 100% backwards compatible, please
+add a SoC specific compatible string here as well, like
 
-we have had a switch layer inside openwrt called swconfig for several
-years. at the moment i have an add-on patch in openwrt to provide an
-userland interface via that layer. the driver i have sent will bring up
-the switch to a point where traffic flow is possible.
+	compatible = "marvell,armada-380-neta", "marvell,armada-xp-neta";
 
-	John
+Maybe also leave the 370 string in place.
+
+	Arnd
