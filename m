@@ -1,44 +1,38 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue
-Date: Mon, 23 Nov 2015 23:06:17 +0000
-Message-ID: <87lh9o9uza.fsf@doppelsaurus.mobileactivedefense.com>
-References: <87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
-	<87d1v57dif.fsf@doppelsaurus.mobileactivedefense.com>
-	<87vb8w2ulg.fsf_-_@doppelsaurus.mobileactivedefense.com>
-	<20151123.123033.522701221384821229.davem@davemloft.net>
-	<87si3w9z3m.fsf@doppelsaurus.mobileactivedefense.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] Add support for rt_tables.d
+Date: Mon, 23 Nov 2015 15:23:33 -0800
+Message-ID: <20151123152333.232085f3@xeon-e3>
+References: <1447873400-15337-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rweikusat@mobileactivedefense.com, jbaron@akamai.com,
-	dvyukov@google.com, syzkaller@googlegroups.com, mkubecek@suse.cz,
-	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
-	linux-kernel@vger.kernel.org, hannes@stressinduktion.org,
-	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
-	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org,
-	kcc@google.com, glider@google.com, andreyknvl@google.com,
-	sasha.levin@oracle.com, jln@google.com, keescook@google.com,
-	minipli@googlemail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <87si3w9z3m.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
-	Weikusat's message of "Mon, 23 Nov 2015 21:37:17 +0000")
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34543 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753085AbbKWXXX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 18:23:23 -0500
+Received: by padhx2 with SMTP id hx2so205790228pad.1
+        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 15:23:23 -0800 (PST)
+In-Reply-To: <1447873400-15337-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
-> David Miller <davem@davemloft.net> writes:
+On Wed, 18 Nov 2015 11:03:20 -0800
+David Ahern <dsa@cumulusnetworks.com> wrote:
 
-[...]
+> Add support for reading table id/name mappings from rt_tables.d
+> directory.
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+>  lib/rt_names.c | 18 ++++++++++++++++++
+>  1 file changed, 18 insertions(+)
 
-> I'm sorry for this 13th hour request/ suggestion but while thinking
-> about a reply to Dmitry, it occurred to me that the restart_locked/
-> sk_locked logic could be avoided by moving the test for this condition
-> in front of all the others while leaving the 'act on it' code at its
-> back, ie, reorganize unix_dgram_sendmsg such that it looks like this:
+This is a useful concept, and I am for incorporating it in the future.
 
-[...]
+The consensus practice for other utility is to a '.conf' suffix which
+allows for README.
 
-Just in case this is unclear on its own: If this was considered an
-improvement by someone other than me, I could supply either a "complete"
-patch with this re-arrangement or a cleanup delta patch changing the
-previous change.
+Probably should also ship a README file in the package.
