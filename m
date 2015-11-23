@@ -1,175 +1,72 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 10/18] net/mlx5e: Write vlan list into vport context
-Date: Mon, 23 Nov 2015 21:21:16 +0200
-Message-ID: <CALzJLG8bi=X8BUQ-PVE2OpwrZF0eOKakOAcoCQxNjxdMjkKd5g@mail.gmail.com>
-References: <1448277111-16474-1-git-send-email-ogerlitz@mellanox.com>
-	<1448277111-16474-11-git-send-email-ogerlitz@mellanox.com>
-	<56534D31.20905@gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [RFC PATCH 2/2] Crypto kernel tls socket
+Date: Mon, 23 Nov 2015 14:27:30 -0500
+Message-ID: <20151123192730.GB30089@oracle.com>
+References: <cover.1448299690.git.davejwatson@fb.com>
+ <ac7783121ef9442741d67aca5d170f02d851ae03.1448299690.git.davejwatson@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Don Dutile <ddutile@redhat.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, Herbert Xu <herbert@gondor.apana.org.au>,
+	linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-team@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f177.google.com ([209.85.160.177]:32915 "EHLO
-	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750708AbbKWTVQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 14:21:16 -0500
-Received: by ykdv3 with SMTP id v3so249088965ykd.0
-        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 11:21:16 -0800 (PST)
-In-Reply-To: <56534D31.20905@gmail.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:16921 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751347AbbKWT1p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 14:27:45 -0500
+Content-Disposition: inline
+In-Reply-To: <ac7783121ef9442741d67aca5d170f02d851ae03.1448299690.git.davejwatson@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 23, 2015 at 7:30 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On 11/23/2015 03:11 AM, Or Gerlitz wrote:
->>
->> From: Saeed Mahameed <saeedm@mellanox.com>
->>
->> Each Vport/vNIC must notify underlying e-Switch layer
->> for vlan table changes in-order to update SR-IOV FDB tables.
->>
->> We do that at vlan_rx_add_vid and vlan_rx_kill_vid ndos.
->>
->> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
->> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
->> ---
->>   drivers/net/ethernet/mellanox/mlx5/core/en.h       |  1 +
->>   .../ethernet/mellanox/mlx5/core/en_flow_table.c    | 49
->> ++++++++++++++++++++++
->>   2 files changed, 50 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h
->> b/drivers/net/ethernet/mellanox/mlx5/core/en.h
->> index 69f1c1a..89313d4 100644
->> --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
->> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
->> @@ -465,6 +465,7 @@ enum {
->>   };
->>
->>   struct mlx5e_vlan_db {
->> +       unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
->>         u32           active_vlans_ft_ix[VLAN_N_VID];
->>         u32           untagged_rule_ft_ix;
->>         u32           any_vlan_rule_ft_ix;
->> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
->> b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
->> index 9a021be..3c0cf22 100644
->> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
->> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
->> @@ -502,6 +502,46 @@ add_eth_addr_rule_out:
->>         return err;
->>   }
->>
->> +static int mlx5e_vport_context_update_vlans(struct mlx5e_priv *priv)
->> +{
->> +       struct net_device *ndev = priv->netdev;
->> +       int max_list_size;
->> +       int list_size;
->> +       u16 *vlans;
->> +       int vlan;
->> +       int err;
->> +       int i;
->> +
->> +       list_size = 0;
->> +       for_each_set_bit(vlan, priv->vlan.active_vlans, VLAN_N_VID)
->> +               list_size++;
->> +
->> +       max_list_size = 1 << MLX5_CAP_GEN(priv->mdev, log_max_vlan_list);
->> +
->> +       if (list_size > max_list_size) {
->> +               netdev_warn(ndev,
->> +                           "netdev vlans list size (%d) > (%d) max vport
->> list size, some vlans will be dropped\n",
->> +                           list_size, max_list_size);
->> +               list_size = max_list_size;
->> +       }
->> +
->> +       vlans = kcalloc(list_size, sizeof(*vlans), GFP_KERNEL);
->> +       if (!vlans)
->> +               return -ENOMEM;
->> +
->> +       i = 0;
->> +       for_each_set_bit(vlan, priv->vlan.active_vlans, VLAN_N_VID)
->> +               vlans[i++] = vlan;
->> +
->
->
-> You capped the allocation at max_list_size above, but you are technically
-> populating up to the original value of list_size here.  I believe that opens
-> you up to a buffer overrun.  You probably need to add a check for i >=
-> list_size and exit the loop if true.
->
-True, Will fix this, thanks for noticing.
+On (11/23/15 09:43), Dave Watson wrote:
+> Currently gcm(aes) represents ~80% of our SSL connections.
+> 
+> Userspace interface:
+> 
+> 1) A transform and op socket are created using the userspace crypto interface
+> 2) Setsockopt ALG_SET_AUTHSIZE is called
+> 3) Setsockopt ALG_SET_KEY is called twice, since we need both send/recv keys
+> 4) ALG_SET_IV cmsgs are sent twice, since we need both send/recv IVs.
+>    To support userspace heartbeats, changeciphersuite, etc, we would also need
+>    to get these back out, use them, then reset them via CMSG.
+> 5) ALG_SET_OP cmsg is overloaded to mean FD to read/write from.
 
->
->> +       err = mlx5_modify_nic_vport_vlans(priv->mdev, vlans, list_size);
->> +       if (err)
->> +               netdev_err(ndev, "Failed to modify vport vlans list
->> err(%d)\n",
->> +                          err);
->> +
->> +       kfree(vlans);
->> +       return err;
->> +}
->> +
->>   enum mlx5e_vlan_rule_type {
->>         MLX5E_VLAN_RULE_TYPE_UNTAGGED,
->>         MLX5E_VLAN_RULE_TYPE_ANY_VID,
->> @@ -552,6 +592,10 @@ static int mlx5e_add_vlan_rule(struct mlx5e_priv
->> *priv,
->>                          1);
->>                 break;
->>         default: /* MLX5E_VLAN_RULE_TYPE_MATCH_VID */
->> +               err = mlx5e_vport_context_update_vlans(priv);
->> +               if (err)
->> +                       goto add_vlan_rule_out;
->> +
->>                 ft_ix = &priv->vlan.active_vlans_ft_ix[vid];
->>                 MLX5_SET(fte_match_param, match_value,
->> outer_headers.vlan_tag,
->>                          1);
->> @@ -588,6 +632,7 @@ static void mlx5e_del_vlan_rule(struct mlx5e_priv
->> *priv,
->>         case MLX5E_VLAN_RULE_TYPE_MATCH_VID:
->>                 mlx5_del_flow_table_entry(priv->ft.vlan,
->>
->> priv->vlan.active_vlans_ft_ix[vid]);
->> +               mlx5e_vport_context_update_vlans(priv);
->>                 break;
->>         }
->>   }
->> @@ -619,6 +664,8 @@ int mlx5e_vlan_rx_add_vid(struct net_device *dev,
->> __always_unused __be16 proto,
->>   {
->>         struct mlx5e_priv *priv = netdev_priv(dev);
->>
->> +       set_bit(vid, priv->vlan.active_vlans);
->> +
->>         return mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID,
->> vid);
->>   }
->>
->> @@ -627,6 +674,8 @@ int mlx5e_vlan_rx_kill_vid(struct net_device *dev,
->> __always_unused __be16 proto,
->>   {
->>         struct mlx5e_priv *priv = netdev_priv(dev);
->>
->> +       clear_bit(vid, priv->vlan.active_vlans);
->> +
->>         mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, vid);
->>
->>         return 0;
->>
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+[from patch 0/2:]
+> If a non application-data TLS record is seen, it is left on the TCP
+> socket and an error is returned on the ALG socket, and the record is
+> left for userspace to manage.
+
+Interesting approach.
+
+FWIW, I was hoping to discuss solutions for securing traffic tunnelled
+over L3 at netdev 1.1, so hopefully we'll be able to go over the
+trade-offs there. 
+
+I'm trying to see how your approach would fit with the RDS-type of
+use-case. RDS-TCP is mostly similar in concept to kcm,
+except that rds has its own header for multiplexing, and has no 
+dependancy on BPF for basic things like re-assembling the datagram. 
+If I were to try to use this for RDS-TCP, the tls_tcp_read_sock() logic
+would be merged into the recv_actor callback for RDS, right?  Thus tls
+control-plane message could be seen in the middle of the
+data-stream, so we really have to freeze the processing of the data
+stream till the control-plane message is processed?
+
+I'm concerned about the possiblilites for async that can happen when
+we separate the data-plane from the control-plane (uspace tls
+does not have to deal with this), but we now have control plane
+separated from data-plane. (And IPsec/IKE has plenty of headaches
+from this sort of thing already)
+
+In the tls.c example that you have, the opfd is generated from
+the accept() on the AF_ALG socket- how would this work if I wanted
+my opfd to be a PF_RDS or a PF_KCM or similar?
+
+One concern is that this patchset provides a solution for the "80%"
+case but what about the other 20% (and the non x86 platforms)?
+E.g., if I get a cipher-suite request outside the aes-ni, what would
+happen (punt to uspace?)
+
+--Sowmini
