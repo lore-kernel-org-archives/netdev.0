@@ -1,29 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] VSOCK: constify vmci_transport_notify_ops structures
-Date: Mon, 23 Nov 2015 15:49:46 -0500 (EST)
-Message-ID: <20151123.154946.1373634995645161672.davem@davemloft.net>
-References: <1448127557-22280-1-git-send-email-Julia.Lawall@lip6.fr>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCHSET v3] netfilter, cgroup: implement cgroup2 path match in
+ xt_cgroup
+Date: Mon, 23 Nov 2015 15:54:18 -0500
+Message-ID: <20151123205418.GC19072@mtj.duckdns.org>
+References: <1448122441-9335-1-git-send-email-tj@kernel.org>
+ <20151123.154523.125969708507852672.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, rjui@broadcom.com,
-	sbranden@broadcom.com, jonmason@broadcom.com,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	bcm-kernel-feedback-list@broadcom.com, linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448127557-22280-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org,
+	daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org,
+	nhorman-2XuSBdqkA4SvXiR4WA35Jg@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org, ninasc-b10kYP2dOMg@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20151123.154523.125969708507852672.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Sat, 21 Nov 2015 18:39:17 +0100
-
-> The vmci_transport_notify_ops structures are never modified, so declare
-> them as const.
+On Mon, Nov 23, 2015 at 03:45:23PM -0500, David Miller wrote:
+> > * Refreshed on top of Nina's net_cls dynamic config update fix patch.
+> >   I included the fix patch as part of this series to ease reviewing.
 > 
-> Done with the help of Coccinelle.
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> I put this into the 'net' tree as it's a bug fix, so can you respin
+> this after I next merge 'net' into 'net-next'?  I'll let you know.
 
-Applied.
+Sure thing.
+
+Thanks.
+
+-- 
+tejun
