@@ -1,283 +1,185 @@
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
-Subject: [PATCH v1 5/6] net: Refactor udp_offload and add Geneve port offload support
-Date: Mon, 23 Nov 2015 13:02:58 -0800
-Message-ID: <1448312579-159544-6-git-send-email-anjali.singhai@intel.com>
+Subject: [PATCH v1 6/6] i40e:Add geneve tunnel offload support
+Date: Mon, 23 Nov 2015 13:02:59 -0800
+Message-ID: <1448312579-159544-7-git-send-email-anjali.singhai@intel.com>
 References: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>
 Cc: jesse@kernel.org, Anjali Singhai Jain <anjali.singhai@intel.com>,
 	Kiran Patil <kiran.patil@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:48052 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:52384 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752070AbbKWUqT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755130AbbKWUqT (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 23 Nov 2015 15:46:19 -0500
 In-Reply-To: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch moves the calls to ndo_add/del ops for vxlan tunnel
-into udp_add/del_offload call. This way the ndo_add/del ops get called
-for not only vxlan tunnels but for any udp based tunnel.
+This patch adds driver hooks to implement ndo_ops to add/del udp
+port in the HW to identify GENEVE tunnels.
 
-Signed-off-by: Kiran Patil <kiran.patil@intel.com>
+Also cleans up the features_check path now that we support
+multiple udp based tunnels.
+
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Signed-off-by: Kiran Patil <kiran.patil@intel.com>
 ---
- drivers/net/geneve.c   | 18 +++++++--------
- drivers/net/vxlan.c    | 35 ++++------------------------
- include/net/protocol.h |  4 ++--
- net/ipv4/fou.c         | 15 ++++++------
- net/ipv4/udp_offload.c | 63 +++++++++++++++++++++++++++++++++-----------------
- 5 files changed, 64 insertions(+), 71 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 35 +++++++++++++++++++++--------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c |  2 +-
+ 3 files changed, 28 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index de5c30c..9dc513a 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -372,15 +372,12 @@ static struct socket *geneve_create_sock(struct net *net, bool ipv6,
- static void geneve_notify_add_rx_port(struct geneve_sock *gs)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index c701bbb..69c2c88 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -336,6 +336,7 @@ struct i40e_pf {
+ #define I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE	BIT_ULL(38)
+ #define I40E_FLAG_LINK_POLLING_ENABLED		BIT_ULL(39)
+ #define I40E_FLAG_VEB_MODE_ENABLED		BIT_ULL(40)
++#define I40E_FLAG_GENEVE_OFFLOAD_CAPABLE	BIT_ULL(41)
+ #define I40E_FLAG_NO_PCI_LINK_CHECK		BIT_ULL(42)
+ 
+ 	/* tracks features that get auto disabled by errors */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index f6447c7..e0e40c3 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -30,6 +30,9 @@
+ #if IS_ENABLED(CONFIG_VXLAN)
+ #include <net/vxlan.h>
+ #endif
++#if IS_ENABLED(CONFIG_GENEVE)
++#include <net/geneve.h>
++#endif
+ #include <net/udp_tunnel.h>
+ #include <net/protocol.h>
+ 
+@@ -6990,7 +6993,7 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
+  **/
+ static void i40e_sync_udp_filters_subtask(struct i40e_pf *pf)
  {
- 	struct sock *sk = gs->sock->sk;
--	sa_family_t sa_family = sk->sk_family;
-+	struct net *net = sock_net(sk);
- 	int err;
- 
--	if (sa_family == AF_INET) {
--		err = udp_add_offload(&gs->udp_offloads);
--		if (err)
--			pr_warn("geneve: udp_add_offload failed with status %d\n",
--				err);
--	}
-+	err = udp_add_offload(&gs->udp_offloads, net);
-+	if (err)
-+		pr_warn("geneve: udp_add_offload failed with status %d\n", err);
- }
- 
- static int geneve_hlen(struct genevehdr *gh)
-@@ -505,6 +502,8 @@ static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
- 
- 	/* Initialize the geneve udp offloads structure */
- 	gs->udp_offloads.port = port;
-+	gs->udp_offloads.tunnel_type = UDP_TUNNEL_GENEVE;
-+	gs->udp_offloads.family = ipv6 ? AF_INET6 : AF_INET;
- 	gs->udp_offloads.callbacks.gro_receive  = geneve_gro_receive;
- 	gs->udp_offloads.callbacks.gro_complete = geneve_gro_complete;
- 	geneve_notify_add_rx_port(gs);
-@@ -522,10 +521,9 @@ static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
- static void geneve_notify_del_rx_port(struct geneve_sock *gs)
- {
- 	struct sock *sk = gs->sock->sk;
--	sa_family_t sa_family = sk->sk_family;
-+	struct net *net = sock_net(sk);
- 
--	if (sa_family == AF_INET)
--		udp_del_offload(&gs->udp_offloads);
-+	udp_del_offload(&gs->udp_offloads, net);
- }
- 
- static void __geneve_sock_release(struct geneve_sock *gs)
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 702f9be..231c17e 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -613,49 +613,22 @@ static int vxlan_gro_complete(struct sk_buff *skb, int nhoff,
- /* Notify netdevs that UDP port started listening */
- static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
- {
--	struct net_device *dev;
- 	struct sock *sk = vs->sock->sk;
- 	struct net *net = sock_net(sk);
--	sa_family_t sa_family = vxlan_get_sk_family(vs);
--	__be16 port = inet_sk(sk)->inet_sport;
- 	int err;
- 
--	if (sa_family == AF_INET) {
--		err = udp_add_offload(&vs->udp_offloads);
--		if (err)
--			pr_warn("vxlan: udp_add_offload failed with status %d\n", err);
--	}
--
--	rcu_read_lock();
--	for_each_netdev_rcu(net, dev) {
--		if (dev->netdev_ops->ndo_add_udp_tunnel_port)
--			dev->netdev_ops->ndo_add_udp_tunnel_port(dev, sa_family,
--							      port,
--							      UDP_TUNNEL_VXLAN);
--	}
--	rcu_read_unlock();
-+	err = udp_add_offload(&vs->udp_offloads, net);
-+	if (err)
-+		pr_warn("vxlan: udp_add_offload failed with status %d\n", err);
- }
- 
- /* Notify netdevs that UDP port is no more listening */
- static void vxlan_notify_del_rx_port(struct vxlan_sock *vs)
- {
--	struct net_device *dev;
- 	struct sock *sk = vs->sock->sk;
- 	struct net *net = sock_net(sk);
--	sa_family_t sa_family = vxlan_get_sk_family(vs);
--	__be16 port = inet_sk(sk)->inet_sport;
--
--	rcu_read_lock();
--	for_each_netdev_rcu(net, dev) {
--		if (dev->netdev_ops->ndo_del_udp_tunnel_port)
--			dev->netdev_ops->ndo_del_udp_tunnel_port(dev, sa_family,
--							      port,
--							      UDP_TUNNEL_VXLAN);
--	}
--	rcu_read_unlock();
- 
--	if (sa_family == AF_INET)
--		udp_del_offload(&vs->udp_offloads);
-+	udp_del_offload(&vs->udp_offloads, net);
- }
- 
- /* Add new entry to forwarding table -- assumes lock held */
-diff --git a/include/net/protocol.h b/include/net/protocol.h
-index 738bfc6..16ee9b5 100644
---- a/include/net/protocol.h
-+++ b/include/net/protocol.h
-@@ -107,8 +107,8 @@ int inet_del_offload(const struct net_offload *prot, unsigned char num);
- void inet_register_protosw(struct inet_protosw *p);
- void inet_unregister_protosw(struct inet_protosw *p);
- 
--int  udp_add_offload(struct udp_offload *prot);
--void udp_del_offload(struct udp_offload *prot);
-+int  udp_add_offload(struct udp_offload *prot, struct net *net);
-+void udp_del_offload(struct udp_offload *prot, struct net *net);
- 
- void udp_offload_get_port(struct net_device *dev);
- 
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index e0fcbbb..4705590 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -411,9 +411,9 @@ static void fou_release(struct fou *fou)
- {
- 	struct socket *sock = fou->sock;
- 	struct sock *sk = sock->sk;
-+	struct net *net = sock_net(sk);
- 
--	if (sk->sk_family == AF_INET)
--		udp_del_offload(&fou->udp_offloads);
-+	udp_del_offload(&fou->udp_offloads, net);
- 	list_del(&fou->list);
- 	udp_tunnel_sock_release(sock);
- 
-@@ -484,6 +484,9 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
- 		goto error;
+-#if IS_ENABLED(CONFIG_VXLAN)
++#if IS_ENABLED(CONFIG_VXLAN) || IS_ENABLED(CONFIG_GENEVE)
+ 	struct i40e_hw *hw = &pf->hw;
+ 	i40e_status ret;
+ 	__be16 port;
+@@ -8174,7 +8177,8 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 			     I40E_FLAG_HW_ATR_EVICT_CAPABLE |
+ 			     I40E_FLAG_OUTER_UDP_CSUM_CAPABLE |
+ 			     I40E_FLAG_WB_ON_ITR_CAPABLE |
+-			     I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE;
++			     I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE |
++			     I40E_FLAG_GENEVE_OFFLOAD_CAPABLE;
  	}
- 
-+	fou->udp_offloads.tunnel_type = UDP_TUNNEL_UNSPEC;
-+	fou->udp_offloads.family = cfg->udp_config.family;
-+
- 	fou->type = cfg->type;
- 
- 	udp_sk(sk)->encap_type = 1;
-@@ -496,11 +499,9 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
- 
- 	sk->sk_allocation = GFP_ATOMIC;
- 
--	if (cfg->udp_config.family == AF_INET) {
--		err = udp_add_offload(&fou->udp_offloads);
--		if (err)
--			goto error;
--	}
-+	err = udp_add_offload(&fou->udp_offloads, net);
-+	if (err)
-+		goto error;
- 
- 	err = fou_add_to_port_list(net, fou);
- 	if (err)
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 8597020..cf71bd0 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -241,18 +241,28 @@ out:
- 	return segs;
- }
- 
--int udp_add_offload(struct udp_offload *uo)
-+int udp_add_offload(struct udp_offload *uo, struct net *net)
- {
--	struct udp_offload_priv *new_offload = kzalloc(sizeof(*new_offload), GFP_ATOMIC);
--
--	if (!new_offload)
--		return -ENOMEM;
--
--	new_offload->offload = uo;
-+	struct udp_offload_priv *new_offload = NULL;
-+	struct net_device *dev;
-+
-+	if (uo->family == AF_INET) {
-+		new_offload = kzalloc(sizeof(*new_offload), GFP_ATOMIC);
-+		if (!new_offload)
-+			return -ENOMEM;
-+		new_offload->offload = uo;
-+	}
- 
- 	spin_lock(&udp_offload_lock);
--	new_offload->next = udp_offload_base;
--	rcu_assign_pointer(udp_offload_base, new_offload);
-+	if (new_offload) {
-+		new_offload->next = udp_offload_base;
-+		rcu_assign_pointer(udp_offload_base, new_offload);
-+	}
-+	for_each_netdev_rcu(net, dev) {
-+		if (dev->netdev_ops->ndo_add_udp_tunnel_port)
-+			dev->netdev_ops->ndo_add_udp_tunnel_port(dev,
-+					 uo->family, uo->port, uo->tunnel_type);
-+	}
- 	spin_unlock(&udp_offload_lock);
- 
+ 	pf->eeprom_version = 0xDEAD;
+ 	pf->lan_veb = I40E_NO_VEB;
+@@ -8273,7 +8277,7 @@ static int i40e_set_features(struct net_device *netdev,
  	return 0;
-@@ -265,24 +275,35 @@ static void udp_offload_free_routine(struct rcu_head *head)
- 	kfree(ou_priv);
  }
  
--void udp_del_offload(struct udp_offload *uo)
-+void udp_del_offload(struct udp_offload *uo, struct net *net)
+-#if IS_ENABLED(CONFIG_VXLAN)
++#if IS_ENABLED(CONFIG_VXLAN) || IS_ENABLED(CONFIG_GENEVE)
+ /**
+  * i40e_get_udp_port_idx - Lookup a possibly offloaded for Rx UDP port
+  * @pf: board private structure
+@@ -8308,14 +8312,18 @@ static void i40e_add_tunnel_port(struct net_device *netdev,
+ 				 sa_family_t sa_family, __be16 port,
+ 				 u32 type)
  {
--	struct udp_offload_priv __rcu **head = &udp_offload_base;
--	struct udp_offload_priv *uo_priv;
-+	struct udp_offload_priv __rcu **head;
-+	struct udp_offload_priv *uo_priv = NULL;
-+	struct net_device *dev;
+-#if IS_ENABLED(CONFIG_VXLAN)
++#if IS_ENABLED(CONFIG_VXLAN) || IS_ENABLED(CONFIG_GENEVE)
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_vsi *vsi = np->vsi;
+ 	struct i40e_pf *pf = vsi->back;
+ 	u8 next_idx;
+ 	u8 idx;
  
- 	spin_lock(&udp_offload_lock);
- 
--	uo_priv = udp_deref_protected(*head);
--	for (; uo_priv != NULL;
--	     uo_priv = udp_deref_protected(*head)) {
--		if (uo_priv->offload == uo) {
--			rcu_assign_pointer(*head,
--					   udp_deref_protected(uo_priv->next));
--			goto unlock;
-+	for_each_netdev_rcu(net, dev) {
-+		if (dev->netdev_ops->ndo_add_udp_tunnel_port)
-+			dev->netdev_ops->ndo_del_udp_tunnel_port(dev,
-+					 uo->family, uo->port, uo->tunnel_type);
-+	}
+-	if (type != UDP_TUNNEL_VXLAN)
++	if (!(type == UDP_TUNNEL_VXLAN || type == UDP_TUNNEL_GENEVE))
++		return;
 +
-+	if (uo->family == AF_INET) {
-+		head = &udp_offload_base;
-+		uo_priv = udp_deref_protected(*head);
-+		for (; uo_priv != NULL;
-+		     uo_priv = udp_deref_protected(*head)) {
-+			if (uo_priv->offload == uo) {
-+				rcu_assign_pointer(*head,
-+					    udp_deref_protected(uo_priv->next));
-+				goto unlock;
-+			}
-+			head = &uo_priv->next;
- 		}
--		head = &uo_priv->next;
-+		pr_warn("udp_del_offload: didn't find offload for port %d\n",
-+			ntohs(uo->port));
- 	}
--	pr_warn("udp_del_offload: didn't find offload for port %d\n", ntohs(uo->port));
- unlock:
- 	spin_unlock(&udp_offload_lock);
- 	if (uo_priv)
++	if ((type == UDP_TUNNEL_GENEVE) &&
++	    (!(pf->flags & I40E_FLAG_GENEVE_OFFLOAD_CAPABLE)))
+ 		return;
+ 
+ 	if (sa_family == AF_INET6)
+@@ -8343,6 +8351,8 @@ static void i40e_add_tunnel_port(struct net_device *netdev,
+ 	pf->udp_ports[next_idx].index = port;
+ 	if (type == UDP_TUNNEL_VXLAN)
+ 		pf->udp_ports[next_idx].type = I40E_AQC_TUNNEL_TYPE_VXLAN;
++	else if (type == UDP_TUNNEL_GENEVE)
++		pf->udp_ports[next_idx].type = I40E_AQC_TUNNEL_TYPE_NGE;
+ 
+ 	pf->pending_udp_bitmap |= BIT_ULL(next_idx);
+ 	pf->flags |= I40E_FLAG_UDP_FILTER_SYNC;
+@@ -8363,13 +8373,13 @@ static void i40e_del_tunnel_port(struct net_device *netdev,
+ 				 sa_family_t sa_family, __be16 port,
+ 				 u32 type)
+ {
+-#if IS_ENABLED(CONFIG_VXLAN)
++#if IS_ENABLED(CONFIG_VXLAN) || IS_ENABLED(CONFIG_GENEVE)
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_vsi *vsi = np->vsi;
+ 	struct i40e_pf *pf = vsi->back;
+ 	u8 idx;
+ 
+-	if (type != UDP_TUNNEL_VXLAN)
++	if (!(type == UDP_TUNNEL_VXLAN || type == UDP_TUNNEL_GENEVE))
+ 		return;
+ 
+ 	if (sa_family == AF_INET6)
+@@ -8569,7 +8579,10 @@ static int i40e_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 				       nlflags, 0, 0, filter_mask, NULL);
+ }
+ 
+-#define I40E_MAX_TUNNEL_HDR_LEN 80
++/* Hardware supports L4 tunnel length of 128B (=2^7) which includes
++ * inner mac plus all inner ethertypes.
++ */
++#define I40E_MAX_TUNNEL_HDR_LEN 128
+ /**
+  * i40e_features_check - Validate encapsulated packet conforms to limits
+  * @skb: skb buff
+@@ -8581,7 +8594,7 @@ static netdev_features_t i40e_features_check(struct sk_buff *skb,
+ 					     netdev_features_t features)
+ {
+ 	if (skb->encapsulation &&
+-	    (skb_inner_mac_header(skb) - skb_transport_header(skb) >
++	    ((skb_inner_network_header(skb) - skb_transport_header(skb)) >
+ 	     I40E_MAX_TUNNEL_HDR_LEN))
+ 		return features & ~(NETIF_F_ALL_CSUM | NETIF_F_GSO_MASK);
+ 
+@@ -8651,6 +8664,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+ 	np->vsi = vsi;
+ 
+ 	netdev->hw_enc_features |= NETIF_F_IP_CSUM	 |
++				  NETIF_F_RXCSUM	 |
+ 				  NETIF_F_GSO_UDP_TUNNEL |
+ 				  NETIF_F_GSO_GRE	 |
+ 				  NETIF_F_TSO;
+@@ -10165,6 +10179,9 @@ static void i40e_print_features(struct i40e_pf *pf)
+ #if IS_ENABLED(CONFIG_VXLAN)
+ 	buf += sprintf(buf, "VxLAN ");
+ #endif
++#if IS_ENABLED(CONFIG_GENVE)
++	i += snprintf(&buf[i], REMAIN(i), "Geneve ");
++#endif
+ 	if (pf->flags & I40E_FLAG_PTP)
+ 		buf += sprintf(buf, "PTP ");
+ #ifdef I40E_FCOE
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 46556b6..a66d590 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1374,7 +1374,7 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+ 	if (rx_error & BIT(I40E_RX_DESC_ERROR_PPRS_SHIFT))
+ 		return;
+ 
+-	/* If VXLAN traffic has an outer UDPv4 checksum we need to check
++	/* If VXLAN/GENEVE traffic has an outer UDPv4 checksum we need to check
+ 	 * it in the driver, hardware does not do it for us.
+ 	 * Since L3L4P bit was set we assume a valid IHL value (>=5)
+ 	 * so the total length of IPv4 header is IHL*4 bytes
 -- 
 1.8.1.4
