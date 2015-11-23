@@ -1,66 +1,52 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH v2 06/27] brcm80211: move under broadcom vendor directory
-Date: Mon, 23 Nov 2015 11:36:00 +0100
-Message-ID: <5652EC10.9010708@broadcom.com>
-References: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>	<1447857966-19560-7-git-send-email-kvalo@codeaurora.org>	<564CCF2A.4030203@hauke-m.de>	<871tbmwhsk.fsf@kamboji.qca.qualcomm.com>	<564F966A.7080300@broadcom.com> <87lh9qrlra.fsf@kamboji.qca.qualcomm.com> <5652EA61.1080103@broadcom.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 2/9] net: ipmr: always define
+ mroute_reg_vif_num
+Date: Mon, 23 Nov 2015 11:39:19 +0100
+Message-ID: <5652ECD7.1000104@cumulusnetworks.com>
+References: <1448117852-4254-1-git-send-email-razor@blackwall.org>
+ <1448117852-4254-3-git-send-email-razor@blackwall.org>
+ <CAHA+R7Pra5DW8UNyPDQKK6Y=J8nz4LvNvmHcsP7pY+-U5NHCKg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Hauke Mehrtens <hauke@hauke-m.de>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <brcm80211-dev-list@broadcom.com>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5652EA61.1080103@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Cong Wang <cwang@twopensource.com>,
+	Nikolay Aleksandrov <razor@blackwall.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:36379 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750987AbbKWKjW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 05:39:22 -0500
+Received: by wmww144 with SMTP id w144so90186855wmw.1
+        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 02:39:21 -0800 (PST)
+In-Reply-To: <CAHA+R7Pra5DW8UNyPDQKK6Y=J8nz4LvNvmHcsP7pY+-U5NHCKg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/23/2015 11:28 AM, Arend van Spriel wrote:
-> On 11/22/2015 06:23 PM, Kalle Valo wrote:
->> Arend van Spriel <arend@broadcom.com> writes:
+On 11/23/2015 06:23 AM, Cong Wang wrote:
+> On Sat, Nov 21, 2015 at 6:57 AM, Nikolay Aleksandrov
+> <razor@blackwall.org> wrote:
+>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 >>
->>> On 11/19/2015 08:48 AM, Kalle Valo wrote:
->>>> Hauke Mehrtens <hauke@hauke-m.de> writes:
->>>>
->>>>> On 11/18/2015 03:45 PM, Kalle Valo wrote:
->>>>>> Part of reorganising wireless drivers directory and Kconfig. Note
->>>>>> that I had to
->>>>>> edit Makefiles from subdirectories to use the new location.
->>>>>>
->>>>>> Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
->>>>>> ---
->>>>>
->>>>> I would prefer to remove the brcm80211 directory in this process
->>>>> and create:
->>>>> drivers/net/wireless/broadcom/brcmfmac
->>>>> drivers/net/wireless/broadcom/brcmsmac
->>>>> drivers/net/wireless/broadcom/brcmutil
->>>>> drivers/net/wireless/broadcom/include
->>>>>
->>>>> This way we have one directory less.
->>>>
->>>> I think this could be done separately. This patchset is big enough
->>>> already, I would not like to make it anymore complicated.
->>>>
->>>> And I actually like the brcm80211 directory, I would not mind
->>>> keeping it
->>>> still.
->>>
->>> I prefer to keep it as brcmsmac and brcmfmac rely on brcmutil module
->>> so I want to keep them together under brcm80211.
->>>
->>> So does this patch go in before or after the patches I submitted
->>> before the merge window. I hope after :-p
+>> Before mroute_reg_vif_num was defined only if any of the CONFIG_PIMSM_
+>> options were set, but that's not really necessary as the size of the
+>> struct is the same in both cases (checked with pahole, both cases size
+>> is 3256 bytes) and we can remove some unnecessary ifdefs to simplify the
+>> code.
 >>
->> Sorry, the vendor patches go in first :) It's much safer that way.
->>
->> But I think that git should be smart enough and your patchset from
->> before the merge window should still apply without issues.
->
-> Will see if that is true when I merge it in our internal repo. :-p
+> 
+> Not sure if this really simplifies the code, since now
+> mroute_reg_vif_num is hidden
+> deeper after your patch and there are still some code under CONFIG_IP_PIMSM.
+> 
+CONFIG_IP_PIMSM is removed in the next patch, and it's not "hidden" anymore
+than it was before.
 
-Just applied the pending patches using 'git am -3' and that works fine. 
-So when told to be smart, git is indeed smart ;-)
-
-Regards,
-Arend
+> If you really care about it, how about introducing a helper function
+> to set and get
+> mrt->mroute_reg_vif_num?
+> 
+Patches are welcome, if you don't get to it then I will with the next
+set.
