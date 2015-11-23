@@ -1,33 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHSET v3] netfilter, cgroup: implement cgroup2 path match
- in xt_cgroup
-Date: Mon, 23 Nov 2015 15:45:23 -0500 (EST)
-Message-ID: <20151123.154523.125969708507852672.davem@davemloft.net>
-References: <1448122441-9335-1-git-send-email-tj@kernel.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	daniel@iogearbox.net, daniel.wagner@bmw-carit.de,
-	nhorman@tuxdriver.co, lizefan@huawei.com, hannes@cmpxchg.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-team@fb.com, ninasc@fb.com
-To: tj@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448122441-9335-1-git-send-email-tj@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
+Subject: [PATCH 0/6] Generalize udp based tunnels and add geneve offload
+Date: Mon, 23 Nov 2015 13:02:53 -0800
+Message-ID: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>
+Cc: jesse@kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:48052 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755088AbbKWUqP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2015 15:46:15 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tejun Heo <tj@kernel.org>
-Date: Sat, 21 Nov 2015 11:13:52 -0500
+This patch series generalizes the flow for udp_based tunnels for
+offload hooks. So that much of the frame work can remain common
+for any driver adding support for geneve or any other
+udp_based tunnel in future.
 
-> * Refreshed on top of Nina's net_cls dynamic config update fix patch.
->   I included the fix patch as part of this series to ease reviewing.
+This patch series also makes the driver calls to/from the stack
+independent of the tunnel modules. So it would be easier to remove
+module config parameters from the respective drivers for tunnel
+support. One such example is in i40e driver.
 
-I put this into the 'net' tree as it's a bug fix, so can you respin
-this after I next merge 'net' into 'net-next'?  I'll let you know.
+This patch series also adds support for geneve offload in i40e driver.
 
-There'll probably be at least some minor feedback meanwhile anyways.
+Much thanks to Jesse Gross for his valuable feedback in getting this
+done the right way.
 
-Thanks.
+Anjali Singhai Jain (6):
+net: Generalize udp based tunnel offload
+net: Add a generic udp_offload_get_port function
+i40e: Generalize the flow for udp based tunnels
+i40e: Remove CONFIG_I40E_VXLAN
+net: Refactor udp_offload and add Geneve port offload
+i40e:Add geneve tunnel offload support
