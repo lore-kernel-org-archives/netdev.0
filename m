@@ -1,40 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] vrf: fix double free and memory corruption on
- register_netdevice failure
-Date: Mon, 23 Nov 2015 17:53:37 -0500 (EST)
-Message-ID: <20151123.175337.380614330138907039.davem@davemloft.net>
-References: <1448131579-20525-1-git-send-email-razor@blackwall.org>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue
+Date: Mon, 23 Nov 2015 23:06:17 +0000
+Message-ID: <87lh9o9uza.fsf@doppelsaurus.mobileactivedefense.com>
+References: <87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<87d1v57dif.fsf@doppelsaurus.mobileactivedefense.com>
+	<87vb8w2ulg.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<20151123.123033.522701221384821229.davem@davemloft.net>
+	<87si3w9z3m.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com,
-	shm@cumulusnetworks.com, nikolay@cumulusnetworks.com
-To: razor@blackwall.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57155 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751104AbbKWWxn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 17:53:43 -0500
-In-Reply-To: <1448131579-20525-1-git-send-email-razor@blackwall.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: rweikusat@mobileactivedefense.com, jbaron@akamai.com,
+	dvyukov@google.com, syzkaller@googlegroups.com, mkubecek@suse.cz,
+	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, hannes@stressinduktion.org,
+	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
+	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org,
+	kcc@google.com, glider@google.com, andreyknvl@google.com,
+	sasha.levin@oracle.com, jln@google.com, keescook@google.com,
+	minipli@googlemail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <87si3w9z3m.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
+	Weikusat's message of "Mon, 23 Nov 2015 21:37:17 +0000")
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Date: Sat, 21 Nov 2015 19:46:19 +0100
+Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
+> David Miller <davem@davemloft.net> writes:
 
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> When vrf's ->newlink is called, if register_netdevice() fails then it
-> does free_netdev(), but that's also done by rtnl_newlink() so a second
-> free happens and memory gets corrupted, to reproduce execute the
-> following line a couple of times (1 - 5 usually is enough):
-> $ for i in `seq 1 5`; do ip link add vrf: type vrf table 1; done;
-> This works because we fail in register_netdevice() because of the wrong
-> name "vrf:".
-> 
-> And here's a trace of one crash:
- ...
-> Fixes: 193125dbd8eb ("net: Introduce VRF device driver")
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+[...]
 
-Applied and queued up for -stable, thanks.
+> I'm sorry for this 13th hour request/ suggestion but while thinking
+> about a reply to Dmitry, it occurred to me that the restart_locked/
+> sk_locked logic could be avoided by moving the test for this condition
+> in front of all the others while leaving the 'act on it' code at its
+> back, ie, reorganize unix_dgram_sendmsg such that it looks like this:
+
+[...]
+
+Just in case this is unclear on its own: If this was considered an
+improvement by someone other than me, I could supply either a "complete"
+patch with this re-arrangement or a cleanup delta patch changing the
+previous change.
