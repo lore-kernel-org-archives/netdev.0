@@ -1,67 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue
-Date: Mon, 23 Nov 2015 12:30:33 -0500 (EST)
-Message-ID: <20151123.123033.522701221384821229.davem@davemloft.net>
-References: <87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
-	<87d1v57dif.fsf@doppelsaurus.mobileactivedefense.com>
-	<87vb8w2ulg.fsf_-_@doppelsaurus.mobileactivedefense.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 0/6] kcm: Kernel Connection Multiplexor (KCM)
+Date: Mon, 23 Nov 2015 09:33:44 -0800
+Message-ID: <CALx6S34TrGgmH3eZKPLw_xKYfX2dm+fZq6r7ZBe2DBPudBiSzA@mail.gmail.com>
+References: <1448054520-1464587-1-git-send-email-tom@herbertland.com>
+	<1448272388.3983270.447381049.07BA3A5C@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jbaron@akamai.com, dvyukov@google.com, syzkaller@googlegroups.com,
-	mkubecek@suse.cz, viro@zeniv.linux.org.uk,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	hannes@stressinduktion.org, dhowells@redhat.com,
-	paul@paul-moore.com, salyzyn@android.com, sds@tycho.nsa.gov,
-	ying.xue@windriver.com, netdev@vger.kernel.org, kcc@google.com,
-	glider@google.com, andreyknvl@google.com, sasha.levin@oracle.com,
-	jln@google.com, keescook@google.com, minipli@googlemail.com
-To: rweikusat@mobileactivedefense.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>, davewatson@fb.com,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54312 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754194AbbKWRah (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 12:30:37 -0500
-In-Reply-To: <87vb8w2ulg.fsf_-_@doppelsaurus.mobileactivedefense.com>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:36674 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751255AbbKWRdp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 12:33:45 -0500
+Received: by igcph11 with SMTP id ph11so55853687igc.1
+        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 09:33:44 -0800 (PST)
+In-Reply-To: <1448272388.3983270.447381049.07BA3A5C@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Date: Fri, 20 Nov 2015 22:07:23 +0000
+> For me this still looks a little bit like messages could be delimited by
+> TCP PSH flag, where we might need to have some more fine grained control
+> over and besides that just adding better fanout semantics to TCP, no?
+>
+The TCP PSH flag is not defined for message delineation (neither is
+urgent pointer). We can't change that (many people have tried to add
+message semantics to TCP protocol but have always failed miserably).
+The fact is TCP is always going to be a stream based protocol. Period!
+:-) It is up to the application to interpret the stream and extract
+messages. Even if we could somehow apply the PSH bit to "help" in
+message delineation, we would need to change senders to use the PSH
+bit in that fashion for it to be of benefit to receivers.
 
-> Rainer Weikusat <rweikusat@mobileactivedefense.com> writes:
-> An AF_UNIX datagram socket being the client in an n:1 association with
-> some server socket is only allowed to send messages to the server if the
-> receive queue of this socket contains at most sk_max_ack_backlog
-> datagrams. This implies that prospective writers might be forced to go
-> to sleep despite none of the message presently enqueued on the server
-> receive queue were sent by them. In order to ensure that these will be
-> woken up once space becomes again available, the present unix_dgram_poll
-> routine does a second sock_poll_wait call with the peer_wait wait queue
-> of the server socket as queue argument (unix_dgram_recvmsg does a wake
-> up on this queue after a datagram was received). This is inherently
-> problematic because the server socket is only guaranteed to remain alive
-> for as long as the client still holds a reference to it. In case the
-> connection is dissolved via connect or by the dead peer detection logic
-> in unix_dgram_sendmsg, the server socket may be freed despite "the
-> polling mechanism" (in particular, epoll) still has a pointer to the
-> corresponding peer_wait queue. There's no way to forcibly deregister a
-> wait queue with epoll.
-> 
-> Based on an idea by Jason Baron, the patch below changes the code such
-> that a wait_queue_t belonging to the client socket is enqueued on the
-> peer_wait queue of the server whenever the peer receive queue full
-> condition is detected by either a sendmsg or a poll. A wake up on the
-> peer queue is then relayed to the ordinary wait queue of the client
-> socket via wake function. The connection to the peer wait queue is again
-> dissolved if either a wake up is about to be relayed or the client
-> socket reconnects or a dead peer is detected or the client socket is
-> itself closed. This enables removing the second sock_poll_wait from
-> unix_dgram_poll, thus avoiding the use-after-free, while still ensuring
-> that no blocked writer sleeps forever.
-> 
-> Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-> Fixes: ec0d215f9420 ("af_unix: fix 'poll for write'/connected DGRAM sockets")
+> Do kcm sockets still allow streaming unlimited amounts of data? E.g. if
+> you want to pass a data stream attached to a rpc message? I think not
+> allowing streaming is a major shortcoming then (even though this will
+> induce head of line blocking).
+>
+RPC messages can be of arbitrary size and with SOCK_SEQPACKET,
+messages can be sent or received in multiple calls. No HOL blocking
+since message are constructed on KCM sockets before starting to send
+on TCP sockets. Socket buffer limits are respected. KCM does not
+enforce a maximum message size, if an applications does have a maximum
+then that can be checked in the BPF code.
 
-Applied and queued up for -stable, thanks to you and Jason for all of
-your hard work on this fix.
+>> Future support:
+>>
+>>  - Integration with TLS (TLS-in-kernel is a separate initiative).
+>
+> This is interesting:
+>
+> Regarding the last week's discussion about better OOB support in TCP
+> e.g. for SOCKET_DESTROY, do you already have a plan to handle TLS alerts
+> and do CHANGE_CIPHER on the socket synchronously?
+>
+Dave should be posting the basic TLS-in-the-kenel patches shortly,
+those will be a better context for discussion.
+
+Tom
