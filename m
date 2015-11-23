@@ -1,42 +1,33 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: stmmac: debugfs broken with multiple ethernets.
-Date: Mon, 23 Nov 2015 21:33:30 +0100
-Message-ID: <20151123203329.GA30351@amd>
-References: <20151123154917.GA17072@amd>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHSET v3] netfilter, cgroup: implement cgroup2 path match
+ in xt_cgroup
+Date: Mon, 23 Nov 2015 15:45:23 -0500 (EST)
+Message-ID: <20151123.154523.125969708507852672.davem@davemloft.net>
+References: <1448122441-9335-1-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:34731 "EHLO
-	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751549AbbKWUdd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 15:33:33 -0500
-Content-Disposition: inline
-In-Reply-To: <20151123154917.GA17072@amd>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	daniel@iogearbox.net, daniel.wagner@bmw-carit.de,
+	nhorman@tuxdriver.co, lizefan@huawei.com, hannes@cmpxchg.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com, ninasc@fb.com
+To: tj@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448122441-9335-1-git-send-email-tj@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi!
+From: Tejun Heo <tj@kernel.org>
+Date: Sat, 21 Nov 2015 11:13:52 -0500
 
-> stmmac_main will happily try to create two directories with the same
-> name.
-> 
-> I guess something like
-> 
-> static int id;
-> char name[100];
-> 
-> sprintf(name, STMMAC_RESOURCE_NAME "_%d", id++)
-> ...
-> 
-> might be suitable, but did not try that further.
+> * Refreshed on top of Nina's net_cls dynamic config update fix patch.
+>   I included the fix patch as part of this series to ease reviewing.
 
-Hmm. It seems this is fixed in v4.1. Sorry for the noise.
+I put this into the 'net' tree as it's a bug fix, so can you respin
+this after I next merge 'net' into 'net-next'?  I'll let you know.
 
-Best regards,
+There'll probably be at least some minor feedback meanwhile anyways.
 
-
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+Thanks.
