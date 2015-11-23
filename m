@@ -1,151 +1,67 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next 10/18] net/mlx5e: Write vlan list into vport
- context
-Date: Mon, 23 Nov 2015 09:30:25 -0800
-Message-ID: <56534D31.20905@gmail.com>
-References: <1448277111-16474-1-git-send-email-ogerlitz@mellanox.com>
- <1448277111-16474-11-git-send-email-ogerlitz@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] unix: avoid use-after-free in ep_remove_wait_queue
+Date: Mon, 23 Nov 2015 12:30:33 -0500 (EST)
+Message-ID: <20151123.123033.522701221384821229.davem@davemloft.net>
+References: <87ziydvasn.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<87d1v57dif.fsf@doppelsaurus.mobileactivedefense.com>
+	<87vb8w2ulg.fsf_-_@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: jbaron@akamai.com, dvyukov@google.com, syzkaller@googlegroups.com,
+	mkubecek@suse.cz, viro@zeniv.linux.org.uk,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	hannes@stressinduktion.org, dhowells@redhat.com,
+	paul@paul-moore.com, salyzyn@android.com, sds@tycho.nsa.gov,
+	ying.xue@windriver.com, netdev@vger.kernel.org, kcc@google.com,
+	glider@google.com, andreyknvl@google.com, sasha.levin@oracle.com,
+	jln@google.com, keescook@google.com, minipli@googlemail.com
+To: rweikusat@mobileactivedefense.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36465 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754651AbbKWRa1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 12:30:27 -0500
-Received: by pacdm15 with SMTP id dm15so197328313pac.3
-        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 09:30:27 -0800 (PST)
-In-Reply-To: <1448277111-16474-11-git-send-email-ogerlitz@mellanox.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54312 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754194AbbKWRah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 12:30:37 -0500
+In-Reply-To: <87vb8w2ulg.fsf_-_@doppelsaurus.mobileactivedefense.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/23/2015 03:11 AM, Or Gerlitz wrote:
-> From: Saeed Mahameed <saeedm@mellanox.com>
->
-> Each Vport/vNIC must notify underlying e-Switch layer
-> for vlan table changes in-order to update SR-IOV FDB tables.
->
-> We do that at vlan_rx_add_vid and vlan_rx_kill_vid ndos.
->
-> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> ---
->   drivers/net/ethernet/mellanox/mlx5/core/en.h       |  1 +
->   .../ethernet/mellanox/mlx5/core/en_flow_table.c    | 49 ++++++++++++++++++++++
->   2 files changed, 50 insertions(+)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-> index 69f1c1a..89313d4 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-> @@ -465,6 +465,7 @@ enum {
->   };
->
->   struct mlx5e_vlan_db {
-> +	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
->   	u32           active_vlans_ft_ix[VLAN_N_VID];
->   	u32           untagged_rule_ft_ix;
->   	u32           any_vlan_rule_ft_ix;
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
-> index 9a021be..3c0cf22 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
-> @@ -502,6 +502,46 @@ add_eth_addr_rule_out:
->   	return err;
->   }
->
-> +static int mlx5e_vport_context_update_vlans(struct mlx5e_priv *priv)
-> +{
-> +	struct net_device *ndev = priv->netdev;
-> +	int max_list_size;
-> +	int list_size;
-> +	u16 *vlans;
-> +	int vlan;
-> +	int err;
-> +	int i;
-> +
-> +	list_size = 0;
-> +	for_each_set_bit(vlan, priv->vlan.active_vlans, VLAN_N_VID)
-> +		list_size++;
-> +
-> +	max_list_size = 1 << MLX5_CAP_GEN(priv->mdev, log_max_vlan_list);
-> +
-> +	if (list_size > max_list_size) {
-> +		netdev_warn(ndev,
-> +			    "netdev vlans list size (%d) > (%d) max vport list size, some vlans will be dropped\n",
-> +			    list_size, max_list_size);
-> +		list_size = max_list_size;
-> +	}
-> +
-> +	vlans = kcalloc(list_size, sizeof(*vlans), GFP_KERNEL);
-> +	if (!vlans)
-> +		return -ENOMEM;
-> +
-> +	i = 0;
-> +	for_each_set_bit(vlan, priv->vlan.active_vlans, VLAN_N_VID)
-> +		vlans[i++] = vlan;
-> +
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Date: Fri, 20 Nov 2015 22:07:23 +0000
 
-You capped the allocation at max_list_size above, but you are 
-technically populating up to the original value of list_size here.  I 
-believe that opens you up to a buffer overrun.  You probably need to add 
-a check for i >= list_size and exit the loop if true.
+> Rainer Weikusat <rweikusat@mobileactivedefense.com> writes:
+> An AF_UNIX datagram socket being the client in an n:1 association with
+> some server socket is only allowed to send messages to the server if the
+> receive queue of this socket contains at most sk_max_ack_backlog
+> datagrams. This implies that prospective writers might be forced to go
+> to sleep despite none of the message presently enqueued on the server
+> receive queue were sent by them. In order to ensure that these will be
+> woken up once space becomes again available, the present unix_dgram_poll
+> routine does a second sock_poll_wait call with the peer_wait wait queue
+> of the server socket as queue argument (unix_dgram_recvmsg does a wake
+> up on this queue after a datagram was received). This is inherently
+> problematic because the server socket is only guaranteed to remain alive
+> for as long as the client still holds a reference to it. In case the
+> connection is dissolved via connect or by the dead peer detection logic
+> in unix_dgram_sendmsg, the server socket may be freed despite "the
+> polling mechanism" (in particular, epoll) still has a pointer to the
+> corresponding peer_wait queue. There's no way to forcibly deregister a
+> wait queue with epoll.
+> 
+> Based on an idea by Jason Baron, the patch below changes the code such
+> that a wait_queue_t belonging to the client socket is enqueued on the
+> peer_wait queue of the server whenever the peer receive queue full
+> condition is detected by either a sendmsg or a poll. A wake up on the
+> peer queue is then relayed to the ordinary wait queue of the client
+> socket via wake function. The connection to the peer wait queue is again
+> dissolved if either a wake up is about to be relayed or the client
+> socket reconnects or a dead peer is detected or the client socket is
+> itself closed. This enables removing the second sock_poll_wait from
+> unix_dgram_poll, thus avoiding the use-after-free, while still ensuring
+> that no blocked writer sleeps forever.
+> 
+> Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+> Fixes: ec0d215f9420 ("af_unix: fix 'poll for write'/connected DGRAM sockets")
 
-> +	err = mlx5_modify_nic_vport_vlans(priv->mdev, vlans, list_size);
-> +	if (err)
-> +		netdev_err(ndev, "Failed to modify vport vlans list err(%d)\n",
-> +			   err);
-> +
-> +	kfree(vlans);
-> +	return err;
-> +}
-> +
->   enum mlx5e_vlan_rule_type {
->   	MLX5E_VLAN_RULE_TYPE_UNTAGGED,
->   	MLX5E_VLAN_RULE_TYPE_ANY_VID,
-> @@ -552,6 +592,10 @@ static int mlx5e_add_vlan_rule(struct mlx5e_priv *priv,
->   			 1);
->   		break;
->   	default: /* MLX5E_VLAN_RULE_TYPE_MATCH_VID */
-> +		err = mlx5e_vport_context_update_vlans(priv);
-> +		if (err)
-> +			goto add_vlan_rule_out;
-> +
->   		ft_ix = &priv->vlan.active_vlans_ft_ix[vid];
->   		MLX5_SET(fte_match_param, match_value, outer_headers.vlan_tag,
->   			 1);
-> @@ -588,6 +632,7 @@ static void mlx5e_del_vlan_rule(struct mlx5e_priv *priv,
->   	case MLX5E_VLAN_RULE_TYPE_MATCH_VID:
->   		mlx5_del_flow_table_entry(priv->ft.vlan,
->   					  priv->vlan.active_vlans_ft_ix[vid]);
-> +		mlx5e_vport_context_update_vlans(priv);
->   		break;
->   	}
->   }
-> @@ -619,6 +664,8 @@ int mlx5e_vlan_rx_add_vid(struct net_device *dev, __always_unused __be16 proto,
->   {
->   	struct mlx5e_priv *priv = netdev_priv(dev);
->
-> +	set_bit(vid, priv->vlan.active_vlans);
-> +
->   	return mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, vid);
->   }
->
-> @@ -627,6 +674,8 @@ int mlx5e_vlan_rx_kill_vid(struct net_device *dev, __always_unused __be16 proto,
->   {
->   	struct mlx5e_priv *priv = netdev_priv(dev);
->
-> +	clear_bit(vid, priv->vlan.active_vlans);
-> +
->   	mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, vid);
->
->   	return 0;
->
+Applied and queued up for -stable, thanks to you and Jason for all of
+your hard work on this fix.
