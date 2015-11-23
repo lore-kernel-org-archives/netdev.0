@@ -1,39 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [V2] net: fsl: expands dependencies of
- NET_VENDOR_FREESCALE
-Date: Mon, 23 Nov 2015 12:12:57 -0500 (EST)
-Message-ID: <20151123.121257.781288069885534291.davem@davemloft.net>
-References: <1447991648-25424-1-git-send-email-shh.xie@gmail.com>
+Subject: Re: pull-request: wireless-drivers 2015-11-20
+Date: Mon, 23 Nov 2015 12:14:37 -0500 (EST)
+Message-ID: <20151123.121437.648029900590648950.davem@davemloft.net>
+References: <87egflt0z9.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Shaohui.Xie@freescale.com
-To: shh.xie@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54092 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750914AbbKWRM7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 12:12:59 -0500
-In-Reply-To: <1447991648-25424-1-git-send-email-shh.xie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87egflt0z9.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: <shh.xie@gmail.com>
-Date: Fri, 20 Nov 2015 11:54:08 +0800
+From: Kalle Valo <kvalo@codeaurora.org>
+Date: Fri, 20 Nov 2015 12:32:42 +0200
 
-> From: Shaohui Xie <Shaohui.Xie@freescale.com>
-> 
-> Freescale hosts some ARMv8 based SoCs, and a generic convention
-> ARCH_LAYERSCAPE is used to cover such SoCs. Adding ARCH_LAYERSCAPE
-> to dependencies of NET_VENDOR_FREESCALE to support networking on those
-> SoCs.
-> 
-> The ARCH_LAYERSCAPE is introduced by:
-> commit: 53a5fde05 arm64: Use generic Layerscape SoC family naming
-> 
-> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
-> ---
-> changes in v2:
-> 1. revises commit message to add commit which introduces ARCH_LAYERSCAPE.
+> here first wireless-driver fixes for 4.4. Here there are few patches
+> adding new device support and a new firmware but I think they are
+> justified at this early stage of release cycle. Otherwise there should
+> not be anything special, all patches are really small. Please let me
+> know if you have any problems.
 
-Applied.
+Pulled.
