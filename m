@@ -1,48 +1,52 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] iproute2: Ignore EADDRNOTAVAIL errors during address
- flush operation
-Date: Mon, 23 Nov 2015 15:59:39 -0800
-Message-ID: <20151123155939.6664468d@xeon-e3>
-References: <1446753257-10716-1-git-send-email-nhorman@tuxdriver.com>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [iproute PATCH 00/12] smaller iptunnel and ip6tunnel review
+Date: Mon, 23 Nov 2015 15:28:57 -0800
+Message-ID: <20151123152857.3d733d97@xeon-e3>
+References: <1447434545-32182-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: <netdev@vger.kernel.org>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33939 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751804AbbKWX73 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 18:59:29 -0500
-Received: by padhx2 with SMTP id hx2so633083pad.1
-        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 15:59:29 -0800 (PST)
-In-Reply-To: <1446753257-10716-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:59177 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751812AbbKXABK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 19:01:10 -0500
+In-Reply-To: <1447434545-32182-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  5 Nov 2015 14:54:17 -0500
-Neil Horman <nhorman@tuxdriver.com> wrote:
+On Fri, 13 Nov 2015 18:08:53 +0100
+Phil Sutter <phil@nwl.cc> wrote:
 
-> I found recently that, if I disabled address promotion in the kernel, that
-> ip addr flush dev <dev>
+> In an effort to try and merge iptunnel and ip6tunnel support code, I found a
+> few things worth changing, mainly by comparing the two files.
 > 
-> would fail with an EADDRNOTAVAIL errno (though the flush operation would in fact
-> flush all addresses from an interface properly)
+> Please note that I did not test functionality of all supported tunnel modes,
+> but since the changes are fairly small and obvious I hopefully didn't introduce
+> too many bugs.
 > 
-> Whats happening is that, if I add a primary and multiple secondary addresses to
-> an interface, the flush operation first ennumerates them all with a GETADDR |
-> DUMP operation, then sends a delete request for each address.  But the kernel,
-> having promotion disabled, deletes all secondary addresses when the primary is
-> removed.  That means, that several delete requests may still be pending in the
-> netlink request for addresses that have been removed on our behalf, resulting in
-> EADDRNOTAVAIL return codes.
+> Phil Sutter (12):
+>   ip{,6}tunnel: get rid of extraneous whitespace when printing
+>   ip/tunnel: introduce tnl_parse_key()
+>   ip{,6}tunnel: unify behaviour if physical device is not found
+>   iptunnel: use ll_name_to_index() for physical interface lookup
+>   ip{,6}tunnel: align do_tunnels_list() a bit
+>   ip6tunnel: print local/remote addresses like iptunnel does
+>   ip6tunnel: fix coding style: no newline between brace and else
+>   iptunnel: share common code when setting tunnel mode
+>   iptunnel: simplify parsing TTL, allow 'hlim' as identifier
+>   iptunnel: share common code when determining the default interface
+>     name
+>   iptunnel: sanitize copying tunnel name
+>   ip{,6}tunnel: put spaces around non-unary operators
 > 
-> It seems the simplest thing to do is to understand that EADDRUNAVAIL isn't a
-> fatal outcome on a flush operation, as it just indicates that an address which
-> you want to remove is already removed, so it can safely be ignored.
+>  ip/ip6tunnel.c |  83 +++++++-------------
+>  ip/iptunnel.c  | 239 ++++++++++++++++++++++-----------------------------------
+>  ip/tunnel.c    |  15 ++++
+>  ip/tunnel.h    |   1 +
+>  4 files changed, 135 insertions(+), 203 deletions(-)
 > 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> CC: Stephen Hemminger <stephen@networkplumber.org>
-> CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 
-Applied, thanks
+Sure these all make sense. Applied
