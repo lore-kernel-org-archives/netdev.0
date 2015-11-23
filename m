@@ -1,54 +1,151 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: What's the benefit of large Rx rings?
-Date: Mon, 23 Nov 2015 17:27:56 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBDA892@AcuExch.aculab.com>
-References: <CO2PR11MB008832EB5323120812FFDAF597180@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next 10/18] net/mlx5e: Write vlan list into vport
+ context
+Date: Mon, 23 Nov 2015 09:30:25 -0800
+Message-ID: <56534D31.20905@gmail.com>
+References: <1448277111-16474-1-git-send-email-ogerlitz@mellanox.com>
+ <1448277111-16474-11-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Yuval Mintz' <Yuval.Mintz@qlogic.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
+	Doug Ledford <dledford@redhat.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.184]:63061 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754171AbbKWR3v convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 12:29:51 -0500
-In-Reply-To: <CO2PR11MB008832EB5323120812FFDAF597180@CO2PR11MB0088.namprd11.prod.outlook.com>
-Content-Language: en-US
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36465 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754651AbbKWRa1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 12:30:27 -0500
+Received: by pacdm15 with SMTP id dm15so197328313pac.3
+        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 09:30:27 -0800 (PST)
+In-Reply-To: <1448277111-16474-11-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz
-> Sent: 22 November 2015 20:19
-> This might be a dumb question, but I recently touched this
-> and felt like I'm missing something basic -
-> 
-> NAPI is being scheduled from soft-interrupt contex, and it
-> has a ~strict quota for handling Rx packets [even though we're
-> allowing practically unlimited handling of Tx completions].
-> Given these facts, what's the benefit of having arbitrary large
-> Rx buffer rings? Assuming quota is 64, I would have expected
-> that having more than twice or thrice as many buffers could not
-> help in real traffic scenarios - in any given time-unit
-> [the time between 2 NAPI runs which should be relatively
-> constant] CPU can't handle more than the quota; If HW is
-> generating more packets on a regular basis the buffers are bound
-> to get exhausted, no matter how many there are.
+On 11/23/2015 03:11 AM, Or Gerlitz wrote:
+> From: Saeed Mahameed <saeedm@mellanox.com>
+>
+> Each Vport/vNIC must notify underlying e-Switch layer
+> for vlan table changes in-order to update SR-IOV FDB tables.
+>
+> We do that at vlan_rx_add_vid and vlan_rx_kill_vid ndos.
+>
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> ---
+>   drivers/net/ethernet/mellanox/mlx5/core/en.h       |  1 +
+>   .../ethernet/mellanox/mlx5/core/en_flow_table.c    | 49 ++++++++++++++++++++++
+>   2 files changed, 50 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+> index 69f1c1a..89313d4 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+> @@ -465,6 +465,7 @@ enum {
+>   };
+>
+>   struct mlx5e_vlan_db {
+> +	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+>   	u32           active_vlans_ft_ix[VLAN_N_VID];
+>   	u32           untagged_rule_ft_ix;
+>   	u32           any_vlan_rule_ft_ix;
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
+> index 9a021be..3c0cf22 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
+> @@ -502,6 +502,46 @@ add_eth_addr_rule_out:
+>   	return err;
+>   }
+>
+> +static int mlx5e_vport_context_update_vlans(struct mlx5e_priv *priv)
+> +{
+> +	struct net_device *ndev = priv->netdev;
+> +	int max_list_size;
+> +	int list_size;
+> +	u16 *vlans;
+> +	int vlan;
+> +	int err;
+> +	int i;
+> +
+> +	list_size = 0;
+> +	for_each_set_bit(vlan, priv->vlan.active_vlans, VLAN_N_VID)
+> +		list_size++;
+> +
+> +	max_list_size = 1 << MLX5_CAP_GEN(priv->mdev, log_max_vlan_list);
+> +
+> +	if (list_size > max_list_size) {
+> +		netdev_warn(ndev,
+> +			    "netdev vlans list size (%d) > (%d) max vport list size, some vlans will be dropped\n",
+> +			    list_size, max_list_size);
+> +		list_size = max_list_size;
+> +	}
+> +
+> +	vlans = kcalloc(list_size, sizeof(*vlans), GFP_KERNEL);
+> +	if (!vlans)
+> +		return -ENOMEM;
+> +
+> +	i = 0;
+> +	for_each_set_bit(vlan, priv->vlan.active_vlans, VLAN_N_VID)
+> +		vlans[i++] = vlan;
+> +
 
-What you don't want is guaranteed packet loss for common scenarios.
+You capped the allocation at max_list_size above, but you are 
+technically populating up to the original value of list_size here.  I 
+believe that opens you up to a buffer overrun.  You probably need to add 
+a check for i >= list_size and exit the loop if true.
 
-The worst one we I've seen was not having enough buffers for a
-single NFS 8k UDP datagram (was a long time ago).
-
-But a 64k send using hardware TSO will most likely give you
-about 40 receive frames back to back, unless you can keep up
-with line speed (unlikely at high speeds on a slow cpu) you
-may need several times that many buffers to handle rx data
-on multiple connections.
-At some point data will get discarded, but usually the delays
-in sending acks will slow down the receive data.
-
-In reality it is all a trade off between a lot of rx buffers
-and recovering from rx discards.
-
-	David
+> +	err = mlx5_modify_nic_vport_vlans(priv->mdev, vlans, list_size);
+> +	if (err)
+> +		netdev_err(ndev, "Failed to modify vport vlans list err(%d)\n",
+> +			   err);
+> +
+> +	kfree(vlans);
+> +	return err;
+> +}
+> +
+>   enum mlx5e_vlan_rule_type {
+>   	MLX5E_VLAN_RULE_TYPE_UNTAGGED,
+>   	MLX5E_VLAN_RULE_TYPE_ANY_VID,
+> @@ -552,6 +592,10 @@ static int mlx5e_add_vlan_rule(struct mlx5e_priv *priv,
+>   			 1);
+>   		break;
+>   	default: /* MLX5E_VLAN_RULE_TYPE_MATCH_VID */
+> +		err = mlx5e_vport_context_update_vlans(priv);
+> +		if (err)
+> +			goto add_vlan_rule_out;
+> +
+>   		ft_ix = &priv->vlan.active_vlans_ft_ix[vid];
+>   		MLX5_SET(fte_match_param, match_value, outer_headers.vlan_tag,
+>   			 1);
+> @@ -588,6 +632,7 @@ static void mlx5e_del_vlan_rule(struct mlx5e_priv *priv,
+>   	case MLX5E_VLAN_RULE_TYPE_MATCH_VID:
+>   		mlx5_del_flow_table_entry(priv->ft.vlan,
+>   					  priv->vlan.active_vlans_ft_ix[vid]);
+> +		mlx5e_vport_context_update_vlans(priv);
+>   		break;
+>   	}
+>   }
+> @@ -619,6 +664,8 @@ int mlx5e_vlan_rx_add_vid(struct net_device *dev, __always_unused __be16 proto,
+>   {
+>   	struct mlx5e_priv *priv = netdev_priv(dev);
+>
+> +	set_bit(vid, priv->vlan.active_vlans);
+> +
+>   	return mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, vid);
+>   }
+>
+> @@ -627,6 +674,8 @@ int mlx5e_vlan_rx_kill_vid(struct net_device *dev, __always_unused __be16 proto,
+>   {
+>   	struct mlx5e_priv *priv = netdev_priv(dev);
+>
+> +	clear_bit(vid, priv->vlan.active_vlans);
+> +
+>   	mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, vid);
+>
+>   	return 0;
+>
