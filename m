@@ -1,60 +1,45 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Asterisk deadlocks since Kernel 4.1
-Date: Mon, 23 Nov 2015 13:57:31 +0100
-Message-ID: <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com>
-References: <564B3D35.50004@profihost.ag> <alpine.DEB.2.11.1511171936030.3761@nanos>
- <564B7F9D.5060701@profihost.ag>
- <alpine.DEB.2.11.1511172041480.3761@nanos>
- <564CDE2F.8000201@profihost.ag> <564CEB0C.40006@redhat.com>
- <564CEF5D.3080005@profihost.ag> <564D9A17.6080305@redhat.com>
- <564D9B21.302@profihost.ag> <564D9CE6.2090104@profihost.ag>
- <1447933294.1974772.444210441.67F1AC5E@webmail.messagingengine.com>
- <564DB5F5.9060208@profihost.ag>
- <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com>
- <564DC4A5.70104@profihost.ag> <564DCC4C.1090009@redhat.com>
- <564E2852.8000200@profihost.ag> <56530A42.6030609@profihost.ag>
+From: Daniel Wagner <daniel.wagner@bmw-carit.de>
+Subject: Re: [PATCH 7/9] sock, cgroup: add sock->sk_cgroup
+Date: Mon, 23 Nov 2015 14:02:03 +0100
+Message-ID: <56530E4B.4090209@bmw-carit.de>
+References: <1448122441-9335-1-git-send-email-tj@kernel.org>
+ <1448122441-9335-8-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Stefan Priebe - Profihost AG" <s.priebe@profihost.ag>,
-	Florian Weimer <fweimer@redhat.com>
+Cc: <lizefan@huawei.com>, <hannes@cmpxchg.org>,
+	<netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>,
+	<coreteam@netfilter.org>, <cgroups@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <kernel-team@fb.com>,
+	<ninasc@fb.com>, Neil Horman <nhorman@tuxdriver.com>
+To: Tejun Heo <tj@kernel.org>, <davem@davemloft.net>,
+	<pablo@netfilter.org>, <kaber@trash.net>,
+	<kadlec@blackhole.kfki.hu>, <daniel@iogearbox.net>,
+	<nhorman@tuxdriver.co>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56530A42.6030609@profihost.ag>
+In-Reply-To: <1448122441-9335-8-git-send-email-tj@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 23, 2015, at 13:44, Stefan Priebe - Profihost AG wrote:
-> Am 19.11.2015 um 20:51 schrieb Stefan Priebe:
-> > 
-> > Am 19.11.2015 um 14:19 schrieb Florian Weimer:
-> >> On 11/19/2015 01:46 PM, Stefan Priebe - Profihost AG wrote:
-> >>
-> >>> I can try Kernel 4.4-rc1 next week. Or something else?
-> >>
-> >> I found this bug report which indicates that 4.1.10 works:
-> >>
-> >>    <https://issues.asterisk.org/jira/browse/ASTERISK-25251>
-> >>
-> >> But in your original report, you said that 4.1.13 is broken.
-> > 
-> > That's correct i'm running 4.1.13.
-> > 
-> >> This backtrace:
-> >>
-> >>    <https://issues.asterisk.org/jira/secure/attachment/52702/bt.txt>
-> >>
-> >> shows a lot of waiting on quite different netlink sockets.  So if this
-> >> is due to a race in Asterisk, it must have happened several times in a
-> >> row.
-> 
-> Kernel 4.4-rc2 works fine. How can we grab / get an idea which is
-> causing the isse in 4.1? It's an LTE kernel so it should be fixed!
+Hi Tejun,
 
-Thanks for testing. I was not able to reproduce it at all, with as much
-parallelism and threads as possible on any kernel. Could you try to do a
-git bisect?
+On 11/21/2015 05:13 PM, Tejun Heo wrote:
+> Signed-off-by: Tejun Heo <tj@kernel.org>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Daniel Wagner <daniel.wagner@bmw-carit.de>
 
-Thanks,
-Hannes
+I did a quick test and for new connection the cgroup2 match worked as
+expected. For an existing connection I wasn't able to trigger the match.
+
+It is quite likely I do something wrong:
+
+	ssh into the box
+	# mkdir /sys/fs/cgroup/test
+	# echo $$ > /sys/fs/cgroup/test/cgroup.procs
+	# echo $PPID > /sys/fs/cgroup/test/cgroup.procs
+	# iptables -A OUTPUT -m cgroup --path test
+
+Should I see matches with the existing ssh session?
+
+cheers,
+daniel
