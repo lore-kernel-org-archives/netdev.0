@@ -1,52 +1,70 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next] bpf: add show_fdinfo handler for maps
-Date: Mon, 23 Nov 2015 10:03:34 -0800
-Message-ID: <20151123180333.GB78190@ast-mbp.thefacebook.com>
-References: <b3f1dd7e21d72dc47beac222d655640ee584c5cd.1447930253.git.daniel@iogearbox.net>
- <1447957164.2292053.444566657.27F336C7@webmail.messagingengine.com>
- <20151119183240.GA5993@ast-mbp.thefacebook.com>
- <1447963950.3032383.444676081.5CE47461@webmail.messagingengine.com>
- <20151120033040.GA13060@ast-mbp.thefacebook.com>
- <1448015413.2300190.445198593.6A586A15@webmail.messagingengine.com>
- <20151121231829.GA51711@ast-mbp.thefacebook.com>
- <1448295118.4062584.447768561.3963C28E@webmail.messagingengine.com>
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: Re: [PATCH 09/14] net: tcp_memcontrol: simplify linkage between
+ socket and page counter
+Date: Mon, 23 Nov 2015 13:20:37 -0500
+Message-ID: <20151123182037.GE13000@cmpxchg.org>
+References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
+ <1447371693-25143-10-git-send-email-hannes@cmpxchg.org>
+ <20151120124216.GD31308@esperanza>
+ <20151120185648.GC5623@cmpxchg.org>
+ <20151123093646.GA29014@esperanza>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34637 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752113AbbKWSDh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 13:03:37 -0500
-Received: by padhx2 with SMTP id hx2so198159511pad.1
-        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 10:03:37 -0800 (PST)
+Cc: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <tj@kernel.org>, Michal Hocko <mhocko@suse.cz>,
+	netdev@vger.kernel.org, linux-mm@kvack.org,
+	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-team@fb.com
+To: Vladimir Davydov <vdavydov@virtuozzo.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1448295118.4062584.447768561.3963C28E@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20151123093646.GA29014@esperanza>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 23, 2015 at 05:11:58PM +0100, Hannes Frederic Sowa wrote:
+On Mon, Nov 23, 2015 at 12:36:46PM +0300, Vladimir Davydov wrote:
+> On Fri, Nov 20, 2015 at 01:56:48PM -0500, Johannes Weiner wrote:
+> > I actually had all this at first, but then wondered if it makes more
+> > sense to keep the legacy code in isolation. Don't you think it would
+> > be easier to keep track of what's v1 and what's v2 if we keep the
+> > legacy stuff physically separate as much as possible? In particular I
+> > found that 'tcp_mem.' marker really useful while working on the code.
+> > 
+> > In the same vein, tcp_memcontrol.c doesn't really hurt anybody and I'd
+> > expect it to remain mostly unopened and unchanged in the future. But
+> > if we merge it into memcontrol.c, that code will likely be in the way
+> > and we'd have to make it explicit somehow that this is not actually
+> > part of the new memory controller anymore.
+> > 
+> > What do you think?
 > 
-> Actually, that is the reason why I mentioned it, so *the admin* can see
-> something is going on. Do you want to protect ebpf from root? Skynet? ;)
+> There isn't much code left in tcp_memcontrol.c, and not all of it is
+> legacy. We still want to call tcp_init_cgroup and tcp_destroy_cgroup
+> from memcontrol.c - in fact, it's the only call site, so I think we'd
+> better keep these functions there. Apart from init/destroy, there is
+> only stuff for handling legacy files, which is relatively small and
+> isolated. We can just put it along with memsw and kmem legacy files in
+> the end of memcontrol.c adding a comment that it's legacy. Personally,
+> I'd find the code easier to follow then, because currently the logic
+> behind the ACTIVE flag as well as memcg->tcp_mem init/use/destroy turns
+> out to be scattered between two files in different subsystems for no
+> apparent reason now, as it does not need tcp_prot any more. Besides,
+> this would allow us to accurately reuse the ACTIVE flag in init/destroy
+> for inc/dec static branch and probably in sock_update_memcg instead of
+> sprinkling cgroup_subsys_on_dfl all over the place, which would make the
+> code a bit cleaner IMO (in fact, that's why I proposed to drop ACTIVATED
+> bit and replace cg_proto->flags with ->active bool).
 
-correct. To me both root and non-root are users in the first place and
-they both shouldn't be allowed to misuse it.
+As far as I can see, all of tcp_memcontrol.c is legacy, including the
+init and destroy functions. We only call them to set up the legacy
+tcp_mem state and do legacy jump-label maintenance. Delete it all and
+the unified hierarchy controller would still work. So I don't really
+see the benefits of consolidating it, and more risk of convoluting.
 
-> In my opinion the kernel never should hide any information of the admin
-> if they are accessible easily. Sampling the number of failed updates to
-> a map or printing it via procfs/ebpffs seems to be just a matter of how
-> difficult it should be done. The map has a lock, so the number is fairly
+That being said, if you care strongly about it and see opportunities
+to cut down code and make things more readable, please feel free to
+turn the flags -> bool patch into a followup series and I'll be happy
+to review it.
 
-map_lookup is actually lockless. It's a critical path and should be
-as fast as possible. No extra stats just for debugging.
-
-> accurate. Sampling and plotting size of hash maps without having kprobes
-> installed would be a nice thing, because it reduces complexity and this
-> is nice to have.
-
-doing 'cat' from procfs is, of course, easier to use, but it's an extra
-code that permenanetly lives in memory, whereas kprobe+bpf is a run-time
-debugging.
+Thanks!
