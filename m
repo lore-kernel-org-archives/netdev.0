@@ -1,71 +1,41 @@
-From: Dave Young <dyoung@redhat.com>
-Subject: Re: [PATCH] wireless: change cfg80211 regulatory domain info as
- debug messages
-Date: Mon, 23 Nov 2015 09:37:40 +0800
-Message-ID: <20151123013740.GA27383@dhcp-128-32.nay.redhat.com>
-References: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
- <20151115192547.3fd1b3cc@mir>
- <1448020533.3141.27.camel@sipsolutions.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/2] net: l3mdev: Add master device lookup by
+ index
+Date: Sun, 22 Nov 2015 21:02:04 -0700
+Message-ID: <56528FBC.6040205@cumulusnetworks.com>
+References: <1447965121-2345-1-git-send-email-dsa@cumulusnetworks.com>
+ <20151122.122359.2247708943529789130.davem@davemloft.net>
+ <5651FBB8.6030008@cumulusnetworks.com>
+ <20151122.131715.1858345389016284808.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stefan Lippers-Hollmann <s.l-h@gmx.de>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1448020533.3141.27.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:36727 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753088AbbKWECP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 23:02:15 -0500
+Received: by pacdm15 with SMTP id dm15so177988422pac.3
+        for <netdev@vger.kernel.org>; Sun, 22 Nov 2015 20:02:15 -0800 (PST)
+In-Reply-To: <20151122.131715.1858345389016284808.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/20/15 at 12:55pm, Johannes Berg wrote:
-> On Sun, 2015-11-15 at 19:25 +0100, Stefan Lippers-Hollmann wrote:
-> > Hi
-> > 
-> > On 2015-11-15, Dave Young wrote:
-> > > cfg80211 module prints a lot of messages like below. Actually
-> > > printing once is acceptable but sometimes it will print again and
-> > > again, it looks very annoying. It is better to change these detail
-> > > messages to debugging only.
-> > 
-> > It is a lot of info, easily repeated 3 times on boot, but it's also
-> > the only real chance to determine why you ended up with the
-> > regulatory domain settings you got, rather than just the values
-> > itself. Given that a lot (most?) of officially shipping wireless
-> > devices are misconfigured (wrong EEPROM regdom settings for the
-> > region they're sold in) and considering that the limits can even
-> > change at runtime (IEEE 802.11d), it is imho quite important not just
-> > to be able what the current restrictions (iw reg get) are, but also
-> > why the kernel settled on those.
-> > 
-> 
-> Hm. I kinda sympathize with both points of view here, not sure what to
-> do.
-> 
-> Maybe we could skip this for the world regdomain only? It doesn't
-> really change, and we typically don't care that much for it? That'd
-> probably get rid of most of the lines already.
-> 
-> Alternatively, perhaps the internal computations should be more
-> transparently visible through some other mechanism?
-> 
+On 11/22/15 11:17 AM, David Miller wrote:
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Sun, 22 Nov 2015 10:30:32 -0700
+>
+>> In this case ...
+>
+> I understand the problem you are trying to solve, but I am saying
+> you can't use sk_bound_dev_if to use it.
+>
 
-If they are for debugging purpose I would like to see them as pr_debug
-or something in debugfs. Especially for printks which will not only
-being called on initialization phase.
-
-Seems there're a lot of other wireless messages. Should we refactor 
-them as well? I still did not get chance to see where is the code.
-(My wireless driver being used is iwlwifi)
-
-# uptime
- 09:36:31 up 17 days, 19:17, 11 users,  load average: 0.26, 0.25, 0.17
-
-#dmesg|grep wlp3s0|wc
-   4868   54014  404187
-
-# dmesg|grep "Limiting TX power"|wc
-   4128   49600  360052
-
-Thanks
-Dave
+I am confused by that response given that sk_bound_dev_if is one of the 
+key principals for the VRF implementation. Applications wanting to 
+communicate over interfaces in a VRF have to set sk_bound_dev_if. If 
+sk_bound_dev_if is not set by the kernel when the child socket is 
+created the TCP handshake will not complete. It is not something that 
+can be deferred until after accept.
