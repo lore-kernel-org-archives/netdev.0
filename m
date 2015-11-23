@@ -1,44 +1,76 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 3/6] net: Add MSG_BATCH flag
-Date: Mon, 23 Nov 2015 11:02:21 +0100
-Message-ID: <1448272941.3985012.447402329.73885F37@webmail.messagingengine.com>
-References: <1448054520-1464587-1-git-send-email-tom@herbertland.com>
- <1448054520-1464587-4-git-send-email-tom@herbertland.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 4/6] kcm: Kernel Connection Multiplexor module
+Date: Mon, 23 Nov 2015 10:42:10 +0100
+Message-ID: <5652DF72.6060004@iogearbox.net>
+References: <1448054520-1464587-1-git-send-email-tom@herbertland.com> <1448054520-1464587-5-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: kernel-team@fb.com, davewatson@fb.com, alexei.starovoitov@gmail.com
 To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:41277 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753036AbbKWKCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 05:02:22 -0500
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id B6F8420A31
-	for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 05:02:21 -0500 (EST)
-In-Reply-To: <1448054520-1464587-4-git-send-email-tom@herbertland.com>
+Received: from www62.your-server.de ([213.133.104.62]:58403 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751280AbbKWKIR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 05:08:17 -0500
+In-Reply-To: <1448054520-1464587-5-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On 11/20/2015 10:21 PM, Tom Herbert wrote:
+[...]
+> +
+> +/* Macro to invoke filter function. */
+> +#define KCM_RUN_FILTER(prog, ctx) \
+> +	(*prog->bpf_func)(ctx, prog->insnsi)
 
-On Fri, Nov 20, 2015, at 22:21, Tom Herbert wrote:
-> Add a new msg flag called MSG_BATCH. This flag is used in sendmsg to
-> indicate that more messages will follow (i.e. a batch of messages is
-> being sent). This is similar to MSG_MORE except that the following
-> messages are not merged into one packet, they are sent individually.
-> 
-> MSG_BATCH is a performance optimization in cases where a socket
-> implementation can benefit by transmitting packets in a batch.
-> 
-> This patch also updates sendmmsg so that each contained message except
-> for the last one is marked as MSG_BATCH.
+Any reason to redefine this macro?
 
-This flag is only used for KCM because it does not make sense to expose
-it to user space? As such, could this be made more clear? I don't see
-such an optimization being needed for UDP or TCP.
+We already have the same one as:
 
-Thanks,
-Hannes
+#define BPF_PROG_RUN(filter, ctx)  (*filter->bpf_func)(ctx, filter->insnsi)
+
+[...]
+> +static int kcm_attach_ioctl(struct socket *sock, struct kcm_attach *info)
+> +{
+> +	struct socket *csock;
+> +	struct bpf_prog *prog;
+> +	int err;
+> +
+> +	csock = sockfd_lookup(info->fd, &err);
+> +	if (!csock)
+> +		return -ENOENT;
+> +
+> +	prog = bpf_prog_get(info->bpf_fd);
+> +	if (IS_ERR(prog)) {
+> +		err = PTR_ERR(prog);
+> +		goto out;
+> +	}
+> +
+> +	if (prog->type != BPF_PROG_TYPE_SOCKET_FILTER) {
+> +		bpf_prog_put(prog);
+
+I'd move this and the below bpf_prog_put() under out_put label, too.
+
+> +		err = -EINVAL;
+> +		goto out;
+> +	}
+> +
+> +	err = kcm_attach(sock, csock, prog);
+> +	if (err) {
+> +		bpf_prog_put(prog);
+
+                 ^^^
+
+> +		goto out;
+> +	}
+> +
+> +	/* Keep reference on file also */
+> +
+> +	return 0;
+> +out:
+> +	fput(csock->file);
+> +	return err;
+> +}
+[...]
