@@ -1,46 +1,71 @@
-From: Jonathan Woithe <jwoithe@atrad.com.au>
-Subject: Re: r8169 regression: UDP packets dropped intermittantly
-Date: Mon, 23 Nov 2015 10:46:50 +1030
-Message-ID: <20151123001650.GG2957@marvin.atrad.com.au>
-References: <20130309064647.GC4984@marvin.atrad.com.au>
- <20130311000216.GA31808@zoreil.com>
- <20130405001526.GC19253@marvin.atrad.com.au>
- <20151117015605.GI22941@marvin.atrad.com.au>
- <20151117232108.GC3362@electric-eye.fr.zoreil.com>
- <20151118050919.GR25216@marvin.atrad.com.au>
- <20151119005608.GB4882@electric-eye.fr.zoreil.com>
- <20151120024616.GL7136@marvin.atrad.com.au>
- <20151120224534.GA25025@electric-eye.fr.zoreil.com>
+From: Dave Young <dyoung@redhat.com>
+Subject: Re: [PATCH] wireless: change cfg80211 regulatory domain info as
+ debug messages
+Date: Mon, 23 Nov 2015 09:37:40 +0800
+Message-ID: <20151123013740.GA27383@dhcp-128-32.nay.redhat.com>
+References: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
+ <20151115192547.3fd1b3cc@mir>
+ <1448020533.3141.27.camel@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.atrad.com.au ([150.101.241.2]:43282 "EHLO
-	server.atrad.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752781AbbKWAQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 19:16:55 -0500
+Cc: Stefan Lippers-Hollmann <s.l-h@gmx.de>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20151120224534.GA25025@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1448020533.3141.27.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 20, 2015 at 11:45:34PM +0100, Francois Romieu wrote:
-> The hardware stats are not exactly clear. Is the initial Tx - Rx packet
-> difference (6) at the hardware stats level expected ?
+On 11/20/15 at 12:55pm, Johannes Berg wrote:
+> On Sun, 2015-11-15 at 19:25 +0100, Stefan Lippers-Hollmann wrote:
+> > Hi
+> > 
+> > On 2015-11-15, Dave Young wrote:
+> > > cfg80211 module prints a lot of messages like below. Actually
+> > > printing once is acceptable but sometimes it will print again and
+> > > again, it looks very annoying. It is better to change these detail
+> > > messages to debugging only.
+> > 
+> > It is a lot of info, easily repeated 3 times on boot, but it's also
+> > the only real chance to determine why you ended up with the
+> > regulatory domain settings you got, rather than just the values
+> > itself. Given that a lot (most?) of officially shipping wireless
+> > devices are misconfigured (wrong EEPROM regdom settings for the
+> > region they're sold in) and considering that the limits can even
+> > change at runtime (IEEE 802.11d), it is imho quite important not just
+> > to be able what the current restrictions (iw reg get) are, but also
+> > why the kernel settled on those.
+> > 
+> 
+> Hm. I kinda sympathize with both points of view here, not sure what to
+> do.
+> 
+> Maybe we could skip this for the world regdomain only? It doesn't
+> really change, and we typically don't care that much for it? That'd
+> probably get rid of most of the lines already.
+> 
+> Alternatively, perhaps the internal computations should be more
+> transparently visible through some other mechanism?
+> 
 
-Sorry, I missed this question earlier.  When speaking to the external
-device, each UDP command packet that's sent should be balanced with a
-response.  However, if a UDP command is sent to a device that's not on (or
-there's a typo with the address) then obviously that transmitted packet will
-never be responded to.  I expect something like this could easily have
-happened during the session in which I ran that test for you, so in that
-case would be explainable.
+If they are for debugging purpose I would like to see them as pr_debug
+or something in debugfs. Especially for printks which will not only
+being called on initialization phase.
 
-I note that the difference did increase to 7 at the 1447985726.272550987 
-mark.  Since this was during the test I can't quite explain that one, unless
-something else on the system happened to send a UDP packet out onto that
-interface which was not responded to.
+Seems there're a lot of other wireless messages. Should we refactor 
+them as well? I still did not get chance to see where is the code.
+(My wireless driver being used is iwlwifi)
 
-Regards
-  jonathan
+# uptime
+ 09:36:31 up 17 days, 19:17, 11 users,  load average: 0.26, 0.25, 0.17
+
+#dmesg|grep wlp3s0|wc
+   4868   54014  404187
+
+# dmesg|grep "Limiting TX power"|wc
+   4128   49600  360052
+
+Thanks
+Dave
