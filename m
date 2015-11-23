@@ -1,55 +1,42 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: Re: What's the benefit of large Rx rings?
-Date: Mon, 23 Nov 2015 04:47:29 +0000
-Message-ID: <CO2PR11MB00887B710566F1CBEFDF837D97070@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <CO2PR11MB008832EB5323120812FFDAF597180@CO2PR11MB0088.namprd11.prod.outlook.com>,<CAKgT0UeiuMM-AV=_6sGob6_mLS5F_dO47AQou8bo8Z1AoqNCxQ@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next v2 2/9] net: ipmr: always define mroute_reg_vif_num
+Date: Sun, 22 Nov 2015 21:23:21 -0800
+Message-ID: <CAHA+R7Pra5DW8UNyPDQKK6Y=J8nz4LvNvmHcsP7pY+-U5NHCKg@mail.gmail.com>
+References: <1448117852-4254-1-git-send-email-razor@blackwall.org>
+	<1448117852-4254-3-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Nikolay Aleksandrov <razor@blackwall.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0131.outbound.protection.outlook.com ([207.46.100.131]:6880
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753281AbbKWErc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2015 23:47:32 -0500
-In-Reply-To: <CAKgT0UeiuMM-AV=_6sGob6_mLS5F_dO47AQou8bo8Z1AoqNCxQ@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:35382 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751173AbbKWFXV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 00:23:21 -0500
+Received: by ykba77 with SMTP id a77so225767243ykb.2
+        for <netdev@vger.kernel.org>; Sun, 22 Nov 2015 21:23:21 -0800 (PST)
+In-Reply-To: <1448117852-4254-3-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> This might be a dumb question, but I recently touched this
->> and felt like I'm missing something basic -
->>
->> NAPI is being scheduled from soft-interrupt contex, and it
->> has a ~strict quota for handling Rx packets [even though we're
->> allowing practically unlimited handling of Tx completions].
->> Given these facts, what's the benefit of having arbitrary large
->> Rx buffer rings? Assuming quota is 64, I would have expected
->> that having more than twice or thrice as many buffers could not
->> help in real traffic scenarios - in any given time-unit
->> [the time between 2 NAPI runs which should be relatively
->> constant] CPU can't handle more than the quota; If HW is
->> generating more packets on a regular basis the buffers are bound
->> to get exhausted, no matter how many there are.
->>
->> While there isn't any obvious downside to allowing drivers to
->> increase ring sizes to be larger [other than memory footprint],
->> I feel like I'm missing the scenarios where having Ks of
->> buffers can actually help.
->> And for the unlikely case that I'm not missing anything,
->> why aren't we supplying some `default' max and min amounts
->> in a common header?
+On Sat, Nov 21, 2015 at 6:57 AM, Nikolay Aleksandrov
+<razor@blackwall.org> wrote:
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>
+> Before mroute_reg_vif_num was defined only if any of the CONFIG_PIMSM_
+> options were set, but that's not really necessary as the size of the
+> struct is the same in both cases (checked with pahole, both cases size
+> is 3256 bytes) and we can remove some unnecessary ifdefs to simplify the
+> code.
+>
 
-> The main benefit of large Rx rings is that you could theoretically
-> support longer delays between device interrupts.  So for example if
-> you have a protocol such as UDP that doesn't care about latency then
-> you could theoretically set a large ring size, a large interrupt delay
-> and process several hundred or possibly even several thousand packets
-> per device interrupt instead of just a few.
+Not sure if this really simplifies the code, since now
+mroute_reg_vif_num is hidden
+deeper after your patch and there are still some code under CONFIG_IP_PIMSM.
 
-So we're basically spending hundred of MBs [at least for high-speed
-ethernet devices] on memory that helps us mostly on the first
-coalesced interrupt [since later it all goes through napi re-scheduling]?
-Sounds a bit... wasteful.
+If you really care about it, how about introducing a helper function
+to set and get
+mrt->mroute_reg_vif_num?
