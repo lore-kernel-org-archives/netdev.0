@@ -1,74 +1,46 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: What's the benefit of large Rx rings?
-Date: Mon, 23 Nov 2015 07:16:25 -0800
-Message-ID: <CAKgT0Uem9MdrtJTA1gsoz2D_Fy2N2CdZq5ufdXBs7zsYkLMo-Q@mail.gmail.com>
-References: <CO2PR11MB008832EB5323120812FFDAF597180@CO2PR11MB0088.namprd11.prod.outlook.com>
-	<CAKgT0UeiuMM-AV=_6sGob6_mLS5F_dO47AQou8bo8Z1AoqNCxQ@mail.gmail.com>
-	<CO2PR11MB00887B710566F1CBEFDF837D97070@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 9/9] netfilter: implement xt_cgroup cgroup2 path match
+Date: Mon, 23 Nov 2015 10:40:13 -0500
+Message-ID: <20151123154013.GB3049@mtj.duckdns.org>
+References: <1448122441-9335-1-git-send-email-tj@kernel.org>
+ <1448122441-9335-10-git-send-email-tj@kernel.org>
+ <20151121165605.GC25336@breakpoint.cc>
+ <20151121170425.GD3428@htj.duckdns.org>
+ <20151121185419.GD25336@breakpoint.cc>
+ <565317F0.2030502@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:34142 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751485AbbKWPQ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 10:16:26 -0500
-Received: by ioir85 with SMTP id r85so189903701ioi.1
-        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 07:16:25 -0800 (PST)
-In-Reply-To: <CO2PR11MB00887B710566F1CBEFDF837D97070@CO2PR11MB0088.namprd11.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org,
+	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, nhorman-2XuSBdqkA4SvXiR4WA35Jg@public.gmane.org,
+	lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org, ninasc-b10kYP2dOMg@public.gmane.org,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Jan Engelhardt <jengelh-9+2X+4sQBs8@public.gmane.org>
+To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <565317F0.2030502-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 22, 2015 at 8:47 PM, Yuval Mintz <Yuval.Mintz@qlogic.com> wrote:
->>> This might be a dumb question, but I recently touched this
->>> and felt like I'm missing something basic -
->>>
->>> NAPI is being scheduled from soft-interrupt contex, and it
->>> has a ~strict quota for handling Rx packets [even though we're
->>> allowing practically unlimited handling of Tx completions].
->>> Given these facts, what's the benefit of having arbitrary large
->>> Rx buffer rings? Assuming quota is 64, I would have expected
->>> that having more than twice or thrice as many buffers could not
->>> help in real traffic scenarios - in any given time-unit
->>> [the time between 2 NAPI runs which should be relatively
->>> constant] CPU can't handle more than the quota; If HW is
->>> generating more packets on a regular basis the buffers are bound
->>> to get exhausted, no matter how many there are.
->>>
->>> While there isn't any obvious downside to allowing drivers to
->>> increase ring sizes to be larger [other than memory footprint],
->>> I feel like I'm missing the scenarios where having Ks of
->>> buffers can actually help.
->>> And for the unlikely case that I'm not missing anything,
->>> why aren't we supplying some `default' max and min amounts
->>> in a common header?
->
->> The main benefit of large Rx rings is that you could theoretically
->> support longer delays between device interrupts.  So for example if
->> you have a protocol such as UDP that doesn't care about latency then
->> you could theoretically set a large ring size, a large interrupt delay
->> and process several hundred or possibly even several thousand packets
->> per device interrupt instead of just a few.
->
-> So we're basically spending hundred of MBs [at least for high-speed
-> ethernet devices] on memory that helps us mostly on the first
-> coalesced interrupt [since later it all goes through napi re-scheduling]?
-> Sounds a bit... wasteful.
+Hello, Daniel.
 
-The hundreds of MBs might be stretching it a bit.  It is most likely
-more like tens of MBs, not hundreds.  For example the ixgbe driver
-uses 512 buffers for Rx by default.  Each Rx buffer is 4K so that
-comes out to only 2MB per ring.  Other than that there are 8K worth of
-descriptors and another 12K worth of buffer info data.
+On Mon, Nov 23, 2015 at 02:43:12PM +0100, Daniel Borkmann wrote:
+...
+> Haven't looked deeply into kernfs, but if it's possible to get the object
+> from the struct file eventually, you could let iptables frontend open that
+> path and just pass the fd down. Would be sizeof(int) vs PATH_MAX then, i.e.
+> when you have a large number of rules to load.
 
-It all depends on priorities.  You could decrease the delay between
-interrupts and reduce the Rx ring size but it means for a lightly
-loaded system you may see significantly higher CPU utilization.
+That works in one direction but not in the other.  ie. You can tell
+the kernel the path that way but can't retrieve.  If using path string
+is unacceptable, the best alternative would be an inode number rather
+than a fd; however, using an inode number would be quite cumbersome
+and painful too.
 
-Another thing to keep in mind is for things like virtualization the
-interrupt latency is increased and as a result you need more buffering
-to allow for the greater delay between the IRQ and when the NAPI
-instance in the guest actually begins polling.
+Thanks.
 
-- Alex
+-- 
+tejun
