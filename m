@@ -1,55 +1,69 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: Deadlock between bind and splice
-Date: Mon, 23 Nov 2015 09:32:31 +0100
-Message-ID: <CACT4Y+bS2w3VUgb3MYe3epx7qbiu7VSNhW2CbXwwRSzmsSH2cw@mail.gmail.com>
-References: <CACT4Y+brDX=C15jSs33zGaCBt2BDPPzBcgqtKA2dYMdviYjKww@mail.gmail.com>
- <1446824535.4184.69.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151110023854.GZ22011@ZenIV.linux.org.uk> <20151110025906.GA22011@ZenIV.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: Al Viro <viro@zeniv.linux.org.uk>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2015-11-23
+Date: Mon, 23 Nov 2015 09:46:51 +0100
+Message-ID: <1448268414-18583-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:33956 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753880AbbKWIcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 03:32:52 -0500
-Received: by wmvv187 with SMTP id v187so148950047wmv.1
-        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 00:32:51 -0800 (PST)
-In-Reply-To: <20151110025906.GA22011@ZenIV.linux.org.uk>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:43257 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753760AbbKWIrA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 03:47:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 10, 2015 at 3:59 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> On Tue, Nov 10, 2015 at 02:38:54AM +0000, Al Viro wrote:
->> On Fri, Nov 06, 2015 at 07:42:15AM -0800, Eric Dumazet wrote:
->>
->> > Thank you for this report.
->> >
->> > pipe is part of fs, not net ;)
->>
->> AF_UNIX bind() vs. socketpair() interplay, OTOH...
->
-> FWIW, BSD folks unlock the socket for the duration of mknod - mark it as
-> "somebody's trying to bind it" to avoid the fun with racing double bind(),
-> but that's about it.  Tempting, to be honest...
->
-> BTW, why does unix_autobind() do allocation under ->readlock?  The allocation
-> will be normally used - that if (u->addr) return; part is just dealing with
-> an unlikely race, as far as I can see...
+Hello David,
 
+this is a pull request of three patches for the upcoming v4.4 release.
 
-Hello,
+The first patch is by Mirza Krak, it fixes a problem with the sja1000 driver
+after resuming from suspend to disk, by clearing all outstanding interrupts.
+Oliver Hartkopp contributes two patches targeting almost all driver, they fix
+the assignment of the error location in CAN error messages.
 
-This is still happening periodically for me. Is there a proposed fix?
-I could test it.
+regards,
+Marc
+
+---
+
+The following changes since commit 4c6980462f32b4f282c5d8e5f7ea8070e2937725:
+
+  net: ip6mr: fix static mfc/dev leaks on table destruction (2015-11-22 20:44:47 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.4-20151123
+
+for you to fetch changes up to a2ec19f888f1fb06e2424486423a16f86ad1fcc4:
+
+  can: remove obsolete assignment for CAN protocol error type (2015-11-23 09:37:38 +0100)
+
+----------------------------------------------------------------
+linux-can-fixes-for-4.4-20151123
+
+----------------------------------------------------------------
+Mirza Krak (1):
+      can: sja1000: clear interrupts on start
+
+Oliver Hartkopp (2):
+      can: fix assignment of error location in CAN error messages
+      can: remove obsolete assignment for CAN protocol error type
+
+ drivers/net/can/bfin_can.c        |  2 --
+ drivers/net/can/c_can/c_can.c     |  7 ++-----
+ drivers/net/can/cc770/cc770.c     |  2 +-
+ drivers/net/can/flexcan.c         |  4 ++--
+ drivers/net/can/janz-ican3.c      |  1 -
+ drivers/net/can/m_can/m_can.c     |  7 ++-----
+ drivers/net/can/pch_can.c         |  3 +--
+ drivers/net/can/rcar_can.c        | 11 +++++------
+ drivers/net/can/sja1000/sja1000.c |  4 +++-
+ drivers/net/can/sun4i_can.c       |  1 -
+ drivers/net/can/ti_hecc.c         |  7 ++-----
+ drivers/net/can/usb/ems_usb.c     |  1 -
+ drivers/net/can/usb/esd_usb2.c    |  1 -
+ drivers/net/can/usb/kvaser_usb.c  |  5 ++---
+ drivers/net/can/usb/usb_8dev.c    |  4 +---
+ drivers/net/can/xilinx_can.c      |  9 +++------
+ 16 files changed, 24 insertions(+), 45 deletions(-)
