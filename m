@@ -1,97 +1,78 @@
-From: Vladimir Davydov <vdavydov@virtuozzo.com>
-Subject: Re: [PATCH 09/14] net: tcp_memcontrol: simplify linkage between
- socket and page counter
-Date: Mon, 23 Nov 2015 12:36:46 +0300
-Message-ID: <20151123093646.GA29014@esperanza>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
- <1447371693-25143-10-git-send-email-hannes@cmpxchg.org>
- <20151120124216.GD31308@esperanza>
- <20151120185648.GC5623@cmpxchg.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 0/6] kcm: Kernel Connection Multiplexor (KCM)
+Date: Mon, 23 Nov 2015 10:53:08 +0100
+Message-ID: <1448272388.3983270.447381049.07BA3A5C@webmail.messagingengine.com>
+References: <1448054520-1464587-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, Andrew Morton
-	<akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>, Michal Hocko
-	<mhocko@suse.cz>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
-	<cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151120185648.GC5623@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: kernel-team@fb.com, davewatson@fb.com, alexei.starovoitov@gmail.com
+To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:54679 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753816AbbKWJxJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 04:53:09 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id 4D443207A1
+	for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 04:53:09 -0500 (EST)
+In-Reply-To: <1448054520-1464587-1-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 20, 2015 at 01:56:48PM -0500, Johannes Weiner wrote:
-> On Fri, Nov 20, 2015 at 03:42:16PM +0300, Vladimir Davydov wrote:
-> > On Thu, Nov 12, 2015 at 06:41:28PM -0500, Johannes Weiner wrote:
-> > > There won't be any separate counters for socket memory consumed by
-> > > protocols other than TCP in the future. Remove the indirection and
-> > 
-> > I really want to believe you're right. And with vmpressure propagation
-> > implemented properly you are likely to be right.
-> > 
-> > However, we might still want to account other socket protos to
-> > memcg->memory in the unified hierarchy, e.g. UDP, or SCTP, or whatever
-> > else. Adding new consumers should be trivial, but it will break the
-> > legacy usecase, where only TCP sockets are supposed to be accounted.
-> > What about adding a check to sock_update_memcg() so that it would enable
-> > accounting only for TCP sockets in case legacy hierarchy is used?
-> 
-> Yup, I was thinking the same thing. But we can cross that bridge when
-> we come to it and are actually adding further packet types.
+Hello,
 
-Fair enough.
+On Fri, Nov 20, 2015, at 22:21, Tom Herbert wrote:
+> Kernel Connection Multiplexor (KCM) is a facility that provides a
+> message based interface over TCP for generic application protocols.
+> The motivation for this is based on the observation that although
+> TCP is byte stream transport protocol with no concept of message
+> boundaries, a common use case is to implement a framed application
+> layer protocol running over TCP. To date, most TCP stacks offer
+> byte stream API for applications, which places the burden of message
+> delineation, message I/O operation atomicity, and load balancing
+> in the application. With KCM an application can efficiently send
+> and receive application protocol messages over TCP using a
+> datagram interface.
 
-> 
-> > For the same reason, I think we'd better rename memcg->tcp_mem to
-> > something like memcg->sk_mem or we can even drop the cg_proto struct
-> > altogether embedding its fields directly to mem_cgroup struct.
-> > 
-> > Also, I don't see any reason to have tcp_memcontrol.c file. It's tiny
-> > and with this patch it does not depend on tcp code any more. Let's move
-> > it to memcontrol.c?
-> 
-> I actually had all this at first, but then wondered if it makes more
-> sense to keep the legacy code in isolation. Don't you think it would
-> be easier to keep track of what's v1 and what's v2 if we keep the
-> legacy stuff physically separate as much as possible? In particular I
-> found that 'tcp_mem.' marker really useful while working on the code.
-> 
-> In the same vein, tcp_memcontrol.c doesn't really hurt anybody and I'd
-> expect it to remain mostly unopened and unchanged in the future. But
-> if we merge it into memcontrol.c, that code will likely be in the way
-> and we'd have to make it explicit somehow that this is not actually
-> part of the new memory controller anymore.
-> 
-> What do you think?
+I am a bit struggling seeing a real need to come up with a new socket
+type and subsystem for that. It looks like you want to solve the same
+problem that PACKET_FANOUT does? TCP has TCP-PSH flag which could help
+delimit messages and a way to improve FANOUT like PACKET_FANOUT would
+solve this same problem, too? A propoer fallback has to be in user space
+anyway but messages could maybe simply be flagged with an skb->mark and
+fanout could push it to the correct FANOUT-subsocket.
 
-There isn't much code left in tcp_memcontrol.c, and not all of it is
-legacy. We still want to call tcp_init_cgroup and tcp_destroy_cgroup
-from memcontrol.c - in fact, it's the only call site, so I think we'd
-better keep these functions there. Apart from init/destroy, there is
-only stuff for handling legacy files, which is relatively small and
-isolated. We can just put it along with memsw and kmem legacy files in
-the end of memcontrol.c adding a comment that it's legacy. Personally,
-I'd find the code easier to follow then, because currently the logic
-behind the ACTIVE flag as well as memcg->tcp_mem init/use/destroy turns
-out to be scattered between two files in different subsystems for no
-apparent reason now, as it does not need tcp_prot any more. Besides,
-this would allow us to accurately reuse the ACTIVE flag in init/destroy
-for inc/dec static branch and probably in sock_update_memcg instead of
-sprinkling cgroup_subsys_on_dfl all over the place, which would make the
-code a bit cleaner IMO (in fact, that's why I proposed to drop ACTIVATED
-bit and replace cg_proto->flags with ->active bool).
+> In order to delineate message in a TCP stream for receive in KCM, the
+> kernel implements a message parser. For this we chose to employ BPF
+> which is applied to the TCP stream. BPF code parses application layer
+> messages and returns a message length. Nearly all binary application
+> protocols are parsable in this manner, so KCM should be applicable
+> across a wide range of applications. Other than message length
+> determination in receive, KCM does not require any other application
+> specific awareness. KCM does not implement any other application
+> protocol semantics-- these are are provided in userspace or could be
+> implemented in a kernel module layered above KCM.
 
-Regarding, tcp_mem marker, well, currently it's OK, because we don't
-account anything but TCP sockets, but when it changes (and I'm pretty
-sure it will), we'll have to rename it anyway. For now, I'm OK with
-leaving it as is though.
+For me this still looks a little bit like messages could be delimited by
+TCP PSH flag, where we might need to have some more fine grained control
+over and besides that just adding better fanout semantics to TCP, no?
+
+Do kcm sockets still allow streaming unlimited amounts of data? E.g. if
+you want to pass a data stream attached to a rpc message? I think not
+allowing streaming is a major shortcoming then (even though this will
+induce head of line blocking).
+
+> Future support:
+> 
+>  - Integration with TLS (TLS-in-kernel is a separate initiative).
+
+This is interesting:
+
+Regarding the last week's discussion about better OOB support in TCP
+e.g. for SOCKET_DESTROY, do you already have a plan to handle TLS alerts
+and do CHANGE_CIPHER on the socket synchronously?
 
 Thanks,
-Vladimir
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Hannes
