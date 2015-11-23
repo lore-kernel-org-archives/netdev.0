@@ -1,53 +1,51 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 7/9] sock, cgroup: add sock->sk_cgroup
-Date: Mon, 23 Nov 2015 10:48:09 -0500
-Message-ID: <20151123154809.GD3049@mtj.duckdns.org>
-References: <1448122441-9335-1-git-send-email-tj@kernel.org>
- <1448122441-9335-8-git-send-email-tj@kernel.org>
- <56530E4B.4090209@bmw-carit.de>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: stmmac: debugfs broken with multiple ethernets.
+Date: Mon, 23 Nov 2015 16:49:17 +0100
+Message-ID: <20151123154917.GA17072@amd>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
-	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org, ninasc-b10kYP2dOMg@public.gmane.org
-To: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:53402 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752442AbbKWPtU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 10:49:20 -0500
 Content-Disposition: inline
-In-Reply-To: <56530E4B.4090209-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hi!
 
-On Mon, Nov 23, 2015 at 02:02:03PM +0100, Daniel Wagner wrote:
-> On 11/21/2015 05:13 PM, Tejun Heo wrote:
-> > Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> > Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-> > Cc: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-> 
-> I did a quick test and for new connection the cgroup2 match worked as
-> expected. For an existing connection I wasn't able to trigger the match.
-> 
-> It is quite likely I do something wrong:
-> 
-> 	ssh into the box
-> 	# mkdir /sys/fs/cgroup/test
-> 	# echo $$ > /sys/fs/cgroup/test/cgroup.procs
-> 	# echo $PPID > /sys/fs/cgroup/test/cgroup.procs
-> 	# iptables -A OUTPUT -m cgroup --path test
-> 
-> Should I see matches with the existing ssh session?
+stmmac_main will happily try to create two directories with the same
+name.
 
-Socket is associated with the creating cgroup and stays associated
-with that cgroup until it's released.  Migrating the process doesn't
-change the ownership of the sockets it has created.  This is in line
-with how other stateful resources such as memory are handled in
-cgroup2 hierarchy.
+I guess something like
 
-Thanks.
+static int id;
+char name[100];
 
+sprintf(name, STMMAC_RESOURCE_NAME "_%d", id++)
+...
+
+might be suitable, but did not try that further.
+
+Best regards,
+
+									Pavel
+
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+ static int stmmac_init_fs(struct net_device *dev)
+{
+  -       /* Create debugfs entries */
+  +       /* Create debugfs entries: FIXME: this is broken with more
+  +          than one ethernet device. */
+          stmmac_fs_dir = debugfs_create_dir(STMMAC_RESOURCE_NAME,
+  NULL);
+
+        if (!stmmac_fs_dir || IS_ERR(stmmac_fs_dir)) {
+	
 -- 
-tejun
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
