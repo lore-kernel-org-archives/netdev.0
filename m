@@ -1,110 +1,88 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH] net: cdc_ncm: fix NULL pointer deref in cdc_ncm_bind_common
-Date: Mon, 23 Nov 2015 14:32:10 +0100
-Message-ID: <1448285530-6223-1-git-send-email-bjorn@mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Saurabh Sengar <saurabh.truth@gmail.com>
+Subject: [PATCH] drivers: net: xgene: optimizing the code
+Date: Mon, 23 Nov 2015 19:02:15 +0530
+Message-ID: <1448285535-4514-1-git-send-email-saurabh.truth@gmail.com>
+Cc: Saurabh Sengar <saurabh.truth@gmail.com>
+To: isubramanian@apm.com, kchudgar@apm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:36596 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753502AbbKWNcb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 08:32:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 77b0a099674a ("cdc-ncm: use common parser") added a dangerous
-new trust in the CDC functional descriptors presented by the device,
-unconditionally assuming that any device handled by the driver has
-a CDC Union descriptor.
+this patch does the following:
+1 .  remove unnecessary if, else condition
+2 .  reduce one variable
+3 .  change the return type of 2 functions to void as there return values
+turn out to be 0 always after above changes
 
-This descriptor is required by the NCM and MBIM specs, but crashing
-on non-compliant devices is still unacceptable. Not only will that
-allow malicious devices to crash the kernel, but in this case it is
-also well known that there are non-compliant real devices on the
-market - as shown by the comment accompanying the IAD workaround
-in the same function.
-
-The Sierra Wireless EM7305 is an example of such device, having
-a CDC header and a CDC MBIM descriptor but no CDC Union:
-
-    Interface Descriptor:
-      bLength                 9
-      bDescriptorType         4
-      bInterfaceNumber       12
-      bAlternateSetting       0
-      bNumEndpoints           1
-      bInterfaceClass         2 Communications
-      bInterfaceSubClass     14
-      bInterfaceProtocol      0
-      iInterface              0
-      CDC Header:
-        bcdCDC               1.10
-      CDC MBIM:
-        bcdMBIMVersion       1.00
-        wMaxControlMessage   4096
-        bNumberFilters       16
-        bMaxFilterSize       128
-        wMaxSegmentSize      4064
-        bmNetworkCapabilities 0x20
-          8-byte ntb input size
-      Endpoint Descriptor:
-	..
-
-The conversion to a common parser also left the local cdc_union
-variable untouched.  This caused the IAD workaround code to be applied
-to all devices with an IAD descriptor, which was never intended.  Finis=
-h
-the conversion by testing for hdr.usb_cdc_union_desc instead.
-
-Cc: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-=46ixes: 77b0a099674a ("cdc-ncm: use common parser")
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Signed-off-by: Saurabh Sengar <saurabh.truth@gmail.com>
 ---
- drivers/net/usb/cdc_ncm.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 25 +++++++++---------------
+ 1 file changed, 9 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index a187f08113ec..3b1ba8237768 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -691,7 +691,6 @@ static void cdc_ncm_free(struct cdc_ncm_ctx *ctx)
-=20
- int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf=
-, u8 data_altsetting, int drvflags)
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 991412c..6096d02 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -1084,7 +1084,7 @@ static const struct net_device_ops xgene_ndev_ops = {
+ };
+ 
+ #ifdef CONFIG_ACPI
+-static int xgene_get_port_id_acpi(struct device *dev,
++static void xgene_get_port_id_acpi(struct device *dev,
+ 				  struct xgene_enet_pdata *pdata)
  {
--	const struct usb_cdc_union_desc *union_desc =3D NULL;
- 	struct cdc_ncm_ctx *ctx;
- 	struct usb_driver *driver;
- 	u8 *buf;
-@@ -725,15 +724,16 @@ int cdc_ncm_bind_common(struct usbnet *dev, struc=
-t usb_interface *intf, u8 data_
- 	/* parse through descriptors associated with control interface */
- 	cdc_parse_cdc_header(&hdr, intf, buf, len);
-=20
--	ctx->data =3D usb_ifnum_to_if(dev->udev,
--				    hdr.usb_cdc_union_desc->bSlaveInterface0);
-+	if (hdr.usb_cdc_union_desc)
-+		ctx->data =3D usb_ifnum_to_if(dev->udev,
-+					    hdr.usb_cdc_union_desc->bSlaveInterface0);
- 	ctx->ether_desc =3D hdr.usb_cdc_ether_desc;
- 	ctx->func_desc =3D hdr.usb_cdc_ncm_desc;
- 	ctx->mbim_desc =3D hdr.usb_cdc_mbim_desc;
- 	ctx->mbim_extended_desc =3D hdr.usb_cdc_mbim_extended_desc;
-=20
- 	/* some buggy devices have an IAD but no CDC Union */
--	if (!union_desc && intf->intf_assoc && intf->intf_assoc->bInterfaceCo=
-unt =3D=3D 2) {
-+	if (!hdr.usb_cdc_union_desc && intf->intf_assoc && intf->intf_assoc->=
-bInterfaceCount =3D=3D 2) {
- 		ctx->data =3D usb_ifnum_to_if(dev->udev, intf->cur_altsetting->desc.=
-bInterfaceNumber + 1);
- 		dev_dbg(&intf->dev, "CDC Union missing - got slave from IAD\n");
+ 	acpi_status status;
+@@ -1097,24 +1097,19 @@ static int xgene_get_port_id_acpi(struct device *dev,
+ 		pdata->port_id = temp;
  	}
---=20
-2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 
+-	return 0;
++	return;
+ }
+ #endif
+ 
+-static int xgene_get_port_id_dt(struct device *dev, struct xgene_enet_pdata *pdata)
++static void xgene_get_port_id_dt(struct device *dev, struct xgene_enet_pdata *pdata)
+ {
+ 	u32 id = 0;
+-	int ret;
+ 
+-	ret = of_property_read_u32(dev->of_node, "port-id", &id);
+-	if (ret) {
+-		pdata->port_id = 0;
+-		ret = 0;
+-	} else {
+-		pdata->port_id = id & BIT(0);
+-	}
++	of_property_read_u32(dev->of_node, "port-id", &id);
+ 
+-	return ret;
++	pdata->port_id = id & BIT(0);
++
++	return;
+ }
+ 
+ static int xgene_get_tx_delay(struct xgene_enet_pdata *pdata)
+@@ -1209,13 +1204,11 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+ 	}
+ 
+ 	if (dev->of_node)
+-		ret = xgene_get_port_id_dt(dev, pdata);
++		xgene_get_port_id_dt(dev, pdata);
+ #ifdef CONFIG_ACPI
+ 	else
+-		ret = xgene_get_port_id_acpi(dev, pdata);
++		xgene_get_port_id_acpi(dev, pdata);
+ #endif
+-	if (ret)
+-		return ret;
+ 
+ 	if (!device_get_mac_address(dev, ndev->dev_addr, ETH_ALEN))
+ 		eth_hw_addr_random(ndev);
+-- 
+1.9.1
