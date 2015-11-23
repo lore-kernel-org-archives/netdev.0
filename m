@@ -1,117 +1,124 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: network card doesn't recovered itself after a SYN flooding attack
-Date: Mon, 23 Nov 2015 10:54:16 +0100
-Message-ID: <5652E248.2030802@iogearbox.net>
-References: <56519E2B.8050500@gmx.de>
+From: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
+Subject: Re: [PATCH 13/14] mm: memcontrol: account socket memory in unified
+ hierarchy memory controller
+Date: Mon, 23 Nov 2015 13:00:59 +0300
+Message-ID: <20151123100059.GB29014@esperanza>
+References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
+ <1447371693-25143-14-git-send-email-hannes@cmpxchg.org>
+ <20151120131033.GF31308@esperanza>
+ <20151120192506.GD5623@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?windows-1252?Q?Toralf_F=F6rster?= <toralf.foerster@gmx.de>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, nic_swsd@realtek.com
-To: romieu@fr.zoreil.com, vinschen@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56519E2B.8050500@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
+	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<kernel-team-b10kYP2dOMg@public.gmane.org>
+To: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20151120192506.GD5623-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-[ cc'ing netdev and r8169 folks ]
+On Fri, Nov 20, 2015 at 02:25:06PM -0500, Johannes Weiner wrote:
+> On Fri, Nov 20, 2015 at 04:10:33PM +0300, Vladimir Davydov wrote:
+> > On Thu, Nov 12, 2015 at 06:41:32PM -0500, Johannes Weiner wrote:
+> > ...
+> > > @@ -5514,16 +5550,43 @@ void sock_release_memcg(struct sock *sk)
+> > >   */
+> > >  bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
+> > >  {
+> > > +	unsigned int batch = max(CHARGE_BATCH, nr_pages);
+> > >  	struct page_counter *counter;
+> > > +	bool force = false;
+> > >  
+> > > -	if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
+> > > -				    nr_pages, &counter)) {
+> > > -		memcg->tcp_mem.memory_pressure = 0;
+> > > +#ifdef CONFIG_MEMCG_KMEM
+> > > +	if (!cgroup_subsys_on_dfl(memory_cgrp_subsys)) {
+> > > +		if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
+> > > +					    nr_pages, &counter)) {
+> > > +			memcg->tcp_mem.memory_pressure = 0;
+> > > +			return true;
+> > > +		}
+> > > +		page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
+> > > +		memcg->tcp_mem.memory_pressure = 1;
+> > > +		return false;
+> > > +	}
+> > > +#endif
+> > > +	if (consume_stock(memcg, nr_pages))
+> > >  		return true;
+> > > +retry:
+> > > +	if (page_counter_try_charge(&memcg->memory, batch, &counter))
+> > > +		goto done;
+> > > +
+> > > +	if (batch > nr_pages) {
+> > > +		batch = nr_pages;
+> > > +		goto retry;
+> > >  	}
+> > > -	page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
+> > > -	memcg->tcp_mem.memory_pressure = 1;
+> > > -	return false;
+> > > +
+> > > +	page_counter_charge(&memcg->memory, batch);
+> > > +	force = true;
+> > > +done:
+> > 
+> > > +	css_get_many(&memcg->css, batch);
+> > 
+> > Is there any point to get css reference per each charged page? For kmem
+> > it is absolutely necessary, because dangling slabs must block
+> > destruction of memcg's kmem caches, which are destroyed on css_free. But
+> > for sockets there's no such problem: memcg will be destroyed only after
+> > all sockets are destroyed and therefore uncharged (since
+> > sock_update_memcg pins css).
+> 
+> I'm afraid we have to when we want to share 'stock' with cache and
+> anon pages, which hold individual references. drain_stock() always
+> assumes one reference per cached page.
 
-On 11/22/2015 11:51 AM, Toralf F=F6rster wrote:
-> At 22th of November at 21:26 UTC my server (64 bit stable Gentoo hard=
-ened) suffered from a DDoS attack.
->
->  From the kern.log:
->
-> =09
-> Nov 20 22:26:29 tor-relay kernel: [2431358.124515] TCP: request_sock_=
-TCP: Possible SYN flooding on port 80. Sending cookies.  Check SNMP cou=
-nters.
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216133] ------------[ cut =
-here ]------------
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216141] WARNING: CPU: 7 PI=
-D: 12421 at net/sched/sch_generic.c:303 dev_watchdog+0x272/0x280()
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216143] NETDEV WATCHDOG: e=
-np3s0 (r8169): transmit queue 0 timed out
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216145] Modules linked in:
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216148]  af_packet nf_log_=
-ipv6 nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter ip6_tables nf_log=
-_ipv4 nf_log_common xt_LOG xt_multiport nf_conntrack_ipv4 nf_defrag_ipv=
-4 xt_conntrack nf_conntrack iptable_filter ip_tables i2c_i801 i2c_core =
-tpm_tis tpm thermal processor battery atkbd x86_pkg_temp_thermal button=
- microcode fan
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216173] CPU: 7 PID: 12421 =
-Comm: emerge Not tainted 4.1.7-hardened-r1 #1
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216174] Hardware name: Sys=
-tem manufacturer System Product Name/P8H77-M PRO, BIOS 0922 09/10/2012
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216176]  ffffffff994fa966 =
-0000000000000000 ffffffff99bced09 ffff88041fbc3d18
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216179]  ffffffff99983e26 =
-0000000000000000 ffff88041fbc3d68 ffff88041fbc3d58
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216182]  ffffffff9947f08a =
-ffff88041fbc3d48 ffffffff99bced09 000000000000012f
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216185] Call Trace:
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216187]    [] ? print_modu=
-les+0x76/0xe0
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216198]  [] dump_stack+0x4=
-5/0x5d
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216203]  [] warn_slowpath_=
-common+0x8a/0xd0
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216205]  [] warn_slowpath_=
-fmt+0x5a/0x70
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216210]  [] ? task_tick_fa=
-ir+0x2a8/0x760
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216213]  [] dev_watchdog+0=
-x272/0x280
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216216]  [] ? dev_deactiva=
-te_queue+0x70/0x70
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216219]  [] call_timer_fn+=
-0x47/0x140
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216222]  [] run_timer_soft=
-irq+0x291/0x450
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216224]  [] ? dev_deactiva=
-te_queue+0x70/0x70
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216228]  [] __do_softirq+0=
-xf8/0x290
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216230]  [] irq_exit+0x9d/=
-0xb0
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216235]  [] smp_apic_timer=
-_interrupt+0x55/0x70
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216237]  [] apic_timer_int=
-errupt+0x97/0xa0
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216239]
-> Nov 20 22:26:48 tor-relay kernel: [2431377.216241] ---[ end trace 934=
-31a9382c0a11a ]---
-> Nov 20 22:26:48 tor-relay kernel: [2431377.237826] r8169 0000:03:00.0=
- enp3s0: link up
-> Nov 20 22:28:18 tor-relay kernel: [2431467.175659] r8169 0000:03:00.0=
- enp3s0: link up
-> Nov 20 22:28:30 tor-relay kernel: [2431479.172562] r8169 0000:03:00.0=
- enp3s0: link up
-> Nov 20 22:28:42 tor-relay kernel: [2431491.164472] r8169 0000:03:00.0=
- enp3s0: link up
-> Nov 20 22:28:54 tor-relay kernel: [2431503.170416] r8169 0000:03:00.0=
- enp3s0: link up
-> Nov 20 22:29:06 tor-relay kernel: [2431515.148333] r8169 0000:03:00.0=
- enp3s0: link up
-> Nov 20 22:29:18 tor-relay kernel: [2431527.143293] r8169 0000:03:00.0=
- enp3s0: link up
-> Nov 20 22:29:30 tor-relay kernel: [2431539.142164] r8169 0000:03:00.0=
- enp3s0: link up
-> Nov 20 22:29:42 tor-relay kernel: [2431551.124104] r8169 0000:03:00.0=
- enp3s0: link up
-> ...
-> Nov 22 10:56:24 tor-relay kernel: [2562675.624512] r8169 0000:03:00.0=
- enp3s0: link up
->
->
->
-> The last line repeated and the network was down till I initiated a ha=
-rdware reset.
->
-> It looks for me that the attack turned the network card into a state =
-from which it couldn't recovered itself, or ?
-> Anything what I should change here at the system to avoid such a hang=
- ?
->
+Missed that, you're right.
+
+> 
+> > > +	if (batch > nr_pages)
+> > > +		refill_stock(memcg, batch - nr_pages);
+> > > +
+> > > +	schedule_work(&memcg->socket_work);
+> > 
+> > I think it's suboptimal to schedule the work even if we are below the
+> > high threshold.
+> 
+> Hm, it seemed unnecessary to duplicate the hierarchy check since this
+> is in the batch-exhausted slowpath anyway.
+
+Dunno, may be you're right.
+
+I've another question regarding this socket_work: its reclaim target
+always equals CHARGE_BATCH. Can't it result in a workload exceeding
+memory.high in case there are a lot of allocations coming from different
+cpus? In this case the work might not manage to complete before another
+allocation happens. May be, we should accumulate the number of pages to
+be reclaimed by the work, as we do in try_charge?
+
+> 
+> > BTW why do we need this work at all? Why is reclaim_high called from
+> > task_work not enough?
+> 
+> The problem lies in the memcg association: the random task that gets
+> interrupted by an arriving packet might not be in the same memcg as
+> the one owning receiving socket. And multiple interrupts could happen
+> while we're in the kernel already charging pages. We'd basically have
+> to maintain a list of memcgs that need to run reclaim_high associated
+> with current.
+> 
+
+Right, I think this is worth placing in a comment to memcg->socket_work.
+I wonder if we could use it *instead* of task_work for handling every
+allocation, not only socket-related. Would it make any sense? May be, it
+could reduce the latency experienced by tasks in memory cgroups.
+
+Thanks,
+Vladimir
