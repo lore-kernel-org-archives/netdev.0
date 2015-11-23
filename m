@@ -1,142 +1,214 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 01/18] net/mlx5_core: Modify enable/disable hca functions
-Date: Mon, 23 Nov 2015 13:11:34 +0200
-Message-ID: <1448277111-16474-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 15/18] net/mlx5: E-Switch, Introduce HCA cap and E-Switch vport context
+Date: Mon, 23 Nov 2015 13:11:48 +0200
+Message-ID: <1448277111-16474-16-git-send-email-ogerlitz@mellanox.com>
 References: <1448277111-16474-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Doug Ledford <dledford@redhat.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Hadar Har-Zion <hadarh@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>, Eli Cohen <eli@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:37120 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:37184 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751173AbbKWLMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Nov 2015 06:12:25 -0500
+	id S1751173AbbKWLMk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2015 06:12:40 -0500
 In-Reply-To: <1448277111-16474-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cohen <eli@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
 
-Modify these functions to have func_id argument to state which device we
-are referring to. This is done as a preparation for SRIOV support where
-a PF driver needs to control its virtual functions.
+E-Switch vport context is unlike NIC vport context, managed by the
+E-Switch manager or vport_group_manager and not by the NIC(VF) driver.
 
-Signed-off-by: Eli Cohen <eli@mellanox.com>
+The E-Switch manager can access (read/modify) any of its vports
+E-Switch context.
+
+Currently E-Switch vport context includes only clietnt and server
+vlan insertion and striping data (for later support of VST mode).
+
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c     | 45 ++++++++++------------
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |  2 +
- 2 files changed, 23 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c | 11 ++++
+ include/linux/mlx5/device.h                  |  9 +++
+ include/linux/mlx5/mlx5_ifc.h                | 90 ++++++++++++++++++++++++++++
+ 3 files changed, 110 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 4ac8d4cc..f2e64dc 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -462,42 +462,39 @@ static int set_hca_ctrl(struct mlx5_core_dev *dev)
- 	return err;
- }
- 
--static int mlx5_core_enable_hca(struct mlx5_core_dev *dev)
-+int mlx5_core_enable_hca(struct mlx5_core_dev *dev, u16 func_id)
- {
-+	u32 out[MLX5_ST_SZ_DW(enable_hca_out)];
-+	u32 in[MLX5_ST_SZ_DW(enable_hca_in)];
- 	int err;
--	struct mlx5_enable_hca_mbox_in in;
--	struct mlx5_enable_hca_mbox_out out;
- 
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_ENABLE_HCA);
-+	memset(in, 0, sizeof(in));
-+	MLX5_SET(enable_hca_in, in, opcode, MLX5_CMD_OP_ENABLE_HCA);
-+	MLX5_SET(enable_hca_in, in, function_id, func_id);
-+	memset(out, 0, sizeof(out));
-+
- 	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
- 	if (err)
- 		return err;
- 
--	if (out.hdr.status)
--		return mlx5_cmd_status_to_err(&out.hdr);
--
--	return 0;
-+	return mlx5_cmd_status_to_err_v2(out);
- }
- 
--static int mlx5_core_disable_hca(struct mlx5_core_dev *dev)
-+int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id)
- {
-+	u32 out[MLX5_ST_SZ_DW(disable_hca_out)];
-+	u32 in[MLX5_ST_SZ_DW(disable_hca_in)];
- 	int err;
--	struct mlx5_disable_hca_mbox_in in;
--	struct mlx5_disable_hca_mbox_out out;
- 
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DISABLE_HCA);
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
-+	memset(in, 0, sizeof(in));
-+	MLX5_SET(disable_hca_in, in, opcode, MLX5_CMD_OP_DISABLE_HCA);
-+	MLX5_SET(disable_hca_in, in, function_id, func_id);
-+	memset(out, 0, sizeof(out));
-+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
- 	if (err)
- 		return err;
- 
--	if (out.hdr.status)
--		return mlx5_cmd_status_to_err(&out.hdr);
--
--	return 0;
-+	return mlx5_cmd_status_to_err_v2(out);
- }
- 
- static int mlx5_irq_set_affinity_hint(struct mlx5_core_dev *mdev, int i)
-@@ -942,7 +939,7 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 
- 	mlx5_pagealloc_init(dev);
- 
--	err = mlx5_core_enable_hca(dev);
-+	err = mlx5_core_enable_hca(dev, 0);
- 	if (err) {
- 		dev_err(&pdev->dev, "enable hca failed\n");
- 		goto err_pagealloc_cleanup;
-@@ -1106,7 +1103,7 @@ reclaim_boot_pages:
- 	mlx5_reclaim_startup_pages(dev);
- 
- err_disable_hca:
--	mlx5_core_disable_hca(dev);
-+	mlx5_core_disable_hca(dev, 0);
- 
- err_pagealloc_cleanup:
- 	mlx5_pagealloc_cleanup(dev);
-@@ -1149,7 +1146,7 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fw.c b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
+index bf6e3df..1c9f9a5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
+@@ -173,6 +173,17 @@ int mlx5_query_hca_caps(struct mlx5_core_dev *dev)
+ 			return err;
  	}
- 	mlx5_pagealloc_stop(dev);
- 	mlx5_reclaim_startup_pages(dev);
--	mlx5_core_disable_hca(dev);
-+	mlx5_core_disable_hca(dev, 0);
- 	mlx5_pagealloc_cleanup(dev);
- 	mlx5_cmd_cleanup(dev);
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-index cee5b7a..1ed2239 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-@@ -90,6 +90,8 @@ void mlx5_core_event(struct mlx5_core_dev *dev, enum mlx5_dev_event event,
- 		     unsigned long param);
- void mlx5_enter_error_state(struct mlx5_core_dev *dev);
- void mlx5_disable_device(struct mlx5_core_dev *dev);
-+int mlx5_core_enable_hca(struct mlx5_core_dev *dev, u16 func_id);
-+int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id);
++	if (MLX5_CAP_GEN(dev, vport_group_manager)) {
++		err = mlx5_core_get_caps(dev, MLX5_CAP_ESWITCH,
++					 HCA_CAP_OPMOD_GET_CUR);
++		if (err)
++			return err;
++		err = mlx5_core_get_caps(dev, MLX5_CAP_ESWITCH,
++					 HCA_CAP_OPMOD_GET_MAX);
++		if (err)
++			return err;
++	}
++
+ 	return 0;
+ }
  
- void mlx5e_init(void);
- void mlx5e_cleanup(void);
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index 88eb449..7d3a85f 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -1145,6 +1145,7 @@ enum mlx5_cap_type {
+ 	MLX5_CAP_EOIB_OFFLOADS,
+ 	MLX5_CAP_FLOW_TABLE,
+ 	MLX5_CAP_ESWITCH_FLOW_TABLE,
++	MLX5_CAP_ESWITCH,
+ 	/* NUM OF CAP Types */
+ 	MLX5_CAP_NUM
+ };
+@@ -1196,6 +1197,14 @@ enum mlx5_cap_type {
+ #define MLX5_CAP_ESW_FLOWTABLE_FDB_MAX(mdev, cap) \
+ 	MLX5_CAP_ESW_FLOWTABLE_MAX(mdev, flow_table_properties_nic_esw_fdb.cap)
+ 
++#define MLX5_CAP_ESW(mdev, cap) \
++	MLX5_GET(e_switch_cap, \
++		 mdev->hca_caps_cur[MLX5_CAP_ESWITCH], cap)
++
++#define MLX5_CAP_ESW_MAX(mdev, cap) \
++	MLX5_GET(e_switch_cap, \
++		 mdev->hca_caps_max[MLX5_CAP_ESWITCH], cap)
++
+ #define MLX5_CAP_ODP(mdev, cap)\
+ 	MLX5_GET(odp_cap, mdev->hca_caps_cur[MLX5_CAP_ODP], cap)
+ 
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index a81b008..f5d9449 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -459,6 +459,17 @@ struct mlx5_ifc_flow_table_eswitch_cap_bits {
+ 	u8      reserved_1[0x7800];
+ };
+ 
++struct mlx5_ifc_e_switch_cap_bits {
++	u8         vport_svlan_strip[0x1];
++	u8         vport_cvlan_strip[0x1];
++	u8         vport_svlan_insert[0x1];
++	u8         vport_cvlan_insert_if_not_exist[0x1];
++	u8         vport_cvlan_insert_overwrite[0x1];
++	u8         reserved_0[0x1b];
++
++	u8         reserved_1[0x7e0];
++};
++
+ struct mlx5_ifc_per_protocol_networking_offload_caps_bits {
+ 	u8         csum_cap[0x1];
+ 	u8         vlan_cap[0x1];
+@@ -1860,6 +1871,7 @@ union mlx5_ifc_hca_cap_union_bits {
+ 	struct mlx5_ifc_per_protocol_networking_offload_caps_bits per_protocol_networking_offload_caps;
+ 	struct mlx5_ifc_flow_table_nic_cap_bits flow_table_nic_cap;
+ 	struct mlx5_ifc_flow_table_eswitch_cap_bits flow_table_eswitch_cap;
++	struct mlx5_ifc_e_switch_cap_bits e_switch_cap;
+ 	u8         reserved_0[0x8000];
+ };
+ 
+@@ -2305,6 +2317,26 @@ struct mlx5_ifc_hca_vport_context_bits {
+ 	u8         reserved_6[0xca0];
+ };
+ 
++struct mlx5_ifc_esw_vport_context_bits {
++	u8         reserved_0[0x3];
++	u8         vport_svlan_strip[0x1];
++	u8         vport_cvlan_strip[0x1];
++	u8         vport_svlan_insert[0x1];
++	u8         vport_cvlan_insert[0x2];
++	u8         reserved_1[0x18];
++
++	u8         reserved_2[0x20];
++
++	u8         svlan_cfi[0x1];
++	u8         svlan_pcp[0x3];
++	u8         svlan_id[0xc];
++	u8         cvlan_cfi[0x1];
++	u8         cvlan_pcp[0x3];
++	u8         cvlan_id[0xc];
++
++	u8         reserved_3[0x7a0];
++};
++
+ enum {
+ 	MLX5_EQC_STATUS_OK                = 0x0,
+ 	MLX5_EQC_STATUS_EQ_WRITE_FAILURE  = 0xa,
+@@ -3743,6 +3775,64 @@ struct mlx5_ifc_query_flow_group_in_bits {
+ 	u8         reserved_5[0x120];
+ };
+ 
++struct mlx5_ifc_query_esw_vport_context_out_bits {
++	u8         status[0x8];
++	u8         reserved_0[0x18];
++
++	u8         syndrome[0x20];
++
++	u8         reserved_1[0x40];
++
++	struct mlx5_ifc_esw_vport_context_bits esw_vport_context;
++};
++
++struct mlx5_ifc_query_esw_vport_context_in_bits {
++	u8         opcode[0x10];
++	u8         reserved_0[0x10];
++
++	u8         reserved_1[0x10];
++	u8         op_mod[0x10];
++
++	u8         other_vport[0x1];
++	u8         reserved_2[0xf];
++	u8         vport_number[0x10];
++
++	u8         reserved_3[0x20];
++};
++
++struct mlx5_ifc_modify_esw_vport_context_out_bits {
++	u8         status[0x8];
++	u8         reserved_0[0x18];
++
++	u8         syndrome[0x20];
++
++	u8         reserved_1[0x40];
++};
++
++struct mlx5_ifc_esw_vport_context_fields_select_bits {
++	u8         reserved[0x1c];
++	u8         vport_cvlan_insert[0x1];
++	u8         vport_svlan_insert[0x1];
++	u8         vport_cvlan_strip[0x1];
++	u8         vport_svlan_strip[0x1];
++};
++
++struct mlx5_ifc_modify_esw_vport_context_in_bits {
++	u8         opcode[0x10];
++	u8         reserved_0[0x10];
++
++	u8         reserved_1[0x10];
++	u8         op_mod[0x10];
++
++	u8         other_vport[0x1];
++	u8         reserved_2[0xf];
++	u8         vport_number[0x10];
++
++	struct mlx5_ifc_esw_vport_context_fields_select_bits field_select;
++
++	struct mlx5_ifc_esw_vport_context_bits esw_vport_context;
++};
++
+ struct mlx5_ifc_query_eq_out_bits {
+ 	u8         status[0x8];
+ 	u8         reserved_0[0x18];
 -- 
 2.3.7
