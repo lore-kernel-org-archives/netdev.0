@@ -1,85 +1,55 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2015-11-23
-Date: Mon, 23 Nov 2015 09:54:22 +0100
-Message-ID: <5652D43E.2010607@pengutronix.de>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Deadlock between bind and splice
+Date: Mon, 23 Nov 2015 10:21:27 +0100
+Message-ID: <1448270487.3976105.447364665.43219C16@webmail.messagingengine.com>
+References: <CACT4Y+brDX=C15jSs33zGaCBt2BDPPzBcgqtKA2dYMdviYjKww@mail.gmail.com>
+ <1446824535.4184.69.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151110023854.GZ22011@ZenIV.linux.org.uk>
+ <20151110025906.GA22011@ZenIV.linux.org.uk>
+ <CACT4Y+bS2w3VUgb3MYe3epx7qbiu7VSNhW2CbXwwRSzmsSH2cw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="H7AFi14s8dkWC3nJf4F76rkmscOMTuSXf"
-Cc: David Miller <davem@davemloft.net>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:41567 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752012AbbKWIya (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 03:54:30 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Dmitry Vyukov <dvyukov@google.com>,
+	Al Viro <viro@zeniv.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+bS2w3VUgb3MYe3epx7qbiu7VSNhW2CbXwwRSzmsSH2cw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---H7AFi14s8dkWC3nJf4F76rkmscOMTuSXf
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On Mon, Nov 23, 2015, at 09:32, Dmitry Vyukov wrote:
+> On Tue, Nov 10, 2015 at 3:59 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+> > On Tue, Nov 10, 2015 at 02:38:54AM +0000, Al Viro wrote:
+> >> On Fri, Nov 06, 2015 at 07:42:15AM -0800, Eric Dumazet wrote:
+> >>
+> >> > Thank you for this report.
+> >> >
+> >> > pipe is part of fs, not net ;)
+> >>
+> >> AF_UNIX bind() vs. socketpair() interplay, OTOH...
+> >
+> > FWIW, BSD folks unlock the socket for the duration of mknod - mark it as
+> > "somebody's trying to bind it" to avoid the fun with racing double bind(),
+> > but that's about it.  Tempting, to be honest...
+> >
+> > BTW, why does unix_autobind() do allocation under ->readlock?  The allocation
+> > will be normally used - that if (u->addr) return; part is just dealing with
+> > an unlikely race, as far as I can see...
+> 
+> 
+> Hello,
+> 
+> This is still happening periodically for me. Is there a proposed fix?
+> I could test it.
 
-Hello David,
-
-this is a pull request of a single patch for net-next/master.
-
-The patch by Kedareswara rao Appana converts the xilinx CAN driver to
-runtime_pm.
-
-Marc
-
----
-
-The following changes since commit 3f8c0f7efb4fcac11f31afa97584d06118c614=
-bb:
-
-  gianfar: use of_property_read_bool() (2015-11-22 20:47:14 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
-gs/linux-can-next-for-4.5-20151123
-
-for you to fetch changes up to 4716620d1b6291ce45522d1346c086f76b995d1c:
-
-  can: xilinx: Convert to runtime_pm (2015-11-23 09:51:34 +0100)
-
-----------------------------------------------------------------
-linux-can-next-for-4.5-20151123
-
-----------------------------------------------------------------
-Kedareswara rao Appana (1):
-      can: xilinx: Convert to runtime_pm
-
- drivers/net/can/xilinx_can.c | 176 +++++++++++++++++++++++++------------=
-------
- 1 file changed, 101 insertions(+), 75 deletions(-)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---H7AFi14s8dkWC3nJf4F76rkmscOMTuSXf
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWUtQ+AAoJEP5prqPJtc/H9tsIAJFRTytgIuzgdPvCavAvM51x
-VgKEMgGCtphhLTGSKUBZvJoKdwP9T+O587YxoMo/UXBdv/nTOFAlAiZ6XCRCDmGz
-NTJX9ldEtT9zAa46C5VbpJfPssTBGOnO8w4476BF56JSXzHijuadnQxSUnVlpps0
-QRm+gKvSqgG8uuBAhCraAgbMSxGXaSnWmjoeOR5lLpk8AFNWsLhZrqGpGGMC52rF
-Dl1rETEiDQy8sXmN0plcaZl1Ta9KqVkfWgLOuUBB93GBpslPdSTiWWyT71TMtOf5
-eUF+czgVerrz1qAuZhAN+BPFt8wzntRHupAY9rBo6gje46nPkDwNOE/wW6RVHmA=
-=ANU4
------END PGP SIGNATURE-----
-
---H7AFi14s8dkWC3nJf4F76rkmscOMTuSXf--
+No, we currently have no fix for that report. :/
