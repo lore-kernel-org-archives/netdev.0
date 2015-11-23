@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 05/18] net/mlx5: Introduce access functions to modify/query vport mac lists
-Date: Mon, 23 Nov 2015 13:11:38 +0200
-Message-ID: <1448277111-16474-6-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 09/18] net/mlx5e: Write UC/MC list and promisc mode into vport context
+Date: Mon, 23 Nov 2015 13:11:42 +0200
+Message-ID: <1448277111-16474-10-git-send-email-ogerlitz@mellanox.com>
 References: <1448277111-16474-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Doug Ledford <dledford@redhat.com>,
@@ -12,203 +12,146 @@ Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:37302 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:37288 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752661AbbKWLNp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Nov 2015 06:13:45 -0500
+	id S1752661AbbKWLNk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2015 06:13:40 -0500
 In-Reply-To: <1448277111-16474-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Saeed Mahameed <saeedm@mellanox.com>
 
-Those functions are needed to notify the upcoming L2 table and SR-IOV
-E-Switch(FDB) manager(PF), of the NIC vport (vf) UC/MC mac lists
-changes.
+Each Vport/vNIC must notify underlying e-Switch layer
+for UC/MC list and promisc mode updates, in-order to update
+l2 tables and SR-IOV FDB tables.
 
-preperation for ethernet sriov and l2 table management.
+We do that at set_rx_mode ndo.
+
+preperation for ethernet-SRIOV and l2 table management.
 
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/vport.c | 119 ++++++++++++++++++++++++
- include/linux/mlx5/device.h                     |   6 ++
- include/linux/mlx5/vport.h                      |  10 ++
- 3 files changed, 135 insertions(+)
+ .../ethernet/mellanox/mlx5/core/en_flow_table.c    | 99 ++++++++++++++++++++++
+ 1 file changed, 99 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-index 442916e..986d0d3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-@@ -150,6 +150,125 @@ int mlx5_modify_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
+index 22d603f..9a021be 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
+@@ -671,6 +671,103 @@ static void mlx5e_sync_netdev_addr(struct mlx5e_priv *priv)
+ 	netif_addr_unlock_bh(netdev);
  }
- EXPORT_SYMBOL(mlx5_modify_nic_vport_mac_address);
  
-+int mlx5_query_nic_vport_mac_list(struct mlx5_core_dev *dev,
-+				  u32 vport,
-+				  enum mlx5_list_type list_type,
-+				  u8 addr_list[][ETH_ALEN],
-+				  int *list_size)
++/* Returns a pointer to an array of type u8[][ETH_ALEN] */
++static u8 (*mlx5e_build_addr_array(struct mlx5e_priv *priv, int list_type,
++				   int *size))[ETH_ALEN]
 +{
-+	u32 in[MLX5_ST_SZ_DW(query_nic_vport_context_in)];
-+	void *nic_vport_ctx;
++	bool is_uc = (list_type == MLX5_NVPRT_LIST_TYPE_UC);
++	struct net_device *ndev = priv->netdev;
++	struct mlx5e_eth_addr_hash_node *hn;
++	struct hlist_head *addr_list;
++	u8 (*addr_array)[ETH_ALEN];
++	struct hlist_node *tmp;
 +	int max_list_size;
-+	int req_list_size;
-+	int out_sz;
-+	void *out;
-+	int err;
++	int list_size;
++	int hi;
 +	int i;
 +
-+	req_list_size = *list_size;
++	list_size = is_uc ? 0 : (priv->eth_addr.broadcast_enabled ? 1 : 0);
++	max_list_size = is_uc ?
++		1 << MLX5_CAP_GEN(priv->mdev, log_max_current_uc_list) :
++		1 << MLX5_CAP_GEN(priv->mdev, log_max_current_mc_list);
 +
-+	max_list_size = list_type == MLX5_NVPRT_LIST_TYPE_UC ?
-+		1 << MLX5_CAP_GEN(dev, log_max_current_uc_list) :
-+		1 << MLX5_CAP_GEN(dev, log_max_current_mc_list);
++	addr_list = is_uc ? priv->eth_addr.netdev_uc : priv->eth_addr.netdev_mc;
++	mlx5e_for_each_hash_node(hn, tmp, addr_list, hi)
++		list_size++;
 +
-+	if (req_list_size > max_list_size) {
-+		mlx5_core_warn(dev, "Requested list size (%d) > (%d) max_list_size\n",
-+			       req_list_size, max_list_size);
-+		req_list_size = max_list_size;
++	if (list_size > max_list_size) {
++		netdev_warn(ndev,
++			    "netdev %s list size (%d) > (%d) max vport list size, some addresses will be dropped\n",
++			    is_uc ? "UC" : "MC", list_size, max_list_size);
++		list_size = max_list_size;
 +	}
 +
-+	out_sz = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in) +
-+			req_list_size * MLX5_ST_SZ_BYTES(mac_address_layout);
++	addr_array = kcalloc(list_size, ETH_ALEN, GFP_KERNEL);
++	if (!addr_array)
++		return NULL;
 +
-+	memset(in, 0, sizeof(in));
-+	out = kzalloc(out_sz, GFP_KERNEL);
-+	if (!out)
-+		return -ENOMEM;
++	i = 0;
++	if (is_uc) { /* Make sure our own address is pushed first */
++		mlx5e_for_each_hash_node(hn, tmp, addr_list, hi) {
++			if (ether_addr_equal(ndev->dev_addr, hn->ai.addr)) {
++				ether_addr_copy(addr_array[i++], ndev->dev_addr);
++				break;
++			}
++		}
++	}
 +
-+	MLX5_SET(query_nic_vport_context_in, in, opcode,
-+		 MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT);
-+	MLX5_SET(query_nic_vport_context_in, in, allowed_list_type, list_type);
-+	MLX5_SET(query_nic_vport_context_in, in, vport_number, vport);
++	if (!is_uc && priv->eth_addr.broadcast_enabled)
++		ether_addr_copy(addr_array[i++], ndev->broadcast);
 +
-+	if (vport)
-+		MLX5_SET(query_nic_vport_context_in, in, other_vport, 1);
++	mlx5e_for_each_hash_node(hn, tmp, addr_list, hi) {
++		if (ether_addr_equal(ndev->dev_addr, hn->ai.addr))
++			continue;
++		if (i >= list_size)
++			break;
++		ether_addr_copy(addr_array[i++], hn->ai.addr);
++	}
 +
-+	err = mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, out_sz);
-+	if (err)
++	*size = list_size;
++	return addr_array;
++}
++
++static void mlx5e_vport_context_update_addr_list(struct mlx5e_priv *priv,
++						 int list_type)
++{
++	bool is_uc = (list_type == MLX5_NVPRT_LIST_TYPE_UC);
++	u8 (*mac_list)[ETH_ALEN];
++	int list_size;
++	int err;
++
++	mac_list = mlx5e_build_addr_array(priv, list_type, &list_size);
++	if (!mac_list) {
++		err = -ENOMEM;
 +		goto out;
-+
-+	nic_vport_ctx = MLX5_ADDR_OF(query_nic_vport_context_out, out,
-+				     nic_vport_context);
-+	req_list_size = MLX5_GET(nic_vport_context, nic_vport_ctx,
-+				 allowed_list_size);
-+
-+	*list_size = req_list_size;
-+	for (i = 0; i < req_list_size; i++) {
-+		u8 *mac_addr = MLX5_ADDR_OF(nic_vport_context,
-+					nic_vport_ctx,
-+					current_uc_mac_address[i]) + 2;
-+		ether_addr_copy(addr_list[i], mac_addr);
 +	}
++
++	err = mlx5_modify_nic_vport_mac_list(priv->mdev,
++					     list_type,
++					     mac_list,
++					     list_size);
 +out:
-+	kfree(out);
-+	return err;
++	if (err)
++		netdev_err(priv->netdev,
++			   "Failed to modify vport %s list err(%d)\n",
++			   is_uc ? "UC" : "MC", err);
++	kfree(mac_list);
 +}
-+EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_mac_list);
 +
-+int mlx5_modify_nic_vport_mac_list(struct mlx5_core_dev *dev,
-+				   enum mlx5_list_type list_type,
-+				   u8 addr_list[][ETH_ALEN],
-+				   int list_size)
++static void mlx5e_vport_context_update(struct mlx5e_priv *priv)
 +{
-+	u32 out[MLX5_ST_SZ_DW(modify_nic_vport_context_out)];
-+	void *nic_vport_ctx;
-+	int max_list_size;
-+	int in_sz;
-+	void *in;
-+	int err;
-+	int i;
++	struct mlx5e_eth_addr_db *ea = &priv->eth_addr;
 +
-+	max_list_size = list_type == MLX5_NVPRT_LIST_TYPE_UC ?
-+		 1 << MLX5_CAP_GEN(dev, log_max_current_uc_list) :
-+		 1 << MLX5_CAP_GEN(dev, log_max_current_mc_list);
-+
-+	if (list_size > max_list_size)
-+		return -ENOSPC;
-+
-+	in_sz = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in) +
-+		list_size * MLX5_ST_SZ_BYTES(mac_address_layout);
-+
-+	memset(out, 0, sizeof(out));
-+	in = kzalloc(in_sz, GFP_KERNEL);
-+	if (!in)
-+		return -ENOMEM;
-+
-+	MLX5_SET(modify_nic_vport_context_in, in, opcode,
-+		 MLX5_CMD_OP_MODIFY_NIC_VPORT_CONTEXT);
-+	MLX5_SET(modify_nic_vport_context_in, in,
-+		 field_select.addresses_list, 1);
-+
-+	nic_vport_ctx = MLX5_ADDR_OF(modify_nic_vport_context_in, in,
-+				     nic_vport_context);
-+
-+	MLX5_SET(nic_vport_context, nic_vport_ctx,
-+		 allowed_list_type, list_type);
-+	MLX5_SET(nic_vport_context, nic_vport_ctx,
-+		 allowed_list_size, list_size);
-+
-+	for (i = 0; i < list_size; i++) {
-+		u8 *curr_mac = MLX5_ADDR_OF(nic_vport_context,
-+					    nic_vport_ctx,
-+					    current_uc_mac_address[i]) + 2;
-+		ether_addr_copy(curr_mac, addr_list[i]);
-+	}
-+
-+	err = mlx5_cmd_exec_check_status(dev, in, in_sz, out, sizeof(out));
-+	kfree(in);
-+	return err;
++	mlx5e_vport_context_update_addr_list(priv, MLX5_NVPRT_LIST_TYPE_UC);
++	mlx5e_vport_context_update_addr_list(priv, MLX5_NVPRT_LIST_TYPE_MC);
++	mlx5_modify_nic_vport_promisc(priv->mdev, 0,
++				      ea->allmulti_enabled,
++				      ea->promisc_enabled);
 +}
-+EXPORT_SYMBOL_GPL(mlx5_modify_nic_vport_mac_list);
 +
- int mlx5_query_hca_vport_gid(struct mlx5_core_dev *dev, u8 other_vport,
- 			     u8 port_num, u16  vf_num, u16 gid_index,
- 			     union ib_gid *gid)
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 0b473cb..0d2f043 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -1102,6 +1102,12 @@ enum {
- 	MLX5_FLOW_CONTEXT_DEST_TYPE_TIR		= 2,
- };
- 
-+enum mlx5_list_type {
-+	MLX5_NVPRT_LIST_TYPE_UC   = 0x0,
-+	MLX5_NVPRT_LIST_TYPE_MC   = 0x1,
-+	MLX5_NVPRT_LIST_TYPE_VLAN = 0x2,
-+};
+ static void mlx5e_apply_netdev_addr(struct mlx5e_priv *priv)
+ {
+ 	struct mlx5e_eth_addr_hash_node *hn;
+@@ -748,6 +845,8 @@ void mlx5e_set_rx_mode_work(struct work_struct *work)
+ 	ea->promisc_enabled   = promisc_enabled;
+ 	ea->allmulti_enabled  = allmulti_enabled;
+ 	ea->broadcast_enabled = broadcast_enabled;
 +
- enum {
- 	MLX5_RQC_RQ_TYPE_MEMORY_RQ_INLINE = 0x0,
- 	MLX5_RQC_RQ_TYPE_MEMORY_RQ_RPM    = 0x1,
-diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
-index 43e82d9..00bbec8 100644
---- a/include/linux/mlx5/vport.h
-+++ b/include/linux/mlx5/vport.h
-@@ -34,6 +34,7 @@
- #define __MLX5_VPORT_H__
++	mlx5e_vport_context_update(priv);
+ }
  
- #include <linux/mlx5/driver.h>
-+#include <linux/mlx5/device.h>
- 
- u8 mlx5_query_vport_state(struct mlx5_core_dev *mdev, u8 opmod);
- int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
-@@ -54,5 +55,14 @@ int mlx5_query_hca_vport_system_image_guid(struct mlx5_core_dev *dev,
- 					   u64 *sys_image_guid);
- int mlx5_query_hca_vport_node_guid(struct mlx5_core_dev *dev,
- 				   u64 *node_guid);
-+int mlx5_query_nic_vport_mac_list(struct mlx5_core_dev *dev,
-+				  u32 vport,
-+				  enum mlx5_list_type list_type,
-+				  u8 addr_list[][ETH_ALEN],
-+				  int *list_size);
-+int mlx5_modify_nic_vport_mac_list(struct mlx5_core_dev *dev,
-+				   enum mlx5_list_type list_type,
-+				   u8 addr_list[][ETH_ALEN],
-+				   int list_size);
- 
- #endif /* __MLX5_VPORT_H__ */
+ void mlx5e_init_eth_addr(struct mlx5e_priv *priv)
 -- 
 2.3.7
