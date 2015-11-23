@@ -1,43 +1,69 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/2] net: l3mdev: Add master device lookup by
- index
-Date: Mon, 23 Nov 2015 11:28:20 -0700
-Message-ID: <56535AC4.7040105@cumulusnetworks.com>
-References: <5651FBB8.6030008@cumulusnetworks.com>
- <20151122.131715.1858345389016284808.davem@davemloft.net>
- <56528FBC.6040205@cumulusnetworks.com>
- <20151122.233546.578035475304956705.davem@davemloft.net>
+From: Shaun Savage <savages@savages.com>
+Subject: Re: iptables and policy based routing together
+Date: Mon, 23 Nov 2015 10:51:05 -0800
+Message-ID: <56536019.5080701@savages.com>
+References: <56535BE4.9020504@savages.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: netfilter@vger.kernel.org, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35098 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751392AbbKWS2Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 13:28:24 -0500
-Received: by pacej9 with SMTP id ej9so198622020pac.2
-        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 10:28:23 -0800 (PST)
-In-Reply-To: <20151122.233546.578035475304956705.davem@davemloft.net>
+Received: from mail.tvlinux.us ([74.207.242.209]:52767 "EHLO mail.tvlinux.us"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754716AbbKWSuj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2015 13:50:39 -0500
+In-Reply-To: <56535BE4.9020504@savages.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/22/15 9:35 PM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Sun, 22 Nov 2015 21:02:04 -0700
->
->> I am confused by that response given that sk_bound_dev_if is one of
->> the key principals for the VRF implementation. Applications wanting to
->> communicate over interfaces in a VRF have to set sk_bound_dev_if.
->
-> Yes, they have to set it explicitly.
->
-> You are setting it for them in response to the connection
-> creation, and that's what I object to.
->
 
-The intent is to not require having N-listen sockets/threads/tasks to 
-support N-vrfs for scalability reasons. Having a special DEVICE_ANY 
-index adds complexity to socket lookups, so I dropped that idea long 
-ago. Would guarding this behavior by a sysctl be acceptable?
+> My problem is I have Virtual Private Servers, VPS in different 
+> locations around the world.  I have created a mesh by using openvpn.  
+> Each VPS phones home and sets up a TCP connection  to my RT-AC68U 
+> running Tomato Shibby 128. I want to route, without thinking, to the 
+> different VPS depending upon the country.  Then that VPS is now my 
+> exit node.  I also run Tor on each VPS.
+>
+> The VPNs are setup and working. I have added a filter on INPUT that 
+> only allows sessions to initiate from home.
+>
+> # iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+>
+> This prevents someone who accesses the VPS to get in to my home network.
+>
+> Next I have setup marking packets according to country
+> CN = 86
+> IN = 91
+> RU = 7
+> so on
+>
+> # iptables -t mangle -m geoip  --dst-cc CN,HK -j MARK --set-mark 86
+> # iptables -t mangle -m geoip  --dst-cc IN -j MARK --set-mark 91
+> .....
+>
+> * BTW how do I debug what fwmark is set?
+>
+> Now I start adding rules
+>
+> # ip rule add fwmark 86 table CN
+> # ip rule add fwmark 91 table IN
+> ......
+>
+> Now type
+>
+> # ip rule show
+> 0:    from all lookup local
+> .....
+> 32763:
+> 32764:    from all fwmark 0x5B lookup IN
+> 32765:    from all fwmark 0x56 lookup CN
+> 32766:    from all lookup main
+> 32767:    from all lookup default
+>
+> Now I get lost, to me this states only if fwmark == 0x56 use table CN 
+> else do not use table CN
+>
+> I have played with adding routing to the tables
+> # ip route add <gw> dev <tunxx> table CN
+> # ????
