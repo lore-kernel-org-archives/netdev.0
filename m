@@ -1,41 +1,43 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 8/9] net: ipmr: rearrange and cleanup
- setsockopt
-Date: Mon, 23 Nov 2015 11:49:02 +0100
-Message-ID: <5652EF1E.6090108@cumulusnetworks.com>
-References: <1448117852-4254-1-git-send-email-razor@blackwall.org>
- <1448117852-4254-9-git-send-email-razor@blackwall.org>
- <CAHA+R7MO7OSjSTei7pSCZWmJzXNQqS8vPc0Z2fEz_m2vKvkd+Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Cong Wang <cwang@twopensource.com>,
-	Nikolay Aleksandrov <razor@blackwall.org>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v3 1/2] pci_ids: add Netronome Systems vendor
+Date: Mon, 23 Nov 2015 11:04:56 +0000
+Message-ID: <1448276697-2508-2-git-send-email-jakub.kicinski@netronome.com>
+References: <20151030.192701.377276134095637949.davem@davemloft.net>
+ <1448276697-2508-1-git-send-email-jakub.kicinski@netronome.com>
+Cc: simon.horman@netronome.com, rolf.neugebauer@netronome.com,
+	Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:34200 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987AbbKWKtG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 05:49:06 -0500
-Received: by wmvv187 with SMTP id v187so154274955wmv.1
-        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 02:49:05 -0800 (PST)
-In-Reply-To: <CAHA+R7MO7OSjSTei7pSCZWmJzXNQqS8vPc0Z2fEz_m2vKvkd+Q@mail.gmail.com>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:38388 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752311AbbKWLFH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 06:05:07 -0500
+Received: by wmec201 with SMTP id c201so99770175wme.1
+        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 03:05:05 -0800 (PST)
+In-Reply-To: <1448276697-2508-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/23/2015 06:44 AM, Cong Wang wrote:
-> On Sat, Nov 21, 2015 at 6:57 AM, Nikolay Aleksandrov
-> <razor@blackwall.org> wrote:
->>  net/ipv4/ipmr.c | 191 +++++++++++++++++++++++++++++++-------------------------
->>  1 file changed, 107 insertions(+), 84 deletions(-)
-> 
-> Does this really simplify the code? :-/
-> 
-Did I really say it does ? :-) Now, to the point it just makes it
-much easier to reason about this setsockopt which was doing conditional
-locking in some of the cases before, and some were left out, also "v"
-was sometimes signed and sometimes unsigned, it's clearer now which type
-is used. I've left a comment why the only special case needs to unlock
-rtnl (MRT_DONE).
+Add PCI vendor id for Netronome Systems.
+
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Signed-off-by: Rolf Neugebauer <rolf.neugebauer@netronome.com>
+---
+ include/linux/pci_ids.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index d9ba49cedc5d..1acbefc4bbda 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -2495,6 +2495,8 @@
+ #define PCI_DEVICE_ID_KORENIX_JETCARDF2	0x1700
+ #define PCI_DEVICE_ID_KORENIX_JETCARDF3	0x17ff
+ 
++#define PCI_VENDOR_ID_NETRONOME		0x19ee
++
+ #define PCI_VENDOR_ID_QMI		0x1a32
+ 
+ #define PCI_VENDOR_ID_AZWAVE		0x1a3b
+-- 
+1.9.1
