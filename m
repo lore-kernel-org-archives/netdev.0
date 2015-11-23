@@ -1,38 +1,27 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] Add support for rt_tables.d
-Date: Mon, 23 Nov 2015 15:23:33 -0800
-Message-ID: <20151123152333.232085f3@xeon-e3>
-References: <1447873400-15337-1-git-send-email-dsa@cumulusnetworks.com>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [iproute PATCH] misc/Makefile: use PKG_CONFIG
+Date: Mon, 23 Nov 2015 15:26:27 -0800
+Message-ID: <20151123152627.63e3935e@xeon-e3>
+References: <1447769280-11421-1-git-send-email-aaro.koskinen@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: <netdev@vger.kernel.org>
+To: Aaro Koskinen <aaro.koskinen@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:34543 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753085AbbKWXXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 18:23:23 -0500
-Received: by padhx2 with SMTP id hx2so205790228pad.1
-        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 15:23:23 -0800 (PST)
-In-Reply-To: <1447873400-15337-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:49263 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753349AbbKWX0Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 18:26:24 -0500
+In-Reply-To: <1447769280-11421-1-git-send-email-aaro.koskinen@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 18 Nov 2015 11:03:20 -0800
-David Ahern <dsa@cumulusnetworks.com> wrote:
+On Tue, 17 Nov 2015 16:08:00 +0200
+Aaro Koskinen <aaro.koskinen@nokia.com> wrote:
 
-> Add support for reading table id/name mappings from rt_tables.d
-> directory.
+> Use PKG_CONFIG from Config - it works better when cross-compiling.
 > 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
->  lib/rt_names.c | 18 ++++++++++++++++++
->  1 file changed, 18 insertions(+)
+> Signed-off-by: Aaro Koskinen <aaro.koskinen@nokia.com>
 
-This is a useful concept, and I am for incorporating it in the future.
-
-The consensus practice for other utility is to a '.conf' suffix which
-allows for README.
-
-Probably should also ship a README file in the package.
+Looks good, applied.
