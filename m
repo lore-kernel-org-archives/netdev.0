@@ -1,124 +1,142 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 17/18] net/mlx5: E-Switch, Introduce get vf statistics
-Date: Mon, 23 Nov 2015 13:11:50 +0200
-Message-ID: <1448277111-16474-18-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 01/18] net/mlx5_core: Modify enable/disable hca functions
+Date: Mon, 23 Nov 2015 13:11:34 +0200
+Message-ID: <1448277111-16474-2-git-send-email-ogerlitz@mellanox.com>
 References: <1448277111-16474-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Doug Ledford <dledford@redhat.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Hadar Har-Zion <hadarh@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>, Eli Cohen <eli@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:37149 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:37120 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750941AbbKWLM3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Nov 2015 06:12:29 -0500
+	id S1751173AbbKWLMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2015 06:12:25 -0500
 In-Reply-To: <1448277111-16474-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
+From: Eli Cohen <eli@mellanox.com>
 
-Add support to get VF statistics using query vport
-counter command.
+Modify these functions to have func_id argument to state which device we
+are referring to. This is done as a preparation for SRIOV support where
+a PF driver needs to control its virtual functions.
 
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Eli Cohen <eli@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 67 +++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h |  3 +
- 2 files changed, 70 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     | 45 ++++++++++------------
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |  2 +
+ 2 files changed, 23 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-index ea14664..8f428bf 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-@@ -1213,3 +1213,70 @@ int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
- 
- 	return modify_esw_vport_cvlan(esw->dev, vport, vlan, qos, set);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 4ac8d4cc..f2e64dc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -462,42 +462,39 @@ static int set_hca_ctrl(struct mlx5_core_dev *dev)
+ 	return err;
  }
-+
-+int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
-+				 int vport,
-+				 struct ifla_vf_stats *vf_stats)
-+{
-+	int outlen = MLX5_ST_SZ_BYTES(query_vport_counter_out);
-+	u32 in[MLX5_ST_SZ_DW(query_vport_counter_in)];
-+	int err = 0;
-+	u32 *out;
-+
-+	if (!ESW_ALLOWED(esw))
-+		return -EPERM;
-+	if (!LEGAL_VPORT(esw, vport))
-+		return -EINVAL;
-+
-+	out = mlx5_vzalloc(outlen);
-+	if (!out)
-+		return -ENOMEM;
-+
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(query_vport_counter_in, in, opcode,
-+		 MLX5_CMD_OP_QUERY_VPORT_COUNTER);
-+	MLX5_SET(query_vport_counter_in, in, op_mod, 0);
-+	MLX5_SET(query_vport_counter_in, in, vport_number, vport);
-+	if (vport)
-+		MLX5_SET(query_vport_counter_in, in, other_vport, 1);
-+
-+	memset(out, 0, outlen);
-+	err = mlx5_cmd_exec(esw->dev, in, sizeof(in), out, outlen);
-+	if (err)
-+		goto free_out;
-+
-+	#define MLX5_GET_CTR(p, x) \
-+		MLX5_GET64(query_vport_counter_out, p, x)
-+
-+	memset(vf_stats, 0, sizeof(*vf_stats));
-+	vf_stats->rx_packets =
-+		MLX5_GET_CTR(out, received_eth_unicast.packets) +
-+		MLX5_GET_CTR(out, received_eth_multicast.packets) +
-+		MLX5_GET_CTR(out, received_eth_broadcast.packets);
-+
-+	vf_stats->rx_bytes =
-+		MLX5_GET_CTR(out, received_eth_unicast.octets) +
-+		MLX5_GET_CTR(out, received_eth_multicast.octets) +
-+		MLX5_GET_CTR(out, received_eth_broadcast.octets);
-+
-+	vf_stats->tx_packets =
-+		MLX5_GET_CTR(out, transmitted_eth_unicast.packets) +
-+		MLX5_GET_CTR(out, transmitted_eth_multicast.packets) +
-+		MLX5_GET_CTR(out, transmitted_eth_broadcast.packets);
-+
-+	vf_stats->tx_bytes =
-+		MLX5_GET_CTR(out, transmitted_eth_unicast.octets) +
-+		MLX5_GET_CTR(out, transmitted_eth_multicast.octets) +
-+		MLX5_GET_CTR(out, transmitted_eth_broadcast.octets);
-+
-+	vf_stats->multicast =
-+		MLX5_GET_CTR(out, received_eth_multicast.packets);
-+
-+	vf_stats->broadcast =
-+		MLX5_GET_CTR(out, received_eth_broadcast.packets);
-+
-+free_out:
-+	kvfree(out);
-+	return err;
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index b4284a4..9bac542 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -154,5 +154,8 @@ int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
- 				int vport, u16 vlan, u8 qos);
- int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
- 				  int vport, struct ifla_vf_info *ivi);
-+int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
-+				 int vport,
-+				 struct ifla_vf_stats *vf_stats);
- #endif /* __MLX5_ESWITCH_H__ */
  
+-static int mlx5_core_enable_hca(struct mlx5_core_dev *dev)
++int mlx5_core_enable_hca(struct mlx5_core_dev *dev, u16 func_id)
+ {
++	u32 out[MLX5_ST_SZ_DW(enable_hca_out)];
++	u32 in[MLX5_ST_SZ_DW(enable_hca_in)];
+ 	int err;
+-	struct mlx5_enable_hca_mbox_in in;
+-	struct mlx5_enable_hca_mbox_out out;
+ 
+-	memset(&in, 0, sizeof(in));
+-	memset(&out, 0, sizeof(out));
+-	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_ENABLE_HCA);
++	memset(in, 0, sizeof(in));
++	MLX5_SET(enable_hca_in, in, opcode, MLX5_CMD_OP_ENABLE_HCA);
++	MLX5_SET(enable_hca_in, in, function_id, func_id);
++	memset(out, 0, sizeof(out));
++
+ 	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
+ 	if (err)
+ 		return err;
+ 
+-	if (out.hdr.status)
+-		return mlx5_cmd_status_to_err(&out.hdr);
+-
+-	return 0;
++	return mlx5_cmd_status_to_err_v2(out);
+ }
+ 
+-static int mlx5_core_disable_hca(struct mlx5_core_dev *dev)
++int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id)
+ {
++	u32 out[MLX5_ST_SZ_DW(disable_hca_out)];
++	u32 in[MLX5_ST_SZ_DW(disable_hca_in)];
+ 	int err;
+-	struct mlx5_disable_hca_mbox_in in;
+-	struct mlx5_disable_hca_mbox_out out;
+ 
+-	memset(&in, 0, sizeof(in));
+-	memset(&out, 0, sizeof(out));
+-	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DISABLE_HCA);
+-	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
++	memset(in, 0, sizeof(in));
++	MLX5_SET(disable_hca_in, in, opcode, MLX5_CMD_OP_DISABLE_HCA);
++	MLX5_SET(disable_hca_in, in, function_id, func_id);
++	memset(out, 0, sizeof(out));
++	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
+ 	if (err)
+ 		return err;
+ 
+-	if (out.hdr.status)
+-		return mlx5_cmd_status_to_err(&out.hdr);
+-
+-	return 0;
++	return mlx5_cmd_status_to_err_v2(out);
+ }
+ 
+ static int mlx5_irq_set_affinity_hint(struct mlx5_core_dev *mdev, int i)
+@@ -942,7 +939,7 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 
+ 	mlx5_pagealloc_init(dev);
+ 
+-	err = mlx5_core_enable_hca(dev);
++	err = mlx5_core_enable_hca(dev, 0);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "enable hca failed\n");
+ 		goto err_pagealloc_cleanup;
+@@ -1106,7 +1103,7 @@ reclaim_boot_pages:
+ 	mlx5_reclaim_startup_pages(dev);
+ 
+ err_disable_hca:
+-	mlx5_core_disable_hca(dev);
++	mlx5_core_disable_hca(dev, 0);
+ 
+ err_pagealloc_cleanup:
+ 	mlx5_pagealloc_cleanup(dev);
+@@ -1149,7 +1146,7 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 	}
+ 	mlx5_pagealloc_stop(dev);
+ 	mlx5_reclaim_startup_pages(dev);
+-	mlx5_core_disable_hca(dev);
++	mlx5_core_disable_hca(dev, 0);
+ 	mlx5_pagealloc_cleanup(dev);
+ 	mlx5_cmd_cleanup(dev);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index cee5b7a..1ed2239 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -90,6 +90,8 @@ void mlx5_core_event(struct mlx5_core_dev *dev, enum mlx5_dev_event event,
+ 		     unsigned long param);
+ void mlx5_enter_error_state(struct mlx5_core_dev *dev);
+ void mlx5_disable_device(struct mlx5_core_dev *dev);
++int mlx5_core_enable_hca(struct mlx5_core_dev *dev, u16 func_id);
++int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id);
+ 
+ void mlx5e_init(void);
+ void mlx5e_cleanup(void);
 -- 
 2.3.7
