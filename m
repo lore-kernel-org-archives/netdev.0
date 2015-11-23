@@ -1,124 +1,44 @@
-From: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
-Subject: Re: [PATCH 13/14] mm: memcontrol: account socket memory in unified
- hierarchy memory controller
-Date: Mon, 23 Nov 2015 13:00:59 +0300
-Message-ID: <20151123100059.GB29014@esperanza>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
- <1447371693-25143-14-git-send-email-hannes@cmpxchg.org>
- <20151120131033.GF31308@esperanza>
- <20151120192506.GD5623@cmpxchg.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 3/6] net: Add MSG_BATCH flag
+Date: Mon, 23 Nov 2015 11:02:21 +0100
+Message-ID: <1448272941.3985012.447402329.73885F37@webmail.messagingengine.com>
+References: <1448054520-1464587-1-git-send-email-tom@herbertland.com>
+ <1448054520-1464587-4-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<kernel-team-b10kYP2dOMg@public.gmane.org>
-To: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151120192506.GD5623-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: kernel-team@fb.com, davewatson@fb.com, alexei.starovoitov@gmail.com
+To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:41277 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753036AbbKWKCW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 05:02:22 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id B6F8420A31
+	for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 05:02:21 -0500 (EST)
+In-Reply-To: <1448054520-1464587-4-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 20, 2015 at 02:25:06PM -0500, Johannes Weiner wrote:
-> On Fri, Nov 20, 2015 at 04:10:33PM +0300, Vladimir Davydov wrote:
-> > On Thu, Nov 12, 2015 at 06:41:32PM -0500, Johannes Weiner wrote:
-> > ...
-> > > @@ -5514,16 +5550,43 @@ void sock_release_memcg(struct sock *sk)
-> > >   */
-> > >  bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
-> > >  {
-> > > +	unsigned int batch = max(CHARGE_BATCH, nr_pages);
-> > >  	struct page_counter *counter;
-> > > +	bool force = false;
-> > >  
-> > > -	if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
-> > > -				    nr_pages, &counter)) {
-> > > -		memcg->tcp_mem.memory_pressure = 0;
-> > > +#ifdef CONFIG_MEMCG_KMEM
-> > > +	if (!cgroup_subsys_on_dfl(memory_cgrp_subsys)) {
-> > > +		if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
-> > > +					    nr_pages, &counter)) {
-> > > +			memcg->tcp_mem.memory_pressure = 0;
-> > > +			return true;
-> > > +		}
-> > > +		page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
-> > > +		memcg->tcp_mem.memory_pressure = 1;
-> > > +		return false;
-> > > +	}
-> > > +#endif
-> > > +	if (consume_stock(memcg, nr_pages))
-> > >  		return true;
-> > > +retry:
-> > > +	if (page_counter_try_charge(&memcg->memory, batch, &counter))
-> > > +		goto done;
-> > > +
-> > > +	if (batch > nr_pages) {
-> > > +		batch = nr_pages;
-> > > +		goto retry;
-> > >  	}
-> > > -	page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
-> > > -	memcg->tcp_mem.memory_pressure = 1;
-> > > -	return false;
-> > > +
-> > > +	page_counter_charge(&memcg->memory, batch);
-> > > +	force = true;
-> > > +done:
-> > 
-> > > +	css_get_many(&memcg->css, batch);
-> > 
-> > Is there any point to get css reference per each charged page? For kmem
-> > it is absolutely necessary, because dangling slabs must block
-> > destruction of memcg's kmem caches, which are destroyed on css_free. But
-> > for sockets there's no such problem: memcg will be destroyed only after
-> > all sockets are destroyed and therefore uncharged (since
-> > sock_update_memcg pins css).
+Hello,
+
+On Fri, Nov 20, 2015, at 22:21, Tom Herbert wrote:
+> Add a new msg flag called MSG_BATCH. This flag is used in sendmsg to
+> indicate that more messages will follow (i.e. a batch of messages is
+> being sent). This is similar to MSG_MORE except that the following
+> messages are not merged into one packet, they are sent individually.
 > 
-> I'm afraid we have to when we want to share 'stock' with cache and
-> anon pages, which hold individual references. drain_stock() always
-> assumes one reference per cached page.
-
-Missed that, you're right.
-
+> MSG_BATCH is a performance optimization in cases where a socket
+> implementation can benefit by transmitting packets in a batch.
 > 
-> > > +	if (batch > nr_pages)
-> > > +		refill_stock(memcg, batch - nr_pages);
-> > > +
-> > > +	schedule_work(&memcg->socket_work);
-> > 
-> > I think it's suboptimal to schedule the work even if we are below the
-> > high threshold.
-> 
-> Hm, it seemed unnecessary to duplicate the hierarchy check since this
-> is in the batch-exhausted slowpath anyway.
+> This patch also updates sendmmsg so that each contained message except
+> for the last one is marked as MSG_BATCH.
 
-Dunno, may be you're right.
-
-I've another question regarding this socket_work: its reclaim target
-always equals CHARGE_BATCH. Can't it result in a workload exceeding
-memory.high in case there are a lot of allocations coming from different
-cpus? In this case the work might not manage to complete before another
-allocation happens. May be, we should accumulate the number of pages to
-be reclaimed by the work, as we do in try_charge?
-
-> 
-> > BTW why do we need this work at all? Why is reclaim_high called from
-> > task_work not enough?
-> 
-> The problem lies in the memcg association: the random task that gets
-> interrupted by an arriving packet might not be in the same memcg as
-> the one owning receiving socket. And multiple interrupts could happen
-> while we're in the kernel already charging pages. We'd basically have
-> to maintain a list of memcgs that need to run reclaim_high associated
-> with current.
-> 
-
-Right, I think this is worth placing in a comment to memcg->socket_work.
-I wonder if we could use it *instead* of task_work for handling every
-allocation, not only socket-related. Would it make any sense? May be, it
-could reduce the latency experienced by tasks in memory cgroups.
+This flag is only used for KCM because it does not make sense to expose
+it to user space? As such, could this be made more clear? I don't see
+such an optimization being needed for UDP or TCP.
 
 Thanks,
-Vladimir
+Hannes
