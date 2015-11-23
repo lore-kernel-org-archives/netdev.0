@@ -1,88 +1,56 @@
-From: Saurabh Sengar <saurabh.truth@gmail.com>
-Subject: [PATCH] drivers: net: xgene: optimizing the code
-Date: Mon, 23 Nov 2015 19:02:15 +0530
-Message-ID: <1448285535-4514-1-git-send-email-saurabh.truth@gmail.com>
-Cc: Saurabh Sengar <saurabh.truth@gmail.com>
-To: isubramanian@apm.com, kchudgar@apm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:36596 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753502AbbKWNcb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 08:32:31 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 9/9] netfilter: implement xt_cgroup cgroup2 path match
+Date: Mon, 23 Nov 2015 14:43:12 +0100
+Message-ID: <565317F0.2030502@iogearbox.net>
+References: <1448122441-9335-1-git-send-email-tj@kernel.org> <1448122441-9335-10-git-send-email-tj@kernel.org> <20151121165605.GC25336@breakpoint.cc> <20151121170425.GD3428@htj.duckdns.org> <20151121185419.GD25336@breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, pablo@netfilter.org, kaber@trash.net,
+	kadlec@blackhole.kfki.hu, daniel.wagner@bmw-carit.de,
+	nhorman@tuxdriver.co, lizefan@huawei.com, hannes@cmpxchg.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-team@fb.com, ninasc@fb.com,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jan Engelhardt <jengelh@inai.de>
+To: Florian Westphal <fw@strlen.de>, Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151121185419.GD25336@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-this patch does the following:
-1 .  remove unnecessary if, else condition
-2 .  reduce one variable
-3 .  change the return type of 2 functions to void as there return values
-turn out to be 0 always after above changes
+On 11/21/2015 07:54 PM, Florian Westphal wrote:
+> Tejun Heo <tj@kernel.org> wrote:
+>> On Sat, Nov 21, 2015 at 05:56:06PM +0100, Florian Westphal wrote:
+>>>> +struct xt_cgroup_info_v1 {
+>>>> +	__u8		has_path;
+>>>> +	__u8		has_classid;
+>>>> +	__u8		invert_path;
+>>>> +	__u8		invert_classid;
+>>>> +	char		path[PATH_MAX];
+>>>> +	__u32		classid;
+>>>> +
+>>>> +	/* kernel internal data */
+>>>> +	void		*priv __attribute__((aligned(8)));
+>>>> +};
+>>>
+>>> Ahem.  Am I reading this right? This struct is > 4k in size?
+>>> If so -- Ugh.  Does sizeof(path) really have to be PATH_MAX?
+>>
+>> Hmmm... yeap but would this be an acutual problem?
+>
+> Since rule blob can be allocated via vmalloc i guess "no", its not
+> really a problem unless someone needs realy insane amount of such rules.
+>
+> I don't have any better suggestion, so I guess its necessary evil.
+>
+> The only other question I have is wheter PATH_MAX might be a possible
+> ABI breaker in future.  It would have to be guaranteed that this is the
+> same size forever, else you'd get strange errors on rule insertion if
+> the sizes of the kernel and userspace version differs.
 
-Signed-off-by: Saurabh Sengar <saurabh.truth@gmail.com>
----
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 25 +++++++++---------------
- 1 file changed, 9 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 991412c..6096d02 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -1084,7 +1084,7 @@ static const struct net_device_ops xgene_ndev_ops = {
- };
- 
- #ifdef CONFIG_ACPI
--static int xgene_get_port_id_acpi(struct device *dev,
-+static void xgene_get_port_id_acpi(struct device *dev,
- 				  struct xgene_enet_pdata *pdata)
- {
- 	acpi_status status;
-@@ -1097,24 +1097,19 @@ static int xgene_get_port_id_acpi(struct device *dev,
- 		pdata->port_id = temp;
- 	}
- 
--	return 0;
-+	return;
- }
- #endif
- 
--static int xgene_get_port_id_dt(struct device *dev, struct xgene_enet_pdata *pdata)
-+static void xgene_get_port_id_dt(struct device *dev, struct xgene_enet_pdata *pdata)
- {
- 	u32 id = 0;
--	int ret;
- 
--	ret = of_property_read_u32(dev->of_node, "port-id", &id);
--	if (ret) {
--		pdata->port_id = 0;
--		ret = 0;
--	} else {
--		pdata->port_id = id & BIT(0);
--	}
-+	of_property_read_u32(dev->of_node, "port-id", &id);
- 
--	return ret;
-+	pdata->port_id = id & BIT(0);
-+
-+	return;
- }
- 
- static int xgene_get_tx_delay(struct xgene_enet_pdata *pdata)
-@@ -1209,13 +1204,11 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- 	}
- 
- 	if (dev->of_node)
--		ret = xgene_get_port_id_dt(dev, pdata);
-+		xgene_get_port_id_dt(dev, pdata);
- #ifdef CONFIG_ACPI
- 	else
--		ret = xgene_get_port_id_acpi(dev, pdata);
-+		xgene_get_port_id_acpi(dev, pdata);
- #endif
--	if (ret)
--		return ret;
- 
- 	if (!device_get_mac_address(dev, ndev->dev_addr, ETH_ALEN))
- 		eth_hw_addr_random(ndev);
--- 
-1.9.1
+Haven't looked deeply into kernfs, but if it's possible to get the object
+from the struct file eventually, you could let iptables frontend open that
+path and just pass the fd down. Would be sizeof(int) vs PATH_MAX then, i.e.
+when you have a large number of rules to load.
