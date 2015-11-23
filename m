@@ -1,214 +1,565 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 15/18] net/mlx5: E-Switch, Introduce HCA cap and E-Switch vport context
-Date: Mon, 23 Nov 2015 13:11:48 +0200
-Message-ID: <1448277111-16474-16-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 02/18] net/mlx5_core: Add base sriov support
+Date: Mon, 23 Nov 2015 13:11:35 +0200
+Message-ID: <1448277111-16474-3-git-send-email-ogerlitz@mellanox.com>
 References: <1448277111-16474-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Doug Ledford <dledford@redhat.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Hadar Har-Zion <hadarh@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>, Eli Cohen <eli@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:37184 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:37202 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751173AbbKWLMk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Nov 2015 06:12:40 -0500
+	id S1752661AbbKWLM4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2015 06:12:56 -0500
 In-Reply-To: <1448277111-16474-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
+From: Eli Cohen <eli@mellanox.com>
 
-E-Switch vport context is unlike NIC vport context, managed by the
-E-Switch manager or vport_group_manager and not by the NIC(VF) driver.
+This patch adds SRIOV base support for mlx5 supported devices. The same
+driver is used for both PFs and VFs; VFs are identified by the driver
+through the flag MLX5_PCI_DEV_IS_VF added to the pci table entries.
+Virtual functions are created as usual through writing a value to the
+sriov_numvs sysfs file of the PF device. Upon instantiating VFs, they will
+all be probed by the driver on the hypervisor. One can gracefully unbind
+them through /sys/bus/pci/drivers/mlx5_core/unbind.
 
-The E-Switch manager can access (read/modify) any of its vports
-E-Switch context.
+mlx5_wait_for_vf_pages() was added to ensure that when a VF dies without
+executing proper teardown, the hypervisor driver waits till all of the
+pages that were allocated at the hypervisor to maintain its operation
+are returned.
 
-Currently E-Switch vport context includes only clietnt and server
-vlan insertion and striping data (for later support of VST mode).
+In order for the VF to be operational, the PF needs to call enable_hca
+for it. This can be done before the VFs are created through a call to
+pci_enable_sriov.
 
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+If the there are VFs assigned to a VMs when the driver of the PF is
+unloaded, all the VF will experience system error and PF driver unloads
+cleanly; in this case pci_disable_sriov is not called and the devices
+will show when running lspci. Once the PF driver is reloaded, it will
+sync its data structures which maintain state on its VFs.
+
+Signed-off-by: Eli Cohen <eli@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fw.c | 11 ++++
- include/linux/mlx5/device.h                  |  9 +++
- include/linux/mlx5/mlx5_ifc.h                | 90 ++++++++++++++++++++++++++++
- 3 files changed, 110 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |  36 +++-
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   2 +
+ .../net/ethernet/mellanox/mlx5/core/pagealloc.c    |  38 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/sriov.c    | 221 +++++++++++++++++++++
+ include/linux/mlx5/driver.h                        |  24 +++
+ include/linux/mlx5/mlx5_ifc.h                      |   4 +-
+ 7 files changed, 318 insertions(+), 9 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/sriov.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fw.c b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-index bf6e3df..1c9f9a5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-@@ -173,6 +173,17 @@ int mlx5_query_hca_caps(struct mlx5_core_dev *dev)
- 			return err;
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 26a68b8..4d51039 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -2,7 +2,7 @@ obj-$(CONFIG_MLX5_CORE)		+= mlx5_core.o
  
-+	if (MLX5_CAP_GEN(dev, vport_group_manager)) {
-+		err = mlx5_core_get_caps(dev, MLX5_CAP_ESWITCH,
-+					 HCA_CAP_OPMOD_GET_CUR);
-+		if (err)
-+			return err;
-+		err = mlx5_core_get_caps(dev, MLX5_CAP_ESWITCH,
-+					 HCA_CAP_OPMOD_GET_MAX);
-+		if (err)
-+			return err;
+ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ 		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o   \
+-		mad.o transobj.o vport.o
++		mad.o transobj.o vport.o sriov.o
+ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o flow_table.o \
+ 		en_main.o en_flow_table.o en_ethtool.o en_tx.o en_rx.o \
+ 		en_txrx.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index f2e64dc..66e2b37 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -454,6 +454,9 @@ static int set_hca_ctrl(struct mlx5_core_dev *dev)
+ 	struct mlx5_reg_host_endianess he_out;
+ 	int err;
+ 
++	if (!mlx5_core_is_pf(dev))
++		return 0;
++
+ 	memset(&he_in, 0, sizeof(he_in));
+ 	he_in.he = MLX5_SET_HOST_ENDIANNESS;
+ 	err = mlx5_core_access_reg(dev, &he_in,  sizeof(he_in),
+@@ -1049,6 +1052,12 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 	mlx5_init_srq_table(dev);
+ 	mlx5_init_mr_table(dev);
+ 
++	err = mlx5_sriov_init(dev);
++	if (err) {
++		dev_err(&pdev->dev, "sriov init failed %d\n", err);
++		goto err_sriov;
 +	}
 +
+ 	err = mlx5_register_device(dev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "mlx5_register_device failed %d\n", err);
+@@ -1065,6 +1074,10 @@ out:
+ 
  	return 0;
- }
  
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 88eb449..7d3a85f 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -1145,6 +1145,7 @@ enum mlx5_cap_type {
- 	MLX5_CAP_EOIB_OFFLOADS,
- 	MLX5_CAP_FLOW_TABLE,
- 	MLX5_CAP_ESWITCH_FLOW_TABLE,
-+	MLX5_CAP_ESWITCH,
- 	/* NUM OF CAP Types */
- 	MLX5_CAP_NUM
++err_sriov:
++	if (mlx5_sriov_cleanup(dev))
++		dev_err(&dev->pdev->dev, "sriov cleanup failed\n");
++
+ err_reg_dev:
+ 	mlx5_cleanup_mr_table(dev);
+ 	mlx5_cleanup_srq_table(dev);
+@@ -1120,6 +1133,13 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ {
+ 	int err = 0;
+ 
++	err = mlx5_sriov_cleanup(dev);
++	if (err) {
++		dev_warn(&dev->pdev->dev, "%s: sriov cleanup failed - abort\n",
++			 __func__);
++		return err;
++	}
++
+ 	mutex_lock(&dev->intf_state_mutex);
+ 	if (dev->interface_state == MLX5_INTERFACE_STATE_DOWN) {
+ 		dev_warn(&dev->pdev->dev, "%s: interface is down, NOP\n",
+@@ -1192,6 +1212,7 @@ static int init_one(struct pci_dev *pdev,
+ 		return -ENOMEM;
+ 	}
+ 	priv = &dev->priv;
++	priv->pci_dev_data = id->driver_data;
+ 
+ 	pci_set_drvdata(pdev, dev);
+ 
+@@ -1362,12 +1383,12 @@ static const struct pci_error_handlers mlx5_err_handler = {
  };
-@@ -1196,6 +1197,14 @@ enum mlx5_cap_type {
- #define MLX5_CAP_ESW_FLOWTABLE_FDB_MAX(mdev, cap) \
- 	MLX5_CAP_ESW_FLOWTABLE_MAX(mdev, flow_table_properties_nic_esw_fdb.cap)
  
-+#define MLX5_CAP_ESW(mdev, cap) \
-+	MLX5_GET(e_switch_cap, \
-+		 mdev->hca_caps_cur[MLX5_CAP_ESWITCH], cap)
-+
-+#define MLX5_CAP_ESW_MAX(mdev, cap) \
-+	MLX5_GET(e_switch_cap, \
-+		 mdev->hca_caps_max[MLX5_CAP_ESWITCH], cap)
-+
- #define MLX5_CAP_ODP(mdev, cap)\
- 	MLX5_GET(odp_cap, mdev->hca_caps_cur[MLX5_CAP_ODP], cap)
+ static const struct pci_device_id mlx5_core_pci_table[] = {
+-	{ PCI_VDEVICE(MELLANOX, 0x1011) }, /* Connect-IB */
+-	{ PCI_VDEVICE(MELLANOX, 0x1012) }, /* Connect-IB VF */
+-	{ PCI_VDEVICE(MELLANOX, 0x1013) }, /* ConnectX-4 */
+-	{ PCI_VDEVICE(MELLANOX, 0x1014) }, /* ConnectX-4 VF */
+-	{ PCI_VDEVICE(MELLANOX, 0x1015) }, /* ConnectX-4LX */
+-	{ PCI_VDEVICE(MELLANOX, 0x1016) }, /* ConnectX-4LX VF */
++	{ PCI_VDEVICE(MELLANOX, 0x1011) },			/* Connect-IB */
++	{ PCI_VDEVICE(MELLANOX, 0x1012), MLX5_PCI_DEV_IS_VF},	/* Connect-IB VF */
++	{ PCI_VDEVICE(MELLANOX, 0x1013) },			/* ConnectX-4 */
++	{ PCI_VDEVICE(MELLANOX, 0x1014), MLX5_PCI_DEV_IS_VF},	/* ConnectX-4 VF */
++	{ PCI_VDEVICE(MELLANOX, 0x1015) },			/* ConnectX-4LX */
++	{ PCI_VDEVICE(MELLANOX, 0x1016), MLX5_PCI_DEV_IS_VF},	/* ConnectX-4LX VF */
+ 	{ 0, }
+ };
  
+@@ -1378,7 +1399,8 @@ static struct pci_driver mlx5_core_driver = {
+ 	.id_table       = mlx5_core_pci_table,
+ 	.probe          = init_one,
+ 	.remove         = remove_one,
+-	.err_handler	= &mlx5_err_handler
++	.err_handler	= &mlx5_err_handler,
++	.sriov_configure   = mlx5_core_sriov_configure,
+ };
+ 
+ static int __init init(void)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index 1ed2239..1649d5c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -90,8 +90,10 @@ void mlx5_core_event(struct mlx5_core_dev *dev, enum mlx5_dev_event event,
+ 		     unsigned long param);
+ void mlx5_enter_error_state(struct mlx5_core_dev *dev);
+ void mlx5_disable_device(struct mlx5_core_dev *dev);
++int mlx5_core_sriov_configure(struct pci_dev *dev, int num_vfs);
+ int mlx5_core_enable_hca(struct mlx5_core_dev *dev, u16 func_id);
+ int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id);
++int mlx5_wait_for_vf_pages(struct mlx5_core_dev *dev);
+ 
+ void mlx5e_init(void);
+ void mlx5e_cleanup(void);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+index 4d3377b..9eeee05 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+@@ -33,6 +33,7 @@
+ #include <linux/highmem.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
++#include <linux/delay.h>
+ #include <linux/mlx5/driver.h>
+ #include <linux/mlx5/cmd.h>
+ #include "mlx5_core.h"
+@@ -95,6 +96,7 @@ struct mlx5_manage_pages_outbox {
+ 
+ enum {
+ 	MAX_RECLAIM_TIME_MSECS	= 5000,
++	MAX_RECLAIM_VFS_PAGES_TIME_MSECS = 2 * 1000 * 60,
+ };
+ 
+ enum {
+@@ -352,6 +354,10 @@ retry:
+ 		goto out_4k;
+ 	}
+ 
++	dev->priv.fw_pages += npages;
++	if (func_id)
++		dev->priv.vfs_pages += npages;
++
+ 	mlx5_core_dbg(dev, "err %d\n", err);
+ 
+ 	kvfree(in);
+@@ -405,6 +411,12 @@ static int reclaim_pages(struct mlx5_core_dev *dev, u32 func_id, int npages,
+ 	}
+ 
+ 	num_claimed = be32_to_cpu(out->num_entries);
++	if (num_claimed > npages) {
++		mlx5_core_warn(dev, "fw returned %d, driver asked %d => corruption\n",
++			       num_claimed, npages);
++		err = -EINVAL;
++		goto out_free;
++	}
+ 	if (nclaimed)
+ 		*nclaimed = num_claimed;
+ 
+@@ -412,6 +424,9 @@ static int reclaim_pages(struct mlx5_core_dev *dev, u32 func_id, int npages,
+ 		addr = be64_to_cpu(out->pas[i]);
+ 		free_4k(dev, addr);
+ 	}
++	dev->priv.fw_pages -= num_claimed;
++	if (func_id)
++		dev->priv.vfs_pages -= num_claimed;
+ 
+ out_free:
+ 	kvfree(out);
+@@ -548,3 +563,26 @@ void mlx5_pagealloc_stop(struct mlx5_core_dev *dev)
+ {
+ 	destroy_workqueue(dev->priv.pg_wq);
+ }
++
++int mlx5_wait_for_vf_pages(struct mlx5_core_dev *dev)
++{
++	unsigned long end = jiffies + msecs_to_jiffies(MAX_RECLAIM_VFS_PAGES_TIME_MSECS);
++	int prev_vfs_pages = dev->priv.vfs_pages;
++
++	mlx5_core_dbg(dev, "Waiting for %d pages from %s\n", prev_vfs_pages,
++		      dev->priv.name);
++	while (dev->priv.vfs_pages) {
++		if (time_after(jiffies, end)) {
++			mlx5_core_warn(dev, "aborting while there are %d pending pages\n", dev->priv.vfs_pages);
++			return -ETIMEDOUT;
++		}
++		if (dev->priv.vfs_pages < prev_vfs_pages) {
++			end = jiffies + msecs_to_jiffies(MAX_RECLAIM_VFS_PAGES_TIME_MSECS);
++			prev_vfs_pages = dev->priv.vfs_pages;
++		}
++		msleep(50);
++	}
++
++	mlx5_core_dbg(dev, "All pages received from %s\n", dev->priv.name);
++	return 0;
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/sriov.c b/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
+new file mode 100644
+index 0000000..19a4324
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
+@@ -0,0 +1,221 @@
++/*
++ * Copyright (c) 2014, Mellanox Technologies inc.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/pci.h>
++#include <linux/mlx5/driver.h>
++#include "mlx5_core.h"
++
++static void enable_vfs(struct mlx5_core_dev *dev, int num_vfs)
++{
++	struct mlx5_core_sriov *sriov = &dev->priv.sriov;
++	int err;
++	int vf;
++
++	for (vf = 1; vf <= num_vfs; vf++) {
++		err = mlx5_core_enable_hca(dev, vf);
++		if (err) {
++			mlx5_core_warn(dev, "failed to enable VF %d\n", vf - 1);
++		} else {
++			sriov->vfs_ctx[vf - 1].enabled = 1;
++			mlx5_core_dbg(dev, "successfully enabled VF %d\n", vf - 1);
++		}
++	}
++}
++
++static void disable_vfs(struct mlx5_core_dev *dev, int num_vfs)
++{
++	struct mlx5_core_sriov *sriov = &dev->priv.sriov;
++	int vf;
++
++	for (vf = 1; vf <= num_vfs; vf++) {
++		if (sriov->vfs_ctx[vf - 1].enabled) {
++			if (mlx5_core_disable_hca(dev, vf))
++				mlx5_core_warn(dev, "failed to disable VF %d\n", vf - 1);
++			else
++				sriov->vfs_ctx[vf - 1].enabled = 0;
++		}
++	}
++}
++
++static int mlx5_core_create_vfs(struct pci_dev *pdev, int num_vfs)
++{
++	struct mlx5_core_dev *dev  = pci_get_drvdata(pdev);
++	int err;
++
++	if (pci_num_vf(pdev))
++		pci_disable_sriov(pdev);
++
++	enable_vfs(dev, num_vfs);
++
++	err = pci_enable_sriov(pdev, num_vfs);
++	if (err) {
++		dev_warn(&pdev->dev, "enable sriov failed %d\n", err);
++		goto ex;
++	}
++
++	return 0;
++
++ex:
++	disable_vfs(dev, num_vfs);
++	return err;
++}
++
++static int mlx5_core_sriov_enable(struct pci_dev *pdev, int num_vfs)
++{
++	struct mlx5_core_dev *dev  = pci_get_drvdata(pdev);
++	struct mlx5_core_sriov *sriov = &dev->priv.sriov;
++	int err;
++
++	kfree(sriov->vfs_ctx);
++	sriov->vfs_ctx = kcalloc(num_vfs, sizeof(*sriov->vfs_ctx), GFP_ATOMIC);
++	if (!sriov->vfs_ctx)
++		return -ENOMEM;
++
++	sriov->enabled_vfs = num_vfs;
++	err = mlx5_core_create_vfs(pdev, num_vfs);
++	if (err) {
++		kfree(sriov->vfs_ctx);
++		sriov->vfs_ctx = NULL;
++		return err;
++	}
++
++	return 0;
++}
++
++static void mlx5_core_init_vfs(struct mlx5_core_dev *dev, int num_vfs)
++{
++	struct mlx5_core_sriov *sriov = &dev->priv.sriov;
++
++	sriov->num_vfs = num_vfs;
++}
++
++static void mlx5_core_cleanup_vfs(struct mlx5_core_dev *dev)
++{
++	struct mlx5_core_sriov *sriov;
++
++	sriov = &dev->priv.sriov;
++	disable_vfs(dev, sriov->num_vfs);
++
++	if (mlx5_wait_for_vf_pages(dev))
++		mlx5_core_warn(dev, "timeout claiming VFs pages\n");
++
++	sriov->num_vfs = 0;
++}
++
++int mlx5_core_sriov_configure(struct pci_dev *pdev, int num_vfs)
++{
++	struct mlx5_core_dev *dev  = pci_get_drvdata(pdev);
++	struct mlx5_core_sriov *sriov = &dev->priv.sriov;
++	int err;
++
++	mlx5_core_dbg(dev, "requsted num_vfs %d\n", num_vfs);
++	if (!mlx5_core_is_pf(dev))
++		return -EPERM;
++
++	mlx5_core_cleanup_vfs(dev);
++
++	if (!num_vfs) {
++		kfree(sriov->vfs_ctx);
++		sriov->vfs_ctx = NULL;
++		if (!pci_vfs_assigned(pdev))
++			pci_disable_sriov(pdev);
++		else
++			pr_info("unloading PF driver while leaving orphan VFs\n");
++
++		return 0;
++	}
++
++	err = mlx5_core_sriov_enable(pdev, num_vfs);
++	if (err) {
++		dev_warn(&pdev->dev, "mlx5_core_sriov_enable failed %d\n", err);
++		return err;
++	}
++
++	mlx5_core_init_vfs(dev, num_vfs);
++
++	return num_vfs;
++}
++
++static int sync_required(struct pci_dev *pdev)
++{
++	struct mlx5_core_dev *dev  = pci_get_drvdata(pdev);
++	struct mlx5_core_sriov *sriov = &dev->priv.sriov;
++	int cur_vfs = pci_num_vf(pdev);
++
++	if (cur_vfs != sriov->num_vfs) {
++		pr_info("current VFs %d, registered %d - sync needed\n", cur_vfs, sriov->num_vfs);
++		return 1;
++	}
++
++	return 0;
++}
++
++int mlx5_sriov_init(struct mlx5_core_dev *dev)
++{
++	struct mlx5_core_sriov *sriov = &dev->priv.sriov;
++	struct pci_dev *pdev = dev->pdev;
++	int cur_vfs;
++
++	if (!mlx5_core_is_pf(dev))
++		return 0;
++
++	if (!sync_required(dev->pdev))
++		return 0;
++
++	cur_vfs = pci_num_vf(pdev);
++	sriov->vfs_ctx = kcalloc(cur_vfs, sizeof(*sriov->vfs_ctx), GFP_KERNEL);
++	if (!sriov->vfs_ctx)
++		return -ENOMEM;
++
++	sriov->enabled_vfs = cur_vfs;
++
++	mlx5_core_init_vfs(dev, cur_vfs);
++
++	enable_vfs(dev, cur_vfs);
++
++	return 0;
++}
++
++int mlx5_sriov_cleanup(struct mlx5_core_dev *dev)
++{
++	struct pci_dev *pdev = dev->pdev;
++	int err;
++
++	if (!mlx5_core_is_pf(dev))
++		return 0;
++
++	err = mlx5_core_sriov_configure(pdev, 0);
++	if (err)
++		return err;
++
++	return 0;
++}
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 5c857f2..efebb87 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -426,6 +426,16 @@ struct mlx5_mr_table {
+ 	struct radix_tree_root	tree;
+ };
+ 
++struct mlx5_vf_context {
++	int	enabled;
++};
++
++struct mlx5_core_sriov {
++	struct mlx5_vf_context	*vfs_ctx;
++	int			num_vfs;
++	int			enabled_vfs;
++};
++
+ struct mlx5_irq_info {
+ 	cpumask_var_t mask;
+ 	char name[MLX5_MAX_IRQ_NAME];
+@@ -447,6 +457,7 @@ struct mlx5_priv {
+ 	int			fw_pages;
+ 	atomic_t		reg_pages;
+ 	struct list_head	free_list;
++	int			vfs_pages;
+ 
+ 	struct mlx5_core_health health;
+ 
+@@ -485,6 +496,8 @@ struct mlx5_priv {
+ 	struct list_head        dev_list;
+ 	struct list_head        ctx_list;
+ 	spinlock_t              ctx_lock;
++	struct mlx5_core_sriov	sriov;
++	unsigned long		pci_dev_data;
+ };
+ 
+ enum mlx5_device_state {
+@@ -739,6 +752,8 @@ void mlx5_pagealloc_init(struct mlx5_core_dev *dev);
+ void mlx5_pagealloc_cleanup(struct mlx5_core_dev *dev);
+ int mlx5_pagealloc_start(struct mlx5_core_dev *dev);
+ void mlx5_pagealloc_stop(struct mlx5_core_dev *dev);
++int mlx5_sriov_init(struct mlx5_core_dev *dev);
++int mlx5_sriov_cleanup(struct mlx5_core_dev *dev);
+ void mlx5_core_req_pages_handler(struct mlx5_core_dev *dev, u16 func_id,
+ 				 s32 npages);
+ int mlx5_satisfy_startup_pages(struct mlx5_core_dev *dev, int boot);
+@@ -884,6 +899,15 @@ struct mlx5_profile {
+ 	} mr_cache[MAX_MR_CACHE_ENTRIES];
+ };
+ 
++enum {
++	MLX5_PCI_DEV_IS_VF		= 1 << 0,
++};
++
++static inline int mlx5_core_is_pf(struct mlx5_core_dev *dev)
++{
++	return !(dev->priv.pci_dev_data & MLX5_PCI_DEV_IS_VF);
++}
++
+ static inline int mlx5_get_gid_table_len(u16 param)
+ {
+ 	if (param > 4) {
 diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index a81b008..f5d9449 100644
+index 1565324..9b76fdd 100644
 --- a/include/linux/mlx5/mlx5_ifc.h
 +++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -459,6 +459,17 @@ struct mlx5_ifc_flow_table_eswitch_cap_bits {
- 	u8      reserved_1[0x7800];
- };
- 
-+struct mlx5_ifc_e_switch_cap_bits {
-+	u8         vport_svlan_strip[0x1];
-+	u8         vport_cvlan_strip[0x1];
-+	u8         vport_svlan_insert[0x1];
-+	u8         vport_cvlan_insert_if_not_exist[0x1];
-+	u8         vport_cvlan_insert_overwrite[0x1];
-+	u8         reserved_0[0x1b];
-+
-+	u8         reserved_1[0x7e0];
-+};
-+
- struct mlx5_ifc_per_protocol_networking_offload_caps_bits {
- 	u8         csum_cap[0x1];
- 	u8         vlan_cap[0x1];
-@@ -1860,6 +1871,7 @@ union mlx5_ifc_hca_cap_union_bits {
- 	struct mlx5_ifc_per_protocol_networking_offload_caps_bits per_protocol_networking_offload_caps;
- 	struct mlx5_ifc_flow_table_nic_cap_bits flow_table_nic_cap;
- 	struct mlx5_ifc_flow_table_eswitch_cap_bits flow_table_eswitch_cap;
-+	struct mlx5_ifc_e_switch_cap_bits e_switch_cap;
- 	u8         reserved_0[0x8000];
- };
- 
-@@ -2305,6 +2317,26 @@ struct mlx5_ifc_hca_vport_context_bits {
- 	u8         reserved_6[0xca0];
- };
- 
-+struct mlx5_ifc_esw_vport_context_bits {
-+	u8         reserved_0[0x3];
-+	u8         vport_svlan_strip[0x1];
-+	u8         vport_cvlan_strip[0x1];
-+	u8         vport_svlan_insert[0x1];
-+	u8         vport_cvlan_insert[0x2];
-+	u8         reserved_1[0x18];
-+
-+	u8         reserved_2[0x20];
-+
-+	u8         svlan_cfi[0x1];
-+	u8         svlan_pcp[0x3];
-+	u8         svlan_id[0xc];
-+	u8         cvlan_cfi[0x1];
-+	u8         cvlan_pcp[0x3];
-+	u8         cvlan_id[0xc];
-+
-+	u8         reserved_3[0x7a0];
-+};
-+
- enum {
- 	MLX5_EQC_STATUS_OK                = 0x0,
- 	MLX5_EQC_STATUS_EQ_WRITE_FAILURE  = 0xa,
-@@ -3743,6 +3775,64 @@ struct mlx5_ifc_query_flow_group_in_bits {
- 	u8         reserved_5[0x120];
- };
- 
-+struct mlx5_ifc_query_esw_vport_context_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_0[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_1[0x40];
-+
-+	struct mlx5_ifc_esw_vport_context_bits esw_vport_context;
-+};
-+
-+struct mlx5_ifc_query_esw_vport_context_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_0[0x10];
-+
-+	u8         reserved_1[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         other_vport[0x1];
-+	u8         reserved_2[0xf];
-+	u8         vport_number[0x10];
-+
-+	u8         reserved_3[0x20];
-+};
-+
-+struct mlx5_ifc_modify_esw_vport_context_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_0[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_1[0x40];
-+};
-+
-+struct mlx5_ifc_esw_vport_context_fields_select_bits {
-+	u8         reserved[0x1c];
-+	u8         vport_cvlan_insert[0x1];
-+	u8         vport_svlan_insert[0x1];
-+	u8         vport_cvlan_strip[0x1];
-+	u8         vport_svlan_strip[0x1];
-+};
-+
-+struct mlx5_ifc_modify_esw_vport_context_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_0[0x10];
-+
-+	u8         reserved_1[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         other_vport[0x1];
-+	u8         reserved_2[0xf];
-+	u8         vport_number[0x10];
-+
-+	struct mlx5_ifc_esw_vport_context_fields_select_bits field_select;
-+
-+	struct mlx5_ifc_esw_vport_context_bits esw_vport_context;
-+};
-+
- struct mlx5_ifc_query_eq_out_bits {
- 	u8         status[0x8];
- 	u8         reserved_0[0x18];
+@@ -665,7 +665,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         reserved_17[0x1];
+ 	u8         ets[0x1];
+ 	u8         nic_flow_table[0x1];
+-	u8         reserved_18[0x4];
++	u8	   reserved_18_0;
++	u8	   early_vf_enable;
++	u8         reserved_18[0x2];
+ 	u8         local_ca_ack_delay[0x5];
+ 	u8         reserved_19[0x6];
+ 	u8         port_type[0x2];
 -- 
 2.3.7
