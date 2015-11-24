@@ -1,129 +1,69 @@
 From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: [PATCH 00/13] mm: memcontrol: account socket memory in unified hierarchy v4
-Date: Tue, 24 Nov 2015 16:51:52 -0500
-Message-ID: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
+Subject: [PATCH 02/13] net: tcp_memcontrol: properly detect ancestor socket pressure
+Date: Tue, 24 Nov 2015 16:51:54 -0500
+Message-ID: <1448401925-22501-3-git-send-email-hannes@cmpxchg.org>
+References: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
 Cc: David Miller <davem@davemloft.net>,
 	Vladimir Davydov <vdavydov@virtuozzo.com>,
-	Michal Hocko <mhocko@suse.cz>, Tejun Heo <tj@kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-mm@kvack.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-team@fb.com
+	Michal Hocko <mhocko@suse.cz>,
+	Tejun Heo <tj@kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev@vger.kernel.org,
+	linux-mm@kvack.org,
+	cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	kernel-team@fb.com
 To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+When charging socket memory, the code currently checks only the local
+page counter for excess to determine whether the memcg is under socket
+pressure. But even if the local counter is fine, one of the ancestors
+could have breached its limit, which should also force this child to
+enter socket pressure. This currently doesn't happen.
 
-this is version 4 of the patches to add socket memory accounting to
-the unified hierarchy memory controller.
+Fix this by using page_counter_try_charge() first. If that fails, it
+means that either the local counter or one of the ancestors are in
+excess of their limit, and the child should enter socket pressure.
 
-Andrew, absent any new showstoppers, please consider merging this
-series for v4.5. Thanks!
-
-Changes since v3 include:
-
-- Restored the local vmpressure reporting while preserving the
-  hierarchical pressure semantics of the user interface, such that
-  networking is throttled also for global memory shortage, and not
-  just when encountering configured cgroup limits. As per Vladimir,
-  this will make fully provisioned systems perform more smoothly.
-
-- Make packet submission paths enter direct reclaim when memory is
-  tight, and reserve the background balancing worklet for receiving
-  packets in softirq context.
-
-- Dropped a buggy shrinker cleanup, spotted by Vladimir.
-
-- Fixed a missing return statement, spotted by Eric.
-
-- Documented cgroup.memory=nosocket, as per Michal.
-
-- Rebased onto latest mmots and added ack tags.
-
-Changes since v2 include:
-
-- Fixed an underflow bug in the mem+swap counter that came through the
-  design of the per-cpu charge cache. To fix that, the unused mem+swap
-  counter is now fully patched out on unified hierarchy. Double whammy.
-
-- Restored the counting jump label such that the networking callbacks
-  get patched out again when the last memory-controlled cgroup goes
-  away. The code was already there, so we might as well keep it.
-
-- Broke down the massive tcp_memcontrol rewrite patch into smaller
-  logical pieces to (hopefully) make it easier to review and verify.
-
-Changes since v1 include:
-
-- No accounting overhead unless a dedicated cgroup is created and the
-  memory controller instructed to track that group's memory footprint.
-  Distribution kernels enable CONFIG_MEMCG, and users (incl. systemd)
-  might create cgroups only for process control or resources other
-  than memory. As noted by David and Michal, these setups shouldn't
-  pay any overhead for this.
-
-- Continue to enter the socket pressure state when hitting the memory
-  controller's hard limit. Vladimir noted that there is at least some
-  value in telling other sockets in the cgroup to not increase their
-  transmit windows when one of them is already dropping packets.
-
-- Drop the controversial vmpressure rework. Instead of changing the
-  level where pressure is noted, keep noting pressure in its origin
-  and then make the pressure check hierarchical. As noted by Michal
-  and Vladimir, we shouldn't risk changing user-visible behavior.
-
+Fixes: 3e32cb2e0a12 ("mm: memcontrol: lockless page counters")
+Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+Acked-by: David S. Miller <davem@davemloft.net>
+Reviewed-by: Vladimir Davydov <vdavydov@virtuozzo.com>
 ---
+ include/net/sock.h | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-Socket buffer memory can make up a significant share of a workload's
-memory footprint that can be directly linked to userspace activity,
-and so it needs to be part of the memory controller to provide proper
-resource isolation/containment.
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 7f89e4b..8133c71 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1190,11 +1190,13 @@ static inline void memcg_memory_allocated_add(struct cg_proto *prot,
+ 					      unsigned long amt,
+ 					      int *parent_status)
+ {
+-	page_counter_charge(&prot->memory_allocated, amt);
++	struct page_counter *counter;
++
++	if (page_counter_try_charge(&prot->memory_allocated, amt, &counter))
++		return;
+ 
+-	if (page_counter_read(&prot->memory_allocated) >
+-	    prot->memory_allocated.limit)
+-		*parent_status = OVER_LIMIT;
++	page_counter_charge(&prot->memory_allocated, amt);
++	*parent_status = OVER_LIMIT;
+ }
+ 
+ static inline void memcg_memory_allocated_sub(struct cg_proto *prot,
+-- 
+2.6.2
 
-Historically, socket buffers were accounted in a separate counter,
-without any pressure equalization between anonymous memory, page
-cache, and the socket buffers. When the socket buffer pool was
-exhausted, buffer allocations would fail hard and cause network
-performance to tank, regardless of whether there was still memory
-available to the group or not. Likewise, struggling anonymous or cache
-workingsets could not dip into an idle socket memory pool. Because of
-this, the feature was not usable for many real life applications.
-
-To not repeat this mistake, the new memory controller will account all
-types of memory pages it is tracking on behalf of a cgroup in a single
-pool. Upon pressure, the VM reclaims and shrinks and puts pressure on
-whatever memory consumer in that pool is within its reach.
-
-For socket memory, pressure feedback is provided through vmpressure
-events. When the VM has trouble freeing memory, the network code is
-instructed to stop growing the cgroup's transmit windows.
-
-This series begins with a rework of the existing tcp memory controller
-that simplifies and cleans up the code while allowing us to have only
-one set of networking hooks for both memory controller versions. The
-original behavior of the existing tcp controller should be preserved.
-
-It then adds socket accounting to the v2 memory controller, including
-the use of the per-cpu charge cache and async memory.high enforcement
-from socket memory charges.
-
-Lastly, vmpressure is hooked up to the socket code so that it stops
-growing transmit windows when the VM has trouble reclaiming memory.
-
- Documentation/kernel-parameters.txt |   4 +
- include/linux/memcontrol.h          |  71 ++++----
- include/linux/vmpressure.h          |   5 +-
- include/net/sock.h                  | 149 ++---------------
- include/net/tcp.h                   |   5 +-
- include/net/tcp_memcontrol.h        |   1 -
- mm/backing-dev.c                    |   2 +-
- mm/memcontrol.c                     | 296 ++++++++++++++++++++++------------
- mm/vmpressure.c                     |  78 ++++++---
- mm/vmscan.c                         |  10 +-
- net/core/sock.c                     |  78 +++------
- net/ipv4/tcp.c                      |   3 +-
- net/ipv4/tcp_ipv4.c                 |   9 +-
- net/ipv4/tcp_memcontrol.c           |  82 ++++------
- net/ipv4/tcp_output.c               |   7 +-
- net/ipv6/tcp_ipv6.c                 |   3 -
- 16 files changed, 383 insertions(+), 420 deletions(-)
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
