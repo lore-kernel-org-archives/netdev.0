@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] kcm: Kernel Connection Multiplexor (KCM)
-Date: Tue, 24 Nov 2015 10:55:37 -0500 (EST)
-Message-ID: <20151124.105537.185897620062606312.davem@davemloft.net>
-References: <CALx6S34TrGgmH3eZKPLw_xKYfX2dm+fZq6r7ZBe2DBPudBiSzA@mail.gmail.com>
-	<20151123.145433.1554000376541433305.davem@davemloft.net>
-	<20151124152744.GB20972@breakpoint.cc>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: severe regression in alx ethernet driver
+Date: Tue, 24 Nov 2015 11:07:39 -0500
+Message-ID: <20151124160739.GG38006@redhat.com>
+References: <CAKM02HMP3WsRYTsm7UVR4tD1jMO5dHrDn6TXg9ARHo-Wqyq2oQ@mail.gmail.com>
+ <CAKM02HMMu_FVwSR7OpeyKQ=AUiCqwsjKgOCJJppJJG=tqz0Nog@mail.gmail.com>
+ <20151123.111530.2081520486357118720.davem@davemloft.net>
+ <20151123.111610.2054291192576855643.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, hannes@stressinduktion.org,
-	netdev@vger.kernel.org, kernel-team@fb.com, davewatson@fb.com,
-	alexei.starovoitov@gmail.com
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42189 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751224AbbKXPzj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 10:55:39 -0500
-In-Reply-To: <20151124152744.GB20972@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: ldap.tester@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151123.111610.2054291192576855643.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Tue, 24 Nov 2015 16:27:44 +0100
+On Mon, Nov 23, 2015 at 11:16:10AM -0500, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Mon, 23 Nov 2015 11:15:30 -0500 (EST)
+> 
+> > From: Ldap Tester <ldap.tester@gmail.com>
+> > Date: Mon, 23 Nov 2015 11:00:08 -0300
+> > 
+> >> https://bugzilla.kernel.org/show_bug.cgi?id=70761
+> > 
+> > Patches sitting in a bugzilla entry will simply rot.
+> > 
+> > For upstream inclusion someone must formally submit them to the netdev
+> > mailing list, with proper commit message, signoffs, etc. and then the
+> > patch must be fully reviewed by the community.
+> > 
+> > Only then will it be applied and make it upstream.
+> 
+> And amusingly, the final comment in that bugzilla is someone asking
+> the patch author to do exactly this.
 
-> Aside from Hannes comment -- KCM seems to be tied to the TLS work, i.e.
-> I have the impression that KCM without ability to do TLS in the kernel
-> is pretty much useless for whatever use case Tom has in mind.
+They do at least have a signed-off-by in the patches attached to the bug,
+so I'm working on touching up the descriptions and formatting, regression
+testing them on my laptop that has an alx-driven E2200 in it (which isn't
+affected by this bug), and then I can ship them up for proper review.
 
-I do not get this impression at all.
-
-Tom's design document in the final patch looks legitimately what the
-core use case is.
+-- 
+Jarod Wilson
+jarod@redhat.com
