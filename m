@@ -1,47 +1,82 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: severe regression in alx ethernet driver
-Date: Tue, 24 Nov 2015 11:07:39 -0500
-Message-ID: <20151124160739.GG38006@redhat.com>
-References: <CAKM02HMP3WsRYTsm7UVR4tD1jMO5dHrDn6TXg9ARHo-Wqyq2oQ@mail.gmail.com>
- <CAKM02HMMu_FVwSR7OpeyKQ=AUiCqwsjKgOCJJppJJG=tqz0Nog@mail.gmail.com>
- <20151123.111530.2081520486357118720.davem@davemloft.net>
- <20151123.111610.2054291192576855643.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ldap.tester@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151123.111610.2054291192576855643.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net] net: ipmr, ip6mr: fix vif/tunnel failure race condition
+Date: Tue, 24 Nov 2015 17:09:30 +0100
+Message-ID: <1448381370-32173-1-git-send-email-razor@blackwall.org>
+Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:38433 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752214AbbKXQJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 11:09:35 -0500
+Received: by wmec201 with SMTP id c201so33517038wme.1
+        for <netdev@vger.kernel.org>; Tue, 24 Nov 2015 08:09:34 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 23, 2015 at 11:16:10AM -0500, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Mon, 23 Nov 2015 11:15:30 -0500 (EST)
-> 
-> > From: Ldap Tester <ldap.tester@gmail.com>
-> > Date: Mon, 23 Nov 2015 11:00:08 -0300
-> > 
-> >> https://bugzilla.kernel.org/show_bug.cgi?id=70761
-> > 
-> > Patches sitting in a bugzilla entry will simply rot.
-> > 
-> > For upstream inclusion someone must formally submit them to the netdev
-> > mailing list, with proper commit message, signoffs, etc. and then the
-> > patch must be fully reviewed by the community.
-> > 
-> > Only then will it be applied and make it upstream.
-> 
-> And amusingly, the final comment in that bugzilla is someone asking
-> the patch author to do exactly this.
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-They do at least have a signed-off-by in the patches attached to the bug,
-so I'm working on touching up the descriptions and formatting, regression
-testing them on my laptop that has an alx-driven E2200 in it (which isn't
-affected by this bug), and then I can ship them up for proper review.
+Since (at least) commit b17a7c179dd3 ("[NET]: Do sysfs registration as
+part of register_netdevice."), netdev_run_todo() deals only with
+unregistration, so we don't need to do the rtnl_unlock/lock cycle to
+finish registration when failing pimreg or dvmrp device creation. In
+fact that opens a race condition where someone can delete the device
+while rtnl is unlocked because it's fully registered. The problem gets
+worse when netlink support is introduced as there are more points of entry
+that can cause it and it also makes reusing that code correctly impossible.
 
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+I was able to crash the kernel by artificially triggering this race just to
+confim it. I know it's very unlikely to hit the race in the real world, but
+the biggest advantage of the change is that the code can be re-used later
+when adding netlink support.
+
+ net/ipv4/ipmr.c  | 8 --------
+ net/ipv6/ip6mr.c | 4 ----
+ 2 files changed, 12 deletions(-)
+
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 292123bc30fa..c3a38353f5dc 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -441,10 +441,6 @@ struct net_device *ipmr_new_tunnel(struct net *net, struct vifctl *v)
+ 	return dev;
+ 
+ failure:
+-	/* allow the register to be completed before unregistering. */
+-	rtnl_unlock();
+-	rtnl_lock();
+-
+ 	unregister_netdevice(dev);
+ 	return NULL;
+ }
+@@ -540,10 +536,6 @@ static struct net_device *ipmr_reg_vif(struct net *net, struct mr_table *mrt)
+ 	return dev;
+ 
+ failure:
+-	/* allow the register to be completed before unregistering. */
+-	rtnl_unlock();
+-	rtnl_lock();
+-
+ 	unregister_netdevice(dev);
+ 	return NULL;
+ }
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 7a4a1b81dbb6..a10e77103c88 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -765,10 +765,6 @@ static struct net_device *ip6mr_reg_vif(struct net *net, struct mr6_table *mrt)
+ 	return dev;
+ 
+ failure:
+-	/* allow the register to be completed before unregistering. */
+-	rtnl_unlock();
+-	rtnl_lock();
+-
+ 	unregister_netdevice(dev);
+ 	return NULL;
+ }
 -- 
-Jarod Wilson
-jarod@redhat.com
+2.4.3
