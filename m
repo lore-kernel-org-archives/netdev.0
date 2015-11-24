@@ -1,76 +1,43 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: Asterisk deadlocks since Kernel 4.1
-Date: Tue, 24 Nov 2015 14:35:22 +0100
-Message-ID: <5654679A.3010109@profihost.ag>
-References: <564B3D35.50004@profihost.ag>
- <alpine.DEB.2.11.1511171936030.3761@nanos> <564B7F9D.5060701@profihost.ag>
- <alpine.DEB.2.11.1511172041480.3761@nanos> <564CDE2F.8000201@profihost.ag>
- <564CEB0C.40006@redhat.com> <564CEF5D.3080005@profihost.ag>
- <564D9A17.6080305@redhat.com> <564D9B21.302@profihost.ag>
- <564D9CE6.2090104@profihost.ag>
- <1447933294.1974772.444210441.67F1AC5E@webmail.messagingengine.com>
- <564DB5F5.9060208@profihost.ag>
- <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com>
- <564DC4A5.70104@profihost.ag> <564DCC4C.1090009@redhat.com>
- <564E2852.8000200@profihost.ag> <56530A42.6030609@profihost.ag>
- <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Weimer <fweimer@redhat.com>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: [PATCH] net: dsa: fix build failure
+Date: Tue, 24 Nov 2015 19:06:46 +0530
+Message-ID: <1448372206-20138-1-git-send-email-sudipm.mukherjee@gmail.com>
+References: <20151124152644.19ae110a@canb.auug.org.au>
+Cc: linux-kernel@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
+	netdev@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
+	Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com>
+In-Reply-To: <20151124152644.19ae110a@canb.auug.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+We were getting build failure with allmodconfig of tile, tilegx, m32r and m68k
+with the error:
+implicit declaration of function 'gpio_to_desc'
+implicit declaration of function 'gpiod_direction_output'
 
-Am 23.11.2015 um 13:57 schrieb Hannes Frederic Sowa:
-> On Mon, Nov 23, 2015, at 13:44, Stefan Priebe - Profihost AG wrote:
->> Am 19.11.2015 um 20:51 schrieb Stefan Priebe:
->>>
->>> Am 19.11.2015 um 14:19 schrieb Florian Weimer:
->>>> On 11/19/2015 01:46 PM, Stefan Priebe - Profihost AG wrote:
->>>>
->>>>> I can try Kernel 4.4-rc1 next week. Or something else?
->>>>
->>>> I found this bug report which indicates that 4.1.10 works:
->>>>
->>>>    <https://issues.asterisk.org/jira/browse/ASTERISK-25251>
->>>>
->>>> But in your original report, you said that 4.1.13 is broken.
->>>
->>> That's correct i'm running 4.1.13.
->>>
->>>> This backtrace:
->>>>
->>>>    <https://issues.asterisk.org/jira/secure/attachment/52702/bt.txt>
->>>>
->>>> shows a lot of waiting on quite different netlink sockets.  So if this
->>>> is due to a race in Asterisk, it must have happened several times in a
->>>> row.
->>
->> Kernel 4.4-rc2 works fine. How can we grab / get an idea which is
->> causing the isse in 4.1? It's an LTE kernel so it should be fixed!
-> 
-> Thanks for testing. I was not able to reproduce it at all, with as much
-> parallelism and threads as possible on any kernel. Could you try to do a
-> git bisect?
+Fixes: cc30c16344fc ("net: dsa: Add support for a switch reset gpio")
+Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+---
 
-OK i'll start digging around with major versions first to have a working
-and a non working version.
+build log of next-20151124 at:
+https://travis-ci.org/sudipm-mukherjee/parport/builds/92864660
 
-I'll try 4.3 and 4.2 first to get an idea where it got fixed. Sadly i
-can't bisect from 4.1.13 to 4.X so i have to verify first it also
-happens with 4.1.
+ net/dsa/dsa.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-OK?
-
-Stefan
-
-> 
-> Thanks,
-> Hannes
-> 
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 0b5565f..b7448c8 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -24,6 +24,7 @@
+ #include <linux/of_gpio.h>
+ #include <linux/sysfs.h>
+ #include <linux/phy_fixed.h>
++#include <linux/gpio/consumer.h>
+ #include "dsa_priv.h"
+ 
+ char dsa_driver_version[] = "0.1";
+-- 
+1.9.1
