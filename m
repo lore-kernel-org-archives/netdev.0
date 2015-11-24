@@ -1,69 +1,84 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net] bpf: fix clearing on persistent program array maps
-Date: Tue, 24 Nov 2015 17:21:41 -0500 (EST)
-Message-ID: <20151124.172141.132867314210915085.davem@redhat.com>
-References: <92a1259fbea681022425a2e03c0efda95d183632.1448396272.git.daniel@iogearbox.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next 0/6] kcm: Kernel Connection Multiplexor (KCM)
+Date: Tue, 24 Nov 2015 23:22:42 +0100
+Message-ID: <20151124222242.GD23215@breakpoint.cc>
+References: <CALx6S34TrGgmH3eZKPLw_xKYfX2dm+fZq6r7ZBe2DBPudBiSzA@mail.gmail.com>
+ <20151123.145433.1554000376541433305.davem@davemloft.net>
+ <20151124152744.GB20972@breakpoint.cc>
+ <20151124.105537.185897620062606312.davem@davemloft.net>
+ <20151124162515.GA22266@breakpoint.cc>
+ <CALx6S35uHQS1n7GYATZ-3UwLFhdiShdVzTBzEgdkKsQrmdpXZw@mail.gmail.com>
+ <20151124171650.GA23215@breakpoint.cc>
+ <CALx6S36qHkUhz5VN+xvsMhszTQnCUUhQ+Doja86wLGWJEe_u_A@mail.gmail.com>
+ <20151124205537.GC23215@breakpoint.cc>
+ <CALx6S36oFH9=Px=pptZurWgS1MtFbhOE=FeK0jZmNBk3fU7tSg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>, davejwatson@fb.com,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55806 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754376AbbKXWVm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Nov 2015 17:21:42 -0500
-In-Reply-To: <92a1259fbea681022425a2e03c0efda95d183632.1448396272.git.daniel@iogearbox.net>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:60183 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754376AbbKXWWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 17:22:48 -0500
+Content-Disposition: inline
+In-Reply-To: <CALx6S36oFH9=Px=pptZurWgS1MtFbhOE=FeK0jZmNBk3fU7tSg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Tue, 24 Nov 2015 21:28:15 +0100
+Tom Herbert <tom@herbertland.com> wrote:
+> On Tue, Nov 24, 2015 at 12:55 PM, Florian Westphal <fw@strlen.de> wrote:
+> > Why anyone would invest such a huge amount of work in making this
+> > kernel-based framing for single-stream tcp record (de)mux rather than
+> > improving the userspace protocol to use UDP or SCTP or at least
+> > one tcp connection per worker is beyond me.
+> >
+> From the /0 patch:
+> 
+> Q: Why not use an existing message-oriented protocol such as RUDP,
+>    DCCP, SCTP, RDS, and others?
+> 
+> A: Because that would entail using a completely new transport protocol.
 
-> Currently, when having map file descriptors pointing to program arrays,
-> there's still the issue that we unconditionally flush program array
-> contents via bpf_fd_array_map_clear() in bpf_map_release(). This happens
-> when such a file descriptor is released and is independent of the map's
-> refcount.
-> 
-> Having this flush independent of the refcount is for a reason: there
-> can be arbitrary complex dependency chains among tail calls, also circular
-> ones (direct or indirect, nesting limit determined during runtime), and
-> we need to make sure that the map drops all references to eBPF programs
-> it holds, so that the map's refcount can eventually drop to zero and
-> initiate its freeing. Btw, a walk of the whole dependency graph would
-> not be possible for various reasons, one being complexity and another
-> one inconsistency, i.e. new programs can be added to parts of the graph
-> at any time, so there's no guaranteed consistent state for the time of
-> such a walk.
-> 
-> Now, the program array pinning itself works, but the issue is that each
-> derived file descriptor on close would nevertheless call unconditionally
-> into bpf_fd_array_map_clear(). Instead, keep track of users and postpone
-> this flush until the last reference to a user is dropped. As this only
-> concerns a subset of references (f.e. a prog array could hold a program
-> that itself has reference on the prog array holding it, etc), we need to
-> track them separately.
-> 
-> Short analysis on the refcounting: on map creation time usercnt will be
-> one, so there's no change in behaviour for bpf_map_release(), if unpinned.
-> If we already fail in map_create(), we are immediately freed, and no
-> file descriptor has been made public yet. In bpf_obj_pin_user(), we need
-> to probe for a possible map in bpf_fd_probe_obj() already with a usercnt
-> reference, so before we drop the reference on the fd with fdput().
-> Therefore, if actual pinning fails, we need to drop that reference again
-> in bpf_any_put(), otherwise we keep holding it. When last reference
-> drops on the inode, the bpf_any_put() in bpf_evict_inode() will take
-> care of dropping the usercnt again. In the bpf_obj_get_user() case, the
-> bpf_any_get() will grab a reference on the usercnt, still at a time when
-> we have the reference on the path. Should we later on fail to grab a new
-> file descriptor, bpf_any_put() will drop it, otherwise we hold it until
-> bpf_map_release() time.
-> 
-> Joint work with Alexei.
-> 
-> Fixes: b2197755b263 ("bpf: add support for persistent maps/progs")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Thats why I wrote 'or at least one tcp connection per worker'.
 
-Applied, thanks a lot Daniel.
+> > For TX side, why is writev not good enough?
+> 
+> writev on a TCP stream does not guarantee atomicity of the operation.
+
+Are you talking about short writes?
+
+> It writes atomic without user space needing to implement locking when
+> a socket is shared amongst threads.
+
+Yes, I get that point, but I maintain that KCM is a strange workaround
+for bad userspace design.
+
+1 tcp connection per thread -> no userspace sockfd lock needed
+
+Sender side can use writev, sendmsg, sendmmsg, etc to avoid sending
+sub-record sized frames.
+
+Is user space really so bad that instead of fixing it its simpler to
+work around it with even more kernel bloat?
+
+Since for KCM userspace has to be adjusted anyway I find that hard
+to believe.
+
+I don't know if the 'dynamic RCVLOWAT' that you want is needed
+(you say 'yes', Eric reply seems to indicate its not (at least assuming
+ a sane/friendly peer that doesn't intentionally xmit byte-by-byte).
+
+But assuming there would really be a benefit, maybe a RCVLOWAT2 could
+be added?  Of course we could only make it a hint and would have to
+make a blocking read return with less data than desired when tcp rmem limit
+gets hit.  But at least we'd avoid the 'unbounded allocation of large
+amount of kernel memory' thing that we have with current proposal.
+
+Thanks,
+Florian
