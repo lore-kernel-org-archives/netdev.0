@@ -1,45 +1,46 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: [PATCH] net: openvswitch: Remove invalid comment
-Date: Tue, 24 Nov 2015 13:51:53 -0500
-Message-ID: <1448391113-18628-1-git-send-email-aconole@bytheb.org>
-Cc: Pravin Shelar <pshelar@nicira.com>
-To: netdev@vger.kernel.org
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net] net: ipmr, ip6mr: fix vif/tunnel failure race condition
+Date: Tue, 24 Nov 2015 10:56:46 -0800
+Message-ID: <CAHA+R7N2mWAQhQwb+y8NEDaHW8wHB7D+w883y0zO3YBOeOVegA@mail.gmail.com>
+References: <1448381370-32173-1-git-send-email-razor@blackwall.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Nikolay Aleksandrov <razor@blackwall.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f43.google.com ([209.85.192.43]:34408 "EHLO
-	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752098AbbKXSwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 13:52:03 -0500
-Received: by qgeb1 with SMTP id b1so17177683qge.1
-        for <netdev@vger.kernel.org>; Tue, 24 Nov 2015 10:52:02 -0800 (PST)
+Received: from mail-yk0-f173.google.com ([209.85.160.173]:33699 "EHLO
+	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754275AbbKXS4s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 13:56:48 -0500
+Received: by ykdv3 with SMTP id v3so29857833ykd.0
+        for <netdev@vger.kernel.org>; Tue, 24 Nov 2015 10:56:46 -0800 (PST)
+In-Reply-To: <1448381370-32173-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During pre-upstream development, the openvswitch datapath used a custom
-hashtable to store vports that could fail on delete due to lack of
-memory. However, prior to upstream submission, this code was reworked to
-use an hlist based hastable with flexible-array based buckets. As such
-the failure condition was eliminated from the vport_del path, rendering
-this comment invalid.
+On Tue, Nov 24, 2015 at 8:09 AM, Nikolay Aleksandrov
+<razor@blackwall.org> wrote:
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>
+> Since (at least) commit b17a7c179dd3 ("[NET]: Do sysfs registration as
+> part of register_netdevice."), netdev_run_todo() deals only with
+> unregistration, so we don't need to do the rtnl_unlock/lock cycle to
+> finish registration when failing pimreg or dvmrp device creation. In
+> fact that opens a race condition where someone can delete the device
+> while rtnl is unlocked because it's fully registered. The problem gets
+> worse when netlink support is introduced as there are more points of entry
+> that can cause it and it also makes reusing that code correctly impossible.
+>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Signed-off-by: Aaron Conole <aconole@bytheb.org>
----
- net/openvswitch/vport.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Makes sense for me, we do have some other cases (e.g. macvlan) where
+we call unregister_netdevice() in error path without re-taking RTNL lock.
 
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index 0ac0fd0..e194c10a 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -256,8 +256,8 @@ int ovs_vport_set_options(struct vport *vport, struct nlattr *options)
-  *
-  * @vport: vport to delete.
-  *
-- * Detaches @vport from its datapath and destroys it.  It is possible to fail
-- * for reasons such as lack of memory.  ovs_mutex must be held.
-+ * Detaches @vport from its datapath and destroys it.  ovs_mutex must
-+ * be held.
-  */
- void ovs_vport_del(struct vport *vport)
- {
--- 
-2.6.1.133.gf5b6079
+So,
+
+Reviewed-by: Cong Wang <cwang@twopensource.com>
+
+Thanks.
