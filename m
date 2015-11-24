@@ -1,87 +1,48 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Mon, 23 Nov 2015 17:11:03 -0800
-Message-ID: <20151123171103.00007699@unknown>
-References: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>
-	<1448312579-159544-2-git-send-email-anjali.singhai@intel.com>
-	<CALx6S34+_AtjO94znh7vW4py5a8Nj1g6b-sjGPCa4U1Mc6Y6-w@mail.gmail.com>
-	<CAEh+42jWN961Gg59xbdXiFj9u7=3vuFdyXkcr6iPJ92ZizPpGw@mail.gmail.com>
-	<C40BE8378EF49C44B9184714DBC8EF29939A13AA@ORSMSX115.amr.corp.intel.com>
-	<CALx6S36H4eyDg-Vv21X2GaGA+g=KfN6iHX=8uM2isEOnPTjs0Q@mail.gmail.com>
+From: Owen Lin <olin@rivetnetworks.com>
+Subject: [PATCH 1/1] net: add killer e2400 device id
+Date: Tue, 24 Nov 2015 01:18:50 +0000
+Message-ID: <BN3PR0401MB14572E9C2572B4C1FFFF881DC0060@BN3PR0401MB1457.namprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Singhai, Anjali" <anjali.singhai@intel.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"Patil, Kiran" <kiran.patil@intel.com>, jesse.brandeburg@intel.com
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "johannes@sipsolutions.net" <johannes@sipsolutions.net>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"edumazet@google.com" <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:46967 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752321AbbKXBLE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Nov 2015 20:11:04 -0500
-In-Reply-To: <CALx6S36H4eyDg-Vv21X2GaGA+g=KfN6iHX=8uM2isEOnPTjs0Q@mail.gmail.com>
+Received: from mail-bn1on0077.outbound.protection.outlook.com ([157.56.110.77]:27817
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752566AbbKXBxr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 20:53:47 -0500
+Content-Language: zh-TW
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 23 Nov 2015 16:38:59 -0800
-Tom Herbert <tom@herbertland.com> wrote:
-> >> >
-> >> > Sorry, I still don't like this. Grant it least it gets rid of of VXLAN
-> >> > specific ops, but the problem is there no such things as a common set
-> >> > of encapsulations in the kernel (e.g. foo-over-udp adds a bunch of
-> >> > encapsulations not represented here), no defined common set of device
+Add Killer E2400 device ID in alx driver.
 
-Tom, thanks for your feedback.
+Signed-off-by: Owen Lin olin@rivetnetworks.com
 
-Is anyone using foo-over-udp besides you?
-I know a lot of people using VxLAN and many who want Geneve offloads.
-The performance gain of using hardware offload in this area is
-non-trivial (like 300% or more)
-
-> >> > functionality that needs this, and this precludes the use of the RX
-> >> > accelerations to be available from a userpsace  implementation.
-> >>
-> >> Regardless, I think this is at least a good cleanup of what is already
-> >> there compared to having VXLAN-specific NDOs. We can always add
-> >> additional things in the future.
-> >
-> > Agreed with Jesse that this will help not hurt,  when we are ready to 
-> > cross the bridge for removing RX side Protocol ossification.
-> >
-> The time is now to address the protocol ossification problem. HW
-> vendors leaking out support for random protocols one at a time really
-> isn't helpful at all. Unfortunately, it's pretty clear that many
-> vendors aren't going to fix this on their own volition. Fixing the
-> interfaces to "encourage" change seems to be a way we can help things
-> a long from kernel perspective.
-
-So we (as a kernel community) have users *NOW* who want this
-feature, and hardware that is available *now* that has this feature.
-Do you think we should wait for a unicorn to arrive that has a fully
-programmable de-ossified checksum engine?  How long?
-
-Agree that we can start to address the Protocol Ossification problem by
-working with hardware vendors, but that is a multi-year process to get
-to new silicon with these changes.  Those with fully programmable
-firmware engines might be able to get a change done sooner, but that
-requires a non-trivial effort by the vendor that isn't reusable in
-other operating systems, or maybe isn't possible at all due to hardware
-limits.
-
-FWIW, I've brought the issue to the attention of the architects here,
-and we will likely be able to make changes in this space.  Intel
-hardware (as demonstrated by your patches) already is able to deal with
-this de-ossification on transmit.  Receive is a whole different beast.
-
-I think that trying to force an agenda with no fore-warning and also
-punishing the users in order to get hardware vendors to change is the
-wrong way to go about this.  All you end up with is people just asking
-you why their hardware doesn't work in the kernel.
-
-You have a proposal, let's codify it and enable it for the future, and
-especially be *really* clear what you want hardware vendors to
-implement so that they get it right.  MS does this by publishing
-specifications and being clear what MUST be implemented and what COULD
-be implemented.
+--------------------------------------------------------------------------------
+diff -uprN alx_orig/main.c alx/main.c
+--- alx_orig/main.c	Mon Sep  7 13:00:58 2015
++++ alx/main.c	Mon Sep  7 14:47:03 2015
+@@ -1537,6 +1537,7 @@ static const struct pci_device_id alx_pc
+ 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8162),
+ 	  .driver_data = ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
+ 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8171) },
++	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_E2400) },
+ 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8172) },
+ 	{}
+ };
+diff -uprN alx_orig/reg.h alx/reg.h
+--- alx_orig/reg.h	Mon Sep  7 13:00:58 2015
++++ alx/reg.h	Mon Sep  7 14:46:16 2015
+@@ -39,6 +39,7 @@
+ #define ALX_DEV_ID_E2200				0xe091
+ #define ALX_DEV_ID_AR8162				0x1090
+ #define ALX_DEV_ID_AR8171				0x10A1
++#define ALX_DEV_ID_E2400				0xe0A1
+ #define ALX_DEV_ID_AR8172				0x10A0
+ 
+ /* rev definition,
