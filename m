@@ -1,88 +1,53 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v3 1/5] ipaddress: simplify ipaddr_flush()
-Date: Tue, 24 Nov 2015 15:31:00 +0100
-Message-ID: <1448375464-12145-2-git-send-email-phil@nwl.cc>
-References: <20151123163115.5f8be482@xeon-e3>
- <1448375464-12145-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:46532 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753397AbbKXObm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Nov 2015 09:31:42 -0500
-In-Reply-To: <1448375464-12145-1-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Subject: [PATCH v3 0/4] sh_eth: Remove obsolete platform_device_id entries
+Date: Tue, 24 Nov 2015 15:40:56 +0100
+Message-ID: <1448376060-7803-1-git-send-email-geert+renesas@glider.be>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	Geert Uytterhoeven <geert+renesas@glider.be>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since it's no longer relevant whether an IP address is primary or
-secondary when flushing, ipaddr_flush() can be simplified a bit.
+    Hi David,
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/ipaddress.c | 38 +-------------------------------------
- 1 file changed, 1 insertion(+), 37 deletions(-)
+Since commit 3d7608e4c169af03 ("ARM: shmobile: bockw: remove legacy
+board file and config"), which is in v4.4-rc1, shmobile SoCs are only
+supported in generic DT-only ARM multi-platform builds.  The sh_eth
+driver doesn't need to match platform devices by name anymore, hence
+this series removes the corresponding platform_device_id entries.
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 05358c9..26e91c9 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -1148,28 +1148,6 @@ brief_exit:
- 	return 0;
- }
- 
--static int print_addrinfo_primary(const struct sockaddr_nl *who,
--				  struct nlmsghdr *n, void *arg)
--{
--	struct ifaddrmsg *ifa = NLMSG_DATA(n);
--
--	if (ifa->ifa_flags & IFA_F_SECONDARY)
--		return 0;
--
--	return print_addrinfo(who, n, arg);
--}
--
--static int print_addrinfo_secondary(const struct sockaddr_nl *who,
--				    struct nlmsghdr *n, void *arg)
--{
--	struct ifaddrmsg *ifa = NLMSG_DATA(n);
--
--	if (!(ifa->ifa_flags & IFA_F_SECONDARY))
--		return 0;
--
--	return print_addrinfo(who, n, arg);
--}
--
- struct nlmsg_list
- {
- 	struct nlmsg_list *next;
-@@ -1420,26 +1398,12 @@ static int ipaddr_flush(void)
- 	filter.flushe = sizeof(flushb);
- 
- 	while ((max_flush_loops == 0) || (round < max_flush_loops)) {
--		const struct rtnl_dump_filter_arg a[3] = {
--			{
--				.filter = print_addrinfo_secondary,
--				.arg1 = stdout,
--			},
--			{
--				.filter = print_addrinfo_primary,
--				.arg1 = stdout,
--			},
--			{
--				.filter = NULL,
--				.arg1 = NULL,
--			},
--		};
- 		if (rtnl_wilddump_request(&rth, filter.family, RTM_GETADDR) < 0) {
- 			perror("Cannot send dump request");
- 			exit(1);
- 		}
- 		filter.flushed = 0;
--		if (rtnl_dump_filter_l(&rth, a) < 0) {
-+		if (rtnl_dump_filter(&rth, print_addrinfo, stdout) < 0) {
- 			fprintf(stderr, "Flush terminated\n");
- 			exit(1);
- 		}
+Changes since v2:
+  - More Acks,
+  - Platform dependency has entered mainline,
+
+Changes since v1:
+  - Protect some data and functions by #ifdef CONFIG_OF to silence
+    unused compiler warnings on SH,
+  - New patches 3 and 4.
+
+Thanks for applying!
+
+Geert Uytterhoeven (4):
+  sh_eth: Remove obsolete r7s72100-ether platform_device_id entry
+  sh_eth: Remove obsolete r8a779x-ether platform_device_id entries
+  sh_eth: Remove obsolete r8a7740-gether platform_device_id entry
+  sh_eth: Remove obsolete r8a777x-ether platform_device_id entry
+
+ drivers/net/ethernet/renesas/sh_eth.c | 213 +++++++++++++++++-----------------
+ 1 file changed, 104 insertions(+), 109 deletions(-)
+
 -- 
-2.5.0
+1.9.1
+
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
