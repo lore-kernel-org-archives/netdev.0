@@ -1,74 +1,48 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH 2/2] Crypto kernel tls socket
-Date: Tue, 24 Nov 2015 12:20:00 +0100
-Message-ID: <871tbfhcf3.fsf@stressinduktion.org>
-References: <cover.1448299690.git.davejwatson@fb.com> <ac7783121ef9442741d67aca5d170f02d851ae03.1448299690.git.davejwatson@fb.com> <20151124103455.GB623@gondor.apana.org.au> <9662204.R2y95MbYda@tauon.atsec.com>
+Subject: Re: [PATCH net-next 0/6] kcm: Kernel Connection Multiplexor (KCM)
+Date: Tue, 24 Nov 2015 12:25:39 +0100
+Message-ID: <87y4dnfxl8.fsf@stressinduktion.org>
+References: <1448054520-1464587-1-git-send-email-tom@herbertland.com> <1448272388.3983270.447381049.07BA3A5C@webmail.messagingengine.com> <CALx6S34TrGgmH3eZKPLw_xKYfX2dm+fZq6r7ZBe2DBPudBiSzA@mail.gmail.com> <20151123.145433.1554000376541433305.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org,
-	davem@davemloft.net,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-team@fb.com
-To: Stephan Mueller <smueller@chronox.de>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <9662204.R2y95MbYda@tauon.atsec.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel-team@fb.com, davewatson@fb.com,
+	alexei.starovoitov@gmail.com
+To: David Miller <davem@davemloft.net>, tom@herbertland.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:49238 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751797AbbKXLZl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 06:25:41 -0500
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id 190FF20DC6
+	for <netdev@vger.kernel.org>; Tue, 24 Nov 2015 06:25:41 -0500 (EST)
+In-Reply-To: <20151123.145433.1554000376541433305.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hello,
 
-Stephan Mueller <smueller@chronox.de> writes:
+David Miller <davem@davemloft.net> writes:
 
-> Am Dienstag, 24. November 2015, 18:34:55 schrieb Herbert Xu:
+> From: Tom Herbert <tom@herbertland.com>
+> Date: Mon, 23 Nov 2015 09:33:44 -0800
 >
-> Hi Herbert,
+>> The TCP PSH flag is not defined for message delineation (neither is
+>> urgent pointer). We can't change that (many people have tried to add
+>> message semantics to TCP protocol but have always failed miserably).
 >
->>On Mon, Nov 23, 2015 at 09:43:02AM -0800, Dave Watson wrote:
->>> Userspace crypto interface for TLS.  Currently supports gcm(aes) 128bit
->>> only, however the interface is the same as the rest of the SOCK_ALG
->>> interface, so it should be possible to add more without any user interface
->>> changes.
->>
->>SOCK_ALG exists to export crypto algorithms to user-space.  So if
->>we decided to support TLS as an algorithm then I guess this makes
->>sense.
->>
->>However, I must say that it wouldn't have been my first pick.  I'd
->>imagine a TLS socket to look more like a TCP socket, or perhaps a
->>KCM socket as proposed by Tom.
+> Agreed.
 >
-> If I may ask: what is the benefit of having TLS in kernel space? I do not see 
-> any reason why higher-level protocols should be in the kernel as they do not 
-> relate to accessing hardware.
+> My only gripe with kcm right now is a lack of a native sendpage.
+> We should be able to zero copy data through KCM streams without
+> any problems whatsoever.
 
-There are some crypto acclerators out there so that putting tls into the
-kernel would give a net benefit, because otherwise user space has to
-copy data into the kernel for device access and back to user space until
-it can finally be send out on the wire.
-
-Since processors provide aesni and other crypto extensions as part of
-their instruction set architecture, this, of course, does not make sense
-any more.
-
-> The only reason I could fathom is to keep the negotiated keys in a secure 
-> realm. But that could be done without having parts or the whole TLS protocol 
-> stack in the kernel. If the key management should stay in the kernel as a 
-> protection domain, I would rather think that the kernel should offer a plug-
-> and-play of raw ciphers where user space is responsible to form a protocol. 
-> This way, we do not limit such key management to TLS, but allow any kind of 
-> protocol to use it.
->
-> E.g. the kernel performs the key transport with RSA or key agreement with DH 
-> using keyring-based key material. The resulting shared secret is again 
-> maintained in the key ring where user space can use the symmetric ciphers of 
-> the kernel with those keys. User space would only see references to keys but 
-> no real keys. However, only user space knows when to invoke what cipher to 
-> implement a specific protocol.
-
-You could also keep the secret in a master process and talk to that via
-ipc.
+I understood from Tom's last mail that the messages are being
+constructed *in kernel memory* before sending out of the tcp
+socket. What advantage gives sendpage? The message construction must
+actually happen before to fill in the necessary headers for the length,
+so receiver can dissect again. Streaming semantics don't really fit
+here?
 
 Bye,
 Hannes
