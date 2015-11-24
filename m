@@ -1,48 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 0/6] kcm: Kernel Connection Multiplexor (KCM)
-Date: Tue, 24 Nov 2015 12:25:39 +0100
-Message-ID: <87y4dnfxl8.fsf@stressinduktion.org>
-References: <1448054520-1464587-1-git-send-email-tom@herbertland.com> <1448272388.3983270.447381049.07BA3A5C@webmail.messagingengine.com> <CALx6S34TrGgmH3eZKPLw_xKYfX2dm+fZq6r7ZBe2DBPudBiSzA@mail.gmail.com> <20151123.145433.1554000376541433305.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net: dsa: include gpio consumer header file
+Date: Tue, 24 Nov 2015 12:34:49 +0100
+Message-ID: <6383467.TZ5s6u4A6T@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, kernel-team@fb.com, davewatson@fb.com,
-	alexei.starovoitov@gmail.com
-To: David Miller <davem@davemloft.net>, tom@herbertland.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	linux-kernel@vger.kernel.org, linus.walleij@linaro.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:49238 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751797AbbKXLZl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 06:25:41 -0500
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 190FF20DC6
-	for <netdev@vger.kernel.org>; Tue, 24 Nov 2015 06:25:41 -0500 (EST)
-In-Reply-To: <20151123.145433.1554000376541433305.davem@davemloft.net>
+Received: from mout.kundenserver.de ([212.227.17.13]:49913 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751280AbbKXLfb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 06:35:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+After the introduction of the switch gpio reset API, I'm getting
+build errors in configurations that disable CONFIG_GPIOLIB:
 
-David Miller <davem@davemloft.net> writes:
+net/dsa/dsa.c:783:16: error: implicit declaration of function 'gpio_to_desc' [-Werror=implicit-function-declaration]
 
-> From: Tom Herbert <tom@herbertland.com>
-> Date: Mon, 23 Nov 2015 09:33:44 -0800
->
->> The TCP PSH flag is not defined for message delineation (neither is
->> urgent pointer). We can't change that (many people have tried to add
->> message semantics to TCP protocol but have always failed miserably).
->
-> Agreed.
->
-> My only gripe with kcm right now is a lack of a native sendpage.
-> We should be able to zero copy data through KCM streams without
-> any problems whatsoever.
+The reason is that linux/gpio/consumer.h is not automatically
+included without gpiolib support. This adds an explicit #include
+statement to make it compile in all configurations. The reset
+functionality will not work without gpiolib, which is what you
+get when disabling the feature.
 
-I understood from Tom's last mail that the messages are being
-constructed *in kernel memory* before sending out of the tcp
-socket. What advantage gives sendpage? The message construction must
-actually happen before to fill in the necessary headers for the length,
-so receiver can dissect again. Streaming semantics don't really fit
-here?
+As far as I can tell, gpiolib is supported on all architectures
+on which you can have DSA at the moment.
 
-Bye,
-Hannes
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: cc30c16344fc ("net: dsa: Add support for a switch reset gpio")
+
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 0b5565f923cc..b7448c8490ac 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -24,6 +24,7 @@
+ #include <linux/of_gpio.h>
+ #include <linux/sysfs.h>
+ #include <linux/phy_fixed.h>
++#include <linux/gpio/consumer.h>
+ #include "dsa_priv.h"
+ 
+ char dsa_driver_version[] = "0.1";
