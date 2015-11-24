@@ -1,67 +1,51 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH] rxrpc: Correctly handle ack at end of client call transmit
- phase
-Date: Tue, 24 Nov 2015 14:41:59 +0000
-Message-ID: <20151124144159.18105.50840.stgit@warthog.procyon.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v2] iproute: restrict hoplimit values to be in range [0;255]
+Date: Tue, 24 Nov 2015 15:45:31 +0100
+Message-ID: <1448376331-14527-1-git-send-email-phil@nwl.cc>
+References: <20151123154844.5466a6e3@xeon-e3>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([176.31.251.142]:59099 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753319AbbKXOpo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Nov 2015 09:45:44 -0500
+In-Reply-To: <20151123154844.5466a6e3@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Normally, the transmit phase of a client call is implicitly ack'd by the
-reception of the first data packet of the response being received.
-However, if a security negotiation happens, the transmit phase, if it is
-entirely contained in a single packet, may get an ack packet in response
-and then may get aborted due to security negotiation failure.
+Technically, the range of possible hoplimit values are defined by IPv4
+and IPv6 header formats. Both define the field to be eight bits in size,
+which leads to a value range of [0;255]. Setting a packet's hoplimit
+field to 0 though makes not much sense, as the next hop would
+immediately drop the packet. Therefore Linux uses 0 as a special value
+indicating to use the system's default hoplimit (configurable via
+sysctl). In iproute, setting the hoplimit of a route to 0 is equivalent
+to omitting the hoplimit parameter alltogether, so it is actually not
+necessary to allow that value to be specified, but keep it anyway for
+backwards compatibility.
 
-Because the client has shifted state to RXRPC_CALL_CLIENT_AWAIT_REPLY due
-to having transmitted all the data, the code that handles processing of the
-received ack packet doesn't note the hard ack the data packet.
-
-The following abort packet in the case of security negotiation failure then
-incurs an assertion failure when it tries to drain the Tx queue because the
-hard ack state is out of sync (hard ack means the packets have been
-processed and can be discarded by the sender; a soft ack means that the
-packets are received but could still be discarded and rerequested by the
-receiver).
-
-To fix this, we should record the hard ack we received for the ack packet.
-
-The assertion failure looks like:
-
-	RxRPC: Assertion failed
-	1 <= 0 is false
-	0x1 <= 0x0 is false
-	------------[ cut here ]------------
-	kernel BUG at ../net/rxrpc/ar-ack.c:431!
-	...
-	RIP: 0010:[<ffffffffa006857b>]  [<ffffffffa006857b>] rxrpc_rotate_tx_window+0xbc/0x131 [af_rxrpc]
-	...
-
-Signed-off-by: David Howells <dhowells@redhat.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
+Changes since v1:
+- Allow hoplimit 0 for backwards compatibility.
+- Adjust commit message accordingly.
+---
+ ip/iproute.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- net/rxrpc/ar-ack.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/rxrpc/ar-ack.c b/net/rxrpc/ar-ack.c
-index e0547f521f20..adc555e0323d 100644
---- a/net/rxrpc/ar-ack.c
-+++ b/net/rxrpc/ar-ack.c
-@@ -723,8 +723,10 @@ process_further:
- 
- 			if ((call->state == RXRPC_CALL_CLIENT_AWAIT_REPLY ||
- 			     call->state == RXRPC_CALL_SERVER_AWAIT_ACK) &&
--			    hard > tx)
-+			    hard > tx) {
-+				call->acks_hard = tx;
- 				goto all_acked;
-+			}
- 
- 			smp_rmb();
- 			rxrpc_rotate_tx_window(call, hard - 1);
+diff --git a/ip/iproute.c b/ip/iproute.c
+index c0ef7bf..aed1038 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -931,7 +931,7 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+ 				mxlock |= (1<<RTAX_HOPLIMIT);
+ 				NEXT_ARG();
+ 			}
+-			if (get_unsigned(&hoplimit, *argv, 0))
++			if (get_unsigned(&hoplimit, *argv, 0) || hoplimit > 255)
+ 				invarg("\"hoplimit\" value is invalid\n", *argv);
+ 			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_HOPLIMIT, hoplimit);
+ 		} else if (strcmp(*argv, "advmss") == 0) {
+-- 
+2.5.0
