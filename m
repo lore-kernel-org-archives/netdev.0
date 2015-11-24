@@ -1,36 +1,112 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 1/4] staging: rtl8712: Remove casts between void * and
- type *
-Date: Tue, 24 Nov 2015 16:07:30 +0300
-Message-ID: <20151124130730.GZ18797@mwanda>
-References: <1448367582-8041-1-git-send-email-mukadr@gmail.com>
- <1448367582-8041-2-git-send-email-mukadr@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
- netdev@vger.kernel.org, gregkh@linuxfoundation.org, Larry.Finger@lwfinger.net
-To: Mauro Dreissig <mukadr@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1448367582-8041-2-git-send-email-mukadr@gmail.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Subject: [PATCH] net/ipv4/ipconfig: Rejoin broken lines in console output
+Date: Tue, 24 Nov 2015 14:08:23 +0100
+Message-ID: <1448370503-16424-1-git-send-email-geert+renesas@glider.be>
+Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert+renesas@glider.be>
+To: "David S. Miller" <davem@davemloft.net>,
+	Bastian Stender <bst@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 24, 2015 at 10:19:39AM -0200, Mauro Dreissig wrote:
-> Cleaning rtl871x_ioctl_rtl.c.
-> 
+Commit 09605cc12c078306 ("net ipv4: use preferred log methods") replaced
+a few calls of pr_cont() after a console print without a trailing
+newline by pr_info(), causing lines to be split during IP
+autoconfiguration, like:
 
-It's better if you think about the header and the body as two different
-things.  Just repeat the title but with more information.
+    .
+    ,
+     OK
+    IP-Config: Got DHCP answer from 192.168.97.254,
+    my address is 192.168.97.44
 
-regards,
-dan carpenter
+Convert these back to using pr_cont(), so it prints again:
+
+    ., OK
+    IP-Config: Got DHCP answer from 192.168.97.254, my address is 192.168.97.44
+
+Absorb the printing of "my address ..." into the previous call to
+pr_info(), as there's no reason to use a continuation there.
+
+Convert one more pr_info() to print nameservers while we're at it.
+
+Fixes: 09605cc12c078306 ("net ipv4: use preferred log methods")
+Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+---
+ net/ipv4/ipconfig.c | 19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
+
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index e86e8a9738ea9b1e..67f7c9de0b16689d 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -1239,13 +1239,13 @@ static int __init ic_dynamic(void)
+ 		    (ic_proto_enabled & IC_USE_DHCP) &&
+ 		    ic_dhcp_msgtype != DHCPACK) {
+ 			ic_got_reply = 0;
+-			pr_notice(",");
++			pr_cont(",");
+ 			continue;
+ 		}
+ #endif /* IPCONFIG_DHCP */
+ 
+ 		if (ic_got_reply) {
+-			pr_notice(" OK\n");
++			pr_cont(" OK\n");
+ 			break;
+ 		}
+ 
+@@ -1253,7 +1253,7 @@ static int __init ic_dynamic(void)
+ 			continue;
+ 
+ 		if (! --retries) {
+-			pr_notice(" timed out!\n");
++			pr_cont(" timed out!\n");
+ 			break;
+ 		}
+ 
+@@ -1263,7 +1263,7 @@ static int __init ic_dynamic(void)
+ 		if (timeout > CONF_TIMEOUT_MAX)
+ 			timeout = CONF_TIMEOUT_MAX;
+ 
+-		pr_notice(".");
++		pr_cont(".");
+ 	}
+ 
+ #ifdef IPCONFIG_BOOTP
+@@ -1280,11 +1280,10 @@ static int __init ic_dynamic(void)
+ 		return -1;
+ 	}
+ 
+-	pr_info("IP-Config: Got %s answer from %pI4, ",
++	pr_info("IP-Config: Got %s answer from %pI4, my address is %pI4\n",
+ 		((ic_got_reply & IC_RARP) ? "RARP"
+ 		: (ic_proto_enabled & IC_USE_DHCP) ? "DHCP" : "BOOTP"),
+-		&ic_addrservaddr);
+-	pr_info("my address is %pI4\n", &ic_myaddr);
++		&ic_addrservaddr, &ic_myaddr);
+ 
+ 	return 0;
+ }
+@@ -1527,14 +1526,14 @@ static int __init ip_auto_config(void)
+ 		pr_cont(", mtu=%d", ic_dev_mtu);
+ 	for (i = 0; i < CONF_NAMESERVERS_MAX; i++)
+ 		if (ic_nameservers[i] != NONE) {
+-			pr_info("     nameserver%u=%pI4",
++			pr_cont("     nameserver%u=%pI4",
+ 				i, &ic_nameservers[i]);
+ 			break;
+ 		}
+ 	for (i++; i < CONF_NAMESERVERS_MAX; i++)
+ 		if (ic_nameservers[i] != NONE)
+-			pr_info(", nameserver%u=%pI4", i, &ic_nameservers[i]);
+-	pr_info("\n");
++			pr_cont(", nameserver%u=%pI4", i, &ic_nameservers[i]);
++	pr_cont("\n");
+ #endif /* !SILENT */
+ 
+ 	return 0;
+-- 
+1.9.1
