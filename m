@@ -1,207 +1,67 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH v3 3/4] sh_eth: Remove obsolete r8a7740-gether platform_device_id entry
-Date: Tue, 24 Nov 2015 15:40:59 +0100
-Message-ID: <1448376060-7803-4-git-send-email-geert+renesas@glider.be>
-References: <1448376060-7803-1-git-send-email-geert+renesas@glider.be>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	Geert Uytterhoeven <geert+renesas@glider.be>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from andre.telenet-ops.be ([195.130.132.53]:49681 "EHLO
-	andre.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754143AbbKXOk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 09:40:57 -0500
-In-Reply-To: <1448376060-7803-1-git-send-email-geert+renesas@glider.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH] rxrpc: Correctly handle ack at end of client call transmit
+ phase
+Date: Tue, 24 Nov 2015 14:41:59 +0000
+Message-ID: <20151124144159.18105.50840.stgit@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since commit 1fa59bda21c7fa36 ("ARM: shmobile: Remove legacy board code
-for Armadillo-800 EVA"), r8a7740 is only supported in generic DT-only
-ARM multi-platform builds.  The driver doesn't need to match platform
-devices by name anymore, hence remove the corresponding
-platform_device_id entry.
+Normally, the transmit phase of a client call is implicitly ack'd by the
+reception of the first data packet of the response being received.
+However, if a security negotiation happens, the transmit phase, if it is
+entirely contained in a single packet, may get an ack packet in response
+and then may get aborted due to security negotiation failure.
 
-Protect r8a7740_data by #ifdef CONFIG_OF as it's now referenced on DT
-platforms only. Move it to a more logical position, in front of the
-r8a777x support, so we can have a single #ifdef covering all r7s* and
-r8a* support soon. This requires moving a few helper functions, too.
+Because the client has shifted state to RXRPC_CALL_CLIENT_AWAIT_REPLY due
+to having transmitted all the data, the code that handles processing of the
+received ack packet doesn't note the hard ack the data packet.
 
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
-Acked-by: Simon Horman <horms+renesas@verge.net.au>
+The following abort packet in the case of security negotiation failure then
+incurs an assertion failure when it tries to drain the Tx queue because the
+hard ack state is out of sync (hard ack means the packets have been
+processed and can be discarded by the sender; a soft ack means that the
+packets are received but could still be discarded and rerequested by the
+receiver).
+
+To fix this, we should record the hard ack we received for the ack packet.
+
+The assertion failure looks like:
+
+	RxRPC: Assertion failed
+	1 <= 0 is false
+	0x1 <= 0x0 is false
+	------------[ cut here ]------------
+	kernel BUG at ../net/rxrpc/ar-ack.c:431!
+	...
+	RIP: 0010:[<ffffffffa006857b>]  [<ffffffffa006857b>] rxrpc_rotate_tx_window+0xbc/0x131 [af_rxrpc]
+	...
+
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
-v3:
-  - Add Acked-by,
 
-v2:
-  - New.
----
- drivers/net/ethernet/renesas/sh_eth.c | 125 +++++++++++++++++-----------------
- 1 file changed, 62 insertions(+), 63 deletions(-)
+ net/rxrpc/ar-ack.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 1af07f9de243d613..99618bf513b26184 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -458,6 +458,25 @@ static void sh_eth_chip_reset(struct net_device *ndev)
- 	mdelay(1);
- }
+diff --git a/net/rxrpc/ar-ack.c b/net/rxrpc/ar-ack.c
+index e0547f521f20..adc555e0323d 100644
+--- a/net/rxrpc/ar-ack.c
++++ b/net/rxrpc/ar-ack.c
+@@ -723,8 +723,10 @@ process_further:
  
-+static void sh_eth_set_rate_gether(struct net_device *ndev)
-+{
-+	struct sh_eth_private *mdp = netdev_priv(ndev);
-+
-+	switch (mdp->speed) {
-+	case 10: /* 10BASE */
-+		sh_eth_write(ndev, GECMR_10, GECMR);
-+		break;
-+	case 100:/* 100BASE */
-+		sh_eth_write(ndev, GECMR_100, GECMR);
-+		break;
-+	case 1000: /* 1000BASE */
-+		sh_eth_write(ndev, GECMR_1000, GECMR);
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
- #ifdef CONFIG_OF
- /* R7S72100 */
- static struct sh_eth_cpu_data r7s72100_data = {
-@@ -489,6 +508,49 @@ static struct sh_eth_cpu_data r7s72100_data = {
- 	.tsu		= 1,
- 	.shift_rd0	= 1,
- };
-+
-+static void sh_eth_chip_reset_r8a7740(struct net_device *ndev)
-+{
-+	struct sh_eth_private *mdp = netdev_priv(ndev);
-+
-+	/* reset device */
-+	sh_eth_tsu_write(mdp, ARSTR_ARSTR, ARSTR);
-+	mdelay(1);
-+
-+	sh_eth_select_mii(ndev);
-+}
-+
-+/* R8A7740 */
-+static struct sh_eth_cpu_data r8a7740_data = {
-+	.chip_reset	= sh_eth_chip_reset_r8a7740,
-+	.set_duplex	= sh_eth_set_duplex,
-+	.set_rate	= sh_eth_set_rate_gether,
-+
-+	.register_type	= SH_ETH_REG_GIGABIT,
-+
-+	.ecsr_value	= ECSR_ICD | ECSR_MPD,
-+	.ecsipr_value	= ECSIPR_LCHNGIP | ECSIPR_ICDIP | ECSIPR_MPDIP,
-+	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
-+
-+	.tx_check	= EESR_TC1 | EESR_FTC,
-+	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
-+			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
-+			  EESR_TDE | EESR_ECI,
-+	.fdr_value	= 0x0000070f,
-+
-+	.apr		= 1,
-+	.mpr		= 1,
-+	.tpauser	= 1,
-+	.bculr		= 1,
-+	.hw_swap	= 1,
-+	.rpadir		= 1,
-+	.rpadir_value   = 2 << 16,
-+	.no_trimd	= 1,
-+	.no_ade		= 1,
-+	.tsu		= 1,
-+	.select_mii	= 1,
-+	.shift_rd0	= 1,
-+};
- #endif /* CONFIG_OF */
+ 			if ((call->state == RXRPC_CALL_CLIENT_AWAIT_REPLY ||
+ 			     call->state == RXRPC_CALL_SERVER_AWAIT_ACK) &&
+-			    hard > tx)
++			    hard > tx) {
++				call->acks_hard = tx;
+ 				goto all_acked;
++			}
  
- /* There is CPU dependent code */
-@@ -715,25 +777,6 @@ static struct sh_eth_cpu_data sh7757_data_giga = {
- 	.tsu		= 1,
- };
- 
--static void sh_eth_set_rate_gether(struct net_device *ndev)
--{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--
--	switch (mdp->speed) {
--	case 10: /* 10BASE */
--		sh_eth_write(ndev, GECMR_10, GECMR);
--		break;
--	case 100:/* 100BASE */
--		sh_eth_write(ndev, GECMR_100, GECMR);
--		break;
--	case 1000: /* 1000BASE */
--		sh_eth_write(ndev, GECMR_1000, GECMR);
--		break;
--	default:
--		break;
--	}
--}
--
- /* SH7734 */
- static struct sh_eth_cpu_data sh7734_data = {
- 	.chip_reset	= sh_eth_chip_reset,
-@@ -791,49 +834,6 @@ static struct sh_eth_cpu_data sh7763_data = {
- 	.irq_flags	= IRQF_SHARED,
- };
- 
--static void sh_eth_chip_reset_r8a7740(struct net_device *ndev)
--{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--
--	/* reset device */
--	sh_eth_tsu_write(mdp, ARSTR_ARSTR, ARSTR);
--	mdelay(1);
--
--	sh_eth_select_mii(ndev);
--}
--
--/* R8A7740 */
--static struct sh_eth_cpu_data r8a7740_data = {
--	.chip_reset	= sh_eth_chip_reset_r8a7740,
--	.set_duplex	= sh_eth_set_duplex,
--	.set_rate	= sh_eth_set_rate_gether,
--
--	.register_type	= SH_ETH_REG_GIGABIT,
--
--	.ecsr_value	= ECSR_ICD | ECSR_MPD,
--	.ecsipr_value	= ECSIPR_LCHNGIP | ECSIPR_ICDIP | ECSIPR_MPDIP,
--	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
--
--	.tx_check	= EESR_TC1 | EESR_FTC,
--	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
--			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
--			  EESR_TDE | EESR_ECI,
--	.fdr_value	= 0x0000070f,
--
--	.apr		= 1,
--	.mpr		= 1,
--	.tpauser	= 1,
--	.bculr		= 1,
--	.hw_swap	= 1,
--	.rpadir		= 1,
--	.rpadir_value   = 2 << 16,
--	.no_trimd	= 1,
--	.no_ade		= 1,
--	.tsu		= 1,
--	.select_mii	= 1,
--	.shift_rd0	= 1,
--};
--
- static struct sh_eth_cpu_data sh7619_data = {
- 	.register_type	= SH_ETH_REG_FAST_SH3_SH2,
- 
-@@ -3281,7 +3281,6 @@ static struct platform_device_id sh_eth_id_table[] = {
- 	{ "sh7757-ether", (kernel_ulong_t)&sh7757_data },
- 	{ "sh7757-gether", (kernel_ulong_t)&sh7757_data_giga },
- 	{ "sh7763-gether", (kernel_ulong_t)&sh7763_data },
--	{ "r8a7740-gether", (kernel_ulong_t)&r8a7740_data },
- 	{ "r8a777x-ether", (kernel_ulong_t)&r8a777x_data },
- 	{ }
- };
--- 
-1.9.1
+ 			smp_rmb();
+ 			rxrpc_rotate_tx_window(call, hard - 1);
