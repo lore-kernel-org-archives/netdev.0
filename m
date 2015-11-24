@@ -1,47 +1,71 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH v2] libertas: check for NULL before use
-Date: Tue, 24 Nov 2015 13:51:38 +0530
-Message-ID: <1448353298-16110-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, libertas-dev@lists.infradead.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Andy Shevchenko <andy.shevchenko@gmail.com>,
-	Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-To: Kalle Valo <kvalo@codeaurora.org>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH net-next 01/10] hv_netvsc: Resize some of the variables in hv_netvsc_packet
+Date: Tue, 24 Nov 2015 09:48:12 +0100
+Message-ID: <87ziy3lr5f.fsf@vitty.brq.redhat.com>
+References: <1448321324-21318-1-git-send-email-kys@microsoft.com>
+	<1448321346-21357-1-git-send-email-kys@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
+To: "K. Y. Srinivasan" <kys@microsoft.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448321346-21357-1-git-send-email-kys@microsoft.com>
+	(K. Y. Srinivasan's message of "Mon, 23 Nov 2015 15:28:57 -0800")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If kzalloc fails it will return NULL. Lets check for NULL first before
-using the pointer.
+"K. Y. Srinivasan" <kys@microsoft.com> writes:
 
-Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
----
+> As part of reducing the size of the hv_netvsc_packet, resize some of the
+> variables based on their usage.
+>
+> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+> ---
+>  drivers/net/hyperv/hyperv_net.h |   14 +++++++-------
+>  1 files changed, 7 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+> index 5fa98f5..972e562 100644
+> --- a/drivers/net/hyperv/hyperv_net.h
+> +++ b/drivers/net/hyperv/hyperv_net.h
+> @@ -127,11 +127,11 @@ struct ndis_tcp_ip_checksum_info;
+>   */
+>  struct hv_netvsc_packet {
+>  	/* Bookkeeping stuff */
+> -	u32 status;
+> +	u8 status;
+>
+> -	bool is_data_pkt;
+> -	bool xmit_more; /* from skb */
+> -	bool cp_partial; /* partial copy into send buffer */
+> +	u8 is_data_pkt;
+> +	u8 xmit_more; /* from skb */
+> +	u8 cp_partial; /* partial copy into send buffer */
 
-v2: commit message changed
+These are flags so we can make them bitfields and save even more space.
 
- drivers/net/wireless/marvell/libertas/cfg.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+>
+>  	u16 vlan_tci;
+>
+> @@ -147,13 +147,13 @@ struct hv_netvsc_packet {
+>  	/* This points to the memory after page_buf */
+>  	struct rndis_message *rndis_msg;
+>
+> -	u32 rmsg_size; /* RNDIS header and PPI size */
+> -	u32 rmsg_pgcnt; /* page count of RNDIS header and PPI */
+> +	u8 rmsg_size; /* RNDIS header and PPI size */
+> +	u8 rmsg_pgcnt; /* page count of RNDIS header and PPI */
+>
+>  	u32 total_data_buflen;
+>  	/* Points to the send/receive buffer where the ethernet frame is */
+>  	void *data;
+> -	u32 page_buf_cnt;
+> +	u8 page_buf_cnt;
+>  	struct hv_page_buffer *page_buf;
+>  };
 
-diff --git a/drivers/net/wireless/marvell/libertas/cfg.c b/drivers/net/wireless/marvell/libertas/cfg.c
-index 8317afd..e38ad1d 100644
---- a/drivers/net/wireless/marvell/libertas/cfg.c
-+++ b/drivers/net/wireless/marvell/libertas/cfg.c
-@@ -1108,7 +1108,7 @@ static int lbs_associate(struct lbs_private *priv,
- 	size_t len, resp_ie_len;
- 	int status;
- 	int ret;
--	u8 *pos = &(cmd->iebuf[0]);
-+	u8 *pos;
- 	u8 *tmp;
- 
- 	lbs_deb_enter(LBS_DEB_CFG80211);
-@@ -1117,6 +1117,7 @@ static int lbs_associate(struct lbs_private *priv,
- 		ret = -ENOMEM;
- 		goto done;
- 	}
-+	pos = &cmd->iebuf[0];
- 
- 	/*
- 	 * cmd              50 00
 -- 
-1.9.1
+  Vitaly
