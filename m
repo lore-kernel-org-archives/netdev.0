@@ -1,44 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Tue, 24 Nov 2015 13:37:54 -0500 (EST)
-Message-ID: <20151124.133754.654421175431044735.davem@davemloft.net>
-References: <20151123171103.00007699@unknown>
-	<CALx6S36vQhx+iKP9VcpqPBnN7VjBsgd_dYFOfZ+YHyVa97-ajA@mail.gmail.com>
-	<1448387015.235472.448970977.10694A74@webmail.messagingengine.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: MULTIPLE_TABLES and IP_ADVANCED_ROUTER
+Date: Tue, 24 Nov 2015 19:38:13 +0100
+Message-ID: <CAMuHMdUvOZGPpR9ipNd=OxpWsHcDSbSiX+=HG1nxOJKSpeOm6Q@mail.gmail.com>
+References: <CAMuHMdXZpxnrU=FfFcf3sgX+Ym3RCVLA7dn_8mgUBpby18uDzw@mail.gmail.com>
+	<20151124.131025.2229181704954661538.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, jesse.brandeburg@intel.com,
-	anjali.singhai@intel.com, jesse@kernel.org, netdev@vger.kernel.org,
-	kiran.patil@intel.com
-To: hannes@stressinduktion.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43519 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754278AbbKXSh6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 13:37:58 -0500
-In-Reply-To: <1448387015.235472.448970977.10694A74@webmail.messagingengine.com>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:32830 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754278AbbKXSiO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 13:38:14 -0500
+Received: by oixx65 with SMTP id x65so15341775oix.0
+        for <netdev@vger.kernel.org>; Tue, 24 Nov 2015 10:38:13 -0800 (PST)
+In-Reply-To: <20151124.131025.2229181704954661538.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 24 Nov 2015 18:43:35 +0100
+Hi David,
 
-> On Tue, Nov 24, 2015, at 18:32, Tom Herbert wrote:
->> As you said this in only feedback and nobody is forcing anyone to do
->> anything. But encouraging HW vendors to provide generic mechanisms so
->> that your users can use whatever protocol they want is the exact
->> _opposite_ of punishing users, this is very much a pro-user direction.
-> 
-> Some users will suffer worse performance in case we don't correctly set
-> ip_summed for a specific protocol before we do the copy operations from
-> user space into skbs but if they are always done in the driver.
+On Tue, Nov 24, 2015 at 7:10 PM, David Miller <davem@davemloft.net> wrote:
+> From: Geert Uytterhoeven <geert@linux-m68k.org>
+> Date: Sun, 22 Nov 2015 11:03:18 +0100
+>
+>> Is there a reason why IP_MULTIPLE_TABLES and
+>> IP_MROUTE_MULTIPLE_TABLES depend on IP_ADVANCED_ROUTER, while their
+>> IPV6 counterparts don't?
+>
+> It's just another thing that happened to diverge over time, there is
+> no real reason.
 
-Your concern presumes that looking backwards is as important as looking
-forward.
+So should the dependencies be added for IPv6, or removed for IPv4?
+Thanks again!
 
-We want to simplify things _and_ move away from protocol specific
-csums, and if some old crufty hardware based systems pay some performance
-cost for this I say so be it.
+Gr{oetje,eeting}s,
 
-So this is not a valid argument against Tom's changes in my mind.
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
