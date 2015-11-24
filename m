@@ -1,42 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: MULTIPLE_TABLES and IP_ADVANCED_ROUTER
-Date: Tue, 24 Nov 2015 14:06:36 -0500 (EST)
-Message-ID: <20151124.140636.1407559679495101433.davem@davemloft.net>
-References: <CAMuHMdXZpxnrU=FfFcf3sgX+Ym3RCVLA7dn_8mgUBpby18uDzw@mail.gmail.com>
-	<20151124.131025.2229181704954661538.davem@davemloft.net>
-	<CAMuHMdUvOZGPpR9ipNd=OxpWsHcDSbSiX+=HG1nxOJKSpeOm6Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43952 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752375AbbKXTGj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 14:06:39 -0500
-In-Reply-To: <CAMuHMdUvOZGPpR9ipNd=OxpWsHcDSbSiX+=HG1nxOJKSpeOm6Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: [Resend PATCH] RDS: fix race condition when sending a message on unbound socket
+Date: Tue, 24 Nov 2015 17:13:21 -0500
+Message-ID: <1448403201-1683-1-git-send-email-santosh.shilimkar@oracle.com>
+Cc: linux-kernel@vger.kernel.org, sasha.levin@oracle.com,
+	ben@decadent.org.uk,
+	Quentin Casasnovas <quentin.casasnovas@oracle.com>,
+	stable@vger.kernel.org
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Tue, 24 Nov 2015 19:38:13 +0100
+From: Quentin Casasnovas <quentin.casasnovas@oracle.com>
 
-> Hi David,
-> 
-> On Tue, Nov 24, 2015 at 7:10 PM, David Miller <davem@davemloft.net> wrote:
->> From: Geert Uytterhoeven <geert@linux-m68k.org>
->> Date: Sun, 22 Nov 2015 11:03:18 +0100
->>
->>> Is there a reason why IP_MULTIPLE_TABLES and
->>> IP_MROUTE_MULTIPLE_TABLES depend on IP_ADVANCED_ROUTER, while their
->>> IPV6 counterparts don't?
->>
->> It's just another thing that happened to diverge over time, there is
->> no real reason.
-> 
-> So should the dependencies be added for IPv6, or removed for IPv4?
+Sasha's found a NULL pointer dereference in the RDS connection code when
+sending a message to an apparently unbound socket.  The problem is caused
+by the code checking if the socket is bound in rds_sendmsg(), which checks
+the rs_bound_addr field without taking a lock on the socket.  This opens a
+race where rs_bound_addr is temporarily set but where the transport is not
+in rds_bind(), leading to a NULL pointer dereference when trying to
+dereference 'trans' in __rds_conn_create().
 
-I think either change risks breaking something for someone, for
-extremely questionable gains, so leaving things as they are is
-probably the most prudent thing to do.
+Vegard wrote a reproducer for this issue, so kindly ask him to share if
+you're interested.
+
+I cannot reproduce the NULL pointer dereference using Vegard's reproducer
+with this patch, whereas I could without.
+
+Complete earlier incomplete fix to CVE-2015-6937:
+
+  74e98eb08588 ("RDS: verify the underlying transport exists before creating a connection")
+
+Cc: David S. Miller <davem@davemloft.net>
+Cc: stable@vger.kernel.org
+
+Reviewed-by: Vegard Nossum <vegard.nossum@oracle.com>
+Reviewed-by: Sasha Levin <sasha.levin@oracle.com>
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Signed-off-by: Quentin Casasnovas <quentin.casasnovas@oracle.com>
+---
+Dave,
+
+Resending refreshed version from earlier patch which was missed out
+for some reason.
+	https://lkml.org/lkml/2015/10/16/530
+
+It applies cleanly against linus master as well as net-next. I
+have also pushed it on my tree below.
+	git://git.kernel.org/pub/scm/linux/kernel/git/ssantosh/linux.git 4.4/net-next/rds-fix
+
+
+ net/rds/connection.c | 6 ------
+ net/rds/send.c       | 4 +++-
+ 2 files changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/net/rds/connection.c b/net/rds/connection.c
+index d456403..e3b118c 100644
+--- a/net/rds/connection.c
++++ b/net/rds/connection.c
+@@ -186,12 +186,6 @@ static struct rds_connection *__rds_conn_create(struct net *net,
+ 		}
+ 	}
+ 
+-	if (trans == NULL) {
+-		kmem_cache_free(rds_conn_slab, conn);
+-		conn = ERR_PTR(-ENODEV);
+-		goto out;
+-	}
+-
+ 	conn->c_trans = trans;
+ 
+ 	ret = trans->conn_alloc(conn, gfp);
+diff --git a/net/rds/send.c b/net/rds/send.c
+index 827155c..c9cdb35 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -1013,11 +1013,13 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
+ 		release_sock(sk);
+ 	}
+ 
+-	/* racing with another thread binding seems ok here */
++	lock_sock(sk);
+ 	if (daddr == 0 || rs->rs_bound_addr == 0) {
++		release_sock(sk);
+ 		ret = -ENOTCONN; /* XXX not a great errno */
+ 		goto out;
+ 	}
++	release_sock(sk);
+ 
+ 	if (payload_len > rds_sk_sndbuf(rs)) {
+ 		ret = -EMSGSIZE;
+-- 
+1.9.1
