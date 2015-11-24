@@ -1,136 +1,96 @@
 From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: [PATCH 09/13] mm: memcontrol: generalize the socket accounting jump label
-Date: Tue, 24 Nov 2015 16:52:01 -0500
-Message-ID: <1448401925-22501-10-git-send-email-hannes@cmpxchg.org>
+Subject: [PATCH 06/13] net: tcp_memcontrol: simplify the per-memcg limit access
+Date: Tue, 24 Nov 2015 16:51:58 -0500
+Message-ID: <1448401925-22501-7-git-send-email-hannes@cmpxchg.org>
 References: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
 Cc: David Miller <davem@davemloft.net>,
 	Vladimir Davydov <vdavydov@virtuozzo.com>,
-	Michal Hocko <mhocko@suse.cz>,
-	Tejun Heo <tj@kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev@vger.kernel.org,
-	linux-mm@kvack.org,
-	cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	kernel-team@fb.com
+	Michal Hocko <mhocko@suse.cz>, Tejun Heo <tj@kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com
 To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The unified hierarchy memory controller is going to use this jump
-label as well to control the networking callbacks. Move it to the
-memory controller code and give it a more generic name.
+tcp_memcontrol replicates the global sysctl_mem limit array per
+cgroup, but it only ever sets these entries to the value of the
+memory_allocated page_counter limit. Use the latter directly.
 
 Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
-Acked-by: Michal Hocko <mhocko@suse.com>
 Reviewed-by: Vladimir Davydov <vdavydov@virtuozzo.com>
 ---
- include/linux/memcontrol.h | 4 ++++
- include/net/sock.h         | 7 -------
- mm/memcontrol.c            | 3 +++
- net/core/sock.c            | 5 -----
- net/ipv4/tcp_memcontrol.c  | 4 ++--
- 5 files changed, 9 insertions(+), 14 deletions(-)
+ include/linux/memcontrol.h | 1 -
+ include/net/sock.h         | 8 +++++---
+ net/ipv4/tcp_memcontrol.c  | 8 --------
+ 3 files changed, 5 insertions(+), 12 deletions(-)
 
 diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
-index d99fefe..dad56ef 100644
+index cc45407..1a658be 100644
 --- a/include/linux/memcontrol.h
 +++ b/include/linux/memcontrol.h
-@@ -681,6 +681,8 @@ static inline void mem_cgroup_wb_stats(struct bdi_writeback *wb,
- 
- #if defined(CONFIG_INET) && defined(CONFIG_MEMCG_KMEM)
- struct sock;
-+extern struct static_key memcg_sockets_enabled_key;
-+#define mem_cgroup_sockets_enabled static_key_false(&memcg_sockets_enabled_key)
- void sock_update_memcg(struct sock *sk);
- void sock_release_memcg(struct sock *sk);
- bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
-@@ -689,6 +691,8 @@ static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
- {
- 	return memcg->tcp_mem.memory_pressure;
- }
-+#else
-+#define mem_cgroup_sockets_enabled 0
- #endif /* CONFIG_INET && CONFIG_MEMCG_KMEM */
- 
- #ifdef CONFIG_MEMCG_KMEM
+@@ -89,7 +89,6 @@ struct cg_proto {
+ 	struct page_counter	memory_allocated;	/* Current allocated memory. */
+ 	int			memory_pressure;
+ 	bool			active;
+-	long			sysctl_mem[3];
+ 	/*
+ 	 * memcg field is used to find which memcg we belong directly
+ 	 * Each memcg struct can hold more than one cg_proto, so container_of
 diff --git a/include/net/sock.h b/include/net/sock.h
-index 1a94b85..fcc9442 100644
+index 7afbdab..0b333c2 100644
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
-@@ -1065,13 +1065,6 @@ static inline void sk_refcnt_debug_release(const struct sock *sk)
- #define sk_refcnt_debug_release(sk) do { } while (0)
- #endif /* SOCK_REFCNT_DEBUG */
+@@ -1159,10 +1159,12 @@ static inline void sk_enter_memory_pressure(struct sock *sk)
  
--#if defined(CONFIG_MEMCG_KMEM) && defined(CONFIG_NET)
--extern struct static_key memcg_socket_limit_enabled;
--#define mem_cgroup_sockets_enabled static_key_false(&memcg_socket_limit_enabled)
--#else
--#define mem_cgroup_sockets_enabled 0
--#endif
--
- static inline bool sk_stream_memory_free(const struct sock *sk)
+ static inline long sk_prot_mem_limits(const struct sock *sk, int index)
  {
- 	if (sk->sk_wmem_queued >= sk->sk_sndbuf)
-diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 68d67fc..0602bee 100644
---- a/mm/memcontrol.c
-+++ b/mm/memcontrol.c
-@@ -291,6 +291,9 @@ static inline struct mem_cgroup *mem_cgroup_from_id(unsigned short id)
- /* Writing them here to avoid exposing memcg's inner layout */
- #if defined(CONFIG_INET) && defined(CONFIG_MEMCG_KMEM)
- 
-+struct static_key memcg_sockets_enabled_key;
-+EXPORT_SYMBOL(memcg_sockets_enabled_key);
+-	long *prot = sk->sk_prot->sysctl_mem;
++	long limit = sk->sk_prot->sysctl_mem[index];
 +
- void sock_update_memcg(struct sock *sk)
- {
- 	struct mem_cgroup *memcg;
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 6486b0d..c5435b5 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -201,11 +201,6 @@ EXPORT_SYMBOL(sk_net_capable);
- static struct lock_class_key af_family_keys[AF_MAX];
- static struct lock_class_key af_family_slock_keys[AF_MAX];
- 
--#if defined(CONFIG_MEMCG_KMEM)
--struct static_key memcg_socket_limit_enabled;
--EXPORT_SYMBOL(memcg_socket_limit_enabled);
--#endif
--
- /*
-  * Make lock validator output more readable. (we pre-construct these
-  * strings build-time, so that runtime initialization of socket
-diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
-index e507825..9a22e2d 100644
---- a/net/ipv4/tcp_memcontrol.c
-+++ b/net/ipv4/tcp_memcontrol.c
-@@ -34,7 +34,7 @@ void tcp_destroy_cgroup(struct mem_cgroup *memcg)
- 		return;
- 
- 	if (memcg->tcp_mem.active)
--		static_key_slow_dec(&memcg_socket_limit_enabled);
-+		static_key_slow_dec(&memcg_sockets_enabled_key);
+ 	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
+-		prot = sk->sk_cgrp->sysctl_mem;
+-	return prot[index];
++		limit = min_t(long, limit, sk->sk_cgrp->memory_allocated.limit);
++
++	return limit;
  }
  
- static int tcp_update_limit(struct mem_cgroup *memcg, unsigned long nr_pages)
-@@ -65,7 +65,7 @@ static int tcp_update_limit(struct mem_cgroup *memcg, unsigned long nr_pages)
- 		 * because when this value change, the code to process it is not
- 		 * patched in yet.
- 		 */
--		static_key_slow_inc(&memcg_socket_limit_enabled);
-+		static_key_slow_inc(&memcg_sockets_enabled_key);
- 		memcg->tcp_mem.active = true;
- 	}
+ static inline void memcg_memory_allocated_add(struct cg_proto *prot,
+diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
+index 6759e0d..ef4268d 100644
+--- a/net/ipv4/tcp_memcontrol.c
++++ b/net/ipv4/tcp_memcontrol.c
+@@ -21,9 +21,6 @@ int tcp_init_cgroup(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
+ 	if (!cg_proto)
+ 		return 0;
  
+-	cg_proto->sysctl_mem[0] = sysctl_tcp_mem[0];
+-	cg_proto->sysctl_mem[1] = sysctl_tcp_mem[1];
+-	cg_proto->sysctl_mem[2] = sysctl_tcp_mem[2];
+ 	cg_proto->memory_pressure = 0;
+ 	cg_proto->memcg = memcg;
+ 
+@@ -54,7 +51,6 @@ EXPORT_SYMBOL(tcp_destroy_cgroup);
+ static int tcp_update_limit(struct mem_cgroup *memcg, unsigned long nr_pages)
+ {
+ 	struct cg_proto *cg_proto;
+-	int i;
+ 	int ret;
+ 
+ 	cg_proto = tcp_prot.proto_cgroup(memcg);
+@@ -65,10 +61,6 @@ static int tcp_update_limit(struct mem_cgroup *memcg, unsigned long nr_pages)
+ 	if (ret)
+ 		return ret;
+ 
+-	for (i = 0; i < 3; i++)
+-		cg_proto->sysctl_mem[i] = min_t(long, nr_pages,
+-						sysctl_tcp_mem[i]);
+-
+ 	if (!cg_proto->active) {
+ 		/*
+ 		 * The active flag needs to be written after the static_key
 -- 
 2.6.2
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
