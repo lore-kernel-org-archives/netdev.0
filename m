@@ -1,7 +1,7 @@
 From: Lan Tianyu <tianyu.lan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [RFC PATCH V2 1/3] VFIO: Add new ioctl cmd VFIO_GET_PCI_CAP_INFO
-Date: Tue, 24 Nov 2015 21:38:16 +0800
-Message-ID: <1448372298-28386-2-git-send-email-tianyu.lan@intel.com>
+Subject: [RFC PATCH V2 2/3] PCI: Add macros for faked PCI migration capability
+Date: Tue, 24 Nov 2015 21:38:17 +0800
+Message-ID: <1448372298-28386-3-git-send-email-tianyu.lan@intel.com>
 References: <1448372298-28386-1-git-send-email-tianyu.lan@intel.com>
 To: a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org, alex.williamson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
 	b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org, bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
@@ -21,152 +21,60 @@ In-Reply-To: <1448372298-28386-1-git-send-email-tianyu.lan-ral2JQCrhuEAvxtiuMwx3
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch is to add new ioctl cmd VFIO_GET_PCI_CAP_INFO to get
-PCI cap table size and get free PCI config space regs according
-pos and size.
+This patch is to extend PCI CAP id for migration cap and
+add reg macros. The CAP ID is trial and we may find better one if the
+solution is feasible.
 
-Qemu will add faked PCI capability for migration and need such
-info.
+*PCI_VF_MIGRATION_CAP
+For VF driver to  control that triggers mailbox irq or not during migration.
+
+*PCI_VF_MIGRATION_VMM_STATUS
+Qemu stores migration status in the reg
+
+*PCI_VF_MIGRATION_VF_STATUS
+VF driver tells Qemu ready for migration
+
+*PCI_VF_MIGRATION_IRQ
+VF driver stores mailbox interrupt vector in the reg for Qemu to trigger during migration.
 
 Signed-off-by: Lan Tianyu <tianyu.lan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- drivers/vfio/pci/vfio_pci.c         | 21 ++++++++++++++++++++
- drivers/vfio/pci/vfio_pci_config.c  | 38 +++++++++++++++++++++++++++++++------
- drivers/vfio/pci/vfio_pci_private.h |  5 +++++
- include/uapi/linux/vfio.h           | 12 ++++++++++++
- 4 files changed, 70 insertions(+), 6 deletions(-)
+ include/uapi/linux/pci_regs.h | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/vfio/pci/vfio_pci.c b/drivers/vfio/pci/vfio_pci.c
-index 69fab0f..2e42de0 100644
---- a/drivers/vfio/pci/vfio_pci.c
-+++ b/drivers/vfio/pci/vfio_pci.c
-@@ -784,6 +784,27 @@ hot_reset_release:
+diff --git a/include/uapi/linux/pci_regs.h b/include/uapi/linux/pci_regs.h
+index efe3443..9defb6f 100644
+--- a/include/uapi/linux/pci_regs.h
++++ b/include/uapi/linux/pci_regs.h
+@@ -216,7 +216,8 @@
+ #define  PCI_CAP_ID_MSIX	0x11	/* MSI-X */
+ #define  PCI_CAP_ID_SATA	0x12	/* SATA Data/Index Conf. */
+ #define  PCI_CAP_ID_AF		0x13	/* PCI Advanced Features */
+-#define  PCI_CAP_ID_MAX		PCI_CAP_ID_AF
++#define  PCI_CAP_ID_MIGRATION	0X14   
++#define  PCI_CAP_ID_MAX		PCI_CAP_ID_MIGRATION
+ #define PCI_CAP_LIST_NEXT	1	/* Next capability in the list */
+ #define PCI_CAP_FLAGS		2	/* Capability defined flags (16 bits) */
+ #define PCI_CAP_SIZEOF		4
+@@ -904,4 +905,19 @@
+ #define PCI_TPH_CAP_ST_SHIFT	16	/* st table shift */
+ #define PCI_TPH_BASE_SIZEOF	12	/* size with no st table */
  
- 		kfree(groups);
- 		return ret;
-+	} else if (cmd == VFIO_GET_PCI_CAP_INFO) {
-+		struct vfio_pci_cap_info info;
-+		int offset;
++/* Migration*/
++#define PCI_VF_MIGRATION_CAP		0x04
++#define PCI_VF_MIGRATION_VMM_STATUS	0x05
++#define PCI_VF_MIGRATION_VF_STATUS	0x06
++#define PCI_VF_MIGRATION_IRQ		0x07
 +
-+		if (copy_from_user(&info, (void __user *)arg, sizeof(info)))
-+			return -EFAULT;
++#define PCI_VF_MIGRATION_DISABLE	0x00
++#define PCI_VF_MIGRATION_ENABLE		0x01
 +
-+		switch (info.index) {
-+		case VFIO_PCI_CAP_GET_SIZE:
-+			info.size = vfio_get_cap_size(vdev, info.cap, info.offset);
-+			break;
-+		case VFIO_PCI_CAP_GET_FREE_REGION:
-+			offset = vfio_find_free_pci_config_reg(vdev,
-+					info.offset, info.size);
-+			info.offset = offset;
-+			break;
-+		default:
-+			return -EINVAL;
-+		}
++#define VMM_MIGRATION_END        0x00
++#define VMM_MIGRATION_START      0x01
 +
-+		return copy_to_user((void __user *)arg, &info, sizeof(info));
- 	}
- 
- 	return -ENOTTY;
-diff --git a/drivers/vfio/pci/vfio_pci_config.c b/drivers/vfio/pci/vfio_pci_config.c
-index ff75ca3..8afbda4 100644
---- a/drivers/vfio/pci/vfio_pci_config.c
-+++ b/drivers/vfio/pci/vfio_pci_config.c
-@@ -841,6 +841,21 @@ static int vfio_find_cap_start(struct vfio_pci_device *vdev, int pos)
- 	return pos;
- }
- 
-+int vfio_find_free_pci_config_reg(struct vfio_pci_device *vdev,
-+	int pos, int size)
-+{
-+	int i, offset = pos;
++#define PCI_VF_WAIT_FOR_MIGRATION   0x00
++#define PCI_VF_READY_FOR_MIGRATION  0x01
 +
-+	for (i = pos; i < PCI_CFG_SPACE_SIZE; i++) {
-+		if (vdev->pci_config_map[i] != PCI_CAP_ID_INVALID)
-+			offset = i + 1;
-+		else if (i - offset + 1 == size)
-+			return offset;
-+	}
-+
-+	return 0;
-+}
-+
- static int vfio_msi_config_read(struct vfio_pci_device *vdev, int pos,
- 				int count, struct perm_bits *perm,
- 				int offset, __le32 *val)
-@@ -1199,6 +1214,20 @@ static int vfio_fill_vconfig_bytes(struct vfio_pci_device *vdev,
- 	return ret;
- }
- 
-+int vfio_get_cap_size(struct vfio_pci_device *vdev, u8 cap, int pos)
-+{
-+	int len;
-+
-+	len = pci_cap_length[cap];
-+	if (len == 0xFF) { /* Variable length */
-+		len = vfio_cap_len(vdev, cap, pos);
-+		if (len < 0)
-+			return len;
-+	}
-+
-+	return len;
-+}
-+
- static int vfio_cap_init(struct vfio_pci_device *vdev)
- {
- 	struct pci_dev *pdev = vdev->pdev;
-@@ -1238,12 +1267,9 @@ static int vfio_cap_init(struct vfio_pci_device *vdev)
- 			return ret;
- 
- 		if (cap <= PCI_CAP_ID_MAX) {
--			len = pci_cap_length[cap];
--			if (len == 0xFF) { /* Variable length */
--				len = vfio_cap_len(vdev, cap, pos);
--				if (len < 0)
--					return len;
--			}
-+			len = vfio_get_cap_size(vdev, cap, pos);
-+			if (len < 0)
-+				return len;
- 		}
- 
- 		if (!len) {
-diff --git a/drivers/vfio/pci/vfio_pci_private.h b/drivers/vfio/pci/vfio_pci_private.h
-index ae0e1b4..91b4f9b 100644
---- a/drivers/vfio/pci/vfio_pci_private.h
-+++ b/drivers/vfio/pci/vfio_pci_private.h
-@@ -89,4 +89,9 @@ extern void vfio_pci_uninit_perm_bits(void);
- 
- extern int vfio_config_init(struct vfio_pci_device *vdev);
- extern void vfio_config_free(struct vfio_pci_device *vdev);
-+extern int vfio_find_free_pci_config_reg(struct vfio_pci_device *vdev,
-+		int pos, int size);
-+extern int vfio_get_cap_size(struct vfio_pci_device *vdev,
-+		u8 cap, int pos);
-+
- #endif /* VFIO_PCI_PRIVATE_H */
-diff --git a/include/uapi/linux/vfio.h b/include/uapi/linux/vfio.h
-index b57b750..dfa7023 100644
---- a/include/uapi/linux/vfio.h
-+++ b/include/uapi/linux/vfio.h
-@@ -495,6 +495,18 @@ struct vfio_eeh_pe_op {
- 
- #define VFIO_EEH_PE_OP			_IO(VFIO_TYPE, VFIO_BASE + 21)
- 
-+#define VFIO_GET_PCI_CAP_INFO	_IO(VFIO_TYPE, VFIO_BASE + 22)
-+struct vfio_pci_cap_info {
-+	__u32	argsz;
-+	__u32	flags;
-+#define VFIO_PCI_CAP_GET_SIZE		(1 << 0)
-+#define VFIO_PCI_CAP_GET_FREE_REGION	(1 << 1)
-+	__u32	index;
-+	__u32	offset;
-+	__u32	size;
-+	__u8	cap;
-+};
-+
- /* ***************************************************************** */
- 
- #endif /* _UAPIVFIO_H */
+ #endif /* LINUX_PCI_REGS_H */
 -- 
 1.8.4.rc0.1.g8f6a3e5.dirty
