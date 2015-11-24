@@ -1,41 +1,45 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: MULTIPLE_TABLES and IP_ADVANCED_ROUTER
-Date: Tue, 24 Nov 2015 10:43:33 -0800
-Message-ID: <CAHA+R7O2M_CW7TbVdsRMO+GBE0RwkctODHtYq+m3_-Zq11zn4A@mail.gmail.com>
-References: <CAMuHMdXZpxnrU=FfFcf3sgX+Ym3RCVLA7dn_8mgUBpby18uDzw@mail.gmail.com>
-	<20151124.131025.2229181704954661538.davem@davemloft.net>
-	<CAMuHMdUvOZGPpR9ipNd=OxpWsHcDSbSiX+=HG1nxOJKSpeOm6Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+From: Aaron Conole <aconole@bytheb.org>
+Subject: [PATCH] net: openvswitch: Remove invalid comment
+Date: Tue, 24 Nov 2015 13:51:53 -0500
+Message-ID: <1448391113-18628-1-git-send-email-aconole@bytheb.org>
+Cc: Pravin Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f170.google.com ([209.85.160.170]:34176 "EHLO
-	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754899AbbKXSne (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 13:43:34 -0500
-Received: by ykfs79 with SMTP id s79so29619324ykf.1
-        for <netdev@vger.kernel.org>; Tue, 24 Nov 2015 10:43:33 -0800 (PST)
-In-Reply-To: <CAMuHMdUvOZGPpR9ipNd=OxpWsHcDSbSiX+=HG1nxOJKSpeOm6Q@mail.gmail.com>
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:34408 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752098AbbKXSwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 13:52:03 -0500
+Received: by qgeb1 with SMTP id b1so17177683qge.1
+        for <netdev@vger.kernel.org>; Tue, 24 Nov 2015 10:52:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 24, 2015 at 10:38 AM, Geert Uytterhoeven
-<geert@linux-m68k.org> wrote:
-> Hi David,
->
-> On Tue, Nov 24, 2015 at 7:10 PM, David Miller <davem@davemloft.net> wrote:
->> From: Geert Uytterhoeven <geert@linux-m68k.org>
->> Date: Sun, 22 Nov 2015 11:03:18 +0100
->>
->>> Is there a reason why IP_MULTIPLE_TABLES and
->>> IP_MROUTE_MULTIPLE_TABLES depend on IP_ADVANCED_ROUTER, while their
->>> IPV6 counterparts don't?
->>
->> It's just another thing that happened to diverge over time, there is
->> no real reason.
->
-> So should the dependencies be added for IPv6, or removed for IPv4?
+During pre-upstream development, the openvswitch datapath used a custom
+hashtable to store vports that could fail on delete due to lack of
+memory. However, prior to upstream submission, this code was reworked to
+use an hlist based hastable with flexible-array based buckets. As such
+the failure condition was eliminated from the vport_del path, rendering
+this comment invalid.
 
-David's point is we should just leave it as it is.
+Signed-off-by: Aaron Conole <aconole@bytheb.org>
+---
+ net/openvswitch/vport.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index 0ac0fd0..e194c10a 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -256,8 +256,8 @@ int ovs_vport_set_options(struct vport *vport, struct nlattr *options)
+  *
+  * @vport: vport to delete.
+  *
+- * Detaches @vport from its datapath and destroys it.  It is possible to fail
+- * for reasons such as lack of memory.  ovs_mutex must be held.
++ * Detaches @vport from its datapath and destroys it.  ovs_mutex must
++ * be held.
+  */
+ void ovs_vport_del(struct vport *vport)
+ {
+-- 
+2.6.1.133.gf5b6079
