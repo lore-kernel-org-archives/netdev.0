@@ -1,33 +1,67 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next v4] mpls: support for dead routes
-Date: Tue, 24 Nov 2015 16:46:59 +0000
-Message-ID: <56549483.3080600@brocade.com>
-References: <1448082968-63882-1-git-send-email-roopa@cumulusnetworks.com> <56531F96.2030704@brocade.com> <5653DC6E.9090204@cumulusnetworks.com>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH 00/13] mvneta Buffer Management and enhancements
+Date: Tue, 24 Nov 2015 17:47:17 +0100
+Message-ID: <CAPv3WKc+NA58=sxXe-YhUZvE9ca0q=ZC5L9WZOvAevuWZhAnYw@mail.gmail.com>
+References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
+	<20151124.112253.2276973557484332376.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <ebiederm@xmission.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, netdev@vger.kernel.org,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	=?UTF-8?Q?Gregory_Cl=C3=A9ment?=
+	<gregory.clement@free-electrons.com>,
+	Simon Guinot <simon.guinot@sequanux.org>, nadavh@marvell.com,
+	Lior Amsalem <alior@marvell.com>,
+	Evan Wang <xswang@marvell.com>,
+	Yair Mahalalel <myair@marvell.com>, nitroshift@yahoo.com,
+	Grzegorz Jaszczyk <jaz@semihalf.com>,
+	Tomasz Nowicki <tn@semihalf.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:37521 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753558AbbKXQrO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 11:47:14 -0500
-In-Reply-To: <5653DC6E.9090204@cumulusnetworks.com>
+Received: from mail-ob0-f182.google.com ([209.85.214.182]:35646 "EHLO
+	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753667AbbKXQrR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 11:47:17 -0500
+Received: by obbnk6 with SMTP id nk6so17711376obb.2
+        for <netdev@vger.kernel.org>; Tue, 24 Nov 2015 08:47:17 -0800 (PST)
+In-Reply-To: <20151124.112253.2276973557484332376.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24/11/15 03:41, roopa wrote:
-> On 11/23/15, 6:15 AM, Robert Shearman wrote:
->> On 21/11/15 05:16, Roopa Prabhu wrote:
->>> +        if (!rt_new) {
->>> +            pr_warn("mpls_ifdown: kmemdup failed\n");
->>
->> It isn't safe to leave the current route untouched if the net device is being deleted, since a nexthop will be left holding a stale pointer to it. Perhaps delete the route entirely in that case?
-> I would not delete the route. But, Would it be bad modifying rt in that case (ie when rt_new is not possible) ?. It is a remote case..and the side effect being the datapath will not see the changes atomically.
+Hi David,
 
-No, that sounds fine to me as long as RCU_INIT_POINTER is used.
+Thanks for the remark. I will do the split and re-submit.
 
-Thanks,
-Rob
+Best regards,
+Marcin
+
+2015-11-24 17:22 GMT+01:00 David Miller <davem@davemloft.net>:
+>
+> This patch series has a lot of problems.
+>
+> The worst one is that you are mixing bug fixes and new
+> features/cleanups.
+>
+> You cannot do that.
+>
+> You _especially_ can't do that if you expect some of this stuff
+> to be submitted to -stable too.
+>
+> Therefore you _must_ extract out the bug fixes, and submit those
+> against 'net'.  And you must then wait for 'net' to be merged
+> into 'net-next' before submitting the new feature patches.
+>
+> Furthermore, you should explicitly show what tree you are targetting
+> your patches at, in your Subject lines.  In the form:
+>
+>         Subject: [PATCH $(TREE) N/M]
+>
+> Where $(TREE) is either 'net' or 'net-next'.
+>
+> THanks.
