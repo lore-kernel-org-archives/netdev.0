@@ -1,7 +1,7 @@
 From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: [PATCH 05/13] net: tcp_memcontrol: remove dead per-memcg count of allocated sockets
-Date: Tue, 24 Nov 2015 16:51:57 -0500
-Message-ID: <1448401925-22501-6-git-send-email-hannes@cmpxchg.org>
+Subject: [PATCH 07/13] net: tcp_memcontrol: sanitize tcp memory accounting callbacks
+Date: Tue, 24 Nov 2015 16:51:59 -0500
+Message-ID: <1448401925-22501-8-git-send-email-hannes@cmpxchg.org>
 References: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
 Cc: David Miller <davem@davemloft.net>,
 	Vladimir Davydov <vdavydov@virtuozzo.com>,
@@ -19,125 +19,329 @@ In-Reply-To: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-The number of allocated sockets is used for calculations in the soft
-limit phase, where packets are accepted but the socket is under memory
-pressure. Since there is no soft limit phase in tcp_memcontrol, and
-memory pressure is only entered when packets are already dropped, this
-is actually dead code. Remove it.
+There won't be a tcp control soft limit, so integrating the memcg code
+into the global skmem limiting scheme complicates things
+unnecessarily. Replace this with simple and clear charge and uncharge
+calls--hidden behind a jump label--to account skb memory.
 
-As this is the last user of parent_cg_proto(), remove that too.
+Note that this is not purely aesthetic: as a result of shoehorning the
+per-memcg code into the same memory accounting functions that handle
+the global level, the old code would compare the per-memcg consumption
+against the smaller of the per-memcg limit and the global limit. This
+allowed the total consumption of multiple sockets to exceed the global
+limit, as long as the individual sockets stayed within bounds. After
+this change, the code will always compare the per-memcg consumption to
+the per-memcg limit, and the global consumption to the global limit,
+and thus close this loophole.
+
+Without a soft limit, the per-memcg memory pressure state in sockets
+is generally questionable. However, we did it until now, so we
+continue to enter it when the hard limit is hit, and packets are
+dropped, to let other sockets in the cgroup know that they shouldn't
+grow their transmit windows, either. However, keep it simple in the
+new callback model and leave memory pressure lazily when the next
+packet is accepted (as opposed to doing it synchroneously when packets
+are processed). When packets are dropped, network performance will
+already be in the toilet, so that should be a reasonable trade-off.
+
+As described above, consumption is now checked on the per-memcg level
+and the global level separately. Likewise, memory pressure states are
+maintained on both the per-memcg level and the global level, and a
+socket is considered under pressure when either level asserts as much.
 
 Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
-Acked-by: David S. Miller <davem@davemloft.net>
 Reviewed-by: Vladimir Davydov <vdavydov@virtuozzo.com>
 ---
- include/linux/memcontrol.h |  1 -
- include/net/sock.h         | 39 +++------------------------------------
- net/ipv4/tcp_memcontrol.c  |  3 ---
- 3 files changed, 3 insertions(+), 40 deletions(-)
+ include/linux/memcontrol.h | 12 ++++-----
+ include/net/sock.h         | 64 ++++++----------------------------------------
+ include/net/tcp.h          |  5 ++--
+ mm/memcontrol.c            | 32 +++++++++++++++++++++++
+ net/core/sock.c            | 26 +++++++++++--------
+ net/ipv4/tcp_output.c      |  7 +++--
+ 6 files changed, 70 insertions(+), 76 deletions(-)
 
 diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
-index 724b76a..cc45407 100644
+index 1a658be..4d80021 100644
 --- a/include/linux/memcontrol.h
 +++ b/include/linux/memcontrol.h
-@@ -87,7 +87,6 @@ enum mem_cgroup_events_target {
+@@ -664,12 +664,6 @@ void mem_cgroup_count_vm_event(struct mm_struct *mm, enum vm_event_item idx)
+ }
+ #endif /* CONFIG_MEMCG */
  
- struct cg_proto {
- 	struct page_counter	memory_allocated;	/* Current allocated memory. */
--	struct percpu_counter	sockets_allocated;	/* Current number of sockets. */
- 	int			memory_pressure;
- 	bool			active;
- 	long			sysctl_mem[3];
+-enum {
+-	UNDER_LIMIT,
+-	SOFT_LIMIT,
+-	OVER_LIMIT,
+-};
+-
+ #ifdef CONFIG_CGROUP_WRITEBACK
+ 
+ struct list_head *mem_cgroup_cgwb_list(struct mem_cgroup *memcg);
+@@ -699,6 +693,12 @@ static inline void mem_cgroup_wb_stats(struct bdi_writeback *wb,
+ struct sock;
+ void sock_update_memcg(struct sock *sk);
+ void sock_release_memcg(struct sock *sk);
++bool mem_cgroup_charge_skmem(struct cg_proto *proto, unsigned int nr_pages);
++void mem_cgroup_uncharge_skmem(struct cg_proto *proto, unsigned int nr_pages);
++static inline bool mem_cgroup_under_socket_pressure(struct cg_proto *proto)
++{
++	return proto->memory_pressure;
++}
+ #endif /* CONFIG_INET && CONFIG_MEMCG_KMEM */
+ 
+ #ifdef CONFIG_MEMCG_KMEM
 diff --git a/include/net/sock.h b/include/net/sock.h
-index e27a8bb..7afbdab 100644
+index 0b333c2..888aa3f 100644
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
-@@ -1095,19 +1095,9 @@ static inline void sk_refcnt_debug_release(const struct sock *sk)
+@@ -1126,8 +1126,9 @@ static inline bool sk_under_memory_pressure(const struct sock *sk)
+ 	if (!sk->sk_prot->memory_pressure)
+ 		return false;
  
- #if defined(CONFIG_MEMCG_KMEM) && defined(CONFIG_NET)
- extern struct static_key memcg_socket_limit_enabled;
--static inline struct cg_proto *parent_cg_proto(struct proto *proto,
--					       struct cg_proto *cg_proto)
--{
--	return proto->proto_cgroup(parent_mem_cgroup(cg_proto->memcg));
--}
- #define mem_cgroup_sockets_enabled static_key_false(&memcg_socket_limit_enabled)
- #else
- #define mem_cgroup_sockets_enabled 0
--static inline struct cg_proto *parent_cg_proto(struct proto *proto,
--					       struct cg_proto *cg_proto)
--{
--	return NULL;
--}
- #endif
+-	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
+-		return !!sk->sk_cgrp->memory_pressure;
++	if (mem_cgroup_sockets_enabled && sk->sk_cgrp &&
++	    mem_cgroup_under_socket_pressure(sk->sk_cgrp))
++		return true;
  
- static inline bool sk_stream_memory_free(const struct sock *sk)
-@@ -1233,41 +1223,18 @@ sk_memory_allocated_sub(struct sock *sk, int amt)
+ 	return !!*sk->sk_prot->memory_pressure;
+ }
+@@ -1141,9 +1142,6 @@ static inline void sk_leave_memory_pressure(struct sock *sk)
  
- static inline void sk_sockets_allocated_dec(struct sock *sk)
- {
--	struct proto *prot = sk->sk_prot;
+ 	if (*memory_pressure)
+ 		*memory_pressure = 0;
 -
--	if (mem_cgroup_sockets_enabled && sk->sk_cgrp) {
--		struct cg_proto *cg_proto = sk->sk_cgrp;
--
--		for (; cg_proto; cg_proto = parent_cg_proto(prot, cg_proto))
--			percpu_counter_dec(&cg_proto->sockets_allocated);
--	}
--
--	percpu_counter_dec(prot->sockets_allocated);
-+	percpu_counter_dec(sk->sk_prot->sockets_allocated);
+-	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
+-		sk->sk_cgrp->memory_pressure = 0;
  }
  
- static inline void sk_sockets_allocated_inc(struct sock *sk)
- {
--	struct proto *prot = sk->sk_prot;
+ static inline void sk_enter_memory_pressure(struct sock *sk)
+@@ -1151,76 +1149,30 @@ static inline void sk_enter_memory_pressure(struct sock *sk)
+ 	if (!sk->sk_prot->enter_memory_pressure)
+ 		return;
+ 
+-	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
+-		sk->sk_cgrp->memory_pressure = 1;
 -
--	if (mem_cgroup_sockets_enabled && sk->sk_cgrp) {
--		struct cg_proto *cg_proto = sk->sk_cgrp;
--
--		for (; cg_proto; cg_proto = parent_cg_proto(prot, cg_proto))
--			percpu_counter_inc(&cg_proto->sockets_allocated);
--	}
--
--	percpu_counter_inc(prot->sockets_allocated);
-+	percpu_counter_inc(sk->sk_prot->sockets_allocated);
+ 	sk->sk_prot->enter_memory_pressure(sk);
  }
  
- static inline int
- sk_sockets_allocated_read_positive(struct sock *sk)
+ static inline long sk_prot_mem_limits(const struct sock *sk, int index)
+ {
+-	long limit = sk->sk_prot->sysctl_mem[index];
+-
+-	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
+-		limit = min_t(long, limit, sk->sk_cgrp->memory_allocated.limit);
+-
+-	return limit;
+-}
+-
+-static inline void memcg_memory_allocated_add(struct cg_proto *prot,
+-					      unsigned long amt,
+-					      int *parent_status)
+-{
+-	struct page_counter *counter;
+-
+-	if (page_counter_try_charge(&prot->memory_allocated, amt, &counter))
+-		return;
+-
+-	page_counter_charge(&prot->memory_allocated, amt);
+-	*parent_status = OVER_LIMIT;
+-}
+-
+-static inline void memcg_memory_allocated_sub(struct cg_proto *prot,
+-					      unsigned long amt)
+-{
+-	page_counter_uncharge(&prot->memory_allocated, amt);
++	return sk->sk_prot->sysctl_mem[index];
+ }
+ 
+ static inline long
+ sk_memory_allocated(const struct sock *sk)
  {
 -	struct proto *prot = sk->sk_prot;
 -
 -	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
--		return percpu_counter_read_positive(&sk->sk_cgrp->sockets_allocated);
+-		return page_counter_read(&sk->sk_cgrp->memory_allocated);
 -
--	return percpu_counter_read_positive(prot->sockets_allocated);
-+	return percpu_counter_read_positive(sk->sk_prot->sockets_allocated);
+-	return atomic_long_read(prot->memory_allocated);
++	return atomic_long_read(sk->sk_prot->memory_allocated);
  }
  
- static inline int
-diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
-index d07579a..6759e0d 100644
---- a/net/ipv4/tcp_memcontrol.c
-+++ b/net/ipv4/tcp_memcontrol.c
-@@ -32,7 +32,6 @@ int tcp_init_cgroup(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
- 		counter_parent = &parent_cg->memory_allocated;
+ static inline long
+-sk_memory_allocated_add(struct sock *sk, int amt, int *parent_status)
++sk_memory_allocated_add(struct sock *sk, int amt)
+ {
+-	struct proto *prot = sk->sk_prot;
+-
+-	if (mem_cgroup_sockets_enabled && sk->sk_cgrp) {
+-		memcg_memory_allocated_add(sk->sk_cgrp, amt, parent_status);
+-		/* update the root cgroup regardless */
+-		atomic_long_add_return(amt, prot->memory_allocated);
+-		return page_counter_read(&sk->sk_cgrp->memory_allocated);
+-	}
+-
+-	return atomic_long_add_return(amt, prot->memory_allocated);
++	return atomic_long_add_return(amt, sk->sk_prot->memory_allocated);
+ }
  
- 	page_counter_init(&cg_proto->memory_allocated, counter_parent);
--	percpu_counter_init(&cg_proto->sockets_allocated, 0, GFP_KERNEL);
+ static inline void
+ sk_memory_allocated_sub(struct sock *sk, int amt)
+ {
+-	struct proto *prot = sk->sk_prot;
+-
+-	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
+-		memcg_memory_allocated_sub(sk->sk_cgrp, amt);
+-
+-	atomic_long_sub(amt, prot->memory_allocated);
++	atomic_long_sub(amt, sk->sk_prot->memory_allocated);
+ }
  
+ static inline void sk_sockets_allocated_dec(struct sock *sk)
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index f80e74c..04517d6 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -292,8 +292,9 @@ extern int tcp_memory_pressure;
+ /* optimized version of sk_under_memory_pressure() for TCP sockets */
+ static inline bool tcp_under_memory_pressure(const struct sock *sk)
+ {
+-	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
+-		return !!sk->sk_cgrp->memory_pressure;
++	if (mem_cgroup_sockets_enabled && sk->sk_cgrp &&
++	    mem_cgroup_under_socket_pressure(sk->sk_cgrp))
++		return true;
+ 
+ 	return tcp_memory_pressure;
+ }
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index 0b78f82..4b586ea 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -338,6 +338,38 @@ struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg)
+ }
+ EXPORT_SYMBOL(tcp_proto_cgroup);
+ 
++/**
++ * mem_cgroup_charge_skmem - charge socket memory
++ * @proto: proto to charge
++ * @nr_pages: number of pages to charge
++ *
++ * Charges @nr_pages to @proto. Returns %true if the charge fit within
++ * @proto's configured limit, %false if the charge had to be forced.
++ */
++bool mem_cgroup_charge_skmem(struct cg_proto *proto, unsigned int nr_pages)
++{
++	struct page_counter *counter;
++
++	if (page_counter_try_charge(&proto->memory_allocated,
++				    nr_pages, &counter)) {
++		proto->memory_pressure = 0;
++		return true;
++	}
++	page_counter_charge(&proto->memory_allocated, nr_pages);
++	proto->memory_pressure = 1;
++	return false;
++}
++
++/**
++ * mem_cgroup_uncharge_skmem - uncharge socket memory
++ * @proto - proto to uncharge
++ * @nr_pages - number of pages to uncharge
++ */
++void mem_cgroup_uncharge_skmem(struct cg_proto *proto, unsigned int nr_pages)
++{
++	page_counter_uncharge(&proto->memory_allocated, nr_pages);
++}
++
+ #endif
+ 
+ #ifdef CONFIG_MEMCG_KMEM
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 04e54bc..5b1b96f 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -2066,27 +2066,27 @@ int __sk_mem_schedule(struct sock *sk, int size, int kind)
+ 	struct proto *prot = sk->sk_prot;
+ 	int amt = sk_mem_pages(size);
+ 	long allocated;
+-	int parent_status = UNDER_LIMIT;
+ 
+ 	sk->sk_forward_alloc += amt * SK_MEM_QUANTUM;
+ 
+-	allocated = sk_memory_allocated_add(sk, amt, &parent_status);
++	allocated = sk_memory_allocated_add(sk, amt);
++
++	if (mem_cgroup_sockets_enabled && sk->sk_cgrp &&
++	    !mem_cgroup_charge_skmem(sk->sk_cgrp, amt))
++		goto suppress_allocation;
+ 
+ 	/* Under limit. */
+-	if (parent_status == UNDER_LIMIT &&
+-			allocated <= sk_prot_mem_limits(sk, 0)) {
++	if (allocated <= sk_prot_mem_limits(sk, 0)) {
+ 		sk_leave_memory_pressure(sk);
+ 		return 1;
+ 	}
+ 
+-	/* Under pressure. (we or our parents) */
+-	if ((parent_status > SOFT_LIMIT) ||
+-			allocated > sk_prot_mem_limits(sk, 1))
++	/* Under pressure. */
++	if (allocated > sk_prot_mem_limits(sk, 1))
+ 		sk_enter_memory_pressure(sk);
+ 
+-	/* Over hard limit (we or our parents) */
+-	if ((parent_status == OVER_LIMIT) ||
+-			(allocated > sk_prot_mem_limits(sk, 2)))
++	/* Over hard limit. */
++	if (allocated > sk_prot_mem_limits(sk, 2))
+ 		goto suppress_allocation;
+ 
+ 	/* guarantee minimum buffer size under pressure */
+@@ -2135,6 +2135,9 @@ suppress_allocation:
+ 
+ 	sk_memory_allocated_sub(sk, amt);
+ 
++	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
++		mem_cgroup_uncharge_skmem(sk->sk_cgrp, amt);
++
  	return 0;
  }
-@@ -46,8 +45,6 @@ void tcp_destroy_cgroup(struct mem_cgroup *memcg)
- 	if (!cg_proto)
+ EXPORT_SYMBOL(__sk_mem_schedule);
+@@ -2150,6 +2153,9 @@ void __sk_mem_reclaim(struct sock *sk, int amount)
+ 	sk_memory_allocated_sub(sk, amount);
+ 	sk->sk_forward_alloc -= amount << SK_MEM_QUANTUM_SHIFT;
+ 
++	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
++		mem_cgroup_uncharge_skmem(sk->sk_cgrp, amount);
++
+ 	if (sk_under_memory_pressure(sk) &&
+ 	    (sk_memory_allocated(sk) < sk_prot_mem_limits(sk, 0)))
+ 		sk_leave_memory_pressure(sk);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index cb7ca56..7aa168a 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2813,13 +2813,16 @@ begin_fwd:
+  */
+ void sk_forced_mem_schedule(struct sock *sk, int size)
+ {
+-	int amt, status;
++	int amt;
+ 
+ 	if (size <= sk->sk_forward_alloc)
  		return;
+ 	amt = sk_mem_pages(size);
+ 	sk->sk_forward_alloc += amt * SK_MEM_QUANTUM;
+-	sk_memory_allocated_add(sk, amt, &status);
++	sk_memory_allocated_add(sk, amt);
++
++	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
++		mem_cgroup_charge_skmem(sk->sk_cgrp, amt);
+ }
  
--	percpu_counter_destroy(&cg_proto->sockets_allocated);
--
- 	if (cg_proto->active)
- 		static_key_slow_dec(&memcg_socket_limit_enabled);
- 
+ /* Send a FIN. The caller locks the socket for us.
 -- 
 2.6.2
 
