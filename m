@@ -1,72 +1,45 @@
 From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [PATCH iproute2] ip_tunnel: determine tunnel address family
- from the tunnel type
-Date: Mon, 23 Nov 2015 16:26:09 -0800
-Message-ID: <20151123162609.713e34a1@xeon-e3>
-References: <59e83fe5165e4c3698a1caa3950d72a3@HQ1WP-EXMB11.corp.brocade.com>
+Subject: Re: [iproute PATCH v2 1/6] ipaddress: make flush command more
+ error-tolerant
+Date: Mon, 23 Nov 2015 16:31:15 -0800
+Message-ID: <20151123163115.5f8be482@xeon-e3>
+References: <1447010471-559-1-git-send-email-phil@nwl.cc>
+	<1447014141-3565-1-git-send-email-phil@nwl.cc>
+	<1447014141-3565-2-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Konstantin Shemyak <konstantin@shemyak.com>
+Cc: <netdev@vger.kernel.org>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:32938 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751831AbbKXA0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 19:26:03 -0500
-In-Reply-To: <59e83fe5165e4c3698a1caa3950d72a3@HQ1WP-EXMB11.corp.brocade.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:39701 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751843AbbKXAbL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 19:31:11 -0500
+In-Reply-To: <1447014141-3565-2-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Nov 2015 21:10:08 +0000
-Konstantin Shemyak <konstantin@shemyak.com> wrote:
+On Sun,  8 Nov 2015 21:22:16 +0100
+Phil Sutter <phil@nwl.cc> wrote:
 
-> When creating an IP tunnel over IPv6, the address family must be passed in
-> the option, e.g.
+> The core issue here is that with promote_secondaries sysctl setting
+> being turned off, removing the primary address implicitly removes all
+> secondaries as well. Iproute is aware of this and therefore tries to
+> remove all secondary addresses first to circumvent errors due to
+> removing non-existent addresses. But this works only if not too many IP
+> addresses are assigned to an interface, otherwise the RTM_GETADDR
+> response is split up into multiple buffers. In my test-case, flushing
+> more than 42 IPv4 addresses was sufficient to trigger an error:
 > 
-> ip -6 tunnel add mode ip6gre local 1::1 remote 2::2
+> Failed to send flush request: Cannot assign requested address
 > 
-> This makes it impossible to create both IPv4 and IPv6 tunnels in one batch.
+> This patch fixes the issue by simply ignoring EADDRNOTAVAIL when
+> flushing.
 > 
-> In fact the address family option is redundant here, as each tunnel mode is
-> relevant for only one address family.
-> The patch determines whether the applicable address family is AF_INET6
-> instead of the default AF_INET and makes the "-6" option unnecessary for
-> "ip tunnel add".
-> 
-> Signed-off-by: Konstantin Shemyak <konstantin@shemyak.com>
-> ---
->  ip/iptunnel.c                          | 26 ++++++++++++++++++++++++++
->  testsuite/tests/ip/tunnel/add_tunnel.t | 14 ++++++++++++++
->  2 files changed, 40 insertions(+)
->  create mode 100755 testsuite/tests/ip/tunnel/add_tunnel.t
-> 
-> diff --git a/ip/iptunnel.c b/ip/iptunnel.c
-> index 78fa988..7826a37 100644
-> --- a/ip/iptunnel.c
-> +++ b/ip/iptunnel.c
-> @@ -629,8 +629,34 @@ static int do_6rd(int argc, char **argv)
->         return tnl_6rd_ioctl(cmd, medium, &ip6rd);
->  }
->  
-> +static int tunnel_mode_is_ipv6(char *tunnel_mode) {
-> +       char *ipv6_modes[] = {
-> +               "ipv6/ipv6", "ip6ip6",
-> +               "vti6",
-> +               "ip/ipv6", "ipv4/ipv6", "ipip6", "ip4ip6",
-> +               "ip6gre", "gre/ipv6",
-> +               "any/ipv6", "any"
-> +       };
-> +       int i;
-> +
-> +       for (i = 0; i < sizeof(ipv6_modes) / sizeof(char *); i++) {
-> +               if (strcmp(ipv6_modes[i], tunnel_mode) == 0)
-> +                       return 1;
-> +       }
-> +       return 0;
-> +}
-> +
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
-The ipv6_modes table should be static const.
-Also is it possible to use strstr for ipv6 and ip6 or even strchr(tunnel_mode, '6')
-to simplify this?
+Patch does not apply to current tree. I applied an earlier patch from Neil Horman
+and this supersedes this.
+
+Please redo the patch series.
