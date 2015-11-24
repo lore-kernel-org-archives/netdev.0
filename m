@@ -1,31 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next 04/15] ixgbe: Delete redundant include file
-Date: Tue, 24 Nov 2015 10:36:14 -0800
-Message-ID: <1448390174.20113.10.camel@perches.com>
-References: <1448307376-20063-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1448307376-20063-5-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Tue, 24 Nov 2015 13:37:54 -0500 (EST)
+Message-ID: <20151124.133754.654421175431044735.davem@davemloft.net>
+References: <20151123171103.00007699@unknown>
+	<CALx6S36vQhx+iKP9VcpqPBnN7VjBsgd_dYFOfZ+YHyVa97-ajA@mail.gmail.com>
+	<1448387015.235472.448970977.10694A74@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Cc: tom@herbertland.com, jesse.brandeburg@intel.com,
+	anjali.singhai@intel.com, jesse@kernel.org, netdev@vger.kernel.org,
+	kiran.patil@intel.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0011.hostedemail.com ([216.40.44.11]:36615 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754943AbbKXSgS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 13:36:18 -0500
-In-Reply-To: <1448307376-20063-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43519 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754278AbbKXSh6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 13:37:58 -0500
+In-Reply-To: <1448387015.235472.448970977.10694A74@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-11-23 at 11:36 -0800, Jeff Kirsher wrote:
-> Delete a redundant include of net/vxlan.h.
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Tue, 24 Nov 2015 18:43:35 +0100
 
-unrelated trivia:
+> On Tue, Nov 24, 2015, at 18:32, Tom Herbert wrote:
+>> As you said this in only feedback and nobody is forcing anyone to do
+>> anything. But encouraging HW vendors to provide generic mechanisms so
+>> that your users can use whatever protocol they want is the exact
+>> _opposite_ of punishing users, this is very much a pro-user direction.
+> 
+> Some users will suffer worse performance in case we don't correctly set
+> ip_summed for a specific protocol before we do the copy operations from
+> user space into skbs but if they are always done in the driver.
 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-[]
->  char ixgbe_driver_name[] = "ixgbe";
+Your concern presumes that looking backwards is as important as looking
+forward.
 
-This could be const or a #define
+We want to simplify things _and_ move away from protocol specific
+csums, and if some old crufty hardware based systems pay some performance
+cost for this I say so be it.
+
+So this is not a valid argument against Tom's changes in my mind.
