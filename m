@@ -1,33 +1,47 @@
 From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: Re: [PATCH] libertas: fix possible NULL dereference
-Date: Tue, 24 Nov 2015 13:02:05 +0530
-Message-ID: <20151124073205.GA18880@sudip-pc>
-References: <1448281922-20382-1-git-send-email-sudipm.mukherjee@gmail.com>
- <CAHp75Veb4UBKrGsODoKnZrvOZUTEm78yBvhmBRn68oZYRecdQA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	libertas-dev@lists.infradead.org,
-	"open list:TI WILINK WIRELES..." <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: [PATCH v2] libertas: check for NULL before use
+Date: Tue, 24 Nov 2015 13:51:38 +0530
+Message-ID: <1448353298-16110-1-git-send-email-sudipm.mukherjee@gmail.com>
+Cc: linux-kernel@vger.kernel.org, libertas-dev@lists.infradead.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAHp75Veb4UBKrGsODoKnZrvOZUTEm78yBvhmBRn68oZYRecdQA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 24, 2015 at 01:43:38AM +0200, Andy Shevchenko wrote:
-> On Mon, Nov 23, 2015 at 2:32 PM, Sudip Mukherjee
-> <sudipm.mukherjee@gmail.com> wrote:
-> > We were dereferencing cmd first and checking for NULL later. Lets first
-> > check for NULL.
-> 
-> However the patch is valid due to reducing error prone part, the
-> commit message seems wrong.
+If kzalloc fails it will return NULL. Lets check for NULL first before
+using the pointer.
 
-I will send v2 with modified commit message.
+Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+---
 
-regards
-sudip
+v2: commit message changed
+
+ drivers/net/wireless/marvell/libertas/cfg.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/marvell/libertas/cfg.c b/drivers/net/wireless/marvell/libertas/cfg.c
+index 8317afd..e38ad1d 100644
+--- a/drivers/net/wireless/marvell/libertas/cfg.c
++++ b/drivers/net/wireless/marvell/libertas/cfg.c
+@@ -1108,7 +1108,7 @@ static int lbs_associate(struct lbs_private *priv,
+ 	size_t len, resp_ie_len;
+ 	int status;
+ 	int ret;
+-	u8 *pos = &(cmd->iebuf[0]);
++	u8 *pos;
+ 	u8 *tmp;
+ 
+ 	lbs_deb_enter(LBS_DEB_CFG80211);
+@@ -1117,6 +1117,7 @@ static int lbs_associate(struct lbs_private *priv,
+ 		ret = -ENOMEM;
+ 		goto done;
+ 	}
++	pos = &cmd->iebuf[0];
+ 
+ 	/*
+ 	 * cmd              50 00
+-- 
+1.9.1
