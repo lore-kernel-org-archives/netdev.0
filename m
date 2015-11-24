@@ -1,45 +1,52 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [iproute PATCH v2 1/6] ipaddress: make flush command more
- error-tolerant
-Date: Mon, 23 Nov 2015 16:31:15 -0800
-Message-ID: <20151123163115.5f8be482@xeon-e3>
-References: <1447010471-559-1-git-send-email-phil@nwl.cc>
-	<1447014141-3565-1-git-send-email-phil@nwl.cc>
-	<1447014141-3565-2-git-send-email-phil@nwl.cc>
+From: "Singhai, Anjali" <anjali.singhai@intel.com>
+Subject: RE: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Tue, 24 Nov 2015 00:32:25 +0000
+Message-ID: <C40BE8378EF49C44B9184714DBC8EF29939A13AA@ORSMSX115.amr.corp.intel.com>
+References: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>
+ <1448312579-159544-2-git-send-email-anjali.singhai@intel.com>
+ <CALx6S34+_AtjO94znh7vW4py5a8Nj1g6b-sjGPCa4U1Mc6Y6-w@mail.gmail.com>
+ <CAEh+42jWN961Gg59xbdXiFj9u7=3vuFdyXkcr6iPJ92ZizPpGw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Phil Sutter <phil@nwl.cc>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"Patil, Kiran" <kiran.patil@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: Jesse Gross <jesse@kernel.org>, Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:39701 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751843AbbKXAbL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 19:31:11 -0500
-In-Reply-To: <1447014141-3565-2-git-send-email-phil@nwl.cc>
+Received: from mga02.intel.com ([134.134.136.20]:62547 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751843AbbKXAc0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2015 19:32:26 -0500
+In-Reply-To: <CAEh+42jWN961Gg59xbdXiFj9u7=3vuFdyXkcr6iPJ92ZizPpGw@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun,  8 Nov 2015 21:22:16 +0100
-Phil Sutter <phil@nwl.cc> wrote:
-
-> The core issue here is that with promote_secondaries sysctl setting
-> being turned off, removing the primary address implicitly removes all
-> secondaries as well. Iproute is aware of this and therefore tries to
-> remove all secondary addresses first to circumvent errors due to
-> removing non-existent addresses. But this works only if not too many IP
-> addresses are assigned to an interface, otherwise the RTM_GETADDR
-> response is split up into multiple buffers. In my test-case, flushing
-> more than 42 IPv4 addresses was sufficient to trigger an error:
-> 
-> Failed to send flush request: Cannot assign requested address
-> 
-> This patch fixes the issue by simply ignoring EADDRNOTAVAIL when
-> flushing.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-
-Patch does not apply to current tree. I applied an earlier patch from Neil Horman
-and this supersedes this.
-
-Please redo the patch series.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSmVzc2UgR3Jvc3MgW21h
+aWx0bzpqZXNzZUBrZXJuZWwub3JnXQ0KPiBTZW50OiBNb25kYXksIE5vdmVtYmVyIDIzLCAyMDE1
+IDI6NTAgUE0NCj4gVG86IFRvbSBIZXJiZXJ0DQo+IENjOiBTaW5naGFpLCBBbmphbGk7IExpbnV4
+IEtlcm5lbCBOZXR3b3JrIERldmVsb3BlcnM7IFBhdGlsLCBLaXJhbg0KPiBTdWJqZWN0OiBSZTog
+W1BBVENIIHYxIDEvNl0gbmV0OiBHZW5lcmFsaXplIHVkcCBiYXNlZCB0dW5uZWwgb2ZmbG9hZA0K
+PiANCj4gT24gTW9uLCBOb3YgMjMsIDIwMTUgYXQgMTo1MyBQTSwgVG9tIEhlcmJlcnQgPHRvbUBo
+ZXJiZXJ0bGFuZC5jb20+DQo+IHdyb3RlOg0KPiA+PiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQv
+dWRwX3R1bm5lbC5oIGIvaW5jbHVkZS9uZXQvdWRwX3R1bm5lbC5oDQo+ID4+IGluZGV4IGNiMmY4
+OWYuLjcyNDE1YWEgMTAwNjQ0DQo+ID4+IC0tLSBhL2luY2x1ZGUvbmV0L3VkcF90dW5uZWwuaA0K
+PiA+PiArKysgYi9pbmNsdWRlL25ldC91ZHBfdHVubmVsLmgNCj4gPj4gQEAgLTksNiArOSwxMiBA
+QA0KPiA+PiAgI2luY2x1ZGUgPG5ldC9hZGRyY29uZi5oPg0KPiA+PiAgI2VuZGlmDQo+ID4+DQo+
+ID4+ICtlbnVtIHVkcF90dW5uZWxfdHlwZSB7DQo+ID4+ICsgICAgICAgVURQX1RVTk5FTF9VTlNQ
+RUMsDQo+ID4+ICsgICAgICAgVURQX1RVTk5FTF9WWExBTiwNCj4gPj4gKyAgICAgICBVRFBfVFVO
+TkVMX0dFTkVWRSwNCj4gPj4gK307DQo+ID4+ICsNCj4gPg0KPiA+IFNvcnJ5LCBJIHN0aWxsIGRv
+bid0IGxpa2UgdGhpcy4gR3JhbnQgaXQgbGVhc3QgaXQgZ2V0cyByaWQgb2Ygb2YgVlhMQU4NCj4g
+PiBzcGVjaWZpYyBvcHMsIGJ1dCB0aGUgcHJvYmxlbSBpcyB0aGVyZSBubyBzdWNoIHRoaW5ncyBh
+cyBhIGNvbW1vbiBzZXQNCj4gPiBvZiBlbmNhcHN1bGF0aW9ucyBpbiB0aGUga2VybmVsIChlLmcu
+IGZvby1vdmVyLXVkcCBhZGRzIGEgYnVuY2ggb2YNCj4gPiBlbmNhcHN1bGF0aW9ucyBub3QgcmVw
+cmVzZW50ZWQgaGVyZSksIG5vIGRlZmluZWQgY29tbW9uIHNldCBvZiBkZXZpY2UNCj4gPiBmdW5j
+dGlvbmFsaXR5IHRoYXQgbmVlZHMgdGhpcywgYW5kIHRoaXMgcHJlY2x1ZGVzIHRoZSB1c2Ugb2Yg
+dGhlIFJYDQo+ID4gYWNjZWxlcmF0aW9ucyB0byBiZSBhdmFpbGFibGUgZnJvbSBhIHVzZXJwc2Fj
+ZSAgaW1wbGVtZW50YXRpb24uDQo+IA0KPiBSZWdhcmRsZXNzLCBJIHRoaW5rIHRoaXMgaXMgYXQg
+bGVhc3QgYSBnb29kIGNsZWFudXAgb2Ygd2hhdCBpcyBhbHJlYWR5DQo+IHRoZXJlIGNvbXBhcmVk
+IHRvIGhhdmluZyBWWExBTi1zcGVjaWZpYyBORE9zLiBXZSBjYW4gYWx3YXlzIGFkZA0KPiBhZGRp
+dGlvbmFsIHRoaW5ncyBpbiB0aGUgZnV0dXJlLg0KDQpBZ3JlZWQgd2l0aCBKZXNzZSB0aGF0IHRo
+aXMgd2lsbCBoZWxwIG5vdCBodXJ0LCAgd2hlbiB3ZSBhcmUgcmVhZHkgdG8gY3Jvc3MgdGhlIGJy
+aWRnZSBmb3IgcmVtb3ZpbmcgUlggc2lkZSBQcm90b2NvbCBvc3NpZmljYXRpb24uIA0KDQo=
