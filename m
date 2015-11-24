@@ -1,52 +1,29 @@
-From: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
-Subject: Increasing skb->mark size
-Date: Tue, 24 Nov 2015 20:32:24 +0000
-Message-ID: <1448397144.14854.27.camel@mattb-dl>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: Increasing skb->mark size
+Date: Tue, 24 Nov 2015 21:36:02 +0100
+Message-ID: <20151124203602.GB23215@breakpoint.cc>
+References: <1448397144.14854.27.camel@mattb-dl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Luuk Paulussen <Luuk.Paulussen@alliedtelesis.co.nz>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Luuk Paulussen <Luuk.Paulussen@alliedtelesis.co.nz>
+To: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:46712 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754092AbbKXUcc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 15:32:32 -0500
-Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(Client did not present a certificate)
-	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id 197F680374
-	for <netdev@vger.kernel.org>; Wed, 25 Nov 2015 09:32:29 +1300 (NZDT)
-Content-Language: en-US
-Content-ID: <F569FB0303447E42BC06498A2B5A3ECC@atlnz.lc>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:59913 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754641AbbKXUgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 15:36:06 -0500
+Content-Disposition: inline
+In-Reply-To: <1448397144.14854.27.camel@mattb-dl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8sDQoNCkN1cnJlbnRseSB3ZSBoYXZlIGEgbnVtYmVyIG9mIHJvdXRlciBmZWF0dXJlcyAo
-ZmlyZXdhbGwsIFFvUywgZXRjKQ0KbWFraW5nIHVzZSBvZiBpcCB0YWJsZXMgYW5kIGNvbm5lY3Rp
-b24gdHJhY2tpbmcuIFdlIGRvIHRoaXMgYnkgZ2l2aW5nDQplYWNoIGZlYXR1cmUgYSBjZXJ0YWlu
-IGFyZWEgb2Ygc2tiLT5tYXJrIChzYXkgOCBiaXRzIGVhY2gpLiBUaGlzIGFsbG93cw0KdXMgdG8g
-c2ltcGx5IHJlc3RvcmUgc2tiLT5tYXJrICh1c2luZyBjb25uZWN0aW9uIHRyYWNraW5nKSBmb3Ig
-cGFja2V0cw0KaW4gYSBmbG93IHVzaW5nIHRoZSBsb2dpYyBiZWxvdy4NCg0KT3VyIHNvZnR3YXJl
-IGxvZ2ljIGlzOg0KDQoxLiBUaGUgZmlyc3QgcGFja2V0IGluIGEgZmxvdyB0cmF2ZXJzZXMgdGhy
-b3VnaCBpcC10YWJsZXMgd2hlcmUNCmVhY2ggZmVhdHVyZSBoYXMgc2V0IHJ1bGVzIHRvIG1hcmsg
-dGhlaXIgc2VjdGlvbiBvZiBza2ItPm1hcmsuIA0KDQoyLiBXZSB0aGVuIHN0b3JlIHRoZSBtYXJr
-IGludG8gY29ubm1hcmsuIA0KDQozLiBUaGVuIGFzIGVhY2ggcGFja2V0IGluIHRoZSBmbG93IGhp
-dHMgaXAgdGFibGVzIHRoZSBmaXJzdCBydWxlIGluDQppcC10YWJsZXMgc2ltcGx5IHJlc3RvcmVz
-IHRoZSBjb25ubWFyayBhbmQgdGhlIHBhY2tldCBnb2VzIHRvIGVncmVzcy4NCg0KVXAgdW50aWwg
-bm93IHRoaXMgaGFzIHdvcmtlZCB2ZXJ5IHdlbGwgZm9yIHVzLiBIb3dldmVyIHNpbmNlIHNrYi0+
-bWFyaw0KaXMgb25seSAzMiBiaXRzIHdlIGhhdmUgcXVpY2tseSBydW4gb3V0IG9mIGJpdHMgZm9y
-IG1hcmtpbmcuIA0KDQpUaGlzIGxlYXZlcyB1cyB3aXRoIHR3byBvcHRpb25zOg0KIC0gRG9uJ3Qg
-YWxsb3cgYWxsIGZlYXR1cmVzIHRvIGJlIGVuYWJsZWQgYXQgb25jZSAoaS5lLiBtdWx0aXBsZQ0K
-ZmVhdHVyZXMgc2hhcmUgdGhlIHNhbWUgYXJlYSBvZiBza2ItPm1hcmspLiBUaGlzIGlzIG5vdCBp
-ZGVhbC4NCg0KIC0gSW5jcmVhc2UgdGhlIHNpemUgb2Ygc2tiLT5tYXJrIChvciBhbm90aGVyIHNv
-bHV0aW9uIHN1Y2ggYXMgYWRkaW5nIGFuDQphZGRpdGlvbmFsIGZpZWxkIGludG8gc2tfYnVmZiBm
-b3IgbWFya2luZykuDQoNCkhvcGVmdWxseSB3aGF0IEkgaGF2ZSBleHBsYWluZWQgYWJvdmUgaXMg
-YSBzdHJvbmcgZXhhbXBsZSBvZiB3aGVyZQ0Kc2tiLT5tYXJrIGlzIG5vIGxvbmdlciBsYXJnZSBl
-bm91Z2ggb24gcm91dGVycyB1c2luZyBjb25uZWN0aW9uIHRyYWNraW5nDQp0byBhY2hpZXZlIHN1
-cGVyaW9yIHBlcmZvcm1hbmNlLiANCg0KSSdtIGVtYWlsaW5nIHRoaXMgbGlzdCBmb3IgZmVlZGJh
-Y2sgb24gdGhlIGZlYXNpYmlsaXR5IG9mIGluY3JlYXNpbmcNCnNrYi0+bWFyayBvciBhZGRpbmcg
-YSBuZXcgZmllbGQgZm9yIG1hcmtpbmcuIFBlcmhhcHMgdGhpcyBleHRlbnNpb24NCmNvdWxkIGJl
-IGRvbmUgdW5kZXIgYSBuZXcgQ09ORklHIG9wdGlvbi4gUGVyaGFwcyB0aGVyZSBhcmUgb3RoZXIg
-d2F5cyB3ZQ0KY291bGQgYWNoaWV2ZSB0aGUgZGVzaXJlZCBiZWhhdmlvdXI/DQoNClRoYW5rcywN
-Ck1hdHQNCg==
+Matt Bennett <Matt.Bennett@alliedtelesis.co.nz> wrote:
+> I'm emailing this list for feedback on the feasibility of increasing
+> skb->mark or adding a new field for marking. Perhaps this extension
+> could be done under a new CONFIG option. Perhaps there are other ways we
+> could achieve the desired behaviour?
+
+Well I pointed you towards connlabels which provide 128 bit of space
+in the conntrack extension area but you did not tell me why you cannot
+use it.
