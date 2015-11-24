@@ -1,77 +1,87 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 0/6] kcm: Kernel Connection Multiplexor (KCM)
-Date: Tue, 24 Nov 2015 13:49:37 -0800
-Message-ID: <CALx6S36oFH9=Px=pptZurWgS1MtFbhOE=FeK0jZmNBk3fU7tSg@mail.gmail.com>
-References: <CALx6S34TrGgmH3eZKPLw_xKYfX2dm+fZq6r7ZBe2DBPudBiSzA@mail.gmail.com>
-	<20151123.145433.1554000376541433305.davem@davemloft.net>
-	<20151124152744.GB20972@breakpoint.cc>
-	<20151124.105537.185897620062606312.davem@davemloft.net>
-	<20151124162515.GA22266@breakpoint.cc>
-	<CALx6S35uHQS1n7GYATZ-3UwLFhdiShdVzTBzEgdkKsQrmdpXZw@mail.gmail.com>
-	<20151124171650.GA23215@breakpoint.cc>
-	<CALx6S36qHkUhz5VN+xvsMhszTQnCUUhQ+Doja86wLGWJEe_u_A@mail.gmail.com>
-	<20151124205537.GC23215@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: [PATCH 01/13] mm: memcontrol: export root_mem_cgroup
+Date: Tue, 24 Nov 2015 16:51:53 -0500
+Message-ID: <1448401925-22501-2-git-send-email-hannes@cmpxchg.org>
+References: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
 Cc: David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>, davejwatson@fb.com,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Florian Westphal <fw@strlen.de>
+	Vladimir Davydov <vdavydov@virtuozzo.com>,
+	Michal Hocko <mhocko@suse.cz>, Tejun Heo <tj@kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:35245 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754091AbbKXVti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 16:49:38 -0500
-Received: by ioc74 with SMTP id 74so34822887ioc.2
-        for <netdev@vger.kernel.org>; Tue, 24 Nov 2015 13:49:37 -0800 (PST)
-In-Reply-To: <20151124205537.GC23215@breakpoint.cc>
+Received: from gum.cmpxchg.org ([85.214.110.215]:45744 "EHLO gum.cmpxchg.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755231AbbKXVwX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Nov 2015 16:52:23 -0500
+In-Reply-To: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 24, 2015 at 12:55 PM, Florian Westphal <fw@strlen.de> wrote:
-> Tom Herbert <tom@herbertland.com> wrote:
->> Message size limits can be enforced in BPF or we could add a limit
->> enforced by KCM. For instance, the message size limit in http/2 is
->> 16M. If it's needed, it wouldn't be much trouble to add a streaming
->> interface for large messages.
->
-> That still won't change the fact that KCM allows eating large
-> amount of kernel memory (you could just open a lot of sockets...).
->
-> For tcp we cannot exceed the total rmem limits, even if I can open
-> 4k sockets.
->
-> Why anyone would invest such a huge amount of work in making this
-> kernel-based framing for single-stream tcp record (de)mux rather than
-> improving the userspace protocol to use UDP or SCTP or at least
-> one tcp connection per worker is beyond me.
->
->From the /0 patch:
+A later patch will need this symbol in files other than memcontrol.c,
+so export it now and replace mem_cgroup_root_css at the same time.
 
-Q: Why not use an existing message-oriented protocol such as RUDP,
-   DCCP, SCTP, RDS, and others?
+Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+Acked-by: Michal Hocko <mhocko@suse.com>
+Acked-by: David S. Miller <davem@davemloft.net>
+Reviewed-by: Vladimir Davydov <vdavydov@virtuozzo.com>
+---
+ include/linux/memcontrol.h | 3 ++-
+ mm/backing-dev.c           | 2 +-
+ mm/memcontrol.c            | 5 ++---
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-A: Because that would entail using a completely new transport protocol.
-   Deploying a new protocol at scale is either a huge undertaking or
-   fundamentally infeasible. This is true in either the Internet and in
-   the data center due in a large part to protocol ossification.
-   Besides, KCM we want KCM to work existing, well deployed application
-   protocols that we couldn't change even if we wanted to (e.g. http/2).
-
-   KCM simply defines a new interface method, it does not redefine any
-   aspect of the transport protocol nor application protocol, nor set
-   any new requirements on these. Neither does KCM attempt to implement
-   any application protocol logic other than message deliniation in the
-   stream. These are fundamental requirement of KCM.
-
-
-> For TX side, why is writev not good enough?
-
-writev on a TCP stream does not guarantee atomicity of the operation.
-
-> Is KCM tx just so that userspace doesn't need to handle partial writes?
-
-It writes atomic without user space needing to implement locking when
-a socket is shared amongst threads..
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index 9d5472b..320b690 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -265,7 +265,8 @@ struct mem_cgroup {
+ 	struct mem_cgroup_per_node *nodeinfo[0];
+ 	/* WARNING: nodeinfo must be the last member here */
+ };
+-extern struct cgroup_subsys_state *mem_cgroup_root_css;
++
++extern struct mem_cgroup *root_mem_cgroup;
+ 
+ /**
+  * mem_cgroup_events - count memory events against a cgroup
+diff --git a/mm/backing-dev.c b/mm/backing-dev.c
+index 9160853..fdc6f4d 100644
+--- a/mm/backing-dev.c
++++ b/mm/backing-dev.c
+@@ -707,7 +707,7 @@ static int cgwb_bdi_init(struct backing_dev_info *bdi)
+ 
+ 	ret = wb_init(&bdi->wb, bdi, 1, GFP_KERNEL);
+ 	if (!ret) {
+-		bdi->wb.memcg_css = mem_cgroup_root_css;
++		bdi->wb.memcg_css = &root_mem_cgroup->css;
+ 		bdi->wb.blkcg_css = blkcg_root_css;
+ 	}
+ 	return ret;
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index 79a29d5..f6ea649 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -76,9 +76,9 @@
+ struct cgroup_subsys memory_cgrp_subsys __read_mostly;
+ EXPORT_SYMBOL(memory_cgrp_subsys);
+ 
++struct mem_cgroup *root_mem_cgroup __read_mostly;
++
+ #define MEM_CGROUP_RECLAIM_RETRIES	5
+-static struct mem_cgroup *root_mem_cgroup __read_mostly;
+-struct cgroup_subsys_state *mem_cgroup_root_css __read_mostly;
+ 
+ /* Whether the swap controller is active */
+ #ifdef CONFIG_MEMCG_SWAP
+@@ -4217,7 +4217,6 @@ mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
+ 	/* root ? */
+ 	if (parent_css == NULL) {
+ 		root_mem_cgroup = memcg;
+-		mem_cgroup_root_css = &memcg->css;
+ 		page_counter_init(&memcg->memory, NULL);
+ 		memcg->high = PAGE_COUNTER_MAX;
+ 		memcg->soft_limit = PAGE_COUNTER_MAX;
+-- 
+2.6.2
