@@ -1,56 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tipc: fix error handling of expanding buffer
- headroom
-Date: Tue, 24 Nov 2015 11:27:21 -0500 (EST)
-Message-ID: <20151124.112721.722886749351483829.davem@davemloft.net>
-References: <1448344677-11462-1-git-send-email-ying.xue@windriver.com>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH net-next 08/10] hv_netvsc: Don't ask for additional head
+ room in the skb
+Date: Tue, 24 Nov 2015 16:27:52 +0000
+Message-ID: <BLUPR0301MB165134BACEE74BCBD6581F78A0060@BLUPR0301MB1651.namprd03.prod.outlook.com>
+References: <1448321324-21318-1-git-send-email-kys@microsoft.com>
+ <1448321346-21357-1-git-send-email-kys@microsoft.com>
+ <1448321346-21357-8-git-send-email-kys@microsoft.com>
+ <87vb8rlqrv.fsf@vitty.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, scan-admin@coverity.com,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: ying.xue@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42422 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754054AbbKXQ1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 11:27:23 -0500
-In-Reply-To: <1448344677-11462-1-git-send-email-ying.xue@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Vitaly Kuznetsov <vkuznets@redhat.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <87vb8rlqrv.fsf@vitty.brq.redhat.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Ying Xue <ying.xue@windriver.com>
-Date: Tue, 24 Nov 2015 13:57:57 +0800
 
-> Coverity says:
-> 
-> *** CID 1338065:  Error handling issues  (CHECKED_RETURN)
-> /net/tipc/udp_media.c: 162 in tipc_udp_send_msg()
-> 156     	struct udp_media_addr *dst = (struct udp_media_addr *)&dest->value;
-> 157     	struct udp_media_addr *src = (struct udp_media_addr *)&b->addr.value;
-> 158     	struct sk_buff *clone;
-> 159     	struct rtable *rt;
-> 160
-> 161     	if (skb_headroom(skb) < UDP_MIN_HEADROOM)
->>>>     CID 1338065:  Error handling issues  (CHECKED_RETURN)
->>>>     Calling "pskb_expand_head" without checking return value (as is done elsewhere 51 out of 56 times).
-> 162     		pskb_expand_head(skb, UDP_MIN_HEADROOM, 0, GFP_ATOMIC);
-> 163
-> 164     	clone = skb_clone(skb, GFP_ATOMIC);
-> 165     	skb_set_inner_protocol(clone, htons(ETH_P_TIPC));
-> 166     	ub = rcu_dereference_rtnl(b->media_ptr);
-> 167     	if (!ub) {
-> 
-> When expanding buffer headroom over udp tunnel with pskb_expand_head(),
-> it's unfortunate that we don't check its return value. As a result, if
-> the function returns an error code due to the lack of memory, it may
-> cause unpredictable consequence as we unconditionally consider that
-> it's always successful.
-> 
-> Fixes: e53567948f82 ("tipc: conditionally expand buffer headroom over udp tunnel")
-> Reported-by: <scan-admin@coverity.com>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Signed-off-by: Ying Xue <ying.xue@windriver.com>
 
-Applied and queued up for -stable.
+> -----Original Message-----
+> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
+> Sent: Tuesday, November 24, 2015 12:56 AM
+> To: KY Srinivasan <kys@microsoft.com>
+> Cc: davem@davemloft.net; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
+> apw@canonical.com; jasowang@redhat.com
+> Subject: Re: [PATCH net-next 08/10] hv_netvsc: Don't ask for additional head
+> room in the skb
+> 
+> "K. Y. Srinivasan" <kys@microsoft.com> writes:
+> 
+> > The rndis header is 116 bytes big and can be placed in the default
+> > head room that will be available in the skb.
+> 
+> We have the following in include/linux/netdevice.h:
+> 
+> #if defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
+> # if defined(CONFIG_MAC80211_MESH)
+> #  define LL_MAX_HEADER 128
+> # else
+> #  define LL_MAX_HEADER 96
+> # endif
+> #else
+> # define LL_MAX_HEADER 32
+> #endif
+> 
+> In case someone disables MAC80211_MESH in his kernel config we're in
+> troubles again. I suggest we add additional patch here making sure it is
+> 128 bytes for Hyper-V:
+> 
+> #if defined(CONFIG_HYPERV_NET)
+> # define LL_MAX_HEADER 128
+> #elseif defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
+> ...
+
+Thanks Vitaly; will do.
+
+K. Y
