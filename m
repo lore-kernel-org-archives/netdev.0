@@ -1,222 +1,316 @@
 From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: [PATCH 10/13] mm: memcontrol: do not account memory+swap on unified hierarchy
-Date: Tue, 24 Nov 2015 16:52:02 -0500
-Message-ID: <1448401925-22501-11-git-send-email-hannes@cmpxchg.org>
+Subject: [PATCH 12/13] mm: memcontrol: account socket memory in unified
+ hierarchy memory controller
+Date: Tue, 24 Nov 2015 16:58:44 -0500
+Message-ID: <20151124215844.GA1373@cmpxchg.org>
 References: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>,
 	Vladimir Davydov <vdavydov@virtuozzo.com>,
-	Michal Hocko <mhocko@suse.cz>,
-	Tejun Heo <tj@kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev@vger.kernel.org,
-	linux-mm@kvack.org,
-	cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	kernel-team@fb.com
+	Michal Hocko <mhocko@suse.cz>, Tejun Heo <tj@kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com
 To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
 In-Reply-To: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-The unified hierarchy memory controller doesn't expose the memory+swap
-counter to userspace, but its accounting is hardcoded in all charge
-paths right now, including the per-cpu charge cache ("the stock").
+Socket memory can be a significant share of overall memory consumed by
+common workloads. In order to provide reasonable resource isolation in
+the unified hierarchy, this type of memory needs to be included in the
+tracking/accounting of a cgroup under active memory resource control.
 
-To avoid adding yet more pointless memory+swap accounting with the
-socket memory support in unified hierarchy, disable the counter
-altogether when in unified hierarchy mode.
+Overhead is only incurred when a non-root control group is created AND
+the memory controller is instructed to track and account the memory
+footprint of that group. cgroup.memory=nosocket can be specified on
+the boot commandline to override any runtime configuration and
+forcibly exclude socket memory from active memory resource control.
 
 Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
-Acked-by: Michal Hocko <mhocko@suse.com>
-Reviewed-by: Vladimir Davydov <vdavydov@virtuozzo.com>
 ---
- mm/memcontrol.c | 44 +++++++++++++++++++++++++-------------------
- 1 file changed, 25 insertions(+), 19 deletions(-)
+ Documentation/kernel-parameters.txt |   4 ++
+ include/linux/memcontrol.h          |  11 +++-
+ mm/memcontrol.c                     | 122 +++++++++++++++++++++++++++++-------
+ 3 files changed, 111 insertions(+), 26 deletions(-)
 
+diff --git a/Documentation/kernel-parameters.txt b/Documentation/kernel-parameters.txt
+index 742f69d..7868f1b 100644
+--- a/Documentation/kernel-parameters.txt
++++ b/Documentation/kernel-parameters.txt
+@@ -599,6 +599,10 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
+ 			cut the overhead, others just disable the usage. So
+ 			only cgroup_disable=memory is actually worthy}
+ 
++	cgroup.memory=	[KNL] Pass options to the cgroup memory controller.
++			Format: <string>
++			nosocket -- Disable socket memory accounting.
++
+ 	checkreqprot	[SELINUX] Set initial checkreqprot flag value.
+ 			Format: { "0" | "1" }
+ 			See security/selinux/Kconfig help text.
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index dad56ef..fae0aaf 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -170,6 +170,9 @@ struct mem_cgroup {
+ 	unsigned long low;
+ 	unsigned long high;
+ 
++	/* Range enforcement for interrupt charges */
++	struct work_struct high_work;
++
+ 	unsigned long soft_limit;
+ 
+ 	/* vmpressure notifications */
+@@ -679,7 +682,7 @@ static inline void mem_cgroup_wb_stats(struct bdi_writeback *wb,
+ 
+ #endif	/* CONFIG_CGROUP_WRITEBACK */
+ 
+-#if defined(CONFIG_INET) && defined(CONFIG_MEMCG_KMEM)
++#ifdef CONFIG_INET
+ struct sock;
+ extern struct static_key memcg_sockets_enabled_key;
+ #define mem_cgroup_sockets_enabled static_key_false(&memcg_sockets_enabled_key)
+@@ -689,11 +692,15 @@ bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
+ void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
+ static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
+ {
++#ifdef CONFIG_MEMCG_KMEM
+ 	return memcg->tcp_mem.memory_pressure;
++#else
++	return false;
++#endif
+ }
+ #else
+ #define mem_cgroup_sockets_enabled 0
+-#endif /* CONFIG_INET && CONFIG_MEMCG_KMEM */
++#endif /* CONFIG_INET */
+ 
+ #ifdef CONFIG_MEMCG_KMEM
+ extern struct static_key memcg_kmem_enabled_key;
 diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 0602bee..6b8c0f7 100644
+index ed030b5..59555b0 100644
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
-@@ -87,6 +87,12 @@ int do_swap_account __read_mostly;
- #define do_swap_account		0
- #endif
+@@ -80,6 +80,9 @@ struct mem_cgroup *root_mem_cgroup __read_mostly;
  
-+/* Whether legacy memory+swap accounting is active */
-+static bool do_memsw_account(void)
+ #define MEM_CGROUP_RECLAIM_RETRIES	5
+ 
++/* Socket memory accounting disabled? */
++static bool cgroup_memory_nosocket;
++
+ /* Whether the swap controller is active */
+ #ifdef CONFIG_MEMCG_SWAP
+ int do_swap_account __read_mostly;
+@@ -1923,6 +1926,26 @@ static int memcg_cpu_hotplug_callback(struct notifier_block *nb,
+ 	return NOTIFY_OK;
+ }
+ 
++static void reclaim_high(struct mem_cgroup *memcg,
++			 unsigned int nr_pages,
++			 gfp_t gfp_mask)
 +{
-+	return !cgroup_subsys_on_dfl(memory_cgrp_subsys) && do_swap_account;
++	do {
++		if (page_counter_read(&memcg->memory) <= memcg->high)
++			continue;
++		mem_cgroup_events(memcg, MEMCG_HIGH, 1);
++		try_to_free_mem_cgroup_pages(memcg, nr_pages, gfp_mask, true);
++	} while ((memcg = parent_mem_cgroup(memcg)));
 +}
 +
- static const char * const mem_cgroup_stat_names[] = {
- 	"cache",
- 	"rss",
-@@ -1177,7 +1183,7 @@ static unsigned long mem_cgroup_margin(struct mem_cgroup *memcg)
- 	if (count < limit)
- 		margin = limit - count;
- 
--	if (do_swap_account) {
-+	if (do_memsw_account()) {
- 		count = page_counter_read(&memcg->memsw);
- 		limit = READ_ONCE(memcg->memsw.limit);
- 		if (count <= limit)
-@@ -1280,7 +1286,7 @@ void mem_cgroup_print_oom_info(struct mem_cgroup *memcg, struct task_struct *p)
- 		pr_cont(":");
- 
- 		for (i = 0; i < MEM_CGROUP_STAT_NSTATS; i++) {
--			if (i == MEM_CGROUP_STAT_SWAP && !do_swap_account)
-+			if (i == MEM_CGROUP_STAT_SWAP && !do_memsw_account())
- 				continue;
- 			pr_cont(" %s:%luKB", mem_cgroup_stat_names[i],
- 				K(mem_cgroup_read_stat(iter, i)));
-@@ -1903,7 +1909,7 @@ static void drain_stock(struct memcg_stock_pcp *stock)
- 
- 	if (stock->nr_pages) {
- 		page_counter_uncharge(&old->memory, stock->nr_pages);
--		if (do_swap_account)
-+		if (do_memsw_account())
- 			page_counter_uncharge(&old->memsw, stock->nr_pages);
- 		css_put_many(&old->css, stock->nr_pages);
- 		stock->nr_pages = 0;
-@@ -2033,11 +2039,11 @@ retry:
- 	if (consume_stock(memcg, nr_pages))
- 		return 0;
- 
--	if (!do_swap_account ||
-+	if (!do_memsw_account() ||
- 	    page_counter_try_charge(&memcg->memsw, batch, &counter)) {
- 		if (page_counter_try_charge(&memcg->memory, batch, &counter))
- 			goto done_restock;
--		if (do_swap_account)
-+		if (do_memsw_account())
- 			page_counter_uncharge(&memcg->memsw, batch);
- 		mem_over_limit = mem_cgroup_from_counter(counter, memory);
- 	} else {
-@@ -2124,7 +2130,7 @@ force:
- 	 * temporarily by force charging it.
- 	 */
- 	page_counter_charge(&memcg->memory, nr_pages);
--	if (do_swap_account)
-+	if (do_memsw_account())
- 		page_counter_charge(&memcg->memsw, nr_pages);
- 	css_get_many(&memcg->css, nr_pages);
- 
-@@ -2161,7 +2167,7 @@ static void cancel_charge(struct mem_cgroup *memcg, unsigned int nr_pages)
- 		return;
- 
- 	page_counter_uncharge(&memcg->memory, nr_pages);
--	if (do_swap_account)
-+	if (do_memsw_account())
- 		page_counter_uncharge(&memcg->memsw, nr_pages);
- 
- 	css_put_many(&memcg->css, nr_pages);
-@@ -2447,7 +2453,7 @@ void __memcg_kmem_uncharge(struct page *page, int order)
- 
- 	page_counter_uncharge(&memcg->kmem, nr_pages);
- 	page_counter_uncharge(&memcg->memory, nr_pages);
--	if (do_swap_account)
-+	if (do_memsw_account())
- 		page_counter_uncharge(&memcg->memsw, nr_pages);
- 
- 	page->mem_cgroup = NULL;
-@@ -3160,7 +3166,7 @@ static int memcg_stat_show(struct seq_file *m, void *v)
- 	BUILD_BUG_ON(ARRAY_SIZE(mem_cgroup_lru_names) != NR_LRU_LISTS);
- 
- 	for (i = 0; i < MEM_CGROUP_STAT_NSTATS; i++) {
--		if (i == MEM_CGROUP_STAT_SWAP && !do_swap_account)
-+		if (i == MEM_CGROUP_STAT_SWAP && !do_memsw_account())
- 			continue;
- 		seq_printf(m, "%s %lu\n", mem_cgroup_stat_names[i],
- 			   mem_cgroup_read_stat(memcg, i) * PAGE_SIZE);
-@@ -3182,14 +3188,14 @@ static int memcg_stat_show(struct seq_file *m, void *v)
- 	}
- 	seq_printf(m, "hierarchical_memory_limit %llu\n",
- 		   (u64)memory * PAGE_SIZE);
--	if (do_swap_account)
-+	if (do_memsw_account())
- 		seq_printf(m, "hierarchical_memsw_limit %llu\n",
- 			   (u64)memsw * PAGE_SIZE);
- 
- 	for (i = 0; i < MEM_CGROUP_STAT_NSTATS; i++) {
- 		unsigned long long val = 0;
- 
--		if (i == MEM_CGROUP_STAT_SWAP && !do_swap_account)
-+		if (i == MEM_CGROUP_STAT_SWAP && !do_memsw_account())
- 			continue;
- 		for_each_mem_cgroup_tree(mi, memcg)
- 			val += mem_cgroup_read_stat(mi, i) * PAGE_SIZE;
-@@ -3320,7 +3326,7 @@ static void mem_cgroup_threshold(struct mem_cgroup *memcg)
++static void high_work_func(struct work_struct *work)
++{
++	struct mem_cgroup *memcg;
++
++	memcg = container_of(work, struct mem_cgroup, high_work);
++	reclaim_high(memcg, CHARGE_BATCH, GFP_KERNEL);
++}
++
+ /*
+  * Scheduled by try_charge() to be executed from the userland return path
+  * and reclaims memory over the high limit.
+@@ -1930,20 +1953,13 @@ static int memcg_cpu_hotplug_callback(struct notifier_block *nb,
+ void mem_cgroup_handle_over_high(void)
  {
- 	while (memcg) {
- 		__mem_cgroup_threshold(memcg, false);
--		if (do_swap_account)
-+		if (do_memsw_account())
- 			__mem_cgroup_threshold(memcg, true);
+ 	unsigned int nr_pages = current->memcg_nr_pages_over_high;
+-	struct mem_cgroup *memcg, *pos;
++	struct mem_cgroup *memcg;
  
- 		memcg = parent_mem_cgroup(memcg);
-@@ -4466,7 +4472,7 @@ static struct page *mc_handle_swap_pte(struct vm_area_struct *vma,
- 	 * we call find_get_page() with swapper_space directly.
+ 	if (likely(!nr_pages))
+ 		return;
+ 
+-	pos = memcg = get_mem_cgroup_from_mm(current->mm);
+-
+-	do {
+-		if (page_counter_read(&pos->memory) <= pos->high)
+-			continue;
+-		mem_cgroup_events(pos, MEMCG_HIGH, 1);
+-		try_to_free_mem_cgroup_pages(pos, nr_pages, GFP_KERNEL, true);
+-	} while ((pos = parent_mem_cgroup(pos)));
+-
++	memcg = get_mem_cgroup_from_mm(current->mm);
++	reclaim_high(memcg, nr_pages, GFP_KERNEL);
+ 	css_put(&memcg->css);
+ 	current->memcg_nr_pages_over_high = 0;
+ }
+@@ -2078,6 +2094,11 @@ done_restock:
  	 */
- 	page = find_get_page(swap_address_space(ent), ent.val);
--	if (do_swap_account)
-+	if (do_memsw_account())
- 		entry->val = ent.val;
+ 	do {
+ 		if (page_counter_read(&memcg->memory) > memcg->high) {
++			/* Don't bother a random interrupted task */
++			if (in_interrupt()) {
++				schedule_work(&memcg->high_work);
++				break;
++			}
+ 			current->memcg_nr_pages_over_high += batch;
+ 			set_notify_resume(current);
+ 			break;
+@@ -4126,6 +4147,8 @@ static void __mem_cgroup_free(struct mem_cgroup *memcg)
+ {
+ 	int node;
  
- 	return page;
-@@ -4501,7 +4507,7 @@ static struct page *mc_handle_file_pte(struct vm_area_struct *vma,
- 		page = find_get_entry(mapping, pgoff);
- 		if (radix_tree_exceptional_entry(page)) {
- 			swp_entry_t swp = radix_to_swp_entry(page);
--			if (do_swap_account)
-+			if (do_memsw_account())
- 				*entry = swp;
- 			page = find_get_page(swap_address_space(swp), swp.val);
- 		}
-@@ -5276,7 +5282,7 @@ int mem_cgroup_try_charge(struct page *page, struct mm_struct *mm,
- 		if (page->mem_cgroup)
- 			goto out;
++	cancel_work_sync(&memcg->high_work);
++
+ 	mem_cgroup_remove_from_trees(memcg);
  
--		if (do_swap_account) {
-+		if (do_memsw_account()) {
- 			swp_entry_t ent = { .val = page_private(page), };
- 			unsigned short id = lookup_swap_cgroup_id(ent);
- 
-@@ -5340,7 +5346,7 @@ void mem_cgroup_commit_charge(struct page *page, struct mem_cgroup *memcg,
- 	memcg_check_events(memcg, page);
- 	local_irq_enable();
- 
--	if (do_swap_account && PageSwapCache(page)) {
-+	if (do_memsw_account() && PageSwapCache(page)) {
- 		swp_entry_t entry = { .val = page_private(page) };
- 		/*
- 		 * The swap entry might not get freed for a long time,
-@@ -5385,7 +5391,7 @@ static void uncharge_batch(struct mem_cgroup *memcg, unsigned long pgpgout,
- 
- 	if (!mem_cgroup_is_root(memcg)) {
- 		page_counter_uncharge(&memcg->memory, nr_pages);
--		if (do_swap_account)
-+		if (do_memsw_account())
- 			page_counter_uncharge(&memcg->memsw, nr_pages);
- 		memcg_oom_recover(memcg);
+ 	for_each_node(node)
+@@ -4172,6 +4195,7 @@ mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
+ 		page_counter_init(&memcg->kmem, NULL);
  	}
-@@ -5593,7 +5599,7 @@ void mem_cgroup_swapout(struct page *page, swp_entry_t entry)
- 	VM_BUG_ON_PAGE(PageLRU(page), page);
- 	VM_BUG_ON_PAGE(page_count(page), page);
  
--	if (!do_swap_account)
-+	if (!do_memsw_account())
- 		return;
++	INIT_WORK(&memcg->high_work, high_work_func);
+ 	memcg->last_scanned_node = MAX_NUMNODES;
+ 	INIT_LIST_HEAD(&memcg->oom_notify);
+ 	memcg->move_charge_at_immigrate = 0;
+@@ -4243,6 +4267,11 @@ mem_cgroup_css_online(struct cgroup_subsys_state *css)
+ 	if (ret)
+ 		return ret;
  
- 	memcg = page->mem_cgroup;
-@@ -5633,7 +5639,7 @@ void mem_cgroup_uncharge_swap(swp_entry_t entry)
- 	struct mem_cgroup *memcg;
- 	unsigned short id;
++#ifdef CONFIG_INET
++	if (cgroup_subsys_on_dfl(memory_cgrp_subsys) && !cgroup_memory_nosocket)
++		static_key_slow_inc(&memcg_sockets_enabled_key);
++#endif
++
+ 	/*
+ 	 * Make sure the memcg is initialized: mem_cgroup_iter()
+ 	 * orders reading memcg->initialized against its callers
+@@ -4282,6 +4311,10 @@ static void mem_cgroup_css_free(struct cgroup_subsys_state *css)
+ 	struct mem_cgroup *memcg = mem_cgroup_from_css(css);
  
--	if (!do_swap_account)
-+	if (!do_memsw_account())
- 		return;
+ 	memcg_destroy_kmem(memcg);
++#ifdef CONFIG_INET
++	if (cgroup_subsys_on_dfl(memory_cgrp_subsys) && !cgroup_memory_nosocket)
++		static_key_slow_dec(&memcg_sockets_enabled_key);
++#endif
+ 	__mem_cgroup_free(memcg);
+ }
  
- 	id = swap_cgroup_record(entry, 0);
+@@ -5470,8 +5503,7 @@ void mem_cgroup_replace_page(struct page *oldpage, struct page *newpage)
+ 	commit_charge(newpage, memcg, true);
+ }
+ 
+-/* Writing them here to avoid exposing memcg's inner layout */
+-#if defined(CONFIG_INET) && defined(CONFIG_MEMCG_KMEM)
++#ifdef CONFIG_INET
+ 
+ struct static_key memcg_sockets_enabled_key;
+ EXPORT_SYMBOL(memcg_sockets_enabled_key);
+@@ -5496,10 +5528,15 @@ void sock_update_memcg(struct sock *sk)
+ 
+ 	rcu_read_lock();
+ 	memcg = mem_cgroup_from_task(current);
+-	if (memcg != root_mem_cgroup &&
+-	    memcg->tcp_mem.active &&
+-	    css_tryget_online(&memcg->css))
++	if (memcg == root_mem_cgroup)
++		goto out;
++#ifdef CONFIG_MEMCG_KMEM
++	if (!cgroup_subsys_on_dfl(memory_cgrp_subsys) && !memcg->tcp_mem.active)
++		goto out;
++#endif
++	if (css_tryget_online(&memcg->css))
+ 		sk->sk_memcg = memcg;
++out:
+ 	rcu_read_unlock();
+ }
+ EXPORT_SYMBOL(sock_update_memcg);
+@@ -5520,15 +5557,30 @@ void sock_release_memcg(struct sock *sk)
+  */
+ bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
+ {
+-	struct page_counter *counter;
++	gfp_t gfp_mask = GFP_KERNEL;
+ 
+-	if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
+-				    nr_pages, &counter)) {
+-		memcg->tcp_mem.memory_pressure = 0;
+-		return true;
++#ifdef CONFIG_MEMCG_KMEM
++	if (!cgroup_subsys_on_dfl(memory_cgrp_subsys)) {
++		struct page_counter *counter;
++
++		if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
++					    nr_pages, &counter)) {
++			memcg->tcp_mem.memory_pressure = 0;
++			return true;
++		}
++		page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
++		memcg->tcp_mem.memory_pressure = 1;
++		return false;
+ 	}
+-	page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
+-	memcg->tcp_mem.memory_pressure = 1;
++#endif
++	/* Don't block in the packet receive path */
++	if (in_softirq())
++		gfp_mask = GFP_NOWAIT;
++
++	if (try_charge(memcg, gfp_mask, nr_pages) == 0)
++		return true;
++
++	try_charge(memcg, gfp_mask|__GFP_NOFAIL, nr_pages);
+ 	return false;
+ }
+ 
+@@ -5539,10 +5591,32 @@ bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
+  */
+ void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
+ {
+-	page_counter_uncharge(&memcg->tcp_mem.memory_allocated, nr_pages);
++#ifdef CONFIG_MEMCG_KMEM
++	if (!cgroup_subsys_on_dfl(memory_cgrp_subsys)) {
++		page_counter_uncharge(&memcg->tcp_mem.memory_allocated,
++				      nr_pages);
++		return;
++	}
++#endif
++	page_counter_uncharge(&memcg->memory, nr_pages);
++	css_put_many(&memcg->css, nr_pages);
+ }
+ 
+-#endif
++#endif /* CONFIG_INET */
++
++static int __init cgroup_memory(char *s)
++{
++	char *token;
++
++	while ((token = strsep(&s, ",")) != NULL) {
++		if (!*token)
++			continue;
++		if (!strcmp(token, "nosocket"))
++			cgroup_memory_nosocket = true;
++	}
++	return 0;
++}
++__setup("cgroup.memory=", cgroup_memory);
+ 
+ /*
+  * subsys_initcall() for memory controller.
 -- 
 2.6.2
 
