@@ -1,77 +1,72 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Tue, 24 Nov 2015 11:18:35 +1100
-Message-ID: <20151124111835.0f5f0328@canb.auug.org.au>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [iproute PATCH] iproute: fix filter_nlmsg
+Date: Mon, 23 Nov 2015 16:20:24 -0800
+Message-ID: <20151123162024.727a3d07@xeon-e3>
+References: <1446117347-9110-1-git-send-email-phil@nwl.cc>
+	<20151103163359.0a38d573@xeon-e3>
+	<20151104155424.GF26876@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:19873 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751831AbbKXAUT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 19:20:19 -0500
+In-Reply-To: <20151104155424.GF26876@orbit.nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Wed, 4 Nov 2015 16:54:24 +0100
+Phil Sutter <phil@nwl.cc> wrote:
 
-Today's linux-next merge of the net-next tree got a conflict in:
+> On Tue, Nov 03, 2015 at 04:33:59PM -0800, Stephen Hemminger wrote:
+> > On Thu, 29 Oct 2015 12:15:47 +0100
+> > Phil Sutter <phil@nwl.cc> wrote:
+> > 
+> > > This patch is based upon an old Fedora bug[1] regarding the routing
+> > > setup of PPP links. I'm not quite sure if it still applies today or how
+> > > to trigger it, but looking at the change introducing this, it's
+> > > obviously a bug.
+> > > 
+> > > [1] https://bugzilla.redhat.com/show_bug.cgi?id=622782
+> > > 
+> > > Fixes: 4479282 ("iproute2: filter routing entries based on clone flag")
+> > > Signed-off-by: Phil Sutter <phil@nwl.cc>
+> > > ---
+> > >  ip/iproute.c | 2 +-
+> > >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > > 
+> > > diff --git a/ip/iproute.c b/ip/iproute.c
+> > > index eab512d..ea7e9aa 100644
+> > > --- a/ip/iproute.c
+> > > +++ b/ip/iproute.c
+> > > @@ -151,7 +151,7 @@ static int filter_nlmsg(struct nlmsghdr *n, struct rtattr **tb, int host_len)
+> > >  	if (r->rtm_family == AF_INET6 && table != RT_TABLE_MAIN)
+> > >  		ip6_multiple_tables = 1;
+> > >  
+> > > -	if (filter.cloned == !(r->rtm_flags&RTM_F_CLONED))
+> > > +	if (filter.cloned && !(r->rtm_flags&RTM_F_CLONED))
+> > >  		return 0;
+> > >  
+> > >  	if (r->rtm_family == AF_INET6 && !ip6_multiple_tables) {
+> > 
+> > Holding off on this, until there is an obvious reproduction.
+> > The patch looks right but this code has been around a long time and don't want
+> > any surprised users.
+> 
+> Looking more into this, I found commit c73f3e0 ("iproute2: dont filter
+> cached routes on iproute_get") which bases explicitly on the behaviour
+> as we have now (comparison instead of boolean AND).
+> 
+> The above change at least affects showing routes for IPv6. With it
+> applied, 'ip r s' prints the routing cache along with normal routing
+> table entries, without it one has to explicitly ask for cached entries
+> in order for them to show up ('ip r s cached'). What do you think which
+> is the correct behaviour?
 
-  net/ipv4/ipmr.c
-
-between commit:
-
-  0e615e9601a1 ("net: ipmr: fix static mfc/dev leaks on table destruction")
-
-from the net tree and commit:
-
-  7ef8f65df976 ("net: ipmr: fix code and comment style")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc net/ipv4/ipmr.c
-index 292123bc30fa,a2d248d9c35c..000000000000
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@@ -1204,30 -1210,24 +1210,25 @@@ static int ipmr_mfc_add(struct net *net
-  	return 0;
-  }
-  
-- /*
--  *	Close the multicast socket, and clear the vif tables etc
--  */
-- 
-+ /* Close the multicast socket, and clear the vif tables etc */
- -static void mroute_clean_tables(struct mr_table *mrt)
- +static void mroute_clean_tables(struct mr_table *mrt, bool all)
-  {
-  	int i;
-  	LIST_HEAD(list);
-  	struct mfc_cache *c, *next;
-  
-  	/* Shut down all active vif entries */
-- 
-  	for (i = 0; i < mrt->maxvif; i++) {
- -		if (!(mrt->vif_table[i].flags & VIFF_STATIC))
- -			vif_delete(mrt, i, 0, &list);
- +		if (!all && (mrt->vif_table[i].flags & VIFF_STATIC))
- +			continue;
- +		vif_delete(mrt, i, 0, &list);
-  	}
-  	unregister_netdevice_many(&list);
-  
-  	/* Wipe the cache */
-- 
-  	for (i = 0; i < MFC_LINES; i++) {
-  		list_for_each_entry_safe(c, next, &mrt->mfc_cache_array[i], list) {
- -			if (c->mfc_flags & MFC_STATIC)
- +			if (!all && (c->mfc_flags & MFC_STATIC))
-  				continue;
-  			list_del_rcu(&c->list);
-  			mroute_netlink_event(mrt, c, RTM_DELROUTE);
+I think changing the default output would confuse users.
+Better to keep the status quo. Don't know how Fedora deals with the fact
+they print different result than other distro's, but not my problem.
