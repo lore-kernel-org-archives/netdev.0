@@ -1,44 +1,64 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH] tipc: fix error handling of expanding
-	buffer headroom
-Date: Tue, 24 Nov 2015 13:33:16 +0800
-Message-ID: <5653F69C.4060406@windriver.com>
-References: <1448177919-8646-1-git-send-email-ying.xue@windriver.com>
-	<20151123.233547.446739112661995737.davem@davemloft.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Mon, 23 Nov 2015 21:41:25 -0800
+Message-ID: <5653F885.10804@gmail.com>
+References: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>
+ <1448312579-159544-2-git-send-email-anjali.singhai@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, stephen@networkplumber.org,
-	tipc-discussion@lists.sourceforge.net, scan-admin@coverity.com,
+Cc: jesse@kernel.org, Kiran Patil <kiran.patil@intel.com>
+To: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <20151123.233547.446739112661995737.davem@davemloft.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34268 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751714AbbKXFl3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 00:41:29 -0500
+Received: by padhx2 with SMTP id hx2so10220448pad.1
+        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 21:41:28 -0800 (PST)
+In-Reply-To: <1448312579-159544-2-git-send-email-anjali.singhai@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/24/2015 12:35 PM, David Miller wrote:
-> pskb_expand_head() returns negative error codes, therefore zero means
-> success and therefore this "!err" check is reversed.
+On 11/23/2015 01:02 PM, Anjali Singhai Jain wrote:
+> Replace add/del ndo ops for vxlan_port with tunnel_port so that all UDP
+> based tunnels can use the same ndo op. Add a parameter to pass tunnel
+> type to the ndo_op.
+>
+> Change all drivers to use the generalized udp tunnel offload
+>
+> Patch was compile tested with x86_64_defconfig.
+>
+> Signed-off-by: Kiran Patil <kiran.patil@intel.com>
+> Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+> ---
 
-Thank you for pointing out such a stupid mistake I made.
+[...]
 
-I will send v2 to correct it.
+> diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+> index cb2f89f..72415aa 100644
+> --- a/include/net/udp_tunnel.h
+> +++ b/include/net/udp_tunnel.h
+> @@ -9,6 +9,12 @@
+>   #include <net/addrconf.h>
+>   #endif
+>
+> +enum udp_tunnel_type {
+> +	UDP_TUNNEL_UNSPEC,
+> +	UDP_TUNNEL_VXLAN,
+> +	UDP_TUNNEL_GENEVE,
+> +};
+> +
+>   struct udp_port_cfg {
+>   	u8			family;
+>
+>
 
-Regards,
-Ying
+I'm not a fan of UDP_TUNNEL_UNSPEC.  If you are going to implement a 
+"tunnel type" field it should specify tunnel type 1:1, not just 
+generically refer to UNSPEC for everything that isn't VXLAN or GENEVE. 
+This way we can avoid any issues with anyone implementing an offload 
+that later relies on their tunnel type value being equal to 0.
 
-
-------------------------------------------------------------------------------
-Go from Idea to Many App Stores Faster with Intel(R) XDK
-Give your users amazing mobile app experiences with Intel(R) XDK.
-Use one codebase in this all-in-one HTML5 development environment.
-Design, debug & build mobile apps & 2D/3D high-impact games for multiple OSs.
-http://pubads.g.doubleclick.net/gampad/clk?id=254741551&iu=/4140
+- Alex
