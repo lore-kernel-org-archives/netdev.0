@@ -1,72 +1,88 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v3 0/5] flush many addresses and some cleanups
-Date: Tue, 24 Nov 2015 15:30:59 +0100
-Message-ID: <1448375464-12145-1-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v3 1/5] ipaddress: simplify ipaddr_flush()
+Date: Tue, 24 Nov 2015 15:31:00 +0100
+Message-ID: <1448375464-12145-2-git-send-email-phil@nwl.cc>
 References: <20151123163115.5f8be482@xeon-e3>
+ <1448375464-12145-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:48075 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:46532 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753397AbbKXObt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Nov 2015 09:31:49 -0500
-In-Reply-To: <20151123163115.5f8be482@xeon-e3>
+	id S1753397AbbKXObm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Nov 2015 09:31:42 -0500
+In-Reply-To: <1448375464-12145-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series aims to silence spurious error messages when flushing
-an interface with many addresses assigned and provides a few cleanups
-found along the way.
+Since it's no longer relevant whether an IP address is primary or
+secondary when flushing, ipaddr_flush() can be simplified a bit.
 
-The original issue was a test-case adding 40k IPv4 addresses to an
-interface and calling 'ip addr flush' afterwards. Initially, this
-resulted in an error message:
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ ip/ipaddress.c | 38 +-------------------------------------
+ 1 file changed, 1 insertion(+), 37 deletions(-)
 
-| Failed to send flush request: Cannot assign requested address
-
-Iproute apparently tried to remove (secondary) addresses which didn't
-exist anymore since the primary one had already been removed. (This
-behaviour actually depends on the promote_secondaries sysctl setting.)
-Neil Horman fixed this issue in his recent patch e149d4e ("iproute2:
-Ignore EADDRNOTAVAIL errors during address flush operation"). This also
-allows to remove iproute's previous workaround, which is to flush
-secondary addresses before primary ones (patch 1/5).
-
-Yet, still an error message is emitted on newer kernels, as they started
-to check consistency of netlink dumps (which is broken by iproute as it
-alters the data while it is dumped). This error may as well be ignored,
-as it's expected behaviour while flushing addresses. Though in order to
-do that, libnetlink API had to be extended a bit to actually allow to
-ignore certain nlmsg_flags bits. Patch 2/5 therefore extends libnetlink,
-patch 3/5 then makes use of the extended functionality.
-
-While debugging the issue, an unnecessary check has been discovered
-(patch 4/5) as well as a possible simplification in iptoken.c was found
-(patch 5/5).
-
-Changes since v1:
-- Add forgotten hint about dependent patch (see above).
-- Fix typo in patch 3/6 (sorry, I forgot to test-build a last-minute
-  cleanup).
-- All other patches remain unchanged.
-
-Changes since v2:
-- Drop first patch since it was superseded by e149d4e ("iproute2:
-  Ignore EADDRNOTAVAIL errors during address flush operation").
-- Adjust cover letter text accordingly.
-
-Phil Sutter (5):
-  ipaddress: simplify ipaddr_flush()
-  libnetlink: introduce nc_flags
-  ipaddress: fix ipaddr_flush for Linux >= 3.1
-  ipaddress: drop unnecessary check in ipaddr_list_flush_or_save()
-  iptoken: simplify iptoken_list a bit
-
- include/libnetlink.h |  7 ++++++-
- ip/ipaddress.c       | 44 +++-----------------------------------------
- ip/iptoken.c         |  6 +-----
- lib/libnetlink.c     | 10 ++++++----
- 4 files changed, 16 insertions(+), 51 deletions(-)
-
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 05358c9..26e91c9 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -1148,28 +1148,6 @@ brief_exit:
+ 	return 0;
+ }
+ 
+-static int print_addrinfo_primary(const struct sockaddr_nl *who,
+-				  struct nlmsghdr *n, void *arg)
+-{
+-	struct ifaddrmsg *ifa = NLMSG_DATA(n);
+-
+-	if (ifa->ifa_flags & IFA_F_SECONDARY)
+-		return 0;
+-
+-	return print_addrinfo(who, n, arg);
+-}
+-
+-static int print_addrinfo_secondary(const struct sockaddr_nl *who,
+-				    struct nlmsghdr *n, void *arg)
+-{
+-	struct ifaddrmsg *ifa = NLMSG_DATA(n);
+-
+-	if (!(ifa->ifa_flags & IFA_F_SECONDARY))
+-		return 0;
+-
+-	return print_addrinfo(who, n, arg);
+-}
+-
+ struct nlmsg_list
+ {
+ 	struct nlmsg_list *next;
+@@ -1420,26 +1398,12 @@ static int ipaddr_flush(void)
+ 	filter.flushe = sizeof(flushb);
+ 
+ 	while ((max_flush_loops == 0) || (round < max_flush_loops)) {
+-		const struct rtnl_dump_filter_arg a[3] = {
+-			{
+-				.filter = print_addrinfo_secondary,
+-				.arg1 = stdout,
+-			},
+-			{
+-				.filter = print_addrinfo_primary,
+-				.arg1 = stdout,
+-			},
+-			{
+-				.filter = NULL,
+-				.arg1 = NULL,
+-			},
+-		};
+ 		if (rtnl_wilddump_request(&rth, filter.family, RTM_GETADDR) < 0) {
+ 			perror("Cannot send dump request");
+ 			exit(1);
+ 		}
+ 		filter.flushed = 0;
+-		if (rtnl_dump_filter_l(&rth, a) < 0) {
++		if (rtnl_dump_filter(&rth, print_addrinfo, stdout) < 0) {
+ 			fprintf(stderr, "Flush terminated\n");
+ 			exit(1);
+ 		}
 -- 
 2.5.0
