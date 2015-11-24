@@ -1,7 +1,7 @@
 From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: [PATCH 06/13] net: tcp_memcontrol: simplify the per-memcg limit access
-Date: Tue, 24 Nov 2015 16:51:58 -0500
-Message-ID: <1448401925-22501-7-git-send-email-hannes@cmpxchg.org>
+Subject: [PATCH 11/13] mm: memcontrol: move socket code for unified hierarchy accounting
+Date: Tue, 24 Nov 2015 16:52:03 -0500
+Message-ID: <1448401925-22501-12-git-send-email-hannes@cmpxchg.org>
 References: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
 Cc: David Miller <davem@davemloft.net>,
 	Vladimir Davydov <vdavydov@virtuozzo.com>,
@@ -15,82 +15,181 @@ In-Reply-To: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-tcp_memcontrol replicates the global sysctl_mem limit array per
-cgroup, but it only ever sets these entries to the value of the
-memory_allocated page_counter limit. Use the latter directly.
+The unified hierarchy memory controller will account socket
+memory. Move the infrastructure functions accordingly.
 
 Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+Acked-by: Michal Hocko <mhocko@suse.com>
 Reviewed-by: Vladimir Davydov <vdavydov@virtuozzo.com>
 ---
- include/linux/memcontrol.h | 1 -
- include/net/sock.h         | 8 +++++---
- net/ipv4/tcp_memcontrol.c  | 8 --------
- 3 files changed, 5 insertions(+), 12 deletions(-)
+ mm/memcontrol.c | 148 ++++++++++++++++++++++++++++----------------------------
+ 1 file changed, 74 insertions(+), 74 deletions(-)
 
-diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
-index cc45407..1a658be 100644
---- a/include/linux/memcontrol.h
-+++ b/include/linux/memcontrol.h
-@@ -89,7 +89,6 @@ struct cg_proto {
- 	struct page_counter	memory_allocated;	/* Current allocated memory. */
- 	int			memory_pressure;
- 	bool			active;
--	long			sysctl_mem[3];
- 	/*
- 	 * memcg field is used to find which memcg we belong directly
- 	 * Each memcg struct can hold more than one cg_proto, so container_of
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 7afbdab..0b333c2 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1159,10 +1159,12 @@ static inline void sk_enter_memory_pressure(struct sock *sk)
- 
- static inline long sk_prot_mem_limits(const struct sock *sk, int index)
- {
--	long *prot = sk->sk_prot->sysctl_mem;
-+	long limit = sk->sk_prot->sysctl_mem[index];
-+
- 	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
--		prot = sk->sk_cgrp->sysctl_mem;
--	return prot[index];
-+		limit = min_t(long, limit, sk->sk_cgrp->memory_allocated.limit);
-+
-+	return limit;
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index 6b8c0f7..ed030b5 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -294,80 +294,6 @@ static inline struct mem_cgroup *mem_cgroup_from_id(unsigned short id)
+ 	return mem_cgroup_from_css(css);
  }
  
- static inline void memcg_memory_allocated_add(struct cg_proto *prot,
-diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
-index 6759e0d..ef4268d 100644
---- a/net/ipv4/tcp_memcontrol.c
-+++ b/net/ipv4/tcp_memcontrol.c
-@@ -21,9 +21,6 @@ int tcp_init_cgroup(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
- 	if (!cg_proto)
- 		return 0;
- 
--	cg_proto->sysctl_mem[0] = sysctl_tcp_mem[0];
--	cg_proto->sysctl_mem[1] = sysctl_tcp_mem[1];
--	cg_proto->sysctl_mem[2] = sysctl_tcp_mem[2];
- 	cg_proto->memory_pressure = 0;
- 	cg_proto->memcg = memcg;
- 
-@@ -54,7 +51,6 @@ EXPORT_SYMBOL(tcp_destroy_cgroup);
- static int tcp_update_limit(struct mem_cgroup *memcg, unsigned long nr_pages)
- {
- 	struct cg_proto *cg_proto;
--	int i;
- 	int ret;
- 
- 	cg_proto = tcp_prot.proto_cgroup(memcg);
-@@ -65,10 +61,6 @@ static int tcp_update_limit(struct mem_cgroup *memcg, unsigned long nr_pages)
- 	if (ret)
- 		return ret;
- 
--	for (i = 0; i < 3; i++)
--		cg_proto->sysctl_mem[i] = min_t(long, nr_pages,
--						sysctl_tcp_mem[i]);
+-/* Writing them here to avoid exposing memcg's inner layout */
+-#if defined(CONFIG_INET) && defined(CONFIG_MEMCG_KMEM)
 -
- 	if (!cg_proto->active) {
- 		/*
- 		 * The active flag needs to be written after the static_key
+-struct static_key memcg_sockets_enabled_key;
+-EXPORT_SYMBOL(memcg_sockets_enabled_key);
+-
+-void sock_update_memcg(struct sock *sk)
+-{
+-	struct mem_cgroup *memcg;
+-
+-	/* Socket cloning can throw us here with sk_cgrp already
+-	 * filled. It won't however, necessarily happen from
+-	 * process context. So the test for root memcg given
+-	 * the current task's memcg won't help us in this case.
+-	 *
+-	 * Respecting the original socket's memcg is a better
+-	 * decision in this case.
+-	 */
+-	if (sk->sk_memcg) {
+-		BUG_ON(mem_cgroup_is_root(sk->sk_memcg));
+-		css_get(&sk->sk_memcg->css);
+-		return;
+-	}
+-
+-	rcu_read_lock();
+-	memcg = mem_cgroup_from_task(current);
+-	if (memcg != root_mem_cgroup &&
+-	    memcg->tcp_mem.active &&
+-	    css_tryget_online(&memcg->css))
+-		sk->sk_memcg = memcg;
+-	rcu_read_unlock();
+-}
+-EXPORT_SYMBOL(sock_update_memcg);
+-
+-void sock_release_memcg(struct sock *sk)
+-{
+-	WARN_ON(!sk->sk_memcg);
+-	css_put(&sk->sk_memcg->css);
+-}
+-
+-/**
+- * mem_cgroup_charge_skmem - charge socket memory
+- * @memcg: memcg to charge
+- * @nr_pages: number of pages to charge
+- *
+- * Charges @nr_pages to @memcg. Returns %true if the charge fit within
+- * @memcg's configured limit, %false if the charge had to be forced.
+- */
+-bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
+-{
+-	struct page_counter *counter;
+-
+-	if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
+-				    nr_pages, &counter)) {
+-		memcg->tcp_mem.memory_pressure = 0;
+-		return true;
+-	}
+-	page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
+-	memcg->tcp_mem.memory_pressure = 1;
+-	return false;
+-}
+-
+-/**
+- * mem_cgroup_uncharge_skmem - uncharge socket memory
+- * @memcg - memcg to uncharge
+- * @nr_pages - number of pages to uncharge
+- */
+-void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
+-{
+-	page_counter_uncharge(&memcg->tcp_mem.memory_allocated, nr_pages);
+-}
+-
+-#endif
+-
+ #ifdef CONFIG_MEMCG_KMEM
+ /*
+  * This will be the memcg's index in each cache's ->memcg_params.memcg_caches.
+@@ -5544,6 +5470,80 @@ void mem_cgroup_replace_page(struct page *oldpage, struct page *newpage)
+ 	commit_charge(newpage, memcg, true);
+ }
+ 
++/* Writing them here to avoid exposing memcg's inner layout */
++#if defined(CONFIG_INET) && defined(CONFIG_MEMCG_KMEM)
++
++struct static_key memcg_sockets_enabled_key;
++EXPORT_SYMBOL(memcg_sockets_enabled_key);
++
++void sock_update_memcg(struct sock *sk)
++{
++	struct mem_cgroup *memcg;
++
++	/* Socket cloning can throw us here with sk_cgrp already
++	 * filled. It won't however, necessarily happen from
++	 * process context. So the test for root memcg given
++	 * the current task's memcg won't help us in this case.
++	 *
++	 * Respecting the original socket's memcg is a better
++	 * decision in this case.
++	 */
++	if (sk->sk_memcg) {
++		BUG_ON(mem_cgroup_is_root(sk->sk_memcg));
++		css_get(&sk->sk_memcg->css);
++		return;
++	}
++
++	rcu_read_lock();
++	memcg = mem_cgroup_from_task(current);
++	if (memcg != root_mem_cgroup &&
++	    memcg->tcp_mem.active &&
++	    css_tryget_online(&memcg->css))
++		sk->sk_memcg = memcg;
++	rcu_read_unlock();
++}
++EXPORT_SYMBOL(sock_update_memcg);
++
++void sock_release_memcg(struct sock *sk)
++{
++	WARN_ON(!sk->sk_memcg);
++	css_put(&sk->sk_memcg->css);
++}
++
++/**
++ * mem_cgroup_charge_skmem - charge socket memory
++ * @memcg: memcg to charge
++ * @nr_pages: number of pages to charge
++ *
++ * Charges @nr_pages to @memcg. Returns %true if the charge fit within
++ * @memcg's configured limit, %false if the charge had to be forced.
++ */
++bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
++{
++	struct page_counter *counter;
++
++	if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
++				    nr_pages, &counter)) {
++		memcg->tcp_mem.memory_pressure = 0;
++		return true;
++	}
++	page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
++	memcg->tcp_mem.memory_pressure = 1;
++	return false;
++}
++
++/**
++ * mem_cgroup_uncharge_skmem - uncharge socket memory
++ * @memcg - memcg to uncharge
++ * @nr_pages - number of pages to uncharge
++ */
++void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
++{
++	page_counter_uncharge(&memcg->tcp_mem.memory_allocated, nr_pages);
++}
++
++#endif
++
+ /*
+  * subsys_initcall() for memory controller.
+  *
 -- 
 2.6.2
