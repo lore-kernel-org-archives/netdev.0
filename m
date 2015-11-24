@@ -1,36 +1,122 @@
-From: ADMIN <aviloria@ivss.gob.ve>
-Subject: Rendszergazda
-Date: Tue, 24 Nov 2015 19:12:53 -0430
-Message-ID: <5b8ae72165eb63e15881bb11ba0f57e3__20195.1186558746$1448408604$gmane$org@ivss.gob.ve>
-Reply-To: 647812717@qq.com
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: use-after-free in sock_wake_async
+Date: Tue, 24 Nov 2015 15:43:48 -0800
+Message-ID: <CANn89iKg0Lc7OVLhxUOzPRr4OhEGxA8L7V1jyaqFAS6+7kEXTA@mail.gmail.com>
+References: <CACT4Y+ZZQ0ooT9LekV35u_jUAtAHJfg5O5SD=xATfHUF5UdNBQ@mail.gmail.com>
+	<CANn89i+Uw+YzhRbQVSyf=FAQBO06JfFoxQpSHxfmDpS5_iZBQw@mail.gmail.com>
+	<87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from correo.ivss.gob.ve ([200.109.237.55]:42618 "HELO
-	correo.ivss.gob.ve" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1755578AbbKXXnB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 18:43:01 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	David Howells <dhowells@redhat.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Nov 24, 2015 at 3:34 PM, Rainer Weikusat
+<rweikusat@mobileactivedefense.com> wrote:
+> Eric Dumazet <edumazet@google.com> writes:
+>> On Tue, Nov 24, 2015 at 6:18 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>>> Hello,
+>>>
+>>> The following program triggers use-after-free in sock_wake_async:
+>
+> [...]
+>
+>>> void *thr1(void *arg)
+>>> {
+>>>         syscall(SYS_close, r2, 0, 0, 0, 0, 0);
+>>>         return 0;
+>>> }
+>>>
+>>> void *thr2(void *arg)
+>>> {
+>>>         syscall(SYS_write, r3, 0x20003000ul, 0xe7ul, 0, 0, 0);
+>>>         return 0;
+>>> }
+>
+> [...]
+>
+>>>         pthread_t th[3];
+>>>         pthread_create(&th[0], 0, thr0, 0);
+>>>         pthread_create(&th[1], 0, thr1, 0);
+>>>         pthread_create(&th[2], 0, thr2, 0);
+>>>         pthread_join(th[0], 0);
+>>>         pthread_join(th[1], 0);
+>>>         pthread_join(th[2], 0);
+>>>         return 0;
+>>> }
+>
+> [...]
+>
+>> Looks like commit 830a1e5c212fb3fdc83b66359c780c3b3a294897 should be reverted ?
+>>
+>> commit 830a1e5c212fb3fdc83b66359c780c3b3a294897
+>> Author: Benjamin LaHaise <benjamin.c.lahaise@intel.com>
+>> Date:   Tue Dec 13 23:22:32 2005 -0800
+>>
+>>     [AF_UNIX]: Remove superfluous reference counting in unix_stream_sendmsg
+>>
+>>     AF_UNIX stream socket performance on P4 CPUs tends to suffer due to a
+>>     lot of pipeline flushes from atomic operations.  The patch below
+>>     removes the sock_hold() and sock_put() in unix_stream_sendmsg().  This
+>>     should be safe as the socket still holds a reference to its peer which
+>>     is only released after the file descriptor's final user invokes
+>>     unix_release_sock().  The only consideration is that we must add a
+>>     memory barrier before setting the peer initially.
+>>
+>>     Signed-off-by: Benjamin LaHaise <benjamin.c.lahaise@intel.com>
+>>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> JFTR: This seems to be unrelated. (As far as I understand this), the
+> problem is that sk_wake_async accesses sk->sk_socket. That's invoked via
+> the
+>
+> other->sk_data_ready(other)
+>
+> in unix_stream_sendmsg after an
+>
+> unix_state_unlock(other);
+>
+> because of this, it can race with the code in unix_release_sock clearing
+> this pointer (via sock_orphan). The structure this pointer points to is
+> freed via iput in sock_release (net/socket.c) after the af_unix release
+> routine returned (it's really one part of a "twin structure" with the
+> socket inode being the other).
+>
+> A quick way to test if this was true would be to swap the
+>
+> unix_state_unlock(other);
+> other->sk_data_ready(other);
+>
+> in unix_stream_sendmsg and in case it is, a very 'hacky' fix could be to
+> put a pointer to the socket inode into the struct unix_sock, do an iget
+> on that in unix_create1 and a corresponding iput in
+> unix_sock_destructor.
 
+This is interesting, but is not the problem or/and the fix.
 
---=20
-Az e-mail t=C3=BAll=C3=A9pte a 2 GB-os k=C3=A9sz=C3=ADtette a webmester=
-, mely arecurrently
-fut=C3=A1s-on 2.30 GB, nem tud k=C3=BCldeni vagy fogadni egy =C3=BAj =C3=
-=BCzenet
-24 =C3=B3r=C3=A1n bel=C3=BCl, k=C3=A9rj=C3=BCk, adja meg adatait az al=C3=
-=A1bbi, hogy ellen=C5=91rizze =C3=A9s
-friss=C3=ADtse a
-sz=C3=A1mla:
+We are supposed to own a reference on the 'other' socket or make sure
+it cannot disappear under us.
 
-(1) E - mail:
-(2) neve:
-(3) jelsz=C3=B3:
-(4) a Jelsz=C3=B3 meger=C5=91s=C3=ADt=C3=A9se:
+Otherwise, no matter what you do, it is racy to even access other->any_field
 
-k=C3=B6sz
-Rendszergazda
+In particular, you can trap doing unix_state_lock(other), way before
+the code you want to change.
+
+Please do not propose hacky things like iget or anything inode
+related, this is clearly af_unix bug.
