@@ -1,79 +1,59 @@
-From: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
-Subject: Re: [PATCH 09/14] net: tcp_memcontrol: simplify linkage between
- socket and page counter
-Date: Tue, 24 Nov 2015 16:43:27 +0300
-Message-ID: <20151124134327.GH29014@esperanza>
-References: <1447371693-25143-1-git-send-email-hannes@cmpxchg.org>
- <1447371693-25143-10-git-send-email-hannes@cmpxchg.org>
- <20151120124216.GD31308@esperanza>
- <20151120185648.GC5623@cmpxchg.org>
- <20151123093646.GA29014@esperanza>
- <20151123182037.GE13000@cmpxchg.org>
+From: Arvid Brodin <arvid.brodin@alten.se>
+Subject: Re: [PATCH] net-hsr: Delete unnecessary checks before the function
+ call "kfree_skb"
+Date: Tue, 24 Nov 2015 14:42:41 +0100
+Message-ID: <56546951.9080101@alten.se>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net> <5647A77E.6040501@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<kernel-team-b10kYP2dOMg@public.gmane.org>
-To: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151123182037.GE13000-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	<kernel-janitors@vger.kernel.org>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	Arvid Brodin <arvid.brodin@alten.se>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5647A77E.6040501@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 23, 2015 at 01:20:37PM -0500, Johannes Weiner wrote:
-> On Mon, Nov 23, 2015 at 12:36:46PM +0300, Vladimir Davydov wrote:
-> > On Fri, Nov 20, 2015 at 01:56:48PM -0500, Johannes Weiner wrote:
-> > > I actually had all this at first, but then wondered if it makes more
-> > > sense to keep the legacy code in isolation. Don't you think it would
-> > > be easier to keep track of what's v1 and what's v2 if we keep the
-> > > legacy stuff physically separate as much as possible? In particular I
-> > > found that 'tcp_mem.' marker really useful while working on the code.
-> > > 
-> > > In the same vein, tcp_memcontrol.c doesn't really hurt anybody and I'd
-> > > expect it to remain mostly unopened and unchanged in the future. But
-> > > if we merge it into memcontrol.c, that code will likely be in the way
-> > > and we'd have to make it explicit somehow that this is not actually
-> > > part of the new memory controller anymore.
-> > > 
-> > > What do you think?
-> > 
-> > There isn't much code left in tcp_memcontrol.c, and not all of it is
-> > legacy. We still want to call tcp_init_cgroup and tcp_destroy_cgroup
-> > from memcontrol.c - in fact, it's the only call site, so I think we'd
-> > better keep these functions there. Apart from init/destroy, there is
-> > only stuff for handling legacy files, which is relatively small and
-> > isolated. We can just put it along with memsw and kmem legacy files in
-> > the end of memcontrol.c adding a comment that it's legacy. Personally,
-> > I'd find the code easier to follow then, because currently the logic
-> > behind the ACTIVE flag as well as memcg->tcp_mem init/use/destroy turns
-> > out to be scattered between two files in different subsystems for no
-> > apparent reason now, as it does not need tcp_prot any more. Besides,
-> > this would allow us to accurately reuse the ACTIVE flag in init/destroy
-> > for inc/dec static branch and probably in sock_update_memcg instead of
-> > sprinkling cgroup_subsys_on_dfl all over the place, which would make the
-> > code a bit cleaner IMO (in fact, that's why I proposed to drop ACTIVATED
-> > bit and replace cg_proto->flags with ->active bool).
+On 2015-11-14 22:28, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Sat, 14 Nov 2015 22:23:48 +0100
 > 
-> As far as I can see, all of tcp_memcontrol.c is legacy, including the
-> init and destroy functions. We only call them to set up the legacy
-> tcp_mem state and do legacy jump-label maintenance. Delete it all and
-> the unified hierarchy controller would still work. So I don't really
-> see the benefits of consolidating it, and more risk of convoluting.
+> The kfree_skb() function tests whether its argument is NULL and then
+> returns immediately. Thus the test around the calls is not needed.
 > 
-> That being said, if you care strongly about it and see opportunities
-> to cut down code and make things more readable, please feel free to
-> turn the flags -> bool patch into a followup series and I'll be happy
-> to review it.
 
-OK, I'll look into that.
+> diff --git a/net/hsr/hsr_forward.c b/net/hsr/hsr_forward.c
+> index 7871ed6..55ba943 100644
+> --- a/net/hsr/hsr_forward.c
+> +++ b/net/hsr/hsr_forward.c
+> @@ -355,11 +355,8 @@ void hsr_forward_skb(struct sk_buff *skb, struct hsr_port *port)
+>  		goto out_drop;
+>  	hsr_register_frame_in(frame.node_src, port, frame.sequence_nr);
+>  	hsr_forward_do(&frame);
+> -
+> -	if (frame.skb_hsr != NULL)
+> -		kfree_skb(frame.skb_hsr);
+> -	if (frame.skb_std != NULL)
+> -		kfree_skb(frame.skb_std);
+> +	kfree_skb(frame.skb_hsr);
+> +	kfree_skb(frame.skb_std);
 
-Regarding this patch, I don't have any questions left,
+Thanks for doing checks on the HSR code, and I apologise for the late reply! Not sure if this has
+already been applied, but:
 
-Reviewed-by: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
+You're right of course that these checks are not strictly necessary. However, it is likely that at 
+least one of these (.skb_hsr or .skb_std) will be NULL here, so it could be considered nice form to 
+check for this and not just trust kfree_skb() to do this. I'm not sure what's considered more 
+correct in the kernel, so I will just say that I'm agnostic about this and let others decide.
 
-Thanks,
-Vladimir
+Again, thanks!
+
+-- 
+Arvid Brodin
+ALTEN Sweden
+www.alten.com | www.alten.se
