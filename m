@@ -1,73 +1,80 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC PATCH V2 0/3] IXGBE/VFIO: Add live migration support for
- SRIOV NIC
-Date: Tue, 24 Nov 2015 06:20:29 -0800
-Message-ID: <5654722D.4010409@gmail.com>
-References: <1448372298-28386-1-git-send-email-tianyu.lan@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Lan Tianyu <tianyu.lan@intel.com>,
-	a.motakis@virtualopensystems.com, alex.williamson@redhat.com,
-	b.reynal@virtualopensystems.com, bhelgaas@google.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	eddie.dong@intel.com, nrupal.jani@intel.com, agraf@suse.de,
-	kvm@vger.kernel.org, pbonzini@redhat.com, qemu-devel@nongnu.org,
-	emil.s.tantilov@intel.com, gerlitz.or@gmail.com,
-	mark.d.rustad@intel.com, mst@redhat.com, eric.auger@linaro.org,
-	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	linux-api@vger.kernel.org, linux-kernel@vger.kernel.org,
-	matthew.vick@intel.com, mitch.a.williams@intel.com,
-	netdev@vger.kernel.org, shannon.nelson@intel.com,
-	weiyang@linux.vnet.ibm.com, zajec5@gmail.com
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v3 2/5] libnetlink: introduce nc_flags
+Date: Tue, 24 Nov 2015 15:31:01 +0100
+Message-ID: <1448375464-12145-3-git-send-email-phil@nwl.cc>
+References: <20151123163115.5f8be482@xeon-e3>
+ <1448375464-12145-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:33118 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752112AbbKXOUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 09:20:33 -0500
-In-Reply-To: <1448372298-28386-1-git-send-email-tianyu.lan@intel.com>
+Received: from orbit.nwl.cc ([176.31.251.142]:40652 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753317AbbKXObX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Nov 2015 09:31:23 -0500
+In-Reply-To: <1448375464-12145-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/24/2015 05:38 AM, Lan Tianyu wrote:
-> This patchset is to propose a solution of adding live migration
-> support for SRIOV NIC.
->
-> During migration, Qemu needs to let VF driver in the VM to know
-> migration start and end. Qemu adds faked PCI migration capability
-> to help to sync status between two sides during migration.
->
-> Qemu triggers VF's mailbox irq via sending MSIX msg when migration
-> status is changed. VF driver tells Qemu its mailbox vector index
-> via the new PCI capability. In some cases(NIC is suspended or closed),
-> VF mailbox irq is freed and VF driver can disable irq injecting via
-> new capability.
->
-> VF driver will put down nic before migration and put up again on
-> the target machine.
->
-> Lan Tianyu (3):
->    VFIO: Add new ioctl cmd VFIO_GET_PCI_CAP_INFO
->    PCI: Add macros for faked PCI migration capability
->    Ixgbevf: Add migration support for ixgbevf driver
->
->   drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   5 ++
->   drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 102 ++++++++++++++++++++++
->   drivers/vfio/pci/vfio_pci.c                       |  21 +++++
->   drivers/vfio/pci/vfio_pci_config.c                |  38 ++++++--
->   drivers/vfio/pci/vfio_pci_private.h               |   5 ++
->   include/uapi/linux/pci_regs.h                     |  18 +++-
->   include/uapi/linux/vfio.h                         |  12 +++
->   7 files changed, 194 insertions(+), 7 deletions(-)
+Allow for a filter to ignore certain nlmsg_flags.
 
-I'm still not a fan of this approach.  I really feel like this is 
-something that should be resolved by extending the existing PCI hot-plug 
-rather than trying to instrument this per driver.  Then you will get the 
-goodness for multiple drivers and multiple OSes instead of just one.  An 
-added advantage to dealing with this in the PCI hot-plug environment 
-would be that you could then still do a hot-plug even if the guest 
-didn't load a driver for the VF since you would be working with the PCI 
-slot instead of the device itself.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ include/libnetlink.h |  7 ++++++-
+ lib/libnetlink.c     | 10 ++++++----
+ 2 files changed, 12 insertions(+), 5 deletions(-)
 
-- Alex
+diff --git a/include/libnetlink.h b/include/libnetlink.h
+index 2280c39..431189e 100644
+--- a/include/libnetlink.h
++++ b/include/libnetlink.h
+@@ -60,11 +60,16 @@ struct rtnl_dump_filter_arg
+ {
+ 	rtnl_filter_t filter;
+ 	void *arg1;
++	__u16 nc_flags;
+ };
+ 
+ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 			      const struct rtnl_dump_filter_arg *arg);
+-int rtnl_dump_filter(struct rtnl_handle *rth, rtnl_filter_t filter, void *arg);
++int rtnl_dump_filter_nc(struct rtnl_handle *rth,
++			rtnl_filter_t filter,
++			void *arg, __u16 nc_flags);
++#define rtnl_dump_filter(rth, filter, arg) \
++	rtnl_dump_filter_nc(rth, filter, arg, 0)
+ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+ 	      struct nlmsghdr *answer, size_t len)
+ 	__attribute__((warn_unused_result));
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index 09b0e91..922ec2d 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -259,6 +259,8 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 			while (NLMSG_OK(h, msglen)) {
+ 				int err = 0;
+ 
++				h->nlmsg_flags &= ~a->nc_flags;
++
+ 				if (nladdr.nl_pid != 0 ||
+ 				    h->nlmsg_pid != rth->local.nl_pid ||
+ 				    h->nlmsg_seq != rth->dump)
+@@ -317,13 +319,13 @@ skip_it:
+ 	}
+ }
+ 
+-int rtnl_dump_filter(struct rtnl_handle *rth,
++int rtnl_dump_filter_nc(struct rtnl_handle *rth,
+ 		     rtnl_filter_t filter,
+-		     void *arg1)
++		     void *arg1, __u16 nc_flags)
+ {
+ 	const struct rtnl_dump_filter_arg a[2] = {
+-		{ .filter = filter, .arg1 = arg1, },
+-		{ .filter = NULL,   .arg1 = NULL, },
++		{ .filter = filter, .arg1 = arg1, .nc_flags = nc_flags, },
++		{ .filter = NULL,   .arg1 = NULL, .nc_flags = 0, },
+ 	};
+ 
+ 	return rtnl_dump_filter_l(rth, a);
+-- 
+2.5.0
