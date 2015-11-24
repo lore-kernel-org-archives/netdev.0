@@ -1,171 +1,76 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next] vrf: remove slave queue and private slave struct
-Date: Tue, 24 Nov 2015 14:29:16 +0100
-Message-ID: <1448371756-32188-1-git-send-email-razor@blackwall.org>
-Cc: dsa@cumulusnetworks.com, davem@davemloft.net,
-	shm@cumulusnetworks.com,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:38526 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753876AbbKXN3Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 08:29:25 -0500
-Received: by wmec201 with SMTP id c201so26577082wme.1
-        for <netdev@vger.kernel.org>; Tue, 24 Nov 2015 05:29:24 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: Asterisk deadlocks since Kernel 4.1
+Date: Tue, 24 Nov 2015 14:35:22 +0100
+Message-ID: <5654679A.3010109@profihost.ag>
+References: <564B3D35.50004@profihost.ag>
+ <alpine.DEB.2.11.1511171936030.3761@nanos> <564B7F9D.5060701@profihost.ag>
+ <alpine.DEB.2.11.1511172041480.3761@nanos> <564CDE2F.8000201@profihost.ag>
+ <564CEB0C.40006@redhat.com> <564CEF5D.3080005@profihost.ag>
+ <564D9A17.6080305@redhat.com> <564D9B21.302@profihost.ag>
+ <564D9CE6.2090104@profihost.ag>
+ <1447933294.1974772.444210441.67F1AC5E@webmail.messagingengine.com>
+ <564DB5F5.9060208@profihost.ag>
+ <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com>
+ <564DC4A5.70104@profihost.ag> <564DCC4C.1090009@redhat.com>
+ <564E2852.8000200@profihost.ag> <56530A42.6030609@profihost.ag>
+ <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Weimer <fweimer@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-The private slave queue and slave struct haven't been used for anything
-and aren't needed, this allows to reduce memory usage and simplify
-enslave/release. We can use netdev_for_each_lower_dev() to free the vrf
-ports when deleting a vrf device. Also if in the future a private struct
-is needed for each slave, it can be implemented via lower devices'
-private member (similar to how bonding does it).
+Am 23.11.2015 um 13:57 schrieb Hannes Frederic Sowa:
+> On Mon, Nov 23, 2015, at 13:44, Stefan Priebe - Profihost AG wrote:
+>> Am 19.11.2015 um 20:51 schrieb Stefan Priebe:
+>>>
+>>> Am 19.11.2015 um 14:19 schrieb Florian Weimer:
+>>>> On 11/19/2015 01:46 PM, Stefan Priebe - Profihost AG wrote:
+>>>>
+>>>>> I can try Kernel 4.4-rc1 next week. Or something else?
+>>>>
+>>>> I found this bug report which indicates that 4.1.10 works:
+>>>>
+>>>>    <https://issues.asterisk.org/jira/browse/ASTERISK-25251>
+>>>>
+>>>> But in your original report, you said that 4.1.13 is broken.
+>>>
+>>> That's correct i'm running 4.1.13.
+>>>
+>>>> This backtrace:
+>>>>
+>>>>    <https://issues.asterisk.org/jira/secure/attachment/52702/bt.txt>
+>>>>
+>>>> shows a lot of waiting on quite different netlink sockets.  So if this
+>>>> is due to a race in Asterisk, it must have happened several times in a
+>>>> row.
+>>
+>> Kernel 4.4-rc2 works fine. How can we grab / get an idea which is
+>> causing the isse in 4.1? It's an LTE kernel so it should be fixed!
+> 
+> Thanks for testing. I was not able to reproduce it at all, with as much
+> parallelism and threads as possible on any kernel. Could you try to do a
+> git bisect?
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-I've run some simple tests - enslave/release/module load/unload.
+OK i'll start digging around with major versions first to have a working
+and a non working version.
 
- drivers/net/vrf.c | 68 ++++---------------------------------------------------
- 1 file changed, 5 insertions(+), 63 deletions(-)
+I'll try 4.3 and 4.2 first to get an idea where it got fixed. Sadly i
+can't bisect from 4.1.13 to 4.X so i have to verify first it also
+happens with 4.1.
 
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index 92fa3e1ea65c..c2d54c4ed556 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -46,17 +46,7 @@
- #define vrf_master_get_rcu(dev) \
- 	((struct net_device *)rcu_dereference(dev->rx_handler_data))
- 
--struct slave {
--	struct list_head        list;
--	struct net_device       *dev;
--};
--
--struct slave_queue {
--	struct list_head        all_slaves;
--};
--
- struct net_vrf {
--	struct slave_queue      queue;
- 	struct rtable           *rth;
- 	struct rt6_info		*rt6;
- 	u32                     tb_id;
-@@ -621,42 +611,9 @@ static void cycle_netdev(struct net_device *dev)
- 	}
- }
- 
--static struct slave *__vrf_find_slave_dev(struct slave_queue *queue,
--					  struct net_device *dev)
--{
--	struct list_head *head = &queue->all_slaves;
--	struct slave *slave;
--
--	list_for_each_entry(slave, head, list) {
--		if (slave->dev == dev)
--			return slave;
--	}
--
--	return NULL;
--}
--
--/* inverse of __vrf_insert_slave */
--static void __vrf_remove_slave(struct slave_queue *queue, struct slave *slave)
--{
--	list_del(&slave->list);
--}
--
--static void __vrf_insert_slave(struct slave_queue *queue, struct slave *slave)
--{
--	list_add(&slave->list, &queue->all_slaves);
--}
--
- static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
- {
--	struct slave *slave = kzalloc(sizeof(*slave), GFP_KERNEL);
--	struct net_vrf *vrf = netdev_priv(dev);
--	struct slave_queue *queue = &vrf->queue;
--	int ret = -ENOMEM;
--
--	if (!slave)
--		goto out_fail;
--
--	slave->dev = port_dev;
-+	int ret;
- 
- 	/* register the packet handler for slave ports */
- 	ret = netdev_rx_handler_register(port_dev, vrf_handle_frame, dev);
-@@ -672,7 +629,6 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
- 		goto out_unregister;
- 
- 	port_dev->priv_flags |= IFF_L3MDEV_SLAVE;
--	__vrf_insert_slave(queue, slave);
- 	cycle_netdev(port_dev);
- 
- 	return 0;
-@@ -680,7 +636,6 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
- out_unregister:
- 	netdev_rx_handler_unregister(port_dev);
- out_fail:
--	kfree(slave);
- 	return ret;
- }
- 
-@@ -695,10 +650,6 @@ static int vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
- /* inverse of do_vrf_add_slave */
- static int do_vrf_del_slave(struct net_device *dev, struct net_device *port_dev)
- {
--	struct net_vrf *vrf = netdev_priv(dev);
--	struct slave_queue *queue = &vrf->queue;
--	struct slave *slave;
--
- 	netdev_upper_dev_unlink(port_dev, dev);
- 	port_dev->priv_flags &= ~IFF_L3MDEV_SLAVE;
- 
-@@ -706,12 +657,6 @@ static int do_vrf_del_slave(struct net_device *dev, struct net_device *port_dev)
- 
- 	cycle_netdev(port_dev);
- 
--	slave = __vrf_find_slave_dev(queue, port_dev);
--	if (slave)
--		__vrf_remove_slave(queue, slave);
--
--	kfree(slave);
--
- 	return 0;
- }
- 
-@@ -723,15 +668,14 @@ static int vrf_del_slave(struct net_device *dev, struct net_device *port_dev)
- static void vrf_dev_uninit(struct net_device *dev)
- {
- 	struct net_vrf *vrf = netdev_priv(dev);
--	struct slave_queue *queue = &vrf->queue;
--	struct list_head *head = &queue->all_slaves;
--	struct slave *slave, *next;
-+	struct net_device *port_dev;
-+	struct list_head *iter;
- 
- 	vrf_rtable_destroy(vrf);
- 	vrf_rt6_destroy(vrf);
- 
--	list_for_each_entry_safe(slave, next, head, list)
--		vrf_del_slave(dev, slave->dev);
-+	netdev_for_each_lower_dev(dev, port_dev, iter)
-+		vrf_del_slave(dev, port_dev);
- 
- 	free_percpu(dev->dstats);
- 	dev->dstats = NULL;
-@@ -741,8 +685,6 @@ static int vrf_dev_init(struct net_device *dev)
- {
- 	struct net_vrf *vrf = netdev_priv(dev);
- 
--	INIT_LIST_HEAD(&vrf->queue.all_slaves);
--
- 	dev->dstats = netdev_alloc_pcpu_stats(struct pcpu_dstats);
- 	if (!dev->dstats)
- 		goto out_nomem;
--- 
-2.4.3
+OK?
+
+Stefan
+
+> 
+> Thanks,
+> Hannes
+> 
