@@ -1,195 +1,52 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v4] mpls: support for dead routes
-Date: Mon, 23 Nov 2015 19:41:34 -0800
-Message-ID: <5653DC6E.9090204@cumulusnetworks.com>
-References: <1448082968-63882-1-git-send-email-roopa@cumulusnetworks.com> <56531F96.2030704@brocade.com>
+From: Geliang Tang <geliangtang@163.com>
+Subject: Re: [PATCH] pcnet32: fix a logic error with pci_set_dma_mask
+Date: Mon, 23 Nov 2015 20:05:06 -0800
+Message-ID: <20151124040506.GA2694@ubuntu>
+References: <c2a42526779ca29258fa84bff51f8d94ed9fcc28.1444415947.git.geliangtang@163.com>
+ <20151012.053814.1870650163021801761.davem@davemloft.net>
+ <1445486486.5667.33.camel@Lunix2.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, davem@davemloft.net, netdev@vger.kernel.org
-To: Robert Shearman <rshearma@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:36688 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752805AbbKXDlg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2015 22:41:36 -0500
-Received: by pacdm15 with SMTP id dm15so6728618pac.3
-        for <netdev@vger.kernel.org>; Mon, 23 Nov 2015 19:41:35 -0800 (PST)
-In-Reply-To: <56531F96.2030704@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geliang Tang <geliangtang@163.com>
+To: Don Fry <pcnet32@frontier.com>, Christoph Hellwig <hch@lst.de>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1445486486.5667.33.camel@Lunix2.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/23/15, 6:15 AM, Robert Shearman wrote:
-> On 21/11/15 05:16, Roopa Prabhu wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> Adds support for RTNH_F_DEAD and RTNH_F_LINKDOWN flags on mpls
->> routes due to link events. Also adds code to ignore dead
->> routes during route selection.
->>
->> Unlike ip routes, mpls routes are not deleted when the route goes
->> dead. This is current mpls behaviour and this patch does not change
->> that. With this patch however, routes will be marked dead.
->> dead routes are not notified to userspace (this is consistent with ipv4
->> routes).
->>
-> ...
->> v3 - v4:
->>          - removed per route rt_flags and derive it from the nh_flags during dumps
->>          - use kmemdup to make a copy of the route during route updates
->>            due to link events
->
-> Looks much better. Thanks for making those changes Roopa.
->
-> I've just a couple of minor comments on this new version.
->
->> +static inline int mpls_route_alloc_size(int num_nh, u8 max_alen_aligned)
->
-> I think the standard practice is to not put inline on functions declared in .c files, but instead to just let the compiler use its best judgement as to whether it's worth inlining or not.
-sure, will fix it.
->
->> +{
->> +    struct mpls_route *rt;
->> +
->> +    return (ALIGN(sizeof(*rt) + num_nh * sizeof(*rt->rt_nh),
->> +              VIA_ALEN_ALIGN) + num_nh * max_alen_aligned);
->> +}
->> +
->
->> -static void mpls_ifdown(struct net_device *dev)
->> +static inline bool mpls_route_dev_exists(struct mpls_route *rt,
->
-> Ditto.
->
->> +                     struct net_device *dev)
->> +{
->> +    for_nexthops(rt) {
->> +        if (rtnl_dereference(nh->nh_dev) != dev)
->> +            continue;
->> +        return true;
->> +    } endfor_nexthops(rt);
->> +
->> +    return false;
->> +}
->> +
->> +static void mpls_ifdown(struct net_device *dev, int event)
->>   {
->>       struct mpls_route __rcu **platform_label;
->>       struct net *net = dev_net(dev);
->> -    struct mpls_dev *mdev;
->> +    struct mpls_route *rt_new;
->>       unsigned index;
->>
->>       platform_label = rtnl_dereference(net->mpls.platform_label);
->>       for (index = 0; index < net->mpls.platform_labels; index++) {
->>           struct mpls_route *rt = rtnl_dereference(platform_label[index]);
->> +
->>           if (!rt)
->>               continue;
->> -        for_nexthops(rt) {
->> +
->> +        if (!mpls_route_dev_exists(rt, dev))
->> +            continue;
->> +
->> +        rt_new = kmemdup(rt, mpls_route_alloc_size(rt->rt_nhn,
->> +                               rt->rt_max_alen),
->> +                               GFP_KERNEL);
->
-> Shouldn't the above line be indented level with the opening bracket of kmemdup?
-yep. (looks kinda ugly though when i indent it to the opening bracket of kmemdup)
->
->> +        if (!rt_new) {
->> +            pr_warn("mpls_ifdown: kmemdup failed\n");
->
-> It isn't safe to leave the current route untouched if the net device is being deleted, since a nexthop will be left holding a stale pointer to it. Perhaps delete the route entirely in that case?
-I would not delete the route. But, Would it be bad modifying rt in that case (ie when rt_new is not possible) ?. It is a remote case..and the side effect being the datapath will not see the changes atomically.
->
->> +            return;
->> +        }
->> +
->> +        for_nexthops(rt_new) {
->
-> Since the nexthop is being changed, this should be change_nexthops. I know this was a problem in the existing code you are changing in this patch, if it isn't too much trouble it would be good to fix this whilst reindenting it.
-ack.
->
->>               if (rtnl_dereference(nh->nh_dev) != dev)
->>                   continue;
->> -            nh->nh_dev = NULL;
->> -        } endfor_nexthops(rt);
->> +            switch (event) {
->> +            case NETDEV_DOWN:
->> +            case NETDEV_UNREGISTER:
->> +                nh->nh_flags |= RTNH_F_DEAD;
->> +                /* fall through */
->> +            case NETDEV_CHANGE:
->> +                nh->nh_flags |= RTNH_F_LINKDOWN;
->> +                rt_new->rt_nhn_alive--;
->> +                break;
->> +            }
->> +            if (event == NETDEV_UNREGISTER)
->> +                RCU_INIT_POINTER(nh->nh_dev, NULL);
->> +        } endfor_nexthops(rt_new);
->> +
->> +        mpls_route_update(net, index, rt_new, NULL, false);
->>       }
->>
->> -    mdev = mpls_dev_get(dev);
->> -    if (!mdev)
->> -        return;
->> +    return;
->> +}
->> +
->> +static void mpls_ifup(struct net_device *dev, unsigned int nh_flags)
->> +{
->> +    struct mpls_route __rcu **platform_label;
->> +    struct net *net = dev_net(dev);
->> +    struct mpls_route *rt_new;
->> +    unsigned index;
->> +    int alive;
->> +
->> +    platform_label = rtnl_dereference(net->mpls.platform_label);
->> +    for (index = 0; index < net->mpls.platform_labels; index++) {
->> +        struct mpls_route *rt = rtnl_dereference(platform_label[index]);
->> +
->> +        if (!rt)
->> +            continue;
->> +
->> +        if (!mpls_route_dev_exists(rt, dev))
->> +            continue;
->>
->> -    mpls_dev_sysctl_unregister(mdev);
->> +        rt_new = kmemdup(rt, mpls_route_alloc_size(rt->rt_nhn,
->> +                               rt->rt_max_alen),
->> +                               GFP_KERNEL);
->> +        if (!rt_new) {
->> +            pr_warn("mpls_ifdown: kmemdup failed\n");
->> +            return;
->> +        }
->>
->> -    RCU_INIT_POINTER(dev->mpls_ptr, NULL);
->> +        alive = 0;
->> +        for_nexthops(rt_new) {
->
-> Ditto, this should also be change_nexthops.
->
->> +            struct net_device *nh_dev =
->> +                rtnl_dereference(nh->nh_dev);
->>
->> -    kfree_rcu(mdev, rcu);
->> +            if (!(nh->nh_flags & nh_flags)) {
->> +                alive++;
->> +                continue;
->> +            }
->> +            if (nh_dev != dev)
->> +                continue;
->> +            alive++;
->> +            nh->nh_flags &= ~nh_flags;
->> +        } endfor_nexthops(rt_new);
->> +
->> +        rt_new->rt_nhn_alive = alive;
->> +        mpls_route_update(net, index, rt_new, NULL, false);
->> +    }
->> +
->> +    return;
->>   }
-will post v5. thanks for the review.
+On Wed, Oct 21, 2015 at 09:01:26PM -0700, Don Fry wrote:
+> On Mon, 2015-10-12 at 05:38 -0700, David Miller wrote:
+> > From: Geliang Tang <geliangtang@163.com>
+> > Date: Fri,  9 Oct 2015 03:45:39 -0700
+> > 
+> > > pcnet32 can't work on my machine recently. It says "architecture
+> > > does not support 32bit PCI busmaster DMA". There is a logic error
+> > > in it: pci_set_dma_mask() return 0 means return successfully.
+> > > 
+> > > Signed-off-by: Geliang Tang <geliangtang@163.com>
+> > 
+> > This driver doesn't call pci_set_dma_mask() in any of my tree(s).
+> I failed.  My system with pcnet32 boards was down with a dead power
+> supply and a visual review was not good enough.  I missed that
+> pci_dma_supported returns 1 on success and pci_set_dma_mask returns 0 on
+> success.  The original patch needs to have the ! removed as Geliang Tang
+> points out.
+> 
+> Acked-by:  Don Fry <pcnet32@frontier.com>
+
+Hi:
+
+It has been a month since I submitted this patch. I'm wondering is it
+still valid and wether it will be applied? 
+
+A recent commit targeting at the same problem (commit 1a47de6 various:
+fix pci_set_dma_mask return value checking) has been applied. But my
+commit, which I reported and submitted earlier, hasn't been applied. I'd
+like to know if there's anything wrong with it? 
+
+Thank you!
+
+- Geliang Tang
