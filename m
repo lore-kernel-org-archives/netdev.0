@@ -1,46 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net: Generalise wq_has_sleeper helper
-Date: Tue, 24 Nov 2015 16:30:25 -0500 (EST)
-Message-ID: <20151124.163025.1551408934471757005.davem@davemloft.net>
-References: <20151023124006.GA17308@twins.programming.kicks-ass.net>
-	<20151111094829.GA23202@gondor.apana.org.au>
-	<20151124055423.GA31611@gondor.apana.org.au>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: use-after-free in sock_wake_async
+Date: Tue, 24 Nov 2015 21:40:36 +0000
+Message-ID: <20151124214036.GP22011@ZenIV.linux.org.uk>
+References: <CACT4Y+ZZQ0ooT9LekV35u_jUAtAHJfg5O5SD=xATfHUF5UdNBQ@mail.gmail.com>
+ <CANn89i+Uw+YzhRbQVSyf=FAQBO06JfFoxQpSHxfmDpS5_iZBQw@mail.gmail.com>
+ <5654D6D9.1050108@akamai.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peterz@infradead.org, tatsu@ab.jp.nec.com, mingo@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jolsa@redhat.com, eric.dumazet@gmail.com
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Howells <dhowells@redhat.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Jason Baron <jbaron@akamai.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151124055423.GA31611@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <5654D6D9.1050108@akamai.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 24 Nov 2015 13:54:23 +0800
+On Tue, Nov 24, 2015 at 04:30:01PM -0500, Jason Baron wrote:
 
-> On Wed, Nov 11, 2015 at 05:48:29PM +0800, Herbert Xu wrote:
->>
->> BTW, the networking folks found this years ago and even added
->> helpers to deal with this.  See for example wq_has_sleeper in
->> include/net/sock.h.  It would be good if we can move some of
->> those helpers into wait.h instead.
+> So looking at this trace I think its the other->sk_socket that gets
+> freed and then we call sk_wake_async() on it.
 > 
-> Here is a patch against net-next which makes the wq_has_sleeper
-> helper available to non-next users:
+> We could I think grab the socket reference there with unix_state_lock(),
+> since that is held by unix_release_sock() before the final iput() is called.
 > 
-> ---8<---
-> The memory barrier in the helper wq_has_sleeper is needed by just
-> about every user of waitqueue_active.  This patch generalises it
-> by making it take a wait_queue_head_t directly.  The existing
-> helper is renamed to skwq_has_sleeper.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> So something like below might work (compile tested only):
 
-I'm fine with wherever this patch goes.  Herbert is there any
-particular tree where it'll facilitate another user quickest?
+Ewww...
 
-Or should I just toss it into net-next?
+> +struct socket *unix_peer_get_socket(struct sock *s)
+> +{
+> +	struct socket *peer;
+> +
+> +	unix_state_lock(s);
+> +	peer = s->sk_socket;
+> +	if (peer)
+> +		__iget(SOCK_INODE(s->sk_socket));
+> +	unix_state_unlock(s);
+> +
+> +	return peer;
 
-Acked-by: David S. Miller <davem@davemloft.net>
+>  out_err:
+> +	if (other_socket)
+> +		iput(SOCK_INODE(other_socket));
+>  	scm_destroy(&scm);
+>  	return sent ? : err;
+>  }
+
+Interplay between socket, file and inode lifetimes is already too convoluted,
+and this just makes it nastier.  I don't have a ready solution at the moment,
+but this one is too ugly to live.
+
+Al, digging through RTFS(net/unix/af_unix.c) right now...
