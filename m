@@ -1,50 +1,69 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [Resend PATCH] RDS: fix race condition when sending a message
- on unbound socket
-Date: Tue, 24 Nov 2015 17:20:56 -0500 (EST)
-Message-ID: <20151124.172056.726395208871301533.davem@redhat.com>
-References: <1448403201-1683-1-git-send-email-santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH net] bpf: fix clearing on persistent program array maps
+Date: Tue, 24 Nov 2015 17:21:41 -0500 (EST)
+Message-ID: <20151124.172141.132867314210915085.davem@redhat.com>
+References: <92a1259fbea681022425a2e03c0efda95d183632.1448396272.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sasha.levin@oracle.com, ben@decadent.org.uk,
-	quentin.casasnovas@oracle.com, stable@vger.kernel.org
-To: santosh.shilimkar@oracle.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1448403201-1683-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ast@kernel.org, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55806 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754376AbbKXWVm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Nov 2015 17:21:42 -0500
+In-Reply-To: <92a1259fbea681022425a2e03c0efda95d183632.1448396272.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Date: Tue, 24 Nov 2015 17:13:21 -0500
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Tue, 24 Nov 2015 21:28:15 +0100
 
-> From: Quentin Casasnovas <quentin.casasnovas@oracle.com>
+> Currently, when having map file descriptors pointing to program arrays,
+> there's still the issue that we unconditionally flush program array
+> contents via bpf_fd_array_map_clear() in bpf_map_release(). This happens
+> when such a file descriptor is released and is independent of the map's
+> refcount.
 > 
-> Sasha's found a NULL pointer dereference in the RDS connection code when
-> sending a message to an apparently unbound socket.  The problem is caused
-> by the code checking if the socket is bound in rds_sendmsg(), which checks
-> the rs_bound_addr field without taking a lock on the socket.  This opens a
-> race where rs_bound_addr is temporarily set but where the transport is not
-> in rds_bind(), leading to a NULL pointer dereference when trying to
-> dereference 'trans' in __rds_conn_create().
+> Having this flush independent of the refcount is for a reason: there
+> can be arbitrary complex dependency chains among tail calls, also circular
+> ones (direct or indirect, nesting limit determined during runtime), and
+> we need to make sure that the map drops all references to eBPF programs
+> it holds, so that the map's refcount can eventually drop to zero and
+> initiate its freeing. Btw, a walk of the whole dependency graph would
+> not be possible for various reasons, one being complexity and another
+> one inconsistency, i.e. new programs can be added to parts of the graph
+> at any time, so there's no guaranteed consistent state for the time of
+> such a walk.
 > 
-> Vegard wrote a reproducer for this issue, so kindly ask him to share if
-> you're interested.
+> Now, the program array pinning itself works, but the issue is that each
+> derived file descriptor on close would nevertheless call unconditionally
+> into bpf_fd_array_map_clear(). Instead, keep track of users and postpone
+> this flush until the last reference to a user is dropped. As this only
+> concerns a subset of references (f.e. a prog array could hold a program
+> that itself has reference on the prog array holding it, etc), we need to
+> track them separately.
 > 
-> I cannot reproduce the NULL pointer dereference using Vegard's reproducer
-> with this patch, whereas I could without.
+> Short analysis on the refcounting: on map creation time usercnt will be
+> one, so there's no change in behaviour for bpf_map_release(), if unpinned.
+> If we already fail in map_create(), we are immediately freed, and no
+> file descriptor has been made public yet. In bpf_obj_pin_user(), we need
+> to probe for a possible map in bpf_fd_probe_obj() already with a usercnt
+> reference, so before we drop the reference on the fd with fdput().
+> Therefore, if actual pinning fails, we need to drop that reference again
+> in bpf_any_put(), otherwise we keep holding it. When last reference
+> drops on the inode, the bpf_any_put() in bpf_evict_inode() will take
+> care of dropping the usercnt again. In the bpf_obj_get_user() case, the
+> bpf_any_get() will grab a reference on the usercnt, still at a time when
+> we have the reference on the path. Should we later on fail to grab a new
+> file descriptor, bpf_any_put() will drop it, otherwise we hold it until
+> bpf_map_release() time.
 > 
-> Complete earlier incomplete fix to CVE-2015-6937:
+> Joint work with Alexei.
 > 
->   74e98eb08588 ("RDS: verify the underlying transport exists before creating a connection")
-> 
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: stable@vger.kernel.org
-> 
-> Reviewed-by: Vegard Nossum <vegard.nossum@oracle.com>
-> Reviewed-by: Sasha Levin <sasha.levin@oracle.com>
-> Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-> Signed-off-by: Quentin Casasnovas <quentin.casasnovas@oracle.com>
+> Fixes: b2197755b263 ("bpf: add support for persistent maps/progs")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks a lot Daniel.
