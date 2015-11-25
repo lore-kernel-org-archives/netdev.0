@@ -1,92 +1,81 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFCv2 bluetooth-next 2/3] ipv6: add ipv6_addr_prefix_cpy
-Date: Wed, 25 Nov 2015 19:17:17 +0100
-Message-ID: <20151125181713.GC4652@omega>
-References: <1447799594-6050-1-git-send-email-alex.aring@gmail.com>
- <1447799594-6050-3-git-send-email-alex.aring@gmail.com>
- <5655E50C.5090906@osg.samsung.com>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH 01/13] net: mvneta: add configuration for MBUS windows access protection
+Date: Wed, 25 Nov 2015 19:19:08 +0100
+Message-ID: <87si3u7xib.fsf@free-electrons.com>
+References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
+	<1448178839-3541-2-git-send-email-mw@semihalf.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org,
-	lukasz.duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org, martin.gergeleit-6wGqcYweBVc@public.gmane.org,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <5655E50C.5090906-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	linux@arm.linux.org.uk, sebastian.hesselbarth@gmail.com,
+	andrew@lunn.ch, jason@lakedaemon.net,
+	thomas.petazzoni@free-electrons.com, simon.guinot@sequanux.org,
+	nadavh@marvell.com, alior@marvell.com, xswang@marvell.com,
+	myair@marvell.com, nitroshift@yahoo.com, jaz@semihalf.com,
+	tn@semihalf.com, <stable@vger.kernel.org>
+To: Marcin Wojtas <mw@semihalf.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1448178839-3541-2-git-send-email-mw@semihalf.com> (Marcin
+	Wojtas's message of "Sun, 22 Nov 2015 08:53:47 +0100")
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 25, 2015 at 05:42:52PM +0100, Stefan Schmidt wrote:
-> Hello.
-> 
-> On 17/11/15 23:33, Alexander Aring wrote:
-> >This patch adds a static inline function ipv6_addr_prefix_cpy which
-> >copies a ipv6 address prefix(argument pfx) into the ipv6 address prefix.
-> >The prefix len is given by plen as bits. This function mainly based on
-> >ipv6_addr_prefix which copies one address prefix from address into a new
-> >ipv6 address destination and zero all other address bits.
-> >
-> >The difference is that ipv6_addr_prefix_cpy don't get a prefix from an
-> >ipv6 address, it sets a prefix to an ipv6 address with keeping other
-> >address bits. The use case is for context based address compression
-> >inside 6LoWPAN IPHC header which keeping ipv6 prefixes inside a context
-> >table to lookup address-bits without sending them.
-> >
-> >Cc: David S. Miller<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> >Cc: Alexey Kuznetsov<kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
-> >Cc: James Morris<jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
-> >Cc: Hideaki YOSHIFUJI<yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-> >Cc: Patrick McHardy<kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-> >Signed-off-by: Alexander Aring<alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> >---
-> >  include/net/ipv6.h | 15 +++++++++++++++
-> >  1 file changed, 15 insertions(+)
-> >
-> >diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> >index e1a10b0..9d38fc2 100644
-> >--- a/include/net/ipv6.h
-> >+++ b/include/net/ipv6.h
-> >@@ -382,6 +382,21 @@ static inline void ipv6_addr_prefix(struct in6_addr *pfx,
-> >  		pfx->s6_addr[o] = addr->s6_addr[o] & (0xff00 >> b);
-> >  }
-> >+static inline void ipv6_addr_prefix_cpy(struct in6_addr *addr,
-> >+					const struct in6_addr *pfx,
-> >+					int plen)
-> >+{
-> 
-> Naming it ipv6_addr_prefix_cop, as Sergei suggested, would be easier to
-> read.
+Hi Marcin,
+ 
+ On dim., nov. 22 2015, Marcin Wojtas <mw@semihalf.com> wrote:
 
-ok.
+> This commit adds missing configuration of MBUS windows access protection
+> in mvneta_conf_mbus_windows function - a dedicated variable for that
+> purpose remained there unused since v3.8 initial mvneta support. Because
+> of that the register contents were inherited from the bootloader.
 
-> >+	/* caller must guarantee 0 <= plen <= 128 */
-> >+	int o = plen >> 3,
-> >+	    b = plen & 0x7;
-> >+
-> 
-> Any reason you are not doing the memset here before memcpy like it is done
-> in ipv6_addr_prefi()?
+It looks OK for me and at least after applying the driver continues
+working :)
 
-ipv6_addr_prefix is more a "getter" for a prefix from an address. The
-destination address (which should be the result) will memset the whole
-address before copy the prefix from address to it.
+I guess you find it when you tested suspend to ram.
 
-THe ipv6_addr_prefix_copy will set a prefix given by second parameter
-pfx and set the prefix to the address (given by first parameter).
+Reviewed-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 
-Maybe the ipv6_addr_prefix could call:
+Thanks,
 
-1. memset(pfx, sizeof...)
-2. ipv6_addr_prefix_copy(pfx, addr, plen);
+Gregory
 
-but ipv6_addr_prefix_copy need to care about other bits which are set at
-destination address, if (plen/8 != 0). I don't want to touch
-ipv6_addr_prefix function and slow-down some mechanism.
 
-- Alex
+>
+> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
+> Cc: <stable@vger.kernel.org> # v3.8+
+> ---
+>  drivers/net/ethernet/marvell/mvneta.c | 3 +++
+>  1 file changed, 3 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> index e84c7f2..0f30aaa 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -62,6 +62,7 @@
+>  #define MVNETA_WIN_SIZE(w)                      (0x2204 + ((w) << 3))
+>  #define MVNETA_WIN_REMAP(w)                     (0x2280 + ((w) << 2))
+>  #define MVNETA_BASE_ADDR_ENABLE                 0x2290
+> +#define MVNETA_ACCESS_PROTECT_ENABLE		0x2294
+>  #define MVNETA_PORT_CONFIG                      0x2400
+>  #define      MVNETA_UNI_PROMISC_MODE            BIT(0)
+>  #define      MVNETA_DEF_RXQ(q)                  ((q) << 1)
+> @@ -3188,6 +3189,8 @@ static void mvneta_conf_mbus_windows(struct mvneta_port *pp,
+>  
+>  		win_enable &= ~(1 << i);
+>  		win_protect |= 3 << (2 * i);
+> +
+> +		mvreg_write(pp, MVNETA_ACCESS_PROTECT_ENABLE, win_protect);
+>  	}
+>  
+>  	mvreg_write(pp, MVNETA_BASE_ADDR_ENABLE, win_enable);
+> -- 
+> 1.8.3.1
+>
+
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
