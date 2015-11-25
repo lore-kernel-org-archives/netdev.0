@@ -1,107 +1,182 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC PATCH V2 3/3] Ixgbevf: Add migration support
-	for ixgbevf driver
-Date: Wed, 25 Nov 2015 09:24:51 -0800
-Message-ID: <CAKgT0UcGQoFUy8Y973sfkXZSvCA_wThtuJgmdxeebMsfSjf8Og@mail.gmail.com>
-References: <1448372298-28386-1-git-send-email-tianyu.lan@intel.com>
-	<1448372298-28386-4-git-send-email-tianyu.lan@intel.com>
-	<20151124230551-mutt-send-email-mst@redhat.com>
-	<56554994.1090305@intel.com>
-	<20151125142437-mutt-send-email-mst@redhat.com>
-	<5655DB99.3040007@intel.com>
-	<CAKgT0UdM5NGOARoiCNvh3Hu0xyvfJ-VoRqDu8bg6RyupSCEYHw@mail.gmail.com>
-	<20151125183435-mutt-send-email-mst@redhat.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: use-after-free in sock_wake_async
+Date: Wed, 25 Nov 2015 17:30:21 +0000
+Message-ID: <87a8q23s2a.fsf@doppelsaurus.mobileactivedefense.com>
+References: <CACT4Y+ZZQ0ooT9LekV35u_jUAtAHJfg5O5SD=xATfHUF5UdNBQ@mail.gmail.com>
+	<CANn89i+Uw+YzhRbQVSyf=FAQBO06JfFoxQpSHxfmDpS5_iZBQw@mail.gmail.com>
+	<87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
+	<CANn89iKg0Lc7OVLhxUOzPRr4OhEGxA8L7V1jyaqFAS6+7kEXTA@mail.gmail.com>
+	<87io4qevdp.fsf@doppelsaurus.mobileactivedefense.com>
+	<CANn89iJgW+6giMUicU1m831+mkaNy9z1hQB-ixvRHBqZo-7Yig@mail.gmail.com>
+	<87io4q3u8u.fsf@doppelsaurus.mobileactivedefense.com>
+	<1448471494.24696.18.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Wei Yang <weiyang@linux.vnet.ibm.com>, "Tantilov,
-	Emil S" <emil.s.tantilov@intel.com>, kvm@vger.kernel.org,
-	qemu-devel@nongnu.org, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>, "Rustad,
-	Mark D" <mark.d.rustad@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Eric Auger <eric.auger@linaro.org>, "Skidmore,
-	Donald C" <donald.c.skidmore@intel.com>, zajec5@gmail.com,
-	Alexander Graf <agraf@suse.de>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	nrupal.jani@intel.com, Bjorn Helgaas <bhelgaas@google.com>,
-	a.motakis@virtualopensystems.com, "Lan,
-	Tianyu" <tianyu.lan@intel.com>, b.reynal@virtualopensystems.com,
-	linux-api@vger.kernel.org, "Nelson,
-	Shannon" <shannon.nelson@intel.com>, eddie.dong@intel.com,
-	Alex Williamson <alex.williamson@r
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-In-Reply-To: <20151125183435-mutt-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	David Howells <dhowells@redhat.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tiger.mobileactivedefense.com ([217.174.251.109]:37085 "EHLO
+	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752464AbbKYRaq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 12:30:46 -0500
+In-Reply-To: <1448471494.24696.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	(Eric Dumazet's message of "Wed, 25 Nov 2015 09:11:34 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 25, 2015 at 8:39 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Wed, Nov 25, 2015 at 08:24:38AM -0800, Alexander Duyck wrote:
->> >> Also, assuming you just want to do ifdown/ifup for some reason, it's
->> >> easy enough to do using a guest agent, in a completely generic way.
->> >>
+Eric Dumazet <eric.dumazet@gmail.com> writes:
+> On Wed, 2015-11-25 at 16:43 +0000, Rainer Weikusat wrote:
+>> Eric Dumazet <edumazet@google.com> writes:
+>> > On Tue, Nov 24, 2015 at 5:10 PM, Rainer Weikusat
+>> > <rweikusat@mobileactivedefense.com> wrote:
+>> 
+>> [...]
+>> 
+>> >> It's also easy to verify: Swap the unix_state_lock and
+>> >> other->sk_data_ready and see if the issue still occurs. Right now (this
+>> >> may change after I had some sleep as it's pretty late for me), I don't
+>> >> think there's another local fix: The ->sk_data_ready accesses a
+>> >> pointer after the lock taken by the code which will clear and
+>> >> then later free it was released.
 >> >
->> > Just ifdown/ifup is not enough for migration. It needs to restore some PCI
->> > settings before doing ifup on the target machine
->>
->> That is why I have been suggesting making use of suspend/resume logic
->> that is already in place for PCI power management.  In the case of a
->> suspend/resume we already have to deal with the fact that the device
->> will go through a D0->D3->D0 reset so we have to restore all of the
->> existing state.  It would take a significant load off of Qemu since
->> the guest would be restoring its own state instead of making Qemu have
->> to do all of the device migration work.
+>> > It seems that :
+>> >
+>> > int sock_wake_async(struct socket *sock, int how, int band)
+>> >
+>> > should really be changed to
+>> >
+>> > int sock_wake_async(struct socket_wq *wq, int how, int band)
+>> >
+>> > So that RCU rules (already present) apply safely.
+>> >
+>> > sk->sk_socket is inherently racy (that is : racy without using
+>> > sk_callback_lock rwlock )
+>> 
+>> The comment above sock_wait_async states that
+>> 
+>> /* This function may be called only under socket lock or callback_lock or rcu_lock */
+>> 
+>> In this case, it's called via sk_wake_async (include/net/sock.h) which
+>> is - in turn - called via sock_def_readable (the 'default' data ready
+>> routine/ net/core/sock.c) which looks like this:
+>> 
+>> static void sock_def_readable(struct sock *sk)
+>> {
+>> 	struct socket_wq *wq;
+>> 
+>> 	rcu_read_lock();
+>> 	wq = rcu_dereference(sk->sk_wq);
+>> 	if (wq_has_sleeper(wq))
+>> 		wake_up_interruptible_sync_poll(&wq->wait, POLLIN | POLLPRI |
+>> 						POLLRDNORM | POLLRDBAND);
+>> 	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
+>> 	rcu_read_unlock();
+>> }
+>> 
+>> and should thus satisfy the constraint documented by the comment (I
+>> didn't verify if the comment is actually correct, though).
+>> 
+>> Further - sorry about that - I think changing code in "half of the
+>> network stack" in order to avoid calling a certain routine which will
+>> only ever do something in case someone's using signal-driven I/O with an
+>> already acquired lock held is a terrifying idea. Because of this, I
+>> propose the following alternate patch which should also solve the
+>> problem by ensuring that the ->sk_data_ready activity happens before
+>> unix_release_sock/ sock_release get a chance to clear or free anything
+>> which will be needed.
+>> 
+>> In case this demonstrably causes other issues, a more complicated
+>> alternate idea (still restricting itself to changes to the af_unix code)
+>> would be to move the socket_wq structure to a dummy struct socket
+>> allocated by unix_release_sock and freed by the destructor.
+>> 
+>> ---
+>> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+>> index 4e95bdf..5c87ea6 100644
+>> --- a/net/unix/af_unix.c
+>> +++ b/net/unix/af_unix.c
+>> @@ -1754,8 +1754,8 @@ restart_locked:
+>>         skb_queue_tail(&other->sk_receive_queue, skb);
+>>         if (max_level > unix_sk(other)->recursion_level)
+>>                 unix_sk(other)->recursion_level = max_level;
+>> -       unix_state_unlock(other);
+>>         other->sk_data_ready(other);
+>> +       unix_state_unlock(other);
+>>         sock_put(other);
+>>         scm_destroy(&scm);
+>>         return len;
+>> @@ -1860,8 +1860,8 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+>>                 skb_queue_tail(&other->sk_receive_queue, skb);
+>>                 if (max_level > unix_sk(other)->recursion_level)
+>>                         unix_sk(other)->recursion_level = max_level;
+>> -               unix_state_unlock(other);
+>>                 other->sk_data_ready(other);
+>> +               unix_state_unlock(other);
+>>                 sent += size;
+>>         }
+>>  
 >
-> That can work, though again, the issue is you need guest
-> cooperation to migrate.
+>
+> The issue is way more complex than that.
+>
+> We cannot prevent inode from disappearing.
+> We can not safely dereference "(struct socket *)->flags"
+>
+> locking the 'struct sock' wont help at all.
 
-Right now the problem is you need to have guest cooperation anyway as
-you need to have some way of tracking the dirty pages.  If the IOMMU
-on the host were to provide some sort of dirty page tracking then we
-could exclude the guest from the equation, but until then we need the
-guest to notify us of what pages it is letting the device dirty.  I'm
-still of the opinion that the best way to go there is to just modify
-the DMA API that is used in the guest so that it supports some sort of
-page flag modification or something along those lines so we can track
-all of the pages that might be written to by the device.
+The inode can't disappear unless it's freed which is done by
+sock_release,
 
-> If you reset device on destination instead of restoring state,
-> then that issue goes away, but maybe the downtime
-> will be increased.
+void sock_release(struct socket *sock)
+{
+	if (sock->ops) {
+		struct module *owner = sock->ops->owner;
 
-Yes, the downtime will be increased, but it shouldn't be by much.
-Depending on the setup a VF with a single queue can have about 3MB of
-data outstanding when you move the driver over.  After that it is just
-a matter of bringing the interface back up which should take only a
-few hundred milliseconds assuming the PF is fairly responsive.
+		sock->ops->release(sock);
+		sock->ops = NULL;
+		module_put(owner);
+	}
 
-> Will it really? I think it's worth it to start with the
-> simplest solution (reset on destination) and see
-> what the effect is, then add optimizations.
+	if (rcu_dereference_protected(sock->wq, 1)->fasync_list)
+		pr_err("%s: fasync list not empty!\n", __func__);
 
-Agreed.  My thought would be to start with something like
-dma_mark_clean() that could be used to take care of marking the pages
-for migration when they are unmapped or synced.
+	this_cpu_sub(sockets_in_use, 1);
+	if (!sock->file) {
+		iput(SOCK_INODE(sock));
+		return;
+	}
+	sock->file = NULL;
+}
 
-> One thing that I've been thinking about for a while, is saving (some)
-> state speculatively.  For example, notify guest a bit before migration
-> is done, so it can save device state. If guest responds quickly, you
-> have state that can be restored.  If it doesn't, still migrate, and it
-> will have to reset on destination.
+after calling the 'protocol release routine' (unix_release_sock) and
+unix_release_sock will either be blocked waiting for the
+unix_state_lock of the socket that's to be closed or it will set
+SOCK_DEAD while holding this lock which will then be detected by either
+of the unix _sendmsg routine before executing any of the receive code
+(including the call to sk_data_ready).
 
-I'm not sure how much more device state we really need to save.  The
-driver in the guest has to have enough state to recover in the event
-of a device failure resulting in a slot reset.  To top it off the
-driver is able to reconfigure things probably as quick as we could if
-we were restoring the state.
+In case this is wrong, it obviously implies that sk_sleep(sk) must not
+be used anywhere as it accesses the same struck sock, hence, when that
+can "suddenly" disappear despite locks are used in the way indicated
+above, there is now safe way to invoke that, either, as it just does a
+rcu_dereference_raw based on the assumption that the caller knows that
+the i-node (and the corresponding wait queue) still exist.
+
+I may be wrong on this, however, this then affects way more than just
+sock_wake_async, and an explanation how precisely the existing code gets
+it wrong would be very helpful (at least for my understanding).
