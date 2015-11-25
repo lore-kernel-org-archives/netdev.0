@@ -1,52 +1,59 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: Re: [PATCH 3/4] staging: rtl8712: Make error handling check for
- failure
-Date: Wed, 25 Nov 2015 17:14:10 +0530
-Message-ID: <20151125114410.GA7946@sudip-pc>
-References: <1448367582-8041-1-git-send-email-mukadr@gmail.com>
- <1448367582-8041-4-git-send-email-mukadr@gmail.com>
+From: khalasa@piap.pl (Krzysztof =?utf-8?Q?Ha=C5=82asa?=)
+Subject: Re: [PATCH] ixp4xx_eth: Delete an unnecessary check before the function call "dma_pool_destroy"
+Date: Wed, 25 Nov 2015 13:19:12 +0100
+Message-ID: <m3poyyz2yn.fsf@t19.piap.pl>
+References: <5307CAA2.8060406@users.sourceforge.net>
+	<alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+	<530A086E.8010901@users.sourceforge.net>
+	<alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+	<530A72AA.3000601@users.sourceforge.net>
+	<alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+	<530B5FB6.6010207@users.sourceforge.net>
+	<alpine.DEB.2.10.1402241710370.2074@hadrien>
+	<530C5E18.1020800@users.sourceforge.net>
+	<alpine.DEB.2.10.1402251014170.2080@hadrien>
+	<530CD2C4.4050903@users.sourceforge.net>
+	<alpine.DEB.2.10.1402251840450.7035@hadrien>
+	<530CF8FF.8080600@users.sourceforge.net>
+	<alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+	<530DD06F.4090703@users.sourceforge.net>
+	<alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+	<5317A59D.4@users.sourceforge.net>
+	<5649BDF5.5040405@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Larry.Finger@lwfinger.net, florian.c.schilhabel@googlemail.com,
-	gregkh@linuxfoundation.org, devel@driverdev.osuosl.org,
-	netdev@vger.kernel.org
-To: Mauro Dreissig <mukadr@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:36473 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750796AbbKYLoV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 06:44:21 -0500
-Received: by pacdm15 with SMTP id dm15so55414518pac.3
-        for <netdev@vger.kernel.org>; Wed, 25 Nov 2015 03:44:20 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1448367582-8041-4-git-send-email-mukadr@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5649BDF5.5040405@users.sourceforge.net> (SF Markus Elfring's
+	message of "Mon, 16 Nov 2015 12:28:53 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 24, 2015 at 10:19:41AM -0200, Mauro Dreissig wrote:
-> Some error handling paths are checking for success
-> instead of error on rtl871x_ioctl_rtl.c.
-> 
-> Signed-off-by: Mauro Dreissig <mukadr@gmail.com>
-> ---
->  drivers/staging/rtl8712/rtl871x_ioctl_rtl.c | 239 ++++++++++++++--------------
->  1 file changed, 121 insertions(+), 118 deletions(-)
-> 
-<snip>  
-> @@ -147,13 +147,13 @@ uint oid_rt_get_rx_icv_err_hdl(struct oid_par_priv *poid_par_priv)
+SF Markus Elfring <elfring@users.sourceforge.net> writes:
+
+> The dma_pool_destroy() function tests whether its argument is NULL
+> and then returns immediately. Thus the test around the call is not needed.
+>
+> This issue was detected by using the Coccinelle software.
+
+> --- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
+> +++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+> @@ -1192,7 +1192,7 @@ static void destroy_queues(struct port *port)
+>  		port->desc_tab = NULL;
+>  	}
 >  
->  	if (poid_par_priv->type_of_oid != QUERY_OID)
->  		return RNDIS_STATUS_NOT_ACCEPTED;
-> -	if (poid_par_priv->information_buf_len >= sizeof(u32)) {
-> -		*(uint *)poid_par_priv->information_buf =
-> -					 adapter->recvpriv.rx_icv_err;
-> -		*poid_par_priv->bytes_rw = poid_par_priv->information_buf_len;
-> -	} else {
-> +
-> +	if (poid_par_priv->information_buf_len < sizeof(u32)) 
+> -	if (!ports_open && dma_pool) {
+> +	if (!ports_open) {
+>  		dma_pool_destroy(dma_pool);
+>  		dma_pool = NULL;
+>  	}
 
-trailing whitespace here.
-Please always test your patch with checkpatch.
+Acked-by: Krzysztof Halasa <khalasa@piap.pl>
+-- 
+Krzysztof Halasa
 
-regards
-sudip
+Industrial Research Institute for Automation and Measurements PIAP
+Al. Jerozolimskie 202, 02-486 Warsaw, Poland
