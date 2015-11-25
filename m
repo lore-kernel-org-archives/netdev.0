@@ -1,107 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: use-after-free in sock_wake_async
-Date: Wed, 25 Nov 2015 14:43:34 -0800
-Message-ID: <1448491414.24696.60.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+ZZQ0ooT9LekV35u_jUAtAHJfg5O5SD=xATfHUF5UdNBQ@mail.gmail.com>
-	 <CANn89i+Uw+YzhRbQVSyf=FAQBO06JfFoxQpSHxfmDpS5_iZBQw@mail.gmail.com>
-	 <87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
-	 <CANn89iKg0Lc7OVLhxUOzPRr4OhEGxA8L7V1jyaqFAS6+7kEXTA@mail.gmail.com>
-	 <87io4qevdp.fsf@doppelsaurus.mobileactivedefense.com>
-	 <CANn89iJgW+6giMUicU1m831+mkaNy9z1hQB-ixvRHBqZo-7Yig@mail.gmail.com>
-	 <87io4q3u8u.fsf@doppelsaurus.mobileactivedefense.com>
-	 <1448471494.24696.18.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87a8q23s2a.fsf@doppelsaurus.mobileactivedefense.com>
-	 <1448473891.24696.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87610q3pjg.fsf@doppelsaurus.mobileactivedefense.com>
-	 <1448476744.24696.25.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87y4dl3m5c.fsf@doppelsaurus.mobileactivedefense.com>
-	 <1448481002.24696.30.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1448483017.24696.33.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87two93ig8.fsf@doppelsaurus.mobileactivedefense.com>
-	 <1448489350.24696.47.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1448490732.1842763.450231537.5358AF37@webmail.messagingengine.com>
+From: Santiago Garcia Mantinan <manty@debian.org>
+Subject: Fwd: bridge-utils: wrong sysfs path odds
+Date: Wed, 25 Nov 2015 23:44:28 +0100
+Message-ID: <CAJk_L2G-j+2dpOA_U=fTeR=SL2Y8DJ=6DStaaDQ6rSAcAv4A+A@mail.gmail.com>
+References: <5654FD93.1070706@nod.at>
+	<5654FFCF.2080801@nod.at>
+	<20151124163735.6f9ad756@xeon-e3>
+	<56557D8B.8090908@nod.at>
+	<CAJk_L2GSvNUGiexawakMHdm+v5ndv=qLXB9TD7xxn7z9c-ZMsg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Benjamin LaHaise <bcrl@kvack.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	David Howells <dhowells@redhat.com>,
-	Ying Xue <ying.xue@windriver.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448490732.1842763.450231537.5358AF37@webmail.messagingengine.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ralf Baechle <ralf@linux-mips.org>
+To: Richard Weinberger <richard@nod.at>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:34404 "EHLO
+	mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752048AbbKYWo3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 17:44:29 -0500
+Received: by lffu14 with SMTP id u14so77806239lff.1
+        for <netdev@vger.kernel.org>; Wed, 25 Nov 2015 14:44:28 -0800 (PST)
+In-Reply-To: <CAJk_L2GSvNUGiexawakMHdm+v5ndv=qLXB9TD7xxn7z9c-ZMsg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-11-25 at 23:32 +0100, Hannes Frederic Sowa wrote:
-> On Wed, Nov 25, 2015, at 23:09, Eric Dumazet wrote:
-> > On Wed, 2015-11-25 at 20:57 +0000, Rainer Weikusat wrote:
-> > 
-> > > I do agree that keeping the ->sk_data_ready outside of the lock will
-> > > very likely have performance advantages. That's just something I
-> > > wouldn't have undertaken because I'd be reluctant to make a fairly
-> > > complicated change to a lot of code.
-> > 
-> > All I am saying is that we can keep current performance.
-> > 
-> > We already have the core infrastructure, we only need to properly use
-> > it.
-> > 
-> > I will split my changes in two parts.
-> > 
-> > One part doing a very boring change of
-> > 
-> > rename SOCK_ASYNC_NOSPACE and SOCK_ASYNC_WAITDATA
-> > for X in SOCK_ASYNC_NOSPACE SOCK_ASYNC_WAITDATA 
-> > 
-> >  set_bit(X, &sk->sk_socket->flags) -> sk_set_bit(X, sk)
-> >  clear_bit(X, &sk->sk_socket->flags) -> sk_clear_bit(X, sk)
-> 
-> sk_set_bit and sk_clear_bit will forward the set_bit and clear_bit into
-> the socket_wq like you explained above?
+(Message resent due to list rejection)
 
-In the first patch (no functional change), the helpers will look like
+Hi!
 
-static void inline sk_set_bit(int nr, struct sock *sk)
-{
-	set_bit(nr, &sk->sk_socket->flags);
-}
+> Ask Debian maintainer to send his patches, I don't go patch hunting.
+>
+>
+> While looking what other distros do I came across this patch:
+> https://pkgs.fedoraproject.org/cgit/bridge-utils.git/tree/bridge-utils-1.5-check-error-returns-from-write-to-sysfs.patch
+>
 
+Don't know about the fedora guys but at least I did send some patches
+which include this /bridge addition, and Stephen did even ack it as
+you can read on:
+http://lists.linuxfoundation.org/pipermail/bridge/2011-May/007646.html
 
-Then the second patch will change the helper to :
-
-static void inline sk_set_bit(int nr, struct sock *sk)
-{
-	set_bit(nr, &sk->sk_wq_raw->flags);
-}
-
-
-> 
-> > The rename will help backports to catch code that might have been
-> > removed in recent kernels.
-> > 
-> > Then the second patch will do the actual changes, and they will look
-> > very sensible for people wanting to review them, and or familiar with
-> > the stack, do not worry ;)
-> 
-> Do you see a chance to inline socket_wq into struct socket and discard
-> struct socket_alloc in one go by rcu in socket_destroy_inode?
-
-???
-
-I guess you missed the whole point to have socket_wq allocated outside
-of the inode :(
-
-inodes are not rcu protected (yet). I certainly don't want to mess with
-VFS, we have enough problems in net/ directory already.
+Regards.
+-- 
+Manty/BestiaTester -> http://manty.net
