@@ -1,131 +1,114 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next v2 04/15] i40e: remove BUG_ON from feature string
- building
-Date: Wed, 25 Nov 2015 10:35:35 -0800
-Message-ID: <1448476535.3021.5.camel@intel.com>
-References: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1448475679-57194-5-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <5655FD72.70902@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: use-after-free in sock_wake_async
+Date: Wed, 25 Nov 2015 10:39:04 -0800
+Message-ID: <1448476744.24696.25.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACT4Y+ZZQ0ooT9LekV35u_jUAtAHJfg5O5SD=xATfHUF5UdNBQ@mail.gmail.com>
+	 <CANn89i+Uw+YzhRbQVSyf=FAQBO06JfFoxQpSHxfmDpS5_iZBQw@mail.gmail.com>
+	 <87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
+	 <CANn89iKg0Lc7OVLhxUOzPRr4OhEGxA8L7V1jyaqFAS6+7kEXTA@mail.gmail.com>
+	 <87io4qevdp.fsf@doppelsaurus.mobileactivedefense.com>
+	 <CANn89iJgW+6giMUicU1m831+mkaNy9z1hQB-ixvRHBqZo-7Yig@mail.gmail.com>
+	 <87io4q3u8u.fsf@doppelsaurus.mobileactivedefense.com>
+	 <1448471494.24696.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <87a8q23s2a.fsf@doppelsaurus.mobileactivedefense.com>
+	 <1448473891.24696.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <87610q3pjg.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-D0voXCwQ2vaGTSXCaZ9q"
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	John Ronciak <john.ronciak@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:53630 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751806AbbKYSfl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Nov 2015 13:35:41 -0500
-In-Reply-To: <5655FD72.70902@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-D0voXCwQ2vaGTSXCaZ9q
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: base64
-
-T24gV2VkLCAyMDE1LTExLTI1IGF0IDIxOjI2ICswMzAwLCBTZXJnZWkgU2h0eWx5b3Ygd3JvdGU6
-Cj4gT24gMTEvMjUvMjAxNSAwOToyMSBQTSwgSmVmZiBLaXJzaGVyIHdyb3RlOgo+IAo+ID4gRnJv
-bTogU2hhbm5vbiBOZWxzb24gPHNoYW5ub24ubmVsc29uQGludGVsLmNvbT4KPiA+Cj4gPiBUaGVy
-ZSdzIHJlYWxseSBubyByZWFzb24gdG8ga2lsbCB0aGUga2VybmVsIHRocmVhZCBqdXN0IGJlY2F1
-c2Ugb2YKPiBhCj4gPiBsaXR0bGUgaW5mbyBzdHJpbmcuIFRoaXMgcmV3b3JrcyB0aGUgY29kZSB0
-byB1c2Ugc25wcmludGYncwo+IGxpbWl0aW5nIHRvCj4gPiBhc3N1cmUgdGhhdCB0aGUgc3RyaW5n
-IGlzIG5ldmVyIHRvbyBsb25nLCBhbmQgV0FSTl9PTiB0byBzdGlsbCBwdXQKPiBvdXQKPiA+IGEg
-d2FybmluZyB0aGF0IHdlIG1pZ2h0IHdhbnQgdG8gbG9vayBhdCB0aGUgZmVhdHVyZSBsaXN0IGxl
-bmd0aC4KPiA+Cj4gPiBQcm9tcHRlZCBieSBhIHJlY2VudCBMaW51cyBkaWF0cmliZS4KPiA+Cj4g
-PiBDaGFuZ2UtSUQ6IElmNTJiYTVjYTFjMjM0NGQ4YmY0NTRhMzFiYmI4MDVlYjVkMmM1ODAyCj4g
-PiBTaWduZWQtb2ZmLWJ5OiBTaGFubm9uIE5lbHNvbiA8c2hhbm5vbi5uZWxzb25AaW50ZWwuY29t
-Pgo+ID4gVGVzdGVkLWJ5OiBBbmRyZXcgQm93ZXJzIDxhbmRyZXd4LmJvd2Vyc0BpbnRlbC5jb20+
-Cj4gPiBTaWduZWQtb2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVs
-LmNvbT4KPiA+IC0tLQo+ID7CoMKgIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQw
-ZV9tYWluLmMgfCAzNCArKysrKysrKysrKysrKystCj4gLS0tLS0tLS0tLS0tLQo+ID7CoMKgIDEg
-ZmlsZSBjaGFuZ2VkLCAxOCBpbnNlcnRpb25zKCspLCAxNiBkZWxldGlvbnMoLSkKPiA+Cj4gPiBk
-aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX21haW4uYwo+
-IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX21haW4uYwo+ID4gaW5kZXgg
-NzcxNWM1NC4uN2E0NTk1YSAxMDA2NDQKPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
-dGVsL2k0MGUvaTQwZV9tYWluLmMKPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
-L2k0MGUvaTQwZV9tYWluLmMKPiBbLi4uXQo+ID4gQEAgLTEwMTI0LDQyICsxMDEyNiw0MiBAQCBz
-dGF0aWMgdm9pZCBpNDBlX3ByaW50X2ZlYXR1cmVzKHN0cnVjdAo+IGk0MGVfcGYgKnBmKQo+ID4K
-PiA+wqDCoMKgwqDCoMKgwqBidWYgPSBzdHJpbmc7Cj4gPgo+ID4gLcKgwqDCoMKgwqBidWYgKz0g
-c3ByaW50ZihzdHJpbmcsICJGZWF0dXJlczogUEYtaWRbJWRdICIsIGh3LT5wZl9pZCk7Cj4gPiAr
-wqDCoMKgwqDCoGkgKz0gc25wcmludGYoJmJ1ZltpXSwgUkVNQUlOKGkpLCAiRmVhdHVyZXM6IFBG
-LWlkWyVkXSAiLCBody0KPiA+cGZfaWQpOwo+ID7CoMKgICNpZmRlZiBDT05GSUdfUENJX0lPVgo+
-ID4gLcKgwqDCoMKgwqBidWYgKz0gc3ByaW50ZihidWYsICJWRnM6ICVkICIsIHBmLT5udW1fcmVx
-X3Zmcyk7Cj4gPiArwqDCoMKgwqDCoGkgKz0gc25wcmludGYoJmJ1ZltpXSwgUkVNQUlOKGkpLCAi
-VkZzOiAlZCAiLCBwZi0KPiA+bnVtX3JlcV92ZnMpOwo+ID7CoMKgICNlbmRpZgo+ID4gLcKgwqDC
-oMKgwqBidWYgKz0gc3ByaW50ZihidWYsICJWU0lzOiAlZCBRUDogJWQgUlg6ICVzICIsCj4gPiAt
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgcGYtPmh3LmZ1bmNfY2Fwcy5u
-dW1fdnNpcywKPiA+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCBwZi0+
-dnNpW3BmLT5sYW5fdnNpXS0+bnVtX3F1ZXVlX3BhaXJzLAo+ID4gLcKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgIHBmLT5mbGFncyAmIEk0MEVfRkxBR19SWF9QU19FTkFCTEVE
-ID8gIlBTIiA6Cj4gIjFCVUYiKTsKPiA+ICvCoMKgwqDCoMKgaSArPSBzbnByaW50ZigmYnVmW2ld
-LCBSRU1BSU4oaSksICJWU0lzOiAlZCBRUDogJWQgUlg6ICVzICIsCj4gPiArwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHBmLT5ody5mdW5jX2NhcHMubnVtX3ZzaXMsCj4gPiAr
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHBmLT52c2lbcGYtPmxhbl92c2ld
-LT5udW1fcXVldWVfcGFpcnMsCj4gPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgIHBmLT5mbGFncyAmIEk0MEVfRkxBR19SWF9QU19FTkFCTEVEID8gIlBTIiA6Cj4gIjFCVUYi
-KTsKPiA+Cj4gPsKgwqDCoMKgwqDCoMKgaWYgKHBmLT5mbGFncyAmIEk0MEVfRkxBR19SU1NfRU5B
-QkxFRCkKPiA+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGJ1ZiArPSBzcHJpbnRmKGJ1Ziwg
-IlJTUyAiKTsKPiA+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGkgKz0gc25wcmludGYoJmJ1
-ZltpXSwgUkVNQUlOKGkpLCAiUlNTICIpOwo+ID7CoMKgwqDCoMKgwqDCoGlmIChwZi0+ZmxhZ3Mg
-JiBJNDBFX0ZMQUdfRkRfQVRSX0VOQUJMRUQpCj4gPiAtwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqBidWYgKz0gc3ByaW50ZihidWYsICJGRF9BVFIgIik7Cj4gPiArwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqBpICs9IHNucHJpbnRmKCZidWZbaV0sIFJFTUFJTihpKSwgIkZEX0FUUiAiKTsKPiA+
-wqDCoMKgwqDCoMKgwqBpZiAocGYtPmZsYWdzICYgSTQwRV9GTEFHX0ZEX1NCX0VOQUJMRUQpIHsK
-PiA+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGJ1ZiArPSBzcHJpbnRmKGJ1ZiwgIkZEX1NC
-ICIpOwo+ID4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgYnVmICs9IHNwcmludGYoYnVmLCAi
-TlRVUExFICIpOwo+ID4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgaSArPSBzbnByaW50Zigm
-YnVmW2ldLCBSRU1BSU4oaSksICJGRF9TQiAiKTsKPiA+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoGkgKz0gc25wcmludGYoJmJ1ZltpXSwgUkVNQUlOKGkpLCAiTlRVUExFICIpOwo+ID7CoMKg
-wqDCoMKgwqDCoH0KPiA+wqDCoMKgwqDCoMKgwqBpZiAocGYtPmZsYWdzICYgSTQwRV9GTEFHX0RD
-Ql9DQVBBQkxFKQo+ID4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgYnVmICs9IHNwcmludGYo
-YnVmLCAiRENCICIpOwo+ID4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgaSArPSBzbnByaW50
-ZigmYnVmW2ldLCBSRU1BSU4oaSksICJEQ0IgIik7Cj4gPsKgwqAgI2lmIElTX0VOQUJMRUQoQ09O
-RklHX1ZYTEFOKQo+ID4gLcKgwqDCoMKgwqBidWYgKz0gc3ByaW50ZihidWYsICJWeExBTiAiKTsK
-PiA+ICvCoMKgwqDCoMKgaSArPSBzbnByaW50ZigmYnVmW2ldLCBSRU1BSU4oaSksICJWeExBTiAi
-KTsKPiA+wqDCoCAjZW5kaWYKPiA+wqDCoMKgwqDCoMKgwqBpZiAocGYtPmZsYWdzICYgSTQwRV9G
-TEFHX1BUUCkKPiA+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGJ1ZiArPSBzcHJpbnRmKGJ1
-ZiwgIlBUUCAiKTsKPiA+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGkgKz0gc25wcmludGYo
-JmJ1ZltpXSwgUkVNQUlOKGkpLCAiUFRQICIpOwo+ID7CoMKgICNpZmRlZiBJNDBFX0ZDT0UKPiA+
-wqDCoMKgwqDCoMKgwqBpZiAocGYtPmZsYWdzICYgSTQwRV9GTEFHX0ZDT0VfRU5BQkxFRCkKPiA+
-IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGJ1ZiArPSBzcHJpbnRmKGJ1ZiwgIkZDT0UgIik7
-Cj4gPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBpICs9IHNucHJpbnRmKCZidWZbaV0sIFJF
-TUFJTihpKSwgIkZDT0UgIik7Cj4gPsKgwqAgI2VuZGlmCj4gPsKgwqDCoMKgwqDCoMKgaWYgKHBm
-LT5mbGFncyAmIEk0MEVfRkxBR19WRUJfTU9ERV9FTkFCTEVEKQo+ID4gLcKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgYnVmICs9IHNwcmludGYoYnVmLCAiVkVCICIpOwo+ID4gK8KgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgaSArPSBzbnByaW50ZigmYnVmW2ldLCBSRU1BSU4oaSksICJWRVBBICIp
-Owo+IAo+IMKgwqDCoCBOb3QgIlZFQiAiPwoKTmljZSBjYXRjaCBTZXJnZWksIEkgd2lsbCB3YWl0
-IGEgdGlsbCB0aGlzIGFmdGVybm9vbiB0byByZXNwaW4gdGhlCnBhdGNoIHNlcmllcywganVzdCBp
-biBjYXNlIHRoZXJlIGFyZSBvdGhlciBjaGFuZ2VzIG5lZWRlZCB0aGF0IG91cgp2YWxpZGF0aW9u
-IGRpZCBub3QgY2F0Y2guIDotKQ==
-
-
---=-D0voXCwQ2vaGTSXCaZ9q
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	David Howells <dhowells@redhat.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87610q3pjg.fsf@doppelsaurus.mobileactivedefense.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+On Wed, 2015-11-25 at 18:24 +0000, Rainer Weikusat wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
+> > On Wed, 2015-11-25 at 17:30 +0000, Rainer Weikusat wrote:
+> >
+> >> In case this is wrong, it obviously implies that sk_sleep(sk) must not
+> >> be used anywhere as it accesses the same struck sock, hence, when that
+> >> can "suddenly" disappear despite locks are used in the way indicated
+> >> above, there is now safe way to invoke that, either, as it just does a
+> >> rcu_dereference_raw based on the assumption that the caller knows that
+> >> the i-node (and the corresponding wait queue) still exist.
+> >> 
+> >
+> > Oh well.
+> >
+> > sk_sleep() is not used if the return is NULL
+> 
+> static long unix_stream_data_wait(struct sock *sk, long timeo,
+> 				  struct sk_buff *last, unsigned int last_len)
+> {
+> 	struct sk_buff *tail;
+> 	DEFINE_WAIT(wait);
+> 
+> 	unix_state_lock(sk);
+> 
+> 	for (;;) {
+> 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+> 
+> 		tail = skb_peek_tail(&sk->sk_receive_queue);
+> 		if (tail != last ||
+> 		    (tail && tail->len != last_len) ||
+> 		    sk->sk_err ||
+> 		    (sk->sk_shutdown & RCV_SHUTDOWN) ||
+> 		    signal_pending(current) ||
+> 		    !timeo)
+> 			break;
+> 
+> 		set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+> 		unix_state_unlock(sk);
+> 		timeo = freezable_schedule_timeout(timeo);
+> 		unix_state_lock(sk);
+> 
+> 		if (sock_flag(sk, SOCK_DEAD))
+> 			break;
+> 
+> 		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+> 	}
+> 
+> 	finish_wait(sk_sleep(sk), &wait);
+> 	unix_state_unlock(sk);
+> 	return timeo;
+> }
+> 
+> Neither prepare_to_wait nor finish_wait check if the pointer is
+> null. For the finish_wait case, it shouldn't be null because if
+> SOCK_DEAD is not found to be set after the unix_state_lock was acquired,
+> unix_release_sock didn't execute the corresponding code yet, hence,
+> inode etc will remain available until after the corresponding unlock.
 
-iQIcBAABCgAGBQJWVf93AAoJEOVv75VaS+3On5gQAIH3LC3lD4cVY4ox1vFBywc2
-mDfalrmBZ3qrmupX84NdANGkvbF/I6UrUx+uzNwGcWDjuhZLY65OhQLEczPN2SHA
-7vkaRACrEi5Xz835MjmZJa60FSD6CyNwpBQYDpGhxwgt3jtFSwUEGJ4Nlkfyi42t
-UVb1wj6LxOgxwAkIS/HAG5J8X522HXjshLQezdg0h4DFq/zhHsTZtIzTJB2X2Rch
-UWF/W79ZpB23+HaoyncVdVkVNTfE37tXwx5q8r2PG2VPdARBdzCsqB3lkg2pm46Z
-v4Ri3eG/1lCuphEdQ8hclJjOnvYZMiu1GJlhg7+NN/LW0sLVcqy3COnBiexWa8E9
-1VoC4tmzzLIHcsDn2XV+WViWiSCdBnClUZ6XCgyWt0kUJ9fePFXriDy9avO1tqry
-2HH+uYMdVvpszOPmLAoXuc7YRKKp+Kls1OMHwfoYbdZvD6snhpHvtO2OwOlxzWmw
-NCzjf4bx2/pWv+dJVoSfABtO1l3ZKLTrgAa0e9gZFn57zYCjBtFngOForI0Abaza
-cuNlSt5n3siKVtayNPk2n8wBM2ifRocLtqpS/hyNGM5GaLAIop6KEtv5ZEHWdUiv
-i3atzc+hPXQ4Hhb8ybDGcjvsmzKvcheVVXoZ8UoTuwaIAcyWYz87TmP9TV9KUsX6
-o+iTDwJ4GCcplLbFxDlV
-=t7e3
------END PGP SIGNATURE-----
 
---=-D0voXCwQ2vaGTSXCaZ9q--
+> 
+> But this isn't true anymore if the inode can go away despite
+> sock_release couldn't complete yet.
+
+
+You are looking at the wrong side.
+
+Of course, the thread 'owning' a socket has a reference on it, so it
+knows sk->sk_socket and sk->sk_ww is not NULL.
+
+The problem is that at the time a wakeup is done, it can be done by a
+process or softirq having no ref on the 'struct socket', as
+sk->sk_socket can become NULL at anytime.
+
+This is why we have sk_wq , and RCU protection, so that we do not have
+to use expensive atomic operations in this fast path.
