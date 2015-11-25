@@ -1,53 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] drivers: net: xgene: fix possible use after free
-Date: Wed, 25 Nov 2015 09:02:10 -0800
-Message-ID: <1448470930.24696.10.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151125155753.GE12434@leverpostej>
-	 <1448468256.24696.5.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151125163402.GA29094@leverpostej>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH net-next 3/3] net: mvneta: Add naive RSS support
+Date: Wed, 25 Nov 2015 18:08:04 +0100
+Message-ID: <871tbe9fd7.fsf@free-electrons.com>
+References: <1448463243-21057-1-git-send-email-gregory.clement@free-electrons.com>
+	<1448463243-21057-4-git-send-email-gregory.clement@free-electrons.com>
+	<20151125175522.0e8dd8b8@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, isubramanian@apm.com, kchudgar@apm.com,
-	linux-kernel@vger.kernel.org, ryabinin.a.a@gmail.com,
-	linux-arm-kernel@lists.infradead.org
-To: Mark Rutland <mark.rutland@arm.com>,
-	David Miller <davem@davemloft.net>,
-	Iyappan Subramanian <isubramanian@apm.com>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151125163402.GA29094@leverpostej>
+In-Reply-To: <20151125175522.0e8dd8b8@free-electrons.com> (Thomas Petazzoni's
+	message of "Wed, 25 Nov 2015 17:55:22 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Hi Thomas,
+ 
+ On mer., nov. 25 2015, Thomas Petazzoni <thomas.petazzoni@free-electrons.com> wrote:
 
-Once TX has been enabled on a NIC, it is illegal to access skb,
-as this skb might have been freed by another cpu, from TX completion
-handler.
+> Gregory,
+>
+> On Wed, 25 Nov 2015 15:54:03 +0100, Gregory CLEMENT wrote:
+>
+>>  	pp->rxq_def = rxq_def;
+>>  
+>> +	pp->indir[0] = rxq_def;
+>
+> So now we have the RX queue in both pp->rxq_def and pp->indir[0] ? Is
+> this really useful ?
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Mark Rutland <mark.rutland@arm.com>
-Tested-by: Mark Rutland <mark.rutland@arm.com>
-Cc: Iyappan Subramanian <isubramanian@apm.com>
----
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Currently pp->rxq_def and pp->indir are the same but only because there
+is one entry in the indirection table. When the 256 entries will be used
+then there won't be the same. But we will still need the rxq_def as the
+mvneta IP need a reference to a default RX queue even for example for
+MVNETA_PORT_CONFIG_DEFL_VALUE.
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 1adfe7036843..9147a0107c44 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -450,12 +450,12 @@ static netdev_tx_t xgene_enet_start_xmit(struct sk_buff *skb,
- 		return NETDEV_TX_OK;
- 	}
- 
--	pdata->ring_ops->wr_cmd(tx_ring, count);
- 	skb_tx_timestamp(skb);
- 
- 	pdata->stats.tx_packets++;
- 	pdata->stats.tx_bytes += skb->len;
- 
-+	pdata->ring_ops->wr_cmd(tx_ring, count);
- 	return NETDEV_TX_OK;
- }
- 
+>
+> Also, if the RX queue becomes a per-port definition, why do you keep
+> the global rxq_def variable ?
+
+The global rxq_def variable is used for the module parameter. Even if
+we can change it latter, it is still good to be able to set the default
+value, however the parameter is set at module level not at port level,
+that why we still need this variable.
+
+Thanks,
+
+Gregory
+
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
