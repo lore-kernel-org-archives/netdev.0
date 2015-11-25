@@ -1,67 +1,60 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [Resend PATCH] RDS: fix race condition when sending a message
- on unbound socket
-Date: Wed, 25 Nov 2015 12:21:45 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBDC0B0@AcuExch.aculab.com>
-References: <1448403201-1683-1-git-send-email-santosh.shilimkar@oracle.com>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC PATCH V2 3/3] Ixgbevf: Add migration support for ixgbevf
+ driver
+Date: Wed, 25 Nov 2015 14:28:05 +0200
+Message-ID: <20151125142437-mutt-send-email-mst@redhat.com>
+References: <1448372298-28386-1-git-send-email-tianyu.lan@intel.com>
+ <1448372298-28386-4-git-send-email-tianyu.lan@intel.com>
+ <20151124230551-mutt-send-email-mst@redhat.com>
+ <56554994.1090305@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"sasha.levin@oracle.com" <sasha.levin@oracle.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	Quentin Casasnovas <quentin.casasnovas@oracle.com>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-To: 'Santosh Shilimkar' <santosh.shilimkar@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448403201-1683-1-git-send-email-santosh.shilimkar@oracle.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org, alex.williamson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org, bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	carolyn.wyborny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, donald.c.skidmore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	eddie.dong-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, nrupal.jani-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, agraf-l3A5Bk7waGM@public.gmane.org,
+	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org,
+	emil.s.tantilov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	mark.d.rustad-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, eric.auger-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	jesse.brandeburg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, john.ronciak-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	matthew.vick-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, mitch.a.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shannon.nelson-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	weiyang-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Lan Tianyu <tianyu.lan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <56554994.1090305-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Santosh Shilimkar
-> Sent: 24 November 2015 22:13
-...
-> Sasha's found a NULL pointer dereference in the RDS connection code when
-> sending a message to an apparently unbound socket.  The problem is caused
-> by the code checking if the socket is bound in rds_sendmsg(), which checks
-> the rs_bound_addr field without taking a lock on the socket.  This opens a
-> race where rs_bound_addr is temporarily set but where the transport is not
-> in rds_bind(), leading to a NULL pointer dereference when trying to
-> dereference 'trans' in __rds_conn_create().
-> 
-> Vegard wrote a reproducer for this issue, so kindly ask him to share if
-> you're interested.
-...
-> diff --git a/net/rds/send.c b/net/rds/send.c
-> index 827155c..c9cdb35 100644
-> --- a/net/rds/send.c
-> +++ b/net/rds/send.c
-> @@ -1013,11 +1013,13 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
->  		release_sock(sk);
+On Wed, Nov 25, 2015 at 01:39:32PM +0800, Lan Tianyu wrote:
+> On 2015=E5=B9=B411=E6=9C=8825=E6=97=A5 05:20, Michael S. Tsirkin wrot=
+e:
+> > I have to say, I was much more interested in the idea
+> > of tracking dirty memory. I have some thoughts about
+> > that one - did you give up on it then?
+>=20
+> No, our finial target is to keep VF active before doing
+> migration and tracking dirty memory is essential. But this
+> seems not easy to do that in short term for upstream. As
+> starters, stop VF before migration.
 
-This is falling though into an unconditional lock_sock().
-No need to unlock and relock immediately.
+=46rankly, I don't really see what this short term hack buys us,
+and if it goes in, we'll have to maintain it forever.
 
->  	}
-> 
-> -	/* racing with another thread binding seems ok here */
-> +	lock_sock(sk);
->  	if (daddr == 0 || rs->rs_bound_addr == 0) {
-> +		release_sock(sk);
->  		ret = -ENOTCONN; /* XXX not a great errno */
->  		goto out;
->  	}
-> +	release_sock(sk);
-> 
+Also, assuming you just want to do ifdown/ifup for some reason, it's
+easy enough to do using a guest agent, in a completely generic way.
 
-On the face of it the above looks somewhat dubious.
-Locks usually tie together two action (eg a test and use of a value),
-In this case you only have a test inside the lock.
-That either means that the state can change after you release the lock
-(ie rs->rs_bound_addr = 0 is executed somewhere), or you don't
-really need the lock.
 
-	David
+> After deep thinking, the way of stopping VF still needs tracking
+> DMA-accessed dirty memory to make sure the received data buffer
+> before stopping VF migrated. It's easier to do that via dummy writing
+> data buffer when receive packet.
+>=20
+>=20
+> --=20
+> Best regards
+> Tianyu Lan
