@@ -1,55 +1,35 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Subject: RE: [PATCH 4/7] iwlwifi: fix a problematic usage of WARN_ON_ONCE()
-Date: Wed, 25 Nov 2015 13:47:42 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32E8FC5E8@hasmsx107.ger.corp.intel.com>
-References: <86c73f180d3054c1bf17bdac8c89026209167c9b.1448456395.git.geliangtang@163.com>
- <8bb789c0803579a01e1ee977ed67408c422acd79.1448456395.git.geliangtang@163.com>
- <582529c23f77af64373f59fa92e29186df700d79.1448456395.git.geliangtang@163.com>
- <7701ed112cc71a9a17ba5b3022166011a98d0dca.1448456395.git.geliangtang@163.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: network stream fairness
+Date: Wed, 25 Nov 2015 05:49:32 -0800
+Message-ID: <1448459372.22599.324.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5640BEAC.10404@axis.com>
+	 <1447084258.17135.39.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5640C15E.805@axis.com>
+	 <1447085271.17135.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <564F3D3D.7050004@axis.com>
+	 <1448043414.22599.287.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5655ADC7.3040606@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Geliang Tang <geliangtang@163.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	linuxwifi <linuxwifi@intel.com>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7701ed112cc71a9a17ba5b3022166011a98d0dca.1448456395.git.geliangtang@163.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:33948 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752281AbbKYNte (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 08:49:34 -0500
+Received: by padhx2 with SMTP id hx2so58437218pad.1
+        for <netdev@vger.kernel.org>; Wed, 25 Nov 2015 05:49:34 -0800 (PST)
+In-Reply-To: <5655ADC7.3040606@axis.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> 
-> WARN_ON_ONCE() takes a condition rather than a format string. This patch
-> converted WARN_ON_ONCE() to WARN_ONCE() instead.
-> 
-> Signed-off-by: Geliang Tang <geliangtang@163.com>
-> ---
->  drivers/net/wireless/intel/iwlwifi/mvm/rs.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+On Wed, 2015-11-25 at 13:47 +0100, Niklas Cassel wrote:
 
-Already fixed. Thanks.
+> (SO_MAX_PACING_RATE would require modifying a lot of different user-space
+> programs, so that is not really an option :( )
 
-> 
-> diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/rs.c
-> b/drivers/net/wireless/intel/iwlwifi/mvm/rs.c
-> index d1ad103..58d7bee 100644
-> --- a/drivers/net/wireless/intel/iwlwifi/mvm/rs.c
-> +++ b/drivers/net/wireless/intel/iwlwifi/mvm/rs.c
-> @@ -1827,7 +1827,7 @@ static int rs_switch_to_column(struct iwl_mvm
-> *mvm,
->  		rate->type = lq_sta->is_vht ? LQ_VHT_MIMO2 :
-> LQ_HT_MIMO2;
->  		rate_mask = lq_sta->active_mimo2_rate;
->  	} else {
-> -		WARN_ON_ONCE("Bad column mode");
-> +		WARN_ONCE(1, "Bad column mode");
->  	}
-> 
->  	if (column->mode != RS_LEGACY) {
-> --
-> 2.5.0
-> 
+You can set a max rate on the packet scheduler itself, for all flows.
+
+tc qdisc replace dev eth0 root fq maxrate 30Mbit
