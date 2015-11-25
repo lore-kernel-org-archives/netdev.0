@@ -1,114 +1,157 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next v2 04/15] i40e: remove BUG_ON from feature string
- building
-Date: Wed, 25 Nov 2015 21:26:58 +0300
-Message-ID: <5655FD72.70902@cogentembedded.com>
-References: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1448475679-57194-5-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH 04/13] net: mvneta: enable suspend/resume support
+Date: Wed, 25 Nov 2015 19:35:32 +0100
+Message-ID: <87k2p67wqz.fsf@free-electrons.com>
+References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
+ <1448178839-3541-5-git-send-email-mw@semihalf.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f48.google.com ([209.85.215.48]:33701 "EHLO
-	mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750840AbbKYS1D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 13:27:03 -0500
-Received: by lfaz4 with SMTP id z4so70991232lfa.0
-        for <netdev@vger.kernel.org>; Wed, 25 Nov 2015 10:27:00 -0800 (PST)
-In-Reply-To: <1448475679-57194-5-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch, linux@arm.linux.org.uk,
+ jason@lakedaemon.net, myair@marvell.com, netdev@vger.kernel.org,
+ simon.guinot@sequanux.org, linux-kernel@vger.kernel.org, xswang@marvell.com,
+ tn@semihalf.com, nadavh@marvell.com, alior@marvell.com, jaz@semihalf.com,
+ nitroshift@yahoo.com, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org, sebastian.hesselbarth@gmail.com
+To: Marcin Wojtas <mw@semihalf.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1448178839-3541-5-git-send-email-mw@semihalf.com> (Marcin
+ Wojtas's message of "Sun, 22 Nov 2015 08:53:50 +0100")
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi Marcin,
+ 
+ On dim., nov. 22 2015, Marcin Wojtas <mw@semihalf.com> wrote:
 
-On 11/25/2015 09:21 PM, Jeff Kirsher wrote:
+> This commit introduces suspend/resume routines used for both in 'standby'
+> and 'mem' modes. For the latter, in which registers' contents are lost,
+> following steps are performed:
+> * in suspend - update port statistics and, if interface is running,
+>   detach netif, clean the queues, disable cpu notifier, shutdown
+>   interface and reset port's link status;
+> * in resume, for all interfaces, set default configuration of the port and
+>   MBUS windows;
+> * in resume, in case the interface is running, enable accepting packets in
+>   legacy parser, power up the port, register cpu notifier and attach
+> netif.
 
-> From: Shannon Nelson <shannon.nelson@intel.com>
+I don't have the hardware to use suspend to RAM on Armada XP but at
+least in standby the network continue to work on wakeup.
+
 >
-> There's really no reason to kill the kernel thread just because of a
-> little info string. This reworks the code to use snprintf's limiting to
-> assure that the string is never too long, and WARN_ON to still put out
-> a warning that we might want to look at the feature list length.
->
-> Prompted by a recent Linus diatribe.
->
-> Change-ID: If52ba5ca1c2344d8bf454a31bbb805eb5d2c5802
-> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
 > ---
->   drivers/net/ethernet/intel/i40e/i40e_main.c | 34 +++++++++++++++--------------
->   1 file changed, 18 insertions(+), 16 deletions(-)
+>  drivers/net/ethernet/marvell/mvneta.c | 70 +++++++++++++++++++++++++++++++++++
+>  1 file changed, 70 insertions(+)
 >
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> index 7715c54..7a4595a 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-[...]
-> @@ -10124,42 +10126,42 @@ static void i40e_print_features(struct i40e_pf *pf)
->
->   	buf = string;
->
-> -	buf += sprintf(string, "Features: PF-id[%d] ", hw->pf_id);
-> +	i += snprintf(&buf[i], REMAIN(i), "Features: PF-id[%d] ", hw->pf_id);
->   #ifdef CONFIG_PCI_IOV
-> -	buf += sprintf(buf, "VFs: %d ", pf->num_req_vfs);
-> +	i += snprintf(&buf[i], REMAIN(i), "VFs: %d ", pf->num_req_vfs);
->   #endif
-> -	buf += sprintf(buf, "VSIs: %d QP: %d RX: %s ",
-> -		       pf->hw.func_caps.num_vsis,
-> -		       pf->vsi[pf->lan_vsi]->num_queue_pairs,
-> -		       pf->flags & I40E_FLAG_RX_PS_ENABLED ? "PS" : "1BUF");
-> +	i += snprintf(&buf[i], REMAIN(i), "VSIs: %d QP: %d RX: %s ",
-> +		      pf->hw.func_caps.num_vsis,
-> +		      pf->vsi[pf->lan_vsi]->num_queue_pairs,
-> +		      pf->flags & I40E_FLAG_RX_PS_ENABLED ? "PS" : "1BUF");
->
->   	if (pf->flags & I40E_FLAG_RSS_ENABLED)
-> -		buf += sprintf(buf, "RSS ");
-> +		i += snprintf(&buf[i], REMAIN(i), "RSS ");
->   	if (pf->flags & I40E_FLAG_FD_ATR_ENABLED)
-> -		buf += sprintf(buf, "FD_ATR ");
-> +		i += snprintf(&buf[i], REMAIN(i), "FD_ATR ");
->   	if (pf->flags & I40E_FLAG_FD_SB_ENABLED) {
-> -		buf += sprintf(buf, "FD_SB ");
-> -		buf += sprintf(buf, "NTUPLE ");
-> +		i += snprintf(&buf[i], REMAIN(i), "FD_SB ");
-> +		i += snprintf(&buf[i], REMAIN(i), "NTUPLE ");
->   	}
->   	if (pf->flags & I40E_FLAG_DCB_CAPABLE)
-> -		buf += sprintf(buf, "DCB ");
-> +		i += snprintf(&buf[i], REMAIN(i), "DCB ");
->   #if IS_ENABLED(CONFIG_VXLAN)
-> -	buf += sprintf(buf, "VxLAN ");
-> +	i += snprintf(&buf[i], REMAIN(i), "VxLAN ");
->   #endif
->   	if (pf->flags & I40E_FLAG_PTP)
-> -		buf += sprintf(buf, "PTP ");
-> +		i += snprintf(&buf[i], REMAIN(i), "PTP ");
->   #ifdef I40E_FCOE
->   	if (pf->flags & I40E_FLAG_FCOE_ENABLED)
-> -		buf += sprintf(buf, "FCOE ");
-> +		i += snprintf(&buf[i], REMAIN(i), "FCOE ");
->   #endif
->   	if (pf->flags & I40E_FLAG_VEB_MODE_ENABLED)
-> -		buf += sprintf(buf, "VEB ");
-> +		i += snprintf(&buf[i], REMAIN(i), "VEPA ");
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> index d12b8c6..f079b13 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -3442,6 +3442,72 @@ static int mvneta_remove(struct platform_device *pdev)
+>  	return 0;
+>  }
+>  
+> +#ifdef CONFIG_PM_SLEEP
+> +static int mvneta_suspend(struct platform_device *pdev, pm_message_t state)
+> +{
+> +	struct net_device *dev = platform_get_drvdata(pdev);
+> +	struct mvneta_port *pp = netdev_priv(dev);
+> +
+> +	mvneta_ethtool_update_stats(pp);
+> +
+> +	if (!netif_running(dev))
+> +		return 0;
+> +
+> +	netif_device_detach(dev);
+> +
+> +	mvneta_stop_dev(pp);
+> +	unregister_cpu_notifier(&pp->cpu_notifier);
+> +	mvneta_cleanup_rxqs(pp);
+> +	mvneta_cleanup_txqs(pp);
+> +
+> +	/* Reset link status */
+> +	pp->link = 0;
+> +	pp->duplex = -1;
+> +	pp->speed = 0;
+> +
 
-    Not "VEB "?
+Would it be possible to add a kind of mvneta_port_power_down(pp,
+pp->phy_interface) here ? It would allow to save power in standby mode
+too.
 
->   	else
->   		buf += sprintf(buf, "VEPA ");
+> +	return 0;
+> +}
+> +
+> +static int mvneta_resume(struct platform_device *pdev)
+> +{
+> +	const struct mbus_dram_target_info *dram_target_info;
+> +	struct net_device *dev = platform_get_drvdata(pdev);
+> +	struct mvneta_port *pp = netdev_priv(dev);
+> +	int ret;
+> +
+> +	mvneta_defaults_set(pp);
+> +	mvneta_port_power_up(pp, pp->phy_interface);
+> +
+> +	dram_target_info = mv_mbus_dram_info();
+> +	if (dram_target_info)
+> +		mvneta_conf_mbus_windows(pp, dram_target_info);
+> +
+> +	if (!netif_running(dev))
+> +		return 0;
+> +
+> +	ret = mvneta_setup_rxqs(pp);
+> +	if (ret) {
+> +		netdev_err(dev, "unable to setup rxqs after resume\n");
+> +		return ret;
+> +	}
+> +
+> +	ret = mvneta_setup_txqs(pp);
+> +	if (ret) {
+> +		netdev_err(dev, "unable to setup txqs after resume\n");
+> +		return ret;
+> +	}
+> +
+> +	mvneta_set_rx_mode(dev);
+> +	mvneta_percpu_elect(pp);
+> +	register_cpu_notifier(&pp->cpu_notifier);
+> +	mvneta_start_dev(pp);
+> +
+> +	netif_device_attach(dev);
+> +
+> +	return 0;
+> +}
+> +#endif /* CONFIG_PM_SLEEP */
+> +
+>  static const struct of_device_id mvneta_match[] = {
+>  	{ .compatible = "marvell,armada-370-neta" },
+>  	{ .compatible = "marvell,armada-xp-neta" },
+> @@ -3452,6 +3518,10 @@ MODULE_DEVICE_TABLE(of, mvneta_match);
+>  static struct platform_driver mvneta_driver = {
+>  	.probe = mvneta_probe,
+>  	.remove = mvneta_remove,
+> +#ifdef CONFIG_PM_SLEEP
+> +	.suspend = mvneta_suspend,
+> +	.resume = mvneta_resume,
+> +#endif
+>  	.driver = {
+>  		.name = MVNETA_DRIVER_NAME,
+>  		.of_match_table = mvneta_match,
+> -- 
+> 1.8.3.1
 >
-> -	BUG_ON(buf > (string + INFO_STRING_LEN));
->   	dev_info(&pf->pdev->dev, "%s\n", string);
->   	kfree(string);
-> +	WARN_ON(i > INFO_STRING_LEN);
->   }
->
->   /**
 
-MBR, Sergei
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
