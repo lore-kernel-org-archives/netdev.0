@@ -1,47 +1,109 @@
-From: Lan Tianyu <tianyu.lan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH V2 3/3] Ixgbevf: Add migration support for ixgbevf
- driver
-Date: Wed, 25 Nov 2015 13:39:32 +0800
-Message-ID: <56554994.1090305@intel.com>
-References: <1448372298-28386-1-git-send-email-tianyu.lan@intel.com> <1448372298-28386-4-git-send-email-tianyu.lan@intel.com> <20151124230551-mutt-send-email-mst@redhat.com>
+From: Christoph Biedl <linux-kernel.bfrz@manchmal.in-ulm.de>
+Subject: [PATCH net] isdn: Partially revert debug format string usage clean up
+Date: Wed, 25 Nov 2015 07:47:40 +0100
+Message-ID: <1448433910@msgid.manchmal.in-ulm.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org, alex.williamson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org, bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	carolyn.wyborny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, donald.c.skidmore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	eddie.dong-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, nrupal.jani-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, agraf-l3A5Bk7waGM@public.gmane.org,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org,
-	emil.s.tantilov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	mark.d.rustad-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, eric.auger-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-	intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	jesse.brandeburg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, john.ronciak-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	matthew.vick-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, mitch.a.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shannon.nelson-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	weiyang-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151124230551-mutt-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
+	Kees Cook <keescook@chromium.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from manchmal.in-ulm.de ([217.10.9.201]:35526 "EHLO
+	manchmal.in-ulm.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752723AbbKYG4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 01:56:50 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2015=E5=B9=B411=E6=9C=8825=E6=97=A5 05:20, Michael S. Tsirkin wrote:
-> I have to say, I was much more interested in the idea
-> of tracking dirty memory. I have some thoughts about
-> that one - did you give up on it then?
+Commit 35a4a57 ("isdn: clean up debug format string usage") introduced
+a safeguard to avoid accidential format string interpolation of data
+when calling debugl1 or HiSax_putstatus. This did however not take into
+account VHiSax_putstatus (called by HiSax_putstatus) does *not* call
+vsprintf if the head parameter is NULL - the format string is treated
+as plain text then instead. As a result, the string "%s" is processed
+literally, and the actual information is lost. This affects the isdnlog
+userspace program which stopped logging information since that commit.
 
-No, our finial target is to keep VF active before doing
-migration and tracking dirty memory is essential. But this
-seems not easy to do that in short term for upstream. As
-starters, stop VF before migration.
+So revert the HiSax_putstatus invocations to the previous state.
 
-After deep thinking, the way of stopping VF still needs tracking
-DMA-accessed dirty memory to make sure the received data buffer
-before stopping VF migrated. It's easier to do that via dummy writing
-data buffer when receive packet.
+Fixes: 35a4a5733b0a ("isdn: clean up debug format string usage")
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Karsten Keil <isdn@linux-pingi.de>
+Signed-off-by: Christoph Biedl <linux-kernel.bfrz@manchmal.in-ulm.de>
+---
+ drivers/isdn/hisax/config.c  | 2 +-
+ drivers/isdn/hisax/hfc_pci.c | 2 +-
+ drivers/isdn/hisax/hfc_sx.c  | 2 +-
+ drivers/isdn/hisax/q931.c    | 6 +++---
+ 4 files changed, 6 insertions(+), 6 deletions(-)
 
-
---=20
-Best regards
-Tianyu Lan
+diff --git a/drivers/isdn/hisax/config.c b/drivers/isdn/hisax/config.c
+index b33f53b..bf04d2a 100644
+--- a/drivers/isdn/hisax/config.c
++++ b/drivers/isdn/hisax/config.c
+@@ -1896,7 +1896,7 @@ static void EChannel_proc_rcv(struct hisax_d_if *d_if)
+ 				ptr--;
+ 				*ptr++ = '\n';
+ 				*ptr = 0;
+-				HiSax_putstatus(cs, NULL, "%s", cs->dlog);
++				HiSax_putstatus(cs, NULL, cs->dlog);
+ 			} else
+ 				HiSax_putstatus(cs, "LogEcho: ",
+ 						"warning Frame too big (%d)",
+diff --git a/drivers/isdn/hisax/hfc_pci.c b/drivers/isdn/hisax/hfc_pci.c
+index 4a48255..90449e1 100644
+--- a/drivers/isdn/hisax/hfc_pci.c
++++ b/drivers/isdn/hisax/hfc_pci.c
+@@ -901,7 +901,7 @@ Begin:
+ 					ptr--;
+ 					*ptr++ = '\n';
+ 					*ptr = 0;
+-					HiSax_putstatus(cs, NULL, "%s", cs->dlog);
++					HiSax_putstatus(cs, NULL, cs->dlog);
+ 				} else
+ 					HiSax_putstatus(cs, "LogEcho: ", "warning Frame too big (%d)", total - 3);
+ 			}
+diff --git a/drivers/isdn/hisax/hfc_sx.c b/drivers/isdn/hisax/hfc_sx.c
+index b1fad81..13b2151 100644
+--- a/drivers/isdn/hisax/hfc_sx.c
++++ b/drivers/isdn/hisax/hfc_sx.c
+@@ -674,7 +674,7 @@ receive_emsg(struct IsdnCardState *cs)
+ 					ptr--;
+ 					*ptr++ = '\n';
+ 					*ptr = 0;
+-					HiSax_putstatus(cs, NULL, "%s", cs->dlog);
++					HiSax_putstatus(cs, NULL, cs->dlog);
+ 				} else
+ 					HiSax_putstatus(cs, "LogEcho: ", "warning Frame too big (%d)", skb->len);
+ 			}
+diff --git a/drivers/isdn/hisax/q931.c b/drivers/isdn/hisax/q931.c
+index b420f8b..ba4beb2 100644
+--- a/drivers/isdn/hisax/q931.c
++++ b/drivers/isdn/hisax/q931.c
+@@ -1179,7 +1179,7 @@ LogFrame(struct IsdnCardState *cs, u_char *buf, int size)
+ 		dp--;
+ 		*dp++ = '\n';
+ 		*dp = 0;
+-		HiSax_putstatus(cs, NULL, "%s", cs->dlog);
++		HiSax_putstatus(cs, NULL, cs->dlog);
+ 	} else
+ 		HiSax_putstatus(cs, "LogFrame: ", "warning Frame too big (%d)", size);
+ }
+@@ -1246,7 +1246,7 @@ dlogframe(struct IsdnCardState *cs, struct sk_buff *skb, int dir)
+ 	}
+ 	if (finish) {
+ 		*dp = 0;
+-		HiSax_putstatus(cs, NULL, "%s", cs->dlog);
++		HiSax_putstatus(cs, NULL, cs->dlog);
+ 		return;
+ 	}
+ 	if ((0xfe & buf[0]) == PROTO_DIS_N0) {	/* 1TR6 */
+@@ -1509,5 +1509,5 @@ dlogframe(struct IsdnCardState *cs, struct sk_buff *skb, int dir)
+ 		dp += sprintf(dp, "Unknown protocol %x!", buf[0]);
+ 	}
+ 	*dp = 0;
+-	HiSax_putstatus(cs, NULL, "%s", cs->dlog);
++	HiSax_putstatus(cs, NULL, cs->dlog);
+ }
+-- 
+2.1.4
