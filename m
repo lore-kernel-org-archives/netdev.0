@@ -1,80 +1,65 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 0/6] kcm: Kernel Connection Multiplexor (KCM)
-Date: Wed, 25 Nov 2015 11:38:14 +0100
-Message-ID: <1448447894.488780.449645185.04F14CE4@webmail.messagingengine.com>
-References: <CALx6S34TrGgmH3eZKPLw_xKYfX2dm+fZq6r7ZBe2DBPudBiSzA@mail.gmail.com>
- <20151123.145433.1554000376541433305.davem@davemloft.net>
- <20151124152744.GB20972@breakpoint.cc>
- <20151124.105537.185897620062606312.davem@davemloft.net>
- <20151124162515.GA22266@breakpoint.cc>
- <1448389410.599529.449007361.7A816A14@webmail.messagingengine.com>
- <20151124185942.GA73070@ast-mbp.thefacebook.com>
- <1448392585.611746.449059097.46CE87C0@webmail.messagingengine.com>
- <20151124202340.GA78406@ast-mbp.thefacebook.com>
- <1448402288.1489559.449199721.64EBB346@webmail.messagingengine.com>
- <20151124222109.GA86838@ast-mbp.thefacebook.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 06/16] i40e: Properly cast type for arithmetic
+Date: Wed, 25 Nov 2015 02:46:51 -0800
+Message-ID: <1448448411.3154.32.camel@intel.com>
+References: <1448409886-90686-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1448409886-90686-7-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1448412212.20113.12.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Tom Herbert <tom@herbertland.com>,
-	Florian Westphal <fw@strlen.de>, davem@davemloft.net
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-tpPL7fd/pcnPXNsqk/39"
+Cc: Helin Zhang <helin.zhang@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: Joe Perches <joe@perches.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:34459 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751982AbbKYKiP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 05:38:15 -0500
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id A6B6120309
-	for <netdev@vger.kernel.org>; Wed, 25 Nov 2015 05:38:14 -0500 (EST)
-In-Reply-To: <20151124222109.GA86838@ast-mbp.thefacebook.com>
+Received: from mga03.intel.com ([134.134.136.65]:16192 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750832AbbKYKrE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Nov 2015 05:47:04 -0500
+In-Reply-To: <1448412212.20113.12.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-On Tue, Nov 24, 2015, at 23:21, Alexei Starovoitov wrote:
-> On Tue, Nov 24, 2015 at 10:58:08PM +0100, Hannes Frederic Sowa wrote:
-> > > > > 
-> > > > > interesting idea, but then remote host will be influencing local cpu
-> > > > > selection?
-> > > > > how remote can figure out the number of local cpus?
-> > > > 
-> > > > Via rpc! :)
-> > > > 
-> > > > The configuration shouldn't change all the time and some get_info rpc
-> > > > call could provide info for the topology of the machine, or...
-> > > 
-> > > Configuration changes all the time. Machines crash, traffic redirected
-> > > because of load, etc, etc
-> > 
-> > Yeah, same problem you have to handle with the kcm approach.
-> 
-> not at all. No new remote configuration things are needed.
+--=-tpPL7fd/pcnPXNsqk/39
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-At some point you have to manage your ip address and if you move a host
-subnet or an ip address it should not matter a lot.
+On Tue, 2015-11-24 at 16:43 -0800, Joe Perches wrote:
+> On Tue, 2015-11-24 at 16:04 -0800, Jeff Kirsher wrote:
+> > From: Helin Zhang <helin.zhang@intel.com>
+> >=20
+> > Pointer of type void * shouldn't be used in arithmetic, which may
+> > result in compilation error. Casting of (u8 *) can be added to fix
+> > that.
+> >=20
+>=20
+> void * arithmetic is used quite frequently in the kernel.
+>=20
+> What compiler emits an error?
 
-> > Just use GRO engine and TCP PSH flag, maybe by making it more
-> > intentional via user space APIs on one connection. Wake up thread with
-> > one complete RPC message. If receiver eats more data it is no problem,
-> > if less, it will block as in your approach, too. Your worker threads
-> > must handle that anyway and can buffer and concatenate it to the next
-> > message to be processed.
-> 
-> of course not. kcm reading threads don't have to deal with it.
+When you use the gcc -Wpointer-arith, it generates the warning.
+--=-tpPL7fd/pcnPXNsqk/39
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-If there is no fallback for this you have to drop frames and kill the
-TCP connection for all your RPC endpoints. If you lost synchronization
-with the headers there is no way you will resync. 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-> PS
-> just noticed that you've excluded all. By accident?
-> Feel free to reply to all.
+iQIcBAABCgAGBQJWVZGbAAoJEOVv75VaS+3OxSUP/01QOH71OvLAtLqlsXYS8EMe
+RpejpyIAh7Rn4ZF2813+LGcGMiZkYbUgVjPCj3MKO+63V2dT0NsoTUfhEgwkr345
+ovKrHZTxriD62mJHuoTVl4q4XY0fxojP4tqJIipEt3DlgQRjPll0JX/hjfEqDQr+
+Z7+4L9iC4A0z842M0PKIZwEE0tEQZst7RKyEclkf3LaihBHJAG3yj5BNdLd1ycNT
+xYN9sjpTxbhSIV3GYSiHdd/BjmXFtMhWpIbGSDzynLKiUyAE3MEYnNdcDMdFmR9/
+iLS2slXclj6Ne6xSZ/IIOy5P2qRE0Xxr8T+gJxSC9fV/ftOabBdmmbFJ7HzbK/E+
+a7Jc4YzM5OnTHT3p2rhOzK49MeEHZg5NVjbdEHKNFq7Y8xIWawzle/MHRZGJOdfa
+VwTBu1jTlRxTXXPIFCTyJmP93br1+64mNDNmSMwmrseamVpP3+B4eti2BmSZsed5
+yPl4xZj+BUSN9Ri7WnAFf/T59EnYdqQZmT6RqVO8N3ZgUGl3gsuNDIIQu1VnuXKi
+iGsPVBZ7D/3ZzxTApPny+E9s3767s4lv6qZtZWhLcjFqhguciL9Q+OlvpGBz6vwy
+cvnKnt7Dcjjh+jUCSW9K11+otm+rbHYEU6a92/7qa2syOKsQowtBnXqZ5EB3i8Ce
+moUXr3qo6K6OA1NBPbMR
+=xP/O
+-----END PGP SIGNATURE-----
 
-Oh, thanks, yes it was a fault on my side.
-
-For full transparency I reply.
-
-Bye,
-Hannes
+--=-tpPL7fd/pcnPXNsqk/39--
