@@ -1,53 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 13/13] mm: memcontrol: hook up vmpressure to socket
- pressure
-Date: Wed, 25 Nov 2015 11:30:48 -0500 (EST)
-Message-ID: <20151125.113048.45218641761530031.davem@davemloft.net>
-References: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
-	<20151124215940.GB1373@cmpxchg.org>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: KASAN failures in X-Gene ethernet driver in v4.4-rc2
+Date: Wed, 25 Nov 2015 16:34:02 +0000
+Message-ID: <20151125163402.GA29094@leverpostej>
+References: <20151125155753.GE12434@leverpostej>
+ <1448468256.24696.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, vdavydov@virtuozzo.com, mhocko@suse.cz,
- tj@kernel.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
- linux-mm@kvack.org, cgroups@vger.kernel.org, linux-kernel@vger.kernel.org,
- kernel-team@fb.com
-To: hannes@cmpxchg.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20151124215940.GB1373@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, isubramanian@apm.com, kchudgar@apm.com,
+	linux-kernel@vger.kernel.org, ryabinin.a.a@gmail.com,
+	linux-arm-kernel@lists.infradead.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1448468256.24696.5.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Weiner <hannes@cmpxchg.org>
-Date: Tue, 24 Nov 2015 16:59:40 -0500
+On Wed, Nov 25, 2015 at 08:17:36AM -0800, Eric Dumazet wrote:
+> On Wed, 2015-11-25 at 15:59 +0000, Mark Rutland wrote:
+> > xgene_enet_start_xmit
+> 
+> Please try following trivial fix
 
-> Let the networking stack know when a memcg is under reclaim pressure
-> so that it can clamp its transmit windows accordingly.
-> 
-> Whenever the reclaim efficiency of a cgroup's LRU lists drops low
-> enough for a MEDIUM or HIGH vmpressure event to occur, assert a
-> pressure state in the socket and tcp memory code that tells it to curb
-> consumption growth from sockets associated with said control group.
-> 
-> Traditionally, vmpressure reports for the entire subtree of a memcg
-> under pressure, which drops useful information on the individual
-> groups reclaimed. However, it's too late to change the userinterface,
-> so add a second reporting mode that reports on the level of reclaim
-> instead of at the level of pressure, and use that report for sockets.
-> 
-> vmpressure events are naturally edge triggered, so for hysteresis
-> assert socket pressure for a second to allow for subsequent vmpressure
-> events to occur before letting the socket code return to normal.
-> 
-> This will likely need finetuning for a wider variety of workloads, but
-> for now stick to the vmpressure presets and keep hysteresis simple.
-> 
-> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+With that applied KASAN is silent, despite my efforts to trigger the
+issue, so it looks like that fixes it.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Thanks,
+Mark.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> index 1adfe7036843..9147a0107c44 100644
+> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> @@ -450,12 +450,12 @@ static netdev_tx_t xgene_enet_start_xmit(struct sk_buff *skb,
+>  		return NETDEV_TX_OK;
+>  	}
+>  
+> -	pdata->ring_ops->wr_cmd(tx_ring, count);
+>  	skb_tx_timestamp(skb);
+>  
+>  	pdata->stats.tx_packets++;
+>  	pdata->stats.tx_bytes += skb->len;
+>  
+> +	pdata->ring_ops->wr_cmd(tx_ring, count);
+>  	return NETDEV_TX_OK;
+>  }
+>  
+> 
+> 
