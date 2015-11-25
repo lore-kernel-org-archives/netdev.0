@@ -1,94 +1,69 @@
-From: Quentin Casasnovas <quentin.casasnovas@oracle.com>
-Subject: Re: [Resend PATCH] RDS: fix race condition when sending a message on
- unbound socket
-Date: Wed, 25 Nov 2015 13:52:00 +0100
-Message-ID: <20151125125200.GC15735@chrystal.uk.oracle.com>
-References: <1448403201-1683-1-git-send-email-santosh.shilimkar@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CBDC0B0@AcuExch.aculab.com>
+From: William Dauchy <william-M8Sm6a3kpgNeoWH0uzbU5w@public.gmane.org>
+Subject: kmemleak report with nfs3/4 activity on v4.1.x
+Date: Wed, 25 Nov 2015 13:57:23 +0100
+Message-ID: <20151125125723.GY21147@gandi.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'Santosh Shilimkar'" <santosh.shilimkar@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"sasha.levin@oracle.com" <sasha.levin@oracle.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	Quentin Casasnovas <quentin.casasnovas@oracle.com>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="OEa2bCMk+rg6xBXy"
+To: Linux NFS mailing list <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBDC0B0@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 25, 2015 at 12:21:45PM +0000, David Laight wrote:
-> From: Santosh Shilimkar
-> > Sent: 24 November 2015 22:13
-> ...
-> > Sasha's found a NULL pointer dereference in the RDS connection code when
-> > sending a message to an apparently unbound socket.  The problem is caused
-> > by the code checking if the socket is bound in rds_sendmsg(), which checks
-> > the rs_bound_addr field without taking a lock on the socket.  This opens a
-> > race where rs_bound_addr is temporarily set but where the transport is not
-> > in rds_bind(), leading to a NULL pointer dereference when trying to
-> > dereference 'trans' in __rds_conn_create().
-> > 
-> > Vegard wrote a reproducer for this issue, so kindly ask him to share if
-> > you're interested.
-> ...
-> > diff --git a/net/rds/send.c b/net/rds/send.c
-> > index 827155c..c9cdb35 100644
-> > --- a/net/rds/send.c
-> > +++ b/net/rds/send.c
-> > @@ -1013,11 +1013,13 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
-> >  		release_sock(sk);
-> 
-> This is falling though into an unconditional lock_sock().
-> No need to unlock and relock immediately.
-> 
-> >  	}
-> > 
-> > -	/* racing with another thread binding seems ok here */
-> > +	lock_sock(sk);
-> >  	if (daddr == 0 || rs->rs_bound_addr == 0) {
-> > +		release_sock(sk);
-> >  		ret = -ENOTCONN; /* XXX not a great errno */
-> >  		goto out;
-> >  	}
-> > +	release_sock(sk);
-> > 
-> 
-> On the face of it the above looks somewhat dubious.
-> Locks usually tie together two action (eg a test and use of a value),
-> In this case you only have a test inside the lock.
-> That either means that the state can change after you release the lock
-> (ie rs->rs_bound_addr = 0 is executed somewhere), or you don't
-> really need the lock.
->
 
-If you look at rds_bind(), you'll see that it does something like the
-following:
+--OEa2bCMk+rg6xBXy
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-    lock_sock(sk);
-    ...
-1:  rds_add_bound();  # This sets rs->rs_bound_addr
-    ...
-    if (!trans) {
-            ...
-2:          rds_remove_bound(rs);  # This unsets rs->rs_bound_addr
-  ...
-  release_sock(sk);
+Hello,
 
-So any code checking rs_bound_addr without taking that lock could
-potentially think the socket is bound, when in fact rds_bind() has failed.
-This can happen if checking rs_bound_addr happens exactly between [1] and
-[2] above.  So the usage of the lock in this particular case is to get a
-consistent view of the sk.
+I'm seeing some kmemleak reports while I'm using nfsv3/4=A0as a client on
+linux v4.1.13;
 
-The only other case where rs_bound_addr is cleared is on socket release, so
-I didn't _think_ there was a problem here but maybe you can see another
-race?
+unreferenced object 0xffff880c22a97ad0 (size 16):
+=A0 comm "softirq", pid 0, jiffies 4294896089 (age 43927.436s)
+=A0 hex dump (first 16 bytes):
+=A0 =A0 00 00 00 00 00 00 00 00 00 45 1e 24 06 88 ff ff =A0.........E.$....
+=A0 backtrace:
+=A0 =A0 [<ffffffff811255fd>] create_object+0x152/0x280
+=A0 =A0 [<ffffffff81529c04>] kmemleak_alloc+0x20/0x42
+=A0 =A0 [<ffffffff811136dd>] slab_post_alloc_hook+0x2a/0x45
+=A0 =A0 [<ffffffff81115c48>] kmem_cache_alloc+0xbc/0xd1
+=A0 =A0 [<ffffffff81254cef>] gr_update_task_in_ip_table+0x2e/0xc3
+=A0 =A0 [<ffffffff814701bc>] __inet_hash_connect+0x241/0x30e
+=A0 =A0 [<ffffffff814702b8>] inet_hash_connect+0x2f/0x3a
+=A0 =A0 [<ffffffff81484c41>] tcp_v4_connect+0x31f/0x470
+=A0 =A0 [<ffffffff81499a2b>] __inet_stream_connect+0x9f/0x2c3
+=A0 =A0 [<ffffffff81499c80>] inet_stream_connect+0x31/0x4d
+=A0 =A0 [<ffffffff8140d870>] kernel_connect+0x18/0x20
+=A0 =A0 [<ffffffff81503cb6>] xs_tcp_setup_socket+0x25c/0x37f
+=A0 =A0 [<ffffffff810724c3>] process_one_work+0x1d0/0x30f
+=A0 =A0 [<ffffffff81072822>] worker_thread+0x1f0/0x2aa
+=A0 =A0 [<ffffffff81077cdc>] kthread+0xcd/0xd5
+=A0 =A0 [<ffffffff8153443e>] ret_from_fork+0x3e/0x70
+
+What can I do to help resolve this issue?
 
 Thanks,
-Quentin
+--=20
+William
+
+--OEa2bCMk+rg6xBXy
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlZVsDMACgkQ1I6eqOUidQGd8QCgr+awRjs9iCJjTdAj8IRyLPyF
+rKEAoKzDTJcALHzwEDVzWrSE9Q4kh8Du
+=YZSP
+-----END PGP SIGNATURE-----
+
+--OEa2bCMk+rg6xBXy--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
