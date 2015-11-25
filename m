@@ -1,69 +1,98 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH 03/13] net: mvneta: fix bit assignment in MVNETA_RXQ_CONFIG_REG
-Date: Wed, 25 Nov 2015 19:25:02 +0100
-Message-ID: <87oaei7x8h.fsf@free-electrons.com>
-References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
-	<1448178839-3541-4-git-send-email-mw@semihalf.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: use-after-free in sock_wake_async
+Date: Wed, 25 Nov 2015 18:24:51 +0000
+Message-ID: <87610q3pjg.fsf@doppelsaurus.mobileactivedefense.com>
+References: <CACT4Y+ZZQ0ooT9LekV35u_jUAtAHJfg5O5SD=xATfHUF5UdNBQ@mail.gmail.com>
+	<CANn89i+Uw+YzhRbQVSyf=FAQBO06JfFoxQpSHxfmDpS5_iZBQw@mail.gmail.com>
+	<87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
+	<CANn89iKg0Lc7OVLhxUOzPRr4OhEGxA8L7V1jyaqFAS6+7kEXTA@mail.gmail.com>
+	<87io4qevdp.fsf@doppelsaurus.mobileactivedefense.com>
+	<CANn89iJgW+6giMUicU1m831+mkaNy9z1hQB-ixvRHBqZo-7Yig@mail.gmail.com>
+	<87io4q3u8u.fsf@doppelsaurus.mobileactivedefense.com>
+	<1448471494.24696.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	<87a8q23s2a.fsf@doppelsaurus.mobileactivedefense.com>
+	<1448473891.24696.21.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	linux@arm.linux.org.uk, sebastian.hesselbarth@gmail.com,
-	andrew@lunn.ch, jason@lakedaemon.net,
-	thomas.petazzoni@free-electrons.com, simon.guinot@sequanux.org,
-	nadavh@marvell.com, alior@marvell.com, xswang@marvell.com,
-	myair@marvell.com, nitroshift@yahoo.com, jaz@semihalf.com,
-	tn@semihalf.com, <stable@vger.kernel.org>
-To: Marcin Wojtas <mw@semihalf.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1448178839-3541-4-git-send-email-mw@semihalf.com> (Marcin
-	Wojtas's message of "Sun, 22 Nov 2015 08:53:49 +0100")
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	David Howells <dhowells@redhat.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448473891.24696.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	(Eric Dumazet's message of "Wed, 25 Nov 2015 09:51:31 -0800")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Marcin,
- 
- On dim., nov. 22 2015, Marcin Wojtas <mw@semihalf.com> wrote:
-
-> MVNETA_RXQ_HW_BUF_ALLOC bit which controls enabling hardware buffer
-> allocation was mistakenly set as BIT(1). This commit fixes the
-> assignment.
-
-I confirm it from the datasheet I got:
-
-Reviewed-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
-
-Thanks,
-
-Gregory
-
-
+Eric Dumazet <eric.dumazet@gmail.com> writes:
+> On Wed, 2015-11-25 at 17:30 +0000, Rainer Weikusat wrote:
 >
-> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-> Cc: <stable@vger.kernel.org> # v3.8+
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>> In case this is wrong, it obviously implies that sk_sleep(sk) must not
+>> be used anywhere as it accesses the same struck sock, hence, when that
+>> can "suddenly" disappear despite locks are used in the way indicated
+>> above, there is now safe way to invoke that, either, as it just does a
+>> rcu_dereference_raw based on the assumption that the caller knows that
+>> the i-node (and the corresponding wait queue) still exist.
+>> 
 >
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index 0f30aaa..d12b8c6 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -36,7 +36,7 @@
->  
->  /* Registers */
->  #define MVNETA_RXQ_CONFIG_REG(q)                (0x1400 + ((q) << 2))
-> -#define      MVNETA_RXQ_HW_BUF_ALLOC            BIT(1)
-> +#define      MVNETA_RXQ_HW_BUF_ALLOC            BIT(0)
->  #define      MVNETA_RXQ_PKT_OFFSET_ALL_MASK     (0xf    << 8)
->  #define      MVNETA_RXQ_PKT_OFFSET_MASK(offs)   ((offs) << 8)
->  #define MVNETA_RXQ_THRESHOLD_REG(q)             (0x14c0 + ((q) << 2))
-> -- 
-> 1.8.3.1
+> Oh well.
 >
+> sk_sleep() is not used if the return is NULL
 
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+static long unix_stream_data_wait(struct sock *sk, long timeo,
+				  struct sk_buff *last, unsigned int last_len)
+{
+	struct sk_buff *tail;
+	DEFINE_WAIT(wait);
+
+	unix_state_lock(sk);
+
+	for (;;) {
+		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+
+		tail = skb_peek_tail(&sk->sk_receive_queue);
+		if (tail != last ||
+		    (tail && tail->len != last_len) ||
+		    sk->sk_err ||
+		    (sk->sk_shutdown & RCV_SHUTDOWN) ||
+		    signal_pending(current) ||
+		    !timeo)
+			break;
+
+		set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+		unix_state_unlock(sk);
+		timeo = freezable_schedule_timeout(timeo);
+		unix_state_lock(sk);
+
+		if (sock_flag(sk, SOCK_DEAD))
+			break;
+
+		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+	}
+
+	finish_wait(sk_sleep(sk), &wait);
+	unix_state_unlock(sk);
+	return timeo;
+}
+
+Neither prepare_to_wait nor finish_wait check if the pointer is
+null. For the finish_wait case, it shouldn't be null because if
+SOCK_DEAD is not found to be set after the unix_state_lock was acquired,
+unix_release_sock didn't execute the corresponding code yet, hence,
+inode etc will remain available until after the corresponding unlock.
+
+But this isn't true anymore if the inode can go away despite
+sock_release couldn't complete yet.
