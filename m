@@ -1,47 +1,42 @@
-From: Geliang Tang <geliangtang-9Onoh4P/yGk@public.gmane.org>
-Subject: [PATCH 4/7] iwlwifi: fix a problematic usage of WARN_ON_ONCE()
-Date: Wed, 25 Nov 2015 21:12:17 +0800
-Message-ID: <7701ed112cc71a9a17ba5b3022166011a98d0dca.1448456395.git.geliangtang@163.com>
-References: <86c73f180d3054c1bf17bdac8c89026209167c9b.1448456395.git.geliangtang@163.com>
-Cc: Geliang Tang <geliangtang-9Onoh4P/yGk@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Intel Linux Wireless <linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <86c73f180d3054c1bf17bdac8c89026209167c9b.1448456395.git.geliangtang-9Onoh4P/yGk@public.gmane.org>
-In-Reply-To: <582529c23f77af64373f59fa92e29186df700d79.1448456395.git.geliangtang-9Onoh4P/yGk@public.gmane.org>
-References: <86c73f180d3054c1bf17bdac8c89026209167c9b.1448456395.git.geliangtang-9Onoh4P/yGk@public.gmane.org> <8bb789c0803579a01e1ee977ed67408c422acd79.1448456395.git.geliangtang-9Onoh4P/yGk@public.gmane.org> <582529c23f77af64373f59fa92e29186df700d79.1448456395.git.geliangtang-9Onoh4P/yGk@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [iproute PATCH v3 3/5] ipaddress: fix ipaddr_flush for Linux >=
+ 3.1
+Date: Wed, 25 Nov 2015 16:36:04 +0300
+Message-ID: <5655B944.8030903@cogentembedded.com>
+References: <20151123163115.5f8be482@xeon-e3>
+ <1448375464-12145-1-git-send-email-phil@nwl.cc>
+ <1448375464-12145-4-git-send-email-phil@nwl.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>, Stephen Hemminger <shemming@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f49.google.com ([209.85.215.49]:33022 "EHLO
+	mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753929AbbKYNgH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 08:36:07 -0500
+Received: by lfaz4 with SMTP id z4so60610279lfa.0
+        for <netdev@vger.kernel.org>; Wed, 25 Nov 2015 05:36:06 -0800 (PST)
+In-Reply-To: <1448375464-12145-4-git-send-email-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-WARN_ON_ONCE() takes a condition rather than a format string. This
-patch converted WARN_ON_ONCE() to WARN_ONCE() instead.
+Hello.
 
-Signed-off-by: Geliang Tang <geliangtang-9Onoh4P/yGk@public.gmane.org>
----
- drivers/net/wireless/intel/iwlwifi/mvm/rs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On 11/24/2015 5:31 PM, Phil Sutter wrote:
 
-diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/rs.c b/drivers/net/wireless/intel/iwlwifi/mvm/rs.c
-index d1ad103..58d7bee 100644
---- a/drivers/net/wireless/intel/iwlwifi/mvm/rs.c
-+++ b/drivers/net/wireless/intel/iwlwifi/mvm/rs.c
-@@ -1827,7 +1827,7 @@ static int rs_switch_to_column(struct iwl_mvm *mvm,
- 		rate->type = lq_sta->is_vht ? LQ_VHT_MIMO2 : LQ_HT_MIMO2;
- 		rate_mask = lq_sta->active_mimo2_rate;
- 	} else {
--		WARN_ON_ONCE("Bad column mode");
-+		WARN_ONCE(1, "Bad column mode");
- 	}
- 
- 	if (column->mode != RS_LEGACY) {
--- 
-2.5.0
+> Linux version 3.1 introduced a consistency check for netlink dumps in
+> commit 670dc28 ("netlink: advertise incomplete dumps"). This bites
 
+    Need 12-digit SHA1 here, scripts/checkpatch.pl checks this now.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> iproute2 when flushing more addresses than can fit into a single
+> RTM_GETADDR response. To silence the spurious error message "Dump was
+> interrupted and may be inconsistent.", advise rtnl_dump_filter_l() to
+> not care about NLM_F_DUMP_INTR.
+>
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+[...]
+
+MBR, Sergei
