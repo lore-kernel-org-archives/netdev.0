@@ -1,113 +1,162 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 04/15] i40e: remove BUG_ON from feature string building
-Date: Wed, 25 Nov 2015 10:21:08 -0800
-Message-ID: <1448475679-57194-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 11/15] i40evf: handle many MAC filters correctly
+Date: Wed, 25 Nov 2015 10:21:15 -0800
+Message-ID: <1448475679-57194-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:36304 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:23563 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751871AbbKYSVX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Nov 2015 13:21:23 -0500
+	id S1751951AbbKYSVb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Nov 2015 13:21:31 -0500
 In-Reply-To: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-There's really no reason to kill the kernel thread just because of a
-little info string. This reworks the code to use snprintf's limiting to
-assure that the string is never too long, and WARN_ON to still put out
-a warning that we might want to look at the feature list length.
+When a lot (many hundreds) of MAC or VLAN filters are added at one time,
+we can overflow the Admin Queue buffer size with all the requests.
+Unfortunately, the driver would then calculate the message size
+incorrectly, causing it to be rejected by the PF. Furthermore, there was
+no mechanism to trigger another request to allow for configuring the
+rest of the filters that didn't fit into the first request.
 
-Prompted by a recent Linus diatribe.
+To fix this, recalculate the correct buffer size when we detect the
+overflow condition instead of just assuming the max buffer size. Also,
+don't clear the request bit in adapter->aq_required when we have an
+overflow, so that the rest of the filters can be processed later.
 
-Change-ID: If52ba5ca1c2344d8bf454a31bbb805eb5d2c5802
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: Idd7cbbc5af31315e0dcb1b10e6a02ad9817ce65c
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 34 +++++++++++++++--------------
- 1 file changed, 18 insertions(+), 16 deletions(-)
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 32 ++++++++++++++++------
+ 1 file changed, 24 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 7715c54..7a4595a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -10111,10 +10111,12 @@ static int i40e_setup_pf_filter_control(struct i40e_pf *pf)
- }
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index 091ef6a..46b0516 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -391,6 +391,7 @@ void i40evf_add_ether_addrs(struct i40evf_adapter *adapter)
+ 	struct i40e_virtchnl_ether_addr_list *veal;
+ 	int len, i = 0, count = 0;
+ 	struct i40evf_mac_filter *f;
++	bool more = false;
  
- #define INFO_STRING_LEN 255
-+#define REMAIN(__x) (INFO_STRING_LEN - (__x))
- static void i40e_print_features(struct i40e_pf *pf)
- {
- 	struct i40e_hw *hw = &pf->hw;
- 	char *buf, *string;
-+	int i = 0;
- 
- 	string = kzalloc(INFO_STRING_LEN, GFP_KERNEL);
- 	if (!string) {
-@@ -10124,42 +10126,42 @@ static void i40e_print_features(struct i40e_pf *pf)
- 
- 	buf = string;
- 
--	buf += sprintf(string, "Features: PF-id[%d] ", hw->pf_id);
-+	i += snprintf(&buf[i], REMAIN(i), "Features: PF-id[%d] ", hw->pf_id);
- #ifdef CONFIG_PCI_IOV
--	buf += sprintf(buf, "VFs: %d ", pf->num_req_vfs);
-+	i += snprintf(&buf[i], REMAIN(i), "VFs: %d ", pf->num_req_vfs);
- #endif
--	buf += sprintf(buf, "VSIs: %d QP: %d RX: %s ",
--		       pf->hw.func_caps.num_vsis,
--		       pf->vsi[pf->lan_vsi]->num_queue_pairs,
--		       pf->flags & I40E_FLAG_RX_PS_ENABLED ? "PS" : "1BUF");
-+	i += snprintf(&buf[i], REMAIN(i), "VSIs: %d QP: %d RX: %s ",
-+		      pf->hw.func_caps.num_vsis,
-+		      pf->vsi[pf->lan_vsi]->num_queue_pairs,
-+		      pf->flags & I40E_FLAG_RX_PS_ENABLED ? "PS" : "1BUF");
- 
- 	if (pf->flags & I40E_FLAG_RSS_ENABLED)
--		buf += sprintf(buf, "RSS ");
-+		i += snprintf(&buf[i], REMAIN(i), "RSS ");
- 	if (pf->flags & I40E_FLAG_FD_ATR_ENABLED)
--		buf += sprintf(buf, "FD_ATR ");
-+		i += snprintf(&buf[i], REMAIN(i), "FD_ATR ");
- 	if (pf->flags & I40E_FLAG_FD_SB_ENABLED) {
--		buf += sprintf(buf, "FD_SB ");
--		buf += sprintf(buf, "NTUPLE ");
-+		i += snprintf(&buf[i], REMAIN(i), "FD_SB ");
-+		i += snprintf(&buf[i], REMAIN(i), "NTUPLE ");
+ 	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
+ 		/* bail because we already have a command pending */
+@@ -415,7 +416,9 @@ void i40evf_add_ether_addrs(struct i40evf_adapter *adapter)
+ 		count = (I40EVF_MAX_AQ_BUF_SIZE -
+ 			 sizeof(struct i40e_virtchnl_ether_addr_list)) /
+ 			sizeof(struct i40e_virtchnl_ether_addr);
+-		len = I40EVF_MAX_AQ_BUF_SIZE;
++		len = sizeof(struct i40e_virtchnl_ether_addr_list) +
++		      (count * sizeof(struct i40e_virtchnl_ether_addr));
++		more = true;
  	}
- 	if (pf->flags & I40E_FLAG_DCB_CAPABLE)
--		buf += sprintf(buf, "DCB ");
-+		i += snprintf(&buf[i], REMAIN(i), "DCB ");
- #if IS_ENABLED(CONFIG_VXLAN)
--	buf += sprintf(buf, "VxLAN ");
-+	i += snprintf(&buf[i], REMAIN(i), "VxLAN ");
- #endif
- 	if (pf->flags & I40E_FLAG_PTP)
--		buf += sprintf(buf, "PTP ");
-+		i += snprintf(&buf[i], REMAIN(i), "PTP ");
- #ifdef I40E_FCOE
- 	if (pf->flags & I40E_FLAG_FCOE_ENABLED)
--		buf += sprintf(buf, "FCOE ");
-+		i += snprintf(&buf[i], REMAIN(i), "FCOE ");
- #endif
- 	if (pf->flags & I40E_FLAG_VEB_MODE_ENABLED)
--		buf += sprintf(buf, "VEB ");
-+		i += snprintf(&buf[i], REMAIN(i), "VEPA ");
- 	else
- 		buf += sprintf(buf, "VEPA ");
  
--	BUG_ON(buf > (string + INFO_STRING_LEN));
- 	dev_info(&pf->pdev->dev, "%s\n", string);
- 	kfree(string);
-+	WARN_ON(i > INFO_STRING_LEN);
+ 	veal = kzalloc(len, GFP_ATOMIC);
+@@ -431,7 +434,8 @@ void i40evf_add_ether_addrs(struct i40evf_adapter *adapter)
+ 			f->add = false;
+ 		}
+ 	}
+-	adapter->aq_required &= ~I40EVF_FLAG_AQ_ADD_MAC_FILTER;
++	if (!more)
++		adapter->aq_required &= ~I40EVF_FLAG_AQ_ADD_MAC_FILTER;
+ 	i40evf_send_pf_msg(adapter, I40E_VIRTCHNL_OP_ADD_ETHER_ADDRESS,
+ 			   (u8 *)veal, len);
+ 	kfree(veal);
+@@ -450,6 +454,7 @@ void i40evf_del_ether_addrs(struct i40evf_adapter *adapter)
+ 	struct i40e_virtchnl_ether_addr_list *veal;
+ 	struct i40evf_mac_filter *f, *ftmp;
+ 	int len, i = 0, count = 0;
++	bool more = false;
+ 
+ 	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
+ 		/* bail because we already have a command pending */
+@@ -474,7 +479,9 @@ void i40evf_del_ether_addrs(struct i40evf_adapter *adapter)
+ 		count = (I40EVF_MAX_AQ_BUF_SIZE -
+ 			 sizeof(struct i40e_virtchnl_ether_addr_list)) /
+ 			sizeof(struct i40e_virtchnl_ether_addr);
+-		len = I40EVF_MAX_AQ_BUF_SIZE;
++		len = sizeof(struct i40e_virtchnl_ether_addr_list) +
++		      (count * sizeof(struct i40e_virtchnl_ether_addr));
++		more = true;
+ 	}
+ 	veal = kzalloc(len, GFP_ATOMIC);
+ 	if (!veal)
+@@ -490,7 +497,8 @@ void i40evf_del_ether_addrs(struct i40evf_adapter *adapter)
+ 			kfree(f);
+ 		}
+ 	}
+-	adapter->aq_required &= ~I40EVF_FLAG_AQ_DEL_MAC_FILTER;
++	if (!more)
++		adapter->aq_required &= ~I40EVF_FLAG_AQ_DEL_MAC_FILTER;
+ 	i40evf_send_pf_msg(adapter, I40E_VIRTCHNL_OP_DEL_ETHER_ADDRESS,
+ 			   (u8 *)veal, len);
+ 	kfree(veal);
+@@ -509,6 +517,7 @@ void i40evf_add_vlans(struct i40evf_adapter *adapter)
+ 	struct i40e_virtchnl_vlan_filter_list *vvfl;
+ 	int len, i = 0, count = 0;
+ 	struct i40evf_vlan_filter *f;
++	bool more = false;
+ 
+ 	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
+ 		/* bail because we already have a command pending */
+@@ -534,7 +543,9 @@ void i40evf_add_vlans(struct i40evf_adapter *adapter)
+ 		count = (I40EVF_MAX_AQ_BUF_SIZE -
+ 			 sizeof(struct i40e_virtchnl_vlan_filter_list)) /
+ 			sizeof(u16);
+-		len = I40EVF_MAX_AQ_BUF_SIZE;
++		len = sizeof(struct i40e_virtchnl_vlan_filter_list) +
++		      (count * sizeof(u16));
++		more = true;
+ 	}
+ 	vvfl = kzalloc(len, GFP_ATOMIC);
+ 	if (!vvfl)
+@@ -549,7 +560,8 @@ void i40evf_add_vlans(struct i40evf_adapter *adapter)
+ 			f->add = false;
+ 		}
+ 	}
+-	adapter->aq_required &= ~I40EVF_FLAG_AQ_ADD_VLAN_FILTER;
++	if (!more)
++		adapter->aq_required &= ~I40EVF_FLAG_AQ_ADD_VLAN_FILTER;
+ 	i40evf_send_pf_msg(adapter, I40E_VIRTCHNL_OP_ADD_VLAN, (u8 *)vvfl, len);
+ 	kfree(vvfl);
  }
+@@ -567,6 +579,7 @@ void i40evf_del_vlans(struct i40evf_adapter *adapter)
+ 	struct i40e_virtchnl_vlan_filter_list *vvfl;
+ 	struct i40evf_vlan_filter *f, *ftmp;
+ 	int len, i = 0, count = 0;
++	bool more = false;
  
- /**
+ 	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
+ 		/* bail because we already have a command pending */
+@@ -592,7 +605,9 @@ void i40evf_del_vlans(struct i40evf_adapter *adapter)
+ 		count = (I40EVF_MAX_AQ_BUF_SIZE -
+ 			 sizeof(struct i40e_virtchnl_vlan_filter_list)) /
+ 			sizeof(u16);
+-		len = I40EVF_MAX_AQ_BUF_SIZE;
++		len = sizeof(struct i40e_virtchnl_vlan_filter_list) +
++		      (count * sizeof(u16));
++		more = true;
+ 	}
+ 	vvfl = kzalloc(len, GFP_ATOMIC);
+ 	if (!vvfl)
+@@ -608,7 +623,8 @@ void i40evf_del_vlans(struct i40evf_adapter *adapter)
+ 			kfree(f);
+ 		}
+ 	}
+-	adapter->aq_required &= ~I40EVF_FLAG_AQ_DEL_VLAN_FILTER;
++	if (!more)
++		adapter->aq_required &= ~I40EVF_FLAG_AQ_DEL_VLAN_FILTER;
+ 	i40evf_send_pf_msg(adapter, I40E_VIRTCHNL_OP_DEL_VLAN, (u8 *)vvfl, len);
+ 	kfree(vvfl);
+ }
 -- 
 2.5.0
