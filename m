@@ -1,86 +1,127 @@
-From: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Subject: Re: [RFCv2 bluetooth-next 2/3] ipv6: add ipv6_addr_prefix_cpy
-Date: Wed, 25 Nov 2015 17:42:52 +0100
-Message-ID: <5655E50C.5090906@osg.samsung.com>
-References: <1447799594-6050-1-git-send-email-alex.aring@gmail.com>
- <1447799594-6050-3-git-send-email-alex.aring@gmail.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: use-after-free in sock_wake_async
+Date: Wed, 25 Nov 2015 16:43:13 +0000
+Message-ID: <87io4q3u8u.fsf@doppelsaurus.mobileactivedefense.com>
+References: <CACT4Y+ZZQ0ooT9LekV35u_jUAtAHJfg5O5SD=xATfHUF5UdNBQ@mail.gmail.com>
+	<CANn89i+Uw+YzhRbQVSyf=FAQBO06JfFoxQpSHxfmDpS5_iZBQw@mail.gmail.com>
+	<87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
+	<CANn89iKg0Lc7OVLhxUOzPRr4OhEGxA8L7V1jyaqFAS6+7kEXTA@mail.gmail.com>
+	<87io4qevdp.fsf@doppelsaurus.mobileactivedefense.com>
+	<CANn89iJgW+6giMUicU1m831+mkaNy9z1hQB-ixvRHBqZo-7Yig@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, lukasz.duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org,
-	martin.gergeleit-6wGqcYweBVc@public.gmane.org,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1447799594-6050-3-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: rweikusat@mobileactivedefense.com,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	David Howells <dhowells@redhat.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tiger.mobileactivedefense.com ([217.174.251.109]:57892 "EHLO
+	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751704AbbKYQni (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 11:43:38 -0500
+In-Reply-To: <CANn89iJgW+6giMUicU1m831+mkaNy9z1hQB-ixvRHBqZo-7Yig@mail.gmail.com>
+	(Eric Dumazet's message of "Tue, 24 Nov 2015 17:18:27 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Eric Dumazet <edumazet@google.com> writes:
+> On Tue, Nov 24, 2015 at 5:10 PM, Rainer Weikusat
+> <rweikusat@mobileactivedefense.com> wrote:
 
-On 17/11/15 23:33, Alexander Aring wrote:
-> This patch adds a static inline function ipv6_addr_prefix_cpy which
-> copies a ipv6 address prefix(argument pfx) into the ipv6 address prefix.
-> The prefix len is given by plen as bits. This function mainly based on
-> ipv6_addr_prefix which copies one address prefix from address into a new
-> ipv6 address destination and zero all other address bits.
+[...]
+
+>> It's also easy to verify: Swap the unix_state_lock and
+>> other->sk_data_ready and see if the issue still occurs. Right now (this
+>> may change after I had some sleep as it's pretty late for me), I don't
+>> think there's another local fix: The ->sk_data_ready accesses a
+>> pointer after the lock taken by the code which will clear and
+>> then later free it was released.
 >
-> The difference is that ipv6_addr_prefix_cpy don't get a prefix from an
-> ipv6 address, it sets a prefix to an ipv6 address with keeping other
-> address bits. The use case is for context based address compression
-> inside 6LoWPAN IPHC header which keeping ipv6 prefixes inside a context
-> table to lookup address-bits without sending them.
+> It seems that :
 >
-> Cc: David S. Miller<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: Alexey Kuznetsov<kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
-> Cc: James Morris<jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
-> Cc: Hideaki YOSHIFUJI<yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-> Cc: Patrick McHardy<kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-> Signed-off-by: Alexander Aring<alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->   include/net/ipv6.h | 15 +++++++++++++++
->   1 file changed, 15 insertions(+)
+> int sock_wake_async(struct socket *sock, int how, int band)
 >
-> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> index e1a10b0..9d38fc2 100644
-> --- a/include/net/ipv6.h
-> +++ b/include/net/ipv6.h
-> @@ -382,6 +382,21 @@ static inline void ipv6_addr_prefix(struct in6_addr *pfx,
->   		pfx->s6_addr[o] = addr->s6_addr[o] & (0xff00 >> b);
->   }
->   
-> +static inline void ipv6_addr_prefix_cpy(struct in6_addr *addr,
-> +					const struct in6_addr *pfx,
-> +					int plen)
-> +{
+> should really be changed to
+>
+> int sock_wake_async(struct socket_wq *wq, int how, int band)
+>
+> So that RCU rules (already present) apply safely.
+>
+> sk->sk_socket is inherently racy (that is : racy without using
+> sk_callback_lock rwlock )
 
-Naming it ipv6_addr_prefix_cop, as Sergei suggested, would be easier to 
-read.
-> +	/* caller must guarantee 0 <= plen <= 128 */
-> +	int o = plen >> 3,
-> +	    b = plen & 0x7;
-> +
+The comment above sock_wait_async states that
 
-Any reason you are not doing the memset here before memcpy like it is 
-done in ipv6_addr_prefi()?
-> +	memcpy(addr->s6_addr, pfx, o);
-> +	if (b != 0) {
-> +		addr->s6_addr[o] &= ~(0xff00 >> b);
-> +		addr->s6_addr[o] |= (pfx->s6_addr[o] & (0xff00 >> b));
-> +	}
-> +}
-> +
->   static inline void __ipv6_addr_set_half(__be32 *addr,
->   					__be32 wh, __be32 wl)
->   {
+/* This function may be called only under socket lock or callback_lock or rcu_lock */
 
-regards
-Stefan Schmidt
+In this case, it's called via sk_wake_async (include/net/sock.h) which
+is - in turn - called via sock_def_readable (the 'default' data ready
+routine/ net/core/sock.c) which looks like this:
 
-regards
-Stefan Schmidt
+static void sock_def_readable(struct sock *sk)
+{
+	struct socket_wq *wq;
+
+	rcu_read_lock();
+	wq = rcu_dereference(sk->sk_wq);
+	if (wq_has_sleeper(wq))
+		wake_up_interruptible_sync_poll(&wq->wait, POLLIN | POLLPRI |
+						POLLRDNORM | POLLRDBAND);
+	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
+	rcu_read_unlock();
+}
+
+and should thus satisfy the constraint documented by the comment (I
+didn't verify if the comment is actually correct, though).
+
+Further - sorry about that - I think changing code in "half of the
+network stack" in order to avoid calling a certain routine which will
+only ever do something in case someone's using signal-driven I/O with an
+already acquired lock held is a terrifying idea. Because of this, I
+propose the following alternate patch which should also solve the
+problem by ensuring that the ->sk_data_ready activity happens before
+unix_release_sock/ sock_release get a chance to clear or free anything
+which will be needed.
+
+In case this demonstrably causes other issues, a more complicated
+alternate idea (still restricting itself to changes to the af_unix code)
+would be to move the socket_wq structure to a dummy struct socket
+allocated by unix_release_sock and freed by the destructor.
+
+---
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 4e95bdf..5c87ea6 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1754,8 +1754,8 @@ restart_locked:
+        skb_queue_tail(&other->sk_receive_queue, skb);
+        if (max_level > unix_sk(other)->recursion_level)
+                unix_sk(other)->recursion_level = max_level;
+-       unix_state_unlock(other);
+        other->sk_data_ready(other);
++       unix_state_unlock(other);
+        sock_put(other);
+        scm_destroy(&scm);
+        return len;
+@@ -1860,8 +1860,8 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+                skb_queue_tail(&other->sk_receive_queue, skb);
+                if (max_level > unix_sk(other)->recursion_level)
+                        unix_sk(other)->recursion_level = max_level;
+-               unix_state_unlock(other);
+                other->sk_data_ready(other);
++               unix_state_unlock(other);
+                sent += size;
+        }
+ 
