@@ -1,115 +1,85 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v8] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
-Date: Wed, 25 Nov 2015 16:24:21 +0000
-Message-ID: <yw1xd1uyoxmy.fsf@unicorn.mansr.com>
-References: <1447938180-19651-1-git-send-email-mans@mansr.com>
-	<5655AB63.40204@free.fr> <yw1x37vuqmcy.fsf@unicorn.mansr.com>
-	<5655B0DF.8060000@free.fr> <yw1xy4dmp6vo.fsf@unicorn.mansr.com>
-	<CAKgT0UdRB5DaZHc3PQDvPzePMcjASLxH2ew1zqM4ORc+P6DKNA@mail.gmail.com>
-	<yw1xh9kaoy0h.fsf@unicorn.mansr.com> <5655DFFC.2050107@free.fr>
+From: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH V2 3/3] Ixgbevf: Add migration support for ixgbevf driver
+Date: Wed, 25 Nov 2015 08:24:38 -0800
+Message-ID: <CAKgT0UdM5NGOARoiCNvh3Hu0xyvfJ-VoRqDu8bg6RyupSCEYHw@mail.gmail.com>
+References: <1448372298-28386-1-git-send-email-tianyu.lan@intel.com>
+	<1448372298-28386-4-git-send-email-tianyu.lan@intel.com>
+	<20151124230551-mutt-send-email-mst@redhat.com>
+	<56554994.1090305@intel.com>
+	<20151125142437-mutt-send-email-mst@redhat.com>
+	<5655DB99.3040007@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Mason <slash.tmp@free.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:42011 "EHLO unicorn.mansr.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752034AbbKYQYW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 11:24:22 -0500
-In-Reply-To: <5655DFFC.2050107@free.fr> (Mason's message of "Wed, 25 Nov 2015
-	17:21:16 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org,
+	Alex Williamson <alex.williamson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org,
+	Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Carolyn Wyborny <carolyn.wyborny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Skidmore, Donald C" <donald.c.skidmore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	eddie.dong-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, nrupal.jani-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Alexander Graf <agraf-l3A5Bk7waGM@public.gmane.org>, kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Paolo Bonzini <pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org,
+	"Tantilov, Emil S" <emil.s.tantilov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Rustad, Mark D" <mark.d.rustad-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eric Auger <eric.auger-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	intel-wired-lan <intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org>,
+	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Ronciak, John" <john.ronciak-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TZNg+MwTxZMZA@public.gmane.org
+To: "Lan, Tianyu" <tianyu.lan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5655DB99.3040007-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Mason <slash.tmp@free.fr> writes:
+On Wed, Nov 25, 2015 at 8:02 AM, Lan, Tianyu <tianyu.lan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
+> On 11/25/2015 8:28 PM, Michael S. Tsirkin wrote:
+>>
+>> Frankly, I don't really see what this short term hack buys us,
+>> and if it goes in, we'll have to maintain it forever.
+>>
+>
+> The framework of how to notify VF about migration status won't be
+> changed regardless of stopping VF or not before doing migration.
+> We hope to reach agreement on this first. Tracking dirty memory still
+> need to more discussions and we will continue working on it. Stop VF may
+> help to work around the issue and make tracking easier.
 
-> On 25/11/2015 17:16, M=E5ns Rullg=E5rd wrote:
->
->> Alexander Duyck writes:
->>=20
->>> On Wed, Nov 25, 2015 at 5:04 AM, M=E5ns Rullg=E5rd wrote:
->>>
->>>> Mason writes:
->>>>
->>>>> On 25/11/2015 13:45, M=E5ns Rullg=E5rd wrote:
->>>>>
->>>>>> Mason wrote:
->>>>>>
->>>>>>> On 19/11/2015 14:02, Mans Rullgard wrote:
->>>>>>>
->>>>>>>> +  if (dma_mapping_error(&dev->dev, dma_addr)) {
->>>>>>>> +          skb_free_frag(data);
->>>>>>>> +          return -ENOMEM;
->>>>>>>> +  }
->>>>>>>
->>>>>>> I'm back-porting this driver to 4.1
->>>>>>>
->>>>>>> skb_free_frag() was introduced in 4.2 by 181edb2bfa22b IIUC.
->>>>>>>
->>>>>>> +static inline void skb_free_frag(void *addr)
->>>>>>> +{
->>>>>>> +       __free_page_frag(addr);
->>>>>>> +}
->>>>>>>
->>>>>>> Should I just copy the definition of __free_page_frag() ?
->>>>>>
->>>>>> Looks like it ought to work.  Try and find out.  Not that you'll=
- ever
->>>>>> hit that error condition unless you fake it.
->>>>>
->>>>> Turns out __free_pages_ok() is static and I'd rather not touch
->>>>> mm/page_alloc.c in my back-port.
->>>>>
->>>>> Since you say the error condition is rare, I think I'll go with
->>>>> the code that 181edb2bfa22b replaced (put_page, IIUC).
->>>>>
->>>>> #include <linux/version.h>
->>>>> #if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
->>>>> #define skb_free_frag(data) put_page(virt_to_head_page(data))
->>>>> #else
->>>>> #error DELETE ME NOW (see commit 181edb2bfa22b)
->>>>> #endif
->>>>
->>>> You can simply put_page(page) instead since we already have the
->>>> virt_to_head_page() a few lines up.
->>>
->>> What you could do is use __free_pages instead of __free_pages_ok.
->>> Generally you will want to use __free_pages instead of put_page jus=
-t
->>> to avoid a bunch of unnecessary tests and function pointer accesses=
-=2E
->>=20
->> Note that this is on a should-never-happen error path, so there's no
->> need to be counting cycles.
->
-> Per Mans' advice, I have locally committed this patch:
->
-> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ether=
-net/aurora/nb8800.c
-> index ecc4a334c507..9f929be96b74 100644
-> --- a/drivers/net/ethernet/aurora/nb8800.c
-> +++ b/drivers/net/ethernet/aurora/nb8800.c
-> @@ -39,6 +39,13 @@
->
->  #include "nb8800.h"
->
-> +#include <linux/version.h>
-> +#if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
-> +#define skb_free_frag(data) put_page(page)
-> +#else
-> +#error DELETE ME NOW (see commit 181edb2bfa22)
-> +#endif
-> +
->  static void nb8800_tx_done(struct net_device *dev);
->  static int nb8800_dma_stop(struct net_device *dev);
+The problem is you still have to stop the device at some point for the
+same reason why you have to halt the VM.  You seem to think you can
+get by without doing that but you can't.  All you do is open the
+system up to multiple races if you leave the device running.  The goal
+should be to avoid stopping the device until the last possible moment,
+however it will still have to be stopped eventually.  It isn't as if
+you can migrate memory and leave the device doing DMA and expect to
+get a clean state.
 
-That works only by accident due to how local variables are named.  If
-you want a macro to emulate the new function, your first suggestion is
-better.  I thought you were going to change the actual function.
+I agree with Michael.  The focus needs to be on first addressing dirty
+page tracking.  Once you have that you could use a variation on the
+bonding solution where you postpone the hot-plug event until near the
+end of the migration just before you halt the guest instead of having
+to do it before you start the migration.  Then after that we could
+look at optimizing things further by introducing a variation that you
+could further improve on things by introducing a variation of hot-plug
+that would pause the device as I suggested instead of removing it.  At
+that point you should be able to have almost all of the key issues
+addresses so that you could drop the bond interface entirely.
 
---=20
-M=E5ns Rullg=E5rd
-mans@mansr.com
+>> Also, assuming you just want to do ifdown/ifup for some reason, it's
+>> easy enough to do using a guest agent, in a completely generic way.
+>>
+>
+> Just ifdown/ifup is not enough for migration. It needs to restore some PCI
+> settings before doing ifup on the target machine
+
+That is why I have been suggesting making use of suspend/resume logic
+that is already in place for PCI power management.  In the case of a
+suspend/resume we already have to deal with the fact that the device
+will go through a D0->D3->D0 reset so we have to restore all of the
+existing state.  It would take a significant load off of Qemu since
+the guest would be restoring its own state instead of making Qemu have
+to do all of the device migration work.
