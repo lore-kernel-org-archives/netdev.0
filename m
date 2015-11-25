@@ -1,47 +1,32 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: bridge-utils: wrong sysfs path odds
-Date: Wed, 25 Nov 2015 01:40:04 +0100
-Message-ID: <56550364.4040001@nod.at>
-References: <5654FD93.1070706@nod.at> <5654FFCF.2080801@nod.at>
- <20151124163735.6f9ad756@xeon-e3>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 06/16] i40e: Properly cast type for arithmetic
+Date: Tue, 24 Nov 2015 16:43:32 -0800
+Message-ID: <1448412212.20113.12.camel@perches.com>
+References: <1448409886-90686-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1448409886-90686-7-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ralf Baechle <ralf@linux-mips.org>, manty@debian.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Helin Zhang <helin.zhang@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.ns.miles-group.at ([95.130.255.143]:11949 "EHLO radon.swed.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932632AbbKYAkH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Nov 2015 19:40:07 -0500
-In-Reply-To: <20151124163735.6f9ad756@xeon-e3>
+Received: from smtprelay0090.hostedemail.com ([216.40.44.90]:51938 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755245AbbKYAng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 19:43:36 -0500
+In-Reply-To: <1448409886-90686-7-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 25.11.2015 um 01:37 schrieb Stephen Hemminger:
-> On Wed, 25 Nov 2015 01:24:47 +0100
-> Richard Weinberger <richard@nod.at> wrote:
+On Tue, 2015-11-24 at 16:04 -0800, Jeff Kirsher wrote:
+> From: Helin Zhang <helin.zhang@intel.com>
 > 
->> Am 25.11.2015 um 01:15 schrieb Richard Weinberger:
->>> Hi!
->>>
->>> Today I was hunting down an issue where "brctl stp br0 off"
->>> always failed on mips64be with n32 userland.
->>>
->>> It turned out that the ioctl(fd, SIOCDEVPRIVATE, &ifr) with BRCTL_SET_BRIDGE_STP_STATE
->>> returned -EOPNOTSUPP.
->>> First I thought that this is a plain ABI issue on mips as in old_dev_ioctl()
->>> the ioctl() argument was 0x1 instead of the expected BRCTL_SET_BRIDGE_STP_STATE (0x14)
->>
->> Should be 0xe and not 0x14. It is 14 in decimal. :)
->>
->> Thanks,
->> //richard
+> Pointer of type void * shouldn't be used in arithmetic, which may
+> result in compilation error. Casting of (u8 *) can be added to fix
+> that.
 > 
-> Ask Debian maintainer to send his patches, I don't go patch hunting.
 
-He is Cc'ed :-)
+void * arithmetic is used quite frequently in the kernel.
 
-Thanks,
-//richard
+What compiler emits an error?
