@@ -1,70 +1,40 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH net-next 3/3] net: mvneta: Add naive RSS support
-Date: Wed, 25 Nov 2015 18:08:04 +0100
-Message-ID: <871tbe9fd7.fsf@free-electrons.com>
-References: <1448463243-21057-1-git-send-email-gregory.clement@free-electrons.com>
-	<1448463243-21057-4-git-send-email-gregory.clement@free-electrons.com>
-	<20151125175522.0e8dd8b8@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Lior Amsalem <alior@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Marcin Wojtas <mw@semihalf.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Willy Tarreau <w@1wt.eu>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151125175522.0e8dd8b8@free-electrons.com> (Thomas Petazzoni's
-	message of "Wed, 25 Nov 2015 17:55:22 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] openvswitch: properly refcount vport-vxlan module
+Date: Wed, 25 Nov 2015 18:05:27 +0100
+Message-ID: <1448471127-26271-1-git-send-email-pabeni@redhat.com>
+Cc: Pravin Shelar <pshelar@nicira.com>, Thomas Graf <tgraf@suug.ch>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:61577 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752271AbbKYRI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Nov 2015 12:08:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Thomas,
+After 614732eaa12d, no refcount is mainteined for the vport-vxlan module.
+This allows the userspace to remove such module while vport-vxlan
+devices still exist, which lead to later oops, i.e. when
+the openvswitch module is removed.
+
+Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
+
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/openvswitch/vport-vxlan.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+index 1605691..a2a83f3 100644
+--- a/net/openvswitch/vport-vxlan.c
++++ b/net/openvswitch/vport-vxlan.c
+@@ -152,6 +152,7 @@ static struct vport_ops ovs_vxlan_netdev_vport_ops = {
+ 	.destroy		= ovs_netdev_tunnel_destroy,
+ 	.get_options		= vxlan_get_options,
+ 	.send			= dev_queue_xmit,
++	.owner			= THIS_MODULE,
+ };
  
- On mer., nov. 25 2015, Thomas Petazzoni <thomas.petazzoni@free-electrons.com> wrote:
-
-> Gregory,
->
-> On Wed, 25 Nov 2015 15:54:03 +0100, Gregory CLEMENT wrote:
->
->>  	pp->rxq_def = rxq_def;
->>  
->> +	pp->indir[0] = rxq_def;
->
-> So now we have the RX queue in both pp->rxq_def and pp->indir[0] ? Is
-> this really useful ?
-
-Currently pp->rxq_def and pp->indir are the same but only because there
-is one entry in the indirection table. When the 256 entries will be used
-then there won't be the same. But we will still need the rxq_def as the
-mvneta IP need a reference to a default RX queue even for example for
-MVNETA_PORT_CONFIG_DEFL_VALUE.
-
->
-> Also, if the RX queue becomes a per-port definition, why do you keep
-> the global rxq_def variable ?
-
-The global rxq_def variable is used for the module parameter. Even if
-we can change it latter, it is still good to be able to set the default
-value, however the parameter is set at module level not at port level,
-that why we still need this variable.
-
-Thanks,
-
-Gregory
-
+ static int __init ovs_vxlan_tnl_init(void)
 -- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+1.8.3.1
