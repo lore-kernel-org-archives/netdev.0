@@ -1,84 +1,49 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: net: Generalise wq_has_sleeper helper
-Date: Wed, 25 Nov 2015 10:15:33 +0100
-Message-ID: <20151125091533.GX17308@twins.programming.kicks-ass.net>
-References: <20151023124006.GA17308@twins.programming.kicks-ass.net>
- <20151111094829.GA23202@gondor.apana.org.au>
- <20151124055423.GA31611@gondor.apana.org.au>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH v2 06/27] brcm80211: move under broadcom vendor directory
+Date: Wed, 25 Nov 2015 11:17:57 +0200
+Message-ID: <87egfephdm.fsf@kamboji.qca.qualcomm.com>
+References: <1447857966-19560-1-git-send-email-kvalo@codeaurora.org>
+	<1447857966-19560-7-git-send-email-kvalo@codeaurora.org>
+	<564CCF2A.4030203@hauke-m.de>
+	<871tbmwhsk.fsf@kamboji.qca.qualcomm.com>
+	<564F966A.7080300@broadcom.com>
+	<87lh9qrlra.fsf@kamboji.qca.qualcomm.com>
+	<5652EA61.1080103@broadcom.com> <5652EC10.9010708@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tatsu@ab.jp.nec.com, mingo@redhat.com,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jiri Olsa <jolsa@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151124055423.GA31611@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Hauke Mehrtens <hauke@hauke-m.de>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <brcm80211-dev-list@broadcom.com>
+To: Arend van Spriel <arend@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:35724 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932282AbbKYJSE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 04:18:04 -0500
+In-Reply-To: <5652EC10.9010708@broadcom.com> (Arend van Spriel's message of
+	"Mon, 23 Nov 2015 11:36:00 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 24, 2015 at 01:54:23PM +0800, Herbert Xu wrote:
-> diff --git a/include/linux/wait.h b/include/linux/wait.h
-> index 1e1bf9f..bd1157f 100644
-> --- a/include/linux/wait.h
-> +++ b/include/linux/wait.h
-> @@ -107,6 +107,50 @@ static inline int waitqueue_active(wait_queue_head_t *q)
->  	return !list_empty(&q->task_list);
->  }
->  
-> +/**
-> + * wq_has_sleeper - check if there are any waiting processes
-> + * @wq: wait queue head
-> + *
-> + * Returns true if wq has waiting processes
-> + *
-> + * The purpose of the wq_has_sleeper and sock_poll_wait is to wrap the memory
-> + * barrier call. They were added due to the race found within the tcp code.
-> + *
-> + * Consider following tcp code paths:
-> + *
-> + * CPU1                  CPU2
-> + *
-> + * sys_select            receive packet
-> + *   ...                 ...
-> + *   __add_wait_queue    update tp->rcv_nxt
-> + *   ...                 ...
-> + *   tp->rcv_nxt check   sock_def_readable
-> + *   ...                 {
-> + *   schedule               rcu_read_lock();
-> + *                          wq = rcu_dereference(sk->sk_wq);
-> + *                          if (wq && waitqueue_active(&wq->wait))
-> + *                              wake_up_interruptible(&wq->wait)
-> + *                          ...
-> + *                       }
-> + *
-> + * The race for tcp fires when the __add_wait_queue changes done by CPU1 stay
-> + * in its cache, and so does the tp->rcv_nxt update on CPU2 side.  The CPU1
-> + * could then endup calling schedule and sleep forever if there are no more
-> + * data on the socket.
-> + *
+Arend van Spriel <arend@broadcom.com> writes:
 
-Would be easier to refer to the comment that now adorns
-waitqueue_active().
+>>>> I prefer to keep it as brcmsmac and brcmfmac rely on brcmutil module
+>>>> so I want to keep them together under brcm80211.
+>>>>
+>>>> So does this patch go in before or after the patches I submitted
+>>>> before the merge window. I hope after :-p
+>>>
+>>> Sorry, the vendor patches go in first :) It's much safer that way.
+>>>
+>>> But I think that git should be smart enough and your patchset from
+>>> before the merge window should still apply without issues.
+>>
+>> Will see if that is true when I merge it in our internal repo. :-p
+>
+> Just applied the pending patches using 'git am -3' and that works
+> fine. So when told to be smart, git is indeed smart ;-)
 
-> + */
-> +static inline bool wq_has_sleeper(wait_queue_head_t *wq)
-> +{
-> +	/* We need to be sure we are in sync with the
+Git is awesome :) Thanks for checking.
 
-broken comment style.
-
-> +	 * add_wait_queue modifications to the wait queue.
-> +	 *
-> +	 * This memory barrier should be paired with one on the
-> +	 * waiting side.
-> +	 */
-> +	smp_mb();
-> +	return waitqueue_active(wq);
-> +}
-> +
->  extern void add_wait_queue(wait_queue_head_t *q, wait_queue_t *wait);
->  extern void add_wait_queue_exclusive(wait_queue_head_t *q, wait_queue_t *wait);
->  extern void remove_wait_queue(wait_queue_head_t *q, wait_queue_t *wait);
+-- 
+Kalle Valo
