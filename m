@@ -1,47 +1,36 @@
-From: Owen Lin <olin@rivetnetworks.com>
-Subject: [PATCH 1/1] net: add killer e2400 device id
-Date: Wed, 25 Nov 2015 00:20:02 +0000
-Message-ID: <BN3PR0401MB1457A38400CB9F1935482FFBC0050@BN3PR0401MB1457.namprd04.prod.outlook.com>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: bridge-utils: wrong sysfs path odds
+Date: Wed, 25 Nov 2015 01:24:47 +0100
+Message-ID: <5654FFCF.2080801@nod.at>
+References: <5654FD93.1070706@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"edumazet@google.com" <edumazet@google.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Ralf Baechle <ralf@linux-mips.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	manty@debian.org
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0069.outbound.protection.outlook.com ([65.55.169.69]:8847
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754603AbbKYAUH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2015 19:20:07 -0500
-Content-Language: zh-TW
+Received: from a.ns.miles-group.at ([95.130.255.143]:11949 "EHLO radon.swed.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753554AbbKYAYu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Nov 2015 19:24:50 -0500
+In-Reply-To: <5654FD93.1070706@nod.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add Killer E2400 device ID in alx driver.
+Am 25.11.2015 um 01:15 schrieb Richard Weinberger:
+> Hi!
+> 
+> Today I was hunting down an issue where "brctl stp br0 off"
+> always failed on mips64be with n32 userland.
+> 
+> It turned out that the ioctl(fd, SIOCDEVPRIVATE, &ifr) with BRCTL_SET_BRIDGE_STP_STATE
+> returned -EOPNOTSUPP.
+> First I thought that this is a plain ABI issue on mips as in old_dev_ioctl()
+> the ioctl() argument was 0x1 instead of the expected BRCTL_SET_BRIDGE_STP_STATE (0x14)
 
-Signed-off-by: Owen Lin olin@rivetnetworks.com
+Should be 0xe and not 0x14. It is 14 in decimal. :)
 
---------------------------------------------------------------------------------
-
-diff -up1rN alx_orig/main.c alx/main.c
---- alx_orig/main.c	Wed Nov 25 08:01:49 2015
-+++ alx/main.c	Wed Nov 25 08:05:20 2015
-@@ -1539,2 +1539,3 @@ static const struct pci_device_id alx_pc
- 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8171) },
-+	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_E2400) },
- 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8172) },
-diff -up1rN alx_orig/reg.h alx/reg.h
---- alx_orig/reg.h	Wed Nov 25 08:01:05 2015
-+++ alx/reg.h	Wed Nov 25 08:03:39 2015
-@@ -38,5 +38,6 @@
- #define ALX_DEV_ID_AR8161				0x1091
--#define ALX_DEV_ID_E2200				0xe091
-+#define ALX_DEV_ID_E2200				0xE091
- #define ALX_DEV_ID_AR8162				0x1090
- #define ALX_DEV_ID_AR8171				0x10A1
-+#define ALX_DEV_ID_E2400				0xE0A1
- #define ALX_DEV_ID_AR8172				0x10A0 
-
- /* rev definition,
+Thanks,
+//richard
