@@ -1,122 +1,103 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: use-after-free in sock_wake_async
-Date: Tue, 24 Nov 2015 15:43:48 -0800
-Message-ID: <CANn89iKg0Lc7OVLhxUOzPRr4OhEGxA8L7V1jyaqFAS6+7kEXTA@mail.gmail.com>
-References: <CACT4Y+ZZQ0ooT9LekV35u_jUAtAHJfg5O5SD=xATfHUF5UdNBQ@mail.gmail.com>
-	<CANn89i+Uw+YzhRbQVSyf=FAQBO06JfFoxQpSHxfmDpS5_iZBQw@mail.gmail.com>
-	<87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	Benjamin LaHaise <bcrl@kvack.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	David Howells <dhowells@redhat.com>,
-	Ying Xue <ying.xue@windriver.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/16] i40e/i40evf: remove unused tunnel parameter
+Date: Tue, 24 Nov 2015 16:04:32 -0800
+Message-ID: <1448409886-90686-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1448409886-90686-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:23956 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752375AbbKYAEt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Nov 2015 19:04:49 -0500
+In-Reply-To: <1448409886-90686-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 24, 2015 at 3:34 PM, Rainer Weikusat
-<rweikusat@mobileactivedefense.com> wrote:
-> Eric Dumazet <edumazet@google.com> writes:
->> On Tue, Nov 24, 2015 at 6:18 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->>> Hello,
->>>
->>> The following program triggers use-after-free in sock_wake_async:
->
-> [...]
->
->>> void *thr1(void *arg)
->>> {
->>>         syscall(SYS_close, r2, 0, 0, 0, 0, 0);
->>>         return 0;
->>> }
->>>
->>> void *thr2(void *arg)
->>> {
->>>         syscall(SYS_write, r3, 0x20003000ul, 0xe7ul, 0, 0, 0);
->>>         return 0;
->>> }
->
-> [...]
->
->>>         pthread_t th[3];
->>>         pthread_create(&th[0], 0, thr0, 0);
->>>         pthread_create(&th[1], 0, thr1, 0);
->>>         pthread_create(&th[2], 0, thr2, 0);
->>>         pthread_join(th[0], 0);
->>>         pthread_join(th[1], 0);
->>>         pthread_join(th[2], 0);
->>>         return 0;
->>> }
->
-> [...]
->
->> Looks like commit 830a1e5c212fb3fdc83b66359c780c3b3a294897 should be reverted ?
->>
->> commit 830a1e5c212fb3fdc83b66359c780c3b3a294897
->> Author: Benjamin LaHaise <benjamin.c.lahaise@intel.com>
->> Date:   Tue Dec 13 23:22:32 2005 -0800
->>
->>     [AF_UNIX]: Remove superfluous reference counting in unix_stream_sendmsg
->>
->>     AF_UNIX stream socket performance on P4 CPUs tends to suffer due to a
->>     lot of pipeline flushes from atomic operations.  The patch below
->>     removes the sock_hold() and sock_put() in unix_stream_sendmsg().  This
->>     should be safe as the socket still holds a reference to its peer which
->>     is only released after the file descriptor's final user invokes
->>     unix_release_sock().  The only consideration is that we must add a
->>     memory barrier before setting the peer initially.
->>
->>     Signed-off-by: Benjamin LaHaise <benjamin.c.lahaise@intel.com>
->>     Signed-off-by: David S. Miller <davem@davemloft.net>
->
-> JFTR: This seems to be unrelated. (As far as I understand this), the
-> problem is that sk_wake_async accesses sk->sk_socket. That's invoked via
-> the
->
-> other->sk_data_ready(other)
->
-> in unix_stream_sendmsg after an
->
-> unix_state_unlock(other);
->
-> because of this, it can race with the code in unix_release_sock clearing
-> this pointer (via sock_orphan). The structure this pointer points to is
-> freed via iput in sock_release (net/socket.c) after the af_unix release
-> routine returned (it's really one part of a "twin structure" with the
-> socket inode being the other).
->
-> A quick way to test if this was true would be to swap the
->
-> unix_state_unlock(other);
-> other->sk_data_ready(other);
->
-> in unix_stream_sendmsg and in case it is, a very 'hacky' fix could be to
-> put a pointer to the socket inode into the struct unix_sock, do an iget
-> on that in unix_create1 and a corresponding iput in
-> unix_sock_destructor.
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-This is interesting, but is not the problem or/and the fix.
+Code was moved into a separate function some time ago.
 
-We are supposed to own a reference on the 'other' socket or make sure
-it cannot disappear under us.
+Change-ID: Icabbe71ce05cf5d716d3e1152cdd9cd41d11bcb5
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 11 ++++-------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c |  8 +++-----
+ 2 files changed, 7 insertions(+), 12 deletions(-)
 
-Otherwise, no matter what you do, it is racy to even access other->any_field
-
-In particular, you can trap doing unix_state_lock(other), way before
-the code you want to change.
-
-Please do not propose hacky things like iget or anything inode
-related, this is clearly af_unix bug.
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 6649ce4..98680b6 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2186,14 +2186,12 @@ out:
+  * @tx_ring:  ptr to the ring to send
+  * @skb:      ptr to the skb we're sending
+  * @hdr_len:  ptr to the size of the packet header
+- * @cd_type_cmd_tso_mss: ptr to u64 object
+- * @cd_tunneling: ptr to context descriptor bits
++ * @cd_type_cmd_tso_mss: Quad Word 1
+  *
+  * Returns 0 if no TSO can happen, 1 if tso is going, or error
+  **/
+ static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
+-		    u8 *hdr_len, u64 *cd_type_cmd_tso_mss,
+-		    u32 *cd_tunneling)
++		    u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
+ {
+ 	u32 cd_cmd, cd_tso_len, cd_mss;
+ 	struct ipv6hdr *ipv6h;
+@@ -2246,7 +2244,7 @@ static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
+  * @tx_ring:  ptr to the ring to send
+  * @skb:      ptr to the skb we're sending
+  * @tx_flags: the collected send information
+- * @cd_type_cmd_tso_mss: ptr to u64 object
++ * @cd_type_cmd_tso_mss: Quad Word 1
+  *
+  * Returns 0 if no Tx timestamp can happen and 1 if the timestamp will happen
+  **/
+@@ -2825,8 +2823,7 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
+ 	else if (protocol == htons(ETH_P_IPV6))
+ 		tx_flags |= I40E_TX_FLAGS_IPV6;
+ 
+-	tso = i40e_tso(tx_ring, skb, &hdr_len,
+-		       &cd_type_cmd_tso_mss, &cd_tunneling);
++	tso = i40e_tso(tx_ring, skb, &hdr_len, &cd_type_cmd_tso_mss);
+ 
+ 	if (tso < 0)
+ 		goto out_drop;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 77968b1..a4eea08 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1436,13 +1436,12 @@ out:
+  * @tx_ring:  ptr to the ring to send
+  * @skb:      ptr to the skb we're sending
+  * @hdr_len:  ptr to the size of the packet header
+- * @cd_tunneling: ptr to context descriptor bits
++ * @cd_type_cmd_tso_mss: Quad Word 1
+  *
+  * Returns 0 if no TSO can happen, 1 if tso is going, or error
+  **/
+ static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
+-		    u8 *hdr_len, u64 *cd_type_cmd_tso_mss,
+-		    u32 *cd_tunneling)
++		    u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
+ {
+ 	u32 cd_cmd, cd_tso_len, cd_mss;
+ 	struct ipv6hdr *ipv6h;
+@@ -1979,8 +1978,7 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
+ 	else if (protocol == htons(ETH_P_IPV6))
+ 		tx_flags |= I40E_TX_FLAGS_IPV6;
+ 
+-	tso = i40e_tso(tx_ring, skb, &hdr_len,
+-		       &cd_type_cmd_tso_mss, &cd_tunneling);
++	tso = i40e_tso(tx_ring, skb, &hdr_len, &cd_type_cmd_tso_mss);
+ 
+ 	if (tso < 0)
+ 		goto out_drop;
+-- 
+2.5.0
