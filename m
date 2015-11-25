@@ -1,69 +1,63 @@
-From: William Dauchy <william-M8Sm6a3kpgNeoWH0uzbU5w@public.gmane.org>
-Subject: kmemleak report with nfs3/4 activity on v4.1.x
-Date: Wed, 25 Nov 2015 13:57:23 +0100
-Message-ID: <20151125125723.GY21147@gandi.net>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [PATCH v8] net: ethernet: add driver for Aurora VLSI NB8800
+ Ethernet controller
+Date: Wed, 25 Nov 2015 14:00:15 +0100
+Message-ID: <5655B0DF.8060000@free.fr>
+References: <1447938180-19651-1-git-send-email-mans@mansr.com>
+ <5655AB63.40204@free.fr> <yw1x37vuqmcy.fsf@unicorn.mansr.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="OEa2bCMk+rg6xBXy"
-To: Linux NFS mailing list <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Mans Rullgard <mans@mansr.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:3860 "EHLO smtp2-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751751AbbKYNAX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Nov 2015 08:00:23 -0500
+In-Reply-To: <yw1x37vuqmcy.fsf@unicorn.mansr.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 25/11/2015 13:45, M=E5ns Rullg=E5rd wrote:
 
---OEa2bCMk+rg6xBXy
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Mason wrote:
+>=20
+>> On 19/11/2015 14:02, Mans Rullgard wrote:
+>>
+>>> +	if (dma_mapping_error(&dev->dev, dma_addr)) {
+>>> +		skb_free_frag(data);
+>>> +		return -ENOMEM;
+>>> +	}
+>>
+>> I'm back-porting this driver to 4.1
+>>
+>> skb_free_frag() was introduced in 4.2 by 181edb2bfa22b IIUC.
+>>
+>> +static inline void skb_free_frag(void *addr)
+>> +{
+>> +       __free_page_frag(addr);
+>> +}
+>>
+>> Should I just copy the definition of __free_page_frag() ?
+>=20
+> Looks like it ought to work.  Try and find out.  Not that you'll ever
+> hit that error condition unless you fake it.
 
-Hello,
+Turns out __free_pages_ok() is static and I'd rather not touch
+mm/page_alloc.c in my back-port.
 
-I'm seeing some kmemleak reports while I'm using nfsv3/4=A0as a client on
-linux v4.1.13;
+Since you say the error condition is rare, I think I'll go with
+the code that 181edb2bfa22b replaced (put_page, IIUC).
 
-unreferenced object 0xffff880c22a97ad0 (size 16):
-=A0 comm "softirq", pid 0, jiffies 4294896089 (age 43927.436s)
-=A0 hex dump (first 16 bytes):
-=A0 =A0 00 00 00 00 00 00 00 00 00 45 1e 24 06 88 ff ff =A0.........E.$....
-=A0 backtrace:
-=A0 =A0 [<ffffffff811255fd>] create_object+0x152/0x280
-=A0 =A0 [<ffffffff81529c04>] kmemleak_alloc+0x20/0x42
-=A0 =A0 [<ffffffff811136dd>] slab_post_alloc_hook+0x2a/0x45
-=A0 =A0 [<ffffffff81115c48>] kmem_cache_alloc+0xbc/0xd1
-=A0 =A0 [<ffffffff81254cef>] gr_update_task_in_ip_table+0x2e/0xc3
-=A0 =A0 [<ffffffff814701bc>] __inet_hash_connect+0x241/0x30e
-=A0 =A0 [<ffffffff814702b8>] inet_hash_connect+0x2f/0x3a
-=A0 =A0 [<ffffffff81484c41>] tcp_v4_connect+0x31f/0x470
-=A0 =A0 [<ffffffff81499a2b>] __inet_stream_connect+0x9f/0x2c3
-=A0 =A0 [<ffffffff81499c80>] inet_stream_connect+0x31/0x4d
-=A0 =A0 [<ffffffff8140d870>] kernel_connect+0x18/0x20
-=A0 =A0 [<ffffffff81503cb6>] xs_tcp_setup_socket+0x25c/0x37f
-=A0 =A0 [<ffffffff810724c3>] process_one_work+0x1d0/0x30f
-=A0 =A0 [<ffffffff81072822>] worker_thread+0x1f0/0x2aa
-=A0 =A0 [<ffffffff81077cdc>] kthread+0xcd/0xd5
-=A0 =A0 [<ffffffff8153443e>] ret_from_fork+0x3e/0x70
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
+#define skb_free_frag(data) put_page(virt_to_head_page(data))
+#else
+#error DELETE ME NOW (see commit 181edb2bfa22b)
+#endif
 
-What can I do to help resolve this issue?
+Alexander, does that look correct?
 
-Thanks,
---=20
-William
-
---OEa2bCMk+rg6xBXy
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlZVsDMACgkQ1I6eqOUidQGd8QCgr+awRjs9iCJjTdAj8IRyLPyF
-rKEAoKzDTJcALHzwEDVzWrSE9Q4kh8Du
-=YZSP
------END PGP SIGNATURE-----
-
---OEa2bCMk+rg6xBXy--
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards.
