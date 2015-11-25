@@ -1,89 +1,55 @@
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Subject: [PATCH] atm: solos-pci: Replace simple_strtol by kstrtoint
-Date: Wed, 25 Nov 2015 14:44:41 +0100
-Message-ID: <1448459081-6427-1-git-send-email-clabbe.montjoie@gmail.com>
-Cc: LABBE Corentin <clabbe.montjoie@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net
+From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+Subject: RE: [PATCH 4/7] iwlwifi: fix a problematic usage of WARN_ON_ONCE()
+Date: Wed, 25 Nov 2015 13:47:42 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32E8FC5E8@hasmsx107.ger.corp.intel.com>
+References: <86c73f180d3054c1bf17bdac8c89026209167c9b.1448456395.git.geliangtang@163.com>
+ <8bb789c0803579a01e1ee977ed67408c422acd79.1448456395.git.geliangtang@163.com>
+ <582529c23f77af64373f59fa92e29186df700d79.1448456395.git.geliangtang@163.com>
+ <7701ed112cc71a9a17ba5b3022166011a98d0dca.1448456395.git.geliangtang@163.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Geliang Tang <geliangtang@163.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	linuxwifi <linuxwifi@intel.com>,
+	Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7701ed112cc71a9a17ba5b3022166011a98d0dca.1448456395.git.geliangtang@163.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The simple_strtol function is obsolete.
-This patch replace it by kstrtoint.
-This will simplify code, since some error case not handled by
-simple_strtol are handled by kstrtoint.
+> 
+> WARN_ON_ONCE() takes a condition rather than a format string. This patch
+> converted WARN_ON_ONCE() to WARN_ONCE() instead.
+> 
+> Signed-off-by: Geliang Tang <geliangtang@163.com>
+> ---
+>  drivers/net/wireless/intel/iwlwifi/mvm/rs.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
----
- drivers/atm/solos-pci.c | 22 ++++++++++++----------
- 1 file changed, 12 insertions(+), 10 deletions(-)
+Already fixed. Thanks.
 
-diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 3d7fb65..17a06bd 100644
---- a/drivers/atm/solos-pci.c
-+++ b/drivers/atm/solos-pci.c
-@@ -347,8 +347,8 @@ static char *next_string(struct sk_buff *skb)
-  */       
- static int process_status(struct solos_card *card, int port, struct sk_buff *skb)
- {
--	char *str, *end, *state_str, *snr, *attn;
--	int ver, rate_up, rate_down;
-+	char *str, *state_str, *snr, *attn;
-+	int ver, rate_up, rate_down, err;
- 
- 	if (!card->atmdev[port])
- 		return -ENODEV;
-@@ -357,8 +357,8 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
- 	if (!str)
- 		return -EIO;
- 
--	ver = simple_strtol(str, NULL, 10);
--	if (ver < 1) {
-+	err = kstrtoint(str, 10, &ver);
-+	if (ver < 1 || err) {
- 		dev_warn(&card->dev->dev, "Unexpected status interrupt version %d\n",
- 			 ver);
- 		return -EIO;
-@@ -373,15 +373,15 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
- 		return 0;
- 	}
- 
--	rate_down = simple_strtol(str, &end, 10);
--	if (*end)
-+	err = kstrtoint(str, 10, &rate_down);
-+	if (err)
- 		return -EIO;
- 
- 	str = next_string(skb);
- 	if (!str)
- 		return -EIO;
--	rate_up = simple_strtol(str, &end, 10);
--	if (*end)
-+	err = kstrtoint(str, 10, &rate_up);
-+	if (err)
- 		return -EIO;
- 
- 	state_str = next_string(skb);
-@@ -417,7 +417,7 @@ static int process_command(struct solos_card *card, int port, struct sk_buff *sk
- 	struct solos_param *prm;
- 	unsigned long flags;
- 	int cmdpid;
--	int found = 0;
-+	int found = 0, err;
- 
- 	if (skb->len < 7)
- 		return 0;
-@@ -428,7 +428,9 @@ static int process_command(struct solos_card *card, int port, struct sk_buff *sk
- 	    skb->data[6] != '\n')
- 		return 0;
- 
--	cmdpid = simple_strtol(&skb->data[1], NULL, 10);
-+	err = kstrtoint(&skb->data[1], 10, &cmdpid);
-+	if (err)
-+		return err;
- 
- 	spin_lock_irqsave(&card->param_queue_lock, flags);
- 	list_for_each_entry(prm, &card->param_queue, list) {
--- 
-2.4.10
+> 
+> diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/rs.c
+> b/drivers/net/wireless/intel/iwlwifi/mvm/rs.c
+> index d1ad103..58d7bee 100644
+> --- a/drivers/net/wireless/intel/iwlwifi/mvm/rs.c
+> +++ b/drivers/net/wireless/intel/iwlwifi/mvm/rs.c
+> @@ -1827,7 +1827,7 @@ static int rs_switch_to_column(struct iwl_mvm
+> *mvm,
+>  		rate->type = lq_sta->is_vht ? LQ_VHT_MIMO2 :
+> LQ_HT_MIMO2;
+>  		rate_mask = lq_sta->active_mimo2_rate;
+>  	} else {
+> -		WARN_ON_ONCE("Bad column mode");
+> +		WARN_ONCE(1, "Bad column mode");
+>  	}
+> 
+>  	if (column->mode != RS_LEGACY) {
+> --
+> 2.5.0
+> 
