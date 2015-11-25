@@ -1,88 +1,115 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v8] net: ethernet: add driver for Aurora VLSI NB8800
- Ethernet controller
-Date: Wed, 25 Nov 2015 08:12:28 -0800
-Message-ID: <CAKgT0UdRB5DaZHc3PQDvPzePMcjASLxH2ew1zqM4ORc+P6DKNA@mail.gmail.com>
-References: <1447938180-19651-1-git-send-email-mans@mansr.com>
-	<5655AB63.40204@free.fr>
-	<yw1x37vuqmcy.fsf@unicorn.mansr.com>
-	<5655B0DF.8060000@free.fr>
-	<yw1xy4dmp6vo.fsf@unicorn.mansr.com>
+From: Bert Kenward <bkenward@solarflare.com>
+Subject: [PATCH 1/2] sfc: make TSO version a per-queue parameter
+Date: Wed, 25 Nov 2015 16:06:14 +0000
+Message-ID: <5655DC76.7060607@solarflare.com>
+References: <5655DC18.7090208@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mason <slash.tmp@free.fr>, Netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:32847 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753367AbbKYQM3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 11:12:29 -0500
-Received: by igcmv3 with SMTP id mv3so75582802igc.0
-        for <netdev@vger.kernel.org>; Wed, 25 Nov 2015 08:12:28 -0800 (PST)
-In-Reply-To: <yw1xy4dmp6vo.fsf@unicorn.mansr.com>
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:60958 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752866AbbKYQN0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 11:13:26 -0500
+In-Reply-To: <5655DC18.7090208@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 25, 2015 at 5:04 AM, M=C3=A5ns Rullg=C3=A5rd <mans@mansr.co=
-m> wrote:
-> Mason <slash.tmp@free.fr> writes:
->
->> On 25/11/2015 13:45, M=C3=A5ns Rullg=C3=A5rd wrote:
->>
->>> Mason wrote:
->>>
->>>> On 19/11/2015 14:02, Mans Rullgard wrote:
->>>>
->>>>> +  if (dma_mapping_error(&dev->dev, dma_addr)) {
->>>>> +          skb_free_frag(data);
->>>>> +          return -ENOMEM;
->>>>> +  }
->>>>
->>>> I'm back-porting this driver to 4.1
->>>>
->>>> skb_free_frag() was introduced in 4.2 by 181edb2bfa22b IIUC.
->>>>
->>>> +static inline void skb_free_frag(void *addr)
->>>> +{
->>>> +       __free_page_frag(addr);
->>>> +}
->>>>
->>>> Should I just copy the definition of __free_page_frag() ?
->>>
->>> Looks like it ought to work.  Try and find out.  Not that you'll ev=
-er
->>> hit that error condition unless you fake it.
->>
->> Turns out __free_pages_ok() is static and I'd rather not touch
->> mm/page_alloc.c in my back-port.
->>
->> Since you say the error condition is rare, I think I'll go with
->> the code that 181edb2bfa22b replaced (put_page, IIUC).
->>
->> #include <linux/version.h>
->> #if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
->> #define skb_free_frag(data) put_page(virt_to_head_page(data))
->> #else
->> #error DELETE ME NOW (see commit 181edb2bfa22b)
->> #endif
->
-> You can simply put_page(page) instead since we already have the
-> virt_to_head_page() a few lines up.
+The Solarflare 8000 series NIC will use a new TSO scheme. The current
+driver refuses to load if the current TSO scheme is not found. Remove
+that check and instead make the TSO version a per-queue parameter.
 
-What you could do is use __free_pages instead of __free_pages_ok.
-Generally you will want to use __free_pages instead of put_page just
-to avoid a bunch of unnecessary tests and function pointer accesses.
+Signed-off-by: Bert Kenward <bkenward@solarflare.com>
+---
+ drivers/net/ethernet/sfc/ef10.c       | 13 ++++++-------
+ drivers/net/ethernet/sfc/net_driver.h |  2 ++
+ drivers/net/ethernet/sfc/tx.c         |  8 ++++++--
+ 3 files changed, 14 insertions(+), 9 deletions(-)
 
-The result would look something like:
-static inline void skb_free_frag(void *addr)
-{
-       struct page *page =3D virt_to_head_page(addr);
-
-        __free_pages(page, compound_order(page));
-}
-
-Hope that helps.
-
-- Alex
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index bc6d21b..32bfe05 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -181,13 +181,6 @@ static int efx_ef10_init_datapath_caps(struct efx_nic *efx)
+ 		MCDI_WORD(outbuf, GET_CAPABILITIES_OUT_TX_DPCPU_FW_ID);
+ 
+ 	if (!(nic_data->datapath_caps &
+-	      (1 << MC_CMD_GET_CAPABILITIES_OUT_TX_TSO_LBN))) {
+-		netif_err(efx, drv, efx->net_dev,
+-			  "current firmware does not support TSO\n");
+-		return -ENODEV;
+-	}
+-
+-	if (!(nic_data->datapath_caps &
+ 	      (1 << MC_CMD_GET_CAPABILITIES_OUT_RX_PREFIX_LEN_14_LBN))) {
+ 		netif_err(efx, probe, efx->net_dev,
+ 			  "current firmware does not support an RX prefix\n");
+@@ -1797,6 +1790,12 @@ static void efx_ef10_tx_init(struct efx_tx_queue *tx_queue)
+ 			     ESF_DZ_TX_OPTION_UDP_TCP_CSUM, csum_offload,
+ 			     ESF_DZ_TX_OPTION_IP_CSUM, csum_offload);
+ 	tx_queue->write_count = 1;
++
++	if (nic_data->datapath_caps &
++			(1 << MC_CMD_GET_CAPABILITIES_OUT_TX_TSO_LBN)) {
++		tx_queue->tso_version = 1;
++	}
++
+ 	wmb();
+ 	efx_ef10_push_tx_desc(tx_queue, txd);
+ 
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index a8ddd12..5c0d0ba 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -182,6 +182,7 @@ struct efx_tx_buffer {
+  *
+  * @efx: The associated Efx NIC
+  * @queue: DMA queue number
++ * @tso_version: Version of TSO in use for this queue.
+  * @channel: The associated channel
+  * @core_txq: The networking core TX queue structure
+  * @buffer: The software buffer ring
+@@ -228,6 +229,7 @@ struct efx_tx_queue {
+ 	/* Members which don't change on the fast path */
+ 	struct efx_nic *efx ____cacheline_aligned_in_smp;
+ 	unsigned queue;
++	unsigned int tso_version;
+ 	struct efx_channel *channel;
+ 	struct netdev_queue *core_txq;
+ 	struct efx_tx_buffer *buffer;
+diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+index 67f6afa..f7a0ec1 100644
+--- a/drivers/net/ethernet/sfc/tx.c
++++ b/drivers/net/ethernet/sfc/tx.c
+@@ -1010,13 +1010,17 @@ static void efx_enqueue_unwind(struct efx_tx_queue *tx_queue,
+ 
+ /* Parse the SKB header and initialise state. */
+ static int tso_start(struct tso_state *st, struct efx_nic *efx,
++		     struct efx_tx_queue *tx_queue,
+ 		     const struct sk_buff *skb)
+ {
+-	bool use_opt_desc = efx_nic_rev(efx) >= EFX_REV_HUNT_A0;
+ 	struct device *dma_dev = &efx->pci_dev->dev;
+ 	unsigned int header_len, in_len;
++	bool use_opt_desc = false;
+ 	dma_addr_t dma_addr;
+ 
++	if (tx_queue->tso_version == 1)
++		use_opt_desc = true;
++
+ 	st->ip_off = skb_network_header(skb) - skb->data;
+ 	st->tcp_off = skb_transport_header(skb) - skb->data;
+ 	header_len = st->tcp_off + (tcp_hdr(skb)->doff << 2u);
+@@ -1271,7 +1275,7 @@ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
+ 	/* Find the packet protocol and sanity-check it */
+ 	state.protocol = efx_tso_check_protocol(skb);
+ 
+-	rc = tso_start(&state, efx, skb);
++	rc = tso_start(&state, efx, tx_queue, skb);
+ 	if (rc)
+ 		goto mem_err;
+ 
+-- 
+2.4.3
