@@ -1,103 +1,99 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/16] i40e/i40evf: remove unused tunnel parameter
-Date: Tue, 24 Nov 2015 16:04:32 -0800
-Message-ID: <1448409886-90686-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1448409886-90686-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 00/16][pull request] Intel Wired LAN Driver Updates 2015-11-24
+Date: Tue, 24 Nov 2015 16:04:30 -0800
+Message-ID: <1448409886-90686-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:23956 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752375AbbKYAEt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752133AbbKYAEt (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 24 Nov 2015 19:04:49 -0500
-In-Reply-To: <1448409886-90686-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+This series contains updates to fm10k, i40e and i40evf.
 
-Code was moved into a separate function some time ago.
+Alex Duyck fixes up fm10k to use napi_schedule_irqoff() instead of
+napi_schedule() since the function it is called from runs from hard interrupt
+context or with interrupts already disabled in netpoll.
 
-Change-ID: Icabbe71ce05cf5d716d3e1152cdd9cd41d11bcb5
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 11 ++++-------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c |  8 +++-----
- 2 files changed, 7 insertions(+), 12 deletions(-)
+Shannon cleans up i40e and i40evf unused cd_tunneling parameter and any code
+comments that refer to it.  Then clean up a few instances of BUG_ON, based
+on a Linux diatribe, especially when WARN_ON can be used.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 6649ce4..98680b6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2186,14 +2186,12 @@ out:
-  * @tx_ring:  ptr to the ring to send
-  * @skb:      ptr to the skb we're sending
-  * @hdr_len:  ptr to the size of the packet header
-- * @cd_type_cmd_tso_mss: ptr to u64 object
-- * @cd_tunneling: ptr to context descriptor bits
-+ * @cd_type_cmd_tso_mss: Quad Word 1
-  *
-  * Returns 0 if no TSO can happen, 1 if tso is going, or error
-  **/
- static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
--		    u8 *hdr_len, u64 *cd_type_cmd_tso_mss,
--		    u32 *cd_tunneling)
-+		    u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
- {
- 	u32 cd_cmd, cd_tso_len, cd_mss;
- 	struct ipv6hdr *ipv6h;
-@@ -2246,7 +2244,7 @@ static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
-  * @tx_ring:  ptr to the ring to send
-  * @skb:      ptr to the skb we're sending
-  * @tx_flags: the collected send information
-- * @cd_type_cmd_tso_mss: ptr to u64 object
-+ * @cd_type_cmd_tso_mss: Quad Word 1
-  *
-  * Returns 0 if no Tx timestamp can happen and 1 if the timestamp will happen
-  **/
-@@ -2825,8 +2823,7 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	else if (protocol == htons(ETH_P_IPV6))
- 		tx_flags |= I40E_TX_FLAGS_IPV6;
- 
--	tso = i40e_tso(tx_ring, skb, &hdr_len,
--		       &cd_type_cmd_tso_mss, &cd_tunneling);
-+	tso = i40e_tso(tx_ring, skb, &hdr_len, &cd_type_cmd_tso_mss);
- 
- 	if (tso < 0)
- 		goto out_drop;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 77968b1..a4eea08 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1436,13 +1436,12 @@ out:
-  * @tx_ring:  ptr to the ring to send
-  * @skb:      ptr to the skb we're sending
-  * @hdr_len:  ptr to the size of the packet header
-- * @cd_tunneling: ptr to context descriptor bits
-+ * @cd_type_cmd_tso_mss: Quad Word 1
-  *
-  * Returns 0 if no TSO can happen, 1 if tso is going, or error
-  **/
- static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
--		    u8 *hdr_len, u64 *cd_type_cmd_tso_mss,
--		    u32 *cd_tunneling)
-+		    u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
- {
- 	u32 cd_cmd, cd_tso_len, cd_mss;
- 	struct ipv6hdr *ipv6h;
-@@ -1979,8 +1978,7 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	else if (protocol == htons(ETH_P_IPV6))
- 		tx_flags |= I40E_TX_FLAGS_IPV6;
- 
--	tso = i40e_tso(tx_ring, skb, &hdr_len,
--		       &cd_type_cmd_tso_mss, &cd_tunneling);
-+	tso = i40e_tso(tx_ring, skb, &hdr_len, &cd_type_cmd_tso_mss);
- 
- 	if (tso < 0)
- 		goto out_drop;
+Helin fixes pointer arithmetic, where a pointer of type void should not be
+used in arithmetic since it may result in a compilation error, instead
+add a u8 cast to resolve the issue.  Fixed a issue where using ethtool RXNFC
+command could let receive flow hash could be set on disabled queues, so
+resolve by returning the number of enabled queues before setting RXNFC.
+
+Anjali fixes a MSS issue where the hardware/NVM sets a limit of no less than
+256 bytes for MSS, yet the stack can send as low as 76 byte MSS.  Fixed the
+issue by lowering the hardware limit to 64 bytes to avoid MDDs from firing
+and causing a reset when the MSS is lower than 256.  Added a statistic to
+track how many times we forced to do a write back on transmit if the
+number of descriptors pending are less than a cache line.
+
+Catherine fixes link status changes, where polling would only change link
+status changes in one direction depending on what the last old data saved
+off was.  This was due to the watchdog only calling link_event and not
+handle_link_event.
+
+Mitch cleans up and enhances error messages related to VF MAC/VLAN filters.
+
+The following are changes since commit 724fe6955c88db8b249681cd78a76c10163bb0ba:
+  drivers: net: xgene: optimizing the code
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
+
+Alexander Duyck (1):
+  fm10k: use napi_schedule_irqoff()
+
+Anjali Singhai Jain (2):
+  i40e: Workaround fix for mss < 256 issue
+  i40e/i40evf: Add a stat to track how many times we have to do a force
+    WB
+
+Catherine Sullivan (2):
+  i40e: Move the saving of old link info from handle_link_event to
+    link_event
+  i40e: Bump version to 1.4.2
+
+Helin Zhang (5):
+  i40e: Properly cast type for arithmetic
+  i40e/i40evf: Add comment to #endif
+  i40e: return the number of enabled queues for ETHTOOL_GRXRINGS
+  i40e: rework the functions to configure RSS with similar parameters
+  i40e: create a generic configure rss function
+
+Mitch Williams (2):
+  i40e/i40evf: clean up error messages
+  i40evf: handle many MAC filters correctly
+
+Shannon Nelson (4):
+  i40e/i40evf: remove unused tunnel parameter
+  i40e: Change BUG_ON to WARN_ON in service event complete
+  i40e: remove BUG_ON from feature string building
+  i40e: remove BUG_ON from FCoE setup
+
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c       |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e.h             |   4 +
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  76 +++---
+ drivers/net/ethernet/intel/i40e/i40e_fcoe.c        |   2 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 255 ++++++++++++++++-----
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c         |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  15 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  21 +-
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |   2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  12 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |   1 +
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  58 ++++-
+ 14 files changed, 312 insertions(+), 141 deletions(-)
+
 -- 
 2.5.0
