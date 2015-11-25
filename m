@@ -1,61 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: use-after-free in sock_wake_async
-Date: Wed, 25 Nov 2015 09:51:31 -0800
-Message-ID: <1448473891.24696.21.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+ZZQ0ooT9LekV35u_jUAtAHJfg5O5SD=xATfHUF5UdNBQ@mail.gmail.com>
-	 <CANn89i+Uw+YzhRbQVSyf=FAQBO06JfFoxQpSHxfmDpS5_iZBQw@mail.gmail.com>
-	 <87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
-	 <CANn89iKg0Lc7OVLhxUOzPRr4OhEGxA8L7V1jyaqFAS6+7kEXTA@mail.gmail.com>
-	 <87io4qevdp.fsf@doppelsaurus.mobileactivedefense.com>
-	 <CANn89iJgW+6giMUicU1m831+mkaNy9z1hQB-ixvRHBqZo-7Yig@mail.gmail.com>
-	 <87io4q3u8u.fsf@doppelsaurus.mobileactivedefense.com>
-	 <1448471494.24696.18.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87a8q23s2a.fsf@doppelsaurus.mobileactivedefense.com>
+From: Stewart Brodie <stewart@metahusky.net>
+Subject: [PATCH] packet.7: Indicate CAP_NET_BIND_SERVICE capability is required for binding packet sockets
+Date: Wed, 25 Nov 2015 17:26:49 +0000
+Message-ID: <gemini.nydsgp00qxyqa08jr.stewart@metahusky.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Benjamin LaHaise <bcrl@kvack.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	David Howells <dhowells@redhat.com>,
-	Ying Xue <ying.xue@windriver.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87a8q23s2a.fsf@doppelsaurus.mobileactivedefense.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="679423162--749166995--1339358089"
+Cc: netdev@vger.kernel.org, linux-man@vger.kernel.org
+To: mtk.manpages@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metahusky.net ([212.13.203.229]:62929 "EHLO metahusky.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751985AbbKYR4C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Nov 2015 12:56:02 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-11-25 at 17:30 +0000, Rainer Weikusat wrote:
+This message is in MIME format.
 
-> In case this is wrong, it obviously implies that sk_sleep(sk) must not
-> be used anywhere as it accesses the same struck sock, hence, when that
-> can "suddenly" disappear despite locks are used in the way indicated
-> above, there is now safe way to invoke that, either, as it just does a
-> rcu_dereference_raw based on the assumption that the caller knows that
-> the i-node (and the corresponding wait queue) still exist.
-> 
-
-Oh well.
-
-sk_sleep() is not used if the return is NULL
-
-This is exactly why we have such code in critical functions :
-
-wqueue = sk_sleep(sk);
-if (wqueue && waitqueue_active(wqueue))
-	wake_up_interruptible_poll(wqueue, 
-				   POLLOUT | POLLWRNORM | POLLWRBAND);
+--679423162--749166995--1339358089
+Content-Type: text/plain; charset=us-ascii
 
 
-We already took care of this problem years ago, but missed the ASYNC
-case (that almost nobody really uses these days)
+Adds a note to packet.7 that the calling process must have the
+CAP_NET_BIND_SERVICE capability in order to call bind on packet sockets.
+
+The linux/capability.h header file comments for CAP_NET_BIND_SERVICE do not
+document this requirement either.  I did take a brief look in the kernel
+source code of both the older kernel I'm using and also in 4.4-rc2 but found
+no obvious check for this capability check in files in net/packet, but I'm
+not familiar with this code at all.
+
+I discovered this after debugging unexpected permission denied errors in
+busybox's udhcpc (when it attempts to renew leases).  It is creating the
+socket using:  socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))   It is
+possible that it is only with certain type and protocol parameters? If so,
+this patch would need to be revised to reflect that.
+
+Patch generated against man-pages-4.02.
+
+
+diff -ur a/man-pages-4.02/man7/packet.7 b/man-pages-4.02/man7/packet.7
+--- a/man-pages-4.02/man7/packet.7      2015-08-08 17:24:11.000000000 +0100
++++ b/man-pages-4.02/man7/packet.7      2015-11-24 18:44:37.341815032 +0000
+@@ -97,6 +97,12 @@
+ and
+ .IR sll_ifindex .
+ 
++Only processes with the
++.B CAP_NET_BIND_SERVICE
++capability may use
++.BR bind (2)
++on packet sockets.
++
+ The
+ .BR connect (2)
+ operation is not supported on packet sockets.
+
+
+-- 
+Stewart Brodie
+
+
+--679423162--749166995--1339358089
+Content-Type: text/x-patch; name="packet.7.diff"
+Content-Disposition: attachment; filename="packet.7.diff"
+Content-Transfer-Encoding: quoted-printable
+
+diff -ur a/man-pages-4.02/man7/packet.7 b/man-pages-4.02/man7/packet.7=0A=
+--- a/man-pages-4.02/man7/packet.7	2015-08-08 17:24:11.000000000 +0100=0A=
++++ b/man-pages-4.02/man7/packet.7	2015-11-24 18:44:37.341815032 +0000=0A=
+@@ -97,6 +97,12 @@=0A=
+ and=0A=
+ .IR sll_ifindex .=0A=
+=20=0A=
++Only processes with the=0A=
++.B CAP_NET_BIND_SERVICE=0A=
++capability may use=0A=
++.BR bind (2)=0A=
++on packet sockets.=0A=
++=0A=
+ The=0A=
+ .BR connect (2)=0A=
+ operation is not supported on packet sockets.=0A=
+
+--679423162--749166995--1339358089--
