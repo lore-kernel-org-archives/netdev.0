@@ -1,49 +1,45 @@
-From: "Lan, Tianyu" <tianyu.lan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH V2 3/3] Ixgbevf: Add migration support for ixgbevf
- driver
-Date: Thu, 26 Nov 2015 00:02:33 +0800
-Message-ID: <5655DB99.3040007@intel.com>
-References: <1448372298-28386-1-git-send-email-tianyu.lan@intel.com>
- <1448372298-28386-4-git-send-email-tianyu.lan@intel.com>
- <20151124230551-mutt-send-email-mst@redhat.com> <56554994.1090305@intel.com>
- <20151125142437-mutt-send-email-mst@redhat.com>
+From: Bert Kenward <bkenward@solarflare.com>
+Subject: [PATCH 2/2] sfc: Add PCI ID for Solarflare 8000 series 10/40G NIC.
+Date: Wed, 25 Nov 2015 16:06:31 +0000
+Message-ID: <5655DC87.6030804@solarflare.com>
+References: <5655DC18.7090208@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org, alex.williamson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org, bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	carolyn.wyborny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, donald.c.skidmore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	eddie.dong-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, nrupal.jani-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, agraf-l3A5Bk7waGM@public.gmane.org,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org,
-	emil.s.tantilov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	mark.d.rustad-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, eric.auger-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-	intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	jesse.brandeburg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, john.ronciak-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	matthew.vick-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, mitch.a.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shannon.nelson-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	weiyang-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151125142437-mutt-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:49477 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752852AbbKYQLQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 11:11:16 -0500
+In-Reply-To: <5655DC18.7090208@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/25/2015 8:28 PM, Michael S. Tsirkin wrote:
-> Frankly, I don't really see what this short term hack buys us,
-> and if it goes in, we'll have to maintain it forever.
->
+Also add support for 7000 series 40G NIC VF.
 
-The framework of how to notify VF about migration status won't be
-changed regardless of stopping VF or not before doing migration.
-We hope to reach agreement on this first. Tracking dirty memory still
-need to more discussions and we will continue working on it. Stop VF may
-help to work around the issue and make tracking easier.
+Signed-off-by: Bert Kenward <bkenward@solarflare.com>
+---
+ drivers/net/ethernet/sfc/efx.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-
-> Also, assuming you just want to do ifdown/ifup for some reason, it's
-> easy enough to do using a guest agent, in a completely generic way.
->
-
-Just ifdown/ifup is not enough for migration. It needs to restore some 
-PCI settings before doing ifup on the target machine
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 4e82bcf..b405349 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -2784,6 +2784,12 @@ static const struct pci_device_id efx_pci_table[] = {
+ 	 .driver_data = (unsigned long) &efx_hunt_a0_vf_nic_type},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_SOLARFLARE, 0x0923),  /* SFC9140 PF */
+ 	 .driver_data = (unsigned long) &efx_hunt_a0_nic_type},
++	{PCI_DEVICE(PCI_VENDOR_ID_SOLARFLARE, 0x1923),  /* SFC9140 VF */
++	 .driver_data = (unsigned long) &efx_hunt_a0_vf_nic_type},
++	{PCI_DEVICE(PCI_VENDOR_ID_SOLARFLARE, 0x0a03),  /* SFC9220 PF */
++	 .driver_data = (unsigned long) &efx_hunt_a0_nic_type},
++	{PCI_DEVICE(PCI_VENDOR_ID_SOLARFLARE, 0x1a03),  /* SFC9220 VF */
++	 .driver_data = (unsigned long) &efx_hunt_a0_vf_nic_type},
+ 	{0}			/* end of list */
+ };
+ 
+-- 
+2.4.3
