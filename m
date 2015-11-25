@@ -1,7 +1,7 @@
 From: khalasa@piap.pl (Krzysztof =?utf-8?Q?Ha=C5=82asa?=)
-Subject: Re: [PATCH] ixp4xx_eth: Delete an unnecessary check before the function call "dma_pool_destroy"
-Date: Wed, 25 Nov 2015 13:19:12 +0100
-Message-ID: <m3poyyz2yn.fsf@t19.piap.pl>
+Subject: Re: [PATCH] ixp4xx_hss: Delete an unnecessary check before the function call "dma_pool_destroy"
+Date: Wed, 25 Nov 2015 13:19:45 +0100
+Message-ID: <m3lh9mz2xq.fsf@t19.piap.pl>
 References: <5307CAA2.8060406@users.sourceforge.net>
 	<alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
 	<530A086E.8010901@users.sourceforge.net>
@@ -19,7 +19,7 @@ References: <5307CAA2.8060406@users.sourceforge.net>
 	<530DD06F.4090703@users.sourceforge.net>
 	<alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
 	<5317A59D.4@users.sourceforge.net>
-	<5649BDF5.5040405@users.sourceforge.net>
+	<5649CDD1.6050600@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -27,8 +27,8 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Julia Lawall <julia.lawall@lip6.fr>
 To: SF Markus Elfring <elfring@users.sourceforge.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5649BDF5.5040405@users.sourceforge.net> (SF Markus Elfring's
-	message of "Mon, 16 Nov 2015 12:28:53 +0100")
+In-Reply-To: <5649CDD1.6050600@users.sourceforge.net> (SF Markus Elfring's
+	message of "Mon, 16 Nov 2015 13:36:33 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -39,9 +39,9 @@ SF Markus Elfring <elfring@users.sourceforge.net> writes:
 >
 > This issue was detected by using the Coccinelle software.
 
-> --- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
-> +++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
-> @@ -1192,7 +1192,7 @@ static void destroy_queues(struct port *port)
+> --- a/drivers/net/wan/ixp4xx_hss.c
+> +++ b/drivers/net/wan/ixp4xx_hss.c
+> @@ -1037,7 +1037,7 @@ static void destroy_hdlc_queues(struct port *port)
 >  		port->desc_tab = NULL;
 >  	}
 >  
