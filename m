@@ -1,142 +1,220 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 10/15] i40e/i40evf: clean up error messages
-Date: Wed, 25 Nov 2015 10:21:14 -0800
-Message-ID: <1448475679-57194-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 13/15] i40e: rework the functions to configure RSS with similar parameters
+Date: Wed, 25 Nov 2015 10:21:17 -0800
+Message-ID: <1448475679-57194-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Helin Zhang <helin.zhang@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:36304 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750840AbbKYSVa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Nov 2015 13:21:30 -0500
+	id S1751318AbbKYSVc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Nov 2015 13:21:32 -0500
 In-Reply-To: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Helin Zhang <helin.zhang@intel.com>
 
-Clean up and enhance error messages related to VF MAC/VLAN filters.
-Indicate which VF is having issues, and if possible indicate the MAC
-address or VLAN involved.
+Adjust the RSS configure functions so that there is a generic way to
+hook to ethtool hooks.
 
-Also, when an error is returned from the PF driver, print useful
-information about what went wrong, for the most likely cases.
-
-Change-ID: Ib3d15eef9e3369a78fd142948671e5fa26d921b8
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: If446e34fcfaf1bc3320d9d319829a095b5976e67
+Signed-off-by: Helin Zhang <helin.zhang@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 21 +++++++++--------
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 26 +++++++++++++++++++---
- 2 files changed, 35 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  1 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 95 +++++++++++++++++++-------
+ 3 files changed, 71 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 44462b4..9c54ca2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1623,7 +1623,8 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index ca07a7b..f6b747c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -187,6 +187,7 @@ struct i40e_lump_tracking {
+ #define I40E_FDIR_BUFFER_HEAD_ROOM_FOR_ATR (I40E_FDIR_BUFFER_HEAD_ROOM * 4)
  
- 		if (!f) {
- 			dev_err(&pf->pdev->dev,
--				"Unable to add VF MAC filter\n");
-+				"Unable to add MAC filter %pM for VF %d\n",
-+				 al->list[i].addr, vf->vf_id);
- 			ret = I40E_ERR_PARAM;
- 			spin_unlock_bh(&vsi->mac_filter_list_lock);
- 			goto error_param;
-@@ -1633,7 +1634,8 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ #define I40E_HKEY_ARRAY_SIZE ((I40E_PFQF_HKEY_MAX_INDEX + 1) * 4)
++#define I40E_HLUT_ARRAY_SIZE ((I40E_PFQF_HLUT_MAX_INDEX + 1) * 4)
  
- 	/* program the updated filter list */
- 	if (i40e_sync_vsi_filters(vsi, false))
--		dev_err(&pf->pdev->dev, "Unable to program VF MAC filters\n");
-+		dev_err(&pf->pdev->dev, "Unable to program VF %d MAC filters\n",
-+			vf->vf_id);
+ enum i40e_fd_stat_idx {
+ 	I40E_FD_STAT_ATR,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index a89da8a..f26c0d1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -2584,7 +2584,6 @@ static int i40e_set_channels(struct net_device *dev,
+ 		return -EINVAL;
+ }
  
- error_param:
- 	/* send the response to the VF */
-@@ -1669,8 +1671,8 @@ static int i40e_vc_del_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	for (i = 0; i < al->num_elements; i++) {
- 		if (is_broadcast_ether_addr(al->list[i].addr) ||
- 		    is_zero_ether_addr(al->list[i].addr)) {
--			dev_err(&pf->pdev->dev, "invalid VF MAC addr %pM\n",
--				al->list[i].addr);
-+			dev_err(&pf->pdev->dev, "Invalid MAC addr %pM for VF %d\n",
-+				al->list[i].addr, vf->vf_id);
- 			ret = I40E_ERR_INVALID_MAC_ADDR;
- 			goto error_param;
- 		}
-@@ -1686,7 +1688,8 @@ static int i40e_vc_del_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+-#define I40E_HLUT_ARRAY_SIZE ((I40E_PFQF_HLUT_MAX_INDEX + 1) * 4)
+ /**
+  * i40e_get_rxfh_key_size - get the RSS hash key size
+  * @netdev: network interface device structure
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 9c0a381..9fe6802 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -55,6 +55,8 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit);
+ static int i40e_setup_misc_vector(struct i40e_pf *pf);
+ static void i40e_determine_queue_usage(struct i40e_pf *pf);
+ static int i40e_setup_pf_filter_control(struct i40e_pf *pf);
++static void i40e_fill_rss_lut(struct i40e_pf *pf, u8 *lut,
++			      u16 rss_table_size, u16 rss_size);
+ static void i40e_fdir_sb_setup(struct i40e_pf *pf);
+ static int i40e_veb_get_bw_info(struct i40e_veb *veb);
  
- 	/* program the updated filter list */
- 	if (i40e_sync_vsi_filters(vsi, false))
--		dev_err(&pf->pdev->dev, "Unable to program VF MAC filters\n");
-+		dev_err(&pf->pdev->dev, "Unable to program VF %d MAC filters\n",
-+			vf->vf_id);
+@@ -7797,7 +7799,8 @@ static int i40e_setup_misc_vector(struct i40e_pf *pf)
+  * @vsi: vsi structure
+  * @seed: RSS hash seed
+  **/
+-static int i40e_config_rss_aq(struct i40e_vsi *vsi, const u8 *seed)
++static int i40e_config_rss_aq(struct i40e_vsi *vsi, const u8 *seed,
++			      u8 *lut, u16 lut_size)
+ {
+ 	struct i40e_aqc_get_set_rss_key_data rss_key;
+ 	struct i40e_pf *pf = vsi->back;
+@@ -7850,43 +7853,57 @@ static int i40e_vsi_config_rss(struct i40e_vsi *vsi)
+ {
+ 	u8 seed[I40E_HKEY_ARRAY_SIZE];
+ 	struct i40e_pf *pf = vsi->back;
++	u8 *lut;
++	int ret;
++
++	if (!(pf->flags & I40E_FLAG_RSS_AQ_CAPABLE))
++		return 0;
++
++	lut = kzalloc(vsi->rss_table_size, GFP_KERNEL);
++	if (!lut)
++		return -ENOMEM;
  
- error_param:
- 	/* send the response to the VF */
-@@ -1740,8 +1743,8 @@ static int i40e_vc_add_vlan_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
++	i40e_fill_rss_lut(pf, lut, vsi->rss_table_size, vsi->rss_size);
+ 	netdev_rss_key_fill((void *)seed, I40E_HKEY_ARRAY_SIZE);
+ 	vsi->rss_size = min_t(int, pf->rss_size, vsi->num_queue_pairs);
++	ret = i40e_config_rss_aq(vsi, seed, lut, vsi->rss_table_size);
++	kfree(lut);
  
- 		if (ret)
- 			dev_err(&pf->pdev->dev,
--				"Unable to add VF vlan filter %d, error %d\n",
--				vfl->vlan_id[i], ret);
-+				"Unable to add VLAN filter %d for VF %d, error %d\n",
-+				vfl->vlan_id[i], vf->vf_id, ret);
+-	if (pf->flags & I40E_FLAG_RSS_AQ_CAPABLE)
+-		return i40e_config_rss_aq(vsi, seed);
+-
+-	return 0;
++	return ret;
+ }
+ 
+ /**
+  * i40e_config_rss_reg - Prepare for RSS if used
+- * @pf: board private structure
++ * @vsi: Pointer to vsi structure
+  * @seed: RSS hash seed
++ * @lut: Lookup table
++ * @lut_size: Lookup table size
++ *
++ * Returns 0 on success, negative on failure
+  **/
+-static int i40e_config_rss_reg(struct i40e_pf *pf, const u8 *seed)
++static int i40e_config_rss_reg(struct i40e_vsi *vsi, const u8 *seed,
++			       const u8 *lut, u16 lut_size)
+ {
+-	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
++	struct i40e_pf *pf = vsi->back;
+ 	struct i40e_hw *hw = &pf->hw;
+-	u32 *seed_dw = (u32 *)seed;
+-	u32 current_queue = 0;
+-	u32 lut = 0;
+-	int i, j;
++	u8 i;
+ 
+ 	/* Fill out hash function seed */
+-	for (i = 0; i <= I40E_PFQF_HKEY_MAX_INDEX; i++)
+-		wr32(hw, I40E_PFQF_HKEY(i), seed_dw[i]);
++	if (seed) {
++		u32 *seed_dw = (u32 *)seed;
+ 
+-	for (i = 0; i <= I40E_PFQF_HLUT_MAX_INDEX; i++) {
+-		lut = 0;
+-		for (j = 0; j < 4; j++) {
+-			if (current_queue == vsi->rss_size)
+-				current_queue = 0;
+-			lut |= ((current_queue) << (8 * j));
+-			current_queue++;
+-		}
+-		wr32(&pf->hw, I40E_PFQF_HLUT(i), lut);
++		for (i = 0; i <= I40E_PFQF_HKEY_MAX_INDEX; i++)
++			wr32(hw, I40E_PFQF_HKEY(i), seed_dw[i]);
++	}
++
++	if (lut) {
++		u32 *lut_dw = (u32 *)lut;
++
++		if (lut_size != I40E_HLUT_ARRAY_SIZE)
++			return -EINVAL;
++
++		for (i = 0; i <= I40E_PFQF_HLUT_MAX_INDEX; i++)
++			wr32(hw, I40E_PFQF_HLUT(i), lut_dw[i]);
  	}
+ 	i40e_flush(hw);
  
- error_param:
-@@ -1792,8 +1795,8 @@ static int i40e_vc_remove_vlan_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+@@ -7894,6 +7911,22 @@ static int i40e_config_rss_reg(struct i40e_pf *pf, const u8 *seed)
+ }
  
- 		if (ret)
- 			dev_err(&pf->pdev->dev,
--				"Unable to delete VF vlan filter %d, error %d\n",
--				vfl->vlan_id[i], ret);
-+				"Unable to delete VLAN filter %d for VF %d, error %d\n",
-+				vfl->vlan_id[i], vf->vf_id, ret);
- 	}
+ /**
++ * i40e_fill_rss_lut - Fill the RSS lookup table with default values
++ * @pf: Pointer to board private structure
++ * @lut: Lookup table
++ * @rss_table_size: Lookup table size
++ * @rss_size: Range of queue number for hashing
++ */
++static void i40e_fill_rss_lut(struct i40e_pf *pf, u8 *lut,
++			      u16 rss_table_size, u16 rss_size)
++{
++	u16 i;
++
++	for (i = 0; i < rss_table_size; i++)
++		lut[i] = i % rss_size;
++}
++
++/**
+  * i40e_config_rss - Prepare for RSS if used
+  * @pf: board private structure
+  **/
+@@ -7901,9 +7934,11 @@ static int i40e_config_rss(struct i40e_pf *pf)
+ {
+ 	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
+ 	u8 seed[I40E_HKEY_ARRAY_SIZE];
++	u8 *lut;
+ 	struct i40e_hw *hw = &pf->hw;
+ 	u32 reg_val;
+ 	u64 hena;
++	int ret;
  
- error_param:
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index 32e620e..091ef6a 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -724,9 +724,29 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 		return;
- 	}
- 	if (v_retval) {
--		dev_err(&adapter->pdev->dev, "PF returned error %d (%s) to our request %d\n",
--			v_retval, i40evf_stat_str(&adapter->hw, v_retval),
--			v_opcode);
-+		switch (v_opcode) {
-+		case I40E_VIRTCHNL_OP_ADD_VLAN:
-+			dev_err(&adapter->pdev->dev, "Failed to add VLAN filter, error %s\n",
-+				i40evf_stat_str(&adapter->hw, v_retval));
-+			break;
-+		case I40E_VIRTCHNL_OP_ADD_ETHER_ADDRESS:
-+			dev_err(&adapter->pdev->dev, "Failed to add MAC filter, error %s\n",
-+				i40evf_stat_str(&adapter->hw, v_retval));
-+			break;
-+		case I40E_VIRTCHNL_OP_DEL_VLAN:
-+			dev_err(&adapter->pdev->dev, "Failed to delete VLAN filter, error %s\n",
-+				i40evf_stat_str(&adapter->hw, v_retval));
-+			break;
-+		case I40E_VIRTCHNL_OP_DEL_ETHER_ADDRESS:
-+			dev_err(&adapter->pdev->dev, "Failed to delete MAC filter, error %s\n",
-+				i40evf_stat_str(&adapter->hw, v_retval));
-+			break;
-+		default:
-+			dev_err(&adapter->pdev->dev, "PF returned error %d (%s) to our request %d\n",
-+				v_retval,
-+				i40evf_stat_str(&adapter->hw, v_retval),
-+				v_opcode);
-+		}
- 	}
- 	switch (v_opcode) {
- 	case I40E_VIRTCHNL_OP_GET_STATS: {
+ 	netdev_rss_key_fill((void *)seed, I40E_HKEY_ARRAY_SIZE);
+ 
+@@ -7924,10 +7959,20 @@ static int i40e_config_rss(struct i40e_pf *pf)
+ 			(reg_val & ~I40E_PFQF_CTL_0_HASHLUTSIZE_512);
+ 	wr32(hw, I40E_PFQF_CTL_0, reg_val);
+ 
++	lut = kzalloc(vsi->rss_table_size, GFP_KERNEL);
++	if (!lut)
++		return -ENOMEM;
++
++	i40e_fill_rss_lut(pf, lut, vsi->rss_table_size, vsi->rss_size);
++
+ 	if (pf->flags & I40E_FLAG_RSS_AQ_CAPABLE)
+-		return i40e_config_rss_aq(pf->vsi[pf->lan_vsi], seed);
++		ret = i40e_config_rss_aq(vsi, seed, lut, vsi->rss_table_size);
+ 	else
+-		return i40e_config_rss_reg(pf, seed);
++		ret = i40e_config_rss_reg(vsi, seed, lut, vsi->rss_table_size);
++
++	kfree(lut);
++
++	return ret;
+ }
+ 
+ /**
 -- 
 2.5.0
