@@ -1,40 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: KASAN failures in X-Gene ethernet driver in v4.4-rc2
-Date: Wed, 25 Nov 2015 08:17:36 -0800
-Message-ID: <1448468256.24696.5.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151125155753.GE12434@leverpostej>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v5] mpls: support for dead routes
+Date: Wed, 25 Nov 2015 11:18:27 -0500 (EST)
+Message-ID: <20151125.111827.2264696682456564840.davem@davemloft.net>
+References: <1448407342-61181-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, isubramanian@apm.com, kchudgar@apm.com,
-	linux-kernel@vger.kernel.org, ryabinin.a.a@gmail.com,
-	linux-arm-kernel@lists.infradead.org
-To: Mark Rutland <mark.rutland@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151125155753.GE12434@leverpostej>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ebiederm@xmission.com, rshearma@brocade.com, netdev@vger.kernel.org
+To: roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33579 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752022AbbKYQSc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 11:18:32 -0500
+In-Reply-To: <1448407342-61181-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-11-25 at 15:59 +0000, Mark Rutland wrote:
-> xgene_enet_start_xmit
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Date: Tue, 24 Nov 2015 15:22:22 -0800
 
-Please try following trivial fix
+> v4 -v5
+> 	- if kmemdup fails, modify the original route in place. This is a
+> 	corner case and only side effect is that in the remote case
+> 	of kmemdup failure, the changes will not be atomically visible
+> 	to datapath.
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 1adfe7036843..9147a0107c44 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -450,12 +450,12 @@ static netdev_tx_t xgene_enet_start_xmit(struct sk_buff *skb,
- 		return NETDEV_TX_OK;
- 	}
- 
--	pdata->ring_ops->wr_cmd(tx_ring, count);
- 	skb_tx_timestamp(skb);
- 
- 	pdata->stats.tx_packets++;
- 	pdata->stats.tx_bytes += skb->len;
- 
-+	pdata->ring_ops->wr_cmd(tx_ring, count);
- 	return NETDEV_TX_OK;
- }
- 
+I really don't like this.
+
+Either you need to make the changes appear atomic to the data path,
+and you therefore must fail the operation if kmemdup() fails, or it
+doesn't matter and you should just always change the route in-place.
+
+As far as I can tell it can't possibly matter.  The alive counter is
+never modified by the data path, it is only tested to make a multipath
+decision.  Likewise it's rather harmless to send a frame or two via a
+device currently going down.
+
+But if you're convinced it matters, then is matters, and you can't
+fake things when kmemdup() fails.  And in that case I would recommend
+that you use a two pass algorithm, one pass allocates all of the
+new routes, and the second fills them in, inserts them, and frees
+the old ones.
+
+That is the only way you can unwind and fail cleanly.
+
+And oh yeah, that's right, you can't really fail this and make the
+ifdown not proceed.
+
+So you're stuck, right?
+
+That's why this has to be designed in a way where memory allocations
+are not necessary.  These notifiers aren't really designed to facilitate
+situations that require resource acquisitions that can fail.
