@@ -1,99 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: suppress too verbose messages in
- tcp_send_ack()
-Date: Wed, 25 Nov 2015 13:50:50 -0800
-Message-ID: <1448488250.24696.40.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Ameen <ameenali023@gmail.com>
+Subject: [PATCH 2/2] Minor improvement for smsc95xx netusb driver performance.
+Date: Wed, 25 Nov 2015 23:55:26 +0200
+Message-ID: <1448488526-8040-1-git-send-email-AmeenAli023@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, Ameen <AmeenAli023@gmail.com>
+To: steve.glendinning@shawell.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33226 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751704AbbKYVuw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 16:50:52 -0500
-Received: by pabfh17 with SMTP id fh17so70960435pab.0
-        for <netdev@vger.kernel.org>; Wed, 25 Nov 2015 13:50:52 -0800 (PST)
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:33043 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752249AbbKYVzm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 16:55:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Reduce number of memcpy's by 1-2 improve transmit performance by 2-4%.
+or reduce CPU usage on a comparable value.
 
-If tcp_send_ack() can not allocate skb, we properly handle this
-and setup a timer to try later.
-
-Use __GFP_NOWARN to avoid polluting syslog in the case host is
-under memory pressure, so that pertinent messages are not lost under
-a flood of useless information.
-
-sk_gfp_atomic() can use its gfp_mask argument (all callers currently
-were using GFP_ATOMIC before this patch)
-
-Note that when tcp_transmit_skb() is called with clone_it set to false,
-we do not attempt memory allocations, so can pass a 0 gfp_mask, which
-most compilers can emit faster than a non zero value.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Ameen Ali <AmeenAli023@gmail.com>
 ---
- include/net/sock.h    |    2 +-
- net/ipv4/tcp_output.c |   12 +++++++-----
- 2 files changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/usb/smsc95xx.c | 28 ++++++++++++++--------------
+ 1 file changed, 14 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 7f89e4ba18d1..ead514332ae8 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -776,7 +776,7 @@ static inline int sk_memalloc_socks(void)
- 
- static inline gfp_t sk_gfp_atomic(const struct sock *sk, gfp_t gfp_mask)
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 66b3ab9..fff07cc 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -1830,7 +1830,9 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
  {
--	return GFP_ATOMIC | (sk->sk_allocation & __GFP_MEMALLOC);
-+	return gfp_mask | (sk->sk_allocation & __GFP_MEMALLOC);
+ 	bool csum = skb->ip_summed == CHECKSUM_PARTIAL;
+ 	int overhead = csum ? SMSC95XX_TX_OVERHEAD_CSUM : SMSC95XX_TX_OVERHEAD;
+-	u32 tx_cmd_a, tx_cmd_b;
++	struct tx_commands_t {
++		u32 cmd_a, cmd_b, csum_preamble;
++	} tx_cmds;
+ 
+ 	/* We do not advertise SG, so skbs should be already linearized */
+ 	BUG_ON(skb_shinfo(skb)->nr_frags);
+@@ -1855,26 +1857,24 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
+ 				+ skb->csum_offset)) = csum_fold(calc);
+ 
+ 			csum = false;
++			overhead = SMSC95XX_TX_OVERHEAD;
+ 		} else {
+-			u32 csum_preamble = smsc95xx_calc_csum_preamble(skb);
++			tx_cmds.csum_preamble = smsc95xx_calc_csum_preamble(skb);
+ 			skb_push(skb, 4);
+-			cpu_to_le32s(&csum_preamble);
+-			memcpy(skb->data, &csum_preamble, 4);
++			cpu_to_le32s(&tx_cmds.csum_preamble);
+ 		}
+ 	}
+ 
+-	skb_push(skb, 4);
+-	tx_cmd_b = (u32)(skb->len - 4);
++	tx_cmds.cmd_a = (u32)skb->len | TX_CMD_A_FIRST_SEG_ |
++		TX_CMD_A_LAST_SEG_;
++	cpu_to_le32s(&tx_cmds.cmd_a);
++	tx_cmds.cmd_b = (u32)skb->len;
+ 	if (csum)
+-		tx_cmd_b |= TX_CMD_B_CSUM_ENABLE;
+-	cpu_to_le32s(&tx_cmd_b);
+-	memcpy(skb->data, &tx_cmd_b, 4);
++	  tx_cmds.cmd_b |= TX_CMD_B_CSUM_ENABLE;
+ 
+-	skb_push(skb, 4);
+-	tx_cmd_a = (u32)(skb->len - 8) | TX_CMD_A_FIRST_SEG_ |
+-		TX_CMD_A_LAST_SEG_;
+-	cpu_to_le32s(&tx_cmd_a);
+-	memcpy(skb->data, &tx_cmd_a, 4);
++	cpu_to_le32s(&tx_cmds.cmd_b);
++	skb_push(skb, 8);
++	memcpy(skb->data, &tx_cmds, overhead);
+ 
+ 	return skb;
  }
- 
- static inline void sk_acceptq_removed(struct sock *sk)
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index cb7ca569052c..0a1d4f6ab52f 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3352,8 +3352,9 @@ void tcp_send_ack(struct sock *sk)
- 	 * tcp_transmit_skb() will set the ownership to this
- 	 * sock.
- 	 */
--	buff = alloc_skb(MAX_TCP_HEADER, sk_gfp_atomic(sk, GFP_ATOMIC));
--	if (!buff) {
-+	buff = alloc_skb(MAX_TCP_HEADER,
-+			 sk_gfp_atomic(sk, GFP_ATOMIC | __GFP_NOWARN));
-+	if (unlikely(!buff)) {
- 		inet_csk_schedule_ack(sk);
- 		inet_csk(sk)->icsk_ack.ato = TCP_ATO_MIN;
- 		inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
-@@ -3375,7 +3376,7 @@ void tcp_send_ack(struct sock *sk)
- 
- 	/* Send it off, this clears delayed acks for us. */
- 	skb_mstamp_get(&buff->skb_mstamp);
--	tcp_transmit_skb(sk, buff, 0, sk_gfp_atomic(sk, GFP_ATOMIC));
-+	tcp_transmit_skb(sk, buff, 0, (__force gfp_t)0);
- }
- EXPORT_SYMBOL_GPL(tcp_send_ack);
- 
-@@ -3396,7 +3397,8 @@ static int tcp_xmit_probe_skb(struct sock *sk, int urgent, int mib)
- 	struct sk_buff *skb;
- 
- 	/* We don't queue it, tcp_transmit_skb() sets ownership. */
--	skb = alloc_skb(MAX_TCP_HEADER, sk_gfp_atomic(sk, GFP_ATOMIC));
-+	skb = alloc_skb(MAX_TCP_HEADER,
-+			sk_gfp_atomic(sk, GFP_ATOMIC | __GFP_NOWARN));
- 	if (!skb)
- 		return -1;
- 
-@@ -3409,7 +3411,7 @@ static int tcp_xmit_probe_skb(struct sock *sk, int urgent, int mib)
- 	tcp_init_nondata_skb(skb, tp->snd_una - !urgent, TCPHDR_ACK);
- 	skb_mstamp_get(&skb->skb_mstamp);
- 	NET_INC_STATS(sock_net(sk), mib);
--	return tcp_transmit_skb(sk, skb, 0, GFP_ATOMIC);
-+	return tcp_transmit_skb(sk, skb, 0, (__force gfp_t)0);
- }
- 
- void tcp_send_window_probe(struct sock *sk)
+-- 
+2.5.0
