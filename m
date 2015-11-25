@@ -1,81 +1,98 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH 01/13] net: mvneta: add configuration for MBUS windows access protection
-Date: Wed, 25 Nov 2015 19:19:08 +0100
-Message-ID: <87si3u7xib.fsf@free-electrons.com>
-References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
-	<1448178839-3541-2-git-send-email-mw@semihalf.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	linux@arm.linux.org.uk, sebastian.hesselbarth@gmail.com,
-	andrew@lunn.ch, jason@lakedaemon.net,
-	thomas.petazzoni@free-electrons.com, simon.guinot@sequanux.org,
-	nadavh@marvell.com, alior@marvell.com, xswang@marvell.com,
-	myair@marvell.com, nitroshift@yahoo.com, jaz@semihalf.com,
-	tn@semihalf.com, <stable@vger.kernel.org>
-To: Marcin Wojtas <mw@semihalf.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1448178839-3541-2-git-send-email-mw@semihalf.com> (Marcin
-	Wojtas's message of "Sun, 22 Nov 2015 08:53:47 +0100")
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/15][pull request] Intel Wired LAN Driver Updates 2015-11-25
+Date: Wed, 25 Nov 2015 10:21:04 -0800
+Message-ID: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	john.ronciak@intel.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:36304 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750735AbbKYSVV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Nov 2015 13:21:21 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Marcin,
- 
- On dim., nov. 22 2015, Marcin Wojtas <mw@semihalf.com> wrote:
+This series contains updates to fm10k, i40e and i40evf.
 
-> This commit adds missing configuration of MBUS windows access protection
-> in mvneta_conf_mbus_windows function - a dedicated variable for that
-> purpose remained there unused since v3.8 initial mvneta support. Because
-> of that the register contents were inherited from the bootloader.
+Alex Duyck fixes up fm10k to use napi_schedule_irqoff() instead of
+napi_schedule() since the function it is called from runs from hard interrupt
+context or with interrupts already disabled in netpoll.
 
-It looks OK for me and at least after applying the driver continues
-working :)
+Shannon cleans up i40e and i40evf unused cd_tunneling parameter and any code
+comments that refer to it.  Then clean up a few instances of BUG_ON, based
+on a Linux diatribe, especially when WARN_ON can be used.
 
-I guess you find it when you tested suspend to ram.
+Helin fixed a issue where using ethtool RXNFC command could let receive
+flow hash could be set on disabled queues, so resolve by returning the
+number of enabled queues before setting RXNFC.
 
-Reviewed-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Anjali fixes a MSS issue where the hardware/NVM sets a limit of no less than
+256 bytes for MSS, yet the stack can send as low as 76 byte MSS.  Fixed the
+issue by lowering the hardware limit to 64 bytes to avoid MDDs from firing
+and causing a reset when the MSS is lower than 256.  Added a statistic to
+track how many times we forced to do a write back on transmit if the
+number of descriptors pending are less than a cache line.
 
-Thanks,
+Catherine fixes link status changes, where polling would only change link
+status changes in one direction depending on what the last old data saved
+off was.  This was due to the watchdog only calling link_event and not
+handle_link_event.
 
-Gregory
+Mitch cleans up and enhances error messages related to VF MAC/VLAN filters.
 
+v2: Dropped patch "i40e: Properly cast type for arithmetic" patch
+    based on feedback from the community
 
->
-> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-> Cc: <stable@vger.kernel.org> # v3.8+
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 3 +++
->  1 file changed, 3 insertions(+)
->
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index e84c7f2..0f30aaa 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -62,6 +62,7 @@
->  #define MVNETA_WIN_SIZE(w)                      (0x2204 + ((w) << 3))
->  #define MVNETA_WIN_REMAP(w)                     (0x2280 + ((w) << 2))
->  #define MVNETA_BASE_ADDR_ENABLE                 0x2290
-> +#define MVNETA_ACCESS_PROTECT_ENABLE		0x2294
->  #define MVNETA_PORT_CONFIG                      0x2400
->  #define      MVNETA_UNI_PROMISC_MODE            BIT(0)
->  #define      MVNETA_DEF_RXQ(q)                  ((q) << 1)
-> @@ -3188,6 +3189,8 @@ static void mvneta_conf_mbus_windows(struct mvneta_port *pp,
->  
->  		win_enable &= ~(1 << i);
->  		win_protect |= 3 << (2 * i);
-> +
-> +		mvreg_write(pp, MVNETA_ACCESS_PROTECT_ENABLE, win_protect);
->  	}
->  
->  	mvreg_write(pp, MVNETA_BASE_ADDR_ENABLE, win_enable);
-> -- 
-> 1.8.3.1
->
+The following are changes since commit 9458ceab49179b7fd2d5192fd9dcf316ca195dc0:
+  net: phy: bcm7xxx: Add entry for Broadcom BCM7435
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
+
+Alexander Duyck (1):
+  fm10k: use napi_schedule_irqoff()
+
+Anjali Singhai Jain (2):
+  i40e: Workaround fix for mss < 256 issue
+  i40e/i40evf: Add a stat to track how many times we have to do a force
+    WB
+
+Catherine Sullivan (2):
+  i40e: Move the saving of old link info from handle_link_event to
+    link_event
+  i40e: Bump version to 1.4.2
+
+Helin Zhang (4):
+  i40e/i40evf: Add comment to #endif
+  i40e: return the number of enabled queues for ETHTOOL_GRXRINGS
+  i40e: rework the functions to configure RSS with similar parameters
+  i40e: create a generic configure rss function
+
+Mitch Williams (2):
+  i40e/i40evf: clean up error messages
+  i40evf: handle many MAC filters correctly
+
+Shannon Nelson (4):
+  i40e/i40evf: remove unused tunnel parameter
+  i40e: Change BUG_ON to WARN_ON in service event complete
+  i40e: remove BUG_ON from feature string building
+  i40e: remove BUG_ON from FCoE setup
+
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c       |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e.h             |   4 +
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  76 +++---
+ drivers/net/ethernet/intel/i40e/i40e_fcoe.c        |   2 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 255 ++++++++++++++++-----
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  15 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  21 +-
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |   2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  12 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |   1 +
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  58 ++++-
+ 13 files changed, 311 insertions(+), 140 deletions(-)
 
 -- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+2.5.0
