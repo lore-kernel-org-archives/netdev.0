@@ -1,167 +1,131 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH net] isdn: Partially revert debug format string usage
- clean up
-Date: Wed, 25 Nov 2015 10:35:59 -0800
-Message-ID: <CAGXu5jJkNQ4vX3++oXCrb5xeVjxEvUa8Lyyzxe-9Q2kwNWQHmA@mail.gmail.com>
-References: <1448433910@msgid.manchmal.in-ulm.de>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next v2 04/15] i40e: remove BUG_ON from feature string
+ building
+Date: Wed, 25 Nov 2015 10:35:35 -0800
+Message-ID: <1448476535.3021.5.camel@intel.com>
+References: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1448475679-57194-5-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <5655FD72.70902@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	Karsten Keil <isdn@linux-pingi.de>
-To: Christoph Biedl <linux-kernel.bfrz@manchmal.in-ulm.de>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-D0voXCwQ2vaGTSXCaZ9q"
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	John Ronciak <john.ronciak@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:34288 "EHLO
-	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751935AbbKYSgA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 13:36:00 -0500
-Received: by ioir85 with SMTP id r85so62371235ioi.1
-        for <netdev@vger.kernel.org>; Wed, 25 Nov 2015 10:36:00 -0800 (PST)
-In-Reply-To: <1448433910@msgid.manchmal.in-ulm.de>
+Received: from mga09.intel.com ([134.134.136.24]:53630 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751806AbbKYSfl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Nov 2015 13:35:41 -0500
+In-Reply-To: <5655FD72.70902@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 24, 2015 at 10:47 PM, Christoph Biedl
-<linux-kernel.bfrz@manchmal.in-ulm.de> wrote:
-> Commit 35a4a57 ("isdn: clean up debug format string usage") introduced
-> a safeguard to avoid accidential format string interpolation of data
-> when calling debugl1 or HiSax_putstatus. This did however not take into
-> account VHiSax_putstatus (called by HiSax_putstatus) does *not* call
-> vsprintf if the head parameter is NULL - the format string is treated
-> as plain text then instead. As a result, the string "%s" is processed
-> literally, and the actual information is lost. This affects the isdnlog
-> userspace program which stopped logging information since that commit.
 
-Oh, that's weird, but yeah, these calls aren't expanding format
-strings, so I'm fine with this change.
+--=-D0voXCwQ2vaGTSXCaZ9q
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: base64
 
-Acked-by: Kees Cook <keescook@chromium.org>
-
-On the other hand, VHiSax_putstatus contains an unchecked data buffer
-overflow, since it uses tmpbuf without checking lengths at all:
-
-        p = tmpbuf;
-        if (head) {
-                p += jiftime(p, jiffies);
-                p += sprintf(p, " %s", head);
-                p += vsprintf(p, fmt, args);
-                *p++ = '\n';
-                *p = 0;
-                len = p - tmpbuf;
-                p = tmpbuf;
-        } else {
-                p = fmt;
-                len = strlen(fmt);
-        }
-        if (len > HISAX_STATUS_BUFSIZE) {
-                spin_unlock_irqrestore(&cs->statlock, flags);
-                printk(KERN_WARNING "HiSax: status overflow %d/%d\n",
-                       len, HISAX_STATUS_BUFSIZE);
-                return;
-        }
-
-It helpfully detects the overflow, but at this point it's too late:
-the buffer (and things past it) have already been clobbered. Seems
-reachable through capi_debug, callc_debug, but nothing jumps out at me
-as passing taking too-long arguments, though there are some long call
-chains that touch ioctls and tty stuff, which seems scary. :)
-
-Also, though mitigated by needing DEB_DLOG_VERBOSE, there seems to be
-and overflow in dlogframe too: it doesn't validate against
-MAX_DLOG_SPACE. For example path:
-    GROUP_TEI
-    CTRL_SAPI
-    ftyp == 3
-    while ... adds to dp for length of skb
-    ... heap buffer overflow
-
--Kees
-
->
-> Fixes: 35a4a5733b0a ("isdn: clean up debug format string usage")
-> Cc: Kees Cook <keescook@chromium.org>
-> Cc: Karsten Keil <isdn@linux-pingi.de>
-> Signed-off-by: Christoph Biedl <linux-kernel.bfrz@manchmal.in-ulm.de>
-> ---
->  drivers/isdn/hisax/config.c  | 2 +-
->  drivers/isdn/hisax/hfc_pci.c | 2 +-
->  drivers/isdn/hisax/hfc_sx.c  | 2 +-
->  drivers/isdn/hisax/q931.c    | 6 +++---
->  4 files changed, 6 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/isdn/hisax/config.c b/drivers/isdn/hisax/config.c
-> index b33f53b..bf04d2a 100644
-> --- a/drivers/isdn/hisax/config.c
-> +++ b/drivers/isdn/hisax/config.c
-> @@ -1896,7 +1896,7 @@ static void EChannel_proc_rcv(struct hisax_d_if *d_if)
->                                 ptr--;
->                                 *ptr++ = '\n';
->                                 *ptr = 0;
-> -                               HiSax_putstatus(cs, NULL, "%s", cs->dlog);
-> +                               HiSax_putstatus(cs, NULL, cs->dlog);
->                         } else
->                                 HiSax_putstatus(cs, "LogEcho: ",
->                                                 "warning Frame too big (%d)",
-> diff --git a/drivers/isdn/hisax/hfc_pci.c b/drivers/isdn/hisax/hfc_pci.c
-> index 4a48255..90449e1 100644
-> --- a/drivers/isdn/hisax/hfc_pci.c
-> +++ b/drivers/isdn/hisax/hfc_pci.c
-> @@ -901,7 +901,7 @@ Begin:
->                                         ptr--;
->                                         *ptr++ = '\n';
->                                         *ptr = 0;
-> -                                       HiSax_putstatus(cs, NULL, "%s", cs->dlog);
-> +                                       HiSax_putstatus(cs, NULL, cs->dlog);
->                                 } else
->                                         HiSax_putstatus(cs, "LogEcho: ", "warning Frame too big (%d)", total - 3);
->                         }
-> diff --git a/drivers/isdn/hisax/hfc_sx.c b/drivers/isdn/hisax/hfc_sx.c
-> index b1fad81..13b2151 100644
-> --- a/drivers/isdn/hisax/hfc_sx.c
-> +++ b/drivers/isdn/hisax/hfc_sx.c
-> @@ -674,7 +674,7 @@ receive_emsg(struct IsdnCardState *cs)
->                                         ptr--;
->                                         *ptr++ = '\n';
->                                         *ptr = 0;
-> -                                       HiSax_putstatus(cs, NULL, "%s", cs->dlog);
-> +                                       HiSax_putstatus(cs, NULL, cs->dlog);
->                                 } else
->                                         HiSax_putstatus(cs, "LogEcho: ", "warning Frame too big (%d)", skb->len);
->                         }
-> diff --git a/drivers/isdn/hisax/q931.c b/drivers/isdn/hisax/q931.c
-> index b420f8b..ba4beb2 100644
-> --- a/drivers/isdn/hisax/q931.c
-> +++ b/drivers/isdn/hisax/q931.c
-> @@ -1179,7 +1179,7 @@ LogFrame(struct IsdnCardState *cs, u_char *buf, int size)
->                 dp--;
->                 *dp++ = '\n';
->                 *dp = 0;
-> -               HiSax_putstatus(cs, NULL, "%s", cs->dlog);
-> +               HiSax_putstatus(cs, NULL, cs->dlog);
->         } else
->                 HiSax_putstatus(cs, "LogFrame: ", "warning Frame too big (%d)", size);
->  }
-> @@ -1246,7 +1246,7 @@ dlogframe(struct IsdnCardState *cs, struct sk_buff *skb, int dir)
->         }
->         if (finish) {
->                 *dp = 0;
-> -               HiSax_putstatus(cs, NULL, "%s", cs->dlog);
-> +               HiSax_putstatus(cs, NULL, cs->dlog);
->                 return;
->         }
->         if ((0xfe & buf[0]) == PROTO_DIS_N0) {  /* 1TR6 */
-> @@ -1509,5 +1509,5 @@ dlogframe(struct IsdnCardState *cs, struct sk_buff *skb, int dir)
->                 dp += sprintf(dp, "Unknown protocol %x!", buf[0]);
->         }
->         *dp = 0;
-> -       HiSax_putstatus(cs, NULL, "%s", cs->dlog);
-> +       HiSax_putstatus(cs, NULL, cs->dlog);
->  }
-> --
-> 2.1.4
->
+T24gV2VkLCAyMDE1LTExLTI1IGF0IDIxOjI2ICswMzAwLCBTZXJnZWkgU2h0eWx5b3Ygd3JvdGU6
+Cj4gT24gMTEvMjUvMjAxNSAwOToyMSBQTSwgSmVmZiBLaXJzaGVyIHdyb3RlOgo+IAo+ID4gRnJv
+bTogU2hhbm5vbiBOZWxzb24gPHNoYW5ub24ubmVsc29uQGludGVsLmNvbT4KPiA+Cj4gPiBUaGVy
+ZSdzIHJlYWxseSBubyByZWFzb24gdG8ga2lsbCB0aGUga2VybmVsIHRocmVhZCBqdXN0IGJlY2F1
+c2Ugb2YKPiBhCj4gPiBsaXR0bGUgaW5mbyBzdHJpbmcuIFRoaXMgcmV3b3JrcyB0aGUgY29kZSB0
+byB1c2Ugc25wcmludGYncwo+IGxpbWl0aW5nIHRvCj4gPiBhc3N1cmUgdGhhdCB0aGUgc3RyaW5n
+IGlzIG5ldmVyIHRvbyBsb25nLCBhbmQgV0FSTl9PTiB0byBzdGlsbCBwdXQKPiBvdXQKPiA+IGEg
+d2FybmluZyB0aGF0IHdlIG1pZ2h0IHdhbnQgdG8gbG9vayBhdCB0aGUgZmVhdHVyZSBsaXN0IGxl
+bmd0aC4KPiA+Cj4gPiBQcm9tcHRlZCBieSBhIHJlY2VudCBMaW51cyBkaWF0cmliZS4KPiA+Cj4g
+PiBDaGFuZ2UtSUQ6IElmNTJiYTVjYTFjMjM0NGQ4YmY0NTRhMzFiYmI4MDVlYjVkMmM1ODAyCj4g
+PiBTaWduZWQtb2ZmLWJ5OiBTaGFubm9uIE5lbHNvbiA8c2hhbm5vbi5uZWxzb25AaW50ZWwuY29t
+Pgo+ID4gVGVzdGVkLWJ5OiBBbmRyZXcgQm93ZXJzIDxhbmRyZXd4LmJvd2Vyc0BpbnRlbC5jb20+
+Cj4gPiBTaWduZWQtb2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVs
+LmNvbT4KPiA+IC0tLQo+ID7CoMKgIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQw
+ZV9tYWluLmMgfCAzNCArKysrKysrKysrKysrKystCj4gLS0tLS0tLS0tLS0tLQo+ID7CoMKgIDEg
+ZmlsZSBjaGFuZ2VkLCAxOCBpbnNlcnRpb25zKCspLCAxNiBkZWxldGlvbnMoLSkKPiA+Cj4gPiBk
+aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX21haW4uYwo+
+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX21haW4uYwo+ID4gaW5kZXgg
+NzcxNWM1NC4uN2E0NTk1YSAxMDA2NDQKPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
+dGVsL2k0MGUvaTQwZV9tYWluLmMKPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2k0MGUvaTQwZV9tYWluLmMKPiBbLi4uXQo+ID4gQEAgLTEwMTI0LDQyICsxMDEyNiw0MiBAQCBz
+dGF0aWMgdm9pZCBpNDBlX3ByaW50X2ZlYXR1cmVzKHN0cnVjdAo+IGk0MGVfcGYgKnBmKQo+ID4K
+PiA+wqDCoMKgwqDCoMKgwqBidWYgPSBzdHJpbmc7Cj4gPgo+ID4gLcKgwqDCoMKgwqBidWYgKz0g
+c3ByaW50ZihzdHJpbmcsICJGZWF0dXJlczogUEYtaWRbJWRdICIsIGh3LT5wZl9pZCk7Cj4gPiAr
+wqDCoMKgwqDCoGkgKz0gc25wcmludGYoJmJ1ZltpXSwgUkVNQUlOKGkpLCAiRmVhdHVyZXM6IFBG
+LWlkWyVkXSAiLCBody0KPiA+cGZfaWQpOwo+ID7CoMKgICNpZmRlZiBDT05GSUdfUENJX0lPVgo+
+ID4gLcKgwqDCoMKgwqBidWYgKz0gc3ByaW50ZihidWYsICJWRnM6ICVkICIsIHBmLT5udW1fcmVx
+X3Zmcyk7Cj4gPiArwqDCoMKgwqDCoGkgKz0gc25wcmludGYoJmJ1ZltpXSwgUkVNQUlOKGkpLCAi
+VkZzOiAlZCAiLCBwZi0KPiA+bnVtX3JlcV92ZnMpOwo+ID7CoMKgICNlbmRpZgo+ID4gLcKgwqDC
+oMKgwqBidWYgKz0gc3ByaW50ZihidWYsICJWU0lzOiAlZCBRUDogJWQgUlg6ICVzICIsCj4gPiAt
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgcGYtPmh3LmZ1bmNfY2Fwcy5u
+dW1fdnNpcywKPiA+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCBwZi0+
+dnNpW3BmLT5sYW5fdnNpXS0+bnVtX3F1ZXVlX3BhaXJzLAo+ID4gLcKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgIHBmLT5mbGFncyAmIEk0MEVfRkxBR19SWF9QU19FTkFCTEVE
+ID8gIlBTIiA6Cj4gIjFCVUYiKTsKPiA+ICvCoMKgwqDCoMKgaSArPSBzbnByaW50ZigmYnVmW2ld
+LCBSRU1BSU4oaSksICJWU0lzOiAlZCBRUDogJWQgUlg6ICVzICIsCj4gPiArwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHBmLT5ody5mdW5jX2NhcHMubnVtX3ZzaXMsCj4gPiAr
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHBmLT52c2lbcGYtPmxhbl92c2ld
+LT5udW1fcXVldWVfcGFpcnMsCj4gPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgIHBmLT5mbGFncyAmIEk0MEVfRkxBR19SWF9QU19FTkFCTEVEID8gIlBTIiA6Cj4gIjFCVUYi
+KTsKPiA+Cj4gPsKgwqDCoMKgwqDCoMKgaWYgKHBmLT5mbGFncyAmIEk0MEVfRkxBR19SU1NfRU5B
+QkxFRCkKPiA+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGJ1ZiArPSBzcHJpbnRmKGJ1Ziwg
+IlJTUyAiKTsKPiA+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGkgKz0gc25wcmludGYoJmJ1
+ZltpXSwgUkVNQUlOKGkpLCAiUlNTICIpOwo+ID7CoMKgwqDCoMKgwqDCoGlmIChwZi0+ZmxhZ3Mg
+JiBJNDBFX0ZMQUdfRkRfQVRSX0VOQUJMRUQpCj4gPiAtwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqBidWYgKz0gc3ByaW50ZihidWYsICJGRF9BVFIgIik7Cj4gPiArwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqBpICs9IHNucHJpbnRmKCZidWZbaV0sIFJFTUFJTihpKSwgIkZEX0FUUiAiKTsKPiA+
+wqDCoMKgwqDCoMKgwqBpZiAocGYtPmZsYWdzICYgSTQwRV9GTEFHX0ZEX1NCX0VOQUJMRUQpIHsK
+PiA+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGJ1ZiArPSBzcHJpbnRmKGJ1ZiwgIkZEX1NC
+ICIpOwo+ID4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgYnVmICs9IHNwcmludGYoYnVmLCAi
+TlRVUExFICIpOwo+ID4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgaSArPSBzbnByaW50Zigm
+YnVmW2ldLCBSRU1BSU4oaSksICJGRF9TQiAiKTsKPiA+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoGkgKz0gc25wcmludGYoJmJ1ZltpXSwgUkVNQUlOKGkpLCAiTlRVUExFICIpOwo+ID7CoMKg
+wqDCoMKgwqDCoH0KPiA+wqDCoMKgwqDCoMKgwqBpZiAocGYtPmZsYWdzICYgSTQwRV9GTEFHX0RD
+Ql9DQVBBQkxFKQo+ID4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgYnVmICs9IHNwcmludGYo
+YnVmLCAiRENCICIpOwo+ID4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgaSArPSBzbnByaW50
+ZigmYnVmW2ldLCBSRU1BSU4oaSksICJEQ0IgIik7Cj4gPsKgwqAgI2lmIElTX0VOQUJMRUQoQ09O
+RklHX1ZYTEFOKQo+ID4gLcKgwqDCoMKgwqBidWYgKz0gc3ByaW50ZihidWYsICJWeExBTiAiKTsK
+PiA+ICvCoMKgwqDCoMKgaSArPSBzbnByaW50ZigmYnVmW2ldLCBSRU1BSU4oaSksICJWeExBTiAi
+KTsKPiA+wqDCoCAjZW5kaWYKPiA+wqDCoMKgwqDCoMKgwqBpZiAocGYtPmZsYWdzICYgSTQwRV9G
+TEFHX1BUUCkKPiA+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGJ1ZiArPSBzcHJpbnRmKGJ1
+ZiwgIlBUUCAiKTsKPiA+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGkgKz0gc25wcmludGYo
+JmJ1ZltpXSwgUkVNQUlOKGkpLCAiUFRQICIpOwo+ID7CoMKgICNpZmRlZiBJNDBFX0ZDT0UKPiA+
+wqDCoMKgwqDCoMKgwqBpZiAocGYtPmZsYWdzICYgSTQwRV9GTEFHX0ZDT0VfRU5BQkxFRCkKPiA+
+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGJ1ZiArPSBzcHJpbnRmKGJ1ZiwgIkZDT0UgIik7
+Cj4gPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBpICs9IHNucHJpbnRmKCZidWZbaV0sIFJF
+TUFJTihpKSwgIkZDT0UgIik7Cj4gPsKgwqAgI2VuZGlmCj4gPsKgwqDCoMKgwqDCoMKgaWYgKHBm
+LT5mbGFncyAmIEk0MEVfRkxBR19WRUJfTU9ERV9FTkFCTEVEKQo+ID4gLcKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgYnVmICs9IHNwcmludGYoYnVmLCAiVkVCICIpOwo+ID4gK8KgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgaSArPSBzbnByaW50ZigmYnVmW2ldLCBSRU1BSU4oaSksICJWRVBBICIp
+Owo+IAo+IMKgwqDCoCBOb3QgIlZFQiAiPwoKTmljZSBjYXRjaCBTZXJnZWksIEkgd2lsbCB3YWl0
+IGEgdGlsbCB0aGlzIGFmdGVybm9vbiB0byByZXNwaW4gdGhlCnBhdGNoIHNlcmllcywganVzdCBp
+biBjYXNlIHRoZXJlIGFyZSBvdGhlciBjaGFuZ2VzIG5lZWRlZCB0aGF0IG91cgp2YWxpZGF0aW9u
+IGRpZCBub3QgY2F0Y2guIDotKQ==
 
 
+--=-D0voXCwQ2vaGTSXCaZ9q
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
--- 
-Kees Cook
-Chrome OS & Brillo Security
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAABCgAGBQJWVf93AAoJEOVv75VaS+3On5gQAIH3LC3lD4cVY4ox1vFBywc2
+mDfalrmBZ3qrmupX84NdANGkvbF/I6UrUx+uzNwGcWDjuhZLY65OhQLEczPN2SHA
+7vkaRACrEi5Xz835MjmZJa60FSD6CyNwpBQYDpGhxwgt3jtFSwUEGJ4Nlkfyi42t
+UVb1wj6LxOgxwAkIS/HAG5J8X522HXjshLQezdg0h4DFq/zhHsTZtIzTJB2X2Rch
+UWF/W79ZpB23+HaoyncVdVkVNTfE37tXwx5q8r2PG2VPdARBdzCsqB3lkg2pm46Z
+v4Ri3eG/1lCuphEdQ8hclJjOnvYZMiu1GJlhg7+NN/LW0sLVcqy3COnBiexWa8E9
+1VoC4tmzzLIHcsDn2XV+WViWiSCdBnClUZ6XCgyWt0kUJ9fePFXriDy9avO1tqry
+2HH+uYMdVvpszOPmLAoXuc7YRKKp+Kls1OMHwfoYbdZvD6snhpHvtO2OwOlxzWmw
+NCzjf4bx2/pWv+dJVoSfABtO1l3ZKLTrgAa0e9gZFn57zYCjBtFngOForI0Abaza
+cuNlSt5n3siKVtayNPk2n8wBM2ifRocLtqpS/hyNGM5GaLAIop6KEtv5ZEHWdUiv
+i3atzc+hPXQ4Hhb8ybDGcjvsmzKvcheVVXoZ8UoTuwaIAcyWYz87TmP9TV9KUsX6
+o+iTDwJ4GCcplLbFxDlV
+=t7e3
+-----END PGP SIGNATURE-----
+
+--=-D0voXCwQ2vaGTSXCaZ9q--
