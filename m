@@ -1,69 +1,63 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next 0/6] kcm: Kernel Connection Multiplexor (KCM)
-Date: Wed, 25 Nov 2015 11:26:21 -0500
-Message-ID: <20151125162621.GA13985@oracle.com>
-References: <CALx6S34TrGgmH3eZKPLw_xKYfX2dm+fZq6r7ZBe2DBPudBiSzA@mail.gmail.com>
- <20151123.145433.1554000376541433305.davem@davemloft.net>
- <20151124152744.GB20972@breakpoint.cc>
- <20151124.105537.185897620062606312.davem@davemloft.net>
- <20151124162515.GA22266@breakpoint.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 07/13] net: tcp_memcontrol: sanitize tcp memory
+ accounting callbacks
+Date: Wed, 25 Nov 2015 11:28:11 -0500 (EST)
+Message-ID: <20151125.112811.22762794078922115.davem@davemloft.net>
+References: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
+	<1448401925-22501-8-git-send-email-hannes@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, tom@herbertland.com,
-	hannes@stressinduktion.org, netdev@vger.kernel.org,
-	kernel-team@fb.com, davejwatson@fb.com,
-	alexei.starovoitov@gmail.com
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:46377 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752814AbbKYQ0s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 11:26:48 -0500
-Content-Disposition: inline
-In-Reply-To: <20151124162515.GA22266@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, vdavydov@virtuozzo.com, mhocko@suse.cz,
+ tj@kernel.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+ linux-mm@kvack.org, cgroups@vger.kernel.org, linux-kernel@vger.kernel.org,
+ kernel-team@fb.com
+To: hannes@cmpxchg.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1448401925-22501-8-git-send-email-hannes@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On (11/24/15 17:25), Florian Westphal wrote:
-> Its a well-written document, but I don't see how moving the burden of
-> locking a single logical tcp connection (to prevent threads from
-> reading a partial record) from userspace to kernel is an improvement.
+From: Johannes Weiner <hannes@cmpxchg.org>
+Date: Tue, 24 Nov 2015 16:51:59 -0500
+
+> There won't be a tcp control soft limit, so integrating the memcg code
+> into the global skmem limiting scheme complicates things
+> unnecessarily. Replace this with simple and clear charge and uncharge
+> calls--hidden behind a jump label--to account skb memory.
 > 
-> If you really have 100 threads and must use a single tcp connection
-> to multiplex some arbitrarily complex record-format in atomic fashion,
-> then your requirements suck.
+> Note that this is not purely aesthetic: as a result of shoehorning the
+> per-memcg code into the same memory accounting functions that handle
+> the global level, the old code would compare the per-memcg consumption
+> against the smaller of the per-memcg limit and the global limit. This
+> allowed the total consumption of multiple sockets to exceed the global
+> limit, as long as the individual sockets stayed within bounds. After
+> this change, the code will always compare the per-memcg consumption to
+> the per-memcg limit, and the global consumption to the global limit,
+> and thus close this loophole.
+> 
+> Without a soft limit, the per-memcg memory pressure state in sockets
+> is generally questionable. However, we did it until now, so we
+> continue to enter it when the hard limit is hit, and packets are
+> dropped, to let other sockets in the cgroup know that they shouldn't
+> grow their transmit windows, either. However, keep it simple in the
+> new callback model and leave memory pressure lazily when the next
+> packet is accepted (as opposed to doing it synchroneously when packets
+> are processed). When packets are dropped, network performance will
+> already be in the toilet, so that should be a reasonable trade-off.
+> 
+> As described above, consumption is now checked on the per-memcg level
+> and the global level separately. Likewise, memory pressure states are
+> maintained on both the per-memcg level and the global level, and a
+> socket is considered under pressure when either level asserts as much.
+> 
+> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+> Reviewed-by: Vladimir Davydov <vdavydov@virtuozzo.com>
 
-In the interest of providing some context from the rds-tcp use-case
-here (without drifting into hyperbole).. RDS-TCP, like KCM,
-provides a dgram-over-stream socket, with SEQPACKET semantics,
-and an upper-bounded record-size per POSIX/SEQPACKET semantics. 
-The major difference from kcm is that it does not use BPF, but 
-instead has its own protocol header for each datagram.
+Acked-by: David S. Miller <davem@davemloft.net>
 
-There seems to be some misconception in this thread that this model
-is about allowing application to be "lazy" and do a 1:1 mapping between
-streams- that's not the case for RDS.
-
-In the case of cluster apps, we have DB apps that want to have a single
-dgram socket to talk to multiple peers (i.e., a star-network, with the
-node in the center of the star wanting to have dgram sockets to everyone
-else. Scale is more than a mere 100 threads).
-
-If that central node wants reliable, ordered, congestion-managed
-delivery, it would have to use UDP + bunch of its own code for
-seq#, rexmit etc. And they are doing that today, but dont want the
-to reinvent TCP's congavoid (and in fact, in the absence of congestion,
-one complaint is that udp latency is 2x-3x better than rds-tcp for a
-512 byte req, 8K resp that is typical for DB workloads. I'm still 
-investigating)
-
->From the TCP standpoint of rds-tcp, we have a many-one mapping: 
-multiple RDS sockets funneling to a single tcp connection, sharing
-a single congestion state-machine.
-
-I dont know if this is a "poorly designed application", I'm sure
-its not perfect, but we have a ton of Oracle clustering s/w that's
-already doing this with IB, so extending this with rds-tcp made
-sense for us at this point.
-
---Sowmini
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
