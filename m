@@ -1,59 +1,67 @@
-From: khalasa@piap.pl (Krzysztof =?utf-8?Q?Ha=C5=82asa?=)
-Subject: Re: [PATCH] ixp4xx_hss: Delete an unnecessary check before the function call "dma_pool_destroy"
-Date: Wed, 25 Nov 2015 13:19:45 +0100
-Message-ID: <m3lh9mz2xq.fsf@t19.piap.pl>
-References: <5307CAA2.8060406@users.sourceforge.net>
-	<alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
-	<530A086E.8010901@users.sourceforge.net>
-	<alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
-	<530A72AA.3000601@users.sourceforge.net>
-	<alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
-	<530B5FB6.6010207@users.sourceforge.net>
-	<alpine.DEB.2.10.1402241710370.2074@hadrien>
-	<530C5E18.1020800@users.sourceforge.net>
-	<alpine.DEB.2.10.1402251014170.2080@hadrien>
-	<530CD2C4.4050903@users.sourceforge.net>
-	<alpine.DEB.2.10.1402251840450.7035@hadrien>
-	<530CF8FF.8080600@users.sourceforge.net>
-	<alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
-	<530DD06F.4090703@users.sourceforge.net>
-	<alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
-	<5317A59D.4@users.sourceforge.net>
-	<5649CDD1.6050600@users.sourceforge.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [Resend PATCH] RDS: fix race condition when sending a message
+ on unbound socket
+Date: Wed, 25 Nov 2015 12:21:45 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBDC0B0@AcuExch.aculab.com>
+References: <1448403201-1683-1-git-send-email-santosh.shilimkar@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"sasha.levin@oracle.com" <sasha.levin@oracle.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	Quentin Casasnovas <quentin.casasnovas@oracle.com>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>
+To: 'Santosh Shilimkar' <santosh.shilimkar@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5649CDD1.6050600@users.sourceforge.net> (SF Markus Elfring's
-	message of "Mon, 16 Nov 2015 13:36:33 +0100")
+In-Reply-To: <1448403201-1683-1-git-send-email-santosh.shilimkar@oracle.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SF Markus Elfring <elfring@users.sourceforge.net> writes:
+From: Santosh Shilimkar
+> Sent: 24 November 2015 22:13
+...
+> Sasha's found a NULL pointer dereference in the RDS connection code when
+> sending a message to an apparently unbound socket.  The problem is caused
+> by the code checking if the socket is bound in rds_sendmsg(), which checks
+> the rs_bound_addr field without taking a lock on the socket.  This opens a
+> race where rs_bound_addr is temporarily set but where the transport is not
+> in rds_bind(), leading to a NULL pointer dereference when trying to
+> dereference 'trans' in __rds_conn_create().
+> 
+> Vegard wrote a reproducer for this issue, so kindly ask him to share if
+> you're interested.
+...
+> diff --git a/net/rds/send.c b/net/rds/send.c
+> index 827155c..c9cdb35 100644
+> --- a/net/rds/send.c
+> +++ b/net/rds/send.c
+> @@ -1013,11 +1013,13 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
+>  		release_sock(sk);
 
-> The dma_pool_destroy() function tests whether its argument is NULL
-> and then returns immediately. Thus the test around the call is not needed.
->
-> This issue was detected by using the Coccinelle software.
+This is falling though into an unconditional lock_sock().
+No need to unlock and relock immediately.
 
-> --- a/drivers/net/wan/ixp4xx_hss.c
-> +++ b/drivers/net/wan/ixp4xx_hss.c
-> @@ -1037,7 +1037,7 @@ static void destroy_hdlc_queues(struct port *port)
->  		port->desc_tab = NULL;
 >  	}
->  
-> -	if (!ports_open && dma_pool) {
-> +	if (!ports_open) {
->  		dma_pool_destroy(dma_pool);
->  		dma_pool = NULL;
+> 
+> -	/* racing with another thread binding seems ok here */
+> +	lock_sock(sk);
+>  	if (daddr == 0 || rs->rs_bound_addr == 0) {
+> +		release_sock(sk);
+>  		ret = -ENOTCONN; /* XXX not a great errno */
+>  		goto out;
 >  	}
+> +	release_sock(sk);
+> 
 
-Acked-by: Krzysztof Halasa <khalasa@piap.pl>
--- 
-Krzysztof Halasa
+On the face of it the above looks somewhat dubious.
+Locks usually tie together two action (eg a test and use of a value),
+In this case you only have a test inside the lock.
+That either means that the state can change after you release the lock
+(ie rs->rs_bound_addr = 0 is executed somewhere), or you don't
+really need the lock.
 
-Industrial Research Institute for Automation and Measurements PIAP
-Al. Jerozolimskie 202, 02-486 Warsaw, Poland
+	David
