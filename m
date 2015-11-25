@@ -1,60 +1,52 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC PATCH V2 3/3] Ixgbevf: Add migration support for ixgbevf
- driver
-Date: Wed, 25 Nov 2015 14:28:05 +0200
-Message-ID: <20151125142437-mutt-send-email-mst@redhat.com>
-References: <1448372298-28386-1-git-send-email-tianyu.lan@intel.com>
- <1448372298-28386-4-git-send-email-tianyu.lan@intel.com>
- <20151124230551-mutt-send-email-mst@redhat.com>
- <56554994.1090305@intel.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [PATCH v8] net: ethernet: add driver for Aurora VLSI NB8800
+ Ethernet controller
+Date: Wed, 25 Nov 2015 13:36:51 +0100
+Message-ID: <5655AB63.40204@free.fr>
+References: <1447938180-19651-1-git-send-email-mans@mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org, alex.williamson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org, bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	carolyn.wyborny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, donald.c.skidmore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	eddie.dong-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, nrupal.jani-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, agraf-l3A5Bk7waGM@public.gmane.org,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org,
-	emil.s.tantilov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	mark.d.rustad-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, eric.auger-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-	intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	jesse.brandeburg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, john.ronciak-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	matthew.vick-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, mitch.a.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shannon.nelson-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	weiyang-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Lan Tianyu <tianyu.lan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <56554994.1090305-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Mans Rullgard <mans@mansr.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:42455 "EHLO smtp2-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751428AbbKYMg7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Nov 2015 07:36:59 -0500
+In-Reply-To: <1447938180-19651-1-git-send-email-mans@mansr.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 25, 2015 at 01:39:32PM +0800, Lan Tianyu wrote:
-> On 2015=E5=B9=B411=E6=9C=8825=E6=97=A5 05:20, Michael S. Tsirkin wrot=
-e:
-> > I have to say, I was much more interested in the idea
-> > of tracking dirty memory. I have some thoughts about
-> > that one - did you give up on it then?
->=20
-> No, our finial target is to keep VF active before doing
-> migration and tracking dirty memory is essential. But this
-> seems not easy to do that in short term for upstream. As
-> starters, stop VF before migration.
+On 19/11/2015 14:02, Mans Rullgard wrote:
 
-=46rankly, I don't really see what this short term hack buys us,
-and if it goes in, we'll have to maintain it forever.
+> +	if (dma_mapping_error(&dev->dev, dma_addr)) {
+> +		skb_free_frag(data);
+> +		return -ENOMEM;
+> +	}
 
-Also, assuming you just want to do ifdown/ifup for some reason, it's
-easy enough to do using a guest agent, in a completely generic way.
+I'm back-porting this driver to 4.1
 
+skb_free_frag() was introduced in 4.2 by 181edb2bfa22b IIUC.
 
-> After deep thinking, the way of stopping VF still needs tracking
-> DMA-accessed dirty memory to make sure the received data buffer
-> before stopping VF migrated. It's easier to do that via dummy writing
-> data buffer when receive packet.
->=20
->=20
-> --=20
-> Best regards
-> Tianyu Lan
++static inline void skb_free_frag(void *addr)
++{
++       __free_page_frag(addr);
++}
+
+Should I just copy the definition of __free_page_frag() ?
+
+/*
+ * Frees a page fragment allocated out of either a compound or order 0 page.
+ */
+void __free_page_frag(void *addr)
+{
+	struct page *page = virt_to_head_page(addr);
+
+	if (unlikely(put_page_testzero(page)))
+		__free_pages_ok(page, compound_order(page));
+}
+
+Regards.
