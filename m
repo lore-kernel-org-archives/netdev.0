@@ -1,849 +1,1031 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: use-after-free in sock_wake_async
-Date: Wed, 25 Nov 2015 09:11:34 -0800
-Message-ID: <1448471494.24696.18.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+ZZQ0ooT9LekV35u_jUAtAHJfg5O5SD=xATfHUF5UdNBQ@mail.gmail.com>
-	 <CANn89i+Uw+YzhRbQVSyf=FAQBO06JfFoxQpSHxfmDpS5_iZBQw@mail.gmail.com>
-	 <87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
-	 <CANn89iKg0Lc7OVLhxUOzPRr4OhEGxA8L7V1jyaqFAS6+7kEXTA@mail.gmail.com>
-	 <87io4qevdp.fsf@doppelsaurus.mobileactivedefense.com>
-	 <CANn89iJgW+6giMUicU1m831+mkaNy9z1hQB-ixvRHBqZo-7Yig@mail.gmail.com>
-	 <87io4q3u8u.fsf@doppelsaurus.mobileactivedefense.com>
+From: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Subject: Re: [RFCv2 bluetooth-next 3/3] 6lowpan: iphc: add support for
+ stateful compression
+Date: Wed, 25 Nov 2015 18:12:25 +0100
+Message-ID: <5655EBF9.7060102@osg.samsung.com>
+References: <1447799594-6050-1-git-send-email-alex.aring@gmail.com>
+ <1447799594-6050-4-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Benjamin LaHaise <bcrl@kvack.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	David Howells <dhowells@redhat.com>,
-	Ying Xue <ying.xue@windriver.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33312 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750726AbbKYRLg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 12:11:36 -0500
-In-Reply-To: <87io4q3u8u.fsf@doppelsaurus.mobileactivedefense.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, lukasz.duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org,
+	martin.gergeleit-6wGqcYweBVc@public.gmane.org
+To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1447799594-6050-4-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-11-25 at 16:43 +0000, Rainer Weikusat wrote:
-> Eric Dumazet <edumazet@google.com> writes:
-> > On Tue, Nov 24, 2015 at 5:10 PM, Rainer Weikusat
-> > <rweikusat@mobileactivedefense.com> wrote:
-> 
-> [...]
-> 
-> >> It's also easy to verify: Swap the unix_state_lock and
-> >> other->sk_data_ready and see if the issue still occurs. Right now (this
-> >> may change after I had some sleep as it's pretty late for me), I don't
-> >> think there's another local fix: The ->sk_data_ready accesses a
-> >> pointer after the lock taken by the code which will clear and
-> >> then later free it was released.
-> >
-> > It seems that :
-> >
-> > int sock_wake_async(struct socket *sock, int how, int band)
-> >
-> > should really be changed to
-> >
-> > int sock_wake_async(struct socket_wq *wq, int how, int band)
-> >
-> > So that RCU rules (already present) apply safely.
-> >
-> > sk->sk_socket is inherently racy (that is : racy without using
-> > sk_callback_lock rwlock )
-> 
-> The comment above sock_wait_async states that
-> 
-> /* This function may be called only under socket lock or callback_lock or rcu_lock */
-> 
-> In this case, it's called via sk_wake_async (include/net/sock.h) which
-> is - in turn - called via sock_def_readable (the 'default' data ready
-> routine/ net/core/sock.c) which looks like this:
-> 
-> static void sock_def_readable(struct sock *sk)
-> {
-> 	struct socket_wq *wq;
-> 
-> 	rcu_read_lock();
-> 	wq = rcu_dereference(sk->sk_wq);
-> 	if (wq_has_sleeper(wq))
-> 		wake_up_interruptible_sync_poll(&wq->wait, POLLIN | POLLPRI |
-> 						POLLRDNORM | POLLRDBAND);
-> 	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
-> 	rcu_read_unlock();
-> }
-> 
-> and should thus satisfy the constraint documented by the comment (I
-> didn't verify if the comment is actually correct, though).
-> 
-> Further - sorry about that - I think changing code in "half of the
-> network stack" in order to avoid calling a certain routine which will
-> only ever do something in case someone's using signal-driven I/O with an
-> already acquired lock held is a terrifying idea. Because of this, I
-> propose the following alternate patch which should also solve the
-> problem by ensuring that the ->sk_data_ready activity happens before
-> unix_release_sock/ sock_release get a chance to clear or free anything
-> which will be needed.
-> 
-> In case this demonstrably causes other issues, a more complicated
-> alternate idea (still restricting itself to changes to the af_unix code)
-> would be to move the socket_wq structure to a dummy struct socket
-> allocated by unix_release_sock and freed by the destructor.
-> 
+Helllo.
+
+On 17/11/15 23:33, Alexander Aring wrote:
+> This patch introduce support for IPHC stateful address compression. It
+> will offer three debugfs per interface entries, which are:
+>
+>   - dci_table: destination context indentifier table
+>   - sci_table: source context indentifier table
+>   - mcast_sci_table: multicast context identifier table
+>
+> Example to setup a context id:
+>
+> A "cat /sys/kernel/debug/6lowpan/lowpan0/dci_table" will display all
+> contexts which are available. Example:
+>
+> ID ipv6-address/prefix-length                  state
+> 0  0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 1  0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 2  0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 3  0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 4  0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 5  0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 6  0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 7  0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 8  0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 9  0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 10 0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 11 0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 12 0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 13 0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 14 0000:0000:0000:0000:0000:0000:0000:0000/000 0
+> 15 0000:0000:0000:0000:0000:0000:0000:0000/000 0
+>
+> For setting a context e.g. context id 0, context 2001::, prefix-length
+> 64.
+>
+> Hint: Simple copy one line and then maniuplate it.
+>
+> echo "0 2001:0000:0000:0000:0000:0000:0000:0000/64 1" >
+> /sys/kernel/debug/6lowpan/lowpan0/dci_table
+>
+> The state will display currently if the context is disabled(0) or
+> enabled(1).
+>
+> On transmit side:
+>
+> The IPHC code will automatically search for a context which would be
+> match for the address. Then it will be use the context which the
+> best compression, means the longest prefix which match will be used.
+>
+> Example:
+>
+> 2001::/126 vs 2001::/127 - the 2001::/127 can be full compressed if the
+> last bit of the address which has the prefix 2001::/127 is the same like
+> the IID from the Encapsulating Header. A context ID can also be a
+> 2001::1/128, which is then a full ipv6 address.
+>
+> On Receive side:
+>
+> If there is a context defined (when CID not available then it's the
+> default context 0) then it will be used, if the header doesn't set
+> SAC or DAC bit thens, it will be dropped.
+>
+> Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > ---
-> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> index 4e95bdf..5c87ea6 100644
-> --- a/net/unix/af_unix.c
-> +++ b/net/unix/af_unix.c
-> @@ -1754,8 +1754,8 @@ restart_locked:
->         skb_queue_tail(&other->sk_receive_queue, skb);
->         if (max_level > unix_sk(other)->recursion_level)
->                 unix_sk(other)->recursion_level = max_level;
-> -       unix_state_unlock(other);
->         other->sk_data_ready(other);
-> +       unix_state_unlock(other);
->         sock_put(other);
->         scm_destroy(&scm);
->         return len;
-> @@ -1860,8 +1860,8 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
->                 skb_queue_tail(&other->sk_receive_queue, skb);
->                 if (max_level > unix_sk(other)->recursion_level)
->                         unix_sk(other)->recursion_level = max_level;
-> -               unix_state_unlock(other);
->                 other->sk_data_ready(other);
-> +               unix_state_unlock(other);
->                 sent += size;
->         }
->  
+>   include/net/6lowpan.h   |  62 ++++++
+>   net/6lowpan/6lowpan_i.h |   3 +
+>   net/6lowpan/Kconfig     |   1 +
+>   net/6lowpan/core.c      |  17 ++
+>   net/6lowpan/debugfs.c   | 109 +++++++++++
+>   net/6lowpan/iphc.c      | 500 ++++++++++++++++++++++++++++++++++++++++++------
+>   6 files changed, 635 insertions(+), 57 deletions(-)
+>
+> diff --git a/include/net/6lowpan.h b/include/net/6lowpan.h
+> index e484898..6e8d30e 100644
+> --- a/include/net/6lowpan.h
+> +++ b/include/net/6lowpan.h
+> @@ -75,6 +75,8 @@
+>   #define LOWPAN_IPHC_MAX_HC_BUF_LEN	(sizeof(struct ipv6hdr) +	\
+>   					 LOWPAN_IPHC_MAX_HEADER_LEN +	\
+>   					 LOWPAN_NHC_MAX_HDR_LEN)
+> +/* SCI/DCI is 4 bit width, so we have maximum 16 entries */
+> +#define LOWPAN_IPHC_CI_TABLE_SIZE	(1 << 4)
+>   
+>   #define LOWPAN_DISPATCH_IPV6		0x41 /* 01000001 = 65 */
+>   #define LOWPAN_DISPATCH_IPHC		0x60 /* 011xxxxx = ... */
+> @@ -98,9 +100,45 @@ enum lowpan_lltypes {
+>   	LOWPAN_LLTYPE_IEEE802154,
+>   };
+>   
+> +enum lowpan_iphc_ctx_states {
+> +	LOWPAN_IPHC_CTX_STATE_DISABLED,
+> +	LOWPAN_IPHC_CTX_STATE_ENABLED,
+> +
+> +	__LOWPAN_IPHC_CTX_STATE_INVALID,
+> +	LOWPAN_IPHC_CTX_STATE_MAX = __LOWPAN_IPHC_CTX_STATE_INVALID - 1,
+> +};
+> +
 
+You are expecting more states here besides enabled and disabled? Because 
+normally a bool would be fine here and an enum overkill. If you have 
+more states pending it makes sense to have the enum though.
 
-The issue is way more complex than that.
+> +struct lowpan_iphc_ctx {
+> +	enum lowpan_iphc_ctx_states state;
+> +	u8 id;
+> +	struct in6_addr addr;
+> +	u8 prefix_len;
+> +};
+> +
+> +struct lowpan_iphc_ctx_ops {
+> +	bool (*valid_prefix)(const struct lowpan_iphc_ctx *ctx);
+> +	int (*update)(struct lowpan_iphc_ctx *table,
+> +		      const struct lowpan_iphc_ctx *ctx);
+> +	struct lowpan_iphc_ctx *(*get_by_id)(const struct net_device *dev,
+> +					     struct lowpan_iphc_ctx *table,
+> +					     u8 id);
+> +	struct lowpan_iphc_ctx *(*get_by_addr)(const struct net_device *dev,
+> +					       struct lowpan_iphc_ctx *table,
+> +					       const struct in6_addr *addr);
+> +};
+> +
+> +struct lowpan_iphc_ctx_table {
+> +	spinlock_t lock;
+> +	const struct lowpan_iphc_ctx_ops *ops;
+> +	struct lowpan_iphc_ctx table[LOWPAN_IPHC_CI_TABLE_SIZE];
+> +};
+> +
+>   struct lowpan_priv {
+>   	enum lowpan_lltypes lltype;
+>   	struct dentry *iface_debugfs;
+> +	struct lowpan_iphc_ctx_table iphc_dci;
+> +	struct lowpan_iphc_ctx_table iphc_sci;
+> +	struct lowpan_iphc_ctx_table iphc_mcast_dci;
+>   
+>   	/* must be last */
+>   	u8 priv[0] __aligned(sizeof(void *));
+> @@ -125,6 +163,30 @@ struct lowpan_802154_cb *lowpan_802154_cb(const struct sk_buff *skb)
+>   	return (struct lowpan_802154_cb *)skb->cb;
+>   }
+>   
+> +static inline int lowpan_ctx_update(struct lowpan_iphc_ctx_table *t,
+> +				    const struct lowpan_iphc_ctx *ctx)
+> +{
+> +	if (!t->ops->valid_prefix(ctx))
+> +		return -EINVAL;
+> +
+> +	return t->ops->update(t->table, ctx);
+> +}
+> +
+> +static inline struct lowpan_iphc_ctx *
+> +lowpan_ctx_by_id(const struct net_device *dev, struct lowpan_iphc_ctx_table *t,
+> +		 u8 id)
+> +{
+> +	return t->ops->get_by_id(dev, t->table, id);
+> +}
+> +
+> +static inline struct lowpan_iphc_ctx *
+> +lowpan_ctx_by_addr(const struct net_device *dev,
+> +		   struct lowpan_iphc_ctx_table *t,
+> +		   const struct in6_addr *addr)
+> +{
+> +	return t->ops->get_by_addr(dev, t->table, addr);
+> +}
+> +
+>   #ifdef DEBUG
+>   /* print data in line */
+>   static inline void raw_dump_inline(const char *caller, char *msg,
+> diff --git a/net/6lowpan/6lowpan_i.h b/net/6lowpan/6lowpan_i.h
+> index 33b2605..1312340 100644
+> --- a/net/6lowpan/6lowpan_i.h
+> +++ b/net/6lowpan/6lowpan_i.h
+> @@ -3,6 +3,9 @@
+>   
+>   #include <linux/netdevice.h>
+>   
+> +extern const struct lowpan_iphc_ctx_ops iphc_ctx_unicast_ops;
+> +extern const struct lowpan_iphc_ctx_ops iphc_ctx_mcast_ops;
+> +
+>   #ifdef CONFIG_6LOWPAN_DEBUGFS
+>   int lowpan_dev_debugfs_init(struct net_device *dev);
+>   void lowpan_dev_debugfs_uninit(struct net_device *dev);
+> diff --git a/net/6lowpan/Kconfig b/net/6lowpan/Kconfig
+> index 01c901c..7ecedd7 100644
+> --- a/net/6lowpan/Kconfig
+> +++ b/net/6lowpan/Kconfig
+> @@ -8,6 +8,7 @@ menuconfig 6LOWPAN
+>   config 6LOWPAN_DEBUGFS
+>   	bool "6LoWPAN debugfs support"
+>   	depends on 6LOWPAN
+> +	depends on DEBUG_FS
 
-We cannot prevent inode from disappearing.
-We can not safely dereference "(struct socket *)->flags"
+This looks like a fix that should be merged into the first patch, no?
+>   	---help---
+>   	  This enables 6LoWPAN debugfs support. For example to manipulate
+>   	  IPHC context information at runtime.
+> diff --git a/net/6lowpan/core.c b/net/6lowpan/core.c
+> index fe58509..d354c5b 100644
+> --- a/net/6lowpan/core.c
+> +++ b/net/6lowpan/core.c
+> @@ -19,6 +19,8 @@
+>   
+>   int lowpan_netdev_setup(struct net_device *dev, enum lowpan_lltypes lltype)
+>   {
+> +	int i;
+> +
+>   	dev->addr_len = EUI64_ADDR_LEN;
+>   	dev->type = ARPHRD_6LOWPAN;
+>   	dev->mtu = IPV6_MIN_MTU;
+> @@ -26,6 +28,21 @@ int lowpan_netdev_setup(struct net_device *dev, enum lowpan_lltypes lltype)
+>   
+>   	lowpan_priv(dev)->lltype = lltype;
+>   
+> +	spin_lock_init(&lowpan_priv(dev)->iphc_dci.lock);
+> +	lowpan_priv(dev)->iphc_dci.ops = &iphc_ctx_unicast_ops;
+> +
+> +	spin_lock_init(&lowpan_priv(dev)->iphc_sci.lock);
+> +	lowpan_priv(dev)->iphc_sci.ops = &iphc_ctx_unicast_ops;
+> +
+> +	spin_lock_init(&lowpan_priv(dev)->iphc_mcast_dci.lock);
+> +	lowpan_priv(dev)->iphc_mcast_dci.ops = &iphc_ctx_mcast_ops;
+> +
+> +	for (i = 0; i < LOWPAN_IPHC_CI_TABLE_SIZE; i++) {
+> +		lowpan_priv(dev)->iphc_dci.table[i].id = i;
+> +		lowpan_priv(dev)->iphc_sci.table[i].id = i;
+> +		lowpan_priv(dev)->iphc_mcast_dci.table[i].id = i;
+> +	}
+> +
+>   	return lowpan_dev_debugfs_init(dev);
+>   }
+>   EXPORT_SYMBOL(lowpan_netdev_setup);
+> diff --git a/net/6lowpan/debugfs.c b/net/6lowpan/debugfs.c
+> index b0a26fd..d6481eb 100644
+> --- a/net/6lowpan/debugfs.c
+> +++ b/net/6lowpan/debugfs.c
+> @@ -18,15 +18,124 @@
+>   
+>   static struct dentry *lowpan_debugfs;
+>   
+> +static int lowpan_context_show(struct seq_file *file, void *offset)
+> +{
+> +	struct lowpan_iphc_ctx_table *t = file->private;
+> +	int i;
+> +
+> +	seq_printf(file, "%-2s %-43s %s\n", "ID", "ipv6-address/prefix-length",
+> +		   "state");
+> +
+> +	spin_lock_bh(&t->lock);
+> +	for (i = 0; i < LOWPAN_IPHC_CI_TABLE_SIZE; i++) {
+> +		seq_printf(file,
+> +			   "%-2d %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x/%03d %d\n",
+> +			   t->table[i].id,
+> +			   be16_to_cpu(t->table[i].addr.s6_addr16[0]),
+> +			   be16_to_cpu(t->table[i].addr.s6_addr16[1]),
+> +			   be16_to_cpu(t->table[i].addr.s6_addr16[2]),
+> +			   be16_to_cpu(t->table[i].addr.s6_addr16[3]),
+> +			   be16_to_cpu(t->table[i].addr.s6_addr16[4]),
+> +			   be16_to_cpu(t->table[i].addr.s6_addr16[5]),
+> +			   be16_to_cpu(t->table[i].addr.s6_addr16[6]),
+> +			   be16_to_cpu(t->table[i].addr.s6_addr16[7]),
+> +			   t->table[i].prefix_len, t->table[i].state);
+> +	}
+> +	spin_unlock_bh(&t->lock);
+> +
+> +	return 0;
+> +}
+> +
+> +static int lowpan_context_dbgfs_open(struct inode *inode, struct file *file)
+> +{
+> +	return single_open(file, lowpan_context_show, inode->i_private);
+> +}
+> +
+> +static ssize_t lowpan_context_dbgfs_write(struct file *fp,
+> +					  const char __user *user_buf,
+> +					  size_t count, loff_t *ppos)
+> +{
+> +	char buf[128] = { };
+> +	struct seq_file *file = fp->private_data;
+> +	struct lowpan_iphc_ctx_table *t = file->private;
+> +	struct lowpan_iphc_ctx ctx;
+> +	int status = count, n, id, state, i, prefix_len, ret;
+> +	unsigned int addr[8];
+> +
+> +	if (copy_from_user(&buf, user_buf, min_t(size_t, sizeof(buf) - 1,
+> +						 count))) {
+> +		status = -EFAULT;
+> +		goto out;
+> +	}
+> +
+> +	n = sscanf(buf, "%d %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x/%d %d",
+> +		   &id, &addr[0], &addr[1], &addr[2], &addr[3], &addr[4],
+> +		   &addr[5], &addr[6], &addr[7], &prefix_len, &state);
+> +	if (n != 11) {
 
-locking the 'struct sock' wont help at all.
+11 more like a magic number here. Not to bad, but a define could be nice.
+> +		status = -EIO;
+> +		goto out;
+> +	}
+> +
+> +	if (id > LOWPAN_IPHC_CI_TABLE_SIZE - 1 ||
+> +	    state > LOWPAN_IPHC_CTX_STATE_MAX || prefix_len > 128) {
+> +		status = -EINVAL;
+> +		goto out;
+> +	}
+> +
+> +	ctx.id = id;
+> +	ctx.state = state;
+> +	ctx.prefix_len = prefix_len;
+> +
+> +	for (i = 0; i < 8; i++)
+> +		ctx.addr.s6_addr16[i] = cpu_to_be16(addr[i] & 0xffff);
+> +
+> +	spin_lock_bh(&t->lock);
+> +	ret = lowpan_ctx_update(t, &ctx);
+> +	if (ret < 0)
+> +		status = ret;
+> +	spin_unlock_bh(&t->lock);
+> +
+> +out:
+> +	return status;
+> +}
+> +
+> +const struct file_operations lowpan_context_fops = {
+> +	.open		= lowpan_context_dbgfs_open,
+> +	.read		= seq_read,
+> +	.write		= lowpan_context_dbgfs_write,
+> +	.llseek		= seq_lseek,
+> +	.release	= single_release,
+> +};
+> +
+>   int lowpan_dev_debugfs_init(struct net_device *dev)
+>   {
+>   	struct lowpan_priv *lpriv = lowpan_priv(dev);
+> +	static struct dentry *dentry;
+>   
+>   	/* creating the root */
+>   	lpriv->iface_debugfs = debugfs_create_dir(dev->name, lowpan_debugfs);
+>   	if (!lpriv->iface_debugfs)
+>   		goto fail;
+>   
+> +	dentry = debugfs_create_file("dci_table", 0664, lpriv->iface_debugfs,
+> +				     &lowpan_priv(dev)->iphc_dci,
+> +				     &lowpan_context_fops);
+> +	if (!dentry)
+> +		goto fail;
+> +
+> +	dentry = debugfs_create_file("sci_table", 0664, lpriv->iface_debugfs,
+> +				     &lowpan_priv(dev)->iphc_sci,
+> +				     &lowpan_context_fops);
+> +	if (!dentry)
+> +		goto fail;
+> +
+> +	dentry = debugfs_create_file("mcast_dci_table", 0664,
+> +				     lpriv->iface_debugfs,
+> +				     &lowpan_priv(dev)->iphc_mcast_dci,
+> +				     &lowpan_context_fops);
+> +	if (!dentry)
+> +		goto fail;
+> +
+>   	return 0;
+>   
+>   fail:
+> diff --git a/net/6lowpan/iphc.c b/net/6lowpan/iphc.c
+> index 346b5c1..5974ea5 100644
+> --- a/net/6lowpan/iphc.c
+> +++ b/net/6lowpan/iphc.c
+> @@ -56,6 +56,7 @@
+>   /* special link-layer handling */
+>   #include <net/mac802154.h>
+>   
+> +#include "6lowpan_i.h"
+>   #include "nhc.h"
+>   
+>   /* Values of fields within the IPHC encoding first byte */
+> @@ -147,6 +148,9 @@
+>   	 (((a)->s6_addr16[6]) == 0) &&		\
+>   	 (((a)->s6_addr[14]) == 0))
+>   
+> +#define LOWPAN_IPHC_CID_DCI(cid)	(cid & 0x0f)
+> +#define LOWPAN_IPHC_CID_SCI(cid)	((cid & 0xf0) >> 4)
+> +
+>   static inline void iphc_uncompress_eui64_lladdr(struct in6_addr *ipaddr,
+>   						const void *lladdr)
+>   {
+> @@ -259,30 +263,59 @@ static int uncompress_addr(struct sk_buff *skb, const struct net_device *dev,
+>   /* Uncompress address function for source context
+>    * based address(non-multicast).
+>    */
+> -static int uncompress_context_based_src_addr(struct sk_buff *skb,
+> -					     struct in6_addr *ipaddr,
+> -					     u8 address_mode)
+> +static int uncompress_ctx_addr(struct sk_buff *skb,
+> +			       const struct net_device *dev,
+> +			       const struct lowpan_iphc_ctx *ctx,
+> +			       struct in6_addr *ipaddr, u8 address_mode,
+> +			       const void *lladdr)
+>   {
+> +	bool fail;
+> +
+>   	switch (address_mode) {
+> -	case LOWPAN_IPHC_SAM_00:
+> -		/* unspec address ::
+> +	/* SAM and DAM are the same here */
+> +	case LOWPAN_IPHC_DAM_00:
+> +		fail = false;
+> +		/* SAM_00 -> unspec address ::
+>   		 * Do nothing, address is already ::
+> +		 *
+> +		 * DAM 00 -> reserved should never occur.
+>   		 */
+>   		break;
+>   	case LOWPAN_IPHC_SAM_01:
+> -		/* TODO */
+> +	case LOWPAN_IPHC_DAM_01:
+> +		fail = lowpan_fetch_skb(skb, &ipaddr->s6_addr[8], 8);
+> +		ipv6_addr_prefix_cpy(ipaddr, &ctx->addr, ctx->prefix_len);
+> +		break;
+>   	case LOWPAN_IPHC_SAM_10:
+> -		/* TODO */
+> +	case LOWPAN_IPHC_DAM_10:
+> +		ipaddr->s6_addr[11] = 0xFF;
+> +		ipaddr->s6_addr[12] = 0xFE;
+> +		fail = lowpan_fetch_skb(skb, &ipaddr->s6_addr[14], 2);
+> +		ipv6_addr_prefix_cpy(ipaddr, &ctx->addr, ctx->prefix_len);
+> +		break;
+>   	case LOWPAN_IPHC_SAM_11:
+> -		/* TODO */
+> -		netdev_warn(skb->dev, "SAM value 0x%x not supported\n",
+> -			    address_mode);
+> -		return -EINVAL;
+> +	case LOWPAN_IPHC_DAM_11:
+> +		fail = false;
+> +		switch (lowpan_priv(dev)->lltype) {
+> +		case LOWPAN_LLTYPE_IEEE802154:
+> +			iphc_uncompress_802154_lladdr(ipaddr, lladdr);
+> +			break;
+> +		default:
+> +			iphc_uncompress_eui64_lladdr(ipaddr, lladdr);
+> +			break;
+> +		}
+> +		ipv6_addr_prefix_cpy(ipaddr, &ctx->addr, ctx->prefix_len);
+> +		break;
+>   	default:
+>   		pr_debug("Invalid sam value: 0x%x\n", address_mode);
+>   		return -EINVAL;
+>   	}
+>   
+> +	if (fail) {
+> +		pr_debug("Failed to fetch skb data\n");
+> +		return -EIO;
+> +	}
+> +
+>   	raw_dump_inline(NULL,
+>   			"Reconstructed context based ipv6 src addr is",
+>   			ipaddr->s6_addr, 16);
+> @@ -346,6 +379,33 @@ static int lowpan_uncompress_multicast_daddr(struct sk_buff *skb,
+>   	return 0;
+>   }
+>   
+> +static int lowpan_uncompress_multicast_ctx_daddr(struct sk_buff *skb,
+> +						 struct lowpan_iphc_ctx *ctx,
+> +						 struct in6_addr *ipaddr,
+> +						 u8 address_mode)
+> +{
+> +	struct in6_addr network_pfx = {};
+> +	bool fail;
+> +
+> +	if (address_mode != LOWPAN_IPHC_DAM_00)
+> +		return -EINVAL;
+> +
+> +	ipaddr->s6_addr[0] = 0xFF;
+> +	fail = lowpan_fetch_skb(skb, &ipaddr->s6_addr[1], 2);
+> +	fail |= lowpan_fetch_skb(skb, &ipaddr->s6_addr[12], 4);
+> +	/* take prefix_len and network prefix from the context */
+> +	ipaddr->s6_addr[3] = ctx->prefix_len;
+> +	/* get network prefix to copy into multicast address */
+> +	ipv6_addr_prefix(&network_pfx, &ctx->addr, ctx->prefix_len);
+> +	/* setting network prefix */
+> +	memcpy(&ipaddr->s6_addr[4], &network_pfx, 8);
+> +
+> +	if (fail < 0)
+> +		return -EIO;
+> +
+> +	return 0;
+> +}
+> +
+>   /* get the ecn values from iphc tf format and set it to ipv6hdr */
+>   static inline void lowpan_iphc_tf_set_ecn(struct ipv6hdr *hdr, const u8 *tf)
+>   {
+> @@ -459,7 +519,8 @@ int lowpan_header_decompress(struct sk_buff *skb, const struct net_device *dev,
+>   			     const void *daddr, const void *saddr)
+>   {
+>   	struct ipv6hdr hdr = {};
+> -	u8 iphc0, iphc1;
+> +	struct lowpan_iphc_ctx *ci;
+> +	u8 iphc0, iphc1, cid = 0;
+>   	int err;
+>   
+>   	raw_dump_table(__func__, "raw skb data dump uncompressed",
+> @@ -469,12 +530,14 @@ int lowpan_header_decompress(struct sk_buff *skb, const struct net_device *dev,
+>   	    lowpan_fetch_skb(skb, &iphc1, sizeof(iphc1)))
+>   		return -EINVAL;
+>   
+> -	/* another if the CID flag is set */
+> -	if (iphc1 & LOWPAN_IPHC_CID)
+> -		return -ENOTSUPP;
+> -
+>   	hdr.version = 6;
+>   
+> +	/* default CID = 0, another if the CID flag is set */
+> +	if (iphc1 & LOWPAN_IPHC_CID) {
+> +		if (lowpan_fetch_skb(skb, &cid, sizeof(cid)))
+> +			return -EINVAL;
+> +	}
+> +
+>   	err = lowpan_iphc_tf_decompress(skb, &hdr,
+>   					iphc0 & LOWPAN_IPHC_TF_MASK);
+>   	if (err < 0)
+> @@ -500,10 +563,18 @@ int lowpan_header_decompress(struct sk_buff *skb, const struct net_device *dev,
+>   	}
+>   
+>   	if (iphc1 & LOWPAN_IPHC_SAC) {
+> -		/* Source address context based uncompression */
+> +		spin_lock_bh(&lowpan_priv(dev)->iphc_sci.lock);
+> +		ci = lowpan_ctx_by_id(dev, &lowpan_priv(dev)->iphc_sci,
+> +				      LOWPAN_IPHC_CID_SCI(cid));
+> +		if (!ci) {
+> +			spin_unlock_bh(&lowpan_priv(dev)->iphc_sci.lock);
+> +			return -EINVAL;
+> +		}
+> +
+>   		pr_debug("SAC bit is set. Handle context based source address.\n");
+> -		err = uncompress_context_based_src_addr(skb, &hdr.saddr,
+> -							iphc1 & LOWPAN_IPHC_SAM_MASK);
+> +		err = uncompress_ctx_addr(skb, dev, ci, &hdr.saddr,
+> +					  iphc1 & LOWPAN_IPHC_SAM_MASK, saddr);
+> +		spin_unlock_bh(&lowpan_priv(dev)->iphc_sci.lock);
+>   	} else {
+>   		/* Source address uncompression */
+>   		pr_debug("source address stateless compression\n");
+> @@ -515,27 +586,54 @@ int lowpan_header_decompress(struct sk_buff *skb, const struct net_device *dev,
+>   	if (err)
+>   		return -EINVAL;
+>   
+> -	/* check for Multicast Compression */
+> -	if (iphc1 & LOWPAN_IPHC_M) {
+> -		if (iphc1 & LOWPAN_IPHC_DAC) {
+> -			pr_debug("dest: context-based mcast compression\n");
+> -			/* TODO: implement this */
+> -		} else {
+> -			err = lowpan_uncompress_multicast_daddr(skb, &hdr.daddr,
+> -								iphc1 & LOWPAN_IPHC_DAM_MASK);
+> +	switch (iphc1 & (LOWPAN_IPHC_M | LOWPAN_IPHC_DAC)) {
+> +	case LOWPAN_IPHC_M | LOWPAN_IPHC_DAC:
+> +		spin_lock_bh(&lowpan_priv(dev)->iphc_mcast_dci.lock);
+> +		ci = lowpan_ctx_by_id(dev, &lowpan_priv(dev)->iphc_mcast_dci,
+> +				      LOWPAN_IPHC_CID_DCI(cid));
+> +		if (!ci) {
+> +			spin_unlock_bh(&lowpan_priv(dev)->iphc_mcast_dci.lock);
+> +			return -EINVAL;
+> +		}
+>   
+> -			if (err)
+> -				return -EINVAL;
+> +		/* multicast with context */
+> +		pr_debug("dest: context-based mcast compression\n");
+> +		err = lowpan_uncompress_multicast_ctx_daddr(skb, ci,
+> +							    &hdr.daddr,
+> +							    iphc1 & LOWPAN_IPHC_DAM_MASK);
+> +		spin_unlock_bh(&lowpan_priv(dev)->iphc_mcast_dci.lock);
+> +		break;
+> +	case LOWPAN_IPHC_M:
+> +		/* multicast */
+> +		err = lowpan_uncompress_multicast_daddr(skb, &hdr.daddr,
+> +							iphc1 & LOWPAN_IPHC_DAM_MASK);
+> +		break;
+> +	case LOWPAN_IPHC_DAC:
+> +		spin_lock_bh(&lowpan_priv(dev)->iphc_dci.lock);
+> +		ci = lowpan_ctx_by_id(dev, &lowpan_priv(dev)->iphc_dci,
+> +				      LOWPAN_IPHC_CID_DCI(cid));
+> +		if (!ci) {
+> +			spin_unlock_bh(&lowpan_priv(dev)->iphc_dci.lock);
+> +			return -EINVAL;
+>   		}
+> -	} else {
+> +
+> +		/* Destination address context based uncompression */
+> +		pr_debug("DAC bit is set. Handle context based destination address.\n");
+> +		err = uncompress_ctx_addr(skb, dev, ci, &hdr.daddr,
+> +					  iphc1 & LOWPAN_IPHC_DAM_MASK, daddr);
+> +		spin_unlock_bh(&lowpan_priv(dev)->iphc_dci.lock);
+> +		break;
+> +	default:
+>   		err = uncompress_addr(skb, dev, &hdr.daddr,
+>   				      iphc1 & LOWPAN_IPHC_DAM_MASK, daddr);
+>   		pr_debug("dest: stateless compression mode %d dest %pI6c\n",
+>   			 iphc1 & LOWPAN_IPHC_DAM_MASK, &hdr.daddr);
+> -		if (err)
+> -			return -EINVAL;
+> +		break;
+>   	}
+>   
+> +	if (err)
+> +		return -EINVAL;
+> +
+>   	/* Next header data uncompression */
+>   	if (iphc0 & LOWPAN_IPHC_NH) {
+>   		err = lowpan_nhc_do_uncompression(skb, dev, &hdr);
+> @@ -585,6 +683,60 @@ static const u8 lowpan_iphc_dam_to_sam_value[] = {
+>   	[LOWPAN_IPHC_DAM_11] = LOWPAN_IPHC_SAM_11,
+>   };
+>   
+> +static u8 lowpan_compress_ctx_addr(u8 **hc_ptr, const struct in6_addr *ipaddr,
+> +				   const struct lowpan_iphc_ctx *ctx,
+> +				   const unsigned char *lladdr, bool sam)
+> +{
+> +	struct in6_addr tmp = {};
+> +	u8 dam;
+> +
+> +	/* check for SAM/DAM = 11 */
+> +	memcpy(&tmp.s6_addr[8], lladdr, 8);
+> +	/* second bit-flip (Universe/Local)
+> +	 * is done according RFC2464
+> +	 */
+> +	tmp.s6_addr[8] ^= 0x02;
+> +	/* context information are always used */
+> +	ipv6_addr_prefix_cpy(&tmp, &ctx->addr, ctx->prefix_len);
+> +	if (ipv6_addr_equal(&tmp, ipaddr)) {
+> +		dam = LOWPAN_IPHC_DAM_11;
+> +		goto out;
+> +	}
+> +
+> +	memset(&tmp, 0, sizeof(tmp));
+> +	/* check for SAM/DAM = 01 */
+> +	tmp.s6_addr[11] = 0xFF;
+> +	tmp.s6_addr[12] = 0xFE;
+> +	memcpy(&tmp.s6_addr[14], &ipaddr->s6_addr[14], 2);
+> +	/* context information are always used */
+> +	ipv6_addr_prefix_cpy(&tmp, &ctx->addr, ctx->prefix_len);
+> +	if (ipv6_addr_equal(&tmp, ipaddr)) {
+> +		lowpan_push_hc_data(hc_ptr, &ipaddr->s6_addr[14], 2);
+> +		dam = LOWPAN_IPHC_DAM_10;
+> +		goto out;
+> +	}
+> +
+> +	memset(&tmp, 0, sizeof(tmp));
+> +	/* check for SAM/DAM = 10, should always match */
+> +	memcpy(&tmp.s6_addr[8], &ipaddr->s6_addr[8], 8);
+> +	/* context information are always used */
+> +	ipv6_addr_prefix_cpy(&tmp, &ctx->addr, ctx->prefix_len);
+> +	if (ipv6_addr_equal(&tmp, ipaddr)) {
+> +		lowpan_push_hc_data(hc_ptr, &ipaddr->s6_addr[8], 8);
+> +		dam = LOWPAN_IPHC_DAM_01;
+> +		goto out;
+> +	}
+> +
+> +	WARN_ON_ONCE("context found but no address mode matched\n");
+> +	return -EINVAL;
+> +out:
+> +
+> +	if (sam)
+> +		return lowpan_iphc_dam_to_sam_value[dam];
+> +	else
+> +		return dam;
+> +}
+> +
+>   static u8 lowpan_compress_addr_64(u8 **hc_ptr, const struct in6_addr *ipaddr,
+>   				  const unsigned char *lladdr, bool sam)
+>   {
+> @@ -708,6 +860,21 @@ static u8 lowpan_iphc_tf_compress(u8 **hc_ptr, const struct ipv6hdr *hdr)
+>   	return val;
+>   }
+>   
+> +static u8 lowpan_iphc_mcast_ctx_addr_compress(u8 **hc_ptr,
+> +					      const struct lowpan_iphc_ctx *ctx,
+> +					      const struct in6_addr *ipaddr)
+> +{
+> +	u8 data[6];
+> +
+> +	/* flags/scope, reserved (RIID) */
+> +	memcpy(data, &ipaddr->s6_addr[1], 2);
+> +	/* group ID */
+> +	memcpy(&data[1], &ipaddr->s6_addr[11], 4);
+> +	lowpan_push_hc_data(hc_ptr, data, 6);
+> +
+> +	return LOWPAN_IPHC_DAM_00;
+> +}
+> +
+>   static u8 lowpan_iphc_mcast_addr_compress(u8 **hc_ptr,
+>   					  const struct in6_addr *ipaddr)
+>   {
+> @@ -742,10 +909,11 @@ static u8 lowpan_iphc_mcast_addr_compress(u8 **hc_ptr,
+>   int lowpan_header_compress(struct sk_buff *skb, const struct net_device *dev,
+>   			   const void *daddr, const void *saddr)
+>   {
+> -	u8 iphc0, iphc1, *hc_ptr;
+> +	u8 iphc0, iphc1, *hc_ptr, cid = 0;
+>   	struct ipv6hdr *hdr;
+>   	u8 head[LOWPAN_IPHC_MAX_HC_BUF_LEN] = {};
+> -	int ret, addr_type;
+> +	struct lowpan_iphc_ctx *dci, *sci, dci_entry, sci_entry;
+> +	int ret, ipv6_daddr_type, ipv6_saddr_type;
+>   
+>   	if (skb->protocol != htons(ETH_P_IPV6))
+>   		return -EINVAL;
+> @@ -769,14 +937,47 @@ int lowpan_header_compress(struct sk_buff *skb, const struct net_device *dev,
+>   	iphc0 = LOWPAN_DISPATCH_IPHC;
+>   	iphc1 = 0;
+>   
+> -	/* TODO: context lookup */
+> -
+>   	raw_dump_inline(__func__, "saddr", saddr, EUI64_ADDR_LEN);
+>   	raw_dump_inline(__func__, "daddr", daddr, EUI64_ADDR_LEN);
+>   
+>   	raw_dump_table(__func__, "sending raw skb network uncompressed packet",
+>   		       skb->data, skb->len);
+>   
+> +	ipv6_daddr_type = ipv6_addr_type(&hdr->daddr);
+> +	if (ipv6_daddr_type & IPV6_ADDR_MULTICAST) {
+> +		spin_lock_bh(&lowpan_priv(dev)->iphc_mcast_dci.lock);
+> +		dci = lowpan_ctx_by_addr(dev, &lowpan_priv(dev)->iphc_mcast_dci,
+> +					 &hdr->daddr);
+> +		if (dci) {
+> +			memcpy(&dci_entry, dci, sizeof(*dci));
+> +			cid |= dci->id;
+> +		}
+> +		spin_unlock_bh(&lowpan_priv(dev)->iphc_mcast_dci.lock);
+> +	} else {
+> +		spin_lock_bh(&lowpan_priv(dev)->iphc_dci.lock);
+> +		dci = lowpan_ctx_by_addr(dev, &lowpan_priv(dev)->iphc_dci,
+> +					 &hdr->daddr);
+> +		if (dci) {
+> +			memcpy(&dci_entry, dci, sizeof(*dci));
+> +			cid |= dci->id;
+> +		}
+> +		spin_unlock_bh(&lowpan_priv(dev)->iphc_dci.lock);
+> +	}
+> +
+> +	spin_lock_bh(&lowpan_priv(dev)->iphc_sci.lock);
+> +	sci = lowpan_ctx_by_addr(dev, &lowpan_priv(dev)->iphc_sci,
+> +				 &hdr->saddr);
+> +	if (sci) {
+> +		memcpy(&sci_entry, sci, sizeof(*sci));
+> +		cid |= (sci->id << 4);
+> +	}
+> +	spin_unlock_bh(&lowpan_priv(dev)->iphc_sci.lock);
+> +
+> +	if (sci || dci) {
+> +		iphc1 |= LOWPAN_IPHC_CID;
+> +		lowpan_push_hc_data(&hc_ptr, &cid, sizeof(cid));
+> +	}
+> +
+>   	/* Traffic Class, Flow Label compression */
+>   	iphc0 |= lowpan_iphc_tf_compress(&hc_ptr, hdr);
+>   
+> @@ -813,39 +1014,63 @@ int lowpan_header_compress(struct sk_buff *skb, const struct net_device *dev,
+>   				    sizeof(hdr->hop_limit));
+>   	}
+>   
+> -	addr_type = ipv6_addr_type(&hdr->saddr);
+> +	ipv6_saddr_type = ipv6_addr_type(&hdr->saddr);
+>   	/* source address compression */
+> -	if (addr_type == IPV6_ADDR_ANY) {
+> +	if (ipv6_saddr_type == IPV6_ADDR_ANY) {
+>   		pr_debug("source address is unspecified, setting SAC\n");
+>   		iphc1 |= LOWPAN_IPHC_SAC;
+>   	} else {
+> -		if (addr_type & IPV6_ADDR_LINKLOCAL) {
+> -			iphc1 |= lowpan_compress_addr_64(&hc_ptr, &hdr->saddr,
+> -							 saddr, true);
+> -			pr_debug("source address unicast link-local %pI6c iphc1 0x%02x\n",
+> -				 &hdr->saddr, iphc1);
+> +		if (sci) {
+> +			iphc1 |= lowpan_compress_ctx_addr(&hc_ptr, &hdr->saddr,
+> +							  &sci_entry, saddr,
+> +							  true);
+> +			iphc1 |= LOWPAN_IPHC_SAC;
+>   		} else {
+> -			pr_debug("send the full source address\n");
+> -			lowpan_push_hc_data(&hc_ptr, hdr->saddr.s6_addr, 16);
+> +			if (ipv6_saddr_type & IPV6_ADDR_LINKLOCAL) {
+> +				iphc1 |= lowpan_compress_addr_64(&hc_ptr,
+> +								 &hdr->saddr,
+> +								 saddr, true);
+> +				pr_debug("source address unicast link-local %pI6c iphc1 0x%02x\n",
+> +					 &hdr->saddr, iphc1);
+> +			} else {
+> +				pr_debug("send the full source address\n");
+> +				lowpan_push_hc_data(&hc_ptr,
+> +						    hdr->saddr.s6_addr, 16);
+> +			}
+>   		}
+>   	}
+>   
+> -	addr_type = ipv6_addr_type(&hdr->daddr);
+>   	/* destination address compression */
+> -	if (addr_type & IPV6_ADDR_MULTICAST) {
+> +	if (ipv6_daddr_type & IPV6_ADDR_MULTICAST) {
+>   		pr_debug("destination address is multicast: ");
+> -		iphc1 |= LOWPAN_IPHC_M;
+> -		iphc1 |= lowpan_iphc_mcast_addr_compress(&hc_ptr, &hdr->daddr);
+> +		if (dci) {
+> +			iphc1 |= lowpan_iphc_mcast_ctx_addr_compress(&hc_ptr,
+> +								     &dci_entry,
+> +								     &hdr->daddr);
+> +		} else {
+> +			iphc1 |= LOWPAN_IPHC_M;
+> +			iphc1 |= lowpan_iphc_mcast_addr_compress(&hc_ptr,
+> +								 &hdr->daddr);
+> +		}
+>   	} else {
+> -		if (addr_type & IPV6_ADDR_LINKLOCAL) {
+> -			/* TODO: context lookup */
+> -			iphc1 |= lowpan_compress_addr_64(&hc_ptr, &hdr->daddr,
+> -							 daddr, false);
+> -			pr_debug("dest address unicast link-local %pI6c "
+> -				 "iphc1 0x%02x\n", &hdr->daddr, iphc1);
+> +		if (dci) {
+> +			iphc1 |= lowpan_compress_ctx_addr(&hc_ptr, &hdr->daddr,
+> +							  &dci_entry, daddr,
+> +							  false);
+> +			iphc1 |= LOWPAN_IPHC_DAC;
+>   		} else {
+> -			pr_debug("dest address unicast %pI6c\n", &hdr->daddr);
+> -			lowpan_push_hc_data(&hc_ptr, hdr->daddr.s6_addr, 16);
+> +			if (ipv6_daddr_type & IPV6_ADDR_LINKLOCAL) {
+> +				iphc1 |= lowpan_compress_addr_64(&hc_ptr,
+> +								 &hdr->daddr,
+> +								 daddr, false);
+> +				pr_debug("dest address unicast link-local %pI6c iphc1 0x%02x\n",
+> +					 &hdr->daddr, iphc1);
+> +			} else {
+> +				pr_debug("dest address unicast %pI6c\n",
+> +					 &hdr->daddr);
+> +				lowpan_push_hc_data(&hc_ptr,
+> +						    hdr->daddr.s6_addr, 16);
+> +			}
+>   		}
+>   	}
+>   
+> @@ -871,3 +1096,164 @@ int lowpan_header_compress(struct sk_buff *skb, const struct net_device *dev,
+>   	return 0;
+>   }
+>   EXPORT_SYMBOL_GPL(lowpan_header_compress);
+> +
+> +static bool lowpan_iphc_ctx_valid_prefix(const struct lowpan_iphc_ctx *ctx)
+> +{
+> +	/* prefix which are smaller than 64 bits are not valid, users
+> +	 * may mean than a prefix which is filled with zero until 64th bit.
+> +	 * Refere rfc6282 "Any remaining bits are zero." The remaining bits
+> +	 * in this case where are the prefix(< 64) ends until IID starts.
+> +	 */
+> +	if (ctx->prefix_len < 64)
+> +		return false;
+> +
+> +	return true;
+> +}
+> +
+> +static bool
+> +lowpan_iphc_mcast_ctx_valid_prefix(const struct lowpan_iphc_ctx *ctx)
+> +{
+> +	/* network prefix for multicast is at maximum 64 bits long */
+> +	if (ctx->prefix_len > 64)
+> +		return false;
+> +
+> +	return true;
+> +}
+> +
+> +static int lowpan_iphc_ctx_update(struct lowpan_iphc_ctx *table,
+> +				  const struct lowpan_iphc_ctx *ctx)
+> +{
+> +	int ret = 0, i;
+> +
+> +	switch (ctx->state) {
+> +	case LOWPAN_IPHC_CTX_STATE_DISABLED:
+> +		/* we don't care about if disabled */
+> +		break;
+> +	case LOWPAN_IPHC_CTX_STATE_ENABLED:
+> +		for (i = 0; i < LOWPAN_IPHC_CI_TABLE_SIZE; i++) {
+> +			if (ctx->prefix_len != table[i].prefix_len)
+> +				continue;
+> +
+> +			if (ipv6_prefix_equal(&ctx->addr, &table[i].addr,
+> +					      ctx->prefix_len)) {
+> +				switch (table[i].state) {
+> +				case LOWPAN_IPHC_CTX_STATE_ENABLED:
+> +					ret = -EEXIST;
+> +					goto out;
+> +				default:
+> +					break;
+> +				}
+> +			}
+> +		}
+> +		break;
+> +	default:
+> +		break;
+> +	}
+> +
+> +	memcpy(&table[ctx->id], ctx, sizeof(*ctx));
+> +
+> +out:
+> +	return ret;
+> +}
+> +
+> +static struct lowpan_iphc_ctx *
+> +lowpan_iphc_ctx_get_by_id(const struct net_device *dev,
+> +			  struct lowpan_iphc_ctx *table, u8 id)
+> +{
+> +	struct lowpan_iphc_ctx *ret = NULL;
+> +
+> +	WARN_ON_ONCE(id > LOWPAN_IPHC_CI_TABLE_SIZE);
+> +
+> +	switch (table[id].state) {
+> +	case LOWPAN_IPHC_CTX_STATE_ENABLED:
+> +		ret = &table[id];
+> +		break;
+> +	default:
+> +		break;
+> +	}
+> +
+> +	return ret;
+> +}
+> +
+> +static struct lowpan_iphc_ctx *
+> +lowpan_iphc_ctx_get_by_addr(const struct net_device *dev,
+> +			    struct lowpan_iphc_ctx *table,
+> +			    const struct in6_addr *addr)
+> +{
+> +	struct lowpan_iphc_ctx *ret = NULL;
+> +	struct in6_addr addr_prefix;
+> +	int i;
+> +
+> +	for (i = 0; i < LOWPAN_IPHC_CI_TABLE_SIZE; i++) {
+> +		ipv6_addr_prefix(&addr_prefix, addr, table[i].prefix_len);
+> +
+> +		if (ipv6_prefix_equal(&addr_prefix, &table[i].addr,
+> +				      table[i].prefix_len)) {
+> +			switch (table[i].state) {
+> +			case LOWPAN_IPHC_CTX_STATE_ENABLED:
+> +				/* remember first match */
+> +				if (!ret) {
+> +					ret = &table[i];
+> +					continue;
+> +				}
+> +
+> +				/* get the context with longest prefix_len */
+> +				if (table[i].prefix_len > ret->prefix_len)
+> +					ret = &table[i];
+> +				break;
+> +			default:
+> +				break;
+> +			}
+> +		}
+> +	}
+> +
+> +	return ret;
+> +}
+> +
+> +static struct lowpan_iphc_ctx *
+> +lowpan_iphc_ctx_get_by_mcast_addr(const struct net_device *dev,
+> +				  struct lowpan_iphc_ctx *table,
+> +				  const struct in6_addr *addr)
+> +{
+> +	struct lowpan_iphc_ctx *ret = NULL;
+> +	struct in6_addr addr_mcast, network_pfx = {};
+> +	int i;
+> +
+> +	/* init mcast address with  */
+> +	memcpy(&addr_mcast, addr, sizeof(*addr));
+> +
+> +	for (i = 0; i < LOWPAN_IPHC_CI_TABLE_SIZE; i++) {
+> +		/* setting plen */
+> +		addr_mcast.s6_addr[3] = table[i].prefix_len;
+> +		/*  get network prefix to copy into multicast address */
+> +		ipv6_addr_prefix(&network_pfx, &table[i].addr,
+> +				 table[i].prefix_len);
+> +		/* setting network prefix */
+> +		memcpy(&addr_mcast.s6_addr[4], &network_pfx, 8);
+> +
+> +		if (ipv6_addr_equal(addr, &addr_mcast)) {
+> +			switch (table[i].state) {
+> +			case LOWPAN_IPHC_CTX_STATE_ENABLED:
+> +				return &table[i];
+> +			default:
+> +				break;
+> +			}
+> +		}
+> +	}
+> +
+> +	return ret;
+> +}
+> +
+> +const struct lowpan_iphc_ctx_ops iphc_ctx_unicast_ops = {
+> +	.valid_prefix = lowpan_iphc_ctx_valid_prefix,
+> +	.update = lowpan_iphc_ctx_update,
+> +	.get_by_id = lowpan_iphc_ctx_get_by_id,
+> +	.get_by_addr = lowpan_iphc_ctx_get_by_addr,
+> +};
+> +
+> +const struct lowpan_iphc_ctx_ops iphc_ctx_mcast_ops = {
+> +	.valid_prefix = lowpan_iphc_mcast_ctx_valid_prefix,
+> +	.update = lowpan_iphc_ctx_update,
+> +	.get_by_id = lowpan_iphc_ctx_get_by_id,
+> +	.get_by_addr = lowpan_iphc_ctx_get_by_mcast_addr,
+> +};
 
-Here is my current work/patch :
+These are the comments from a first look over it. I will have a more 
+detailed review and actual testing once you are happy enough with it to 
+move it from RFC to PATCH.
 
-It ran for ~2 hours under stress without warning, but I want it to run
-24 hours before official submission.
-
-
-Note that moving flags into sk_wq will actually avoid one cache line
-miss in fast path, so might give performance improvement.
-
-This minimal patch only moves SOCK_ASYNC_NOSPACE and SOCK_ASYNC_WAITDATA
-but we can move other flags later.
-
-sock_wake_async() must not even attempt to deref a struct socket.
-
--> sock_wake_async(struct socket_wq *wq, int how, int band);
-
-Thanks.
-
-diff --git a/crypto/algif_aead.c b/crypto/algif_aead.c
-index 0aa6fdfb448a..6d4d4569447e 100644
---- a/crypto/algif_aead.c
-+++ b/crypto/algif_aead.c
-@@ -125,7 +125,7 @@ static int aead_wait_for_data(struct sock *sk, unsigned flags)
- 	if (flags & MSG_DONTWAIT)
- 		return -EAGAIN;
- 
--	set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+	sk_set_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 
- 	for (;;) {
- 		if (signal_pending(current))
-@@ -139,7 +139,7 @@ static int aead_wait_for_data(struct sock *sk, unsigned flags)
- 	}
- 	finish_wait(sk_sleep(sk), &wait);
- 
--	clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+	sk_clear_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 
- 	return err;
- }
-diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
-index af31a0ee4057..ca9efe17db1a 100644
---- a/crypto/algif_skcipher.c
-+++ b/crypto/algif_skcipher.c
-@@ -212,7 +212,7 @@ static int skcipher_wait_for_wmem(struct sock *sk, unsigned flags)
- 	if (flags & MSG_DONTWAIT)
- 		return -EAGAIN;
- 
--	set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+	sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 
- 	for (;;) {
- 		if (signal_pending(current))
-@@ -258,7 +258,7 @@ static int skcipher_wait_for_data(struct sock *sk, unsigned flags)
- 		return -EAGAIN;
- 	}
- 
--	set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+	sk_set_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 
- 	for (;;) {
- 		if (signal_pending(current))
-@@ -272,7 +272,7 @@ static int skcipher_wait_for_data(struct sock *sk, unsigned flags)
- 	}
- 	finish_wait(sk_sleep(sk), &wait);
- 
--	clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+	sk_clear_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 
- 	return err;
- }
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 54036ae0a388..234a43fb7819 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -495,15 +495,19 @@ static struct rtnl_link_ops macvtap_link_ops __read_mostly = {
- 
- static void macvtap_sock_write_space(struct sock *sk)
- {
--	wait_queue_head_t *wqueue;
-+	struct socket_wq *sk_wq;
- 
--	if (!sock_writeable(sk) ||
--	    !test_and_clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags))
--		return;
--
--	wqueue = sk_sleep(sk);
--	if (wqueue && waitqueue_active(wqueue))
--		wake_up_interruptible_poll(wqueue, POLLOUT | POLLWRNORM | POLLWRBAND);
-+	rcu_read_lock();
-+	sk_wq = rcu_dereference(sk->sk_wq);
-+	if (sock_writeable(sk) && sk_wq &&
-+	    test_and_clear_bit(SOCKWQ_ASYNC_NOSPACE, &sk_wq->flags)) {
-+
-+		if (waitqueue_active(&sk_wq->wait))
-+			wake_up_interruptible_poll(&sk_wq->wait,
-+						   POLLOUT | POLLWRNORM |
-+						   POLLWRBAND);
-+	}
-+	rcu_read_unlock();
- }
- 
- static void macvtap_sock_destruct(struct sock *sk)
-@@ -585,7 +589,7 @@ static unsigned int macvtap_poll(struct file *file, poll_table * wait)
- 		mask |= POLLIN | POLLRDNORM;
- 
- 	if (sock_writeable(&q->sk) ||
--	    (!test_and_set_bit(SOCK_ASYNC_NOSPACE, &q->sock.flags) &&
-+	    (!test_and_set_bit(SOCKWQ_ASYNC_NOSPACE, &q->wq.flags) &&
- 	     sock_writeable(&q->sk)))
- 		mask |= POLLOUT | POLLWRNORM;
- 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index b1878faea397..bda626e8a2ee 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1040,7 +1040,7 @@ static unsigned int tun_chr_poll(struct file *file, poll_table *wait)
- 		mask |= POLLIN | POLLRDNORM;
- 
- 	if (sock_writeable(sk) ||
--	    (!test_and_set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags) &&
-+	    (!test_and_set_bit(SOCKWQ_ASYNC_NOSPACE, &sk->sk_wq_raw->flags) &&
- 	     sock_writeable(sk)))
- 		mask |= POLLOUT | POLLWRNORM;
- 
-@@ -1482,22 +1482,23 @@ static struct rtnl_link_ops tun_link_ops __read_mostly = {
- 
- static void tun_sock_write_space(struct sock *sk)
- {
-+	struct socket_wq *sk_wq;
- 	struct tun_file *tfile;
--	wait_queue_head_t *wqueue;
- 
- 	if (!sock_writeable(sk))
- 		return;
- 
--	if (!test_and_clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags))
--		return;
--
--	wqueue = sk_sleep(sk);
--	if (wqueue && waitqueue_active(wqueue))
--		wake_up_interruptible_sync_poll(wqueue, POLLOUT |
--						POLLWRNORM | POLLWRBAND);
--
--	tfile = container_of(sk, struct tun_file, sk);
--	kill_fasync(&tfile->fasync, SIGIO, POLL_OUT);
-+	rcu_read_lock();
-+	sk_wq = rcu_dereference(sk->sk_wq);
-+	if (sk_wq && test_and_clear_bit(SOCKWQ_ASYNC_NOSPACE, &sk_wq->flags)) {
-+		if (waitqueue_active(&sk_wq->wait))
-+			wake_up_interruptible_sync_poll(&sk_wq->wait, POLLOUT |
-+							POLLWRNORM | POLLWRBAND);
-+
-+		tfile = container_of(sk, struct tun_file, sk);
-+		kill_fasync(&tfile->fasync, SIGIO, POLL_OUT);
-+	}
-+	rcu_read_unlock();
- }
- 
- static int tun_sendmsg(struct socket *sock, struct msghdr *m, size_t total_len)
-diff --git a/fs/dlm/lowcomms.c b/fs/dlm/lowcomms.c
-index 87e9d796cf7d..53a083f5ab20 100644
---- a/fs/dlm/lowcomms.c
-+++ b/fs/dlm/lowcomms.c
-@@ -421,7 +421,7 @@ static void lowcomms_write_space(struct sock *sk)
- 
- 	if (test_and_clear_bit(CF_APP_LIMITED, &con->flags)) {
- 		con->sock->sk->sk_write_pending--;
--		clear_bit(SOCK_ASYNC_NOSPACE, &con->sock->flags);
-+		clear_bit(SOCKWQ_ASYNC_NOSPACE, &con->sock->wq->flags);
- 	}
- 
- 	if (!test_and_set_bit(CF_WRITE_PENDING, &con->flags))
-@@ -1448,7 +1448,7 @@ static void send_to_sock(struct connection *con)
- 					      msg_flags);
- 			if (ret == -EAGAIN || ret == 0) {
- 				if (ret == -EAGAIN &&
--				    test_bit(SOCK_ASYNC_NOSPACE, &con->sock->flags) &&
-+				    test_bit(SOCKWQ_ASYNC_NOSPACE, &con->sock->wq->flags) &&
- 				    !test_and_set_bit(CF_APP_LIMITED, &con->flags)) {
- 					/* Notify TCP that we're limited by the
- 					 * application window size.
-diff --git a/include/linux/net.h b/include/linux/net.h
-index 70ac5e28e6b7..d29de6dfd057 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -34,8 +34,11 @@ struct inode;
- struct file;
- struct net;
- 
--#define SOCK_ASYNC_NOSPACE	0
--#define SOCK_ASYNC_WAITDATA	1
-+/* Historically, SOCKWQ_ASYNC_NOSPACE & SOCKWQ_ASYNC_WAITDATA were located
-+ * in sock->flags, but moved into sk->sk_wq->flags to be RCU protected
-+ */
-+#define SOCKWQ_ASYNC_NOSPACE	0
-+#define SOCKWQ_ASYNC_WAITDATA	1
- #define SOCK_NOSPACE		2
- #define SOCK_PASSCRED		3
- #define SOCK_PASSSEC		4
-@@ -89,6 +92,7 @@ struct socket_wq {
- 	/* Note: wait MUST be first field of socket_wq */
- 	wait_queue_head_t	wait;
- 	struct fasync_struct	*fasync_list;
-+	unsigned long		flags; /* %SOCKWQ_ASYNC_NOSPACE, etc */
- 	struct rcu_head		rcu;
- } ____cacheline_aligned_in_smp;
- 
-@@ -96,7 +100,7 @@ struct socket_wq {
-  *  struct socket - general BSD socket
-  *  @state: socket state (%SS_CONNECTED, etc)
-  *  @type: socket type (%SOCK_STREAM, etc)
-- *  @flags: socket flags (%SOCK_ASYNC_NOSPACE, etc)
-+ *  @flags: socket flags (%SOCK_NOSPACE, etc)
-  *  @ops: protocol specific socket operations
-  *  @file: File back pointer for gc
-  *  @sk: internal networking protocol agnostic socket representation
-@@ -109,7 +113,7 @@ struct socket {
- 	short			type;
- 	kmemcheck_bitfield_end(type);
- 
--	unsigned long		flags;
-+	unsigned long		flags; /* will soon be moved/merged with wq->flags */
- 
- 	struct socket_wq __rcu	*wq;
- 
-@@ -202,7 +206,7 @@ enum {
- 	SOCK_WAKE_URG,
- };
- 
--int sock_wake_async(struct socket *sk, int how, int band);
-+int sock_wake_async(struct socket_wq *wq, int how, int band);
- int sock_register(const struct net_proto_family *fam);
- void sock_unregister(int family);
- int __sock_create(struct net *net, int family, int type, int proto,
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 7f89e4ba18d1..89adbcb7e3aa 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -384,8 +384,10 @@ struct sock {
- 	int			sk_rcvbuf;
- 
- 	struct sk_filter __rcu	*sk_filter;
--	struct socket_wq __rcu	*sk_wq;
--
-+	union {
-+		struct socket_wq __rcu	*sk_wq;
-+		struct socket_wq	*sk_wq_raw;
-+	};
- #ifdef CONFIG_XFRM
- 	struct xfrm_policy	*sk_policy[2];
- #endif
-@@ -2005,10 +2007,23 @@ static inline unsigned long sock_wspace(struct sock *sk)
- 	return amt;
- }
- 
--static inline void sk_wake_async(struct sock *sk, int how, int band)
-+static inline void sk_set_bit(int nr, struct sock *sk)
-+{
-+	set_bit(nr, &sk->sk_wq_raw->flags);
-+}
-+
-+static inline void sk_clear_bit(int nr, struct sock *sk)
- {
--	if (sock_flag(sk, SOCK_FASYNC))
--		sock_wake_async(sk->sk_socket, how, band);
-+	clear_bit(nr, &sk->sk_wq_raw->flags);
-+}
-+
-+static inline void sk_wake_async(const struct sock *sk, int how, int band)
-+{
-+	if (sock_flag(sk, SOCK_FASYNC)) {
-+		rcu_read_lock();
-+		sock_wake_async(rcu_dereference(sk->sk_wq), how, band);
-+		rcu_read_unlock();
-+	}
- }
- 
- /* Since sk_{r,w}mem_alloc sums skb->truesize, even a small frame might
-diff --git a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
-index a3bffd1ec2b4..70306cc9d814 100644
---- a/net/bluetooth/af_bluetooth.c
-+++ b/net/bluetooth/af_bluetooth.c
-@@ -271,11 +271,11 @@ static long bt_sock_data_wait(struct sock *sk, long timeo)
- 		if (signal_pending(current) || !timeo)
- 			break;
- 
--		set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+		sk_set_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 		release_sock(sk);
- 		timeo = schedule_timeout(timeo);
- 		lock_sock(sk);
--		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+		sk_clear_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 	}
- 
- 	__set_current_state(TASK_RUNNING);
-@@ -441,7 +441,7 @@ unsigned int bt_sock_poll(struct file *file, struct socket *sock,
- 	if (!test_bit(BT_SK_SUSPEND, &bt_sk(sk)->flags) && sock_writeable(sk))
- 		mask |= POLLOUT | POLLWRNORM | POLLWRBAND;
- 	else
--		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 
- 	return mask;
- }
-diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
-index cc858919108e..d427a08d899c 100644
---- a/net/caif/caif_socket.c
-+++ b/net/caif/caif_socket.c
-@@ -323,7 +323,7 @@ static long caif_stream_data_wait(struct sock *sk, long timeo)
- 			!timeo)
- 			break;
- 
--		set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+		sk_set_bit(SOCKWQ_ASYNC_WAITDATA);
- 		release_sock(sk);
- 		timeo = schedule_timeout(timeo);
- 		lock_sock(sk);
-@@ -331,7 +331,7 @@ static long caif_stream_data_wait(struct sock *sk, long timeo)
- 		if (sock_flag(sk, SOCK_DEAD))
- 			break;
- 
--		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+		sk_clear_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 	}
- 
- 	finish_wait(sk_sleep(sk), &wait);
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index 617088aee21d..d62af69ad844 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -785,7 +785,7 @@ unsigned int datagram_poll(struct file *file, struct socket *sock,
- 	if (sock_writeable(sk))
- 		mask |= POLLOUT | POLLWRNORM | POLLWRBAND;
- 	else
--		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 
- 	return mask;
- }
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 1e4dd54bfb5a..9d79569935a3 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1815,7 +1815,7 @@ static long sock_wait_for_wmem(struct sock *sk, long timeo)
- {
- 	DEFINE_WAIT(wait);
- 
--	clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+	sk_clear_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 	for (;;) {
- 		if (!timeo)
- 			break;
-@@ -1861,7 +1861,7 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
- 		if (sk_wmem_alloc_get(sk) < sk->sk_sndbuf)
- 			break;
- 
--		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
- 		err = -EAGAIN;
- 		if (!timeo)
-@@ -2048,9 +2048,9 @@ int sk_wait_data(struct sock *sk, long *timeo, const struct sk_buff *skb)
- 	DEFINE_WAIT(wait);
- 
- 	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
--	set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+	sk_set_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 	rc = sk_wait_event(sk, timeo, skb_peek_tail(&sk->sk_receive_queue) != skb);
--	clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+	sk_clear_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 	finish_wait(sk_sleep(sk), &wait);
- 	return rc;
- }
-diff --git a/net/core/stream.c b/net/core/stream.c
-index d70f77a0c889..b96f7a79e544 100644
---- a/net/core/stream.c
-+++ b/net/core/stream.c
-@@ -39,7 +39,7 @@ void sk_stream_write_space(struct sock *sk)
- 			wake_up_interruptible_poll(&wq->wait, POLLOUT |
- 						POLLWRNORM | POLLWRBAND);
- 		if (wq && wq->fasync_list && !(sk->sk_shutdown & SEND_SHUTDOWN))
--			sock_wake_async(sock, SOCK_WAKE_SPACE, POLL_OUT);
-+			sock_wake_async(wq, SOCK_WAKE_SPACE, POLL_OUT);
- 		rcu_read_unlock();
- 	}
- }
-@@ -126,7 +126,7 @@ int sk_stream_wait_memory(struct sock *sk, long *timeo_p)
- 		current_timeo = vm_wait = (prandom_u32() % (HZ / 5)) + 2;
- 
- 	while (1) {
--		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 
- 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
- 
-@@ -139,7 +139,7 @@ int sk_stream_wait_memory(struct sock *sk, long *timeo_p)
- 		}
- 		if (signal_pending(current))
- 			goto do_interrupted;
--		clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+		sk_clear_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 		if (sk_stream_memory_free(sk) && !vm_wait)
- 			break;
- 
-diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index b5cf13a28009..41e65804ddf5 100644
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -339,8 +339,7 @@ unsigned int dccp_poll(struct file *file, struct socket *sock,
- 			if (sk_stream_is_writeable(sk)) {
- 				mask |= POLLOUT | POLLWRNORM;
- 			} else {  /* send SIGIO later */
--				set_bit(SOCK_ASYNC_NOSPACE,
--					&sk->sk_socket->flags);
-+				sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 				set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
- 
- 				/* Race breaker. If space is freed after
-diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
-index 675cf94e04f8..eebf5ac8ce18 100644
---- a/net/decnet/af_decnet.c
-+++ b/net/decnet/af_decnet.c
-@@ -1747,9 +1747,9 @@ static int dn_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
- 		}
- 
- 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
--		set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+		sk_set_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 		sk_wait_event(sk, &timeo, dn_data_ready(sk, queue, flags, target));
--		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+		sk_clear_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 		finish_wait(sk_sleep(sk), &wait);
- 	}
- 
-@@ -2004,10 +2004,10 @@ static int dn_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
- 			}
- 
- 			prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
--			set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+			sk_set_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 			sk_wait_event(sk, &timeo,
- 				      !dn_queue_too_long(scp, queue, flags));
--			clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+			sk_clear_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 			finish_wait(sk_sleep(sk), &wait);
- 			continue;
- 		}
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index c1728771cf89..c82cca18c90f 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -517,8 +517,7 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
- 			if (sk_stream_is_writeable(sk)) {
- 				mask |= POLLOUT | POLLWRNORM;
- 			} else {  /* send SIGIO later */
--				set_bit(SOCK_ASYNC_NOSPACE,
--					&sk->sk_socket->flags);
-+				sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 				set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
- 
- 				/* Race breaker. If space is freed after
-@@ -906,7 +905,7 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
- 			goto out_err;
- 	}
- 
--	clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+	sk_clear_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 
- 	mss_now = tcp_send_mss(sk, &size_goal, flags);
- 	copied = 0;
-@@ -1134,7 +1133,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
- 	}
- 
- 	/* This should be in poll */
--	clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+	sk_clear_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 
- 	mss_now = tcp_send_mss(sk, &size_goal, flags);
- 
-diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
-index fcb2752419c6..435608c4306d 100644
---- a/net/iucv/af_iucv.c
-+++ b/net/iucv/af_iucv.c
-@@ -1483,7 +1483,7 @@ unsigned int iucv_sock_poll(struct file *file, struct socket *sock,
- 	if (sock_writeable(sk) && iucv_below_msglim(sk))
- 		mask |= POLLOUT | POLLWRNORM | POLLWRBAND;
- 	else
--		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 
- 	return mask;
- }
-diff --git a/net/nfc/llcp_sock.c b/net/nfc/llcp_sock.c
-index b7de0da46acd..ecf0a0196f18 100644
---- a/net/nfc/llcp_sock.c
-+++ b/net/nfc/llcp_sock.c
-@@ -572,7 +572,7 @@ static unsigned int llcp_sock_poll(struct file *file, struct socket *sock,
- 	if (sock_writeable(sk) && sk->sk_state == LLCP_CONNECTED)
- 		mask |= POLLOUT | POLLWRNORM | POLLWRBAND;
- 	else
--		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 
- 	pr_debug("mask 0x%x\n", mask);
- 
-diff --git a/net/rxrpc/ar-output.c b/net/rxrpc/ar-output.c
-index a40d3afe93b7..14c4e12c47b0 100644
---- a/net/rxrpc/ar-output.c
-+++ b/net/rxrpc/ar-output.c
-@@ -531,7 +531,7 @@ static int rxrpc_send_data(struct rxrpc_sock *rx,
- 	timeo = sock_sndtimeo(sk, msg->msg_flags & MSG_DONTWAIT);
- 
- 	/* this should be in poll */
--	clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+	sk_clear_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 
- 	if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
- 		return -EPIPE;
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 897c01c029ca..157ffb68617a 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -6458,7 +6458,7 @@ unsigned int sctp_poll(struct file *file, struct socket *sock, poll_table *wait)
- 	if (sctp_writeable(sk)) {
- 		mask |= POLLOUT | POLLWRNORM;
- 	} else {
--		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 		/*
- 		 * Since the socket is not locked, the buffer
- 		 * might be made available after the writeable check and
-@@ -6808,18 +6808,25 @@ static void __sctp_write_space(struct sctp_association *asoc)
- 			wake_up_interruptible(&asoc->wait);
- 
- 		if (sctp_writeable(sk)) {
--			wait_queue_head_t *wq = sk_sleep(sk);
-+			struct socket_wq *sk_wq;
- 
--			if (wq && waitqueue_active(wq))
--				wake_up_interruptible(wq);
-+			rcu_read_lock();
-+			sk_wq = rcu_dereference(sk->sk_wq);
-+			if (sk_wq) {
-+				wait_queue_head_t *wq = &sk_wq->wait;
- 
--			/* Note that we try to include the Async I/O support
--			 * here by modeling from the current TCP/UDP code.
--			 * We have not tested with it yet.
--			 */
--			if (!(sk->sk_shutdown & SEND_SHUTDOWN))
--				sock_wake_async(sock,
--						SOCK_WAKE_SPACE, POLL_OUT);
-+				if (waitqueue_active(wq))
-+					wake_up_interruptible(wq);
-+
-+				/* Note that we try to include the Async I/O support
-+				 * here by modeling from the current TCP/UDP code.
-+				 * We have not tested with it yet.
-+				 */
-+				if (!(sk->sk_shutdown & SEND_SHUTDOWN))
-+					sock_wake_async(sk_wq, SOCK_WAKE_SPACE,
-+							POLL_OUT);
-+			}
-+			rcu_read_unlock();
- 		}
- 	}
- }
-diff --git a/net/socket.c b/net/socket.c
-index dd2c247c99e3..83a9770800f8 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1058,25 +1058,18 @@ static int sock_fasync(int fd, struct file *filp, int on)
- 
- /* This function may be called only under socket lock or callback_lock or rcu_lock */
- 
--int sock_wake_async(struct socket *sock, int how, int band)
-+int sock_wake_async(struct socket_wq *wq, int how, int band)
- {
--	struct socket_wq *wq;
--
--	if (!sock)
--		return -1;
--	rcu_read_lock();
--	wq = rcu_dereference(sock->wq);
--	if (!wq || !wq->fasync_list) {
--		rcu_read_unlock();
-+	if (!wq || !wq->fasync_list)
- 		return -1;
--	}
-+
- 	switch (how) {
- 	case SOCK_WAKE_WAITD:
--		if (test_bit(SOCK_ASYNC_WAITDATA, &sock->flags))
-+		if (test_bit(SOCKWQ_ASYNC_WAITDATA, &wq->flags))
- 			break;
- 		goto call_kill;
- 	case SOCK_WAKE_SPACE:
--		if (!test_and_clear_bit(SOCK_ASYNC_NOSPACE, &sock->flags))
-+		if (!test_and_clear_bit(SOCKWQ_ASYNC_NOSPACE, &wq->flags))
- 			break;
- 		/* fall through */
- 	case SOCK_WAKE_IO:
-@@ -1086,7 +1079,7 @@ call_kill:
- 	case SOCK_WAKE_URG:
- 		kill_fasync(&wq->fasync_list, SIGURG, band);
- 	}
--	rcu_read_unlock();
-+
- 	return 0;
- }
- EXPORT_SYMBOL(sock_wake_async);
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 1d1a70498910..3a64ec0f49ab 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -398,7 +398,7 @@ static int xs_sendpages(struct socket *sock, struct sockaddr *addr, int addrlen,
- 	if (unlikely(!sock))
- 		return -ENOTSOCK;
- 
--	clear_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
-+	clear_bit(SOCKWQ_ASYNC_NOSPACE, &sock->wq->flags);
- 	if (base != 0) {
- 		addr = NULL;
- 		addrlen = 0;
-@@ -442,7 +442,7 @@ static void xs_nospace_callback(struct rpc_task *task)
- 	struct sock_xprt *transport = container_of(task->tk_rqstp->rq_xprt, struct sock_xprt, xprt);
- 
- 	transport->inet->sk_write_pending--;
--	clear_bit(SOCK_ASYNC_NOSPACE, &transport->sock->flags);
-+	clear_bit(SOCKWQ_ASYNC_NOSPACE, &transport->sock->wq->flags);
- }
- 
- /**
-@@ -467,7 +467,7 @@ static int xs_nospace(struct rpc_task *task)
- 
- 	/* Don't race with disconnect */
- 	if (xprt_connected(xprt)) {
--		if (test_bit(SOCK_ASYNC_NOSPACE, &transport->sock->flags)) {
-+		if (test_bit(SOCKWQ_ASYNC_NOSPACE, &transport->sock->wq->flags)) {
- 			/*
- 			 * Notify TCP that we're limited by the application
- 			 * window size
-@@ -478,7 +478,7 @@ static int xs_nospace(struct rpc_task *task)
- 			xprt_wait_for_buffer_space(task, xs_nospace_callback);
- 		}
- 	} else {
--		clear_bit(SOCK_ASYNC_NOSPACE, &transport->sock->flags);
-+		clear_bit(SOCKWQ_ASYNC_NOSPACE, &transport->sock->wq->flags);
- 		ret = -ENOTCONN;
- 	}
- 
-@@ -626,7 +626,7 @@ process_status:
- 	case -EPERM:
- 		/* When the server has died, an ICMP port unreachable message
- 		 * prompts ECONNREFUSED. */
--		clear_bit(SOCK_ASYNC_NOSPACE, &transport->sock->flags);
-+		clear_bit(SOCKWQ_ASYNC_NOSPACE, &transport->sock->wq->flags);
- 	}
- 
- 	return status;
-@@ -715,7 +715,7 @@ static int xs_tcp_send_request(struct rpc_task *task)
- 	case -EADDRINUSE:
- 	case -ENOBUFS:
- 	case -EPIPE:
--		clear_bit(SOCK_ASYNC_NOSPACE, &transport->sock->flags);
-+		clear_bit(SOCKWQ_ASYNC_NOSPACE, &transport->sock->wq->flags);
- 	}
- 
- 	return status;
-@@ -1618,7 +1618,7 @@ static void xs_write_space(struct sock *sk)
- 
- 	if (unlikely(!(xprt = xprt_from_sock(sk))))
- 		return;
--	if (test_and_clear_bit(SOCK_ASYNC_NOSPACE, &sock->flags) == 0)
-+	if (test_and_clear_bit(SOCKWQ_ASYNC_NOSPACE, &sock->wq->flags) == 0)
- 		return;
- 
- 	xprt_write_space(xprt);
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 4e95bdf973d9..1a87a0e1c9e3 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2139,7 +2139,7 @@ static long unix_stream_data_wait(struct sock *sk, long timeo,
- 		    !timeo)
- 			break;
- 
--		set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+		sk_set_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 		unix_state_unlock(sk);
- 		timeo = freezable_schedule_timeout(timeo);
- 		unix_state_lock(sk);
-@@ -2147,7 +2147,7 @@ static long unix_stream_data_wait(struct sock *sk, long timeo,
- 		if (sock_flag(sk, SOCK_DEAD))
- 			break;
- 
--		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-+		sk_clear_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 	}
- 
- 	finish_wait(sk_sleep(sk), &wait);
-@@ -2634,7 +2634,7 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
- 	if (writable)
- 		mask |= POLLOUT | POLLWRNORM | POLLWRBAND;
- 	else
--		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 
- 	return mask;
- }
+regards
+Stefan Schmidt
