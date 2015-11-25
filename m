@@ -1,38 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: net: Generalise wq_has_sleeper helper
-Date: Wed, 25 Nov 2015 09:10:56 +0800
-Message-ID: <20151125011056.GA5907@gondor.apana.org.au>
-References: <20151023124006.GA17308@twins.programming.kicks-ass.net>
- <20151111094829.GA23202@gondor.apana.org.au>
- <20151124055423.GA31611@gondor.apana.org.au>
- <20151124.163025.1551408934471757005.davem@davemloft.net>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: use-after-free in sock_wake_async
+Date: Wed, 25 Nov 2015 01:16:31 +0000
+Message-ID: <87h9kac1zk.fsf@doppelsaurus.mobileactivedefense.com>
+References: <CACT4Y+ZZQ0ooT9LekV35u_jUAtAHJfg5O5SD=xATfHUF5UdNBQ@mail.gmail.com>
+	<CANn89i+Uw+YzhRbQVSyf=FAQBO06JfFoxQpSHxfmDpS5_iZBQw@mail.gmail.com>
+	<87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
+	<CANn89iKg0Lc7OVLhxUOzPRr4OhEGxA8L7V1jyaqFAS6+7kEXTA@mail.gmail.com>
+	<87io4qevdp.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: peterz@infradead.org, tatsu@ab.jp.nec.com, mingo@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jolsa@redhat.com, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: Eric Dumazet <edumazet@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	David Howells <dhowells@redhat.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151124.163025.1551408934471757005.davem@davemloft.net>
+In-Reply-To: <87io4qevdp.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
+	Weikusat's message of "Wed, 25 Nov 2015 01:10:58 +0000")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 24, 2015 at 04:30:25PM -0500, David Miller wrote:
->
-> I'm fine with wherever this patch goes.  Herbert is there any
-> particular tree where it'll facilitate another user quickest?
-> 
-> Or should I just toss it into net-next?
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+Rainer Weikusat <rweikusat@mobileactivedefense.com> writes:
 
-No Dave net-next is fine I think.  This was prompted by Tatsukawa-san's
-patches to fix waitqueue users affected by this very race and they
-were all over the tree.
+[...]
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Swap the unix_state_lock and
+
+s/lock/unlock/ :-(
