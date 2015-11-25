@@ -1,55 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5] mpls: support for dead routes
-Date: Wed, 25 Nov 2015 11:18:27 -0500 (EST)
-Message-ID: <20151125.111827.2264696682456564840.davem@davemloft.net>
-References: <1448407342-61181-1-git-send-email-roopa@cumulusnetworks.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] net: usb: ch9200: use kmemdup instead of kmalloc + memcpy
+Date: Wed, 25 Nov 2015 17:19:12 +0100
+Message-ID: <87mvu2vypr.fsf@nemi.mork.no>
+References: <1448446041-15663-1-git-send-email-anuplimbu14@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, rshearma@brocade.com, netdev@vger.kernel.org
-To: roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33579 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752022AbbKYQSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 11:18:32 -0500
-In-Reply-To: <1448407342-61181-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, mjg59@srcf.ucam.org, tklauser@distanz.com,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Anup Limbu <anuplimbu14@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448446041-15663-1-git-send-email-anuplimbu14@gmail.com> (Anup
+	Limbu's message of "Wed, 25 Nov 2015 15:37:21 +0530")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Date: Tue, 24 Nov 2015 15:22:22 -0800
+Anup Limbu <anuplimbu14@gmail.com> writes:
 
-> v4 -v5
-> 	- if kmemdup fails, modify the original route in place. This is a
-> 	corner case and only side effect is that in the remote case
-> 	of kmemdup failure, the changes will not be atomically visible
-> 	to datapath.
+> replace kmalloc + memset with kmemdup
+>
+> Signed-off-by: Anup Limbu <anuplimbu14@gmail.com>
+> ---
+>  drivers/net/usb/ch9200.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/usb/ch9200.c b/drivers/net/usb/ch9200.c
+> index 5e151e6..8a40202 100644
+> --- a/drivers/net/usb/ch9200.c
+> +++ b/drivers/net/usb/ch9200.c
+> @@ -155,12 +155,11 @@ static int control_write(struct usbnet *dev, un=
+signed char request,
+>  		   index, size);
+> =20
+>  	if (data) {
+> -		buf =3D kmalloc(size, GFP_KERNEL);
+> +		buf =3D kmemdup(data, size, GFP_KERNEL);
+>  		if (!buf) {
+>  			err =3D -ENOMEM;
+>  			goto err_out;
+>  		}
+> -		memcpy(buf, data, size);
+>  	}
+> =20
+>  	err =3D usb_control_msg(dev->udev,
 
-I really don't like this.
 
-Either you need to make the changes appear atomic to the data path,
-and you therefore must fail the operation if kmemdup() fails, or it
-doesn't matter and you should just always change the route in-place.
+Would it be better to replace control_read() and control_write() with
+the usbnet_read_cmd() and usbnet_write_cmd() if you are going to clean
+this up?
 
-As far as I can tell it can't possibly matter.  The alive counter is
-never modified by the data path, it is only tested to make a multipath
-decision.  Likewise it's rather harmless to send a frame or two via a
-device currently going down.
 
-But if you're convinced it matters, then is matters, and you can't
-fake things when kmemdup() fails.  And in that case I would recommend
-that you use a two pass algorithm, one pass allocates all of the
-new routes, and the second fills them in, inserts them, and frees
-the old ones.
 
-That is the only way you can unwind and fail cleanly.
-
-And oh yeah, that's right, you can't really fail this and make the
-ifdown not proceed.
-
-So you're stuck, right?
-
-That's why this has to be designed in a way where memory allocations
-are not necessary.  These notifiers aren't really designed to facilitate
-situations that require resource acquisitions that can fail.
+Bj=C3=B8rn
