@@ -1,53 +1,158 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [iproute PATCH v3 3/5] ipaddress: fix ipaddr_flush for Linux >=
- 3.1
-Date: Wed, 25 Nov 2015 17:40:13 +0300
-Message-ID: <5655C84D.1060605@cogentembedded.com>
-References: <20151123163115.5f8be482@xeon-e3>
- <1448375464-12145-1-git-send-email-phil@nwl.cc>
- <1448375464-12145-4-git-send-email-phil@nwl.cc>
- <5655B944.8030903@cogentembedded.com> <20151125143208.GD23115@orbit.nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Phil Sutter <phil@nwl.cc>,
-	Stephen Hemminger <shemming@brocade.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f42.google.com ([209.85.215.42]:35941 "EHLO
-	mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751106AbbKYOkQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 09:40:16 -0500
-Received: by lfs39 with SMTP id 39so60761315lfs.3
-        for <netdev@vger.kernel.org>; Wed, 25 Nov 2015 06:40:14 -0800 (PST)
-In-Reply-To: <20151125143208.GD23115@orbit.nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: [PATCH net-next 1/3] net: mvneta: Make the default queue related for each port
+Date: Wed, 25 Nov 2015 15:54:01 +0100
+Message-ID: <1448463243-21057-2-git-send-email-gregory.clement@free-electrons.com>
+References: <1448463243-21057-1-git-send-email-gregory.clement@free-electrons.com>
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>
+To: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448463243-21057-1-git-send-email-gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Instead of using the same default queue for all the port. Move it in the
+port struct. It will allow have a different default queue for each port.
 
-On 11/25/2015 5:32 PM, Phil Sutter wrote:
+Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 33 ++++++++++++++++++---------------
+ 1 file changed, 18 insertions(+), 15 deletions(-)
 
->> On 11/24/2015 5:31 PM, Phil Sutter wrote:
->>
->>> Linux version 3.1 introduced a consistency check for netlink dumps in
->>> commit 670dc28 ("netlink: advertise incomplete dumps"). This bites
->>
->>      Need 12-digit SHA1 here, scripts/checkpatch.pl checks this now.
-
-> Dejavu! [1]
-
-    Oh, indeed! Sorry about that, don't remember already. :-)
-
-> Again, this is luckily just iproute2. But thanks again for the reminder,
-
-     Yeah, I didn't look at the subject too closely... :-/
-
-> I've set 'core.abbrev = 13' now globally on all my machines, that should
-> hold for a while. :)
-
-> Cheers, Phil
->
-> [1]: https://www.mail-archive.com/netdev@vger.kernel.org/msg86385.html
-
-MBR, Sergei
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index e84c7f2634d3..1c7751917d58 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -354,6 +354,7 @@ struct mvneta_port {
+ 	struct mvneta_tx_queue *txqs;
+ 	struct net_device *dev;
+ 	struct notifier_block cpu_notifier;
++	int rxq_def;
+ 
+ 	/* Core clock */
+ 	struct clk *clk;
+@@ -817,7 +818,7 @@ static void mvneta_port_up(struct mvneta_port *pp)
+ 	mvreg_write(pp, MVNETA_TXQ_CMD, q_map);
+ 
+ 	/* Enable all initialized RXQs. */
+-	mvreg_write(pp, MVNETA_RXQ_CMD, BIT(rxq_def));
++	mvreg_write(pp, MVNETA_RXQ_CMD, BIT(pp->rxq_def));
+ }
+ 
+ /* Stop the Ethernet port activity */
+@@ -1027,7 +1028,7 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
+ 	mvreg_write(pp, MVNETA_ACC_MODE, val);
+ 
+ 	/* Update val of portCfg register accordingly with all RxQueue types */
+-	val = MVNETA_PORT_CONFIG_DEFL_VALUE(rxq_def);
++	val = MVNETA_PORT_CONFIG_DEFL_VALUE(pp->rxq_def);
+ 	mvreg_write(pp, MVNETA_PORT_CONFIG, val);
+ 
+ 	val = 0;
+@@ -2076,19 +2077,19 @@ static void mvneta_set_rx_mode(struct net_device *dev)
+ 	if (dev->flags & IFF_PROMISC) {
+ 		/* Accept all: Multicast + Unicast */
+ 		mvneta_rx_unicast_promisc_set(pp, 1);
+-		mvneta_set_ucast_table(pp, rxq_def);
+-		mvneta_set_special_mcast_table(pp, rxq_def);
+-		mvneta_set_other_mcast_table(pp, rxq_def);
++		mvneta_set_ucast_table(pp, pp->rxq_def);
++		mvneta_set_special_mcast_table(pp, pp->rxq_def);
++		mvneta_set_other_mcast_table(pp, pp->rxq_def);
+ 	} else {
+ 		/* Accept single Unicast */
+ 		mvneta_rx_unicast_promisc_set(pp, 0);
+ 		mvneta_set_ucast_table(pp, -1);
+-		mvneta_mac_addr_set(pp, dev->dev_addr, rxq_def);
++		mvneta_mac_addr_set(pp, dev->dev_addr, pp->rxq_def);
+ 
+ 		if (dev->flags & IFF_ALLMULTI) {
+ 			/* Accept all multicast */
+-			mvneta_set_special_mcast_table(pp, rxq_def);
+-			mvneta_set_other_mcast_table(pp, rxq_def);
++			mvneta_set_special_mcast_table(pp, pp->rxq_def);
++			mvneta_set_other_mcast_table(pp, pp->rxq_def);
+ 		} else {
+ 			/* Accept only initialized multicast */
+ 			mvneta_set_special_mcast_table(pp, -1);
+@@ -2097,7 +2098,7 @@ static void mvneta_set_rx_mode(struct net_device *dev)
+ 			if (!netdev_mc_empty(dev)) {
+ 				netdev_for_each_mc_addr(ha, dev) {
+ 					mvneta_mcast_addr_set(pp, ha->addr,
+-							      rxq_def);
++							      pp->rxq_def);
+ 				}
+ 			}
+ 		}
+@@ -2180,7 +2181,7 @@ static int mvneta_poll(struct napi_struct *napi, int budget)
+ 	 * RX packets
+ 	 */
+ 	cause_rx_tx |= port->cause_rx_tx;
+-	rx_done = mvneta_rx(pp, budget, &pp->rxqs[rxq_def]);
++	rx_done = mvneta_rx(pp, budget, &pp->rxqs[pp->rxq_def]);
+ 	budget -= rx_done;
+ 
+ 	if (budget > 0) {
+@@ -2393,17 +2394,17 @@ static void mvneta_cleanup_txqs(struct mvneta_port *pp)
+ /* Cleanup all Rx queues */
+ static void mvneta_cleanup_rxqs(struct mvneta_port *pp)
+ {
+-	mvneta_rxq_deinit(pp, &pp->rxqs[rxq_def]);
++	mvneta_rxq_deinit(pp, &pp->rxqs[pp->rxq_def]);
+ }
+ 
+ 
+ /* Init all Rx queues */
+ static int mvneta_setup_rxqs(struct mvneta_port *pp)
+ {
+-	int err = mvneta_rxq_init(pp, &pp->rxqs[rxq_def]);
++	int err = mvneta_rxq_init(pp, &pp->rxqs[pp->rxq_def]);
+ 	if (err) {
+ 		netdev_err(pp->dev, "%s: can't create rxq=%d\n",
+-			   __func__, rxq_def);
++			   __func__, pp->rxq_def);
+ 		mvneta_cleanup_rxqs(pp);
+ 		return err;
+ 	}
+@@ -2609,7 +2610,7 @@ static int mvneta_set_mac_addr(struct net_device *dev, void *addr)
+ 	mvneta_mac_addr_set(pp, dev->dev_addr, -1);
+ 
+ 	/* Set new addr in hw */
+-	mvneta_mac_addr_set(pp, sockaddr->sa_data, rxq_def);
++	mvneta_mac_addr_set(pp, sockaddr->sa_data, pp->rxq_def);
+ 
+ 	eth_commit_mac_addr_change(dev, addr);
+ 	return 0;
+@@ -2728,7 +2729,7 @@ static void mvneta_percpu_elect(struct mvneta_port *pp)
+ {
+ 	int online_cpu_idx, cpu, i = 0;
+ 
+-	online_cpu_idx = rxq_def % num_online_cpus();
++	online_cpu_idx = pp->rxq_def % num_online_cpus();
+ 
+ 	for_each_online_cpu(cpu) {
+ 		if (i == online_cpu_idx)
+@@ -3306,6 +3307,8 @@ static int mvneta_probe(struct platform_device *pdev)
+ 				 strcmp(managed, "in-band-status") == 0);
+ 	pp->cpu_notifier.notifier_call = mvneta_percpu_notifier;
+ 
++	pp->rxq_def = rxq_def;
++
+ 	pp->clk = devm_clk_get(&pdev->dev, NULL);
+ 	if (IS_ERR(pp->clk)) {
+ 		err = PTR_ERR(pp->clk);
+-- 
+2.5.0
