@@ -1,98 +1,114 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: use-after-free in sock_wake_async
-Date: Wed, 25 Nov 2015 18:24:51 +0000
-Message-ID: <87610q3pjg.fsf@doppelsaurus.mobileactivedefense.com>
-References: <CACT4Y+ZZQ0ooT9LekV35u_jUAtAHJfg5O5SD=xATfHUF5UdNBQ@mail.gmail.com>
-	<CANn89i+Uw+YzhRbQVSyf=FAQBO06JfFoxQpSHxfmDpS5_iZBQw@mail.gmail.com>
-	<87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
-	<CANn89iKg0Lc7OVLhxUOzPRr4OhEGxA8L7V1jyaqFAS6+7kEXTA@mail.gmail.com>
-	<87io4qevdp.fsf@doppelsaurus.mobileactivedefense.com>
-	<CANn89iJgW+6giMUicU1m831+mkaNy9z1hQB-ixvRHBqZo-7Yig@mail.gmail.com>
-	<87io4q3u8u.fsf@doppelsaurus.mobileactivedefense.com>
-	<1448471494.24696.18.camel@edumazet-glaptop2.roam.corp.google.com>
-	<87a8q23s2a.fsf@doppelsaurus.mobileactivedefense.com>
-	<1448473891.24696.21.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next v2 04/15] i40e: remove BUG_ON from feature string
+ building
+Date: Wed, 25 Nov 2015 21:26:58 +0300
+Message-ID: <5655FD72.70902@cogentembedded.com>
+References: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1448475679-57194-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Benjamin LaHaise <bcrl@kvack.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	David Howells <dhowells@redhat.com>,
-	Ying Xue <ying.xue@windriver.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448473891.24696.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Wed, 25 Nov 2015 09:51:31 -0800")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:33701 "EHLO
+	mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750840AbbKYS1D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 13:27:03 -0500
+Received: by lfaz4 with SMTP id z4so70991232lfa.0
+        for <netdev@vger.kernel.org>; Wed, 25 Nov 2015 10:27:00 -0800 (PST)
+In-Reply-To: <1448475679-57194-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
-> On Wed, 2015-11-25 at 17:30 +0000, Rainer Weikusat wrote:
+Hello.
+
+On 11/25/2015 09:21 PM, Jeff Kirsher wrote:
+
+> From: Shannon Nelson <shannon.nelson@intel.com>
 >
->> In case this is wrong, it obviously implies that sk_sleep(sk) must not
->> be used anywhere as it accesses the same struck sock, hence, when that
->> can "suddenly" disappear despite locks are used in the way indicated
->> above, there is now safe way to invoke that, either, as it just does a
->> rcu_dereference_raw based on the assumption that the caller knows that
->> the i-node (and the corresponding wait queue) still exist.
->> 
+> There's really no reason to kill the kernel thread just because of a
+> little info string. This reworks the code to use snprintf's limiting to
+> assure that the string is never too long, and WARN_ON to still put out
+> a warning that we might want to look at the feature list length.
 >
-> Oh well.
+> Prompted by a recent Linus diatribe.
 >
-> sk_sleep() is not used if the return is NULL
+> Change-ID: If52ba5ca1c2344d8bf454a31bbb805eb5d2c5802
+> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>   drivers/net/ethernet/intel/i40e/i40e_main.c | 34 +++++++++++++++--------------
+>   1 file changed, 18 insertions(+), 16 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> index 7715c54..7a4595a 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+[...]
+> @@ -10124,42 +10126,42 @@ static void i40e_print_features(struct i40e_pf *pf)
+>
+>   	buf = string;
+>
+> -	buf += sprintf(string, "Features: PF-id[%d] ", hw->pf_id);
+> +	i += snprintf(&buf[i], REMAIN(i), "Features: PF-id[%d] ", hw->pf_id);
+>   #ifdef CONFIG_PCI_IOV
+> -	buf += sprintf(buf, "VFs: %d ", pf->num_req_vfs);
+> +	i += snprintf(&buf[i], REMAIN(i), "VFs: %d ", pf->num_req_vfs);
+>   #endif
+> -	buf += sprintf(buf, "VSIs: %d QP: %d RX: %s ",
+> -		       pf->hw.func_caps.num_vsis,
+> -		       pf->vsi[pf->lan_vsi]->num_queue_pairs,
+> -		       pf->flags & I40E_FLAG_RX_PS_ENABLED ? "PS" : "1BUF");
+> +	i += snprintf(&buf[i], REMAIN(i), "VSIs: %d QP: %d RX: %s ",
+> +		      pf->hw.func_caps.num_vsis,
+> +		      pf->vsi[pf->lan_vsi]->num_queue_pairs,
+> +		      pf->flags & I40E_FLAG_RX_PS_ENABLED ? "PS" : "1BUF");
+>
+>   	if (pf->flags & I40E_FLAG_RSS_ENABLED)
+> -		buf += sprintf(buf, "RSS ");
+> +		i += snprintf(&buf[i], REMAIN(i), "RSS ");
+>   	if (pf->flags & I40E_FLAG_FD_ATR_ENABLED)
+> -		buf += sprintf(buf, "FD_ATR ");
+> +		i += snprintf(&buf[i], REMAIN(i), "FD_ATR ");
+>   	if (pf->flags & I40E_FLAG_FD_SB_ENABLED) {
+> -		buf += sprintf(buf, "FD_SB ");
+> -		buf += sprintf(buf, "NTUPLE ");
+> +		i += snprintf(&buf[i], REMAIN(i), "FD_SB ");
+> +		i += snprintf(&buf[i], REMAIN(i), "NTUPLE ");
+>   	}
+>   	if (pf->flags & I40E_FLAG_DCB_CAPABLE)
+> -		buf += sprintf(buf, "DCB ");
+> +		i += snprintf(&buf[i], REMAIN(i), "DCB ");
+>   #if IS_ENABLED(CONFIG_VXLAN)
+> -	buf += sprintf(buf, "VxLAN ");
+> +	i += snprintf(&buf[i], REMAIN(i), "VxLAN ");
+>   #endif
+>   	if (pf->flags & I40E_FLAG_PTP)
+> -		buf += sprintf(buf, "PTP ");
+> +		i += snprintf(&buf[i], REMAIN(i), "PTP ");
+>   #ifdef I40E_FCOE
+>   	if (pf->flags & I40E_FLAG_FCOE_ENABLED)
+> -		buf += sprintf(buf, "FCOE ");
+> +		i += snprintf(&buf[i], REMAIN(i), "FCOE ");
+>   #endif
+>   	if (pf->flags & I40E_FLAG_VEB_MODE_ENABLED)
+> -		buf += sprintf(buf, "VEB ");
+> +		i += snprintf(&buf[i], REMAIN(i), "VEPA ");
 
-static long unix_stream_data_wait(struct sock *sk, long timeo,
-				  struct sk_buff *last, unsigned int last_len)
-{
-	struct sk_buff *tail;
-	DEFINE_WAIT(wait);
+    Not "VEB "?
 
-	unix_state_lock(sk);
+>   	else
+>   		buf += sprintf(buf, "VEPA ");
+>
+> -	BUG_ON(buf > (string + INFO_STRING_LEN));
+>   	dev_info(&pf->pdev->dev, "%s\n", string);
+>   	kfree(string);
+> +	WARN_ON(i > INFO_STRING_LEN);
+>   }
+>
+>   /**
 
-	for (;;) {
-		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
-
-		tail = skb_peek_tail(&sk->sk_receive_queue);
-		if (tail != last ||
-		    (tail && tail->len != last_len) ||
-		    sk->sk_err ||
-		    (sk->sk_shutdown & RCV_SHUTDOWN) ||
-		    signal_pending(current) ||
-		    !timeo)
-			break;
-
-		set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-		unix_state_unlock(sk);
-		timeo = freezable_schedule_timeout(timeo);
-		unix_state_lock(sk);
-
-		if (sock_flag(sk, SOCK_DEAD))
-			break;
-
-		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-	}
-
-	finish_wait(sk_sleep(sk), &wait);
-	unix_state_unlock(sk);
-	return timeo;
-}
-
-Neither prepare_to_wait nor finish_wait check if the pointer is
-null. For the finish_wait case, it shouldn't be null because if
-SOCK_DEAD is not found to be set after the unix_state_lock was acquired,
-unix_release_sock didn't execute the corresponding code yet, hence,
-inode etc will remain available until after the corresponding unlock.
-
-But this isn't true anymore if the inode can go away despite
-sock_release couldn't complete yet.
+MBR, Sergei
