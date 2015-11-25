@@ -1,88 +1,75 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC PATCH V2 0/3] IXGBE/VFIO: Add live migration support for
- SRIOV NIC
-Date: Tue, 24 Nov 2015 21:30:26 -0800
-Message-ID: <CAKgT0UcSrewenfM2YdVojHFFqfK2aVbBN5LH8=BFzc1p0f9hvQ@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH V2 3/3] Ixgbevf: Add migration support for ixgbevf driver
+Date: Tue, 24 Nov 2015 21:39:23 -0800
+Message-ID: <CAKgT0UcTHPfX7wh_niV=nP14hU5N44sRuKmVrMcSSc_DqYPXrA@mail.gmail.com>
 References: <1448372298-28386-1-git-send-email-tianyu.lan@intel.com>
-	<5654722D.4010409@gmail.com>
-	<56552888.90108@intel.com>
+	<1448372298-28386-4-git-send-email-tianyu.lan@intel.com>
+	<20151124230551-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: a.motakis@virtualopensystems.com,
-	Alex Williamson <alex.williamson@redhat.com>,
-	b.reynal@virtualopensystems.com,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	eddie.dong@intel.com, nrupal.jani@intel.com,
-	Alexander Graf <agraf@suse.de>, kvm@vger.kernel.org,
-	Paolo Bonzini <pbonzini@redhat.com>, qemu-devel@nongnu.org,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"Rustad, Mark D" <mark.d.rustad@intel.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Eric Auger <eric.auger@linaro.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	linux-api@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kerne
-To: Lan Tianyu <tianyu.lan@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:36621 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751291AbbKYFa1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 00:30:27 -0500
-In-Reply-To: <56552888.90108@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Lan Tianyu <tianyu.lan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org,
+	Alex Williamson <alex.williamson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org,
+	Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Carolyn Wyborny <carolyn.wyborny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Skidmore, Donald C" <donald.c.skidmore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	eddie.dong-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, nrupal.jani-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Alexander Graf <agraf-l3A5Bk7waGM@public.gmane.org>, kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Paolo Bonzini <pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org,
+	"Tantilov, Emil S" <emil.s.tantilov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Rustad, Mark D" <mark.d.rustad-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eric Auger <eric.auger-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	intel-wired-lan <intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org>,
+	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Ronciak, John" <john.ronciak-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TaqPxH82wqD4g@public.gmane.org
+To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151124230551-mutt-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 24, 2015 at 7:18 PM, Lan Tianyu <tianyu.lan@intel.com> wrot=
-e:
-> On 2015=E5=B9=B411=E6=9C=8824=E6=97=A5 22:20, Alexander Duyck wrote:
->> I'm still not a fan of this approach.  I really feel like this is
->> something that should be resolved by extending the existing PCI hot-=
-plug
->> rather than trying to instrument this per driver.  Then you will get=
- the
->> goodness for multiple drivers and multiple OSes instead of just one.=
-  An
->> added advantage to dealing with this in the PCI hot-plug environment
->> would be that you could then still do a hot-plug even if the guest
->> didn't load a driver for the VF since you would be working with the =
-PCI
->> slot instead of the device itself.
+On Tue, Nov 24, 2015 at 1:20 PM, Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On Tue, Nov 24, 2015 at 09:38:18PM +0800, Lan Tianyu wrote:
+>> This patch is to add migration support for ixgbevf driver. Using
+>> faked PCI migration capability table communicates with Qemu to
+>> share migration status and mailbox irq vector index.
 >>
->> - Alex
+>> Qemu will notify VF via sending MSIX msg to trigger mailbox
+>> vector during migration and store migration status in the
+>> PCI_VF_MIGRATION_VMM_STATUS regs in the new capability table.
+>> The mailbox irq will be triggered just befoe stop-and-copy stage
+>> and after migration on the target machine.
+>>
+>> VF driver will put down net when detect migration and tell
+>> Qemu it's ready for migration via writing PCI_VF_MIGRATION_VF_STATUS
+>> reg. After migration, put up net again.
+>>
+>> Qemu will in charge of migrating PCI config space regs and MSIX config.
+>>
+>> The patch is to dedicate on the normal case that net traffic works
+>> when mailbox irq is enabled. For other cases(such as the driver
+>> isn't loaded, adapter is suspended or closed), mailbox irq won't be
+>> triggered and VF driver will disable it via PCI_VF_MIGRATION_CAP
+>> reg. These case will be resolved later.
+>>
+>> Signed-off-by: Lan Tianyu <tianyu.lan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 >
-> Hi Alex:
->         What's you mentioned seems the bonding driver solution.
-> Paper "Live Migration with Pass-through Device for Linux VM" describe=
-s
-> it. It does VF hotplug during migration. In order to maintain Network
-> connection when VF is out, it takes advantage of Linux bonding driver=
- to
-> switch between VF NIC and emulated NIC. But the side affects, that
-> requires VM to do additional configure and the performance during
-> switching two NIC is not good.
+> I have to say, I was much more interested in the idea
+> of tracking dirty memory. I have some thoughts about
+> that one - did you give up on it then?
 
-No, what I am getting at is that you can't go around and modify the
-configuration space for every possible device out there.  This
-solution won't scale.  If you instead moved the logic for notifying
-the device into a separate mechanism such as making it a part of the
-hot-plug logic then you only have to write the code once per OS in
-order to get the hot-plug capability to pause/resume the device.  What
-I am talking about is not full hot-plug, but rather to extend the
-existing hot-plug in Qemu and the Linux kernel to support a
-"pause/resume" functionality.  The PCI hot-plug specification calls
-out the option of implementing something like this, but we don't
-currently have support for it.
+The tracking of dirty pages still needs to be addressed unless the
+interface is being downed before migration even starts which based on
+other comments I am assuming is not the case.
 
-I just feel doing it through PCI hot-plug messages will scale much
-better as you could likely make use of the power management
-suspend/resume calls to take care of most of the needed implementation
-details.
+I still feel that having a means of marking a page as being dirty when
+it is unmapped would be the best way to go.  That way you only have to
+update the DMA API instead of messing with each and every driver
+trying to add code to force the page to be dirtied.
 
 - Alex
