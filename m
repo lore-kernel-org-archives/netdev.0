@@ -1,47 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/15] fm10k: use napi_schedule_irqoff()
-Date: Wed, 25 Nov 2015 10:21:05 -0800
-Message-ID: <1448475679-57194-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 03/15] i40e: Change BUG_ON to WARN_ON in service event complete
+Date: Wed, 25 Nov 2015 10:21:07 -0800
+Message-ID: <1448475679-57194-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:36304 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:23563 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750964AbbKYSVW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751810AbbKYSVW (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 25 Nov 2015 13:21:22 -0500
 In-Reply-To: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-The fm10k_msix_clean_rings function runs from hard interrupt context or
-with interrupts already disabled in netpoll.
+There's no need to kill the thread and eventually the kernel in this
+case.  In fact, the remainder of the code won't hurt anything anyway,
+so just complain that we're here and move along.
 
-It can use napi_schedule_irqoff() instead of napi_schedule()
+Prompted by a recent Linus diatribe.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
+Change-ID: Iec020d8bcfedffc1cd2553cc6905fd915bb3e670
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 74be792..5fbffba 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -846,7 +846,7 @@ static irqreturn_t fm10k_msix_clean_rings(int __always_unused irq, void *data)
- 	struct fm10k_q_vector *q_vector = data;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index b825f97..7715c54 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5738,7 +5738,7 @@ static void i40e_handle_lan_overflow_event(struct i40e_pf *pf,
+  **/
+ static void i40e_service_event_complete(struct i40e_pf *pf)
+ {
+-	BUG_ON(!test_bit(__I40E_SERVICE_SCHED, &pf->state));
++	WARN_ON(!test_bit(__I40E_SERVICE_SCHED, &pf->state));
  
- 	if (q_vector->rx.count || q_vector->tx.count)
--		napi_schedule(&q_vector->napi);
-+		napi_schedule_irqoff(&q_vector->napi);
- 
- 	return IRQ_HANDLED;
- }
+ 	/* flush memory to make sure state is correct before next watchog */
+ 	smp_mb__before_atomic();
 -- 
 2.5.0
