@@ -1,52 +1,63 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: [PATCH v8] net: ethernet: add driver for Aurora VLSI NB8800
- Ethernet controller
-Date: Wed, 25 Nov 2015 13:36:51 +0100
-Message-ID: <5655AB63.40204@free.fr>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH v8] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
+Date: Wed, 25 Nov 2015 12:45:01 +0000
+Message-ID: <yw1x37vuqmcy.fsf@unicorn.mansr.com>
 References: <1447938180-19651-1-git-send-email-mans@mansr.com>
+	<5655AB63.40204@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Mans Rullgard <mans@mansr.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
 	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: netdev@vger.kernel.org
+To: Mason <slash.tmp@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:42455 "EHLO smtp2-g21.free.fr"
+Received: from unicorn.mansr.com ([81.2.72.234]:41215 "EHLO unicorn.mansr.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751428AbbKYMg7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Nov 2015 07:36:59 -0500
-In-Reply-To: <1447938180-19651-1-git-send-email-mans@mansr.com>
+	id S1753434AbbKYMpD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 07:45:03 -0500
+In-Reply-To: <5655AB63.40204@free.fr> (Mason's message of "Wed, 25 Nov 2015
+	13:36:51 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/11/2015 14:02, Mans Rullgard wrote:
+Mason <slash.tmp@free.fr> writes:
 
-> +	if (dma_mapping_error(&dev->dev, dma_addr)) {
-> +		skb_free_frag(data);
-> +		return -ENOMEM;
-> +	}
+> On 19/11/2015 14:02, Mans Rullgard wrote:
+>
+>> +	if (dma_mapping_error(&dev->dev, dma_addr)) {
+>> +		skb_free_frag(data);
+>> +		return -ENOMEM;
+>> +	}
+>
+> I'm back-porting this driver to 4.1
+>
+> skb_free_frag() was introduced in 4.2 by 181edb2bfa22b IIUC.
+>
+> +static inline void skb_free_frag(void *addr)
+> +{
+> +       __free_page_frag(addr);
+> +}
+>
+> Should I just copy the definition of __free_page_frag() ?
 
-I'm back-porting this driver to 4.1
+Looks like it ought to work.  Try and find out.  Not that you'll ever
+hit that error condition unless you fake it.
 
-skb_free_frag() was introduced in 4.2 by 181edb2bfa22b IIUC.
+> /*
+>  * Frees a page fragment allocated out of either a compound or order =
+0 page.
+>  */
+> void __free_page_frag(void *addr)
+> {
+> 	struct page *page =3D virt_to_head_page(addr);
+>
+> 	if (unlikely(put_page_testzero(page)))
+> 		__free_pages_ok(page, compound_order(page));
+> }
+>
+> Regards.
+>
 
-+static inline void skb_free_frag(void *addr)
-+{
-+       __free_page_frag(addr);
-+}
-
-Should I just copy the definition of __free_page_frag() ?
-
-/*
- * Frees a page fragment allocated out of either a compound or order 0 page.
- */
-void __free_page_frag(void *addr)
-{
-	struct page *page = virt_to_head_page(addr);
-
-	if (unlikely(put_page_testzero(page)))
-		__free_pages_ok(page, compound_order(page));
-}
-
-Regards.
+--=20
+M=E5ns Rullg=E5rd
+mans@mansr.com
