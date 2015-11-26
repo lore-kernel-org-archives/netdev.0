@@ -1,120 +1,127 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 3/7] net: ipmr: adjust mroute.h style and drop extern
-Date: Thu, 26 Nov 2015 15:23:46 +0100
-Message-ID: <1448547830-21716-4-git-send-email-razor@blackwall.org>
+Subject: [PATCH net-next 1/7] net: remove unnecessary mroute.h includes
+Date: Thu, 26 Nov 2015 15:23:44 +0100
+Message-ID: <1448547830-21716-2-git-send-email-razor@blackwall.org>
 References: <1448547830-21716-1-git-send-email-razor@blackwall.org>
 Cc: davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:34889 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbbKZOYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 09:24:05 -0500
-Received: by wmuu63 with SMTP id u63so23502258wmu.0
-        for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 06:24:04 -0800 (PST)
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:36607 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751016AbbKZOYE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 09:24:04 -0500
+Received: by wmww144 with SMTP id w144so23481574wmw.1
+        for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 06:24:02 -0800 (PST)
 In-Reply-To: <1448547830-21716-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Remove extra spaces and tabs, adjust function definitions, remove an
-unnecessary ifdef (already used below, just move code) and drop extern
-from the functions.
+It looks like many files are including mroute.h unnecessarily, so remove
+the include. Most importantly remove it from ipv6.
 
+CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+CC: Steffen Klassert <steffen.klassert@secunet.com>
+CC: Herbert Xu <herbert@gondor.apana.org.au>
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- include/linux/mroute.h | 47 +++++++++++++++++++++--------------------------
- 1 file changed, 21 insertions(+), 26 deletions(-)
+ net/ipv4/ip_gre.c         | 1 -
+ net/ipv4/ip_output.c      | 1 -
+ net/ipv4/ip_tunnel.c      | 1 -
+ net/ipv4/ip_tunnel_core.c | 1 -
+ net/ipv4/ip_vti.c         | 1 -
+ net/ipv4/ipip.c           | 1 -
+ net/ipv6/ip6_gre.c        | 1 -
+ 7 files changed, 7 deletions(-)
 
-diff --git a/include/linux/mroute.h b/include/linux/mroute.h
-index fa66ebc1fed6..7c567a2679ce 100644
---- a/include/linux/mroute.h
-+++ b/include/linux/mroute.h
-@@ -9,38 +9,28 @@
- #ifdef CONFIG_IP_MROUTE
- static inline int ip_mroute_opt(int opt)
- {
--	return (opt >= MRT_BASE) && (opt <= MRT_MAX);
-+	return opt >= MRT_BASE && opt <= MRT_MAX;
- }
--#else
--static inline int ip_mroute_opt(int opt)
--{
--	return 0;
--}
--#endif
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 614521437e30..04a48c0159cc 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -24,7 +24,6 @@
+ #include <linux/tcp.h>
+ #include <linux/udp.h>
+ #include <linux/if_arp.h>
+-#include <linux/mroute.h>
+ #include <linux/if_vlan.h>
+ #include <linux/init.h>
+ #include <linux/in6.h>
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 4233cbe47052..e0b94cd843d7 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -76,7 +76,6 @@
+ #include <linux/igmp.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/netfilter_bridge.h>
+-#include <linux/mroute.h>
+ #include <linux/netlink.h>
+ #include <linux/tcp.h>
  
--#ifdef CONFIG_IP_MROUTE
--extern int ip_mroute_setsockopt(struct sock *, int, char __user *, unsigned int);
--extern int ip_mroute_getsockopt(struct sock *, int, char __user *, int __user *);
--extern int ipmr_ioctl(struct sock *sk, int cmd, void __user *arg);
--extern int ipmr_compat_ioctl(struct sock *sk, unsigned int cmd, void __user *arg);
--extern int ip_mr_init(void);
-+int ip_mroute_setsockopt(struct sock *, int, char __user *, unsigned int);
-+int ip_mroute_getsockopt(struct sock *, int, char __user *, int __user *);
-+int ipmr_ioctl(struct sock *sk, int cmd, void __user *arg);
-+int ipmr_compat_ioctl(struct sock *sk, unsigned int cmd, void __user *arg);
-+int ip_mr_init(void);
- #else
--static inline
--int ip_mroute_setsockopt(struct sock *sock,
--			 int optname, char __user *optval, unsigned int optlen)
-+static inline int ip_mroute_setsockopt(struct sock *sock, int optname,
-+				       char __user *optval, unsigned int optlen)
- {
- 	return -ENOPROTOOPT;
- }
- 
--static inline
--int ip_mroute_getsockopt(struct sock *sock,
--			 int optname, char __user *optval, int __user *optlen)
-+static inline int ip_mroute_getsockopt(struct sock *sock, int optname,
-+				       char __user *optval, int __user *optlen)
- {
- 	return -ENOPROTOOPT;
- }
- 
--static inline
--int ipmr_ioctl(struct sock *sk, int cmd, void __user *arg)
-+static inline int ipmr_ioctl(struct sock *sk, int cmd, void __user *arg)
- {
- 	return -ENOIOCTLCMD;
- }
-@@ -49,6 +39,11 @@ static inline int ip_mr_init(void)
- {
- 	return 0;
- }
-+
-+static inline int ip_mroute_opt(int opt)
-+{
-+	return 0;
-+}
- #endif
- 
- struct vif_device {
-@@ -96,16 +91,16 @@ struct mfc_cache {
- 	struct rcu_head	rcu;
- };
- 
--#define MFC_LINES		64
-+#define MFC_LINES 64
- 
- #ifdef __BIG_ENDIAN
- #define MFC_HASH(a,b)	(((((__force u32)(__be32)a)>>24)^(((__force u32)(__be32)b)>>26))&(MFC_LINES-1))
- #else
- #define MFC_HASH(a,b)	((((__force u32)(__be32)a)^(((__force u32)(__be32)b)>>2))&(MFC_LINES-1))
--#endif		
-+#endif
- 
- struct rtmsg;
--extern int ipmr_get_route(struct net *net, struct sk_buff *skb,
--			  __be32 saddr, __be32 daddr,
--			  struct rtmsg *rtm, int nowait);
-+int ipmr_get_route(struct net *net, struct sk_buff *skb,
-+		   __be32 saddr, __be32 daddr,
-+		   struct rtmsg *rtm, int nowait);
- #endif
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index cbb51f3fac06..0f6e9ee031c4 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -30,7 +30,6 @@
+ #include <linux/tcp.h>
+ #include <linux/udp.h>
+ #include <linux/if_arp.h>
+-#include <linux/mroute.h>
+ #include <linux/init.h>
+ #include <linux/in6.h>
+ #include <linux/inetdevice.h>
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 6cb9009c3d96..1db8418aa62e 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -24,7 +24,6 @@
+ #include <linux/netdevice.h>
+ #include <linux/in.h>
+ #include <linux/if_arp.h>
+-#include <linux/mroute.h>
+ #include <linux/init.h>
+ #include <linux/in6.h>
+ #include <linux/inetdevice.h>
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 4d8f0b698777..02d9c21e2953 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -30,7 +30,6 @@
+ #include <linux/tcp.h>
+ #include <linux/udp.h>
+ #include <linux/if_arp.h>
+-#include <linux/mroute.h>
+ #include <linux/init.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/if_ether.h>
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index f34c31defafe..1f067294cbc5 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -103,7 +103,6 @@
+ #include <linux/tcp.h>
+ #include <linux/udp.h>
+ #include <linux/if_arp.h>
+-#include <linux/mroute.h>
+ #include <linux/init.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/if_ether.h>
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 3c7b9310b33f..938d03ce5e4b 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -24,7 +24,6 @@
+ #include <linux/tcp.h>
+ #include <linux/udp.h>
+ #include <linux/if_arp.h>
+-#include <linux/mroute.h>
+ #include <linux/init.h>
+ #include <linux/in6.h>
+ #include <linux/inetdevice.h>
 -- 
 2.4.3
