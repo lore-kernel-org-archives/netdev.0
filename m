@@ -1,97 +1,81 @@
-From: Oliver Francke <Oliver.Francke@filoo.de>
-Subject: Re: Crash in skb_segment / KVM GSO GRE IPV6
-Date: Thu, 26 Nov 2015 16:40:00 +0100
-Message-ID: <565727D0.9040303@filoo.de>
-References: <20151114095326.GC3958@pax.zz.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: use-after-free in sock_wake_async
+Date: Thu, 26 Nov 2015 07:51:30 -0800
+Message-ID: <1448553090.24696.71.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACT4Y+ZZQ0ooT9LekV35u_jUAtAHJfg5O5SD=xATfHUF5UdNBQ@mail.gmail.com>
+	 <CANn89i+Uw+YzhRbQVSyf=FAQBO06JfFoxQpSHxfmDpS5_iZBQw@mail.gmail.com>
+	 <87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
+	 <CANn89iKg0Lc7OVLhxUOzPRr4OhEGxA8L7V1jyaqFAS6+7kEXTA@mail.gmail.com>
+	 <87io4qevdp.fsf@doppelsaurus.mobileactivedefense.com>
+	 <CANn89iJgW+6giMUicU1m831+mkaNy9z1hQB-ixvRHBqZo-7Yig@mail.gmail.com>
+	 <87io4q3u8u.fsf@doppelsaurus.mobileactivedefense.com>
+	 <1448471494.24696.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <87a8q23s2a.fsf@doppelsaurus.mobileactivedefense.com>
+	 <1448473891.24696.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <87610q3pjg.fsf@doppelsaurus.mobileactivedefense.com>
+	 <1448476744.24696.25.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <87y4dl3m5c.fsf@doppelsaurus.mobileactivedefense.com>
+	 <1448481002.24696.30.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1448483017.24696.33.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <87two93ig8.fsf@doppelsaurus.mobileactivedefense.com>
+	 <1448489350.24696.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1448490732.1842763.450231537.5358AF37@webmail.messagingengine.com>
+	 <1448491414.24696.60.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1448491950.1848115.450243417.726E2DCB@webmail.messagingengine.com>
+	 <87r3jcx4w7.fsf@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Florian Lohoff <f@zz.de>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-1.de-punkt.de ([93.190.64.237]:54941 "EHLO
-	mail-1.de-punkt.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751501AbbKZPrH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 10:47:07 -0500
-In-Reply-To: <20151114095326.GC3958@pax.zz.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	David Howells <dhowells@redhat.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87r3jcx4w7.fsf@stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, 2015-11-26 at 14:32 +0100, Hannes Frederic Sowa wrote:
+> Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+> 
+> 
+> > I have seen filesystems already doing so in .destroy_inode, that's why I
+> > am asking. The allocation happens the same way as we do with sock_alloc,
+> > e.g. shmem. I actually thought that struct inode already provides an
+> > rcu_head for exactly that reason.
+> 
+> E.g.:
 
-well, I think this is a serious bug, as I can crash a complete linux
-host running hundreds of VMs from within a QEMU-guest only.
-All I can add here is a test-setup where I can try out possible fixes
-without disturbing others.
-The only things that helps out ATM is switch all eth-offloading off, bu=
-t
-that cannot be a long-term solution.
+> +static void sock_destroy_inode(struct inode *inode)
+> +{
+> +	call_rcu(&inode->i_rcu, sock_cache_free_rcu);
+> +}
 
-Please help and let's get this fixed,
+I guess you missed few years back why we had to implement
+SLAB_DESTROY_BY_RCU for TCP sockets to not destroy performance.
 
-Oliver.
+By adding RCU grace period before reuse of this inode (about 640 bytes
+today), you are asking the CPU to evict from its cache precious content,
+and slow down some workloads, adding lot of ram pressure, as the cpu
+allocating a TCP socket will have to populate its cache for a cold
+inode.
 
-On 11/14/2015 10:53 AM, Florian Lohoff wrote:
->=20
-> Hi,
->=20
-> we experienced a reproducible crash on a KVM/qemu Host running
-> Kernel 4.3.0 in skb_segment. (Setup is kvm guest, openvswitch 1.9 up =
-to
-> 2.something, host on 4.3.0). User in the guest kvm with virtio report=
-edly tried
-> to set up an v4 GRE tunnel with IPv6 Addresses and as soon as he star=
-ted a simple
-> wget the host crashed.
->=20
-> I couldnt catch the full backtrace on the Host (IPMI redirect)=20
-> here is what i typed from the video:
->=20
->         NULL pointer dereference at 00000000084
->=20
->         IP skb_segment+0x487/0x970
->=20
->         RIP skb_segment+0x487/0x970
->=20
->         ? __enqueue_entity
->         tcp_gso_segment+0x11d/0x4a0
->         ? debug_smp_processor_id
->         tcp6_gso_segment
->         ipv6_gso_segment
->         ? default_wake_function
->         skb_mac_gso_segment
->         gre_gso_segment
->         ? __wake_up_sync_key
->         inet_gso_segment
->=20
-> Using gdb on skbuff.o i find this:
->=20
-> 3120                            if (i >=3D nfrags) {
->    0x0000000000005492 <+1154>:  cmp    %r15d,%r11d
->    0x0000000000005495 <+1157>:  jg     0x54d5 <skb_segment+1221>
->=20
-> 3121                                    BUG_ON(skb_headlen(list_skb))=
-;
->    0x0000000000005497 <+1159>:  mov    0x84(%r13),%eax
->    0x000000000000549e <+1166>:  cmp    %eax,0x80(%r13)
->    0x00000000000054a5 <+1173>:  jne    0x5962 <skb_segment+2386>
->    0x0000000000005962 <+2386>:  ud2
->=20
-> Where 0x84 is skb->data_len - So skb_headlen(list_skb) hits
-> an NULL list_skb.
->=20
-> Flo
->=20
+The reason we put in a small object the RCU protected fields should be
+pretty clear.
 
+Do not copy code that people wrote in other layers without understanding
+the performance implications.
 
---=20
-
-Oliver Francke
-
-filoo GmbH
-Moltkestra=DFe 25a
-33330 G=FCtersloh
-HRB4355 AG G=FCtersloh
-
-Gesch=E4ftsf=FChrer: J.Rehp=F6hler | C.Kunz
-
-=46olgen Sie uns auf Twitter: http://twitter.com/filoogmbh
+Thanks.
