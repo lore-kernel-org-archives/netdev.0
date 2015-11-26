@@ -1,31 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] staging: net: core: skbuff.c: Added do-while pair for
- complex macros
-Date: Thu, 26 Nov 2015 16:43:05 -0500 (EST)
-Message-ID: <20151126.164305.476318553849704347.davem@davemloft.net>
-References: <1448555763-5088-1-git-send-email-jitendra.khasdev@hotwaxsystems.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: 4.3+: Atheros ethernet fails after resume from s2ram, due to
+ order 4 allocation
+Date: Thu, 26 Nov 2015 22:56:39 +0100
+Message-ID: <20151126215638.GA22801@electric-eye.fr.zoreil.com>
+References: <20151126163413.GA3816@amd>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, alexander.h.duyck@redhat.com,
-	linus.luessing@c0d3.bluen, hannes@stressinduktion.org,
-	willemb@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jitendra.khasdev@hotwaxsystems.com
-To: jkhasdev@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448555763-5088-1-git-send-email-jitendra.khasdev@hotwaxsystems.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel list <linux-kernel@vger.kernel.org>, jcliburn@gmail.com,
+        chris.snook@gmail.com, netdev@vger.kernel.org,
+        "Rafael J. Wysocki" <rjw@rjwysocki.net>, linux-mm@kvack.org,
+        nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com,
+        David Miller <davem@davemloft.net>
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20151126163413.GA3816@amd>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Jitendra Kumar Khasdev <jkhasdev@gmail.com>
-Date: Thu, 26 Nov 2015 22:06:03 +0530
+Pavel Machek <pavel@ucw.cz> :
+[...]
+> Ok, so what went on is easy.. any ideas how to fix it ?
 
-> This patch is to file skbuff.c that fixes up following error,
-> reported by checkpatch.pl tool,
-> 
-> 1. ERROR: Macros with multiple statements should be enclosed
->    in a do - while loop.
-> 
-> Signed-off-by: Jitendra Kumar Khasdev <jkhasdev@gmail.com>
+The driver should 1) prohibit holes in its receive ring, 2) allocate before
+pushing data up in the stack 3) drop packets when it can't allocate a
+fresh buffer and 4) stop releasing receive buffers - and any resource for
+that matter - during suspend.
 
-It is absolutely not appropriate to submit this to the -staging tree.
+Really.
+
+-- 
+Ueimor
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
