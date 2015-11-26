@@ -1,31 +1,26 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: rtlwifi: Delete unnecessary checks before the function
- call"kfree_skb"
-Date: Thu, 26 Nov 2015 13:01:27 +0000 (UTC)
-Message-ID: <20151126130127.DDFC3140731@smtp.codeaurora.org>
-References: <5649C99E.2070602@users.sourceforge.net>
+Subject: Re: [v2] libertas: check for NULL before use
+Date: Thu, 26 Nov 2015 13:05:38 +0000 (UTC)
+Message-ID: <20151126130538.0263F14077A@smtp.codeaurora.org>
+References: <1448353298-16110-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
+Cc: linux-kernel@vger.kernel.org, libertas-dev@lists.infradead.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+To: sudip <sudipm.mukherjee@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5649C99E.2070602@users.sourceforge.net>
+In-Reply-To: <1448353298-16110-1-git-send-email-sudipm.mukherjee@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Mon, 16 Nov 2015 13:12:25 +0100
+> If kzalloc fails it will return NULL. Lets check for NULL first before
+> using the pointer.
 > 
-> The kfree_skb() function tests whether its argument is NULL and then
-> returns immediately. Thus the test around the calls is not needed.
-> 
-> This issue was detected by using the Coccinelle software.
-> 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 
 Thanks, applied to wireless-drivers-next.git.
 
