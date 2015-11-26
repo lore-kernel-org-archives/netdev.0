@@ -1,83 +1,85 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Thu, 26 Nov 2015 11:01:05 +1100
-Message-ID: <20151126110105.60ec3ddc@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH net-next v3 2/8] netfilter: Factor out nf_ct_get_info().
+Date: Wed, 25 Nov 2015 16:08:15 -0800
+Message-ID: <1448496501-109561-3-git-send-email-jarno@ovn.org>
+References: <1448496501-109561-1-git-send-email-jarno@ovn.org>
+Cc: netfilter-devel@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
+To: netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1448496501-109561-1-git-send-email-jarno@ovn.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Define a new inline function to map conntrack status to enum
+ip_conntrack_info.  This removes the need to otherwise duplicate this
+code in a later patch ("openvswitch: Find existing conntrack entry
+after upcall.").
 
-Today's linux-next merge of the net-next tree got a conflict in:
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+---
+ include/net/netfilter/nf_conntrack.h | 15 +++++++++++++++
+ net/netfilter/nf_conntrack_core.c    | 22 +++-------------------
+ 2 files changed, 18 insertions(+), 19 deletions(-)
 
-  kernel/bpf/syscall.c
-
-between commit:
-
-  c9da161c6517 ("bpf: fix clearing on persistent program array maps")
-
-from the net tree and commit:
-
-  f99bf205dab0 ("bpf: add show_fdinfo handler for maps")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index fde4068..b3de10e 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -125,6 +125,21 @@ nf_ct_tuplehash_to_ctrack(const struct nf_conntrack_tuple_hash *hash)
+ 			    tuplehash[hash->tuple.dst.dir]);
+ }
+ 
++static inline enum ip_conntrack_info
++nf_ct_get_info(const struct nf_conntrack_tuple_hash *h)
++{
++	const struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
++
++	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY)
++		return IP_CT_ESTABLISHED_REPLY;
++	/* Once we've had two way comms, always ESTABLISHED. */
++	if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status))
++		return IP_CT_ESTABLISHED;
++	if (test_bit(IPS_EXPECTED_BIT, &ct->status))
++		return IP_CT_RELATED;
++	return IP_CT_NEW;
++}
++
+ static inline u_int16_t nf_ct_l3num(const struct nf_conn *ct)
+ {
+ 	return ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 3cb3cb8..70ddbd8 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1056,25 +1056,9 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
+ 	ct = nf_ct_tuplehash_to_ctrack(h);
+ 
+ 	/* It exists; we have (non-exclusive) reference. */
+-	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY) {
+-		*ctinfo = IP_CT_ESTABLISHED_REPLY;
+-		/* Please set reply bit if this packet OK */
+-		*set_reply = 1;
+-	} else {
+-		/* Once we've had two way comms, always ESTABLISHED. */
+-		if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+-			pr_debug("nf_conntrack_in: normal packet for %p\n", ct);
+-			*ctinfo = IP_CT_ESTABLISHED;
+-		} else if (test_bit(IPS_EXPECTED_BIT, &ct->status)) {
+-			pr_debug("nf_conntrack_in: related packet for %p\n",
+-				 ct);
+-			*ctinfo = IP_CT_RELATED;
+-		} else {
+-			pr_debug("nf_conntrack_in: new packet for %p\n", ct);
+-			*ctinfo = IP_CT_NEW;
+-		}
+-		*set_reply = 0;
+-	}
++	*ctinfo = nf_ct_get_info(h);
++	*set_reply = NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY;
++
+ 	skb->nfct = &ct->ct_general;
+ 	skb->nfctinfo = *ctinfo;
+ 	return ct;
 -- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+2.1.4
 
-diff --cc kernel/bpf/syscall.c
-index 4a8f3c1d7da6,6d1407bc1531..000000000000
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@@ -101,15 -93,34 +101,32 @@@ void bpf_map_put(struct bpf_map *map
-  	}
-  }
-  
-+ #ifdef CONFIG_PROC_FS
-+ static void bpf_map_show_fdinfo(struct seq_file *m, struct file *filp)
-+ {
-+ 	const struct bpf_map *map = filp->private_data;
-+ 
-+ 	seq_printf(m,
-+ 		   "map_type:\t%u\n"
-+ 		   "key_size:\t%u\n"
-+ 		   "value_size:\t%u\n"
-+ 		   "max_entries:\t%u\n",
-+ 		   map->map_type,
-+ 		   map->key_size,
-+ 		   map->value_size,
-+ 		   map->max_entries);
-+ }
-+ #endif
-+ 
- -static int bpf_map_release(struct inode *inode, struct file *filp)
- +void bpf_map_put_with_uref(struct bpf_map *map)
-  {
- -	struct bpf_map *map = filp->private_data;
- -
- -	if (map->map_type == BPF_MAP_TYPE_PROG_ARRAY)
- -		/* prog_array stores refcnt-ed bpf_prog pointers
- -		 * release them all when user space closes prog_array_fd
- -		 */
- -		bpf_fd_array_map_clear(map);
- -
- +	bpf_map_put_uref(map);
-  	bpf_map_put(map);
- +}
- +
- +static int bpf_map_release(struct inode *inode, struct file *filp)
- +{
- +	bpf_map_put_with_uref(filp->private_data);
-  	return 0;
-  }
-  
