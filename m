@@ -1,52 +1,40 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH v2 net 2/6] net: mvneta: fix bit assignment in
- MVNETA_RXQ_CONFIG_REG
-Date: Thu, 26 Nov 2015 19:27:36 +0100
-Message-ID: <20151126192736.662634d3@free-electrons.com>
-References: <1448561293-16431-1-git-send-email-mw@semihalf.com>
-	<1448561293-16431-3-git-send-email-mw@semihalf.com>
+From: Konstantin Shemyak <konstantin@shemyak.com>
+Subject: IPv4 tunnels: why IP-IP and SIT enforce DF bit, but GRE does not?
+Date: Thu, 26 Nov 2015 20:28:02 +0200
+Message-ID: <56574F32.6070706@shemyak.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	linux@arm.linux.org.uk, sebastian.hesselbarth@gmail.com,
-	andrew@lunn.ch, jason@lakedaemon.net,
-	gregory.clement@free-electrons.com, simon.guinot@sequanux.org,
-	nadavh@marvell.com, alior@marvell.com, xswang@marvell.com,
-	myair@marvell.com, nitroshift@yahoo.com, jaz@semihalf.com,
-	tn@semihalf.com, <stable@vger.kernel.org>
-To: Marcin Wojtas <mw@semihalf.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1448561293-16431-3-git-send-email-mw@semihalf.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sub3.mail.dreamhost.com ([69.163.253.7]:46791 "EHLO
+	homiemail-a76.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752853AbbKZS2F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 13:28:05 -0500
+Received: from homiemail-a76.g.dreamhost.com (localhost [127.0.0.1])
+	by homiemail-a76.g.dreamhost.com (Postfix) with ESMTP id 247CD45807C
+	for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 10:28:05 -0800 (PST)
+Received: from [10.0.0.5] (a91-152-80-240.elisa-laajakaista.fi [91.152.80.240])
+	(using TLSv1 with cipher DHE-RSA-AES128-SHA (128/128 bits))
+	(No client certificate requested)
+	(Authenticated sender: konstantin@shemyak.com)
+	by homiemail-a76.g.dreamhost.com (Postfix) with ESMTPSA id B2D4D45807B
+	for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 10:28:04 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Marcin Wojtas,
+The kernel has taken the decision to always enforce DF bit on IPv4 
+tunnels, which have fixed (not inherited) TTL (e.g. 
+net/ipv4/ipip.c:ipip_tunnel_ioctl()). Commment by Alexey Kuznetsov in 
+the head of ip_gre.c explains that the reason is attempting to avoid 
+network loops.
 
-On Thu, 26 Nov 2015 19:08:09 +0100, Marcin Wojtas wrote:
-> MVNETA_RXQ_HW_BUF_ALLOC bit which controls enabling hardware buffer
-> allocation was mistakenly set as BIT(1). This commit fixes the assignment.
-> 
-> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-> Reviewed-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
-> Cc: <stable@vger.kernel.org> # v3.8+
-> Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP network
-> unit")
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+But the commit c54419321455631 removed this enforcing from GRE tunnels,
+not changing this behavior for IP-IP (net/ipv4/ipip.c) and SIT 
+(net/ipv6/sit.c).
 
-What is the user-visible impact of this bug? Indeed, the code is wrong,
-but things were working fine until now.
+It can be discussed whether such enforcing of DF bit is exactly the
+desired behavior, but shouldn't it at least be identical across IPv4 
+tunnels?
 
-So I am not questioning that this patch should be merged, but only
-questioning whether the stable tag is appropriate.
-
-Same questions for your patch 3/6.
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+Konstantin Shemyak
