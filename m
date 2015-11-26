@@ -1,60 +1,103 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: next-20151126 build: 3 failures 15 warnings (next-20151126)
-Date: Thu, 26 Nov 2015 17:03:00 +0000
-Message-ID: <20151126170300.GH1929@sirena.org.uk>
-References: <E1a1sVV-00079q-My@optimist>
- <20151126121551.GE1929@sirena.org.uk>
- <87y4dllysz.fsf@kamboji.qca.qualcomm.com>
- <20151126132228.GG1929@sirena.org.uk>
- <87lh9kn1dz.fsf@kamboji.qca.qualcomm.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: use-after-free in sock_wake_async
+Date: Thu, 26 Nov 2015 18:03:18 +0100
+Message-ID: <1448557398.912656.450874953.4CA824F0@webmail.messagingengine.com>
+References: <CACT4Y+ZZQ0ooT9LekV35u_jUAtAHJfg5O5SD=xATfHUF5UdNBQ@mail.gmail.com>
+ <CANn89i+Uw+YzhRbQVSyf=FAQBO06JfFoxQpSHxfmDpS5_iZBQw@mail.gmail.com>
+ <87poyzj7j2.fsf@doppelsaurus.mobileactivedefense.com>
+ <CANn89iKg0Lc7OVLhxUOzPRr4OhEGxA8L7V1jyaqFAS6+7kEXTA@mail.gmail.com>
+ <87io4qevdp.fsf@doppelsaurus.mobileactivedefense.com>
+ <CANn89iJgW+6giMUicU1m831+mkaNy9z1hQB-ixvRHBqZo-7Yig@mail.gmail.com>
+ <87io4q3u8u.fsf@doppelsaurus.mobileactivedefense.com>
+ <1448471494.24696.18.camel@edumazet-glaptop2.roam.corp.google.com>
+ <87a8q23s2a.fsf@doppelsaurus.mobileactivedefense.com>
+ <1448473891.24696.21.camel@edumazet-glaptop2.roam.corp.google.com>
+ <87610q3pjg.fsf@doppelsaurus.mobileactivedefense.com>
+ <1448476744.24696.25.camel@edumazet-glaptop2.roam.corp.google.com>
+ <87y4dl3m5c.fsf@doppelsaurus.mobileactivedefense.com>
+ <1448481002.24696.30.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1448483017.24696.33.camel@edumazet-glaptop2.roam.corp.google.com>
+ <87two93ig8.fsf@doppelsaurus.mobileactivedefense.com>
+ <1448489350.24696.47.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1448490732.1842763.450231537.5358AF37@webmail.messagingengine.com>
+ <1448491414.24696.60.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1448491950.1848115.450243417.726E2DCB@webmail.messagingengine.com>
+ <87r3jcx4w7.fsf@stressinduktion.org>
+ <1448553090.24696.71.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="gHypzss5dW8YUwgb"
-Cc: linaro-kernel@lists.linaro.org,
-	kernel-build-reports@lists.linaro.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, ath10k@lists.infradead.org,
-	linux-next@vger.kernel.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87lh9kn1dz.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	David Howells <dhowells@redhat.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448553090.24696.71.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Nov 26, 2015, at 16:51, Eric Dumazet wrote:
+> On Thu, 2015-11-26 at 14:32 +0100, Hannes Frederic Sowa wrote:
+> > Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+> > 
+> > 
+> > > I have seen filesystems already doing so in .destroy_inode, that's why I
+> > > am asking. The allocation happens the same way as we do with sock_alloc,
+> > > e.g. shmem. I actually thought that struct inode already provides an
+> > > rcu_head for exactly that reason.
+> > 
+> > E.g.:
+> 
+> > +static void sock_destroy_inode(struct inode *inode)
+> > +{
+> > +	call_rcu(&inode->i_rcu, sock_cache_free_rcu);
+> > +}
+> 
+> I guess you missed few years back why we had to implement
+> SLAB_DESTROY_BY_RCU for TCP sockets to not destroy performance.
 
---gHypzss5dW8YUwgb
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I think I wasn't even subscribed to netdev@ at that time, so I probably
+missed it. Few years back is 7. :}
 
-On Thu, Nov 26, 2015 at 06:58:32PM +0200, Kalle Valo wrote:
-> Mark Brown <broonie@kernel.org> writes:
+> By adding RCU grace period before reuse of this inode (about 640 bytes
+> today), you are asking the CPU to evict from its cache precious content,
+> and slow down some workloads, adding lot of ram pressure, as the cpu
+> allocating a TCP socket will have to populate its cache for a cold
+> inode.
 
-> > No, I didn't make much effort to check though since the use of ifdef was
-> > clearly a bug waiting to happen anyway, I was more surprised it worked
-> > at all than anything.
+My rationale was like this: we already have rcu to free the wq, so we
+don't add any more callbacks as current code. sock_alloc is right now
+1136 bytes, which is huge, like 18 cachelines. I wouldn't think it does
+matter a lot as we thrash anyway. tcp_sock is like 45 cachelines right
+now, hui.
 
-> Michal Marek explains[1] that this is due to commit cf4f21938e13
-> ("kbuild: Allow to specify composite modules with modname-m") and has
-> nothing to do with the wireless drivers reorganisation. I'll drop this
-> patch as Michal will apply his fix to the kbuild tree.
+Also isn't the reason why slub exists so it can track memory regions
+per-cpu.
 
-It still ought to be fixed regardless of why it showed up - the
-intention of the code is that we build the real thermal code regardless
-of if that's modular or not but that's not what the code actually does.
+Anyway, I am only speculating why it could be tried. I probably need to
+do some performance experiments.
 
---gHypzss5dW8YUwgb
-Content-Type: application/pgp-signature; name="signature.asc"
+> The reason we put in a small object the RCU protected fields should be
+> pretty clear.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Yes, I thought about that.
 
-iQEcBAEBCAAGBQJWVztDAAoJECTWi3JdVIfQZfsH/j5BbsMESTHNsKSVftN52wLV
-vBY9RxwUHln8MsEthVU2r1xiA+WjUiR59q0WeunUZI6pbEo8Ykydh4L5vbKpAbRv
-REqb5kK4CJeP5UvddEkeGR9SPuBubrFcEE6gQxJtQKBCcdAgHzOY+YvqMF5GYHZL
-/RE8NIZI8WeMQho5KCLGXLw00LhSQ1aPitlkVhuHiPle5cFbit4jSdbrR5r35DL8
-E7OedYiZ3TNEfSSP3/Wk73TUTHNhKk9Jg3/uYB+T/A80waZx/ZC0DLxW8Fiv0C4I
-63MyInN5NxLIcztHhzXAyJCcQxj2YYFElWzZLp99hnAwQIU3wtHS2wBNPGeUUKs=
-=p6C8
------END PGP SIGNATURE-----
+> Do not copy code that people wrote in other layers without understanding
+> the performance implications.
 
---gHypzss5dW8YUwgb--
+Duuh. :)
+
+Bye,
+Hannes
