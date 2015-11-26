@@ -1,57 +1,49 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 0/7] net: ipmr: more cleanups and mfc netlink
- support
-Date: Thu, 26 Nov 2015 17:48:47 +0100
-Message-ID: <565737EF.9030504@cumulusnetworks.com>
-References: <1448547830-21716-1-git-send-email-razor@blackwall.org>
- <20151126163502.GB4094@lunn.ch>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: next-20151126 build: 3 failures 15 warnings (next-20151126)
+Date: Thu, 26 Nov 2015 18:58:32 +0200
+Message-ID: <87lh9kn1dz.fsf@kamboji.qca.qualcomm.com>
+References: <E1a1sVV-00079q-My@optimist> <20151126121551.GE1929@sirena.org.uk>
+	<87y4dllysz.fsf@kamboji.qca.qualcomm.com>
+	<20151126132228.GG1929@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Andrew Lunn <andrew@lunn.ch>,
-	Nikolay Aleksandrov <razor@blackwall.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linaro-kernel@lists.linaro.org>,
+	<kernel-build-reports@lists.linaro.org>, <netdev@vger.kernel.org>,
+	<linux-wireless@vger.kernel.org>, <ath10k@lists.infradead.org>,
+	<linux-next@vger.kernel.org>
+To: Mark Brown <broonie@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:34942 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752859AbbKZQst (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 11:48:49 -0500
-Received: by wmuu63 with SMTP id u63so28186923wmu.0
-        for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 08:48:48 -0800 (PST)
-In-Reply-To: <20151126163502.GB4094@lunn.ch>
+Received: from sabertooth02.qualcomm.com ([65.197.215.38]:61245 "EHLO
+	sabertooth02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752640AbbKZQ6w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 11:58:52 -0500
+In-Reply-To: <20151126132228.GG1929@sirena.org.uk> (Mark Brown's message of
+	"Thu, 26 Nov 2015 13:22:28 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/26/2015 05:35 PM, Andrew Lunn wrote:
-> On Thu, Nov 26, 2015 at 03:23:43PM +0100, Nikolay Aleksandrov wrote:
->> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>
->> Hi,
->> This set continues with the minor cleanups in the first 6 patches and
->> patch 7 adds the first new feature - MFC manipulation via netlink.
-> 
-> Hi Nikolay
-> 
-> Great to see somebody working on multicast.
-> 
-> Do you have any plans to remove the 32 VIF limit?
-> 
-> I've run out if VIFs on a VPN server with lots of clients. I took the
-> "quick fix" of recompiling the kernel and userspace with 256 VIFs. But
-> it would be nice if you could define a netlink API which does not have
-> this limit and modify the core code to be more dynamic.
-> 
->      Andrew
-> 
+Mark Brown <broonie@kernel.org> writes:
 
-Hi Andrew,
-I'm glad people are still using it. :-)  To answer your question - yes, I plan
-to remove that limit, in fact I have a private version where it's done and this
-API is the first step, you can see it uses the generic rtnh which supports
-ifindex passing, so it'll be a matter of a few small changes to remove it.
-The hardest part is keeping current user-space compatible with everything, but
-I have the necessary workarounds for that. In the end it should be much more
-usable and to some extent without mrtsock application running as well.
+> On Thu, Nov 26, 2015 at 02:39:40PM +0200, Kalle Valo wrote:
+>> Mark Brown <broonie@kernel.org> writes:
+>
+>> > It looks like this was somehow triggered as part of the reorganisation
+>> > of the WiFi directory structure.
+>
+>> This is surprising and also worrying, any ideas why? It would be good to
+>> understand the root cause in case there's a bug in wireless drivers
+>> directory reorganisation.
+>
+> No, I didn't make much effort to check though since the use of ifdef was
+> clearly a bug waiting to happen anyway, I was more surprised it worked
+> at all than anything.
 
-Thanks,
- Nik
+Michal Marek explains[1] that this is due to commit cf4f21938e13
+("kbuild: Allow to specify composite modules with modname-m") and has
+nothing to do with the wireless drivers reorganisation. I'll drop this
+patch as Michal will apply his fix to the kbuild tree.
+
+[1] https://patchwork.kernel.org/patch/7707801/
+
+-- 
+Kalle Valo
