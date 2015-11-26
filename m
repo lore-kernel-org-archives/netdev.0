@@ -1,105 +1,94 @@
-From: Simon Guinot <simon.guinot@sequanux.org>
-Subject: Re: [PATCH v2 net 4/6] net: mvneta: fix error path for building skb
-Date: Thu, 26 Nov 2015 19:38:53 +0100
-Message-ID: <20151126183853.GI4665@kw.sim.vm.gnt>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH v2 net 1/6] net: mvneta: add configuration for MBUS
+ windows access protection
+Date: Thu, 26 Nov 2015 19:31:51 +0100
+Message-ID: <CAPv3WKdnNFF47_EeB852ui_2mWDuoOAycoDwxVM5dkGPYAOMCA@mail.gmail.com>
 References: <1448561293-16431-1-git-send-email-mw@semihalf.com>
- <1448561293-16431-5-git-send-email-mw@semihalf.com>
+	<1448561293-16431-2-git-send-email-mw@semihalf.com>
+	<20151126192522.25b297ec@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="TWU5dZlpCh7alCLz"
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com,
-	andrew@lunn.ch, linux@arm.linux.org.uk, jason@lakedaemon.net,
-	myair@marvell.com, jaz@semihalf.com, xswang@marvell.com,
-	nadavh@marvell.com, alior@marvell.com, stable@vger.kernel.org,
-	tn@semihalf.com, gregory.clement@free-electrons.com,
-	nitroshift@yahoo.com, davem@davemloft.net,
-	sebastian.hesselbarth@gmail.com
-To: Marcin Wojtas <mw@semihalf.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vm1.sequanux.org ([188.165.36.56]:35180 "EHLO vm1.sequanux.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752722AbbKZSa6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Nov 2015 13:30:58 -0500
-Content-Disposition: inline
-In-Reply-To: <1448561293-16431-5-git-send-email-mw@semihalf.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Jason Cooper <jason@lakedaemon.net>,
+	=?UTF-8?Q?Gregory_Cl=C3=A9ment?=
+	<gregory.clement@free-electrons.com>,
+	Simon Guinot <simon.guinot@sequanux.org>, nadavh@marvell.com,
+	Lior Amsalem <alior@marvell.com>,
+	Evan Wang <xswang@marvell.com>,
+	Yair Mahalalel <myair@marvell.com>, nitroshift@yahoo.com,
+	Grzegorz Jaszczyk <jaz@semihalf.com>,
+	Tomasz Nowicki <tn@semihalf.com>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151126192522.25b297ec@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Thomas,
 
---TWU5dZlpCh7alCLz
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+2015-11-26 19:25 GMT+01:00 Thomas Petazzoni
+<thomas.petazzoni@free-electrons.com>:
+> Marcin,
+>
+> On Thu, 26 Nov 2015 19:08:08 +0100, Marcin Wojtas wrote:
+>> This commit adds missing configuration of MBUS windows access protection
+>> in mvneta_conf_mbus_windows function - a dedicated variable for that
+>> purpose remained there unused since v3.8 initial mvneta support. Because
+>> of that the register contents were inherited from the bootloader.
+>>
+>> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
+>> Reviewed-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+>> Cc: <stable@vger.kernel.org> # v3.8+
+>> Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP network
+>> unit")
+>
+> Is this actually fixing a user visible problem? If not, then I am not
+> sure it qualifies for stable.
 
-On Thu, Nov 26, 2015 at 07:08:11PM +0100, Marcin Wojtas wrote:
-> In the actual RX processing, there is same error path for both descriptor
-> ring refilling and building skb fails. This is not correct, because after
-> successful refill, the ring is already updated with newly allocated
-> buffer. Then, in case of build_skb() fail, hitherto code left the original
-> buffer unmapped.
->=20
-> This patch fixes above situation by swapping error check of skb build with
-> DMA-unmap of original buffer.
->=20
-> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-> Cc: <stable@vger.kernel.org> # v4.2+
-> Fixes a84e32894191 ("net: mvneta: fix refilling for Rx DMA buffers")
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
->=20
+Indeed, it's not fixing a visible thing, unless you resume from
+suspend to ram. However, the original driver declares and updates
+'win_protect ' variable, which have remained unused for past 3 years:)
+If you think it's not worth cc'ing stable despite that, I will remove
+the notification.
 
-Acked-by: Simon Guinot <simon.guinot@sequanux.org>
+>
+>> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+>> index e84c7f2..c4327b9 100644
+>> --- a/drivers/net/ethernet/marvell/mvneta.c
+>> +++ b/drivers/net/ethernet/marvell/mvneta.c
+>> @@ -62,6 +62,7 @@
+>>  #define MVNETA_WIN_SIZE(w)                      (0x2204 + ((w) << 3))
+>>  #define MVNETA_WIN_REMAP(w)                     (0x2280 + ((w) << 2))
+>>  #define MVNETA_BASE_ADDR_ENABLE                 0x2290
+>> +#define MVNETA_ACCESS_PROTECT_ENABLE         0x2294
+>
+> Spaces are used for indentation in the definitions of all other
+> constants in this driver, so I think you should stick with this
+> convention, at least to remain consistent.
+>
+
+Ok.
+
+>>  #define MVNETA_PORT_CONFIG                      0x2400
+>>  #define      MVNETA_UNI_PROMISC_MODE            BIT(0)
+>>  #define      MVNETA_DEF_RXQ(q)                  ((q) << 1)
+>> @@ -3188,9 +3189,11 @@ static void mvneta_conf_mbus_windows(struct mvneta_port *pp,
+>>
+>>               win_enable &= ~(1 << i);
+>>               win_protect |= 3 << (2 * i);
+>> +
+>
+> Unneeded change.
+>
+
+Indeed, my mistake.
 
 Thanks,
-
-Simon
-
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet=
-/marvell/mvneta.c
-> index 0c3d923..62cf971 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -1580,12 +1580,16 @@ static int mvneta_rx(struct mvneta_port *pp, int =
-rx_todo,
->  		}
-> =20
->  		skb =3D build_skb(data, pp->frag_size > PAGE_SIZE ? 0 : pp->frag_size);
-> -		if (!skb)
-> -			goto err_drop_frame;
-> =20
-> +		/* After refill old buffer has to be unmapped regardless
-> +		 * the skb is successfully built or not.
-> +		 */
->  		dma_unmap_single(dev->dev.parent, phys_addr,
->  				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
-> =20
-> +		if (!skb)
-> +			goto err_drop_frame;
-> +
->  		rcvd_pkts++;
->  		rcvd_bytes +=3D rx_bytes;
-> =20
-> --=20
-> 1.8.3.1
->=20
->=20
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-
---TWU5dZlpCh7alCLz
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlZXUb0ACgkQgtp0PDeOcDpg8gCfbnLMa46vuSdpDfVDgoTqHx1v
-Lt0AniNpPuaO6hAEu0Ezoapw7vWLyMKc
-=vRBo
------END PGP SIGNATURE-----
-
---TWU5dZlpCh7alCLz--
+Marcin
