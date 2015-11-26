@@ -1,58 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] staging: net: core: skbuff.c: Added do-while pair for
- complex macros
-Date: Thu, 26 Nov 2015 09:00:23 -0800
-Message-ID: <1448557223.18647.4.camel@perches.com>
-References: <1448555763-5088-1-git-send-email-jitendra.khasdev@hotwaxsystems.com>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: next-20151126 build: 3 failures 15 warnings (next-20151126)
+Date: Thu, 26 Nov 2015 17:03:00 +0000
+Message-ID: <20151126170300.GH1929@sirena.org.uk>
+References: <E1a1sVV-00079q-My@optimist>
+ <20151126121551.GE1929@sirena.org.uk>
+ <87y4dllysz.fsf@kamboji.qca.qualcomm.com>
+ <20151126132228.GG1929@sirena.org.uk>
+ <87lh9kn1dz.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jitendra Kumar Khasdev <jitendra.khasdev@hotwaxsystems.com>
-To: Jitendra Kumar Khasdev <jkhasdev@gmail.com>, davem@davemloft.net,
-	edumazet@google.com, alexander.h.duyck@redhat.com,
-	linus.luessing@c0d3.bluen, hannes@stressinduktion.org,
-	willemb@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448555763-5088-1-git-send-email-jitendra.khasdev@hotwaxsystems.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="gHypzss5dW8YUwgb"
+Cc: linaro-kernel@lists.linaro.org,
+	kernel-build-reports@lists.linaro.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, ath10k@lists.infradead.org,
+	linux-next@vger.kernel.org
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87lh9kn1dz.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-11-26 at 22:06 +0530, Jitendra Kumar Khasdev wrote:
-> This patch is to file skbuff.c that fixes up following error,
-> reported by checkpatch.pl tool,
 
-Your subject title is not correct.
-This is not a staging patch.
+--gHypzss5dW8YUwgb
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> 1. ERROR: Macros with multiple statements should be enclosed
->    in a do - while loop.
+On Thu, Nov 26, 2015 at 06:58:32PM +0200, Kalle Valo wrote:
+> Mark Brown <broonie@kernel.org> writes:
 
-checkpatch is brainless.
-Not every message it emits needs fixing.
+> > No, I didn't make much effort to check though since the use of ifdef was
+> > clearly a bug waiting to happen anyway, I was more surprised it worked
+> > at all than anything.
 
+> Michal Marek explains[1] that this is due to commit cf4f21938e13
+> ("kbuild: Allow to specify composite modules with modname-m") and has
+> nothing to do with the wireless drivers reorganisation. I'll drop this
+> patch as Michal will apply his fix to the kbuild tree.
 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-[]
-> @@ -748,11 +748,13 @@ void consume_skb(struct sk_buff *skb)
->  EXPORT_SYMBOL(consume_skb);
->  
->  /* Make sure a field is enclosed inside headers_start/headers_end section */
-> -#define CHECK_SKB_FIELD(field) \
-> -	BUILD_BUG_ON(offsetof(struct sk_buff, field) <		\
-> -		     offsetof(struct sk_buff, headers_start));	\
-> -	BUILD_BUG_ON(offsetof(struct sk_buff, field) >		\
-> -		     offsetof(struct sk_buff, headers_end));	\
-> +#define CHECK_SKB_FIELD(field)						\
-> +	do {								\
-> +		BUILD_BUG_ON(offsetof(struct sk_buff, field) <		\
-> +			offsetof(struct sk_buff, headers_start));	\
-> +		BUILD_BUG_ON(offsetof(struct sk_buff, field) >		\
-> +			offsetof(struct sk_buff, headers_end));		\
-> +	} while (0)							\
+It still ought to be fixed regardless of why it showed up - the
+intention of the code is that we build the real thermal code regardless
+of if that's modular or not but that's not what the code actually does.
 
-Perhaps the last check should add a sizeof(field)
+--gHypzss5dW8YUwgb
+Content-Type: application/pgp-signature; name="signature.asc"
 
-	BUILD_BUG_ON((offsetof(struct sk_buff, field) +
-		      FIELD_SIZEOF(struct sk_buff, field)) >
-		     offsetof(struct sk_buff, headers_end));
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJWVztDAAoJECTWi3JdVIfQZfsH/j5BbsMESTHNsKSVftN52wLV
+vBY9RxwUHln8MsEthVU2r1xiA+WjUiR59q0WeunUZI6pbEo8Ykydh4L5vbKpAbRv
+REqb5kK4CJeP5UvddEkeGR9SPuBubrFcEE6gQxJtQKBCcdAgHzOY+YvqMF5GYHZL
+/RE8NIZI8WeMQho5KCLGXLw00LhSQ1aPitlkVhuHiPle5cFbit4jSdbrR5r35DL8
+E7OedYiZ3TNEfSSP3/Wk73TUTHNhKk9Jg3/uYB+T/A80waZx/ZC0DLxW8Fiv0C4I
+63MyInN5NxLIcztHhzXAyJCcQxj2YYFElWzZLp99hnAwQIU3wtHS2wBNPGeUUKs=
+=p6C8
+-----END PGP SIGNATURE-----
+
+--gHypzss5dW8YUwgb--
