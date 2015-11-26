@@ -1,89 +1,104 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2 -next v2 1/5] {f,m}_bpf: make tail calls working
-Date: Thu, 26 Nov 2015 15:38:42 +0100
-Message-ID: <a589d32fb6b5fcf72476bc3dfa0e3bd47d33377f.1448547199.git.daniel@iogearbox.net>
+Subject: [PATCH iproute2 -next v2 2/5] {f,m}_bpf: check map attributes when fetching as pinned
+Date: Thu, 26 Nov 2015 15:38:43 +0100
+Message-ID: <1fd49567829a4dd81f8c9fde7230d7368a9c930f.1448547199.git.daniel@iogearbox.net>
 References: <cover.1448547199.git.daniel@iogearbox.net>
 Cc: ast@kernel.org, netdev@vger.kernel.org,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:49503 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:49507 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751367AbbKZOiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 09:38:52 -0500
+	with ESMTP id S1751726AbbKZOix (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 09:38:53 -0500
 In-Reply-To: <cover.1448547199.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1448547199.git.daniel@iogearbox.net>
 References: <cover.1448547199.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that we have the possibility of sharing maps, it's time we get the
-ELF loader fully working with regards to tail calls. Since program array
-maps are pinned, we can keep them finally alive. I've noticed two bugs
-that are being fixed in bpf_fill_prog_arrays() with this patch. Example
-code comes as follow-up.
+Make use of the new show_fdinfo() facility and verify that when a
+pinned map is being fetched that its basic attributes are the same
+as the map we declared from the ELF file. I.e. when placed into the
+globalns, collisions could occur. In such a case warn the user and
+bail out.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- tc/tc_bpf.c | 27 +++++++++++++++++++--------
- 1 file changed, 19 insertions(+), 8 deletions(-)
+ tc/tc_bpf.c | 53 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 53 insertions(+)
 
 diff --git a/tc/tc_bpf.c b/tc/tc_bpf.c
-index bc7bc9f..c3adc23 100644
+index c3adc23..b44b123 100644
 --- a/tc/tc_bpf.c
 +++ b/tc/tc_bpf.c
-@@ -1139,11 +1139,22 @@ static int bpf_fetch_prog_sec(struct bpf_elf_ctx *ctx, const char *section)
- 	return ret;
+@@ -205,6 +205,52 @@ void bpf_print_ops(FILE *f, struct rtattr *bpf_ops, __u16 len)
+ 		ops[i].jf, ops[i].k);
  }
  
-+static int bpf_find_map_by_id(struct bpf_elf_ctx *ctx, uint32_t id)
++static int bpf_map_selfcheck_pinned(int fd, const struct bpf_elf_map *map)
 +{
-+	int i;
++	char file[PATH_MAX], buff[4096];
++	struct bpf_elf_map tmp, zero;
++	unsigned int val;
++	FILE *fp;
 +
-+	for (i = 0; i < ARRAY_SIZE(ctx->map_fds); i++)
-+		if (ctx->map_fds[i] && ctx->maps[i].id == id &&
-+		    ctx->maps[i].type == BPF_MAP_TYPE_PROG_ARRAY)
-+			return i;
-+	return -1;
++	snprintf(file, sizeof(file), "/proc/%d/fdinfo/%d", getpid(), fd);
++
++	fp = fopen(file, "r");
++	if (!fp) {
++		fprintf(stderr, "No procfs support?!\n");
++		return -EIO;
++	}
++
++	memset(&tmp, 0, sizeof(tmp));
++	while (fgets(buff, sizeof(buff), fp)) {
++		if (sscanf(buff, "map_type:\t%u", &val) == 1)
++			tmp.type = val;
++		else if (sscanf(buff, "key_size:\t%u", &val) == 1)
++			tmp.size_key = val;
++		else if (sscanf(buff, "value_size:\t%u", &val) == 1)
++			tmp.size_value = val;
++		else if (sscanf(buff, "max_entries:\t%u", &val) == 1)
++			tmp.max_elem = val;
++	}
++
++	fclose(fp);
++
++	if (!memcmp(&tmp, map, offsetof(struct bpf_elf_map, id))) {
++		return 0;
++	} else {
++		memset(&zero, 0, sizeof(zero));
++		/* If kernel doesn't have eBPF-related fdinfo, we cannot do much,
++		 * so just accept it. We know we do have an eBPF fd and in this
++		 * case, everything is 0. It is guaranteed that no such map exists
++		 * since map type of 0 is unloadable BPF_MAP_TYPE_UNSPEC.
++		 */
++		if (!memcmp(&tmp, &zero, offsetof(struct bpf_elf_map, id)))
++			return 0;
++
++		fprintf(stderr, "Map specs from pinned file differ!\n");
++		return -EINVAL;
++	}
 +}
 +
- static int bpf_fill_prog_arrays(struct bpf_elf_ctx *ctx)
+ static int bpf_valid_mntpt(const char *mnt, unsigned long magic)
  {
- 	struct bpf_elf_sec_data data;
- 	uint32_t map_id, key_id;
--	int fd, i, ret;
-+	int fd, i, ret, idx;
+ 	struct statfs st_fs;
+@@ -816,6 +862,13 @@ static int bpf_map_attach(const char *name, const struct bpf_elf_map *map,
  
- 	for (i = 1; i < ctx->elf_hdr.e_shnum; i++) {
- 		if (ctx->sec_done[i])
-@@ -1153,20 +1164,20 @@ static int bpf_fill_prog_arrays(struct bpf_elf_ctx *ctx)
- 		if (ret < 0)
- 			continue;
- 
--		ret = sscanf(data.sec_name, "%u/%u", &map_id, &key_id);
--		if (ret != 2 || map_id >= ARRAY_SIZE(ctx->map_fds) ||
--		    !ctx->map_fds[map_id])
-+		ret = sscanf(data.sec_name, "%i/%i", &map_id, &key_id);
-+		if (ret != 2)
- 			continue;
--		if (ctx->maps[map_id].type != BPF_MAP_TYPE_PROG_ARRAY ||
--		    ctx->maps[map_id].max_elem <= key_id)
-+
-+		idx = bpf_find_map_by_id(ctx, map_id);
-+		if (idx < 0)
- 			continue;
- 
- 		fd = bpf_fetch_prog_sec(ctx, data.sec_name);
- 		if (fd < 0)
- 			return -EIO;
- 
--		ret = bpf_map_update(ctx->map_fds[map_id], &key_id,
--				     &fd, BPF_NOEXIST);
-+		ret = bpf_map_update(ctx->map_fds[idx], &key_id,
-+				     &fd, BPF_ANY);
- 		if (ret < 0)
- 			return -ENOENT;
- 
+ 	fd = bpf_probe_pinned(name, map->pinning);
+ 	if (fd > 0) {
++		ret = bpf_map_selfcheck_pinned(fd, map);
++		if (ret < 0) {
++			close(fd);
++			fprintf(stderr, "Map \'%s\' self-check failed!\n",
++				name);
++			return ret;
++		}
+ 		if (verbose)
+ 			fprintf(stderr, "Map \'%s\' loaded as pinned!\n",
+ 				name);
 -- 
 1.9.3
