@@ -1,85 +1,59 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH net-next v3 2/8] netfilter: Factor out nf_ct_get_info().
-Date: Wed, 25 Nov 2015 16:08:15 -0800
-Message-ID: <1448496501-109561-3-git-send-email-jarno@ovn.org>
+From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Subject: [PATCH net-next v3 1/8] netfilter: Remove IP_CT_NEW_REPLY
+	definition.
+Date: Wed, 25 Nov 2015 16:08:14 -0800
+Message-ID: <1448496501-109561-2-git-send-email-jarno@ovn.org>
 References: <1448496501-109561-1-git-send-email-jarno@ovn.org>
-Cc: netfilter-devel@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
-To: netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1448496501-109561-1-git-send-email-jarno@ovn.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1448496501-109561-1-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Define a new inline function to map conntrack status to enum
-ip_conntrack_info.  This removes the need to otherwise duplicate this
-code in a later patch ("openvswitch: Find existing conntrack entry
-after upcall.").
-
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
----
- include/net/netfilter/nf_conntrack.h | 15 +++++++++++++++
- net/netfilter/nf_conntrack_core.c    | 22 +++-------------------
- 2 files changed, 18 insertions(+), 19 deletions(-)
-
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index fde4068..b3de10e 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -125,6 +125,21 @@ nf_ct_tuplehash_to_ctrack(const struct nf_conntrack_tuple_hash *hash)
- 			    tuplehash[hash->tuple.dst.dir]);
- }
- 
-+static inline enum ip_conntrack_info
-+nf_ct_get_info(const struct nf_conntrack_tuple_hash *h)
-+{
-+	const struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
-+
-+	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY)
-+		return IP_CT_ESTABLISHED_REPLY;
-+	/* Once we've had two way comms, always ESTABLISHED. */
-+	if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status))
-+		return IP_CT_ESTABLISHED;
-+	if (test_bit(IPS_EXPECTED_BIT, &ct->status))
-+		return IP_CT_RELATED;
-+	return IP_CT_NEW;
-+}
-+
- static inline u_int16_t nf_ct_l3num(const struct nf_conn *ct)
- {
- 	return ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 3cb3cb8..70ddbd8 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1056,25 +1056,9 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
- 	ct = nf_ct_tuplehash_to_ctrack(h);
- 
- 	/* It exists; we have (non-exclusive) reference. */
--	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY) {
--		*ctinfo = IP_CT_ESTABLISHED_REPLY;
--		/* Please set reply bit if this packet OK */
--		*set_reply = 1;
--	} else {
--		/* Once we've had two way comms, always ESTABLISHED. */
--		if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
--			pr_debug("nf_conntrack_in: normal packet for %p\n", ct);
--			*ctinfo = IP_CT_ESTABLISHED;
--		} else if (test_bit(IPS_EXPECTED_BIT, &ct->status)) {
--			pr_debug("nf_conntrack_in: related packet for %p\n",
--				 ct);
--			*ctinfo = IP_CT_RELATED;
--		} else {
--			pr_debug("nf_conntrack_in: new packet for %p\n", ct);
--			*ctinfo = IP_CT_NEW;
--		}
--		*set_reply = 0;
--	}
-+	*ctinfo = nf_ct_get_info(h);
-+	*set_reply = NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY;
-+
- 	skb->nfct = &ct->ct_general;
- 	skb->nfctinfo = *ctinfo;
- 	return ct;
--- 
-2.1.4
-
+UmVtb3ZlIHRoZSBkZWZpbml0aW9uIG9mIElQX0NUX05FV19SRVBMWSBmcm9tIHRoZSBrZXJuZWwg
+YXMgaXQgZG9lcwpub3QgbWFrZSBzZW5zZS4gIFRoaXMgYWxsb3dzIHRoZSBkZWZpbml0aW9uIG9m
+IElQX0NUX05VTUJFUiB0byBiZQpzaW1wbGlmaWVkIGFzIHdlbGwuCgpTaWduZWQtb2ZmLWJ5OiBK
+YXJubyBSYWphaGFsbWUgPGphcm5vQG92bi5vcmc+Ci0tLQogaW5jbHVkZS91YXBpL2xpbnV4L25l
+dGZpbHRlci9uZl9jb25udHJhY2tfY29tbW9uLmggfCAxMiArKysrKysrKystLS0KIG5ldC9vcGVu
+dnN3aXRjaC9jb25udHJhY2suYyAgICAgICAgICAgICAgICAgICAgICAgIHwgIDIgLS0KIDIgZmls
+ZXMgY2hhbmdlZCwgOSBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBh
+L2luY2x1ZGUvdWFwaS9saW51eC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX2NvbW1vbi5oIGIvaW5j
+bHVkZS91YXBpL2xpbnV4L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29tbW9uLmgKaW5kZXggMzE5
+ZjQ3MS4uMmYwNjdjZiAxMDA2NDQKLS0tIGEvaW5jbHVkZS91YXBpL2xpbnV4L25ldGZpbHRlci9u
+Zl9jb25udHJhY2tfY29tbW9uLmgKKysrIGIvaW5jbHVkZS91YXBpL2xpbnV4L25ldGZpbHRlci9u
+Zl9jb25udHJhY2tfY29tbW9uLmgKQEAgLTIwLDkgKzIwLDE1IEBAIGVudW0gaXBfY29ubnRyYWNr
+X2luZm8gewogCiAJSVBfQ1RfRVNUQUJMSVNIRURfUkVQTFkgPSBJUF9DVF9FU1RBQkxJU0hFRCAr
+IElQX0NUX0lTX1JFUExZLAogCUlQX0NUX1JFTEFURURfUkVQTFkgPSBJUF9DVF9SRUxBVEVEICsg
+SVBfQ1RfSVNfUkVQTFksCi0JSVBfQ1RfTkVXX1JFUExZID0gSVBfQ1RfTkVXICsgSVBfQ1RfSVNf
+UkVQTFksCQotCS8qIE51bWJlciBvZiBkaXN0aW5jdCBJUF9DVCB0eXBlcyAobm8gTkVXIGluIHJl
+cGx5IGRpcm4pLiAqLwotCUlQX0NUX05VTUJFUiA9IElQX0NUX0lTX1JFUExZICogMiAtIDEKKwkv
+KiBObyBORVcgaW4gcmVwbHkgZGlyZWN0aW9uLiAqLworCisJLyogTnVtYmVyIG9mIGRpc3RpbmN0
+IElQX0NUIHR5cGVzLiAqLworCUlQX0NUX05VTUJFUgorCisJLyogb25seSBmb3IgdXNlcnNwYWNl
+IGNvbXBhdGliaWxpdHkgKi8KKyNpZm5kZWYgX19LRVJORUxfXworCUlQX0NUX05FV19SRVBMWSA9
+IElQX0NUX05VTUJFUjsKKyNlbmRpZgogfTsKIAogI2RlZmluZSBORl9DVF9TVEFURV9JTlZBTElE
+X0JJVAkJCSgxIDw8IDApCmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMg
+Yi9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKaW5kZXggYzJjYzExMS4uYTI4YTgxOSAxMDA2
+NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jCisrKyBiL25ldC9vcGVudnN3aXRj
+aC9jb25udHJhY2suYwpAQCAtNzMsNyArNzMsNiBAQCBzdGF0aWMgdTggb3ZzX2N0X2dldF9zdGF0
+ZShlbnVtIGlwX2Nvbm50cmFja19pbmZvIGN0aW5mbykKIAlzd2l0Y2ggKGN0aW5mbykgewogCWNh
+c2UgSVBfQ1RfRVNUQUJMSVNIRURfUkVQTFk6CiAJY2FzZSBJUF9DVF9SRUxBVEVEX1JFUExZOgot
+CWNhc2UgSVBfQ1RfTkVXX1JFUExZOgogCQljdF9zdGF0ZSB8PSBPVlNfQ1NfRl9SRVBMWV9ESVI7
+CiAJCWJyZWFrOwogCWRlZmF1bHQ6CkBAIC05MCw3ICs4OSw2IEBAIHN0YXRpYyB1OCBvdnNfY3Rf
+Z2V0X3N0YXRlKGVudW0gaXBfY29ubnRyYWNrX2luZm8gY3RpbmZvKQogCQljdF9zdGF0ZSB8PSBP
+VlNfQ1NfRl9SRUxBVEVEOwogCQlicmVhazsKIAljYXNlIElQX0NUX05FVzoKLQljYXNlIElQX0NU
+X05FV19SRVBMWToKIAkJY3Rfc3RhdGUgfD0gT1ZTX0NTX0ZfTkVXOwogCQlicmVhazsKIAlkZWZh
+dWx0OgotLSAKMi4xLjQKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZz
+d2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
