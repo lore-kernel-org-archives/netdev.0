@@ -1,40 +1,54 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH iproute2 -next v2 4/5] {f,m}_bpf: allow updates on program
- arrays
-Date: Thu, 26 Nov 2015 16:51:55 +0100
-Message-ID: <56572A9B.7080302@iogearbox.net>
-References: <cover.1448547199.git.daniel@iogearbox.net> <552a9be16fb84dadc8333414d1b13a27622084d9.1448547199.git.daniel@iogearbox.net> <1448551169.889784.450810993.378A2FDF@webmail.messagingengine.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: initialize tp->copied_seq in case of cross SYN
+ connection
+Date: Thu, 26 Nov 2015 08:18:14 -0800
+Message-ID: <1448554694.24696.81.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	stephen@networkplumber.org
+Cc: netdev <netdev@vger.kernel.org>, Dmitry Vyukov <dvyukov@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56735 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752570AbbKZPwA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 10:52:00 -0500
-In-Reply-To: <1448551169.889784.450810993.378A2FDF@webmail.messagingengine.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33204 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751165AbbKZQSQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 11:18:16 -0500
+Received: by pabfh17 with SMTP id fh17so92828652pab.0
+        for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 08:18:16 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/26/2015 04:19 PM, Hannes Frederic Sowa wrote:
-> On Thu, Nov 26, 2015, at 15:38, Daniel Borkmann wrote:
-[...]
-> Why does user space actually still have to deal with setting the mount
-> point private? Isn't this handled by the kernel?
->
->> +       if (mount("bpf", target, "bpf", 0, NULL)) {
->> +               fprintf(stderr, "mount -t bpf bpf %s failed: %s\n",
->> +                       target, strerror(errno));
->> +               return -1;
->> +       }
->
-> Shouldn't this be just enough?
+From: Eric Dumazet <edumazet@google.com>
 
-Note that the patch just moves the function around, but to get to your
-question, that would just make it shared by default, not private.
+Dmitry provided a syzkaller (http://github.com/google/syzkaller)
+generated program that triggers the WARNING at 
+net/ipv4/tcp.c:1729 in tcp_recvmsg() :
 
-Thanks,
-Daniel
+WARN_ON(tp->copied_seq != tp->rcv_nxt &&
+        !(flags & (MSG_PEEK | MSG_TRUNC)));
+
+His program is specifically attempting a Cross SYN TCP exchange,
+that we support (for the pleasure of hackers ?), but it looks we
+lack proper tcp->copied_seq initialization.
+
+Thanks again Dmitry for your report and testings.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Tested-by: Dmitry Vyukov <dvyukov@google.com>
+---
+ net/ipv4/tcp_input.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index a4a0b6b3bcf2..2d656eef7f8e 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5683,6 +5683,7 @@ discard:
+ 		}
+ 
+ 		tp->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
++		tp->copied_seq = tp->rcv_nxt;
+ 		tp->rcv_wup = TCP_SKB_CB(skb)->seq + 1;
+ 
+ 		/* RFC1323: The window in SYN & SYN/ACK segments is
