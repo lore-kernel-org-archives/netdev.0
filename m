@@ -1,181 +1,110 @@
-From: Konstantin Shemyak <konstantin@shemyak.com>
-Subject: Re: [PATCH iproute2] ip_tunnel: determine tunnel address family from
- the tunnel type
-Date: Thu, 26 Nov 2015 18:22:05 +0200
-Message-ID: <565731AD.4060009@shemyak.com>
-References: <59e83fe5165e4c3698a1caa3950d72a3@HQ1WP-EXMB11.corp.brocade.com>
- <20151123162609.713e34a1@xeon-e3>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: 4.3+: Atheros ethernet fails after resume from s2ram, due to order 4
+ allocation
+Date: Thu, 26 Nov 2015 17:34:13 +0100
+Message-ID: <20151126163413.GA3816@amd>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060500020402000503040509"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hapkido.dreamhost.com ([66.33.216.122]:60121 "EHLO
-	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751457AbbKZQWK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 11:22:10 -0500
-Received: from homiemail-a39.g.dreamhost.com (sub3.mail.dreamhost.com [69.163.253.7])
-	by hapkido.dreamhost.com (Postfix) with ESMTP id 190928CDC4
-	for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 08:22:10 -0800 (PST)
-In-Reply-To: <20151123162609.713e34a1@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com
+To: kernel list <linux-kernel@vger.kernel.org>, jcliburn@gmail.com,
+	chris.snook@gmail.com, netdev@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>, linux-mm@kvack.org,
+	nic-devel@qualcomm.com
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060500020402000503040509
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
+Hi!
 
-On 24.11.2015 02:26, Stephen Hemminger wrote:
-> On Thu, 12 Nov 2015 21:10:08 +0000
-> Konstantin Shemyak <konstantin@shemyak.com> wrote:
->
->> When creating an IP tunnel over IPv6, the address family must be passed in
->> the option, e.g.
->>
->> ip -6 tunnel add mode ip6gre local 1::1 remote 2::2
->>
->> This makes it impossible to create both IPv4 and IPv6 tunnels in one batch.
->>
->> In fact the address family option is redundant here, as each tunnel mode is
->> relevant for only one address family.
->> The patch determines whether the applicable address family is AF_INET6
->> instead of the default AF_INET and makes the "-6" option unnecessary for
->> "ip tunnel add".
->>
->> Signed-off-by: Konstantin Shemyak <konstantin@shemyak.com>
->> ---
->>   ip/iptunnel.c                          | 26 ++++++++++++++++++++++++++
->>   testsuite/tests/ip/tunnel/add_tunnel.t | 14 ++++++++++++++
->>   2 files changed, 40 insertions(+)
->>   create mode 100755 testsuite/tests/ip/tunnel/add_tunnel.t
->>
->> diff --git a/ip/iptunnel.c b/ip/iptunnel.c
->> index 78fa988..7826a37 100644
->> --- a/ip/iptunnel.c
->> +++ b/ip/iptunnel.c
->> @@ -629,8 +629,34 @@ static int do_6rd(int argc, char **argv)
->>          return tnl_6rd_ioctl(cmd, medium, &ip6rd);
->>   }
->>
->> +static int tunnel_mode_is_ipv6(char *tunnel_mode) {
->> +       char *ipv6_modes[] = {
->> +               "ipv6/ipv6", "ip6ip6",
->> +               "vti6",
->> +               "ip/ipv6", "ipv4/ipv6", "ipip6", "ip4ip6",
->> +               "ip6gre", "gre/ipv6",
->> +               "any/ipv6", "any"
->> +       };
->> +       int i;
->> +
->> +       for (i = 0; i < sizeof(ipv6_modes) / sizeof(char *); i++) {
->> +               if (strcmp(ipv6_modes[i], tunnel_mode) == 0)
->> +                       return 1;
->> +       }
->> +       return 0;
->> +}
->> +
->
-> The ipv6_modes table should be static const.
+...and dmesg tells us what is going on:
 
-Thank you for the note! attached the corrected patch.
+[ 6961.550240] NetworkManager: page allocation failure: order:4,
+mode:0x2080020
+[ 6961.550249] CPU: 0 PID: 2590 Comm: NetworkManager Tainted: G
+W       4.3.0+ #124
+[ 6961.550250] Hardware name: Acer Aspire 5732Z/Aspire 5732Z, BIOS
+V3.07 02/10/2010
+[ 6961.550252]  00000000 00000000 f2ad1a04 c42ba5b8 00000000 f2ad1a2c
+c40d650a c4d3ee1c
+[ 6961.550260]  f34ef600 00000004 02080020 c4eeef40 00000000 00000010
+00000000 f2ad1ac8
+[ 6961.550266]  c40d8caa 02080020 00000004 00000000 00000070 f34ef200
+00000060 00000010
+[ 6961.550272] Call Trace:
+...[ 6961.550299]  [<c4006811>] dma_generic_alloc_coherent+0x71/0x120
+[ 6961.550301]  [<c40067a0>] ? via_no_dac+0x30/0x30
+[ 6961.550307]  [<c465b16e>] atl1c_open+0x29e/0x300
+[ 6961.550313]  [<c48b96f5>] ? call_netdevice_notifiers_info+0x25/0x50
+[ 6961.550316]  [<c48c081b>] __dev_open+0x7b/0xf0
+[ 6961.550318]  [<c48c0ac9>] __dev_change_flags+0x89/0x140
+[ 6961.550320]  [<c48c0ba3>] dev_change_flags+0x23/0x60
+[ 6961.550325]  [<c48ce416>] do_setlink+0x286/0x7b0
+[ 6961.550328]  [<c42ded02>] ? nla_parse+0x22/0xd0
+[ 6961.550330]  [<c48cf906>] rtnl_newlink+0x5d6/0x860
+[ 6961.550336]  [<c407f8a1>] ? __lock_acquire.isra.24+0x3a1/0xc80
+[ 6961.550342]  [<c4047ae2>] ? ns_capable+0x22/0x60
+[ 6961.550345]  [<c48e7c5d>] ? __netlink_ns_capable+0x2d/0x40
+[ 6961.550351]  [<c49c9c54>] ? xprt_transmit+0x94/0x220
+[ 6961.550354]  [<c48cd9e6>] rtnetlink_rcv_msg+0x76/0x1f0
+[ 6961.550356]  [<c48cd970>] ? rtnetlink_rcv+0x30/0x30
+[ 6961.550359]  [<c48eb35e>] netlink_rcv_skb+0x8e/0xb0
+...
+[ 6961.550412] Mem-Info:
+[ 6961.550417] active_anon:30319 inactive_anon:25075 isolated_anon:0
+ active_file:327764 inactive_file:152179 isolated_file:16
+  unevictable:0 dirty:6 writeback:0 unstable:0
+   slab_reclaimable:149091 slab_unreclaimable:18973
+    mapped:18100 shmem:4847 pagetables:1538 bounce:0
+     free:57732 free_pcp:10 free_cma:0
+...
+[ 6961.550492] 485897 total pagecache pages
+[ 6961.550494] 1086 pages in swap cache
+[ 6961.550496] Swap cache stats: add 16738, delete 15652, find
+6708/8500
+[ 6961.550497] Free swap  = 1656440kB
+[ 6961.550498] Total swap = 1681428kB
+[ 6961.550499] 785914 pages RAM
+[ 6961.550500] 557663 pages HighMem/MovableOnly
+[ 6961.550501] 12639 pages reserved
+[ 6961.550506] atl1c 0000:05:00.0: pci_alloc_consistend failed
+[ 6962.148358] psmouse serio1: synaptics: queried max coordinates: x
+[..5772], y [..5086]
 
-> Also is it possible to use strstr for ipv6 and ip6 or even strchr(tunnel_mode, '6')
-> to simplify this?
+Order 4 allocation... probably doable during boot, but not really
+suitable during resume.
 
-There is IPv6 tunnel mode 'any', and IPv4 tunnel mode 'ipv6/ip' (aka 
-'sit'). It looks to me that attempts to find some substring match
-would not make the code much shorter, but definitely less readable.
+I'm not sure how repeatable it is, but it definitely happened more
+than once.
 
-Konstantin Shemyak.
+        /*                                                                      
+         * real ring DMA buffer                                                 
+         * each ring/block may need up to 8 bytes for alignment, hence the      
+         * additional bytes tacked onto the end.                                
+         */
+        ring_header->size = size =
+                sizeof(struct atl1c_tpd_desc) * tpd_ring->count * 2 +
+                sizeof(struct atl1c_rx_free_desc) * rx_desc_count +
+                sizeof(struct atl1c_recv_ret_status) * rx_desc_count +
+                8 * 4;
 
---------------060500020402000503040509
-Content-Type: text/x-patch;
- name="0001-Tunnel-address-family-is-determined-from-the-tunnel-.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename*0="0001-Tunnel-address-family-is-determined-from-the-tunnel-.pa";
- filename*1="tch"
+        ring_header->desc = pci_alloc_consistent(pdev, ring_header->size,
+                                &ring_header->dma);
+        if (unlikely(!ring_header->desc)) {
+                dev_err(&pdev->dev, "pci_alloc_consistend failed\n");
+                goto err_nomem;
+        }
 
->From 42d27db0055c3a114fe6eb86d680bef9ec098ad4 Mon Sep 17 00:00:00 2001
-From: Konstantin Shemyak <konstantin@shemyak.com>
-Date: Thu, 12 Nov 2015 20:52:02 +0200
-Subject: [PATCH] Tunnel address family is determined from the tunnel mode
+(Note the typo in dev_err... at least it is easy to grep).
 
-When the tunnel mode already tells the IP address family, "ip tunnel"
-command determines it and does not require option "-4"/"-6" to be passed.
-
-This makes possible creating both IPv4 and IPv6 tunnels in one batch.
-
-Signed-off-by: Konstantin Shemyak <konstantin@shemyak.com>
----
- ip/iptunnel.c                          | 26 ++++++++++++++++++++++++++
- testsuite/tests/ip/tunnel/add_tunnel.t | 14 ++++++++++++++
- 2 files changed, 40 insertions(+)
- create mode 100755 testsuite/tests/ip/tunnel/add_tunnel.t
-
-diff --git a/ip/iptunnel.c b/ip/iptunnel.c
-index b9552ed..096bbe4 100644
---- a/ip/iptunnel.c
-+++ b/ip/iptunnel.c
-@@ -570,8 +570,34 @@ static int do_6rd(int argc, char **argv)
- 	return tnl_6rd_ioctl(cmd, medium, &ip6rd);
- }
- 
-+static int tunnel_mode_is_ipv6(char *tunnel_mode) {
-+	static const char *ipv6_modes[] = {
-+		"ipv6/ipv6", "ip6ip6",
-+		"vti6",
-+		"ip/ipv6", "ipv4/ipv6", "ipip6", "ip4ip6",
-+		"ip6gre", "gre/ipv6",
-+		"any/ipv6", "any"
-+	};
-+	int i;
-+
-+	for (i = 0; i < sizeof(ipv6_modes) / sizeof(ipv6_modes[0]); i++) {
-+		if (strcmp(ipv6_modes[i], tunnel_mode) == 0)
-+			return 1;
-+	}
-+	return 0;
-+}
-+
- int do_iptunnel(int argc, char **argv)
- {
-+	int i;
-+
-+	for (i = 0; i < argc - 1; i++) {
-+		if (strcmp(argv[i], "mode") == 0) {
-+			if (tunnel_mode_is_ipv6(argv[i + 1]))
-+				preferred_family = AF_INET6;
-+			break;
-+		}
-+	}
- 	switch (preferred_family) {
- 	case AF_UNSPEC:
- 		preferred_family = AF_INET;
-diff --git a/testsuite/tests/ip/tunnel/add_tunnel.t b/testsuite/tests/ip/tunnel/add_tunnel.t
-new file mode 100755
-index 0000000..18f6e37
---- /dev/null
-+++ b/testsuite/tests/ip/tunnel/add_tunnel.t
-@@ -0,0 +1,14 @@
-+#!/bin/sh
-+
-+source lib/generic.sh
-+
-+TUNNEL_NAME="tunnel_test_ip"
-+
-+ts_log "[Testing add/del tunnels]"
-+
-+ts_ip "$0" "Add GRE tunnel over IPv4" tunnel add name $TUNNEL_NAME mode gre local 1.1.1.1 remote 2.2.2.2
-+ts_ip "$0" "Del GRE tunnel over IPv4" tunnel del $TUNNEL_NAME
-+
-+ts_ip "$0" "Add GRE tunnel over IPv6" tunnel add name $TUNNEL_NAME mode ip6gre local dead:beef::1 remote dead:beef::2
-+ts_ip "$0" "Del GRE tunnel over IPv6" tunnel del $TUNNEL_NAME
-+
+Ok, so what went on is easy.. any ideas how to fix it?
+									Pavel
 -- 
-1.9.1
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
 
-
---------------060500020402000503040509--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
