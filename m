@@ -1,42 +1,81 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: brcm80211: Delete an unnecessary check before the function
- call"release_firmware"
-Date: Thu, 26 Nov 2015 12:04:50 +0000 (UTC)
-Message-ID: <20151126120450.AA72313F2A0@smtp.codeaurora.org>
-References: <563C5DA2.3000005@users.sourceforge.net>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: next-20151126 build: 3 failures 15 warnings (next-20151126)
+Date: Thu, 26 Nov 2015 12:15:51 +0000
+Message-ID: <20151126121551.GE1929@sirena.org.uk>
+References: <E1a1sVV-00079q-My@optimist>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
-To: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <563C5DA2.3000005-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/mixed; boundary="===============5716140196955500273=="
+Cc: linaro-kernel@lists.linaro.org, kernel-build-reports@lists.linaro.org,
+ netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+ ath10k@lists.infradead.org, linux-next@vger.kernel.org
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org>
+In-Reply-To: <E1a1sVV-00079q-My@optimist>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/ath10k>,
+ <mailto:ath10k-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/ath10k/>
+List-Post: <mailto:ath10k@lists.infradead.org>
+List-Help: <mailto:ath10k-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/ath10k>,
+ <mailto:ath10k-request@lists.infradead.org?subject=subscribe>
+Sender: "ath10k" <ath10k-bounces@lists.infradead.org>
+Errors-To: ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 
-> From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-> Date: Fri, 6 Nov 2015 08:48:23 +0100
-> 
-> The release_firmware() function tests whether its argument is NULL and then
-> returns immediately. Thus the test around the call is not needed.
-> 
-> This issue was detected by using the Coccinelle software.
-> 
-> Signed-off-by: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-> Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+--===============5716140196955500273==
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="m4E4Spob7u7JiHeu"
+Content-Disposition: inline
 
-Thanks, applied to wireless-drivers-next.git.
 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--m4E4Spob7u7JiHeu
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Thu, Nov 26, 2015 at 09:06:25AM +0000, Build bot for Mark Brown wrote:
+
+Today's -next fails to build an arm64 allmodconfig due to:
+
+> 	arm64-allmodconfig
+> ../drivers/net/wireless/ath/ath10k/thermal.c:119:6: error: redefinition of 'ath10k_thermal_event_temperature'
+> ../drivers/net/wireless/ath/ath10k/thermal.c:136:6: error: redefinition of 'ath10k_thermal_set_throttling'
+> ../drivers/net/wireless/ath/ath10k/thermal.c:162:5: error: redefinition of 'ath10k_thermal_register'
+> ../drivers/net/wireless/ath/ath10k/thermal.c:216:6: error: redefinition of 'ath10k_thermal_unregister'
+
+This is happening because there are stub functions provided in the
+driver's thermal.h for !THERMAL cases but these are guarded by an #ifdef
+not an #if and so fails to do the right thing if the thermal code is
+built as a module.  It looks like this was somehow triggered as part of
+the reorganisation of the WiFi directory structure.
+
+--m4E4Spob7u7JiHeu
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJWVvf2AAoJECTWi3JdVIfQuiYH/23woji0tzwwjNpKGq5bC2ey
+9rl97Fivok7v2kwAx0FvEOgMySjQRhD9YwkYQNeYx/o4C5Tgh94R3kIyDjZD/Aec
+I7iYgjtmbp8zuGA1BQO9nAss+6GInScz08YW3Al6eUOM2dT4/3TeEK/BAiX+MqVZ
+Fnt3d9OMpDJppjgI3cZRF0Px3WYwtVhwRVKm+YpNAgbYodR5S2uRq/6IjQzeuPZI
+0l8X3jhN1KpYth3Yr4aGKQuEbHqkoBYQbMN5iO5AYRcS2QbRGVtTMjxmpBDQAt+D
+lKJavV6kA/1kCf/ba8A3Aduvz45+Ka/H1T3kim/F7rBwQb4t8aSu1J1J6eYKBmQ=
+=bf0c
+-----END PGP SIGNATURE-----
+
+--m4E4Spob7u7JiHeu--
+
+
+--===============5716140196955500273==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+ath10k mailing list
+ath10k@lists.infradead.org
+http://lists.infradead.org/mailman/listinfo/ath10k
+
+--===============5716140196955500273==--
