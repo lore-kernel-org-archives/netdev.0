@@ -1,64 +1,75 @@
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git)] stmmac: fix resource management when resume
-Date: Thu, 26 Nov 2015 11:32:04 +0100
-Message-ID: <1448533924-20684-1-git-send-email-peppe.cavallaro@st.com>
-References: <1448181858-5935-1-git-send-email-zhengsq@rock-chips.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Subject: Re: [PATCH v1] net: stmmac: Free rx_skbufs before realloc
+Date: Thu, 26 Nov 2015 11:26:03 +0100
+Message-ID: <5656DE3B.9030602@st.com>
+References: <1448181858-5935-1-git-send-email-zhengsq@rock-chips.com>	<1448181858-5935-2-git-send-email-zhengsq@rock-chips.com>
+ <20151124.130924.1365382562223060152.davem@davemloft.net>
+ <5655D004.4040502@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:43268 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750801AbbKZKYi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 05:24:38 -0500
-In-Reply-To: <1448181858-5935-1-git-send-email-zhengsq@rock-chips.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, dianders-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <zhengsq-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <5655D004.4040502-qxv4g6HH51o@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-There is a memleak when suspend/resume this driver version.
-Currently the stmmac, during resume step, reallocates all the resources
-but they are not released when suspend.
-The patch is not to release these resources but the logic has been changed.
-In fact, it is not necessary to free and reallocate all from scratch
-because the memory data will be always preserved.
-As final solution, the patch just reinit the descriptors and the rx/tx
-pointers only when resume. Tested done on STi boxes.
+On 11/25/2015 4:13 PM, Giuseppe CAVALLARO wrote:
+> Hello
+>
+> On 11/24/2015 7:09 PM, David Miller wrote:
+>> From: Shunqian Zheng <zhengsq-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+>> Date: Sun, 22 Nov 2015 16:44:18 +0800
+>>
+>>> From: ZhengShunQian <zhengsq-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+>>>
+>>> The init_dma_desc_rings() may realloc the rx_skbuff[] when
+>>> suspend and resume. This patch free the rx_skbuff[] before
+>>> reallocing memory.
+>>>
+>>> Signed-off-by: ZhengShunQian <zhengsq-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+>>
+>> This isn't really the right way to fix this.
+>>
+>> I see two reasonable approaches:
+>>
+>> 1) suspend liberates the RX ring, although this approach is less
+>>     desirable
+>>
+>> 2) resume doesn't try to allocate already populated RX ring
+>>     entries
+>>
+>> Freeing the whole RX ring just to allocate it again immediately
+>> makes no sense at all and is wasteful work.
+>
+> This is a bug in this driver version that, to be honest, we fixed with
+> the first approach on STi kernel.
+> The patch just called the dma_free_rx_skbufs(priv) in the suspend.
+> I can give you this patch that is tested on my side too.
+> But! I do think we should move on second approach.
+> Indeed, also on ST platforms, when we play with suspend states
+> the DDR although in self-refresh the data are not lost at all.
+> No reason to free and reallocate all in suspend/resume.
+> I can test that and then provide another patch to this mailing list
+> asap.
 
-Reported-by: ZhengShunQian <zhengsq@rock-chips.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
+I have just send the patch (directly for approach #2).
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 64d8aa4..5a1abc0 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -3040,8 +3040,6 @@ int stmmac_suspend(struct net_device *ndev)
- 	priv->hw->dma->stop_tx(priv->ioaddr);
- 	priv->hw->dma->stop_rx(priv->ioaddr);
- 
--	stmmac_clear_descriptors(priv);
--
- 	/* Enable Power down mode by programming the PMT regs */
- 	if (device_may_wakeup(priv->device)) {
- 		priv->hw->mac->pmt(priv->hw, priv->wolopts);
-@@ -3099,7 +3097,12 @@ int stmmac_resume(struct net_device *ndev)
- 
- 	netif_device_attach(ndev);
- 
--	init_dma_desc_rings(ndev, GFP_ATOMIC);
-+	priv->cur_rx = 0;
-+	priv->dirty_rx = 0;
-+	priv->dirty_tx = 0;
-+	priv->cur_tx = 0;
-+	stmmac_clear_descriptors(priv);
-+
- 	stmmac_hw_setup(ndev, false);
- 	stmmac_init_tx_coalesce(priv);
- 
--- 
-1.7.4.4
+Peppe
+
+>
+> Let me know.
+> peppe
+>
+>
+>
