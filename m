@@ -1,67 +1,75 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 12/15] i40evf: fix compiler warning of unused variable
-Date: Thu, 26 Nov 2015 17:03:59 +0300
-Message-ID: <5657114F.2020009@cogentembedded.com>
-References: <1448307376-20063-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1448307376-20063-13-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net-next 2/7] net: ipmr: remove unused MFC_NOTIFY flag and make the flags enum
+Date: Thu, 26 Nov 2015 15:23:45 +0100
+Message-ID: <1448547830-21716-3-git-send-email-razor@blackwall.org>
+References: <1448547830-21716-1-git-send-email-razor@blackwall.org>
+Cc: davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f42.google.com ([209.85.215.42]:33111 "EHLO
-	mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751016AbbKZOEC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 09:04:02 -0500
-Received: by lfaz4 with SMTP id z4so98962937lfa.0
-        for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 06:04:00 -0800 (PST)
-In-Reply-To: <1448307376-20063-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:34877 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750759AbbKZOYE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 09:24:04 -0500
+Received: by wmuu63 with SMTP id u63so23501773wmu.0
+        for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 06:24:03 -0800 (PST)
+In-Reply-To: <1448547830-21716-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-On 11/23/2015 10:36 PM, Jeff Kirsher wrote:
+MFC_NOTIFY was introduced in kernel 2.1.68 but afaik it hasn't been used
+and I couldn't find any users currently so just remove it. Only
+MFC_STATIC is left, so move it into an enum, add a description and use
+BIT().
 
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
->
-> Compiler complained of an unused variable, which the driver was just
-> using to store the result of a rd32 which is used to clear a register
-> unconditionally.  Just drop the unused variable and re-use one.
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ include/linux/mroute.h | 10 +++++++---
+ net/ipv4/ipmr.c        |  2 --
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
-   I don't see Jesse dropping anything...
-
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->   drivers/net/ethernet/intel/i40evf/i40evf_main.c | 7 +++----
->   1 file changed, 3 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-> index d962164..6ad6265 100644
-> --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-> +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-> @@ -307,10 +307,9 @@ static irqreturn_t i40evf_msix_aq(int irq, void *data)
->   	struct i40e_hw *hw = &adapter->hw;
->   	u32 val;
->
-> -	/* handle non-queue interrupts */
-> -	rd32(hw, I40E_VFINT_ICR01);
-> -	rd32(hw, I40E_VFINT_ICR0_ENA1);
-> -
-> +	/* handle non-queue interrupts, these reads clear the registers */
-> +	val = rd32(hw, I40E_VFINT_ICR01);
-> +	val = rd32(hw, I40E_VFINT_ICR0_ENA1);
-
-    Why if it's ignored anyway?
-
->
->   	val = rd32(hw, I40E_VFINT_DYN_CTL01) |
->   	      I40E_VFINT_DYN_CTL01_CLEARPBA_MASK;
-
-
-MBR, Sergei
+diff --git a/include/linux/mroute.h b/include/linux/mroute.h
+index 79aaa9fc1a15..fa66ebc1fed6 100644
+--- a/include/linux/mroute.h
++++ b/include/linux/mroute.h
+@@ -64,6 +64,13 @@ struct vif_device {
+ 
+ #define VIFF_STATIC 0x8000
+ 
++/* mfc_flags:
++ * MFC_STATIC - the entry was added statically (not by a routing daemon)
++ */
++enum {
++	MFC_STATIC = BIT(0),
++};
++
+ struct mfc_cache {
+ 	struct list_head list;
+ 	__be32 mfc_mcastgrp;			/* Group the entry belongs to 	*/
+@@ -89,9 +96,6 @@ struct mfc_cache {
+ 	struct rcu_head	rcu;
+ };
+ 
+-#define MFC_STATIC		1
+-#define MFC_NOTIFY		2
+-
+ #define MFC_LINES		64
+ 
+ #ifdef __BIG_ENDIAN
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index a2d248d9c35c..a74e61883b8f 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -2199,8 +2199,6 @@ int ipmr_get_route(struct net *net, struct sk_buff *skb,
+ 	}
+ 
+ 	read_lock(&mrt_lock);
+-	if (!nowait && (rtm->rtm_flags & RTM_F_NOTIFY))
+-		cache->mfc_flags |= MFC_NOTIFY;
+ 	err = __ipmr_fill_mroute(mrt, skb, cache, rtm);
+ 	read_unlock(&mrt_lock);
+ 	rcu_read_unlock();
+-- 
+2.4.3
