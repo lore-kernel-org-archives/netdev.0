@@ -1,182 +1,78 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 5/6] mlxsw: reg: Add definition of fan management registers
-Date: Thu, 26 Nov 2015 12:03:32 +0100
-Message-ID: <1448535813-14882-6-git-send-email-jiri@resnulli.us>
-References: <1448535813-14882-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com
-To: netdev@vger.kernel.org
+From: Stefan Schmidt <stefan@osg.samsung.com>
+Subject: Re: [RFCv2 bluetooth-next 1/3] 6lowpan: add debugfs support
+Date: Thu, 26 Nov 2015 12:07:32 +0100
+Message-ID: <5656E7F4.90009@osg.samsung.com>
+References: <1447799594-6050-1-git-send-email-alex.aring@gmail.com>
+ <1447799594-6050-2-git-send-email-alex.aring@gmail.com>
+ <5655E4F8.3050900@osg.samsung.com> <20151125180049.GA4652@omega>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wpan@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org, kernel@pengutronix.de, mcr@sandelman.ca,
+	lukasz.duda@nordicsemi.no, martin.gergeleit@hs-rm.de
+To: Alexander Aring <alex.aring@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:36720 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751368AbbKZLDm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 06:03:42 -0500
-Received: by wmww144 with SMTP id w144so16716466wmw.1
-        for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 03:03:41 -0800 (PST)
-In-Reply-To: <1448535813-14882-1-git-send-email-jiri@resnulli.us>
+Received: from lists.s-osg.org ([54.187.51.154]:58957 "EHLO lists.s-osg.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750698AbbKZLHq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Nov 2015 06:07:46 -0500
+In-Reply-To: <20151125180049.GA4652@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+Hello.
 
-Add definition of MFCR, MFSC and MFSM which provide possibility to
-control and monitor fans.
+On 25/11/15 19:00, Alexander Aring wrote:
+> Hi,
+>
+> On Wed, Nov 25, 2015 at 05:42:32PM +0100, Stefan Schmidt wrote:
+>> Hello.
+>>
+>> On 17/11/15 23:33, Alexander Aring wrote:
+>>> This patch will introduce a 6lowpan entry into the debugfs if enabled.
+>>> Inside this 6lowpan directory we create a subdirectories of all 6lowpan
+>>> interfaces to offer a per interface debugfs support.
+> ...
+>
+>>>   static void lowpan_dellink(struct net_device *ldev, struct list_head *head)
+>>> @@ -180,6 +187,7 @@ static void lowpan_dellink(struct net_device *ldev, struct list_head *head)
+>>>   	ASSERT_RTNL();
+>>>   	wdev->ieee802154_ptr->lowpan_dev = NULL;
+>>> +	lowpan_netdev_unsetup(ldev);
+>>>   	unregister_netdevice(ldev);
+>>>   	dev_put(wdev);
+>>>   }
+>> If you are going to change the th uninit to exit and the unsetup to teardown
+>> you can add my review.
+>>
+>> Reviewed-by: Stefan Schmidt <stefan@osg.samsung.com>
+>>
+> I will add a patch which introduce the two functions:
+>
+> lowpan_register_netdevice - register_netdevice (without rtnl lock)
+> lowpan_register_netdev - register_netdev (with rtnl lock)
+>
+> These two functions will call register_netdevice/register_netdev and 6lowpan
+> debugfs init.
+>
+>
+> I will remove the lowpan_netdev_unsetup function and introduce a:
+>
+> lowpan_unregister_netdevice - unregister_netdevice
+>
+> which calls unregister_netdevice and lowpan_dev_debugfs_exit. I will
+> change the uninit to exit.
+>
+> Then we keep the same naming stuff like netdev and these function should
+> always called when doing register_netdev/unregister_netdev for all
+> lowpan interface.
+>
+> Then we can also move lowpan_netdev_setup before register_netdev. This
+> will move more functionality which should be the same on all lowpan
+> interfaces into the net/6lowpan branch.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 133 ++++++++++++++++++++++++++++++
- 1 file changed, 133 insertions(+)
+Sounds good to me.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 459e0490..f894193 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -2087,6 +2087,133 @@ static inline void mlxsw_reg_hpkt_pack(char *payload, u8 action, u16 trap_id)
- 	mlxsw_reg_hpkt_ctrl_set(payload, MLXSW_REG_HPKT_CTRL_PACKET_DEFAULT);
- }
- 
-+/* MFCR - Management Fan Control Register
-+ * --------------------------------------
-+ * This register controls the settings of the Fan Speed PWM mechanism.
-+ */
-+#define MLXSW_REG_MFCR_ID 0x9001
-+#define MLXSW_REG_MFCR_LEN 0x08
-+
-+static const struct mlxsw_reg_info mlxsw_reg_mfcr = {
-+	.id = MLXSW_REG_MFCR_ID,
-+	.len = MLXSW_REG_MFCR_LEN,
-+};
-+
-+enum mlxsw_reg_mfcr_pwm_frequency {
-+	MLXSW_REG_MFCR_PWM_FEQ_11HZ = 0x00,
-+	MLXSW_REG_MFCR_PWM_FEQ_14_7HZ = 0x01,
-+	MLXSW_REG_MFCR_PWM_FEQ_22_1HZ = 0x02,
-+	MLXSW_REG_MFCR_PWM_FEQ_1_4KHZ = 0x40,
-+	MLXSW_REG_MFCR_PWM_FEQ_5KHZ = 0x41,
-+	MLXSW_REG_MFCR_PWM_FEQ_20KHZ = 0x42,
-+	MLXSW_REG_MFCR_PWM_FEQ_22_5KHZ = 0x43,
-+	MLXSW_REG_MFCR_PWM_FEQ_25KHZ = 0x44,
-+};
-+
-+/* reg_mfcr_pwm_frequency
-+ * Controls the frequency of the PWM signal.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, mfcr, pwm_frequency, 0x00, 0, 6);
-+
-+#define MLXSW_MFCR_TACHOS_MAX 10
-+
-+/* reg_mfcr_tacho_active
-+ * Indicates which of the tachometer is active (bit per tachometer).
-+ * Access: RO
-+ */
-+MLXSW_ITEM32(reg, mfcr, tacho_active, 0x04, 16, MLXSW_MFCR_TACHOS_MAX);
-+
-+#define MLXSW_MFCR_PWMS_MAX 5
-+
-+/* reg_mfcr_pwm_active
-+ * Indicates which of the PWM control is active (bit per PWM).
-+ * Access: RO
-+ */
-+MLXSW_ITEM32(reg, mfcr, pwm_active, 0x04, 0, MLXSW_MFCR_PWMS_MAX);
-+
-+static inline void
-+mlxsw_reg_mfcr_pack(char *payload,
-+		    enum mlxsw_reg_mfcr_pwm_frequency pwm_frequency)
-+{
-+	MLXSW_REG_ZERO(mfcr, payload);
-+	mlxsw_reg_mfcr_pwm_frequency_set(payload, pwm_frequency);
-+}
-+
-+static inline void
-+mlxsw_reg_mfcr_unpack(char *payload,
-+		      enum mlxsw_reg_mfcr_pwm_frequency *p_pwm_frequency,
-+		      u16 *p_tacho_active, u8 *p_pwm_active)
-+{
-+	*p_pwm_frequency = mlxsw_reg_mfcr_pwm_frequency_get(payload);
-+	*p_tacho_active = mlxsw_reg_mfcr_tacho_active_get(payload);
-+	*p_pwm_active = mlxsw_reg_mfcr_pwm_active_get(payload);
-+}
-+
-+/* MFSC - Management Fan Speed Control Register
-+ * --------------------------------------------
-+ * This register controls the settings of the Fan Speed PWM mechanism.
-+ */
-+#define MLXSW_REG_MFSC_ID 0x9002
-+#define MLXSW_REG_MFSC_LEN 0x08
-+
-+static const struct mlxsw_reg_info mlxsw_reg_mfsc = {
-+	.id = MLXSW_REG_MFSC_ID,
-+	.len = MLXSW_REG_MFSC_LEN,
-+};
-+
-+/* reg_mfsc_pwm
-+ * Fan pwm to control / monitor.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, mfsc, pwm, 0x00, 24, 3);
-+
-+/* reg_mfsc_pwm_duty_cycle
-+ * Controls the duty cycle of the PWM. Value range from 0..255 to
-+ * represent duty cycle of 0%...100%.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, mfsc, pwm_duty_cycle, 0x04, 0, 8);
-+
-+static inline void mlxsw_reg_mfsc_pack(char *payload, u8 pwm,
-+				       u8 pwm_duty_cycle)
-+{
-+	MLXSW_REG_ZERO(mfsc, payload);
-+	mlxsw_reg_mfsc_pwm_set(payload, pwm);
-+	mlxsw_reg_mfsc_pwm_duty_cycle_set(payload, pwm_duty_cycle);
-+}
-+
-+/* MFSM - Management Fan Speed Measurement
-+ * ---------------------------------------
-+ * This register controls the settings of the Tacho measurements and
-+ * enables reading the Tachometer measurements.
-+ */
-+#define MLXSW_REG_MFSM_ID 0x9003
-+#define MLXSW_REG_MFSM_LEN 0x08
-+
-+static const struct mlxsw_reg_info mlxsw_reg_mfsm = {
-+	.id = MLXSW_REG_MFSM_ID,
-+	.len = MLXSW_REG_MFSM_LEN,
-+};
-+
-+/* reg_mfsm_tacho
-+ * Fan tachometer index.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, mfsm, tacho, 0x00, 24, 4);
-+
-+/* reg_mfsm_rpm
-+ * Fan speed (round per minute).
-+ * Access: RO
-+ */
-+MLXSW_ITEM32(reg, mfsm, rpm, 0x04, 0, 16);
-+
-+static inline void mlxsw_reg_mfsm_pack(char *payload, u8 tacho)
-+{
-+	MLXSW_REG_ZERO(mfsm, payload);
-+	mlxsw_reg_mfsm_tacho_set(payload, tacho);
-+}
-+
- /* MTCAP - Management Temperature Capabilities
-  * -------------------------------------------
-  * This register exposes the capabilities of the device and
-@@ -2556,6 +2683,12 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "HTGT";
- 	case MLXSW_REG_HPKT_ID:
- 		return "HPKT";
-+	case MLXSW_REG_MFCR_ID:
-+		return "MFCR";
-+	case MLXSW_REG_MFSC_ID:
-+		return "MFSC";
-+	case MLXSW_REG_MFSM_ID:
-+		return "MFSM";
- 	case MLXSW_REG_MTCAP_ID:
- 		return "MTCAP";
- 	case MLXSW_REG_MTMP_ID:
--- 
-1.9.3
+regards
+Stefan Schmidt
