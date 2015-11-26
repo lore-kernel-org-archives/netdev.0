@@ -1,71 +1,36 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Phil Sutter <phil@nwl.cc>
 Subject: Re: [iproute PATCH RFC] libnetlink: introduce DECLARE_NLREQ
-Date: Thu, 26 Nov 2015 14:56:30 +0100
-Message-ID: <87oaegx3sh.fsf@stressinduktion.org>
+Date: Thu, 26 Nov 2015 15:00:01 +0100
+Message-ID: <20151126140001.GA14223@orbit.nwl.cc>
 References: <1448544365-23153-1-git-send-email-phil@nwl.cc>
+ <87oaegx3sh.fsf@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>, Stephen Hemminger <shemming@brocade.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemming@brocade.com>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:55417 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751570AbbKZN4c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 08:56:32 -0500
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id BAB2F20B58
-	for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 08:56:31 -0500 (EST)
-In-Reply-To: <1448544365-23153-1-git-send-email-phil@nwl.cc>
+Received: from orbit.nwl.cc ([176.31.251.142]:48635 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751274AbbKZOAE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Nov 2015 09:00:04 -0500
+Content-Disposition: inline
+In-Reply-To: <87oaegx3sh.fsf@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Phil Sutter <phil@nwl.cc> writes:
+On Thu, Nov 26, 2015 at 02:56:30PM +0100, Hannes Frederic Sowa wrote:
+> > +#define DECLARE_NLREQ(name, hdrname, payload, tailroom)                       \
+> > +	struct {                                                              \
+> > +		struct nlmsghdr hdrname;                                      \
+> > +		payload;                                                      \
+> > +		char __b[tailroom] __attribute__((aligned(NLMSG_ALIGNTO)));   \
+> > +	} name = { .hdrname = {                                               \
+> > +		.nlmsg_len = (unsigned long)&name.__b - (unsigned long)&name, \
+> 
+> offsetof(typeof(name), __b) ?
 
-> This macro aims to simplify most netlink users' pattern to prepare a
-> request, which is to create an unnamed struct and initialize it:
->
-> | struct {
-> |	struct nlmsghdr n;
-> |	struct whatever foo;
-> |	char buf[arbitrary number];
-> | } req;
-> |
-> | memset(&req, 0, sizeof(req));
-> | req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct whatever));
-> | req.n.nlmsg_flags = NLM_F_REQUEST;
->
-> Having this patch applied, the above can be replaced by a static
-> initializer like so:
->
-> | DECLARE_NLREQ(req, n, struct whatever foo, arbitrary number);
->
-> There is an added benefit, as well: Due to explicit alignment, the
-> requested tailroom is really as big as requested no matter what size
-> struct whatever really is.
->
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
-> This patch is RFC because I want to wait for peer review and upstream
-> acceptance before sending in the big refactoring patch itself.
-> ---
->  include/libnetlink.h | 11 +++++++++++
->  1 file changed, 11 insertions(+)
->
-> diff --git a/include/libnetlink.h b/include/libnetlink.h
-> index 2280c39c670a4..7e12a7b12b55d 100644
-> --- a/include/libnetlink.h
-> +++ b/include/libnetlink.h
-> @@ -196,5 +196,16 @@ int rtnl_from_file(FILE *, rtnl_listen_filter_t handler,
->   * messages from dump file */
->  #define NLMSG_TSTAMP	15
->  
-> +/* declare a netlink request with initial payload */
-> +#define DECLARE_NLREQ(name, hdrname, payload, tailroom)                       \
-> +	struct {                                                              \
-> +		struct nlmsghdr hdrname;                                      \
-> +		payload;                                                      \
-> +		char __b[tailroom] __attribute__((aligned(NLMSG_ALIGNTO)));   \
-> +	} name = { .hdrname = {                                               \
-> +		.nlmsg_len = (unsigned long)&name.__b - (unsigned long)&name, \
+Ah, thanks! I already considered offsetof(), but the fact it needs a
+type name and the declared struct is anonymous appeared unsolvable to
+me. Good to know typeof() can be used this way!
 
-offsetof(typeof(name), __b) ?
+Thanks, Phil
