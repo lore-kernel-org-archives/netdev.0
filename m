@@ -1,86 +1,54 @@
-From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
-Subject: [PATCH net-next v3 0/8] openvswitch: NAT support.
-Date: Wed, 25 Nov 2015 16:08:13 -0800
-Message-ID: <1448496501-109561-1-git-send-email-jarno@ovn.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH net-next v3 6/8] openvswitch: Handle NF_REPEAT in conntrack action.
+Date: Wed, 25 Nov 2015 16:08:19 -0800
+Message-ID: <1448496501-109561-7-git-send-email-jarno@ovn.org>
+References: <1448496501-109561-1-git-send-email-jarno@ovn.org>
+Cc: netfilter-devel@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:47976 "EHLO
+	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753174AbbKZAIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 19:08:54 -0500
+In-Reply-To: <1448496501-109561-1-git-send-email-jarno@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBzZXJpZXMgYWRkcyBOQVQgc3VwcG9ydCB0byBvcGVudnN3aXRjaCBrZXJuZWwgbW9kdWxl
-LiAgQSBmZXcKY2hhbmdlcyBhcmUgbmVlZGVkIHRvIHRoZSBuZXRmaWx0ZXIgY29kZSB0byBmYWNp
-bGl0YXRlIHRoaXMgKHBhdGNoZXMKMS0zLzgpLiAgUGF0Y2hlcyA0LTcgbWFrZSB0aGUgb3BlbnZz
-d2l0Y2gga2VybmVsIG1vZHVsZSByZWFkeSBmb3IgdGhlCnBhdGNoIDggdGhhdCBhZGRzIHRoZSBO
-QVQgc3VwcG9ydCBieSBjYWxsaW5nIGludG8gbmV0ZmlsdGVyIE5BVCBjb2RlCmZyb20gdGhlIG9w
-ZW52c3dpdGNoIGNvbm50cmFjayBhY3Rpb24uCgpUaGUgT1ZTIG1hc3RlciBub3cgaGFzIHRoZSBj
-b3JyZXNwb25kaW5nIE9WUyB1c2Vyc3BhY2Ugc3VwcG9ydCB0byB1c2UKYW5kIHRlc3QgdGhlIE5B
-VCBmZWF0dXJlcy4gIEJlbG93IGlmIGEgd2FsayB0aHJvdWdoIG9mIGEgc2ltcGxlIHVzZQpjYXNl
-LgoKSW4gdGhpcyBjYXNlIHBvcnRzIDEgYW5kIDIgYXJlIGluIGRpZmZlcmVudCBuYW1lc3BhY2Vz
-LiAgVGhlIE9wZW5GbG93CnRhYmxlIGJlbG93IG9ubHkgYWxsb3dzIElQdjQgY29ubmVjdGlvbnMg
-aW5pdGlhdGVkIGZyb20gcG9ydCAxLCBhbmQKYXBwbGllcyBzb3VyY2UgTkFUIHRvIHRob3NlIGNv
-bm5lY3Rpb25zOgoKICAgaW5fcG9ydD0xLGlwLGFjdGlvbj1jdChjb21taXQsem9uZT0xLG5hdChz
-cmM9MTAuMS4xLjI0MC0xMC4xLjEuMjU1KSksMgogICBpbl9wb3J0PTIsY3Rfc3RhdGU9LXRyayxp
-cCxhY3Rpb249Y3QodGFibGU9MCx6b25lPTEsbmF0KQogICBpbl9wb3J0PTIsY3Rfc3RhdGU9K2Vz
-dCxjdF96b25lPTEsaXAsYWN0aW9uPTEKClRoaXMgZmxvdyB0YWJsZSBtYXRjaGVzIGFsbCBJUHY0
-IHRyYWZmaWMgZnJvbSBwb3J0IDEsIHJ1bnMgdGhlbQp0aHJvdWdoIGNvbm50cmFjayBpbiB6b25l
-IDEgYW5kIE5BVHMgdGhlbS4gIFRoZSBOQVQgaXMgaW5pdGlhbGl6ZWQgdG8KZG8gc291cmNlIElQ
-IG1hcHBpbmcgdG8gdGhlIGdpdmVuIHJhbmdlIGZvciB0aGUgZmlyc3QgcGFja2V0IG9mIGVhY2gK
-Y29ubmVjdGlvbiwgYWZ0ZXIgd2hpY2ggdGhlIG5ldyBjb25uZWN0aW9uIGlzIGNvbW1pdHRlZCAo
-Y29uZmlybWVkKS4KRm9yIGZ1cnRoZXIgcGFja2V0cyBvZiBhbHJlYWR5IHRyYWNrZWQgY29ubmVj
-dGlvbnMgTkFUIGlzIGRvbmUKYWNjb3JkaW5nIHRvIHRoZSBjb25uZWN0aW9uIHN0YXRlIGFuZCB0
-aGUgY29tbWl0IGlzIGEgbm8tb3AuICBFYWNoCnBhY2tldCB0aGF0IGlzIG5vdCBmbGFnZ2VkIGFz
-IGEgZHJvcCBieSB0aGUgQ1QgYWN0aW9uIGlzIGZvcndhcmRlZCB0bwpwb3J0IDIuICBUaGUgQ1Qg
-YWN0aW9uIGRvZXMgYW4gaW1wbGljaXQgZnJhZ21lbnRhdGlvbiByZWFzc2VtYmx5LCBzbwp0aGF0
-IG9ubHkgY29tcGxldGUgcGFja2V0cyBhcmUgcnVuIHRocm91Z2ggY29ubnRyYWNrLiAgUmVhc3Nl
-bWJsZWQKcGFja2V0cyBhcmUgcmUtZnJhZ21lbnRlZCBvbiBvdXRwdXQuCgpUaGUgSVB2NCB0cmFm
-ZmljIGNvbWluZyBmcm9tIHBvcnQgMiBpcyBmaXJzdCBtYXRjaGVkIGZvciB0aGUKbm9uLXRyYWNr
-ZWQgc3RhdGUgKC10cmspLCB3aGljaCBtZWFucyB0aGF0IHRoZSBwYWNrZXQgaGFzIG5vdCBiZWVu
-CnRocm91Z2ggYSBDVCBhY3Rpb24geWV0LiAgU3VjaCB0cmFmZmljIGlzIHJ1biB0cm91Z2ggdGhl
-IGNvbm50cmFjayBpbgp6b25lIDEgYW5kIGFsbCBwYWNrZXRzIGFzc29jaWF0ZWQgd2l0aCBhIE5B
-VHRlZCBjb25uZWN0aW9uIGFyZSBOQVR0ZWQKYWxzbyBpbiB0aGUgcmV0dXJuIGRpcmVjdGlvbi4g
-IEFmdGVyIHRoZSBwYWNrZXQgaGFzIGJlZW4gdGhyb3VnaApjb25udHJhY2sgaXQgaXMgcmVjaXJj
-dWxhdGVkIGJhY2sgdG8gT3BlbkZsb3cgdGFibGUgMCAod2hpY2ggaXMgdGhlCmRlZmF1bHQgdGFi
-bGUsIHNvIGFsbCB0aGUgcnVsZXMgYWJvdmUgYXJlIGluIHRhYmxlIDApLiAgVGhlIENUIGFjdGlv
-bgpjaGFuZ2VzIHRoZSAndHJrJyBmbGFnIHRvIGJlaW5nIHNldCwgc28gdGhlIHBhY2tldHMgYWZ0
-ZXIKcmVjaXJjdWxhdGlvbiBubyBsb25nZXIgbWF0Y2ggdGhlIHNlY29uZCBydWxlLiAgVGhlIHRo
-aXJkIHJ1bGUgdGhlbgptYXRjaGVzIHRoZSByZWNpcmN1bGF0ZWQgcGFja2V0cyB0aGF0IHdlcmUg
-bWFya2VkIGFzIGVzdGFibGlzaGVkIGJ5CmNvbm50cmFjayAoK2VzdCksIGFuZCB0aGUgcGFja2V0
-IGlzIG91dHB1dCBvbiBwb3J0IDEuICBNYXRjaGluZyBvbgpjdF96b25lIGlzIG5vdCBzdHJpY3Rs
-eSBuZWVkZWQsIGJ1dCBpbiB0aGlzIHRlc3QgY2FzZSBpdCB2ZXJpZmllcyB0aGF0CnRoZSBjdF96
-b25lIGtleSBhdHRyaWJ1dGUgaXMgcHJvcGVybHkgc2V0IGJ5IHRoZSBjb25udHJhY2sgYWN0aW9u
-LgoKQSBmdWxsIHRlc3QgY2FzZSByZXF1aXJlcyBydWxlcyBmb3IgQVJQIGhhbmRsaW5nIG5vdCBz
-aG93biBoZXJlLgoKVGhlIGZsb3cgdGFibGUgYWJvdmUgaXMgYW4gT3BlbkZsb3cgdGFibGUsIGFu
-ZCB0aGUgcnVsZXMgdGhlcmVpbgphcmUgdHJhbnNsYXRlZCB0byBrZXJuZWwgZmxvdyBlbnRyaWVz
-IG9uLWRlbWFuZCBieSBvdnMtdnN3aXRjaGQuCgoKSmFybm8gUmFqYWhhbG1lICg4KToKICBuZXRm
-aWx0ZXI6IFJlbW92ZSBJUF9DVF9ORVdfUkVQTFkgZGVmaW5pdGlvbi4KICBuZXRmaWx0ZXI6IEZh
-Y3RvciBvdXQgbmZfY3RfZ2V0X2luZm8oKS4KICBuZXRmaWx0ZXI6IEFsbG93IGNhbGxpbmcgaW50
-byBuYXQgaGVscGVyIHdpdGhvdXQgc2tiX2RzdC4KICBvcGVudnN3aXRjaDogVXBkYXRlIHRoZSBD
-VCBzdGF0ZSBrZXkgb25seSBhZnRlciBuZl9jb25udHJhY2tfaW4oKS4KICBvcGVudnN3aXRjaDog
-RmluZCBleGlzdGluZyBjb25udHJhY2sgZW50cnkgYWZ0ZXIgdXBjYWxsLgogIG9wZW52c3dpdGNo
-OiBIYW5kbGUgTkZfUkVQRUFUIGluIGNvbm50cmFjayBhY3Rpb24uCiAgb3BlbnZzd2l0Y2g6IERl
-bGF5IGNvbm50cmFjayBoZWxwZXIgY2FsbCBmb3IgbmV3IGNvbm5lY3Rpb25zLgogIG9wZW52c3dp
-dGNoOiBJbnRlcmZhY2Ugd2l0aCBOQVQuCgogaW5jbHVkZS9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50
-cmFjay5oICAgICAgICAgICAgICAgfCAgMTUgKwogaW5jbHVkZS91YXBpL2xpbnV4L25ldGZpbHRl
-ci9uZl9jb25udHJhY2tfY29tbW9uLmggfCAgMTIgKy0KIGluY2x1ZGUvdWFwaS9saW51eC9vcGVu
-dnN3aXRjaC5oICAgICAgICAgICAgICAgICAgIHwgIDQ3ICsrCiBuZXQvaXB2NC9uZXRmaWx0ZXIv
-bmZfbmF0X2wzcHJvdG9faXB2NC5jICAgICAgICAgICB8ICAyOSArLQogbmV0L2lwdjYvbmV0Zmls
-dGVyL25mX25hdF9sM3Byb3RvX2lwdjYuYyAgICAgICAgICAgfCAgMjkgKy0KIG5ldC9uZXRmaWx0
-ZXIvbmZfY29ubnRyYWNrX2NvcmUuYyAgICAgICAgICAgICAgICAgIHwgIDIyICstCiBuZXQvb3Bl
-bnZzd2l0Y2gvY29ubnRyYWNrLmMgICAgICAgICAgICAgICAgICAgICAgICB8IDYzMiArKysrKysr
-KysrKysrKysrKysrLS0KIG5ldC9vcGVudnN3aXRjaC9jb25udHJhY2suaCAgICAgICAgICAgICAg
-ICAgICAgICAgIHwgICAzICstCiA4IGZpbGVzIGNoYW5nZWQsIDY4NiBpbnNlcnRpb25zKCspLCAx
-MDMgZGVsZXRpb25zKC0pCgotLSAKMi4xLjQKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpo
-dHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+Repeat the nf_conntrack_in() call when it returns NF_REPEAT.  This
+avoids dropping a SYN packet re-opening an existing TCP connection.
+
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+---
+ net/openvswitch/conntrack.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index 0c371d0..7aa38fa 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -470,6 +470,7 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 	 */
+ 	if (!skb_nfct_cached(net, key, info, skb)) {
+ 		struct nf_conn *tmpl = info->ct;
++		int err;
+ 
+ 		/* Associate skb with specified zone. */
+ 		if (tmpl) {
+@@ -480,8 +481,13 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 			skb->nfctinfo = IP_CT_NEW;
+ 		}
+ 
+-		if (nf_conntrack_in(net, info->family, NF_INET_PRE_ROUTING,
+-				    skb) != NF_ACCEPT)
++		/* Repeat if requested, see nf_iterate(). */
++		do {
++			err = nf_conntrack_in(net, info->family,
++					      NF_INET_PRE_ROUTING, skb);
++		} while (err == NF_REPEAT);
++
++		if (err != NF_ACCEPT)
+ 			return -ENOENT;
+ 
+ 		ovs_ct_update_key(skb, key, true);
+-- 
+2.1.4
