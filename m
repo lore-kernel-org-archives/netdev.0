@@ -1,109 +1,59 @@
-From: Simon Guinot <simon.guinot@sequanux.org>
-Subject: Re: [PATCH 06/13] net: mvneta: enable mixed egress processing using
- HR timer
-Date: Thu, 26 Nov 2015 17:45:40 +0100
-Message-ID: <20151126164540.GH4665@kw.sim.vm.gnt>
-References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
- <1448178839-3541-7-git-send-email-mw@semihalf.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: Kernel 4.1.12 crash
+Date: Thu, 26 Nov 2015 17:44:52 +0100
+Message-ID: <20151126164452.GA2988@alphalink.fr>
+References: <564F26FF.3040605@seti.kr.ua>
+ <564FA904.7020603@gmail.com>
+ <5650287B.9070901@seti.kr.ua>
+ <56514FF5.7060906@gmail.com>
+ <5654EBE8.9030705@seti.kr.ua>
+ <20151125141048.GA3868@alphalink.fr>
+ <5655CCAE.6000300@seti.kr.ua>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Ca5z/wkVxIQXz1GF"
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com,
-	andrew@lunn.ch, linux@arm.linux.org.uk, jason@lakedaemon.net,
-	myair@marvell.com, jaz@semihalf.com, xswang@marvell.com,
-	nadavh@marvell.com, alior@marvell.com, tn@semihalf.com,
-	gregory.clement@free-electrons.com, nitroshift@yahoo.com,
-	davem@davemloft.net, sebastian.hesselbarth@gmail.com
-To: Marcin Wojtas <mw@semihalf.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
+To: Andrew <nitr0@seti.kr.ua>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:51113 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751723AbbKZQpB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 11:45:01 -0500
 Content-Disposition: inline
-In-Reply-To: <1448178839-3541-7-git-send-email-mw@semihalf.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <5655CCAE.6000300@seti.kr.ua>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---Ca5z/wkVxIQXz1GF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi Marcin,
-
-On Sun, Nov 22, 2015 at 08:53:52AM +0100, Marcin Wojtas wrote:
-> Mixed approach allows using higher interrupt threshold (increased back to
-> 15 packets), useful in high throughput. In case of small amount of data
-> or very short TX queues HR timer ensures releasing buffers with small
-> latency.
+On Wed, Nov 25, 2015 at 04:58:54PM +0200, Andrew wrote:
+> 25.11.2015 16:10, Guillaume Nault =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> >On Wed, Nov 25, 2015 at 12:59:52AM +0200, Andrew wrote:
+> >>Hi.
+> >>
+> >>I tried to reproduce errors in virtual environment (some VMs on my
+> >>notebook).
+> >>
+> >>I've tried to create 1000 client PPPoE sessions from this box via s=
+cript:
+> >>for i in `seq 1 1000`; do pppd plugin rp-pppoe.so user test passwor=
+d test
+> >>nodefaultroute maxfail 0 persist nodefaultroute holdoff 1 noauth et=
+h0; done
+> >>
+> >I've tried to reproduce the bug with your script, but couldn't get
+> >anything to crash (VM is Debian Jessie i386 running on KVM with upst=
+ream
+> >kernel 4.1.12). Does the crash happen before all sessions get
+> >established?
+> Yes, crash happens even before all daemon instances are started. Sess=
+ions
+> don't get established because BRAS configured to reject sessions (so =
+a lot
+> of concurrent connection retries happens) - I still didn't created ac=
+count
+> for test user on it.
 >=20
-> Along with existing tx_done processing by coalescing interrupts this
-> commit enables triggering HR timer each time the packets are sent.
-> Time threshold can also be configured, using ethtool.
->=20
-> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 89 +++++++++++++++++++++++++++++=
-++++--
->  1 file changed, 85 insertions(+), 4 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet=
-/marvell/mvneta.c
-> index 9c9e858..f5acaf6 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -21,6 +21,8 @@
->  #include <linux/module.h>
->  #include <linux/interrupt.h>
->  #include <linux/if_vlan.h>
-> +#include <linux/hrtimer.h>
-> +#include <linux/ktime.h>
+Ok, I got the crash too. In fact I had misunderstood your previous
+message, crash happens when PPP sessions don't get established
+(authentication failures in my case).
 
-ktime.h is already included by hrtimer.h.
-
->  #include <net/ip.h>
->  #include <net/ipv6.h>
->  #include <linux/io.h>
-> @@ -226,7 +228,8 @@
->  /* Various constants */
-> =20
->  /* Coalescing */
-> -#define MVNETA_TXDONE_COAL_PKTS		1
-> +#define MVNETA_TXDONE_COAL_PKTS		15
-> +#define MVNETA_TXDONE_COAL_USEC		100
-
-Maybe we should keep the default configuration and let the user choose
-to enable (or not) this feature ?
-
->  #define MVNETA_RX_COAL_PKTS		32
->  #define MVNETA_RX_COAL_USEC		100
-> =20
-> @@ -356,6 +359,11 @@ struct mvneta_port {
->  	struct net_device *dev;
->  	struct notifier_block cpu_notifier;
-> =20
-> +	/* Egress finalization */
-> +	struct tasklet_struct tx_done_tasklet;
-> +	struct hrtimer tx_done_timer;
-> +	bool timer_scheduled;
-
-I think we could use hrtimer_is_queued() instead of introducing a new
-variable.
-
-[...]
-
-Simon
-
---Ca5z/wkVxIQXz1GF
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlZXNzQACgkQgtp0PDeOcDpnIACdEO+KRCAE/nBYK21KzQ6X0qtK
-HXkAn3h5OMe6jX6bGhn+T1FuOGzdanAd
-=+3rS
------END PGP SIGNATURE-----
-
---Ca5z/wkVxIQXz1GF--
+I'll investigate on that and let you know.
