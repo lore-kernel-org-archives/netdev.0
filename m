@@ -1,331 +1,74 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 4/6] mlxsw: core: Implement temperature hwmon interface
-Date: Thu, 26 Nov 2015 12:03:31 +0100
-Message-ID: <1448535813-14882-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 2/6] mlxsw: spectrum: Add support for port identification
+Date: Thu, 26 Nov 2015 12:03:29 +0100
+Message-ID: <1448535813-14882-3-git-send-email-jiri@resnulli.us>
 References: <1448535813-14882-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:35015 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752135AbbKZLDl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 06:03:41 -0500
-Received: by wmuu63 with SMTP id u63so16746528wmu.0
-        for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 03:03:40 -0800 (PST)
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:33265 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752096AbbKZLDi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 06:03:38 -0500
+Received: by wmec201 with SMTP id c201so25795470wme.0
+        for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 03:03:37 -0800 (PST)
 In-Reply-To: <1448535813-14882-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-ASIC provides access to temperature sensors. Implement their exposure to
-userspace using hwmon.
+Allow a user to flash the port's LED in order to identify it. This is
+achieved by setting the Management LED Control Register (MLCR).
 
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/Makefile     |   2 +-
- drivers/net/ethernet/mellanox/mlxsw/core.c       |   8 +
- drivers/net/ethernet/mellanox/mlxsw/core.h       |   7 +
- drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c | 223 +++++++++++++++++++++++
- 4 files changed, 239 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/Makefile b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-index af01581..1ab94ec 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-@@ -1,5 +1,5 @@
- obj-$(CONFIG_MLXSW_CORE)	+= mlxsw_core.o
--mlxsw_core-objs			:= core.o
-+mlxsw_core-objs			:= core.o core_hwmon.o
- obj-$(CONFIG_MLXSW_PCI)		+= mlxsw_pci.o
- mlxsw_pci-objs			:= pci.o
- obj-$(CONFIG_MLXSW_SWITCHX2)	+= mlxsw_switchx2.o
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index 97f0d93..1ecb4aa 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -105,6 +105,7 @@ struct mlxsw_core {
- 		struct debugfs_blob_wrapper vsd_blob;
- 		struct debugfs_blob_wrapper psid_blob;
- 	} dbg;
-+	struct mlxsw_hwmon *hwmon;
- 	unsigned long driver_priv[0];
- 	/* driver_priv has to be always the last item */
- };
-@@ -822,6 +823,10 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	if (err)
- 		goto err_emad_init;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 3be4a23..14a9a9f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -859,6 +859,29 @@ static void mlxsw_sp_port_get_strings(struct net_device *dev,
+ 	}
+ }
  
-+	err = mlxsw_hwmon_init(mlxsw_core, mlxsw_bus_info, &mlxsw_core->hwmon);
-+	if (err)
-+		goto err_hwmon_init;
-+
- 	err = mlxsw_driver->init(mlxsw_core->driver_priv, mlxsw_core,
- 				 mlxsw_bus_info);
- 	if (err)
-@@ -836,6 +841,8 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- err_debugfs_init:
- 	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
- err_driver_init:
-+	mlxsw_hwmon_fini(mlxsw_core->hwmon);
-+err_hwmon_init:
- 	mlxsw_emad_fini(mlxsw_core);
- err_emad_init:
- 	mlxsw_bus->fini(bus_priv);
-@@ -855,6 +862,7 @@ void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
- 
- 	mlxsw_core_debugfs_fini(mlxsw_core);
- 	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
-+	mlxsw_hwmon_fini(mlxsw_core->hwmon);
- 	mlxsw_emad_fini(mlxsw_core);
- 	mlxsw_core->bus->fini(mlxsw_core->bus_priv);
- 	free_percpu(mlxsw_core->pcpu_stats);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index 8078273..40241e2 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -209,4 +209,11 @@ struct mlxsw_bus_info {
- 	u8 psid[MLXSW_CMD_BOARDINFO_PSID_LEN];
- };
- 
-+struct mlxsw_hwmon;
-+
-+int mlxsw_hwmon_init(struct mlxsw_core *mlxsw_core,
-+		     const struct mlxsw_bus_info *mlxsw_bus_info,
-+		     struct mlxsw_hwmon **p_hwmon);
-+void mlxsw_hwmon_fini(struct mlxsw_hwmon *mlxsw_hwmon);
-+
- #endif
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-new file mode 100644
-index 0000000..ec48c28
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-@@ -0,0 +1,223 @@
-+/*
-+ * drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-+ * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2015 Jiri Pirko <jiri@mellanox.com>
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the names of the copyright holders nor the names of its
-+ *    contributors may be used to endorse or promote products derived from
-+ *    this software without specific prior written permission.
-+ *
-+ * Alternatively, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") version 2 as published by the Free
-+ * Software Foundation.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/device.h>
-+#include <linux/sysfs.h>
-+#include <linux/hwmon.h>
-+#include <linux/err.h>
-+
-+#include "core.h"
-+
-+#define MLXSW_HWMON_TEMP_SENSOR_MAX_COUNT 127
-+#define MLXSW_HWMON_ATTR_COUNT (MLXSW_HWMON_TEMP_SENSOR_MAX_COUNT * 4)
-+
-+struct mlxsw_hwmon_attr {
-+	struct device_attribute dev_attr;
-+	struct mlxsw_hwmon *hwmon;
-+	unsigned int type_index;
-+	char name[16];
-+};
-+
-+struct mlxsw_hwmon {
-+	struct mlxsw_core *core;
-+	const struct mlxsw_bus_info *bus_info;
-+	struct device *hwmon_dev;
-+	struct attribute_group group;
-+	const struct attribute_group *groups[2];
-+	struct attribute *attrs[MLXSW_HWMON_ATTR_COUNT + 1];
-+	struct mlxsw_hwmon_attr hwmon_attrs[MLXSW_HWMON_ATTR_COUNT];
-+	unsigned int attrs_count;
-+};
-+
-+static ssize_t mlxsw_hwmon_temp_show(struct device *dev,
-+				     struct device_attribute *attr,
-+				     char *buf)
++static int mlxsw_sp_port_set_phys_id(struct net_device *dev,
++				     enum ethtool_phys_id_state state)
 +{
-+	struct mlxsw_hwmon_attr *mlwsw_hwmon_attr =
-+			container_of(attr, struct mlxsw_hwmon_attr, dev_attr);
-+	struct mlxsw_hwmon *mlxsw_hwmon = mlwsw_hwmon_attr->hwmon;
-+	char mtmp_pl[MLXSW_REG_MTMP_LEN];
-+	unsigned int temp;
-+	int err;
++	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char mlcr_pl[MLXSW_REG_MLCR_LEN];
++	bool active;
 +
-+	mlxsw_reg_mtmp_pack(mtmp_pl, mlwsw_hwmon_attr->type_index,
-+			    false, false);
-+	err = mlxsw_reg_query(mlxsw_hwmon->core, MLXSW_REG(mtmp), mtmp_pl);
-+	if (err) {
-+		dev_err(mlxsw_hwmon->bus_info->dev, "Failed to query temp sensor\n");
-+		return err;
-+	}
-+	mlxsw_reg_mtmp_unpack(mtmp_pl, &temp, NULL, NULL);
-+	return sprintf(buf, "%u\n", temp);
-+}
-+
-+static ssize_t mlxsw_hwmon_temp_max_show(struct device *dev,
-+					 struct device_attribute *attr,
-+					 char *buf)
-+{
-+	struct mlxsw_hwmon_attr *mlwsw_hwmon_attr =
-+			container_of(attr, struct mlxsw_hwmon_attr, dev_attr);
-+	struct mlxsw_hwmon *mlxsw_hwmon = mlwsw_hwmon_attr->hwmon;
-+	char mtmp_pl[MLXSW_REG_MTMP_LEN];
-+	unsigned int temp_max;
-+	int err;
-+
-+	mlxsw_reg_mtmp_pack(mtmp_pl, mlwsw_hwmon_attr->type_index,
-+			    false, false);
-+	err = mlxsw_reg_query(mlxsw_hwmon->core, MLXSW_REG(mtmp), mtmp_pl);
-+	if (err) {
-+		dev_err(mlxsw_hwmon->bus_info->dev, "Failed to query temp sensor\n");
-+		return err;
-+	}
-+	mlxsw_reg_mtmp_unpack(mtmp_pl, NULL, &temp_max, NULL);
-+	return sprintf(buf, "%u\n", temp_max);
-+}
-+
-+enum mlxsw_hwmon_attr_type {
-+	MLXSW_HWMON_ATTR_TYPE_TEMP,
-+	MLXSW_HWMON_ATTR_TYPE_TEMP_MAX,
-+};
-+
-+static void mlxsw_hwmon_attr_add(struct mlxsw_hwmon *mlxsw_hwmon,
-+				 enum mlxsw_hwmon_attr_type attr_type,
-+				 unsigned int type_index, unsigned int num) {
-+	struct mlxsw_hwmon_attr *mlxsw_hwmon_attr;
-+	unsigned int attr_index;
-+
-+	attr_index = mlxsw_hwmon->attrs_count;
-+	mlxsw_hwmon_attr = &mlxsw_hwmon->hwmon_attrs[attr_index];
-+
-+	switch (attr_type) {
-+	case MLXSW_HWMON_ATTR_TYPE_TEMP:
-+		mlxsw_hwmon_attr->dev_attr.show = mlxsw_hwmon_temp_show;
-+		mlxsw_hwmon_attr->dev_attr.attr.mode = S_IRUGO;
-+		snprintf(mlxsw_hwmon_attr->name, sizeof(mlxsw_hwmon_attr->name),
-+			 "temp%u_input", num + 1);
++	switch (state) {
++	case ETHTOOL_ID_ACTIVE:
++		active = true;
 +		break;
-+	case MLXSW_HWMON_ATTR_TYPE_TEMP_MAX:
-+		mlxsw_hwmon_attr->dev_attr.show = mlxsw_hwmon_temp_max_show;
-+		mlxsw_hwmon_attr->dev_attr.attr.mode = S_IRUGO;
-+		snprintf(mlxsw_hwmon_attr->name, sizeof(mlxsw_hwmon_attr->name),
-+			 "temp%u_highest", num + 1);
++	case ETHTOOL_ID_INACTIVE:
++		active = false;
 +		break;
 +	default:
-+		BUG();
++		return -EOPNOTSUPP;
 +	}
 +
-+	mlxsw_hwmon_attr->type_index = type_index;
-+	mlxsw_hwmon_attr->hwmon = mlxsw_hwmon;
-+	mlxsw_hwmon_attr->dev_attr.attr.name = mlxsw_hwmon_attr->name;
-+	sysfs_attr_init(&mlxsw_hwmon_attr->dev_attr.attr);
-+
-+	mlxsw_hwmon->attrs[attr_index] = &mlxsw_hwmon_attr->dev_attr.attr;
-+	mlxsw_hwmon->attrs_count++;
++	mlxsw_reg_mlcr_pack(mlcr_pl, mlxsw_sp_port->local_port, active);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mlcr), mlcr_pl);
 +}
 +
-+static int mlxsw_hwmon_temp_init(struct mlxsw_hwmon *mlxsw_hwmon)
-+{
-+	char mtcap_pl[MLXSW_REG_MTCAP_LEN];
-+	char mtmp_pl[MLXSW_REG_MTMP_LEN];
-+	u8 sensor_count;
-+	int i;
-+	int err;
-+
-+	err = mlxsw_reg_query(mlxsw_hwmon->core, MLXSW_REG(mtcap), mtcap_pl);
-+	if (err) {
-+		dev_err(mlxsw_hwmon->bus_info->dev, "Failed to get number of temp sensors\n");
-+		return err;
-+	}
-+	sensor_count = mlxsw_reg_mtcap_sensor_count_get(mtcap_pl);
-+	for (i = 0; i < sensor_count; i++) {
-+		mlxsw_reg_mtmp_pack(mtmp_pl, 0, true, true);
-+		err = mlxsw_reg_write(mlxsw_hwmon->core,
-+				      MLXSW_REG(mtmp), mtmp_pl);
-+		if (err) {
-+			dev_err(mlxsw_hwmon->bus_info->dev, "Failed to setup temp sensor number %d\n",
-+				i);
-+			return err;
-+		}
-+		mlxsw_hwmon_attr_add(mlxsw_hwmon,
-+				     MLXSW_HWMON_ATTR_TYPE_TEMP, i, i);
-+		mlxsw_hwmon_attr_add(mlxsw_hwmon,
-+				     MLXSW_HWMON_ATTR_TYPE_TEMP_MAX, i, i);
-+	}
-+	return 0;
-+}
-+
-+int mlxsw_hwmon_init(struct mlxsw_core *mlxsw_core,
-+		     const struct mlxsw_bus_info *mlxsw_bus_info,
-+		     struct mlxsw_hwmon **p_hwmon)
-+{
-+	struct mlxsw_hwmon *mlxsw_hwmon;
-+	struct device *hwmon_dev;
-+	int err;
-+
-+	mlxsw_hwmon = kzalloc(sizeof(*mlxsw_hwmon), GFP_KERNEL);
-+	if (!mlxsw_hwmon)
-+		return -ENOMEM;
-+	mlxsw_hwmon->core = mlxsw_core;
-+	mlxsw_hwmon->bus_info = mlxsw_bus_info;
-+
-+	err = mlxsw_hwmon_temp_init(mlxsw_hwmon);
-+	if (err)
-+		goto err_temp_init;
-+
-+	mlxsw_hwmon->groups[0] = &mlxsw_hwmon->group;
-+	mlxsw_hwmon->group.attrs = mlxsw_hwmon->attrs;
-+
-+	hwmon_dev = devm_hwmon_device_register_with_groups(mlxsw_bus_info->dev,
-+							   "mlxsw",
-+							   mlxsw_hwmon,
-+							   mlxsw_hwmon->groups);
-+	if (IS_ERR(hwmon_dev)) {
-+		err = PTR_ERR(hwmon_dev);
-+		goto err_hwmon_register;
-+	}
-+
-+	mlxsw_hwmon->hwmon_dev = hwmon_dev;
-+	*p_hwmon = mlxsw_hwmon;
-+	return 0;
-+
-+err_hwmon_register:
-+err_temp_init:
-+	kfree(mlxsw_hwmon);
-+	return err;
-+}
-+
-+void mlxsw_hwmon_fini(struct mlxsw_hwmon *mlxsw_hwmon)
-+{
-+	kfree(mlxsw_hwmon);
-+}
+ static void mlxsw_sp_port_get_stats(struct net_device *dev,
+ 				    struct ethtool_stats *stats, u64 *data)
+ {
+@@ -1205,6 +1228,7 @@ static const struct ethtool_ops mlxsw_sp_port_ethtool_ops = {
+ 	.get_drvinfo		= mlxsw_sp_port_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_strings		= mlxsw_sp_port_get_strings,
++	.set_phys_id		= mlxsw_sp_port_set_phys_id,
+ 	.get_ethtool_stats	= mlxsw_sp_port_get_stats,
+ 	.get_sset_count		= mlxsw_sp_port_get_sset_count,
+ 	.get_settings		= mlxsw_sp_port_get_settings,
 -- 
 1.9.3
