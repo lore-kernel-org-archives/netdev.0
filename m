@@ -1,51 +1,83 @@
-From: Luuk Paulussen <Luuk.Paulussen@alliedtelesis.co.nz>
-Subject: Re: Increasing skb->mark size
-Date: Thu, 26 Nov 2015 04:44:41 +0000
-Message-ID: <56568E33.4090707@alliedtelesis.co.nz>
-References: <1448397144.14854.27.camel@mattb-dl>
- <20151124203602.GB23215@breakpoint.cc> <1448398614.14854.39.camel@mattb-dl>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [ovs-dev] [PATCH net-next v3 1/8] netfilter: Remove
+ IP_CT_NEW_REPLY definition.
+Date: Thu, 26 Nov 2015 14:41:04 +0900
+Message-ID: <20151126054100.GB21626@vergenet.net>
+References: <1448496501-109561-1-git-send-email-jarno@ovn.org>
+ <1448496501-109561-2-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Kyeong Yoo <Kyeong.Yoo@alliedtelesis.co.nz>
-To: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>,
-	"fw@strlen.de" <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:52280 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750972AbbKZEow (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2015 23:44:52 -0500
-In-Reply-To: <1448398614.14854.39.camel@mattb-dl>
-Content-Language: en-US
-Content-ID: <E478ED1EF082D24C9DB5818C5CBADF71@atlnz.lc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	netfilter-devel@vger.kernel.org
+To: Jarno Rajahalme <jarno@ovn.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1448496501-109561-2-git-send-email-jarno@ovn.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCk9uIDExLzI1LzIwMTUgMDk6NTYgQU0sIE1hdHQgQmVubmV0dCB3cm90ZToNCj4gT24gVHVl
-LCAyMDE1LTExLTI0IGF0IDIxOjM2ICswMTAwLCBGbG9yaWFuIFdlc3RwaGFsIHdyb3RlOg0KPj4g
-TWF0dCBCZW5uZXR0IDxNYXR0LkJlbm5ldHRAYWxsaWVkdGVsZXNpcy5jby5uej4gd3JvdGU6DQo+
-Pj4gSSdtIGVtYWlsaW5nIHRoaXMgbGlzdCBmb3IgZmVlZGJhY2sgb24gdGhlIGZlYXNpYmlsaXR5
-IG9mIGluY3JlYXNpbmcNCj4+PiBza2ItPm1hcmsgb3IgYWRkaW5nIGEgbmV3IGZpZWxkIGZvciBt
-YXJraW5nLiBQZXJoYXBzIHRoaXMgZXh0ZW5zaW9uDQo+Pj4gY291bGQgYmUgZG9uZSB1bmRlciBh
-IG5ldyBDT05GSUcgb3B0aW9uLiBQZXJoYXBzIHRoZXJlIGFyZSBvdGhlciB3YXlzIHdlDQo+Pj4g
-Y291bGQgYWNoaWV2ZSB0aGUgZGVzaXJlZCBiZWhhdmlvdXI/DQo+PiBXZWxsIEkgcG9pbnRlZCB5
-b3UgdG93YXJkcyBjb25ubGFiZWxzIHdoaWNoIHByb3ZpZGUgMTI4IGJpdCBvZiBzcGFjZQ0KPj4g
-aW4gdGhlIGNvbm50cmFjayBleHRlbnNpb24gYXJlYSBidXQgeW91IGRpZCBub3QgdGVsbCBtZSB3
-aHkgeW91IGNhbm5vdA0KPj4gdXNlIGl0Lg0KPiBTb3JyeSwgSSBtb3ZlZCB0aGUgZGlzY3Vzc2lv
-biB0byB0aGlzIGxpc3QgdG8gaG9wZWZ1bGx5IGdhdGhlciBzb21lIG5ldw0KPiBpZGVhcy9vcGlu
-aW9ucy4NCj4NCj4gV2hpbGUgY29ubmxhYmVscyBwcm92aWRlIDEyOGJpdHMgb2Ygc3BhY2Ugc2ti
-LT5tYXJrIGlzIHN0aWxsIG9ubHkgMzINCj4gYml0cy4gU2luY2Ugd2UgYXJlIHVzaW5nIGNvbm5l
-Y3Rpb24gdHJhY2tpbmcgdG8gc2ltcGx5IHJlc3RvcmUgc2tiLT5tYXJrDQo+IHRoZSB1c2Ugb2Yg
-Y29ubmxhYmVscyBieSBpdHNlbGYgZG9lc24ndCBzb2x2ZSB0aGUgcHJvYmxlbSBJIG91dGxpbmVk
-DQo+IGFib3ZlLiBza2ItPm1hcmsgd291bGQgc3RpbGwgbmVlZHMgdG8gYmUgaW5jcmVhc2VkIGlu
-IHNpemUuDQpJJ3ZlIGJlZW4gbG9va2luZyBpbnRvIHRoaXMgZnVydGhlciBhbmQgaXQgZG9lcyBs
-b29rIGxpa2Ugc29tZXRoaW5nIGxpa2UgDQpjb25ubGFiZWxzIGNvdWxkIGJlIHVzZWZ1bCBpbiBj
-ZXJ0YWluIGNhc2VzLiAgRm9yIGV4YW1wbGUsIG5ldGZpbHRlciANCmNvdWxkIGJlIHVzZWQgdG8g
-Y2xhc3NpZnkgYSBwYWNrZXQgYmFzZWQgb24gaXRzIGxhYmVsLCByYXRoZXIgdGhhbiANCnNhdmlu
-ZyB0aGUgbWFyayBhbmQgdGhlbiBjbGFzc2lmeWluZy9maWx0ZXJpbmcgYmFzZWQgb24gdGhlIG1h
-cmsgaW4gdGhlIA0KdGMgc3Vic3lzdGVtLiAgSG93ZXZlciwgaXQgbG9va3MgbGlrZSBjdXJyZW50
-bHkgY29ubmxhYmVscyBpcyBzZXQgdXAgDQphcm91bmQgc2V0dGluZy9jbGVhcmluZyBpbmRpdmlk
-dWFsIGJpdHMsIHJhdGhlciB0aGFuIHVzaW5nIG1hc2tzLCBzbyANCndoaWxlIHRoZXJlIGFyZSAx
-MjggYml0cywgaXQgZG9lc24ndCBhY3R1YWxseSBnaXZlIHVzIHRoYXQgbWFueSBtb3JlIA0KZGlz
-dGluY3QgbWFya3MuDQo=
+On Wed, Nov 25, 2015 at 04:08:14PM -0800, Jarno Rajahalme wrote:
+> Remove the definition of IP_CT_NEW_REPLY from the kernel as it does
+> not make sense.  This allows the definition of IP_CT_NUMBER to be
+> simplified as well.
+> 
+> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+
+I hate to be the bearer of bad news but its not clear
+to me that this change doesn't break user-space.
+
+> ---
+>  include/uapi/linux/netfilter/nf_conntrack_common.h | 12 +++++++++---
+>  net/openvswitch/conntrack.c                        |  2 --
+>  2 files changed, 9 insertions(+), 5 deletions(-)
+> 
+> diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
+> index 319f471..2f067cf 100644
+> --- a/include/uapi/linux/netfilter/nf_conntrack_common.h
+> +++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
+> @@ -20,9 +20,15 @@ enum ip_conntrack_info {
+>  
+>  	IP_CT_ESTABLISHED_REPLY = IP_CT_ESTABLISHED + IP_CT_IS_REPLY,
+>  	IP_CT_RELATED_REPLY = IP_CT_RELATED + IP_CT_IS_REPLY,
+> -	IP_CT_NEW_REPLY = IP_CT_NEW + IP_CT_IS_REPLY,	
+> -	/* Number of distinct IP_CT types (no NEW in reply dirn). */
+> -	IP_CT_NUMBER = IP_CT_IS_REPLY * 2 - 1
+> +	/* No NEW in reply direction. */
+> +
+> +	/* Number of distinct IP_CT types. */
+> +	IP_CT_NUMBER
+> +
+> +	/* only for userspace compatibility */
+> +#ifndef __KERNEL__
+> +	IP_CT_NEW_REPLY = IP_CT_NUMBER;
+> +#endif
+>  };
+>  
+>  #define NF_CT_STATE_INVALID_BIT			(1 << 0)
+> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+> index c2cc111..a28a819 100644
+> --- a/net/openvswitch/conntrack.c
+> +++ b/net/openvswitch/conntrack.c
+> @@ -73,7 +73,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
+>  	switch (ctinfo) {
+>  	case IP_CT_ESTABLISHED_REPLY:
+>  	case IP_CT_RELATED_REPLY:
+> -	case IP_CT_NEW_REPLY:
+>  		ct_state |= OVS_CS_F_REPLY_DIR;
+>  		break;
+>  	default:
+> @@ -90,7 +89,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
+>  		ct_state |= OVS_CS_F_RELATED;
+>  		break;
+>  	case IP_CT_NEW:
+> -	case IP_CT_NEW_REPLY:
+>  		ct_state |= OVS_CS_F_NEW;
+>  		break;
+>  	default:
+> -- 
+> 2.1.4
+> 
+> _______________________________________________
+> dev mailing list
+> dev@openvswitch.org
+> http://openvswitch.org/mailman/listinfo/dev
