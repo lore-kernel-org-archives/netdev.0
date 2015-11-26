@@ -1,40 +1,40 @@
-From: Jitendra Kumar Khasdev <jkhasdev@gmail.com>
-Subject: [PATCH] staging: dgnc: dgnc_cls.c: Replaced udelay by usleep_range
-Date: Thu, 26 Nov 2015 22:04:25 +0530
-Message-ID: <1448555665-5021-1-git-send-email-jitendra.khasdev@hotwaxsystems.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jitendra Kumar Khasdev <jitendra.khasdev@hotwaxsystems.com>,
-	Jitendra Kumar Khasdev <jkhasdev@gmail.com>
-To: davem@davemloft.net, edumazet@google.com,
-	alexander.h.duyck@redhat.com, linus.luessing@c0d3.bluen,
-	hannes@stressinduktion.org, willemb@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 0/7] net: ipmr: more cleanups and mfc netlink
+ support
+Date: Thu, 26 Nov 2015 17:35:02 +0100
+Message-ID: <20151126163502.GB4094@lunn.ch>
+References: <1448547830-21716-1-git-send-email-razor@blackwall.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Nikolay Aleksandrov <razor@blackwall.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:42492 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752633AbbKZQfE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Nov 2015 11:35:04 -0500
+Content-Disposition: inline
+In-Reply-To: <1448547830-21716-1-git-send-email-razor@blackwall.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch is to file dgnc_cls.c that fixes up udelay function by
-usleep_range.
-It is safe to use according to the following documentation
-Documentation/timers/timers-howto.txt. So that is why I have given
-an appropriate time range.
+On Thu, Nov 26, 2015 at 03:23:43PM +0100, Nikolay Aleksandrov wrote:
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> 
+> Hi,
+> This set continues with the minor cleanups in the first 6 patches and
+> patch 7 adds the first new feature - MFC manipulation via netlink.
 
-Signed-off-by: Jitendra Kumar Khasdev <jkhasdev@gmail.com>
----
- drivers/staging/dgnc/dgnc_cls.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi Nikolay
 
-diff --git a/drivers/staging/dgnc/dgnc_cls.c b/drivers/staging/dgnc/dgnc_cls.c
-index 75040da..72f0aaa 100644
---- a/drivers/staging/dgnc/dgnc_cls.c
-+++ b/drivers/staging/dgnc/dgnc_cls.c
-@@ -934,7 +934,7 @@ static void cls_flush_uart_write(struct channel_t *ch)
- 
- 	writeb((UART_FCR_ENABLE_FIFO | UART_FCR_CLEAR_XMIT),
- 	       &ch->ch_cls_uart->isr_fcr);
--	udelay(10);
-+	usleep_range(10, 20);
- 
- 	ch->ch_flags |= (CH_TX_FIFO_EMPTY | CH_TX_FIFO_LWM);
- }
--- 
-1.9.1
+Great to see somebody working on multicast.
+
+Do you have any plans to remove the 32 VIF limit?
+
+I've run out if VIFs on a VPN server with lots of clients. I took the
+"quick fix" of recompiling the kernel and userspace with 256 VIFs. But
+it would be nice if you could define a netlink API which does not have
+this limit and modify the core code to be more dynamic.
+
+     Andrew
