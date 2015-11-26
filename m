@@ -1,207 +1,101 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] af-unix: passcred support for sendpage
-Date: Thu, 26 Nov 2015 12:08:18 +0100
-Message-ID: <1448536098-8980-1-git-send-email-hannes@stressinduktion.org>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Eric Dumazet <edumazet@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:38983 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750698AbbKZLIb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 06:08:31 -0500
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 56B0220797
-	for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 06:08:30 -0500 (EST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Subject: Re: [RFCv2 bluetooth-next 2/3] ipv6: add ipv6_addr_prefix_cpy
+Date: Thu, 26 Nov 2015 12:11:07 +0100
+Message-ID: <5656E8CB.5050903@osg.samsung.com>
+References: <1447799594-6050-1-git-send-email-alex.aring@gmail.com>
+ <1447799594-6050-3-git-send-email-alex.aring@gmail.com>
+ <5655E50C.5090906@osg.samsung.com> <20151125181713.GC4652@omega>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org,
+	lukasz.duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org, martin.gergeleit-6wGqcYweBVc@public.gmane.org,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151125181713.GC4652@omega>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-sendpage did not care about credentials at all. This could lead to
-situations in which because of fd passing between processes we could
-append data to skbs with different scm data. It is illegal to splice those
-skbs together. Instead we have to allocate a new skb and if requested
-fill out the scm details.
+Hello.
 
-Fixes: 869e7c62486ec ("net: af_unix: implement stream sendpage support")
-Reported-by: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/unix/af_unix.c | 79 +++++++++++++++++++++++++++++++++++++++++++-----------
- 1 file changed, 64 insertions(+), 15 deletions(-)
+On 25/11/15 19:17, Alexander Aring wrote:
+> On Wed, Nov 25, 2015 at 05:42:52PM +0100, Stefan Schmidt wrote:
+>> Hello.
+>>
+>> On 17/11/15 23:33, Alexander Aring wrote:
+>>> This patch adds a static inline function ipv6_addr_prefix_cpy which
+>>> copies a ipv6 address prefix(argument pfx) into the ipv6 address prefix.
+>>> The prefix len is given by plen as bits. This function mainly based on
+>>> ipv6_addr_prefix which copies one address prefix from address into a new
+>>> ipv6 address destination and zero all other address bits.
+>>>
+>>> The difference is that ipv6_addr_prefix_cpy don't get a prefix from an
+>>> ipv6 address, it sets a prefix to an ipv6 address with keeping other
+>>> address bits. The use case is for context based address compression
+>>> inside 6LoWPAN IPHC header which keeping ipv6 prefixes inside a context
+>>> table to lookup address-bits without sending them.
+>>>
+>>> Cc: David S. Miller<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+>>> Cc: Alexey Kuznetsov<kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
+>>> Cc: James Morris<jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
+>>> Cc: Hideaki YOSHIFUJI<yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
+>>> Cc: Patrick McHardy<kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+>>> Signed-off-by: Alexander Aring<alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>>> ---
+>>>   include/net/ipv6.h | 15 +++++++++++++++
+>>>   1 file changed, 15 insertions(+)
+>>>
+>>> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+>>> index e1a10b0..9d38fc2 100644
+>>> --- a/include/net/ipv6.h
+>>> +++ b/include/net/ipv6.h
+>>> @@ -382,6 +382,21 @@ static inline void ipv6_addr_prefix(struct in6_addr *pfx,
+>>>   		pfx->s6_addr[o] = addr->s6_addr[o] & (0xff00 >> b);
+>>>   }
+>>> +static inline void ipv6_addr_prefix_cpy(struct in6_addr *addr,
+>>> +					const struct in6_addr *pfx,
+>>> +					int plen)
+>>> +{
+>> Naming it ipv6_addr_prefix_cop, as Sergei suggested, would be easier to
+>> read.
+> ok.
+>
+>>> +	/* caller must guarantee 0 <= plen <= 128 */
+>>> +	int o = plen >> 3,
+>>> +	    b = plen & 0x7;
+>>> +
+>> Any reason you are not doing the memset here before memcpy like it is done
+>> in ipv6_addr_prefi()?
+> ipv6_addr_prefix is more a "getter" for a prefix from an address. The
+> destination address (which should be the result) will memset the whole
+> address before copy the prefix from address to it.
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 4e95bdf..6ced746 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1551,6 +1551,14 @@ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool sen
- 	return err;
- }
- 
-+static bool unix_passcred_enabled(const struct socket *sock,
-+				  const struct sock *other)
-+{
-+	return test_bit(SOCK_PASSCRED, &sock->flags) ||
-+	       !other->sk_socket ||
-+	       test_bit(SOCK_PASSCRED, &other->sk_socket->flags);
-+}
-+
- /*
-  * Some apps rely on write() giving SCM_CREDENTIALS
-  * We include credentials if source or destination socket
-@@ -1561,14 +1569,41 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
- {
- 	if (UNIXCB(skb).pid)
- 		return;
--	if (test_bit(SOCK_PASSCRED, &sock->flags) ||
--	    !other->sk_socket ||
--	    test_bit(SOCK_PASSCRED, &other->sk_socket->flags)) {
-+	if (unix_passcred_enabled(sock, other)) {
- 		UNIXCB(skb).pid  = get_pid(task_tgid(current));
- 		current_uid_gid(&UNIXCB(skb).uid, &UNIXCB(skb).gid);
- 	}
- }
- 
-+static int maybe_init_creds(struct scm_cookie *scm,
-+			    struct socket *socket,
-+			    const struct sock *other)
-+{
-+	int err;
-+	struct msghdr msg = { .msg_controllen = 0 };
-+
-+	err = scm_send(socket, &msg, scm, false);
-+	if (err)
-+		return err;
-+
-+	if (unix_passcred_enabled(socket, other)) {
-+		scm->pid = get_pid(task_tgid(current));
-+		current_uid_gid(&scm->creds.uid, &scm->creds.gid);
-+	}
-+	return err;
-+}
-+
-+static bool unix_skb_scm_eq(struct sk_buff *skb,
-+			    struct scm_cookie *scm)
-+{
-+	const struct unix_skb_parms *u = &UNIXCB(skb);
-+
-+	return u->pid == scm->pid &&
-+	       uid_eq(u->uid, scm->creds.uid) &&
-+	       gid_eq(u->gid, scm->creds.gid) &&
-+	       unix_secdata_eq(scm, skb);
-+}
-+
- /*
-  *	Send AF_UNIX data.
-  */
-@@ -1884,8 +1919,10 @@ out_err:
- static ssize_t unix_stream_sendpage(struct socket *socket, struct page *page,
- 				    int offset, size_t size, int flags)
- {
--	int err = 0;
--	bool send_sigpipe = true;
-+	int err;
-+	bool send_sigpipe = false;
-+	bool init_scm = true;
-+	struct scm_cookie scm;
- 	struct sock *other, *sk = socket->sk;
- 	struct sk_buff *skb, *newskb = NULL, *tail = NULL;
- 
-@@ -1903,7 +1940,7 @@ alloc_skb:
- 		newskb = sock_alloc_send_pskb(sk, 0, 0, flags & MSG_DONTWAIT,
- 					      &err, 0);
- 		if (!newskb)
--			return err;
-+			goto err;
- 	}
- 
- 	/* we must acquire readlock as we modify already present
-@@ -1912,12 +1949,12 @@ alloc_skb:
- 	err = mutex_lock_interruptible(&unix_sk(other)->readlock);
- 	if (err) {
- 		err = flags & MSG_DONTWAIT ? -EAGAIN : -ERESTARTSYS;
--		send_sigpipe = false;
- 		goto err;
- 	}
- 
- 	if (sk->sk_shutdown & SEND_SHUTDOWN) {
- 		err = -EPIPE;
-+		send_sigpipe = true;
- 		goto err_unlock;
- 	}
- 
-@@ -1926,17 +1963,27 @@ alloc_skb:
- 	if (sock_flag(other, SOCK_DEAD) ||
- 	    other->sk_shutdown & RCV_SHUTDOWN) {
- 		err = -EPIPE;
-+		send_sigpipe = true;
- 		goto err_state_unlock;
- 	}
- 
-+	if (init_scm) {
-+		err = maybe_init_creds(&scm, socket, other);
-+		if (err)
-+			goto err_state_unlock;
-+		init_scm = false;
-+	}
-+
- 	skb = skb_peek_tail(&other->sk_receive_queue);
- 	if (tail && tail == skb) {
- 		skb = newskb;
--	} else if (!skb) {
--		if (newskb)
-+	} else if (!skb || !unix_skb_scm_eq(skb, &scm)) {
-+		if (newskb) {
- 			skb = newskb;
--		else
-+		} else {
-+			tail = skb;
- 			goto alloc_skb;
-+		}
- 	} else if (newskb) {
- 		/* this is fast path, we don't necessarily need to
- 		 * call to kfree_skb even though with newskb == NULL
-@@ -1957,6 +2004,9 @@ alloc_skb:
- 	atomic_add(size, &sk->sk_wmem_alloc);
- 
- 	if (newskb) {
-+		err = unix_scm_to_skb(&scm, skb, false);
-+		if (err)
-+			goto err_state_unlock;
- 		spin_lock(&other->sk_receive_queue.lock);
- 		__skb_queue_tail(&other->sk_receive_queue, newskb);
- 		spin_unlock(&other->sk_receive_queue.lock);
-@@ -1966,7 +2016,7 @@ alloc_skb:
- 	mutex_unlock(&unix_sk(other)->readlock);
- 
- 	other->sk_data_ready(other);
--
-+	scm_destroy(&scm);
- 	return size;
- 
- err_state_unlock:
-@@ -1977,6 +2027,8 @@ err:
- 	kfree_skb(newskb);
- 	if (send_sigpipe && !(flags & MSG_NOSIGNAL))
- 		send_sig(SIGPIPE, current, 0);
-+	if (!init_scm)
-+		scm_destroy(&scm);
- 	return err;
- }
- 
-@@ -2280,10 +2332,7 @@ unlock:
- 
- 		if (check_creds) {
- 			/* Never glue messages from different writers */
--			if ((UNIXCB(skb).pid  != scm.pid) ||
--			    !uid_eq(UNIXCB(skb).uid, scm.creds.uid) ||
--			    !gid_eq(UNIXCB(skb).gid, scm.creds.gid) ||
--			    !unix_secdata_eq(&scm, skb))
-+			if (!unix_skb_scm_eq(skb, &scm))
- 				break;
- 		} else if (test_bit(SOCK_PASSCRED, &sock->flags)) {
- 			/* Copy credentials */
--- 
-2.5.0
+Ah, right. Missed that part.
+
+> THe ipv6_addr_prefix_copy will set a prefix given by second parameter
+> pfx and set the prefix to the address (given by first parameter).
+>
+> Maybe the ipv6_addr_prefix could call:
+>
+> 1. memset(pfx, sizeof...)
+> 2. ipv6_addr_prefix_copy(pfx, addr, plen);
+>
+> but ipv6_addr_prefix_copy need to care about other bits which are set at
+> destination address, if (plen/8 != 0). I don't want to touch
+> ipv6_addr_prefix function and slow-down some mechanism.
+
+No need to change this from my side. I just missed the memset being 
+handled in the destination address.
+
+With the name change to _copy you can add my
+
+Reviewed-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+
+regards
+Stefan Schmidt
