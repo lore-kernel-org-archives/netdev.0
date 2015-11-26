@@ -1,101 +1,83 @@
-From: santosh shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [Resend PATCH] RDS: fix race condition when sending a message on
- unbound socket
-Date: Wed, 25 Nov 2015 15:54:06 -0800
-Message-ID: <56564A1E.4080706@oracle.com>
-References: <1448403201-1683-1-git-send-email-santosh.shilimkar@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CBDC0B0@AcuExch.aculab.com>
- <20151125125200.GC15735@chrystal.uk.oracle.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 26 Nov 2015 11:01:05 +1100
+Message-ID: <20151126110105.60ec3ddc@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"sasha.levin@oracle.com" <sasha.levin@oracle.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-To: Quentin Casasnovas <quentin.casasnovas@oracle.com>,
-	David Laight <David.Laight@ACULAB.COM>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20151125125200.GC15735@chrystal.uk.oracle.com>
-Sender: stable-owner@vger.kernel.org
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/25/2015 4:52 AM, Quentin Casasnovas wrote:
-> On Wed, Nov 25, 2015 at 12:21:45PM +0000, David Laight wrote:
->> From: Santosh Shilimkar
->>> Sent: 24 November 2015 22:13
->> ...
->>> Sasha's found a NULL pointer dereference in the RDS connection code when
->>> sending a message to an apparently unbound socket.  The problem is caused
->>> by the code checking if the socket is bound in rds_sendmsg(), which checks
->>> the rs_bound_addr field without taking a lock on the socket.  This opens a
->>> race where rs_bound_addr is temporarily set but where the transport is not
->>> in rds_bind(), leading to a NULL pointer dereference when trying to
->>> dereference 'trans' in __rds_conn_create().
->>>
->>> Vegard wrote a reproducer for this issue, so kindly ask him to share if
->>> you're interested.
->> ...
->>> diff --git a/net/rds/send.c b/net/rds/send.c
->>> index 827155c..c9cdb35 100644
->>> --- a/net/rds/send.c
->>> +++ b/net/rds/send.c
->>> @@ -1013,11 +1013,13 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
->>>   		release_sock(sk);
->>
->> This is falling though into an unconditional lock_sock().
->> No need to unlock and relock immediately.
->>
->>>   	}
->>>
->>> -	/* racing with another thread binding seems ok here */
->>> +	lock_sock(sk);
->>>   	if (daddr == 0 || rs->rs_bound_addr == 0) {
->>> +		release_sock(sk);
->>>   		ret = -ENOTCONN; /* XXX not a great errno */
->>>   		goto out;
->>>   	}
->>> +	release_sock(sk);
->>>
->>
->> On the face of it the above looks somewhat dubious.
->> Locks usually tie together two action (eg a test and use of a value),
->> In this case you only have a test inside the lock.
->> That either means that the state can change after you release the lock
->> (ie rs->rs_bound_addr = 0 is executed somewhere), or you don't
->> really need the lock.
->>
-If you see this patch in isolation, what you said looks very obvious
-but as indicated by Quentin below, the update is protected by
-lock and check wasn't which lead to the issue on bind() failures.
+Hi all,
 
->
-> If you look at rds_bind(), you'll see that it does something like the
-> following:
->
->      lock_sock(sk);
->      ...
-> 1:  rds_add_bound();  # This sets rs->rs_bound_addr
->      ...
->      if (!trans) {
->              ...
-> 2:          rds_remove_bound(rs);  # This unsets rs->rs_bound_addr
->    ...
->    release_sock(sk);
->
-> So any code checking rs_bound_addr without taking that lock could
-> potentially think the socket is bound, when in fact rds_bind() has failed.
-> This can happen if checking rs_bound_addr happens exactly between [1] and
-> [2] above.  So the usage of the lock in this particular case is to get a
-> consistent view of the sk.
->
-> The only other case where rs_bound_addr is cleared is on socket release, so
-> I didn't _think_ there was a problem here but maybe you can see another
-> race?
->
-I will be curious as well to know.
+Today's linux-next merge of the net-next tree got a conflict in:
 
-Regards,
-Santosh
+  kernel/bpf/syscall.c
+
+between commit:
+
+  c9da161c6517 ("bpf: fix clearing on persistent program array maps")
+
+from the net tree and commit:
+
+  f99bf205dab0 ("bpf: add show_fdinfo handler for maps")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc kernel/bpf/syscall.c
+index 4a8f3c1d7da6,6d1407bc1531..000000000000
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@@ -101,15 -93,34 +101,32 @@@ void bpf_map_put(struct bpf_map *map
+  	}
+  }
+  
++ #ifdef CONFIG_PROC_FS
++ static void bpf_map_show_fdinfo(struct seq_file *m, struct file *filp)
++ {
++ 	const struct bpf_map *map = filp->private_data;
++ 
++ 	seq_printf(m,
++ 		   "map_type:\t%u\n"
++ 		   "key_size:\t%u\n"
++ 		   "value_size:\t%u\n"
++ 		   "max_entries:\t%u\n",
++ 		   map->map_type,
++ 		   map->key_size,
++ 		   map->value_size,
++ 		   map->max_entries);
++ }
++ #endif
++ 
+ -static int bpf_map_release(struct inode *inode, struct file *filp)
+ +void bpf_map_put_with_uref(struct bpf_map *map)
+  {
+ -	struct bpf_map *map = filp->private_data;
+ -
+ -	if (map->map_type == BPF_MAP_TYPE_PROG_ARRAY)
+ -		/* prog_array stores refcnt-ed bpf_prog pointers
+ -		 * release them all when user space closes prog_array_fd
+ -		 */
+ -		bpf_fd_array_map_clear(map);
+ -
+ +	bpf_map_put_uref(map);
+  	bpf_map_put(map);
+ +}
+ +
+ +static int bpf_map_release(struct inode *inode, struct file *filp)
+ +{
+ +	bpf_map_put_with_uref(filp->private_data);
+  	return 0;
+  }
+  
