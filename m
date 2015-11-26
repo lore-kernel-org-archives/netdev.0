@@ -1,59 +1,57 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: Kernel 4.1.12 crash
-Date: Thu, 26 Nov 2015 17:44:52 +0100
-Message-ID: <20151126164452.GA2988@alphalink.fr>
-References: <564F26FF.3040605@seti.kr.ua>
- <564FA904.7020603@gmail.com>
- <5650287B.9070901@seti.kr.ua>
- <56514FF5.7060906@gmail.com>
- <5654EBE8.9030705@seti.kr.ua>
- <20151125141048.GA3868@alphalink.fr>
- <5655CCAE.6000300@seti.kr.ua>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/7] net: ipmr: more cleanups and mfc netlink
+ support
+Date: Thu, 26 Nov 2015 17:48:47 +0100
+Message-ID: <565737EF.9030504@cumulusnetworks.com>
+References: <1448547830-21716-1-git-send-email-razor@blackwall.org>
+ <20151126163502.GB4094@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
-To: Andrew <nitr0@seti.kr.ua>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Andrew Lunn <andrew@lunn.ch>,
+	Nikolay Aleksandrov <razor@blackwall.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:51113 "EHLO
-	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751723AbbKZQpB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 11:45:01 -0500
-Content-Disposition: inline
-In-Reply-To: <5655CCAE.6000300@seti.kr.ua>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:34942 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752859AbbKZQst (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 11:48:49 -0500
+Received: by wmuu63 with SMTP id u63so28186923wmu.0
+        for <netdev@vger.kernel.org>; Thu, 26 Nov 2015 08:48:48 -0800 (PST)
+In-Reply-To: <20151126163502.GB4094@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 25, 2015 at 04:58:54PM +0200, Andrew wrote:
-> 25.11.2015 16:10, Guillaume Nault =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> >On Wed, Nov 25, 2015 at 12:59:52AM +0200, Andrew wrote:
-> >>Hi.
-> >>
-> >>I tried to reproduce errors in virtual environment (some VMs on my
-> >>notebook).
-> >>
-> >>I've tried to create 1000 client PPPoE sessions from this box via s=
-cript:
-> >>for i in `seq 1 1000`; do pppd plugin rp-pppoe.so user test passwor=
-d test
-> >>nodefaultroute maxfail 0 persist nodefaultroute holdoff 1 noauth et=
-h0; done
-> >>
-> >I've tried to reproduce the bug with your script, but couldn't get
-> >anything to crash (VM is Debian Jessie i386 running on KVM with upst=
-ream
-> >kernel 4.1.12). Does the crash happen before all sessions get
-> >established?
-> Yes, crash happens even before all daemon instances are started. Sess=
-ions
-> don't get established because BRAS configured to reject sessions (so =
-a lot
-> of concurrent connection retries happens) - I still didn't created ac=
-count
-> for test user on it.
->=20
-Ok, I got the crash too. In fact I had misunderstood your previous
-message, crash happens when PPP sessions don't get established
-(authentication failures in my case).
+On 11/26/2015 05:35 PM, Andrew Lunn wrote:
+> On Thu, Nov 26, 2015 at 03:23:43PM +0100, Nikolay Aleksandrov wrote:
+>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>
+>> Hi,
+>> This set continues with the minor cleanups in the first 6 patches and
+>> patch 7 adds the first new feature - MFC manipulation via netlink.
+> 
+> Hi Nikolay
+> 
+> Great to see somebody working on multicast.
+> 
+> Do you have any plans to remove the 32 VIF limit?
+> 
+> I've run out if VIFs on a VPN server with lots of clients. I took the
+> "quick fix" of recompiling the kernel and userspace with 256 VIFs. But
+> it would be nice if you could define a netlink API which does not have
+> this limit and modify the core code to be more dynamic.
+> 
+>      Andrew
+> 
 
-I'll investigate on that and let you know.
+Hi Andrew,
+I'm glad people are still using it. :-)  To answer your question - yes, I plan
+to remove that limit, in fact I have a private version where it's done and this
+API is the first step, you can see it uses the generic rtnh which supports
+ifindex passing, so it'll be a matter of a few small changes to remove it.
+The hardest part is keeping current user-space compatible with everything, but
+I have the necessary workarounds for that. In the end it should be much more
+usable and to some extent without mrtsock application running as well.
+
+Thanks,
+ Nik
