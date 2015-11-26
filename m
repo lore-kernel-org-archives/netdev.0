@@ -1,20 +1,99 @@
-From: "hi" <russkdoodson@aol.com>
-Subject: Salve
-Date: Thu, 26 Nov 2015 14:07:44 +0800
-Message-ID: <51B9CCFC0742E5C77ECCB4AF4B93E4DD@xnbpyw>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [ovs-dev] [PATCH net-next v3 2/8] netfilter: Factor out
+ nf_ct_get_info().
+Date: Thu, 26 Nov 2015 15:18:39 +0900
+Message-ID: <20151126061836.GA22390@vergenet.net>
+References: <1448496501-109561-1-git-send-email-jarno@ovn.org>
+ <1448496501-109561-3-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <dominaspencer@rcn.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from omr-a009e.mx.aol.com ([204.29.186.49]:34740 "EHLO
-	omr-a009e.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750786AbbKZGHk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2015 01:07:40 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	netfilter-devel@vger.kernel.org
+To: Jarno Rajahalme <jarno@ovn.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1448496501-109561-3-git-send-email-jarno@ovn.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-U2FsdmUNCnR2LCBvcm9sb2dpbywgYmljaSwgZ3VsdGFyLCBpcGhvbmUsIHByb2RvdHRpIFNhbXN1
-bmcsIHR2LCBkaiAuLi4uDQpsYSBzcGVkaXppb25lIMOoIGdyYXR1aXRhDQpzaSB0ZTogcG9henps
-byAuY29tDQo=
+On Wed, Nov 25, 2015 at 04:08:15PM -0800, Jarno Rajahalme wrote:
+> Define a new inline function to map conntrack status to enum
+> ip_conntrack_info.  This removes the need to otherwise duplicate this
+> code in a later patch ("openvswitch: Find existing conntrack entry
+> after upcall.").
+> 
+> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
+
+> ---
+>  include/net/netfilter/nf_conntrack.h | 15 +++++++++++++++
+>  net/netfilter/nf_conntrack_core.c    | 22 +++-------------------
+>  2 files changed, 18 insertions(+), 19 deletions(-)
+> 
+> diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+> index fde4068..b3de10e 100644
+> --- a/include/net/netfilter/nf_conntrack.h
+> +++ b/include/net/netfilter/nf_conntrack.h
+> @@ -125,6 +125,21 @@ nf_ct_tuplehash_to_ctrack(const struct nf_conntrack_tuple_hash *hash)
+>  			    tuplehash[hash->tuple.dst.dir]);
+>  }
+>  
+> +static inline enum ip_conntrack_info
+> +nf_ct_get_info(const struct nf_conntrack_tuple_hash *h)
+> +{
+> +	const struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
+> +
+> +	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY)
+> +		return IP_CT_ESTABLISHED_REPLY;
+> +	/* Once we've had two way comms, always ESTABLISHED. */
+> +	if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status))
+> +		return IP_CT_ESTABLISHED;
+> +	if (test_bit(IPS_EXPECTED_BIT, &ct->status))
+> +		return IP_CT_RELATED;
+> +	return IP_CT_NEW;
+> +}
+> +
+>  static inline u_int16_t nf_ct_l3num(const struct nf_conn *ct)
+>  {
+>  	return ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index 3cb3cb8..70ddbd8 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -1056,25 +1056,9 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
+>  	ct = nf_ct_tuplehash_to_ctrack(h);
+>  
+>  	/* It exists; we have (non-exclusive) reference. */
+> -	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY) {
+> -		*ctinfo = IP_CT_ESTABLISHED_REPLY;
+> -		/* Please set reply bit if this packet OK */
+> -		*set_reply = 1;
+> -	} else {
+> -		/* Once we've had two way comms, always ESTABLISHED. */
+> -		if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+> -			pr_debug("nf_conntrack_in: normal packet for %p\n", ct);
+> -			*ctinfo = IP_CT_ESTABLISHED;
+> -		} else if (test_bit(IPS_EXPECTED_BIT, &ct->status)) {
+> -			pr_debug("nf_conntrack_in: related packet for %p\n",
+> -				 ct);
+> -			*ctinfo = IP_CT_RELATED;
+> -		} else {
+> -			pr_debug("nf_conntrack_in: new packet for %p\n", ct);
+> -			*ctinfo = IP_CT_NEW;
+> -		}
+> -		*set_reply = 0;
+> -	}
+> +	*ctinfo = nf_ct_get_info(h);
+> +	*set_reply = NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY;
+> +
+>  	skb->nfct = &ct->ct_general;
+>  	skb->nfctinfo = *ctinfo;
+>  	return ct;
+> -- 
+> 2.1.4
+> 
+> _______________________________________________
+> dev mailing list
+> dev@openvswitch.org
+> http://openvswitch.org/mailman/listinfo/dev
