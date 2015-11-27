@@ -1,285 +1,213 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net-next] hv_netvsc: rework link status change handling
-Date: Fri, 27 Nov 2015 11:39:55 +0100
-Message-ID: <1448620795-8572-1-git-send-email-vkuznets@redhat.com>
-Cc: "K. Y. Srinivasan" <kys@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lothar =?UTF-8?B?V2HDn21hbm4=?= <LW@KARO-electronics.de>
+Subject: Re: Problem with "swinging" ethernet link on i.MX28 based device
+Date: Fri, 27 Nov 2015 12:09:19 +0100
+Message-ID: <20151127120919.66f2bfda@ipc1.ka-ro>
+References: <565822B2.30007@i2se.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NETDEV <netdev@vger.kernel.org>, fabio.estevam@freescale.com,
+	marek.vasut@gmail.com
+To: Michael Heimpold <michael.heimpold@i2se.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.karo-electronics.de ([81.173.242.67]:59037 "EHLO
+	mail.karo-electronics.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754566AbbK0L1W convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2015 06:27:22 -0500
+In-Reply-To: <565822B2.30007@i2se.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There are several issues in hv_netvsc driver with regards to link status
-change handling:
-- RNDIS_STATUS_NETWORK_CHANGE results in calling userspace helper doing
-  '/etc/init.d/network restart' and this is inappropriate and broken for
-  many reasons.
-- link_watch infrastructure only sends one notification per second and
-  in case of e.g. paired disconnect/connect events we get only one
-  notification with last status. This makes it impossible to handle such
-  situations in userspace.
+Hi,
 
-Redo link status changes handling in the following way:
-- Create a list of reconfig events in network device context.
-- On a reconfig event add it to the list of events and schedule
-  netvsc_link_change().
-- In netvsc_link_change() ensure 2-second delay between link status
-  changes.
-- Handle RNDIS_STATUS_NETWORK_CHANGE as a paired disconnect/connect event.
+> we at I2SE have developed an i.MX28 based embedded device, called Duc=
+kbill.
+> Regarding ethernet, it is very similar to the FSL mx28evk, i.e. we us=
+e the same
+> phy (SMSC LAN8720), we use RMII mode, clock is provided by iMX (not v=
+ia
+> external crystal), we have a GPIO to reset the phy and an interrupt G=
+PIO.
+>=20
+> At the moment, we are using vanilla kernel 4.2.5 with only a fetch pa=
+tches - mainly
+> patches to add the device tree stuff needed and some cherry-picked up=
+stream
+> patches. Nothing special IMO. You can find it here:
+> https://github.com/I2SE/linux/tree/v4.2.5-duckbill
+>=20
+> After booting the device, we observe on a few devices the ethernet "s=
+winging"
+> or toggling:
+> [   15.830759] fec 800f0000.ethernet eth0: Freescale FEC PHY driver [=
+SMSC LAN8710/LAN8720] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D35=
+)
+> [   15.843361] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+> [   17.112867] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full =
+- flow control rx/tx
+> [   17.121746] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes read=
+y
+> [   17.894416] fec 800f0000.ethernet eth0: Link is Down
+> [   19.506960] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full =
+- flow control rx/tx
+> [   20.294398] fec 800f0000.ethernet eth0: Link is Down
+> [   21.932365] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full =
+- flow control rx/tx
+> [   22.714410] fec 800f0000.ethernet eth0: Link is Down
+> [   24.357890] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full =
+- flow control rx/tx
+> [   25.144400] fec 800f0000.ethernet eth0: Link is Down
+> [   26.783367] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full =
+- flow control rx/tx
+> [   27.564357] fec 800f0000.ethernet eth0: Link is Down
+> [   29.208846] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full =
+- flow control rx/tx
+>=20
+> However, in U-Boot I can transfer several hundreds of MB without any =
+problem,
+> I can attach the cable/reattach etc. as usual - no obvious problems.
+> This is the reason, we think that the hardware is ok (and of course, =
+we double-checked
+> especially the soldering of the affected devices).
+>=20
+> This is what I tried so far:
+> - changed the device tree to not use the interrupt line -> phy is pol=
+led periodically
+> - reverted latest phy changes for LAN8720, i.e.
+>    d88ecb373bd1877acc43e13311a8e0e6daffc3d2 - "net: phy: smsc: disabl=
+e energy detect mode"
+>    ff94c742dfeea3110f1e1d27399d728f8494d29e - "net: phy: fix semicolo=
+n.cocci warnings"
+>    776829de90c5972895db398993ddfa9417ff8b01 - "net: phy: workaround f=
+or buggy cable detection by LAN8700 after cable plugging"
+> - then I tried the following patch
+>=20
+> -snip-
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -936,7 +936,7 @@ fec_restart(struct net_device *ndev)
+>          if (fep->quirks & FEC_QUIRK_HAS_AVB) {
+>                  writel(0, fep->hwp + FEC_ECNTRL);
+>          } else {
+> - writel(1, fep->hwp + FEC_ECNTRL);
+> + //writel(1, fep->hwp + FEC_ECNTRL);
+>                  udelay(10);
+>          }
+> -snap-
+> The idea behind this patch is: when FEC is resetted, then registers a=
+re reset to initial values
+> and thus FEC is configured for MII. When using ENET_CLK_OUT this resu=
+lts in 25 MHz clock
+> to phy instead of 50 MHz as required by RMII. At least for a short ti=
+me, there might be
+> a "glitch". The concern was, that the phy might become stuck by this.
+>=20
+> However, nothing of the above improved anything. So, at the moment, I=
+'m
+> running out of ideas - any help/hint to debug this issue further is r=
+eally appreciated.
+> Please let me know if I missed some important information.
+>=20
+I faced the same problem on one of our i.MX6 modules recently but
+haven't come around to send a proper patch yet.
 
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
----
- drivers/net/hyperv/hyperv_net.h |  14 +++-
- drivers/net/hyperv/netvsc_drv.c | 142 +++++++++++++++++++++++++++-------------
- 2 files changed, 108 insertions(+), 48 deletions(-)
+The problem is that the enet_out clock is disabled in
+fec_enet_clk_enable() which leaves the PHY without a running clock.
+Due to this the PHY loses its internal state and requires a reset to be
+reactivated.
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 5fa98f5..7661a12 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -177,7 +177,6 @@ struct rndis_device {
- 
- 	enum rndis_device_state state;
- 	bool link_state;
--	bool link_change;
- 	atomic_t new_req_id;
- 
- 	spinlock_t request_lock;
-@@ -644,11 +643,24 @@ struct netvsc_stats {
- 	struct u64_stats_sync syncp;
- };
- 
-+struct netvsc_reconfig {
-+	struct list_head list;
-+	u32 event;
-+};
-+
- /* The context of the netvsc device  */
- struct net_device_context {
- 	/* point back to our device context */
- 	struct hv_device *device_ctx;
-+	/* reconfigure work */
- 	struct delayed_work dwork;
-+	/* last reconfig time */
-+	unsigned long last_reconfig;
-+	/* reconfig events */
-+	struct list_head reconfig_events;
-+	/* list protection */
-+	spinlock_t lock;
-+
- 	struct work_struct work;
- 	u32 msg_enable; /* debug level */
- 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 409b48e..268a058 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -42,6 +42,7 @@
- 
- 
- #define RING_SIZE_MIN 64
-+#define LINKCHANGE_INT (2 * HZ)
- static int ring_size = 128;
- module_param(ring_size, int, S_IRUGO);
- MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
-@@ -647,37 +648,33 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
- 	struct net_device *net;
- 	struct net_device_context *ndev_ctx;
- 	struct netvsc_device *net_device;
--	struct rndis_device *rdev;
--
--	net_device = hv_get_drvdata(device_obj);
--	rdev = net_device->extension;
-+	struct netvsc_reconfig *event;
-+	unsigned long flags;
- 
--	switch (indicate->status) {
--	case RNDIS_STATUS_MEDIA_CONNECT:
--		rdev->link_state = false;
--		break;
--	case RNDIS_STATUS_MEDIA_DISCONNECT:
--		rdev->link_state = true;
--		break;
--	case RNDIS_STATUS_NETWORK_CHANGE:
--		rdev->link_change = true;
--		break;
--	default:
-+	/* Handle link change statuses only */
-+	if (indicate->status != RNDIS_STATUS_NETWORK_CHANGE &&
-+	    indicate->status != RNDIS_STATUS_MEDIA_CONNECT &&
-+	    indicate->status != RNDIS_STATUS_MEDIA_DISCONNECT)
- 		return;
--	}
- 
-+	net_device = hv_get_drvdata(device_obj);
- 	net = net_device->ndev;
- 
- 	if (!net || net->reg_state != NETREG_REGISTERED)
- 		return;
- 
- 	ndev_ctx = netdev_priv(net);
--	if (!rdev->link_state) {
--		schedule_delayed_work(&ndev_ctx->dwork, 0);
--		schedule_delayed_work(&ndev_ctx->dwork, msecs_to_jiffies(20));
--	} else {
--		schedule_delayed_work(&ndev_ctx->dwork, 0);
--	}
-+
-+	event = kzalloc(sizeof(*event), GFP_ATOMIC);
-+	if (!event)
-+		return;
-+	event->event = indicate->status;
-+
-+	spin_lock_irqsave(&ndev_ctx->lock, flags);
-+	list_add_tail(&event->list, &ndev_ctx->reconfig_events);
-+	spin_unlock_irqrestore(&ndev_ctx->lock, flags);
-+
-+	schedule_delayed_work(&ndev_ctx->dwork, 0);
- }
- 
- /*
-@@ -1009,12 +1006,9 @@ static const struct net_device_ops device_ops = {
- };
- 
- /*
-- * Send GARP packet to network peers after migrations.
-- * After Quick Migration, the network is not immediately operational in the
-- * current context when receiving RNDIS_STATUS_MEDIA_CONNECT event. So, add
-- * another netif_notify_peers() into a delayed work, otherwise GARP packet
-- * will not be sent after quick migration, and cause network disconnection.
-- * Also, we update the carrier status here.
-+ * Handle link status changes. For RNDIS_STATUS_NETWORK_CHANGE emulate link
-+ * down/up sequence. In case of RNDIS_STATUS_MEDIA_CONNECT when carrier is
-+ * present send GARP packet to network peers with netif_notify_peers().
-  */
- static void netvsc_link_change(struct work_struct *w)
- {
-@@ -1022,36 +1016,89 @@ static void netvsc_link_change(struct work_struct *w)
- 	struct net_device *net;
- 	struct netvsc_device *net_device;
- 	struct rndis_device *rdev;
--	bool notify, refresh = false;
--	char *argv[] = { "/etc/init.d/network", "restart", NULL };
--	char *envp[] = { "HOME=/", "PATH=/sbin:/usr/sbin:/bin:/usr/bin", NULL };
--
--	rtnl_lock();
-+	struct netvsc_reconfig *event = NULL;
-+	bool notify = false, reschedule = false;
-+	unsigned long flags, next_reconfig, delay;
- 
- 	ndev_ctx = container_of(w, struct net_device_context, dwork.work);
- 	net_device = hv_get_drvdata(ndev_ctx->device_ctx);
- 	rdev = net_device->extension;
- 	net = net_device->ndev;
- 
--	if (rdev->link_state) {
--		netif_carrier_off(net);
--		notify = false;
--	} else {
--		netif_carrier_on(net);
--		notify = true;
--		if (rdev->link_change) {
--			rdev->link_change = false;
--			refresh = true;
-+	next_reconfig = ndev_ctx->last_reconfig + LINKCHANGE_INT;
-+	if (time_is_after_jiffies(next_reconfig)) {
-+		/* link_watch only sends one notification with current state
-+		 * per second, avoid doing reconfig more frequently. Handle
-+		 * wrap around.
-+		 */
-+		delay = next_reconfig - jiffies;
-+		delay = delay < LINKCHANGE_INT ? delay : LINKCHANGE_INT;
-+		schedule_delayed_work(&ndev_ctx->dwork, delay);
-+		return;
-+	}
-+	ndev_ctx->last_reconfig = jiffies;
-+
-+	spin_lock_irqsave(&ndev_ctx->lock, flags);
-+	if (!list_empty(&ndev_ctx->reconfig_events)) {
-+		event = list_first_entry(&ndev_ctx->reconfig_events,
-+					 struct netvsc_reconfig, list);
-+		list_del(&event->list);
-+		reschedule = !list_empty(&ndev_ctx->reconfig_events);
-+	}
-+	spin_unlock_irqrestore(&ndev_ctx->lock, flags);
-+
-+	if (!event)
-+		return;
-+
-+	rtnl_lock();
-+
-+	switch (event->event) {
-+		/* Only the following events are possible due to the check in
-+		 * netvsc_linkstatus_callback()
-+		 */
-+	case RNDIS_STATUS_MEDIA_CONNECT:
-+		if (rdev->link_state) {
-+			rdev->link_state = false;
-+			netif_carrier_on(net);
-+			netif_tx_wake_all_queues(net);
-+		} else {
-+			notify = true;
-+		}
-+		kfree(event);
-+		break;
-+	case RNDIS_STATUS_MEDIA_DISCONNECT:
-+		if (!rdev->link_state) {
-+			rdev->link_state = true;
-+			netif_carrier_off(net);
-+			netif_tx_stop_all_queues(net);
-+		}
-+		kfree(event);
-+		break;
-+	case RNDIS_STATUS_NETWORK_CHANGE:
-+		/* Only makes sense if carrier is present */
-+		if (!rdev->link_state) {
-+			rdev->link_state = true;
-+			netif_carrier_off(net);
-+			netif_tx_stop_all_queues(net);
-+			event->event = RNDIS_STATUS_MEDIA_CONNECT;
-+			spin_lock_irqsave(&ndev_ctx->lock, flags);
-+			list_add_tail(&event->list, &ndev_ctx->reconfig_events);
-+			spin_unlock_irqrestore(&ndev_ctx->lock, flags);
-+			reschedule = true;
+The following patch should fix this problem:
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/et=
+hernet/freescale/fec_main.c
+index b2a3220..cfa70b5 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1857,11 +1857,6 @@ static int fec_enet_clk_enable(struct net_device=
+ *ndev, bool enable)
+ 		ret =3D clk_prepare_enable(fep->clk_ahb);
+ 		if (ret)
+ 			return ret;
+-		if (fep->clk_enet_out) {
+-			ret =3D clk_prepare_enable(fep->clk_enet_out);
+-			if (ret)
+-				goto failed_clk_enet_out;
+-		}
+ 		if (fep->clk_ptp) {
+ 			mutex_lock(&fep->ptp_clk_mutex);
+ 			ret =3D clk_prepare_enable(fep->clk_ptp);
+@@ -1873,35 +1868,26 @@ static int fec_enet_clk_enable(struct net_devic=
+e *ndev, bool enable)
+ 			}
+ 			mutex_unlock(&fep->ptp_clk_mutex);
  		}
-+		break;
+-		if (fep->clk_ref) {
+-			ret =3D clk_prepare_enable(fep->clk_ref);
+-			if (ret)
+-				goto failed_clk_ref;
+-		}
++		ret =3D clk_prepare_enable(fep->clk_ref);
++		if (ret)
++			goto failed_clk_ref;
+ 	} else {
+ 		clk_disable_unprepare(fep->clk_ahb);
+-		if (fep->clk_enet_out)
+-			clk_disable_unprepare(fep->clk_enet_out);
+ 		if (fep->clk_ptp) {
+ 			mutex_lock(&fep->ptp_clk_mutex);
+ 			clk_disable_unprepare(fep->clk_ptp);
+ 			fep->ptp_clk_on =3D false;
+ 			mutex_unlock(&fep->ptp_clk_mutex);
+ 		}
+-		if (fep->clk_ref)
+-			clk_disable_unprepare(fep->clk_ref);
++		clk_disable_unprepare(fep->clk_ref);
  	}
- 
- 	rtnl_unlock();
- 
--	if (refresh)
--		call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
--
- 	if (notify)
- 		netdev_notify_peers(net);
-+
-+	/* link_watch only sends one notification with current state per
-+	 * second, handle next reconfig event in 2 seconds.
-+	 */
-+	if (reschedule)
-+		schedule_delayed_work(&ndev_ctx->dwork, LINKCHANGE_INT);
- }
- 
- static void netvsc_free_netdev(struct net_device *netdev)
-@@ -1106,6 +1153,9 @@ static int netvsc_probe(struct hv_device *dev,
- 	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_link_change);
- 	INIT_WORK(&net_device_ctx->work, do_set_multicast);
- 
-+	spin_lock_init(&net_device_ctx->lock);
-+	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
-+
- 	net->netdev_ops = &device_ops;
- 
- 	net->hw_features = NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_IP_CSUM |
-@@ -1145,8 +1195,6 @@ static int netvsc_probe(struct hv_device *dev,
- 		pr_err("Unable to register netdev.\n");
- 		rndis_filter_device_remove(dev);
- 		netvsc_free_netdev(net);
--	} else {
--		schedule_delayed_work(&net_device_ctx->dwork, 0);
- 	}
- 
+=20
+ 	return 0;
+=20
+ failed_clk_ref:
+-	if (fep->clk_ref)
+-		clk_disable_unprepare(fep->clk_ref);
++	clk_disable_unprepare(fep->clk_ref);
+ failed_clk_ptp:
+-	if (fep->clk_enet_out)
+-		clk_disable_unprepare(fep->clk_enet_out);
+-failed_clk_enet_out:
+-		clk_disable_unprepare(fep->clk_ahb);
++	clk_disable_unprepare(fep->clk_ahb);
+=20
  	return ret;
--- 
-2.4.3
+ }
+@@ -3430,6 +3416,10 @@ fec_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto failed_clk;
+=20
++	ret =3D clk_prepare_enable(fep->clk_enet_out);
++	if (ret)
++		goto failed_clk_enet_out;
++
+ 	ret =3D clk_prepare_enable(fep->clk_ipg);
+ 	if (ret)
+ 		goto failed_clk_ipg;
+@@ -3514,6 +3504,8 @@ failed_init:
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+ failed_regulator:
++	clk_disable_unprepare(fep->clk_enet_out);
++failed_clk_enet_out:
+ 	clk_disable_unprepare(fep->clk_ipg);
+ failed_clk_ipg:
+ 	fec_enet_clk_enable(ndev, false);
+@@ -3536,6 +3528,8 @@ fec_drv_remove(struct platform_device *pdev)
+ 	fec_ptp_stop(pdev);
+ 	unregister_netdev(ndev);
+ 	fec_enet_mii_remove(fep);
++	fec_enet_clk_enable(ndev, false);
++	clk_disable_unprepare(fep->clk_enet_out);
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+ 	of_node_put(fep->phy_node);
+
+
+
+Lothar Wa=C3=9Fmann
