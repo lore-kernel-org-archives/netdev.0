@@ -1,249 +1,160 @@
-From: Michael Heimpold <michael.heimpold@i2se.com>
-Subject: Re: Problem with "swinging" ethernet link on i.MX28 based device
-Date: Fri, 27 Nov 2015 13:45:34 +0100
-Message-ID: <5658506E.5040503@i2se.com>
-References: <565822B2.30007@i2se.com> <20151127120919.66f2bfda@ipc1.ka-ro>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: NETDEV <netdev@vger.kernel.org>, fabio.estevam@freescale.com,
-	marek.vasut@gmail.com
-To: =?UTF-8?Q?Lothar_Wa=c3=9fmann?= <LW@KARO-electronics.de>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 3/6] mlxsw: reg: Add definition of temperature management registers
+Date: Fri, 27 Nov 2015 13:45:56 +0100
+Message-ID: <1448628359-20077-4-git-send-email-jiri@resnulli.us>
+References: <1448628359-20077-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.133]:51588 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751165AbbK0Mq3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2015 07:46:29 -0500
-In-Reply-To: <20151127120919.66f2bfda@ipc1.ka-ro>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:37894 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751544AbbK0MqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2015 07:46:06 -0500
+Received: by wmec201 with SMTP id c201so57129070wme.1
+        for <netdev@vger.kernel.org>; Fri, 27 Nov 2015 04:46:05 -0800 (PST)
+In-Reply-To: <1448628359-20077-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Lothar,
+From: Jiri Pirko <jiri@mellanox.com>
 
+Add definition of MTCAP and MTMP registers which provide access to
+temperature sensors.
 
-Am 27.11.2015 um 12:09 schrieb Lothar Wa=C3=9Fmann:
-> Hi,
->
->> we at I2SE have developed an i.MX28 based embedded device, called Du=
-ckbill.
->> Regarding ethernet, it is very similar to the FSL mx28evk, i.e. we u=
-se the same
->> phy (SMSC LAN8720), we use RMII mode, clock is provided by iMX (not =
-via
->> external crystal), we have a GPIO to reset the phy and an interrupt =
-GPIO.
->>
->> At the moment, we are using vanilla kernel 4.2.5 with only a fetch p=
-atches - mainly
->> patches to add the device tree stuff needed and some cherry-picked u=
-pstream
->> patches. Nothing special IMO. You can find it here:
->> https://github.com/I2SE/linux/tree/v4.2.5-duckbill
->>
->> After booting the device, we observe on a few devices the ethernet "=
-swinging"
->> or toggling:
->> [   15.830759] fec 800f0000.ethernet eth0: Freescale FEC PHY driver =
-[SMSC LAN8710/LAN8720] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D3=
-5)
->> [   15.843361] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
->> [   17.112867] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full=
- - flow control rx/tx
->> [   17.121746] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes rea=
-dy
->> [   17.894416] fec 800f0000.ethernet eth0: Link is Down
->> [   19.506960] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full=
- - flow control rx/tx
->> [   20.294398] fec 800f0000.ethernet eth0: Link is Down
->> [   21.932365] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full=
- - flow control rx/tx
->> [   22.714410] fec 800f0000.ethernet eth0: Link is Down
->> [   24.357890] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full=
- - flow control rx/tx
->> [   25.144400] fec 800f0000.ethernet eth0: Link is Down
->> [   26.783367] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full=
- - flow control rx/tx
->> [   27.564357] fec 800f0000.ethernet eth0: Link is Down
->> [   29.208846] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full=
- - flow control rx/tx
->>
->> However, in U-Boot I can transfer several hundreds of MB without any=
- problem,
->> I can attach the cable/reattach etc. as usual - no obvious problems.
->> This is the reason, we think that the hardware is ok (and of course,=
- we double-checked
->> especially the soldering of the affected devices).
->>
->> This is what I tried so far:
->> - changed the device tree to not use the interrupt line -> phy is po=
-lled periodically
->> - reverted latest phy changes for LAN8720, i.e.
->>     d88ecb373bd1877acc43e13311a8e0e6daffc3d2 - "net: phy: smsc: disa=
-ble energy detect mode"
->>     ff94c742dfeea3110f1e1d27399d728f8494d29e - "net: phy: fix semico=
-lon.cocci warnings"
->>     776829de90c5972895db398993ddfa9417ff8b01 - "net: phy: workaround=
- for buggy cable detection by LAN8700 after cable plugging"
->> - then I tried the following patch
->>
->> -snip-
->> --- a/drivers/net/ethernet/freescale/fec_main.c
->> +++ b/drivers/net/ethernet/freescale/fec_main.c
->> @@ -936,7 +936,7 @@ fec_restart(struct net_device *ndev)
->>           if (fep->quirks & FEC_QUIRK_HAS_AVB) {
->>                   writel(0, fep->hwp + FEC_ECNTRL);
->>           } else {
->> - writel(1, fep->hwp + FEC_ECNTRL);
->> + //writel(1, fep->hwp + FEC_ECNTRL);
->>                   udelay(10);
->>           }
->> -snap-
->> The idea behind this patch is: when FEC is resetted, then registers =
-are reset to initial values
->> and thus FEC is configured for MII. When using ENET_CLK_OUT this res=
-ults in 25 MHz clock
->> to phy instead of 50 MHz as required by RMII. At least for a short t=
-ime, there might be
->> a "glitch". The concern was, that the phy might become stuck by this=
-=2E
->>
->> However, nothing of the above improved anything. So, at the moment, =
-I'm
->> running out of ideas - any help/hint to debug this issue further is =
-really appreciated.
->> Please let me know if I missed some important information.
->>
-> I faced the same problem on one of our i.MX6 modules recently but
-> haven't come around to send a proper patch yet.
->
-> The problem is that the enet_out clock is disabled in
-> fec_enet_clk_enable() which leaves the PHY without a running clock.
-> Due to this the PHY loses its internal state and requires a reset to =
-be
-> reactivated.
->
-> The following patch should fix this problem:
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/=
-ethernet/freescale/fec_main.c
-> index b2a3220..cfa70b5 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1857,11 +1857,6 @@ static int fec_enet_clk_enable(struct net_devi=
-ce *ndev, bool enable)
->   		ret =3D clk_prepare_enable(fep->clk_ahb);
->   		if (ret)
->   			return ret;
-> -		if (fep->clk_enet_out) {
-> -			ret =3D clk_prepare_enable(fep->clk_enet_out);
-> -			if (ret)
-> -				goto failed_clk_enet_out;
-> -		}
->   		if (fep->clk_ptp) {
->   			mutex_lock(&fep->ptp_clk_mutex);
->   			ret =3D clk_prepare_enable(fep->clk_ptp);
-> @@ -1873,35 +1868,26 @@ static int fec_enet_clk_enable(struct net_dev=
-ice *ndev, bool enable)
->   			}
->   			mutex_unlock(&fep->ptp_clk_mutex);
->   		}
-> -		if (fep->clk_ref) {
-> -			ret =3D clk_prepare_enable(fep->clk_ref);
-> -			if (ret)
-> -				goto failed_clk_ref;
-> -		}
-> +		ret =3D clk_prepare_enable(fep->clk_ref);
-> +		if (ret)
-> +			goto failed_clk_ref;
->   	} else {
->   		clk_disable_unprepare(fep->clk_ahb);
-> -		if (fep->clk_enet_out)
-> -			clk_disable_unprepare(fep->clk_enet_out);
->   		if (fep->clk_ptp) {
->   			mutex_lock(&fep->ptp_clk_mutex);
->   			clk_disable_unprepare(fep->clk_ptp);
->   			fep->ptp_clk_on =3D false;
->   			mutex_unlock(&fep->ptp_clk_mutex);
->   		}
-> -		if (fep->clk_ref)
-> -			clk_disable_unprepare(fep->clk_ref);
-> +		clk_disable_unprepare(fep->clk_ref);
->   	}
->  =20
->   	return 0;
->  =20
->   failed_clk_ref:
-> -	if (fep->clk_ref)
-> -		clk_disable_unprepare(fep->clk_ref);
-> +	clk_disable_unprepare(fep->clk_ref);
->   failed_clk_ptp:
-> -	if (fep->clk_enet_out)
-> -		clk_disable_unprepare(fep->clk_enet_out);
-> -failed_clk_enet_out:
-> -		clk_disable_unprepare(fep->clk_ahb);
-> +	clk_disable_unprepare(fep->clk_ahb);
->  =20
->   	return ret;
->   }
-> @@ -3430,6 +3416,10 @@ fec_probe(struct platform_device *pdev)
->   	if (ret)
->   		goto failed_clk;
->  =20
-> +	ret =3D clk_prepare_enable(fep->clk_enet_out);
-> +	if (ret)
-> +		goto failed_clk_enet_out;
-> +
->   	ret =3D clk_prepare_enable(fep->clk_ipg);
->   	if (ret)
->   		goto failed_clk_ipg;
-> @@ -3514,6 +3504,8 @@ failed_init:
->   	if (fep->reg_phy)
->   		regulator_disable(fep->reg_phy);
->   failed_regulator:
-> +	clk_disable_unprepare(fep->clk_enet_out);
-> +failed_clk_enet_out:
->   	clk_disable_unprepare(fep->clk_ipg);
->   failed_clk_ipg:
->   	fec_enet_clk_enable(ndev, false);
-> @@ -3536,6 +3528,8 @@ fec_drv_remove(struct platform_device *pdev)
->   	fec_ptp_stop(pdev);
->   	unregister_netdev(ndev);
->   	fec_enet_mii_remove(fep);
-> +	fec_enet_clk_enable(ndev, false);
-> +	clk_disable_unprepare(fep->clk_enet_out);
->   	if (fep->reg_phy)
->   		regulator_disable(fep->reg_phy);
->   	of_node_put(fep->phy_node);
->
->
->
-> Lothar Wa=C3=9Fmann
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 111 ++++++++++++++++++++++++++++++
+ 1 file changed, 111 insertions(+)
 
-thank you very much - your patch fixes our problem.
-
-Mit freundlichen Gr=C3=BC=C3=9Fen / Kind regards
-Michael Heimpold
---=20
-Software Engineer
-
-I2SE GmbH                           Tel: +49 (0) 341 355667-00
-=46riedrich-Ebert-Str. 61             Fax: +49 (0) 341 355667-02
-04109 Leipzig
-Germany
-Web: http://www.i2se.com/           Mail: info@i2se.com
-VAT No.: DE 811528334
-Amtsgericht Leipzig HRB 23784
-Gesch=C3=A4ftsf=C3=BChrer/CEO: Carsten Ziermann
-
-*** Diese E-Mail ist allein f=C3=BCr den bezeichneten Adressaten bestim=
-mt. Sie kann rechtlich vertrauliche Informationen enthalten. Wenn Sie d=
-iese E-Mail irrt=C3=BCmlich erhalten haben, informieren Sie bitte unver=
-z=C3=BCglich den Absender per E-Mail und l=C3=B6schen Sie diese E-Mail =
-von Ihrem Computer, ohne Kopien anzufertigen.
-Vielen Dank. ***
-
-*** This email is for the exclusive use of the addressee. It may contai=
-n legally privileged information. If you have received this message in =
-error, please notify the sender by email immediately and delete the mes=
-sage from your computer without making any copies.
-Thank you. ***
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index fc6839d..459e0490 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -2087,6 +2087,113 @@ static inline void mlxsw_reg_hpkt_pack(char *payload, u8 action, u16 trap_id)
+ 	mlxsw_reg_hpkt_ctrl_set(payload, MLXSW_REG_HPKT_CTRL_PACKET_DEFAULT);
+ }
+ 
++/* MTCAP - Management Temperature Capabilities
++ * -------------------------------------------
++ * This register exposes the capabilities of the device and
++ * system temperature sensing.
++ */
++#define MLXSW_REG_MTCAP_ID 0x9009
++#define MLXSW_REG_MTCAP_LEN 0x08
++
++static const struct mlxsw_reg_info mlxsw_reg_mtcap = {
++	.id = MLXSW_REG_MTCAP_ID,
++	.len = MLXSW_REG_MTCAP_LEN,
++};
++
++/* reg_mtcap_sensor_count
++ * Number of sensors supported by the device.
++ * This includes the QSFP module sensors (if exists in the QSFP module).
++ * Access: RO
++ */
++MLXSW_ITEM32(reg, mtcap, sensor_count, 0x00, 0, 7);
++
++/* MTMP - Management Temperature
++ * -----------------------------
++ * This register controls the settings of the temperature measurements
++ * and enables reading the temperature measurements. Note that temperature
++ * is in 0.125 degrees Celsius.
++ */
++#define MLXSW_REG_MTMP_ID 0x900A
++#define MLXSW_REG_MTMP_LEN 0x20
++
++static const struct mlxsw_reg_info mlxsw_reg_mtmp = {
++	.id = MLXSW_REG_MTMP_ID,
++	.len = MLXSW_REG_MTMP_LEN,
++};
++
++/* reg_mtmp_sensor_index
++ * Sensors index to access.
++ * 64-127 of sensor_index are mapped to the SFP+/QSFP modules sequentially
++ * (module 0 is mapped to sensor_index 64).
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, mtmp, sensor_index, 0x00, 0, 7);
++
++/* Convert to milli degrees Celsius */
++#define MLXSW_REG_MTMP_TEMP_TO_MC(val) (val * 125)
++
++/* reg_mtmp_temperature
++ * Temperature reading from the sensor. Reading is in 0.125 Celsius
++ * degrees units.
++ * Access: RO
++ */
++MLXSW_ITEM32(reg, mtmp, temperature, 0x04, 0, 16);
++
++/* reg_mtmp_mte
++ * Max Temperature Enable - enables measuring the max temperature on a sensor.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mtmp, mte, 0x08, 31, 1);
++
++/* reg_mtmp_mtr
++ * Max Temperature Reset - clears the value of the max temperature register.
++ * Access: WO
++ */
++MLXSW_ITEM32(reg, mtmp, mtr, 0x08, 30, 1);
++
++/* reg_mtmp_max_temperature
++ * The highest measured temperature from the sensor.
++ * When the bit mte is cleared, the field max_temperature is reserved.
++ * Access: RO
++ */
++MLXSW_ITEM32(reg, mtmp, max_temperature, 0x08, 0, 16);
++
++#define MLXSW_REG_MTMP_SENSOR_NAME_SIZE 8
++
++/* reg_mtmp_sensor_name
++ * Sensor Name
++ * Access: RO
++ */
++MLXSW_ITEM_BUF(reg, mtmp, sensor_name, 0x18, MLXSW_REG_MTMP_SENSOR_NAME_SIZE);
++
++static inline void mlxsw_reg_mtmp_pack(char *payload, u8 sensor_index,
++				       bool max_temp_enable,
++				       bool max_temp_reset)
++{
++	MLXSW_REG_ZERO(mtmp, payload);
++	mlxsw_reg_mtmp_sensor_index_set(payload, sensor_index);
++	mlxsw_reg_mtmp_mte_set(payload, max_temp_enable);
++	mlxsw_reg_mtmp_mtr_set(payload, max_temp_reset);
++}
++
++static inline void mlxsw_reg_mtmp_unpack(char *payload, unsigned int *p_temp,
++					 unsigned int *p_max_temp,
++					 char *sensor_name)
++{
++	u16 temp;
++
++	if (p_temp) {
++		temp = mlxsw_reg_mtmp_temperature_get(payload);
++		*p_temp = MLXSW_REG_MTMP_TEMP_TO_MC(temp);
++	}
++	if (p_max_temp) {
++		temp = mlxsw_reg_mtmp_temperature_get(payload);
++		*p_max_temp = MLXSW_REG_MTMP_TEMP_TO_MC(temp);
++	}
++	if (sensor_name)
++		mlxsw_reg_mtmp_sensor_name_memcpy_from(payload, sensor_name);
++}
++
+ /* MLCR - Management LED Control Register
+  * --------------------------------------
+  * Controls the system LEDs.
+@@ -2449,6 +2556,10 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
+ 		return "HTGT";
+ 	case MLXSW_REG_HPKT_ID:
+ 		return "HPKT";
++	case MLXSW_REG_MTCAP_ID:
++		return "MTCAP";
++	case MLXSW_REG_MTMP_ID:
++		return "MTMP";
+ 	case MLXSW_REG_MLCR_ID:
+ 		return "MLCR";
+ 	case MLXSW_REG_SBPR_ID:
+-- 
+1.9.3
