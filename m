@@ -1,53 +1,285 @@
-From: William Dauchy <william@gandi.net>
-Subject: dynamically set number of queues for 82598 devices in -stable
-Date: Fri, 27 Nov 2015 11:05:57 +0100
-Message-ID: <20151127100557.GB21147@gandi.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="WxezjuMNsgvRf6mf"
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	Emil Tantilov <emil.s.tantilov@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.gandi.net ([217.70.183.210]:41487 "EHLO gandi.net"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752958AbbK0KGA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Nov 2015 05:06:00 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: [PATCH net-next] hv_netvsc: rework link status change handling
+Date: Fri, 27 Nov 2015 11:39:55 +0100
+Message-ID: <1448620795-8572-1-git-send-email-vkuznets@redhat.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+There are several issues in hv_netvsc driver with regards to link status
+change handling:
+- RNDIS_STATUS_NETWORK_CHANGE results in calling userspace helper doing
+  '/etc/init.d/network restart' and this is inappropriate and broken for
+  many reasons.
+- link_watch infrastructure only sends one notification per second and
+  in case of e.g. paired disconnect/connect events we get only one
+  notification with last status. This makes it impossible to handle such
+  situations in userspace.
 
---WxezjuMNsgvRf6mf
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Redo link status changes handling in the following way:
+- Create a list of reconfig events in network device context.
+- On a reconfig event add it to the list of events and schedule
+  netvsc_link_change().
+- In netvsc_link_change() ensure 2-second delay between link status
+  changes.
+- Handle RNDIS_STATUS_NETWORK_CHANGE as a paired disconnect/connect event.
 
-Hello Jeff,
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ drivers/net/hyperv/hyperv_net.h |  14 +++-
+ drivers/net/hyperv/netvsc_drv.c | 142 +++++++++++++++++++++++++++-------------
+ 2 files changed, 108 insertions(+), 48 deletions(-)
 
-I faced the problem described in commit 7e3f5c8:
-ixgbe: fix bounds checking in ixgbe_setup_tc for 82598
-
-This patch resolves an issue where users were not able to dynamically
-set number of queues for 82598 via ethtool -L
-
-
-I backported it for my v4.1.x build but I was wondering if this could be
-a candidate for a backport in stable tree at least for v4.1.x.
-
-Thanks,
---=20
-William
-
---WxezjuMNsgvRf6mf
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlZYKwUACgkQ1I6eqOUidQHH1QCZAdC4rOgfJL5GGHlX8c4KohbI
-WTQAoKG90yQXV9J6cch1dZfX4f+vq5a8
-=lGAZ
------END PGP SIGNATURE-----
-
---WxezjuMNsgvRf6mf--
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 5fa98f5..7661a12 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -177,7 +177,6 @@ struct rndis_device {
+ 
+ 	enum rndis_device_state state;
+ 	bool link_state;
+-	bool link_change;
+ 	atomic_t new_req_id;
+ 
+ 	spinlock_t request_lock;
+@@ -644,11 +643,24 @@ struct netvsc_stats {
+ 	struct u64_stats_sync syncp;
+ };
+ 
++struct netvsc_reconfig {
++	struct list_head list;
++	u32 event;
++};
++
+ /* The context of the netvsc device  */
+ struct net_device_context {
+ 	/* point back to our device context */
+ 	struct hv_device *device_ctx;
++	/* reconfigure work */
+ 	struct delayed_work dwork;
++	/* last reconfig time */
++	unsigned long last_reconfig;
++	/* reconfig events */
++	struct list_head reconfig_events;
++	/* list protection */
++	spinlock_t lock;
++
+ 	struct work_struct work;
+ 	u32 msg_enable; /* debug level */
+ 
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 409b48e..268a058 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -42,6 +42,7 @@
+ 
+ 
+ #define RING_SIZE_MIN 64
++#define LINKCHANGE_INT (2 * HZ)
+ static int ring_size = 128;
+ module_param(ring_size, int, S_IRUGO);
+ MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
+@@ -647,37 +648,33 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+ 	struct net_device *net;
+ 	struct net_device_context *ndev_ctx;
+ 	struct netvsc_device *net_device;
+-	struct rndis_device *rdev;
+-
+-	net_device = hv_get_drvdata(device_obj);
+-	rdev = net_device->extension;
++	struct netvsc_reconfig *event;
++	unsigned long flags;
+ 
+-	switch (indicate->status) {
+-	case RNDIS_STATUS_MEDIA_CONNECT:
+-		rdev->link_state = false;
+-		break;
+-	case RNDIS_STATUS_MEDIA_DISCONNECT:
+-		rdev->link_state = true;
+-		break;
+-	case RNDIS_STATUS_NETWORK_CHANGE:
+-		rdev->link_change = true;
+-		break;
+-	default:
++	/* Handle link change statuses only */
++	if (indicate->status != RNDIS_STATUS_NETWORK_CHANGE &&
++	    indicate->status != RNDIS_STATUS_MEDIA_CONNECT &&
++	    indicate->status != RNDIS_STATUS_MEDIA_DISCONNECT)
+ 		return;
+-	}
+ 
++	net_device = hv_get_drvdata(device_obj);
+ 	net = net_device->ndev;
+ 
+ 	if (!net || net->reg_state != NETREG_REGISTERED)
+ 		return;
+ 
+ 	ndev_ctx = netdev_priv(net);
+-	if (!rdev->link_state) {
+-		schedule_delayed_work(&ndev_ctx->dwork, 0);
+-		schedule_delayed_work(&ndev_ctx->dwork, msecs_to_jiffies(20));
+-	} else {
+-		schedule_delayed_work(&ndev_ctx->dwork, 0);
+-	}
++
++	event = kzalloc(sizeof(*event), GFP_ATOMIC);
++	if (!event)
++		return;
++	event->event = indicate->status;
++
++	spin_lock_irqsave(&ndev_ctx->lock, flags);
++	list_add_tail(&event->list, &ndev_ctx->reconfig_events);
++	spin_unlock_irqrestore(&ndev_ctx->lock, flags);
++
++	schedule_delayed_work(&ndev_ctx->dwork, 0);
+ }
+ 
+ /*
+@@ -1009,12 +1006,9 @@ static const struct net_device_ops device_ops = {
+ };
+ 
+ /*
+- * Send GARP packet to network peers after migrations.
+- * After Quick Migration, the network is not immediately operational in the
+- * current context when receiving RNDIS_STATUS_MEDIA_CONNECT event. So, add
+- * another netif_notify_peers() into a delayed work, otherwise GARP packet
+- * will not be sent after quick migration, and cause network disconnection.
+- * Also, we update the carrier status here.
++ * Handle link status changes. For RNDIS_STATUS_NETWORK_CHANGE emulate link
++ * down/up sequence. In case of RNDIS_STATUS_MEDIA_CONNECT when carrier is
++ * present send GARP packet to network peers with netif_notify_peers().
+  */
+ static void netvsc_link_change(struct work_struct *w)
+ {
+@@ -1022,36 +1016,89 @@ static void netvsc_link_change(struct work_struct *w)
+ 	struct net_device *net;
+ 	struct netvsc_device *net_device;
+ 	struct rndis_device *rdev;
+-	bool notify, refresh = false;
+-	char *argv[] = { "/etc/init.d/network", "restart", NULL };
+-	char *envp[] = { "HOME=/", "PATH=/sbin:/usr/sbin:/bin:/usr/bin", NULL };
+-
+-	rtnl_lock();
++	struct netvsc_reconfig *event = NULL;
++	bool notify = false, reschedule = false;
++	unsigned long flags, next_reconfig, delay;
+ 
+ 	ndev_ctx = container_of(w, struct net_device_context, dwork.work);
+ 	net_device = hv_get_drvdata(ndev_ctx->device_ctx);
+ 	rdev = net_device->extension;
+ 	net = net_device->ndev;
+ 
+-	if (rdev->link_state) {
+-		netif_carrier_off(net);
+-		notify = false;
+-	} else {
+-		netif_carrier_on(net);
+-		notify = true;
+-		if (rdev->link_change) {
+-			rdev->link_change = false;
+-			refresh = true;
++	next_reconfig = ndev_ctx->last_reconfig + LINKCHANGE_INT;
++	if (time_is_after_jiffies(next_reconfig)) {
++		/* link_watch only sends one notification with current state
++		 * per second, avoid doing reconfig more frequently. Handle
++		 * wrap around.
++		 */
++		delay = next_reconfig - jiffies;
++		delay = delay < LINKCHANGE_INT ? delay : LINKCHANGE_INT;
++		schedule_delayed_work(&ndev_ctx->dwork, delay);
++		return;
++	}
++	ndev_ctx->last_reconfig = jiffies;
++
++	spin_lock_irqsave(&ndev_ctx->lock, flags);
++	if (!list_empty(&ndev_ctx->reconfig_events)) {
++		event = list_first_entry(&ndev_ctx->reconfig_events,
++					 struct netvsc_reconfig, list);
++		list_del(&event->list);
++		reschedule = !list_empty(&ndev_ctx->reconfig_events);
++	}
++	spin_unlock_irqrestore(&ndev_ctx->lock, flags);
++
++	if (!event)
++		return;
++
++	rtnl_lock();
++
++	switch (event->event) {
++		/* Only the following events are possible due to the check in
++		 * netvsc_linkstatus_callback()
++		 */
++	case RNDIS_STATUS_MEDIA_CONNECT:
++		if (rdev->link_state) {
++			rdev->link_state = false;
++			netif_carrier_on(net);
++			netif_tx_wake_all_queues(net);
++		} else {
++			notify = true;
++		}
++		kfree(event);
++		break;
++	case RNDIS_STATUS_MEDIA_DISCONNECT:
++		if (!rdev->link_state) {
++			rdev->link_state = true;
++			netif_carrier_off(net);
++			netif_tx_stop_all_queues(net);
++		}
++		kfree(event);
++		break;
++	case RNDIS_STATUS_NETWORK_CHANGE:
++		/* Only makes sense if carrier is present */
++		if (!rdev->link_state) {
++			rdev->link_state = true;
++			netif_carrier_off(net);
++			netif_tx_stop_all_queues(net);
++			event->event = RNDIS_STATUS_MEDIA_CONNECT;
++			spin_lock_irqsave(&ndev_ctx->lock, flags);
++			list_add_tail(&event->list, &ndev_ctx->reconfig_events);
++			spin_unlock_irqrestore(&ndev_ctx->lock, flags);
++			reschedule = true;
+ 		}
++		break;
+ 	}
+ 
+ 	rtnl_unlock();
+ 
+-	if (refresh)
+-		call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
+-
+ 	if (notify)
+ 		netdev_notify_peers(net);
++
++	/* link_watch only sends one notification with current state per
++	 * second, handle next reconfig event in 2 seconds.
++	 */
++	if (reschedule)
++		schedule_delayed_work(&ndev_ctx->dwork, LINKCHANGE_INT);
+ }
+ 
+ static void netvsc_free_netdev(struct net_device *netdev)
+@@ -1106,6 +1153,9 @@ static int netvsc_probe(struct hv_device *dev,
+ 	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_link_change);
+ 	INIT_WORK(&net_device_ctx->work, do_set_multicast);
+ 
++	spin_lock_init(&net_device_ctx->lock);
++	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
++
+ 	net->netdev_ops = &device_ops;
+ 
+ 	net->hw_features = NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_IP_CSUM |
+@@ -1145,8 +1195,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 		pr_err("Unable to register netdev.\n");
+ 		rndis_filter_device_remove(dev);
+ 		netvsc_free_netdev(net);
+-	} else {
+-		schedule_delayed_work(&net_device_ctx->dwork, 0);
+ 	}
+ 
+ 	return ret;
+-- 
+2.4.3
