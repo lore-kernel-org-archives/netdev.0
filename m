@@ -1,84 +1,115 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: Re: gigaset: freeing an active object
-Date: Fri, 27 Nov 2015 13:15:53 -0500
-Message-ID: <56589DD9.2060508@oracle.com>
-References: <56587467.8050102@oracle.com>
- <1448647077.6523.33.camel@tiscali.nl>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH iproute] vxlan: Add support for remote checksum offload
+Date: Fri, 27 Nov 2015 10:23:43 -0800
+Message-ID: <1448648623-3336620-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, davem@davemloft.net, tilman@imap.cc,
-	gigaset307x-common@lists.sourceforge.net,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448647077.6523.33.camel@tiscali.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>, Tom Herbert <tom@herbertland.com>
+To: <shemming@brocade.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:34787 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754961AbbK0SX6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2015 13:23:58 -0500
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+	by m0089730.ppops.net (8.15.0.59/8.15.0.59) with SMTP id tARINYXJ011824
+	for <netdev@vger.kernel.org>; Fri, 27 Nov 2015 10:23:58 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0089730.ppops.net with ESMTP id 1ye8t5u8yk-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 27 Nov 2015 10:23:58 -0800
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.212.232.63) with ESMTP	id
+ 048e009e953411e5b5d60002c992ebde-679f6230 for <netdev@vger.kernel.org>;	Fri,
+ 27 Nov 2015 10:23:55 -0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/27/2015 12:57 PM, Paul Bolle wrote:
-> Hi Sascha,
-> 
-> On vr, 2015-11-27 at 10:19 -0500, Sasha Levin wrote:
->> Fuzzing with syzkaller on the latest -next kernel produced this error:
-> 
-> (syzkaller is new to me. I'll have to do some web searches.)
+This patch adds support to remote checksum checksum offload
+to VXLAN. This patch adds remcsumtx and remcsumrx to ip vxlan
+configuration to enable remote checksum offload for transmit
+and receive on the VXLAN tunnel.
 
-It's a new fancy syscall/ioctl fuzzer, https://github.com/google/syzkaller/blob/master/README.md
+https://tools.ietf.org/html/draft-herbert-vxlan-rco-00
 
->> [  413.536749] WARNING: CPU: 6 PID: 25400 at lib/debugobjects.c:263
->> debug_print_object+0x1c4/0x1e0()
->> [  413.538111] ODEBUG: free active (active state 0) object type:
->> timer_list hint: delayed_work_timer_fn+0x0/0x90
->> [  413.539598] Modules linked
->> in:3470693efef57268844f02f5de3ab392d8cf5e209671ddd87163cb964c510659
->> [  413.540448] CPU: 6 PID: 25400 Comm: syzkaller_execu Not tainted
->> 4.4.0-rc2-next-20151126-sasha-00005-g00d303e-dirty #2653
->> [  413.547614] Call Trace:
->> [  413.548077]  [<ffffffffa8e6b5bb>] dump_stack+0x72/0xb7
->> [  413.548765]  [<ffffffffa73531d3>] warn_slowpath_common+0x113/0x140
->> [  413.551151]  [<ffffffffa73532cb>] warn_slowpath_fmt+0xcb/0x100
->> [  413.554295]  [<ffffffffa8ed0194>] debug_print_object+0x1c4/0x1e0
->> [  413.556592]  [<ffffffffa8ed1035>]
->> __debug_check_no_obj_freed+0x215/0x7a0
->> [  413.560526]  [<ffffffffa8ed2b6c>]
->> debug_check_no_obj_freed+0x2c/0x40
->> [  413.561328]  [<ffffffffa77aac4c>] kfree+0x1fc/0x2f0
->> [  413.561970]  [<ffffffffae74b021>] gigaset_freecshw+0xe1/0x120
->> [  413.562723]  [<ffffffffae70669d>] gigaset_freecs+0x2ad/0x600
->> [  413.564240]  [<ffffffffae74ba60>] gigaset_tty_close+0x210/0x280
->> [  413.565774]  [<ffffffffa95ba6f2>] tty_ldisc_close.isra.1+0xc2/0xd0
->> [  413.566550]  [<ffffffffa95ba81b>] tty_ldisc_kill+0x4b/0x170
->> [  413.567253]  [<ffffffffa95bbba3>] tty_ldisc_release+0x183/0x240
->> [  413.568000]  [<ffffffffa95a507c>] tty_release+0xd1c/0xe80
->> [  413.570176]  [<ffffffffa78182fa>] __fput+0x32a/0x680
->> [  413.570888]  [<ffffffffa78186da>] ____fput+0x1a/0x20
->> [  413.571565]  [<ffffffffa73adf5c>] task_work_run+0x19c/0x1e0
->> [  413.572290]  [<ffffffffa735cae7>] do_exit+0xdf7/0x28f0
->> [  413.576188]  [<ffffffffa735e805>] do_group_exit+0x1b5/0x300
->> [  413.576905]  [<ffffffffa7382222>] get_signal+0x1182/0x1360
->> [  413.577627]  [<ffffffffa717b553>] do_signal+0x93/0x1690
->> [  413.584630]  [<ffffffffa70063b0>] exit_to_usermode_loop+0xc0/0x1e0
->> [  413.585412]  [<ffffffffa7007feb>]
->> prepare_exit_to_usermode+0x10b/0x140
->> [  413.586187]  [<ffffffffb0a12c3e>] retint_user+0x8/0x23
-> 
-> Thanks for the report. I'll look into it.
-> 
-> A question that's nagging me for some time now is: how many people use
-> gigaset drivers (and, actually ISDN drivers in general) while running
-> recent kernel releases? I haven't seen reports that suggest people
-> really do that for some time now.
-> 
-> So, just to be absolutely sure: this was generated with a kernel that
-> used the ser-gigaset driver without actually using the related hardware,
-> wasn't it? (That hardware is a clunky, self powered device that requires
-> a good old serial port.)
+Example:
 
-Right, no related hardware, inside a VM.
+ip link add name vxlan0 type vxlan id 42 group 239.1.1.1 dev eth0 \
+    udpcsum remcsumtx remcsumrx
 
+Testing:
 
-Thanks,
-Sasha
+Ran single netperf over mlnx4 to illustrate the effest:
+
+- Without RCO (UDP csum set to zero)
+  4335.99 Mbps
+- With RCO enabled
+  7661.81 Mbps
+
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ ip/iplink_vxlan.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
+index 473ff97..db29bf0 100644
+--- a/ip/iplink_vxlan.c
++++ b/ip/iplink_vxlan.c
+@@ -30,6 +30,7 @@ static void print_explain(FILE *f)
+ 	fprintf(f, "                 [ [no]l2miss ] [ [no]l3miss ]\n");
+ 	fprintf(f, "                 [ ageing SECONDS ] [ maxaddress NUMBER ]\n");
+ 	fprintf(f, "                 [ [no]udpcsum ] [ [no]udp6zerocsumtx ] [ [no]udp6zerocsumrx ]\n");
++	fprintf(f, "                 [ [no]remcsumtx ] [ [no]remcsumrx ]\n");
+ 	fprintf(f, "                 [ gbp ]\n");
+ 	fprintf(f, "\n");
+ 	fprintf(f, "Where: VNI := 0-16777215\n");
+@@ -69,6 +70,8 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 	__u8 udpcsum = 0;
+ 	__u8 udp6zerocsumtx = 0;
+ 	__u8 udp6zerocsumrx = 0;
++	__u8 remcsumtx = 0;
++	__u8 remcsumrx = 0;
+ 	__u8 gbp = 0;
+ 	int dst_port_set = 0;
+ 	struct ifla_vxlan_port_range range = { 0, 0 };
+@@ -199,6 +202,14 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 			udp6zerocsumrx = 1;
+ 		} else if (!matches(*argv, "noudp6zerocsumrx")) {
+ 			udp6zerocsumrx = 0;
++		} else if (!matches(*argv, "remcsumtx")) {
++			remcsumtx = 1;
++		} else if (!matches(*argv, "noremcsumtx")) {
++			remcsumtx = 0;
++		} else if (!matches(*argv, "remcsumrx")) {
++			remcsumrx = 1;
++		} else if (!matches(*argv, "noremcsumrx")) {
++			remcsumrx = 0;
+ 		} else if (!matches(*argv, "gbp")) {
+ 			gbp = 1;
+ 		} else if (matches(*argv, "help") == 0) {
+@@ -259,6 +270,8 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 	addattr8(n, 1024, IFLA_VXLAN_UDP_CSUM, udpcsum);
+ 	addattr8(n, 1024, IFLA_VXLAN_UDP_ZERO_CSUM6_TX, udp6zerocsumtx);
+ 	addattr8(n, 1024, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, udp6zerocsumrx);
++	addattr8(n, 1024, IFLA_VXLAN_REMCSUM_TX, remcsumtx);
++	addattr8(n, 1024, IFLA_VXLAN_REMCSUM_RX, remcsumrx);
+ 
+ 	if (noage)
+ 		addattr32(n, 1024, IFLA_VXLAN_AGEING, 0);
+@@ -407,6 +420,14 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 	    rta_getattr_u8(tb[IFLA_VXLAN_UDP_ZERO_CSUM6_RX]))
+ 		fputs("udp6zerocsumrx ", f);
+ 
++	if (tb[IFLA_VXLAN_REMCSUM_TX] &&
++	    rta_getattr_u8(tb[IFLA_VXLAN_REMCSUM_TX]))
++		fputs("remcsumtx ", f);
++
++	if (tb[IFLA_VXLAN_REMCSUM_RX] &&
++	    rta_getattr_u8(tb[IFLA_VXLAN_REMCSUM_RX]))
++		fputs("remcsumrx ", f);
++
+ 	if (tb[IFLA_VXLAN_GBP])
+ 		fputs("gbp ", f);
+ }
+-- 
+2.4.6
