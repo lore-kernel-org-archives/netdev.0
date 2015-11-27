@@ -1,371 +1,249 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 4/6] mlxsw: core: Implement temperature hwmon interface
-Date: Fri, 27 Nov 2015 13:45:57 +0100
-Message-ID: <1448628359-20077-5-git-send-email-jiri@resnulli.us>
-References: <1448628359-20077-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com
-To: netdev@vger.kernel.org
+From: Michael Heimpold <michael.heimpold@i2se.com>
+Subject: Re: Problem with "swinging" ethernet link on i.MX28 based device
+Date: Fri, 27 Nov 2015 13:45:34 +0100
+Message-ID: <5658506E.5040503@i2se.com>
+References: <565822B2.30007@i2se.com> <20151127120919.66f2bfda@ipc1.ka-ro>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NETDEV <netdev@vger.kernel.org>, fabio.estevam@freescale.com,
+	marek.vasut@gmail.com
+To: =?UTF-8?Q?Lothar_Wa=c3=9fmann?= <LW@KARO-electronics.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:34495 "EHLO
-	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751165AbbK0MqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2015 07:46:08 -0500
-Received: by wmvv187 with SMTP id v187so69449604wmv.1
-        for <netdev@vger.kernel.org>; Fri, 27 Nov 2015 04:46:07 -0800 (PST)
-In-Reply-To: <1448628359-20077-1-git-send-email-jiri@resnulli.us>
+Received: from mout.kundenserver.de ([212.227.126.133]:51588 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751165AbbK0Mq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2015 07:46:29 -0500
+In-Reply-To: <20151127120919.66f2bfda@ipc1.ka-ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+Hi Lothar,
 
-ASIC provides access to temperature sensors. Implement their exposure to
-userspace using hwmon.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
-v1->v2:
-- fixed hwmon compile error when it is not set reported by lkp@intel.com
----
- drivers/net/ethernet/mellanox/mlxsw/Kconfig      |   8 +
- drivers/net/ethernet/mellanox/mlxsw/Makefile     |   1 +
- drivers/net/ethernet/mellanox/mlxsw/core.c       |   8 +
- drivers/net/ethernet/mellanox/mlxsw/core.h       |  24 +++
- drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c | 223 +++++++++++++++++++++++
- 5 files changed, 264 insertions(+)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
+Am 27.11.2015 um 12:09 schrieb Lothar Wa=C3=9Fmann:
+> Hi,
+>
+>> we at I2SE have developed an i.MX28 based embedded device, called Du=
+ckbill.
+>> Regarding ethernet, it is very similar to the FSL mx28evk, i.e. we u=
+se the same
+>> phy (SMSC LAN8720), we use RMII mode, clock is provided by iMX (not =
+via
+>> external crystal), we have a GPIO to reset the phy and an interrupt =
+GPIO.
+>>
+>> At the moment, we are using vanilla kernel 4.2.5 with only a fetch p=
+atches - mainly
+>> patches to add the device tree stuff needed and some cherry-picked u=
+pstream
+>> patches. Nothing special IMO. You can find it here:
+>> https://github.com/I2SE/linux/tree/v4.2.5-duckbill
+>>
+>> After booting the device, we observe on a few devices the ethernet "=
+swinging"
+>> or toggling:
+>> [   15.830759] fec 800f0000.ethernet eth0: Freescale FEC PHY driver =
+[SMSC LAN8710/LAN8720] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D3=
+5)
+>> [   15.843361] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>> [   17.112867] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full=
+ - flow control rx/tx
+>> [   17.121746] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes rea=
+dy
+>> [   17.894416] fec 800f0000.ethernet eth0: Link is Down
+>> [   19.506960] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full=
+ - flow control rx/tx
+>> [   20.294398] fec 800f0000.ethernet eth0: Link is Down
+>> [   21.932365] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full=
+ - flow control rx/tx
+>> [   22.714410] fec 800f0000.ethernet eth0: Link is Down
+>> [   24.357890] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full=
+ - flow control rx/tx
+>> [   25.144400] fec 800f0000.ethernet eth0: Link is Down
+>> [   26.783367] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full=
+ - flow control rx/tx
+>> [   27.564357] fec 800f0000.ethernet eth0: Link is Down
+>> [   29.208846] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full=
+ - flow control rx/tx
+>>
+>> However, in U-Boot I can transfer several hundreds of MB without any=
+ problem,
+>> I can attach the cable/reattach etc. as usual - no obvious problems.
+>> This is the reason, we think that the hardware is ok (and of course,=
+ we double-checked
+>> especially the soldering of the affected devices).
+>>
+>> This is what I tried so far:
+>> - changed the device tree to not use the interrupt line -> phy is po=
+lled periodically
+>> - reverted latest phy changes for LAN8720, i.e.
+>>     d88ecb373bd1877acc43e13311a8e0e6daffc3d2 - "net: phy: smsc: disa=
+ble energy detect mode"
+>>     ff94c742dfeea3110f1e1d27399d728f8494d29e - "net: phy: fix semico=
+lon.cocci warnings"
+>>     776829de90c5972895db398993ddfa9417ff8b01 - "net: phy: workaround=
+ for buggy cable detection by LAN8700 after cable plugging"
+>> - then I tried the following patch
+>>
+>> -snip-
+>> --- a/drivers/net/ethernet/freescale/fec_main.c
+>> +++ b/drivers/net/ethernet/freescale/fec_main.c
+>> @@ -936,7 +936,7 @@ fec_restart(struct net_device *ndev)
+>>           if (fep->quirks & FEC_QUIRK_HAS_AVB) {
+>>                   writel(0, fep->hwp + FEC_ECNTRL);
+>>           } else {
+>> - writel(1, fep->hwp + FEC_ECNTRL);
+>> + //writel(1, fep->hwp + FEC_ECNTRL);
+>>                   udelay(10);
+>>           }
+>> -snap-
+>> The idea behind this patch is: when FEC is resetted, then registers =
+are reset to initial values
+>> and thus FEC is configured for MII. When using ENET_CLK_OUT this res=
+ults in 25 MHz clock
+>> to phy instead of 50 MHz as required by RMII. At least for a short t=
+ime, there might be
+>> a "glitch". The concern was, that the phy might become stuck by this=
+=2E
+>>
+>> However, nothing of the above improved anything. So, at the moment, =
+I'm
+>> running out of ideas - any help/hint to debug this issue further is =
+really appreciated.
+>> Please let me know if I missed some important information.
+>>
+> I faced the same problem on one of our i.MX6 modules recently but
+> haven't come around to send a proper patch yet.
+>
+> The problem is that the enet_out clock is disabled in
+> fec_enet_clk_enable() which leaves the PHY without a running clock.
+> Due to this the PHY loses its internal state and requires a reset to =
+be
+> reactivated.
+>
+> The following patch should fix this problem:
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/=
+ethernet/freescale/fec_main.c
+> index b2a3220..cfa70b5 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -1857,11 +1857,6 @@ static int fec_enet_clk_enable(struct net_devi=
+ce *ndev, bool enable)
+>   		ret =3D clk_prepare_enable(fep->clk_ahb);
+>   		if (ret)
+>   			return ret;
+> -		if (fep->clk_enet_out) {
+> -			ret =3D clk_prepare_enable(fep->clk_enet_out);
+> -			if (ret)
+> -				goto failed_clk_enet_out;
+> -		}
+>   		if (fep->clk_ptp) {
+>   			mutex_lock(&fep->ptp_clk_mutex);
+>   			ret =3D clk_prepare_enable(fep->clk_ptp);
+> @@ -1873,35 +1868,26 @@ static int fec_enet_clk_enable(struct net_dev=
+ice *ndev, bool enable)
+>   			}
+>   			mutex_unlock(&fep->ptp_clk_mutex);
+>   		}
+> -		if (fep->clk_ref) {
+> -			ret =3D clk_prepare_enable(fep->clk_ref);
+> -			if (ret)
+> -				goto failed_clk_ref;
+> -		}
+> +		ret =3D clk_prepare_enable(fep->clk_ref);
+> +		if (ret)
+> +			goto failed_clk_ref;
+>   	} else {
+>   		clk_disable_unprepare(fep->clk_ahb);
+> -		if (fep->clk_enet_out)
+> -			clk_disable_unprepare(fep->clk_enet_out);
+>   		if (fep->clk_ptp) {
+>   			mutex_lock(&fep->ptp_clk_mutex);
+>   			clk_disable_unprepare(fep->clk_ptp);
+>   			fep->ptp_clk_on =3D false;
+>   			mutex_unlock(&fep->ptp_clk_mutex);
+>   		}
+> -		if (fep->clk_ref)
+> -			clk_disable_unprepare(fep->clk_ref);
+> +		clk_disable_unprepare(fep->clk_ref);
+>   	}
+>  =20
+>   	return 0;
+>  =20
+>   failed_clk_ref:
+> -	if (fep->clk_ref)
+> -		clk_disable_unprepare(fep->clk_ref);
+> +	clk_disable_unprepare(fep->clk_ref);
+>   failed_clk_ptp:
+> -	if (fep->clk_enet_out)
+> -		clk_disable_unprepare(fep->clk_enet_out);
+> -failed_clk_enet_out:
+> -		clk_disable_unprepare(fep->clk_ahb);
+> +	clk_disable_unprepare(fep->clk_ahb);
+>  =20
+>   	return ret;
+>   }
+> @@ -3430,6 +3416,10 @@ fec_probe(struct platform_device *pdev)
+>   	if (ret)
+>   		goto failed_clk;
+>  =20
+> +	ret =3D clk_prepare_enable(fep->clk_enet_out);
+> +	if (ret)
+> +		goto failed_clk_enet_out;
+> +
+>   	ret =3D clk_prepare_enable(fep->clk_ipg);
+>   	if (ret)
+>   		goto failed_clk_ipg;
+> @@ -3514,6 +3504,8 @@ failed_init:
+>   	if (fep->reg_phy)
+>   		regulator_disable(fep->reg_phy);
+>   failed_regulator:
+> +	clk_disable_unprepare(fep->clk_enet_out);
+> +failed_clk_enet_out:
+>   	clk_disable_unprepare(fep->clk_ipg);
+>   failed_clk_ipg:
+>   	fec_enet_clk_enable(ndev, false);
+> @@ -3536,6 +3528,8 @@ fec_drv_remove(struct platform_device *pdev)
+>   	fec_ptp_stop(pdev);
+>   	unregister_netdev(ndev);
+>   	fec_enet_mii_remove(fep);
+> +	fec_enet_clk_enable(ndev, false);
+> +	clk_disable_unprepare(fep->clk_enet_out);
+>   	if (fep->reg_phy)
+>   		regulator_disable(fep->reg_phy);
+>   	of_node_put(fep->phy_node);
+>
+>
+>
+> Lothar Wa=C3=9Fmann
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/Kconfig b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-index e36e122..ec8caf8 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-@@ -10,6 +10,14 @@ config MLXSW_CORE
- 	  To compile this driver as a module, choose M here: the
- 	  module will be called mlxsw_core.
- 
-+config MLXSW_CORE_HWMON
-+	bool "HWMON support for Mellanox Technologies Switch ASICs"
-+	depends on MLXSW_CORE && HWMON
-+	depends on !(MLXSW_CORE=y && HWMON=m)
-+	default y
-+	---help---
-+	  Say Y here if you want to expose HWMON interface on mlxsw devices.
-+
- config MLXSW_PCI
- 	tristate "PCI bus implementation for Mellanox Technologies Switch ASICs"
- 	depends on PCI && HAS_DMA && HAS_IOMEM && MLXSW_CORE
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/Makefile b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-index af01581..584cac4 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-@@ -1,5 +1,6 @@
- obj-$(CONFIG_MLXSW_CORE)	+= mlxsw_core.o
- mlxsw_core-objs			:= core.o
-+mlxsw_core-$(CONFIG_MLXSW_CORE_HWMON) += core_hwmon.o
- obj-$(CONFIG_MLXSW_PCI)		+= mlxsw_pci.o
- mlxsw_pci-objs			:= pci.o
- obj-$(CONFIG_MLXSW_SWITCHX2)	+= mlxsw_switchx2.o
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index 97f0d93..1ecb4aa 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -105,6 +105,7 @@ struct mlxsw_core {
- 		struct debugfs_blob_wrapper vsd_blob;
- 		struct debugfs_blob_wrapper psid_blob;
- 	} dbg;
-+	struct mlxsw_hwmon *hwmon;
- 	unsigned long driver_priv[0];
- 	/* driver_priv has to be always the last item */
- };
-@@ -822,6 +823,10 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	if (err)
- 		goto err_emad_init;
- 
-+	err = mlxsw_hwmon_init(mlxsw_core, mlxsw_bus_info, &mlxsw_core->hwmon);
-+	if (err)
-+		goto err_hwmon_init;
-+
- 	err = mlxsw_driver->init(mlxsw_core->driver_priv, mlxsw_core,
- 				 mlxsw_bus_info);
- 	if (err)
-@@ -836,6 +841,8 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- err_debugfs_init:
- 	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
- err_driver_init:
-+	mlxsw_hwmon_fini(mlxsw_core->hwmon);
-+err_hwmon_init:
- 	mlxsw_emad_fini(mlxsw_core);
- err_emad_init:
- 	mlxsw_bus->fini(bus_priv);
-@@ -855,6 +862,7 @@ void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
- 
- 	mlxsw_core_debugfs_fini(mlxsw_core);
- 	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
-+	mlxsw_hwmon_fini(mlxsw_core->hwmon);
- 	mlxsw_emad_fini(mlxsw_core);
- 	mlxsw_core->bus->fini(mlxsw_core->bus_priv);
- 	free_percpu(mlxsw_core->pcpu_stats);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index 8078273..5ac9529 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -209,4 +209,28 @@ struct mlxsw_bus_info {
- 	u8 psid[MLXSW_CMD_BOARDINFO_PSID_LEN];
- };
- 
-+struct mlxsw_hwmon;
-+
-+#ifdef CONFIG_MLXSW_CORE_HWMON
-+
-+int mlxsw_hwmon_init(struct mlxsw_core *mlxsw_core,
-+		     const struct mlxsw_bus_info *mlxsw_bus_info,
-+		     struct mlxsw_hwmon **p_hwmon);
-+void mlxsw_hwmon_fini(struct mlxsw_hwmon *mlxsw_hwmon);
-+
-+#else
-+
-+static inline int mlxsw_hwmon_init(struct mlxsw_core *mlxsw_core,
-+				   const struct mlxsw_bus_info *mlxsw_bus_info,
-+				   struct mlxsw_hwmon **p_hwmon)
-+{
-+	return 0;
-+}
-+
-+static inline void mlxsw_hwmon_fini(struct mlxsw_hwmon *mlxsw_hwmon)
-+{
-+}
-+
-+#endif
-+
- #endif
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-new file mode 100644
-index 0000000..ec48c28
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-@@ -0,0 +1,223 @@
-+/*
-+ * drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-+ * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2015 Jiri Pirko <jiri@mellanox.com>
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the names of the copyright holders nor the names of its
-+ *    contributors may be used to endorse or promote products derived from
-+ *    this software without specific prior written permission.
-+ *
-+ * Alternatively, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") version 2 as published by the Free
-+ * Software Foundation.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/device.h>
-+#include <linux/sysfs.h>
-+#include <linux/hwmon.h>
-+#include <linux/err.h>
-+
-+#include "core.h"
-+
-+#define MLXSW_HWMON_TEMP_SENSOR_MAX_COUNT 127
-+#define MLXSW_HWMON_ATTR_COUNT (MLXSW_HWMON_TEMP_SENSOR_MAX_COUNT * 4)
-+
-+struct mlxsw_hwmon_attr {
-+	struct device_attribute dev_attr;
-+	struct mlxsw_hwmon *hwmon;
-+	unsigned int type_index;
-+	char name[16];
-+};
-+
-+struct mlxsw_hwmon {
-+	struct mlxsw_core *core;
-+	const struct mlxsw_bus_info *bus_info;
-+	struct device *hwmon_dev;
-+	struct attribute_group group;
-+	const struct attribute_group *groups[2];
-+	struct attribute *attrs[MLXSW_HWMON_ATTR_COUNT + 1];
-+	struct mlxsw_hwmon_attr hwmon_attrs[MLXSW_HWMON_ATTR_COUNT];
-+	unsigned int attrs_count;
-+};
-+
-+static ssize_t mlxsw_hwmon_temp_show(struct device *dev,
-+				     struct device_attribute *attr,
-+				     char *buf)
-+{
-+	struct mlxsw_hwmon_attr *mlwsw_hwmon_attr =
-+			container_of(attr, struct mlxsw_hwmon_attr, dev_attr);
-+	struct mlxsw_hwmon *mlxsw_hwmon = mlwsw_hwmon_attr->hwmon;
-+	char mtmp_pl[MLXSW_REG_MTMP_LEN];
-+	unsigned int temp;
-+	int err;
-+
-+	mlxsw_reg_mtmp_pack(mtmp_pl, mlwsw_hwmon_attr->type_index,
-+			    false, false);
-+	err = mlxsw_reg_query(mlxsw_hwmon->core, MLXSW_REG(mtmp), mtmp_pl);
-+	if (err) {
-+		dev_err(mlxsw_hwmon->bus_info->dev, "Failed to query temp sensor\n");
-+		return err;
-+	}
-+	mlxsw_reg_mtmp_unpack(mtmp_pl, &temp, NULL, NULL);
-+	return sprintf(buf, "%u\n", temp);
-+}
-+
-+static ssize_t mlxsw_hwmon_temp_max_show(struct device *dev,
-+					 struct device_attribute *attr,
-+					 char *buf)
-+{
-+	struct mlxsw_hwmon_attr *mlwsw_hwmon_attr =
-+			container_of(attr, struct mlxsw_hwmon_attr, dev_attr);
-+	struct mlxsw_hwmon *mlxsw_hwmon = mlwsw_hwmon_attr->hwmon;
-+	char mtmp_pl[MLXSW_REG_MTMP_LEN];
-+	unsigned int temp_max;
-+	int err;
-+
-+	mlxsw_reg_mtmp_pack(mtmp_pl, mlwsw_hwmon_attr->type_index,
-+			    false, false);
-+	err = mlxsw_reg_query(mlxsw_hwmon->core, MLXSW_REG(mtmp), mtmp_pl);
-+	if (err) {
-+		dev_err(mlxsw_hwmon->bus_info->dev, "Failed to query temp sensor\n");
-+		return err;
-+	}
-+	mlxsw_reg_mtmp_unpack(mtmp_pl, NULL, &temp_max, NULL);
-+	return sprintf(buf, "%u\n", temp_max);
-+}
-+
-+enum mlxsw_hwmon_attr_type {
-+	MLXSW_HWMON_ATTR_TYPE_TEMP,
-+	MLXSW_HWMON_ATTR_TYPE_TEMP_MAX,
-+};
-+
-+static void mlxsw_hwmon_attr_add(struct mlxsw_hwmon *mlxsw_hwmon,
-+				 enum mlxsw_hwmon_attr_type attr_type,
-+				 unsigned int type_index, unsigned int num) {
-+	struct mlxsw_hwmon_attr *mlxsw_hwmon_attr;
-+	unsigned int attr_index;
-+
-+	attr_index = mlxsw_hwmon->attrs_count;
-+	mlxsw_hwmon_attr = &mlxsw_hwmon->hwmon_attrs[attr_index];
-+
-+	switch (attr_type) {
-+	case MLXSW_HWMON_ATTR_TYPE_TEMP:
-+		mlxsw_hwmon_attr->dev_attr.show = mlxsw_hwmon_temp_show;
-+		mlxsw_hwmon_attr->dev_attr.attr.mode = S_IRUGO;
-+		snprintf(mlxsw_hwmon_attr->name, sizeof(mlxsw_hwmon_attr->name),
-+			 "temp%u_input", num + 1);
-+		break;
-+	case MLXSW_HWMON_ATTR_TYPE_TEMP_MAX:
-+		mlxsw_hwmon_attr->dev_attr.show = mlxsw_hwmon_temp_max_show;
-+		mlxsw_hwmon_attr->dev_attr.attr.mode = S_IRUGO;
-+		snprintf(mlxsw_hwmon_attr->name, sizeof(mlxsw_hwmon_attr->name),
-+			 "temp%u_highest", num + 1);
-+		break;
-+	default:
-+		BUG();
-+	}
-+
-+	mlxsw_hwmon_attr->type_index = type_index;
-+	mlxsw_hwmon_attr->hwmon = mlxsw_hwmon;
-+	mlxsw_hwmon_attr->dev_attr.attr.name = mlxsw_hwmon_attr->name;
-+	sysfs_attr_init(&mlxsw_hwmon_attr->dev_attr.attr);
-+
-+	mlxsw_hwmon->attrs[attr_index] = &mlxsw_hwmon_attr->dev_attr.attr;
-+	mlxsw_hwmon->attrs_count++;
-+}
-+
-+static int mlxsw_hwmon_temp_init(struct mlxsw_hwmon *mlxsw_hwmon)
-+{
-+	char mtcap_pl[MLXSW_REG_MTCAP_LEN];
-+	char mtmp_pl[MLXSW_REG_MTMP_LEN];
-+	u8 sensor_count;
-+	int i;
-+	int err;
-+
-+	err = mlxsw_reg_query(mlxsw_hwmon->core, MLXSW_REG(mtcap), mtcap_pl);
-+	if (err) {
-+		dev_err(mlxsw_hwmon->bus_info->dev, "Failed to get number of temp sensors\n");
-+		return err;
-+	}
-+	sensor_count = mlxsw_reg_mtcap_sensor_count_get(mtcap_pl);
-+	for (i = 0; i < sensor_count; i++) {
-+		mlxsw_reg_mtmp_pack(mtmp_pl, 0, true, true);
-+		err = mlxsw_reg_write(mlxsw_hwmon->core,
-+				      MLXSW_REG(mtmp), mtmp_pl);
-+		if (err) {
-+			dev_err(mlxsw_hwmon->bus_info->dev, "Failed to setup temp sensor number %d\n",
-+				i);
-+			return err;
-+		}
-+		mlxsw_hwmon_attr_add(mlxsw_hwmon,
-+				     MLXSW_HWMON_ATTR_TYPE_TEMP, i, i);
-+		mlxsw_hwmon_attr_add(mlxsw_hwmon,
-+				     MLXSW_HWMON_ATTR_TYPE_TEMP_MAX, i, i);
-+	}
-+	return 0;
-+}
-+
-+int mlxsw_hwmon_init(struct mlxsw_core *mlxsw_core,
-+		     const struct mlxsw_bus_info *mlxsw_bus_info,
-+		     struct mlxsw_hwmon **p_hwmon)
-+{
-+	struct mlxsw_hwmon *mlxsw_hwmon;
-+	struct device *hwmon_dev;
-+	int err;
-+
-+	mlxsw_hwmon = kzalloc(sizeof(*mlxsw_hwmon), GFP_KERNEL);
-+	if (!mlxsw_hwmon)
-+		return -ENOMEM;
-+	mlxsw_hwmon->core = mlxsw_core;
-+	mlxsw_hwmon->bus_info = mlxsw_bus_info;
-+
-+	err = mlxsw_hwmon_temp_init(mlxsw_hwmon);
-+	if (err)
-+		goto err_temp_init;
-+
-+	mlxsw_hwmon->groups[0] = &mlxsw_hwmon->group;
-+	mlxsw_hwmon->group.attrs = mlxsw_hwmon->attrs;
-+
-+	hwmon_dev = devm_hwmon_device_register_with_groups(mlxsw_bus_info->dev,
-+							   "mlxsw",
-+							   mlxsw_hwmon,
-+							   mlxsw_hwmon->groups);
-+	if (IS_ERR(hwmon_dev)) {
-+		err = PTR_ERR(hwmon_dev);
-+		goto err_hwmon_register;
-+	}
-+
-+	mlxsw_hwmon->hwmon_dev = hwmon_dev;
-+	*p_hwmon = mlxsw_hwmon;
-+	return 0;
-+
-+err_hwmon_register:
-+err_temp_init:
-+	kfree(mlxsw_hwmon);
-+	return err;
-+}
-+
-+void mlxsw_hwmon_fini(struct mlxsw_hwmon *mlxsw_hwmon)
-+{
-+	kfree(mlxsw_hwmon);
-+}
--- 
-1.9.3
+thank you very much - your patch fixes our problem.
+
+Mit freundlichen Gr=C3=BC=C3=9Fen / Kind regards
+Michael Heimpold
+--=20
+Software Engineer
+
+I2SE GmbH                           Tel: +49 (0) 341 355667-00
+=46riedrich-Ebert-Str. 61             Fax: +49 (0) 341 355667-02
+04109 Leipzig
+Germany
+Web: http://www.i2se.com/           Mail: info@i2se.com
+VAT No.: DE 811528334
+Amtsgericht Leipzig HRB 23784
+Gesch=C3=A4ftsf=C3=BChrer/CEO: Carsten Ziermann
+
+*** Diese E-Mail ist allein f=C3=BCr den bezeichneten Adressaten bestim=
+mt. Sie kann rechtlich vertrauliche Informationen enthalten. Wenn Sie d=
+iese E-Mail irrt=C3=BCmlich erhalten haben, informieren Sie bitte unver=
+z=C3=BCglich den Absender per E-Mail und l=C3=B6schen Sie diese E-Mail =
+von Ihrem Computer, ohne Kopien anzufertigen.
+Vielen Dank. ***
+
+*** This email is for the exclusive use of the addressee. It may contai=
+n legally privileged information. If you have received this message in =
+error, please notify the sender by email immediately and delete the mes=
+sage from your computer without making any copies.
+Thank you. ***
