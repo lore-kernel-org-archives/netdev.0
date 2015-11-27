@@ -1,115 +1,73 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH iproute] vxlan: Add support for remote checksum offload
-Date: Fri, 27 Nov 2015 10:23:43 -0800
-Message-ID: <1448648623-3336620-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>, Tom Herbert <tom@herbertland.com>
-To: <shemming@brocade.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:34787 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754961AbbK0SX6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2015 13:23:58 -0500
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.15.0.59/8.15.0.59) with SMTP id tARINYXJ011824
-	for <netdev@vger.kernel.org>; Fri, 27 Nov 2015 10:23:58 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 1ye8t5u8yk-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 27 Nov 2015 10:23:58 -0800
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.212.232.63) with ESMTP	id
- 048e009e953411e5b5d60002c992ebde-679f6230 for <netdev@vger.kernel.org>;	Fri,
- 27 Nov 2015 10:23:55 -0800
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: [PATCH] wan/x25: Fix use-after-free in x25_asy_open_tty()
+Date: Fri, 27 Nov 2015 14:18:39 -0500
+Message-ID: <1448651919-4239-1-git-send-email-peter@hurleysoftware.com>
+Cc: Jiri Slaby <jslaby@suse.cz>, David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Peter Hurley <peter@hurleysoftware.com>, stable@vger.kernel.org
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds support to remote checksum checksum offload
-to VXLAN. This patch adds remcsumtx and remcsumrx to ip vxlan
-configuration to enable remote checksum offload for transmit
-and receive on the VXLAN tunnel.
+The N_X25 line discipline may access the previous line discipline's closed
+and already-freed private data on open [1].
 
-https://tools.ietf.org/html/draft-herbert-vxlan-rco-00
+The tty->disc_data field _never_ refers to valid data on entry to the
+line discipline's open() method. Rather, the ldisc is expected to
+initialize that field for its own use for the lifetime of the instance
+(ie. from open() to close() only).
 
-Example:
+[1]
+    [  634.336761] ==================================================================
+    [  634.338226] BUG: KASAN: use-after-free in x25_asy_open_tty+0x13d/0x490 at addr ffff8800a743efd0
+    [  634.339558] Read of size 4 by task syzkaller_execu/8981
+    [  634.340359] =============================================================================
+    [  634.341598] BUG kmalloc-512 (Not tainted): kasan: bad access detected
+    ...
+    [  634.405018] Call Trace:
+    [  634.405277] dump_stack (lib/dump_stack.c:52)
+    [  634.405775] print_trailer (mm/slub.c:655)
+    [  634.406361] object_err (mm/slub.c:662)
+    [  634.406824] kasan_report_error (mm/kasan/report.c:138 mm/kasan/report.c:236)
+    [  634.409581] __asan_report_load4_noabort (mm/kasan/report.c:279)
+    [  634.411355] x25_asy_open_tty (drivers/net/wan/x25_asy.c:559 (discriminator 1))
+    [  634.413997] tty_ldisc_open.isra.2 (drivers/tty/tty_ldisc.c:447)
+    [  634.414549] tty_set_ldisc (drivers/tty/tty_ldisc.c:567)
+    [  634.415057] tty_ioctl (drivers/tty/tty_io.c:2646 drivers/tty/tty_io.c:2879)
+    [  634.423524] do_vfs_ioctl (fs/ioctl.c:43 fs/ioctl.c:607)
+    [  634.427491] SyS_ioctl (fs/ioctl.c:622 fs/ioctl.c:613)
+    [  634.427945] entry_SYSCALL_64_fastpath (arch/x86/entry/entry_64.S:188)
 
-ip link add name vxlan0 type vxlan id 42 group 239.1.1.1 dev eth0 \
-    udpcsum remcsumtx remcsumrx
-
-Testing:
-
-Ran single netperf over mlnx4 to illustrate the effest:
-
-- Without RCO (UDP csum set to zero)
-  4335.99 Mbps
-- With RCO enabled
-  7661.81 Mbps
-
-Signed-off-by: Tom Herbert <tom@herbertland.com>
+Reported-and-tested-by: Sasha Levin <sasha.levin@oracle.com>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Peter Hurley <peter@hurleysoftware.com>
 ---
- ip/iplink_vxlan.c | 21 +++++++++++++++++++++
- 1 file changed, 21 insertions(+)
+ drivers/net/wan/x25_asy.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
-index 473ff97..db29bf0 100644
---- a/ip/iplink_vxlan.c
-+++ b/ip/iplink_vxlan.c
-@@ -30,6 +30,7 @@ static void print_explain(FILE *f)
- 	fprintf(f, "                 [ [no]l2miss ] [ [no]l3miss ]\n");
- 	fprintf(f, "                 [ ageing SECONDS ] [ maxaddress NUMBER ]\n");
- 	fprintf(f, "                 [ [no]udpcsum ] [ [no]udp6zerocsumtx ] [ [no]udp6zerocsumrx ]\n");
-+	fprintf(f, "                 [ [no]remcsumtx ] [ [no]remcsumrx ]\n");
- 	fprintf(f, "                 [ gbp ]\n");
- 	fprintf(f, "\n");
- 	fprintf(f, "Where: VNI := 0-16777215\n");
-@@ -69,6 +70,8 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u8 udpcsum = 0;
- 	__u8 udp6zerocsumtx = 0;
- 	__u8 udp6zerocsumrx = 0;
-+	__u8 remcsumtx = 0;
-+	__u8 remcsumrx = 0;
- 	__u8 gbp = 0;
- 	int dst_port_set = 0;
- 	struct ifla_vxlan_port_range range = { 0, 0 };
-@@ -199,6 +202,14 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			udp6zerocsumrx = 1;
- 		} else if (!matches(*argv, "noudp6zerocsumrx")) {
- 			udp6zerocsumrx = 0;
-+		} else if (!matches(*argv, "remcsumtx")) {
-+			remcsumtx = 1;
-+		} else if (!matches(*argv, "noremcsumtx")) {
-+			remcsumtx = 0;
-+		} else if (!matches(*argv, "remcsumrx")) {
-+			remcsumrx = 1;
-+		} else if (!matches(*argv, "noremcsumrx")) {
-+			remcsumrx = 0;
- 		} else if (!matches(*argv, "gbp")) {
- 			gbp = 1;
- 		} else if (matches(*argv, "help") == 0) {
-@@ -259,6 +270,8 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	addattr8(n, 1024, IFLA_VXLAN_UDP_CSUM, udpcsum);
- 	addattr8(n, 1024, IFLA_VXLAN_UDP_ZERO_CSUM6_TX, udp6zerocsumtx);
- 	addattr8(n, 1024, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, udp6zerocsumrx);
-+	addattr8(n, 1024, IFLA_VXLAN_REMCSUM_TX, remcsumtx);
-+	addattr8(n, 1024, IFLA_VXLAN_REMCSUM_RX, remcsumrx);
+diff --git a/drivers/net/wan/x25_asy.c b/drivers/net/wan/x25_asy.c
+index 5c47b01..cd39025 100644
+--- a/drivers/net/wan/x25_asy.c
++++ b/drivers/net/wan/x25_asy.c
+@@ -549,16 +549,12 @@ static void x25_asy_receive_buf(struct tty_struct *tty,
  
- 	if (noage)
- 		addattr32(n, 1024, IFLA_VXLAN_AGEING, 0);
-@@ -407,6 +420,14 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 	    rta_getattr_u8(tb[IFLA_VXLAN_UDP_ZERO_CSUM6_RX]))
- 		fputs("udp6zerocsumrx ", f);
+ static int x25_asy_open_tty(struct tty_struct *tty)
+ {
+-	struct x25_asy *sl = tty->disc_data;
++	struct x25_asy *sl;
+ 	int err;
  
-+	if (tb[IFLA_VXLAN_REMCSUM_TX] &&
-+	    rta_getattr_u8(tb[IFLA_VXLAN_REMCSUM_TX]))
-+		fputs("remcsumtx ", f);
-+
-+	if (tb[IFLA_VXLAN_REMCSUM_RX] &&
-+	    rta_getattr_u8(tb[IFLA_VXLAN_REMCSUM_RX]))
-+		fputs("remcsumrx ", f);
-+
- 	if (tb[IFLA_VXLAN_GBP])
- 		fputs("gbp ", f);
- }
+ 	if (tty->ops->write == NULL)
+ 		return -EOPNOTSUPP;
+ 
+-	/* First make sure we're not already connected. */
+-	if (sl && sl->magic == X25_ASY_MAGIC)
+-		return -EEXIST;
+-
+ 	/* OK.  Find a free X.25 channel to use. */
+ 	sl = x25_asy_alloc();
+ 	if (sl == NULL)
 -- 
-2.4.6
+2.6.3
