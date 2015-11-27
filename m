@@ -1,160 +1,140 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 3/6] mlxsw: reg: Add definition of temperature management registers
-Date: Fri, 27 Nov 2015 13:45:56 +0100
-Message-ID: <1448628359-20077-4-git-send-email-jiri@resnulli.us>
-References: <1448628359-20077-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com
-To: netdev@vger.kernel.org
+From: =?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+Subject: [PATCH] net: fec: fix enet_out clock handling
+Date: Fri, 27 Nov 2015 14:39:10 +0100
+Message-ID: <1448631550-943-1-git-send-email-LW@KARO-electronics.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Andrew Lunn <andrew@lunn.ch>,
+	"David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Kevin Hao <haokexin@gmail.com>,
+	=?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	Nimrod Andy <B38611@freescale.com>,
+	Philippe Reynes <tremyfr@gmail.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Stefan Agner <stefan@agner.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:37894 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751544AbbK0MqG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2015 07:46:06 -0500
-Received: by wmec201 with SMTP id c201so57129070wme.1
-        for <netdev@vger.kernel.org>; Fri, 27 Nov 2015 04:46:05 -0800 (PST)
-In-Reply-To: <1448628359-20077-1-git-send-email-jiri@resnulli.us>
+Received: from mail.karo-electronics.de ([81.173.242.67]:59308 "EHLO
+	mail.karo-electronics.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751484AbbK0NmU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2015 08:42:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+When ENET_OUT is being used as reference clock for an external PHY,
+the clock must not be disabled while the PHY is active. Otherwise the
+PHY may lose its internal state and require a reset to become
+functional again.
 
-Add definition of MTCAP and MTMP registers which provide access to
-temperature sensors.
+A symptom for this bug is a network interface that constantly toggles
+between UP and DOWN state:
+fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full - flow control rx=
+/tx
+fec 800f0000.ethernet eth0: Link is Down
+fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full - flow control rx=
+/tx
+fec 800f0000.ethernet eth0: Link is Down
+[...]
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 111 ++++++++++++++++++++++++++++++
- 1 file changed, 111 insertions(+)
+ drivers/net/ethernet/freescale/fec_main.c | 34 +++++++++++++----------=
+--------
+ 1 file changed, 14 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index fc6839d..459e0490 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -2087,6 +2087,113 @@ static inline void mlxsw_reg_hpkt_pack(char *payload, u8 action, u16 trap_id)
- 	mlxsw_reg_hpkt_ctrl_set(payload, MLXSW_REG_HPKT_CTRL_PACKET_DEFAULT);
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/et=
+hernet/freescale/fec_main.c
+index d2328fc..d9df4c5 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1857,11 +1857,6 @@ static int fec_enet_clk_enable(struct net_device=
+ *ndev, bool enable)
+ 		ret =3D clk_prepare_enable(fep->clk_ahb);
+ 		if (ret)
+ 			return ret;
+-		if (fep->clk_enet_out) {
+-			ret =3D clk_prepare_enable(fep->clk_enet_out);
+-			if (ret)
+-				goto failed_clk_enet_out;
+-		}
+ 		if (fep->clk_ptp) {
+ 			mutex_lock(&fep->ptp_clk_mutex);
+ 			ret =3D clk_prepare_enable(fep->clk_ptp);
+@@ -1873,35 +1868,26 @@ static int fec_enet_clk_enable(struct net_devic=
+e *ndev, bool enable)
+ 			}
+ 			mutex_unlock(&fep->ptp_clk_mutex);
+ 		}
+-		if (fep->clk_ref) {
+-			ret =3D clk_prepare_enable(fep->clk_ref);
+-			if (ret)
+-				goto failed_clk_ref;
+-		}
++		ret =3D clk_prepare_enable(fep->clk_ref);
++		if (ret)
++			goto failed_clk_ref;
+ 	} else {
+ 		clk_disable_unprepare(fep->clk_ahb);
+-		if (fep->clk_enet_out)
+-			clk_disable_unprepare(fep->clk_enet_out);
+ 		if (fep->clk_ptp) {
+ 			mutex_lock(&fep->ptp_clk_mutex);
+ 			clk_disable_unprepare(fep->clk_ptp);
+ 			fep->ptp_clk_on =3D false;
+ 			mutex_unlock(&fep->ptp_clk_mutex);
+ 		}
+-		if (fep->clk_ref)
+-			clk_disable_unprepare(fep->clk_ref);
++		clk_disable_unprepare(fep->clk_ref);
+ 	}
+=20
+ 	return 0;
+=20
+ failed_clk_ref:
+-	if (fep->clk_ref)
+-		clk_disable_unprepare(fep->clk_ref);
++	clk_disable_unprepare(fep->clk_ref);
+ failed_clk_ptp:
+-	if (fep->clk_enet_out)
+-		clk_disable_unprepare(fep->clk_enet_out);
+-failed_clk_enet_out:
+-		clk_disable_unprepare(fep->clk_ahb);
++	clk_disable_unprepare(fep->clk_ahb);
+=20
+ 	return ret;
  }
- 
-+/* MTCAP - Management Temperature Capabilities
-+ * -------------------------------------------
-+ * This register exposes the capabilities of the device and
-+ * system temperature sensing.
-+ */
-+#define MLXSW_REG_MTCAP_ID 0x9009
-+#define MLXSW_REG_MTCAP_LEN 0x08
+@@ -3425,6 +3411,10 @@ fec_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto failed_clk;
+=20
++	ret =3D clk_prepare_enable(fep->clk_enet_out);
++	if (ret)
++		goto failed_clk_enet_out;
 +
-+static const struct mlxsw_reg_info mlxsw_reg_mtcap = {
-+	.id = MLXSW_REG_MTCAP_ID,
-+	.len = MLXSW_REG_MTCAP_LEN,
-+};
-+
-+/* reg_mtcap_sensor_count
-+ * Number of sensors supported by the device.
-+ * This includes the QSFP module sensors (if exists in the QSFP module).
-+ * Access: RO
-+ */
-+MLXSW_ITEM32(reg, mtcap, sensor_count, 0x00, 0, 7);
-+
-+/* MTMP - Management Temperature
-+ * -----------------------------
-+ * This register controls the settings of the temperature measurements
-+ * and enables reading the temperature measurements. Note that temperature
-+ * is in 0.125 degrees Celsius.
-+ */
-+#define MLXSW_REG_MTMP_ID 0x900A
-+#define MLXSW_REG_MTMP_LEN 0x20
-+
-+static const struct mlxsw_reg_info mlxsw_reg_mtmp = {
-+	.id = MLXSW_REG_MTMP_ID,
-+	.len = MLXSW_REG_MTMP_LEN,
-+};
-+
-+/* reg_mtmp_sensor_index
-+ * Sensors index to access.
-+ * 64-127 of sensor_index are mapped to the SFP+/QSFP modules sequentially
-+ * (module 0 is mapped to sensor_index 64).
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, mtmp, sensor_index, 0x00, 0, 7);
-+
-+/* Convert to milli degrees Celsius */
-+#define MLXSW_REG_MTMP_TEMP_TO_MC(val) (val * 125)
-+
-+/* reg_mtmp_temperature
-+ * Temperature reading from the sensor. Reading is in 0.125 Celsius
-+ * degrees units.
-+ * Access: RO
-+ */
-+MLXSW_ITEM32(reg, mtmp, temperature, 0x04, 0, 16);
-+
-+/* reg_mtmp_mte
-+ * Max Temperature Enable - enables measuring the max temperature on a sensor.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, mtmp, mte, 0x08, 31, 1);
-+
-+/* reg_mtmp_mtr
-+ * Max Temperature Reset - clears the value of the max temperature register.
-+ * Access: WO
-+ */
-+MLXSW_ITEM32(reg, mtmp, mtr, 0x08, 30, 1);
-+
-+/* reg_mtmp_max_temperature
-+ * The highest measured temperature from the sensor.
-+ * When the bit mte is cleared, the field max_temperature is reserved.
-+ * Access: RO
-+ */
-+MLXSW_ITEM32(reg, mtmp, max_temperature, 0x08, 0, 16);
-+
-+#define MLXSW_REG_MTMP_SENSOR_NAME_SIZE 8
-+
-+/* reg_mtmp_sensor_name
-+ * Sensor Name
-+ * Access: RO
-+ */
-+MLXSW_ITEM_BUF(reg, mtmp, sensor_name, 0x18, MLXSW_REG_MTMP_SENSOR_NAME_SIZE);
-+
-+static inline void mlxsw_reg_mtmp_pack(char *payload, u8 sensor_index,
-+				       bool max_temp_enable,
-+				       bool max_temp_reset)
-+{
-+	MLXSW_REG_ZERO(mtmp, payload);
-+	mlxsw_reg_mtmp_sensor_index_set(payload, sensor_index);
-+	mlxsw_reg_mtmp_mte_set(payload, max_temp_enable);
-+	mlxsw_reg_mtmp_mtr_set(payload, max_temp_reset);
-+}
-+
-+static inline void mlxsw_reg_mtmp_unpack(char *payload, unsigned int *p_temp,
-+					 unsigned int *p_max_temp,
-+					 char *sensor_name)
-+{
-+	u16 temp;
-+
-+	if (p_temp) {
-+		temp = mlxsw_reg_mtmp_temperature_get(payload);
-+		*p_temp = MLXSW_REG_MTMP_TEMP_TO_MC(temp);
-+	}
-+	if (p_max_temp) {
-+		temp = mlxsw_reg_mtmp_temperature_get(payload);
-+		*p_max_temp = MLXSW_REG_MTMP_TEMP_TO_MC(temp);
-+	}
-+	if (sensor_name)
-+		mlxsw_reg_mtmp_sensor_name_memcpy_from(payload, sensor_name);
-+}
-+
- /* MLCR - Management LED Control Register
-  * --------------------------------------
-  * Controls the system LEDs.
-@@ -2449,6 +2556,10 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "HTGT";
- 	case MLXSW_REG_HPKT_ID:
- 		return "HPKT";
-+	case MLXSW_REG_MTCAP_ID:
-+		return "MTCAP";
-+	case MLXSW_REG_MTMP_ID:
-+		return "MTMP";
- 	case MLXSW_REG_MLCR_ID:
- 		return "MLCR";
- 	case MLXSW_REG_SBPR_ID:
--- 
-1.9.3
+ 	ret =3D clk_prepare_enable(fep->clk_ipg);
+ 	if (ret)
+ 		goto failed_clk_ipg;
+@@ -3509,6 +3499,8 @@ failed_init:
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+ failed_regulator:
++	clk_disable_unprepare(fep->clk_enet_out);
++failed_clk_enet_out:
+ 	clk_disable_unprepare(fep->clk_ipg);
+ failed_clk_ipg:
+ 	fec_enet_clk_enable(ndev, false);
+@@ -3531,6 +3523,8 @@ fec_drv_remove(struct platform_device *pdev)
+ 	fec_ptp_stop(pdev);
+ 	unregister_netdev(ndev);
+ 	fec_enet_mii_remove(fep);
++	fec_enet_clk_enable(ndev, false);
++	clk_disable_unprepare(fep->clk_enet_out);
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+ 	of_node_put(fep->phy_node);
+--=20
+2.1.4
