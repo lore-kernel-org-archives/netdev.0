@@ -1,78 +1,121 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH v3 net 6/6] net: mvneta: enable IP checksum with jumbo frames for Armada 38x on Port0
-Date: Fri, 27 Nov 2015 17:29:18 +0100
-Message-ID: <87y4dj76e9.fsf@free-electrons.com>
-References: <1448639066-13074-1-git-send-email-mw@semihalf.com>
-	<1448639066-13074-7-git-send-email-mw@semihalf.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	linux@arm.linux.org.uk, sebastian.hesselbarth@gmail.com,
-	andrew@lunn.ch, jason@lakedaemon.net,
-	thomas.petazzoni@free-electrons.com, simon.guinot@sequanux.org,
-	nadavh@marvell.com, alior@marvell.com, xswang@marvell.com,
-	myair@marvell.com, nitroshift@yahoo.com, jaz@semihalf.com,
-	tn@semihalf.com
-To: Marcin Wojtas <mw@semihalf.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448639066-13074-7-git-send-email-mw@semihalf.com> (Marcin
-	Wojtas's message of "Fri, 27 Nov 2015 16:44:26 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH net] Revert "ipv6: ndisc: inherit metadata dst when creating ndisc requests"
+Date: Fri, 27 Nov 2015 18:17:05 +0100
+Message-ID: <1448644625-29345-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Jiri Benc <jbenc@redhat.com>, Thomas Graf <tgraf@suug.ch>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:44187 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754796AbbK0RXd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2015 12:23:33 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Marcin,
+This reverts commit ab450605b35caa768ca33e86db9403229bf42be4.
+
+In IPv6, we cannot inherit the dst of the original dst. ndisc packets
+are IPv6 packets and may take another route than the original packet.
+
+This patch breaks the following scenario: a packet comes from eth0 and
+is forwarded through vxlan1. The encapsulated packet triggers an NS
+which cannot be sent because of the wrong route.
+
+CC: Jiri Benc <jbenc@redhat.com>
+CC: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+
+I know that this is not the right fix, it's why I've put RFC ;-)
+Should the right fix only do a copy of dst metadata in the new dst?
+Feedback is welcomed.
+
+ include/net/ndisc.h |  3 +--
+ net/ipv6/addrconf.c |  2 +-
+ net/ipv6/ndisc.c    | 10 +++-------
+ net/ipv6/route.c    |  2 +-
+ 4 files changed, 6 insertions(+), 11 deletions(-)
+
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index bf3937431030..2d8edaad29cb 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -181,8 +181,7 @@ void ndisc_cleanup(void);
+ int ndisc_rcv(struct sk_buff *skb);
  
- On ven., nov. 27 2015, Marcin Wojtas <mw@semihalf.com> wrote:
-
-> The Ethernet controller found in the Armada 38x SoC's family support
-> TCP/IP checksumming with frame sizes larger than 1600 bytes, however
-> only on port 0.
->
-> This commit enables it by setting 'tx-csum-limit' to 9800B in
-> 'ethernet@70000' node.
->
-> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-> ---
->  arch/arm/boot/dts/armada-38x.dtsi | 1 +
-
-This commit should not be merged through the network subsystem but
-through mvebu and then arm-soc.
-
-Indeed we tried to centralize all the dts change in only one subsystem
-to reduce the merge conflict.
-
-Could you rename it in "mvebu: dts: enable IP checksum with jumbo frames
-for Armada 38x on Port0" ?
-
-I will applied on in mvebu/dts as soon as the network part will be
-applied.
-
-Thanks,
-
-Gregory
-
-
->  1 file changed, 1 insertion(+)
->
-> diff --git a/arch/arm/boot/dts/armada-38x.dtsi b/arch/arm/boot/dts/armada-38x.dtsi
-> index c6a0e9d..e8b7f67 100644
-> --- a/arch/arm/boot/dts/armada-38x.dtsi
-> +++ b/arch/arm/boot/dts/armada-38x.dtsi
-> @@ -498,6 +498,7 @@
->  				reg = <0x70000 0x4000>;
->  				interrupts-extended = <&mpic 8>;
->  				clocks = <&gateclk 4>;
-> +				tx-csum-limit = <9800>;
->  				status = "disabled";
->  			};
->  
-> -- 
-> 1.8.3.1
->
-
+ void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
+-		   const struct in6_addr *daddr, const struct in6_addr *saddr,
+-		   struct sk_buff *oskb);
++		   const struct in6_addr *daddr, const struct in6_addr *saddr);
+ 
+ void ndisc_send_rs(struct net_device *dev,
+ 		   const struct in6_addr *saddr, const struct in6_addr *daddr);
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index d84742f003a9..61f26851655c 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3642,7 +3642,7 @@ static void addrconf_dad_work(struct work_struct *w)
+ 
+ 	/* send a neighbour solicitation for our addr */
+ 	addrconf_addr_solict_mult(&ifp->addr, &mcaddr);
+-	ndisc_send_ns(ifp->idev->dev, &ifp->addr, &mcaddr, &in6addr_any, NULL);
++	ndisc_send_ns(ifp->idev->dev, &ifp->addr, &mcaddr, &in6addr_any);
+ out:
+ 	in6_ifa_put(ifp);
+ 	rtnl_unlock();
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 3e0f855e1bea..d6161e1c48c8 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -556,8 +556,7 @@ static void ndisc_send_unsol_na(struct net_device *dev)
+ }
+ 
+ void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
+-		   const struct in6_addr *daddr, const struct in6_addr *saddr,
+-		   struct sk_buff *oskb)
++		   const struct in6_addr *daddr, const struct in6_addr *saddr)
+ {
+ 	struct sk_buff *skb;
+ 	struct in6_addr addr_buf;
+@@ -593,9 +592,6 @@ void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
+ 		ndisc_fill_addr_option(skb, ND_OPT_SOURCE_LL_ADDR,
+ 				       dev->dev_addr);
+ 
+-	if (!(dev->priv_flags & IFF_XMIT_DST_RELEASE) && oskb)
+-		skb_dst_copy(skb, oskb);
+-
+ 	ndisc_send_skb(skb, daddr, saddr);
+ }
+ 
+@@ -682,12 +678,12 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 				  "%s: trying to ucast probe in NUD_INVALID: %pI6\n",
+ 				  __func__, target);
+ 		}
+-		ndisc_send_ns(dev, target, target, saddr, skb);
++		ndisc_send_ns(dev, target, target, saddr);
+ 	} else if ((probes -= NEIGH_VAR(neigh->parms, APP_PROBES)) < 0) {
+ 		neigh_app_ns(neigh);
+ 	} else {
+ 		addrconf_addr_solict_mult(target, &mcaddr);
+-		ndisc_send_ns(dev, target, &mcaddr, saddr, skb);
++		ndisc_send_ns(dev, target, &mcaddr, saddr);
+ 	}
+ }
+ 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 6f01fe122abd..826e6aa44f8d 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -523,7 +523,7 @@ static void rt6_probe_deferred(struct work_struct *w)
+ 		container_of(w, struct __rt6_probe_work, work);
+ 
+ 	addrconf_addr_solict_mult(&work->target, &mcaddr);
+-	ndisc_send_ns(work->dev, &work->target, &mcaddr, NULL, NULL);
++	ndisc_send_ns(work->dev, &work->target, &mcaddr, NULL);
+ 	dev_put(work->dev);
+ 	kfree(work);
+ }
 -- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+2.4.2
