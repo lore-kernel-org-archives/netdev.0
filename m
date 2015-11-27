@@ -1,61 +1,66 @@
 From: Marcin Wojtas <mw@semihalf.com>
-Subject: [PATCH v3 net 4/6] net: mvneta: fix error path for building skb
-Date: Fri, 27 Nov 2015 16:44:24 +0100
-Message-ID: <1448639066-13074-5-git-send-email-mw@semihalf.com>
+Subject: [PATCH v3 net 1/6] net: mvneta: add configuration for MBUS windows
+ access protection
+Date: Fri, 27 Nov 2015 16:44:21 +0100
+Message-ID: <1448639066-13074-2-git-send-email-mw@semihalf.com>
 References: <1448639066-13074-1-git-send-email-mw@semihalf.com>
-Cc: davem@davemloft.net, linux@arm.linux.org.uk,
-	sebastian.hesselbarth@gmail.com, andrew@lunn.ch,
-	jason@lakedaemon.net, thomas.petazzoni@free-electrons.com,
-	gregory.clement@free-electrons.com, simon.guinot@sequanux.org,
-	nadavh@marvell.com, alior@marvell.com, xswang@marvell.com,
-	myair@marvell.com, nitroshift@yahoo.com, mw@semihalf.com,
-	jaz@semihalf.com, tn@semihalf.com, <stable@vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch, linux@arm.linux.org.uk,
+ jason@lakedaemon.net, myair@marvell.com, jaz@semihalf.com,
+ simon.guinot@sequanux.org, xswang@marvell.com, nadavh@marvell.com,
+ alior@marvell.com, tn@semihalf.com, gregory.clement@free-electrons.com,
+ nitroshift@yahoo.com, mw@semihalf.com, davem@davemloft.net,
+ sebastian.hesselbarth@gmail.com
 To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+ netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1448639066-13074-1-git-send-email-mw@semihalf.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-In the actual RX processing, there is same error path for both descriptor
-ring refilling and building skb fails. This is not correct, because after
-successful refill, the ring is already updated with newly allocated
-buffer. Then, in case of build_skb() fail, hitherto code left the original
-buffer unmapped.
-
-This patch fixes above situation by swapping error check of skb build with
-DMA-unmap of original buffer.
+This commit adds missing configuration of MBUS windows access protection
+in mvneta_conf_mbus_windows function - a dedicated variable for that
+purpose remained there unused since v3.8 initial mvneta support. Because
+of that the register contents were inherited from the bootloader.
 
 Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-Acked-by: Simon Guinot <simon.guinot@sequanux.org>
-Cc: <stable@vger.kernel.org> # v4.2+
-Fixes a84e32894191 ("net: mvneta: fix refilling for Rx DMA buffers")
+Reviewed-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+
+Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP network
+unit")
 ---
- drivers/net/ethernet/marvell/mvneta.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 5dffb68..5a98c5d 100644
+index e84c7f2..2d80256 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -1580,12 +1580,16 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
- 		}
+@@ -62,6 +62,7 @@
+ #define MVNETA_WIN_SIZE(w)                      (0x2204 + ((w) << 3))
+ #define MVNETA_WIN_REMAP(w)                     (0x2280 + ((w) << 2))
+ #define MVNETA_BASE_ADDR_ENABLE                 0x2290
++#define MVNETA_ACCESS_PROTECT_ENABLE            0x2294
+ #define MVNETA_PORT_CONFIG                      0x2400
+ #define      MVNETA_UNI_PROMISC_MODE            BIT(0)
+ #define      MVNETA_DEF_RXQ(q)                  ((q) << 1)
+@@ -3191,6 +3192,7 @@ static void mvneta_conf_mbus_windows(struct mvneta_port *pp,
+ 	}
  
- 		skb = build_skb(data, pp->frag_size > PAGE_SIZE ? 0 : pp->frag_size);
--		if (!skb)
--			goto err_drop_frame;
+ 	mvreg_write(pp, MVNETA_BASE_ADDR_ENABLE, win_enable);
++	mvreg_write(pp, MVNETA_ACCESS_PROTECT_ENABLE, win_protect);
+ }
  
-+		/* After refill old buffer has to be unmapped regardless
-+		 * the skb is successfully built or not.
-+		 */
- 		dma_unmap_single(dev->dev.parent, phys_addr,
- 				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
- 
-+		if (!skb)
-+			goto err_drop_frame;
-+
- 		rcvd_pkts++;
- 		rcvd_bytes += rx_bytes;
- 
+ /* Power up the port */
 -- 
 1.8.3.1
