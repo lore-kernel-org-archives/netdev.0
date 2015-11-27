@@ -1,65 +1,131 @@
-From: William Dauchy <wdauchy@gmail.com>
-Subject: Re: [net-next 07/15] ixgbe: Fix handling of NAPI budget when multiple
- queues are enabled per vector
-Date: Fri, 27 Nov 2015 09:25:34 +0100
-Message-ID: <CAJ75kXZfRUtOvsJtPpbT3JSJwrVO_sY=ePe9MHE0sLj1k1JNtQ@mail.gmail.com>
-References: <1448307376-20063-1-git-send-email-jeffrey.t.kirsher@intel.com> <1448307376-20063-8-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Michael Heimpold <michael.heimpold@i2se.com>
+Subject: Problem with "swinging" ethernet link on i.MX28 based device
+Date: Fri, 27 Nov 2015 10:30:26 +0100
+Message-ID: <565822B2.30007@i2se.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	NETDEV <netdev@vger.kernel.org>, nhorman@redhat.com,
-	sassmann@redhat.com, jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: lw@karo-electronics.de, fabio.estevam@freescale.com,
+	marek.vasut@gmail.com
+To: NETDEV <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:33864 "EHLO
-	mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751101AbbK0IZz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2015 03:25:55 -0500
-Received: by lffu14 with SMTP id u14so121224072lff.1
-        for <netdev@vger.kernel.org>; Fri, 27 Nov 2015 00:25:53 -0800 (PST)
-In-Reply-To: <1448307376-20063-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mout.kundenserver.de ([217.72.192.74]:52499 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754467AbbK0Jb6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2015 04:31:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Jeff,
+Hi,
 
-There is also the equivalent patch for ixgbevf
-http://patchwork.ozlabs.org/patch/539065/
+we at I2SE have developed an i.MX28 based embedded device, called Duckb=
+ill.
+Regarding ethernet, it is very similar to the FSL mx28evk, i.e. we use =
+the same
+phy (SMSC LAN8720), we use RMII mode, clock is provided by iMX (not via
+external crystal), we have a GPIO to reset the phy and an interrupt GPI=
+O.
 
+At the moment, we are using vanilla kernel 4.2.5 with only a fetch patc=
+hes - mainly
+patches to add the device tree stuff needed and some cherry-picked upst=
+ream
+patches. Nothing special IMO. You can find it here:
+https://github.com/I2SE/linux/tree/v4.2.5-duckbill
 
-On Mon, Nov 23, 2015 at 8:36 PM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Alexander Duyck <aduyck@mirantis.com>
->
-> This patch corrects an issue in which the polling routine would increase
-> the budget for Rx to at least 1 per queue if multiple queues were present.
-> This would result in Rx packets being processed when the budget was 0 which
-> is meant to indicate that no Rx can be handled.
->
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-> Tested-by: Darin Miller <darin.j.miller@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index c9b7e5e..4fa94a3 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -2783,7 +2783,8 @@ int ixgbe_poll(struct napi_struct *napi, int budget)
->         ixgbe_for_each_ring(ring, q_vector->tx)
->                 clean_complete &= !!ixgbe_clean_tx_irq(q_vector, ring);
->
-> -       if (!ixgbe_qv_lock_napi(q_vector))
-> +       /* Exit if we are called by netpoll or busy polling is active */
-> +       if ((budget <= 0) || !ixgbe_qv_lock_napi(q_vector))
->                 return budget;
->
->         /* attempt to distribute budget to each queue fairly, but don't allow
-> --
-> 2.5.0
+After booting the device, we observe on a few devices the ethernet "swi=
+nging"
+or toggling:
+[   15.830759] fec 800f0000.ethernet eth0: Freescale FEC PHY driver [SM=
+SC LAN8710/LAN8720] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D35)
+[   15.843361] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+[   17.112867] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full - =
+flow control rx/tx
+[   17.121746] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+[   17.894416] fec 800f0000.ethernet eth0: Link is Down
+[   19.506960] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full - =
+flow control rx/tx
+[   20.294398] fec 800f0000.ethernet eth0: Link is Down
+[   21.932365] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full - =
+flow control rx/tx
+[   22.714410] fec 800f0000.ethernet eth0: Link is Down
+[   24.357890] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full - =
+flow control rx/tx
+[   25.144400] fec 800f0000.ethernet eth0: Link is Down
+[   26.783367] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full - =
+flow control rx/tx
+[   27.564357] fec 800f0000.ethernet eth0: Link is Down
+[   29.208846] fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full - =
+flow control rx/tx
 
--- 
-William
+However, in U-Boot I can transfer several hundreds of MB without any pr=
+oblem,
+I can attach the cable/reattach etc. as usual - no obvious problems.
+This is the reason, we think that the hardware is ok (and of course, we=
+ double-checked
+especially the soldering of the affected devices).
+
+This is what I tried so far:
+- changed the device tree to not use the interrupt line -> phy is polle=
+d periodically
+- reverted latest phy changes for LAN8720, i.e.
+   d88ecb373bd1877acc43e13311a8e0e6daffc3d2 - "net: phy: smsc: disable =
+energy detect mode"
+   ff94c742dfeea3110f1e1d27399d728f8494d29e - "net: phy: fix semicolon.=
+cocci warnings"
+   776829de90c5972895db398993ddfa9417ff8b01 - "net: phy: workaround for=
+ buggy cable detection by LAN8700 after cable plugging"
+- then I tried the following patch
+
+-snip-
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -936,7 +936,7 @@ fec_restart(struct net_device *ndev)
+         if (fep->quirks & FEC_QUIRK_HAS_AVB) {
+                 writel(0, fep->hwp + FEC_ECNTRL);
+         } else {
+- writel(1, fep->hwp + FEC_ECNTRL);
++ //writel(1, fep->hwp + FEC_ECNTRL);
+                 udelay(10);
+         }
+-snap-
+The idea behind this patch is: when FEC is resetted, then registers are=
+ reset to initial values
+and thus FEC is configured for MII. When using ENET_CLK_OUT this result=
+s in 25 MHz clock
+to phy instead of 50 MHz as required by RMII. At least for a short time=
+, there might be
+a "glitch". The concern was, that the phy might become stuck by this.
+
+However, nothing of the above improved anything. So, at the moment, I'm
+running out of ideas - any help/hint to debug this issue further is rea=
+lly appreciated.
+Please let me know if I missed some important information.
+
+Mit freundlichen Gr=C3=BC=C3=9Fen / Kind regards
+Michael Heimpold
+--=20
+Software Engineer
+
+I2SE GmbH                           Tel: +49 (0) 341 355667-00
+=46riedrich-Ebert-Str. 61             Fax: +49 (0) 341 355667-02
+04109 Leipzig
+Germany
+Web: http://www.i2se.com/           Mail: info@i2se.com
+VAT No.: DE 811528334
+Amtsgericht Leipzig HRB 23784
+Gesch=C3=A4ftsf=C3=BChrer/CEO: Carsten Ziermann
+
+*** Diese E-Mail ist allein f=C3=BCr den bezeichneten Adressaten bestim=
+mt. Sie kann rechtlich vertrauliche Informationen enthalten. Wenn Sie d=
+iese E-Mail irrt=C3=BCmlich erhalten haben, informieren Sie bitte unver=
+z=C3=BCglich den Absender per E-Mail und l=C3=B6schen Sie diese E-Mail =
+von Ihrem Computer, ohne Kopien anzufertigen.
+Vielen Dank. ***
+
+*** This email is for the exclusive use of the addressee. It may contai=
+n legally privileged information. If you have received this message in =
+error, please notify the sender by email immediately and delete the mes=
+sage from your computer without making any copies.
+Thank you. ***
