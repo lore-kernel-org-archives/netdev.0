@@ -1,53 +1,211 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] ravb: add R8A7791 support
-Date: Sat, 28 Nov 2015 01:06:24 +0300
-Message-ID: <6051623.qN4lqSyZKg@wasted.cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, devicetree@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] vmxnet3: fix checks for dma mapping errors
+Date: Sat, 28 Nov 2015 01:29:30 +0300
+Message-ID: <1448663370-6848-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Shrikrishna Khare <skhare@vmware.com>,
+	"VMware, Inc." <pv-drivers@vmware.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add support  for yet another ARM member of the R-Car family, R-Car M2, also
-known as R8A7791.
+vmxnet3_drv does check dma_addr with dma_mapping_error()
+after mapping dma memory. The patch adds the checks and
+tries to handle failures.
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Found by Linux Driver Verification project (linuxtesting.org).
 
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 ---
-The patch is against DaveM's 'net-next.git' repo but I wouldn't mind if it's
-applied to 'net.git' instead. :-)
+ drivers/net/vmxnet3/vmxnet3_drv.c | 71 +++++++++++++++++++++++++++++++++------
+ 1 file changed, 60 insertions(+), 11 deletions(-)
 
- Documentation/devicetree/bindings/net/renesas,ravb.txt |    1 +
- drivers/net/ethernet/renesas/ravb_main.c               |    1 +
- 2 files changed, 2 insertions(+)
-
-Index: net-next/Documentation/devicetree/bindings/net/renesas,ravb.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/renesas,ravb.txt
-+++ net-next/Documentation/devicetree/bindings/net/renesas,ravb.txt
-@@ -5,6 +5,7 @@ interface contains.
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 899ea4288197..417903715437 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -587,6 +587,12 @@ vmxnet3_rq_alloc_rx_buf(struct vmxnet3_rx_queue *rq, u32 ring_idx,
+ 						&adapter->pdev->dev,
+ 						rbi->skb->data, rbi->len,
+ 						PCI_DMA_FROMDEVICE);
++				if (dma_mapping_error(&adapter->pdev->dev,
++						      rbi->dma_addr)) {
++					dev_kfree_skb_any(rbi->skb);
++					rq->stats.rx_buf_alloc_failure++;
++					break;
++				}
+ 			} else {
+ 				/* rx buffer skipped by the device */
+ 			}
+@@ -605,13 +611,18 @@ vmxnet3_rq_alloc_rx_buf(struct vmxnet3_rx_queue *rq, u32 ring_idx,
+ 						&adapter->pdev->dev,
+ 						rbi->page, 0, PAGE_SIZE,
+ 						PCI_DMA_FROMDEVICE);
++				if (dma_mapping_error(&adapter->pdev->dev,
++						      rbi->dma_addr)) {
++					put_page(rbi->page);
++					rq->stats.rx_buf_alloc_failure++;
++					break;
++				}
+ 			} else {
+ 				/* rx buffers skipped by the device */
+ 			}
+ 			val = VMXNET3_RXD_BTYPE_BODY << VMXNET3_RXD_BTYPE_SHIFT;
+ 		}
  
- Required properties:
- - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
-+	      "renesas,etheravb-r8a7791" if the device is a part of R8A7791 SoC.
- 	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
- 	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
- - reg: offset and length of (1) the register block and (2) the stream buffer.
-Index: net-next/drivers/net/ethernet/renesas/ravb_main.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/ravb_main.c
-+++ net-next/drivers/net/ethernet/renesas/ravb_main.c
-@@ -1655,6 +1655,7 @@ static int ravb_mdio_release(struct ravb
+-		BUG_ON(rbi->dma_addr == 0);
+ 		gd->rxd.addr = cpu_to_le64(rbi->dma_addr);
+ 		gd->dword[2] = cpu_to_le32((!ring->gen << VMXNET3_RXD_GEN_SHIFT)
+ 					   | val | rbi->len);
+@@ -655,7 +666,7 @@ vmxnet3_append_frag(struct sk_buff *skb, struct Vmxnet3_RxCompDesc *rcd,
+ }
  
- static const struct of_device_id ravb_match_table[] = {
- 	{ .compatible = "renesas,etheravb-r8a7790", .data = (void *)RCAR_GEN2 },
-+	{ .compatible = "renesas,etheravb-r8a7791", .data = (void *)RCAR_GEN2 },
- 	{ .compatible = "renesas,etheravb-r8a7794", .data = (void *)RCAR_GEN2 },
- 	{ .compatible = "renesas,etheravb-r8a7795", .data = (void *)RCAR_GEN3 },
- 	{ }
-
+ 
+-static void
++static int
+ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
+ 		struct vmxnet3_tx_queue *tq, struct pci_dev *pdev,
+ 		struct vmxnet3_adapter *adapter)
+@@ -715,6 +726,8 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
+ 		tbi->dma_addr = dma_map_single(&adapter->pdev->dev,
+ 				skb->data + buf_offset, buf_size,
+ 				PCI_DMA_TODEVICE);
++		if (dma_mapping_error(&adapter->pdev->dev, tbi->dma_addr))
++			return -EFAULT;
+ 
+ 		tbi->len = buf_size;
+ 
+@@ -755,6 +768,8 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
+ 			tbi->dma_addr = skb_frag_dma_map(&adapter->pdev->dev, frag,
+ 							 buf_offset, buf_size,
+ 							 DMA_TO_DEVICE);
++			if (dma_mapping_error(&adapter->pdev->dev, tbi->dma_addr))
++				return -EFAULT;
+ 
+ 			tbi->len = buf_size;
+ 
+@@ -782,6 +797,8 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
+ 	/* set the last buf_info for the pkt */
+ 	tbi->skb = skb;
+ 	tbi->sop_idx = ctx->sop_txd - tq->tx_ring.base;
++
++	return 0;
+ }
+ 
+ 
+@@ -1020,7 +1037,8 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ 	}
+ 
+ 	/* fill tx descs related to addr & len */
+-	vmxnet3_map_pkt(skb, &ctx, tq, adapter->pdev, adapter);
++	if (vmxnet3_map_pkt(skb, &ctx, tq, adapter->pdev, adapter))
++		goto unlock_drop_pkt;
+ 
+ 	/* setup the EOP desc */
+ 	ctx.eop_txd->dword[3] = cpu_to_le32(VMXNET3_TXD_CQ | VMXNET3_TXD_EOP);
+@@ -1231,6 +1249,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 		struct vmxnet3_rx_buf_info *rbi;
+ 		struct sk_buff *skb, *new_skb = NULL;
+ 		struct page *new_page = NULL;
++		dma_addr_t new_dma_addr;
+ 		int num_to_alloc;
+ 		struct Vmxnet3_RxDesc *rxd;
+ 		u32 idx, ring_idx;
+@@ -1287,6 +1306,21 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 				skip_page_frags = true;
+ 				goto rcd_done;
+ 			}
++			new_dma_addr = dma_map_single(&adapter->pdev->dev,
++						      new_skb->data, rbi->len,
++						      PCI_DMA_FROMDEVICE);
++			if (dma_mapping_error(&adapter->pdev->dev,
++					      new_dma_addr)) {
++				dev_kfree_skb(new_skb);
++				/* Skb allocation failed, do not handover this
++				 * skb to stack. Reuse it. Drop the existing pkt
++				 */
++				rq->stats.rx_buf_alloc_failure++;
++				ctx->skb = NULL;
++				rq->stats.drop_total++;
++				skip_page_frags = true;
++				goto rcd_done;
++			}
+ 
+ 			dma_unmap_single(&adapter->pdev->dev, rbi->dma_addr,
+ 					 rbi->len,
+@@ -1303,9 +1337,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 
+ 			/* Immediate refill */
+ 			rbi->skb = new_skb;
+-			rbi->dma_addr = dma_map_single(&adapter->pdev->dev,
+-						       rbi->skb->data, rbi->len,
+-						       PCI_DMA_FROMDEVICE);
++			rbi->dma_addr = new_dma_addr;
+ 			rxd->addr = cpu_to_le64(rbi->dma_addr);
+ 			rxd->len = rbi->len;
+ 			if (adapter->version == 2 &&
+@@ -1348,6 +1380,19 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 					skip_page_frags = true;
+ 					goto rcd_done;
+ 				}
++				new_dma_addr = dma_map_page(&adapter->pdev->dev
++							, rbi->page,
++							0, PAGE_SIZE,
++							PCI_DMA_FROMDEVICE);
++				if (dma_mapping_error(&adapter->pdev->dev,
++						      new_dma_addr)) {
++					put_page(new_page);
++					rq->stats.rx_buf_alloc_failure++;
++					dev_kfree_skb(ctx->skb);
++					ctx->skb = NULL;
++					skip_page_frags = true;
++					goto rcd_done;
++				}
+ 
+ 				dma_unmap_page(&adapter->pdev->dev,
+ 					       rbi->dma_addr, rbi->len,
+@@ -1357,10 +1402,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 
+ 				/* Immediate refill */
+ 				rbi->page = new_page;
+-				rbi->dma_addr = dma_map_page(&adapter->pdev->dev
+-							, rbi->page,
+-							0, PAGE_SIZE,
+-							PCI_DMA_FROMDEVICE);
++				rbi->dma_addr = new_dma_addr;
+ 				rxd->addr = cpu_to_le64(rbi->dma_addr);
+ 				rxd->len = rbi->len;
+ 			}
+@@ -2167,7 +2209,8 @@ vmxnet3_set_mc(struct net_device *netdev)
+ 							PCI_DMA_TODEVICE);
+ 			}
+ 
+-			if (new_table_pa) {
++			if (!dma_mapping_error(&adapter->pdev->dev,
++					       new_table_pa)) {
+ 				new_mode |= VMXNET3_RXM_MCAST;
+ 				rxConf->mfTablePA = cpu_to_le64(new_table_pa);
+ 			} else {
+@@ -3075,6 +3118,11 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 	adapter->adapter_pa = dma_map_single(&adapter->pdev->dev, adapter,
+ 					     sizeof(struct vmxnet3_adapter),
+ 					     PCI_DMA_TODEVICE);
++	if (dma_mapping_error(&adapter->pdev->dev, adapter->adapter_pa)) {
++		dev_err(&pdev->dev, "Failed to map dma\n");
++		err = -EFAULT;
++		goto err_dma_map;
++	}
+ 	adapter->shared = dma_alloc_coherent(
+ 				&adapter->pdev->dev,
+ 				sizeof(struct Vmxnet3_DriverShared),
+@@ -3233,6 +3281,7 @@ err_alloc_queue_desc:
+ err_alloc_shared:
+ 	dma_unmap_single(&adapter->pdev->dev, adapter->adapter_pa,
+ 			 sizeof(struct vmxnet3_adapter), PCI_DMA_TODEVICE);
++err_dma_map:
+ 	free_netdev(netdev);
+ 	return err;
+ }
+-- 
+1.9.1
