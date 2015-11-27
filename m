@@ -1,39 +1,28 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: 4.3+: Atheros ethernet fails after resume from s2ram, due to
- order 4 allocation
-Date: Thu, 26 Nov 2015 22:56:39 +0100
-Message-ID: <20151126215638.GA22801@electric-eye.fr.zoreil.com>
-References: <20151126163413.GA3816@amd>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: Re: tty,net: use-after-free in x25_asy_open_tty
+Date: Thu, 26 Nov 2015 23:27:06 -0500
+Message-ID: <5657DB9A.1040103@oracle.com>
+References: <564F26A5.4050905@oracle.com>
+ <564F7B94.3060405@hurleysoftware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernel list <linux-kernel@vger.kernel.org>, jcliburn@gmail.com,
-        chris.snook@gmail.com, netdev@vger.kernel.org,
-        "Rafael J. Wysocki" <rjw@rjwysocki.net>, linux-mm@kvack.org,
-        nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com,
-        David Miller <davem@davemloft.net>
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151126163413.GA3816@amd>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>, syzkaller@googlegroups.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Peter Hurley <peter@hurleysoftware.com>,
+	gregkh@linuxfoundation.org, Jiri Slaby <jslaby@suse.cz>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <564F7B94.3060405@hurleysoftware.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Machek <pavel@ucw.cz> :
-[...]
-> Ok, so what went on is easy.. any ideas how to fix it ?
+On 11/20/2015 02:59 PM, Peter Hurley wrote:
+> Thanks for the report, Sasha.
+> Would you please test the patch below?
 
-The driver should 1) prohibit holes in its receive ring, 2) allocate before
-pushing data up in the stack 3) drop packets when it can't allocate a
-fresh buffer and 4) stop releasing receive buffers - and any resource for
-that matter - during suspend.
+Fixes it for me, thanks!
 
-Really.
 
--- 
-Ueimor
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks,
+Sasha
