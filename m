@@ -1,8 +1,8 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next V2 16/17] hv_netvsc: Eliminate status from struct
- hv_netvsc_packet
-Date: Sat, 28 Nov 2015 12:20:44 -0800
-Message-ID: <1448742045-22732-16-git-send-email-kys@microsoft.com>
+Subject: [PATCH net-next V2 08/17] hv_netvsc: Don't ask for additional head
+ room in the skb
+Date: Sat, 28 Nov 2015 12:20:36 -0800
+Message-ID: <1448742045-22732-8-git-send-email-kys@microsoft.com>
 References: <1448742017-22693-1-git-send-email-kys@microsoft.com>
  <1448742045-22732-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
@@ -24,164 +24,130 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Eliminate status from struct hv_netvsc_packet.
+The rndis header is 116 bytes big and can be placed in the default
+head room that will be available in the skb. Since the netvsc packet
+is less than 48 bytes, we can use the skb control buffer
+for the netvsc packet. With these changes we don't need to
+ask for additional head room.
 
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h   |    1 -
- drivers/net/hyperv/netvsc.c       |    6 ++----
- drivers/net/hyperv/netvsc_drv.c   |    8 ++------
- drivers/net/hyperv/rndis_filter.c |   20 +++++++++-----------
- 4 files changed, 13 insertions(+), 22 deletions(-)
+	v2: When HYPERV_NET is configured, set LL_MAX_HEADER to 128 - Vitaly Kuznetsov <vkuznets@redhat.com> 
+	V2: Add a build time check on the skb control buffer - Florian Westphal <fw@strlen.de>
+ drivers/net/hyperv/hyperv_net.h |    3 +++
+ drivers/net/hyperv/netvsc_drv.c |   30 +++++++++++-------------------
+ include/linux/netdevice.h       |    4 +++-
+ 3 files changed, 17 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 96d34e2..128b296 100644
+index 9504ca9..e15dc2c 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -130,7 +130,6 @@ struct ndis_tcp_ip_checksum_info;
+@@ -124,6 +124,9 @@ struct ndis_tcp_ip_checksum_info;
+ /*
+  * Represent netvsc packet which contains 1 RNDIS and 1 ethernet frame
+  * within the RNDIS
++ *
++ * The size of this structure is less than 48 bytes and we can now
++ * place this structure in the skb->cb field.
   */
  struct hv_netvsc_packet {
  	/* Bookkeeping stuff */
--	u8 status;
- 	u8 cp_partial; /* partial copy into send buffer */
- 
- 	u8 rmsg_size; /* RNDIS header and PPI size */
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index cd5b65e..02bab9a 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -1045,17 +1045,15 @@ static void netvsc_receive(struct netvsc_device *net_device,
- 	/* Each range represents 1 RNDIS pkt that contains 1 ethernet frame */
- 	for (i = 0; i < count; i++) {
- 		/* Initialize the netvsc packet */
--		netvsc_packet->status = NVSP_STAT_SUCCESS;
- 		data = (void *)((unsigned long)net_device->
- 			recv_buf + vmxferpage_packet->ranges[i].byte_offset);
- 		netvsc_packet->total_data_buflen =
- 					vmxferpage_packet->ranges[i].byte_count;
- 
- 		/* Pass it to the upper layer */
--		rndis_filter_receive(device, netvsc_packet, &data, channel);
-+		status = rndis_filter_receive(device, netvsc_packet, &data,
-+					      channel);
- 
--		if (netvsc_packet->status != NVSP_STAT_SUCCESS)
--			status = NVSP_STAT_FAIL;
- 	}
- 
- 	netvsc_send_recv_completion(device, channel, net_device,
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 7520c52..490672e 100644
+index 947b778..90cc8d9 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -470,8 +470,6 @@ check_size:
- 			FIELD_SIZEOF(struct sk_buff, cb));
- 	packet = (struct hv_netvsc_packet *)skb->cb;
+@@ -432,7 +432,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	u32 net_trans_info;
+ 	u32 hash;
+ 	u32 skb_length;
+-	u32 pkt_sz;
+ 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
+ 	struct netvsc_stats *tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
  
--	packet->status = 0;
--
- 	packet->vlan_tci = skb->vlan_tci;
- 
- 	packet->q_idx = skb_get_queue_mapping(skb);
-@@ -687,8 +685,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 
- 	net = ((struct netvsc_device *)hv_get_drvdata(device_obj))->ndev;
- 	if (!net || net->reg_state != NETREG_REGISTERED) {
--		packet->status = NVSP_STAT_FAIL;
--		return 0;
-+		return NVSP_STAT_FAIL;
+@@ -460,16 +459,21 @@ check_size:
+ 		goto check_size;
  	}
+ 
+-	pkt_sz = sizeof(struct hv_netvsc_packet) + RNDIS_AND_PPI_SIZE;
+-
+-	ret = skb_cow_head(skb, pkt_sz);
++	/*
++	 * Place the rndis header in the skb head room and
++	 * the skb->cb will be used for hv_netvsc_packet
++	 * structure.
++	 */
++	ret = skb_cow_head(skb, RNDIS_AND_PPI_SIZE);
+ 	if (ret) {
+ 		netdev_err(net, "unable to alloc hv_netvsc_packet\n");
+ 		ret = -ENOMEM;
+ 		goto drop;
+ 	}
+-	/* Use the headroom for building up the packet */
+-	packet = (struct hv_netvsc_packet *)skb->head;
++	/* Use the skb control buffer for building up the packet */
++	BUILD_BUG_ON(sizeof(struct hv_netvsc_packet) >
++			FIELD_SIZEOF(struct sk_buff, cb));
++	packet = (struct hv_netvsc_packet *)skb->cb;
+ 
+ 	packet->status = 0;
+ 	packet->xmit_more = skb->xmit_more;
+@@ -482,8 +486,7 @@ check_size:
+ 	packet->is_data_pkt = true;
+ 	packet->total_data_buflen = skb->len;
+ 
+-	rndis_msg = (struct rndis_message *)((unsigned long)packet +
+-				sizeof(struct hv_netvsc_packet));
++	rndis_msg = (struct rndis_message *)skb->head;
+ 
+ 	memset(rndis_msg, 0, RNDIS_AND_PPI_SIZE);
+ 
+@@ -1071,16 +1074,12 @@ static int netvsc_probe(struct hv_device *dev,
+ 	struct netvsc_device_info device_info;
+ 	struct netvsc_device *nvdev;
+ 	int ret;
+-	u32 max_needed_headroom;
+ 
+ 	net = alloc_etherdev_mq(sizeof(struct net_device_context),
+ 				num_online_cpus());
+ 	if (!net)
+ 		return -ENOMEM;
+ 
+-	max_needed_headroom = sizeof(struct hv_netvsc_packet) +
+-			      RNDIS_AND_PPI_SIZE;
+-
+ 	netif_carrier_off(net);
+ 
  	net_device_ctx = netdev_priv(net);
- 	rx_stats = this_cpu_ptr(net_device_ctx->rx_stats);
-@@ -697,8 +694,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 	skb = netdev_alloc_skb_ip_align(net, packet->total_data_buflen);
- 	if (unlikely(!skb)) {
- 		++net->stats.rx_dropped;
--		packet->status = NVSP_STAT_FAIL;
--		return 0;
-+		return NVSP_STAT_FAIL;
- 	}
+@@ -1116,13 +1115,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 	net->ethtool_ops = &ethtool_ops;
+ 	SET_NETDEV_DEV(net, &dev->device);
  
- 	/*
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 3c06aa7..28adf6a 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -344,7 +344,7 @@ static inline void *rndis_get_ppi(struct rndis_packet *rpkt, u32 type)
- 	return NULL;
- }
- 
--static void rndis_filter_receive_data(struct rndis_device *dev,
-+static int rndis_filter_receive_data(struct rndis_device *dev,
- 				   struct rndis_message *msg,
- 				   struct hv_netvsc_packet *pkt,
- 				   void **data,
-@@ -371,7 +371,7 @@ static void rndis_filter_receive_data(struct rndis_device *dev,
- 			   "overflow detected (got %u, min %u)"
- 			   "...dropping this message!\n",
- 			   pkt->total_data_buflen, rndis_pkt->data_len);
--		return;
-+		return NVSP_STAT_FAIL;
- 	}
- 
- 	/*
-@@ -391,7 +391,8 @@ static void rndis_filter_receive_data(struct rndis_device *dev,
- 	}
- 
- 	csum_info = rndis_get_ppi(rndis_pkt, TCPIP_CHKSUM_PKTINFO);
--	netvsc_recv_callback(dev->net_dev->dev, pkt, data, csum_info, channel);
-+	return netvsc_recv_callback(dev->net_dev->dev, pkt, data,
-+				    csum_info, channel);
- }
- 
- int rndis_filter_receive(struct hv_device *dev,
-@@ -406,7 +407,7 @@ int rndis_filter_receive(struct hv_device *dev,
- 	int ret = 0;
- 
- 	if (!net_dev) {
--		ret = -EINVAL;
-+		ret = NVSP_STAT_FAIL;
- 		goto exit;
- 	}
- 
-@@ -416,7 +417,7 @@ int rndis_filter_receive(struct hv_device *dev,
- 	if (!net_dev->extension) {
- 		netdev_err(ndev, "got rndis message but no rndis device - "
- 			  "dropping this message!\n");
--		ret = -ENODEV;
-+		ret = NVSP_STAT_FAIL;
- 		goto exit;
- 	}
- 
-@@ -424,7 +425,7 @@ int rndis_filter_receive(struct hv_device *dev,
- 	if (rndis_dev->state == RNDIS_DEV_UNINITIALIZED) {
- 		netdev_err(ndev, "got rndis message but rndis device "
- 			   "uninitialized...dropping this message!\n");
--		ret = -ENODEV;
-+		ret = NVSP_STAT_FAIL;
- 		goto exit;
- 	}
- 
-@@ -436,8 +437,8 @@ int rndis_filter_receive(struct hv_device *dev,
- 	switch (rndis_msg->ndis_msg_type) {
- 	case RNDIS_MSG_PACKET:
- 		/* data msg */
--		rndis_filter_receive_data(rndis_dev, rndis_msg, pkt,
--					  data, channel);
-+		ret = rndis_filter_receive_data(rndis_dev, rndis_msg, pkt,
-+						data, channel);
- 		break;
- 
- 	case RNDIS_MSG_INIT_C:
-@@ -460,9 +461,6 @@ int rndis_filter_receive(struct hv_device *dev,
- 	}
- 
- exit:
--	if (ret != 0)
--		pkt->status = NVSP_STAT_FAIL;
+-	/*
+-	 * Request additional head room in the skb.
+-	 * We will use this space to build the rndis
+-	 * heaser and other state we need to maintain.
+-	 */
+-	net->needed_headroom = max_needed_headroom;
 -
- 	return ret;
- }
+ 	/* Notify the netvsc driver of the new device */
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.ring_size = ring_size;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d208914..2e8d703 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -132,7 +132,9 @@ static inline bool dev_xmit_complete(int rc)
+  *	used.
+  */
  
+-#if defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
++#if defined(CONFIG_HYPERV_NET)
++# define LL_MAX_HEADER 128
++#elseif defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
+ # if defined(CONFIG_MAC80211_MESH)
+ #  define LL_MAX_HEADER 128
+ # else
 -- 
 1.7.4.1
