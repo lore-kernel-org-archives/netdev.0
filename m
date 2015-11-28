@@ -1,86 +1,40 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 5/5] get rid of unnecessary fgets() buffer size limitation
-Date: Sat, 28 Nov 2015 01:00:05 +0100
-Message-ID: <1448668805-28074-6-git-send-email-phil@nwl.cc>
-References: <1448668805-28074-1-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH 0/5] warning-annoyance induced code-review
+Date: Sat, 28 Nov 2015 01:00:00 +0100
+Message-ID: <1448668805-28074-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:34384 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:38375 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751237AbbK1AAb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Nov 2015 19:00:31 -0500
-In-Reply-To: <1448668805-28074-1-git-send-email-phil@nwl.cc>
+	id S1751237AbbK1AAi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Nov 2015 19:00:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fgets() will read at most size-1 bytes into the buffer and add a
-terminating null-char at the end. Therefore it is not necessary to pass
-a reduced buffer size when calling it.
+The primary goal was to get rid of the -Wunused-result warnings emitted
+during compiling. While adding the necessary checks, I found a few
+functions which could benefit from a bigger review (patches 1, 2 and 3).
+Patch 4 then adds the remaining missing checks, and patch 5 simplifies
+fgets() usage at a few spots.
 
-This change was generated using the following semantic patch:
+Note that the last patch is my first Coccinelle-generated change, which
+makes me especially proud. Many thanks again to Julia Lawall for her kind
+support via IRC at this point!
 
-@@
-identifier buf, fp;
-@@
-- fgets(buf, sizeof(buf) - 1, fp)
-+ fgets(buf, sizeof(buf), fp)
+Phil Sutter (5):
+  lnstat: review lnstat_update()
+  ss: reduce max indentation level in init_service_resolver()
+  ss: review is_ephemeral()
+  get rid of remaining -Wunused-result warnings
+  get rid of unnecessary fgets() buffer size limitation
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- misc/arpd.c | 2 +-
- misc/ss.c   | 8 ++++----
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ misc/arpd.c        |   2 +-
+ misc/ifstat.c      |   6 ++-
+ misc/lnstat_util.c |  21 +++++------
+ misc/nstat.c       |   6 ++-
+ misc/ss.c          | 107 ++++++++++++++++++++++++++++-------------------------
+ 5 files changed, 74 insertions(+), 68 deletions(-)
 
-diff --git a/misc/arpd.c b/misc/arpd.c
-index 7919eb8b36bb7..6bb9bd16bc46c 100644
---- a/misc/arpd.c
-+++ b/misc/arpd.c
-@@ -703,7 +703,7 @@ int main(int argc, char **argv)
- 		}
- 
- 		buf[sizeof(buf)-1] = 0;
--		while (fgets(buf, sizeof(buf)-1, fp)) {
-+		while (fgets(buf, sizeof(buf), fp)) {
- 			__u8 b1[6];
- 			char ipbuf[128];
- 			char macbuf[128];
-diff --git a/misc/ss.c b/misc/ss.c
-index d509009429de1..0dab32ceff594 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -2729,7 +2729,7 @@ static int unix_show(struct filter *f)
- 
- 	if ((fp = net_unix_open()) == NULL)
- 		return -1;
--	if (!fgets(buf, sizeof(buf)-1, fp)) {
-+	if (!fgets(buf, sizeof(buf), fp)) {
- 		fclose(fp);
- 		return -1;
- 	}
-@@ -2738,7 +2738,7 @@ static int unix_show(struct filter *f)
- 		newformat = 1;
- 	cnt = 0;
- 
--	while (fgets(buf, sizeof(buf)-1, fp)) {
-+	while (fgets(buf, sizeof(buf), fp)) {
- 		struct sockstat *u, **insp;
- 		int flags;
- 
-@@ -3217,12 +3217,12 @@ static int netlink_show(struct filter *f)
- 
- 	if ((fp = net_netlink_open()) == NULL)
- 		return -1;
--	if (!fgets(buf, sizeof(buf)-1, fp)) {
-+	if (!fgets(buf, sizeof(buf), fp)) {
- 		fclose(fp);
- 		return -1;
- 	}
- 
--	while (fgets(buf, sizeof(buf)-1, fp)) {
-+	while (fgets(buf, sizeof(buf), fp)) {
- 		sscanf(buf, "%llx %d %d %x %d %d %llx %d",
- 		       &sk,
- 		       &prot, &pid, &groups, &rq, &wq, &cb, &rc);
 -- 
 2.5.0
