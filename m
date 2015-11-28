@@ -1,98 +1,99 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next V2 10/17] hv_netvsc: remove locking in netvsc_send()
-Date: Sat, 28 Nov 2015 12:20:38 -0800
-Message-ID: <1448742045-22732-10-git-send-email-kys@microsoft.com>
+Subject: [PATCH net-next V2 06/17] hv_netvsc: Eliminate send_completion from struct hv_netvsc_packet
+Date: Sat, 28 Nov 2015 12:20:34 -0800
+Message-ID: <1448742045-22732-6-git-send-email-kys@microsoft.com>
 References: <1448742017-22693-1-git-send-email-kys@microsoft.com>
  <1448742045-22732-1-git-send-email-kys@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
- jasowang@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1448742045-22732-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Eliminate send_completion from struct hv_netvsc_packet.
 
-Packet scheduler guarantees there won't be multiple senders for the same
-queue and as we use q_idx for multi_send_data the spinlock is redundant.
-
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h |    1 -
- drivers/net/hyperv/netvsc.c     |    8 --------
- 2 files changed, 0 insertions(+), 9 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   |    3 +--
+ drivers/net/hyperv/netvsc.c       |    6 +++---
+ drivers/net/hyperv/netvsc_drv.c   |    2 +-
+ drivers/net/hyperv/rndis_filter.c |    2 +-
+ 4 files changed, 6 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index a9d2bdc5..f5b2145 100644
+index 506d552..9a3c972 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -633,7 +633,6 @@ struct nvsp_message {
- #define RNDIS_PKT_ALIGN_DEFAULT 8
+@@ -135,7 +135,7 @@ struct hv_netvsc_packet {
+ 	u8 rmsg_size; /* RNDIS header and PPI size */
+ 	u8 rmsg_pgcnt; /* page count of RNDIS header and PPI */
+ 	u8 page_buf_cnt;
+-	u8 pad0;
++	u8 completion_func;
  
- struct multi_send_data {
--	spinlock_t lock; /* protect struct multi_send_data */
- 	struct hv_netvsc_packet *pkt; /* netvsc pkt pending */
- 	u32 count; /* counter of batched packets */
+ 	u16 vlan_tci;
+ 	u16 q_idx;
+@@ -147,7 +147,6 @@ struct hv_netvsc_packet {
+ 
+ 	u64 send_completion_tid;
+ 	void *send_completion_ctx;
+-	void (*send_completion)(void *context);
+ 	struct hv_page_buffer *page_buf;
  };
+ 
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 419b055..081f14f 100644
+index 8fbf816..34c16d1 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
-@@ -38,7 +38,6 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
- {
- 	struct netvsc_device *net_device;
- 	struct net_device *ndev = hv_get_drvdata(device);
--	int i;
+@@ -653,8 +653,8 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
+ 				netvsc_free_send_slot(net_device, send_index);
+ 			q_idx = nvsc_packet->q_idx;
+ 			channel = incoming_channel;
+-			nvsc_packet->send_completion(nvsc_packet->
+-						     send_completion_ctx);
++			netvsc_xmit_completion(nvsc_packet->
++					       send_completion_ctx);
+ 		}
  
- 	net_device = kzalloc(sizeof(struct netvsc_device), GFP_KERNEL);
- 	if (!net_device)
-@@ -58,9 +57,6 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
- 	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
- 	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
+ 		num_outstanding_sends =
+@@ -775,7 +775,7 @@ static inline int netvsc_send_pkt(
+ 		nvmsg.msg.v1_msg.send_rndis_pkt.send_buf_section_size =
+ 			packet->total_data_buflen;
  
--	for (i = 0; i < num_online_cpus(); i++)
--		spin_lock_init(&net_device->msd[i].lock);
--
- 	hv_set_drvdata(device, net_device);
- 	return net_device;
- }
-@@ -850,7 +846,6 @@ int netvsc_send(struct hv_device *device,
- 	u16 q_idx = packet->q_idx;
- 	u32 pktlen = packet->total_data_buflen, msd_len = 0;
- 	unsigned int section_index = NETVSC_INVALID_INDEX;
--	unsigned long flag;
- 	struct multi_send_data *msdp;
- 	struct hv_netvsc_packet *msd_send = NULL, *cur_send = NULL;
- 	bool try_batch;
-@@ -867,7 +862,6 @@ int netvsc_send(struct hv_device *device,
- 	msdp = &net_device->msd[q_idx];
+-	if (packet->send_completion)
++	if (packet->completion_func)
+ 		req_id = (ulong)packet;
+ 	else
+ 		req_id = 0;
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index c73afb1..6d71a1e 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -488,7 +488,7 @@ check_size:
+ 	memset(rndis_msg, 0, RNDIS_AND_PPI_SIZE);
  
- 	/* batch packets in send buffer if possible */
--	spin_lock_irqsave(&msdp->lock, flag);
- 	if (msdp->pkt)
- 		msd_len = msdp->pkt->total_data_buflen;
+ 	/* Set the completion routine */
+-	packet->send_completion = netvsc_xmit_completion;
++	packet->completion_func = 1;
+ 	packet->send_completion_ctx = packet;
+ 	packet->send_completion_tid = (unsigned long)skb;
  
-@@ -927,8 +921,6 @@ int netvsc_send(struct hv_device *device,
- 		cur_send = packet;
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index be0fa9c..c8af172 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -237,7 +237,7 @@ static int rndis_filter_send_request(struct rndis_device *dev,
+ 			packet->page_buf[0].len;
  	}
  
--	spin_unlock_irqrestore(&msdp->lock, flag);
--
- 	if (msd_send) {
- 		m_ret = netvsc_send_pkt(msd_send, net_device);
+-	packet->send_completion = NULL;
++	packet->completion_func = 0;
+ 	packet->xmit_more = false;
  
+ 	ret = netvsc_send(dev->net_dev->dev, packet, NULL);
 -- 
 1.7.4.1
