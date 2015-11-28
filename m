@@ -1,9 +1,10 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next V2 01/17] hv_netvsc: Resize some of the variables in
- hv_netvsc_packet
-Date: Sat, 28 Nov 2015 12:20:29 -0800
-Message-ID: <1448742045-22732-1-git-send-email-kys@microsoft.com>
+Subject: [PATCH net-next V2 09/17] hv_netvsc: move subchannel existence check
+ to netvsc_select_queue()
+Date: Sat, 28 Nov 2015 12:20:37 -0800
+Message-ID: <1448742045-22732-9-git-send-email-kys@microsoft.com>
 References: <1448742017-22693-1-git-send-email-kys@microsoft.com>
+ <1448742045-22732-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,7 +12,7 @@ To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
  devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
  jasowang@redhat.com
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1448742017-22693-1-git-send-email-kys@microsoft.com>
+In-Reply-To: <1448742045-22732-1-git-send-email-kys@microsoft.com>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
@@ -23,51 +24,77 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-As part of reducing the size of the hv_netvsc_packet, resize some of the
-variables based on their usage.
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
 
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h |   14 +++++++-------
- 1 files changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/hyperv/hyperv_net.h |   15 ---------------
+ drivers/net/hyperv/netvsc.c     |    5 ++---
+ drivers/net/hyperv/netvsc_drv.c |    3 +++
+ 3 files changed, 5 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 5fa98f5..972e562 100644
+index e15dc2c..a9d2bdc5 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -127,11 +127,11 @@ struct ndis_tcp_ip_checksum_info;
-  */
- struct hv_netvsc_packet {
- 	/* Bookkeeping stuff */
--	u32 status;
-+	u8 status;
+@@ -1260,19 +1260,4 @@ struct rndis_message {
+ #define TRANSPORT_INFO_IPV6_TCP ((INFO_IPV6 << 16) | INFO_TCP)
+ #define TRANSPORT_INFO_IPV6_UDP ((INFO_IPV6 << 16) | INFO_UDP)
  
--	bool is_data_pkt;
--	bool xmit_more; /* from skb */
--	bool cp_partial; /* partial copy into send buffer */
-+	u8 is_data_pkt;
-+	u8 xmit_more; /* from skb */
-+	u8 cp_partial; /* partial copy into send buffer */
+-static inline struct vmbus_channel *get_channel(struct hv_netvsc_packet *packet,
+-					struct netvsc_device *net_device)
+-
+-{
+-	struct vmbus_channel *out_channel;
+-
+-	out_channel = net_device->chn_table[packet->q_idx];
+-	if (!out_channel) {
+-		out_channel = net_device->dev->channel;
+-		packet->q_idx = 0;
+-	}
+-	return out_channel;
+-}
+-
+-
+ #endif /* _HYPERV_NET_H */
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 0e0b723..419b055 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -749,8 +749,8 @@ static inline int netvsc_send_pkt(
+ 	struct netvsc_device *net_device)
+ {
+ 	struct nvsp_message nvmsg;
+-	struct vmbus_channel *out_channel = get_channel(packet, net_device);
+ 	u16 q_idx = packet->q_idx;
++	struct vmbus_channel *out_channel = net_device->chn_table[q_idx];
+ 	struct net_device *ndev = net_device->ndev;
+ 	u64 req_id;
+ 	int ret;
+@@ -859,8 +859,7 @@ int netvsc_send(struct hv_device *device,
+ 	if (!net_device)
+ 		return -ENODEV;
  
- 	u16 vlan_tci;
+-	out_channel = get_channel(packet, net_device);
+-	q_idx = packet->q_idx;
++	out_channel = net_device->chn_table[q_idx];
  
-@@ -147,13 +147,13 @@ struct hv_netvsc_packet {
- 	/* This points to the memory after page_buf */
- 	struct rndis_message *rndis_msg;
+ 	packet->send_buf_index = NETVSC_INVALID_INDEX;
+ 	packet->cp_partial = false;
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 90cc8d9..da3a224 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -272,6 +272,9 @@ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
+ 		skb_set_hash(skb, hash, PKT_HASH_TYPE_L3);
+ 	}
  
--	u32 rmsg_size; /* RNDIS header and PPI size */
--	u32 rmsg_pgcnt; /* page count of RNDIS header and PPI */
-+	u8 rmsg_size; /* RNDIS header and PPI size */
-+	u8 rmsg_pgcnt; /* page count of RNDIS header and PPI */
- 
- 	u32 total_data_buflen;
- 	/* Points to the send/receive buffer where the ethernet frame is */
- 	void *data;
--	u32 page_buf_cnt;
-+	u8 page_buf_cnt;
- 	struct hv_page_buffer *page_buf;
- };
++	if (!nvsc_dev->chn_table[q_idx])
++		q_idx = 0;
++
+ 	return q_idx;
+ }
  
 -- 
 1.7.4.1
