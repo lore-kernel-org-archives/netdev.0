@@ -1,61 +1,123 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v5] mpls: support for dead routes
-Date: Fri, 27 Nov 2015 22:15:42 -0800
-Message-ID: <5659468E.5080905@cumulusnetworks.com>
-References: <1448407342-61181-1-git-send-email-roopa@cumulusnetworks.com> <20151125.111827.2264696682456564840.davem@davemloft.net>
+From: wangyufen <wangyufen@huawei.com>
+Subject: Re: Issue with /proc/sys/net/ipv4/tcp_mem
+Date: Sat, 28 Nov 2015 16:13:08 +0800
+Message-ID: <56596214.5050003@huawei.com>
+References: <561B7F98.1040809@huawei.com>
+ <87io6coxg1.fsf@x220.int.ebiederm.org>
+ <1444700679.21657.11.camel@edumazet-glaptop2.roam.corp.google.com>
+ <87twpvmk57.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, rshearma@brocade.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: <netdev@vger.kernel.org>, Hanjun Guo <guohanjun@huawei.com>,
+	Dingtianhong <dingtianhong@huawei.com>,
+	Dianfang Zhang <zhangdianfang@huawei.com>,
+	Xinwei Hu <huxinwei@huawei.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:36420 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751118AbbK1GPp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2015 01:15:45 -0500
-Received: by pacdm15 with SMTP id dm15so131598583pac.3
-        for <netdev@vger.kernel.org>; Fri, 27 Nov 2015 22:15:44 -0800 (PST)
-In-Reply-To: <20151125.111827.2264696682456564840.davem@davemloft.net>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:45989 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750743AbbK1INq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2015 03:13:46 -0500
+In-Reply-To: <87twpvmk57.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/25/15, 8:18 AM, David Miller wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Date: Tue, 24 Nov 2015 15:22:22 -0800
->
->> v4 -v5
->> 	- if kmemdup fails, modify the original route in place. This is a
->> 	corner case and only side effect is that in the remote case
->> 	of kmemdup failure, the changes will not be atomically visible
->> 	to datapath.
-> I really don't like this.
->
-> Either you need to make the changes appear atomic to the data path,
-> and you therefore must fail the operation if kmemdup() fails, or it
-> doesn't matter and you should just always change the route in-place.
->
-> As far as I can tell it can't possibly matter.  The alive counter is
-> never modified by the data path, it is only tested to make a multipath
-> decision.  Likewise it's rather harmless to send a frame or two via a
-> device currently going down.
->
-> But if you're convinced it matters, then is matters, and you can't
-> fake things when kmemdup() fails.  And in that case I would recommend
-> that you use a two pass algorithm, one pass allocates all of the
-> new routes, and the second fills them in, inserts them, and frees
-> the old ones.
->
-> That is the only way you can unwind and fail cleanly.
->
-> And oh yeah, that's right, you can't really fail this and make the
-> ifdown not proceed.
->
-> So you're stuck, right?
->
-> That's why this has to be designed in a way where memory allocations
-> are not necessary.  These notifiers aren't really designed to facilitate
-> situations that require resource acquisitions that can fail.
->
-Get your point. I am not convinced that the atomic update matters much for the transient case.
- I was trying to accommodate comments i got during the review and it seemed ok to cover both
-cases by optionally doing the atomic update when we can. But, I get your position on this.
+On 2015/10/13 13:07, Eric W. Biederman wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
+> 
+>> On Mon, 2015-10-12 at 11:37 -0500, Eric W. Biederman wrote:
+>>> wangyufen <wangyufen@huawei.com> writes:
+>>>
+>>>> Hi,
+>>>>
+>>>> I tried on linux-4.1:
+>>>>     linux:~# cat /proc/sys/net/ipv4/tcp_mem 
+>>>>     8388608	12582912	16777216
+>>>>     linux:~# echo 1234 >/proc/sys/net/ipv4/tcp_mem 
+>>>>     -bash: echo: write error: Invalid argument
+>>>>     linux:~# cat /proc/sys/net/ipv4/tcp_mem 
+>>>>     1234	12582912	16777216
+>>>>
+>>>> the echo operation got error, but value already written to tcp_mem.
+>>>>
+>>>> I checked, patch f594d63199688ad568fb caused the issue.
+>>>
+>>>
+>>> If your problem is that you can not write a single value and instead
+>>> have to write all three values I don't know what to tell you.  I don't
+>>> see how that could have ever worked.
+>>>
+>>> Certainly the commit you pointed at did not change that behavior.
+>>
+>> I would not be so sure.
+>> Above commit added a regression for partial writes.
+>> If a write() returns an error like EINVAL, we expect no change occurred.
+>>
+>> Prior code was calling proc_doulongvec_minmax() using a temporary array,
+>> and updated tcp_mem[0 .. 2] only of proc_doulongvec_minmax() returned 0
+>>
+>>        ret = proc_doulongvec_minmax(&tmp, write, buffer, lenp, ppos);
+>>        if (ret)
+>>                return ret;
+>> #ifdef CONFIG_MEMCG_KMEM
+>> 	// deleted for clarity
+>> #endif
+>>
+>>        net->ipv4.sysctl_tcp_mem[0] = vec[0];
+>>        net->ipv4.sysctl_tcp_mem[1] = vec[1];
+>>        net->ipv4.sysctl_tcp_mem[2] = vec[2];
+>>
+>>        return 0;
+>>
+>> We could argue it is a bug in proc_doulongvec_minmax().
+>> This helper probably should allocate a temp buffer,
+>> as we have the same issue with udp_mem[].
+> 
+> Point.  We do store the value on partial writes when before we did not.
+> 
+> That is weird.  Clearly someone noticed.  I agree this is a confusing
+> corner case in proc_doulongvec_minmax that it may be worth addressing.
+> 
+
+I think maybe we can fix the confusing corner with that patch:
+
+---
+ kernel/sysctl.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index c3eee4c..e3ee4be 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -2318,6 +2318,8 @@ static int __do_proc_doulongvec_minmax(void *data, struct ctl_table *table, int
+                        bool neg;
+
+                        left -= proc_skip_spaces(&kbuf);
++                        if (!left)
++                                break;
+
+                        err = proc_get_long(&kbuf, &left, &val, &neg,
+                                             proc_wspace_sep,
+-- 
+2.5.0
+
+~         
+
+The patch makes __do_proc_doulongvec_minmax works the same as __do_proc_dointvec, 
+but I'm not sure this change will not break something.
+
+thanks,
+Wang 
+
+> Does this cause a regression in a real application?   I definitely would
+> like to know what in the world a real application is doing that causes
+> it to break with this difference in behavior before doing anything,
+> because I am dense enough not to see how an application could
+> meaningfully care about this difference in behavior.
+> 
+> Eric
+> 
+> 
+> 
