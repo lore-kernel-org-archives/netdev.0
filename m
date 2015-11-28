@@ -1,211 +1,141 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] vmxnet3: fix checks for dma mapping errors
-Date: Sat, 28 Nov 2015 01:29:30 +0300
-Message-ID: <1448663370-6848-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Shrikrishna Khare <skhare@vmware.com>,
-	"VMware, Inc." <pv-drivers@vmware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH 4/5] get rid of remaining -Wunused-result warnings
+Date: Sat, 28 Nov 2015 01:00:04 +0100
+Message-ID: <1448668805-28074-5-git-send-email-phil@nwl.cc>
+References: <1448668805-28074-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([176.31.251.142]:54952 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751038AbbK1AAT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Nov 2015 19:00:19 -0500
+In-Reply-To: <1448668805-28074-1-git-send-email-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-vmxnet3_drv does check dma_addr with dma_mapping_error()
-after mapping dma memory. The patch adds the checks and
-tries to handle failures.
+Although not fundamentally necessary to check return codes in these
+spots, preventing the warnings will put new ones into focus.
 
-Found by Linux Driver Verification project (linuxtesting.org).
-
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c | 71 +++++++++++++++++++++++++++++++++------
- 1 file changed, 60 insertions(+), 11 deletions(-)
+ misc/ifstat.c      |  6 ++++--
+ misc/lnstat_util.c |  3 ++-
+ misc/nstat.c       |  6 ++++--
+ misc/ss.c          | 18 ++++++++++++++----
+ 4 files changed, 24 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 899ea4288197..417903715437 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -587,6 +587,12 @@ vmxnet3_rq_alloc_rx_buf(struct vmxnet3_rx_queue *rq, u32 ring_idx,
- 						&adapter->pdev->dev,
- 						rbi->skb->data, rbi->len,
- 						PCI_DMA_FROMDEVICE);
-+				if (dma_mapping_error(&adapter->pdev->dev,
-+						      rbi->dma_addr)) {
-+					dev_kfree_skb_any(rbi->skb);
-+					rq->stats.rx_buf_alloc_failure++;
-+					break;
-+				}
- 			} else {
- 				/* rx buffer skipped by the device */
+diff --git a/misc/ifstat.c b/misc/ifstat.c
+index 20a8db45985be..ac5c29c89184a 100644
+--- a/misc/ifstat.c
++++ b/misc/ifstat.c
+@@ -819,7 +819,8 @@ int main(int argc, char *argv[])
  			}
-@@ -605,13 +611,18 @@ vmxnet3_rq_alloc_rx_buf(struct vmxnet3_rx_queue *rq, u32 ring_idx,
- 						&adapter->pdev->dev,
- 						rbi->page, 0, PAGE_SIZE,
- 						PCI_DMA_FROMDEVICE);
-+				if (dma_mapping_error(&adapter->pdev->dev,
-+						      rbi->dma_addr)) {
-+					put_page(rbi->page);
-+					rq->stats.rx_buf_alloc_failure++;
-+					break;
-+				}
- 			} else {
- 				/* rx buffers skipped by the device */
+ 			if (uptime >= 0 && time(NULL) >= stb.st_mtime+uptime) {
+ 				fprintf(stderr, "ifstat: history is aged out, resetting\n");
+-				ftruncate(fileno(hist_fp), 0);
++				if (ftruncate(fileno(hist_fp), 0))
++					perror("ifstat: ftruncate");
  			}
- 			val = VMXNET3_RXD_BTYPE_BODY << VMXNET3_RXD_BTYPE_SHIFT;
  		}
  
--		BUG_ON(rbi->dma_addr == 0);
- 		gd->rxd.addr = cpu_to_le64(rbi->dma_addr);
- 		gd->dword[2] = cpu_to_le32((!ring->gen << VMXNET3_RXD_GEN_SHIFT)
- 					   | val | rbi->len);
-@@ -655,7 +666,7 @@ vmxnet3_append_frag(struct sk_buff *skb, struct Vmxnet3_RxCompDesc *rcd,
- }
- 
- 
--static void
-+static int
- vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
- 		struct vmxnet3_tx_queue *tq, struct pci_dev *pdev,
- 		struct vmxnet3_adapter *adapter)
-@@ -715,6 +726,8 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
- 		tbi->dma_addr = dma_map_single(&adapter->pdev->dev,
- 				skb->data + buf_offset, buf_size,
- 				PCI_DMA_TODEVICE);
-+		if (dma_mapping_error(&adapter->pdev->dev, tbi->dma_addr))
-+			return -EFAULT;
- 
- 		tbi->len = buf_size;
- 
-@@ -755,6 +768,8 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
- 			tbi->dma_addr = skb_frag_dma_map(&adapter->pdev->dev, frag,
- 							 buf_offset, buf_size,
- 							 DMA_TO_DEVICE);
-+			if (dma_mapping_error(&adapter->pdev->dev, tbi->dma_addr))
-+				return -EFAULT;
- 
- 			tbi->len = buf_size;
- 
-@@ -782,6 +797,8 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
- 	/* set the last buf_info for the pkt */
- 	tbi->skb = skb;
- 	tbi->sop_idx = ctx->sop_txd - tq->tx_ring.base;
-+
-+	return 0;
- }
- 
- 
-@@ -1020,7 +1037,8 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+@@ -862,7 +863,8 @@ int main(int argc, char *argv[])
  	}
  
- 	/* fill tx descs related to addr & len */
--	vmxnet3_map_pkt(skb, &ctx, tq, adapter->pdev, adapter);
-+	if (vmxnet3_map_pkt(skb, &ctx, tq, adapter->pdev, adapter))
-+		goto unlock_drop_pkt;
+ 	if (!no_update) {
+-		ftruncate(fileno(hist_fp), 0);
++		if (ftruncate(fileno(hist_fp), 0))
++			perror("ifstat: ftruncate");
+ 		rewind(hist_fp);
  
- 	/* setup the EOP desc */
- 	ctx.eop_txd->dword[3] = cpu_to_le32(VMXNET3_TXD_CQ | VMXNET3_TXD_EOP);
-@@ -1231,6 +1249,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- 		struct vmxnet3_rx_buf_info *rbi;
- 		struct sk_buff *skb, *new_skb = NULL;
- 		struct page *new_page = NULL;
-+		dma_addr_t new_dma_addr;
- 		int num_to_alloc;
- 		struct Vmxnet3_RxDesc *rxd;
- 		u32 idx, ring_idx;
-@@ -1287,6 +1306,21 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- 				skip_page_frags = true;
- 				goto rcd_done;
- 			}
-+			new_dma_addr = dma_map_single(&adapter->pdev->dev,
-+						      new_skb->data, rbi->len,
-+						      PCI_DMA_FROMDEVICE);
-+			if (dma_mapping_error(&adapter->pdev->dev,
-+					      new_dma_addr)) {
-+				dev_kfree_skb(new_skb);
-+				/* Skb allocation failed, do not handover this
-+				 * skb to stack. Reuse it. Drop the existing pkt
-+				 */
-+				rq->stats.rx_buf_alloc_failure++;
-+				ctx->skb = NULL;
-+				rq->stats.drop_total++;
-+				skip_page_frags = true;
-+				goto rcd_done;
-+			}
+ 		json_output = 0;
+diff --git a/misc/lnstat_util.c b/misc/lnstat_util.c
+index 433e992976eac..70a77c5649f9b 100644
+--- a/misc/lnstat_util.c
++++ b/misc/lnstat_util.c
+@@ -138,7 +138,8 @@ static int lnstat_scan_fields(struct lnstat_file *lf)
+ 	char buf[FGETS_BUF_SIZE];
  
- 			dma_unmap_single(&adapter->pdev->dev, rbi->dma_addr,
- 					 rbi->len,
-@@ -1303,9 +1337,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 	rewind(lf->fp);
+-	fgets(buf, sizeof(buf)-1, lf->fp);
++	if (!fgets(buf, sizeof(buf)-1, lf->fp))
++		return -1;
  
- 			/* Immediate refill */
- 			rbi->skb = new_skb;
--			rbi->dma_addr = dma_map_single(&adapter->pdev->dev,
--						       rbi->skb->data, rbi->len,
--						       PCI_DMA_FROMDEVICE);
-+			rbi->dma_addr = new_dma_addr;
- 			rxd->addr = cpu_to_le64(rbi->dma_addr);
- 			rxd->len = rbi->len;
- 			if (adapter->version == 2 &&
-@@ -1348,6 +1380,19 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- 					skip_page_frags = true;
- 					goto rcd_done;
- 				}
-+				new_dma_addr = dma_map_page(&adapter->pdev->dev
-+							, rbi->page,
-+							0, PAGE_SIZE,
-+							PCI_DMA_FROMDEVICE);
-+				if (dma_mapping_error(&adapter->pdev->dev,
-+						      new_dma_addr)) {
-+					put_page(new_page);
-+					rq->stats.rx_buf_alloc_failure++;
-+					dev_kfree_skb(ctx->skb);
-+					ctx->skb = NULL;
-+					skip_page_frags = true;
-+					goto rcd_done;
-+				}
- 
- 				dma_unmap_page(&adapter->pdev->dev,
- 					       rbi->dma_addr, rbi->len,
-@@ -1357,10 +1402,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- 
- 				/* Immediate refill */
- 				rbi->page = new_page;
--				rbi->dma_addr = dma_map_page(&adapter->pdev->dev
--							, rbi->page,
--							0, PAGE_SIZE,
--							PCI_DMA_FROMDEVICE);
-+				rbi->dma_addr = new_dma_addr;
- 				rxd->addr = cpu_to_le64(rbi->dma_addr);
- 				rxd->len = rbi->len;
- 			}
-@@ -2167,7 +2209,8 @@ vmxnet3_set_mc(struct net_device *netdev)
- 							PCI_DMA_TODEVICE);
- 			}
- 
--			if (new_table_pa) {
-+			if (!dma_mapping_error(&adapter->pdev->dev,
-+					       new_table_pa)) {
- 				new_mode |= VMXNET3_RXM_MCAST;
- 				rxConf->mfTablePA = cpu_to_le64(new_table_pa);
- 			} else {
-@@ -3075,6 +3118,11 @@ vmxnet3_probe_device(struct pci_dev *pdev,
- 	adapter->adapter_pa = dma_map_single(&adapter->pdev->dev, adapter,
- 					     sizeof(struct vmxnet3_adapter),
- 					     PCI_DMA_TODEVICE);
-+	if (dma_mapping_error(&adapter->pdev->dev, adapter->adapter_pa)) {
-+		dev_err(&pdev->dev, "Failed to map dma\n");
-+		err = -EFAULT;
-+		goto err_dma_map;
-+	}
- 	adapter->shared = dma_alloc_coherent(
- 				&adapter->pdev->dev,
- 				sizeof(struct Vmxnet3_DriverShared),
-@@ -3233,6 +3281,7 @@ err_alloc_queue_desc:
- err_alloc_shared:
- 	dma_unmap_single(&adapter->pdev->dev, adapter->adapter_pa,
- 			 sizeof(struct vmxnet3_adapter), PCI_DMA_TODEVICE);
-+err_dma_map:
- 	free_netdev(netdev);
- 	return err;
+ 	return __lnstat_scan_fields(lf, buf);
  }
+diff --git a/misc/nstat.c b/misc/nstat.c
+index 267e515ff987c..99705286d279c 100644
+--- a/misc/nstat.c
++++ b/misc/nstat.c
+@@ -649,7 +649,8 @@ int main(int argc, char *argv[])
+ 			}
+ 			if (uptime >= 0 && time(NULL) >= stb.st_mtime+uptime) {
+ 				fprintf(stderr, "nstat: history is aged out, resetting\n");
+-				ftruncate(fileno(hist_fp), 0);
++				if (ftruncate(fileno(hist_fp), 0) < 0)
++					perror("nstat: ftruncate");
+ 			}
+ 		}
+ 
+@@ -693,7 +694,8 @@ int main(int argc, char *argv[])
+ 			dump_incr_db(stdout);
+ 	}
+ 	if (!no_update) {
+-		ftruncate(fileno(hist_fp), 0);
++		if (ftruncate(fileno(hist_fp), 0) < 0)
++			perror("nstat: ftruncate");
+ 		rewind(hist_fp);
+ 
+ 		json_output = 0;
+diff --git a/misc/ss.c b/misc/ss.c
+index 7928573285e4e..d509009429de1 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -528,7 +528,8 @@ static void user_ent_hash_build(void)
+ 				snprintf(tmp, sizeof(tmp), "%s/%d/stat",
+ 					root, pid);
+ 				if ((fp = fopen(tmp, "r")) != NULL) {
+-					fscanf(fp, "%*d (%[^)])", p);
++					if (fscanf(fp, "%*d (%[^)])", p) < 1)
++						; /* ignore */
+ 					fclose(fp);
+ 				}
+ 			}
+@@ -660,7 +661,10 @@ static int get_slabstat(struct slabstat *s)
+ 
+ 	cnt = sizeof(*s)/sizeof(int);
+ 
+-	fgets(buf, sizeof(buf), fp);
++	if (!fgets(buf, sizeof(buf), fp)) {
++		fclose(fp);
++		return -1;
++	}
+ 	while(fgets(buf, sizeof(buf), fp) != NULL) {
+ 		int i;
+ 		for (i=0; i<sizeof(slabstat_ids)/sizeof(slabstat_ids[0]); i++) {
+@@ -2725,7 +2729,10 @@ static int unix_show(struct filter *f)
+ 
+ 	if ((fp = net_unix_open()) == NULL)
+ 		return -1;
+-	fgets(buf, sizeof(buf)-1, fp);
++	if (!fgets(buf, sizeof(buf)-1, fp)) {
++		fclose(fp);
++		return -1;
++	}
+ 
+ 	if (memcmp(buf, "Peer", 4) == 0)
+ 		newformat = 1;
+@@ -3210,7 +3217,10 @@ static int netlink_show(struct filter *f)
+ 
+ 	if ((fp = net_netlink_open()) == NULL)
+ 		return -1;
+-	fgets(buf, sizeof(buf)-1, fp);
++	if (!fgets(buf, sizeof(buf)-1, fp)) {
++		fclose(fp);
++		return -1;
++	}
+ 
+ 	while (fgets(buf, sizeof(buf)-1, fp)) {
+ 		sscanf(buf, "%llx %d %d %x %d %d %llx %d",
 -- 
-1.9.1
+2.5.0
