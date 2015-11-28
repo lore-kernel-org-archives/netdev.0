@@ -1,107 +1,60 @@
-From: Duan Andy <fugang.duan@freescale.com>
-Subject: RE: [PATCH] net: fec: fix enet_out clock handling
-Date: Sat, 28 Nov 2015 13:13:16 +0000
-Message-ID: <BN3PR0301MB1219C4D8E1B09F1AE27E18FAF5020@BN3PR0301MB1219.namprd03.prod.outlook.com>
-References: <1448631550-943-1-git-send-email-LW@KARO-electronics.de>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: 4.3+: Atheros ethernet fails after resume from s2ram, due to
+ order 4 allocation
+Date: Sat, 28 Nov 2015 15:50:03 +0100
+Message-ID: <20151128145003.GA4135@amd>
+References: <20151126163413.GA3816@amd>
+ <20151127082010.GA2500@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Lothar Wa?mann <LW@KARO-electronics.de>,
-	Andrew Lunn <andrew@lunn.ch>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <Fabio.Estevam@freescale.com>,
-	Kevin Hao <haokexin@gmail.com>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Philippe Reynes <tremyfr@gmail.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Uwe Kleine-K?nig <u.kleine-koenig@pengutronix.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stefan Agner <stefan@agner.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0135.outbound.protection.outlook.com ([157.56.110.135]:42336
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751398AbbK1NNU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Nov 2015 08:13:20 -0500
-In-Reply-To: <1448631550-943-1-git-send-email-LW@KARO-electronics.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel list <linux-kernel@vger.kernel.org>, jcliburn@gmail.com,
+	chris.snook@gmail.com, netdev@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>, linux-mm@kvack.org,
+	nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20151127082010.GA2500@dhcp22.suse.cz>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogTG90aGFyIFdhw59tYW5uIDxMV0BLQVJPLWVsZWN0cm9uaWNzLmRlPiBTZW50OiBGcmlk
-YXksIE5vdmVtYmVyIDI3LCAyMDE1IDk6MzkgUE0NCj4gVG86IEFuZHJldyBMdW5uOyBEYXZpZCBT
-LiBNaWxsZXI7IEVzdGV2YW0gRmFiaW8tUjQ5NDk2OyBLZXZpbiBIYW87IExvdGhhcg0KPiBXYcOf
-bWFubjsgTHVjYXMgU3RhY2g7IER1YW4gRnVnYW5nLUIzODYxMTsgUGhpbGlwcGUgUmV5bmVzOyBS
-dXNzZWxsIEtpbmc7DQo+IFV3ZSBLbGVpbmUtS8O2bmlnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJu
-ZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBTdGVmYW4gQWduZXINCj4gU3ViamVj
-dDogW1BBVENIXSBuZXQ6IGZlYzogZml4IGVuZXRfb3V0IGNsb2NrIGhhbmRsaW5nDQo+IA0KPiBX
-aGVuIEVORVRfT1VUIGlzIGJlaW5nIHVzZWQgYXMgcmVmZXJlbmNlIGNsb2NrIGZvciBhbiBleHRl
-cm5hbCBQSFksIHRoZQ0KPiBjbG9jayBtdXN0IG5vdCBiZSBkaXNhYmxlZCB3aGlsZSB0aGUgUEhZ
-IGlzIGFjdGl2ZS4gT3RoZXJ3aXNlIHRoZSBQSFkgbWF5DQo+IGxvc2UgaXRzIGludGVybmFsIHN0
-YXRlIGFuZCByZXF1aXJlIGEgcmVzZXQgdG8gYmVjb21lIGZ1bmN0aW9uYWwgYWdhaW4uDQo+IA0K
-PiBBIHN5bXB0b20gZm9yIHRoaXMgYnVnIGlzIGEgbmV0d29yayBpbnRlcmZhY2UgdGhhdCBjb25z
-dGFudGx5IHRvZ2dsZXMNCj4gYmV0d2VlbiBVUCBhbmQgRE9XTiBzdGF0ZToNCj4gZmVjIDgwMGYw
-MDAwLmV0aGVybmV0IGV0aDA6IExpbmsgaXMgVXAgLSAxMDBNYnBzL0Z1bGwgLSBmbG93IGNvbnRy
-b2wNCj4gcngvdHggZmVjIDgwMGYwMDAwLmV0aGVybmV0IGV0aDA6IExpbmsgaXMgRG93biBmZWMg
-ODAwZjAwMDAuZXRoZXJuZXQgZXRoMDoNCj4gTGluayBpcyBVcCAtIDEwME1icHMvRnVsbCAtIGZs
-b3cgY29udHJvbCByeC90eCBmZWMgODAwZjAwMDAuZXRoZXJuZXQgZXRoMDoNCj4gTGluayBpcyBE
-b3duIFsuLi5dDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBMb3RoYXIgV2HDn21hbm4gPExXQEtBUk8t
-ZWxlY3Ryb25pY3MuZGU+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxl
-L2ZlY19tYWluLmMgfCAzNCArKysrKysrKysrKysrLS0tLS0tLS0tLS0tDQo+IC0tLS0tLQ0KPiAg
-MSBmaWxlIGNoYW5nZWQsIDE0IGluc2VydGlvbnMoKyksIDIwIGRlbGV0aW9ucygtKQ0KPiANCg0K
-V2hlbiBNQUMgaXMgbm90IHJlYWR5IHdpdGggY2xvY2tzIGRpc2FibGVkLCAgaXQgaXMgbm90IG5l
-Y2Vzc2FyeSB0byBzdXBwbHkgY2xvY2sgZm9yIFBIWS4gSW4gZmFjdCwgUEhZIGFsc28gaXMgbm90
-IHJlYWR5LCB3aHkgZG9lcyBpdCBuZWVkIGNsb2NrID8NCkZvciB5b3VyIHByb2JsZW0sIHlvdSBt
-dXN0IGFkZCBQSFkgcmVzZXQgaW4geW91ciBkdHMgZmlsZSB0byByZXNvbHZlIHlvdXIgcHJvYmxl
-bS4NCg0KSSBkb24ndCBhZ3JlZSB3aXRoIHRoaXMgcGF0Y2guDQoNCj4gZGlmZiAtLWdpdCBhL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+IGIvZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gaW5kZXggZDIzMjhmYy4uZDlkZjRjNSAx
-MDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMN
-Cj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gQEAg
-LTE4NTcsMTEgKzE4NTcsNiBAQCBzdGF0aWMgaW50IGZlY19lbmV0X2Nsa19lbmFibGUoc3RydWN0
-IG5ldF9kZXZpY2UNCj4gKm5kZXYsIGJvb2wgZW5hYmxlKQ0KPiAgCQlyZXQgPSBjbGtfcHJlcGFy
-ZV9lbmFibGUoZmVwLT5jbGtfYWhiKTsNCj4gIAkJaWYgKHJldCkNCj4gIAkJCXJldHVybiByZXQ7
-DQo+IC0JCWlmIChmZXAtPmNsa19lbmV0X291dCkgew0KPiAtCQkJcmV0ID0gY2xrX3ByZXBhcmVf
-ZW5hYmxlKGZlcC0+Y2xrX2VuZXRfb3V0KTsNCj4gLQkJCWlmIChyZXQpDQo+IC0JCQkJZ290byBm
-YWlsZWRfY2xrX2VuZXRfb3V0Ow0KPiAtCQl9DQo+ICAJCWlmIChmZXAtPmNsa19wdHApIHsNCj4g
-IAkJCW11dGV4X2xvY2soJmZlcC0+cHRwX2Nsa19tdXRleCk7DQo+ICAJCQlyZXQgPSBjbGtfcHJl
-cGFyZV9lbmFibGUoZmVwLT5jbGtfcHRwKTsgQEAgLTE4NzMsMzUNCj4gKzE4NjgsMjYgQEAgc3Rh
-dGljIGludCBmZWNfZW5ldF9jbGtfZW5hYmxlKHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2LCBib29s
-DQo+IGVuYWJsZSkNCj4gIAkJCX0NCj4gIAkJCW11dGV4X3VubG9jaygmZmVwLT5wdHBfY2xrX211
-dGV4KTsNCj4gIAkJfQ0KPiAtCQlpZiAoZmVwLT5jbGtfcmVmKSB7DQo+IC0JCQlyZXQgPSBjbGtf
-cHJlcGFyZV9lbmFibGUoZmVwLT5jbGtfcmVmKTsNCj4gLQkJCWlmIChyZXQpDQo+IC0JCQkJZ290
-byBmYWlsZWRfY2xrX3JlZjsNCj4gLQkJfQ0KPiArCQlyZXQgPSBjbGtfcHJlcGFyZV9lbmFibGUo
-ZmVwLT5jbGtfcmVmKTsNCj4gKwkJaWYgKHJldCkNCj4gKwkJCWdvdG8gZmFpbGVkX2Nsa19yZWY7
-DQo+ICAJfSBlbHNlIHsNCj4gIAkJY2xrX2Rpc2FibGVfdW5wcmVwYXJlKGZlcC0+Y2xrX2FoYik7
-DQo+IC0JCWlmIChmZXAtPmNsa19lbmV0X291dCkNCj4gLQkJCWNsa19kaXNhYmxlX3VucHJlcGFy
-ZShmZXAtPmNsa19lbmV0X291dCk7DQo+ICAJCWlmIChmZXAtPmNsa19wdHApIHsNCj4gIAkJCW11
-dGV4X2xvY2soJmZlcC0+cHRwX2Nsa19tdXRleCk7DQo+ICAJCQljbGtfZGlzYWJsZV91bnByZXBh
-cmUoZmVwLT5jbGtfcHRwKTsNCj4gIAkJCWZlcC0+cHRwX2Nsa19vbiA9IGZhbHNlOw0KPiAgCQkJ
-bXV0ZXhfdW5sb2NrKCZmZXAtPnB0cF9jbGtfbXV0ZXgpOw0KPiAgCQl9DQo+IC0JCWlmIChmZXAt
-PmNsa19yZWYpDQo+IC0JCQljbGtfZGlzYWJsZV91bnByZXBhcmUoZmVwLT5jbGtfcmVmKTsNCj4g
-KwkJY2xrX2Rpc2FibGVfdW5wcmVwYXJlKGZlcC0+Y2xrX3JlZik7DQo+ICAJfQ0KPiANCj4gIAly
-ZXR1cm4gMDsNCj4gDQo+ICBmYWlsZWRfY2xrX3JlZjoNCj4gLQlpZiAoZmVwLT5jbGtfcmVmKQ0K
-PiAtCQljbGtfZGlzYWJsZV91bnByZXBhcmUoZmVwLT5jbGtfcmVmKTsNCj4gKwljbGtfZGlzYWJs
-ZV91bnByZXBhcmUoZmVwLT5jbGtfcmVmKTsNCj4gIGZhaWxlZF9jbGtfcHRwOg0KPiAtCWlmIChm
-ZXAtPmNsa19lbmV0X291dCkNCj4gLQkJY2xrX2Rpc2FibGVfdW5wcmVwYXJlKGZlcC0+Y2xrX2Vu
-ZXRfb3V0KTsNCj4gLWZhaWxlZF9jbGtfZW5ldF9vdXQ6DQo+IC0JCWNsa19kaXNhYmxlX3VucHJl
-cGFyZShmZXAtPmNsa19haGIpOw0KPiArCWNsa19kaXNhYmxlX3VucHJlcGFyZShmZXAtPmNsa19h
-aGIpOw0KPiANCj4gIAlyZXR1cm4gcmV0Ow0KPiAgfQ0KPiBAQCAtMzQyNSw2ICszNDExLDEwIEBA
-IGZlY19wcm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KQ0KPiAgCWlmIChyZXQpDQo+
-ICAJCWdvdG8gZmFpbGVkX2NsazsNCj4gDQo+ICsJcmV0ID0gY2xrX3ByZXBhcmVfZW5hYmxlKGZl
-cC0+Y2xrX2VuZXRfb3V0KTsNCj4gKwlpZiAocmV0KQ0KPiArCQlnb3RvIGZhaWxlZF9jbGtfZW5l
-dF9vdXQ7DQo+ICsNCj4gIAlyZXQgPSBjbGtfcHJlcGFyZV9lbmFibGUoZmVwLT5jbGtfaXBnKTsN
-Cj4gIAlpZiAocmV0KQ0KPiAgCQlnb3RvIGZhaWxlZF9jbGtfaXBnOw0KPiBAQCAtMzUwOSw2ICsz
-NDk5LDggQEAgZmFpbGVkX2luaXQ6DQo+ICAJaWYgKGZlcC0+cmVnX3BoeSkNCj4gIAkJcmVndWxh
-dG9yX2Rpc2FibGUoZmVwLT5yZWdfcGh5KTsNCj4gIGZhaWxlZF9yZWd1bGF0b3I6DQo+ICsJY2xr
-X2Rpc2FibGVfdW5wcmVwYXJlKGZlcC0+Y2xrX2VuZXRfb3V0KTsNCj4gK2ZhaWxlZF9jbGtfZW5l
-dF9vdXQ6DQo+ICAJY2xrX2Rpc2FibGVfdW5wcmVwYXJlKGZlcC0+Y2xrX2lwZyk7DQo+ICBmYWls
-ZWRfY2xrX2lwZzoNCj4gIAlmZWNfZW5ldF9jbGtfZW5hYmxlKG5kZXYsIGZhbHNlKTsNCj4gQEAg
-LTM1MzEsNiArMzUyMyw4IEBAIGZlY19kcnZfcmVtb3ZlKHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2Ug
-KnBkZXYpDQo+ICAJZmVjX3B0cF9zdG9wKHBkZXYpOw0KPiAgCXVucmVnaXN0ZXJfbmV0ZGV2KG5k
-ZXYpOw0KPiAgCWZlY19lbmV0X21paV9yZW1vdmUoZmVwKTsNCj4gKwlmZWNfZW5ldF9jbGtfZW5h
-YmxlKG5kZXYsIGZhbHNlKTsNCj4gKwljbGtfZGlzYWJsZV91bnByZXBhcmUoZmVwLT5jbGtfZW5l
-dF9vdXQpOw0KPiAgCWlmIChmZXAtPnJlZ19waHkpDQo+ICAJCXJlZ3VsYXRvcl9kaXNhYmxlKGZl
-cC0+cmVnX3BoeSk7DQo+ICAJb2Zfbm9kZV9wdXQoZmVwLT5waHlfbm9kZSk7DQo+IC0tDQo+IDIu
-MS40DQo=
+Hi!
+
+
+> >         /*                                                                      
+> >          * real ring DMA buffer                                                 
+> >          * each ring/block may need up to 8 bytes for alignment, hence the      
+> >          * additional bytes tacked onto the end.                                
+> >          */
+> >         ring_header->size = size =
+> >                 sizeof(struct atl1c_tpd_desc) * tpd_ring->count * 2 +
+> >                 sizeof(struct atl1c_rx_free_desc) * rx_desc_count +
+> >                 sizeof(struct atl1c_recv_ret_status) * rx_desc_count +
+> >                 8 * 4;
+> > 
+> >         ring_header->desc = pci_alloc_consistent(pdev, ring_header->size,
+> >                                 &ring_header->dma);
+> 
+> Why is pci_alloc_consistent doing an unconditional GFP_ATOMIC
+> allocation? atl1_setup_ring_resources already does GFP_KERNEL
+> allocation in the same function so this should be sleepable
+> context. I think we should either add pci_alloc_consistent_gfp if
+> there are no explicit reasons to not do so or you can workaround
+
+There's existing interface "dma_alloc_coherent" which can be used.
+
+I did not yet try with __GFP_REPEAT, but GFP_KERNEL should already be
+big improvement.
+
+Let me send a patch..
+								Pavel
+
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
