@@ -1,8 +1,8 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next V2 03/17] hv_netvsc: Eliminate the channel field in
- hv_netvsc_packet structure
-Date: Sat, 28 Nov 2015 12:20:31 -0800
-Message-ID: <1448742045-22732-3-git-send-email-kys@microsoft.com>
+Subject: [PATCH net-next V2 11/17] hv_netvsc: Eliminate page_buf from struct
+ hv_netvsc_packet
+Date: Sat, 28 Nov 2015 12:20:39 -0800
+Message-ID: <1448742045-22732-11-git-send-email-kys@microsoft.com>
 References: <1448742017-22693-1-git-send-email-kys@microsoft.com>
  <1448742045-22732-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
@@ -24,206 +24,223 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Eliminate the channel field in hv_netvsc_packet structure.
+Eliminate page_buf from struct hv_netvsc_packet.
 
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h   |   22 ++++++++++++++++++----
- drivers/net/hyperv/netvsc.c       |   19 ++++++++-----------
- drivers/net/hyperv/netvsc_drv.c   |    5 +++--
- drivers/net/hyperv/rndis_filter.c |   10 ++++++----
- 4 files changed, 35 insertions(+), 21 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   |    4 ++--
+ drivers/net/hyperv/netvsc.c       |   25 ++++++++++++++-----------
+ drivers/net/hyperv/netvsc_drv.c   |   11 ++++++-----
+ drivers/net/hyperv/rndis_filter.c |   26 +++++++++++++-------------
+ 4 files changed, 35 insertions(+), 31 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 7435673..ac24091 100644
+index f5b2145..b541455 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -144,7 +144,6 @@ struct hv_netvsc_packet {
- 	u32 total_data_buflen;
- 	u32 pad1;
+@@ -149,7 +149,6 @@ struct hv_netvsc_packet {
  
--	struct vmbus_channel *channel;
  
  	u64 send_completion_tid;
- 	void *send_completion_ctx;
-@@ -199,7 +198,8 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+-	struct hv_page_buffer *page_buf;
+ };
+ 
+ struct netvsc_device_info {
+@@ -188,7 +187,8 @@ int netvsc_device_add(struct hv_device *device, void *additional_info);
+ int netvsc_device_remove(struct hv_device *device);
+ int netvsc_send(struct hv_device *device,
+ 		struct hv_netvsc_packet *packet,
+-		struct rndis_message *rndis_msg);
++		struct rndis_message *rndis_msg,
++		struct hv_page_buffer **page_buffer);
+ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+ 				struct rndis_message *resp);
  void netvsc_xmit_completion(void *context);
- int netvsc_recv_callback(struct hv_device *device_obj,
- 			struct hv_netvsc_packet *packet,
--			struct ndis_tcp_ip_checksum_info *csum_info);
-+			struct ndis_tcp_ip_checksum_info *csum_info,
-+			struct vmbus_channel *channel);
- void netvsc_channel_cb(void *context);
- int rndis_filter_open(struct hv_device *dev);
- int rndis_filter_close(struct hv_device *dev);
-@@ -207,12 +207,12 @@ int rndis_filter_device_add(struct hv_device *dev,
- 			void *additional_info);
- void rndis_filter_device_remove(struct hv_device *dev);
- int rndis_filter_receive(struct hv_device *dev,
--			struct hv_netvsc_packet *pkt);
-+			struct hv_netvsc_packet *pkt,
-+			struct vmbus_channel *channel);
- 
- int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter);
- int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac);
- 
--
- #define NVSP_INVALID_PROTOCOL_VERSION	((u32)0xFFFFFFFF)
- 
- #define NVSP_PROTOCOL_VERSION_1		2
-@@ -1262,5 +1262,19 @@ struct rndis_message {
- #define TRANSPORT_INFO_IPV6_TCP ((INFO_IPV6 << 16) | INFO_TCP)
- #define TRANSPORT_INFO_IPV6_UDP ((INFO_IPV6 << 16) | INFO_UDP)
- 
-+static inline struct vmbus_channel *get_channel(struct hv_netvsc_packet *packet,
-+					struct netvsc_device *net_device)
-+
-+{
-+	struct vmbus_channel *out_channel;
-+
-+	out_channel = net_device->chn_table[packet->q_idx];
-+	if (!out_channel) {
-+		out_channel = net_device->dev->channel;
-+		packet->q_idx = 0;
-+	}
-+	return out_channel;
-+}
-+
- 
- #endif /* _HYPERV_NET_H */
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 51e4c0f..52533ed 100644
+index 081f14f..18058a59 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
-@@ -610,6 +610,7 @@ static inline void netvsc_free_send_slot(struct netvsc_device *net_device,
- }
- 
- static void netvsc_send_completion(struct netvsc_device *net_device,
-+				   struct vmbus_channel *incoming_channel,
- 				   struct hv_device *device,
- 				   struct vmpacket_descriptor *packet)
+@@ -702,7 +702,8 @@ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ 				   unsigned int section_index,
+ 				   u32 pend_size,
+ 				   struct hv_netvsc_packet *packet,
+-				   struct rndis_message *rndis_msg)
++				   struct rndis_message *rndis_msg,
++				   struct hv_page_buffer **pb)
  {
-@@ -651,7 +652,7 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
- 			if (send_index != NETVSC_INVALID_INDEX)
- 				netvsc_free_send_slot(net_device, send_index);
- 			q_idx = nvsc_packet->q_idx;
--			channel = nvsc_packet->channel;
-+			channel = incoming_channel;
- 			nvsc_packet->send_completion(nvsc_packet->
- 						     send_completion_ctx);
- 		}
-@@ -748,7 +749,7 @@ static inline int netvsc_send_pkt(
- 	struct netvsc_device *net_device)
+ 	char *start = net_device->send_buf;
+ 	char *dest = start + (section_index * net_device->send_section_size)
+@@ -723,9 +724,9 @@ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ 	}
+ 
+ 	for (i = 0; i < page_count; i++) {
+-		char *src = phys_to_virt(packet->page_buf[i].pfn << PAGE_SHIFT);
+-		u32 offset = packet->page_buf[i].offset;
+-		u32 len = packet->page_buf[i].len;
++		char *src = phys_to_virt((*pb)[i].pfn << PAGE_SHIFT);
++		u32 offset = (*pb)[i].offset;
++		u32 len = (*pb)[i].len;
+ 
+ 		memcpy(dest, (src + offset), len);
+ 		msg_size += len;
+@@ -742,7 +743,8 @@ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ 
+ static inline int netvsc_send_pkt(
+ 	struct hv_netvsc_packet *packet,
+-	struct netvsc_device *net_device)
++	struct netvsc_device *net_device,
++	struct hv_page_buffer **pb)
  {
  	struct nvsp_message nvmsg;
--	struct vmbus_channel *out_channel = packet->channel;
-+	struct vmbus_channel *out_channel = get_channel(packet, net_device);
  	u16 q_idx = packet->q_idx;
- 	struct net_device *ndev = net_device->ndev;
- 	u64 req_id;
-@@ -857,13 +858,9 @@ int netvsc_send(struct hv_device *device,
- 	if (!net_device)
- 		return -ENODEV;
+@@ -789,8 +791,8 @@ static inline int netvsc_send_pkt(
+ 		packet->xmit_more = false;
  
--	out_channel = net_device->chn_table[q_idx];
--	if (!out_channel) {
--		out_channel = device->channel;
--		q_idx = 0;
--		packet->q_idx = 0;
--	}
--	packet->channel = out_channel;
-+	out_channel = get_channel(packet, net_device);
-+	q_idx = packet->q_idx;
-+
- 	packet->send_buf_index = NETVSC_INVALID_INDEX;
- 	packet->cp_partial = false;
+ 	if (packet->page_buf_cnt) {
+-		pgbuf = packet->cp_partial ? packet->page_buf +
+-			packet->rmsg_pgcnt : packet->page_buf;
++		pgbuf = packet->cp_partial ? (*pb) +
++			packet->rmsg_pgcnt : (*pb);
+ 		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
+ 						      pgbuf,
+ 						      packet->page_buf_cnt,
+@@ -838,7 +840,8 @@ static inline int netvsc_send_pkt(
  
-@@ -1043,7 +1040,6 @@ static void netvsc_receive(struct netvsc_device *net_device,
+ int netvsc_send(struct hv_device *device,
+ 		struct hv_netvsc_packet *packet,
+-		struct rndis_message *rndis_msg)
++		struct rndis_message *rndis_msg,
++		struct hv_page_buffer **pb)
+ {
+ 	struct netvsc_device *net_device;
+ 	int ret = 0, m_ret = 0;
+@@ -891,7 +894,7 @@ int netvsc_send(struct hv_device *device,
+ 	if (section_index != NETVSC_INVALID_INDEX) {
+ 		netvsc_copy_to_send_buf(net_device,
+ 					section_index, msd_len,
+-					packet, rndis_msg);
++					packet, rndis_msg, pb);
+ 
+ 		packet->send_buf_index = section_index;
+ 
+@@ -922,7 +925,7 @@ int netvsc_send(struct hv_device *device,
  	}
  
- 	count = vmxferpage_packet->range_cnt;
--	netvsc_packet->channel = channel;
+ 	if (msd_send) {
+-		m_ret = netvsc_send_pkt(msd_send, net_device);
++		m_ret = netvsc_send_pkt(msd_send, net_device, pb);
  
- 	/* Each range represents 1 RNDIS pkt that contains 1 ethernet frame */
- 	for (i = 0; i < count; i++) {
-@@ -1055,7 +1051,7 @@ static void netvsc_receive(struct netvsc_device *net_device,
- 					vmxferpage_packet->ranges[i].byte_count;
+ 		if (m_ret != 0) {
+ 			netvsc_free_send_slot(net_device,
+@@ -932,7 +935,7 @@ int netvsc_send(struct hv_device *device,
+ 	}
  
- 		/* Pass it to the upper layer */
--		rndis_filter_receive(device, netvsc_packet);
-+		rndis_filter_receive(device, netvsc_packet, channel);
+ 	if (cur_send)
+-		ret = netvsc_send_pkt(cur_send, net_device);
++		ret = netvsc_send_pkt(cur_send, net_device, pb);
  
- 		if (netvsc_packet->status != NVSP_STAT_SUCCESS)
- 			status = NVSP_STAT_FAIL;
-@@ -1150,6 +1146,7 @@ void netvsc_channel_cb(void *context)
- 				switch (desc->type) {
- 				case VM_PKT_COMP:
- 					netvsc_send_completion(net_device,
-+								channel,
- 								device, desc);
- 					break;
- 
+ 	if (ret != 0 && section_index != NETVSC_INVALID_INDEX)
+ 		netvsc_free_send_slot(net_device, section_index);
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 409b48e..e5f4eec 100644
+index da3a224..1906f2f 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -686,7 +686,8 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
-  */
- int netvsc_recv_callback(struct hv_device *device_obj,
- 				struct hv_netvsc_packet *packet,
--				struct ndis_tcp_ip_checksum_info *csum_info)
-+				struct ndis_tcp_ip_checksum_info *csum_info,
-+				struct vmbus_channel *channel)
- {
- 	struct net_device *net;
- 	struct net_device_context *net_device_ctx;
-@@ -732,7 +733,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
- 				       packet->vlan_tci);
- 
--	skb_record_rx_queue(skb, packet->channel->
-+	skb_record_rx_queue(skb, channel->
- 			    offermsg.offer.sub_channel_index);
- 
- 	u64_stats_update_begin(&rx_stats->syncp);
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 5931a79..1b04d78 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -350,7 +350,8 @@ static inline void *rndis_get_ppi(struct rndis_packet *rpkt, u32 type)
- 
- static void rndis_filter_receive_data(struct rndis_device *dev,
- 				   struct rndis_message *msg,
--				   struct hv_netvsc_packet *pkt)
-+				   struct hv_netvsc_packet *pkt,
-+				   struct vmbus_channel *channel)
- {
- 	struct rndis_packet *rndis_pkt;
- 	u32 data_offset;
-@@ -393,11 +394,12 @@ static void rndis_filter_receive_data(struct rndis_device *dev,
- 	}
- 
- 	csum_info = rndis_get_ppi(rndis_pkt, TCPIP_CHKSUM_PKTINFO);
--	netvsc_recv_callback(dev->net_dev->dev, pkt, csum_info);
-+	netvsc_recv_callback(dev->net_dev->dev, pkt, csum_info, channel);
+@@ -323,9 +323,10 @@ static u32 fill_pg_buf(struct page *page, u32 offset, u32 len,
  }
  
- int rndis_filter_receive(struct hv_device *dev,
--				struct hv_netvsc_packet	*pkt)
-+				struct hv_netvsc_packet	*pkt,
-+				struct vmbus_channel *channel)
+ static u32 init_page_array(void *hdr, u32 len, struct sk_buff *skb,
+-			   struct hv_netvsc_packet *packet)
++			   struct hv_netvsc_packet *packet,
++			   struct hv_page_buffer **page_buf)
  {
- 	struct netvsc_device *net_dev = hv_get_drvdata(dev);
- 	struct rndis_device *rndis_dev;
-@@ -436,7 +438,7 @@ int rndis_filter_receive(struct hv_device *dev,
- 	switch (rndis_msg->ndis_msg_type) {
- 	case RNDIS_MSG_PACKET:
- 		/* data msg */
--		rndis_filter_receive_data(rndis_dev, rndis_msg, pkt);
-+		rndis_filter_receive_data(rndis_dev, rndis_msg, pkt, channel);
- 		break;
+-	struct hv_page_buffer *pb = packet->page_buf;
++	struct hv_page_buffer *pb = *page_buf;
+ 	u32 slots_used = 0;
+ 	char *data = skb->data;
+ 	int frags = skb_shinfo(skb)->nr_frags;
+@@ -436,6 +437,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	u32 hash;
+ 	u32 skb_length;
+ 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
++	struct hv_page_buffer *pb = page_buf;
+ 	struct netvsc_stats *tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
  
- 	case RNDIS_MSG_INIT_C:
+ 	/* We will atmost need two pages to describe the rndis
+@@ -482,7 +484,6 @@ check_size:
+ 	packet->xmit_more = skb->xmit_more;
+ 
+ 	packet->vlan_tci = skb->vlan_tci;
+-	packet->page_buf = page_buf;
+ 
+ 	packet->q_idx = skb_get_queue_mapping(skb);
+ 
+@@ -621,9 +622,9 @@ do_send:
+ 	rndis_msg->msg_len += rndis_msg_size;
+ 	packet->total_data_buflen = rndis_msg->msg_len;
+ 	packet->page_buf_cnt = init_page_array(rndis_msg, rndis_msg_size,
+-					       skb, packet);
++					       skb, packet, &pb);
+ 
+-	ret = netvsc_send(net_device_ctx->device_ctx, packet, rndis_msg);
++	ret = netvsc_send(net_device_ctx->device_ctx, packet, rndis_msg, &pb);
+ 
+ drop:
+ 	if (ret == 0) {
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index c8af172..6ff2253 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -210,6 +210,7 @@ static int rndis_filter_send_request(struct rndis_device *dev,
+ 	int ret;
+ 	struct hv_netvsc_packet *packet;
+ 	struct hv_page_buffer page_buf[2];
++	struct hv_page_buffer *pb = page_buf;
+ 
+ 	/* Setup the packet to send it */
+ 	packet = &req->pkt;
+@@ -217,30 +218,29 @@ static int rndis_filter_send_request(struct rndis_device *dev,
+ 	packet->is_data_pkt = false;
+ 	packet->total_data_buflen = req->request_msg.msg_len;
+ 	packet->page_buf_cnt = 1;
+-	packet->page_buf = page_buf;
+ 
+-	packet->page_buf[0].pfn = virt_to_phys(&req->request_msg) >>
++	pb[0].pfn = virt_to_phys(&req->request_msg) >>
+ 					PAGE_SHIFT;
+-	packet->page_buf[0].len = req->request_msg.msg_len;
+-	packet->page_buf[0].offset =
++	pb[0].len = req->request_msg.msg_len;
++	pb[0].offset =
+ 		(unsigned long)&req->request_msg & (PAGE_SIZE - 1);
+ 
+ 	/* Add one page_buf when request_msg crossing page boundary */
+-	if (packet->page_buf[0].offset + packet->page_buf[0].len > PAGE_SIZE) {
++	if (pb[0].offset + pb[0].len > PAGE_SIZE) {
+ 		packet->page_buf_cnt++;
+-		packet->page_buf[0].len = PAGE_SIZE -
+-			packet->page_buf[0].offset;
+-		packet->page_buf[1].pfn = virt_to_phys((void *)&req->request_msg
+-			+ packet->page_buf[0].len) >> PAGE_SHIFT;
+-		packet->page_buf[1].offset = 0;
+-		packet->page_buf[1].len = req->request_msg.msg_len -
+-			packet->page_buf[0].len;
++		pb[0].len = PAGE_SIZE -
++			pb[0].offset;
++		pb[1].pfn = virt_to_phys((void *)&req->request_msg
++			+ pb[0].len) >> PAGE_SHIFT;
++		pb[1].offset = 0;
++		pb[1].len = req->request_msg.msg_len -
++			pb[0].len;
+ 	}
+ 
+ 	packet->completion_func = 0;
+ 	packet->xmit_more = false;
+ 
+-	ret = netvsc_send(dev->net_dev->dev, packet, NULL);
++	ret = netvsc_send(dev->net_dev->dev, packet, NULL, &pb);
+ 	return ret;
+ }
+ 
 -- 
 1.7.4.1
