@@ -1,70 +1,44 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: Re: [PATCH net] drivers: net: xgene: fix possible use after free
-Date: Fri, 27 Nov 2015 19:34:24 -0800
-Message-ID: <CAKh23FkcjtJVrP91x5dBkKZ=nK6anp5dmFmsUm1-58McSQSWbg@mail.gmail.com>
-References: <20151125155753.GE12434@leverpostej>
- <1448468256.24696.5.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151125163402.GA29094@leverpostej>
- <1448470930.24696.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: yankejian <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next 0/3] dts: hisi: fixes can't find eth for hip05-D02
+Date: Sat, 28 Nov 2015 14:15:13 +0800
+Message-ID: <1448691316-236111-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, netdev <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- ryabinin.a.a@gmail.com, Keyur Chudgar <kchudgar@apm.com>,
- David Miller <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1448470930.24696.10.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain
+Cc: <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	<mark.rutland-5wv7dgnIgG8@public.gmane.org>, <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	<galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
+	<catalin.marinas-5wv7dgnIgG8@public.gmane.org>, <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	<wangkefeng.wang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<liguozhu-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, <haojian.zhuang-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	<wangzhou1-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <bintian.wang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<long.wanglong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <leo.yan-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 25, 2015 at 9:02 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Once TX has been enabled on a NIC, it is illegal to access skb,
-> as this skb might have been freed by another cpu, from TX completion
-> handler.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Mark Rutland <mark.rutland@arm.com>
-> Tested-by: Mark Rutland <mark.rutland@arm.com>
-> Cc: Iyappan Subramanian <isubramanian@apm.com>
-> ---
->  drivers/net/ethernet/apm/xgene/xgene_enet_main.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-> index 1adfe7036843..9147a0107c44 100644
-> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-> @@ -450,12 +450,12 @@ static netdev_tx_t xgene_enet_start_xmit(struct sk_buff *skb,
->                 return NETDEV_TX_OK;
->         }
->
-> -       pdata->ring_ops->wr_cmd(tx_ring, count);
->         skb_tx_timestamp(skb);
->
->         pdata->stats.tx_packets++;
->         pdata->stats.tx_bytes += skb->len;
->
-> +       pdata->ring_ops->wr_cmd(tx_ring, count);
+this patchset fixes the bug that eth can't initial successful. because the
+the dts files doesn't match the source code.
 
-Thanks Mark and Eric, for the fix.
+yankejian (3):
+  dts: hisi: enables the ethX for D02 board
+  dts: hisi: fixes no syscon error when init mdio
+  arm64: hip05-d02: Document devicetree bindings for Hisilicon D02 Board
 
-Acked-by: Iyappan Subramanian <isubramanian@apm.com>
+ .../devicetree/bindings/arm/hisilicon/hisilicon.txt      | 16 ++++++++++++++++
+ arch/arm64/boot/dts/hisilicon/hip05-d02.dts              | 16 ++++++++++++++++
+ arch/arm64/boot/dts/hisilicon/hip05.dtsi                 |  4 ++++
+ arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi             |  4 ++--
+ 4 files changed, 38 insertions(+), 2 deletions(-)
 
->         return NETDEV_TX_OK;
->  }
->
->
->
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
