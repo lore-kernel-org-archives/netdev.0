@@ -1,59 +1,32 @@
-From: yankejian <yankejian@huawei.com>
-Subject: [PATCH net-next 1/3] dts: hisi: enables the ethX for D02 board
-Date: Sat, 28 Nov 2015 14:15:14 +0800
-Message-ID: <1448691316-236111-2-git-send-email-yankejian@huawei.com>
-References: <1448691316-236111-1-git-send-email-yankejian@huawei.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 -next 3/5] {f,m}_bpf: allow for user-defined
+ object pinnings
+Date: Fri, 27 Nov 2015 23:03:22 -0700
+Message-ID: <565943AA.8010200@cumulusnetworks.com>
+References: <cover.1448541097.git.daniel@iogearbox.net>
+ <7011752f729c16ef154b25753448365399a26793.1448541097.git.daniel@iogearbox.net>
+ <5658F4C9.8090104@cumulusnetworks.com> <56590661.4030702@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <haifeng.wei@huawei.com>, <devicetree@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linuxarm@huawei.com>
-To: <davem@davemloft.net>, <robh+dt@kernel.org>, <pawel.moll@arm.com>,
-	<mark.rutland@arm.com>, <ijc+devicetree@hellion.org.uk>,
-	<galak@codeaurora.org>, <xuwei5@hisilicon.com>,
-	<catalin.marinas@arm.com>, <will.deacon@arm.com>,
-	<wangkefeng.wang@huawei.com>, <dingtianhong@huawei.com>,
-	<liguozhu@huawei.com>, <Yisen.Zhuang@huawei.com>,
-	<sboyd@codeaurora.org>, <haojian.zhuang@linaro.org>,
-	<wangzhou1@hisilicon.com>, <bintian.wang@huawei.com>,
-	<long.wanglong@huawei.com>, <leo.yan@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448691316-236111-1-git-send-email-yankejian@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ast@kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:34070 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750885AbbK1GD0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2015 01:03:26 -0500
+Received: by padhx2 with SMTP id hx2so131345726pad.1
+        for <netdev@vger.kernel.org>; Fri, 27 Nov 2015 22:03:25 -0800 (PST)
+In-Reply-To: <56590661.4030702@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-this patch enables the ethX for D02 board on hip05-d02.dts. otherwise it
-cannot find hns ethX by ifconfig -a.
+On 11/27/15 6:41 PM, Daniel Borkmann wrote:
+> On 11/28/2015 01:26 AM, David Ahern wrote:
+> ...
+>> seems like an unrelated change.
+>
+> Nope, it's being reused from tc_bpf.c.
 
-Signed-off-by: yankejian <yankejian@huawei.com>
----
- arch/arm64/boot/dts/hisilicon/hip05-d02.dts | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
-
-diff --git a/arch/arm64/boot/dts/hisilicon/hip05-d02.dts b/arch/arm64/boot/dts/hisilicon/hip05-d02.dts
-index ae34e25..6aa5cb2 100644
---- a/arch/arm64/boot/dts/hisilicon/hip05-d02.dts
-+++ b/arch/arm64/boot/dts/hisilicon/hip05-d02.dts
-@@ -34,3 +34,19 @@
- &uart0 {
- 	status = "ok";
- };
-+
-+&eth2 {
-+	status = "okay";
-+};
-+
-+&eth3 {
-+	status = "okay";
-+};
-+
-+&eth6 {
-+	status = "okay";
-+};
-+
-+&eth7 {
-+	status = "okay";
-+};
--- 
-1.9.1
+ack. missed that earlier.
