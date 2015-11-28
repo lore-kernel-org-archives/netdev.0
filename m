@@ -1,8 +1,8 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next V2 09/17] hv_netvsc: move subchannel existence check
- to netvsc_select_queue()
-Date: Sat, 28 Nov 2015 12:20:37 -0800
-Message-ID: <1448742045-22732-9-git-send-email-kys@microsoft.com>
+Subject: [PATCH net-next V2 14/17] hv_netvsc: Eliminate completion_func from
+ struct hv_netvsc_packet
+Date: Sat, 28 Nov 2015 12:20:42 -0800
+Message-ID: <1448742045-22732-14-git-send-email-kys@microsoft.com>
 References: <1448742017-22693-1-git-send-email-kys@microsoft.com>
  <1448742045-22732-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
@@ -24,77 +24,52 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Eliminate completion_func from struct hv_netvsc_packet.
 
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h |   15 ---------------
- drivers/net/hyperv/netvsc.c     |    5 ++---
- drivers/net/hyperv/netvsc_drv.c |    3 +++
- 3 files changed, 5 insertions(+), 18 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   |    1 -
+ drivers/net/hyperv/netvsc_drv.c   |    3 ---
+ drivers/net/hyperv/rndis_filter.c |    1 -
+ 3 files changed, 0 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index e15dc2c..a9d2bdc5 100644
+index 65e340e..ddf51a0 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -1260,19 +1260,4 @@ struct rndis_message {
- #define TRANSPORT_INFO_IPV6_TCP ((INFO_IPV6 << 16) | INFO_TCP)
- #define TRANSPORT_INFO_IPV6_UDP ((INFO_IPV6 << 16) | INFO_UDP)
+@@ -137,7 +137,6 @@ struct hv_netvsc_packet {
+ 	u8 rmsg_size; /* RNDIS header and PPI size */
+ 	u8 rmsg_pgcnt; /* page count of RNDIS header and PPI */
+ 	u8 page_buf_cnt;
+-	u8 completion_func;
  
--static inline struct vmbus_channel *get_channel(struct hv_netvsc_packet *packet,
--					struct netvsc_device *net_device)
--
--{
--	struct vmbus_channel *out_channel;
--
--	out_channel = net_device->chn_table[packet->q_idx];
--	if (!out_channel) {
--		out_channel = net_device->dev->channel;
--		packet->q_idx = 0;
--	}
--	return out_channel;
--}
--
--
- #endif /* _HYPERV_NET_H */
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 0e0b723..419b055 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -749,8 +749,8 @@ static inline int netvsc_send_pkt(
- 	struct netvsc_device *net_device)
- {
- 	struct nvsp_message nvmsg;
--	struct vmbus_channel *out_channel = get_channel(packet, net_device);
- 	u16 q_idx = packet->q_idx;
-+	struct vmbus_channel *out_channel = net_device->chn_table[q_idx];
- 	struct net_device *ndev = net_device->ndev;
- 	u64 req_id;
- 	int ret;
-@@ -859,8 +859,7 @@ int netvsc_send(struct hv_device *device,
- 	if (!net_device)
- 		return -ENODEV;
- 
--	out_channel = get_channel(packet, net_device);
--	q_idx = packet->q_idx;
-+	out_channel = net_device->chn_table[q_idx];
- 
- 	packet->send_buf_index = NETVSC_INVALID_INDEX;
- 	packet->cp_partial = false;
+ 	u16 vlan_tci;
+ 	u16 q_idx;
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 90cc8d9..da3a224 100644
+index eb0c6fa..bc4be1d 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -272,6 +272,9 @@ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
- 		skb_set_hash(skb, hash, PKT_HASH_TYPE_L3);
+@@ -483,9 +483,6 @@ check_size:
+ 
+ 	memset(rndis_msg, 0, RNDIS_AND_PPI_SIZE);
+ 
+-	/* Set the completion routine */
+-	packet->completion_func = 1;
+-
+ 	isvlan = packet->vlan_tci & VLAN_TAG_PRESENT;
+ 
+ 	/* Add the rndis header */
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 0b98674..6ba5adf 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -236,7 +236,6 @@ static int rndis_filter_send_request(struct rndis_device *dev,
+ 			pb[0].len;
  	}
  
-+	if (!nvsc_dev->chn_table[q_idx])
-+		q_idx = 0;
-+
- 	return q_idx;
- }
+-	packet->completion_func = 0;
+ 	packet->xmit_more = false;
  
+ 	ret = netvsc_send(dev->net_dev->dev, packet, NULL, &pb, NULL);
 -- 
 1.7.4.1
