@@ -1,8 +1,8 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next V2 08/17] hv_netvsc: Don't ask for additional head
- room in the skb
-Date: Sat, 28 Nov 2015 12:20:36 -0800
-Message-ID: <1448742045-22732-8-git-send-email-kys@microsoft.com>
+Subject: [PATCH net-next V2 04/17] hv_netvsc: Eliminate rndis_msg pointer from
+ hv_netvsc_packet structure
+Date: Sat, 28 Nov 2015 12:20:32 -0800
+Message-ID: <1448742045-22732-4-git-send-email-kys@microsoft.com>
 References: <1448742017-22693-1-git-send-email-kys@microsoft.com>
  <1448742045-22732-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
@@ -24,130 +24,134 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-The rndis header is 116 bytes big and can be placed in the default
-head room that will be available in the skb. Since the netvsc packet
-is less than 48 bytes, we can use the skb control buffer
-for the netvsc packet. With these changes we don't need to
-ask for additional head room.
+Eliminate rndis_msg pointer from hv_netvsc_packet structure.
 
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
-	v2: When HYPERV_NET is configured, set LL_MAX_HEADER to 128 - Vitaly Kuznetsov <vkuznets@redhat.com> 
-	V2: Add a build time check on the skb control buffer - Florian Westphal <fw@strlen.de>
- drivers/net/hyperv/hyperv_net.h |    3 +++
- drivers/net/hyperv/netvsc_drv.c |   30 +++++++++++-------------------
- include/linux/netdevice.h       |    4 +++-
- 3 files changed, 17 insertions(+), 20 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   |    8 +++-----
+ drivers/net/hyperv/netvsc.c       |   10 ++++++----
+ drivers/net/hyperv/netvsc_drv.c   |    7 +++----
+ drivers/net/hyperv/rndis_filter.c |    2 +-
+ 4 files changed, 13 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 9504ca9..e15dc2c 100644
+index ac24091..7fa4f43 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -124,6 +124,9 @@ struct ndis_tcp_ip_checksum_info;
- /*
-  * Represent netvsc packet which contains 1 RNDIS and 1 ethernet frame
-  * within the RNDIS
-+ *
-+ * The size of this structure is less than 48 bytes and we can now
-+ * place this structure in the skb->cb field.
-  */
- struct hv_netvsc_packet {
- 	/* Bookkeeping stuff */
+@@ -149,10 +149,6 @@ struct hv_netvsc_packet {
+ 	void *send_completion_ctx;
+ 	void (*send_completion)(void *context);
+ 
+-
+-	/* This points to the memory after page_buf */
+-	struct rndis_message *rndis_msg;
+-
+ 	/* Points to the send/receive buffer where the ethernet frame is */
+ 	void *data;
+ 	struct hv_page_buffer *page_buf;
+@@ -189,10 +185,12 @@ struct rndis_device {
+ 
+ 
+ /* Interface */
++struct rndis_message;
+ int netvsc_device_add(struct hv_device *device, void *additional_info);
+ int netvsc_device_remove(struct hv_device *device);
+ int netvsc_send(struct hv_device *device,
+-		struct hv_netvsc_packet *packet);
++		struct hv_netvsc_packet *packet,
++		struct rndis_message *rndis_msg);
+ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+ 				struct rndis_message *resp);
+ void netvsc_xmit_completion(void *context);
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 52533ed..2de9e7f 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -706,7 +706,8 @@ static u32 netvsc_get_next_send_section(struct netvsc_device *net_device)
+ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ 				   unsigned int section_index,
+ 				   u32 pend_size,
+-				   struct hv_netvsc_packet *packet)
++				   struct hv_netvsc_packet *packet,
++				   struct rndis_message *rndis_msg)
+ {
+ 	char *start = net_device->send_buf;
+ 	char *dest = start + (section_index * net_device->send_section_size)
+@@ -722,7 +723,7 @@ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ 	if (packet->is_data_pkt && packet->xmit_more && remain &&
+ 	    !packet->cp_partial) {
+ 		padding = net_device->pkt_align - remain;
+-		packet->rndis_msg->msg_len += padding;
++		rndis_msg->msg_len += padding;
+ 		packet->total_data_buflen += padding;
+ 	}
+ 
+@@ -841,7 +842,8 @@ static inline int netvsc_send_pkt(
+ }
+ 
+ int netvsc_send(struct hv_device *device,
+-		struct hv_netvsc_packet *packet)
++		struct hv_netvsc_packet *packet,
++		struct rndis_message *rndis_msg)
+ {
+ 	struct netvsc_device *net_device;
+ 	int ret = 0, m_ret = 0;
+@@ -897,7 +899,7 @@ int netvsc_send(struct hv_device *device,
+ 	if (section_index != NETVSC_INVALID_INDEX) {
+ 		netvsc_copy_to_send_buf(net_device,
+ 					section_index, msd_len,
+-					packet);
++					packet, rndis_msg);
+ 
+ 		packet->send_buf_index = section_index;
+ 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 947b778..90cc8d9 100644
+index e5f4eec..77c0849 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -432,7 +432,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	u32 net_trans_info;
- 	u32 hash;
- 	u32 skb_length;
--	u32 pkt_sz;
- 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
- 	struct netvsc_stats *tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
- 
-@@ -460,16 +459,21 @@ check_size:
- 		goto check_size;
- 	}
- 
--	pkt_sz = sizeof(struct hv_netvsc_packet) + RNDIS_AND_PPI_SIZE;
--
--	ret = skb_cow_head(skb, pkt_sz);
-+	/*
-+	 * Place the rndis header in the skb head room and
-+	 * the skb->cb will be used for hv_netvsc_packet
-+	 * structure.
-+	 */
-+	ret = skb_cow_head(skb, RNDIS_AND_PPI_SIZE);
- 	if (ret) {
- 		netdev_err(net, "unable to alloc hv_netvsc_packet\n");
- 		ret = -ENOMEM;
- 		goto drop;
- 	}
--	/* Use the headroom for building up the packet */
--	packet = (struct hv_netvsc_packet *)skb->head;
-+	/* Use the skb control buffer for building up the packet */
-+	BUILD_BUG_ON(sizeof(struct hv_netvsc_packet) >
-+			FIELD_SIZEOF(struct sk_buff, cb));
-+	packet = (struct hv_netvsc_packet *)skb->cb;
- 
- 	packet->status = 0;
- 	packet->xmit_more = skb->xmit_more;
-@@ -482,8 +486,7 @@ check_size:
+@@ -482,10 +482,10 @@ check_size:
  	packet->is_data_pkt = true;
  	packet->total_data_buflen = skb->len;
  
--	rndis_msg = (struct rndis_message *)((unsigned long)packet +
--				sizeof(struct hv_netvsc_packet));
-+	rndis_msg = (struct rndis_message *)skb->head;
+-	packet->rndis_msg = (struct rndis_message *)((unsigned long)packet +
++	rndis_msg = (struct rndis_message *)((unsigned long)packet +
+ 				sizeof(struct hv_netvsc_packet));
  
- 	memset(rndis_msg, 0, RNDIS_AND_PPI_SIZE);
+-	memset(packet->rndis_msg, 0, RNDIS_AND_PPI_SIZE);
++	memset(rndis_msg, 0, RNDIS_AND_PPI_SIZE);
  
-@@ -1071,16 +1074,12 @@ static int netvsc_probe(struct hv_device *dev,
- 	struct netvsc_device_info device_info;
- 	struct netvsc_device *nvdev;
- 	int ret;
--	u32 max_needed_headroom;
+ 	/* Set the completion routine */
+ 	packet->send_completion = netvsc_xmit_completion;
+@@ -495,7 +495,6 @@ check_size:
+ 	isvlan = packet->vlan_tci & VLAN_TAG_PRESENT;
  
- 	net = alloc_etherdev_mq(sizeof(struct net_device_context),
- 				num_online_cpus());
- 	if (!net)
- 		return -ENOMEM;
+ 	/* Add the rndis header */
+-	rndis_msg = packet->rndis_msg;
+ 	rndis_msg->ndis_msg_type = RNDIS_MSG_PACKET;
+ 	rndis_msg->msg_len = packet->total_data_buflen;
+ 	rndis_pkt = &rndis_msg->msg.pkt;
+@@ -619,7 +618,7 @@ do_send:
+ 	packet->page_buf_cnt = init_page_array(rndis_msg, rndis_msg_size,
+ 					       skb, packet);
  
--	max_needed_headroom = sizeof(struct hv_netvsc_packet) +
--			      RNDIS_AND_PPI_SIZE;
--
- 	netif_carrier_off(net);
+-	ret = netvsc_send(net_device_ctx->device_ctx, packet);
++	ret = netvsc_send(net_device_ctx->device_ctx, packet, rndis_msg);
  
- 	net_device_ctx = netdev_priv(net);
-@@ -1116,13 +1115,6 @@ static int netvsc_probe(struct hv_device *dev,
- 	net->ethtool_ops = &ethtool_ops;
- 	SET_NETDEV_DEV(net, &dev->device);
+ drop:
+ 	if (ret == 0) {
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 1b04d78..63584e7 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -240,7 +240,7 @@ static int rndis_filter_send_request(struct rndis_device *dev,
+ 	packet->send_completion = NULL;
+ 	packet->xmit_more = false;
  
--	/*
--	 * Request additional head room in the skb.
--	 * We will use this space to build the rndis
--	 * heaser and other state we need to maintain.
--	 */
--	net->needed_headroom = max_needed_headroom;
--
- 	/* Notify the netvsc driver of the new device */
- 	memset(&device_info, 0, sizeof(device_info));
- 	device_info.ring_size = ring_size;
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d208914..2e8d703 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -132,7 +132,9 @@ static inline bool dev_xmit_complete(int rc)
-  *	used.
-  */
+-	ret = netvsc_send(dev->net_dev->dev, packet);
++	ret = netvsc_send(dev->net_dev->dev, packet, NULL);
+ 	return ret;
+ }
  
--#if defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
-+#if defined(CONFIG_HYPERV_NET)
-+# define LL_MAX_HEADER 128
-+#elseif defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
- # if defined(CONFIG_MAC80211_MESH)
- #  define LL_MAX_HEADER 128
- # else
 -- 
 1.7.4.1
