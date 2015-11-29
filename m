@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 18/18] net/mlx5e: Add support for SR-IOV ndos
-Date: Sun, 29 Nov 2015 17:37:26 +0200
-Message-ID: <1448811446-18598-19-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 16/18] net/mlx5: E-Switch, Introduce set vport vlan (VST mode)
+Date: Sun, 29 Nov 2015 17:37:24 +0200
+Message-ID: <1448811446-18598-17-git-send-email-ogerlitz@mellanox.com>
 References: <1448811446-18598-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Doug Ledford <dledford@redhat.com>,
@@ -12,140 +12,198 @@ Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:35037 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:35016 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751872AbbK2Pil (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Nov 2015 10:38:41 -0500
+	id S1751849AbbK2Pih (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Nov 2015 10:38:37 -0500
 In-Reply-To: <1448811446-18598-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Saeed Mahameed <saeedm@mellanox.com>
 
-Implement and enable SR-IOV ndos to manage SR-IOV configuration via
-netdev netlink API.
+Add query and modify functions to control client vlan and qos
+striping or insertion, in E-Switch vports contexts.
 
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 84 ++++++++++++++++++++++-
- 1 file changed, 83 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 134 +++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h |   2 +
+ 2 files changed, 134 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 007e464..49c0d75 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -32,6 +32,7 @@
- 
- #include <linux/mlx5/flow_table.h>
- #include "en.h"
-+#include "eswitch.h"
- 
- struct mlx5e_rq_param {
- 	u32                        rqc[MLX5_ST_SZ_DW(rqc)];
-@@ -1931,6 +1932,79 @@ static int mlx5e_change_mtu(struct net_device *netdev, int new_mtu)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 590a06c..ea14664 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -128,6 +128,116 @@ ex:
  	return err;
  }
  
-+static int mlx5e_set_vf_mac(struct net_device *dev, int vf, u8 *mac)
++/* E-Switch vport context HW commands */
++static int query_esw_vport_context_cmd(struct mlx5_core_dev *mdev, u32 vport,
++				       u32 *out, int outlen)
 +{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
++	u32 in[MLX5_ST_SZ_DW(query_esw_vport_context_in)];
 +
-+	return mlx5_eswitch_set_vport_mac(mdev->priv.eswitch, vf + 1, mac);
++	memset(in, 0, sizeof(in));
++
++	MLX5_SET(query_nic_vport_context_in, in, opcode,
++		 MLX5_CMD_OP_QUERY_ESW_VPORT_CONTEXT);
++
++	MLX5_SET(query_esw_vport_context_in, in, vport_number, vport);
++	if (vport)
++		MLX5_SET(query_esw_vport_context_in, in, other_vport, 1);
++
++	return mlx5_cmd_exec_check_status(mdev, in, sizeof(in), out, outlen);
 +}
 +
-+static int mlx5e_set_vf_vlan(struct net_device *dev, int vf, u16 vlan, u8 qos)
++static int query_esw_vport_cvlan(struct mlx5_core_dev *dev, u32 vport,
++				 u16 *vlan, u8 *qos)
 +{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+
-+	return mlx5_eswitch_set_vport_vlan(mdev->priv.eswitch, vf + 1,
-+					   vlan, qos);
-+}
-+
-+static int mlx5_vport_link2ifla(u8 esw_link)
-+{
-+	switch (esw_link) {
-+	case MLX5_ESW_VPORT_ADMIN_STATE_DOWN:
-+		return IFLA_VF_LINK_STATE_DISABLE;
-+	case MLX5_ESW_VPORT_ADMIN_STATE_UP:
-+		return IFLA_VF_LINK_STATE_ENABLE;
-+	};
-+	return IFLA_VF_LINK_STATE_AUTO;
-+}
-+
-+static int mlx5_ifla_link2vport(u8 ifla_link)
-+{
-+	switch (ifla_link) {
-+	case IFLA_VF_LINK_STATE_DISABLE:
-+		return MLX5_ESW_VPORT_ADMIN_STATE_DOWN;
-+	case IFLA_VF_LINK_STATE_ENABLE:
-+		return MLX5_ESW_VPORT_ADMIN_STATE_UP;
-+	};
-+	return MLX5_ESW_VPORT_ADMIN_STATE_AUTO;
-+}
-+
-+static int mlx5e_set_vf_link_state(struct net_device *dev, int vf,
-+				   int link_state)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+
-+	return mlx5_eswitch_set_vport_state(mdev->priv.eswitch, vf + 1,
-+					    mlx5_ifla_link2vport(link_state));
-+}
-+
-+static int mlx5e_get_vf_config(struct net_device *dev,
-+			       int vf, struct ifla_vf_info *ivi)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
++	u32 out[MLX5_ST_SZ_DW(query_esw_vport_context_out)];
 +	int err;
++	bool cvlan_strip;
++	bool cvlan_insert;
 +
-+	err = mlx5_eswitch_get_vport_config(mdev->priv.eswitch, vf + 1, ivi);
++	memset(out, 0, sizeof(out));
++
++	*vlan = 0;
++	*qos = 0;
++
++	if (!MLX5_CAP_ESW(dev, vport_cvlan_strip) ||
++	    !MLX5_CAP_ESW(dev, vport_cvlan_insert_if_not_exist))
++		return -ENOTSUPP;
++
++	err = query_esw_vport_context_cmd(dev, vport, out, sizeof(out));
 +	if (err)
-+		return err;
-+	ivi->linkstate = mlx5_vport_link2ifla(ivi->linkstate);
-+	return 0;
-+}
++		goto out;
 +
-+static int mlx5e_get_vf_stats(struct net_device *dev,
-+			      int vf, struct ifla_vf_stats *vf_stats)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
++	cvlan_strip = MLX5_GET(query_esw_vport_context_out, out,
++			       esw_vport_context.vport_cvlan_strip);
 +
-+	return mlx5_eswitch_get_vport_stats(mdev->priv.eswitch, vf + 1,
-+					    vf_stats);
-+}
++	cvlan_insert = MLX5_GET(query_esw_vport_context_out, out,
++				esw_vport_context.vport_cvlan_insert);
 +
- static struct net_device_ops mlx5e_netdev_ops = {
- 	.ndo_open                = mlx5e_open,
- 	.ndo_stop                = mlx5e_close,
-@@ -1941,7 +2015,7 @@ static struct net_device_ops mlx5e_netdev_ops = {
- 	.ndo_vlan_rx_add_vid	 = mlx5e_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	 = mlx5e_vlan_rx_kill_vid,
- 	.ndo_set_features        = mlx5e_set_features,
--	.ndo_change_mtu		 = mlx5e_change_mtu,
-+	.ndo_change_mtu		 = mlx5e_change_mtu
- };
- 
- static int mlx5e_check_required_hca_cap(struct mlx5_core_dev *mdev)
-@@ -2041,6 +2115,14 @@ static void mlx5e_build_netdev(struct net_device *netdev)
- 	if (priv->params.num_tc > 1)
- 		mlx5e_netdev_ops.ndo_select_queue = mlx5e_select_queue;
- 
-+	if (MLX5_CAP_GEN(mdev, vport_group_manager)) {
-+		mlx5e_netdev_ops.ndo_set_vf_mac = mlx5e_set_vf_mac;
-+		mlx5e_netdev_ops.ndo_set_vf_vlan = mlx5e_set_vf_vlan;
-+		mlx5e_netdev_ops.ndo_get_vf_config = mlx5e_get_vf_config;
-+		mlx5e_netdev_ops.ndo_set_vf_link_state = mlx5e_set_vf_link_state;
-+		mlx5e_netdev_ops.ndo_get_vf_stats = mlx5e_get_vf_stats;
++	if (cvlan_strip || cvlan_insert) {
++		*vlan = MLX5_GET(query_esw_vport_context_out, out,
++				 esw_vport_context.cvlan_id);
++		*qos = MLX5_GET(query_esw_vport_context_out, out,
++				esw_vport_context.cvlan_pcp);
 +	}
 +
- 	netdev->netdev_ops        = &mlx5e_netdev_ops;
- 	netdev->watchdog_timeo    = 15 * HZ;
++	esw_debug(dev, "Query Vport[%d] cvlan: VLAN %d qos=%d\n",
++		  vport, *vlan, *qos);
++out:
++	return err;
++}
++
++static int modify_esw_vport_context_cmd(struct mlx5_core_dev *dev, u16 vport,
++					void *in, int inlen)
++{
++	u32 out[MLX5_ST_SZ_DW(modify_esw_vport_context_out)];
++
++	memset(out, 0, sizeof(out));
++
++	MLX5_SET(modify_esw_vport_context_in, in, vport_number, vport);
++	if (vport)
++		MLX5_SET(modify_esw_vport_context_in, in, other_vport, 1);
++
++	MLX5_SET(modify_esw_vport_context_in, in, opcode,
++		 MLX5_CMD_OP_MODIFY_ESW_VPORT_CONTEXT);
++
++	return mlx5_cmd_exec_check_status(dev, in, inlen,
++					  out, sizeof(out));
++}
++
++static int modify_esw_vport_cvlan(struct mlx5_core_dev *dev, u32 vport,
++				  u16 vlan, u8 qos, bool set)
++{
++	u32 in[MLX5_ST_SZ_DW(modify_esw_vport_context_in)];
++
++	memset(in, 0, sizeof(in));
++
++	if (!MLX5_CAP_ESW(dev, vport_cvlan_strip) ||
++	    !MLX5_CAP_ESW(dev, vport_cvlan_insert_if_not_exist))
++		return -ENOTSUPP;
++
++	esw_debug(dev, "Set Vport[%d] VLAN %d qos %d set=%d\n",
++		  vport, vlan, qos, set);
++
++	if (set) {
++		MLX5_SET(modify_esw_vport_context_in, in,
++			 esw_vport_context.vport_cvlan_strip, 1);
++		/* insert only if no vlan in packet */
++		MLX5_SET(modify_esw_vport_context_in, in,
++			 esw_vport_context.vport_cvlan_insert, 1);
++		MLX5_SET(modify_esw_vport_context_in, in,
++			 esw_vport_context.cvlan_pcp, qos);
++		MLX5_SET(modify_esw_vport_context_in, in,
++			 esw_vport_context.cvlan_id, vlan);
++	}
++
++	MLX5_SET(modify_esw_vport_context_in, in,
++		 field_select.vport_cvlan_strip, 1);
++	MLX5_SET(modify_esw_vport_context_in, in,
++		 field_select.vport_cvlan_insert, 1);
++
++	return modify_esw_vport_context_cmd(dev, vport, in, sizeof(in));
++}
++
+ /* HW L2 Table (MPFS) management */
+ static int set_l2_table_entry_cmd(struct mlx5_core_dev *dev, u32 index,
+ 				  u8 *mac, u8 vlan_valid, u16 vlan)
+@@ -1065,6 +1175,9 @@ int mlx5_eswitch_set_vport_state(struct mlx5_eswitch *esw,
+ int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
+ 				  int vport, struct ifla_vf_info *ivi)
+ {
++	u16 vlan;
++	u8 qos;
++
+ 	if (!ESW_ALLOWED(esw))
+ 		return -EPERM;
+ 	if (!LEGAL_VPORT(esw, vport))
+@@ -1077,9 +1190,26 @@ int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
+ 	ivi->linkstate = mlx5_query_vport_admin_state(esw->dev,
+ 						      MLX5_QUERY_VPORT_STATE_IN_OP_MOD_ESW_VPORT,
+ 						      vport);
+-	ivi->vlan = 0;
+-	ivi->qos = 0;
++	query_esw_vport_cvlan(esw->dev, vport, &vlan, &qos);
++	ivi->vlan = vlan;
++	ivi->qos = qos;
+ 	ivi->spoofchk = 0;
  
+ 	return 0;
+ }
++
++int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
++				int vport, u16 vlan, u8 qos)
++{
++	int set = 0;
++
++	if (!ESW_ALLOWED(esw))
++		return -EPERM;
++	if (!LEGAL_VPORT(esw, vport) || (vlan > 4095) || (qos > 7))
++		return -EINVAL;
++
++	if (vlan || qos)
++		set = 1;
++
++	return modify_esw_vport_cvlan(esw->dev, vport, vlan, qos, set);
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index c5827ad..b4284a4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -150,6 +150,8 @@ int mlx5_eswitch_set_vport_mac(struct mlx5_eswitch *esw,
+ 			       int vport, u8 mac[ETH_ALEN]);
+ int mlx5_eswitch_set_vport_state(struct mlx5_eswitch *esw,
+ 				 int vport, int link_state);
++int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
++				int vport, u16 vlan, u8 qos);
+ int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
+ 				  int vport, struct ifla_vf_info *ivi);
+ #endif /* __MLX5_ESWITCH_H__ */
 -- 
 2.3.7
