@@ -1,56 +1,67 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [iproute PATCH RFC] libnetlink: introduce DECLARE_NLREQ
-Date: Sun, 29 Nov 2015 12:07:52 -0800
-Message-ID: <20151129120752.73834f50@xeon-e3>
-References: <1448544365-23153-1-git-send-email-phil@nwl.cc>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: gigaset: freeing an active object
+Date: Sun, 29 Nov 2015 21:26:40 +0100
+Message-ID: <1448828800.2603.17.camel@tiscali.nl>
+References: <56587467.8050102@oracle.com> <565B1A1B.8020503@imap.cc>
+	 <565B4256.6080101@hurleysoftware.com> <565B4844.9020600@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Phil Sutter <phil@nwl.cc>
+Cc: isdn@linux-pingi.de, davem@davemloft.net,
+	gigaset307x-common@lists.sourceforge.net,
+	LKML <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>
+To: Tilman Schmidt <tilman@imap.cc>,
+	Peter Hurley <peter@hurleysoftware.com>,
+	Sasha Levin <sasha.levin@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:38959 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752126AbbK2UHs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 15:07:48 -0500
-In-Reply-To: <1448544365-23153-1-git-send-email-phil@nwl.cc>
+Received: from lb3-smtp-cloud3.xs4all.net ([194.109.24.30]:57965 "EHLO
+	lb3-smtp-cloud3.xs4all.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752198AbbK2U0p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 15:26:45 -0500
+In-Reply-To: <565B4844.9020600@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 26 Nov 2015 14:26:05 +0100
-Phil Sutter <phil@nwl.cc> wrote:
+On zo, 2015-11-29 at 19:47 +0100, Tilman Schmidt wrote:
+> Btw I don't see a timer_list object in struct platform_device either.
+> Nor in the embedded struct device.
 
-> This macro aims to simplify most netlink users' pattern to prepare a
-> request, which is to create an unnamed struct and initialize it:
-> 
-> | struct {
-> |	struct nlmsghdr n;
-> |	struct whatever foo;
-> |	char buf[arbitrary number];
-> | } req;
-> |
-> | memset(&req, 0, sizeof(req));
-> | req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct whatever));
-> | req.n.nlmsg_flags = NLM_F_REQUEST;
-> 
-> Having this patch applied, the above can be replaced by a static
-> initializer like so:
-> 
-> | DECLARE_NLREQ(req, n, struct whatever foo, arbitrary number);
-> 
-> There is an added benefit, as well: Due to explicit alignment, the
-> requested tailroom is really as big as requested no matter what size
-> struct whatever really is.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
-> This patch is RFC because I want to wait for peer review and upstream
-> acceptance before sending in the big refactoring patch itself.
-> ---
->  include/libnetlink.h | 11 +++++++++++
->  1 file changed, 11 insertions(+)
+I found two instances of struct timer_list, rather deep down struct
+ser_cardstate:
 
-I am not a fan of complex macros. But netlink seems to get lots of them.
-You need to add more parens round arguments (like name).
+struct ser_cardstate {
+	struct platform_device dev {
+		struct device dev {
+			struct kobject kobj {
+			#ifdef CONFIG_DEBUG_KOBJECT_RELEASE
+				struct delayed_work release {
+					struct timer_list timer;
+				};
+			#endif
+			};
+			struct dev_pm_info power {
+			#ifdef CONFIG_PM
+				struct timer_list suspend_timer;
+			#endif
+			};
+		};
+	};
+};
 
-Really longterm would rather iproute2 switched to a cleaner library like libmnl
+(I only spotted these two and don't think there are others in the rest
+of the exploded struct ser_cardstate.)
+
+If the above is correct it would be nice to know the .config of the
+kernel used by syzkaller.
+
+Anyhow, without further details of the chain of events that triggered
+this warning, I'm afraid it will be hard to determine which struct
+timer_list is at the root of all this. (Ie, there's probably quite a bit
+of code to wade through in order to determine that.)
+
+Thanks,
+
+
+Paul Bolle
