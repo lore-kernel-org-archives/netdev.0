@@ -1,124 +1,159 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: gigaset: freeing an active object
-Date: Sun, 29 Nov 2015 16:30:35 +0100
-Message-ID: <565B1A1B.8020503@imap.cc>
-References: <56587467.8050102@oracle.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="sU7HbfqRIdX8G68sdWIbRlLdMrdbSNLtn"
-Cc: pebolle@tiscali.nl, isdn@linux-pingi.de, davem@davemloft.net,
-	gigaset307x-common@lists.sourceforge.net,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>
-To: Sasha Levin <sasha.levin@oracle.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 00/18] Introducing ConnectX-4 Ethernet SRIOV
+Date: Sun, 29 Nov 2015 17:37:08 +0200
+Message-ID: <1448811446-18598-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
+	Doug Ledford <dledford@redhat.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:56483 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750759AbbK2Paz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 10:30:55 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 3B2652080A
-	for <netdev@vger.kernel.org>; Sun, 29 Nov 2015 10:30:52 -0500 (EST)
-In-Reply-To: <56587467.8050102@oracle.com>
+Received: from [193.47.165.129] ([193.47.165.129]:34854 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750759AbbK2Phv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Nov 2015 10:37:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---sU7HbfqRIdX8G68sdWIbRlLdMrdbSNLtn
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Hi Dave,
 
-Hi Sasha,
+This patchset introduces the support of Ethernet SRIOV in ConnectX-4 
+family of 100G Ethernet NICs.
 
-thanks for the report. As the original author of the code in question, I
-am somewhat at a loss what to make of it.
+Some features are still missing, but all the basic SRIOV functionalities
+are there already.
 
-Am 27.11.2015 um 16:19 schrieb Sasha Levin:
-> Fuzzing with syzkaller on the latest -next kernel produced this error:
+Basic Introduction:
+ConnectX-4 HW architecture provides two kinds of underlying HW switches.
 
-Is there a way to know the actual sequence of events that triggered this
-warning?
+MPFS (Multi Physical Function Switch) or L2 Table in Software terms:
 
-> [  413.536749] WARNING: CPU: 6 PID: 25400 at lib/debugobjects.c:263 deb=
-ug_print_object+0x1c4/0x1e0()
-> [  413.538111] ODEBUG: free active (active state 0) object type: timer_=
-list hint: delayed_work_timer_fn+0x0/0x90
+The HCA has one MPFS switch per physical port, this switch is responsible
+of forwarding Unicast traffic to the various overlying Physical Functions (PFs). 
+Multicast traffic is flooded amongst all the PFs, Each PF can request to
+forward a unicast MAC to its E-Switch Uplink vport (which we will cover later) 
+through SET_L2_TABLE_ENTRY HW command.
 
-This message seems to indicate that an object of type timer_list was
-freed which was still active. However the driver in question
-(ser_gigaset) does not use any timers.
+MPFS has five ports, four are connected to PFs (one for each) and one is connected 
+directly to the Physical Port (Physical Link).
 
-What are the exact conditions for producing this message? IOW how does
-the ODEBUG code determine that an object of type timer_list is being
-freed, and that it is still in use?
+E-Switch (Ethernet Switch): 
 
-Are there any messages from ser_gigaset or another one of the gigaset
-drivers before that warning?
+The HCA has one per physical function. The main responsibility of this component is 
+to forward Unicast/Multicast and vlan tagged/untagged traffic to the various 
+Virtual Functions (VFs) allocated by the PF. Unlike MPFS, the PF needs to explicitly 
+create the E-Switch FDB table, Which is a HW flow table managed by the PF driver 
+whenever vport_group_manager capability bit is set for this PF.
 
-> [  413.539598] Modules linked in:3470693efef57268844f02f5de3ab392d8cf5e=
-209671ddd87163cb964c510659
+E-Switch has Virtual Ports (vports) entities as its ports, vport0 and uplink vport
+are special kind of vports that represents PF vport (vport0) and uplink vport which
+is connected to the MPFS switch (if exists) as the PF external link.
+vport1..vportN represent VF0..VF(N-1) egress/ingress ports.
 
-This message does not tell me anything. What does that hex string after
-the colon mean?
+E-Switch FDB contains forwarding rules such as:
+        UC MAC0 -> vport0(PF).
+        UC MAC1 -> vport1.
+        UC MAC2 -> vport2.
+        MC MACX -> vport0, vport2, Uplink.
+        MC MACY -> vport1, Uplink.
+    
+    For unmatched traffic FDB has the following default rules:
+        Unmatched Traffic (src vport != Uplink) -> Uplink.
+        Unmatched Traffic (src vport == Uplink) -> vport0(PF).
 
-> [  413.540448] CPU: 6 PID: 25400 Comm: syzkaller_execu Not tainted 4.4.=
-0-rc2-next-20151126-sasha-00005-g00d303e-dirty #2653
-> [  413.547614] Call Trace:
-> [  413.548077]  [<ffffffffa8e6b5bb>] dump_stack+0x72/0xb7
-> [  413.548765]  [<ffffffffa73531d3>] warn_slowpath_common+0x113/0x140
-> [  413.551151]  [<ffffffffa73532cb>] warn_slowpath_fmt+0xcb/0x100
-> [  413.554295]  [<ffffffffa8ed0194>] debug_print_object+0x1c4/0x1e0
-> [  413.556592]  [<ffffffffa8ed1035>] __debug_check_no_obj_freed+0x215/0=
-x7a0
-> [  413.560526]  [<ffffffffa8ed2b6c>] debug_check_no_obj_freed+0x2c/0x40=
+NIC VPort context: 
+Each NIC (VF/PF) has its own vport context which will be used to store the current
+NIC vport context (UC/MC and vlan lists) and other NIC properties such as MTU, promisc 
+mode, etc.. NIC (VF/PF) driver is responsible of constantly updating this context.
 
-> [  413.561328]  [<ffffffffa77aac4c>] kfree+0x1fc/0x2f0
+FDB rules population:
+Each NIC vport (VF/PF) will notify E-Switch manager of its UC/MC vport
+context changes via modify vport context command, which will be
+translated to an event that will be handled by E-Switch manager (PF)
+which will update FDB table accordingly.
 
-Judging from the backtrace below this must be the call
+Both PF and VF use the same driver and submit commands directly to the firmware.
+The PF sees the vport_group_manager capability bit and as such runs the code
+to populate the embedded switches as explained above.
 
-        kfree(cs->hw.ser);
+The patch goes as follows:
 
-in drivers/isdn/gigaset/ser-gigaset.c line 375.
-cs->hw.ser is of type struct ser_cardstate *.
-struct ser_cardstate consists of a struct platform_device, a struct
-completion, an atomic_t and a pointer. No timer_list.
+Patches 1-2 introduces the basic PCI SRIOV functionalities and the support of
+Connectx4 to enable specific VFs via enable/disable HCA commands. These two
+patches will be also in use later for the IB SRIOV flow.
 
-> [  413.561970]  [<ffffffffae74b021>] gigaset_freecshw+0xe1/0x120
+Patches 3-8 Introduces the basic E-Switch capabilities and commands to be used later by
+VF to modify and update its NIC vport context, and by PF (E-Switch Manager) driver to
+Query the VF NIC context and acts accordingly.
 
-There are functions by this name in all three Gigaset hardware dependent
-modules (bas_gigaset, ser_gigaset and usb_gigaset), but ...
+Patches 9-10 Provide the needed functionality of a NIC driver VF/PF to support SRIOV,
+mainly vport context update support.
 
-> [  413.562723]  [<ffffffffae70669d>] gigaset_freecs+0x2ad/0x600
-> [  413.564240]  [<ffffffffae74ba60>] gigaset_tty_close+0x210/0x280
+Patch 11 ("net/mlx5: Introducing E-Switch and l2 table"), Introduces the basic
+E-Switch support and infrastructure to read vport context events and to update
+MPFS L2 Table of the UC mac addresses request by the PF.
 
-this function only exists in ser_gigaset.
+Patches 12-18 Introduces SRIOV enablemenet and E-Switch FDB table management
+It adds the Basic E-Swtich public API to set and get sriov properties to be used
+in PF netdev sriov ndos.
 
-Thanks,
-Tilman
+Patchset was applied ontop of commit 00cc367 "Merge branch 'master' of 
+git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue"
 
---=20
-Tilman Schmidt                              E-Mail: tilman@imap.cc
-Bonn, Germany
-Nous, on a des fleurs et des bougies pour nous prot=C3=A9ger.
+changes from V0, addressed feedback from Alex Duyck:
+ - patch 09, remove the loop to seek the device address
+ - patch 09, avoid using array as returned value from helper function
+ - patch 10, fix possible buffer over-run
 
+Saeed, Eli and Or.
 
---sU7HbfqRIdX8G68sdWIbRlLdMrdbSNLtn
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Eli Cohen (2):
+  net/mlx5_core: Modify enable/disable hca functions
+  net/mlx5_core: Add base sriov support
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Saeed Mahameed (16):
+  net/mlx5: Add HW capabilities and structs for SR-IOV E-Switch
+  net/mlx5: Update access functions to Query/Modify vport MAC address
+  net/mlx5: Introduce access functions to modify/query vport mac lists
+  net/mlx5: Introduce access functions to modify/query vport state
+  net/mlx5: Introduce access functions to modify/query vport promisc mode
+  net/mlx5: Introduce access functions to modify/query vport vlans
+  net/mlx5e: Write UC/MC list and promisc mode into vport context
+  net/mlx5e: Write vlan list into vport context
+  net/mlx5: Introducing E-Switch and l2 table
+  net/mlx5: E-Switch, Introduce FDB hardware capabilities
+  net/mlx5: E-Switch, Add SR-IOV (FDB) support
+  net/mlx5: E-Switch, Introduce Vport administration functions
+  net/mlx5: E-Switch, Introduce HCA cap and E-Switch vport context
+  net/mlx5: E-Switch, Introduce set vport vlan (VST mode)
+  net/mlx5: E-Switch, Introduce get vf statistics
+  net/mlx5e: Add support for SR-IOV ndos
 
-iQEcBAEBCAAGBQJWWxoqAAoJEFPuqx0v+F+qIm8H/RKWmFocpKNd2NUgpFY+f/cd
-l7PXUwlvXWnpO/0TLdb7NGxB9d8jvC2dMbDU+7e9+ARGJXsi/Tyud75xfGR5iuU1
-h4sIyTm2wacJHGdCQnr8bgPqQMDeDtlgMW6Vs7jWE7G4MYs92ybkdpXcJ+mvnh6G
-wJB70IobQrNzDOd2t/QcnYJwFsMu8GKtAcq4l5JeCs2b+k+e397ktT0qHR7KVL4v
-PFLrRaEH9so+u1h8EwZLkZTpR8ptm2GW4Qs4VkaxpIyNRcHPgfeJ7HMxStmWI3Gt
-sYpcSbxVI4M3WAOHLLdCWK+y9kRBgybXj73lCGMmQZ+yfPtKHcCPkZEzygzYef4=
-=BBRg
------END PGP SIGNATURE-----
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |    1 +
+ .../ethernet/mellanox/mlx5/core/en_flow_table.c    |  139 +++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   88 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |   13 +
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  | 1282 ++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  161 +++
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c       |   24 +
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |   99 +-
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |    5 +
+ .../net/ethernet/mellanox/mlx5/core/pagealloc.c    |   38 +
+ drivers/net/ethernet/mellanox/mlx5/core/sriov.c    |  233 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c    |  435 ++++++-
+ include/linux/mlx5/device.h                        |   44 +
+ include/linux/mlx5/driver.h                        |   28 +
+ include/linux/mlx5/flow_table.h                    |    9 +
+ include/linux/mlx5/mlx5_ifc.h                      |  174 ++-
+ include/linux/mlx5/vport.h                         |   37 +-
+ 18 files changed, 2743 insertions(+), 71 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/sriov.c
 
---sU7HbfqRIdX8G68sdWIbRlLdMrdbSNLtn--
+-- 
+2.3.7
