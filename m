@@ -1,35 +1,56 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 -next v2 5/5] {f,m}_bpf: add more example code
-Date: Sun, 29 Nov 2015 11:56:01 -0800
-Message-ID: <20151129115601.76c07295@xeon-e3>
-References: <cover.1448547199.git.daniel@iogearbox.net>
-	<d40d1f8668201d9a766aabef4045c6baf14aa146.1448547199.git.daniel@iogearbox.net>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [iproute PATCH RFC] libnetlink: introduce DECLARE_NLREQ
+Date: Sun, 29 Nov 2015 12:07:52 -0800
+Message-ID: <20151129120752.73834f50@xeon-e3>
+References: <1448544365-23153-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: <netdev@vger.kernel.org>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:35865 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752108AbbK2Tzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 14:55:52 -0500
-Received: by pacdm15 with SMTP id dm15so161568072pac.3
-        for <netdev@vger.kernel.org>; Sun, 29 Nov 2015 11:55:52 -0800 (PST)
-In-Reply-To: <d40d1f8668201d9a766aabef4045c6baf14aa146.1448547199.git.daniel@iogearbox.net>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:38959 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752126AbbK2UHs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 15:07:48 -0500
+In-Reply-To: <1448544365-23153-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 26 Nov 2015 15:38:46 +0100
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+On Thu, 26 Nov 2015 14:26:05 +0100
+Phil Sutter <phil@nwl.cc> wrote:
 
-> I've added three examples to examples/bpf/ that demonstrate how one can
-> implement eBPF tail calls in tc with f.e. multiple levels of nesting.
-> That should act as a good starting point, but also as test cases for the
-> ELF loader and kernel. A real test suite for {f,m,e}_bpf is still to be
-> developed in future work.
+> This macro aims to simplify most netlink users' pattern to prepare a
+> request, which is to create an unnamed struct and initialize it:
 > 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> | struct {
+> |	struct nlmsghdr n;
+> |	struct whatever foo;
+> |	char buf[arbitrary number];
+> | } req;
+> |
+> | memset(&req, 0, sizeof(req));
+> | req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct whatever));
+> | req.n.nlmsg_flags = NLM_F_REQUEST;
+> 
+> Having this patch applied, the above can be replaced by a static
+> initializer like so:
+> 
+> | DECLARE_NLREQ(req, n, struct whatever foo, arbitrary number);
+> 
+> There is an added benefit, as well: Due to explicit alignment, the
+> requested tailroom is really as big as requested no matter what size
+> struct whatever really is.
+> 
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
+> This patch is RFC because I want to wait for peer review and upstream
+> acceptance before sending in the big refactoring patch itself.
+> ---
+>  include/libnetlink.h | 11 +++++++++++
+>  1 file changed, 11 insertions(+)
 
-All applied to net-next branch.
+I am not a fan of complex macros. But netlink seems to get lots of them.
+You need to add more parens round arguments (like name).
+
+Really longterm would rather iproute2 switched to a cleaner library like libmnl
