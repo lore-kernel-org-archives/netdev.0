@@ -1,85 +1,47 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: gigaset: freeing an active object
-Date: Sun, 29 Nov 2015 19:47:32 +0100
-Message-ID: <565B4844.9020600@imap.cc>
-References: <56587467.8050102@oracle.com> <565B1A1B.8020503@imap.cc>
- <565B4256.6080101@hurleysoftware.com>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: Re: [PATCH] ravb: add R8A7791 support
+Date: Sun, 29 Nov 2015 20:26:10 +0100
+Message-ID: <CAMuHMdWE_G2WqsGZEaa4Ck3zziTLGVPfaVdU2gbnLA5zWpmR1w@mail.gmail.com>
+References: <6051623.qN4lqSyZKg@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="0VduxvwWnnqJlB5V5oR370MRbC72KdBXV"
-Cc: pebolle@tiscali.nl, isdn@linux-pingi.de, davem@davemloft.net,
-	gigaset307x-common@lists.sourceforge.net,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>
-To: Peter Hurley <peter@hurleysoftware.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:56023 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750756AbbK2Sre (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 13:47:34 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id EA51E205F6
-	for <netdev@vger.kernel.org>; Sun, 29 Nov 2015 13:47:33 -0500 (EST)
-In-Reply-To: <565B4256.6080101@hurleysoftware.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux-sh list <linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <6051623.qN4lqSyZKg-gHKXc3Y1Z8zGSmamagVegGFoWSdPRAKMAL8bYrjMMd8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---0VduxvwWnnqJlB5V5oR370MRbC72KdBXV
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Hi Sergei,
 
-Am 29.11.2015 um 19:22 schrieb Peter Hurley:
+On Fri, Nov 27, 2015 at 11:06 PM, Sergei Shtylyov
+<sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org> wrote:
+> Add support  for yet another ARM member of the R-Car family, R-Car M2, also
 
->>> [  413.536749] WARNING: CPU: 6 PID: 25400 at lib/debugobjects.c:263 d=
-ebug_print_object+0x1c4/0x1e0()
->>> [  413.538111] ODEBUG: free active (active state 0) object type: time=
-r_list hint: delayed_work_timer_fn+0x0/0x90
->>
->> This message seems to indicate that an object of type timer_list was
->> freed which was still active. However the driver in question
->> (ser_gigaset) does not use any timers.
-[...]
->> Judging from the backtrace below this must be the call
->>
->>         kfree(cs->hw.ser);
->>
->> in drivers/isdn/gigaset/ser-gigaset.c line 375.
->> cs->hw.ser is of type struct ser_cardstate *.
->> struct ser_cardstate consists of a struct platform_device, a struct
->> completion, an atomic_t and a pointer. No timer_list.
-[...]
-> The platform_device embedded in struct ser_cardstate hasn't been releas=
-ed when
-> you kfree() the memory it's in.
+R-Car M2-W?
 
-Btw I don't see a timer_list object in struct platform_device either.
-Nor in the embedded struct device.
+> known as R8A7791.
 
---=20
-Tilman Schmidt                              E-Mail: tilman@imap.cc
-Bonn, Germany
-Nous, on a des fleurs et des bougies pour nous prot=C3=A9ger.
+There's also R-Car M2-N, aka R8A7793, but you probably know that ;-)
 
+Gr{oetje,eeting}s,
 
---0VduxvwWnnqJlB5V5oR370MRbC72KdBXV
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+                        Geert
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
 
-iQEcBAEBCAAGBQJWW0hEAAoJEFPuqx0v+F+qan8H/jr6EpktXzJKI/ljPzj/E0EN
-pj4YS64+g3hC5Gf7nw0622AXwjPsD2lOY0GCLossFPuh1Ybff8V0l73D2MVT4A23
-Zm2zPScuzVJhEv/sLKgvO0HoYzdtn2+C3Na4kNqAOyWL2H+x1gIk20CEr5RNvfTv
-Y7VP/kRbaS7pKGXLRub5oIM1dEqGlnTe6I2vd8Ht4tMT8A1k+eNII+QbBU6aSHOE
-/LpOSsN6ZQIdkMH5pyZL269BG9AOjC1DUssVp8rwGaIKvtBGguA4L1WWGDO8lPyn
-nv1qsY4w3dTtclyBrw8JiEM4RBAI//jd4FQaUUeQG5bm55uYrnWlFpT2n2oOIiM=
-=HvPc
------END PGP SIGNATURE-----
-
---0VduxvwWnnqJlB5V5oR370MRbC72KdBXV--
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
