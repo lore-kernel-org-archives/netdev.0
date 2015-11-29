@@ -1,48 +1,46 @@
 From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [iproute PATCH 0/5] warning-annoyance induced code-review
-Date: Sun, 29 Nov 2015 11:51:51 -0800
-Message-ID: <20151129115151.637686fb@xeon-e3>
-References: <1448668805-28074-1-git-send-email-phil@nwl.cc>
+Subject: Re: [PATCH iproute] vxlan: Add support for remote checksum offload
+Date: Sun, 29 Nov 2015 11:54:21 -0800
+Message-ID: <20151129115421.43b196c5@xeon-e3>
+References: <1448648623-3336620-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Phil Sutter <phil@nwl.cc>
+Cc: <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:26526 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752033AbbK2Tvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 14:51:48 -0500
-In-Reply-To: <1448668805-28074-1-git-send-email-phil@nwl.cc>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:3246 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752369AbbK2TyR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 14:54:17 -0500
+In-Reply-To: <1448648623-3336620-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 28 Nov 2015 01:00:00 +0100
-Phil Sutter <phil@nwl.cc> wrote:
+On Fri, 27 Nov 2015 10:23:43 -0800
+Tom Herbert <tom@herbertland.com> wrote:
 
-> The primary goal was to get rid of the -Wunused-result warnings emitted
-> during compiling. While adding the necessary checks, I found a few
-> functions which could benefit from a bigger review (patches 1, 2 and 3).
-> Patch 4 then adds the remaining missing checks, and patch 5 simplifies
-> fgets() usage at a few spots.
+> This patch adds support to remote checksum checksum offload
+> to VXLAN. This patch adds remcsumtx and remcsumrx to ip vxlan
+> configuration to enable remote checksum offload for transmit
+> and receive on the VXLAN tunnel.
 > 
-> Note that the last patch is my first Coccinelle-generated change, which
-> makes me especially proud. Many thanks again to Julia Lawall for her kind
-> support via IRC at this point!
+> https://tools.ietf.org/html/draft-herbert-vxlan-rco-00
 > 
-> Phil Sutter (5):
->   lnstat: review lnstat_update()
->   ss: reduce max indentation level in init_service_resolver()
->   ss: review is_ephemeral()
->   get rid of remaining -Wunused-result warnings
->   get rid of unnecessary fgets() buffer size limitation
+> Example:
 > 
->  misc/arpd.c        |   2 +-
->  misc/ifstat.c      |   6 ++-
->  misc/lnstat_util.c |  21 +++++------
->  misc/nstat.c       |   6 ++-
->  misc/ss.c          | 107 ++++++++++++++++++++++++++++-------------------------
->  5 files changed, 74 insertions(+), 68 deletions(-)
+> ip link add name vxlan0 type vxlan id 42 group 239.1.1.1 dev eth0 \
+>     udpcsum remcsumtx remcsumrx
 > 
+> Testing:
+> 
+> Ran single netperf over mlnx4 to illustrate the effest:
+> 
+> - Without RCO (UDP csum set to zero)
+>   4335.99 Mbps
+> - With RCO enabled
+>   7661.81 Mbps
+> 
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 
 Applied, thanks
