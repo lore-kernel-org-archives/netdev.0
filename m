@@ -1,17 +1,17 @@
 From: SYSTEM UPDATE <rochmat_wb@uny.ac.id>
 Subject: Warning!! Warning!!
-Date: Sun, 29 Nov 2015 21:46:05 +0100
-Message-ID: <20151129204520.70F6D62DE6@mail.baliprov.go.id>
+Date: Sun, 29 Nov 2015 19:46:00 +0100
+Message-ID: <20151129184553.A272062F6E@mail.baliprov.go.id>
 Reply-To: No-Reply@mail.baliprov.go.id
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 To: Recipients <rochmat_wb@uny.ac.id>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.baliprov.go.id ([182.23.65.58]:39325 "EHLO
+Received: from mail.baliprov.go.id ([182.23.65.58]:41532 "EHLO
 	mail.baliprov.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751430AbbK2X7Q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 18:59:16 -0500
+	with ESMTP id S1751691AbbK3Ag1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 19:36:27 -0500
 Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
