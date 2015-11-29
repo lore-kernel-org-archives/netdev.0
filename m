@@ -1,72 +1,41 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute PATCH RFC] libnetlink: introduce DECLARE_NLREQ
-Date: Sun, 29 Nov 2015 22:40:44 +0100
-Message-ID: <20151129213925.87398213E1@mail.nwl.cc>
-References: <1448544365-23153-1-git-send-email-phil@nwl.cc>
- <20151129120752.73834f50@xeon-e3>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: What now when we're [almost] out of ADVERTISED bits?
+Date: Sun, 29 Nov 2015 23:39:38 +0200
+Message-ID: <CAJ3xEMj4ygmuSnxS-wkwukYyMgaA2omSQ+0MvY1MZKVv4_U6=A@mail.gmail.com>
+References: <CO2PR11MB00887F0A656EFB801BA2599797010@CO2PR11MB0088.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; x-action=pgp-signed
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "ben@decadent.org.uk" <ben@decadent.org.uk>,
+	netdev <netdev@vger.kernel.org>,
+	David Decotigny <ddecotig@gmail.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:45208 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752476AbbK2Vj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Nov 2015 16:39:27 -0500
-In-Reply-To: <20151129120752.73834f50@xeon-e3>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:32816 "EHLO
+	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752476AbbK2Vjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 16:39:39 -0500
+Received: by iouu10 with SMTP id u10so157707381iou.0
+        for <netdev@vger.kernel.org>; Sun, 29 Nov 2015 13:39:39 -0800 (PST)
+In-Reply-To: <CO2PR11MB00887F0A656EFB801BA2599797010@CO2PR11MB0088.namprd11.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Sun, Nov 29, 2015 at 3:53 PM, Yuval Mintz <Yuval.Mintz@qlogic.com> wrote:
+> [I suspect there was probably some discussion over this,
+> but I couldn't find it; References would be welcome]
 
-On Sun, Nov 29, 2015 at 12:07:52PM -0800, Stephen Hemminger wrote:
-> On Thu, 26 Nov 2015 14:26:05 +0100
-> Phil Sutter <phil@nwl.cc> wrote:
-> 
-> > This macro aims to simplify most netlink users' pattern to prepare a
-> > request, which is to create an unnamed struct and initialize it:
-> > 
-> > | struct {
-> > |	struct nlmsghdr n;
-> > |	struct whatever foo;
-> > |	char buf[arbitrary number];
-> > | } req;
-> > |
-> > | memset(&req, 0, sizeof(req));
-> > | req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct whatever));
-> > | req.n.nlmsg_flags = NLM_F_REQUEST;
-> > 
-> > Having this patch applied, the above can be replaced by a static
-> > initializer like so:
-> > 
-> > | DECLARE_NLREQ(req, n, struct whatever foo, arbitrary number);
-> > 
-> > There is an added benefit, as well: Due to explicit alignment, the
-> > requested tailroom is really as big as requested no matter what size
-> > struct whatever really is.
-> > 
-> > Signed-off-by: Phil Sutter <phil@nwl.cc>
-> > ---
-> > This patch is RFC because I want to wait for peer review and upstream
-> > acceptance before sending in the big refactoring patch itself.
-> > ---
-> >  include/libnetlink.h | 11 +++++++++++
-> >  1 file changed, 11 insertions(+)
-> 
-> I am not a fan of complex macros. But netlink seems to get lots of them.
-> You need to add more parens round arguments (like name).
-> 
-> Really longterm would rather iproute2 switched to a cleaner library like libmnl
+there was a work by David Decotigny that should have solved the out of
+bits problem here [1]. Maybe it should be revived.
 
-Ah, indeed! Someone else suggested that once, as well. I'll have a look
-into that before continuing this path.
+[1] https://lkml.org/lkml/2015/1/26/882
 
-Thanks, Phil
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
 
-iEYEARECAAYFAlZbcNwACgkQnMPprxY1hCeZNwCfazSwuC8W6DU3vnY12TEwX6yp
-d6YAn2JjJYPObXxGBOH/8e+GgY2zIeEq
-=wbf7
------END PGP SIGNATURE-----
+> So it appears we're almost out of bits for new advertised speeds;
+> I'm currently looking at adding 100g.
+>
+> Assuming we want [and we do want] to have those in the `supported',
+> `advertising' and `lp_advertising' fields, the 2 reserve fields in
+> ethtool_cmd would not be sufficient [unless we break them into 4 u16].
+> Or are we planning something more generic than this for future bits?
+
+Or.
