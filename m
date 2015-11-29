@@ -1,58 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] Improve Atheros ethernet driver not to do order 4
- GFP_ATOMIC allocation
-Date: Mon, 30 Nov 2015 00:58:03 +0300
-Message-ID: <565B74EB.3000005@cogentembedded.com>
-References: <20151126163413.GA3816@amd> <20151127082010.GA2500@dhcp22.suse.cz>
- <20151128145113.GB4135@amd>
+From: Richard Weinberger <richard@nod.at>
+Subject: user controllable usermodehelper in br_stp_if.c
+Date: Sun, 29 Nov 2015 23:43:09 +0100
+Message-ID: <565B7F7D.80208@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kernel list <linux-kernel@vger.kernel.org>, jcliburn@gmail.com,
- chris.snook@gmail.com, netdev@vger.kernel.org,
- "Rafael J. Wysocki" <rjw@rjwysocki.net>, linux-mm@kvack.org,
- nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com
-To: Pavel Machek <pavel@ucw.cz>, Michal Hocko <mhocko@kernel.org>,
- davem@davemloft.net, Andrew Morton <akpm@osdl.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20151128145113.GB4135@amd>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: bridge@lists.linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"keescook@chromium.org" <keescook@chromium.org>,
+	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi!
 
-On 11/28/2015 5:51 PM, Pavel Machek wrote:
+By spawning new network and user namesapces an unprivileged user
+is able to execute /sbin/bridge-stp within the initial mount namespace
+with global root rights.
+While this cannot directly be used to break out of a container or gain
+global root rights it could be used by exploit writers as valuable buildi=
+ng block.
 
-> atl1c driver is doing order-4 allocation with GFP_ATOMIC
-> priority. That often breaks  networking after resume. Switch to
-> GFP_KERNEL. Still not ideal, but should be significantly better.
->
-> Signed-off-by: Pavel Machek <pavel@ucw.cz>
->
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> index 2795d6d..afb71e0 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> @@ -1016,10 +1016,10 @@ static int atl1c_setup_ring_resources(struct atl1c_adapter *adapter)
->   		sizeof(struct atl1c_recv_ret_status) * rx_desc_count +
->   		8 * 4;
->
-> -	ring_header->desc = pci_alloc_consistent(pdev, ring_header->size,
-> -				&ring_header->dma);
-> +	ring_header->desc = dma_alloc_coherent(&pdev->dev, ring_header->size,
-> +					       &ring_header->dma, GFP_KERNEL);
->   	if (unlikely(!ring_header->desc)) {
-> -		dev_err(&pdev->dev, "pci_alloc_consistend failed\n");
-> +		dev_err(&pdev->dev, "could not get memmory for DMA buffer\n");
+e.g.
+$ unshare -U -r -n /bin/sh
+$ brctl addbr br0
+$ brctl stp br0 on # this will execute /sbin/bridge-stp
 
-     s/memmory/memory/.
+As this mechanism clearly cannot work with containers and seems to be leg=
+acy code
+I suggest not calling call_usermodehelper() at all if we're not in the in=
+itial user namespace.
+What do you think?
 
-[...]
-
-MBR, Sergei
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks,
+//richard
