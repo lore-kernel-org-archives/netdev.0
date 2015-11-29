@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 10/18] net/mlx5e: Write vlan list into vport context
-Date: Sun, 29 Nov 2015 17:37:18 +0200
-Message-ID: <1448811446-18598-11-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 12/18] net/mlx5: E-Switch, Introduce FDB hardware capabilities
+Date: Sun, 29 Nov 2015 17:37:20 +0200
+Message-ID: <1448811446-18598-13-git-send-email-ogerlitz@mellanox.com>
 References: <1448811446-18598-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Doug Ledford <dledford@redhat.com>,
@@ -12,130 +12,114 @@ Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:35073 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:35089 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751838AbbK2Pi7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Nov 2015 10:38:59 -0500
+	id S1751957AbbK2PjC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Nov 2015 10:39:02 -0500
 In-Reply-To: <1448811446-18598-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Saeed Mahameed <saeedm@mellanox.com>
 
-Each Vport/vNIC must notify underlying e-Switch layer
-for vlan table changes in-order to update SR-IOV FDB tables.
-
-We do that at vlan_rx_add_vid and vlan_rx_kill_vid ndos.
+Define needed hardware structures and capabilities needed
+for E-Switch FDB flow tables and read them on driver load.
 
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  1 +
- .../ethernet/mellanox/mlx5/core/en_flow_table.c    | 52 ++++++++++++++++++++++
- 2 files changed, 53 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c | 13 +++++++++++++
+ include/linux/mlx5/device.h                  | 15 +++++++++++++++
+ include/linux/mlx5/mlx5_ifc.h                | 13 +++++++++++++
+ 3 files changed, 41 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 69f1c1a..89313d4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -465,6 +465,7 @@ enum {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fw.c b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
+index 9335e5a..bf6e3df 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
+@@ -160,6 +160,19 @@ int mlx5_query_hca_caps(struct mlx5_core_dev *dev)
+ 		if (err)
+ 			return err;
+ 	}
++
++	if (MLX5_CAP_GEN(dev, vport_group_manager) &&
++	    MLX5_CAP_GEN(dev, eswitch_flow_table)) {
++		err = mlx5_core_get_caps(dev, MLX5_CAP_ESWITCH_FLOW_TABLE,
++					 HCA_CAP_OPMOD_GET_CUR);
++		if (err)
++			return err;
++		err = mlx5_core_get_caps(dev, MLX5_CAP_ESWITCH_FLOW_TABLE,
++					 HCA_CAP_OPMOD_GET_MAX);
++		if (err)
++			return err;
++	}
++
+ 	return 0;
+ }
+ 
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index 90a4cb6..bce9cae 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -1138,6 +1138,7 @@ enum mlx5_cap_type {
+ 	MLX5_CAP_IPOIB_OFFLOADS,
+ 	MLX5_CAP_EOIB_OFFLOADS,
+ 	MLX5_CAP_FLOW_TABLE,
++	MLX5_CAP_ESWITCH_FLOW_TABLE,
+ 	/* NUM OF CAP Types */
+ 	MLX5_CAP_NUM
+ };
+@@ -1175,6 +1176,20 @@ enum mlx5_cap_type {
+ #define MLX5_CAP_FLOWTABLE_MAX(mdev, cap) \
+ 	MLX5_GET(flow_table_nic_cap, mdev->hca_caps_max[MLX5_CAP_FLOW_TABLE], cap)
+ 
++#define MLX5_CAP_ESW_FLOWTABLE(mdev, cap) \
++	MLX5_GET(flow_table_eswitch_cap, \
++		 mdev->hca_caps_cur[MLX5_CAP_ESWITCH_FLOW_TABLE], cap)
++
++#define MLX5_CAP_ESW_FLOWTABLE_MAX(mdev, cap) \
++	MLX5_GET(flow_table_eswitch_cap, \
++		 mdev->hca_caps_max[MLX5_CAP_ESWITCH_FLOW_TABLE], cap)
++
++#define MLX5_CAP_ESW_FLOWTABLE_FDB(mdev, cap) \
++	MLX5_CAP_ESW_FLOWTABLE(mdev, flow_table_properties_nic_esw_fdb.cap)
++
++#define MLX5_CAP_ESW_FLOWTABLE_FDB_MAX(mdev, cap) \
++	MLX5_CAP_ESW_FLOWTABLE_MAX(mdev, flow_table_properties_nic_esw_fdb.cap)
++
+ #define MLX5_CAP_ODP(mdev, cap)\
+ 	MLX5_GET(odp_cap, mdev->hca_caps_cur[MLX5_CAP_ODP], cap)
+ 
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 39487d0..ae7c08a 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -447,6 +447,18 @@ struct mlx5_ifc_flow_table_nic_cap_bits {
+ 	u8         reserved_3[0x7200];
  };
  
- struct mlx5e_vlan_db {
-+	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
- 	u32           active_vlans_ft_ix[VLAN_N_VID];
- 	u32           untagged_rule_ft_ix;
- 	u32           any_vlan_rule_ft_ix;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
-index fb02f6c..5b93c9c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
-@@ -502,6 +502,49 @@ add_eth_addr_rule_out:
- 	return err;
- }
++struct mlx5_ifc_flow_table_eswitch_cap_bits {
++	u8     reserved_0[0x200];
++
++	struct mlx5_ifc_flow_table_prop_layout_bits flow_table_properties_nic_esw_fdb;
++
++	struct mlx5_ifc_flow_table_prop_layout_bits flow_table_properties_esw_acl_ingress;
++
++	struct mlx5_ifc_flow_table_prop_layout_bits flow_table_properties_esw_acl_egress;
++
++	u8      reserved_1[0x7800];
++};
++
+ struct mlx5_ifc_per_protocol_networking_offload_caps_bits {
+ 	u8         csum_cap[0x1];
+ 	u8         vlan_cap[0x1];
+@@ -1846,6 +1858,7 @@ union mlx5_ifc_hca_cap_union_bits {
+ 	struct mlx5_ifc_roce_cap_bits roce_cap;
+ 	struct mlx5_ifc_per_protocol_networking_offload_caps_bits per_protocol_networking_offload_caps;
+ 	struct mlx5_ifc_flow_table_nic_cap_bits flow_table_nic_cap;
++	struct mlx5_ifc_flow_table_eswitch_cap_bits flow_table_eswitch_cap;
+ 	u8         reserved_0[0x8000];
+ };
  
-+static int mlx5e_vport_context_update_vlans(struct mlx5e_priv *priv)
-+{
-+	struct net_device *ndev = priv->netdev;
-+	int max_list_size;
-+	int list_size;
-+	u16 *vlans;
-+	int vlan;
-+	int err;
-+	int i;
-+
-+	list_size = 0;
-+	for_each_set_bit(vlan, priv->vlan.active_vlans, VLAN_N_VID)
-+		list_size++;
-+
-+	max_list_size = 1 << MLX5_CAP_GEN(priv->mdev, log_max_vlan_list);
-+
-+	if (list_size > max_list_size) {
-+		netdev_warn(ndev,
-+			    "netdev vlans list size (%d) > (%d) max vport list size, some vlans will be dropped\n",
-+			    list_size, max_list_size);
-+		list_size = max_list_size;
-+	}
-+
-+	vlans = kcalloc(list_size, sizeof(*vlans), GFP_KERNEL);
-+	if (!vlans)
-+		return -ENOMEM;
-+
-+	i = 0;
-+	for_each_set_bit(vlan, priv->vlan.active_vlans, VLAN_N_VID) {
-+		if (i >= list_size)
-+			break;
-+		vlans[i++] = vlan;
-+	}
-+
-+	err = mlx5_modify_nic_vport_vlans(priv->mdev, vlans, list_size);
-+	if (err)
-+		netdev_err(ndev, "Failed to modify vport vlans list err(%d)\n",
-+			   err);
-+
-+	kfree(vlans);
-+	return err;
-+}
-+
- enum mlx5e_vlan_rule_type {
- 	MLX5E_VLAN_RULE_TYPE_UNTAGGED,
- 	MLX5E_VLAN_RULE_TYPE_ANY_VID,
-@@ -552,6 +595,10 @@ static int mlx5e_add_vlan_rule(struct mlx5e_priv *priv,
- 			 1);
- 		break;
- 	default: /* MLX5E_VLAN_RULE_TYPE_MATCH_VID */
-+		err = mlx5e_vport_context_update_vlans(priv);
-+		if (err)
-+			goto add_vlan_rule_out;
-+
- 		ft_ix = &priv->vlan.active_vlans_ft_ix[vid];
- 		MLX5_SET(fte_match_param, match_value, outer_headers.vlan_tag,
- 			 1);
-@@ -588,6 +635,7 @@ static void mlx5e_del_vlan_rule(struct mlx5e_priv *priv,
- 	case MLX5E_VLAN_RULE_TYPE_MATCH_VID:
- 		mlx5_del_flow_table_entry(priv->ft.vlan,
- 					  priv->vlan.active_vlans_ft_ix[vid]);
-+		mlx5e_vport_context_update_vlans(priv);
- 		break;
- 	}
- }
-@@ -619,6 +667,8 @@ int mlx5e_vlan_rx_add_vid(struct net_device *dev, __always_unused __be16 proto,
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
- 
-+	set_bit(vid, priv->vlan.active_vlans);
-+
- 	return mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, vid);
- }
- 
-@@ -627,6 +677,8 @@ int mlx5e_vlan_rx_kill_vid(struct net_device *dev, __always_unused __be16 proto,
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
- 
-+	clear_bit(vid, priv->vlan.active_vlans);
-+
- 	mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, vid);
- 
- 	return 0;
 -- 
 2.3.7
