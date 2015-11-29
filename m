@@ -1,46 +1,35 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [PATCH iproute] vxlan: Add support for remote checksum offload
-Date: Sun, 29 Nov 2015 11:54:21 -0800
-Message-ID: <20151129115421.43b196c5@xeon-e3>
-References: <1448648623-3336620-1-git-send-email-tom@herbertland.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 -next v2 5/5] {f,m}_bpf: add more example code
+Date: Sun, 29 Nov 2015 11:56:01 -0800
+Message-ID: <20151129115601.76c07295@xeon-e3>
+References: <cover.1448547199.git.daniel@iogearbox.net>
+	<d40d1f8668201d9a766aabef4045c6baf14aa146.1448547199.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Cc: ast@kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:3246 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752369AbbK2TyR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 14:54:17 -0500
-In-Reply-To: <1448648623-3336620-1-git-send-email-tom@herbertland.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:35865 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752108AbbK2Tzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 14:55:52 -0500
+Received: by pacdm15 with SMTP id dm15so161568072pac.3
+        for <netdev@vger.kernel.org>; Sun, 29 Nov 2015 11:55:52 -0800 (PST)
+In-Reply-To: <d40d1f8668201d9a766aabef4045c6baf14aa146.1448547199.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 27 Nov 2015 10:23:43 -0800
-Tom Herbert <tom@herbertland.com> wrote:
+On Thu, 26 Nov 2015 15:38:46 +0100
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-> This patch adds support to remote checksum checksum offload
-> to VXLAN. This patch adds remcsumtx and remcsumrx to ip vxlan
-> configuration to enable remote checksum offload for transmit
-> and receive on the VXLAN tunnel.
+> I've added three examples to examples/bpf/ that demonstrate how one can
+> implement eBPF tail calls in tc with f.e. multiple levels of nesting.
+> That should act as a good starting point, but also as test cases for the
+> ELF loader and kernel. A real test suite for {f,m,e}_bpf is still to be
+> developed in future work.
 > 
-> https://tools.ietf.org/html/draft-herbert-vxlan-rco-00
-> 
-> Example:
-> 
-> ip link add name vxlan0 type vxlan id 42 group 239.1.1.1 dev eth0 \
->     udpcsum remcsumtx remcsumrx
-> 
-> Testing:
-> 
-> Ran single netperf over mlnx4 to illustrate the effest:
-> 
-> - Without RCO (UDP csum set to zero)
->   4335.99 Mbps
-> - With RCO enabled
->   7661.81 Mbps
-> 
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-Applied, thanks
+All applied to net-next branch.
