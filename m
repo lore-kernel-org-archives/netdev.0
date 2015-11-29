@@ -1,111 +1,34 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [patch net-next v2 4/6] mlxsw: core: Implement temperature hwmon interface
-Date: Sun, 29 Nov 2015 11:04:07 +0200
-Message-ID: <CAJ3xEMgUt4a-Mq8DO0a_Vm-UYJsHsrxYyGh23=rSAiZ12S9oGQ@mail.gmail.com>
-References: <1448628359-20077-1-git-send-email-jiri@resnulli.us>
-	<1448628359-20077-5-git-send-email-jiri@resnulli.us>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: TUN interfaces loopback
+Date: Sun, 29 Nov 2015 17:40:20 +0900
+Message-ID: <CAKD1Yr1eh5nawO3793Z61-UOYr5uXiT8FFksGeEZ2F1A8e=u3g@mail.gmail.com>
+References: <1448470693.7801.41.camel@mindbit.ro>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, idosch@mellanox.com,
-	Elad Raz <eladr@mellanox.com>, yotamg@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Radu Rendec <radu.rendec@mindbit.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:33242 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751412AbbK2JEI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 04:04:08 -0500
-Received: by igcmv3 with SMTP id mv3so52945699igc.0
-        for <netdev@vger.kernel.org>; Sun, 29 Nov 2015 01:04:07 -0800 (PST)
-In-Reply-To: <1448628359-20077-5-git-send-email-jiri@resnulli.us>
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:34937 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751723AbbK2Ikl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 03:40:41 -0500
+Received: by ykba77 with SMTP id a77so154313052ykb.2
+        for <netdev@vger.kernel.org>; Sun, 29 Nov 2015 00:40:40 -0800 (PST)
+In-Reply-To: <1448470693.7801.41.camel@mindbit.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[..]
-> +enum mlxsw_hwmon_attr_type {
-> +       MLXSW_HWMON_ATTR_TYPE_TEMP,
-> +       MLXSW_HWMON_ATTR_TYPE_TEMP_MAX,
-> +};
-> +
-> +static void mlxsw_hwmon_attr_add(struct mlxsw_hwmon *mlxsw_hwmon,
-> +                                enum mlxsw_hwmon_attr_type attr_type,
-> +                                unsigned int type_index, unsigned int num) {
-> +       struct mlxsw_hwmon_attr *mlxsw_hwmon_attr;
-> +       unsigned int attr_index;
-> +
-> +       attr_index = mlxsw_hwmon->attrs_count;
-> +       mlxsw_hwmon_attr = &mlxsw_hwmon->hwmon_attrs[attr_index];
-> +
-> +       switch (attr_type) {
-> +       case MLXSW_HWMON_ATTR_TYPE_TEMP:
-> +               mlxsw_hwmon_attr->dev_attr.show = mlxsw_hwmon_temp_show;
-> +               mlxsw_hwmon_attr->dev_attr.attr.mode = S_IRUGO;
-> +               snprintf(mlxsw_hwmon_attr->name, sizeof(mlxsw_hwmon_attr->name),
-> +                        "temp%u_input", num + 1);
-> +               break;
-> +       case MLXSW_HWMON_ATTR_TYPE_TEMP_MAX:
-> +               mlxsw_hwmon_attr->dev_attr.show = mlxsw_hwmon_temp_max_show;
-> +               mlxsw_hwmon_attr->dev_attr.attr.mode = S_IRUGO;
-> +               snprintf(mlxsw_hwmon_attr->name, sizeof(mlxsw_hwmon_attr->name),
-> +                        "temp%u_highest", num + 1);
-> +               break;
-> +       default:
-> +               BUG();
+On Thu, Nov 26, 2015 at 1:58 AM, Radu Rendec <radu.rendec@mindbit.ro> wrote:
+> I tracked down the problem to ip_route_input_slow() in net/ipv4/route.c
+> [...]
+> The next problem is that packets are seen as "martians" and dropped,
+> most probably because of __fib_validate_source() failing due to the
+> fact that the input interface is not the expected one.
 
-Guys, do we really have to crash the whole system just b/c somehow an unknown
-value propagated here during **init** time?
+Have you tried setting this?
 
-I don't think so.
-
-> +
-> +       mlxsw_hwmon_attr->type_index = type_index;
-> +       mlxsw_hwmon_attr->hwmon = mlxsw_hwmon;
-> +       mlxsw_hwmon_attr->dev_attr.attr.name = mlxsw_hwmon_attr->name;
-> +       sysfs_attr_init(&mlxsw_hwmon_attr->dev_attr.attr);
-> +
-> +       mlxsw_hwmon->attrs[attr_index] = &mlxsw_hwmon_attr->dev_attr.attr;
-> +       mlxsw_hwmon->attrs_count++;
-> +}
-> +
-
-[...]
-> +int mlxsw_hwmon_init(struct mlxsw_core *mlxsw_core,
-> +                    const struct mlxsw_bus_info *mlxsw_bus_info,
-> +                    struct mlxsw_hwmon **p_hwmon)
-> +{
-> +       struct mlxsw_hwmon *mlxsw_hwmon;
-> +       struct device *hwmon_dev;
-> +       int err;
-> +
-> +       mlxsw_hwmon = kzalloc(sizeof(*mlxsw_hwmon), GFP_KERNEL);
-> +       if (!mlxsw_hwmon)
-> +               return -ENOMEM;
-> +       mlxsw_hwmon->core = mlxsw_core;
-> +       mlxsw_hwmon->bus_info = mlxsw_bus_info;
-> +
-> +       err = mlxsw_hwmon_temp_init(mlxsw_hwmon);
-> +       if (err)
-> +               goto err_temp_init;
-> +
-> +       mlxsw_hwmon->groups[0] = &mlxsw_hwmon->group;
-> +       mlxsw_hwmon->group.attrs = mlxsw_hwmon->attrs;
-> +
-> +       hwmon_dev = devm_hwmon_device_register_with_groups(mlxsw_bus_info->dev,
-> +                                                          "mlxsw",
-> +                                                          mlxsw_hwmon,
-> +                                                          mlxsw_hwmon->groups);
-> +       if (IS_ERR(hwmon_dev)) {
-> +               err = PTR_ERR(hwmon_dev);
-> +               goto err_hwmon_register;
-> +       }
-> +
-> +       mlxsw_hwmon->hwmon_dev = hwmon_dev;
-> +       *p_hwmon = mlxsw_hwmon;
-> +       return 0;
-> +
-> +err_hwmon_register:
-> +err_temp_init:
-> +       kfree(mlxsw_hwmon);
-> +       return err;
-> +}
-> +
+accept_local - BOOLEAN
+        Accept packets with local source addresses. In combination with
+        suitable routing, this can be used to direct packets between two
+        local interfaces over the wire and have them accepted properly.
+        default FALSE
