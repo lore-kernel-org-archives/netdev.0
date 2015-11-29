@@ -1,78 +1,58 @@
-From: Radu Rendec <radu.rendec@mindbit.ro>
-Subject: Re: TUN interfaces loopback
-Date: Sun, 29 Nov 2015 23:56:14 +0200
-Message-ID: <1448834174.3668.27.camel@mindbit.ro>
-References: <1448470693.7801.41.camel@mindbit.ro>
-	 <CAKD1Yr1eh5nawO3793Z61-UOYr5uXiT8FFksGeEZ2F1A8e=u3g@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] Improve Atheros ethernet driver not to do order 4
+ GFP_ATOMIC allocation
+Date: Mon, 30 Nov 2015 00:58:03 +0300
+Message-ID: <565B74EB.3000005@cogentembedded.com>
+References: <20151126163413.GA3816@amd> <20151127082010.GA2500@dhcp22.suse.cz>
+ <20151128145113.GB4135@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.mindbit.ro ([80.86.127.26]:59067 "EHLO ns2.local.mindbit.ro"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752674AbbK2V4R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Nov 2015 16:56:17 -0500
-In-Reply-To: <CAKD1Yr1eh5nawO3793Z61-UOYr5uXiT8FFksGeEZ2F1A8e=u3g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kernel list <linux-kernel@vger.kernel.org>, jcliburn@gmail.com,
+ chris.snook@gmail.com, netdev@vger.kernel.org,
+ "Rafael J. Wysocki" <rjw@rjwysocki.net>, linux-mm@kvack.org,
+ nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com
+To: Pavel Machek <pavel@ucw.cz>, Michal Hocko <mhocko@kernel.org>,
+ davem@davemloft.net, Andrew Morton <akpm@osdl.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20151128145113.GB4135@amd>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2015-11-29 at 17:40 +0900, Lorenzo Colitti wrote:
-> On Thu, Nov 26, 2015 at 1:58 AM, Radu Rendec <radu.rendec@mindbit.ro>=
- wrote:
-> > I tracked down the problem to ip_route_input_slow() in net/ipv4/rou=
-te.c
-> > [...]
-> > The next problem is that packets are seen as "martians" and dropped=
-,
-> > most probably because of __fib_validate_source() failing due to the
-> > fact that the input interface is not the expected one.
->=20
-> Have you tried setting this?
->=20
-> accept_local - BOOLEAN
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0Accept packets with l=
-ocal source addresses. In combination with
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0suitable routing, thi=
-s can be used to direct packets between two
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0local interfaces over=
- the wire and have them accepted properly.
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0default FALSE
+Hello.
 
-I have tried it, but with no luck. I also tried with=C2=A0rp_filter=3D0=
-, which
-seems to be even more permissive than accept_local.
+On 11/28/2015 5:51 PM, Pavel Machek wrote:
 
-However, after reading the code more carefully, I finally figured it
-out. It turns out that it's enough to have different (and correct)
-routes for the outgoing and incoming routing decisions.
+> atl1c driver is doing order-4 allocation with GFP_ATOMIC
+> priority. That often breaks  networking after resume. Switch to
+> GFP_KERNEL. Still not ideal, but should be significantly better.
+>
+> Signed-off-by: Pavel Machek <pavel@ucw.cz>
+>
+> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> index 2795d6d..afb71e0 100644
+> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> @@ -1016,10 +1016,10 @@ static int atl1c_setup_ring_resources(struct atl1c_adapter *adapter)
+>   		sizeof(struct atl1c_recv_ret_status) * rx_desc_count +
+>   		8 * 4;
+>
+> -	ring_header->desc = pci_alloc_consistent(pdev, ring_header->size,
+> -				&ring_header->dma);
+> +	ring_header->desc = dma_alloc_coherent(&pdev->dev, ring_header->size,
+> +					       &ring_header->dma, GFP_KERNEL);
+>   	if (unlikely(!ring_header->desc)) {
+> -		dev_err(&pdev->dev, "pci_alloc_consistend failed\n");
+> +		dev_err(&pdev->dev, "could not get memmory for DMA buffer\n");
 
-So in the following configuration:
-tun0 [192.168.1.1 point-to-point 192.168.1.2]
-^
-|
-v
-tun1 [192.168.1.2 point-to-point 192.168.1.1]
+     s/memmory/memory/.
 
-it's enough to do the following:
+[...]
 
- * Remove the automatically added routes from the "local" table.
- * Add two rules (one for each tun interface) *matching the input
-   interface* and directing to a custom routing table (i.e. "ip rule
-   add iif tunX lookup Y").
- * Add *local* routes for each tun interface to the custom routing
-   table.
-The trick here is that iif is set to 0 during the outgoing route
-lookup, so the outgoing routing decision will not "see" the local
-routes in the custom table. It will see the implicitly added routes in
-the "main" table (these will route packets through the tun interfaces).
+MBR, Sergei
 
-When the packet pops out of the opposite tun interface, the incoming
-routing decision has iif set properly and will match the *local* routes
-in the custom table. It is essential to match a local route at this
-point, or else the packet will not be processed locally (as a packet
-addressed to "this host").
-
-With routing configured this way, not only that the martians problem
-went away, but it works even with rp_filter=3D1 and accept_local=3D0.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
