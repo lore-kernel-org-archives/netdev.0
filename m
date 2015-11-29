@@ -1,35 +1,55 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next V1 13/18] net/mlx5: E-Switch, Add SR-IOV (FDB)
- support
-Date: Sun, 29 Nov 2015 19:07:14 +0200
-Message-ID: <565B30C2.2070007@mellanox.com>
-References: <201511300041.HLRu7EyR%fengguang.wu@intel.com>
- <alpine.DEB.2.10.1511291725070.2713@hadrien>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: network stream fairness
+Date: Sun, 29 Nov 2015 09:40:12 -0800
+Message-ID: <1448818812.24696.104.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5640BEAC.10404@axis.com>
+	 <1447084258.17135.39.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5640C15E.805@axis.com>
+	 <1447085271.17135.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <564F3D3D.7050004@axis.com>
+	 <1448043414.22599.287.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5655ADC7.3040606@axis.com>
+	 <1448459372.22599.324.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151129024120.GA6522@lnxniklass.se.axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Don Dutile <ddutile@redhat.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>, <ronye@mellanox.com>,
-	<kbuild-all@01.org>
-To: Julia Lawall <julia.lawall@lip6.fr>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0083.outbound.protection.outlook.com ([157.55.234.83]:62432
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751013AbbK2RXT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Nov 2015 12:23:19 -0500
-In-Reply-To: <alpine.DEB.2.10.1511291725070.2713@hadrien>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35257 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751301AbbK2RkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 12:40:15 -0500
+Received: by pacej9 with SMTP id ej9so159797337pac.2
+        for <netdev@vger.kernel.org>; Sun, 29 Nov 2015 09:40:14 -0800 (PST)
+In-Reply-To: <20151129024120.GA6522@lnxniklass.se.axis.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2015 6:27 PM, Julia Lawall wrote:
-> Please check line 442.  It seems clear that match_c was intended.
 
-Sure, will fix that and run more static checkers before submitting V2, seems
-like checkpatch, smatch and sparse are not enough... thanks for pointing 
-this out.
+> If I didn't know that though, my expectations would be that the
+> Fair Queue packet scheduler would behave just like its name says, fair. :P
+> 
 
-Or.
+Only if the flows have same characteristics. This cannot be ensured for
+hours long flows. This should be obvious.
+
+If one flow is not trying to push enough, it will loose its round in the
+Round Robin scheduler, because no packet is sitting in the packet
+scheduler for this flow.
+
+A simple slowdown, cause by a packet drop, or scheduler artifact on the
+sender or receiver can make one flow steal whole bandwidth, even when FQ
+is in the picture.
+
+I have no idea why you are expecting multiple TCP flows being fair.
+There is absolutely nothing in TCP protocol to ensure this.
+
+
+In short, fq_codel or fq are not doing what you think they do.
+
+If you want fair flows, you MUST pace them say at 40Mbits each.
+
+The fact that one 'patch' slightly changes the condition for unfairness
+to start is absolutely irrelevant.
