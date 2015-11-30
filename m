@@ -1,41 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: What now when we're [almost] out of ADVERTISED bits?
-Date: Sun, 29 Nov 2015 21:53:59 -0500 (EST)
-Message-ID: <20151129.215359.213447478744491730.davem@davemloft.net>
-References: <CO2PR11MB00887F0A656EFB801BA2599797010@CO2PR11MB0088.namprd11.prod.outlook.com>
-	<CAJ3xEMj4ygmuSnxS-wkwukYyMgaA2omSQ+0MvY1MZKVv4_U6=A@mail.gmail.com>
-	<1448844054.1990.32.camel@decadent.org.uk>
+Subject: Re: [PATCH v3] packet: Allow packets with only a header (but no
+ payload)
+Date: Sun, 29 Nov 2015 22:18:49 -0500 (EST)
+Message-ID: <20151129.221849.57848790197671069.davem@davemloft.net>
+References: <1448067012-15090-1-git-send-email-martin.blumenstingl@googlemail.com>
+	<1448210769-15289-1-git-send-email-martin.blumenstingl@googlemail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gerlitz.or@gmail.com, Yuval.Mintz@qlogic.com,
-	netdev@vger.kernel.org, ddecotig@gmail.com
-To: ben@decadent.org.uk
+Cc: netdev@vger.kernel.org, willemb@google.com, edumazet@google.com,
+	nbd@openwrt.org, sergei.shtylyov@cogentembedded.com
+To: martin.blumenstingl@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47299 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47862 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751575AbbK3CyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 21:54:04 -0500
-In-Reply-To: <1448844054.1990.32.camel@decadent.org.uk>
+	with ESMTP id S1750736AbbK3DSv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 22:18:51 -0500
+In-Reply-To: <1448210769-15289-1-git-send-email-martin.blumenstingl@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Mon, 30 Nov 2015 00:40:54 +0000
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Date: Sun, 22 Nov 2015 17:46:09 +0100
 
-> On Sun, 2015-11-29 at 23:39 +0200, Or Gerlitz wrote:
->> On Sun, Nov 29, 2015 at 3:53 PM, Yuval Mintz <Yuval.Mintz@qlogic.com> wrote:
->> > [I suspect there was probably some discussion over this,
->> > but I couldn't find it; References would be welcome]
->> 
->> there was a work by David Decotigny that should have solved the out of
->> bits problem here [1]. Maybe it should be revived.
->> 
->> [1] https://lkml.org/lkml/2015/1/26/882
+> Commit 9c7077622dd91 ("packet: make packet_snd fail on len smaller
+> than l2 header") added validation for the packet size in packet_snd.
+> This change enforces that every packet needs a header (with at least
+> hard_header_len bytes) plus a payload with at least one byte. Before
+> this change the payload was optional.
 > 
-> Yes, it should.
+> This fixes PPPoE connections which do not have a "Service" or
+> "Host-Uniq" configured (which is violating the spec, but is still
+> widely used in real-world setups). Those are currently failing with the
+> following message: "pppd: packet size is too short (24 <= 24)"
+> 
+> Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
 
-A repost would strongly facilitate that.
-
-Just if anyone ever thinks something is being ignored, just don't
-even use your brain, simply repost it again.
+Applied, thanks.
