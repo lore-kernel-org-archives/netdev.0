@@ -1,180 +1,47 @@
-From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH 07/13] net: thunderx: Remove unnecessary rcv buffer start
- address management
-Date: Mon, 30 Nov 2015 23:49:03 +0530
-Message-ID: <1448907549-5296-8-git-send-email-sunil.kovvuri@gmail.com>
-References: <y>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] ipv6: kill sk_dst_lock
+Date: Mon, 30 Nov 2015 10:27:32 -0800
+Message-ID: <1448908052.24696.136.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACT4Y+Y=35aC5DK7MQaDF6eviKcXik2S9caTLw7FAp0L0CXdsg@mail.gmail.com>
+	 <1448730683.24696.94.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1448731434.24696.97.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1448854142.24696.109.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1448901315.24696.127.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1448907188.5804.31.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Sunil Goutham <sgoutham@cavium.com>, Sunil.Goutham@caviumnetworks.com,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <y>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netdev <netdev@vger.kernel.org>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34699 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753899AbbK3S1e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 13:27:34 -0500
+Received: by padhx2 with SMTP id hx2so192399640pad.1
+        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 10:27:33 -0800 (PST)
+In-Reply-To: <1448907188.5804.31.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sunil Goutham <sgoutham@cavium.com>
+On Mon, 2015-11-30 at 19:13 +0100, Paolo Abeni wrote:
+> On Mon, 2015-11-30 at 08:35 -0800, Eric Dumazet wrote:
+> > ip6_sk_dst_lookup_flow() uses sk_dst_check() anyway, so the simplest
+> > way to fix the mess is to remove sk_dst_lock completely, as we did for
+> > IPv4.
+> 
+> Probably I'm missing something here, but why we don't need to sync the
+> update of sk_dst_cache and of dst_cookie (i.e. put them under the same
+> lock)?
+> 
+> Can't we end up with inconsistent values after concurrent udp
+> sendmsg() ? 
 
-Since we have moved on to using allocated pages to carve receive
-buffers instead of netdev_alloc_skb() there is no need to store
-any pointers for later retrieval. Earlier we had to store
-skb and skb->data pointers which later are used to handover
-received packet to network stack.
+I do not think this is an issue. A route is best effort.
 
-This will avoid an unnecessary cache miss as well.
-
-Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |   49 ++++----------------
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |   10 +---
- 2 files changed, 11 insertions(+), 48 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index 99a29d0..1fbd908 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -18,14 +18,6 @@
- #include "q_struct.h"
- #include "nicvf_queues.h"
- 
--struct rbuf_info {
--	struct page *page;
--	void	*data;
--	u64	offset;
--};
--
--#define GET_RBUF_INFO(x) ((struct rbuf_info *)(x - NICVF_RCV_BUF_ALIGN_BYTES))
--
- /* Poll a register for a specific value */
- static int nicvf_poll_reg(struct nicvf *nic, int qidx,
- 			  u64 reg, int bit_pos, int bits, int val)
-@@ -86,8 +78,6 @@ static void nicvf_free_q_desc_mem(struct nicvf *nic, struct q_desc_mem *dmem)
- static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, gfp_t gfp,
- 					 u32 buf_len, u64 **rbuf)
- {
--	u64 data;
--	struct rbuf_info *rinfo;
- 	int order = get_order(buf_len);
- 
- 	/* Check if request can be accomodated in previous allocated page */
-@@ -113,46 +103,28 @@ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, gfp_t gfp,
- 		nic->rb_page_offset = 0;
- 	}
- 
--	data = (u64)page_address(nic->rb_page) + nic->rb_page_offset;
--
--	/* Align buffer addr to cache line i.e 128 bytes */
--	rinfo = (struct rbuf_info *)(data + NICVF_RCV_BUF_ALIGN_LEN(data));
--	/* Save page address for reference updation */
--	rinfo->page = nic->rb_page;
--	/* Store start address for later retrieval */
--	rinfo->data = (void *)data;
--	/* Store alignment offset */
--	rinfo->offset = NICVF_RCV_BUF_ALIGN_LEN(data);
-+	*rbuf = (u64 *)((u64)page_address(nic->rb_page) + nic->rb_page_offset);
- 
--	data += rinfo->offset;
--
--	/* Give next aligned address to hw for DMA */
--	*rbuf = (u64 *)(data + NICVF_RCV_BUF_ALIGN_BYTES);
- 	return 0;
- }
- 
--/* Retrieve actual buffer start address and build skb for received packet */
-+/* Build skb around receive buffer */
- static struct sk_buff *nicvf_rb_ptr_to_skb(struct nicvf *nic,
- 					   u64 rb_ptr, int len)
- {
-+	void *data;
- 	struct sk_buff *skb;
--	struct rbuf_info *rinfo;
- 
--	rb_ptr = (u64)phys_to_virt(rb_ptr);
--	/* Get buffer start address and alignment offset */
--	rinfo = GET_RBUF_INFO(rb_ptr);
-+	data = phys_to_virt(rb_ptr);
- 
- 	/* Now build an skb to give to stack */
--	skb = build_skb(rinfo->data, RCV_FRAG_LEN);
-+	skb = build_skb(data, RCV_FRAG_LEN);
- 	if (!skb) {
--		put_page(rinfo->page);
-+		put_page(virt_to_page(data));
- 		return NULL;
- 	}
- 
--	/* Set correct skb->data */
--	skb_reserve(skb, rinfo->offset + NICVF_RCV_BUF_ALIGN_BYTES);
--
--	prefetch((void *)rb_ptr);
-+	prefetch(skb->data);
- 	return skb;
- }
- 
-@@ -196,7 +168,6 @@ static void nicvf_free_rbdr(struct nicvf *nic, struct rbdr *rbdr)
- 	int head, tail;
- 	u64 buf_addr;
- 	struct rbdr_entry_t *desc;
--	struct rbuf_info *rinfo;
- 
- 	if (!rbdr)
- 		return;
-@@ -212,16 +183,14 @@ static void nicvf_free_rbdr(struct nicvf *nic, struct rbdr *rbdr)
- 	while (head != tail) {
- 		desc = GET_RBDR_DESC(rbdr, head);
- 		buf_addr = desc->buf_addr << NICVF_RCV_BUF_ALIGN;
--		rinfo = GET_RBUF_INFO((u64)phys_to_virt(buf_addr));
--		put_page(rinfo->page);
-+		put_page(virt_to_page(phys_to_virt(buf_addr)));
- 		head++;
- 		head &= (rbdr->dmem.q_len - 1);
- 	}
- 	/* Free SKB of tail desc */
- 	desc = GET_RBDR_DESC(rbdr, tail);
- 	buf_addr = desc->buf_addr << NICVF_RCV_BUF_ALIGN;
--	rinfo = GET_RBUF_INFO((u64)phys_to_virt(buf_addr));
--	put_page(rinfo->page);
-+	put_page(virt_to_page(phys_to_virt(buf_addr)));
- 
- 	/* Free RBDR ring */
- 	nicvf_free_q_desc_mem(nic, &rbdr->dmem);
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index 457eaee..bce8099 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -83,10 +83,8 @@
- #define MAX_RCV_BUF_COUNT	(1ULL << (RBDR_SIZE6 + 13))
- #define RBDR_THRESH		(RCV_BUF_COUNT / 2)
- #define DMA_BUFFER_LEN		2048 /* In multiples of 128bytes */
--#define RCV_FRAG_LEN	(SKB_DATA_ALIGN(DMA_BUFFER_LEN + NET_SKB_PAD) + \
--			 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) + \
--			 (NICVF_RCV_BUF_ALIGN_BYTES * 2))
--#define RCV_DATA_OFFSET		NICVF_RCV_BUF_ALIGN_BYTES
-+#define RCV_FRAG_LEN	 (SKB_DATA_ALIGN(DMA_BUFFER_LEN + NET_SKB_PAD) + \
-+			 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
- 
- #define MAX_CQES_FOR_TX		((SND_QUEUE_LEN / MIN_SQ_DESC_PER_PKT_XMIT) * \
- 				 MAX_CQE_PER_PKT_XMIT)
-@@ -108,10 +106,6 @@
- #define NICVF_SQ_BASE_ALIGN_BYTES	128  /* 7 bits */
- 
- #define NICVF_ALIGNED_ADDR(ADDR, ALIGN_BYTES)	ALIGN(ADDR, ALIGN_BYTES)
--#define NICVF_ADDR_ALIGN_LEN(ADDR, BYTES)\
--	(NICVF_ALIGNED_ADDR(ADDR, BYTES) - BYTES)
--#define NICVF_RCV_BUF_ALIGN_LEN(X)\
--	(NICVF_ALIGNED_ADDR(X, NICVF_RCV_BUF_ALIGN_BYTES) - X)
- 
- /* Queue enable/disable */
- #define NICVF_SQ_EN		BIT_ULL(19)
--- 
-1.7.1
+If really a packet is dropped during a route flap, no big deal,
+especially if this is during a fuzzer test ;)
