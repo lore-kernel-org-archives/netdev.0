@@ -1,37 +1,44 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: fec: fix enet_out clock handling
-Date: Mon, 30 Nov 2015 02:58:23 +0100
-Message-ID: <20151130015823.GA32662@lunn.ch>
-References: <1448631550-943-1-git-send-email-LW@KARO-electronics.de>
- <BN3PR0301MB1219C4D8E1B09F1AE27E18FAF5020@BN3PR0301MB1219.namprd03.prod.outlook.com>
- <20151128164337.GF32356@lunn.ch>
- <BN3PR0301MB12193BED335F9781168308CCF5000@BN3PR0301MB1219.namprd03.prod.outlook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Increasing skb->mark size
+Date: Sun, 29 Nov 2015 20:58:54 -0500 (EST)
+Message-ID: <20151129.205854.160622377475841200.davem@davemloft.net>
+References: <1448397144.14854.27.camel@mattb-dl>
+	<CAKD1Yr3URKzAooiNH7i4kHVR0-TQjEAkQEdqjarAm6uxH7u-Mw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lothar Wa?mann <LW@KARO-electronics.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <Fabio.Estevam@freescale.com>,
-	Kevin Hao <haokexin@gmail.com>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Philippe Reynes <tremyfr@gmail.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Uwe Kleine-K?nig <u.kleine-koenig@pengutronix.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stefan Agner <stefan@agner.ch>
-To: Duan Andy <fugang.duan@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <BN3PR0301MB12193BED335F9781168308CCF5000@BN3PR0301MB1219.namprd03.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Matt.Bennett@alliedtelesis.co.nz, netdev@vger.kernel.org,
+	Luuk.Paulussen@alliedtelesis.co.nz
+To: lorenzo@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46224 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751340AbbK3B66 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 20:58:58 -0500
+In-Reply-To: <CAKD1Yr3URKzAooiNH7i4kHVR0-TQjEAkQEdqjarAm6uxH7u-Mw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Do you mean PHY switch also use the enet_out clock ?
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Sun, 29 Nov 2015 17:37:11 +0900
 
-Yes, the Marvell switches i've have connected to a Vybrid use enet_out
-clock. There was a recent change to IMX pinctrl which broke the muxing
-for ENET_OUT on Vydrid, which broke the probing of these switches. It
-was no longer possible to mux the pin as ENET_OUT, and the switches
-disappeared.
+> On Wed, Nov 25, 2015 at 5:32 AM, Matt Bennett
+> <Matt.Bennett@alliedtelesis.co.nz> wrote:
+>> I'm emailing this list for feedback on the feasibility of increasing
+>> skb->mark or adding a new field for marking. Perhaps this extension
+>> could be done under a new CONFIG option.
+> 
+> 64-bit marks (both skb->mark and sk->sk_mark) would be useful for
+> hosts doing complex policy routing as well. Current Android releases
+> use 20 of the 32 bits. If the mark were 64 bits, we could put the UID
+> in it, and stop using ip rules to implement per-UID routing.
 
-	Andrew
+If you guys, really anyone, can find a way to remove some other
+32-bit item from sk_buff, you can expand skb->mark to 64-bits.
+
+But otherwise, I'm going to be strongly against it.
+
+sk_buff is already enormous and larger than it should be.  So
+I'm going to resist any change that makes it even larger.
+
+Thanks.
