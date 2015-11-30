@@ -1,51 +1,58 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net] bpf, array: fix heap out-of-bounds access when
- updating elements
-Date: Mon, 30 Nov 2015 10:29:46 -0800
-Message-ID: <20151130182946.GB30762@ast-mbp.thefacebook.com>
-References: <674d6a1d4ff0e7728e535dc2d8fe1c5bea1e50b0.1448883657.git.daniel@iogearbox.net>
+From: Gabriel Paubert <paubert@iram.es>
+Subject: Re: [P.A. Semi] Does the ethernet interface work on your Electra,
+ Chitra, Nemo, and Athena board?
+Date: Mon, 30 Nov 2015 19:12:18 +0100
+Message-ID: <20151130181217.GA15921@visitor2.iram.es>
+References: <565AF986.9060106@xenosoft.de>
+ <CAOJe8K1911vDjMe9m_1vY6DSGpOk0TmL96Qf1whuNFXxHJesGw@mail.gmail.com>
+ <565C1B55.4020207@xenosoft.de>
+ <565C8287.7090209@xenosoft.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, ast@kernel.org, dvyukov@google.com,
-	kcc@google.com, glider@google.com, edumazet@google.com,
-	sasha.levin@oracle.com, syzkaller@googlegroups.com,
-	netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Denis Kirjanov <kda@linux-powerpc.org>,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
+To: Christian Zigotzky <chzigotzky@xenosoft.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36669 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754392AbbK3S3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 13:29:50 -0500
-Received: by pacdm15 with SMTP id dm15so192471135pac.3
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 10:29:49 -0800 (PST)
+Received: from rudy.puc.rediris.es ([130.206.18.132]:47823 "EHLO
+	rudy.puc.rediris.es" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754186AbbK3SaJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 13:30:09 -0500
 Content-Disposition: inline
-In-Reply-To: <674d6a1d4ff0e7728e535dc2d8fe1c5bea1e50b0.1448883657.git.daniel@iogearbox.net>
+In-Reply-To: <565C8287.7090209@xenosoft.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 30, 2015 at 01:02:55PM +0100, Daniel Borkmann wrote:
-> During own review but also reported by Dmitry's syzkaller [1] it has been
-> noticed that we trigger a heap out-of-bounds access on eBPF array maps
-> when updating elements. This happens with each map whose map->value_size
-> (specified during map creation time) is not multiple of 8 bytes.
-...
-> In case of array_map_lookup_elem(), the verifier prevents eBPF programs
-> from accessing beyond map->value_size through check_map_access(). Also
-> from syscall side map_lookup_elem() only copies map->value_size back to
-> user, so nothing could leak.
+On Mon, Nov 30, 2015 at 06:08:23PM +0100, Christian Zigotzky wrote:
+> Hi All,
 > 
->   [1] http://github.com/google/syzkaller
+> I have tested the PA Semi Ethernet with the kernels 4.2.3 and 4.3.0
+> today. With the kernel 4.2.3 it works but with the kernel 4.3.0
+> final it doesn't work.
 > 
-> Fixes: 28fbcfa08d8e ("bpf: add array type of eBPF maps")
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> After that I tested some git kernels and release candidates of 4.3.
+> 
+> Kernel 4.3 git from Tue Sep 01, 2015 -> PA Semi Ethernet works
+> Kernel 4.3 git from Wed Sep 02, 2015 -> PA Semi Ethernet works
+> Kernel 4.3 git from Thu Sep 03, 2015 -> PA Semi Ethernet works
+> Kernel 4.3 git from Fri Sep 04, 2015 -> PA Semi Ethernet doesn't
+> work (Merge tag 'powerpc-4.3-1': https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ff474e8ca8547d09cb82ebab56d4c96f9eea01ce)
+> Kernel 4.3 git from Sat Sep 05, 2015 -> PA Semi Ethernet doesn't work
+> Kernel 4.3 git from Mon Sep 07, 2015 -> PA Semi Ethernet doesn't work
+> Kernel 4.3 git from Wed Sep 09, 2015 -> PA Semi Ethernet doesn't work
+> Kernel 4.3 git from Fri Sep 11, 2015 -> PA Semi Ethernet doesn't work
+> Kernel 4.3 RC1 from Sun Sep 13, 2015 -> PA Semi Ethernet doesn't work
+> Kernel 4.3 RC2 from Mon Sep 21, 2015 -> PA Semi Ethernet doesn't work
+> 
+> The problematic commit must be between Thu Sep 03, 2015 at 09:37 AM
+> (UTC +2) and Fri Sep 04, 2015 at 7:38 PM (UTC +2) in the linux git.
+> 
+> Linux git: Between https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/log/?ofs=15500
+> and https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/log/?ofs=15200.
+> 
+> Maybe https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ff474e8ca8547d09cb82ebab56d4c96f9eea01ce.
 
-Dmitry, thanks a lot for applying syzkaller to bpf. The issues
-got cought much sooner than they would have been discovered otherwise.
-Looks like the fuzzing has limited dependency chains described
-in sys/sys.txt. Can they be improved into doing something like:
-single call to map_create followed by many calls to update to
-stress oom ? I did it manually so far without kasan.
+Unless I miss something, that's the kind of regression that "git bisect" is 
+designed to find.
 
-Daniel, thanks for the fix. Commit log is all good.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+    Cheers,
+    Gabriel
