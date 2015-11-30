@@ -1,76 +1,55 @@
-From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next v3 1/8] netfilter: Remove
-	IP_CT_NEW_REPLY definition.
-Date: Mon, 30 Nov 2015 10:16:43 -0800
-Message-ID: <391067B3-D60E-43BC-B669-2DD45924E5D8@ovn.org>
-References: <1448496501-109561-1-git-send-email-jarno@ovn.org>
- <1448496501-109561-2-git-send-email-jarno@ovn.org>
- <20151126054100.GB21626@vergenet.net>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20151126054100.GB21626-IxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ravb: add R8A7791 support
+Date: Mon, 30 Nov 2015 22:08:22 +0300
+Message-ID: <565C9EA6.309@cogentembedded.com>
+References: <6051623.qN4lqSyZKg@wasted.cogentembedded.com>
+ <CAMuHMdWE_G2WqsGZEaa4Ck3zziTLGVPfaVdU2gbnLA5zWpmR1w@mail.gmail.com>
+ <565B6AAD.8080205@cogentembedded.com> <20151130004207.GD3501@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20151130004207.GD3501@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cj4gT24gTm92IDI1LCAyMDE1LCBhdCAyMTo0MSwgU2ltb24gSG9ybWFuIDxzaW1vbi5ob3JtYW5A
-bmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gCj4+IE9uIFdlZCwgTm92IDI1LCAyMDE1IGF0IDA0OjA4
-OjE0UE0gLTA4MDAsIEphcm5vIFJhamFoYWxtZSB3cm90ZToKPj4gUmVtb3ZlIHRoZSBkZWZpbml0
-aW9uIG9mIElQX0NUX05FV19SRVBMWSBmcm9tIHRoZSBrZXJuZWwgYXMgaXQgZG9lcwo+PiBub3Qg
-bWFrZSBzZW5zZS4gIFRoaXMgYWxsb3dzIHRoZSBkZWZpbml0aW9uIG9mIElQX0NUX05VTUJFUiB0
-byBiZQo+PiBzaW1wbGlmaWVkIGFzIHdlbGwuCj4+IAo+PiBTaWduZWQtb2ZmLWJ5OiBKYXJubyBS
-YWphaGFsbWUgPGphcm5vQG92bi5vcmc+Cj4gCj4gSSBoYXRlIHRvIGJlIHRoZSBiZWFyZXIgb2Yg
-YmFkIG5ld3MgYnV0IGl0cyBub3QgY2xlYXIKPiB0byBtZSB0aGF0IHRoaXMgY2hhbmdlIGRvZXNu
-J3QgYnJlYWsgdXNlci1zcGFjZS4KPiAKClRoZXNlIHNob3VsZCBiZSBubyBjaGFuZ2UgZm9yIHRo
-ZSB1c2Vyc3BhY2UsIHVubGVzcyBfX0tFUk5FTF9fIGlzIGRlZmluZWQuCgpBbHNvLCB0aGlzIGlz
-IGEgbWlub3IgY2xlYW4tdXAgb25seSwgc28gSSBoYXZlIG5vIHByb2JsZW0gZHJvcHBpbmcgdGhp
-cyBwYXRjaCwgaXMgbmVlZCBiZS4KCiAgSmFybm8KCj4+IC0tLQo+PiBpbmNsdWRlL3VhcGkvbGlu
-dXgvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb21tb24uaCB8IDEyICsrKysrKysrKy0tLQo+PiBu
-ZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgICAgICAgICAgICAgICAgICAgICAgICB8ICAyIC0t
-Cj4+IDIgZmlsZXMgY2hhbmdlZCwgOSBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygtKQo+PiAK
-Pj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvdWFwaS9saW51eC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNr
-X2NvbW1vbi5oIGIvaW5jbHVkZS91YXBpL2xpbnV4L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29t
-bW9uLmgKPj4gaW5kZXggMzE5ZjQ3MS4uMmYwNjdjZiAxMDA2NDQKPj4gLS0tIGEvaW5jbHVkZS91
-YXBpL2xpbnV4L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29tbW9uLmgKPj4gKysrIGIvaW5jbHVk
-ZS91YXBpL2xpbnV4L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29tbW9uLmgKPj4gQEAgLTIwLDkg
-KzIwLDE1IEBAIGVudW0gaXBfY29ubnRyYWNrX2luZm8gewo+PiAKPj4gICAgSVBfQ1RfRVNUQUJM
-SVNIRURfUkVQTFkgPSBJUF9DVF9FU1RBQkxJU0hFRCArIElQX0NUX0lTX1JFUExZLAo+PiAgICBJ
-UF9DVF9SRUxBVEVEX1JFUExZID0gSVBfQ1RfUkVMQVRFRCArIElQX0NUX0lTX1JFUExZLAo+PiAt
-ICAgIElQX0NUX05FV19SRVBMWSA9IElQX0NUX05FVyArIElQX0NUX0lTX1JFUExZLCAgICAKPj4g
-LSAgICAvKiBOdW1iZXIgb2YgZGlzdGluY3QgSVBfQ1QgdHlwZXMgKG5vIE5FVyBpbiByZXBseSBk
-aXJuKS4gKi8KPj4gLSAgICBJUF9DVF9OVU1CRVIgPSBJUF9DVF9JU19SRVBMWSAqIDIgLSAxCj4+
-ICsgICAgLyogTm8gTkVXIGluIHJlcGx5IGRpcmVjdGlvbi4gKi8KPj4gKwo+PiArICAgIC8qIE51
-bWJlciBvZiBkaXN0aW5jdCBJUF9DVCB0eXBlcy4gKi8KPj4gKyAgICBJUF9DVF9OVU1CRVIKPj4g
-Kwo+PiArICAgIC8qIG9ubHkgZm9yIHVzZXJzcGFjZSBjb21wYXRpYmlsaXR5ICovCj4+ICsjaWZu
-ZGVmIF9fS0VSTkVMX18KPj4gKyAgICBJUF9DVF9ORVdfUkVQTFkgPSBJUF9DVF9OVU1CRVI7Cj4+
-ICsjZW5kaWYKPj4gfTsKPj4gCj4+ICNkZWZpbmUgTkZfQ1RfU1RBVEVfSU5WQUxJRF9CSVQgICAg
-ICAgICAgICAoMSA8PCAwKQo+PiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFj
-ay5jIGIvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jCj4+IGluZGV4IGMyY2MxMTEuLmEyOGE4
-MTkgMTAwNjQ0Cj4+IC0tLSBhL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYwo+PiArKysgYi9u
-ZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKPj4gQEAgLTczLDcgKzczLDYgQEAgc3RhdGljIHU4
-IG92c19jdF9nZXRfc3RhdGUoZW51bSBpcF9jb25udHJhY2tfaW5mbyBjdGluZm8pCj4+ICAgIHN3
-aXRjaCAoY3RpbmZvKSB7Cj4+ICAgIGNhc2UgSVBfQ1RfRVNUQUJMSVNIRURfUkVQTFk6Cj4+ICAg
-IGNhc2UgSVBfQ1RfUkVMQVRFRF9SRVBMWToKPj4gLSAgICBjYXNlIElQX0NUX05FV19SRVBMWToK
-Pj4gICAgICAgIGN0X3N0YXRlIHw9IE9WU19DU19GX1JFUExZX0RJUjsKPj4gICAgICAgIGJyZWFr
-Owo+PiAgICBkZWZhdWx0Ogo+PiBAQCAtOTAsNyArODksNiBAQCBzdGF0aWMgdTggb3ZzX2N0X2dl
-dF9zdGF0ZShlbnVtIGlwX2Nvbm50cmFja19pbmZvIGN0aW5mbykKPj4gICAgICAgIGN0X3N0YXRl
-IHw9IE9WU19DU19GX1JFTEFURUQ7Cj4+ICAgICAgICBicmVhazsKPj4gICAgY2FzZSBJUF9DVF9O
-RVc6Cj4+IC0gICAgY2FzZSBJUF9DVF9ORVdfUkVQTFk6Cj4+ICAgICAgICBjdF9zdGF0ZSB8PSBP
-VlNfQ1NfRl9ORVc7Cj4+ICAgICAgICBicmVhazsKPj4gICAgZGVmYXVsdDoKPj4gLS0gCj4+IDIu
-MS40Cj4+IAo+PiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-Xwo+PiBkZXYgbWFpbGluZyBsaXN0Cj4+IGRldkBvcGVudnN3aXRjaC5vcmcKPj4gaHR0cDovL29w
-ZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RldgpfX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRj
-aC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Hello.
+
+On 11/30/2015 03:42 AM, Simon Horman wrote:
+
+>>>> Add support  for yet another ARM member of the R-Car family, R-Car M2, also
+>>
+>>> R-Car M2-W?
+>>
+>>     Right, forgot about the postfixes.
+>>
+>>>> known as R8A7791.
+>>>
+>>> There's also R-Car M2-N, aka R8A7793, but you probably know that ;-)
+>>
+>>     Will fix.
+>
+> I would prefer if we added generic gen2 and gen3 compat strings to the driver
+> and only documented new soc-specific compat strings.
+
+    That's a new policy it seems. Previously you preferred the SoC-specific 
+strings to be used, didn;t you?
+
+> Actually by chance I was planning to up patches to do that and add compat
+> strings for the missing Gen2 boards. But I won't complain if you beat me to
+> it.
+
+    No, I'm pretty busy as is. :-)
+
+MBR, Sergei
+
