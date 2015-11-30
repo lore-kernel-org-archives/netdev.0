@@ -1,173 +1,85 @@
-From: =?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
-Subject: [PATCH 3/3] net: fec: Reset ethernet PHY whenever the enet_out clock is being enabled
-Date: Mon, 30 Nov 2015 12:32:48 +0100
-Message-ID: <1448883168-30742-4-git-send-email-LW@KARO-electronics.de>
-References: <1448883168-30742-1-git-send-email-LW@KARO-electronics.de>
- <1448883168-30742-2-git-send-email-LW@KARO-electronics.de>
- <1448883168-30742-3-git-send-email-LW@KARO-electronics.de>
+From: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
+Subject: Re: [PATCH 13/13] mm: memcontrol: hook up vmpressure to socket
+ pressure
+Date: Mon, 30 Nov 2015 14:36:28 +0300
+Message-ID: <20151130113628.GB24704@esperanza>
+References: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
+ <20151124215940.GB1373@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Andrew Lunn <andrew@lunn.ch>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Greg Ungerer <gerg@uclinux.org>,
-	Kevin Hao <haokexin@gmail.com>,
-	=?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Nimrod Andy <B38611@freescale.com>,
-	Philippe Reynes <tremyfr@gmail.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Stefan Agner <stefan@agner.ch>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448883168-30742-3-git-send-email-LW@KARO-electronics.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
+	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<kernel-team-b10kYP2dOMg@public.gmane.org>
+To: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20151124215940.GB1373-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-If a PHY uses ENET_OUT as reference clock, it may need a RESET to get
-functional after the clock had been disabled.
+On Tue, Nov 24, 2015 at 04:59:40PM -0500, Johannes Weiner wrote:
+...
+> @@ -2396,6 +2396,7 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
+>  		memcg = mem_cgroup_iter(root, NULL, &reclaim);
+>  		do {
+>  			unsigned long lru_pages;
+> +			unsigned long reclaimed;
+>  			unsigned long scanned;
+>  			struct lruvec *lruvec;
+>  			int swappiness;
+> @@ -2408,6 +2409,7 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
+>  
+>  			lruvec = mem_cgroup_zone_lruvec(zone, memcg);
+>  			swappiness = mem_cgroup_swappiness(memcg);
+> +			reclaimed = sc->nr_reclaimed;
+>  			scanned = sc->nr_scanned;
+>  
+>  			shrink_lruvec(lruvec, swappiness, sc, &lru_pages);
+> @@ -2418,6 +2420,11 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
+>  					    memcg, sc->nr_scanned - scanned,
+>  					    lru_pages);
+>  
+> +			/* Record the group's reclaim efficiency */
+> +			vmpressure(sc->gfp_mask, memcg, false,
+> +				   sc->nr_scanned - scanned,
+> +				   sc->nr_reclaimed - reclaimed);
+> +
 
-=46ailure to do this results in the link state constantly toggling
-between up and down:
-fec 02188000.ethernet eth0: Link is Up - 100Mbps/Full - flow control rx=
-/tx
-fec 02188000.ethernet eth0: Link is Down
-fec 02188000.ethernet eth0: Link is Up - 100Mbps/Full - flow control rx=
-/tx
-fec 02188000.ethernet eth0: Link is Down
-[...]
+Suppose we have the following cgroup configuration.
 
-Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
----
- drivers/net/ethernet/freescale/fec.h      |  1 +
- drivers/net/ethernet/freescale/fec_main.c | 46 +++++++++++++++++++++++=
-+-------
- 2 files changed, 37 insertions(+), 10 deletions(-)
+A __ B
+  \_ C
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/etherne=
-t/freescale/fec.h
-index 99d33e2..8ab4f7f 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -519,6 +519,7 @@ struct fec_enet_private {
- 	int	pause_flag;
- 	int	wol_flag;
- 	u32	quirks;
-+	struct gpio_desc *phy_reset;
-=20
- 	struct	napi_struct napi;
- 	int	csum_flags;
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/et=
-hernet/freescale/fec_main.c
-index 1a983fc..7ba2bbb 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -66,6 +66,7 @@
-=20
- static void set_multicast_list(struct net_device *ndev);
- static void fec_enet_itr_coal_init(struct net_device *ndev);
-+static void fec_reset_phy(struct platform_device *pdev);
-=20
- #define DRIVER_NAME	"fec"
-=20
-@@ -1861,6 +1862,8 @@ static int fec_enet_clk_enable(struct net_device =
-*ndev, bool enable)
- 			ret =3D clk_prepare_enable(fep->clk_enet_out);
- 			if (ret)
- 				goto failed_clk_enet_out;
-+
-+			fec_reset_phy(fep->pdev);
- 		}
- 		if (fep->clk_ptp) {
- 			mutex_lock(&fep->ptp_clk_mutex);
-@@ -3231,13 +3234,32 @@ static int fec_enet_init(struct net_device *nde=
-v)
- }
-=20
- #ifdef CONFIG_OF
--static void fec_reset_phy(struct platform_device *pdev)
-+static struct gpio_desc *fec_get_reset_gpio(struct platform_device *pd=
-ev)
- {
- 	struct gpio_desc *phy_reset;
--	int msec =3D 1;
- 	struct device_node *np =3D pdev->dev.of_node;
-=20
- 	if (!np)
-+		return ERR_PTR(-ENODEV);
-+
-+	phy_reset =3D devm_gpiod_get_optional(&pdev->dev, "phy-reset",
-+					    GPIOD_OUT_LOW);
-+	if (IS_ERR(phy_reset))
-+		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %ld\n",
-+			PTR_ERR(phy_reset));
-+	return phy_reset;
-+}
-+
-+static void fec_reset_phy(struct platform_device *pdev)
-+{
-+	struct device_node *np =3D pdev->dev.of_node;
-+	struct net_device *ndev =3D platform_get_drvdata(pdev);
-+	struct fec_enet_private *fep =3D netdev_priv(ndev);
-+	int msec =3D 1;
-+
-+	if (!fep->phy_reset)
-+		return;
-+	if (!np)
- 		return;
-=20
- 	of_property_read_u32(np, "phy-reset-duration", &msec);
-@@ -3245,17 +3267,16 @@ static void fec_reset_phy(struct platform_devic=
-e *pdev)
- 	if (msec > 1000)
- 		msec =3D 1;
-=20
--	phy_reset =3D devm_gpiod_get_optional(&pdev->dev, "phy-reset",
--					    GPIOD_OUT_LOW);
--	if (IS_ERR(phy_reset)) {
--		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %ld\n",
--			PTR_ERR(phy_reset));
--		return;
--	}
-+	gpiod_set_value_cansleep(fep->phy_reset, 0);
- 	msleep(msec);
--	gpiod_set_value_cansleep(phy_reset, 1);
-+	gpiod_set_value_cansleep(fep->phy_reset, 1);
- }
- #else /* CONFIG_OF */
-+static void fec_get_reset_gpio(struct platform_device *pdev)
-+{
-+	return -EINVAL;
-+}
-+
- static void fec_reset_phy(struct platform_device *pdev)
- {
- 	/*
-@@ -3309,8 +3330,12 @@ fec_probe(struct platform_device *pdev)
- 	struct device_node *np =3D pdev->dev.of_node, *phy_node;
- 	int num_tx_qs;
- 	int num_rx_qs;
-+	struct gpio_desc *phy_reset;
-=20
- 	fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
-+	phy_reset =3D fec_get_reset_gpio(pdev);
-+	if (IS_ERR(phy_reset) && PTR_ERR(phy_reset) =3D=3D -EPROBE_DEFER)
-+		return -EPROBE_DEFER;
-=20
- 	/* Init network device */
- 	ndev =3D alloc_etherdev_mqs(sizeof(struct fec_enet_private),
-@@ -3331,6 +3356,7 @@ fec_probe(struct platform_device *pdev)
- 	fep->netdev =3D ndev;
- 	fep->num_rx_queues =3D num_rx_qs;
- 	fep->num_tx_queues =3D num_tx_qs;
-+	fep->phy_reset =3D phy_reset;
-=20
- #if !defined(CONFIG_M5272)
- 	/* default enable pause frame auto negotiation */
---=20
-2.1.4
+A is empty (which is natural for the unified hierarchy AFAIU). B has
+some workload running in it, and C generates socket pressure. Due to the
+socket pressure coming from C we start reclaim in A, which results in
+thrashing of B, but we might not put sockets under pressure in A or C,
+because vmpressure does not account pages scanned/reclaimed in B when
+generating a vmpressure event for A or C. This might result in
+aggressive reclaim and thrashing in B w/o generating a signal for C to
+stop growing socket buffers.
+
+Do you think such a situation is possible? If so, would it make sense to
+switch to post-order walk in shrink_zone and pass sub-tree
+scanned/reclaimed stats to vmpressure for each scanned memcg?
+
+Thanks,
+Vladimir
+
+>  			/*
+>  			 * Direct reclaim and kswapd have to scan all memory
+>  			 * cgroups to fulfill the overall scan target for the
+> @@ -2449,7 +2456,8 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
+>  			reclaim_state->reclaimed_slab = 0;
+>  		}
+>  
+> -		vmpressure(sc->gfp_mask, sc->target_mem_cgroup,
+> +		/* Record the subtree's reclaim efficiency */
+> +		vmpressure(sc->gfp_mask, sc->target_mem_cgroup, true,
+>  			   sc->nr_scanned - nr_scanned,
+>  			   sc->nr_reclaimed - nr_reclaimed);
+>  
