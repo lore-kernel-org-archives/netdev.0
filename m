@@ -1,69 +1,172 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Mon, 30 Nov 2015 13:48:36 -0800
-Message-ID: <CALx6S34vso438+85ggvzkkCQBPRA7f6tHv1qtwVqq=tuxG=uJQ@mail.gmail.com>
-References: <CALx6S36H4eyDg-Vv21X2GaGA+g=KfN6iHX=8uM2isEOnPTjs0Q@mail.gmail.com>
-	<20151123171103.00007699@unknown>
-	<CALx6S36vQhx+iKP9VcpqPBnN7VjBsgd_dYFOfZ+YHyVa97-ajA@mail.gmail.com>
-	<20151129.222243.2290113258075462913.davem@davemloft.net>
-	<C40BE8378EF49C44B9184714DBC8EF2993A70447@ORSMSX115.amr.corp.intel.com>
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: Re: [PATCH 09/13] mm: memcontrol: generalize the socket accounting
+ jump label
+Date: Mon, 30 Nov 2015 16:50:07 -0500
+Message-ID: <20151130215007.GA31903@cmpxchg.org>
+References: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
+ <1448401925-22501-10-git-send-email-hannes@cmpxchg.org>
+ <565CBAC2.3080804@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"jesse@kernel.org" <jesse@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Patil, Kiran" <kiran.patil@intel.com>
-To: "Singhai, Anjali" <anjali.singhai@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:38297 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754211AbbK3Vsh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 16:48:37 -0500
-Received: by igbxm8 with SMTP id xm8so83226236igb.1
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 13:48:36 -0800 (PST)
-In-Reply-To: <C40BE8378EF49C44B9184714DBC8EF2993A70447@ORSMSX115.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Vladimir Davydov <vdavydov@virtuozzo.com>,
+	Michal Hocko <mhocko@suse.cz>, Tejun Heo <tj@kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com,
+	"peterz@infradead.org" <peterz@infradead.org>
+To: Jason Baron <jbaron@akamai.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <565CBAC2.3080804@akamai.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 30, 2015 at 1:42 PM, Singhai, Anjali
-<anjali.singhai@intel.com> wrote:
->
->
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Sunday, November 29, 2015 7:23 PM
-> To: tom@herbertland.com
-> Cc: Brandeburg, Jesse <jesse.brandeburg@intel.com>; Singhai, Anjali <anjali.singhai@intel.com>; jesse@kernel.org; netdev@vger.kernel.org; Patil, Kiran <kiran.patil@intel.com>
-> Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
->
-> From: Tom Herbert <tom@herbertland.com>
-> Date: Tue, 24 Nov 2015 09:32:11 -0800
->
->>>
->>> FWIW, I've brought the issue to the attention of the architects here,
->>> and we will likely be able to make changes in this space.  Intel
->>> hardware (as demonstrated by your patches) already is able to deal
->>> with this de-ossification on transmit.  Receive is a whole different beast.
->>>
->> Please provide the specifics on why "Receive is a whole different
->> beast.". Generic receive checksum is already a subset of the
->> functionality that you must have implement to support the protocol
->> specific offloads. All the hardware needs to do is calculate the 1's
->> complement checksum of the packet and return the value on the to the
->> host with that packet. That's it. No parsing of headers, no worrying
->> about the pseudo header, no dealing with any encapsulation. Just do
->> the calculation, return the result to the host and the driver converts
->> this to CHECKSUM_COMPLETE. I find it very hard to believe that this is
->> any harder than specific support the next protocol du jour.
->
-> The reason for receive being different than transmit is, on TX side driver can provide the meta data for where the checksum field is and what is the length that needs to be check summed to the HW on a per packet basis. On Rx the HW parser has to parse the packet to identify the tunnel type and based on that figure out the checksum locations and length in the packet, so definitely HW has to parse the packet and it can parse only based on next header type information or in case of udp tunnels based on udp port mapping to a particular protocol. I am not sure why you say it doesn't need to parse the packet, maybe I am miss- understanding something.  Although it's not difficult to reduce protocol ossification on the RX side but it is certainly different and particularly in case of udp-tunnels
-  it needs the port to protocol mapping.
->
-Please look at how CHECKSUM_COMPLETE interface works. Description is
-in sk_buff.h or
-http://people.netfilter.org/pablo/netdev0.1/papers/UDP-Encapsulation-in-Linux.pdf.
+On Mon, Nov 30, 2015 at 04:08:18PM -0500, Jason Baron wrote:
+> We're trying to move to the updated API, so this should be:
+> static_branch_unlikely(&memcg_sockets_enabled_key)
+> 
+> see: include/linux/jump_label.h for details.
 
-Thanks,
-Tom
+Good point. There is another struct static_key in there as well. How
+about the following on top of this series?
+
+---
+>From b784aa0323628d43272e13a67ead2a2ce0e93ea6 Mon Sep 17 00:00:00 2001
+From: Johannes Weiner <hannes@cmpxchg.org>
+Date: Mon, 30 Nov 2015 16:41:38 -0500
+Subject: [PATCH] mm: memcontrol: switch to the updated jump-label API
+
+According to <linux/jump_label.h> the direct use of struct static_key
+is deprecated. Update the socket and slab accounting code accordingly.
+
+Reported-by: Jason Baron <jbaron@akamai.com>
+Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+---
+ include/linux/memcontrol.h |  8 ++++----
+ mm/memcontrol.c            | 12 ++++++------
+ net/ipv4/tcp_memcontrol.c  |  4 ++--
+ 3 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index a8df46c..9a19590 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -704,8 +704,8 @@ static inline void mem_cgroup_wb_stats(struct bdi_writeback *wb,
+ 
+ #ifdef CONFIG_INET
+ struct sock;
+-extern struct static_key memcg_sockets_enabled_key;
+-#define mem_cgroup_sockets_enabled static_key_false(&memcg_sockets_enabled_key)
++extern struct static_key_false memcg_sockets_enabled_key;
++#define mem_cgroup_sockets_enabled static_branch_unlikely(&memcg_sockets_enabled_key)
+ void sock_update_memcg(struct sock *sk);
+ void sock_release_memcg(struct sock *sk);
+ bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
+@@ -727,7 +727,7 @@ static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
+ #endif /* CONFIG_INET */
+ 
+ #ifdef CONFIG_MEMCG_KMEM
+-extern struct static_key memcg_kmem_enabled_key;
++extern struct static_key_false memcg_kmem_enabled_key;
+ 
+ extern int memcg_nr_cache_ids;
+ void memcg_get_cache_ids(void);
+@@ -743,7 +743,7 @@ void memcg_put_cache_ids(void);
+ 
+ static inline bool memcg_kmem_enabled(void)
+ {
+-	return static_key_false(&memcg_kmem_enabled_key);
++	return static_branch_unlikely(&memcg_kmem_enabled_key);
+ }
+ 
+ static inline bool memcg_kmem_is_active(struct mem_cgroup *memcg)
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index a0da91f..5fe45d68 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -346,7 +346,7 @@ void memcg_put_cache_ids(void)
+  * conditional to this static branch, we'll have to allow modules that does
+  * kmem_cache_alloc and the such to see this symbol as well
+  */
+-struct static_key memcg_kmem_enabled_key;
++DEFINE_STATIC_KEY_FALSE(memcg_kmem_enabled_key);
+ EXPORT_SYMBOL(memcg_kmem_enabled_key);
+ 
+ #endif /* CONFIG_MEMCG_KMEM */
+@@ -2883,7 +2883,7 @@ static int memcg_activate_kmem(struct mem_cgroup *memcg,
+ 	err = page_counter_limit(&memcg->kmem, nr_pages);
+ 	VM_BUG_ON(err);
+ 
+-	static_key_slow_inc(&memcg_kmem_enabled_key);
++	static_branch_inc(&memcg_kmem_enabled_key);
+ 	/*
+ 	 * A memory cgroup is considered kmem-active as soon as it gets
+ 	 * kmemcg_id. Setting the id after enabling static branching will
+@@ -3622,7 +3622,7 @@ static void memcg_destroy_kmem(struct mem_cgroup *memcg)
+ {
+ 	if (memcg->kmem_acct_activated) {
+ 		memcg_destroy_kmem_caches(memcg);
+-		static_key_slow_dec(&memcg_kmem_enabled_key);
++		static_branch_dec(&memcg_kmem_enabled_key);
+ 		WARN_ON(page_counter_read(&memcg->kmem));
+ 	}
+ 	tcp_destroy_cgroup(memcg);
+@@ -4258,7 +4258,7 @@ mem_cgroup_css_online(struct cgroup_subsys_state *css)
+ 
+ #ifdef CONFIG_INET
+ 	if (cgroup_subsys_on_dfl(memory_cgrp_subsys) && !cgroup_memory_nosocket)
+-		static_key_slow_inc(&memcg_sockets_enabled_key);
++		static_branch_inc(&memcg_sockets_enabled_key);
+ #endif
+ 
+ 	/*
+@@ -4302,7 +4302,7 @@ static void mem_cgroup_css_free(struct cgroup_subsys_state *css)
+ 	memcg_destroy_kmem(memcg);
+ #ifdef CONFIG_INET
+ 	if (cgroup_subsys_on_dfl(memory_cgrp_subsys) && !cgroup_memory_nosocket)
+-		static_key_slow_dec(&memcg_sockets_enabled_key);
++		static_branch_dec(&memcg_sockets_enabled_key);
+ #endif
+ 	__mem_cgroup_free(memcg);
+ }
+@@ -5494,7 +5494,7 @@ void mem_cgroup_replace_page(struct page *oldpage, struct page *newpage)
+ 
+ #ifdef CONFIG_INET
+ 
+-struct static_key memcg_sockets_enabled_key;
++DEFINE_STATIC_KEY_FALSE(memcg_sockets_enabled_key);
+ EXPORT_SYMBOL(memcg_sockets_enabled_key);
+ 
+ void sock_update_memcg(struct sock *sk)
+diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
+index 9a22e2d..18bc7f7 100644
+--- a/net/ipv4/tcp_memcontrol.c
++++ b/net/ipv4/tcp_memcontrol.c
+@@ -34,7 +34,7 @@ void tcp_destroy_cgroup(struct mem_cgroup *memcg)
+ 		return;
+ 
+ 	if (memcg->tcp_mem.active)
+-		static_key_slow_dec(&memcg_sockets_enabled_key);
++		static_branch_dec(&memcg_sockets_enabled_key);
+ }
+ 
+ static int tcp_update_limit(struct mem_cgroup *memcg, unsigned long nr_pages)
+@@ -65,7 +65,7 @@ static int tcp_update_limit(struct mem_cgroup *memcg, unsigned long nr_pages)
+ 		 * because when this value change, the code to process it is not
+ 		 * patched in yet.
+ 		 */
+-		static_key_slow_inc(&memcg_sockets_enabled_key);
++		static_branch_inc(&memcg_sockets_enabled_key);
+ 		memcg->tcp_mem.active = true;
+ 	}
+ 
+-- 
+2.6.2
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
