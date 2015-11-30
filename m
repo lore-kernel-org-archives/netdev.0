@@ -1,53 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: fec: fix enet_out clock handling
-Date: Mon, 30 Nov 2015 03:07:31 +0100
-Message-ID: <20151130020731.GB32662@lunn.ch>
-References: <1448631550-943-1-git-send-email-LW@KARO-electronics.de>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: Increasing skb->mark size
+Date: Mon, 30 Nov 2015 03:08:16 +0100
+Message-ID: <20151130020816.GB29878@breakpoint.cc>
+References: <1448397144.14854.27.camel@mattb-dl>
+ <20151124203602.GB23215@breakpoint.cc>
+ <1448398614.14854.39.camel@mattb-dl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Kevin Hao <haokexin@gmail.com>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Nimrod Andy <B38611@freescale.com>,
-	Philippe Reynes <tremyfr@gmail.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Stefan Agner <stefan@agner.ch>
-To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: "fw@strlen.de" <fw@strlen.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Luuk Paulussen <Luuk.Paulussen@alliedtelesis.co.nz>,
+	Kyeong Yoo <Kyeong.Yoo@alliedtelesis.co.nz>
+To: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:47329 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751836AbbK3CHq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Nov 2015 21:07:46 -0500
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42364 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751853AbbK3CIT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 21:08:19 -0500
 Content-Disposition: inline
-In-Reply-To: <1448631550-943-1-git-send-email-LW@KARO-electronics.de>
+In-Reply-To: <1448398614.14854.39.camel@mattb-dl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 27, 2015 at 02:39:10PM +0100, Lothar Wa=DFmann wrote:
-> When ENET_OUT is being used as reference clock for an external PHY,
-> the clock must not be disabled while the PHY is active. Otherwise the
-> PHY may lose its internal state and require a reset to become
-> functional again.
->=20
-> A symptom for this bug is a network interface that constantly toggles
-> between UP and DOWN state:
-> fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full - flow control =
-rx/tx
-> fec 800f0000.ethernet eth0: Link is Down
-> fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full - flow control =
-rx/tx
-> fec 800f0000.ethernet eth0: Link is Down
+Matt Bennett <Matt.Bennett@alliedtelesis.co.nz> wrote:
+> On Tue, 2015-11-24 at 21:36 +0100, Florian Westphal wrote:
+> > Matt Bennett <Matt.Bennett@alliedtelesis.co.nz> wrote:
+> > > I'm emailing this list for feedback on the feasibility of increasing
+> > > skb->mark or adding a new field for marking. Perhaps this extension
+> > > could be done under a new CONFIG option. Perhaps there are other ways we
+> > > could achieve the desired behaviour?
+> > 
+> > Well I pointed you towards connlabels which provide 128 bit of space
+> > in the conntrack extension area but you did not tell me why you cannot
+> > use it.
+> Sorry, I moved the discussion to this list to hopefully gather some new
+> ideas/opinions.
+> 
+> While connlabels provide 128bits of space skb->mark is still only 32
+> bits. Since we are using connection tracking to simply restore skb->mark
+> the use of connlabels by itself doesn't solve the problem I outlined
+> above. skb->mark would still needs to be increased in size.
 
-Hi Lothar
+We have ctnetlink which allows direct setting of ctmark/ctlabels.
 
-When does this up/down happen? During normal operation when the link
-is administrative up?
-
-When did this start happening? Did it happen before=20
-8fff755e9f8d net: fec: Ensure clocks are enabled while using mdio bus
-
-	     Andrew
+Regarding ctlabels, they were originally designed to provide a bit-set
+so that ctmark could be used as an 'enumeration' type while ctlabels
+could be used to provide distinct, non-overlapping labels.
