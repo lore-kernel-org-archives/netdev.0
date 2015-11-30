@@ -1,69 +1,39 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next v5] mpls: support for dead routes
-Date: Mon, 30 Nov 2015 22:32:19 +0000
-Message-ID: <565CCE73.2060003@brocade.com>
-References: <1448407342-61181-1-git-send-email-roopa@cumulusnetworks.com> <20151125.111827.2264696682456564840.davem@davemloft.net> <5659468E.5080905@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <ebiederm@xmission.com>, <netdev@vger.kernel.org>
-To: roopa <roopa@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH net-next] alx: remove pointless assignment
+Date: Mon, 30 Nov 2015 17:33:36 -0500
+Message-ID: <1448922816-13960-1-git-send-email-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>, Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:12841 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752648AbbK3Wcc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 17:32:32 -0500
-In-Reply-To: <5659468E.5080905@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59153 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752821AbbK3Wdm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Nov 2015 17:33:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28/11/15 06:15, roopa wrote:
-> On 11/25/15, 8:18 AM, David Miller wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->> Date: Tue, 24 Nov 2015 15:22:22 -0800
->>
->>> v4 -v5
->>> 	- if kmemdup fails, modify the original route in place. This is a
->>> 	corner case and only side effect is that in the remote case
->>> 	of kmemdup failure, the changes will not be atomically visible
->>> 	to datapath.
->> I really don't like this.
->>
->> Either you need to make the changes appear atomic to the data path,
->> and you therefore must fail the operation if kmemdup() fails, or it
->> doesn't matter and you should just always change the route in-place.
->>
->> As far as I can tell it can't possibly matter.  The alive counter is
->> never modified by the data path, it is only tested to make a multipath
->> decision.  Likewise it's rather harmless to send a frame or two via a
->> device currently going down.
->>
->> But if you're convinced it matters, then is matters, and you can't
->> fake things when kmemdup() fails.  And in that case I would recommend
->> that you use a two pass algorithm, one pass allocates all of the
->> new routes, and the second fills them in, inserts them, and frees
->> the old ones.
->>
->> That is the only way you can unwind and fail cleanly.
->>
->> And oh yeah, that's right, you can't really fail this and make the
->> ifdown not proceed.
->>
->> So you're stuck, right?
->>
->> That's why this has to be designed in a way where memory allocations
->> are not necessary.  These notifiers aren't really designed to facilitate
->> situations that require resource acquisitions that can fail.
->>
-> Get your point. I am not convinced that the atomic update matters much for the transient case.
->   I was trying to accommodate comments i got during the review and it seemed ok to cover both
-> cases by optionally doing the atomic update when we can. But, I get your position on this.
+Reasonably sure this doesn't serve any purpose.
 
-My comment on atomic updates on v2 was referring to whether partial 
-updates could be seen by the forwarding code and if they did whether it 
-matters. I don't think it matters for nh_flags, but I think it does for 
-rt_nhn_alive.
+CC: Jay Cliburn <jcliburn@gmail.com>
+CC: Chris Snook <chris.snook@gmail.com>
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/ethernet/atheros/alx/main.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Thanks,
-Rob
+diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
+index 4f07cbf..549a8ce 100644
+--- a/drivers/net/ethernet/atheros/alx/main.c
++++ b/drivers/net/ethernet/atheros/alx/main.c
+@@ -577,7 +577,6 @@ static int alx_alloc_rings(struct alx_priv *alx)
+ 
+ 	alx->int_mask &= ~ALX_ISR_ALL_QUEUES;
+ 	alx->int_mask |= ALX_ISR_TX_Q0 | ALX_ISR_RX_Q0;
+-	alx->tx_ringsz = alx->tx_ringsz;
+ 
+ 	netif_napi_add(alx->dev, &alx->napi, alx_poll, 64);
+ 
+-- 
+1.8.3.1
