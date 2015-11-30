@@ -1,10 +1,11 @@
 From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH 08/13] net: thunderx: Enable BGX LMAC's RX/TX only after VF is up
-Date: Mon, 30 Nov 2015 23:49:04 +0530
-Message-ID: <1448907549-5296-9-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 13/13] net: thunderx: Add rx timeout and rcv buffer alloc failure stats
+Date: Mon, 30 Nov 2015 23:49:09 +0530
+Message-ID: <1448907549-5296-14-git-send-email-sunil.kovvuri@gmail.com>
 References: <y>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Sunil.Goutham@caviumnetworks.com,
+	Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>,
 	Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,138 +13,79 @@ In-Reply-To: <y>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sunil Goutham <sgoutham@cavium.com>
+From: Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
 
-Enable or disable BGX LMAC's RX/TX based on corresponding VF's
-status. If otherwise, when multiple LMAC's physical link is up
-then packets from all LMAC's whose corresponding VF is not yet
-initialized will get forwarded to VF0. This is due to VNIC's default
-configuration where CPI, RSSI e.t.c point to VF0/QSET0/RQ0.
+Instead of error message added counter for receive buffer allocation failures.
+Also added counter for transmit timeout event for debug purposes.
 
-This patch will prevent multiple copies of packets on VF0.
-
+Signed-off-by: Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic_main.c    |   20 +++++++++++++++++++-
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c |   20 ++++++++++++++++++--
- drivers/net/ethernet/cavium/thunder/thunder_bgx.h |    1 +
- 3 files changed, 38 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h          |    3 +++
+ .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |    2 ++
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   |    1 +
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |    3 +--
+ 4 files changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index cfc24a1..4b7fd63 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -37,6 +37,7 @@ struct nicpf {
- #define	NIC_GET_BGX_FROM_VF_LMAC_MAP(map)	((map >> 4) & 0xF)
- #define	NIC_GET_LMAC_FROM_VF_LMAC_MAP(map)	(map & 0xF)
- 	u8			vf_lmac_map[MAX_LMAC];
-+	u8			lmac_cnt;
- 	struct delayed_work     dwork;
- 	struct workqueue_struct *check_link;
- 	u8			link[MAX_LMAC];
-@@ -279,6 +280,7 @@ static void nic_set_lmac_vf_mapping(struct nicpf *nic)
- 	u64 lmac_credit;
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index e782856..defbf17 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -250,10 +250,13 @@ struct nicvf_drv_stats {
+ 	u64 rx_frames_jumbo;
+ 	u64 rx_drops;
  
- 	nic->num_vf_en = 0;
-+	nic->lmac_cnt = 0;
++	u64 rcv_buffer_alloc_failures;
++
+ 	/* Tx */
+ 	u64 tx_frames_ok;
+ 	u64 tx_drops;
+ 	u64 tx_tso;
++	u64 tx_timeout;
+ 	u64 txq_stop;
+ 	u64 txq_wake;
+ };
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+index a12b2e3..d2d8ef2 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+@@ -89,9 +89,11 @@ static const struct nicvf_stat nicvf_drv_stats[] = {
+ 	NICVF_DRV_STAT(rx_frames_1518),
+ 	NICVF_DRV_STAT(rx_frames_jumbo),
+ 	NICVF_DRV_STAT(rx_drops),
++	NICVF_DRV_STAT(rcv_buffer_alloc_failures),
+ 	NICVF_DRV_STAT(tx_frames_ok),
+ 	NICVF_DRV_STAT(tx_tso),
+ 	NICVF_DRV_STAT(tx_drops),
++	NICVF_DRV_STAT(tx_timeout),
+ 	NICVF_DRV_STAT(txq_stop),
+ 	NICVF_DRV_STAT(txq_wake),
+ };
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index a75f21f..a7e2951 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -1392,6 +1392,7 @@ static void nicvf_tx_timeout(struct net_device *dev)
+ 		netdev_warn(dev, "%s: Transmit timed out, resetting\n",
+ 			    dev->name);
  
- 	for (bgx = 0; bgx < NIC_MAX_BGX; bgx++) {
- 		if (!(bgx_map & (1 << bgx)))
-@@ -288,6 +290,7 @@ static void nic_set_lmac_vf_mapping(struct nicpf *nic)
- 			nic->vf_lmac_map[next_bgx_lmac++] =
- 						NIC_SET_VF_LMAC_MAP(bgx, lmac);
- 		nic->num_vf_en += lmac_cnt;
-+		nic->lmac_cnt += lmac_cnt;
- 
- 		/* Program LMAC credits */
- 		lmac_credit = (1ull << 1); /* channel credit enable */
-@@ -715,6 +718,13 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
- 	case NIC_MBOX_MSG_CFG_DONE:
- 		/* Last message of VF config msg sequence */
- 		nic->vf_enabled[vf] = true;
-+		if (vf >= nic->lmac_cnt)
-+			goto unlock;
-+
-+		bgx = NIC_GET_BGX_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
-+		lmac = NIC_GET_LMAC_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
-+
-+		bgx_lmac_rx_tx_enable(nic->node, bgx, lmac, true);
- 		goto unlock;
- 	case NIC_MBOX_MSG_SHUTDOWN:
- 		/* First msg in VF teardown sequence */
-@@ -722,6 +732,14 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
- 		if (vf >= nic->num_vf_en)
- 			nic->sqs_used[vf - nic->num_vf_en] = false;
- 		nic->pqs_vf[vf] = 0;
-+
-+		if (vf >= nic->lmac_cnt)
-+			break;
-+
-+		bgx = NIC_GET_BGX_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
-+		lmac = NIC_GET_LMAC_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
-+
-+		bgx_lmac_rx_tx_enable(nic->node, bgx, lmac, false);
- 		break;
- 	case NIC_MBOX_MSG_ALLOC_SQS:
- 		nic_alloc_sqs(nic, &mbx.sqs_alloc);
-@@ -940,7 +958,7 @@ static void nic_poll_for_link(struct work_struct *work)
- 
- 	mbx.link_status.msg = NIC_MBOX_MSG_BGX_LINK_CHANGE;
- 
--	for (vf = 0; vf < nic->num_vf_en; vf++) {
-+	for (vf = 0; vf < nic->lmac_cnt; vf++) {
- 		/* Poll only if VF is UP */
- 		if (!nic->vf_enabled[vf])
- 			continue;
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index d9f27ad..c51d5c9 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -186,6 +186,23 @@ void bgx_set_lmac_mac(int node, int bgx_idx, int lmacid, const u8 *mac)
++	nic->drv_stats.tx_timeout++;
+ 	schedule_work(&nic->reset_task);
  }
- EXPORT_SYMBOL(bgx_set_lmac_mac);
  
-+void bgx_lmac_rx_tx_enable(int node, int bgx_idx, int lmacid, bool enable)
-+{
-+	struct bgx *bgx = bgx_vnic[(node * MAX_BGX_PER_CN88XX) + bgx_idx];
-+	u64 cfg;
-+
-+	if (!bgx)
-+		return;
-+
-+	cfg = bgx_reg_read(bgx, lmacid, BGX_CMRX_CFG);
-+	if (enable)
-+		cfg |= CMR_PKT_RX_EN | CMR_PKT_TX_EN;
-+	else
-+		cfg &= ~(CMR_PKT_RX_EN | CMR_PKT_TX_EN);
-+	bgx_reg_write(bgx, lmacid, BGX_CMRX_CFG, cfg);
-+}
-+EXPORT_SYMBOL(bgx_lmac_rx_tx_enable);
-+
- static void bgx_sgmii_change_link_state(struct lmac *lmac)
- {
- 	struct bgx *bgx = lmac->bgx;
-@@ -656,8 +673,7 @@ static int bgx_lmac_enable(struct bgx *bgx, u8 lmacid)
- 	}
- 
- 	/* Enable lmac */
--	bgx_reg_modify(bgx, lmacid, BGX_CMRX_CFG,
--		       CMR_EN | CMR_PKT_RX_EN | CMR_PKT_TX_EN);
-+	bgx_reg_modify(bgx, lmacid, BGX_CMRX_CFG, CMR_EN);
- 
- 	/* Restore default cfg, incase low level firmware changed it */
- 	bgx_reg_write(bgx, lmacid, BGX_CMRX_RX_DMAC_CTL, 0x03);
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-index 89a02fa..149e179 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-@@ -183,6 +183,7 @@ enum MCAST_MODE {
- #define CAM_ACCEPT	1
- 
- void octeon_mdiobus_force_mod_depencency(void);
-+void bgx_lmac_rx_tx_enable(int node, int bgx_idx, int lmacid, bool enable);
- void bgx_add_dmac_addr(u64 dmac, int node, int bgx_idx, int lmac);
- unsigned bgx_get_map(int node);
- int bgx_get_lmac_count(int node, int bgx);
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index 4e9709e..28df11a 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -96,8 +96,7 @@ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, gfp_t gfp,
+ 		nic->rb_page = alloc_pages(gfp | __GFP_COMP | __GFP_NOWARN,
+ 					   order);
+ 		if (!nic->rb_page) {
+-			netdev_err(nic->netdev,
+-				   "Failed to allocate new rcv buffer\n");
++			nic->drv_stats.rcv_buffer_alloc_failures++;
+ 			return -ENOMEM;
+ 		}
+ 		nic->rb_page_offset = 0;
 -- 
 1.7.1
