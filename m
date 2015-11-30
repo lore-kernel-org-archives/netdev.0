@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v3 14/17] net: core: use __ethtool_get_ksettings
-Date: Mon, 30 Nov 2015 14:05:52 -0800
-Message-ID: <1448921155-24764-15-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v3 07/17] net: ipvlan: use __ethtool_get_ksettings
+Date: Mon, 30 Nov 2015 14:05:45 -0800
+Message-ID: <1448921155-24764-8-git-send-email-ddecotig@gmail.com>
 References: <1448921155-24764-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
 	Eugenia Emantayev <eugenia@mellanox.co.il>,
@@ -32,82 +32,37 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- net/core/net-sysfs.c   | 15 +++++++++------
- net/packet/af_packet.c | 11 +++++------
- 2 files changed, 14 insertions(+), 12 deletions(-)
+ drivers/net/ipvlan/ipvlan_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index f88a62a..3dd4bb1 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -199,9 +199,10 @@ static ssize_t speed_show(struct device *dev,
- 		return restart_syscall();
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index a9268db..63b3aa5 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -346,12 +346,12 @@ static const struct header_ops ipvlan_header_ops = {
+ 	.cache_update	= eth_header_cache_update,
+ };
  
- 	if (netif_running(netdev)) {
--		struct ethtool_cmd cmd;
--		if (!__ethtool_get_settings(netdev, &cmd))
--			ret = sprintf(buf, fmt_dec, ethtool_cmd_speed(&cmd));
-+		struct ethtool_ksettings cmd;
-+
-+		if (!__ethtool_get_ksettings(netdev, &cmd))
-+			ret = sprintf(buf, fmt_dec, cmd.parent.speed);
- 	}
- 	rtnl_unlock();
- 	return ret;
-@@ -218,10 +219,12 @@ static ssize_t duplex_show(struct device *dev,
- 		return restart_syscall();
- 
- 	if (netif_running(netdev)) {
--		struct ethtool_cmd cmd;
--		if (!__ethtool_get_settings(netdev, &cmd)) {
-+		struct ethtool_ksettings cmd;
-+
-+		if (!__ethtool_get_ksettings(netdev, &cmd)) {
- 			const char *duplex;
--			switch (cmd.duplex) {
-+
-+			switch (cmd.parent.duplex) {
- 			case DUPLEX_HALF:
- 				duplex = "half";
- 				break;
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 1cf928f..8847dad 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -557,9 +557,8 @@ static int prb_calc_retire_blk_tmo(struct packet_sock *po,
+-static int ipvlan_ethtool_get_settings(struct net_device *dev,
+-				       struct ethtool_cmd *cmd)
++static int ipvlan_ethtool_get_ksettings(struct net_device *dev,
++					struct ethtool_ksettings *cmd)
  {
- 	struct net_device *dev;
- 	unsigned int mbits = 0, msec = 0, div = 0, tmo = 0;
--	struct ethtool_cmd ecmd;
-+	struct ethtool_ksettings ecmd;
- 	int err;
--	u32 speed;
+ 	const struct ipvl_dev *ipvlan = netdev_priv(dev);
  
- 	rtnl_lock();
- 	dev = __dev_get_by_index(sock_net(&po->sk), po->ifindex);
-@@ -567,19 +566,19 @@ static int prb_calc_retire_blk_tmo(struct packet_sock *po,
- 		rtnl_unlock();
- 		return DEFAULT_PRB_RETIRE_TOV;
- 	}
--	err = __ethtool_get_settings(dev, &ecmd);
--	speed = ethtool_cmd_speed(&ecmd);
-+	err = __ethtool_get_ksettings(dev, &ecmd);
- 	rtnl_unlock();
- 	if (!err) {
- 		/*
- 		 * If the link speed is so slow you don't really
- 		 * need to worry about perf anyways
- 		 */
--		if (speed < SPEED_1000 || speed == SPEED_UNKNOWN) {
-+		if (ecmd.parent.speed < SPEED_1000 ||
-+		    ecmd.parent.speed == SPEED_UNKNOWN) {
- 			return DEFAULT_PRB_RETIRE_TOV;
- 		} else {
- 			msec = 1;
--			div = speed / 1000;
-+			div = ecmd.parent.speed / 1000;
- 		}
- 	}
+-	return __ethtool_get_settings(ipvlan->phy_dev, cmd);
++	return __ethtool_get_ksettings(ipvlan->phy_dev, cmd);
+ }
  
+ static void ipvlan_ethtool_get_drvinfo(struct net_device *dev,
+@@ -377,7 +377,7 @@ static void ipvlan_ethtool_set_msglevel(struct net_device *dev, u32 value)
+ 
+ static const struct ethtool_ops ipvlan_ethtool_ops = {
+ 	.get_link	= ethtool_op_get_link,
+-	.get_settings	= ipvlan_ethtool_get_settings,
++	.get_ksettings	= ipvlan_ethtool_get_ksettings,
+ 	.get_drvinfo	= ipvlan_ethtool_get_drvinfo,
+ 	.get_msglevel	= ipvlan_ethtool_get_msglevel,
+ 	.set_msglevel	= ipvlan_ethtool_set_msglevel,
 -- 
 2.6.0.rc2.230.g3dd15c0
