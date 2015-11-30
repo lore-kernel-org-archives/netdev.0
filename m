@@ -1,7 +1,7 @@
 From: Paul Burton <paul.burton@imgtec.com>
-Subject: [PATCH 24/28] net: pch_gbe: add device tree support
-Date: Mon, 30 Nov 2015 16:21:49 +0000
-Message-ID: <1448900513-20856-25-git-send-email-paul.burton@imgtec.com>
+Subject: [PATCH 25/28] net: pch_gbe: allow longer for resets
+Date: Mon, 30 Nov 2015 16:21:50 +0000
+Message-ID: <1448900513-20856-26-git-send-email-paul.burton@imgtec.com>
 References: <1448900513-20856-1-git-send-email-paul.burton@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,89 +13,28 @@ In-Reply-To: <1448900513-20856-1-git-send-email-paul.burton@imgtec.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduce support for retrieving the PHY reset GPIO from device tree,
-which will be used on the MIPS Boston development board. This requires
-support for probe deferral in order to work correctly, since the order
-of device probe is not guaranteed & typically the EG20T GPIO controller
-device will be probed after the ethernet MAC.
+Resets of the EG20T MAC on the MIPS Boston development board take longer
+than the 1000 loops that pch_gbe_wait_clr_bit was performing. Bump up
+the number of loops.
 
 Signed-off-by: Paul Burton <paul.burton@imgtec.com>
 ---
 
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 33 +++++++++++++++++++++-
- 1 file changed, 32 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index 824ff9e..f2a9a38 100644
+index f2a9a38..f650f45 100644
 --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
 +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -23,6 +23,8 @@
- #include <linux/net_tstamp.h>
- #include <linux/ptp_classify.h>
- #include <linux/gpio.h>
-+#include <linux/gpio/consumer.h>
-+#include <linux/of_gpio.h>
+@@ -321,7 +321,7 @@ static void pch_gbe_wait_clr_bit(void *reg, u32 bit)
+ 	u32 tmp;
  
- #define DRV_VERSION     "1.01"
- const char pch_driver_version[] = DRV_VERSION;
-@@ -2594,13 +2596,41 @@ static void pch_gbe_remove(struct pci_dev *pdev)
- 	free_netdev(netdev);
- }
- 
-+static int pch_gbe_parse_dt(struct pci_dev *pdev,
-+			    struct pch_gbe_privdata **pdata)
-+{
-+	struct device_node *np = pdev->dev.of_node;
-+	struct gpio_desc *gpio;
-+
-+	if (!config_enabled(CONFIG_OF) || !np)
-+		return 0;
-+
-+	if (!*pdata)
-+		*pdata = devm_kzalloc(&pdev->dev, sizeof(**pdata), GFP_KERNEL);
-+	if (!*pdata)
-+		return -ENOMEM;
-+
-+	gpio = devm_gpiod_get(&pdev->dev, "phy-reset", GPIOD_ASIS);
-+	if (IS_ERR(gpio))
-+		return PTR_ERR(gpio);
-+
-+	(*pdata)->phy_reset_gpio = gpio;
-+	return 0;
-+}
-+
- static int pch_gbe_probe(struct pci_dev *pdev,
- 			  const struct pci_device_id *pci_id)
- {
- 	struct net_device *netdev;
- 	struct pch_gbe_adapter *adapter;
-+	struct pch_gbe_privdata *pdata;
- 	int ret;
- 
-+	pdata = (struct pch_gbe_privdata *)pci_id->driver_data;
-+	ret = pch_gbe_parse_dt(pdev, &pdata);
-+	if (ret)
-+		goto err_out;
-+
- 	ret = pcim_enable_device(pdev);
- 	if (ret)
- 		return ret;
-@@ -2638,7 +2668,7 @@ static int pch_gbe_probe(struct pci_dev *pdev,
- 	adapter->pdev = pdev;
- 	adapter->hw.back = adapter;
- 	adapter->hw.reg = pcim_iomap_table(pdev)[PCH_GBE_PCI_BAR];
--	adapter->pdata = (struct pch_gbe_privdata *)pci_id->driver_data;
-+	adapter->pdata = pdata;
- 	if (adapter->pdata && adapter->pdata->platform_init)
- 		adapter->pdata->platform_init(pdev, pdata);
- 
-@@ -2729,6 +2759,7 @@ err_free_adapter:
- 	pch_gbe_hal_phy_hw_reset(&adapter->hw);
- err_free_netdev:
- 	free_netdev(netdev);
-+err_out:
- 	return ret;
- }
- 
+ 	/* wait busy */
+-	tmp = 1000;
++	tmp = 10000;
+ 	while ((ioread32(reg) & bit) && --tmp)
+ 		cpu_relax();
+ 	if (!tmp)
 -- 
 2.6.2
