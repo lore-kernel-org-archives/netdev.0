@@ -1,49 +1,73 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: [PATCH net] bpf: fix allocation warnings in bpf maps and integer overflow
-Date: Mon, 30 Nov 2015 15:16:27 +0100
-Message-ID: <CACT4Y+YXEfpE4wa1byedf6m2iqzVsx6V6r7FEDiLw0WKRmA0Ew@mail.gmail.com>
-References: <CACT4Y+b1k7Ofvn6xa=qWv9xP6BbteWOnZsJMXLZ=GOby-ajF=w@mail.gmail.com>
- <20151130005934.GA95228@ast-mbp.thefacebook.com> <565C549C.5080408@iogearbox.net>
- <CACT4Y+aGR2p6VCLgqg5otFU+0unPGp4rYe9jyCGLL1hg8D5_vA@mail.gmail.com> <565C599B.1020902@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Alexei Starovoitov <ast@kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <565C599B.1020902@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH] sctp: convert sack_needed and sack_generation to bits
+Date: Mon, 30 Nov 2015 12:17:06 -0200
+Message-ID: <f3803545e5d34adfe83cff5adf01317c56288d59.1448892562.git.marcelo.leitner@gmail.com>
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org, lucien.xin@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57559 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754585AbbK3ORS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Nov 2015 09:17:18 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 30, 2015 at 3:13 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 11/30/2015 02:57 PM, Dmitry Vyukov wrote:
-> ...
->>
->> kamlloc produces a WARNING if you try to allocate more than it ever
->> possibly can (KMALLOC_SHIFT_MAX).
->
->
-> Sure, I understand that.
->
-> The kzalloc() in array_map_alloc() is however with __GFP_NOWARN flag
-> already.
-> The warning only triggers in mm if:
->
->   WARN_ON_ONCE(!(gfp_mask & __GFP_NOWARN));
->
-> Your test case is using ca.map_type = 1, which is BPF_MAP_TYPE_HASH. So on
-> update you're triggering the kmalloc() in htab_map_update_elem().
->
-> I'm just asking about the added change in array map.
+They don't need to be any bigger than that and with this we start a new
+bitfield for tracking association runtime stuff, like zero window
+situation.
 
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
 
-Then, sorry.
-Let's wait for Alexei.
+Motivated by https://patchwork.ozlabs.org/patch/509836/
+
+ include/net/sctp/structs.h | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 495c87e367b3f2e8941807f56a77d2e14469bfed..7bbb71081aeb6cfdc9cb049cf7a094dbcd4603bb 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -775,10 +775,10 @@ struct sctp_transport {
+ 		hb_sent:1,
+ 
+ 		/* Is the Path MTU update pending on this tranport */
+-		pmtu_pending:1;
++		pmtu_pending:1,
+ 
+-	/* Has this transport moved the ctsn since we last sacked */
+-	__u32 sack_generation;
++		/* Has this transport moved the ctsn since we last sacked */
++		sack_generation:1;
+ 	u32 dst_cookie;
+ 
+ 	struct flowi fl;
+@@ -1482,19 +1482,19 @@ struct sctp_association {
+ 			prsctp_capable:1,   /* Can peer do PR-SCTP? */
+ 			auth_capable:1;     /* Is peer doing SCTP-AUTH? */
+ 
+-		/* Ack State   : This flag indicates if the next received
++		/* sack_needed : This flag indicates if the next received
+ 		 *             : packet is to be responded to with a
+-		 *             : SACK. This is initializedto 0.  When a packet
+-		 *             : is received it is incremented. If this value
++		 *             : SACK. This is initialized to 0.  When a packet
++		 *             : is received sack_cnt is incremented. If this value
+ 		 *             : reaches 2 or more, a SACK is sent and the
+ 		 *             : value is reset to 0. Note: This is used only
+ 		 *             : when no DATA chunks are received out of
+ 		 *             : order.  When DATA chunks are out of order,
+ 		 *             : SACK's are not delayed (see Section 6).
+ 		 */
+-		__u8    sack_needed;     /* Do we need to sack the peer? */
++		__u8    sack_needed:1,     /* Do we need to sack the peer? */
++			sack_generation:1;
+ 		__u32	sack_cnt;
+-		__u32	sack_generation;
+ 
+ 		__u32   adaptation_ind;	 /* Adaptation Code point. */
+ 
+-- 
+2.5.0
