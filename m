@@ -1,7 +1,7 @@
 From: Paul Burton <paul.burton@imgtec.com>
-Subject: [PATCH 23/28] net: pch_gbe: always reset PHY along with MAC
-Date: Mon, 30 Nov 2015 16:21:48 +0000
-Message-ID: <1448900513-20856-24-git-send-email-paul.burton@imgtec.com>
+Subject: [PATCH 24/28] net: pch_gbe: add device tree support
+Date: Mon, 30 Nov 2015 16:21:49 +0000
+Message-ID: <1448900513-20856-25-git-send-email-paul.burton@imgtec.com>
 References: <1448900513-20856-1-git-send-email-paul.burton@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,37 +13,89 @@ In-Reply-To: <1448900513-20856-1-git-send-email-paul.burton@imgtec.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On the MIPS Boston development board, the EG20T MAC does not report
-receiving the RX clock from the (RGMII) RTL8211E PHY unless the PHY is
-reset at the same time as the MAC. Since the pch_gbe driver resets the
-MAC a number of times - twice during probe, and when taking down the
-network interface - we need to reset the PHY at all the same times. Do
-that from pch_gbe_mac_reset_hw which is used to reset the MAC in all
-cases.
+Introduce support for retrieving the PHY reset GPIO from device tree,
+which will be used on the MIPS Boston development board. This requires
+support for probe deferral in order to work correctly, since the order
+of device probe is not guaranteed & typically the EG20T GPIO controller
+device will be probed after the ethernet MAC.
 
 Signed-off-by: Paul Burton <paul.burton@imgtec.com>
 ---
 
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 3 +++
- 1 file changed, 3 insertions(+)
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 33 +++++++++++++++++++++-
+ 1 file changed, 32 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index 23d28f0..824ff9e 100644
+index 824ff9e..f2a9a38 100644
 --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
 +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -378,10 +378,13 @@ static void pch_gbe_mac_reset_hw(struct pch_gbe_hw *hw)
+@@ -23,6 +23,8 @@
+ #include <linux/net_tstamp.h>
+ #include <linux/ptp_classify.h>
+ #include <linux/gpio.h>
++#include <linux/gpio/consumer.h>
++#include <linux/of_gpio.h>
+ 
+ #define DRV_VERSION     "1.01"
+ const char pch_driver_version[] = DRV_VERSION;
+@@ -2594,13 +2596,41 @@ static void pch_gbe_remove(struct pci_dev *pdev)
+ 	free_netdev(netdev);
+ }
+ 
++static int pch_gbe_parse_dt(struct pci_dev *pdev,
++			    struct pch_gbe_privdata **pdata)
++{
++	struct device_node *np = pdev->dev.of_node;
++	struct gpio_desc *gpio;
++
++	if (!config_enabled(CONFIG_OF) || !np)
++		return 0;
++
++	if (!*pdata)
++		*pdata = devm_kzalloc(&pdev->dev, sizeof(**pdata), GFP_KERNEL);
++	if (!*pdata)
++		return -ENOMEM;
++
++	gpio = devm_gpiod_get(&pdev->dev, "phy-reset", GPIOD_ASIS);
++	if (IS_ERR(gpio))
++		return PTR_ERR(gpio);
++
++	(*pdata)->phy_reset_gpio = gpio;
++	return 0;
++}
++
+ static int pch_gbe_probe(struct pci_dev *pdev,
+ 			  const struct pci_device_id *pci_id)
  {
- 	/* Read the MAC address. and store to the private data */
- 	pch_gbe_mac_read_mac_addr(hw);
-+	pch_gbe_phy_set_reset(hw, 1);
- 	iowrite32(PCH_GBE_ALL_RST, &hw->reg->RESET);
- #ifdef PCH_GBE_MAC_IFOP_RGMII
- 	iowrite32(PCH_GBE_MODE_GMII_ETHER, &hw->reg->MODE);
- #endif
-+	pch_gbe_phy_set_reset(hw, 0);
-+	usleep_range(1250, 1500);
- 	pch_gbe_wait_clr_bit(&hw->reg->RESET, PCH_GBE_ALL_RST);
- 	/* Setup the receive addresses */
- 	pch_gbe_mac_mar_set(hw, hw->mac.addr, 0);
+ 	struct net_device *netdev;
+ 	struct pch_gbe_adapter *adapter;
++	struct pch_gbe_privdata *pdata;
+ 	int ret;
+ 
++	pdata = (struct pch_gbe_privdata *)pci_id->driver_data;
++	ret = pch_gbe_parse_dt(pdev, &pdata);
++	if (ret)
++		goto err_out;
++
+ 	ret = pcim_enable_device(pdev);
+ 	if (ret)
+ 		return ret;
+@@ -2638,7 +2668,7 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 	adapter->pdev = pdev;
+ 	adapter->hw.back = adapter;
+ 	adapter->hw.reg = pcim_iomap_table(pdev)[PCH_GBE_PCI_BAR];
+-	adapter->pdata = (struct pch_gbe_privdata *)pci_id->driver_data;
++	adapter->pdata = pdata;
+ 	if (adapter->pdata && adapter->pdata->platform_init)
+ 		adapter->pdata->platform_init(pdev, pdata);
+ 
+@@ -2729,6 +2759,7 @@ err_free_adapter:
+ 	pch_gbe_hal_phy_hw_reset(&adapter->hw);
+ err_free_netdev:
+ 	free_netdev(netdev);
++err_out:
+ 	return ret;
+ }
+ 
 -- 
 2.6.2
