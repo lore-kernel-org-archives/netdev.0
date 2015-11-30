@@ -1,42 +1,86 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net] ipv6: kill sk_dst_lock
-Date: Mon, 30 Nov 2015 19:13:08 +0100
-Message-ID: <1448907188.5804.31.camel@redhat.com>
-References: <CACT4Y+Y=35aC5DK7MQaDF6eviKcXik2S9caTLw7FAp0L0CXdsg@mail.gmail.com>
-	 <1448730683.24696.94.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1448731434.24696.97.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1448854142.24696.109.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1448901315.24696.127.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net] bpf: fix allocation warnings in bpf maps and integer
+ overflow
+Date: Mon, 30 Nov 2015 10:13:11 -0800
+Message-ID: <20151130181310.GA30762@ast-mbp.thefacebook.com>
+References: <CACT4Y+b1k7Ofvn6xa=qWv9xP6BbteWOnZsJMXLZ=GOby-ajF=w@mail.gmail.com>
+ <20151130005934.GA95228@ast-mbp.thefacebook.com>
+ <565C549C.5080408@iogearbox.net>
+ <565C5E7B.2080602@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50736 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751120AbbK3SNM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Nov 2015 13:13:12 -0500
-In-Reply-To: <1448901315.24696.127.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, Alexei Starovoitov <ast@kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <565C5E7B.2080602@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-11-30 at 08:35 -0800, Eric Dumazet wrote:
-> ip6_sk_dst_lookup_flow() uses sk_dst_check() anyway, so the simplest
-> way to fix the mess is to remove sk_dst_lock completely, as we did for
-> IPv4.
+On Mon, Nov 30, 2015 at 03:34:35PM +0100, Daniel Borkmann wrote:
+> >>diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+> >>index 3f4c99e06c6b..b1e53b79c586 100644
+> >>--- a/kernel/bpf/arraymap.c
+> >>+++ b/kernel/bpf/arraymap.c
+> >>@@ -28,11 +28,17 @@ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
+> >>          attr->value_size == 0)
+> >>          return ERR_PTR(-EINVAL);
+> >>
+> >>+    if (attr->value_size >= 1 << (KMALLOC_SHIFT_MAX - 1))
+> >>+        /* if value_size is bigger, the user space won't be able to
+> >>+         * access the elements.
+> >>+         */
+> >>+        return ERR_PTR(-E2BIG);
+> >>+
+> >
+> >Bit confused, given that in array map, we try kzalloc() with __GFP_NOWARN already
+> >and if that fails, we fall back to vzalloc(), it shouldn't trigger memory allocation
+> >warnings here ...
 
-Probably I'm missing something here, but why we don't need to sync the
-update of sk_dst_cache and of dst_cookie (i.e. put them under the same
-lock)?
+not quite, the above check is for kmalloc-s in syscall.c
 
-Can't we end up with inconsistent values after concurrent udp
-sendmsg() ? 
+> Ok, I see. The check and comment is related to the fact that when we do bpf(2)
+> syscall to lookup an element:
+> 
+> We call map_lookup_elem(), which does kmalloc() on the value_size.
+> 
+> So an individual entry lookup could fail with kmalloc() there, unrelated to an
+> individual map implementation.
 
-Cheers,
+kmalloc with order >= MAX_ORDER warning can be seen in syscall for update/lookup
+commands regardless of map implememtation.
+So the maps with "value_size >= 1 << (KMALLOC_SHIFT_MAX - 1)" were not accessible
+from user space anyway.
+This check in arraymap.c fixes the warning and prevents creation of such
+maps in the first place as the comment right below it says.
+Similar check in hashmap.c fixes warning, prevents abnormal map creation and fixes
+integer overflow which is the most dangerous of them all.
 
-Paolo
+The check in arraymap.c
+-        attr->max_entries > (U32_MAX - sizeof(*array)) / elem_size)
++        attr->max_entries > (U32_MAX - PAGE_SIZE - sizeof(*array)) / elem_size)
+ fixes potential integer overflow in map.pages computation.
+
+and similar check in hashtab.c:
+(u64) htab->elem_size * htab->map.max_entries >= U32_MAX - PAGE_SIZE
+fixes integer overflow in map.pages as well.
+
+the 'value_size >= (1 << (KMALLOC_SHIFT_MAX - 1)) - MAX_BPF_STACK - sizeof(struct htab_elem)'
+check in hashmap.c fixes integer overflow in elem_size and
+makes elem_size kmalloc-able later in htab_map_update_elem().
+Since it wasn't obvious that this one 'if' addresses these multiple issues,
+I've added a comment there.
+
+Addition of __GFP_NOWARN only fixes OOM warning as commit log says.
+
+> Hmm, seems this patch fixes many things at once, maybe makes sense to split it?
+
+hmm I don't see a point of changing the same single line over multipe patches.
+The split won't help backporting, but rather makes for more patches to deal with.
