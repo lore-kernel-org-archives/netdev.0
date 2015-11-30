@@ -1,50 +1,40 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: user controllable usermodehelper in br_stp_if.c
-Date: Mon, 30 Nov 2015 12:14:41 -0800
-Message-ID: <CAGXu5jJqQKAmFK0nL69E0QOpo8WSVDqStGZo7-m7gy3vnXBa=A@mail.gmail.com>
-References: <565B7F7D.80208@nod.at>
-Reply-To: kernel-hardening@lists.openwall.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] af-unix: passcred support for sendpage
+Date: Mon, 30 Nov 2015 15:17:57 -0500 (EST)
+Message-ID: <20151130.151757.498926843153934581.davem@davemloft.net>
+References: <1448536098-8980-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>, bridge@lists.linux-foundation.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Richard Weinberger <richard@nod.at>, "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <kernel-hardening-return-2018-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-Sender: keescook@google.com
-In-Reply-To: <565B7F7D.80208@nod.at>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
+	edumazet@google.com
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33451 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751915AbbK3UR7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 15:17:59 -0500
+In-Reply-To: <1448536098-8980-1-git-send-email-hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 29, 2015 at 2:43 PM, Richard Weinberger <richard@nod.at> wrote:
-> Hi!
->
-> By spawning new network and user namesapces an unprivileged user
-> is able to execute /sbin/bridge-stp within the initial mount namespace
-> with global root rights.
-> While this cannot directly be used to break out of a container or gain
-> global root rights it could be used by exploit writers as valuable building block.
->
-> e.g.
-> $ unshare -U -r -n /bin/sh
-> $ brctl addbr br0
-> $ brctl stp br0 on # this will execute /sbin/bridge-stp
->
-> As this mechanism clearly cannot work with containers and seems to be legacy code
-> I suggest not calling call_usermodehelper() at all if we're not in the initial user namespace.
-> What do you think?
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Thu, 26 Nov 2015 12:08:18 +0100
 
-I'm not familiar with how bridge-stp is expected to operate with a
-network namespace, but if it's meaningless, then yeah, that seems like
-a reasonable change. Can you send a patch? (Also, if it's legacy code,
-maybe it could be turned off entirely, not just for containers?)
+> sendpage did not care about credentials at all. This could lead to
+> situations in which because of fd passing between processes we could
+> append data to skbs with different scm data. It is illegal to splice those
+> skbs together. Instead we have to allocate a new skb and if requested
+> fill out the scm details.
+> 
+> Fixes: 869e7c62486ec ("net: af_unix: implement stream sendpage support")
+> Reported-by: Al Viro <viro@zeniv.linux.org.uk>
+> Cc: Al Viro <viro@zeniv.linux.org.uk>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
--Kees
+Applied and queued up for -stable... but here we go with even more
+complexity in arguably one of the most complex and often buggiest
+protocol family implementations :-/
 
--- 
-Kees Cook
-Chrome OS & Brillo Security
+We seem to enjoy self-torture but putting hack on top of hack...
