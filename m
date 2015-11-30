@@ -1,46 +1,40 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH] net: add support for netdev notifier error injection
-Date: Tue, 1 Dec 2015 00:49:55 +0100
-Message-ID: <565CE0A3.2010403@cumulusnetworks.com>
-References: <1448714728-12729-1-git-send-email-razor@blackwall.org>
- <CAC5umyjONtF9r=Ox1-mMS-vzxp2j-fk+VX1wWWVvWvyOxWPbiQ@mail.gmail.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH net-next v3 04/17] tx4939: use __ethtool_get_ksettings
+Date: Tue, 1 Dec 2015 00:51:20 +0100
+Message-ID: <20151130235119.GA16597@linux-mips.org>
+References: <1448921155-24764-1-git-send-email-ddecotig@gmail.com>
+ <1448921155-24764-5-git-send-email-ddecotig@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, shm@cumulusnetworks.com,
-	gospo@cumulusnetworks.com, roopa@cumulusnetworks.com,
-	dsa@cumulusnetworks.com, "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Akinobu Mita <akinobu.mita@gmail.com>,
-	Nikolay Aleksandrov <razor@blackwall.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Amir Vadai <amirv@mellanox.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-mips@linux-mips.org, fcoe-devel@open-fcoe.org,
+	Eric Dumazet <edumazet@google.com>,
+	Eugenia Emantayev <eugenia@mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Eyal Perry <eyalpe@mellanox.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ed Swierk <eswierk@skyportsystems.com>,
+	Robert Love <robert.w.love@intel.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	David Decotigny <decot@googlers.com>
+To: David Decotigny <ddecotig@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAC5umyjONtF9r=Ox1-mMS-vzxp2j-fk+VX1wWWVvWvyOxWPbiQ@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <1448921155-24764-5-git-send-email-ddecotig@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/01/2015 12:48 AM, Akinobu Mita wrote:
-> 2015-11-28 21:45 GMT+09:00 Nikolay Aleksandrov <razor@blackwall.org>:
->> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>
->> This module allows to insert errors in some of netdevice's notifier
->> events. All network drivers use these notifiers to signal various events
->> and to check if they are allowed, e.g. PRECHANGEMTU and CHANGEMTU
->> afterwards. Until recently I had to run failure tests by injecting
->> a custom module, but now this infrastructure makes it trivial to test
->> these failure paths. Some of the recent bugs I fixed were found using
->> this module.
->> Here's an example:
->>  $ cd /sys/kernel/debug/notifier-error-inject/netdev
->>  $ echo -22 > actions/NETDEV_CHANGEMTU/error
->>  $ ip link set eth0 mtu 1024
->>  RTNETLINK answers: Invalid argument
-> 
-> This patch looks good to me.  It would be nice if you add tools like
-> tools/testing/selftests/cpu-hotplug/cpu-on-off-test.sh for this feature.
-> 
+On Mon, Nov 30, 2015 at 02:05:42PM -0800, David Decotigny wrote:
 
-Thanks for reviewing and noted. I'll take a look and make some tests.
-Do you mind if I post it as a follow-up ?
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
 
-Cheers,
- Nik
+  Ralf
