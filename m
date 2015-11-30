@@ -1,61 +1,61 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net] bridge: Only call /sbin/bridge-stp for the
-	initial network namespace
-Date: Mon, 30 Nov 2015 15:38:15 -0600
-Message-ID: <87egf7183c.fsf_-_@x220.int.ebiederm.org>
-References: <565B7F7D.80208@nod.at>
-	<CAGXu5jJqQKAmFK0nL69E0QOpo8WSVDqStGZo7-m7gy3vnXBa=A@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v2] ravb: add R8A7791 support
+Date: Tue, 01 Dec 2015 01:01:18 +0300
+Message-ID: <1661514.u50jDu7LON@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kees Cook <keescook@chromium.org>, "kernel-hardening@lists.openwall.com"
-	<kernel-hardening@lists.openwall.com>, Richard Weinberger <richard@nod.at>,
-	bridge@lists.linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAGXu5jJqQKAmFK0nL69E0QOpo8WSVDqStGZo7-m7gy3vnXBa=A@mail.gmail.com>
-	(Kees Cook's message of "Mon, 30 Nov 2015 12:14:41 -0800")
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, devicetree@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:35663 "EHLO
+	mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754895AbbK3WB1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 17:01:27 -0500
+Received: by lfdl133 with SMTP id l133so215087808lfd.2
+        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 14:01:25 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Add support  for yet another ARM member of the R-Car family, R-Car M2-W,
+also known as R8A7791.
 
-There is no defined mechanism to pass network namespace information
-into /sbin/bridge-stp therefore don't even try to invoke it except
-for bridge devices in the initial network namespace.
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-It is possible for unprivileged users to cause /sbin/bridge-stp to be
-invoked for any network device name which if /sbin/bridge-stp does not
-guard against unreasonable arguments or being invoked twice on the same
-network device could cause problems.
-
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/bridge/br_stp_if.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+The patch is against DaveM's 'net-next.git' repo but I wouldn't mind if it's
+applied to 'net.git' instead. :-)
 
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 5396ff08af32..742fa89528ab 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -142,7 +142,9 @@ static void br_stp_start(struct net_bridge *br)
- 	char *envp[] = { NULL };
- 	struct net_bridge_port *p;
+Changes in version 2:
+- fixed the SoC name in the changelog.
+
+ Documentation/devicetree/bindings/net/renesas,ravb.txt |    1 +
+ drivers/net/ethernet/renesas/ravb_main.c               |    1 +
+ 2 files changed, 2 insertions(+)
+
+Index: net-next/Documentation/devicetree/bindings/net/renesas,ravb.txt
+===================================================================
+--- net-next.orig/Documentation/devicetree/bindings/net/renesas,ravb.txt
++++ net-next/Documentation/devicetree/bindings/net/renesas,ravb.txt
+@@ -5,6 +5,7 @@ interface contains.
  
--	r = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
-+	r = -ENOENT;
-+	if (dev_net(br->dev) == &init_net)
-+		r = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
+ Required properties:
+ - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
++	      "renesas,etheravb-r8a7791" if the device is a part of R8A7791 SoC.
+ 	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
+ 	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
+ - reg: offset and length of (1) the register block and (2) the stream buffer.
+Index: net-next/drivers/net/ethernet/renesas/ravb_main.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/ravb_main.c
++++ net-next/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1655,6 +1655,7 @@ static int ravb_mdio_release(struct ravb
  
- 	spin_lock_bh(&br->lock);
- 
--- 
-2.2.1
+ static const struct of_device_id ravb_match_table[] = {
+ 	{ .compatible = "renesas,etheravb-r8a7790", .data = (void *)RCAR_GEN2 },
++	{ .compatible = "renesas,etheravb-r8a7791", .data = (void *)RCAR_GEN2 },
+ 	{ .compatible = "renesas,etheravb-r8a7794", .data = (void *)RCAR_GEN2 },
+ 	{ .compatible = "renesas,etheravb-r8a7795", .data = (void *)RCAR_GEN3 },
+ 	{ }
