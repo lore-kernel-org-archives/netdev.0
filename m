@@ -1,61 +1,93 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] ravb: add R8A7791 support
-Date: Mon, 30 Nov 2015 09:08:57 +0100
-Message-ID: <CAMuHMdV6frDHnsNo5+C3TPD-T8vgBZWkn722wCc5aCQ8+NDn+A@mail.gmail.com>
-References: <6051623.qN4lqSyZKg@wasted.cogentembedded.com>
-	<CAMuHMdWE_G2WqsGZEaa4Ck3zziTLGVPfaVdU2gbnLA5zWpmR1w@mail.gmail.com>
-	<565B6AAD.8080205@cogentembedded.com>
-	<20151130004207.GD3501@verge.net.au>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 2/3] vhost: introduce vhost_vq_more_avail()
+Date: Mon, 30 Nov 2015 10:22:02 +0200
+Message-ID: <20151130082202.GA7396@redhat.com>
+References: <1448435489-5949-1-git-send-email-jasowang@redhat.com>
+ <1448435489-5949-3-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20151130004207.GD3501@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1448435489-5949-3-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Simon,
+On Wed, Nov 25, 2015 at 03:11:28PM +0800, Jason Wang wrote:
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/vhost/vhost.c | 26 +++++++++++++++++---------
+>  drivers/vhost/vhost.h |  1 +
+>  2 files changed, 18 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index 163b365..b86c5aa 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -1633,10 +1633,25 @@ void vhost_add_used_and_signal_n(struct vhost_dev *dev,
+>  }
+>  EXPORT_SYMBOL_GPL(vhost_add_used_and_signal_n);
+>  
+> +bool vhost_vq_more_avail(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+> +{
+> +	__virtio16 avail_idx;
+> +	int r;
+> +
+> +	r = __get_user(avail_idx, &vq->avail->idx);
+> +	if (r) {
+> +		vq_err(vq, "Failed to check avail idx at %p: %d\n",
+> +		       &vq->avail->idx, r);
+> +		return false;
 
-On Mon, Nov 30, 2015 at 1:42 AM, Simon Horman <horms@verge.net.au> wrote:
-> On Mon, Nov 30, 2015 at 12:14:21AM +0300, Sergei Shtylyov wrote:
->> On 11/29/2015 10:26 PM, Geert Uytterhoeven wrote:
->> >>Add support  for yet another ARM member of the R-Car family, R-Car M2, also
->> >R-Car M2-W?
->>
->>    Right, forgot about the postfixes.
->>
->> >>known as R8A7791.
->> >
->> >There's also R-Car M2-N, aka R8A7793, but you probably know that ;-)
->>
->>    Will fix.
->
-> I would prefer if we added generic gen2 and gen3 compat strings to the driver
-> and only documented new soc-specific compat strings.
->
-> Actually by chance I was planning to up patches to do that and add compat
-> strings for the missing Gen2 boards. But I won't complain if you beat me to
-> it.
+In patch 3 you are calling this under preempt disable,
+so this actually can fail and it isn't a VQ error.
 
-You're aware we have to keep the existing SoC-specific ones in the driver,
-for backwards compatibility?
+> +	}
+> +
+> +	return vhost16_to_cpu(vq, avail_idx) != vq->avail_idx;
+> +}
+> +EXPORT_SYMBOL_GPL(vhost_vq_more_avail);
+> +
+>  /* OK, now we need to know about added descriptors. */
+>  bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>  {
+> -	__virtio16 avail_idx;
+>  	int r;
+>  
+>  	if (!(vq->used_flags & VRING_USED_F_NO_NOTIFY))
+> @@ -1660,14 +1675,7 @@ bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>  	/* They could have slipped one in as we were doing that: make
+>  	 * sure it's written, then check again. */
+>  	smp_mb();
+> -	r = __get_user(avail_idx, &vq->avail->idx);
+> -	if (r) {
+> -		vq_err(vq, "Failed to check avail idx at %p: %d\n",
+> -		       &vq->avail->idx, r);
+> -		return false;
+> -	}
+> -
+> -	return vhost16_to_cpu(vq, avail_idx) != vq->avail_idx;
+> +	return vhost_vq_more_avail(dev, vq);
+>  }
+>  EXPORT_SYMBOL_GPL(vhost_enable_notify);
+>  
 
-Gr{oetje,eeting}s,
+This path does need an error though.
+It's probably easier to just leave this call site alone.
 
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+> index 43284ad..2f3c57c 100644
+> --- a/drivers/vhost/vhost.h
+> +++ b/drivers/vhost/vhost.h
+> @@ -159,6 +159,7 @@ void vhost_add_used_and_signal_n(struct vhost_dev *, struct vhost_virtqueue *,
+>  			       struct vring_used_elem *heads, unsigned count);
+>  void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
+>  void vhost_disable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+> +bool vhost_vq_more_avail(struct vhost_dev *, struct vhost_virtqueue *);
+>  bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+>  
+>  int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+> -- 
+> 2.5.0
