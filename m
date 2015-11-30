@@ -1,87 +1,83 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] bpf: fix allocation warnings in bpf maps and integer
- overflow
-Date: Mon, 30 Nov 2015 15:34:35 +0100
-Message-ID: <565C5E7B.2080602@iogearbox.net>
-References: <CACT4Y+b1k7Ofvn6xa=qWv9xP6BbteWOnZsJMXLZ=GOby-ajF=w@mail.gmail.com> <20151130005934.GA95228@ast-mbp.thefacebook.com> <565C549C.5080408@iogearbox.net>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] sctp: convert sack_needed and sack_generation to bits
+Date: Mon, 30 Nov 2015 09:43:45 -0500
+Message-ID: <565C60A1.1000001@gmail.com>
+References: <f3803545e5d34adfe83cff5adf01317c56288d59.1448892562.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	davem@davemloft.net
+Cc: Neil Horman <nhorman@tuxdriver.com>, linux-sctp@vger.kernel.org,
+	lucien.xin@gmail.com
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:50984 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753824AbbK3Oel (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 09:34:41 -0500
-In-Reply-To: <565C549C.5080408@iogearbox.net>
+Received: from mail-qk0-f172.google.com ([209.85.220.172]:33523 "EHLO
+	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754125AbbK3Ons (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 09:43:48 -0500
+In-Reply-To: <f3803545e5d34adfe83cff5adf01317c56288d59.1448892562.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/30/2015 02:52 PM, Daniel Borkmann wrote:
-> On 11/30/2015 01:59 AM, Alexei Starovoitov wrote:
-> [...]
->> For large map->value_size the user space can trigger memory allocation warnings like:
-> [...]
->
->> To avoid never succeeding kmalloc with order >= MAX_ORDER check that
->> elem->value_size and computed elem_size are within limits for both hash and
->> array type maps.
-> [...]
->
->> Large value_size can cause integer overflows in elem_size and map.pages
->> formulas, so check for that as well.
-> [...]
->
->> diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
->> index 3f4c99e06c6b..b1e53b79c586 100644
->> --- a/kernel/bpf/arraymap.c
->> +++ b/kernel/bpf/arraymap.c
->> @@ -28,11 +28,17 @@ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
->>           attr->value_size == 0)
->>           return ERR_PTR(-EINVAL);
->>
->> +    if (attr->value_size >= 1 << (KMALLOC_SHIFT_MAX - 1))
->> +        /* if value_size is bigger, the user space won't be able to
->> +         * access the elements.
->> +         */
->> +        return ERR_PTR(-E2BIG);
->> +
->
-> Bit confused, given that in array map, we try kzalloc() with __GFP_NOWARN already
-> and if that fails, we fall back to vzalloc(), it shouldn't trigger memory allocation
-> warnings here ...
->
-> Then, integer overflow in elem_size with round_up(attr->value_size, 8) could only
-> result in 0, which is already tested below.
->
->>       elem_size = round_up(attr->value_size, 8);
->>
->>       /* check round_up into zero and u32 overflow */
->>       if (elem_size == 0 ||
->> -        attr->max_entries > (U32_MAX - sizeof(*array)) / elem_size)
->> +        attr->max_entries > (U32_MAX - PAGE_SIZE - sizeof(*array)) / elem_size)
->>           return ERR_PTR(-ENOMEM);
->
-> ... and this change seems to be needed for the integer overflow in map.pages?
->
-> So if the first check above intends to check for some size overflow (?), how is it
-> then related to KMALLOC_SHIFT_MAX?
+On 11/30/2015 09:17 AM, Marcelo Ricardo Leitner wrote:
+> They don't need to be any bigger than that and with this we start a new
+> bitfield for tracking association runtime stuff, like zero window
+> situation.
+> 
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Ok, I see. The check and comment is related to the fact that when we do bpf(2)
-syscall to lookup an element:
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-We call map_lookup_elem(), which does kmalloc() on the value_size.
+-vlad
 
-So an individual entry lookup could fail with kmalloc() there, unrelated to an
-individual map implementation.
-
-Hmm, seems this patch fixes many things at once, maybe makes sense to split it?
+> ---
+> 
+> Motivated by https://patchwork.ozlabs.org/patch/509836/
+> 
+>  include/net/sctp/structs.h | 16 ++++++++--------
+>  1 file changed, 8 insertions(+), 8 deletions(-)
+> 
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index 495c87e367b3f2e8941807f56a77d2e14469bfed..7bbb71081aeb6cfdc9cb049cf7a094dbcd4603bb 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -775,10 +775,10 @@ struct sctp_transport {
+>  		hb_sent:1,
+>  
+>  		/* Is the Path MTU update pending on this tranport */
+> -		pmtu_pending:1;
+> +		pmtu_pending:1,
+>  
+> -	/* Has this transport moved the ctsn since we last sacked */
+> -	__u32 sack_generation;
+> +		/* Has this transport moved the ctsn since we last sacked */
+> +		sack_generation:1;
+>  	u32 dst_cookie;
+>  
+>  	struct flowi fl;
+> @@ -1482,19 +1482,19 @@ struct sctp_association {
+>  			prsctp_capable:1,   /* Can peer do PR-SCTP? */
+>  			auth_capable:1;     /* Is peer doing SCTP-AUTH? */
+>  
+> -		/* Ack State   : This flag indicates if the next received
+> +		/* sack_needed : This flag indicates if the next received
+>  		 *             : packet is to be responded to with a
+> -		 *             : SACK. This is initializedto 0.  When a packet
+> -		 *             : is received it is incremented. If this value
+> +		 *             : SACK. This is initialized to 0.  When a packet
+> +		 *             : is received sack_cnt is incremented. If this value
+>  		 *             : reaches 2 or more, a SACK is sent and the
+>  		 *             : value is reset to 0. Note: This is used only
+>  		 *             : when no DATA chunks are received out of
+>  		 *             : order.  When DATA chunks are out of order,
+>  		 *             : SACK's are not delayed (see Section 6).
+>  		 */
+> -		__u8    sack_needed;     /* Do we need to sack the peer? */
+> +		__u8    sack_needed:1,     /* Do we need to sack the peer? */
+> +			sack_generation:1;
+>  		__u32	sack_cnt;
+> -		__u32	sack_generation;
+>  
+>  		__u32   adaptation_ind;	 /* Adaptation Code point. */
+>  
+> 
