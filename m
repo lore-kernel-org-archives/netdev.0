@@ -1,7 +1,7 @@
 From: Marcin Wojtas <mw@semihalf.com>
-Subject: [PATCH v4 net 3/6] net: mvneta: fix bit assignment for RX packet irq enable
-Date: Mon, 30 Nov 2015 13:27:43 +0100
-Message-ID: <1448886466-31538-4-git-send-email-mw@semihalf.com>
+Subject: [PATCH v4 net 5/6] net: mvneta: enable setting custom TX IP checksum limit
+Date: Mon, 30 Nov 2015 13:27:45 +0100
+Message-ID: <1448886466-31538-6-git-send-email-mw@semihalf.com>
 References: <1448886466-31538-1-git-send-email-mw@semihalf.com>
 Cc: davem@davemloft.net, linux@arm.linux.org.uk,
 	sebastian.hesselbarth@gmail.com, andrew@lunn.ch,
@@ -17,34 +17,89 @@ In-Reply-To: <1448886466-31538-1-git-send-email-mw@semihalf.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A value originally defined in the driver was inappropriate. Even though
-the ingress was somehow working, writing MVNETA_RXQ_INTR_ENABLE_ALL_MASK
-to MVNETA_INTR_ENABLE didn't make any effect, because the bits [31:16]
-are reserved and read-only.
+Since Armada 38x SoC can support IP checksum for jumbo frames only on
+a single port, it means that this feature should be enabled per-port,
+rather than for the whole SoC.
 
-This commit updates MVNETA_RXQ_INTR_ENABLE_ALL_MASK to be compliant with
-the controller's documentation.
+This patch enables setting custom TX IP checksum limit by adding new
+optional property to the mvneta device tree node. If not used, by
+default 1600B is set for "marvell,armada-370-neta" and 9800B for other
+strings, which ensures backward compatibility. Binding documentation
+is updated accordingly.
 
 Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-
-Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP network
-unit")
 ---
- drivers/net/ethernet/marvell/mvneta.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ .../bindings/net/marvell-armada-370-neta.txt          |  6 ++++++
+ drivers/net/ethernet/marvell/mvneta.c                 | 19 +++++++++++++++++--
+ 2 files changed, 23 insertions(+), 2 deletions(-)
 
+diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+index f5a8ca2..aeea50c 100644
+--- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
++++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+@@ -8,6 +8,11 @@ Required properties:
+ - phy-mode: See ethernet.txt file in the same directory
+ - clocks: a pointer to the reference clock for this device.
+ 
++Optional properties:
++- tx-csum-limit: maximum mtu supported by port that allow TX checksum.
++  Value is presented in bytes. If not used, by default 1600B is set for
++  "marvell,armada-370-neta" and 9800B for others.
++
+ Example:
+ 
+ ethernet@d0070000 {
+@@ -15,6 +20,7 @@ ethernet@d0070000 {
+ 	reg = <0xd0070000 0x2500>;
+ 	interrupts = <8>;
+ 	clocks = <&gate_clk 4>;
++	tx-csum-limit = <9800>
+ 	status = "okay";
+ 	phy = <&phy0>;
+ 	phy-mode = "rgmii-id";
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 64c46f0..5dffb68 100644
+index 5a98c5d..ed622fa 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -160,7 +160,7 @@
+@@ -243,6 +243,7 @@
+ #define MVNETA_VLAN_TAG_LEN             4
  
- #define MVNETA_INTR_ENABLE                       0x25b8
- #define      MVNETA_TXQ_INTR_ENABLE_ALL_MASK     0x0000ff00
--#define      MVNETA_RXQ_INTR_ENABLE_ALL_MASK     0xff000000  // note: neta says it's 0x000000FF
-+#define      MVNETA_RXQ_INTR_ENABLE_ALL_MASK     0x000000ff
+ #define MVNETA_CPU_D_CACHE_LINE_SIZE    32
++#define MVNETA_TX_CSUM_DEF_SIZE		1600
+ #define MVNETA_TX_CSUM_MAX_SIZE		9800
+ #define MVNETA_ACC_MODE_EXT		1
  
- #define MVNETA_RXQ_CMD                           0x2680
- #define      MVNETA_RXQ_DISABLE_SHIFT            8
+@@ -3256,6 +3257,7 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	char hw_mac_addr[ETH_ALEN];
+ 	const char *mac_from;
+ 	const char *managed;
++	int tx_csum_limit;
+ 	int phy_mode;
+ 	int err;
+ 	int cpu;
+@@ -3356,8 +3358,21 @@ static int mvneta_probe(struct platform_device *pdev)
+ 		}
+ 	}
+ 
+-	if (of_device_is_compatible(dn, "marvell,armada-370-neta"))
+-		pp->tx_csum_limit = 1600;
++	if (!of_property_read_u32(dn, "tx-csum-limit", &tx_csum_limit)) {
++		if (tx_csum_limit < 0 ||
++		    tx_csum_limit > MVNETA_TX_CSUM_MAX_SIZE) {
++			tx_csum_limit = MVNETA_TX_CSUM_DEF_SIZE;
++			dev_info(&pdev->dev,
++				 "Wrong TX csum limit in DT, set to %dB\n",
++				 MVNETA_TX_CSUM_DEF_SIZE);
++		}
++	} else if (of_device_is_compatible(dn, "marvell,armada-370-neta")) {
++		tx_csum_limit = MVNETA_TX_CSUM_DEF_SIZE;
++	} else {
++		tx_csum_limit = MVNETA_TX_CSUM_MAX_SIZE;
++	}
++
++	pp->tx_csum_limit = tx_csum_limit;
+ 
+ 	pp->tx_ring_size = MVNETA_MAX_TXD;
+ 	pp->rx_ring_size = MVNETA_MAX_RXD;
 -- 
 1.8.3.1
