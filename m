@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] drivers: net: xgene: fix possible use after free
-Date: Sun, 29 Nov 2015 22:52:14 -0500 (EST)
-Message-ID: <20151129.225214.564332641043989256.davem@davemloft.net>
-References: <1448468256.24696.5.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151125163402.GA29094@leverpostej>
-	<1448470930.24696.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net] openvswitch: properly refcount vport-vxlan module
+Date: Sun, 29 Nov 2015 22:56:02 -0500 (EST)
+Message-ID: <20151129.225602.1084348710294716685.davem@davemloft.net>
+References: <1448471127-26271-1-git-send-email-pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mark.rutland@arm.com, isubramanian@apm.com, netdev@vger.kernel.org,
-	kchudgar@apm.com, linux-kernel@vger.kernel.org,
-	ryabinin.a.a@gmail.com, linux-arm-kernel@lists.infradead.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, pshelar@nicira.com, tgraf@suug.ch
+To: pabeni@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48236 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48300 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752106AbbK3DwQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 22:52:16 -0500
-In-Reply-To: <1448470930.24696.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751840AbbK3D4E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 22:56:04 -0500
+In-Reply-To: <1448471127-26271-1-git-send-email-pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 25 Nov 2015 09:02:10 -0800
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Wed, 25 Nov 2015 18:05:27 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> After 614732eaa12d, no refcount is mainteined for the vport-vxlan module.
+> This allows the userspace to remove such module while vport-vxlan
+> devices still exist, which lead to later oops, i.e. when
+> the openvswitch module is removed.
 > 
-> Once TX has been enabled on a NIC, it is illegal to access skb,
-> as this skb might have been freed by another cpu, from TX completion
-> handler.
+> Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Mark Rutland <mark.rutland@arm.com>
-> Tested-by: Mark Rutland <mark.rutland@arm.com>
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-Applied, thanks Eric.
+This is so error prone, with some vport_ops needing to mark the
+module and some don't (because they are in the main openvswitch
+driver).
+
+Fix this properly, by making the vport_ops register function be
+a macro that sets THIS_MODULE in the vport_ops before passing it
+on down to the real registry function.
