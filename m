@@ -1,89 +1,180 @@
 From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH 10/13] net: thunderx: Enable CQE count threshold irq on pass2 silicon
-Date: Mon, 30 Nov 2015 23:49:06 +0530
-Message-ID: <1448907549-5296-11-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 07/13] net: thunderx: Remove unnecessary rcv buffer start
+ address management
+Date: Mon, 30 Nov 2015 23:49:03 +0530
+Message-ID: <1448907549-5296-8-git-send-email-sunil.kovvuri@gmail.com>
 References: <y>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Sunil.Goutham@caviumnetworks.com,
-	Sunil Goutham <sgoutham@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Sunil Goutham <sgoutham@cavium.com>, Sunil.Goutham@caviumnetworks.com,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <y>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
+Since we have moved on to using allocated pages to carve receive
+buffers instead of netdev_alloc_skb() there is no need to store
+any pointers for later retrieval. Earlier we had to store
+skb and skb->data pointers which later are used to handover
+received packet to network stack.
+
+This will avoid an unnecessary cache miss as well.
+
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h          |    2 ++
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   |    2 +-
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |    5 ++++-
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |    3 ++-
- 4 files changed, 9 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |   49 ++++----------------
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h |   10 +---
+ 2 files changed, 11 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index 02571f4..e782856 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -34,6 +34,8 @@
- /* NIC priv flags */
- #define	NIC_SRIOV_ENABLED		BIT(0)
- 
-+#define	VNIC_NAPI_WEIGHT		NAPI_POLL_WEIGHT
-+
- /* Min/Max packet size */
- #define	NIC_HW_MIN_FRS			64
- #define	NIC_HW_MAX_FRS			9200 /* 9216 max packet including FCS */
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index df07bd7..51bbe67 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -1147,7 +1147,7 @@ int nicvf_open(struct net_device *netdev)
- 		cq_poll->cq_idx = qidx;
- 		cq_poll->nicvf = nic;
- 		netif_napi_add(netdev, &cq_poll->napi, nicvf_poll,
--			       NAPI_POLL_WEIGHT);
-+			       VNIC_NAPI_WEIGHT);
- 		napi_enable(&cq_poll->napi);
- 		nic->napi[qidx] = cq_poll;
- 	}
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index 209e495..5855828 100644
+index 99a29d0..1fbd908 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -299,7 +299,10 @@ static int nicvf_init_cmp_queue(struct nicvf *nic,
- 		return err;
+@@ -18,14 +18,6 @@
+ #include "q_struct.h"
+ #include "nicvf_queues.h"
  
- 	cq->desc = cq->dmem.base;
--	cq->thresh = CMP_QUEUE_CQE_THRESH;
-+	if (!pass1_silicon(nic->pdev))
-+		cq->thresh = CMP_QUEUE_CQE_THRESH;
-+	else
-+		cq->thresh = 0;
- 	nic->cq_coalesce_usecs = (CMP_QUEUE_TIMER_THRESH * 0.05) - 1;
+-struct rbuf_info {
+-	struct page *page;
+-	void	*data;
+-	u64	offset;
+-};
+-
+-#define GET_RBUF_INFO(x) ((struct rbuf_info *)(x - NICVF_RCV_BUF_ALIGN_BYTES))
+-
+ /* Poll a register for a specific value */
+ static int nicvf_poll_reg(struct nicvf *nic, int qidx,
+ 			  u64 reg, int bit_pos, int bits, int val)
+@@ -86,8 +78,6 @@ static void nicvf_free_q_desc_mem(struct nicvf *nic, struct q_desc_mem *dmem)
+ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, gfp_t gfp,
+ 					 u32 buf_len, u64 **rbuf)
+ {
+-	u64 data;
+-	struct rbuf_info *rinfo;
+ 	int order = get_order(buf_len);
  
+ 	/* Check if request can be accomodated in previous allocated page */
+@@ -113,46 +103,28 @@ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, gfp_t gfp,
+ 		nic->rb_page_offset = 0;
+ 	}
+ 
+-	data = (u64)page_address(nic->rb_page) + nic->rb_page_offset;
+-
+-	/* Align buffer addr to cache line i.e 128 bytes */
+-	rinfo = (struct rbuf_info *)(data + NICVF_RCV_BUF_ALIGN_LEN(data));
+-	/* Save page address for reference updation */
+-	rinfo->page = nic->rb_page;
+-	/* Store start address for later retrieval */
+-	rinfo->data = (void *)data;
+-	/* Store alignment offset */
+-	rinfo->offset = NICVF_RCV_BUF_ALIGN_LEN(data);
++	*rbuf = (u64 *)((u64)page_address(nic->rb_page) + nic->rb_page_offset);
+ 
+-	data += rinfo->offset;
+-
+-	/* Give next aligned address to hw for DMA */
+-	*rbuf = (u64 *)(data + NICVF_RCV_BUF_ALIGN_BYTES);
  	return 0;
+ }
+ 
+-/* Retrieve actual buffer start address and build skb for received packet */
++/* Build skb around receive buffer */
+ static struct sk_buff *nicvf_rb_ptr_to_skb(struct nicvf *nic,
+ 					   u64 rb_ptr, int len)
+ {
++	void *data;
+ 	struct sk_buff *skb;
+-	struct rbuf_info *rinfo;
+ 
+-	rb_ptr = (u64)phys_to_virt(rb_ptr);
+-	/* Get buffer start address and alignment offset */
+-	rinfo = GET_RBUF_INFO(rb_ptr);
++	data = phys_to_virt(rb_ptr);
+ 
+ 	/* Now build an skb to give to stack */
+-	skb = build_skb(rinfo->data, RCV_FRAG_LEN);
++	skb = build_skb(data, RCV_FRAG_LEN);
+ 	if (!skb) {
+-		put_page(rinfo->page);
++		put_page(virt_to_page(data));
+ 		return NULL;
+ 	}
+ 
+-	/* Set correct skb->data */
+-	skb_reserve(skb, rinfo->offset + NICVF_RCV_BUF_ALIGN_BYTES);
+-
+-	prefetch((void *)rb_ptr);
++	prefetch(skb->data);
+ 	return skb;
+ }
+ 
+@@ -196,7 +168,6 @@ static void nicvf_free_rbdr(struct nicvf *nic, struct rbdr *rbdr)
+ 	int head, tail;
+ 	u64 buf_addr;
+ 	struct rbdr_entry_t *desc;
+-	struct rbuf_info *rinfo;
+ 
+ 	if (!rbdr)
+ 		return;
+@@ -212,16 +183,14 @@ static void nicvf_free_rbdr(struct nicvf *nic, struct rbdr *rbdr)
+ 	while (head != tail) {
+ 		desc = GET_RBDR_DESC(rbdr, head);
+ 		buf_addr = desc->buf_addr << NICVF_RCV_BUF_ALIGN;
+-		rinfo = GET_RBUF_INFO((u64)phys_to_virt(buf_addr));
+-		put_page(rinfo->page);
++		put_page(virt_to_page(phys_to_virt(buf_addr)));
+ 		head++;
+ 		head &= (rbdr->dmem.q_len - 1);
+ 	}
+ 	/* Free SKB of tail desc */
+ 	desc = GET_RBDR_DESC(rbdr, tail);
+ 	buf_addr = desc->buf_addr << NICVF_RCV_BUF_ALIGN;
+-	rinfo = GET_RBUF_INFO((u64)phys_to_virt(buf_addr));
+-	put_page(rinfo->page);
++	put_page(virt_to_page(phys_to_virt(buf_addr)));
+ 
+ 	/* Free RBDR ring */
+ 	nicvf_free_q_desc_mem(nic, &rbdr->dmem);
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index bce8099..2cfc85b 100644
+index 457eaee..bce8099 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -10,6 +10,7 @@
- #define NICVF_QUEUES_H
+@@ -83,10 +83,8 @@
+ #define MAX_RCV_BUF_COUNT	(1ULL << (RBDR_SIZE6 + 13))
+ #define RBDR_THRESH		(RCV_BUF_COUNT / 2)
+ #define DMA_BUFFER_LEN		2048 /* In multiples of 128bytes */
+-#define RCV_FRAG_LEN	(SKB_DATA_ALIGN(DMA_BUFFER_LEN + NET_SKB_PAD) + \
+-			 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) + \
+-			 (NICVF_RCV_BUF_ALIGN_BYTES * 2))
+-#define RCV_DATA_OFFSET		NICVF_RCV_BUF_ALIGN_BYTES
++#define RCV_FRAG_LEN	 (SKB_DATA_ALIGN(DMA_BUFFER_LEN + NET_SKB_PAD) + \
++			 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
  
- #include <linux/netdevice.h>
-+#include "nic.h"
- #include "q_struct.h"
+ #define MAX_CQES_FOR_TX		((SND_QUEUE_LEN / MIN_SQ_DESC_PER_PKT_XMIT) * \
+ 				 MAX_CQE_PER_PKT_XMIT)
+@@ -108,10 +106,6 @@
+ #define NICVF_SQ_BASE_ALIGN_BYTES	128  /* 7 bits */
  
- #define MAX_QUEUE_SET			128
-@@ -75,7 +76,7 @@
-  */
- #define CMP_QSIZE		CMP_QUEUE_SIZE3
- #define CMP_QUEUE_LEN		(1ULL << (CMP_QSIZE + 10))
--#define CMP_QUEUE_CQE_THRESH	0
-+#define CMP_QUEUE_CQE_THRESH	(VNIC_NAPI_WEIGHT / 2)
- #define CMP_QUEUE_TIMER_THRESH	80 /* ~2usec */
+ #define NICVF_ALIGNED_ADDR(ADDR, ALIGN_BYTES)	ALIGN(ADDR, ALIGN_BYTES)
+-#define NICVF_ADDR_ALIGN_LEN(ADDR, BYTES)\
+-	(NICVF_ALIGNED_ADDR(ADDR, BYTES) - BYTES)
+-#define NICVF_RCV_BUF_ALIGN_LEN(X)\
+-	(NICVF_ALIGNED_ADDR(X, NICVF_RCV_BUF_ALIGN_BYTES) - X)
  
- #define RBDR_SIZE		RBDR_SIZE0
+ /* Queue enable/disable */
+ #define NICVF_SQ_EN		BIT_ULL(19)
 -- 
 1.7.1
