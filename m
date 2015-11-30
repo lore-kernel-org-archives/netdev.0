@@ -1,12 +1,10 @@
 From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH 05/13] net: thunderx: nicvf_queues: nivc_*_intr: remove duplication
-Date: Mon, 30 Nov 2015 23:49:01 +0530
-Message-ID: <1448907549-5296-6-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 06/13] net: thunderx: Switchon carrier only upon interface link up
+Date: Mon, 30 Nov 2015 23:49:02 +0530
+Message-ID: <1448907549-5296-7-git-send-email-sunil.kovvuri@gmail.com>
 References: <y>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Sunil.Goutham@caviumnetworks.com,
-	Yury Norov <yury.norov@auriga.com>,
-	Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
 	Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -14,220 +12,96 @@ In-Reply-To: <y>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Yury Norov <yury.norov@auriga.com>
+From: Sunil Goutham <sgoutham@cavium.com>
 
-The same switch-case repeates for nivc_*_intr functions.
-In this patch it is moved to a helper nicvf_int_type_to_mask().
+Call netif_carrier_on() only if interface's link is up. Switching this on
+upon IFF_UP by default, is causing issues with ethernet channel bonding
+in LACP mode. Initial NETDEV_CHANGE notification was being skipped.
 
-By the way:
- - Unneeded write to NICVF register dropped if int_type is unknown.
- - netdev_dbg() is used instead of netdev_err().
+Also fixed some issues with link/speed/duplex reporting via ethtool.
 
-Signed-off-by: Yury Norov <yury.norov@auriga.com>
-Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
-Acked-by: Vadim Lomovtsev <Vadim.Lomovtsev@caiumnetworks.com>
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |  140 ++++++--------------
- 1 files changed, 40 insertions(+), 100 deletions(-)
+ .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |   16 +++++++++++++++-
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   |    4 +---
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |    2 ++
+ 3 files changed, 18 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index 206b6a7..99a29d0 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -1234,153 +1234,93 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
- 	return skb;
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+index af54c10..a12b2e3 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+@@ -112,6 +112,13 @@ static int nicvf_get_settings(struct net_device *netdev,
+ 
+ 	cmd->supported = 0;
+ 	cmd->transceiver = XCVR_EXTERNAL;
++
++	if (!nic->link_up) {
++		cmd->duplex = DUPLEX_UNKNOWN;
++		ethtool_cmd_speed_set(cmd, SPEED_UNKNOWN);
++		return 0;
++	}
++
+ 	if (nic->speed <= 1000) {
+ 		cmd->port = PORT_MII;
+ 		cmd->autoneg = AUTONEG_ENABLE;
+@@ -125,6 +132,13 @@ static int nicvf_get_settings(struct net_device *netdev,
+ 	return 0;
  }
  
--/* Enable interrupt */
--void nicvf_enable_intr(struct nicvf *nic, int int_type, int q_idx)
-+static u64 nicvf_int_type_to_mask(int int_type, int q_idx)
- {
- 	u64 reg_val;
- 
--	reg_val = nicvf_reg_read(nic, NIC_VF_ENA_W1S);
--
- 	switch (int_type) {
- 	case NICVF_INTR_CQ:
--		reg_val |= ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
-+		reg_val = ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
- 		break;
- 	case NICVF_INTR_SQ:
--		reg_val |= ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
-+		reg_val = ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
- 		break;
- 	case NICVF_INTR_RBDR:
--		reg_val |= ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
-+		reg_val = ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
- 		break;
- 	case NICVF_INTR_PKT_DROP:
--		reg_val |= (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
-+		reg_val = (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
- 		break;
- 	case NICVF_INTR_TCP_TIMER:
--		reg_val |= (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
-+		reg_val = (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
- 		break;
- 	case NICVF_INTR_MBOX:
--		reg_val |= (1ULL << NICVF_INTR_MBOX_SHIFT);
-+		reg_val = (1ULL << NICVF_INTR_MBOX_SHIFT);
- 		break;
- 	case NICVF_INTR_QS_ERR:
--		reg_val |= (1ULL << NICVF_INTR_QS_ERR_SHIFT);
-+		reg_val = (1ULL << NICVF_INTR_QS_ERR_SHIFT);
- 		break;
- 	default:
--		netdev_err(nic->netdev,
--			   "Failed to enable interrupt: unknown type\n");
--		break;
-+		reg_val = 0;
- 	}
- 
--	nicvf_reg_write(nic, NIC_VF_ENA_W1S, reg_val);
-+	return reg_val;
++static u32 nicvf_get_link(struct net_device *netdev)
++{
++	struct nicvf *nic = netdev_priv(netdev);
++
++	return nic->link_up;
 +}
 +
-+/* Enable interrupt */
-+void nicvf_enable_intr(struct nicvf *nic, int int_type, int q_idx)
-+{
-+	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
-+
-+	if (!mask) {
-+		netdev_dbg(nic->netdev,
-+			   "Failed to enable interrupt: unknown type\n");
-+		return;
-+	}
-+	nicvf_reg_write(nic, NIC_VF_ENA_W1S,
-+			nicvf_reg_read(nic, NIC_VF_ENA_W1S) | mask);
- }
- 
- /* Disable interrupt */
- void nicvf_disable_intr(struct nicvf *nic, int int_type, int q_idx)
+ static void nicvf_get_drvinfo(struct net_device *netdev,
+ 			      struct ethtool_drvinfo *info)
  {
--	u64 reg_val = 0;
-+	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
+@@ -660,7 +674,7 @@ static int nicvf_set_channels(struct net_device *dev,
  
--	switch (int_type) {
--	case NICVF_INTR_CQ:
--		reg_val |= ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
--		break;
--	case NICVF_INTR_SQ:
--		reg_val |= ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
--		break;
--	case NICVF_INTR_RBDR:
--		reg_val |= ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
--		break;
--	case NICVF_INTR_PKT_DROP:
--		reg_val |= (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
--		break;
--	case NICVF_INTR_TCP_TIMER:
--		reg_val |= (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
--		break;
--	case NICVF_INTR_MBOX:
--		reg_val |= (1ULL << NICVF_INTR_MBOX_SHIFT);
--		break;
--	case NICVF_INTR_QS_ERR:
--		reg_val |= (1ULL << NICVF_INTR_QS_ERR_SHIFT);
--		break;
--	default:
--		netdev_err(nic->netdev,
-+	if (!mask) {
-+		netdev_dbg(nic->netdev,
- 			   "Failed to disable interrupt: unknown type\n");
--		break;
-+		return;
- 	}
+ static const struct ethtool_ops nicvf_ethtool_ops = {
+ 	.get_settings		= nicvf_get_settings,
+-	.get_link		= ethtool_op_get_link,
++	.get_link		= nicvf_get_link,
+ 	.get_drvinfo		= nicvf_get_drvinfo,
+ 	.get_msglevel		= nicvf_get_msglevel,
+ 	.set_msglevel		= nicvf_set_msglevel,
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 7f709cb..dde8dc7 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -1057,6 +1057,7 @@ int nicvf_stop(struct net_device *netdev)
  
--	nicvf_reg_write(nic, NIC_VF_ENA_W1C, reg_val);
-+	nicvf_reg_write(nic, NIC_VF_ENA_W1C, mask);
- }
+ 	netif_carrier_off(netdev);
+ 	netif_tx_stop_all_queues(nic->netdev);
++	nic->link_up = false;
  
- /* Clear interrupt */
- void nicvf_clear_intr(struct nicvf *nic, int int_type, int q_idx)
- {
--	u64 reg_val = 0;
-+	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
+ 	/* Teardown secondary qsets first */
+ 	if (!nic->sqs_mode) {
+@@ -1211,9 +1212,6 @@ int nicvf_open(struct net_device *netdev)
+ 	nic->drv_stats.txq_stop = 0;
+ 	nic->drv_stats.txq_wake = 0;
  
--	switch (int_type) {
--	case NICVF_INTR_CQ:
--		reg_val = ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
--		break;
--	case NICVF_INTR_SQ:
--		reg_val = ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
--		break;
--	case NICVF_INTR_RBDR:
--		reg_val = ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
--		break;
--	case NICVF_INTR_PKT_DROP:
--		reg_val = (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
--		break;
--	case NICVF_INTR_TCP_TIMER:
--		reg_val = (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
--		break;
--	case NICVF_INTR_MBOX:
--		reg_val = (1ULL << NICVF_INTR_MBOX_SHIFT);
--		break;
--	case NICVF_INTR_QS_ERR:
--		reg_val |= (1ULL << NICVF_INTR_QS_ERR_SHIFT);
--		break;
--	default:
--		netdev_err(nic->netdev,
-+	if (!mask) {
-+		netdev_dbg(nic->netdev,
- 			   "Failed to clear interrupt: unknown type\n");
--		break;
-+		return;
- 	}
- 
--	nicvf_reg_write(nic, NIC_VF_INT, reg_val);
-+	nicvf_reg_write(nic, NIC_VF_INT, mask);
- }
- 
- /* Check if interrupt is enabled */
- int nicvf_is_intr_enabled(struct nicvf *nic, int int_type, int q_idx)
- {
--	u64 reg_val;
--	u64 mask = 0xff;
+-	netif_carrier_on(netdev);
+-	netif_tx_start_all_queues(netdev);
 -
--	reg_val = nicvf_reg_read(nic, NIC_VF_ENA_W1S);
--
--	switch (int_type) {
--	case NICVF_INTR_CQ:
--		mask = ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
--		break;
--	case NICVF_INTR_SQ:
--		mask = ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
--		break;
--	case NICVF_INTR_RBDR:
--		mask = ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
--		break;
--	case NICVF_INTR_PKT_DROP:
--		mask = NICVF_INTR_PKT_DROP_MASK;
--		break;
--	case NICVF_INTR_TCP_TIMER:
--		mask = NICVF_INTR_TCP_TIMER_MASK;
--		break;
--	case NICVF_INTR_MBOX:
--		mask = NICVF_INTR_MBOX_MASK;
--		break;
--	case NICVF_INTR_QS_ERR:
--		mask = NICVF_INTR_QS_ERR_MASK;
--		break;
--	default:
--		netdev_err(nic->netdev,
-+	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
-+	/* If interrupt type is unknown, we treat it disabled. */
-+	if (!mask) {
-+		netdev_dbg(nic->netdev,
- 			   "Failed to check interrupt enable: unknown type\n");
--		break;
-+		return 0;
+ 	return 0;
+ cleanup:
+ 	nicvf_disable_intr(nic, NICVF_INTR_MBOX, 0);
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+index 2076ac3..d9f27ad 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+@@ -612,6 +612,8 @@ static void bgx_poll_for_link(struct work_struct *work)
+ 		lmac->last_duplex = 1;
+ 	} else {
+ 		lmac->link_up = 0;
++		lmac->last_speed = SPEED_UNKNOWN;
++		lmac->last_duplex = DUPLEX_UNKNOWN;
  	}
  
--	return (reg_val & mask);
-+	return mask & nicvf_reg_read(nic, NIC_VF_ENA_W1S);
- }
- 
- void nicvf_update_rq_stats(struct nicvf *nic, int rq_idx)
+ 	if (lmac->last_link != lmac->link_up) {
 -- 
 1.7.1
