@@ -1,98 +1,80 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net v2] openvswitch: properly refcount vport-vxlan module
-Date: Mon, 30 Nov 2015 12:31:43 +0100
-Message-ID: <2658801f06f24c242c40f223b1164e61be44974a.1448882748.git.pabeni@redhat.com>
-Cc: Pravin Shelar <pshelar@nicira.com>, Thomas Graf <tgraf@suug.ch>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35630 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751116AbbK3LcM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Nov 2015 06:32:12 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+Subject: [PATCH 2/3] net: fec: convert to using gpiod framework
+Date: Mon, 30 Nov 2015 12:32:47 +0100
+Message-ID: <1448883168-30742-3-git-send-email-LW@KARO-electronics.de>
+References: <1448883168-30742-1-git-send-email-LW@KARO-electronics.de>
+ <1448883168-30742-2-git-send-email-LW@KARO-electronics.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Andrew Lunn <andrew@lunn.ch>,
+	"David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Greg Ungerer <gerg@uclinux.org>,
+	Kevin Hao <haokexin@gmail.com>,
+	=?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	Nimrod Andy <B38611@freescale.com>,
+	Philippe Reynes <tremyfr@gmail.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Stefan Agner <stefan@agner.ch>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448883168-30742-2-git-send-email-LW@KARO-electronics.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After 614732eaa12d, no refcount is maintained for the vport-vxlan module.
-This allows the userspace to remove such module while vport-vxlan
-devices still exist, which leads to later oops.
+Use gpiod_get_optional() instead of checking for a valid GPIO number
+and calling devm_gpio_request_one() conditionally.
 
-v1 -> v2:
- - move vport 'owner' initialization in ovs_vport_ops_register()
-   and make such function a macro
-
-Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
 ---
- net/openvswitch/vport-geneve.c | 1 -
- net/openvswitch/vport-gre.c    | 1 -
- net/openvswitch/vport.c        | 4 ++--
- net/openvswitch/vport.h        | 8 +++++++-
- 4 files changed, 9 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 17 +++++++----------
+ 1 file changed, 7 insertions(+), 10 deletions(-)
 
-diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
-index efb736b..e41cd12 100644
---- a/net/openvswitch/vport-geneve.c
-+++ b/net/openvswitch/vport-geneve.c
-@@ -117,7 +117,6 @@ static struct vport_ops ovs_geneve_vport_ops = {
- 	.destroy	= ovs_netdev_tunnel_destroy,
- 	.get_options	= geneve_get_options,
- 	.send		= dev_queue_xmit,
--	.owner          = THIS_MODULE,
- };
- 
- static int __init ovs_geneve_tnl_init(void)
-diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-index c3257d7..7f8897f 100644
---- a/net/openvswitch/vport-gre.c
-+++ b/net/openvswitch/vport-gre.c
-@@ -89,7 +89,6 @@ static struct vport_ops ovs_gre_vport_ops = {
- 	.create		= gre_create,
- 	.send		= dev_queue_xmit,
- 	.destroy	= ovs_netdev_tunnel_destroy,
--	.owner		= THIS_MODULE,
- };
- 
- static int __init ovs_gre_tnl_init(void)
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index e194c10a..31cbc8c 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -71,7 +71,7 @@ static struct hlist_head *hash_bucket(const struct net *net, const char *name)
- 	return &dev_table[hash & (VPORT_HASH_BUCKETS - 1)];
- }
- 
--int ovs_vport_ops_register(struct vport_ops *ops)
-+int __ovs_vport_ops_register(struct vport_ops *ops)
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/et=
+hernet/freescale/fec_main.c
+index e17d74f..1a983fc 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -3233,7 +3233,7 @@ static int fec_enet_init(struct net_device *ndev)
+ #ifdef CONFIG_OF
+ static void fec_reset_phy(struct platform_device *pdev)
  {
- 	int err = -EEXIST;
- 	struct vport_ops *o;
-@@ -87,7 +87,7 @@ errout:
- 	ovs_unlock();
- 	return err;
+-	int err, phy_reset;
++	struct gpio_desc *phy_reset;
+ 	int msec =3D 1;
+ 	struct device_node *np =3D pdev->dev.of_node;
+=20
+@@ -3245,18 +3245,15 @@ static void fec_reset_phy(struct platform_devic=
+e *pdev)
+ 	if (msec > 1000)
+ 		msec =3D 1;
+=20
+-	phy_reset =3D of_get_named_gpio(np, "phy-reset-gpios", 0);
+-	if (!gpio_is_valid(phy_reset))
+-		return;
+-
+-	err =3D devm_gpio_request_one(&pdev->dev, phy_reset,
+-				    GPIOF_OUT_INIT_LOW, "phy-reset");
+-	if (err) {
+-		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n", err);
++	phy_reset =3D devm_gpiod_get_optional(&pdev->dev, "phy-reset",
++					    GPIOD_OUT_LOW);
++	if (IS_ERR(phy_reset)) {
++		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %ld\n",
++			PTR_ERR(phy_reset));
+ 		return;
+ 	}
+ 	msleep(msec);
+-	gpio_set_value_cansleep(phy_reset, 1);
++	gpiod_set_value_cansleep(phy_reset, 1);
  }
--EXPORT_SYMBOL_GPL(ovs_vport_ops_register);
-+EXPORT_SYMBOL_GPL(__ovs_vport_ops_register);
- 
- void ovs_vport_ops_unregister(struct vport_ops *ops)
- {
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index bdfd82a..8ea3a96 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -196,7 +196,13 @@ static inline const char *ovs_vport_name(struct vport *vport)
- 	return vport->dev->name;
- }
- 
--int ovs_vport_ops_register(struct vport_ops *ops);
-+int __ovs_vport_ops_register(struct vport_ops *ops);
-+#define ovs_vport_ops_register(ops)		\
-+	({					\
-+		(ops)->owner = THIS_MODULE;	\
-+		__ovs_vport_ops_register(ops);	\
-+	})
-+
- void ovs_vport_ops_unregister(struct vport_ops *ops);
- 
- static inline struct rtable *ovs_tunnel_route_lookup(struct net *net,
--- 
-1.8.3.1
+ #else /* CONFIG_OF */
+ static void fec_reset_phy(struct platform_device *pdev)
+--=20
+2.1.4
