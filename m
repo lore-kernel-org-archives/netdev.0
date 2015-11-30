@@ -1,70 +1,61 @@
-From: Duan Andy <fugang.duan@freescale.com>
-Subject: RE: [PATCH] net: fec: fix enet_out clock handling
-Date: Mon, 30 Nov 2015 07:31:19 +0000
-Message-ID: <BN3PR0301MB1219E3C63A4F2AE460C3EC1EF5000@BN3PR0301MB1219.namprd03.prod.outlook.com>
-References: <1448631550-943-1-git-send-email-LW@KARO-electronics.de>
-	<BN3PR0301MB1219C4D8E1B09F1AE27E18FAF5020@BN3PR0301MB1219.namprd03.prod.outlook.com>
- <20151130075617.0f880cd1@ipc1.ka-ro>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] ravb: add R8A7791 support
+Date: Mon, 30 Nov 2015 09:08:57 +0100
+Message-ID: <CAMuHMdV6frDHnsNo5+C3TPD-T8vgBZWkn722wCc5aCQ8+NDn+A@mail.gmail.com>
+References: <6051623.qN4lqSyZKg@wasted.cogentembedded.com>
+	<CAMuHMdWE_G2WqsGZEaa4Ck3zziTLGVPfaVdU2gbnLA5zWpmR1w@mail.gmail.com>
+	<565B6AAD.8080205@cogentembedded.com>
+	<20151130004207.GD3501@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <Fabio.Estevam@freescale.com>,
-	Kevin Hao <haokexin@gmail.com>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Philippe Reynes <tremyfr@gmail.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Uwe Kleine-K?nig <u.kleine-koenig@pengutronix.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stefan Agner <stefan@agner.ch>
-To: =?utf-8?B?TG90aGFyIFdhw59tYW5u?= <LW@KARO-electronics.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151130075617.0f880cd1@ipc1.ka-ro>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20151130004207.GD3501@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogTG90aGFyIFdhw59tYW5uIDxMV0BLQVJPLWVsZWN0cm9uaWNzLmRlPiBTZW50OiBNb25k
-YXksIE5vdmVtYmVyIDMwLCAyMDE1IDI6NTYgUE0NCj4gVG86IER1YW4gRnVnYW5nLUIzODYxMQ0K
-PiBDYzogQW5kcmV3IEx1bm47IERhdmlkIFMuIE1pbGxlcjsgRXN0ZXZhbSBGYWJpby1SNDk0OTY7
-IEtldmluIEhhbzsgTHVjYXMNCj4gU3RhY2g7IFBoaWxpcHBlIFJleW5lczsgUnVzc2VsbCBLaW5n
-OyBVd2UgS2xlaW5lLUs/bmlnOyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVsLm9yZzsgbmV0
-ZGV2QHZnZXIua2VybmVsLm9yZzsgU3RlZmFuIEFnbmVyDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hd
-IG5ldDogZmVjOiBmaXggZW5ldF9vdXQgY2xvY2sgaGFuZGxpbmcNCj4gDQo+IEhpLA0KPiANCj4g
-PiBGcm9tOiBMb3RoYXIgV2HDn21hbm4gPExXQEtBUk8tZWxlY3Ryb25pY3MuZGU+IFNlbnQ6IEZy
-aWRheSwgTm92ZW1iZXINCj4gPiAyNywgMjAxNSA5OjM5IFBNDQo+ID4gPiBUbzogQW5kcmV3IEx1
-bm47IERhdmlkIFMuIE1pbGxlcjsgRXN0ZXZhbSBGYWJpby1SNDk0OTY7IEtldmluIEhhbzsNCj4g
-PiA+IExvdGhhciBXYcOfbWFubjsgTHVjYXMgU3RhY2g7IER1YW4gRnVnYW5nLUIzODYxMTsgUGhp
-bGlwcGUgUmV5bmVzOw0KPiA+ID4gUnVzc2VsbCBLaW5nOyBVd2UgS2xlaW5lLUvDtm5pZzsgbGlu
-dXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gPiA+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7
-IFN0ZWZhbiBBZ25lcg0KPiA+ID4gU3ViamVjdDogW1BBVENIXSBuZXQ6IGZlYzogZml4IGVuZXRf
-b3V0IGNsb2NrIGhhbmRsaW5nDQo+ID4gPg0KPiA+ID4gV2hlbiBFTkVUX09VVCBpcyBiZWluZyB1
-c2VkIGFzIHJlZmVyZW5jZSBjbG9jayBmb3IgYW4gZXh0ZXJuYWwgUEhZLA0KPiA+ID4gdGhlIGNs
-b2NrIG11c3Qgbm90IGJlIGRpc2FibGVkIHdoaWxlIHRoZSBQSFkgaXMgYWN0aXZlLiBPdGhlcndp
-c2UNCj4gPiA+IHRoZSBQSFkgbWF5IGxvc2UgaXRzIGludGVybmFsIHN0YXRlIGFuZCByZXF1aXJl
-IGEgcmVzZXQgdG8gYmVjb21lDQo+IGZ1bmN0aW9uYWwgYWdhaW4uDQo+ID4gPg0KPiA+ID4gQSBz
-eW1wdG9tIGZvciB0aGlzIGJ1ZyBpcyBhIG5ldHdvcmsgaW50ZXJmYWNlIHRoYXQgY29uc3RhbnRs
-eQ0KPiA+ID4gdG9nZ2xlcyBiZXR3ZWVuIFVQIGFuZCBET1dOIHN0YXRlOg0KPiA+ID4gZmVjIDgw
-MGYwMDAwLmV0aGVybmV0IGV0aDA6IExpbmsgaXMgVXAgLSAxMDBNYnBzL0Z1bGwgLSBmbG93IGNv
-bnRyb2wNCj4gPiA+IHJ4L3R4IGZlYyA4MDBmMDAwMC5ldGhlcm5ldCBldGgwOiBMaW5rIGlzIERv
-d24gZmVjIDgwMGYwMDAwLmV0aGVybmV0DQo+IGV0aDA6DQo+ID4gPiBMaW5rIGlzIFVwIC0gMTAw
-TWJwcy9GdWxsIC0gZmxvdyBjb250cm9sIHJ4L3R4IGZlYyA4MDBmMDAwMC5ldGhlcm5ldA0KPiBl
-dGgwOg0KPiA+ID4gTGluayBpcyBEb3duIFsuLi5dDQo+ID4gPg0KPiA+ID4gU2lnbmVkLW9mZi1i
-eTogTG90aGFyIFdhw59tYW5uIDxMV0BLQVJPLWVsZWN0cm9uaWNzLmRlPg0KPiA+ID4gLS0tDQo+
-ID4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMgfCAzNA0KPiA+
-ID4gKysrKysrKysrKysrKy0tLS0tLS0tLS0tLQ0KPiA+ID4gLS0tLS0tDQo+ID4gPiAgMSBmaWxl
-IGNoYW5nZWQsIDE0IGluc2VydGlvbnMoKyksIDIwIGRlbGV0aW9ucygtKQ0KPiA+ID4NCj4gPg0K
-PiA+IFdoZW4gTUFDIGlzIG5vdCByZWFkeSB3aXRoIGNsb2NrcyBkaXNhYmxlZCwgIGl0IGlzIG5v
-dCBuZWNlc3NhcnkgdG8NCj4gc3VwcGx5IGNsb2NrIGZvciBQSFkuIEluIGZhY3QsIFBIWSBhbHNv
-IGlzIG5vdCByZWFkeSwgd2h5IGRvZXMgaXQgbmVlZA0KPiBjbG9jayA/DQo+ID4gRm9yIHlvdXIg
-cHJvYmxlbSwgeW91IG11c3QgYWRkIFBIWSByZXNldCBpbiB5b3VyIGR0cyBmaWxlIHRvIHJlc29s
-dmUNCj4geW91ciBwcm9ibGVtLg0KPiA+DQo+IFRoZSBwaHktcmVzZXQtZ3BpbyBwcm9wZXJ0eSBp
-cyBzZXQgaW4gdGhlIERUQi4gQnV0IGZlY19yZXNldF9waHkoKSB3aGljaA0KPiBhc3NlcnRzIHRo
-ZSBSRVNFVCBpcyBvbmx5IGNhbGxlZCBmcm9tIHdpdGhpbiB0aGUgcHJvYmUoKSBmdW5jdGlvbi4N
-Cj4gSXQgc2hvdWxkIHByb2JhYmx5IGJlIGNhbGxlZCBmcm9tIGZlY19yZXN0YXJ0KCkgaW5zdGVh
-ZD8NCj4gDQpBZnRlciBlbmV0X291dCBjbG9jayBlbmFibGUsIHlvdSBjYW4gY2FsbCBmZWNfcmVz
-ZXRfcGh5KCkgZG8gcGh5IHJlc2V0LiAgRG9uJ3QgcHV0IGl0IGluIC5mZWNfcmVzdGFydCgpIGZ1
-bmN0aW9uIGJlY2F1c2UNCkNhYmxlIGhvdHBsdWcgdGVzdCBjYXVzZSBwaHkgcmVnaXN0ZXJzIHJl
-c2V0IHRvIEhXIGRlZmF1bHQgc3RhdHVzLg0KDQpSZWdhcmRzLA0KQW5keQ0K
+Hi Simon,
+
+On Mon, Nov 30, 2015 at 1:42 AM, Simon Horman <horms@verge.net.au> wrote:
+> On Mon, Nov 30, 2015 at 12:14:21AM +0300, Sergei Shtylyov wrote:
+>> On 11/29/2015 10:26 PM, Geert Uytterhoeven wrote:
+>> >>Add support  for yet another ARM member of the R-Car family, R-Car M2, also
+>> >R-Car M2-W?
+>>
+>>    Right, forgot about the postfixes.
+>>
+>> >>known as R8A7791.
+>> >
+>> >There's also R-Car M2-N, aka R8A7793, but you probably know that ;-)
+>>
+>>    Will fix.
+>
+> I would prefer if we added generic gen2 and gen3 compat strings to the driver
+> and only documented new soc-specific compat strings.
+>
+> Actually by chance I was planning to up patches to do that and add compat
+> strings for the missing Gen2 boards. But I won't complain if you beat me to
+> it.
+
+You're aware we have to keep the existing SoC-specific ones in the driver,
+for backwards compatibility?
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
