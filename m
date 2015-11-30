@@ -1,75 +1,76 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: gigaset: freeing an active object
-Date: Mon, 30 Nov 2015 19:30:15 +0100
-Message-ID: <565C95B7.7070001@imap.cc>
-References: <56587467.8050102@oracle.com> <565B1A1B.8020503@imap.cc>
- <565B4256.6080101@hurleysoftware.com> <565B4844.9020600@imap.cc>
- <1448828800.2603.17.camel@tiscali.nl> <1448839396.2891.14.camel@tiscali.nl>
- <1448906497.3546.16.camel@tiscali.nl>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="GsxKItogWvGvq7jKO1rVlTC6fK8WXGF9W"
-Cc: isdn@linux-pingi.de, davem@davemloft.net,
-	gigaset307x-common@lists.sourceforge.net,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>
-To: Paul Bolle <pebolle@tiscali.nl>,
-	Peter Hurley <peter@hurleysoftware.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448906497.3546.16.camel@tiscali.nl>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v3 1/8] netfilter: Remove
+	IP_CT_NEW_REPLY definition.
+Date: Mon, 30 Nov 2015 10:16:43 -0800
+Message-ID: <391067B3-D60E-43BC-B669-2DD45924E5D8@ovn.org>
+References: <1448496501-109561-1-git-send-email-jarno@ovn.org>
+ <1448496501-109561-2-git-send-email-jarno@ovn.org>
+ <20151126054100.GB21626@vergenet.net>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20151126054100.GB21626-IxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---GsxKItogWvGvq7jKO1rVlTC6fK8WXGF9W
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-
-Am 30.11.2015 um 19:01 schrieb Paul Bolle:
-> [DRAFT] gigaset: don't free() a struct platform_device
->=20
-> One is not supposed to free() a struct platform_device. Instead one
-> should, in the common case, only call platform_device_unregister(). Tha=
-t
-> will drop the platform device's reference count. (Actually it's the
-> reference count of the embedded kobject that is important here. But for=
-
-> users of platform devices that's basically irrelevant.)
->=20
-> So move struct platform_device dev out of struct ser_cardstate, because=
-
-> ser_cardstate is (malloc'ed and) free'd.
-
-I wonder how that will behave if someone attaches two of the devices to
-different serial ports. Not likely, but not forbidden either.
-
-Regards,
-Tilman
-
---=20
-Tilman Schmidt                              E-Mail: tilman@imap.cc
-Bonn, Germany
-Nous, on a des fleurs et des bougies pour nous prot=C3=A9ger.
-
-
---GsxKItogWvGvq7jKO1rVlTC6fK8WXGF9W
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAEBCAAGBQJWXJXKAAoJEFPuqx0v+F+qy+EH+gMy8xuvxvDC24DqOsqOjy0/
-wZ4bn3p2hexuG1XfIbODBc78i+aEmMENojby5z+wIDeWurjxV+r0BfFlCgusFHhk
-NphJsKhJl8Qva8rHmgMG3sXXybZmlMro/z2K/ph7OgI5OlE+Ci94cP4GWe8fFWb3
-CJJnk/DOrV5Eb1KbejpkOeqVb3WKri5akoqiuBAIK8XV1Kmb6xSDZb6pNRpcvPfk
-3QNbl7V4vfbW8Piy3Dpr7w0Zw1GMYyjirNW4xryfNuXZn3HAxbWOWCfRcKDsJF0K
-zX2h+vJgYKbPmYdXxoJGH15f8goM0tiFzuI605Ck2Jgvlki3TcrodB9eI8cdpMI=
-=P/Cn
------END PGP SIGNATURE-----
-
---GsxKItogWvGvq7jKO1rVlTC6fK8WXGF9W--
+Cj4gT24gTm92IDI1LCAyMDE1LCBhdCAyMTo0MSwgU2ltb24gSG9ybWFuIDxzaW1vbi5ob3JtYW5A
+bmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gCj4+IE9uIFdlZCwgTm92IDI1LCAyMDE1IGF0IDA0OjA4
+OjE0UE0gLTA4MDAsIEphcm5vIFJhamFoYWxtZSB3cm90ZToKPj4gUmVtb3ZlIHRoZSBkZWZpbml0
+aW9uIG9mIElQX0NUX05FV19SRVBMWSBmcm9tIHRoZSBrZXJuZWwgYXMgaXQgZG9lcwo+PiBub3Qg
+bWFrZSBzZW5zZS4gIFRoaXMgYWxsb3dzIHRoZSBkZWZpbml0aW9uIG9mIElQX0NUX05VTUJFUiB0
+byBiZQo+PiBzaW1wbGlmaWVkIGFzIHdlbGwuCj4+IAo+PiBTaWduZWQtb2ZmLWJ5OiBKYXJubyBS
+YWphaGFsbWUgPGphcm5vQG92bi5vcmc+Cj4gCj4gSSBoYXRlIHRvIGJlIHRoZSBiZWFyZXIgb2Yg
+YmFkIG5ld3MgYnV0IGl0cyBub3QgY2xlYXIKPiB0byBtZSB0aGF0IHRoaXMgY2hhbmdlIGRvZXNu
+J3QgYnJlYWsgdXNlci1zcGFjZS4KPiAKClRoZXNlIHNob3VsZCBiZSBubyBjaGFuZ2UgZm9yIHRo
+ZSB1c2Vyc3BhY2UsIHVubGVzcyBfX0tFUk5FTF9fIGlzIGRlZmluZWQuCgpBbHNvLCB0aGlzIGlz
+IGEgbWlub3IgY2xlYW4tdXAgb25seSwgc28gSSBoYXZlIG5vIHByb2JsZW0gZHJvcHBpbmcgdGhp
+cyBwYXRjaCwgaXMgbmVlZCBiZS4KCiAgSmFybm8KCj4+IC0tLQo+PiBpbmNsdWRlL3VhcGkvbGlu
+dXgvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb21tb24uaCB8IDEyICsrKysrKysrKy0tLQo+PiBu
+ZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgICAgICAgICAgICAgICAgICAgICAgICB8ICAyIC0t
+Cj4+IDIgZmlsZXMgY2hhbmdlZCwgOSBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygtKQo+PiAK
+Pj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvdWFwaS9saW51eC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNr
+X2NvbW1vbi5oIGIvaW5jbHVkZS91YXBpL2xpbnV4L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29t
+bW9uLmgKPj4gaW5kZXggMzE5ZjQ3MS4uMmYwNjdjZiAxMDA2NDQKPj4gLS0tIGEvaW5jbHVkZS91
+YXBpL2xpbnV4L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29tbW9uLmgKPj4gKysrIGIvaW5jbHVk
+ZS91YXBpL2xpbnV4L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29tbW9uLmgKPj4gQEAgLTIwLDkg
+KzIwLDE1IEBAIGVudW0gaXBfY29ubnRyYWNrX2luZm8gewo+PiAKPj4gICAgSVBfQ1RfRVNUQUJM
+SVNIRURfUkVQTFkgPSBJUF9DVF9FU1RBQkxJU0hFRCArIElQX0NUX0lTX1JFUExZLAo+PiAgICBJ
+UF9DVF9SRUxBVEVEX1JFUExZID0gSVBfQ1RfUkVMQVRFRCArIElQX0NUX0lTX1JFUExZLAo+PiAt
+ICAgIElQX0NUX05FV19SRVBMWSA9IElQX0NUX05FVyArIElQX0NUX0lTX1JFUExZLCAgICAKPj4g
+LSAgICAvKiBOdW1iZXIgb2YgZGlzdGluY3QgSVBfQ1QgdHlwZXMgKG5vIE5FVyBpbiByZXBseSBk
+aXJuKS4gKi8KPj4gLSAgICBJUF9DVF9OVU1CRVIgPSBJUF9DVF9JU19SRVBMWSAqIDIgLSAxCj4+
+ICsgICAgLyogTm8gTkVXIGluIHJlcGx5IGRpcmVjdGlvbi4gKi8KPj4gKwo+PiArICAgIC8qIE51
+bWJlciBvZiBkaXN0aW5jdCBJUF9DVCB0eXBlcy4gKi8KPj4gKyAgICBJUF9DVF9OVU1CRVIKPj4g
+Kwo+PiArICAgIC8qIG9ubHkgZm9yIHVzZXJzcGFjZSBjb21wYXRpYmlsaXR5ICovCj4+ICsjaWZu
+ZGVmIF9fS0VSTkVMX18KPj4gKyAgICBJUF9DVF9ORVdfUkVQTFkgPSBJUF9DVF9OVU1CRVI7Cj4+
+ICsjZW5kaWYKPj4gfTsKPj4gCj4+ICNkZWZpbmUgTkZfQ1RfU1RBVEVfSU5WQUxJRF9CSVQgICAg
+ICAgICAgICAoMSA8PCAwKQo+PiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFj
+ay5jIGIvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jCj4+IGluZGV4IGMyY2MxMTEuLmEyOGE4
+MTkgMTAwNjQ0Cj4+IC0tLSBhL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYwo+PiArKysgYi9u
+ZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKPj4gQEAgLTczLDcgKzczLDYgQEAgc3RhdGljIHU4
+IG92c19jdF9nZXRfc3RhdGUoZW51bSBpcF9jb25udHJhY2tfaW5mbyBjdGluZm8pCj4+ICAgIHN3
+aXRjaCAoY3RpbmZvKSB7Cj4+ICAgIGNhc2UgSVBfQ1RfRVNUQUJMSVNIRURfUkVQTFk6Cj4+ICAg
+IGNhc2UgSVBfQ1RfUkVMQVRFRF9SRVBMWToKPj4gLSAgICBjYXNlIElQX0NUX05FV19SRVBMWToK
+Pj4gICAgICAgIGN0X3N0YXRlIHw9IE9WU19DU19GX1JFUExZX0RJUjsKPj4gICAgICAgIGJyZWFr
+Owo+PiAgICBkZWZhdWx0Ogo+PiBAQCAtOTAsNyArODksNiBAQCBzdGF0aWMgdTggb3ZzX2N0X2dl
+dF9zdGF0ZShlbnVtIGlwX2Nvbm50cmFja19pbmZvIGN0aW5mbykKPj4gICAgICAgIGN0X3N0YXRl
+IHw9IE9WU19DU19GX1JFTEFURUQ7Cj4+ICAgICAgICBicmVhazsKPj4gICAgY2FzZSBJUF9DVF9O
+RVc6Cj4+IC0gICAgY2FzZSBJUF9DVF9ORVdfUkVQTFk6Cj4+ICAgICAgICBjdF9zdGF0ZSB8PSBP
+VlNfQ1NfRl9ORVc7Cj4+ICAgICAgICBicmVhazsKPj4gICAgZGVmYXVsdDoKPj4gLS0gCj4+IDIu
+MS40Cj4+IAo+PiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+Xwo+PiBkZXYgbWFpbGluZyBsaXN0Cj4+IGRldkBvcGVudnN3aXRjaC5vcmcKPj4gaHR0cDovL29w
+ZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RldgpfX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRj
+aC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
