@@ -1,35 +1,28 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] net: usb: ch9200: use kmemdup instead of kmalloc +
- memcpy
-Date: Sun, 29 Nov 2015 22:40:31 -0500 (EST)
-Message-ID: <20151129.224031.1377764944004812313.davem@davemloft.net>
-References: <1448446041-15663-1-git-send-email-anuplimbu14@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] atm: solos-pci: Replace simple_strtol by kstrtoint
+Date: Sun, 29 Nov 2015 22:45:57 -0500 (EST)
+Message-ID: <20151129.224557.1010909057566457373.davem@davemloft.net>
+References: <1448459081-6427-1-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mjg59-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org, tklauser-93Khv+1bN0NBDgjK7y7TUQ@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: anuplimbu14-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1448446041-15663-1-git-send-email-anuplimbu14-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: clabbe.montjoie@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448459081-6427-1-git-send-email-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Anup Limbu <anuplimbu14-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed, 25 Nov 2015 15:37:21 +0530
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Date: Wed, 25 Nov 2015 14:44:41 +0100
 
-> replace kmalloc + memset with kmemdup
+> The simple_strtol function is obsolete.
+> This patch replace it by kstrtoint.
+> This will simplify code, since some error case not handled by
+> simple_strtol are handled by kstrtoint.
 > 
-> Signed-off-by: Anup Limbu <anuplimbu14-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
 
-I agree with Bjorn that this microturfing cleanup misses
-the real higher level opportunity to use the usbnet_read_cmd()
-and usbnet_write_cmd() helpers that already exist.
-
-Over time I am getting more and more weary of laser focused
-microscopic cleanups.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+kstrtoint() actually returns an accurate error code, so please
+use it.
