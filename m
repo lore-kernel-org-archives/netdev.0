@@ -1,7 +1,7 @@
 From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH 12/13] net: thunderx: Fix for duplicate CQEs by HW for TSO packets
-Date: Mon, 30 Nov 2015 23:49:08 +0530
-Message-ID: <1448907549-5296-13-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 11/13] net: thunderx: HW errata workaround for non-tunneled TSO pkts
+Date: Mon, 30 Nov 2015 23:49:07 +0530
+Message-ID: <1448907549-5296-12-git-send-email-sunil.kovvuri@gmail.com>
 References: <y>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Sunil.Goutham@caviumnetworks.com,
@@ -14,41 +14,66 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-HW sends a CQE for each segment of a TSO packet instead of a single CQE
-for whole TSO packet transmitted. Each of this CQE points to the same SQE.
-SW should takecare of not freeing same SQE multiple times.
+A HW errata mandates inner layer3 offset field of send header for a non-tunneled 
+TSO packet to point to L2 ethertype in the payload. Also added counter for HW 
+TSO packets.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nicvf_main.c |   10 ++++++++--
- 1 files changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |   17 ++++++++++-------
+ 1 files changed, 10 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index 51bbe67..a75f21f 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -525,14 +525,20 @@ static void nicvf_snd_pkt_handler(struct net_device *netdev,
- 		   __func__, cqe_tx->sq_qs, cqe_tx->sq_idx,
- 		   cqe_tx->sqe_ptr, hdr->subdesc_cnt);
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index 5855828..4e9709e 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -943,8 +943,8 @@ static int nicvf_sq_subdesc_required(struct nicvf *nic, struct sk_buff *skb)
+  * First subdescriptor for every send descriptor.
+  */
+ static inline void
+-nicvf_sq_add_hdr_subdesc(struct snd_queue *sq, int qentry, int subdesc_cnt,
+-			 struct sk_buff *skb, int len, bool hw_tso)
++nicvf_sq_add_hdr_subdesc(struct nicvf *nic, struct snd_queue *sq, int qentry,
++			 int subdesc_cnt, struct sk_buff *skb, int len)
+ {
+ 	int proto;
+ 	struct sq_hdr_subdesc *hdr;
+@@ -980,10 +980,13 @@ nicvf_sq_add_hdr_subdesc(struct snd_queue *sq, int qentry, int subdesc_cnt,
+ 		}
+ 	}
  
--	nicvf_put_sq_desc(sq, hdr->subdesc_cnt + 1);
- 	nicvf_check_cqe_tx_errs(nic, cq, cqe_tx);
- 	skb = (struct sk_buff *)sq->skbuff[cqe_tx->sqe_ptr];
--	/* For TSO offloaded packets only one head SKB needs to be freed */
-+	/* For SW TSO offloaded packets only one head SKB needs to be freed */
- 	if (skb) {
-+		nicvf_put_sq_desc(sq, hdr->subdesc_cnt + 1);
- 		prefetch(skb);
- 		dev_consume_skb_any(skb);
- 		sq->skbuff[cqe_tx->sqe_ptr] = (u64)NULL;
-+	} else {
-+		/* In case of HW TSO, a CQE_TX is added by HW for each segment.
-+		 * Free SQEs only once.
-+		 */
-+		if (!nic->hw_tso)
-+			nicvf_put_sq_desc(sq, hdr->subdesc_cnt + 1);
+-	if (hw_tso && skb_shinfo(skb)->gso_size) {
++	if (nic->hw_tso && skb_shinfo(skb)->gso_size) {
+ 		hdr->tso = 1;
+ 		hdr->tso_start = skb_transport_offset(skb) + tcp_hdrlen(skb);
+ 		hdr->tso_max_paysize = skb_shinfo(skb)->gso_size;
++		/* For non-tunneled pkts, point this to L2 ethertype */
++		hdr->inner_l3_offset = skb_network_offset(skb) - 2;
++		nic->drv_stats.tx_tso++;
  	}
  }
  
+@@ -1054,8 +1057,8 @@ static int nicvf_sq_append_tso(struct nicvf *nic, struct snd_queue *sq,
+ 			data_left -= size;
+ 			tso_build_data(skb, &tso, size);
+ 		}
+-		nicvf_sq_add_hdr_subdesc(sq, hdr_qentry,
+-					 seg_subdescs - 1, skb, seg_len, false);
++		nicvf_sq_add_hdr_subdesc(nic, sq, hdr_qentry,
++					 seg_subdescs - 1, skb, seg_len);
+ 		sq->skbuff[hdr_qentry] = (u64)NULL;
+ 		qentry = nicvf_get_nxt_sqentry(sq, qentry);
+ 
+@@ -1111,8 +1114,8 @@ int nicvf_sq_append_skb(struct nicvf *nic, struct sk_buff *skb)
+ 		return nicvf_sq_append_tso(nic, sq, sq_num, qentry, skb);
+ 
+ 	/* Add SQ header subdesc */
+-	nicvf_sq_add_hdr_subdesc(sq, qentry, subdesc_cnt - 1, skb,
+-				 skb->len, nic->hw_tso);
++	nicvf_sq_add_hdr_subdesc(nic, sq, qentry, subdesc_cnt - 1,
++				 skb, skb->len);
+ 
+ 	/* Add SQ gather subdescs */
+ 	qentry = nicvf_get_nxt_sqentry(sq, qentry);
 -- 
 1.7.1
