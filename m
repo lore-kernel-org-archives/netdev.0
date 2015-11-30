@@ -1,10 +1,12 @@
 From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH 04/13] net: thunderx: Set CQ timer threshold properly
-Date: Mon, 30 Nov 2015 23:49:00 +0530
-Message-ID: <1448907549-5296-5-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 05/13] net: thunderx: nicvf_queues: nivc_*_intr: remove duplication
+Date: Mon, 30 Nov 2015 23:49:01 +0530
+Message-ID: <1448907549-5296-6-git-send-email-sunil.kovvuri@gmail.com>
 References: <y>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Sunil.Goutham@caviumnetworks.com,
+	Yury Norov <yury.norov@auriga.com>,
+	Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
 	Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,60 +14,220 @@ In-Reply-To: <y>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sunil Goutham <sgoutham@cavium.com>
+From: Yury Norov <yury.norov@auriga.com>
 
-Properly set CQ timer threshold and also set it to 2us.
-With previous incorrect settings it was set to 0.5us which is too less.
+The same switch-case repeates for nivc_*_intr functions.
+In this patch it is moved to a helper nicvf_int_type_to_mask().
 
+By the way:
+ - Unneeded write to NICVF register dropped if int_type is unknown.
+ - netdev_dbg() is used instead of netdev_err().
+
+Signed-off-by: Yury Norov <yury.norov@auriga.com>
+Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
+Acked-by: Vadim Lomovtsev <Vadim.Lomovtsev@caiumnetworks.com>
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h          |    5 ++---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |    2 +-
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |    2 +-
- 3 files changed, 4 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |  140 ++++++--------------
+ 1 files changed, 40 insertions(+), 100 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index d3950b2..39ca674 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -120,10 +120,9 @@
-  * Calculated for SCLK of 700Mhz
-  * value written should be a 1/16th of what is expected
-  *
-- * 1 tick per 0.05usec = value of 2.2
-- * This 10% would be covered in CQ timer thresh value
-+ * 1 tick per 0.025usec
-  */
--#define NICPF_CLK_PER_INT_TICK		2
-+#define NICPF_CLK_PER_INT_TICK		1
- 
- /* Time to wait before we decide that a SQ is stuck.
-  *
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index e404ea8..206b6a7 100644
+index 206b6a7..99a29d0 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -592,7 +592,7 @@ void nicvf_cmp_queue_config(struct nicvf *nic, struct queue_set *qs,
- 	/* Set threshold value for interrupt generation */
- 	nicvf_queue_reg_write(nic, NIC_QSET_CQ_0_7_THRESH, qidx, cq->thresh);
- 	nicvf_queue_reg_write(nic, NIC_QSET_CQ_0_7_CFG2,
--			      qidx, nic->cq_coalesce_usecs);
-+			      qidx, CMP_QUEUE_TIMER_THRESH);
+@@ -1234,153 +1234,93 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
+ 	return skb;
  }
  
- /* Configures transmit queue */
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index b1e93a9..457eaee 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -76,7 +76,7 @@
- #define CMP_QSIZE		CMP_QUEUE_SIZE3
- #define CMP_QUEUE_LEN		(1ULL << (CMP_QSIZE + 10))
- #define CMP_QUEUE_CQE_THRESH	0
--#define CMP_QUEUE_TIMER_THRESH	220 /* 10usec */
-+#define CMP_QUEUE_TIMER_THRESH	80 /* ~2usec */
+-/* Enable interrupt */
+-void nicvf_enable_intr(struct nicvf *nic, int int_type, int q_idx)
++static u64 nicvf_int_type_to_mask(int int_type, int q_idx)
+ {
+ 	u64 reg_val;
  
- #define RBDR_SIZE		RBDR_SIZE0
- #define RCV_BUF_COUNT		(1ULL << (RBDR_SIZE + 13))
+-	reg_val = nicvf_reg_read(nic, NIC_VF_ENA_W1S);
+-
+ 	switch (int_type) {
+ 	case NICVF_INTR_CQ:
+-		reg_val |= ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
++		reg_val = ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
+ 		break;
+ 	case NICVF_INTR_SQ:
+-		reg_val |= ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
++		reg_val = ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
+ 		break;
+ 	case NICVF_INTR_RBDR:
+-		reg_val |= ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
++		reg_val = ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
+ 		break;
+ 	case NICVF_INTR_PKT_DROP:
+-		reg_val |= (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
++		reg_val = (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
+ 		break;
+ 	case NICVF_INTR_TCP_TIMER:
+-		reg_val |= (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
++		reg_val = (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
+ 		break;
+ 	case NICVF_INTR_MBOX:
+-		reg_val |= (1ULL << NICVF_INTR_MBOX_SHIFT);
++		reg_val = (1ULL << NICVF_INTR_MBOX_SHIFT);
+ 		break;
+ 	case NICVF_INTR_QS_ERR:
+-		reg_val |= (1ULL << NICVF_INTR_QS_ERR_SHIFT);
++		reg_val = (1ULL << NICVF_INTR_QS_ERR_SHIFT);
+ 		break;
+ 	default:
+-		netdev_err(nic->netdev,
+-			   "Failed to enable interrupt: unknown type\n");
+-		break;
++		reg_val = 0;
+ 	}
+ 
+-	nicvf_reg_write(nic, NIC_VF_ENA_W1S, reg_val);
++	return reg_val;
++}
++
++/* Enable interrupt */
++void nicvf_enable_intr(struct nicvf *nic, int int_type, int q_idx)
++{
++	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
++
++	if (!mask) {
++		netdev_dbg(nic->netdev,
++			   "Failed to enable interrupt: unknown type\n");
++		return;
++	}
++	nicvf_reg_write(nic, NIC_VF_ENA_W1S,
++			nicvf_reg_read(nic, NIC_VF_ENA_W1S) | mask);
+ }
+ 
+ /* Disable interrupt */
+ void nicvf_disable_intr(struct nicvf *nic, int int_type, int q_idx)
+ {
+-	u64 reg_val = 0;
++	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
+ 
+-	switch (int_type) {
+-	case NICVF_INTR_CQ:
+-		reg_val |= ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
+-		break;
+-	case NICVF_INTR_SQ:
+-		reg_val |= ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
+-		break;
+-	case NICVF_INTR_RBDR:
+-		reg_val |= ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
+-		break;
+-	case NICVF_INTR_PKT_DROP:
+-		reg_val |= (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
+-		break;
+-	case NICVF_INTR_TCP_TIMER:
+-		reg_val |= (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
+-		break;
+-	case NICVF_INTR_MBOX:
+-		reg_val |= (1ULL << NICVF_INTR_MBOX_SHIFT);
+-		break;
+-	case NICVF_INTR_QS_ERR:
+-		reg_val |= (1ULL << NICVF_INTR_QS_ERR_SHIFT);
+-		break;
+-	default:
+-		netdev_err(nic->netdev,
++	if (!mask) {
++		netdev_dbg(nic->netdev,
+ 			   "Failed to disable interrupt: unknown type\n");
+-		break;
++		return;
+ 	}
+ 
+-	nicvf_reg_write(nic, NIC_VF_ENA_W1C, reg_val);
++	nicvf_reg_write(nic, NIC_VF_ENA_W1C, mask);
+ }
+ 
+ /* Clear interrupt */
+ void nicvf_clear_intr(struct nicvf *nic, int int_type, int q_idx)
+ {
+-	u64 reg_val = 0;
++	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
+ 
+-	switch (int_type) {
+-	case NICVF_INTR_CQ:
+-		reg_val = ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
+-		break;
+-	case NICVF_INTR_SQ:
+-		reg_val = ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
+-		break;
+-	case NICVF_INTR_RBDR:
+-		reg_val = ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
+-		break;
+-	case NICVF_INTR_PKT_DROP:
+-		reg_val = (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
+-		break;
+-	case NICVF_INTR_TCP_TIMER:
+-		reg_val = (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
+-		break;
+-	case NICVF_INTR_MBOX:
+-		reg_val = (1ULL << NICVF_INTR_MBOX_SHIFT);
+-		break;
+-	case NICVF_INTR_QS_ERR:
+-		reg_val |= (1ULL << NICVF_INTR_QS_ERR_SHIFT);
+-		break;
+-	default:
+-		netdev_err(nic->netdev,
++	if (!mask) {
++		netdev_dbg(nic->netdev,
+ 			   "Failed to clear interrupt: unknown type\n");
+-		break;
++		return;
+ 	}
+ 
+-	nicvf_reg_write(nic, NIC_VF_INT, reg_val);
++	nicvf_reg_write(nic, NIC_VF_INT, mask);
+ }
+ 
+ /* Check if interrupt is enabled */
+ int nicvf_is_intr_enabled(struct nicvf *nic, int int_type, int q_idx)
+ {
+-	u64 reg_val;
+-	u64 mask = 0xff;
+-
+-	reg_val = nicvf_reg_read(nic, NIC_VF_ENA_W1S);
+-
+-	switch (int_type) {
+-	case NICVF_INTR_CQ:
+-		mask = ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
+-		break;
+-	case NICVF_INTR_SQ:
+-		mask = ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
+-		break;
+-	case NICVF_INTR_RBDR:
+-		mask = ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
+-		break;
+-	case NICVF_INTR_PKT_DROP:
+-		mask = NICVF_INTR_PKT_DROP_MASK;
+-		break;
+-	case NICVF_INTR_TCP_TIMER:
+-		mask = NICVF_INTR_TCP_TIMER_MASK;
+-		break;
+-	case NICVF_INTR_MBOX:
+-		mask = NICVF_INTR_MBOX_MASK;
+-		break;
+-	case NICVF_INTR_QS_ERR:
+-		mask = NICVF_INTR_QS_ERR_MASK;
+-		break;
+-	default:
+-		netdev_err(nic->netdev,
++	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
++	/* If interrupt type is unknown, we treat it disabled. */
++	if (!mask) {
++		netdev_dbg(nic->netdev,
+ 			   "Failed to check interrupt enable: unknown type\n");
+-		break;
++		return 0;
+ 	}
+ 
+-	return (reg_val & mask);
++	return mask & nicvf_reg_read(nic, NIC_VF_ENA_W1S);
+ }
+ 
+ void nicvf_update_rq_stats(struct nicvf *nic, int rq_idx)
 -- 
 1.7.1
