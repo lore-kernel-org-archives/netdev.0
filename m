@@ -1,95 +1,57 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: Kernel 4.1.12 crash
-Date: Mon, 30 Nov 2015 21:42:08 +0100
-Message-ID: <20151130204208.GA6046@alphalink.fr>
-References: <564F26FF.3040605@seti.kr.ua>
- <564FA904.7020603@gmail.com>
- <5650287B.9070901@seti.kr.ua>
- <56514FF5.7060906@gmail.com>
- <5654EBE8.9030705@seti.kr.ua>
- <20151125141048.GA3868@alphalink.fr>
- <5655CCAE.6000300@seti.kr.ua>
- <20151126164452.GA2988@alphalink.fr>
- <565B7699.8030105@seti.kr.ua>
- <20151130150337.GC3059@alphalink.fr>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] netfilter: ipvs: avoid unused variable warning
+Date: Mon, 30 Nov 2015 22:48:34 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1511302242210.1918@ja.home.ssi.bg>
+References: <9616810.SPqCgIbKt5@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	netdev@vger.kernel.org, Simon Farnsworth <simon@farnz.org.uk>
-To: Andrew <nitr0@seti.kr.ua>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:42218 "EHLO
-	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751250AbbK3UmM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 15:42:12 -0500
-Content-Disposition: inline
-In-Reply-To: <20151130150337.GC3059@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <9616810.SPqCgIbKt5@wuerfel>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[Adding Simon to the discussion]
 
-On Mon, Nov 30, 2015 at 04:03:37PM +0100, Guillaume Nault wrote:
-> On Mon, Nov 30, 2015 at 12:05:13AM +0200, Andrew wrote:
-> > 26.11.2015 18:44, Guillaume Nault =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> > >On Wed, Nov 25, 2015 at 04:58:54PM +0200, Andrew wrote:
-> > >>25.11.2015 16:10, Guillaume Nault =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> > >>>On Wed, Nov 25, 2015 at 12:59:52AM +0200, Andrew wrote:
-> > >>>>Hi.
-> > >>>>
-> > >>>>I tried to reproduce errors in virtual environment (some VMs on=
- my
-> > >>>>notebook).
-> > >>>>
-> > >>>>I've tried to create 1000 client PPPoE sessions from this box v=
-ia script:
-> > >>>>for i in `seq 1 1000`; do pppd plugin rp-pppoe.so user test pas=
-sword test
-> > >>>>nodefaultroute maxfail 0 persist nodefaultroute holdoff 1 noaut=
-h eth0; done
-> > >>>>
-> > >>>I've tried to reproduce the bug with your script, but couldn't g=
-et
-> > >>>anything to crash (VM is Debian Jessie i386 running on KVM with =
-upstream
-> > >>>kernel 4.1.12). Does the crash happen before all sessions get
-> > >>>established?
-> > >>Yes, crash happens even before all daemon instances are started. =
-Sessions
-> > >>don't get established because BRAS configured to reject sessions =
-(so a lot
-> > >>of concurrent connection retries happens) - I still didn't create=
-d account
-> > >>for test user on it.
-> > >>
-> > >Ok, I got the crash too. In fact I had misunderstood your previous
-> > >message, crash happens when PPP sessions don't get established
-> > >(authentication failures in my case).
-> > >
-> > >I'll investigate on that and let you know.
-> >=20
-> > It seems like bug appears on mass ppp devices removing (I planned t=
-o use
-> > this test environment to reproduce BRAS periodical crashes, but sud=
-denly
-> > I've got crashes on test client).
-> >=20
-> > I've checked it with some kernels - it's present in 4.3.0, but it i=
-sn't
-> > present in 3.10.57. I'll try to build 3.14/3.18 kernels to look how=
- they
-> > will work in this case.
->=20
-> Yes, it most likely was introduced by 287f3a943fef ("pppoe: Use
-> workqueue to die properly when a PADT is received"). I still have to
-> figure out why.
+	Hello,
 
-I confirm the bug comes from this commit.
+On Mon, 30 Nov 2015, Arnd Bergmann wrote:
 
-It happens if pppoe_connect() reinitialises po->proto.pppoe.padt_work
-after pppoe_disc_rcv() has added it to the system's work queue, and
-before that work got scheduled. Then when scheduling occurs, the worker
-thread tries to run a corrupted structure and crashes.
+> When CONFIG_PROC_FS is disabled, the local 'net' variable in
+> ip_vs_app_net_init becomes unused, as gcc warns:
+> 
+> net/netfilter/ipvs/ip_vs_app.c: In function 'ip_vs_app_net_init':
+> net/netfilter/ipvs/ip_vs_app.c:608:14: warning: unused variable 'net' [-Wunused-variable]
+> 
+> This removes the line by moving the pointer dereference into the
+> user of the variable.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-I'm going to work on a patch.
+Acked-by: Julian Anastasov <ja@ssi.bg>
+
+> diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
+> index 0328f7250693..e5422d3db501 100644
+> --- a/net/netfilter/ipvs/ip_vs_app.c
+> +++ b/net/netfilter/ipvs/ip_vs_app.c
+> @@ -614,8 +614,6 @@ int __net_init ip_vs_app_net_init(struct netns_ipvs *ipvs)
+>  
+>  void __net_exit ip_vs_app_net_cleanup(struct netns_ipvs *ipvs)
+>  {
+> -	struct net *net = ipvs->net;
+> -
+>  	unregister_ip_vs_app(ipvs, NULL /* all */);
+> -	remove_proc_entry("ip_vs_app", net->proc_net);
+> +	remove_proc_entry("ip_vs_app", ipvs->net->proc_net);
+>  }
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
