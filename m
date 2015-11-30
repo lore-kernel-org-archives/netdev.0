@@ -1,40 +1,70 @@
-From: Rahul Jain <rahul.jain@samsung.com>
-Subject: [PATCH] mac80211_hwsim: missing NULL check
-Date: Mon, 30 Nov 2015 12:46:52 +0530
-Message-ID: <1448867812-11089-1-git-send-email-rahul.jain@samsung.com>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Amit Khatri <amit.khatri@samsung.com>,
-	Rahul Jain <rahul.jain@samsung.com>
-To: kvalo@codeaurora.org
+From: Duan Andy <fugang.duan@freescale.com>
+Subject: RE: [PATCH] net: fec: fix enet_out clock handling
+Date: Mon, 30 Nov 2015 07:31:19 +0000
+Message-ID: <BN3PR0301MB1219E3C63A4F2AE460C3EC1EF5000@BN3PR0301MB1219.namprd03.prod.outlook.com>
+References: <1448631550-943-1-git-send-email-LW@KARO-electronics.de>
+	<BN3PR0301MB1219C4D8E1B09F1AE27E18FAF5020@BN3PR0301MB1219.namprd03.prod.outlook.com>
+ <20151130075617.0f880cd1@ipc1.ka-ro>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Andrew Lunn <andrew@lunn.ch>,
+	"David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <Fabio.Estevam@freescale.com>,
+	Kevin Hao <haokexin@gmail.com>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	Philippe Reynes <tremyfr@gmail.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Uwe Kleine-K?nig <u.kleine-koenig@pengutronix.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stefan Agner <stefan@agner.ch>
+To: =?utf-8?B?TG90aGFyIFdhw59tYW5u?= <LW@KARO-electronics.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151130075617.0f880cd1@ipc1.ka-ro>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Amit Khatri <amit.khatri@samsung.com>
-
-txrate variable might be NULL and passing inside function
-without NULL check.
-
-Signed-off-by: Amit Khatri <amit.khatri@samsung.com>
-Signed-off-by: Rahul Jain <rahul.jain@samsung.com>
----
- drivers/net/wireless/mac80211_hwsim.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
-index 194264c..72e4931 100644
---- a/drivers/net/wireless/mac80211_hwsim.c
-+++ b/drivers/net/wireless/mac80211_hwsim.c
-@@ -814,6 +814,9 @@ static void mac80211_hwsim_monitor_rx(struct ieee80211_hw *hw,
- 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(tx_skb);
- 	struct ieee80211_rate *txrate = ieee80211_get_tx_rate(hw, info);
- 
-+	if (!txrate)
-+		return;
-+
- 	if (!netif_running(hwsim_mon))
- 		return;
- 
--- 
-1.9.1
+RnJvbTogTG90aGFyIFdhw59tYW5uIDxMV0BLQVJPLWVsZWN0cm9uaWNzLmRlPiBTZW50OiBNb25k
+YXksIE5vdmVtYmVyIDMwLCAyMDE1IDI6NTYgUE0NCj4gVG86IER1YW4gRnVnYW5nLUIzODYxMQ0K
+PiBDYzogQW5kcmV3IEx1bm47IERhdmlkIFMuIE1pbGxlcjsgRXN0ZXZhbSBGYWJpby1SNDk0OTY7
+IEtldmluIEhhbzsgTHVjYXMNCj4gU3RhY2g7IFBoaWxpcHBlIFJleW5lczsgUnVzc2VsbCBLaW5n
+OyBVd2UgS2xlaW5lLUs/bmlnOyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVsLm9yZzsgbmV0
+ZGV2QHZnZXIua2VybmVsLm9yZzsgU3RlZmFuIEFnbmVyDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hd
+IG5ldDogZmVjOiBmaXggZW5ldF9vdXQgY2xvY2sgaGFuZGxpbmcNCj4gDQo+IEhpLA0KPiANCj4g
+PiBGcm9tOiBMb3RoYXIgV2HDn21hbm4gPExXQEtBUk8tZWxlY3Ryb25pY3MuZGU+IFNlbnQ6IEZy
+aWRheSwgTm92ZW1iZXINCj4gPiAyNywgMjAxNSA5OjM5IFBNDQo+ID4gPiBUbzogQW5kcmV3IEx1
+bm47IERhdmlkIFMuIE1pbGxlcjsgRXN0ZXZhbSBGYWJpby1SNDk0OTY7IEtldmluIEhhbzsNCj4g
+PiA+IExvdGhhciBXYcOfbWFubjsgTHVjYXMgU3RhY2g7IER1YW4gRnVnYW5nLUIzODYxMTsgUGhp
+bGlwcGUgUmV5bmVzOw0KPiA+ID4gUnVzc2VsbCBLaW5nOyBVd2UgS2xlaW5lLUvDtm5pZzsgbGlu
+dXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gPiA+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7
+IFN0ZWZhbiBBZ25lcg0KPiA+ID4gU3ViamVjdDogW1BBVENIXSBuZXQ6IGZlYzogZml4IGVuZXRf
+b3V0IGNsb2NrIGhhbmRsaW5nDQo+ID4gPg0KPiA+ID4gV2hlbiBFTkVUX09VVCBpcyBiZWluZyB1
+c2VkIGFzIHJlZmVyZW5jZSBjbG9jayBmb3IgYW4gZXh0ZXJuYWwgUEhZLA0KPiA+ID4gdGhlIGNs
+b2NrIG11c3Qgbm90IGJlIGRpc2FibGVkIHdoaWxlIHRoZSBQSFkgaXMgYWN0aXZlLiBPdGhlcndp
+c2UNCj4gPiA+IHRoZSBQSFkgbWF5IGxvc2UgaXRzIGludGVybmFsIHN0YXRlIGFuZCByZXF1aXJl
+IGEgcmVzZXQgdG8gYmVjb21lDQo+IGZ1bmN0aW9uYWwgYWdhaW4uDQo+ID4gPg0KPiA+ID4gQSBz
+eW1wdG9tIGZvciB0aGlzIGJ1ZyBpcyBhIG5ldHdvcmsgaW50ZXJmYWNlIHRoYXQgY29uc3RhbnRs
+eQ0KPiA+ID4gdG9nZ2xlcyBiZXR3ZWVuIFVQIGFuZCBET1dOIHN0YXRlOg0KPiA+ID4gZmVjIDgw
+MGYwMDAwLmV0aGVybmV0IGV0aDA6IExpbmsgaXMgVXAgLSAxMDBNYnBzL0Z1bGwgLSBmbG93IGNv
+bnRyb2wNCj4gPiA+IHJ4L3R4IGZlYyA4MDBmMDAwMC5ldGhlcm5ldCBldGgwOiBMaW5rIGlzIERv
+d24gZmVjIDgwMGYwMDAwLmV0aGVybmV0DQo+IGV0aDA6DQo+ID4gPiBMaW5rIGlzIFVwIC0gMTAw
+TWJwcy9GdWxsIC0gZmxvdyBjb250cm9sIHJ4L3R4IGZlYyA4MDBmMDAwMC5ldGhlcm5ldA0KPiBl
+dGgwOg0KPiA+ID4gTGluayBpcyBEb3duIFsuLi5dDQo+ID4gPg0KPiA+ID4gU2lnbmVkLW9mZi1i
+eTogTG90aGFyIFdhw59tYW5uIDxMV0BLQVJPLWVsZWN0cm9uaWNzLmRlPg0KPiA+ID4gLS0tDQo+
+ID4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMgfCAzNA0KPiA+
+ID4gKysrKysrKysrKysrKy0tLS0tLS0tLS0tLQ0KPiA+ID4gLS0tLS0tDQo+ID4gPiAgMSBmaWxl
+IGNoYW5nZWQsIDE0IGluc2VydGlvbnMoKyksIDIwIGRlbGV0aW9ucygtKQ0KPiA+ID4NCj4gPg0K
+PiA+IFdoZW4gTUFDIGlzIG5vdCByZWFkeSB3aXRoIGNsb2NrcyBkaXNhYmxlZCwgIGl0IGlzIG5v
+dCBuZWNlc3NhcnkgdG8NCj4gc3VwcGx5IGNsb2NrIGZvciBQSFkuIEluIGZhY3QsIFBIWSBhbHNv
+IGlzIG5vdCByZWFkeSwgd2h5IGRvZXMgaXQgbmVlZA0KPiBjbG9jayA/DQo+ID4gRm9yIHlvdXIg
+cHJvYmxlbSwgeW91IG11c3QgYWRkIFBIWSByZXNldCBpbiB5b3VyIGR0cyBmaWxlIHRvIHJlc29s
+dmUNCj4geW91ciBwcm9ibGVtLg0KPiA+DQo+IFRoZSBwaHktcmVzZXQtZ3BpbyBwcm9wZXJ0eSBp
+cyBzZXQgaW4gdGhlIERUQi4gQnV0IGZlY19yZXNldF9waHkoKSB3aGljaA0KPiBhc3NlcnRzIHRo
+ZSBSRVNFVCBpcyBvbmx5IGNhbGxlZCBmcm9tIHdpdGhpbiB0aGUgcHJvYmUoKSBmdW5jdGlvbi4N
+Cj4gSXQgc2hvdWxkIHByb2JhYmx5IGJlIGNhbGxlZCBmcm9tIGZlY19yZXN0YXJ0KCkgaW5zdGVh
+ZD8NCj4gDQpBZnRlciBlbmV0X291dCBjbG9jayBlbmFibGUsIHlvdSBjYW4gY2FsbCBmZWNfcmVz
+ZXRfcGh5KCkgZG8gcGh5IHJlc2V0LiAgRG9uJ3QgcHV0IGl0IGluIC5mZWNfcmVzdGFydCgpIGZ1
+bmN0aW9uIGJlY2F1c2UNCkNhYmxlIGhvdHBsdWcgdGVzdCBjYXVzZSBwaHkgcmVnaXN0ZXJzIHJl
+c2V0IHRvIEhXIGRlZmF1bHQgc3RhdHVzLg0KDQpSZWdhcmRzLA0KQW5keQ0K
