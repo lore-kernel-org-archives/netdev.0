@@ -1,259 +1,723 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ipv6: kill sk_dst_lock
-Date: Mon, 30 Nov 2015 08:35:15 -0800
-Message-ID: <1448901315.24696.127.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+Y=35aC5DK7MQaDF6eviKcXik2S9caTLw7FAp0L0CXdsg@mail.gmail.com>
-	 <1448730683.24696.94.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1448731434.24696.97.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1448854142.24696.109.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Mon, 30 Nov 2015 08:35:39 -0800
+Message-ID: <CALx6S36DR1KOOkLFQ-A_h_dLjFMdOdxOA0DpzjkroobCUeeoGw@mail.gmail.com>
+References: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>
+	<1448312579-159544-2-git-send-email-anjali.singhai@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Dmitry Vyukov <dvyukov@google.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jesse Gross <jesse@kernel.org>,
+	Kiran Patil <kiran.patil@intel.com>
+To: Anjali Singhai Jain <anjali.singhai@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:36749 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751483AbbK3QfR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 11:35:17 -0500
-Received: by pacdm15 with SMTP id dm15so189576095pac.3
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 08:35:17 -0800 (PST)
-In-Reply-To: <1448854142.24696.109.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-io0-f171.google.com ([209.85.223.171]:34217 "EHLO
+	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753792AbbK3Qfk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 11:35:40 -0500
+Received: by ioir85 with SMTP id r85so179123254ioi.1
+        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 08:35:39 -0800 (PST)
+In-Reply-To: <1448312579-159544-2-git-send-email-anjali.singhai@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, Nov 23, 2015 at 1:02 PM, Anjali Singhai Jain
+<anjali.singhai@intel.com> wrote:
+> Replace add/del ndo ops for vxlan_port with tunnel_port so that all UDP
+> based tunnels can use the same ndo op. Add a parameter to pass tunnel
+> type to the ndo_op.
+>
+Please consider using RX ntuple filters for this instead of a new ndo
+op. The vxlan ndo op essentailly implements a limited filter with a
+rule to match a destination UDP port and the the action of processing
+the packet as vxlan. ntuple filters generalizes that so that the
+filtering becomes arbitrary. We'll need the ability to filter on
+4-tuple when we implement tunnels to go through firewalls or for
+offloading other UDP protocols such SPUD or QUIC.
 
-While testing the np->opt RCU conversion, I found that UDP/IPv6 was
-using a mixture of xchg() and sk_dst_lock to protect concurrent changes
-to sk->sk_dst_cache, leading to possible corruptions and crashes.
+Tom
 
-ip6_sk_dst_lookup_flow() uses sk_dst_check() anyway, so the simplest
-way to fix the mess is to remove sk_dst_lock completely, as we did for
-IPv4.
-
-__ip6_dst_store() and ip6_dst_store() share same implementation.
-
-sk_setup_caps() being called with socket lock being held or not,
-we have to use sk_dst_set() instead of __sk_dst_set()
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
----
- include/net/ip6_route.h          |   17 ++++-------------
- include/net/sock.h               |    3 +--
- net/core/sock.c                  |    4 +---
- net/dccp/ipv6.c                  |    4 ++--
- net/ipv6/af_inet6.c              |    2 +-
- net/ipv6/icmp.c                  |   14 --------------
- net/ipv6/inet6_connection_sock.c |   10 +---------
- net/ipv6/tcp_ipv6.c              |    4 ++--
- 8 files changed, 12 insertions(+), 46 deletions(-)
-
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index 2bfb2ad2fab1..877f682989b8 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -133,27 +133,18 @@ void rt6_clean_tohost(struct net *net, struct in6_addr *gateway);
- /*
-  *	Store a destination cache entry in a socket
-  */
--static inline void __ip6_dst_store(struct sock *sk, struct dst_entry *dst,
--				   const struct in6_addr *daddr,
--				   const struct in6_addr *saddr)
-+static inline void ip6_dst_store(struct sock *sk, struct dst_entry *dst,
-+				 const struct in6_addr *daddr,
-+				 const struct in6_addr *saddr)
- {
- 	struct ipv6_pinfo *np = inet6_sk(sk);
--	struct rt6_info *rt = (struct rt6_info *) dst;
- 
-+	np->dst_cookie = rt6_get_cookie((struct rt6_info *)dst);
- 	sk_setup_caps(sk, dst);
- 	np->daddr_cache = daddr;
- #ifdef CONFIG_IPV6_SUBTREES
- 	np->saddr_cache = saddr;
- #endif
--	np->dst_cookie = rt6_get_cookie(rt);
--}
--
--static inline void ip6_dst_store(struct sock *sk, struct dst_entry *dst,
--				 struct in6_addr *daddr, struct in6_addr *saddr)
--{
--	spin_lock(&sk->sk_dst_lock);
--	__ip6_dst_store(sk, dst, daddr, saddr);
--	spin_unlock(&sk->sk_dst_lock);
- }
- 
- static inline bool ipv6_unicast_destination(const struct sk_buff *skb)
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 7f89e4ba18d1..27f1d03e7a73 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -254,7 +254,6 @@ struct cg_proto;
-   *	@sk_wq: sock wait queue and async head
-   *	@sk_rx_dst: receive input route used by early demux
-   *	@sk_dst_cache: destination cache
--  *	@sk_dst_lock: destination cache lock
-   *	@sk_policy: flow policy
-   *	@sk_receive_queue: incoming packets
-   *	@sk_wmem_alloc: transmit queue bytes committed
-@@ -391,7 +390,7 @@ struct sock {
- #endif
- 	struct dst_entry	*sk_rx_dst;
- 	struct dst_entry __rcu	*sk_dst_cache;
--	spinlock_t		sk_dst_lock;
-+	/* Note: 32bit hole on 64bit arches */
- 	atomic_t		sk_wmem_alloc;
- 	atomic_t		sk_omem_alloc;
- 	int			sk_sndbuf;
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 1e4dd54bfb5a..81cdeacfc5ce 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1530,7 +1530,6 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
- 		skb_queue_head_init(&newsk->sk_receive_queue);
- 		skb_queue_head_init(&newsk->sk_write_queue);
- 
--		spin_lock_init(&newsk->sk_dst_lock);
- 		rwlock_init(&newsk->sk_callback_lock);
- 		lockdep_set_class_and_name(&newsk->sk_callback_lock,
- 				af_callback_keys + newsk->sk_family,
-@@ -1607,7 +1606,7 @@ void sk_setup_caps(struct sock *sk, struct dst_entry *dst)
- {
- 	u32 max_segs = 1;
- 
--	__sk_dst_set(sk, dst);
-+	sk_dst_set(sk, dst);
- 	sk->sk_route_caps = dst->dev->features;
- 	if (sk->sk_route_caps & NETIF_F_GSO)
- 		sk->sk_route_caps |= NETIF_F_GSO_SOFTWARE;
-@@ -2388,7 +2387,6 @@ void sock_init_data(struct socket *sock, struct sock *sk)
- 	} else
- 		sk->sk_wq	=	NULL;
- 
--	spin_lock_init(&sk->sk_dst_lock);
- 	rwlock_init(&sk->sk_callback_lock);
- 	lockdep_set_class_and_name(&sk->sk_callback_lock,
- 			af_callback_keys + sk->sk_family,
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index db5fc2440a23..9ba3b69afea2 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -453,7 +453,7 @@ static struct sock *dccp_v6_request_recv_sock(const struct sock *sk,
- 	 * comment in that function for the gory details. -acme
- 	 */
- 
--	__ip6_dst_store(newsk, dst, NULL, NULL);
-+	ip6_dst_store(newsk, dst, NULL, NULL);
- 	newsk->sk_route_caps = dst->dev->features & ~(NETIF_F_IP_CSUM |
- 						      NETIF_F_TSO);
- 	newdp6 = (struct dccp6_sock *)newsk;
-@@ -873,7 +873,7 @@ static int dccp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	np->saddr = *saddr;
- 	inet->inet_rcv_saddr = LOOPBACK4_IPV6;
- 
--	__ip6_dst_store(sk, dst, NULL, NULL);
-+	ip6_dst_store(sk, dst, NULL, NULL);
- 
- 	icsk->icsk_ext_hdr_len = 0;
- 	if (np->opt != NULL)
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 44bb66bde0e2..b8cd97e09829 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -668,7 +668,7 @@ int inet6_sk_rebuild_header(struct sock *sk)
- 			return PTR_ERR(dst);
- 		}
- 
--		__ip6_dst_store(sk, dst, NULL, NULL);
-+		ip6_dst_store(sk, dst, NULL, NULL);
- 	}
- 
- 	return 0;
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index 36c5a98b0472..0a37ddc7af51 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -834,11 +834,6 @@ void icmpv6_flow_init(struct sock *sk, struct flowi6 *fl6,
- 	security_sk_classify_flow(sk, flowi6_to_flowi(fl6));
- }
- 
--/*
-- * Special lock-class for __icmpv6_sk:
-- */
--static struct lock_class_key icmpv6_socket_sk_dst_lock_key;
--
- static int __net_init icmpv6_sk_init(struct net *net)
- {
- 	struct sock *sk;
-@@ -860,15 +855,6 @@ static int __net_init icmpv6_sk_init(struct net *net)
- 
- 		net->ipv6.icmp_sk[i] = sk;
- 
--		/*
--		 * Split off their lock-class, because sk->sk_dst_lock
--		 * gets used from softirqs, which is safe for
--		 * __icmpv6_sk (because those never get directly used
--		 * via userspace syscalls), but unsafe for normal sockets.
--		 */
--		lockdep_set_class(&sk->sk_dst_lock,
--				  &icmpv6_socket_sk_dst_lock_key);
--
- 		/* Enough space for 2 64K ICMP packets, including
- 		 * sk_buff struct overhead.
- 		 */
-diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
-index 5d1c7cee2cb2..af0524c59269 100644
---- a/net/ipv6/inet6_connection_sock.c
-+++ b/net/ipv6/inet6_connection_sock.c
-@@ -109,14 +109,6 @@ void inet6_csk_addr2sockaddr(struct sock *sk, struct sockaddr *uaddr)
- EXPORT_SYMBOL_GPL(inet6_csk_addr2sockaddr);
- 
- static inline
--void __inet6_csk_dst_store(struct sock *sk, struct dst_entry *dst,
--			   const struct in6_addr *daddr,
--			   const struct in6_addr *saddr)
--{
--	__ip6_dst_store(sk, dst, daddr, saddr);
--}
--
--static inline
- struct dst_entry *__inet6_csk_dst_check(struct sock *sk, u32 cookie)
- {
- 	return __sk_dst_check(sk, cookie);
-@@ -149,7 +141,7 @@ static struct dst_entry *inet6_csk_route_socket(struct sock *sk,
- 		dst = ip6_dst_lookup_flow(sk, fl6, final_p);
- 
- 		if (!IS_ERR(dst))
--			__inet6_csk_dst_store(sk, dst, NULL, NULL);
-+			ip6_dst_store(sk, dst, NULL, NULL);
- 	}
- 	return dst;
- }
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index c5429a636f1a..bb1f0cc36ffb 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -255,7 +255,7 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	inet->inet_rcv_saddr = LOOPBACK4_IPV6;
- 
- 	sk->sk_gso_type = SKB_GSO_TCPV6;
--	__ip6_dst_store(sk, dst, NULL, NULL);
-+	ip6_dst_store(sk, dst, NULL, NULL);
- 
- 	if (tcp_death_row.sysctl_tw_recycle &&
- 	    !tp->rx_opt.ts_recent_stamp &&
-@@ -1056,7 +1056,7 @@ static struct sock *tcp_v6_syn_recv_sock(const struct sock *sk, struct sk_buff *
- 	 */
- 
- 	newsk->sk_gso_type = SKB_GSO_TCPV6;
--	__ip6_dst_store(newsk, dst, NULL, NULL);
-+	ip6_dst_store(newsk, dst, NULL, NULL);
- 	inet6_sk_rx_dst_set(newsk, skb);
- 
- 	newtcp6sk = (struct tcp6_sock *)newsk;
+> Change all drivers to use the generalized udp tunnel offload
+>
+> Patch was compile tested with x86_64_defconfig.
+>
+> Signed-off-by: Kiran Patil <kiran.patil@intel.com>
+> Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 15 ++++++---
+>  drivers/net/ethernet/broadcom/bnxt/bnxt.c        | 13 +++++---
+>  drivers/net/ethernet/emulex/benet/be_main.c      | 14 +++++---
+>  drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  | 27 ++++++++++++----
+>  drivers/net/ethernet/intel/i40e/i40e_main.c      | 41 +++++++++++++++++-------
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 17 +++++++---
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c   | 21 ++++++++----
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 17 +++++++---
+>  drivers/net/vxlan.c                              | 23 +++++++------
+>  include/linux/netdevice.h                        | 34 ++++++++++----------
+>  include/net/udp_tunnel.h                         |  6 ++++
+>  11 files changed, 157 insertions(+), 71 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+> index 2273576..ad2782f 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+> @@ -47,6 +47,7 @@
+>  #include <net/ip.h>
+>  #include <net/ipv6.h>
+>  #include <net/tcp.h>
+> +#include <net/udp_tunnel.h>
+>  #include <net/vxlan.h>
+>  #include <net/checksum.h>
+>  #include <net/ip6_checksum.h>
+> @@ -10124,11 +10125,14 @@ static void __bnx2x_add_vxlan_port(struct bnx2x *bp, u16 port)
+>  }
+>
+>  static void bnx2x_add_vxlan_port(struct net_device *netdev,
+> -                                sa_family_t sa_family, __be16 port)
+> +                                sa_family_t sa_family, __be16 port,
+> +                                u32 type)
+>  {
+>         struct bnx2x *bp = netdev_priv(netdev);
+>         u16 t_port = ntohs(port);
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+>         __bnx2x_add_vxlan_port(bp, t_port);
+>  }
+>
+> @@ -10152,11 +10156,14 @@ static void __bnx2x_del_vxlan_port(struct bnx2x *bp, u16 port)
+>  }
+>
+>  static void bnx2x_del_vxlan_port(struct net_device *netdev,
+> -                                sa_family_t sa_family, __be16 port)
+> +                                sa_family_t sa_family, __be16 port,
+> +                                u32 type)
+>  {
+>         struct bnx2x *bp = netdev_priv(netdev);
+>         u16 t_port = ntohs(port);
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+>         __bnx2x_del_vxlan_port(bp, t_port);
+>  }
+>  #endif
+> @@ -13008,8 +13015,8 @@ static const struct net_device_ops bnx2x_netdev_ops = {
+>         .ndo_set_vf_link_state  = bnx2x_set_vf_link_state,
+>         .ndo_features_check     = bnx2x_features_check,
+>  #ifdef CONFIG_BNX2X_VXLAN
+> -       .ndo_add_vxlan_port     = bnx2x_add_vxlan_port,
+> -       .ndo_del_vxlan_port     = bnx2x_del_vxlan_port,
+> +       .ndo_add_udp_tunnel_port        = bnx2x_add_vxlan_port,
+> +       .ndo_del_udp_tunnel_port        = bnx2x_del_vxlan_port,
+>  #endif
+>  };
+>
+> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+> index f2d0dc9..5b96ddf 100644
+> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+> @@ -5421,7 +5421,7 @@ static void bnxt_cfg_ntp_filters(struct bnxt *bp)
+>  #endif /* CONFIG_RFS_ACCEL */
+>
+>  static void bnxt_add_vxlan_port(struct net_device *dev, sa_family_t sa_family,
+> -                               __be16 port)
+> +                               __be16 port, u32 type)
+>  {
+>         struct bnxt *bp = netdev_priv(dev);
+>
+> @@ -5431,6 +5431,9 @@ static void bnxt_add_vxlan_port(struct net_device *dev, sa_family_t sa_family,
+>         if (sa_family != AF_INET6 && sa_family != AF_INET)
+>                 return;
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+> +
+>         if (bp->vxlan_port_cnt && bp->vxlan_port != port)
+>                 return;
+>
+> @@ -5443,7 +5446,7 @@ static void bnxt_add_vxlan_port(struct net_device *dev, sa_family_t sa_family,
+>  }
+>
+>  static void bnxt_del_vxlan_port(struct net_device *dev, sa_family_t sa_family,
+> -                               __be16 port)
+> +                               __be16 port, u32 type)
+>  {
+>         struct bnxt *bp = netdev_priv(dev);
+>
+> @@ -5453,6 +5456,8 @@ static void bnxt_del_vxlan_port(struct net_device *dev, sa_family_t sa_family,
+>         if (sa_family != AF_INET6 && sa_family != AF_INET)
+>                 return;
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+>         if (bp->vxlan_port_cnt && bp->vxlan_port == port) {
+>                 bp->vxlan_port_cnt--;
+>
+> @@ -5491,8 +5496,8 @@ static const struct net_device_ops bnxt_netdev_ops = {
+>  #ifdef CONFIG_RFS_ACCEL
+>         .ndo_rx_flow_steer      = bnxt_rx_flow_steer,
+>  #endif
+> -       .ndo_add_vxlan_port     = bnxt_add_vxlan_port,
+> -       .ndo_del_vxlan_port     = bnxt_del_vxlan_port,
+> +       .ndo_add_udp_tunnel_port        = bnxt_add_vxlan_port,
+> +       .ndo_del_udp_tunnel_port        = bnxt_del_vxlan_port,
+>  #ifdef CONFIG_NET_RX_BUSY_POLL
+>         .ndo_busy_poll          = bnxt_busy_poll,
+>  #endif
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+> index 4cab887..e699deca 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+> @@ -23,6 +23,7 @@
+>  #include <linux/aer.h>
+>  #include <linux/if_bridge.h>
+>  #include <net/busy_poll.h>
+> +#include <net/udp_tunnel.h>
+>  #include <net/vxlan.h>
+>
+>  MODULE_VERSION(DRV_VER);
+> @@ -5175,12 +5176,15 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+>   * until after all the tunnels are removed.
+>   */
+>  static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+> -                             __be16 port)
+> +                             __be16 port, u32 type)
+>  {
+>         struct be_adapter *adapter = netdev_priv(netdev);
+>         struct device *dev = &adapter->pdev->dev;
+>         int status;
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+> +
+>         if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
+>                 return;
+>
+> @@ -5229,10 +5233,12 @@ err:
+>  }
+>
+>  static void be_del_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+> -                             __be16 port)
+> +                             __be16 port, u32 type)
+>  {
+>         struct be_adapter *adapter = netdev_priv(netdev);
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+>         if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
+>                 return;
+>
+> @@ -5342,8 +5348,8 @@ static const struct net_device_ops be_netdev_ops = {
+>         .ndo_busy_poll          = be_busy_poll,
+>  #endif
+>  #ifdef CONFIG_BE2NET_VXLAN
+> -       .ndo_add_vxlan_port     = be_add_vxlan_port,
+> -       .ndo_del_vxlan_port     = be_del_vxlan_port,
+> +       .ndo_add_udp_tunnel_port        = be_add_vxlan_port,
+> +       .ndo_del_udp_tunnel_port        = be_del_vxlan_port,
+>         .ndo_features_check     = be_features_check,
+>  #endif
+>         .ndo_get_phys_port_id   = be_get_phys_port_id,
+> diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+> index 639263d..447d5e6 100644
+> --- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+> +++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+> @@ -21,6 +21,7 @@
+>  #include "fm10k.h"
+>  #include <linux/vmalloc.h>
+>  #if IS_ENABLED(CONFIG_FM10K_VXLAN)
+> +#include <net/udp_tunnel.h>
+>  #include <net/vxlan.h>
+>  #endif /* CONFIG_FM10K_VXLAN */
+>
+> @@ -439,18 +440,24 @@ static void fm10k_restore_vxlan_port(struct fm10k_intfc *interface)
+>   * @netdev: network interface device structure
+>   * @sa_family: Address family of new port
+>   * @port: port number used for VXLAN
+> + * @type: Tunnel type
+>   *
+> - * This funciton is called when a new VXLAN interface has added a new port
+> + * This function is called when a new VXLAN interface has added a new port
+>   * number to the range that is currently in use for VXLAN.  The new port
+>   * number is always added to the tail so that the port number list should
+>   * match the order in which the ports were allocated.  The head of the list
+>   * is always used as the VXLAN port number for offloads.
+>   **/
+>  static void fm10k_add_vxlan_port(struct net_device *dev,
+> -                                sa_family_t sa_family, __be16 port) {
+> +                                sa_family_t sa_family, __be16 port,
+> +                                u32 type) {
+> +#if IS_ENABLED(CONFIG_FM10K_VXLAN)
+>         struct fm10k_intfc *interface = netdev_priv(dev);
+>         struct fm10k_vxlan_port *vxlan_port;
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+> +
+>         /* only the PF supports configuring tunnels */
+>         if (interface->hw.mac.type != fm10k_mac_pf)
+>                 return;
+> @@ -476,6 +483,7 @@ insert_tail:
+>         list_add_tail(&vxlan_port->list, &interface->vxlan_port);
+>
+>         fm10k_restore_vxlan_port(interface);
+> +#endif
+>  }
+>
+>  /**
+> @@ -483,17 +491,23 @@ insert_tail:
+>   * @netdev: network interface device structure
+>   * @sa_family: Address family of freed port
+>   * @port: port number used for VXLAN
+> + * @type: Tunnel type
+>   *
+> - * This funciton is called when a new VXLAN interface has freed a port
+> + * This function is called when a new VXLAN interface has freed a port
+>   * number from the range that is currently in use for VXLAN.  The freed
+>   * port is removed from the list and the new head is used to determine
+>   * the port number for offloads.
+>   **/
+>  static void fm10k_del_vxlan_port(struct net_device *dev,
+> -                                sa_family_t sa_family, __be16 port) {
+> +                                sa_family_t sa_family, __be16 port,
+> +                                u32 type) {
+> +#if IS_ENABLED(CONFIG_FM10K_VXLAN)
+>         struct fm10k_intfc *interface = netdev_priv(dev);
+>         struct fm10k_vxlan_port *vxlan_port;
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+> +
+>         if (interface->hw.mac.type != fm10k_mac_pf)
+>                 return;
+>
+> @@ -508,6 +522,7 @@ static void fm10k_del_vxlan_port(struct net_device *dev,
+>         }
+>
+>         fm10k_restore_vxlan_port(interface);
+> +#endif
+>  }
+>
+>  /**
+> @@ -1373,8 +1388,8 @@ static const struct net_device_ops fm10k_netdev_ops = {
+>         .ndo_set_vf_vlan        = fm10k_ndo_set_vf_vlan,
+>         .ndo_set_vf_rate        = fm10k_ndo_set_vf_bw,
+>         .ndo_get_vf_config      = fm10k_ndo_get_vf_config,
+> -       .ndo_add_vxlan_port     = fm10k_add_vxlan_port,
+> -       .ndo_del_vxlan_port     = fm10k_del_vxlan_port,
+> +       .ndo_add_udp_tunnel_port        = fm10k_add_vxlan_port,
+> +       .ndo_del_udp_tunnel_port        = fm10k_del_vxlan_port,
+>         .ndo_do_ioctl           = fm10k_ioctl,
+>         .ndo_dfwd_add_station   = fm10k_dfwd_add_station,
+>         .ndo_dfwd_del_station   = fm10k_dfwd_del_station,
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> index b825f97..520e34e 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> @@ -30,6 +30,7 @@
+>  #ifdef CONFIG_I40E_VXLAN
+>  #include <net/vxlan.h>
+>  #endif
+> +#include <net/udp_tunnel.h>
+>
+>  const char i40e_driver_name[] = "i40e";
+>  static const char i40e_driver_string[] =
+> @@ -8296,13 +8297,18 @@ static u8 i40e_get_vxlan_port_idx(struct i40e_pf *pf, __be16 port)
+>  }
+>
+>  /**
+> - * i40e_add_vxlan_port - Get notifications about VXLAN ports that come up
+> + * i40e_add_tunnel_port - Get notifications about UDP tunnel ports that come up
+>   * @netdev: This physical port's netdev
+> - * @sa_family: Socket Family that VXLAN is notifying us about
+> - * @port: New UDP port number that VXLAN started listening to
+> + * @sa_family: Socket Family that tunnel netdev is  associated with
+> + * @port: New UDP port number that tunnel started listening to
+> + * @type: Tunnel Type
+> + *
+> + * This function modifies a common data structure for all udp_tunnels
+> + * hence it is expected that it is called under a common lock.
+>   **/
+> -static void i40e_add_vxlan_port(struct net_device *netdev,
+> -                               sa_family_t sa_family, __be16 port)
+> +static void i40e_add_tunnel_port(struct net_device *netdev,
+> +                                sa_family_t sa_family, __be16 port,
+> +                                u32 type)
+>  {
+>         struct i40e_netdev_priv *np = netdev_priv(netdev);
+>         struct i40e_vsi *vsi = np->vsi;
+> @@ -8310,6 +8316,9 @@ static void i40e_add_vxlan_port(struct net_device *netdev,
+>         u8 next_idx;
+>         u8 idx;
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+> +
+>         if (sa_family == AF_INET6)
+>                 return;
+>
+> @@ -8338,19 +8347,27 @@ static void i40e_add_vxlan_port(struct net_device *netdev,
+>  }
+>
+>  /**
+> - * i40e_del_vxlan_port - Get notifications about VXLAN ports that go away
+> + * i40e_del_tunnel_port - Get notifications about UDP tunnel ports that go away
+>   * @netdev: This physical port's netdev
+> - * @sa_family: Socket Family that VXLAN is notifying us about
+> - * @port: UDP port number that VXLAN stopped listening to
+> + * @sa_family: Socket Family that tunnel netdev is associated with
+> + * @port: UDP port number that tunnel stopped listening to
+> + * @type: Tunnel Type
+> + *
+> + * This function modifies a common data structure for all udp_tunnels
+> + * hence it is expected that it is called under common lock.
+>   **/
+> -static void i40e_del_vxlan_port(struct net_device *netdev,
+> -                               sa_family_t sa_family, __be16 port)
+> +static void i40e_del_tunnel_port(struct net_device *netdev,
+> +                                sa_family_t sa_family, __be16 port,
+> +                                u32 type)
+>  {
+>         struct i40e_netdev_priv *np = netdev_priv(netdev);
+>         struct i40e_vsi *vsi = np->vsi;
+>         struct i40e_pf *pf = vsi->back;
+>         u8 idx;
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+> +
+>         if (sa_family == AF_INET6)
+>                 return;
+>
+> @@ -8596,8 +8613,8 @@ static const struct net_device_ops i40e_netdev_ops = {
+>         .ndo_set_vf_link_state  = i40e_ndo_set_vf_link_state,
+>         .ndo_set_vf_spoofchk    = i40e_ndo_set_vf_spoofchk,
+>  #ifdef CONFIG_I40E_VXLAN
+> -       .ndo_add_vxlan_port     = i40e_add_vxlan_port,
+> -       .ndo_del_vxlan_port     = i40e_del_vxlan_port,
+> +       .ndo_add_udp_tunnel_port        = i40e_add_tunnel_port,
+> +       .ndo_del_udp_tunnel_port        = i40e_del_tunnel_port,
+>  #endif
+>         .ndo_get_phys_port_id   = i40e_get_phys_port_id,
+>         .ndo_fdb_add            = i40e_ndo_fdb_add,
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index 4089d77..76ccc77 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -50,6 +50,7 @@
+>  #include <linux/if_bridge.h>
+>  #include <linux/prefetch.h>
+>  #include <scsi/fc/fc_fcoe.h>
+> +#include <net/udp_tunnel.h>
+>  #include <net/vxlan.h>
+>
+>  #ifdef CONFIG_OF
+> @@ -8088,14 +8089,18 @@ static int ixgbe_set_features(struct net_device *netdev,
+>   * @dev: The port's netdev
+>   * @sa_family: Socket Family that VXLAN is notifiying us about
+>   * @port: New UDP port number that VXLAN started listening to
+> + * @type: Tunnel type
+>   **/
+>  static void ixgbe_add_vxlan_port(struct net_device *dev, sa_family_t sa_family,
+> -                                __be16 port)
+> +                                __be16 port, u32 type)
+>  {
+>         struct ixgbe_adapter *adapter = netdev_priv(dev);
+>         struct ixgbe_hw *hw = &adapter->hw;
+>         u16 new_port = ntohs(port);
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+> +
+>         if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
+>                 return;
+>
+> @@ -8121,13 +8126,17 @@ static void ixgbe_add_vxlan_port(struct net_device *dev, sa_family_t sa_family,
+>   * @dev: The port's netdev
+>   * @sa_family: Socket Family that VXLAN is notifying us about
+>   * @port: UDP port number that VXLAN stopped listening to
+> + * @type: Tunnel type
+>   **/
+>  static void ixgbe_del_vxlan_port(struct net_device *dev, sa_family_t sa_family,
+> -                                __be16 port)
+> +                                __be16 port, u32 type)
+>  {
+>         struct ixgbe_adapter *adapter = netdev_priv(dev);
+>         u16 new_port = ntohs(port);
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+> +
+>         if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
+>                 return;
+>
+> @@ -8436,8 +8445,8 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+>         .ndo_dfwd_add_station   = ixgbe_fwd_add,
+>         .ndo_dfwd_del_station   = ixgbe_fwd_del,
+>  #ifdef CONFIG_IXGBE_VXLAN
+> -       .ndo_add_vxlan_port     = ixgbe_add_vxlan_port,
+> -       .ndo_del_vxlan_port     = ixgbe_del_vxlan_port,
+> +       .ndo_add_udp_tunnel_port        = ixgbe_add_vxlan_port,
+> +       .ndo_del_udp_tunnel_port        = ixgbe_del_vxlan_port,
+>  #endif /* CONFIG_IXGBE_VXLAN */
+>         .ndo_features_check     = ixgbe_features_check,
+>  };
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> index 659209f..2cb19c7 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -39,6 +39,7 @@
+>  #include <linux/hash.h>
+>  #include <net/ip.h>
+>  #include <net/busy_poll.h>
+> +#include <net/udp_tunnel.h>
+>  #include <net/vxlan.h>
+>
+>  #include <linux/mlx4/driver.h>
+> @@ -2365,11 +2366,15 @@ static void mlx4_en_del_vxlan_offloads(struct work_struct *work)
+>  }
+>
+>  static void mlx4_en_add_vxlan_port(struct  net_device *dev,
+> -                                  sa_family_t sa_family, __be16 port)
+> +                                  sa_family_t sa_family, __be16 port,
+> +                                  u32 type)
+>  {
+>         struct mlx4_en_priv *priv = netdev_priv(dev);
+>         __be16 current_port;
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+> +
+>         if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
+>                 return;
+>
+> @@ -2388,11 +2393,15 @@ static void mlx4_en_add_vxlan_port(struct  net_device *dev,
+>  }
+>
+>  static void mlx4_en_del_vxlan_port(struct  net_device *dev,
+> -                                  sa_family_t sa_family, __be16 port)
+> +                                  sa_family_t sa_family, __be16 port,
+> +                                  u32 type)
+>  {
+>         struct mlx4_en_priv *priv = netdev_priv(dev);
+>         __be16 current_port;
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+> +
+>         if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
+>                 return;
+>
+> @@ -2469,8 +2478,8 @@ static const struct net_device_ops mlx4_netdev_ops = {
+>  #endif
+>         .ndo_get_phys_port_id   = mlx4_en_get_phys_port_id,
+>  #ifdef CONFIG_MLX4_EN_VXLAN
+> -       .ndo_add_vxlan_port     = mlx4_en_add_vxlan_port,
+> -       .ndo_del_vxlan_port     = mlx4_en_del_vxlan_port,
+> +       .ndo_add_udp_tunnel_port        = mlx4_en_add_vxlan_port,
+> +       .ndo_del_udp_tunnel_port        = mlx4_en_del_vxlan_port,
+>         .ndo_features_check     = mlx4_en_features_check,
+>  #endif
+>         .ndo_set_tx_maxrate     = mlx4_en_set_tx_maxrate,
+> @@ -2507,8 +2516,8 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
+>  #endif
+>         .ndo_get_phys_port_id   = mlx4_en_get_phys_port_id,
+>  #ifdef CONFIG_MLX4_EN_VXLAN
+> -       .ndo_add_vxlan_port     = mlx4_en_add_vxlan_port,
+> -       .ndo_del_vxlan_port     = mlx4_en_del_vxlan_port,
+> +       .ndo_add_udp_tunnel_port        = mlx4_en_add_vxlan_port,
+> +       .ndo_del_udp_tunnel_port        = mlx4_en_del_vxlan_port,
+>         .ndo_features_check     = mlx4_en_features_check,
+>  #endif
+>         .ndo_set_tx_maxrate     = mlx4_en_set_tx_maxrate,
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> index 1205f6f..aa38dbb 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> @@ -17,6 +17,7 @@
+>  #include <linux/log2.h>
+>  #include <linux/pci.h>
+>  #ifdef CONFIG_QLCNIC_VXLAN
+> +#include <net/udp_tunnel.h>
+>  #include <net/vxlan.h>
+>  #endif
+>
+> @@ -476,11 +477,15 @@ static int qlcnic_get_phys_port_id(struct net_device *netdev,
+>
+>  #ifdef CONFIG_QLCNIC_VXLAN
+>  static void qlcnic_add_vxlan_port(struct net_device *netdev,
+> -                                 sa_family_t sa_family, __be16 port)
+> +                                 sa_family_t sa_family, __be16 port,
+> +                                 u32 type)
+>  {
+>         struct qlcnic_adapter *adapter = netdev_priv(netdev);
+>         struct qlcnic_hardware_context *ahw = adapter->ahw;
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+> +
+>         /* Adapter supports only one VXLAN port. Use very first port
+>          * for enabling offload
+>          */
+> @@ -498,11 +503,15 @@ static void qlcnic_add_vxlan_port(struct net_device *netdev,
+>  }
+>
+>  static void qlcnic_del_vxlan_port(struct net_device *netdev,
+> -                                 sa_family_t sa_family, __be16 port)
+> +                                 sa_family_t sa_family, __be16 port,
+> +                                 u32 type)
+>  {
+>         struct qlcnic_adapter *adapter = netdev_priv(netdev);
+>         struct qlcnic_hardware_context *ahw = adapter->ahw;
+>
+> +       if (type != UDP_TUNNEL_VXLAN)
+> +               return;
+> +
+>         if (!qlcnic_encap_rx_offload(adapter) || !ahw->vxlan_port_count ||
+>             (ahw->vxlan_port != ntohs(port)))
+>                 return;
+> @@ -540,8 +549,8 @@ static const struct net_device_ops qlcnic_netdev_ops = {
+>         .ndo_fdb_dump           = qlcnic_fdb_dump,
+>         .ndo_get_phys_port_id   = qlcnic_get_phys_port_id,
+>  #ifdef CONFIG_QLCNIC_VXLAN
+> -       .ndo_add_vxlan_port     = qlcnic_add_vxlan_port,
+> -       .ndo_del_vxlan_port     = qlcnic_del_vxlan_port,
+> +       .ndo_add_udp_tunnel_port        = qlcnic_add_vxlan_port,
+> +       .ndo_del_udp_tunnel_port        = qlcnic_del_vxlan_port,
+>         .ndo_features_check     = qlcnic_features_check,
+>  #endif
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 6369a57..5490629 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -628,9 +628,10 @@ static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
+>
+>         rcu_read_lock();
+>         for_each_netdev_rcu(net, dev) {
+> -               if (dev->netdev_ops->ndo_add_vxlan_port)
+> -                       dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
+> -                                                           port);
+> +               if (dev->netdev_ops->ndo_add_udp_tunnel_port)
+> +                       dev->netdev_ops->ndo_add_udp_tunnel_port(dev, sa_family,
+> +                                                             port,
+> +                                                             UDP_TUNNEL_VXLAN);
+>         }
+>         rcu_read_unlock();
+>  }
+> @@ -646,9 +647,10 @@ static void vxlan_notify_del_rx_port(struct vxlan_sock *vs)
+>
+>         rcu_read_lock();
+>         for_each_netdev_rcu(net, dev) {
+> -               if (dev->netdev_ops->ndo_del_vxlan_port)
+> -                       dev->netdev_ops->ndo_del_vxlan_port(dev, sa_family,
+> -                                                           port);
+> +               if (dev->netdev_ops->ndo_del_udp_tunnel_port)
+> +                       dev->netdev_ops->ndo_del_udp_tunnel_port(dev, sa_family,
+> +                                                             port,
+> +                                                             UDP_TUNNEL_VXLAN);
+>         }
+>         rcu_read_unlock();
+>
+> @@ -2422,9 +2424,9 @@ static struct device_type vxlan_type = {
+>         .name = "vxlan",
+>  };
+>
+> -/* Calls the ndo_add_vxlan_port of the caller in order to
+> +/* Calls the ndo_add_udp_tunnel_port of the caller in order to
+>   * supply the listening VXLAN udp ports. Callers are expected
+> - * to implement the ndo_add_vxlan_port.
+> + * to implement the ndo_add_tunnel_port.
+>   */
+>  void vxlan_get_rx_port(struct net_device *dev)
+>  {
+> @@ -2440,8 +2442,9 @@ void vxlan_get_rx_port(struct net_device *dev)
+>                 hlist_for_each_entry_rcu(vs, &vn->sock_list[i], hlist) {
+>                         port = inet_sk(vs->sock->sk)->inet_sport;
+>                         sa_family = vxlan_get_sk_family(vs);
+> -                       dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
+> -                                                           port);
+> +                       dev->netdev_ops->ndo_add_udp_tunnel_port(dev, sa_family,
+> +                                                             port,
+> +                                                             UDP_TUNNEL_VXLAN);
+>                 }
+>         }
+>         spin_unlock(&vn->sock_lock);
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 7d2d1d7..eaecc42 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1004,18 +1004,19 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+>   *     not implement this, it is assumed that the hw is not able to have
+>   *     multiple net devices on single physical port.
+>   *
+> - * void (*ndo_add_vxlan_port)(struct  net_device *dev,
+> - *                           sa_family_t sa_family, __be16 port);
+> - *     Called by vxlan to notiy a driver about the UDP port and socket
+> - *     address family that vxlan is listnening to. It is called only when
+> - *     a new port starts listening. The operation is protected by the
+> - *     vxlan_net->sock_lock.
+> - *
+> - * void (*ndo_del_vxlan_port)(struct  net_device *dev,
+> - *                           sa_family_t sa_family, __be16 port);
+> - *     Called by vxlan to notify the driver about a UDP port and socket
+> - *     address family that vxlan is not listening to anymore. The operation
+> - *     is protected by the vxlan_net->sock_lock.
+> + * void (*ndo_add_udp_tunnel_port)(struct  net_device *dev,
+> + *                           sa_family_t sa_family, __be16 port, u32 type);
+> + *     Called by UDP based tunnel modules to notify a driver about a UDP
+> + *     port and socket address family that the tunnel is listening to. It is
+> + *     called only when a new port starts listening. The operation is
+> + *     protected by udp_offload_lock across all udp based tunnels.
+> + *
+> + * void (*ndo_del_udp_tunnel_port)(struct  net_device *dev,
+> + *                           sa_family_t sa_family, __be16 port, u32 type);
+> + *     Called by UDP based tunnel modules to notify the driver about a UDP port
+> + *     and socket address family that tunnel is not listening to anymore.
+> + *     The operation is protected by udp_offload_lock across all udp based
+> + *     tunnels.
+>   *
+>   * void* (*ndo_dfwd_add_station)(struct net_device *pdev,
+>   *                              struct net_device *dev)
+> @@ -1209,13 +1210,12 @@ struct net_device_ops {
+>                                                         struct netdev_phys_item_id *ppid);
+>         int                     (*ndo_get_phys_port_name)(struct net_device *dev,
+>                                                           char *name, size_t len);
+> -       void                    (*ndo_add_vxlan_port)(struct  net_device *dev,
+> +       void                    (*ndo_add_udp_tunnel_port)(struct  net_device *dev,
+>                                                       sa_family_t sa_family,
+> -                                                     __be16 port);
+> -       void                    (*ndo_del_vxlan_port)(struct  net_device *dev,
+> +                                                     __be16 port, u32 type);
+> +       void                    (*ndo_del_udp_tunnel_port)(struct  net_device *dev,
+>                                                       sa_family_t sa_family,
+> -                                                     __be16 port);
+> -
+> +                                                     __be16 port, u32 type);
+>         void*                   (*ndo_dfwd_add_station)(struct net_device *pdev,
+>                                                         struct net_device *dev);
+>         void                    (*ndo_dfwd_del_station)(struct net_device *pdev,
+> diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+> index cb2f89f..72415aa 100644
+> --- a/include/net/udp_tunnel.h
+> +++ b/include/net/udp_tunnel.h
+> @@ -9,6 +9,12 @@
+>  #include <net/addrconf.h>
+>  #endif
+>
+> +enum udp_tunnel_type {
+> +       UDP_TUNNEL_UNSPEC,
+> +       UDP_TUNNEL_VXLAN,
+> +       UDP_TUNNEL_GENEVE,
+> +};
+> +
+>  struct udp_port_cfg {
+>         u8                      family;
+>
+> --
+> 1.8.1.4
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
