@@ -1,47 +1,41 @@
-From: Bert Kenward <bkenward@solarflare.com>
-Subject: [PATCH v2 net-next 2/2] sfc: Add PCI ID for Solarflare 8000 series
- 10/40G NIC
-Date: Mon, 30 Nov 2015 09:05:47 +0000
-Message-ID: <565C116B.1050904@solarflare.com>
-References: <5655DC18.7090208@solarflare.com>
- <cover.1448874133.git.bkenward@solarflare.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH v2] ath6kl: Use vmalloc for loading firmware using api1 method and use kvfree
+Date: Mon, 30 Nov 2015 11:05:52 +0200
+Message-ID: <87mvtvluvj.fsf@kamboji.qca.qualcomm.com>
+References: <1444972259-24260-1-git-send-email-motobud@gmail.com>
+	<1448774038-26984-1-git-send-email-motobud@gmail.com>
+	<87zixvlvp8.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:63496 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753016AbbK3JF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 04:05:59 -0500
-In-Reply-To: <cover.1448874133.git.bkenward@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <ath6kl@lists.infradead.org>
+To: Brent Taylor <motobud@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87zixvlvp8.fsf@kamboji.qca.qualcomm.com> (Kalle Valo's message
+	of "Mon, 30 Nov 2015 10:48:03 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Also add support for 7000 series 40G NIC VF.
+Kalle Valo <kvalo@qca.qualcomm.com> writes:
 
-Signed-off-by: Bert Kenward <bkenward@solarflare.com>
----
- drivers/net/ethernet/sfc/efx.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+> Brent Taylor <motobud@gmail.com> writes:
+>
+>> Signed-off-by: Brent Taylor <motobud@gmail.com>
+>>
+>> ath6kl: Use vmalloc for loading firmware using api1 method and free using kvfree
+>> ---
+>> Changes v1 -> v2:
+>>    - simplify memory allocation
+>>    - use kvfree
+>
+> Why? The commit log should _always_ answer that. Are you fixing a bug
+> (what bug exactly?), is this just cleanup or what?
+>
+> And the commit log is wrongly formatted anyway, the Signed-off-by line
+> should be the last and there should be no "ath6kl:" string in the commit
+> log (just in the title). Use 'git log' to find examples.
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 4e82bcf..b405349 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -2784,6 +2784,12 @@ static const struct pci_device_id efx_pci_table[] = {
- 	 .driver_data = (unsigned long) &efx_hunt_a0_vf_nic_type},
- 	{PCI_DEVICE(PCI_VENDOR_ID_SOLARFLARE, 0x0923),  /* SFC9140 PF */
- 	 .driver_data = (unsigned long) &efx_hunt_a0_nic_type},
-+	{PCI_DEVICE(PCI_VENDOR_ID_SOLARFLARE, 0x1923),  /* SFC9140 VF */
-+	 .driver_data = (unsigned long) &efx_hunt_a0_vf_nic_type},
-+	{PCI_DEVICE(PCI_VENDOR_ID_SOLARFLARE, 0x0a03),  /* SFC9220 PF */
-+	 .driver_data = (unsigned long) &efx_hunt_a0_nic_type},
-+	{PCI_DEVICE(PCI_VENDOR_ID_SOLARFLARE, 0x1a03),  /* SFC9220 VF */
-+	 .driver_data = (unsigned long) &efx_hunt_a0_vf_nic_type},
- 	{0}			/* end of list */
- };
- 
+Fixing netdev address (kenrel -> kernel)
+
 -- 
-2.4.3
+Kalle Valo
