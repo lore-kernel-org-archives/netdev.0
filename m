@@ -1,92 +1,181 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net] bridge: Only call /sbin/bridge-stp for the
-	initial network namespace
-Date: Mon, 30 Nov 2015 16:16:52 -0600
-Message-ID: <87si3nxhd7.fsf@x220.int.ebiederm.org>
-References: <565B7F7D.80208@nod.at>
-	<CAGXu5jJqQKAmFK0nL69E0QOpo8WSVDqStGZo7-m7gy3vnXBa=A@mail.gmail.com>
-	<87egf7183c.fsf_-_@x220.int.ebiederm.org>
-	<20151130141208.516b1046@xeon-e3>
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: [PATCH 09/13] mm: memcontrol: generalize the socket accounting
+ jump label
+Date: Mon, 30 Nov 2015 17:28:49 -0500
+Message-ID: <565CCDA1.905@akamai.com>
+References: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
+ <1448401925-22501-10-git-send-email-hannes@cmpxchg.org>
+ <565CBAC2.3080804@akamai.com> <20151130215007.GA31903@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kees Cook <keescook@chromium.org>, "kernel-hardening@lists.openwall.com"
-	<kernel-hardening@lists.openwall.com>, Richard Weinberger <richard@nod.at>,
-	bridge@lists.linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20151130141208.516b1046@xeon-e3> (Stephen Hemminger's message of
-	"Mon, 30 Nov 2015 14:12:08 -0800")
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Vladimir Davydov <vdavydov@virtuozzo.com>,
+	Michal Hocko <mhocko@suse.cz>, Tejun Heo <tj@kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com,
+	"peterz@infradead.org" <peterz@infradead.org>
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:59544 "EHLO
+	prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753839AbbK3W2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 17:28:50 -0500
+In-Reply-To: <20151130215007.GA31903@cmpxchg.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <stephen@networkplumber.org> writes:
+On 11/30/2015 04:50 PM, Johannes Weiner wrote:
+> On Mon, Nov 30, 2015 at 04:08:18PM -0500, Jason Baron wrote:
+>> We're trying to move to the updated API, so this should be:
+>> static_branch_unlikely(&memcg_sockets_enabled_key)
+>>
+>> see: include/linux/jump_label.h for details.
+> 
+> Good point. There is another struct static_key in there as well. How
+> about the following on top of this series?
+> 
 
-> On Mon, 30 Nov 2015 15:38:15 -0600
-> ebiederm@xmission.com (Eric W. Biederman) wrote:
->
->> 
->> There is no defined mechanism to pass network namespace information
->> into /sbin/bridge-stp therefore don't even try to invoke it except
->> for bridge devices in the initial network namespace.
->> 
->> It is possible for unprivileged users to cause /sbin/bridge-stp to be
->> invoked for any network device name which if /sbin/bridge-stp does not
->> guard against unreasonable arguments or being invoked twice on the same
->> network device could cause problems.
->> 
->> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->> ---
->>  net/bridge/br_stp_if.c | 4 +++-
->>  1 file changed, 3 insertions(+), 1 deletion(-)
->> 
->> diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
->> index 5396ff08af32..742fa89528ab 100644
->> --- a/net/bridge/br_stp_if.c
->> +++ b/net/bridge/br_stp_if.c
->> @@ -142,7 +142,9 @@ static void br_stp_start(struct net_bridge *br)
->>  	char *envp[] = { NULL };
->>  	struct net_bridge_port *p;
->>  
->> -	r = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
->> +	r = -ENOENT;
->> +	if (dev_net(br->dev) == &init_net)
->> +		r = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
->
-> I don't think this will cause loud screams.
-> But it might break people that use containers to run virtual networks
-> for testing.
+Looks fine - you may be able to make use of
+'static_branch_enable()/disable()' instead of the inc()/dec() to simply
+set the branch direction, if you think its more readable. Although I
+didn't look to see if it would be racy here.
 
-I don't see how this interface can possibly be for more than the initial
-network namespace.  There is no network namespace information conveyed
-and /sbin/bridge-stp always runs in the initial network namespace.
+Thanks,
 
-Which is the point of this patch.  Don't try when the code can not work.
+-Jason
 
-The only way this code could possibly work in the presence of multiple
-network namespaces is if somehow the network namespace was encoded in
-the device name, and then the usermode helper switched to the
-appropriate network namespace.
 
-I suspect that anyone knowledgable enough to know this interface exists
-would have sent a patch to fix the kernel to give network namespace
-information rather than use a horrible userspace hack like encoding the
-network namespace in the device name.
-
-> One coding nit:
-> Why are you afraid of using an else?
-
-Branch stalls.  Plus in this case an else is more lines and just plain
-uglier code.
-
-Eric
+> ---
+> From b784aa0323628d43272e13a67ead2a2ce0e93ea6 Mon Sep 17 00:00:00 2001
+> From: Johannes Weiner <hannes@cmpxchg.org>
+> Date: Mon, 30 Nov 2015 16:41:38 -0500
+> Subject: [PATCH] mm: memcontrol: switch to the updated jump-label API
+> 
+> According to <linux/jump_label.h> the direct use of struct static_key
+> is deprecated. Update the socket and slab accounting code accordingly.
+> 
+> Reported-by: Jason Baron <jbaron@akamai.com>
+> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+> ---
+>  include/linux/memcontrol.h |  8 ++++----
+>  mm/memcontrol.c            | 12 ++++++------
+>  net/ipv4/tcp_memcontrol.c  |  4 ++--
+>  3 files changed, 12 insertions(+), 12 deletions(-)
+> 
+> diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+> index a8df46c..9a19590 100644
+> --- a/include/linux/memcontrol.h
+> +++ b/include/linux/memcontrol.h
+> @@ -704,8 +704,8 @@ static inline void mem_cgroup_wb_stats(struct bdi_writeback *wb,
+>  
+>  #ifdef CONFIG_INET
+>  struct sock;
+> -extern struct static_key memcg_sockets_enabled_key;
+> -#define mem_cgroup_sockets_enabled static_key_false(&memcg_sockets_enabled_key)
+> +extern struct static_key_false memcg_sockets_enabled_key;
+> +#define mem_cgroup_sockets_enabled static_branch_unlikely(&memcg_sockets_enabled_key)
+>  void sock_update_memcg(struct sock *sk);
+>  void sock_release_memcg(struct sock *sk);
+>  bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
+> @@ -727,7 +727,7 @@ static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
+>  #endif /* CONFIG_INET */
+>  
+>  #ifdef CONFIG_MEMCG_KMEM
+> -extern struct static_key memcg_kmem_enabled_key;
+> +extern struct static_key_false memcg_kmem_enabled_key;
+>  
+>  extern int memcg_nr_cache_ids;
+>  void memcg_get_cache_ids(void);
+> @@ -743,7 +743,7 @@ void memcg_put_cache_ids(void);
+>  
+>  static inline bool memcg_kmem_enabled(void)
+>  {
+> -	return static_key_false(&memcg_kmem_enabled_key);
+> +	return static_branch_unlikely(&memcg_kmem_enabled_key);
+>  }
+>  
+>  static inline bool memcg_kmem_is_active(struct mem_cgroup *memcg)
+> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+> index a0da91f..5fe45d68 100644
+> --- a/mm/memcontrol.c
+> +++ b/mm/memcontrol.c
+> @@ -346,7 +346,7 @@ void memcg_put_cache_ids(void)
+>   * conditional to this static branch, we'll have to allow modules that does
+>   * kmem_cache_alloc and the such to see this symbol as well
+>   */
+> -struct static_key memcg_kmem_enabled_key;
+> +DEFINE_STATIC_KEY_FALSE(memcg_kmem_enabled_key);
+>  EXPORT_SYMBOL(memcg_kmem_enabled_key);
+>  
+>  #endif /* CONFIG_MEMCG_KMEM */
+> @@ -2883,7 +2883,7 @@ static int memcg_activate_kmem(struct mem_cgroup *memcg,
+>  	err = page_counter_limit(&memcg->kmem, nr_pages);
+>  	VM_BUG_ON(err);
+>  
+> -	static_key_slow_inc(&memcg_kmem_enabled_key);
+> +	static_branch_inc(&memcg_kmem_enabled_key);
+>  	/*
+>  	 * A memory cgroup is considered kmem-active as soon as it gets
+>  	 * kmemcg_id. Setting the id after enabling static branching will
+> @@ -3622,7 +3622,7 @@ static void memcg_destroy_kmem(struct mem_cgroup *memcg)
+>  {
+>  	if (memcg->kmem_acct_activated) {
+>  		memcg_destroy_kmem_caches(memcg);
+> -		static_key_slow_dec(&memcg_kmem_enabled_key);
+> +		static_branch_dec(&memcg_kmem_enabled_key);
+>  		WARN_ON(page_counter_read(&memcg->kmem));
+>  	}
+>  	tcp_destroy_cgroup(memcg);
+> @@ -4258,7 +4258,7 @@ mem_cgroup_css_online(struct cgroup_subsys_state *css)
+>  
+>  #ifdef CONFIG_INET
+>  	if (cgroup_subsys_on_dfl(memory_cgrp_subsys) && !cgroup_memory_nosocket)
+> -		static_key_slow_inc(&memcg_sockets_enabled_key);
+> +		static_branch_inc(&memcg_sockets_enabled_key);
+>  #endif
+>  
+>  	/*
+> @@ -4302,7 +4302,7 @@ static void mem_cgroup_css_free(struct cgroup_subsys_state *css)
+>  	memcg_destroy_kmem(memcg);
+>  #ifdef CONFIG_INET
+>  	if (cgroup_subsys_on_dfl(memory_cgrp_subsys) && !cgroup_memory_nosocket)
+> -		static_key_slow_dec(&memcg_sockets_enabled_key);
+> +		static_branch_dec(&memcg_sockets_enabled_key);
+>  #endif
+>  	__mem_cgroup_free(memcg);
+>  }
+> @@ -5494,7 +5494,7 @@ void mem_cgroup_replace_page(struct page *oldpage, struct page *newpage)
+>  
+>  #ifdef CONFIG_INET
+>  
+> -struct static_key memcg_sockets_enabled_key;
+> +DEFINE_STATIC_KEY_FALSE(memcg_sockets_enabled_key);
+>  EXPORT_SYMBOL(memcg_sockets_enabled_key);
+>  
+>  void sock_update_memcg(struct sock *sk)
+> diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
+> index 9a22e2d..18bc7f7 100644
+> --- a/net/ipv4/tcp_memcontrol.c
+> +++ b/net/ipv4/tcp_memcontrol.c
+> @@ -34,7 +34,7 @@ void tcp_destroy_cgroup(struct mem_cgroup *memcg)
+>  		return;
+>  
+>  	if (memcg->tcp_mem.active)
+> -		static_key_slow_dec(&memcg_sockets_enabled_key);
+> +		static_branch_dec(&memcg_sockets_enabled_key);
+>  }
+>  
+>  static int tcp_update_limit(struct mem_cgroup *memcg, unsigned long nr_pages)
+> @@ -65,7 +65,7 @@ static int tcp_update_limit(struct mem_cgroup *memcg, unsigned long nr_pages)
+>  		 * because when this value change, the code to process it is not
+>  		 * patched in yet.
+>  		 */
+> -		static_key_slow_inc(&memcg_sockets_enabled_key);
+> +		static_branch_inc(&memcg_sockets_enabled_key);
+>  		memcg->tcp_mem.active = true;
+>  	}
+>  
+> 
