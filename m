@@ -1,117 +1,42 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: gigaset: freeing an active object
-Date: Mon, 30 Nov 2015 19:01:37 +0100
-Message-ID: <1448906497.3546.16.camel@tiscali.nl>
-References: <56587467.8050102@oracle.com> <565B1A1B.8020503@imap.cc>
-	 <565B4256.6080101@hurleysoftware.com> <565B4844.9020600@imap.cc>
-	 <1448828800.2603.17.camel@tiscali.nl> <1448839396.2891.14.camel@tiscali.nl>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net] ipv6: kill sk_dst_lock
+Date: Mon, 30 Nov 2015 19:13:08 +0100
+Message-ID: <1448907188.5804.31.camel@redhat.com>
+References: <CACT4Y+Y=35aC5DK7MQaDF6eviKcXik2S9caTLw7FAp0L0CXdsg@mail.gmail.com>
+	 <1448730683.24696.94.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1448731434.24696.97.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1448854142.24696.109.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1448901315.24696.127.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, davem@davemloft.net,
-	gigaset307x-common@lists.sourceforge.net,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>
-To: Tilman Schmidt <tilman@imap.cc>,
-	Peter Hurley <peter@hurleysoftware.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448839396.2891.14.camel@tiscali.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50736 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751120AbbK3SNM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Nov 2015 13:13:12 -0500
+In-Reply-To: <1448901315.24696.127.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On ma, 2015-11-30 at 00:23 +0100, Paul Bolle wrote:
-> Relevant part of dmesg attached at the end of this message. This
-> should give me (and Tilman too?) an entry to get to bottom of this. 
-> Since this is relevant for anyone with just the ser-gigaset module 
-> installed, I hope to do that soon.
+On Mon, 2015-11-30 at 08:35 -0800, Eric Dumazet wrote:
+> ip6_sk_dst_lookup_flow() uses sk_dst_check() anyway, so the simplest
+> way to fix the mess is to remove sk_dst_lock completely, as we did for
+> IPv4.
 
-I'm planning to send something similar to the attached draft to netdev
-in a few days. It fixes the issue on my machine. Sascha, does it fix
-this issue for syzkaller too? 
+Probably I'm missing something here, but why we don't need to sync the
+update of sk_dst_cache and of dst_cookie (i.e. put them under the same
+lock)?
 
-Should (something like) this go into stable too?
+Can't we end up with inconsistent values after concurrent udp
+sendmsg() ? 
 
-Any further comments on that draft are appreciated too, of course.
+Cheers,
 
-
-Paul Bolle
-------
-[DRAFT] gigaset: don't free() a struct platform_device
-
-One is not supposed to free() a struct platform_device. Instead one
-should, in the common case, only call platform_device_unregister(). That
-will drop the platform device's reference count. (Actually it's the
-reference count of the embedded kobject that is important here. But for
-users of platform devices that's basically irrelevant.)
-
-So move struct platform_device dev out of struct ser_cardstate, because
-ser_cardstate is (malloc'ed and) free'd.
-
-Reported-by: Sasha Levin <sasha.levin@oracle.com>
-Not-yet-signed-off-by: Paul Bolle <pebolle@tiscali.nl>
----
- drivers/isdn/gigaset/ser-gigaset.c | 19 ++++++++++---------
- 1 file changed, 10 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
-index 375be509e95f..f8ffa253496e 100644
---- a/drivers/isdn/gigaset/ser-gigaset.c
-+++ b/drivers/isdn/gigaset/ser-gigaset.c
-@@ -42,8 +42,9 @@ MODULE_PARM_DESC(cidmode, "stay in CID mode when idle");
- 
- static struct gigaset_driver *driver;
- 
-+static struct platform_device pdev;
-+
- struct ser_cardstate {
--	struct platform_device	dev;
- 	struct tty_struct	*tty;
- 	atomic_t		refcnt;
- 	struct completion	dead_cmp;
-@@ -370,8 +371,8 @@ static void gigaset_freecshw(struct cardstate *cs)
- 	tasklet_kill(&cs->write_tasklet);
- 	if (!cs->hw.ser)
- 		return;
--	dev_set_drvdata(&cs->hw.ser->dev.dev, NULL);
--	platform_device_unregister(&cs->hw.ser->dev);
-+	dev_set_drvdata(&pdev.dev, NULL);
-+	platform_device_unregister(&pdev);
- 	kfree(cs->hw.ser);
- 	cs->hw.ser = NULL;
- }
-@@ -401,17 +402,17 @@ static int gigaset_initcshw(struct cardstate *cs)
- 	}
- 	cs->hw.ser = scs;
- 
--	cs->hw.ser->dev.name = GIGASET_MODULENAME;
--	cs->hw.ser->dev.id = cs->minor_index;
--	cs->hw.ser->dev.dev.release = gigaset_device_release;
--	rc = platform_device_register(&cs->hw.ser->dev);
-+	pdev.name = GIGASET_MODULENAME;
-+	pdev.id = cs->minor_index;
-+	pdev.dev.release = gigaset_device_release;
-+	rc = platform_device_register(&pdev);
- 	if (rc != 0) {
- 		pr_err("error %d registering platform device\n", rc);
- 		kfree(cs->hw.ser);
- 		cs->hw.ser = NULL;
- 		return rc;
- 	}
--	dev_set_drvdata(&cs->hw.ser->dev.dev, cs);
-+	dev_set_drvdata(&pdev.dev, cs);
- 
- 	tasklet_init(&cs->write_tasklet,
- 		     gigaset_modem_fill, (unsigned long) cs);
-@@ -520,7 +521,7 @@ gigaset_tty_open(struct tty_struct *tty)
- 		goto error;
- 	}
- 
--	cs->dev = &cs->hw.ser->dev.dev;
-+	cs->dev = &pdev.dev;
- 	cs->hw.ser->tty = tty;
- 	atomic_set(&cs->hw.ser->refcnt, 1);
- 	init_completion(&cs->hw.ser->dead_cmp);
--- 
-2.4.3
+Paolo
