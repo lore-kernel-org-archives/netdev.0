@@ -1,67 +1,43 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] bridge: Only call /sbin/bridge-stp for the
- initial network namespace
-Date: Mon, 30 Nov 2015 14:12:08 -0800
-Message-ID: <20151130141208.516b1046@xeon-e3>
-References: <565B7F7D.80208@nod.at>
-	<CAGXu5jJqQKAmFK0nL69E0QOpo8WSVDqStGZo7-m7gy3vnXBa=A@mail.gmail.com>
-	<87egf7183c.fsf_-_@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook@chromium.org>, "kernel-hardening@lists.openwall.com"
-	<kernel-hardening@lists.openwall.com>, Richard Weinberger <richard@nod.at>,
-	bridge@lists.linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: ebiederm@xmission.com (Eric W. Biederman)
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <87egf7183c.fsf_-_@x220.int.ebiederm.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH net-next] sfc: use ALIGN macro for aligning frame sizes
+Date: Mon, 30 Nov 2015 17:12:21 -0500
+Message-ID: <1448921541-13343-1-git-send-email-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Shradha Shah <sshah@solarflare.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53859 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754358AbbK3WM3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Nov 2015 17:12:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 30 Nov 2015 15:38:15 -0600
-ebiederm@xmission.com (Eric W. Biederman) wrote:
+Don't open-code it.
 
-> 
-> There is no defined mechanism to pass network namespace information
-> into /sbin/bridge-stp therefore don't even try to invoke it except
-> for bridge devices in the initial network namespace.
-> 
-> It is possible for unprivileged users to cause /sbin/bridge-stp to be
-> invoked for any network device name which if /sbin/bridge-stp does not
-> guard against unreasonable arguments or being invoked twice on the same
-> network device could cause problems.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->  net/bridge/br_stp_if.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-> index 5396ff08af32..742fa89528ab 100644
-> --- a/net/bridge/br_stp_if.c
-> +++ b/net/bridge/br_stp_if.c
-> @@ -142,7 +142,9 @@ static void br_stp_start(struct net_bridge *br)
->  	char *envp[] = { NULL };
->  	struct net_bridge_port *p;
->  
-> -	r = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
-> +	r = -ENOENT;
-> +	if (dev_net(br->dev) == &init_net)
-> +		r = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
+CC: Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+CC: Shradha Shah <sshah@solarflare.com>
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/ethernet/sfc/net_driver.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-I don't think this will cause loud screams.
-But it might break people that use containers to run virtual networks for testing.
-
-One coding nit:
-Why are you afraid of using an else?
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index a8ddd12..746d591 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -1502,8 +1502,9 @@ static inline struct efx_rx_buffer *efx_rx_buffer(struct efx_rx_queue *rx_queue,
+  * same cycle, the XMAC can miss the IPG altogether.  We work around
+  * this by adding a further 16 bytes.
+  */
++#define EFX_FRAME_PAD	16
+ #define EFX_MAX_FRAME_LEN(mtu) \
+-	((((mtu) + ETH_HLEN + VLAN_HLEN + 4/* FCS */ + 7) & ~7) + 16)
++	(ALIGN(((mtu) + ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN + EFX_FRAME_PAD), 8))
+ 
+ static inline bool efx_xmit_with_hwtstamp(struct sk_buff *skb)
+ {
+-- 
+1.8.3.1
