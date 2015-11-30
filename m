@@ -1,49 +1,41 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: Increasing skb->mark size
-Date: Mon, 30 Nov 2015 03:24:59 +0100
-Message-ID: <20151130022459.GC29878@breakpoint.cc>
-References: <1448397144.14854.27.camel@mattb-dl>
- <20151124203602.GB23215@breakpoint.cc>
- <1448398614.14854.39.camel@mattb-dl>
- <20151130020816.GB29878@breakpoint.cc>
- <CAKD1Yr2vWpKsibNY6ShYZiKLMFSD_2gxRVa=DyXx5jkEs25AZw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: What now when we're [almost] out of ADVERTISED bits?
+Date: Sun, 29 Nov 2015 21:53:59 -0500 (EST)
+Message-ID: <20151129.215359.213447478744491730.davem@davemloft.net>
+References: <CO2PR11MB00887F0A656EFB801BA2599797010@CO2PR11MB0088.namprd11.prod.outlook.com>
+	<CAJ3xEMj4ygmuSnxS-wkwukYyMgaA2omSQ+0MvY1MZKVv4_U6=A@mail.gmail.com>
+	<1448844054.1990.32.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Luuk Paulussen <Luuk.Paulussen@alliedtelesis.co.nz>,
-	Kyeong Yoo <Kyeong.Yoo@alliedtelesis.co.nz>
-To: Lorenzo Colitti <lorenzo@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gerlitz.or@gmail.com, Yuval.Mintz@qlogic.com,
+	netdev@vger.kernel.org, ddecotig@gmail.com
+To: ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42425 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751575AbbK3CZD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 21:25:03 -0500
-Content-Disposition: inline
-In-Reply-To: <CAKD1Yr2vWpKsibNY6ShYZiKLMFSD_2gxRVa=DyXx5jkEs25AZw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47299 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751575AbbK3CyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 21:54:04 -0500
+In-Reply-To: <1448844054.1990.32.camel@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lorenzo Colitti <lorenzo@google.com> wrote:
-> On Mon, Nov 30, 2015 at 11:08 AM, Florian Westphal <fw@strlen.de> wrote:
-> > We have ctnetlink which allows direct setting of ctmark/ctlabels.
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Mon, 30 Nov 2015 00:40:54 +0000
+
+> On Sun, 2015-11-29 at 23:39 +0200, Or Gerlitz wrote:
+>> On Sun, Nov 29, 2015 at 3:53 PM, Yuval Mintz <Yuval.Mintz@qlogic.com> wrote:
+>> > [I suspect there was probably some discussion over this,
+>> > but I couldn't find it; References would be welcome]
+>> 
+>> there was a work by David Decotigny that should have solved the out of
+>> bits problem here [1]. Maybe it should be revived.
+>> 
+>> [1] https://lkml.org/lkml/2015/1/26/882
 > 
-> Can those labels be set early enough in the stack to affect the source
-> address chosen for outgoing connections?
+> Yes, it should.
 
-No, same restrictions as connmarks or skb marks apply.
+A repost would strongly facilitate that.
 
-Furthermore, since its stored in the conntrack area, the conntrack isn't
-created until after the first packet hits NF output hook, and its not
-visible until after POSTROUTING hook.
-
-There was an out of tree patch to allow to use ipsets to select
-source addresses instead of mark+fwmark:
-
-https://lkml.org/lkml/2012/12/3/93
-
-I think thats something we shouldn't really go for this.
-
-However, if fwmark is too limiting (and given these hacks exist),
-maybe we should start thinking for alternatives?
+Just if anyone ever thinks something is being ignored, just don't
+even use your brain, simply repost it again.
