@@ -1,56 +1,67 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v3 16/17] net: mlx4: convenience predicate for debug messages
-Date: Mon, 30 Nov 2015 14:05:54 -0800
-Message-ID: <1448921155-24764-17-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v3 04/17] tx4939: use __ethtool_get_ksettings
+Date: Mon, 30 Nov 2015 14:05:42 -0800
+Message-ID: <1448921155-24764-5-git-send-email-ddecotig@gmail.com>
 References: <1448921155-24764-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
-	Eugenia Emantayev <eugenia@mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Eyal Perry <eyalpe@mellanox.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ed Swierk <eswierk@skyportsystems.com>,
-	Robert Love <robert.w.love@intel.com>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	David Decotigny <decot@googlers.com>
+        Eugenia Emantayev <eugenia@mellanox.co.il>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Govindarajulu Varadarajan <_govind@gmx.com>,
+        Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Eyal Perry <eyalpe@mellanox.com>,
+        Pravin B Shelar <pshelar@nicira.com>,
+        Ed Swierk <eswierk@skyportsystems.com>,
+        Robert Love <robert.w.love@intel.com>,
+        "James E.J. Bottomley" <JBottomley@parallels.com>,
+        Yuval Mintz <Yuval.Mintz@qlogic.com>,
+        David Decotigny <decot@googlers.com>
 To: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Amir Vadai <amirv@mellanox.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-api@vger.kernel.org,
-	linux-mips@linux-mips.org, fcoe-devel@open-fcoe.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+        Ben Hutchings <ben@decadent.org.uk>,
+        Amir Vadai <amirv@mellanox.com>, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, linux-api@vger.kernel.org,
+        linux-mips@linux-mips.org, fcoe-devel@open-fcoe.org
+Return-path: <linux-mips-bounce@linux-mips.org>
 In-Reply-To: <1448921155-24764-1-git-send-email-ddecotig@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
 From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ arch/mips/txx9/generic/setup_tx4939.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 35de7d2..b04054d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -740,9 +740,11 @@ __printf(3, 4)
- void en_print(const char *level, const struct mlx4_en_priv *priv,
- 	      const char *format, ...);
+diff --git a/arch/mips/txx9/generic/setup_tx4939.c b/arch/mips/txx9/generic/setup_tx4939.c
+index e3733cd..4a3ebf6 100644
+--- a/arch/mips/txx9/generic/setup_tx4939.c
++++ b/arch/mips/txx9/generic/setup_tx4939.c
+@@ -320,11 +320,12 @@ void __init tx4939_sio_init(unsigned int sclk, unsigned int cts_mask)
+ #if IS_ENABLED(CONFIG_TC35815)
+ static u32 tx4939_get_eth_speed(struct net_device *dev)
+ {
+-	struct ethtool_cmd cmd;
+-	if (__ethtool_get_settings(dev, &cmd))
++	struct ethtool_ksettings cmd;
++
++	if (__ethtool_get_ksettings(dev, &cmd))
+ 		return 100;	/* default 100Mbps */
  
-+#define en_dbg_enabled(mlevel, priv)		\
-+	(NETIF_MSG_##mlevel & (priv)->msg_enable)
- #define en_dbg(mlevel, priv, format, ...)				\
- do {									\
--	if (NETIF_MSG_##mlevel & (priv)->msg_enable)			\
-+	if (en_dbg_enabled(mlevel, priv))				\
- 		en_print(KERN_DEBUG, priv, format, ##__VA_ARGS__);	\
- } while (0)
- #define en_warn(priv, format, ...)					\
+-	return ethtool_cmd_speed(&cmd);
++	return cmd.parent.speed;
+ }
+ 
+ static int tx4939_netdev_event(struct notifier_block *this,
 -- 
 2.6.0.rc2.230.g3dd15c0
