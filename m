@@ -1,47 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/13] mvneta Buffer Management and enhancements
-Date: Sun, 29 Nov 2015 21:02:10 -0500 (EST)
-Message-ID: <20151129.210210.1777978635596463961.davem@davemloft.net>
-References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
-	<5655FF36.20202@gmail.com>
-	<CAPv3WKc4zSmjtw_FeePCVCaq_aUubbCw_ggtxgxs0-7LwL7fHQ@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: fec: fix enet_out clock handling
+Date: Mon, 30 Nov 2015 03:07:31 +0100
+Message-ID: <20151130020731.GB32662@lunn.ch>
+References: <1448631550-943-1-git-send-email-LW@KARO-electronics.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
-	linux@arm.linux.org.uk, jason@lakedaemon.net, myair@marvell.com,
-	jaz@semihalf.com, simon.guinot@sequanux.org, xswang@marvell.com,
-	nadavh@marvell.com, alior@marvell.com, tn@semihalf.com,
-	gregory.clement@free-electrons.com, nitroshift@yahoo.com,
-	sebastian.hesselbarth@gmail.com
-To: mw@semihalf.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPv3WKc4zSmjtw_FeePCVCaq_aUubbCw_ggtxgxs0-7LwL7fHQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Kevin Hao <haokexin@gmail.com>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	Nimrod Andy <B38611@freescale.com>,
+	Philippe Reynes <tremyfr@gmail.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Stefan Agner <stefan@agner.ch>
+To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:47329 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751836AbbK3CHq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Nov 2015 21:07:46 -0500
+Content-Disposition: inline
+In-Reply-To: <1448631550-943-1-git-send-email-LW@KARO-electronics.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marcin Wojtas <mw@semihalf.com>
-Date: Sun, 29 Nov 2015 14:21:35 +0100
+On Fri, Nov 27, 2015 at 02:39:10PM +0100, Lothar Wa=DFmann wrote:
+> When ENET_OUT is being used as reference clock for an external PHY,
+> the clock must not be disabled while the PHY is active. Otherwise the
+> PHY may lose its internal state and require a reset to become
+> functional again.
+>=20
+> A symptom for this bug is a network interface that constantly toggles
+> between UP and DOWN state:
+> fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full - flow control =
+rx/tx
+> fec 800f0000.ethernet eth0: Link is Down
+> fec 800f0000.ethernet eth0: Link is Up - 100Mbps/Full - flow control =
+rx/tx
+> fec 800f0000.ethernet eth0: Link is Down
 
->> Looking at your patches, it was not entirely clear to me how the buffer
->> manager on these Marvell SoCs work, but other networking products have
->> something similar, like Broadcom's Cable Modem SoCs (BCM33xx) FPM, and
->> maybe Freescale's FMAN/DPAA seems to do something similar.
->>
->> Does the buffer manager allocation work by giving you a reference/token
->> to a buffer as opposed to its address? If that is the case, it would be
->> good to design support for such hardware in a way that it can be used by
->> more drivers.
-> 
-> It does not operate on a reference/token but buffer pointers (physical
-> adresses). It's a ring and you cannot control which buffer will be
-> taken at given moment.
+Hi Lothar
 
-He understands this, he's asking you to make an "abstraction".
+When does this up/down happen? During normal operation when the link
+is administrative up?
 
-FWIW, I know of at least one more chip that operates this way too and
-the code I wrote for it, particularly the buffer management, took a
-while to solidify.  Common helpers for this kind of situation would
-have helped me back when I wrote it.
+When did this start happening? Did it happen before=20
+8fff755e9f8d net: fec: Ensure clocks are enabled while using mdio bus
+
+	     Andrew
