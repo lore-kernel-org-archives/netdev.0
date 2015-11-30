@@ -1,83 +1,80 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: convert sack_needed and sack_generation to bits
-Date: Mon, 30 Nov 2015 09:43:45 -0500
-Message-ID: <565C60A1.1000001@gmail.com>
-References: <f3803545e5d34adfe83cff5adf01317c56288d59.1448892562.git.marcelo.leitner@gmail.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: Kernel 4.1.12 crash
+Date: Mon, 30 Nov 2015 16:03:37 +0100
+Message-ID: <20151130150337.GC3059@alphalink.fr>
+References: <564F26FF.3040605@seti.kr.ua>
+ <564FA904.7020603@gmail.com>
+ <5650287B.9070901@seti.kr.ua>
+ <56514FF5.7060906@gmail.com>
+ <5654EBE8.9030705@seti.kr.ua>
+ <20151125141048.GA3868@alphalink.fr>
+ <5655CCAE.6000300@seti.kr.ua>
+ <20151126164452.GA2988@alphalink.fr>
+ <565B7699.8030105@seti.kr.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>, linux-sctp@vger.kernel.org,
-	lucien.xin@gmail.com
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
+To: Andrew <nitr0@seti.kr.ua>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:33523 "EHLO
-	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754125AbbK3Ons (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 09:43:48 -0500
-In-Reply-To: <f3803545e5d34adfe83cff5adf01317c56288d59.1448892562.git.marcelo.leitner@gmail.com>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:50847 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754269AbbK3PDk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 10:03:40 -0500
+Content-Disposition: inline
+In-Reply-To: <565B7699.8030105@seti.kr.ua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/30/2015 09:17 AM, Marcelo Ricardo Leitner wrote:
-> They don't need to be any bigger than that and with this we start a new
-> bitfield for tracking association runtime stuff, like zero window
-> situation.
-> 
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+On Mon, Nov 30, 2015 at 12:05:13AM +0200, Andrew wrote:
+> 26.11.2015 18:44, Guillaume Nault =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> >On Wed, Nov 25, 2015 at 04:58:54PM +0200, Andrew wrote:
+> >>25.11.2015 16:10, Guillaume Nault =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> >>>On Wed, Nov 25, 2015 at 12:59:52AM +0200, Andrew wrote:
+> >>>>Hi.
+> >>>>
+> >>>>I tried to reproduce errors in virtual environment (some VMs on m=
+y
+> >>>>notebook).
+> >>>>
+> >>>>I've tried to create 1000 client PPPoE sessions from this box via=
+ script:
+> >>>>for i in `seq 1 1000`; do pppd plugin rp-pppoe.so user test passw=
+ord test
+> >>>>nodefaultroute maxfail 0 persist nodefaultroute holdoff 1 noauth =
+eth0; done
+> >>>>
+> >>>I've tried to reproduce the bug with your script, but couldn't get
+> >>>anything to crash (VM is Debian Jessie i386 running on KVM with up=
+stream
+> >>>kernel 4.1.12). Does the crash happen before all sessions get
+> >>>established?
+> >>Yes, crash happens even before all daemon instances are started. Se=
+ssions
+> >>don't get established because BRAS configured to reject sessions (s=
+o a lot
+> >>of concurrent connection retries happens) - I still didn't created =
+account
+> >>for test user on it.
+> >>
+> >Ok, I got the crash too. In fact I had misunderstood your previous
+> >message, crash happens when PPP sessions don't get established
+> >(authentication failures in my case).
+> >
+> >I'll investigate on that and let you know.
+>=20
+> It seems like bug appears on mass ppp devices removing (I planned to =
+use
+> this test environment to reproduce BRAS periodical crashes, but sudde=
+nly
+> I've got crashes on test client).
+>=20
+> I've checked it with some kernels - it's present in 4.3.0, but it isn=
+'t
+> present in 3.10.57. I'll try to build 3.14/3.18 kernels to look how t=
+hey
+> will work in this case.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-
--vlad
-
-> ---
-> 
-> Motivated by https://patchwork.ozlabs.org/patch/509836/
-> 
->  include/net/sctp/structs.h | 16 ++++++++--------
->  1 file changed, 8 insertions(+), 8 deletions(-)
-> 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 495c87e367b3f2e8941807f56a77d2e14469bfed..7bbb71081aeb6cfdc9cb049cf7a094dbcd4603bb 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -775,10 +775,10 @@ struct sctp_transport {
->  		hb_sent:1,
->  
->  		/* Is the Path MTU update pending on this tranport */
-> -		pmtu_pending:1;
-> +		pmtu_pending:1,
->  
-> -	/* Has this transport moved the ctsn since we last sacked */
-> -	__u32 sack_generation;
-> +		/* Has this transport moved the ctsn since we last sacked */
-> +		sack_generation:1;
->  	u32 dst_cookie;
->  
->  	struct flowi fl;
-> @@ -1482,19 +1482,19 @@ struct sctp_association {
->  			prsctp_capable:1,   /* Can peer do PR-SCTP? */
->  			auth_capable:1;     /* Is peer doing SCTP-AUTH? */
->  
-> -		/* Ack State   : This flag indicates if the next received
-> +		/* sack_needed : This flag indicates if the next received
->  		 *             : packet is to be responded to with a
-> -		 *             : SACK. This is initializedto 0.  When a packet
-> -		 *             : is received it is incremented. If this value
-> +		 *             : SACK. This is initialized to 0.  When a packet
-> +		 *             : is received sack_cnt is incremented. If this value
->  		 *             : reaches 2 or more, a SACK is sent and the
->  		 *             : value is reset to 0. Note: This is used only
->  		 *             : when no DATA chunks are received out of
->  		 *             : order.  When DATA chunks are out of order,
->  		 *             : SACK's are not delayed (see Section 6).
->  		 */
-> -		__u8    sack_needed;     /* Do we need to sack the peer? */
-> +		__u8    sack_needed:1,     /* Do we need to sack the peer? */
-> +			sack_generation:1;
->  		__u32	sack_cnt;
-> -		__u32	sack_generation;
->  
->  		__u32   adaptation_ind;	 /* Adaptation Code point. */
->  
-> 
+Yes, it most likely was introduced by 287f3a943fef ("pppoe: Use
+workqueue to die properly when a PADT is received"). I still have to
+figure out why.
