@@ -1,57 +1,46 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] netfilter: ipvs: avoid unused variable warning
-Date: Mon, 30 Nov 2015 22:48:34 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1511302242210.1918@ja.home.ssi.bg>
-References: <9616810.SPqCgIbKt5@wuerfel>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: gigaset: freeing an active object
+Date: Mon, 30 Nov 2015 22:07:43 +0100
+Message-ID: <1448917663.3546.29.camel@tiscali.nl>
+References: <56587467.8050102@oracle.com> <565B1A1B.8020503@imap.cc>
+	 <565B4256.6080101@hurleysoftware.com> <565B4844.9020600@imap.cc>
+	 <1448828800.2603.17.camel@tiscali.nl> <1448839396.2891.14.camel@tiscali.nl>
+	 <1448906497.3546.16.camel@tiscali.nl> <565C95B7.7070001@imap.cc>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <9616810.SPqCgIbKt5@wuerfel>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: isdn@linux-pingi.de, davem@davemloft.net,
+	gigaset307x-common@lists.sourceforge.net,
+	LKML <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>
+To: Tilman Schmidt <tilman@imap.cc>,
+	Peter Hurley <peter@hurleysoftware.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <565C95B7.7070001@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On ma, 2015-11-30 at 19:30 +0100, Tilman Schmidt wrote:
+> I wonder how that will behave if someone attaches two of the devices to
+> different serial ports. Not likely, but not forbidden either.
 
-	Hello,
+I see.
 
-On Mon, 30 Nov 2015, Arnd Bergmann wrote:
+Perhaps I should respin and a use a pointer to a struct platform_device
+in struct ser_cardstate, use the two step approach of
+platform_device_alloc() and friends, etc. Only slightly more
+complicated.
 
-> When CONFIG_PROC_FS is disabled, the local 'net' variable in
-> ip_vs_app_net_init becomes unused, as gcc warns:
-> 
-> net/netfilter/ipvs/ip_vs_app.c: In function 'ip_vs_app_net_init':
-> net/netfilter/ipvs/ip_vs_app.c:608:14: warning: unused variable 'net' [-Wunused-variable]
-> 
-> This removes the line by moving the pointer dereference into the
-> user of the variable.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+How would attaching two devices work with GIGASET_MINORS hardcoded to 1?
+Because I haven't yet stumbled on the mechanism with which ttyGS1 (and
+up) would then be created.
 
-Acked-by: Julian Anastasov <ja@ssi.bg>
+(I do have a second M105's in a box somewhere, so I could check myself
+what happens when a second USB device is added, for what that's worth.)
 
-> diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
-> index 0328f7250693..e5422d3db501 100644
-> --- a/net/netfilter/ipvs/ip_vs_app.c
-> +++ b/net/netfilter/ipvs/ip_vs_app.c
-> @@ -614,8 +614,6 @@ int __net_init ip_vs_app_net_init(struct netns_ipvs *ipvs)
->  
->  void __net_exit ip_vs_app_net_cleanup(struct netns_ipvs *ipvs)
->  {
-> -	struct net *net = ipvs->net;
-> -
->  	unregister_ip_vs_app(ipvs, NULL /* all */);
-> -	remove_proc_entry("ip_vs_app", net->proc_net);
-> +	remove_proc_entry("ip_vs_app", ipvs->net->proc_net);
->  }
+Thanks,
 
-Regards
 
---
-Julian Anastasov <ja@ssi.bg>
+Paul Bolle
