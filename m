@@ -1,7 +1,7 @@
 From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH 11/13] net: thunderx: HW errata workaround for non-tunneled TSO pkts
-Date: Mon, 30 Nov 2015 23:49:07 +0530
-Message-ID: <1448907549-5296-12-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 10/13] net: thunderx: Enable CQE count threshold irq on pass2 silicon
+Date: Mon, 30 Nov 2015 23:49:06 +0530
+Message-ID: <1448907549-5296-11-git-send-email-sunil.kovvuri@gmail.com>
 References: <y>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Sunil.Goutham@caviumnetworks.com,
@@ -14,66 +14,76 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-A HW errata mandates inner layer3 offset field of send header for a non-tunneled 
-TSO packet to point to L2 ethertype in the payload. Also added counter for HW 
-TSO packets.
-
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |   17 ++++++++++-------
- 1 files changed, 10 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h          |    2 ++
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   |    2 +-
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |    5 ++++-
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h |    3 ++-
+ 4 files changed, 9 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 02571f4..e782856 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -34,6 +34,8 @@
+ /* NIC priv flags */
+ #define	NIC_SRIOV_ENABLED		BIT(0)
+ 
++#define	VNIC_NAPI_WEIGHT		NAPI_POLL_WEIGHT
++
+ /* Min/Max packet size */
+ #define	NIC_HW_MIN_FRS			64
+ #define	NIC_HW_MAX_FRS			9200 /* 9216 max packet including FCS */
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index df07bd7..51bbe67 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -1147,7 +1147,7 @@ int nicvf_open(struct net_device *netdev)
+ 		cq_poll->cq_idx = qidx;
+ 		cq_poll->nicvf = nic;
+ 		netif_napi_add(netdev, &cq_poll->napi, nicvf_poll,
+-			       NAPI_POLL_WEIGHT);
++			       VNIC_NAPI_WEIGHT);
+ 		napi_enable(&cq_poll->napi);
+ 		nic->napi[qidx] = cq_poll;
+ 	}
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index 5855828..4e9709e 100644
+index 209e495..5855828 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -943,8 +943,8 @@ static int nicvf_sq_subdesc_required(struct nicvf *nic, struct sk_buff *skb)
-  * First subdescriptor for every send descriptor.
+@@ -299,7 +299,10 @@ static int nicvf_init_cmp_queue(struct nicvf *nic,
+ 		return err;
+ 
+ 	cq->desc = cq->dmem.base;
+-	cq->thresh = CMP_QUEUE_CQE_THRESH;
++	if (!pass1_silicon(nic->pdev))
++		cq->thresh = CMP_QUEUE_CQE_THRESH;
++	else
++		cq->thresh = 0;
+ 	nic->cq_coalesce_usecs = (CMP_QUEUE_TIMER_THRESH * 0.05) - 1;
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+index bce8099..2cfc85b 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+@@ -10,6 +10,7 @@
+ #define NICVF_QUEUES_H
+ 
+ #include <linux/netdevice.h>
++#include "nic.h"
+ #include "q_struct.h"
+ 
+ #define MAX_QUEUE_SET			128
+@@ -75,7 +76,7 @@
   */
- static inline void
--nicvf_sq_add_hdr_subdesc(struct snd_queue *sq, int qentry, int subdesc_cnt,
--			 struct sk_buff *skb, int len, bool hw_tso)
-+nicvf_sq_add_hdr_subdesc(struct nicvf *nic, struct snd_queue *sq, int qentry,
-+			 int subdesc_cnt, struct sk_buff *skb, int len)
- {
- 	int proto;
- 	struct sq_hdr_subdesc *hdr;
-@@ -980,10 +980,13 @@ nicvf_sq_add_hdr_subdesc(struct snd_queue *sq, int qentry, int subdesc_cnt,
- 		}
- 	}
+ #define CMP_QSIZE		CMP_QUEUE_SIZE3
+ #define CMP_QUEUE_LEN		(1ULL << (CMP_QSIZE + 10))
+-#define CMP_QUEUE_CQE_THRESH	0
++#define CMP_QUEUE_CQE_THRESH	(VNIC_NAPI_WEIGHT / 2)
+ #define CMP_QUEUE_TIMER_THRESH	80 /* ~2usec */
  
--	if (hw_tso && skb_shinfo(skb)->gso_size) {
-+	if (nic->hw_tso && skb_shinfo(skb)->gso_size) {
- 		hdr->tso = 1;
- 		hdr->tso_start = skb_transport_offset(skb) + tcp_hdrlen(skb);
- 		hdr->tso_max_paysize = skb_shinfo(skb)->gso_size;
-+		/* For non-tunneled pkts, point this to L2 ethertype */
-+		hdr->inner_l3_offset = skb_network_offset(skb) - 2;
-+		nic->drv_stats.tx_tso++;
- 	}
- }
- 
-@@ -1054,8 +1057,8 @@ static int nicvf_sq_append_tso(struct nicvf *nic, struct snd_queue *sq,
- 			data_left -= size;
- 			tso_build_data(skb, &tso, size);
- 		}
--		nicvf_sq_add_hdr_subdesc(sq, hdr_qentry,
--					 seg_subdescs - 1, skb, seg_len, false);
-+		nicvf_sq_add_hdr_subdesc(nic, sq, hdr_qentry,
-+					 seg_subdescs - 1, skb, seg_len);
- 		sq->skbuff[hdr_qentry] = (u64)NULL;
- 		qentry = nicvf_get_nxt_sqentry(sq, qentry);
- 
-@@ -1111,8 +1114,8 @@ int nicvf_sq_append_skb(struct nicvf *nic, struct sk_buff *skb)
- 		return nicvf_sq_append_tso(nic, sq, sq_num, qentry, skb);
- 
- 	/* Add SQ header subdesc */
--	nicvf_sq_add_hdr_subdesc(sq, qentry, subdesc_cnt - 1, skb,
--				 skb->len, nic->hw_tso);
-+	nicvf_sq_add_hdr_subdesc(nic, sq, qentry, subdesc_cnt - 1,
-+				 skb, skb->len);
- 
- 	/* Add SQ gather subdescs */
- 	qentry = nicvf_get_nxt_sqentry(sq, qentry);
+ #define RBDR_SIZE		RBDR_SIZE0
 -- 
 1.7.1
