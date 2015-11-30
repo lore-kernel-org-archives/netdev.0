@@ -1,45 +1,61 @@
-From: David Decotigny <ddecotig@gmail.com>
-Subject: Re: What now when we're [almost] out of ADVERTISED bits?
-Date: Mon, 30 Nov 2015 09:26:10 -0800
-Message-ID: <CAG88wWb6K_-pmyiX78f=2R6_GM3e7CvTsc3msUgFWdFeTWyaTA@mail.gmail.com>
-References: <CO2PR11MB00887F0A656EFB801BA2599797010@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CAJ3xEMj4ygmuSnxS-wkwukYyMgaA2omSQ+0MvY1MZKVv4_U6=A@mail.gmail.com>
- <1448844054.1990.32.camel@decadent.org.uk> <20151129.215359.213447478744491730.davem@davemloft.net>
- <CO2PR11MB0088CAF938F94666EC5AC70897000@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Improve Atheros ethernet driver not to do order 4
+ GFP_ATOMIC allocation
+Date: Mon, 30 Nov 2015 09:58:23 -0800
+Message-ID: <1448906303.24696.133.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151126163413.GA3816@amd>
+	 <20151127082010.GA2500@dhcp22.suse.cz> <20151128145113.GB4135@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:38837 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754173AbbK3R0b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 12:26:31 -0500
-Received: by wmec201 with SMTP id c201so148569193wme.1
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 09:26:30 -0800 (PST)
-In-Reply-To: <CO2PR11MB0088CAF938F94666EC5AC70897000@CO2PR11MB0088.namprd11.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Michal Hocko <mhocko@kernel.org>, davem@davemloft.net, Andrew Morton
+ <akpm@osdl.org>, kernel list <linux-kernel@vger.kernel.org>,
+ jcliburn@gmail.com,  chris.snook@gmail.com, netdev@vger.kernel.org, "Rafael
+ J. Wysocki" <rjw@rjwysocki.net>, linux-mm@kvack.org,
+ nic-devel@qualcomm.com,  ronangeles@gmail.com, ebiederm@xmission.com
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20151128145113.GB4135@amd>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-yes, I will update+repost.
+On Sat, 2015-11-28 at 15:51 +0100, Pavel Machek wrote:
+> atl1c driver is doing order-4 allocation with GFP_ATOMIC
+> priority. That often breaks  networking after resume. Switch to
+> GFP_KERNEL. Still not ideal, but should be significantly better.
+>     
+> Signed-off-by: Pavel Machek <pavel@ucw.cz>
+> 
+> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> index 2795d6d..afb71e0 100644
+> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> @@ -1016,10 +1016,10 @@ static int atl1c_setup_ring_resources(struct atl1c_adapter *adapter)
+>  		sizeof(struct atl1c_recv_ret_status) * rx_desc_count +
+>  		8 * 4;
+>  
+> -	ring_header->desc = pci_alloc_consistent(pdev, ring_header->size,
+> -				&ring_header->dma);
+> +	ring_header->desc = dma_alloc_coherent(&pdev->dev, ring_header->size,
+> +					       &ring_header->dma, GFP_KERNEL);
+>  	if (unlikely(!ring_header->desc)) {
+> -		dev_err(&pdev->dev, "pci_alloc_consistend failed\n");
+> +		dev_err(&pdev->dev, "could not get memmory for DMA buffer\n");
+>  		goto err_nomem;
+>  	}
+>  	memset(ring_header->desc, 0, ring_header->size);
+> 
 
-On Sun, Nov 29, 2015 at 10:11 PM, Yuval Mintz <Yuval.Mintz@qlogic.com> wrote:
->>>> there was a work by David Decotigny that should have solved the out
->>>> of bits problem here [1]. Maybe it should be revived.
->>>>
->>>> [1] https://lkml.org/lkml/2015/1/26/882
->>>
->>> Yes, it should.
->>
->> A repost would strongly facilitate that.
->>
->> Just if anyone ever thinks something is being ignored, just don't even use your
->> brain, simply repost it again.
->
-> David, are you going to re-post? Or do you want me to take over this one?
->
-> Thanks,
-> Yuval
+It seems there is a missed opportunity to get rid of the memset() here,
+by adding __GFP_ZERO to the dma_alloc_coherent() GFP_KERNEL mask,
+or simply using dma_zalloc_coherent()
+
+
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
