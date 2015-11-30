@@ -1,11 +1,10 @@
 From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH 02/13] net: thunderx: Wait for delayed work to finish before destroying it
-Date: Mon, 30 Nov 2015 23:48:58 +0530
-Message-ID: <1448907549-5296-3-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 04/13] net: thunderx: Set CQ timer threshold properly
+Date: Mon, 30 Nov 2015 23:49:00 +0530
+Message-ID: <1448907549-5296-5-git-send-email-sunil.kovvuri@gmail.com>
 References: <y>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Sunil.Goutham@caviumnetworks.com,
-	Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>,
 	Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -13,45 +12,60 @@ In-Reply-To: <y>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
+From: Sunil Goutham <sgoutham@cavium.com>
 
-While VNIC or BGX driver teardown, wait for already scheduled delayed work to
-finish before destroying it.
+Properly set CQ timer threshold and also set it to 2us.
+With previous incorrect settings it was set to 0.5us which is too less.
 
-Signed-off-by: Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic_main.c    |    3 +--
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c |    3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h          |    5 ++---
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |    2 +-
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h |    2 +-
+ 3 files changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index c561fdc..cfc24a1 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -1074,8 +1074,7 @@ static void nic_remove(struct pci_dev *pdev)
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index d3950b2..39ca674 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -120,10 +120,9 @@
+  * Calculated for SCLK of 700Mhz
+  * value written should be a 1/16th of what is expected
+  *
+- * 1 tick per 0.05usec = value of 2.2
+- * This 10% would be covered in CQ timer thresh value
++ * 1 tick per 0.025usec
+  */
+-#define NICPF_CLK_PER_INT_TICK		2
++#define NICPF_CLK_PER_INT_TICK		1
  
- 	if (nic->check_link) {
- 		/* Destroy work Queue */
--		cancel_delayed_work(&nic->dwork);
--		flush_workqueue(nic->check_link);
-+		cancel_delayed_work_sync(&nic->dwork);
- 		destroy_workqueue(nic->check_link);
- 	}
+ /* Time to wait before we decide that a SQ is stuck.
+  *
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index e404ea8..206b6a7 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -592,7 +592,7 @@ void nicvf_cmp_queue_config(struct nicvf *nic, struct queue_set *qs,
+ 	/* Set threshold value for interrupt generation */
+ 	nicvf_queue_reg_write(nic, NIC_QSET_CQ_0_7_THRESH, qidx, cq->thresh);
+ 	nicvf_queue_reg_write(nic, NIC_QSET_CQ_0_7_CFG2,
+-			      qidx, nic->cq_coalesce_usecs);
++			      qidx, CMP_QUEUE_TIMER_THRESH);
+ }
  
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 1fb72dd..2076ac3 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -695,8 +695,7 @@ static void bgx_lmac_disable(struct bgx *bgx, u8 lmacid)
- 	lmac = &bgx->lmac[lmacid];
- 	if (lmac->check_link) {
- 		/* Destroy work queue */
--		cancel_delayed_work(&lmac->dwork);
--		flush_workqueue(lmac->check_link);
-+		cancel_delayed_work_sync(&lmac->dwork);
- 		destroy_workqueue(lmac->check_link);
- 	}
+ /* Configures transmit queue */
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+index b1e93a9..457eaee 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+@@ -76,7 +76,7 @@
+ #define CMP_QSIZE		CMP_QUEUE_SIZE3
+ #define CMP_QUEUE_LEN		(1ULL << (CMP_QSIZE + 10))
+ #define CMP_QUEUE_CQE_THRESH	0
+-#define CMP_QUEUE_TIMER_THRESH	220 /* 10usec */
++#define CMP_QUEUE_TIMER_THRESH	80 /* ~2usec */
  
+ #define RBDR_SIZE		RBDR_SIZE0
+ #define RCV_BUF_COUNT		(1ULL << (RBDR_SIZE + 13))
 -- 
 1.7.1
