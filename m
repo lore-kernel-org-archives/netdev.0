@@ -1,66 +1,71 @@
-From: Marcin Wojtas <mw@semihalf.com>
-Subject: [PATCH v4 net 1/6] net: mvneta: add configuration for MBUS windows
- access protection
-Date: Mon, 30 Nov 2015 13:27:41 +0100
-Message-ID: <1448886466-31538-2-git-send-email-mw@semihalf.com>
-References: <1448886466-31538-1-git-send-email-mw@semihalf.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch, linux@arm.linux.org.uk,
- jason@lakedaemon.net, myair@marvell.com, jaz@semihalf.com,
- simon.guinot@sequanux.org, xswang@marvell.com, nadavh@marvell.com,
- alior@marvell.com, tn@semihalf.com, gregory.clement@free-electrons.com,
- nitroshift@yahoo.com, mw@semihalf.com, davem@davemloft.net,
- sebastian.hesselbarth@gmail.com
-To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1448886466-31538-1-git-send-email-mw@semihalf.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: [3.16.y-ckt stable] Patch "can: Use correct type in sizeof() in nla_put()" has been added to staging queue
+Date: Mon, 30 Nov 2015 12:32:51 +0000
+Message-ID: <1448886771-15125-1-git-send-email-luis.henriques@canonical.com>
+Cc: Wolfgang Grandegger <wg@grandegger.com>, netdev@vger.kernel.org,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Luis Henriques <luis.henriques@canonical.com>,
+	kernel-team@lists.ubuntu.com
+To: Marek Vasut <marex@denx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:48016 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753288AbbK3Mcz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 07:32:55 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This commit adds missing configuration of MBUS windows access protection
-in mvneta_conf_mbus_windows function - a dedicated variable for that
-purpose remained there unused since v3.8 initial mvneta support. Because
-of that the register contents were inherited from the bootloader.
+This is a note to let you know that I have just added a patch titled
 
-Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-Reviewed-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+    can: Use correct type in sizeof() in nla_put()
 
-Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP network
-unit")
+to the linux-3.16.y-queue branch of the 3.16.y-ckt extended stable tree 
+which can be found at:
+
+    http://kernel.ubuntu.com/git/ubuntu/linux.git/log/?h=linux-3.16.y-queue
+
+This patch is scheduled to be released in version 3.16.7-ckt21.
+
+If you, or anyone else, feels it should not be added to this tree, please 
+reply to this email.
+
+For more information about the 3.16.y-ckt tree, see
+https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
+
+Thanks.
+-Luis
+
+------
+
+>From 38c6b0cfa61cf90117c73fba15a90478085d9e48 Mon Sep 17 00:00:00 2001
+From: Marek Vasut <marex@denx.de>
+Date: Fri, 30 Oct 2015 13:48:19 +0100
+Subject: can: Use correct type in sizeof() in nla_put()
+
+commit 562b103a21974c2f9cd67514d110f918bb3e1796 upstream.
+
+The sizeof() is invoked on an incorrect variable, likely due to some
+copy-paste error, and this might result in memory corruption. Fix this.
+
+Signed-off-by: Marek Vasut <marex@denx.de>
+Cc: Wolfgang Grandegger <wg@grandegger.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Luis Henriques <luis.henriques@canonical.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/can/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index e84c7f2..2d80256 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -62,6 +62,7 @@
- #define MVNETA_WIN_SIZE(w)                      (0x2204 + ((w) << 3))
- #define MVNETA_WIN_REMAP(w)                     (0x2280 + ((w) << 2))
- #define MVNETA_BASE_ADDR_ENABLE                 0x2290
-+#define MVNETA_ACCESS_PROTECT_ENABLE            0x2294
- #define MVNETA_PORT_CONFIG                      0x2400
- #define      MVNETA_UNI_PROMISC_MODE            BIT(0)
- #define      MVNETA_DEF_RXQ(q)                  ((q) << 1)
-@@ -3191,6 +3192,7 @@ static void mvneta_conf_mbus_windows(struct mvneta_port *pp,
- 	}
- 
- 	mvreg_write(pp, MVNETA_BASE_ADDR_ENABLE, win_enable);
-+	mvreg_write(pp, MVNETA_ACCESS_PROTECT_ENABLE, win_protect);
- }
- 
- /* Power up the port */
--- 
-1.8.3.1
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index c543c3aaee4d..5635c6e7af57 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -835,7 +835,7 @@ static int can_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	     nla_put(skb, IFLA_CAN_BITTIMING_CONST,
+ 		     sizeof(*priv->bittiming_const), priv->bittiming_const)) ||
+
+-	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(cm), &priv->clock) ||
++	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(priv->clock), &priv->clock) ||
+ 	    nla_put_u32(skb, IFLA_CAN_STATE, state) ||
+ 	    nla_put(skb, IFLA_CAN_CTRLMODE, sizeof(cm), &cm) ||
+ 	    nla_put_u32(skb, IFLA_CAN_RESTART_MS, priv->restart_ms) ||
