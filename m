@@ -1,85 +1,110 @@
-From: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
-Subject: Re: [PATCH 13/13] mm: memcontrol: hook up vmpressure to socket
- pressure
-Date: Mon, 30 Nov 2015 14:36:28 +0300
-Message-ID: <20151130113628.GB24704@esperanza>
-References: <1448401925-22501-1-git-send-email-hannes@cmpxchg.org>
- <20151124215940.GB1373@cmpxchg.org>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [RFC] ipv6: use a random ifid for headerless devices
+Date: Mon, 30 Nov 2015 12:55:08 +0100
+Message-ID: <1448884508-5235-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<kernel-team-b10kYP2dOMg@public.gmane.org>
-To: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151124215940.GB1373-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:44456 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753150AbbK3LzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Nov 2015 06:55:25 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 24, 2015 at 04:59:40PM -0500, Johannes Weiner wrote:
-...
-> @@ -2396,6 +2396,7 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
->  		memcg = mem_cgroup_iter(root, NULL, &reclaim);
->  		do {
->  			unsigned long lru_pages;
-> +			unsigned long reclaimed;
->  			unsigned long scanned;
->  			struct lruvec *lruvec;
->  			int swappiness;
-> @@ -2408,6 +2409,7 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
->  
->  			lruvec = mem_cgroup_zone_lruvec(zone, memcg);
->  			swappiness = mem_cgroup_swappiness(memcg);
-> +			reclaimed = sc->nr_reclaimed;
->  			scanned = sc->nr_scanned;
->  
->  			shrink_lruvec(lruvec, swappiness, sc, &lru_pages);
-> @@ -2418,6 +2420,11 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
->  					    memcg, sc->nr_scanned - scanned,
->  					    lru_pages);
->  
-> +			/* Record the group's reclaim efficiency */
-> +			vmpressure(sc->gfp_mask, memcg, false,
-> +				   sc->nr_scanned - scanned,
-> +				   sc->nr_reclaimed - reclaimed);
-> +
+Generating a random ifid for devices with no L2 header
+at all, allowing such devices to take part in IPv6
+autoconfiguration. The tuntap driver is one example of
+a driver where such an ifid would be useful.
 
-Suppose we have the following cgroup configuration.
+Note that as there is no persistence, new addresses
+will be generated every time an interface is brought up:
 
-A __ B
-  \_ C
+ # ip -6 addr show dev tun0
+ 8: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 state UNKN=
+OWN qlen 500
+     inet6 fe80::eef2:111c:f270:92ba/64 scope link
+        valid_lft forever preferred_lft forever
+ # ip link set tun0 down
+ # ip link set tun0 up
+ # ip -6 addr show dev tun0
+ 8: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 state UNKN=
+OWN qlen 500
+     inet6 fe80::eec0:48d0:6b52:8835/64 scope link
+        valid_lft forever preferred_lft forever
 
-A is empty (which is natural for the unified hierarchy AFAIU). B has
-some workload running in it, and C generates socket pressure. Due to the
-socket pressure coming from C we start reclaim in A, which results in
-thrashing of B, but we might not put sockets under pressure in A or C,
-because vmpressure does not account pages scanned/reclaimed in B when
-generating a vmpressure event for A or C. This might result in
-aggressive reclaim and thrashing in B w/o generating a signal for C to
-stop growing socket buffers.
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+I'm planning raw-ip support for the qmi_wwan driver.  And
+the feedback from primary users (ModemManager++) is that
+a headerless netdev is preferred over a fake ethernet
+device. The current plan is to model this after 'tun'
+devices, using ARPHRD_NONE as type.
 
-Do you think such a situation is possible? If so, would it make sense to
-switch to post-order walk in shrink_zone and pass sub-tree
-scanned/reclaimed stats to vmpressure for each scanned memcg?
+But these devices will need an IPv6 link local address for
+full SLAAC support.  I am therefore wondering if an approach
+like this patch will be acceptable, or if I should look for
+some other solution?
 
-Thanks,
-Vladimir
 
->  			/*
->  			 * Direct reclaim and kswapd have to scan all memory
->  			 * cgroups to fulfill the overall scan target for the
-> @@ -2449,7 +2456,8 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
->  			reclaim_state->reclaimed_slab = 0;
->  		}
->  
-> -		vmpressure(sc->gfp_mask, sc->target_mem_cgroup,
-> +		/* Record the subtree's reclaim efficiency */
-> +		vmpressure(sc->gfp_mask, sc->target_mem_cgroup, true,
->  			   sc->nr_scanned - nr_scanned,
->  			   sc->nr_reclaimed - nr_reclaimed);
->  
+
+Bj=C3=B8rn
+
+
+ net/ipv6/addrconf.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index d84742f003a9..6cf3cae691a5 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -53,6 +53,7 @@
+ #include <linux/if_arp.h>
+ #include <linux/if_arcnet.h>
+ #include <linux/if_infiniband.h>
++#include <linux/random.h>
+ #include <linux/route.h>
+ #include <linux/inetdevice.h>
+ #include <linux/init.h>
+@@ -2026,6 +2027,13 @@ static int addrconf_ifid_ip6tnl(u8 *eui, struct =
+net_device *dev)
+ 	return 0;
+ }
+=20
++static int addrconf_ifid_random(u8 *eui, struct net_device *dev)
++{
++	get_random_bytes(eui, 8);
++	eui[0] |=3D 0x02;
++	return 0;
++}
++
+ static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
+ {
+ 	switch (dev->type) {
+@@ -2047,6 +2055,8 @@ static int ipv6_generate_eui64(u8 *eui, struct ne=
+t_device *dev)
+ 		return addrconf_ifid_ieee1394(eui, dev);
+ 	case ARPHRD_TUNNEL6:
+ 		return addrconf_ifid_ip6tnl(eui, dev);
++	case ARPHRD_NONE:
++		return addrconf_ifid_random(eui, dev);
+ 	}
+ 	return -1;
+ }
+@@ -3069,8 +3079,8 @@ static void addrconf_dev_config(struct net_device=
+ *dev)
+ 	    (dev->type !=3D ARPHRD_IEEE802154) &&
+ 	    (dev->type !=3D ARPHRD_IEEE1394) &&
+ 	    (dev->type !=3D ARPHRD_TUNNEL6) &&
+-	    (dev->type !=3D ARPHRD_6LOWPAN)) {
+-		/* Alas, we support only Ethernet autoconfiguration. */
++	    (dev->type !=3D ARPHRD_6LOWPAN) &&
++	    (dev->type !=3D ARPHRD_NONE)) {
+ 		return;
+ 	}
+=20
+--=20
+2.1.4
