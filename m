@@ -1,7 +1,7 @@
 From: <igal.liberman@freescale.com>
-Subject: [v8, 1/6] fsl/fman: Add FMan MURAM support
-Date: Mon, 30 Nov 2015 14:20:57 +0200
-Message-ID: <1448886062-16962-2-git-send-email-igal.liberman@freescale.com>
+Subject: [v8, 4/6] fsl/fman: Add FMan SP support
+Date: Mon, 30 Nov 2015 14:21:00 +0200
+Message-ID: <1448886062-16962-5-git-send-email-igal.liberman@freescale.com>
 References: <1448886062-16962-1-git-send-email-igal.liberman@freescale.com>
 Reply-To: <igal.liberman@freescale.com>
 Mime-Version: 1.0
@@ -10,92 +10,51 @@ Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
 	<scottwood@freescale.com>, <madalin.bucur@freescale.com>,
 	<pebolle@tiscali.nl>, <joakim.tjernlund@transmode.se>,
 	<ppc@mindchasers.com>, <stephen@networkplumber.org>,
-	<davem@davemloft.net>, Igal Liberman <Igal.Liberman@freescale.com>
+	<davem@davemloft.net>, Igal Liberman <igal.liberman@freescale.com>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0135.outbound.protection.outlook.com ([65.55.169.135]:52000
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753327AbbK3QNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Nov 2015 11:13:16 -0500
 In-Reply-To: <1448886062-16962-1-git-send-email-igal.liberman@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Igal Liberman <Igal.Liberman@freescale.com>
+From: Igal Liberman <igal.liberman@freescale.com>
 
-Add Frame Manager Multi-User RAM support.
-This internal FMan memory block is used by the
-FMan hardware modules, the management being made
-through the generic allocator.
+The Storage Profiles contain parameters that are used
+by the FMan for frame reception and transmission.
 
-The FMan Internal memory, for example, is used for
-allocating transmit and receive FIFOs.
-
-Signed-off-by: Igal Liberman <Igal.Liberman@freescale.com>
+Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
 ---
- drivers/net/ethernet/freescale/Kconfig           |    1 +
- drivers/net/ethernet/freescale/Makefile          |    2 +
- drivers/net/ethernet/freescale/fman/Kconfig      |    8 ++
- drivers/net/ethernet/freescale/fman/Makefile     |    5 +
- drivers/net/ethernet/freescale/fman/fman_muram.c |  159 ++++++++++++++++++++++
- drivers/net/ethernet/freescale/fman/fman_muram.h |   51 +++++++
- 6 files changed, 226 insertions(+)
- create mode 100644 drivers/net/ethernet/freescale/fman/Kconfig
- create mode 100644 drivers/net/ethernet/freescale/fman/Makefile
- create mode 100644 drivers/net/ethernet/freescale/fman/fman_muram.c
- create mode 100644 drivers/net/ethernet/freescale/fman/fman_muram.h
+ drivers/net/ethernet/freescale/fman/Makefile  |    2 +-
+ drivers/net/ethernet/freescale/fman/fman_sp.c |  167 +++++++++++++++++++++++++
+ drivers/net/ethernet/freescale/fman/fman_sp.h |  103 +++++++++++++++
+ 3 files changed, 271 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_sp.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_sp.h
 
-diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
-index ff76d4e..f3f89cc 100644
---- a/drivers/net/ethernet/freescale/Kconfig
-+++ b/drivers/net/ethernet/freescale/Kconfig
-@@ -53,6 +53,7 @@ config FEC_MPC52xx_MDIO
- 	  If compiled as module, it will be called fec_mpc52xx_phy.
- 
- source "drivers/net/ethernet/freescale/fs_enet/Kconfig"
-+source "drivers/net/ethernet/freescale/fman/Kconfig"
- 
- config FSL_PQ_MDIO
- 	tristate "Freescale PQ MDIO"
-diff --git a/drivers/net/ethernet/freescale/Makefile b/drivers/net/ethernet/freescale/Makefile
-index 71debd1..4097c58 100644
---- a/drivers/net/ethernet/freescale/Makefile
-+++ b/drivers/net/ethernet/freescale/Makefile
-@@ -17,3 +17,5 @@ gianfar_driver-objs := gianfar.o \
- 		gianfar_ethtool.o
- obj-$(CONFIG_UCC_GETH) += ucc_geth_driver.o
- ucc_geth_driver-objs := ucc_geth.o ucc_geth_ethtool.o
-+
-+obj-$(CONFIG_FSL_FMAN) += fman/
-diff --git a/drivers/net/ethernet/freescale/fman/Kconfig b/drivers/net/ethernet/freescale/fman/Kconfig
-new file mode 100644
-index 0000000..66b7296
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/Kconfig
-@@ -0,0 +1,8 @@
-+config FSL_FMAN
-+	bool "FMan support"
-+	depends on FSL_SOC || COMPILE_TEST
-+	select GENERIC_ALLOCATOR
-+	default n
-+	help
-+		Freescale Data-Path Acceleration Architecture Frame Manager
-+		(FMan) support
 diff --git a/drivers/net/ethernet/freescale/fman/Makefile b/drivers/net/ethernet/freescale/fman/Makefile
-new file mode 100644
-index 0000000..fc2e194
---- /dev/null
+index 43360d70..5141532 100644
+--- a/drivers/net/ethernet/freescale/fman/Makefile
 +++ b/drivers/net/ethernet/freescale/fman/Makefile
-@@ -0,0 +1,5 @@
-+subdir-ccflags-y +=  -I$(srctree)/drivers/net/ethernet/freescale/fman
-+
-+obj-y		+= fsl_fman.o
-+
-+fsl_fman-objs	:= fman_muram.o
-diff --git a/drivers/net/ethernet/freescale/fman/fman_muram.c b/drivers/net/ethernet/freescale/fman/fman_muram.c
+@@ -2,5 +2,5 @@ subdir-ccflags-y +=  -I$(srctree)/drivers/net/ethernet/freescale/fman
+ 
+ obj-y		+= fsl_fman.o fsl_fman_mac.o
+ 
+-fsl_fman-objs	:= fman_muram.o fman.o
++fsl_fman-objs	:= fman_muram.o fman.o fman_sp.o
+ fsl_fman_mac-objs := fman_dtsec.o fman_memac.o fman_tgec.o
+diff --git a/drivers/net/ethernet/freescale/fman/fman_sp.c b/drivers/net/ethernet/freescale/fman/fman_sp.c
 new file mode 100644
-index 0000000..35d4a50
+index 0000000..f36c622
 --- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/fman_muram.c
-@@ -0,0 +1,159 @@
++++ b/drivers/net/ethernet/freescale/fman/fman_sp.c
+@@ -0,0 +1,167 @@
 +/*
-+ * Copyright 2008-2015 Freescale Semiconductor Inc.
++ * Copyright 2008 - 2015 Freescale Semiconductor Inc.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions are met:
@@ -126,153 +85,160 @@ index 0000000..35d4a50
 + * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#include "fman_muram.h"
++#include "fman_sp.h"
++#include "fman.h"
 +
-+#include <linux/io.h>
-+#include <linux/slab.h>
-+#include <linux/genalloc.h>
-+
-+struct muram_info {
-+	struct gen_pool *pool;
-+	void __iomem *vbase;
-+	size_t size;
-+	phys_addr_t pbase;
-+};
-+
-+static unsigned long fman_muram_vbase_to_offset(struct muram_info *muram,
-+						unsigned long vaddr)
++void fman_sp_set_buf_pools_in_asc_order_of_buf_sizes(struct fman_ext_pools
++						     *fm_ext_pools,
++						     u8 *ordered_array,
++						     u16 *sizes_array)
 +{
-+	return vaddr - (unsigned long)muram->vbase;
-+}
++	u16 buf_size = 0;
++	int i = 0, j = 0, k = 0;
 +
-+/**
-+ * fman_muram_init
-+ * @base:	Pointer to base of memory mapped FM-MURAM.
-+ * @size:	Size of the FM-MURAM partition.
-+ *
-+ * Creates partition in the MURAM.
-+ * The routine returns a pointer to the MURAM partition.
-+ * This pointer must be passed as to all other FM-MURAM function calls.
-+ * No actual initialization or configuration of FM_MURAM hardware is done by
-+ * this routine.
-+ *
-+ * Return: pointer to FM-MURAM object, or NULL for Failure.
-+ */
-+struct muram_info *fman_muram_init(phys_addr_t base, size_t size)
-+{
-+	struct muram_info *muram;
-+	void __iomem *vaddr;
-+	int ret;
++	/* First we copy the external buffers pools information
++	 * to an ordered local array
++	 */
++	for (i = 0; i < fm_ext_pools->num_of_pools_used; i++) {
++		/* get pool size */
++		buf_size = fm_ext_pools->ext_buf_pool[i].size;
 +
-+	muram = kzalloc(sizeof(*muram), GFP_KERNEL);
-+	if (!muram)
-+		return NULL;
++		/* keep sizes in an array according to poolId
++		 * for direct access
++		 */
++		sizes_array[fm_ext_pools->ext_buf_pool[i].id] = buf_size;
 +
-+	muram->pool = gen_pool_create(ilog2(64), -1);
-+	if (!muram->pool) {
-+		pr_err("%s(): MURAM pool create failed\n", __func__);
-+		goto  muram_free;
++		/* save poolId in an ordered array according to size */
++		for (j = 0; j <= i; j++) {
++			/* this is the next free place in the array */
++			if (j == i)
++				ordered_array[i] =
++				    fm_ext_pools->ext_buf_pool[i].id;
++			else {
++				/* find the right place for this poolId */
++				if (buf_size < sizes_array[ordered_array[j]]) {
++					/* move the pool_ids one place ahead
++					 * to make room for this poolId
++					 */
++					for (k = i; k > j; k--)
++						ordered_array[k] =
++						    ordered_array[k - 1];
++
++					/* now k==j, this is the place for
++					 * the new size
++					 */
++					ordered_array[k] =
++					    fm_ext_pools->ext_buf_pool[i].id;
++					break;
++				}
++			}
++		}
 +	}
-+
-+	vaddr = ioremap(base, size);
-+	if (!vaddr) {
-+		pr_err("%s(): MURAM ioremap failed\n", __func__);
-+		goto pool_destroy;
-+	}
-+
-+	ret = gen_pool_add_virt(muram->pool, (unsigned long)vaddr,
-+				base, size, -1);
-+	if (ret < 0) {
-+		pr_err("%s(): MURAM pool add failed\n", __func__);
-+		iounmap(vaddr);
-+		goto pool_destroy;
-+	}
-+
-+	memset_io(vaddr, 0, (int)size);
-+
-+	muram->vbase = vaddr;
-+	muram->pbase = base;
-+	return muram;
-+
-+pool_destroy:
-+	gen_pool_destroy(muram->pool);
-+muram_free:
-+	kfree(muram);
-+	return NULL;
 +}
 +
-+/**
-+ * fman_muram_offset_to_vbase
-+ * @muram:	FM-MURAM module pointer.
-+ * @offset:	the offset of the memory block
-+ *
-+ * Gives the address of the memory region from specific offset
-+ *
-+ * Return: The address of the memory block
-+ */
-+unsigned long fman_muram_offset_to_vbase(struct muram_info *muram,
-+					 unsigned long offset)
++int fman_sp_build_buffer_struct(struct fman_sp_int_context_data_copy *
++				int_context_data_copy,
++				struct fman_buffer_prefix_content *
++				buffer_prefix_content,
++				struct fman_sp_buf_margins *buf_margins,
++				struct fman_sp_buffer_offsets *buffer_offsets,
++				u8 *internal_buf_offset)
 +{
-+	return offset + (unsigned long)muram->vbase;
++	u32 tmp;
++
++	/* Align start of internal context data to 16 byte */
++	int_context_data_copy->ext_buf_offset = (u16)
++		((buffer_prefix_content->priv_data_size & (OFFSET_UNITS - 1)) ?
++		((buffer_prefix_content->priv_data_size + OFFSET_UNITS) &
++			~(u16)(OFFSET_UNITS - 1)) :
++		buffer_prefix_content->priv_data_size);
++
++	/* Translate margin and int_context params to FM parameters */
++	/* Initialize with illegal value. Later we'll set legal values. */
++	buffer_offsets->prs_result_offset = (u32)ILLEGAL_BASE;
++	buffer_offsets->time_stamp_offset = (u32)ILLEGAL_BASE;
++	buffer_offsets->hash_result_offset = (u32)ILLEGAL_BASE;
++
++	/* Internally the driver supports 4 options
++	 * 1. prsResult/timestamp/hashResult selection (in fact 8 options,
++	 * but for simplicity we'll
++	 * relate to it as 1).
++	 * 2. All IC context (from AD) not including debug.
++	 */
++
++	/* This case covers the options under 1 */
++	/* Copy size must be in 16-byte granularity. */
++	int_context_data_copy->size =
++	    (u16)((buffer_prefix_content->pass_prs_result ? 32 : 0) +
++		  ((buffer_prefix_content->pass_time_stamp ||
++		  buffer_prefix_content->pass_hash_result) ? 16 : 0));
++
++	/* Align start of internal context data to 16 byte */
++	int_context_data_copy->int_context_offset =
++	    (u8)(buffer_prefix_content->pass_prs_result ? 32 :
++		 ((buffer_prefix_content->pass_time_stamp ||
++		 buffer_prefix_content->pass_hash_result) ? 64 : 0));
++
++	if (buffer_prefix_content->pass_prs_result)
++		buffer_offsets->prs_result_offset =
++		    int_context_data_copy->ext_buf_offset;
++	if (buffer_prefix_content->pass_time_stamp)
++		buffer_offsets->time_stamp_offset =
++		    buffer_prefix_content->pass_prs_result ?
++		    (int_context_data_copy->ext_buf_offset +
++			sizeof(struct fman_prs_result)) :
++		    int_context_data_copy->ext_buf_offset;
++	if (buffer_prefix_content->pass_hash_result)
++		/* If PR is not requested, whether TS is
++		 * requested or not, IC will be copied from TS
++			 */
++		buffer_offsets->hash_result_offset =
++		buffer_prefix_content->pass_prs_result ?
++			(int_context_data_copy->ext_buf_offset +
++				sizeof(struct fman_prs_result) + 8) :
++			int_context_data_copy->ext_buf_offset + 8;
++
++	if (int_context_data_copy->size)
++		buf_margins->start_margins =
++		    (u16)(int_context_data_copy->ext_buf_offset +
++			  int_context_data_copy->size);
++	else
++		/* No Internal Context passing, STartMargin is
++		 * immediately after private_info
++		 */
++		buf_margins->start_margins =
++		    buffer_prefix_content->priv_data_size;
++
++	/* align data start */
++	tmp = (u32)(buf_margins->start_margins %
++		    buffer_prefix_content->data_align);
++	if (tmp)
++		buf_margins->start_margins +=
++		    (buffer_prefix_content->data_align - tmp);
++	buffer_offsets->data_offset = buf_margins->start_margins;
++
++	return 0;
 +}
 +
-+/**
-+ * fman_muram_alloc
-+ * @muram:	FM-MURAM module pointer.
-+ * @size:	Size of the memory to be allocated.
-+ *
-+ * Allocate some memory from FM-MURAM partition.
-+ *
-+ * Return: address of the allocated memory; NULL otherwise.
-+ */
-+int fman_muram_alloc(struct muram_info *muram, size_t size)
-+{
-+	unsigned long vaddr;
-+
-+	vaddr = gen_pool_alloc(muram->pool, size);
-+	if (!vaddr)
-+		return -ENOMEM;
-+
-+	memset_io((void __iomem *)vaddr, 0, size);
-+
-+	return fman_muram_vbase_to_offset(muram, vaddr);
-+}
-+
-+/**
-+ * fman_muram_free_mem
-+ * muram:	FM-MURAM module pointer.
-+ * offset:	offset of the memory region to be freed.
-+ * size:	size of the memory to be freed.
-+ *
-+ * Free an allocated memory from FM-MURAM partition.
-+ */
-+void fman_muram_free_mem(struct muram_info *muram, u32 offset, size_t size)
-+{
-+	unsigned long addr = fman_muram_offset_to_vbase(muram, offset);
-+
-+	gen_pool_free(muram->pool, addr, size);
-+}
-+
-diff --git a/drivers/net/ethernet/freescale/fman/fman_muram.h b/drivers/net/ethernet/freescale/fman/fman_muram.h
+diff --git a/drivers/net/ethernet/freescale/fman/fman_sp.h b/drivers/net/ethernet/freescale/fman/fman_sp.h
 new file mode 100644
-index 0000000..dbf0af9
+index 0000000..820b7f6
 --- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/fman_muram.h
-@@ -0,0 +1,51 @@
++++ b/drivers/net/ethernet/freescale/fman/fman_sp.h
+@@ -0,0 +1,103 @@
 +/*
-+ * Copyright 2008-2015 Freescale Semiconductor Inc.
++ * Copyright 2008 - 2015 Freescale Semiconductor Inc.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions are met:
 + *     * Redistributions of source code must retain the above copyright
-+ *       notice, this list of conditions and the following disclaimer.
++ *	 notice, this list of conditions and the following disclaimer.
 + *     * Redistributions in binary form must reproduce the above copyright
-+ *       notice, this list of conditions and the following disclaimer in the
-+ *       documentation and/or other materials provided with the distribution.
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
 + *     * Neither the name of Freescale Semiconductor nor the
-+ *       names of its contributors may be used to endorse or promote products
-+ *       derived from this software without specific prior written permission.
-+ *
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
 + *
 + * ALTERNATIVELY, this software may be distributed under the terms of the
 + * GNU General Public License ("GPL") as published by the Free Software
@@ -290,25 +256,78 @@ index 0000000..dbf0af9
 + * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 + * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
-+#ifndef __FM_MURAM_EXT
-+#define __FM_MURAM_EXT
 +
++#ifndef __FM_SP_H
++#define __FM_SP_H
++
++#include "fman.h"
 +#include <linux/types.h>
 +
-+#define FM_MURAM_INVALID_ALLOCATION	-1
++#define ILLEGAL_BASE    (~0)
 +
-+/* Structure for FM MURAM information */
-+struct muram_info;
++/* defaults */
++#define DFLT_FM_SP_BUFFER_PREFIX_CONTEXT_DATA_ALIGN	64
 +
-+struct muram_info *fman_muram_init(phys_addr_t base, size_t size);
++/* Registers bit fields */
++#define FMAN_SP_EXT_BUF_POOL_EN_COUNTER		0x40000000
++#define FMAN_SP_EXT_BUF_POOL_VALID			0x80000000
++#define FMAN_SP_EXT_BUF_POOL_BACKUP			0x20000000
++#define FMAN_SP_DMA_ATTR_WRITE_OPTIMIZE		0x00100000
++#define FMAN_SP_SG_DISABLE				0x80000000
 +
-+unsigned long fman_muram_offset_to_vbase(struct muram_info *muram,
-+					 unsigned long offset);
++/* shifts */
++#define FMAN_SP_EXT_BUF_MARG_START_SHIFT		16
++#define FMAN_SP_DMA_ATTR_SWP_SHIFT			30
++#define FMAN_SP_IC_TO_EXT_SHIFT			16
++#define FMAN_SP_IC_FROM_INT_SHIFT			8
 +
-+int fman_muram_alloc(struct muram_info *muram, size_t size);
++/* structure for defining internal context copying */
++struct fman_sp_int_context_data_copy {
++	/* < Offset in External buffer to which internal
++	 *  context is copied to (Rx) or taken from (Tx, Op).
++	 */
++	u16 ext_buf_offset;
++	/* Offset within internal context to copy from
++	 * (Rx) or to copy to (Tx, Op).
++	 */
++	u8 int_context_offset;
++	/* Internal offset size to be copied */
++	u16 size;
++};
 +
-+void fman_muram_free_mem(struct muram_info *muram, u32 offset, size_t size);
++/*  struct for defining external buffer margins */
++struct fman_sp_buf_margins {
++	/* Number of bytes to be left at the beginning
++	 * of the external buffer (must be divisible by 16)
++	 */
++	u16 start_margins;
++	/* number of bytes to be left at the end
++	 * of the external buffer(must be divisible by 16)
++	 */
++	u16 end_margins;
++};
 +
-+#endif /* __FM_MURAM_EXT */
++struct fman_sp_buffer_offsets {
++	u32 data_offset;
++	u32 prs_result_offset;
++	u32 time_stamp_offset;
++	u32 hash_result_offset;
++};
++
++int fman_sp_build_buffer_struct(struct fman_sp_int_context_data_copy
++				*int_context_data_copy,
++				struct fman_buffer_prefix_content
++				*buffer_prefix_content,
++				struct fman_sp_buf_margins *buf_margins,
++				struct fman_sp_buffer_offsets
++				*buffer_offsets,
++				u8 *internal_buf_offset);
++
++void fman_sp_set_buf_pools_in_asc_order_of_buf_sizes(struct fman_ext_pools
++						     *fm_ext_pools,
++						     u8 *ordered_array,
++						     u16 *sizes_array);
++
++#endif	/* __FM_SP_H */
 -- 
 1.7.9.5
