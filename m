@@ -1,51 +1,55 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH 2/3] net: fec: convert to using gpiod framework
-Date: Mon, 30 Nov 2015 10:17:32 -0200
-Message-ID: <CAOMZO5BF=V2Q6BT17UHvx=QzupDaC1d=negP1URP4kaWZg9eAA@mail.gmail.com>
-References: <1448883168-30742-1-git-send-email-LW@KARO-electronics.de>
-	<1448883168-30742-2-git-send-email-LW@KARO-electronics.de>
-	<1448883168-30742-3-git-send-email-LW@KARO-electronics.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Greg Ungerer <gerg@uclinux.org>,
-	Kevin Hao <haokexin@gmail.com>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Nimrod Andy <B38611@freescale.com>,
-	Philippe Reynes <tremyfr@gmail.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Stefan Agner <stefan@agner.ch>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	=?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-To: =?UTF-8?Q?Lothar_Wa=C3=9Fmann?= <LW@karo-electronics.de>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: [PATCH v4 net 0/6] Marvell Armada XP/370/38X Neta fixes
+Date: Mon, 30 Nov 2015 13:27:40 +0100
+Message-ID: <1448886466-31538-1-git-send-email-mw@semihalf.com>
+Cc: davem@davemloft.net, linux@arm.linux.org.uk,
+	sebastian.hesselbarth@gmail.com, andrew@lunn.ch,
+	jason@lakedaemon.net, thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com, simon.guinot@sequanux.org,
+	nadavh@marvell.com, alior@marvell.com, xswang@marvell.com,
+	myair@marvell.com, nitroshift@yahoo.com, mw@semihalf.com,
+	jaz@semihalf.com, tn@semihalf.com
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448883168-30742-3-git-send-email-LW@KARO-electronics.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 30, 2015 at 9:32 AM, Lothar Wa=C3=9Fmann <LW@karo-electroni=
-cs.de> wrote:
+Hi,
 
-> -       gpio_set_value_cansleep(phy_reset, 1);
-> +       gpiod_set_value_cansleep(phy_reset, 1);
+I'm sending v4 with corrected commit log of the last patch, in order to
+avoid possible conflicts between the branches as suggested by Gregory
+Clement.
 
-This will break some existing DTBs.
+Best regards,
+Marcin Wojtas
 
-Currently the fec driver does not care whether 'phy-reset-gpios' is
-active low or active high. (Yes, it was a mistake to assume in the
-driver that it is always active low.)
+Changes from v4:
+* Correct commit log of patch 6/6
 
-After this change the polarity will be taken into account and may
-break some dtb's.
+Changes from v2:
+* Style fixes in patch updating mbus protection
+* Remove redundant stable notifications except for patch 4/6
 
-I suggest you to send a single patch with the minimum changes to fix
-the regression caused by 8fff755e9f8d ("net: fec: Ensure clocks are
-enabled while using mdio bus").
+Changes from v1:
+* update MBUS windows access protection register once, after whole loop
+* add fixing value of MVNETA_RXQ_INTR_ENABLE_ALL_MASK
+* add fixing error path for skb_build()
+* add possibility of setting custom TX IP checksum limit in DT property
+
+Marcin Wojtas (6):
+  net: mvneta: add configuration for MBUS windows access protection
+  net: mvneta: fix bit assignment in MVNETA_RXQ_CONFIG_REG
+  net: mvneta: fix bit assignment for RX packet irq enable
+  net: mvneta: fix error path for building skb
+  net: mvneta: enable setting custom TX IP checksum limit
+  mvebu: dts: enable IP checksum with jumbo frames for Armada 38x on
+    Port0
+
+ .../bindings/net/marvell-armada-370-neta.txt       |  6 ++++
+ arch/arm/boot/dts/armada-38x.dtsi                  |  1 +
+ drivers/net/ethernet/marvell/mvneta.c              | 33 ++++++++++++++++++----
+ 3 files changed, 34 insertions(+), 6 deletions(-)
+
+-- 
+1.8.3.1
