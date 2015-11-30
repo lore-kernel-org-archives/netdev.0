@@ -1,28 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atm: solos-pci: Replace simple_strtol by kstrtoint
-Date: Sun, 29 Nov 2015 22:45:57 -0500 (EST)
-Message-ID: <20151129.224557.1010909057566457373.davem@davemloft.net>
-References: <1448459081-6427-1-git-send-email-clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH 1/2] sfc: make TSO version a per-queue parameter
+Date: Sun, 29 Nov 2015 22:50:41 -0500 (EST)
+Message-ID: <20151129.225041.428082239866177063.davem@davemloft.net>
+References: <5655DC18.7090208@solarflare.com>
+	<5655DC76.7060607@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: clabbe.montjoie@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448459081-6427-1-git-send-email-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bkenward@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48223 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751840AbbK3Duo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2015 22:50:44 -0500
+In-Reply-To: <5655DC76.7060607@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Date: Wed, 25 Nov 2015 14:44:41 +0100
+From: Bert Kenward <bkenward@solarflare.com>
+Date: Wed, 25 Nov 2015 16:06:14 +0000
 
-> The simple_strtol function is obsolete.
-> This patch replace it by kstrtoint.
-> This will simplify code, since some error case not handled by
-> simple_strtol are handled by kstrtoint.
-> 
-> Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
+>  	if (!(nic_data->datapath_caps &
+> -	      (1 << MC_CMD_GET_CAPABILITIES_OUT_TX_TSO_LBN))) {
+> -		netif_err(efx, drv, efx->net_dev,
 
-kstrtoint() actually returns an accurate error code, so please
-use it.
+Can you please keep code properly indented...
+
+> +
+> +	if (nic_data->datapath_caps &
+> +			(1 << MC_CMD_GET_CAPABILITIES_OUT_TX_TSO_LBN)) {
+
+when all you are doing is moving it from one place to another?
+
+That first parenthesis on the second line must start exactly at the
+first column after the openning parenthesis of the enclosing
+if () statement.
