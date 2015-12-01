@@ -1,93 +1,63 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Mon, 30 Nov 2015 18:53:30 -0800
-Message-ID: <CALx6S36fb7C9-LCo5egFZyOo1mZ1A9kHN6xpgNUUQS=njQ8Y-g@mail.gmail.com>
-References: <CAHo-OoyN7OgvHSuXxjk7C4FitXhoWffOxY1wkQBWwi+nc013_w@mail.gmail.com>
-	<1448937147-38043-1-git-send-email-lorenzo@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Mon, 30 Nov 2015 22:48:43 -0500 (EST)
+Message-ID: <20151130.224843.112081502554527779.davem@davemloft.net>
+References: <CALx6S36vQhx+iKP9VcpqPBnN7VjBsgd_dYFOfZ+YHyVa97-ajA@mail.gmail.com>
+	<20151129.222243.2290113258075462913.davem@davemloft.net>
+	<C40BE8378EF49C44B9184714DBC8EF2993A70447@ORSMSX115.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Erik Kline <ek@google.com>,
-	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-To: Lorenzo Colitti <lorenzo@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tom@herbertland.com, jesse.brandeburg@intel.com, jesse@kernel.org,
+	netdev@vger.kernel.org, kiran.patil@intel.com
+To: anjali.singhai@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:34776 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753378AbbLACxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 21:53:31 -0500
-Received: by igvg19 with SMTP id g19so85167978igv.1
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 18:53:30 -0800 (PST)
-In-Reply-To: <1448937147-38043-1-git-send-email-lorenzo@google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42208 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754733AbbLADsr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 22:48:47 -0500
+In-Reply-To: <C40BE8378EF49C44B9184714DBC8EF2993A70447@ORSMSX115.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 30, 2015 at 6:32 PM, Lorenzo Colitti <lorenzo@google.com> wrote:
-> Here is an updated version of the SOCK_DESTROY patch
-> incorporating some of the feedback received.
->
-> There were two substantial concerns expressed on the approach
-> taken in this patch. The first was that it allows applications
-> to cause the Linux TCP stack to behave improperly. I believe
-> this is addressed as follows:
->
-> 1. This new patchset sends a RST in addition to clearing state.
->    This is compliant behaviour: it is the ABORT operation
->    specified in RFC 793 [1]. Any app today can do this by
->    enabling SO_LINGER with a timeout of 0 and calling close.
-> 2. Multiple other operating systems implement this behaviour:
->    - FreeBSD has had this since 5.4 in 2005 [2]. It is available
->      to privileged userspace and there is a tool to use it [3].
->    - The FreeBSD commit description states that the idea came
->      from OpenBSD.
->    - iOS has been administratively closing app sockets since
->      iOS 4 [see 4, which states that a socket "might get
->      reclaimed by the kernel" and after that will return EBADF].
->
-> The second concern was that userspace should not be in the
-> business of making reachability determinations for TCP sockets;
-> that job belongs to the kernel. But userspace makes reachability
-> determinations all the time. Most relevant to this patchset:
-> "-j REJECT --reject-with tcp-reset" has exactly the same
-> effect as SOCK_DESTROY, except it only does so when the app does
-> write or the kernel sends a keepalive, not when blocked on read.
->
-> Also, there are real use cases where the kernel does not have
-> enough information to know that a connection is now inoperable.
-> The kernel can know if a packet can't be routed, but in general
-> it won't if a TCP connection is dead in the water because it is
-> now routed to a network where its source address is no longer
-> valid [5][6].
->
-> Other concerns have been addressed in this version, as follows:
->
-> 1. tcp_diag_destroy now does a proper RFC 793 ABORT, i.e., sends
->    a RST to the peer. This is consistent with BSD's tcpdrop, and
->    is more correct in general, even though in most use cases
->    SOCK_DESTROY will only be called when sending a RST is no
->    longer possible (e.g., the network has disconnected).
-> 2. Blocking socket operations are interrupted with ECONNABORTED
->    instead of ETIMEDOUT. This addresses Tom's point that
->    ETIMEDOUT is vague and an explicit notification is needed.
->    ECONNABORTED was chosen because it is consistent with BSD.
-> 3. SOCK_DESTROY is placed behind an INET_DIAG_DESTROY
->    configuration option, which is off by default.
->
-Lorenzo,
+From: "Singhai, Anjali" <anjali.singhai@intel.com>
+Date: Mon, 30 Nov 2015 21:42:37 +0000
 
-This is awesome! The only thing I would suggest is to make
-sock_destroy a proto_op so that it can be called from within the
-kernel. This should be preferred to externally calling tcp_done
-(hopefully we can unexport that symbol then).
+> The reason for receive being different than transmit is, on TX side
+> driver can provide the meta data for where the checksum field is and
+> what is the length that needs to be check summed to the HW on a per
+> packet basis. On Rx the HW parser has to parse the packet to
+> identify the tunnel type and based on that figure out the checksum
+> locations and length in the packet, so definitely HW has to parse
+> the packet and it can parse only based on next header type
+> information or in case of udp tunnels based on udp port mapping to a
+> particular protocol. I am not sure why you say it doesn't need to
+> parse the packet, maybe I am miss- understanding something.
+> Although it's not difficult to reduce protocol ossification on the
+> RX side but it is certainly different and particularly in case of
+> udp-tunnels it needs the port to protocol mapping.
 
-Tom
+You're just proving more and more why doing anything other than 2's
+complement checksum provision in the RX descriptor is stupid.
 
-> [1] http://tools.ietf.org/html/rfc793#page-50
-> [2] http://svnweb.freebsd.org/base?view=revision&revision=141381
-> [3] https://www.freebsd.org/cgi/man.cgi?query=tcpdrop&sektion=8&manpath=FreeBSD+5.4-RELEASE
-> [4] https://developer.apple.com/library/ios/technotes/tn2277/_index.html#//apple_ref/doc/uid/DTS40010841-CH1-SUBSECTION3
-> [5] http://www.spinics.net/lists/netdev/msg352775.html
-> [6] http://www.spinics.net/lists/netdev/msg352952.html
->
+Let me know when you guys enter this century.
+
+I'll tell you right now that your arguments are akin to trying to
+climb up a wall which is vertical.  I can assure you that you will not
+reach your destination, so save your self some scratching and clawing
+and accept reality.
+
+Doing anything other than providing 2's complement checksums in the RX
+descriptor doesn't work.  We know this.
+
+So we will not add to our core architecture and frameworks anything
+that directly facilitates designs which we know are suboptimal.  And
+protocol specific support for tunnel offloading is suboptimal and not
+the way forward.
+
+I completly agree with Tom, his goals, his vision, and his priorities
+when it comes to handling this stuff.  Don't fight it.
+
+You also need to learn how to properly reply to list postings, it
+looks terrible, as if you're replying to Tom then adding in my comment
+which is what you are actually repling to.
