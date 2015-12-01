@@ -1,60 +1,43 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: memory leak in do_ipv6_setsockopt
-Date: Tue, 01 Dec 2015 15:49:07 +0100
-Message-ID: <565DB363.6030702@iogearbox.net>
-References: <CACT4Y+bv56b+opCd=5SHmN47MAHEFyZA18kSsu-Fa+XODj20PA@mail.gmail.com>	 <1448977016.25582.18.camel@edumazet-glaptop2.roam.corp.google.com>	 <565DA9BE.3060006@iogearbox.net>	 <1448979404.25582.23.camel@edumazet-glaptop2.roam.corp.google.com>	 <565DAD8D.9020800@iogearbox.net> <1448980723.25582.24.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-sctp@vger.kernel.org, syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v5 1/2] pci_ids: add Netronome Systems vendor
+Date: Tue,  1 Dec 2015 14:55:21 +0000
+Message-ID: <1448981722-14022-2-git-send-email-jakub.kicinski@netronome.com>
+References: <1445969758-12779-1-git-send-email-jakub.kicinski@netronome.com>
+ <1448981722-14022-1-git-send-email-jakub.kicinski@netronome.com>
+Cc: simon.horman@netronome.com, rolf.neugebauer@netronome.com,
+	Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:59804 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755605AbbLAOt1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 09:49:27 -0500
-In-Reply-To: <1448980723.25582.24.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:34570 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756543AbbLAOz3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 09:55:29 -0500
+Received: by wmvv187 with SMTP id v187so210649492wmv.1
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 06:55:28 -0800 (PST)
+In-Reply-To: <1448981722-14022-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/01/2015 03:38 PM, Eric Dumazet wrote:
-> On Tue, 2015-12-01 at 15:24 +0100, Daniel Borkmann wrote:
->> On 12/01/2015 03:16 PM, Eric Dumazet wrote:
->>> On Tue, 2015-12-01 at 15:07 +0100, Daniel Borkmann wrote:
->>>
->>>> Yeah, we miss inet6_destroy_sock() in SCTP. :-(
->>>>
->>>> Looks good to me.
->>>
->>> OK, I will send a formal (and tested ;) ) patch.
->>
->> I was shortly wondering whether there could be a use-after-free by
->> doing this after sctp_destroy_sock() due to the sctp_endpoint_destroy()
->> that would eventually drop a ref on the socket, but the endpoint holds
->> a separate ref, so we should be good.
->
-> More generically ->destroy() caller must keep a reference on the socket.
->
-> inet_csk_destroy_sock() for example uses sk after
->
-> sk->sk_prot->destroy(sk);
+Add PCI vendor id for Netronome Systems.
 
-Right, and later on, we might call into ->sk_destruct() when there are no
-more refs (in SCTP case: sctp_destruct_sock()).
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Signed-off-by: Rolf Neugebauer <rolf.neugebauer@netronome.com>
+---
+ include/linux/pci_ids.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Thanks,
-Daniel
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index d9ba49cedc5d..1acbefc4bbda 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -2495,6 +2495,8 @@
+ #define PCI_DEVICE_ID_KORENIX_JETCARDF2	0x1700
+ #define PCI_DEVICE_ID_KORENIX_JETCARDF3	0x17ff
+ 
++#define PCI_VENDOR_ID_NETRONOME		0x19ee
++
+ #define PCI_VENDOR_ID_QMI		0x1a32
+ 
+ #define PCI_VENDOR_ID_AZWAVE		0x1a3b
+-- 
+1.9.1
