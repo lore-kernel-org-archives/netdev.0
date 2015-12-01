@@ -1,68 +1,71 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 1/2 net-next] ravb: Add fallback compatibility strings
-Date: Tue, 1 Dec 2015 09:42:52 +0100
-Message-ID: <CAMuHMdW_PagMbAqrvM-_-sJumhMPoYGobNF485Q1D+CRQ5j+bQ@mail.gmail.com>
-References: <1448955783-22806-1-git-send-email-horms+renesas@verge.net.au>
-	<1448955783-22806-2-git-send-email-horms+renesas@verge.net.au>
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: pull request: bluetooth 2015-12-01
+Date: Tue, 1 Dec 2015 10:58:44 +0200
+Message-ID: <20151201085844.GA12776@t440s.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Simon Horman <horms+renesas@verge.net.au>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1448955783-22806-2-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="wRRV7LY7NUeQGEoC"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 1, 2015 at 8:43 AM, Simon Horman <horms+renesas@verge.net.au> wrote:
-> Add fallback compatibility strings for R-Car Gen 2 & 3 SoC Families.
-> This is in keeping with the fallback scheme being adopted wherever
-> appropriate for drivers for Renesas SoCs.
->
-> Also correct typo.
->
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> ---
->  Documentation/devicetree/bindings/net/renesas,ravb.txt | 11 +++++++++--
->  drivers/net/ethernet/renesas/ravb_main.c               |  2 ++
->  2 files changed, 11 insertions(+), 2 deletions(-)
->
-> diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> index b486f3f5f6a3..115006325bff 100644
-> --- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> +++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> @@ -1,12 +1,19 @@
->  * Renesas Electronics Ethernet AVB
->
->  This file provides information on what the device node for the Ethernet AVB
-> -interface contains.
-> +interface.
->
->  Required properties:
->  - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
->               "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
->               "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
-> +             "renesas,etheravb-gen2" for generic R-Car Gen 2 compatible interface.
-> +             "renesas,etheravb-gen3" for generic R-Car Gen 3 compatible interface.
-> +
 
-(Same comment, different audience)
+--wRRV7LY7NUeQGEoC
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Shouldn't that be "renesas,etheravb-rcar-gen" or "renesas,etheravb-rcar2"?
+Hi Dave,
 
-Else you'll be in trouble when Renesas starts focussing on airplanes
-(R-Plane Gen2), rockets (R-Rocket Gen2), or IoT (R-IoT Gen2).
+Here's a Bluetooth fix for the 4.4-rc series that fixes a memory leak of
+the Security Manager L2CAP channel that'll happen for every LE
+connection.
 
-Gr{oetje,eeting}s,
+Please let me know if there are any issues pulling. Thanks.
 
-                        Geert
+Johan
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+---
+The following changes since commit c5a37883f42be712a989e54d5d6c0159b0e56599:
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+  Merge branch 'akpm' (patches from Andrew) (2015-11-10 21:14:23 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
+
+for you to fetch changes up to 7883746bc663150e8acd7a57397fc889698b0b33:
+
+  Bluetooth: Fix l2cap_chan leak in SMP (2015-11-11 23:48:34 +0100)
+
+----------------------------------------------------------------
+Johan Hedberg (1):
+      Bluetooth: Fix l2cap_chan leak in SMP
+
+ net/bluetooth/smp.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+--wRRV7LY7NUeQGEoC
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJWXWFDAAoJECQj9vv5qNQSbiYP/12b38DSuOGT7ZsufkSKb5Y4
+z3QcNJCFkf4fOe+6HyZZKSqJKeA00YSE+x2yqsWVXyPmZ5P0bxpxR90AQb4+iRSW
+o/S0zWaUeXqLqRa9HnvJGVhHj62tjt9ROFQIx0Zu+aXvKMw66KLqOP52UCj1zsKv
+JNV2AcA2TxQN+8dX/RQhGlab1VE6Xr/AIxWp2r+pCufeDmoCBip+75kINGBJZW0R
+n9aZkXXm1rgEaNvQgUBQRs2wgalIIz89KECdWjtGeO5Hau6jfJyZmGIj1VeA5JV/
+H9F6w2AHmHDLpcqSovvXdF2s7gzv3x50zG/niVILfODViiEuqa567rnxpNHCR7HE
+OdDOxvlxPbO2mbl2wd+3kOVv9UY85B+TkBrfJXTmth/BX1+vQzlCrT2033TgGUyi
+xioUJc8i4Rk1bBy8wreHFxehI225RD4YdEGBtQ7icoQ2Q5DUmwcy51PeQZTGn6p4
+9rUnwtxWzKWofkgB0B6zIBt/jHkO0nCOF2Yp3IB2DwvTVzcMyPzS0Ft1vKc8Gqxd
+NyL3L6+TN1hX40Pz6zjR8/Ozzr/UFyKyKpTl2z/nfHimGX6VUaNZ/V71T8JVI+Sl
+HcKIWlsTEJPDrkkdbTMA14/BW0TWQX8J3eCxGFa7digo43wliMquNcR0Kd7mjpKS
+qnj0qzGjnz8AAx3yL2Na
+=uCix
+-----END PGP SIGNATURE-----
+
+--wRRV7LY7NUeQGEoC--
