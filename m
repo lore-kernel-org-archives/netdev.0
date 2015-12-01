@@ -1,64 +1,65 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: gigaset: freeing an active object
-Date: Tue, 1 Dec 2015 10:30:48 +0100
-Message-ID: <565D68C8.5050901@imap.cc>
-References: <56587467.8050102@oracle.com> <565B1A1B.8020503@imap.cc>
- <565B4256.6080101@hurleysoftware.com> <565B4844.9020600@imap.cc>
- <1448828800.2603.17.camel@tiscali.nl> <1448839396.2891.14.camel@tiscali.nl>
- <1448906497.3546.16.camel@tiscali.nl> <565C95B7.7070001@imap.cc>
- <1448917663.3546.29.camel@tiscali.nl>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: [PATCH net] bpf, array: fix heap out-of-bounds access when
+ updating elements
+Date: Tue, 1 Dec 2015 10:38:07 +0100
+Message-ID: <CACT4Y+av=tbWXWRdvtpVE0NJKb+Uki=OZmYLqoET6+O_jvXt7A@mail.gmail.com>
+References: <674d6a1d4ff0e7728e535dc2d8fe1c5bea1e50b0.1448883657.git.daniel@iogearbox.net>
+ <20151130182946.GB30762@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="vELnVN3T9s2MfB3PrLXNmDfWqKFQ9lIOD"
-Cc: Sasha Levin <sasha.levin@oracle.com>, isdn@linux-pingi.de,
-	davem@davemloft.net, gigaset307x-common@lists.sourceforge.net,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>
-To: Paul Bolle <pebolle@tiscali.nl>,
-	Peter Hurley <peter@hurleysoftware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448917663.3546.29.camel@tiscali.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	David Miller <davem@davemloft.net>,
+	Alexei Starovoitov <ast@kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	netdev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:33391 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753553AbbLAJi1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 04:38:27 -0500
+Received: by wmec201 with SMTP id c201so196032359wme.0
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 01:38:26 -0800 (PST)
+In-Reply-To: <20151130182946.GB30762@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---vELnVN3T9s2MfB3PrLXNmDfWqKFQ9lIOD
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On Mon, Nov 30, 2015 at 7:29 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Mon, Nov 30, 2015 at 01:02:55PM +0100, Daniel Borkmann wrote:
+>> During own review but also reported by Dmitry's syzkaller [1] it has been
+>> noticed that we trigger a heap out-of-bounds access on eBPF array maps
+>> when updating elements. This happens with each map whose map->value_size
+>> (specified during map creation time) is not multiple of 8 bytes.
+> ...
+>> In case of array_map_lookup_elem(), the verifier prevents eBPF programs
+>> from accessing beyond map->value_size through check_map_access(). Also
+>> from syscall side map_lookup_elem() only copies map->value_size back to
+>> user, so nothing could leak.
+>>
+>>   [1] http://github.com/google/syzkaller
+>>
+>> Fixes: 28fbcfa08d8e ("bpf: add array type of eBPF maps")
+>> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>
+> Dmitry, thanks a lot for applying syzkaller to bpf. The issues
+> got cought much sooner than they would have been discovered otherwise.
+> Looks like the fuzzing has limited dependency chains described
+> in sys/sys.txt. Can they be improved into doing something like:
+> single call to map_create followed by many calls to update to
+> stress oom ? I did it manually so far without kasan.
 
-Am 30.11.2015 um 22:07 schrieb Paul Bolle:
-> How would attaching two devices work with GIGASET_MINORS hardcoded to 1=
-?
+Hi Alexei,
 
-Ah, it wouldn't. You'd have to recompile with a bigger GIGASET_MINORS.
-
-(I wonder if that would actually work. Somehow I still think of
-GIGASET_MINORS as a configurable value, but it has never been anything
-but 1 in the entire in-tree history of the driver.)
-
---=20
-Tilman Schmidt                              E-Mail: tilman@imap.cc
-Bonn, Germany
-Nous, on a des fleurs et des bougies pour nous prot=C3=A9ger.
-
-
---vELnVN3T9s2MfB3PrLXNmDfWqKFQ9lIOD
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAEBCAAGBQJWXWjaAAoJEFPuqx0v+F+qguAIAJKep7sCnOprIVfXnatsbKs2
-+jZfy+UAgBrkwkTj7/nYRprNuojbhsQ5UyaJM2JUEvXfaOGONMqfWphngpLtWCwu
-NrKxGbm4sYdV261yyP95DpP4RPK2qSxRZC65daATVgAQfnpPSIVs0K46kjERVufE
-dA6zVspjUaf7UVsTE3uSkUEI+55uVbTV2ytq1nbYA1EZH2202NvMfjPd4xXGrarO
-JPlnsQ1ITtmyj8r5fmnxPZECw8f42LtU8NJDeKW/QA58nPRn/zml09DtAFls6Afo
-jfIxhNqKAuGmL+QPQ9dt/2S+MkKm/XGZke/4N/bFhuQ6s/LmMJ4DR41UE+R/8qc=
-=0WOu
------END PGP SIGNATURE-----
-
---vELnVN3T9s2MfB3PrLXNmDfWqKFQ9lIOD--
+Please elaborate.
+sys.txt describes signatures of syscalls. Based on that syzkaller
+generates programs that can contain a map_create call followed by
+multiple map update calls. Though, it won't generate millions of
+update calls on a single map, because it directly conflicts with the
+idea of coverage guided fuzzing. For OOMs I guess you want to try
+kmalloc fault injection.
