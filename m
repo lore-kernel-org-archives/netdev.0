@@ -1,7 +1,7 @@
 From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH v3 2/4] net: diag: Add the ability to destroy a socket from userspace.
-Date: Tue,  1 Dec 2015 11:32:25 +0900
-Message-ID: <1448937147-38043-3-git-send-email-lorenzo@google.com>
+Subject: [PATCH v3 3/4] net: diag: Support SOCK_DESTROY for inet sockets.
+Date: Tue,  1 Dec 2015 11:32:26 +0900
+Message-ID: <1448937147-38043-4-git-send-email-lorenzo@google.com>
 References: <CAHo-OoyN7OgvHSuXxjk7C4FitXhoWffOxY1wkQBWwi+nc013_w@mail.gmail.com>
  <1448937147-38043-1-git-send-email-lorenzo@google.com>
 Cc: davem@davemloft.net, hannes@stressinduktion.org,
@@ -9,107 +9,128 @@ Cc: davem@davemloft.net, hannes@stressinduktion.org,
 	zenczykowski@gmail.com, Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36418 "EHLO
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:34521 "EHLO
 	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755659AbbLACcn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 21:32:43 -0500
-Received: by pacdm15 with SMTP id dm15so204826410pac.3
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 18:32:42 -0800 (PST)
+	with ESMTP id S1755677AbbLACcr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 21:32:47 -0500
+Received: by padhx2 with SMTP id hx2so204807250pad.1
+        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 18:32:46 -0800 (PST)
 In-Reply-To: <1448937147-38043-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This allows a privileged userspace process, such as a connection
-manager or system administration tool, to close sockets belonging
-to other apps when the network they were established on has
-disconnected. It is needed on laptops and mobile hosts to ensure
-that network switches / disconnects do not result in applications
-being blocked for long periods of time (minutes) in read or
-connect calls on TCP sockets that will never succeed because the
-IP address they are bound to is no longer on the system. Closing
-the sockets causes these calls to fail fast and allows the apps
-to reconnect on another network.
+This passes the SOCK_DESTROY operation to the underlying
+protocol diag handler, or returns -EINVAL if that handler does
+not define a destroy operation.
 
-For many years Android kernels have supported this via an
-out-of-tree SIOCKILLADDR ioctl that is called on every
-RTM_DELADDR event, but this solution is cleaner, more robust and
-more flexible: the connection manager can iterate over all
-connections on the deleted IP address and close all of them. It
-can also be used to close all sockets opened by a given app
-process, for example if the user has restricted that app from
-using the network.
-
-This patch adds a SOCK_DESTROY operation and a destroy function
-pointer to sock_diag_handler. It does not include any
-implementation code.
+Most of this patch is just renaming functions. This is not
+strictly necessary, but it would be fairly counterintuitive to
+have the code to destroy inet sockets be in a function whose name
+starts with inet_diag_get.
 
 Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 ---
- include/linux/sock_diag.h      |  1 +
- include/uapi/linux/sock_diag.h |  1 +
- net/core/sock_diag.c           | 11 ++++++++---
- 3 files changed, 10 insertions(+), 3 deletions(-)
+ include/linux/inet_diag.h |  4 ++++
+ net/ipv4/inet_diag.c      | 23 +++++++++++++++--------
+ 2 files changed, 19 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
-index fddebc6..e15e8e2 100644
---- a/include/linux/sock_diag.h
-+++ b/include/linux/sock_diag.h
-@@ -15,6 +15,7 @@ struct sock_diag_handler {
- 	__u8 family;
- 	int (*dump)(struct sk_buff *skb, struct nlmsghdr *nlh);
- 	int (*get_info)(struct sk_buff *skb, struct sock *sk);
-+	int (*destroy)(struct sk_buff *skb, struct nlmsghdr *nlh);
+diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+index e7032f04..7c27fa1 100644
+--- a/include/linux/inet_diag.h
++++ b/include/linux/inet_diag.h
+@@ -24,6 +24,10 @@ struct inet_diag_handler {
+ 	void		(*idiag_get_info)(struct sock *sk,
+ 					  struct inet_diag_msg *r,
+ 					  void *info);
++
++	int		(*destroy)(struct sk_buff *in_skb,
++				   const struct inet_diag_req_v2 *req);
++
+ 	__u16		idiag_type;
+ 	__u16		idiag_info_size;
  };
- 
- int sock_diag_register(const struct sock_diag_handler *h);
-diff --git a/include/uapi/linux/sock_diag.h b/include/uapi/linux/sock_diag.h
-index 49230d3..bae2d80 100644
---- a/include/uapi/linux/sock_diag.h
-+++ b/include/uapi/linux/sock_diag.h
-@@ -4,6 +4,7 @@
- #include <linux/types.h>
- 
- #define SOCK_DIAG_BY_FAMILY 20
-+#define SOCK_DESTROY 21
- 
- struct sock_diag_req {
- 	__u8	sdiag_family;
-diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
-index 0c1d58d..64e3d81 100644
---- a/net/core/sock_diag.c
-+++ b/net/core/sock_diag.c
-@@ -214,7 +214,7 @@ void sock_diag_unregister(const struct sock_diag_handler *hnld)
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index cfabb8f..8bb8e7a 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -426,7 +426,7 @@ out:
  }
- EXPORT_SYMBOL_GPL(sock_diag_unregister);
+ EXPORT_SYMBOL_GPL(inet_diag_dump_one_icsk);
  
--static int __sock_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
-+static int __sock_diag_cmd(struct sk_buff *skb, struct nlmsghdr *nlh)
+-static int inet_diag_get_exact(struct sk_buff *in_skb,
++static int inet_diag_cmd_exact(int cmd, struct sk_buff *in_skb,
+ 			       const struct nlmsghdr *nlh,
+ 			       const struct inet_diag_req_v2 *req)
  {
- 	int err;
- 	struct sock_diag_req *req = nlmsg_data(nlh);
-@@ -234,8 +234,12 @@ static int __sock_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	hndl = sock_diag_handlers[req->sdiag_family];
- 	if (hndl == NULL)
- 		err = -ENOENT;
+@@ -436,8 +436,12 @@ static int inet_diag_get_exact(struct sk_buff *in_skb,
+ 	handler = inet_diag_lock_handler(req->sdiag_protocol);
+ 	if (IS_ERR(handler))
+ 		err = PTR_ERR(handler);
 -	else
-+	else if (nlh->nlmsg_type == SOCK_DIAG_BY_FAMILY)
- 		err = hndl->dump(skb, nlh);
-+	else if (nlh->nlmsg_type == SOCK_DESTROY && hndl->destroy)
-+		err = hndl->destroy(skb, nlh);
++	else if (cmd == SOCK_DIAG_BY_FAMILY)
+ 		err = handler->dump_one(in_skb, nlh, req);
++	else if (cmd == SOCK_DESTROY && handler->destroy)
++		err = handler->destroy(in_skb, req);
 +	else
 +		err = -EOPNOTSUPP;
- 	mutex_unlock(&sock_diag_table_mutex);
+ 	inet_diag_unlock_handler(handler);
  
  	return err;
-@@ -261,7 +265,8 @@ static int sock_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+@@ -950,7 +954,7 @@ static int inet_diag_get_exact_compat(struct sk_buff *in_skb,
+ 	req.idiag_states = rc->idiag_states;
+ 	req.id = rc->id;
  
- 		return ret;
- 	case SOCK_DIAG_BY_FAMILY:
--		return __sock_diag_rcv_msg(skb, nlh);
-+	case SOCK_DESTROY:
-+		return __sock_diag_cmd(skb, nlh);
- 	default:
+-	return inet_diag_get_exact(in_skb, nlh, &req);
++	return inet_diag_cmd_exact(SOCK_DIAG_BY_FAMILY, in_skb, nlh, &req);
+ }
+ 
+ static int inet_diag_rcv_msg_compat(struct sk_buff *skb, struct nlmsghdr *nlh)
+@@ -984,7 +988,7 @@ static int inet_diag_rcv_msg_compat(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	return inet_diag_get_exact_compat(skb, nlh);
+ }
+ 
+-static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
++static int inet_diag_handler_cmd(struct sk_buff *skb, struct nlmsghdr *h)
+ {
+ 	int hdrlen = sizeof(struct inet_diag_req_v2);
+ 	struct net *net = sock_net(skb->sk);
+@@ -992,7 +996,8 @@ static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
+ 	if (nlmsg_len(h) < hdrlen)
  		return -EINVAL;
+ 
+-	if (h->nlmsg_flags & NLM_F_DUMP) {
++	if (h->nlmsg_type == SOCK_DIAG_BY_FAMILY &&
++	    h->nlmsg_flags & NLM_F_DUMP) {
+ 		if (nlmsg_attrlen(h, hdrlen)) {
+ 			struct nlattr *attr;
+ 
+@@ -1011,7 +1016,7 @@ static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
+ 		}
  	}
+ 
+-	return inet_diag_get_exact(skb, h, nlmsg_data(h));
++	return inet_diag_cmd_exact(h->nlmsg_type, skb, h, nlmsg_data(h));
+ }
+ 
+ static
+@@ -1062,14 +1067,16 @@ int inet_diag_handler_get_info(struct sk_buff *skb, struct sock *sk)
+ 
+ static const struct sock_diag_handler inet_diag_handler = {
+ 	.family = AF_INET,
+-	.dump = inet_diag_handler_dump,
++	.dump = inet_diag_handler_cmd,
+ 	.get_info = inet_diag_handler_get_info,
++	.destroy = inet_diag_handler_cmd,
+ };
+ 
+ static const struct sock_diag_handler inet6_diag_handler = {
+ 	.family = AF_INET6,
+-	.dump = inet_diag_handler_dump,
++	.dump = inet_diag_handler_cmd,
+ 	.get_info = inet_diag_handler_get_info,
++	.destroy = inet_diag_handler_cmd,
+ };
+ 
+ int inet_diag_register(const struct inet_diag_handler *h)
 -- 
 2.6.0.rc2.230.g3dd15c0
