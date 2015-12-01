@@ -1,45 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net] Revert "ipv6: ndisc: inherit metadata dst when
- creating ndisc requests"
-Date: Tue, 01 Dec 2015 15:08:20 -0500 (EST)
-Message-ID: <20151201.150820.1874041911924649780.davem@davemloft.net>
-References: <1448644625-29345-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] wan/x25: Fix use-after-free in x25_asy_open_tty()
+Date: Tue, 01 Dec 2015 15:18:02 -0500 (EST)
+Message-ID: <20151201.151802.2271909049212392672.davem@davemloft.net>
+References: <1448651919-4239-1-git-send-email-peter@hurleysoftware.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jbenc@redhat.com, tgraf@suug.ch
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56475 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752575AbbLAUIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 15:08:22 -0500
-In-Reply-To: <1448644625-29345-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh@linuxfoundation.org, jslaby@suse.cz,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	sasha.levin@oracle.com, stable@vger.kernel.org
+To: peter@hurleysoftware.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1448651919-4239-1-git-send-email-peter@hurleysoftware.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Fri, 27 Nov 2015 18:17:05 +0100
+From: Peter Hurley <peter@hurleysoftware.com>
+Date: Fri, 27 Nov 2015 14:18:39 -0500
 
-> This reverts commit ab450605b35caa768ca33e86db9403229bf42be4.
+> The N_X25 line discipline may access the previous line discipline's closed
+> and already-freed private data on open [1].
 > 
-> In IPv6, we cannot inherit the dst of the original dst. ndisc packets
-> are IPv6 packets and may take another route than the original packet.
-> 
-> This patch breaks the following scenario: a packet comes from eth0 and
-> is forwarded through vxlan1. The encapsulated packet triggers an NS
-> which cannot be sent because of the wrong route.
-> 
-> CC: Jiri Benc <jbenc@redhat.com>
-> CC: Thomas Graf <tgraf@suug.ch>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
-> 
-> I know that this is not the right fix, it's why I've put RFC ;-)
-> Should the right fix only do a copy of dst metadata in the new dst?
-> Feedback is welcomed.
+> The tty->disc_data field _never_ refers to valid data on entry to the
+> line discipline's open() method. Rather, the ldisc is expected to
+> initialize that field for its own use for the lifetime of the instance
+> (ie. from open() to close() only).
+ ...
+> Reported-and-tested-by: Sasha Levin <sasha.levin@oracle.com>
+> Cc: <stable@vger.kernel.org>
+> Signed-off-by: Peter Hurley <peter@hurleysoftware.com>
 
-Ok I'll apply this revert while you guys try to come up with something
-better.
-
-Thanks.
+Applied, thanks.
