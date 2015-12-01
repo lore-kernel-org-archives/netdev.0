@@ -1,124 +1,76 @@
-From: Duan Andy <fugang.duan@freescale.com>
-Subject: RE: [PATCH 3/3] net: fec: Reset ethernet PHY whenever the enet_out
- clock is being enabled
-Date: Tue, 1 Dec 2015 02:31:50 +0000
-Message-ID: <BN3PR0301MB1219BE881937F9DA7953747AF50F0@BN3PR0301MB1219.namprd03.prod.outlook.com>
-References: <1448883168-30742-1-git-send-email-LW@KARO-electronics.de>
- <1448883168-30742-2-git-send-email-LW@KARO-electronics.de>
- <1448883168-30742-3-git-send-email-LW@KARO-electronics.de>
- <1448883168-30742-4-git-send-email-LW@KARO-electronics.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: =?utf-8?B?TG90aGFyIFdhw59tYW5u?= <LW@KARO-electronics.de>,
-	Andrew Lunn <andrew@lunn.ch>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <Fabio.Estevam@freescale.com>,
-	Greg Ungerer <gerg@uclinux.org>,
-	Kevin Hao <haokexin@gmail.com>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Philippe Reynes <tremyfr@gmail.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	"Stefan Agner" <stefan@agner.ch>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"Uwe Kleine-K?nig" <u.kleine-koenig@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448883168-30742-4-git-send-email-LW@KARO-electronics.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
+Date: Tue,  1 Dec 2015 11:32:23 +0900
+Message-ID: <1448937147-38043-1-git-send-email-lorenzo@google.com>
+References: <CAHo-OoyN7OgvHSuXxjk7C4FitXhoWffOxY1wkQBWwi+nc013_w@mail.gmail.com>
+Cc: davem@davemloft.net, hannes@stressinduktion.org,
+	eric.dumazet@gmail.com, ek@google.com, tom@herbertland.com,
+	zenczykowski@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:36294 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755647AbbLACcf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 21:32:35 -0500
+Received: by pacdm15 with SMTP id dm15so204822592pac.3
+        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 18:32:34 -0800 (PST)
+In-Reply-To: <CAHo-OoyN7OgvHSuXxjk7C4FitXhoWffOxY1wkQBWwi+nc013_w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTG90aGFyIFdhw59tYW5uIDxMV0BLQVJPLWVsZWN0cm9uaWNzLmRlPiBTZW50OiBNb25k
-YXksIE5vdmVtYmVyIDMwLCAyMDE1IDc6MzMgUE0NCj4gVG86IEFuZHJldyBMdW5uOyBEYXZpZCBT
-LiBNaWxsZXI7IEVzdGV2YW0gRmFiaW8tUjQ5NDk2OyBHcmVnIFVuZ2VyZXI7DQo+IEtldmluIEhh
-bzsgTG90aGFyIFdhw59tYW5uOyBMdWNhcyBTdGFjaDsgRHVhbiBGdWdhbmctQjM4NjExOyBQaGls
-aXBwZQ0KPiBSZXluZXM7IFJpY2hhcmQgQ29jaHJhbjsgUnVzc2VsbCBLaW5nOyBTYXNjaGEgSGF1
-ZXI7IFN0ZWZhbiBBZ25lcjsgbGludXgtDQo+IGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRl
-dkB2Z2VyLmtlcm5lbC5vcmc7IEplZmYgS2lyc2hlcjsgVXdlIEtsZWluZS0NCj4gS8O2bmlnDQo+
-IFN1YmplY3Q6IFtQQVRDSCAzLzNdIG5ldDogZmVjOiBSZXNldCBldGhlcm5ldCBQSFkgd2hlbmV2
-ZXIgdGhlIGVuZXRfb3V0DQo+IGNsb2NrIGlzIGJlaW5nIGVuYWJsZWQNCj4gDQo+IElmIGEgUEhZ
-IHVzZXMgRU5FVF9PVVQgYXMgcmVmZXJlbmNlIGNsb2NrLCBpdCBtYXkgbmVlZCBhIFJFU0VUIHRv
-IGdldA0KPiBmdW5jdGlvbmFsIGFmdGVyIHRoZSBjbG9jayBoYWQgYmVlbiBkaXNhYmxlZC4NCj4g
-DQo+IEZhaWx1cmUgdG8gZG8gdGhpcyByZXN1bHRzIGluIHRoZSBsaW5rIHN0YXRlIGNvbnN0YW50
-bHkgdG9nZ2xpbmcgYmV0d2Vlbg0KPiB1cCBhbmQgZG93bjoNCj4gZmVjIDAyMTg4MDAwLmV0aGVy
-bmV0IGV0aDA6IExpbmsgaXMgVXAgLSAxMDBNYnBzL0Z1bGwgLSBmbG93IGNvbnRyb2wNCj4gcngv
-dHggZmVjIDAyMTg4MDAwLmV0aGVybmV0IGV0aDA6IExpbmsgaXMgRG93biBmZWMgMDIxODgwMDAu
-ZXRoZXJuZXQgZXRoMDoNCj4gTGluayBpcyBVcCAtIDEwME1icHMvRnVsbCAtIGZsb3cgY29udHJv
-bCByeC90eCBmZWMgMDIxODgwMDAuZXRoZXJuZXQgZXRoMDoNCj4gTGluayBpcyBEb3duIFsuLi5d
-DQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBMb3RoYXIgV2HDn21hbm4gPExXQEtBUk8tZWxlY3Ryb25p
-Y3MuZGU+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5oICAg
-ICAgfCAgMSArDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYyB8
-IDQ2ICsrKysrKysrKysrKysrKysrKysrKysrKy0NCj4gLS0tLS0tDQo+ICAyIGZpbGVzIGNoYW5n
-ZWQsIDM3IGluc2VydGlvbnMoKyksIDEwIGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBh
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWMuaA0KPiBiL2RyaXZlcnMvbmV0L2V0
-aGVybmV0L2ZyZWVzY2FsZS9mZWMuaA0KPiBpbmRleCA5OWQzM2UyLi44YWI0ZjdmIDEwMDY0NA0K
-PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjLmgNCj4gKysrIGIvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5oDQo+IEBAIC01MTksNiArNTE5LDcgQEAg
-c3RydWN0IGZlY19lbmV0X3ByaXZhdGUgew0KPiAgCWludAlwYXVzZV9mbGFnOw0KPiAgCWludAl3
-b2xfZmxhZzsNCj4gIAl1MzIJcXVpcmtzOw0KPiArCXN0cnVjdCBncGlvX2Rlc2MgKnBoeV9yZXNl
-dDsNCj4gDQo+ICAJc3RydWN0CW5hcGlfc3RydWN0IG5hcGk7DQo+ICAJaW50CWNzdW1fZmxhZ3M7
-DQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4u
-Yw0KPiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+IGluZGV4
-IDFhOTgzZmMuLjdiYTJiYmIgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Zy
-ZWVzY2FsZS9mZWNfbWFpbi5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2Fs
-ZS9mZWNfbWFpbi5jDQo+IEBAIC02Niw2ICs2Niw3IEBADQo+IA0KPiAgc3RhdGljIHZvaWQgc2V0
-X211bHRpY2FzdF9saXN0KHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KTsgIHN0YXRpYyB2b2lkDQo+
-IGZlY19lbmV0X2l0cl9jb2FsX2luaXQoc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYpOw0KPiArc3Rh
-dGljIHZvaWQgZmVjX3Jlc2V0X3BoeShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KTsNCj4g
-DQo+ICAjZGVmaW5lIERSSVZFUl9OQU1FCSJmZWMiDQo+IA0KPiBAQCAtMTg2MSw2ICsxODYyLDgg
-QEAgc3RhdGljIGludCBmZWNfZW5ldF9jbGtfZW5hYmxlKHN0cnVjdCBuZXRfZGV2aWNlDQo+ICpu
-ZGV2LCBib29sIGVuYWJsZSkNCj4gIAkJCXJldCA9IGNsa19wcmVwYXJlX2VuYWJsZShmZXAtPmNs
-a19lbmV0X291dCk7DQo+ICAJCQlpZiAocmV0KQ0KPiAgCQkJCWdvdG8gZmFpbGVkX2Nsa19lbmV0
-X291dDsNCj4gKw0KPiArCQkJZmVjX3Jlc2V0X3BoeShmZXAtPnBkZXYpOw0KPiAgCQl9DQo+ICAJ
-CWlmIChmZXAtPmNsa19wdHApIHsNCj4gIAkJCW11dGV4X2xvY2soJmZlcC0+cHRwX2Nsa19tdXRl
-eCk7DQo+IEBAIC0zMjMxLDEzICszMjM0LDMyIEBAIHN0YXRpYyBpbnQgZmVjX2VuZXRfaW5pdChz
-dHJ1Y3QgbmV0X2RldmljZQ0KPiAqbmRldikgIH0NCj4gDQo+ICAjaWZkZWYgQ09ORklHX09GDQo+
-IC1zdGF0aWMgdm9pZCBmZWNfcmVzZXRfcGh5KHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UgKnBkZXYp
-DQo+ICtzdGF0aWMgc3RydWN0IGdwaW9fZGVzYyAqZmVjX2dldF9yZXNldF9ncGlvKHN0cnVjdCBw
-bGF0Zm9ybV9kZXZpY2UNCj4gKypwZGV2KQ0KPiAgew0KPiAgCXN0cnVjdCBncGlvX2Rlc2MgKnBo
-eV9yZXNldDsNCj4gLQlpbnQgbXNlYyA9IDE7DQo+ICAJc3RydWN0IGRldmljZV9ub2RlICpucCA9
-IHBkZXYtPmRldi5vZl9ub2RlOw0KPiANCj4gIAlpZiAoIW5wKQ0KPiArCQlyZXR1cm4gRVJSX1BU
-UigtRU5PREVWKTsNCg0KTm8gbmVlZCB0byBjaGVjayBkZXZpY2Ugbm9kZS4NCg0KPiArDQo+ICsJ
-cGh5X3Jlc2V0ID0gZGV2bV9ncGlvZF9nZXRfb3B0aW9uYWwoJnBkZXYtPmRldiwgInBoeS1yZXNl
-dCIsDQo+ICsJCQkJCSAgICBHUElPRF9PVVRfTE9XKTsNCj4gKwlpZiAoSVNfRVJSKHBoeV9yZXNl
-dCkpDQo+ICsJCWRldl9lcnIoJnBkZXYtPmRldiwgImZhaWxlZCB0byBnZXQgcGh5LXJlc2V0LWdw
-aW9zOiAlbGRcbiIsDQo+ICsJCQlQVFJfRVJSKHBoeV9yZXNldCkpOw0KPiArCXJldHVybiBwaHlf
-cmVzZXQ7DQo+ICt9DQo+ICsNCj4gK3N0YXRpYyB2b2lkIGZlY19yZXNldF9waHkoc3RydWN0IHBs
-YXRmb3JtX2RldmljZSAqcGRldikgew0KPiArCXN0cnVjdCBkZXZpY2Vfbm9kZSAqbnAgPSBwZGV2
-LT5kZXYub2Zfbm9kZTsNCj4gKwlzdHJ1Y3QgbmV0X2RldmljZSAqbmRldiA9IHBsYXRmb3JtX2dl
-dF9kcnZkYXRhKHBkZXYpOw0KPiArCXN0cnVjdCBmZWNfZW5ldF9wcml2YXRlICpmZXAgPSBuZXRk
-ZXZfcHJpdihuZGV2KTsNCj4gKwlpbnQgbXNlYyA9IDE7DQo+ICsNCj4gKwlpZiAoIWZlcC0+cGh5
-X3Jlc2V0KQ0KPiArCQlyZXR1cm47DQo+ICsJaWYgKCFucCkNCj4gIAkJcmV0dXJuOw0KDQpObyBu
-ZWVkIHRvIGNoZWNrIGRldmljZSBub2RlLg0KDQo+IA0KPiAgCW9mX3Byb3BlcnR5X3JlYWRfdTMy
-KG5wLCAicGh5LXJlc2V0LWR1cmF0aW9uIiwgJm1zZWMpOyBAQCAtMzI0NSwxNw0KPiArMzI2Nywx
-NiBAQCBzdGF0aWMgdm9pZCBmZWNfcmVzZXRfcGh5KHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UgKnBk
-ZXYpDQo+ICAJaWYgKG1zZWMgPiAxMDAwKQ0KPiAgCQltc2VjID0gMTsNCj4gDQo+IC0JcGh5X3Jl
-c2V0ID0gZGV2bV9ncGlvZF9nZXRfb3B0aW9uYWwoJnBkZXYtPmRldiwgInBoeS1yZXNldCIsDQo+
-IC0JCQkJCSAgICBHUElPRF9PVVRfTE9XKTsNCj4gLQlpZiAoSVNfRVJSKHBoeV9yZXNldCkpIHsN
-Cj4gLQkJZGV2X2VycigmcGRldi0+ZGV2LCAiZmFpbGVkIHRvIGdldCBwaHktcmVzZXQtZ3Bpb3M6
-ICVsZFxuIiwNCj4gLQkJCVBUUl9FUlIocGh5X3Jlc2V0KSk7DQo+IC0JCXJldHVybjsNCj4gLQl9
-DQo+ICsJZ3Bpb2Rfc2V0X3ZhbHVlX2NhbnNsZWVwKGZlcC0+cGh5X3Jlc2V0LCAwKTsNCj4gIAlt
-c2xlZXAobXNlYyk7DQo+IC0JZ3Bpb2Rfc2V0X3ZhbHVlX2NhbnNsZWVwKHBoeV9yZXNldCwgMSk7
-DQo+ICsJZ3Bpb2Rfc2V0X3ZhbHVlX2NhbnNsZWVwKGZlcC0+cGh5X3Jlc2V0LCAxKTsNCj4gIH0N
-Cj4gICNlbHNlIC8qIENPTkZJR19PRiAqLw0KPiArc3RhdGljIHZvaWQgZmVjX2dldF9yZXNldF9n
-cGlvKHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UgKnBkZXYpIHsNCj4gKwlyZXR1cm4gLUVJTlZBTDsN
-Cj4gK30NCj4gKw0KPiAgc3RhdGljIHZvaWQgZmVjX3Jlc2V0X3BoeShzdHJ1Y3QgcGxhdGZvcm1f
-ZGV2aWNlICpwZGV2KSAgew0KPiAgCS8qDQo+IEBAIC0zMzA5LDggKzMzMzAsMTIgQEAgZmVjX3By
-b2JlKHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UgKnBkZXYpDQo+ICAJc3RydWN0IGRldmljZV9ub2Rl
-ICpucCA9IHBkZXYtPmRldi5vZl9ub2RlLCAqcGh5X25vZGU7DQo+ICAJaW50IG51bV90eF9xczsN
-Cj4gIAlpbnQgbnVtX3J4X3FzOw0KPiArCXN0cnVjdCBncGlvX2Rlc2MgKnBoeV9yZXNldDsNCj4g
-DQo+ICAJZmVjX2VuZXRfZ2V0X3F1ZXVlX251bShwZGV2LCAmbnVtX3R4X3FzLCAmbnVtX3J4X3Fz
-KTsNCj4gKwlwaHlfcmVzZXQgPSBmZWNfZ2V0X3Jlc2V0X2dwaW8ocGRldik7DQo+ICsJaWYgKElT
-X0VSUihwaHlfcmVzZXQpICYmIFBUUl9FUlIocGh5X3Jlc2V0KSA9PSAtRVBST0JFX0RFRkVSKQ0K
-PiArCQlyZXR1cm4gLUVQUk9CRV9ERUZFUjsNCj4gDQo+ICAJLyogSW5pdCBuZXR3b3JrIGRldmlj
-ZSAqLw0KPiAgCW5kZXYgPSBhbGxvY19ldGhlcmRldl9tcXMoc2l6ZW9mKHN0cnVjdCBmZWNfZW5l
-dF9wcml2YXRlKSwgQEAgLQ0KPiAzMzMxLDYgKzMzNTYsNyBAQCBmZWNfcHJvYmUoc3RydWN0IHBs
-YXRmb3JtX2RldmljZSAqcGRldikNCj4gIAlmZXAtPm5ldGRldiA9IG5kZXY7DQo+ICAJZmVwLT5u
-dW1fcnhfcXVldWVzID0gbnVtX3J4X3FzOw0KPiAgCWZlcC0+bnVtX3R4X3F1ZXVlcyA9IG51bV90
-eF9xczsNCj4gKwlmZXAtPnBoeV9yZXNldCA9IHBoeV9yZXNldDsNCj4gDQo+ICAjaWYgIWRlZmlu
-ZWQoQ09ORklHX001MjcyKQ0KPiAgCS8qIGRlZmF1bHQgZW5hYmxlIHBhdXNlIGZyYW1lIGF1dG8g
-bmVnb3RpYXRpb24gKi8NCj4gLS0NCj4gMi4xLjQNCg==
+Here is an updated version of the SOCK_DESTROY patch
+incorporating some of the feedback received.
+
+There were two substantial concerns expressed on the approach
+taken in this patch. The first was that it allows applications
+to cause the Linux TCP stack to behave improperly. I believe
+this is addressed as follows:
+
+1. This new patchset sends a RST in addition to clearing state.
+   This is compliant behaviour: it is the ABORT operation
+   specified in RFC 793 [1]. Any app today can do this by
+   enabling SO_LINGER with a timeout of 0 and calling close.
+2. Multiple other operating systems implement this behaviour:
+   - FreeBSD has had this since 5.4 in 2005 [2]. It is available
+     to privileged userspace and there is a tool to use it [3].
+   - The FreeBSD commit description states that the idea came
+     from OpenBSD.
+   - iOS has been administratively closing app sockets since
+     iOS 4 [see 4, which states that a socket "might get
+     reclaimed by the kernel" and after that will return EBADF].
+
+The second concern was that userspace should not be in the
+business of making reachability determinations for TCP sockets;
+that job belongs to the kernel. But userspace makes reachability
+determinations all the time. Most relevant to this patchset:
+"-j REJECT --reject-with tcp-reset" has exactly the same
+effect as SOCK_DESTROY, except it only does so when the app does
+write or the kernel sends a keepalive, not when blocked on read.
+
+Also, there are real use cases where the kernel does not have
+enough information to know that a connection is now inoperable.
+The kernel can know if a packet can't be routed, but in general
+it won't if a TCP connection is dead in the water because it is
+now routed to a network where its source address is no longer
+valid [5][6]. 
+
+Other concerns have been addressed in this version, as follows:
+
+1. tcp_diag_destroy now does a proper RFC 793 ABORT, i.e., sends
+   a RST to the peer. This is consistent with BSD's tcpdrop, and
+   is more correct in general, even though in most use cases
+   SOCK_DESTROY will only be called when sending a RST is no
+   longer possible (e.g., the network has disconnected).
+2. Blocking socket operations are interrupted with ECONNABORTED
+   instead of ETIMEDOUT. This addresses Tom's point that
+   ETIMEDOUT is vague and an explicit notification is needed.
+   ECONNABORTED was chosen because it is consistent with BSD.
+3. SOCK_DESTROY is placed behind an INET_DIAG_DESTROY
+   configuration option, which is off by default.
+
+[1] http://tools.ietf.org/html/rfc793#page-50
+[2] http://svnweb.freebsd.org/base?view=revision&revision=141381
+[3] https://www.freebsd.org/cgi/man.cgi?query=tcpdrop&sektion=8&manpath=FreeBSD+5.4-RELEASE
+[4] https://developer.apple.com/library/ios/technotes/tn2277/_index.html#//apple_ref/doc/uid/DTS40010841-CH1-SUBSECTION3
+[5] http://www.spinics.net/lists/netdev/msg352775.html
+[6] http://www.spinics.net/lists/netdev/msg352952.html
