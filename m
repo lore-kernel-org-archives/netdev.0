@@ -1,31 +1,40 @@
 From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH 0/2 net-next] ravb: More compat strings
-Date: Tue,  1 Dec 2015 16:43:01 +0900
-Message-ID: <1448955783-22806-1-git-send-email-horms+renesas@verge.net.au>
+Subject: [PATCH 2/2 net-next] ravb: Add device tree support for r8a779[123]
+Date: Tue,  1 Dec 2015 16:43:03 +0900
+Message-ID: <1448955783-22806-3-git-send-email-horms+renesas@verge.net.au>
+References: <1448955783-22806-1-git-send-email-horms+renesas@verge.net.au>
 Cc: Magnus Damm <magnus.damm@gmail.com>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	devicetree@vger.kernel.org
 To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:43193 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755002AbbLAHnV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 02:43:21 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1448955783-22806-1-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Simply document new compat strings.
+As a previous patch adds a generic R-Car Gen2 compat string
+there appears to be no need for a driver updates.
 
-this short series adds generic gen2 and gen3, and soc-specific compat strings
-for the missing gen2 SoCs.
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+---
+ Documentation/devicetree/bindings/net/renesas,ravb.txt | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Simon Horman (2):
-  ravb: Add fallback compatibility strings
-  ravb: Add device tree support for r8a779[123]
-
- Documentation/devicetree/bindings/net/renesas,ravb.txt | 14 ++++++++++++--
- drivers/net/ethernet/renesas/ravb_main.c               |  2 ++
- 2 files changed, 14 insertions(+), 2 deletions(-)
-
+diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+index 115006325bff..076accb652ad 100644
+--- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
++++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+@@ -5,6 +5,9 @@ interface.
+ 
+ Required properties:
+ - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
++	      "renesas,etheravb-r8a7791" if the device is a part of R8A7791 SoC.
++	      "renesas,etheravb-r8a7792" if the device is a part of R8A7792 SoC.
++	      "renesas,etheravb-r8a7793" if the device is a part of R8A7793 SoC.
+ 	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
+ 	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
+ 	      "renesas,etheravb-gen2" for generic R-Car Gen 2 compatible interface.
 -- 
 2.1.4
+
