@@ -1,44 +1,60 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC] Stable interface index option
-Date: Tue, 01 Dec 2015 22:54:54 +0100
-Message-ID: <1449006894.3839234.455160217.6BE59AFD@webmail.messagingengine.com>
-References: <20151201080652.5cba6f8b@xeon-e3>
- <20151201.142847.1980856920707150414.davem@davemloft.net>
- <20151201122038.795305df@xeon-e3>
- <20151201.155725.733555238839381632.davem@davemloft.net>
- <1449004499.3829359.455124521.608D0A9E@webmail.messagingengine.com>
- <20151201134407.3018adcc@xeon-e3>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: xen-netfront crash when detaching network while
+ some network activity
+Date: Tue, 1 Dec 2015 17:00:42 -0500
+Message-ID: <20151201220042.GC22107@char.us.oracle.com>
+References: <20150522114932.GC8664@mail-itl> <55645140.1050209@citrix.com>
+	<20150526220312.GA1358@mail-itl> <20151021185734.GD31646@mail-itl>
+	<20151117024515.GN976@mail-itl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, max@rfc2324.org,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:58398 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756103AbbLAVyz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 16:54:55 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id A0A8D20BC9
-	for <netdev@vger.kernel.org>; Tue,  1 Dec 2015 16:54:54 -0500 (EST)
-In-Reply-To: <20151201134407.3018adcc@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Annie Li <annie.li@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	netdev@vger.kernel.org, David Vrabel <david.vrabel@citrix.com>,
+	xen-devel <xen-devel@lists.xen.org>
+To: Marek =?iso-8859-1?Q?Marczykowski-G=F3recki?=
+	<marmarek@invisiblethingslab.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+Content-Disposition: inline
+In-Reply-To: <20151117024515.GN976@mail-itl>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Nov 17, 2015 at 03:45:15AM +0100, Marek Marczykowski-G=F3recki wrot=
+e:
+> On Wed, Oct 21, 2015 at 08:57:34PM +0200, Marek Marczykowski-G=F3recki wr=
+ote:
+> > On Wed, May 27, 2015 at 12:03:12AM +0200, Marek Marczykowski-G=F3recki =
+wrote:
+> > > On Tue, May 26, 2015 at 11:56:00AM +0100, David Vrabel wrote:
+> > > > On 22/05/15 12:49, Marek Marczykowski-G=F3recki wrote:
+> > > > > Hi all,
+> > > > > =
 
-On Tue, Dec 1, 2015, at 22:44, Stephen Hemminger wrote:
-> On Tue, 01 Dec 2015 22:14:59 +0100
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> > I had several snmp installations with net-snmp and munin, cacti and so
-> > on and all had the interface name in ifDescription already some years
-> > back.
-> 
-> In net-snmp 5.7 or later ifDescr is set to result of pci_lookup_name
-> (by default).
+> > > > > I'm experiencing xen-netfront crash when doing xl network-detach =
+while
+> > > > > some network activity is going on at the same time. It happens on=
+ly when
+> > > > > domU has more than one vcpu. Not sure if this matters, but the ba=
+ckend
+> > > > > is in another domU (not dom0). I'm using Xen 4.2.2. It happens on=
+ kernel
+> > > > > 3.9.4 and 4.1-rc1 as well.
+> > > > > =
 
-Seems the data should simply be in ifName nowadays (unconfirmed):
-<http://www.net-snmp.org/docs/mibs/ifMIBObjects.html>
+> > > > > Steps to reproduce:
+> > > > > 1. Start the domU with some network interface
+> > > > > 2. Call there 'ping -f some-IP'
+> > > > > 3. Call 'xl network-detach NAME 0'
 
-Bye,
-Hannes
+Do you see this all the time or just on occassions?
+
+I tried to reproduce it and couldn't see it. Is your VM an PV or HVM?
