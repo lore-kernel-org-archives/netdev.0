@@ -1,52 +1,44 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [RFC] Stable interface index option
-Date: Tue, 1 Dec 2015 16:06:08 -0500
-Message-ID: <20151201210608.GB23178@oracle.com>
-References: <20151201080652.5cba6f8b@xeon-e3>
- <20151201.142847.1980856920707150414.davem@davemloft.net>
- <20151201122038.795305df@xeon-e3>
- <20151201.155725.733555238839381632.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] isdn: remove spellcaster driver
+Date: Tue, 01 Dec 2015 16:07:09 -0500 (EST)
+Message-ID: <20151201.160709.566323664243976564.davem@davemloft.net>
+References: <2948626.r4RdgunA3R@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stephen@networkplumber.org, hannes@stressinduktion.org,
-	max@rfc2324.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:18492 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753070AbbLAVGU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 16:06:20 -0500
-Content-Disposition: inline
-In-Reply-To: <20151201.155725.733555238839381632.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: isdn@linux-pingi.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2948626.r4RdgunA3R@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On (12/01/15 15:57), David Miller wrote:
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 30 Nov 2015 11:34:09 +0100
 
-> >> > Also current versions of SNMP provide more useful information about
-> >> > network interface slot information in ifDescription
-> >> 
-> >> Well if they do provide strings, then that is probably a better way
-> >> forward than messing with the kernel.
-> > 
-> > It gives strings based on PCI information but nothing useful
-> > on tunnels.
+> The 'sc' ISDN driver relies on using readl() to access ISA I/O memory.
+> This has been deprecated and produced warnings since linux-2.3.23,
+> disabled by default since 2.4.10 and finally removed in 2.6.5.
 > 
-> But at least in theory, that could be extended to do so right?
+> I found this because the compiling the driver for ARM produces
+> a warning:
+> 
+> In file included from ../drivers/isdn/sc/includes.h:8:0,
+>                  from ../drivers/isdn/sc/init.c:13:
+> ../arch/arm/include/asm/io.h:115:21: note: expected 'const volatile void *' but argument is of type 'long unsigned int'
+> 
+> It is pretty clear that this driver has not been used for a long time
+> and there is no point fixing it now, so let's remove it.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+> There has been some discussion about removing all the ISA based ISDN
+> drivers in the past. I'm not trying to restart that discussion at the
+> moment, and I did not find the same bug in the other drivers, so
+> let's just remove this one for now.
 
-iirc even for the cisco NOS-es, the snmp ifindex for virtual interfaces
-(tunnels, vpc, loopback) etc would not have any slot etc info, but
-would have other things (specific to the virtual interface type, e.g.,
-FEX interface index had something that was pertinent to fex)
+Applied to net-next, we can resurrect+fix this driver if someone actually
+uses it.
 
-But the bigger reason they had a immutable snmp-ifindex was that
-the uspace networking applications could build state based on that
-immutable index and hang on to that number, regardless of any renumbering
-that happened due to HA/failover.
-
-And, since they did not (in general) have to deal with random third
-party apps, they did not have to deal with questions like "what should
-POSIX/glibc APIs send - the immutable or the mutable index?" so it
-was ok for them to have the complexity of two interface indices.
-
---Sowmini
+Thanks Arnd.
