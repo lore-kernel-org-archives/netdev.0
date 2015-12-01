@@ -1,188 +1,255 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 06/26] net: propagate upper priv via netdev_master_upper_dev_link
-Date: Tue,  1 Dec 2015 14:48:44 +0100
-Message-ID: <1448977744-17930-7-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 15/26] bonding: allow notifications for bond_set_slave_link_state
+Date: Tue,  1 Dec 2015 14:48:53 +0100
+Message-ID: <1448977744-17930-16-git-send-email-jiri@resnulli.us>
 References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:34001 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755220AbbLANtQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 08:49:16 -0500
-Received: by wmvv187 with SMTP id v187so207534370wmv.1
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 05:49:15 -0800 (PST)
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:38894 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756177AbbLANt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 08:49:27 -0500
+Received: by wmec201 with SMTP id c201so14236411wme.1
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 05:49:26 -0800 (PST)
 In-Reply-To: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Eliminate netdev_master_upper_dev_link_private and pass priv directly as
-a parameter of netdev_master_upper_dev_link.
+Similar to state notifications.
+
+We allow caller to indicate if the notification should happen now or later,
+depending on if he holds rtnl mutex or not. Introduce bond_slave_link_notify
+function (similar to bond_slave_state_notify) which is later on called
+with rtnl mutex and goes over slaves and executes delayed notification.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/bonding/bond_main.c |  2 +-
- drivers/net/team/team.c         |  2 +-
- drivers/net/vrf.c               |  2 +-
- include/linux/netdevice.h       |  6 ++----
- net/batman-adv/hard-interface.c |  3 ++-
- net/bridge/br_if.c              |  2 +-
- net/core/dev.c                  | 18 ++++++------------
- net/openvswitch/vport-netdev.c  |  2 +-
- 8 files changed, 15 insertions(+), 22 deletions(-)
+ drivers/net/bonding/bond_main.c | 54 +++++++++++++++++++++++++++--------------
+ include/net/bonding.h           | 32 +++++++++++++++++++++---
+ 2 files changed, 65 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 9e0f8a7..9240157 100644
+index 8747746..c9943fc 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -1204,7 +1204,7 @@ static int bond_master_upper_dev_link(struct net_device *bond_dev,
- {
- 	int err;
+@@ -830,7 +830,8 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 			}
  
--	err = netdev_master_upper_dev_link_private(slave_dev, bond_dev, slave);
-+	err = netdev_master_upper_dev_link(slave_dev, bond_dev, slave);
- 	if (err)
- 		return err;
- 	slave_dev->flags |= IFF_SLAVE;
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index d2f3ee8..b37f8d1 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1083,7 +1083,7 @@ static int team_upper_dev_link(struct net_device *dev,
- {
- 	int err;
+ 			new_active->delay = 0;
+-			bond_set_slave_link_state(new_active, BOND_LINK_UP);
++			bond_set_slave_link_state(new_active, BOND_LINK_UP,
++						  BOND_SLAVE_NOTIFY_NOW);
  
--	err = netdev_master_upper_dev_link(port_dev, dev);
-+	err = netdev_master_upper_dev_link(port_dev, dev, NULL);
- 	if (err)
- 		return err;
- 	port_dev->priv_flags |= IFF_TEAM_PORT;
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index c2d54c4..59c5bdd 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -624,7 +624,7 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
- 		goto out_fail;
+ 			if (BOND_MODE(bond) == BOND_MODE_8023AD)
+ 				bond_3ad_handle_link_change(new_active, BOND_LINK_UP);
+@@ -1578,21 +1579,26 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		if (bond_check_dev_link(bond, slave_dev, 0) == BMSR_LSTATUS) {
+ 			if (bond->params.updelay) {
+ 				bond_set_slave_link_state(new_slave,
+-							  BOND_LINK_BACK);
++							  BOND_LINK_BACK,
++							  BOND_SLAVE_NOTIFY_NOW);
+ 				new_slave->delay = bond->params.updelay;
+ 			} else {
+ 				bond_set_slave_link_state(new_slave,
+-							  BOND_LINK_UP);
++							  BOND_LINK_UP,
++							  BOND_SLAVE_NOTIFY_NOW);
+ 			}
+ 		} else {
+-			bond_set_slave_link_state(new_slave, BOND_LINK_DOWN);
++			bond_set_slave_link_state(new_slave, BOND_LINK_DOWN,
++						  BOND_SLAVE_NOTIFY_NOW);
+ 		}
+ 	} else if (bond->params.arp_interval) {
+ 		bond_set_slave_link_state(new_slave,
+ 					  (netif_carrier_ok(slave_dev) ?
+-					  BOND_LINK_UP : BOND_LINK_DOWN));
++					  BOND_LINK_UP : BOND_LINK_DOWN),
++					  BOND_SLAVE_NOTIFY_NOW);
+ 	} else {
+-		bond_set_slave_link_state(new_slave, BOND_LINK_UP);
++		bond_set_slave_link_state(new_slave, BOND_LINK_UP,
++					  BOND_SLAVE_NOTIFY_NOW);
  	}
  
--	ret = netdev_master_upper_dev_link(port_dev, dev);
-+	ret = netdev_master_upper_dev_link(port_dev, dev, NULL);
- 	if (ret < 0)
- 		goto out_unregister;
+ 	if (new_slave->link != BOND_LINK_DOWN)
+@@ -2011,7 +2017,8 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 			if (link_state)
+ 				continue;
  
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 85bcd9b..cca4111 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3617,10 +3617,8 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
- struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
- int netdev_upper_dev_link(struct net_device *dev, struct net_device *upper_dev);
- int netdev_master_upper_dev_link(struct net_device *dev,
--				 struct net_device *upper_dev);
--int netdev_master_upper_dev_link_private(struct net_device *dev,
--					 struct net_device *upper_dev,
--					 void *private);
-+				 struct net_device *upper_dev,
-+				 void *upper_priv);
- void netdev_upper_dev_unlink(struct net_device *dev,
- 			     struct net_device *upper_dev);
- void netdev_adjacent_rename_links(struct net_device *dev, char *oldname);
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index f11345e..a7f4f10 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -464,7 +464,8 @@ int batadv_hardif_enable_interface(struct batadv_hard_iface *hard_iface,
- 	hard_iface->soft_iface = soft_iface;
- 	bat_priv = netdev_priv(hard_iface->soft_iface);
+-			bond_set_slave_link_state(slave, BOND_LINK_FAIL);
++			bond_set_slave_link_state(slave, BOND_LINK_FAIL,
++						  BOND_SLAVE_NOTIFY_LATER);
+ 			slave->delay = bond->params.downdelay;
+ 			if (slave->delay) {
+ 				netdev_info(bond->dev, "link status down for %sinterface %s, disabling it in %d ms\n",
+@@ -2026,7 +2033,8 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 		case BOND_LINK_FAIL:
+ 			if (link_state) {
+ 				/* recovered before downdelay expired */
+-				bond_set_slave_link_state(slave, BOND_LINK_UP);
++				bond_set_slave_link_state(slave, BOND_LINK_UP,
++							  BOND_SLAVE_NOTIFY_LATER);
+ 				slave->last_link_up = jiffies;
+ 				netdev_info(bond->dev, "link status up again after %d ms for interface %s\n",
+ 					    (bond->params.downdelay - slave->delay) *
+@@ -2048,7 +2056,8 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 			if (!link_state)
+ 				continue;
  
--	ret = netdev_master_upper_dev_link(hard_iface->net_dev, soft_iface);
-+	ret = netdev_master_upper_dev_link(hard_iface->net_dev,
-+					   soft_iface, NULL);
- 	if (ret)
- 		goto err_dev;
+-			bond_set_slave_link_state(slave, BOND_LINK_BACK);
++			bond_set_slave_link_state(slave, BOND_LINK_BACK,
++						  BOND_SLAVE_NOTIFY_LATER);
+ 			slave->delay = bond->params.updelay;
  
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index ec02f58..781abc34 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -493,7 +493,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 			if (slave->delay) {
+@@ -2062,7 +2071,8 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 		case BOND_LINK_BACK:
+ 			if (!link_state) {
+ 				bond_set_slave_link_state(slave,
+-							  BOND_LINK_DOWN);
++							  BOND_LINK_DOWN,
++							  BOND_SLAVE_NOTIFY_LATER);
+ 				netdev_info(bond->dev, "link status down again after %d ms for interface %s\n",
+ 					    (bond->params.updelay - slave->delay) *
+ 					    bond->params.miimon,
+@@ -2100,7 +2110,8 @@ static void bond_miimon_commit(struct bonding *bond)
+ 			continue;
  
- 	dev->priv_flags |= IFF_BRIDGE_PORT;
+ 		case BOND_LINK_UP:
+-			bond_set_slave_link_state(slave, BOND_LINK_UP);
++			bond_set_slave_link_state(slave, BOND_LINK_UP,
++						  BOND_SLAVE_NOTIFY_NOW);
+ 			slave->last_link_up = jiffies;
  
--	err = netdev_master_upper_dev_link(dev, br->dev);
-+	err = netdev_master_upper_dev_link(dev, br->dev, NULL);
- 	if (err)
- 		goto err5;
+ 			primary = rtnl_dereference(bond->primary_slave);
+@@ -2140,7 +2151,8 @@ static void bond_miimon_commit(struct bonding *bond)
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
  
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5df6cbc..d2155c2 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5421,7 +5421,7 @@ static void __netdev_adjacent_dev_unlink_neighbour(struct net_device *dev,
+-			bond_set_slave_link_state(slave, BOND_LINK_DOWN);
++			bond_set_slave_link_state(slave, BOND_LINK_DOWN,
++						  BOND_SLAVE_NOTIFY_NOW);
  
- static int __netdev_upper_dev_link(struct net_device *dev,
- 				   struct net_device *upper_dev, bool master,
--				   void *private)
-+				   void *upper_priv)
- {
- 	struct netdev_notifier_changeupper_info changeupper_info;
- 	struct netdev_adjacent *i, *j, *to_i, *to_j;
-@@ -5452,7 +5452,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 	if (ret)
- 		return ret;
+ 			if (BOND_MODE(bond) == BOND_MODE_ACTIVEBACKUP ||
+ 			    BOND_MODE(bond) == BOND_MODE_8023AD)
+@@ -2723,7 +2735,8 @@ static void bond_ab_arp_commit(struct bonding *bond)
+ 				struct slave *current_arp_slave;
  
--	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, private,
-+	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, upper_priv,
- 						   master);
- 	if (ret)
- 		return ret;
-@@ -5553,6 +5553,7 @@ EXPORT_SYMBOL(netdev_upper_dev_link);
-  * netdev_master_upper_dev_link - Add a master link to the upper device
-  * @dev: device
-  * @upper_dev: new upper device
-+ * @upper_priv: upper device private
-  *
-  * Adds a link to device which is upper to this one. In this case, only
-  * one master upper device can be linked, although other non-master devices
-@@ -5561,20 +5562,13 @@ EXPORT_SYMBOL(netdev_upper_dev_link);
-  * counts are adjusted and the function returns zero.
-  */
- int netdev_master_upper_dev_link(struct net_device *dev,
--				 struct net_device *upper_dev)
-+				 struct net_device *upper_dev,
-+				 void *upper_priv)
- {
--	return __netdev_upper_dev_link(dev, upper_dev, true, NULL);
-+	return __netdev_upper_dev_link(dev, upper_dev, true, upper_priv);
+ 				current_arp_slave = rtnl_dereference(bond->current_arp_slave);
+-				bond_set_slave_link_state(slave, BOND_LINK_UP);
++				bond_set_slave_link_state(slave, BOND_LINK_UP,
++							  BOND_SLAVE_NOTIFY_NOW);
+ 				if (current_arp_slave) {
+ 					bond_set_slave_inactive_flags(
+ 						current_arp_slave,
+@@ -2746,7 +2759,8 @@ static void bond_ab_arp_commit(struct bonding *bond)
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
+ 
+-			bond_set_slave_link_state(slave, BOND_LINK_DOWN);
++			bond_set_slave_link_state(slave, BOND_LINK_DOWN,
++						  BOND_SLAVE_NOTIFY_NOW);
+ 			bond_set_slave_inactive_flags(slave,
+ 						      BOND_SLAVE_NOTIFY_NOW);
+ 
+@@ -2825,7 +2839,8 @@ static bool bond_ab_arp_probe(struct bonding *bond)
+ 		 * up when it is actually down
+ 		 */
+ 		if (!bond_slave_is_up(slave) && slave->link == BOND_LINK_UP) {
+-			bond_set_slave_link_state(slave, BOND_LINK_DOWN);
++			bond_set_slave_link_state(slave, BOND_LINK_DOWN,
++						  BOND_SLAVE_NOTIFY_LATER);
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
+ 
+@@ -2845,7 +2860,8 @@ static bool bond_ab_arp_probe(struct bonding *bond)
+ 	if (!new_slave)
+ 		goto check_state;
+ 
+-	bond_set_slave_link_state(new_slave, BOND_LINK_BACK);
++	bond_set_slave_link_state(new_slave, BOND_LINK_BACK,
++				  BOND_SLAVE_NOTIFY_LATER);
+ 	bond_set_slave_active_flags(new_slave, BOND_SLAVE_NOTIFY_LATER);
+ 	bond_arp_send_all(bond, new_slave);
+ 	new_slave->last_link_up = jiffies;
+@@ -2853,7 +2869,7 @@ static bool bond_ab_arp_probe(struct bonding *bond)
+ 
+ check_state:
+ 	bond_for_each_slave_rcu(bond, slave, iter) {
+-		if (slave->should_notify) {
++		if (slave->should_notify || slave->should_notify_link) {
+ 			should_notify_rtnl = BOND_SLAVE_NOTIFY_NOW;
+ 			break;
+ 		}
+@@ -2908,8 +2924,10 @@ re_arm:
+ 		if (should_notify_peers)
+ 			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
+ 						 bond->dev);
+-		if (should_notify_rtnl)
++		if (should_notify_rtnl) {
+ 			bond_slave_state_notify(bond);
++			bond_slave_link_notify(bond);
++		}
+ 
+ 		rtnl_unlock();
+ 	}
+diff --git a/include/net/bonding.h b/include/net/bonding.h
+index c1740a2..50496ec 100644
+--- a/include/net/bonding.h
++++ b/include/net/bonding.h
+@@ -165,7 +165,8 @@ struct slave {
+ 	u8     backup:1,   /* indicates backup slave. Value corresponds with
+ 			      BOND_STATE_ACTIVE and BOND_STATE_BACKUP */
+ 	       inactive:1, /* indicates inactive slave */
+-	       should_notify:1; /* indicateds whether the state changed */
++	       should_notify:1, /* indicateds whether the state changed */
++	       should_notify_link:1; /* indicateds whether the link changed */
+ 	u8     duplex;
+ 	u32    original_mtu;
+ 	u32    link_failure_count;
+@@ -504,10 +505,35 @@ static inline bool bond_is_slave_inactive(struct slave *slave)
+ 	return slave->inactive;
  }
- EXPORT_SYMBOL(netdev_master_upper_dev_link);
  
--int netdev_master_upper_dev_link_private(struct net_device *dev,
--					 struct net_device *upper_dev,
--					 void *private)
--{
--	return __netdev_upper_dev_link(dev, upper_dev, true, private);
--}
--EXPORT_SYMBOL(netdev_master_upper_dev_link_private);
--
- /**
-  * netdev_upper_dev_unlink - Removes a link to upper device
-  * @dev: device
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index b327368..3ee3df1 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -105,7 +105,7 @@ struct vport *ovs_netdev_link(struct vport *vport, const char *name)
+-static inline void bond_set_slave_link_state(struct slave *slave, int state)
++static inline void bond_set_slave_link_state(struct slave *slave, int state,
++					     bool notify)
+ {
++	if (slave->link == state)
++		return;
++
+ 	slave->link = state;
+-	bond_queue_slave_event(slave);
++	if (notify) {
++		bond_queue_slave_event(slave);
++		slave->should_notify_link = 0;
++	} else {
++		if (slave->should_notify_link)
++			slave->should_notify_link = 0;
++		else
++			slave->should_notify_link = 1;
++	}
++}
++
++static inline void bond_slave_link_notify(struct bonding *bond)
++{
++	struct list_head *iter;
++	struct slave *tmp;
++
++	bond_for_each_slave(bond, tmp, iter) {
++		if (tmp->should_notify_link) {
++			bond_queue_slave_event(tmp);
++			tmp->should_notify_link = 0;
++		}
++	}
+ }
  
- 	rtnl_lock();
- 	err = netdev_master_upper_dev_link(vport->dev,
--					   get_dpdev(vport->dp));
-+					   get_dpdev(vport->dp), NULL);
- 	if (err)
- 		goto error_unlock;
- 
+ static inline __be32 bond_confirm_addr(struct net_device *dev, __be32 dst, __be32 local)
 -- 
 1.9.3
