@@ -1,101 +1,463 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/26] bonding/team offload + mlxsw implementation
-Date: Tue,  1 Dec 2015 14:48:38 +0100
-Message-ID: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 24/26] mlxsw: spectrum: Implement LAG port join/leave
+Date: Tue,  1 Dec 2015 14:49:02 +0100
+Message-ID: <1448977744-17930-25-git-send-email-jiri@resnulli.us>
+References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:33840 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754886AbbLANtI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 08:49:08 -0500
-Received: by wmvv187 with SMTP id v187so207528879wmv.1
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 05:49:07 -0800 (PST)
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:38082 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756299AbbLANti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 08:49:38 -0500
+Received: by wmec201 with SMTP id c201so14243426wme.1
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 05:49:37 -0800 (PST)
+In-Reply-To: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-This patchset introduces needed infrastructure for link aggregation
-offload - for both team and bonding. It also implements the offload
-in mlxsw driver.
+Implement basic procedures for joining/leaving port to/from LAG. That
+includes HW setup of collector, core LAG mapping setup.
 
-Particulary, this patchset introduces possibility for upper driver
-(bond/team/bridge/..) to pass type-specific info down to notifier listeners.
-Info is passed along with NETDEV_CHANGEUPPER/NETDEV_PRECHANGEUPPER
-notifiers. Listeners (drivers of netdevs being enslaved) can react
-accordingly.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 284 +++++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  35 ++-
+ 2 files changed, 302 insertions(+), 17 deletions(-)
 
-Other extension is for run-time use. This patchset introduces
-new netdev notifier type - NETDEV_CHANGELOWERSTATE. Along with this
-notification, the upper driver (bond/team/bridge/..) can pass some
-information about lower device change, particulary link-up and
-TX-enabled states. Listeners (drivers of netdevs being enslaved)
-can react accordingly.
-
-The last part of the patchset is implementation of LAG offload in mlxsw,
-using both previously introduced infrastructre extensions.
-
-Note that bond-speficic (and ugly) NETDEV_BONDING_INFO used by mlx4
-can be removed and mlx4 can use the extensions this patchset adds.
-I plan to convert it and get rid of NETDEV_BONDING_INFO in
-a follow-up patchset.
-
-Jiri Pirko (26):
-  bonding: add 802.3ad support for 100G speeds
-  net: add netif_is_team_master helper
-  net: add netif_is_team_port helper
-  net: add netif_is_lag_master helper
-  net: add netif_is_lag_port helper
-  net: propagate upper priv via netdev_master_upper_dev_link
-  net: add possibility to pass information about upper device via
-    notifier
-  net: add info struct for LAG changeupper
-  team: fill-up LAG changeupper info struct and pass it along
-  bonding: fill-up LAG changeupper info struct and pass it along
-  net: introduce change lower state notifier
-  net: introduce lower state changed info structure for LAG lowers
-  team: rtnl_lock for options set
-  team: implement lower state change propagation
-  bonding: allow notifications for bond_set_slave_link_state
-  bonding: implement lower state change propagation
-  bonding: set inactive flags on release
-  mlxsw: spectrum: Add set_rx_mode ndo stub
-  mlxsw: core: Add support for packets received from LAG port
-  mlxsw: pci: Implement LAG processing for received packets
-  mlxsw: reg: Add link aggregation configuration registers definitions
-  mlxsw: reg: Add definition of LAG unicast record for SFD register
-  mlxsw: reg: Add definition of LAG unicast record for SFN register
-  mlxsw: spectrum: Implement LAG port join/leave
-  mlxsw: spectrum: Implement FDB add/remove/dump for LAG
-  mlxsw: spectrum: Implement LAG tx enabled lower state change
-
- drivers/net/bonding/bond_3ad.c                     |  11 +-
- drivers/net/bonding/bond_main.c                    | 109 ++++--
- drivers/net/ethernet/mellanox/mlxsw/core.c         |  79 ++++-
- drivers/net/ethernet/mellanox/mlxsw/core.h         |  14 +-
- drivers/net/ethernet/mellanox/mlxsw/pci.c          |  17 +-
- drivers/net/ethernet/mellanox/mlxsw/pci.h          |   4 +-
- drivers/net/ethernet/mellanox/mlxsw/reg.h          | 394 ++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 366 ++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  35 +-
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 182 ++++++++--
- drivers/net/team/team.c                            |  55 ++-
- drivers/net/team/team_mode_activebackup.c          |   1 +
- drivers/net/team/team_mode_broadcast.c             |   1 +
- drivers/net/team/team_mode_loadbalance.c           |   1 +
- drivers/net/team/team_mode_random.c                |   1 +
- drivers/net/team/team_mode_roundrobin.c            |   1 +
- drivers/net/vrf.c                                  |   2 +-
- include/linux/if_team.h                            |   1 +
- include/linux/netdevice.h                          |  56 ++-
- include/net/bonding.h                              |  39 +-
- net/batman-adv/hard-interface.c                    |   3 +-
- net/bridge/br_if.c                                 |   2 +-
- net/core/dev.c                                     |  43 ++-
- net/openvswitch/vport-netdev.c                     |   2 +-
- 24 files changed, 1274 insertions(+), 145 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index a397cc1..171748e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1712,6 +1712,22 @@ static int mlxsw_sp_flood_init(struct mlxsw_sp *mlxsw_sp)
+ 	return 0;
+ }
+ 
++static int mlxsw_sp_lag_init(struct mlxsw_sp *mlxsw_sp)
++{
++	char slcr_pl[MLXSW_REG_SLCR_LEN];
++
++	mlxsw_reg_slcr_pack(slcr_pl, MLXSW_REG_SLCR_LAG_HASH_SMAC |
++				     MLXSW_REG_SLCR_LAG_HASH_DMAC |
++				     MLXSW_REG_SLCR_LAG_HASH_ETHERTYPE |
++				     MLXSW_REG_SLCR_LAG_HASH_VLANID |
++				     MLXSW_REG_SLCR_LAG_HASH_SIP |
++				     MLXSW_REG_SLCR_LAG_HASH_DIP |
++				     MLXSW_REG_SLCR_LAG_HASH_SPORT |
++				     MLXSW_REG_SLCR_LAG_HASH_DPORT |
++				     MLXSW_REG_SLCR_LAG_HASH_IPPROTO);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(slcr), slcr_pl);
++}
++
+ static int mlxsw_sp_init(void *priv, struct mlxsw_core *mlxsw_core,
+ 			 const struct mlxsw_bus_info *mlxsw_bus_info)
+ {
+@@ -1757,6 +1773,12 @@ static int mlxsw_sp_init(void *priv, struct mlxsw_core *mlxsw_core,
+ 		goto err_buffers_init;
+ 	}
+ 
++	err = mlxsw_sp_lag_init(mlxsw_sp);
++	if (err) {
++		dev_err(mlxsw_sp->bus_info->dev, "Failed to initialize LAG\n");
++		goto err_lag_init;
++	}
++
+ 	err = mlxsw_sp_switchdev_init(mlxsw_sp);
+ 	if (err) {
+ 		dev_err(mlxsw_sp->bus_info->dev, "Failed to initialize switchdev\n");
+@@ -1766,6 +1788,7 @@ static int mlxsw_sp_init(void *priv, struct mlxsw_core *mlxsw_core,
+ 	return 0;
+ 
+ err_switchdev_init:
++err_lag_init:
+ err_buffers_init:
+ err_flood_init:
+ 	mlxsw_sp_traps_fini(mlxsw_sp);
+@@ -1793,9 +1816,9 @@ static struct mlxsw_config_profile mlxsw_sp_config_profile = {
+ 	.used_max_vepa_channels		= 1,
+ 	.max_vepa_channels		= 0,
+ 	.used_max_lag			= 1,
+-	.max_lag			= 64,
++	.max_lag			= MLXSW_SP_LAG_MAX,
+ 	.used_max_port_per_lag		= 1,
+-	.max_port_per_lag		= 16,
++	.max_port_per_lag		= MLXSW_SP_PORT_PER_LAG_MAX,
+ 	.used_max_mid			= 1,
+ 	.max_mid			= 7000,
+ 	.used_max_pgt			= 1,
+@@ -1894,19 +1917,206 @@ static void mlxsw_sp_master_bridge_dec(struct mlxsw_sp *mlxsw_sp,
+ 		mlxsw_sp->master_bridge.dev = NULL;
+ }
+ 
+-static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
+-				    unsigned long event, void *ptr)
++static int mlxsw_sp_lag_create(struct mlxsw_sp *mlxsw_sp, u16 lag_id)
++{
++	char sldr_pl[MLXSW_REG_SLDR_LEN];
++
++	mlxsw_reg_sldr_lag_create_pack(sldr_pl, lag_id);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sldr), sldr_pl);
++}
++
++static int mlxsw_sp_lag_destroy(struct mlxsw_sp *mlxsw_sp, u16 lag_id)
++{
++	char sldr_pl[MLXSW_REG_SLDR_LEN];
++
++	mlxsw_reg_sldr_lag_destroy_pack(sldr_pl, lag_id);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sldr), sldr_pl);
++}
++
++static int mlxsw_sp_lag_col_port_add(struct mlxsw_sp_port *mlxsw_sp_port,
++				     u16 lag_id, u8 port_index)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char slcor_pl[MLXSW_REG_SLCOR_LEN];
++
++	mlxsw_reg_slcor_port_add_pack(slcor_pl, mlxsw_sp_port->local_port,
++				      lag_id, port_index);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(slcor), slcor_pl);
++}
++
++static int mlxsw_sp_lag_col_port_remove(struct mlxsw_sp_port *mlxsw_sp_port,
++					u16 lag_id)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char slcor_pl[MLXSW_REG_SLCOR_LEN];
++
++	mlxsw_reg_slcor_port_remove_pack(slcor_pl, mlxsw_sp_port->local_port,
++					 lag_id);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(slcor), slcor_pl);
++}
++
++static int mlxsw_sp_lag_col_port_enable(struct mlxsw_sp_port *mlxsw_sp_port,
++					u16 lag_id)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char slcor_pl[MLXSW_REG_SLCOR_LEN];
++
++	mlxsw_reg_slcor_col_enable_pack(slcor_pl, mlxsw_sp_port->local_port,
++					lag_id);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(slcor), slcor_pl);
++}
++
++static int mlxsw_sp_lag_col_port_disable(struct mlxsw_sp_port *mlxsw_sp_port,
++					 u16 lag_id)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char slcor_pl[MLXSW_REG_SLCOR_LEN];
++
++	mlxsw_reg_slcor_col_disable_pack(slcor_pl, mlxsw_sp_port->local_port,
++					 lag_id);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(slcor), slcor_pl);
++}
++
++static int mlxsw_sp_lag_index_get(struct mlxsw_sp *mlxsw_sp,
++				  struct net_device *lag_dev,
++				  u16 *p_lag_id)
++{
++	struct mlxsw_sp_upper *lag;
++	int free_lag_id = -1;
++	int i;
++
++	for (i = 0; i < MLXSW_SP_LAG_MAX; i++) {
++		lag = mlxsw_sp_lag_get(mlxsw_sp, i);
++		if (lag->ref_count) {
++			if (lag->dev == lag_dev) {
++				*p_lag_id = i;
++				return 0;
++			}
++		} else if (free_lag_id < 0) {
++			free_lag_id = i;
++		}
++	}
++	if (free_lag_id < 0)
++		return -EBUSY;
++	*p_lag_id = free_lag_id;
++	return 0;
++}
++
++static bool
++mlxsw_sp_master_lag_check(struct mlxsw_sp *mlxsw_sp,
++			  struct net_device *lag_dev,
++			  struct netdev_lag_upper_info *lag_upper_info)
++{
++	u16 lag_id;
++
++	if (mlxsw_sp_lag_index_get(mlxsw_sp, lag_dev, &lag_id) != 0)
++		return false;
++	if (lag_upper_info->tx_type != NETDEV_LAG_TX_TYPE_HASH)
++		return false;
++	return true;
++}
++
++static int mlxsw_sp_port_lag_index_get(struct mlxsw_sp *mlxsw_sp,
++				       u16 lag_id, u8 *p_port_index)
++{
++	int i;
++
++	for (i = 0; i < MLXSW_SP_PORT_PER_LAG_MAX; i++) {
++		if (!mlxsw_sp_port_lagged_get(mlxsw_sp, lag_id, i)) {
++			*p_port_index = i;
++			return 0;
++		}
++	}
++	return -EBUSY;
++}
++
++static int mlxsw_sp_port_lag_join(struct mlxsw_sp_port *mlxsw_sp_port,
++				  struct net_device *lag_dev)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	struct mlxsw_sp_upper *lag;
++	u16 lag_id;
++	u8 port_index;
++	int err;
++
++	err = mlxsw_sp_lag_index_get(mlxsw_sp, lag_dev, &lag_id);
++	if (err)
++		return err;
++	lag = mlxsw_sp_lag_get(mlxsw_sp, lag_id);
++	if (!lag->ref_count) {
++		err = mlxsw_sp_lag_create(mlxsw_sp, lag_id);
++		if (err)
++			return err;
++		lag->dev = lag_dev;
++	}
++
++	err = mlxsw_sp_port_lag_index_get(mlxsw_sp, lag_id, &port_index);
++	if (err)
++		return err;
++	err = mlxsw_sp_lag_col_port_add(mlxsw_sp_port, lag_id, port_index);
++	if (err)
++		goto err_col_port_add;
++	err = mlxsw_sp_lag_col_port_enable(mlxsw_sp_port, lag_id);
++	if (err)
++		goto err_col_port_enable;
++
++	mlxsw_core_lag_mapping_set(mlxsw_sp->core, lag_id, port_index,
++				   mlxsw_sp_port->local_port);
++	mlxsw_sp_port->lag_id = lag_id;
++	mlxsw_sp_port->lagged = 1;
++	lag->ref_count++;
++	return 0;
++
++err_col_port_add:
++	if (!lag->ref_count)
++		mlxsw_sp_lag_destroy(mlxsw_sp, lag_id);
++err_col_port_enable:
++	mlxsw_sp_lag_col_port_remove(mlxsw_sp_port, lag_id);
++	return err;
++}
++
++static int mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
++				   struct net_device *lag_dev)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	struct mlxsw_sp_upper *lag;
++	u16 lag_id = mlxsw_sp_port->lag_id;
++	int err;
++
++	if (!mlxsw_sp_port->lagged)
++		return 0;
++	lag = mlxsw_sp_lag_get(mlxsw_sp, lag_id);
++	BUG_ON(lag->ref_count == 0);
++
++	err = mlxsw_sp_lag_col_port_disable(mlxsw_sp_port, lag_id);
++	if (err)
++		return err;
++	mlxsw_sp_lag_col_port_remove(mlxsw_sp_port, lag_id);
++	if (err)
++		return err;
++
++	if (lag->ref_count == 1) {
++		err = mlxsw_sp_lag_destroy(mlxsw_sp, lag_id);
++		if (err)
++			return err;
++	}
++
++	mlxsw_core_lag_mapping_clear(mlxsw_sp->core, lag_id,
++				     mlxsw_sp_port->local_port);
++	mlxsw_sp_port->lagged = 0;
++	lag->ref_count--;
++	return 0;
++}
++
++static int mlxsw_sp_netdevice_port_event(struct net_device *dev,
++					 unsigned long event, void *ptr)
+ {
+-	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+ 	struct netdev_notifier_changeupper_info *info;
+ 	struct mlxsw_sp_port *mlxsw_sp_port;
+ 	struct net_device *upper_dev;
+ 	struct mlxsw_sp *mlxsw_sp;
+ 	int err;
+ 
+-	if (!mlxsw_sp_port_dev_check(dev))
+-		return NOTIFY_DONE;
+-
+ 	mlxsw_sp_port = netdev_priv(dev);
+ 	mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	info = ptr;
+@@ -1914,16 +2124,22 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
+ 	switch (event) {
+ 	case NETDEV_PRECHANGEUPPER:
+ 		upper_dev = info->upper_dev;
++		if (!info->master || !info->linking)
++			break;
+ 		/* HW limitation forbids to put ports to multiple bridges. */
+-		if (info->master && info->linking &&
+-		    netif_is_bridge_master(upper_dev) &&
++		if (netif_is_bridge_master(upper_dev) &&
+ 		    !mlxsw_sp_master_bridge_check(mlxsw_sp, upper_dev))
+ 			return NOTIFY_BAD;
++		if (netif_is_lag_master(upper_dev) &&
++		    !mlxsw_sp_master_lag_check(mlxsw_sp, upper_dev,
++					       info->upper_info))
++			return NOTIFY_BAD;
+ 		break;
+ 	case NETDEV_CHANGEUPPER:
+ 		upper_dev = info->upper_dev;
+-		if (info->master &&
+-		    netif_is_bridge_master(upper_dev)) {
++		if (!info->master)
++			break;
++		if (netif_is_bridge_master(upper_dev)) {
+ 			if (info->linking) {
+ 				err = mlxsw_sp_port_bridge_join(mlxsw_sp_port);
+ 				if (err)
+@@ -1937,6 +2153,18 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
+ 				mlxsw_sp_port->bridged = 0;
+ 				mlxsw_sp_master_bridge_dec(mlxsw_sp, upper_dev);
+ 			}
++		} else if (netif_is_lag_master(upper_dev)) {
++			if (info->linking) {
++				err = mlxsw_sp_port_lag_join(mlxsw_sp_port,
++							     upper_dev);
++				if (err)
++					netdev_err(dev, "Failed to join link aggregation\n");
++			} else {
++				err = mlxsw_sp_port_lag_leave(mlxsw_sp_port,
++							      upper_dev);
++				if (err)
++					netdev_err(dev, "Failed to leave link aggregation\n");
++			}
+ 		}
+ 		break;
+ 	}
+@@ -1944,6 +2172,38 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
+ 	return NOTIFY_DONE;
+ }
+ 
++static int mlxsw_sp_netdevice_lag_event(struct net_device *lag_dev,
++					unsigned long event, void *ptr)
++{
++	struct net_device *dev;
++	struct list_head *iter;
++	int ret;
++
++	netdev_for_each_lower_dev(lag_dev, dev, iter) {
++		if (mlxsw_sp_port_dev_check(dev)) {
++			ret = mlxsw_sp_netdevice_port_event(dev, event, ptr);
++			if (ret == NOTIFY_BAD)
++				return ret;
++		}
++	}
++
++	return NOTIFY_DONE;
++}
++
++static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
++				    unsigned long event, void *ptr)
++{
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++
++	if (mlxsw_sp_port_dev_check(dev))
++		return mlxsw_sp_netdevice_port_event(dev, event, ptr);
++
++	if (netif_is_lag_master(dev))
++		return mlxsw_sp_netdevice_lag_event(dev, event, ptr);
++
++	return NOTIFY_DONE;
++}
++
+ static struct notifier_block mlxsw_sp_netdevice_nb __read_mostly = {
+ 	.notifier_call = mlxsw_sp_netdevice_event,
+ };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 4365c8b..48be5a6 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -46,9 +46,16 @@
+ #include "core.h"
+ 
+ #define MLXSW_SP_VFID_BASE VLAN_N_VID
++#define MLXSW_SP_LAG_MAX 64
++#define MLXSW_SP_PORT_PER_LAG_MAX 16
+ 
+ struct mlxsw_sp_port;
+ 
++struct mlxsw_sp_upper {
++	struct net_device *dev;
++	unsigned int ref_count;
++};
++
+ struct mlxsw_sp {
+ 	unsigned long active_vfids[BITS_TO_LONGS(VLAN_N_VID)];
+ 	unsigned long active_fids[BITS_TO_LONGS(VLAN_N_VID)];
+@@ -63,12 +70,16 @@ struct mlxsw_sp {
+ 	} fdb_notify;
+ #define MLXSW_SP_DEFAULT_AGEING_TIME 300
+ 	u32 ageing_time;
+-	struct {
+-		struct net_device *dev;
+-		unsigned int ref_count;
+-	} master_bridge;
++	struct mlxsw_sp_upper master_bridge;
++	struct mlxsw_sp_upper lags[MLXSW_SP_LAG_MAX];
+ };
+ 
++static inline struct mlxsw_sp_upper *
++mlxsw_sp_lag_get(struct mlxsw_sp *mlxsw_sp, u16 lag_id)
++{
++	return &mlxsw_sp->lags[lag_id];
++}
++
+ struct mlxsw_sp_port_pcpu_stats {
+ 	u64			rx_packets;
+ 	u64			rx_bytes;
+@@ -87,8 +98,10 @@ struct mlxsw_sp_port {
+ 	u8 learning:1,
+ 	   learning_sync:1,
+ 	   uc_flood:1,
+-	   bridged:1;
++	   bridged:1,
++	   lagged:1;
+ 	u16 pvid;
++	u16 lag_id;
+ 	/* 802.1Q bridge VLANs */
+ 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+ 	/* VLAN interfaces */
+@@ -96,6 +109,18 @@ struct mlxsw_sp_port {
+ 	u16 nr_vfids;
+ };
+ 
++static inline struct mlxsw_sp_port *
++mlxsw_sp_port_lagged_get(struct mlxsw_sp *mlxsw_sp, u16 lag_id, u8 port_index)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port;
++	u8 local_port;
++
++	local_port = mlxsw_core_lag_mapping_get(mlxsw_sp->core,
++						lag_id, port_index);
++	mlxsw_sp_port = mlxsw_sp->ports[local_port];
++	return mlxsw_sp_port && mlxsw_sp_port->lagged ? mlxsw_sp_port : NULL;
++}
++
+ enum mlxsw_sp_flood_table {
+ 	MLXSW_SP_FLOOD_TABLE_UC,
+ 	MLXSW_SP_FLOOD_TABLE_BM,
 -- 
 1.9.3
