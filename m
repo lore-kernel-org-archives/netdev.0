@@ -1,155 +1,164 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next V3 08/17] hv_netvsc: Don't ask for additional head
- room in the skb
-Date: Tue,  1 Dec 2015 16:43:10 -0800
-Message-ID: <1449016999-9796-8-git-send-email-kys@microsoft.com>
-References: <1449016978-9755-1-git-send-email-kys@microsoft.com>
- <1449016999-9796-1-git-send-email-kys@microsoft.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next v2 5/5] net: ILA iptables target
+Date: Tue, 1 Dec 2015 15:11:12 -0800
+Message-ID: <1449011472-1459652-6-git-send-email-tom@herbertland.com>
+References: <1449011472-1459652-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
- jasowang@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1449016999-9796-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:17015 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932409AbbLAXLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 18:11:40 -0500
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.15.0.59/8.15.0.59) with SMTP id tB1NBe0m026476
+	for <netdev@vger.kernel.org>; Tue, 1 Dec 2015 15:11:40 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0001303.ppops.net with ESMTP id 1yf8tgnk0p-2
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 15:11:40 -0800
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.223.100.97) with ESMTP	id
+ dff72800988011e5b28124be0593f280-73ffc230 for <netdev@vger.kernel.org>;	Tue,
+ 01 Dec 2015 15:11:38 -0800
+In-Reply-To: <1449011472-1459652-1-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The rndis header is 116 bytes big and can be placed in the default
-head room that will be available in the skb. Since the netvsc packet
-is less than 48 bytes, we can use the skb control buffer
-for the netvsc packet. With these changes we don't need to
-ask for additional head room.
+Add two target ILAIN and ILAOUT which hook into the ILA module.
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
-	V2: When HYPERV_NET is configured, set LL_MAX_HEADER to 128 - Vitaly Kuznetsov <vkuznets@redhat.com>
-	V2: Add a build time check on the skb control buffer - Florian Westphal <fw@strlen.de>
-	V3: Fix a typo - David Miller
+ net/netfilter/Kconfig  | 12 ++++++++
+ net/netfilter/Makefile |  1 +
+ net/netfilter/xt_ILA.c | 82 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 95 insertions(+)
+ create mode 100644 net/netfilter/xt_ILA.c
 
- drivers/net/hyperv/hyperv_net.h |    3 +++
- drivers/net/hyperv/netvsc_drv.c |   30 +++++++++++-------------------
- include/linux/netdevice.h       |    4 +++-
- 3 files changed, 17 insertions(+), 20 deletions(-)
-
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 9504ca9..e15dc2c 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -124,6 +124,9 @@ struct ndis_tcp_ip_checksum_info;
- /*
-  * Represent netvsc packet which contains 1 RNDIS and 1 ethernet frame
-  * within the RNDIS
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 4692782..62ae50f 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -749,6 +749,18 @@ config NETFILTER_XT_TARGET_IDLETIMER
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
++config NETFILTER_XT_TARGET_ILA
++	tristate "ILA target support"
++	depends on IP_NF_MANGLE || IP6_NF_MANGLE
++	depends on NETFILTER_ADVANCED
++	depends on IPV6_ILA
++	help
++	  This option adds an `ILA' target, which allow Identifier Locator
++	  Addressing (ILA) translations. The ILA tables are managed by the
++	  ILA module.
++
++	  To compile it as a module, choose M here.  If unsure, say N.
++
+ config NETFILTER_XT_TARGET_LED
+ 	tristate '"LED" target support'
+ 	depends on LEDS_CLASS && LEDS_TRIGGERS
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 7638c36..4fc16aa 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -122,6 +122,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_TCPOPTSTRIP) += xt_TCPOPTSTRIP.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_TEE) += xt_TEE.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_TRACE) += xt_TRACE.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_IDLETIMER) += xt_IDLETIMER.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_ILA) += xt_ILA.o
+ 
+ # matches
+ obj-$(CONFIG_NETFILTER_XT_MATCH_ADDRTYPE) += xt_addrtype.o
+diff --git a/net/netfilter/xt_ILA.c b/net/netfilter/xt_ILA.c
+new file mode 100644
+index 0000000..9b01e2e
+--- /dev/null
++++ b/net/netfilter/xt_ILA.c
+@@ -0,0 +1,82 @@
++/* x_tables module for Identifier Locator Addressing (ILA) translation
 + *
-+ * The size of this structure is less than 48 bytes and we can now
-+ * place this structure in the skb->cb field.
-  */
- struct hv_netvsc_packet {
- 	/* Bookkeeping stuff */
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 947b778..90cc8d9 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -432,7 +432,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	u32 net_trans_info;
- 	u32 hash;
- 	u32 skb_length;
--	u32 pkt_sz;
- 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
- 	struct netvsc_stats *tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
- 
-@@ -460,16 +459,21 @@ check_size:
- 		goto check_size;
- 	}
- 
--	pkt_sz = sizeof(struct hv_netvsc_packet) + RNDIS_AND_PPI_SIZE;
--
--	ret = skb_cow_head(skb, pkt_sz);
-+	/*
-+	 * Place the rndis header in the skb head room and
-+	 * the skb->cb will be used for hv_netvsc_packet
-+	 * structure.
-+	 */
-+	ret = skb_cow_head(skb, RNDIS_AND_PPI_SIZE);
- 	if (ret) {
- 		netdev_err(net, "unable to alloc hv_netvsc_packet\n");
- 		ret = -ENOMEM;
- 		goto drop;
- 	}
--	/* Use the headroom for building up the packet */
--	packet = (struct hv_netvsc_packet *)skb->head;
-+	/* Use the skb control buffer for building up the packet */
-+	BUILD_BUG_ON(sizeof(struct hv_netvsc_packet) >
-+			FIELD_SIZEOF(struct sk_buff, cb));
-+	packet = (struct hv_netvsc_packet *)skb->cb;
- 
- 	packet->status = 0;
- 	packet->xmit_more = skb->xmit_more;
-@@ -482,8 +486,7 @@ check_size:
- 	packet->is_data_pkt = true;
- 	packet->total_data_buflen = skb->len;
- 
--	rndis_msg = (struct rndis_message *)((unsigned long)packet +
--				sizeof(struct hv_netvsc_packet));
-+	rndis_msg = (struct rndis_message *)skb->head;
- 
- 	memset(rndis_msg, 0, RNDIS_AND_PPI_SIZE);
- 
-@@ -1071,16 +1074,12 @@ static int netvsc_probe(struct hv_device *dev,
- 	struct netvsc_device_info device_info;
- 	struct netvsc_device *nvdev;
- 	int ret;
--	u32 max_needed_headroom;
- 
- 	net = alloc_etherdev_mq(sizeof(struct net_device_context),
- 				num_online_cpus());
- 	if (!net)
- 		return -ENOMEM;
- 
--	max_needed_headroom = sizeof(struct hv_netvsc_packet) +
--			      RNDIS_AND_PPI_SIZE;
--
- 	netif_carrier_off(net);
- 
- 	net_device_ctx = netdev_priv(net);
-@@ -1116,13 +1115,6 @@ static int netvsc_probe(struct hv_device *dev,
- 	net->ethtool_ops = &ethtool_ops;
- 	SET_NETDEV_DEV(net, &dev->device);
- 
--	/*
--	 * Request additional head room in the skb.
--	 * We will use this space to build the rndis
--	 * heaser and other state we need to maintain.
--	 */
--	net->needed_headroom = max_needed_headroom;
--
- 	/* Notify the netvsc driver of the new device */
- 	memset(&device_info, 0, sizeof(device_info));
- 	device_info.ring_size = ring_size;
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d208914..96975f8 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -132,7 +132,9 @@ static inline bool dev_xmit_complete(int rc)
-  *	used.
-  */
- 
--#if defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
-+#if defined(CONFIG_HYPERV_NET)
-+# define LL_MAX_HEADER 128
-+#elif defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
- # if defined(CONFIG_MAC80211_MESH)
- #  define LL_MAX_HEADER 128
- # else
++ * (C) 2015 by Tom Herbert <tom@herbertland.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <net/ila.h>
++
++#include <linux/netfilter/x_tables.h>
++
++MODULE_AUTHOR("Tom Herbert <tom@herbertland.com>");
++MODULE_DESCRIPTION("Xtables: ILA translation");
++MODULE_LICENSE("GPL");
++MODULE_ALIAS("ip6t_ILA");
++MODULE_ALIAS("ip6t_ILAIN");
++MODULE_ALIAS("ip6t_ILAOUT");
++
++static unsigned int
++ila_tg_input(struct sk_buff *skb, const struct xt_action_param *par)
++{
++	ila_xlat_incoming(skb);
++
++	return XT_CONTINUE;
++}
++
++static unsigned int
++ila_tg_output(struct sk_buff *skb, const struct xt_action_param *par)
++{
++	ila_xlat_outgoing(skb);
++
++	return XT_CONTINUE;
++}
++
++static int ila_tg_check(const struct xt_tgchk_param *par)
++{
++	return 0;
++}
++
++static struct xt_target ila_tg_reg[] __read_mostly = {
++	{
++		.name		= "ILAIN",
++		.family		= NFPROTO_IPV6,
++		.checkentry	= ila_tg_check,
++		.target		= ila_tg_input,
++		.targetsize	= 0,
++		.table		= "mangle",
++		.hooks		= (1 << NF_INET_PRE_ROUTING) |
++				  (1 << NF_INET_LOCAL_IN),
++		.me		= THIS_MODULE,
++	},
++	{
++		.name		= "ILAOUT",
++		.family		= NFPROTO_IPV6,
++		.checkentry	= ila_tg_check,
++		.target		= ila_tg_output,
++		.targetsize	= 0,
++		.table		= "mangle",
++		.hooks		= (1 << NF_INET_POST_ROUTING) |
++				  (1 << NF_INET_LOCAL_OUT),
++		.me		= THIS_MODULE,
++	},
++};
++
++static int __init ila_tg_init(void)
++{
++	return xt_register_targets(ila_tg_reg, ARRAY_SIZE(ila_tg_reg));
++}
++
++static void __exit ila_tg_exit(void)
++{
++	xt_unregister_targets(ila_tg_reg, ARRAY_SIZE(ila_tg_reg));
++}
++
++module_init(ila_tg_init);
++module_exit(ila_tg_exit);
 -- 
-1.7.4.1
+2.4.6
