@@ -1,10 +1,11 @@
 From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH 0/6] net: thunderx: Miscellaneous fixes
-Date: Tue,  1 Dec 2015 14:43:37 +0530
-Message-ID: <1448961223-41888-1-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 1/6] net: thunderx: Force to load octeon-mdio before bgx driver.
+Date: Tue,  1 Dec 2015 14:43:38 +0530
+Message-ID: <1448961223-41888-2-git-send-email-sunil.kovvuri@gmail.com>
 References: <y>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Sunil.Goutham@caviumnetworks.com,
+	Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>,
 	Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,27 +13,40 @@ In-Reply-To: <y>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sunil Goutham <sgoutham@cavium.com>
+From: Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
 
-This patch series contains fixes for various issues observed 
-with BGX and NIC drivers.
+Signed-off-by: Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
+Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+---
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c |    3 +++
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.h |    1 +
+ 2 files changed, 4 insertions(+), 0 deletions(-)
 
-Sunil Goutham (4):
-  net: thunderx: Increase transmit queue length
-  net: thunderx: Set CQ timer threshold properly
-  net: thunderx: Switchon carrier only upon interface link up
-  net: thunderx: Enable BGX LMAC's RX/TX only after VF is up
-
-Thanneeru Srinivasulu (2):
-  net: thunderx: Force to load octeon-mdio before bgx driver.
-  net: thunderx: Wait for delayed work to finish before destroying it
-
- drivers/net/ethernet/cavium/thunder/nic.h          |    5 +--
- drivers/net/ethernet/cavium/thunder/nic_main.c     |   23 ++++++++++++++--
- .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |   16 ++++++++++-
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   |    4 +--
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |    2 +-
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |    6 ++--
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |   28 +++++++++++++++++---
- drivers/net/ethernet/cavium/thunder/thunder_bgx.h  |    2 +
- 8 files changed, 68 insertions(+), 18 deletions(-)
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+index 180aa9f..1fb72dd 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+@@ -1009,6 +1009,9 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	struct bgx *bgx = NULL;
+ 	u8 lmac;
+ 
++	/*Load octeon mdio driver*/
++	octeon_mdiobus_force_mod_depencency();
++
+ 	bgx = devm_kzalloc(dev, sizeof(*bgx), GFP_KERNEL);
+ 	if (!bgx)
+ 		return -ENOMEM;
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
+index 07b7ec6..89a02fa 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
+@@ -182,6 +182,7 @@ enum MCAST_MODE {
+ #define BCAST_ACCEPT	1
+ #define CAM_ACCEPT	1
+ 
++void octeon_mdiobus_force_mod_depencency(void);
+ void bgx_add_dmac_addr(u64 dmac, int node, int bgx_idx, int lmac);
+ unsigned bgx_get_map(int node);
+ int bgx_get_lmac_count(int node, int bgx);
+-- 
+1.7.1
