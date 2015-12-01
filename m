@@ -1,48 +1,124 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/6] net: thunderx: Force to load octeon-mdio before bgx
- driver.
-Date: Tue, 1 Dec 2015 16:17:56 +0300
-Message-ID: <565D9E04.8010203@cogentembedded.com>
-References: <y> <1448961223-41888-2-git-send-email-sunil.kovvuri@gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net v2] openvswitch: properly refcount vport-vxlan module
+Date: Tue, 01 Dec 2015 14:19:15 +0100
+Message-ID: <1448975955.4459.4.camel@redhat.com>
+References: <2658801f06f24c242c40f223b1164e61be44974a.1448882748.git.pabeni@redhat.com>
+	 <1448971437.3330290.454583417.56E794A4@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Sunil.Goutham@caviumnetworks.com,
-	Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>,
-	Sunil Goutham <sgoutham@cavium.com>
-To: Sunil Goutham <sunil.kovvuri@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448961223-41888-2-git-send-email-sunil.kovvuri@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Pravin Shelar <pshelar@nicira.com>,
+	Thomas Graf <tgraf@suug.ch>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39775 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753585AbbLANTR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2015 08:19:17 -0500
+In-Reply-To: <1448971437.3330290.454583417.56E794A4@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Tue, 2015-12-01 at 13:03 +0100, Hannes Frederic Sowa wrote:
+> Hello Paolo,
+> 
+> On Mon, Nov 30, 2015, at 12:31, Paolo Abeni wrote:
+> > After 614732eaa12d, no refcount is maintained for the vport-vxlan module.
+> > This allows the userspace to remove such module while vport-vxlan
+> > devices still exist, which leads to later oops.
+> > 
+> > v1 -> v2:
+> >  - move vport 'owner' initialization in ovs_vport_ops_register()
+> >    and make such function a macro
+> > 
+> > Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
+> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> > ---
+> >  net/openvswitch/vport-geneve.c | 1 -
+> >  net/openvswitch/vport-gre.c    | 1 -
+> >  net/openvswitch/vport.c        | 4 ++--
+> >  net/openvswitch/vport.h        | 8 +++++++-
+> >  4 files changed, 9 insertions(+), 5 deletions(-)
+> > 
+> > diff --git a/net/openvswitch/vport-geneve.c
+> > b/net/openvswitch/vport-geneve.c
+> > index efb736b..e41cd12 100644
+> > --- a/net/openvswitch/vport-geneve.c
+> > +++ b/net/openvswitch/vport-geneve.c
+> > @@ -117,7 +117,6 @@ static struct vport_ops ovs_geneve_vport_ops = {
+> >  	.destroy	= ovs_netdev_tunnel_destroy,
+> >  	.get_options	= geneve_get_options,
+> >  	.send		= dev_queue_xmit,
+> > -       .owner          = THIS_MODULE,
+> >  };
+> >  
+> >  static int __init ovs_geneve_tnl_init(void)
+> > diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+> > index c3257d7..7f8897f 100644
+> > --- a/net/openvswitch/vport-gre.c
+> > +++ b/net/openvswitch/vport-gre.c
+> > @@ -89,7 +89,6 @@ static struct vport_ops ovs_gre_vport_ops = {
+> >  	.create		= gre_create,
+> >  	.send		= dev_queue_xmit,
+> >  	.destroy	= ovs_netdev_tunnel_destroy,
+> > -       .owner          = THIS_MODULE,
+> >  };
+> >  
+> >  static int __init ovs_gre_tnl_init(void)
+> > diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+> > index e194c10a..31cbc8c 100644
+> > --- a/net/openvswitch/vport.c
+> > +++ b/net/openvswitch/vport.c
+> > @@ -71,7 +71,7 @@ static struct hlist_head *hash_bucket(const struct net
+> > *net, const char *name)
+> >  	return &dev_table[hash & (VPORT_HASH_BUCKETS - 1)];
+> >  }
+> >  
+> > -int ovs_vport_ops_register(struct vport_ops *ops)
+> > +int __ovs_vport_ops_register(struct vport_ops *ops)
+> >  {
+> >  	int err = -EEXIST;
+> >  	struct vport_ops *o;
+> > @@ -87,7 +87,7 @@ errout:
+> >  	ovs_unlock();
+> >  	return err;
+> >  }
+> > -EXPORT_SYMBOL_GPL(ovs_vport_ops_register);
+> > +EXPORT_SYMBOL_GPL(__ovs_vport_ops_register);
+> >  
+> >  void ovs_vport_ops_unregister(struct vport_ops *ops)
+> >  {
+> > diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+> > index bdfd82a..8ea3a96 100644
+> > --- a/net/openvswitch/vport.h
+> > +++ b/net/openvswitch/vport.h
+> > @@ -196,7 +196,13 @@ static inline const char *ovs_vport_name(struct
+> > vport *vport)
+> >  	return vport->dev->name;
+> >  }
+> >  
+> > -int ovs_vport_ops_register(struct vport_ops *ops);
+> > +int __ovs_vport_ops_register(struct vport_ops *ops);
+> > +#define ovs_vport_ops_register(ops)            \
+> > +       ({                                      \
+> > +               (ops)->owner = THIS_MODULE;     \
+> > +               __ovs_vport_ops_register(ops);  \
+> > +       })
+> > +
+> >  void ovs_vport_ops_unregister(struct vport_ops *ops);
+> 
+> This doesn't look correct (the fault is not your patch).
+> 
+> The register function adds the list_head of the ops struct on a list
+> without increasing the module reference counter. Thus the module could
+> be removed and the list walk would walk across the unloaded data section
+> left over by the module. Does a kmemdup make sense here and a later free
+> in the unregister function? We test type first and then only touch
+> functions after getting module refcnt, so it would appear safe to me
+> then.
 
-On 12/1/2015 12:13 PM, Sunil Goutham wrote:
+Currently all the vport_ops list manipulation functions are protected by
+the ovs_lock (even the lookup): the scenario described above should not
+be possible.
 
-> From: Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
->
-> Signed-off-by: Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
-> Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
-> ---
->   drivers/net/ethernet/cavium/thunder/thunder_bgx.c |    3 +++
->   drivers/net/ethernet/cavium/thunder/thunder_bgx.h |    1 +
->   2 files changed, 4 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-> index 180aa9f..1fb72dd 100644
-> --- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-> +++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-> @@ -1009,6 +1009,9 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->   	struct bgx *bgx = NULL;
->   	u8 lmac;
->
-> +	/*Load octeon mdio driver*/
-
-    Please insert spaces after /* and before */ (unless it's a common comment 
-style in this driver).
-
-[...]
-
-MBR, Sergei
+Paolo
