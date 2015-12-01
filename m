@@ -1,81 +1,50 @@
-From: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Subject: Re: [RFCv3 bluetooth-next 3/4] ipv6: add ipv6_addr_prefix_copy
-Date: Tue, 1 Dec 2015 12:38:01 +0100
-Message-ID: <565D8699.5090409@osg.samsung.com>
-References: <1448796882-316-1-git-send-email-alex.aring@gmail.com>
- <1448796882-316-4-git-send-email-alex.aring@gmail.com>
+From: Bert Kenward <bkenward@solarflare.com>
+Subject: Re: [PATCH net-next] sfc: use ALIGN macro for aligning frame sizes
+Date: Tue, 1 Dec 2015 11:58:40 +0000
+Message-ID: <565D8B70.6050005@solarflare.com>
+References: <1448921541-13343-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, lukasz.duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org,
-	martin.gergeleit-6wGqcYweBVc@public.gmane.org,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1448796882-316-4-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	"Shradha Shah" <sshah@solarflare.com>, <netdev@vger.kernel.org>
+To: Jarod Wilson <jarod@redhat.com>, <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:9557 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756067AbbLAL6s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 06:58:48 -0500
+In-Reply-To: <1448921541-13343-1-git-send-email-jarod@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 30/11/15 22:12, Jarod Wilson wrote:
+> Don't open-code it.
+> 
+> CC: Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+> CC: Shradha Shah <sshah@solarflare.com>
+> CC: netdev@vger.kernel.org
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
 
-On 29/11/15 12:34, Alexander Aring wrote:
-> This patch adds a static inline function ipv6_addr_prefix_copy which
-> copies a ipv6 address prefix(argument pfx) into the ipv6 address prefix.
-> The prefix len is given by plen as bits. This function mainly based on
-> ipv6_addr_prefix which copies one address prefix from address into a new
-> ipv6 address destination and zero all other address bits.
->
-> The difference is that ipv6_addr_prefix_copy don't get a prefix from an
-> ipv6 address, it sets a prefix to an ipv6 address with keeping other
-> address bits. The use case is for context based address compression
-> inside 6LoWPAN IPHC header which keeping ipv6 prefixes inside a context
-> table to lookup address-bits without sending them.
->
-> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
-> Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-> Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-> Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: Bert Kenward <bkenward@solarflare.com>
+
 > ---
->   include/net/ipv6.h | 15 +++++++++++++++
->   1 file changed, 15 insertions(+)
->
-> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> index e1a10b0..cd3881e6 100644
-> --- a/include/net/ipv6.h
-> +++ b/include/net/ipv6.h
-> @@ -382,6 +382,21 @@ static inline void ipv6_addr_prefix(struct in6_addr *pfx,
->   		pfx->s6_addr[o] = addr->s6_addr[o] & (0xff00 >> b);
->   }
->   
-> +static inline void ipv6_addr_prefix_copy(struct in6_addr *addr,
-> +					 const struct in6_addr *pfx,
-> +					 int plen)
-> +{
-> +	/* caller must guarantee 0 <= plen <= 128 */
-> +	int o = plen >> 3,
-> +	    b = plen & 0x7;
-> +
-> +	memcpy(addr->s6_addr, pfx, o);
-> +	if (b != 0) {
-> +		addr->s6_addr[o] &= ~(0xff00 >> b);
-> +		addr->s6_addr[o] |= (pfx->s6_addr[o] & (0xff00 >> b));
-> +	}
-> +}
-> +
->   static inline void __ipv6_addr_set_half(__be32 *addr,
->   					__be32 wh, __be32 wl)
->   {
-
-Thanks for taking up the review comments. You can add my r-b now:
-
-Reviewed-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-
-regards
-Stefan Schmidt
+>  drivers/net/ethernet/sfc/net_driver.h | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+> index a8ddd12..746d591 100644
+> --- a/drivers/net/ethernet/sfc/net_driver.h
+> +++ b/drivers/net/ethernet/sfc/net_driver.h
+> @@ -1502,8 +1502,9 @@ static inline struct efx_rx_buffer *efx_rx_buffer(struct efx_rx_queue *rx_queue,
+>   * same cycle, the XMAC can miss the IPG altogether.  We work around
+>   * this by adding a further 16 bytes.
+>   */
+> +#define EFX_FRAME_PAD	16
+>  #define EFX_MAX_FRAME_LEN(mtu) \
+> -	((((mtu) + ETH_HLEN + VLAN_HLEN + 4/* FCS */ + 7) & ~7) + 16)
+> +	(ALIGN(((mtu) + ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN + EFX_FRAME_PAD), 8))
+>  
+>  static inline bool efx_xmit_with_hwtstamp(struct sk_buff *skb)
+>  {
+> 
