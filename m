@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 12/18] net/mlx5: E-Switch, Introduce FDB hardware capabilities
-Date: Tue,  1 Dec 2015 18:03:19 +0200
-Message-ID: <1448985805-25422-13-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 17/18] net/mlx5: E-Switch, Introduce get vf statistics
+Date: Tue,  1 Dec 2015 18:03:24 +0200
+Message-ID: <1448985805-25422-18-git-send-email-ogerlitz@mellanox.com>
 References: <1448985805-25422-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
@@ -10,114 +10,113 @@ Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:34404 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:34412 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754659AbbLAQEQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Dec 2015 11:04:16 -0500
+	id S1755273AbbLAQEV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2015 11:04:21 -0500
 In-Reply-To: <1448985805-25422-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Saeed Mahameed <saeedm@mellanox.com>
 
-Define needed hardware structures and capabilities needed
-for E-Switch FDB flow tables and read them on driver load.
+Add support to get VF statistics using query vport
+counter command.
 
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fw.c | 13 +++++++++++++
- include/linux/mlx5/device.h                  | 15 +++++++++++++++
- include/linux/mlx5/mlx5_ifc.h                | 13 +++++++++++++
- 3 files changed, 41 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 67 +++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h |  3 +
+ 2 files changed, 70 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fw.c b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-index 9335e5a..bf6e3df 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-@@ -160,6 +160,19 @@ int mlx5_query_hca_caps(struct mlx5_core_dev *dev)
- 		if (err)
- 			return err;
- 	}
-+
-+	if (MLX5_CAP_GEN(dev, vport_group_manager) &&
-+	    MLX5_CAP_GEN(dev, eswitch_flow_table)) {
-+		err = mlx5_core_get_caps(dev, MLX5_CAP_ESWITCH_FLOW_TABLE,
-+					 HCA_CAP_OPMOD_GET_CUR);
-+		if (err)
-+			return err;
-+		err = mlx5_core_get_caps(dev, MLX5_CAP_ESWITCH_FLOW_TABLE,
-+					 HCA_CAP_OPMOD_GET_MAX);
-+		if (err)
-+			return err;
-+	}
-+
- 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 8fb66c0..d8939e5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -1213,3 +1213,70 @@ int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
+ 
+ 	return modify_esw_vport_cvlan(esw->dev, vport, vlan, qos, set);
  }
++
++int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
++				 int vport,
++				 struct ifla_vf_stats *vf_stats)
++{
++	int outlen = MLX5_ST_SZ_BYTES(query_vport_counter_out);
++	u32 in[MLX5_ST_SZ_DW(query_vport_counter_in)];
++	int err = 0;
++	u32 *out;
++
++	if (!ESW_ALLOWED(esw))
++		return -EPERM;
++	if (!LEGAL_VPORT(esw, vport))
++		return -EINVAL;
++
++	out = mlx5_vzalloc(outlen);
++	if (!out)
++		return -ENOMEM;
++
++	memset(in, 0, sizeof(in));
++
++	MLX5_SET(query_vport_counter_in, in, opcode,
++		 MLX5_CMD_OP_QUERY_VPORT_COUNTER);
++	MLX5_SET(query_vport_counter_in, in, op_mod, 0);
++	MLX5_SET(query_vport_counter_in, in, vport_number, vport);
++	if (vport)
++		MLX5_SET(query_vport_counter_in, in, other_vport, 1);
++
++	memset(out, 0, outlen);
++	err = mlx5_cmd_exec(esw->dev, in, sizeof(in), out, outlen);
++	if (err)
++		goto free_out;
++
++	#define MLX5_GET_CTR(p, x) \
++		MLX5_GET64(query_vport_counter_out, p, x)
++
++	memset(vf_stats, 0, sizeof(*vf_stats));
++	vf_stats->rx_packets =
++		MLX5_GET_CTR(out, received_eth_unicast.packets) +
++		MLX5_GET_CTR(out, received_eth_multicast.packets) +
++		MLX5_GET_CTR(out, received_eth_broadcast.packets);
++
++	vf_stats->rx_bytes =
++		MLX5_GET_CTR(out, received_eth_unicast.octets) +
++		MLX5_GET_CTR(out, received_eth_multicast.octets) +
++		MLX5_GET_CTR(out, received_eth_broadcast.octets);
++
++	vf_stats->tx_packets =
++		MLX5_GET_CTR(out, transmitted_eth_unicast.packets) +
++		MLX5_GET_CTR(out, transmitted_eth_multicast.packets) +
++		MLX5_GET_CTR(out, transmitted_eth_broadcast.packets);
++
++	vf_stats->tx_bytes =
++		MLX5_GET_CTR(out, transmitted_eth_unicast.octets) +
++		MLX5_GET_CTR(out, transmitted_eth_multicast.octets) +
++		MLX5_GET_CTR(out, transmitted_eth_broadcast.octets);
++
++	vf_stats->multicast =
++		MLX5_GET_CTR(out, received_eth_multicast.packets);
++
++	vf_stats->broadcast =
++		MLX5_GET_CTR(out, received_eth_broadcast.packets);
++
++free_out:
++	kvfree(out);
++	return err;
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index f85d5b8..02ff3ea 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -153,5 +153,8 @@ int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
+ 				int vport, u16 vlan, u8 qos);
+ int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
+ 				  int vport, struct ifla_vf_info *ivi);
++int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
++				 int vport,
++				 struct ifla_vf_stats *vf_stats);
  
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 90a4cb6..bce9cae 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -1138,6 +1138,7 @@ enum mlx5_cap_type {
- 	MLX5_CAP_IPOIB_OFFLOADS,
- 	MLX5_CAP_EOIB_OFFLOADS,
- 	MLX5_CAP_FLOW_TABLE,
-+	MLX5_CAP_ESWITCH_FLOW_TABLE,
- 	/* NUM OF CAP Types */
- 	MLX5_CAP_NUM
- };
-@@ -1175,6 +1176,20 @@ enum mlx5_cap_type {
- #define MLX5_CAP_FLOWTABLE_MAX(mdev, cap) \
- 	MLX5_GET(flow_table_nic_cap, mdev->hca_caps_max[MLX5_CAP_FLOW_TABLE], cap)
- 
-+#define MLX5_CAP_ESW_FLOWTABLE(mdev, cap) \
-+	MLX5_GET(flow_table_eswitch_cap, \
-+		 mdev->hca_caps_cur[MLX5_CAP_ESWITCH_FLOW_TABLE], cap)
-+
-+#define MLX5_CAP_ESW_FLOWTABLE_MAX(mdev, cap) \
-+	MLX5_GET(flow_table_eswitch_cap, \
-+		 mdev->hca_caps_max[MLX5_CAP_ESWITCH_FLOW_TABLE], cap)
-+
-+#define MLX5_CAP_ESW_FLOWTABLE_FDB(mdev, cap) \
-+	MLX5_CAP_ESW_FLOWTABLE(mdev, flow_table_properties_nic_esw_fdb.cap)
-+
-+#define MLX5_CAP_ESW_FLOWTABLE_FDB_MAX(mdev, cap) \
-+	MLX5_CAP_ESW_FLOWTABLE_MAX(mdev, flow_table_properties_nic_esw_fdb.cap)
-+
- #define MLX5_CAP_ODP(mdev, cap)\
- 	MLX5_GET(odp_cap, mdev->hca_caps_cur[MLX5_CAP_ODP], cap)
- 
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 39487d0..ae7c08a 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -447,6 +447,18 @@ struct mlx5_ifc_flow_table_nic_cap_bits {
- 	u8         reserved_3[0x7200];
- };
- 
-+struct mlx5_ifc_flow_table_eswitch_cap_bits {
-+	u8     reserved_0[0x200];
-+
-+	struct mlx5_ifc_flow_table_prop_layout_bits flow_table_properties_nic_esw_fdb;
-+
-+	struct mlx5_ifc_flow_table_prop_layout_bits flow_table_properties_esw_acl_ingress;
-+
-+	struct mlx5_ifc_flow_table_prop_layout_bits flow_table_properties_esw_acl_egress;
-+
-+	u8      reserved_1[0x7800];
-+};
-+
- struct mlx5_ifc_per_protocol_networking_offload_caps_bits {
- 	u8         csum_cap[0x1];
- 	u8         vlan_cap[0x1];
-@@ -1846,6 +1858,7 @@ union mlx5_ifc_hca_cap_union_bits {
- 	struct mlx5_ifc_roce_cap_bits roce_cap;
- 	struct mlx5_ifc_per_protocol_networking_offload_caps_bits per_protocol_networking_offload_caps;
- 	struct mlx5_ifc_flow_table_nic_cap_bits flow_table_nic_cap;
-+	struct mlx5_ifc_flow_table_eswitch_cap_bits flow_table_eswitch_cap;
- 	u8         reserved_0[0x8000];
- };
- 
+ #endif /* __MLX5_ESWITCH_H__ */
 -- 
 2.3.7
