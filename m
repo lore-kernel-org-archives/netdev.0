@@ -1,82 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] ipv6: kill sk_dst_lock
-Date: Mon, 30 Nov 2015 18:01:52 -0800
-Message-ID: <1448935312.25582.6.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+Y=35aC5DK7MQaDF6eviKcXik2S9caTLw7FAp0L0CXdsg@mail.gmail.com>
-	 <1448730683.24696.94.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1448731434.24696.97.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1448854142.24696.109.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1448901315.24696.127.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <565CFB87.9060402@miraclelinux.com>
+From: Duan Andy <fugang.duan@freescale.com>
+Subject: RE: [PATCH 1/3] net: fec: Remove redundant checks for NULL clk
+ pointer
+Date: Tue, 1 Dec 2015 02:04:39 +0000
+Message-ID: <BN3PR0301MB1219B4C39D2D9202A5C96349F50F0@BN3PR0301MB1219.namprd03.prod.outlook.com>
+References: <1448883168-30742-1-git-send-email-LW@KARO-electronics.de>
+ <1448883168-30742-2-git-send-email-LW@KARO-electronics.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: =?utf-8?B?TG90aGFyIFdhw59tYW5u?= <LW@KARO-electronics.de>,
+	Andrew Lunn <andrew@lunn.ch>,
 	"David S. Miller" <davem@davemloft.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:32999 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755487AbbLACBy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 21:01:54 -0500
-Received: by pabfh17 with SMTP id fh17so209958650pab.0
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 18:01:54 -0800 (PST)
-In-Reply-To: <565CFB87.9060402@miraclelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Fabio Estevam <Fabio.Estevam@freescale.com>,
+	Greg Ungerer <gerg@uclinux.org>,
+	Kevin Hao <haokexin@gmail.com>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	Philippe Reynes <tremyfr@gmail.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	"Stefan Agner" <stefan@agner.ch>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"Uwe Kleine-K?nig" <u.kleine-koenig@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448883168-30742-2-git-send-email-LW@KARO-electronics.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-12-01 at 10:44 +0900, YOSHIFUJI Hideaki wrote:
-> Hi,
-> 
-> Eric Dumazet wrote:
-> > diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-> > index 2bfb2ad2fab1..877f682989b8 100644
-> > --- a/include/net/ip6_route.h
-> > +++ b/include/net/ip6_route.h
-> > @@ -133,27 +133,18 @@ void rt6_clean_tohost(struct net *net, struct in6_addr *gateway);
-> >  /*
-> >   *	Store a destination cache entry in a socket
-> >   */
-> > -static inline void __ip6_dst_store(struct sock *sk, struct dst_entry *dst,
-> > -				   const struct in6_addr *daddr,
-> > -				   const struct in6_addr *saddr)
-> > +static inline void ip6_dst_store(struct sock *sk, struct dst_entry *dst,
-> > +				 const struct in6_addr *daddr,
-> > +				 const struct in6_addr *saddr)
-> >  {
-> >  	struct ipv6_pinfo *np = inet6_sk(sk);
-> > -	struct rt6_info *rt = (struct rt6_info *) dst;
-> >  
-> > +	np->dst_cookie = rt6_get_cookie((struct rt6_info *)dst);
-> >  	sk_setup_caps(sk, dst);
-> >  	np->daddr_cache = daddr;
-> >  #ifdef CONFIG_IPV6_SUBTREES
-> >  	np->saddr_cache = saddr;
-> >  #endif
-> > -	np->dst_cookie = rt6_get_cookie(rt);
-> > -}
-> > -
-> 
-> I believe you do not have to change function inside, right?
-
-I knew I forgot something in my changelog :
-
-ip6_dst_store() can be called from process context.
-
-As soon as the dst is installed in sk->sk_dst_cache, dst can be freed
-from another cpu doing a concurrent ip6_dst_store()
-
-Doing the dst dereference before doing the install is safer.
-
-Otherwise, we need to add rcu_read_lock() extra sections.
-
-I believe we have other bugs like this one (deref dst after
-sk_setup_caps() calls) that need an audit.
-
-But I prefer making smaller patches addressing one problem at a time...
-
-Thanks !
+RnJvbTogTG90aGFyIFdhw59tYW5uIDxMV0BLQVJPLWVsZWN0cm9uaWNzLmRlPiBTZW50OiBNb25k
+YXksIE5vdmVtYmVyIDMwLCAyMDE1IDc6MzMgUE0NCj4gVG86IEFuZHJldyBMdW5uOyBEYXZpZCBT
+LiBNaWxsZXI7IEVzdGV2YW0gRmFiaW8tUjQ5NDk2OyBHcmVnIFVuZ2VyZXI7DQo+IEtldmluIEhh
+bzsgTG90aGFyIFdhw59tYW5uOyBMdWNhcyBTdGFjaDsgRHVhbiBGdWdhbmctQjM4NjExOyBQaGls
+aXBwZQ0KPiBSZXluZXM7IFJpY2hhcmQgQ29jaHJhbjsgUnVzc2VsbCBLaW5nOyBTYXNjaGEgSGF1
+ZXI7IFN0ZWZhbiBBZ25lcjsgbGludXgtDQo+IGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRl
+dkB2Z2VyLmtlcm5lbC5vcmc7IEplZmYgS2lyc2hlcjsgVXdlIEtsZWluZS0NCj4gS8O2bmlnDQo+
+IFN1YmplY3Q6IFtQQVRDSCAxLzNdIG5ldDogZmVjOiBSZW1vdmUgcmVkdW5kYW50IGNoZWNrcyBm
+b3IgTlVMTCBjbGsNCj4gcG9pbnRlcg0KPiANCj4gTlVMTCBpcyBhIHZhbGlkIGFyZ3VtZW50IHRv
+IGNsa19lbmFibGUoKS9jbGtfZGlzYWJsZSgpLiBSZW1vdmUgcmVkdW5kYW50DQo+IGNoZWNrcyBi
+ZWZvcmUgY2FsbGluZyB0aG9zZSBmdW5jdGlvbnMuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBMb3Ro
+YXIgV2HDn21hbm4gPExXQEtBUk8tZWxlY3Ryb25pY3MuZGU+DQo+IC0tLQ0KPiAgZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMgfCAyMyArKysrKysrKystLS0tLS0tLS0t
+LS0tLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDkgaW5zZXJ0aW9ucygrKSwgMTQgZGVsZXRpb25zKC0p
+DQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19t
+YWluLmMNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYw0KPiBp
+bmRleCBkMjMyOGZjLi5lMTdkNzRmIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9mcmVlc2NhbGUvZmVjX21haW4uYw0KPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
+c2NhbGUvZmVjX21haW4uYw0KPiBAQCAtMTg3MywzNSArMTg3MywzMCBAQCBzdGF0aWMgaW50IGZl
+Y19lbmV0X2Nsa19lbmFibGUoc3RydWN0IG5ldF9kZXZpY2UNCj4gKm5kZXYsIGJvb2wgZW5hYmxl
+KQ0KPiAgCQkJfQ0KPiAgCQkJbXV0ZXhfdW5sb2NrKCZmZXAtPnB0cF9jbGtfbXV0ZXgpOw0KPiAg
+CQl9DQo+IC0JCWlmIChmZXAtPmNsa19yZWYpIHsNCj4gLQkJCXJldCA9IGNsa19wcmVwYXJlX2Vu
+YWJsZShmZXAtPmNsa19yZWYpOw0KPiAtCQkJaWYgKHJldCkNCj4gLQkJCQlnb3RvIGZhaWxlZF9j
+bGtfcmVmOw0KPiAtCQl9DQo+ICsNCj4gKwkJcmV0ID0gY2xrX3ByZXBhcmVfZW5hYmxlKGZlcC0+
+Y2xrX3JlZik7DQo+ICsJCWlmIChyZXQpDQo+ICsJCQlnb3RvIGZhaWxlZF9jbGtfcmVmOw0KDQpJ
+ZiB5b3Ugd2FudCB0byBjbGVhbiB1cCB0aGUgY29kZSwgcGxzIGFsc28gcmVtb3ZlICJmZXAtPmNs
+a19lbmV0X291dCIgY2hlY2sgaW4gdGhpcyBicmFjZS4NCg0KDQo+ICAJfSBlbHNlIHsNCj4gIAkJ
+Y2xrX2Rpc2FibGVfdW5wcmVwYXJlKGZlcC0+Y2xrX2FoYik7DQo+IC0JCWlmIChmZXAtPmNsa19l
+bmV0X291dCkNCj4gLQkJCWNsa19kaXNhYmxlX3VucHJlcGFyZShmZXAtPmNsa19lbmV0X291dCk7
+DQo+ICsJCWNsa19kaXNhYmxlX3VucHJlcGFyZShmZXAtPmNsa19lbmV0X291dCk7DQo+ICAJCWlm
+IChmZXAtPmNsa19wdHApIHsNCj4gIAkJCW11dGV4X2xvY2soJmZlcC0+cHRwX2Nsa19tdXRleCk7
+DQo+ICAJCQljbGtfZGlzYWJsZV91bnByZXBhcmUoZmVwLT5jbGtfcHRwKTsNCj4gIAkJCWZlcC0+
+cHRwX2Nsa19vbiA9IGZhbHNlOw0KPiAgCQkJbXV0ZXhfdW5sb2NrKCZmZXAtPnB0cF9jbGtfbXV0
+ZXgpOw0KPiAgCQl9DQo+IC0JCWlmIChmZXAtPmNsa19yZWYpDQo+IC0JCQljbGtfZGlzYWJsZV91
+bnByZXBhcmUoZmVwLT5jbGtfcmVmKTsNCj4gKwkJY2xrX2Rpc2FibGVfdW5wcmVwYXJlKGZlcC0+
+Y2xrX3JlZik7DQo+ICAJfQ0KPiANCj4gIAlyZXR1cm4gMDsNCj4gDQo+ICBmYWlsZWRfY2xrX3Jl
+ZjoNCj4gLQlpZiAoZmVwLT5jbGtfcmVmKQ0KPiAtCQljbGtfZGlzYWJsZV91bnByZXBhcmUoZmVw
+LT5jbGtfcmVmKTsNCj4gKwljbGtfZGlzYWJsZV91bnByZXBhcmUoZmVwLT5jbGtfcmVmKTsNCj4g
+IGZhaWxlZF9jbGtfcHRwOg0KPiAtCWlmIChmZXAtPmNsa19lbmV0X291dCkNCj4gLQkJY2xrX2Rp
+c2FibGVfdW5wcmVwYXJlKGZlcC0+Y2xrX2VuZXRfb3V0KTsNCj4gKwljbGtfZGlzYWJsZV91bnBy
+ZXBhcmUoZmVwLT5jbGtfZW5ldF9vdXQpOw0KPiAgZmFpbGVkX2Nsa19lbmV0X291dDoNCj4gLQkJ
+Y2xrX2Rpc2FibGVfdW5wcmVwYXJlKGZlcC0+Y2xrX2FoYik7DQo+ICsJY2xrX2Rpc2FibGVfdW5w
+cmVwYXJlKGZlcC0+Y2xrX2FoYik7DQo+IA0KPiAgCXJldHVybiByZXQ7DQo+ICB9DQo+IC0tDQo+
+IDIuMS40DQo=
