@@ -1,130 +1,82 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH v3 4/4] net: diag: Support destroying TCP sockets.
-Date: Tue,  1 Dec 2015 11:32:27 +0900
-Message-ID: <1448937147-38043-5-git-send-email-lorenzo@google.com>
-References: <CAHo-OoyN7OgvHSuXxjk7C4FitXhoWffOxY1wkQBWwi+nc013_w@mail.gmail.com>
- <1448937147-38043-1-git-send-email-lorenzo@google.com>
-Cc: davem@davemloft.net, hannes@stressinduktion.org,
-	eric.dumazet@gmail.com, ek@google.com, tom@herbertland.com,
-	zenczykowski@gmail.com, Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35750 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755689AbbLACcv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 21:32:51 -0500
-Received: by pacej9 with SMTP id ej9so204749807pac.2
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 18:32:51 -0800 (PST)
-In-Reply-To: <1448937147-38043-1-git-send-email-lorenzo@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v3 1/8] netfilter: Remove
+	IP_CT_NEW_REPLY definition.
+Date: Mon, 30 Nov 2015 18:46:03 -0800
+Message-ID: <D4DEBB90-00DC-4A83-B8A2-AE16DEE7F1D1@ovn.org>
+References: <1448496501-109561-1-git-send-email-jarno@ovn.org>
+ <1448496501-109561-2-git-send-email-jarno@ovn.org>
+ <20151126054100.GB21626@vergenet.net>
+ <391067B3-D60E-43BC-B669-2DD45924E5D8@ovn.org>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <391067B3-D60E-43BC-B669-2DD45924E5D8-LZ6Gd1LRuIk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-This implements SOCK_DESTROY for TCP sockets. It causes all
-blocking calls on the socket to fail fast with ECONNABORTED and
-causes a protocol close of the socket. It informs the other end
-of the connection by sending a RST, i.e., initiating a TCP ABORT
-as per RFC 793. ECONNABORTED was chosen for consistency with
-FreeBSD.
-
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
----
- net/ipv4/Kconfig    | 13 +++++++++++++
- net/ipv4/tcp_diag.c | 46 ++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 59 insertions(+)
-
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 416dfa0..31c4496 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -436,6 +436,19 @@ config INET_UDP_DIAG
- 	  Support for UDP socket monitoring interface used by the ss tool.
- 	  If unsure, say Y.
- 
-+config INET_DIAG_DESTROY
-+	bool "INET: allow privileged process to administratively close sockets"
-+	depends on INET_DIAG && (IPV6 || IPV6=n)
-+	default n
-+	---help---
-+	  Provides a SOCK_DESTROY operation that allows privileged processes
-+	  (e.g., a connection manager or a network administration tool such as
-+	  ss) to close sockets opened by other processes. Closing a socket in
-+	  this way interrupts any blocking read/writes/connect operations on
-+	  the socket and causes future socket calls to behave as if the socket
-+	  had been disconnected.
-+	  If unsure, say N.
-+
- menuconfig TCP_CONG_ADVANCED
- 	bool "TCP: advanced congestion control"
- 	---help---
-diff --git a/net/ipv4/tcp_diag.c b/net/ipv4/tcp_diag.c
-index b316040..31d3e0c 100644
---- a/net/ipv4/tcp_diag.c
-+++ b/net/ipv4/tcp_diag.c
-@@ -10,6 +10,7 @@
-  */
- 
- #include <linux/module.h>
-+#include <linux/net.h>
- #include <linux/inet_diag.h>
- 
- #include <linux/tcp.h>
-@@ -46,12 +47,57 @@ static int tcp_diag_dump_one(struct sk_buff *in_skb, const struct nlmsghdr *nlh,
- 	return inet_diag_dump_one_icsk(&tcp_hashinfo, in_skb, nlh, req);
- }
- 
-+#if IS_ENABLED(CONFIG_INET_DIAG_DESTROY)
-+static int tcp_diag_destroy(struct sk_buff *in_skb,
-+			    const struct inet_diag_req_v2 *req)
-+{
-+	struct sock *sk;
-+	struct net *net = sock_net(in_skb->sk);
-+
-+	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
-+		return -EPERM;
-+
-+	sk = inet_diag_find_one_icsk(net, &tcp_hashinfo, req);
-+	if (IS_ERR(sk))
-+		return PTR_ERR(sk);
-+
-+	if (!sk_fullsock(sk)) {
-+		sock_gen_put(sk);
-+		return -EOPNOTSUPP;
-+	}
-+
-+	/* Don't race with userspace socket closes such as tcp_close. */
-+	lock_sock(sk);
-+
-+	/* Don't race with BH socket closes such as inet_csk_listen_stop. */
-+	local_bh_disable();
-+	bh_lock_sock(sk);
-+
-+	if (!sock_flag(sk, SOCK_DEAD)) {
-+		smp_wmb();  /* Be consistent with tcp_reset */
-+		sk->sk_err = ECONNABORTED;
-+		sk->sk_error_report(sk);
-+		tcp_send_active_reset(sk, GFP_ATOMIC);
-+		tcp_done(sk);
-+	}
-+
-+	bh_unlock_sock(sk);
-+	local_bh_enable();
-+	release_sock(sk);
-+	sock_put(sk);
-+	return 0;
-+}
-+#endif
-+
- static const struct inet_diag_handler tcp_diag_handler = {
- 	.dump		 = tcp_diag_dump,
- 	.dump_one	 = tcp_diag_dump_one,
- 	.idiag_get_info	 = tcp_diag_get_info,
- 	.idiag_type	 = IPPROTO_TCP,
- 	.idiag_info_size = sizeof(struct tcp_info),
-+#if IS_ENABLED(CONFIG_INET_DIAG_DESTROY)
-+	.destroy	 = tcp_diag_destroy,
-+#endif
- };
- 
- static int __init tcp_diag_init(void)
--- 
-2.6.0.rc2.230.g3dd15c0
+Cj4gT24gTm92IDMwLCAyMDE1LCBhdCAxMDoxNiBBTSwgSmFybm8gUmFqYWhhbG1lIDxqYXJub0Bv
+dm4ub3JnPiB3cm90ZToKPiAKPiAKPj4gT24gTm92IDI1LCAyMDE1LCBhdCAyMTo0MSwgU2ltb24g
+SG9ybWFuIDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4+IAo+Pj4gT24gV2Vk
+LCBOb3YgMjUsIDIwMTUgYXQgMDQ6MDg6MTRQTSAtMDgwMCwgSmFybm8gUmFqYWhhbG1lIHdyb3Rl
+Ogo+Pj4gUmVtb3ZlIHRoZSBkZWZpbml0aW9uIG9mIElQX0NUX05FV19SRVBMWSBmcm9tIHRoZSBr
+ZXJuZWwgYXMgaXQgZG9lcwo+Pj4gbm90IG1ha2Ugc2Vuc2UuICBUaGlzIGFsbG93cyB0aGUgZGVm
+aW5pdGlvbiBvZiBJUF9DVF9OVU1CRVIgdG8gYmUKPj4+IHNpbXBsaWZpZWQgYXMgd2VsbC4KPj4+
+IAo+Pj4gU2lnbmVkLW9mZi1ieTogSmFybm8gUmFqYWhhbG1lIDxqYXJub0Bvdm4ub3JnPgo+PiAK
+Pj4gSSBoYXRlIHRvIGJlIHRoZSBiZWFyZXIgb2YgYmFkIG5ld3MgYnV0IGl0cyBub3QgY2xlYXIK
+Pj4gdG8gbWUgdGhhdCB0aGlzIGNoYW5nZSBkb2Vzbid0IGJyZWFrIHVzZXItc3BhY2UuCj4+IAo+
+IAo+IFRoZXNlIHNob3VsZCBiZSBubyBjaGFuZ2UgZm9yIHRoZSB1c2Vyc3BhY2UsIHVubGVzcyBf
+X0tFUk5FTF9fIGlzIGRlZmluZWQuCj4gCgpCdXQgdGhlcmUgYXJlIHR3byBzeW50YXggZXJyb3Jz
+IGluIHRoZXJlIHdoZW4gY29tcGlsaW5nIGZyb20gdXNlcnNwYWNlLCBhcyBEYW5pZWxlIGp1c3Qg
+dG9sZCBtZSBvZmZsaW5lLiBJ4oCZbGwgcmVzcGluIHRoZSBzZXJpZXMuLgoKICBKYXJubwoKCj4g
+QWxzbywgdGhpcyBpcyBhIG1pbm9yIGNsZWFuLXVwIG9ubHksIHNvIEkgaGF2ZSBubyBwcm9ibGVt
+IGRyb3BwaW5nIHRoaXMgcGF0Y2gsIGlzIG5lZWQgYmUuCj4gCj4gIEphcm5vCj4gCj4+PiAtLS0K
+Pj4+IGluY2x1ZGUvdWFwaS9saW51eC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX2NvbW1vbi5oIHwg
+MTIgKysrKysrKysrLS0tCj4+PiBuZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgICAgICAgICAg
+ICAgICAgICAgICAgICB8ICAyIC0tCj4+PiAyIGZpbGVzIGNoYW5nZWQsIDkgaW5zZXJ0aW9ucygr
+KSwgNSBkZWxldGlvbnMoLSkKPj4+IAo+Pj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvdWFwaS9saW51
+eC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX2NvbW1vbi5oIGIvaW5jbHVkZS91YXBpL2xpbnV4L25l
+dGZpbHRlci9uZl9jb25udHJhY2tfY29tbW9uLmgKPj4+IGluZGV4IDMxOWY0NzEuLjJmMDY3Y2Yg
+MTAwNjQ0Cj4+PiAtLS0gYS9pbmNsdWRlL3VhcGkvbGludXgvbmV0ZmlsdGVyL25mX2Nvbm50cmFj
+a19jb21tb24uaAo+Pj4gKysrIGIvaW5jbHVkZS91YXBpL2xpbnV4L25ldGZpbHRlci9uZl9jb25u
+dHJhY2tfY29tbW9uLmgKPj4+IEBAIC0yMCw5ICsyMCwxNSBAQCBlbnVtIGlwX2Nvbm50cmFja19p
+bmZvIHsKPj4+IAo+Pj4gICBJUF9DVF9FU1RBQkxJU0hFRF9SRVBMWSA9IElQX0NUX0VTVEFCTElT
+SEVEICsgSVBfQ1RfSVNfUkVQTFksCj4+PiAgIElQX0NUX1JFTEFURURfUkVQTFkgPSBJUF9DVF9S
+RUxBVEVEICsgSVBfQ1RfSVNfUkVQTFksCj4+PiAtICAgIElQX0NUX05FV19SRVBMWSA9IElQX0NU
+X05FVyArIElQX0NUX0lTX1JFUExZLCAgICAKPj4+IC0gICAgLyogTnVtYmVyIG9mIGRpc3RpbmN0
+IElQX0NUIHR5cGVzIChubyBORVcgaW4gcmVwbHkgZGlybikuICovCj4+PiAtICAgIElQX0NUX05V
+TUJFUiA9IElQX0NUX0lTX1JFUExZICogMiAtIDEKPj4+ICsgICAgLyogTm8gTkVXIGluIHJlcGx5
+IGRpcmVjdGlvbi4gKi8KPj4+ICsKPj4+ICsgICAgLyogTnVtYmVyIG9mIGRpc3RpbmN0IElQX0NU
+IHR5cGVzLiAqLwo+Pj4gKyAgICBJUF9DVF9OVU1CRVIKPj4+ICsKPj4+ICsgICAgLyogb25seSBm
+b3IgdXNlcnNwYWNlIGNvbXBhdGliaWxpdHkgKi8KPj4+ICsjaWZuZGVmIF9fS0VSTkVMX18KPj4+
+ICsgICAgSVBfQ1RfTkVXX1JFUExZID0gSVBfQ1RfTlVNQkVSOwo+Pj4gKyNlbmRpZgo+Pj4gfTsK
+Pj4+IAo+Pj4gI2RlZmluZSBORl9DVF9TVEFURV9JTlZBTElEX0JJVCAgICAgICAgICAgICgxIDw8
+IDApCj4+PiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jIGIvbmV0L29w
+ZW52c3dpdGNoL2Nvbm50cmFjay5jCj4+PiBpbmRleCBjMmNjMTExLi5hMjhhODE5IDEwMDY0NAo+
+Pj4gLS0tIGEvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jCj4+PiArKysgYi9uZXQvb3BlbnZz
+d2l0Y2gvY29ubnRyYWNrLmMKPj4+IEBAIC03Myw3ICs3Myw2IEBAIHN0YXRpYyB1OCBvdnNfY3Rf
+Z2V0X3N0YXRlKGVudW0gaXBfY29ubnRyYWNrX2luZm8gY3RpbmZvKQo+Pj4gICBzd2l0Y2ggKGN0
+aW5mbykgewo+Pj4gICBjYXNlIElQX0NUX0VTVEFCTElTSEVEX1JFUExZOgo+Pj4gICBjYXNlIElQ
+X0NUX1JFTEFURURfUkVQTFk6Cj4+PiAtICAgIGNhc2UgSVBfQ1RfTkVXX1JFUExZOgo+Pj4gICAg
+ICAgY3Rfc3RhdGUgfD0gT1ZTX0NTX0ZfUkVQTFlfRElSOwo+Pj4gICAgICAgYnJlYWs7Cj4+PiAg
+IGRlZmF1bHQ6Cj4+PiBAQCAtOTAsNyArODksNiBAQCBzdGF0aWMgdTggb3ZzX2N0X2dldF9zdGF0
+ZShlbnVtIGlwX2Nvbm50cmFja19pbmZvIGN0aW5mbykKPj4+ICAgICAgIGN0X3N0YXRlIHw9IE9W
+U19DU19GX1JFTEFURUQ7Cj4+PiAgICAgICBicmVhazsKPj4+ICAgY2FzZSBJUF9DVF9ORVc6Cj4+
+PiAtICAgIGNhc2UgSVBfQ1RfTkVXX1JFUExZOgo+Pj4gICAgICAgY3Rfc3RhdGUgfD0gT1ZTX0NT
+X0ZfTkVXOwo+Pj4gICAgICAgYnJlYWs7Cj4+PiAgIGRlZmF1bHQ6Cj4+PiAtLSAKPj4+IDIuMS40
+Cj4+PiAKPj4+IF9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+Cj4+PiBkZXYgbWFpbGluZyBsaXN0Cj4+PiBkZXZAb3BlbnZzd2l0Y2gub3JnCj4+PiBodHRwOi8v
+b3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2CgpfX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3
+aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
