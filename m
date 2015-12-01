@@ -1,44 +1,161 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC] Stable interface index option
-Date: Tue, 01 Dec 2015 17:02:23 +0100
-Message-ID: <1448985743.3387258.454809153.36540D70@webmail.messagingengine.com>
-References: <20151201120420.GT12404@principal.rfc2324.org>
- <20151201153441.GA17843@oracle.com>
- <20151201155052.GA14984@principal.rfc2324.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: Maximilian Wilhelm <max@rfc2324.org>, netdev@vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 00/18] Introducing ConnectX-4 Ethernet SRIOV
+Date: Tue,  1 Dec 2015 18:03:07 +0200
+Message-ID: <1448985805-25422-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:47538 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754703AbbLAQCY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 11:02:24 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 01FE321042
-	for <netdev@vger.kernel.org>; Tue,  1 Dec 2015 11:02:23 -0500 (EST)
-In-Reply-To: <20151201155052.GA14984@principal.rfc2324.org>
+Received: from [193.47.165.129] ([193.47.165.129]:34301 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751085AbbLAQDv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2015 11:03:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 1, 2015, at 16:50, Maximilian Wilhelm wrote:
-> > I'm not sure I understand how this would work- are we going to 
-> > pin down the ifindex for some subset of interfaces?
-> 
-> I'm not sure what your idea is, but I guess we might mean the same
-> thing:
-> 
-> What I have in mind is that the user can supply a list of (ifname ->
-> ifindex) entries via a sysfs/procfs interface and if such a list is
-> present, the kernel will search the list for every ifname which is
-> registered and check if there is an entry. If there is, the ifindex
-> for this entry is used. If there is no entry found for the given
-> ifname, the usual algorithm is used (therefore inherently providing
-> backward compatibility).
+Hi Dave,
 
-Sorry to ask because I don't like this feature at all. There was a lot
-of work on stable interface names. Why do you need stable ifindexes,
-which were never meant to be stable for a longer amount of time?
+This patchset introduces the support of Ethernet SRIOV in ConnectX-4 
+family of 100G Ethernet NICs.
 
-Bye,
-Hannes
+Some features are still missing, but all the basic SRIOV functionalities
+are there already.
+
+Basic Introduction:
+ConnectX-4 HW architecture provides two kinds of underlying HW switches.
+
+MPFS (Multi Physical Function Switch) or L2 Table in Software terms:
+
+The HCA has one MPFS switch per physical port, this switch is responsible
+of forwarding Unicast traffic to the various overlying Physical Functions (PFs). 
+Multicast traffic is flooded amongst all the PFs, Each PF can request to
+forward a unicast MAC to its E-Switch Uplink vport (which we will cover later) 
+through SET_L2_TABLE_ENTRY HW command.
+
+MPFS has five ports, four are connected to PFs (one for each) and one is connected 
+directly to the Physical Port (Physical Link).
+
+E-Switch (Ethernet Switch): 
+
+The HCA has one per physical function. The main responsibility of this component is 
+to forward Unicast/Multicast and vlan tagged/untagged traffic to the various 
+Virtual Functions (VFs) allocated by the PF. Unlike MPFS, the PF needs to explicitly 
+create the E-Switch FDB table, Which is a HW flow table managed by the PF driver 
+whenever vport_group_manager capability bit is set for this PF.
+
+E-Switch has Virtual Ports (vports) entities as its ports, vport0 and uplink vport
+are special kind of vports that represents PF vport (vport0) and uplink vport which
+is connected to the MPFS switch (if exists) as the PF external link.
+vport1..vportN represent VF0..VF(N-1) egress/ingress ports.
+
+E-Switch FDB contains forwarding rules such as:
+        UC MAC0 -> vport0(PF).
+        UC MAC1 -> vport1.
+        UC MAC2 -> vport2.
+        MC MACX -> vport0, vport2, Uplink.
+        MC MACY -> vport1, Uplink.
+    
+    For unmatched traffic FDB has the following default rules:
+        Unmatched Traffic (src vport != Uplink) -> Uplink.
+        Unmatched Traffic (src vport == Uplink) -> vport0(PF).
+
+NIC VPort context: 
+Each NIC (VF/PF) has its own vport context which will be used to store the current
+NIC vport context (UC/MC and vlan lists) and other NIC properties such as MTU, promisc 
+mode, etc.. NIC (VF/PF) driver is responsible of constantly updating this context.
+
+FDB rules population:
+Each NIC vport (VF/PF) will notify E-Switch manager of its UC/MC vport
+context changes via modify vport context command, which will be
+translated to an event that will be handled by E-Switch manager (PF)
+which will update FDB table accordingly.
+
+Both PF and VF use the same driver and submit commands directly to the firmware.
+The PF sees the vport_group_manager capability bit and as such runs the code
+to populate the embedded switches as explained above.
+
+The patch goes as follows:
+
+Patches 1-2 introduces the basic PCI SRIOV functionalities and the support of
+Connectx4 to enable specific VFs via enable/disable HCA commands. These two
+patches will be also in use later for the IB SRIOV flow.
+
+Patches 3-8 Introduces the basic E-Switch capabilities and commands to be used later by
+VF to modify and update its NIC vport context, and by PF (E-Switch Manager) driver to
+Query the VF NIC context and acts accordingly.
+
+Patches 9-10 Provide the needed functionality of a NIC driver VF/PF to support SRIOV,
+mainly vport context update support.
+
+Patch 11 ("net/mlx5: Introducing E-Switch and l2 table"), Introduces the basic
+E-Switch support and infrastructure to read vport context events and to update
+MPFS L2 Table of the UC mac addresses request by the PF.
+
+Patches 12-18 Introduces SRIOV enablemenet and E-Switch FDB table management
+It adds the Basic E-Swtich public API to set and get sriov properties to be used
+in PF netdev sriov ndos.
+
+Patchset was applied ontop of commit 3f8c0f7 "gianfar: use of_property_read_bool()"
+
+Saeed, Eli and Or.
+
+changes from V0, addressed feedback from Alex Duyck:
+ - patch 09, remove the loop to seek the device address
+ - patch 09, avoid using array as returned value from helper function
+ - patch 10, fix possible buffer over-run
+
+changes from V1, addressed feedback from and Julia Lawall and kbuild test robot
+ - patch 11 check the right variable for allocation failure
+ - patch 18 eliminated unneeded semicolon
+
+Eli Cohen (2):
+  net/mlx5_core: Modify enable/disable hca functions
+  net/mlx5_core: Add base sriov support
+
+Saeed Mahameed (16):
+  net/mlx5: Add HW capabilities and structs for SR-IOV E-Switch
+  net/mlx5: Update access functions to Query/Modify vport MAC address
+  net/mlx5: Introduce access functions to modify/query vport mac lists
+  net/mlx5: Introduce access functions to modify/query vport state
+  net/mlx5: Introduce access functions to modify/query vport promisc
+    mode
+  net/mlx5: Introduce access functions to modify/query vport vlans
+  net/mlx5e: Write UC/MC list and promisc mode into vport context
+  net/mlx5e: Write vlan list into vport context
+  net/mlx5: Introducing E-Switch and l2 table
+  net/mlx5: E-Switch, Introduce FDB hardware capabilities
+  net/mlx5: E-Switch, Add SR-IOV (FDB) support
+  net/mlx5: E-Switch, Introduce Vport administration functions
+  net/mlx5: E-Switch, Introduce HCA cap and E-Switch vport context
+  net/mlx5: E-Switch, Introduce set vport vlan (VST mode)
+  net/mlx5: E-Switch, Introduce get vf statistics
+  net/mlx5e: Add support for SR-IOV ndos
+
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |    1 +
+ .../ethernet/mellanox/mlx5/core/en_flow_table.c    |  139 +++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   88 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |   13 +
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  | 1282 ++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  160 +++
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c       |   24 +
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |   99 +-
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |    5 +
+ .../net/ethernet/mellanox/mlx5/core/pagealloc.c    |   38 +
+ drivers/net/ethernet/mellanox/mlx5/core/sriov.c    |  233 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c    |  435 ++++++-
+ include/linux/mlx5/device.h                        |   44 +
+ include/linux/mlx5/driver.h                        |   28 +
+ include/linux/mlx5/flow_table.h                    |    9 +
+ include/linux/mlx5/mlx5_ifc.h                      |  174 ++-
+ include/linux/mlx5/vport.h                         |   37 +-
+ 18 files changed, 2742 insertions(+), 71 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/sriov.c
+
+-- 
+2.3.7
