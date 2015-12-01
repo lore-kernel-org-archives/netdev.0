@@ -1,74 +1,85 @@
-From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [RFCv3 bluetooth-next 3/4] ipv6: add ipv6_addr_prefix_copy
-Date: Tue, 01 Dec 2015 11:56:26 +0100
-Message-ID: <1448967386.3315997.454536553.3B344491@webmail.messagingengine.com>
-References: <1448796882-316-1-git-send-email-alex.aring@gmail.com>
- <1448796882-316-4-git-send-email-alex.aring@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: TUN interfaces loopback
+Date: Tue, 01 Dec 2015 12:02:15 +0100
+Message-ID: <1448967735.3317024.454539225.4F16ACA3@webmail.messagingengine.com>
+References: <1448470693.7801.41.camel@mindbit.ro>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, lukasz.duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org,
-	martin.gergeleit-6wGqcYweBVc@public.gmane.org,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1448796882-316-4-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Radu Rendec <radu.rendec@mindbit.ro>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:41618 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752314AbbLALCh convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2015 06:02:37 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id BDBA621153
+	for <netdev@vger.kernel.org>; Tue,  1 Dec 2015 06:02:16 -0500 (EST)
+In-Reply-To: <1448470693.7801.41.camel@mindbit.ro>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
+On Wed, Nov 25, 2015, at 17:58, Radu Rendec wrote:
+> Disclaimer: I know this is a *development* list, but I feel the answe=
+r
+> lies deep down in the ipv4 routing code, so it's more likely that I
+> find help here.
+>=20
+> That being said, I have two TUN interfaces that are "cross-connected"
+> in user space (i.e. whatever is read on the socket corresponding to
+> either interface is written to the socket of the other interface).
+>=20
+> The problem: if I assign IPv4 addresses to both TUN interfaces, local
+> traffic to either address flows through the loopback interface. Getti=
+ng
+> packets to be routed through the TUN interfaces is easy. The real
+> challenge is to get packets to be accepted/processed as input packets
+> when they pop out of the opposite TUN interface.
 
-On Sun, Nov 29, 2015, at 12:34, Alexander Aring wrote:
-> This patch adds a static inline function ipv6_addr_prefix_copy which
-> copies a ipv6 address prefix(argument pfx) into the ipv6 address prefix.
-> The prefix len is given by plen as bits. This function mainly based on
-> ipv6_addr_prefix which copies one address prefix from address into a new
-> ipv6 address destination and zero all other address bits.
-> 
-> The difference is that ipv6_addr_prefix_copy don't get a prefix from an
-> ipv6 address, it sets a prefix to an ipv6 address with keeping other
-> address bits. The use case is for context based address compression
-> inside 6LoWPAN IPHC header which keeping ipv6 prefixes inside a context
-> table to lookup address-bits without sending them.
-> 
-> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
-> Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-> Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-> Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  include/net/ipv6.h | 15 +++++++++++++++
->  1 file changed, 15 insertions(+)
-> 
-> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> index e1a10b0..cd3881e6 100644
-> --- a/include/net/ipv6.h
-> +++ b/include/net/ipv6.h
-> @@ -382,6 +382,21 @@ static inline void ipv6_addr_prefix(struct in6_addr
-> *pfx,
->  		pfx->s6_addr[o] = addr->s6_addr[o] & (0xff00 >> b);
->  }
->  
-> +static inline void ipv6_addr_prefix_copy(struct in6_addr *addr,
-> +                                        const struct in6_addr *pfx,
-> +                                        int plen)
-> +{
-> +       /* caller must guarantee 0 <= plen <= 128 */
-> +       int o = plen >> 3,
-> +           b = plen & 0x7;
-> +
-> +       memcpy(addr->s6_addr, pfx, o);
-> +       if (b != 0) {
-> +               addr->s6_addr[o] &= ~(0xff00 >> b);
-> +               addr->s6_addr[o] |= (pfx->s6_addr[o] & (0xff00 >> b));
-> +       }
-> +}
-> +
+Why do you require them to be marked as "input" packets?
 
-Acked-by: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+> I tracked down the problem to=C2=A0ip_route_input_slow() in=C2=A0net/=
+ipv4/route.c
+>=20
+> What I tried so far:
+>=20
+> 1. Remove the implicit routes from the local table. This apparently
+> causes packets to be silently dropped by=C2=A0ip_route_input_slow(), =
+since
+> it looks for a corresponding route and only delivers packets locally =
+if
+> a local route is found.
+>=20
+> 2. Keep implicit routes in the local table, change the priority of th=
+e
+> "lookup local" ip rule, mark *output* packets with iptables and add a
+> higher priority rule to lookup the main table for marked packets.
+>=20
+> By doing that, the main table is looked up on the egress path and
+> packets are routed through the TUN interface. When packets pop out of
+> the opposite TUN interface, they are no longer marked (because they a=
+re
+> actually different packets), so ingress routing correctly looks up th=
+e
+> local table.
+>=20
+> The next problem is that packets are seen as "martians" and dropped,
+> most probably because of=C2=A0__fib_validate_source() failing due to =
+the
+> fact that the input interface is not the expected one.
+>=20
+> This is where I stopped. Any idea or help would be highly appreciated=
+=2E
+> Please CC my private address (I am not subscribed to the list). Thank=
+s
+> in advance!
+
+Have you tried ip route add local-ip-addr/32 dev tun0 and handle arp on
+the outside interfaces with arp proxying or other means (routing
+protocols)?
+
+Thanks,
+Hannes
