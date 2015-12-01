@@ -1,310 +1,101 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 25/26] mlxsw: spectrum: Implement FDB add/remove/dump for LAG
-Date: Tue,  1 Dec 2015 14:49:03 +0100
-Message-ID: <1448977744-17930-26-git-send-email-jiri@resnulli.us>
-References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 00/26] bonding/team offload + mlxsw implementation
+Date: Tue,  1 Dec 2015 14:48:38 +0100
+Message-ID: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:38110 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756333AbbLANtj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 08:49:39 -0500
-Received: by wmec201 with SMTP id c201so14244376wme.1
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 05:49:38 -0800 (PST)
-In-Reply-To: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:33840 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754886AbbLANtI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 08:49:08 -0500
+Received: by wmvv187 with SMTP id v187so207528879wmv.1
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 05:49:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Implement FDB offloading for lagged ports, including learning LAG FDB
-entries, adding/removing static FDB entries and dumping existing LAG FDB
-entries.
+This patchset introduces needed infrastructure for link aggregation
+offload - for both team and bonding. It also implements the offload
+in mlxsw driver.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 182 +++++++++++++++++----
- 1 file changed, 150 insertions(+), 32 deletions(-)
+Particulary, this patchset introduces possibility for upper driver
+(bond/team/bridge/..) to pass type-specific info down to notifier listeners.
+Info is passed along with NETDEV_CHANGEUPPER/NETDEV_PRECHANGEUPPER
+notifiers. Listeners (drivers of netdevs being enslaved) can react
+accordingly.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index f21e239..406dab2 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -490,32 +490,56 @@ static int mlxsw_sp_port_vlans_add(struct mlxsw_sp_port *mlxsw_sp_port,
- 					 untagged_flag, pvid_flag);
- }
- 
--static int mlxsw_sp_port_fdb_op(struct mlxsw_sp_port *mlxsw_sp_port,
--				const char *mac, u16 vid, bool adding,
--				bool dynamic)
-+static enum mlxsw_reg_sfd_rec_policy mlxsw_sp_sfd_rec_policy(bool dynamic)
- {
--	enum mlxsw_reg_sfd_rec_policy policy;
--	enum mlxsw_reg_sfd_op op;
-+	return dynamic ? MLXSW_REG_SFD_REC_POLICY_DYNAMIC_ENTRY_INGRESS :
-+			 MLXSW_REG_SFD_REC_POLICY_STATIC_ENTRY;
-+}
-+
-+static enum mlxsw_reg_sfd_op mlxsw_sp_sfd_op(bool adding)
-+{
-+	return adding ? MLXSW_REG_SFD_OP_WRITE_EDIT :
-+			MLXSW_REG_SFD_OP_WRITE_REMOVE;
-+}
-+
-+static int mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp_port *mlxsw_sp_port,
-+				   const char *mac, u16 vid, bool adding,
-+				   bool dynamic)
-+{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
- 	char *sfd_pl;
- 	int err;
- 
--	if (!vid)
--		vid = mlxsw_sp_port->pvid;
--
- 	sfd_pl = kmalloc(MLXSW_REG_SFD_LEN, GFP_KERNEL);
- 	if (!sfd_pl)
- 		return -ENOMEM;
- 
--	policy = dynamic ? MLXSW_REG_SFD_REC_POLICY_DYNAMIC_ENTRY_INGRESS :
--			   MLXSW_REG_SFD_REC_POLICY_STATIC_ENTRY;
--	op = adding ? MLXSW_REG_SFD_OP_WRITE_EDIT :
--		      MLXSW_REG_SFD_OP_WRITE_REMOVE;
--	mlxsw_reg_sfd_pack(sfd_pl, op, 0);
--	mlxsw_reg_sfd_uc_pack(sfd_pl, 0, policy,
-+	mlxsw_reg_sfd_pack(sfd_pl, mlxsw_sp_sfd_op(adding), 0);
-+	mlxsw_reg_sfd_uc_pack(sfd_pl, 0, mlxsw_sp_sfd_rec_policy(dynamic),
- 			      mac, vid, MLXSW_REG_SFD_REC_ACTION_NOP,
- 			      mlxsw_sp_port->local_port);
--	err = mlxsw_reg_write(mlxsw_sp_port->mlxsw_sp->core, MLXSW_REG(sfd),
--			      sfd_pl);
-+	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfd), sfd_pl);
-+	kfree(sfd_pl);
-+
-+	return err;
-+}
-+
-+static int mlxsw_sp_port_fdb_uc_lag_op(struct mlxsw_sp *mlxsw_sp, u16 lag_id,
-+				       const char *mac, u16 vid, bool adding,
-+				       bool dynamic)
-+{
-+	char *sfd_pl;
-+	int err;
-+
-+	sfd_pl = kmalloc(MLXSW_REG_SFD_LEN, GFP_KERNEL);
-+	if (!sfd_pl)
-+		return -ENOMEM;
-+
-+	mlxsw_reg_sfd_pack(sfd_pl, mlxsw_sp_sfd_op(adding), 0);
-+	mlxsw_reg_sfd_uc_lag_pack(sfd_pl, 0, mlxsw_sp_sfd_rec_policy(dynamic),
-+				  mac, vid, MLXSW_REG_SFD_REC_ACTION_NOP,
-+				  lag_id);
-+	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfd), sfd_pl);
- 	kfree(sfd_pl);
- 
- 	return err;
-@@ -526,11 +550,21 @@ mlxsw_sp_port_fdb_static_add(struct mlxsw_sp_port *mlxsw_sp_port,
- 			     const struct switchdev_obj_port_fdb *fdb,
- 			     struct switchdev_trans *trans)
- {
-+	u16 vid = fdb->vid;
-+
- 	if (switchdev_trans_ph_prepare(trans))
- 		return 0;
- 
--	return mlxsw_sp_port_fdb_op(mlxsw_sp_port, fdb->addr, fdb->vid,
--				    true, false);
-+	if (!vid)
-+		vid = mlxsw_sp_port->pvid;
-+
-+	if (!mlxsw_sp_port->lagged)
-+		return mlxsw_sp_port_fdb_uc_op(mlxsw_sp_port,
-+					       fdb->addr, vid, true, false);
-+	else
-+		return mlxsw_sp_port_fdb_uc_lag_op(mlxsw_sp_port->mlxsw_sp,
-+						   mlxsw_sp_port->lag_id,
-+						   fdb->addr, vid, true, false);
- }
- 
- static int mlxsw_sp_port_obj_add(struct net_device *dev,
-@@ -645,8 +679,15 @@ static int
- mlxsw_sp_port_fdb_static_del(struct mlxsw_sp_port *mlxsw_sp_port,
- 			     const struct switchdev_obj_port_fdb *fdb)
- {
--	return mlxsw_sp_port_fdb_op(mlxsw_sp_port, fdb->addr, fdb->vid,
--				    false, false);
-+	if (!mlxsw_sp_port->lagged)
-+		return mlxsw_sp_port_fdb_uc_op(mlxsw_sp_port,
-+					       fdb->addr, fdb->vid,
-+					       false, false);
-+	else
-+		return mlxsw_sp_port_fdb_uc_lag_op(mlxsw_sp_port->mlxsw_sp,
-+						   mlxsw_sp_port->lag_id,
-+						   fdb->addr, fdb->vid,
-+						   false, false);
- }
- 
- static int mlxsw_sp_port_obj_del(struct net_device *dev,
-@@ -672,14 +713,30 @@ static int mlxsw_sp_port_obj_del(struct net_device *dev,
- 	return err;
- }
- 
-+static struct mlxsw_sp_port *mlxsw_sp_lag_rep_port(struct mlxsw_sp *mlxsw_sp,
-+						   u16 lag_id)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_port;
-+	int i;
-+
-+	for (i = 0; i < MLXSW_SP_PORT_PER_LAG_MAX; i++) {
-+		mlxsw_sp_port = mlxsw_sp_port_lagged_get(mlxsw_sp, lag_id, i);
-+		if (mlxsw_sp_port)
-+			return mlxsw_sp_port;
-+	}
-+	return NULL;
-+}
-+
- static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
- 				  struct switchdev_obj_port_fdb *fdb,
- 				  switchdev_obj_dump_cb_t *cb)
- {
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
- 	char *sfd_pl;
- 	char mac[ETH_ALEN];
- 	u16 vid;
- 	u8 local_port;
-+	u16 lag_id;
- 	u8 num_rec;
- 	int stored_err = 0;
- 	int i;
-@@ -692,8 +749,7 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
- 	mlxsw_reg_sfd_pack(sfd_pl, MLXSW_REG_SFD_OP_QUERY_DUMP, 0);
- 	do {
- 		mlxsw_reg_sfd_num_rec_set(sfd_pl, MLXSW_REG_SFD_REC_MAX_COUNT);
--		err = mlxsw_reg_query(mlxsw_sp_port->mlxsw_sp->core,
--				      MLXSW_REG(sfd), sfd_pl);
-+		err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(sfd), sfd_pl);
- 		if (err)
- 			goto out;
- 
-@@ -718,6 +774,20 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
- 					if (err)
- 						stored_err = err;
- 				}
-+				break;
-+			case MLXSW_REG_SFD_REC_TYPE_UNICAST_LAG:
-+				mlxsw_reg_sfd_uc_lag_unpack(sfd_pl, i,
-+							    mac, &vid, &lag_id);
-+				if (mlxsw_sp_port ==
-+				    mlxsw_sp_lag_rep_port(mlxsw_sp, lag_id)) {
-+					ether_addr_copy(fdb->addr, mac);
-+					fdb->ndm_state = NUD_REACHABLE;
-+					fdb->vid = vid;
-+					err = cb(&fdb->obj);
-+					if (err)
-+						stored_err = err;
-+				}
-+				break;
- 			}
- 		}
- 	} while (num_rec == MLXSW_REG_SFD_REC_MAX_COUNT);
-@@ -779,6 +849,21 @@ static const struct switchdev_ops mlxsw_sp_port_switchdev_ops = {
- 	.switchdev_port_obj_dump	= mlxsw_sp_port_obj_dump,
- };
- 
-+static void mlxsw_sp_fdb_call_notifiers(bool learning, bool learning_sync,
-+					bool adding, char *mac, u16 vid,
-+					struct net_device *dev)
-+{
-+	struct switchdev_notifier_fdb_info info;
-+	unsigned long notifier_type;
-+
-+	if (learning && learning_sync) {
-+		info.addr = mac;
-+		info.vid = vid;
-+		notifier_type = adding ? SWITCHDEV_FDB_ADD : SWITCHDEV_FDB_DEL;
-+		call_switchdev_notifiers(notifier_type, dev, &info.info);
-+	}
-+}
-+
- static void mlxsw_sp_fdb_notify_mac_process(struct mlxsw_sp *mlxsw_sp,
- 					    char *sfn_pl, int rec_index,
- 					    bool adding)
-@@ -796,24 +881,49 @@ static void mlxsw_sp_fdb_notify_mac_process(struct mlxsw_sp *mlxsw_sp,
- 		return;
- 	}
- 
--	err = mlxsw_sp_port_fdb_op(mlxsw_sp_port, mac, vid,
--				   adding && mlxsw_sp_port->learning, true);
-+	err = mlxsw_sp_port_fdb_uc_op(mlxsw_sp_port, mac, vid,
-+				      adding && mlxsw_sp_port->learning, true);
- 	if (err) {
- 		if (net_ratelimit())
- 			netdev_err(mlxsw_sp_port->dev, "Failed to set FDB entry\n");
- 		return;
- 	}
- 
--	if (mlxsw_sp_port->learning && mlxsw_sp_port->learning_sync) {
--		struct switchdev_notifier_fdb_info info;
--		unsigned long notifier_type;
-+	mlxsw_sp_fdb_call_notifiers(mlxsw_sp_port->learning,
-+				    mlxsw_sp_port->learning_sync,
-+				    adding, mac, vid, mlxsw_sp_port->dev);
-+}
- 
--		info.addr = mac;
--		info.vid = vid;
--		notifier_type = adding ? SWITCHDEV_FDB_ADD : SWITCHDEV_FDB_DEL;
--		call_switchdev_notifiers(notifier_type, mlxsw_sp_port->dev,
--					 &info.info);
-+static void mlxsw_sp_fdb_notify_mac_lag_process(struct mlxsw_sp *mlxsw_sp,
-+						char *sfn_pl, int rec_index,
-+						bool adding)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_port;
-+	char mac[ETH_ALEN];
-+	u16 lag_id;
-+	u16 vid;
-+	int err;
-+
-+	mlxsw_reg_sfn_mac_lag_unpack(sfn_pl, rec_index, mac, &vid, &lag_id);
-+	mlxsw_sp_port = mlxsw_sp_lag_rep_port(mlxsw_sp, lag_id);
-+	if (!mlxsw_sp_port) {
-+		dev_err_ratelimited(mlxsw_sp->bus_info->dev, "Cannot find port representor for LAG\n");
-+		return;
- 	}
-+
-+	err = mlxsw_sp_port_fdb_uc_lag_op(mlxsw_sp, lag_id, mac, vid,
-+					  adding && mlxsw_sp_port->learning,
-+					  true);
-+	if (err) {
-+		if (net_ratelimit())
-+			netdev_err(mlxsw_sp_port->dev, "Failed to set FDB entry\n");
-+		return;
-+	}
-+
-+	mlxsw_sp_fdb_call_notifiers(mlxsw_sp_port->learning,
-+				    mlxsw_sp_port->learning_sync,
-+				    adding, mac, vid,
-+				    mlxsw_sp_lag_get(mlxsw_sp, lag_id)->dev);
- }
- 
- static void mlxsw_sp_fdb_notify_rec_process(struct mlxsw_sp *mlxsw_sp,
-@@ -828,6 +938,14 @@ static void mlxsw_sp_fdb_notify_rec_process(struct mlxsw_sp *mlxsw_sp,
- 		mlxsw_sp_fdb_notify_mac_process(mlxsw_sp, sfn_pl,
- 						rec_index, false);
- 		break;
-+	case MLXSW_REG_SFN_REC_TYPE_LEARNED_MAC_LAG:
-+		mlxsw_sp_fdb_notify_mac_lag_process(mlxsw_sp, sfn_pl,
-+						    rec_index, true);
-+		break;
-+	case MLXSW_REG_SFN_REC_TYPE_AGED_OUT_MAC_LAG:
-+		mlxsw_sp_fdb_notify_mac_lag_process(mlxsw_sp, sfn_pl,
-+						    rec_index, false);
-+		break;
- 	}
- }
- 
+Other extension is for run-time use. This patchset introduces
+new netdev notifier type - NETDEV_CHANGELOWERSTATE. Along with this
+notification, the upper driver (bond/team/bridge/..) can pass some
+information about lower device change, particulary link-up and
+TX-enabled states. Listeners (drivers of netdevs being enslaved)
+can react accordingly.
+
+The last part of the patchset is implementation of LAG offload in mlxsw,
+using both previously introduced infrastructre extensions.
+
+Note that bond-speficic (and ugly) NETDEV_BONDING_INFO used by mlx4
+can be removed and mlx4 can use the extensions this patchset adds.
+I plan to convert it and get rid of NETDEV_BONDING_INFO in
+a follow-up patchset.
+
+Jiri Pirko (26):
+  bonding: add 802.3ad support for 100G speeds
+  net: add netif_is_team_master helper
+  net: add netif_is_team_port helper
+  net: add netif_is_lag_master helper
+  net: add netif_is_lag_port helper
+  net: propagate upper priv via netdev_master_upper_dev_link
+  net: add possibility to pass information about upper device via
+    notifier
+  net: add info struct for LAG changeupper
+  team: fill-up LAG changeupper info struct and pass it along
+  bonding: fill-up LAG changeupper info struct and pass it along
+  net: introduce change lower state notifier
+  net: introduce lower state changed info structure for LAG lowers
+  team: rtnl_lock for options set
+  team: implement lower state change propagation
+  bonding: allow notifications for bond_set_slave_link_state
+  bonding: implement lower state change propagation
+  bonding: set inactive flags on release
+  mlxsw: spectrum: Add set_rx_mode ndo stub
+  mlxsw: core: Add support for packets received from LAG port
+  mlxsw: pci: Implement LAG processing for received packets
+  mlxsw: reg: Add link aggregation configuration registers definitions
+  mlxsw: reg: Add definition of LAG unicast record for SFD register
+  mlxsw: reg: Add definition of LAG unicast record for SFN register
+  mlxsw: spectrum: Implement LAG port join/leave
+  mlxsw: spectrum: Implement FDB add/remove/dump for LAG
+  mlxsw: spectrum: Implement LAG tx enabled lower state change
+
+ drivers/net/bonding/bond_3ad.c                     |  11 +-
+ drivers/net/bonding/bond_main.c                    | 109 ++++--
+ drivers/net/ethernet/mellanox/mlxsw/core.c         |  79 ++++-
+ drivers/net/ethernet/mellanox/mlxsw/core.h         |  14 +-
+ drivers/net/ethernet/mellanox/mlxsw/pci.c          |  17 +-
+ drivers/net/ethernet/mellanox/mlxsw/pci.h          |   4 +-
+ drivers/net/ethernet/mellanox/mlxsw/reg.h          | 394 ++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 366 ++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  35 +-
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 182 ++++++++--
+ drivers/net/team/team.c                            |  55 ++-
+ drivers/net/team/team_mode_activebackup.c          |   1 +
+ drivers/net/team/team_mode_broadcast.c             |   1 +
+ drivers/net/team/team_mode_loadbalance.c           |   1 +
+ drivers/net/team/team_mode_random.c                |   1 +
+ drivers/net/team/team_mode_roundrobin.c            |   1 +
+ drivers/net/vrf.c                                  |   2 +-
+ include/linux/if_team.h                            |   1 +
+ include/linux/netdevice.h                          |  56 ++-
+ include/net/bonding.h                              |  39 +-
+ net/batman-adv/hard-interface.c                    |   3 +-
+ net/bridge/br_if.c                                 |   2 +-
+ net/core/dev.c                                     |  43 ++-
+ net/openvswitch/vport-netdev.c                     |   2 +-
+ 24 files changed, 1274 insertions(+), 145 deletions(-)
+
 -- 
 1.9.3
