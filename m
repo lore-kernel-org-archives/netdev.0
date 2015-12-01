@@ -1,47 +1,46 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: gigaset: freeing an active object
-Date: Tue, 01 Dec 2015 11:05:22 +0100
-Message-ID: <1448964322.3546.46.camel@tiscali.nl>
-References: <56587467.8050102@oracle.com> <565B1A1B.8020503@imap.cc>
-	 <565B4256.6080101@hurleysoftware.com> <565B4844.9020600@imap.cc>
-	 <1448828800.2603.17.camel@tiscali.nl> <1448839396.2891.14.camel@tiscali.nl>
-	 <1448906497.3546.16.camel@tiscali.nl> <565C95B7.7070001@imap.cc>
-	 <1448917663.3546.29.camel@tiscali.nl> <565D68C8.5050901@imap.cc>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IPv4 tunnels: why IP-IP and SIT enforce DF bit, but GRE does not?
+Date: Tue, 01 Dec 2015 11:15:29 +0100
+Message-ID: <1448964929.3305540.454487369.098BD535@webmail.messagingengine.com>
+References: <56574F32.6070706@shemyak.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Sasha Levin <sasha.levin@oracle.com>, isdn@linux-pingi.de,
-	davem@davemloft.net, gigaset307x-common@lists.sourceforge.net,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>
-To: Tilman Schmidt <tilman@imap.cc>,
-	Peter Hurley <peter@hurleysoftware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <565D68C8.5050901@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Konstantin Shemyak <konstantin@shemyak.com>,
+	netdev@vger.kernel.org, pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:38059 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755916AbbLAKPa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 05:15:30 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id CF30120FBD
+	for <netdev@vger.kernel.org>; Tue,  1 Dec 2015 05:15:29 -0500 (EST)
+In-Reply-To: <56574F32.6070706@shemyak.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On di, 2015-12-01 at 10:30 +0100, Tilman Schmidt wrote:
-> Am 30.11.2015 um 22:07 schrieb Paul Bolle:
-> > How would attaching two devices work with GIGASET_MINORS hardcoded
-> > to 1?
+Hello,
+
+On Thu, Nov 26, 2015, at 19:28, Konstantin Shemyak wrote:
+> The kernel has taken the decision to always enforce DF bit on IPv4 
+> tunnels, which have fixed (not inherited) TTL (e.g. 
+> net/ipv4/ipip.c:ipip_tunnel_ioctl()). Commment by Alexey Kuznetsov in 
+> the head of ip_gre.c explains that the reason is attempting to avoid 
+> network loops.
 > 
-> Ah, it wouldn't. You'd have to recompile with a bigger GIGASET_MINORS.
+> But the commit c54419321455631 removed this enforcing from GRE tunnels,
+> not changing this behavior for IP-IP (net/ipv4/ipip.c) and SIT 
+> (net/ipv6/sit.c).
 > 
-> (I wonder if that would actually work. Somehow I still think of
-> GIGASET_MINORS as a configurable value, but it has never been anything
-> but 1 in the entire in-tree history of the driver.)
+> It can be discussed whether such enforcing of DF bit is exactly the
+> desired behavior, but shouldn't it at least be identical across IPv4 
+> tunnels?
 
-That ends a prolonged session of head-scratching. I'll update the commit
-explanation to reflect this conversation.
+Very simple, I would like to see DF bit being enforced in case we have a
+static TTL. Parvin, any reasons you removed this code? It is currently
+the only way to make sure the network does not kill itself in an endless
+loop on configuration mistakes.
 
-(Perhaps it's reasonable to wish to use two identical gigaset adapters
-simultaneously. But given that the gigaset drivers have never supported
-it, that hardly matters. So I might remove the proto-support for
-multiple devices one day. That's far from urgent.)
-
-Thanks for sticking around!
-
-
-Paul Bolle
+Thanks for noticing,
+Hannes
