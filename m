@@ -1,50 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] net: fix sock_wake_async() rcu protection
-Date: Tue, 01 Dec 2015 15:45:29 -0500 (EST)
-Message-ID: <20151201.154529.788782225778447815.davem@davemloft.net>
-References: <1448856191-31435-1-git-send-email-edumazet@google.com>
-	<1448856191-31435-2-git-send-email-edumazet@google.com>
+Subject: Re: [PATCH v2 net-next 0/2] Basic support for Solarflare 8000
+ series NICs
+Date: Tue, 01 Dec 2015 15:47:30 -0500 (EST)
+Message-ID: <20151201.154730.2068871142568837537.davem@davemloft.net>
+References: <5655DC18.7090208@solarflare.com>
+	<565C115D.2010000@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dvyukov@google.com,
-	hannes@stressinduktion.org, edumazet@gmail.com
-To: edumazet@google.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bkenward@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56941 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56948 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756803AbbLAUpb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 15:45:31 -0500
-In-Reply-To: <1448856191-31435-2-git-send-email-edumazet@google.com>
+	with ESMTP id S1756127AbbLAUrb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 15:47:31 -0500
+In-Reply-To: <565C115D.2010000@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Sun, 29 Nov 2015 20:03:11 -0800
+From: Bert Kenward <bkenward@solarflare.com>
+Date: Mon, 30 Nov 2015 09:05:33 +0000
 
-> Dmitry provided a syzkaller (http://github.com/google/syzkaller)
-> triggering a fault in sock_wake_async() when async IO is requested.
+> The upcoming Solarflare 8000 series 10G/40G network card supports a 
+> similar interface to the current 7000 series cards. This patch series 
+> provides basic support for these cards, making no use of any new 
+> functionality.
 > 
-> Said program stressed af_unix sockets, but the issue is generic
-> and should be addressed in core networking stack.
-> 
-> The problem is that by the time sock_wake_async() is called,
-> we should not access the @flags field of 'struct socket',
-> as the inode containing this socket might be freed without
-> further notice, and without RCU grace period.
-> 
-> We already maintain an RCU protected structure, "struct socket_wq"
-> so moving SOCKWQ_ASYNC_NOSPACE & SOCKWQ_ASYNC_WAITDATA into it
-> is the safe route.
-> 
-> It also reduces number of cache lines needing dirtying, so might
-> provide a performance improvement anyway.
-> 
-> In followup patches, we might move remaining flags (SOCK_NOSPACE,
-> SOCK_PASSCRED, SOCK_PASSSEC) to save 8 bytes and let 'struct socket'
-> being mostly read and let it being shared between cpus.
-> 
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> v2: fix indenting in ef10.c in patch 1/2.
 
-Applied and queued up for -stable.
+Series applied, thanks.
