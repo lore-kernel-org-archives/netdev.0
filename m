@@ -1,46 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv4 tunnels: why IP-IP and SIT enforce DF bit, but GRE does not?
-Date: Tue, 01 Dec 2015 11:15:29 +0100
-Message-ID: <1448964929.3305540.454487369.098BD535@webmail.messagingengine.com>
-References: <56574F32.6070706@shemyak.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/2 net-next] ravb: Add fallback compatibility strings
+Date: Tue, 1 Dec 2015 13:26:08 +0300
+Message-ID: <565D75C0.1020502@cogentembedded.com>
+References: <1448955783-22806-1-git-send-email-horms+renesas@verge.net.au>
+ <1448955783-22806-2-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Konstantin Shemyak <konstantin@shemyak.com>,
-	netdev@vger.kernel.org, pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:38059 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755916AbbLAKPa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 05:15:30 -0500
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id CF30120FBD
-	for <netdev@vger.kernel.org>; Tue,  1 Dec 2015 05:15:29 -0500 (EST)
-In-Reply-To: <56574F32.6070706@shemyak.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Magnus Damm <magnus.damm@gmail.com>, devicetree@vger.kernel.org
+To: Simon Horman <horms+renesas@verge.net.au>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1448955783-22806-2-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+Hello.
 
-On Thu, Nov 26, 2015, at 19:28, Konstantin Shemyak wrote:
-> The kernel has taken the decision to always enforce DF bit on IPv4 
-> tunnels, which have fixed (not inherited) TTL (e.g. 
-> net/ipv4/ipip.c:ipip_tunnel_ioctl()). Commment by Alexey Kuznetsov in 
-> the head of ip_gre.c explains that the reason is attempting to avoid 
-> network loops.
-> 
-> But the commit c54419321455631 removed this enforcing from GRE tunnels,
-> not changing this behavior for IP-IP (net/ipv4/ipip.c) and SIT 
-> (net/ipv6/sit.c).
-> 
-> It can be discussed whether such enforcing of DF bit is exactly the
-> desired behavior, but shouldn't it at least be identical across IPv4 
-> tunnels?
+On 12/1/2015 10:43 AM, Simon Horman wrote:
 
-Very simple, I would like to see DF bit being enforced in case we have a
-static TTL. Parvin, any reasons you removed this code? It is currently
-the only way to make sure the network does not kill itself in an endless
-loop on configuration mistakes.
+> Add fallback compatibility strings for R-Car Gen 2 & 3 SoC Families.
+> This is in keeping with the fallback scheme being adopted wherever
+> appropriate for drivers for Renesas SoCs.
+>
+> Also correct typo.
+>
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> ---
+>   Documentation/devicetree/bindings/net/renesas,ravb.txt | 11 +++++++++--
+>   drivers/net/ethernet/renesas/ravb_main.c               |  2 ++
+>   2 files changed, 11 insertions(+), 2 deletions(-)
+>
+> diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+> index b486f3f5f6a3..115006325bff 100644
+> --- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
+> +++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+> @@ -1,12 +1,19 @@
+>   * Renesas Electronics Ethernet AVB
+>
+>   This file provides information on what the device node for the Ethernet AVB
+> -interface contains.
+> +interface.
 
-Thanks for noticing,
-Hannes
+    Why?
+
+[...]
+
+MBR, Sergei
+
