@@ -1,42 +1,28 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] netfilter: ipvs: avoid unused variable warning
-Date: Tue, 1 Dec 2015 16:48:59 +0900
-Message-ID: <20151201074859.GA22945@verge.net.au>
-References: <9616810.SPqCgIbKt5@wuerfel>
- <alpine.LFD.2.11.1511302242210.1918@ja.home.ssi.bg>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 18/28] ptp: pch: allow build on MIPS platforms
+Date: Tue, 1 Dec 2015 09:32:32 +0100
+Message-ID: <20151201083232.GA5772@netboy>
+References: <1448900513-20856-1-git-send-email-paul.burton@imgtec.com>
+ <1448900513-20856-19-git-send-email-paul.burton@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	lvs-devel@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Paul Burton <paul.burton@imgtec.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:37007 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753585AbbLAIcg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 03:32:36 -0500
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.11.1511302242210.1918@ja.home.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1448900513-20856-19-git-send-email-paul.burton@imgtec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 30, 2015 at 10:48:34PM +0200, Julian Anastasov wrote:
+On Mon, Nov 30, 2015 at 04:21:43PM +0000, Paul Burton wrote:
+> Allow the ptp_pch driver to be built on MIPS platforms in preparation
+> for use on the MIPS Boston board.
 > 
-> 	Hello,
-> 
-> On Mon, 30 Nov 2015, Arnd Bergmann wrote:
-> 
-> > When CONFIG_PROC_FS is disabled, the local 'net' variable in
-> > ip_vs_app_net_init becomes unused, as gcc warns:
-> > 
-> > net/netfilter/ipvs/ip_vs_app.c: In function 'ip_vs_app_net_init':
-> > net/netfilter/ipvs/ip_vs_app.c:608:14: warning: unused variable 'net' [-Wunused-variable]
-> > 
-> > This removes the line by moving the pointer dereference into the
-> > user of the variable.
-> > 
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> 
-> Acked-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: Paul Burton <paul.burton@imgtec.com>
 
-Thanks, applied to ipvs-next.
+Acked-by: Richard Cochran <richardcochran@gmail.com>
