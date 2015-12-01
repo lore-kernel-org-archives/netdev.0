@@ -1,102 +1,210 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 11/26] net: introduce change lower state notifier
-Date: Tue,  1 Dec 2015 14:48:49 +0100
-Message-ID: <1448977744-17930-12-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 19/26] mlxsw: core: Add support for packets received from LAG port
+Date: Tue,  1 Dec 2015 14:48:57 +0100
+Message-ID: <1448977744-17930-20-git-send-email-jiri@resnulli.us>
 References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:36320 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755418AbbLANtW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 08:49:22 -0500
-Received: by wmww144 with SMTP id w144so173664890wmw.1
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 05:49:21 -0800 (PST)
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:34351 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756278AbbLANtc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 08:49:32 -0500
+Received: by wmvv187 with SMTP id v187so207546566wmv.1
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 05:49:31 -0800 (PST)
 In-Reply-To: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-When lower device like bonding slave, team/bridge port, etc changes its
-state, it is useful for others to notice this change. Currently this is
-implemented specificly for bonding as NETDEV_BONDING_INFO notifier. This
-patch aims to replace this specific usage and make this more generic to
-be used for all upper-lower devices.
-
-Introduce NETDEV_CHANGELOWERSTATE netdev notifier type and
-netdev_lower_state_changed() helper.
+Lower layer (pci) has information if the packet is received via LAG port.
+If that is the case, it fills up rx_info accordingly. However upper
+layer does not care about lag_id/port_index for received packets so
+convert it to local_port before passing it up. For that conversion, lag
+mapping array is introduced. Upper layer is responsible for setting up
+the mapping according to what is set in HW.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/linux/netdevice.h |  8 ++++++++
- net/core/dev.c            | 20 ++++++++++++++++++++
- 2 files changed, 28 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/core.c | 79 ++++++++++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlxsw/core.h | 14 +++++-
+ drivers/net/ethernet/mellanox/mlxsw/pci.c  |  4 +-
+ 3 files changed, 92 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 7ea3e83..06f17a4 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2156,6 +2156,7 @@ struct netdev_lag_upper_info {
- #define NETDEV_CHANGEINFODATA	0x0018
- #define NETDEV_BONDING_INFO	0x0019
- #define NETDEV_PRECHANGEUPPER	0x001A
-+#define NETDEV_CHANGELOWERSTATE	0x001B
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
+index 1ecb4aa..af8a48b 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
+@@ -105,6 +105,9 @@ struct mlxsw_core {
+ 		struct debugfs_blob_wrapper vsd_blob;
+ 		struct debugfs_blob_wrapper psid_blob;
+ 	} dbg;
++	struct {
++		u8 *mapping; /* lag_id+port_index to local_port mapping */
++	} lag;
+ 	struct mlxsw_hwmon *hwmon;
+ 	unsigned long driver_priv[0];
+ 	/* driver_priv has to be always the last item */
+@@ -815,6 +818,17 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
+ 		goto err_alloc_stats;
+ 	}
  
- int register_netdevice_notifier(struct notifier_block *nb);
- int unregister_netdevice_notifier(struct notifier_block *nb);
-@@ -2177,6 +2178,11 @@ struct netdev_notifier_changeupper_info {
- 	void *upper_info; /* is upper dev info */
++	if (mlxsw_driver->profile->used_max_lag &&
++	    mlxsw_driver->profile->used_max_port_per_lag) {
++		alloc_size = sizeof(u8) * mlxsw_driver->profile->max_lag *
++			     mlxsw_driver->profile->max_port_per_lag;
++		mlxsw_core->lag.mapping = kzalloc(alloc_size, GFP_KERNEL);
++		if (!mlxsw_core->lag.mapping) {
++			err = -ENOMEM;
++			goto err_alloc_lag_mapping;
++		}
++	}
++
+ 	err = mlxsw_bus->init(bus_priv, mlxsw_core, mlxsw_driver->profile);
+ 	if (err)
+ 		goto err_bus_init;
+@@ -847,6 +861,8 @@ err_hwmon_init:
+ err_emad_init:
+ 	mlxsw_bus->fini(bus_priv);
+ err_bus_init:
++	kfree(mlxsw_core->lag.mapping);
++err_alloc_lag_mapping:
+ 	free_percpu(mlxsw_core->pcpu_stats);
+ err_alloc_stats:
+ 	kfree(mlxsw_core);
+@@ -865,6 +881,7 @@ void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
+ 	mlxsw_hwmon_fini(mlxsw_core->hwmon);
+ 	mlxsw_emad_fini(mlxsw_core);
+ 	mlxsw_core->bus->fini(mlxsw_core->bus_priv);
++	kfree(mlxsw_core->lag.mapping);
+ 	free_percpu(mlxsw_core->pcpu_stats);
+ 	kfree(mlxsw_core);
+ 	mlxsw_core_driver_put(device_kind);
+@@ -1196,11 +1213,25 @@ void mlxsw_core_skb_receive(struct mlxsw_core *mlxsw_core, struct sk_buff *skb,
+ 	struct mlxsw_rx_listener_item *rxl_item;
+ 	const struct mlxsw_rx_listener *rxl;
+ 	struct mlxsw_core_pcpu_stats *pcpu_stats;
+-	u8 local_port = rx_info->sys_port;
++	u8 local_port;
+ 	bool found = false;
+ 
+-	dev_dbg_ratelimited(mlxsw_core->bus_info->dev, "%s: sys_port = %d, trap_id = 0x%x\n",
+-			    __func__, rx_info->sys_port, rx_info->trap_id);
++	if (rx_info->is_lag) {
++		dev_dbg_ratelimited(mlxsw_core->bus_info->dev, "%s: lag_id = %d, lag_port_index = 0x%x\n",
++				    __func__, rx_info->u.lag_id,
++				    rx_info->trap_id);
++		/* Upper layer does not care if the skb came from LAG or not,
++		 * so just get the local_port for the lag port and push it up.
++		 */
++		local_port = mlxsw_core_lag_mapping_get(mlxsw_core,
++							rx_info->u.lag_id,
++							rx_info->lag_port_index);
++	} else {
++		local_port = rx_info->u.sys_port;
++	}
++
++	dev_dbg_ratelimited(mlxsw_core->bus_info->dev, "%s: local_port = %d, trap_id = 0x%x\n",
++			    __func__, local_port, rx_info->trap_id);
+ 
+ 	if ((rx_info->trap_id >= MLXSW_TRAP_ID_MAX) ||
+ 	    (local_port >= MLXSW_PORT_MAX_PORTS))
+@@ -1244,6 +1275,48 @@ drop:
+ }
+ EXPORT_SYMBOL(mlxsw_core_skb_receive);
+ 
++static int mlxsw_core_lag_mapping_index(struct mlxsw_core *mlxsw_core,
++					u16 lag_id, u8 port_index)
++{
++	return mlxsw_core->driver->profile->max_port_per_lag * lag_id +
++	       port_index;
++}
++
++void mlxsw_core_lag_mapping_set(struct mlxsw_core *mlxsw_core,
++				u16 lag_id, u8 port_index, u8 local_port)
++{
++	int index = mlxsw_core_lag_mapping_index(mlxsw_core,
++						 lag_id, port_index);
++
++	mlxsw_core->lag.mapping[index] = local_port;
++}
++EXPORT_SYMBOL(mlxsw_core_lag_mapping_set);
++
++u8 mlxsw_core_lag_mapping_get(struct mlxsw_core *mlxsw_core,
++			      u16 lag_id, u8 port_index)
++{
++	int index = mlxsw_core_lag_mapping_index(mlxsw_core,
++						 lag_id, port_index);
++
++	return mlxsw_core->lag.mapping[index];
++}
++EXPORT_SYMBOL(mlxsw_core_lag_mapping_get);
++
++void mlxsw_core_lag_mapping_clear(struct mlxsw_core *mlxsw_core,
++				  u16 lag_id, u8 local_port)
++{
++	int i;
++
++	for (i = 0; i < mlxsw_core->driver->profile->max_port_per_lag; i++) {
++		int index = mlxsw_core_lag_mapping_index(mlxsw_core,
++							 lag_id, i);
++
++		if (mlxsw_core->lag.mapping[index] == local_port)
++			mlxsw_core->lag.mapping[index] = 0;
++	}
++}
++EXPORT_SYMBOL(mlxsw_core_lag_mapping_clear);
++
+ int mlxsw_cmd_exec(struct mlxsw_core *mlxsw_core, u16 opcode, u8 opcode_mod,
+ 		   u32 in_mod, bool out_mbox_direct,
+ 		   char *in_mbox, size_t in_mbox_size,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
+index 5ac9529..4833fb3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
+@@ -112,13 +112,25 @@ int mlxsw_reg_write(struct mlxsw_core *mlxsw_core,
+ 		    const struct mlxsw_reg_info *reg, char *payload);
+ 
+ struct mlxsw_rx_info {
+-	u16 sys_port;
++	bool is_lag;
++	union {
++		u16 sys_port;
++		u16 lag_id;
++	} u;
++	u8 lag_port_index;
+ 	int trap_id;
  };
  
-+struct netdev_notifier_changelowerstate_info {
-+	struct netdev_notifier_info info; /* must be first */
-+	void *lower_state_info; /* is lower dev state */
-+};
-+
- static inline void netdev_notifier_info_init(struct netdev_notifier_info *info,
- 					     struct net_device *dev)
- {
-@@ -3638,6 +3644,8 @@ void netdev_upper_dev_unlink(struct net_device *dev,
- void netdev_adjacent_rename_links(struct net_device *dev, char *oldname);
- void *netdev_lower_dev_get_private(struct net_device *dev,
- 				   struct net_device *lower_dev);
-+void netdev_lower_state_changed(struct net_device *lower_dev,
-+				void *lower_state_info);
+ void mlxsw_core_skb_receive(struct mlxsw_core *mlxsw_core, struct sk_buff *skb,
+ 			    struct mlxsw_rx_info *rx_info);
  
- /* RSS keys are 40 or 52 bytes long */
- #define NETDEV_RSS_KEY_LEN 52
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3fe1ce2..caac143 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5752,6 +5752,26 @@ int dev_get_nest_level(struct net_device *dev,
- }
- EXPORT_SYMBOL(dev_get_nest_level);
++void mlxsw_core_lag_mapping_set(struct mlxsw_core *mlxsw_core,
++				u16 lag_id, u8 port_index, u8 local_port);
++u8 mlxsw_core_lag_mapping_get(struct mlxsw_core *mlxsw_core,
++			      u16 lag_id, u8 port_index);
++void mlxsw_core_lag_mapping_clear(struct mlxsw_core *mlxsw_core,
++				  u16 lag_id, u8 local_port);
++
+ #define MLXSW_CONFIG_PROFILE_SWID_COUNT 8
  
-+/**
-+ * netdev_lower_change - Dispatch event about lower device state change
-+ * @lower_dev: device
-+ * @lower_state_info: state to dispatch
-+ *
-+ * Send NETDEV_CHANGELOWERSTATE to netdev notifiers with info.
-+ * The caller must hold the RTNL lock.
-+ */
-+void netdev_lower_state_changed(struct net_device *lower_dev,
-+				void *lower_state_info)
-+{
-+	struct netdev_notifier_changelowerstate_info changelowerstate_info;
+ struct mlxsw_swid_config {
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+index de69e71..8ca66a0 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+@@ -690,7 +690,9 @@ static void mlxsw_pci_cqe_rdq_handle(struct mlxsw_pci *mlxsw_pci,
+ 	if (mlxsw_pci_cqe_lag_get(cqe))
+ 		goto drop;
+ 
+-	rx_info.sys_port = mlxsw_pci_cqe_system_port_get(cqe);
++	rx_info.is_lag = false;
++	rx_info.u.sys_port = mlxsw_pci_cqe_system_port_get(cqe);
 +
-+	ASSERT_RTNL();
-+	changelowerstate_info.lower_state_info = lower_state_info;
-+	call_netdevice_notifiers_info(NETDEV_CHANGELOWERSTATE, lower_dev,
-+				      &changelowerstate_info.info);
-+}
-+EXPORT_SYMBOL(netdev_lower_state_changed);
-+
- static void dev_change_rx_flags(struct net_device *dev, int flags)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
+ 	rx_info.trap_id = mlxsw_pci_cqe_trap_id_get(cqe);
+ 
+ 	byte_count = mlxsw_pci_cqe_byte_count_get(cqe);
 -- 
 1.9.3
