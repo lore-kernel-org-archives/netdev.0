@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] wan/x25: Fix use-after-free in x25_asy_open_tty()
-Date: Tue, 01 Dec 2015 15:18:02 -0500 (EST)
-Message-ID: <20151201.151802.2271909049212392672.davem@davemloft.net>
-References: <1448651919-4239-1-git-send-email-peter@hurleysoftware.com>
+Subject: Re: [PATCH] vmxnet3: fix checks for dma mapping errors
+Date: Tue, 01 Dec 2015 15:19:45 -0500 (EST)
+Message-ID: <20151201.151945.1312834964752711393.davem@davemloft.net>
+References: <1448663370-6848-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, jslaby@suse.cz,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	sasha.levin@oracle.com, stable@vger.kernel.org
-To: peter@hurleysoftware.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1448651919-4239-1-git-send-email-peter@hurleysoftware.com>
-Sender: stable-owner@vger.kernel.org
+Cc: skhare@vmware.com, pv-drivers@vmware.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: khoroshilov@ispras.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448663370-6848-1-git-send-email-khoroshilov@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Peter Hurley <peter@hurleysoftware.com>
-Date: Fri, 27 Nov 2015 14:18:39 -0500
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Date: Sat, 28 Nov 2015 01:29:30 +0300
 
-> The N_X25 line discipline may access the previous line discipline's closed
-> and already-freed private data on open [1].
+> vmxnet3_drv does check dma_addr with dma_mapping_error()
+> after mapping dma memory. The patch adds the checks and
+> tries to handle failures.
 > 
-> The tty->disc_data field _never_ refers to valid data on entry to the
-> line discipline's open() method. Rather, the ldisc is expected to
-> initialize that field for its own use for the lifetime of the instance
-> (ie. from open() to close() only).
- ...
-> Reported-and-tested-by: Sasha Levin <sasha.levin@oracle.com>
-> Cc: <stable@vger.kernel.org>
-> Signed-off-by: Peter Hurley <peter@hurleysoftware.com>
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-Applied, thanks.
+Applied with typo fixed, thanks.
