@@ -1,64 +1,79 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] bridge: Only call /sbin/bridge-stp for the initial
- network namespace
-Date: Tue, 01 Dec 2015 15:13:44 +0100
-Message-ID: <1448979224.3359384.454695137.2DC07EE8@webmail.messagingengine.com>
-References: <565B7F7D.80208@nod.at>
- <CAGXu5jJqQKAmFK0nL69E0QOpo8WSVDqStGZo7-m7gy3vnXBa=A@mail.gmail.com>
- <87egf7183c.fsf_-_@x220.int.ebiederm.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: size overflow in function qdisc_tree_decrease_qlen
+ net/sched/sch_api.c
+Date: Tue, 01 Dec 2015 06:15:37 -0800
+Message-ID: <1448979337.25582.22.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151201010005.GA23175@Fux-PC>
+	 <CAHA+R7NdbMgfWpdCoP8peXT3zBX1=B_HWhsykjcT3QO=Gk-9aQ@mail.gmail.com>
+	 <20151201111943.GA4036@Fux-PC>
+	 <1448978807.25582.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Richard Weinberger <richard@nod.at>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	bridge@lists.linux-foundation.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Kees Cook <keescook@chromium.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>
+Cc: Cong Wang <cwang@twopensource.com>,
+	netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>, spender@grsecurity.net,
+	pageexec@freemail.hu, re.emese@gmail.com
+To: Daniele Fucini <dfucini@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:35869 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755852AbbLAONo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 09:13:44 -0500
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id 493F920D15
-	for <netdev@vger.kernel.org>; Tue,  1 Dec 2015 09:13:44 -0500 (EST)
-In-Reply-To: <87egf7183c.fsf_-_@x220.int.ebiederm.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35455 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754336AbbLAOPj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 09:15:39 -0500
+Received: by pacej9 with SMTP id ej9so6561749pac.2
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 06:15:38 -0800 (PST)
+In-Reply-To: <1448978807.25582.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 30, 2015, at 22:38, Eric W. Biederman wrote:
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->  net/bridge/br_stp_if.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
+On Tue, 2015-12-01 at 06:06 -0800, Eric Dumazet wrote:
+> On Tue, 2015-12-01 at 12:19 +0100, Daniele Fucini wrote:
+> > Thanks for the reply. Here's the output of `tc qdisc show`:
+> > https://gist.github.com/1847102c8fe08f63e9e7
+> > 
+> > Daniele
+> > 
+> > 
+> > On Mon, Nov 30, 2015 at 08:50:29PM -0800, Cong Wang wrote:
+> > > On Mon, Nov 30, 2015 at 5:00 PM, Daniele Fucini <dfucini@gmail.com> wrote:
+> > > > Hello,
+> > > >
+> > > > I'm using a Grsecurity patched kernel (version 4.2.6-201511282239) and
+> > > > I'm getting system freezes due to PaX detecting a size overflow in
+> > > > function qdisc_tree_decrease_qlen net/sched/sch_api.c:769 whenever I use
+> > > > Transmission BitTorrent client.
+> > > >
+> > > > On the Grsecurity forum I was told it's probably an unintended integer
+> > > > underflow that I should report upstream.
+> > > >
+> > > > Here's the relevant log:
+> > > > https://gist.github.com/cf54ccbb12ea65e146d4
+> > > >
+> > > 
+> > > Looks like we miss some sch->q.qlen accounting somewhere...
+> > > 
+> > > What is your qdisc setup? Is your fq_codel the default one or you installed it
+> > > or some other qdisc somewhere (`tc qdisc show` could tell)?
+> > > 
+> > > I will take a deeper look tomorrow, or maybe Jamal could find something
+> > > before I wake up. ;)
 > 
-> diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-> index 5396ff08af32..742fa89528ab 100644
-> --- a/net/bridge/br_stp_if.c
-> +++ b/net/bridge/br_stp_if.c
-> @@ -142,7 +142,9 @@ static void br_stp_start(struct net_bridge *br)
->  	char *envp[] = { NULL };
->  	struct net_bridge_port *p;
->  
-> -       r = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
-> +       r = -ENOENT;
-> +       if (dev_net(br->dev) == &init_net)
+> Hmm... I do not think we ever took care of MQ in
+> qdisc_tree_decrease_qlen()
 
-net_eq ?
+Please try following fix :
 
-> +               r = call_usermodehelper(BR_STP_PROG, argv, envp,
-> UMH_WAIT_PROC);
->  
->  	spin_lock_bh(&br->lock);
->  
-
-Otherwise, ack, so far.
-
-As our /sys interfaces directories are tagged by the net namespace it
-would actually make sense to run bridge-stp automatically in another
-name space.
-
-Bye,
-Hannes
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index f43c8f33f09e..72f2c1dfdcde 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -759,6 +759,8 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
+ 			WARN_ON(parentid != TC_H_ROOT);
+ 			return;
+ 		}
++		if (sch->flags & TCQ_F_MQROOT)
++			return;
+ 		cops = sch->ops->cl_ops;
+ 		if (cops->qlen_notify) {
+ 			cl = cops->get(sch, parentid);
