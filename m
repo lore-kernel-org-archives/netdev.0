@@ -1,782 +1,351 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2 -next] examples, bpf: further improve examples
-Date: Wed,  2 Dec 2015 00:25:36 +0100
-Message-ID: <d47c2d0a35e6ea07b7c83c8ca5bebb2464b9805c.1449011912.git.daniel@iogearbox.net>
-Cc: ast@kernel.org, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:52503 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755689AbbLAXZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 18:25:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH 00/13] mvneta Buffer Management and enhancements
+Date: Wed, 2 Dec 2015 00:34:46 +0100
+Message-ID: <CAPv3WKdAhk71HW8nvMWXUApySE5_WNgx4PDrj4+R4Tv6FVGNqA@mail.gmail.com>
+References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
+ <87lh9f4dbt.fsf@free-electrons.com>
+ <CAPv3WKc+HbirDxKy5n6W5O5BUTDEc3X5et5dTKdp81WOXjphGg@mail.gmail.com>
+ <874mg248jf.fsf@free-electrons.com>
+ <CAPv3WKc8VrgH+aAfHBMwvuOxP17SnXCajtzpxmXf4rt+WFcE-w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>,
+ Russell King - ARM Linux <linux@arm.linux.org.uk>,
+ Jason Cooper <jason@lakedaemon.net>, Yair Mahalalel <myair@marvell.com>,
+ netdev@vger.kernel.org, Simon Guinot <simon.guinot@sequanux.org>,
+ linux-kernel@vger.kernel.org, Evan Wang <xswang@marvell.com>,
+ Tomasz Nowicki <tn@semihalf.com>, nadavh@marvell.com,
+ Lior Amsalem <alior@marvell.com>, Grzegorz Jaszczyk <jaz@semihalf.com>,
+ nitroshift@yahoo.com, "David S. Miller" <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAPv3WKc8VrgH+aAfHBMwvuOxP17SnXCajtzpxmXf4rt+WFcE-w@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Improve example files further and add a more generic set of possible
-helpers for them that can be used.
+Gregory,
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- examples/bpf/bpf_cyclic.c   |  38 ++++----
- examples/bpf/bpf_funcs.h    |  76 ---------------
- examples/bpf/bpf_graft.c    |  39 ++++----
- examples/bpf/bpf_prog.c     |  33 ++++---
- examples/bpf/bpf_shared.c   |  32 +++----
- examples/bpf/bpf_shared.h   |   2 +-
- examples/bpf/bpf_tailcall.c |  84 +++++++----------
- include/bpf_api.h           | 225 ++++++++++++++++++++++++++++++++++++++++++++
- 8 files changed, 327 insertions(+), 202 deletions(-)
- delete mode 100644 examples/bpf/bpf_funcs.h
- create mode 100644 include/bpf_api.h
+Please apply below patch:
+http://pastebin.com/t42xyU3i
+It will confirm if there's an overflow for CS0 size in your setup.
+Please let know.
 
-diff --git a/examples/bpf/bpf_cyclic.c b/examples/bpf/bpf_cyclic.c
-index bde061c..c66cbec 100644
---- a/examples/bpf/bpf_cyclic.c
-+++ b/examples/bpf/bpf_cyclic.c
-@@ -1,32 +1,30 @@
--#include <linux/bpf.h>
--
--#include "bpf_funcs.h"
-+#include "../../include/bpf_api.h"
- 
- /* Cyclic dependency example to test the kernel's runtime upper
-- * bound on loops.
-+ * bound on loops. Also demonstrates on how to use direct-actions,
-+ * loaded as: tc filter add [...] bpf da obj [...]
-  */
--struct bpf_elf_map __section("maps") jmp_tc = {
--	.type		= BPF_MAP_TYPE_PROG_ARRAY,
--	.id		= 0xabccba,
--	.size_key	= sizeof(int),
--	.size_value	= sizeof(int),
--	.pinning	= PIN_OBJECT_NS,
--	.max_elem	= 1,
--};
-+#define JMP_MAP_ID	0xabccba
-+
-+BPF_PROG_ARRAY(jmp_tc, JMP_MAP_ID, PIN_OBJECT_NS, 1);
- 
--__section_tail(0xabccba, 0) int cls_loop(struct __sk_buff *skb)
-+__section_tail(JMP_MAP_ID, 0)
-+int cls_loop(struct __sk_buff *skb)
- {
- 	char fmt[] = "cb: %u\n";
- 
--	bpf_printk(fmt, sizeof(fmt), skb->cb[0]++);
--	bpf_tail_call(skb, &jmp_tc, 0);
--	return -1;
-+	trace_printk(fmt, sizeof(fmt), skb->cb[0]++);
-+	tail_call(skb, &jmp_tc, 0);
-+
-+	skb->tc_classid = TC_H_MAKE(1, 42);
-+	return TC_ACT_OK;
- }
- 
--__section("classifier") int cls_entry(struct __sk_buff *skb)
-+__section_cls_entry
-+int cls_entry(struct __sk_buff *skb)
- {
--	bpf_tail_call(skb, &jmp_tc, 0);
--	return -1;
-+	tail_call(skb, &jmp_tc, 0);
-+	return TC_ACT_SHOT;
- }
- 
--char __license[] __section("license") = "GPL";
-+BPF_LICENSE("GPL");
-diff --git a/examples/bpf/bpf_funcs.h b/examples/bpf/bpf_funcs.h
-deleted file mode 100644
-index 6d058f0..0000000
---- a/examples/bpf/bpf_funcs.h
-+++ /dev/null
-@@ -1,76 +0,0 @@
--#ifndef __BPF_FUNCS__
--#define __BPF_FUNCS__
--
--#include <stdint.h>
--
--#include "../../include/bpf_elf.h"
--
--/* Misc macros. */
--#ifndef __maybe_unused
--# define __maybe_unused		__attribute__ ((__unused__))
--#endif
--
--#ifndef __stringify
--# define __stringify(x)		#x
--#endif
--
--#ifndef __section
--# define __section(NAME)	__attribute__((section(NAME), used))
--#endif
--
--#ifndef __section_tail
--# define __section_tail(m, x)	__section(__stringify(m) "/" __stringify(x))
--#endif
--
--#ifndef offsetof
--# define offsetof		__builtin_offsetof
--#endif
--
--#ifndef htons
--# define htons(x)		__constant_htons((x))
--#endif
--
--#ifndef likely
--# define likely(x)		__builtin_expect(!!(x), 1)
--#endif
--
--#ifndef unlikely
--# define unlikely(x)		__builtin_expect(!!(x), 0)
--#endif
--
--/* The verifier will translate them to actual function calls. */
--static void *(*bpf_map_lookup_elem)(void *map, void *key) __maybe_unused =
--	(void *) BPF_FUNC_map_lookup_elem;
--
--static int (*bpf_map_update_elem)(void *map, void *key, void *value,
--				  unsigned long long flags) __maybe_unused =
--	(void *) BPF_FUNC_map_update_elem;
--
--static int (*bpf_map_delete_elem)(void *map, void *key) __maybe_unused =
--	(void *) BPF_FUNC_map_delete_elem;
--
--static unsigned int (*get_smp_processor_id)(void) __maybe_unused =
--	(void *) BPF_FUNC_get_smp_processor_id;
--
--static unsigned int (*get_prandom_u32)(void) __maybe_unused =
--	(void *) BPF_FUNC_get_prandom_u32;
--
--static int (*bpf_printk)(const char *fmt, int fmt_size, ...) __maybe_unused =
--	(void *) BPF_FUNC_trace_printk;
--
--static void (*bpf_tail_call)(void *ctx, void *map, int index) __maybe_unused =
--	(void *) BPF_FUNC_tail_call;
--
--/* LLVM built-in functions that an eBPF C program may use to emit
-- * BPF_LD_ABS and BPF_LD_IND instructions.
-- */
--unsigned long long load_byte(void *skb, unsigned long long off)
--	asm ("llvm.bpf.load.byte");
--
--unsigned long long load_half(void *skb, unsigned long long off)
--	asm ("llvm.bpf.load.half");
--
--unsigned long long load_word(void *skb, unsigned long long off)
--	asm ("llvm.bpf.load.word");
--
--#endif /* __BPF_FUNCS__ */
-diff --git a/examples/bpf/bpf_graft.c b/examples/bpf/bpf_graft.c
-index f36d25a..f48fd02 100644
---- a/examples/bpf/bpf_graft.c
-+++ b/examples/bpf/bpf_graft.c
-@@ -1,6 +1,4 @@
--#include <linux/bpf.h>
--
--#include "bpf_funcs.h"
-+#include "../../include/bpf_api.h"
- 
- /* This example demonstrates how classifier run-time behaviour
-  * can be altered with tail calls. We start out with an empty
-@@ -34,37 +32,36 @@
-  *   Socket Thread-19818 [001] ..s. 139022.156730: : bbb
-  *   [...]
-  */
--struct bpf_elf_map __section("maps") jmp_tc = {
--	.type		= BPF_MAP_TYPE_PROG_ARRAY,
--	.size_key	= sizeof(int),
--	.size_value	= sizeof(int),
--	.pinning	= PIN_GLOBAL_NS,
--	.max_elem	= 1,
--};
- 
--__section("aaa") int cls_aaa(struct __sk_buff *skb)
-+BPF_PROG_ARRAY(jmp_tc, 0, PIN_GLOBAL_NS, 1);
-+
-+__section("aaa")
-+int cls_aaa(struct __sk_buff *skb)
- {
- 	char fmt[] = "aaa\n";
- 
--	bpf_printk(fmt, sizeof(fmt));
--	return -1;
-+	trace_printk(fmt, sizeof(fmt));
-+	return TC_H_MAKE(1, 42);
- }
- 
--__section("bbb") int cls_bbb(struct __sk_buff *skb)
-+__section("bbb")
-+int cls_bbb(struct __sk_buff *skb)
- {
- 	char fmt[] = "bbb\n";
- 
--	bpf_printk(fmt, sizeof(fmt));
--	return -1;
-+	trace_printk(fmt, sizeof(fmt));
-+	return TC_H_MAKE(1, 43);
- }
- 
--__section("classifier") int cls_entry(struct __sk_buff *skb)
-+__section_cls_entry
-+int cls_entry(struct __sk_buff *skb)
- {
- 	char fmt[] = "fallthrough\n";
- 
--	bpf_tail_call(skb, &jmp_tc, 0);
--	bpf_printk(fmt, sizeof(fmt));
--	return -1;
-+	tail_call(skb, &jmp_tc, 0);
-+	trace_printk(fmt, sizeof(fmt));
-+
-+	return BPF_H_DEFAULT;
- }
- 
--char __license[] __section("license") = "GPL";
-+BPF_LICENSE("GPL");
-diff --git a/examples/bpf/bpf_prog.c b/examples/bpf/bpf_prog.c
-index 009febd..4728049 100644
---- a/examples/bpf/bpf_prog.c
-+++ b/examples/bpf/bpf_prog.c
-@@ -168,8 +168,8 @@
- 
- /* Common, shared definitions with ebpf_agent.c. */
- #include "bpf_shared.h"
--/* Selection of BPF helper functions for our example. */
--#include "bpf_funcs.h"
-+/* BPF helper functions for our example. */
-+#include "../../include/bpf_api.h"
- 
- /* Could be defined here as well, or included from the header. */
- #define TC_ACT_UNSPEC		(-1)
-@@ -387,10 +387,10 @@ static inline void cls_update_proto_map(const struct __sk_buff *skb,
- 	uint8_t proto = flow->ip_proto;
- 	struct count_tuple *ct, _ct;
- 
--	ct = bpf_map_lookup_elem(&map_proto, &proto);
-+	ct = map_lookup_elem(&map_proto, &proto);
- 	if (likely(ct)) {
--		__sync_fetch_and_add(&ct->packets, 1);
--		__sync_fetch_and_add(&ct->bytes, skb->len);
-+		lock_xadd(&ct->packets, 1);
-+		lock_xadd(&ct->bytes, skb->len);
- 		return;
- 	}
- 
-@@ -398,7 +398,7 @@ static inline void cls_update_proto_map(const struct __sk_buff *skb,
- 	_ct.packets = 1;
- 	_ct.bytes = skb->len;
- 
--	bpf_map_update_elem(&map_proto, &proto, &_ct, BPF_ANY);
-+	map_update_elem(&map_proto, &proto, &_ct, BPF_ANY);
- }
- 
- static inline void cls_update_queue_map(const struct __sk_buff *skb)
-@@ -409,11 +409,11 @@ static inline void cls_update_queue_map(const struct __sk_buff *skb)
- 
- 	mismatch = skb->queue_mapping != get_smp_processor_id();
- 
--	cq = bpf_map_lookup_elem(&map_queue, &queue);
-+	cq = map_lookup_elem(&map_queue, &queue);
- 	if (likely(cq)) {
--		__sync_fetch_and_add(&cq->total, 1);
-+		lock_xadd(&cq->total, 1);
- 		if (mismatch)
--			__sync_fetch_and_add(&cq->mismatch, 1);
-+			lock_xadd(&cq->mismatch, 1);
- 		return;
- 	}
- 
-@@ -421,7 +421,7 @@ static inline void cls_update_queue_map(const struct __sk_buff *skb)
- 	_cq.total = 1;
- 	_cq.mismatch = mismatch ? 1 : 0;
- 
--	bpf_map_update_elem(&map_queue, &queue, &_cq, BPF_ANY);
-+	map_update_elem(&map_queue, &queue, &_cq, BPF_ANY);
- }
- 
- /* eBPF program definitions, placed in various sections, which can
-@@ -439,7 +439,8 @@ static inline void cls_update_queue_map(const struct __sk_buff *skb)
-  * It is however not required to have multiple programs sharing
-  * a file.
-  */
--__section("classifier") int cls_main(struct __sk_buff *skb)
-+__section("classifier")
-+int cls_main(struct __sk_buff *skb)
- {
- 	struct flow_keys flow;
- 
-@@ -456,13 +457,14 @@ static inline void act_update_drop_map(void)
- {
- 	uint32_t *count, cpu = get_smp_processor_id();
- 
--	count = bpf_map_lookup_elem(&map_drops, &cpu);
-+	count = map_lookup_elem(&map_drops, &cpu);
- 	if (count)
- 		/* Only this cpu is accessing this element. */
- 		(*count)++;
- }
- 
--__section("action-mark") int act_mark_main(struct __sk_buff *skb)
-+__section("action-mark")
-+int act_mark_main(struct __sk_buff *skb)
- {
- 	/* You could also mangle skb data here with the helper function
- 	 * BPF_FUNC_skb_store_bytes, etc. Or, alternatively you could
-@@ -479,7 +481,8 @@ __section("action-mark") int act_mark_main(struct __sk_buff *skb)
- 	return TC_ACT_UNSPEC;
- }
- 
--__section("action-rand") int act_rand_main(struct __sk_buff *skb)
-+__section("action-rand")
-+int act_rand_main(struct __sk_buff *skb)
- {
- 	/* Sorry, we're near event horizon ... */
- 	if ((get_prandom_u32() & 3) == 0) {
-@@ -493,4 +496,4 @@ __section("action-rand") int act_rand_main(struct __sk_buff *skb)
- /* Last but not least, the file contains a license. Some future helper
-  * functions may only be available with a GPL license.
-  */
--char __license[] __section("license") = "GPL";
-+BPF_LICENSE("GPL");
-diff --git a/examples/bpf/bpf_shared.c b/examples/bpf/bpf_shared.c
-index a8dc39c..accc0ad 100644
---- a/examples/bpf/bpf_shared.c
-+++ b/examples/bpf/bpf_shared.c
-@@ -1,6 +1,4 @@
--#include <linux/bpf.h>
--
--#include "bpf_funcs.h"
-+#include "../../include/bpf_api.h"
- 
- /* Minimal, stand-alone toy map pinning example:
-  *
-@@ -20,35 +18,31 @@
-  * instance is being created.
-  */
- 
--struct bpf_elf_map __section("maps") map_sh = {
--	.type		= BPF_MAP_TYPE_ARRAY,
--	.size_key	= sizeof(int),
--	.size_value	= sizeof(int),
--	.pinning	= PIN_OBJECT_NS, /* or PIN_GLOBAL_NS, or PIN_NONE */
--	.max_elem	= 1,
--};
-+BPF_ARRAY4(map_sh, 0, PIN_OBJECT_NS, 1); /* or PIN_GLOBAL_NS, or PIN_NONE */
- 
--__section("egress") int emain(struct __sk_buff *skb)
-+__section("egress")
-+int emain(struct __sk_buff *skb)
- {
- 	int key = 0, *val;
- 
--	val = bpf_map_lookup_elem(&map_sh, &key);
-+	val = map_lookup_elem(&map_sh, &key);
- 	if (val)
--		__sync_fetch_and_add(val, 1);
-+		lock_xadd(val, 1);
- 
--	return -1;
-+	return BPF_H_DEFAULT;
- }
- 
--__section("ingress") int imain(struct __sk_buff *skb)
-+__section("ingress")
-+int imain(struct __sk_buff *skb)
- {
- 	char fmt[] = "map val: %d\n";
- 	int key = 0, *val;
- 
--	val = bpf_map_lookup_elem(&map_sh, &key);
-+	val = map_lookup_elem(&map_sh, &key);
- 	if (val)
--		bpf_printk(fmt, sizeof(fmt), *val);
-+		trace_printk(fmt, sizeof(fmt), *val);
- 
--	return -1;
-+	return BPF_H_DEFAULT;
- }
- 
--char __license[] __section("license") = "GPL";
-+BPF_LICENSE("GPL");
-diff --git a/examples/bpf/bpf_shared.h b/examples/bpf/bpf_shared.h
-index ea8f014..a24038d 100644
---- a/examples/bpf/bpf_shared.h
-+++ b/examples/bpf/bpf_shared.h
-@@ -10,7 +10,7 @@ enum {
- };
- 
- struct count_tuple {
--	long packets; /* type long for __sync_fetch_and_add() */
-+	long packets; /* type long for lock_xadd() */
- 	long bytes;
- };
- 
-diff --git a/examples/bpf/bpf_tailcall.c b/examples/bpf/bpf_tailcall.c
-index f186e57..040790d 100644
---- a/examples/bpf/bpf_tailcall.c
-+++ b/examples/bpf/bpf_tailcall.c
-@@ -1,6 +1,4 @@
--#include <linux/bpf.h>
--
--#include "bpf_funcs.h"
-+#include "../../include/bpf_api.h"
- 
- #define ENTRY_INIT	3
- #define ENTRY_0		0
-@@ -27,89 +25,75 @@
-  * program array can be atomically replaced during run-time, e.g. to change
-  * classifier behaviour.
-  */
--struct bpf_elf_map __section("maps") map_sh = {
--	.type		= BPF_MAP_TYPE_ARRAY,
--	.size_key	= sizeof(int),
--	.size_value	= sizeof(int),
--	.pinning	= PIN_OBJECT_NS,
--	.max_elem	= 1,
--};
--
--struct bpf_elf_map __section("maps") jmp_tc = {
--	.type		= BPF_MAP_TYPE_PROG_ARRAY,
--	.id		= FOO,
--	.size_key	= sizeof(int),
--	.size_value	= sizeof(int),
--	.pinning	= PIN_OBJECT_NS,
--	.max_elem	= MAX_JMP_SIZE,
--};
--
--struct bpf_elf_map __section("maps") jmp_ex = {
--	.type		= BPF_MAP_TYPE_PROG_ARRAY,
--	.id		= BAR,
--	.size_key	= sizeof(int),
--	.size_value	= sizeof(int),
--	.pinning	= PIN_OBJECT_NS,
--	.max_elem	= 1,
--};
--
--__section_tail(FOO, ENTRY_0) int cls_case1(struct __sk_buff *skb)
-+
-+BPF_PROG_ARRAY(jmp_tc, FOO, PIN_OBJECT_NS, MAX_JMP_SIZE);
-+BPF_PROG_ARRAY(jmp_ex, BAR, PIN_OBJECT_NS, 1);
-+
-+BPF_ARRAY4(map_sh, 0, PIN_OBJECT_NS, 1);
-+
-+__section_tail(FOO, ENTRY_0)
-+int cls_case1(struct __sk_buff *skb)
- {
- 	char fmt[] = "case1: map-val: %d from:%u\n";
- 	int key = 0, *val;
- 
--	val = bpf_map_lookup_elem(&map_sh, &key);
-+	val = map_lookup_elem(&map_sh, &key);
- 	if (val)
--		bpf_printk(fmt, sizeof(fmt), *val, skb->cb[0]);
-+		trace_printk(fmt, sizeof(fmt), *val, skb->cb[0]);
- 
- 	skb->cb[0] = ENTRY_0;
--	bpf_tail_call(skb, &jmp_ex, ENTRY_0);
--	return 0;
-+	tail_call(skb, &jmp_ex, ENTRY_0);
-+
-+	return BPF_H_DEFAULT;
- }
- 
--__section_tail(FOO, ENTRY_1) int cls_case2(struct __sk_buff *skb)
-+__section_tail(FOO, ENTRY_1)
-+int cls_case2(struct __sk_buff *skb)
- {
- 	char fmt[] = "case2: map-val: %d from:%u\n";
- 	int key = 0, *val;
- 
--	val = bpf_map_lookup_elem(&map_sh, &key);
-+	val = map_lookup_elem(&map_sh, &key);
- 	if (val)
--		bpf_printk(fmt, sizeof(fmt), *val, skb->cb[0]);
-+		trace_printk(fmt, sizeof(fmt), *val, skb->cb[0]);
- 
- 	skb->cb[0] = ENTRY_1;
--	bpf_tail_call(skb, &jmp_tc, ENTRY_0);
--	return 0;
-+	tail_call(skb, &jmp_tc, ENTRY_0);
-+
-+	return BPF_H_DEFAULT;
- }
- 
--__section_tail(BAR, ENTRY_0) int cls_exit(struct __sk_buff *skb)
-+__section_tail(BAR, ENTRY_0)
-+int cls_exit(struct __sk_buff *skb)
- {
- 	char fmt[] = "exit: map-val: %d from:%u\n";
- 	int key = 0, *val;
- 
--	val = bpf_map_lookup_elem(&map_sh, &key);
-+	val = map_lookup_elem(&map_sh, &key);
- 	if (val)
--		bpf_printk(fmt, sizeof(fmt), *val, skb->cb[0]);
-+		trace_printk(fmt, sizeof(fmt), *val, skb->cb[0]);
- 
- 	/* Termination point. */
--	return -1;
-+	return BPF_H_DEFAULT;
- }
- 
--__section("classifier") int cls_entry(struct __sk_buff *skb)
-+__section_cls_entry
-+int cls_entry(struct __sk_buff *skb)
- {
- 	char fmt[] = "fallthrough\n";
- 	int key = 0, *val;
- 
- 	/* For transferring state, we can use skb->cb[0] ... skb->cb[4]. */
--	val = bpf_map_lookup_elem(&map_sh, &key);
-+	val = map_lookup_elem(&map_sh, &key);
- 	if (val) {
--		__sync_fetch_and_add(val, 1);
-+		lock_xadd(val, 1);
- 
- 		skb->cb[0] = ENTRY_INIT;
--		bpf_tail_call(skb, &jmp_tc, skb->hash & (MAX_JMP_SIZE - 1));
-+		tail_call(skb, &jmp_tc, skb->hash & (MAX_JMP_SIZE - 1));
- 	}
- 
--	bpf_printk(fmt, sizeof(fmt));
--	return 0;
-+	trace_printk(fmt, sizeof(fmt));
-+	return BPF_H_DEFAULT;
- }
- 
--char __license[] __section("license") = "GPL";
-+BPF_LICENSE("GPL");
-diff --git a/include/bpf_api.h b/include/bpf_api.h
-new file mode 100644
-index 0000000..8503b9a
---- /dev/null
-+++ b/include/bpf_api.h
-@@ -0,0 +1,225 @@
-+#ifndef __BPF_API__
-+#define __BPF_API__
-+
-+/* Note:
-+ *
-+ * This file can be included into eBPF kernel programs. It contains
-+ * a couple of useful helper functions, map/section ABI (bpf_elf.h),
-+ * misc macros and some eBPF specific LLVM built-ins.
-+ */
-+
-+#include <stdint.h>
-+
-+#include <linux/pkt_cls.h>
-+#include <linux/bpf.h>
-+#include <linux/filter.h>
-+
-+#include <asm/byteorder.h>
-+
-+#include "bpf_elf.h"
-+
-+/** Misc macros. */
-+
-+#ifndef __stringify
-+# define __stringify(X)		#X
-+#endif
-+
-+#ifndef __maybe_unused
-+# define __maybe_unused		__attribute__((__unused__))
-+#endif
-+
-+#ifndef offsetof
-+# define offsetof(TYPE, MEMBER)	__builtin_offsetof(TYPE, MEMBER)
-+#endif
-+
-+#ifndef likely
-+# define likely(X)		__builtin_expect(!!(X), 1)
-+#endif
-+
-+#ifndef unlikely
-+# define unlikely(X)		__builtin_expect(!!(X), 0)
-+#endif
-+
-+#ifndef htons
-+# define htons(X)		__constant_htons((X))
-+#endif
-+
-+#ifndef ntohs
-+# define ntohs(X)		__constant_ntohs((X))
-+#endif
-+
-+#ifndef htonl
-+# define htonl(X)		__constant_htonl((X))
-+#endif
-+
-+#ifndef ntohl
-+# define ntohl(X)		__constant_ntohl((X)
-+#endif
-+
-+/** Section helper macros. */
-+
-+#ifndef __section
-+# define __section(NAME)						\
-+	__attribute__((section(NAME), used))
-+#endif
-+
-+#ifndef __section_tail
-+# define __section_tail(ID, KEY)					\
-+	__section(__stringify(ID) "/" __stringify(KEY))
-+#endif
-+
-+#ifndef __section_cls_entry
-+# define __section_cls_entry						\
-+	__section(ELF_SECTION_CLASSIFIER)
-+#endif
-+
-+#ifndef __section_act_entry
-+# define __section_act_entry						\
-+	__section(ELF_SECTION_ACTION)
-+#endif
-+
-+#ifndef __section_license
-+# define __section_license						\
-+	__section(ELF_SECTION_LICENSE)
-+#endif
-+
-+#ifndef __section_maps
-+# define __section_maps							\
-+	__section(ELF_SECTION_MAPS)
-+#endif
-+
-+/** Declaration helper macros. */
-+
-+#ifndef BPF_LICENSE
-+# define BPF_LICENSE(NAME)						\
-+	char ____license[] __section_license = NAME
-+#endif
-+
-+#ifndef __BPF_MAP
-+# define __BPF_MAP(NAME, TYPE, ID, SIZE_KEY, SIZE_VALUE, PIN, MAX_ELEM)	\
-+	struct bpf_elf_map __section_maps NAME = {			\
-+		.type		= (TYPE),				\
-+		.id		= (ID),					\
-+		.size_key	= (SIZE_KEY),				\
-+		.size_value	= (SIZE_VALUE),				\
-+		.pinning	= (PIN),				\
-+		.max_elem	= (MAX_ELEM),				\
-+	}
-+#endif
-+
-+#ifndef BPF_HASH
-+# define BPF_HASH(NAME, ID, SIZE_KEY, SIZE_VALUE, PIN, MAX_ELEM)	\
-+	__BPF_MAP(NAME, BPF_MAP_TYPE_HASH, ID, SIZE_KEY, SIZE_VALUE,	\
-+		  PIN, MAX_ELEM)
-+#endif
-+
-+#ifndef BPF_ARRAY
-+# define BPF_ARRAY(NAME, ID, SIZE_VALUE, PIN, MAX_ELEM)			\
-+	__BPF_MAP(NAME, BPF_MAP_TYPE_ARRAY, ID, sizeof(uint32_t), 	\
-+		  SIZE_VALUE, PIN, MAX_ELEM)
-+#endif
-+
-+#ifndef BPF_ARRAY2
-+# define BPF_ARRAY2(NAME, ID, PIN, MAX_ELEM)				\
-+	BPF_ARRAY(NAME, ID, sizeof(uint16_t), PIN, MAX_ELEM)
-+#endif
-+
-+#ifndef BPF_ARRAY4
-+# define BPF_ARRAY4(NAME, ID, PIN, MAX_ELEM)				\
-+	BPF_ARRAY(NAME, ID, sizeof(uint32_t), PIN, MAX_ELEM)
-+#endif
-+
-+#ifndef BPF_ARRAY8
-+# define BPF_ARRAY8(NAME, ID, PIN, MAX_ELEM)				\
-+	BPF_ARRAY(NAME, ID, sizeof(uint64_t), PIN, MAX_ELEM)
-+#endif
-+
-+#ifndef BPF_PROG_ARRAY
-+# define BPF_PROG_ARRAY(NAME, ID, PIN, MAX_ELEM)			\
-+	__BPF_MAP(NAME, BPF_MAP_TYPE_PROG_ARRAY, ID, sizeof(uint32_t),	\
-+		  sizeof(uint32_t), PIN, MAX_ELEM)
-+#endif
-+
-+/** Classifier helper */
-+
-+#ifndef BPF_H_DEFAULT
-+# define BPF_H_DEFAULT	-1
-+#endif
-+
-+/** BPF helper functions for tc. */
-+
-+#ifndef BPF_FUNC
-+# define BPF_FUNC(NAME, ...)						\
-+	(* NAME)(__VA_ARGS__) __maybe_unused = (void *) BPF_FUNC_##NAME
-+#endif
-+
-+/* Map access/manipulation */
-+static void *BPF_FUNC(map_lookup_elem, void *map, const void *key);
-+static int BPF_FUNC(map_update_elem, void *map, const void *key,
-+		    const void *value, uint32_t flags);
-+static int BPF_FUNC(map_delete_elem, void *map, const void *key);
-+
-+/* Time access */
-+static uint64_t BPF_FUNC(ktime_get_ns);
-+
-+/* Debugging */
-+static void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
-+
-+/* Random numbers */
-+static uint32_t BPF_FUNC(get_prandom_u32);
-+
-+/* Tail calls */
-+static void BPF_FUNC(tail_call, struct __sk_buff *skb, void *map,
-+		     uint32_t index);
-+
-+/* System helpers */
-+static uint32_t BPF_FUNC(get_smp_processor_id);
-+
-+/* Packet misc meta data */
-+static uint32_t BPF_FUNC(get_cgroup_classid, struct __sk_buff *skb);
-+static uint32_t BPF_FUNC(get_route_realm, struct __sk_buff *skb);
-+
-+/* Packet redirection */
-+static int BPF_FUNC(redirect, int ifindex, uint32_t flags);
-+static int BPF_FUNC(clone_redirect, struct __sk_buff *skb, int ifindex,
-+		    uint32_t flags);
-+
-+/* Packet manipulation */
-+#define BPF_PSEUDO_HDR			0x10
-+#define BPF_HAS_PSEUDO_HDR(flags)	((flags) & BPF_PSEUDO_HDR)
-+#define BPF_HDR_FIELD_SIZE(flags)	((flags) & 0x0f)
-+
-+static int BPF_FUNC(skb_store_bytes, struct __sk_buff *skb, uint32_t off,
-+		    void *from, uint32_t len, uint32_t flags);
-+static int BPF_FUNC(l3_csum_replace, struct __sk_buff *skb, uint32_t off,
-+		    uint32_t from, uint32_t to, uint32_t flags);
-+static int BPF_FUNC(l4_csum_replace, struct __sk_buff *skb, uint32_t off,
-+		    uint32_t from, uint32_t to, uint32_t flags);
-+
-+/* Packet vlan encap/decap */
-+static int BPF_FUNC(skb_vlan_push, struct __sk_buff *skb, uint16_t proto,
-+		    uint16_t vlan_tci);
-+static int BPF_FUNC(skb_vlan_pop, struct __sk_buff *skb);
-+
-+/* Packet tunnel encap/decap */
-+static int BPF_FUNC(skb_get_tunnel_key, struct __sk_buff *skb,
-+		    struct bpf_tunnel_key *to, uint32_t size, uint32_t flags);
-+static int BPF_FUNC(skb_set_tunnel_key, struct __sk_buff *skb,
-+		    struct bpf_tunnel_key *from, uint32_t size, uint32_t flags);
-+
-+/** LLVM built-ins */
-+
-+#ifndef lock_xadd
-+# define lock_xadd(ptr, val)	((void) __sync_fetch_and_add(ptr, val))
-+#endif
-+
-+unsigned long long load_byte(void *skb, unsigned long long off)
-+	asm ("llvm.bpf.load.byte");
-+
-+unsigned long long load_half(void *skb, unsigned long long off)
-+	asm ("llvm.bpf.load.half");
-+
-+unsigned long long load_word(void *skb, unsigned long long off)
-+	asm ("llvm.bpf.load.word");
-+
-+#endif /* __BPF_API__ */
--- 
-1.9.3
+So far the issue may have been not noticed, because in every IO driver
+using mvebu_mbus_dram_info for configuring MBUS windows, there's
+following substraction:
+(cs->size - 1) & 0xfffff000
+
+I think there are two options:
+1. Change size type to u64.
+2. Change condition in mvebu_mbus_get_dram_win_info to:
+if (cs->base <= phyaddr && phyaddr <= (cs->base + cs->size -1))
+
+I'm looking forward to your information and opinion.
+
+Best regards,
+Marcin
+
+2015-12-01 22:40 GMT+01:00 Marcin Wojtas <mw@semihalf.com>:
+> Hi Gregory,
+>
+> Thanks for the log. I think it may be an overall problem with 4GB size
+> representation in mvebu_mbus_dram_info structure? Maybe whole DRAM
+> space is associated to CS0, and the 4GB size (0x1 0000 0000) does not
+> fit u32 variable?
+>
+> Best regards,
+> Marcin
+>
+> 2015-12-01 14:12 GMT+01:00 Gregory CLEMENT <gregory.clement@free-electrons.com>:
+>> Hi Marcin,
+>>
+>>  On lun., nov. 30 2015, Marcin Wojtas <mw@semihalf.com> wrote:
+>> [...]
+>>>>> 5. Enable BM on Armada XP and 38X development boards - those ones and
+>>>>> A370 I could check on my own. In all cases they survived night-long
+>>>>> linerate iperf. Also tests were performed with A388 SoC working as a
+>>>>> network bridge between two packet generators. They showed increase of
+>>>>> maximum processed 64B packets by ~20k (~555k packets with BM enabled
+>>>>> vs ~535 packets without BM). Also when pushing 1500B-packets with a
+>>>>> line rate achieved, CPU load decreased from around 25% without BM vs
+>>>>> 18-20% with BM.
+>>>>
+>>>> I was trying to test the BM part of tour series on the Armada XP GP
+>>>> board. However it failed very quickly during the pool allocation. After
+>>>> a first debug I found that the size of the cs used in the
+>>>> mvebu_mbus_dram_info struct was 0. I have applied your series on a
+>>>> v4.4-rc1 kernel. At this stage I don't know if it is a regression in the
+>>>> mbus driver, a misconfiguration on my side or something else.
+>>>>
+>>>> Does it ring a bell for you?
+>>>
+>>> Frankly, I'm a bit surprised, I've never seen such problems on any of
+>>> the boards (AXP-GP/DB, A38X-DB/GP/AP). Did mvebu_mbus_dram_win_info
+>>> function exit with an error? Can you please apply below diff:
+>>> http://pastebin.com/2ws1txWk
+>>
+>> Yes it exited with errors and I added the same kind traces. It was how I
+>> knew that the size was 0!
+>>
+>> I've just rebuild a fresh kernel using mvebu_v7_defconfig and adding
+>> your patch, I got the same issue (see the log at the end of the email.)
+>>
+>>
+>> But the good news is that on the same kernel on Armada 388 GP the pool
+>> allocation does not fail. I really suspect an issue with my u-boot.
+>>
+>>
+>>> And send me a full log beginning from u-boot?
+>>>
+>>>>
+>>>> How do you test test it exactly?
+>>>> Especially on which kernel and with which U-Boot?
+>>>>
+>>>
+>>> I've just re-built the patchset I sent, which is on top of 4.4-rc1.
+>>>
+>>> I use AXP-GP, 78460 @ 1600MHz, 2GB DRAM, and everything works fine. My
+>>> u-boot version: v2011.12 2014_T2.0_eng_dropv2.
+>>
+>> My config is AXP-GP, 78460 @ 1300MHz, 8GB DRAM (only 4GB are used
+>> because I didn't activated LPAE), but the main difference is the U-Boot
+>> version: v2011.12 2014_T2.eng_dropv1.ATAG-test02.
+>>
+>> Thanks,
+>>
+>> Gregory
+>>
+>>
+>> [    0.000000] Booting Linux on physical CPU 0x0
+>> [    0.000000] Linux version 4.4.0-rc1-00013-g76f111f9bdf8-dirty (gclement@FE-laptop) (gcc version 5.2.1 20151010 (Ubuntu 5.2.1-22ubuntu1) ) #1024 SMP Tue Dec 1 14:02:52 CET 2015
+>> [    0.000000] CPU: ARMv7 Processor [562f5842] revision 2 (ARMv7), cr=10c5387d
+>> [    0.000000] CPU: PIPT / VIPT nonaliasing data cache, PIPT instruction cache
+>> [    0.000000] Machine model: Marvell Armada XP Development Board DB-MV784MP-GP
+>> [    0.000000] Memory policy: Data cache writealloc
+>> [    0.000000] PERCPU: Embedded 12 pages/cpu @ee1ac000 s18752 r8192 d22208 u49152
+>> [    0.000000] Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 981504
+>> [    0.000000] Kernel command line: console=ttyS0,115200 earlyprintk mvneta.rxq_def=2
+>> [    0.000000] log_buf_len individual max cpu contribution: 4096 bytes
+>> [    0.000000] log_buf_len total cpu_extra contributions: 12288 bytes
+>> [    0.000000] log_buf_len min size: 16384 bytes
+>> [    0.000000] log_buf_len: 32768 bytes
+>> [    0.000000] early log buf free: 14924(91%)
+>> [    0.000000] PID hash table entries: 4096 (order: 2, 16384 bytes)
+>> [    0.000000] Dentry cache hash table entries: 131072 (order: 7, 524288 bytes)
+>> [    0.000000] Inode-cache hash table entries: 65536 (order: 6, 262144 bytes)
+>> [    0.000000] Memory: 3888204K/3932160K available (5576K kernel code, 251K rwdata, 1544K rodata, 4460K init, 207K bss, 43956K reserved, 0K cma-reserved, 3145728K highmem)
+>> [    0.000000] Virtual kernel memory layout:
+>> [    0.000000]     vector  : 0xffff0000 - 0xffff1000   (   4 kB)
+>> [    0.000000]     fixmap  : 0xffc00000 - 0xfff00000   (3072 kB)
+>> [    0.000000]     vmalloc : 0xf0800000 - 0xff800000   ( 240 MB)
+>> [    0.000000]     lowmem  : 0xc0000000 - 0xf0000000   ( 768 MB)
+>> [    0.000000]     pkmap   : 0xbfe00000 - 0xc0000000   (   2 MB)
+>> [    0.000000]     modules : 0xbf000000 - 0xbfe00000   (  14 MB)
+>> [    0.000000]       .text : 0xc0008000 - 0xc06fc374   (7121 kB)
+>> [    0.000000]       .init : 0xc06fd000 - 0xc0b58000   (4460 kB)
+>> [    0.000000]       .data : 0xc0b58000 - 0xc0b96d00   ( 252 kB)
+>> [    0.000000]        .bss : 0xc0b96d00 - 0xc0bcaa58   ( 208 kB)
+>> [    0.000000] Hierarchical RCU implementation.
+>> [    0.000000]  Build-time adjustment of leaf fanout to 32.
+>> [    0.000000] NR_IRQS:16 nr_irqs:16 16
+>> [    0.000000] L2C: DT/platform modifies aux control register: 0x1a69ef10 -> 0x1a69ef12
+>> [    0.000000] Aurora cache controller enabled, 32 ways, 2048 kB
+>> [    0.000000] Aurora: CACHE_ID 0x00000100, AUX_CTRL 0x1a69ef12
+>> [    0.000000] Switching to timer-based delay loop, resolution 40ns
+>> [    0.000004] sched_clock: 32 bits at 25MHz, resolution 40ns, wraps every 85899345900ns
+>> [    0.000015] clocksource: armada_370_xp_clocksource: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 76450417870 ns
+>> [    0.000305] Console: colour dummy device 80x30
+>> [    0.000322] Calibrating delay loop (skipped), value calculated using timer frequency.. 50.00 BogoMIPS (lpj=250000)
+>> [    0.000332] pid_max: default: 32768 minimum: 301
+>> [    0.000417] Mount-cache hash table entries: 2048 (order: 1, 8192 bytes)
+>> [    0.000425] Mountpoint-cache hash table entries: 2048 (order: 1, 8192 bytes)
+>> [    0.000737] CPU: Testing write buffer coherency: ok
+>> [    0.000880] CPU0: thread -1, cpu 0, socket 0, mpidr 80000000
+>> [    0.001006] Setting up static identity map for 0x8280 - 0x82d8
+>> [    0.001224] mvebu-soc-id: MVEBU SoC ID=0x7846, Rev=0x2
+>> [    0.001321] mvebu-pmsu: Initializing Power Management Service Unit
+>> [    0.002062] Booting CPU 1
+>> [    0.004402] CPU1: thread -1, cpu 1, socket 0, mpidr 80000001
+>> [    0.004645] Booting CPU 2
+>> [    0.006984] CPU2: thread -1, cpu 2, socket 0, mpidr 80000002
+>> [    0.007219] Booting CPU 3
+>> [    0.009558] CPU3: thread -1, cpu 3, socket 0, mpidr 80000003
+>> [    0.009605] Brought up 4 CPUs
+>> [    0.009615] SMP: Total of 4 processors activated (200.00 BogoMIPS).
+>> [    0.009620] CPU: All CPU(s) started in SVC mode.
+>> [    0.009957] devtmpfs: initialized
+>> [    0.012369] VFP support v0.3: implementor 56 architecture 2 part 20 variant 9 rev 6
+>> [    0.012525] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604462750000 ns
+>> [    0.012657] pinctrl core: initialized pinctrl subsystem
+>> [    0.013188] NET: Registered protocol family 16
+>> [    0.013368] DMA: preallocated 256 KiB pool for atomic coherent allocations
+>> [    0.040064] cpuidle: using governor ladder
+>> [    0.070061] cpuidle: using governor menu
+>> [    0.075168] hw-breakpoint: Debug register access (0xee003e17) caused undefined instruction on CPU 3
+>> [    0.075172] hw-breakpoint: Debug register access (0xee003e17) caused undefined instruction on CPU 1
+>> [    0.075176] hw-breakpoint: Debug register access (0xee003e17) caused undefined instruction on CPU 2
+>> [    0.075179] hw-breakpoint: CPU 1 failed to disable vector catch
+>> [    0.075196] hw-breakpoint: Debug register access (0xee003e17) caused undefined instruction on CPU 0
+>> [    0.110815] vgaarb: loaded
+>> [    0.110981] SCSI subsystem initialized
+>> [    0.111306] usbcore: registered new interface driver usbfs
+>> [    0.111349] usbcore: registered new interface driver hub
+>> [    0.111398] usbcore: registered new device driver usb
+>> [    0.111640] Advanced Linux Sound Architecture Driver Initialized.
+>> [    0.111991] Bluetooth: Core ver 2.21
+>> [    0.112024] NET: Registered protocol family 31
+>> [    0.112029] Bluetooth: HCI device and connection manager initialized
+>> [    0.112040] Bluetooth: HCI socket layer initialized
+>> [    0.112048] Bluetooth: L2CAP socket layer initialized
+>> [    0.112067] Bluetooth: SCO socket layer initialized
+>> [    0.112462] clocksource: Switched to clocksource armada_370_xp_clocksource
+>> [    0.119267] NET: Registered protocol family 2
+>> [    0.119629] TCP established hash table entries: 8192 (order: 3, 32768 bytes)
+>> [    0.119690] TCP bind hash table entries: 8192 (order: 4, 65536 bytes)
+>> [    0.119749] TCP: Hash tables configured (established 8192 bind 8192)
+>> [    0.119791] UDP hash table entries: 512 (order: 2, 16384 bytes)
+>> [    0.119814] UDP-Lite hash table entries: 512 (order: 2, 16384 bytes)
+>> [    0.119945] NET: Registered protocol family 1
+>> [    0.120143] RPC: Registered named UNIX socket transport module.
+>> [    0.120150] RPC: Registered udp transport module.
+>> [    0.120155] RPC: Registered tcp transport module.
+>> [    0.120160] RPC: Registered tcp NFSv4.1 backchannel transport module.
+>> [    0.290263] hw perfevents: enabled with armv7_cortex_a9 PMU driver, 7 counters available
+>> [    0.291305] futex hash table entries: 1024 (order: 4, 65536 bytes)
+>> [    0.292696] bounce: pool size: 64 pages
+>> [    0.292746] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 252)
+>> [    0.292758] io scheduler noop registered
+>> [    0.292766] io scheduler deadline registered
+>> [    0.292779] io scheduler cfq registered (default)
+>> [    0.293754] armada-xp-pinctrl f1018000.pin-ctrl: registered pinctrl driver
+>> [    0.294186] irq: Cannot allocate irq_descs @ IRQ48, assuming pre-allocated
+>> [    0.294451] irq: Cannot allocate irq_descs @ IRQ80, assuming pre-allocated
+>> [    0.294612] irq: Cannot allocate irq_descs @ IRQ112, assuming pre-allocated
+>> [    0.295033] mv_xor f1060900.xor: Marvell shared XOR driver
+>> [    0.332873] mv_xor f1060900.xor: Marvell XOR (Registers Mode): ( xor cpy intr )
+>> [    0.372848] mv_xor f1060900.xor: Marvell XOR (Registers Mode): ( xor cpy intr )
+>> [    0.372958] mv_xor f10f0900.xor: Marvell shared XOR driver
+>> [    0.412850] mv_xor f10f0900.xor: Marvell XOR (Registers Mode): ( xor cpy intr )
+>> [    0.452845] mv_xor f10f0900.xor: Marvell XOR (Registers Mode): ( xor cpy intr )
+>> [    0.492634] Serial: 8250/16550 driver, 4 ports, IRQ sharing disabled
+>> [    0.493897] console [ttyS0] disabled
+>> [    0.514007] f1012000.serial: ttyS0 at MMIO 0xf1012000 (irq = 20, base_baud = 15625000) is a 16550A
+>> [    1.200947] console [ttyS0] enabled
+>> [    1.225041] f1012100.serial: ttyS1 at MMIO 0xf1012100 (irq = 21, base_baud = 15625000) is a 16550A
+>> [    1.254648] f1012200.serial: ttyS2 at MMIO 0xf1012200 (irq = 33, base_baud = 15625000) is a 16550A
+>> [    1.284237] f1012300.serial: ttyS3 at MMIO 0xf1012300 (irq = 34, base_baud = 15625000) is a 16550A
+>> [    1.294303] sata_mv f10a0000.sata: slots 32 ports 2
+>> [    1.300098] scsi host0: sata_mv
+>> [    1.303511] scsi host1: sata_mv
+>> [    1.306805] ata1: SATA max UDMA/133 irq 31
+>> [    1.310913] ata2: SATA max UDMA/133 irq 31
+>> [    1.315482] pxa3xx-nand f10d0000.nand: This platform can't do DMA on this device
+>> [    1.323280] nand: device found, Manufacturer ID: 0x2c, Chip ID: 0x38
+>> [    1.329650] nand: Micron MT29F8G08ABABAWP
+>> [    1.333684] nand: 1024 MiB, SLC, erase size: 512 KiB, page size: 4096, OOB size: 224
+>> [    1.341450] pxa3xx-nand f10d0000.nand: ECC strength 16, ECC step size 2048
+>> [    1.349163] Bad block table found at page 261888, version 0x01
+>> [    1.355385] Bad block table found at page 262016, version 0x01
+>> [    1.364466] pxa3xx_nand-0: 'partitions' subnode not found on /soc/internal-regs/nand@d0000. Trying to parse direct subnodes as partitions.
+>> [    1.378215] m25p80 spi0.0: n25q128a13 (16384 Kbytes)
+>> [    1.385098] spi0.0: 'partitions' subnode not found on /soc/internal-regs/spi@10600/spi-flash@0. Trying to parse direct subnodes as partitions.
+>> [    1.399136] libphy: Fixed MDIO Bus: probed
+>> [    1.403396] libphy: orion_mdio_bus: probed
+>> [    1.415856] mvneta_bm f10c0000.bm: Buffer Manager for network controller enabled
+>> [    1.424232] size = 0x0, target = 0x0, attr = 0x1e
+>> [    1.428949] mvebu_mbus: invalid dram address 0x2d194000
+>> [    1.434204] mvneta_bm f10c0000.bm: fail to create pool 0
+>> [    1.439532] mvneta f1070000.ethernet eth0: fail to obtain long pool for port
+>> [    1.446607] mvneta f1070000.ethernet: use SW buffer management
+>> [    1.452696] mvneta f1070000.ethernet eth0: Using hardware mac address 00:50:43:68:1c:28
+>> [    1.461529] size = 0x0, target = 0x0, attr = 0x1e
+>> [    1.466258] mvebu_mbus: invalid dram address 0x2d198000
+>> [    1.471501] mvneta_bm f10c0000.bm: fail to create pool 1
+>> [    1.476836] mvneta f1074000.ethernet eth1: fail to obtain long pool for port
+>> [    1.483910] mvneta f1074000.ethernet: use SW buffer management
+>> [    1.489994] mvneta f1074000.ethernet eth1: Using random mac address be:14:de:e2:be:cf
+>> [    1.498661] size = 0x0, target = 0x0, attr = 0x1e
+>> [    1.503391] mvebu_mbus: invalid dram address 0x2d10c000
+>> [    1.508633] mvneta_bm f10c0000.bm: fail to create pool 2
+>> [    1.513968] mvneta f1030000.ethernet eth2: fail to obtain long pool for port
+>> [    1.521035] mvneta f1030000.ethernet: use SW buffer management
+>> [    1.527121] mvneta f1030000.ethernet eth2: Using random mac address 86:3c:f8:02:31:cf
+>> [    1.535810] size = 0x0, target = 0x0, attr = 0x1e
+>> [    1.540527] mvebu_mbus: invalid dram address 0x2d752000
+>> [    1.545781] mvneta_bm f10c0000.bm: fail to create pool 3
+>> [    1.551108] mvneta f1034000.ethernet eth3: fail to obtain long pool for port
+>> [    1.558182] mvneta f1034000.ethernet: use SW buffer management
+>> [    1.564269] mvneta f1034000.ethernet eth3: Using random mac address 7e:3e:74:8c:93:50
+>> [    1.572297] ehci_hcd: USB 2.0 'Enhanced' Host Controller (EHCI) Driver
+>> [    1.578863] ehci-pci: EHCI PCI platform driver
+>> [    1.583371] ehci-orion: EHCI orion driver
+>> [    1.587476] orion-ehci f1050000.usb: EHCI Host Controller
+>> [    1.592916] orion-ehci f1050000.usb: new USB bus registered, assigned bus number 1
+>> [    1.600567] orion-ehci f1050000.usb: irq 27, io mem 0xf1050000
+>> [    1.622494] orion-ehci f1050000.usb: USB 2.0 started, EHCI 1.00
+>> [    1.628967] hub 1-0:1.0: USB hub found
+>> [    1.632806] hub 1-0:1.0: 1 port detected
+>> [    1.637018] orion-ehci f1051000.usb: EHCI Host Controller
+>> [    1.642468] orion-ehci f1051000.usb: new USB bus registered, assigned bus number 2
+>> [    1.650111] orion-ehci f1051000.usb: irq 28, io mem 0xf1051000
+>> [    1.672467] orion-ehci f1051000.usb: USB 2.0 started, EHCI 1.00
+>> [    1.678908] hub 2-0:1.0: USB hub found
+>> [    1.682736] hub 2-0:1.0: 1 port detected
+>> [    1.687203] usbcore: registered new interface driver usb-storage
+>> [    1.693454] mousedev: PS/2 mouse device common for all mice
+>> [    1.699593] rtc-mv f1010300.rtc: rtc core: registered f1010300.rtc as rtc0
+>> [    1.706641] i2c /dev entries driver
+>> [    1.711074] orion_wdt: Initial timeout 171 sec
+>> [    1.715770] cpu: dev_pm_opp_of_cpumask_add_table: couldn't find opp table for cpu:0, -19
+>> [    1.723985] cpu: dev_pm_opp_of_cpumask_add_table: couldn't find opp table for cpu:1, -19
+>> [    1.732174] cpu: dev_pm_opp_of_cpumask_add_table: couldn't find opp table for cpu:2, -19
+>> [    1.740372] cpu: dev_pm_opp_of_cpumask_add_table: couldn't find opp table for cpu:3, -19
+>> [    1.748968] sdhci: Secure Digital Host Controller Interface driver
+>> [    1.755176] sdhci: Copyright(c) Pierre Ossman
+>> [    1.759723] sdhci-pltfm: SDHCI platform and OF driver helper
+>> [    1.765805] usbcore: registered new interface driver usbhid
+>> [    1.771394] usbhid: USB HID core driver
+>> [    1.775730] f0000000.nor: Found 1 x16 devices at 0x0 in 16-bit bank. Manufacturer ID 0x000089 Chip ID 0x000018
+>> [    1.785775] Intel/Sharp Extended Query Table at 0x0031
+>> [    1.790936] Intel/Sharp Extended Query Table at 0x0031
+>> [    1.796106] Using buffer write method
+>> [    1.799778] cfi_cmdset_0001: Erase suspend on write enabled
+>> [    1.809269] f0000000.nor: 'partitions' subnode not found on /soc/devbus-bootcs/nor@0. Trying to parse direct subnodes as partitions.
+>> [    1.822513] ata1: SATA link up 3.0 Gbps (SStatus 123 SControl F300)
+>> [    1.829037] NET: Registered protocol family 10
+>> [    1.834180] sit: IPv6 over IPv4 tunneling driver
+>> [    1.839209] NET: Registered protocol family 17
+>> [    1.842687] ata1.00: ATA-9: TS8GHSD310, 20111220, max UDMA/133
+>> [    1.842692] ata1.00: 15621984 sectors, multi 1: LBA48 NCQ (depth 31/32)
+>> [    1.856343] ThumbEE CPU extension supported.
+>> [    1.860632] Registering SWP/SWPB emulation handler
+>> [    1.862685] ata1.00: configured for UDMA/133
+>> [    1.862993] scsi 0:0:0:0: Direct-Access     ATA      TS8GHSD310       1220 PQ: 0 ANSI: 5
+>> [    1.863646] sd 0:0:0:0: [sda] 15621984 512-byte logical blocks: (7.99 GB/7.44 GiB)
+>> [    1.863838] sd 0:0:0:0: [sda] Write Protect is off
+>> [    1.863907] sd 0:0:0:0: [sda] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+>> [    1.873801]  sda: sda1 sda2 sda3 < sda5 > sda4
+>> [    1.875389] sd 0:0:0:0: [sda] Attached SCSI disk
+>> [    1.909334] rtc-mv f1010300.rtc: setting system clock to 2001-01-20 07:57:42 UTC (979977462)
+>> [    1.918901] ALSA device list:
+>> [    1.921878]   No soundcards found.
+>> [    2.222505] ata2: SATA link down (SStatus 0 SControl F300)
+>> [    2.230484] Freeing unused kernel memory: 4460K (c06fd000 - c0b58000)
+>>
+>> --
+>> Gregory Clement, Free Electrons
+>> Kernel, drivers, real-time and embedded Linux
+>> development, consulting, training and support.
+>> http://free-electrons.com
