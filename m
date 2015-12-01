@@ -1,51 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Stable interface index option
-Date: Tue, 01 Dec 2015 14:28:47 -0500 (EST)
-Message-ID: <20151201.142847.1980856920707150414.davem@davemloft.net>
-References: <20151201155052.GA14984@principal.rfc2324.org>
-	<1448985743.3387258.454809153.36540D70@webmail.messagingengine.com>
-	<20151201080652.5cba6f8b@xeon-e3>
+Subject: Re: [PATCH 3/6] net: thunderx: Increase transmit queue length
+Date: Tue, 01 Dec 2015 14:30:47 -0500 (EST)
+Message-ID: <20151201.143047.82022857078130793.davem@davemloft.net>
+References: <01d101d12c46$2de43b40$89acb1c0$@samsung.com>
+	<1448983985.25582.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+sq2Ce9oH-kCDO8hK_wX+ZZdXyyBuT4V2bt5Ab+2=pEX+BO+w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, max@rfc2324.org, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56154 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751416AbbLAT2s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 14:28:48 -0500
-In-Reply-To: <20151201080652.5cba6f8b@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, p.fedin@samsung.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Sunil.Goutham@caviumnetworks.com, sgoutham@cavium.com
+To: sunil.kovvuri@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+sq2Ce9oH-kCDO8hK_wX+ZZdXyyBuT4V2bt5Ab+2=pEX+BO+w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Tue, 1 Dec 2015 08:06:52 -0800
+From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Date: Tue, 1 Dec 2015 22:00:49 +0530
 
-> On Tue, 01 Dec 2015 17:02:23 +0100
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> 
->> On Tue, Dec 1, 2015, at 16:50, Maximilian Wilhelm wrote:
->> > > I'm not sure I understand how this would work- are we going to 
->> > > pin down the ifindex for some subset of interfaces?
->> > 
->> > I'm not sure what your idea is, but I guess we might mean the same
->> > thing:
->> > 
->> > What I have in mind is that the user can supply a list of (ifname ->
->> > ifindex) entries via a sysfs/procfs interface and if such a list is
->> > present, the kernel will search the list for every ifname which is
->> > registered and check if there is an entry. If there is, the ifindex
->> > for this entry is used. If there is no entry found for the given
->> > ifname, the usual algorithm is used (therefore inherently providing
->> > backward compatibility).
->> 
->> Sorry to ask because I don't like this feature at all. There was a lot
->> of work on stable interface names. Why do you need stable ifindexes,
->> which were never meant to be stable for a longer amount of time?
-> 
-> Also current versions of SNMP provide more useful information about
-> network interface slot information in ifDescription
+> Increasing descriptor ring size will lead to more memory allocation.
+> And what you are seeing is a memory alloc failure and doesn't seem
+> to be due to this driver change.  I mean it looks like the behavior
+> will be same for other drivers as well.
 
-Well if they do provide strings, then that is probably a better way
-forward than messing with the kernel.
+The driver should successfully recover from out of memory situations
+and not stop RX/TX completely.
+
+There might be some other problem with your driver causing this.
+
+Don't put this off as not "related" to your patch, it is as this
+introduces the behavior for this user, and you should fix it before
+expecting me to apply this patch series.
