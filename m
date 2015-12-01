@@ -1,40 +1,39 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH 2/2 net-next] ravb: Add device tree support for r8a779[123]
-Date: Tue,  1 Dec 2015 16:43:03 +0900
-Message-ID: <1448955783-22806-3-git-send-email-horms+renesas@verge.net.au>
-References: <1448955783-22806-1-git-send-email-horms+renesas@verge.net.au>
-Cc: Magnus Damm <magnus.damm@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2] ravb: add R8A7791 support
+Date: Tue, 1 Dec 2015 16:44:50 +0900
+Message-ID: <20151201074450.GA31496@verge.net.au>
+References: <1661514.u50jDu7LON@wasted.cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
 	devicetree@vger.kernel.org
-To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1448955783-22806-1-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:43261 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752636AbbLAHox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 02:44:53 -0500
+Content-Disposition: inline
+In-Reply-To: <1661514.u50jDu7LON@wasted.cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Simply document new compat strings.
-As a previous patch adds a generic R-Car Gen2 compat string
-there appears to be no need for a driver updates.
+On Tue, Dec 01, 2015 at 01:01:18AM +0300, Sergei Shtylyov wrote:
+> Add support  for yet another ARM member of the R-Car family, R-Car M2-W,
+> also known as R8A7791.
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 
+> ---
+> The patch is against DaveM's 'net-next.git' repo but I wouldn't mind if it's
+> applied to 'net.git' instead. :-)
+> 
+> Changes in version 2:
+> - fixed the SoC name in the changelog.
 
-Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
----
- Documentation/devicetree/bindings/net/renesas,ravb.txt | 3 +++
- 1 file changed, 3 insertions(+)
+I have no particular problem with this patch but as mentioned elsewhere I
+have been working on a more comprehensive patchset which I have now posted as:
 
-diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-index 115006325bff..076accb652ad 100644
---- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-+++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-@@ -5,6 +5,9 @@ interface.
- 
- Required properties:
- - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
-+	      "renesas,etheravb-r8a7791" if the device is a part of R8A7791 SoC.
-+	      "renesas,etheravb-r8a7792" if the device is a part of R8A7792 SoC.
-+	      "renesas,etheravb-r8a7793" if the device is a part of R8A7793 SoC.
- 	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
- 	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
- 	      "renesas,etheravb-gen2" for generic R-Car Gen 2 compatible interface.
--- 
-2.1.4
-
+"[PATCH 0/2 net-next] ravb: More compat strings"
