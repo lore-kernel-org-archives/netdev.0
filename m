@@ -1,39 +1,42 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2] ravb: add R8A7791 support
-Date: Tue, 1 Dec 2015 16:44:50 +0900
-Message-ID: <20151201074450.GA31496@verge.net.au>
-References: <1661514.u50jDu7LON@wasted.cogentembedded.com>
+Subject: Re: [PATCH] netfilter: ipvs: avoid unused variable warning
+Date: Tue, 1 Dec 2015 16:48:59 +0900
+Message-ID: <20151201074859.GA22945@verge.net.au>
+References: <9616810.SPqCgIbKt5@wuerfel>
+ <alpine.LFD.2.11.1511302242210.1918@ja.home.ssi.bg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	devicetree@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:43261 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752636AbbLAHox (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 02:44:53 -0500
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	lvs-devel@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1661514.u50jDu7LON@wasted.cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.11.1511302242210.1918@ja.home.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 01, 2015 at 01:01:18AM +0300, Sergei Shtylyov wrote:
-> Add support  for yet another ARM member of the R-Car family, R-Car M2-W,
-> also known as R8A7791.
+On Mon, Nov 30, 2015 at 10:48:34PM +0200, Julian Anastasov wrote:
 > 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 	Hello,
 > 
-> ---
-> The patch is against DaveM's 'net-next.git' repo but I wouldn't mind if it's
-> applied to 'net.git' instead. :-)
+> On Mon, 30 Nov 2015, Arnd Bergmann wrote:
 > 
-> Changes in version 2:
-> - fixed the SoC name in the changelog.
+> > When CONFIG_PROC_FS is disabled, the local 'net' variable in
+> > ip_vs_app_net_init becomes unused, as gcc warns:
+> > 
+> > net/netfilter/ipvs/ip_vs_app.c: In function 'ip_vs_app_net_init':
+> > net/netfilter/ipvs/ip_vs_app.c:608:14: warning: unused variable 'net' [-Wunused-variable]
+> > 
+> > This removes the line by moving the pointer dereference into the
+> > user of the variable.
+> > 
+> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> 
+> Acked-by: Julian Anastasov <ja@ssi.bg>
 
-I have no particular problem with this patch but as mentioned elsewhere I
-have been working on a more comprehensive patchset which I have now posted as:
-
-"[PATCH 0/2 net-next] ravb: More compat strings"
+Thanks, applied to ipvs-next.
