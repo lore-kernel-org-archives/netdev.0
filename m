@@ -1,71 +1,175 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Improve Atheros ethernet driver not to do order 4
- GFP_ATOMIC allocation
-Date: Tue, 01 Dec 2015 15:36:28 -0500 (EST)
-Message-ID: <20151201.153628.148150792813486828.davem@davemloft.net>
-References: <20151127082010.GA2500@dhcp22.suse.cz>
-	<20151128145113.GB4135@amd>
-	<1448906303.24696.133.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stefan Schmidt <stefan@osg.samsung.com>
+Subject: Re: [RFCv3 bluetooth-next 1/4] 6lowpan: add lowpan dev register
+ helpers
+Date: Tue, 1 Dec 2015 21:38:26 +0100
+Message-ID: <565E0542.7010001@osg.samsung.com>
+References: <1448796882-316-1-git-send-email-alex.aring@gmail.com>
+ <1448796882-316-2-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: pavel@ucw.cz, mhocko@kernel.org, akpm@osdl.org,
- linux-kernel@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com,
- netdev@vger.kernel.org, rjw@rjwysocki.net, linux-mm@kvack.org,
- nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com
-To: eric.dumazet@gmail.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1448906303.24696.133.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	kernel@pengutronix.de, mcr@sandelman.ca, lukasz.duda@nordicsemi.no,
+	martin.gergeleit@hs-rm.de
+To: Alexander Aring <alex.aring@gmail.com>, linux-wpan@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lists.s-osg.org ([54.187.51.154]:46657 "EHLO lists.s-osg.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756971AbbLAUic (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2015 15:38:32 -0500
+In-Reply-To: <1448796882-316-2-git-send-email-alex.aring@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 30 Nov 2015 09:58:23 -0800
+Hello.
 
-> On Sat, 2015-11-28 at 15:51 +0100, Pavel Machek wrote:
->> atl1c driver is doing order-4 allocation with GFP_ATOMIC
->> priority. That often breaks  networking after resume. Switch to
->> GFP_KERNEL. Still not ideal, but should be significantly better.
->>     
->> Signed-off-by: Pavel Machek <pavel@ucw.cz>
->> 
->> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
->> index 2795d6d..afb71e0 100644
->> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
->> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
->> @@ -1016,10 +1016,10 @@ static int atl1c_setup_ring_resources(struct atl1c_adapter *adapter)
->>  		sizeof(struct atl1c_recv_ret_status) * rx_desc_count +
->>  		8 * 4;
->>  
->> -	ring_header->desc = pci_alloc_consistent(pdev, ring_header->size,
->> -				&ring_header->dma);
->> +	ring_header->desc = dma_alloc_coherent(&pdev->dev, ring_header->size,
->> +					       &ring_header->dma, GFP_KERNEL);
->>  	if (unlikely(!ring_header->desc)) {
->> -		dev_err(&pdev->dev, "pci_alloc_consistend failed\n");
->> +		dev_err(&pdev->dev, "could not get memmory for DMA buffer\n");
->>  		goto err_nomem;
->>  	}
->>  	memset(ring_header->desc, 0, ring_header->size);
->> 
-> 
-> It seems there is a missed opportunity to get rid of the memset() here,
-> by adding __GFP_ZERO to the dma_alloc_coherent() GFP_KERNEL mask,
-> or simply using dma_zalloc_coherent()
+On 29/11/15 12:34, Alexander Aring wrote:
+> This patch introduces register and unregister functionality for lowpan
+> interfaces. While register a lowpan interface there are several things
+> which need to be initialize by the 6lowpan subsystem. Upcoming
+> functionality need to register/unregister per interface components e.g.
+> debugfs entry.
+>
+> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+> ---
+>   include/net/6lowpan.h         |  7 ++++++-
+>   net/6lowpan/core.c            | 33 +++++++++++++++++++++++++++++++--
+>   net/bluetooth/6lowpan.c       |  8 +++-----
+>   net/ieee802154/6lowpan/core.c |  6 ++----
+>   4 files changed, 42 insertions(+), 12 deletions(-)
+>
+> diff --git a/include/net/6lowpan.h b/include/net/6lowpan.h
+> index cf3bc56..730211f 100644
+> --- a/include/net/6lowpan.h
+> +++ b/include/net/6lowpan.h
+> @@ -185,7 +185,12 @@ static inline void lowpan_push_hc_data(u8 **hc_ptr, const void *data,
+>   	*hc_ptr += len;
+>   }
+>   
+> -void lowpan_netdev_setup(struct net_device *dev, enum lowpan_lltypes lltype);
+> +int lowpan_register_netdevice(struct net_device *dev,
+> +			      enum lowpan_lltypes lltype);
+> +int lowpan_register_netdev(struct net_device *dev,
+> +			   enum lowpan_lltypes lltype);
+> +void lowpan_unregister_netdevice(struct net_device *dev);
+> +void lowpan_unregister_netdev(struct net_device *dev);
+>   
+>   /**
+>    * lowpan_header_decompress - replace 6LoWPAN header with IPv6 header
+> diff --git a/net/6lowpan/core.c b/net/6lowpan/core.c
+> index 83b19e0..80fc509 100644
+> --- a/net/6lowpan/core.c
+> +++ b/net/6lowpan/core.c
+> @@ -15,7 +15,8 @@
+>   
+>   #include <net/6lowpan.h>
+>   
+> -void lowpan_netdev_setup(struct net_device *dev, enum lowpan_lltypes lltype)
+> +int lowpan_register_netdevice(struct net_device *dev,
+> +			      enum lowpan_lltypes lltype)
+>   {
+>   	dev->addr_len = EUI64_ADDR_LEN;
+>   	dev->type = ARPHRD_6LOWPAN;
+> @@ -23,8 +24,36 @@ void lowpan_netdev_setup(struct net_device *dev, enum lowpan_lltypes lltype)
+>   	dev->priv_flags |= IFF_NO_QUEUE;
+>   
+>   	lowpan_priv(dev)->lltype = lltype;
+> +
+> +	return register_netdevice(dev);
+> +}
+> +EXPORT_SYMBOL(lowpan_register_netdevice);
+> +
+> +int lowpan_register_netdev(struct net_device *dev,
+> +			   enum lowpan_lltypes lltype)
+> +{
+> +	int ret;
+> +
+> +	rtnl_lock();
+> +	ret = lowpan_register_netdevice(dev, lltype);
+> +	rtnl_unlock();
+> +	return ret;
+> +}
+> +EXPORT_SYMBOL(lowpan_register_netdev);
+> +
+> +void lowpan_unregister_netdevice(struct net_device *dev)
+> +{
+> +	unregister_netdevice(dev);
+> +}
+> +EXPORT_SYMBOL(lowpan_unregister_netdevice);
+> +
+> +void lowpan_unregister_netdev(struct net_device *dev)
+> +{
+> +	rtnl_lock();
+> +	lowpan_unregister_netdevice(dev);
+> +	rtnl_unlock();
+>   }
+> -EXPORT_SYMBOL(lowpan_netdev_setup);
+> +EXPORT_SYMBOL(lowpan_unregister_netdev);
+>   
+>   static int __init lowpan_module_init(void)
+>   {
+> diff --git a/net/bluetooth/6lowpan.c b/net/bluetooth/6lowpan.c
+> index 9e9cca3..d040365 100644
+> --- a/net/bluetooth/6lowpan.c
+> +++ b/net/bluetooth/6lowpan.c
+> @@ -825,9 +825,7 @@ static int setup_netdev(struct l2cap_chan *chan, struct lowpan_dev **dev)
+>   	list_add_rcu(&(*dev)->list, &bt_6lowpan_devices);
+>   	spin_unlock(&devices_lock);
+>   
+> -	lowpan_netdev_setup(netdev, LOWPAN_LLTYPE_BTLE);
+> -
+> -	err = register_netdev(netdev);
+> +	err = lowpan_register_netdev(netdev, LOWPAN_LLTYPE_BTLE);
+>   	if (err < 0) {
+>   		BT_INFO("register_netdev failed %d", err);
+>   		spin_lock(&devices_lock);
+> @@ -890,7 +888,7 @@ static void delete_netdev(struct work_struct *work)
+>   	struct lowpan_dev *entry = container_of(work, struct lowpan_dev,
+>   						delete_netdev);
+>   
+> -	unregister_netdev(entry->netdev);
+> +	lowpan_unregister_netdev(entry->netdev);
+>   
+>   	/* The entry pointer is deleted by the netdev destructor. */
+>   }
+> @@ -1348,7 +1346,7 @@ static void disconnect_devices(void)
+>   		ifdown(entry->netdev);
+>   		BT_DBG("Unregistering netdev %s %p",
+>   		       entry->netdev->name, entry->netdev);
+> -		unregister_netdev(entry->netdev);
+> +		lowpan_unregister_netdev(entry->netdev);
+>   		kfree(entry);
+>   	}
+>   }
+> diff --git a/net/ieee802154/6lowpan/core.c b/net/ieee802154/6lowpan/core.c
+> index 20c49c7..737c87a 100644
+> --- a/net/ieee802154/6lowpan/core.c
+> +++ b/net/ieee802154/6lowpan/core.c
+> @@ -161,9 +161,7 @@ static int lowpan_newlink(struct net *src_net, struct net_device *ldev,
+>   				wdev->needed_headroom;
+>   	ldev->needed_tailroom = wdev->needed_tailroom;
+>   
+> -	lowpan_netdev_setup(ldev, LOWPAN_LLTYPE_IEEE802154);
+> -
+> -	ret = register_netdevice(ldev);
+> +	ret = lowpan_register_netdevice(ldev, LOWPAN_LLTYPE_IEEE802154);
+>   	if (ret < 0) {
+>   		dev_put(wdev);
+>   		return ret;
+> @@ -180,7 +178,7 @@ static void lowpan_dellink(struct net_device *ldev, struct list_head *head)
+>   	ASSERT_RTNL();
+>   
+>   	wdev->ieee802154_ptr->lowpan_dev = NULL;
+> -	unregister_netdevice(ldev);
+> +	lowpan_unregister_netdevice(ldev);
+>   	dev_put(wdev);
+>   }
+>   
 
-Also, the Subject line needs to be adjusted.  The proper format for
-the Subject line is:
+That is better compared to what you had in v2. I think this one is ready 
+for a real PATCH and applying.
 
-	[PATCH $TREE] $subsystem: $description.
+Reviewed-by: Stefan Schmidt <stefan@osg.samsung.com>
 
-Where "$TREE" is either 'net' or 'net-next', $subsystem is the lowercase
-name of the driver (here 'atl1c') and then a colon, and then a space, and
-then the single-line description.
-
-Thanks.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+regards
+Stefan Schmidt
