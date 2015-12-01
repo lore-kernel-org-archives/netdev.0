@@ -1,66 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: size overflow in function qdisc_tree_decrease_qlen
- net/sched/sch_api.c
-Date: Tue, 01 Dec 2015 06:10:11 -0800
-Message-ID: <1448979011.25582.21.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151201010005.GA23175@Fux-PC>
-	 <CAHA+R7NdbMgfWpdCoP8peXT3zBX1=B_HWhsykjcT3QO=Gk-9aQ@mail.gmail.com>
-	 <20151201111943.GA4036@Fux-PC>
-	 <1448978807.25582.19.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] bridge: Only call /sbin/bridge-stp for the initial
+ network namespace
+Date: Tue, 01 Dec 2015 15:13:44 +0100
+Message-ID: <1448979224.3359384.454695137.2DC07EE8@webmail.messagingengine.com>
+References: <565B7F7D.80208@nod.at>
+ <CAGXu5jJqQKAmFK0nL69E0QOpo8WSVDqStGZo7-m7gy3vnXBa=A@mail.gmail.com>
+ <87egf7183c.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <cwang@twopensource.com>,
-	netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>, spender@grsecurity.net,
-	pageexec@freemail.hu, re.emese@gmail.com
-To: Daniele Fucini <dfucini@gmail.com>
+Cc: Richard Weinberger <richard@nod.at>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	bridge@lists.linux-foundation.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Kees Cook <keescook@chromium.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:36441 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755253AbbLAOKO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 09:10:14 -0500
-Received: by pacdm15 with SMTP id dm15so6402667pac.3
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 06:10:13 -0800 (PST)
-In-Reply-To: <1448978807.25582.19.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:35869 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755852AbbLAONo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 09:13:44 -0500
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id 493F920D15
+	for <netdev@vger.kernel.org>; Tue,  1 Dec 2015 09:13:44 -0500 (EST)
+In-Reply-To: <87egf7183c.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-12-01 at 06:06 -0800, Eric Dumazet wrote:
-> On Tue, 2015-12-01 at 12:19 +0100, Daniele Fucini wrote:
-> > Thanks for the reply. Here's the output of `tc qdisc show`:
-> > https://gist.github.com/1847102c8fe08f63e9e7
+On Mon, Nov 30, 2015, at 22:38, Eric W. Biederman wrote:
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> ---
+>  net/bridge/br_stp_if.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+> index 5396ff08af32..742fa89528ab 100644
+> --- a/net/bridge/br_stp_if.c
+> +++ b/net/bridge/br_stp_if.c
+> @@ -142,7 +142,9 @@ static void br_stp_start(struct net_bridge *br)
+>  	char *envp[] = { NULL };
+>  	struct net_bridge_port *p;
+>  
+> -       r = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
+> +       r = -ENOENT;
+> +       if (dev_net(br->dev) == &init_net)
 
-> Hmm... I do not think we ever took care of MQ in
-> qdisc_tree_decrease_qlen()
+net_eq ?
 
-This looks like a false positive, because MQ recomputes backlog/qlen at
-the time (stats) dumps are requested.
+> +               r = call_usermodehelper(BR_STP_PROG, argv, envp,
+> UMH_WAIT_PROC);
+>  
+>  	spin_lock_bh(&br->lock);
+>  
 
-I would say there is no bug.
+Otherwise, ack, so far.
 
-static int mq_dump(struct Qdisc *sch, struct sk_buff *skb)
-{
-        struct net_device *dev = qdisc_dev(sch);
-        struct Qdisc *qdisc;
-        unsigned int ntx;
+As our /sys interfaces directories are tagged by the net namespace it
+would actually make sense to run bridge-stp automatically in another
+name space.
 
-        sch->q.qlen = 0;
-        memset(&sch->bstats, 0, sizeof(sch->bstats));
-        memset(&sch->qstats, 0, sizeof(sch->qstats));
-
-        for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
-                qdisc = netdev_get_tx_queue(dev, ntx)->qdisc_sleeping;
-                spin_lock_bh(qdisc_lock(qdisc));
-                sch->q.qlen             += qdisc->q.qlen;
-                sch->bstats.bytes       += qdisc->bstats.bytes;
-                sch->bstats.packets     += qdisc->bstats.packets;
-                sch->qstats.backlog     += qdisc->qstats.backlog;
-                sch->qstats.drops       += qdisc->qstats.drops;
-                sch->qstats.requeues    += qdisc->qstats.requeues;
-                sch->qstats.overlimits  += qdisc->qstats.overlimits;
-                spin_unlock_bh(qdisc_lock(qdisc));
-        }
-        return 0;
-}
+Bye,
+Hannes
