@@ -1,80 +1,70 @@
-From: Daniele Fucini <dfucini@gmail.com>
-Subject: Re: size overflow in function qdisc_tree_decrease_qlen
- net/sched/sch_api.c
-Date: Tue, 1 Dec 2015 12:19:43 +0100
-Message-ID: <20151201111943.GA4036@Fux-PC>
-References: <20151201010005.GA23175@Fux-PC>
- <CAHA+R7NdbMgfWpdCoP8peXT3zBX1=B_HWhsykjcT3QO=Gk-9aQ@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC] ipv6: use a random ifid for headerless devices
+Date: Tue, 01 Dec 2015 12:22:22 +0100
+Message-ID: <1448968942.3320842.454553905.2C5FBADD@webmail.messagingengine.com>
+References: <1448884508-5235-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="EVF5PPMfhYS0aIcm"
-Cc: netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>, spender@grsecurity.net,
-	pageexec@freemail.hu, re.emese@gmail.com
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: =?UTF-8?Q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33502 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751000AbbLALTr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 06:19:47 -0500
-Received: by wmuu63 with SMTP id u63so1361957wmu.0
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 03:19:46 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7NdbMgfWpdCoP8peXT3zBX1=B_HWhsykjcT3QO=Gk-9aQ@mail.gmail.com>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:57486 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752161AbbLALWX convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2015 06:22:23 -0500
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id BA6CD20E70
+	for <netdev@vger.kernel.org>; Tue,  1 Dec 2015 06:22:22 -0500 (EST)
+In-Reply-To: <1448884508-5235-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
---EVF5PPMfhYS0aIcm
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Thanks for the reply. Here's the output of `tc qdisc show`:
-https://gist.github.com/1847102c8fe08f63e9e7
-
-Daniele
-
-
-On Mon, Nov 30, 2015 at 08:50:29PM -0800, Cong Wang wrote:
-> On Mon, Nov 30, 2015 at 5:00 PM, Daniele Fucini <dfucini@gmail.com> wrote:
-> > Hello,
-> >
-> > I'm using a Grsecurity patched kernel (version 4.2.6-201511282239) and
-> > I'm getting system freezes due to PaX detecting a size overflow in
-> > function qdisc_tree_decrease_qlen net/sched/sch_api.c:769 whenever I use
-> > Transmission BitTorrent client.
-> >
-> > On the Grsecurity forum I was told it's probably an unintended integer
-> > underflow that I should report upstream.
-> >
-> > Here's the relevant log:
-> > https://gist.github.com/cf54ccbb12ea65e146d4
-> >
+On Mon, Nov 30, 2015, at 12:55, Bj=C3=B8rn Mork wrote:
+> Generating a random ifid for devices with no L2 header
+> at all, allowing such devices to take part in IPv6
+> autoconfiguration. The tuntap driver is one example of
+> a driver where such an ifid would be useful.
 >=20
-> Looks like we miss some sch->q.qlen accounting somewhere...
+> Note that as there is no persistence, new addresses
+> will be generated every time an interface is brought up:
 >=20
-> What is your qdisc setup? Is your fq_codel the default one or you install=
-ed it
-> or some other qdisc somewhere (`tc qdisc show` could tell)?
+>  # ip -6 addr show dev tun0
+>  8: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 state
+>  UNKNOWN qlen 500
+>      inet6 fe80::eef2:111c:f270:92ba/64 scope link
+>         valid_lft forever preferred_lft forever
+>  # ip link set tun0 down
+>  # ip link set tun0 up
+>  # ip -6 addr show dev tun0
+>  8: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 state
+>  UNKNOWN qlen 500
+>      inet6 fe80::eec0:48d0:6b52:8835/64 scope link
+>         valid_lft forever preferred_lft forever
 >=20
-> I will take a deeper look tomorrow, or maybe Jamal could find something
-> before I wake up. ;)
+> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+> ---
+> I'm planning raw-ip support for the qmi_wwan driver.  And
+> the feedback from primary users (ModemManager++) is that
+> a headerless netdev is preferred over a fake ethernet
+> device. The current plan is to model this after 'tun'
+> devices, using ARPHRD_NONE as type.
+>=20
+> But these devices will need an IPv6 link local address for
+> full SLAAC support.  I am therefore wondering if an approach
+> like this patch will be acceptable, or if I should look for
+> some other solution?
 
---EVF5PPMfhYS0aIcm
-Content-Type: application/pgp-signature; name="signature.asc"
+I see no problem with the patch as it eases operating those devices. I
+would also suggest storing the ifid in the inet6_dev so it does only
+change during device creation and destruction. Otherwise I would
+recommend to use stable privacy addresses to generate the link local
+addresses. EUI-48 based LL creation should hopefully not be used anymor=
+e
+soon.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAEBCAAGBQJWXYJPAAoJEEYRza8bUKw+n1oIAKc9IA1T/EUUDGOJ3/pm4sAn
-0vNzWloH8eRNzdYMmu+nJrMuGpXEv/91Dwz/Angc83fg5Wg5fCYn7hr60MasqXMX
-tb1u3jrwK6uYqL0hGoCJgtnbVIIdxtE5M8+pbE6MnUFFgEBHYIWEEVg9A8ovmBZ7
-pbsEJLzsseAicJDqG/66jzmPKaNMNk40lMrihwwYt0j14XOEKNYwmrkfbIVhR0SQ
-ng4x2dtyc07DWv+V9wnbc/u6Nn7Ny0oiizAziT41q+siX2ea0qnkSGss9SaIUrwx
-X8/aZDG3LYYc4oBrsvE4ac0VycBqS3LjM/XlJe8kuz7YCdVGWp4nWw95ngIjzVc=
-=5Sgc
------END PGP SIGNATURE-----
-
---EVF5PPMfhYS0aIcm--
+Thanks,
+Hannes
