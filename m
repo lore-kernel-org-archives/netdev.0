@@ -1,74 +1,137 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ipv6: sctp: implement sctp_v6_destroy_sock()
-Date: Tue, 01 Dec 2015 07:20:07 -0800
-Message-ID: <1448983207.25582.29.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+bv56b+opCd=5SHmN47MAHEFyZA18kSsu-Fa+XODj20PA@mail.gmail.com>
-	 <1448977016.25582.18.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <565DA9BE.3060006@iogearbox.net>
-	 <1448979404.25582.23.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <565DAD8D.9020800@iogearbox.net>
-	 <1448980723.25582.24.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC PATCH V2 0/3] IXGBE/VFIO: Add live migration support for
+ SRIOV NIC
+Date: Tue, 1 Dec 2015 17:28:48 +0200
+Message-ID: <20151201171140-mutt-send-email-mst@redhat.com>
+References: <5654722D.4010409@gmail.com>
+ <56552888.90108@intel.com>
+ <CAKgT0UcSrewenfM2YdVojHFFqfK2aVbBN5LH8=BFzc1p0f9hvQ@mail.gmail.com>
+ <56556F98.5060507@intel.com>
+ <CAKgT0UevBmRLpM1PvuuVDUW79A66RcPrfO8uGiqL1RiALW7apg@mail.gmail.com>
+ <A12AC9D104E08D47BAF23C492F83C53B25CDE9E3@SHSMSX104.ccr.corp.intel.com>
+ <CAKgT0Ucyq=7OSYBVvU9Z01b3f6scS+eBMLg+yphW7bwkNZosPQ@mail.gmail.com>
+ <565BF285.4040507@intel.com>
+ <CAKgT0Uc+-gFAetEfde6DmMOFK+vDE6UkgsNF8oLNqaQc4USSeg@mail.gmail.com>
+ <565DB6FF.1050602@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-sctp@vger.kernel.org, syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448980723.25582.24.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Dong, Eddie" <eddie.dong-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org" <a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org>,
+	Alex Williamson <alex.williamson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org" <b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org>,
+	Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	"Wyborny, Carolyn" <carolyn.wyborny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Skidmore, Donald C" <donald.c.skidmore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Jani, Nrupal" <nrupal.jani-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Alexander Graf <agraf-l3A5Bk7waGM@public.gmane.org>,
+	"kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Paolo Bonzini <pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org" <qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org>,
+	"Tantilov, Emil S" <emil.s.tantilov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Rustad, Mark D" <mark.d.rustad-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eric Auger <eric.auger-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	intel-wired-lan <intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"
+To: "Lan, Tianyu" <tianyu.lan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <565DB6FF.1050602-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Tue, Dec 01, 2015 at 11:04:31PM +0800, Lan, Tianyu wrote:
+> 
+> 
+> On 12/1/2015 12:07 AM, Alexander Duyck wrote:
+> >They can only be corrected if the underlying assumptions are correct
+> >and they aren't.  Your solution would have never worked correctly.
+> >The problem is you assume you can keep the device running when you are
+> >migrating and you simply cannot.  At some point you will always have
+> >to stop the device in order to complete the migration, and you cannot
+> >stop it before you have stopped your page tracking mechanism.  So
+> >unless the platform has an IOMMU that is somehow taking part in the
+> >dirty page tracking you will not be able to stop the guest and then
+> >the device, it will have to be the device and then the guest.
+> >
+> >>>Doing suspend and resume() may help to do migration easily but some
+> >>>devices requires low service down time. Especially network and I got
+> >>>that some cloud company promised less than 500ms network service downtime.
+> >Honestly focusing on the downtime is getting the cart ahead of the
+> >horse.  First you need to be able to do this without corrupting system
+> >memory and regardless of the state of the device.  You haven't even
+> >gotten to that state yet.  Last I knew the device had to be up in
+> >order for your migration to even work.
+> 
+> I think the issue is that the content of rx package delivered to stack maybe
+> changed during migration because the piece of memory won't be migrated to
+> new machine. This may confuse applications or stack. Current dummy write
+> solution can ensure the content of package won't change after doing dummy
+> write while the content maybe not received data if migration happens before
+> that point. We can recheck the content via checksum or crc in the protocol
+> after dummy write to ensure the content is what VF received. I think stack
+> has already done such checks and the package will be abandoned if failed to
+> pass through the check.
 
-Dmitry Vyukov reported a memory leak using IPV6 SCTP sockets.
 
-We need to call inet6_destroy_sock() to properly release
-inet6 specific fields.
+Most people nowdays rely on hardware checksums so I don't think this can
+fly.
 
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/sctp/socket.c |    9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+> Another way is to tell all memory driver are using to Qemu and let Qemu to
+> migrate these memory after stopping VCPU and the device. This seems safe but
+> implementation maybe complex.
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 897c01c029ca..9d0b9bae9052 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -7375,6 +7375,13 @@ struct proto sctp_prot = {
- 
- #if IS_ENABLED(CONFIG_IPV6)
- 
-+#include <net/transp_v6.h>
-+static void sctp_v6_destroy_sock(struct sock *sk)
-+{
-+	sctp_destroy_sock(sk);
-+	inet6_destroy_sock(sk);
-+}
-+
- struct proto sctpv6_prot = {
- 	.name		= "SCTPv6",
- 	.owner		= THIS_MODULE,
-@@ -7384,7 +7391,7 @@ struct proto sctpv6_prot = {
- 	.accept		= sctp_accept,
- 	.ioctl		= sctp_ioctl,
- 	.init		= sctp_init_sock,
--	.destroy	= sctp_destroy_sock,
-+	.destroy	= sctp_v6_destroy_sock,
- 	.shutdown	= sctp_shutdown,
- 	.setsockopt	= sctp_setsockopt,
- 	.getsockopt	= sctp_getsockopt,
+Not really 100% safe.  See below.
+
+I think hiding these details behind dma_* API does have
+some appeal. In any case, it gives us a good
+terminology as it covers what most drivers do.
+
+There are several components to this:
+- dma_map_* needs to prevent page from
+  being migrated while device is running.
+  For example, expose some kind of bitmap from guest
+  to host, set bit there while page is mapped.
+  What happens if we stop the guest and some
+  bits are still set? See dma_alloc_coherent below
+  for some ideas.
+
+
+- dma_unmap_* needs to mark page as dirty
+  This can be done by writing into a page.
+
+- dma_sync_* needs to mark page as dirty
+  This is trickier as we can not change the data.
+  One solution is using atomics.
+  For example:
+        int x = ACCESS_ONCE(*p);
+        cmpxchg(p, x, x);
+  Seems to do a write without changing page
+  contents.
+
+- dma_alloc_coherent memory (e.g. device rings)
+  must be migrated after device stopped modifying it.
+  Just stopping the VCPU is not enough:
+  you must make sure device is not changing it.
+
+  Or maybe the device has some kind of ring flush operation,
+  if there was a reasonably portable way to do this
+  (e.g. a flush capability could maybe be added to SRIOV)
+  then hypervisor could do this.
+
+  With existing devices,
+  either do it after device reset, or disable
+  memory access in the IOMMU. Maybe both.
+
+  In case you need to resume on source, you
+  really need to follow the same path
+  as on destination, preferably detecting
+  device reset and restoring the device
+  state.
+
+  A similar approach could work for dma_map_ above.
+
+-- 
+MST
