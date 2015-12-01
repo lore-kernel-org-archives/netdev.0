@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 17/18] net/mlx5: E-Switch, Introduce get vf statistics
-Date: Tue,  1 Dec 2015 18:03:24 +0200
-Message-ID: <1448985805-25422-18-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 07/18] net/mlx5: Introduce access functions to modify/query vport promisc mode
+Date: Tue,  1 Dec 2015 18:03:14 +0200
+Message-ID: <1448985805-25422-8-git-send-email-ogerlitz@mellanox.com>
 References: <1448985805-25422-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
@@ -10,113 +10,169 @@ Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:34412 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:34420 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755273AbbLAQEV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Dec 2015 11:04:21 -0500
+	id S1755273AbbLAQEZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2015 11:04:25 -0500
 In-Reply-To: <1448985805-25422-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Saeed Mahameed <saeedm@mellanox.com>
 
-Add support to get VF statistics using query vport
-counter command.
+Those functions are needed to notify the upcoming SR-IOV
+E-Switch(FDB) manager(PF), of the NIC vport (vf) promisc mode changes.
+
+Preperation for ethernet sriov and l2 table management.
 
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 67 +++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h |  3 +
- 2 files changed, 70 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c | 62 +++++++++++++++++++++++++
+ include/linux/mlx5/mlx5_ifc.h                   | 28 +++++++++--
+ include/linux/mlx5/vport.h                      |  9 ++++
+ 3 files changed, 94 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-index 8fb66c0..d8939e5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-@@ -1213,3 +1213,70 @@ int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
- 
- 	return modify_esw_vport_cvlan(esw->dev, vport, vlan, qos, set);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+index b017a7e..68aa51d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+@@ -576,3 +576,65 @@ int mlx5_query_hca_vport_node_guid(struct mlx5_core_dev *dev,
+ 	return err;
  }
+ EXPORT_SYMBOL_GPL(mlx5_query_hca_vport_node_guid);
 +
-+int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
-+				 int vport,
-+				 struct ifla_vf_stats *vf_stats)
++int mlx5_query_nic_vport_promisc(struct mlx5_core_dev *mdev,
++				 u32 vport,
++				 int *promisc_uc,
++				 int *promisc_mc,
++				 int *promisc_all)
 +{
-+	int outlen = MLX5_ST_SZ_BYTES(query_vport_counter_out);
-+	u32 in[MLX5_ST_SZ_DW(query_vport_counter_in)];
-+	int err = 0;
 +	u32 *out;
++	int outlen = MLX5_ST_SZ_BYTES(query_nic_vport_context_out);
++	int err;
 +
-+	if (!ESW_ALLOWED(esw))
-+		return -EPERM;
-+	if (!LEGAL_VPORT(esw, vport))
-+		return -EINVAL;
-+
-+	out = mlx5_vzalloc(outlen);
++	out = kzalloc(outlen, GFP_KERNEL);
 +	if (!out)
 +		return -ENOMEM;
 +
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(query_vport_counter_in, in, opcode,
-+		 MLX5_CMD_OP_QUERY_VPORT_COUNTER);
-+	MLX5_SET(query_vport_counter_in, in, op_mod, 0);
-+	MLX5_SET(query_vport_counter_in, in, vport_number, vport);
-+	if (vport)
-+		MLX5_SET(query_vport_counter_in, in, other_vport, 1);
-+
-+	memset(out, 0, outlen);
-+	err = mlx5_cmd_exec(esw->dev, in, sizeof(in), out, outlen);
++	err = mlx5_query_nic_vport_context(mdev, vport, out, outlen);
 +	if (err)
-+		goto free_out;
++		goto out;
 +
-+	#define MLX5_GET_CTR(p, x) \
-+		MLX5_GET64(query_vport_counter_out, p, x)
++	*promisc_uc = MLX5_GET(query_nic_vport_context_out, out,
++			       nic_vport_context.promisc_uc);
++	*promisc_mc = MLX5_GET(query_nic_vport_context_out, out,
++			       nic_vport_context.promisc_mc);
++	*promisc_all = MLX5_GET(query_nic_vport_context_out, out,
++				nic_vport_context.promisc_all);
 +
-+	memset(vf_stats, 0, sizeof(*vf_stats));
-+	vf_stats->rx_packets =
-+		MLX5_GET_CTR(out, received_eth_unicast.packets) +
-+		MLX5_GET_CTR(out, received_eth_multicast.packets) +
-+		MLX5_GET_CTR(out, received_eth_broadcast.packets);
-+
-+	vf_stats->rx_bytes =
-+		MLX5_GET_CTR(out, received_eth_unicast.octets) +
-+		MLX5_GET_CTR(out, received_eth_multicast.octets) +
-+		MLX5_GET_CTR(out, received_eth_broadcast.octets);
-+
-+	vf_stats->tx_packets =
-+		MLX5_GET_CTR(out, transmitted_eth_unicast.packets) +
-+		MLX5_GET_CTR(out, transmitted_eth_multicast.packets) +
-+		MLX5_GET_CTR(out, transmitted_eth_broadcast.packets);
-+
-+	vf_stats->tx_bytes =
-+		MLX5_GET_CTR(out, transmitted_eth_unicast.octets) +
-+		MLX5_GET_CTR(out, transmitted_eth_multicast.octets) +
-+		MLX5_GET_CTR(out, transmitted_eth_broadcast.octets);
-+
-+	vf_stats->multicast =
-+		MLX5_GET_CTR(out, received_eth_multicast.packets);
-+
-+	vf_stats->broadcast =
-+		MLX5_GET_CTR(out, received_eth_broadcast.packets);
-+
-+free_out:
-+	kvfree(out);
++out:
++	kfree(out);
 +	return err;
 +}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index f85d5b8..02ff3ea 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -153,5 +153,8 @@ int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
- 				int vport, u16 vlan, u8 qos);
- int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
- 				  int vport, struct ifla_vf_info *ivi);
-+int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
-+				 int vport,
-+				 struct ifla_vf_stats *vf_stats);
++EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_promisc);
++
++int mlx5_modify_nic_vport_promisc(struct mlx5_core_dev *mdev,
++				  int promisc_uc,
++				  int promisc_mc,
++				  int promisc_all)
++{
++	void *in;
++	int inlen = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in);
++	int err;
++
++	in = mlx5_vzalloc(inlen);
++	if (!in) {
++		mlx5_core_err(mdev, "failed to allocate inbox\n");
++		return -ENOMEM;
++	}
++
++	MLX5_SET(modify_nic_vport_context_in, in, field_select.promisc, 1);
++	MLX5_SET(modify_nic_vport_context_in, in,
++		 nic_vport_context.promisc_uc, promisc_uc);
++	MLX5_SET(modify_nic_vport_context_in, in,
++		 nic_vport_context.promisc_mc, promisc_mc);
++	MLX5_SET(modify_nic_vport_context_in, in,
++		 nic_vport_context.promisc_all, promisc_all);
++
++	err = mlx5_modify_nic_vport_context(mdev, in, inlen);
++
++	kvfree(in);
++
++	return err;
++}
++EXPORT_SYMBOL_GPL(mlx5_modify_nic_vport_promisc);
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 6551847..2728b5f6 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -2147,16 +2147,31 @@ struct mlx5_ifc_nic_vport_context_bits {
+ 	u8         reserved_0[0x1f];
+ 	u8         roce_en[0x1];
  
- #endif /* __MLX5_ESWITCH_H__ */
+-	u8         reserved_1[0x760];
++	u8         arm_change_event[0x1];
++	u8         reserved_1[0x1a];
++	u8         event_on_mtu[0x1];
++	u8         event_on_promisc_change[0x1];
++	u8         event_on_vlan_change[0x1];
++	u8         event_on_mc_address_change[0x1];
++	u8         event_on_uc_address_change[0x1];
+ 
+-	u8         reserved_2[0x5];
++	u8         reserved_2[0xf0];
++
++	u8         mtu[0x10];
++
++	u8         reserved_3[0x640];
++
++	u8         promisc_uc[0x1];
++	u8         promisc_mc[0x1];
++	u8         promisc_all[0x1];
++	u8         reserved_4[0x2];
+ 	u8         allowed_list_type[0x3];
+-	u8         reserved_3[0xc];
++	u8         reserved_5[0xc];
+ 	u8         allowed_list_size[0xc];
+ 
+ 	struct mlx5_ifc_mac_address_layout_bits permanent_address;
+ 
+-	u8         reserved_4[0x20];
++	u8         reserved_6[0x20];
+ 
+ 	u8         current_uc_mac_address[0][0x40];
+ };
+@@ -4235,7 +4250,10 @@ struct mlx5_ifc_modify_nic_vport_context_out_bits {
+ };
+ 
+ struct mlx5_ifc_modify_nic_vport_field_select_bits {
+-	u8         reserved_0[0x1c];
++	u8         reserved_0[0x19];
++	u8         mtu[0x1];
++	u8         change_event[0x1];
++	u8         promisc[0x1];
+ 	u8         permanent_address[0x1];
+ 	u8         addresses_list[0x1];
+ 	u8         roce_en[0x1];
+diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
+index c1bba59..dbbaed9 100644
+--- a/include/linux/mlx5/vport.h
++++ b/include/linux/mlx5/vport.h
+@@ -68,5 +68,14 @@ int mlx5_modify_nic_vport_mac_list(struct mlx5_core_dev *dev,
+ 				   enum mlx5_list_type list_type,
+ 				   u8 addr_list[][ETH_ALEN],
+ 				   int list_size);
++int mlx5_query_nic_vport_promisc(struct mlx5_core_dev *mdev,
++				 u32 vport,
++				 int *promisc_uc,
++				 int *promisc_mc,
++				 int *promisc_all);
++int mlx5_modify_nic_vport_promisc(struct mlx5_core_dev *mdev,
++				  int promisc_uc,
++				  int promisc_mc,
++				  int promisc_all);
+ 
+ #endif /* __MLX5_VPORT_H__ */
 -- 
 2.3.7
