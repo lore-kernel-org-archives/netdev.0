@@ -1,64 +1,58 @@
-From: Daniele Fucini <dfucini@gmail.com>
-Subject: size overflow in function qdisc_tree_decrease_qlen
- net/sched/sch_api.c
-Date: Tue, 1 Dec 2015 02:00:05 +0100
-Message-ID: <20151201010005.GA23175@Fux-PC>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Mon, 30 Nov 2015 17:02:15 -0800
+Message-ID: <CALx6S35_rXPsYUGcc+yrQX8K1dOcL4aWnmQsa-6X6xULo9BBbg@mail.gmail.com>
+References: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>
+	<1448312579-159544-2-git-send-email-anjali.singhai@intel.com>
+	<CALx6S34+_AtjO94znh7vW4py5a8Nj1g6b-sjGPCa4U1Mc6Y6-w@mail.gmail.com>
+	<20151129.222138.1582847465760563254.davem@davemloft.net>
+	<CAEh+42ivCoBE-vAwWpHHmHYqcXzKP+ceZSvg2rEPh7Db3M1k6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="7AUc2qLy4jB3hD7Z"
-Cc: jhs@mojatatu.com, davem@davemloft.net, spender@grsecurity.net,
-	pageexec@freemail.hu, re.emese@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Anjali Singhai Jain <anjali.singhai@intel.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kiran Patil <kiran.patil@intel.com>
+To: Jesse Gross <jesse@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34377 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752024AbbLABAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 20:00:10 -0500
-Received: by wmww144 with SMTP id w144so29192652wmw.1
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 17:00:08 -0800 (PST)
-Content-Disposition: inline
+Received: from mail-io0-f181.google.com ([209.85.223.181]:33480 "EHLO
+	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754964AbbLABCQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 20:02:16 -0500
+Received: by iouu10 with SMTP id u10so196759979iou.0
+        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 17:02:16 -0800 (PST)
+In-Reply-To: <CAEh+42ivCoBE-vAwWpHHmHYqcXzKP+ceZSvg2rEPh7Db3M1k6Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Nov 30, 2015 at 4:25 PM, Jesse Gross <jesse@kernel.org> wrote:
+> On Sun, Nov 29, 2015 at 7:21 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Tom Herbert <tom@herbertland.com>
+>> Date: Mon, 23 Nov 2015 13:53:44 -0800
+>>
+>>> The bad effect of this model is that it is encourages HW vendors to
+>>> continue implement HW protocol specific support for encapsulations, we
+>>> get so much more benefit if they implement protocol generic
+>>> mechanisms.
+>>
+>> +1
+>
+> Regardless of what happens in the future, I think the main question is
+> how this relates to the code that is currently present in the tree. We
+> already have NDOs for VXLAN offloading, which is about as protocol
+> specific as you can get. In my mind, this series is strictly an
+> improvement to what is already there - it pulls all hardware
+> offloading code out of the various protocol implementations and VXLAN
+> out of the driver interface. That seems like a pretty nice cleanup to
+> me.
 
---7AUc2qLy4jB3hD7Z
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
+Jesse,
 
-Hello,
+I don't think VXLAN is a good role model here. Consider that Cisco now
+is basically trying to obsolete VXLAN in favor of VXLAN-GPE. VXLAN-GPE
+is not compatible with VXLAN, so in order to get the same HW offloads
+talking VXLAN-GPE users will probably need to swap out their HW. If I
+am misreading this situation let me know, but to me this doesn't sound
+like a model the stack should endorse.
 
-I'm using a Grsecurity patched kernel (version 4.2.6-201511282239) and
-I'm getting system freezes due to PaX detecting a size overflow in
-function qdisc_tree_decrease_qlen net/sched/sch_api.c:769 whenever I use
-Transmission BitTorrent client.
-
-On the Grsecurity forum I was told it's probably an unintended integer
-underflow that I should report upstream.
-
-Here's the relevant log:
-https://gist.github.com/cf54ccbb12ea65e146d4
-
-And here's the thread on Grsecurity forum:
-https://forums.grsecurity.net/viewtopic.php?f=3&t=4327
-
-Let me know if there's any other information you need to help debug
-this.
-
-Daniele
-
---7AUc2qLy4jB3hD7Z
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAEBCAAGBQJWXPEQAAoJEEYRza8bUKw+G3AH/i9smrynD3Jkv07S9ziovdZZ
-MwaoSDaekRvg3GZwXqJbbDMUFPskAc0Y2XSiCgNUJyljuAky6j86D+iAzQpOzxKB
-ZN6yoeAI6H57xWA9oluDnQW/K3zTzgutxSN9BNXBD2ZRUAyOuYvDZnrCyStF3EMw
-w9YPCYMg4C1wHT7soUoH4JrAf1XoL8YcT/iLi6IPiMfZSt2K14Z4ymtJzP9Y0iYn
-EAmnVCKdOfaHpPH+soDUo6MW3yIyroQZBAgZeVix2IGQgVzg+hvmBTrjBubgQclo
-rOiOjmbYy83QKojwfWRym+CxNjXbwIfU0CbiR0OAwjioFfRRaLExV+emOCzyNOc=
-=QmWl
------END PGP SIGNATURE-----
-
---7AUc2qLy4jB3hD7Z--
+Tom
