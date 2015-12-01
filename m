@@ -1,139 +1,48 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 10/18] net/mlx5e: Write vlan list into vport context
-Date: Tue,  1 Dec 2015 18:03:17 +0200
-Message-ID: <1448985805-25422-11-git-send-email-ogerlitz@mellanox.com>
-References: <1448985805-25422-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC] Stable interface index option
+Date: Tue, 1 Dec 2015 08:06:52 -0800
+Message-ID: <20151201080652.5cba6f8b@xeon-e3>
+References: <20151201120420.GT12404@principal.rfc2324.org>
+	<20151201153441.GA17843@oracle.com>
+	<20151201155052.GA14984@principal.rfc2324.org>
+	<1448985743.3387258.454809153.36540D70@webmail.messagingengine.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Maximilian Wilhelm <max@rfc2324.org>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:34512 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755264AbbLAQFB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Dec 2015 11:05:01 -0500
-In-Reply-To: <1448985805-25422-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35617 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755817AbbLAQGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 11:06:45 -0500
+Received: by pacej9 with SMTP id ej9so9215004pac.2
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 08:06:44 -0800 (PST)
+In-Reply-To: <1448985743.3387258.454809153.36540D70@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
+On Tue, 01 Dec 2015 17:02:23 +0100
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
 
-Each Vport/vNIC must notify underlying e-Switch layer
-for vlan table changes in-order to update SR-IOV FDB tables.
+> On Tue, Dec 1, 2015, at 16:50, Maximilian Wilhelm wrote:
+> > > I'm not sure I understand how this would work- are we going to 
+> > > pin down the ifindex for some subset of interfaces?
+> > 
+> > I'm not sure what your idea is, but I guess we might mean the same
+> > thing:
+> > 
+> > What I have in mind is that the user can supply a list of (ifname ->
+> > ifindex) entries via a sysfs/procfs interface and if such a list is
+> > present, the kernel will search the list for every ifname which is
+> > registered and check if there is an entry. If there is, the ifindex
+> > for this entry is used. If there is no entry found for the given
+> > ifname, the usual algorithm is used (therefore inherently providing
+> > backward compatibility).
+> 
+> Sorry to ask because I don't like this feature at all. There was a lot
+> of work on stable interface names. Why do you need stable ifindexes,
+> which were never meant to be stable for a longer amount of time?
 
-We do that at vlan_rx_add_vid and vlan_rx_kill_vid ndos.
-
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  1 +
- .../ethernet/mellanox/mlx5/core/en_flow_table.c    | 52 ++++++++++++++++++++++
- 2 files changed, 53 insertions(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 69f1c1a..89313d4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -465,6 +465,7 @@ enum {
- };
- 
- struct mlx5e_vlan_db {
-+	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
- 	u32           active_vlans_ft_ix[VLAN_N_VID];
- 	u32           untagged_rule_ft_ix;
- 	u32           any_vlan_rule_ft_ix;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
-index fb02f6c..5b93c9c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
-@@ -502,6 +502,49 @@ add_eth_addr_rule_out:
- 	return err;
- }
- 
-+static int mlx5e_vport_context_update_vlans(struct mlx5e_priv *priv)
-+{
-+	struct net_device *ndev = priv->netdev;
-+	int max_list_size;
-+	int list_size;
-+	u16 *vlans;
-+	int vlan;
-+	int err;
-+	int i;
-+
-+	list_size = 0;
-+	for_each_set_bit(vlan, priv->vlan.active_vlans, VLAN_N_VID)
-+		list_size++;
-+
-+	max_list_size = 1 << MLX5_CAP_GEN(priv->mdev, log_max_vlan_list);
-+
-+	if (list_size > max_list_size) {
-+		netdev_warn(ndev,
-+			    "netdev vlans list size (%d) > (%d) max vport list size, some vlans will be dropped\n",
-+			    list_size, max_list_size);
-+		list_size = max_list_size;
-+	}
-+
-+	vlans = kcalloc(list_size, sizeof(*vlans), GFP_KERNEL);
-+	if (!vlans)
-+		return -ENOMEM;
-+
-+	i = 0;
-+	for_each_set_bit(vlan, priv->vlan.active_vlans, VLAN_N_VID) {
-+		if (i >= list_size)
-+			break;
-+		vlans[i++] = vlan;
-+	}
-+
-+	err = mlx5_modify_nic_vport_vlans(priv->mdev, vlans, list_size);
-+	if (err)
-+		netdev_err(ndev, "Failed to modify vport vlans list err(%d)\n",
-+			   err);
-+
-+	kfree(vlans);
-+	return err;
-+}
-+
- enum mlx5e_vlan_rule_type {
- 	MLX5E_VLAN_RULE_TYPE_UNTAGGED,
- 	MLX5E_VLAN_RULE_TYPE_ANY_VID,
-@@ -552,6 +595,10 @@ static int mlx5e_add_vlan_rule(struct mlx5e_priv *priv,
- 			 1);
- 		break;
- 	default: /* MLX5E_VLAN_RULE_TYPE_MATCH_VID */
-+		err = mlx5e_vport_context_update_vlans(priv);
-+		if (err)
-+			goto add_vlan_rule_out;
-+
- 		ft_ix = &priv->vlan.active_vlans_ft_ix[vid];
- 		MLX5_SET(fte_match_param, match_value, outer_headers.vlan_tag,
- 			 1);
-@@ -588,6 +635,7 @@ static void mlx5e_del_vlan_rule(struct mlx5e_priv *priv,
- 	case MLX5E_VLAN_RULE_TYPE_MATCH_VID:
- 		mlx5_del_flow_table_entry(priv->ft.vlan,
- 					  priv->vlan.active_vlans_ft_ix[vid]);
-+		mlx5e_vport_context_update_vlans(priv);
- 		break;
- 	}
- }
-@@ -619,6 +667,8 @@ int mlx5e_vlan_rx_add_vid(struct net_device *dev, __always_unused __be16 proto,
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
- 
-+	set_bit(vid, priv->vlan.active_vlans);
-+
- 	return mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, vid);
- }
- 
-@@ -627,6 +677,8 @@ int mlx5e_vlan_rx_kill_vid(struct net_device *dev, __always_unused __be16 proto,
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
- 
-+	clear_bit(vid, priv->vlan.active_vlans);
-+
- 	mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, vid);
- 
- 	return 0;
--- 
-2.3.7
+Also current versions of SNMP provide more useful information about
+network interface slot information in ifDescription
