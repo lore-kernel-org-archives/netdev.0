@@ -1,31 +1,71 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] Improve Atheros ethernet driver not to do order 4
  GFP_ATOMIC allocation
-Date: Tue, 01 Dec 2015 15:35:17 -0500 (EST)
-Message-ID: <20151201.153517.224543138214404348.davem@davemloft.net>
+Date: Tue, 01 Dec 2015 15:36:28 -0500 (EST)
+Message-ID: <20151201.153628.148150792813486828.davem@davemloft.net>
 References: <20151127082010.GA2500@dhcp22.suse.cz>
 	<20151128145113.GB4135@amd>
-	<20151130132129.GB21950@dhcp22.suse.cz>
+	<1448906303.24696.133.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: pavel@ucw.cz, akpm@osdl.org, linux-kernel@vger.kernel.org,
-	jcliburn@gmail.com, chris.snook@gmail.com, netdev@vger.kernel.org,
-	rjw@rjwysocki.net, linux-mm@kvack.org, nic-devel@qualcomm.com,
-	ronangeles@gmail.com, ebiederm@xmission.com
-To: mhocko@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151130132129.GB21950@dhcp22.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pavel@ucw.cz, mhocko@kernel.org, akpm@osdl.org,
+ linux-kernel@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com,
+ netdev@vger.kernel.org, rjw@rjwysocki.net, linux-mm@kvack.org,
+ nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com
+To: eric.dumazet@gmail.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1448906303.24696.133.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogTWljaGFsIEhvY2tvIDxtaG9ja29Aa2VybmVsLm9yZz4NCkRhdGU6IE1vbiwgMzAgTm92
-IDIwMTUgMTQ6MjE6MjkgKzAxMDANCg0KPiBPbiBTYXQgMjgtMTEtMTUgMTU6NTE6MTMsIFBhdmVs
-IE1hY2hlayB3cm90ZToNCj4+IA0KPj4gYXRsMWMgZHJpdmVyIGlzIGRvaW5nIG9yZGVyLTQgYWxs
-b2NhdGlvbiB3aXRoIEdGUF9BVE9NSUMNCj4+IHByaW9yaXR5LiBUaGF0IG9mdGVuIGJyZWFrcyAg
-bmV0d29ya2luZyBhZnRlciByZXN1bWUuIFN3aXRjaCB0bw0KPj4gR0ZQX0tFUk5FTC4gU3RpbGwg
-bm90IGlkZWFsLCBidXQgc2hvdWxkIGJlIHNpZ25pZmljYW50bHkgYmV0dGVyLg0KPiANCj4gSXQg
-aXMgbm90IGNsZWFyIHdoeSBHRlBfS0VSTkVMIGNhbiByZXBsYWNlIEdGUF9BVE9NSUMgc2FmZWx5
-IG5laXRoZXINCj4gZnJvbSB0aGUgY2hhbmdlbG9nIG5vciBmcm9tIHRoZSBwYXRjaCBjb250ZXh0
-Lg0KDQpFYXJsaWVyIGluIHRoZSBmdW5jdGlvbiB3ZSBkbyBhIEdGUF9LRVJORUwga21hbGxvYyBz
-bzogDQoNCsKvXF8o44OEKV8vwq8NCg0KSXQgc2hvdWxkIGJlIGZpbmUuDQo=
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 30 Nov 2015 09:58:23 -0800
+
+> On Sat, 2015-11-28 at 15:51 +0100, Pavel Machek wrote:
+>> atl1c driver is doing order-4 allocation with GFP_ATOMIC
+>> priority. That often breaks  networking after resume. Switch to
+>> GFP_KERNEL. Still not ideal, but should be significantly better.
+>>     
+>> Signed-off-by: Pavel Machek <pavel@ucw.cz>
+>> 
+>> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+>> index 2795d6d..afb71e0 100644
+>> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+>> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+>> @@ -1016,10 +1016,10 @@ static int atl1c_setup_ring_resources(struct atl1c_adapter *adapter)
+>>  		sizeof(struct atl1c_recv_ret_status) * rx_desc_count +
+>>  		8 * 4;
+>>  
+>> -	ring_header->desc = pci_alloc_consistent(pdev, ring_header->size,
+>> -				&ring_header->dma);
+>> +	ring_header->desc = dma_alloc_coherent(&pdev->dev, ring_header->size,
+>> +					       &ring_header->dma, GFP_KERNEL);
+>>  	if (unlikely(!ring_header->desc)) {
+>> -		dev_err(&pdev->dev, "pci_alloc_consistend failed\n");
+>> +		dev_err(&pdev->dev, "could not get memmory for DMA buffer\n");
+>>  		goto err_nomem;
+>>  	}
+>>  	memset(ring_header->desc, 0, ring_header->size);
+>> 
+> 
+> It seems there is a missed opportunity to get rid of the memset() here,
+> by adding __GFP_ZERO to the dma_alloc_coherent() GFP_KERNEL mask,
+> or simply using dma_zalloc_coherent()
+
+Also, the Subject line needs to be adjusted.  The proper format for
+the Subject line is:
+
+	[PATCH $TREE] $subsystem: $description.
+
+Where "$TREE" is either 'net' or 'net-next', $subsystem is the lowercase
+name of the driver (here 'atl1c') and then a colon, and then a space, and
+then the single-line description.
+
+Thanks.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
