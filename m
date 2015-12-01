@@ -1,71 +1,118 @@
 From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH 4/6] net: thunderx: Set CQ timer threshold properly
-Date: Tue,  1 Dec 2015 14:43:41 +0530
-Message-ID: <1448961223-41888-5-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 5/6] net: thunderx: Switchon carrier only upon interface link
+ up
+Date: Tue,  1 Dec 2015 14:43:42 +0530
+Message-ID: <1448961223-41888-6-git-send-email-sunil.kovvuri@gmail.com>
 References: <y>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Sunil.Goutham@caviumnetworks.com,
-	Sunil Goutham <sgoutham@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Sunil Goutham <sgoutham@cavium.com>, Sunil.Goutham@caviumnetworks.com,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <y>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-Properly set CQ timer threshold and also set it to 2us.
-With previous incorrect settings it was set to 0.5us which is too less.
+Call netif_carrier_on() only if interface's link is up. Switching this on
+upon IFF_UP by default, is causing issues with ethernet channel bonding
+in LACP mode. Initial NETDEV_CHANGE notification was being skipped.
+
+Also fixed some issues with link/speed/duplex reporting via ethtool.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h          |    5 ++---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |    2 +-
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |    2 +-
- 3 files changed, 4 insertions(+), 5 deletions(-)
+ .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |   16 +++++++++++++++-
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   |    4 +---
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |    2 ++
+ 3 files changed, 18 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index d3950b2..39ca674 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -120,10 +120,9 @@
-  * Calculated for SCLK of 700Mhz
-  * value written should be a 1/16th of what is expected
-  *
-- * 1 tick per 0.05usec = value of 2.2
-- * This 10% would be covered in CQ timer thresh value
-+ * 1 tick per 0.025usec
-  */
--#define NICPF_CLK_PER_INT_TICK		2
-+#define NICPF_CLK_PER_INT_TICK		1
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+index af54c10..a12b2e3 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+@@ -112,6 +112,13 @@ static int nicvf_get_settings(struct net_device *netdev,
  
- /* Time to wait before we decide that a SQ is stuck.
-  *
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index e404ea8..206b6a7 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -592,7 +592,7 @@ void nicvf_cmp_queue_config(struct nicvf *nic, struct queue_set *qs,
- 	/* Set threshold value for interrupt generation */
- 	nicvf_queue_reg_write(nic, NIC_QSET_CQ_0_7_THRESH, qidx, cq->thresh);
- 	nicvf_queue_reg_write(nic, NIC_QSET_CQ_0_7_CFG2,
--			      qidx, nic->cq_coalesce_usecs);
-+			      qidx, CMP_QUEUE_TIMER_THRESH);
+ 	cmd->supported = 0;
+ 	cmd->transceiver = XCVR_EXTERNAL;
++
++	if (!nic->link_up) {
++		cmd->duplex = DUPLEX_UNKNOWN;
++		ethtool_cmd_speed_set(cmd, SPEED_UNKNOWN);
++		return 0;
++	}
++
+ 	if (nic->speed <= 1000) {
+ 		cmd->port = PORT_MII;
+ 		cmd->autoneg = AUTONEG_ENABLE;
+@@ -125,6 +132,13 @@ static int nicvf_get_settings(struct net_device *netdev,
+ 	return 0;
  }
  
- /* Configures transmit queue */
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index b1e93a9..457eaee 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -76,7 +76,7 @@
- #define CMP_QSIZE		CMP_QUEUE_SIZE3
- #define CMP_QUEUE_LEN		(1ULL << (CMP_QSIZE + 10))
- #define CMP_QUEUE_CQE_THRESH	0
--#define CMP_QUEUE_TIMER_THRESH	220 /* 10usec */
-+#define CMP_QUEUE_TIMER_THRESH	80 /* ~2usec */
++static u32 nicvf_get_link(struct net_device *netdev)
++{
++	struct nicvf *nic = netdev_priv(netdev);
++
++	return nic->link_up;
++}
++
+ static void nicvf_get_drvinfo(struct net_device *netdev,
+ 			      struct ethtool_drvinfo *info)
+ {
+@@ -660,7 +674,7 @@ static int nicvf_set_channels(struct net_device *dev,
  
- #define RBDR_SIZE		RBDR_SIZE0
- #define RCV_BUF_COUNT		(1ULL << (RBDR_SIZE + 13))
+ static const struct ethtool_ops nicvf_ethtool_ops = {
+ 	.get_settings		= nicvf_get_settings,
+-	.get_link		= ethtool_op_get_link,
++	.get_link		= nicvf_get_link,
+ 	.get_drvinfo		= nicvf_get_drvinfo,
+ 	.get_msglevel		= nicvf_get_msglevel,
+ 	.set_msglevel		= nicvf_set_msglevel,
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 7f709cb..dde8dc7 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -1057,6 +1057,7 @@ int nicvf_stop(struct net_device *netdev)
+ 
+ 	netif_carrier_off(netdev);
+ 	netif_tx_stop_all_queues(nic->netdev);
++	nic->link_up = false;
+ 
+ 	/* Teardown secondary qsets first */
+ 	if (!nic->sqs_mode) {
+@@ -1211,9 +1212,6 @@ int nicvf_open(struct net_device *netdev)
+ 	nic->drv_stats.txq_stop = 0;
+ 	nic->drv_stats.txq_wake = 0;
+ 
+-	netif_carrier_on(netdev);
+-	netif_tx_start_all_queues(netdev);
+-
+ 	return 0;
+ cleanup:
+ 	nicvf_disable_intr(nic, NICVF_INTR_MBOX, 0);
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+index 2076ac3..d9f27ad 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+@@ -612,6 +612,8 @@ static void bgx_poll_for_link(struct work_struct *work)
+ 		lmac->last_duplex = 1;
+ 	} else {
+ 		lmac->link_up = 0;
++		lmac->last_speed = SPEED_UNKNOWN;
++		lmac->last_duplex = DUPLEX_UNKNOWN;
+ 	}
+ 
+ 	if (lmac->last_link != lmac->link_up) {
 -- 
 1.7.1
