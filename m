@@ -1,30 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net-next.git)] stmmac: support Reg_9 to get HW level
- information
-Date: Tue, 01 Dec 2015 16:06:24 -0500 (EST)
-Message-ID: <20151201.160624.1203160297565712328.davem@davemloft.net>
-References: <1448879590-3447-1-git-send-email-peppe.cavallaro@st.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [RFC] Stable interface index option
+Date: Tue, 1 Dec 2015 16:06:08 -0500
+Message-ID: <20151201210608.GB23178@oracle.com>
+References: <20151201080652.5cba6f8b@xeon-e3>
+ <20151201.142847.1980856920707150414.davem@davemloft.net>
+ <20151201122038.795305df@xeon-e3>
+ <20151201.155725.733555238839381632.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
+Content-Type: text/plain; charset=us-ascii
+Cc: stephen@networkplumber.org, hannes@stressinduktion.org,
+	max@rfc2324.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57222 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754266AbbLAVG0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 16:06:26 -0500
-In-Reply-To: <1448879590-3447-1-git-send-email-peppe.cavallaro@st.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:18492 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753070AbbLAVGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 16:06:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20151201.155725.733555238839381632.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Date: Mon, 30 Nov 2015 11:33:10 +0100
+On (12/01/15 15:57), David Miller wrote:
 
-> For GMAC newer than 3.40a there is a new register (Reg_9) that provides the
-> status of all modules of the transmit and receive paths and FIFO status.
-> These can be exposed via ethtool.
+> >> > Also current versions of SNMP provide more useful information about
+> >> > network interface slot information in ifDescription
+> >> 
+> >> Well if they do provide strings, then that is probably a better way
+> >> forward than messing with the kernel.
+> > 
+> > It gives strings based on PCI information but nothing useful
+> > on tunnels.
 > 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> But at least in theory, that could be extended to do so right?
 
-Applied.
+iirc even for the cisco NOS-es, the snmp ifindex for virtual interfaces
+(tunnels, vpc, loopback) etc would not have any slot etc info, but
+would have other things (specific to the virtual interface type, e.g.,
+FEX interface index had something that was pertinent to fex)
+
+But the bigger reason they had a immutable snmp-ifindex was that
+the uspace networking applications could build state based on that
+immutable index and hang on to that number, regardless of any renumbering
+that happened due to HA/failover.
+
+And, since they did not (in general) have to deal with random third
+party apps, they did not have to deal with questions like "what should
+POSIX/glibc APIs send - the immutable or the mutable index?" so it
+was ok for them to have the complexity of two interface indices.
+
+--Sowmini
