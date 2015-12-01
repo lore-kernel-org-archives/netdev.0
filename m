@@ -1,121 +1,127 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net v2] openvswitch: properly refcount vport-vxlan module
-Date: Tue, 01 Dec 2015 13:03:57 +0100
-Message-ID: <1448971437.3330290.454583417.56E794A4@webmail.messagingengine.com>
-References: <2658801f06f24c242c40f223b1164e61be44974a.1448882748.git.pabeni@redhat.com>
+From: Maximilian Wilhelm <max@rfc2324.org>
+Subject: [RFC] Stable interface index option
+Date: Tue, 1 Dec 2015 13:04:20 +0100
+Message-ID: <20151201120420.GT12404@principal.rfc2324.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Pravin Shelar <pshelar@nicira.com>, Thomas Graf <tgraf@suug.ch>
-To: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="f0KYrhQ4vYSV2aJu"
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:52945 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754895AbbLAMD6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 07:03:58 -0500
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id 0F84C20889
-	for <netdev@vger.kernel.org>; Tue,  1 Dec 2015 07:03:58 -0500 (EST)
-In-Reply-To: <2658801f06f24c242c40f223b1164e61be44974a.1448882748.git.pabeni@redhat.com>
+Received: from mail.rfc2324.org ([31.172.8.67]:38913 "EHLO mail.rfc2324.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755200AbbLAMXe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2015 07:23:34 -0500
+Received: from rfc2324.org ([31.172.8.84] helo=principal.rfc2324.org)
+	by mail.rfc2324.org with esmtp rfc2324.org Mailserver
+	id 1a3jfQ-0000eX-QW
+	for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 13:04:21 +0100
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Paolo,
 
-On Mon, Nov 30, 2015, at 12:31, Paolo Abeni wrote:
-> After 614732eaa12d, no refcount is maintained for the vport-vxlan module.
-> This allows the userspace to remove such module while vport-vxlan
-> devices still exist, which leads to later oops.
-> 
-> v1 -> v2:
->  - move vport 'owner' initialization in ovs_vport_ops_register()
->    and make such function a macro
-> 
-> Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> ---
->  net/openvswitch/vport-geneve.c | 1 -
->  net/openvswitch/vport-gre.c    | 1 -
->  net/openvswitch/vport.c        | 4 ++--
->  net/openvswitch/vport.h        | 8 +++++++-
->  4 files changed, 9 insertions(+), 5 deletions(-)
-> 
-> diff --git a/net/openvswitch/vport-geneve.c
-> b/net/openvswitch/vport-geneve.c
-> index efb736b..e41cd12 100644
-> --- a/net/openvswitch/vport-geneve.c
-> +++ b/net/openvswitch/vport-geneve.c
-> @@ -117,7 +117,6 @@ static struct vport_ops ovs_geneve_vport_ops = {
->  	.destroy	= ovs_netdev_tunnel_destroy,
->  	.get_options	= geneve_get_options,
->  	.send		= dev_queue_xmit,
-> -       .owner          = THIS_MODULE,
->  };
->  
->  static int __init ovs_geneve_tnl_init(void)
-> diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-> index c3257d7..7f8897f 100644
-> --- a/net/openvswitch/vport-gre.c
-> +++ b/net/openvswitch/vport-gre.c
-> @@ -89,7 +89,6 @@ static struct vport_ops ovs_gre_vport_ops = {
->  	.create		= gre_create,
->  	.send		= dev_queue_xmit,
->  	.destroy	= ovs_netdev_tunnel_destroy,
-> -       .owner          = THIS_MODULE,
->  };
->  
->  static int __init ovs_gre_tnl_init(void)
-> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-> index e194c10a..31cbc8c 100644
-> --- a/net/openvswitch/vport.c
-> +++ b/net/openvswitch/vport.c
-> @@ -71,7 +71,7 @@ static struct hlist_head *hash_bucket(const struct net
-> *net, const char *name)
->  	return &dev_table[hash & (VPORT_HASH_BUCKETS - 1)];
->  }
->  
-> -int ovs_vport_ops_register(struct vport_ops *ops)
-> +int __ovs_vport_ops_register(struct vport_ops *ops)
->  {
->  	int err = -EEXIST;
->  	struct vport_ops *o;
-> @@ -87,7 +87,7 @@ errout:
->  	ovs_unlock();
->  	return err;
->  }
-> -EXPORT_SYMBOL_GPL(ovs_vport_ops_register);
-> +EXPORT_SYMBOL_GPL(__ovs_vport_ops_register);
->  
->  void ovs_vport_ops_unregister(struct vport_ops *ops)
->  {
-> diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-> index bdfd82a..8ea3a96 100644
-> --- a/net/openvswitch/vport.h
-> +++ b/net/openvswitch/vport.h
-> @@ -196,7 +196,13 @@ static inline const char *ovs_vport_name(struct
-> vport *vport)
->  	return vport->dev->name;
->  }
->  
-> -int ovs_vport_ops_register(struct vport_ops *ops);
-> +int __ovs_vport_ops_register(struct vport_ops *ops);
-> +#define ovs_vport_ops_register(ops)            \
-> +       ({                                      \
-> +               (ops)->owner = THIS_MODULE;     \
-> +               __ovs_vport_ops_register(ops);  \
-> +       })
-> +
->  void ovs_vport_ops_unregister(struct vport_ops *ops);
+--f0KYrhQ4vYSV2aJu
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: 8bit
 
-This doesn't look correct (the fault is not your patch).
+Hi,
 
-The register function adds the list_head of the ops struct on a list
-without increasing the module reference counter. Thus the module could
-be removed and the list walk would walk across the unloaded data section
-left over by the module. Does a kmemdup make sense here and a later free
-in the unregister function? We test type first and then only touch
-functions after getting module refcnt, so it would appear safe to me
-then.
+we are operating some free wifi networks (»Freifunk« in Germany)
+including a backbone in the DFZ all running on Linux boxes, thanks to
+all the cool stuff available there! :)
 
-Thanks,
-Hannes
+For a while now we are struggling with unstable/random interface
+indexes as our interfaces (GRE tunnels, OpenVPN/Tinc tunnels, etc.)
+come and go as users come and go and are obviously rearranged after a
+reboot because of undeterministic start up behaviour of services.
+
+Arguably we could force the interface indexes of GRE tunnels and
+OpenVPN interfaces to be stable when creating them manually and not
+rely on the infrastructure provided by the distribution (Debian in
+most cases). That would fix some of our problems, but currently I
+don't see a way to create tinc interfaces or even l2tp interfaces this
+way with stable indexes.
+
+The reason we would like to have those is quite simple: As we operate
+a somewhat larger network we would like to monitor it accordingly and
+see when links get saturated etc. Therefore we used snmp based
+solutions and the net-snmp daemon on all the boxes. Now SNMP uses
+interface indexes for identifying the interfaces. If they aren't
+stable the monitoring software will see a lot of new interfaces now
+and then, e.g. after a OpenVPN server/client restarted (which is bad)
+or even mix up interfaces (which is worse).
+
+As the first approach of hacking the net-snmp daemon to map the
+interface ids of interfaces with certian names to stable ids got messy
+and doesn't seem suitable we thought about solving the "underlying
+problem" and add some mechanism for stable ids to the kernel. As there
+already is an option to netlink/iproute to create certian interfaces
+with a given index that seems as a nice way to go.
+
+A prove of concept hack (see attached patch) works fine for me. The
+idea I would propose would be to add some kind of bind/unbind
+interface like for device drivers by which a user could add/remove and
+in addition to driver bindings view the current "ifname -> ifindex"
+bindings. I would assume that would best be done in sysfs? While
+digging around a bit I didn't find a useful place where to place these
+and I didn't find the relevant pieces of code where this is done to
+add some PoC therefore as well.
+
+I believe this would be a nice optional feature (I would assume this
+would be something one could activate in Kconfig) to aid people using
+Linux for heavy networking stuff. Any thoughs and hints on this?
+
+At [42] you can see a console log showing the code works as intended.
+
+Thanks in advance and best regards
+Max
+
+[42] http://files.rfc2324.org/kernel/stable_ifindexes/stable_ifindexes.txt
+-- 
+"I have to admit I've always suspected that MTBWTF would be a more useful
+ metric of real-world performance."
+ -- Valdis Kletnieks on NANOG
+
+--f0KYrhQ4vYSV2aJu
+Content-Type: text/x-diff; charset=utf-8
+Content-Disposition: attachment; filename="stable_ifindexes_poc.patch"
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ae00b89..4ea2ab410 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6611,6 +6611,7 @@ int register_netdevice(struct net_device *dev)
+ {
+ 	int ret;
+ 	struct net *net = dev_net(dev);
++	int ifindex = 0;
+ 
+ 	BUG_ON(dev_boot_phase);
+ 	ASSERT_RTNL();
+@@ -6648,6 +6649,23 @@ int register_netdevice(struct net_device *dev)
+ 	}
+ 
+ 	ret = -EBUSY;
++	/* See if interface name is present in name2index map */
++	if (!dev->ifindex) {
++		if (strcmp (dev->name, "gre_ffrl_fra_a") == 0) {
++			ifindex = 23;
++		} else if (strcmp (dev->name, "bb-pad-cr01") == 0) {
++			ifindex = 42;
++		}
++
++		/* If we found and index and it's not already in use, use it.
++		 * XXX: One could argue that if the users wants index X and it's
++		 *      already in use, this should raise EBUSY. Not decided yet
++		 *      which way would be preferable.
++		 */
++		if (ifindex && !__dev_get_by_index(net, ifindex))
++			dev->ifindex = ifindex;
++	}
++
+ 	if (!dev->ifindex)
+ 		dev->ifindex = dev_new_index(net);
+ 	else if (__dev_get_by_index(net, dev->ifindex))
+
+--f0KYrhQ4vYSV2aJu--
