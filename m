@@ -1,141 +1,94 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 01/18] net/mlx5_core: Modify enable/disable hca functions
-Date: Tue,  1 Dec 2015 18:03:08 +0200
-Message-ID: <1448985805-25422-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 03/18] net/mlx5: Add HW capabilities and structs for SR-IOV E-Switch
+Date: Tue,  1 Dec 2015 18:03:10 +0200
+Message-ID: <1448985805-25422-4-git-send-email-ogerlitz@mellanox.com>
 References: <1448985805-25422-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Hadar Har-Zion <hadarh@mellanox.com>,
-	Eli Cohen <eli@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:34310 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:34324 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752250AbbLAQDx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Dec 2015 11:03:53 -0500
+	id S1754354AbbLAQEA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2015 11:04:00 -0500
 In-Reply-To: <1448985805-25422-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cohen <eli@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
 
-Modify these functions to have func_id argument to state which device we
-are referring to. This is done as a preparation for SRIOV support where
-a PF driver needs to control its virtual functions.
+Update HCA capabilities and HW struct to include needed
+capabilities for upcoming Ethernet Switch (SR-IOV E-Switch).
 
-Signed-off-by: Eli Cohen <eli@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c     | 45 ++++++++++------------
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |  2 +
- 2 files changed, 23 insertions(+), 24 deletions(-)
+ include/linux/mlx5/mlx5_ifc.h | 26 +++++++++++++++-----------
+ 1 file changed, 15 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 4ac8d4cc..f2e64dc 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -462,42 +462,39 @@ static int set_hca_ctrl(struct mlx5_core_dev *dev)
- 	return err;
- }
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 9b76fdd..836cf0e 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -665,7 +665,7 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         reserved_17[0x1];
+ 	u8         ets[0x1];
+ 	u8         nic_flow_table[0x1];
+-	u8	   reserved_18_0;
++	u8         eswitch_flow_table[0x1];
+ 	u8	   early_vf_enable;
+ 	u8         reserved_18[0x2];
+ 	u8         local_ca_ack_delay[0x5];
+@@ -789,22 +789,30 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         reserved_60[0x1b];
+ 	u8         log_max_wq_sz[0x5];
  
--static int mlx5_core_enable_hca(struct mlx5_core_dev *dev)
-+int mlx5_core_enable_hca(struct mlx5_core_dev *dev, u16 func_id)
- {
-+	u32 out[MLX5_ST_SZ_DW(enable_hca_out)];
-+	u32 in[MLX5_ST_SZ_DW(enable_hca_in)];
- 	int err;
--	struct mlx5_enable_hca_mbox_in in;
--	struct mlx5_enable_hca_mbox_out out;
- 
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_ENABLE_HCA);
-+	memset(in, 0, sizeof(in));
-+	MLX5_SET(enable_hca_in, in, opcode, MLX5_CMD_OP_ENABLE_HCA);
-+	MLX5_SET(enable_hca_in, in, function_id, func_id);
-+	memset(out, 0, sizeof(out));
+-	u8         reserved_61[0xa0];
+-
++	u8         nic_vport_change_event[0x1];
++	u8         reserved_61[0xa];
++	u8         log_max_vlan_list[0x5];
+ 	u8         reserved_62[0x3];
++	u8         log_max_current_mc_list[0x5];
++	u8         reserved_63[0x3];
++	u8         log_max_current_uc_list[0x5];
 +
- 	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
- 	if (err)
- 		return err;
++	u8         reserved_64[0x80];
++
++	u8         reserved_65[0x3];
+ 	u8         log_max_l2_table[0x5];
+-	u8         reserved_63[0x8];
++	u8         reserved_66[0x8];
+ 	u8         log_uar_page_sz[0x10];
  
--	if (out.hdr.status)
--		return mlx5_cmd_status_to_err(&out.hdr);
+-	u8         reserved_64[0x100];
++	u8         reserved_67[0xe0];
+ 
+-	u8         reserved_65[0x1f];
++	u8         reserved_68[0x1f];
+ 	u8         cqe_zip[0x1];
+ 
+ 	u8         cqe_zip_timeout[0x10];
+ 	u8         cqe_zip_max_num[0x10];
+ 
+-	u8         reserved_66[0x220];
++	u8         reserved_69[0x220];
+ };
+ 
+ enum {
+@@ -2135,10 +2143,6 @@ struct mlx5_ifc_rmpc_bits {
+ 	struct mlx5_ifc_wq_bits wq;
+ };
+ 
+-enum {
+-	MLX5_NIC_VPORT_CONTEXT_ALLOWED_LIST_TYPE_CURRENT_UC_MAC_ADDRESS  = 0x0,
+-};
 -
--	return 0;
-+	return mlx5_cmd_status_to_err_v2(out);
- }
- 
--static int mlx5_core_disable_hca(struct mlx5_core_dev *dev)
-+int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id)
- {
-+	u32 out[MLX5_ST_SZ_DW(disable_hca_out)];
-+	u32 in[MLX5_ST_SZ_DW(disable_hca_in)];
- 	int err;
--	struct mlx5_disable_hca_mbox_in in;
--	struct mlx5_disable_hca_mbox_out out;
- 
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DISABLE_HCA);
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
-+	memset(in, 0, sizeof(in));
-+	MLX5_SET(disable_hca_in, in, opcode, MLX5_CMD_OP_DISABLE_HCA);
-+	MLX5_SET(disable_hca_in, in, function_id, func_id);
-+	memset(out, 0, sizeof(out));
-+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
- 	if (err)
- 		return err;
- 
--	if (out.hdr.status)
--		return mlx5_cmd_status_to_err(&out.hdr);
--
--	return 0;
-+	return mlx5_cmd_status_to_err_v2(out);
- }
- 
- static int mlx5_irq_set_affinity_hint(struct mlx5_core_dev *mdev, int i)
-@@ -942,7 +939,7 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 
- 	mlx5_pagealloc_init(dev);
- 
--	err = mlx5_core_enable_hca(dev);
-+	err = mlx5_core_enable_hca(dev, 0);
- 	if (err) {
- 		dev_err(&pdev->dev, "enable hca failed\n");
- 		goto err_pagealloc_cleanup;
-@@ -1106,7 +1103,7 @@ reclaim_boot_pages:
- 	mlx5_reclaim_startup_pages(dev);
- 
- err_disable_hca:
--	mlx5_core_disable_hca(dev);
-+	mlx5_core_disable_hca(dev, 0);
- 
- err_pagealloc_cleanup:
- 	mlx5_pagealloc_cleanup(dev);
-@@ -1149,7 +1146,7 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 	}
- 	mlx5_pagealloc_stop(dev);
- 	mlx5_reclaim_startup_pages(dev);
--	mlx5_core_disable_hca(dev);
-+	mlx5_core_disable_hca(dev, 0);
- 	mlx5_pagealloc_cleanup(dev);
- 	mlx5_cmd_cleanup(dev);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-index cee5b7a..1ed2239 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-@@ -90,6 +90,8 @@ void mlx5_core_event(struct mlx5_core_dev *dev, enum mlx5_dev_event event,
- 		     unsigned long param);
- void mlx5_enter_error_state(struct mlx5_core_dev *dev);
- void mlx5_disable_device(struct mlx5_core_dev *dev);
-+int mlx5_core_enable_hca(struct mlx5_core_dev *dev, u16 func_id);
-+int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id);
- 
- void mlx5e_init(void);
- void mlx5e_cleanup(void);
+ struct mlx5_ifc_nic_vport_context_bits {
+ 	u8         reserved_0[0x1f];
+ 	u8         roce_en[0x1];
 -- 
 2.3.7
