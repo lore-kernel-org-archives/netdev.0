@@ -1,130 +1,112 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 26/26] mlxsw: spectrum: Implement LAG tx enabled lower state change
-Date: Tue,  1 Dec 2015 14:49:04 +0100
-Message-ID: <1448977744-17930-27-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 16/26] bonding: implement lower state change propagation
+Date: Tue,  1 Dec 2015 14:48:54 +0100
+Message-ID: <1448977744-17930-17-git-send-email-jiri@resnulli.us>
 References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:35642 "EHLO
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:37778 "EHLO
 	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756356AbbLANtl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 08:49:41 -0500
-Received: by wmuu63 with SMTP id u63so173642985wmu.0
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 05:49:39 -0800 (PST)
+	with ESMTP id S1756231AbbLANt2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 08:49:28 -0500
+Received: by wmww144 with SMTP id w144so14077170wmw.0
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 05:49:27 -0800 (PST)
 In-Reply-To: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Enabling/disabling TX on a LAG port means enabling/disabling distribution
-in our HW.
+Let netdev notifier listeners know about link and slave state change.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 81 +++++++++++++++++++++++++-
- 1 file changed, 79 insertions(+), 2 deletions(-)
+ drivers/net/bonding/bond_main.c | 10 ++++++++++
+ include/net/bonding.h           |  7 +++++++
+ 2 files changed, 17 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 171748e..7f6c910 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2108,8 +2108,47 @@ static int mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
- 	return 0;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index c9943fc..e153a87 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1315,6 +1315,16 @@ void bond_queue_slave_event(struct slave *slave)
+ 	queue_delayed_work(slave->bond->wq, &nnw->work, 0);
  }
  
--static int mlxsw_sp_netdevice_port_event(struct net_device *dev,
--					 unsigned long event, void *ptr)
-+static int mlxsw_sp_lag_dist_port_add(struct mlxsw_sp_port *mlxsw_sp_port,
-+				      u16 lag_id)
++void bond_lower_state_changed(struct slave *slave)
 +{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	char sldr_pl[MLXSW_REG_SLDR_LEN];
++	struct netdev_lag_lower_state_info info;
 +
-+	mlxsw_reg_sldr_lag_add_port_pack(sldr_pl, lag_id,
-+					 mlxsw_sp_port->local_port);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sldr), sldr_pl);
++	info.link_up = slave->link == BOND_LINK_UP ||
++		       slave->link == BOND_LINK_FAIL;
++	info.tx_enabled = bond_is_active_slave(slave);
++	netdev_lower_state_changed(slave->dev, &info);
 +}
 +
-+static int mlxsw_sp_lag_dist_port_remove(struct mlxsw_sp_port *mlxsw_sp_port,
-+					 u16 lag_id)
-+{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	char sldr_pl[MLXSW_REG_SLDR_LEN];
-+
-+	mlxsw_reg_sldr_lag_remove_port_pack(sldr_pl, lag_id,
-+					    mlxsw_sp_port->local_port);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sldr), sldr_pl);
-+}
-+
-+static int mlxsw_sp_port_lag_tx_en_set(struct mlxsw_sp_port *mlxsw_sp_port,
-+				       bool lag_tx_enabled)
-+{
-+	if (lag_tx_enabled)
-+		return mlxsw_sp_lag_dist_port_add(mlxsw_sp_port,
-+						  mlxsw_sp_port->lag_id);
-+	else
-+		return mlxsw_sp_lag_dist_port_remove(mlxsw_sp_port,
-+						     mlxsw_sp_port->lag_id);
-+}
-+
-+static int mlxsw_sp_port_lag_changed(struct mlxsw_sp_port *mlxsw_sp_port,
-+				     struct netdev_lag_lower_state_info *info)
-+{
-+	return mlxsw_sp_port_lag_tx_en_set(mlxsw_sp_port, info->tx_enabled);
-+}
-+
-+static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
-+					       unsigned long event, void *ptr)
+ /* enslave device <slave> to bond device <master> */
+ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
  {
- 	struct netdev_notifier_changeupper_info *info;
- 	struct mlxsw_sp_port *mlxsw_sp_port;
-@@ -2172,6 +2211,44 @@ static int mlxsw_sp_netdevice_port_event(struct net_device *dev,
- 	return NOTIFY_DONE;
- }
+diff --git a/include/net/bonding.h b/include/net/bonding.h
+index 50496ec..5c75446 100644
+--- a/include/net/bonding.h
++++ b/include/net/bonding.h
+@@ -247,6 +247,7 @@ struct bonding {
+ 	((struct slave *) rtnl_dereference(dev->rx_handler_data))
  
-+static int mlxsw_sp_netdevice_port_lower_event(struct net_device *dev,
-+					       unsigned long event, void *ptr)
-+{
-+	struct netdev_notifier_changelowerstate_info *info;
-+	struct mlxsw_sp_port *mlxsw_sp_port;
-+	int err;
-+
-+	mlxsw_sp_port = netdev_priv(dev);
-+	info = ptr;
-+
-+	switch (event) {
-+	case NETDEV_CHANGELOWERSTATE:
-+		if (netif_is_lag_port(dev) && mlxsw_sp_port->lagged) {
-+			err = mlxsw_sp_port_lag_changed(mlxsw_sp_port,
-+							info->lower_state_info);
-+			if (err)
-+				netdev_err(dev, "Failed to reflect link aggregation lower state change\n");
-+		}
-+		break;
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static int mlxsw_sp_netdevice_port_event(struct net_device *dev,
-+					 unsigned long event, void *ptr)
-+{
-+	switch (event) {
-+	case NETDEV_PRECHANGEUPPER:
-+	case NETDEV_CHANGEUPPER:
-+		return mlxsw_sp_netdevice_port_upper_event(dev, event, ptr);
-+	case NETDEV_CHANGELOWERSTATE:
-+		return mlxsw_sp_netdevice_port_lower_event(dev, event, ptr);
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
- static int mlxsw_sp_netdevice_lag_event(struct net_device *lag_dev,
- 					unsigned long event, void *ptr)
- {
+ void bond_queue_slave_event(struct slave *slave);
++void bond_lower_state_changed(struct slave *slave);
+ 
+ struct bond_vlan_tag {
+ 	__be16		vlan_proto;
+@@ -328,6 +329,7 @@ static inline void bond_set_active_slave(struct slave *slave)
+ 	if (slave->backup) {
+ 		slave->backup = 0;
+ 		bond_queue_slave_event(slave);
++		bond_lower_state_changed(slave);
+ 		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
+ 	}
+ }
+@@ -337,6 +339,7 @@ static inline void bond_set_backup_slave(struct slave *slave)
+ 	if (!slave->backup) {
+ 		slave->backup = 1;
+ 		bond_queue_slave_event(slave);
++		bond_lower_state_changed(slave);
+ 		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
+ 	}
+ }
+@@ -349,6 +352,7 @@ static inline void bond_set_slave_state(struct slave *slave,
+ 
+ 	slave->backup = slave_state;
+ 	if (notify) {
++		bond_lower_state_changed(slave);
+ 		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
+ 		bond_queue_slave_event(slave);
+ 		slave->should_notify = 0;
+@@ -380,6 +384,7 @@ static inline void bond_slave_state_notify(struct bonding *bond)
+ 
+ 	bond_for_each_slave(bond, tmp, iter) {
+ 		if (tmp->should_notify) {
++			bond_lower_state_changed(tmp);
+ 			rtmsg_ifinfo(RTM_NEWLINK, tmp->dev, 0, GFP_ATOMIC);
+ 			tmp->should_notify = 0;
+ 		}
+@@ -514,6 +519,7 @@ static inline void bond_set_slave_link_state(struct slave *slave, int state,
+ 	slave->link = state;
+ 	if (notify) {
+ 		bond_queue_slave_event(slave);
++		bond_lower_state_changed(slave);
+ 		slave->should_notify_link = 0;
+ 	} else {
+ 		if (slave->should_notify_link)
+@@ -531,6 +537,7 @@ static inline void bond_slave_link_notify(struct bonding *bond)
+ 	bond_for_each_slave(bond, tmp, iter) {
+ 		if (tmp->should_notify_link) {
+ 			bond_queue_slave_event(tmp);
++			bond_lower_state_changed(tmp);
+ 			tmp->should_notify_link = 0;
+ 		}
+ 	}
 -- 
 1.9.3
