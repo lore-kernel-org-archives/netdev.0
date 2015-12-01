@@ -1,68 +1,80 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [RFC] ipv6: use a random ifid for headerless devices
-Date: Tue, 1 Dec 2015 16:39:11 +0900
-Message-ID: <565D4E9F.2000605@miraclelinux.com>
-References: <1448884508-5235-1-git-send-email-bjorn@mork.no>
- <CAPA1RqB8uc3vTOi4HXMdU3LREvmcKnUk=ygf3aax1kVZ+wcwJw@mail.gmail.com>
- <87r3j74mnh.fsf@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hideaki.yoshifuji@miraclelinux.com,
-	network dev <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH 1/2 net-next] ravb: Add fallback compatibility strings
+Date: Tue,  1 Dec 2015 16:43:02 +0900
+Message-ID: <1448955783-22806-2-git-send-email-horms+renesas@verge.net.au>
+References: <1448955783-22806-1-git-send-email-horms+renesas@verge.net.au>
+Cc: Magnus Damm <magnus.damm@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	devicetree@vger.kernel.org
+To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:33499 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751989AbbLAHjO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 02:39:14 -0500
-Received: by pabfh17 with SMTP id fh17so219675367pab.0
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 23:39:14 -0800 (PST)
-In-Reply-To: <87r3j74mnh.fsf@nemi.mork.no>
+Received: from kirsty.vergenet.net ([202.4.237.240]:43196 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755120AbbLAHnX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 02:43:23 -0500
+In-Reply-To: <1448955783-22806-1-git-send-email-horms+renesas@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Add fallback compatibility strings for R-Car Gen 2 & 3 SoC Families.
+This is in keeping with the fallback scheme being adopted wherever
+appropriate for drivers for Renesas SoCs.
 
-Bj=C3=B8rn Mork wrote:
-> =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <hideaki.yoshifuji@miraclelinux.=
-com> writes:
->=20
->>>> +static int addrconf_ifid_random(u8 *eui, struct net_device *dev)
->>> +{
->>> +       get_random_bytes(eui, 8);
->>> +       eui[0] |=3D 0x02;
->>> +       return 0;
->>> +}
->>> +
->>
->> Since random identifier is locally assigned, drop the global bit
->> instead if setting it.
->=20
-> Yes, definitely. Thanks.  I'm considering reusing __ipv6_regen_rndid(=
-)
-> which already does this correctly, and also avoids some locally assig=
-ned
-> addresses with special meanings.
->=20
-> Another issue with the initial RFC is that every prefix will have a n=
-ew
-> random ifid, which isn't necessarily what the users expect.  I wonder=
- if
-> it would be acceptable to abuse the rndid field for storing a "perman=
-ent"
-> random ifid?
+Also correct typo.
 
-Well, I think we should introduce ifid in inet6_dev.
-After that we could use it from other ifid methods.
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+---
+ Documentation/devicetree/bindings/net/renesas,ravb.txt | 11 +++++++++--
+ drivers/net/ethernet/renesas/ravb_main.c               |  2 ++
+ 2 files changed, 11 insertions(+), 2 deletions(-)
 
---yoshfuji
-
->=20
->=20
-> Bj=C3=B8rn
->=20
-
---=20
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+index b486f3f5f6a3..115006325bff 100644
+--- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
++++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+@@ -1,12 +1,19 @@
+ * Renesas Electronics Ethernet AVB
+ 
+ This file provides information on what the device node for the Ethernet AVB
+-interface contains.
++interface.
+ 
+ Required properties:
+ - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
+ 	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
+ 	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
++	      "renesas,etheravb-gen2" for generic R-Car Gen 2 compatible interface.
++	      "renesas,etheravb-gen3" for generic R-Car Gen 3 compatible interface.
++
++	      When compatible with the generic version, nodes must list the
++	      SoC-specific version corresponding to the platform first
++	      followed by the generic version.
++
+ - reg: offset and length of (1) the register block and (2) the stream buffer.
+ - interrupts: A list of interrupt-specifiers, one for each entry in
+ 	      interrupt-names.
+@@ -37,7 +44,7 @@ Optional properties:
+ Example:
+ 
+ 	ethernet@e6800000 {
+-		compatible = "renesas,etheravb-r8a7795";
++		compatible = "renesas,etheravb-r8a7795", "renesas,etheravb-gen3";
+ 		reg = <0 0xe6800000 0 0x800>, <0 0xe6a00000 0 0x10000>;
+ 		interrupt-parent = <&gic>;
+ 		interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 990dc55cdada..d3b4f574d346 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1656,7 +1656,9 @@ static int ravb_mdio_release(struct ravb_private *priv)
+ static const struct of_device_id ravb_match_table[] = {
+ 	{ .compatible = "renesas,etheravb-r8a7790", .data = (void *)RCAR_GEN2 },
+ 	{ .compatible = "renesas,etheravb-r8a7794", .data = (void *)RCAR_GEN2 },
++	{ .compatible = "renesas,etheravb-gen2",    .data = (void *)RCAR_GEN2 },
+ 	{ .compatible = "renesas,etheravb-r8a7795", .data = (void *)RCAR_GEN3 },
++	{ .compatible = "renesas,etheravb-gen3",    .data = (void *)RCAR_GEN3 },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, ravb_match_table);
+-- 
+2.1.4
