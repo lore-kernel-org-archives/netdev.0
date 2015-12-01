@@ -1,39 +1,112 @@
-From: Luuk Paulussen <Luuk.Paulussen@alliedtelesis.co.nz>
-Subject: Re: Increasing skb->mark size
-Date: Tue, 1 Dec 2015 04:57:18 +0000
-Message-ID: <565D28AE.3060204@alliedtelesis.co.nz>
-References: <565BCC42.7020701@alliedtelesis.co.nz>
- <20151129.234955.2156041834628417171.davem@davemloft.net>
- <565CE5E8.9010002@alliedtelesis.co.nz>
- <20151130.225551.1151915829635053889.davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next 2/3] vhost: introduce vhost_vq_more_avail()
+Date: Tue, 1 Dec 2015 13:14:10 +0800
+Message-ID: <565D2CA2.6020606@redhat.com>
+References: <1448435489-5949-1-git-send-email-jasowang@redhat.com>
+	<1448435489-5949-3-git-send-email-jasowang@redhat.com>
+	<20151130082202.GA7396@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "lorenzo@google.com" <lorenzo@google.com>,
-	Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:37400 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752625AbbLAE5a convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 23:57:30 -0500
-In-Reply-To: <20151130.225551.1151915829635053889.davem@davemloft.net>
-Content-Language: en-US
-Content-ID: <51BC3F094BD0D248B27D5C596F57B32E@atlnz.lc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20151130082202.GA7396@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 12/01/2015 04:55 PM, David Miller wrote:
-> Lots of things are interesting and useful to many people.
->
-> Even the most useful feature I would balk at it's implementation
-> if it bloated up sk_buff.  Period.
->
-> You don't understand what the core issue is, which is sk_buff size
-> which has an effect on all users.
 
-I have understood the core issue, which is why the rest of the email was 
-proposing an alternative solution that didn't involve increasing sk_buff 
-size at all (I would still like a comment on the possibility of adding a 
-tc_index field to the nf_conn structure to match the one in the skb).
+
+On 11/30/2015 04:22 PM, Michael S. Tsirkin wrote:
+> On Wed, Nov 25, 2015 at 03:11:28PM +0800, Jason Wang wrote:
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>  drivers/vhost/vhost.c | 26 +++++++++++++++++---------
+>>  drivers/vhost/vhost.h |  1 +
+>>  2 files changed, 18 insertions(+), 9 deletions(-)
+>>
+>> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+>> index 163b365..b86c5aa 100644
+>> --- a/drivers/vhost/vhost.c
+>> +++ b/drivers/vhost/vhost.c
+>> @@ -1633,10 +1633,25 @@ void vhost_add_used_and_signal_n(struct vhost_dev *dev,
+>>  }
+>>  EXPORT_SYMBOL_GPL(vhost_add_used_and_signal_n);
+>>  
+>> +bool vhost_vq_more_avail(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>> +{
+>> +	__virtio16 avail_idx;
+>> +	int r;
+>> +
+>> +	r = __get_user(avail_idx, &vq->avail->idx);
+>> +	if (r) {
+>> +		vq_err(vq, "Failed to check avail idx at %p: %d\n",
+>> +		       &vq->avail->idx, r);
+>> +		return false;
+> In patch 3 you are calling this under preempt disable,
+> so this actually can fail and it isn't a VQ error.
+>
+
+Yes.
+
+>> +	}
+>> +
+>> +	return vhost16_to_cpu(vq, avail_idx) != vq->avail_idx;
+>> +}
+>> +EXPORT_SYMBOL_GPL(vhost_vq_more_avail);
+>> +
+>>  /* OK, now we need to know about added descriptors. */
+>>  bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>>  {
+>> -	__virtio16 avail_idx;
+>>  	int r;
+>>  
+>>  	if (!(vq->used_flags & VRING_USED_F_NO_NOTIFY))
+>> @@ -1660,14 +1675,7 @@ bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>>  	/* They could have slipped one in as we were doing that: make
+>>  	 * sure it's written, then check again. */
+>>  	smp_mb();
+>> -	r = __get_user(avail_idx, &vq->avail->idx);
+>> -	if (r) {
+>> -		vq_err(vq, "Failed to check avail idx at %p: %d\n",
+>> -		       &vq->avail->idx, r);
+>> -		return false;
+>> -	}
+>> -
+>> -	return vhost16_to_cpu(vq, avail_idx) != vq->avail_idx;
+>> +	return vhost_vq_more_avail(dev, vq);
+>>  }
+>>  EXPORT_SYMBOL_GPL(vhost_enable_notify);
+>>  
+> This path does need an error though.
+> It's probably easier to just leave this call site alone.
+
+Ok, will leave this function as is and remove the vq_err() in
+vhost_vq_more_avail().
+
+Thanks
+
+>
+>> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+>> index 43284ad..2f3c57c 100644
+>> --- a/drivers/vhost/vhost.h
+>> +++ b/drivers/vhost/vhost.h
+>> @@ -159,6 +159,7 @@ void vhost_add_used_and_signal_n(struct vhost_dev *, struct vhost_virtqueue *,
+>>  			       struct vring_used_elem *heads, unsigned count);
+>>  void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
+>>  void vhost_disable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+>> +bool vhost_vq_more_avail(struct vhost_dev *, struct vhost_virtqueue *);
+>>  bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+>>  
+>>  int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+>> -- 
+>> 2.5.0
