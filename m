@@ -1,213 +1,126 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V2 3/3] vhost_net: basic polling support
-Date: Tue,  1 Dec 2015 14:39:45 +0800
-Message-ID: <1448951985-12385-4-git-send-email-jasowang@redhat.com>
-References: <1448951985-12385-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448951985-12385-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [PATCH v4 1/4] net: diag: split inet_diag_dump_one_icsk into two
+Date: Tue,  1 Dec 2015 16:04:23 +0900
+Message-ID: <1448953466-132321-1-git-send-email-lorenzo@google.com>
+Cc: davem@davemloft.net, hannes@stressinduktion.org,
+	eric.dumazet@gmail.com, ek@google.com, tom@herbertland.com,
+	zenczykowski@gmail.com, Lorenzo Colitti <lorenzo@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:33328 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754225AbbLAHEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 02:04:34 -0500
+Received: by pabfh17 with SMTP id fh17so218642855pab.0
+        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 23:04:34 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch tries to poll for new added tx buffer or socket receive
-queue for a while at the end of tx/rx processing. The maximum time
-spent on polling were specified through a new kind of vring ioctl.
+Currently, inet_diag_dump_one_icsk finds a socket and then dumps
+its information to userspace. Split it into a part that finds the
+socket and a part that dumps the information.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 ---
- drivers/vhost/net.c        | 72 ++++++++++++++++++++++++++++++++++++++++++----
- drivers/vhost/vhost.c      | 15 ++++++++++
- drivers/vhost/vhost.h      |  1 +
- include/uapi/linux/vhost.h | 11 +++++++
- 4 files changed, 94 insertions(+), 5 deletions(-)
+ include/linux/inet_diag.h |  5 +++++
+ net/ipv4/inet_diag.c      | 42 +++++++++++++++++++++++++++---------------
+ 2 files changed, 32 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 9eda69e..ce6da77 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -287,6 +287,41 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
- 	rcu_read_unlock_bh();
+diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+index 0e707f0..e7032f04 100644
+--- a/include/linux/inet_diag.h
++++ b/include/linux/inet_diag.h
+@@ -3,6 +3,7 @@
+ 
+ #include <uapi/linux/inet_diag.h>
+ 
++struct net;
+ struct sock;
+ struct inet_hashinfo;
+ struct nlattr;
+@@ -41,6 +42,10 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
+ 			    struct sk_buff *in_skb, const struct nlmsghdr *nlh,
+ 			    const struct inet_diag_req_v2 *req);
+ 
++struct sock *inet_diag_find_one_icsk(struct net *net,
++				     struct inet_hashinfo *hashinfo,
++				     const struct inet_diag_req_v2 *req);
++
+ int inet_diag_bc_sk(const struct nlattr *_bc, struct sock *sk);
+ 
+ extern int  inet_diag_register(const struct inet_diag_handler *handler);
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index ab9f8a6..cfabb8f 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -350,17 +350,12 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 				  nlmsg_flags, unlh);
  }
  
-+static inline unsigned long busy_clock(void)
-+{
-+	return local_clock() >> 10;
-+}
-+
-+static bool vhost_can_busy_poll(struct vhost_dev *dev,
-+				unsigned long endtime)
-+{
-+	return likely(!need_resched()) &&
-+	       likely(!time_after(busy_clock(), endtime)) &&
-+	       likely(!signal_pending(current)) &&
-+	       !vhost_has_work(dev) &&
-+	       single_task_running();
-+}
-+
-+static int vhost_net_tx_get_vq_desc(struct vhost_net *net,
-+				    struct vhost_virtqueue *vq,
-+				    struct iovec iov[], unsigned int iov_size,
-+				    unsigned int *out_num, unsigned int *in_num)
-+{
-+	unsigned long uninitialized_var(endtime);
-+
-+	if (vq->busyloop_timeout) {
-+		preempt_disable();
-+		endtime = busy_clock() + vq->busyloop_timeout;
-+		while (vhost_can_busy_poll(vq->dev, endtime) &&
-+		       !vhost_vq_more_avail(vq->dev, vq))
-+			cpu_relax();
-+		preempt_enable();
-+	}
-+
-+	return vhost_get_vq_desc(vq, vq->iov, ARRAY_SIZE(vq->iov),
-+				 out_num, in_num, NULL, NULL);
-+}
-+
- /* Expects to be always run from workqueue - which acts as
-  * read-size critical section for our kind of RCU. */
- static void handle_tx(struct vhost_net *net)
-@@ -331,10 +366,9 @@ static void handle_tx(struct vhost_net *net)
- 			      % UIO_MAXIOV == nvq->done_idx))
- 			break;
+-int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
+-			    struct sk_buff *in_skb,
+-			    const struct nlmsghdr *nlh,
+-			    const struct inet_diag_req_v2 *req)
++struct sock *inet_diag_find_one_icsk(struct net *net,
++				     struct inet_hashinfo *hashinfo,
++				     const struct inet_diag_req_v2 *req)
+ {
+-	struct net *net = sock_net(in_skb->sk);
+-	struct sk_buff *rep;
+ 	struct sock *sk;
+-	int err;
  
--		head = vhost_get_vq_desc(vq, vq->iov,
--					 ARRAY_SIZE(vq->iov),
--					 &out, &in,
--					 NULL, NULL);
-+		head = vhost_net_tx_get_vq_desc(net, vq, vq->iov,
-+						ARRAY_SIZE(vq->iov),
-+						&out, &in);
- 		/* On error, stop handling until the next kick. */
- 		if (unlikely(head < 0))
- 			break;
-@@ -435,6 +469,34 @@ static int peek_head_len(struct sock *sk)
- 	return len;
- }
- 
-+static int vhost_net_peek_head_len(struct vhost_net *net, struct sock *sk)
-+{
-+	struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
-+	struct vhost_virtqueue *vq = &nvq->vq;
-+	unsigned long uninitialized_var(endtime);
-+
-+	if (vq->busyloop_timeout) {
-+		mutex_lock(&vq->mutex);
-+		vhost_disable_notify(&net->dev, vq);
-+
-+		preempt_disable();
-+		endtime = busy_clock() + vq->busyloop_timeout;
-+
-+		while (vhost_can_busy_poll(&net->dev, endtime) &&
-+		       skb_queue_empty(&sk->sk_receive_queue) &&
-+		       !vhost_vq_more_avail(&net->dev, vq))
-+			cpu_relax();
-+
-+		preempt_enable();
-+
-+		if (vhost_enable_notify(&net->dev, vq))
-+			vhost_poll_queue(&vq->poll);
-+		mutex_unlock(&vq->mutex);
-+	}
-+
-+	return peek_head_len(sk);
-+}
-+
- /* This is a multi-buffer version of vhost_get_desc, that works if
-  *	vq has read descriptors only.
-  * @vq		- the relevant virtqueue
-@@ -553,7 +615,7 @@ static void handle_rx(struct vhost_net *net)
- 		vq->log : NULL;
- 	mergeable = vhost_has_feature(vq, VIRTIO_NET_F_MRG_RXBUF);
- 
--	while ((sock_len = peek_head_len(sock->sk))) {
-+	while ((sock_len = vhost_net_peek_head_len(net, sock->sk))) {
- 		sock_len += sock_hlen;
- 		vhost_len = sock_len + vhost_hlen;
- 		headcount = get_rx_bufs(vq, vq->heads, vhost_len,
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 4f45a03..b8ca873 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -285,6 +285,7 @@ static void vhost_vq_reset(struct vhost_dev *dev,
- 	vq->memory = NULL;
- 	vq->is_le = virtio_legacy_is_little_endian();
- 	vhost_vq_reset_user_be(vq);
-+	vq->busyloop_timeout = 0;
- }
- 
- static int vhost_worker(void *data)
-@@ -747,6 +748,7 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
- 	struct vhost_vring_state s;
- 	struct vhost_vring_file f;
- 	struct vhost_vring_addr a;
-+	struct vhost_vring_busyloop_timeout t;
- 	u32 idx;
- 	long r;
- 
-@@ -919,6 +921,19 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
- 	case VHOST_GET_VRING_ENDIAN:
- 		r = vhost_get_vring_endian(vq, idx, argp);
- 		break;
-+	case VHOST_SET_VRING_BUSYLOOP_TIMEOUT:
-+		if (copy_from_user(&t, argp, sizeof(t))) {
-+			r = -EFAULT;
-+			break;
-+		}
-+		vq->busyloop_timeout = t.timeout;
-+		break;
-+	case VHOST_GET_VRING_BUSYLOOP_TIMEOUT:
-+		t.index = idx;
-+		t.timeout = vq->busyloop_timeout;
-+		if (copy_to_user(argp, &t, sizeof(t)))
-+			r = -EFAULT;
-+		break;
- 	default:
- 		r = -ENOIOCTLCMD;
- 	}
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index 2f3c57c..4b7d4fa 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -115,6 +115,7 @@ struct vhost_virtqueue {
- 	/* Ring endianness requested by userspace for cross-endian support. */
- 	bool user_be;
+-	err = -EINVAL;
+ 	if (req->sdiag_family == AF_INET)
+ 		sk = inet_lookup(net, hashinfo, req->id.idiag_dst[0],
+ 				 req->id.idiag_dport, req->id.idiag_src[0],
+@@ -375,15 +370,33 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
+ 				  req->id.idiag_if);
  #endif
-+	u32 busyloop_timeout;
- };
+ 	else
+-		goto out_nosk;
++		return ERR_PTR(-EINVAL);
  
- struct vhost_dev {
-diff --git a/include/uapi/linux/vhost.h b/include/uapi/linux/vhost.h
-index ab373191..eaf6c33 100644
---- a/include/uapi/linux/vhost.h
-+++ b/include/uapi/linux/vhost.h
-@@ -27,6 +27,11 @@ struct vhost_vring_file {
+-	err = -ENOENT;
+ 	if (!sk)
+-		goto out_nosk;
++		return ERR_PTR(-ENOENT);
  
- };
- 
-+struct vhost_vring_busyloop_timeout {
-+	unsigned int index;
-+	unsigned int timeout;
-+};
+-	err = sock_diag_check_cookie(sk, req->id.idiag_cookie);
+-	if (err)
+-		goto out;
++	if (sock_diag_check_cookie(sk, req->id.idiag_cookie)) {
++		sock_gen_put(sk);
++		return ERR_PTR(-ENOENT);
++	}
 +
- struct vhost_vring_addr {
- 	unsigned int index;
- 	/* Option flags. */
-@@ -126,6 +131,12 @@ struct vhost_memory {
- #define VHOST_SET_VRING_CALL _IOW(VHOST_VIRTIO, 0x21, struct vhost_vring_file)
- /* Set eventfd to signal an error */
- #define VHOST_SET_VRING_ERR _IOW(VHOST_VIRTIO, 0x22, struct vhost_vring_file)
-+/* Set busy loop timeout */
-+#define VHOST_SET_VRING_BUSYLOOP_TIMEOUT _IOW(VHOST_VIRTIO, 0x23,	\
-+					 struct vhost_vring_busyloop_timeout)
-+/* Get busy loop timeout */
-+#define VHOST_GET_VRING_BUSYLOOP_TIMEOUT _IOW(VHOST_VIRTIO, 0x24,	\
-+					 struct vhost_vring_busyloop_timeout)
++	return sk;
++}
++EXPORT_SYMBOL_GPL(inet_diag_find_one_icsk);
++
++int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
++			    struct sk_buff *in_skb,
++			    const struct nlmsghdr *nlh,
++			    const struct inet_diag_req_v2 *req)
++{
++	struct net *net = sock_net(in_skb->sk);
++	struct sk_buff *rep;
++	struct sock *sk;
++	int err;
++
++	sk = inet_diag_find_one_icsk(net, hashinfo, req);
++	if (IS_ERR(sk))
++		return PTR_ERR(sk);
  
- /* VHOST_NET specific defines */
+ 	rep = nlmsg_new(inet_sk_attr_size(), GFP_KERNEL);
+ 	if (!rep) {
+@@ -409,7 +422,6 @@ out:
+ 	if (sk)
+ 		sock_gen_put(sk);
  
+-out_nosk:
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(inet_diag_dump_one_icsk);
 -- 
-2.5.0
+2.6.0.rc2.230.g3dd15c0
