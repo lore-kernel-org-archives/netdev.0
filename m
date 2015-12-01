@@ -1,45 +1,39 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: size overflow in function qdisc_tree_decrease_qlen net/sched/sch_api.c
-Date: Mon, 30 Nov 2015 20:50:29 -0800
-Message-ID: <CAHA+R7NdbMgfWpdCoP8peXT3zBX1=B_HWhsykjcT3QO=Gk-9aQ@mail.gmail.com>
-References: <20151201010005.GA23175@Fux-PC>
+From: Luuk Paulussen <Luuk.Paulussen@alliedtelesis.co.nz>
+Subject: Re: Increasing skb->mark size
+Date: Tue, 1 Dec 2015 04:57:18 +0000
+Message-ID: <565D28AE.3060204@alliedtelesis.co.nz>
+References: <565BCC42.7020701@alliedtelesis.co.nz>
+ <20151129.234955.2156041834628417171.davem@davemloft.net>
+ <565CE5E8.9010002@alliedtelesis.co.nz>
+ <20151130.225551.1151915829635053889.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>, spender@grsecurity.net,
-	pageexec@freemail.hu, re.emese@gmail.com
-To: Daniele Fucini <dfucini@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "lorenzo@google.com" <lorenzo@google.com>,
+	Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f170.google.com ([209.85.160.170]:34908 "EHLO
-	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752348AbbLAEua (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 23:50:30 -0500
-Received: by ykba77 with SMTP id a77so211299703ykb.2
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 20:50:30 -0800 (PST)
-In-Reply-To: <20151201010005.GA23175@Fux-PC>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:37400 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752625AbbLAE5a convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 23:57:30 -0500
+In-Reply-To: <20151130.225551.1151915829635053889.davem@davemloft.net>
+Content-Language: en-US
+Content-ID: <51BC3F094BD0D248B27D5C596F57B32E@atlnz.lc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 30, 2015 at 5:00 PM, Daniele Fucini <dfucini@gmail.com> wrote:
-> Hello,
+On 12/01/2015 04:55 PM, David Miller wrote:
+> Lots of things are interesting and useful to many people.
 >
-> I'm using a Grsecurity patched kernel (version 4.2.6-201511282239) and
-> I'm getting system freezes due to PaX detecting a size overflow in
-> function qdisc_tree_decrease_qlen net/sched/sch_api.c:769 whenever I use
-> Transmission BitTorrent client.
+> Even the most useful feature I would balk at it's implementation
+> if it bloated up sk_buff.  Period.
 >
-> On the Grsecurity forum I was told it's probably an unintended integer
-> underflow that I should report upstream.
->
-> Here's the relevant log:
-> https://gist.github.com/cf54ccbb12ea65e146d4
->
+> You don't understand what the core issue is, which is sk_buff size
+> which has an effect on all users.
 
-Looks like we miss some sch->q.qlen accounting somewhere...
-
-What is your qdisc setup? Is your fq_codel the default one or you installed it
-or some other qdisc somewhere (`tc qdisc show` could tell)?
-
-I will take a deeper look tomorrow, or maybe Jamal could find something
-before I wake up. ;)
+I have understood the core issue, which is why the rest of the email was 
+proposing an alternative solution that didn't involve increasing sk_buff 
+size at all (I would still like a comment on the possibility of adding a 
+tc_index field to the nf_conn structure to match the one in the skb).
