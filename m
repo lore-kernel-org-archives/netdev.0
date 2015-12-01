@@ -1,11 +1,10 @@
 From: Lothar =?UTF-8?B?V2HDn21hbm4=?= <LW@KARO-electronics.de>
-Subject: Re: [PATCH 1/3] net: fec: Remove redundant checks for NULL clk
- pointer
-Date: Tue, 1 Dec 2015 08:24:16 +0100
-Message-ID: <20151201082416.4ce7dd4c@ipc1.ka-ro>
+Subject: Re: [PATCH 0/3] net: fec: Reset ethernet PHY whenever the enet_out
+ clock
+Date: Tue, 1 Dec 2015 08:24:50 +0100
+Message-ID: <20151201082450.6a4a9421@ipc1.ka-ro>
 References: <1448883168-30742-1-git-send-email-LW@KARO-electronics.de>
-	<1448883168-30742-2-git-send-email-LW@KARO-electronics.de>
-	<BN3PR0301MB1219B4C39D2D9202A5C96349F50F0@BN3PR0301MB1219.namprd03.prod.outlook.com>
+	<BN3PR0301MB1219D0A7525EB2535856BE52F50F0@BN3PR0301MB1219.namprd03.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -26,7 +25,7 @@ Cc: Andrew Lunn <andrew@lunn.ch>,
 	"Uwe Kleine-K?nig" <u.kleine-koenig@pengutronix.de>
 To: Duan Andy <fugang.duan@freescale.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BN3PR0301MB1219B4C39D2D9202A5C96349F50F0@BN3PR0301MB1219.namprd03.prod.outlook.com>
+In-Reply-To: <BN3PR0301MB1219D0A7525EB2535856BE52F50F0@BN3PR0301MB1219.namprd03.prod.outlook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -43,45 +42,23 @@ linux-
 > > kernel@vger.kernel.org; netdev@vger.kernel.org; Jeff Kirsher; Uwe K=
 leine-
 > > K=C3=B6nig
-> > Subject: [PATCH 1/3] net: fec: Remove redundant checks for NULL clk
-> > pointer
+> > Subject: [PATCH 0/3] net: fec: Reset ethernet PHY whenever the enet=
+_out
+> > clock
 > >=20
-> > NULL is a valid argument to clk_enable()/clk_disable(). Remove redu=
-ndant
-> > checks before calling those functions.
+> > This patchset fixes a regression introduced by commit 8fff755e9f8d =
+("net:
+> > fec: Ensure clocks are enabled while using mdio bus") for ethernet =
+PHYs
+> > that are using ENET_OUT as reference clock (on i.MX6 or i.MX28)
 > >=20
-> > Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
-> > ---
-> >  drivers/net/ethernet/freescale/fec_main.c | 23 +++++++++----------=
-----
-> >  1 file changed, 9 insertions(+), 14 deletions(-)
-> >=20
-> > diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> > b/drivers/net/ethernet/freescale/fec_main.c
-> > index d2328fc..e17d74f 100644
-> > --- a/drivers/net/ethernet/freescale/fec_main.c
-> > +++ b/drivers/net/ethernet/freescale/fec_main.c
-> > @@ -1873,35 +1873,30 @@ static int fec_enet_clk_enable(struct net_d=
-evice
-> > *ndev, bool enable)
-> >  			}
-> >  			mutex_unlock(&fep->ptp_clk_mutex);
-> >  		}
-> > -		if (fep->clk_ref) {
-> > -			ret =3D clk_prepare_enable(fep->clk_ref);
-> > -			if (ret)
-> > -				goto failed_clk_ref;
-> > -		}
-> > +
-> > +		ret =3D clk_prepare_enable(fep->clk_ref);
-> > +		if (ret)
-> > +			goto failed_clk_ref;
+> Do you mean commit 8fff755e9f8d cause your problem ?  This commit jus=
+t manage ipg clock in runtime because mdio bus can access external phy =
+switch no matter netdev status.
 >=20
-> If you want to clean up the code, pls also remove "fep->clk_enet_out"=
- check in this brace.
->=20
-I would have to reintroduce it in the later patch to frame the call to
-fec_reset_phy().
+No. Actually I meant commit e8fcfcd5684a ("net: fec: optimize the clock=
+ management to save power")
+which started to disable the clocks when not in use.
 
-
+Sorry for the confusion,
 Lothar Wa=C3=9Fmann
