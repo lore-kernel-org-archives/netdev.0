@@ -1,115 +1,64 @@
-From: Lothar =?UTF-8?B?V2HDn21hbm4=?= <LW@KARO-electronics.de>
-Subject: Re: [PATCH 2/3] net: fec: convert to using gpiod framework
-Date: Tue, 1 Dec 2015 11:29:17 +0100
-Message-ID: <20151201112917.1f47af66@ipc1.ka-ro>
-References: <1448883168-30742-1-git-send-email-LW@KARO-electronics.de>
-	<1448883168-30742-2-git-send-email-LW@KARO-electronics.de>
-	<1448883168-30742-3-git-send-email-LW@KARO-electronics.de>
-	<BN3PR0301MB1219D8F59FEB74A4C445E405F50F0@BN3PR0301MB1219.namprd03.prod.outlook.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] bpf, array: fix heap out-of-bounds access when updating
+ elements
+Date: Tue, 01 Dec 2015 11:30:01 +0100
+Message-ID: <565D76A9.9040601@iogearbox.net>
+References: <674d6a1d4ff0e7728e535dc2d8fe1c5bea1e50b0.1448883657.git.daniel@iogearbox.net> <20151130182946.GB30762@ast-mbp.thefacebook.com> <CACT4Y+av=tbWXWRdvtpVE0NJKb+Uki=OZmYLqoET6+O_jvXt7A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <Fabio.Estevam@freescale.com>,
-	Greg Ungerer <gerg@uclinux.org>,
-	Kevin Hao <haokexin@gmail.com>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Philippe Reynes <tremyfr@gmail.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	"Stefan Agner" <stefan@agner.ch>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"Uwe Kleine-K?nig" <u.kleine-koenig@pengutronix.de>
-To: Duan Andy <fugang.duan@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BN3PR0301MB1219D8F59FEB74A4C445E405F50F0@BN3PR0301MB1219.namprd03.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Alexei Starovoitov <ast@kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	netdev <netdev@vger.kernel.org>
+To: Dmitry Vyukov <dvyukov@google.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:60957 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751140AbbLAKaN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 05:30:13 -0500
+In-Reply-To: <CACT4Y+av=tbWXWRdvtpVE0NJKb+Uki=OZmYLqoET6+O_jvXt7A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 12/01/2015 10:38 AM, Dmitry Vyukov wrote:
+> On Mon, Nov 30, 2015 at 7:29 PM, Alexei Starovoitov
+> <alexei.starovoitov@gmail.com> wrote:
+...
+>> Dmitry, thanks a lot for applying syzkaller to bpf. The issues
+>> got cought much sooner than they would have been discovered otherwise.
+>> Looks like the fuzzing has limited dependency chains described
+>> in sys/sys.txt. Can they be improved into doing something like:
+>> single call to map_create followed by many calls to update to
+>> stress oom ? I did it manually so far without kasan.
+>
+> Hi Alexei,
+>
+> Please elaborate.
+> sys.txt describes signatures of syscalls. Based on that syzkaller
+> generates programs that can contain a map_create call followed by
+> multiple map update calls. Though, it won't generate millions of
+> update calls on a single map, because it directly conflicts with the
+> idea of coverage guided fuzzing. For OOMs I guess you want to try
+> kmalloc fault injection.
 
-> From: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de> Sent: Monday, Nove=
-mber 30, 2015 7:33 PM
-> > To: Andrew Lunn; David S. Miller; Estevam Fabio-R49496; Greg Ungere=
-r;
-> > Kevin Hao; Lothar Wa=C3=9Fmann; Lucas Stach; Duan Fugang-B38611; Ph=
-ilippe
-> > Reynes; Richard Cochran; Russell King; Sascha Hauer; Stefan Agner; =
-linux-
-> > kernel@vger.kernel.org; netdev@vger.kernel.org; Jeff Kirsher; Uwe K=
-leine-
-> > K=C3=B6nig
-> > Subject: [PATCH 2/3] net: fec: convert to using gpiod framework
-> >=20
-> > Use gpiod_get_optional() instead of checking for a valid GPIO numbe=
-r and
-> > calling devm_gpio_request_one() conditionally.
-> >=20
-> > Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
-> > ---
-> >  drivers/net/ethernet/freescale/fec_main.c | 17 +++++++----------
-> >  1 file changed, 7 insertions(+), 10 deletions(-)
-> >=20
-> > diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> > b/drivers/net/ethernet/freescale/fec_main.c
-> > index e17d74f..1a983fc 100644
-> > --- a/drivers/net/ethernet/freescale/fec_main.c
-> > +++ b/drivers/net/ethernet/freescale/fec_main.c
-> > @@ -3233,7 +3233,7 @@ static int fec_enet_init(struct net_device *n=
-dev)
-> > #ifdef CONFIG_OF  static void fec_reset_phy(struct platform_device =
-*pdev)
-> > {
-> > -	int err, phy_reset;
-> > +	struct gpio_desc *phy_reset;
-> >  	int msec =3D 1;
-> >  	struct device_node *np =3D pdev->dev.of_node;
-> >=20
-> > @@ -3245,18 +3245,15 @@ static void fec_reset_phy(struct platform_d=
-evice
-> > *pdev)
-> >  	if (msec > 1000)
-> >  		msec =3D 1;
-> >=20
-> > -	phy_reset =3D of_get_named_gpio(np, "phy-reset-gpios", 0);
-> > -	if (!gpio_is_valid(phy_reset))
-> > -		return;
-> > -
-> > -	err =3D devm_gpio_request_one(&pdev->dev, phy_reset,
-> > -				    GPIOF_OUT_INIT_LOW, "phy-reset");
-> > -	if (err) {
-> > -		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n",
-> > err);
-> > +	phy_reset =3D devm_gpiod_get_optional(&pdev->dev, "phy-reset",
-> > +					    GPIOD_OUT_LOW);
-> > +	if (IS_ERR(phy_reset)) {
-> > +		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %ld\n",
-> > +			PTR_ERR(phy_reset));
-> >  		return;
-> >  	}
-> >  	msleep(msec);
-> > -	gpio_set_value_cansleep(phy_reset, 1);
-> > +	gpiod_set_value_cansleep(phy_reset, 1);
->=20
-> This API will judge the GPIO active polarity, there many imx boards i=
-n dts files don't care the polarity.
-> So pls drop the patch.
->=20
-> Or use gpiod_set_raw_value_cansleep() instead of gpiod_set_value_cans=
-leep().
->=20
-I could prepare a patch that temporarily uses the raw functions and add
-a comment to convert these to the proper functions once all DTB files
-have been corrected and some time has passed to account for boards usin=
-g
-old dtbs with newer kernels.
+Wrt dependency chains, I believe what is meant is that there are some
+options that could only be covered by the fuzzer after having succeeded
+a couple of dependencies first.
 
-I could also send a patch to convert all in-tree dts files to use
-GPIO_ACTIVE_LOW if that is desired.
+Perhaps not directly related to BPF, but f.e. some things can only be
+reached after having a session established, like the transfer of fds via
+SCM_RIGHTS, options that are being fuzzed while having a tcp/udp/sctp/
+netlink/etc session established and such.
 
+Perhaps in BPF case, f.e. updating of a program array, which itself would
+require some semi-autogenerated program to get loaded first. (The latter
+is already a different beast by itself wrt testing the verifier, though.)
 
-Lothar Wa=C3=9Fmann
+Cheers,
+Daniel
