@@ -1,82 +1,55 @@
-From: "Shi, Yang" <yang.shi@linaro.org>
-Subject: Re: [RESEND PATCH] arm64: bpf: add 'store immediate' instruction
-Date: Tue, 01 Dec 2015 14:20:40 -0800
-Message-ID: <565E1D38.7020906@linaro.org>
-References: <1448922247-5692-1-git-send-email-yang.shi@linaro.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC] Stable interface index option
+Date: Tue, 1 Dec 2015 14:31:10 -0800
+Message-ID: <20151201143110.39ec3e99@xeon-e3>
+References: <20151201080652.5cba6f8b@xeon-e3>
+	<20151201.142847.1980856920707150414.davem@davemloft.net>
+	<20151201122038.795305df@xeon-e3>
+	<20151201.155725.733555238839381632.davem@davemloft.net>
+	<1449004499.3829359.455124521.608D0A9E@webmail.messagingengine.com>
+	<20151201134407.3018adcc@xeon-e3>
+	<1449006894.3839234.455160217.6BE59AFD@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: zlim.lnx@gmail.com, xi.wang@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linaro-kernel@lists.linaro.org
-To: ast@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448922247-5692-1-git-send-email-yang.shi@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, max@rfc2324.org,
+	netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:35321 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757188AbbLAWbC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 17:31:02 -0500
+Received: by pacej9 with SMTP id ej9so18627252pac.2
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 14:31:01 -0800 (PST)
+In-Reply-To: <1449006894.3839234.455160217.6BE59AFD@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/30/2015 2:24 PM, Yang Shi wrote:
-> aarch64 doesn't have native store immediate instruction, such operation
-> has to be implemented by the below instruction sequence:
->
-> Load immediate to register
-> Store register
->
-> Signed-off-by: Yang Shi <yang.shi@linaro.org>
-> CC: Zi Shen Lim <zlim.lnx@gmail.com>
+On Tue, 01 Dec 2015 22:54:54 +0100
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
 
-Had email exchange offline with Zi Shen Lim since he is traveling and 
-cannot send text-only mail, quoted below for his reply:
+> 
+> On Tue, Dec 1, 2015, at 22:44, Stephen Hemminger wrote:
+> > On Tue, 01 Dec 2015 22:14:59 +0100
+> > Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> > > I had several snmp installations with net-snmp and munin, cacti and so
+> > > on and all had the interface name in ifDescription already some years
+> > > back.
+> > 
+> > In net-snmp 5.7 or later ifDescr is set to result of pci_lookup_name
+> > (by default).
+> 
+> Seems the data should simply be in ifName nowadays (unconfirmed):
+> <http://www.net-snmp.org/docs/mibs/ifMIBObjects.html>
+> 
+> Bye,
+> Hannes
 
-"I've given reviewed-by in response to original posting. Unless 
-something has changed, feel free to add it."
+By default
+  ifDescr == ifName == interface name (ie eth0, enp0s1, ...)
+If the device is on PCI bus then result is like:
 
-Since there is nothing changed, added his reviewed-by.
 
-Reviewed-by: Zi Shen Lim <zlim.lnx@gmail.com>
-
-Thanks,
-Yang
-
-> CC: Xi Wang <xi.wang@gmail.com>
-> ---
-> Thsi patch might be buried by the storm of xadd discussion, however, it is
-> absolutely irrelevent to xadd, so resend the patch itself.
->
->   arch/arm64/net/bpf_jit_comp.c | 20 +++++++++++++++++++-
->   1 file changed, 19 insertions(+), 1 deletion(-)
->
-> diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
-> index 6809647..49c1f1b 100644
-> --- a/arch/arm64/net/bpf_jit_comp.c
-> +++ b/arch/arm64/net/bpf_jit_comp.c
-> @@ -563,7 +563,25 @@ emit_cond_jmp:
->   	case BPF_ST | BPF_MEM | BPF_H:
->   	case BPF_ST | BPF_MEM | BPF_B:
->   	case BPF_ST | BPF_MEM | BPF_DW:
-> -		goto notyet;
-> +		/* Load imm to a register then store it */
-> +		ctx->tmp_used = 1;
-> +		emit_a64_mov_i(1, tmp2, off, ctx);
-> +		emit_a64_mov_i(1, tmp, imm, ctx);
-> +		switch (BPF_SIZE(code)) {
-> +		case BPF_W:
-> +			emit(A64_STR32(tmp, dst, tmp2), ctx);
-> +			break;
-> +		case BPF_H:
-> +			emit(A64_STRH(tmp, dst, tmp2), ctx);
-> +			break;
-> +		case BPF_B:
-> +			emit(A64_STRB(tmp, dst, tmp2), ctx);
-> +			break;
-> +		case BPF_DW:
-> +			emit(A64_STR64(tmp, dst, tmp2), ctx);
-> +			break;
-> +		}
-> +		break;
->
->   	/* STX: *(size *)(dst + off) = src */
->   	case BPF_STX | BPF_MEM | BPF_W:
->
+IF-MIB::ifDescr.2 = STRING: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller
+IF-MIB::ifName.2 = STRING: enp3s0
