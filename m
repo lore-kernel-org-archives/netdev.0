@@ -1,32 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/2] Basic support for Solarflare 8000
- series NICs
-Date: Tue, 01 Dec 2015 15:47:30 -0500 (EST)
-Message-ID: <20151201.154730.2068871142568837537.davem@davemloft.net>
-References: <5655DC18.7090208@solarflare.com>
-	<565C115D.2010000@solarflare.com>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH net-next V2 08/17] hv_netvsc: Don't ask for additional
+ head room in the skb
+Date: Tue, 1 Dec 2015 20:48:03 +0000
+Message-ID: <BY2PR0301MB16543B087ABDCADFA618AB9BA00F0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+References: <1448742017-22693-1-git-send-email-kys@microsoft.com>
+	<1448742045-22732-1-git-send-email-kys@microsoft.com>
+	<1448742045-22732-8-git-send-email-kys@microsoft.com>
+ <20151201.154147.1720863076099915966.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bkenward@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56948 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756127AbbLAUrb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 15:47:31 -0500
-In-Reply-To: <565C115D.2010000@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"jasowang@redhat.com" <jasowang@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151201.154147.1720863076099915966.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Bert Kenward <bkenward@solarflare.com>
-Date: Mon, 30 Nov 2015 09:05:33 +0000
 
-> The upcoming Solarflare 8000 series 10G/40G network card supports a 
-> similar interface to the current 7000 series cards. This patch series 
-> provides basic support for these cards, making no use of any new 
-> functionality.
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, December 1, 2015 12:42 PM
+> To: KY Srinivasan <kys@microsoft.com>
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
+> jasowang@redhat.com
+> Subject: Re: [PATCH net-next V2 08/17] hv_netvsc: Don't ask for additional
+> head room in the skb
 > 
-> v2: fix indenting in ef10.c in patch 1/2.
+> From: "K. Y. Srinivasan" <kys@microsoft.com>
+> Date: Sat, 28 Nov 2015 12:20:36 -0800
+> 
+> > +#elseif defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
+> 
+> The correct CPP directive is "#elif".
 
-Series applied, thanks.
+Thanks David, I will fix the typo and resubmit.
+
+K. Y
