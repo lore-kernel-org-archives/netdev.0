@@ -1,128 +1,39 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH net-next] ravb: ptp: Add CONFIG mode support
-Date: Wed,  2 Dec 2015 02:04:39 +0900
-Message-ID: <1448989479-11594-1-git-send-email-ykaneko0929@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: IPv4 tunnels: why IP-IP and SIT enforce DF bit, but GRE does
+ not?
+Date: Tue, 01 Dec 2015 12:08:51 -0500 (EST)
+Message-ID: <20151201.120851.2159228528635979581.davem@davemloft.net>
+References: <1448964929.3305540.454487369.098BD535@webmail.messagingengine.com>
+	<565D9EB6.1080102@shemyak.com>
+	<1448976655.3349108.454655833.599EFE94@webmail.messagingengine.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: konstantin@shemyak.com, netdev@vger.kernel.org, pshelar@nicira.com
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53542 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756131AbbLARIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 12:08:55 -0500
+In-Reply-To: <1448976655.3349108.454655833.599EFE94@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Tue, 01 Dec 2015 14:30:55 +0100
 
-This patch makes PTP support active in CONFIG mode on R-Car Gen3.
+> On Tue, Dec 1, 2015, at 14:20, Konstantin Shemyak wrote:
+>> My point was not to question its feasibility, but to make it similar 
+>> across GRE, IP-IP and SIT tunnels.
+> 
+> I would send a patch to add it again if Parvin didn't have good reasons
+> to remove it.
 
-Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
----
+The tunnel code consolidation created a lot of regressions and subtle
+unintended changes in behavior between the different tunnel types.
 
-This patch is based on the master branch of David Miller's next networking
-tree.
+This DF bit issue is just yet another example of that.
 
- drivers/net/ethernet/renesas/ravb.h      |  1 +
- drivers/net/ethernet/renesas/ravb_main.c | 33 +++++++++++++++++++++++++++-----
- 2 files changed, 29 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
-index f9dee74..9fbe92a 100644
---- a/drivers/net/ethernet/renesas/ravb.h
-+++ b/drivers/net/ethernet/renesas/ravb.h
-@@ -206,6 +206,7 @@ enum CCC_BIT {
- 	CCC_OPC_RESET	= 0x00000000,
- 	CCC_OPC_CONFIG	= 0x00000001,
- 	CCC_OPC_OPERATION = 0x00000002,
-+	CCC_GAC		= 0x00000080,
- 	CCC_DTSR	= 0x00000100,
- 	CCC_CSEL	= 0x00030000,
- 	CCC_CSEL_HPB	= 0x00010000,
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 990dc55..293046d 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -1231,7 +1231,8 @@ static int ravb_open(struct net_device *ndev)
- 	ravb_emac_init(ndev);
- 
- 	/* Initialise PTP Clock driver */
--	ravb_ptp_init(ndev, priv->pdev);
-+	if (priv->chip_id == RCAR_GEN2)
-+		ravb_ptp_init(ndev, priv->pdev);
- 
- 	netif_tx_start_all_queues(ndev);
- 
-@@ -1244,7 +1245,8 @@ static int ravb_open(struct net_device *ndev)
- 
- out_ptp_stop:
- 	/* Stop PTP Clock driver */
--	ravb_ptp_stop(ndev);
-+	if (priv->chip_id == RCAR_GEN2)
-+		ravb_ptp_stop(ndev);
- out_free_irq:
- 	free_irq(ndev->irq, ndev);
- 	free_irq(priv->emac_irq, ndev);
-@@ -1476,7 +1478,8 @@ static int ravb_close(struct net_device *ndev)
- 	ravb_write(ndev, 0, TIC);
- 
- 	/* Stop PTP Clock driver */
--	ravb_ptp_stop(ndev);
-+	if (priv->chip_id == RCAR_GEN2)
-+		ravb_ptp_stop(ndev);
- 
- 	/* Set the config mode to stop the AVB-DMAC's processes */
- 	if (ravb_stop_dma(ndev) < 0)
-@@ -1781,8 +1784,16 @@ static int ravb_probe(struct platform_device *pdev)
- 	ndev->ethtool_ops = &ravb_ethtool_ops;
- 
- 	/* Set AVB config mode */
--	ravb_write(ndev, (ravb_read(ndev, CCC) & ~CCC_OPC) | CCC_OPC_CONFIG,
--		   CCC);
-+	if (chip_id == RCAR_GEN2) {
-+		ravb_write(ndev, (ravb_read(ndev, CCC) & ~CCC_OPC) |
-+			   CCC_OPC_CONFIG, CCC);
-+		/* Set CSEL value */
-+		ravb_write(ndev, (ravb_read(ndev, CCC) & ~CCC_CSEL) |
-+			   CCC_CSEL_HPB, CCC);
-+	} else {
-+		ravb_write(ndev, (ravb_read(ndev, CCC) & ~CCC_OPC) |
-+			   CCC_OPC_CONFIG | CCC_GAC | CCC_CSEL_HPB, CCC);
-+	}
- 
- 	/* Set CSEL value */
- 	ravb_write(ndev, (ravb_read(ndev, CCC) & ~CCC_CSEL) | CCC_CSEL_HPB,
-@@ -1814,6 +1825,10 @@ static int ravb_probe(struct platform_device *pdev)
- 	/* Initialise HW timestamp list */
- 	INIT_LIST_HEAD(&priv->ts_skb_list);
- 
-+	/* Initialise PTP Clock driver */
-+	if (chip_id != RCAR_GEN2)
-+		ravb_ptp_init(ndev, pdev);
-+
- 	/* Debug message level */
- 	priv->msg_enable = RAVB_DEF_MSG_ENABLE;
- 
-@@ -1855,6 +1870,10 @@ out_napi_del:
- out_dma_free:
- 	dma_free_coherent(ndev->dev.parent, priv->desc_bat_size, priv->desc_bat,
- 			  priv->desc_bat_dma);
-+
-+	/* Stop PTP Clock driver */
-+	if (chip_id != RCAR_GEN2)
-+		ravb_ptp_stop(ndev);
- out_release:
- 	if (ndev)
- 		free_netdev(ndev);
-@@ -1869,6 +1888,10 @@ static int ravb_remove(struct platform_device *pdev)
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 	struct ravb_private *priv = netdev_priv(ndev);
- 
-+	/* Stop PTP Clock driver */
-+	if (priv->chip_id != RCAR_GEN2)
-+		ravb_ptp_stop(ndev);
-+
- 	dma_free_coherent(ndev->dev.parent, priv->desc_bat_size, priv->desc_bat,
- 			  priv->desc_bat_dma);
- 	/* Set reset mode */
--- 
-1.9.1
-
+I'm really disappointed at how many bugs and problems were introduced
+by those changes.
