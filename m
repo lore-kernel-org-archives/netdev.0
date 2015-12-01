@@ -1,54 +1,68 @@
 From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH 3/6] net: thunderx: Increase transmit queue length
-Date: Tue,  1 Dec 2015 14:43:40 +0530
-Message-ID: <1448961223-41888-4-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 2/6] net: thunderx: Wait for delayed work to finish before
+ destroying it
+Date: Tue,  1 Dec 2015 14:43:39 +0530
+Message-ID: <1448961223-41888-3-git-send-email-sunil.kovvuri@gmail.com>
 References: <y>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Sunil.Goutham@caviumnetworks.com,
-	Sunil Goutham <sgoutham@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Sunil Goutham <sgoutham@cavium.com>, Sunil.Goutham@caviumnetworks.com,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <y>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Sunil Goutham <sgoutham@cavium.com>
+From: Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
 
-Under high transmit rates and with TSO enabled observing fluctuations
-in TX performance. Seen especially with iperf3 application.
+While VNIC or BGX driver teardown, wait for already scheduled delayed work to
+finish before destroying it.
 
-Since TSO is taken care at driver level, with 64KB of TSO packets
-and when window size is also high the rate at which CPU fills in
-transmit descriptors is much higher than what HW is able to process.
-Each 64KB TSO packet occupies gets segmented to ~43 1500 byte MTU packets
-and occupies ~130 descriptors. Hence increasing transmit queue size.
-
+Signed-off-by: Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic_main.c    |    3 +--
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c |    3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index fb4957d..b1e93a9 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -62,7 +62,7 @@
- #define SND_QUEUE_CNT		8
- #define CMP_QUEUE_CNT		8 /* Max of RCV and SND qcount */
+diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
+index c561fdc..cfc24a1 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
+@@ -1074,8 +1074,7 @@ static void nic_remove(struct pci_dev *pdev)
  
--#define SND_QSIZE		SND_QUEUE_SIZE2
-+#define SND_QSIZE		SND_QUEUE_SIZE3
- #define SND_QUEUE_LEN		(1ULL << (SND_QSIZE + 10))
- #define MAX_SND_QUEUE_LEN	(1ULL << (SND_QUEUE_SIZE6 + 10))
- #define SND_QUEUE_THRESH	2ULL
-@@ -73,7 +73,7 @@
- /* Keep CQ and SQ sizes same, if timestamping
-  * is enabled this equation will change.
-  */
--#define CMP_QSIZE		CMP_QUEUE_SIZE2
-+#define CMP_QSIZE		CMP_QUEUE_SIZE3
- #define CMP_QUEUE_LEN		(1ULL << (CMP_QSIZE + 10))
- #define CMP_QUEUE_CQE_THRESH	0
- #define CMP_QUEUE_TIMER_THRESH	220 /* 10usec */
+ 	if (nic->check_link) {
+ 		/* Destroy work Queue */
+-		cancel_delayed_work(&nic->dwork);
+-		flush_workqueue(nic->check_link);
++		cancel_delayed_work_sync(&nic->dwork);
+ 		destroy_workqueue(nic->check_link);
+ 	}
+ 
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+index 1fb72dd..2076ac3 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+@@ -695,8 +695,7 @@ static void bgx_lmac_disable(struct bgx *bgx, u8 lmacid)
+ 	lmac = &bgx->lmac[lmacid];
+ 	if (lmac->check_link) {
+ 		/* Destroy work queue */
+-		cancel_delayed_work(&lmac->dwork);
+-		flush_workqueue(lmac->check_link);
++		cancel_delayed_work_sync(&lmac->dwork);
+ 		destroy_workqueue(lmac->check_link);
+ 	}
+ 
 -- 
 1.7.1
