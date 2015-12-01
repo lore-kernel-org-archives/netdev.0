@@ -1,82 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 4.4-rc2 xfrm_lookup kasan trace
-Date: Mon, 30 Nov 2015 17:22:11 -0800
-Message-ID: <1448932931.25582.2.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151130232733.GA27119@codemonkey.org.uk>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Mon, 30 Nov 2015 17:28:10 -0800
+Message-ID: <CAEh+42gvn=cjZ4E3nACR7=-_a4iFS7OwEsSb+SQGme2k19kVAA@mail.gmail.com>
+References: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>
+ <1448312579-159544-2-git-send-email-anjali.singhai@intel.com>
+ <CALx6S34+_AtjO94znh7vW4py5a8Nj1g6b-sjGPCa4U1Mc6Y6-w@mail.gmail.com>
+ <20151129.222138.1582847465760563254.davem@davemloft.net> <CAEh+42ivCoBE-vAwWpHHmHYqcXzKP+ceZSvg2rEPh7Db3M1k6Q@mail.gmail.com>
+ <CALx6S35_rXPsYUGcc+yrQX8K1dOcL4aWnmQsa-6X6xULo9BBbg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@codemonkey.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Anjali Singhai Jain <anjali.singhai@intel.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kiran Patil <kiran.patil@intel.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35015 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754763AbbLABWP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 20:22:15 -0500
-Received: by pacej9 with SMTP id ej9so202729963pac.2
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 17:22:14 -0800 (PST)
-In-Reply-To: <20151130232733.GA27119@codemonkey.org.uk>
+Received: from mail.kernel.org ([198.145.29.136]:48449 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751237AbbLAB2d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Nov 2015 20:28:33 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id 095622066F
+	for <netdev@vger.kernel.org>; Tue,  1 Dec 2015 01:28:32 +0000 (UTC)
+Received: from mail-qk0-f181.google.com (mail-qk0-f181.google.com [209.85.220.181])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id 91E1D20663
+	for <netdev@vger.kernel.org>; Tue,  1 Dec 2015 01:28:30 +0000 (UTC)
+Received: by qkfo3 with SMTP id o3so66764318qkf.1
+        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 17:28:29 -0800 (PST)
+In-Reply-To: <CALx6S35_rXPsYUGcc+yrQX8K1dOcL4aWnmQsa-6X6xULo9BBbg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-11-30 at 18:27 -0500, Dave Jones wrote:
-> My router fell off the internet. When I got home, I found a few hundred
-> of these traces in the logs, and it refusing to route packets.
-> 
-> Oddly, it only prints a stack trace, and no clue as to why it printed that trace.
-> 
-> There was also nothing in the log prior to this that indicates how it got that B taint flag.
-> 
-> 	Dave
+On Mon, Nov 30, 2015 at 5:02 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Mon, Nov 30, 2015 at 4:25 PM, Jesse Gross <jesse@kernel.org> wrote:
+>> On Sun, Nov 29, 2015 at 7:21 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Tom Herbert <tom@herbertland.com>
+>>> Date: Mon, 23 Nov 2015 13:53:44 -0800
+>>>
+>>>> The bad effect of this model is that it is encourages HW vendors to
+>>>> continue implement HW protocol specific support for encapsulations, we
+>>>> get so much more benefit if they implement protocol generic
+>>>> mechanisms.
+>>>
+>>> +1
+>>
+>> Regardless of what happens in the future, I think the main question is
+>> how this relates to the code that is currently present in the tree. We
+>> already have NDOs for VXLAN offloading, which is about as protocol
+>> specific as you can get. In my mind, this series is strictly an
+>> improvement to what is already there - it pulls all hardware
+>> offloading code out of the various protocol implementations and VXLAN
+>> out of the driver interface. That seems like a pretty nice cleanup to
+>> me.
+>
+> Jesse,
+>
+> I don't think VXLAN is a good role model here. Consider that Cisco now
+> is basically trying to obsolete VXLAN in favor of VXLAN-GPE. VXLAN-GPE
+> is not compatible with VXLAN, so in order to get the same HW offloads
+> talking VXLAN-GPE users will probably need to swap out their HW. If I
+> am misreading this situation let me know, but to me this doesn't sound
+> like a model the stack should endorse.
 
-Arg, that would be another bug caused by SYNACK attached to request
-socket....
+The point that I was trying to make is that we already have VXLAN
+offloading in the stack and it exists there today. The way that it is
+implemented is about as protocol specific as you can get - protocols
+need to know about offloads and drivers need to know about protocols.
+I would like to find a way to at least make the code cleaner while we
+wait for hardware to evolve.
 
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 2134e6d815bc..2f2fda879105 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -213,15 +213,20 @@ struct inet_sock {
- /* SYNACK messages might be attached to request sockets.
-  * Some places want to reach the listener in this case.
-  */
--static inline struct sock *skb_to_full_sk(const struct sk_buff *skb)
-+static inline struct sock *sk_to_full_sk(struct sock *sk)
- {
--	struct sock *sk = skb->sk;
--
-+#ifdef CONFIG_INET
- 	if (sk && sk->sk_state == TCP_NEW_SYN_RECV)
- 		sk = inet_reqsk(sk)->rsk_listener;
-+#endif
- 	return sk;
- }
- 
-+static inline struct sock *skb_to_full_sk(const struct sk_buff *skb)
-+{
-+	return sk_to_full_sk(skb->sk);
-+}
-+
- static inline struct inet_sock *inet_sk(const struct sock *sk)
- {
- 	return (struct inet_sock *)sk;
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 09bfcbac63bb..6bfa61d52e3d 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2198,6 +2198,7 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
- 	xdst = NULL;
- 	route = NULL;
- 
-+	sk = sk_to_full_sk((struct sock *)sk);
- 	if (sk && sk->sk_policy[XFRM_POLICY_OUT]) {
- 		num_pols = 1;
- 		pols[0] = xfrm_sk_policy_lookup(sk, XFRM_POLICY_OUT, fl);
-@@ -2477,6 +2478,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
- 	}
- 
- 	pol = NULL;
-+	sk = sk_to_full_sk(sk);
- 	if (sk && sk->sk_policy[dir]) {
- 		pol = xfrm_sk_policy_lookup(sk, dir, &fl);
- 		if (IS_ERR(pol)) {
+Based on what we can do today, I see only two real choices: do some
+refactoring to clean up the stack a bit or remove the existing VXLAN
+offloading altogether. I think this series is trying to do the former
+and the result is that the stack is cleaner after than before. That
+seems like a good thing.
