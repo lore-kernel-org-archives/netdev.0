@@ -1,51 +1,74 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 00/26] bonding/team offload + mlxsw
- implementation
-Date: Tue, 1 Dec 2015 16:12:43 +0100
-Message-ID: <20151201151243.GC2165@nanopsycho.orion>
-References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
- <20151201144300.GB2165@nanopsycho.orion>
- <CAJ3xEMhMACJe_iK4PTrGwGFHzgGM=ccNKjVBoC6SUfCo0w7xFQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] ipv6: sctp: implement sctp_v6_destroy_sock()
+Date: Tue, 01 Dec 2015 07:20:07 -0800
+Message-ID: <1448983207.25582.29.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACT4Y+bv56b+opCd=5SHmN47MAHEFyZA18kSsu-Fa+XODj20PA@mail.gmail.com>
+	 <1448977016.25582.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <565DA9BE.3060006@iogearbox.net>
+	 <1448979404.25582.23.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <565DAD8D.9020800@iogearbox.net>
+	 <1448980723.25582.24.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Elad Raz <eladr@mellanox.com>, yotamg@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>, pjonnala@broadcom.com,
-	j.vosburgh@gmail.com, vfalico@gmail.com,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:36808 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755637AbbLAPMq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 10:12:46 -0500
-Received: by wmww144 with SMTP id w144so177120792wmw.1
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 07:12:44 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMhMACJe_iK4PTrGwGFHzgGM=ccNKjVBoC6SUfCo0w7xFQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org, syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448980723.25582.24.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Dec 01, 2015 at 04:06:23PM CET, gerlitz.or@gmail.com wrote:
->On Tue, Dec 1, 2015 at 4:43 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Tue, Dec 01, 2015 at 02:48:38PM CET, jiri@resnulli.us wrote:
->>>From: Jiri Pirko <jiri@mellanox.com>
->>>
->>>This patchset introduces needed infrastructure for link aggregation
->>>offload - for both team and bonding. It also implements the offload
->>>in mlxsw driver.
->
->Hi Jiri,
->
->I didn't see any changes to switchdev.h, can you elaborate on that please.
+From: Eric Dumazet <edumazet@google.com>
 
-Correct. This patchset does not extend switchdev api. The extension is
-done for netdev notifiers. It seems natural and correct.
+Dmitry Vyukov reported a memory leak using IPV6 SCTP sockets.
 
-As we discussed already with John on a different thread, it makes sense
-for non-switchdev drivers to benefit from this extensions as well.
+We need to call inet6_destroy_sock() to properly release
+inet6 specific fields.
+
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/sctp/socket.c |    9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 897c01c029ca..9d0b9bae9052 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -7375,6 +7375,13 @@ struct proto sctp_prot = {
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ 
++#include <net/transp_v6.h>
++static void sctp_v6_destroy_sock(struct sock *sk)
++{
++	sctp_destroy_sock(sk);
++	inet6_destroy_sock(sk);
++}
++
+ struct proto sctpv6_prot = {
+ 	.name		= "SCTPv6",
+ 	.owner		= THIS_MODULE,
+@@ -7384,7 +7391,7 @@ struct proto sctpv6_prot = {
+ 	.accept		= sctp_accept,
+ 	.ioctl		= sctp_ioctl,
+ 	.init		= sctp_init_sock,
+-	.destroy	= sctp_destroy_sock,
++	.destroy	= sctp_v6_destroy_sock,
+ 	.shutdown	= sctp_shutdown,
+ 	.setsockopt	= sctp_setsockopt,
+ 	.getsockopt	= sctp_getsockopt,
