@@ -1,76 +1,129 @@
 From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Tue,  1 Dec 2015 11:32:23 +0900
-Message-ID: <1448937147-38043-1-git-send-email-lorenzo@google.com>
+Subject: [PATCH v3 1/4] net: diag: split inet_diag_dump_one_icsk into two
+Date: Tue,  1 Dec 2015 11:32:24 +0900
+Message-ID: <1448937147-38043-2-git-send-email-lorenzo@google.com>
 References: <CAHo-OoyN7OgvHSuXxjk7C4FitXhoWffOxY1wkQBWwi+nc013_w@mail.gmail.com>
+ <1448937147-38043-1-git-send-email-lorenzo@google.com>
 Cc: davem@davemloft.net, hannes@stressinduktion.org,
 	eric.dumazet@gmail.com, ek@google.com, tom@herbertland.com,
-	zenczykowski@gmail.com
+	zenczykowski@gmail.com, Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36294 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755647AbbLACcf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 21:32:35 -0500
-Received: by pacdm15 with SMTP id dm15so204822592pac.3
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 18:32:34 -0800 (PST)
-In-Reply-To: <CAHo-OoyN7OgvHSuXxjk7C4FitXhoWffOxY1wkQBWwi+nc013_w@mail.gmail.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:36358 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755659AbbLACcj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 21:32:39 -0500
+Received: by pacdm15 with SMTP id dm15so204824545pac.3
+        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 18:32:38 -0800 (PST)
+In-Reply-To: <1448937147-38043-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here is an updated version of the SOCK_DESTROY patch
-incorporating some of the feedback received.
+Currently, inet_diag_dump_one_icsk finds a socket and then dumps
+its information to userspace. Split it into a part that finds the
+socket and a part that dumps the information.
 
-There were two substantial concerns expressed on the approach
-taken in this patch. The first was that it allows applications
-to cause the Linux TCP stack to behave improperly. I believe
-this is addressed as follows:
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+---
+ include/linux/inet_diag.h |  5 +++++
+ net/ipv4/inet_diag.c      | 42 +++++++++++++++++++++++++++---------------
+ 2 files changed, 32 insertions(+), 15 deletions(-)
 
-1. This new patchset sends a RST in addition to clearing state.
-   This is compliant behaviour: it is the ABORT operation
-   specified in RFC 793 [1]. Any app today can do this by
-   enabling SO_LINGER with a timeout of 0 and calling close.
-2. Multiple other operating systems implement this behaviour:
-   - FreeBSD has had this since 5.4 in 2005 [2]. It is available
-     to privileged userspace and there is a tool to use it [3].
-   - The FreeBSD commit description states that the idea came
-     from OpenBSD.
-   - iOS has been administratively closing app sockets since
-     iOS 4 [see 4, which states that a socket "might get
-     reclaimed by the kernel" and after that will return EBADF].
-
-The second concern was that userspace should not be in the
-business of making reachability determinations for TCP sockets;
-that job belongs to the kernel. But userspace makes reachability
-determinations all the time. Most relevant to this patchset:
-"-j REJECT --reject-with tcp-reset" has exactly the same
-effect as SOCK_DESTROY, except it only does so when the app does
-write or the kernel sends a keepalive, not when blocked on read.
-
-Also, there are real use cases where the kernel does not have
-enough information to know that a connection is now inoperable.
-The kernel can know if a packet can't be routed, but in general
-it won't if a TCP connection is dead in the water because it is
-now routed to a network where its source address is no longer
-valid [5][6]. 
-
-Other concerns have been addressed in this version, as follows:
-
-1. tcp_diag_destroy now does a proper RFC 793 ABORT, i.e., sends
-   a RST to the peer. This is consistent with BSD's tcpdrop, and
-   is more correct in general, even though in most use cases
-   SOCK_DESTROY will only be called when sending a RST is no
-   longer possible (e.g., the network has disconnected).
-2. Blocking socket operations are interrupted with ECONNABORTED
-   instead of ETIMEDOUT. This addresses Tom's point that
-   ETIMEDOUT is vague and an explicit notification is needed.
-   ECONNABORTED was chosen because it is consistent with BSD.
-3. SOCK_DESTROY is placed behind an INET_DIAG_DESTROY
-   configuration option, which is off by default.
-
-[1] http://tools.ietf.org/html/rfc793#page-50
-[2] http://svnweb.freebsd.org/base?view=revision&revision=141381
-[3] https://www.freebsd.org/cgi/man.cgi?query=tcpdrop&sektion=8&manpath=FreeBSD+5.4-RELEASE
-[4] https://developer.apple.com/library/ios/technotes/tn2277/_index.html#//apple_ref/doc/uid/DTS40010841-CH1-SUBSECTION3
-[5] http://www.spinics.net/lists/netdev/msg352775.html
-[6] http://www.spinics.net/lists/netdev/msg352952.html
+diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+index 0e707f0..e7032f04 100644
+--- a/include/linux/inet_diag.h
++++ b/include/linux/inet_diag.h
+@@ -3,6 +3,7 @@
+ 
+ #include <uapi/linux/inet_diag.h>
+ 
++struct net;
+ struct sock;
+ struct inet_hashinfo;
+ struct nlattr;
+@@ -41,6 +42,10 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
+ 			    struct sk_buff *in_skb, const struct nlmsghdr *nlh,
+ 			    const struct inet_diag_req_v2 *req);
+ 
++struct sock *inet_diag_find_one_icsk(struct net *net,
++				     struct inet_hashinfo *hashinfo,
++				     const struct inet_diag_req_v2 *req);
++
+ int inet_diag_bc_sk(const struct nlattr *_bc, struct sock *sk);
+ 
+ extern int  inet_diag_register(const struct inet_diag_handler *handler);
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index ab9f8a6..cfabb8f 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -350,17 +350,12 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 				  nlmsg_flags, unlh);
+ }
+ 
+-int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
+-			    struct sk_buff *in_skb,
+-			    const struct nlmsghdr *nlh,
+-			    const struct inet_diag_req_v2 *req)
++struct sock *inet_diag_find_one_icsk(struct net *net,
++				     struct inet_hashinfo *hashinfo,
++				     const struct inet_diag_req_v2 *req)
+ {
+-	struct net *net = sock_net(in_skb->sk);
+-	struct sk_buff *rep;
+ 	struct sock *sk;
+-	int err;
+ 
+-	err = -EINVAL;
+ 	if (req->sdiag_family == AF_INET)
+ 		sk = inet_lookup(net, hashinfo, req->id.idiag_dst[0],
+ 				 req->id.idiag_dport, req->id.idiag_src[0],
+@@ -375,15 +370,33 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
+ 				  req->id.idiag_if);
+ #endif
+ 	else
+-		goto out_nosk;
++		return ERR_PTR(-EINVAL);
+ 
+-	err = -ENOENT;
+ 	if (!sk)
+-		goto out_nosk;
++		return ERR_PTR(-ENOENT);
+ 
+-	err = sock_diag_check_cookie(sk, req->id.idiag_cookie);
+-	if (err)
+-		goto out;
++	if (sock_diag_check_cookie(sk, req->id.idiag_cookie)) {
++		sock_gen_put(sk);
++		return ERR_PTR(-ENOENT);
++	}
++
++	return sk;
++}
++EXPORT_SYMBOL_GPL(inet_diag_find_one_icsk);
++
++int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
++			    struct sk_buff *in_skb,
++			    const struct nlmsghdr *nlh,
++			    const struct inet_diag_req_v2 *req)
++{
++	struct net *net = sock_net(in_skb->sk);
++	struct sk_buff *rep;
++	struct sock *sk;
++	int err;
++
++	sk = inet_diag_find_one_icsk(net, hashinfo, req);
++	if (IS_ERR(sk))
++		return PTR_ERR(sk);
+ 
+ 	rep = nlmsg_new(inet_sk_attr_size(), GFP_KERNEL);
+ 	if (!rep) {
+@@ -409,7 +422,6 @@ out:
+ 	if (sk)
+ 		sock_gen_put(sk);
+ 
+-out_nosk:
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(inet_diag_dump_one_icsk);
+-- 
+2.6.0.rc2.230.g3dd15c0
