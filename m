@@ -1,41 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net: Use after free in dst_release on boot
-Date: Tue, 01 Dec 2015 07:29:38 -0800
-Message-ID: <1448983778.25582.34.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5658C188.4050708@oracle.com>
-	 <1448982288.3372279.454745393.4F634AAE@webmail.messagingengine.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sasha Levin <sasha.levin@oracle.com>, davem@davemloft.net,
-	kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448982288.3372279.454745393.4F634AAE@webmail.messagingengine.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH v2 net] ipv4: igmp: Allow removing groups from a removed interface
+Date: Tue,  1 Dec 2015 16:31:08 +0100
+Message-ID: <1448983868-811-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:50213 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753669AbbLAPbQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2015 10:31:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-12-01 at 16:04 +0100, Hannes Frederic Sowa wrote:
-> Hi,
-> 
-> On Fri, Nov 27, 2015, at 21:48, Sasha Levin wrote:
-> > [  117.057618] BUG: KASAN: use-after-free in dst_release+0x9a/0xc0 at
-> > addr ffff8806cf7c7560
-> > 
-> > [  117.058566] Read of size 2 by task swapper/0/1
-> > 
-> 
-> Can you check if the following commit was already applied? net wasn't
-> merged into net-next for a while.
-> 
-> commit d69bbf88c8d0b367cf3e3a052f6daadf630ee566
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Mon Nov 9 17:51:23 2015 -0800
-> 
->     net: fix a race in dst_release()
+When a multicast group is joined on a socket, a struct ip_mc_socklist
+is appended to the sockets mc_list containing information about the
+joined group.
 
-Yes, this most definitely is the fix for this problem.
+If the interface is hot unplugged, this entry becomes stale. Prior to
+commit 52ad353a5344f ("igmp: fix the problem when mc leave group") it
+was possible to remove the stale entry by performing a
+IP_DROP_MEMBERSHIP, passing either the old ifindex or ip address on
+the interface. However, this fix enforces that the interface must
+still exist. Thus with time, the number of stale entries grows, until
+sysctl_igmp_max_memberships is reached and then it is not possible to
+join and more groups.
 
-Thanks Hannes !
+The previous patch fixes an issue where a IP_DROP_MEMBERSHIP is
+performed without specifying the interface, either by ifindex or ip
+address. However here we do supply one of these. So loosen the
+restriction on device existence to only apply when the interface has
+not been specified. This then restores the ability to clean up the
+stale entries.
+
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Fixes: 52ad353a5344f "(igmp: fix the problem when mc leave group")
+---
+v2:
+
+Don't dereference in_dev when it is NULL when calling
+ip_mc_dec_group().
+
+Calling ip_mc_leave_src() is safe with a NULL in_dev.
+---
+ net/ipv4/igmp.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 6baf36e11808..05e4cba14162 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -2126,7 +2126,7 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
+ 	ASSERT_RTNL();
+ 
+ 	in_dev = ip_mc_find_dev(net, imr);
+-	if (!in_dev) {
++	if (!imr->imr_ifindex && !imr->imr_address.s_addr && !in_dev) {
+ 		ret = -ENODEV;
+ 		goto out;
+ 	}
+@@ -2147,7 +2147,8 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
+ 
+ 		*imlp = iml->next_rcu;
+ 
+-		ip_mc_dec_group(in_dev, group);
++		if (in_dev)
++			ip_mc_dec_group(in_dev, group);
+ 
+ 		/* decrease mem now to avoid the memleak warning */
+ 		atomic_sub(sizeof(*iml), &sk->sk_omem_alloc);
+-- 
+2.6.2
