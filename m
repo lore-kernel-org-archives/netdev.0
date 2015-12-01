@@ -1,67 +1,55 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH net] ipv6: kill sk_dst_lock
-Date: Tue, 1 Dec 2015 10:44:39 +0900
-Message-ID: <565CFB87.9060402@miraclelinux.com>
-References: <CACT4Y+Y=35aC5DK7MQaDF6eviKcXik2S9caTLw7FAp0L0CXdsg@mail.gmail.com>
- <1448730683.24696.94.camel@edumazet-glaptop2.roam.corp.google.com>
- <1448731434.24696.97.camel@edumazet-glaptop2.roam.corp.google.com>
- <1448854142.24696.109.camel@edumazet-glaptop2.roam.corp.google.com>
- <1448901315.24696.127.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Duan Andy <fugang.duan@freescale.com>
+Subject: RE: [PATCH 0/3] net: fec: Reset ethernet PHY whenever the enet_out
+ clock
+Date: Tue, 1 Dec 2015 01:52:35 +0000
+Message-ID: <BN3PR0301MB1219D0A7525EB2535856BE52F50F0@BN3PR0301MB1219.namprd03.prod.outlook.com>
+References: <1448883168-30742-1-git-send-email-LW@KARO-electronics.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:35823 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751237AbbLABoo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 20:44:44 -0500
-Received: by pacej9 with SMTP id ej9so203373185pac.2
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 17:44:43 -0800 (PST)
-In-Reply-To: <1448901315.24696.127.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: =?utf-8?B?TG90aGFyIFdhw59tYW5u?= <LW@KARO-electronics.de>,
+	Andrew Lunn <andrew@lunn.ch>,
+	"David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <Fabio.Estevam@freescale.com>,
+	Greg Ungerer <gerg@uclinux.org>,
+	Kevin Hao <haokexin@gmail.com>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	Philippe Reynes <tremyfr@gmail.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	"Stefan Agner" <stefan@agner.ch>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"Uwe Kleine-K?nig" <u.kleine-koenig@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448883168-30742-1-git-send-email-LW@KARO-electronics.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-
-Eric Dumazet wrote:
-> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-> index 2bfb2ad2fab1..877f682989b8 100644
-> --- a/include/net/ip6_route.h
-> +++ b/include/net/ip6_route.h
-> @@ -133,27 +133,18 @@ void rt6_clean_tohost(struct net *net, struct in6_addr *gateway);
->  /*
->   *	Store a destination cache entry in a socket
->   */
-> -static inline void __ip6_dst_store(struct sock *sk, struct dst_entry *dst,
-> -				   const struct in6_addr *daddr,
-> -				   const struct in6_addr *saddr)
-> +static inline void ip6_dst_store(struct sock *sk, struct dst_entry *dst,
-> +				 const struct in6_addr *daddr,
-> +				 const struct in6_addr *saddr)
->  {
->  	struct ipv6_pinfo *np = inet6_sk(sk);
-> -	struct rt6_info *rt = (struct rt6_info *) dst;
->  
-> +	np->dst_cookie = rt6_get_cookie((struct rt6_info *)dst);
->  	sk_setup_caps(sk, dst);
->  	np->daddr_cache = daddr;
->  #ifdef CONFIG_IPV6_SUBTREES
->  	np->saddr_cache = saddr;
->  #endif
-> -	np->dst_cookie = rt6_get_cookie(rt);
-> -}
-> -
-
-I believe you do not have to change function inside, right?
-
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+RnJvbTogTG90aGFyIFdhw59tYW5uIDxMV0BLQVJPLWVsZWN0cm9uaWNzLmRlPiBTZW50OiBNb25k
+YXksIE5vdmVtYmVyIDMwLCAyMDE1IDc6MzMgUE0NCj4gVG86IEFuZHJldyBMdW5uOyBEYXZpZCBT
+LiBNaWxsZXI7IEVzdGV2YW0gRmFiaW8tUjQ5NDk2OyBHcmVnIFVuZ2VyZXI7DQo+IEtldmluIEhh
+bzsgTG90aGFyIFdhw59tYW5uOyBMdWNhcyBTdGFjaDsgRHVhbiBGdWdhbmctQjM4NjExOyBQaGls
+aXBwZQ0KPiBSZXluZXM7IFJpY2hhcmQgQ29jaHJhbjsgUnVzc2VsbCBLaW5nOyBTYXNjaGEgSGF1
+ZXI7IFN0ZWZhbiBBZ25lcjsgbGludXgtDQo+IGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRl
+dkB2Z2VyLmtlcm5lbC5vcmc7IEplZmYgS2lyc2hlcjsgVXdlIEtsZWluZS0NCj4gS8O2bmlnDQo+
+IFN1YmplY3Q6IFtQQVRDSCAwLzNdIG5ldDogZmVjOiBSZXNldCBldGhlcm5ldCBQSFkgd2hlbmV2
+ZXIgdGhlIGVuZXRfb3V0DQo+IGNsb2NrDQo+IA0KPiBUaGlzIHBhdGNoc2V0IGZpeGVzIGEgcmVn
+cmVzc2lvbiBpbnRyb2R1Y2VkIGJ5IGNvbW1pdCA4ZmZmNzU1ZTlmOGQgKCJuZXQ6DQo+IGZlYzog
+RW5zdXJlIGNsb2NrcyBhcmUgZW5hYmxlZCB3aGlsZSB1c2luZyBtZGlvIGJ1cyIpIGZvciBldGhl
+cm5ldCBQSFlzDQo+IHRoYXQgYXJlIHVzaW5nIEVORVRfT1VUIGFzIHJlZmVyZW5jZSBjbG9jayAo
+b24gaS5NWDYgb3IgaS5NWDI4KQ0KPiANCkRvIHlvdSBtZWFuIGNvbW1pdCA4ZmZmNzU1ZTlmOGQg
+Y2F1c2UgeW91ciBwcm9ibGVtID8gIFRoaXMgY29tbWl0IGp1c3QgbWFuYWdlIGlwZyBjbG9jayBp
+biBydW50aW1lIGJlY2F1c2UgbWRpbyBidXMgY2FuIGFjY2VzcyBleHRlcm5hbCBwaHkgc3dpdGNo
+IG5vIG1hdHRlciBuZXRkZXYgc3RhdHVzLg0KDQpJIGRvbid0IHRoaW5rIHRoZSBjb21taXQgY2F1
+c2UgcGh5IGxpbmsgdXAvZG93biBpc3N1ZS4gIFBoeSBsaW5rIHVwL2Rvd24gaXMgZHVlIHRvIHBo
+eSBpcyBub3QgcmVhZHkgYWZ0ZXIgcG93ZXIvY2xvY2sgb24sIGl0IG5lZWQgdG8gZG8gcmVzZXQu
+DQoNCg0KPiBUaGUgZmlyc3QgcGF0Y2ggaXMgYSBjbGVhbnVwIHBhdGNoIHRoYXQgcmVtb3ZlcyBy
+ZWR1bmRhbnQgTlVMTCBjaGVja3MuDQo+IFRoZSBzZWNvbmQgcGF0Y2ggY29udmVydHMgdGhlIGRy
+aXZlciB0byB1c2UgdGhlICdncGlvZCcgZnJhbWV3b3JrLg0KPiBUaGUgdGhpcmQgcGF0Y2ggbWFr
+ZXMgc3VyZSwgZmVjX3Jlc2V0X3BoeSgpIGlzIGNhbGxlZCB3aGVuZXZlciB0aGUNCj4gICAgIGVu
+ZXRfb3V0IGNsb2NrIGhhcyBiZWVuIChyZS0pZW5hYmxlZCB0byBnZXQgdGhlIFBIWSBpbnRvIGEN
+Cj4gICAgIGNvbnNpc3RlbnQgc3RhdGUuDQo=
