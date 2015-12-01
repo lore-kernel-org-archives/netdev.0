@@ -1,67 +1,105 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 00/26] bonding/team offload + mlxsw
- implementation
-Date: Tue, 1 Dec 2015 17:47:19 +0100
-Message-ID: <20151201164719.GA2548@nanopsycho>
-References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
- <20151201144300.GB2165@nanopsycho.orion>
- <CAJ3xEMhMACJe_iK4PTrGwGFHzgGM=ccNKjVBoC6SUfCo0w7xFQ@mail.gmail.com>
- <20151201151243.GC2165@nanopsycho.orion>
- <CAJ3xEMjRQQoo=uU0qQ5Z9UmvS0_QjB2q_LUrpfBWLtTpHhd3qw@mail.gmail.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [RFC PATCH] af_unix: fix entry locking in unix_dgram_recvmsg
+Date: Tue, 01 Dec 2015 17:02:33 +0000
+Message-ID: <871tb6nlue.fsf@doppelsaurus.mobileactivedefense.com>
+References: <87h9k41pyq.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Elad Raz <eladr@mellanox.com>, yotamg@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>, pjonnala@broadcom.com,
-	j.vosburgh@gmail.com, vfalico@gmail.com,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:33638 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754713AbbLAQrX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 11:47:23 -0500
-Received: by wmec201 with SMTP id c201so214685045wme.0
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 08:47:22 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMjRQQoo=uU0qQ5Z9UmvS0_QjB2q_LUrpfBWLtTpHhd3qw@mail.gmail.com>
+Received: from tiger.mobileactivedefense.com ([217.174.251.109]:35047 "EHLO
+	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756163AbbLARCp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 12:02:45 -0500
+In-Reply-To: <87h9k41pyq.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
+	Weikusat's message of "Sun, 29 Nov 2015 20:59:57 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Dec 01, 2015 at 05:35:43PM CET, gerlitz.or@gmail.com wrote:
->On Tue, Dec 1, 2015 at 5:12 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Tue, Dec 01, 2015 at 04:06:23PM CET, gerlitz.or@gmail.com wrote:
->>>On Tue, Dec 1, 2015 at 4:43 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> Tue, Dec 01, 2015 at 02:48:38PM CET, jiri@resnulli.us wrote:
->
->>>>>This patchset introduces needed infrastructure for link aggregation
->>>>>offload - for both team and bonding. It also implements the offload
->>>>>in mlxsw driver.
->
->>>I didn't see any changes to switchdev.h, can you elaborate on that please.
->
->> Correct. This patchset does not extend switchdev api. The extension is
->> done for netdev notifiers. It seems natural and correct.
->> As we discussed already with John on a different thread, it makes sense
->> for non-switchdev drivers to benefit from this extensions as well.
->
->This is understood.
->
->However, the point which is still not clear to me related to the LAG /
->switchdev object model.
->
->All of FDB/VLAN/FIB switchdev objects have corresponding software counterparts
->in the kernel --- what's the case for LAG? the software construct is
->bond or team
->instance, shouldn't there  be a modeling of the HW LAG object in switchdev?
+Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
 
-No need for that, what that would be good for?
+[...]
 
-Switchdev iface (most of it) works with struct net_device. Does not matter
-if that is the port netdev direclty, or if it is team/bonding netdev.
-It falls into the picture very nicely.
+> Insofar I understand the comment in this code block correctly,
+>
+>         err = mutex_lock_interruptible(&u->readlock);
+>         if (unlikely(err)) {
+>                 /* recvmsg() in non blocking mode is supposed to return -EAGAIN
+>                  * sk_rcvtimeo is not honored by mutex_lock_interruptible()
+>                  */
+>                 err = noblock ? -EAGAIN : -ERESTARTSYS;
+>                 goto out;
+>         }
+>
+> setting a receive timeout for an AF_UNIX datagram socket also doesn't
+> work as intended because of this: In case of n readers with the same
+> timeout, the nth reader will end up blocking n times the timeout.
+
+Test program which confirms this. It starts four concurrent reads on the
+same socket with a receive timeout of 3s. This means the whole program
+should take a little more than 3s to execute as each read should time
+out at about the same time. But it takes 12s instead as the reads
+pile up on the readlock mutex and each then gets its own timeout once it
+could enter the receive loop.
+
+-------
+#include <stdio.h>
+#include <sys/signal.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/un.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#define SERVER_ADDR	"\0multi-timeout"
+#define RCV_TIMEO	3
+
+static void set_rcv_timeo(int sk)
+{
+    struct timeval tv;
+
+    tv.tv_sec = RCV_TIMEO;
+    tv.tv_usec = 0;
+    setsockopt(sk, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+}
+
+int main(void)
+{
+    struct sockaddr_un sun;
+    struct timeval tv_start, tv_end;
+    int sk, dummy;
+    
+    sun.sun_family = AF_UNIX;
+    memcpy(sun.sun_path, SERVER_ADDR, sizeof(SERVER_ADDR));
+    sk = socket(AF_UNIX, SOCK_DGRAM, 0);
+    bind(sk, (struct sockaddr *)&sun, sizeof(sun));
+    set_rcv_timeo(sk);
+
+    gettimeofday(&tv_start, NULL);
+    
+    if (fork() == 0) {
+	read(sk, &dummy, sizeof(dummy));
+	_exit(0);
+    }
+    
+    if (fork() == 0) {
+	read(sk, &dummy, sizeof(dummy));
+	_exit(0);
+    }
+    
+    if (fork() == 0) {
+	read(sk, &dummy, sizeof(dummy));
+	_exit(0);
+    }
+
+    read(sk, &dummy, sizeof(dummy));
+    
+    while (waitpid(-1, NULL, 0) > 0);
+
+    gettimeofday(&tv_end, NULL);
+    printf("Waited for %u timeouts\n",
+	   (unsigned)((tv_end.tv_sec - tv_start.tv_sec) / RCV_TIMEO));
+    
+    return 0;
+}
