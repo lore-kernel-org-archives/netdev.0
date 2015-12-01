@@ -1,79 +1,31 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: BUG: soft lockup happened for ixgbevf
-Date: Tue, 1 Dec 2015 15:12:32 +0800
-Message-ID: <565D4860.2060108@huawei.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH v3 4/4] net: diag: Support destroying TCP sockets.
+Date: Tue, 1 Dec 2015 16:12:52 +0900
+Message-ID: <CAKD1Yr3HzKrgu4YKNpaVsoLCoDv+gi1SNiqMER_L_Fwnmkq1wQ@mail.gmail.com>
+References: <1448937147-38043-5-git-send-email-lorenzo@google.com> <201512011411.INarbTNn%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: "jeffrey.t.kirsher@intel.com >> Jeff Kirsher"
-	<jeffrey.t.kirsher@intel.com>,
-	"jesse.brandeburg@intel.com >> Jesse Brandeburg"
-	<jesse.brandeburg@intel.com>,
-	"bruce.w.allan@intel.com >> Bruce Allan" <bruce.w.allan@intel.com>,
-	"donald.c.skidmore@intel.com >> Don Skidmore"
-	<donald.c.skidmore@intel.com>, <gregory.v.rose@intel.com>,
-	"netdev@vger.kernel.org >> Netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: kbuild-all@01.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Erik Kline <ek@google.com>, Tom Herbert <tom@herbertland.com>,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:39227 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751989AbbLAHMp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 02:12:45 -0500
+Received: from mail-yk0-f175.google.com ([209.85.160.175]:33325 "EHLO
+	mail-yk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752488AbbLAHNN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 02:13:13 -0500
+Received: by ykdv3 with SMTP id v3so214239437ykd.0
+        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 23:13:12 -0800 (PST)
+In-Reply-To: <201512011411.INarbTNn%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Everyone:
+On Tue, Dec 1, 2015 at 3:23 PM, kbuild test robot <lkp@intel.com> wrote:
+>>> ERROR: "tcp_send_active_reset" undefined!
 
-I found this problem when using the Testgine to send package to the 82599 ethernet:
-1.wait for the speed to 10G/bit, it's ok.
-2.then down the eth and then up, loop for several times.
-3.then the softlockup happened.
-[  317.005148] IPv6: ADDRCONF(NETDEV_CHANGE): eth2: link becomes ready
-[  368.106005] BUG: soft lockup - CPU#1 stuck for 22s! [rcuos/1:15]
-[  368.106005] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[  368.106005] task: ffff88057dd8a220 ti: ffff88057dd9c000 task.ti: ffff88057dd9c000
-[  368.106005] RIP: 0010:[<ffffffff81579e04>]  [<ffffffff81579e04>] fib_table_lookup+0x14/0x390
-[  368.106005] RSP: 0018:ffff88061fc83ce8  EFLAGS: 00000286
-[  368.106005] RAX: 0000000000000001 RBX: 00000000020155c0 RCX: 0000000000000001
-[  368.106005] RDX: ffff88061fc83d50 RSI: ffff88061fc83d70 RDI: ffff880036d11a00
-[  368.106005] RBP: ffff88061fc83d08 R08: 0000000000000001 R09: 0000000000000000
-[  368.106005] R10: ffff880036d11a00 R11: ffffffff819e0900 R12: ffff88061fc83c58
-[  368.106005] R13: ffffffff816154dd R14: ffff88061fc83d08 R15: 00000000020155c0
-[  368.106005] FS:  0000000000000000(0000) GS:ffff88061fc80000(0000) knlGS:0000000000000000
-[  368.106005] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  368.106005] CR2: 00007f8c2aee9c40 CR3: 000000057b222000 CR4: 00000000000407e0
-[  368.106005] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[  368.106005] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[  368.106005] Stack:
-[  368.106005]  00000000010000c0 ffff88057b766000 ffff8802e380b000 ffff88057af03e00
-[  368.106005]  ffff88061fc83dc0 ffffffff815349a6 ffff88061fc83d40 ffffffff814ee146
-[  368.106005]  ffff8802e380af00 00000000e380af00 ffffffff819e0900 020155c0010000c0
-[  368.106005] Call Trace:
-[  368.106005]  <IRQ> 
-[  368.106005] 
-[  368.106005]  [<ffffffff815349a6>] ip_route_input_noref+0x516/0xbd0
-[  368.106005]  [<ffffffff814ee146>] ? skb_release_data+0xd6/0x110
-[  368.106005]  [<ffffffff814ee20a>] ? kfree_skb+0x3a/0xa0
-[  368.106005]  [<ffffffff8153698f>] ip_rcv_finish+0x29f/0x350
-[  368.106005]  [<ffffffff81537034>] ip_rcv+0x234/0x380
-[  368.106005]  [<ffffffff814fd656>] __netif_receive_skb_core+0x676/0x870
-[  368.106005]  [<ffffffff814fd868>] __netif_receive_skb+0x18/0x60
-[  368.106005]  [<ffffffff814fe4de>] process_backlog+0xae/0x180
-[  368.106005]  [<ffffffff814fdcb2>] net_rx_action+0x152/0x240
-[  368.106005]  [<ffffffff81077b3f>] __do_softirq+0xef/0x280
-[  368.106005]  [<ffffffff8161619c>] call_softirq+0x1c/0x30
-[  368.106005]  <EOI> 
-[  368.106005] 
-[  368.106005]  [<ffffffff81015d95>] do_softirq+0x65/0xa0
-[  368.106005]  [<ffffffff81077174>] local_bh_enable+0x94/0xa0
-[  368.106005]  [<ffffffff81114922>] rcu_nocb_kthread+0x232/0x370
-[  368.106005]  [<ffffffff81098250>] ? wake_up_bit+0x30/0x30
-[  368.106005]  [<ffffffff811146f0>] ? rcu_start_gp+0x40/0x40
-[  368.106005]  [<ffffffff8109728f>] kthread+0xcf/0xe0
-[  368.106005]  [<ffffffff810971c0>] ? kthread_create_on_node+0x140/0x140
-[  368.106005]  [<ffffffff816147d8>] ret_from_fork+0x58/0x90
-[  368.106005]  [<ffffffff810971c0>] ? kthread_create_on_node+0x140/0x140
-
-I have test this on kernel 3.10 and kernel 4.3, both exist this problem.
-Thanks for any suggestion.
-
-Ding
+I used tcp_send_active_reset from tcp_diag.ko without an
+EXPORT_SYMBOL_GPL in net/ipv4/tcp_output.c. Fixed in patch v4.
