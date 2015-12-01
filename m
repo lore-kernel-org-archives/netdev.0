@@ -1,7 +1,7 @@
 From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH v3 3/4] net: diag: Support SOCK_DESTROY for inet sockets.
-Date: Tue,  1 Dec 2015 11:32:26 +0900
-Message-ID: <1448937147-38043-4-git-send-email-lorenzo@google.com>
+Subject: [PATCH v3 4/4] net: diag: Support destroying TCP sockets.
+Date: Tue,  1 Dec 2015 11:32:27 +0900
+Message-ID: <1448937147-38043-5-git-send-email-lorenzo@google.com>
 References: <CAHo-OoyN7OgvHSuXxjk7C4FitXhoWffOxY1wkQBWwi+nc013_w@mail.gmail.com>
  <1448937147-38043-1-git-send-email-lorenzo@google.com>
 Cc: davem@davemloft.net, hannes@stressinduktion.org,
@@ -9,128 +9,122 @@ Cc: davem@davemloft.net, hannes@stressinduktion.org,
 	zenczykowski@gmail.com, Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:34521 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755677AbbLACcr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 21:32:47 -0500
-Received: by padhx2 with SMTP id hx2so204807250pad.1
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 18:32:46 -0800 (PST)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35750 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755689AbbLACcv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2015 21:32:51 -0500
+Received: by pacej9 with SMTP id ej9so204749807pac.2
+        for <netdev@vger.kernel.org>; Mon, 30 Nov 2015 18:32:51 -0800 (PST)
 In-Reply-To: <1448937147-38043-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This passes the SOCK_DESTROY operation to the underlying
-protocol diag handler, or returns -EINVAL if that handler does
-not define a destroy operation.
-
-Most of this patch is just renaming functions. This is not
-strictly necessary, but it would be fairly counterintuitive to
-have the code to destroy inet sockets be in a function whose name
-starts with inet_diag_get.
+This implements SOCK_DESTROY for TCP sockets. It causes all
+blocking calls on the socket to fail fast with ECONNABORTED and
+causes a protocol close of the socket. It informs the other end
+of the connection by sending a RST, i.e., initiating a TCP ABORT
+as per RFC 793. ECONNABORTED was chosen for consistency with
+FreeBSD.
 
 Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 ---
- include/linux/inet_diag.h |  4 ++++
- net/ipv4/inet_diag.c      | 23 +++++++++++++++--------
- 2 files changed, 19 insertions(+), 8 deletions(-)
+ net/ipv4/Kconfig    | 13 +++++++++++++
+ net/ipv4/tcp_diag.c | 46 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 59 insertions(+)
 
-diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
-index e7032f04..7c27fa1 100644
---- a/include/linux/inet_diag.h
-+++ b/include/linux/inet_diag.h
-@@ -24,6 +24,10 @@ struct inet_diag_handler {
- 	void		(*idiag_get_info)(struct sock *sk,
- 					  struct inet_diag_msg *r,
- 					  void *info);
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 416dfa0..31c4496 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -436,6 +436,19 @@ config INET_UDP_DIAG
+ 	  Support for UDP socket monitoring interface used by the ss tool.
+ 	  If unsure, say Y.
+ 
++config INET_DIAG_DESTROY
++	bool "INET: allow privileged process to administratively close sockets"
++	depends on INET_DIAG && (IPV6 || IPV6=n)
++	default n
++	---help---
++	  Provides a SOCK_DESTROY operation that allows privileged processes
++	  (e.g., a connection manager or a network administration tool such as
++	  ss) to close sockets opened by other processes. Closing a socket in
++	  this way interrupts any blocking read/writes/connect operations on
++	  the socket and causes future socket calls to behave as if the socket
++	  had been disconnected.
++	  If unsure, say N.
 +
-+	int		(*destroy)(struct sk_buff *in_skb,
-+				   const struct inet_diag_req_v2 *req);
+ menuconfig TCP_CONG_ADVANCED
+ 	bool "TCP: advanced congestion control"
+ 	---help---
+diff --git a/net/ipv4/tcp_diag.c b/net/ipv4/tcp_diag.c
+index b316040..31d3e0c 100644
+--- a/net/ipv4/tcp_diag.c
++++ b/net/ipv4/tcp_diag.c
+@@ -10,6 +10,7 @@
+  */
+ 
+ #include <linux/module.h>
++#include <linux/net.h>
+ #include <linux/inet_diag.h>
+ 
+ #include <linux/tcp.h>
+@@ -46,12 +47,57 @@ static int tcp_diag_dump_one(struct sk_buff *in_skb, const struct nlmsghdr *nlh,
+ 	return inet_diag_dump_one_icsk(&tcp_hashinfo, in_skb, nlh, req);
+ }
+ 
++#if IS_ENABLED(CONFIG_INET_DIAG_DESTROY)
++static int tcp_diag_destroy(struct sk_buff *in_skb,
++			    const struct inet_diag_req_v2 *req)
++{
++	struct sock *sk;
++	struct net *net = sock_net(in_skb->sk);
 +
- 	__u16		idiag_type;
- 	__u16		idiag_info_size;
- };
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index cfabb8f..8bb8e7a 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -426,7 +426,7 @@ out:
- }
- EXPORT_SYMBOL_GPL(inet_diag_dump_one_icsk);
- 
--static int inet_diag_get_exact(struct sk_buff *in_skb,
-+static int inet_diag_cmd_exact(int cmd, struct sk_buff *in_skb,
- 			       const struct nlmsghdr *nlh,
- 			       const struct inet_diag_req_v2 *req)
- {
-@@ -436,8 +436,12 @@ static int inet_diag_get_exact(struct sk_buff *in_skb,
- 	handler = inet_diag_lock_handler(req->sdiag_protocol);
- 	if (IS_ERR(handler))
- 		err = PTR_ERR(handler);
--	else
-+	else if (cmd == SOCK_DIAG_BY_FAMILY)
- 		err = handler->dump_one(in_skb, nlh, req);
-+	else if (cmd == SOCK_DESTROY && handler->destroy)
-+		err = handler->destroy(in_skb, req);
-+	else
-+		err = -EOPNOTSUPP;
- 	inet_diag_unlock_handler(handler);
- 
- 	return err;
-@@ -950,7 +954,7 @@ static int inet_diag_get_exact_compat(struct sk_buff *in_skb,
- 	req.idiag_states = rc->idiag_states;
- 	req.id = rc->id;
- 
--	return inet_diag_get_exact(in_skb, nlh, &req);
-+	return inet_diag_cmd_exact(SOCK_DIAG_BY_FAMILY, in_skb, nlh, &req);
- }
- 
- static int inet_diag_rcv_msg_compat(struct sk_buff *skb, struct nlmsghdr *nlh)
-@@ -984,7 +988,7 @@ static int inet_diag_rcv_msg_compat(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	return inet_diag_get_exact_compat(skb, nlh);
- }
- 
--static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
-+static int inet_diag_handler_cmd(struct sk_buff *skb, struct nlmsghdr *h)
- {
- 	int hdrlen = sizeof(struct inet_diag_req_v2);
- 	struct net *net = sock_net(skb->sk);
-@@ -992,7 +996,8 @@ static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
- 	if (nlmsg_len(h) < hdrlen)
- 		return -EINVAL;
- 
--	if (h->nlmsg_flags & NLM_F_DUMP) {
-+	if (h->nlmsg_type == SOCK_DIAG_BY_FAMILY &&
-+	    h->nlmsg_flags & NLM_F_DUMP) {
- 		if (nlmsg_attrlen(h, hdrlen)) {
- 			struct nlattr *attr;
- 
-@@ -1011,7 +1016,7 @@ static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
- 		}
- 	}
- 
--	return inet_diag_get_exact(skb, h, nlmsg_data(h));
-+	return inet_diag_cmd_exact(h->nlmsg_type, skb, h, nlmsg_data(h));
- }
- 
- static
-@@ -1062,14 +1067,16 @@ int inet_diag_handler_get_info(struct sk_buff *skb, struct sock *sk)
- 
- static const struct sock_diag_handler inet_diag_handler = {
- 	.family = AF_INET,
--	.dump = inet_diag_handler_dump,
-+	.dump = inet_diag_handler_cmd,
- 	.get_info = inet_diag_handler_get_info,
-+	.destroy = inet_diag_handler_cmd,
++	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
++		return -EPERM;
++
++	sk = inet_diag_find_one_icsk(net, &tcp_hashinfo, req);
++	if (IS_ERR(sk))
++		return PTR_ERR(sk);
++
++	if (!sk_fullsock(sk)) {
++		sock_gen_put(sk);
++		return -EOPNOTSUPP;
++	}
++
++	/* Don't race with userspace socket closes such as tcp_close. */
++	lock_sock(sk);
++
++	/* Don't race with BH socket closes such as inet_csk_listen_stop. */
++	local_bh_disable();
++	bh_lock_sock(sk);
++
++	if (!sock_flag(sk, SOCK_DEAD)) {
++		smp_wmb();  /* Be consistent with tcp_reset */
++		sk->sk_err = ECONNABORTED;
++		sk->sk_error_report(sk);
++		tcp_send_active_reset(sk, GFP_ATOMIC);
++		tcp_done(sk);
++	}
++
++	bh_unlock_sock(sk);
++	local_bh_enable();
++	release_sock(sk);
++	sock_put(sk);
++	return 0;
++}
++#endif
++
+ static const struct inet_diag_handler tcp_diag_handler = {
+ 	.dump		 = tcp_diag_dump,
+ 	.dump_one	 = tcp_diag_dump_one,
+ 	.idiag_get_info	 = tcp_diag_get_info,
+ 	.idiag_type	 = IPPROTO_TCP,
+ 	.idiag_info_size = sizeof(struct tcp_info),
++#if IS_ENABLED(CONFIG_INET_DIAG_DESTROY)
++	.destroy	 = tcp_diag_destroy,
++#endif
  };
  
- static const struct sock_diag_handler inet6_diag_handler = {
- 	.family = AF_INET6,
--	.dump = inet_diag_handler_dump,
-+	.dump = inet_diag_handler_cmd,
- 	.get_info = inet_diag_handler_get_info,
-+	.destroy = inet_diag_handler_cmd,
- };
- 
- int inet_diag_register(const struct inet_diag_handler *h)
+ static int __init tcp_diag_init(void)
 -- 
 2.6.0.rc2.230.g3dd15c0
