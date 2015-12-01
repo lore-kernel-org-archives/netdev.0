@@ -1,60 +1,54 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: xen-netfront crash when detaching network while
- some network activity
-Date: Tue, 1 Dec 2015 17:00:42 -0500
-Message-ID: <20151201220042.GC22107@char.us.oracle.com>
-References: <20150522114932.GC8664@mail-itl> <55645140.1050209@citrix.com>
-	<20150526220312.GA1358@mail-itl> <20151021185734.GD31646@mail-itl>
-	<20151117024515.GN976@mail-itl>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: Increasing skb->mark size
+Date: Tue, 01 Dec 2015 23:09:35 +0100
+Message-ID: <565E1A9F.7040906@iogearbox.net>
+References: <1448397144.14854.27.camel@mattb-dl>	<CAKD1Yr3URKzAooiNH7i4kHVR0-TQjEAkQEdqjarAm6uxH7u-Mw@mail.gmail.com> <87610ivv6u.fsf@tassilo.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Annie Li <annie.li@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	netdev@vger.kernel.org, David Vrabel <david.vrabel@citrix.com>,
-	xen-devel <xen-devel@lists.xen.org>
-To: Marek =?iso-8859-1?Q?Marczykowski-G=F3recki?=
-	<marmarek@invisiblethingslab.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-Content-Disposition: inline
-In-Reply-To: <20151117024515.GN976@mail-itl>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Luuk Paulussen <Luuk.Paulussen@alliedtelesis.co.nz>,
+	davem@davemloft.net
+To: Andi Kleen <andi@firstfloor.org>,
+	Lorenzo Colitti <lorenzo@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:46094 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757138AbbLAWJu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 17:09:50 -0500
+In-Reply-To: <87610ivv6u.fsf@tassilo.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 17, 2015 at 03:45:15AM +0100, Marek Marczykowski-G=F3recki wrot=
-e:
-> On Wed, Oct 21, 2015 at 08:57:34PM +0200, Marek Marczykowski-G=F3recki wr=
-ote:
-> > On Wed, May 27, 2015 at 12:03:12AM +0200, Marek Marczykowski-G=F3recki =
-wrote:
-> > > On Tue, May 26, 2015 at 11:56:00AM +0100, David Vrabel wrote:
-> > > > On 22/05/15 12:49, Marek Marczykowski-G=F3recki wrote:
-> > > > > Hi all,
-> > > > > =
+On 12/01/2015 08:13 PM, Andi Kleen wrote:
+> Lorenzo Colitti <lorenzo@google.com> writes:
+>> On Wed, Nov 25, 2015 at 5:32 AM, Matt Bennett
+>> <Matt.Bennett@alliedtelesis.co.nz> wrote:
+>>> I'm emailing this list for feedback on the feasibility of increasing
+>>> skb->mark or adding a new field for marking. Perhaps this extension
+>>> could be done under a new CONFIG option.
+>>
+>> 64-bit marks (both skb->mark and sk->sk_mark) would be useful for
+>> hosts doing complex policy routing as well. Current Android releases
+>> use 20 of the 32 bits. If the mark were 64 bits, we could put the UID
+>> in it, and stop using ip rules to implement per-UID routing.
+>
+> This would be be great. I've recently ran into some issues with
+> the overhead of the Android firewall setup.
+>
+> So basically you need 4 extra bytes in sk_buff. How about:
+>
+> - shrinking skb->priority to 2 byte
 
-> > > > > I'm experiencing xen-netfront crash when doing xl network-detach =
-while
-> > > > > some network activity is going on at the same time. It happens on=
-ly when
-> > > > > domU has more than one vcpu. Not sure if this matters, but the ba=
-ckend
-> > > > > is in another domU (not dom0). I'm using Xen 4.2.2. It happens on=
- kernel
-> > > > > 3.9.4 and 4.1-rc1 as well.
-> > > > > =
+That wouldn't work, see SO_PRIORITY and such (4 bytes) ...
 
-> > > > > Steps to reproduce:
-> > > > > 1. Start the domU with some network interface
-> > > > > 2. Call there 'ping -f some-IP'
-> > > > > 3. Call 'xl network-detach NAME 0'
+> - skb_iff is either skb->dev->iff or 0. so it could be replaced with a
+> single bit flag for the 0 case.
 
-Do you see this all the time or just on occassions?
+... and that one wouldn't work on ingress.
 
-I tried to reproduce it and couldn't see it. Is your VM an PV or HVM?
+Hmm, thinking out loud, maybe it makes sense to combine {mark, priority}
+into a mark64 field as union, if the use-case allows to ignore/overwrite
+priorities set by applications, or to infer them otherwise based on
+different policies like net_prio cgroup (see skb_update_prio()).
