@@ -1,71 +1,55 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 23/26] mlxsw: reg: Add definition of LAG unicast record for SFN register
-Date: Tue,  1 Dec 2015 14:49:01 +0100
-Message-ID: <1448977744-17930-24-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 08/26] net: add info struct for LAG changeupper
+Date: Tue,  1 Dec 2015 14:48:46 +0100
+Message-ID: <1448977744-17930-9-git-send-email-jiri@resnulli.us>
 References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:34451 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756288AbbLANth (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 08:49:37 -0500
-Received: by wmvv187 with SMTP id v187so207550116wmv.1
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 05:49:36 -0800 (PST)
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:33258 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755004AbbLANtU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 08:49:20 -0500
+Received: by wmec201 with SMTP id c201so206175240wme.0
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 05:49:17 -0800 (PST)
 In-Reply-To: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-LAG-related records have specific format in SFN register.
+This struct will be shared by bonding and team to pass internal
+information to notifier listeners.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 22 +++++++++++++++++++++-
- 1 file changed, 21 insertions(+), 1 deletion(-)
+ include/linux/netdevice.h | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 431b28e..4e4e4dc 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -519,8 +519,12 @@ MLXSW_ITEM32_INDEXED(reg, sfn, rec_swid, MLXSW_REG_SFN_BASE_LEN, 24, 8,
- enum mlxsw_reg_sfn_rec_type {
- 	/* MAC addresses learned on a regular port. */
- 	MLXSW_REG_SFN_REC_TYPE_LEARNED_MAC = 0x5,
--	/* Aged-out MAC address on a regular port */
-+	/* MAC addresses learned on a LAG port. */
-+	MLXSW_REG_SFN_REC_TYPE_LEARNED_MAC_LAG = 0x6,
-+	/* Aged-out MAC address on a regular port. */
- 	MLXSW_REG_SFN_REC_TYPE_AGED_OUT_MAC = 0x7,
-+	/* Aged-out MAC address on a LAG port. */
-+	MLXSW_REG_SFN_REC_TYPE_AGED_OUT_MAC_LAG = 0x8,
- };
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index a55be5b..7ea3e83 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2108,6 +2108,19 @@ struct pcpu_sw_netstats {
+ #define netdev_alloc_pcpu_stats(type)					\
+ 	__netdev_alloc_pcpu_stats(type, GFP_KERNEL);
  
- /* reg_sfn_rec_type
-@@ -568,6 +572,22 @@ static inline void mlxsw_reg_sfn_mac_unpack(char *payload, int rec_index,
- 	*p_local_port = mlxsw_reg_sfn_mac_system_port_get(payload, rec_index);
- }
++enum netdev_lag_tx_type {
++	NETDEV_LAG_TX_TYPE_UNKNOWN,
++	NETDEV_LAG_TX_TYPE_RANDOM,
++	NETDEV_LAG_TX_TYPE_BROADCAST,
++	NETDEV_LAG_TX_TYPE_ROUNDROBIN,
++	NETDEV_LAG_TX_TYPE_ACTIVEBACKUP,
++	NETDEV_LAG_TX_TYPE_HASH,
++};
++
++struct netdev_lag_upper_info {
++	enum netdev_lag_tx_type tx_type;
++};
++
+ #include <linux/notifier.h>
  
-+/* reg_sfn_mac_lag_lag_id
-+ * LAG ID (pointer into the LAG descriptor table).
-+ * Access: RO
-+ */
-+MLXSW_ITEM32_INDEXED(reg, sfn, mac_lag_lag_id, MLXSW_REG_SFN_BASE_LEN, 0, 10,
-+		     MLXSW_REG_SFN_REC_LEN, 0x0C, false);
-+
-+static inline void mlxsw_reg_sfn_mac_lag_unpack(char *payload, int rec_index,
-+						char *mac, u16 *p_vid,
-+						u16 *p_lag_id)
-+{
-+	mlxsw_reg_sfn_rec_mac_memcpy_from(payload, rec_index, mac);
-+	*p_vid = mlxsw_reg_sfn_mac_fid_get(payload, rec_index);
-+	*p_lag_id = mlxsw_reg_sfn_mac_lag_lag_id_get(payload, rec_index);
-+}
-+
- /* SPMS - Switch Port MSTP/RSTP State Register
-  * -------------------------------------------
-  * Configures the spanning tree state of a physical port.
+ /* netdevice notifier chain. Please remember to update the rtnetlink
 -- 
 1.9.3
