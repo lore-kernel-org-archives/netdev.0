@@ -1,80 +1,82 @@
-From: Yichen Zhao <zhaoyichen@google.com>
-Subject: [PATCH] Bluetooth: Fix locking in bt_accept_dequeue after disconnection
-Date: Tue,  1 Dec 2015 11:11:01 -0800
-Message-ID: <1448997061-28144-1-git-send-email-zhaoyichen@google.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Yichen Zhao <zhaoyichen@google.com>
-To: Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniele Fucini <dfucini@gmail.com>
+Subject: Re: size overflow in function qdisc_tree_decrease_qlen
+ net/sched/sch_api.c
+Date: Tue, 1 Dec 2015 20:13:28 +0100
+Message-ID: <20151201191328.GA1310@Fux-PC>
+References: <20151201010005.GA23175@Fux-PC>
+ <CAHA+R7NdbMgfWpdCoP8peXT3zBX1=B_HWhsykjcT3QO=Gk-9aQ@mail.gmail.com>
+ <20151201111943.GA4036@Fux-PC>
+ <1448978807.25582.19.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1448979337.25582.22.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="ZPt4rx8FFjLCG7dd"
+Cc: Cong Wang <cwang@twopensource.com>,
+	netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>, spender@grsecurity.net,
+	pageexec@freemail.hu, re.emese@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33383 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752150AbbLATNe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 14:13:34 -0500
+Received: by wmuu63 with SMTP id u63so4595693wmu.0
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 11:13:33 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1448979337.25582.22.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix a crash that may happen when bt_accept_dequeue is run after a
-Bluetooth connection has been disconnected. bt_accept_unlink was called
-after release_sock, permitting bt_accept_unlink to run twice on the same
-socket and cause a NULL pointer dereference.
 
+--ZPt4rx8FFjLCG7dd
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-[50510.241632] BUG: unable to handle kernel NULL pointer dereference at 00000000000001a8
-[50510.241694] IP: [<ffffffffc01243f7>] bt_accept_unlink+0x47/0xa0 [bluetooth]
-[50510.241759] PGD 0 
-[50510.241776] Oops: 0002 [#1] SMP 
-[50510.241802] Modules linked in: rtl8192cu rtl_usb rtlwifi rtl8192c_common 8021q garp stp mrp llc rfcomm bnep nls_iso8859_1 intel_rapl x86_pkg_temp_thermal intel_powerclamp coretemp arc4 ath9k ath9k_common ath9k_hw ath kvm eeepc_wmi asus_wmi mac80211 snd_hda_codec_hdmi snd_hda_codec_realtek sparse_keymap crct10dif_pclmul snd_hda_codec_generic crc32_pclmul snd_hda_intel snd_hda_controller cfg80211 snd_hda_codec i915 snd_hwdep snd_pcm ghash_clmulni_intel snd_timer snd soundcore serio_raw cryptd drm_kms_helper drm i2c_algo_bit shpchp ath3k mei_me lpc_ich btusb bluetooth 6lowpan_iphc mei lp parport wmi video mac_hid psmouse ahci libahci r8169 mii
-[50510.242279] CPU: 0 PID: 934 Comm: krfcommd Not tainted 3.16.0-49-generic #65~14.04.1-Ubuntu
-[50510.242327] Hardware name: ASUSTeK Computer INC. VM40B/VM40B, BIOS 1501 12/09/2014
-[50510.242370] task: ffff8800d9068a30 ti: ffff8800d7a54000 task.ti: ffff8800d7a54000
-[50510.242413] RIP: 0010:[<ffffffffc01243f7>]  [<ffffffffc01243f7>] bt_accept_unlink+0x47/0xa0 [bluetooth]
-[50510.242480] RSP: 0018:ffff8800d7a57d58  EFLAGS: 00010246
-[50510.242511] RAX: 0000000000000000 RBX: ffff880119bb8c00 RCX: ffff880119bb8eb0
-[50510.242552] RDX: ffff880119bb8eb0 RSI: 00000000fffffe01 RDI: ffff880119bb8c00
-[50510.242592] RBP: ffff8800d7a57d60 R08: 0000000000000283 R09: 0000000000000001
-[50510.242633] R10: 0000000000000000 R11: 0000000000000000 R12: ffff8800d8da9eb0
-[50510.242673] R13: ffff8800d74fdb80 R14: ffff880119bb8c00 R15: ffff8800d8da9c00
-[50510.242715] FS:  0000000000000000(0000) GS:ffff88011fa00000(0000) knlGS:0000000000000000
-[50510.242761] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[50510.242794] CR2: 00000000000001a8 CR3: 0000000001c13000 CR4: 00000000001407f0
-[50510.242835] Stack:
-[50510.242849]  ffff880119bb8eb0 ffff8800d7a57da0 ffffffffc0124506 ffff8800d8da9eb0
-[50510.242899]  ffff8800d8da9c00 ffff8800d9068a30 0000000000000000 ffff8800d74fdb80
-[50510.242949]  ffff8800d6f85208 ffff8800d7a57e08 ffffffffc0159985 000000000000001f
-[50510.242999] Call Trace:
-[50510.243027]  [<ffffffffc0124506>] bt_accept_dequeue+0xb6/0x180 [bluetooth]
-[50510.243085]  [<ffffffffc0159985>] l2cap_sock_accept+0x125/0x220 [bluetooth]
-[50510.243128]  [<ffffffff810a1b30>] ? wake_up_state+0x20/0x20
-[50510.243163]  [<ffffffff8164946e>] kernel_accept+0x4e/0xa0
-[50510.243200]  [<ffffffffc05b97cd>] rfcomm_run+0x1ad/0x890 [rfcomm]
-[50510.243238]  [<ffffffffc05b9620>] ? rfcomm_process_rx+0x8a0/0x8a0 [rfcomm]
-[50510.243281]  [<ffffffff81091572>] kthread+0xd2/0xf0
-[50510.243312]  [<ffffffff810914a0>] ? kthread_create_on_node+0x1c0/0x1c0
-[50510.243353]  [<ffffffff8176e9d8>] ret_from_fork+0x58/0x90
-[50510.243387]  [<ffffffff810914a0>] ? kthread_create_on_node+0x1c0/0x1c0
-[50510.243424] Code: 00 48 8b 93 b8 02 00 00 48 8d 83 b0 02 00 00 48 89 51 08 48 89 0a 48 89 83 b0 02 00 00 48 89 83 b8 02 00 00 48 8b 83 c0 02 00 00 <66> 83 a8 a8 01 00 00 01 48 c7 83 c0 02 00 00 00 00 00 00 f0 ff 
-[50510.243685] RIP  [<ffffffffc01243f7>] bt_accept_unlink+0x47/0xa0 [bluetooth]
-[50510.243737]  RSP <ffff8800d7a57d58>
-[50510.243758] CR2: 00000000000001a8
-[50510.249457] ---[ end trace bb984f932c4e3ab3 ]---
+I can't be 100% sure but after running transmission for over an hour
+without any problems I'd say this fix worked. I'll keep it running for a
+while so if it suddently freezes again I'll report it, but I hope it
+won't be the case.
 
-Signed-off-by: Yichen Zhao <zhaoyichen@google.com>
----
- net/bluetooth/af_bluetooth.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Daniele
 
-diff --git a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
-index a3bffd1..a542b99 100644
---- a/net/bluetooth/af_bluetooth.c
-+++ b/net/bluetooth/af_bluetooth.c
-@@ -188,8 +188,8 @@ struct sock *bt_accept_dequeue(struct sock *parent, struct socket *newsock)
- 
- 		/* FIXME: Is this check still needed */
- 		if (sk->sk_state == BT_CLOSED) {
--			release_sock(sk);
- 			bt_accept_unlink(sk);
-+			release_sock(sk);
- 			continue;
- 		}
- 
--- 
-2.6.0.rc2.230.g3dd15c0
+On Tue, Dec 01, 2015 at 06:15:37AM -0800, Eric Dumazet wrote:
+>=20
+> Please try following fix :
+>=20
+> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+> index f43c8f33f09e..72f2c1dfdcde 100644
+> --- a/net/sched/sch_api.c
+> +++ b/net/sched/sch_api.c
+> @@ -759,6 +759,8 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsi=
+gned int n)
+>  			WARN_ON(parentid !=3D TC_H_ROOT);
+>  			return;
+>  		}
+> +		if (sch->flags & TCQ_F_MQROOT)
+> +			return;
+>  		cops =3D sch->ops->cl_ops;
+>  		if (cops->qlen_notify) {
+>  			cl =3D cops->get(sch, parentid);
+>=20
+>=20
+>=20
+
+--ZPt4rx8FFjLCG7dd
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJWXfFYAAoJEEYRza8bUKw+AO0H/RwGrXt9bcGd1mySDZvlMo8k
+A+1uvT+yjg2CWcrWJqAL33UqPJOr2m2/yBeQltJFMtSBeiN/H08Aj0XsYEcvlAhv
+EjuY9gU+j6jKPoCWno3fxw7KTIAvmJXWnnUFey2vWIkXrLs1F55RaifSURXWl1Ou
+M6xhfolHmwYVtspnZng19GhrRRpOqgoUEgY9ZX2DD4bYXtpItPRWuqu4+t6rnXN/
+4weu/mBmvC8fIa1gBgkUDPxB2sjAxzGL4eltG2ljr3/Dbv4ufC9hpIRmG006QDoL
+JNAbQaViLGD81n53dI5AQhyDI2/cD3qdEkhCfprKogPeaj9Gq6mb33f1OKVLtCM=
+=eLrN
+-----END PGP SIGNATURE-----
+
+--ZPt4rx8FFjLCG7dd--
