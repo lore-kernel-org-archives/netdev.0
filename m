@@ -1,69 +1,44 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [net-next PATCH] net: ipv6: restrict hop_limit sysctl setting to range [1;255]
-Date: Tue,  1 Dec 2015 22:45:15 +0100
-Message-ID: <1449006315-11175-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC] Stable interface index option
+Date: Tue, 01 Dec 2015 22:54:54 +0100
+Message-ID: <1449006894.3839234.455160217.6BE59AFD@webmail.messagingengine.com>
+References: <20151201080652.5cba6f8b@xeon-e3>
+ <20151201.142847.1980856920707150414.davem@davemloft.net>
+ <20151201122038.795305df@xeon-e3>
+ <20151201.155725.733555238839381632.davem@davemloft.net>
+ <1449004499.3829359.455124521.608D0A9E@webmail.messagingengine.com>
+ <20151201134407.3018adcc@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, max@rfc2324.org,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:45663 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756358AbbLAVpR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Dec 2015 16:45:17 -0500
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:58398 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756103AbbLAVyz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 16:54:55 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id A0A8D20BC9
+	for <netdev@vger.kernel.org>; Tue,  1 Dec 2015 16:54:54 -0500 (EST)
+In-Reply-To: <20151201134407.3018adcc@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Setting a value bigger than 255 resulted in using only the lower eight
-bits of that value as it is assigned to the u8 header field. To avoid
-this unexpected result, reject such values.
 
-Setting a value of zero is technically possible, but hosts receiving
-such a packet have to treat it like hop_limit was set to one, according
-to RFC2460. Therefore I don't see a use-case for that.
+On Tue, Dec 1, 2015, at 22:44, Stephen Hemminger wrote:
+> On Tue, 01 Dec 2015 22:14:59 +0100
+> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> > I had several snmp installations with net-snmp and munin, cacti and so
+> > on and all had the interface name in ifDescription already some years
+> > back.
+> 
+> In net-snmp 5.7 or later ifDescr is set to result of pci_lookup_name
+> (by default).
 
-Setting a route's hop_limit to zero in iproute2 means to use the sysctl
-default, which is not the case here: Setting e.g.
-net.conf.eth0.hop_limit=0 will not make the kernel use
-net.conf.all.hop_limit for outgoing packets on eth0. To avoid these
-kinds of confusion, reject zero.
+Seems the data should simply be in ifName nowadays (unconfirmed):
+<http://www.net-snmp.org/docs/mibs/ifMIBObjects.html>
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- net/ipv6/addrconf.c | 16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index d84742f003a9f..a5de1a616c12a 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -5200,6 +5200,20 @@ int addrconf_sysctl_forward(struct ctl_table *ctl, int write,
- }
- 
- static
-+int addrconf_sysctl_hop_limit(struct ctl_table *ctl, int write,
-+                              void __user *buffer, size_t *lenp, loff_t *ppos)
-+{
-+	struct ctl_table lctl;
-+	int min_hl = 1, max_hl = 255;
-+
-+	lctl = *ctl;
-+	lctl.extra1 = &min_hl;
-+	lctl.extra2 = &max_hl;
-+
-+	return proc_dointvec_minmax(&lctl, write, buffer, lenp, ppos);
-+}
-+
-+static
- int addrconf_sysctl_mtu(struct ctl_table *ctl, int write,
- 			void __user *buffer, size_t *lenp, loff_t *ppos)
- {
-@@ -5454,7 +5468,7 @@ static struct addrconf_sysctl_table
- 			.data		= &ipv6_devconf.hop_limit,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_sysctl_hop_limit,
- 		},
- 		{
- 			.procname	= "mtu",
--- 
-2.1.2
+Bye,
+Hannes
