@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 18/18] net/mlx5e: Add support for SR-IOV ndos
-Date: Tue,  1 Dec 2015 18:03:25 +0200
-Message-ID: <1448985805-25422-19-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 12/18] net/mlx5: E-Switch, Introduce FDB hardware capabilities
+Date: Tue,  1 Dec 2015 18:03:19 +0200
+Message-ID: <1448985805-25422-13-git-send-email-ogerlitz@mellanox.com>
 References: <1448985805-25422-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
@@ -10,140 +10,114 @@ Cc: netdev@vger.kernel.org, Don Dutile <ddutile@redhat.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:34395 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:34404 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755327AbbLAQEJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Dec 2015 11:04:09 -0500
+	id S1754659AbbLAQEQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2015 11:04:16 -0500
 In-Reply-To: <1448985805-25422-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Saeed Mahameed <saeedm@mellanox.com>
 
-Implement and enable SR-IOV ndos to manage SR-IOV configuration via
-netdev netlink API.
+Define needed hardware structures and capabilities needed
+for E-Switch FDB flow tables and read them on driver load.
 
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 84 ++++++++++++++++++++++-
- 1 file changed, 83 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c | 13 +++++++++++++
+ include/linux/mlx5/device.h                  | 15 +++++++++++++++
+ include/linux/mlx5/mlx5_ifc.h                | 13 +++++++++++++
+ 3 files changed, 41 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 007e464..d67058a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -32,6 +32,7 @@
- 
- #include <linux/mlx5/flow_table.h>
- #include "en.h"
-+#include "eswitch.h"
- 
- struct mlx5e_rq_param {
- 	u32                        rqc[MLX5_ST_SZ_DW(rqc)];
-@@ -1931,6 +1932,79 @@ static int mlx5e_change_mtu(struct net_device *netdev, int new_mtu)
- 	return err;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fw.c b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
+index 9335e5a..bf6e3df 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
+@@ -160,6 +160,19 @@ int mlx5_query_hca_caps(struct mlx5_core_dev *dev)
+ 		if (err)
+ 			return err;
+ 	}
++
++	if (MLX5_CAP_GEN(dev, vport_group_manager) &&
++	    MLX5_CAP_GEN(dev, eswitch_flow_table)) {
++		err = mlx5_core_get_caps(dev, MLX5_CAP_ESWITCH_FLOW_TABLE,
++					 HCA_CAP_OPMOD_GET_CUR);
++		if (err)
++			return err;
++		err = mlx5_core_get_caps(dev, MLX5_CAP_ESWITCH_FLOW_TABLE,
++					 HCA_CAP_OPMOD_GET_MAX);
++		if (err)
++			return err;
++	}
++
+ 	return 0;
  }
  
-+static int mlx5e_set_vf_mac(struct net_device *dev, int vf, u8 *mac)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index 90a4cb6..bce9cae 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -1138,6 +1138,7 @@ enum mlx5_cap_type {
+ 	MLX5_CAP_IPOIB_OFFLOADS,
+ 	MLX5_CAP_EOIB_OFFLOADS,
+ 	MLX5_CAP_FLOW_TABLE,
++	MLX5_CAP_ESWITCH_FLOW_TABLE,
+ 	/* NUM OF CAP Types */
+ 	MLX5_CAP_NUM
+ };
+@@ -1175,6 +1176,20 @@ enum mlx5_cap_type {
+ #define MLX5_CAP_FLOWTABLE_MAX(mdev, cap) \
+ 	MLX5_GET(flow_table_nic_cap, mdev->hca_caps_max[MLX5_CAP_FLOW_TABLE], cap)
+ 
++#define MLX5_CAP_ESW_FLOWTABLE(mdev, cap) \
++	MLX5_GET(flow_table_eswitch_cap, \
++		 mdev->hca_caps_cur[MLX5_CAP_ESWITCH_FLOW_TABLE], cap)
 +
-+	return mlx5_eswitch_set_vport_mac(mdev->priv.eswitch, vf + 1, mac);
-+}
++#define MLX5_CAP_ESW_FLOWTABLE_MAX(mdev, cap) \
++	MLX5_GET(flow_table_eswitch_cap, \
++		 mdev->hca_caps_max[MLX5_CAP_ESWITCH_FLOW_TABLE], cap)
 +
-+static int mlx5e_set_vf_vlan(struct net_device *dev, int vf, u16 vlan, u8 qos)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
++#define MLX5_CAP_ESW_FLOWTABLE_FDB(mdev, cap) \
++	MLX5_CAP_ESW_FLOWTABLE(mdev, flow_table_properties_nic_esw_fdb.cap)
 +
-+	return mlx5_eswitch_set_vport_vlan(mdev->priv.eswitch, vf + 1,
-+					   vlan, qos);
-+}
++#define MLX5_CAP_ESW_FLOWTABLE_FDB_MAX(mdev, cap) \
++	MLX5_CAP_ESW_FLOWTABLE_MAX(mdev, flow_table_properties_nic_esw_fdb.cap)
 +
-+static int mlx5_vport_link2ifla(u8 esw_link)
-+{
-+	switch (esw_link) {
-+	case MLX5_ESW_VPORT_ADMIN_STATE_DOWN:
-+		return IFLA_VF_LINK_STATE_DISABLE;
-+	case MLX5_ESW_VPORT_ADMIN_STATE_UP:
-+		return IFLA_VF_LINK_STATE_ENABLE;
-+	}
-+	return IFLA_VF_LINK_STATE_AUTO;
-+}
-+
-+static int mlx5_ifla_link2vport(u8 ifla_link)
-+{
-+	switch (ifla_link) {
-+	case IFLA_VF_LINK_STATE_DISABLE:
-+		return MLX5_ESW_VPORT_ADMIN_STATE_DOWN;
-+	case IFLA_VF_LINK_STATE_ENABLE:
-+		return MLX5_ESW_VPORT_ADMIN_STATE_UP;
-+	}
-+	return MLX5_ESW_VPORT_ADMIN_STATE_AUTO;
-+}
-+
-+static int mlx5e_set_vf_link_state(struct net_device *dev, int vf,
-+				   int link_state)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+
-+	return mlx5_eswitch_set_vport_state(mdev->priv.eswitch, vf + 1,
-+					    mlx5_ifla_link2vport(link_state));
-+}
-+
-+static int mlx5e_get_vf_config(struct net_device *dev,
-+			       int vf, struct ifla_vf_info *ivi)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	int err;
-+
-+	err = mlx5_eswitch_get_vport_config(mdev->priv.eswitch, vf + 1, ivi);
-+	if (err)
-+		return err;
-+	ivi->linkstate = mlx5_vport_link2ifla(ivi->linkstate);
-+	return 0;
-+}
-+
-+static int mlx5e_get_vf_stats(struct net_device *dev,
-+			      int vf, struct ifla_vf_stats *vf_stats)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+
-+	return mlx5_eswitch_get_vport_stats(mdev->priv.eswitch, vf + 1,
-+					    vf_stats);
-+}
-+
- static struct net_device_ops mlx5e_netdev_ops = {
- 	.ndo_open                = mlx5e_open,
- 	.ndo_stop                = mlx5e_close,
-@@ -1941,7 +2015,7 @@ static struct net_device_ops mlx5e_netdev_ops = {
- 	.ndo_vlan_rx_add_vid	 = mlx5e_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	 = mlx5e_vlan_rx_kill_vid,
- 	.ndo_set_features        = mlx5e_set_features,
--	.ndo_change_mtu		 = mlx5e_change_mtu,
-+	.ndo_change_mtu		 = mlx5e_change_mtu
+ #define MLX5_CAP_ODP(mdev, cap)\
+ 	MLX5_GET(odp_cap, mdev->hca_caps_cur[MLX5_CAP_ODP], cap)
+ 
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 39487d0..ae7c08a 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -447,6 +447,18 @@ struct mlx5_ifc_flow_table_nic_cap_bits {
+ 	u8         reserved_3[0x7200];
  };
  
- static int mlx5e_check_required_hca_cap(struct mlx5_core_dev *mdev)
-@@ -2041,6 +2115,14 @@ static void mlx5e_build_netdev(struct net_device *netdev)
- 	if (priv->params.num_tc > 1)
- 		mlx5e_netdev_ops.ndo_select_queue = mlx5e_select_queue;
- 
-+	if (MLX5_CAP_GEN(mdev, vport_group_manager)) {
-+		mlx5e_netdev_ops.ndo_set_vf_mac = mlx5e_set_vf_mac;
-+		mlx5e_netdev_ops.ndo_set_vf_vlan = mlx5e_set_vf_vlan;
-+		mlx5e_netdev_ops.ndo_get_vf_config = mlx5e_get_vf_config;
-+		mlx5e_netdev_ops.ndo_set_vf_link_state = mlx5e_set_vf_link_state;
-+		mlx5e_netdev_ops.ndo_get_vf_stats = mlx5e_get_vf_stats;
-+	}
++struct mlx5_ifc_flow_table_eswitch_cap_bits {
++	u8     reserved_0[0x200];
 +
- 	netdev->netdev_ops        = &mlx5e_netdev_ops;
- 	netdev->watchdog_timeo    = 15 * HZ;
++	struct mlx5_ifc_flow_table_prop_layout_bits flow_table_properties_nic_esw_fdb;
++
++	struct mlx5_ifc_flow_table_prop_layout_bits flow_table_properties_esw_acl_ingress;
++
++	struct mlx5_ifc_flow_table_prop_layout_bits flow_table_properties_esw_acl_egress;
++
++	u8      reserved_1[0x7800];
++};
++
+ struct mlx5_ifc_per_protocol_networking_offload_caps_bits {
+ 	u8         csum_cap[0x1];
+ 	u8         vlan_cap[0x1];
+@@ -1846,6 +1858,7 @@ union mlx5_ifc_hca_cap_union_bits {
+ 	struct mlx5_ifc_roce_cap_bits roce_cap;
+ 	struct mlx5_ifc_per_protocol_networking_offload_caps_bits per_protocol_networking_offload_caps;
+ 	struct mlx5_ifc_flow_table_nic_cap_bits flow_table_nic_cap;
++	struct mlx5_ifc_flow_table_eswitch_cap_bits flow_table_eswitch_cap;
+ 	u8         reserved_0[0x8000];
+ };
  
 -- 
 2.3.7
