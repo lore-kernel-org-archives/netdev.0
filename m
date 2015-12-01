@@ -1,67 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] ipv6: add complete rcu protection around np->opt
-Date: Tue, 01 Dec 2015 05:05:00 -0800
-Message-ID: <1448975100.25582.9.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+Y=35aC5DK7MQaDF6eviKcXik2S9caTLw7FAp0L0CXdsg@mail.gmail.com>
-	 <1448730683.24696.94.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1448731434.24696.97.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1448854677.24696.117.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1448968286.3318880.454548345.76FA2174@webmail.messagingengine.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ath6kl: Use vmalloc to allocate ar->fw for api1 method
+Date: Tue, 1 Dec 2015 16:08:29 +0300
+Message-ID: <565D9BCD.6020105@cogentembedded.com>
+References: <1448948470-31111-1-git-send-email-motobud@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	William Dauchy <wdauchy@gmail.com>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ath6kl@lists.infradead.org
+To: Brent Taylor <motobud@gmail.com>, kvalo@qca.qualcomm.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448968286.3318880.454548345.76FA2174@webmail.messagingengine.com>
+In-Reply-To: <1448948470-31111-1-git-send-email-motobud@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-12-01 at 12:11 +0100, Hannes Frederic Sowa wrote:
-> Hi Eric,
-> 
-> On Mon, Nov 30, 2015, at 04:37, Eric Dumazet wrote:
-> > -                       opt = xchg(&np->opt, NULL);
-> > -                       if (opt)
-> > -                               sock_kfree_s(sk, opt, opt->tot_len);
-> > +                       opt = xchg((__force struct ipv6_txoptions
-> > **)&np->opt,
-> > +                                  NULL);
-> > +                       if (opt) {
-> > +                               atomic_sub(opt->tot_len,
-> > &sk->sk_omem_alloc);
-> > +                               txopt_put(opt);
-> > +                       }
-> >  			pktopt = xchg(&np->pktoptions, NULL);
-> >  			kfree_skb(pktopt);
-> 
-> Is here something special going on (because of the xchg). I don't see
-> why you cannot simply use a RCU_INIT_POINTER?
-> 
-> Thanks,
-> Hannes
+Hello.
 
-Yes, I mentioned this earlier, and will be addressed in net-next tree
-later.
+On 12/1/2015 8:41 AM, Brent Taylor wrote:
 
-(Same for np->pktoptions)
+> Since commit 8437754c83351d6213c1a47ff029c1126d6042a7,
 
-The xchg() here does not bring additional protection as we are the last
-user of np.
+    The scripts/checkpatch.pl now enforces certain format of the commit citing.
 
-Thanks.
+> ar->fw is expected to be pointing to memory allocated by vmalloc.  If the api1 method (via ath6kl_fetch_fw_api1) is used to allocate memory for ar->fw, then kmemdup is used.  This patch checks if the firmware being loaded is the 'fw' image, then use vmalloc, otherwise use kmalloc.
+
+    This script also checks for unwrapped changelogs. Please run your patches 
+thru it before posting.
+
+> Signed-off-by: Brent Taylor <motobud@gmail.com>
+[...]
+
+MBR, Sergei
