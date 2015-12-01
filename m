@@ -1,33 +1,48 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ath6kl: Use vmalloc to allocate ar->fw for api1 method
-Date: Tue, 1 Dec 2015 16:08:29 +0300
-Message-ID: <565D9BCD.6020105@cogentembedded.com>
-References: <1448948470-31111-1-git-send-email-motobud@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v2] ravb: add R8A7791 support
+Date: Tue, 1 Dec 2015 16:13:01 +0300
+Message-ID: <565D9CDD.1070507@cogentembedded.com>
+References: <1661514.u50jDu7LON@wasted.cogentembedded.com>
+ <20151201074450.GA31496@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ath6kl@lists.infradead.org
-To: Brent Taylor <motobud@gmail.com>, kvalo@qca.qualcomm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448948470-31111-1-git-send-email-motobud@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151201074450.GA31496-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On 12/1/2015 10:44 AM, Simon Horman wrote:
 
-On 12/1/2015 8:41 AM, Brent Taylor wrote:
+>> Add support  for yet another ARM member of the R-Car family, R-Car M2-W,
+>> also known as R8A7791.
+>>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+>>
+>> ---
+>> The patch is against DaveM's 'net-next.git' repo but I wouldn't mind if it's
+>> applied to 'net.git' instead. :-)
+>>
+>> Changes in version 2:
+>> - fixed the SoC name in the changelog.
+>
+> I have no particular problem with this patch but as mentioned elsewhere I
+> have been working on a more comprehensive patchset which I have now posted as:
+>
+> "[PATCH 0/2 net-next] ravb: More compat strings"
 
-> Since commit 8437754c83351d6213c1a47ff029c1126d6042a7,
-
-    The scripts/checkpatch.pl now enforces certain format of the commit citing.
-
-> ar->fw is expected to be pointing to memory allocated by vmalloc.  If the api1 method (via ath6kl_fetch_fw_api1) is used to allocate memory for ar->fw, then kmemdup is used.  This patch checks if the firmware being loaded is the 'fw' image, then use vmalloc, otherwise use kmalloc.
-
-    This script also checks for unwrapped changelogs. Please run your patches 
-thru it before posting.
-
-> Signed-off-by: Brent Taylor <motobud@gmail.com>
-[...]
+    Dave, please ignore my patch in favor of Simon's series (after it gets 
+fixed up, of course).
 
 MBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
