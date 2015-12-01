@@ -1,72 +1,62 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next v3 3/8] netfilter: Allow calling into nat helper
- without skb_dst.g
-Date: Tue, 1 Dec 2015 21:51:19 +0100
-Message-ID: <20151201205119.GA2563@salvia>
-References: <1448496501-109561-1-git-send-email-jarno@ovn.org>
- <1448496501-109561-4-git-send-email-jarno@ovn.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] Stable interface index option
+Date: Tue, 01 Dec 2015 15:57:25 -0500 (EST)
+Message-ID: <20151201.155725.733555238839381632.davem@davemloft.net>
+References: <20151201080652.5cba6f8b@xeon-e3>
+	<20151201.142847.1980856920707150414.davem@davemloft.net>
+	<20151201122038.795305df@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	dev@openvswitch.org
-To: Jarno Rajahalme <jarno@ovn.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1448496501-109561-4-git-send-email-jarno@ovn.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, max@rfc2324.org, netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57106 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756902AbbLAU51 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 15:57:27 -0500
+In-Reply-To: <20151201122038.795305df@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 25, 2015 at 04:08:16PM -0800, Jarno Rajahalme wrote:
-> NAT checksum recalculation code assumes existence of skb_dst, which
-> becomes a problem for a later patch in the series ("openvswitch:
-> Interface with NAT.").  Simplify this by removing the check on
-> skb_dst, as the checksum will be dealt with later in the stack.
-> 
-> Suggested-by: Pravin Shelar <pshelar@nicira.com>
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-> ---
->  net/ipv4/netfilter/nf_nat_l3proto_ipv4.c | 29 ++++++++---------------------
->  net/ipv6/netfilter/nf_nat_l3proto_ipv6.c | 29 ++++++++---------------------
->  2 files changed, 16 insertions(+), 42 deletions(-)
-> 
-> diff --git a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-> index 5075b7e..f8aad03 100644
-> --- a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-> +++ b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-> @@ -127,28 +127,15 @@ static void nf_nat_ipv4_csum_recalc(struct sk_buff *skb,
->  				    u8 proto, void *data, __sum16 *check,
->  				    int datalen, int oldlen)
->  {
-> -	const struct iphdr *iph = ip_hdr(skb);
-> -	struct rtable *rt = skb_rtable(skb);
-> -
->  	if (skb->ip_summed != CHECKSUM_PARTIAL) {
-> -		if (!(rt->rt_flags & RTCF_LOCAL) &&
-> -		    (!skb->dev || skb->dev->features & NETIF_F_V4_CSUM)) {
-> -			skb->ip_summed = CHECKSUM_PARTIAL;
-> -			skb->csum_start = skb_headroom(skb) +
-> -					  skb_network_offset(skb) +
-> -					  ip_hdrlen(skb);
-> -			skb->csum_offset = (void *)check - data;
-> -			*check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
-> -						    datalen, proto, 0);
-> -		} else {
-> -			*check = 0;
-> -			*check = csum_tcpudp_magic(iph->saddr, iph->daddr,
-> -						   datalen, proto,
-> -						   csum_partial(data, datalen,
-> -								0));
-> -			if (proto == IPPROTO_UDP && !*check)
-> -				*check = CSUM_MANGLED_0;
-> -		}
-> +		const struct iphdr *iph = ip_hdr(skb);
-> +
-> +		skb->ip_summed = CHECKSUM_PARTIAL;
-> +		skb->csum_start = skb_headroom(skb) + skb_network_offset(skb) +
-> +			ip_hdrlen(skb);
-> +		skb->csum_offset = (void *)check - data;
-> +		*check = ~csum_tcpudp_magic(iph->saddr, iph->daddr, datalen,
-> +					    proto, 0);
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 1 Dec 2015 12:20:38 -0800
 
-Is this change going to work with traffic that is redirected to the
-localhost?
+> On Tue, 01 Dec 2015 14:28:47 -0500 (EST)
+> David Miller <davem@davemloft.net> wrote:
+> 
+>> From: Stephen Hemminger <stephen@networkplumber.org>
+>> Date: Tue, 1 Dec 2015 08:06:52 -0800
+>> 
+>> > On Tue, 01 Dec 2015 17:02:23 +0100
+>> > Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+>> > 
+>> >> On Tue, Dec 1, 2015, at 16:50, Maximilian Wilhelm wrote:
+>> >> > > I'm not sure I understand how this would work- are we going to 
+>> >> > > pin down the ifindex for some subset of interfaces?
+>> >> > 
+>> >> > I'm not sure what your idea is, but I guess we might mean the same
+>> >> > thing:
+>> >> > 
+>> >> > What I have in mind is that the user can supply a list of (ifname ->
+>> >> > ifindex) entries via a sysfs/procfs interface and if such a list is
+>> >> > present, the kernel will search the list for every ifname which is
+>> >> > registered and check if there is an entry. If there is, the ifindex
+>> >> > for this entry is used. If there is no entry found for the given
+>> >> > ifname, the usual algorithm is used (therefore inherently providing
+>> >> > backward compatibility).
+>> >> 
+>> >> Sorry to ask because I don't like this feature at all. There was a lot
+>> >> of work on stable interface names. Why do you need stable ifindexes,
+>> >> which were never meant to be stable for a longer amount of time?
+>> > 
+>> > Also current versions of SNMP provide more useful information about
+>> > network interface slot information in ifDescription
+>> 
+>> Well if they do provide strings, then that is probably a better way
+>> forward than messing with the kernel.
+> 
+> It gives strings based on PCI information but nothing useful
+> on tunnels.
+
+But at least in theory, that could be extended to do so right?
