@@ -1,144 +1,188 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 22/26] mlxsw: reg: Add definition of LAG unicast record for SFD register
-Date: Tue,  1 Dec 2015 14:49:00 +0100
-Message-ID: <1448977744-17930-23-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 06/26] net: propagate upper priv via netdev_master_upper_dev_link
+Date: Tue,  1 Dec 2015 14:48:44 +0100
+Message-ID: <1448977744-17930-7-git-send-email-jiri@resnulli.us>
 References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36886 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756313AbbLANtg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 08:49:36 -0500
-Received: by wmww144 with SMTP id w144so14081613wmw.0
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 05:49:34 -0800 (PST)
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:34001 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755220AbbLANtQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 08:49:16 -0500
+Received: by wmvv187 with SMTP id v187so207534370wmv.1
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 05:49:15 -0800 (PST)
 In-Reply-To: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-LAG-related records have specific format in SFD register.
+Eliminate netdev_master_upper_dev_link_private and pass priv directly as
+a parameter of netdev_master_upper_dev_link.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 79 +++++++++++++++++++++++++++----
- 1 file changed, 71 insertions(+), 8 deletions(-)
+ drivers/net/bonding/bond_main.c |  2 +-
+ drivers/net/team/team.c         |  2 +-
+ drivers/net/vrf.c               |  2 +-
+ include/linux/netdevice.h       |  6 ++----
+ net/batman-adv/hard-interface.c |  3 ++-
+ net/bridge/br_if.c              |  2 +-
+ net/core/dev.c                  | 18 ++++++------------
+ net/openvswitch/vport-netdev.c  |  2 +-
+ 8 files changed, 15 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 049abbb..431b28e 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -286,6 +286,7 @@ MLXSW_ITEM32_INDEXED(reg, sfd, rec_swid, MLXSW_REG_SFD_BASE_LEN, 24, 8,
- 
- enum mlxsw_reg_sfd_rec_type {
- 	MLXSW_REG_SFD_REC_TYPE_UNICAST = 0x0,
-+	MLXSW_REG_SFD_REC_TYPE_UNICAST_LAG = 0x1,
- };
- 
- /* reg_sfd_rec_type
-@@ -376,24 +377,34 @@ MLXSW_ITEM32_INDEXED(reg, sfd, uc_fid_vid, MLXSW_REG_SFD_BASE_LEN, 0, 16,
- MLXSW_ITEM32_INDEXED(reg, sfd, uc_system_port, MLXSW_REG_SFD_BASE_LEN, 0, 16,
- 		     MLXSW_REG_SFD_REC_LEN, 0x0C, false);
- 
--static inline void mlxsw_reg_sfd_uc_pack(char *payload, int rec_index,
--					 enum mlxsw_reg_sfd_rec_policy policy,
--					 const char *mac, u16 vid,
--					 enum mlxsw_reg_sfd_rec_action action,
--					 u8 local_port)
-+static inline void mlxsw_reg_sfd_rec_pack(char *payload, int rec_index,
-+					  enum mlxsw_reg_sfd_rec_type rec_type,
-+					  enum mlxsw_reg_sfd_rec_policy policy,
-+					  const char *mac,
-+					  enum mlxsw_reg_sfd_rec_action action)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 9e0f8a7..9240157 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1204,7 +1204,7 @@ static int bond_master_upper_dev_link(struct net_device *bond_dev,
  {
- 	u8 num_rec = mlxsw_reg_sfd_num_rec_get(payload);
+ 	int err;
  
- 	if (rec_index >= num_rec)
- 		mlxsw_reg_sfd_num_rec_set(payload, rec_index + 1);
- 	mlxsw_reg_sfd_rec_swid_set(payload, rec_index, 0);
--	mlxsw_reg_sfd_rec_type_set(payload, rec_index,
--				   MLXSW_REG_SFD_REC_TYPE_UNICAST);
-+	mlxsw_reg_sfd_rec_type_set(payload, rec_index, rec_type);
- 	mlxsw_reg_sfd_rec_policy_set(payload, rec_index, policy);
- 	mlxsw_reg_sfd_rec_mac_memcpy_to(payload, rec_index, mac);
-+	mlxsw_reg_sfd_rec_action_set(payload, rec_index, action);
-+}
-+
-+static inline void mlxsw_reg_sfd_uc_pack(char *payload, int rec_index,
-+					 enum mlxsw_reg_sfd_rec_policy policy,
-+					 const char *mac, u16 vid,
-+					 enum mlxsw_reg_sfd_rec_action action,
-+					 u8 local_port)
-+{
-+	mlxsw_reg_sfd_rec_pack(payload, rec_index,
-+			       MLXSW_REG_SFD_REC_TYPE_UNICAST,
-+			       policy, mac, action);
- 	mlxsw_reg_sfd_uc_sub_port_set(payload, rec_index, 0);
- 	mlxsw_reg_sfd_uc_fid_vid_set(payload, rec_index, vid);
--	mlxsw_reg_sfd_rec_action_set(payload, rec_index, action);
- 	mlxsw_reg_sfd_uc_system_port_set(payload, rec_index, local_port);
+-	err = netdev_master_upper_dev_link_private(slave_dev, bond_dev, slave);
++	err = netdev_master_upper_dev_link(slave_dev, bond_dev, slave);
+ 	if (err)
+ 		return err;
+ 	slave_dev->flags |= IFF_SLAVE;
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index d2f3ee8..b37f8d1 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1083,7 +1083,7 @@ static int team_upper_dev_link(struct net_device *dev,
+ {
+ 	int err;
+ 
+-	err = netdev_master_upper_dev_link(port_dev, dev);
++	err = netdev_master_upper_dev_link(port_dev, dev, NULL);
+ 	if (err)
+ 		return err;
+ 	port_dev->priv_flags |= IFF_TEAM_PORT;
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index c2d54c4..59c5bdd 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -624,7 +624,7 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+ 		goto out_fail;
+ 	}
+ 
+-	ret = netdev_master_upper_dev_link(port_dev, dev);
++	ret = netdev_master_upper_dev_link(port_dev, dev, NULL);
+ 	if (ret < 0)
+ 		goto out_unregister;
+ 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 85bcd9b..cca4111 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3617,10 +3617,8 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+ struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
+ int netdev_upper_dev_link(struct net_device *dev, struct net_device *upper_dev);
+ int netdev_master_upper_dev_link(struct net_device *dev,
+-				 struct net_device *upper_dev);
+-int netdev_master_upper_dev_link_private(struct net_device *dev,
+-					 struct net_device *upper_dev,
+-					 void *private);
++				 struct net_device *upper_dev,
++				 void *upper_priv);
+ void netdev_upper_dev_unlink(struct net_device *dev,
+ 			     struct net_device *upper_dev);
+ void netdev_adjacent_rename_links(struct net_device *dev, char *oldname);
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index f11345e..a7f4f10 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -464,7 +464,8 @@ int batadv_hardif_enable_interface(struct batadv_hard_iface *hard_iface,
+ 	hard_iface->soft_iface = soft_iface;
+ 	bat_priv = netdev_priv(hard_iface->soft_iface);
+ 
+-	ret = netdev_master_upper_dev_link(hard_iface->net_dev, soft_iface);
++	ret = netdev_master_upper_dev_link(hard_iface->net_dev,
++					   soft_iface, NULL);
+ 	if (ret)
+ 		goto err_dev;
+ 
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index ec02f58..781abc34 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -493,7 +493,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 
+ 	dev->priv_flags |= IFF_BRIDGE_PORT;
+ 
+-	err = netdev_master_upper_dev_link(dev, br->dev);
++	err = netdev_master_upper_dev_link(dev, br->dev, NULL);
+ 	if (err)
+ 		goto err5;
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 5df6cbc..d2155c2 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5421,7 +5421,7 @@ static void __netdev_adjacent_dev_unlink_neighbour(struct net_device *dev,
+ 
+ static int __netdev_upper_dev_link(struct net_device *dev,
+ 				   struct net_device *upper_dev, bool master,
+-				   void *private)
++				   void *upper_priv)
+ {
+ 	struct netdev_notifier_changeupper_info changeupper_info;
+ 	struct netdev_adjacent *i, *j, *to_i, *to_j;
+@@ -5452,7 +5452,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, private,
++	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, upper_priv,
+ 						   master);
+ 	if (ret)
+ 		return ret;
+@@ -5553,6 +5553,7 @@ EXPORT_SYMBOL(netdev_upper_dev_link);
+  * netdev_master_upper_dev_link - Add a master link to the upper device
+  * @dev: device
+  * @upper_dev: new upper device
++ * @upper_priv: upper device private
+  *
+  * Adds a link to device which is upper to this one. In this case, only
+  * one master upper device can be linked, although other non-master devices
+@@ -5561,20 +5562,13 @@ EXPORT_SYMBOL(netdev_upper_dev_link);
+  * counts are adjusted and the function returns zero.
+  */
+ int netdev_master_upper_dev_link(struct net_device *dev,
+-				 struct net_device *upper_dev)
++				 struct net_device *upper_dev,
++				 void *upper_priv)
+ {
+-	return __netdev_upper_dev_link(dev, upper_dev, true, NULL);
++	return __netdev_upper_dev_link(dev, upper_dev, true, upper_priv);
  }
+ EXPORT_SYMBOL(netdev_master_upper_dev_link);
  
-@@ -406,6 +417,58 @@ static inline void mlxsw_reg_sfd_uc_unpack(char *payload, int rec_index,
- 	*p_local_port = mlxsw_reg_sfd_uc_system_port_get(payload, rec_index);
- }
+-int netdev_master_upper_dev_link_private(struct net_device *dev,
+-					 struct net_device *upper_dev,
+-					 void *private)
+-{
+-	return __netdev_upper_dev_link(dev, upper_dev, true, private);
+-}
+-EXPORT_SYMBOL(netdev_master_upper_dev_link_private);
+-
+ /**
+  * netdev_upper_dev_unlink - Removes a link to upper device
+  * @dev: device
+diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
+index b327368..3ee3df1 100644
+--- a/net/openvswitch/vport-netdev.c
++++ b/net/openvswitch/vport-netdev.c
+@@ -105,7 +105,7 @@ struct vport *ovs_netdev_link(struct vport *vport, const char *name)
  
-+/* reg_sfd_uc_lag_sub_port
-+ * LAG sub port.
-+ * Must be 0 if multichannel VEPA is not enabled.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32_INDEXED(reg, sfd, uc_lag_sub_port, MLXSW_REG_SFD_BASE_LEN, 16, 8,
-+		     MLXSW_REG_SFD_REC_LEN, 0x08, false);
-+
-+/* reg_sfd_uc_lag_fid_vid
-+ * Filtering ID or VLAN ID
-+ * For SwitchX and SwitchX-2:
-+ * - Dynamic entries (policy 2,3) use FID
-+ * - Static entries (policy 0) use VID
-+ * - When independent learning is configured, VID=FID
-+ * For Spectrum: use FID for both Dynamic and Static entries.
-+ * VID should not be used.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32_INDEXED(reg, sfd, uc_lag_fid_vid, MLXSW_REG_SFD_BASE_LEN, 0, 16,
-+		     MLXSW_REG_SFD_REC_LEN, 0x08, false);
-+
-+/* reg_sfd_uc_lag_lag_id
-+ * LAG Identifier - pointer into the LAG descriptor table.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32_INDEXED(reg, sfd, uc_lag_lag_id, MLXSW_REG_SFD_BASE_LEN, 0, 10,
-+		     MLXSW_REG_SFD_REC_LEN, 0x0C, false);
-+
-+static inline void
-+mlxsw_reg_sfd_uc_lag_pack(char *payload, int rec_index,
-+			  enum mlxsw_reg_sfd_rec_policy policy,
-+			  const char *mac, u16 vid,
-+			  enum mlxsw_reg_sfd_rec_action action,
-+			  u16 lag_id)
-+{
-+	mlxsw_reg_sfd_rec_pack(payload, rec_index,
-+			       MLXSW_REG_SFD_REC_TYPE_UNICAST_LAG,
-+			       policy, mac, action);
-+	mlxsw_reg_sfd_uc_lag_sub_port_set(payload, rec_index, 0);
-+	mlxsw_reg_sfd_uc_lag_fid_vid_set(payload, rec_index, vid);
-+	mlxsw_reg_sfd_uc_lag_lag_id_set(payload, rec_index, lag_id);
-+}
-+
-+static inline void mlxsw_reg_sfd_uc_lag_unpack(char *payload, int rec_index,
-+					       char *mac, u16 *p_vid,
-+					       u16 *p_lag_id)
-+{
-+	mlxsw_reg_sfd_rec_mac_memcpy_from(payload, rec_index, mac);
-+	*p_vid = mlxsw_reg_sfd_uc_lag_fid_vid_get(payload, rec_index);
-+	*p_lag_id = mlxsw_reg_sfd_uc_lag_lag_id_get(payload, rec_index);
-+}
-+
- /* SFN - Switch FDB Notification Register
-  * -------------------------------------------
-  * The switch provides notifications on newly learned FDB entries and
+ 	rtnl_lock();
+ 	err = netdev_master_upper_dev_link(vport->dev,
+-					   get_dpdev(vport->dp));
++					   get_dpdev(vport->dp), NULL);
+ 	if (err)
+ 		goto error_unlock;
+ 
 -- 
 1.9.3
