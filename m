@@ -1,78 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: size overflow in function qdisc_tree_decrease_qlen
- net/sched/sch_api.c
-Date: Tue, 01 Dec 2015 08:34:20 -0800
-Message-ID: <1448987660.2977.6.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151201010005.GA23175@Fux-PC>
-	 , <1448978807.25582.19.camel@edumazet-glaptop2.roam.corp.google.com>
-	 , <1448979011.25582.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <565DC716.22673.2DBA261B@pageexec.freemail.hu>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [patch net-next 00/26] bonding/team offload + mlxsw implementation
+Date: Tue, 1 Dec 2015 18:35:43 +0200
+Message-ID: <CAJ3xEMjRQQoo=uU0qQ5Z9UmvS0_QjB2q_LUrpfBWLtTpHhd3qw@mail.gmail.com>
+References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
+	<20151201144300.GB2165@nanopsycho.orion>
+	<CAJ3xEMhMACJe_iK4PTrGwGFHzgGM=ccNKjVBoC6SUfCo0w7xFQ@mail.gmail.com>
+	<20151201151243.GC2165@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniele Fucini <dfucini@gmail.com>,
-	Cong Wang <cwang@twopensource.com>,
-	netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>, spender@grsecurity.net,
-	re.emese@gmail.com
-To: pageexec@freemail.hu
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>, yotamg@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>, pjonnala@broadcom.com,
+	j.vosburgh@gmail.com, vfalico@gmail.com,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34379 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755540AbbLAQeX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 11:34:23 -0500
-Received: by padhx2 with SMTP id hx2so9988792pad.1
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 08:34:22 -0800 (PST)
-In-Reply-To: <565DC716.22673.2DBA261B@pageexec.freemail.hu>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:36971 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752796AbbLAQfo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 11:35:44 -0500
+Received: by igcto18 with SMTP id to18so10553449igc.0
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 08:35:43 -0800 (PST)
+In-Reply-To: <20151201151243.GC2165@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-12-01 at 17:13 +0100, PaX Team wrote:
-> On 1 Dec 2015 at 6:10, Eric Dumazet wrote:
-> 
-> > On Tue, 2015-12-01 at 06:06 -0800, Eric Dumazet wrote:
-> > > On Tue, 2015-12-01 at 12:19 +0100, Daniele Fucini wrote:
-> > > > Thanks for the reply. Here's the output of `tc qdisc show`:
-> > > > https://gist.github.com/1847102c8fe08f63e9e7
-> > 
-> > > Hmm... I do not think we ever took care of MQ in
-> > > qdisc_tree_decrease_qlen()
-> > 
-> > This looks like a false positive, because MQ recomputes backlog/qlen at
-> > the time (stats) dumps are requested.
-> > 
-> > I would say there is no bug.
-> 
-> is it correct for sk_buff_head.qlen to underflow in general
-> or just in this particular sched code? (we can exclude overflow
-> checking for either case but obviously would like to retain as
-> much coverage as possible)
+On Tue, Dec 1, 2015 at 5:12 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Tue, Dec 01, 2015 at 04:06:23PM CET, gerlitz.or@gmail.com wrote:
+>>On Tue, Dec 1, 2015 at 4:43 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> Tue, Dec 01, 2015 at 02:48:38PM CET, jiri@resnulli.us wrote:
 
-We do not particularly care on the qlen value for MQ, although we simply
-should avoid doing anything.
+>>>>This patchset introduces needed infrastructure for link aggregation
+>>>>offload - for both team and bonding. It also implements the offload
+>>>>in mlxsw driver.
 
-Otherwise we might report slightly wrong qlen values while doing "tc -s
-qdisc show" if the qdisc_tree_decrease_qlen() happens right after we
-computed the folded values in mq_dump()
+>>I didn't see any changes to switchdev.h, can you elaborate on that please.
 
-Please try the patch I sent. I am pretty sure it should be the right
-fix.
+> Correct. This patchset does not extend switchdev api. The extension is
+> done for netdev notifiers. It seems natural and correct.
+> As we discussed already with John on a different thread, it makes sense
+> for non-switchdev drivers to benefit from this extensions as well.
 
-I will submit it formally once you tell me it is fixing the issue you
-reported.
+This is understood.
 
+However, the point which is still not clear to me related to the LAG /
+switchdev object model.
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index f43c8f33f09e..72f2c1dfdcde 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -759,6 +759,8 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
- 			WARN_ON(parentid != TC_H_ROOT);
- 			return;
- 		}
-+		if (sch->flags & TCQ_F_MQROOT)
-+			return;
- 		cops = sch->ops->cl_ops;
- 		if (cops->qlen_notify) {
- 			cl = cops->get(sch, parentid);
+All of FDB/VLAN/FIB switchdev objects have corresponding software counterparts
+in the kernel --- what's the case for LAG? the software construct is
+bond or team
+instance, shouldn't there  be a modeling of the HW LAG object in switchdev?
+
+Or.
