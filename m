@@ -1,96 +1,36 @@
-From: Marcin Wojtas <mw@semihalf.com>
-Subject: Re: [PATCH 00/13] mvneta Buffer Management and enhancements
-Date: Wed, 2 Dec 2015 23:15:23 +0100
-Message-ID: <CAPv3WKdHu5O2KEHYpWBHbkA2hHd_QCUK12EBggMDsa8J8D5U2Q@mail.gmail.com>
-References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
-	<87lh9f4dbt.fsf@free-electrons.com>
-	<CAPv3WKc+HbirDxKy5n6W5O5BUTDEc3X5et5dTKdp81WOXjphGg@mail.gmail.com>
-	<874mg248jf.fsf@free-electrons.com>
-	<CAPv3WKc8VrgH+aAfHBMwvuOxP17SnXCajtzpxmXf4rt+WFcE-w@mail.gmail.com>
-	<CAPv3WKdAhk71HW8nvMWXUApySE5_WNgx4PDrj4+R4Tv6FVGNqA@mail.gmail.com>
-	<87si3l2kx5.fsf@free-electrons.com>
-	<87two0254c.fsf@free-electrons.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: ipsec impact on performance
+Date: Wed, 02 Dec 2015 14:25:20 -0800
+Message-ID: <1449095120.6379.2.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151201175953.GC21252@oracle.com>
+	 <CALx6S35uLqbuJTAFLMeT-BcyZw_fksz+7BkS=Nt7_3-nYMHF2A@mail.gmail.com>
+	 <20151201183720.GE21252@oracle.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CBE0ED7@AcuExch.aculab.com>
+	 <20151202121156.GK23178@oracle.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CBE0F39@AcuExch.aculab.com>
+	 <20151202205028.GB15262@oracle.com>
+	 <CALx6S34yqw_vJ+r21Br9O7y5NqzvA264ot7=GBTHe=FxWqh=AQ@mail.gmail.com>
+	 <20151202211201.GD15262@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Yair Mahalalel <myair@marvell.com>, netdev@vger.kernel.org,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	linux-kernel@vger.kernel.org, Evan Wang <xswang@marvell.com>,
-	Tomasz Nowicki <tn@semihalf.com>, nadavh@marvell.com,
-	Lior Amsalem <alior@marvell.com>,
-	Grzegorz Jaszczyk <jaz@semihalf.com>, nitroshift@yahoo.com,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87two0254c.fsf@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>,
+	David Laight <David.Laight@aculab.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
+	Rick Jones <rick.jones2@hpe.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33705 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757174AbbLBWZX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 17:25:23 -0500
+In-Reply-To: <20151202211201.GD15262@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Gregory,
+On Wed, 2015-12-02 at 16:12 -0500, Sowmini Varadhan wrote:
 
-2015-12-02 17:21 GMT+01:00 Gregory CLEMENT <gregory.clement@free-electr=
-ons.com>:
-> Hi,
->
->  On mer., d=C3=A9c. 02 2015, Gregory CLEMENT <gregory.clement@free-el=
-ectrons.com> wrote:
->
->>>
->>> So far the issue may have been not noticed, because in every IO dri=
-ver
->>> using mvebu_mbus_dram_info for configuring MBUS windows, there's
->>> following substraction:
->>> (cs->size - 1) & 0xfffff000
->>>
->>> I think there are two options:
->>> 1. Change size type to u64.
->>
->> If we switch to u64 we really must pay attention to be sure that it
->> won't be used to be written in a register, but the regsiter remains
->> 32bits.
->>
->>> 2. Change condition in mvebu_mbus_get_dram_win_info to:
->>> if (cs->base <=3D phyaddr && phyaddr <=3D (cs->base + cs->size -1))
->>
->> I think it would be the best solution.
->
-> So I applied the following patch:
-> --- a/drivers/bus/mvebu-mbus.c
-> +++ b/drivers/bus/mvebu-mbus.c
-> @@ -964,7 +964,7 @@ int mvebu_mbus_get_dram_win_info(phys_addr_t phya=
-ddr, u8 *target, u8 *attr)
->         for (i =3D 0; i < dram->num_cs; i++) {
->                 const struct mbus_dram_window *cs =3D dram->cs + i;
->
-> -               if (cs->base <=3D phyaddr && phyaddr <=3D (cs->base +=
- cs->size)) {
-> +               if (cs->base <=3D phyaddr && phyaddr <=3D (cs->base +=
- cs->size - 1)) {
->                         *target =3D dram->mbus_dram_target_id;
->                         *attr =3D cs->mbus_attr;
->                         return 0;
->
-> I didn't get any errors during boot related to the BM. However I did =
-not
-> manage to use an ethernet interface. The udhcpc never managed to get =
-an
-> IP and if I set the IP manually I could not ping.
->
-> But on Armada 388 GP I didn't have any issue.
->
-> Do you have some idea about waht I could check?
->
+> IPv6 would be an interesting academic exercise
 
-I replaced 2GB with 8GB DIMM and after that, on the same kernel/board,
-I can't ping either. Very strange, but as I can reproduce the issue,
-don't debug it, I will.
-
-Best regards,
-Marcin
+Really, you made my day !
