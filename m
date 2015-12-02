@@ -1,43 +1,77 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Thu, 3 Dec 2015 01:30:48 +0900
-Message-ID: <CAKD1Yr1vsdrxb6YvOB3bbxuLso+hniexWDciOeWvv1fnyfYP1w@mail.gmail.com>
-References: <CAHo-OoyN7OgvHSuXxjk7C4FitXhoWffOxY1wkQBWwi+nc013_w@mail.gmail.com>
- <1448937147-38043-1-git-send-email-lorenzo@google.com> <CALx6S36fb7C9-LCo5egFZyOo1mZ1A9kHN6xpgNUUQS=njQ8Y-g@mail.gmail.com>
- <CAKD1Yr2qyKCmfo75+OpsfqrUoFquXiA_GqwVr_BsU1AW5MmPbQ@mail.gmail.com> <CALx6S37SvPk319=hC8mVwLHsa8T_6wed41wcqLgudR8yj3akdg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Erik Kline <ek@google.com>,
-	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-To: Tom Herbert <tom@herbertland.com>
+From: Thierry Reding <thierry.reding@gmail.com>
+Subject: [PATCH 2/4] net: bcm63xx: Use platform_register/unregister_drivers()
+Date: Wed,  2 Dec 2015 17:30:27 +0100
+Message-ID: <1449073829-12438-2-git-send-email-thierry.reding@gmail.com>
+References: <1449073829-12438-1-git-send-email-thierry.reding@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f177.google.com ([209.85.160.177]:34390 "EHLO
-	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932798AbbLBQbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 11:31:09 -0500
-Received: by ykfs79 with SMTP id s79so53182596ykf.1
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 08:31:09 -0800 (PST)
-In-Reply-To: <CALx6S37SvPk319=hC8mVwLHsa8T_6wed41wcqLgudR8yj3akdg@mail.gmail.com>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:33496 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751670AbbLBQad (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 11:30:33 -0500
+In-Reply-To: <1449073829-12438-1-git-send-email-thierry.reding@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 3, 2015 at 1:12 AM, Tom Herbert <tom@herbertland.com> wrote:
-> The in kernel caller would already have a pointer to the socket so the
-> call would just be sk->sk_prot->destroy(sk). That call should make its
-> way down to same backend function in TCP that the diag path would use.
-> We need this in the kernel for the same reasons you want this in
-> userspace, if a third party hits an unrecoverable error on the socket
-> it needs to signal this condition to the owner of the socket but can't
-> actually close the socket (useful to RDS, KCM, probably
-> TLS-in-kernel).
+From: Thierry Reding <treding@nvidia.com>
 
-Oh, I see, yes. You're thinking of a case where multiple protocols
-support this destroy operation. An in-kernel caller has a pointer to a
-sk that it wants to unwedge, but doesn't need to know which destroy
-function to use for which protocol, it just does "if
-(sk->sk_prot->destroy != NULL) sk->sk_prot_destroy(sk)". I think that
-should be a trivial change on top of what I have.
+These new helpers simplify implementing multi-driver modules and
+properly handle failure to register one driver by unregistering all
+previously registered drivers.
+
+Signed-off-by: Thierry Reding <treding@nvidia.com>
+---
+Applies on top of next-20151127.
+
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c | 28 ++++++++--------------------
+ 1 file changed, 8 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index 8b1929e9f698..a54bafad3538 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -2884,33 +2884,21 @@ struct platform_driver bcm63xx_enet_shared_driver = {
+ 	},
+ };
+ 
++static struct platform_driver * const drivers[] = {
++	&bcm63xx_enet_shared_driver,
++	&bcm63xx_enet_driver,
++	&bcm63xx_enetsw_driver,
++};
++
+ /* entry point */
+ static int __init bcm_enet_init(void)
+ {
+-	int ret;
+-
+-	ret = platform_driver_register(&bcm63xx_enet_shared_driver);
+-	if (ret)
+-		return ret;
+-
+-	ret = platform_driver_register(&bcm63xx_enet_driver);
+-	if (ret)
+-		platform_driver_unregister(&bcm63xx_enet_shared_driver);
+-
+-	ret = platform_driver_register(&bcm63xx_enetsw_driver);
+-	if (ret) {
+-		platform_driver_unregister(&bcm63xx_enet_driver);
+-		platform_driver_unregister(&bcm63xx_enet_shared_driver);
+-	}
+-
+-	return ret;
++	return platform_register_drivers(drivers, ARRAY_SIZE(drivers));
+ }
+ 
+ static void __exit bcm_enet_exit(void)
+ {
+-	platform_driver_unregister(&bcm63xx_enet_driver);
+-	platform_driver_unregister(&bcm63xx_enetsw_driver);
+-	platform_driver_unregister(&bcm63xx_enet_shared_driver);
++	platform_unregister_drivers(drivers, ARRAY_SIZE(drivers));
+ }
+ 
+ 
+-- 
+2.5.0
