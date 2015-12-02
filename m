@@ -1,8 +1,8 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next V3 07/17] hv_netvsc: Eliminate send_completion_ctx
- from struct hv_netvsc_packet
-Date: Tue,  1 Dec 2015 16:43:09 -0800
-Message-ID: <1449016999-9796-7-git-send-email-kys@microsoft.com>
+Subject: [PATCH net-next V3 14/17] hv_netvsc: Eliminate completion_func from
+ struct hv_netvsc_packet
+Date: Tue,  1 Dec 2015 16:43:16 -0800
+Message-ID: <1449016999-9796-14-git-send-email-kys@microsoft.com>
 References: <1449016978-9755-1-git-send-email-kys@microsoft.com>
  <1449016999-9796-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
@@ -24,53 +24,52 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Eliminate send_completion_ctx from struct hv_netvsc_packet.
+Eliminate completion_func from struct hv_netvsc_packet.
 
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h |    1 -
- drivers/net/hyperv/netvsc.c     |    3 +--
- drivers/net/hyperv/netvsc_drv.c |    1 -
- 3 files changed, 1 insertions(+), 4 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   |    1 -
+ drivers/net/hyperv/netvsc_drv.c   |    3 ---
+ drivers/net/hyperv/rndis_filter.c |    1 -
+ 3 files changed, 0 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 9a3c972..9504ca9 100644
+index 65e340e..ddf51a0 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -146,7 +146,6 @@ struct hv_netvsc_packet {
+@@ -137,7 +137,6 @@ struct hv_netvsc_packet {
+ 	u8 rmsg_size; /* RNDIS header and PPI size */
+ 	u8 rmsg_pgcnt; /* page count of RNDIS header and PPI */
+ 	u8 page_buf_cnt;
+-	u8 completion_func;
  
- 
- 	u64 send_completion_tid;
--	void *send_completion_ctx;
- 	struct hv_page_buffer *page_buf;
- };
- 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 34c16d1..0e0b723 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -653,8 +653,7 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
- 				netvsc_free_send_slot(net_device, send_index);
- 			q_idx = nvsc_packet->q_idx;
- 			channel = incoming_channel;
--			netvsc_xmit_completion(nvsc_packet->
--					       send_completion_ctx);
-+			netvsc_xmit_completion(nvsc_packet);
- 		}
- 
- 		num_outstanding_sends =
+ 	u16 vlan_tci;
+ 	u16 q_idx;
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 6d71a1e..947b778 100644
+index eb0c6fa..bc4be1d 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -489,7 +489,6 @@ check_size:
+@@ -483,9 +483,6 @@ check_size:
  
- 	/* Set the completion routine */
- 	packet->completion_func = 1;
--	packet->send_completion_ctx = packet;
- 	packet->send_completion_tid = (unsigned long)skb;
+ 	memset(rndis_msg, 0, RNDIS_AND_PPI_SIZE);
  
+-	/* Set the completion routine */
+-	packet->completion_func = 1;
+-
  	isvlan = packet->vlan_tci & VLAN_TAG_PRESENT;
+ 
+ 	/* Add the rndis header */
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 0b98674..6ba5adf 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -236,7 +236,6 @@ static int rndis_filter_send_request(struct rndis_device *dev,
+ 			pb[0].len;
+ 	}
+ 
+-	packet->completion_func = 0;
+ 	packet->xmit_more = false;
+ 
+ 	ret = netvsc_send(dev->net_dev->dev, packet, NULL, &pb, NULL);
 -- 
 1.7.4.1
