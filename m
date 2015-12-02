@@ -1,85 +1,92 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next 13/15] ixgbe: Handle extended IPv6 headers in tx path
-Date: Wed, 2 Dec 2015 08:21:02 -0800
-Message-ID: <565F1A6E.5010305@gmail.com>
-References: <1449059468-87025-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1449059468-87025-14-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH 00/13] mvneta Buffer Management and enhancements
+Date: Wed, 02 Dec 2015 17:21:39 +0100
+Message-ID: <87two0254c.fsf@free-electrons.com>
+References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
+	<87lh9f4dbt.fsf@free-electrons.com>
+	<CAPv3WKc+HbirDxKy5n6W5O5BUTDEc3X5et5dTKdp81WOXjphGg@mail.gmail.com>
+	<874mg248jf.fsf@free-electrons.com>
+	<CAPv3WKc8VrgH+aAfHBMwvuOxP17SnXCajtzpxmXf4rt+WFcE-w@mail.gmail.com>
+	<CAPv3WKdAhk71HW8nvMWXUApySE5_WNgx4PDrj4+R4Tv6FVGNqA@mail.gmail.com>
+	<87si3l2kx5.fsf@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33273 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758745AbbLBQVF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 11:21:05 -0500
-Received: by pabfh17 with SMTP id fh17so46253549pab.0
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 08:21:04 -0800 (PST)
-In-Reply-To: <1449059468-87025-14-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Yair Mahalalel <myair@marvell.com>, netdev@vger.kernel.org,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	linux-kernel@vger.kernel.org, Evan Wang <xswang@marvell.com>,
+	Tomasz Nowicki <tn@semihalf.com>, nadavh@marvell.com,
+	Lior Amsalem <alior@marvell.com>,
+	Grzegorz Jaszczyk <jaz@semihalf.com>, nitroshift@yahoo.com,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-arm-kernel\@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Marcin Wojtas <mw@semihalf.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87si3l2kx5.fsf@free-electrons.com> (Gregory CLEMENT's message of
+	"Wed, 02 Dec 2015 11:40:22 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/02/2015 04:31 AM, Jeff Kirsher wrote:
-> From: Mark Rustad <mark.d.rustad@intel.com>
->
-> Check for and handle IPv6 extended headers so that Tx checksum
-> offload can be done. Thanks to Tom Herbert for noticing this
-> problem. Note that the goto back to process the final protocol
-> value can never result in a loop, because it cannot be yet
-> another extended header. Handling them in this manner avoids
-> adding further checks to the non-extended header hot path.
->
-> Reported-by: Tom Herbert <tom@herbertland.com>
-> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 19 ++++++++++++++++++-
->   1 file changed, 18 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index a10a0fa..b7f1133 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -7095,6 +7095,7 @@ static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
->   			}
->   		}
->
-> +again:
->   		switch (l4_hdr) {
->   		case IPPROTO_TCP:
->   			type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_TCP;
-> @@ -7111,7 +7112,23 @@ static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
->   					IXGBE_ADVTXD_L4LEN_SHIFT;
->   			break;
->   		default:
-> -			if (unlikely(net_ratelimit())) {
-> +			if (network_hdr.ipv4->version == 6 &&
-> +			    ipv6_ext_hdr(l4_hdr)) {
-> +				unsigned int offset = 0;
-> +				int ret;
-> +
-> +				ret = ipv6_find_hdr(skb, &offset, -1, NULL,
-> +						    NULL);
-> +				if (ret > 0) {
-> +					l4_hdr = ret;
-> +					goto again;
-> +				}
-> +				if (unlikely(net_ratelimit())) {
-> +					dev_warn(tx_ring->dev,
-> +						 "ipv6_find_hdr returned %d\n",
-> +						 ret);
-> +				}
-> +			} else if (unlikely(net_ratelimit())) {
->   				dev_warn(tx_ring->dev,
->   				 "partial checksum but l4 proto=%x!\n",
->   				 l4_hdr);
->
+Hi,
+=20
+ On mer., d=C3=A9c. 02 2015, Gregory CLEMENT <gregory.clement@free-elec=
+trons.com> wrote:
 
-This doesn't look right.  How come this doesn't match the implementation 
-you did for the ixgbevf driver?  If I am not mistaken this approach had 
-issues where it could spin forever didn't it?
+>>
+>> So far the issue may have been not noticed, because in every IO driv=
+er
+>> using mvebu_mbus_dram_info for configuring MBUS windows, there's
+>> following substraction:
+>> (cs->size - 1) & 0xfffff000
+>>
+>> I think there are two options:
+>> 1. Change size type to u64.
+>
+> If we switch to u64 we really must pay attention to be sure that it
+> won't be used to be written in a register, but the regsiter remains
+> 32bits.
+>
+>> 2. Change condition in mvebu_mbus_get_dram_win_info to:
+>> if (cs->base <=3D phyaddr && phyaddr <=3D (cs->base + cs->size -1))
+>
+> I think it would be the best solution.
 
-- Alex
+So I applied the following patch:
+--- a/drivers/bus/mvebu-mbus.c
++++ b/drivers/bus/mvebu-mbus.c
+@@ -964,7 +964,7 @@ int mvebu_mbus_get_dram_win_info(phys_addr_t phyadd=
+r, u8 *target, u8 *attr)
+        for (i =3D 0; i < dram->num_cs; i++) {
+                const struct mbus_dram_window *cs =3D dram->cs + i;
+=20
+-               if (cs->base <=3D phyaddr && phyaddr <=3D (cs->base + c=
+s->size)) {
++               if (cs->base <=3D phyaddr && phyaddr <=3D (cs->base + c=
+s->size - 1)) {
+                        *target =3D dram->mbus_dram_target_id;
+                        *attr =3D cs->mbus_attr;
+                        return 0;
+
+I didn't get any errors during boot related to the BM. However I did no=
+t
+manage to use an ethernet interface. The udhcpc never managed to get an
+IP and if I set the IP manually I could not ping.
+
+But on Armada 388 GP I didn't have any issue.
+
+Do you have some idea about waht I could check?
+
+Gregory
+
+
+--=20
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
