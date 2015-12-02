@@ -1,98 +1,73 @@
-From: Chris Snook <chris.snook@gmail.com>
-Subject: Re: [PATCH] Improve Atheros ethernet driver not to do order 4
- GFP_ATOMIC allocation
-Date: Wed, 02 Dec 2015 22:43:31 +0000
-Message-ID: <CAMXMK6u1vQ772SGv-J3cKvOmS6QRAjjQLYiSiWO2+T=HRTiK1A@mail.gmail.com>
-References: <20151127082010.GA2500@dhcp22.suse.cz> <20151128145113.GB4135@amd>
- <20151130132129.GB21950@dhcp22.suse.cz> <20151201.153517.224543138214404348.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary=001a1141b7e08020590525f20178
-Cc: pavel@ucw.cz, akpm@osdl.org, linux-kernel@vger.kernel.org,
-	jcliburn@gmail.com, netdev@vger.kernel.org, rjw@rjwysocki.net,
-	linux-mm@kvack.org, nic-devel@qualcomm.com, ronangeles@gmail.com,
-	ebiederm@xmission.com
-To: David Miller <davem@davemloft.net>, mhocko@kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20151201.153517.224543138214404348.davem@davemloft.net>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Kamal Mostafa <kamal@canonical.com>
+Subject: [3.13.y-ckt stable] Patch "can: Use correct type in sizeof() in nla_put()" has been added to staging queue
+Date: Wed,  2 Dec 2015 14:53:30 -0800
+Message-ID: <1449096810-20738-1-git-send-email-kamal@canonical.com>
+Cc: Wolfgang Grandegger <wg@grandegger.com>, netdev@vger.kernel.org,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Kamal Mostafa <kamal@canonical.com>,
+	kernel-team@lists.ubuntu.com
+To: Marek Vasut <marex@denx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:47392 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757241AbbLBWxf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 17:53:35 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---001a1141b7e08020590525f20178
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+This is a note to let you know that I have just added a patch titled
 
-On Tue, Dec 1, 2015 at 12:35 PM David Miller <davem@davemloft.net> wrote:
+    can: Use correct type in sizeof() in nla_put()
 
-> From: Michal Hocko <mhocko@kernel.org>
-> Date: Mon, 30 Nov 2015 14:21:29 +0100
->
-> > On Sat 28-11-15 15:51:13, Pavel Machek wrote:
-> >>
-> >> atl1c driver is doing order-4 allocation with GFP_ATOMIC
-> >> priority. That often breaks  networking after resume. Switch to
-> >> GFP_KERNEL. Still not ideal, but should be significantly better.
-> >
-> > It is not clear why GFP_KERNEL can replace GFP_ATOMIC safely neither
-> > from the changelog nor from the patch context.
->
-> Earlier in the function we do a GFP_KERNEL kmalloc so:
->
-> =C2=AF\_(=E3=83=84)_/=C2=AF
->
-> It should be fine.
->
+to the linux-3.13.y-queue branch of the 3.13.y-ckt extended stable tree 
+which can be found at:
 
-AFAICT, the people who benefit from GFP_ATOMIC are the people running all
-their storage over NFS/iSCSI who are suspending their machines while
-they're so busy they don't have any clean order 4 pagecache to drop, and
-want the machine to panic rather than hang. The people who benefit from
-GFP_KERNEL are the people who use their laptop for a while, put it to
-sleep, and then wake it up again. I think the latter is the use case we
-should be optimizing for.
+    http://kernel.ubuntu.com/git/ubuntu/linux.git/log/?h=linux-3.13.y-queue
 
--- Chris
+This patch is scheduled to be released in version 3.13.11-ckt31.
 
---001a1141b7e08020590525f20178
-Content-Type: text/html; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+If you, or anyone else, feels it should not be added to this tree, please 
+reply to this email.
 
-<div dir=3D"ltr"><div class=3D"gmail_quote"><div dir=3D"ltr">On Tue, Dec 1,=
- 2015 at 12:35 PM David Miller &lt;<a href=3D"mailto:davem@davemloft.net">d=
-avem@davemloft.net</a>&gt; wrote:<br></div><blockquote class=3D"gmail_quote=
-" style=3D"margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">F=
-rom: Michal Hocko &lt;<a href=3D"mailto:mhocko@kernel.org" target=3D"_blank=
-">mhocko@kernel.org</a>&gt;<br>
-Date: Mon, 30 Nov 2015 14:21:29 +0100<br>
-<br>
-&gt; On Sat 28-11-15 15:51:13, Pavel Machek wrote:<br>
-&gt;&gt;<br>
-&gt;&gt; atl1c driver is doing order-4 allocation with GFP_ATOMIC<br>
-&gt;&gt; priority. That often breaks=C2=A0 networking after resume. Switch =
-to<br>
-&gt;&gt; GFP_KERNEL. Still not ideal, but should be significantly better.<b=
-r>
-&gt;<br>
-&gt; It is not clear why GFP_KERNEL can replace GFP_ATOMIC safely neither<b=
-r>
-&gt; from the changelog nor from the patch context.<br>
-<br>
-Earlier in the function we do a GFP_KERNEL kmalloc so:<br>
-<br>
-=C2=AF\_(=E3=83=84)_/=C2=AF<br>
-<br>
-It should be fine.<br></blockquote><div><br></div><div>AFAICT, the people w=
-ho benefit from GFP_ATOMIC are the people running all their storage over NF=
-S/iSCSI who are suspending their machines while they&#39;re so busy they do=
-n&#39;t have any clean order 4 pagecache to drop, and want the machine to p=
-anic rather than hang. The people who benefit from GFP_KERNEL are the peopl=
-e who use their laptop for a while, put it to sleep, and then wake it up ag=
-ain. I think the latter is the use case we should be optimizing for.<br><br=
-></div><div>-- Chris<br></div></div></div>
+For more information about the 3.13.y-ckt tree, see
+https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
 
---001a1141b7e08020590525f20178--
+Thanks.
+-Kamal
 
+------
+
+>From 42f563e7f25516ea3c00acd20a68b01b507558dc Mon Sep 17 00:00:00 2001
+From: Marek Vasut <marex@denx.de>
+Date: Fri, 30 Oct 2015 13:48:19 +0100
+Subject: can: Use correct type in sizeof() in nla_put()
+
+commit 562b103a21974c2f9cd67514d110f918bb3e1796 upstream.
+
+The sizeof() is invoked on an incorrect variable, likely due to some
+copy-paste error, and this might result in memory corruption. Fix this.
+
+Signed-off-by: Marek Vasut <marex@denx.de>
+Cc: Wolfgang Grandegger <wg@grandegger.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Kamal Mostafa <kamal@canonical.com>
+---
+ drivers/net/can/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index 3230ac8..5932b17 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -730,7 +730,7 @@ static int can_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	    (priv->bittiming_const &&
+ 	     nla_put(skb, IFLA_CAN_BITTIMING_CONST,
+ 		     sizeof(*priv->bittiming_const), priv->bittiming_const)) ||
+-	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(cm), &priv->clock) ||
++	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(priv->clock), &priv->clock) ||
+ 	    nla_put_u32(skb, IFLA_CAN_STATE, state) ||
+ 	    nla_put(skb, IFLA_CAN_CTRLMODE, sizeof(cm), &cm) ||
+ 	    nla_put_u32(skb, IFLA_CAN_RESTART_MS, priv->restart_ms) ||
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.9.1
