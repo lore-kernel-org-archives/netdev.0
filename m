@@ -1,47 +1,54 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: ipsec impact on performance
-Date: Wed, 2 Dec 2015 08:25:11 -0500
-Message-ID: <20151202132511.GL23178@oracle.com>
-References: <20151201175953.GC21252@oracle.com>
- <CALx6S35uLqbuJTAFLMeT-BcyZw_fksz+7BkS=Nt7_3-nYMHF2A@mail.gmail.com>
- <20151201183720.GE21252@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CBE0ED7@AcuExch.aculab.com>
- <20151202121156.GK23178@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CBE0F39@AcuExch.aculab.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [patch net-next 24/26] mlxsw: spectrum: Implement LAG port
+ join/leave
+Date: Wed, 2 Dec 2015 06:01:32 -0800
+Message-ID: <20151202140130.GP18107@gospo.home.greyhouse.net>
+References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
+ <1448977744-17930-25-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:36167 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758227AbbLBOBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 09:01:36 -0500
+Received: by obcse5 with SMTP id se5so29431760obc.3
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 06:01:36 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBE0F39@AcuExch.aculab.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1448977744-17930-25-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (12/02/15 12:41), David Laight wrote:
+On Tue, Dec 01, 2015 at 02:49:02PM +0100, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Also what/how are you measuring cpu use.
-> I'm not sure anything on Linux gives you a truly accurate value
-> when processes are running for very short periods.
+> Implement basic procedures for joining/leaving port to/from LAG. That
+> includes HW setup of collector, core LAG mapping setup.
+> 
+[...]
+> @@ -1937,6 +2153,18 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
+>  				mlxsw_sp_port->bridged = 0;
+>  				mlxsw_sp_master_bridge_dec(mlxsw_sp, upper_dev);
+>  			}
+> +		} else if (netif_is_lag_master(upper_dev)) {
+> +			if (info->linking) {
+> +				err = mlxsw_sp_port_lag_join(mlxsw_sp_port,
+> +							     upper_dev);
+> +				if (err)
+> +					netdev_err(dev, "Failed to join link aggregation\n");
+> +			} else {
+> +				err = mlxsw_sp_port_lag_leave(mlxsw_sp_port,
+> +							      upper_dev);
+> +				if (err)
+> +					netdev_err(dev, "Failed to leave link aggregation\n");
+> +			}
+>  		}
+>  		break;
+>  	}
 
-I was using mpstat, while running iperf. Should I be using
-something else? or running it for longer intervals?
-
-but I hope we are not doomed at 1 Gbps, or else security itself would
-come at a very unattractive cost. Anyway, even aside from crypto.
-we need to have some way to add TCP options (that depend on the 
-contents of the tcp header) etc post-GSO, in the interest of not 
-ossifying the stack.
-
-> On an SMP system you also get big effects when work is switched
-> between cpus. I've got some tests that run a lot faster if I
-> put all but one of the cpus into a busy-loop in userspace
-> (eg: while :; do :; done)!
-
-yes Rick Jones also pointed the same thing to me, and one of the
-things I was going to try out later today is to instrument the
-effects of pinning irqs and iperf threads to a specific cpu.
-
---Sowmini
+If I'm reading this correctly, moving an offloaded port into a bond/team
+or changing configuration options isn't synchronous.  It seems like the
+lack of immediate feedback to the caller is not desired.
