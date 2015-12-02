@@ -1,43 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 1/4] net: support per queue tx_usecs in sysfs
-Date: Tue, 01 Dec 2015 21:27:00 -0500 (EST)
-Message-ID: <20151201.212700.1291998408162014445.davem@davemloft.net>
-References: <1448956892-15509-1-git-send-email-kan.liang@intel.com>
-	<565E1B8E.4040603@gmail.com>
-	<20151201154454.000041a3@unknown>
+Subject: Re: [PATCH net-next V3 00/17] hv_netvsc: Eliminate the additional
+ head room
+Date: Tue, 01 Dec 2015 21:54:10 -0500 (EST)
+Message-ID: <20151201.215410.1740396521919421561.davem@davemloft.net>
+References: <1449016978-9755-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, kan.liang@intel.com, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org, andi@firstfloor.org,
-	jeffrey.t.kirsher@intel.com, shannon.nelson@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	matthew.vick@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com, john.r.fastabend@intel.com,
-	ogerlitz@mellanox.com, edumazet@google.com, jiri@mellanox.com,
-	sfeldma@gmail.com, gospo@cumulusnetworks.com,
-	sasha.levin@oracle.com, dsahern@gmail.com, tj@kernel.org,
-	cascardo@redhat.com, corbet@lwn.net
-To: jesse.brandeburg@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34093 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755473AbbLBC1E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 21:27:04 -0500
-In-Reply-To: <20151201154454.000041a3@unknown>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
+To: kys@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1449016978-9755-1-git-send-email-kys@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Date: Tue, 1 Dec 2015 15:44:54 -0800
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Tue,  1 Dec 2015 16:42:58 -0800
 
-> While I agree that ethtool provides a similar functionality, ethtool
-> was designed (particularly the ethtool -C/c commands) around one queue
-> NICs.  We can't change the output or functionality of the user
-> interface without breaking a bunch of user's scripts and stuff.
+> In an attempt to avoid having to allocate memory on the send path, the netvsc
+> driver was requesting additional head room so that both rndis header and the
+> netvsc packet (the state that had to persist) could be placed in the skb.
+> Since the amount of head room requested was exceeding the default head room
+> as set in LL_MAX_HEADER, we were forcing a reallocation of skb.
+> 
+> With this patch-set, I have reduced the size of the netvsc packet to less
+> than 20 bytes and with this reduction we don't need to ask for any additional
+> headroom. We place the rndis header in the skb head room and we place the
+> netvsc packet in control buffer area in the skb.
+> 
+> V2:  - Addressed  review comments:
+>      - Eliminated more fields from netvsc packet structure.
+> 
+> V3:  - Fixed a typo in patch: hv_netvsc: Don't ask for additional head room in the skb.
 
-See my suggestion, we can encapsulate existing ethtool commands inside
-of a new command that specifies operations that are to be applied to
-specific queues.
-
-Do not use sysfs for this.
+Series applied, thanks.
