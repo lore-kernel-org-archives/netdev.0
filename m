@@ -1,85 +1,133 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Wed, 02 Dec 2015 15:35:53 -0800
-Message-ID: <565F8059.3010101@gmail.com>
-References: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>	<1448312579-159544-2-git-send-email-anjali.singhai@intel.com>	<CALx6S34+_AtjO94znh7vW4py5a8Nj1g6b-sjGPCa4U1Mc6Y6-w@mail.gmail.com>	<20151129.222138.1582847465760563254.davem@davemloft.net>	<CAEh+42ivCoBE-vAwWpHHmHYqcXzKP+ceZSvg2rEPh7Db3M1k6Q@mail.gmail.com>	<CALx6S35_rXPsYUGcc+yrQX8K1dOcL4aWnmQsa-6X6xULo9BBbg@mail.gmail.com>	<CAEh+42gvn=cjZ4E3nACR7=-_a4iFS7OwEsSb+SQGme2k19kVAA@mail.gmail.com>	<CALx6S37EoLM=bZ6sSAiiF81X=SvTvoNAmkbH5Dmn9zSvR2oiUA@mail.gmail.com>	<20151201154445.GF29497@tuxdriver.com>	<1448984968.3382143.454794705.68D88B7D@webmail.messagingengine.com>	<CALx6S36i7Ee3Njs6OPVndyoGz1OpYss3YRPG8KO2ehxvAe50dA@mail.gmail.com>	<1449074114.3806253.455834737.16948E5F@webmail.messagingengine.com> <CALx6S34Zqn1t4RP
- kAoa3QT-vWLvawnBN19qEZ12P-YiCEckxHw@mail.gmail.com>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: gigaset: freeing an active object
+Date: Wed, 2 Dec 2015 18:48:17 -0500
+Message-ID: <565F8341.7010704@hurleysoftware.com>
+References: <56587467.8050102@oracle.com> <565B1A1B.8020503@imap.cc>
+ <565B4256.6080101@hurleysoftware.com> <565B4844.9020600@imap.cc>
+ <1448828800.2603.17.camel@tiscali.nl> <1448839396.2891.14.camel@tiscali.nl>
+ <1448906497.3546.16.camel@tiscali.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Jesse Gross <jesse@kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kiran Patil <kiran.patil@intel.com>
-To: Tom Herbert <tom@herbertland.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:34022 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757378AbbLBXmW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 18:42:22 -0500
-Received: by pfbg73 with SMTP id g73so2597477pfb.1
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 15:42:22 -0800 (PST)
-In-Reply-To: <CALx6S34Zqn1t4RPkAoa3QT-vWLvawnBN19qEZ12P-YiCEckxHw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: isdn@linux-pingi.de, davem@davemloft.net,
+	gigaset307x-common@lists.sourceforge.net,
+	LKML <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>
+To: Paul Bolle <pebolle@tiscali.nl>, Tilman Schmidt <tilman@imap.cc>,
+	Sasha Levin <sasha.levin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448906497.3546.16.camel@tiscali.nl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[...]
-
->>
->> I wonder why we need protocol generic offloads? I know there are
->> currently a lot of overlay encapsulation protocols. Are there many more
->> coming?
->>
-> Yes, and assume that there are more coming with an unbounded limit
-> (for instance I just noticed today that there is a netdev1.1 talk on
-> supporting GTP in the kernel). Besides, this problem space not just
-> limited to offload of encapsulation protocols, but how to generalize
-> offload of any transport, IPv[46], application protocols, protocol
-> implemented in user space, security protocols, etc.
+On 11/30/2015 01:01 PM, Paul Bolle wrote:
+> On ma, 2015-11-30 at 00:23 +0100, Paul Bolle wrote:
+>> Relevant part of dmesg attached at the end of this message. This
+>> should give me (and Tilman too?) an entry to get to bottom of this. 
+>> Since this is relevant for anyone with just the ser-gigaset module 
+>> installed, I hope to do that soon.
 > 
->> Besides, this offload is about TSO and RSS and they do need to parse the
->> packet to get the information where the inner header starts. It is not
->> only about checksum offloading.
->>
-> RSS does not require the device to parse the inner header. All the UDP
-> encapsulations protocols being defined set the source port to entropy
-> flow value and most devices already support RSS+UDP (just needs to be
-> enabled) so this works just fine with dumb NICs. In fact, this is one
-> of the main motivations of encapsulating UDP in the first place, to
-> leverage existing RSS and ECMP mechanisms. The more general solution
-> is to use IPv6 flow label (RFC6438). We need HW support to include the
-> flow label into the hash for ECMP and RSS, but once we have that much
-> of the motivation for using UDP goes away and we can get back to just
-> doing GRE/IP, IPIP, MPLS/IP, etc. (hence eliminate overhead and
-> complexity of UDP encap).
+> I'm planning to send something similar to the attached draft to netdev
+> in a few days. It fixes the issue on my machine. Sascha, does it fix
+> this issue for syzkaller too? 
 > 
->> Please provide a sketch up for a protocol generic api that can tell
->> hardware where a inner protocol header starts that supports vxlan,
->> vxlan-gpe, geneve and ipv6 extension headers and knows which protocol is
->> starting at that point.
->>
-> BPF. Implementing protocol generic offloads are not just a HW concern
-> either, adding kernel GRO code for every possible protocol that comes
-> along doesn't scale well. This becomes especially obvious when we
-> consider how to provide offloads for applications protocols. If the
-> kernel provides a programmable framework for the offloads then
-> application protocols, such as QUIC, could use use that without
-> needing to hack the kernel to support the specific protocol (which no
-> one wants!). Application protocol parsing in KCM and some other use
-> cases of BPF have already foreshadowed this, and we are working on a
-> prototype for a BPF programmable engine in the kernel. Presumably,
-> this same model could eventually be applied as the HW API to
-> programmable offload.
+> Should (something like) this go into stable too?
 
-Just keying off the last statement there...
+Definitely for stable since it has a userspace triggerable component.
 
-I think BPF programs are going to be hard to translate into hardware
-for most devices. The problem is the BPF programs in general lack
-structure. A parse graph would be much more friendly for hardware or
-at minimum the BPF program would need to be a some sort of
-well-structured program so a driver could turn that into a parse graph.
+> Any further comments on that draft are appreciated too, of course.
+> 
+> 
+> Paul Bolle
+> ------
+> [DRAFT] gigaset: don't free() a struct platform_device
+> 
+> One is not supposed to free() a struct platform_device. Instead one
+> should, in the common case, only call platform_device_unregister(). That
+> will drop the platform device's reference count. (Actually it's the
+> reference count of the embedded kobject that is important here. But for
+> users of platform devices that's basically irrelevant.)
+> 
+> So move struct platform_device dev out of struct ser_cardstate, because
+> ser_cardstate is (malloc'ed and) free'd.
+> 
+> Reported-by: Sasha Levin <sasha.levin@oracle.com>
+> Not-yet-signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+> ---
+>  drivers/isdn/gigaset/ser-gigaset.c | 19 ++++++++++---------
+>  1 file changed, 10 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
+> index 375be509e95f..f8ffa253496e 100644
+> --- a/drivers/isdn/gigaset/ser-gigaset.c
+> +++ b/drivers/isdn/gigaset/ser-gigaset.c
+> @@ -42,8 +42,9 @@ MODULE_PARM_DESC(cidmode, "stay in CID mode when idle");
+>  
+>  static struct gigaset_driver *driver;
+>  
+> +static struct platform_device pdev;
+> +
+>  struct ser_cardstate {
+> -	struct platform_device	dev;
+>  	struct tty_struct	*tty;
+>  	atomic_t		refcnt;
+>  	struct completion	dead_cmp;
+> @@ -370,8 +371,8 @@ static void gigaset_freecshw(struct cardstate *cs)
+>  	tasklet_kill(&cs->write_tasklet);
+>  	if (!cs->hw.ser)
+>  		return;
+> -	dev_set_drvdata(&cs->hw.ser->dev.dev, NULL);
+> -	platform_device_unregister(&cs->hw.ser->dev);
+> +	dev_set_drvdata(&pdev.dev, NULL);
+> +	platform_device_unregister(&pdev);
+>  	kfree(cs->hw.ser);
 
-.John
+Tilman,
+
+Is there a 1:1 correspondence and lifetime for the embedded platform
+device and it's containing memory?
+
+I ask because the typical approach for device teardown is to put the
+kfree() in the release method; naturally, that won't work if there
+is some other lifetime issue.
+
+Regards,
+Peter Hurley
+
+
+>  	cs->hw.ser = NULL;
+>  }
+> @@ -401,17 +402,17 @@ static int gigaset_initcshw(struct cardstate *cs)
+>  	}
+>  	cs->hw.ser = scs;
+>  
+> -	cs->hw.ser->dev.name = GIGASET_MODULENAME;
+> -	cs->hw.ser->dev.id = cs->minor_index;
+> -	cs->hw.ser->dev.dev.release = gigaset_device_release;
+> -	rc = platform_device_register(&cs->hw.ser->dev);
+> +	pdev.name = GIGASET_MODULENAME;
+> +	pdev.id = cs->minor_index;
+> +	pdev.dev.release = gigaset_device_release;
+> +	rc = platform_device_register(&pdev);
+>  	if (rc != 0) {
+>  		pr_err("error %d registering platform device\n", rc);
+>  		kfree(cs->hw.ser);
+>  		cs->hw.ser = NULL;
+>  		return rc;
+>  	}
+> -	dev_set_drvdata(&cs->hw.ser->dev.dev, cs);
+> +	dev_set_drvdata(&pdev.dev, cs);
+>  
+>  	tasklet_init(&cs->write_tasklet,
+>  		     gigaset_modem_fill, (unsigned long) cs);
+> @@ -520,7 +521,7 @@ gigaset_tty_open(struct tty_struct *tty)
+>  		goto error;
+>  	}
+>  
+> -	cs->dev = &cs->hw.ser->dev.dev;
+> +	cs->dev = &pdev.dev;
+>  	cs->hw.ser->tty = tty;
+>  	atomic_set(&cs->hw.ser->refcnt, 1);
+>  	init_completion(&cs->hw.ser->dead_cmp);
+> 
