@@ -1,49 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 03/17] net: ethtool: add new
- ETHTOOL_GSETTINGS/SSETTINGS API
-Date: Tue, 01 Dec 2015 22:13:56 -0500 (EST)
-Message-ID: <20151201.221356.2176806670215219133.davem@davemloft.net>
-References: <1448921155-24764-1-git-send-email-ddecotig@gmail.com>
-	<1448921155-24764-4-git-send-email-ddecotig@gmail.com>
+From: Michael Chan <mchan@broadcom.com>
+Subject: [PATCH net 1/3] bnxt_en: Fixed incorrect implementation of ndo_set_mac_address
+Date: Tue, 1 Dec 2015 22:15:39 -0500
+Message-ID: <1449026141-31225-2-git-send-email-mchan@broadcom.com>
+References: <1449026141-31225-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, amirv@mellanox.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-api@vger.kernel.org, linux-mips@linux-mips.org,
-	fcoe-devel@open-fcoe.org, edumazet@google.com,
-	eugenia@mellanox.co.il, ogerlitz@mellanox.com, idos@mellanox.com,
-	joe@perches.com, saeedm@mellanox.com, _govind@gmx.com,
-	VenkatKumar.Duvvuru@Emulex.Com, jeffrey.t.kirsher@intel.com,
-	eyalpe@mellanox.com, pshelar@nicira.com,
-	eswierk@skyportsystems.com, robert.w.love@intel.com,
-	JBottomley@parallels.com, Yuval.Mintz@qlogic.com,
-	decot@googlers.com
-To: ddecotig@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448921155-24764-4-git-send-email-ddecotig@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Jeffrey Huang <huangjw@broadcom.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:59352 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755348AbbLBDPm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 22:15:42 -0500
+In-Reply-To: <1449026141-31225-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Decotigny <ddecotig@gmail.com>
-Date: Mon, 30 Nov 2015 14:05:41 -0800
+From: Jeffrey Huang <huangjw@broadcom.com>
 
-> This patch defines a new ETHTOOL_GSETTINGS/SSETTINGS API, handled by
-> the new get_ksettings/set_ksettings callbacks. This API provides
-> support for most legacy ethtool_cmd fields, adds support for larger
-> link mode masks (up to 4064 bits, variable length), and removes
-> ethtool_cmd deprecated fields (transceiver/maxrxpkt/maxtxpkt).
+The existing ndo_set_mac_address only copies the new MAC addr
+and didn't set the new MAC addr to the HW. The correct way is
+to delete the existing default MAC filter from HW and add
+the new one. Because of RFS filters are also dependent on the
+default mac filter l2 context, the driver must go thru
+close_nic() to delete the default MAC and RFS filters, then
+open_nic() to set the default MAC address to HW.
 
-Please do not define the mask using a non-fixed type.  I know it makes
-it easier to use the various bitmap helper routines if you use 'long',
-but here it is clearly superior to use "u32" for the bitmap type and
-do the bit operations by hand if necessary.
+Signed-off-by: Jeffrey Huang <huangjw@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
-Otherwise you have to have all of this ulong size CPP conditional code
-which is incredibly ugly.
-
-Furthermore you have to use fixed sized types anyways so that we don't
-need compat code to deal with 32-bit userspace applications making
-these ethtool calls into a 64-bit kernel.
-
-THanks.
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index db15c5e..651b587 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -5212,13 +5212,22 @@ init_err:
+ static int bnxt_change_mac_addr(struct net_device *dev, void *p)
+ {
+ 	struct sockaddr *addr = p;
++	struct bnxt *bp = netdev_priv(dev);
++	int rc = 0;
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 
++	if (ether_addr_equal(addr->sa_data, dev->dev_addr))
++		return 0;
++
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
++	if (netif_running(dev)) {
++		bnxt_close_nic(bp, false, false);
++		rc = bnxt_open_nic(bp, false, false);
++	}
+ 
+-	return 0;
++	return rc;
+ }
+ 
+ /* rtnl_lock held */
+-- 
+1.8.3.1
