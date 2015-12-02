@@ -1,109 +1,78 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: [PATCH net 2/3] bnxt_en: enforce properly storing of MAC address
-Date: Tue, 1 Dec 2015 22:15:40 -0500
-Message-ID: <1449026141-31225-3-git-send-email-mchan@broadcom.com>
-References: <1449026141-31225-1-git-send-email-mchan@broadcom.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Tue, 1 Dec 2015 19:50:17 -0800
+Message-ID: <CALx6S36i7Ee3Njs6OPVndyoGz1OpYss3YRPG8KO2ehxvAe50dA@mail.gmail.com>
+References: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>
+	<1448312579-159544-2-git-send-email-anjali.singhai@intel.com>
+	<CALx6S34+_AtjO94znh7vW4py5a8Nj1g6b-sjGPCa4U1Mc6Y6-w@mail.gmail.com>
+	<20151129.222138.1582847465760563254.davem@davemloft.net>
+	<CAEh+42ivCoBE-vAwWpHHmHYqcXzKP+ceZSvg2rEPh7Db3M1k6Q@mail.gmail.com>
+	<CALx6S35_rXPsYUGcc+yrQX8K1dOcL4aWnmQsa-6X6xULo9BBbg@mail.gmail.com>
+	<CAEh+42gvn=cjZ4E3nACR7=-_a4iFS7OwEsSb+SQGme2k19kVAA@mail.gmail.com>
+	<CALx6S37EoLM=bZ6sSAiiF81X=SvTvoNAmkbH5Dmn9zSvR2oiUA@mail.gmail.com>
+	<20151201154445.GF29497@tuxdriver.com>
+	<1448984968.3382143.454794705.68D88B7D@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Jeffrey Huang <huangjw@broadcom.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jesse Gross <jesse@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Anjali Singhai Jain <anjali.singhai@intel.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kiran Patil <kiran.patil@intel.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:23605 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757455AbbLBDPm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 22:15:42 -0500
-In-Reply-To: <1449026141-31225-1-git-send-email-mchan@broadcom.com>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:32945 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751950AbbLBDuS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 22:50:18 -0500
+Received: by igcmv3 with SMTP id mv3so109412210igc.0
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 19:50:17 -0800 (PST)
+In-Reply-To: <1448984968.3382143.454794705.68D88B7D@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeffrey Huang <huangjw@broadcom.com>
-
-For PF, the bp->pf.mac_addr always holds the permanent MAC
-addr assigned by the HW.  For VF, the bp->vf.mac_addr always
-holds the administrator assigned VF MAC addr. The random
-generated VF MAC addr should never get stored to bp->vf.mac_addr.
-This way, when the VF wants to change the MAC address, we can tell
-if the adminstrator has already set it and disallow the VF from
-changing it.
-
-Signed-off-by: Jeffrey Huang <huangjw@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c       | 18 +++++++++++-------
- drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c |  7 +++----
- 2 files changed, 14 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 651b587..4656480 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -3625,6 +3625,7 @@ static int bnxt_hwrm_func_qcaps(struct bnxt *bp)
- 		pf->fw_fid = le16_to_cpu(resp->fid);
- 		pf->port_id = le16_to_cpu(resp->port_id);
- 		memcpy(pf->mac_addr, resp->perm_mac_address, ETH_ALEN);
-+		memcpy(bp->dev->dev_addr, pf->mac_addr, ETH_ALEN);
- 		pf->max_rsscos_ctxs = le16_to_cpu(resp->max_rsscos_ctx);
- 		pf->max_cp_rings = le16_to_cpu(resp->max_cmpl_rings);
- 		pf->max_tx_rings = le16_to_cpu(resp->max_tx_rings);
-@@ -3648,8 +3649,11 @@ static int bnxt_hwrm_func_qcaps(struct bnxt *bp)
- 
- 		vf->fw_fid = le16_to_cpu(resp->fid);
- 		memcpy(vf->mac_addr, resp->perm_mac_address, ETH_ALEN);
--		if (!is_valid_ether_addr(vf->mac_addr))
--			random_ether_addr(vf->mac_addr);
-+		if (is_valid_ether_addr(vf->mac_addr))
-+			/* overwrite netdev dev_adr with admin VF MAC */
-+			memcpy(bp->dev->dev_addr, vf->mac_addr, ETH_ALEN);
-+		else
-+			random_ether_addr(bp->dev->dev_addr);
- 
- 		vf->max_rsscos_ctxs = le16_to_cpu(resp->max_rsscos_ctx);
- 		vf->max_cp_rings = le16_to_cpu(resp->max_cmpl_rings);
-@@ -5218,6 +5222,9 @@ static int bnxt_change_mac_addr(struct net_device *dev, void *p)
- 	if (!is_valid_ether_addr(addr->sa_data))
- 		return -EADDRNOTAVAIL;
- 
-+	if (BNXT_VF(bp) && is_valid_ether_addr(bp->vf.mac_addr))
-+		return -EADDRNOTAVAIL;
-+
- 	if (ether_addr_equal(addr->sa_data, dev->dev_addr))
- 		return 0;
- 
-@@ -5695,15 +5702,12 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	bnxt_set_tpa_flags(bp);
- 	bnxt_set_ring_params(bp);
- 	dflt_rings = netif_get_num_default_rss_queues();
--	if (BNXT_PF(bp)) {
--		memcpy(dev->dev_addr, bp->pf.mac_addr, ETH_ALEN);
-+	if (BNXT_PF(bp))
- 		bp->pf.max_irqs = max_irqs;
--	} else {
- #if defined(CONFIG_BNXT_SRIOV)
--		memcpy(dev->dev_addr, bp->vf.mac_addr, ETH_ALEN);
-+	else
- 		bp->vf.max_irqs = max_irqs;
- #endif
--	}
- 	bnxt_get_max_rings(bp, &max_rx_rings, &max_tx_rings);
- 	bp->rx_nr_rings = min_t(int, dflt_rings, max_rx_rings);
- 	bp->tx_nr_rings_per_tc = min_t(int, dflt_rings, max_tx_rings);
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
-index f4cf688..7a9af28 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
-@@ -804,10 +804,9 @@ void bnxt_update_vf_mac(struct bnxt *bp)
- 	if (!is_valid_ether_addr(resp->perm_mac_address))
- 		goto update_vf_mac_exit;
- 
--	if (ether_addr_equal(resp->perm_mac_address, bp->vf.mac_addr))
--		goto update_vf_mac_exit;
--
--	memcpy(bp->vf.mac_addr, resp->perm_mac_address, ETH_ALEN);
-+	if (!ether_addr_equal(resp->perm_mac_address, bp->vf.mac_addr))
-+		memcpy(bp->vf.mac_addr, resp->perm_mac_address, ETH_ALEN);
-+	/* overwrite netdev dev_adr with admin VF MAC */
- 	memcpy(bp->dev->dev_addr, bp->vf.mac_addr, ETH_ALEN);
- update_vf_mac_exit:
- 	mutex_unlock(&bp->hwrm_cmd_lock);
--- 
-1.8.3.1
+On Tue, Dec 1, 2015 at 7:49 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Tue, Dec 1, 2015, at 16:44, John W. Linville wrote:
+>> On Mon, Nov 30, 2015 at 09:26:51PM -0800, Tom Herbert wrote:
+>> > On Mon, Nov 30, 2015 at 5:28 PM, Jesse Gross <jesse@kernel.org> wrote:
+>>
+>> > > Based on what we can do today, I see only two real choices: do some
+>> > > refactoring to clean up the stack a bit or remove the existing VXLAN
+>> > > offloading altogether. I think this series is trying to do the former
+>> > > and the result is that the stack is cleaner after than before. That
+>> > > seems like a good thing.
+>> >
+>> > There is a third choice which is to do nothing. Creating an
+>> > infrastructure that claims to "Generalize udp based tunnel offload"
+>> > but actually doesn't generalize the mechanism is nothing more than
+>> > window dressing-- this does nothing to help with the VXLAN to
+>> > VXLAN-GPE transition for instance. If geneve specific offload is
+>> > really needed now then that can be should with another ndo function,
+>> > or alternatively ntuple filter with a device specific action would at
+>> > least get the stack out of needing to be concerned with that.
+>> > Regardless, we will work optimize the rest of the stack for devices
+>> > that implement protocol agnostic mechanisms.
+>>
+>> Is there no concern about NDO proliferation? Does the size of the
+>> netdev_ops structure matter? Beyond that, I can see how a single
+>> entry point with an enum specifying the offload type isn't really any
+>> different in the grand scheme of things than having multiple NDOs,
+>> one per offload.
+>>
+>> Given the need to live with existing hardware offloads, I would lean
+>> toward a consolidated NDO. But if a different NDO per tunnel type is
+>> preferred, I can be satisified with that.
+>
+> Having per-offloading NDOs helps the stack to gather further information
+> what kind of offloads the driver has even maybe without trying to call
+> down into the layer (just by comparing to NULL). Checking this inside
+> the driver offload function clearly does not have this feature. So we
+> finally can have "ip tunnel please-recommend-type" feature. :)
+>
+That completely misses the whole point of the rest of this thread.
+Protocol specific offloads are what we are trying to discourage not
+encourage. Adding any more ndo functions for this purpose should be an
+exception, not the norm. The bar should be naturally high considering
+the cost of exposing this to ndo.
