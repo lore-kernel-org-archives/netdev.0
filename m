@@ -1,78 +1,38 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [patch net-next 15/26] bonding: allow notifications for
- bond_set_slave_link_state
-Date: Wed, 2 Dec 2015 12:27:09 +0100
-Message-ID: <565ED58D.2040002@cumulusnetworks.com>
-References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
- <1448977744-17930-16-git-send-email-jiri@resnulli.us>
+From: Pavel Fedin <p.fedin@samsung.com>
+Subject: RE: [PATCH v2 4/5] net: thunderx: Switchon carrier only upon interface
+ link up
+Date: Wed, 02 Dec 2015 14:30:37 +0300
+Message-ID: <011f01d12cf4$de8bc7c0$9ba35740$@samsung.com>
+References: <1449050777-37836-1-git-send-email-sunil.kovvuri@gmail.com>
+ <1449050777-37836-5-git-send-email-sunil.kovvuri@gmail.com>
+ <00ec01d12cee$26a28a00$73e79e00$@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:34420 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757095AbbLBL1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 06:27:11 -0500
-Received: by wmvv187 with SMTP id v187so249975056wmv.1
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 03:27:10 -0800 (PST)
-In-Reply-To: <1448977744-17930-16-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Sunil.Goutham@caviumnetworks.com,
+	'Sunil Goutham' <sgoutham@cavium.com>
+To: 'Sunil Goutham' <sunil.kovvuri@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <00ec01d12cee$26a28a00$73e79e00$@samsung.com>
+Content-language: ru
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/01/2015 02:48 PM, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Similar to state notifications.
-> 
-> We allow caller to indicate if the notification should happen now or later,
-> depending on if he holds rtnl mutex or not. Introduce bond_slave_link_notify
-> function (similar to bond_slave_state_notify) which is later on called
-> with rtnl mutex and goes over slaves and executes delayed notification.
-> 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  drivers/net/bonding/bond_main.c | 54 +++++++++++++++++++++++++++--------------
->  include/net/bonding.h           | 32 +++++++++++++++++++++---
->  2 files changed, 65 insertions(+), 21 deletions(-)
-> 
-[snip]
-> diff --git a/include/net/bonding.h b/include/net/bonding.h
-> index c1740a2..50496ec 100644
-> --- a/include/net/bonding.h
-> +++ b/include/net/bonding.h
-> @@ -165,7 +165,8 @@ struct slave {
->  	u8     backup:1,   /* indicates backup slave. Value corresponds with
->  			      BOND_STATE_ACTIVE and BOND_STATE_BACKUP */
->  	       inactive:1, /* indicates inactive slave */
-> -	       should_notify:1; /* indicateds whether the state changed */
-> +	       should_notify:1, /* indicateds whether the state changed */
-> +	       should_notify_link:1; /* indicateds whether the link changed */
+ Hello again!
 
-s/indicateds/indicates/
-
->  	u8     duplex;
->  	u32    original_mtu;
->  	u32    link_failure_count;
-> @@ -504,10 +505,35 @@ static inline bool bond_is_slave_inactive(struct slave *slave)
->  	return slave->inactive;
->  }
-[snip]
-> +
-> +static inline void bond_slave_link_notify(struct bonding *bond)
-> +{
-> +	struct list_head *iter;
-> +	struct slave *tmp;
-> +
-> +	bond_for_each_slave(bond, tmp, iter) {
-> +		if (tmp->should_notify_link) {
-> +			bond_queue_slave_event(tmp);
-> +			tmp->should_notify_link = 0;
-> +		}
-> +	}
->  }
->  
->  static inline __be32 bond_confirm_addr(struct net_device *dev, __be32 dst, __be32 local)
+> Subject: RE: [PATCH v2 4/5] net: thunderx: Switchon carrier only upon interface link up
 > 
+>  Just a reminder, we have issue with this one too, which is not addressed yet.
+
+ I have examined the problem thoroughly and discovered that it is a problem with experimental BGX driver patches on my 4.2 host
+kernel build. It fails to send NIC_MBOX_MSG_BGX_LINK_CHANGE, so nothing works.
+ I have retested this series on top of 4.3 running on ThunderX. It has good BGX driver and everything works fine. Therefore, the
+whole series can be safely applied and...
+
+ Tested-by: Pavel Fedin <p.fedin@samsung.com>
+
+Kind regards,
+Pavel Fedin
+Expert Engineer
+Samsung Electronics Research center Russia
