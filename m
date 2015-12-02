@@ -1,66 +1,58 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [patch net-next 24/26] mlxsw: spectrum: Implement LAG port
- join/leave
-Date: Wed, 2 Dec 2015 06:26:27 -0800
-Message-ID: <20151202142623.GQ18107@gospo.home.greyhouse.net>
-References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
- <1448977744-17930-25-git-send-email-jiri@resnulli.us>
- <20151202140130.GP18107@gospo.home.greyhouse.net>
- <20151202141022.GK2355@nanopsycho.orion>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v2 net-next 2/2] ravb: add device tree support for
+ r8a779[123]
+Date: Wed, 2 Dec 2015 08:31:08 -0600
+Message-ID: <20151202143108.GA17738@rob-hp-laptop>
+References: <1449035913-9129-1-git-send-email-horms+renesas@verge.net.au>
+ <1449035913-9129-3-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:35135 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757378AbbLBO0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 09:26:32 -0500
-Received: by oige206 with SMTP id e206so25285557oig.2
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 06:26:31 -0800 (PST)
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	devicetree@vger.kernel.org
+To: Simon Horman <horms+renesas@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20151202141022.GK2355@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1449035913-9129-3-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 02, 2015 at 03:10:22PM +0100, Jiri Pirko wrote:
-> Wed, Dec 02, 2015 at 03:01:32PM CET, gospo@cumulusnetworks.com wrote:
-> >On Tue, Dec 01, 2015 at 02:49:02PM +0100, Jiri Pirko wrote:
-> >> From: Jiri Pirko <jiri@mellanox.com>
-> >> 
-> >> Implement basic procedures for joining/leaving port to/from LAG. That
-> >> includes HW setup of collector, core LAG mapping setup.
-> >> 
-> >[...]
-> >> @@ -1937,6 +2153,18 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
-> >>  				mlxsw_sp_port->bridged = 0;
-> >>  				mlxsw_sp_master_bridge_dec(mlxsw_sp, upper_dev);
-> >>  			}
-> >> +		} else if (netif_is_lag_master(upper_dev)) {
-> >> +			if (info->linking) {
-> >> +				err = mlxsw_sp_port_lag_join(mlxsw_sp_port,
-> >> +							     upper_dev);
-> >> +				if (err)
-> >> +					netdev_err(dev, "Failed to join link aggregation\n");
-> >> +			} else {
-> >> +				err = mlxsw_sp_port_lag_leave(mlxsw_sp_port,
-> >> +							      upper_dev);
-> >> +				if (err)
-> >> +					netdev_err(dev, "Failed to leave link aggregation\n");
-> >> +			}
-> >>  		}
-> >>  		break;
-> >>  	}
-> >
-> >If I'm reading this correctly, moving an offloaded port into a bond/team
-> >or changing configuration options isn't synchronous.  It seems like the
-> >lack of immediate feedback to the caller is not desired.
+On Wed, Dec 02, 2015 at 02:58:33PM +0900, Simon Horman wrote:
+> Simply document new compatibility strings.
+> As a previous patch adds a generic R-Car Gen2 compatibility string
+> there appears to be no need for a driver updates.
 > 
-> This is actually something we have prepared and wanted to push as a
-> follow-up. To allow driver to return NOTIBY_BAD here and let changeupper
-> to fail back to bond/team code.
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
-I would like to see these additional changes proposed as part of this
-set.  The failure case needs to be synchronous and users need to be
-notified immediately to consider this feature complete.
+Acked-by: Rob Herring <robh@kernel.org>
+
+> 
+> ---
+> v2
+> * No change
+> ---
+>  Documentation/devicetree/bindings/net/renesas,ravb.txt | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+> index 7555116b5db2..81a9f9e6b45f 100644
+> --- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
+> +++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+> @@ -5,6 +5,9 @@ interface contains.
+>  
+>  Required properties:
+>  - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
+> +	      "renesas,etheravb-r8a7791" if the device is a part of R8A7791 SoC.
+> +	      "renesas,etheravb-r8a7792" if the device is a part of R8A7792 SoC.
+> +	      "renesas,etheravb-r8a7793" if the device is a part of R8A7793 SoC.
+>  	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
+>  	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
+>  	      "renesas,etheravb-rcar-gen2" for generic R-Car Gen 2 compatible interface.
+> -- 
+> 2.1.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe devicetree" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
