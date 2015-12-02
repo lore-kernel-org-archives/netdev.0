@@ -1,30 +1,109 @@
 From: Michael Chan <mchan@broadcom.com>
-Subject: [PATCH net 0/3] bnxt_en: set mac address and uc_list bug fixes.
-Date: Tue, 1 Dec 2015 22:15:38 -0500
-Message-ID: <1449026141-31225-1-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net 2/3] bnxt_en: enforce properly storing of MAC address
+Date: Tue, 1 Dec 2015 22:15:40 -0500
+Message-ID: <1449026141-31225-3-git-send-email-mchan@broadcom.com>
+References: <1449026141-31225-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, Jeffrey Huang <huangjw@broadcom.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:23605 "EHLO
 	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753742AbbLBDPm (ORCPT
+	with ESMTP id S1757455AbbLBDPm (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 22:15:42 -0500
+In-Reply-To: <1449026141-31225-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix ndo_set_mac_address() for PF and VF.
-Re-apply uc_list after chip reset.
+From: Jeffrey Huang <huangjw@broadcom.com>
 
-Michael Chan (3):
-  bnxt_en: Fixed incorrect implemenation of ndo_set_mac_address
-  bnxt_en: enforce properly storing of MAC address
-  bnxt_en: Setup uc_list mac filters after resetting the chip.
+For PF, the bp->pf.mac_addr always holds the permanent MAC
+addr assigned by the HW.  For VF, the bp->vf.mac_addr always
+holds the administrator assigned VF MAC addr. The random
+generated VF MAC addr should never get stored to bp->vf.mac_addr.
+This way, when the VF wants to change the MAC address, we can tell
+if the adminstrator has already set it and disallow the VF from
+changing it.
 
- drivers/net/ethernet/broadcom/bnxt/bnxt.c       | 42 +++++++++++++++++--------
- drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c |  7 ++---
- 2 files changed, 32 insertions(+), 17 deletions(-)
+Signed-off-by: Jeffrey Huang <huangjw@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c       | 18 +++++++++++-------
+ drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c |  7 +++----
+ 2 files changed, 14 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 651b587..4656480 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -3625,6 +3625,7 @@ static int bnxt_hwrm_func_qcaps(struct bnxt *bp)
+ 		pf->fw_fid = le16_to_cpu(resp->fid);
+ 		pf->port_id = le16_to_cpu(resp->port_id);
+ 		memcpy(pf->mac_addr, resp->perm_mac_address, ETH_ALEN);
++		memcpy(bp->dev->dev_addr, pf->mac_addr, ETH_ALEN);
+ 		pf->max_rsscos_ctxs = le16_to_cpu(resp->max_rsscos_ctx);
+ 		pf->max_cp_rings = le16_to_cpu(resp->max_cmpl_rings);
+ 		pf->max_tx_rings = le16_to_cpu(resp->max_tx_rings);
+@@ -3648,8 +3649,11 @@ static int bnxt_hwrm_func_qcaps(struct bnxt *bp)
+ 
+ 		vf->fw_fid = le16_to_cpu(resp->fid);
+ 		memcpy(vf->mac_addr, resp->perm_mac_address, ETH_ALEN);
+-		if (!is_valid_ether_addr(vf->mac_addr))
+-			random_ether_addr(vf->mac_addr);
++		if (is_valid_ether_addr(vf->mac_addr))
++			/* overwrite netdev dev_adr with admin VF MAC */
++			memcpy(bp->dev->dev_addr, vf->mac_addr, ETH_ALEN);
++		else
++			random_ether_addr(bp->dev->dev_addr);
+ 
+ 		vf->max_rsscos_ctxs = le16_to_cpu(resp->max_rsscos_ctx);
+ 		vf->max_cp_rings = le16_to_cpu(resp->max_cmpl_rings);
+@@ -5218,6 +5222,9 @@ static int bnxt_change_mac_addr(struct net_device *dev, void *p)
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 
++	if (BNXT_VF(bp) && is_valid_ether_addr(bp->vf.mac_addr))
++		return -EADDRNOTAVAIL;
++
+ 	if (ether_addr_equal(addr->sa_data, dev->dev_addr))
+ 		return 0;
+ 
+@@ -5695,15 +5702,12 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	bnxt_set_tpa_flags(bp);
+ 	bnxt_set_ring_params(bp);
+ 	dflt_rings = netif_get_num_default_rss_queues();
+-	if (BNXT_PF(bp)) {
+-		memcpy(dev->dev_addr, bp->pf.mac_addr, ETH_ALEN);
++	if (BNXT_PF(bp))
+ 		bp->pf.max_irqs = max_irqs;
+-	} else {
+ #if defined(CONFIG_BNXT_SRIOV)
+-		memcpy(dev->dev_addr, bp->vf.mac_addr, ETH_ALEN);
++	else
+ 		bp->vf.max_irqs = max_irqs;
+ #endif
+-	}
+ 	bnxt_get_max_rings(bp, &max_rx_rings, &max_tx_rings);
+ 	bp->rx_nr_rings = min_t(int, dflt_rings, max_rx_rings);
+ 	bp->tx_nr_rings_per_tc = min_t(int, dflt_rings, max_tx_rings);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+index f4cf688..7a9af28 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+@@ -804,10 +804,9 @@ void bnxt_update_vf_mac(struct bnxt *bp)
+ 	if (!is_valid_ether_addr(resp->perm_mac_address))
+ 		goto update_vf_mac_exit;
+ 
+-	if (ether_addr_equal(resp->perm_mac_address, bp->vf.mac_addr))
+-		goto update_vf_mac_exit;
+-
+-	memcpy(bp->vf.mac_addr, resp->perm_mac_address, ETH_ALEN);
++	if (!ether_addr_equal(resp->perm_mac_address, bp->vf.mac_addr))
++		memcpy(bp->vf.mac_addr, resp->perm_mac_address, ETH_ALEN);
++	/* overwrite netdev dev_adr with admin VF MAC */
+ 	memcpy(bp->dev->dev_addr, bp->vf.mac_addr, ETH_ALEN);
+ update_vf_mac_exit:
+ 	mutex_unlock(&bp->hwrm_cmd_lock);
 -- 
 1.8.3.1
