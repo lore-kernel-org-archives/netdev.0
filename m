@@ -1,128 +1,127 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] i40e: Fix i40e_print_features() VEB mode output
-Date: Wed, 02 Dec 2015 00:38:55 -0800
-Message-ID: <1449045535.3716.10.camel@perches.com>
-References: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1448475679-57194-5-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <5655FD72.70902@cogentembedded.com> <1448476535.3021.5.camel@intel.com>
-	 <1448480194.20113.48.camel@perches.com>
-	 <1449002936.1593.10.camel@perches.com> <1449041100.3224.17.camel@intel.com>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: Re: [P.A. Semi] Does the ethernet interface work on your Electra,
+ Chitra, Nemo, and Athena board?
+Date: Wed, 2 Dec 2015 11:54:01 +0300
+Message-ID: <CAOJe8K1RHDfqSX9v2ksSHUG8H9+CMyo9WFWw-ufimEmdU+mdpA@mail.gmail.com>
+References: <565AF986.9060106@xenosoft.de>
+	<CAOJe8K1911vDjMe9m_1vY6DSGpOk0TmL96Qf1whuNFXxHJesGw@mail.gmail.com>
+	<565C1B55.4020207@xenosoft.de>
+	<565C8287.7090209@xenosoft.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Shannon Nelson <shannon.nelson@intel.com>
-To: intel-wired-lan <intel-wired-lan@lists.osuosl.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
+To: Christian Zigotzky <chzigotzky@xenosoft.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0247.hostedemail.com ([216.40.44.247]:39033 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753949AbbLBIjA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 03:39:00 -0500
-In-Reply-To: <1449041100.3224.17.camel@intel.com>
+Received: from mail-yk0-f172.google.com ([209.85.160.172]:33679 "EHLO
+	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757662AbbLBIyD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 03:54:03 -0500
+Received: by ykdv3 with SMTP id v3so38980849ykd.0
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 00:54:02 -0800 (PST)
+In-Reply-To: <565C8287.7090209@xenosoft.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 7fd89545f337 ("i40e: remove BUG_ON from feature string building"=
-)
-added defective output when I40E_FLAG_VEB_MODE_ENABLED was set in
-function i40e_print_features.
+On 11/30/15, Christian Zigotzky <chzigotzky@xenosoft.de> wrote:
+> Hi All,
+>
+> I have tested the PA Semi Ethernet with the kernels 4.2.3 and 4.3.0
+> today. With the kernel 4.2.3 it works but with the kernel 4.3.0 final it
+> doesn't work.
 
-=46ix it.
+Looking at the changes in pasemi I don't see any significant
+changes to the driver so the best thing you can try is to bisect the
+bad commit.
 
-Miscellanea:
-
-o Remove unnecessary string variable
-o Add space before not after fixed strings
-o Use kmalloc not kzalloc
-o Don't initialize i to 0, use result of first snprintf
-
-Noticed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Signed-off-by: Joe Perches <joe@perches.com>
----
-=A0drivers/net/ethernet/intel/i40e/i40e_main.c | 42 +++++++++++++------=
-----------
-=A01 file changed, 19 insertions(+), 23 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/=
-ethernet/intel/i40e/i40e_main.c
-index 4b7d874..145eeb5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -10240,52 +10240,48 @@ static int i40e_setup_pf_filter_control(struc=
-t i40e_pf *pf)
-=A0static void i40e_print_features(struct i40e_pf *pf)
-=A0{
-=A0	struct i40e_hw *hw =3D &pf->hw;
--	char *buf, *string;
--	int i =3D 0;
-+	char *buf;
-+	int i;
-=A0
--	string =3D kzalloc(INFO_STRING_LEN, GFP_KERNEL);
--	if (!string) {
--		dev_err(&pf->pdev->dev, "Features string allocation failed\n");
-+	buf =3D kmalloc(INFO_STRING_LEN, GFP_KERNEL);
-+	if (!buf)
-=A0		return;
--	}
--
--	buf =3D string;
-=A0
--	i +=3D snprintf(&buf[i], REMAIN(i), "Features: PF-id[%d] ", hw->pf_id=
-);
-+	i =3D snprintf(buf, INFO_STRING_LEN, "Features: PF-id[%d]", hw->pf_id=
-);
-=A0#ifdef CONFIG_PCI_IOV
--	i +=3D snprintf(&buf[i], REMAIN(i), "VFs: %d ", pf->num_req_vfs);
-+	i +=3D snprintf(&buf[i], REMAIN(i), " VFs: %d", pf->num_req_vfs);
-=A0#endif
--	i +=3D snprintf(&buf[i], REMAIN(i), "VSIs: %d QP: %d RX: %s ",
-+	i +=3D snprintf(&buf[i], REMAIN(i), " VSIs: %d QP: %d RX: %s",
-=A0		=A0=A0=A0=A0=A0=A0pf->hw.func_caps.num_vsis,
-=A0		=A0=A0=A0=A0=A0=A0pf->vsi[pf->lan_vsi]->num_queue_pairs,
-=A0		=A0=A0=A0=A0=A0=A0pf->flags & I40E_FLAG_RX_PS_ENABLED ? "PS" : "1B=
-UF");
-=A0
-=A0	if (pf->flags & I40E_FLAG_RSS_ENABLED)
--		i +=3D snprintf(&buf[i], REMAIN(i), "RSS ");
-+		i +=3D snprintf(&buf[i], REMAIN(i), " RSS");
-=A0	if (pf->flags & I40E_FLAG_FD_ATR_ENABLED)
--		i +=3D snprintf(&buf[i], REMAIN(i), "FD_ATR ");
-+		i +=3D snprintf(&buf[i], REMAIN(i), " FD_ATR");
-=A0	if (pf->flags & I40E_FLAG_FD_SB_ENABLED) {
--		i +=3D snprintf(&buf[i], REMAIN(i), "FD_SB ");
--		i +=3D snprintf(&buf[i], REMAIN(i), "NTUPLE ");
-+		i +=3D snprintf(&buf[i], REMAIN(i), " FD_SB");
-+		i +=3D snprintf(&buf[i], REMAIN(i), " NTUPLE");
-=A0	}
-=A0	if (pf->flags & I40E_FLAG_DCB_CAPABLE)
--		i +=3D snprintf(&buf[i], REMAIN(i), "DCB ");
-+		i +=3D snprintf(&buf[i], REMAIN(i), " DCB");
-=A0#if IS_ENABLED(CONFIG_VXLAN)
--	i +=3D snprintf(&buf[i], REMAIN(i), "VxLAN ");
-+	i +=3D snprintf(&buf[i], REMAIN(i), " VxLAN");
-=A0#endif
-=A0	if (pf->flags & I40E_FLAG_PTP)
--		i +=3D snprintf(&buf[i], REMAIN(i), "PTP ");
-+		i +=3D snprintf(&buf[i], REMAIN(i), " PTP");
-=A0#ifdef I40E_FCOE
-=A0	if (pf->flags & I40E_FLAG_FCOE_ENABLED)
--		i +=3D snprintf(&buf[i], REMAIN(i), "FCOE ");
-+		i +=3D snprintf(&buf[i], REMAIN(i), " FCOE");
-=A0#endif
-=A0	if (pf->flags & I40E_FLAG_VEB_MODE_ENABLED)
--		i +=3D snprintf(&buf[i], REMAIN(i), "VEPA ");
-+		i +=3D snprintf(&buf[i], REMAIN(i), " VEB");
-=A0	else
--		buf +=3D sprintf(buf, "VEPA ");
-+		i +=3D snprintf(&buf[i], REMAIN(i), " VEPA");
-=A0
--	dev_info(&pf->pdev->dev, "%s\n", string);
--	kfree(string);
-+	dev_info(&pf->pdev->dev, "%s\n", buf);
-+	kfree(buf);
-=A0	WARN_ON(i > INFO_STRING_LEN);
-=A0}
-=A0
+>
+> After that I tested some git kernels and release candidates of 4.3.
+>
+> Kernel 4.3 git from Tue Sep 01, 2015 -> PA Semi Ethernet works
+> Kernel 4.3 git from Wed Sep 02, 2015 -> PA Semi Ethernet works
+> Kernel 4.3 git from Thu Sep 03, 2015 -> PA Semi Ethernet works
+> Kernel 4.3 git from Fri Sep 04, 2015 -> PA Semi Ethernet doesn't work
+> (Merge tag 'powerpc-4.3-1':
+> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ff474e8ca8547d09cb82ebab56d4c96f9eea01ce)
+> Kernel 4.3 git from Sat Sep 05, 2015 -> PA Semi Ethernet doesn't work
+> Kernel 4.3 git from Mon Sep 07, 2015 -> PA Semi Ethernet doesn't work
+> Kernel 4.3 git from Wed Sep 09, 2015 -> PA Semi Ethernet doesn't work
+> Kernel 4.3 git from Fri Sep 11, 2015 -> PA Semi Ethernet doesn't work
+> Kernel 4.3 RC1 from Sun Sep 13, 2015 -> PA Semi Ethernet doesn't work
+> Kernel 4.3 RC2 from Mon Sep 21, 2015 -> PA Semi Ethernet doesn't work
+>
+> The problematic commit must be between Thu Sep 03, 2015 at 09:37 AM (UTC
+> +2) and Fri Sep 04, 2015 at 7:38 PM (UTC +2) in the linux git.
+>
+> Linux git: Between
+> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/log/?ofs=15500
+>
+> and
+> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/log/?ofs=15200.
+>
+> Maybe
+> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ff474e8ca8547d09cb82ebab56d4c96f9eea01ce.
+>
+> Cheers,
+>
+> Christian
+>
+> On 30 November 2015 at 10:48 AM, Christian Zigotzky wrote:
+>> Hi Denis,
+>>
+>> Thank you for your answer. Sorry because of my description.
+>>
+>> Yes, the driver probe function finds the device.
+>>
+>> With kernel 4.4-rc3:
+>>
+>> dmesg | grep -i eth0
+>>
+>> [ 2.297473] eth0: PA Semi GMAC: intf 5, hw addr 02:00:e0:0a:30:00
+>>
+>> dhclient eth0
+>>
+>> RTNETLINK answers: Cannot allocate memory
+>>
+>> With kernel 4.1.13:
+>>
+>> dmesg | grep -i eth0
+>>
+>> [ 2.328115] eth0: PA Semi GMAC: intf 5, hw addr 02:00:e0:0a:30:00
+>> [ 37.130466] eth0: Link is up at 100 Mbps, full duplex.
+>>
+>> Cheers,
+>>
+>> Christian
+>>
+>> On 30 November 2015 at 09:37 AM, Denis Kirjanov wrote:
+>>> On 11/29/15, Christian Zigotzky <chzigotzky@xenosoft.de> wrote:
+>>>> Hi All,
+>>>>
+>>>> Does the ethernet interface on your Electra, Chitra, Nemo, and Athena
+>>>> board work with the release candidates of the kernel 4.4? Unfortunately
+>>>> the P.A. Semi ethernet doesn't work on our Nemo boards with the release
+>>>> candidates of the kernel 4.4. We have set the following entries in the
+>>>> kernel config:
+>>>>
+>>>> CONFIG_NET_VENDOR_PASEMI=y
+>>>> CONFIG_PASEMI_MAC=y
+>>>>
+>>>> Could you please test the P.A. Semi ethernet on your P.A. Semi boards?
+>>> It's not clear from your descriptions what is not working. Does the
+>>> driver probe function find  a device? Does the interface show up in
+>>> the kernel? Can it send/receive packets?
+>>>
+>>> Also please CC netdev.
+>>>
+>>> Thanks.
+>>>
+>>>> Thanks in advance,
+>>>>
+>>>> Christian
+>>>> _______________________________________________
+>>>> Linuxppc-dev mailing list
+>>>> Linuxppc-dev@lists.ozlabs.org
+>>>> https://lists.ozlabs.org/listinfo/linuxppc-dev
+>>
+>
+>
