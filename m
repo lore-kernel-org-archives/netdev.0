@@ -1,230 +1,77 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/17] i40e/i40evf: Fix RS bit update in Tx path and disable force WB workaround
-Date: Wed,  2 Dec 2015 00:25:21 -0800
-Message-ID: <1449044735-68599-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/17] i40evf: rename VF adapter specific RSS function
+Date: Wed,  2 Dec 2015 00:25:23 -0800
+Message-ID: <1449044735-68599-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Helin Zhang <helin.zhang@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:32406 "EHLO mga09.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:13263 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753949AbbLBIZj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756580AbbLBIZj (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 2 Dec 2015 03:25:39 -0500
 In-Reply-To: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Helin Zhang <helin.zhang@intel.com>
 
-This patch fixes the issue of forcing WB too often causing us to not
-benefit from NAPI.
+This patch renames old VF adapter specific RSS function to clarify
+its scope.
 
-Without this patch we were forcing WB/arming interrupt too often taking
-away the benefits of NAPI and causing a performance impact.
-
-With this patch we disable force WB in the clean routine for X710
-and XL710 adapters. X722 adapters do not enable interrupt to force
-a WB and benefit from WB_ON_ITR and hence force WB is left enabled
-for those adapters.
-For XL710 and X710 adapters if we have less than 4 packets pending
-a software Interrupt triggered from service task will force a WB.
-
-This patch also changes the conditions for setting RS bit as described
-in code comments. This optimizes when the HW does a tail bump amd when
-it does a WB. It also optimizes when we do a wmb.
-
-Change-ID: Id831e1ae7d3e2ec3f52cd0917b41ce1d22d75d9d
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: Ie5253083a44c677ebb7709a8a3a18402ad2dc6a6
+Signed-off-by: Helin Zhang <helin.zhang@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 118 ++++++++++++++++----------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h |   2 +
- 2 files changed, 77 insertions(+), 43 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 8629a9f..23fd112 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -245,16 +245,6 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 	tx_ring->q_vector->tx.total_bytes += total_bytes;
- 	tx_ring->q_vector->tx.total_packets += total_packets;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 6ad6265..1b38c88 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1295,10 +1295,10 @@ static void i40evf_configure_rss_reg(struct i40evf_adapter *adapter,
+ }
  
--	/* check to see if there are any non-cache aligned descriptors
--	 * waiting to be written back, and kick the hardware to force
--	 * them to be written back in case of napi polling
--	 */
--	if (budget &&
--	    !((i & WB_STRIDE) == WB_STRIDE) &&
--	    !test_bit(__I40E_DOWN, &tx_ring->vsi->state) &&
--	    (I40E_DESC_UNUSED(tx_ring) != tx_ring->count))
--		tx_ring->arm_wb = true;
--
- 	netdev_tx_completed_queue(netdev_get_tx_queue(tx_ring->netdev,
- 						      tx_ring->queue_index),
- 				  total_packets, total_bytes);
-@@ -1770,6 +1760,9 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	u32 td_tag = 0;
- 	dma_addr_t dma;
- 	u16 gso_segs;
-+	u16 desc_count = 0;
-+	bool tail_bump = true;
-+	bool do_rs = false;
- 
- 	if (tx_flags & I40E_TX_FLAGS_HW_VLAN) {
- 		td_cmd |= I40E_TX_DESC_CMD_IL2TAG1;
-@@ -1810,6 +1803,8 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 
- 			tx_desc++;
- 			i++;
-+			desc_count++;
-+
- 			if (i == tx_ring->count) {
- 				tx_desc = I40E_TX_DESC(tx_ring, 0);
- 				i = 0;
-@@ -1829,6 +1824,8 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 
- 		tx_desc++;
- 		i++;
-+		desc_count++;
-+
- 		if (i == tx_ring->count) {
- 			tx_desc = I40E_TX_DESC(tx_ring, 0);
- 			i = 0;
-@@ -1843,35 +1840,7 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 		tx_bi = &tx_ring->tx_bi[i];
+ /**
+- * i40evf_configure_rss - Prepare for RSS
++ * i40evf_init_rss - Prepare for RSS
+  * @adapter: board private structure
+  **/
+-static void i40evf_configure_rss(struct i40evf_adapter *adapter)
++static void i40evf_init_rss(struct i40evf_adapter *adapter)
+ {
+ 	struct i40e_hw *hw = &adapter->hw;
+ 	u8 seed[I40EVF_HKEY_ARRAY_SIZE];
+@@ -1564,7 +1564,7 @@ static void i40evf_watchdog_task(struct work_struct *work)
+ 		 * PF, so we don't have to set current_op as we will
+ 		 * not get a response through the ARQ.
+ 		 */
+-		i40evf_configure_rss(adapter);
++		i40evf_init_rss(adapter);
+ 		adapter->aq_required &= ~I40EVF_FLAG_AQ_CONFIGURE_RSS;
+ 		goto watchdog_done;
  	}
- 
--	/* Place RS bit on last descriptor of any packet that spans across the
--	 * 4th descriptor (WB_STRIDE aka 0x3) in a 64B cacheline.
--	 */
- #define WB_STRIDE 0x3
--	if (((i & WB_STRIDE) != WB_STRIDE) &&
--	    (first <= &tx_ring->tx_bi[i]) &&
--	    (first >= &tx_ring->tx_bi[i & ~WB_STRIDE])) {
--		tx_desc->cmd_type_offset_bsz =
--			build_ctob(td_cmd, td_offset, size, td_tag) |
--			cpu_to_le64((u64)I40E_TX_DESC_CMD_EOP <<
--					 I40E_TXD_QW1_CMD_SHIFT);
--	} else {
--		tx_desc->cmd_type_offset_bsz =
--			build_ctob(td_cmd, td_offset, size, td_tag) |
--			cpu_to_le64((u64)I40E_TXD_CMD <<
--					 I40E_TXD_QW1_CMD_SHIFT);
--	}
--
--	netdev_tx_sent_queue(netdev_get_tx_queue(tx_ring->netdev,
--						 tx_ring->queue_index),
--			     first->bytecount);
--
--	/* Force memory writes to complete before letting h/w
--	 * know there are new descriptors to fetch.  (Only
--	 * applicable for weak-ordered memory model archs,
--	 * such as IA-64).
--	 */
--	wmb();
--
- 	/* set next_to_watch value indicating a packet is present */
- 	first->next_to_watch = tx_desc;
- 
-@@ -1881,15 +1850,78 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 
- 	tx_ring->next_to_use = i;
- 
-+	netdev_tx_sent_queue(netdev_get_tx_queue(tx_ring->netdev,
-+						 tx_ring->queue_index),
-+						 first->bytecount);
- 	i40evf_maybe_stop_tx(tx_ring, DESC_NEEDED);
-+
-+	/* Algorithm to optimize tail and RS bit setting:
-+	 * if xmit_more is supported
-+	 *	if xmit_more is true
-+	 *		do not update tail and do not mark RS bit.
-+	 *	if xmit_more is false and last xmit_more was false
-+	 *		if every packet spanned less than 4 desc
-+	 *			then set RS bit on 4th packet and update tail
-+	 *			on every packet
-+	 *		else
-+	 *			update tail and set RS bit on every packet.
-+	 *	if xmit_more is false and last_xmit_more was true
-+	 *		update tail and set RS bit.
-+	 * else (kernel < 3.18)
-+	 *	if every packet spanned less than 4 desc
-+	 *		then set RS bit on 4th packet and update tail
-+	 *		on every packet
-+	 *	else
-+	 *		set RS bit on EOP for every packet and update tail
-+	 *
-+	 * Optimization: wmb to be issued only in case of tail update.
-+	 * Also optimize the Descriptor WB path for RS bit with the same
-+	 * algorithm.
-+	 *
-+	 * Note: If there are less than 4 packets
-+	 * pending and interrupts were disabled the service task will
-+	 * trigger a force WB.
-+	 */
-+	if (skb->xmit_more  &&
-+	    !netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
-+						    tx_ring->queue_index))) {
-+		tx_ring->flags |= I40E_TXR_FLAGS_LAST_XMIT_MORE_SET;
-+		tail_bump = false;
-+	} else if (!skb->xmit_more &&
-+		   !netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
-+						       tx_ring->queue_index)) &&
-+		   (!(tx_ring->flags & I40E_TXR_FLAGS_LAST_XMIT_MORE_SET)) &&
-+		   (tx_ring->packet_stride < WB_STRIDE) &&
-+		   (desc_count < WB_STRIDE)) {
-+		tx_ring->packet_stride++;
-+	} else {
-+		tx_ring->packet_stride = 0;
-+		tx_ring->flags &= ~I40E_TXR_FLAGS_LAST_XMIT_MORE_SET;
-+		do_rs = true;
-+	}
-+	if (do_rs)
-+		tx_ring->packet_stride = 0;
-+
-+	tx_desc->cmd_type_offset_bsz =
-+			build_ctob(td_cmd, td_offset, size, td_tag) |
-+			cpu_to_le64((u64)(do_rs ? I40E_TXD_CMD :
-+						  I40E_TX_DESC_CMD_EOP) <<
-+						  I40E_TXD_QW1_CMD_SHIFT);
-+
- 	/* notify HW of packet */
--	if (!skb->xmit_more ||
--	    netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
--						   tx_ring->queue_index)))
--		writel(i, tx_ring->tail);
--	else
-+	if (!tail_bump)
- 		prefetchw(tx_desc + 1);
- 
-+	if (tail_bump) {
-+		/* Force memory writes to complete before letting h/w
-+		 * know there are new descriptors to fetch.  (Only
-+		 * applicable for weak-ordered memory model archs,
-+		 * such as IA-64).
-+		 */
-+		wmb();
-+		writel(i, tx_ring->tail);
-+	}
-+
+@@ -2312,7 +2312,7 @@ static void i40evf_init_task(struct work_struct *work)
+ 		    I40E_VIRTCHNL_VF_OFFLOAD_WB_ON_ITR)
+ 		adapter->flags |= I40EVF_FLAG_WB_ON_ITR_CAPABLE;
+ 	if (!RSS_AQ(adapter))
+-		i40evf_configure_rss(adapter);
++		i40evf_init_rss(adapter);
+ 	err = i40evf_request_misc_irq(adapter);
+ 	if (err)
+ 		goto err_sw_init;
+@@ -2342,7 +2342,7 @@ static void i40evf_init_task(struct work_struct *work)
+ 		adapter->aq_required |= I40EVF_FLAG_AQ_CONFIGURE_RSS;
+ 		mod_timer_pending(&adapter->watchdog_timer, jiffies + 1);
+ 	} else {
+-		i40evf_configure_rss(adapter);
++		i40evf_init_rss(adapter);
+ 	}
  	return;
- 
- dma_error:
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index 997b374..929ddd9 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -268,6 +268,8 @@ struct i40e_ring {
- 
- 	bool ring_active;		/* is ring online or not */
- 	bool arm_wb;		/* do something to arm write back */
-+	u8 packet_stride;
-+#define I40E_TXR_FLAGS_LAST_XMIT_MORE_SET BIT(2)
- 
- 	u16 flags;
- #define I40E_TXR_FLAGS_WB_ON_ITR	BIT(0)
+ restart:
 -- 
 2.5.0
