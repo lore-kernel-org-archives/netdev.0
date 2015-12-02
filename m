@@ -1,11 +1,10 @@
 From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH v2 1/5] net: thunderx: Force to load octeon-mdio before bgx driver.
-Date: Wed,  2 Dec 2015 15:36:13 +0530
-Message-ID: <1449050777-37836-2-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH v2 3/5] net: thunderx: Set CQ timer threshold properly
+Date: Wed,  2 Dec 2015 15:36:15 +0530
+Message-ID: <1449050777-37836-4-git-send-email-sunil.kovvuri@gmail.com>
 References: <1449050777-37836-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Sunil.Goutham@caviumnetworks.com,
-	Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>,
 	Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -13,40 +12,60 @@ In-Reply-To: <1449050777-37836-1-git-send-email-sunil.kovvuri@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
+From: Sunil Goutham <sgoutham@cavium.com>
 
-Signed-off-by: Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
+Properly set CQ timer threshold and also set it to 2us.
+With previous incorrect settings it was set to 0.5us which is too less.
+
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c |    3 +++
- drivers/net/ethernet/cavium/thunder/thunder_bgx.h |    1 +
- 2 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h          |    5 ++---
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |    2 +-
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h |    2 +-
+ 3 files changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 180aa9f..2574a7e 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -1009,6 +1009,9 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct bgx *bgx = NULL;
- 	u8 lmac;
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index d3950b2..39ca674 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -120,10 +120,9 @@
+  * Calculated for SCLK of 700Mhz
+  * value written should be a 1/16th of what is expected
+  *
+- * 1 tick per 0.05usec = value of 2.2
+- * This 10% would be covered in CQ timer thresh value
++ * 1 tick per 0.025usec
+  */
+-#define NICPF_CLK_PER_INT_TICK		2
++#define NICPF_CLK_PER_INT_TICK		1
  
-+	/* Load octeon mdio driver */
-+	octeon_mdiobus_force_mod_depencency();
-+
- 	bgx = devm_kzalloc(dev, sizeof(*bgx), GFP_KERNEL);
- 	if (!bgx)
- 		return -ENOMEM;
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-index 07b7ec6..89a02fa 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-@@ -182,6 +182,7 @@ enum MCAST_MODE {
- #define BCAST_ACCEPT	1
- #define CAM_ACCEPT	1
+ /* Time to wait before we decide that a SQ is stuck.
+  *
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index e404ea8..206b6a7 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -592,7 +592,7 @@ void nicvf_cmp_queue_config(struct nicvf *nic, struct queue_set *qs,
+ 	/* Set threshold value for interrupt generation */
+ 	nicvf_queue_reg_write(nic, NIC_QSET_CQ_0_7_THRESH, qidx, cq->thresh);
+ 	nicvf_queue_reg_write(nic, NIC_QSET_CQ_0_7_CFG2,
+-			      qidx, nic->cq_coalesce_usecs);
++			      qidx, CMP_QUEUE_TIMER_THRESH);
+ }
  
-+void octeon_mdiobus_force_mod_depencency(void);
- void bgx_add_dmac_addr(u64 dmac, int node, int bgx_idx, int lmac);
- unsigned bgx_get_map(int node);
- int bgx_get_lmac_count(int node, int bgx);
+ /* Configures transmit queue */
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+index fb4957d..033e830 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+@@ -76,7 +76,7 @@
+ #define CMP_QSIZE		CMP_QUEUE_SIZE2
+ #define CMP_QUEUE_LEN		(1ULL << (CMP_QSIZE + 10))
+ #define CMP_QUEUE_CQE_THRESH	0
+-#define CMP_QUEUE_TIMER_THRESH	220 /* 10usec */
++#define CMP_QUEUE_TIMER_THRESH	80 /* ~2usec */
+ 
+ #define RBDR_SIZE		RBDR_SIZE0
+ #define RCV_BUF_COUNT		(1ULL << (RBDR_SIZE + 13))
 -- 
 1.7.1
