@@ -1,59 +1,78 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 3/3] vhost_net: basic polling support
-Date: Wed, 2 Dec 2015 14:36:31 +0200
-Message-ID: <20151202143522-mutt-send-email-mst@redhat.com>
-References: <1448435489-5949-1-git-send-email-jasowang@redhat.com>
- <1448435489-5949-4-git-send-email-jasowang@redhat.com>
- <20151130124233-mutt-send-email-mst@redhat.com>
- <565D2D7D.4010903@redhat.com>
- <20151201163939-mutt-send-email-mst@redhat.com>
- <565E7BC3.2060107@redhat.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: ipsec impact on performance
+Date: Wed, 2 Dec 2015 12:41:40 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBE0F39@AcuExch.aculab.com>
+References: <20151201175953.GC21252@oracle.com>
+ <CALx6S35uLqbuJTAFLMeT-BcyZw_fksz+7BkS=Nt7_3-nYMHF2A@mail.gmail.com>
+ <20151201183720.GE21252@oracle.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CBE0ED7@AcuExch.aculab.com>
+ <20151202121156.GK23178@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <565E7BC3.2060107@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Tom Herbert <tom@herbertland.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>
+To: 'Sowmini Varadhan' <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.189]:60103 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755059AbbLBMnJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 07:43:09 -0500
+In-Reply-To: <20151202121156.GK23178@oracle.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 02, 2015 at 01:04:03PM +0800, Jason Wang wrote:
-> 
-> 
-> On 12/01/2015 10:43 PM, Michael S. Tsirkin wrote:
-> > On Tue, Dec 01, 2015 at 01:17:49PM +0800, Jason Wang wrote:
-> >>
-> >> On 11/30/2015 06:44 PM, Michael S. Tsirkin wrote:
-> >>> On Wed, Nov 25, 2015 at 03:11:29PM +0800, Jason Wang wrote:
-> >>>>> This patch tries to poll for new added tx buffer or socket receive
-> >>>>> queue for a while at the end of tx/rx processing. The maximum time
-> >>>>> spent on polling were specified through a new kind of vring ioctl.
-> >>>>>
-> >>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> >>> One further enhancement would be to actually poll
-> >>> the underlying device. This should be reasonably
-> >>> straight-forward with macvtap (especially in the
-> >>> passthrough mode).
-> >>>
-> >>>
-> >> Yes, it is. I have some patches to do this by replacing
-> >> skb_queue_empty() with sk_busy_loop() but for tap.
-> > We probably don't want to do this unconditionally, though.
+From: Sowmini Varadhan
+> Sent: 02 December 2015 12:12
+> On (12/02/15 11:56), David Laight wrote:
+> > >                 Gbps  peak cpu util
+> > > esp-null         1.8   71%
+> > > aes-gcm-c-256    1.6   79%
+> > > aes-ccm-a-128    0.7   96%
+> > >
+> > > That trend made me think that if we can get esp-null to be as close
+> > > as possible to GSO/GRO, the rest will follow closely behind.
 > >
-> >> Tests does not show
-> >> any improvement but some regression.
-> > Did you add code to call sk_mark_napi_id on tap then?
-> > sk_busy_loop won't do anything useful without.
+> > That's not how I read those figures.
+> > They imply to me that there is a massive cost for the actual encryption
+> > (particularly for aes-ccm-a-128) - so whatever you do to the esp-null
+> > case won't help.
 > 
-> Yes I did. Probably something wrong elsewhere.
+> I'm not a crypto expert, but my understanding is that the CCM mode
+> is the "older" encryption algorithm, and GCM is the way of the future.
+> Plus, I think the GCM mode has some type of h/w support (hence the
+> lower cpu util)
+> 
+> I'm sure that crypto has a cost, not disputing that, but my point
+> was that 1.8 -> 1.6 -> 0.7 is a curve with a much gentler slope than
+> the 9 Gbps (clear traffic, GSO, GRO)
+>     -> 4 Gbps (clear, no gro, gso)
+>        -> 1.8 (esp-null)
+> That steeper slope smells of s/w perf that we need to resolve first,
+> before getting into the work of faster crypto?
 
-Is this for guest-to-guest? the patch to do napi
-for tap is still not upstream due to minor performance
-regression.  Want me to repost it?
+That isn't the way cpu cost works.
+You are getting 0.7 Gbps with ass-ccm-a-128, scale the esp-null back to
+that and it would use 7/18*71 = 27% of the cpu.
+So 69% of the cpu in the a-128 case is probably caused by the
+encryption itself.
+Even if the rest of the code cost nothing you'd not increase
+above 1Gbps.
 
-> >
-> >>  Maybe it's better to test macvtap.
-> > Same thing ...
-> >
+The sums for aes-gcm-c-256 are slightly better, about 15%.
+
+Ok, things aren't quite that simple since you are probably changing
+the way data flows through the system as well.
+
+Also what/how are you measuring cpu use.
+I'm not sure anything on Linux gives you a truly accurate value
+when processes are running for very short periods.
+
+On an SMP system you also get big effects when work is switched
+between cpus. I've got some tests that run a lot faster if I
+put all but one of the cpus into a busy-loop in userspace
+(eg: while :; do :; done)!
+
+	David
