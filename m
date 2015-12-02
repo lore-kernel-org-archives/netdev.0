@@ -1,40 +1,98 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 4/6] mlxsw: core: Implement temperature hwmon
- interface
-Date: Wed, 2 Dec 2015 23:35:31 +0100
-Message-ID: <20151202223531.GQ2355@nanopsycho.orion>
-References: <20151129104918.GC2194@nanopsycho.orion>
- <CAJ3xEMhGv9nTq+CtpX=e4E+4WpipVnc---EUOEqxJ06xOSBsog@mail.gmail.com>
- <20151202222551.GP2355@nanopsycho.orion>
- <20151202.172847.1855287186918935450.davem@davemloft.net>
+From: Chris Snook <chris.snook@gmail.com>
+Subject: Re: [PATCH] Improve Atheros ethernet driver not to do order 4
+ GFP_ATOMIC allocation
+Date: Wed, 02 Dec 2015 22:43:31 +0000
+Message-ID: <CAMXMK6u1vQ772SGv-J3cKvOmS6QRAjjQLYiSiWO2+T=HRTiK1A@mail.gmail.com>
+References: <20151127082010.GA2500@dhcp22.suse.cz> <20151128145113.GB4135@amd>
+ <20151130132129.GB21950@dhcp22.suse.cz> <20151201.153517.224543138214404348.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gerlitz.or@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:37734 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078AbbLBWfe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 17:35:34 -0500
-Received: by wmww144 with SMTP id w144so77036260wmw.0
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 14:35:32 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20151202.172847.1855287186918935450.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/alternative; boundary=001a1141b7e08020590525f20178
+Cc: pavel@ucw.cz, akpm@osdl.org, linux-kernel@vger.kernel.org,
+	jcliburn@gmail.com, netdev@vger.kernel.org, rjw@rjwysocki.net,
+	linux-mm@kvack.org, nic-devel@qualcomm.com, ronangeles@gmail.com,
+	ebiederm@xmission.com
+To: David Miller <davem@davemloft.net>, mhocko@kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20151201.153517.224543138214404348.davem@davemloft.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Dec 02, 2015 at 11:28:47PM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Wed, 2 Dec 2015 23:25:52 +0100
+--001a1141b7e08020590525f20178
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, Dec 1, 2015 at 12:35 PM David Miller <davem@davemloft.net> wrote:
+
+> From: Michal Hocko <mhocko@kernel.org>
+> Date: Mon, 30 Nov 2015 14:21:29 +0100
 >
->> Again, there is no possible way to achieve this bugon, other than a
->> stack corruption. I don't think we should try to cope with a stack
->> corruption.
+> > On Sat 28-11-15 15:51:13, Pavel Machek wrote:
+> >>
+> >> atl1c driver is doing order-4 allocation with GFP_ATOMIC
+> >> priority. That often breaks  networking after resume. Switch to
+> >> GFP_KERNEL. Still not ideal, but should be significantly better.
+> >
+> > It is not clear why GFP_KERNEL can replace GFP_ATOMIC safely neither
+> > from the changelog nor from the patch context.
 >
->Then remove the assertion.
+> Earlier in the function we do a GFP_KERNEL kmalloc so:
+>
+> =C2=AF\_(=E3=83=84)_/=C2=AF
+>
+> It should be fine.
+>
 
-I thought that in cases like this it is better to just assert and tell
-user that something went horribly and non-recoverably wrong.
+AFAICT, the people who benefit from GFP_ATOMIC are the people running all
+their storage over NFS/iSCSI who are suspending their machines while
+they're so busy they don't have any clean order 4 pagecache to drop, and
+want the machine to panic rather than hang. The people who benefit from
+GFP_KERNEL are the people who use their laptop for a while, put it to
+sleep, and then wake it up again. I think the latter is the use case we
+should be optimizing for.
 
-Why to continue to work if we know that we are making things wrong
-(incorrect structure initialization in this case) ? What am I missing?
+-- Chris
+
+--001a1141b7e08020590525f20178
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr"><div class=3D"gmail_quote"><div dir=3D"ltr">On Tue, Dec 1,=
+ 2015 at 12:35 PM David Miller &lt;<a href=3D"mailto:davem@davemloft.net">d=
+avem@davemloft.net</a>&gt; wrote:<br></div><blockquote class=3D"gmail_quote=
+" style=3D"margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">F=
+rom: Michal Hocko &lt;<a href=3D"mailto:mhocko@kernel.org" target=3D"_blank=
+">mhocko@kernel.org</a>&gt;<br>
+Date: Mon, 30 Nov 2015 14:21:29 +0100<br>
+<br>
+&gt; On Sat 28-11-15 15:51:13, Pavel Machek wrote:<br>
+&gt;&gt;<br>
+&gt;&gt; atl1c driver is doing order-4 allocation with GFP_ATOMIC<br>
+&gt;&gt; priority. That often breaks=C2=A0 networking after resume. Switch =
+to<br>
+&gt;&gt; GFP_KERNEL. Still not ideal, but should be significantly better.<b=
+r>
+&gt;<br>
+&gt; It is not clear why GFP_KERNEL can replace GFP_ATOMIC safely neither<b=
+r>
+&gt; from the changelog nor from the patch context.<br>
+<br>
+Earlier in the function we do a GFP_KERNEL kmalloc so:<br>
+<br>
+=C2=AF\_(=E3=83=84)_/=C2=AF<br>
+<br>
+It should be fine.<br></blockquote><div><br></div><div>AFAICT, the people w=
+ho benefit from GFP_ATOMIC are the people running all their storage over NF=
+S/iSCSI who are suspending their machines while they&#39;re so busy they do=
+n&#39;t have any clean order 4 pagecache to drop, and want the machine to p=
+anic rather than hang. The people who benefit from GFP_KERNEL are the peopl=
+e who use their laptop for a while, put it to sleep, and then wake it up ag=
+ain. I think the latter is the use case we should be optimizing for.<br><br=
+></div><div>-- Chris<br></div></div></div>
+
+--001a1141b7e08020590525f20178--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
