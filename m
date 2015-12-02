@@ -1,62 +1,40 @@
-From: Anna Schumaker <Anna.Schumaker@netapp.com>
-Subject: Re: [PATCH] xprtrdma: add missing curly braces, set rc to zero on
- non-zero
-Date: Wed, 2 Dec 2015 10:28:47 -0500
-Message-ID: <565F0E2F.7070301@Netapp.com>
-References: <1448406701-12474-1-git-send-email-colin.king@canonical.com>
+From: Flavio Leitner <fbl@sysclose.org>
+Subject: Re: [PATCH net] openvswitch: fix hangup on vxlan/gre/geneve device
+ deletion
+Date: Wed, 2 Dec 2015 13:58:17 -0200
+Message-ID: <20151202155817.GA8829@x240.home>
+References: <d3c53f79dfaacd71bebf97427388d60dc5652eae.1448989843.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: Colin King <colin.king@canonical.com>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J . Bruce Fields" <bfields@fieldses.org>,
-	Jeff Layton <jlayton@poochiereds.net>,
-	"David S . Miller" <davem@davemloft.net>,
-	Chuck Lever <chuck.lever@oracle.com>,
-	Sagi Grimberg <sagig@mellanox.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	Doug Ledford <dledford@redhat.com>,
-	<linux-nfs@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448406701-12474-1-git-send-email-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>,
+	Thomas Graf <tgraf@suug.ch>, dev@openvswitch.org
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sender163-mail.zoho.com ([74.201.84.163]:25749 "EHLO
+	sender163-mail.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755985AbbLBP6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 10:58:30 -0500
+Content-Disposition: inline
+In-Reply-To: <d3c53f79dfaacd71bebf97427388d60dc5652eae.1448989843.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/24/2015 06:11 PM, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
+On Tue, Dec 01, 2015 at 06:33:36PM +0100, Paolo Abeni wrote:
+> Each openvswitch tunnel vport (vxlan,gre,geneve) holds a reference
+> to the underlying tunnel device, but never released it when such
+> device is deleted.
+> Deleting the underlying device via the ip tool cause the kernel to
+> hangup in the netdev_wait_allrefs() loop.
+> This commit ensure that on device unregistration dp_detach_port_notify()
+> is called for all vports that hold the device reference, properly
+> releasing it.
 > 
-> Add the missing curly braces so that rc is only set to zero when
-> it is non-zero.  Without this minor fix, rc is set to zero even
-> when it is zero, which is slightly redundant.
-> 
-> Detected with smatch static analysis.
-
-Thanks for the patch, but I've already have a patch from Dan Carpenter queued up to fix this.
-
-Anna
-
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
+> Fixes: b2acd1dc3949 ("openvswitch: Use regular GRE net_device instead of vport")
+> Fixes: 6b001e682e90 ("openvswitch: Use Geneve device.")
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 > ---
->  net/sunrpc/xprtrdma/verbs.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/sunrpc/xprtrdma/verbs.c b/net/sunrpc/xprtrdma/verbs.c
-> index eadd1655..2cc1014 100644
-> --- a/net/sunrpc/xprtrdma/verbs.c
-> +++ b/net/sunrpc/xprtrdma/verbs.c
-> @@ -852,10 +852,11 @@ retry:
->  
->  		if (extras) {
->  			rc = rpcrdma_ep_post_extra_recv(r_xprt, extras);
-> -			if (rc)
-> +			if (rc) {
->  				pr_warn("%s: rpcrdma_ep_post_extra_recv: %i\n",
->  					__func__, rc);
->  				rc = 0;
-> +			}
->  		}
->  	}
->  
-> 
+
+LGTM and fixes the issue in my env.
+
+Acked-by: Flavio Leitner <fbl@sysclose.org>
