@@ -1,45 +1,84 @@
-From: Philipp Hahn <pmhahn@pmhahn.de>
-Subject: Re: Asterisk deadlocks since Kernel 4.1
-Date: Wed, 02 Dec 2015 18:51:52 +0100
-Message-ID: <565F2FB8.9010006@pmhahn.de>
-References: <564B3D35.50004@profihost.ag> <alpine.DEB.2.11.1511171936030.3761@nanos> <564B7F9D.5060701@profihost.ag> <alpine.DEB.2.11.1511172041480.3761@nanos> <564CDE2F.8000201@profihost.ag> <564CEB0C.40006@redhat.com> <564CEF5D.3080005@profihost.ag> <564D9A17.6080305@redhat.com> <564D9B21.302@profihost.ag> <564D9CE6.2090104@profihost.ag> <1447933294.1974772.444210441.67F1AC5E@webmail.messagingengine.com> <564DB5F5.9060208@profihost.ag> <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com> <564DC4A5.70104@profihost.ag> <564DCC4C.1090009@redhat.com> <564E2852.8000200@profihost.ag> <56530A42.6030609@profihost.ag> <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com> <565EBDC1.1090808@profihost.ag> <8737vlt6xb.fsf@stressinduktion.org>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: OVS VXLAN decap rule has full match on TTL for the outer headers?
+Date: Wed, 2 Dec 2015 09:52:07 -0800
+Message-ID: <CAOftzPi8mVWtr1aJ1EeAHjXOY7jq-WZ2XnNw5UAxO5_cQrVafA@mail.gmail.com>
+References: <56435508.9070802@mellanox.com> <CAEh+42jT44TQUcX=KOh9j495ObAJrQ1F_8YQF5Lz6CJUNkuh=w@mail.gmail.com>
+ <CAJ3xEMhopRFPJFj4k41X6dKWz7Ok1Jqvtht7YS=59e3ceRf-qg@mail.gmail.com>
+ <CAOftzPjio364zHUXSpK3uFDu+DiSc=5ae1WVjg9C+8485rpBsw@mail.gmail.com>
+ <CAJ3xEMi5fPCd=v2UJN0CZB5948WpDuBm25rGW4yP6-q_QF31nw@mail.gmail.com>
+ <CANr6G5xe7URQgr=C7gL=xoAaUf5rXPQByBZscmNSVHyv2=+wRg@mail.gmail.com> <565AF849.8030008@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Stefan Priebe - Profihost AG <s.priebe@profihost.ag>,
-	Florian Weimer <fweimer@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8737vlt6xb.fsf@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <gerlitz.or@gmail.com>, Jesse Gross <jesse@kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jesse Gross <jesse@nicira.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ilya Lesokhin <ilyal@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Joe Stringer <joe@ovn.org>
+To: Haggai Eran <haggaie@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from slow1-d.mail.gandi.net ([217.70.178.86]:46522 "EHLO
+	slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964802AbbLBR7a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 12:59:30 -0500
+Received: from relay2-d.mail.gandi.net (relay2-d.mail.gandi.net [217.70.183.194])
+	by slow1-d.mail.gandi.net (Postfix) with ESMTP id 4777C47E1F4
+	for <netdev@vger.kernel.org>; Wed,  2 Dec 2015 18:52:32 +0100 (CET)
+Received: from mfilter13-d.gandi.net (mfilter13-d.gandi.net [217.70.178.141])
+	by relay2-d.mail.gandi.net (Postfix) with ESMTP id BDD61C5A7A
+	for <netdev@vger.kernel.org>; Wed,  2 Dec 2015 18:52:29 +0100 (CET)
+Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
+	by mfilter13-d.gandi.net (mfilter13-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id MtAM-4wIaROK for <netdev@vger.kernel.org>;
+	Wed,  2 Dec 2015 18:52:28 +0100 (CET)
+Received: from mail-yk0-f178.google.com (mail-yk0-f178.google.com [209.85.160.178])
+	(Authenticated sender: joe@ovn.org)
+	by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 4DEFFC5A6D
+	for <netdev@vger.kernel.org>; Wed,  2 Dec 2015 18:52:28 +0100 (CET)
+Received: by ykfs79 with SMTP id s79so56224010ykf.1
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 09:52:27 -0800 (PST)
+In-Reply-To: <565AF849.8030008@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 29 November 2015 at 05:06, Haggai Eran <haggaie@mellanox.com> wrote:
+> On 14/11/2015 08:45, Joe Stringer wrote:
+>> On 13 November 2015 at 06:46, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>> > On Fri, Nov 13, 2015 at 10:14 AM, Joe Stringer <joestringer@nicira.com> wrote:
+>>> >
+>>>> >> I don't follow the logic. You observed one flow which matched on
+>>>> >> TTL=64, therefore all vxlan packets terminated at OVS have TTL=64?
+>>> >
+>>>> >> If OVS received packets with different TTLs, they would miss and
+>>>> >> ovs-vswitchd would generate flows to match that traffic too.
+>>> >
+>>> > ok, that makes things a bit better, but (see next)
+>>> >
+>>>> >> If that becomes an issue, presumably the wildcard generation can be improved.
+>>> >
+>>> > is there a deep reason for vlxan "learned flows" to actually match w
+>>> > or w.o wild cards on TTLs?? for non-tunneled flow I don't see  this
+>>> > happening.
+>> No deep reason I'm aware of.
+>
+> Hi,
+>
+> We looked into the OVS kernel module, and apparently there's a check
+> that rejects new tunnel flows if they don't have the TTL mask set [1].
+>
+> I was able to trace it to this commit [2] on the OVS tree, but I don't
+> quite understand why the check was added. There was some discussion
+> about the patch on the mailing list [3] that hints this was about
+> catching zero TTL, but it has too little context for me to understand.
+>
+> I'm adding the author and reviewer of the patch, perhaps they can help
+> explain this requirement.
 
-Am 02.12.2015 um 12:40 schrieb Hannes Frederic Sowa:
-> Cool, thanks a lot. Does this patch make a difference?
-> 
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 59651af..278e94c 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -1137,7 +1137,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
->  
->  	/* We need to ensure that the socket is hashed and visible. */
->  	smp_wmb();
-> -	nlk_sk(sk)->bound = portid;
-> +	nlk_sk(sk)->bound = true;
->  
->  err:
->  	release_sock(sk);
-
-Will test that tomorrow.
-
-What confuss me is that it works with 4.3. I compared
-net/netlink/af_netlink.[ch] for differences between v4.1.10 and v4.3 and
-didn't find anything which would explain only 4,1 getting stuck.
-
-Philipp
+I'm not the author or reviewer, but it seems like this is an attempt
+to prevent flows from matching TTL=0 then proceeding to forward the
+frame. You could still match a non-zero TTL with a wildcarded mask,
+but it wouldn't be possible for a single flow to match all (non-zero)
+TTL values.
