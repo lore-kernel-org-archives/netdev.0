@@ -1,44 +1,57 @@
-From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-Subject: Re: [PATCH v2 4/5] net: thunderx: Switchon carrier only upon
- interface link up
-Date: Wed, 2 Dec 2015 17:04:36 +0530
-Message-ID: <CA+sq2Cf1v8js0UQoA+b8eO8_i3P7+kriHtknW9Dz3bXTR5Fjqg@mail.gmail.com>
-References: <1449050777-37836-1-git-send-email-sunil.kovvuri@gmail.com>
-	<1449050777-37836-5-git-send-email-sunil.kovvuri@gmail.com>
-	<00ec01d12cee$26a28a00$73e79e00$@samsung.com>
-	<011f01d12cf4$de8bc7c0$9ba35740$@samsung.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Asterisk deadlocks since Kernel 4.1
+Date: Wed, 02 Dec 2015 12:40:32 +0100
+Message-ID: <8737vlt6xb.fsf@stressinduktion.org>
+References: <564B3D35.50004@profihost.ag> <alpine.DEB.2.11.1511171936030.3761@nanos> <564B7F9D.5060701@profihost.ag> <alpine.DEB.2.11.1511172041480.3761@nanos> <564CDE2F.8000201@profihost.ag> <564CEB0C.40006@redhat.com> <564CEF5D.3080005@profihost.ag> <564D9A17.6080305@redhat.com> <564D9B21.302@profihost.ag> <564D9CE6.2090104@profihost.ag> <1447933294.1974772.444210441.67F1AC5E@webmail.messagingengine.com> <564DB5F5.9060208@profihost.ag> <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com> <564DC4A5.70104@profihost.ag> <564DCC4C.1090009@redhat.com> <564E2852.8000200@profihost.ag> <56530A42.6030609@profihost.ag> <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com> <565EBDC1.1090808@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	LAKML <linux-arm-kernel@lists.infradead.org>,
-	Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
-	Sunil Goutham <sgoutham@cavium.com>
-To: Pavel Fedin <p.fedin@samsung.com>
+Content-Type: text/plain
+Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>,
+	Florian Weimer <fweimer@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <011f01d12cf4$de8bc7c0$9ba35740$@samsung.com>
+In-Reply-To: <565EBDC1.1090808@profihost.ag>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks for the confirmation.
+Hello Stefan,
 
-On Wed, Dec 2, 2015 at 5:00 PM, Pavel Fedin <p.fedin@samsung.com> wrote:
->  Hello again!
+Stefan Priebe - Profihost AG <s.priebe@profihost.ag> writes:
+
+
+> here are the results.
 >
->> Subject: RE: [PATCH v2 4/5] net: thunderx: Switchon carrier only upon interface link up
->>
->>  Just a reminder, we have issue with this one too, which is not addressed yet.
+> It works with 4.1.
+> It works with 4.2.
+> It does not work with 4.1.13.
 >
->  I have examined the problem thoroughly and discovered that it is a problem with experimental BGX driver patches on my 4.2 host
-> kernel build. It fails to send NIC_MBOX_MSG_BGX_LINK_CHANGE, so nothing works.
->  I have retested this series on top of 4.3 running on ThunderX. It has good BGX driver and everything works fine. Therefore, the
-> whole series can be safely applied and...
+> git bisect tells me it stopped working after those two commits were applied:
 >
->  Tested-by: Pavel Fedin <p.fedin@samsung.com>
+> commit d48623677191e0f035d7afd344f92cf880b01f8e
+> Author: Herbert Xu <herbert@gondor.apana.org.au>
+> Date:   Tue Sep 22 11:38:56 2015 +0800
 >
-> Kind regards,
-> Pavel Fedin
-> Expert Engineer
-> Samsung Electronics Research center Russia
+>     netlink: Replace rhash_portid with bound
 >
+> commit 4e27762417669cb459971635be550eb7b5598286
+> Author: Herbert Xu <herbert@gondor.apana.org.au>
+> Date:   Fri Sep 18 19:16:50 2015 +0800
 >
+>     netlink: Fix autobind race condition that leads to zero port ID
+
+Cool, thanks a lot. Does this patch make a difference?
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 59651af..278e94c 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1137,7 +1137,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
+ 
+ 	/* We need to ensure that the socket is hashed and visible. */
+ 	smp_wmb();
+-	nlk_sk(sk)->bound = portid;
++	nlk_sk(sk)->bound = true;
+ 
+ err:
+ 	release_sock(sk);
