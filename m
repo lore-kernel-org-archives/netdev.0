@@ -1,158 +1,164 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 17/17] i40e: remove unused argument
-Date: Wed,  2 Dec 2015 00:25:35 -0800
-Message-ID: <1449044735-68599-18-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/17] i40evf: add new fields to store user configuration of RSS
+Date: Wed,  2 Dec 2015 00:25:26 -0800
+Message-ID: <1449044735-68599-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Helin Zhang <helin.zhang@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:56306 "EHLO mga02.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:52886 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757580AbbLBIZo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 03:25:44 -0500
+	id S1757569AbbLBIZm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2015 03:25:42 -0500
 In-Reply-To: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Helin Zhang <helin.zhang@intel.com>
 
-With the final edition of the patches to remove sleeps from
-the driver's entry points, the grab_rtnl argument is no
-longer needed, so partially revert the commit that added it.
+This patch adds new fields to i40e_vsi to store user configured
+RSS config data and code to use it.
 
-Change-ID: Ib9778476242586cc9e58b670f5f48d415cb59003
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: Ic5d3db8d9df52182b560248f8cdca9c5c7546879
+Signed-off-by: Helin Zhang <helin.zhang@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h             |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |  4 ++--
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 16 +++++++++++-----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  8 ++++----
- 4 files changed, 18 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  2 ++
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 31 ++++++++++--------
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 37 ++++++++++++++++++++--
+ 3 files changed, 54 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index d854a46..0b9537b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -697,7 +697,7 @@ struct i40e_mac_filter *i40e_add_filter(struct i40e_vsi *vsi,
- 					bool is_vf, bool is_netdev);
- void i40e_del_filter(struct i40e_vsi *vsi, u8 *macaddr, s16 vlan,
- 		     bool is_vf, bool is_netdev);
--int i40e_sync_vsi_filters(struct i40e_vsi *vsi, bool grab_rtnl);
-+int i40e_sync_vsi_filters(struct i40e_vsi *vsi);
- struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
- 				u16 uplink, u32 param1);
- int i40e_vsi_release(struct i40e_vsi *vsi);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index d1a91c8..10744a6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -1138,7 +1138,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 		spin_lock_bh(&vsi->mac_filter_list_lock);
- 		f = i40e_add_filter(vsi, ma, vlan, false, false);
- 		spin_unlock_bh(&vsi->mac_filter_list_lock);
--		ret = i40e_sync_vsi_filters(vsi, true);
-+		ret = i40e_sync_vsi_filters(vsi);
- 		if (f && !ret)
- 			dev_info(&pf->pdev->dev,
- 				 "add macaddr: %pM vlan=%d added to VSI %d\n",
-@@ -1177,7 +1177,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 		spin_lock_bh(&vsi->mac_filter_list_lock);
- 		i40e_del_filter(vsi, ma, vlan, false, false);
- 		spin_unlock_bh(&vsi->mac_filter_list_lock);
--		ret = i40e_sync_vsi_filters(vsi, true);
-+		ret = i40e_sync_vsi_filters(vsi);
- 		if (!ret)
- 			dev_info(&pf->pdev->dev,
- 				 "del macaddr: %pM vlan=%d removed from VSI %d\n",
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 3119ee4..9e6268b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1859,13 +1859,12 @@ static void i40e_cleanup_add_list(struct list_head *add_list)
- /**
-  * i40e_sync_vsi_filters - Update the VSI filter list to the HW
-  * @vsi: ptr to the VSI
-- * @grab_rtnl: whether RTNL needs to be grabbed
-  *
-  * Push any outstanding VSI filter changes through the AdminQ.
-  *
-  * Returns 0 or error value
-  **/
--int i40e_sync_vsi_filters(struct i40e_vsi *vsi, bool grab_rtnl)
-+int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- {
- 	struct list_head tmp_del_list, tmp_add_list;
- 	struct i40e_mac_filter *f, *ftmp, *fclone;
-@@ -2169,8 +2168,15 @@ static void i40e_sync_filters_subtask(struct i40e_pf *pf)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
+index 5f2e61d..090c604 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf.h
++++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
+@@ -67,6 +67,8 @@ struct i40e_vsi {
+ 	u16 rx_itr_setting;
+ 	u16 tx_itr_setting;
+ 	u16 qs_handle;
++	u8 *rss_hkey_user; /* User configured hash keys */
++	u8 *rss_lut_user;  /* User configured lookup table entries */
+ };
  
- 	for (v = 0; v < pf->num_alloc_vsi; v++) {
- 		if (pf->vsi[v] &&
--		    (pf->vsi[v]->flags & I40E_VSI_FLAG_FILTER_CHANGED))
--			i40e_sync_vsi_filters(pf->vsi[v], true);
-+		    (pf->vsi[v]->flags & I40E_VSI_FLAG_FILTER_CHANGED)) {
-+			int ret = i40e_sync_vsi_filters(pf->vsi[v]);
-+
-+			if (ret) {
-+				/* come back and try again later */
-+				pf->flags |= I40E_FLAG_FILTER_SYNC;
-+				break;
-+			}
+ /* How many Rx Buffers do we bundle into one write to the hardware ? */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index a520970..966863c 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -678,9 +678,7 @@ static int i40evf_set_rxfh(struct net_device *netdev, const u32 *indir,
+ {
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
+ 	struct i40e_vsi *vsi = &adapter->vsi;
+-	u8 seed_def[I40EVF_HKEY_ARRAY_SIZE];
+-	u8 *seed = NULL, *lut;
+-	int ret;
++	u8 *seed = NULL;
+ 	u16 i;
+ 
+ 	/* We do not allow change in unsupported parameters */
+@@ -691,21 +689,28 @@ static int i40evf_set_rxfh(struct net_device *netdev, const u32 *indir,
+ 		return 0;
+ 
+ 	if (key) {
+-		memcpy(seed_def, key, I40EVF_HKEY_ARRAY_SIZE);
+-		seed = seed_def;
++		if (!vsi->rss_hkey_user) {
++			vsi->rss_hkey_user = kzalloc(I40EVF_HKEY_ARRAY_SIZE,
++						     GFP_KERNEL);
++			if (!vsi->rss_hkey_user)
++				return -ENOMEM;
 +		}
++		memcpy(vsi->rss_hkey_user, key, I40EVF_HKEY_ARRAY_SIZE);
++		seed = vsi->rss_hkey_user;
++	}
++	if (!vsi->rss_lut_user) {
++		vsi->rss_lut_user = kzalloc(I40EVF_HLUT_ARRAY_SIZE,
++					    GFP_KERNEL);
++		if (!vsi->rss_lut_user)
++			return -ENOMEM;
  	}
+-	lut = kzalloc(I40EVF_HLUT_ARRAY_SIZE, GFP_KERNEL);
+-	if (!lut)
+-		return -ENOMEM;
+ 
+ 	/* Each 32 bits pointed by 'indir' is stored with a lut entry */
+ 	for (i = 0; i < I40EVF_HLUT_ARRAY_SIZE; i++)
+-		lut[i] = (u8)(indir[i]);
++		vsi->rss_lut_user[i] = (u8)(indir[i]);
+ 
+-	ret = i40evf_config_rss(vsi, seed, lut, I40EVF_HLUT_ARRAY_SIZE);
+-	kfree(lut);
+-
+-	return ret;
++	return i40evf_config_rss(vsi, seed, vsi->rss_lut_user,
++				 I40EVF_HLUT_ARRAY_SIZE);
  }
  
-@@ -9219,7 +9225,7 @@ int i40e_vsi_release(struct i40e_vsi *vsi)
- 				f->is_vf, f->is_netdev);
- 	spin_unlock_bh(&vsi->mac_filter_list_lock);
+ static const struct ethtool_ops i40evf_ethtool_ops = {
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 68251fa..1cd5d5d 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1453,9 +1453,21 @@ static int i40evf_init_rss(struct i40evf_adapter *adapter)
+ 	lut = kzalloc(I40EVF_HLUT_ARRAY_SIZE, GFP_KERNEL);
+ 	if (!lut)
+ 		return -ENOMEM;
+-	i40evf_fill_rss_lut(lut, I40EVF_HLUT_ARRAY_SIZE,
+-			    adapter->num_active_queues);
+-	netdev_rss_key_fill((void *)seed, I40EVF_HKEY_ARRAY_SIZE);
++
++	/* Use user configured lut if there is one, otherwise use default */
++	if (vsi->rss_lut_user)
++		memcpy(lut, vsi->rss_lut_user, I40EVF_HLUT_ARRAY_SIZE);
++	else
++		i40evf_fill_rss_lut(lut, I40EVF_HLUT_ARRAY_SIZE,
++				    adapter->num_active_queues);
++
++	/* Use user configured hash key if there is one, otherwise
++	 * user default.
++	 */
++	if (vsi->rss_hkey_user)
++		memcpy(seed, vsi->rss_hkey_user, I40EVF_HKEY_ARRAY_SIZE);
++	else
++		netdev_rss_key_fill((void *)seed, I40EVF_HKEY_ARRAY_SIZE);
+ 	ret = i40evf_config_rss(vsi, seed, lut, I40EVF_HLUT_ARRAY_SIZE);
+ 	kfree(lut);
  
--	i40e_sync_vsi_filters(vsi, false);
-+	i40e_sync_vsi_filters(vsi);
+@@ -1583,6 +1595,22 @@ err_set_interrupt:
+ }
  
- 	i40e_vsi_delete(vsi);
- 	i40e_vsi_free_q_vectors(vsi);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 26f247d..819803c8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -565,7 +565,7 @@ static int i40e_alloc_vsi_res(struct i40e_vf *vf, enum i40e_vsi_type type)
- 	}
+ /**
++ * i40evf_clear_rss_config_user - Clear user configurations of RSS
++ * @vsi: Pointer to VSI structure
++ **/
++static void i40evf_clear_rss_config_user(struct i40e_vsi *vsi)
++{
++	if (!vsi)
++		return;
++
++	kfree(vsi->rss_hkey_user);
++	vsi->rss_hkey_user = NULL;
++
++	kfree(vsi->rss_lut_user);
++	vsi->rss_lut_user = NULL;
++}
++
++/**
+  * i40evf_watchdog_timer - Periodic call-back timer
+  * @data: pointer to adapter disguised as unsigned long
+  **/
+@@ -2770,6 +2798,9 @@ static void i40evf_remove(struct pci_dev *pdev)
  
- 	/* program mac filter */
--	ret = i40e_sync_vsi_filters(vsi, false);
-+	ret = i40e_sync_vsi_filters(vsi);
- 	if (ret)
- 		dev_err(&pf->pdev->dev, "Unable to program ucast filters\n");
+ 	flush_scheduled_work();
  
-@@ -1633,7 +1633,7 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	spin_unlock_bh(&vsi->mac_filter_list_lock);
++	/* Clear user configurations for RSS */
++	i40evf_clear_rss_config_user(&adapter->vsi);
++
+ 	if (hw->aq.asq.count)
+ 		i40evf_shutdown_adminq(hw);
  
- 	/* program the updated filter list */
--	if (i40e_sync_vsi_filters(vsi, false))
-+	if (i40e_sync_vsi_filters(vsi))
- 		dev_err(&pf->pdev->dev, "Unable to program VF %d MAC filters\n",
- 			vf->vf_id);
- 
-@@ -1687,7 +1687,7 @@ static int i40e_vc_del_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	spin_unlock_bh(&vsi->mac_filter_list_lock);
- 
- 	/* program the updated filter list */
--	if (i40e_sync_vsi_filters(vsi, false))
-+	if (i40e_sync_vsi_filters(vsi))
- 		dev_err(&pf->pdev->dev, "Unable to program VF %d MAC filters\n",
- 			vf->vf_id);
- 
-@@ -2102,7 +2102,7 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
- 
- 	dev_info(&pf->pdev->dev, "Setting MAC %pM on VF %d\n", mac, vf_id);
- 	/* program mac filter */
--	if (i40e_sync_vsi_filters(vsi, false)) {
-+	if (i40e_sync_vsi_filters(vsi)) {
- 		dev_err(&pf->pdev->dev, "Unable to program ucast filters\n");
- 		ret = -EIO;
- 		goto error_param;
 -- 
 2.5.0
