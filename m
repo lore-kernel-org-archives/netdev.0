@@ -1,71 +1,174 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/17] i40e: Update error messaging
-Date: Wed,  2 Dec 2015 00:25:27 -0800
-Message-ID: <1449044735-68599-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/17] i40e: rename rss_size to alloc_rss_size in i40e_pf
+Date: Wed,  2 Dec 2015 00:25:20 -0800
+Message-ID: <1449044735-68599-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Helin Zhang <helin.zhang@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:5698 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:12553 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757564AbbLBIZl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 03:25:41 -0500
+	id S1756660AbbLBIZk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2015 03:25:40 -0500
 In-Reply-To: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Helin Zhang <helin.zhang@intel.com>
 
-This patch fixes an issue where adminq init failures always provided
-a message that NVM was newer than expected.  This is not always the
-case for init_adminq failures. Without this patch, if adminq init
-fails for any reason, newer NVM message would be given.  This
-problem is fixed by adding  a check for that specific error
-condition and a different hopefully helpful message otherwise.
+This patch renames rss_size to alloc_rss_size in i40e_pf, which is
+clearer and avoids confusion. It also adds comments to the other
+related structure members to help clarify usage.
 
-Change-ID: Iaeaebee4e398989eae40bb70f943ab66a3a521a5
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Change-ID: Ia90090609d006ab589cb639975bb8a0af795d16f
+Signed-off-by: Helin Zhang <helin.zhang@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  8 ++++----
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 31 +++++++++++++++++------------
+ 2 files changed, 22 insertions(+), 17 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 6efab66..d854a46 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -266,7 +266,7 @@ struct i40e_pf {
+ 	u16 num_lan_qps;           /* num lan queues this PF has set up */
+ 	u16 num_lan_msix;          /* num queue vectors for the base PF vsi */
+ 	int queues_left;           /* queues left unclaimed */
+-	u16 rss_size;              /* num queues in the RSS array */
++	u16 alloc_rss_size;        /* allocated RSS queues */
+ 	u16 rss_size_max;          /* HW defined max RSS queues */
+ 	u16 fdir_pf_filter_count;  /* num of guaranteed filters for this PF */
+ 	u16 num_alloc_vsi;         /* num VSIs this driver supports */
+@@ -413,7 +413,7 @@ struct i40e_pf {
+ 	u32 rx_hwtstamp_cleared;
+ 	bool ptp_tx;
+ 	bool ptp_rx;
+-	u16 rss_table_size;
++	u16 rss_table_size; /* HW RSS table size */
+ 	/* These are only valid in NPAR modes */
+ 	u32 npar_max_bw;
+ 	u32 npar_min_bw;
+@@ -506,8 +506,8 @@ struct i40e_vsi {
+ 	u16 tx_itr_setting;
+ 	u16 int_rate_limit;  /* value in usecs */
+ 
+-	u16 rss_table_size;
+-	u16 rss_size;
++	u16 rss_table_size; /* HW RSS table size */
++	u16 rss_size;       /* Allocated RSS queues */
+ 	u8  *rss_hkey_user; /* User configured hash keys */
+ 	u8  *rss_lut_user;  /* User configured lookup table entries */
+ 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 491c82f..508cf9a 100644
+index c0a784f..491c82f 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -10471,6 +10471,16 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	pf->hw.fc.requested_mode = I40E_FC_NONE;
+@@ -1630,7 +1630,8 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
  
- 	err = i40e_init_adminq(hw);
-+	if (err) {
-+		if (err == I40E_ERR_FIRMWARE_API_VERSION)
-+			dev_info(&pdev->dev,
-+				 "The driver for the device stopped because the NVM image is newer than expected. You must install the most recent version of the network driver.\n");
-+		else
-+			dev_info(&pdev->dev,
-+				 "The driver for the device stopped because the device firmware failed to init. Try updating your NVM image.\n");
-+
-+		goto err_pf_reset;
-+	}
+ 			switch (vsi->type) {
+ 			case I40E_VSI_MAIN:
+-				qcount = min_t(int, pf->rss_size, num_tc_qps);
++				qcount = min_t(int, pf->alloc_rss_size,
++					       num_tc_qps);
+ 				break;
+ #ifdef I40E_FCOE
+ 			case I40E_VSI_FCOE:
+@@ -7883,7 +7884,7 @@ static int i40e_vsi_config_rss(struct i40e_vsi *vsi)
  
- 	/* provide nvm, fw, api versions */
- 	dev_info(&pdev->dev, "fw %d.%d.%05d api %d.%d nvm %s\n",
-@@ -10478,12 +10488,6 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		 hw->aq.api_maj_ver, hw->aq.api_min_ver,
- 		 i40e_nvm_version_str(hw));
+ 	i40e_fill_rss_lut(pf, lut, vsi->rss_table_size, vsi->rss_size);
+ 	netdev_rss_key_fill((void *)seed, I40E_HKEY_ARRAY_SIZE);
+-	vsi->rss_size = min_t(int, pf->rss_size, vsi->num_queue_pairs);
++	vsi->rss_size = min_t(int, pf->alloc_rss_size, vsi->num_queue_pairs);
+ 	ret = i40e_config_rss_aq(vsi, seed, lut, vsi->rss_table_size);
+ 	kfree(lut);
  
--	if (err) {
--		dev_info(&pdev->dev,
--			 "The driver for the device stopped because the NVM image is newer than expected. You must install the most recent version of the network driver.\n");
--		goto err_pf_reset;
--	}
--
- 	if (hw->aq.api_maj_ver == I40E_FW_API_VERSION_MAJOR &&
- 	    hw->aq.api_min_ver > I40E_FW_API_VERSION_MINOR)
- 		dev_info(&pdev->dev,
+@@ -8042,7 +8043,8 @@ static int i40e_pf_config_rss(struct i40e_pf *pf)
+ 
+ 	/* Determine the RSS size of the VSI */
+ 	if (!vsi->rss_size)
+-		vsi->rss_size = min_t(int, pf->rss_size, vsi->num_queue_pairs);
++		vsi->rss_size = min_t(int, pf->alloc_rss_size,
++				      vsi->num_queue_pairs);
+ 
+ 	lut = kzalloc(vsi->rss_table_size, GFP_KERNEL);
+ 	if (!lut)
+@@ -8089,7 +8091,7 @@ int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count)
+ 		vsi->req_queue_pairs = queue_count;
+ 		i40e_prep_for_reset(pf);
+ 
+-		pf->rss_size = new_rss_size;
++		pf->alloc_rss_size = new_rss_size;
+ 
+ 		i40e_reset_and_rebuild(pf, true);
+ 
+@@ -8103,12 +8105,13 @@ int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count)
+ 		}
+ 
+ 		/* Reset vsi->rss_size, as number of enabled queues changed */
+-		vsi->rss_size = min_t(int, pf->rss_size, vsi->num_queue_pairs);
++		vsi->rss_size = min_t(int, pf->alloc_rss_size,
++				      vsi->num_queue_pairs);
+ 
+ 		i40e_pf_config_rss(pf);
+ 	}
+-	dev_info(&pf->pdev->dev, "RSS count:  %d\n", pf->rss_size);
+-	return pf->rss_size;
++	dev_info(&pf->pdev->dev, "RSS count:  %d\n", pf->alloc_rss_size);
++	return pf->alloc_rss_size;
+ }
+ 
+ /**
+@@ -8279,13 +8282,14 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 	 * maximum might end up larger than the available queues
+ 	 */
+ 	pf->rss_size_max = BIT(pf->hw.func_caps.rss_table_entry_width);
+-	pf->rss_size = 1;
++	pf->alloc_rss_size = 1;
+ 	pf->rss_table_size = pf->hw.func_caps.rss_table_size;
+ 	pf->rss_size_max = min_t(int, pf->rss_size_max,
+ 				 pf->hw.func_caps.num_tx_qp);
+ 	if (pf->hw.func_caps.rss) {
+ 		pf->flags |= I40E_FLAG_RSS_ENABLED;
+-		pf->rss_size = min_t(int, pf->rss_size_max, num_online_cpus());
++		pf->alloc_rss_size = min_t(int, pf->rss_size_max,
++					   num_online_cpus());
+ 	}
+ 
+ 	/* MFP mode enabled */
+@@ -10152,7 +10156,7 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
+ 	    !(pf->flags & I40E_FLAG_MSIX_ENABLED)) {
+ 		/* one qp for PF, no queues for anything else */
+ 		queues_left = 0;
+-		pf->rss_size = pf->num_lan_qps = 1;
++		pf->alloc_rss_size = pf->num_lan_qps = 1;
+ 
+ 		/* make sure all the fancies are disabled */
+ 		pf->flags &= ~(I40E_FLAG_RSS_ENABLED	|
+@@ -10169,7 +10173,7 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
+ 				  I40E_FLAG_FD_ATR_ENABLED |
+ 				  I40E_FLAG_DCB_CAPABLE))) {
+ 		/* one qp for PF */
+-		pf->rss_size = pf->num_lan_qps = 1;
++		pf->alloc_rss_size = pf->num_lan_qps = 1;
+ 		queues_left -= pf->num_lan_qps;
+ 
+ 		pf->flags &= ~(I40E_FLAG_RSS_ENABLED	|
+@@ -10239,8 +10243,9 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
+ 		"qs_avail=%d FD SB=%d lan_qs=%d lan_tc0=%d vf=%d*%d vmdq=%d*%d, remaining=%d\n",
+ 		pf->hw.func_caps.num_tx_qp,
+ 		!!(pf->flags & I40E_FLAG_FD_SB_ENABLED),
+-		pf->num_lan_qps, pf->rss_size, pf->num_req_vfs, pf->num_vf_qps,
+-		pf->num_vmdq_vsis, pf->num_vmdq_qps, queues_left);
++		pf->num_lan_qps, pf->alloc_rss_size, pf->num_req_vfs,
++		pf->num_vf_qps, pf->num_vmdq_vsis, pf->num_vmdq_qps,
++		queues_left);
+ #ifdef I40E_FCOE
+ 	dev_dbg(&pf->pdev->dev, "fcoe queues = %d\n", pf->num_fcoe_qps);
+ #endif
 -- 
 2.5.0
