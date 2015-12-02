@@ -1,8 +1,7 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next V3 02/17] hv_netvsc: Rearrange the hv_negtvsc_packet
- to be space efficient
-Date: Tue,  1 Dec 2015 16:43:04 -0800
-Message-ID: <1449016999-9796-2-git-send-email-kys@microsoft.com>
+Subject: [PATCH net-next V3 10/17] hv_netvsc: remove locking in netvsc_send()
+Date: Tue,  1 Dec 2015 16:43:12 -0800
+Message-ID: <1449016999-9796-10-git-send-email-kys@microsoft.com>
 References: <1449016978-9755-1-git-send-email-kys@microsoft.com>
  <1449016999-9796-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
@@ -24,61 +23,76 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Rearrange the elements of struct hv_negtvsc_packet for optimal layout -
-eliminate unnecessary padding.
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
 
+Packet scheduler guarantees there won't be multiple senders for the same
+queue and as we use q_idx for multi_send_data the spinlock is redundant.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h |   18 ++++++++++--------
- 1 files changed, 10 insertions(+), 8 deletions(-)
+ drivers/net/hyperv/hyperv_net.h |    1 -
+ drivers/net/hyperv/netvsc.c     |    8 --------
+ 2 files changed, 0 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 972e562..7435673 100644
+index a9d2bdc5..f5b2145 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -128,32 +128,34 @@ struct ndis_tcp_ip_checksum_info;
- struct hv_netvsc_packet {
- 	/* Bookkeeping stuff */
- 	u8 status;
--
- 	u8 is_data_pkt;
- 	u8 xmit_more; /* from skb */
- 	u8 cp_partial; /* partial copy into send buffer */
+@@ -633,7 +633,6 @@ struct nvsp_message {
+ #define RNDIS_PKT_ALIGN_DEFAULT 8
  
--	u16 vlan_tci;
-+	u8 rmsg_size; /* RNDIS header and PPI size */
-+	u8 rmsg_pgcnt; /* page count of RNDIS header and PPI */
-+	u8 page_buf_cnt;
-+	u8 pad0;
- 
-+	u16 vlan_tci;
- 	u16 q_idx;
-+	u32 send_buf_index;
-+
-+	u32 total_data_buflen;
-+	u32 pad1;
-+
- 	struct vmbus_channel *channel;
- 
- 	u64 send_completion_tid;
- 	void *send_completion_ctx;
- 	void (*send_completion)(void *context);
- 
--	u32 send_buf_index;
- 
- 	/* This points to the memory after page_buf */
- 	struct rndis_message *rndis_msg;
- 
--	u8 rmsg_size; /* RNDIS header and PPI size */
--	u8 rmsg_pgcnt; /* page count of RNDIS header and PPI */
--
--	u32 total_data_buflen;
- 	/* Points to the send/receive buffer where the ethernet frame is */
- 	void *data;
--	u8 page_buf_cnt;
- 	struct hv_page_buffer *page_buf;
+ struct multi_send_data {
+-	spinlock_t lock; /* protect struct multi_send_data */
+ 	struct hv_netvsc_packet *pkt; /* netvsc pkt pending */
+ 	u32 count; /* counter of batched packets */
  };
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 419b055..081f14f 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -38,7 +38,6 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
+ {
+ 	struct netvsc_device *net_device;
+ 	struct net_device *ndev = hv_get_drvdata(device);
+-	int i;
+ 
+ 	net_device = kzalloc(sizeof(struct netvsc_device), GFP_KERNEL);
+ 	if (!net_device)
+@@ -58,9 +57,6 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
+ 	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
+ 	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
+ 
+-	for (i = 0; i < num_online_cpus(); i++)
+-		spin_lock_init(&net_device->msd[i].lock);
+-
+ 	hv_set_drvdata(device, net_device);
+ 	return net_device;
+ }
+@@ -850,7 +846,6 @@ int netvsc_send(struct hv_device *device,
+ 	u16 q_idx = packet->q_idx;
+ 	u32 pktlen = packet->total_data_buflen, msd_len = 0;
+ 	unsigned int section_index = NETVSC_INVALID_INDEX;
+-	unsigned long flag;
+ 	struct multi_send_data *msdp;
+ 	struct hv_netvsc_packet *msd_send = NULL, *cur_send = NULL;
+ 	bool try_batch;
+@@ -867,7 +862,6 @@ int netvsc_send(struct hv_device *device,
+ 	msdp = &net_device->msd[q_idx];
+ 
+ 	/* batch packets in send buffer if possible */
+-	spin_lock_irqsave(&msdp->lock, flag);
+ 	if (msdp->pkt)
+ 		msd_len = msdp->pkt->total_data_buflen;
+ 
+@@ -927,8 +921,6 @@ int netvsc_send(struct hv_device *device,
+ 		cur_send = packet;
+ 	}
+ 
+-	spin_unlock_irqrestore(&msdp->lock, flag);
+-
+ 	if (msd_send) {
+ 		m_ret = netvsc_send_pkt(msd_send, net_device);
  
 -- 
 1.7.4.1
