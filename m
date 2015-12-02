@@ -1,79 +1,93 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: ipsec impact on performance
-Date: Wed, 2 Dec 2015 07:53:05 +0100
-Message-ID: <20151202065305.GB14008@secunet.com>
-References: <20151201175953.GC21252@oracle.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 07/26] net: add possibility to pass information
+ about upper device via notifier
+Date: Wed, 2 Dec 2015 08:54:27 +0100
+Message-ID: <20151202075427.GA2355@nanopsycho.orion>
+References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
+ <1448977744-17930-8-git-send-email-jiri@resnulli.us>
+ <CAJ3xEMgdqXYxOsk_aXKVnjKCM_D_U2BAETe9bgQOh6T17QvmjA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <linux-crypto@vger.kernel.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>, yotamg@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:46221 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751442AbbLBHck (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 02:32:40 -0500
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:34178 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750912AbbLBHya (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 02:54:30 -0500
+Received: by wmvv187 with SMTP id v187so241844499wmv.1
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 23:54:28 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20151201175953.GC21252@oracle.com>
+In-Reply-To: <CAJ3xEMgdqXYxOsk_aXKVnjKCM_D_U2BAETe9bgQOh6T17QvmjA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 01, 2015 at 12:59:53PM -0500, Sowmini Varadhan wrote:
-> 
-> I instrumented iperf with and without ipsec, just using esp-null, 
-> and 1 thread, to keep things simple. I'm seeing some pretty dismal 
-> performance numbers with ipsec, and trying to think of ways to
-> improve this. Here are my findings, please share feedback.
-> 
-> I suspect that a big part of the problem is the implicit loss of GSO,
-> and this is made worse by some inefficiencies in the xfrm code:
-> for single stream iperf (to avoid effects of rx-hash), I see the
-> following on a 10G p2p ethernet link.
->      8.5-9.5 Gbps clear traffic, TSO disabled, so GSO, GRO is in effect
->      3-4 Gbps clear traffic, with both TSO/GSO disabled
->      1.8-2 Gbps for esp-null.
-> So the above numbers suggest that losing TSO/GSO results in one
-> big drop in performance, and then there's another cliff for the 
-> clear -> esp-null transition. And those cliffs apply even if you are
-> merely doing TCP-MD5 or AO for basic protection of the TCP connection.
-> 
-> I tried moving things about a bit to defer the ipsec after GSO - I'll 
-> share my experimental patch as an RFC in a separate thread. (Disclaimer:
-> the patch is just an experiment at this point).
-> 
-> In that patch, I'm only focussing on esp-null and transp-mode ipsec
-> for now, just to get some basic performance numbers to see if this is 
-> at all interesting.  Essentially my hack mainly involves the following
-> 
-> - don't disable TSO in sk_setup_caps() if a dst->header_len is found
-> - in xfrm4_output, if GSO is applicable, bail out without esp header 
->   addition - that will get done after skb_segment()
-> - at the end of tcp_gso_segment() (when tcp segment is available),
->   set things up for xfrm_output_one and trigger the esp_output..
->   I have to be very careful about setting up skb pointers here, since
->   it looks like esp_output overloads the mac_header pointer e.g., for
->   setting up the ip protocol field 
+Wed, Dec 02, 2015 at 06:28:35AM CET, gerlitz.or@gmail.com wrote:
+>On Tue, Dec 1, 2015 at 3:48 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>>
+>> Sometimes the drivers and other code would find it handy to know some
+>> internal information about upper device being changed. So allow upper-code
+>> to pass information down to notifier listeners during linking.
+>[...]
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 9240157..fa3ed1d 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -1204,7 +1204,7 @@ static int bond_master_upper_dev_link(struct net_device *bond_dev,
+>>  {
+>>         int err;
+>>
+>> -       err = netdev_master_upper_dev_link(slave_dev, bond_dev, slave);
+>> +       err = netdev_master_upper_dev_link(slave_dev, bond_dev, slave, NULL);
+>>         if (err)
+>>                 return err;
+>>         slave_dev->flags |= IFF_SLAVE;
+>> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>> index b37f8d1..f7b6ff7 100644
+>> --- a/drivers/net/team/team.c
+>> +++ b/drivers/net/team/team.c
+>> @@ -1083,7 +1083,7 @@ static int team_upper_dev_link(struct net_device *dev,
+>>  {
+>>         int err;
+>>
+>> -       err = netdev_master_upper_dev_link(port_dev, dev, NULL);
+>> +       err = netdev_master_upper_dev_link(port_dev, dev, NULL, NULL);
+>>         if (err)
+>>                 return err;
+>>         port_dev->priv_flags |= IFF_TEAM_PORT;
+>> diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+>> index 59c5bdd..8944a49 100644
+>> --- a/drivers/net/vrf.c
+>> +++ b/drivers/net/vrf.c
+>> @@ -624,7 +624,7 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+>>                 goto out_fail;
+>>         }
+>>
+>> -       ret = netdev_master_upper_dev_link(port_dev, dev, NULL);
+>> +       ret = netdev_master_upper_dev_link(port_dev, dev, NULL, NULL);
+>>         if (ret < 0)
+>>                 goto out_unregister;
+>>
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index cca4111..a55be5b 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -2161,6 +2161,7 @@ struct netdev_notifier_changeupper_info {
+>>         struct net_device *upper_dev; /* new upper dev */
+>>         bool master; /* is upper dev master */
+>>         bool linking; /* is the nofication for link or unlink */
+>> +       void *upper_info; /* is upper dev info */
+>
+>not sure to follow what did you mean by "is upper dev info"...
+>
+>maybe remove the "is" and just make it "upper dev info"?
 
-I'm currently working on a GRO/GSO codepath for IPsec too. The GRO part
-works already. I decapsulate/decrypt the packets on layer2 with a esp GRO
-callback function and reinject them into napi_gro_receive(). So in case
-the decapsulated packet is TCP, GRO can aggregate big packets.
+I just followed previous lines.
 
-My approach to GSO is a bit different to yours. I focused on tunnel mode,
-but transport mode should work too. I encapsulate the big GSO packets
-but don't do the encryption. Then I've added a esp_gso_segment() function,
-so the (still not encrypted ESP packets) get segmented with GSO. Finally I
-do encryption for all segments. This works well as long as I do sync crypto.
-The hard part is when crypto returns async. This is what I'm working on now.
-I hope to get this ready during the next weeks that I can post a RFC version
-and some numbers.
-
-Also I tried to consider the IPsec GRO/GSO codepath as a software fallback.
-So I added hooks for the encapsulation, encryption etc. If a NIC can do
-IPsec, it can use this hooks to prepare the packets the way it needs it.
-There are NICs that can do IPsec, it's just that our stack does not support
-it.
-
-Another thing, I thought about setting up an IPsec BoF/workshop at
-netdev1.1. My main topic is GRO/GSO for IPsec. I'll send out a mail
-to the list later this week to see if there is enough interest and
-maybe some additional topics.
+>
+>>  };
