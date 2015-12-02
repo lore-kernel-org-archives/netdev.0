@@ -1,57 +1,63 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Asterisk deadlocks since Kernel 4.1
-Date: Wed, 02 Dec 2015 12:40:32 +0100
-Message-ID: <8737vlt6xb.fsf@stressinduktion.org>
-References: <564B3D35.50004@profihost.ag> <alpine.DEB.2.11.1511171936030.3761@nanos> <564B7F9D.5060701@profihost.ag> <alpine.DEB.2.11.1511172041480.3761@nanos> <564CDE2F.8000201@profihost.ag> <564CEB0C.40006@redhat.com> <564CEF5D.3080005@profihost.ag> <564D9A17.6080305@redhat.com> <564D9B21.302@profihost.ag> <564D9CE6.2090104@profihost.ag> <1447933294.1974772.444210441.67F1AC5E@webmail.messagingengine.com> <564DB5F5.9060208@profihost.ag> <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com> <564DC4A5.70104@profihost.ag> <564DCC4C.1090009@redhat.com> <564E2852.8000200@profihost.ag> <56530A42.6030609@profihost.ag> <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com> <565EBDC1.1090808@profihost.ag>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [patch net-next 16/26] bonding: implement lower state change
+ propagation
+Date: Wed, 2 Dec 2015 12:40:51 +0100
+Message-ID: <565ED8C3.3090709@cumulusnetworks.com>
+References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
+ <1448977744-17930-17-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>,
-	Florian Weimer <fweimer@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <565EBDC1.1090808@profihost.ag>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:37154 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757939AbbLBLkx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 06:40:53 -0500
+Received: by wmww144 with SMTP id w144so52953241wmw.0
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 03:40:52 -0800 (PST)
+In-Reply-To: <1448977744-17930-17-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Stefan,
+On 12/01/2015 02:48 PM, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Let netdev notifier listeners know about link and slave state change.
+> 
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 10 ++++++++++
+>  include/net/bonding.h           |  7 +++++++
+>  2 files changed, 17 insertions(+)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index c9943fc..e153a87 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1315,6 +1315,16 @@ void bond_queue_slave_event(struct slave *slave)
+>  	queue_delayed_work(slave->bond->wq, &nnw->work, 0);
+>  }
+>  
+> +void bond_lower_state_changed(struct slave *slave)
+> +{
+> +	struct netdev_lag_lower_state_info info;
+> +
+> +	info.link_up = slave->link == BOND_LINK_UP ||
+> +		       slave->link == BOND_LINK_FAIL;
+> +	info.tx_enabled = bond_is_active_slave(slave);
+> +	netdev_lower_state_changed(slave->dev, &info);
+> +}
+> +
 
-Stefan Priebe - Profihost AG <s.priebe@profihost.ag> writes:
-
-
-> here are the results.
->
-> It works with 4.1.
-> It works with 4.2.
-> It does not work with 4.1.13.
->
-> git bisect tells me it stopped working after those two commits were applied:
->
-> commit d48623677191e0f035d7afd344f92cf880b01f8e
-> Author: Herbert Xu <herbert@gondor.apana.org.au>
-> Date:   Tue Sep 22 11:38:56 2015 +0800
->
->     netlink: Replace rhash_portid with bound
->
-> commit 4e27762417669cb459971635be550eb7b5598286
-> Author: Herbert Xu <herbert@gondor.apana.org.au>
-> Date:   Fri Sep 18 19:16:50 2015 +0800
->
->     netlink: Fix autobind race condition that leads to zero port ID
-
-Cool, thanks a lot. Does this patch make a difference?
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 59651af..278e94c 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1137,7 +1137,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
- 
- 	/* We need to ensure that the socket is hashed and visible. */
- 	smp_wmb();
--	nlk_sk(sk)->bound = portid;
-+	nlk_sk(sk)->bound = true;
- 
- err:
- 	release_sock(sk);
+Hmm, but does this tell the listeners what changed ? I think it just
+sends the current slave state and the listener has to decide what has
+changed.
+For example, right now it's possible for multiple identical events to
+be sent (e.g. set_inactive_flags called two times on release, once because
+of curr_active_slave change and second because of your set), the listeners
+should be able to cope with that. For this same example I see that the mlxsw
+will call mlxsw_sp_port_lag_changed() two times with the same values in that
+case. I'm not saying this is necessarily bad, just noting it. :-)
