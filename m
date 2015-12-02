@@ -1,7 +1,7 @@
 From: Thierry Reding <thierry.reding@gmail.com>
-Subject: [PATCH 3/4] net: mpc52xx: Use platform_register/unregister_drivers()
-Date: Wed,  2 Dec 2015 17:30:28 +0100
-Message-ID: <1449073829-12438-3-git-send-email-thierry.reding@gmail.com>
+Subject: [PATCH 4/4] net: mv643xx: Use platform_register/unregister_drivers()
+Date: Wed,  2 Dec 2015 17:30:29 +0100
+Message-ID: <1449073829-12438-4-git-send-email-thierry.reding@gmail.com>
 References: <1449073829-12438-1-git-send-email-thierry.reding@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
@@ -20,49 +20,45 @@ Signed-off-by: Thierry Reding <treding@nvidia.com>
 ---
 Applies on top of next-20151127.
 
- drivers/net/ethernet/freescale/fec_mpc52xx.c | 22 +++++++++-------------
- 1 file changed, 9 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/marvell/mv643xx_eth.c | 19 +++++++------------
+ 1 file changed, 7 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_mpc52xx.c b/drivers/net/ethernet/freescale/fec_mpc52xx.c
-index afe7f39cdd7c..25553ee857b4 100644
---- a/drivers/net/ethernet/freescale/fec_mpc52xx.c
-+++ b/drivers/net/ethernet/freescale/fec_mpc52xx.c
-@@ -1084,27 +1084,23 @@ static struct platform_driver mpc52xx_fec_driver = {
- /* Module                                                                   */
- /* ======================================================================== */
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 4182290fdbcf..4eba2ed53052 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -3257,25 +3257,20 @@ static struct platform_driver mv643xx_eth_driver = {
+ 	},
+ };
  
 +static struct platform_driver * const drivers[] = {
-+#ifdef CONFIG_FEC_MPC52xx_MDIO
-+	&mpc52xx_fec_mdio_driver,
-+#endif
-+	&mpc52xx_fec_driver,
++	&mv643xx_eth_shared_driver,
++	&mv643xx_eth_driver,
 +};
 +
- static int __init
- mpc52xx_fec_init(void)
+ static int __init mv643xx_eth_init_module(void)
  {
--#ifdef CONFIG_FEC_MPC52xx_MDIO
--	int ret;
--	ret = platform_driver_register(&mpc52xx_fec_mdio_driver);
--	if (ret) {
--		pr_err("failed to register mdio driver\n");
--		return ret;
+-	int rc;
+-
+-	rc = platform_driver_register(&mv643xx_eth_shared_driver);
+-	if (!rc) {
+-		rc = platform_driver_register(&mv643xx_eth_driver);
+-		if (rc)
+-			platform_driver_unregister(&mv643xx_eth_shared_driver);
 -	}
--#endif
--	return platform_driver_register(&mpc52xx_fec_driver);
+-
+-	return rc;
 +	return platform_register_drivers(drivers, ARRAY_SIZE(drivers));
  }
+ module_init(mv643xx_eth_init_module);
  
- static void __exit
- mpc52xx_fec_exit(void)
+ static void __exit mv643xx_eth_cleanup_module(void)
  {
--	platform_driver_unregister(&mpc52xx_fec_driver);
--#ifdef CONFIG_FEC_MPC52xx_MDIO
--	platform_driver_unregister(&mpc52xx_fec_mdio_driver);
--#endif
+-	platform_driver_unregister(&mv643xx_eth_driver);
+-	platform_driver_unregister(&mv643xx_eth_shared_driver);
 +	platform_unregister_drivers(drivers, ARRAY_SIZE(drivers));
  }
- 
+ module_exit(mv643xx_eth_cleanup_module);
  
 -- 
 2.5.0
