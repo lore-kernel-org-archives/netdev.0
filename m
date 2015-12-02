@@ -1,85 +1,108 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [net-next v4 4/8] dpaa_eth: add driver's Tx queue selection
-Date: Wed, 2 Dec 2015 15:40:31 -0600
-Message-ID: <1449092431.29246.156.camel@freescale.com>
-References: <1446485500-9782-1-git-send-email-madalin.bucur@freescale.com>
- <1446485500-9782-5-git-send-email-madalin.bucur@freescale.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: pull-request: mac80211 2015-12-02
+Date: Wed, 02 Dec 2015 22:42:10 +0100
+Message-ID: <1449092530.2449.12.camel@sipsolutions.net>
+References: <1448552352.2167.14.camel@sipsolutions.net>
+	 <1449049610.2449.3.camel@sipsolutions.net>
+	 <20151202.154349.931361692047925552.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: pebolle@tiscali.nl, roy.pledge@freescale.com, gregkh@linuxfoundation.org,
- linux-kernel@vger.kernel.org, ppc@mindchasers.com, igal.liberman@freescale.com,
- joe@perches.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net
-To: <madalin.bucur@freescale.com>, <netdev@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1446485500-9782-5-git-send-email-madalin.bucur@freescale.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:55641 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751078AbbLBVmQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2015 16:42:16 -0500
+In-Reply-To: <20151202.154349.931361692047925552.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCAyMDE1LTExLTAyIGF0IDE5OjMxICswMjAwLCBNYWRhbGluIEJ1Y3VyIHdyb3RlOgo+
-IEFsbG93IHRoZSBzZWxlY3Rpb24gb2YgdGhlIHRyYW5zbWlzc2lvbiBxdWV1ZSBiYXNlZCBvbiB0
-aGUgQ1BVIGlkLgoKRXhwbGFpbiB3aHkuCgo+IAo+IFNpZ25lZC1vZmYtYnk6IE1hZGFsaW4gQnVj
-dXIgPG1hZGFsaW4uYnVjdXJAZnJlZXNjYWxlLmNvbT4KPiAtLS0KPiAgZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvZnJlZXNjYWxlL2RwYWEvS2NvbmZpZyAgICAgICAgICAgfCAxMCArKysrKysrKysrCj4g
-IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRoLmMgICAgICAgIHwg
-IDMgKysrCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRoLmgg
-ICAgICAgIHwgIDYgKysrKysrCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFh
-L2RwYWFfZXRoX2NvbW1vbi5jIHwgIDggKysrKysrKysKPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQv
-ZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGhfY29tbW9uLmggfCAgNCArKysrCj4gIDUgZmlsZXMgY2hh
-bmdlZCwgMzEgaW5zZXJ0aW9ucygrKQo+IAo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9mcmVlc2NhbGUvZHBhYS9LY29uZmlnCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
-c2NhbGUvZHBhYS9LY29uZmlnCj4gaW5kZXggMDIyZDVhYS4uMjU3N2FhYyAxMDA2NDQKPiAtLS0g
-YS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9LY29uZmlnCj4gKysrIGIvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvS2NvbmZpZwo+IEBAIC0xMSw2ICsxMSwx
-NiBAQCBtZW51Y29uZmlnIEZTTF9EUEFBX0VUSAo+ICAKPiAgaWYgRlNMX0RQQUFfRVRICj4gIAo+
-ICtjb25maWcgRlNMX0RQQUFfRVRIX1VTRV9ORE9fU0VMRUNUX1FVRVVFCj4gKwlib29sICJVc2Ug
-ZHJpdmVyJ3MgVHggcXVldWUgc2VsZWN0aW9uIG1lY2hhbmlzbSIKPiArCWRlZmF1bHQgeQo+ICsJ
-LS0taGVscC0tLQo+ICsJICBUaGUgRFBBQSBFdGhlcm5ldCBkcml2ZXIgZGVmaW5lcyBhIG5kb19z
-ZWxlY3RfcXVldWUoKSBjYWxsYmFjawo+IGZvciBvcHRpbWFsIHNlbGVjdGlvbgo+ICsJICBvZiB0
-aGUgZWdyZXNzIEZRLiBUaGF0IHdpbGwgb3ZlcnJpZGUgdGhlIFhQUyBzdXBwb3J0IGZvciB0aGlz
-Cj4gbmV0ZGV2aWNlLgo+ICsJICBJZiBmb3Igd2hhdGV2ZXIgcmVhc29uIHlvdSB3YW50IHRvIGJl
-IGluIGNvbnRyb2wgb2YgdGhlIGVncmVzcyBGUQo+IC10by1DUFUgc2VsZWN0aW9uIGFuZCBtYXBw
-aW5nLAo+ICsJICBvciBzaW1wbHkgZG9uJ3Qgd2FudCB0byB1c2UgdGhlIGRyaXZlcidzIG5kb19z
-ZWxlY3RfcXVldWUoKQo+IGNhbGxiYWNrLCB0aGVuIHVuc2VsZWN0IHRoaXMKPiArCSAgYW5kIHVz
-ZSB0aGUgc3RhbmRhcmQgWFBTIHN1cHBvcnQgaW5zdGVhZC4KCklzIHRoZXJlIGEgdXNlIGNhc2Ug
-Zm9yIG5lZWRpbmcgdGhpcyB0byBiZSBjb25maWd1cmFibGU/Cgo+IGRpZmYgLS1naXQgYS9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5jCj4gYi9kcml2ZXJzL25l
-dC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5jCj4gaW5kZXggMzFkNTViNC4uODk0
-ZjFhNyAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9k
-cGFhX2V0aC5jCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBh
-YV9ldGguYwo+IEBAIC0zOTAsNiArMzkwLDkgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCBuZXRfZGV2
-aWNlX29wcyBkcGFfcHJpdmF0ZV9vcHMgPSB7Cj4gIAkubmRvX2dldF9zdGF0czY0ID0gZHBhX2dl
-dF9zdGF0czY0LAo+ICAJLm5kb19zZXRfbWFjX2FkZHJlc3MgPSBkcGFfc2V0X21hY19hZGRyZXNz
-LAo+ICAJLm5kb192YWxpZGF0ZV9hZGRyID0gZXRoX3ZhbGlkYXRlX2FkZHIsCj4gKyNpZmRlZiBD
-T05GSUdfRlNMX0RQQUFfRVRIX1VTRV9ORE9fU0VMRUNUX1FVRVVFCj4gKwkubmRvX3NlbGVjdF9x
-dWV1ZSA9IGRwYV9zZWxlY3RfcXVldWUsCj4gKyNlbmRpZgo+ICAJLm5kb19jaGFuZ2VfbXR1ID0g
-ZHBhX2NoYW5nZV9tdHUsCj4gIAkubmRvX3NldF9yeF9tb2RlID0gZHBhX3NldF9yeF9tb2RlLAo+
-ICAJLm5kb19pbml0ID0gZHBhX25kb19pbml0LAo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9l
-dGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5oCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5oCj4gaW5kZXggMWJhNjYxNy4uODc1NzdjZiAxMDA2
-NDQKPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5o
-Cj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGguaAo+
-IEBAIC00MjAsOSArNDIwLDE1IEBAIHN0YXRpYyBpbmxpbmUgdm9pZCBfZHBhX2Fzc2lnbl93cShz
-dHJ1Y3QgZHBhX2ZxICpmcSkKPiAgCX0KPiAgfQo+ICAKPiArI2lmZGVmIENPTkZJR19GU0xfRFBB
-QV9FVEhfVVNFX05ET19TRUxFQ1RfUVVFVUUKPiArLyogVXNlIGluIGxpZXUgb2Ygc2tiX2dldF9x
-dWV1ZV9tYXBwaW5nKCkgKi8KPiArI2RlZmluZSBkcGFfZ2V0X3F1ZXVlX21hcHBpbmcoc2tiKSBc
-Cj4gKwlyYXdfc21wX3Byb2Nlc3Nvcl9pZCgpCj4gKyNlbHNlCj4gIC8qIFVzZSB0aGUgcXVldWUg
-c2VsZWN0ZWQgYnkgWFBTICovCj4gICNkZWZpbmUgZHBhX2dldF9xdWV1ZV9tYXBwaW5nKHNrYikg
-XAo+ICAJc2tiX2dldF9xdWV1ZV9tYXBwaW5nKHNrYikKPiArI2VuZGlmCgpXaHkgaXMgdGhpcyBu
-ZWNlc3Nhcnk/ICBTaG91bGRuJ3QgcHJvdmlkaW5nIGEgY3VzdG9tIC5uZG9fc2VsZWN0X3F1ZXVl
-KCkgYmUKc3VmZmljaWVudCB0byBlbnN1cmUgdGhhdCBza2JfZ2V0X3F1ZXVlX21hcHBpbmcoKSBy
-ZXR1cm5zIHRoZSBzYW1lIHRoaW5nPwoKQW5kIGlmIHRoaXMgZ29lcyBhd2F5LCBpdCdzIGp1c3Qg
-YSBtYXR0ZXIgb2YgYSBmdW5jdGlvbiBwb2ludGVyLCBzbyBpZiBpdCBkb2VzCm5lZWQgdG8gYmUg
-Y29uZmlndXJhYmxlIGl0IGNvdWxkIGJlIGEgcnVudGltZSBvcHRpb24uCgotU2NvdHQKCl9fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBt
-YWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5v
-emxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
+
+> Please add them and send a new pull request, I'll just skip over your
+> existing one.
+
+Ok, here we go, below a new pull request.
+
+I've added the two commits I spoke about, fixing scanning and an
+uninitialized cookie variable that lead to problems if the value
+happened to be 0.
+
+Let me know if there's any problem!
+
+Thanks,
+johannes
+
+
+The following changes since commit 17c790a60dad11c0193127e83ac8e183b4fe=
+d1a2:
+
+=C2=A0 Merge branch 'mv88e6060-fixes' (2015-11-15 20:16:26 -0500)
+
+are available in the git repository at:
+
+=C2=A0 git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git=
+ tags/mac80211-for-davem-2015-12-02
+
+for you to fetch changes up to c1df932c0574c13ab3ce72e969c9647ff3aaad68=
+:
+
+=C2=A0 mac80211: fix off-channel mgmt-tx uninitialized variable usage (=
+2015-12-02 22:27:53 +0100)
+
+----------------------------------------------------------------
+A small set of fixes for 4.4:
+=C2=A0* fix scanning in mac80211 to not actively scan radar
+=C2=A0=C2=A0=C2=A0channels (from Antonio)
+=C2=A0* fix uninitialized variable in remain-on-channel that
+=C2=A0=C2=A0=C2=A0could lead to treating frame TX as remain-on-channel
+=C2=A0=C2=A0=C2=A0and not sending the frame at all
+=C2=A0* remove NL80211_FEATURE_FULL_AP_CLIENT_STATE again, it
+=C2=A0=C2=A0=C2=A0was broken and needs more work, we'll enable it later
+=C2=A0* fix call_rcu() induced use-after-reset/free in mesh
+=C2=A0=C2=A0=C2=A0(that was suddenly causing issues in certain tests)
+=C2=A0* always request block-ack window size 64 as we found
+=C2=A0=C2=A0=C2=A0some APs will otherwise crash (really ...)
+=C2=A0* fix P2P-Device teardown sequence to avoid restarting
+=C2=A0=C2=A0=C2=A0with uninitialized data
+
+----------------------------------------------------------------
+Antonio Quartulli (1):
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0mac80211: do not actively scan DFS =
+channels
+
+Eliad Peller (1):
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0mac80211: don't teardown sdata on s=
+data stop
+
+Emmanuel Grumbach (1):
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0mac80211: ensure we don't update tx=
+ power on a non-running sdata
+
+Gregory Greenman (1):
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0mac80211: always set the buf_size i=
+n AddBA req to 64
+
+Johannes Berg (3):
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0mac80211: don't advertise NL80211_F=
+EATURE_FULL_AP_CLIENT_STATE
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0mac80211: mesh: fix call_rcu() usag=
+e
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0mac80211: fix off-channel mgmt-tx u=
+ninitialized variable usage
+
+=C2=A0include/net/mac80211.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0| 6 +++=
++--
+=C2=A0net/mac80211/agg-tx.c=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0| =
+3 ++-
+=C2=A0net/mac80211/cfg.c=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0=C2=A0| 8 ++++++--
+=C2=A0net/mac80211/iface.c=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0| 5 +++--
+=C2=A0net/mac80211/main.c=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0| 3 +--
+=C2=A0net/mac80211/mesh_pathtbl.c | 8 ++++----
+=C2=A0net/mac80211/scan.c=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0| 9 +++++----
+=C2=A07 files changed, 25 insertions(+), 17 deletions(-)
