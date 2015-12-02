@@ -1,164 +1,222 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/17] i40evf: add new fields to store user configuration of RSS
-Date: Wed,  2 Dec 2015 00:25:26 -0800
-Message-ID: <1449044735-68599-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/17] i40evf: allocate queue vectors dynamically
+Date: Wed,  2 Dec 2015 00:25:31 -0800
+Message-ID: <1449044735-68599-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Helin Zhang <helin.zhang@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:52886 "EHLO mga01.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:44579 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757569AbbLBIZm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 03:25:42 -0500
+	id S1755436AbbLBIZn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2015 03:25:43 -0500
 In-Reply-To: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Helin Zhang <helin.zhang@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-This patch adds new fields to i40e_vsi to store user configured
-RSS config data and code to use it.
+Change the queue_vector array from a statically-sized member of the
+adapter structure to a dynamically-allocated and -sized array.
 
-Change-ID: Ic5d3db8d9df52182b560248f8cdca9c5c7546879
-Signed-off-by: Helin Zhang <helin.zhang@intel.com>
+This reduces the size of the adapter structure, and allows us to support
+any number of queue vectors in the future without changing the code.
+
+Change-ID: I08dc622cb2f2ad01e832e51c1ad9b86524730693
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  2 ++
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 31 ++++++++++--------
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 37 ++++++++++++++++++++--
- 3 files changed, 54 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  5 +--
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 38 ++++++++++------------
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  2 +-
+ 4 files changed, 21 insertions(+), 26 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index 5f2e61d..090c604 100644
+index 090c604..bd185ad 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf.h
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -67,6 +67,8 @@ struct i40e_vsi {
- 	u16 rx_itr_setting;
- 	u16 tx_itr_setting;
- 	u16 qs_handle;
-+	u8 *rss_hkey_user; /* User configured hash keys */
-+	u8 *rss_lut_user;  /* User configured lookup table entries */
- };
+@@ -145,9 +145,6 @@ struct i40e_q_vector {
+ #define OTHER_VECTOR 1
+ #define NONQ_VECS (OTHER_VECTOR)
  
- /* How many Rx Buffers do we bundle into one write to the hardware ? */
+-#define MAX_MSIX_Q_VECTORS 4
+-#define MAX_MSIX_COUNT 5
+-
+ #define MIN_MSIX_Q_VECTORS 1
+ #define MIN_MSIX_COUNT (MIN_MSIX_Q_VECTORS + NONQ_VECS)
+ 
+@@ -193,7 +190,7 @@ struct i40evf_adapter {
+ 	struct work_struct reset_task;
+ 	struct work_struct adminq_task;
+ 	struct delayed_work init_task;
+-	struct i40e_q_vector *q_vector[MAX_MSIX_Q_VECTORS];
++	struct i40e_q_vector *q_vectors;
+ 	struct list_head vlan_filter_list;
+ 	char misc_vector_name[IFNAMSIZ + 9];
+ 	int num_active_queues;
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-index a520970..966863c 100644
+index 966863c..90c5110 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-@@ -678,9 +678,7 @@ static int i40evf_set_rxfh(struct net_device *netdev, const u32 *indir,
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = &adapter->vsi;
--	u8 seed_def[I40EVF_HKEY_ARRAY_SIZE];
--	u8 *seed = NULL, *lut;
--	int ret;
-+	u8 *seed = NULL;
- 	u16 i;
+@@ -351,7 +351,7 @@ static int i40evf_set_coalesce(struct net_device *netdev,
+ 		vsi->tx_itr_setting &= ~I40E_ITR_DYNAMIC;
  
- 	/* We do not allow change in unsupported parameters */
-@@ -691,21 +689,28 @@ static int i40evf_set_rxfh(struct net_device *netdev, const u32 *indir,
- 		return 0;
- 
- 	if (key) {
--		memcpy(seed_def, key, I40EVF_HKEY_ARRAY_SIZE);
--		seed = seed_def;
-+		if (!vsi->rss_hkey_user) {
-+			vsi->rss_hkey_user = kzalloc(I40EVF_HKEY_ARRAY_SIZE,
-+						     GFP_KERNEL);
-+			if (!vsi->rss_hkey_user)
-+				return -ENOMEM;
-+		}
-+		memcpy(vsi->rss_hkey_user, key, I40EVF_HKEY_ARRAY_SIZE);
-+		seed = vsi->rss_hkey_user;
-+	}
-+	if (!vsi->rss_lut_user) {
-+		vsi->rss_lut_user = kzalloc(I40EVF_HLUT_ARRAY_SIZE,
-+					    GFP_KERNEL);
-+		if (!vsi->rss_lut_user)
-+			return -ENOMEM;
- 	}
--	lut = kzalloc(I40EVF_HLUT_ARRAY_SIZE, GFP_KERNEL);
--	if (!lut)
--		return -ENOMEM;
- 
- 	/* Each 32 bits pointed by 'indir' is stored with a lut entry */
- 	for (i = 0; i < I40EVF_HLUT_ARRAY_SIZE; i++)
--		lut[i] = (u8)(indir[i]);
-+		vsi->rss_lut_user[i] = (u8)(indir[i]);
- 
--	ret = i40evf_config_rss(vsi, seed, lut, I40EVF_HLUT_ARRAY_SIZE);
--	kfree(lut);
--
--	return ret;
-+	return i40evf_config_rss(vsi, seed, vsi->rss_lut_user,
-+				 I40EVF_HLUT_ARRAY_SIZE);
- }
- 
- static const struct ethtool_ops i40evf_ethtool_ops = {
+ 	for (i = 0; i < adapter->num_msix_vectors - NONQ_VECS; i++) {
+-		q_vector = adapter->q_vector[i];
++		q_vector = &adapter->q_vectors[i];
+ 		q_vector->rx.itr = ITR_TO_REG(vsi->rx_itr_setting);
+ 		wr32(hw, I40E_VFINT_ITRN1(0, i), q_vector->rx.itr);
+ 		q_vector->tx.itr = ITR_TO_REG(vsi->tx_itr_setting);
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 68251fa..1cd5d5d 100644
+index 8476fc5..129c274 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1453,9 +1453,21 @@ static int i40evf_init_rss(struct i40evf_adapter *adapter)
- 	lut = kzalloc(I40EVF_HLUT_ARRAY_SIZE, GFP_KERNEL);
- 	if (!lut)
- 		return -ENOMEM;
--	i40evf_fill_rss_lut(lut, I40EVF_HLUT_ARRAY_SIZE,
--			    adapter->num_active_queues);
--	netdev_rss_key_fill((void *)seed, I40EVF_HKEY_ARRAY_SIZE);
-+
-+	/* Use user configured lut if there is one, otherwise use default */
-+	if (vsi->rss_lut_user)
-+		memcpy(lut, vsi->rss_lut_user, I40EVF_HLUT_ARRAY_SIZE);
-+	else
-+		i40evf_fill_rss_lut(lut, I40EVF_HLUT_ARRAY_SIZE,
-+				    adapter->num_active_queues);
-+
-+	/* Use user configured hash key if there is one, otherwise
-+	 * user default.
-+	 */
-+	if (vsi->rss_hkey_user)
-+		memcpy(seed, vsi->rss_hkey_user, I40EVF_HKEY_ARRAY_SIZE);
-+	else
-+		netdev_rss_key_fill((void *)seed, I40EVF_HKEY_ARRAY_SIZE);
- 	ret = i40evf_config_rss(vsi, seed, lut, I40EVF_HLUT_ARRAY_SIZE);
- 	kfree(lut);
+@@ -347,7 +347,7 @@ static irqreturn_t i40evf_msix_clean_rings(int irq, void *data)
+ static void
+ i40evf_map_vector_to_rxq(struct i40evf_adapter *adapter, int v_idx, int r_idx)
+ {
+-	struct i40e_q_vector *q_vector = adapter->q_vector[v_idx];
++	struct i40e_q_vector *q_vector = &adapter->q_vectors[v_idx];
+ 	struct i40e_ring *rx_ring = adapter->rx_rings[r_idx];
  
-@@ -1583,6 +1595,22 @@ err_set_interrupt:
+ 	rx_ring->q_vector = q_vector;
+@@ -368,7 +368,7 @@ i40evf_map_vector_to_rxq(struct i40evf_adapter *adapter, int v_idx, int r_idx)
+ static void
+ i40evf_map_vector_to_txq(struct i40evf_adapter *adapter, int v_idx, int t_idx)
+ {
+-	struct i40e_q_vector *q_vector = adapter->q_vector[v_idx];
++	struct i40e_q_vector *q_vector = &adapter->q_vectors[v_idx];
+ 	struct i40e_ring *tx_ring = adapter->tx_rings[t_idx];
+ 
+ 	tx_ring->q_vector = q_vector;
+@@ -464,7 +464,7 @@ static void i40evf_netpoll(struct net_device *netdev)
+ 		return;
+ 
+ 	for (i = 0; i < q_vectors; i++)
+-		i40evf_msix_clean_rings(0, adapter->q_vector[i]);
++		i40evf_msix_clean_rings(0, &adapter->q_vectors[i]);
+ }
+ 
+ #endif
+@@ -486,7 +486,7 @@ i40evf_request_traffic_irqs(struct i40evf_adapter *adapter, char *basename)
+ 	q_vectors = adapter->num_msix_vectors - NONQ_VECS;
+ 
+ 	for (vector = 0; vector < q_vectors; vector++) {
+-		struct i40e_q_vector *q_vector = adapter->q_vector[vector];
++		struct i40e_q_vector *q_vector = &adapter->q_vectors[vector];
+ 
+ 		if (q_vector->tx.ring && q_vector->rx.ring) {
+ 			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
+@@ -531,7 +531,7 @@ free_queue_irqs:
+ 			adapter->msix_entries[vector + NONQ_VECS].vector,
+ 			NULL);
+ 		free_irq(adapter->msix_entries[vector + NONQ_VECS].vector,
+-			 adapter->q_vector[vector]);
++			 &adapter->q_vectors[vector]);
+ 	}
+ 	return err;
+ }
+@@ -581,7 +581,7 @@ static void i40evf_free_traffic_irqs(struct i40evf_adapter *adapter)
+ 		irq_set_affinity_hint(adapter->msix_entries[i+1].vector,
+ 				      NULL);
+ 		free_irq(adapter->msix_entries[i+1].vector,
+-			 adapter->q_vector[i]);
++			 &adapter->q_vectors[i]);
+ 	}
+ }
+ 
+@@ -953,7 +953,7 @@ static void i40evf_napi_enable_all(struct i40evf_adapter *adapter)
+ 	for (q_idx = 0; q_idx < q_vectors; q_idx++) {
+ 		struct napi_struct *napi;
+ 
+-		q_vector = adapter->q_vector[q_idx];
++		q_vector = &adapter->q_vectors[q_idx];
+ 		napi = &q_vector->napi;
+ 		napi_enable(napi);
+ 	}
+@@ -970,7 +970,7 @@ static void i40evf_napi_disable_all(struct i40evf_adapter *adapter)
+ 	int q_vectors = adapter->num_msix_vectors - NONQ_VECS;
+ 
+ 	for (q_idx = 0; q_idx < q_vectors; q_idx++) {
+-		q_vector = adapter->q_vector[q_idx];
++		q_vector = &adapter->q_vectors[q_idx];
+ 		napi_disable(&q_vector->napi);
+ 	}
+ }
+@@ -1483,21 +1483,22 @@ static int i40evf_init_rss(struct i40evf_adapter *adapter)
+  **/
+ static int i40evf_alloc_q_vectors(struct i40evf_adapter *adapter)
+ {
+-	int q_idx, num_q_vectors;
++	int q_idx = 0, num_q_vectors;
+ 	struct i40e_q_vector *q_vector;
+ 
+ 	num_q_vectors = adapter->num_msix_vectors - NONQ_VECS;
++	adapter->q_vectors = kzalloc(sizeof(*q_vector) * num_q_vectors,
++				     GFP_KERNEL);
++	if (!adapter->q_vectors)
++		goto err_out;
+ 
+ 	for (q_idx = 0; q_idx < num_q_vectors; q_idx++) {
+-		q_vector = kzalloc(sizeof(*q_vector), GFP_KERNEL);
+-		if (!q_vector)
+-			goto err_out;
++		q_vector = &adapter->q_vectors[q_idx];
+ 		q_vector->adapter = adapter;
+ 		q_vector->vsi = &adapter->vsi;
+ 		q_vector->v_idx = q_idx;
+ 		netif_napi_add(adapter->netdev, &q_vector->napi,
+ 			       i40evf_napi_poll, NAPI_POLL_WEIGHT);
+-		adapter->q_vector[q_idx] = q_vector;
+ 	}
+ 
+ 	return 0;
+@@ -1505,11 +1506,10 @@ static int i40evf_alloc_q_vectors(struct i40evf_adapter *adapter)
+ err_out:
+ 	while (q_idx) {
+ 		q_idx--;
+-		q_vector = adapter->q_vector[q_idx];
++		q_vector = &adapter->q_vectors[q_idx];
+ 		netif_napi_del(&q_vector->napi);
+-		kfree(q_vector);
+-		adapter->q_vector[q_idx] = NULL;
+ 	}
++	kfree(adapter->q_vectors);
+ 	return -ENOMEM;
+ }
+ 
+@@ -1530,13 +1530,11 @@ static void i40evf_free_q_vectors(struct i40evf_adapter *adapter)
+ 	napi_vectors = adapter->num_active_queues;
+ 
+ 	for (q_idx = 0; q_idx < num_q_vectors; q_idx++) {
+-		struct i40e_q_vector *q_vector = adapter->q_vector[q_idx];
+-
+-		adapter->q_vector[q_idx] = NULL;
++		struct i40e_q_vector *q_vector = &adapter->q_vectors[q_idx];
+ 		if (q_idx < napi_vectors)
+ 			netif_napi_del(&q_vector->napi);
+-		kfree(q_vector);
+ 	}
++	kfree(adapter->q_vectors);
  }
  
  /**
-+ * i40evf_clear_rss_config_user - Clear user configurations of RSS
-+ * @vsi: Pointer to VSI structure
-+ **/
-+static void i40evf_clear_rss_config_user(struct i40e_vsi *vsi)
-+{
-+	if (!vsi)
-+		return;
-+
-+	kfree(vsi->rss_hkey_user);
-+	vsi->rss_hkey_user = NULL;
-+
-+	kfree(vsi->rss_lut_user);
-+	vsi->rss_lut_user = NULL;
-+}
-+
-+/**
-  * i40evf_watchdog_timer - Periodic call-back timer
-  * @data: pointer to adapter disguised as unsigned long
-  **/
-@@ -2770,6 +2798,9 @@ static void i40evf_remove(struct pci_dev *pdev)
- 
- 	flush_scheduled_work();
- 
-+	/* Clear user configurations for RSS */
-+	i40evf_clear_rss_config_user(&adapter->vsi);
-+
- 	if (hw->aq.asq.count)
- 		i40evf_shutdown_adminq(hw);
- 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index 46b0516..24b3af3 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -360,7 +360,7 @@ void i40evf_map_queues(struct i40evf_adapter *adapter)
+ 	vimi->num_vectors = adapter->num_msix_vectors;
+ 	/* Queue vectors first */
+ 	for (v_idx = 0; v_idx < q_vectors; v_idx++) {
+-		q_vector = adapter->q_vector[v_idx];
++		q_vector = adapter->q_vectors + v_idx;
+ 		vimi->vecmap[v_idx].vsi_id = adapter->vsi_res->vsi_id;
+ 		vimi->vecmap[v_idx].vector_id = v_idx + NONQ_VECS;
+ 		vimi->vecmap[v_idx].txq_map = q_vector->ring_mask;
 -- 
 2.5.0
