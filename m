@@ -1,11 +1,11 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 07/26] net: add possibility to pass information
- about upper device via notifier
-Date: Wed, 2 Dec 2015 08:54:27 +0100
-Message-ID: <20151202075427.GA2355@nanopsycho.orion>
+Subject: Re: [patch net-next 09/26] team: fill-up LAG changeupper info struct
+ and pass it along
+Date: Wed, 2 Dec 2015 08:55:50 +0100
+Message-ID: <20151202075549.GB2355@nanopsycho.orion>
 References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
- <1448977744-17930-8-git-send-email-jiri@resnulli.us>
- <CAJ3xEMgdqXYxOsk_aXKVnjKCM_D_U2BAETe9bgQOh6T17QvmjA@mail.gmail.com>
+ <1448977744-17930-10-git-send-email-jiri@resnulli.us>
+ <CAJ3xEMj_AwtbRW7=FKFSMR9ed8B2Yak7U5zTSVHtf-r5+2ytRA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Linux Netdev List <netdev@vger.kernel.org>,
@@ -15,79 +15,55 @@ Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:34178 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750912AbbLBHya (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 02:54:30 -0500
-Received: by wmvv187 with SMTP id v187so241844499wmv.1
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 23:54:28 -0800 (PST)
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:34512 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756851AbbLBHzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 02:55:52 -0500
+Received: by wmvv187 with SMTP id v187so241887273wmv.1
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 23:55:51 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <CAJ3xEMgdqXYxOsk_aXKVnjKCM_D_U2BAETe9bgQOh6T17QvmjA@mail.gmail.com>
+In-Reply-To: <CAJ3xEMj_AwtbRW7=FKFSMR9ed8B2Yak7U5zTSVHtf-r5+2ytRA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Dec 02, 2015 at 06:28:35AM CET, gerlitz.or@gmail.com wrote:
+Wed, Dec 02, 2015 at 06:36:16AM CET, gerlitz.or@gmail.com wrote:
 >On Tue, Dec 1, 2015 at 3:48 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
->>
->> Sometimes the drivers and other code would find it handy to know some
->> internal information about upper device being changed. So allow upper-code
->> to pass information down to notifier listeners during linking.
+>> Initialize netdev_lag_upper_info structure by TX type according to
+>> current team mode and pass it along via netdev_master_upper_dev_link.
 >[...]
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index 9240157..fa3ed1d 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -1204,7 +1204,7 @@ static int bond_master_upper_dev_link(struct net_device *bond_dev,
->>  {
->>         int err;
->>
->> -       err = netdev_master_upper_dev_link(slave_dev, bond_dev, slave);
->> +       err = netdev_master_upper_dev_link(slave_dev, bond_dev, slave, NULL);
->>         if (err)
->>                 return err;
->>         slave_dev->flags |= IFF_SLAVE;
->> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->> index b37f8d1..f7b6ff7 100644
 >> --- a/drivers/net/team/team.c
 >> +++ b/drivers/net/team/team.c
->> @@ -1083,7 +1083,7 @@ static int team_upper_dev_link(struct net_device *dev,
+>> @@ -1078,23 +1078,24 @@ static void team_port_disable_netpoll(struct team_port *port)
+>>  }
+>>  #endif
+>>
+>> -static int team_upper_dev_link(struct net_device *dev,
+>> -                              struct net_device *port_dev)
+>> +static int team_upper_dev_link(struct team *team, struct team_port *port)
 >>  {
+>> +       struct netdev_lag_upper_info lag_upper_info;
 >>         int err;
 >>
->> -       err = netdev_master_upper_dev_link(port_dev, dev, NULL);
->> +       err = netdev_master_upper_dev_link(port_dev, dev, NULL, NULL);
+>> -       err = netdev_master_upper_dev_link(port_dev, dev, NULL, NULL);
+>> +       lag_upper_info.tx_type = team->mode->lag_tx_type;
+>> +       err = netdev_master_upper_dev_link(port->dev, team->dev, NULL,
+>> +                                          &lag_upper_info);
 >>         if (err)
 >>                 return err;
->>         port_dev->priv_flags |= IFF_TEAM_PORT;
->> diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
->> index 59c5bdd..8944a49 100644
->> --- a/drivers/net/vrf.c
->> +++ b/drivers/net/vrf.c
->> @@ -624,7 +624,7 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
->>                 goto out_fail;
->>         }
->>
->> -       ret = netdev_master_upper_dev_link(port_dev, dev, NULL);
->> +       ret = netdev_master_upper_dev_link(port_dev, dev, NULL, NULL);
->>         if (ret < 0)
->>                 goto out_unregister;
->>
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index cca4111..a55be5b 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -2161,6 +2161,7 @@ struct netdev_notifier_changeupper_info {
->>         struct net_device *upper_dev; /* new upper dev */
->>         bool master; /* is upper dev master */
->>         bool linking; /* is the nofication for link or unlink */
->> +       void *upper_info; /* is upper dev info */
+>> -       port_dev->priv_flags |= IFF_TEAM_PORT;
+>> +       port->dev->priv_flags |= IFF_TEAM_PORT;
+>>         return 0;
+>>  }
 >
->not sure to follow what did you mean by "is upper dev info"...
+>you also added into this patch moving
 >
->maybe remove the "is" and just make it "upper dev info"?
+>from struct netdevice *dev_port->xxx
+>
+>to struct team_port *port->dev->xxx
+>
+>which goes beyond the logical change / functionality this  patch
+>introduces... maybe
+>better put it in a separate patch?
 
-I just followed previous lines.
-
->
->>  };
+It is not moving anything. I need struct team_port *port as a param
+instead of struct net_device *port_dev, that's it.
