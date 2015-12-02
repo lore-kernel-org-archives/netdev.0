@@ -1,110 +1,73 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/15] ixgbe: Add support for newer thermal alarm
-Date: Wed,  2 Dec 2015 04:30:55 -0800
-Message-ID: <1449059468-87025-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/15] ixgbe: Wait for master disable to be set
+Date: Wed,  2 Dec 2015 04:31:04 -0800
+Message-ID: <1449059468-87025-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449059468-87025-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:30731 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:23183 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756425AbbLBMbM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 07:31:12 -0500
+	id S1757251AbbLBMbP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2015 07:31:15 -0500
 In-Reply-To: <1449059468-87025-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mark Rustad <mark.d.rustad@intel.com>
 
-The newer copper PHY implementation used with newer X550EM_x
-devices uses a different thermal alarm type than the earlier
-one. Make changes to support both types.
+According to the datasheets, the driver should wait for the master
+disable bit to read as being set before checking the status
+register for master disable.
 
+Reported-by: Dan Streetman <dan.streetman@canonical.com>
 Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
 Tested-by: Darin Miller <darin.j.miller@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  4 ++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 22 +++++++++++++++++++---
- 2 files changed, 23 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 995f031..927349d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -1345,7 +1345,10 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_MDIO_GLOBAL_INT_CHIP_VEN_MASK	0xFF01 /* int chip-wide mask */
- #define IXGBE_MDIO_GLOBAL_INT_CHIP_VEN_FLAG	0xFC01 /* int chip-wide mask */
- #define IXGBE_MDIO_GLOBAL_ALARM_1		0xCC00 /* Global alarm 1 */
-+#define IXGBE_MDIO_GLOBAL_ALM_1_DEV_FAULT	0x0010 /* device fault */
- #define IXGBE_MDIO_GLOBAL_ALM_1_HI_TMP_FAIL	0x4000 /* high temp failure */
-+#define IXGBE_MDIO_GLOBAL_FAULT_MSG		0xC850 /* global fault msg */
-+#define IXGBE_MDIO_GLOBAL_FAULT_MSG_HI_TMP	0x8007 /* high temp failure */
- #define IXGBE_MDIO_GLOBAL_INT_MASK		0xD400 /* Global int mask */
- /* autoneg vendor alarm int enable */
- #define IXGBE_MDIO_GLOBAL_AN_VEN_ALM_INT_EN	0x1000
-@@ -1353,6 +1356,7 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_MDIO_GLOBAL_VEN_ALM_INT_EN	0x1 /* vendor alarm int enable */
- #define IXGBE_MDIO_GLOBAL_STD_ALM2_INT		0x200 /* vendor alarm2 int mask */
- #define IXGBE_MDIO_GLOBAL_INT_HI_TEMP_EN	0x4000 /* int high temp enable */
-+#define IXGBE_MDIO_GLOBAL_INT_DEV_FAULT_EN	0x0010 /*int dev fault enable */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index ce61b36..daec6ae 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
- #define IXGBE_MDIO_PMA_PMD_SDA_SCL_ADDR	0xC30A /* PHY_XS SDA/SCL Addr Reg */
- #define IXGBE_MDIO_PMA_PMD_SDA_SCL_DATA	0xC30B /* PHY_XS SDA/SCL Data Reg */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index a9c73b7..b8ad3f2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -1444,7 +1444,7 @@ static s32 ixgbe_get_lasi_ext_t_x550em(struct ixgbe_hw *hw, bool *lsc)
- 				IXGBE_MDIO_GLOBAL_ALARM_1_INT)))
- 		return status;
+   Intel 10 Gigabit PCI Express Linux driver
+-  Copyright(c) 1999 - 2014 Intel Corporation.
++  Copyright(c) 1999 - 2015 Intel Corporation.
  
--	/* High temperature failure alarm triggered */
-+	/* Global alarm triggered */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_ALARM_1,
- 				      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
- 				      &reg);
-@@ -1458,6 +1458,21 @@ static s32 ixgbe_get_lasi_ext_t_x550em(struct ixgbe_hw *hw, bool *lsc)
- 		ixgbe_set_copper_phy_power(hw, false);
- 		return IXGBE_ERR_OVERTEMP;
- 	}
-+	if (reg & IXGBE_MDIO_GLOBAL_ALM_1_DEV_FAULT) {
-+		/*  device fault alarm triggered */
-+		status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_FAULT_MSG,
-+					  IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
-+					  &reg);
-+		if (status)
-+			return status;
-+
-+		/* if device fault was due to high temp alarm handle and exit */
-+		if (reg == IXGBE_MDIO_GLOBAL_FAULT_MSG_HI_TMP) {
-+			/* power down the PHY in case the PHY FW didn't */
-+			ixgbe_set_copper_phy_power(hw, false);
-+			return IXGBE_ERR_OVERTEMP;
-+		}
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -2454,6 +2454,17 @@ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
+ 	/* Always set this bit to ensure any future transactions are blocked */
+ 	IXGBE_WRITE_REG(hw, IXGBE_CTRL, IXGBE_CTRL_GIO_DIS);
+ 
++	/* Poll for bit to read as set */
++	for (i = 0; i < IXGBE_PCI_MASTER_DISABLE_TIMEOUT; i++) {
++		if (IXGBE_READ_REG(hw, IXGBE_CTRL) & IXGBE_CTRL_GIO_DIS)
++			break;
++		usleep_range(100, 120);
 +	}
++	if (i >= IXGBE_PCI_MASTER_DISABLE_TIMEOUT) {
++		hw_dbg(hw, "GIO disable did not set - requesting resets\n");
++		goto gio_disable_fail;
++	}
++
+ 	/* Exit if master requests are blocked */
+ 	if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO) ||
+ 	    ixgbe_removed(hw->hw_addr))
+@@ -2475,6 +2486,7 @@ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
+ 	 * again to clear out any effects they may have had on our device.
+ 	 */
+ 	hw_dbg(hw, "GIO Master Disable bit didn't clear - requesting resets\n");
++gio_disable_fail:
+ 	hw->mac.flags |= IXGBE_FLAGS_DOUBLE_RESET_REQUIRED;
  
- 	/* Vendor alarm 2 triggered */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_CHIP_STD_INT_FLAG,
-@@ -1511,14 +1526,15 @@ static s32 ixgbe_enable_lasi_ext_t_x550em(struct ixgbe_hw *hw)
- 	if (status)
- 		return status;
- 
--	/* Enables high temperature failure alarm */
-+	/* Enable high temperature failure and global fault alarms */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_INT_MASK,
- 				      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
- 				      &reg);
- 	if (status)
- 		return status;
- 
--	reg |= IXGBE_MDIO_GLOBAL_INT_HI_TEMP_EN;
-+	reg |= (IXGBE_MDIO_GLOBAL_INT_HI_TEMP_EN |
-+		IXGBE_MDIO_GLOBAL_INT_DEV_FAULT_EN);
- 
- 	status = hw->phy.ops.write_reg(hw, IXGBE_MDIO_GLOBAL_INT_MASK,
- 				       IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
+ 	if (hw->mac.type >= ixgbe_mac_X550)
 -- 
 2.5.0
