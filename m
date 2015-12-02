@@ -1,174 +1,230 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/17] i40e: rename rss_size to alloc_rss_size in i40e_pf
-Date: Wed,  2 Dec 2015 00:25:20 -0800
-Message-ID: <1449044735-68599-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/17] i40e/i40evf: Fix RS bit update in Tx path and disable force WB workaround
+Date: Wed,  2 Dec 2015 00:25:21 -0800
+Message-ID: <1449044735-68599-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Helin Zhang <helin.zhang@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:12553 "EHLO mga03.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:32406 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756660AbbLBIZk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 03:25:40 -0500
+	id S1753949AbbLBIZj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2015 03:25:39 -0500
 In-Reply-To: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Helin Zhang <helin.zhang@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-This patch renames rss_size to alloc_rss_size in i40e_pf, which is
-clearer and avoids confusion. It also adds comments to the other
-related structure members to help clarify usage.
+This patch fixes the issue of forcing WB too often causing us to not
+benefit from NAPI.
 
-Change-ID: Ia90090609d006ab589cb639975bb8a0af795d16f
-Signed-off-by: Helin Zhang <helin.zhang@intel.com>
+Without this patch we were forcing WB/arming interrupt too often taking
+away the benefits of NAPI and causing a performance impact.
+
+With this patch we disable force WB in the clean routine for X710
+and XL710 adapters. X722 adapters do not enable interrupt to force
+a WB and benefit from WB_ON_ITR and hence force WB is left enabled
+for those adapters.
+For XL710 and X710 adapters if we have less than 4 packets pending
+a software Interrupt triggered from service task will force a WB.
+
+This patch also changes the conditions for setting RS bit as described
+in code comments. This optimizes when the HW does a tail bump amd when
+it does a WB. It also optimizes when we do a wmb.
+
+Change-ID: Id831e1ae7d3e2ec3f52cd0917b41ce1d22d75d9d
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  8 ++++----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 31 +++++++++++++++++------------
- 2 files changed, 22 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 118 ++++++++++++++++----------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h |   2 +
+ 2 files changed, 77 insertions(+), 43 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 6efab66..d854a46 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -266,7 +266,7 @@ struct i40e_pf {
- 	u16 num_lan_qps;           /* num lan queues this PF has set up */
- 	u16 num_lan_msix;          /* num queue vectors for the base PF vsi */
- 	int queues_left;           /* queues left unclaimed */
--	u16 rss_size;              /* num queues in the RSS array */
-+	u16 alloc_rss_size;        /* allocated RSS queues */
- 	u16 rss_size_max;          /* HW defined max RSS queues */
- 	u16 fdir_pf_filter_count;  /* num of guaranteed filters for this PF */
- 	u16 num_alloc_vsi;         /* num VSIs this driver supports */
-@@ -413,7 +413,7 @@ struct i40e_pf {
- 	u32 rx_hwtstamp_cleared;
- 	bool ptp_tx;
- 	bool ptp_rx;
--	u16 rss_table_size;
-+	u16 rss_table_size; /* HW RSS table size */
- 	/* These are only valid in NPAR modes */
- 	u32 npar_max_bw;
- 	u32 npar_min_bw;
-@@ -506,8 +506,8 @@ struct i40e_vsi {
- 	u16 tx_itr_setting;
- 	u16 int_rate_limit;  /* value in usecs */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 8629a9f..23fd112 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -245,16 +245,6 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
+ 	tx_ring->q_vector->tx.total_bytes += total_bytes;
+ 	tx_ring->q_vector->tx.total_packets += total_packets;
  
--	u16 rss_table_size;
--	u16 rss_size;
-+	u16 rss_table_size; /* HW RSS table size */
-+	u16 rss_size;       /* Allocated RSS queues */
- 	u8  *rss_hkey_user; /* User configured hash keys */
- 	u8  *rss_lut_user;  /* User configured lookup table entries */
+-	/* check to see if there are any non-cache aligned descriptors
+-	 * waiting to be written back, and kick the hardware to force
+-	 * them to be written back in case of napi polling
+-	 */
+-	if (budget &&
+-	    !((i & WB_STRIDE) == WB_STRIDE) &&
+-	    !test_bit(__I40E_DOWN, &tx_ring->vsi->state) &&
+-	    (I40E_DESC_UNUSED(tx_ring) != tx_ring->count))
+-		tx_ring->arm_wb = true;
+-
+ 	netdev_tx_completed_queue(netdev_get_tx_queue(tx_ring->netdev,
+ 						      tx_ring->queue_index),
+ 				  total_packets, total_bytes);
+@@ -1770,6 +1760,9 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	u32 td_tag = 0;
+ 	dma_addr_t dma;
+ 	u16 gso_segs;
++	u16 desc_count = 0;
++	bool tail_bump = true;
++	bool do_rs = false;
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index c0a784f..491c82f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1630,7 +1630,8 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
+ 	if (tx_flags & I40E_TX_FLAGS_HW_VLAN) {
+ 		td_cmd |= I40E_TX_DESC_CMD_IL2TAG1;
+@@ -1810,6 +1803,8 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
  
- 			switch (vsi->type) {
- 			case I40E_VSI_MAIN:
--				qcount = min_t(int, pf->rss_size, num_tc_qps);
-+				qcount = min_t(int, pf->alloc_rss_size,
-+					       num_tc_qps);
- 				break;
- #ifdef I40E_FCOE
- 			case I40E_VSI_FCOE:
-@@ -7883,7 +7884,7 @@ static int i40e_vsi_config_rss(struct i40e_vsi *vsi)
+ 			tx_desc++;
+ 			i++;
++			desc_count++;
++
+ 			if (i == tx_ring->count) {
+ 				tx_desc = I40E_TX_DESC(tx_ring, 0);
+ 				i = 0;
+@@ -1829,6 +1824,8 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
  
- 	i40e_fill_rss_lut(pf, lut, vsi->rss_table_size, vsi->rss_size);
- 	netdev_rss_key_fill((void *)seed, I40E_HKEY_ARRAY_SIZE);
--	vsi->rss_size = min_t(int, pf->rss_size, vsi->num_queue_pairs);
-+	vsi->rss_size = min_t(int, pf->alloc_rss_size, vsi->num_queue_pairs);
- 	ret = i40e_config_rss_aq(vsi, seed, lut, vsi->rss_table_size);
- 	kfree(lut);
- 
-@@ -8042,7 +8043,8 @@ static int i40e_pf_config_rss(struct i40e_pf *pf)
- 
- 	/* Determine the RSS size of the VSI */
- 	if (!vsi->rss_size)
--		vsi->rss_size = min_t(int, pf->rss_size, vsi->num_queue_pairs);
-+		vsi->rss_size = min_t(int, pf->alloc_rss_size,
-+				      vsi->num_queue_pairs);
- 
- 	lut = kzalloc(vsi->rss_table_size, GFP_KERNEL);
- 	if (!lut)
-@@ -8089,7 +8091,7 @@ int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count)
- 		vsi->req_queue_pairs = queue_count;
- 		i40e_prep_for_reset(pf);
- 
--		pf->rss_size = new_rss_size;
-+		pf->alloc_rss_size = new_rss_size;
- 
- 		i40e_reset_and_rebuild(pf, true);
- 
-@@ -8103,12 +8105,13 @@ int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count)
- 		}
- 
- 		/* Reset vsi->rss_size, as number of enabled queues changed */
--		vsi->rss_size = min_t(int, pf->rss_size, vsi->num_queue_pairs);
-+		vsi->rss_size = min_t(int, pf->alloc_rss_size,
-+				      vsi->num_queue_pairs);
- 
- 		i40e_pf_config_rss(pf);
- 	}
--	dev_info(&pf->pdev->dev, "RSS count:  %d\n", pf->rss_size);
--	return pf->rss_size;
-+	dev_info(&pf->pdev->dev, "RSS count:  %d\n", pf->alloc_rss_size);
-+	return pf->alloc_rss_size;
- }
- 
- /**
-@@ -8279,13 +8282,14 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 	 * maximum might end up larger than the available queues
- 	 */
- 	pf->rss_size_max = BIT(pf->hw.func_caps.rss_table_entry_width);
--	pf->rss_size = 1;
-+	pf->alloc_rss_size = 1;
- 	pf->rss_table_size = pf->hw.func_caps.rss_table_size;
- 	pf->rss_size_max = min_t(int, pf->rss_size_max,
- 				 pf->hw.func_caps.num_tx_qp);
- 	if (pf->hw.func_caps.rss) {
- 		pf->flags |= I40E_FLAG_RSS_ENABLED;
--		pf->rss_size = min_t(int, pf->rss_size_max, num_online_cpus());
-+		pf->alloc_rss_size = min_t(int, pf->rss_size_max,
-+					   num_online_cpus());
+ 		tx_desc++;
+ 		i++;
++		desc_count++;
++
+ 		if (i == tx_ring->count) {
+ 			tx_desc = I40E_TX_DESC(tx_ring, 0);
+ 			i = 0;
+@@ -1843,35 +1840,7 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 		tx_bi = &tx_ring->tx_bi[i];
  	}
  
- 	/* MFP mode enabled */
-@@ -10152,7 +10156,7 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
- 	    !(pf->flags & I40E_FLAG_MSIX_ENABLED)) {
- 		/* one qp for PF, no queues for anything else */
- 		queues_left = 0;
--		pf->rss_size = pf->num_lan_qps = 1;
-+		pf->alloc_rss_size = pf->num_lan_qps = 1;
+-	/* Place RS bit on last descriptor of any packet that spans across the
+-	 * 4th descriptor (WB_STRIDE aka 0x3) in a 64B cacheline.
+-	 */
+ #define WB_STRIDE 0x3
+-	if (((i & WB_STRIDE) != WB_STRIDE) &&
+-	    (first <= &tx_ring->tx_bi[i]) &&
+-	    (first >= &tx_ring->tx_bi[i & ~WB_STRIDE])) {
+-		tx_desc->cmd_type_offset_bsz =
+-			build_ctob(td_cmd, td_offset, size, td_tag) |
+-			cpu_to_le64((u64)I40E_TX_DESC_CMD_EOP <<
+-					 I40E_TXD_QW1_CMD_SHIFT);
+-	} else {
+-		tx_desc->cmd_type_offset_bsz =
+-			build_ctob(td_cmd, td_offset, size, td_tag) |
+-			cpu_to_le64((u64)I40E_TXD_CMD <<
+-					 I40E_TXD_QW1_CMD_SHIFT);
+-	}
+-
+-	netdev_tx_sent_queue(netdev_get_tx_queue(tx_ring->netdev,
+-						 tx_ring->queue_index),
+-			     first->bytecount);
+-
+-	/* Force memory writes to complete before letting h/w
+-	 * know there are new descriptors to fetch.  (Only
+-	 * applicable for weak-ordered memory model archs,
+-	 * such as IA-64).
+-	 */
+-	wmb();
+-
+ 	/* set next_to_watch value indicating a packet is present */
+ 	first->next_to_watch = tx_desc;
  
- 		/* make sure all the fancies are disabled */
- 		pf->flags &= ~(I40E_FLAG_RSS_ENABLED	|
-@@ -10169,7 +10173,7 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
- 				  I40E_FLAG_FD_ATR_ENABLED |
- 				  I40E_FLAG_DCB_CAPABLE))) {
- 		/* one qp for PF */
--		pf->rss_size = pf->num_lan_qps = 1;
-+		pf->alloc_rss_size = pf->num_lan_qps = 1;
- 		queues_left -= pf->num_lan_qps;
+@@ -1881,15 +1850,78 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
  
- 		pf->flags &= ~(I40E_FLAG_RSS_ENABLED	|
-@@ -10239,8 +10243,9 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
- 		"qs_avail=%d FD SB=%d lan_qs=%d lan_tc0=%d vf=%d*%d vmdq=%d*%d, remaining=%d\n",
- 		pf->hw.func_caps.num_tx_qp,
- 		!!(pf->flags & I40E_FLAG_FD_SB_ENABLED),
--		pf->num_lan_qps, pf->rss_size, pf->num_req_vfs, pf->num_vf_qps,
--		pf->num_vmdq_vsis, pf->num_vmdq_qps, queues_left);
-+		pf->num_lan_qps, pf->alloc_rss_size, pf->num_req_vfs,
-+		pf->num_vf_qps, pf->num_vmdq_vsis, pf->num_vmdq_qps,
-+		queues_left);
- #ifdef I40E_FCOE
- 	dev_dbg(&pf->pdev->dev, "fcoe queues = %d\n", pf->num_fcoe_qps);
- #endif
+ 	tx_ring->next_to_use = i;
+ 
++	netdev_tx_sent_queue(netdev_get_tx_queue(tx_ring->netdev,
++						 tx_ring->queue_index),
++						 first->bytecount);
+ 	i40evf_maybe_stop_tx(tx_ring, DESC_NEEDED);
++
++	/* Algorithm to optimize tail and RS bit setting:
++	 * if xmit_more is supported
++	 *	if xmit_more is true
++	 *		do not update tail and do not mark RS bit.
++	 *	if xmit_more is false and last xmit_more was false
++	 *		if every packet spanned less than 4 desc
++	 *			then set RS bit on 4th packet and update tail
++	 *			on every packet
++	 *		else
++	 *			update tail and set RS bit on every packet.
++	 *	if xmit_more is false and last_xmit_more was true
++	 *		update tail and set RS bit.
++	 * else (kernel < 3.18)
++	 *	if every packet spanned less than 4 desc
++	 *		then set RS bit on 4th packet and update tail
++	 *		on every packet
++	 *	else
++	 *		set RS bit on EOP for every packet and update tail
++	 *
++	 * Optimization: wmb to be issued only in case of tail update.
++	 * Also optimize the Descriptor WB path for RS bit with the same
++	 * algorithm.
++	 *
++	 * Note: If there are less than 4 packets
++	 * pending and interrupts were disabled the service task will
++	 * trigger a force WB.
++	 */
++	if (skb->xmit_more  &&
++	    !netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
++						    tx_ring->queue_index))) {
++		tx_ring->flags |= I40E_TXR_FLAGS_LAST_XMIT_MORE_SET;
++		tail_bump = false;
++	} else if (!skb->xmit_more &&
++		   !netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
++						       tx_ring->queue_index)) &&
++		   (!(tx_ring->flags & I40E_TXR_FLAGS_LAST_XMIT_MORE_SET)) &&
++		   (tx_ring->packet_stride < WB_STRIDE) &&
++		   (desc_count < WB_STRIDE)) {
++		tx_ring->packet_stride++;
++	} else {
++		tx_ring->packet_stride = 0;
++		tx_ring->flags &= ~I40E_TXR_FLAGS_LAST_XMIT_MORE_SET;
++		do_rs = true;
++	}
++	if (do_rs)
++		tx_ring->packet_stride = 0;
++
++	tx_desc->cmd_type_offset_bsz =
++			build_ctob(td_cmd, td_offset, size, td_tag) |
++			cpu_to_le64((u64)(do_rs ? I40E_TXD_CMD :
++						  I40E_TX_DESC_CMD_EOP) <<
++						  I40E_TXD_QW1_CMD_SHIFT);
++
+ 	/* notify HW of packet */
+-	if (!skb->xmit_more ||
+-	    netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
+-						   tx_ring->queue_index)))
+-		writel(i, tx_ring->tail);
+-	else
++	if (!tail_bump)
+ 		prefetchw(tx_desc + 1);
+ 
++	if (tail_bump) {
++		/* Force memory writes to complete before letting h/w
++		 * know there are new descriptors to fetch.  (Only
++		 * applicable for weak-ordered memory model archs,
++		 * such as IA-64).
++		 */
++		wmb();
++		writel(i, tx_ring->tail);
++	}
++
+ 	return;
+ 
+ dma_error:
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index 997b374..929ddd9 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -268,6 +268,8 @@ struct i40e_ring {
+ 
+ 	bool ring_active;		/* is ring online or not */
+ 	bool arm_wb;		/* do something to arm write back */
++	u8 packet_stride;
++#define I40E_TXR_FLAGS_LAST_XMIT_MORE_SET BIT(2)
+ 
+ 	u16 flags;
+ #define I40E_TXR_FLAGS_WB_ON_ITR	BIT(0)
 -- 
 2.5.0
