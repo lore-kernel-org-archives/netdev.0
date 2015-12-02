@@ -1,61 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/6] net: thunderx: Increase transmit queue length
-Date: Wed, 02 Dec 2015 05:25:33 -0800
-Message-ID: <1449062733.32764.53.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <01d101d12c46$2de43b40$89acb1c0$@samsung.com>
-	 <1448983985.25582.35.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+sq2Ce9oH-kCDO8hK_wX+ZZdXyyBuT4V2bt5Ab+2=pEX+BO+w@mail.gmail.com>
-	 <20151201.143047.82022857078130793.davem@davemloft.net>
-	 <CA+sq2CduMnsh_R9zTRMjWT=F5=9U3si-5nO6-gFvGCO9czkDdA@mail.gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: ipsec impact on performance
+Date: Wed, 2 Dec 2015 08:25:11 -0500
+Message-ID: <20151202132511.GL23178@oracle.com>
+References: <20151201175953.GC21252@oracle.com>
+ <CALx6S35uLqbuJTAFLMeT-BcyZw_fksz+7BkS=Nt7_3-nYMHF2A@mail.gmail.com>
+ <20151201183720.GE21252@oracle.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CBE0ED7@AcuExch.aculab.com>
+ <20151202121156.GK23178@oracle.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CBE0F39@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Pavel Fedin <p.fedin@samsung.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	LAKML <linux-arm-kernel@lists.infradead.org>,
-	Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
-	Sunil Goutham <sgoutham@cavium.com>
-To: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+sq2CduMnsh_R9zTRMjWT=F5=9U3si-5nO6-gFvGCO9czkDdA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Herbert <tom@herbertland.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBE0F39@AcuExch.aculab.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-12-02 at 11:18 +0530, Sunil Kovvuri wrote:
-> >The driver should successfully recover from out of memory situations
-> > and not stop RX/TX completely.
-> This memory allocation is while interface bringup/initialization and not during
-> packet I/O.
+On (12/02/15 12:41), David Laight wrote:
 > 
-> >Don't put this off as not "related" to your patch, it is as this
-> >introduces the behavior for this user, and you should fix it before
-> >expecting me to apply this patch series.
-> I would disagree on this, as this patch hasn't introduced any failure here,
-> if this user has connected any device which asks for a bit large amount
-> of coherent memory then i am sure he will see the same issue.
-> And above i have suggested what could be done to not see this issue.
+> Also what/how are you measuring cpu use.
+> I'm not sure anything on Linux gives you a truly accurate value
+> when processes are running for very short periods.
 
+I was using mpstat, while running iperf. Should I be using
+something else? or running it for longer intervals?
 
-This is unacceptable.
+but I hope we are not doomed at 1 Gbps, or else security itself would
+come at a very unattractive cost. Anyway, even aside from crypto.
+we need to have some way to add TCP options (that depend on the 
+contents of the tcp header) etc post-GSO, in the interest of not 
+ossifying the stack.
 
-Maybe you did not complete tests. changelog has no 'Tested:' section.
+> On an SMP system you also get big effects when work is switched
+> between cpus. I've got some tests that run a lot faster if I
+> put all but one of the cpus into a busy-loop in userspace
+> (eg: while :; do :; done)!
 
-You can not claim this patch was good, especially considering no precise
-numbers were given.
+yes Rick Jones also pointed the same thing to me, and one of the
+things I was going to try out later today is to instrument the
+effects of pinning irqs and iperf threads to a specific cpu.
 
-If the performance increase is 4 %, then surely using twice more memory
-is not worth it.
-
-RX/TX ring buffer sizes should be :
-
-- Default to reasonable sizes (ie not gigantic memory usage for typical
-use). For multiqueue devices, one also has to take into account the
-number of queues: 
-
-  If a 10Gbit NIC has 128 queues, then probably having 8192 slots
-  per queue is too much, if this maps to 512 MB of memory !
-
-- ethtool -G support to let the admin change the conservative settings
-for the exceptional workloads.
+--Sowmini
