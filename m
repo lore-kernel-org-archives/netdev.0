@@ -1,62 +1,49 @@
-From: Kamal Mostafa <kamal@canonical.com>
-Subject: [PATCH 3.19.y-ckt 069/164] can: Use correct type in sizeof() in
- nla_put()
-Date: Wed,  2 Dec 2015 08:58:40 -0800
-Message-ID: <1449075615-20754-70-git-send-email-kamal@canonical.com>
-References: <1449075615-20754-1-git-send-email-kamal@canonical.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
+Date: Wed, 2 Dec 2015 09:09:54 -0800
+Message-ID: <CALx6S35aDVb+EfAY=wNkZbf0XsDp+MB2mWERXoyaS67raGFbBA@mail.gmail.com>
+References: <CAHo-OoyN7OgvHSuXxjk7C4FitXhoWffOxY1wkQBWwi+nc013_w@mail.gmail.com>
+	<1448937147-38043-1-git-send-email-lorenzo@google.com>
+	<CALx6S36fb7C9-LCo5egFZyOo1mZ1A9kHN6xpgNUUQS=njQ8Y-g@mail.gmail.com>
+	<CAKD1Yr2qyKCmfo75+OpsfqrUoFquXiA_GqwVr_BsU1AW5MmPbQ@mail.gmail.com>
+	<CALx6S37SvPk319=hC8mVwLHsa8T_6wed41wcqLgudR8yj3akdg@mail.gmail.com>
+	<CAKD1Yr1vsdrxb6YvOB3bbxuLso+hniexWDciOeWvv1fnyfYP1w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Marek Vasut <marex@denx.de>, netdev@vger.kernel.org,
- Kamal Mostafa <kamal@canonical.com>, Marc Kleine-Budde <mkl@pengutronix.de>,
- Wolfgang Grandegger <wg@grandegger.com>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
- kernel-team@lists.ubuntu.com
-Return-path: <kernel-team-bounces@lists.ubuntu.com>
-In-Reply-To: <1449075615-20754-1-git-send-email-kamal@canonical.com>
-List-Unsubscribe: <https://lists.ubuntu.com/mailman/options/kernel-team>,
- <mailto:kernel-team-request@lists.ubuntu.com?subject=unsubscribe>
-List-Archive: <https://lists.ubuntu.com/archives/kernel-team>
-List-Post: <mailto:kernel-team@lists.ubuntu.com>
-List-Help: <mailto:kernel-team-request@lists.ubuntu.com?subject=help>
-List-Subscribe: <https://lists.ubuntu.com/mailman/listinfo/kernel-team>,
- <mailto:kernel-team-request@lists.ubuntu.com?subject=subscribe>
-Errors-To: kernel-team-bounces@lists.ubuntu.com
-Sender: kernel-team-bounces@lists.ubuntu.com
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Erik Kline <ek@google.com>,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+To: Lorenzo Colitti <lorenzo@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:34269 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933327AbbLBRJz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 12:09:55 -0500
+Received: by ioir85 with SMTP id r85so52561849ioi.1
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 09:09:55 -0800 (PST)
+In-Reply-To: <CAKD1Yr1vsdrxb6YvOB3bbxuLso+hniexWDciOeWvv1fnyfYP1w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-3.19.8-ckt11 -stable review patch.  If anyone has any objections, please let me know.
+On Wed, Dec 2, 2015 at 8:30 AM, Lorenzo Colitti <lorenzo@google.com> wrote:
+> On Thu, Dec 3, 2015 at 1:12 AM, Tom Herbert <tom@herbertland.com> wrote:
+>> The in kernel caller would already have a pointer to the socket so the
+>> call would just be sk->sk_prot->destroy(sk). That call should make its
+>> way down to same backend function in TCP that the diag path would use.
+>> We need this in the kernel for the same reasons you want this in
+>> userspace, if a third party hits an unrecoverable error on the socket
+>> it needs to signal this condition to the owner of the socket but can't
+>> actually close the socket (useful to RDS, KCM, probably
+>> TLS-in-kernel).
+>
+> Oh, I see, yes. You're thinking of a case where multiple protocols
+> support this destroy operation. An in-kernel caller has a pointer to a
+> sk that it wants to unwedge, but doesn't need to know which destroy
+> function to use for which protocol, it just does "if
+> (sk->sk_prot->destroy != NULL) sk->sk_prot_destroy(sk)". I think that
+> should be a trivial change on top of what I have.
 
-------------------
-
-From: Marek Vasut <marex@denx.de>
-
-commit 562b103a21974c2f9cd67514d110f918bb3e1796 upstream.
-
-The sizeof() is invoked on an incorrect variable, likely due to some
-copy-paste error, and this might result in memory corruption. Fix this.
-
-Signed-off-by: Marek Vasut <marex@denx.de>
-Cc: Wolfgang Grandegger <wg@grandegger.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
-Signed-off-by: Kamal Mostafa <kamal@canonical.com>
----
- drivers/net/can/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-index 62ca0e8..8202ab3 100644
---- a/drivers/net/can/dev.c
-+++ b/drivers/net/can/dev.c
-@@ -912,7 +912,7 @@ static int can_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	     nla_put(skb, IFLA_CAN_BITTIMING_CONST,
- 		     sizeof(*priv->bittiming_const), priv->bittiming_const)) ||
- 
--	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(cm), &priv->clock) ||
-+	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(priv->clock), &priv->clock) ||
- 	    nla_put_u32(skb, IFLA_CAN_STATE, state) ||
- 	    nla_put(skb, IFLA_CAN_CTRLMODE, sizeof(cm), &cm) ||
- 	    nla_put_u32(skb, IFLA_CAN_RESTART_MS, priv->restart_ms) ||
--- 
-1.9.1
+Thanks, and that's a good description for the commit log :-)
