@@ -1,49 +1,80 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Wed, 2 Dec 2015 09:09:54 -0800
-Message-ID: <CALx6S35aDVb+EfAY=wNkZbf0XsDp+MB2mWERXoyaS67raGFbBA@mail.gmail.com>
-References: <CAHo-OoyN7OgvHSuXxjk7C4FitXhoWffOxY1wkQBWwi+nc013_w@mail.gmail.com>
-	<1448937147-38043-1-git-send-email-lorenzo@google.com>
-	<CALx6S36fb7C9-LCo5egFZyOo1mZ1A9kHN6xpgNUUQS=njQ8Y-g@mail.gmail.com>
-	<CAKD1Yr2qyKCmfo75+OpsfqrUoFquXiA_GqwVr_BsU1AW5MmPbQ@mail.gmail.com>
-	<CALx6S37SvPk319=hC8mVwLHsa8T_6wed41wcqLgudR8yj3akdg@mail.gmail.com>
-	<CAKD1Yr1vsdrxb6YvOB3bbxuLso+hniexWDciOeWvv1fnyfYP1w@mail.gmail.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: Kernel 4.1.12 crash
+Date: Wed, 2 Dec 2015 18:23:35 +0100
+Message-ID: <20151202172335.GB16101@alphalink.fr>
+References: <564FA904.7020603@gmail.com>
+ <5650287B.9070901@seti.kr.ua>
+ <56514FF5.7060906@gmail.com>
+ <5654EBE8.9030705@seti.kr.ua>
+ <20151125141048.GA3868@alphalink.fr>
+ <5655CCAE.6000300@seti.kr.ua>
+ <20151126164452.GA2988@alphalink.fr>
+ <565B7699.8030105@seti.kr.ua>
+ <20151130150337.GC3059@alphalink.fr>
+ <20151130204208.GA6046@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Erik Kline <ek@google.com>,
-	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-To: Lorenzo Colitti <lorenzo@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	netdev@vger.kernel.org, Simon Farnsworth <simon@farnz.org.uk>
+To: Andrew <nitr0@seti.kr.ua>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:34269 "EHLO
-	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933327AbbLBRJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 12:09:55 -0500
-Received: by ioir85 with SMTP id r85so52561849ioi.1
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 09:09:55 -0800 (PST)
-In-Reply-To: <CAKD1Yr1vsdrxb6YvOB3bbxuLso+hniexWDciOeWvv1fnyfYP1w@mail.gmail.com>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:51997 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964871AbbLBRXi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 12:23:38 -0500
+Content-Disposition: inline
+In-Reply-To: <20151130204208.GA6046@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 2, 2015 at 8:30 AM, Lorenzo Colitti <lorenzo@google.com> wrote:
-> On Thu, Dec 3, 2015 at 1:12 AM, Tom Herbert <tom@herbertland.com> wrote:
->> The in kernel caller would already have a pointer to the socket so the
->> call would just be sk->sk_prot->destroy(sk). That call should make its
->> way down to same backend function in TCP that the diag path would use.
->> We need this in the kernel for the same reasons you want this in
->> userspace, if a third party hits an unrecoverable error on the socket
->> it needs to signal this condition to the owner of the socket but can't
->> actually close the socket (useful to RDS, KCM, probably
->> TLS-in-kernel).
->
-> Oh, I see, yes. You're thinking of a case where multiple protocols
-> support this destroy operation. An in-kernel caller has a pointer to a
-> sk that it wants to unwedge, but doesn't need to know which destroy
-> function to use for which protocol, it just does "if
-> (sk->sk_prot->destroy != NULL) sk->sk_prot_destroy(sk)". I think that
-> should be a trivial change on top of what I have.
+On Mon, Nov 30, 2015 at 09:42:08PM +0100, Guillaume Nault wrote:
+> On Mon, Nov 30, 2015 at 04:03:37PM +0100, Guillaume Nault wrote:
+> > Yes, it most likely was introduced by 287f3a943fef ("pppoe: Use
+> > workqueue to die properly when a PADT is received"). I still have to
+> > figure out why.
+> 
+> I confirm the bug comes from this commit.
+> 
+> It happens if pppoe_connect() reinitialises po->proto.pppoe.padt_work
+> after pppoe_disc_rcv() has added it to the system's work queue, and
+> before that work got scheduled. Then when scheduling occurs, the worker
+> thread tries to run a corrupted structure and crashes.
+> 
+> I'm going to work on a patch.
 
-Thanks, and that's a good description for the commit log :-)
+You can try the following. It's not yet a proper fix as there are still
+a few things that bug me in pppoe_connect().
+
+---
+diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
+index 5e0b432..865b74d 100644
+--- a/drivers/net/ppp/pppoe.c
++++ b/drivers/net/ppp/pppoe.c
+@@ -568,6 +568,9 @@ static int pppoe_create(struct net *net, struct socket *sock, int kern)
+ 	sk->sk_family		= PF_PPPOX;
+ 	sk->sk_protocol		= PX_PROTO_OE;
+ 
++	INIT_WORK(&pppox_sk(sk)->proto.pppoe.padt_work,
++		  pppoe_unbind_sock_work);
++
+ 	return 0;
+ }
+ 
+@@ -632,8 +635,6 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
+ 
+ 	lock_sock(sk);
+ 
+-	INIT_WORK(&po->proto.pppoe.padt_work, pppoe_unbind_sock_work);
+-
+ 	error = -EINVAL;
+ 	if (sp->sa_protocol != PX_PROTO_OE)
+ 		goto end;
+@@ -663,8 +664,6 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
+ 			po->pppoe_dev = NULL;
+ 		}
+ 
+-		memset(sk_pppox(po) + 1, 0,
+-		       sizeof(struct pppox_sock) - sizeof(struct sock));
+ 		sk->sk_state = PPPOX_NONE;
+ 	}
+ 
