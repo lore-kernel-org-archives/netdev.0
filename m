@@ -1,90 +1,46 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v2 net-next 1/2] ravb: add fallback compatibility strings
-Date: Wed, 2 Dec 2015 08:32:18 -0600
-Message-ID: <20151202143218.GA18640@rob-hp-laptop>
-References: <1449035913-9129-1-git-send-email-horms+renesas@verge.net.au>
- <1449035913-9129-2-git-send-email-horms+renesas@verge.net.au>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
+Date: Thu, 3 Dec 2015 00:18:10 +0900
+Message-ID: <CAKD1Yr2qyKCmfo75+OpsfqrUoFquXiA_GqwVr_BsU1AW5MmPbQ@mail.gmail.com>
+References: <CAHo-OoyN7OgvHSuXxjk7C4FitXhoWffOxY1wkQBWwi+nc013_w@mail.gmail.com>
+ <1448937147-38043-1-git-send-email-lorenzo@google.com> <CALx6S36fb7C9-LCo5egFZyOo1mZ1A9kHN6xpgNUUQS=njQ8Y-g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	devicetree@vger.kernel.org
-To: Simon Horman <horms+renesas@verge.net.au>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Erik Kline <ek@google.com>,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:49278 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758439AbbLBOcX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 09:32:23 -0500
-Content-Disposition: inline
-In-Reply-To: <1449035913-9129-2-git-send-email-horms+renesas@verge.net.au>
+Received: from mail-yk0-f176.google.com ([209.85.160.176]:34407 "EHLO
+	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752494AbbLBPSb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 10:18:31 -0500
+Received: by ykfs79 with SMTP id s79so50319320ykf.1
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 07:18:30 -0800 (PST)
+In-Reply-To: <CALx6S36fb7C9-LCo5egFZyOo1mZ1A9kHN6xpgNUUQS=njQ8Y-g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 02, 2015 at 02:58:32PM +0900, Simon Horman wrote:
-> Add fallback compatibility strings for R-Car Gen 2 & 3 SoC Families.
-> This is in keeping with the fallback scheme being adopted wherever appropriate
-> for drivers for Renesas SoCs.
-> 
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+On Tue, Dec 1, 2015 at 11:53 AM, Tom Herbert <tom@herbertland.com> wrote:
+> This is awesome! The only thing I would suggest is to make
+> sock_destroy a proto_op so that it can be called from within the
+> kernel. This should be preferred to externally calling tcp_done
+> (hopefully we can unexport that symbol then).
 
-Acked-by: Rob Herring <robh@kernel.org>
+I'm not sure there is value in making it a proto op. The sock_diag
+code that finds the socket based on the netlink diag request is
+specific to both the protocol family (e.g., the sock_diag structures
+for inet and unix differ) and protocol (e.g., TCP, UDPv4 and UDPv6 use
+different hash tables).
 
-> 
-> ---
-> v2
-> * Drop bogus typo non-fix
-> * include "rcar-" in generic bindings
-> ---
->  Documentation/devicetree/bindings/net/renesas,ravb.txt | 9 ++++++++-
->  drivers/net/ethernet/renesas/ravb_main.c               | 2 ++
->  2 files changed, 10 insertions(+), 1 deletion(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> index b486f3f5f6a3..7555116b5db2 100644
-> --- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> +++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> @@ -7,6 +7,13 @@ Required properties:
->  - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
->  	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
->  	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
-> +	      "renesas,etheravb-rcar-gen2" for generic R-Car Gen 2 compatible interface.
-> +	      "renesas,etheravb-rcar-gen3" for generic R-Car Gen 3 compatible interface.
-> +
-> +	      When compatible with the generic version, nodes must list the
-> +	      SoC-specific version corresponding to the platform first
-> +	      followed by the generic version.
-> +
->  - reg: offset and length of (1) the register block and (2) the stream buffer.
->  - interrupts: A list of interrupt-specifiers, one for each entry in
->  	      interrupt-names.
-> @@ -37,7 +44,7 @@ Optional properties:
->  Example:
->  
->  	ethernet@e6800000 {
-> -		compatible = "renesas,etheravb-r8a7795";
-> +		compatible = "renesas,etheravb-r8a7795", "renesas,etheravb-rcar-gen3";
->  		reg = <0 0xe6800000 0 0x800>, <0 0xe6a00000 0 0x10000>;
->  		interrupt-parent = <&gic>;
->  		interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
-> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-> index 990dc55cdada..c12b163ed7fe 100644
-> --- a/drivers/net/ethernet/renesas/ravb_main.c
-> +++ b/drivers/net/ethernet/renesas/ravb_main.c
-> @@ -1656,7 +1656,9 @@ static int ravb_mdio_release(struct ravb_private *priv)
->  static const struct of_device_id ravb_match_table[] = {
->  	{ .compatible = "renesas,etheravb-r8a7790", .data = (void *)RCAR_GEN2 },
->  	{ .compatible = "renesas,etheravb-r8a7794", .data = (void *)RCAR_GEN2 },
-> +	{ .compatible = "renesas,etheravb-rcar-gen2", .data = (void *)RCAR_GEN2 },
->  	{ .compatible = "renesas,etheravb-r8a7795", .data = (void *)RCAR_GEN3 },
-> +	{ .compatible = "renesas,etheravb-rcar-gen3", .data = (void *)RCAR_GEN3 },
->  	{ }
->  };
->  MODULE_DEVICE_TABLE(of, ravb_match_table);
-> -- 
-> 2.1.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe devicetree" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+So even if we add a proto_op (or struct proto function pointer) to
+destroy a socket, we can't just have a generic function (or even an
+inet-specific function) that just finds a socket and does "return
+sk->sk_prot->diag_destroy(sk)" regardless of what protocol that socket
+is.
+
+The code does look better if the protocol-specific code is moved to a
+new tcp_abort function that just takes a pointer to the sk.
