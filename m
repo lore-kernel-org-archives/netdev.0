@@ -1,48 +1,30 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Increasing skb->mark size
-Date: Wed, 2 Dec 2015 03:58:35 +0100
-Message-ID: <20151202025835.GL15533@two.firstfloor.org>
-References: <1448397144.14854.27.camel@mattb-dl>
- <CAKD1Yr3URKzAooiNH7i4kHVR0-TQjEAkQEdqjarAm6uxH7u-Mw@mail.gmail.com>
- <87610ivv6u.fsf@tassilo.jf.intel.com>
- <565E1A9F.7040906@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net 0/6] Marvell Armada XP/370/38X Neta fixes
+Date: Tue, 01 Dec 2015 22:03:37 -0500 (EST)
+Message-ID: <20151201.220337.2287051759324173025.davem@davemloft.net>
+References: <1448886466-31538-1-git-send-email-mw@semihalf.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	Lorenzo Colitti <lorenzo@google.com>,
-	Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Luuk Paulussen <Luuk.Paulussen@alliedtelesis.co.nz>,
-	davem@davemloft.net
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([193.170.194.197]:43935 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755473AbbLBC6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 21:58:37 -0500
-Content-Disposition: inline
-In-Reply-To: <565E1A9F.7040906@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, linux@arm.linux.org.uk,
+	sebastian.hesselbarth@gmail.com, andrew@lunn.ch,
+	jason@lakedaemon.net, thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com, simon.guinot@sequanux.org,
+	nadavh@marvell.com, alior@marvell.com, xswang@marvell.com,
+	myair@marvell.com, nitroshift@yahoo.com, jaz@semihalf.com,
+	tn@semihalf.com
+To: mw@semihalf.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448886466-31538-1-git-send-email-mw@semihalf.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> >This would be be great. I've recently ran into some issues with
-> >the overhead of the Android firewall setup.
-> >
-> >So basically you need 4 extra bytes in sk_buff. How about:
-> >
-> >- shrinking skb->priority to 2 byte
-> 
-> That wouldn't work, see SO_PRIORITY and such (4 bytes) ...
+From: Marcin Wojtas <mw@semihalf.com>
+Date: Mon, 30 Nov 2015 13:27:40 +0100
 
-But does anybody really use the full 4 bytes for the priority?
-SO_PRIORITY could well truncate the value.
+> I'm sending v4 with corrected commit log of the last patch, in order
+> to avoid possible conflicts between the branches as suggested by
+> Gregory Clement.
 
-> 
-> >- skb_iff is either skb->dev->iff or 0. so it could be replaced with a
-> >single bit flag for the 0 case.
-> 
-> ... and that one wouldn't work on ingress.
-
-Please explain.
-
--Andi
+Series applied, thanks.
