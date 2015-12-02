@@ -1,10 +1,12 @@
 From: Thierry Reding <thierry.reding@gmail.com>
-Subject: [PATCH 1/4] net: bfin_mac: Use platform_register/unregister_drivers()
-Date: Wed,  2 Dec 2015 17:30:26 +0100
-Message-ID: <1449073829-12438-1-git-send-email-thierry.reding@gmail.com>
+Subject: [PATCH 3/4] net: mpc52xx: Use platform_register/unregister_drivers()
+Date: Wed,  2 Dec 2015 17:30:28 +0100
+Message-ID: <1449073829-12438-3-git-send-email-thierry.reding@gmail.com>
+References: <1449073829-12438-1-git-send-email-thierry.reding@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449073829-12438-1-git-send-email-thierry.reding@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -18,41 +20,49 @@ Signed-off-by: Thierry Reding <treding@nvidia.com>
 ---
 Applies on top of next-20151127.
 
- drivers/net/ethernet/adi/bfin_mac.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/freescale/fec_mpc52xx.c | 22 +++++++++-------------
+ 1 file changed, 9 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-index 096531a73124..e0e95a15cab0 100644
---- a/drivers/net/ethernet/adi/bfin_mac.c
-+++ b/drivers/net/ethernet/adi/bfin_mac.c
-@@ -1912,21 +1912,21 @@ static struct platform_driver bfin_mac_driver = {
- 	},
- };
+diff --git a/drivers/net/ethernet/freescale/fec_mpc52xx.c b/drivers/net/ethernet/freescale/fec_mpc52xx.c
+index afe7f39cdd7c..25553ee857b4 100644
+--- a/drivers/net/ethernet/freescale/fec_mpc52xx.c
++++ b/drivers/net/ethernet/freescale/fec_mpc52xx.c
+@@ -1084,27 +1084,23 @@ static struct platform_driver mpc52xx_fec_driver = {
+ /* Module                                                                   */
+ /* ======================================================================== */
  
 +static struct platform_driver * const drivers[] = {
-+	&bfin_mii_bus_driver,
-+	&bfin_mac_driver,
++#ifdef CONFIG_FEC_MPC52xx_MDIO
++	&mpc52xx_fec_mdio_driver,
++#endif
++	&mpc52xx_fec_driver,
 +};
 +
- static int __init bfin_mac_init(void)
+ static int __init
+ mpc52xx_fec_init(void)
  {
+-#ifdef CONFIG_FEC_MPC52xx_MDIO
 -	int ret;
--	ret = platform_driver_register(&bfin_mii_bus_driver);
--	if (!ret)
--		return platform_driver_register(&bfin_mac_driver);
--	return -ENODEV;
+-	ret = platform_driver_register(&mpc52xx_fec_mdio_driver);
+-	if (ret) {
+-		pr_err("failed to register mdio driver\n");
+-		return ret;
+-	}
+-#endif
+-	return platform_driver_register(&mpc52xx_fec_driver);
 +	return platform_register_drivers(drivers, ARRAY_SIZE(drivers));
  }
  
- module_init(bfin_mac_init);
- 
- static void __exit bfin_mac_cleanup(void)
+ static void __exit
+ mpc52xx_fec_exit(void)
  {
--	platform_driver_unregister(&bfin_mac_driver);
--	platform_driver_unregister(&bfin_mii_bus_driver);
+-	platform_driver_unregister(&mpc52xx_fec_driver);
+-#ifdef CONFIG_FEC_MPC52xx_MDIO
+-	platform_driver_unregister(&mpc52xx_fec_mdio_driver);
+-#endif
 +	platform_unregister_drivers(drivers, ARRAY_SIZE(drivers));
  }
  
- module_exit(bfin_mac_cleanup);
+ 
 -- 
 2.5.0
