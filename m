@@ -1,82 +1,123 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] i40e: Fix i40e_print_features() VEB mode output
-Date: Wed, 02 Dec 2015 01:56:55 -0800
-Message-ID: <1449050215.3224.29.camel@intel.com>
-References: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1448475679-57194-5-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <5655FD72.70902@cogentembedded.com> <1448476535.3021.5.camel@intel.com>
-	 <1448480194.20113.48.camel@perches.com>
-	 <1449002936.1593.10.camel@perches.com> <1449041100.3224.17.camel@intel.com>
-	 <1449045535.3716.10.camel@perches.com>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH 06/13] net: mvneta: enable mixed egress processing using
+ HR timer
+Date: Wed, 2 Dec 2015 11:03:56 +0100
+Message-ID: <CAPv3WKctkQ1skGyQ=Le7bGG47naKTekG+navLirAn1ti8jBDtQ@mail.gmail.com>
+References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
+	<1448178839-3541-7-git-send-email-mw@semihalf.com>
+	<20151126164540.GH4665@kw.sim.vm.gnt>
+	<CAPv3WKf5hRKsSuwVx94qoAzJTd6MSK=WfSi0Av7X3U_L47G=Ug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-b/wt0MMDmyEr3szsJBDJ"
-Cc: netdev <netdev@vger.kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Shannon Nelson <shannon.nelson@intel.com>
-To: Joe Perches <joe@perches.com>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:59045 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756450AbbLBJ5I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 04:57:08 -0500
-In-Reply-To: <1449045535.3716.10.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Yair Mahalalel <myair@marvell.com>,
+	Grzegorz Jaszczyk <jaz@semihalf.com>,
+	Evan Wang <xswang@marvell.com>, nadavh@marvell.com,
+	Lior Amsalem <alior@marvell.com>,
+	Tomasz Nowicki <tn@semihalf.com>,
+	=?UTF-8?Q?Gregory_Cl=C3=A9ment?=
+	<gregory.clement@free-electrons.com>, nitroshift@yahoo.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Simon Guinot <simon.guinot@sequanux.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAPv3WKf5hRKsSuwVx94qoAzJTd6MSK=WfSi0Av7X3U_L47G=Ug@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Simon,
 
---=-b/wt0MMDmyEr3szsJBDJ
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I checked using hrtimer_is_queued instead of a custom flag and it
+resulted in ~20kpps drop in my setup. timer_scheduled flag is cleared
+in the tasklet, so no timer can be scheduled until the tasklet is
+executed. hr_timer flags do not cover this situation, so much more
+timers are enqueued. I added a counter and with maximal throughput
+during 30s test and 9 times less timers were enqueued with
+timer_scheduled flag (~31k vs ~281k), so it's much more efficient and
+I'll leave it as is.
 
-On Wed, 2015-12-02 at 00:38 -0800, Joe Perches wrote:
-> Commit 7fd89545f337 ("i40e: remove BUG_ON from feature string
-> building")
-> added defective output when I40E_FLAG_VEB_MODE_ENABLED was set in
-> function i40e_print_features.
->=20
-> Fix it.
->=20
-> Miscellanea:
->=20
-> o Remove unnecessary string variable
-> o Add space before not after fixed strings
-> o Use kmalloc not kzalloc
-> o Don't initialize i to 0, use result of first snprintf
->=20
-> Noticed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Best regards,
+Marcin
 
-Don't you mean Reported-by? =C2=A0I am not aware of Noticed-by as being a
-recognized signature.
-
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
-> =C2=A0drivers/net/ethernet/intel/i40e/i40e_main.c | 42 +++++++++++++----
-> ------------
-> =C2=A01 file changed, 19 insertions(+), 23 deletions(-)
-
---=-b/wt0MMDmyEr3szsJBDJ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAABCgAGBQJWXsBnAAoJEOVv75VaS+3ODxgP/jsh6fG2DquhlsU+uzOIOuPR
-RkP2el5mQxVMQvupelhlGYwDVqnXL3gbmH4szXbZ6L1joaX9oVMKpBg/ORPNGEHn
-Gr5eIF29WxUlryzr5nWnUHMY5P7XC8EyBlYLibX5nXBIaz6S5TmChUo0Jg1jqxP5
-eixBX3czW5YOcIVNxCx/YfgEg6nnEPFFwU0G44Ob18VtZ8aoZ4jXYLswbFpOdy9Z
-3sRjKjqeDZHDYjrpn7zjFRNrZCJxKROTJprc7by41491zGsWEZHBGIhjc5uPh4nd
-X14l0U50E35s/DtnMWla/0y7APLfbbOoMiwMErXfMWFHLSZZCYmKw4L2MsUdO6AV
-G5WVTwrQlCBlzK+wZ7k28b0asSGAnbUCuAblpsezkKgn3AGwrVVz5Yj5Hs40jik+
-RbgKlIFlQSlg5xnW2WIsh4UlUeNf4LVfC0/l4797xoh9/pqne67HMQiBfQQyGHaL
-X4sxBg7qC0UGBEn9hpuWlCsakQFlP4xvJwMp7mQBTqV8hIKmmfjVGfVSSGmv90Gg
-wplIEO6uPfWvKaDmKGHSYbuz/omxhgZVH4yXtTf0kSIT8SMdOrAyNkv98C88nVOB
-6jHNSZdkCROBuzerUPmc2fpCqhUg+E473soYeUCUhKeE1EGTmi6ThuHPNFzlxIgg
-5XPnIxrdxWCLvHOYlI0/
-=3Rta
------END PGP SIGNATURE-----
-
---=-b/wt0MMDmyEr3szsJBDJ--
+2015-11-30 16:57 GMT+01:00 Marcin Wojtas <mw@semihalf.com>:
+> Hi Simon,
+>
+> 2015-11-26 17:45 GMT+01:00 Simon Guinot <simon.guinot@sequanux.org>:
+>> Hi Marcin,
+>>
+>> On Sun, Nov 22, 2015 at 08:53:52AM +0100, Marcin Wojtas wrote:
+>>> Mixed approach allows using higher interrupt threshold (increased back to
+>>> 15 packets), useful in high throughput. In case of small amount of data
+>>> or very short TX queues HR timer ensures releasing buffers with small
+>>> latency.
+>>>
+>>> Along with existing tx_done processing by coalescing interrupts this
+>>> commit enables triggering HR timer each time the packets are sent.
+>>> Time threshold can also be configured, using ethtool.
+>>>
+>>> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
+>>> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
+>>> ---
+>>>  drivers/net/ethernet/marvell/mvneta.c | 89 +++++++++++++++++++++++++++++++++--
+>>>  1 file changed, 85 insertions(+), 4 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+>>> index 9c9e858..f5acaf6 100644
+>>> --- a/drivers/net/ethernet/marvell/mvneta.c
+>>> +++ b/drivers/net/ethernet/marvell/mvneta.c
+>>> @@ -21,6 +21,8 @@
+>>>  #include <linux/module.h>
+>>>  #include <linux/interrupt.h>
+>>>  #include <linux/if_vlan.h>
+>>> +#include <linux/hrtimer.h>
+>>> +#include <linux/ktime.h>
+>>
+>> ktime.h is already included by hrtimer.h.
+>>
+>>>  #include <net/ip.h>
+>>>  #include <net/ipv6.h>
+>>>  #include <linux/io.h>
+>>> @@ -226,7 +228,8 @@
+>>>  /* Various constants */
+>>>
+>>>  /* Coalescing */
+>>> -#define MVNETA_TXDONE_COAL_PKTS              1
+>>> +#define MVNETA_TXDONE_COAL_PKTS              15
+>>> +#define MVNETA_TXDONE_COAL_USEC              100
+>>
+>> Maybe we should keep the default configuration and let the user choose
+>> to enable (or not) this feature ?
+>
+> I think that this feature should be enabled by default, same as in RX
+> (which is enabled by HW in ingress). It satisfies all kinds of traffic
+> or queues sizes. I'd prefer a situation that if someone really wants
+> to disable it (even if I don't know the possible justification), then
+> let him use ethtool for this purpose.
+>
+>>
+>>>  #define MVNETA_RX_COAL_PKTS          32
+>>>  #define MVNETA_RX_COAL_USEC          100
+>>>
+>>> @@ -356,6 +359,11 @@ struct mvneta_port {
+>>>       struct net_device *dev;
+>>>       struct notifier_block cpu_notifier;
+>>>
+>>> +     /* Egress finalization */
+>>> +     struct tasklet_struct tx_done_tasklet;
+>>> +     struct hrtimer tx_done_timer;
+>>> +     bool timer_scheduled;
+>>
+>> I think we could use hrtimer_is_queued() instead of introducing a new
+>> variable.
+>>
+>
+> Good point, i'll try that.
+>
+> Best regards,
+> Marcin
