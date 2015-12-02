@@ -1,85 +1,78 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 08/26] net: add info struct for LAG changeupper
-Date: Wed, 2 Dec 2015 12:11:19 +0100
-Message-ID: <20151202111119.GH2355@nanopsycho.orion>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [patch net-next 15/26] bonding: allow notifications for
+ bond_set_slave_link_state
+Date: Wed, 2 Dec 2015 12:27:09 +0100
+Message-ID: <565ED58D.2040002@cumulusnetworks.com>
 References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
- <1448977744-17930-9-git-send-email-jiri@resnulli.us>
- <565ECF2F.7050500@cumulusnetworks.com>
- <20151202110647.GF2355@nanopsycho.orion>
- <565ED107.3090806@cumulusnetworks.com>
+ <1448977744-17930-16-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:34892 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755482AbbLBLLV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 06:11:21 -0500
-Received: by wmuu63 with SMTP id u63so209973701wmu.0
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 03:11:20 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <565ED107.3090806@cumulusnetworks.com>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:34420 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757095AbbLBL1L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 06:27:11 -0500
+Received: by wmvv187 with SMTP id v187so249975056wmv.1
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 03:27:10 -0800 (PST)
+In-Reply-To: <1448977744-17930-16-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Dec 02, 2015 at 12:07:51PM CET, nikolay@cumulusnetworks.com wrote:
->On 12/02/2015 12:06 PM, Jiri Pirko wrote:
->> Wed, Dec 02, 2015 at 11:59:59AM CET, nikolay@cumulusnetworks.com wrote:
->>> On 12/01/2015 02:48 PM, Jiri Pirko wrote:
->>>> From: Jiri Pirko <jiri@mellanox.com>
->>>>
->>>> This struct will be shared by bonding and team to pass internal
->>>> information to notifier listeners.
->>>>
->>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>>> ---
->>>>  include/linux/netdevice.h | 13 +++++++++++++
->>>>  1 file changed, 13 insertions(+)
->>>>
->>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->>>> index a55be5b..7ea3e83 100644
->>>> --- a/include/linux/netdevice.h
->>>> +++ b/include/linux/netdevice.h
->>>> @@ -2108,6 +2108,19 @@ struct pcpu_sw_netstats {
->>>>  #define netdev_alloc_pcpu_stats(type)					\
->>>>  	__netdev_alloc_pcpu_stats(type, GFP_KERNEL);
->>>>  
->>>> +enum netdev_lag_tx_type {
->>>> +	NETDEV_LAG_TX_TYPE_UNKNOWN,
->>>> +	NETDEV_LAG_TX_TYPE_RANDOM,
->>>> +	NETDEV_LAG_TX_TYPE_BROADCAST,
->>>> +	NETDEV_LAG_TX_TYPE_ROUNDROBIN,
->>>> +	NETDEV_LAG_TX_TYPE_ACTIVEBACKUP,
->>>> +	NETDEV_LAG_TX_TYPE_HASH,
->>>> +};
->>>
->>> There're 2 more modes supported by the bonding which aren't supported by team,
->>> RLB and TLB. Since you've included _RANDOM, for completeness you can add
->>> these, too.
->> 
->> For now it is "NETDEV_LAG_TX_TYPE_UNKNOWN". If needed to be identified
->> by driver, it can be easily added.
->> 
->
->Out of curiosity, is _RANDOM needed to be identified by the driver ? :-)
+On 12/01/2015 02:48 PM, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Similar to state notifications.
+> 
+> We allow caller to indicate if the notification should happen now or later,
+> depending on if he holds rtnl mutex or not. Introduce bond_slave_link_notify
+> function (similar to bond_slave_state_notify) which is later on called
+> with rtnl mutex and goes over slaves and executes delayed notification.
+> 
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 54 +++++++++++++++++++++++++++--------------
+>  include/net/bonding.h           | 32 +++++++++++++++++++++---
+>  2 files changed, 65 insertions(+), 21 deletions(-)
+> 
+[snip]
+> diff --git a/include/net/bonding.h b/include/net/bonding.h
+> index c1740a2..50496ec 100644
+> --- a/include/net/bonding.h
+> +++ b/include/net/bonding.h
+> @@ -165,7 +165,8 @@ struct slave {
+>  	u8     backup:1,   /* indicates backup slave. Value corresponds with
+>  			      BOND_STATE_ACTIVE and BOND_STATE_BACKUP */
+>  	       inactive:1, /* indicates inactive slave */
+> -	       should_notify:1; /* indicateds whether the state changed */
+> +	       should_notify:1, /* indicateds whether the state changed */
+> +	       should_notify_link:1; /* indicateds whether the link changed */
 
-RANDOM is easy to handle as it is obvious what it is doing. That cannot
-be said about *LB. That is the reason I left those out for now.
+s/indicateds/indicates/
 
-
->
->> 
->>>
->>>> +
->>>> +struct netdev_lag_upper_info {
->>>> +	enum netdev_lag_tx_type tx_type;
->>>> +};
->>>> +
->>>>  #include <linux/notifier.h>
->>>>  
->>>>  /* netdevice notifier chain. Please remember to update the rtnetlink
->>>>
->>>
->
+>  	u8     duplex;
+>  	u32    original_mtu;
+>  	u32    link_failure_count;
+> @@ -504,10 +505,35 @@ static inline bool bond_is_slave_inactive(struct slave *slave)
+>  	return slave->inactive;
+>  }
+[snip]
+> +
+> +static inline void bond_slave_link_notify(struct bonding *bond)
+> +{
+> +	struct list_head *iter;
+> +	struct slave *tmp;
+> +
+> +	bond_for_each_slave(bond, tmp, iter) {
+> +		if (tmp->should_notify_link) {
+> +			bond_queue_slave_event(tmp);
+> +			tmp->should_notify_link = 0;
+> +		}
+> +	}
+>  }
+>  
+>  static inline __be32 bond_confirm_addr(struct net_device *dev, __be32 dst, __be32 local)
+> 
