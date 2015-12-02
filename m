@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 15/28] team: rtnl_lock for options set
-Date: Wed,  2 Dec 2015 21:07:38 +0100
-Message-ID: <1449086871-19911-16-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 20/28] mlxsw: spectrum: Add set_rx_mode ndo stub
+Date: Wed,  2 Dec 2015 21:07:43 +0100
+Message-ID: <1449086871-19911-21-git-send-email-jiri@resnulli.us>
 References: <1449086871-19911-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, j.vosburgh@gmail.com,
@@ -11,55 +11,49 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	john.fastabend@gmail.com, roopa@cumulusnetworks.com, andrew@lunn.ch
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:34185 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754300AbbLBUIO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 15:08:14 -0500
-Received: by wmvv187 with SMTP id v187so272524943wmv.1
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 12:08:13 -0800 (PST)
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:33740 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755397AbbLBUIU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 15:08:20 -0500
+Received: by wmec201 with SMTP id c201so270761662wme.0
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 12:08:19 -0800 (PST)
 In-Reply-To: <1449086871-19911-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-During options set, there will be needed to hold rtnl_mutex in order to
-safely call netdev notifiers.
+Add just a stub for now. This allows to pass check in dev_ifsioc,
+SIOCADDMULTI and SIOCDELMULTI cases. Teamd is using these to add LACP
+slow MAC.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/team/team.c | 11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index dd1504b..9814133 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -2422,9 +2422,13 @@ static int team_nl_cmd_options_set(struct sk_buff *skb, struct genl_info *info)
- 	struct nlattr *nl_option;
- 	LIST_HEAD(opt_inst_list);
- 
-+	rtnl_lock();
-+
- 	team = team_nl_team_get(info);
--	if (!team)
--		return -EINVAL;
-+	if (!team) {
-+		err = -EINVAL;
-+		goto rtnl_unlock;
-+	}
- 
- 	err = -EINVAL;
- 	if (!info->attrs[TEAM_ATTR_LIST_OPTION]) {
-@@ -2551,7 +2555,8 @@ static int team_nl_cmd_options_set(struct sk_buff *skb, struct genl_info *info)
- 
- team_put:
- 	team_nl_team_put(team);
--
-+rtnl_unlock:
-+	rtnl_unlock();
- 	return err;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 14a9a9f..a397cc1 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -417,6 +417,10 @@ static netdev_tx_t mlxsw_sp_port_xmit(struct sk_buff *skb,
+ 	return NETDEV_TX_OK;
  }
  
++static void mlxsw_sp_set_rx_mode(struct net_device *dev)
++{
++}
++
+ static int mlxsw_sp_port_set_mac_address(struct net_device *dev, void *p)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
+@@ -725,6 +729,7 @@ static const struct net_device_ops mlxsw_sp_port_netdev_ops = {
+ 	.ndo_open		= mlxsw_sp_port_open,
+ 	.ndo_stop		= mlxsw_sp_port_stop,
+ 	.ndo_start_xmit		= mlxsw_sp_port_xmit,
++	.ndo_set_rx_mode	= mlxsw_sp_set_rx_mode,
+ 	.ndo_set_mac_address	= mlxsw_sp_port_set_mac_address,
+ 	.ndo_change_mtu		= mlxsw_sp_port_change_mtu,
+ 	.ndo_get_stats64	= mlxsw_sp_port_get_stats64,
 -- 
 1.9.3
