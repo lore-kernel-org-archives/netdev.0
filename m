@@ -1,88 +1,127 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/15] ixgbe: Use __dev_uc_sync and __dev_uc_unsync for unicast addresses
-Date: Wed,  2 Dec 2015 04:31:00 -0800
-Message-ID: <1449059468-87025-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/15] ixgbe: Correct spec violations by waiting after reset
+Date: Wed,  2 Dec 2015 04:31:03 -0800
+Message-ID: <1449059468-87025-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449059468-87025-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:1811 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:23183 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756180AbbLBMbO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757255AbbLBMbO (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 2 Dec 2015 07:31:14 -0500
 In-Reply-To: <1449059468-87025-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-This change replaces the ixgbe_write_uc_addr_list call in ixgbe_set_rx_mode
-with a call to __dev_uc_sync instead.  This works much better with the MAC
-addr list code that was already in place and solves an issue in which you
-couldn't remove an FDB address without having to reset the port.
+The ixgbe driver was violating the specification in the datasheet
+by not waiting 1ms before checking for the reset bit clearing. This
+is called out for devices supported by ixgbe, so implement the
+required delay.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Reported-by: Dan Streetman <dan.streetman@canonical.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
 Tested-by: Darin Miller <darin.j.miller@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 28 ++++++++++++++++++++++++---
- 1 file changed, 25 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c | 5 +++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 3 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c  | 3 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c  | 3 ++-
+ 4 files changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 29f1a36..708e210 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4212,6 +4212,25 @@ static int ixgbe_write_uc_addr_list(struct net_device *netdev, int vfn)
- 	return count;
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index 65db69b..8f09d29 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
-+static int ixgbe_uc_sync(struct net_device *netdev, const unsigned char *addr)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+	int ret;
-+
-+	ret = ixgbe_add_mac_filter(adapter, addr, VMDQ_P(0));
-+
-+	return min_t(int, ret, 0);
-+}
-+
-+static int ixgbe_uc_unsync(struct net_device *netdev, const unsigned char *addr)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+
-+	ixgbe_del_mac_filter(adapter, addr, VMDQ_P(0));
-+
-+	return 0;
-+}
-+
- /**
-  * ixgbe_set_rx_mode - Unicast, Multicast and Promiscuous mode set
-  * @netdev: network interface device structure
-@@ -4267,8 +4286,7 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 	 * sufficient space to store all the addresses then enable
- 	 * unicast promiscuous mode
- 	 */
--	count = ixgbe_write_uc_addr_list(netdev, VMDQ_P(0));
--	if (count < 0) {
-+	if (__dev_uc_sync(netdev, ixgbe_uc_sync, ixgbe_uc_unsync)) {
- 		fctrl |= IXGBE_FCTRL_UPE;
- 		vmolr |= IXGBE_VMOLR_ROPE;
+   Intel 10 Gigabit PCI Express Linux driver
+-  Copyright(c) 1999 - 2014 Intel Corporation.
++  Copyright(c) 1999 - 2015 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -765,13 +765,14 @@ mac_reset_top:
+ 	ctrl = IXGBE_READ_REG(hw, IXGBE_CTRL) | IXGBE_CTRL_RST;
+ 	IXGBE_WRITE_REG(hw, IXGBE_CTRL, ctrl);
+ 	IXGBE_WRITE_FLUSH(hw);
++	usleep_range(1000, 1200);
+ 
+ 	/* Poll for reset bit to self-clear indicating reset is complete */
+ 	for (i = 0; i < 10; i++) {
+-		udelay(1);
+ 		ctrl = IXGBE_READ_REG(hw, IXGBE_CTRL);
+ 		if (!(ctrl & IXGBE_CTRL_RST))
+ 			break;
++		udelay(1);
  	}
-@@ -5106,8 +5124,12 @@ void ixgbe_reset(struct ixgbe_adapter *adapter)
+ 	if (ctrl & IXGBE_CTRL_RST) {
+ 		status = IXGBE_ERR_RESET_FAILED;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index a39afcf..b8bd725 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -990,13 +990,14 @@ mac_reset_top:
+ 	ctrl |= IXGBE_READ_REG(hw, IXGBE_CTRL);
+ 	IXGBE_WRITE_REG(hw, IXGBE_CTRL, ctrl);
+ 	IXGBE_WRITE_FLUSH(hw);
++	usleep_range(1000, 1200);
+ 
+ 	/* Poll for reset bit to self-clear indicating reset is complete */
+ 	for (i = 0; i < 10; i++) {
+-		udelay(1);
+ 		ctrl = IXGBE_READ_REG(hw, IXGBE_CTRL);
+ 		if (!(ctrl & IXGBE_CTRL_RST_MASK))
+ 			break;
++		udelay(1);
  	}
  
- 	clear_bit(__IXGBE_IN_SFP_INIT, &adapter->state);
--	/* do not flush user set addresses */
-+
-+	/* flush entries out of MAC table */
- 	ixgbe_flush_sw_mac_table(adapter);
-+	__dev_uc_unsync(netdev, NULL);
-+
-+	/* do not flush user set addresses */
- 	ixgbe_mac_set_default_filter(adapter);
+ 	if (ctrl & IXGBE_CTRL_RST_MASK) {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index c1d4584..b9e9b0c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -110,13 +110,14 @@ mac_reset_top:
+ 	ctrl |= IXGBE_READ_REG(hw, IXGBE_CTRL);
+ 	IXGBE_WRITE_REG(hw, IXGBE_CTRL, ctrl);
+ 	IXGBE_WRITE_FLUSH(hw);
++	usleep_range(1000, 1200);
  
- 	/* update SAN MAC vmdq pool selection */
+ 	/* Poll for reset bit to self-clear indicating reset is complete */
+ 	for (i = 0; i < 10; i++) {
+-		udelay(1);
+ 		ctrl = IXGBE_READ_REG(hw, IXGBE_CTRL);
+ 		if (!(ctrl & IXGBE_CTRL_RST_MASK))
+ 			break;
++		udelay(1);
+ 	}
+ 
+ 	if (ctrl & IXGBE_CTRL_RST_MASK) {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index b8ad3f2..f4ef0d1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -2146,13 +2146,14 @@ mac_reset_top:
+ 	ctrl |= IXGBE_READ_REG(hw, IXGBE_CTRL);
+ 	IXGBE_WRITE_REG(hw, IXGBE_CTRL, ctrl);
+ 	IXGBE_WRITE_FLUSH(hw);
++	usleep_range(1000, 1200);
+ 
+ 	/* Poll for reset bit to self-clear meaning reset is complete */
+ 	for (i = 0; i < 10; i++) {
+-		udelay(1);
+ 		ctrl = IXGBE_READ_REG(hw, IXGBE_CTRL);
+ 		if (!(ctrl & IXGBE_CTRL_RST_MASK))
+ 			break;
++		udelay(1);
+ 	}
+ 
+ 	if (ctrl & IXGBE_CTRL_RST_MASK) {
 -- 
 2.5.0
