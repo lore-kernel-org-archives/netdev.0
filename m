@@ -1,35 +1,252 @@
-From: oder@htw-dresden.de
-Subject: Re:
-Date: Wed, 2 Dec 2015 04:54:51 +0100
-Message-ID: <5fef38414889aaac050712dfebdad379.squirrel@webmail.htw-dresden.de>
-Reply-To: princebinttalal@hotmail.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net_sched: fix qdisc_tree_decrease_qlen() races
+Date: Tue, 01 Dec 2015 20:08:51 -0800
+Message-ID: <1449029331.32764.24.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151201010005.GA23175@Fux-PC>
+	 <1448978807.25582.19.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1448979011.25582.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <565DC716.22673.2DBA261B@pageexec.freemail.hu>
+	 <1448987660.2977.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7NiYjhE5dY7HPkWuoTA5WMqF3zPyCFk5i3LYTUrYD7gYA@mail.gmail.com>
+	 <1448996964.16994.2.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7NRsKrdVAY7_Wyvq1COAGjjkGZdJxZLvDRGS7gaN3iQvQ@mail.gmail.com>
+	 <1449000371.16994.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1449009185.32764.5.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7M++LboS_2OmhNjoApvFf6Xk-e+vsEgZrFeKG+k1J8edw@mail.gmail.com>
+	 <1449011431.32764.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: pageexec@freemail.hu, Daniele Fucini <dfucini@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>, spender@grsecurity.net,
+	re.emese@gmail.com
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rmr2.rz.htw-dresden.de ([141.56.16.132]:47201 "EHLO
-	rmr2.rz.htw-dresden.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752779AbbLBEG7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 23:06:59 -0500
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35090 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752113AbbLBEIx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 23:08:53 -0500
+Received: by pacej9 with SMTP id ej9so27221135pac.2
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 20:08:53 -0800 (PST)
+In-Reply-To: <1449011431.32764.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Good day
+From: Eric Dumazet <edumazet@google.com>
 
-I am Prince Alwaleed bin Talal from Saudi Arabia, the Chairman of Kingdom
-Holding Company(KHC), an investor and a businessman. I have decided to
-donate my entire $32 Billion to Charity using an automated balloting
-system to give out $500 thousand USD to 10 lucky beneficiaries around the
-world. I am pleased to inform you that Your email address was among the
-emails which were submitted to us by the Google, Inc as an active web user
-used for the draw and your email address came out as the 4th lucky
-beneficiary world wide. You have been approved the grant of $500 thousand
-USD as my charity support to help empower women and the youth in your
-community. Please contact me for processing by stating your Fullname and
-Address via (princebinttalal@hotmail.com)
+qdisc_tree_decrease_qlen() suffers from two problems on multiqueue
+devices.
 
-http://www.bbc.com/news/world-middle-east-33353370
+One problem is that it updates sch->q.qlen and sch->qstats.drops
+on the mq/mqprio root qdisc, while it should not : Daniele
+reported underflows errors : 
+[  681.774821] PAX: sch->q.qlen: 0 n: 1
+[  681.774825] PAX: size overflow detected in function qdisc_tree_decrease_qlen net/sched/sch_api.c:769 cicus.693_49 min, count: 72, decl: qlen; num: 0; context: sk_buff_head;
+[  681.774954] CPU: 2 PID: 19 Comm: ksoftirqd/2 Tainted: G           O    4.2.6.201511282239-1-grsec #1
+[  681.774955] Hardware name: ASUSTeK COMPUTER INC. X302LJ/X302LJ, BIOS X302LJ.202 03/05/2015
+[  681.774956]  ffffffffa9a04863 0000000000000000 0000000000000000 ffffffffa990ff7c
+[  681.774959]  ffffc90000d3bc38 ffffffffa95d2810 0000000000000007 ffffffffa991002b
+[  681.774960]  ffffc90000d3bc68 ffffffffa91a44f4 0000000000000001 0000000000000001
+[  681.774962] Call Trace:
+[  681.774967]  [<ffffffffa95d2810>] dump_stack+0x4c/0x7f
+[  681.774970]  [<ffffffffa91a44f4>] report_size_overflow+0x34/0x50
+[  681.774972]  [<ffffffffa94d17e2>] qdisc_tree_decrease_qlen+0x152/0x160
+[  681.774976]  [<ffffffffc02694b1>] fq_codel_dequeue+0x7b1/0x820 [sch_fq_codel]
+[  681.774978]  [<ffffffffc02680a0>] ? qdisc_peek_dequeued+0xa0/0xa0 [sch_fq_codel]
+[  681.774980]  [<ffffffffa94cd92d>] __qdisc_run+0x4d/0x1d0
+[  681.774983]  [<ffffffffa949b2b2>] net_tx_action+0xc2/0x160
+[  681.774985]  [<ffffffffa90664c1>] __do_softirq+0xf1/0x200
+[  681.774987]  [<ffffffffa90665ee>] run_ksoftirqd+0x1e/0x30
+[  681.774989]  [<ffffffffa90896b0>] smpboot_thread_fn+0x150/0x260
+[  681.774991]  [<ffffffffa9089560>] ? sort_range+0x40/0x40
+[  681.774992]  [<ffffffffa9085fe4>] kthread+0xe4/0x100
+[  681.774994]  [<ffffffffa9085f00>] ? kthread_worker_fn+0x170/0x170
+[  681.774995]  [<ffffffffa95d8d1e>] ret_from_fork+0x3e/0x70
 
-Regards,
-Alwaleed bin Talal
+mq/mqprio have their own ways to report qlen/drops by folding stats on
+all their queues, with appropriate locking.
+
+A second problem is that qdisc_tree_decrease_qlen() calls qdisc_lookup()
+without proper locking : concurrent qdisc updates could corrupt the list
+that qdisc_match_from_root() parses to find a qdisc given its handle.
+
+Fix first problem adding a TCQ_F_NOPARENT qdisc flag that
+qdisc_tree_decrease_qlen() can use to abort its tree traversal,
+as soon as it meets a mq/mqprio qdisc children.
+
+Second problem can be fixed by RCU protection.
+Qdisc are already freed after RCU grace period, so qdisc_list_add() and
+qdisc_list_del() simply have to use appropriate rcu list variants.
+
+A future patch will add a per struct netdev_queue list anchor, so that
+qdisc_tree_decrease_qlen() can have more efficient lookups.
+
+Reported-by: Daniele Fucini <dfucini@gmail.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Cong Wang <cwang@twopensource.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ include/net/sch_generic.h |    3 +++
+ net/sched/sch_api.c       |   27 ++++++++++++++++++---------
+ net/sched/sch_generic.c   |    2 +-
+ net/sched/sch_mq.c        |    4 ++--
+ net/sched/sch_mqprio.c    |    4 ++--
+ 5 files changed, 26 insertions(+), 14 deletions(-)
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 4c79ce8c1f92..b2a8e6338576 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -61,6 +61,9 @@ struct Qdisc {
+ 				      */
+ #define TCQ_F_WARN_NONWC	(1 << 16)
+ #define TCQ_F_CPUSTATS		0x20 /* run using percpu statistics */
++#define TCQ_F_NOPARENT		0x40 /* root of its hierarchy :
++				      * qdisc_tree_decrease_qlen() should stop.
++				      */
+ 	u32			limit;
+ 	const struct Qdisc_ops	*ops;
+ 	struct qdisc_size_table	__rcu *stab;
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index f43c8f33f09e..7ec667dd4ce1 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -253,7 +253,8 @@ int qdisc_set_default(const char *name)
+ }
+ 
+ /* We know handle. Find qdisc among all qdisc's attached to device
+-   (root qdisc, all its children, children of children etc.)
++ * (root qdisc, all its children, children of children etc.)
++ * Note: caller either uses rtnl or rcu_read_lock()
+  */
+ 
+ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
+@@ -264,7 +265,7 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
+ 	    root->handle == handle)
+ 		return root;
+ 
+-	list_for_each_entry(q, &root->list, list) {
++	list_for_each_entry_rcu(q, &root->list, list) {
+ 		if (q->handle == handle)
+ 			return q;
+ 	}
+@@ -277,15 +278,18 @@ void qdisc_list_add(struct Qdisc *q)
+ 		struct Qdisc *root = qdisc_dev(q)->qdisc;
+ 
+ 		WARN_ON_ONCE(root == &noop_qdisc);
+-		list_add_tail(&q->list, &root->list);
++		ASSERT_RTNL();
++		list_add_tail_rcu(&q->list, &root->list);
+ 	}
+ }
+ EXPORT_SYMBOL(qdisc_list_add);
+ 
+ void qdisc_list_del(struct Qdisc *q)
+ {
+-	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS))
+-		list_del(&q->list);
++	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS)) {
++		ASSERT_RTNL();
++		list_del_rcu(&q->list);
++	}
+ }
+ EXPORT_SYMBOL(qdisc_list_del);
+ 
+@@ -750,14 +754,18 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
+ 	if (n == 0)
+ 		return;
+ 	drops = max_t(int, n, 0);
++	rcu_read_lock();
+ 	while ((parentid = sch->parent)) {
+ 		if (TC_H_MAJ(parentid) == TC_H_MAJ(TC_H_INGRESS))
+-			return;
++			break;
+ 
++		if (sch->flags & TCQ_F_NOPARENT)
++			break;
++		/* TODO: perform the search on a per txq basis */
+ 		sch = qdisc_lookup(qdisc_dev(sch), TC_H_MAJ(parentid));
+ 		if (sch == NULL) {
+-			WARN_ON(parentid != TC_H_ROOT);
+-			return;
++			WARN_ON_ONCE(parentid != TC_H_ROOT);
++			break;
+ 		}
+ 		cops = sch->ops->cl_ops;
+ 		if (cops->qlen_notify) {
+@@ -768,6 +776,7 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
+ 		sch->q.qlen -= n;
+ 		__qdisc_qstats_drop(sch, drops);
+ 	}
++	rcu_read_unlock();
+ }
+ EXPORT_SYMBOL(qdisc_tree_decrease_qlen);
+ 
+@@ -941,7 +950,7 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
+ 		}
+ 		lockdep_set_class(qdisc_lock(sch), &qdisc_tx_lock);
+ 		if (!netif_is_multiqueue(dev))
+-			sch->flags |= TCQ_F_ONETXQUEUE;
++			sch->flags |= TCQ_F_ONETXQUEUE | TCQ_F_NOPARENT;
+ 	}
+ 
+ 	sch->handle = handle;
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index cb5d4ad32946..e82a1ad80aa5 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -737,7 +737,7 @@ static void attach_one_default_qdisc(struct net_device *dev,
+ 		return;
+ 	}
+ 	if (!netif_is_multiqueue(dev))
+-		qdisc->flags |= TCQ_F_ONETXQUEUE;
++		qdisc->flags |= TCQ_F_ONETXQUEUE | TCQ_F_NOPARENT;
+ 	dev_queue->qdisc_sleeping = qdisc;
+ }
+ 
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+index f3cbaecd283a..3e82f047caaf 100644
+--- a/net/sched/sch_mq.c
++++ b/net/sched/sch_mq.c
+@@ -63,7 +63,7 @@ static int mq_init(struct Qdisc *sch, struct nlattr *opt)
+ 		if (qdisc == NULL)
+ 			goto err;
+ 		priv->qdiscs[ntx] = qdisc;
+-		qdisc->flags |= TCQ_F_ONETXQUEUE;
++		qdisc->flags |= TCQ_F_ONETXQUEUE | TCQ_F_NOPARENT;
+ 	}
+ 
+ 	sch->flags |= TCQ_F_MQROOT;
+@@ -156,7 +156,7 @@ static int mq_graft(struct Qdisc *sch, unsigned long cl, struct Qdisc *new,
+ 
+ 	*old = dev_graft_qdisc(dev_queue, new);
+ 	if (new)
+-		new->flags |= TCQ_F_ONETXQUEUE;
++		new->flags |= TCQ_F_ONETXQUEUE | TCQ_F_NOPARENT;
+ 	if (dev->flags & IFF_UP)
+ 		dev_activate(dev);
+ 	return 0;
+diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+index 3811a745452c..ad70ecf57ce7 100644
+--- a/net/sched/sch_mqprio.c
++++ b/net/sched/sch_mqprio.c
+@@ -132,7 +132,7 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
+ 			goto err;
+ 		}
+ 		priv->qdiscs[i] = qdisc;
+-		qdisc->flags |= TCQ_F_ONETXQUEUE;
++		qdisc->flags |= TCQ_F_ONETXQUEUE | TCQ_F_NOPARENT;
+ 	}
+ 
+ 	/* If the mqprio options indicate that hardware should own
+@@ -209,7 +209,7 @@ static int mqprio_graft(struct Qdisc *sch, unsigned long cl, struct Qdisc *new,
+ 	*old = dev_graft_qdisc(dev_queue, new);
+ 
+ 	if (new)
+-		new->flags |= TCQ_F_ONETXQUEUE;
++		new->flags |= TCQ_F_ONETXQUEUE | TCQ_F_NOPARENT;
+ 
+ 	if (dev->flags & IFF_UP)
+ 		dev_activate(dev);
