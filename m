@@ -1,54 +1,53 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: ipsec impact on performance
-Date: Wed, 2 Dec 2015 07:11:56 -0500
-Message-ID: <20151202121156.GK23178@oracle.com>
-References: <20151201175953.GC21252@oracle.com>
- <CALx6S35uLqbuJTAFLMeT-BcyZw_fksz+7BkS=Nt7_3-nYMHF2A@mail.gmail.com>
- <20151201183720.GE21252@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CBE0ED7@AcuExch.aculab.com>
+From: Pavel Fedin <p.fedin@samsung.com>
+Subject: RE: [PATCH 3/6] net: thunderx: Increase transmit queue length
+Date: Wed, 02 Dec 2015 15:29:10 +0300
+Message-ID: <013301d12cfd$0c958a90$25c09fb0$@samsung.com>
+References: <y@samsung.com>
+ <1448961223-41888-4-git-send-email-sunil.kovvuri@gmail.com>
+ <01d101d12c46$2de43b40$89acb1c0$@samsung.com>
+ <1448983985.25582.35.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CA+sq2Ce9oH-kCDO8hK_wX+ZZdXyyBuT4V2bt5Ab+2=pEX+BO+w@mail.gmail.com>
+ <00cb01d12ce0$9f090540$dd1b0fc0$@samsung.com>
+ <00eb01d12cec$a32aa500$e97fef00$@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBE0ED7@AcuExch.aculab.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: 'Linux Netdev List' <netdev@vger.kernel.org>,
+	'LKML' <linux-kernel@vger.kernel.org>,
+	'LAKML' <linux-arm-kernel@lists.infradead.org>,
+	'Sunil Goutham' <Sunil.Goutham@caviumnetworks.com>,
+	'Sunil Goutham' <sgoutham@cavium.com>
+To: 'Sunil Kovvuri' <sunil.kovvuri@gmail.com>,
+	'Eric Dumazet' <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <00eb01d12cec$a32aa500$e97fef00$@samsung.com>
+Content-language: ru
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On (12/02/15 11:56), David Laight wrote:
-> >                 Gbps  peak cpu util
-> > esp-null         1.8   71%
-> > aes-gcm-c-256    1.6   79%
-> > aes-ccm-a-128    0.7   96%
-> > 
-> > That trend made me think that if we can get esp-null to be as close
-> > as possible to GSO/GRO, the rest will follow closely behind.
+ Hello!
+
+> >  So, i see several possible ways to solve this:
+> >
+> > 1. Introduce some mechanism which would allow the driver to tell the kernel that it needs
+> > coherent pool of large size. Can be problematic because the driver can be a module, and pool
+> > allocation happens early.
+> > 2. Can we use some other method for allocating queues, which would not require such a huge
+> > coherent pool?
+> > 3. The driver could check value of atomic_pool_size and adjust own memory requirements
+> > accordingly. This indeed looks like a quick hack, but would at least make things running
+> > quickly.
 > 
-> That's not how I read those figures.
-> They imply to me that there is a massive cost for the actual encryption
-> (particularly for aes-ccm-a-128) - so whatever you do to the esp-null
-> case won't help.
+>  I have also noticed that CONFIG_DMA_CMA is turned off in my kernel. I guess it was a leftover
+> from old defconfig, because i carry over my .config from version to version. I enabled it and
+> rebuilt the kernel, but in order to get the driver working with this patch i had to also add
+> cma=32M option to kernel arguments. With default of 16M the allocation still fails.
+>  Should we add Kconfig dependencies?
 
-I'm not a crypto expert, but my understanding is that the CCM mode
-is the "older" encryption algorithm, and GCM is the way of the future.
-Plus, I think the GCM mode has some type of h/w support (hence the
-lower cpu util)
+ After getting it working in guest i tried to apply it to host. With total of 128 virtual functions (= 128 interfaces) it does not work at all. Even after bumping cma region size to insane value of 2GB more than half of interfaces still failed to allocate queues. And after setting cma=3G i could not mount my rootfs.
+ So, absolute NAK, unfortunately.
 
-I'm sure that crypto has a cost, not disputing that, but my point
-was that 1.8 -> 1.6 -> 0.7 is a curve with a much gentler slope than
-the 9 Gbps (clear traffic, GSO, GRO) 
-    -> 4 Gbps (clear, no gro, gso) 
-       -> 1.8 (esp-null)
-That steeper slope smells of s/w perf that we need to resolve first,
-before getting into the work of faster crypto?
-
-> One way to get a view of the cost of the encryption (and copies)
-> is to do the operation twice.
-
-I could also just instrument it with perf tracepoints, if that 
-data is interesting
-
---Sowmini
+Kind regards,
+Pavel Fedin
+Expert Engineer
+Samsung Electronics Research center Russia
