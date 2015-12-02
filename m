@@ -1,29 +1,35 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH iproute2 -next] examples, bpf: further improve examples
-Date: Tue, 1 Dec 2015 20:05:00 -0800
-Message-ID: <20151202040459.GA76656@ast-mbp.thefacebook.com>
-References: <d47c2d0a35e6ea07b7c83c8ca5bebb2464b9805c.1449011912.git.daniel@iogearbox.net>
+From: oder@htw-dresden.de
+Subject: Re:
+Date: Wed, 2 Dec 2015 04:54:51 +0100
+Message-ID: <5fef38414889aaac050712dfebdad379.squirrel@webmail.htw-dresden.de>
+Reply-To: princebinttalal@hotmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stephen@networkplumber.org, ast@kernel.org, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36457 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752113AbbLBEFG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 23:05:06 -0500
-Received: by pacdm15 with SMTP id dm15so27002002pac.3
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 20:05:06 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <d47c2d0a35e6ea07b7c83c8ca5bebb2464b9805c.1449011912.git.daniel@iogearbox.net>
+Received: from rmr2.rz.htw-dresden.de ([141.56.16.132]:47201 "EHLO
+	rmr2.rz.htw-dresden.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752779AbbLBEG7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 23:06:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 02, 2015 at 12:25:36AM +0100, Daniel Borkmann wrote:
-> Improve example files further and add a more generic set of possible
-> helpers for them that can be used.
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Good day
 
-looks good.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+I am Prince Alwaleed bin Talal from Saudi Arabia, the Chairman of Kingdom
+Holding Company(KHC), an investor and a businessman. I have decided to
+donate my entire $32 Billion to Charity using an automated balloting
+system to give out $500 thousand USD to 10 lucky beneficiaries around the
+world. I am pleased to inform you that Your email address was among the
+emails which were submitted to us by the Google, Inc as an active web user
+used for the draw and your email address came out as the 4th lucky
+beneficiary world wide. You have been approved the grant of $500 thousand
+USD as my charity support to help empower women and the youth in your
+community. Please contact me for processing by stating your Fullname and
+Address via (princebinttalal@hotmail.com)
+
+http://www.bbc.com/news/world-middle-east-33353370
+
+Regards,
+Alwaleed bin Talal
