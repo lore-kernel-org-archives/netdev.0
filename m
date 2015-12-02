@@ -1,49 +1,70 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] brcmfmac: only lock and unlock fws if fws is not null
-Date: Wed,  2 Dec 2015 11:45:10 +0000
-Message-ID: <1449056710-9776-1-git-send-email-colin.king@canonical.com>
-Cc: linux-kernel@vger.kernel.org
-To: kernel-tram@lists.ubuntu.com, Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	Franky Lin <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	Arnd Bergmann <arnd@arndb.de>, linux-wireless@vger.kernel.org,
-	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [patch net-next 16/26] bonding: implement lower state change
+ propagation
+Date: Wed, 2 Dec 2015 12:47:16 +0100
+Message-ID: <565EDA44.3000809@cumulusnetworks.com>
+References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
+ <1448977744-17930-17-git-send-email-jiri@resnulli.us>
+ <565ED8C3.3090709@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:36702 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757939AbbLBLrT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 06:47:19 -0500
+Received: by wmww144 with SMTP id w144so211229830wmw.1
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 03:47:18 -0800 (PST)
+In-Reply-To: <565ED8C3.3090709@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
-
-There is a null ptr check for fws to set bcmc_credit_check, however,
-there a lock and unlock on fws should only performed if fwts is
-also not null to also avoid a potential null pointer deference.
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/wireless/brcm80211/brcmfmac/fwsignal.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/fwsignal.c b/drivers/net/wireless/brcm80211/brcmfmac/fwsignal.c
-index 086cac3..092f33f 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/fwsignal.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/fwsignal.c
-@@ -1609,10 +1609,11 @@ static int brcmf_fws_notify_bcmc_credit_support(struct brcmf_if *ifp,
- {
- 	struct brcmf_fws_info *fws = ifp->drvr->fws;
- 
--	brcmf_fws_lock(fws);
--	if (fws)
-+	if (fws) {
-+		brcmf_fws_lock(fws);
- 		fws->bcmc_credit_check = true;
--	brcmf_fws_unlock(fws);
-+		brcmf_fws_unlock(fws);
-+	}
- 	return 0;
- }
- 
--- 
-2.6.2
+On 12/02/2015 12:40 PM, Nikolay Aleksandrov wrote:
+> On 12/01/2015 02:48 PM, Jiri Pirko wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>>
+>> Let netdev notifier listeners know about link and slave state change.
+>>
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>> ---
+>>  drivers/net/bonding/bond_main.c | 10 ++++++++++
+>>  include/net/bonding.h           |  7 +++++++
+>>  2 files changed, 17 insertions(+)
+>>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index c9943fc..e153a87 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -1315,6 +1315,16 @@ void bond_queue_slave_event(struct slave *slave)
+>>  	queue_delayed_work(slave->bond->wq, &nnw->work, 0);
+>>  }
+>>  
+>> +void bond_lower_state_changed(struct slave *slave)
+>> +{
+>> +	struct netdev_lag_lower_state_info info;
+>> +
+>> +	info.link_up = slave->link == BOND_LINK_UP ||
+>> +		       slave->link == BOND_LINK_FAIL;
+>> +	info.tx_enabled = bond_is_active_slave(slave);
+>> +	netdev_lower_state_changed(slave->dev, &info);
+>> +}
+>> +
+> 
+> Hmm, but does this tell the listeners what changed ? I think it just
+> sends the current slave state and the listener has to decide what has
+> changed.
+> For example, right now it's possible for multiple identical events to
+> be sent (e.g. set_inactive_flags called two times on release, once because
+> of curr_active_slave change and second because of your set), the listeners
+> should be able to cope with that. For this same example I see that the mlxsw
+> will call mlxsw_sp_port_lag_changed() two times with the same values in that
+> case. I'm not saying this is necessarily bad, just noting it. :-)
+> 
+> 
+Oh well, I see there's a check in bond_set_slave_state() that will prevent the
+second notification if the state is the same, so okay. This case in 
+particular is averted.
