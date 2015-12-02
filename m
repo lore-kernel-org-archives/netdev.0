@@ -1,75 +1,56 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [patch net-next 24/26] mlxsw: spectrum: Implement LAG port join/leave
-Date: Wed, 2 Dec 2015 07:47:51 +0200
-Message-ID: <CAJ3xEMjzSHFo8YQZcd-nP0BeMhnSV=1kgtdkk_Wc80Tuk=GnKQ@mail.gmail.com>
-References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
-	<1448977744-17930-25-git-send-email-jiri@resnulli.us>
+From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Subject: Re: [PATCH 3/6] net: thunderx: Increase transmit queue length
+Date: Wed, 2 Dec 2015 11:18:43 +0530
+Message-ID: <CA+sq2CduMnsh_R9zTRMjWT=F5=9U3si-5nO6-gFvGCO9czkDdA@mail.gmail.com>
+References: <01d101d12c46$2de43b40$89acb1c0$@samsung.com>
+	<1448983985.25582.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+sq2Ce9oH-kCDO8hK_wX+ZZdXyyBuT4V2bt5Ab+2=pEX+BO+w@mail.gmail.com>
+	<20151201.143047.82022857078130793.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Elad Raz <eladr@mellanox.com>, yotamg@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:34654 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750990AbbLBFrv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 00:47:51 -0500
-Received: by igvg19 with SMTP id g19so111019724igv.1
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 21:47:51 -0800 (PST)
-In-Reply-To: <1448977744-17930-25-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Pavel Fedin <p.fedin@samsung.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	LAKML <linux-arm-kernel@lists.infradead.org>,
+	Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
+	Sunil Goutham <sgoutham@cavium.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151201.143047.82022857078130793.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 1, 2015 at 3:49 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Implement basic procedures for joining/leaving port to/from LAG. That
-> includes HW setup of collector, core LAG mapping setup.
+>The driver should successfully recover from out of memory situations
+> and not stop RX/TX completely.
+This memory allocation is while interface bringup/initialization and not during
+packet I/O.
+
+>Don't put this off as not "related" to your patch, it is as this
+>introduces the behavior for this user, and you should fix it before
+>expecting me to apply this patch series.
+I would disagree on this, as this patch hasn't introduced any failure here,
+if this user has connected any device which asks for a bit large amount
+of coherent memory then i am sure he will see the same issue.
+And above i have suggested what could be done to not see this issue.
+
+But anyway for the time being I will resubmit the patch series without this
+patch, hope that would be okay.
+
+On Wed, Dec 2, 2015 at 1:00 AM, David Miller <davem@davemloft.net> wrote:
+> From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+> Date: Tue, 1 Dec 2015 22:00:49 +0530
 >
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 284 +++++++++++++++++++++++--
->  drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  35 ++-
->  2 files changed, 302 insertions(+), 17 deletions(-)
+>> Increasing descriptor ring size will lead to more memory allocation.
+>> And what you are seeing is a memory alloc failure and doesn't seem
+>> to be due to this driver change.  I mean it looks like the behavior
+>> will be same for other drivers as well.
 >
-> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-
-[...]
-
-> +static int mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
-> +                                  struct net_device *lag_dev)
-> +{
-> +       struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-> +       struct mlxsw_sp_upper *lag;
-> +       u16 lag_id = mlxsw_sp_port->lag_id;
-> +       int err;
-> +
-> +       if (!mlxsw_sp_port->lagged)
-> +               return 0;
-> +       lag = mlxsw_sp_lag_get(mlxsw_sp, lag_id);
-> +       BUG_ON(lag->ref_count == 0);
-
-is this a must to crash the system here? can't we do something less drastic?
-
-> +
-> +       err = mlxsw_sp_lag_col_port_disable(mlxsw_sp_port, lag_id);
-> +       if (err)
-> +               return err;
-> +       mlxsw_sp_lag_col_port_remove(mlxsw_sp_port, lag_id);
-> +       if (err)
-> +               return err;
-> +
-> +       if (lag->ref_count == 1) {
-> +               err = mlxsw_sp_lag_destroy(mlxsw_sp, lag_id);
-> +               if (err)
-> +                       return err;
-> +       }
-> +
-> +       mlxsw_core_lag_mapping_clear(mlxsw_sp->core, lag_id,
-> +                                    mlxsw_sp_port->local_port);
-> +       mlxsw_sp_port->lagged = 0;
-> +       lag->ref_count--;
-> +       return 0;
-> +}
+> The driver should successfully recover from out of memory situations
+> and not stop RX/TX completely.
+>
+> There might be some other problem with your driver causing this.
+>
+> Don't put this off as not "related" to your patch, it is as this
+> introduces the behavior for this user, and you should fix it before
+> expecting me to apply this patch series.
