@@ -1,79 +1,59 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/15] ixgbe: Use private workqueue to avoid certain possible hangs
-Date: Wed,  2 Dec 2015 04:30:56 -0800
-Message-ID: <1449059468-87025-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1449059468-87025-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:23183 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756199AbbLBMbM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 07:31:12 -0500
-In-Reply-To: <1449059468-87025-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 3/3] vhost_net: basic polling support
+Date: Wed, 2 Dec 2015 14:36:31 +0200
+Message-ID: <20151202143522-mutt-send-email-mst@redhat.com>
+References: <1448435489-5949-1-git-send-email-jasowang@redhat.com>
+ <1448435489-5949-4-git-send-email-jasowang@redhat.com>
+ <20151130124233-mutt-send-email-mst@redhat.com>
+ <565D2D7D.4010903@redhat.com>
+ <20151201163939-mutt-send-email-mst@redhat.com>
+ <565E7BC3.2060107@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <565E7BC3.2060107@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+On Wed, Dec 02, 2015 at 01:04:03PM +0800, Jason Wang wrote:
+> 
+> 
+> On 12/01/2015 10:43 PM, Michael S. Tsirkin wrote:
+> > On Tue, Dec 01, 2015 at 01:17:49PM +0800, Jason Wang wrote:
+> >>
+> >> On 11/30/2015 06:44 PM, Michael S. Tsirkin wrote:
+> >>> On Wed, Nov 25, 2015 at 03:11:29PM +0800, Jason Wang wrote:
+> >>>>> This patch tries to poll for new added tx buffer or socket receive
+> >>>>> queue for a while at the end of tx/rx processing. The maximum time
+> >>>>> spent on polling were specified through a new kind of vring ioctl.
+> >>>>>
+> >>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> >>> One further enhancement would be to actually poll
+> >>> the underlying device. This should be reasonably
+> >>> straight-forward with macvtap (especially in the
+> >>> passthrough mode).
+> >>>
+> >>>
+> >> Yes, it is. I have some patches to do this by replacing
+> >> skb_queue_empty() with sk_busy_loop() but for tap.
+> > We probably don't want to do this unconditionally, though.
+> >
+> >> Tests does not show
+> >> any improvement but some regression.
+> > Did you add code to call sk_mark_napi_id on tap then?
+> > sk_busy_loop won't do anything useful without.
+> 
+> Yes I did. Probably something wrong elsewhere.
 
-Use a private workqueue to avoid hangs that were otherwise possible
-when performing stress tests, such as creating and destroying many
-VFS repeatedly.
+Is this for guest-to-guest? the patch to do napi
+for tap is still not upstream due to minor performance
+regression.  Want me to repost it?
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Darin Miller <darin.j.miller@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index c95042e..0918e32 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -172,6 +172,8 @@ MODULE_DESCRIPTION("Intel(R) 10 Gigabit PCI Express Network Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
- 
-+static struct workqueue_struct *ixgbe_wq;
-+
- static bool ixgbe_check_cfg_remove(struct ixgbe_hw *hw, struct pci_dev *pdev);
- 
- static int ixgbe_read_pci_cfg_word_parent(struct ixgbe_adapter *adapter,
-@@ -313,7 +315,7 @@ static void ixgbe_service_event_schedule(struct ixgbe_adapter *adapter)
- 	if (!test_bit(__IXGBE_DOWN, &adapter->state) &&
- 	    !test_bit(__IXGBE_REMOVING, &adapter->state) &&
- 	    !test_and_set_bit(__IXGBE_SERVICE_SCHED, &adapter->state))
--		schedule_work(&adapter->service_task);
-+		queue_work(ixgbe_wq, &adapter->service_task);
- }
- 
- static void ixgbe_remove_adapter(struct ixgbe_hw *hw)
-@@ -9320,6 +9322,12 @@ static int __init ixgbe_init_module(void)
- 	pr_info("%s - version %s\n", ixgbe_driver_string, ixgbe_driver_version);
- 	pr_info("%s\n", ixgbe_copyright);
- 
-+	ixgbe_wq = create_singlethread_workqueue(ixgbe_driver_name);
-+	if (!ixgbe_wq) {
-+		pr_err("%s: Failed to create workqueue\n", ixgbe_driver_name);
-+		return -ENOMEM;
-+	}
-+
- 	ixgbe_dbg_init();
- 
- 	ret = pci_register_driver(&ixgbe_driver);
-@@ -9351,6 +9359,10 @@ static void __exit ixgbe_exit_module(void)
- 	pci_unregister_driver(&ixgbe_driver);
- 
- 	ixgbe_dbg_exit();
-+	if (ixgbe_wq) {
-+		destroy_workqueue(ixgbe_wq);
-+		ixgbe_wq = NULL;
-+	}
- }
- 
- #ifdef CONFIG_IXGBE_DCA
--- 
-2.5.0
+> >
+> >>  Maybe it's better to test macvtap.
+> > Same thing ...
+> >
