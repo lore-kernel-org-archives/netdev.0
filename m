@@ -1,10 +1,10 @@
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [patch net-next v2 01/28] net: dev: Check CHANGEUPPER notifier
- return value
-Date: Wed, 2 Dec 2015 21:23:58 +0100
-Message-ID: <565F535E.3000501@cumulusnetworks.com>
+Subject: Re: [patch net-next v2 12/28] bonding: fill-up LAG changeupper info
+ struct and pass it along
+Date: Wed, 2 Dec 2015 21:27:50 +0100
+Message-ID: <565F5446.4020601@cumulusnetworks.com>
 References: <1449086871-19911-1-git-send-email-jiri@resnulli.us>
- <1449086871-19911-2-git-send-email-jiri@resnulli.us>
+ <1449086871-19911-13-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -16,31 +16,31 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	roopa@cumulusnetworks.com, andrew@lunn.ch
 To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:36626 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751155AbbLBUYB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 15:24:01 -0500
-Received: by wmww144 with SMTP id w144so230810017wmw.1
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 12:24:00 -0800 (PST)
-In-Reply-To: <1449086871-19911-2-git-send-email-jiri@resnulli.us>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:38850 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751156AbbLBU1x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 15:27:53 -0500
+Received: by wmec201 with SMTP id c201so74605304wme.1
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 12:27:52 -0800 (PST)
+In-Reply-To: <1449086871-19911-13-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 12/02/2015 09:07 PM, Jiri Pirko wrote:
-> From: Ido Schimmel <idosch@mellanox.com>
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> switchdev drivers reflect the newly requested topology to hardware when
-> CHANGEUPPER is received, after software links were already formed.
-> However, the operation can fail and user will not be notified, as the
-> return value of the notifier is not checked.
+> Initialize netdev_lag_upper_info structure by TX type according to
+> current bonding mode and pass it along via netdev_master_upper_dev_link.
 > 
-> Add this check and rollback software links if necessary.
-> 
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 > ---
 > v1->v2:
-> -new patch
+> -added mode broadcast suggested by Nik
 > ---
+>  drivers/net/bonding/bond_main.c | 45 ++++++++++++++++++++++++++++-------------
+>  1 file changed, 31 insertions(+), 14 deletions(-)
+> 
+
+LGTM,
 
 Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
