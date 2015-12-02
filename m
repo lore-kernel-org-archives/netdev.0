@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 23/28] mlxsw: reg: Add link aggregation configuration registers definitions
-Date: Wed,  2 Dec 2015 21:07:46 +0100
-Message-ID: <1449086871-19911-24-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 17/28] bonding: allow notifications for bond_set_slave_link_state
+Date: Wed,  2 Dec 2015 21:07:40 +0100
+Message-ID: <1449086871-19911-18-git-send-email-jiri@resnulli.us>
 References: <1449086871-19911-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, j.vosburgh@gmail.com,
@@ -11,336 +11,252 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	john.fastabend@gmail.com, roopa@cumulusnetworks.com, andrew@lunn.ch
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:32802 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755946AbbLBUIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 15:08:25 -0500
-Received: by wmec201 with SMTP id c201so270764583wme.0
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 12:08:23 -0800 (PST)
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:34236 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755733AbbLBUIR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 15:08:17 -0500
+Received: by wmvv187 with SMTP id v187so272526744wmv.1
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 12:08:16 -0800 (PST)
 In-Reply-To: <1449086871-19911-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Add definitions of SLDR, SLCR2, SLCOR registers that are used to
-configure LAG.
+Similar to state notifications.
+
+We allow caller to indicate if the notification should happen now or later,
+depending on if he holds rtnl mutex or not. Introduce bond_slave_link_notify
+function (similar to bond_slave_state_notify) which is later on called
+with rtnl mutex and goes over slaves and executes delayed notification.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 293 ++++++++++++++++++++++++++++++
- 1 file changed, 293 insertions(+)
+v1->v2:
+- s/indicateds/indicates/ typo in comment suggested by Nik
+---
+ drivers/net/bonding/bond_main.c | 54 +++++++++++++++++++++++++++--------------
+ include/net/bonding.h           | 32 +++++++++++++++++++++---
+ 2 files changed, 65 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index f894193..049abbb 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -865,6 +865,293 @@ static inline void mlxsw_reg_sftr_pack(char *payload,
- 	mlxsw_reg_sftr_port_mask_set(payload, port, 1);
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index e94e79a..7695490 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -830,7 +830,8 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 			}
+ 
+ 			new_active->delay = 0;
+-			bond_set_slave_link_state(new_active, BOND_LINK_UP);
++			bond_set_slave_link_state(new_active, BOND_LINK_UP,
++						  BOND_SLAVE_NOTIFY_NOW);
+ 
+ 			if (BOND_MODE(bond) == BOND_MODE_8023AD)
+ 				bond_3ad_handle_link_change(new_active, BOND_LINK_UP);
+@@ -1580,21 +1581,26 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		if (bond_check_dev_link(bond, slave_dev, 0) == BMSR_LSTATUS) {
+ 			if (bond->params.updelay) {
+ 				bond_set_slave_link_state(new_slave,
+-							  BOND_LINK_BACK);
++							  BOND_LINK_BACK,
++							  BOND_SLAVE_NOTIFY_NOW);
+ 				new_slave->delay = bond->params.updelay;
+ 			} else {
+ 				bond_set_slave_link_state(new_slave,
+-							  BOND_LINK_UP);
++							  BOND_LINK_UP,
++							  BOND_SLAVE_NOTIFY_NOW);
+ 			}
+ 		} else {
+-			bond_set_slave_link_state(new_slave, BOND_LINK_DOWN);
++			bond_set_slave_link_state(new_slave, BOND_LINK_DOWN,
++						  BOND_SLAVE_NOTIFY_NOW);
+ 		}
+ 	} else if (bond->params.arp_interval) {
+ 		bond_set_slave_link_state(new_slave,
+ 					  (netif_carrier_ok(slave_dev) ?
+-					  BOND_LINK_UP : BOND_LINK_DOWN));
++					  BOND_LINK_UP : BOND_LINK_DOWN),
++					  BOND_SLAVE_NOTIFY_NOW);
+ 	} else {
+-		bond_set_slave_link_state(new_slave, BOND_LINK_UP);
++		bond_set_slave_link_state(new_slave, BOND_LINK_UP,
++					  BOND_SLAVE_NOTIFY_NOW);
+ 	}
+ 
+ 	if (new_slave->link != BOND_LINK_DOWN)
+@@ -2013,7 +2019,8 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 			if (link_state)
+ 				continue;
+ 
+-			bond_set_slave_link_state(slave, BOND_LINK_FAIL);
++			bond_set_slave_link_state(slave, BOND_LINK_FAIL,
++						  BOND_SLAVE_NOTIFY_LATER);
+ 			slave->delay = bond->params.downdelay;
+ 			if (slave->delay) {
+ 				netdev_info(bond->dev, "link status down for %sinterface %s, disabling it in %d ms\n",
+@@ -2028,7 +2035,8 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 		case BOND_LINK_FAIL:
+ 			if (link_state) {
+ 				/* recovered before downdelay expired */
+-				bond_set_slave_link_state(slave, BOND_LINK_UP);
++				bond_set_slave_link_state(slave, BOND_LINK_UP,
++							  BOND_SLAVE_NOTIFY_LATER);
+ 				slave->last_link_up = jiffies;
+ 				netdev_info(bond->dev, "link status up again after %d ms for interface %s\n",
+ 					    (bond->params.downdelay - slave->delay) *
+@@ -2050,7 +2058,8 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 			if (!link_state)
+ 				continue;
+ 
+-			bond_set_slave_link_state(slave, BOND_LINK_BACK);
++			bond_set_slave_link_state(slave, BOND_LINK_BACK,
++						  BOND_SLAVE_NOTIFY_LATER);
+ 			slave->delay = bond->params.updelay;
+ 
+ 			if (slave->delay) {
+@@ -2064,7 +2073,8 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 		case BOND_LINK_BACK:
+ 			if (!link_state) {
+ 				bond_set_slave_link_state(slave,
+-							  BOND_LINK_DOWN);
++							  BOND_LINK_DOWN,
++							  BOND_SLAVE_NOTIFY_LATER);
+ 				netdev_info(bond->dev, "link status down again after %d ms for interface %s\n",
+ 					    (bond->params.updelay - slave->delay) *
+ 					    bond->params.miimon,
+@@ -2102,7 +2112,8 @@ static void bond_miimon_commit(struct bonding *bond)
+ 			continue;
+ 
+ 		case BOND_LINK_UP:
+-			bond_set_slave_link_state(slave, BOND_LINK_UP);
++			bond_set_slave_link_state(slave, BOND_LINK_UP,
++						  BOND_SLAVE_NOTIFY_NOW);
+ 			slave->last_link_up = jiffies;
+ 
+ 			primary = rtnl_dereference(bond->primary_slave);
+@@ -2142,7 +2153,8 @@ static void bond_miimon_commit(struct bonding *bond)
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
+ 
+-			bond_set_slave_link_state(slave, BOND_LINK_DOWN);
++			bond_set_slave_link_state(slave, BOND_LINK_DOWN,
++						  BOND_SLAVE_NOTIFY_NOW);
+ 
+ 			if (BOND_MODE(bond) == BOND_MODE_ACTIVEBACKUP ||
+ 			    BOND_MODE(bond) == BOND_MODE_8023AD)
+@@ -2725,7 +2737,8 @@ static void bond_ab_arp_commit(struct bonding *bond)
+ 				struct slave *current_arp_slave;
+ 
+ 				current_arp_slave = rtnl_dereference(bond->current_arp_slave);
+-				bond_set_slave_link_state(slave, BOND_LINK_UP);
++				bond_set_slave_link_state(slave, BOND_LINK_UP,
++							  BOND_SLAVE_NOTIFY_NOW);
+ 				if (current_arp_slave) {
+ 					bond_set_slave_inactive_flags(
+ 						current_arp_slave,
+@@ -2748,7 +2761,8 @@ static void bond_ab_arp_commit(struct bonding *bond)
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
+ 
+-			bond_set_slave_link_state(slave, BOND_LINK_DOWN);
++			bond_set_slave_link_state(slave, BOND_LINK_DOWN,
++						  BOND_SLAVE_NOTIFY_NOW);
+ 			bond_set_slave_inactive_flags(slave,
+ 						      BOND_SLAVE_NOTIFY_NOW);
+ 
+@@ -2827,7 +2841,8 @@ static bool bond_ab_arp_probe(struct bonding *bond)
+ 		 * up when it is actually down
+ 		 */
+ 		if (!bond_slave_is_up(slave) && slave->link == BOND_LINK_UP) {
+-			bond_set_slave_link_state(slave, BOND_LINK_DOWN);
++			bond_set_slave_link_state(slave, BOND_LINK_DOWN,
++						  BOND_SLAVE_NOTIFY_LATER);
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
+ 
+@@ -2847,7 +2862,8 @@ static bool bond_ab_arp_probe(struct bonding *bond)
+ 	if (!new_slave)
+ 		goto check_state;
+ 
+-	bond_set_slave_link_state(new_slave, BOND_LINK_BACK);
++	bond_set_slave_link_state(new_slave, BOND_LINK_BACK,
++				  BOND_SLAVE_NOTIFY_LATER);
+ 	bond_set_slave_active_flags(new_slave, BOND_SLAVE_NOTIFY_LATER);
+ 	bond_arp_send_all(bond, new_slave);
+ 	new_slave->last_link_up = jiffies;
+@@ -2855,7 +2871,7 @@ static bool bond_ab_arp_probe(struct bonding *bond)
+ 
+ check_state:
+ 	bond_for_each_slave_rcu(bond, slave, iter) {
+-		if (slave->should_notify) {
++		if (slave->should_notify || slave->should_notify_link) {
+ 			should_notify_rtnl = BOND_SLAVE_NOTIFY_NOW;
+ 			break;
+ 		}
+@@ -2910,8 +2926,10 @@ re_arm:
+ 		if (should_notify_peers)
+ 			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
+ 						 bond->dev);
+-		if (should_notify_rtnl)
++		if (should_notify_rtnl) {
+ 			bond_slave_state_notify(bond);
++			bond_slave_link_notify(bond);
++		}
+ 
+ 		rtnl_unlock();
+ 	}
+diff --git a/include/net/bonding.h b/include/net/bonding.h
+index c1740a2..1df4377 100644
+--- a/include/net/bonding.h
++++ b/include/net/bonding.h
+@@ -165,7 +165,8 @@ struct slave {
+ 	u8     backup:1,   /* indicates backup slave. Value corresponds with
+ 			      BOND_STATE_ACTIVE and BOND_STATE_BACKUP */
+ 	       inactive:1, /* indicates inactive slave */
+-	       should_notify:1; /* indicateds whether the state changed */
++	       should_notify:1, /* indicates whether the state changed */
++	       should_notify_link:1; /* indicates whether the link changed */
+ 	u8     duplex;
+ 	u32    original_mtu;
+ 	u32    link_failure_count;
+@@ -504,10 +505,35 @@ static inline bool bond_is_slave_inactive(struct slave *slave)
+ 	return slave->inactive;
  }
  
-+/* SLDR - Switch LAG Descriptor Register
-+ * -----------------------------------------
-+ * The switch LAG descriptor register is populated by LAG descriptors.
-+ * Each LAG descriptor is indexed by lag_id. The LAG ID runs from 0 to
-+ * max_lag-1.
-+ */
-+#define MLXSW_REG_SLDR_ID 0x2014
-+#define MLXSW_REG_SLDR_LEN 0x0C /* counting in only one port in list */
+-static inline void bond_set_slave_link_state(struct slave *slave, int state)
++static inline void bond_set_slave_link_state(struct slave *slave, int state,
++					     bool notify)
+ {
++	if (slave->link == state)
++		return;
 +
-+static const struct mlxsw_reg_info mlxsw_reg_sldr = {
-+	.id = MLXSW_REG_SLDR_ID,
-+	.len = MLXSW_REG_SLDR_LEN,
-+};
-+
-+enum mlxsw_reg_sldr_op {
-+	/* Indicates a creation of a new LAG-ID, lag_id must be valid */
-+	MLXSW_REG_SLDR_OP_LAG_CREATE,
-+	MLXSW_REG_SLDR_OP_LAG_DESTROY,
-+	/* Ports that appear in the list have the Distributor enabled */
-+	MLXSW_REG_SLDR_OP_LAG_ADD_PORT_LIST,
-+	/* Removes ports from the disributor list */
-+	MLXSW_REG_SLDR_OP_LAG_REMOVE_PORT_LIST,
-+};
-+
-+/* reg_sldr_op
-+ * Operation.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, sldr, op, 0x00, 29, 3);
-+
-+/* reg_sldr_lag_id
-+ * LAG identifier. The lag_id is the index into the LAG descriptor table.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, sldr, lag_id, 0x00, 0, 10);
-+
-+static inline void mlxsw_reg_sldr_lag_create_pack(char *payload, u8 lag_id)
-+{
-+	MLXSW_REG_ZERO(sldr, payload);
-+	mlxsw_reg_sldr_op_set(payload, MLXSW_REG_SLDR_OP_LAG_CREATE);
-+	mlxsw_reg_sldr_lag_id_set(payload, lag_id);
+ 	slave->link = state;
+-	bond_queue_slave_event(slave);
++	if (notify) {
++		bond_queue_slave_event(slave);
++		slave->should_notify_link = 0;
++	} else {
++		if (slave->should_notify_link)
++			slave->should_notify_link = 0;
++		else
++			slave->should_notify_link = 1;
++	}
 +}
 +
-+static inline void mlxsw_reg_sldr_lag_destroy_pack(char *payload, u8 lag_id)
++static inline void bond_slave_link_notify(struct bonding *bond)
 +{
-+	MLXSW_REG_ZERO(sldr, payload);
-+	mlxsw_reg_sldr_op_set(payload, MLXSW_REG_SLDR_OP_LAG_DESTROY);
-+	mlxsw_reg_sldr_lag_id_set(payload, lag_id);
-+}
++	struct list_head *iter;
++	struct slave *tmp;
 +
-+/* reg_sldr_num_ports
-+ * The number of member ports of the LAG.
-+ * Reserved for Create / Destroy operations
-+ * For Add / Remove operations - indicates the number of ports in the list.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, sldr, num_ports, 0x04, 24, 8);
-+
-+/* reg_sldr_system_port
-+ * System port.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32_INDEXED(reg, sldr, system_port, 0x08, 0, 16, 4, 0, false);
-+
-+static inline void mlxsw_reg_sldr_lag_add_port_pack(char *payload, u8 lag_id,
-+						    u8 local_port)
-+{
-+	MLXSW_REG_ZERO(sldr, payload);
-+	mlxsw_reg_sldr_op_set(payload, MLXSW_REG_SLDR_OP_LAG_ADD_PORT_LIST);
-+	mlxsw_reg_sldr_lag_id_set(payload, lag_id);
-+	mlxsw_reg_sldr_num_ports_set(payload, 1);
-+	mlxsw_reg_sldr_system_port_set(payload, 0, local_port);
-+}
-+
-+static inline void mlxsw_reg_sldr_lag_remove_port_pack(char *payload, u8 lag_id,
-+						       u8 local_port)
-+{
-+	MLXSW_REG_ZERO(sldr, payload);
-+	mlxsw_reg_sldr_op_set(payload, MLXSW_REG_SLDR_OP_LAG_REMOVE_PORT_LIST);
-+	mlxsw_reg_sldr_lag_id_set(payload, lag_id);
-+	mlxsw_reg_sldr_num_ports_set(payload, 1);
-+	mlxsw_reg_sldr_system_port_set(payload, 0, local_port);
-+}
-+
-+/* SLCR - Switch LAG Configuration 2 Register
-+ * -------------------------------------------
-+ * The Switch LAG Configuration register is used for configuring the
-+ * LAG properties of the switch.
-+ */
-+#define MLXSW_REG_SLCR_ID 0x2015
-+#define MLXSW_REG_SLCR_LEN 0x10
-+
-+static const struct mlxsw_reg_info mlxsw_reg_slcr = {
-+	.id = MLXSW_REG_SLCR_ID,
-+	.len = MLXSW_REG_SLCR_LEN,
-+};
-+
-+enum mlxsw_reg_slcr_pp {
-+	/* Global Configuration (for all ports) */
-+	MLXSW_REG_SLCR_PP_GLOBAL,
-+	/* Per port configuration, based on local_port field */
-+	MLXSW_REG_SLCR_PP_PER_PORT,
-+};
-+
-+/* reg_slcr_pp
-+ * Per Port Configuration
-+ * Note: Reading at Global mode results in reading port 1 configuration.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, slcr, pp, 0x00, 24, 1);
-+
-+/* reg_slcr_local_port
-+ * Local port number
-+ * Supported from CPU port
-+ * Not supported from router port
-+ * Reserved when pp = Global Configuration
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, slcr, local_port, 0x00, 16, 8);
-+
-+enum mlxsw_reg_slcr_type {
-+	MLXSW_REG_SLCR_TYPE_CRC, /* default */
-+	MLXSW_REG_SLCR_TYPE_XOR,
-+	MLXSW_REG_SLCR_TYPE_RANDOM,
-+};
-+
-+/* reg_slcr_type
-+ * Hash type
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, slcr, type, 0x00, 0, 4);
-+
-+/* Ingress port */
-+#define MLXSW_REG_SLCR_LAG_HASH_IN_PORT		BIT(0)
-+/* SMAC - for IPv4 and IPv6 packets */
-+#define MLXSW_REG_SLCR_LAG_HASH_SMAC_IP		BIT(1)
-+/* SMAC - for non-IP packets */
-+#define MLXSW_REG_SLCR_LAG_HASH_SMAC_NONIP	BIT(2)
-+#define MLXSW_REG_SLCR_LAG_HASH_SMAC \
-+	(MLXSW_REG_SLCR_LAG_HASH_SMAC_IP | \
-+	 MLXSW_REG_SLCR_LAG_HASH_SMAC_NONIP)
-+/* DMAC - for IPv4 and IPv6 packets */
-+#define MLXSW_REG_SLCR_LAG_HASH_DMAC_IP		BIT(3)
-+/* DMAC - for non-IP packets */
-+#define MLXSW_REG_SLCR_LAG_HASH_DMAC_NONIP	BIT(4)
-+#define MLXSW_REG_SLCR_LAG_HASH_DMAC \
-+	(MLXSW_REG_SLCR_LAG_HASH_DMAC_IP | \
-+	 MLXSW_REG_SLCR_LAG_HASH_DMAC_NONIP)
-+/* Ethertype - for IPv4 and IPv6 packets */
-+#define MLXSW_REG_SLCR_LAG_HASH_ETHERTYPE_IP	BIT(5)
-+/* Ethertype - for non-IP packets */
-+#define MLXSW_REG_SLCR_LAG_HASH_ETHERTYPE_NONIP	BIT(6)
-+#define MLXSW_REG_SLCR_LAG_HASH_ETHERTYPE \
-+	(MLXSW_REG_SLCR_LAG_HASH_ETHERTYPE_IP | \
-+	 MLXSW_REG_SLCR_LAG_HASH_ETHERTYPE_NONIP)
-+/* VLAN ID - for IPv4 and IPv6 packets */
-+#define MLXSW_REG_SLCR_LAG_HASH_VLANID_IP	BIT(7)
-+/* VLAN ID - for non-IP packets */
-+#define MLXSW_REG_SLCR_LAG_HASH_VLANID_NONIP	BIT(8)
-+#define MLXSW_REG_SLCR_LAG_HASH_VLANID \
-+	(MLXSW_REG_SLCR_LAG_HASH_VLANID_IP | \
-+	 MLXSW_REG_SLCR_LAG_HASH_VLANID_NONIP)
-+/* Source IP address (can be IPv4 or IPv6) */
-+#define MLXSW_REG_SLCR_LAG_HASH_SIP		BIT(9)
-+/* Destination IP address (can be IPv4 or IPv6) */
-+#define MLXSW_REG_SLCR_LAG_HASH_DIP		BIT(10)
-+/* TCP/UDP source port */
-+#define MLXSW_REG_SLCR_LAG_HASH_SPORT		BIT(11)
-+/* TCP/UDP destination port*/
-+#define MLXSW_REG_SLCR_LAG_HASH_DPORT		BIT(12)
-+/* IPv4 Protocol/IPv6 Next Header */
-+#define MLXSW_REG_SLCR_LAG_HASH_IPPROTO		BIT(13)
-+/* IPv6 Flow label */
-+#define MLXSW_REG_SLCR_LAG_HASH_FLOWLABEL	BIT(14)
-+/* SID - FCoE source ID */
-+#define MLXSW_REG_SLCR_LAG_HASH_FCOE_SID	BIT(15)
-+/* DID - FCoE destination ID */
-+#define MLXSW_REG_SLCR_LAG_HASH_FCOE_DID	BIT(16)
-+/* OXID - FCoE originator exchange ID */
-+#define MLXSW_REG_SLCR_LAG_HASH_FCOE_OXID	BIT(17)
-+/* Destination QP number - for RoCE packets */
-+#define MLXSW_REG_SLCR_LAG_HASH_ROCE_DQP	BIT(19)
-+
-+/* reg_slcr_lag_hash
-+ * LAG hashing configuration. This is a bitmask, in which each set
-+ * bit includes the corresponding item in the LAG hash calculation.
-+ * The default lag_hash contains SMAC, DMAC, VLANID and
-+ * Ethertype (for all packet types).
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, slcr, lag_hash, 0x04, 0, 20);
-+
-+static inline void mlxsw_reg_slcr_pack(char *payload, u16 lag_hash)
-+{
-+	MLXSW_REG_ZERO(slcr, payload);
-+	mlxsw_reg_slcr_pp_set(payload, MLXSW_REG_SLCR_PP_GLOBAL);
-+	mlxsw_reg_slcr_type_set(payload, MLXSW_REG_SLCR_TYPE_XOR);
-+	mlxsw_reg_slcr_lag_hash_set(payload, lag_hash);
-+}
-+
-+/* SLCOR - Switch LAG Collector Register
-+ * -------------------------------------
-+ * The Switch LAG Collector register controls the Local Port membership
-+ * in a LAG and enablement of the collector.
-+ */
-+#define MLXSW_REG_SLCOR_ID 0x2016
-+#define MLXSW_REG_SLCOR_LEN 0x10
-+
-+static const struct mlxsw_reg_info mlxsw_reg_slcor = {
-+	.id = MLXSW_REG_SLCOR_ID,
-+	.len = MLXSW_REG_SLCOR_LEN,
-+};
-+
-+enum mlxsw_reg_slcor_col {
-+	/* Port is added with collector disabled */
-+	MLXSW_REG_SLCOR_COL_LAG_ADD_PORT,
-+	MLXSW_REG_SLCOR_COL_LAG_COLLECTOR_ENABLED,
-+	MLXSW_REG_SLCOR_COL_LAG_COLLECTOR_DISABLED,
-+	MLXSW_REG_SLCOR_COL_LAG_REMOVE_PORT,
-+};
-+
-+/* reg_slcor_col
-+ * Collector configuration
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, slcor, col, 0x00, 30, 2);
-+
-+/* reg_slcor_local_port
-+ * Local port number
-+ * Not supported for CPU port
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, slcor, local_port, 0x00, 16, 8);
-+
-+/* reg_slcor_lag_id
-+ * LAG Identifier. Index into the LAG descriptor table.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, slcor, lag_id, 0x00, 0, 10);
-+
-+/* reg_slcor_port_index
-+ * Port index in the LAG list. Only valid on Add Port to LAG col.
-+ * Valid range is from 0 to cap_max_lag_members-1
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, slcor, port_index, 0x04, 0, 10);
-+
-+static inline void mlxsw_reg_slcor_pack(char *payload,
-+					u8 local_port, u16 lag_id,
-+					enum mlxsw_reg_slcor_col col)
-+{
-+	MLXSW_REG_ZERO(slcor, payload);
-+	mlxsw_reg_slcor_col_set(payload, col);
-+	mlxsw_reg_slcor_local_port_set(payload, local_port);
-+	mlxsw_reg_slcor_lag_id_set(payload, lag_id);
-+}
-+
-+static inline void mlxsw_reg_slcor_port_add_pack(char *payload,
-+						 u8 local_port, u16 lag_id,
-+						 u8 port_index)
-+{
-+	mlxsw_reg_slcor_pack(payload, local_port, lag_id,
-+			     MLXSW_REG_SLCOR_COL_LAG_ADD_PORT);
-+	mlxsw_reg_slcor_port_index_set(payload, port_index);
-+}
-+
-+static inline void mlxsw_reg_slcor_port_remove_pack(char *payload,
-+						    u8 local_port, u16 lag_id)
-+{
-+	mlxsw_reg_slcor_pack(payload, local_port, lag_id,
-+			     MLXSW_REG_SLCOR_COL_LAG_REMOVE_PORT);
-+}
-+
-+static inline void mlxsw_reg_slcor_col_enable_pack(char *payload,
-+						   u8 local_port, u16 lag_id)
-+{
-+	mlxsw_reg_slcor_pack(payload, local_port, lag_id,
-+			     MLXSW_REG_SLCOR_COL_LAG_COLLECTOR_ENABLED);
-+}
-+
-+static inline void mlxsw_reg_slcor_col_disable_pack(char *payload,
-+						    u8 local_port, u16 lag_id)
-+{
-+	mlxsw_reg_slcor_pack(payload, local_port, lag_id,
-+			     MLXSW_REG_SLCOR_COL_LAG_COLLECTOR_ENABLED);
-+}
-+
- /* SPMLR - Switch Port MAC Learning Register
-  * -----------------------------------------
-  * Controls the Switch MAC learning policy per port.
-@@ -2653,6 +2940,12 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "SFGC";
- 	case MLXSW_REG_SFTR_ID:
- 		return "SFTR";
-+	case MLXSW_REG_SLDR_ID:
-+		return "SLDR";
-+	case MLXSW_REG_SLCR_ID:
-+		return "SLCR";
-+	case MLXSW_REG_SLCOR_ID:
-+		return "SLCOR";
- 	case MLXSW_REG_SPMLR_ID:
- 		return "SPMLR";
- 	case MLXSW_REG_SVFA_ID:
++	bond_for_each_slave(bond, tmp, iter) {
++		if (tmp->should_notify_link) {
++			bond_queue_slave_event(tmp);
++			tmp->should_notify_link = 0;
++		}
++	}
+ }
+ 
+ static inline __be32 bond_confirm_addr(struct net_device *dev, __be32 dst, __be32 local)
 -- 
 1.9.3
