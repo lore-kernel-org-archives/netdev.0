@@ -1,47 +1,85 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: ipsec impact on performance
-Date: Wed, 2 Dec 2015 16:12:01 -0500
-Message-ID: <20151202211201.GD15262@oracle.com>
-References: <20151201175953.GC21252@oracle.com>
- <CALx6S35uLqbuJTAFLMeT-BcyZw_fksz+7BkS=Nt7_3-nYMHF2A@mail.gmail.com>
- <20151201183720.GE21252@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CBE0ED7@AcuExch.aculab.com>
- <20151202121156.GK23178@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CBE0F39@AcuExch.aculab.com>
- <20151202205028.GB15262@oracle.com>
- <CALx6S34yqw_vJ+r21Br9O7y5NqzvA264ot7=GBTHe=FxWqh=AQ@mail.gmail.com>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [net-next v4 4/8] dpaa_eth: add driver's Tx queue selection
+Date: Wed, 2 Dec 2015 15:40:31 -0600
+Message-ID: <1449092431.29246.156.camel@freescale.com>
+References: <1446485500-9782-1-git-send-email-madalin.bucur@freescale.com>
+ <1446485500-9782-5-git-send-email-madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@aculab.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
-	Rick Jones <rick.jones2@hpe.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:32091 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752550AbbLBVMV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 16:12:21 -0500
-Content-Disposition: inline
-In-Reply-To: <CALx6S34yqw_vJ+r21Br9O7y5NqzvA264ot7=GBTHe=FxWqh=AQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: pebolle@tiscali.nl, roy.pledge@freescale.com, gregkh@linuxfoundation.org,
+ linux-kernel@vger.kernel.org, ppc@mindchasers.com, igal.liberman@freescale.com,
+ joe@perches.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net
+To: <madalin.bucur@freescale.com>, <netdev@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1446485500-9782-5-git-send-email-madalin.bucur@freescale.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-On (12/02/15 13:07), Tom Herbert wrote:
-> That's easy enough to add to flow dissector, but is SPI really
-> intended to be used an L4 entropy value? We would need to consider the
-
-yes. To quote https://en.wikipedia.org/wiki/Security_Parameter_Index
-"This works like port numbers in TCP and UDP connections. What it means
- is that there could be different SAs used to provide security to one
- connection. An SA could therefore act as a set of rules."
-
-> effects of running multiple TCP connections over an IPsec. Also, you
-> might want to try IPv6, the flow label should provide a good L4 hash
-> for RPS/RFS, it would be interesting to see what the effects are with
-> IPsec processing. (ESP/UDP could also if RSS/ECMP is critical)
-
-IPv6 would be an interesting academic exercise, but it's going
-to be a while before we get RDS-TCP to go over IPv6.
-
---Sowmini
+T24gTW9uLCAyMDE1LTExLTAyIGF0IDE5OjMxICswMjAwLCBNYWRhbGluIEJ1Y3VyIHdyb3RlOgo+
+IEFsbG93IHRoZSBzZWxlY3Rpb24gb2YgdGhlIHRyYW5zbWlzc2lvbiBxdWV1ZSBiYXNlZCBvbiB0
+aGUgQ1BVIGlkLgoKRXhwbGFpbiB3aHkuCgo+IAo+IFNpZ25lZC1vZmYtYnk6IE1hZGFsaW4gQnVj
+dXIgPG1hZGFsaW4uYnVjdXJAZnJlZXNjYWxlLmNvbT4KPiAtLS0KPiAgZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvZnJlZXNjYWxlL2RwYWEvS2NvbmZpZyAgICAgICAgICAgfCAxMCArKysrKysrKysrCj4g
+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRoLmMgICAgICAgIHwg
+IDMgKysrCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRoLmgg
+ICAgICAgIHwgIDYgKysrKysrCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFh
+L2RwYWFfZXRoX2NvbW1vbi5jIHwgIDggKysrKysrKysKPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQv
+ZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGhfY29tbW9uLmggfCAgNCArKysrCj4gIDUgZmlsZXMgY2hh
+bmdlZCwgMzEgaW5zZXJ0aW9ucygrKQo+IAo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9mcmVlc2NhbGUvZHBhYS9LY29uZmlnCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
+c2NhbGUvZHBhYS9LY29uZmlnCj4gaW5kZXggMDIyZDVhYS4uMjU3N2FhYyAxMDA2NDQKPiAtLS0g
+YS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9LY29uZmlnCj4gKysrIGIvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvS2NvbmZpZwo+IEBAIC0xMSw2ICsxMSwx
+NiBAQCBtZW51Y29uZmlnIEZTTF9EUEFBX0VUSAo+ICAKPiAgaWYgRlNMX0RQQUFfRVRICj4gIAo+
+ICtjb25maWcgRlNMX0RQQUFfRVRIX1VTRV9ORE9fU0VMRUNUX1FVRVVFCj4gKwlib29sICJVc2Ug
+ZHJpdmVyJ3MgVHggcXVldWUgc2VsZWN0aW9uIG1lY2hhbmlzbSIKPiArCWRlZmF1bHQgeQo+ICsJ
+LS0taGVscC0tLQo+ICsJICBUaGUgRFBBQSBFdGhlcm5ldCBkcml2ZXIgZGVmaW5lcyBhIG5kb19z
+ZWxlY3RfcXVldWUoKSBjYWxsYmFjawo+IGZvciBvcHRpbWFsIHNlbGVjdGlvbgo+ICsJICBvZiB0
+aGUgZWdyZXNzIEZRLiBUaGF0IHdpbGwgb3ZlcnJpZGUgdGhlIFhQUyBzdXBwb3J0IGZvciB0aGlz
+Cj4gbmV0ZGV2aWNlLgo+ICsJICBJZiBmb3Igd2hhdGV2ZXIgcmVhc29uIHlvdSB3YW50IHRvIGJl
+IGluIGNvbnRyb2wgb2YgdGhlIGVncmVzcyBGUQo+IC10by1DUFUgc2VsZWN0aW9uIGFuZCBtYXBw
+aW5nLAo+ICsJICBvciBzaW1wbHkgZG9uJ3Qgd2FudCB0byB1c2UgdGhlIGRyaXZlcidzIG5kb19z
+ZWxlY3RfcXVldWUoKQo+IGNhbGxiYWNrLCB0aGVuIHVuc2VsZWN0IHRoaXMKPiArCSAgYW5kIHVz
+ZSB0aGUgc3RhbmRhcmQgWFBTIHN1cHBvcnQgaW5zdGVhZC4KCklzIHRoZXJlIGEgdXNlIGNhc2Ug
+Zm9yIG5lZWRpbmcgdGhpcyB0byBiZSBjb25maWd1cmFibGU/Cgo+IGRpZmYgLS1naXQgYS9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5jCj4gYi9kcml2ZXJzL25l
+dC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5jCj4gaW5kZXggMzFkNTViNC4uODk0
+ZjFhNyAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9k
+cGFhX2V0aC5jCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBh
+YV9ldGguYwo+IEBAIC0zOTAsNiArMzkwLDkgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCBuZXRfZGV2
+aWNlX29wcyBkcGFfcHJpdmF0ZV9vcHMgPSB7Cj4gIAkubmRvX2dldF9zdGF0czY0ID0gZHBhX2dl
+dF9zdGF0czY0LAo+ICAJLm5kb19zZXRfbWFjX2FkZHJlc3MgPSBkcGFfc2V0X21hY19hZGRyZXNz
+LAo+ICAJLm5kb192YWxpZGF0ZV9hZGRyID0gZXRoX3ZhbGlkYXRlX2FkZHIsCj4gKyNpZmRlZiBD
+T05GSUdfRlNMX0RQQUFfRVRIX1VTRV9ORE9fU0VMRUNUX1FVRVVFCj4gKwkubmRvX3NlbGVjdF9x
+dWV1ZSA9IGRwYV9zZWxlY3RfcXVldWUsCj4gKyNlbmRpZgo+ICAJLm5kb19jaGFuZ2VfbXR1ID0g
+ZHBhX2NoYW5nZV9tdHUsCj4gIAkubmRvX3NldF9yeF9tb2RlID0gZHBhX3NldF9yeF9tb2RlLAo+
+ICAJLm5kb19pbml0ID0gZHBhX25kb19pbml0LAo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9l
+dGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5oCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5oCj4gaW5kZXggMWJhNjYxNy4uODc1NzdjZiAxMDA2
+NDQKPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5o
+Cj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGguaAo+
+IEBAIC00MjAsOSArNDIwLDE1IEBAIHN0YXRpYyBpbmxpbmUgdm9pZCBfZHBhX2Fzc2lnbl93cShz
+dHJ1Y3QgZHBhX2ZxICpmcSkKPiAgCX0KPiAgfQo+ICAKPiArI2lmZGVmIENPTkZJR19GU0xfRFBB
+QV9FVEhfVVNFX05ET19TRUxFQ1RfUVVFVUUKPiArLyogVXNlIGluIGxpZXUgb2Ygc2tiX2dldF9x
+dWV1ZV9tYXBwaW5nKCkgKi8KPiArI2RlZmluZSBkcGFfZ2V0X3F1ZXVlX21hcHBpbmcoc2tiKSBc
+Cj4gKwlyYXdfc21wX3Byb2Nlc3Nvcl9pZCgpCj4gKyNlbHNlCj4gIC8qIFVzZSB0aGUgcXVldWUg
+c2VsZWN0ZWQgYnkgWFBTICovCj4gICNkZWZpbmUgZHBhX2dldF9xdWV1ZV9tYXBwaW5nKHNrYikg
+XAo+ICAJc2tiX2dldF9xdWV1ZV9tYXBwaW5nKHNrYikKPiArI2VuZGlmCgpXaHkgaXMgdGhpcyBu
+ZWNlc3Nhcnk/ICBTaG91bGRuJ3QgcHJvdmlkaW5nIGEgY3VzdG9tIC5uZG9fc2VsZWN0X3F1ZXVl
+KCkgYmUKc3VmZmljaWVudCB0byBlbnN1cmUgdGhhdCBza2JfZ2V0X3F1ZXVlX21hcHBpbmcoKSBy
+ZXR1cm5zIHRoZSBzYW1lIHRoaW5nPwoKQW5kIGlmIHRoaXMgZ29lcyBhd2F5LCBpdCdzIGp1c3Qg
+YSBtYXR0ZXIgb2YgYSBmdW5jdGlvbiBwb2ludGVyLCBzbyBpZiBpdCBkb2VzCm5lZWQgdG8gYmUg
+Y29uZmlndXJhYmxlIGl0IGNvdWxkIGJlIGEgcnVudGltZSBvcHRpb24uCgotU2NvdHQKCl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBt
+YWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5v
+emxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
