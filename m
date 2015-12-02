@@ -1,77 +1,128 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/17] i40evf: rename VF adapter specific RSS function
-Date: Wed,  2 Dec 2015 00:25:23 -0800
-Message-ID: <1449044735-68599-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Helin Zhang <helin.zhang@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] i40e: Fix i40e_print_features() VEB mode output
+Date: Wed, 02 Dec 2015 00:38:55 -0800
+Message-ID: <1449045535.3716.10.camel@perches.com>
+References: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1448475679-57194-5-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <5655FD72.70902@cogentembedded.com> <1448476535.3021.5.camel@intel.com>
+	 <1448480194.20113.48.camel@perches.com>
+	 <1449002936.1593.10.camel@perches.com> <1449041100.3224.17.camel@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Shannon Nelson <shannon.nelson@intel.com>
+To: intel-wired-lan <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:13263 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756580AbbLBIZj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 03:25:39 -0500
-In-Reply-To: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from smtprelay0247.hostedemail.com ([216.40.44.247]:39033 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753949AbbLBIjA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 03:39:00 -0500
+In-Reply-To: <1449041100.3224.17.camel@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Helin Zhang <helin.zhang@intel.com>
+Commit 7fd89545f337 ("i40e: remove BUG_ON from feature string building"=
+)
+added defective output when I40E_FLAG_VEB_MODE_ENABLED was set in
+function i40e_print_features.
 
-This patch renames old VF adapter specific RSS function to clarify
-its scope.
+=46ix it.
 
-Change-ID: Ie5253083a44c677ebb7709a8a3a18402ad2dc6a6
-Signed-off-by: Helin Zhang <helin.zhang@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Miscellanea:
+
+o Remove unnecessary string variable
+o Add space before not after fixed strings
+o Use kmalloc not kzalloc
+o Don't initialize i to 0, use result of first snprintf
+
+Noticed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+=A0drivers/net/ethernet/intel/i40e/i40e_main.c | 42 +++++++++++++------=
+----------
+=A01 file changed, 19 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 6ad6265..1b38c88 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1295,10 +1295,10 @@ static void i40evf_configure_rss_reg(struct i40evf_adapter *adapter,
- }
- 
- /**
-- * i40evf_configure_rss - Prepare for RSS
-+ * i40evf_init_rss - Prepare for RSS
-  * @adapter: board private structure
-  **/
--static void i40evf_configure_rss(struct i40evf_adapter *adapter)
-+static void i40evf_init_rss(struct i40evf_adapter *adapter)
- {
- 	struct i40e_hw *hw = &adapter->hw;
- 	u8 seed[I40EVF_HKEY_ARRAY_SIZE];
-@@ -1564,7 +1564,7 @@ static void i40evf_watchdog_task(struct work_struct *work)
- 		 * PF, so we don't have to set current_op as we will
- 		 * not get a response through the ARQ.
- 		 */
--		i40evf_configure_rss(adapter);
-+		i40evf_init_rss(adapter);
- 		adapter->aq_required &= ~I40EVF_FLAG_AQ_CONFIGURE_RSS;
- 		goto watchdog_done;
- 	}
-@@ -2312,7 +2312,7 @@ static void i40evf_init_task(struct work_struct *work)
- 		    I40E_VIRTCHNL_VF_OFFLOAD_WB_ON_ITR)
- 		adapter->flags |= I40EVF_FLAG_WB_ON_ITR_CAPABLE;
- 	if (!RSS_AQ(adapter))
--		i40evf_configure_rss(adapter);
-+		i40evf_init_rss(adapter);
- 	err = i40evf_request_misc_irq(adapter);
- 	if (err)
- 		goto err_sw_init;
-@@ -2342,7 +2342,7 @@ static void i40evf_init_task(struct work_struct *work)
- 		adapter->aq_required |= I40EVF_FLAG_AQ_CONFIGURE_RSS;
- 		mod_timer_pending(&adapter->watchdog_timer, jiffies + 1);
- 	} else {
--		i40evf_configure_rss(adapter);
-+		i40evf_init_rss(adapter);
- 	}
- 	return;
- restart:
--- 
-2.5.0
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/=
+ethernet/intel/i40e/i40e_main.c
+index 4b7d874..145eeb5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -10240,52 +10240,48 @@ static int i40e_setup_pf_filter_control(struc=
+t i40e_pf *pf)
+=A0static void i40e_print_features(struct i40e_pf *pf)
+=A0{
+=A0	struct i40e_hw *hw =3D &pf->hw;
+-	char *buf, *string;
+-	int i =3D 0;
++	char *buf;
++	int i;
+=A0
+-	string =3D kzalloc(INFO_STRING_LEN, GFP_KERNEL);
+-	if (!string) {
+-		dev_err(&pf->pdev->dev, "Features string allocation failed\n");
++	buf =3D kmalloc(INFO_STRING_LEN, GFP_KERNEL);
++	if (!buf)
+=A0		return;
+-	}
+-
+-	buf =3D string;
+=A0
+-	i +=3D snprintf(&buf[i], REMAIN(i), "Features: PF-id[%d] ", hw->pf_id=
+);
++	i =3D snprintf(buf, INFO_STRING_LEN, "Features: PF-id[%d]", hw->pf_id=
+);
+=A0#ifdef CONFIG_PCI_IOV
+-	i +=3D snprintf(&buf[i], REMAIN(i), "VFs: %d ", pf->num_req_vfs);
++	i +=3D snprintf(&buf[i], REMAIN(i), " VFs: %d", pf->num_req_vfs);
+=A0#endif
+-	i +=3D snprintf(&buf[i], REMAIN(i), "VSIs: %d QP: %d RX: %s ",
++	i +=3D snprintf(&buf[i], REMAIN(i), " VSIs: %d QP: %d RX: %s",
+=A0		=A0=A0=A0=A0=A0=A0pf->hw.func_caps.num_vsis,
+=A0		=A0=A0=A0=A0=A0=A0pf->vsi[pf->lan_vsi]->num_queue_pairs,
+=A0		=A0=A0=A0=A0=A0=A0pf->flags & I40E_FLAG_RX_PS_ENABLED ? "PS" : "1B=
+UF");
+=A0
+=A0	if (pf->flags & I40E_FLAG_RSS_ENABLED)
+-		i +=3D snprintf(&buf[i], REMAIN(i), "RSS ");
++		i +=3D snprintf(&buf[i], REMAIN(i), " RSS");
+=A0	if (pf->flags & I40E_FLAG_FD_ATR_ENABLED)
+-		i +=3D snprintf(&buf[i], REMAIN(i), "FD_ATR ");
++		i +=3D snprintf(&buf[i], REMAIN(i), " FD_ATR");
+=A0	if (pf->flags & I40E_FLAG_FD_SB_ENABLED) {
+-		i +=3D snprintf(&buf[i], REMAIN(i), "FD_SB ");
+-		i +=3D snprintf(&buf[i], REMAIN(i), "NTUPLE ");
++		i +=3D snprintf(&buf[i], REMAIN(i), " FD_SB");
++		i +=3D snprintf(&buf[i], REMAIN(i), " NTUPLE");
+=A0	}
+=A0	if (pf->flags & I40E_FLAG_DCB_CAPABLE)
+-		i +=3D snprintf(&buf[i], REMAIN(i), "DCB ");
++		i +=3D snprintf(&buf[i], REMAIN(i), " DCB");
+=A0#if IS_ENABLED(CONFIG_VXLAN)
+-	i +=3D snprintf(&buf[i], REMAIN(i), "VxLAN ");
++	i +=3D snprintf(&buf[i], REMAIN(i), " VxLAN");
+=A0#endif
+=A0	if (pf->flags & I40E_FLAG_PTP)
+-		i +=3D snprintf(&buf[i], REMAIN(i), "PTP ");
++		i +=3D snprintf(&buf[i], REMAIN(i), " PTP");
+=A0#ifdef I40E_FCOE
+=A0	if (pf->flags & I40E_FLAG_FCOE_ENABLED)
+-		i +=3D snprintf(&buf[i], REMAIN(i), "FCOE ");
++		i +=3D snprintf(&buf[i], REMAIN(i), " FCOE");
+=A0#endif
+=A0	if (pf->flags & I40E_FLAG_VEB_MODE_ENABLED)
+-		i +=3D snprintf(&buf[i], REMAIN(i), "VEPA ");
++		i +=3D snprintf(&buf[i], REMAIN(i), " VEB");
+=A0	else
+-		buf +=3D sprintf(buf, "VEPA ");
++		i +=3D snprintf(&buf[i], REMAIN(i), " VEPA");
+=A0
+-	dev_info(&pf->pdev->dev, "%s\n", string);
+-	kfree(string);
++	dev_info(&pf->pdev->dev, "%s\n", buf);
++	kfree(buf);
+=A0	WARN_ON(i > INFO_STRING_LEN);
+=A0}
+=A0
