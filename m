@@ -1,88 +1,88 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] ixgbe: Prevent KR PHY reset in ixgbe_init_phy_ops_x550em
-Date: Wed,  2 Dec 2015 04:30:54 -0800
-Message-ID: <1449059468-87025-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/15] ixgbe: Use __dev_uc_sync and __dev_uc_unsync for unicast addresses
+Date: Wed,  2 Dec 2015 04:31:00 -0800
+Message-ID: <1449059468-87025-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449059468-87025-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:23183 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:1811 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755826AbbLBMbL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 07:31:11 -0500
+	id S1756180AbbLBMbO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2015 07:31:14 -0500
 In-Reply-To: <1449059468-87025-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-This patch removes KR PHY reset from ixgbe_init_phy_ops_x550em,
-since this function is meant to initialize function pointers for
-the detected PHY type. Internal PHY reset was moved to
-ixgbe_setup_internal_phy_t_x550em which will now detect which
-mode the internal PHY operates in and set it up as required.
+This change replaces the ixgbe_write_uc_addr_list call in ixgbe_set_rx_mode
+with a call to __dev_uc_sync instead.  This works much better with the MAC
+addr list code that was already in place and solves an issue in which you
+couldn't remove an FDB address without having to reset the port.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Darin Miller <darin.j.miller@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 21 ++++++++-------------
- 1 file changed, 8 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 28 ++++++++++++++++++++++++---
+ 1 file changed, 25 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index bf2ae8d..a9c73b7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -1727,6 +1727,12 @@ static s32 ixgbe_setup_internal_phy_t_x550em(struct ixgbe_hw *hw)
- 	if (hw->mac.ops.get_media_type(hw) != ixgbe_media_type_copper)
- 		return IXGBE_ERR_CONFIG;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 29f1a36..708e210 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4212,6 +4212,25 @@ static int ixgbe_write_uc_addr_list(struct net_device *netdev, int vfn)
+ 	return count;
+ }
  
-+	if (hw->phy.nw_mng_if_sel & IXGBE_NW_MNG_IF_SEL_INT_PHY_MODE) {
-+		speed = IXGBE_LINK_SPEED_10GB_FULL |
-+			IXGBE_LINK_SPEED_1GB_FULL;
-+		return ixgbe_setup_kr_speed_x550em(hw, speed);
-+	}
++static int ixgbe_uc_sync(struct net_device *netdev, const unsigned char *addr)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	int ret;
 +
- 	/* If link is not up, then there is no setup necessary so return  */
- 	status = ixgbe_ext_phy_t_x550em_get_link(hw, &link_up);
- 	if (status)
-@@ -1931,7 +1937,6 @@ static s32 ixgbe_enter_lplu_t_x550em(struct ixgbe_hw *hw)
- static s32 ixgbe_init_phy_ops_X550em(struct ixgbe_hw *hw)
- {
- 	struct ixgbe_phy_info *phy = &hw->phy;
--	ixgbe_link_speed speed;
- 	s32 ret_val;
- 
- 	hw->mac.ops.set_lan_id(hw);
-@@ -1944,10 +1949,6 @@ static s32 ixgbe_init_phy_ops_X550em(struct ixgbe_hw *hw)
- 		 * to determine internal PHY mode.
- 		 */
- 		phy->nw_mng_if_sel = IXGBE_READ_REG(hw, IXGBE_NW_MNG_IF_SEL);
--		if (phy->nw_mng_if_sel & IXGBE_NW_MNG_IF_SEL_INT_PHY_MODE) {
--			speed = IXGBE_LINK_SPEED_10GB_FULL |
--				IXGBE_LINK_SPEED_1GB_FULL;
--		}
++	ret = ixgbe_add_mac_filter(adapter, addr, VMDQ_P(0));
++
++	return min_t(int, ret, 0);
++}
++
++static int ixgbe_uc_unsync(struct net_device *netdev, const unsigned char *addr)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	ixgbe_del_mac_filter(adapter, addr, VMDQ_P(0));
++
++	return 0;
++}
++
+ /**
+  * ixgbe_set_rx_mode - Unicast, Multicast and Promiscuous mode set
+  * @netdev: network interface device structure
+@@ -4267,8 +4286,7 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 	 * sufficient space to store all the addresses then enable
+ 	 * unicast promiscuous mode
+ 	 */
+-	count = ixgbe_write_uc_addr_list(netdev, VMDQ_P(0));
+-	if (count < 0) {
++	if (__dev_uc_sync(netdev, ixgbe_uc_sync, ixgbe_uc_unsync)) {
+ 		fctrl |= IXGBE_FCTRL_UPE;
+ 		vmolr |= IXGBE_VMOLR_ROPE;
+ 	}
+@@ -5106,8 +5124,12 @@ void ixgbe_reset(struct ixgbe_adapter *adapter)
  	}
  
- 	/* Identify the PHY or SFP module */
-@@ -1979,14 +1980,8 @@ static s32 ixgbe_init_phy_ops_X550em(struct ixgbe_hw *hw)
- 		/* If internal link mode is XFI, then setup iXFI internal link,
- 		 * else setup KR now.
- 		 */
--		if (!(phy->nw_mng_if_sel & IXGBE_NW_MNG_IF_SEL_INT_PHY_MODE)) {
--			phy->ops.setup_internal_link =
--					ixgbe_setup_internal_phy_t_x550em;
--		} else {
--			speed = IXGBE_LINK_SPEED_10GB_FULL |
--				IXGBE_LINK_SPEED_1GB_FULL;
--			ret_val = ixgbe_setup_kr_speed_x550em(hw, speed);
--		}
-+		phy->ops.setup_internal_link =
-+					      ixgbe_setup_internal_phy_t_x550em;
+ 	clear_bit(__IXGBE_IN_SFP_INIT, &adapter->state);
+-	/* do not flush user set addresses */
++
++	/* flush entries out of MAC table */
+ 	ixgbe_flush_sw_mac_table(adapter);
++	__dev_uc_unsync(netdev, NULL);
++
++	/* do not flush user set addresses */
+ 	ixgbe_mac_set_default_filter(adapter);
  
- 		/* setup SW LPLU only for first revision */
- 		if (!(IXGBE_FUSES0_REV1 & IXGBE_READ_REG(hw,
+ 	/* update SAN MAC vmdq pool selection */
 -- 
 2.5.0
