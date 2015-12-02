@@ -1,39 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/6] net: thunderx: Increase transmit queue length
-Date: Wed, 02 Dec 2015 08:59:40 -0800
-Message-ID: <1449075580.6379.1.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <01d101d12c46$2de43b40$89acb1c0$@samsung.com>
-	 <1448983985.25582.35.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+sq2Ce9oH-kCDO8hK_wX+ZZdXyyBuT4V2bt5Ab+2=pEX+BO+w@mail.gmail.com>
-	 <20151201.143047.82022857078130793.davem@davemloft.net>
-	 <CA+sq2CduMnsh_R9zTRMjWT=F5=9U3si-5nO6-gFvGCO9czkDdA@mail.gmail.com>
-	 <1449062733.32764.53.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+sq2CfWC0kcxKj1kqMEU3+y9aovqDdpn2G72n5ON9T3Hzew_w@mail.gmail.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: Re: [PATCH V5 net-next 1/5] net:hns: Add support of Hip06 SoC to
+ the Hislicon Network Subsystem
+Date: Wed, 2 Dec 2015 17:02:08 +0000
+Message-ID: <565F2410.9040607@huawei.com>
+References: <1448522050-5576-1-git-send-email-salil.mehta@huawei.com>	<1448522050-5576-2-git-send-email-salil.mehta@huawei.com> <20151130.145057.216796732457000987.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Pavel Fedin <p.fedin@samsung.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	LAKML <linux-arm-kernel@lists.infradead.org>,
-	Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
-	Sunil Goutham <sgoutham@cavium.com>
-To: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Cc: <robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<paul.gortmaker@windriver.com>, <ijc+devicetree@hellion.org.uk>,
+	<galak@codeaurora.org>, <catalin.marinas@arm.com>,
+	<will.deacon@arm.com>, <arnd@arndb.de>, <liguozhu@hisilicon.com>,
+	<yisen.zhuang@huawei.com>, <dingtianhong@huawei.com>,
+	<zhangfei.gao@linaro.org>, <huangdaode@hisilicon.com>,
+	<kenneth-lee-2012@foxmail.com>, <mehta.salil.lnk@gmail.com>,
+	<xuwei5@hisilicon.com>, <lisheng011@huawei.com>,
+	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<linuxarm@huawei.com>, <yankejian@huawei.com>,
+	<lipeng321@huawei.com>, <fengguang.wu@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+sq2CfWC0kcxKj1kqMEU3+y9aovqDdpn2G72n5ON9T3Hzew_w@mail.gmail.com>
+In-Reply-To: <20151130.145057.216796732457000987.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-12-02 at 22:20 +0530, Sunil Kovvuri wrote:
-> >
-> > If the performance increase is 4 %, then surely using twice more memory
-> > is not worth it.
-> I haven't mentioned anywhere that i am seeing 4% increase in performance.
 
-Yes, this is the complain I made :
+On 11/30/2015 7:50 PM, David Miller wrote:
+> From: Salil Mehta <salil.mehta@huawei.com>
+> Date: Thu, 26 Nov 2015 07:14:06 +0000
+>
+>> -#define ENABLE		(0x1)
+>> -#define DISABLE		(0x0)
+>> +#define ENABLE		0x1
+>> +#define DISABLE		0x0
+> Defining such common macros names for such incredibly simple boolean values
+> is asking for trouble, in particular it can possibly collide with other
+> defines in the global namespace.
+>
+> Use "true", "false", and the "bool" type, because that is exactly how you
+> are using these values.
+>
+> Thanks.
+Hi David,
+Thanks for your suggestions. I have worked upon the comments and removed 
+these macros
+and introduced the 'bool' type here as well. I think I missed this in my 
+earlier rework. Thanks
+again for pointing it out. I have floated new V6 patch for your 
+consideration.
 
-No numbers, just a patch increasing ring size by a 100% factor !
-
-I really hope you'll have very convincing numbers, especially if your
-driver does not implement BQL.
+Best Regards
+Salil
+>
