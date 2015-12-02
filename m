@@ -1,64 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/17] i40e/i40evf: prefetch skb data on transmit
-Date: Wed,  2 Dec 2015 00:25:22 -0800
-Message-ID: <1449044735-68599-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/17] i40e/i40evf: Bump i40e version to 1.4.4 and i40evf to 1.4.1
+Date: Wed,  2 Dec 2015 00:25:33 -0800
+Message-ID: <1449044735-68599-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:13263 "EHLO mga01.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:55200 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753762AbbLBIZj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 03:25:39 -0500
+	id S1757574AbbLBIZm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2015 03:25:42 -0500
 In-Reply-To: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Issue a prefetch for data early in the transmit path.
-This should not be generally needed for Tx traffic, but
-it helps immensely for pktgen workloads and should help
-for forwarding workloads as well.
+Bump.
 
-Change-ID: Iefee870c20599e0c4240e1d8637e4f16b625f83a
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: I00ebbb2e5e5572f947502b8f6db4d94f666d6b14
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 3 +++
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 3 +++
- 2 files changed, 6 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index dbd2bca..7371df7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2806,6 +2806,9 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	int tsyn;
- 	int tso;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 4e9d6e5..7759703 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
  
-+	/* prefetch the data, we'll need it later */
-+	prefetch(skb->data);
-+
- 	if (0 == i40e_xmit_descriptor_count(skb, tx_ring))
- 		return NETDEV_TX_BUSY;
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 4
+-#define DRV_VERSION_BUILD 2
++#define DRV_VERSION_BUILD 4
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index af14160..7ef1042 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -34,7 +34,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710/X710 Virtual Function Network Driver";
  
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 23fd112..0f1a4ef 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1993,6 +1993,9 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	u8 hdr_len = 0;
- 	int tso;
- 
-+	/* prefetch the data, we'll need it later */
-+	prefetch(skb->data);
-+
- 	if (0 == i40evf_xmit_descriptor_count(skb, tx_ring))
- 		return NETDEV_TX_BUSY;
- 
+-#define DRV_VERSION "1.3.33"
++#define DRV_VERSION "1.4.1"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2015 Intel Corporation.";
 -- 
 2.5.0
