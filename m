@@ -1,64 +1,67 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 02/28] net: Add support for CHANGEUPPER notifier error injection
-Date: Wed,  2 Dec 2015 21:07:25 +0100
-Message-ID: <1449086871-19911-3-git-send-email-jiri@resnulli.us>
-References: <1449086871-19911-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com, j.vosburgh@gmail.com,
-	vfalico@gmail.com, gospo@cumulusnetworks.com,
-	dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	pjonnala@broadcom.com, f.fainelli@gmail.com, sfeldma@gmail.com,
-	john.fastabend@gmail.com, roopa@cumulusnetworks.com, andrew@lunn.ch
-To: netdev@vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/1] tipc: fix node reference count bug
+Date: Wed,  2 Dec 2015 15:19:37 -0500
+Message-ID: <1449087577-7252-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
+	ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:33280 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752002AbbLBUH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 15:07:57 -0500
-Received: by wmec201 with SMTP id c201so270745953wme.0
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 12:07:56 -0800 (PST)
-In-Reply-To: <1449086871-19911-1-git-send-email-jiri@resnulli.us>
+Received: from smtp102.biz.mail.bf1.yahoo.com ([98.139.221.61]:40779 "EHLO
+	smtp102.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751273AbbLBUTp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 15:19:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+Commit 5405ff6e15f40f2f ("tipc: convert node lock to rwlock")
+introduced a bug to the node reference counter handling. When a
+message is successfully sent in the function tipc_node_xmit(),
+we return directly after releasing the node lock, instead of
+continuing and decrementing the node reference counter as we
+should do.
 
-Since CHANGEUPPER can now fail, add support for it in the newly
-introduced netdev notifier error injection infrastructure.
+This commit fixes this bug.
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
-v1->v2:
--new patch
----
- Documentation/fault-injection/notifier-error-inject.txt | 1 +
- lib/netdev-notifier-error-inject.c                      | 1 +
- 2 files changed, 2 insertions(+)
+ net/tipc/node.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
-diff --git a/Documentation/fault-injection/notifier-error-inject.txt b/Documentation/fault-injection/notifier-error-inject.txt
-index 71e638a..83d3f4e 100644
---- a/Documentation/fault-injection/notifier-error-inject.txt
-+++ b/Documentation/fault-injection/notifier-error-inject.txt
-@@ -103,6 +103,7 @@ Netdevice notifier events which can be failed are:
-  * NETDEV_POST_INIT
-  * NETDEV_PRECHANGEMTU
-  * NETDEV_PRECHANGEUPPER
-+ * NETDEV_CHANGEUPPER
- 
- Example: Inject netdevice mtu change error (-22 == -EINVAL)
- 
-diff --git a/lib/netdev-notifier-error-inject.c b/lib/netdev-notifier-error-inject.c
-index b2b8566..13e9c62 100644
---- a/lib/netdev-notifier-error-inject.c
-+++ b/lib/netdev-notifier-error-inject.c
-@@ -18,6 +18,7 @@ static struct notifier_err_inject netdev_notifier_err_inject = {
- 		{ NOTIFIER_ERR_INJECT_ACTION(NETDEV_POST_INIT) },
- 		{ NOTIFIER_ERR_INJECT_ACTION(NETDEV_PRECHANGEMTU) },
- 		{ NOTIFIER_ERR_INJECT_ACTION(NETDEV_PRECHANGEUPPER) },
-+		{ NOTIFIER_ERR_INJECT_ACTION(NETDEV_CHANGEUPPER) },
- 		{}
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 3f7a4ed..fa97d96 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -1189,20 +1189,19 @@ int tipc_node_xmit(struct net *net, struct sk_buff_head *list,
+ 			spin_unlock_bh(&le->lock);
+ 		}
+ 		tipc_node_read_unlock(n);
+-		if (likely(!skb_queue_empty(&xmitq))) {
++		if (likely(!rc))
+ 			tipc_bearer_xmit(net, bearer_id, &xmitq, &le->maddr);
+-			return 0;
+-		}
+-		if (unlikely(rc == -ENOBUFS))
++		else if (rc == -ENOBUFS)
+ 			tipc_node_link_down(n, bearer_id, false);
+ 		tipc_node_put(n);
+ 		return rc;
  	}
- };
+ 
+-	if (unlikely(!in_own_node(net, dnode)))
+-		return rc;
+-	tipc_sk_rcv(net, list);
+-	return 0;
++	if (likely(in_own_node(net, dnode))) {
++		tipc_sk_rcv(net, list);
++		return 0;
++	}
++	return rc;
+ }
+ 
+ /* tipc_node_xmit_skb(): send single buffer to destination
 -- 
-1.9.3
+1.9.1
