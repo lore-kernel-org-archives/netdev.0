@@ -1,61 +1,286 @@
-From: Marcin Wojtas <mw@semihalf.com>
-Subject: Re: [PATCH 00/13] mvneta Buffer Management and enhancements
-Date: Wed, 2 Dec 2015 09:26:23 +0100
-Message-ID: <CAPv3WKcKm3X3Lys2HwYZXaZxPaajenF7av1wJKXqKxxwibXW4A@mail.gmail.com>
-References: <CAPv3WKc4zSmjtw_FeePCVCaq_aUubbCw_ggtxgxs0-7LwL7fHQ@mail.gmail.com>
-	<20151129.210210.1777978635596463961.davem@davemloft.net>
-	<CAPv3WKcHnJHCvg63Vs79RboNOuESU8jCLouKPRW4NdptAd_hag@mail.gmail.com>
-	<20151130.112500.293198684175670933.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@redhat.com>, linux-kernel@vger.kernel.org,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Yair Mahalalel <myair@marvell.com>,
-	Grzegorz Jaszczyk <jaz@semihalf.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Evan Wang <xswang@marvell.com>, nadavh@marvell.com,
-	Lior Amsalem <alior@marvell.com>,
-	Tomasz Nowicki <tn@semihalf.com>,
-	=?UTF-8?Q?Gregory_Cl=C3=A9ment?=
-	<gregory.clement@free-electrons.com>, nitroshift@yahoo.com,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151130.112500.293198684175670933.davem@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/17] i40evf: allocate ring structs dynamically
+Date: Wed,  2 Dec 2015 00:25:32 -0800
+Message-ID: <1449044735-68599-15-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:28910 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757575AbbLBIZm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2015 03:25:42 -0500
+In-Reply-To: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Can you please describe in more details, what would you expect from
-such special abstraction layer regarding buffer managers? I'd like to
-understand more of your expectations and evaluate possible work.
+Instead of awkwardly keeping a fixed array of pointers in the adapter
+struct and then allocating ring structs individually, just keep a single
+pointer and allocate a single blob for the arrays. This simplifies code,
+shrinks the adapter structure, and future-proofs the driver by not
+limiting the number of rings we can handle.
 
-Best regards,
-Marcin
+Change-ID: I31334ff911a6474954232cfe4bc98ccca3c769ff
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  4 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  8 +--
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 57 +++++++++++-----------
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 10 ++--
+ 5 files changed, 40 insertions(+), 41 deletions(-)
 
-2015-11-30 17:25 GMT+01:00 David Miller <davem@redhat.com>:
-> From: Marcin Wojtas <mw@semihalf.com>
-> Date: Mon, 30 Nov 2015 15:13:22 +0100
->
->> What kind of abstraction and helpers do you mean? Some kind of API
->> (e.g. bm_alloc_buffer, bm_initialize_ring bm_put_buffer,
->> bm_get_buffer), which would be used by platform drivers (and specific
->> aplications if one wants to develop on top of the kernel)?
->>
->> In general, what is your top-view of such solution and its cooperation
->> with the drivers?
->
-> The tricky parts involved have to do with allocating pages for the
-> buffer pools and minimizing the number of atomic refcounting
-> operations on those pages for for the puts and gets, particularly
-> around buffer replenish runs.
->
-> For example, if you're allocating a page for a buffer pool the device
-> will chop into N (for any N < PAGE_SIZE) byte pieces, you can
-> eliminate many atomic operations.
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 0f1a4ef..11561b6 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -2063,7 +2063,7 @@ out_drop:
+ netdev_tx_t i40evf_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ {
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
+-	struct i40e_ring *tx_ring = adapter->tx_rings[skb->queue_mapping];
++	struct i40e_ring *tx_ring = &adapter->tx_rings[skb->queue_mapping];
+ 
+ 	/* hardware can't handle really short frames, hardware padding works
+ 	 * beyond this point
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
+index bd185ad..a6318c4 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf.h
++++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
+@@ -196,13 +196,13 @@ struct i40evf_adapter {
+ 	int num_active_queues;
+ 
+ 	/* TX */
+-	struct i40e_ring *tx_rings[I40E_MAX_VSI_QP];
++	struct i40e_ring *tx_rings;
+ 	u32 tx_timeout_count;
+ 	struct list_head mac_filter_list;
+ 	u32 tx_desc_count;
+ 
+ 	/* RX */
+-	struct i40e_ring *rx_rings[I40E_MAX_VSI_QP];
++	struct i40e_ring *rx_rings;
+ 	u64 hw_csum_rx_error;
+ 	u32 rx_desc_count;
+ 	int num_msix_vectors;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index 90c5110..a4c9feb 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -121,12 +121,12 @@ static void i40evf_get_ethtool_stats(struct net_device *netdev,
+ 		data[i] =  *(u64 *)p;
+ 	}
+ 	for (j = 0; j < adapter->num_active_queues; j++) {
+-		data[i++] = adapter->tx_rings[j]->stats.packets;
+-		data[i++] = adapter->tx_rings[j]->stats.bytes;
++		data[i++] = adapter->tx_rings[j].stats.packets;
++		data[i++] = adapter->tx_rings[j].stats.bytes;
+ 	}
+ 	for (j = 0; j < adapter->num_active_queues; j++) {
+-		data[i++] = adapter->rx_rings[j]->stats.packets;
+-		data[i++] = adapter->rx_rings[j]->stats.bytes;
++		data[i++] = adapter->rx_rings[j].stats.packets;
++		data[i++] = adapter->rx_rings[j].stats.bytes;
+ 	}
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 129c274..af14160 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -348,7 +348,7 @@ static void
+ i40evf_map_vector_to_rxq(struct i40evf_adapter *adapter, int v_idx, int r_idx)
+ {
+ 	struct i40e_q_vector *q_vector = &adapter->q_vectors[v_idx];
+-	struct i40e_ring *rx_ring = adapter->rx_rings[r_idx];
++	struct i40e_ring *rx_ring = &adapter->rx_rings[r_idx];
+ 
+ 	rx_ring->q_vector = q_vector;
+ 	rx_ring->next = q_vector->rx.ring;
+@@ -369,7 +369,7 @@ static void
+ i40evf_map_vector_to_txq(struct i40evf_adapter *adapter, int v_idx, int t_idx)
+ {
+ 	struct i40e_q_vector *q_vector = &adapter->q_vectors[v_idx];
+-	struct i40e_ring *tx_ring = adapter->tx_rings[t_idx];
++	struct i40e_ring *tx_ring = &adapter->tx_rings[t_idx];
+ 
+ 	tx_ring->q_vector = q_vector;
+ 	tx_ring->next = q_vector->tx.ring;
+@@ -610,7 +610,7 @@ static void i40evf_configure_tx(struct i40evf_adapter *adapter)
+ 	int i;
+ 
+ 	for (i = 0; i < adapter->num_active_queues; i++)
+-		adapter->tx_rings[i]->tail = hw->hw_addr + I40E_QTX_TAIL1(i);
++		adapter->tx_rings[i].tail = hw->hw_addr + I40E_QTX_TAIL1(i);
+ }
+ 
+ /**
+@@ -655,8 +655,8 @@ static void i40evf_configure_rx(struct i40evf_adapter *adapter)
+ 	}
+ 
+ 	for (i = 0; i < adapter->num_active_queues; i++) {
+-		adapter->rx_rings[i]->tail = hw->hw_addr + I40E_QRX_TAIL1(i);
+-		adapter->rx_rings[i]->rx_buf_len = rx_buf_len;
++		adapter->rx_rings[i].tail = hw->hw_addr + I40E_QRX_TAIL1(i);
++		adapter->rx_rings[i].rx_buf_len = rx_buf_len;
+ 	}
+ }
+ 
+@@ -991,7 +991,7 @@ static void i40evf_configure(struct i40evf_adapter *adapter)
+ 	adapter->aq_required |= I40EVF_FLAG_AQ_CONFIGURE_QUEUES;
+ 
+ 	for (i = 0; i < adapter->num_active_queues; i++) {
+-		struct i40e_ring *ring = adapter->rx_rings[i];
++		struct i40e_ring *ring = &adapter->rx_rings[i];
+ 
+ 		i40evf_alloc_rx_buffers_1buf(ring, ring->count);
+ 		ring->next_to_use = ring->count - 1;
+@@ -1111,16 +1111,10 @@ i40evf_acquire_msix_vectors(struct i40evf_adapter *adapter, int vectors)
+  **/
+ static void i40evf_free_queues(struct i40evf_adapter *adapter)
+ {
+-	int i;
+-
+ 	if (!adapter->vsi_res)
+ 		return;
+-	for (i = 0; i < adapter->num_active_queues; i++) {
+-		if (adapter->tx_rings[i])
+-			kfree_rcu(adapter->tx_rings[i], rcu);
+-		adapter->tx_rings[i] = NULL;
+-		adapter->rx_rings[i] = NULL;
+-	}
++	kfree(adapter->tx_rings);
++	kfree(adapter->rx_rings);
+ }
+ 
+ /**
+@@ -1135,13 +1129,20 @@ static int i40evf_alloc_queues(struct i40evf_adapter *adapter)
+ {
+ 	int i;
+ 
++	adapter->tx_rings = kcalloc(adapter->num_active_queues,
++				    sizeof(struct i40e_ring), GFP_KERNEL);
++	if (!adapter->tx_rings)
++		goto err_out;
++	adapter->rx_rings = kcalloc(adapter->num_active_queues,
++				    sizeof(struct i40e_ring), GFP_KERNEL);
++	if (!adapter->rx_rings)
++		goto err_out;
++
+ 	for (i = 0; i < adapter->num_active_queues; i++) {
+ 		struct i40e_ring *tx_ring;
+ 		struct i40e_ring *rx_ring;
+ 
+-		tx_ring = kzalloc(sizeof(*tx_ring) * 2, GFP_KERNEL);
+-		if (!tx_ring)
+-			goto err_out;
++		tx_ring = &adapter->tx_rings[i];
+ 
+ 		tx_ring->queue_index = i;
+ 		tx_ring->netdev = adapter->netdev;
+@@ -1149,14 +1150,12 @@ static int i40evf_alloc_queues(struct i40evf_adapter *adapter)
+ 		tx_ring->count = adapter->tx_desc_count;
+ 		if (adapter->flags & I40E_FLAG_WB_ON_ITR_CAPABLE)
+ 			tx_ring->flags |= I40E_TXR_FLAGS_WB_ON_ITR;
+-		adapter->tx_rings[i] = tx_ring;
+ 
+-		rx_ring = &tx_ring[1];
++		rx_ring = &adapter->rx_rings[i];
+ 		rx_ring->queue_index = i;
+ 		rx_ring->netdev = adapter->netdev;
+ 		rx_ring->dev = &adapter->pdev->dev;
+ 		rx_ring->count = adapter->rx_desc_count;
+-		adapter->rx_rings[i] = rx_ring;
+ 	}
+ 
+ 	return 0;
+@@ -1487,7 +1486,7 @@ static int i40evf_alloc_q_vectors(struct i40evf_adapter *adapter)
+ 	struct i40e_q_vector *q_vector;
+ 
+ 	num_q_vectors = adapter->num_msix_vectors - NONQ_VECS;
+-	adapter->q_vectors = kzalloc(sizeof(*q_vector) * num_q_vectors,
++	adapter->q_vectors = kcalloc(num_q_vectors, sizeof(*q_vector),
+ 				     GFP_KERNEL);
+ 	if (!adapter->q_vectors)
+ 		goto err_out;
+@@ -2035,8 +2034,8 @@ void i40evf_free_all_tx_resources(struct i40evf_adapter *adapter)
+ 	int i;
+ 
+ 	for (i = 0; i < adapter->num_active_queues; i++)
+-		if (adapter->tx_rings[i]->desc)
+-			i40evf_free_tx_resources(adapter->tx_rings[i]);
++		if (adapter->tx_rings[i].desc)
++			i40evf_free_tx_resources(&adapter->tx_rings[i]);
+ }
+ 
+ /**
+@@ -2054,8 +2053,8 @@ static int i40evf_setup_all_tx_resources(struct i40evf_adapter *adapter)
+ 	int i, err = 0;
+ 
+ 	for (i = 0; i < adapter->num_active_queues; i++) {
+-		adapter->tx_rings[i]->count = adapter->tx_desc_count;
+-		err = i40evf_setup_tx_descriptors(adapter->tx_rings[i]);
++		adapter->tx_rings[i].count = adapter->tx_desc_count;
++		err = i40evf_setup_tx_descriptors(&adapter->tx_rings[i]);
+ 		if (!err)
+ 			continue;
+ 		dev_err(&adapter->pdev->dev,
+@@ -2081,8 +2080,8 @@ static int i40evf_setup_all_rx_resources(struct i40evf_adapter *adapter)
+ 	int i, err = 0;
+ 
+ 	for (i = 0; i < adapter->num_active_queues; i++) {
+-		adapter->rx_rings[i]->count = adapter->rx_desc_count;
+-		err = i40evf_setup_rx_descriptors(adapter->rx_rings[i]);
++		adapter->rx_rings[i].count = adapter->rx_desc_count;
++		err = i40evf_setup_rx_descriptors(&adapter->rx_rings[i]);
+ 		if (!err)
+ 			continue;
+ 		dev_err(&adapter->pdev->dev,
+@@ -2103,8 +2102,8 @@ void i40evf_free_all_rx_resources(struct i40evf_adapter *adapter)
+ 	int i;
+ 
+ 	for (i = 0; i < adapter->num_active_queues; i++)
+-		if (adapter->rx_rings[i]->desc)
+-			i40evf_free_rx_resources(adapter->rx_rings[i]);
++		if (adapter->rx_rings[i].desc)
++			i40evf_free_rx_resources(&adapter->rx_rings[i]);
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index 24b3af3..9b55576 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -255,19 +255,19 @@ void i40evf_configure_queues(struct i40evf_adapter *adapter)
+ 	for (i = 0; i < pairs; i++) {
+ 		vqpi->txq.vsi_id = vqci->vsi_id;
+ 		vqpi->txq.queue_id = i;
+-		vqpi->txq.ring_len = adapter->tx_rings[i]->count;
+-		vqpi->txq.dma_ring_addr = adapter->tx_rings[i]->dma;
++		vqpi->txq.ring_len = adapter->tx_rings[i].count;
++		vqpi->txq.dma_ring_addr = adapter->tx_rings[i].dma;
+ 		vqpi->txq.headwb_enabled = 1;
+ 		vqpi->txq.dma_headwb_addr = vqpi->txq.dma_ring_addr +
+ 		    (vqpi->txq.ring_len * sizeof(struct i40e_tx_desc));
+ 
+ 		vqpi->rxq.vsi_id = vqci->vsi_id;
+ 		vqpi->rxq.queue_id = i;
+-		vqpi->rxq.ring_len = adapter->rx_rings[i]->count;
+-		vqpi->rxq.dma_ring_addr = adapter->rx_rings[i]->dma;
++		vqpi->rxq.ring_len = adapter->rx_rings[i].count;
++		vqpi->rxq.dma_ring_addr = adapter->rx_rings[i].dma;
+ 		vqpi->rxq.max_pkt_size = adapter->netdev->mtu
+ 					+ ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN;
+-		vqpi->rxq.databuffer_size = adapter->rx_rings[i]->rx_buf_len;
++		vqpi->rxq.databuffer_size = adapter->rx_rings[i].rx_buf_len;
+ 		vqpi++;
+ 	}
+ 
+-- 
+2.5.0
