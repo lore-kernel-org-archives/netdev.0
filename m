@@ -1,78 +1,64 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: ipsec impact on performance
-Date: Wed, 2 Dec 2015 12:41:40 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBE0F39@AcuExch.aculab.com>
-References: <20151201175953.GC21252@oracle.com>
- <CALx6S35uLqbuJTAFLMeT-BcyZw_fksz+7BkS=Nt7_3-nYMHF2A@mail.gmail.com>
- <20151201183720.GE21252@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CBE0ED7@AcuExch.aculab.com>
- <20151202121156.GK23178@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Tom Herbert <tom@herbertland.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>
-To: 'Sowmini Varadhan' <sowmini.varadhan@oracle.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH] route: ignore RTAX_HOPLIMIT of value -1
+Date: Wed,  2 Dec 2015 13:50:22 +0100
+Message-ID: <1449060622-22898-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.189]:60103 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755059AbbLBMnJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 07:43:09 -0500
-In-Reply-To: <20151202121156.GK23178@oracle.com>
-Content-Language: en-US
+Received: from orbit.nwl.cc ([176.31.251.142]:59135 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755238AbbLBMuf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2015 07:50:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan
-> Sent: 02 December 2015 12:12
-> On (12/02/15 11:56), David Laight wrote:
-> > >                 Gbps  peak cpu util
-> > > esp-null         1.8   71%
-> > > aes-gcm-c-256    1.6   79%
-> > > aes-ccm-a-128    0.7   96%
-> > >
-> > > That trend made me think that if we can get esp-null to be as close
-> > > as possible to GSO/GRO, the rest will follow closely behind.
-> >
-> > That's not how I read those figures.
-> > They imply to me that there is a massive cost for the actual encryption
-> > (particularly for aes-ccm-a-128) - so whatever you do to the esp-null
-> > case won't help.
-> 
-> I'm not a crypto expert, but my understanding is that the CCM mode
-> is the "older" encryption algorithm, and GCM is the way of the future.
-> Plus, I think the GCM mode has some type of h/w support (hence the
-> lower cpu util)
-> 
-> I'm sure that crypto has a cost, not disputing that, but my point
-> was that 1.8 -> 1.6 -> 0.7 is a curve with a much gentler slope than
-> the 9 Gbps (clear traffic, GSO, GRO)
->     -> 4 Gbps (clear, no gro, gso)
->        -> 1.8 (esp-null)
-> That steeper slope smells of s/w perf that we need to resolve first,
-> before getting into the work of faster crypto?
+Older kernels use -1 internally as indicator to use the sysctl default,
+but they still export the setting. Newer kernels use 0 to indicate that
+(which is why the conversion from -1 to 0 was done here), but they also
+stopped exporting the value. Since the meaning of -1 is clear, treat it
+equally like default on newer kernels (which is to not print anything).
 
-That isn't the way cpu cost works.
-You are getting 0.7 Gbps with ass-ccm-a-128, scale the esp-null back to
-that and it would use 7/18*71 = 27% of the cpu.
-So 69% of the cpu in the a-128 case is probably caused by the
-encryption itself.
-Even if the rest of the code cost nothing you'd not increase
-above 1Gbps.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ ip/iproute.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
-The sums for aes-gcm-c-256 are slightly better, about 15%.
-
-Ok, things aren't quite that simple since you are probably changing
-the way data flows through the system as well.
-
-Also what/how are you measuring cpu use.
-I'm not sure anything on Linux gives you a truly accurate value
-when processes are running for very short periods.
-
-On an SMP system you also get big effects when work is switched
-between cpus. I've got some tests that run a lot faster if I
-put all but one of the cpus into a busy-loop in userspace
-(eg: while :; do :; done)!
-
-	David
+diff --git a/ip/iproute.c b/ip/iproute.c
+index aed1038e515b6..c42ea0b9ecb8e 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -577,24 +577,23 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 			if (mxrta[i] == NULL)
+ 				continue;
+ 
+-			if (i < sizeof(mx_names)/sizeof(char*) && mx_names[i])
+-				fprintf(fp, " %s", mx_names[i]);
+-			else
+-				fprintf(fp, " metric %d", i);
+-
+ 			if (mxlock & (1<<i))
+ 				fprintf(fp, " lock");
+ 			if (i != RTAX_CC_ALGO)
+ 				val = rta_getattr_u32(mxrta[i]);
+ 
++			if (i == RTAX_HOPLIMIT && (int)val == -1)
++				continue;
++
++			if (i < sizeof(mx_names)/sizeof(char*) && mx_names[i])
++				fprintf(fp, " %s", mx_names[i]);
++			else
++				fprintf(fp, " metric %d", i);
++
+ 			switch (i) {
+ 			case RTAX_FEATURES:
+ 				print_rtax_features(fp, val);
+ 				break;
+-			case RTAX_HOPLIMIT:
+-				if ((int)val == -1)
+-					val = 0;
+-				/* fall through */
+ 			default:
+ 				fprintf(fp, " %u", val);
+ 				break;
+-- 
+2.5.0
