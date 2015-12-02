@@ -1,53 +1,80 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/15] ixgbe: Allow FDB entries access to more RAR filters
-Date: Wed,  2 Dec 2015 04:31:01 -0800
-Message-ID: <1449059468-87025-9-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1449059468-87025-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates 2015-12-02
+Date: Wed,  2 Dec 2015 04:30:53 -0800
+Message-ID: <1449059468-87025-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:30731 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757061AbbLBMbN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 07:31:13 -0500
-In-Reply-To: <1449059468-87025-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1756305AbbLBMbL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2015 07:31:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+This series contains updates to ixgbe and ixgbevf only.
 
-This change makes it so that we allow the PF to make use of all free RAR
-entries for FDB use if needed.
+Mark cleans up ixgbe_init_phy_ops_x550em, since this was designed to
+initialize function pointers only and moves the KR PHY reset to the
+ixgbe_setup_internal_phy_t_x550em which was designed to detect which
+mode the PHY operates in and set it up.  Added the new thermal alarm
+type support used with newer X550EM_x devices.  Fixed both ixgbe and
+ixgbevf to use a private work queue to avoid hangs, which would
+possibly occur when creating and destroying many VFS repeatedly.
+Updated ixgbe PTP implementation to accommodate X550EM_x devices,
+which handle clocking differently.  Fixed specification violations
+in the datasheet, which was reported by Dan Streetman.  Fixed ixgbe
+to check for and handle IPv6 extended headers so that Tx checksum
+offload can be done, which was reported by Tom Herbert.  Fixed ixgbe
+link issue for some systems with X540 or X550 by only inhibiting the
+turning PHY power off when manageability is present.
 
-Previously the code limited us to 16 unicast entries, however this was
-shared between MACVLAN which wasn't limited and the FDB code which was.  So
-instead of treating the FDB code as a second class citizen I have updated
-it so that it has access to just as many entries as the MACVLAN filters.
+Alex Duyck refactors the MAC address configuration code, which in
+turns fixes an issue where once 63 entries had been used, you could no
+longer add additional filters.  Updated ixgbe to use __dev_uc_sync
+which also resolved an issue in which you could not remove an FDB
+address without having to reset the port.  Updated the ixgbe driver
+to make use of all the free RAR entries for FDB use if needed.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-Tested-by: Darin Miller <darin.j.miller@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+The following are changes since commit 6cc568340148424e657508d82692ef787d6c4b2c:
+  isdn: remove spellcaster driver
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 708e210..378c44d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8200,7 +8200,10 @@ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- {
- 	/* guarantee we can provide a unique filter for the unicast address */
- 	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr)) {
--		if (IXGBE_MAX_PF_MACVLANS <= netdev_uc_count(dev))
-+		struct ixgbe_adapter *adapter = netdev_priv(dev);
-+		u16 pool = VMDQ_P(0);
-+
-+		if (netdev_uc_count(dev) >= ixgbe_available_rars(adapter, pool))
- 			return -ENOMEM;
- 	}
- 
+Alexander Duyck (3):
+  ixgbe: Refactor MAC address configuration code
+  ixgbe: Use __dev_uc_sync and __dev_uc_unsync for unicast addresses
+  ixgbe: Allow FDB entries access to more RAR filters
+
+Mark Rustad (12):
+  ixgbe: Prevent KR PHY reset in ixgbe_init_phy_ops_x550em
+  ixgbe: Add support for newer thermal alarm
+  ixgbe: Use private workqueue to avoid certain possible hangs
+  ixgbevf: Use a private workqueue to avoid certain possible hangs
+  ixgbevf: Minor cleanups
+  ixgbe: Update PTP to support X550EM_x devices
+  ixgbe: Correct spec violations by waiting after reset
+  ixgbe: Wait for master disable to be set
+  ixgbe: Save VF info and take references
+  ixgbe: Handle extended IPv6 headers in tx path
+  ixgbe: Always turn PHY power on when requested
+  ixgbevf: Handle extended IPv6 headers in Tx path
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          |  46 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c    |   5 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c    |   3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c   |  14 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 269 +++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c      |   3 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c      | 720 ++++++++++++++++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |  50 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |  12 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c     |   6 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c     |  46 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  73 ++-
+ 12 files changed, 893 insertions(+), 354 deletions(-)
+
 -- 
 2.5.0
