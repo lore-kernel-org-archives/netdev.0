@@ -1,118 +1,50 @@
-From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH v2 4/5] net: thunderx: Switchon carrier only upon interface
- link up
-Date: Wed,  2 Dec 2015 15:36:16 +0530
-Message-ID: <1449050777-37836-5-git-send-email-sunil.kovvuri@gmail.com>
-References: <1449050777-37836-1-git-send-email-sunil.kovvuri@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] i40e: Fix i40e_print_features() VEB mode output
+Date: Wed, 02 Dec 2015 02:12:29 -0800
+Message-ID: <1449051149.3716.20.camel@perches.com>
+References: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1448475679-57194-5-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <5655FD72.70902@cogentembedded.com> <1448476535.3021.5.camel@intel.com>
+	 <1448480194.20113.48.camel@perches.com>
+	 <1449002936.1593.10.camel@perches.com> <1449041100.3224.17.camel@intel.com>
+	 <1449045535.3716.10.camel@perches.com> <1449050215.3224.29.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Sunil Goutham <sgoutham@cavium.com>, Sunil.Goutham@caviumnetworks.com,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1449050777-37836-1-git-send-email-sunil.kovvuri@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Shannon Nelson <shannon.nelson@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0115.hostedemail.com ([216.40.44.115]:46566 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757680AbbLBKMc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 05:12:32 -0500
+In-Reply-To: <1449050215.3224.29.camel@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sunil Goutham <sgoutham@cavium.com>
+On Wed, 2015-12-02 at 01:56 -0800, Jeff Kirsher wrote:
+> On Wed, 2015-12-02 at 00:38 -0800, Joe Perches wrote:
+> > Commit 7fd89545f337 ("i40e: remove BUG_ON from feature string
+> > building")
+> > added defective output when I40E_FLAG_VEB_MODE_ENABLED was set in
+> > function i40e_print_features.
+> >=20
+> > Fix it.
+> >=20
+> > Miscellanea:
+> >=20
+> > o Remove unnecessary string variable
+> > o Add space before not after fixed strings
+> > o Use kmalloc not kzalloc
+> > o Don't initialize i to 0, use result of first snprintf
+> >=20
+> > Noticed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>=20
+> Don't you mean Reported-by? =A0I am not aware of Noticed-by as being =
+a
+> recognized signature.
 
-Call netif_carrier_on() only if interface's link is up. Switching this on
-upon IFF_UP by default, is causing issues with ethernet channel bonding
-in LACP mode. Initial NETDEV_CHANGE notification was being skipped.
-
-Also fixed some issues with link/speed/duplex reporting via ethtool.
-
-Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
----
- .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |   16 +++++++++++++++-
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   |    4 +---
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |    2 ++
- 3 files changed, 18 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-index af54c10..a12b2e3 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-@@ -112,6 +112,13 @@ static int nicvf_get_settings(struct net_device *netdev,
- 
- 	cmd->supported = 0;
- 	cmd->transceiver = XCVR_EXTERNAL;
-+
-+	if (!nic->link_up) {
-+		cmd->duplex = DUPLEX_UNKNOWN;
-+		ethtool_cmd_speed_set(cmd, SPEED_UNKNOWN);
-+		return 0;
-+	}
-+
- 	if (nic->speed <= 1000) {
- 		cmd->port = PORT_MII;
- 		cmd->autoneg = AUTONEG_ENABLE;
-@@ -125,6 +132,13 @@ static int nicvf_get_settings(struct net_device *netdev,
- 	return 0;
- }
- 
-+static u32 nicvf_get_link(struct net_device *netdev)
-+{
-+	struct nicvf *nic = netdev_priv(netdev);
-+
-+	return nic->link_up;
-+}
-+
- static void nicvf_get_drvinfo(struct net_device *netdev,
- 			      struct ethtool_drvinfo *info)
- {
-@@ -660,7 +674,7 @@ static int nicvf_set_channels(struct net_device *dev,
- 
- static const struct ethtool_ops nicvf_ethtool_ops = {
- 	.get_settings		= nicvf_get_settings,
--	.get_link		= ethtool_op_get_link,
-+	.get_link		= nicvf_get_link,
- 	.get_drvinfo		= nicvf_get_drvinfo,
- 	.get_msglevel		= nicvf_get_msglevel,
- 	.set_msglevel		= nicvf_set_msglevel,
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index 7f709cb..dde8dc7 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -1057,6 +1057,7 @@ int nicvf_stop(struct net_device *netdev)
- 
- 	netif_carrier_off(netdev);
- 	netif_tx_stop_all_queues(nic->netdev);
-+	nic->link_up = false;
- 
- 	/* Teardown secondary qsets first */
- 	if (!nic->sqs_mode) {
-@@ -1211,9 +1212,6 @@ int nicvf_open(struct net_device *netdev)
- 	nic->drv_stats.txq_stop = 0;
- 	nic->drv_stats.txq_wake = 0;
- 
--	netif_carrier_on(netdev);
--	netif_tx_start_all_queues(netdev);
--
- 	return 0;
- cleanup:
- 	nicvf_disable_intr(nic, NICVF_INTR_MBOX, 0);
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 6534b73..d77e41a 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -612,6 +612,8 @@ static void bgx_poll_for_link(struct work_struct *work)
- 		lmac->last_duplex = 1;
- 	} else {
- 		lmac->link_up = 0;
-+		lmac->last_speed = SPEED_UNKNOWN;
-+		lmac->last_duplex = DUPLEX_UNKNOWN;
- 	}
- 
- 	if (lmac->last_link != lmac->link_up) {
--- 
-1.7.1
+At least for the get_maintainer script, "<anything>-by:" is a signature
