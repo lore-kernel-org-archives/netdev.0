@@ -1,184 +1,52 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: [PATCH 2/2] mvneta: implement ethtool autonegotiation control
-Date: Wed, 2 Dec 2015 20:35:11 +0300
-Message-ID: <565F2BCF.4070406@list.ru>
-References: <565F2B28.4080501@list.ru>
+From: Philipp Hahn <pmhahn@pmhahn.de>
+Subject: Re: Asterisk deadlocks since Kernel 4.1
+Date: Wed, 02 Dec 2015 18:15:18 +0100
+Message-ID: <565F2726.2080300@pmhahn.de>
+References: <564B3D35.50004@profihost.ag> <alpine.DEB.2.11.1511171936030.3761@nanos> <564B7F9D.5060701@profihost.ag> <alpine.DEB.2.11.1511172041480.3761@nanos> <564CDE2F.8000201@profihost.ag> <564CEB0C.40006@redhat.com> <564CEF5D.3080005@profihost.ag> <564D9A17.6080305@redhat.com> <564D9B21.302@profihost.ag> <564D9CE6.2090104@profihost.ag> <1447933294.1974772.444210441.67F1AC5E@webmail.messagingengine.com> <564DB5F5.9060208@profihost.ag> <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com> <564DC4A5.70104@profihost.ag> <564DCC4C.1090009@redhat.com> <564E2852.8000200@profihost.ag> <56530A42.6030609@profihost.ag> <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com> <565EBDC1.1090808@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Weimer <fweimer@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <565F2B28.4080501@list.ru>
+In-Reply-To: <565EBDC1.1090808@profihost.ag>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-This patch allows to do
-ethtool -s eth0 autoneg off
-ethtool -s eth0 autoneg on
-to disable or enable autonegotiation at run-time.
-Without that functionality, the only way to control the autonegotiation
-is to modify the device tree.
+Am 02.12.2015 um 10:45 schrieb Stefan Priebe - Profihost AG:
+> here are the results.
+> 
+> It works with 4.1.
+> It works with 4.2.
+> It does not work with 4.1.13.
 
-This is needed if you plan to use the same kernel with
-different ethernet switches, the ones that support the in-band
-status and the ones that not.
+the patches were first commitet in v4.3-rc3 and appear as backports only
+since v4.2.3 and v4.1.10
 
-CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-CC: netdev@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
+> git bisect tells me it stopped working after those two commits were applied:
+> 
+> commit d48623677191e0f035d7afd344f92cf880b01f8e
+> Author: Herbert Xu <herbert@gondor.apana.org.au>
+> Date:   Tue Sep 22 11:38:56 2015 +0800
+> 
+>     netlink: Replace rhash_portid with bound
+> 
+> commit 4e27762417669cb459971635be550eb7b5598286
+> Author: Herbert Xu <herbert@gondor.apana.org.au>
+> Date:   Fri Sep 18 19:16:50 2015 +0800
+> 
+>     netlink: Fix autobind race condition that leads to zero port ID
 
-Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
----
- drivers/net/ethernet/marvell/mvneta.c | 109 +++++++++++++++++++++++-----------
- 1 file changed, 74 insertions(+), 35 deletions(-)
+I identified the same two patches for our prpblem; see mail from
+2015-11-17 16:53 with subject "Strange PF_NETLINK NETLINK_ROUTE stall:
+netlink: Fix autobind race condition that leads to zero port ID"
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 8e0e6de..d0e1ec5 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -369,7 +369,7 @@ struct mvneta_port {
- 	unsigned int duplex;
- 	unsigned int speed;
- 	unsigned int tx_csum_limit;
--	int use_inband_status:1;
-+	unsigned int use_inband_status:1;
+<http://marc.info/?l=linux-kernel&m=144863837825887&w=2>
 
- 	u64 ethtool_stats[ARRAY_SIZE(mvneta_statistics)];
- };
-@@ -971,6 +971,44 @@ static void mvneta_set_other_mcast_table(struct mvneta_port *pp, int queue)
- 		mvreg_write(pp, MVNETA_DA_FILT_OTH_MCAST + offset, val);
- }
-
-+static void mvneta_set_autoneg(struct mvneta_port *pp, int enable)
-+{
-+	u32 val;
-+
-+	if (enable) {
-+		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
-+		val &= ~(MVNETA_GMAC_FORCE_LINK_PASS |
-+			 MVNETA_GMAC_FORCE_LINK_DOWN |
-+			 MVNETA_GMAC_AN_FLOW_CTRL_EN);
-+		val |= MVNETA_GMAC_INBAND_AN_ENABLE |
-+		       MVNETA_GMAC_AN_SPEED_EN |
-+		       MVNETA_GMAC_AN_DUPLEX_EN;
-+		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
-+
-+		val = mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
-+		val |= MVNETA_GMAC_1MS_CLOCK_ENABLE;
-+		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
-+
-+		val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
-+		val |= MVNETA_GMAC2_INBAND_AN_ENABLE;
-+		mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
-+	} else {
-+		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
-+		val &= ~(MVNETA_GMAC_INBAND_AN_ENABLE |
-+		       MVNETA_GMAC_AN_SPEED_EN |
-+		       MVNETA_GMAC_AN_DUPLEX_EN);
-+		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
-+
-+		val = mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
-+		val &= ~MVNETA_GMAC_1MS_CLOCK_ENABLE;
-+		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
-+
-+		val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
-+		val &= ~MVNETA_GMAC2_INBAND_AN_ENABLE;
-+		mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
-+	}
-+}
-+
- /* This method sets defaults to the NETA port:
-  *	Clears interrupt Cause and Mask registers.
-  *	Clears all MAC tables.
-@@ -1056,39 +1094,7 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
- 	val &= ~MVNETA_PHY_POLLING_ENABLE;
- 	mvreg_write(pp, MVNETA_UNIT_CONTROL, val);
-
--	if (pp->use_inband_status) {
--		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
--		val &= ~(MVNETA_GMAC_FORCE_LINK_PASS |
--			 MVNETA_GMAC_FORCE_LINK_DOWN |
--			 MVNETA_GMAC_AN_FLOW_CTRL_EN);
--		val |= MVNETA_GMAC_INBAND_AN_ENABLE |
--		       MVNETA_GMAC_AN_SPEED_EN |
--		       MVNETA_GMAC_AN_DUPLEX_EN;
--		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
--
--		val = mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
--		val |= MVNETA_GMAC_1MS_CLOCK_ENABLE;
--		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
--
--		val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
--		val |= MVNETA_GMAC2_INBAND_AN_ENABLE;
--		mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
--	} else {
--		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
--		val &= ~(MVNETA_GMAC_INBAND_AN_ENABLE |
--		       MVNETA_GMAC_AN_SPEED_EN |
--		       MVNETA_GMAC_AN_DUPLEX_EN);
--		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
--
--		val = mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
--		val &= ~MVNETA_GMAC_1MS_CLOCK_ENABLE;
--		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
--
--		val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
--		val &= ~MVNETA_GMAC2_INBAND_AN_ENABLE;
--		mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
--	}
--
-+	mvneta_set_autoneg(pp, pp->use_inband_status);
- 	mvneta_set_ucast_table(pp, -1);
- 	mvneta_set_special_mcast_table(pp, -1);
- 	mvneta_set_other_mcast_table(pp, -1);
-@@ -2950,10 +2956,43 @@ int mvneta_ethtool_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- int mvneta_ethtool_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct mvneta_port *pp = netdev_priv(dev);
-+	struct phy_device *phydev = pp->phy_dev;
-
--	if (!pp->phy_dev)
-+	if (!phydev)
- 		return -ENODEV;
-
-+	if ((cmd->autoneg == AUTONEG_ENABLE) != pp->use_inband_status) {
-+		u32 val;
-+
-+		mvneta_set_autoneg(pp, cmd->autoneg == AUTONEG_ENABLE);
-+
-+		if (cmd->autoneg == AUTONEG_DISABLE) {
-+			val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
-+			val &= ~(MVNETA_GMAC_CONFIG_MII_SPEED |
-+				 MVNETA_GMAC_CONFIG_GMII_SPEED |
-+				 MVNETA_GMAC_CONFIG_FULL_DUPLEX);
-+
-+			if (phydev->duplex)
-+				val |= MVNETA_GMAC_CONFIG_FULL_DUPLEX;
-+
-+			if (phydev->speed == SPEED_1000)
-+				val |= MVNETA_GMAC_CONFIG_GMII_SPEED;
-+			else if (phydev->speed == SPEED_100)
-+				val |= MVNETA_GMAC_CONFIG_MII_SPEED;
-+
-+			mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
-+		}
-+
-+		pp->use_inband_status = (cmd->autoneg == AUTONEG_ENABLE);
-+		netdev_info(pp->dev, "autoneg status set to %i\n",
-+			    pp->use_inband_status);
-+
-+		if (netif_running(dev)) {
-+			mvneta_port_down(pp);
-+			mvneta_port_up(pp);
-+		}
-+	}
-+
- 	return phy_ethtool_sset(pp->phy_dev, cmd);
- }
-
--- 
-2.4.3
+Philipp
