@@ -1,76 +1,138 @@
 From: Pavel Fedin <p.fedin@samsung.com>
-Subject: RE: [PATCH 3/6] net: thunderx: Increase transmit queue length
-Date: Wed, 02 Dec 2015 13:31:42 +0300
-Message-ID: <00eb01d12cec$a32aa500$e97fef00$@samsung.com>
-References: <y@samsung.com>
- <1448961223-41888-4-git-send-email-sunil.kovvuri@gmail.com>
- <01d101d12c46$2de43b40$89acb1c0$@samsung.com>
- <1448983985.25582.35.camel@edumazet-glaptop2.roam.corp.google.com>
- <CA+sq2Ce9oH-kCDO8hK_wX+ZZdXyyBuT4V2bt5Ab+2=pEX+BO+w@mail.gmail.com>
- <00cb01d12ce0$9f090540$dd1b0fc0$@samsung.com>
+Subject: RE: [PATCH v2 4/5] net: thunderx: Switchon carrier only upon interface
+ link up
+Date: Wed, 02 Dec 2015 13:42:32 +0300
+Message-ID: <00ec01d12cee$26a28a00$73e79e00$@samsung.com>
+References: <1449050777-37836-1-git-send-email-sunil.kovvuri@gmail.com>
+ <1449050777-37836-5-git-send-email-sunil.kovvuri@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: 'Linux Netdev List' <netdev@vger.kernel.org>,
-	'LKML' <linux-kernel@vger.kernel.org>,
-	'LAKML' <linux-arm-kernel@lists.infradead.org>,
-	'Sunil Goutham' <Sunil.Goutham@caviumnetworks.com>,
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Sunil.Goutham@caviumnetworks.com,
 	'Sunil Goutham' <sgoutham@cavium.com>
-To: 'Sunil Kovvuri' <sunil.kovvuri@gmail.com>,
-	'Eric Dumazet' <eric.dumazet@gmail.com>
+To: 'Sunil Goutham' <sunil.kovvuri@gmail.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <00cb01d12ce0$9f090540$dd1b0fc0$@samsung.com>
+In-reply-to: <1449050777-37836-5-git-send-email-sunil.kovvuri@gmail.com>
 Content-language: ru
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- Hello!
-
-> > Probably you might have to set "coherent_pool" size in bootargs to a
-> > higher value.
-> > Can you please check.
-> 
->  I have tried to do this. I was able to enlarge the pool up to 4MB, and still got allocation
-> failures. At 8MB pool preallocation stops working:
-> --- cut ---
-> Call trace:
-> [<ffffffc00012ddb8>] __alloc_pages_nodemask+0x4f4/0x7d4
-> [<ffffffc0007be370>] atomic_pool_init+0x60/0x1a4
-> [<ffffffc0007be4d4>] arm64_dma_init+0x20/0x28
-> [<ffffffc000082848>] do_one_initcall+0x8c/0x1a4
-> [<ffffffc0007baac0>] kernel_init_freeable+0x154/0x1f4
-> [<ffffffc0005c2b14>] kernel_init+0x10/0xd8
-> DMA: failed to allocate 8192 KiB pool for atomic coherent allocation
-> --- cut ---
->  and i get even worse faults in the driver.
-> 
->  I know that it is possible to allocate larger pools by setting CONFIG_FORCE_MAX_ZONEORDER,
-> but:
-> a) This is done on per-platform basis. For ThunderX we used to have a patch
-> (http://www.spinics.net/lists/arm-kernel/msg415457.html), which never made it upstream,
-> because vGIC fixes stopped requiring it at some point. And also we may want to use the nicvf
-> driver not only on actual hardware, but also inside virtual machine in KVM. So do we need to
-> set CONFIG_FORCE_MAX_ZONEORDER for virt too? And what if at some point qemu emulates not only
-> "virt", but some other machine (let's say AMD X-Gene), and we run it on ThunderX and want to
-> use nicvf with this model?
-> b) IMHO it's not good to have a driver which simply does not work without some obscure option
-> in boot arguments.
-> 
->  So, i see several possible ways to solve this:
-> 
-> 1. Introduce some mechanism which would allow the driver to tell the kernel that it needs
-> coherent pool of large size. Can be problematic because the driver can be a module, and pool
-> allocation happens early.
-> 2. Can we use some other method for allocating queues, which would not require such a huge
-> coherent pool?
-> 3. The driver could check value of atomic_pool_size and adjust own memory requirements
-> accordingly. This indeed looks like a quick hack, but would at least make things running
-> quickly.
-
- I have also noticed that CONFIG_DMA_CMA is turned off in my kernel. I guess it was a leftover from old defconfig, because i carry over my .config from version to version. I enabled it and rebuilt the kernel, but in order to get the driver working with this patch i had to also add cma=32M option to kernel arguments. With default of 16M the allocation still fails.
- Should we add Kconfig dependencies?
+ Just a reminder, we have issue with this one too, which is not addressed yet.
 
 Kind regards,
 Pavel Fedin
 Expert Engineer
 Samsung Electronics Research center Russia
+
+
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Sunil
+> Goutham
+> Sent: Wednesday, December 02, 2015 1:06 PM
+> To: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org; linux-arm-kernel@lists.infradead.org;
+> Sunil.Goutham@caviumnetworks.com; Sunil Goutham
+> Subject: [PATCH v2 4/5] net: thunderx: Switchon carrier only upon interface link up
+> 
+> From: Sunil Goutham <sgoutham@cavium.com>
+> 
+> Call netif_carrier_on() only if interface's link is up. Switching this on
+> upon IFF_UP by default, is causing issues with ethernet channel bonding
+> in LACP mode. Initial NETDEV_CHANGE notification was being skipped.
+> 
+> Also fixed some issues with link/speed/duplex reporting via ethtool.
+> 
+> Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+> ---
+>  .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |   16 +++++++++++++++-
+>  drivers/net/ethernet/cavium/thunder/nicvf_main.c   |    4 +---
+>  drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |    2 ++
+>  3 files changed, 18 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+> b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+> index af54c10..a12b2e3 100644
+> --- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+> +++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+> @@ -112,6 +112,13 @@ static int nicvf_get_settings(struct net_device *netdev,
+> 
+>  	cmd->supported = 0;
+>  	cmd->transceiver = XCVR_EXTERNAL;
+> +
+> +	if (!nic->link_up) {
+> +		cmd->duplex = DUPLEX_UNKNOWN;
+> +		ethtool_cmd_speed_set(cmd, SPEED_UNKNOWN);
+> +		return 0;
+> +	}
+> +
+>  	if (nic->speed <= 1000) {
+>  		cmd->port = PORT_MII;
+>  		cmd->autoneg = AUTONEG_ENABLE;
+> @@ -125,6 +132,13 @@ static int nicvf_get_settings(struct net_device *netdev,
+>  	return 0;
+>  }
+> 
+> +static u32 nicvf_get_link(struct net_device *netdev)
+> +{
+> +	struct nicvf *nic = netdev_priv(netdev);
+> +
+> +	return nic->link_up;
+> +}
+> +
+>  static void nicvf_get_drvinfo(struct net_device *netdev,
+>  			      struct ethtool_drvinfo *info)
+>  {
+> @@ -660,7 +674,7 @@ static int nicvf_set_channels(struct net_device *dev,
+> 
+>  static const struct ethtool_ops nicvf_ethtool_ops = {
+>  	.get_settings		= nicvf_get_settings,
+> -	.get_link		= ethtool_op_get_link,
+> +	.get_link		= nicvf_get_link,
+>  	.get_drvinfo		= nicvf_get_drvinfo,
+>  	.get_msglevel		= nicvf_get_msglevel,
+>  	.set_msglevel		= nicvf_set_msglevel,
+> diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+> b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+> index 7f709cb..dde8dc7 100644
+> --- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+> +++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+> @@ -1057,6 +1057,7 @@ int nicvf_stop(struct net_device *netdev)
+> 
+>  	netif_carrier_off(netdev);
+>  	netif_tx_stop_all_queues(nic->netdev);
+> +	nic->link_up = false;
+> 
+>  	/* Teardown secondary qsets first */
+>  	if (!nic->sqs_mode) {
+> @@ -1211,9 +1212,6 @@ int nicvf_open(struct net_device *netdev)
+>  	nic->drv_stats.txq_stop = 0;
+>  	nic->drv_stats.txq_wake = 0;
+> 
+> -	netif_carrier_on(netdev);
+> -	netif_tx_start_all_queues(netdev);
+> -
+>  	return 0;
+>  cleanup:
+>  	nicvf_disable_intr(nic, NICVF_INTR_MBOX, 0);
+> diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+> b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+> index 6534b73..d77e41a 100644
+> --- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+> +++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+> @@ -612,6 +612,8 @@ static void bgx_poll_for_link(struct work_struct *work)
+>  		lmac->last_duplex = 1;
+>  	} else {
+>  		lmac->link_up = 0;
+> +		lmac->last_speed = SPEED_UNKNOWN;
+> +		lmac->last_duplex = DUPLEX_UNKNOWN;
+>  	}
+> 
+>  	if (lmac->last_link != lmac->link_up) {
+> --
+> 1.7.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
