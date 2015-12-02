@@ -1,43 +1,70 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: size overflow in function qdisc_tree_decrease_qlen net/sched/sch_api.c
-Date: Tue, 1 Dec 2015 14:47:24 -0800
-Message-ID: <CAHA+R7M++LboS_2OmhNjoApvFf6Xk-e+vsEgZrFeKG+k1J8edw@mail.gmail.com>
-References: <20151201010005.GA23175@Fux-PC>
-	<1448978807.25582.19.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1448979011.25582.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	<565DC716.22673.2DBA261B@pageexec.freemail.hu>
-	<1448987660.2977.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7NiYjhE5dY7HPkWuoTA5WMqF3zPyCFk5i3LYTUrYD7gYA@mail.gmail.com>
-	<1448996964.16994.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7NRsKrdVAY7_Wyvq1COAGjjkGZdJxZLvDRGS7gaN3iQvQ@mail.gmail.com>
-	<1449000371.16994.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1449009185.32764.5.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH net-next V3 00/17] hv_netvsc: Eliminate the additional head
+ room
+Date: Tue,  1 Dec 2015 16:42:58 -0800
+Message-ID: <1449016978-9755-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: pageexec@freemail.hu, Daniele Fucini <dfucini@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>, spender@grsecurity.net,
-	re.emese@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f172.google.com ([209.85.160.172]:35972 "EHLO
-	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756405AbbLAWrZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 17:47:25 -0500
-Received: by ykdr82 with SMTP id r82so26214699ykd.3
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 14:47:24 -0800 (PST)
-In-Reply-To: <1449009185.32764.5.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+ jasowang@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 1, 2015 at 2:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Hmm... it looks like we have a much more serious bug :
->
-> qdisc_lookup() calls qdisc_match_from_root(dev->qdisc, handle) without
-> proper lock being held, so we might actually crash the host,
-> if qdisc_tree_decrease_qlen() happens at the time qdiscs are changed.
->
-> qdisc_tree_decrease_qlen() needs serious care :(
+In an attempt to avoid having to allocate memory on the send path, the netvsc
+driver was requesting additional head room so that both rndis header and the
+netvsc packet (the state that had to persist) could be placed in the skb.
+Since the amount of head room requested was exceeding the default head room
+as set in LL_MAX_HEADER, we were forcing a reallocation of skb.
 
-Convert qdisc list to RCU protected?
+With this patch-set, I have reduced the size of the netvsc packet to less
+than 20 bytes and with this reduction we don't need to ask for any additional
+headroom. We place the rndis header in the skb head room and we place the
+netvsc packet in control buffer area in the skb.
+
+V2:  - Addressed  review comments:
+     - Eliminated more fields from netvsc packet structure.
+
+V3:  - Fixed a typo in patch: hv_netvsc: Don't ask for additional head room in the skb.
+ 
+K. Y. Srinivasan (15):
+  hv_netvsc: Resize some of the variables in hv_netvsc_packet
+  hv_netvsc: Rearrange the hv_negtvsc_packet to be space efficient
+  hv_netvsc: Eliminate the channel field in hv_netvsc_packet structure
+  hv_netvsc: Eliminate rndis_msg pointer from hv_netvsc_packet
+    structure
+  hv_netvsc: Eliminatte the data field from struct hv_netvsc_packet
+  hv_netvsc: Eliminate send_completion from struct hv_netvsc_packet
+  hv_netvsc: Eliminate send_completion_ctx from struct hv_netvsc_packet
+  hv_netvsc: Don't ask for additional head room in the skb
+  hv_netvsc: Eliminate page_buf from struct hv_netvsc_packet
+  hv_netvsc: Eliminate send_completion_tid from struct hv_netvsc_packet
+  hv_netvsc: Eliminate is_data_pkt from struct hv_netvsc_packet
+  hv_netvsc: Eliminate completion_func from struct hv_netvsc_packet
+  hv_netvsc: Eliminate xmit_more from struct hv_netvsc_packet
+  hv_netvsc: Eliminate status from struct hv_netvsc_packet
+  hv_netvsc: Eliminate vlan_tci from struct hv_netvsc_packet
+
+Vitaly Kuznetsov (2):
+  hv_netvsc: move subchannel existence check to netvsc_select_queue()
+  hv_netvsc: remove locking in netvsc_send()
+
+ drivers/net/hyperv/hyperv_net.h   |   48 +++++++----------
+ drivers/net/hyperv/netvsc.c       |  102 ++++++++++++++++++-------------------
+ drivers/net/hyperv/netvsc_drv.c   |   93 +++++++++++++---------------------
+ drivers/net/hyperv/rndis_filter.c |   66 ++++++++++++------------
+ include/linux/netdevice.h         |    4 +-
+ 5 files changed, 138 insertions(+), 175 deletions(-)
+
+-- 
+1.7.4.1
