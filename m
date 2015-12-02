@@ -1,56 +1,81 @@
-From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-Subject: Re: [PATCH 3/6] net: thunderx: Increase transmit queue length
-Date: Wed, 2 Dec 2015 11:18:43 +0530
-Message-ID: <CA+sq2CduMnsh_R9zTRMjWT=F5=9U3si-5nO6-gFvGCO9czkDdA@mail.gmail.com>
-References: <01d101d12c46$2de43b40$89acb1c0$@samsung.com>
-	<1448983985.25582.35.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+sq2Ce9oH-kCDO8hK_wX+ZZdXyyBuT4V2bt5Ab+2=pEX+BO+w@mail.gmail.com>
-	<20151201.143047.82022857078130793.davem@davemloft.net>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [patch net-next 00/26] bonding/team offload + mlxsw implementation
+Date: Wed, 2 Dec 2015 07:53:35 +0200
+Message-ID: <CAJ3xEMiSA70nDsBWUmv=J6Cy2rt4+iNTg+4Yeqy=810etVAPZw@mail.gmail.com>
+References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
+	<20151201144300.GB2165@nanopsycho.orion>
+	<CAJ3xEMhMACJe_iK4PTrGwGFHzgGM=ccNKjVBoC6SUfCo0w7xFQ@mail.gmail.com>
+	<20151201151243.GC2165@nanopsycho.orion>
+	<CAJ3xEMjRQQoo=uU0qQ5Z9UmvS0_QjB2q_LUrpfBWLtTpHhd3qw@mail.gmail.com>
+	<20151201164719.GA2548@nanopsycho>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Pavel Fedin <p.fedin@samsung.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	LAKML <linux-arm-kernel@lists.infradead.org>,
-	Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
-	Sunil Goutham <sgoutham@cavium.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151201.143047.82022857078130793.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>, yotamg@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>, pjonnala@broadcom.com,
+	Jay Vosburgh <j.vosburgh@gmail.com>, vfalico@gmail.com,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:36224 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750884AbbLBFxf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 00:53:35 -0500
+Received: by igcph11 with SMTP id ph11so103695586igc.1
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 21:53:35 -0800 (PST)
+In-Reply-To: <20151201164719.GA2548@nanopsycho>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->The driver should successfully recover from out of memory situations
-> and not stop RX/TX completely.
-This memory allocation is while interface bringup/initialization and not during
-packet I/O.
+On Tue, Dec 1, 2015 at 6:47 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Tue, Dec 01, 2015 at 05:35:43PM CET, gerlitz.or@gmail.com wrote:
+>>On Tue, Dec 1, 2015 at 5:12 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> Tue, Dec 01, 2015 at 04:06:23PM CET, gerlitz.or@gmail.com wrote:
+>>>>On Tue, Dec 1, 2015 at 4:43 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>>> Tue, Dec 01, 2015 at 02:48:38PM CET, jiri@resnulli.us wrote:
 
->Don't put this off as not "related" to your patch, it is as this
->introduces the behavior for this user, and you should fix it before
->expecting me to apply this patch series.
-I would disagree on this, as this patch hasn't introduced any failure here,
-if this user has connected any device which asks for a bit large amount
-of coherent memory then i am sure he will see the same issue.
-And above i have suggested what could be done to not see this issue.
+>>>>>>This patchset introduces needed infrastructure for link aggregation
+>>>>>>offload - for both team and bonding. It also implements the offload
+>>>>>>in mlxsw driver.
 
-But anyway for the time being I will resubmit the patch series without this
-patch, hope that would be okay.
+>>>>I didn't see any changes to switchdev.h, can you elaborate on that please.
 
-On Wed, Dec 2, 2015 at 1:00 AM, David Miller <davem@davemloft.net> wrote:
-> From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-> Date: Tue, 1 Dec 2015 22:00:49 +0530
->
->> Increasing descriptor ring size will lead to more memory allocation.
->> And what you are seeing is a memory alloc failure and doesn't seem
->> to be due to this driver change.  I mean it looks like the behavior
->> will be same for other drivers as well.
->
-> The driver should successfully recover from out of memory situations
-> and not stop RX/TX completely.
->
-> There might be some other problem with your driver causing this.
->
-> Don't put this off as not "related" to your patch, it is as this
-> introduces the behavior for this user, and you should fix it before
-> expecting me to apply this patch series.
+>>> Correct. This patchset does not extend switchdev api. The extension is
+>>> done for netdev notifiers. It seems natural and correct.
+>>> As we discussed already with John on a different thread, it makes sense
+>>> for non-switchdev drivers to benefit from this extensions as well.
+
+>>This is understood.
+
+>>However, the point which is still not clear to me related to the LAG /
+>>switchdev object model.
+
+>>All of FDB/VLAN/FIB switchdev objects have corresponding software counterparts
+>>in the kernel --- what's the case for LAG? the software construct is
+>>bond or team
+>>instance, shouldn't there  be a modeling of the HW LAG object in switchdev?
+
+> No need for that, what that would be good for?
+
+I'll give it 2nd thought, also lets see what other reviewers think on
+this matter.
+
+Another question relates to users bonding/teaming netdevice ports from
+different HW switches, or of two vlans over ports from the same HW switch.
+
+This is something that AFAIK not supported by HW -- do we want to
+disallow that?
+what layer in the kernel we want to enforce that limitation? team/bond
+or switchdev
+core or the switchdev HW driver?
+
+> Switchdev iface (most of it) works with struct net_device. Does not matter
+> if that is the port netdev direclty, or if it is team/bonding netdev.
+> It falls into the picture very nicely.
+
+Or.
