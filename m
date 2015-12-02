@@ -1,67 +1,48 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/1] tipc: fix node reference count bug
-Date: Wed,  2 Dec 2015 15:19:37 -0500
-Message-ID: <1449087577-7252-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
-	ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [patch net-next v2 02/28] net: Add support for CHANGEUPPER
+ notifier error injection
+Date: Wed, 2 Dec 2015 21:23:15 +0100
+Message-ID: <565F5333.8090907@cumulusnetworks.com>
+References: <1449086871-19911-1-git-send-email-jiri@resnulli.us>
+ <1449086871-19911-3-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com, j.vosburgh@gmail.com,
+	vfalico@gmail.com, gospo@cumulusnetworks.com,
+	dsa@cumulusnetworks.com, pjonnala@broadcom.com,
+	f.fainelli@gmail.com, sfeldma@gmail.com, john.fastabend@gmail.com,
+	roopa@cumulusnetworks.com, andrew@lunn.ch
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp102.biz.mail.bf1.yahoo.com ([98.139.221.61]:40779 "EHLO
-	smtp102.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751273AbbLBUTp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 15:19:45 -0500
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:35919 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751881AbbLBUXS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 15:23:18 -0500
+Received: by wmww144 with SMTP id w144so230786430wmw.1
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 12:23:16 -0800 (PST)
+In-Reply-To: <1449086871-19911-3-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 5405ff6e15f40f2f ("tipc: convert node lock to rwlock")
-introduced a bug to the node reference counter handling. When a
-message is successfully sent in the function tipc_node_xmit(),
-we return directly after releasing the node lock, instead of
-continuing and decrementing the node reference counter as we
-should do.
+On 12/02/2015 09:07 PM, Jiri Pirko wrote:
+> From: Ido Schimmel <idosch@mellanox.com>
+> 
+> Since CHANGEUPPER can now fail, add support for it in the newly
+> introduced netdev notifier error injection infrastructure.
+> 
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+> v1->v2:
+> -new patch
+> ---
+>  Documentation/fault-injection/notifier-error-inject.txt | 1 +
+>  lib/netdev-notifier-error-inject.c                      | 1 +
+>  2 files changed, 2 insertions(+)
+> 
 
-This commit fixes this bug.
+Thanks,
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/node.c | 15 +++++++--------
- 1 file changed, 7 insertions(+), 8 deletions(-)
-
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 3f7a4ed..fa97d96 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -1189,20 +1189,19 @@ int tipc_node_xmit(struct net *net, struct sk_buff_head *list,
- 			spin_unlock_bh(&le->lock);
- 		}
- 		tipc_node_read_unlock(n);
--		if (likely(!skb_queue_empty(&xmitq))) {
-+		if (likely(!rc))
- 			tipc_bearer_xmit(net, bearer_id, &xmitq, &le->maddr);
--			return 0;
--		}
--		if (unlikely(rc == -ENOBUFS))
-+		else if (rc == -ENOBUFS)
- 			tipc_node_link_down(n, bearer_id, false);
- 		tipc_node_put(n);
- 		return rc;
- 	}
- 
--	if (unlikely(!in_own_node(net, dnode)))
--		return rc;
--	tipc_sk_rcv(net, list);
--	return 0;
-+	if (likely(in_own_node(net, dnode))) {
-+		tipc_sk_rcv(net, list);
-+		return 0;
-+	}
-+	return rc;
- }
- 
- /* tipc_node_xmit_skb(): send single buffer to destination
--- 
-1.9.1
+Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
