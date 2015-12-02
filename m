@@ -1,52 +1,87 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 3/3] vhost_net: basic polling support
-Date: Wed, 2 Dec 2015 13:04:03 +0800
-Message-ID: <565E7BC3.2060107@redhat.com>
-References: <1448435489-5949-1-git-send-email-jasowang@redhat.com>
- <1448435489-5949-4-git-send-email-jasowang@redhat.com>
- <20151130124233-mutt-send-email-mst@redhat.com> <565D2D7D.4010903@redhat.com>
- <20151201163939-mutt-send-email-mst@redhat.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [patch net-next 07/26] net: add possibility to pass information
+ about upper device via notifier
+Date: Wed, 2 Dec 2015 07:28:35 +0200
+Message-ID: <CAJ3xEMgdqXYxOsk_aXKVnjKCM_D_U2BAETe9bgQOh6T17QvmjA@mail.gmail.com>
+References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
+	<1448977744-17930-8-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151201163939-mutt-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>, yotamg@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:33818 "EHLO
+	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750854AbbLBF2g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 00:28:36 -0500
+Received: by ioir85 with SMTP id r85so34592579ioi.1
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 21:28:35 -0800 (PST)
+In-Reply-To: <1448977744-17930-8-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 12/01/2015 10:43 PM, Michael S. Tsirkin wrote:
-> On Tue, Dec 01, 2015 at 01:17:49PM +0800, Jason Wang wrote:
->>
->> On 11/30/2015 06:44 PM, Michael S. Tsirkin wrote:
->>> On Wed, Nov 25, 2015 at 03:11:29PM +0800, Jason Wang wrote:
->>>>> This patch tries to poll for new added tx buffer or socket receive
->>>>> queue for a while at the end of tx/rx processing. The maximum time
->>>>> spent on polling were specified through a new kind of vring ioctl.
->>>>>
->>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>> One further enhancement would be to actually poll
->>> the underlying device. This should be reasonably
->>> straight-forward with macvtap (especially in the
->>> passthrough mode).
->>>
->>>
->> Yes, it is. I have some patches to do this by replacing
->> skb_queue_empty() with sk_busy_loop() but for tap.
-> We probably don't want to do this unconditionally, though.
+On Tue, Dec 1, 2015 at 3:48 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
 >
->> Tests does not show
->> any improvement but some regression.
-> Did you add code to call sk_mark_napi_id on tap then?
-> sk_busy_loop won't do anything useful without.
-
-Yes I did. Probably something wrong elsewhere.
-
+> Sometimes the drivers and other code would find it handy to know some
+> internal information about upper device being changed. So allow upper-code
+> to pass information down to notifier listeners during linking.
+[...]
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 9240157..fa3ed1d 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1204,7 +1204,7 @@ static int bond_master_upper_dev_link(struct net_device *bond_dev,
+>  {
+>         int err;
 >
->>  Maybe it's better to test macvtap.
-> Same thing ...
+> -       err = netdev_master_upper_dev_link(slave_dev, bond_dev, slave);
+> +       err = netdev_master_upper_dev_link(slave_dev, bond_dev, slave, NULL);
+>         if (err)
+>                 return err;
+>         slave_dev->flags |= IFF_SLAVE;
+> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+> index b37f8d1..f7b6ff7 100644
+> --- a/drivers/net/team/team.c
+> +++ b/drivers/net/team/team.c
+> @@ -1083,7 +1083,7 @@ static int team_upper_dev_link(struct net_device *dev,
+>  {
+>         int err;
 >
+> -       err = netdev_master_upper_dev_link(port_dev, dev, NULL);
+> +       err = netdev_master_upper_dev_link(port_dev, dev, NULL, NULL);
+>         if (err)
+>                 return err;
+>         port_dev->priv_flags |= IFF_TEAM_PORT;
+> diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+> index 59c5bdd..8944a49 100644
+> --- a/drivers/net/vrf.c
+> +++ b/drivers/net/vrf.c
+> @@ -624,7 +624,7 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+>                 goto out_fail;
+>         }
+>
+> -       ret = netdev_master_upper_dev_link(port_dev, dev, NULL);
+> +       ret = netdev_master_upper_dev_link(port_dev, dev, NULL, NULL);
+>         if (ret < 0)
+>                 goto out_unregister;
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index cca4111..a55be5b 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -2161,6 +2161,7 @@ struct netdev_notifier_changeupper_info {
+>         struct net_device *upper_dev; /* new upper dev */
+>         bool master; /* is upper dev master */
+>         bool linking; /* is the nofication for link or unlink */
+> +       void *upper_info; /* is upper dev info */
+
+not sure to follow what did you mean by "is upper dev info"...
+
+maybe remove the "is" and just make it "upper dev info"?
+
+>  };
