@@ -1,27 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/17][pull request] Intel Wired LAN Driver Updates
- 2015-12-01
-Date: Wed, 02 Dec 2015 15:42:19 -0500 (EST)
-Message-ID: <20151202.154219.402300747652964241.davem@davemloft.net>
-References: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [RESEND PATCH] arm64: bpf: add 'store immediate' instruction
+Date: Wed, 02 Dec 2015 15:42:55 -0500 (EST)
+Message-ID: <20151202.154255.1517598326520827612.davem@davemloft.net>
+References: <1448922247-5692-1-git-send-email-yang.shi@linaro.org>
+	<565E1D38.7020906@linaro.org>
+	<20151202091517.GA7311@arm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, john.ronciak@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49875 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752550AbbLBUmV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 15:42:21 -0500
-In-Reply-To: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yang.shi@linaro.org, ast@kernel.org, catalin.marinas@arm.com,
+	zlim.lnx@gmail.com, xi.wang@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linaro-kernel@lists.linaro.org
+To: will.deacon@arm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151202091517.GA7311@arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed,  2 Dec 2015 00:25:18 -0800
+From: Will Deacon <will.deacon@arm.com>
+Date: Wed, 2 Dec 2015 09:15:18 +0000
 
-> This series contains updates to i40e and i40evf only.
+> On Tue, Dec 01, 2015 at 02:20:40PM -0800, Shi, Yang wrote:
+>> On 11/30/2015 2:24 PM, Yang Shi wrote:
+>> >aarch64 doesn't have native store immediate instruction, such operation
+>> >has to be implemented by the below instruction sequence:
+>> >
+>> >Load immediate to register
+>> >Store register
+>> >
+>> >Signed-off-by: Yang Shi <yang.shi@linaro.org>
+>> >CC: Zi Shen Lim <zlim.lnx@gmail.com>
+>> 
+>> Had email exchange offline with Zi Shen Lim since he is traveling and cannot
+>> send text-only mail, quoted below for his reply:
+>> 
+>> "I've given reviewed-by in response to original posting. Unless something
+>> has changed, feel free to add it."
+>> 
+>> Since there is nothing changed, added his reviewed-by.
+>> 
+>> Reviewed-by: Zi Shen Lim <zlim.lnx@gmail.com>
+> 
+> I assume David will take this via netdev.
 
-Pulled, thanks Jeff.
+Yes, I will, thanks.
