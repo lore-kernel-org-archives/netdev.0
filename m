@@ -1,129 +1,79 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next v2 04/15] i40e: remove BUG_ON from feature string
- building
-Date: Tue, 01 Dec 2015 23:25:00 -0800
-Message-ID: <1449041100.3224.17.camel@intel.com>
-References: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1448475679-57194-5-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <5655FD72.70902@cogentembedded.com> <1448476535.3021.5.camel@intel.com>
-	 <1448480194.20113.48.camel@perches.com>
-	 <1449002936.1593.10.camel@perches.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: ipsec impact on performance
+Date: Wed, 2 Dec 2015 07:53:05 +0100
+Message-ID: <20151202065305.GB14008@secunet.com>
+References: <20151201175953.GC21252@oracle.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-nMC4nkYEf0l6URGmAKre"
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	John Ronciak <john.ronciak@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>
-To: Joe Perches <joe@perches.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <linux-crypto@vger.kernel.org>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:37880 "EHLO mga09.intel.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:46221 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750912AbbLBHZC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 02:25:02 -0500
-In-Reply-To: <1449002936.1593.10.camel@perches.com>
+	id S1751442AbbLBHck (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2015 02:32:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20151201175953.GC21252@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Dec 01, 2015 at 12:59:53PM -0500, Sowmini Varadhan wrote:
+> 
+> I instrumented iperf with and without ipsec, just using esp-null, 
+> and 1 thread, to keep things simple. I'm seeing some pretty dismal 
+> performance numbers with ipsec, and trying to think of ways to
+> improve this. Here are my findings, please share feedback.
+> 
+> I suspect that a big part of the problem is the implicit loss of GSO,
+> and this is made worse by some inefficiencies in the xfrm code:
+> for single stream iperf (to avoid effects of rx-hash), I see the
+> following on a 10G p2p ethernet link.
+>      8.5-9.5 Gbps clear traffic, TSO disabled, so GSO, GRO is in effect
+>      3-4 Gbps clear traffic, with both TSO/GSO disabled
+>      1.8-2 Gbps for esp-null.
+> So the above numbers suggest that losing TSO/GSO results in one
+> big drop in performance, and then there's another cliff for the 
+> clear -> esp-null transition. And those cliffs apply even if you are
+> merely doing TCP-MD5 or AO for basic protection of the TCP connection.
+> 
+> I tried moving things about a bit to defer the ipsec after GSO - I'll 
+> share my experimental patch as an RFC in a separate thread. (Disclaimer:
+> the patch is just an experiment at this point).
+> 
+> In that patch, I'm only focussing on esp-null and transp-mode ipsec
+> for now, just to get some basic performance numbers to see if this is 
+> at all interesting.  Essentially my hack mainly involves the following
+> 
+> - don't disable TSO in sk_setup_caps() if a dst->header_len is found
+> - in xfrm4_output, if GSO is applicable, bail out without esp header 
+>   addition - that will get done after skb_segment()
+> - at the end of tcp_gso_segment() (when tcp segment is available),
+>   set things up for xfrm_output_one and trigger the esp_output..
+>   I have to be very careful about setting up skb pointers here, since
+>   it looks like esp_output overloads the mac_header pointer e.g., for
+>   setting up the ip protocol field 
 
---=-nMC4nkYEf0l6URGmAKre
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I'm currently working on a GRO/GSO codepath for IPsec too. The GRO part
+works already. I decapsulate/decrypt the packets on layer2 with a esp GRO
+callback function and reinject them into napi_gro_receive(). So in case
+the decapsulated packet is TCP, GRO can aggregate big packets.
 
-On Tue, 2015-12-01 at 12:48 -0800, Joe Perches wrote:
-> On Wed, 2015-11-25 at 11:36 -0800, Joe Perches wrote:
-> > On Wed, 2015-11-25 at 10:35 -0800, Jeff Kirsher wrote:
-> > > On Wed, 2015-11-25 at 21:26 +0300, Sergei Shtylyov wrote:
-> > > > On 11/25/2015 09:21 PM, Jeff Kirsher wrote:
-> > > >=20
-> > > > > From: Shannon Nelson <shannon.nelson@intel.com>
-> > > > >=20
-> > > > > There's really no reason to kill the kernel thread just
-> because
-> > > > > of a
-> > > > > little info string. This reworks the code to use snprintf's
-> > > > > limiting to
-> > > > > assure that the string is never too long, and WARN_ON to
-> still
-> > > > > put out
-> > > > > a warning that we might want to look at the feature list
-> > > > > length.
-> > > > >=20
-> > > > > diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> > > > > b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> > []
-> > > > >=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 if (pf->flags & I40E_FL=
-AG_VEB_MODE_ENABLED)
-> > > > > -=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0 buf +=3D sprintf(buf, "VEB ");
-> > > > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0 i +=3D snprintf(&buf[i], REMAIN(i), "VEPA ");
-> > > >=20
-> > > >=C2=A0=C2=A0=C2=A0=C2=A0 Not "VEB "?
-> > >=20
-> > > Nice catch Sergei, I will wait a till this afternoon to respin
-> the
-> > > patch series, just in case there are other changes needed that
-> our
-> > > validation did not catch. :-)
-> >=20
-> > trivia:
-> >=20
-> > If you redo these, it'd be nicer not to use " " after each
-> > fixed string, but use " " before each fixed string.
-> >=20
-> > The final output string would be 1 byte shorter overall and
-> > not have an excess " " before the newline.
-> >=20
-> > The declaration of i doesn't need initialization to 0:
-> >=20
-> >=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0i =3D snprintf(buf, INFO_STRIN=
-G_LEN, "Features: PF-id[%d]", ...
-> >=20
-> > would work.
->=20
-> Maybe something like this patch (net-next)
->=20
-> Fix I40E_FLAG_VEB_MODE_ENABLED output of VEB
->=20
-> Miscellanea:
-> o Remove unnecessary string variable
-> o Add space before not after fixed strings
-> o Use kmalloc not kzalloc
-> o Don't initialize i to 0, use result of first snprintf
->=20
-> ---
-> =C2=A0drivers/net/ethernet/intel/i40e/i40e_main.c | 42 +++++++++++++----
-> ------------
-> =C2=A01 file changed, 19 insertions(+), 23 deletions(-)
+My approach to GSO is a bit different to yours. I focused on tunnel mode,
+but transport mode should work too. I encapsulate the big GSO packets
+but don't do the encryption. Then I've added a esp_gso_segment() function,
+so the (still not encrypted ESP packets) get segmented with GSO. Finally I
+do encryption for all segments. This works well as long as I do sync crypto.
+The hard part is when crypto returns async. This is what I'm working on now.
+I hope to get this ready during the next weeks that I can post a RFC version
+and some numbers.
 
-Looks fine Joe, can you send to intel-wired-lan@lists.osuosl.org=C2=A0maili=
-n
-g list? =C2=A0That way I can get it added to my queue and the other
-developers can properly review the change.
---=-nMC4nkYEf0l6URGmAKre
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Also I tried to consider the IPsec GRO/GSO codepath as a software fallback.
+So I added hooks for the encapsulation, encryption etc. If a NIC can do
+IPsec, it can use this hooks to prepare the packets the way it needs it.
+There are NICs that can do IPsec, it's just that our stack does not support
+it.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAABCgAGBQJWXpzMAAoJEOVv75VaS+3OaZEP/1VQbYjWwMEXzLLo4jiqy+8U
-k1PpD/Dvu1vIyiWUlsPWWaQwFa3D1W57QVq2NHkfpjubyhhyVjEY7f4oWMq0WqoH
-8pDFZyh/p0aEjRKtSTqFtxRgoHYL7KNm/swG4EwWQF3JCEBBonmKpr7zL0QcpfK4
-yrE+kTYxFri2DdFKY5s32lC3XW7d6KCH87pFTN1d9KLA0zCJQoOCTlAPftwG9TBL
-Z/lX/cVFN+HtRxCOrIxIfNl17jAkp7qHLmaSMD0Jpj7FbZdPOLfk2vvitV3Vehmz
-rNN5VLsOfnylz3O9K27szHn8I0AQ5xadGHI4x5WSCNdFMD2r0kqcWeBe+KYRwP+e
-65+wC/zPgLxgtGMix/tM7ZrSxGbnOol7xc69M42s4KV7vnzbfP26Rw6QN+XgHsXn
-fChduOZW3dFiT2RYDBMnljRLas/mg/3GhwIZ3ersT+ZajtK6QoWzLsd6dnIDAIMu
-tPpnNqOIPWqfPjiykQST2f5E7DvLVWnzrJYydVzGnWeJTfORrrJZ6+4T3O1V9cDg
-9kF8JalBHPbHtTfYTkVCbZJ6LQYS3ypJLmUDTqK7BULjsFhR8YXSmEx5czOkZWlv
-IyJNBoZjVT3XMTGRKhAKBc/TlapZ9p00PDuSJRXlbcoCjHOTZL7vP3NAPJYv+aRX
-jlA4avdVrg2KUNKweaCH
-=XnV7
------END PGP SIGNATURE-----
-
---=-nMC4nkYEf0l6URGmAKre--
+Another thing, I thought about setting up an IPsec BoF/workshop at
+netdev1.1. My main topic is GRO/GSO for IPsec. I'll send out a mail
+to the list later this week to see if there is enough interest and
+maybe some additional topics.
