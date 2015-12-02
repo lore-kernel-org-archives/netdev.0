@@ -1,46 +1,52 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: Add a SOCK_DESTROY operation to close sockets from userspace
-Date: Thu, 3 Dec 2015 00:18:10 +0900
-Message-ID: <CAKD1Yr2qyKCmfo75+OpsfqrUoFquXiA_GqwVr_BsU1AW5MmPbQ@mail.gmail.com>
-References: <CAHo-OoyN7OgvHSuXxjk7C4FitXhoWffOxY1wkQBWwi+nc013_w@mail.gmail.com>
- <1448937147-38043-1-git-send-email-lorenzo@google.com> <CALx6S36fb7C9-LCo5egFZyOo1mZ1A9kHN6xpgNUUQS=njQ8Y-g@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [patch net-next 00/26] bonding/team offload + mlxsw
+ implementation
+Date: Wed, 2 Dec 2015 16:27:18 +0100
+Message-ID: <20151202152718.GM29814@lunn.ch>
+References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
+ <20151201144300.GB2165@nanopsycho.orion>
+ <CAJ3xEMhMACJe_iK4PTrGwGFHzgGM=ccNKjVBoC6SUfCo0w7xFQ@mail.gmail.com>
+ <20151201151243.GC2165@nanopsycho.orion>
+ <CAJ3xEMjRQQoo=uU0qQ5Z9UmvS0_QjB2q_LUrpfBWLtTpHhd3qw@mail.gmail.com>
+ <20151201164719.GA2548@nanopsycho>
+ <CAJ3xEMiSA70nDsBWUmv=J6Cy2rt4+iNTg+4Yeqy=810etVAPZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Erik Kline <ek@google.com>,
-	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>, yotamg@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>, pjonnala@broadcom.com,
+	Jay Vosburgh <j.vosburgh@gmail.com>, vfalico@gmail.com,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f176.google.com ([209.85.160.176]:34407 "EHLO
-	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752494AbbLBPSb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 10:18:31 -0500
-Received: by ykfs79 with SMTP id s79so50319320ykf.1
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 07:18:30 -0800 (PST)
-In-Reply-To: <CALx6S36fb7C9-LCo5egFZyOo1mZ1A9kHN6xpgNUUQS=njQ8Y-g@mail.gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:51587 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752494AbbLBP1X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2015 10:27:23 -0500
+Content-Disposition: inline
+In-Reply-To: <CAJ3xEMiSA70nDsBWUmv=J6Cy2rt4+iNTg+4Yeqy=810etVAPZw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 1, 2015 at 11:53 AM, Tom Herbert <tom@herbertland.com> wrote:
-> This is awesome! The only thing I would suggest is to make
-> sock_destroy a proto_op so that it can be called from within the
-> kernel. This should be preferred to externally calling tcp_done
-> (hopefully we can unexport that symbol then).
+> Another question relates to users bonding/teaming netdevice ports from
+> different HW switches
 
-I'm not sure there is value in making it a proto op. The sock_diag
-code that finds the socket based on the netlink diag request is
-specific to both the protocol family (e.g., the sock_diag structures
-for inet and unix differ) and protocol (e.g., TCP, UDPv4 and UDPv6 use
-different hash tables).
+We need to be precises here.
 
-So even if we add a proto_op (or struct proto function pointer) to
-destroy a socket, we can't just have a generic function (or even an
-inet-specific function) that just finds a socket and does "return
-sk->sk_prot->diag_destroy(sk)" regardless of what protocol that socket
-is.
+DSA allows for a cluster of switches which are interconnected via
+switch ports. In this setup, the Marvell switches allows ports of
+different switches to be members of a trunk, which is Marvells name
+for a bond/team.
 
-The code does look better if the protocol-specific code is moved to a
-new tcp_abort function that just takes a pointer to the sk.
+The second possible setup would be multiple switch devices which are
+not interconnected. Packets would then have to be forwarded from one
+switch to another via the CPU when a bond/team is spread across
+switches.
+
+	Andrew
