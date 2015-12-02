@@ -1,451 +1,146 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next v7] mpls: support for dead routes
-Date: Tue,  1 Dec 2015 22:18:11 -0800
-Message-ID: <1449037091-12897-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: ebiederm@xmission.com, rshearma@brocade.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:35881 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751177AbbLBGSR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 01:18:17 -0500
-Received: by pacdm15 with SMTP id dm15so30534933pac.3
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 22:18:17 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [PATCH v2 0/5] Add virtio transport for AF_VSOCK
+Date: Wed,  2 Dec 2015 14:43:58 +0800
+Message-ID: <1449038643-25971-1-git-send-email-stefanha@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Stefan Hajnoczi <stefanha@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Matt Benjamin <mbenjamin@redhat.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>, matt.ma@linaro.org
+To: kvm@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+v2:
+ * Rebased onto Linux v4.4-rc2
+ * vhost: Refuse to assign reserved CIDs
+ * vhost: Refuse guest CID if already in use
+ * vhost: Only accept correctly addressed packets (no spoofing!)
+ * vhost: Support flexible rx/tx descriptor layout
+ * vhost: Add missing total_tx_buf decrement
+ * virtio_transport: Fix total_tx_buf accounting
+ * virtio_transport: Add virtio_transport global mutex to prevent races
+ * common: Notify other side of SOCK_STREAM disconnect (fixes shutdown
+   semantics)
+ * common: Avoid recursive mutex_lock(tx_lock) for write_space (fixes deadlock)
+ * common: Define VIRTIO_VSOCK_TYPE_STREAM/DGRAM hardware interface constants
+ * common: Define VIRTIO_VSOCK_SHUTDOWN_RCV/SEND hardware interface constants
+ * common: Fix peer_buf_alloc inheritance on child socket
 
-Adds support for RTNH_F_DEAD and RTNH_F_LINKDOWN flags on mpls
-routes due to link events. Also adds code to ignore dead
-routes during route selection.
+This patch series adds a virtio transport for AF_VSOCK (net/vmw_vsock/).
+AF_VSOCK is designed for communication between virtual machines and
+hypervisors.  It is currently only implemented for VMware's VMCI transport.
 
-Unlike ip routes, mpls routes are not deleted when the route goes
-dead. This is current mpls behaviour and this patch does not change
-that. With this patch however, routes will be marked dead.
-dead routes are not notified to userspace (this is consistent with ipv4
-routes).
+This series implements the proposed virtio-vsock device specification from
+here:
+http://comments.gmane.org/gmane.comp.emulators.virtio.devel/855
 
-dead routes:
------------
-$ip -f mpls route show
-100
-    nexthop as to 200 via inet 10.1.1.2  dev swp1
-    nexthop as to 700 via inet 10.1.1.6  dev swp2
+Most of the work was done by Asias He and Gerd Hoffmann a while back.  I have
+picked up the series again.
 
-$ip link set dev swp1 down
+The QEMU userspace changes are here:
+https://github.com/stefanha/qemu/commits/vsock
 
-$ip link show dev swp1
-4: swp1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN mode
-DEFAULT group default qlen 1000
-    link/ether 00:02:00:00:00:01 brd ff:ff:ff:ff:ff:ff
+Why virtio-vsock?
+-----------------
+Guest<->host communication is currently done over the virtio-serial device.
+This makes it hard to port sockets API-based applications and is limited to
+static ports.
 
-$ip -f mpls route show
-100
-    nexthop as to 200 via inet 10.1.1.2  dev swp1 dead linkdown
-    nexthop as to 700 via inet 10.1.1.6  dev swp2
+virtio-vsock uses the sockets API so that applications can rely on familiar
+SOCK_STREAM and SOCK_DGRAM semantics.  Applications on the host can easily
+connect to guest agents because the sockets API allows multiple connections to
+a listen socket (unlike virtio-serial).  This simplifies the guest<->host
+communication and eliminates the need for extra processes on the host to
+arbitrate virtio-serial ports.
 
-linkdown routes:
-----------------
-$ip -f mpls route show
-100
-    nexthop as to 200 via inet 10.1.1.2  dev swp1
-    nexthop as to 700 via inet 10.1.1.6  dev swp2
+Overview
+--------
+This series adds 3 pieces:
 
-$ip link show dev swp1
-4: swp1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-state UP mode DEFAULT group default qlen 1000
-    link/ether 00:02:00:00:00:01 brd ff:ff:ff:ff:ff:ff
+1. virtio_transport_common.ko - core virtio vsock code that uses vsock.ko
 
-/* carrier goes down */
-$ip link show dev swp1
-4: swp1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast
-state DOWN mode DEFAULT group default qlen 1000
-    link/ether 00:02:00:00:00:01 brd ff:ff:ff:ff:ff:ff
+2. virtio_transport.ko - guest driver
 
-$ip -f mpls route show
-100
-    nexthop as to 200 via inet 10.1.1.2  dev swp1 linkdown
-    nexthop as to 700 via inet 10.1.1.6  dev swp2
+3. drivers/vhost/vsock.ko - host driver
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
-RFC to v1:
-        Addressed a few comments from Eric and Robert:
-        - remove support for weighted nexthops
-        - Use rt_nhn_alive in the rt structure to keep count of alive
-        routes.
-        What i have not done is: sort nexthops on link events.
-        I am not comfortable recreating or sorting nexthops on
-        every carrier change. This leaves scope for optimizing in the
-future
+Howto
+-----
+The following kernel options are needed:
+  CONFIG_VSOCKETS=y
+  CONFIG_VIRTIO_VSOCKETS=y
+  CONFIG_VIRTIO_VSOCKETS_COMMON=y
+  CONFIG_VHOST_VSOCK=m
 
-v1 to v2:
-        Fix dead nexthop checks as suggested by dave
+Launch QEMU as follows:
+  # qemu ... -device vhost-vsock-pci,id=vhost-vsock-pci0,guest-cid=3
 
-v2 to v3:
-        Fix duplicated argument reported by kbuild test robot
+Guest and host can communicate via AF_VSOCK sockets.  The host's CID (address)
+is 2 and the guest is automatically assigned a CID (use VMADDR_CID_ANY (-1) to
+bind to it).
 
-v3 - v4:
-        - removed per route rt_flags and derive it from the nh_flags during dumps
-        - use kmemdup to make a copy of the route during route updates
-          due to link events
+Status
+------
+There are a few design changes I'd like to make to the virtio-vsock device:
 
-v4 -v5
-	- if kmemdup fails, modify the original route in place. This is a
-	corner case and only side effect is that in the remote case
-	of kmemdup failure, the changes will not be atomically visible
-	to datapath.
-	- replace for_nexthops with change_nexthops in a bunch of places.
-	- fix indent
+1. The 3-way handshake isn't necessary over a reliable transport (virtqueue).
+   Spoofing packets is also impossible so the security aspects of the 3-way
+   handshake (including syn cookie) add nothing.  The next version will have a
+   single operation to establish a connection.
 
-v5 - v6
-	- update routes in place in mpls netdev notifier handlers. 
-	the additional kmemdup complexity and failure path recovery
-	does not seem necessary to support the transient atomic update
-	case
+2. Credit-based flow control doesn't work for SOCK_DGRAM since multiple clients
+   can transmit to the same listen socket.  There is no way for the clients to
+   coordinate buffer space with each other fairly.  The next version will drop
+   credit-based flow control for SOCK_DGRAM and only rely on best-effort
+   delivery.  SOCK_STREAM still has guaranteed delivery.
 
-v6 - v7
-	- Use ACCESS_ONCE when accessing rt_nhn_alive from notifiers and
-	  datapath as suggested by Robert
+3. In the next version only the host will be able to establish connections
+   (i.e. to connect to a guest agent).  This is for security reasons since
+   there is currently no ability to provide host services only to certain
+   guests.  This also matches how AF_VSOCK works on modern VMware hypervisors.
 
- net/mpls/af_mpls.c  | 185 ++++++++++++++++++++++++++++++++++++++++++++--------
- net/mpls/internal.h |   2 +
- 2 files changed, 159 insertions(+), 28 deletions(-)
+Asias He (5):
+  VSOCK: Introduce vsock_find_unbound_socket and
+    vsock_bind_dgram_generic
+  VSOCK: Introduce virtio-vsock-common.ko
+  VSOCK: Introduce virtio-vsock.ko
+  VSOCK: Introduce vhost-vsock.ko
+  VSOCK: Add Makefile and Kconfig
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index c70d750..4b3b9b3 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -96,22 +96,15 @@ bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
- }
- EXPORT_SYMBOL_GPL(mpls_pkt_too_big);
- 
--static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
--					     struct sk_buff *skb, bool bos)
-+static u32 mpls_multipath_hash(struct mpls_route *rt,
-+			       struct sk_buff *skb, bool bos)
- {
- 	struct mpls_entry_decoded dec;
- 	struct mpls_shim_hdr *hdr;
- 	bool eli_seen = false;
- 	int label_index;
--	int nh_index = 0;
- 	u32 hash = 0;
- 
--	/* No need to look further into packet if there's only
--	 * one path
--	 */
--	if (rt->rt_nhn == 1)
--		goto out;
--
- 	for (label_index = 0; label_index < MAX_MP_SELECT_LABELS && !bos;
- 	     label_index++) {
- 		if (!pskb_may_pull(skb, sizeof(*hdr) * label_index))
-@@ -165,7 +158,38 @@ static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
- 		}
- 	}
- 
--	nh_index = hash % rt->rt_nhn;
-+	return hash;
-+}
-+
-+static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
-+					     struct sk_buff *skb, bool bos)
-+{
-+	int alive = ACCESS_ONCE(rt->rt_nhn_alive);
-+	u32 hash = 0;
-+	int nh_index = 0;
-+	int n = 0;
-+
-+	/* No need to look further into packet if there's only
-+	 * one path
-+	 */
-+	if (rt->rt_nhn == 1)
-+		goto out;
-+
-+	if (alive <= 0)
-+		return NULL;
-+
-+	hash = mpls_multipath_hash(rt, skb, bos);
-+	nh_index = hash % alive;
-+	if (alive == rt->rt_nhn)
-+		goto out;
-+	for_nexthops(rt) {
-+		if (nh->nh_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
-+			continue;
-+		if (n == nh_index)
-+			return nh;
-+		n++;
-+	} endfor_nexthops(rt);
-+
- out:
- 	return &rt->rt_nh[nh_index];
- }
-@@ -365,6 +389,7 @@ static struct mpls_route *mpls_rt_alloc(int num_nh, u8 max_alen)
- 		     GFP_KERNEL);
- 	if (rt) {
- 		rt->rt_nhn = num_nh;
-+		rt->rt_nhn_alive = num_nh;
- 		rt->rt_max_alen = max_alen_aligned;
- 	}
- 
-@@ -536,6 +561,16 @@ static int mpls_nh_assign_dev(struct net *net, struct mpls_route *rt,
- 
- 	RCU_INIT_POINTER(nh->nh_dev, dev);
- 
-+	if (!(dev->flags & IFF_UP)) {
-+		nh->nh_flags |= RTNH_F_DEAD;
-+	} else {
-+		unsigned int flags;
-+
-+		flags = dev_get_flags(dev);
-+		if (!(flags & (IFF_RUNNING | IFF_LOWER_UP)))
-+			nh->nh_flags |= RTNH_F_LINKDOWN;
-+	}
-+
- 	return 0;
- 
- errout:
-@@ -570,6 +605,9 @@ static int mpls_nh_build_from_cfg(struct mpls_route_config *cfg,
- 	if (err)
- 		goto errout;
- 
-+	if (nh->nh_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
-+		rt->rt_nhn_alive--;
-+
- 	return 0;
- 
- errout:
-@@ -577,8 +615,8 @@ errout:
- }
- 
- static int mpls_nh_build(struct net *net, struct mpls_route *rt,
--			 struct mpls_nh *nh, int oif,
--			 struct nlattr *via, struct nlattr *newdst)
-+			 struct mpls_nh *nh, int oif, struct nlattr *via,
-+			 struct nlattr *newdst)
- {
- 	int err = -ENOMEM;
- 
-@@ -681,11 +719,13 @@ static int mpls_nh_build_multi(struct mpls_route_config *cfg,
- 			goto errout;
- 
- 		err = mpls_nh_build(cfg->rc_nlinfo.nl_net, rt, nh,
--				    rtnh->rtnh_ifindex, nla_via,
--				    nla_newdst);
-+				    rtnh->rtnh_ifindex, nla_via, nla_newdst);
- 		if (err)
- 			goto errout;
- 
-+		if (nh->nh_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
-+			rt->rt_nhn_alive--;
-+
- 		rtnh = rtnh_next(rtnh, &remaining);
- 		nhs++;
- 	} endfor_nexthops(rt);
-@@ -875,34 +915,74 @@ free:
- 	return ERR_PTR(err);
- }
- 
--static void mpls_ifdown(struct net_device *dev)
-+static void mpls_ifdown(struct net_device *dev, int event)
- {
- 	struct mpls_route __rcu **platform_label;
- 	struct net *net = dev_net(dev);
--	struct mpls_dev *mdev;
- 	unsigned index;
- 
- 	platform_label = rtnl_dereference(net->mpls.platform_label);
- 	for (index = 0; index < net->mpls.platform_labels; index++) {
- 		struct mpls_route *rt = rtnl_dereference(platform_label[index]);
-+
- 		if (!rt)
- 			continue;
--		for_nexthops(rt) {
-+
-+		change_nexthops(rt) {
- 			if (rtnl_dereference(nh->nh_dev) != dev)
- 				continue;
--			nh->nh_dev = NULL;
-+			switch (event) {
-+			case NETDEV_DOWN:
-+			case NETDEV_UNREGISTER:
-+				nh->nh_flags |= RTNH_F_DEAD;
-+				/* fall through */
-+			case NETDEV_CHANGE:
-+				nh->nh_flags |= RTNH_F_LINKDOWN;
-+				ACCESS_ONCE(rt->rt_nhn_alive) = rt->rt_nhn_alive - 1;
-+				break;
-+			}
-+			if (event == NETDEV_UNREGISTER)
-+				RCU_INIT_POINTER(nh->nh_dev, NULL);
- 		} endfor_nexthops(rt);
- 	}
- 
--	mdev = mpls_dev_get(dev);
--	if (!mdev)
--		return;
- 
--	mpls_dev_sysctl_unregister(mdev);
-+	return;
-+}
-+
-+static void mpls_ifup(struct net_device *dev, unsigned int nh_flags)
-+{
-+	struct mpls_route __rcu **platform_label;
-+	struct net *net = dev_net(dev);
-+	unsigned index;
-+	int alive;
-+
-+	platform_label = rtnl_dereference(net->mpls.platform_label);
-+	for (index = 0; index < net->mpls.platform_labels; index++) {
-+		struct mpls_route *rt = rtnl_dereference(platform_label[index]);
-+
-+		if (!rt)
-+			continue;
-+
-+		alive = 0;
-+		change_nexthops(rt) {
-+			struct net_device *nh_dev =
-+				rtnl_dereference(nh->nh_dev);
-+
-+			if (!(nh->nh_flags & nh_flags)) {
-+				alive++;
-+				continue;
-+			}
-+			if (nh_dev != dev)
-+				continue;
-+			alive++;
-+			nh->nh_flags &= ~nh_flags;
-+		} endfor_nexthops(rt);
- 
--	RCU_INIT_POINTER(dev->mpls_ptr, NULL);
-+		ACCESS_ONCE(rt->rt_nhn_alive) = alive;
-+	}
- 
--	kfree_rcu(mdev, rcu);
-+	return;
- }
- 
- static int mpls_dev_notify(struct notifier_block *this, unsigned long event,
-@@ -910,9 +990,9 @@ static int mpls_dev_notify(struct notifier_block *this, unsigned long event,
- {
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
- 	struct mpls_dev *mdev;
-+	unsigned int flags;
- 
--	switch(event) {
--	case NETDEV_REGISTER:
-+	if (event == NETDEV_REGISTER) {
- 		/* For now just support ethernet devices */
- 		if ((dev->type == ARPHRD_ETHER) ||
- 		    (dev->type == ARPHRD_LOOPBACK)) {
-@@ -920,10 +1000,39 @@ static int mpls_dev_notify(struct notifier_block *this, unsigned long event,
- 			if (IS_ERR(mdev))
- 				return notifier_from_errno(PTR_ERR(mdev));
- 		}
--		break;
-+		return NOTIFY_OK;
-+	}
- 
-+	mdev = mpls_dev_get(dev);
-+	if (!mdev)
-+		return NOTIFY_OK;
-+
-+	switch (event) {
-+	case NETDEV_DOWN:
-+		mpls_ifdown(dev, event);
-+		break;
-+	case NETDEV_UP:
-+		flags = dev_get_flags(dev);
-+		if (flags & (IFF_RUNNING | IFF_LOWER_UP))
-+			mpls_ifup(dev, RTNH_F_DEAD | RTNH_F_LINKDOWN);
-+		else
-+			mpls_ifup(dev, RTNH_F_DEAD);
-+		break;
-+	case NETDEV_CHANGE:
-+		flags = dev_get_flags(dev);
-+		if (flags & (IFF_RUNNING | IFF_LOWER_UP))
-+			mpls_ifup(dev, RTNH_F_DEAD | RTNH_F_LINKDOWN);
-+		else
-+			mpls_ifdown(dev, event);
-+		break;
- 	case NETDEV_UNREGISTER:
--		mpls_ifdown(dev);
-+		mpls_ifdown(dev, event);
-+		mdev = mpls_dev_get(dev);
-+		if (mdev) {
-+			mpls_dev_sysctl_unregister(mdev);
-+			RCU_INIT_POINTER(dev->mpls_ptr, NULL);
-+			kfree_rcu(mdev, rcu);
-+		}
- 		break;
- 	case NETDEV_CHANGENAME:
- 		mdev = mpls_dev_get(dev);
-@@ -1237,9 +1346,15 @@ static int mpls_dump_route(struct sk_buff *skb, u32 portid, u32 seq, int event,
- 		dev = rtnl_dereference(nh->nh_dev);
- 		if (dev && nla_put_u32(skb, RTA_OIF, dev->ifindex))
- 			goto nla_put_failure;
-+		if (nh->nh_flags & RTNH_F_LINKDOWN)
-+			rtm->rtm_flags |= RTNH_F_LINKDOWN;
-+		if (nh->nh_flags & RTNH_F_DEAD)
-+			rtm->rtm_flags |= RTNH_F_DEAD;
- 	} else {
- 		struct rtnexthop *rtnh;
- 		struct nlattr *mp;
-+		int dead = 0;
-+		int linkdown = 0;
- 
- 		mp = nla_nest_start(skb, RTA_MULTIPATH);
- 		if (!mp)
-@@ -1253,6 +1368,15 @@ static int mpls_dump_route(struct sk_buff *skb, u32 portid, u32 seq, int event,
- 			dev = rtnl_dereference(nh->nh_dev);
- 			if (dev)
- 				rtnh->rtnh_ifindex = dev->ifindex;
-+			if (nh->nh_flags & RTNH_F_LINKDOWN) {
-+				rtnh->rtnh_flags |= RTNH_F_LINKDOWN;
-+				linkdown++;
-+			}
-+			if (nh->nh_flags & RTNH_F_DEAD) {
-+				rtnh->rtnh_flags |= RTNH_F_DEAD;
-+				dead++;
-+			}
-+
- 			if (nh->nh_labels && nla_put_labels(skb, RTA_NEWDST,
- 							    nh->nh_labels,
- 							    nh->nh_label))
-@@ -1266,6 +1390,11 @@ static int mpls_dump_route(struct sk_buff *skb, u32 portid, u32 seq, int event,
- 			rtnh->rtnh_len = nlmsg_get_pos(skb) - (void *)rtnh;
- 		} endfor_nexthops(rt);
- 
-+		if (linkdown == rt->rt_nhn)
-+			rtm->rtm_flags |= RTNH_F_LINKDOWN;
-+		if (dead == rt->rt_nhn)
-+			rtm->rtm_flags |= RTNH_F_DEAD;
-+
- 		nla_nest_end(skb, mp);
- 	}
- 
-diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-index bde52ce..732a5c1 100644
---- a/net/mpls/internal.h
-+++ b/net/mpls/internal.h
-@@ -41,6 +41,7 @@ enum mpls_payload_type {
- 
- struct mpls_nh { /* next hop label forwarding entry */
- 	struct net_device __rcu *nh_dev;
-+	unsigned int		nh_flags;
- 	u32			nh_label[MAX_NEW_LABELS];
- 	u8			nh_labels;
- 	u8			nh_via_alen;
-@@ -74,6 +75,7 @@ struct mpls_route { /* next hop label forwarding entry */
- 	u8			rt_payload_type;
- 	u8			rt_max_alen;
- 	unsigned int		rt_nhn;
-+	unsigned int		rt_nhn_alive;
- 	struct mpls_nh		rt_nh[0];
- };
- 
+ drivers/vhost/Kconfig                   |    4 +
+ drivers/vhost/Kconfig.vsock             |    7 +
+ drivers/vhost/Makefile                  |    4 +
+ drivers/vhost/vsock.c                   |  631 +++++++++++++++
+ drivers/vhost/vsock.h                   |    4 +
+ include/linux/virtio_vsock.h            |  209 +++++
+ include/net/af_vsock.h                  |    2 +
+ include/uapi/linux/virtio_ids.h         |    1 +
+ include/uapi/linux/virtio_vsock.h       |   89 +++
+ net/vmw_vsock/Kconfig                   |   18 +
+ net/vmw_vsock/Makefile                  |    2 +
+ net/vmw_vsock/af_vsock.c                |   70 ++
+ net/vmw_vsock/virtio_transport.c        |  466 +++++++++++
+ net/vmw_vsock/virtio_transport_common.c | 1272 +++++++++++++++++++++++++++++++
+ 14 files changed, 2779 insertions(+)
+ create mode 100644 drivers/vhost/Kconfig.vsock
+ create mode 100644 drivers/vhost/vsock.c
+ create mode 100644 drivers/vhost/vsock.h
+ create mode 100644 include/linux/virtio_vsock.h
+ create mode 100644 include/uapi/linux/virtio_vsock.h
+ create mode 100644 net/vmw_vsock/virtio_transport.c
+ create mode 100644 net/vmw_vsock/virtio_transport_common.c
+
 -- 
-1.9.1
+2.5.0
