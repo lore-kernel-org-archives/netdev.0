@@ -1,47 +1,61 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/17] i40e: fix confusing message
-Date: Wed,  2 Dec 2015 00:25:28 -0800
-Message-ID: <1449044735-68599-11-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Helin Zhang <helin.zhang@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:44579 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757565AbbLBIZm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 03:25:42 -0500
-In-Reply-To: <1449044735-68599-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH 00/13] mvneta Buffer Management and enhancements
+Date: Wed, 2 Dec 2015 09:26:23 +0100
+Message-ID: <CAPv3WKcKm3X3Lys2HwYZXaZxPaajenF7av1wJKXqKxxwibXW4A@mail.gmail.com>
+References: <CAPv3WKc4zSmjtw_FeePCVCaq_aUubbCw_ggtxgxs0-7LwL7fHQ@mail.gmail.com>
+	<20151129.210210.1777978635596463961.davem@davemloft.net>
+	<CAPv3WKcHnJHCvg63Vs79RboNOuESU8jCLouKPRW4NdptAd_hag@mail.gmail.com>
+	<20151130.112500.293198684175670933.davem@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@redhat.com>, linux-kernel@vger.kernel.org,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Yair Mahalalel <myair@marvell.com>,
+	Grzegorz Jaszczyk <jaz@semihalf.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Evan Wang <xswang@marvell.com>, nadavh@marvell.com,
+	Lior Amsalem <alior@marvell.com>,
+	Tomasz Nowicki <tn@semihalf.com>,
+	=?UTF-8?Q?Gregory_Cl=C3=A9ment?=
+	<gregory.clement@free-electrons.com>, nitroshift@yahoo.com,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151130.112500.293198684175670933.davem@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Helin Zhang <helin.zhang@intel.com>
+Hi Florian,
 
-This patch fixes the confusing kernel message of enabled RSS size,
-by reporting it together with the hardware maximum RSS size.
+Can you please describe in more details, what would you expect from
+such special abstraction layer regarding buffer managers? I'd like to
+understand more of your expectations and evaluate possible work.
 
-Change-ID: I64864dbfbc13beccc180a7871680def1f3d5a339
-Signed-off-by: Helin Zhang <helin.zhang@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Best regards,
+Marcin
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 508cf9a..4e9d6e5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8110,7 +8110,8 @@ int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count)
- 
- 		i40e_pf_config_rss(pf);
- 	}
--	dev_info(&pf->pdev->dev, "RSS count:  %d\n", pf->alloc_rss_size);
-+	dev_info(&pf->pdev->dev, "RSS count/HW max RSS count:  %d/%d\n",
-+		 pf->alloc_rss_size, pf->rss_size_max);
- 	return pf->alloc_rss_size;
- }
- 
--- 
-2.5.0
+2015-11-30 17:25 GMT+01:00 David Miller <davem@redhat.com>:
+> From: Marcin Wojtas <mw@semihalf.com>
+> Date: Mon, 30 Nov 2015 15:13:22 +0100
+>
+>> What kind of abstraction and helpers do you mean? Some kind of API
+>> (e.g. bm_alloc_buffer, bm_initialize_ring bm_put_buffer,
+>> bm_get_buffer), which would be used by platform drivers (and specific
+>> aplications if one wants to develop on top of the kernel)?
+>>
+>> In general, what is your top-view of such solution and its cooperation
+>> with the drivers?
+>
+> The tricky parts involved have to do with allocating pages for the
+> buffer pools and minimizing the number of atomic refcounting
+> operations on those pages for for the puts and gets, particularly
+> around buffer replenish runs.
+>
+> For example, if you're allocating a page for a buffer pool the device
+> will chop into N (for any N < PAGE_SIZE) byte pieces, you can
+> eliminate many atomic operations.
