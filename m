@@ -1,68 +1,47 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 16/26] bonding: implement lower state change
- propagation
-Date: Wed, 2 Dec 2015 12:56:28 +0100
-Message-ID: <20151202115628.GJ2355@nanopsycho.orion>
-References: <1448977744-17930-1-git-send-email-jiri@resnulli.us>
- <1448977744-17930-17-git-send-email-jiri@resnulli.us>
- <565ED8C3.3090709@cumulusnetworks.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: ipsec impact on performance
+Date: Wed, 2 Dec 2015 11:56:45 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBE0ED7@AcuExch.aculab.com>
+References: <20151201175953.GC21252@oracle.com>
+ <CALx6S35uLqbuJTAFLMeT-BcyZw_fksz+7BkS=Nt7_3-nYMHF2A@mail.gmail.com>
+ <20151201183720.GE21252@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>
+To: 'Sowmini Varadhan' <sowmini.varadhan@oracle.com>,
+	Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:35115 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756697AbbLBL4a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 06:56:30 -0500
-Received: by wmuu63 with SMTP id u63so211509890wmu.0
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 03:56:29 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <565ED8C3.3090709@cumulusnetworks.com>
+Received: from smtp-out6.electric.net ([192.162.217.193]:57670 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751609AbbLBL6N convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 06:58:13 -0500
+In-Reply-To: <20151201183720.GE21252@oracle.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Dec 02, 2015 at 12:40:51PM CET, nikolay@cumulusnetworks.com wrote:
->On 12/01/2015 02:48 PM, Jiri Pirko wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
->> 
->> Let netdev notifier listeners know about link and slave state change.
->> 
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->>  drivers/net/bonding/bond_main.c | 10 ++++++++++
->>  include/net/bonding.h           |  7 +++++++
->>  2 files changed, 17 insertions(+)
->> 
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index c9943fc..e153a87 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -1315,6 +1315,16 @@ void bond_queue_slave_event(struct slave *slave)
->>  	queue_delayed_work(slave->bond->wq, &nnw->work, 0);
->>  }
->>  
->> +void bond_lower_state_changed(struct slave *slave)
->> +{
->> +	struct netdev_lag_lower_state_info info;
->> +
->> +	info.link_up = slave->link == BOND_LINK_UP ||
->> +		       slave->link == BOND_LINK_FAIL;
->> +	info.tx_enabled = bond_is_active_slave(slave);
->> +	netdev_lower_state_changed(slave->dev, &info);
->> +}
->> +
->
->Hmm, but does this tell the listeners what changed ? I think it just
->sends the current slave state and the listener has to decide what has
->changed.
->For example, right now it's possible for multiple identical events to
->be sent (e.g. set_inactive_flags called two times on release, once because
->of curr_active_slave change and second because of your set), the listeners
->should be able to cope with that. For this same example I see that the mlxsw
->will call mlxsw_sp_port_lag_changed() two times with the same values in that
->case. I'm not saying this is necessarily bad, just noting it. :-)
+From: Sowmini Varadhan
+> Sent: 01 December 2015 18:37
+...
+> I was using esp-null merely to not have the crypto itself perturb
+> the numbers (i.e., just focus on the s/w overhead for now), but here
+> are the numbers for the stock linux kernel stack
+>                 Gbps  peak cpu util
+> esp-null         1.8   71%
+> aes-gcm-c-256    1.6   79%
+> aes-ccm-a-128    0.7   96%
+> 
+> That trend made me think that if we can get esp-null to be as close
+> as possible to GSO/GRO, the rest will follow closely behind.
 
-Yes, I'm aware of that. I think it is okay. Drivers know about this will
-happen and should be prepared.
+That's not how I read those figures.
+They imply to me that there is a massive cost for the actual encryption
+(particularly for aes-ccm-a-128) - so whatever you do to the esp-null
+case won't help.
+
+One way to get a view of the cost of the encryption (and copies)
+is to do the operation twice.
+
+	David
