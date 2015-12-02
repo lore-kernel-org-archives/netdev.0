@@ -1,7 +1,7 @@
 From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH v2 2/5] net: thunderx: Wait for delayed work to finish before destroying it
-Date: Wed,  2 Dec 2015 15:36:14 +0530
-Message-ID: <1449050777-37836-3-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH v2 1/5] net: thunderx: Force to load octeon-mdio before bgx driver.
+Date: Wed,  2 Dec 2015 15:36:13 +0530
+Message-ID: <1449050777-37836-2-git-send-email-sunil.kovvuri@gmail.com>
 References: <1449050777-37836-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Sunil.Goutham@caviumnetworks.com,
@@ -15,43 +15,38 @@ List-Id: netdev.vger.kernel.org
 
 From: Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
 
-While VNIC or BGX driver teardown, wait for already scheduled delayed work to
-finish before destroying it.
-
 Signed-off-by: Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic_main.c    |    3 +--
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c |    3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c |    3 +++
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.h |    1 +
+ 2 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index c561fdc..cfc24a1 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -1074,8 +1074,7 @@ static void nic_remove(struct pci_dev *pdev)
- 
- 	if (nic->check_link) {
- 		/* Destroy work Queue */
--		cancel_delayed_work(&nic->dwork);
--		flush_workqueue(nic->check_link);
-+		cancel_delayed_work_sync(&nic->dwork);
- 		destroy_workqueue(nic->check_link);
- 	}
- 
 diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 2574a7e..6534b73 100644
+index 180aa9f..2574a7e 100644
 --- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
 +++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -695,8 +695,7 @@ static void bgx_lmac_disable(struct bgx *bgx, u8 lmacid)
- 	lmac = &bgx->lmac[lmacid];
- 	if (lmac->check_link) {
- 		/* Destroy work queue */
--		cancel_delayed_work(&lmac->dwork);
--		flush_workqueue(lmac->check_link);
-+		cancel_delayed_work_sync(&lmac->dwork);
- 		destroy_workqueue(lmac->check_link);
- 	}
+@@ -1009,6 +1009,9 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	struct bgx *bgx = NULL;
+ 	u8 lmac;
  
++	/* Load octeon mdio driver */
++	octeon_mdiobus_force_mod_depencency();
++
+ 	bgx = devm_kzalloc(dev, sizeof(*bgx), GFP_KERNEL);
+ 	if (!bgx)
+ 		return -ENOMEM;
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
+index 07b7ec6..89a02fa 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
+@@ -182,6 +182,7 @@ enum MCAST_MODE {
+ #define BCAST_ACCEPT	1
+ #define CAM_ACCEPT	1
+ 
++void octeon_mdiobus_force_mod_depencency(void);
+ void bgx_add_dmac_addr(u64 dmac, int node, int bgx_idx, int lmac);
+ unsigned bgx_get_map(int node);
+ int bgx_get_lmac_count(int node, int bgx);
 -- 
 1.7.1
