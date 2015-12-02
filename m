@@ -1,146 +1,96 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next v3 3/5] netlink: add a start callback for starting a netlink dump
-Date: Wed, 2 Dec 2015 14:13:26 -0800
-Message-ID: <1449094408-2963234-4-git-send-email-tom@herbertland.com>
-References: <1449094408-2963234-1-git-send-email-tom@herbertland.com>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH 00/13] mvneta Buffer Management and enhancements
+Date: Wed, 2 Dec 2015 23:15:23 +0100
+Message-ID: <CAPv3WKdHu5O2KEHYpWBHbkA2hHd_QCUK12EBggMDsa8J8D5U2Q@mail.gmail.com>
+References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
+	<87lh9f4dbt.fsf@free-electrons.com>
+	<CAPv3WKc+HbirDxKy5n6W5O5BUTDEc3X5et5dTKdp81WOXjphGg@mail.gmail.com>
+	<874mg248jf.fsf@free-electrons.com>
+	<CAPv3WKc8VrgH+aAfHBMwvuOxP17SnXCajtzpxmXf4rt+WFcE-w@mail.gmail.com>
+	<CAPv3WKdAhk71HW8nvMWXUApySE5_WNgx4PDrj4+R4Tv6FVGNqA@mail.gmail.com>
+	<87si3l2kx5.fsf@free-electrons.com>
+	<87two0254c.fsf@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36015 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755306AbbLBWNl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 17:13:41 -0500
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id tB2M9eoV015658
-	for <netdev@vger.kernel.org>; Wed, 2 Dec 2015 14:13:40 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1yhu1xc3jg-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 14:13:40 -0800
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.223.101.97) with ESMTP	id
- f025e63c994111e5bff124be0595f910-121fa230 for <netdev@vger.kernel.org>;	Wed,
- 02 Dec 2015 14:13:38 -0800
-In-Reply-To: <1449094408-2963234-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Yair Mahalalel <myair@marvell.com>, netdev@vger.kernel.org,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	linux-kernel@vger.kernel.org, Evan Wang <xswang@marvell.com>,
+	Tomasz Nowicki <tn@semihalf.com>, nadavh@marvell.com,
+	Lior Amsalem <alior@marvell.com>,
+	Grzegorz Jaszczyk <jaz@semihalf.com>, nitroshift@yahoo.com,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87two0254c.fsf@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The start callback allows the caller to set up a context for the
-dump callbacks. Presumably, the context can then be destroyed in
-the done callback.
+Hi Gregory,
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- include/linux/netlink.h  |  2 ++
- include/net/genetlink.h  |  2 ++
- net/netlink/af_netlink.c |  4 ++++
- net/netlink/genetlink.c  | 16 ++++++++++++++++
- 4 files changed, 24 insertions(+)
+2015-12-02 17:21 GMT+01:00 Gregory CLEMENT <gregory.clement@free-electr=
+ons.com>:
+> Hi,
+>
+>  On mer., d=C3=A9c. 02 2015, Gregory CLEMENT <gregory.clement@free-el=
+ectrons.com> wrote:
+>
+>>>
+>>> So far the issue may have been not noticed, because in every IO dri=
+ver
+>>> using mvebu_mbus_dram_info for configuring MBUS windows, there's
+>>> following substraction:
+>>> (cs->size - 1) & 0xfffff000
+>>>
+>>> I think there are two options:
+>>> 1. Change size type to u64.
+>>
+>> If we switch to u64 we really must pay attention to be sure that it
+>> won't be used to be written in a register, but the regsiter remains
+>> 32bits.
+>>
+>>> 2. Change condition in mvebu_mbus_get_dram_win_info to:
+>>> if (cs->base <=3D phyaddr && phyaddr <=3D (cs->base + cs->size -1))
+>>
+>> I think it would be the best solution.
+>
+> So I applied the following patch:
+> --- a/drivers/bus/mvebu-mbus.c
+> +++ b/drivers/bus/mvebu-mbus.c
+> @@ -964,7 +964,7 @@ int mvebu_mbus_get_dram_win_info(phys_addr_t phya=
+ddr, u8 *target, u8 *attr)
+>         for (i =3D 0; i < dram->num_cs; i++) {
+>                 const struct mbus_dram_window *cs =3D dram->cs + i;
+>
+> -               if (cs->base <=3D phyaddr && phyaddr <=3D (cs->base +=
+ cs->size)) {
+> +               if (cs->base <=3D phyaddr && phyaddr <=3D (cs->base +=
+ cs->size - 1)) {
+>                         *target =3D dram->mbus_dram_target_id;
+>                         *attr =3D cs->mbus_attr;
+>                         return 0;
+>
+> I didn't get any errors during boot related to the BM. However I did =
+not
+> manage to use an ethernet interface. The udhcpc never managed to get =
+an
+> IP and if I set the IP manually I could not ping.
+>
+> But on Armada 388 GP I didn't have any issue.
+>
+> Do you have some idea about waht I could check?
+>
 
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index 639e9b8..0b41959 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -131,6 +131,7 @@ netlink_skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
- struct netlink_callback {
- 	struct sk_buff		*skb;
- 	const struct nlmsghdr	*nlh;
-+	int			(*start)(struct netlink_callback *);
- 	int			(*dump)(struct sk_buff * skb,
- 					struct netlink_callback *cb);
- 	int			(*done)(struct netlink_callback *cb);
-@@ -153,6 +154,7 @@ struct nlmsghdr *
- __nlmsg_put(struct sk_buff *skb, u32 portid, u32 seq, int type, int len, int flags);
- 
- struct netlink_dump_control {
-+	int (*start)(struct netlink_callback *);
- 	int (*dump)(struct sk_buff *skb, struct netlink_callback *);
- 	int (*done)(struct netlink_callback *);
- 	void *data;
-diff --git a/include/net/genetlink.h b/include/net/genetlink.h
-index 1b6b6dc..43c0e77 100644
---- a/include/net/genetlink.h
-+++ b/include/net/genetlink.h
-@@ -114,6 +114,7 @@ static inline void genl_info_net_set(struct genl_info *info, struct net *net)
-  * @flags: flags
-  * @policy: attribute validation policy
-  * @doit: standard command callback
-+ * @start: start callback for dumps
-  * @dumpit: callback for dumpers
-  * @done: completion callback for dumps
-  * @ops_list: operations list
-@@ -122,6 +123,7 @@ struct genl_ops {
- 	const struct nla_policy	*policy;
- 	int		       (*doit)(struct sk_buff *skb,
- 				       struct genl_info *info);
-+	int		       (*start)(struct netlink_callback *cb);
- 	int		       (*dumpit)(struct sk_buff *skb,
- 					 struct netlink_callback *cb);
- 	int		       (*done)(struct netlink_callback *cb);
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 59651af..81dc1bb 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2915,6 +2915,7 @@ int __netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
- 
- 	cb = &nlk->cb;
- 	memset(cb, 0, sizeof(*cb));
-+	cb->start = control->start;
- 	cb->dump = control->dump;
- 	cb->done = control->done;
- 	cb->nlh = nlh;
-@@ -2927,6 +2928,9 @@ int __netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
- 
- 	mutex_unlock(nlk->cb_mutex);
- 
-+	if (cb->start)
-+		cb->start(cb);
-+
- 	ret = netlink_dump(sk);
- 	sock_put(sk);
- 
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index bc0e504..8e63662 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -513,6 +513,20 @@ void *genlmsg_put(struct sk_buff *skb, u32 portid, u32 seq,
- }
- EXPORT_SYMBOL(genlmsg_put);
- 
-+static int genl_lock_start(struct netlink_callback *cb)
-+{
-+	/* our ops are always const - netlink API doesn't propagate that */
-+	const struct genl_ops *ops = cb->data;
-+	int rc = 0;
-+
-+	if (ops->start) {
-+		genl_lock();
-+		rc = ops->start(cb);
-+		genl_unlock();
-+	}
-+	return rc;
-+}
-+
- static int genl_lock_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	/* our ops are always const - netlink API doesn't propagate that */
-@@ -577,6 +591,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
- 				.module = family->module,
- 				/* we have const, but the netlink API doesn't */
- 				.data = (void *)ops,
-+				.start = genl_lock_start,
- 				.dump = genl_lock_dumpit,
- 				.done = genl_lock_done,
- 			};
-@@ -588,6 +603,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
- 		} else {
- 			struct netlink_dump_control c = {
- 				.module = family->module,
-+				.start = ops->start,
- 				.dump = ops->dumpit,
- 				.done = ops->done,
- 			};
--- 
-2.4.6
+I replaced 2GB with 8GB DIMM and after that, on the same kernel/board,
+I can't ping either. Very strange, but as I can reproduce the issue,
+don't debug it, I will.
+
+Best regards,
+Marcin
