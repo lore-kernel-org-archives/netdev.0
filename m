@@ -1,64 +1,86 @@
 From: Michael Chan <mchan@broadcom.com>
-Subject: [PATCH net 1/3] bnxt_en: Fixed incorrect implementation of ndo_set_mac_address
-Date: Tue, 1 Dec 2015 22:15:39 -0500
-Message-ID: <1449026141-31225-2-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net 3/3] bnxt_en: Setup uc_list mac filters after resetting the chip.
+Date: Tue, 1 Dec 2015 22:15:41 -0500
+Message-ID: <1449026141-31225-4-git-send-email-mchan@broadcom.com>
 References: <1449026141-31225-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Jeffrey Huang <huangjw@broadcom.com>
+Cc: <netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:59352 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755348AbbLBDPm (ORCPT
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:54180 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755390AbbLBDPm (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 22:15:42 -0500
 In-Reply-To: <1449026141-31225-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeffrey Huang <huangjw@broadcom.com>
+Call bnxt_cfg_rx_mode() in bnxt_init_chip() to setup uc_list and
+mc_list mac address filters.  Before the patch, uc_list is not
+setup again after chip reset (such as ethtool ring size change)
+and macvlans don't work any more after that.
 
-The existing ndo_set_mac_address only copies the new MAC addr
-and didn't set the new MAC addr to the HW. The correct way is
-to delete the existing default MAC filter from HW and add
-the new one. Because of RFS filters are also dependent on the
-default mac filter l2 context, the driver must go thru
-close_nic() to delete the default MAC and RFS filters, then
-open_nic() to set the default MAC address to HW.
+Modify bnxt_cfg_rx_mode() to return error codes appropriately so
+that the init chip sequence can detect any failures.
 
-Signed-off-by: Jeffrey Huang <huangjw@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index db15c5e..651b587 100644
+index 4656480..aecb2b62 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -5212,13 +5212,22 @@ init_err:
- static int bnxt_change_mac_addr(struct net_device *dev, void *p)
- {
- 	struct sockaddr *addr = p;
-+	struct bnxt *bp = netdev_priv(dev);
-+	int rc = 0;
+@@ -3884,6 +3884,8 @@ static int bnxt_alloc_rfs_vnics(struct bnxt *bp)
+ #endif
+ }
  
- 	if (!is_valid_ether_addr(addr->sa_data))
- 		return -EADDRNOTAVAIL;
- 
-+	if (ether_addr_equal(addr->sa_data, dev->dev_addr))
-+		return 0;
++static int bnxt_cfg_rx_mode(struct bnxt *);
 +
- 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
-+	if (netif_running(dev)) {
-+		bnxt_close_nic(bp, false, false);
-+		rc = bnxt_open_nic(bp, false, false);
-+	}
+ static int bnxt_init_chip(struct bnxt *bp, bool irq_re_init)
+ {
+ 	int rc = 0;
+@@ -3950,11 +3952,9 @@ static int bnxt_init_chip(struct bnxt *bp, bool irq_re_init)
+ 		bp->vnic_info[0].rx_mask |=
+ 				CFA_L2_SET_RX_MASK_REQ_MASK_PROMISCUOUS;
  
--	return 0;
+-	rc = bnxt_hwrm_cfa_l2_set_rx_mask(bp, 0);
+-	if (rc) {
+-		netdev_err(bp->dev, "HWRM cfa l2 rx mask failure rc: %x\n", rc);
++	rc = bnxt_cfg_rx_mode(bp);
++	if (rc)
+ 		goto err_out;
+-	}
+ 
+ 	rc = bnxt_hwrm_set_coal(bp);
+ 	if (rc)
+@@ -4869,7 +4869,7 @@ static void bnxt_set_rx_mode(struct net_device *dev)
+ 	}
+ }
+ 
+-static void bnxt_cfg_rx_mode(struct bnxt *bp)
++static int bnxt_cfg_rx_mode(struct bnxt *bp)
+ {
+ 	struct net_device *dev = bp->dev;
+ 	struct bnxt_vnic_info *vnic = &bp->vnic_info[0];
+@@ -4918,6 +4918,7 @@ static void bnxt_cfg_rx_mode(struct bnxt *bp)
+ 			netdev_err(bp->dev, "HWRM vnic filter failure rc: %x\n",
+ 				   rc);
+ 			vnic->uc_filter_count = i;
++			return rc;
+ 		}
+ 	}
+ 
+@@ -4926,6 +4927,8 @@ skip_uc:
+ 	if (rc)
+ 		netdev_err(bp->dev, "HWRM cfa l2 rx mask failure rc: %x\n",
+ 			   rc);
++
 +	return rc;
  }
  
- /* rtnl_lock held */
+ static netdev_features_t bnxt_fix_features(struct net_device *dev,
 -- 
 1.8.3.1
