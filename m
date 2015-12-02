@@ -1,25 +1,35 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: ipsec impact on performance
-Date: Tue, 1 Dec 2015 17:25:21 -0800
-Message-ID: <565E4881.2030002@cumulusnetworks.com>
-References: <20151201175953.GC21252@oracle.com> <565DE446.2070609@hpe.com>
- <565E41B8.1080206@cumulusnetworks.com> <20151202010926.GH23178@oracle.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC] Stable interface index option
+Date: Wed, 2 Dec 2015 02:41:18 +0100
+Message-ID: <20151202014118.GD29814@lunn.ch>
+References: <20151201153441.GA17843@oracle.com>
+ <20151201155052.GA14984@principal.rfc2324.org>
+ <1448985743.3387258.454809153.36540D70@webmail.messagingengine.com>
+ <20151201.142749.1921315575696738796.davem@davemloft.net>
+ <1449001579.3817695.455078657.261B9C10@webmail.messagingengine.com>
+ <20151201224325.GD14984@principal.rfc2324.org>
+ <1449014338.3866712.455236865.50F81F7F@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hpe.com>, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20151202010926.GH23178@oracle.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Maximilian Wilhelm <max@rfc2324.org>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:50953 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754905AbbLBBlW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2015 20:41:22 -0500
+Content-Disposition: inline
+In-Reply-To: <1449014338.3866712.455236865.50F81F7F@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/1/15 5:09 PM, Sowmini Varadhan wrote:
-> The not-so-great news is that I see that just adding perf tracepoints
-> (not even enabling them!) seems to make a small diff (3 Gbps vs 3.2 Gbps)
-> to my numbers. Is that mere standard-deviation, or something
-> one should be aware of, about perf?
+> In general the ifindexes are designed to not be reused very fast.
 
-existence of traepoints has no overhead until activated (ie., launch 
-perf or start ftrace for those tracepoints).
+Some parts of multicast group management rely on this. You need to
+remove group memberships from a socket when an interface has
+disappeared, e.g. a VPN interface has gone away. You can pass the
+ifindex of the no longer existing interface when removing the group
+memberships. If that ifindex has been re-used, you are going to have
+interesting race conditions.
+
+	    Andrew
