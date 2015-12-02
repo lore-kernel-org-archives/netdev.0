@@ -1,8 +1,8 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next V3 05/17] hv_netvsc: Eliminatte the data field from
- struct hv_netvsc_packet
-Date: Tue,  1 Dec 2015 16:43:07 -0800
-Message-ID: <1449016999-9796-5-git-send-email-kys@microsoft.com>
+Subject: [PATCH net-next V3 17/17] hv_netvsc: Eliminate vlan_tci from struct
+ hv_netvsc_packet
+Date: Tue,  1 Dec 2015 16:43:19 -0800
+Message-ID: <1449016999-9796-17-git-send-email-kys@microsoft.com>
 References: <1449016978-9755-1-git-send-email-kys@microsoft.com>
  <1449016999-9796-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
@@ -24,149 +24,120 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Eliminatte the data field from struct hv_netvsc_packet.
+Eliminate vlan_tci from struct hv_netvsc_packet.
 
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h   |    5 ++---
- drivers/net/hyperv/netvsc.c       |    5 +++--
- drivers/net/hyperv/netvsc_drv.c   |    3 ++-
- drivers/net/hyperv/rndis_filter.c |   11 +++++++----
- 4 files changed, 14 insertions(+), 10 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   |    4 ++--
+ drivers/net/hyperv/netvsc_drv.c   |   14 +++++++-------
+ drivers/net/hyperv/rndis_filter.c |    7 +++----
+ 3 files changed, 12 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 7fa4f43..506d552 100644
+index 128b296..0c04362 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -148,9 +148,6 @@ struct hv_netvsc_packet {
- 	u64 send_completion_tid;
- 	void *send_completion_ctx;
- 	void (*send_completion)(void *context);
--
--	/* Points to the send/receive buffer where the ethernet frame is */
--	void *data;
- 	struct hv_page_buffer *page_buf;
- };
+@@ -136,7 +136,6 @@ struct hv_netvsc_packet {
+ 	u8 rmsg_pgcnt; /* page count of RNDIS header and PPI */
+ 	u8 page_buf_cnt;
  
-@@ -196,6 +193,7 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
- void netvsc_xmit_completion(void *context);
- int netvsc_recv_callback(struct hv_device *device_obj,
+-	u16 vlan_tci;
+ 	u16 q_idx;
+ 	u32 send_buf_index;
+ 
+@@ -188,7 +187,8 @@ int netvsc_recv_callback(struct hv_device *device_obj,
  			struct hv_netvsc_packet *packet,
-+			void **data,
+ 			void **data,
  			struct ndis_tcp_ip_checksum_info *csum_info,
- 			struct vmbus_channel *channel);
+-			struct vmbus_channel *channel);
++			struct vmbus_channel *channel,
++			u16 vlan_tci);
  void netvsc_channel_cb(void *context);
-@@ -206,6 +204,7 @@ int rndis_filter_device_add(struct hv_device *dev,
- void rndis_filter_device_remove(struct hv_device *dev);
- int rndis_filter_receive(struct hv_device *dev,
- 			struct hv_netvsc_packet *pkt,
-+			void **data,
- 			struct vmbus_channel *channel);
- 
- int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter);
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 2de9e7f..8fbf816 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -1008,6 +1008,7 @@ static void netvsc_receive(struct netvsc_device *net_device,
- 	int i;
- 	int count = 0;
- 	struct net_device *ndev;
-+	void *data;
- 
- 	ndev = net_device->ndev;
- 
-@@ -1047,13 +1048,13 @@ static void netvsc_receive(struct netvsc_device *net_device,
- 	for (i = 0; i < count; i++) {
- 		/* Initialize the netvsc packet */
- 		netvsc_packet->status = NVSP_STAT_SUCCESS;
--		netvsc_packet->data = (void *)((unsigned long)net_device->
-+		data = (void *)((unsigned long)net_device->
- 			recv_buf + vmxferpage_packet->ranges[i].byte_offset);
- 		netvsc_packet->total_data_buflen =
- 					vmxferpage_packet->ranges[i].byte_count;
- 
- 		/* Pass it to the upper layer */
--		rndis_filter_receive(device, netvsc_packet, channel);
-+		rndis_filter_receive(device, netvsc_packet, &data, channel);
- 
- 		if (netvsc_packet->status != NVSP_STAT_SUCCESS)
- 			status = NVSP_STAT_FAIL;
+ int rndis_filter_open(struct hv_device *dev);
+ int rndis_filter_close(struct hv_device *dev);
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 77c0849..c73afb1 100644
+index 490672e..ba21272 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -685,6 +685,7 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
-  */
- int netvsc_recv_callback(struct hv_device *device_obj,
- 				struct hv_netvsc_packet *packet,
-+				void **data,
- 				struct ndis_tcp_ip_checksum_info *csum_info,
- 				struct vmbus_channel *channel)
- {
-@@ -713,7 +714,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 	 * Copy to skb. This copy is needed here since the memory pointed by
- 	 * hv_netvsc_packet cannot be deallocated
- 	 */
--	memcpy(skb_put(skb, packet->total_data_buflen), packet->data,
-+	memcpy(skb_put(skb, packet->total_data_buflen), *data,
- 		packet->total_data_buflen);
+@@ -470,7 +470,6 @@ check_size:
+ 			FIELD_SIZEOF(struct sk_buff, cb));
+ 	packet = (struct hv_netvsc_packet *)skb->cb;
  
- 	skb->protocol = eth_type_trans(skb, net);
+-	packet->vlan_tci = skb->vlan_tci;
+ 
+ 	packet->q_idx = skb_get_queue_mapping(skb);
+ 
+@@ -480,7 +479,7 @@ check_size:
+ 
+ 	memset(rndis_msg, 0, RNDIS_AND_PPI_SIZE);
+ 
+-	isvlan = packet->vlan_tci & VLAN_TAG_PRESENT;
++	isvlan = skb->vlan_tci & VLAN_TAG_PRESENT;
+ 
+ 	/* Add the rndis header */
+ 	rndis_msg->ndis_msg_type = RNDIS_MSG_PACKET;
+@@ -508,8 +507,8 @@ check_size:
+ 					IEEE_8021Q_INFO);
+ 		vlan = (struct ndis_pkt_8021q_info *)((void *)ppi +
+ 						ppi->ppi_offset);
+-		vlan->vlanid = packet->vlan_tci & VLAN_VID_MASK;
+-		vlan->pri = (packet->vlan_tci & VLAN_PRIO_MASK) >>
++		vlan->vlanid = skb->vlan_tci & VLAN_VID_MASK;
++		vlan->pri = (skb->vlan_tci & VLAN_PRIO_MASK) >>
+ 				VLAN_PRIO_SHIFT;
+ 	}
+ 
+@@ -676,7 +675,8 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 				struct hv_netvsc_packet *packet,
+ 				void **data,
+ 				struct ndis_tcp_ip_checksum_info *csum_info,
+-				struct vmbus_channel *channel)
++				struct vmbus_channel *channel,
++				u16 vlan_tci)
+ {
+ 	struct net_device *net;
+ 	struct net_device_context *net_device_ctx;
+@@ -716,9 +716,9 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 			skb->ip_summed = CHECKSUM_NONE;
+ 	}
+ 
+-	if (packet->vlan_tci & VLAN_TAG_PRESENT)
++	if (vlan_tci & VLAN_TAG_PRESENT)
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+-				       packet->vlan_tci);
++				       vlan_tci);
+ 
+ 	skb_record_rx_queue(skb, channel->
+ 			    offermsg.offer.sub_channel_index);
 diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 63584e7..be0fa9c 100644
+index 28adf6a..a37bbda 100644
 --- a/drivers/net/hyperv/rndis_filter.c
 +++ b/drivers/net/hyperv/rndis_filter.c
-@@ -351,6 +351,7 @@ static inline void *rndis_get_ppi(struct rndis_packet *rpkt, u32 type)
- static void rndis_filter_receive_data(struct rndis_device *dev,
- 				   struct rndis_message *msg,
- 				   struct hv_netvsc_packet *pkt,
-+				   void **data,
- 				   struct vmbus_channel *channel)
- {
- 	struct rndis_packet *rndis_pkt;
-@@ -383,7 +384,7 @@ static void rndis_filter_receive_data(struct rndis_device *dev,
- 	 * the data packet to the stack, without the rndis trailer padding
- 	 */
- 	pkt->total_data_buflen = rndis_pkt->data_len;
--	pkt->data = (void *)((unsigned long)pkt->data + data_offset);
-+	*data = (void *)((unsigned long)(*data) + data_offset);
+@@ -354,6 +354,7 @@ static int rndis_filter_receive_data(struct rndis_device *dev,
+ 	u32 data_offset;
+ 	struct ndis_pkt_8021q_info *vlan;
+ 	struct ndis_tcp_ip_checksum_info *csum_info;
++	u16 vlan_tci = 0;
+ 
+ 	rndis_pkt = &msg->msg.pkt;
+ 
+@@ -384,15 +385,13 @@ static int rndis_filter_receive_data(struct rndis_device *dev,
  
  	vlan = rndis_get_ppi(rndis_pkt, IEEE_8021Q_INFO);
  	if (vlan) {
-@@ -394,11 +395,12 @@ static void rndis_filter_receive_data(struct rndis_device *dev,
+-		pkt->vlan_tci = VLAN_TAG_PRESENT | vlan->vlanid |
++		vlan_tci = VLAN_TAG_PRESENT | vlan->vlanid |
+ 			(vlan->pri << VLAN_PRIO_SHIFT);
+-	} else {
+-		pkt->vlan_tci = 0;
  	}
  
  	csum_info = rndis_get_ppi(rndis_pkt, TCPIP_CHKSUM_PKTINFO);
--	netvsc_recv_callback(dev->net_dev->dev, pkt, csum_info, channel);
-+	netvsc_recv_callback(dev->net_dev->dev, pkt, data, csum_info, channel);
+ 	return netvsc_recv_callback(dev->net_dev->dev, pkt, data,
+-				    csum_info, channel);
++				    csum_info, channel, vlan_tci);
  }
  
  int rndis_filter_receive(struct hv_device *dev,
- 				struct hv_netvsc_packet	*pkt,
-+				void **data,
- 				struct vmbus_channel *channel)
- {
- 	struct netvsc_device *net_dev = hv_get_drvdata(dev);
-@@ -430,7 +432,7 @@ int rndis_filter_receive(struct hv_device *dev,
- 		goto exit;
- 	}
- 
--	rndis_msg = pkt->data;
-+	rndis_msg = *data;
- 
- 	if (netif_msg_rx_err(net_dev->nd_ctx))
- 		dump_rndis_message(dev, rndis_msg);
-@@ -438,7 +440,8 @@ int rndis_filter_receive(struct hv_device *dev,
- 	switch (rndis_msg->ndis_msg_type) {
- 	case RNDIS_MSG_PACKET:
- 		/* data msg */
--		rndis_filter_receive_data(rndis_dev, rndis_msg, pkt, channel);
-+		rndis_filter_receive_data(rndis_dev, rndis_msg, pkt,
-+					  data, channel);
- 		break;
- 
- 	case RNDIS_MSG_INIT_C:
 -- 
 1.7.4.1
