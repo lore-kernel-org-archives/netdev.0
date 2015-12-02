@@ -1,58 +1,56 @@
-From: David Ahern <dsa@cumulusnetworks.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Subject: Re: ipsec impact on performance
-Date: Tue, 1 Dec 2015 16:56:24 -0800
-Message-ID: <565E41B8.1080206@cumulusnetworks.com>
-References: <20151201175953.GC21252@oracle.com> <565DE446.2070609@hpe.com>
+Date: Tue, 1 Dec 2015 20:09:26 -0500
+Message-ID: <20151202010926.GH23178@oracle.com>
+References: <20151201175953.GC21252@oracle.com>
+ <565DE446.2070609@hpe.com>
+ <565E41B8.1080206@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Rick Jones <rick.jones2@hpe.com>,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	netdev@vger.kernel.org, linux-crypto@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33255 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932196AbbLBA41 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 19:56:27 -0500
-Received: by pabfh17 with SMTP id fh17so22809517pab.0
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 16:56:26 -0800 (PST)
-In-Reply-To: <565DE446.2070609@hpe.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rick Jones <rick.jones2@hpe.com>, netdev@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <565E41B8.1080206@cumulusnetworks.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/1/15 10:17 AM, Rick Jones wrote:
-> On 12/01/2015 09:59 AM, Sowmini Varadhan wrote:
->> But these are all still relatively small things - tweaking them
->> doesnt get me significantly past the 3 Gbps limit. Any suggestions
->> on how to make this budge (or design criticism of the patch) would
->> be welcome.
->
-> What do the perf profiles show?  Presumably, loss of TSO/GSO means an
-> increase in the per-packet costs, but if the ipsec path significantly
-> increases the per-byte costs...
->
-> Short of a perf profile, I suppose one way to probe for per-packet
-> versus per-byte would be to up the MTU.  That should reduce the
-> per-packet costs while keeping the per-byte roughly the same.
+On (12/01/15 16:56), David Ahern wrote:
+> 
+> Using iperf3 and AH with NULL algorithm between 2 peers connected by
+> a 10G link.
+> 
+I'm using esp-null, not AH, and iperf2, which I understand is 
+quite different from, and more aggressive than, iperf3 (though I'm not 
+sure that it matters for this single-stream case).
 
-Using iperf3 and AH with NULL algorithm between 2 peers connected by a 
-10G link.
+> With AH I get ~1.5 Gbps with MTU at 1500:
 
-Without AH configured I get a steady 9.9 Gbps with iperf3 consuming 
-about 55% cpu.
+But yes, I get approx that too. 
 
-With AH I get ~1.5 Gbps with MTU at 1500:
+The "good" news is that I can get about 3 Gbps with my patch. So one
+could say that I've 2x-ed the perf. Except that:
 
-[  4]   0.00-1.01   sec   160 MBytes  1.33 Gbits/sec   23    905 KBytes
-[  4]   1.01-2.00   sec   211 MBytes  1.79 Gbits/sec    0    996 KBytes
+The "bad" news is that even GSO/GRO can do way better, so we
+need to be able to extend that perf to also be available 
+to some key TCP and IP extensions (like md5 and ipsec, maybe)
+and beyond (i.e need to de-ossify the stack so we can extend
+TCP/IP features without sacrificing perf along the way).
 
-iperf3 runs about 60% CPU and ksoftirqd/2 is at 86%.
+The not-so-great news is that I see that just adding perf tracepoints
+(not even enabling them!) seems to make a small diff (3 Gbps vs 3.2 Gbps) 
+to my numbers. Is that mere standard-deviation, or something 
+one should be aware of, about perf?
 
+> iperf3 runs about 60% CPU and ksoftirqd/2 is at 86%.
 
-Bumping the MTU to 9000:
+yes, not surprising. You really need to compare this to GSO/GRO
+for a pure-s/w,  apples-apples comparison.
 
-[  4]   3.00-4.00   sec   914 MBytes  7.67 Gbits/sec  260   1.01 MBytes
-[  4]   4.00-5.00   sec  1012 MBytes  8.49 Gbits/sec    0   1.23 MBytes
-[  4]   5.00-6.00   sec  1.15 GBytes  9.88 Gbits/sec    0   1.23 MBytes
+> Bumping the MTU to 9000:
 
-At this rate iperf3 was at 95% CPU and ksoftirqd was not relevant.
+Yes that's not always an option. See also the comments from Eric/Rick
+about latency [http://lists.openwall.net/netdev/2015/11/24/111]. 
+
+--Sowmini
