@@ -1,53 +1,33 @@
-From: Brent Taylor <motobud-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [v2] ath6kl: Use vmalloc to allocate ar->fw for api1 method
-Date: Tue,  1 Dec 2015 22:18:18 -0600
-Message-ID: <1449029898-15209-1-git-send-email-motobud@gmail.com>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath6kl-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Brent Taylor <motobud-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v6] mpls: support for dead routes
+Date: Tue, 01 Dec 2015 20:39:16 -0800
+Message-ID: <565E75F4.80905@cumulusnetworks.com>
+References: <1448768313-34809-1-git-send-email-roopa@cumulusnetworks.com> <20151201.154324.1248915135840079518.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, rshearma@brocade.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:32867 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752331AbbLBEjS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2015 23:39:18 -0500
+Received: by pabfh17 with SMTP id fh17so28870071pab.0
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2015 20:39:18 -0800 (PST)
+In-Reply-To: <20151201.154324.1248915135840079518.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since commit 8437754c8335 ("ath6kl: Use vmalloc instead of kmalloc for
-fw") ar->fw is expected to be pointing to memory allocated by vmalloc.
-If the api1 method (via ath6kl_fetch_fw_api1) is used to allocate memory
-for ar->fw, then kmemdup is used.  This patch checks if the firmware being
-loaded is the 'fw' image, then use vmalloc, otherwise use kmalloc.
-
-Signed-off-by: Brent Taylor <motobud-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
-v2: Fix commit message and code formatting (use tab instaed of spaces)
-
- drivers/net/wireless/ath/ath6kl/init.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/ath/ath6kl/init.c b/drivers/net/wireless/ath/ath6kl/init.c
-index 6ae0734..4f16bd8 100644
---- a/drivers/net/wireless/ath/ath6kl/init.c
-+++ b/drivers/net/wireless/ath/ath6kl/init.c
-@@ -673,10 +673,15 @@ static int ath6kl_get_fw(struct ath6kl *ar, const char *filename,
- 		return ret;
- 
- 	*fw_len = fw_entry->size;
--	*fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
-+	if (&ar->fw == fw)
-+		*fw = vmalloc(fw_entry->size);
-+	else
-+		*fw = kmalloc(fw_entry->size, GFP_KERNEL);
- 
- 	if (*fw == NULL)
- 		ret = -ENOMEM;
-+	else
-+		memcpy(*fw, fw_entry->data, fw_entry->size);
- 
- 	release_firmware(fw_entry);
- 
--- 
-2.6.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 12/1/15, 12:43 PM, David Miller wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Date: Sat, 28 Nov 2015 19:38:33 -0800
+>
+>> Adds support for RTNH_F_DEAD and RTNH_F_LINKDOWN flags on mpls
+>> routes due to link events. Also adds code to ignore dead
+>> routes during route selection.
+> I agree with Robert's feedback that we probably should use
+> ACCESS_ONCE(), optionally with a local variable.
+>
+> Please make this change and I'll apply this patch, thanks Roopa!
+ack, will send v7. thanks for review all!.
