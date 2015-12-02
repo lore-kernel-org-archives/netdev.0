@@ -1,47 +1,72 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: ipsec impact on performance
-Date: Wed, 2 Dec 2015 11:56:45 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBE0ED7@AcuExch.aculab.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: ipsec impact on performance
+Date: Wed, 2 Dec 2015 07:05:38 -0500
+Message-ID: <20151202120538.GJ23178@oracle.com>
 References: <20151201175953.GC21252@oracle.com>
- <CALx6S35uLqbuJTAFLMeT-BcyZw_fksz+7BkS=Nt7_3-nYMHF2A@mail.gmail.com>
- <20151201183720.GE21252@oracle.com>
+ <20151202065305.GB14008@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>
-To: 'Sowmini Varadhan' <sowmini.varadhan@oracle.com>,
-	Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.193]:57670 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751609AbbLBL6N convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 06:58:13 -0500
-In-Reply-To: <20151201183720.GE21252@oracle.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
+	sowmini.varadhan@oracle.com
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151202065305.GB14008@secunet.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan
-> Sent: 01 December 2015 18:37
-...
-> I was using esp-null merely to not have the crypto itself perturb
-> the numbers (i.e., just focus on the s/w overhead for now), but here
-> are the numbers for the stock linux kernel stack
->                 Gbps  peak cpu util
-> esp-null         1.8   71%
-> aes-gcm-c-256    1.6   79%
-> aes-ccm-a-128    0.7   96%
+On (12/02/15 07:53), Steffen Klassert wrote:
 > 
-> That trend made me think that if we can get esp-null to be as close
-> as possible to GSO/GRO, the rest will follow closely behind.
+> I'm currently working on a GRO/GSO codepath for IPsec too. The GRO part
+> works already. I decapsulate/decrypt the packets on layer2 with a esp GRO
+> callback function and reinject them into napi_gro_receive(). So in case
+> the decapsulated packet is TCP, GRO can aggregate big packets.
 
-That's not how I read those figures.
-They imply to me that there is a massive cost for the actual encryption
-(particularly for aes-ccm-a-128) - so whatever you do to the esp-null
-case won't help.
+Would you be able to share your patch with me? I'd like to give that a try
+just to get preliminary numbers (and I could massage it as needed
+for transport mode too).
 
-One way to get a view of the cost of the encryption (and copies)
-is to do the operation twice.
+> My approach to GSO is a bit different to yours. I focused on tunnel mode,
+> but transport mode should work too. I encapsulate the big GSO packets
+> but don't do the encryption. Then I've added a esp_gso_segment() function,
+> so the (still not encrypted ESP packets) get segmented with GSO. Finally I
+> do encryption for all segments. This works well as long as I do sync crypto.
+> The hard part is when crypto returns async. This is what I'm working on now.
+> I hope to get this ready during the next weeks that I can post a RFC version
+> and some numbers.
 
-	David
+I see. My thought for attacking tunnel mode would have been to 
+callout the esp code at the tail of gre_gso_segment, but I did not
+yet consider this carefully - clearly you've spent more time on it,
+and know more about all the gotchas there.
+
+> Also I tried to consider the IPsec GRO/GSO codepath as a software fallback.
+> So I added hooks for the encapsulation, encryption etc. If a NIC can do
+> IPsec, it can use this hooks to prepare the packets the way it needs it.
+> There are NICs that can do IPsec, it's just that our stack does not support
+> it.
+
+yes, this is one of the things I wanted to bring up at netdev 1.1.
+Evidently many of the 10G NICS (Niantic, Twinville, Sageville) already
+support ipsec offload but that feature is not enabled for BSD or linux
+because the stack does not support it (though Microsoft does. The intel
+folks pointed me at this doc:
+https://msdn.microsoft.com/en-us/library/windows/hardware/ff556996%28v=vs.85%29.aspx)
+
+But quite independant of h/w offload, the s/w stack can already do
+a very good job for 10G with just GSO and GRO, so being able to extend
+that path to do encryption after segmentation should at least bridge
+the huge gap between the ipsec and non-ipsec mech.
+
+And that gap should be as small as possible for esp-null, so that
+the only big hit we take is for the complexity of encryption itself!
+
+> Another thing, I thought about setting up an IPsec BoF/workshop at
+> netdev1.1. My main topic is GRO/GSO for IPsec. I'll send out a mail
+> to the list later this week to see if there is enough interest and
+> maybe some additional topics.
+
+Sounds like an excellent idea. I'm certainly interested.
+
+--Sowmini
+> 
