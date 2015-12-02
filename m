@@ -1,80 +1,45 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: Kernel 4.1.12 crash
-Date: Wed, 2 Dec 2015 18:23:35 +0100
-Message-ID: <20151202172335.GB16101@alphalink.fr>
-References: <564FA904.7020603@gmail.com>
- <5650287B.9070901@seti.kr.ua>
- <56514FF5.7060906@gmail.com>
- <5654EBE8.9030705@seti.kr.ua>
- <20151125141048.GA3868@alphalink.fr>
- <5655CCAE.6000300@seti.kr.ua>
- <20151126164452.GA2988@alphalink.fr>
- <565B7699.8030105@seti.kr.ua>
- <20151130150337.GC3059@alphalink.fr>
- <20151130204208.GA6046@alphalink.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Increasing skb->mark size
+Date: Wed, 02 Dec 2015 12:29:19 -0500 (EST)
+Message-ID: <20151202.122919.637365365005967628.davem@davemloft.net>
+References: <565E1A9F.7040906@iogearbox.net>
+	<20151202025835.GL15533@two.firstfloor.org>
+	<565E84D5.5070009@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	netdev@vger.kernel.org, Simon Farnsworth <simon@farnz.org.uk>
-To: Andrew <nitr0@seti.kr.ua>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andi@firstfloor.org, daniel@iogearbox.net, lorenzo@google.com,
+	Matt.Bennett@alliedtelesis.co.nz, netdev@vger.kernel.org,
+	Luuk.Paulussen@alliedtelesis.co.nz
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:51997 "EHLO
-	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964871AbbLBRXi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 12:23:38 -0500
-Content-Disposition: inline
-In-Reply-To: <20151130204208.GA6046@alphalink.fr>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45099 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964880AbbLBR3X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 12:29:23 -0500
+In-Reply-To: <565E84D5.5070009@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 30, 2015 at 09:42:08PM +0100, Guillaume Nault wrote:
-> On Mon, Nov 30, 2015 at 04:03:37PM +0100, Guillaume Nault wrote:
-> > Yes, it most likely was introduced by 287f3a943fef ("pppoe: Use
-> > workqueue to die properly when a PADT is received"). I still have to
-> > figure out why.
-> 
-> I confirm the bug comes from this commit.
-> 
-> It happens if pppoe_connect() reinitialises po->proto.pppoe.padt_work
-> after pppoe_disc_rcv() has added it to the system's work queue, and
-> before that work got scheduled. Then when scheduling occurs, the worker
-> thread tries to run a corrupted structure and crashes.
-> 
-> I'm going to work on a patch.
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue, 1 Dec 2015 21:42:45 -0800
 
-You can try the following. It's not yet a proper fix as there are still
-a few things that bug me in pppoe_connect().
+> On 12/1/15 6:58 PM, Andi Kleen wrote:
+>>>> - skb_iff is either skb->dev->iff or 0. so it could be replaced with a
+>>>> single bit flag for the 0 case.
+>>>
+>>> ... and that one wouldn't work on ingress.
+>>
+>> Please explain.
+> 
+> skb->dev is dropped fairly early in the Rx path. skb_iif is needed for
+> example for IP_CMSG_PKTINFO.
 
----
-diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
-index 5e0b432..865b74d 100644
---- a/drivers/net/ppp/pppoe.c
-+++ b/drivers/net/ppp/pppoe.c
-@@ -568,6 +568,9 @@ static int pppoe_create(struct net *net, struct socket *sock, int kern)
- 	sk->sk_family		= PF_PPPOX;
- 	sk->sk_protocol		= PX_PROTO_OE;
- 
-+	INIT_WORK(&pppox_sk(sk)->proto.pppoe.padt_work,
-+		  pppoe_unbind_sock_work);
-+
- 	return 0;
- }
- 
-@@ -632,8 +635,6 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
- 
- 	lock_sock(sk);
- 
--	INIT_WORK(&po->proto.pppoe.padt_work, pppoe_unbind_sock_work);
--
- 	error = -EINVAL;
- 	if (sp->sa_protocol != PX_PROTO_OE)
- 		goto end;
-@@ -663,8 +664,6 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
- 			po->pppoe_dev = NULL;
- 		}
- 
--		memset(sk_pppox(po) + 1, 0,
--		       sizeof(struct pppox_sock) - sizeof(struct sock));
- 		sk->sk_state = PPPOX_NONE;
- 	}
- 
+Right, we cannot let skb->dev escape the software interrupt handler, yet
+we need some cheap reference to it for socket options et al.
+
+Andi, this is not a 15-20 minute problem to solve.  Many very smart people
+have spent days/weeks/months trying to even discover reasonable ways in
+which to shrink sk_buff.
+
+The low hanging fruit has been gone for a very long time now.
