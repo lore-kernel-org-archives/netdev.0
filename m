@@ -1,39 +1,50 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] mac80211_hwsim: missing NULL check
-Date: Wed, 02 Dec 2015 10:51:58 +0100
-Message-ID: <1449049918.2449.6.camel@sipsolutions.net>
-References: <1448867812-11089-1-git-send-email-rahul.jain@samsung.com>
-	 (sfid-20151130_081822_747132_014FEC1F)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Amit Khatri <amit.khatri@samsung.com>
-To: Rahul Jain <rahul.jain@samsung.com>, kvalo@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448867812-11089-1-git-send-email-rahul.jain@samsung.com> (sfid-20151130_081822_747132_014FEC1F)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Teco Boot <teco@inf-net.nl>
+Subject: Re: [PATCH net 1/1] via-rhine: fix VLAN receive handling regression.
+Date: Wed, 2 Dec 2015 10:55:40 +0100
+Message-ID: <CABAB3EF-4A65-4534-AE27-D9B069CAB0F7@inf-net.nl>
+References: <20130807003431.GD16410@order.stressinduktion.org> <EF96A1CB-549E-474A-AF58-10F2D2F2BF4A@inf-net.nl>
+Mime-Version: 1.0 (Mac OS X Mail 9.1 \(3096.5\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: andrej@ota.si, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:35450 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756308AbbLBJzo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 04:55:44 -0500
+Received: by wmuu63 with SMTP id u63so207357100wmu.0
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 01:55:42 -0800 (PST)
+In-Reply-To: <EF96A1CB-549E-474A-AF58-10F2D2F2BF4A@inf-net.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-11-30 at 12:46 +0530, Rahul Jain wrote:
-> From: Amit Khatri <amit.khatri@samsung.com>
+I faced this problem on 4.2.6, Debian Jessie, on PC Engines Alix6. 
+I applied the patch. It solved the problem.
+
+Queue up for -stable?
+
+Teco
+
 > 
-> txrate variable might be NULL and passing inside function
-> without NULL check.
-
-Applied. However, this comes with a big BUT.
-
-I seems to always be rewriting your static checker patches, or asking
-for clarification, rewording, etc.
-
-Please: review what I did to this commit, and in the future please
-submit patches that actually describe what's going on, what you're
-doing, and why you're doing it.
-
-IOW, analyse the code and don't just do the minimum necessary to shut
-up the static checker. Doing that is fairly much useless, especially in
-really obscure cases like this.
-
-I'm going to drop further patches like this one without warning.
-
-johannes
+> From: Francois Romieu <romieu@fr.zoreil.com>
+> Date: Thu, 15 Oct 2015 00:14:37 +0200
+> 
+> > From: Andrej Ota <andrej@ota.si>
+> > 
+> > Because eth_type_trans() consumes ethernet header worth of bytes, a call
+> > to read TCI from end of packet using rhine_rx_vlan_tag() no longer works
+> > as it's reading from an invalid offset.
+> > 
+> > Tested to be working on PCEngines Alix board.
+> > 
+> > Fixes: 810f19bcb862 ("via-rhine: add consistent memory barrier in vlan receive code.")
+> > Signed-off-by: Andrej Ota <andrej@ota.si>
+> > Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+> 
+> Applied.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
