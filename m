@@ -1,149 +1,118 @@
 From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH v2 5/5] net: thunderx: Enable BGX LMAC's RX/TX only after VF is up
-Date: Wed,  2 Dec 2015 15:36:17 +0530
-Message-ID: <1449050777-37836-6-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH v2 4/5] net: thunderx: Switchon carrier only upon interface
+ link up
+Date: Wed,  2 Dec 2015 15:36:16 +0530
+Message-ID: <1449050777-37836-5-git-send-email-sunil.kovvuri@gmail.com>
 References: <1449050777-37836-1-git-send-email-sunil.kovvuri@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Sunil.Goutham@caviumnetworks.com,
-	Sunil Goutham <sgoutham@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Sunil Goutham <sgoutham@cavium.com>, Sunil.Goutham@caviumnetworks.com,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1449050777-37836-1-git-send-email-sunil.kovvuri@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-Enable or disable BGX LMAC's RX/TX based on corresponding VF's
-status. If otherwise, when multiple LMAC's physical link is up
-then packets from all LMAC's whose corresponding VF is not yet
-initialized will get forwarded to VF0. This is due to VNIC's default
-configuration where CPI, RSSI e.t.c point to VF0/QSET0/RQ0.
+Call netif_carrier_on() only if interface's link is up. Switching this on
+upon IFF_UP by default, is causing issues with ethernet channel bonding
+in LACP mode. Initial NETDEV_CHANGE notification was being skipped.
 
-This patch will prevent multiple copies of packets on VF0.
+Also fixed some issues with link/speed/duplex reporting via ethtool.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic_main.c    |   20 +++++++++++++++++++-
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c |   20 ++++++++++++++++++--
- drivers/net/ethernet/cavium/thunder/thunder_bgx.h |    1 +
- 3 files changed, 38 insertions(+), 3 deletions(-)
+ .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |   16 +++++++++++++++-
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   |    4 +---
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |    2 ++
+ 3 files changed, 18 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index cfc24a1..4b7fd63 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -37,6 +37,7 @@ struct nicpf {
- #define	NIC_GET_BGX_FROM_VF_LMAC_MAP(map)	((map >> 4) & 0xF)
- #define	NIC_GET_LMAC_FROM_VF_LMAC_MAP(map)	(map & 0xF)
- 	u8			vf_lmac_map[MAX_LMAC];
-+	u8			lmac_cnt;
- 	struct delayed_work     dwork;
- 	struct workqueue_struct *check_link;
- 	u8			link[MAX_LMAC];
-@@ -279,6 +280,7 @@ static void nic_set_lmac_vf_mapping(struct nicpf *nic)
- 	u64 lmac_credit;
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+index af54c10..a12b2e3 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+@@ -112,6 +112,13 @@ static int nicvf_get_settings(struct net_device *netdev,
  
- 	nic->num_vf_en = 0;
-+	nic->lmac_cnt = 0;
+ 	cmd->supported = 0;
+ 	cmd->transceiver = XCVR_EXTERNAL;
++
++	if (!nic->link_up) {
++		cmd->duplex = DUPLEX_UNKNOWN;
++		ethtool_cmd_speed_set(cmd, SPEED_UNKNOWN);
++		return 0;
++	}
++
+ 	if (nic->speed <= 1000) {
+ 		cmd->port = PORT_MII;
+ 		cmd->autoneg = AUTONEG_ENABLE;
+@@ -125,6 +132,13 @@ static int nicvf_get_settings(struct net_device *netdev,
+ 	return 0;
+ }
  
- 	for (bgx = 0; bgx < NIC_MAX_BGX; bgx++) {
- 		if (!(bgx_map & (1 << bgx)))
-@@ -288,6 +290,7 @@ static void nic_set_lmac_vf_mapping(struct nicpf *nic)
- 			nic->vf_lmac_map[next_bgx_lmac++] =
- 						NIC_SET_VF_LMAC_MAP(bgx, lmac);
- 		nic->num_vf_en += lmac_cnt;
-+		nic->lmac_cnt += lmac_cnt;
++static u32 nicvf_get_link(struct net_device *netdev)
++{
++	struct nicvf *nic = netdev_priv(netdev);
++
++	return nic->link_up;
++}
++
+ static void nicvf_get_drvinfo(struct net_device *netdev,
+ 			      struct ethtool_drvinfo *info)
+ {
+@@ -660,7 +674,7 @@ static int nicvf_set_channels(struct net_device *dev,
  
- 		/* Program LMAC credits */
- 		lmac_credit = (1ull << 1); /* channel credit enable */
-@@ -715,6 +718,13 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
- 	case NIC_MBOX_MSG_CFG_DONE:
- 		/* Last message of VF config msg sequence */
- 		nic->vf_enabled[vf] = true;
-+		if (vf >= nic->lmac_cnt)
-+			goto unlock;
-+
-+		bgx = NIC_GET_BGX_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
-+		lmac = NIC_GET_LMAC_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
-+
-+		bgx_lmac_rx_tx_enable(nic->node, bgx, lmac, true);
- 		goto unlock;
- 	case NIC_MBOX_MSG_SHUTDOWN:
- 		/* First msg in VF teardown sequence */
-@@ -722,6 +732,14 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
- 		if (vf >= nic->num_vf_en)
- 			nic->sqs_used[vf - nic->num_vf_en] = false;
- 		nic->pqs_vf[vf] = 0;
-+
-+		if (vf >= nic->lmac_cnt)
-+			break;
-+
-+		bgx = NIC_GET_BGX_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
-+		lmac = NIC_GET_LMAC_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
-+
-+		bgx_lmac_rx_tx_enable(nic->node, bgx, lmac, false);
- 		break;
- 	case NIC_MBOX_MSG_ALLOC_SQS:
- 		nic_alloc_sqs(nic, &mbx.sqs_alloc);
-@@ -940,7 +958,7 @@ static void nic_poll_for_link(struct work_struct *work)
+ static const struct ethtool_ops nicvf_ethtool_ops = {
+ 	.get_settings		= nicvf_get_settings,
+-	.get_link		= ethtool_op_get_link,
++	.get_link		= nicvf_get_link,
+ 	.get_drvinfo		= nicvf_get_drvinfo,
+ 	.get_msglevel		= nicvf_get_msglevel,
+ 	.set_msglevel		= nicvf_set_msglevel,
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 7f709cb..dde8dc7 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -1057,6 +1057,7 @@ int nicvf_stop(struct net_device *netdev)
  
- 	mbx.link_status.msg = NIC_MBOX_MSG_BGX_LINK_CHANGE;
+ 	netif_carrier_off(netdev);
+ 	netif_tx_stop_all_queues(nic->netdev);
++	nic->link_up = false;
  
--	for (vf = 0; vf < nic->num_vf_en; vf++) {
-+	for (vf = 0; vf < nic->lmac_cnt; vf++) {
- 		/* Poll only if VF is UP */
- 		if (!nic->vf_enabled[vf])
- 			continue;
+ 	/* Teardown secondary qsets first */
+ 	if (!nic->sqs_mode) {
+@@ -1211,9 +1212,6 @@ int nicvf_open(struct net_device *netdev)
+ 	nic->drv_stats.txq_stop = 0;
+ 	nic->drv_stats.txq_wake = 0;
+ 
+-	netif_carrier_on(netdev);
+-	netif_tx_start_all_queues(netdev);
+-
+ 	return 0;
+ cleanup:
+ 	nicvf_disable_intr(nic, NICVF_INTR_MBOX, 0);
 diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index d77e41a..9df26c2 100644
+index 6534b73..d77e41a 100644
 --- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
 +++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -186,6 +186,23 @@ void bgx_set_lmac_mac(int node, int bgx_idx, int lmacid, const u8 *mac)
- }
- EXPORT_SYMBOL(bgx_set_lmac_mac);
- 
-+void bgx_lmac_rx_tx_enable(int node, int bgx_idx, int lmacid, bool enable)
-+{
-+	struct bgx *bgx = bgx_vnic[(node * MAX_BGX_PER_CN88XX) + bgx_idx];
-+	u64 cfg;
-+
-+	if (!bgx)
-+		return;
-+
-+	cfg = bgx_reg_read(bgx, lmacid, BGX_CMRX_CFG);
-+	if (enable)
-+		cfg |= CMR_PKT_RX_EN | CMR_PKT_TX_EN;
-+	else
-+		cfg &= ~(CMR_PKT_RX_EN | CMR_PKT_TX_EN);
-+	bgx_reg_write(bgx, lmacid, BGX_CMRX_CFG, cfg);
-+}
-+EXPORT_SYMBOL(bgx_lmac_rx_tx_enable);
-+
- static void bgx_sgmii_change_link_state(struct lmac *lmac)
- {
- 	struct bgx *bgx = lmac->bgx;
-@@ -656,8 +673,7 @@ static int bgx_lmac_enable(struct bgx *bgx, u8 lmacid)
+@@ -612,6 +612,8 @@ static void bgx_poll_for_link(struct work_struct *work)
+ 		lmac->last_duplex = 1;
+ 	} else {
+ 		lmac->link_up = 0;
++		lmac->last_speed = SPEED_UNKNOWN;
++		lmac->last_duplex = DUPLEX_UNKNOWN;
  	}
  
- 	/* Enable lmac */
--	bgx_reg_modify(bgx, lmacid, BGX_CMRX_CFG,
--		       CMR_EN | CMR_PKT_RX_EN | CMR_PKT_TX_EN);
-+	bgx_reg_modify(bgx, lmacid, BGX_CMRX_CFG, CMR_EN);
- 
- 	/* Restore default cfg, incase low level firmware changed it */
- 	bgx_reg_write(bgx, lmacid, BGX_CMRX_RX_DMAC_CTL, 0x03);
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-index 89a02fa..149e179 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-@@ -183,6 +183,7 @@ enum MCAST_MODE {
- #define CAM_ACCEPT	1
- 
- void octeon_mdiobus_force_mod_depencency(void);
-+void bgx_lmac_rx_tx_enable(int node, int bgx_idx, int lmacid, bool enable);
- void bgx_add_dmac_addr(u64 dmac, int node, int bgx_idx, int lmac);
- unsigned bgx_get_map(int node);
- int bgx_get_lmac_count(int node, int bgx);
+ 	if (lmac->last_link != lmac->link_up) {
 -- 
 1.7.1
