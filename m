@@ -1,114 +1,63 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH 1/6] net: qmi_wwan: MDM9x30 specific power management
-Date: Thu,  3 Dec 2015 19:24:18 +0100
-Message-ID: <1449167063-22703-2-git-send-email-bjorn@mork.no>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH 5/6] net: qmi_wwan: document the qmi/raw_ip sysfs file
+Date: Thu,  3 Dec 2015 19:24:22 +0100
+Message-ID: <1449167063-22703-6-git-send-email-bjorn@mork.no>
 References: <1449167063-22703-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org, Marcel Holtmann <marcel@holtmann.org>,
-	Oliver Neukum <oneukum@suse.com>,
-	Aleksander Morgado <aleksander@aleksander.es>,
-	Dan Williams <dcbw@redhat.com>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:55648 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752049AbbLCSZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 13:25:08 -0500
-In-Reply-To: <1449167063-22703-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>,
+	Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1449167063-22703-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-MDM9x30 based modems appear to go into a deeper sleep when
-suspended without "Remote Wakeup" enabled.  The QMI interface
-will not respond unless a "set DTR" control request is sent
-on resume. The effect is similar to a QMI_CTL SYNC request,
-resetting (some of) the firmware state.
-
-We allow userspace sessions to span multiple character device
-open/close sequences.  This means that userspace can depend
-on firmware state while both the netdev and the character
-device are closed.  We have disabled "needs_remote_wakeup" at
-this point to allow devices without remote wakeup support to
-be auto-suspended.
-
-To make sure the MDM9x30 keeps firmware state, we need to
-keep "needs_remote_wakeup" always set. We also need to
-issue a "set DTR" request to enable the QMI interface.
-
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 ---
- drivers/net/usb/qmi_wwan.c | 38 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 38 insertions(+)
+ Documentation/ABI/testing/sysfs-class-net-qmi | 23 +++++++++++++++++++=
+++++
+ 1 file changed, 23 insertions(+)
+ create mode 100644 Documentation/ABI/testing/sysfs-class-net-qmi
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 9a5be8b85186..fc9dd452a3b5 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -223,6 +223,20 @@ err:
- 	return rv;
- }
-=20
-+/* Send CDC SetControlLineState request, setting or clearing the DTR.
-+ * "Required for Autoconnect and 9x30 to wake up" according to the
-+ * GobiNet driver. The requirement has been verified on an MDM9230
-+ * based Sierra Wireless MC7455
-+ */
-+static int qmi_wwan_change_dtr(struct usbnet *dev, bool on)
-+{
-+	u8 intf =3D dev->intf->cur_altsetting->desc.bInterfaceNumber;
+diff --git a/Documentation/ABI/testing/sysfs-class-net-qmi b/Documentat=
+ion/ABI/testing/sysfs-class-net-qmi
+new file mode 100644
+index 000000000000..d240b7bf6587
+--- /dev/null
++++ b/Documentation/ABI/testing/sysfs-class-net-qmi
+@@ -0,0 +1,23 @@
++What:		/sys/class/net/<iface>/qmi/raw_ip
++Date:		Dec 2015
++KernelVersion:	4.4
++Contact:	Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
++Description:
++		Boolean.  Default: 'N'
 +
-+	return usbnet_write_cmd(dev, USB_CDC_REQ_SET_CONTROL_LINE_STATE,
-+				USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE,
-+				on ? 0x01 : 0x00, intf, NULL, 0);
-+}
++		Set this to 'Y' to change the network device link
++		framing from '802.3' to 'raw-ip'.
 +
- static int qmi_wwan_bind(struct usbnet *dev, struct usb_interface *int=
-f)
- {
- 	int status =3D -1;
-@@ -280,6 +294,24 @@ static int qmi_wwan_bind(struct usbnet *dev, struc=
-t usb_interface *intf)
- 		usb_driver_release_interface(driver, info->data);
- 	}
-=20
-+	/* disabling remote wakeup on MDM9x30 devices has the same
-+	 * effect as clearing DTR. The device will not respond to QMI
-+	 * requests until we set DTR again.  This is similar to a
-+	 * QMI_CTL SYNC request, clearing a lot of firmware state
-+	 * including the client ID allocations.
-+	 *
-+	 * Our usage model allows a session to span multiple
-+	 * open/close events, so we must prevent the firmware from
-+	 * clearing out state the clients might need.
-+	 *
-+	 * MDM9x30 is the first QMI chipset with USB3 support. Abuse
-+	 * this fact to enable the quirk.
-+	 */
-+	if (le16_to_cpu(dev->udev->descriptor.bcdUSB) >=3D 0x0201) {
-+		qmi_wwan_manage_power(dev, 1);
-+		qmi_wwan_change_dtr(dev, true);
-+	}
++		The netdev will change to reflect the link framing
++		mode.  The netdev is an ordinary ethernet device in
++		'802.3' mode, and the driver expects to exchange
++		frames with an ethernet header over the USB link. The
++		netdev is a headerless p-t-p device in 'raw-ip' mode,
++		and the driver expects to echange IPv4 or IPv6 packets
++		without any L2 header over the USB link.
 +
- 	/* Never use the same address on both ends of the link, even if the
- 	 * buggy firmware told us to. Or, if device is assigned the well-know=
-n
- 	 * buggy firmware MAC address, replace it with a random address,
-@@ -307,6 +339,12 @@ static void qmi_wwan_unbind(struct usbnet *dev, st=
-ruct usb_interface *intf)
- 	if (info->subdriver && info->subdriver->disconnect)
- 		info->subdriver->disconnect(info->control);
-=20
-+	/* disable MDM9x30 quirk */
-+	if (le16_to_cpu(dev->udev->descriptor.bcdUSB) >=3D 0x0201) {
-+		qmi_wwan_change_dtr(dev, false);
-+		qmi_wwan_manage_power(dev, 0);
-+	}
-+
- 	/* allow user to unbind using either control or data */
- 	if (intf =3D=3D info->control)
- 		other =3D info->data;
++		Userspace is in full control of firmware configuration
++		through the delegation of the QMI protocol. Userspace
++		is responsible for coordination of driver and firmware
++		link framing mode, changing this setting to 'Y' if the
++		firmware is configured for 'raw-ip' mode.
 --=20
 2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
