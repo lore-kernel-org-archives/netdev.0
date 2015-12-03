@@ -1,112 +1,98 @@
-From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: [PATCH] stmmac: ipq806x: Return error values instead of pointers
-Date: Wed,  2 Dec 2015 23:55:15 -0800
-Message-ID: <1449129315-1427-1-git-send-email-sboyd@codeaurora.org>
-Cc: linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org, Joachim Eastwood <manabian@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Subject: [PATCH v3 1/1] atm: solos-pci: Replace simple_strtol by kstrtoint
+Date: Thu,  3 Dec 2015 09:06:08 +0100
+Message-ID: <1449129968-22249-2-git-send-email-clabbe.montjoie@gmail.com>
+References: <1449129968-22249-1-git-send-email-clabbe.montjoie@gmail.com>
+Cc: LABBE Corentin <clabbe.montjoie@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449129968-22249-1-git-send-email-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Typically we return error pointers when we want to use those
-pointers in the non-error case, but this function is just
-returning error pointers or NULL for success. Change the style to
-plain int to follow normal kernel coding styles.
+The simple_strtol function is obsolete.
+This patch replace it by kstrtoint.
+This will simplify code, since some error case not handled by
+simple_strtol are handled by kstrtoint.
 
-Cc: Joachim Eastwood <manabian@gmail.com>
-Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
 ---
- .../net/ethernet/stmicro/stmmac/dwmac-ipq806x.c    | 24 ++++++++++------------
- 1 file changed, 11 insertions(+), 13 deletions(-)
+ drivers/atm/solos-pci.c | 28 +++++++++++++++-------------
+ 1 file changed, 15 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
-index 82de68b1a452..36d3355f2fb0 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
-@@ -198,19 +198,19 @@ static int ipq806x_gmac_set_speed(struct ipq806x_gmac *gmac, unsigned int speed)
- 	return 0;
- }
- 
--static void *ipq806x_gmac_of_parse(struct ipq806x_gmac *gmac)
-+static int ipq806x_gmac_of_parse(struct ipq806x_gmac *gmac)
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index 3d7fb65..2bec4f1 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -347,8 +347,8 @@ static char *next_string(struct sk_buff *skb)
+  */       
+ static int process_status(struct solos_card *card, int port, struct sk_buff *skb)
  {
- 	struct device *dev = &gmac->pdev->dev;
+-	char *str, *end, *state_str, *snr, *attn;
+-	int ver, rate_up, rate_down;
++	char *str, *state_str, *snr, *attn;
++	int ver, rate_up, rate_down, err;
  
- 	gmac->phy_mode = of_get_phy_mode(dev->of_node);
- 	if (gmac->phy_mode < 0) {
- 		dev_err(dev, "missing phy mode property\n");
--		return ERR_PTR(-EINVAL);
-+		return -EINVAL;
- 	}
+ 	if (!card->atmdev[port])
+ 		return -ENODEV;
+@@ -357,11 +357,11 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
+ 	if (!str)
+ 		return -EIO;
  
- 	if (of_property_read_u32(dev->of_node, "qcom,id", &gmac->id) < 0) {
- 		dev_err(dev, "missing qcom id property\n");
--		return ERR_PTR(-EINVAL);
-+		return -EINVAL;
- 	}
- 
- 	/* The GMACs are called 1 to 4 in the documentation, but to simplify the
-@@ -219,13 +219,13 @@ static void *ipq806x_gmac_of_parse(struct ipq806x_gmac *gmac)
- 	 */
- 	if (gmac->id < 0 || gmac->id > 3) {
- 		dev_err(dev, "invalid gmac id\n");
--		return ERR_PTR(-EINVAL);
-+		return -EINVAL;
- 	}
- 
- 	gmac->core_clk = devm_clk_get(dev, "stmmaceth");
- 	if (IS_ERR(gmac->core_clk)) {
- 		dev_err(dev, "missing stmmaceth clk property\n");
--		return gmac->core_clk;
-+		return PTR_ERR(gmac->core_clk);
- 	}
- 	clk_set_rate(gmac->core_clk, 266000000);
- 
-@@ -234,18 +234,16 @@ static void *ipq806x_gmac_of_parse(struct ipq806x_gmac *gmac)
- 							   "qcom,nss-common");
- 	if (IS_ERR(gmac->nss_common)) {
- 		dev_err(dev, "missing nss-common node\n");
--		return gmac->nss_common;
-+		return PTR_ERR(gmac->nss_common);
- 	}
- 
- 	/* Setup the register map for the qsgmii csr registers */
- 	gmac->qsgmii_csr = syscon_regmap_lookup_by_phandle(dev->of_node,
- 							   "qcom,qsgmii-csr");
--	if (IS_ERR(gmac->qsgmii_csr)) {
-+	if (IS_ERR(gmac->qsgmii_csr))
- 		dev_err(dev, "missing qsgmii-csr node\n");
--		return gmac->qsgmii_csr;
--	}
- 
--	return NULL;
-+	return PTR_ERR_OR_ZERO(gmac->qsgmii_csr);
- }
- 
- static void ipq806x_gmac_fix_mac_speed(void *priv, unsigned int speed)
-@@ -262,7 +260,7 @@ static int ipq806x_gmac_probe(struct platform_device *pdev)
- 	struct device *dev = &pdev->dev;
- 	struct ipq806x_gmac *gmac;
- 	int val;
--	void *err;
-+	int err;
- 
- 	val = stmmac_get_platform_resources(pdev, &stmmac_res);
- 	if (val)
-@@ -279,9 +277,9 @@ static int ipq806x_gmac_probe(struct platform_device *pdev)
- 	gmac->pdev = pdev;
- 
- 	err = ipq806x_gmac_of_parse(gmac);
--	if (IS_ERR(err)) {
-+	if (err) {
- 		dev_err(dev, "device tree parsing error\n");
--		return PTR_ERR(err);
+-	ver = simple_strtol(str, NULL, 10);
+-	if (ver < 1) {
++	err = kstrtoint(str, 10, &ver);
++	if (err || ver < 1) {
+ 		dev_warn(&card->dev->dev, "Unexpected status interrupt version %d\n",
+ 			 ver);
+-		return -EIO;
 +		return err;
  	}
  
- 	regmap_write(gmac->qsgmii_csr, QSGMII_PCS_CAL_LCKDT_CTL,
+ 	str = next_string(skb);
+@@ -373,16 +373,16 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
+ 		return 0;
+ 	}
+ 
+-	rate_down = simple_strtol(str, &end, 10);
+-	if (*end)
+-		return -EIO;
++	err = kstrtoint(str, 10, &rate_down);
++	if (err)
++		return err;
+ 
+ 	str = next_string(skb);
+ 	if (!str)
+ 		return -EIO;
+-	rate_up = simple_strtol(str, &end, 10);
+-	if (*end)
+-		return -EIO;
++	err = kstrtoint(str, 10, &rate_up);
++	if (err)
++		return err;
+ 
+ 	state_str = next_string(skb);
+ 	if (!state_str)
+@@ -417,7 +417,7 @@ static int process_command(struct solos_card *card, int port, struct sk_buff *sk
+ 	struct solos_param *prm;
+ 	unsigned long flags;
+ 	int cmdpid;
+-	int found = 0;
++	int found = 0, err;
+ 
+ 	if (skb->len < 7)
+ 		return 0;
+@@ -428,7 +428,9 @@ static int process_command(struct solos_card *card, int port, struct sk_buff *sk
+ 	    skb->data[6] != '\n')
+ 		return 0;
+ 
+-	cmdpid = simple_strtol(&skb->data[1], NULL, 10);
++	err = kstrtoint(&skb->data[1], 10, &cmdpid);
++	if (err)
++		return err;
+ 
+ 	spin_lock_irqsave(&card->param_queue_lock, flags);
+ 	list_for_each_entry(prm, &card->param_queue, list) {
 -- 
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
-a Linux Foundation Collaborative Project
+2.4.10
