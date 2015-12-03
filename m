@@ -1,85 +1,77 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [patch net-next v2 01/28] net: dev: Check CHANGEUPPER notifier
- return value
-Date: Thu, 3 Dec 2015 08:37:37 +0200
-Message-ID: <CAJ3xEMg=Jiwc9vT_yLFbPGsk4Wm_p8=Gx3jX4STyOimZmq-bGg@mail.gmail.com>
-References: <1449086871-19911-1-git-send-email-jiri@resnulli.us>
-	<1449086871-19911-2-git-send-email-jiri@resnulli.us>
-	<565F7CD2.2080207@gmail.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH] Improve Atheros ethernet driver not to do order 4
+ GFP_ATOMIC allocation
+Date: Thu, 3 Dec 2015 08:49:02 +0100
+Message-ID: <20151203074902.GB4139@amd>
+References: <20151127082010.GA2500@dhcp22.suse.cz>
+ <20151128145113.GB4135@amd>
+ <20151130132129.GB21950@dhcp22.suse.cz>
+ <20151201.153517.224543138214404348.davem@davemloft.net>
+ <CAMXMK6u1vQ772SGv-J3cKvOmS6QRAjjQLYiSiWO2+T=HRTiK1A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Elad Raz <eladr@mellanox.com>, yotamg@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>, vfalico@gmail.com,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	pjonnala@broadcom.com, Florian Fainelli <f.fainelli@gmail.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:35441 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750897AbbLCGhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 01:37:38 -0500
-Received: by ioc74 with SMTP id 74so71195201ioc.2
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 22:37:37 -0800 (PST)
-In-Reply-To: <565F7CD2.2080207@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: David Miller <davem@davemloft.net>, mhocko@kernel.org, akpm@osdl.org,
+	linux-kernel@vger.kernel.org, jcliburn@gmail.com,
+	netdev@vger.kernel.org, rjw@rjwysocki.net, linux-mm@kvack.org,
+	nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com
+To: Chris Snook <chris.snook@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <CAMXMK6u1vQ772SGv-J3cKvOmS6QRAjjQLYiSiWO2+T=HRTiK1A@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 3, 2015 at 1:20 AM, John Fastabend <john.fastabend@gmail.com> wrote:
-> On 15-12-02 12:07 PM, Jiri Pirko wrote:
->> From: Ido Schimmel <idosch@mellanox.com>
->>
->> switchdev drivers reflect the newly requested topology to hardware when
->> CHANGEUPPER is received, after software links were already formed.
->> However, the operation can fail and user will not be notified, as the
->> return value of the notifier is not checked.
->>
->> Add this check and rollback software links if necessary.
+On Wed 2015-12-02 22:43:31, Chris Snook wrote:
+> On Tue, Dec 1, 2015 at 12:35 PM David Miller <davem@davemloft.net> wrot=
+e:
+>=20
+> > From: Michal Hocko <mhocko@kernel.org>
+> > Date: Mon, 30 Nov 2015 14:21:29 +0100
+> >
+> > > On Sat 28-11-15 15:51:13, Pavel Machek wrote:
+> > >>
+> > >> atl1c driver is doing order-4 allocation with GFP_ATOMIC
+> > >> priority. That often breaks  networking after resume. Switch to
+> > >> GFP_KERNEL. Still not ideal, but should be significantly better.
+> > >
+> > > It is not clear why GFP_KERNEL can replace GFP_ATOMIC safely neithe=
+r
+> > > from the changelog nor from the patch context.
+> >
+> > Earlier in the function we do a GFP_KERNEL kmalloc so:
+> >
+> > =C2=AF\_(=E3=83=84)_/=C2=AF
+> >
+> > It should be fine.
+> >
+>=20
+> AFAICT, the people who benefit from GFP_ATOMIC are the people running a=
+ll
+> their storage over NFS/iSCSI who are suspending their machines while
+> they're so busy they don't have any clean order 4 pagecache to drop, an=
+d
+> want the machine to panic rather than hang. The people who benefit
+>from
 
->>  net/core/dev.c | 7 +++++--
->>  1 file changed, 5 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 5df6cbc..df33f82 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -5490,8 +5490,11 @@ static int __netdev_upper_dev_link(struct net_device *dev,
->>                       goto rollback_lower_mesh;
->>       }
->>
->> -     call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
->> -                                   &changeupper_info.info);
->> +     ret = call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
->> +                                         &changeupper_info.info);
->> +     if (ret)
->> +             goto rollback_lower_mesh;
->> +
->
-> hmm small nit (take it or leave it) but I think it would be more
-> correct if this was
->
->         if (ret == NOTIFY_BAD)
->                 goto rollback_lower_mesh;
->
-> It seems that NOTIFY_DONE, NOTIFY_OK and NOTIFY_STOP_MASK would be
-> valid return codes that don't indicate an error. However seeing I
-> couldn't find any cases of NOTIFY_OK/NOTIFY_STOP_MASK from the
-> CHANGEUPPER event it doesn't matter in practice.
+iSCSI on machine that suspends... is that a joke or complicated way of
+saying that noone benefits? And code uses... both GFP_ATOMIC and
+GFP_KERNEL so that both sides are equally unhappy? :-).
 
-When saying that you couldn't find any such cases in the current code,
-can't they
-be added in the future? and hence following your suggestion would
-eliminate future
-wrong behaviour, right?
+Do you want to test the patch, update the subject line and send it to
+Davem, or should I do it?
 
->>       return 0;
->>
->>  rollback_lower_mesh:
+Do you see a way to split the allocation? Not even order 4 GFP_KERNEL
+allocation is a nice thing to do...
+
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/b=
+log.html
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
