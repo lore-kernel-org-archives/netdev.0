@@ -1,41 +1,99 @@
-From: Zhu Yanjun <yanjun.zhu@windriver.com>
-Subject: [PATCH 1/1] net: bonding: remove redudant brackets
-Date: Thu, 3 Dec 2015 18:00:55 +0800
-Message-ID: <1449136855-13108-1-git-send-email-yanjun.zhu@windriver.com>
+From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Subject: RE: [net-next v4 4/8] dpaa_eth: add driver's Tx queue selection
+Date: Thu, 3 Dec 2015 10:02:53 +0000
+Message-ID: <DM2PR0301MB07689A2F03A375C248DDA817E60D0@DM2PR0301MB0768.namprd03.prod.outlook.com>
+References: <1446485500-9782-1-git-send-email-madalin.bucur@freescale.com>
+	 <1446485500-9782-5-git-send-email-madalin.bucur@freescale.com>
+ <1449092431.29246.156.camel@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:47465 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932791AbbLCKAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 05:00:48 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Liberman Igal <Igal.Liberman@freescale.com>,
+	Roy Pledge <roy.pledge@freescale.com>,
+	"ppc@mindchasers.com" <ppc@mindchasers.com>,
+	"joe@perches.com" <joe@perches.com>,
+	"pebolle@tiscali.nl" <pebolle@tiscali.nl>,
+	"joakim.tjernlund@transmode.se" <joakim.tjernlund@transmode.se>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
+To: Scott Wood <scottwood@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449092431.29246.156.camel@freescale.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It is not necessary to use two brackets. As such, the redudant brackets
-are removed.
-
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <gospo@cumulusnetworks.com>
-Signed-off-by: Zhu Yanjun <yanjun.zhu@windriver.com>
----
- drivers/net/bonding/bond_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 9e0f8a7..09f8a48 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1351,7 +1351,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	 * the current ifenslave will set the interface down prior to
- 	 * enslaving it; the old ifenslave will not.
- 	 */
--	if ((slave_dev->flags & IFF_UP)) {
-+	if (slave_dev->flags & IFF_UP) {
- 		netdev_err(bond_dev, "%s is up - this may be due to an out of date ifenslave\n",
- 			   slave_dev->name);
- 		res = -EPERM;
--- 
-1.7.9.5
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBXb29kIFNjb3R0LUIwNzQyMQ0K
+PiBTZW50OiBXZWRuZXNkYXksIERlY2VtYmVyIDAyLCAyMDE1IDExOjQxIFBNDQo+IA0KPiBPbiBN
+b24sIDIwMTUtMTEtMDIgYXQgMTk6MzEgKzAyMDAsIE1hZGFsaW4gQnVjdXIgd3JvdGU6DQo+ID4g
+QWxsb3cgdGhlIHNlbGVjdGlvbiBvZiB0aGUgdHJhbnNtaXNzaW9uIHF1ZXVlIGJhc2VkIG9uIHRo
+ZSBDUFUgaWQuDQo+IA0KPiBFeHBsYWluIHdoeS4NCg0KSSdsbCBhZGQgbW9yZSBkZXRhaWxzIGlu
+IHRoZSBjb21taXQgbG9nLiBUaGlzIGlzIGEgY3VzdG9tZXIgZ2VuZXJhdGVkDQpmZWF0dXJlLiBC
+eXBhc3NpbmcgdGhlIHN0YW5kYXJkIFhQUyBjYW4gaW5jcmVhc2UgcGVyZm9ybWFuY2UgYnkgbWFr
+aW5nIHVzZQ0Kb2YgdGhlIERQQUEgSFcgcGFydGljdWxhcml0aWVzLg0KDQo+ID4NCj4gPiBTaWdu
+ZWQtb2ZmLWJ5OiBNYWRhbGluIEJ1Y3VyIDxtYWRhbGluLmJ1Y3VyQGZyZWVzY2FsZS5jb20+DQo+
+ID4gLS0tDQo+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL0tjb25maWcg
+ICAgICAgICAgIHwgMTAgKysrKysrKysrKw0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
+c2NhbGUvZHBhYS9kcGFhX2V0aC5jICAgICAgICB8ICAzICsrKw0KPiA+ICBkcml2ZXJzL25ldC9l
+dGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5oICAgICAgICB8ICA2ICsrKysrKw0KPiA+
+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aF9jb21tb24uYyB8
+ICA4ICsrKysrKysrDQo+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL2Rw
+YWFfZXRoX2NvbW1vbi5oIHwgIDQgKysrKw0KPiA+ICA1IGZpbGVzIGNoYW5nZWQsIDMxIGluc2Vy
+dGlvbnMoKykNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
+c2NhbGUvZHBhYS9LY29uZmlnDQo+ID4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUv
+ZHBhYS9LY29uZmlnDQo+ID4gaW5kZXggMDIyZDVhYS4uMjU3N2FhYyAxMDA2NDQNCj4gPiAtLS0g
+YS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9LY29uZmlnDQo+ID4gKysrIGIv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvS2NvbmZpZw0KPiA+IEBAIC0xMSw2
+ICsxMSwxNiBAQCBtZW51Y29uZmlnIEZTTF9EUEFBX0VUSA0KPiA+DQo+ID4gIGlmIEZTTF9EUEFB
+X0VUSA0KPiA+DQo+ID4gK2NvbmZpZyBGU0xfRFBBQV9FVEhfVVNFX05ET19TRUxFQ1RfUVVFVUUN
+Cj4gPiArCWJvb2wgIlVzZSBkcml2ZXIncyBUeCBxdWV1ZSBzZWxlY3Rpb24gbWVjaGFuaXNtIg0K
+PiA+ICsJZGVmYXVsdCB5DQo+ID4gKwktLS1oZWxwLS0tDQo+ID4gKwkgIFRoZSBEUEFBIEV0aGVy
+bmV0IGRyaXZlciBkZWZpbmVzIGEgbmRvX3NlbGVjdF9xdWV1ZSgpIGNhbGxiYWNrDQo+ID4gZm9y
+IG9wdGltYWwgc2VsZWN0aW9uDQo+ID4gKwkgIG9mIHRoZSBlZ3Jlc3MgRlEuIFRoYXQgd2lsbCBv
+dmVycmlkZSB0aGUgWFBTIHN1cHBvcnQgZm9yIHRoaXMNCj4gPiBuZXRkZXZpY2UuDQo+ID4gKwkg
+IElmIGZvciB3aGF0ZXZlciByZWFzb24geW91IHdhbnQgdG8gYmUgaW4gY29udHJvbCBvZiB0aGUg
+ZWdyZXNzIEZRDQo+ID4gLXRvLUNQVSBzZWxlY3Rpb24gYW5kIG1hcHBpbmcsDQo+ID4gKwkgIG9y
+IHNpbXBseSBkb24ndCB3YW50IHRvIHVzZSB0aGUgZHJpdmVyJ3MgbmRvX3NlbGVjdF9xdWV1ZSgp
+DQo+ID4gY2FsbGJhY2ssIHRoZW4gdW5zZWxlY3QgdGhpcw0KPiA+ICsJICBhbmQgdXNlIHRoZSBz
+dGFuZGFyZCBYUFMgc3VwcG9ydCBpbnN0ZWFkLg0KPiANCj4gSXMgdGhlcmUgYSB1c2UgY2FzZSBm
+b3IgbmVlZGluZyB0aGlzIHRvIGJlIGNvbmZpZ3VyYWJsZT8NCg0KSWYgdGhlIHN0YW5kYXJkIFhQ
+UyBpcyBkZXNpcmVkLCB0aGUgS2NvbmZpZyBvcHRpb24gYWxsb3dzIHRoZSBkcml2ZXIgdXNlciB0
+bw0Kc2VsZWN0IHRoYXQuDQoNCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+ZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGguYw0KPiA+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
+ZXNjYWxlL2RwYWEvZHBhYV9ldGguYw0KPiA+IGluZGV4IDMxZDU1YjQuLjg5NGYxYTcgMTAwNjQ0
+DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGgu
+Yw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRo
+LmMNCj4gPiBAQCAtMzkwLDYgKzM5MCw5IEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3QgbmV0X2Rldmlj
+ZV9vcHMgZHBhX3ByaXZhdGVfb3BzID0NCj4gew0KPiA+ICAJLm5kb19nZXRfc3RhdHM2NCA9IGRw
+YV9nZXRfc3RhdHM2NCwNCj4gPiAgCS5uZG9fc2V0X21hY19hZGRyZXNzID0gZHBhX3NldF9tYWNf
+YWRkcmVzcywNCj4gPiAgCS5uZG9fdmFsaWRhdGVfYWRkciA9IGV0aF92YWxpZGF0ZV9hZGRyLA0K
+PiA+ICsjaWZkZWYgQ09ORklHX0ZTTF9EUEFBX0VUSF9VU0VfTkRPX1NFTEVDVF9RVUVVRQ0KPiA+
+ICsJLm5kb19zZWxlY3RfcXVldWUgPSBkcGFfc2VsZWN0X3F1ZXVlLA0KPiA+ICsjZW5kaWYNCj4g
+PiAgCS5uZG9fY2hhbmdlX210dSA9IGRwYV9jaGFuZ2VfbXR1LA0KPiA+ICAJLm5kb19zZXRfcnhf
+bW9kZSA9IGRwYV9zZXRfcnhfbW9kZSwNCj4gPiAgCS5uZG9faW5pdCA9IGRwYV9uZG9faW5pdCwN
+Cj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBh
+YV9ldGguaA0KPiA+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9l
+dGguaA0KPiA+IGluZGV4IDFiYTY2MTcuLjg3NTc3Y2YgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2RwYWEvZHBhYV9ldGguaA0KPiA+ICsrKyBiL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRoLmgNCj4gPiBAQCAtNDIwLDkg
+KzQyMCwxNSBAQCBzdGF0aWMgaW5saW5lIHZvaWQgX2RwYV9hc3NpZ25fd3Eoc3RydWN0IGRwYV9m
+cQ0KPiAqZnEpDQo+ID4gIAl9DQo+ID4gIH0NCj4gPg0KPiA+ICsjaWZkZWYgQ09ORklHX0ZTTF9E
+UEFBX0VUSF9VU0VfTkRPX1NFTEVDVF9RVUVVRQ0KPiA+ICsvKiBVc2UgaW4gbGlldSBvZiBza2Jf
+Z2V0X3F1ZXVlX21hcHBpbmcoKSAqLw0KPiA+ICsjZGVmaW5lIGRwYV9nZXRfcXVldWVfbWFwcGlu
+Zyhza2IpIFwNCj4gPiArCXJhd19zbXBfcHJvY2Vzc29yX2lkKCkNCj4gPiArI2Vsc2UNCj4gPiAg
+LyogVXNlIHRoZSBxdWV1ZSBzZWxlY3RlZCBieSBYUFMgKi8NCj4gPiAgI2RlZmluZSBkcGFfZ2V0
+X3F1ZXVlX21hcHBpbmcoc2tiKSBcDQo+ID4gIAlza2JfZ2V0X3F1ZXVlX21hcHBpbmcoc2tiKQ0K
+PiA+ICsjZW5kaWYNCj4gDQo+IFdoeSBpcyB0aGlzIG5lY2Vzc2FyeT8gIFNob3VsZG4ndCBwcm92
+aWRpbmcgYSBjdXN0b20gLm5kb19zZWxlY3RfcXVldWUoKQ0KPiBiZQ0KPiBzdWZmaWNpZW50IHRv
+IGVuc3VyZSB0aGF0IHNrYl9nZXRfcXVldWVfbWFwcGluZygpIHJldHVybnMgdGhlIHNhbWUgdGhp
+bmc/DQoNCmRwYV9nZXRfcXVldWVfbWFwcGluZygpIGlzIHVzZWQgaW4gbW9yZSB0aGFuIG9uZSBw
+bGFjZSwgdGhlIG5kbyBmdW5jdGlvbiBjYW5ub3QNCmJlIHVzZWQgZGlyZWN0bHkgaW4gYWxsIHBs
+YWNlcywgdGhlIGN1cnJlbnQgc2V0dXAgaXMganVzdGlmaWVkLg0KDQo+IEFuZCBpZiB0aGlzIGdv
+ZXMgYXdheSwgaXQncyBqdXN0IGEgbWF0dGVyIG9mIGEgZnVuY3Rpb24gcG9pbnRlciwgc28gaWYg
+aXQNCj4gZG9lcw0KPiBuZWVkIHRvIGJlIGNvbmZpZ3VyYWJsZSBpdCBjb3VsZCBiZSBhIHJ1bnRp
+bWUgb3B0aW9uLg0KPiANCj4gLVNjb3R0DQoNCkl0J3MgdXNlZCBvbiB0aGUgaG90IHBhdGgsIGFk
+ZGluZyBhbiBleHRyYSBpbmRpcmVjdGlvbiBsYXllciB0byBtYWtlIGl0IHNlbGVjdGFibGUNCmF0
+IHJ1bnRpbWUgd291bGQgZGVmZWF0IHRoZSBwdXJwb3NlLi4uDQoNCk1hZGFsaW4NCg==
