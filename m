@@ -1,88 +1,160 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/15] ixgbe: Prevent KR PHY reset in ixgbe_init_phy_ops_x550em
-Date: Thu,  3 Dec 2015 03:07:09 -0800
-Message-ID: <1449140843-118580-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1449140843-118580-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:63144 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759866AbbLCLH0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 06:07:26 -0500
-In-Reply-To: <1449140843-118580-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: <igal.liberman@freescale.com>
+Subject: [v9, 0/6] Freescale DPAA FMan
+Date: Thu, 3 Dec 2015 09:19:11 +0200
+Message-ID: <1449127157-9400-1-git-send-email-igal.liberman@freescale.com>
+Reply-To: <igal.liberman@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+	<scottwood@freescale.com>, <madalin.bucur@freescale.com>,
+	<pebolle@tiscali.nl>, <joakim.tjernlund@transmode.se>,
+	<ppc@mindchasers.com>, <stephen@networkplumber.org>,
+	<davem@davemloft.net>, Igal Liberman <igal.liberman@freescale.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: Igal Liberman <igal.liberman@freescale.com>
 
-This patch removes KR PHY reset from ixgbe_init_phy_ops_x550em,
-since this function is meant to initialize function pointers for
-the detected PHY type. Internal PHY reset was moved to
-ixgbe_setup_internal_phy_t_x550em which will now detect which
-mode the internal PHY operates in and set it up as required.
+The Freescale Data Path Acceleration Architecture (DPAA) is a set
+of hardware components on specific QorIQ multicore processors.
+This architecture provides the infrastructure to support
+simplified sharing of networking interfaces and accelerators
+by multiple CPU cores and the accelerators.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Darin Miller <darin.j.miller@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 21 ++++++++-------------
- 1 file changed, 8 insertions(+), 13 deletions(-)
+One of the DPAA accelerators is the Frame Manager (FMan)
+which contains a series of hardware blocks: ports, Ethernet MACs,
+a multi user RAM (MURAM) and Storage Profile (SP).
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index bf2ae8d..a9c73b7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -1727,6 +1727,12 @@ static s32 ixgbe_setup_internal_phy_t_x550em(struct ixgbe_hw *hw)
- 	if (hw->mac.ops.get_media_type(hw) != ixgbe_media_type_copper)
- 		return IXGBE_ERR_CONFIG;
- 
-+	if (hw->phy.nw_mng_if_sel & IXGBE_NW_MNG_IF_SEL_INT_PHY_MODE) {
-+		speed = IXGBE_LINK_SPEED_10GB_FULL |
-+			IXGBE_LINK_SPEED_1GB_FULL;
-+		return ixgbe_setup_kr_speed_x550em(hw, speed);
-+	}
-+
- 	/* If link is not up, then there is no setup necessary so return  */
- 	status = ixgbe_ext_phy_t_x550em_get_link(hw, &link_up);
- 	if (status)
-@@ -1931,7 +1937,6 @@ static s32 ixgbe_enter_lplu_t_x550em(struct ixgbe_hw *hw)
- static s32 ixgbe_init_phy_ops_X550em(struct ixgbe_hw *hw)
- {
- 	struct ixgbe_phy_info *phy = &hw->phy;
--	ixgbe_link_speed speed;
- 	s32 ret_val;
- 
- 	hw->mac.ops.set_lan_id(hw);
-@@ -1944,10 +1949,6 @@ static s32 ixgbe_init_phy_ops_X550em(struct ixgbe_hw *hw)
- 		 * to determine internal PHY mode.
- 		 */
- 		phy->nw_mng_if_sel = IXGBE_READ_REG(hw, IXGBE_NW_MNG_IF_SEL);
--		if (phy->nw_mng_if_sel & IXGBE_NW_MNG_IF_SEL_INT_PHY_MODE) {
--			speed = IXGBE_LINK_SPEED_10GB_FULL |
--				IXGBE_LINK_SPEED_1GB_FULL;
--		}
- 	}
- 
- 	/* Identify the PHY or SFP module */
-@@ -1979,14 +1980,8 @@ static s32 ixgbe_init_phy_ops_X550em(struct ixgbe_hw *hw)
- 		/* If internal link mode is XFI, then setup iXFI internal link,
- 		 * else setup KR now.
- 		 */
--		if (!(phy->nw_mng_if_sel & IXGBE_NW_MNG_IF_SEL_INT_PHY_MODE)) {
--			phy->ops.setup_internal_link =
--					ixgbe_setup_internal_phy_t_x550em;
--		} else {
--			speed = IXGBE_LINK_SPEED_10GB_FULL |
--				IXGBE_LINK_SPEED_1GB_FULL;
--			ret_val = ixgbe_setup_kr_speed_x550em(hw, speed);
--		}
-+		phy->ops.setup_internal_link =
-+					      ixgbe_setup_internal_phy_t_x550em;
- 
- 		/* setup SW LPLU only for first revision */
- 		if (!(IXGBE_FUSES0_REV1 & IXGBE_READ_REG(hw,
+This patch set introduce the FMan drivers.
+Each driver configures and initializes the corresponding
+FMan hardware module (described above).
+The MAC driver offers support for three different
+types of MACs (eTSEC, TGEC, MEMAC).
+
+v8 --> v9:
+	No changes
+
+v7 --> v8:
+	- Addressed feedback from David Miller
+	- Support for ARM:
+		- Device tree parsing
+		- IO Accessors
+		- Addressed compilation issue on non-PPC targets
+
+v6 --> v7:
+	- Addressed compilation issue on non-PPC targets
+	- Removed B4860 rev 1 support
+
+v5 --> v6:
+	- Addressed feedback from Scott:
+		- Moved kernel doc to source files
+		- Removed a series of configurable settings
+		- Miscellaneous code updates
+
+v4 --> v5:
+	- Addressed feedback from David Miller:
+		- Removed driver layering
+		- Reduce namespace pollution
+		- Reduce code complexity and size
+
+v3 --> v4:
+	- Remove device_initcall call in driver registration (redundant)
+	- Remove hot/cold labels
+	- Minor update in FMan Clock read from device-tree
+	- Update fixed-link support
+	- Addressed feedback from Stephen Hemminger
+		- Remove bogus blank line
+
+v2 --> v3:
+	- Addressed feedback from Scott:
+		- Remove typedefs
+		- Remove unnecessary memory barriers
+		- Remove unnecessary casting
+		- Remove KConfig options
+		- Remove early_params
+		- Remove Hungarian notation
+		- Remove __packed__  attribute and padding from structures
+		- Remove unlikely attribute (where it's not needed)
+		- Use proper error codes and remove unnecessary prints
+		- Use proper values for sleep routines
+		- Replace complex Macros with functions
+		- Improve device tree processing code
+		- Use symbolic defines
+		- Add time-out in busy-wait loops
+		- Removed exit code (loadable module support will be added later)
+	- Fixed "fixed-link" issue raised by Joakim Tjernlund
+
+v1 --> v2:
+	- Addressed feedback from Paul Bolle:
+		- General feedback of FMan Driver layer
+		- Remove Errata defines
+		- Aligned comments to Kernel Doc
+		- Remove Loadable Module support (not yet supported)
+		- Removed not needed KConfig dependencies
+	- Addressed feedback from Scott Wood
+		- Use Kernel ioread/iowrite services
+		- Squash FLIB source and header patches together
+
+This submission is based on the prior Freescale DPAA FMan V3,RFC submission.
+Several issues addresses in this submission:
+	- Reduced MAC layering and complexity
+	- Reduced code base
+	- T1024/T2080 10G best effort support
+
+
+Igal Liberman (6):
+  fsl/fman: Add FMan MURAM support
+  fsl/fman: Add FMan support
+  fsl/fman: Add FMan MAC support
+  fsl/fman: Add FMan SP support
+  fsl/fman: Add FMan Port Support
+  fsl/fman: Add FMan MAC driver
+
+ drivers/net/ethernet/freescale/Kconfig             |    1 +
+ drivers/net/ethernet/freescale/Makefile            |    2 +
+ drivers/net/ethernet/freescale/fman/Kconfig        |    8 +
+ drivers/net/ethernet/freescale/fman/Makefile       |    7 +
+ .../net/ethernet/freescale/fman/crc_mac_addr_ext.h |  314 +++
+ drivers/net/ethernet/freescale/fman/fman.c         | 2872 ++++++++++++++++++++
+ drivers/net/ethernet/freescale/fman/fman.h         |  325 +++
+ drivers/net/ethernet/freescale/fman/fman_dtsec.c   | 1608 +++++++++++
+ drivers/net/ethernet/freescale/fman/fman_dtsec.h   |   59 +
+ drivers/net/ethernet/freescale/fman/fman_mac.h     |  276 ++
+ drivers/net/ethernet/freescale/fman/fman_memac.c   | 1306 +++++++++
+ drivers/net/ethernet/freescale/fman/fman_memac.h   |   60 +
+ drivers/net/ethernet/freescale/fman/fman_muram.c   |  159 ++
+ drivers/net/ethernet/freescale/fman/fman_muram.h   |   51 +
+ drivers/net/ethernet/freescale/fman/fman_port.c    | 1779 ++++++++++++
+ drivers/net/ethernet/freescale/fman/fman_port.h    |  151 +
+ drivers/net/ethernet/freescale/fman/fman_sp.c      |  167 ++
+ drivers/net/ethernet/freescale/fman/fman_sp.h      |  103 +
+ drivers/net/ethernet/freescale/fman/fman_tgec.c    |  798 ++++++
+ drivers/net/ethernet/freescale/fman/fman_tgec.h    |   55 +
+ drivers/net/ethernet/freescale/fman/mac.c          |  988 +++++++
+ drivers/net/ethernet/freescale/fman/mac.h          |   97 +
+ 22 files changed, 11186 insertions(+)
+ create mode 100644 drivers/net/ethernet/freescale/fman/Kconfig
+ create mode 100644 drivers/net/ethernet/freescale/fman/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/fman/crc_mac_addr_ext.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_dtsec.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_dtsec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_mac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_memac.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_memac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_muram.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_muram.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_port.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_port.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_sp.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_sp.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_tgec.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_tgec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac.h
+
 -- 
-2.5.0
+1.7.9.5
