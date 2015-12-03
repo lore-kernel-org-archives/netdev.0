@@ -1,59 +1,46 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: use-after-free in sctp_do_sm
-Date: Thu, 3 Dec 2015 14:45:43 +0100
-Message-ID: <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
-References: <CACT4Y+ZnWRZfQC25uW=GXHAJB=GX0L6tJQUy43P6WNR3=hwT8Q@mail.gmail.com>
- <20151203130525.GB4164@mrl.redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v3 04/28] net: add netif_is_team_master helper
+Date: Thu, 3 Dec 2015 14:49:10 +0100
+Message-ID: <20151203134910.GJ2331@nanopsycho.orion>
+References: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
+ <1449141150-8172-5-git-send-email-jiri@resnulli.us>
+ <1449146761.6379.20.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vladislav Yasevich <vyasevich@gmail.com>,
-	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>
-To: syzkaller <syzkaller@googlegroups.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	pjonnala@broadcom.com, f.fainelli@gmail.com, sfeldma@gmail.com,
+	john.fastabend@gmail.com, roopa@cumulusnetworks.com, andrew@lunn.ch
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:32953 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752542AbbLCNqE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 08:46:04 -0500
-Received: by wmec201 with SMTP id c201so27687683wme.0
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 05:46:03 -0800 (PST)
-In-Reply-To: <20151203130525.GB4164@mrl.redhat.com>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:34545 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759904AbbLCNtN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 08:49:13 -0500
+Received: by wmvv187 with SMTP id v187so28035217wmv.1
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 05:49:12 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1449146761.6379.20.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 3, 2015 at 2:05 PM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> Hi,
+Thu, Dec 03, 2015 at 01:46:01PM CET, eric.dumazet@gmail.com wrote:
+>On Thu, 2015-12-03 at 12:12 +0100, Jiri Pirko wrote:
 >
-> On Tue, Nov 24, 2015 at 10:15:57AM +0100, Dmitry Vyukov wrote:
->>
->> Call Trace:
->>  [<ffffffff8162131e>] __asan_report_load4_noabort+0x3e/0x40
->>  [<ffffffff8475ac76>] sctp_do_sm+0x42f6/0x4f60
->>  [<ffffffff847b50e9>] sctp_primitive_SHUTDOWN+0xa9/0xd0
->>  [<ffffffff847a1426>] sctp_close+0x616/0x790
->>  [<ffffffff8409bb0d>] inet_release+0xed/0x1c0 ./net/ipv4/af_inet.c:471
->>  [<ffffffff84192cc0>] inet6_release+0x50/0x70 ./net/ipv6/af_inet6.c:416
->>  [<     inline     >] constant_test_bit ././arch/x86/include/asm/bitops.h:321
->>  [<ffffffff83dc78cd>] sock_release+0x8d/0x200 ./net/socket.c:601
->>  [<ffffffff83dc7a56>] sock_close+0x16/0x20 ./net/socket.c:1188
->>  [<ffffffff81662f5d>] __fput+0x21d/0x6e0 ./fs/file_table.c:265
->>  [<ffffffff816634a5>] ____fput+0x15/0x20 ./fs/file_table.c:84
->>  [<ffffffff812a33d3>] task_work_run+0x163/0x1f0 ./include/trace/events/rcu.h:20
->>  [<     inline     >] __list_add ./include/linux/list.h:42
+>>   *	struct net_device - The DEVICE structure.
+>> @@ -3887,6 +3890,11 @@ static inline bool netif_is_ovs_master(const struct net_device *dev)
+>>  	return dev->priv_flags & IFF_OPENVSWITCH;
+>>  }
+>>  
+>> +static inline bool netif_is_team_master(struct net_device *dev)
+>> +{
+>> +	return dev->priv_flags & IFF_TEAM;
+>> +}
+>> +
 >
-> By any chance, did you have the pr_debug()s enabled?
-> Because that would trigger a use-after-free on debug_post_sfx()
-> macro expansion when the asoc is freed:
->
-> #define debug_post_sfx() \
->         pr_debug("%s[post-sfx]: error:%d, asoc:%p[%s]\n", __func__, error, \
->                  asoc, sctp_state_tbl[(asoc && sctp_id2assoc(ep->base.sk, \
->                  sctp_assoc2id(asoc))) ? asoc->state : SCTP_STATE_CLOSED])
+>Please add 'const' qualifiers whenever possible, like for
+>netif_is_ovs_master(const struct net_device *dev)
 
-
-No, I don't. But pr_debug always computes its arguments. See no_printk
-in printk.h. So this use-after-free happens for all users.
+Okay, will do. Thanks.
