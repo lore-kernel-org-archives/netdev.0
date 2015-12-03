@@ -1,89 +1,142 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver Updates 2015-12-03
-Date: Thu,  3 Dec 2015 05:25:45 -0800
-Message-ID: <1449149160-105219-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 11/15] i40e: Remove separate functions gathering XOFF Rx stats
+Date: Thu,  3 Dec 2015 05:25:56 -0800
+Message-ID: <1449149160-105219-12-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1449149160-105219-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:19487 "EHLO mga03.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:53943 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750792AbbLCN0D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 08:26:03 -0500
+	id S1750792AbbLCN0F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2015 08:26:05 -0500
+In-Reply-To: <1449149160-105219-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only.
+From: Neerav Parikh <neerav.parikh@intel.com>
 
-Mitch updates the i40evf driver by increasing the maximum number of queues,
-since future devices will allow for more queue pairs.  Cleans up a
-duplicate printing of the driver info string done in init, since it is
-already done in probe.  Cleaned up the several allocations which did
-not need to be at atomic level, where GFP_KERNEL would work just fine.
-Then makes i40e_sync_vsi_filters() a more mature function, make having
-a common exit point so it will properly release the busy lock on the VSI
-and propagate errors to the callers.  Then does some whitespace
-housekeeping in i40evf.
+The separate functions to gather Flow control Rx XOFF stats was to
+determine if the Tx for a queue was paused due to Link Flow Control(LFC)
+or Priority Flow Control(PFC).
 
-Kiran moves and updates the detection/recovery of transmit queue hang code
-to service_task from tx_timeout function.  Also fixed memory leak when
-users program flow-director filter using ethtool (sideband filter
-programming), the cause being the check of 'tx_buffer->skb' was preventing
-'raw_buf' from being freed as part of the cleanup.
+But, with recent change in the i40e driver the logic for checking th Tx
+hang has been removed and these functions don't do anything meaningful.
+Hence, there is no need to keep these separate functions to gather Rx
+XOFF stats for LFC or PFC.
 
-Jesse enabled the ability to turn off/on packet split using ethtool priv
-flags.  Then does some housekeeping for both the i40e and i40evf drivers
-which includes: remove unused/useless code, correct whitespace, remove
-duplicate #include, fix incorrect comment, etc...
+This patch removes these functions and moves the stat collection for
+XOFF Rx to the i40e_update_pf_stats() that collects all the PF stats.
 
-Neerav cleans up functions to gather Flow Control Rx XOFF stats, since
-the recent change in the driver logic for checking transmit hang has been
-moved, so these functions do not do anything meaningful any longer.
+Change-ID: Iec1452dac3a6766f0d968e754cb407530d7c60cd
+Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 77 +++--------------------------
+ 1 file changed, 7 insertions(+), 70 deletions(-)
 
-The following are changes since commit 6f24e5d599896b5091af72e4b3edfce6307627f7:
-  sfc: use ALIGN macro for aligning frame sizes
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Catherine Sullivan (1):
-  i40e/i40evf: Bump version to 1.4.7 for i40e and 1.4.3 for i40evf
-
-Jesse Brandeburg (3):
-  i40e: use priv flags to control packet split
-  i40e: remove CONFIG_I40E_VXLAN
-  i40e: trivial fixes
-
-Kiran Patil (2):
-  i40e: Detection and recovery of TX queue hung logic moved to
-    service_task from tx_timeout
-  i40e: Fix memory leaks, sideband filter programming
-
-Mitch Williams (8):
-  i40evf: increase max number of queues
-  i40evf: set real num queues
-  i40evf: remove duplicate string
-  i40evf: don't use atomic allocation
-  i40e: propagate properly
-  i40evf: use correct types
-  i40e: fix whitespace
-  i40e/i40evf: use logical operator
-
-Neerav Parikh (1):
-  i40e: Remove separate functions gathering XOFF Rx stats
-
- drivers/net/ethernet/intel/Kconfig                 |  11 -
- drivers/net/ethernet/intel/i40e/i40e.h             |  15 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  27 +++
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 240 ++++++++++-----------
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  29 ++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  18 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  48 ++---
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  15 ++
- drivers/net/ethernet/intel/i40evf/i40evf.h         |   3 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  11 +-
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  12 +-
- 11 files changed, 226 insertions(+), 203 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index b731a82..1c5c0fd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -792,75 +792,6 @@ static void i40e_update_fcoe_stats(struct i40e_vsi *vsi)
+ 
+ #endif
+ /**
+- * i40e_update_link_xoff_rx - Update XOFF received in link flow control mode
+- * @pf: the corresponding PF
+- *
+- * Update the Rx XOFF counter (PAUSE frames) in link flow control mode
+- **/
+-static void i40e_update_link_xoff_rx(struct i40e_pf *pf)
+-{
+-	struct i40e_hw_port_stats *osd = &pf->stats_offsets;
+-	struct i40e_hw_port_stats *nsd = &pf->stats;
+-	struct i40e_hw *hw = &pf->hw;
+-	u64 xoff = 0;
+-
+-	if ((hw->fc.current_mode != I40E_FC_FULL) &&
+-	    (hw->fc.current_mode != I40E_FC_RX_PAUSE))
+-		return;
+-
+-	xoff = nsd->link_xoff_rx;
+-	i40e_stat_update32(hw, I40E_GLPRT_LXOFFRXC(hw->port),
+-			   pf->stat_offsets_loaded,
+-			   &osd->link_xoff_rx, &nsd->link_xoff_rx);
+-
+-	/* No new LFC xoff rx */
+-	if (!(nsd->link_xoff_rx - xoff))
+-		return;
+-
+-}
+-
+-/**
+- * i40e_update_prio_xoff_rx - Update XOFF received in PFC mode
+- * @pf: the corresponding PF
+- *
+- * Update the Rx XOFF counter (PAUSE frames) in PFC mode
+- **/
+-static void i40e_update_prio_xoff_rx(struct i40e_pf *pf)
+-{
+-	struct i40e_hw_port_stats *osd = &pf->stats_offsets;
+-	struct i40e_hw_port_stats *nsd = &pf->stats;
+-	bool xoff[I40E_MAX_TRAFFIC_CLASS] = {false};
+-	struct i40e_dcbx_config *dcb_cfg;
+-	struct i40e_hw *hw = &pf->hw;
+-	u16 i;
+-	u8 tc;
+-
+-	dcb_cfg = &hw->local_dcbx_config;
+-
+-	/* Collect Link XOFF stats when PFC is disabled */
+-	if (!dcb_cfg->pfc.pfcenable) {
+-		i40e_update_link_xoff_rx(pf);
+-		return;
+-	}
+-
+-	for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
+-		u64 prio_xoff = nsd->priority_xoff_rx[i];
+-
+-		i40e_stat_update32(hw, I40E_GLPRT_PXOFFRXC(hw->port, i),
+-				   pf->stat_offsets_loaded,
+-				   &osd->priority_xoff_rx[i],
+-				   &nsd->priority_xoff_rx[i]);
+-
+-		/* No new PFC xoff rx */
+-		if (!(nsd->priority_xoff_rx[i] - prio_xoff))
+-			continue;
+-		/* Get the TC for given priority */
+-		tc = dcb_cfg->etscfg.prioritytable[i];
+-		xoff[tc] = true;
+-	}
+-}
+-
+-/**
+  * i40e_update_vsi_stats - Update the vsi statistics counters.
+  * @vsi: the VSI to be updated
+  *
+@@ -1054,12 +985,18 @@ static void i40e_update_pf_stats(struct i40e_pf *pf)
+ 	i40e_stat_update32(hw, I40E_GLPRT_LXONTXC(hw->port),
+ 			   pf->stat_offsets_loaded,
+ 			   &osd->link_xon_tx, &nsd->link_xon_tx);
+-	i40e_update_prio_xoff_rx(pf);  /* handles I40E_GLPRT_LXOFFRXC */
++	i40e_stat_update32(hw, I40E_GLPRT_LXOFFRXC(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->link_xoff_rx, &nsd->link_xoff_rx);
+ 	i40e_stat_update32(hw, I40E_GLPRT_LXOFFTXC(hw->port),
+ 			   pf->stat_offsets_loaded,
+ 			   &osd->link_xoff_tx, &nsd->link_xoff_tx);
+ 
+ 	for (i = 0; i < 8; i++) {
++		i40e_stat_update32(hw, I40E_GLPRT_PXOFFRXC(hw->port, i),
++				   pf->stat_offsets_loaded,
++				   &osd->priority_xoff_rx[i],
++				   &nsd->priority_xoff_rx[i]);
+ 		i40e_stat_update32(hw, I40E_GLPRT_PXONRXC(hw->port, i),
+ 				   pf->stat_offsets_loaded,
+ 				   &osd->priority_xon_rx[i],
 -- 
 2.5.0
