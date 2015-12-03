@@ -1,76 +1,48 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 1/1] atm: solos-pci: Replace simple_strtol by kstrtoint
-Date: Thu, 3 Dec 2015 14:41:14 +0300
-Message-ID: <56602A5A.4020701@cogentembedded.com>
-References: <1449060889-20447-1-git-send-email-clabbe.montjoie@gmail.com>
- <1449060889-20447-2-git-send-email-clabbe.montjoie@gmail.com>
- <565EF9EB.3000509@cogentembedded.com> <20151203075257.GA13787@Red>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: ipsec impact on performance
+Date: Thu, 3 Dec 2015 12:47:19 +0100
+Message-ID: <20151203114719.GE14008@secunet.com>
+References: <20151201175953.GC21252@oracle.com>
+ <20151202065305.GB14008@secunet.com>
+ <20151202120538.GJ23178@oracle.com>
+ <20151203084508.GD14008@secunet.com>
+ <20151203113820.GX15262@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: LABBE Corentin <clabbe.montjoie@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151203075257.GA13787@Red>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <linux-crypto@vger.kernel.org>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151203113820.GX15262@oracle.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Thu, Dec 03, 2015 at 06:38:20AM -0500, Sowmini Varadhan wrote:
+> On (12/03/15 09:45), Steffen Klassert wrote:
+> > pcrypt(echainiv(authenc(hmac(sha1-ssse3),cbc-aes-aesni)))
+> > 
+> > Result:
+> > 
+> > iperf -c 10.0.0.12 -t 60
+> > ------------------------------------------------------------
+> > Client connecting to 10.0.0.12, TCP port 5001
+> > TCP window size: 45.0 KByte (default)
+> > ------------------------------------------------------------
+> > [  3] local 192.168.0.12 port 39380 connected with 10.0.0.12 port 5001
+> > [ ID] Interval       Transfer     Bandwidth
+> > [  3]  0.0-60.0 sec  32.8 GBytes  4.70 Gbits/sec
+> > 
+> > I provide more informatios as soon as the code is available.
+> 
+> that's pretty good compared to the baseline. 
+> I'd like to try out our patches, when they are ready.
+> 
+> I think you may get some more improvement if you manually pin the irq 
+> and iperf to specific cpus (at least that was my observation for transp 
+> mode) 
 
-On 12/3/2015 10:52 AM, LABBE Corentin wrote:
+I do that already. I have dedicated crypto and IO cpus, 2 cpus
+do networking IO and 4 cpus do crypto (parallelized with pcrypt).
 
->>> The simple_strtol function is obsolete.
->>> This patch replace it by kstrtoint.
->>> This will simplify code, since some error case not handled by
->>> simple_strtol are handled by kstrtoint.
->>>
->>> Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
->>> ---
->>>    drivers/atm/solos-pci.c | 28 +++++++++++++++-------------
->>>    1 file changed, 15 insertions(+), 13 deletions(-)
->>>
->>> diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
->>> index 3d7fb65..f944d75 100644
->>> --- a/drivers/atm/solos-pci.c
->>> +++ b/drivers/atm/solos-pci.c
->>> @@ -347,8 +347,8 @@ static char *next_string(struct sk_buff *skb)
->>>     */
->>>    static int process_status(struct solos_card *card, int port, struct sk_buff *skb)
->>>    {
->>> -	char *str, *end, *state_str, *snr, *attn;
->>> -	int ver, rate_up, rate_down;
->>> +	char *str, *state_str, *snr, *attn;
->>> +	int ver, rate_up, rate_down, err;
->>>
->>>    	if (!card->atmdev[port])
->>>    		return -ENODEV;
->>> @@ -357,11 +357,11 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
->>>    	if (!str)
->>>    		return -EIO;
->>>
->>> -	ver = simple_strtol(str, NULL, 10);
->>> -	if (ver < 1) {
->>> +	err = kstrtoint(str, 10, &ver);
->>> +	if (ver < 1 || err) {
->>
->>      Is 'ver' initialized in case of error? If not, you have to check 'err' first.
->
-> Hello
->
-> Whatever if ver is initialized,
-
-    I meant initialized by kstrtoint().
-
-> since the conditional is an or, the test will always be true with the err value.
-
-    I don't understand you. If you test 'ver' first, you risk testing 
-uninitialized variable.
-
-> Anyway I will send an updated version.
-
-    Let's see...
-
-> Regards
-
-MBR, Sergei
+The bottleneck is now the cpu that does the TX path (checksumming
+of the GSO segments).
