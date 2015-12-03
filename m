@@ -1,42 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: fix allocation warnings in bpf maps and
- integer overflow
-Date: Wed, 02 Dec 2015 23:36:28 -0500 (EST)
-Message-ID: <20151202.233628.1791728126876403392.davem@davemloft.net>
-References: <CACT4Y+b1k7Ofvn6xa=qWv9xP6BbteWOnZsJMXLZ=GOby-ajF=w@mail.gmail.com>
-	<20151130005934.GA95228@ast-mbp.thefacebook.com>
+Subject: Re: [PATCH net] ipv6: add complete rcu protection around np->opt
+Date: Wed, 02 Dec 2015 23:38:21 -0500 (EST)
+Message-ID: <20151202.233821.139368757119113563.davem@davemloft.net>
+References: <1448730683.24696.94.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1448731434.24696.97.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1448854677.24696.117.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, syzkaller@googlegroups.com,
-	kcc@google.com, glider@google.com, edumazet@google.com,
-	sasha.levin@oracle.com, daniel@iogearbox.net
-To: alexei.starovoitov@gmail.com
+Cc: dvyukov@google.com, vyasevich@gmail.com, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	edumazet@google.com, wdauchy@gmail.com,
+	rweikusat@mobileactivedefense.com, syzkaller@googlegroups.com,
+	kcc@google.com, glider@google.com, sasha.levin@oracle.com
+To: eric.dumazet@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151130005934.GA95228@ast-mbp.thefacebook.com>
+In-Reply-To: <1448854677.24696.117.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Date: Sun, 29 Nov 2015 16:59:35 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 29 Nov 2015 19:37:57 -0800
 
-> From: Alexei Starovoitov <ast@kernel.org>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> For large map->value_size the user space can trigger memory allocation warnings like:
- ...
-> To avoid never succeeding kmalloc with order >= MAX_ORDER check that
-> elem->value_size and computed elem_size are within limits for both hash and
-> array type maps.
-> Also add __GFP_NOWARN to kmalloc(value_size | elem_size) to avoid OOM warnings.
-> Note kmalloc(key_size) is highly unlikely to trigger OOM, since key_size <= 512,
-> so keep those kmalloc-s as-is.
+> This patch addresses multiple problems :
 > 
-> Large value_size can cause integer overflows in elem_size and map.pages
-> formulas, so check for that as well.
+> UDP/RAW sendmsg() need to get a stable struct ipv6_txoptions
+> while socket is not locked : Other threads can change np->opt
+> concurrently. Dmitry posted a syzkaller
+> (http://github.com/google/syzkaller) program desmonstrating
+> use-after-free.
 > 
-> Fixes: aaac3ba95e4c ("bpf: charge user for creation of BPF maps and programs")
+> Starting with TCP/DCCP lockless listeners, tcp_v6_syn_recv_sock()
+> and dccp_v6_request_recv_sock() also need to use RCU protection
+> to dereference np->opt once (before calling ipv6_dup_options())
+> 
+> This patch adds full RCU protection to np->opt
+> 
 > Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied and queued up for -stable, thanks.
+Applied and queued up for -stable.
