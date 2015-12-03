@@ -1,59 +1,72 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/15] i40e/i40evf: Bump version to 1.4.7 for i40e and 1.4.3 for i40evf
-Date: Thu,  3 Dec 2015 05:25:59 -0800
-Message-ID: <1449149160-105219-15-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1449149160-105219-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:19487 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759778AbbLCN0G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 08:26:06 -0500
-In-Reply-To: <1449149160-105219-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH v4 net 0/6] Marvell Armada XP/370/38X Neta fixes
+Date: Thu, 03 Dec 2015 14:43:05 +0100
+Message-ID: <874mfz1wd2.fsf@free-electrons.com>
+References: <1448886466-31538-1-git-send-email-mw@semihalf.com>
+	<20151201.220337.2287051759324173025.davem@davemloft.net>
+	<87wpsx2rll.fsf@free-electrons.com>
+	<20151202.153152.345490122870853342.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mw@semihalf.com, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	linux@arm.linux.org.uk, sebastian.hesselbarth@gmail.com,
+	andrew@lunn.ch, jason@lakedaemon.net,
+	thomas.petazzoni@free-electrons.com, simon.guinot@sequanux.org,
+	nadavh@marvell.com, alior@marvell.com, xswang@marvell.com,
+	myair@marvell.com, nitroshift@yahoo.com, jaz@semihalf.com,
+	tn@semihalf.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151202.153152.345490122870853342.davem@davemloft.net> (David
+	Miller's message of "Wed, 02 Dec 2015 15:31:52 -0500 (EST)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+Hi David,
+=20
+ On mer., d=C3=A9c. 02 2015, David Miller <davem@davemloft.net> wrote:
 
-Bump.
+> From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> Date: Wed, 02 Dec 2015 09:16:06 +0100
+>
+>> Hi David,
+>> =20
+>>  On mer., d=C3=A9c. 02 2015, David Miller <davem@davemloft.net> wrot=
+e:
+>>=20
+>>> From: Marcin Wojtas <mw@semihalf.com>
+>>> Date: Mon, 30 Nov 2015 13:27:40 +0100
+>>>
+>>>> I'm sending v4 with corrected commit log of the last patch, in ord=
+er
+>>>> to avoid possible conflicts between the branches as suggested by
+>>>> Gregory Clement.
+>>>
+>>> Series applied, thanks.
+>>=20
+>> Could you confirm that you don't apply the last patch?
+>
+> If I say it's applied then it's applied, and if you don't like it the=
+n
+> you'll have to submit a revert patch against my tree or similar.
+>
+> You know you could just check my tree instead of asking.
 
-Change-ID: Id8c83c64c973349a722bab40d285ad8ded8c28f7
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+Well I was very surprised that you applied a patch in a subsystem that
+you do not maintain. As written on the lines just below yours, the
+purpose of this v4 was to make clear that the last patch is not for the
+net subsystem but for the arm/mvebu one.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 1c5c0fd..b447af6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
- 
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 4
--#define DRV_VERSION_BUILD 4
-+#define DRV_VERSION_BUILD 7
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 2577757..b4c632f 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -34,7 +34,7 @@ char i40evf_driver_name[] = "i40evf";
- static const char i40evf_driver_string[] =
- 	"Intel(R) XL710/X710 Virtual Function Network Driver";
- 
--#define DRV_VERSION "1.4.1"
-+#define DRV_VERSION "1.4.3"
- const char i40evf_driver_version[] = DRV_VERSION;
- static const char i40evf_copyright[] =
- 	"Copyright (c) 2013 - 2015 Intel Corporation.";
--- 
-2.5.0
+As this series will be part of the next rc, then I hope we won't have
+conflicts during next merge.
+
+Gregory
+
+
+--=20
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
