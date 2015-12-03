@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: Only call /sbin/bridge-stp for the
- initial network namespace
-Date: Wed, 02 Dec 2015 23:50:49 -0500 (EST)
-Message-ID: <20151202.235049.2068953758962834535.davem@davemloft.net>
-References: <565B7F7D.80208@nod.at>
-	<CAGXu5jJqQKAmFK0nL69E0QOpo8WSVDqStGZo7-m7gy3vnXBa=A@mail.gmail.com>
-	<87egf7183c.fsf_-_@x220.int.ebiederm.org>
+Subject: Re: [PATCH] net: smc911x: convert pxa dma to dmaengine
+Date: Wed, 02 Dec 2015 23:52:17 -0500 (EST)
+Message-ID: <20151202.235217.2201517065767030121.davem@davemloft.net>
+References: <1448919628-13273-1-git-send-email-robert.jarzmik@free.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: keescook@chromium.org, kernel-hardening@lists.openwall.com, richard@nod.at,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: ebiederm@xmission.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <87egf7183c.fsf_-_@x220.int.ebiederm.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: robert.jarzmik@free.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448919628-13273-1-git-send-email-robert.jarzmik@free.fr>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Mon, 30 Nov 2015 15:38:15 -0600
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Date: Mon, 30 Nov 2015 22:40:28 +0100
 
-> +	if (dev_net(br->dev) == &init_net)
+> Convert the dma transfers to be dmaengine based, now pxa has a dmaengine
+> slave driver. This makes this driver a bit more PXA agnostic.
+> 
+> The driver was only compile tested. The risk is quite small as no
+> current PXA platform I'm aware of is using smc911x driver.
+> 
+> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
 
-Please respin this using net_eq() as Hannes pointed out.
-
-Thanks.
+I've marked this 'deferred' in patchwork until someone tests
+these changes and says they should be good on all platforms
+this chip is used.
