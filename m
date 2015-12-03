@@ -1,78 +1,53 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: Re: use-after-free in sctp_do_sm
-Date: Thu, 3 Dec 2015 15:42:57 -0500
-Message-ID: <5660A951.4000808@akamai.com>
-References: <CACT4Y+ZnWRZfQC25uW=GXHAJB=GX0L6tJQUy43P6WNR3=hwT8Q@mail.gmail.com>
- <20151203130525.GB4164@mrl.redhat.com>
- <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
- <CANn89iKEv-q6EFi1eX+Hk_2+jNfZ0ayUqUn_Fh1U7RTs9xjdXg@mail.gmail.com>
- <CACT4Y+bgeqS05zqkAHkxzAP7fuvFSkeEybwDTizw6Gp8KK28Fw@mail.gmail.com>
- <CANn89i+d=mTJ-hAhhgPXsZPGAkQdECxRdbkeRLfozRq8i9Ms+g@mail.gmail.com>
- <CACT4Y+YJe-OJj9q1Kr5-_ApDt1UBKLjTRxhP62EHtEAwZt5vXw@mail.gmail.com>
- <f7twpsvgyar.fsf@aconole.bos.csb> <566098BD.6010803@akamai.com>
- <1449172984.12092.0.camel@perches.com> <5660A1A7.3080301@akamai.com>
- <1449174246.12092.8.camel@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/5] ila: Optimization to preserve value of
+ early demux
+Date: Thu, 03 Dec 2015 15:43:00 -0500 (EST)
+Message-ID: <20151203.154300.1597761632975280766.davem@davemloft.net>
+References: <1449011472-1459652-1-git-send-email-tom@herbertland.com>
+	<20151203.144845.271629627276792795.davem@davemloft.net>
+	<CALx6S358G5c47hUEHMYmhkZjnTqfAOD9kEEk2L92Y15TYA7=eg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Joe Perches <joe@perches.com>, Aaron Conole <aconole@redhat.com>,
-	Dmitry Vyukov <dvyukov@google.com>
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:64693 "EHLO
-	prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752369AbbLCUnD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 15:43:03 -0500
-In-Reply-To: <1449174246.12092.8.camel@perches.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46475 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751324AbbLCUnC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 15:43:02 -0500
+In-Reply-To: <CALx6S358G5c47hUEHMYmhkZjnTqfAOD9kEEk2L92Y15TYA7=eg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/03/2015 03:24 PM, Joe Perches wrote:
-> On Thu, 2015-12-03 at 15:10 -0500, Jason Baron wrote:
->> On 12/03/2015 03:03 PM, Joe Perches wrote:
->>> On Thu, 2015-12-03 at 14:32 -0500, Jason Baron wrote:
->>>> On 12/03/2015 01:52 PM, Aaron Conole wrote:
->>>>> I think that as a minimum, the following patch should be evaluted,
->>>>> but am unsure to whom I should submit it (after I test):
->>> []
->>>> Agreed - the intention here is certainly to have no side effects. It
->>>> looks like 'no_printk()' is used in quite a few other places that would
->>>> benefit from this change. So we probably want a generic
->>>> 'really_no_printk()' macro.
->>>
->>> https://lkml.org/lkml/2012/6/17/231
+From: Tom Herbert <tom@herbertland.com>
+Date: Thu, 3 Dec 2015 11:59:31 -0800
+
+> On Thu, Dec 3, 2015 at 11:48 AM, David Miller <davem@davemloft.net> wrote:
+>> From: Tom Herbert <tom@herbertland.com>
+>> Date: Tue, 1 Dec 2015 15:11:07 -0800
 >>
->> I don't see this in the tree.
+>>> ip6tables -t mangle -A PREROUTING --dst 2001:0:0:33::/64 -j ILAIN
+>>
+>> The user should have to do anything like this in order to just get
+>> proper working functionality of ILA.
+>>
+>> It should just work transparently.
 > 
-> It never got applied.
-> 
->> Also maybe we should just convert
->> no_printk() to do what your 'eliminated_printk()'.
-> 
-> Some of them at least.
-> 
->> So we can convert all users with this change?
-> 
-> I don't think so, I think there are some
-> function evaluation/side effects that are
-> required.  I believe some do hardware I/O.
-> 
-> It'd be good to at least isolate them.
-> 
-> I'm not sure how to find them via some
-> automated tool/mechanism though.
-> 
-> I asked Julia Lawall about it once in this
-> thread:  https://lkml.org/lkml/2014/12/3/696
-> 
+> This was transparent in the previously posted patch "ila: Add support
+> for netfilter NF_INET_PRE_ROUTING hook", but there was significant
+> pushback that NF interface was not intended for this purpose. Using an
+> IP tables target like this should preserve the sanctity of the
+> interfaces and does provide nice performance improvement since
+> PREROUTING is done before early demux. The NF_INET_PRE_ROUTING hook is
+> still better performance though and what we are using internally (just
+> an incremental change on top of these patches).
 
-Seems rather fragile to have side effects that we rely
-upon hidden in a printk().
+You want to make a transformation before early demux, which edits the
+packet.
 
-Just convert them and see what breaks :)
+But someone who configures ILA and just wants reasonable performance
+shouldn't have to configure anything explicitly outside of the ILA
+config itself.
+
+So again, those are your operating constraints.
