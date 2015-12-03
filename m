@@ -1,65 +1,112 @@
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH v2 1/1] atm: solos-pci: Replace simple_strtol by kstrtoint
-Date: Thu, 3 Dec 2015 08:52:57 +0100
-Message-ID: <20151203075257.GA13787@Red>
-References: <1449060889-20447-1-git-send-email-clabbe.montjoie@gmail.com>
- <1449060889-20447-2-git-send-email-clabbe.montjoie@gmail.com>
- <565EF9EB.3000509@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <565EF9EB.3000509@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Stephen Boyd <sboyd@codeaurora.org>
+Subject: [PATCH] stmmac: ipq806x: Return error values instead of pointers
+Date: Wed,  2 Dec 2015 23:55:15 -0800
+Message-ID: <1449129315-1427-1-git-send-email-sboyd@codeaurora.org>
+Cc: linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org, Joachim Eastwood <manabian@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 02, 2015 at 05:02:19PM +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 12/2/2015 3:54 PM, LABBE Corentin wrote:
-> 
-> > The simple_strtol function is obsolete.
-> > This patch replace it by kstrtoint.
-> > This will simplify code, since some error case not handled by
-> > simple_strtol are handled by kstrtoint.
-> >
-> > Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
-> > ---
-> >   drivers/atm/solos-pci.c | 28 +++++++++++++++-------------
-> >   1 file changed, 15 insertions(+), 13 deletions(-)
-> >
-> > diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-> > index 3d7fb65..f944d75 100644
-> > --- a/drivers/atm/solos-pci.c
-> > +++ b/drivers/atm/solos-pci.c
-> > @@ -347,8 +347,8 @@ static char *next_string(struct sk_buff *skb)
-> >    */
-> >   static int process_status(struct solos_card *card, int port, struct sk_buff *skb)
-> >   {
-> > -	char *str, *end, *state_str, *snr, *attn;
-> > -	int ver, rate_up, rate_down;
-> > +	char *str, *state_str, *snr, *attn;
-> > +	int ver, rate_up, rate_down, err;
-> >
-> >   	if (!card->atmdev[port])
-> >   		return -ENODEV;
-> > @@ -357,11 +357,11 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
-> >   	if (!str)
-> >   		return -EIO;
-> >
-> > -	ver = simple_strtol(str, NULL, 10);
-> > -	if (ver < 1) {
-> > +	err = kstrtoint(str, 10, &ver);
-> > +	if (ver < 1 || err) {
-> 
->     Is 'ver' initialized in case of error? If not, you have to check 'err' first.
+Typically we return error pointers when we want to use those
+pointers in the non-error case, but this function is just
+returning error pointers or NULL for success. Change the style to
+plain int to follow normal kernel coding styles.
 
-Hello
+Cc: Joachim Eastwood <manabian@gmail.com>
+Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+---
+ .../net/ethernet/stmicro/stmmac/dwmac-ipq806x.c    | 24 ++++++++++------------
+ 1 file changed, 11 insertions(+), 13 deletions(-)
 
-Whatever if ver is initialized, since the conditional is an or, the test will always be true with the err value.
-Anyway I will send an updated version.
-
-Regards
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
+index 82de68b1a452..36d3355f2fb0 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
+@@ -198,19 +198,19 @@ static int ipq806x_gmac_set_speed(struct ipq806x_gmac *gmac, unsigned int speed)
+ 	return 0;
+ }
+ 
+-static void *ipq806x_gmac_of_parse(struct ipq806x_gmac *gmac)
++static int ipq806x_gmac_of_parse(struct ipq806x_gmac *gmac)
+ {
+ 	struct device *dev = &gmac->pdev->dev;
+ 
+ 	gmac->phy_mode = of_get_phy_mode(dev->of_node);
+ 	if (gmac->phy_mode < 0) {
+ 		dev_err(dev, "missing phy mode property\n");
+-		return ERR_PTR(-EINVAL);
++		return -EINVAL;
+ 	}
+ 
+ 	if (of_property_read_u32(dev->of_node, "qcom,id", &gmac->id) < 0) {
+ 		dev_err(dev, "missing qcom id property\n");
+-		return ERR_PTR(-EINVAL);
++		return -EINVAL;
+ 	}
+ 
+ 	/* The GMACs are called 1 to 4 in the documentation, but to simplify the
+@@ -219,13 +219,13 @@ static void *ipq806x_gmac_of_parse(struct ipq806x_gmac *gmac)
+ 	 */
+ 	if (gmac->id < 0 || gmac->id > 3) {
+ 		dev_err(dev, "invalid gmac id\n");
+-		return ERR_PTR(-EINVAL);
++		return -EINVAL;
+ 	}
+ 
+ 	gmac->core_clk = devm_clk_get(dev, "stmmaceth");
+ 	if (IS_ERR(gmac->core_clk)) {
+ 		dev_err(dev, "missing stmmaceth clk property\n");
+-		return gmac->core_clk;
++		return PTR_ERR(gmac->core_clk);
+ 	}
+ 	clk_set_rate(gmac->core_clk, 266000000);
+ 
+@@ -234,18 +234,16 @@ static void *ipq806x_gmac_of_parse(struct ipq806x_gmac *gmac)
+ 							   "qcom,nss-common");
+ 	if (IS_ERR(gmac->nss_common)) {
+ 		dev_err(dev, "missing nss-common node\n");
+-		return gmac->nss_common;
++		return PTR_ERR(gmac->nss_common);
+ 	}
+ 
+ 	/* Setup the register map for the qsgmii csr registers */
+ 	gmac->qsgmii_csr = syscon_regmap_lookup_by_phandle(dev->of_node,
+ 							   "qcom,qsgmii-csr");
+-	if (IS_ERR(gmac->qsgmii_csr)) {
++	if (IS_ERR(gmac->qsgmii_csr))
+ 		dev_err(dev, "missing qsgmii-csr node\n");
+-		return gmac->qsgmii_csr;
+-	}
+ 
+-	return NULL;
++	return PTR_ERR_OR_ZERO(gmac->qsgmii_csr);
+ }
+ 
+ static void ipq806x_gmac_fix_mac_speed(void *priv, unsigned int speed)
+@@ -262,7 +260,7 @@ static int ipq806x_gmac_probe(struct platform_device *pdev)
+ 	struct device *dev = &pdev->dev;
+ 	struct ipq806x_gmac *gmac;
+ 	int val;
+-	void *err;
++	int err;
+ 
+ 	val = stmmac_get_platform_resources(pdev, &stmmac_res);
+ 	if (val)
+@@ -279,9 +277,9 @@ static int ipq806x_gmac_probe(struct platform_device *pdev)
+ 	gmac->pdev = pdev;
+ 
+ 	err = ipq806x_gmac_of_parse(gmac);
+-	if (IS_ERR(err)) {
++	if (err) {
+ 		dev_err(dev, "device tree parsing error\n");
+-		return PTR_ERR(err);
++		return err;
+ 	}
+ 
+ 	regmap_write(gmac->qsgmii_csr, QSGMII_PCS_CAL_LCKDT_CTL,
+-- 
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
+a Linux Foundation Collaborative Project
