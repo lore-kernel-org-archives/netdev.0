@@ -1,87 +1,71 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: SoCFPGA ethernet broken
-Date: Thu, 3 Dec 2015 13:23:56 -0800
-Message-ID: <5660B2EC.1050705@caviumnetworks.com>
-References: <561FF9E2.30102@opensource.altera.com> <56200687.9040903@gmail.com> <562005AD.8020903@opensource.altera.com> <56200BD7.8020505@gmail.com> <20151203204811.GB14427@amd>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [RFC PATCH] af_unix: fix entry locking in unix_dgram_recvmsg
+Date: Thu, 03 Dec 2015 21:24:17 +0000
+Message-ID: <87zixrusxq.fsf@doppelsaurus.mobileactivedefense.com>
+References: <87h9k41pyq.fsf@doppelsaurus.mobileactivedefense.com>
+	<871tb6nlue.fsf@doppelsaurus.mobileactivedefense.com>
+	<20151202.130244.140973474498435711.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Dinh Nguyen <dinguyen@opensource.altera.com>,
-	"David S. Miller" <davem@davemloft.net>, <david.daney@cavium.com>,
-	<netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Pavel Machek <pavel@denx.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: rweikusat@mobileactivedefense.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151203204811.GB14427@amd>
+In-Reply-To: <20151202.130244.140973474498435711.davem@davemloft.net> (David
+	Miller's message of "Wed, 02 Dec 2015 13:02:44 -0500 (EST)")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/03/2015 12:48 PM, Pavel Machek wrote:
-> On Thu 2015-10-15 13:25:59, Florian Fainelli wrote:
->> On 15/10/15 12:59, Dinh Nguyen wrote:
->>> On 10/15/2015 03:03 PM, Florian Fainelli wrote:
->>>> On 15/10/15 12:09, Dinh Nguyen wrote:
->>>>> Hi,
->>>>>
->>>>> commit "8b63ec1837fa phylib: Make PHYs children of their MDIO bus, not
->>>>> the bus' parent." seems to have broken ethernet support for the SoCFPGA
->>>>> platform which is using the stmmac ethernet driver.
->>>>
->>>> It is not clear to me how this relates to what you are seeing yet.
->>>>
->>>>>
->>>>> It appears that during DHCP, it cannot get an IP address. This only
->>>>> happens if ethernet was not used by the bootloader to tftp an kernel
->>>>> image. If I use the bootloader to tftp an image then ethernet is working
->>>>> fine. So I think the PHY is not getting enabled properly.
->>>>>
->>>>> If I revert this patch, then ethernet is back to working on the platform.
->>>>
->>>> Is the Device Tree source for this platform available somewhere to look at?
->>>>
+David Miller <davem@davemloft.net> writes:
+> From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+>> Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
+>> 
+>> [...]
+>> 
+>>> Insofar I understand the comment in this code block correctly,
+
+[...]
+
+>>>                 /* recvmsg() in non blocking mode is supposed to return -EAGAIN
+>>>                  * sk_rcvtimeo is not honored by mutex_lock_interruptible()
 >>>
->>> Yes, I'm using the DTS that is in the mainline:
->>>
->>> arch/arm/boot/dts/socfpga.dtsi
->>> arch/arm/boot/dts/socfpga_cyclone5.dtsi
->>> arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
->>
->> There are no PHY devices in any of these DTS files, instead there is the
->> non-standard "phy-addr" property which is set to 0xffffffff supposedly
->> to indicate that the MDIO bus should be scanned. This is likely part of
->> your problem. The stmmac driver seems to be looking for "snps,phy-addr"
->> and not "phy-addr", so I am not even clear how this is supposed to work,
->> and the driver mentions this custom property is deprecated anyway.
->>
->> The core problem is in
->> drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c::stmmac_mdio_register
->> which manually detects the PHY, that is mostly fine, except that it does
->> not really seem to work here for a reason that is still unclear to me.
->>
->> Your Ethernet PHYs need to be declared in Device Tree, see
->> Documentation/devicetree/bindings/net/phy.txt
->
-> While updating DTS might be good idea, I don't think you can simply
-> blame this on DTS. If it worked before the change, it is supposed to
-> work after the change, otherwise we call that change a "regression"
-> and revert the change.
+>>> setting a receive timeout for an AF_UNIX datagram socket also doesn't
+>>> work as intended because of this: In case of n readers with the same
+>>> timeout, the nth reader will end up blocking n times the timeout.
 
-FWIW: My initial patch to address the failure worked with the original DTB.
+[...]
 
-Also: userspace wasn't broken. So, the commandment about not breaking 
-userspace wasn't broken.  Although admittedly, breaking the kernel isn't 
-good either.
+> So with your patch, the "N * timeout" behavior, where N is the number
+> of queues reading threads, no longer occurs?  Do they all now properly
+> get released at the appropriate timeout?
 
+As far as I can tell, yes. With the change, unix_dgram_recvmsg has a
+read loop looking like this:
 
+	last = NULL; /* not really necessary */
+	timeo = sock_rcvtimeo(sk, flags & MSG_DONTWAIT);
 
->
-> Plus, DTS is supposed to be ABI. Old DTS should still work on new
-> kernels in ideal world.
+	do {
+		mutex_lock(&u->readlock);
 
-If you supply the device tree file in the kernel tree, it is not an ABI.
+		skip = sk_peek_offset(sk, flags);
+		skb = __skb_try_recv_datagram(sk, flags, &peeked, &skip, &err,
+					      &last);
+		if (skb)
+			break;
 
-If the device tree is not part of the kernel, and instead comes from the 
-boot firmware of the board, then you could make the ABI claim.
+		mutex_unlock(&u->readlock);
 
-David Daney
+		if (err != -EAGAIN)
+			break;
+	} while (timeo &&
+		 !__skb_wait_for_more_packets(sk, &err, &timeo, last));
+
+u->readlock is only used to enforce serialized access while running code
+dealing with the peek offset. If there's currently nothing to receive,
+the mutex is dropped. Afterwards, non-blocking readers return with
+-EAGAIN and blocking readers go to sleep waiting for 'interesting
+events' via __skb_wait_for_more_packets without stuffing the mutex into
+a pocket and taking it with them: All non-blocking readers of a certain
+socket end up going to sleep via schedule_timeout call in the wait
+function, hence, each of them will be woken up once its timeout expires.
