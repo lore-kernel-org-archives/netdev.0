@@ -1,237 +1,475 @@
-From: <igal.liberman@freescale.com>
-Subject: [v9, 4/6] fsl/fman: Add FMan SP support
-Date: Thu, 3 Dec 2015 09:19:15 +0200
-Message-ID: <1449127157-9400-5-git-send-email-igal.liberman@freescale.com>
-References: <1449127157-9400-1-git-send-email-igal.liberman@freescale.com>
-Reply-To: igal.liberman@freescale.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: pebolle@tiscali.nl, linux-kernel@vger.kernel.org, ppc@mindchasers.com,
- stephen@networkplumber.org, Igal Liberman <igal.liberman@freescale.com>,
- scottwood@freescale.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net,
- madalin.bucur@freescale.com
-To: <netdev@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1449127157-9400-1-git-send-email-igal.liberman@freescale.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v3 26/28] mlxsw: spectrum: Implement LAG port join/leave
+Date: Thu,  3 Dec 2015 12:12:28 +0100
+Message-ID: <1449141150-8172-27-git-send-email-jiri@resnulli.us>
+References: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com, j.vosburgh@gmail.com,
+	vfalico@gmail.com, gospo@cumulusnetworks.com,
+	dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	pjonnala@broadcom.com, f.fainelli@gmail.com, sfeldma@gmail.com,
+	john.fastabend@gmail.com, roopa@cumulusnetworks.com, andrew@lunn.ch
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:35421 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758501AbbLCLNJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 06:13:09 -0500
+Received: by wmuu63 with SMTP id u63so16410010wmu.0
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 03:13:08 -0800 (PST)
+In-Reply-To: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSWdhbCBMaWJlcm1hbiA8aWdhbC5saWJlcm1hbkBmcmVlc2NhbGUuY29tPgoKVGhlIFN0
-b3JhZ2UgUHJvZmlsZXMgY29udGFpbiBwYXJhbWV0ZXJzIHRoYXQgYXJlIHVzZWQKYnkgdGhlIEZN
-YW4gZm9yIGZyYW1lIHJlY2VwdGlvbiBhbmQgdHJhbnNtaXNzaW9uLgoKU2lnbmVkLW9mZi1ieTog
-SWdhbCBMaWJlcm1hbiA8aWdhbC5saWJlcm1hbkBmcmVlc2NhbGUuY29tPgotLS0KIGRyaXZlcnMv
-bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL01ha2VmaWxlICB8ICAgIDIgKy0KIGRyaXZlcnMv
-bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW5fc3AuYyB8ICAxNjcgKysrKysrKysrKysr
-KysrKysrKysrKysrKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9z
-cC5oIHwgIDEwMyArKysrKysrKysrKysrKysKIDMgZmlsZXMgY2hhbmdlZCwgMjcxIGluc2VydGlv
-bnMoKyksIDEgZGVsZXRpb24oLSkKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhl
-cm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX3NwLmMKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJz
-L25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX3NwLmgKCmRpZmYgLS1naXQgYS9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9NYWtlZmlsZSBiL2RyaXZlcnMvbmV0L2V0
-aGVybmV0L2ZyZWVzY2FsZS9mbWFuL01ha2VmaWxlCmluZGV4IDQzMzYwZDcwLi41MTQxNTMyIDEw
-MDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9NYWtlZmlsZQor
-KysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9NYWtlZmlsZQpAQCAtMiw1
-ICsyLDUgQEAgc3ViZGlyLWNjZmxhZ3MteSArPSAgLUkkKHNyY3RyZWUpL2RyaXZlcnMvbmV0L2V0
-aGVybmV0L2ZyZWVzY2FsZS9mbWFuCiAKIG9iai15CQkrPSBmc2xfZm1hbi5vIGZzbF9mbWFuX21h
-Yy5vCiAKLWZzbF9mbWFuLW9ianMJOj0gZm1hbl9tdXJhbS5vIGZtYW4ubworZnNsX2ZtYW4tb2Jq
-cwk6PSBmbWFuX211cmFtLm8gZm1hbi5vIGZtYW5fc3AubwogZnNsX2ZtYW5fbWFjLW9ianMgOj0g
-Zm1hbl9kdHNlYy5vIGZtYW5fbWVtYWMubyBmbWFuX3RnZWMubwpkaWZmIC0tZ2l0IGEvZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9zcC5jIGIvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9zcC5jCm5ldyBmaWxlIG1vZGUgMTAwNjQ0CmluZGV4
-IDAwMDAwMDAuLmYzNmM2MjIKLS0tIC9kZXYvbnVsbAorKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9mcmVlc2NhbGUvZm1hbi9mbWFuX3NwLmMKQEAgLTAsMCArMSwxNjcgQEAKKy8qCisgKiBDb3B5
-cmlnaHQgMjAwOCAtIDIwMTUgRnJlZXNjYWxlIFNlbWljb25kdWN0b3IgSW5jLgorICoKKyAqIFJl
-ZGlzdHJpYnV0aW9uIGFuZCB1c2UgaW4gc291cmNlIGFuZCBiaW5hcnkgZm9ybXMsIHdpdGggb3Ig
-d2l0aG91dAorICogbW9kaWZpY2F0aW9uLCBhcmUgcGVybWl0dGVkIHByb3ZpZGVkIHRoYXQgdGhl
-IGZvbGxvd2luZyBjb25kaXRpb25zIGFyZSBtZXQ6CisgKiAgICAgKiBSZWRpc3RyaWJ1dGlvbnMg
-b2Ygc291cmNlIGNvZGUgbXVzdCByZXRhaW4gdGhlIGFib3ZlIGNvcHlyaWdodAorICogICAgICAg
-bm90aWNlLCB0aGlzIGxpc3Qgb2YgY29uZGl0aW9ucyBhbmQgdGhlIGZvbGxvd2luZyBkaXNjbGFp
-bWVyLgorICogICAgICogUmVkaXN0cmlidXRpb25zIGluIGJpbmFyeSBmb3JtIG11c3QgcmVwcm9k
-dWNlIHRoZSBhYm92ZSBjb3B5cmlnaHQKKyAqICAgICAgIG5vdGljZSwgdGhpcyBsaXN0IG9mIGNv
-bmRpdGlvbnMgYW5kIHRoZSBmb2xsb3dpbmcgZGlzY2xhaW1lciBpbiB0aGUKKyAqICAgICAgIGRv
-Y3VtZW50YXRpb24gYW5kL29yIG90aGVyIG1hdGVyaWFscyBwcm92aWRlZCB3aXRoIHRoZSBkaXN0
-cmlidXRpb24uCisgKiAgICAgKiBOZWl0aGVyIHRoZSBuYW1lIG9mIEZyZWVzY2FsZSBTZW1pY29u
-ZHVjdG9yIG5vciB0aGUKKyAqICAgICAgIG5hbWVzIG9mIGl0cyBjb250cmlidXRvcnMgbWF5IGJl
-IHVzZWQgdG8gZW5kb3JzZSBvciBwcm9tb3RlIHByb2R1Y3RzCisgKiAgICAgICBkZXJpdmVkIGZy
-b20gdGhpcyBzb2Z0d2FyZSB3aXRob3V0IHNwZWNpZmljIHByaW9yIHdyaXR0ZW4gcGVybWlzc2lv
-bi4KKyAqCisgKgorICogQUxURVJOQVRJVkVMWSwgdGhpcyBzb2Z0d2FyZSBtYXkgYmUgZGlzdHJp
-YnV0ZWQgdW5kZXIgdGhlIHRlcm1zIG9mIHRoZQorICogR05VIEdlbmVyYWwgUHVibGljIExpY2Vu
-c2UgKCJHUEwiKSBhcyBwdWJsaXNoZWQgYnkgdGhlIEZyZWUgU29mdHdhcmUKKyAqIEZvdW5kYXRp
-b24sIGVpdGhlciB2ZXJzaW9uIDIgb2YgdGhhdCBMaWNlbnNlIG9yIChhdCB5b3VyIG9wdGlvbikg
-YW55CisgKiBsYXRlciB2ZXJzaW9uLgorICoKKyAqIFRISVMgU09GVFdBUkUgSVMgUFJPVklERUQg
-QlkgRnJlZXNjYWxlIFNlbWljb25kdWN0b3IgYGBBUyBJUycnIEFORCBBTlkKKyAqIEVYUFJFU1Mg
-T1IgSU1QTElFRCBXQVJSQU5USUVTLCBJTkNMVURJTkcsIEJVVCBOT1QgTElNSVRFRCBUTywgVEhF
-IElNUExJRUQKKyAqIFdBUlJBTlRJRVMgT0YgTUVSQ0hBTlRBQklMSVRZIEFORCBGSVRORVNTIEZP
-UiBBIFBBUlRJQ1VMQVIgUFVSUE9TRSBBUkUKKyAqIERJU0NMQUlNRUQuIElOIE5PIEVWRU5UIFNI
-QUxMIEZyZWVzY2FsZSBTZW1pY29uZHVjdG9yIEJFIExJQUJMRSBGT1IgQU5ZCisgKiBESVJFQ1Qs
-IElORElSRUNULCBJTkNJREVOVEFMLCBTUEVDSUFMLCBFWEVNUExBUlksIE9SIENPTlNFUVVFTlRJ
-QUwgREFNQUdFUworICogKElOQ0xVRElORywgQlVUIE5PVCBMSU1JVEVEIFRPLCBQUk9DVVJFTUVO
-VCBPRiBTVUJTVElUVVRFIEdPT0RTIE9SIFNFUlZJQ0VTOworICogTE9TUyBPRiBVU0UsIERBVEEs
-IE9SIFBST0ZJVFM7IE9SIEJVU0lORVNTIElOVEVSUlVQVElPTikgSE9XRVZFUiBDQVVTRUQgQU5E
-CisgKiBPTiBBTlkgVEhFT1JZIE9GIExJQUJJTElUWSwgV0hFVEhFUiBJTiBDT05UUkFDVCwgU1RS
-SUNUIExJQUJJTElUWSwgT1IgVE9SVAorICogKElOQ0xVRElORyBORUdMSUdFTkNFIE9SIE9USEVS
-V0lTRSkgQVJJU0lORyBJTiBBTlkgV0FZIE9VVCBPRiBUSEUgVVNFIE9GIFRISVMKKyAqIFNPRlRX
-QVJFLCBFVkVOIElGIEFEVklTRUQgT0YgVEhFIFBPU1NJQklMSVRZIE9GIFNVQ0ggREFNQUdFLgor
-ICovCisKKyNpbmNsdWRlICJmbWFuX3NwLmgiCisjaW5jbHVkZSAiZm1hbi5oIgorCit2b2lkIGZt
-YW5fc3Bfc2V0X2J1Zl9wb29sc19pbl9hc2Nfb3JkZXJfb2ZfYnVmX3NpemVzKHN0cnVjdCBmbWFu
-X2V4dF9wb29scworCQkJCQkJICAgICAqZm1fZXh0X3Bvb2xzLAorCQkJCQkJICAgICB1OCAqb3Jk
-ZXJlZF9hcnJheSwKKwkJCQkJCSAgICAgdTE2ICpzaXplc19hcnJheSkKK3sKKwl1MTYgYnVmX3Np
-emUgPSAwOworCWludCBpID0gMCwgaiA9IDAsIGsgPSAwOworCisJLyogRmlyc3Qgd2UgY29weSB0
-aGUgZXh0ZXJuYWwgYnVmZmVycyBwb29scyBpbmZvcm1hdGlvbgorCSAqIHRvIGFuIG9yZGVyZWQg
-bG9jYWwgYXJyYXkKKwkgKi8KKwlmb3IgKGkgPSAwOyBpIDwgZm1fZXh0X3Bvb2xzLT5udW1fb2Zf
-cG9vbHNfdXNlZDsgaSsrKSB7CisJCS8qIGdldCBwb29sIHNpemUgKi8KKwkJYnVmX3NpemUgPSBm
-bV9leHRfcG9vbHMtPmV4dF9idWZfcG9vbFtpXS5zaXplOworCisJCS8qIGtlZXAgc2l6ZXMgaW4g
-YW4gYXJyYXkgYWNjb3JkaW5nIHRvIHBvb2xJZAorCQkgKiBmb3IgZGlyZWN0IGFjY2VzcworCQkg
-Ki8KKwkJc2l6ZXNfYXJyYXlbZm1fZXh0X3Bvb2xzLT5leHRfYnVmX3Bvb2xbaV0uaWRdID0gYnVm
-X3NpemU7CisKKwkJLyogc2F2ZSBwb29sSWQgaW4gYW4gb3JkZXJlZCBhcnJheSBhY2NvcmRpbmcg
-dG8gc2l6ZSAqLworCQlmb3IgKGogPSAwOyBqIDw9IGk7IGorKykgeworCQkJLyogdGhpcyBpcyB0
-aGUgbmV4dCBmcmVlIHBsYWNlIGluIHRoZSBhcnJheSAqLworCQkJaWYgKGogPT0gaSkKKwkJCQlv
-cmRlcmVkX2FycmF5W2ldID0KKwkJCQkgICAgZm1fZXh0X3Bvb2xzLT5leHRfYnVmX3Bvb2xbaV0u
-aWQ7CisJCQllbHNlIHsKKwkJCQkvKiBmaW5kIHRoZSByaWdodCBwbGFjZSBmb3IgdGhpcyBwb29s
-SWQgKi8KKwkJCQlpZiAoYnVmX3NpemUgPCBzaXplc19hcnJheVtvcmRlcmVkX2FycmF5W2pdXSkg
-eworCQkJCQkvKiBtb3ZlIHRoZSBwb29sX2lkcyBvbmUgcGxhY2UgYWhlYWQKKwkJCQkJICogdG8g
-bWFrZSByb29tIGZvciB0aGlzIHBvb2xJZAorCQkJCQkgKi8KKwkJCQkJZm9yIChrID0gaTsgayA+
-IGo7IGstLSkKKwkJCQkJCW9yZGVyZWRfYXJyYXlba10gPQorCQkJCQkJICAgIG9yZGVyZWRfYXJy
-YXlbayAtIDFdOworCisJCQkJCS8qIG5vdyBrPT1qLCB0aGlzIGlzIHRoZSBwbGFjZSBmb3IKKwkJ
-CQkJICogdGhlIG5ldyBzaXplCisJCQkJCSAqLworCQkJCQlvcmRlcmVkX2FycmF5W2tdID0KKwkJ
-CQkJICAgIGZtX2V4dF9wb29scy0+ZXh0X2J1Zl9wb29sW2ldLmlkOworCQkJCQlicmVhazsKKwkJ
-CQl9CisJCQl9CisJCX0KKwl9Cit9CisKK2ludCBmbWFuX3NwX2J1aWxkX2J1ZmZlcl9zdHJ1Y3Qo
-c3RydWN0IGZtYW5fc3BfaW50X2NvbnRleHRfZGF0YV9jb3B5ICoKKwkJCQlpbnRfY29udGV4dF9k
-YXRhX2NvcHksCisJCQkJc3RydWN0IGZtYW5fYnVmZmVyX3ByZWZpeF9jb250ZW50ICoKKwkJCQli
-dWZmZXJfcHJlZml4X2NvbnRlbnQsCisJCQkJc3RydWN0IGZtYW5fc3BfYnVmX21hcmdpbnMgKmJ1
-Zl9tYXJnaW5zLAorCQkJCXN0cnVjdCBmbWFuX3NwX2J1ZmZlcl9vZmZzZXRzICpidWZmZXJfb2Zm
-c2V0cywKKwkJCQl1OCAqaW50ZXJuYWxfYnVmX29mZnNldCkKK3sKKwl1MzIgdG1wOworCisJLyog
-QWxpZ24gc3RhcnQgb2YgaW50ZXJuYWwgY29udGV4dCBkYXRhIHRvIDE2IGJ5dGUgKi8KKwlpbnRf
-Y29udGV4dF9kYXRhX2NvcHktPmV4dF9idWZfb2Zmc2V0ID0gKHUxNikKKwkJKChidWZmZXJfcHJl
-Zml4X2NvbnRlbnQtPnByaXZfZGF0YV9zaXplICYgKE9GRlNFVF9VTklUUyAtIDEpKSA/CisJCSgo
-YnVmZmVyX3ByZWZpeF9jb250ZW50LT5wcml2X2RhdGFfc2l6ZSArIE9GRlNFVF9VTklUUykgJgor
-CQkJfih1MTYpKE9GRlNFVF9VTklUUyAtIDEpKSA6CisJCWJ1ZmZlcl9wcmVmaXhfY29udGVudC0+
-cHJpdl9kYXRhX3NpemUpOworCisJLyogVHJhbnNsYXRlIG1hcmdpbiBhbmQgaW50X2NvbnRleHQg
-cGFyYW1zIHRvIEZNIHBhcmFtZXRlcnMgKi8KKwkvKiBJbml0aWFsaXplIHdpdGggaWxsZWdhbCB2
-YWx1ZS4gTGF0ZXIgd2UnbGwgc2V0IGxlZ2FsIHZhbHVlcy4gKi8KKwlidWZmZXJfb2Zmc2V0cy0+
-cHJzX3Jlc3VsdF9vZmZzZXQgPSAodTMyKUlMTEVHQUxfQkFTRTsKKwlidWZmZXJfb2Zmc2V0cy0+
-dGltZV9zdGFtcF9vZmZzZXQgPSAodTMyKUlMTEVHQUxfQkFTRTsKKwlidWZmZXJfb2Zmc2V0cy0+
-aGFzaF9yZXN1bHRfb2Zmc2V0ID0gKHUzMilJTExFR0FMX0JBU0U7CisKKwkvKiBJbnRlcm5hbGx5
-IHRoZSBkcml2ZXIgc3VwcG9ydHMgNCBvcHRpb25zCisJICogMS4gcHJzUmVzdWx0L3RpbWVzdGFt
-cC9oYXNoUmVzdWx0IHNlbGVjdGlvbiAoaW4gZmFjdCA4IG9wdGlvbnMsCisJICogYnV0IGZvciBz
-aW1wbGljaXR5IHdlJ2xsCisJICogcmVsYXRlIHRvIGl0IGFzIDEpLgorCSAqIDIuIEFsbCBJQyBj
-b250ZXh0IChmcm9tIEFEKSBub3QgaW5jbHVkaW5nIGRlYnVnLgorCSAqLworCisJLyogVGhpcyBj
-YXNlIGNvdmVycyB0aGUgb3B0aW9ucyB1bmRlciAxICovCisJLyogQ29weSBzaXplIG11c3QgYmUg
-aW4gMTYtYnl0ZSBncmFudWxhcml0eS4gKi8KKwlpbnRfY29udGV4dF9kYXRhX2NvcHktPnNpemUg
-PQorCSAgICAodTE2KSgoYnVmZmVyX3ByZWZpeF9jb250ZW50LT5wYXNzX3Byc19yZXN1bHQgPyAz
-MiA6IDApICsKKwkJICAoKGJ1ZmZlcl9wcmVmaXhfY29udGVudC0+cGFzc190aW1lX3N0YW1wIHx8
-CisJCSAgYnVmZmVyX3ByZWZpeF9jb250ZW50LT5wYXNzX2hhc2hfcmVzdWx0KSA/IDE2IDogMCkp
-OworCisJLyogQWxpZ24gc3RhcnQgb2YgaW50ZXJuYWwgY29udGV4dCBkYXRhIHRvIDE2IGJ5dGUg
-Ki8KKwlpbnRfY29udGV4dF9kYXRhX2NvcHktPmludF9jb250ZXh0X29mZnNldCA9CisJICAgICh1
-OCkoYnVmZmVyX3ByZWZpeF9jb250ZW50LT5wYXNzX3Byc19yZXN1bHQgPyAzMiA6CisJCSAoKGJ1
-ZmZlcl9wcmVmaXhfY29udGVudC0+cGFzc190aW1lX3N0YW1wIHx8CisJCSBidWZmZXJfcHJlZml4
-X2NvbnRlbnQtPnBhc3NfaGFzaF9yZXN1bHQpID8gNjQgOiAwKSk7CisKKwlpZiAoYnVmZmVyX3By
-ZWZpeF9jb250ZW50LT5wYXNzX3Byc19yZXN1bHQpCisJCWJ1ZmZlcl9vZmZzZXRzLT5wcnNfcmVz
-dWx0X29mZnNldCA9CisJCSAgICBpbnRfY29udGV4dF9kYXRhX2NvcHktPmV4dF9idWZfb2Zmc2V0
-OworCWlmIChidWZmZXJfcHJlZml4X2NvbnRlbnQtPnBhc3NfdGltZV9zdGFtcCkKKwkJYnVmZmVy
-X29mZnNldHMtPnRpbWVfc3RhbXBfb2Zmc2V0ID0KKwkJICAgIGJ1ZmZlcl9wcmVmaXhfY29udGVu
-dC0+cGFzc19wcnNfcmVzdWx0ID8KKwkJICAgIChpbnRfY29udGV4dF9kYXRhX2NvcHktPmV4dF9i
-dWZfb2Zmc2V0ICsKKwkJCXNpemVvZihzdHJ1Y3QgZm1hbl9wcnNfcmVzdWx0KSkgOgorCQkgICAg
-aW50X2NvbnRleHRfZGF0YV9jb3B5LT5leHRfYnVmX29mZnNldDsKKwlpZiAoYnVmZmVyX3ByZWZp
-eF9jb250ZW50LT5wYXNzX2hhc2hfcmVzdWx0KQorCQkvKiBJZiBQUiBpcyBub3QgcmVxdWVzdGVk
-LCB3aGV0aGVyIFRTIGlzCisJCSAqIHJlcXVlc3RlZCBvciBub3QsIElDIHdpbGwgYmUgY29waWVk
-IGZyb20gVFMKKwkJCSAqLworCQlidWZmZXJfb2Zmc2V0cy0+aGFzaF9yZXN1bHRfb2Zmc2V0ID0K
-KwkJYnVmZmVyX3ByZWZpeF9jb250ZW50LT5wYXNzX3Byc19yZXN1bHQgPworCQkJKGludF9jb250
-ZXh0X2RhdGFfY29weS0+ZXh0X2J1Zl9vZmZzZXQgKworCQkJCXNpemVvZihzdHJ1Y3QgZm1hbl9w
-cnNfcmVzdWx0KSArIDgpIDoKKwkJCWludF9jb250ZXh0X2RhdGFfY29weS0+ZXh0X2J1Zl9vZmZz
-ZXQgKyA4OworCisJaWYgKGludF9jb250ZXh0X2RhdGFfY29weS0+c2l6ZSkKKwkJYnVmX21hcmdp
-bnMtPnN0YXJ0X21hcmdpbnMgPQorCQkgICAgKHUxNikoaW50X2NvbnRleHRfZGF0YV9jb3B5LT5l
-eHRfYnVmX29mZnNldCArCisJCQkgIGludF9jb250ZXh0X2RhdGFfY29weS0+c2l6ZSk7CisJZWxz
-ZQorCQkvKiBObyBJbnRlcm5hbCBDb250ZXh0IHBhc3NpbmcsIFNUYXJ0TWFyZ2luIGlzCisJCSAq
-IGltbWVkaWF0ZWx5IGFmdGVyIHByaXZhdGVfaW5mbworCQkgKi8KKwkJYnVmX21hcmdpbnMtPnN0
-YXJ0X21hcmdpbnMgPQorCQkgICAgYnVmZmVyX3ByZWZpeF9jb250ZW50LT5wcml2X2RhdGFfc2l6
-ZTsKKworCS8qIGFsaWduIGRhdGEgc3RhcnQgKi8KKwl0bXAgPSAodTMyKShidWZfbWFyZ2lucy0+
-c3RhcnRfbWFyZ2lucyAlCisJCSAgICBidWZmZXJfcHJlZml4X2NvbnRlbnQtPmRhdGFfYWxpZ24p
-OworCWlmICh0bXApCisJCWJ1Zl9tYXJnaW5zLT5zdGFydF9tYXJnaW5zICs9CisJCSAgICAoYnVm
-ZmVyX3ByZWZpeF9jb250ZW50LT5kYXRhX2FsaWduIC0gdG1wKTsKKwlidWZmZXJfb2Zmc2V0cy0+
-ZGF0YV9vZmZzZXQgPSBidWZfbWFyZ2lucy0+c3RhcnRfbWFyZ2luczsKKworCXJldHVybiAwOwor
-fQorCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFu
-X3NwLmggYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX3NwLmgKbmV3
-IGZpbGUgbW9kZSAxMDA2NDQKaW5kZXggMDAwMDAwMC4uODIwYjdmNgotLS0gL2Rldi9udWxsCisr
-KyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW5fc3AuaApAQCAtMCww
-ICsxLDEwMyBAQAorLyoKKyAqIENvcHlyaWdodCAyMDA4IC0gMjAxNSBGcmVlc2NhbGUgU2VtaWNv
-bmR1Y3RvciBJbmMuCisgKgorICogUmVkaXN0cmlidXRpb24gYW5kIHVzZSBpbiBzb3VyY2UgYW5k
-IGJpbmFyeSBmb3Jtcywgd2l0aCBvciB3aXRob3V0CisgKiBtb2RpZmljYXRpb24sIGFyZSBwZXJt
-aXR0ZWQgcHJvdmlkZWQgdGhhdCB0aGUgZm9sbG93aW5nIGNvbmRpdGlvbnMgYXJlIG1ldDoKKyAq
-ICAgICAqIFJlZGlzdHJpYnV0aW9ucyBvZiBzb3VyY2UgY29kZSBtdXN0IHJldGFpbiB0aGUgYWJv
-dmUgY29weXJpZ2h0CisgKgkgbm90aWNlLCB0aGlzIGxpc3Qgb2YgY29uZGl0aW9ucyBhbmQgdGhl
-IGZvbGxvd2luZyBkaXNjbGFpbWVyLgorICogICAgICogUmVkaXN0cmlidXRpb25zIGluIGJpbmFy
-eSBmb3JtIG11c3QgcmVwcm9kdWNlIHRoZSBhYm92ZSBjb3B5cmlnaHQKKyAqCSBub3RpY2UsIHRo
-aXMgbGlzdCBvZiBjb25kaXRpb25zIGFuZCB0aGUgZm9sbG93aW5nIGRpc2NsYWltZXIgaW4gdGhl
-CisgKgkgZG9jdW1lbnRhdGlvbiBhbmQvb3Igb3RoZXIgbWF0ZXJpYWxzIHByb3ZpZGVkIHdpdGgg
-dGhlIGRpc3RyaWJ1dGlvbi4KKyAqICAgICAqIE5laXRoZXIgdGhlIG5hbWUgb2YgRnJlZXNjYWxl
-IFNlbWljb25kdWN0b3Igbm9yIHRoZQorICoJIG5hbWVzIG9mIGl0cyBjb250cmlidXRvcnMgbWF5
-IGJlIHVzZWQgdG8gZW5kb3JzZSBvciBwcm9tb3RlIHByb2R1Y3RzCisgKgkgZGVyaXZlZCBmcm9t
-IHRoaXMgc29mdHdhcmUgd2l0aG91dCBzcGVjaWZpYyBwcmlvciB3cml0dGVuIHBlcm1pc3Npb24u
-CisgKgorICogQUxURVJOQVRJVkVMWSwgdGhpcyBzb2Z0d2FyZSBtYXkgYmUgZGlzdHJpYnV0ZWQg
-dW5kZXIgdGhlIHRlcm1zIG9mIHRoZQorICogR05VIEdlbmVyYWwgUHVibGljIExpY2Vuc2UgKCJH
-UEwiKSBhcyBwdWJsaXNoZWQgYnkgdGhlIEZyZWUgU29mdHdhcmUKKyAqIEZvdW5kYXRpb24sIGVp
-dGhlciB2ZXJzaW9uIDIgb2YgdGhhdCBMaWNlbnNlIG9yIChhdCB5b3VyIG9wdGlvbikgYW55Cisg
-KiBsYXRlciB2ZXJzaW9uLgorICoKKyAqIFRISVMgU09GVFdBUkUgSVMgUFJPVklERUQgQlkgRnJl
-ZXNjYWxlIFNlbWljb25kdWN0b3IgYGBBUyBJUycnIEFORCBBTlkKKyAqIEVYUFJFU1MgT1IgSU1Q
-TElFRCBXQVJSQU5USUVTLCBJTkNMVURJTkcsIEJVVCBOT1QgTElNSVRFRCBUTywgVEhFIElNUExJ
-RUQKKyAqIFdBUlJBTlRJRVMgT0YgTUVSQ0hBTlRBQklMSVRZIEFORCBGSVRORVNTIEZPUiBBIFBB
-UlRJQ1VMQVIgUFVSUE9TRSBBUkUKKyAqIERJU0NMQUlNRUQuIElOIE5PIEVWRU5UIFNIQUxMIEZy
-ZWVzY2FsZSBTZW1pY29uZHVjdG9yIEJFIExJQUJMRSBGT1IgQU5ZCisgKiBESVJFQ1QsIElORElS
-RUNULCBJTkNJREVOVEFMLCBTUEVDSUFMLCBFWEVNUExBUlksIE9SIENPTlNFUVVFTlRJQUwgREFN
-QUdFUworICogKElOQ0xVRElORywgQlVUIE5PVCBMSU1JVEVEIFRPLCBQUk9DVVJFTUVOVCBPRiBT
-VUJTVElUVVRFIEdPT0RTIE9SIFNFUlZJQ0VTOworICogTE9TUyBPRiBVU0UsIERBVEEsIE9SIFBS
-T0ZJVFM7IE9SIEJVU0lORVNTIElOVEVSUlVQVElPTikgSE9XRVZFUiBDQVVTRUQgQU5ECisgKiBP
-TiBBTlkgVEhFT1JZIE9GIExJQUJJTElUWSwgV0hFVEhFUiBJTiBDT05UUkFDVCwgU1RSSUNUIExJ
-QUJJTElUWSwgT1IgVE9SVAorICogKElOQ0xVRElORyBORUdMSUdFTkNFIE9SIE9USEVSV0lTRSkg
-QVJJU0lORyBJTiBBTlkgV0FZIE9VVCBPRiBUSEUgVVNFIE9GIFRISVMKKyAqIFNPRlRXQVJFLCBF
-VkVOIElGIEFEVklTRUQgT0YgVEhFIFBPU1NJQklMSVRZIE9GIFNVQ0ggREFNQUdFLgorICovCisK
-KyNpZm5kZWYgX19GTV9TUF9ICisjZGVmaW5lIF9fRk1fU1BfSAorCisjaW5jbHVkZSAiZm1hbi5o
-IgorI2luY2x1ZGUgPGxpbnV4L3R5cGVzLmg+CisKKyNkZWZpbmUgSUxMRUdBTF9CQVNFICAgICh+
-MCkKKworLyogZGVmYXVsdHMgKi8KKyNkZWZpbmUgREZMVF9GTV9TUF9CVUZGRVJfUFJFRklYX0NP
-TlRFWFRfREFUQV9BTElHTgk2NAorCisvKiBSZWdpc3RlcnMgYml0IGZpZWxkcyAqLworI2RlZmlu
-ZSBGTUFOX1NQX0VYVF9CVUZfUE9PTF9FTl9DT1VOVEVSCQkweDQwMDAwMDAwCisjZGVmaW5lIEZN
-QU5fU1BfRVhUX0JVRl9QT09MX1ZBTElECQkJMHg4MDAwMDAwMAorI2RlZmluZSBGTUFOX1NQX0VY
-VF9CVUZfUE9PTF9CQUNLVVAJCQkweDIwMDAwMDAwCisjZGVmaW5lIEZNQU5fU1BfRE1BX0FUVFJf
-V1JJVEVfT1BUSU1JWkUJCTB4MDAxMDAwMDAKKyNkZWZpbmUgRk1BTl9TUF9TR19ESVNBQkxFCQkJ
-CTB4ODAwMDAwMDAKKworLyogc2hpZnRzICovCisjZGVmaW5lIEZNQU5fU1BfRVhUX0JVRl9NQVJH
-X1NUQVJUX1NISUZUCQkxNgorI2RlZmluZSBGTUFOX1NQX0RNQV9BVFRSX1NXUF9TSElGVAkJCTMw
-CisjZGVmaW5lIEZNQU5fU1BfSUNfVE9fRVhUX1NISUZUCQkJMTYKKyNkZWZpbmUgRk1BTl9TUF9J
-Q19GUk9NX0lOVF9TSElGVAkJCTgKKworLyogc3RydWN0dXJlIGZvciBkZWZpbmluZyBpbnRlcm5h
-bCBjb250ZXh0IGNvcHlpbmcgKi8KK3N0cnVjdCBmbWFuX3NwX2ludF9jb250ZXh0X2RhdGFfY29w
-eSB7CisJLyogPCBPZmZzZXQgaW4gRXh0ZXJuYWwgYnVmZmVyIHRvIHdoaWNoIGludGVybmFsCisJ
-ICogIGNvbnRleHQgaXMgY29waWVkIHRvIChSeCkgb3IgdGFrZW4gZnJvbSAoVHgsIE9wKS4KKwkg
-Ki8KKwl1MTYgZXh0X2J1Zl9vZmZzZXQ7CisJLyogT2Zmc2V0IHdpdGhpbiBpbnRlcm5hbCBjb250
-ZXh0IHRvIGNvcHkgZnJvbQorCSAqIChSeCkgb3IgdG8gY29weSB0byAoVHgsIE9wKS4KKwkgKi8K
-Kwl1OCBpbnRfY29udGV4dF9vZmZzZXQ7CisJLyogSW50ZXJuYWwgb2Zmc2V0IHNpemUgdG8gYmUg
-Y29waWVkICovCisJdTE2IHNpemU7Cit9OworCisvKiAgc3RydWN0IGZvciBkZWZpbmluZyBleHRl
-cm5hbCBidWZmZXIgbWFyZ2lucyAqLworc3RydWN0IGZtYW5fc3BfYnVmX21hcmdpbnMgeworCS8q
-IE51bWJlciBvZiBieXRlcyB0byBiZSBsZWZ0IGF0IHRoZSBiZWdpbm5pbmcKKwkgKiBvZiB0aGUg
-ZXh0ZXJuYWwgYnVmZmVyIChtdXN0IGJlIGRpdmlzaWJsZSBieSAxNikKKwkgKi8KKwl1MTYgc3Rh
-cnRfbWFyZ2luczsKKwkvKiBudW1iZXIgb2YgYnl0ZXMgdG8gYmUgbGVmdCBhdCB0aGUgZW5kCisJ
-ICogb2YgdGhlIGV4dGVybmFsIGJ1ZmZlcihtdXN0IGJlIGRpdmlzaWJsZSBieSAxNikKKwkgKi8K
-Kwl1MTYgZW5kX21hcmdpbnM7Cit9OworCitzdHJ1Y3QgZm1hbl9zcF9idWZmZXJfb2Zmc2V0cyB7
-CisJdTMyIGRhdGFfb2Zmc2V0OworCXUzMiBwcnNfcmVzdWx0X29mZnNldDsKKwl1MzIgdGltZV9z
-dGFtcF9vZmZzZXQ7CisJdTMyIGhhc2hfcmVzdWx0X29mZnNldDsKK307CisKK2ludCBmbWFuX3Nw
-X2J1aWxkX2J1ZmZlcl9zdHJ1Y3Qoc3RydWN0IGZtYW5fc3BfaW50X2NvbnRleHRfZGF0YV9jb3B5
-CisJCQkJKmludF9jb250ZXh0X2RhdGFfY29weSwKKwkJCQlzdHJ1Y3QgZm1hbl9idWZmZXJfcHJl
-Zml4X2NvbnRlbnQKKwkJCQkqYnVmZmVyX3ByZWZpeF9jb250ZW50LAorCQkJCXN0cnVjdCBmbWFu
-X3NwX2J1Zl9tYXJnaW5zICpidWZfbWFyZ2lucywKKwkJCQlzdHJ1Y3QgZm1hbl9zcF9idWZmZXJf
-b2Zmc2V0cworCQkJCSpidWZmZXJfb2Zmc2V0cywKKwkJCQl1OCAqaW50ZXJuYWxfYnVmX29mZnNl
-dCk7CisKK3ZvaWQgZm1hbl9zcF9zZXRfYnVmX3Bvb2xzX2luX2FzY19vcmRlcl9vZl9idWZfc2l6
-ZXMoc3RydWN0IGZtYW5fZXh0X3Bvb2xzCisJCQkJCQkgICAgICpmbV9leHRfcG9vbHMsCisJCQkJ
-CQkgICAgIHU4ICpvcmRlcmVkX2FycmF5LAorCQkJCQkJICAgICB1MTYgKnNpemVzX2FycmF5KTsK
-KworI2VuZGlmCS8qIF9fRk1fU1BfSCAqLwotLSAKMS43LjkuNQoKX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApM
-aW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlz
-dGluZm8vbGludXhwcGMtZGV2
+From: Jiri Pirko <jiri@mellanox.com>
+
+Implement basic procedures for joining/leaving port to/from LAG. That
+includes HW setup of collector, core LAG mapping setup.
+
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+v1->v2:
+- return NOTIFY_BAD in case join/leave fails as requested by Andy
+- change BUG_ON to WARN_ON as suggested by Or and DaveM
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 288 +++++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  35 ++-
+ 2 files changed, 306 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index a397cc1..7d1f0a8 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1712,6 +1712,22 @@ static int mlxsw_sp_flood_init(struct mlxsw_sp *mlxsw_sp)
+ 	return 0;
+ }
+ 
++static int mlxsw_sp_lag_init(struct mlxsw_sp *mlxsw_sp)
++{
++	char slcr_pl[MLXSW_REG_SLCR_LEN];
++
++	mlxsw_reg_slcr_pack(slcr_pl, MLXSW_REG_SLCR_LAG_HASH_SMAC |
++				     MLXSW_REG_SLCR_LAG_HASH_DMAC |
++				     MLXSW_REG_SLCR_LAG_HASH_ETHERTYPE |
++				     MLXSW_REG_SLCR_LAG_HASH_VLANID |
++				     MLXSW_REG_SLCR_LAG_HASH_SIP |
++				     MLXSW_REG_SLCR_LAG_HASH_DIP |
++				     MLXSW_REG_SLCR_LAG_HASH_SPORT |
++				     MLXSW_REG_SLCR_LAG_HASH_DPORT |
++				     MLXSW_REG_SLCR_LAG_HASH_IPPROTO);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(slcr), slcr_pl);
++}
++
+ static int mlxsw_sp_init(void *priv, struct mlxsw_core *mlxsw_core,
+ 			 const struct mlxsw_bus_info *mlxsw_bus_info)
+ {
+@@ -1757,6 +1773,12 @@ static int mlxsw_sp_init(void *priv, struct mlxsw_core *mlxsw_core,
+ 		goto err_buffers_init;
+ 	}
+ 
++	err = mlxsw_sp_lag_init(mlxsw_sp);
++	if (err) {
++		dev_err(mlxsw_sp->bus_info->dev, "Failed to initialize LAG\n");
++		goto err_lag_init;
++	}
++
+ 	err = mlxsw_sp_switchdev_init(mlxsw_sp);
+ 	if (err) {
+ 		dev_err(mlxsw_sp->bus_info->dev, "Failed to initialize switchdev\n");
+@@ -1766,6 +1788,7 @@ static int mlxsw_sp_init(void *priv, struct mlxsw_core *mlxsw_core,
+ 	return 0;
+ 
+ err_switchdev_init:
++err_lag_init:
+ err_buffers_init:
+ err_flood_init:
+ 	mlxsw_sp_traps_fini(mlxsw_sp);
+@@ -1793,9 +1816,9 @@ static struct mlxsw_config_profile mlxsw_sp_config_profile = {
+ 	.used_max_vepa_channels		= 1,
+ 	.max_vepa_channels		= 0,
+ 	.used_max_lag			= 1,
+-	.max_lag			= 64,
++	.max_lag			= MLXSW_SP_LAG_MAX,
+ 	.used_max_port_per_lag		= 1,
+-	.max_port_per_lag		= 16,
++	.max_port_per_lag		= MLXSW_SP_PORT_PER_LAG_MAX,
+ 	.used_max_mid			= 1,
+ 	.max_mid			= 7000,
+ 	.used_max_pgt			= 1,
+@@ -1894,19 +1917,206 @@ static void mlxsw_sp_master_bridge_dec(struct mlxsw_sp *mlxsw_sp,
+ 		mlxsw_sp->master_bridge.dev = NULL;
+ }
+ 
+-static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
+-				    unsigned long event, void *ptr)
++static int mlxsw_sp_lag_create(struct mlxsw_sp *mlxsw_sp, u16 lag_id)
++{
++	char sldr_pl[MLXSW_REG_SLDR_LEN];
++
++	mlxsw_reg_sldr_lag_create_pack(sldr_pl, lag_id);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sldr), sldr_pl);
++}
++
++static int mlxsw_sp_lag_destroy(struct mlxsw_sp *mlxsw_sp, u16 lag_id)
++{
++	char sldr_pl[MLXSW_REG_SLDR_LEN];
++
++	mlxsw_reg_sldr_lag_destroy_pack(sldr_pl, lag_id);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sldr), sldr_pl);
++}
++
++static int mlxsw_sp_lag_col_port_add(struct mlxsw_sp_port *mlxsw_sp_port,
++				     u16 lag_id, u8 port_index)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char slcor_pl[MLXSW_REG_SLCOR_LEN];
++
++	mlxsw_reg_slcor_port_add_pack(slcor_pl, mlxsw_sp_port->local_port,
++				      lag_id, port_index);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(slcor), slcor_pl);
++}
++
++static int mlxsw_sp_lag_col_port_remove(struct mlxsw_sp_port *mlxsw_sp_port,
++					u16 lag_id)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char slcor_pl[MLXSW_REG_SLCOR_LEN];
++
++	mlxsw_reg_slcor_port_remove_pack(slcor_pl, mlxsw_sp_port->local_port,
++					 lag_id);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(slcor), slcor_pl);
++}
++
++static int mlxsw_sp_lag_col_port_enable(struct mlxsw_sp_port *mlxsw_sp_port,
++					u16 lag_id)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char slcor_pl[MLXSW_REG_SLCOR_LEN];
++
++	mlxsw_reg_slcor_col_enable_pack(slcor_pl, mlxsw_sp_port->local_port,
++					lag_id);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(slcor), slcor_pl);
++}
++
++static int mlxsw_sp_lag_col_port_disable(struct mlxsw_sp_port *mlxsw_sp_port,
++					 u16 lag_id)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char slcor_pl[MLXSW_REG_SLCOR_LEN];
++
++	mlxsw_reg_slcor_col_disable_pack(slcor_pl, mlxsw_sp_port->local_port,
++					 lag_id);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(slcor), slcor_pl);
++}
++
++static int mlxsw_sp_lag_index_get(struct mlxsw_sp *mlxsw_sp,
++				  struct net_device *lag_dev,
++				  u16 *p_lag_id)
++{
++	struct mlxsw_sp_upper *lag;
++	int free_lag_id = -1;
++	int i;
++
++	for (i = 0; i < MLXSW_SP_LAG_MAX; i++) {
++		lag = mlxsw_sp_lag_get(mlxsw_sp, i);
++		if (lag->ref_count) {
++			if (lag->dev == lag_dev) {
++				*p_lag_id = i;
++				return 0;
++			}
++		} else if (free_lag_id < 0) {
++			free_lag_id = i;
++		}
++	}
++	if (free_lag_id < 0)
++		return -EBUSY;
++	*p_lag_id = free_lag_id;
++	return 0;
++}
++
++static bool
++mlxsw_sp_master_lag_check(struct mlxsw_sp *mlxsw_sp,
++			  struct net_device *lag_dev,
++			  struct netdev_lag_upper_info *lag_upper_info)
++{
++	u16 lag_id;
++
++	if (mlxsw_sp_lag_index_get(mlxsw_sp, lag_dev, &lag_id) != 0)
++		return false;
++	if (lag_upper_info->tx_type != NETDEV_LAG_TX_TYPE_HASH)
++		return false;
++	return true;
++}
++
++static int mlxsw_sp_port_lag_index_get(struct mlxsw_sp *mlxsw_sp,
++				       u16 lag_id, u8 *p_port_index)
++{
++	int i;
++
++	for (i = 0; i < MLXSW_SP_PORT_PER_LAG_MAX; i++) {
++		if (!mlxsw_sp_port_lagged_get(mlxsw_sp, lag_id, i)) {
++			*p_port_index = i;
++			return 0;
++		}
++	}
++	return -EBUSY;
++}
++
++static int mlxsw_sp_port_lag_join(struct mlxsw_sp_port *mlxsw_sp_port,
++				  struct net_device *lag_dev)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	struct mlxsw_sp_upper *lag;
++	u16 lag_id;
++	u8 port_index;
++	int err;
++
++	err = mlxsw_sp_lag_index_get(mlxsw_sp, lag_dev, &lag_id);
++	if (err)
++		return err;
++	lag = mlxsw_sp_lag_get(mlxsw_sp, lag_id);
++	if (!lag->ref_count) {
++		err = mlxsw_sp_lag_create(mlxsw_sp, lag_id);
++		if (err)
++			return err;
++		lag->dev = lag_dev;
++	}
++
++	err = mlxsw_sp_port_lag_index_get(mlxsw_sp, lag_id, &port_index);
++	if (err)
++		return err;
++	err = mlxsw_sp_lag_col_port_add(mlxsw_sp_port, lag_id, port_index);
++	if (err)
++		goto err_col_port_add;
++	err = mlxsw_sp_lag_col_port_enable(mlxsw_sp_port, lag_id);
++	if (err)
++		goto err_col_port_enable;
++
++	mlxsw_core_lag_mapping_set(mlxsw_sp->core, lag_id, port_index,
++				   mlxsw_sp_port->local_port);
++	mlxsw_sp_port->lag_id = lag_id;
++	mlxsw_sp_port->lagged = 1;
++	lag->ref_count++;
++	return 0;
++
++err_col_port_add:
++	if (!lag->ref_count)
++		mlxsw_sp_lag_destroy(mlxsw_sp, lag_id);
++err_col_port_enable:
++	mlxsw_sp_lag_col_port_remove(mlxsw_sp_port, lag_id);
++	return err;
++}
++
++static int mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
++				   struct net_device *lag_dev)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	struct mlxsw_sp_upper *lag;
++	u16 lag_id = mlxsw_sp_port->lag_id;
++	int err;
++
++	if (!mlxsw_sp_port->lagged)
++		return 0;
++	lag = mlxsw_sp_lag_get(mlxsw_sp, lag_id);
++	WARN_ON(lag->ref_count == 0);
++
++	err = mlxsw_sp_lag_col_port_disable(mlxsw_sp_port, lag_id);
++	if (err)
++		return err;
++	mlxsw_sp_lag_col_port_remove(mlxsw_sp_port, lag_id);
++	if (err)
++		return err;
++
++	if (lag->ref_count == 1) {
++		err = mlxsw_sp_lag_destroy(mlxsw_sp, lag_id);
++		if (err)
++			return err;
++	}
++
++	mlxsw_core_lag_mapping_clear(mlxsw_sp->core, lag_id,
++				     mlxsw_sp_port->local_port);
++	mlxsw_sp_port->lagged = 0;
++	lag->ref_count--;
++	return 0;
++}
++
++static int mlxsw_sp_netdevice_port_event(struct net_device *dev,
++					 unsigned long event, void *ptr)
+ {
+-	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+ 	struct netdev_notifier_changeupper_info *info;
+ 	struct mlxsw_sp_port *mlxsw_sp_port;
+ 	struct net_device *upper_dev;
+ 	struct mlxsw_sp *mlxsw_sp;
+ 	int err;
+ 
+-	if (!mlxsw_sp_port_dev_check(dev))
+-		return NOTIFY_DONE;
+-
+ 	mlxsw_sp_port = netdev_priv(dev);
+ 	mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	info = ptr;
+@@ -1914,16 +2124,22 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
+ 	switch (event) {
+ 	case NETDEV_PRECHANGEUPPER:
+ 		upper_dev = info->upper_dev;
++		if (!info->master || !info->linking)
++			break;
+ 		/* HW limitation forbids to put ports to multiple bridges. */
+-		if (info->master && info->linking &&
+-		    netif_is_bridge_master(upper_dev) &&
++		if (netif_is_bridge_master(upper_dev) &&
+ 		    !mlxsw_sp_master_bridge_check(mlxsw_sp, upper_dev))
+ 			return NOTIFY_BAD;
++		if (netif_is_lag_master(upper_dev) &&
++		    !mlxsw_sp_master_lag_check(mlxsw_sp, upper_dev,
++					       info->upper_info))
++			return NOTIFY_BAD;
+ 		break;
+ 	case NETDEV_CHANGEUPPER:
+ 		upper_dev = info->upper_dev;
+-		if (info->master &&
+-		    netif_is_bridge_master(upper_dev)) {
++		if (!info->master)
++			break;
++		if (netif_is_bridge_master(upper_dev)) {
+ 			if (info->linking) {
+ 				err = mlxsw_sp_port_bridge_join(mlxsw_sp_port);
+ 				if (err)
+@@ -1937,6 +2153,22 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
+ 				mlxsw_sp_port->bridged = 0;
+ 				mlxsw_sp_master_bridge_dec(mlxsw_sp, upper_dev);
+ 			}
++		} else if (netif_is_lag_master(upper_dev)) {
++			if (info->linking) {
++				err = mlxsw_sp_port_lag_join(mlxsw_sp_port,
++							     upper_dev);
++				if (err) {
++					netdev_err(dev, "Failed to join link aggregation\n");
++					return NOTIFY_BAD;
++				}
++			} else {
++				err = mlxsw_sp_port_lag_leave(mlxsw_sp_port,
++							      upper_dev);
++				if (err) {
++					netdev_err(dev, "Failed to leave link aggregation\n");
++					return NOTIFY_BAD;
++				}
++			}
+ 		}
+ 		break;
+ 	}
+@@ -1944,6 +2176,38 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
+ 	return NOTIFY_DONE;
+ }
+ 
++static int mlxsw_sp_netdevice_lag_event(struct net_device *lag_dev,
++					unsigned long event, void *ptr)
++{
++	struct net_device *dev;
++	struct list_head *iter;
++	int ret;
++
++	netdev_for_each_lower_dev(lag_dev, dev, iter) {
++		if (mlxsw_sp_port_dev_check(dev)) {
++			ret = mlxsw_sp_netdevice_port_event(dev, event, ptr);
++			if (ret == NOTIFY_BAD)
++				return ret;
++		}
++	}
++
++	return NOTIFY_DONE;
++}
++
++static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
++				    unsigned long event, void *ptr)
++{
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++
++	if (mlxsw_sp_port_dev_check(dev))
++		return mlxsw_sp_netdevice_port_event(dev, event, ptr);
++
++	if (netif_is_lag_master(dev))
++		return mlxsw_sp_netdevice_lag_event(dev, event, ptr);
++
++	return NOTIFY_DONE;
++}
++
+ static struct notifier_block mlxsw_sp_netdevice_nb __read_mostly = {
+ 	.notifier_call = mlxsw_sp_netdevice_event,
+ };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 4365c8b..48be5a6 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -46,9 +46,16 @@
+ #include "core.h"
+ 
+ #define MLXSW_SP_VFID_BASE VLAN_N_VID
++#define MLXSW_SP_LAG_MAX 64
++#define MLXSW_SP_PORT_PER_LAG_MAX 16
+ 
+ struct mlxsw_sp_port;
+ 
++struct mlxsw_sp_upper {
++	struct net_device *dev;
++	unsigned int ref_count;
++};
++
+ struct mlxsw_sp {
+ 	unsigned long active_vfids[BITS_TO_LONGS(VLAN_N_VID)];
+ 	unsigned long active_fids[BITS_TO_LONGS(VLAN_N_VID)];
+@@ -63,12 +70,16 @@ struct mlxsw_sp {
+ 	} fdb_notify;
+ #define MLXSW_SP_DEFAULT_AGEING_TIME 300
+ 	u32 ageing_time;
+-	struct {
+-		struct net_device *dev;
+-		unsigned int ref_count;
+-	} master_bridge;
++	struct mlxsw_sp_upper master_bridge;
++	struct mlxsw_sp_upper lags[MLXSW_SP_LAG_MAX];
+ };
+ 
++static inline struct mlxsw_sp_upper *
++mlxsw_sp_lag_get(struct mlxsw_sp *mlxsw_sp, u16 lag_id)
++{
++	return &mlxsw_sp->lags[lag_id];
++}
++
+ struct mlxsw_sp_port_pcpu_stats {
+ 	u64			rx_packets;
+ 	u64			rx_bytes;
+@@ -87,8 +98,10 @@ struct mlxsw_sp_port {
+ 	u8 learning:1,
+ 	   learning_sync:1,
+ 	   uc_flood:1,
+-	   bridged:1;
++	   bridged:1,
++	   lagged:1;
+ 	u16 pvid;
++	u16 lag_id;
+ 	/* 802.1Q bridge VLANs */
+ 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+ 	/* VLAN interfaces */
+@@ -96,6 +109,18 @@ struct mlxsw_sp_port {
+ 	u16 nr_vfids;
+ };
+ 
++static inline struct mlxsw_sp_port *
++mlxsw_sp_port_lagged_get(struct mlxsw_sp *mlxsw_sp, u16 lag_id, u8 port_index)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port;
++	u8 local_port;
++
++	local_port = mlxsw_core_lag_mapping_get(mlxsw_sp->core,
++						lag_id, port_index);
++	mlxsw_sp_port = mlxsw_sp->ports[local_port];
++	return mlxsw_sp_port && mlxsw_sp_port->lagged ? mlxsw_sp_port : NULL;
++}
++
+ enum mlxsw_sp_flood_table {
+ 	MLXSW_SP_FLOOD_TABLE_UC,
+ 	MLXSW_SP_FLOOD_TABLE_BM,
+-- 
+1.9.3
