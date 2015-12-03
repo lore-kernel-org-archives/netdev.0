@@ -1,31 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] via-rhine: fix VLAN receive handling
- regression.
-Date: Thu, 03 Dec 2015 15:11:49 -0500 (EST)
-Message-ID: <20151203.151149.1469916595946372476.davem@davemloft.net>
-References: <20130807003431.GD16410@order.stressinduktion.org>
-	<EF96A1CB-549E-474A-AF58-10F2D2F2BF4A@inf-net.nl>
-	<CABAB3EF-4A65-4534-AE27-D9B069CAB0F7@inf-net.nl>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andrej@ota.si, netdev@vger.kernel.org
-To: teco@inf-net.nl
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next 0/4] Allow BATMAN to use hdlc-eth interfaces
+Date: Thu,  3 Dec 2015 21:12:29 +0100
+Message-ID: <1449173553-23784-1-git-send-email-andrew@lunn.ch>
+Cc: Krzysztof Halasa <khc@pm.waw.pl>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	netdev <netdev@vger.kernel.org>,
+	"B.A.T.M.A.N" <b.a.t.m.a.n@lists.open-mesh.net>,
+	Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45458 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753479AbbLCULu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 15:11:50 -0500
-In-Reply-To: <CABAB3EF-4A65-4534-AE27-D9B069CAB0F7@inf-net.nl>
+Received: from vps0.lunn.ch ([178.209.37.122]:53059 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753392AbbLCUMl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2015 15:12:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Teco Boot <teco@inf-net.nl>
-Date: Wed, 2 Dec 2015 10:55:40 +0100
+BATMAN works over Ethernet like interfaces. hdlc-eth provides the need
+requirements. However, hdlc devices are often created as raw hdlc
+devices, which batman cannot use, and are then be transmuted into
+other types using sethdlc(1). Have the HDLC code emit
+NETDEV_*_TYPE_CHANGE events when the type changes, and have BATMAN
+react on these events.
 
-> I faced this problem on 4.2.6, Debian Jessie, on PC Engines Alix6. 
-> I applied the patch. It solved the problem.
-> 
-> Queue up for -stable?
+Andrew Lunn (4):
+  WAN: HDLC: Detach protocol before unregistering device
+  WAN: HDLC: Call notifiers before and after changing device type
+  ipv6: Only act upon NETDEV_*_TYPE_CHANGE if we have ipv6 addresses
+  batman-adv: Act on NETDEV_*_TYPE_CHANGE events
 
-Done.
+ drivers/net/wan/hdlc.c          | 21 ++++++++++++++++++---
+ drivers/net/wan/hdlc_cisco.c    |  1 +
+ drivers/net/wan/hdlc_fr.c       |  1 +
+ drivers/net/wan/hdlc_ppp.c      |  1 +
+ drivers/net/wan/hdlc_raw.c      |  1 +
+ drivers/net/wan/hdlc_raw_eth.c  |  1 +
+ drivers/net/wan/hdlc_x25.c      |  1 +
+ include/linux/hdlc.h            |  2 +-
+ net/batman-adv/hard-interface.c |  4 +++-
+ net/ipv6/addrconf.c             |  3 ++-
+ 10 files changed, 30 insertions(+), 6 deletions(-)
+
+-- 
+2.6.2
