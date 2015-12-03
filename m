@@ -1,61 +1,56 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH iproute2] libnetlink: don't confuse variables in rtnl_talk()
-Date: Thu,  3 Dec 2015 17:13:48 +0100
-Message-ID: <1449159228-4233-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: use-after-free in sctp_do_sm
+Date: Thu, 3 Dec 2015 14:15:13 -0200
+Message-ID: <20151203161513.GC4164@mrl.redhat.com>
+References: <CACT4Y+ZnWRZfQC25uW=GXHAJB=GX0L6tJQUy43P6WNR3=hwT8Q@mail.gmail.com>
+ <20151203130525.GB4164@mrl.redhat.com>
+ <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
+ <CANn89iKEv-q6EFi1eX+Hk_2+jNfZ0ayUqUn_Fh1U7RTs9xjdXg@mail.gmail.com>
+ <CACT4Y+bgeqS05zqkAHkxzAP7fuvFSkeEybwDTizw6Gp8KK28Fw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:51443 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760574AbbLCQOO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 11:14:14 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:33497 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757175AbbLCQPR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2015 11:15:17 -0500
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+bgeqS05zqkAHkxzAP7fuvFSkeEybwDTizw6Gp8KK28Fw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is two variables named 'len' in rtnl_talk. In fact, commit
-c079e121a73a didn't work. For example, it was possible to trigger
-a seg fault with this command:
-$ ip link set gre2 type ip6gre hoplimit 32
+On Thu, Dec 03, 2015 at 04:55:44PM +0100, Dmitry Vyukov wrote:
+> On Thu, Dec 3, 2015 at 3:48 PM, Eric Dumazet <edumazet@google.com> wrote:
+> >>
+> >> No, I don't. But pr_debug always computes its arguments. See no_printk
+> >> in printk.h. So this use-after-free happens for all users.
+> >
+> > Hmm.
+> >
+> > pr_debug() should be a nop unless either DEBUG or CONFIG_DYNAMIC_DEBUG are set
+> >
+> > On our production kernels, pr_debug() is a nop.
+> >
+> > Can you double check ? Thanks !
+> 
+> 
+> Why should it be nop? no_printk thing in printk.h pretty much
+> explicitly makes it not a nop...
+> 
+> Double-checked: debug_post_sfx leads to some generated code:
 
-Let's rename the argument len to maxlen.
+Oups. I was under that impression too, that it would do sanity-check
+while being optimized out.
 
-Fixes: c079e121a73a ("libnetlink: add size argument to rtnl_talk")
-Reported-by: Thomas Faivre <thomas.faivre@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- lib/libnetlink.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+I'll think on a fix for this.
 
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index 922ec2d9f872..165821447b2d 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -332,7 +332,7 @@ int rtnl_dump_filter_nc(struct rtnl_handle *rth,
- }
- 
- int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
--	      struct nlmsghdr *answer, size_t len)
-+	      struct nlmsghdr *answer, size_t maxlen)
- {
- 	int status;
- 	unsigned seq;
-@@ -415,7 +415,7 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
- 				} else if (!err->error) {
- 					if (answer)
- 						memcpy(answer, h,
--						       MIN(len, h->nlmsg_len));
-+						       MIN(maxlen, h->nlmsg_len));
- 					return 0;
- 				}
- 
-@@ -427,7 +427,7 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
- 
- 			if (answer) {
- 				memcpy(answer, h,
--				       MIN(len, h->nlmsg_len));
-+				       MIN(maxlen, h->nlmsg_len));
- 				return 0;
- 			}
- 
--- 
-2.4.2
+Thanks,
+  Marcelo
