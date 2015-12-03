@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 02/28] net: Add support for CHANGEUPPER notifier error injection
-Date: Thu,  3 Dec 2015 12:12:04 +0100
-Message-ID: <1449141150-8172-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 03/28] bonding: add 802.3ad support for 100G speeds
+Date: Thu,  3 Dec 2015 12:12:05 +0100
+Message-ID: <1449141150-8172-4-git-send-email-jiri@resnulli.us>
 References: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, j.vosburgh@gmail.com,
@@ -11,55 +11,67 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	john.fastabend@gmail.com, roopa@cumulusnetworks.com, andrew@lunn.ch
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:33860 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759769AbbLCLMk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 06:12:40 -0500
-Received: by wmvv187 with SMTP id v187so21649016wmv.1
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 03:12:39 -0800 (PST)
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:34911 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759786AbbLCLMl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 06:12:41 -0500
+Received: by wmuu63 with SMTP id u63so16393701wmu.0
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 03:12:40 -0800 (PST)
 In-Reply-To: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-Since CHANGEUPPER can now fail, add support for it in the newly
-introduced netdev notifier error injection infrastructure.
+Similar to other speeds, add 100G to bonding 802.3ad code.
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
-v1->v2:
--new patch
----
- Documentation/fault-injection/notifier-error-inject.txt | 1 +
- lib/netdev-notifier-error-inject.c                      | 1 +
- 2 files changed, 2 insertions(+)
+ drivers/net/bonding/bond_3ad.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
-diff --git a/Documentation/fault-injection/notifier-error-inject.txt b/Documentation/fault-injection/notifier-error-inject.txt
-index 71e638a..83d3f4e 100644
---- a/Documentation/fault-injection/notifier-error-inject.txt
-+++ b/Documentation/fault-injection/notifier-error-inject.txt
-@@ -103,6 +103,7 @@ Netdevice notifier events which can be failed are:
-  * NETDEV_POST_INIT
-  * NETDEV_PRECHANGEMTU
-  * NETDEV_PRECHANGEUPPER
-+ * NETDEV_CHANGEUPPER
- 
- Example: Inject netdevice mtu change error (-22 == -EINVAL)
- 
-diff --git a/lib/netdev-notifier-error-inject.c b/lib/netdev-notifier-error-inject.c
-index b2b8566..13e9c62 100644
---- a/lib/netdev-notifier-error-inject.c
-+++ b/lib/netdev-notifier-error-inject.c
-@@ -18,6 +18,7 @@ static struct notifier_err_inject netdev_notifier_err_inject = {
- 		{ NOTIFIER_ERR_INJECT_ACTION(NETDEV_POST_INIT) },
- 		{ NOTIFIER_ERR_INJECT_ACTION(NETDEV_PRECHANGEMTU) },
- 		{ NOTIFIER_ERR_INJECT_ACTION(NETDEV_PRECHANGEUPPER) },
-+		{ NOTIFIER_ERR_INJECT_ACTION(NETDEV_CHANGEUPPER) },
- 		{}
- 	}
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 940e2eb..4cbb8b2 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -93,7 +93,8 @@ enum ad_link_speed_type {
+ 	AD_LINK_SPEED_10000MBPS,
+ 	AD_LINK_SPEED_20000MBPS,
+ 	AD_LINK_SPEED_40000MBPS,
+-	AD_LINK_SPEED_56000MBPS
++	AD_LINK_SPEED_56000MBPS,
++	AD_LINK_SPEED_100000MBPS,
  };
+ 
+ /* compare MAC addresses */
+@@ -258,6 +259,7 @@ static inline int __check_agg_selection_timer(struct port *port)
+  *     %AD_LINK_SPEED_20000MBPS
+  *     %AD_LINK_SPEED_40000MBPS
+  *     %AD_LINK_SPEED_56000MBPS
++ *     %AD_LINK_SPEED_100000MBPS
+  */
+ static u16 __get_link_speed(struct port *port)
+ {
+@@ -305,6 +307,10 @@ static u16 __get_link_speed(struct port *port)
+ 			speed = AD_LINK_SPEED_56000MBPS;
+ 			break;
+ 
++		case SPEED_100000:
++			speed = AD_LINK_SPEED_100000MBPS;
++			break;
++
+ 		default:
+ 			/* unknown speed value from ethtool. shouldn't happen */
+ 			speed = 0;
+@@ -681,6 +687,9 @@ static u32 __get_agg_bandwidth(struct aggregator *aggregator)
+ 		case AD_LINK_SPEED_56000MBPS:
+ 			bandwidth = aggregator->num_of_ports * 56000;
+ 			break;
++		case AD_LINK_SPEED_100000MBPS:
++			bandwidth = aggregator->num_of_ports * 100000;
++			break;
+ 		default:
+ 			bandwidth = 0; /* to silence the compiler */
+ 		}
 -- 
 1.9.3
