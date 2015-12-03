@@ -1,100 +1,89 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net] pppoe: fix memory corruption in padt work structure
-Date: Thu, 3 Dec 2015 16:49:32 +0100
-Message-ID: <8d1438dac05eb64026c51086770a8875a26b103b.1449156478.git.g.nault@alphalink.fr>
+From: Andrey Ryabinin <aryabinin@virtuozzo.com>
+Subject: [PATCH v4 2/3] mac80211: Prevent build failure with CONFIG_UBSAN=y
+Date: Thu, 3 Dec 2015 18:50:06 +0300
+Message-ID: <1449157807-20298-3-git-send-email-aryabinin@virtuozzo.com>
+References: <1449157807-20298-1-git-send-email-aryabinin@virtuozzo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, Andrew <nitr0@seti.kr.ua>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:54894 "EHLO
-	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758101AbbLCPtl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 10:49:41 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Randy Dunlap <rdunlap@infradead.org>,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Michal Marek <mmarek@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Yury Gribov <y.gribov@samsung.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Konstantin Khlebnikov <koct9i@gmail.com>,
+	Kostya Serebryany <kcc@google.com>, <x86@kernel.org>,
+	<linux-doc@vger.kernel.org>, <linux-kbuild@vger.kernel.org>
+To: <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449157807-20298-1-git-send-email-aryabinin@virtuozzo.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-pppoe_connect() mustn't touch the padt_work field of pppoe sockets
-because that work could be already pending.
+With upcoming CONFIG_UBSAN the following BUILD_BUG_ON in
+net/mac80211/debugfs.c starts to trigger:
+	BUILD_BUG_ON(hw_flag_names[NUM_IEEE80211_HW_FLAGS] != (void *)0x1);
 
-[   21.473147] BUG: unable to handle kernel NULL pointer dereference at 00000004
-[   21.474523] IP: [<c1043177>] process_one_work+0x29/0x31c
-[   21.475164] *pde = 00000000
-[   21.475513] Oops: 0000 [#1] SMP
-[   21.475910] Modules linked in: pppoe pppox ppp_generic slhc crc32c_intel aesni_intel virtio_net xts aes_i586 lrw gf128mul ablk_helper cryptd evdev acpi_cpufreq processor serio_raw button ext4 crc16 mbcache jbd2 virtio_blk virtio_pci virtio_ring virtio
-[   21.476168] CPU: 2 PID: 164 Comm: kworker/2:2 Not tainted 4.4.0-rc1 #1
-[   21.476168] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Debian-1.8.2-1 04/01/2014
-[   21.476168] task: f5f83c00 ti: f5e28000 task.ti: f5e28000
-[   21.476168] EIP: 0060:[<c1043177>] EFLAGS: 00010046 CPU: 2
-[   21.476168] EIP is at process_one_work+0x29/0x31c
-[   21.484082] EAX: 00000000 EBX: f678b2a0 ECX: 00000004 EDX: 00000000
-[   21.484082] ESI: f6c69940 EDI: f5e29ef0 EBP: f5e29f0c ESP: f5e29edc
-[   21.484082]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
-[   21.484082] CR0: 80050033 CR2: 000000a4 CR3: 317ad000 CR4: 00040690
-[   21.484082] Stack:
-[   21.484082]  00000000 f6c69950 00000000 f6c69940 c0042338 f5e29f0c c1327945 00000000
-[   21.484082]  00000008 f678b2a0 f6c69940 f678b2b8 f5e29f30 c1043984 f5f83c00 f6c69970
-[   21.484082]  f678b2a0 c10437d3 f6775e80 f678b2a0 c10437d3 f5e29fac c1047059 f5e29f74
-[   21.484082] Call Trace:
-[   21.484082]  [<c1327945>] ? _raw_spin_lock_irq+0x28/0x30
-[   21.484082]  [<c1043984>] worker_thread+0x1b1/0x244
-[   21.484082]  [<c10437d3>] ? rescuer_thread+0x229/0x229
-[   21.484082]  [<c10437d3>] ? rescuer_thread+0x229/0x229
-[   21.484082]  [<c1047059>] kthread+0x8f/0x94
-[   21.484082]  [<c1327a32>] ? _raw_spin_unlock_irq+0x22/0x26
-[   21.484082]  [<c1327ee9>] ret_from_kernel_thread+0x21/0x38
-[   21.484082]  [<c1046fca>] ? kthread_parkme+0x19/0x19
-[   21.496082] Code: 5d c3 55 89 e5 57 56 53 89 c3 83 ec 24 89 d0 89 55 e0 8d 7d e4 e8 6c d8 ff ff b9 04 00 00 00 89 45 d8 8b 43 24 89 45 dc 8b 45 d8 <8b> 40 04 8b 80 e0 00 00 00 c1 e8 05 24 01 88 45 d7 8b 45 e0 8d
-[   21.496082] EIP: [<c1043177>] process_one_work+0x29/0x31c SS:ESP 0068:f5e29edc
-[   21.496082] CR2: 0000000000000004
-[   21.496082] ---[ end trace e362cc9cf10dae89 ]---
+It seems, that compiler instrumentation causes some code deoptimizations.
+Because of that GCC is not being able to resolve condition in BUILD_BUG_ON()
+at compile time.
 
-Reported-by: Andrew <nitr0@seti.kr.ua>
-Fixes: 287f3a943fef ("pppoe: Use workqueue to die properly when a PADT is received")
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+We could make size of hw_flag_names array unspecified and replace the
+condition in BUILD_BUG_ON() with following:
+	ARRAY_SIZE(hw_flag_names) != NUM_IEEE80211_HW_FLAGS
+
+That will have the same effect as before (adding new flag without updating
+array will trigger build failure) except it doesn't fail with CONFIG_UBSAN.
+As a bonus this patch slightly decreases size of hw_flag_names array.
+
+Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
+Cc: Johannes Berg <johannes@sipsolutions.net>
+Cc: "David S. Miller" <davem@davemloft.net>
 ---
- drivers/net/ppp/pppoe.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+ net/mac80211/debugfs.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
-index 5e0b432..0a37f84 100644
---- a/drivers/net/ppp/pppoe.c
-+++ b/drivers/net/ppp/pppoe.c
-@@ -568,6 +568,9 @@ static int pppoe_create(struct net *net, struct socket *sock, int kern)
- 	sk->sk_family		= PF_PPPOX;
- 	sk->sk_protocol		= PX_PROTO_OE;
+diff --git a/net/mac80211/debugfs.c b/net/mac80211/debugfs.c
+index abbdff0..3e24d0d 100644
+--- a/net/mac80211/debugfs.c
++++ b/net/mac80211/debugfs.c
+@@ -91,7 +91,7 @@ static const struct file_operations reset_ops = {
+ };
+ #endif
  
-+	INIT_WORK(&pppox_sk(sk)->proto.pppoe.padt_work,
-+		  pppoe_unbind_sock_work);
-+
- 	return 0;
- }
- 
-@@ -632,8 +635,6 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
- 
- 	lock_sock(sk);
- 
--	INIT_WORK(&po->proto.pppoe.padt_work, pppoe_unbind_sock_work);
+-static const char *hw_flag_names[NUM_IEEE80211_HW_FLAGS + 1] = {
++static const char *hw_flag_names[] = {
+ #define FLAG(F)	[IEEE80211_HW_##F] = #F
+ 	FLAG(HAS_RATE_CONTROL),
+ 	FLAG(RX_INCLUDES_FCS),
+@@ -126,9 +126,6 @@ static const char *hw_flag_names[NUM_IEEE80211_HW_FLAGS + 1] = {
+ 	FLAG(SUPPORTS_AMSDU_IN_AMPDU),
+ 	FLAG(BEACON_TX_STATUS),
+ 	FLAG(NEEDS_UNIQUE_STA_ADDR),
 -
- 	error = -EINVAL;
- 	if (sp->sa_protocol != PX_PROTO_OE)
- 		goto end;
-@@ -663,8 +664,13 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
- 			po->pppoe_dev = NULL;
- 		}
+-	/* keep last for the build bug below */
+-	(void *)0x1
+ #undef FLAG
+ };
  
--		memset(sk_pppox(po) + 1, 0,
--		       sizeof(struct pppox_sock) - sizeof(struct sock));
-+		po->pppoe_ifindex = 0;
-+		memset(&po->pppoe_pa, 0, sizeof(po->pppoe_pa));
-+		memset(&po->pppoe_relay, 0, sizeof(po->pppoe_relay));
-+		memset(&po->chan, 0, sizeof(po->chan));
-+		po->next = NULL;
-+		po->num = 0;
-+
- 		sk->sk_state = PPPOX_NONE;
- 	}
+@@ -148,7 +145,7 @@ static ssize_t hwflags_read(struct file *file, char __user *user_buf,
+ 	/* fail compilation if somebody adds or removes
+ 	 * a flag without updating the name array above
+ 	 */
+-	BUILD_BUG_ON(hw_flag_names[NUM_IEEE80211_HW_FLAGS] != (void *)0x1);
++	BUILD_BUG_ON(ARRAY_SIZE(hw_flag_names) != NUM_IEEE80211_HW_FLAGS);
  
+ 	for (i = 0; i < NUM_IEEE80211_HW_FLAGS; i++) {
+ 		if (test_bit(i, local->hw.flags))
 -- 
-2.6.2
+2.4.10
