@@ -1,64 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] atl1c: Improve driver not to do order 4 GFP_ATOMIC
- allocation
-Date: Thu, 03 Dec 2015 09:17:28 -0800
-Message-ID: <1449163048.25029.2.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151126163413.GA3816@amd>
-	 <20151127082010.GA2500@dhcp22.suse.cz> <20151128145113.GB4135@amd>
-	 <20151203155905.GA31974@amd>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: [PATCH net] bpf, array: fix heap out-of-bounds access when
+ updating elements
+Date: Thu, 3 Dec 2015 18:21:14 +0100
+Message-ID: <CACT4Y+Y+Ys_U=sY7nh-QCfB0QGxd=bj2JMhpTd=VjbGmBAqcJw@mail.gmail.com>
+References: <674d6a1d4ff0e7728e535dc2d8fe1c5bea1e50b0.1448883657.git.daniel@iogearbox.net>
+ <20151130182946.GB30762@ast-mbp.thefacebook.com> <CACT4Y+av=tbWXWRdvtpVE0NJKb+Uki=OZmYLqoET6+O_jvXt7A@mail.gmail.com>
+ <565D76A9.9040601@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Michal Hocko <mhocko@kernel.org>, davem@davemloft.net, Andrew Morton
- <akpm@osdl.org>, kernel list <linux-kernel@vger.kernel.org>,
- jcliburn@gmail.com,  chris.snook@gmail.com, netdev@vger.kernel.org, "Rafael
- J. Wysocki" <rjw@rjwysocki.net>, linux-mm@kvack.org,
- nic-devel@qualcomm.com,  ronangeles@gmail.com, ebiederm@xmission.com
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20151203155905.GA31974@amd>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Alexei Starovoitov <ast@kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:37249 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750736AbbLCRVg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 12:21:36 -0500
+Received: by wmww144 with SMTP id w144so31671390wmw.0
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 09:21:34 -0800 (PST)
+In-Reply-To: <565D76A9.9040601@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-12-03 at 16:59 +0100, Pavel Machek wrote:
-> atl1c driver is doing order-4 allocation with GFP_ATOMIC
-> priority. That often breaks  networking after resume. Switch to
-> GFP_KERNEL. Still not ideal, but should be significantly better.
-> 
-> atl1c_setup_ring_resources() is called from .open() function, and
-> already uses GFP_KERNEL, so this change is safe.
->     
-> Signed-off-by: Pavel Machek <pavel@ucw.cz>
-> 
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> index 2795d6d..afb71e0 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> @@ -1016,10 +1016,10 @@ static int atl1c_setup_ring_resources(struct atl1c_adapter *adapter)
->  		sizeof(struct atl1c_recv_ret_status) * rx_desc_count +
->  		8 * 4;
->  
-> -	ring_header->desc = pci_alloc_consistent(pdev, ring_header->size,
-> -				&ring_header->dma);
-> +	ring_header->desc = dma_alloc_coherent(&pdev->dev, ring_header->size,
-> +					       &ring_header->dma, GFP_KERNEL);
->  	if (unlikely(!ring_header->desc)) {
-> -		dev_err(&pdev->dev, "pci_alloc_consistend failed\n");
-> +		dev_err(&pdev->dev, "could not get memory for DMA buffer\n");
->  		goto err_nomem;
->  	}
->  	memset(ring_header->desc, 0, ring_header->size);
-> 
-> 
+On Tue, Dec 1, 2015 at 11:30 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 12/01/2015 10:38 AM, Dmitry Vyukov wrote:
+>>
+>> On Mon, Nov 30, 2015 at 7:29 PM, Alexei Starovoitov
+>> <alexei.starovoitov@gmail.com> wrote:
+>
+> ...
+>>>
+>>> Dmitry, thanks a lot for applying syzkaller to bpf. The issues
+>>> got cought much sooner than they would have been discovered otherwise.
+>>> Looks like the fuzzing has limited dependency chains described
+>>> in sys/sys.txt. Can they be improved into doing something like:
+>>> single call to map_create followed by many calls to update to
+>>> stress oom ? I did it manually so far without kasan.
+>>
+>>
+>> Hi Alexei,
+>>
+>> Please elaborate.
+>> sys.txt describes signatures of syscalls. Based on that syzkaller
+>> generates programs that can contain a map_create call followed by
+>> multiple map update calls. Though, it won't generate millions of
+>> update calls on a single map, because it directly conflicts with the
+>> idea of coverage guided fuzzing. For OOMs I guess you want to try
+>> kmalloc fault injection.
+>
+>
+> Wrt dependency chains, I believe what is meant is that there are some
+> options that could only be covered by the fuzzer after having succeeded
+> a couple of dependencies first.
+>
+> Perhaps not directly related to BPF, but f.e. some things can only be
+> reached after having a session established, like the transfer of fds via
+> SCM_RIGHTS, options that are being fuzzed while having a tcp/udp/sctp/
+> netlink/etc session established and such.
+>
+> Perhaps in BPF case, f.e. updating of a program array, which itself would
+> require some semi-autogenerated program to get loaded first. (The latter
+> is already a different beast by itself wrt testing the verifier, though.)
 
-So this memset() will really require a different patch to get removed ?
 
-Sigh, not sure why I review patches.
-
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Well, that's the whole idea of syzkaller to build longer sequences of
+syscalls that use resources in sensible ways. In fact, you can see
+that in the reproducer program syzkaller creates a map and then does
+two update operations on it.
+However, it does not work ideally at the moment. Description of
+syscalls can be improved, description of syscalls can contain plain
+bugs, lots of implicit syscalls are not described (e.g. ioctls, or
+functionalities available via opening of magical files), algorithm of
+program generation can be improved (currently syzkaller generates
+random syscalls and then tries to reuse some resources across these
+syscalls, but I am thinking about explicitly centering the process
+around resources: here are resources that we have, what can we do with
+them?), and of course there are lots of heuristics and tuning
+involved. Help is welcome.
