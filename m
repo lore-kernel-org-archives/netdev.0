@@ -1,84 +1,115 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] i40e: Fix i40e_print_features() VEB mode output
-Date: Thu, 03 Dec 2015 04:13:46 -0800
-Message-ID: <1449144826.3224.46.camel@intel.com>
-References: <1448475679-57194-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1448475679-57194-5-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <5655FD72.70902@cogentembedded.com> <1448476535.3021.5.camel@intel.com>
-	 <1448480194.20113.48.camel@perches.com>
-	 <1449002936.1593.10.camel@perches.com> <1449041100.3224.17.camel@intel.com>
-	 <1449045535.3716.10.camel@perches.com>
+From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH V7 net-next 0/5] net:hns: Add support of Hip06 SoC to the Hislicon Network Subsystem
+Date: Thu, 3 Dec 2015 12:17:52 +0000
+Message-ID: <1449145077-9400-1-git-send-email-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-P7WcjuBRqi9g0U6r6+EZ"
-Cc: netdev <netdev@vger.kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Shannon Nelson <shannon.nelson@intel.com>
-To: Joe Perches <joe@perches.com>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:21437 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757526AbbLCMNs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 07:13:48 -0500
-In-Reply-To: <1449045535.3716.10.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	<mark.rutland-5wv7dgnIgG8@public.gmane.org>, <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>,
+	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<catalin.marinas-5wv7dgnIgG8@public.gmane.org>, <will.deacon-5wv7dgnIgG8@public.gmane.org>, <arnd-r2nGTMty4D4@public.gmane.org>,
+	<liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	<huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <kenneth-lee-2012-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>,
+	<salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+This PATCH V7 addresses the TAB formatting comments by 
+Sergei Shtylyov. Missing TABs at some other palces have
+also been corrected.
+ 
+PATCH V6:
+This addresses the review comments provided by
+David Miller over the existing use of ENABLE/DISABLE
+hash defines with the code. These hash defines are doing
+a similar job as implicit type bool would do. So these are
+kind of duplicate and are redundant.
+
+PATCH V5:
+This PATCH addresses the review comments by Yuval Mintz
+ <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>. This rework of comments are basically
+ related to:
+ 1) styling of the code,
+ 2) RSS default Key initiailization related code
+ 3) redundant code removal 
+
+PATCH V4:
+This addresses the review comment provided by 
+Sergei Shtylyov. The changelog of every patch has also
+been modified.
+
+PATCH V3:
+ Addresses the review comment floated by David Miller 
+
+PATCH V2:
+1) Bug Fixes and Clean-up: Internally identified
+2) Addresses internal review comments by Kenneth Lee and
+   by Huang Daode
+3) Addresses the review comment from "Yisen.Zhuang(Zhuangyuzeng)"
+4) Adds fix from Fengguang Wu for an error generated from 
+   "kbuild test robot" from Intel
+5) Ethtool support for TSO set option from Lisheng
+
+PATCH V1:
+Adds initial support of Hip06 SoC with below changes:  
+This patch-set adds support of new Hisilicon Hip06 SoC to the existing
+(already part of net-next) HNS ethernet driver for Hip05 SoC. Hip06 is
+a multi-core SoC and is a derivative of Hip05 SoC with lots of new
+hardware featres supported like RSS, TSO, hardware VLAN assist etc. 
+
+The changes in the driver are mainly due to following:
+ 1) changes in the DMA descriptor provided by the Hip06 ethernet 
+    hardware. These changes need to co-exist with already present
+    Hip05 DMA descriptor and its operating functions. The decision
+    to choose the correct type of DMA descriptor is taken dynamically
+    depending upon the version of the hardware (i.e. V1/hip05 or
+    V2/hip06, see already existing hisilicon-hns-nic.txt binding file
+    for the detailed description version and naming).
+ 2) To support new features added to the Hip06 ethernet hardware:
+    a. RSS (Receive Side Scaling)
+    b. TSO (TCP Segment Offload)
+    c. Hardware VLAN support (currently we are initializing hardware
+       to not assist in stripping the vlan tag at hardware level.
+       Proper support of this feature and ethtool would come after
+       these patches have been accepted)
+
+Kindly note that, this patchset has been based on latest net-next.
+
+Salil Mehta (5):
+  net:hns: Add support of Hip06 SoC to the Hislicon Network Subsystem
+  net:hns: Add Hip06 "RSS(Receive Side Scaling)" support to HNS Driver
+  net:hns: Add Hip06 "TSO(TCP Segment Offload)" support HNS Driver
+  net:hns: Add support of ethtool TSO set option for Hip06 in HNS
+  net:hns: Add the init code to disable Hip06 "Hardware VLAN assist"
+
+ drivers/net/ethernet/hisilicon/hns/hnae.h          |   58 ++-
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |   98 +++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |   14 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |    4 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  213 +++++++--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |   24 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |    6 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |   72 ++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h  |   32 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c  |   76 ++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h  |    8 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |  188 +++++---
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      |  483 +++++++++++++++++---
+ drivers/net/ethernet/hisilicon/hns/hns_enet.h      |   12 +
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   |   95 +++-
+ 15 files changed, 1127 insertions(+), 256 deletions(-)
+
+-- 
+1.7.9.5
 
 
---=-P7WcjuBRqi9g0U6r6+EZ
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2015-12-02 at 00:38 -0800, Joe Perches wrote:
-> Commit 7fd89545f337 ("i40e: remove BUG_ON from feature string
-> building")
-> added defective output when I40E_FLAG_VEB_MODE_ENABLED was set in
-> function i40e_print_features.
->=20
-> Fix it.
->=20
-> Miscellanea:
->=20
-> o Remove unnecessary string variable
-> o Add space before not after fixed strings
-> o Use kmalloc not kzalloc
-> o Don't initialize i to 0, use result of first snprintf
->=20
-> Noticed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
-> =C2=A0drivers/net/ethernet/intel/i40e/i40e_main.c | 42 +++++++++++++----
-> ------------
-> =C2=A01 file changed, 19 insertions(+), 23 deletions(-)
-
-Your patch does not apply cleanly, it appears you used Dave's net-next
-tree to generate your patch, versus my next-queue tree (dev-queue
-branch) which has a number of i40e patches already applied.
-
-As a one-time only reminder, I have gone ahead and applied your patch
-by hand. =C2=A0I will send your updated patch out here in just a minute.
---=-P7WcjuBRqi9g0U6r6+EZ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAABCgAGBQJWYDH6AAoJEOVv75VaS+3OiXQQAIgL1WRwkwW5mstdskiojULZ
-UKCtPJSX5CI/igz/+Z9dnbOfnLaNNS37A0XVpmbWeY65dzgsehns8zJL4YkqY7KB
-fb5qBZ+m+JKGlbHizdXpOUrJqtlM9GUN+B9Ip8FnnR4oSaCAJIo8KH29B9G9OP0j
-gj7a89636N+YzlbBLydAWGyFvv5y4qhy+S6EkWGQMIT1N/sSOulJl/AHaHIKAbWZ
-X+Bf0S3thhJQtR9Q6xigk3Rs5PjoOFJfbAyjkp7ynXdiP2GLLc0wcW3U0yzOcLBN
-dCdSbegxNh3I/UXj+9U5q2oQSXLmNZJgO1YffeSeIXrtp34QugcRsd4hScc12EJV
-VgcBNK4JY0elWsIo4wL1oVx1rreY1tl3w7hDN8agxmrY8gZAqepMbkNDda8U1kHi
-iF9G/Bj2eGVack5eqlbiFF1j2opHAYanI33ajPi269/nGugvRa11+x96x1PsyB0E
-g/iA9INnlZEpk660yqFD5e+oDxwX7g9wvExW7BXcTggwDmxiKi+PjFj5B57U/Aob
-3bc6evf7ueugPI/r9FGS6Q1l6VMyms/goNAJZ/4d1uAxgMM0qFMWzc1HU+TVhQ00
-WqBA9HoYjSaNQhT7/H+aHLcqLsjPS7i4Q+xJ2ztHnkOxNbyebaFUhLu31CTKEeWZ
-5spI8ZfV1HZy00KziAyw
-=NxGi
------END PGP SIGNATURE-----
-
---=-P7WcjuBRqi9g0U6r6+EZ--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
