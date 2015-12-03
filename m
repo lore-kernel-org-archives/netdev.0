@@ -1,53 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/5] ila: Optimization to preserve value of
- early demux
-Date: Thu, 03 Dec 2015 15:43:00 -0500 (EST)
-Message-ID: <20151203.154300.1597761632975280766.davem@davemloft.net>
-References: <1449011472-1459652-1-git-send-email-tom@herbertland.com>
-	<20151203.144845.271629627276792795.davem@davemloft.net>
-	<CALx6S358G5c47hUEHMYmhkZjnTqfAOD9kEEk2L92Y15TYA7=eg@mail.gmail.com>
+From: Pavel Machek <pavel@denx.de>
+Subject: Re: SoCFPGA ethernet broken
+Date: Thu, 3 Dec 2015 21:48:11 +0100
+Message-ID: <20151203204811.GB14427@amd>
+References: <561FF9E2.30102@opensource.altera.com>
+ <56200687.9040903@gmail.com>
+ <562005AD.8020903@opensource.altera.com>
+ <56200BD7.8020505@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46475 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751324AbbLCUnC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 15:43:02 -0500
-In-Reply-To: <CALx6S358G5c47hUEHMYmhkZjnTqfAOD9kEEk2L92Y15TYA7=eg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dinh Nguyen <dinguyen@opensource.altera.com>,
+	"David S. Miller" <davem@davemloft.net>, david.daney@cavium.com,
+	netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <56200BD7.8020505@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Thu, 3 Dec 2015 11:59:31 -0800
-
-> On Thu, Dec 3, 2015 at 11:48 AM, David Miller <davem@davemloft.net> wrote:
->> From: Tom Herbert <tom@herbertland.com>
->> Date: Tue, 1 Dec 2015 15:11:07 -0800
->>
->>> ip6tables -t mangle -A PREROUTING --dst 2001:0:0:33::/64 -j ILAIN
->>
->> The user should have to do anything like this in order to just get
->> proper working functionality of ILA.
->>
->> It should just work transparently.
+On Thu 2015-10-15 13:25:59, Florian Fainelli wrote:
+> On 15/10/15 12:59, Dinh Nguyen wrote:
+> > On 10/15/2015 03:03 PM, Florian Fainelli wrote:
+> >> On 15/10/15 12:09, Dinh Nguyen wrote:
+> >>> Hi,
+> >>>
+> >>> commit "8b63ec1837fa phylib: Make PHYs children of their MDIO bus, not
+> >>> the bus' parent." seems to have broken ethernet support for the SoCFPGA
+> >>> platform which is using the stmmac ethernet driver.
+> >>
+> >> It is not clear to me how this relates to what you are seeing yet.
+> >>
+> >>>
+> >>> It appears that during DHCP, it cannot get an IP address. This only
+> >>> happens if ethernet was not used by the bootloader to tftp an kernel
+> >>> image. If I use the bootloader to tftp an image then ethernet is working
+> >>> fine. So I think the PHY is not getting enabled properly.
+> >>>
+> >>> If I revert this patch, then ethernet is back to working on the platform.
+> >>
+> >> Is the Device Tree source for this platform available somewhere to look at?
+> >>
+> > 
+> > Yes, I'm using the DTS that is in the mainline:
+> > 
+> > arch/arm/boot/dts/socfpga.dtsi
+> > arch/arm/boot/dts/socfpga_cyclone5.dtsi
+> > arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
 > 
-> This was transparent in the previously posted patch "ila: Add support
-> for netfilter NF_INET_PRE_ROUTING hook", but there was significant
-> pushback that NF interface was not intended for this purpose. Using an
-> IP tables target like this should preserve the sanctity of the
-> interfaces and does provide nice performance improvement since
-> PREROUTING is done before early demux. The NF_INET_PRE_ROUTING hook is
-> still better performance though and what we are using internally (just
-> an incremental change on top of these patches).
+> There are no PHY devices in any of these DTS files, instead there is the
+> non-standard "phy-addr" property which is set to 0xffffffff supposedly
+> to indicate that the MDIO bus should be scanned. This is likely part of
+> your problem. The stmmac driver seems to be looking for "snps,phy-addr"
+> and not "phy-addr", so I am not even clear how this is supposed to work,
+> and the driver mentions this custom property is deprecated anyway.
+> 
+> The core problem is in
+> drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c::stmmac_mdio_register
+> which manually detects the PHY, that is mostly fine, except that it does
+> not really seem to work here for a reason that is still unclear to me.
+> 
+> Your Ethernet PHYs need to be declared in Device Tree, see
+> Documentation/devicetree/bindings/net/phy.txt
 
-You want to make a transformation before early demux, which edits the
-packet.
+While updating DTS might be good idea, I don't think you can simply
+blame this on DTS. If it worked before the change, it is supposed to
+work after the change, otherwise we call that change a "regression"
+and revert the change. 
 
-But someone who configures ILA and just wants reasonable performance
-shouldn't have to configure anything explicitly outside of the ILA
-config itself.
+Plus, DTS is supposed to be ABI. Old DTS should still work on new
+kernels in ideal world.
 
-So again, those are your operating constraints.
+									Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
