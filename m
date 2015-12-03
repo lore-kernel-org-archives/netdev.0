@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 03/28] bonding: add 802.3ad support for 100G speeds
-Date: Thu,  3 Dec 2015 12:12:05 +0100
-Message-ID: <1449141150-8172-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 04/28] net: add netif_is_team_master helper
+Date: Thu,  3 Dec 2015 12:12:06 +0100
+Message-ID: <1449141150-8172-5-git-send-email-jiri@resnulli.us>
 References: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, j.vosburgh@gmail.com,
@@ -11,67 +11,78 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	john.fastabend@gmail.com, roopa@cumulusnetworks.com, andrew@lunn.ch
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:34911 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759786AbbLCLMl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 06:12:41 -0500
-Received: by wmuu63 with SMTP id u63so16393701wmu.0
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 03:12:40 -0800 (PST)
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:38500 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759949AbbLCLMm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 06:12:42 -0500
+Received: by wmec201 with SMTP id c201so17309559wme.1
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 03:12:41 -0800 (PST)
 In-Reply-To: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Similar to other speeds, add 100G to bonding 802.3ad code.
+Similar to other helpers, caller can use this to find out if device is
+team master.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/bonding/bond_3ad.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ drivers/net/team/team.c   | 1 +
+ include/linux/netdevice.h | 8 ++++++++
+ 2 files changed, 9 insertions(+)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 940e2eb..4cbb8b2 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -93,7 +93,8 @@ enum ad_link_speed_type {
- 	AD_LINK_SPEED_10000MBPS,
- 	AD_LINK_SPEED_20000MBPS,
- 	AD_LINK_SPEED_40000MBPS,
--	AD_LINK_SPEED_56000MBPS
-+	AD_LINK_SPEED_56000MBPS,
-+	AD_LINK_SPEED_100000MBPS,
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 651d35e..d2f3ee8 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -2054,6 +2054,7 @@ static void team_setup(struct net_device *dev)
+ 	dev->flags |= IFF_MULTICAST;
+ 	dev->priv_flags &= ~(IFF_XMIT_DST_RELEASE | IFF_TX_SKB_SHARING);
+ 	dev->priv_flags |= IFF_NO_QUEUE;
++	dev->priv_flags |= IFF_TEAM;
+ 
+ 	/*
+ 	 * Indicate we support unicast address filtering. That way core won't
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 7d2d1d7..cfb56e0 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1271,6 +1271,7 @@ struct net_device_ops {
+  * @IFF_NO_QUEUE: device can run without qdisc attached
+  * @IFF_OPENVSWITCH: device is a Open vSwitch master
+  * @IFF_L3MDEV_SLAVE: device is enslaved to an L3 master device
++ * @IFF_TEAM: device is a team device
+  */
+ enum netdev_priv_flags {
+ 	IFF_802_1Q_VLAN			= 1<<0,
+@@ -1297,6 +1298,7 @@ enum netdev_priv_flags {
+ 	IFF_NO_QUEUE			= 1<<21,
+ 	IFF_OPENVSWITCH			= 1<<22,
+ 	IFF_L3MDEV_SLAVE		= 1<<23,
++	IFF_TEAM			= 1<<24,
  };
  
- /* compare MAC addresses */
-@@ -258,6 +259,7 @@ static inline int __check_agg_selection_timer(struct port *port)
-  *     %AD_LINK_SPEED_20000MBPS
-  *     %AD_LINK_SPEED_40000MBPS
-  *     %AD_LINK_SPEED_56000MBPS
-+ *     %AD_LINK_SPEED_100000MBPS
-  */
- static u16 __get_link_speed(struct port *port)
- {
-@@ -305,6 +307,10 @@ static u16 __get_link_speed(struct port *port)
- 			speed = AD_LINK_SPEED_56000MBPS;
- 			break;
+ #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
+@@ -1323,6 +1325,7 @@ enum netdev_priv_flags {
+ #define IFF_NO_QUEUE			IFF_NO_QUEUE
+ #define IFF_OPENVSWITCH			IFF_OPENVSWITCH
+ #define IFF_L3MDEV_SLAVE		IFF_L3MDEV_SLAVE
++#define IFF_TEAM			IFF_TEAM
  
-+		case SPEED_100000:
-+			speed = AD_LINK_SPEED_100000MBPS;
-+			break;
+ /**
+  *	struct net_device - The DEVICE structure.
+@@ -3887,6 +3890,11 @@ static inline bool netif_is_ovs_master(const struct net_device *dev)
+ 	return dev->priv_flags & IFF_OPENVSWITCH;
+ }
+ 
++static inline bool netif_is_team_master(struct net_device *dev)
++{
++	return dev->priv_flags & IFF_TEAM;
++}
 +
- 		default:
- 			/* unknown speed value from ethtool. shouldn't happen */
- 			speed = 0;
-@@ -681,6 +687,9 @@ static u32 __get_agg_bandwidth(struct aggregator *aggregator)
- 		case AD_LINK_SPEED_56000MBPS:
- 			bandwidth = aggregator->num_of_ports * 56000;
- 			break;
-+		case AD_LINK_SPEED_100000MBPS:
-+			bandwidth = aggregator->num_of_ports * 100000;
-+			break;
- 		default:
- 			bandwidth = 0; /* to silence the compiler */
- 		}
+ /* This device needs to keep skb dst for qdisc enqueue or ndo_start_xmit() */
+ static inline void netif_keep_dst(struct net_device *dev)
+ {
 -- 
 1.9.3
