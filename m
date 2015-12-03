@@ -1,175 +1,199 @@
-From: Christian Zigotzky <chzigotzky@xenosoft.de>
-Subject: [P.A. Semi] Does the ethernet interface work on your Electra, Chitra,
- Nemo, and Athena board?
-Date: Thu, 3 Dec 2015 13:37:27 +0100
-Message-ID: <56603787.3000802@xenosoft.de>
-References: <565AF986.9060106@xenosoft.de>
- <CAOJe8K1911vDjMe9m_1vY6DSGpOk0TmL96Qf1whuNFXxHJesGw@mail.gmail.com>
- <565C1B55.4020207@xenosoft.de> <565C8287.7090209@xenosoft.de>
- <20151130181217.GA15921@visitor2.iram.es> <565DB2FE.1010706@xenosoft.de>
- <565E7A9E.4000909@xenosoft.de> <1449044072.24750.3.camel@ellerman.id.au>
- <565F5E7C.9040207@xenosoft.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: rhashtable: Prevent spurious EBUSY errors on insertion
+Date: Thu, 3 Dec 2015 20:41:29 +0800
+Message-ID: <20151203124129.GA5505@gondor.apana.org.au>
+References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
+ <20151130093755.GA8159@gondor.apana.org.au>
+ <20151130101401.GA17712@orbit.nwl.cc>
+ <20151130101859.GA8378@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Michael Ellerman <mpe@ellerman.id.au>,
-	Gabriel Paubert <paubert@iram.es>, netdev@vger.kernel.org,
-	Denis Kirjanov <kda@linux-powerpc.org>,
-	linuxppc-dev@lists.ozlabs.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.220]:28681 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759679AbbLCMht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 07:37:49 -0500
-In-Reply-To: <565F5E7C.9040207@xenosoft.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: Phil Sutter <phil@nwl.cc>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tgraf@suug.ch, fengguang.wu@intel.com, wfg@linux.intel.com,
+	lkp@01.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151130101859.GA8378@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Michael,
+On Mon, Nov 30, 2015 at 06:18:59PM +0800, Herbert Xu wrote:
+> 
+> OK that's better.  I think I see the problem.  The test in
+> rhashtable_insert_rehash is racy and if two threads both try
+> to grow the table one of them may be tricked into doing a rehash
+> instead.
+> 
+> I'm working on a fix.
 
-I checked out the Linux git till the commit 'powerpc-4.3-1'
+OK this patch fixes the EBUSY problem as far as I can tell.  Please
+let me know if you still observe EBUSY with it.  I'll respond to the
+ENOMEM problem in another email.
 
-git checkout ff474e8ca8547d09cb82ebab56d4c96f9eea01ce
+---8<---
+Thomas and Phil observed that under stress rhashtable insertion
+sometimes failed with EBUSY, even though this error should only
+ever been seen when we're under attack and our hash chain length
+has grown to an unacceptable level, even after a rehash.
 
-Output:
+It turns out that the logic for detecting whether there is an
+existing rehash is faulty.  In particular, when two threads both
+try to grow the same table at the same time, one of them may see
+the newly grown table and thus erroneously conclude that it had
+been rehashed.  This is what leads to the EBUSY error.
 
-Checking out files: 100% (13843/13843), done.
-Note: checking out 'ff474e8ca8547d09cb82ebab56d4c96f9eea01ce'.
+This patch fixes this by remembering the current last table we
+used during insertion so that rhashtable_insert_rehash can detect
+when another thread has also done a resize/rehash.  When this is
+detected we will give up our resize/rehash and simply retry the
+insertion with the new table.
 
-You are in 'detached HEAD' state. You can look around, make experimenta=
-l
-changes and commit them, and you can discard any commits you make in th=
-is
-state without impacting any branches by performing another checkout.
+Reported-by: Thomas Graf <tgraf@suug.ch>
+Reported-by: Phil Sutter <phil@nwl.cc>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-If you want to create a new branch to retain commits you create, you ma=
-y
-do so (now or later) by using -b with the checkout command again. Examp=
-le:
-
-   git checkout -b new_branch_name
-
-HEAD ist jetzt bei ff474e8... Merge tag 'powerpc-4.3-1' of=20
-git://git.kernel.org/pub/scm/linux/kernel/git/powerpc/linux
-
----
-
-The P.A. Semi Ethernet doesn't work with the powerpc-4.3-1 merge. I=20
-reverted this merge with:
-
-git revert ff474e8ca8547d09cb82ebab56d4c96f9eea01ce -m 1
-
-Output:
-
-  Committer: christian <christian@AmigaoneX1000.lan>
-Ihr Name und E-Mail Adresse wurden automatisch auf Basis
-Ihres Benutzer- und Rechnernamens konfiguriert. Bitte pr=C3=BCfen Sie, =
-dass
-diese zutreffend sind. Sie k=C3=B6nnen diese Meldung unterdr=C3=BCcken,=
- indem Sie
-diese explizit setzen:
-
-     git config --global user.name "Ihr Name"
-     git config --global user.email ihre@emailadresse.de
-
-Nachdem Sie das getan hast, k=C3=B6nnen Sie Ihre Identit=C3=A4t f=C3=BC=
-r diesen Commit=20
-=C3=A4ndern mit:
-
-     git commit --amend --reset-author
-
-  146 files changed, 2047 insertions(+), 3609 deletions(-)
-  delete mode 100644 Documentation/devicetree/bindings/leds/leds-powern=
-v.txt
-  delete mode 100644 Documentation/devicetree/bindings/powerpc/fsl/scfg=
-=2Etxt
-  delete mode 100644 arch/powerpc/boot/dts/t1040d4rdb.dts
-  delete mode 100644 arch/powerpc/boot/dts/t1042d4rdb.dts
-  delete mode 100644 arch/powerpc/boot/dts/t104xd4rdb.dtsi
-  delete mode 100644 arch/powerpc/configs/85xx-32bit.config
-  delete mode 100644 arch/powerpc/configs/85xx-64bit.config
-  delete mode 100644 arch/powerpc/configs/85xx-hw.config
-  delete mode 100644 arch/powerpc/configs/85xx-smp.config
-  delete mode 100644 arch/powerpc/configs/altivec.config
-  create mode 100644 arch/powerpc/configs/corenet32_smp_defconfig
-  rename arch/powerpc/configs/{fsl-emb-nonhw.config =3D>=20
-corenet64_smp_defconfig} (50%)
-  delete mode 100644 arch/powerpc/configs/corenet_basic_defconfig
-  delete mode 100644 arch/powerpc/configs/mpc85xx_basic_defconfig
-  create mode 100644 arch/powerpc/configs/mpc85xx_defconfig
-  create mode 100644 arch/powerpc/configs/mpc85xx_smp_defconfig
-  delete mode 100644 arch/powerpc/include/asm/trace_clock.h
-  delete mode 100644 arch/powerpc/kernel/trace_clock.c
-  rewrite arch/powerpc/platforms/powernv/opal-power.c (76%)
-  delete mode 100644 drivers/leds/leds-powernv.c
-
----
-
-After that the P.A. Semi Ethernet works without any problems.
-
-Cheers,
-
-Christian
-
-On 02 December 2015 at 10:11 PM, Christian Zigotzky wrote:
-> Hi Michael,
->
-> Thanks a lot for your answer. We tested some vanilla mainline 4.3=20
-> kernels on an Electra reference board. Additionally we tested some=20
-> patched 4.3 kernels on our Nemo boards.
->
-> It would be really fantastic, if you could fix the problem.
->
-> Cheers,
->
-> Christian
->
-> On 02 December 2015 at 09:14 AM, Michael Ellerman wrote:
->> On Wed, 2015-12-02 at 05:59 +0100, Christian Zigotzky wrote:
->>> Hi all,
->>>
->>> We tested some 4.3 kernels on a P.A. Semi reference board. Ultimate=
-ly,
->>> ethernet does not work, though on the reference board, the interfac=
-e is
->>> detected, gets link, but will not pass any packets/traffic.
->>>
->>> Somewhere in the source code of the commit "'powerpc-4.3-1' of
->>> git://git.kernel.org/pub/scm/linux/kernel/git/powerpc/linux (2015-0=
-9-03
->>> 23:41:38 (GMT)" is the problem.
->>>
->>> Could you please help us to solve the problem?
->> Hi Christian,
->>
->> Unfortunately there is no source code in that commit, it's just a=20
->> merge. And
->> your bisect run found that the very first commit in that merge was O=
-K:
->>
->>>> [390fd5929f52bdfb9dfcc03820041ba556780f4a] cxl: Set up and enable =
-PSL
->>>> git bisect good
->> So I'm not convinced your bisect run was correct, sorry.
->>
->> My pasemi is booting OK, but I haven't had time to test the network.=
-=20
->> If you
->> remind me next week I will make sure network is working on my board.
->>
->> Are you testing your board with your additional patch as well? Or=20
->> just vanilla
->> mainline?
->>
->> cheers
->>
->> _______________________________________________
->> Linuxppc-dev mailing list
->> Linuxppc-dev@lists.ozlabs.org
->> https://lists.ozlabs.org/listinfo/linuxppc-dev
->
-> _______________________________________________
-> Linuxppc-dev mailing list
-> Linuxppc-dev@lists.ozlabs.org
-> https://lists.ozlabs.org/listinfo/linuxppc-dev
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index 843ceca..e50b31d 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -19,6 +19,7 @@
+ 
+ #include <linux/atomic.h>
+ #include <linux/compiler.h>
++#include <linux/err.h>
+ #include <linux/errno.h>
+ #include <linux/jhash.h>
+ #include <linux/list_nulls.h>
+@@ -339,10 +340,11 @@ static inline int lockdep_rht_bucket_is_held(const struct bucket_table *tbl,
+ int rhashtable_init(struct rhashtable *ht,
+ 		    const struct rhashtable_params *params);
+ 
+-int rhashtable_insert_slow(struct rhashtable *ht, const void *key,
+-			   struct rhash_head *obj,
+-			   struct bucket_table *old_tbl);
+-int rhashtable_insert_rehash(struct rhashtable *ht);
++struct bucket_table *rhashtable_insert_slow(struct rhashtable *ht,
++					    const void *key,
++					    struct rhash_head *obj,
++					    struct bucket_table *old_tbl);
++int rhashtable_insert_rehash(struct rhashtable *ht, struct bucket_table *tbl);
+ 
+ int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter);
+ void rhashtable_walk_exit(struct rhashtable_iter *iter);
+@@ -598,9 +600,11 @@ restart:
+ 
+ 	new_tbl = rht_dereference_rcu(tbl->future_tbl, ht);
+ 	if (unlikely(new_tbl)) {
+-		err = rhashtable_insert_slow(ht, key, obj, new_tbl);
+-		if (err == -EAGAIN)
++		tbl = rhashtable_insert_slow(ht, key, obj, new_tbl);
++		if (!IS_ERR_OR_NULL(tbl))
+ 			goto slow_path;
++
++		err = PTR_ERR(tbl);
+ 		goto out;
+ 	}
+ 
+@@ -611,7 +615,7 @@ restart:
+ 	if (unlikely(rht_grow_above_100(ht, tbl))) {
+ slow_path:
+ 		spin_unlock_bh(lock);
+-		err = rhashtable_insert_rehash(ht);
++		err = rhashtable_insert_rehash(ht, tbl);
+ 		rcu_read_unlock();
+ 		if (err)
+ 			return err;
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index a54ff89..2ff7ed9 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -389,33 +389,31 @@ static bool rhashtable_check_elasticity(struct rhashtable *ht,
+ 	return false;
+ }
+ 
+-int rhashtable_insert_rehash(struct rhashtable *ht)
++int rhashtable_insert_rehash(struct rhashtable *ht,
++			     struct bucket_table *tbl)
+ {
+ 	struct bucket_table *old_tbl;
+ 	struct bucket_table *new_tbl;
+-	struct bucket_table *tbl;
+ 	unsigned int size;
+ 	int err;
+ 
+ 	old_tbl = rht_dereference_rcu(ht->tbl, ht);
+-	tbl = rhashtable_last_table(ht, old_tbl);
+ 
+ 	size = tbl->size;
+ 
++	err = -EBUSY;
++
+ 	if (rht_grow_above_75(ht, tbl))
+ 		size *= 2;
+ 	/* Do not schedule more than one rehash */
+ 	else if (old_tbl != tbl)
+-		return -EBUSY;
++		goto fail;
++
++	err = -ENOMEM;
+ 
+ 	new_tbl = bucket_table_alloc(ht, size, GFP_ATOMIC);
+-	if (new_tbl == NULL) {
+-		/* Schedule async resize/rehash to try allocation
+-		 * non-atomic context.
+-		 */
+-		schedule_work(&ht->run_work);
+-		return -ENOMEM;
+-	}
++	if (new_tbl == NULL)
++		goto fail;
+ 
+ 	err = rhashtable_rehash_attach(ht, tbl, new_tbl);
+ 	if (err) {
+@@ -426,12 +424,24 @@ int rhashtable_insert_rehash(struct rhashtable *ht)
+ 		schedule_work(&ht->run_work);
+ 
+ 	return err;
++
++fail:
++	/* Do not fail the insert if someone else did a rehash. */
++	if (likely(rcu_dereference_raw(tbl->future_tbl)))
++		return 0;
++
++	/* Schedule async rehash to retry allocation in process context. */
++	if (err == -ENOMEM)
++		schedule_work(&ht->run_work);
++
++	return err;
+ }
+ EXPORT_SYMBOL_GPL(rhashtable_insert_rehash);
+ 
+-int rhashtable_insert_slow(struct rhashtable *ht, const void *key,
+-			   struct rhash_head *obj,
+-			   struct bucket_table *tbl)
++struct bucket_table *rhashtable_insert_slow(struct rhashtable *ht,
++					    const void *key,
++					    struct rhash_head *obj,
++					    struct bucket_table *tbl)
+ {
+ 	struct rhash_head *head;
+ 	unsigned int hash;
+@@ -467,7 +477,12 @@ int rhashtable_insert_slow(struct rhashtable *ht, const void *key,
+ exit:
+ 	spin_unlock(rht_bucket_lock(tbl, hash));
+ 
+-	return err;
++	if (err == 0)
++		return NULL;
++	else if (err == -EAGAIN)
++		return tbl;
++	else
++		return ERR_PTR(err);
+ }
+ EXPORT_SYMBOL_GPL(rhashtable_insert_slow);
+ 
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
