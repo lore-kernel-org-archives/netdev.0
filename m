@@ -1,35 +1,60 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 0/3] vxlan: IPv6 fill_metadata_dst support
-Date: Thu, 3 Dec 2015 09:44:25 +0100
-Message-ID: <20151203094425.4f0fb3bb@griffin>
-References: <cover.1449079592.git.jbenc@redhat.com>
-	<CALnjE+qJNyUESRia0WYGQFVdq0DVO3g92AOmWGeA-qJimVBDLw@mail.gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: ipsec impact on performance
+Date: Thu, 3 Dec 2015 09:45:08 +0100
+Message-ID: <20151203084508.GD14008@secunet.com>
+References: <20151201175953.GC21252@oracle.com>
+ <20151202065305.GB14008@secunet.com>
+ <20151202120538.GJ23178@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49200 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758943AbbLCIo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 03:44:28 -0500
-In-Reply-To: <CALnjE+qJNyUESRia0WYGQFVdq0DVO3g92AOmWGeA-qJimVBDLw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <linux-crypto@vger.kernel.org>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151202120538.GJ23178@oracle.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2 Dec 2015 15:02:22 -0800, Pravin Shelar wrote:
-> We need the ndo_fill_metadata_dst  IPv6 support in net branch, since
-> OVS IPv6 tunnel support is there already. Is there reason you targeted
-> this patch series for net-next?
+On Wed, Dec 02, 2015 at 07:05:38AM -0500, Sowmini Varadhan wrote:
+> On (12/02/15 07:53), Steffen Klassert wrote:
+> > 
+> > I'm currently working on a GRO/GSO codepath for IPsec too. The GRO part
+> > works already. I decapsulate/decrypt the packets on layer2 with a esp GRO
+> > callback function and reinject them into napi_gro_receive(). So in case
+> > the decapsulated packet is TCP, GRO can aggregate big packets.
+> 
+> Would you be able to share your patch with me? I'd like to give that a try
+> just to get preliminary numbers (and I could massage it as needed
+> for transport mode too).
 
-I guess you're right.
+I've got the final bits to work today, I can do async crypto now.
+I can push the patches to a public tree after some polishing.
+But I have to warn, it has still bugs and no usefull commit messages.
 
-I need to resubmit anyway (seems I overlooked a warning when building
-without IPv6), I'll submit patches 2 and 3 for net and patch 1 for
-net-next (since it's a cleanup).
+I did a first test with forwaring esp in tunnel mode. The crypto
+algorithm I used was:
 
- Jiri
+pcrypt(echainiv(authenc(hmac(sha1-ssse3),cbc-aes-aesni)))
 
--- 
-Jiri Benc
+Result:
+
+iperf -c 10.0.0.12 -t 60
+------------------------------------------------------------
+Client connecting to 10.0.0.12, TCP port 5001
+TCP window size: 45.0 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.0.12 port 39380 connected with 10.0.0.12 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-60.0 sec  32.8 GBytes  4.70 Gbits/sec
+
+I provide more informatios as soon as the code is available.
+
+> 
+> > Another thing, I thought about setting up an IPsec BoF/workshop at
+> > netdev1.1. My main topic is GRO/GSO for IPsec. I'll send out a mail
+> > to the list later this week to see if there is enough interest and
+> > maybe some additional topics.
+> 
+> Sounds like an excellent idea. I'm certainly interested.
+
+Great, than we are at least two :)
