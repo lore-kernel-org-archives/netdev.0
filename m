@@ -1,93 +1,83 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [net-next 10/17] fm10k: add TEB check to fm10k_gre_is_nvgre
-Date: Thu, 3 Dec 2015 16:54:01 -0800
-Message-ID: <CALx6S35nF58aS1hR1MVtNQ8Y1iv5zt-OzMT_2dXSA5ysqPD7yw@mail.gmail.com>
-References: <1449188994-64940-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1449188994-64940-11-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Dinh Nguyen <dinguyen@opensource.altera.com>
+Subject: Re: SoCFPGA ethernet broken
+Date: Thu, 3 Dec 2015 17:17:27 -0600
+Message-ID: <5660CD87.5050603@opensource.altera.com>
+References: <561FF9E2.30102@opensource.altera.com> <56200687.9040903@gmail.com> <562005AD.8020903@opensource.altera.com> <56200BD7.8020505@gmail.com> <20151203204811.GB14427@amd> <5660B2EC.1050705@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:33847 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750849AbbLDAyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 19:54:02 -0500
-Received: by igvg19 with SMTP id g19so25715522igv.1
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 16:54:01 -0800 (PST)
-In-Reply-To: <1449188994-64940-11-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, <david.daney@cavium.com>,
+	<netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Daney <ddaney@caviumnetworks.com>,
+	Pavel Machek <pavel@denx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5660B2EC.1050705@caviumnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 3, 2015 at 4:29 PM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Jacob Keller <jacob.e.keller@intel.com>
->
-> The NVGRE protocol should be run over transparent ethernet bridge
-> protocol, so we should verify this in our check whether the GRE tunnel
-> is NVGRE. While we're touching fm10k_main.c, update the copyright year.
->
-> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-> Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
-> Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/fm10k/fm10k_main.c | 6 +++++-
->  1 file changed, 5 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-> index 746a198..c5f7e0d 100644
-> --- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-> +++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-> @@ -1,5 +1,5 @@
->  /* Intel Ethernet Switch Host Interface Driver
-> - * Copyright(c) 2013 - 2014 Intel Corporation.
-> + * Copyright(c) 2013 - 2015 Intel Corporation.
->   *
->   * This program is free software; you can redistribute it and/or modify it
->   * under the terms and conditions of the GNU General Public License,
-> @@ -708,6 +708,10 @@ static struct ethhdr *fm10k_gre_is_nvgre(struct sk_buff *skb)
->         if (nvgre_hdr->flags & FM10K_NVGRE_RESERVED0_FLAGS)
->                 return NULL;
->
-> +       /* verify protocol is transparent Ethernet bridging */
-> +       if (nvgre_hdr->proto != htons(ETH_P_TEB))
-> +               return NULL;
-> +
->         /* report start of ethernet header */
->         if (nvgre_hdr->flags & NVGRE_TNI)
->                 return (struct ethhdr *)(nvgre_hdr + 1);
+On 12/03/2015 03:23 PM, David Daney wrote:
+> On 12/03/2015 12:48 PM, Pavel Machek wrote:
+>> On Thu 2015-10-15 13:25:59, Florian Fainelli wrote:
+>>> On 15/10/15 12:59, Dinh Nguyen wrote:
+>>>> On 10/15/2015 03:03 PM, Florian Fainelli wrote:
+>>>>> On 15/10/15 12:09, Dinh Nguyen wrote:
+>>>>>> Hi,
+>>>>>>
+>>>>>> commit "8b63ec1837fa phylib: Make PHYs children of their MDIO bus,
+>>>>>> not
+>>>>>> the bus' parent." seems to have broken ethernet support for the
+>>>>>> SoCFPGA
+>>>>>> platform which is using the stmmac ethernet driver.
+>>>>>
+>>>>> It is not clear to me how this relates to what you are seeing yet.
+>>>>>
+>>>>>>
+>>>>>> It appears that during DHCP, it cannot get an IP address. This only
+>>>>>> happens if ethernet was not used by the bootloader to tftp an kernel
+>>>>>> image. If I use the bootloader to tftp an image then ethernet is
+>>>>>> working
+>>>>>> fine. So I think the PHY is not getting enabled properly.
+>>>>>>
+>>>>>> If I revert this patch, then ethernet is back to working on the
+>>>>>> platform.
+>>>>>
+>>>>> Is the Device Tree source for this platform available somewhere to
+>>>>> look at?
+>>>>>
+>>>>
+>>>> Yes, I'm using the DTS that is in the mainline:
+>>>>
+>>>> arch/arm/boot/dts/socfpga.dtsi
+>>>> arch/arm/boot/dts/socfpga_cyclone5.dtsi
+>>>> arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
+>>>
+>>> There are no PHY devices in any of these DTS files, instead there is the
+>>> non-standard "phy-addr" property which is set to 0xffffffff supposedly
+>>> to indicate that the MDIO bus should be scanned. This is likely part of
+>>> your problem. The stmmac driver seems to be looking for "snps,phy-addr"
+>>> and not "phy-addr", so I am not even clear how this is supposed to work,
+>>> and the driver mentions this custom property is deprecated anyway.
+>>>
+>>> The core problem is in
+>>> drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c::stmmac_mdio_register
+>>> which manually detects the PHY, that is mostly fine, except that it does
+>>> not really seem to work here for a reason that is still unclear to me.
+>>>
+>>> Your Ethernet PHYs need to be declared in Device Tree, see
+>>> Documentation/devicetree/bindings/net/phy.txt
+>>
+>> While updating DTS might be good idea, I don't think you can simply
+>> blame this on DTS. If it worked before the change, it is supposed to
+>> work after the change, otherwise we call that change a "regression"
+>> and revert the change.
+> 
+> FWIW: My initial patch to address the failure worked with the original DTB.
+> 
 
-I don't understand this. Just because a packet is GRE with ETH_P_TEB
-set and only using keyid does not make it a GRE packet. What happens
-if someone creates a GRE tunnel on this same host with keyid and
-starts sending packets on it?
+Can I ask what patch are you referring to? I was sidetracked for a while
+on this issue, but I still see it failing as of v4.4-rc3. I'll try to
+get back to debugging this.
 
-BTW, these is a potentially similar issue in fm10k_port_is_vxlan.
-ndo_vxlan_port informs the driver of a vxlan port that may be received
-in a destination (presumably after the port has been bound for the
-tunnel). This says _nothing_ about source ports or the destination
-port. For instance, there is nothing that prevents an application from
-sending UDP packets to a "VXLAN port". If application does this, will
-it's packets be messed up by the offload misinterpreting the packets
-as VXLAN?
-
-As for this code:
-
-        int hlen = ip_hdrlen(skb);
-
-        /* currently only IPv4 is supported due to hlen above */
-
-I'm just speechless ;-)
-
-
-> --
-> 2.5.0
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Dinh
