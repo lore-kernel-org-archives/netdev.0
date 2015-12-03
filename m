@@ -1,70 +1,38 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH] Improve Atheros ethernet driver not to do order 4
- GFP_ATOMIC allocation
-Date: Thu, 3 Dec 2015 09:16:47 +0100
-Message-ID: <20151203081646.GB9264@dhcp22.suse.cz>
-References: <20151127082010.GA2500@dhcp22.suse.cz>
- <20151128145113.GB4135@amd>
- <20151130132129.GB21950@dhcp22.suse.cz>
- <20151201.153517.224543138214404348.davem@davemloft.net>
- <CAMXMK6u1vQ772SGv-J3cKvOmS6QRAjjQLYiSiWO2+T=HRTiK1A@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 4/6] mlxsw: core: Implement temperature hwmon
+ interface
+Date: Thu, 3 Dec 2015 09:19:31 +0100
+Message-ID: <20151203081931.GA2331@nanopsycho.orion>
+References: <20151202222551.GP2355@nanopsycho.orion>
+ <20151202.172847.1855287186918935450.davem@davemloft.net>
+ <20151202223531.GQ2355@nanopsycho.orion>
+ <20151202.183758.91764299340813651.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: David Miller <davem@davemloft.net>, pavel@ucw.cz, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, jcliburn@gmail.com,
-	netdev@vger.kernel.org, rjw@rjwysocki.net, linux-mm@kvack.org,
-	nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com
-To: Chris Snook <chris.snook@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: gerlitz.or@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:33788 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756694AbbLCITe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 03:19:34 -0500
+Received: by wmec201 with SMTP id c201so14683645wme.0
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 00:19:33 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <CAMXMK6u1vQ772SGv-J3cKvOmS6QRAjjQLYiSiWO2+T=HRTiK1A@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20151202.183758.91764299340813651.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed 02-12-15 22:43:31, Chris Snook wrote:
-> On Tue, Dec 1, 2015 at 12:35 PM David Miller <davem@davemloft.net> wrot=
-e:
->=20
-> > From: Michal Hocko <mhocko@kernel.org>
-> > Date: Mon, 30 Nov 2015 14:21:29 +0100
-> >
-> > > On Sat 28-11-15 15:51:13, Pavel Machek wrote:
-> > >>
-> > >> atl1c driver is doing order-4 allocation with GFP_ATOMIC
-> > >> priority. That often breaks  networking after resume. Switch to
-> > >> GFP_KERNEL. Still not ideal, but should be significantly better.
-> > >
-> > > It is not clear why GFP_KERNEL can replace GFP_ATOMIC safely neithe=
-r
-> > > from the changelog nor from the patch context.
-> >
-> > Earlier in the function we do a GFP_KERNEL kmalloc so:
-> >
-> > =C2=AF\_(=E3=83=84)_/=C2=AF
-> >
-> > It should be fine.
-> >
->=20
-> AFAICT, the people who benefit from GFP_ATOMIC are the people running a=
-ll
-> their storage over NFS/iSCSI who are suspending their machines while
-> they're so busy they don't have any clean order 4 pagecache to drop, an=
-d
-> want the machine to panic rather than hang.
+Thu, Dec 03, 2015 at 12:37:58AM CET, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Wed, 2 Dec 2015 23:35:31 +0100
+>
+>> Why to continue to work if we know that we are making things wrong
+>> (incorrect structure initialization in this case) ? What am I missing?
+>
+>The user might be able to continue to have connectivity and
+>report the problem.
+>
+>BUG_ON() is really a hard hammer.
 
-Why would GFP_KERNEL order-4 allocation hang? It will fail if there are
-not >=3D4 order pages available even after reclaim and/or compaction.
-GFP_ATOMIC allocations should be used only when an access to memory
-reserves is really required. If the allocation just doesn't want to
-invoke direct reclaim then GFP_NOWAIT is a more suitable alternative.
-
---=20
-Michal Hocko
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+Okay.
