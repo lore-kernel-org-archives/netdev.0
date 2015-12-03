@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] mvneta: implement ethtool autonegotiation control
-Date: Thu, 03 Dec 2015 15:18:35 -0500 (EST)
-Message-ID: <20151203.151835.2096865567050500953.davem@davemloft.net>
-References: <565F2B28.4080501@list.ru>
+Subject: Re: [PATCH net-next 1/1] tipc: fix node reference count bug
+Date: Thu, 03 Dec 2015 15:21:28 -0500 (EST)
+Message-ID: <20151203.152128.176014435314901182.davem@davemloft.net>
+References: <1449087577-7252-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	thomas.petazzoni@free-electrons.com, linux@arm.linux.org.uk
-To: stsp@list.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <565F2B28.4080501@list.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
+	ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45561 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753426AbbLCUVa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 15:21:30 -0500
+In-Reply-To: <1449087577-7252-1-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stas Sergeev <stsp@list.ru>
-Date: Wed, 2 Dec 2015 20:32:24 +0300
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Wed,  2 Dec 2015 15:19:37 -0500
 
-> These 2 patches add an ability to control the
-> autonegotiation via ethtool. For example:
+> Commit 5405ff6e15f40f2f ("tipc: convert node lock to rwlock")
+> introduced a bug to the node reference counter handling. When a
+> message is successfully sent in the function tipc_node_xmit(),
+> we return directly after releasing the node lock, instead of
+> continuing and decrementing the node reference counter as we
+> should do.
 > 
-> ethtool -s eth0 autoneg off
-> ethtool -s eth0 autoneg on
+> This commit fixes this bug.
 > 
-> This is needed if you want to connect the mvneta's MII
-> to different switches or PHYs: the ones the do support
-> the in-band status, and the ones that do not.
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-Series applied to net-next, thanks.
+Applied, thanks.
