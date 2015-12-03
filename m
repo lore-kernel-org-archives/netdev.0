@@ -1,102 +1,81 @@
-From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Subject: Re: [v9, 3/6] fsl/fman: Add FMan MAC support
-Date: Thu, 3 Dec 2015 23:42:03 +0100
-Message-ID: <CA++eYdvVe1qDhpZ8NGVnHeefBnpWMUyn4CFBu8g6TERAr-4B8Q@mail.gmail.com>
-References: <1449127157-9400-1-git-send-email-igal.liberman@freescale.com>
-	<1449127157-9400-4-git-send-email-igal.liberman@freescale.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v3] sh_eth: fix kernel oops in skb_put()
+Date: Fri, 04 Dec 2015 01:45:40 +0300
+Message-ID: <1498048.4g9dLWgJuk@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, linuxppc-dev@lists.ozlabs.org,
-	scottwood@freescale.com, madalin.bucur@freescale.com,
-	pebolle@tiscali.nl, joakim.tjernlund@transmode.se,
-	ppc@mindchasers.com,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>,
-	Kapil Juneja <Kapil.Juneja@freescale.com>
-To: igal.liberman@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:35280 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751749AbbLCWmE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 17:42:04 -0500
-Received: by wmuu63 with SMTP id u63so40594168wmu.0
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 14:42:03 -0800 (PST)
-In-Reply-To: <1449127157-9400-4-git-send-email-igal.liberman@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org, yashi@atmark-techno.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +/* PHY Control Register */
-> +#define PHY_CR_PHY_RESET       0x8000
-> +#define PHY_CR_SPEED0          0x2000
-> +#define PHY_CR_ANE             0x1000
-> +#define PHY_CR_RESET_AN                0x0200
-> +#define PHY_CR_FULLDUPLEX      0x0100
-> +#define PHY_CR_SPEED1          0x0040
+In a low memory situation the following kernel oops occurs:
 
-Reuse defines in mii.h? BMCR_SPEED1000, BMCR_*, etc.
+Unable to handle kernel NULL pointer dereference at virtual address 00000050
+pgd = 8490c000
+[00000050] *pgd=4651e831, *pte=00000000, *ppte=00000000
+Internal error: Oops: 17 [#1] PREEMPT ARM
+Modules linked in:
+CPU: 0    Not tainted  (3.4-at16 #9)
+PC is at skb_put+0x10/0x98
+LR is at sh_eth_poll+0x2c8/0xa10
+pc : [<8035f780>]    lr : [<8028bf50>]    psr: 60000113
+sp : 84eb1a90  ip : 84eb1ac8  fp : 84eb1ac4
+r10: 0000003f  r9 : 000005ea  r8 : 00000000
+r7 : 00000000  r6 : 940453b0  r5 : 00030000  r4 : 9381b180
+r3 : 00000000  r2 : 00000000  r1 : 000005ea  r0 : 00000000
+Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
+Control: 10c53c7d  Table: 4248c059  DAC: 00000015
+Process klogd (pid: 2046, stack limit = 0x84eb02e8)
+[...]
 
-> +#define PHY_TBICON_SRESET      0x8000
-> +#define PHY_TBICON_CLK_SEL     0x0020
+This is  because netdev_alloc_skb() fails and 'mdp->rx_skbuff[entry]' is left
+NULL but sh_eth_rx() later  uses it without checking.  Add such check...
 
-This is similarly named TBICON_CLK_SELECT in freescale/gianfar.h.
-Perhaps use the same names, and if possible, use a shared header file?
+Reported-by: Yasushi SHOJI <yashi@atmark-techno.com>
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-It would be nice to define all bits of the TBI registers, if only for
-completeness. Maybe along with a succinct description, e.g., that
-"sreset" means soft reset. (Or just call it TBICON_SOFT_RESET.)
+---
+The patch is against Dave Miller's 'net.git' repo.
 
-> +/* MII Configuration Control Memory Map Registers */
-> +struct dtsec_mii_regs {
-> +/* dTSEC Memory Map registers */
-> +struct dtsec_regs {
-> +static int mii_write_reg(struct fman_mac *dtsec, u8 addr, u8 reg, u16 data)
-> +static int mii_read_reg(struct fman_mac *dtsec, u8 addr, u8 reg, u16 *data)
+Changes in version 3:
+- refreshed the patch;
+- reformatted the changelog;
+- removed [RFT] from the subject.
 
-Any chance this patch overlaps significantly with fsl_pq_mdio.c?
+Changes in version 2:
+- moved reading 'mdp->rx_skbuff[entry]' earlier to avoid *goto*.
 
-http://lxr.free-electrons.com/source/drivers/net/ethernet/freescale/fsl_pq_mdio.c?v=4.3#L44
-fsl_pq_mdio_write(),
-fsl_pq_mdio_read(),
-etc.
+drivers/net/ethernet/renesas/sh_eth.c |    4 ++--
+ drivers/net/ethernet/renesas/sh_eth.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> +       if (dtsec->phy_if == PHY_INTERFACE_MODE_SGMII) {
-> +               u16 tmp_reg16;
-> +
-> +               /* Configure the TBI PHY Control Register */
-> +               tmp_reg16 = PHY_TBICON_CLK_SEL | PHY_TBICON_SRESET;
-> +               mii_write_reg(dtsec, (u8)dtsec_drv_param->tbipa, 17,
-> +                             tmp_reg16);
-> +
-> +               tmp_reg16 = PHY_TBICON_CLK_SEL;
-> +               mii_write_reg(dtsec, (u8)dtsec_drv_param->tbipa, 17,
-> +                             tmp_reg16);
-> +
-> +               tmp_reg16 =
-> +                   (PHY_CR_PHY_RESET | PHY_CR_ANE | PHY_CR_FULLDUPLEX |
-> +                    PHY_CR_SPEED1);
-> +               mii_write_reg(dtsec, (u8)dtsec_drv_param->tbipa, 0, tmp_reg16);
-> +
-> +               if (dtsec->basex_if)
-> +                       tmp_reg16 = PHY_TBIANA_1000X;
-> +               else
-> +                       tmp_reg16 = PHY_TBIANA_SGMII;
-> +               mii_write_reg(dtsec, (u8)dtsec_drv_param->tbipa, 4, tmp_reg16);
-> +
-> +               tmp_reg16 =
-> +                   (PHY_CR_ANE | PHY_CR_RESET_AN | PHY_CR_FULLDUPLEX |
-> +                    PHY_CR_SPEED1);
-> +
-> +               mii_write_reg(dtsec, (u8)dtsec_drv_param->tbipa, 0, tmp_reg16);
-> +       }
+Index: net/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1462,6 +1462,7 @@ static int sh_eth_rx(struct net_device *
+ 		if (mdp->cd->shift_rd0)
+ 			desc_status >>= 16;
+ 
++		skb = mdp->rx_skbuff[entry];
+ 		if (desc_status & (RD_RFS1 | RD_RFS2 | RD_RFS3 | RD_RFS4 |
+ 				   RD_RFS5 | RD_RFS6 | RD_RFS10)) {
+ 			ndev->stats.rx_errors++;
+@@ -1477,12 +1478,11 @@ static int sh_eth_rx(struct net_device *
+ 				ndev->stats.rx_missed_errors++;
+ 			if (desc_status & RD_RFS10)
+ 				ndev->stats.rx_over_errors++;
+-		} else {
++		} else	if (skb) {
+ 			if (!mdp->cd->hw_swap)
+ 				sh_eth_soft_swap(
+ 					phys_to_virt(ALIGN(rxdesc->addr, 4)),
+ 					pkt_len + 2);
+-			skb = mdp->rx_skbuff[entry];
+ 			mdp->rx_skbuff[entry] = NULL;
+ 			if (mdp->cd->rpadir)
+ 				skb_reserve(skb, NET_IP_ALIGN);
 
-Afaik, programming the TBI belongs in a separate PHY driver. See
-drivers/net/phy/phy_device.c.
-
-The same logic applies to gfar_configure_serdes() and uec_configure_serdes().
-
-> +/* Internal PHY Registers - SGMII */
-> +#define PHY_SGMII_CR_RESET_AN           0x0200
-> +#define PHY_SGMII_CR_AN_ENABLE          0x1000
-
-This namespace duplicates the intention of PHY_CR_*? (Which in turn
-duplicated BMCR_*, ..)
