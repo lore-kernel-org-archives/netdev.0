@@ -1,93 +1,35 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [patch net-next v2 01/28] net: dev: Check CHANGEUPPER notifier
- return value
-Date: Thu, 3 Dec 2015 10:25:00 +0200
-Message-ID: <20151203082500.GB3075@colbert.mtl.com>
-References: <1449086871-19911-1-git-send-email-jiri@resnulli.us>
- <1449086871-19911-2-git-send-email-jiri@resnulli.us>
- <565F7CD2.2080207@gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 0/3] vxlan: IPv6 fill_metadata_dst support
+Date: Thu, 3 Dec 2015 09:44:25 +0100
+Message-ID: <20151203094425.4f0fb3bb@griffin>
+References: <cover.1449079592.git.jbenc@redhat.com>
+	<CALnjE+qJNyUESRia0WYGQFVdq0DVO3g92AOmWGeA-qJimVBDLw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Jiri Pirko <jiri@resnulli.us>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <eladr@mellanox.com>, <yotamg@mellanox.com>,
-	<ogerlitz@mellanox.com>, <j.vosburgh@gmail.com>,
-	<vfalico@gmail.com>, <gospo@cumulusnetworks.com>,
-	<dsa@cumulusnetworks.com>, <nikolay@cumulusnetworks.com>,
-	<pjonnala@broadcom.com>, <f.fainelli@gmail.com>,
-	<sfeldma@gmail.com>, <roopa@cumulusnetworks.com>, <andrew@lunn.ch>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0062.outbound.protection.outlook.com ([157.56.112.62]:32477
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751580AbbLCIZP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 03:25:15 -0500
-Content-Disposition: inline
-In-Reply-To: <565F7CD2.2080207@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:49200 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758943AbbLCIo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2015 03:44:28 -0500
+In-Reply-To: <CALnjE+qJNyUESRia0WYGQFVdq0DVO3g92AOmWGeA-qJimVBDLw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Dec 03, 2015 at 01:20:50AM IST, john.fastabend@gmail.com wrote:
->On 15-12-02 12:07 PM, Jiri Pirko wrote:
->> From: Ido Schimmel <idosch@mellanox.com>
->> 
->> switchdev drivers reflect the newly requested topology to hardware when
->> CHANGEUPPER is received, after software links were already formed.
->> However, the operation can fail and user will not be notified, as the
->> return value of the notifier is not checked.
->> 
->> Add this check and rollback software links if necessary.
->> 
->> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->> v1->v2:
->> -new patch
->> ---
->>  net/core/dev.c | 7 +++++--
->>  1 file changed, 5 insertions(+), 2 deletions(-)
->> 
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 5df6cbc..df33f82 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -5490,8 +5490,11 @@ static int __netdev_upper_dev_link(struct net_device *dev,
->>  			goto rollback_lower_mesh;
->>  	}
->>  
->> -	call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
->> -				      &changeupper_info.info);
->> +	ret = call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
->> +					    &changeupper_info.info);
->> +	if (ret)
->> +		goto rollback_lower_mesh;
->> +
->
->hmm small nit (take it or leave it) but I think it would be more
->correct if this was
->
->	if (ret == NOTIFY_BAD)
->		goto rollback_lower_mesh;
->
->It seems that NOTIFY_DONE, NOTIFY_OK and NOTIFY_STOP_MASK would be
->valid return codes that don't indicate an error. However seeing I
->couldn't find any cases of NOTIFY_OK/NOTIFY_STOP_MASK from the
->CHANGEUPPER event it doesn't matter in practice.
->
+On Wed, 2 Dec 2015 15:02:22 -0800, Pravin Shelar wrote:
+> We need the ndo_fill_metadata_dst  IPv6 support in net branch, since
+> OVS IPv6 tunnel support is there already. Is there reason you targeted
+> this patch series for net-next?
 
-Hi,
+I guess you're right.
 
-It's actually not a small nit. I forgot to call 'notifier_to_errno' and
-then check its retrun value instead that of the notifier. This would
-return 0 for NOTIFY_{DONE,OK,STOP_MASK} and -1 for NOTIFY_BAD.
+I need to resubmit anyway (seems I overlooked a warning when building
+without IPv6), I'll submit patches 2 and 3 for net and patch 1 for
+net-next (since it's a cleanup).
 
-Thank you.
+ Jiri
 
->Thanks,
->John
->
->>  	return 0;
->>  
->>  rollback_lower_mesh:
->> 
->
+-- 
+Jiri Benc
