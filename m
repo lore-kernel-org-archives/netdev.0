@@ -1,7 +1,8 @@
 From: Unknown <unknown@unknown.invalid>
-Subject: [net-next v5 0/8] dpaa_eth: Add the Freescale DPAA Ethernet driver
-Date: Thu, 3 Dec 2015 14:08:58 +0200
-Message-ID: <1449144546-25438-1-git-send-email-madalin.bucur@freescale.com>
+Subject: [net-next v5 1/8] devres: add devm_alloc_percpu()
+Date: Thu, 3 Dec 2015 14:08:59 +0200
+Message-ID: <1449144546-25438-2-git-send-email-madalin.bucur@freescale.com>
+References: <1449144546-25438-1-git-send-email-madalin.bucur@freescale.com>
 Reply-To: <madalin.bucur@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,178 +13,149 @@ Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
 	<joakim.tjernlund@transmode.se>, <gregkh@linuxfoundation.org>,
 	Madalin Bucur <madalin.bucur@freescale.com>
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0096.outbound.protection.outlook.com ([157.56.110.96]:7536
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759909AbbLCLL0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 06:11:26 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 From: <>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1449144546-25438-1-git-send-email-madalin.bucur@freescale.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Madalin Bucur <madalin.bucur@freescale.com>
 
-This patch series adds the Ethernet driver for the Freescale
-QorIQ Data Path Acceleration Architecture (DPAA).
+Introduce managed counterparts for alloc_percpu() and free_percpu().
+Add devm_alloc_percpu() and devm_free_percpu() into the managed
+interfaces list.
 
-This version includes changes following the feedback received
-on previous versions from Eric Dumazet, Bob Cochran, Joe Perches,
-Paul Bolle, Joakim Tjernlund, Scott Wood, David Miller - thank you.
+Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
+Tested-by: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+---
+ Documentation/driver-model/devres.txt |  4 +++
+ drivers/base/devres.c                 | 64 +++++++++++++++++++++++++++++++++++
+ include/linux/device.h                | 19 +++++++++++
+ 3 files changed, 87 insertions(+)
 
-Together with the driver a managed version of alloc_percpu
-is provided that simplifies the release of per-CPU memory.
-
-The Freescale DPAA architecture consists in a series of hardware
-blocks that support the Ethernet connectivity. The Ethernet driver
-depends upon the following drivers that are currently in the Linux
-kernel or in review (the underlying drivers are not inter-dependent):
- - Peripheral Access Memory Unit (PAMU)
-    drivers/iommu/fsl_*
- - Frame Manager (FMan)
-    drivers/net/ethernet/freescale/fman
- - Queue Manager (QMan), Buffer Manager (BMan)
-    drivers/soc/fsl/qbman
-
-dpaa_eth interfaces mapping to FMan MACs:
-
-  dpaa_eth       /eth0\     ...       /ethN\
-  driver        |      |             |      |
-  -------------   ----   -----------   ----   -------------
-       -Ports  / Tx  Rx \    ...    / Tx  Rx \
-  FMan        |          |         |          |
-       -MACs  |   MAC0   |         |   MACN   |
-             /   dtsec0   \  ...  /   dtsecN   \ (or tgec)
-            /              \     /              \(or memac)
-  ---------  --------------  ---  --------------  ---------
-      FMan, FMan Port, FMan SP, FMan MURAM drivers
-  ---------------------------------------------------------
-      FMan HW blocks: MURAM, MACs, Ports, SP
-  ---------------------------------------------------------
-
-dpaa_eth relation to QMan, FMan:
-              ________________________________
-  dpaa_eth   /            eth0                \
-  driver    /                                  \
-  ---------   -^-   -^-   -^-   ---    ---------
-  QMan driver / \   / \   / \  \   /  | BMan    |
-             |Rx | |Rx | |Tx | |Tx |  | driver  |
-  ---------  |Dfl| |Err| |Cnf| |FQs|  |         |
-  QMan HW    |FQ | |FQ | |FQ | |   |  |         |
-             /   \ /   \ /   \  \ /   |         |
-  ---------   ---   ---   ---   -v-    ---------
-            |        FMan QMI         |         |
-            | FMan HW       FMan BMI  | BMan HW |
-              -----------------------   --------
-
-where the acronyms used above (and in the code) are:
-DPAA = Data Path Acceleration Architecture
-FMan = DPAA Frame Manager
-QMan = DPAA Queue Manager
-BMan = DPAA Buffers Manager
-QMI = QMan interface in FMan
-BMI = BMan interface in FMan
-FMan SP = FMan Storage Profiles
-MURAM = Multi-user RAM in FMan
-FQ = QMan Frame Queue
-Rx Dfl FQ = default reception FQ
-Rx Err FQ = Rx error frames FQ
-Tx Cnf FQ = Tx confirmation FQ
-Tx FQs = transmission frame queues
-dtsec = datapath three speed Ethernet controller (10/100/1000 Mbps)
-tgec = ten gigabit Ethernet controller (10 Gbps)
-memac = multirate Ethernet MAC (10/100/1000/10000)
-
-The latest FMan driver patches were submitted by Igal Liberman:
-https://patchwork.ozlabs.org/project/netdev/list/?submitter=64715&state=*
-
-The latest Q/BMan drivers were submitted by Roy Pledge:
-https://patchwork.ozlabs.org/project/linuxppc-dev/list/?submitter=66331&state=*
-
-Changes from v4:
- - addressed feedback from Scott Wood and Joe Perches
- - fixed spelling
- - fixed leak of uninitialized stack to userspace
- - fix prints
- - replace raw_cpu_ptr() with this_cpu_ptr()
- - remove _s from the end of structure names
- - remove underscores at start of functions, goto labels
- - remove likely in error paths
- - use container_of() instead of open casts
- - remove priv from the driver name
- - move return type on same line with function name
- - drop DPA_READ_SKB_PTR/DPA_WRITE_SKB_PTR
-
-Changes from v3:
- - removed bogus delay and comment in .ndo_stop implementation
- - addressed minor issues reported by David Miller
-
-Changes from v2:
- - removed debugfs, moved exports to ethtool statistics
- - removed congestion groups Kconfig params
-
-Changes from v1:
- - bpool level Kconfig options removed
- - print format using pr_fmt, cleaned up prints
- - __hot/__cold removed
- - gratuitous unlikely() removed
- - code style aligned, consistent spacing for declarations
- - comment formatting
-
-The complete patch set based on the latest net-next/master kernel
-can be found in the public git at:
-http://git.freescale.com/git/cgit.cgi/ppc/upstream/linux.git
-under the tag ldup_public_git_20151202:
-http://git.freescale.com/git/cgit.cgi/ppc/upstream/linux.git/tag/?h=ldup_public_git_20151202
-
-There is one u-boot patch that one needs to make sure it's applied
-to align u-boot to the latest device tree binding document specification
-used by the FMan driver. Please make sure your u-boot includes this patch:
-
-        commit 97a8d010e029111e5711a45264a726bedbeb24c4
-        Author: Igal Liberman <igal.liberman@freescale.com>
-        Date:   Tue Aug 18 14:47:05 2015 +0300
-
-            net/fman: Support both new and legacy FMan Compatibles
-
-The patch was included in u-boot in v2015.10-rc3.
-
-Madalin Bucur (8):
-  devres: add devm_alloc_percpu()
-  dpaa_eth: add support for DPAA Ethernet
-  dpaa_eth: add support for S/G frames
-  dpaa_eth: add driver's Tx queue selection mechanism
-  dpaa_eth: add ethtool functionality
-  dpaa_eth: add ethtool statistics
-  dpaa_eth: add sysfs exports
-  dpaa_eth: add trace points
-
- Documentation/driver-model/devres.txt              |    4 +
- drivers/base/devres.c                              |   64 +
- drivers/net/ethernet/freescale/Kconfig             |    2 +
- drivers/net/ethernet/freescale/Makefile            |    1 +
- drivers/net/ethernet/freescale/dpaa/Kconfig        |   32 +
- drivers/net/ethernet/freescale/dpaa/Makefile       |   12 +
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  788 +++++++++++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |  464 +++++++
- .../net/ethernet/freescale/dpaa/dpaa_eth_common.c  | 1416 ++++++++++++++++++++
- .../net/ethernet/freescale/dpaa/dpaa_eth_common.h  |  108 ++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c  |  686 ++++++++++
- .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   |  167 +++
- .../net/ethernet/freescale/dpaa/dpaa_eth_trace.h   |  141 ++
- drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c |  414 ++++++
- include/linux/device.h                             |   19 +
- 15 files changed, 4318 insertions(+)
- create mode 100644 drivers/net/ethernet/freescale/dpaa/Kconfig
- create mode 100644 drivers/net/ethernet/freescale/dpaa/Makefile
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-
+diff --git a/Documentation/driver-model/devres.txt b/Documentation/driver-model/devres.txt
+index 831a536..595fd1b 100644
+--- a/Documentation/driver-model/devres.txt
++++ b/Documentation/driver-model/devres.txt
+@@ -312,6 +312,10 @@ MEM
+   devm_kvasprintf()
+   devm_kzalloc()
+ 
++PER-CPU MEM
++  devm_alloc_percpu()
++  devm_free_percpu()
++
+ PCI
+   pcim_enable_device()	: after success, all PCI ops become managed
+   pcim_pin_device()	: keep PCI device enabled after release
+diff --git a/drivers/base/devres.c b/drivers/base/devres.c
+index 8fc654f..77e658f 100644
+--- a/drivers/base/devres.c
++++ b/drivers/base/devres.c
+@@ -10,6 +10,7 @@
+ #include <linux/device.h>
+ #include <linux/module.h>
+ #include <linux/slab.h>
++#include <linux/percpu.h>
+ 
+ #include "base.h"
+ 
+@@ -985,3 +986,66 @@ void devm_free_pages(struct device *dev, unsigned long addr)
+ 			       &devres));
+ }
+ EXPORT_SYMBOL_GPL(devm_free_pages);
++
++static void devm_percpu_release(struct device *dev, void *pdata)
++{
++	void __percpu *p;
++
++	p = *(void __percpu **)pdata;
++	free_percpu(p);
++}
++
++static int devm_percpu_match(struct device *dev, void *data, void *p)
++{
++	struct devres *devr = container_of(data, struct devres, data);
++
++	return *(void **)devr->data == p;
++}
++
++/**
++ * __devm_alloc_percpu - Resource-managed alloc_percpu
++ * @dev: Device to allocate per-cpu memory for
++ * @size: Size of per-cpu memory to allocate
++ * @align: Alignment of per-cpu memory to allocate
++ *
++ * Managed alloc_percpu. Per-cpu memory allocated with this function is
++ * automatically freed on driver detach.
++ *
++ * RETURNS:
++ * Pointer to allocated memory on success, NULL on failure.
++ */
++void __percpu *__devm_alloc_percpu(struct device *dev, size_t size,
++		size_t align)
++{
++	void *p;
++	void __percpu *pcpu;
++
++	pcpu = __alloc_percpu(size, align);
++	if (!pcpu)
++		return NULL;
++
++	p = devres_alloc(devm_percpu_release, sizeof(void *), GFP_KERNEL);
++	if (!p)
++		return NULL;
++
++	*(void __percpu **)p = pcpu;
++
++	devres_add(dev, p);
++
++	return pcpu;
++}
++EXPORT_SYMBOL_GPL(__devm_alloc_percpu);
++
++/**
++ * devm_free_percpu - Resource-managed free_percpu
++ * @dev: Device this memory belongs to
++ * @pdata: Per-cpu memory to free
++ *
++ * Free memory allocated with devm_alloc_percpu().
++ */
++void devm_free_percpu(struct device *dev, void __percpu *pdata)
++{
++	WARN_ON(devres_destroy(dev, devm_percpu_release, devm_percpu_match,
++			       (void *)pdata));
++}
++EXPORT_SYMBOL_GPL(devm_free_percpu);
+diff --git a/include/linux/device.h b/include/linux/device.h
+index b8f411b..ef9a86a 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -681,6 +681,25 @@ void __iomem *devm_ioremap_resource(struct device *dev, struct resource *res);
+ int devm_add_action(struct device *dev, void (*action)(void *), void *data);
+ void devm_remove_action(struct device *dev, void (*action)(void *), void *data);
+ 
++/**
++ * devm_alloc_percpu - Resource-managed alloc_percpu
++ * @dev: Device to allocate per-cpu memory for
++ * @type: Type to allocate per-cpu memory for
++ *
++ * Managed alloc_percpu. Per-cpu memory allocated with this function is
++ * automatically freed on driver detach.
++ *
++ * RETURNS:
++ * Pointer to allocated memory on success, NULL on failure.
++ */
++#define devm_alloc_percpu(dev, type)      \
++	(typeof(type) __percpu *)__devm_alloc_percpu(dev, sizeof(type), \
++						     __alignof__(type))
++
++void __percpu *__devm_alloc_percpu(struct device *dev, size_t size,
++				   size_t align);
++void devm_free_percpu(struct device *dev, void __percpu *pdata);
++
+ struct device_dma_parameters {
+ 	/*
+ 	 * a low level driver may set these to teach IOMMU code about
 -- 
 1.7.11.7
