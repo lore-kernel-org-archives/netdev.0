@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/15] i40e: remove CONFIG_I40E_VXLAN
-Date: Thu,  3 Dec 2015 05:25:55 -0800
-Message-ID: <1449149160-105219-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] i40e: use priv flags to control packet split
+Date: Thu,  3 Dec 2015 05:25:54 -0800
+Message-ID: <1449149160-105219-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449149160-105219-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:19487 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:3437 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759707AbbLCN0F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1759434AbbLCN0F (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 3 Dec 2015 08:26:05 -0500
 In-Reply-To: <1449149160-105219-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,124 +18,108 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Instead of having our own custom symbol, we can just rely
-on whether or not the kernel has the feature enabled.
+Ethtool priv flags implementation to enable or disable packet split, which
+is a hardware feature that inspects headers and will put headers in a
+separate DMA buffer from the payload data.  The driver was automatically
+choosing to enable packet split in some cases and this gives the user the
+ability to turn it off/on explicitly.
 
-In this case use IS_ENABLED(CONFIG_VXLAN) in order to handle
-built-in or module in the current BKM way.
+to query state:
+ethtool --show-priv-flags ethx
 
-Change-ID: I5890fbb518ff8ed6bb07c3362fb0a8a829f9b241
+to enable:
+ethtool --set-priv-flags ethx packet-split on
+to disable:
+ethtool --set-priv-flags ethx packet-split off
+
+Why would anyone want this?
+	Because some environments benefit from header/data split in the receive
+	buffer, and the driver defaults to one or the other depending on
+	environment/kernel parameters.
+
+Why didn't you implement a generic ethtool control for this feature?
+	Because Intel hardware is the only hardware that supports header/data
+	split.
+
+Change-ID: I803121e1eecc9ccb2884031fd85dd1110b3af66d
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/Kconfig          | 11 -----------
- drivers/net/ethernet/intel/i40e/i40e.h      |  4 +---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 12 ++++++------
- 3 files changed, 7 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 27 ++++++++++++++++++++++++++
+ 2 files changed, 28 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index 4163b16..061e4e0 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -269,17 +269,6 @@ config I40E
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called i40e.
- 
--config I40E_VXLAN
--	bool "Virtual eXtensible Local Area Network Support"
--	default n
--	depends on I40E && VXLAN && !(I40E=y && VXLAN=m)
--	---help---
--	  This allows one to create VXLAN virtual interfaces that provide
--	  Layer 2 Networks over Layer 3 Networks. VXLAN is often used
--	  to tunnel virtual network infrastructure in virtualized environments.
--	  Say Y here if you want to use Virtual eXtensible Local Area Network
--	  (VXLAN) in the driver.
--
- config I40E_DCB
- 	bool "Data Center Bridging (DCB) Support"
- 	default n
 diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 4ca85d5..8ed759e 100644
+index dde7ae7..4ca85d5 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -282,7 +282,7 @@ struct i40e_pf {
- 	u32 fd_atr_cnt;
- 	u32 fd_tcp_rule;
+@@ -104,6 +104,7 @@
+ #define I40E_PRIV_FLAGS_LINKPOLL_FLAG	BIT(1)
+ #define I40E_PRIV_FLAGS_FD_ATR		BIT(2)
+ #define I40E_PRIV_FLAGS_VEB_STATS	BIT(3)
++#define I40E_PRIV_FLAGS_PS		BIT(4)
  
--#ifdef CONFIG_I40E_VXLAN
-+#if IS_ENABLED(CONFIG_VXLAN)
- 	__be16  vxlan_ports[I40E_MAX_PF_UDP_OFFLOAD_PORTS];
- 	u16 pending_vxlan_bitmap;
+ #define I40E_NVM_VERSION_LO_SHIFT  0
+ #define I40E_NVM_VERSION_LO_MASK   (0xff << I40E_NVM_VERSION_LO_SHIFT)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index b52c509..29d5833 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -231,6 +231,7 @@ static const char i40e_priv_flags_strings[][ETH_GSTRING_LEN] = {
+ 	"LinkPolling",
+ 	"flow-director-atr",
+ 	"veb-stats",
++	"packet-split",
+ };
  
-@@ -323,9 +323,7 @@ struct i40e_pf {
- #define I40E_FLAG_FD_ATR_ENABLED		BIT_ULL(22)
- #define I40E_FLAG_PTP				BIT_ULL(25)
- #define I40E_FLAG_MFP_ENABLED			BIT_ULL(26)
--#ifdef CONFIG_I40E_VXLAN
- #define I40E_FLAG_VXLAN_FILTER_SYNC		BIT_ULL(27)
--#endif
- #define I40E_FLAG_PORT_ID_VALID			BIT_ULL(28)
- #define I40E_FLAG_DCB_CAPABLE			BIT_ULL(29)
- #define I40E_FLAG_RSS_AQ_CAPABLE		BIT_ULL(31)
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index c5a24fe..b731a82 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -27,7 +27,7 @@
- /* Local includes */
- #include "i40e.h"
- #include "i40e_diag.h"
--#ifdef CONFIG_I40E_VXLAN
-+#if IS_ENABLED(CONFIG_VXLAN)
- #include <net/vxlan.h>
- #endif
+ #define I40E_PRIV_FLAGS_STR_LEN ARRAY_SIZE(i40e_priv_flags_strings)
+@@ -2709,6 +2710,8 @@ static u32 i40e_get_priv_flags(struct net_device *dev)
+ 		I40E_PRIV_FLAGS_FD_ATR : 0;
+ 	ret_flags |= pf->flags & I40E_FLAG_VEB_STATS_ENABLED ?
+ 		I40E_PRIV_FLAGS_VEB_STATS : 0;
++	ret_flags |= pf->flags & I40E_FLAG_RX_PS_ENABLED ?
++		I40E_PRIV_FLAGS_PS : 0;
  
-@@ -5357,7 +5357,7 @@ int i40e_open(struct net_device *netdev)
- 						       TCP_FLAG_CWR) >> 16);
- 	wr32(&pf->hw, I40E_GLLAN_TSOMSK_L, be32_to_cpu(TCP_FLAG_CWR) >> 16);
- 
--#ifdef CONFIG_I40E_VXLAN
-+#if IS_ENABLED(CONFIG_VXLAN)
- 	vxlan_get_rx_port(netdev);
- #endif
- 
-@@ -7053,7 +7053,7 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
- 	i40e_flush(hw);
+ 	return ret_flags;
  }
+@@ -2723,6 +2726,26 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
+ 	struct i40e_netdev_priv *np = netdev_priv(dev);
+ 	struct i40e_vsi *vsi = np->vsi;
+ 	struct i40e_pf *pf = vsi->back;
++	bool reset_required = false;
++
++	/* NOTE: MFP is not settable */
++
++	/* allow the user to control the method of receive
++	 * buffer DMA, whether the packet is split at header
++	 * boundaries into two separate buffers.  In some cases
++	 * one routine or the other will perform better.
++	 */
++	if ((flags & I40E_PRIV_FLAGS_PS) &&
++	    !(pf->flags & I40E_FLAG_RX_PS_ENABLED)) {
++		pf->flags |= I40E_FLAG_RX_PS_ENABLED;
++		pf->flags &= ~I40E_FLAG_RX_1BUF_ENABLED;
++		reset_required = true;
++	} else if (!(flags & I40E_PRIV_FLAGS_PS) &&
++		   (pf->flags & I40E_FLAG_RX_PS_ENABLED)) {
++		pf->flags &= ~I40E_FLAG_RX_PS_ENABLED;
++		pf->flags |= I40E_FLAG_RX_1BUF_ENABLED;
++		reset_required = true;
++	}
  
--#ifdef CONFIG_I40E_VXLAN
-+#if IS_ENABLED(CONFIG_VXLAN)
- /**
-  * i40e_sync_vxlan_filters_subtask - Sync the VSI filter list with HW
-  * @pf: board private structure
-@@ -7120,7 +7120,7 @@ static void i40e_service_task(struct work_struct *work)
- 	i40e_watchdog_subtask(pf);
- 	i40e_fdir_reinit_subtask(pf);
- 	i40e_sync_filters_subtask(pf);
--#ifdef CONFIG_I40E_VXLAN
-+#if IS_ENABLED(CONFIG_VXLAN)
- 	i40e_sync_vxlan_filters_subtask(pf);
- #endif
- 	i40e_clean_adminq_subtask(pf);
-@@ -8496,7 +8496,7 @@ static int i40e_set_features(struct net_device *netdev,
+ 	if (flags & I40E_PRIV_FLAGS_LINKPOLL_FLAG)
+ 		pf->flags |= I40E_FLAG_LINK_POLLING_ENABLED;
+@@ -2745,6 +2768,10 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
+ 	else
+ 		pf->flags &= ~I40E_FLAG_VEB_STATS_ENABLED;
+ 
++	/* if needed, issue reset to cause things to take effect */
++	if (reset_required)
++		i40e_do_reset(pf, BIT(__I40E_PF_RESET_REQUESTED));
++
  	return 0;
  }
  
--#ifdef CONFIG_I40E_VXLAN
-+#if IS_ENABLED(CONFIG_VXLAN)
- /**
-  * i40e_get_vxlan_port_idx - Lookup a possibly offloaded for Rx UDP port
-  * @pf: board private structure
-@@ -8816,7 +8816,7 @@ static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_get_vf_config	= i40e_ndo_get_vf_config,
- 	.ndo_set_vf_link_state	= i40e_ndo_set_vf_link_state,
- 	.ndo_set_vf_spoofchk	= i40e_ndo_set_vf_spoofchk,
--#ifdef CONFIG_I40E_VXLAN
-+#if IS_ENABLED(CONFIG_VXLAN)
- 	.ndo_add_vxlan_port	= i40e_add_vxlan_port,
- 	.ndo_del_vxlan_port	= i40e_del_vxlan_port,
- #endif
 -- 
 2.5.0
