@@ -1,252 +1,51 @@
-From: Unknown <unknown@unknown.invalid>
-Subject: [net-next v5 8/8] dpaa_eth: add trace points
-Date: Thu, 3 Dec 2015 14:09:06 +0200
-Message-ID: <1449144546-25438-9-git-send-email-madalin.bucur@freescale.com>
-References: <1449144546-25438-1-git-send-email-madalin.bucur@freescale.com>
-Reply-To: <madalin.bucur@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
-	<davem@davemloft.net>, <scottwood@freescale.com>,
-	<igal.liberman@freescale.com>, <ppc@mindchasers.com>,
-	<joe@perches.com>, <pebolle@tiscali.nl>,
-	<joakim.tjernlund@transmode.se>, <gregkh@linuxfoundation.org>,
-	Madalin Bucur <madalin.bucur@freescale.com>,
-	Ruxandra Ioana Radulescu <ruxandra.radulescu@freescale.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-From: <>
-In-Reply-To: <1449144546-25438-1-git-send-email-madalin.bucur@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v3 06/28] net: add netif_is_lag_master helper
+Date: Thu,  3 Dec 2015 12:12:08 +0100
+Message-ID: <1449141150-8172-7-git-send-email-jiri@resnulli.us>
+References: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com, j.vosburgh@gmail.com,
+	vfalico@gmail.com, gospo@cumulusnetworks.com,
+	dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	pjonnala@broadcom.com, f.fainelli@gmail.com, sfeldma@gmail.com,
+	john.fastabend@gmail.com, roopa@cumulusnetworks.com, andrew@lunn.ch
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:32950 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760071AbbLCLMp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 06:12:45 -0500
+Received: by wmec201 with SMTP id c201so21502368wme.0
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 03:12:44 -0800 (PST)
+In-Reply-To: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Madalin Bucur <madalin.bucur@freescale.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-Add trace points on the hot processing path.
+Some code does not mind if the master is bond or team and treats them
+the same, as generic LAG.
 
-Signed-off-by: Ruxandra Ioana Radulescu <ruxandra.radulescu@freescale.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/freescale/dpaa/Makefile       |   1 +
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  12 ++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |   4 +
- .../net/ethernet/freescale/dpaa/dpaa_eth_trace.h   | 141 +++++++++++++++++++++
- 4 files changed, 158 insertions(+)
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
+ include/linux/netdevice.h | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/Makefile b/drivers/net/ethernet/freescale/dpaa/Makefile
-index 141ade4..15ed1c4 100644
---- a/drivers/net/ethernet/freescale/dpaa/Makefile
-+++ b/drivers/net/ethernet/freescale/dpaa/Makefile
-@@ -9,3 +9,4 @@ ccflags-y += -I$(FMAN)
- obj-$(CONFIG_FSL_DPAA_ETH) += fsl_dpa.o
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e7eca8f..b3e96d6 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3900,6 +3900,11 @@ static inline bool netif_is_team_port(struct net_device *dev)
+ 	return dev->priv_flags & IFF_TEAM_PORT;
+ }
  
- fsl_dpa-objs += dpaa_eth.o dpaa_eth_sg.o dpaa_eth_common.o dpaa_ethtool.o dpaa_eth_sysfs.o
-+CFLAGS_dpaa_eth.o := -I$(src)
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index 7d4d21a..76df948 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -57,6 +57,12 @@
- #include "dpaa_eth.h"
- #include "dpaa_eth_common.h"
- 
-+/* CREATE_TRACE_POINTS only needs to be defined once. Other dpa files
-+ * using trace events only need to #include <trace/events/sched.h>
-+ */
-+#define CREATE_TRACE_POINTS
-+#include "dpaa_eth_trace.h"
++static inline bool netif_is_lag_master(struct net_device *dev)
++{
++	return netif_is_bond_master(dev) || netif_is_team_master(dev);
++}
 +
- /* Valid checksum indication */
- #define DPA_CSUM_VALID		0xFFFF
- 
-@@ -219,6 +225,9 @@ static enum qman_cb_dqrr_result rx_default_dqrr(struct qman_portal *portal,
- 	priv = netdev_priv(net_dev);
- 	dpa_bp = priv->dpa_bp;
- 
-+	/* Trace the Rx fd */
-+	trace_dpa_rx_fd(net_dev, fq, &dq->fd);
-+
- 	percpu_priv = this_cpu_ptr(priv->percpu_priv);
- 	count_ptr = this_cpu_ptr(dpa_bp->percpu_count);
- 
-@@ -272,6 +281,9 @@ static enum qman_cb_dqrr_result conf_dflt_dqrr(struct qman_portal *portal,
- 	net_dev = ((struct dpa_fq *)fq)->net_dev;
- 	priv = netdev_priv(net_dev);
- 
-+	/* Trace the fd */
-+	trace_dpa_tx_conf_fd(net_dev, fq, &dq->fd);
-+
- 	percpu_priv = this_cpu_ptr(priv->percpu_priv);
- 
- 	if (dpaa_eth_napi_schedule(percpu_priv, portal))
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-index 9651e24..81a2abc 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-@@ -36,6 +36,7 @@
- 
- #include "fman.h"
- #include "mac.h"
-+#include "dpaa_eth_trace.h"
- 
- extern int dpa_rx_extra_headroom;
- extern int dpa_max_frm;
-@@ -392,6 +393,9 @@ static inline int dpa_xmit(struct dpa_priv *priv,
- 	if (fd->bpid == FSL_DPAA_BPID_INV)
- 		fd->cmd |= qman_fq_fqid(priv->conf_fqs[queue]);
- 
-+	/* Trace this Tx fd */
-+	trace_dpa_tx_fd(priv->net_dev, egress_fq, fd);
-+
- 	for (i = 0; i < 100000; i++) {
- 		err = qman_enqueue(egress_fq, fd, 0);
- 		if (err != -EBUSY)
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
-new file mode 100644
-index 0000000..3b67477
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
-@@ -0,0 +1,141 @@
-+/* Copyright 2013-2015 Freescale Semiconductor Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *	 notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *	 notice, this list of conditions and the following disclaimer in the
-+ *	 documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *	 names of its contributors may be used to endorse or promote products
-+ *	 derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#undef TRACE_SYSTEM
-+#define TRACE_SYSTEM	dpaa_eth
-+
-+#if !defined(_DPAA_ETH_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
-+#define _DPAA_ETH_TRACE_H
-+
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include "dpaa_eth.h"
-+#include <linux/tracepoint.h>
-+
-+#define fd_format_name(format)	{ qm_fd_##format, #format }
-+#define fd_format_list	\
-+	fd_format_name(contig),	\
-+	fd_format_name(sg)
-+
-+/* This is used to declare a class of events.
-+ * individual events of this type will be defined below.
-+ */
-+
-+/* Store details about a frame descriptor and the FQ on which it was
-+ * transmitted/received.
-+ */
-+DECLARE_EVENT_CLASS(dpaa_eth_fd,
-+	/* Trace function prototype */
-+	TP_PROTO(struct net_device *netdev,
-+		 struct qman_fq *fq,
-+		 const struct qm_fd *fd),
-+
-+	/* Repeat argument list here */
-+	TP_ARGS(netdev, fq, fd),
-+
-+	/* A structure containing the relevant information we want to record.
-+	 * Declare name and type for each normal element, name, type and size
-+	 * for arrays. Use __string for variable length strings.
-+	 */
-+	TP_STRUCT__entry(
-+		__field(u32,	fqid)
-+		__field(u64,	fd_addr)
-+		__field(u8,	fd_format)
-+		__field(u16,	fd_offset)
-+		__field(u32,	fd_length)
-+		__field(u32,	fd_status)
-+		__string(name,	netdev->name)
-+	),
-+
-+	/* The function that assigns values to the above declared fields */
-+	TP_fast_assign(
-+		__entry->fqid = fq->fqid;
-+		__entry->fd_addr = qm_fd_addr_get64(fd);
-+		__entry->fd_format = fd->format;
-+		__entry->fd_offset = dpa_fd_offset(fd);
-+		__entry->fd_length = dpa_fd_length(fd);
-+		__entry->fd_status = fd->status;
-+		__assign_str(name, netdev->name);
-+	),
-+
-+	/* This is what gets printed when the trace event is triggered */
-+	TP_printk("[%s] fqid=%d, fd: addr=0x%llx, format=%s, off=%u, len=%u, status=0x%08x",
-+		  __get_str(name), __entry->fqid, __entry->fd_addr,
-+		  __print_symbolic(__entry->fd_format, fd_format_list),
-+		  __entry->fd_offset, __entry->fd_length, __entry->fd_status)
-+);
-+
-+/* Now declare events of the above type. Format is:
-+ * DEFINE_EVENT(class, name, proto, args), with proto and args same as for class
-+ */
-+
-+/* Tx (egress) fd */
-+DEFINE_EVENT(dpaa_eth_fd, dpa_tx_fd,
-+
-+	TP_PROTO(struct net_device *netdev,
-+		 struct qman_fq *fq,
-+		 const struct qm_fd *fd),
-+
-+	TP_ARGS(netdev, fq, fd)
-+);
-+
-+/* Rx fd */
-+DEFINE_EVENT(dpaa_eth_fd, dpa_rx_fd,
-+
-+	TP_PROTO(struct net_device *netdev,
-+		 struct qman_fq *fq,
-+		 const struct qm_fd *fd),
-+
-+	TP_ARGS(netdev, fq, fd)
-+);
-+
-+/* Tx confirmation fd */
-+DEFINE_EVENT(dpaa_eth_fd, dpa_tx_conf_fd,
-+
-+	TP_PROTO(struct net_device *netdev,
-+		 struct qman_fq *fq,
-+		 const struct qm_fd *fd),
-+
-+	TP_ARGS(netdev, fq, fd)
-+);
-+
-+/* If only one event of a certain type needs to be declared, use TRACE_EVENT().
-+ * The syntax is the same as for DECLARE_EVENT_CLASS().
-+ */
-+
-+#endif /* _DPAA_ETH_TRACE_H */
-+
-+/* This must be outside ifdef _DPAA_ETH_TRACE_H */
-+#undef TRACE_INCLUDE_PATH
-+#define TRACE_INCLUDE_PATH .
-+#undef TRACE_INCLUDE_FILE
-+#define TRACE_INCLUDE_FILE	dpaa_eth_trace
-+#include <trace/define_trace.h>
+ /* This device needs to keep skb dst for qdisc enqueue or ndo_start_xmit() */
+ static inline void netif_keep_dst(struct net_device *dev)
+ {
 -- 
-1.7.11.7
+1.9.3
