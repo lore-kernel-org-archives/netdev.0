@@ -1,74 +1,84 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net v2 2/2] vxlan: support ndo_fill_metadata_dst also for IPv6
-Date: Thu,  3 Dec 2015 11:41:23 +0100
-Message-ID: <66ad22ee59eb0a21090ff9e3fcad7faf77b63148.1449139112.git.jbenc@redhat.com>
-References: <cover.1449139112.git.jbenc@redhat.com>
-Cc: Jesse Gross <jesse@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/15][pull request] Intel Wired LAN Driver Updates 2015-12-03
+Date: Thu,  3 Dec 2015 03:07:08 -0800
+Message-ID: <1449140843-118580-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	john.ronciak@intel.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60234 "EHLO mx1.redhat.com"
+Received: from mga03.intel.com ([134.134.136.65]:27448 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755062AbbLCKlm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 05:41:42 -0500
-In-Reply-To: <cover.1449139112.git.jbenc@redhat.com>
+	id S1759775AbbLCLHY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2015 06:07:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fill the metadata correctly even when tunneling over IPv6. Also, check that
-the provided metadata is of an address family that is supported by the
-tunnel.
+This series contains updates to ixgbe and ixgbevf only.
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
-v2: fixed unused variable warning when building without IPv6
----
- drivers/net/vxlan.c | 26 ++++++++++++++++++++++++--
- 1 file changed, 24 insertions(+), 2 deletions(-)
+Mark cleans up ixgbe_init_phy_ops_x550em, since this was designed to
+initialize function pointers only and moves the KR PHY reset to the
+ixgbe_setup_internal_phy_t_x550em which was designed to detect which
+mode the PHY operates in and set it up.  Added the new thermal alarm
+type support used with newer X550EM_x devices.  Fixed both ixgbe and
+ixgbevf to use a private work queue to avoid hangs, which would
+possibly occur when creating and destroying many VFS repeatedly.
+Updated ixgbe PTP implementation to accommodate X550EM_x devices,
+which handle clocking differently.  Fixed specification violations
+in the datasheet, which was reported by Dan Streetman.  Fixed ixgbe
+to check for and handle IPv6 extended headers so that Tx checksum
+offload can be done, which was reported by Tom Herbert.  Fixed ixgbe
+link issue for some systems with X540 or X550 by only inhibiting the
+turning PHY power off when manageability is present.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 5a38558da157..d3594de3ad07 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2413,15 +2413,37 @@ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	struct ip_tunnel_info *info = skb_tunnel_info(skb);
-+#if IS_ENABLED(CONFIG_IPV6)
-+	struct dst_entry *ndst;
-+#endif
- 	__be16 sport, dport;
- 
- 	sport = udp_flow_src_port(dev_net(dev), skb, vxlan->cfg.port_min,
- 				  vxlan->cfg.port_max, true);
- 	dport = info->key.tp_dst ? : vxlan->cfg.dst_port;
- 
--	if (ip_tunnel_info_af(info) == AF_INET)
-+	if (ip_tunnel_info_af(info) == AF_INET) {
-+		if (!vxlan->vn4_sock)
-+			return -EINVAL;
- 		return egress_ipv4_tun_info(dev, skb, info, sport, dport);
--	return -EINVAL;
-+	} else {
-+		if (!IS_ENABLED(CONFIG_IPV6))
-+			return -EPFNOSUPPORT;
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+		if (!vxlan->vn6_sock)
-+			return -EINVAL;
-+		ndst = vxlan6_get_route(vxlan, skb, 0,
-+					&info->key.u.ipv6.dst,
-+					&info->key.u.ipv6.src);
-+		if (IS_ERR(ndst))
-+			return PTR_ERR(ndst);
-+		dst_release(ndst);
-+#endif
-+		info->key.tp_src = sport;
-+		info->key.tp_dst = dport;
-+	}
-+	return 0;
- }
- 
- static const struct net_device_ops vxlan_netdev_ops = {
+Alex Duyck refactors the MAC address configuration code, which in
+turns fixes an issue where once 63 entries had been used, you could no
+longer add additional filters.  Updated ixgbe to use __dev_uc_sync
+which also resolved an issue in which you could not remove an FDB
+address without having to reset the port.  Updated the ixgbe driver
+to make use of all the free RAR entries for FDB use if needed.
+
+v2: updated patch 13 to "Alex Duyck Approved" version, in the original
+    submission, I had grabbed a previous version of the patch and did not
+    catch it was superseded by a later version
+
+The following are changes since commit 6f24e5d599896b5091af72e4b3edfce6307627f7:
+  sfc: use ALIGN macro for aligning frame sizes
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
+
+Alexander Duyck (3):
+  ixgbe: Refactor MAC address configuration code
+  ixgbe: Use __dev_uc_sync and __dev_uc_unsync for unicast addresses
+  ixgbe: Allow FDB entries access to more RAR filters
+
+Mark Rustad (12):
+  ixgbe: Prevent KR PHY reset in ixgbe_init_phy_ops_x550em
+  ixgbe: Add support for newer thermal alarm
+  ixgbe: Use private workqueue to avoid certain possible hangs
+  ixgbevf: Use a private workqueue to avoid certain possible hangs
+  ixgbevf: Minor cleanups
+  ixgbe: Update PTP to support X550EM_x devices
+  ixgbe: Correct spec violations by waiting after reset
+  ixgbe: Wait for master disable to be set
+  ixgbe: Save VF info and take references
+  ixgbe: Handle extended IPv6 headers in Tx path
+  ixgbe: Always turn PHY power on when requested
+  ixgbevf: Handle extended IPv6 headers in Tx path
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          |  46 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c    |   5 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c    |   3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c   |  14 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 273 ++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c      |   3 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c      | 720 ++++++++++++++++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |  50 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |  12 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c     |   6 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c     |  46 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  73 ++-
+ 12 files changed, 890 insertions(+), 361 deletions(-)
+
 -- 
-1.8.3.1
+2.5.0
