@@ -1,42 +1,45 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: ipsec impact on performance
-Date: Thu, 3 Dec 2015 06:38:20 -0500
-Message-ID: <20151203113820.GX15262@oracle.com>
-References: <20151201175953.GC21252@oracle.com>
- <20151202065305.GB14008@secunet.com>
- <20151202120538.GJ23178@oracle.com>
- <20151203084508.GD14008@secunet.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: [PATCH net 0/4] qed: Bug fixes
+Date: Thu, 3 Dec 2015 05:59:12 -0500
+Message-ID: <1449140356-17419-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151203084508.GD14008@secunet.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
+	<Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:34126 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756704AbbLCLjb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 06:39:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (12/03/15 09:45), Steffen Klassert wrote:
-> pcrypt(echainiv(authenc(hmac(sha1-ssse3),cbc-aes-aesni)))
-> 
-> Result:
-> 
-> iperf -c 10.0.0.12 -t 60
-> ------------------------------------------------------------
-> Client connecting to 10.0.0.12, TCP port 5001
-> TCP window size: 45.0 KByte (default)
-> ------------------------------------------------------------
-> [  3] local 192.168.0.12 port 39380 connected with 10.0.0.12 port 5001
-> [ ID] Interval       Transfer     Bandwidth
-> [  3]  0.0-60.0 sec  32.8 GBytes  4.70 Gbits/sec
-> 
-> I provide more informatios as soon as the code is available.
+Hi David,
 
-that's pretty good compared to the baseline. 
-I'd like to try out our patches, when they are ready.
+Please consider applying this seris for net.
 
-I think you may get some more improvement if you manually pin the irq 
-and iperf to specific cpus (at least that was my observation for transp 
-mode) 
+Thanks,
+Manish
 
---Sowmini
+Ariel Elior (1):
+  qed: Fix BAR size split for some servers
+
+Sudarsana Kalluru (1):
+  qed: Correct slowpath interrupt scheme
+
+Tomer Tayar (2):
+  qed: Fix corner case for chain in-between pages
+  qed: fix handling of concurrent ramrods
+
+ drivers/net/ethernet/qlogic/qed/qed.h          |    3 +
+ drivers/net/ethernet/qlogic/qed/qed_dev.c      |   53 +++++++++++++--------
+ drivers/net/ethernet/qlogic/qed/qed_int.c      |   33 +++++++++----
+ drivers/net/ethernet/qlogic/qed/qed_int.h      |   15 ++++--
+ drivers/net/ethernet/qlogic/qed/qed_main.c     |   56 +++++++---------------
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |    4 ++
+ drivers/net/ethernet/qlogic/qed/qed_sp.h       |   15 +++++-
+ drivers/net/ethernet/qlogic/qed/qed_spq.c      |   60 ++++++++++++++++++------
+ include/linux/qed/common_hsi.h                 |    2 +
+ include/linux/qed/qed_chain.h                  |    3 +-
+ 10 files changed, 153 insertions(+), 91 deletions(-)
