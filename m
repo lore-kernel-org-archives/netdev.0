@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 24/28] mlxsw: reg: Add definition of LAG unicast record for SFD register
-Date: Thu,  3 Dec 2015 12:12:26 +0100
-Message-ID: <1449141150-8172-25-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 18/28] bonding: implement lower state change propagation
+Date: Thu,  3 Dec 2015 12:12:20 +0100
+Message-ID: <1449141150-8172-19-git-send-email-jiri@resnulli.us>
 References: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, j.vosburgh@gmail.com,
@@ -11,138 +11,106 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	john.fastabend@gmail.com, roopa@cumulusnetworks.com, andrew@lunn.ch
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37936 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760102AbbLCLNH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 06:13:07 -0500
-Received: by wmec201 with SMTP id c201so17324206wme.1
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 03:13:06 -0800 (PST)
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:34259 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760100AbbLCLNA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 06:13:00 -0500
+Received: by wmvv187 with SMTP id v187so21662223wmv.1
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 03:12:58 -0800 (PST)
 In-Reply-To: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-LAG-related records have specific format in SFD register.
+Let netdev notifier listeners know about link and slave state change.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 79 +++++++++++++++++++++++++++----
- 1 file changed, 71 insertions(+), 8 deletions(-)
+ drivers/net/bonding/bond_main.c | 10 ++++++++++
+ include/net/bonding.h           |  7 +++++++
+ 2 files changed, 17 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 049abbb..431b28e 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -286,6 +286,7 @@ MLXSW_ITEM32_INDEXED(reg, sfd, rec_swid, MLXSW_REG_SFD_BASE_LEN, 24, 8,
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 7695490..2f11450 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1317,6 +1317,16 @@ void bond_queue_slave_event(struct slave *slave)
+ 	queue_delayed_work(slave->bond->wq, &nnw->work, 0);
+ }
  
- enum mlxsw_reg_sfd_rec_type {
- 	MLXSW_REG_SFD_REC_TYPE_UNICAST = 0x0,
-+	MLXSW_REG_SFD_REC_TYPE_UNICAST_LAG = 0x1,
- };
- 
- /* reg_sfd_rec_type
-@@ -376,24 +377,34 @@ MLXSW_ITEM32_INDEXED(reg, sfd, uc_fid_vid, MLXSW_REG_SFD_BASE_LEN, 0, 16,
- MLXSW_ITEM32_INDEXED(reg, sfd, uc_system_port, MLXSW_REG_SFD_BASE_LEN, 0, 16,
- 		     MLXSW_REG_SFD_REC_LEN, 0x0C, false);
- 
--static inline void mlxsw_reg_sfd_uc_pack(char *payload, int rec_index,
--					 enum mlxsw_reg_sfd_rec_policy policy,
--					 const char *mac, u16 vid,
--					 enum mlxsw_reg_sfd_rec_action action,
--					 u8 local_port)
-+static inline void mlxsw_reg_sfd_rec_pack(char *payload, int rec_index,
-+					  enum mlxsw_reg_sfd_rec_type rec_type,
-+					  enum mlxsw_reg_sfd_rec_policy policy,
-+					  const char *mac,
-+					  enum mlxsw_reg_sfd_rec_action action)
++void bond_lower_state_changed(struct slave *slave)
++{
++	struct netdev_lag_lower_state_info info;
++
++	info.link_up = slave->link == BOND_LINK_UP ||
++		       slave->link == BOND_LINK_FAIL;
++	info.tx_enabled = bond_is_active_slave(slave);
++	netdev_lower_state_changed(slave->dev, &info);
++}
++
+ /* enslave device <slave> to bond device <master> */
+ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
  {
- 	u8 num_rec = mlxsw_reg_sfd_num_rec_get(payload);
+diff --git a/include/net/bonding.h b/include/net/bonding.h
+index 1df4377..ee6c520 100644
+--- a/include/net/bonding.h
++++ b/include/net/bonding.h
+@@ -247,6 +247,7 @@ struct bonding {
+ 	((struct slave *) rtnl_dereference(dev->rx_handler_data))
  
- 	if (rec_index >= num_rec)
- 		mlxsw_reg_sfd_num_rec_set(payload, rec_index + 1);
- 	mlxsw_reg_sfd_rec_swid_set(payload, rec_index, 0);
--	mlxsw_reg_sfd_rec_type_set(payload, rec_index,
--				   MLXSW_REG_SFD_REC_TYPE_UNICAST);
-+	mlxsw_reg_sfd_rec_type_set(payload, rec_index, rec_type);
- 	mlxsw_reg_sfd_rec_policy_set(payload, rec_index, policy);
- 	mlxsw_reg_sfd_rec_mac_memcpy_to(payload, rec_index, mac);
-+	mlxsw_reg_sfd_rec_action_set(payload, rec_index, action);
-+}
-+
-+static inline void mlxsw_reg_sfd_uc_pack(char *payload, int rec_index,
-+					 enum mlxsw_reg_sfd_rec_policy policy,
-+					 const char *mac, u16 vid,
-+					 enum mlxsw_reg_sfd_rec_action action,
-+					 u8 local_port)
-+{
-+	mlxsw_reg_sfd_rec_pack(payload, rec_index,
-+			       MLXSW_REG_SFD_REC_TYPE_UNICAST,
-+			       policy, mac, action);
- 	mlxsw_reg_sfd_uc_sub_port_set(payload, rec_index, 0);
- 	mlxsw_reg_sfd_uc_fid_vid_set(payload, rec_index, vid);
--	mlxsw_reg_sfd_rec_action_set(payload, rec_index, action);
- 	mlxsw_reg_sfd_uc_system_port_set(payload, rec_index, local_port);
+ void bond_queue_slave_event(struct slave *slave);
++void bond_lower_state_changed(struct slave *slave);
+ 
+ struct bond_vlan_tag {
+ 	__be16		vlan_proto;
+@@ -328,6 +329,7 @@ static inline void bond_set_active_slave(struct slave *slave)
+ 	if (slave->backup) {
+ 		slave->backup = 0;
+ 		bond_queue_slave_event(slave);
++		bond_lower_state_changed(slave);
+ 		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
+ 	}
  }
- 
-@@ -406,6 +417,58 @@ static inline void mlxsw_reg_sfd_uc_unpack(char *payload, int rec_index,
- 	*p_local_port = mlxsw_reg_sfd_uc_system_port_get(payload, rec_index);
+@@ -337,6 +339,7 @@ static inline void bond_set_backup_slave(struct slave *slave)
+ 	if (!slave->backup) {
+ 		slave->backup = 1;
+ 		bond_queue_slave_event(slave);
++		bond_lower_state_changed(slave);
+ 		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
+ 	}
  }
+@@ -349,6 +352,7 @@ static inline void bond_set_slave_state(struct slave *slave,
  
-+/* reg_sfd_uc_lag_sub_port
-+ * LAG sub port.
-+ * Must be 0 if multichannel VEPA is not enabled.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32_INDEXED(reg, sfd, uc_lag_sub_port, MLXSW_REG_SFD_BASE_LEN, 16, 8,
-+		     MLXSW_REG_SFD_REC_LEN, 0x08, false);
-+
-+/* reg_sfd_uc_lag_fid_vid
-+ * Filtering ID or VLAN ID
-+ * For SwitchX and SwitchX-2:
-+ * - Dynamic entries (policy 2,3) use FID
-+ * - Static entries (policy 0) use VID
-+ * - When independent learning is configured, VID=FID
-+ * For Spectrum: use FID for both Dynamic and Static entries.
-+ * VID should not be used.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32_INDEXED(reg, sfd, uc_lag_fid_vid, MLXSW_REG_SFD_BASE_LEN, 0, 16,
-+		     MLXSW_REG_SFD_REC_LEN, 0x08, false);
-+
-+/* reg_sfd_uc_lag_lag_id
-+ * LAG Identifier - pointer into the LAG descriptor table.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32_INDEXED(reg, sfd, uc_lag_lag_id, MLXSW_REG_SFD_BASE_LEN, 0, 10,
-+		     MLXSW_REG_SFD_REC_LEN, 0x0C, false);
-+
-+static inline void
-+mlxsw_reg_sfd_uc_lag_pack(char *payload, int rec_index,
-+			  enum mlxsw_reg_sfd_rec_policy policy,
-+			  const char *mac, u16 vid,
-+			  enum mlxsw_reg_sfd_rec_action action,
-+			  u16 lag_id)
-+{
-+	mlxsw_reg_sfd_rec_pack(payload, rec_index,
-+			       MLXSW_REG_SFD_REC_TYPE_UNICAST_LAG,
-+			       policy, mac, action);
-+	mlxsw_reg_sfd_uc_lag_sub_port_set(payload, rec_index, 0);
-+	mlxsw_reg_sfd_uc_lag_fid_vid_set(payload, rec_index, vid);
-+	mlxsw_reg_sfd_uc_lag_lag_id_set(payload, rec_index, lag_id);
-+}
-+
-+static inline void mlxsw_reg_sfd_uc_lag_unpack(char *payload, int rec_index,
-+					       char *mac, u16 *p_vid,
-+					       u16 *p_lag_id)
-+{
-+	mlxsw_reg_sfd_rec_mac_memcpy_from(payload, rec_index, mac);
-+	*p_vid = mlxsw_reg_sfd_uc_lag_fid_vid_get(payload, rec_index);
-+	*p_lag_id = mlxsw_reg_sfd_uc_lag_lag_id_get(payload, rec_index);
-+}
-+
- /* SFN - Switch FDB Notification Register
-  * -------------------------------------------
-  * The switch provides notifications on newly learned FDB entries and
+ 	slave->backup = slave_state;
+ 	if (notify) {
++		bond_lower_state_changed(slave);
+ 		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
+ 		bond_queue_slave_event(slave);
+ 		slave->should_notify = 0;
+@@ -380,6 +384,7 @@ static inline void bond_slave_state_notify(struct bonding *bond)
+ 
+ 	bond_for_each_slave(bond, tmp, iter) {
+ 		if (tmp->should_notify) {
++			bond_lower_state_changed(tmp);
+ 			rtmsg_ifinfo(RTM_NEWLINK, tmp->dev, 0, GFP_ATOMIC);
+ 			tmp->should_notify = 0;
+ 		}
+@@ -514,6 +519,7 @@ static inline void bond_set_slave_link_state(struct slave *slave, int state,
+ 	slave->link = state;
+ 	if (notify) {
+ 		bond_queue_slave_event(slave);
++		bond_lower_state_changed(slave);
+ 		slave->should_notify_link = 0;
+ 	} else {
+ 		if (slave->should_notify_link)
+@@ -531,6 +537,7 @@ static inline void bond_slave_link_notify(struct bonding *bond)
+ 	bond_for_each_slave(bond, tmp, iter) {
+ 		if (tmp->should_notify_link) {
+ 			bond_queue_slave_event(tmp);
++			bond_lower_state_changed(tmp);
+ 			tmp->should_notify_link = 0;
+ 		}
+ 	}
 -- 
 1.9.3
