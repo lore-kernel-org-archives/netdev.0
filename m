@@ -1,61 +1,66 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
- 2015-12-02
-Date: Wed, 02 Dec 2015 17:59:04 -0800
-Message-ID: <1449107944.3224.32.camel@intel.com>
-References: <1449059468-87025-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20151202.164526.1487154551042849320.davem@davemloft.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Wed, 2 Dec 2015 18:08:44 -0800
+Message-ID: <20151203020843.GA25113@ast-mbp.thefacebook.com>
+References: <CAEh+42ivCoBE-vAwWpHHmHYqcXzKP+ceZSvg2rEPh7Db3M1k6Q@mail.gmail.com>
+ <CALx6S35_rXPsYUGcc+yrQX8K1dOcL4aWnmQsa-6X6xULo9BBbg@mail.gmail.com>
+ <CAEh+42gvn=cjZ4E3nACR7=-_a4iFS7OwEsSb+SQGme2k19kVAA@mail.gmail.com>
+ <CALx6S37EoLM=bZ6sSAiiF81X=SvTvoNAmkbH5Dmn9zSvR2oiUA@mail.gmail.com>
+ <20151201154445.GF29497@tuxdriver.com>
+ <1448984968.3382143.454794705.68D88B7D@webmail.messagingengine.com>
+ <CALx6S36i7Ee3Njs6OPVndyoGz1OpYss3YRPG8KO2ehxvAe50dA@mail.gmail.com>
+ <1449074114.3806253.455834737.16948E5F@webmail.messagingengine.com>
+ <CALx6S34Zqn1t4RPkAoa3QT-vWLvawnBN19qEZ12P-YiCEckxHw@mail.gmail.com>
+ <565F8059.3010101@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-iuoDtGTE0cwwryO44mfA"
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, john.ronciak@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Herbert <tom@herbertland.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jesse Gross <jesse@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Anjali Singhai Jain <anjali.singhai@intel.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kiran Patil <kiran.patil@intel.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:5668 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757870AbbLCB7K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2015 20:59:10 -0500
-In-Reply-To: <20151202.164526.1487154551042849320.davem@davemloft.net>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:36019 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757719AbbLCCOe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 21:14:34 -0500
+Received: by pfdd184 with SMTP id d184so3438915pfd.3
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 18:14:33 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <565F8059.3010101@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Dec 02, 2015 at 03:35:53PM -0800, John Fastabend wrote:
+> [...]
+> > BPF. Implementing protocol generic offloads are not just a HW concern
+> > either, adding kernel GRO code for every possible protocol that comes
+> > along doesn't scale well. This becomes especially obvious when we
+> > consider how to provide offloads for applications protocols. If the
+> > kernel provides a programmable framework for the offloads then
+> > application protocols, such as QUIC, could use use that without
+> > needing to hack the kernel to support the specific protocol (which no
+> > one wants!). Application protocol parsing in KCM and some other use
+> > cases of BPF have already foreshadowed this, and we are working on a
+> > prototype for a BPF programmable engine in the kernel. Presumably,
+> > this same model could eventually be applied as the HW API to
+> > programmable offload.
+> 
+> Just keying off the last statement there...
+> 
+> I think BPF programs are going to be hard to translate into hardware
+> for most devices. The problem is the BPF programs in general lack
+> structure. A parse graph would be much more friendly for hardware or
+> at minimum the BPF program would need to be a some sort of
+> well-structured program so a driver could turn that into a parse graph.
 
---=-iuoDtGTE0cwwryO44mfA
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2015-12-02 at 16:45 -0500, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Wed,=C2=A0 2 Dec 2015 04:30:53 -0800
->=20
-> > This series contains updates to ixgbe and ixgbevf only.
->=20
-> I've marked this "changed requested" pending resolution of the ipv6
-> header parsing feedback Alexander gave.
-
-v2 coming shortly...
---=-iuoDtGTE0cwwryO44mfA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAABCgAGBQJWX6HoAAoJEOVv75VaS+3O7FYP/RVZolGa2+cph9ceqM8xNknd
-LQV7fsuNjiv7vqWHwumaYCgPjBWfzax+tu1ceRCT59r6pyqcmo4M1puu1bm1rvN/
-Gp3Etvj77Y7kuj4v1a1d3mO8w9/amzQA+jByxbrLmBmeLf/Y6EHY8NKxXtV0X73k
-yMNhdOjlaiCEGqifSvUTiGKgYnOCAFqQvrDVQdXPC55WLsv5V2s9U3h3h2VIVqT1
-2BlLPOcZgoxMXmWr1Anft6ZbNQJux9IALryZktWqii/TWqmZnvNC8dtj42UvWwKx
-XhMJ7PCuhkLZLqb7Qkq+/Kgx6xnOdMRPraolfdcArDjixZ6s1kgIS59temswrl7S
-b2ZUidqaXG4e6c0auQR+lOxhiRJX5ekv5V4v8zhfKzJ0fQJLCGLfiojK1dkxSsa8
-3HSBDxeLmZ26PaiN61ttMMb/Go4blpszWrwfLq4uMrNytCYlD5TMpcXvq3wY7Lg8
-LlpSw7DRiYBQMSBAp9sTFDMZt0S8DfuTTDnLdUpejFOz3tMfDI0+YEjo6lnbbi0t
-J5N6YpuoQlSNWQ2voPZP9sDt03Hfbsloazc8n/zHC/qcU96YQa+99wSO0CG4gaSc
-ygCEWrsw9Q25D6wVvVJJIs4HFlKzB0JQ7cs3FSqQtmdXTTjmUlJHyJEGk7Qnghwk
-BllIWH1+4CeEgck7Yd5J
-=r9tq
------END PGP SIGNATURE-----
-
---=-iuoDtGTE0cwwryO44mfA--
+I'm looking at bpf as a way to describe the intent of what HW or SW has to do
+and in case of SW it's easy to JIT and execute, but nic/switch doesn't
+have to 'execute' bpf instructions. If it's fpga based it can compile
+bpf program into parallel gates. Less flexible HW would not be able
+to off-load all programs. That's fine. Long term flexible SW will
+push HW to be flexible.
