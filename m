@@ -1,37 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] tipc: fix node reference count bug
-Date: Thu, 03 Dec 2015 15:21:28 -0500 (EST)
-Message-ID: <20151203.152128.176014435314901182.davem@davemloft.net>
-References: <1449087577-7252-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [v9, 3/6] fsl/fman: Add FMan MAC support
+Date: Thu, 03 Dec 2015 15:23:42 -0500 (EST)
+Message-ID: <20151203.152342.830757781812463540.davem@davemloft.net>
+References: <1449127157-9400-1-git-send-email-igal.liberman@freescale.com>
+	<1449127157-9400-4-git-send-email-igal.liberman@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
-	ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45561 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753426AbbLCUVa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 15:21:30 -0500
-In-Reply-To: <1449087577-7252-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org, scottwood@freescale.com,
+	madalin.bucur@freescale.com, pebolle@tiscali.nl,
+	joakim.tjernlund@transmode.se, ppc@mindchasers.com,
+	stephen@networkplumber.org
+To: igal.liberman@freescale.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449127157-9400-4-git-send-email-igal.liberman@freescale.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Wed,  2 Dec 2015 15:19:37 -0500
+From: <igal.liberman@freescale.com>
+Date: Thu, 3 Dec 2015 09:19:14 +0200
 
-> Commit 5405ff6e15f40f2f ("tipc: convert node lock to rwlock")
-> introduced a bug to the node reference counter handling. When a
-> message is successfully sent in the function tipc_node_xmit(),
-> we return directly after releasing the node lock, instead of
-> continuing and decrementing the node reference counter as we
-> should do.
-> 
-> This commit fixes this bug.
-> 
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> +static u32 crc_table[256] = {
 
-Applied, thanks.
+No way.
+
+We have every conceivable implementation of CRC calculations in the
+kernel already.  Use them.
