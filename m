@@ -1,174 +1,185 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/15] i40e: trivial fixes
-Date: Thu,  3 Dec 2015 05:26:00 -0800
-Message-ID: <1449149160-105219-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/15] i40e: Detection and recovery of TX queue hung logic moved to service_task from tx_timeout
+Date: Thu,  3 Dec 2015 05:25:49 -0800
+Message-ID: <1449149160-105219-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449149160-105219-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Kiran Patil <kiran.patil@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:6976 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:19487 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759782AbbLCN0G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 08:26:06 -0500
+	id S1754659AbbLCN0E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2015 08:26:04 -0500
 In-Reply-To: <1449149160-105219-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Kiran Patil <kiran.patil@intel.com>
 
-1) remove duplicate include of tcp.h
-2) put an ampersand at the end of a line instead of the beginning
-3) remove a useless dev_info
-4) match declaration of function to the implementation
-5) repair incorrect comment
-6) correct whitespace
-7) remove unused define
+This patch contains following changes:
+   - detection and recovery logic (issue SW interrupt) has been moved to
+     service_task from timeout function.
+   - added some more debug info from tx_timeout.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Logic to detect and recover TX queue hung is now two step process:
+  - service_task detects TX queue hung and sets a bit(hung_detected) if
+    it was not set.
+  - if bit was set (means this is back-back hung condition detected),
+    issue SW interrupt and clear the bit.
+  - napi_poll clears the bit unconditionally since it cleans TX/RX queues.
+
+Change-ID: Ieed03a48927c845a988b3ff375090bf37caeb903
+Signed-off-by: Kiran Patil <kiran.patil@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h        |  7 +++----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   |  6 +-----
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 15 ++++-----------
- 3 files changed, 8 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h        |  3 +++
+ drivers/net/ethernet/intel/i40e/i40e_main.c   | 36 ++++++++++++++++++++++-----
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   |  2 ++
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 21 ++++++++++------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h | 15 +++++++++++
+ 5 files changed, 64 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 8ed759e..23b4580 100644
+index 0b9537b..dde7ae7 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -42,7 +42,6 @@
- #include <linux/string.h>
- #include <linux/in.h>
- #include <linux/ip.h>
--#include <linux/tcp.h>
- #include <linux/sctp.h>
- #include <linux/pkt_sched.h>
- #include <linux/ipv6.h>
-@@ -608,8 +607,8 @@ static inline char *i40e_nvm_version_str(struct i40e_hw *hw)
+@@ -579,6 +579,9 @@ struct i40e_q_vector {
  
- 	full_ver = hw->nvm.oem_ver;
- 	ver = (u8)(full_ver >> I40E_OEM_VER_SHIFT);
--	build = (u16)((full_ver >> I40E_OEM_VER_BUILD_SHIFT)
--		 & I40E_OEM_VER_BUILD_MASK);
-+	build = (u16)((full_ver >> I40E_OEM_VER_BUILD_SHIFT) &
-+		 I40E_OEM_VER_BUILD_MASK);
- 	patch = (u8)(full_ver & I40E_OEM_VER_PATCH_MASK);
+ 	u8 num_ringpairs;	/* total number of ring pairs in vector */
  
- 	snprintf(buf, sizeof(buf),
-@@ -717,7 +716,7 @@ struct i40e_veb *i40e_veb_setup(struct i40e_pf *pf, u16 flags, u16 uplink_seid,
- void i40e_veb_release(struct i40e_veb *veb);
++#define I40E_Q_VECTOR_HUNG_DETECT 0 /* Bit Index for hung detection logic */
++	unsigned long hung_detected; /* Set/Reset for hung_detection logic */
++
+ 	cpumask_t affinity_mask;
+ 	struct rcu_head rcu;	/* to avoid race with update stats on free */
+ 	char name[I40E_INT_NAME_STR_LEN];
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 9e6268b..e19a579 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -4368,17 +4368,41 @@ static void i40e_detect_recover_hung_queue(int q_idx, struct i40e_vsi *vsi)
+ 	else
+ 		val = rd32(&pf->hw, I40E_PFINT_DYN_CTL0);
  
- int i40e_veb_config_tc(struct i40e_veb *veb, u8 enabled_tc);
--i40e_status i40e_vsi_add_pvid(struct i40e_vsi *vsi, u16 vid);
-+int i40e_vsi_add_pvid(struct i40e_vsi *vsi, u16 vid);
- void i40e_vsi_remove_pvid(struct i40e_vsi *vsi);
- void i40e_vsi_reset_stats(struct i40e_vsi *vsi);
- void i40e_pf_reset_stats(struct i40e_pf *pf);
++	/* Bail out if interrupts are disabled because napi_poll
++	 * execution in-progress or will get scheduled soon.
++	 * napi_poll cleans TX and RX queues and updates 'next_to_clean'.
++	 */
++	if (!(val & I40E_PFINT_DYN_CTLN_INTENA_MASK))
++		return;
++
+ 	head = i40e_get_head(tx_ring);
+ 
+ 	tx_pending = i40e_get_tx_pending(tx_ring);
+ 
+-	/* Interrupts are disabled and TX pending is non-zero,
+-	 * trigger the SW interrupt (don't wait). Worst case
+-	 * there will be one extra interrupt which may result
+-	 * into not cleaning any queues because queues are cleaned.
++	/* HW is done executing descriptors, updated HEAD write back,
++	 * but SW hasn't processed those descriptors. If interrupt is
++	 * not generated from this point ON, it could result into
++	 * dev_watchdog detecting timeout on those netdev_queue,
++	 * hence proactively trigger SW interrupt.
+ 	 */
+-	if (tx_pending && (!(val & I40E_PFINT_DYN_CTLN_INTENA_MASK)))
+-		i40e_force_wb(vsi, tx_ring->q_vector);
++	if (tx_pending) {
++		/* NAPI Poll didn't run and clear since it was set */
++		if (test_and_clear_bit(I40E_Q_VECTOR_HUNG_DETECT,
++				       &tx_ring->q_vector->hung_detected)) {
++			netdev_info(vsi->netdev, "VSI_seid %d, Hung TX queue %d, tx_pending: %d, NTC:0x%x, HWB: 0x%x, NTU: 0x%x, TAIL: 0x%x\n",
++				    vsi->seid, q_idx, tx_pending,
++				    tx_ring->next_to_clean, head,
++				    tx_ring->next_to_use,
++				    readl(tx_ring->tail));
++			netdev_info(vsi->netdev, "VSI_seid %d, Issuing force_wb for TX queue %d, Interrupt Reg: 0x%x\n",
++				    vsi->seid, q_idx, val);
++			i40e_force_wb(vsi, tx_ring->q_vector);
++		} else {
++			/* First Chance - detected possible hung */
++			set_bit(I40E_Q_VECTOR_HUNG_DETECT,
++				&tx_ring->q_vector->hung_detected);
++		}
++	}
+ }
+ 
+ /**
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index be129d3..b0ae3e6 100644
+index 7371df7..1d7d01c 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -328,7 +328,7 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
-  * @fd_data: the flow director data required for the FDir descriptor
-  * @add: true adds a filter, false removes it
-  *
-- * Always returns -EOPNOTSUPP
-+ * Returns 0 if the filters were successfully added or removed
-  **/
- static int i40e_add_del_fdir_sctpv4(struct i40e_vsi *vsi,
- 				    struct i40e_fdir_filter *fd_data,
-@@ -515,9 +515,6 @@ static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
- 				pf->auto_disable_flags |=
- 							I40E_FLAG_FD_SB_ENABLED;
- 			}
--		} else {
--			dev_info(&pdev->dev,
--				"FD filter programming failed due to incorrect filter parameters\n");
- 		}
- 	} else if (error == BIT(I40E_RX_PROG_STATUS_DESC_NO_FD_ENTRY_SHIFT)) {
- 		if (I40E_DEBUG_FD & pf->hw.debug_mask)
-@@ -1872,7 +1869,6 @@ enable_int:
- 		q_vector->itr_countdown--;
- 	else
- 		q_vector->itr_countdown = ITR_COUNTDOWN_START;
--
- }
+@@ -1891,6 +1891,8 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
+ 		return 0;
+ 	}
  
- /**
++	/* Clear hung_detected bit */
++	clear_bit(I40E_Q_VECTOR_HUNG_DETECT, &q_vector->hung_detected);
+ 	/* Since the actual Tx work is minimal, we can give the Tx a larger
+ 	 * budget and be more aggressive about cleaning up the Tx descriptors.
+ 	 */
 diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index b53333a..4ca4065 100644
+index 11561b6..06b6636 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -411,7 +411,7 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
- 	return false;
- }
- 
--/*
-+/**
-  * i40evf_setup_tx_descriptors - Allocate the Tx descriptors
-  * @tx_ring: the tx ring to set up
-  *
-@@ -1259,10 +1259,12 @@ static inline void i40e_update_enable_itr(struct i40e_vsi *vsi,
- 		rx = i40e_set_new_dynamic_itr(&q_vector->rx);
- 		rxval = i40e_buildreg_itr(I40E_RX_ITR, q_vector->rx.itr);
- 	}
-+
- 	if (ITR_IS_DYNAMIC(vsi->tx_itr_setting)) {
- 		tx = i40e_set_new_dynamic_itr(&q_vector->tx);
- 		txval = i40e_buildreg_itr(I40E_TX_ITR, q_vector->tx.itr);
- 	}
-+
- 	if (rx || tx) {
- 		/* get the higher of the two ITR adjustments and
- 		 * use the same value for both ITR registers
-@@ -1298,7 +1300,6 @@ enable_int:
- 		q_vector->itr_countdown--;
- 	else
- 		q_vector->itr_countdown = ITR_COUNTDOWN_START;
--
+@@ -127,17 +127,24 @@ void i40evf_free_tx_resources(struct i40e_ring *tx_ring)
  }
  
  /**
-@@ -1552,7 +1553,6 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
- 			*tx_flags |= I40E_TX_FLAGS_IPV6;
- 		}
+- * i40e_get_head - Retrieve head from head writeback
+- * @tx_ring:  tx ring to fetch head of
++ * i40evf_get_tx_pending - how many Tx descriptors not processed
++ * @tx_ring: the ring of descriptors
+  *
+- * Returns value of Tx ring head based on value stored
+- * in head write-back location
++ * Since there is no access to the ring head register
++ * in XL710, we need to use our local copies
+  **/
+-static inline u32 i40e_get_head(struct i40e_ring *tx_ring)
++u32 i40evf_get_tx_pending(struct i40e_ring *ring)
+ {
+-	void *head = (struct i40e_tx_desc *)tx_ring->desc + tx_ring->count;
++	u32 head, tail;
  
--
- 		if ((tx_ring->flags & I40E_TXR_FLAGS_OUTER_UDP_CSUM) &&
- 		    (l4_tunnel == I40E_TXD_CTX_UDP_TUNNELING)        &&
- 		    (*cd_tunneling & I40E_TXD_CTX_QW0_EXT_IP_MASK)) {
-@@ -1651,7 +1651,7 @@ static void i40e_create_tx_ctx(struct i40e_ring *tx_ring,
- 	context_desc->type_cmd_tso_mss = cpu_to_le64(cd_type_cmd_tso_mss);
+-	return le32_to_cpu(*(volatile __le32 *)head);
++	head = i40e_get_head(ring);
++	tail = readl(ring->tail);
++
++	if (head != tail)
++		return (head < tail) ?
++			tail - head : (tail + ring->count - head);
++
++	return 0;
  }
  
-- /**
+ #define WB_STRIDE 0x3
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index 929ddd9..e29bb3e 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -324,4 +324,19 @@ int i40evf_setup_rx_descriptors(struct i40e_ring *rx_ring);
+ void i40evf_free_tx_resources(struct i40e_ring *tx_ring);
+ void i40evf_free_rx_resources(struct i40e_ring *rx_ring);
+ int i40evf_napi_poll(struct napi_struct *napi, int budget);
++u32 i40evf_get_tx_pending(struct i40e_ring *ring);
++
 +/**
-  * i40e_chk_linearize - Check if there are more than 8 fragments per packet
-  * @skb:      send buffer
-  * @tx_flags: collected send information
-@@ -1847,7 +1847,6 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 		tx_bi = &tx_ring->tx_bi[i];
- 	}
- 
--#define WB_STRIDE 0x3
- 	/* set next_to_watch value indicating a packet is present */
- 	first->next_to_watch = tx_desc;
- 
-@@ -1874,12 +1873,6 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	 *			update tail and set RS bit on every packet.
- 	 *	if xmit_more is false and last_xmit_more was true
- 	 *		update tail and set RS bit.
--	 * else (kernel < 3.18)
--	 *	if every packet spanned less than 4 desc
--	 *		then set RS bit on 4th packet and update tail
--	 *		on every packet
--	 *	else
--	 *		set RS bit on EOP for every packet and update tail
- 	 *
- 	 * Optimization: wmb to be issued only in case of tail update.
- 	 * Also optimize the Descriptor WB path for RS bit with the same
++ * i40e_get_head - Retrieve head from head writeback
++ * @tx_ring: Tx ring to fetch head of
++ *
++ * Returns value of Tx ring head based on value stored
++ * in head write-back location
++ **/
++static inline u32 i40e_get_head(struct i40e_ring *tx_ring)
++{
++	void *head = (struct i40e_tx_desc *)tx_ring->desc + tx_ring->count;
++
++	return le32_to_cpu(*(volatile __le32 *)head);
++}
+ #endif /* _I40E_TXRX_H_ */
 -- 
 2.5.0
