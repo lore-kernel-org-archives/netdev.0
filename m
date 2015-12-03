@@ -1,58 +1,61 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: rhashtable: Prevent spurious EBUSY errors on insertion
-Date: Thu, 3 Dec 2015 16:38:05 +0100
-Message-ID: <20151203153805.GC17467@orbit.nwl.cc>
-References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
- <20151130093755.GA8159@gondor.apana.org.au>
- <20151130101401.GA17712@orbit.nwl.cc>
- <20151130101859.GA8378@gondor.apana.org.au>
- <20151203124129.GA5505@gondor.apana.org.au>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH v5] i40e: Look up MAC address in Open Firmware or IDPROM
+Date: Thu, 3 Dec 2015 10:48:23 -0500
+Message-ID: <20151203154823.GA23433@oracle.com>
+References: <20151104193956.GD14575@oracle.com>
+ <CAHp75Vcrx+Rkz2mDSG+GEUW6LdO0w6On=6UoV4fhZK27Ayf1zQ@mail.gmail.com>
+ <FC41C24E35F18A40888AACA1A36F3E418AFAEA1A@fmsmsx115.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tgraf@suug.ch,
-	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Andy Shevchenko <andy.shevchenko@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>
+To: netdev <netdev@vger.kernel.org>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:37566 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752144AbbLCPsi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 10:48:38 -0500
 Content-Disposition: inline
-In-Reply-To: <20151203124129.GA5505@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E418AFAEA1A@fmsmsx115.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 03, 2015 at 08:41:29PM +0800, Herbert Xu wrote:
-> On Mon, Nov 30, 2015 at 06:18:59PM +0800, Herbert Xu wrote:
-> > 
-> > OK that's better.  I think I see the problem.  The test in
-> > rhashtable_insert_rehash is racy and if two threads both try
-> > to grow the table one of them may be tricked into doing a rehash
-> > instead.
-> > 
-> > I'm working on a fix.
-> 
-> OK this patch fixes the EBUSY problem as far as I can tell.  Please
-> let me know if you still observe EBUSY with it.  I'll respond to the
-> ENOMEM problem in another email.
-> 
-> ---8<---
-> Thomas and Phil observed that under stress rhashtable insertion
-> sometimes failed with EBUSY, even though this error should only
-> ever been seen when we're under attack and our hash chain length
-> has grown to an unacceptable level, even after a rehash.
-> 
-> It turns out that the logic for detecting whether there is an
-> existing rehash is faulty.  In particular, when two threads both
-> try to grow the same table at the same time, one of them may see
-> the newly grown table and thus erroneously conclude that it had
-> been rehashed.  This is what leads to the EBUSY error.
-> 
-> This patch fixes this by remembering the current last table we
-> used during insertion so that rhashtable_insert_rehash can detect
-> when another thread has also done a resize/rehash.  When this is
-> detected we will give up our resize/rehash and simply retry the
-> insertion with the new table.
-> 
-> Reported-by: Thomas Graf <tgraf@suug.ch>
-> Reported-by: Phil Sutter <phil@nwl.cc>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Hi,
 
-Tested-by: Phil Sutter <phil@nwl.cc>
+The patch here: http://patchwork.ozlabs.org/patch/540218/
+is marked "Awaiting Upstream", I think that means it has to first
+show up in some other repo first (which one?)?
+
+On addiitonal testing, we found a bug in the patch: if
+we did not find the macaddr from Open Firmwre or IDPROM (i.e., defaults
+were ok) then you dont want to be doing i40e_macaddr_init again, else
+you will get a failure like this (truncated dump_stack shown
+below)
+
+[ 8127.050926] WARNING: CPU: 18 PID: 878 at kernel/irq/manage.c:1346 __free_irq+0x9f/0x230()
+[ 8127.050927] Trying to free already-free IRQ 177
+  :
+[ 8127.051013]  [<ffffffffa043ddd0>] i40e_clear_interrupt_scheme+0xb0/0xc0 [i40e]
+[ 8127.051018]  [<ffffffffa044b538>] i40e_probe.part.64+0x1018/0x1320 [i40e]
+  :
+[ 8127.051057]  [<ffffffffa044b862>] i40e_probe+0x22/0x30 [i40e]
+
+I can think of a couple of ways to fix this- one (the ugly
+way) is to ifdef the i40e_macaddr_init invocation for CONFIG_OF or CONFIG_SPARC
+only. Another way to solve this is to track some bit in struct i40e_hw that 
+indicates that the macaddr is not the default, thus i40e_macaddr_init() should
+be called before register_netdev only if that bit is set. (Dont know
+if there are cache-line considerations that exist in i40e_hw that
+need to be taken into account for the second version)
+
+In order to send a fix out for review, what should I clone? 
+should I just apply the patch/540218 to net-next and send the update?
+
+--Sowmini
