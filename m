@@ -1,91 +1,356 @@
-From: Marcelo <marcelo.leitner@gmail.com>
-Subject: Re: use-after-free in sctp_do_sm
-Date: Thu, 3 Dec 2015 16:43:16 -0200
-Message-ID: <20151203184316.GF4164@mrl.redhat.com>
-References: <CACT4Y+aAYy4-Ow+gt+1C46CK1+MbspBMM7qz9pVYsXvGXRJ1SQ@mail.gmail.com>
- <CACT4Y+YjAhRSYDFUZYydtWfRzi1yDEKtPrPsJqYN93Km91J=Cw@mail.gmail.com>
- <20151124204553.GB3364@hmsreliant.think-freely.org>
- <5655CFDC.4050206@gmail.com>
- <CACT4Y+aNgjykBXxEM0uv0MPOa=N6zkBuEp+vShR3KHqRE-tPAw@mail.gmail.com>
- <20151203165133.GD4164@mrl.redhat.com>
- <20151203174356.GE4164@mrl.redhat.com>
- <1449165550.25029.4.camel@edumazet-glaptop2.roam.corp.google.com>
- <74ED362E-9B4D-48CB-85BE-04DEDF1BFC97@gmail.com>
- <56608B79.7040105@gmail.com>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: Re: [PATCH] net: smc911x: convert pxa dma to dmaengine
+Date: Thu, 03 Dec 2015 19:46:30 +0100
+Message-ID: <87fuzjl69l.fsf@belgarion.home>
+References: <1448919628-13273-1-git-send-email-robert.jarzmik@free.fr>
+	<20151202.235217.2201517065767030121.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej =?utf-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47192 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752248AbbLCSnX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 13:43:23 -0500
-Content-Disposition: inline
-In-Reply-To: <56608B79.7040105@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Alberto Panizzo <maramaopercheseimorto@gmail.com>,
+	Guennadi Liakhovetski <g.liakhovetski@gmx.de>,
+	Hitoshi Mitake <mitake@dcl.info.waseda.ac.jp>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151202.235217.2201517065767030121.davem@davemloft.net> (David
+	Miller's message of "Wed, 02 Dec 2015 23:52:17 -0500 (EST)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 03, 2015 at 01:35:37PM -0500, Vlad Yasevich wrote:
-> On 12/03/2015 01:06 PM, Marcelo wrote:
-> > 
-> > 
-> > Em 3 de dezembro de 2015 15:59:10 BRST, Eric Dumazet <eric.dumazet@gmail.com> escreveu:
-> >> On Thu, 2015-12-03 at 15:43 -0200, Marcelo Ricardo Leitner wrote:
-> >>
-> >>> Vlad, others,
-> >>>
-> >>> It's been a long time but this was introduced by commit 914e1c8b6980
-> >>> ("sctp: Inherit all socket options from parent correctly."). This is
-> >> not
-> >>> very consistent with how other protocols work and it will be hard to
-> >>> keep tracking a negative mask of flags that we can't copy.
-> >>>
-> >>> I reviewed the list of options and I'm thinking that only
-> >>> SO_BINDTODEVICE is worth copying, leaving the others for the
-> >> application
-> >>> to re-set, as it is for other protocols. So I'm thinking on simply:
-> >>>
-> >>> -       newsk->sk_flags = sk->sk_flags;
-> >>> +       newsk->sk_flags = sk->sk_flags & SO_BINDTODEVICE;
-> >>>
-> >>> in the above.
-> >>>
-> >>> What do you think?
-> >>
-> >> I think SO_BINDTODEVICE is not a flag ;)
-> >>
-> >> #define SO_BINDTODEVICE    25
-> > 
-> > Oops, indeed!
-> > Idea persists.
-> > Thx!
-> > 
-> 
-> Hmm...  sk_clone_lock() appears to copy the flags as well, so it would
-> appear the tcp accept() sockets would also have timestamping set.
+David Miller <davem@davemloft.net> writes:
 
-Ahh right, through a memcpy. I completely missed that.
+> From: Robert Jarzmik <robert.jarzmik@free.fr>
+> Date: Mon, 30 Nov 2015 22:40:28 +0100
+>
+>> Convert the dma transfers to be dmaengine based, now pxa has a dmaengine
+>> slave driver. This makes this driver a bit more PXA agnostic.
+>> 
+>> The driver was only compile tested. The risk is quite small as no
+>> current PXA platform I'm aware of is using smc911x driver.
+>> 
+>> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+>
+> I've marked this 'deferred' in patchwork until someone tests
+> these changes and says they should be good on all platforms
+> this chip is used.
 
-And later on it does:
-                if (sock_needs_netstamp(sk) &&
-                    newsk->sk_flags & SK_FLAGS_TIMESTAMP)
-                        net_enable_timestamp();
+Okay, so would any maintainer of non pxa boards give a feedback for this patch ?
+The ones I have found are :
+ - sh2007: Guennadi and Hitoshi
+ - armadillo5x0: Alberto
+ - imx v6 and imx v7: Fabio
+I've added the patch at the end of this mail for easier handling.
 
-> I can see how we probably shouldn't being copying sk_flags as there isn't
-> much there that need to be set.
+Now, if no maintainer gives it a test, what do we do, David ? I'm intending to
+remove "arch/arm/mach-pxa/include/mach/dma.h" in the near future, which will
+break this driver somehow (at least for PXA boards, even if none is identified
+so far).
+So could we agree on a deadline, and what you wish to do : either drop the patch
+or apply, or something else.
 
-I take that back then, we can enable timestamp like the above instead.
-I'll test and post a patch soon.
+Cheers.
 
-Thanks,
-Marcelo
+-- 
+Robert
+
+--8>--
+>From 9b7e996fe92d81d417f59a4eed92b3472594a2e8 Mon Sep 17 00:00:00 2001
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Date: Thu, 10 Sep 2015 14:48:09 +0200
+Subject: [PATCH] net: smc911x: convert pxa dma to dmaengine
+
+Convert the dma transfers to be dmaengine based, now pxa has a dmaengine
+slave driver. This makes this driver a bit more PXA agnostic.
+
+The driver was only compile tested. The risk is quite small as no
+current PXA platform I'm aware of is using smc911x driver.
+
+Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+---
+ drivers/net/ethernet/smsc/smc911x.c | 85 ++++++++++++++++++++++++-------------
+ drivers/net/ethernet/smsc/smc911x.h | 63 ++++++++++++---------------
+ 2 files changed, 82 insertions(+), 66 deletions(-)
+
+diff --git a/drivers/net/ethernet/smsc/smc911x.c b/drivers/net/ethernet/smsc/smc911x.c
+index bd64eb982e52..3f5711061432 100644
+--- a/drivers/net/ethernet/smsc/smc911x.c
++++ b/drivers/net/ethernet/smsc/smc911x.c
+@@ -73,6 +73,9 @@ static const char version[] =
+ #include <linux/etherdevice.h>
+ #include <linux/skbuff.h>
+ 
++#include <linux/dmaengine.h>
++#include <linux/dma/pxa-dma.h>
++
+ #include <asm/io.h>
+ 
+ #include "smc911x.h"
+@@ -1174,18 +1177,16 @@ static irqreturn_t smc911x_interrupt(int irq, void *dev_id)
+ 
+ #ifdef SMC_USE_DMA
+ static void
+-smc911x_tx_dma_irq(int dma, void *data)
++smc911x_tx_dma_irq(void *data)
+ {
+-	struct net_device *dev = (struct net_device *)data;
+-	struct smc911x_local *lp = netdev_priv(dev);
++	struct smc911x_local *lp = data;
++	struct net_device *dev = lp->netdev;
+ 	struct sk_buff *skb = lp->current_tx_skb;
+ 	unsigned long flags;
+ 
+ 	DBG(SMC_DEBUG_FUNC, dev, "--> %s\n", __func__);
+ 
+ 	DBG(SMC_DEBUG_TX | SMC_DEBUG_DMA, dev, "TX DMA irq handler\n");
+-	/* Clear the DMA interrupt sources */
+-	SMC_DMA_ACK_IRQ(dev, dma);
+ 	BUG_ON(skb == NULL);
+ 	dma_unmap_single(NULL, tx_dmabuf, tx_dmalen, DMA_TO_DEVICE);
+ 	dev->trans_start = jiffies;
+@@ -1208,18 +1209,16 @@ smc911x_tx_dma_irq(int dma, void *data)
+ 	    "TX DMA irq completed\n");
+ }
+ static void
+-smc911x_rx_dma_irq(int dma, void *data)
++smc911x_rx_dma_irq(void *data)
+ {
+-	struct net_device *dev = (struct net_device *)data;
+-	struct smc911x_local *lp = netdev_priv(dev);
++	struct smc911x_local *lp = data;
++	struct net_device *dev = lp->netdev;
+ 	struct sk_buff *skb = lp->current_rx_skb;
+ 	unsigned long flags;
+ 	unsigned int pkts;
+ 
+ 	DBG(SMC_DEBUG_FUNC, dev, "--> %s\n", __func__);
+ 	DBG(SMC_DEBUG_RX | SMC_DEBUG_DMA, dev, "RX DMA irq handler\n");
+-	/* Clear the DMA interrupt sources */
+-	SMC_DMA_ACK_IRQ(dev, dma);
+ 	dma_unmap_single(NULL, rx_dmabuf, rx_dmalen, DMA_FROM_DEVICE);
+ 	BUG_ON(skb == NULL);
+ 	lp->current_rx_skb = NULL;
+@@ -1792,6 +1791,9 @@ static int smc911x_probe(struct net_device *dev)
+ 	unsigned int val, chip_id, revision;
+ 	const char *version_string;
+ 	unsigned long irq_flags;
++	struct dma_slave_config	config;
++	dma_cap_mask_t mask;
++	struct pxad_param param;
+ 
+ 	DBG(SMC_DEBUG_FUNC, dev, "--> %s\n", __func__);
+ 
+@@ -1963,11 +1965,40 @@ static int smc911x_probe(struct net_device *dev)
+ 		goto err_out;
+ 
+ #ifdef SMC_USE_DMA
+-	lp->rxdma = SMC_DMA_REQUEST(dev, smc911x_rx_dma_irq);
+-	lp->txdma = SMC_DMA_REQUEST(dev, smc911x_tx_dma_irq);
++
++	dma_cap_zero(mask);
++	dma_cap_set(DMA_SLAVE, mask);
++	param.prio = PXAD_PRIO_LOWEST;
++	param.drcmr = -1UL;
++
++	lp->rxdma =
++		dma_request_slave_channel_compat(mask, pxad_filter_fn,
++						 &param, &dev->dev, "rx");
++	lp->txdma =
++		dma_request_slave_channel_compat(mask, pxad_filter_fn,
++						 &param, &dev->dev, "tx");
+ 	lp->rxdma_active = 0;
+ 	lp->txdma_active = 0;
+-	dev->dma = lp->rxdma;
++
++	memset(&config, 0, sizeof(config));
++	config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
++	config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
++	config.src_addr = lp->physaddr + RX_DATA_FIFO;
++	config.dst_addr = lp->physaddr + TX_DATA_FIFO;
++	config.src_maxburst = 32;
++	config.dst_maxburst = 32;
++	retval = dmaengine_slave_config(lp->rxdma, &config);
++	if (retval) {
++		dev_err(lp->dev, "dma rx channel configuration failed: %d\n",
++			retval);
++		goto err_out;
++	}
++	retval = dmaengine_slave_config(lp->txdma, &config);
++	if (retval) {
++		dev_err(lp->dev, "dma tx channel configuration failed: %d\n",
++			retval);
++		goto err_out;
++	}
+ #endif
+ 
+ 	retval = register_netdev(dev);
+@@ -1978,11 +2009,11 @@ static int smc911x_probe(struct net_device *dev)
+ 			    dev->base_addr, dev->irq);
+ 
+ #ifdef SMC_USE_DMA
+-		if (lp->rxdma != -1)
+-			pr_cont(" RXDMA %d", lp->rxdma);
++		if (lp->rxdma)
++			pr_cont(" RXDMA %p", lp->rxdma);
+ 
+-		if (lp->txdma != -1)
+-			pr_cont(" TXDMA %d", lp->txdma);
++		if (lp->txdma)
++			pr_cont(" TXDMA %p", lp->txdma);
+ #endif
+ 		pr_cont("\n");
+ 		if (!is_valid_ether_addr(dev->dev_addr)) {
+@@ -2005,12 +2036,10 @@ static int smc911x_probe(struct net_device *dev)
+ err_out:
+ #ifdef SMC_USE_DMA
+ 	if (retval) {
+-		if (lp->rxdma != -1) {
+-			SMC_DMA_FREE(dev, lp->rxdma);
+-		}
+-		if (lp->txdma != -1) {
+-			SMC_DMA_FREE(dev, lp->txdma);
+-		}
++		if (lp->rxdma)
++			dma_release_channel(lp->rxdma);
++		if (lp->txdma)
++			dma_release_channel(lp->txdma);
+ 	}
+ #endif
+ 	return retval;
+@@ -2112,12 +2141,10 @@ static int smc911x_drv_remove(struct platform_device *pdev)
+ 
+ #ifdef SMC_USE_DMA
+ 	{
+-		if (lp->rxdma != -1) {
+-			SMC_DMA_FREE(dev, lp->rxdma);
+-		}
+-		if (lp->txdma != -1) {
+-			SMC_DMA_FREE(dev, lp->txdma);
+-		}
++		if (lp->rxdma)
++			dma_release_channel(lp->rxdma);
++		if (lp->txdma)
++			dma_release_channel(lp->txdma);
+ 	}
+ #endif
+ 	iounmap(lp->base);
+diff --git a/drivers/net/ethernet/smsc/smc911x.h b/drivers/net/ethernet/smsc/smc911x.h
+index 04b35f55df97..fa528ea0ea51 100644
+--- a/drivers/net/ethernet/smsc/smc911x.h
++++ b/drivers/net/ethernet/smsc/smc911x.h
+@@ -101,8 +101,8 @@ struct smc911x_local {
+ #ifdef SMC_USE_DMA
+ 	/* DMA needs the physical address of the chip */
+ 	u_long physaddr;
+-	int rxdma;
+-	int txdma;
++	struct dma_chan *rxdma;
++	struct dma_chan *txdma;
+ 	int rxdma_active;
+ 	int txdma_active;
+ 	struct sk_buff *current_rx_skb;
+@@ -210,27 +210,6 @@ static inline void SMC_outsl(struct smc911x_local *lp, int reg,
+ 
+ #ifdef SMC_USE_PXA_DMA
+ 
+-#include <mach/dma.h>
+-
+-/*
+- * Define the request and free functions
+- * These are unfortunately architecture specific as no generic allocation
+- * mechanism exits
+- */
+-#define SMC_DMA_REQUEST(dev, handler) \
+-	 pxa_request_dma(dev->name, DMA_PRIO_LOW, handler, dev)
+-
+-#define SMC_DMA_FREE(dev, dma) \
+-	 pxa_free_dma(dma)
+-
+-#define SMC_DMA_ACK_IRQ(dev, dma)					\
+-{									\
+-	if (DCSR(dma) & DCSR_BUSERR) {					\
+-		netdev_err(dev, "DMA %d bus error!\n", dma);		\
+-	}								\
+-	DCSR(dma) = DCSR_STARTINTR|DCSR_ENDINTR|DCSR_BUSERR;		\
+-}
+-
+ /*
+  * Use a DMA for RX and TX packets.
+  */
+@@ -238,6 +217,8 @@ static inline void SMC_outsl(struct smc911x_local *lp, int reg,
+ 
+ static dma_addr_t rx_dmabuf, tx_dmabuf;
+ static int rx_dmalen, tx_dmalen;
++static void smc911x_rx_dma_irq(void *data);
++static void smc911x_tx_dma_irq(void *data);
+ 
+ #ifdef SMC_insl
+ #undef SMC_insl
+@@ -246,8 +227,10 @@ static int rx_dmalen, tx_dmalen;
+ 
+ static inline void
+ smc_pxa_dma_insl(struct smc911x_local *lp, u_long physaddr,
+-		int reg, int dma, u_char *buf, int len)
++		int reg, struct dma_chan *dma, u_char *buf, int len)
+ {
++	struct dma_async_tx_descriptor *tx;
++
+ 	/* 64 bit alignment is required for memory to memory DMA */
+ 	if ((long)buf & 4) {
+ 		*((u32 *)buf) = SMC_inl(lp, reg);
+@@ -258,12 +241,14 @@ smc_pxa_dma_insl(struct smc911x_local *lp, u_long physaddr,
+ 	len *= 4;
+ 	rx_dmabuf = dma_map_single(lp->dev, buf, len, DMA_FROM_DEVICE);
+ 	rx_dmalen = len;
+-	DCSR(dma) = DCSR_NODESC;
+-	DTADR(dma) = rx_dmabuf;
+-	DSADR(dma) = physaddr + reg;
+-	DCMD(dma) = (DCMD_INCTRGADDR | DCMD_BURST32 |
+-		DCMD_WIDTH4 | DCMD_ENDIRQEN | (DCMD_LENGTH & rx_dmalen));
+-	DCSR(dma) = DCSR_NODESC | DCSR_RUN;
++	tx = dmaengine_prep_slave_single(dma, rx_dmabuf, rx_dmalen,
++					 DMA_DEV_TO_MEM, 0);
++	if (tx) {
++		tx->callback = smc911x_rx_dma_irq;
++		tx->callback_param = lp;
++		dmaengine_submit(tx);
++		dma_async_issue_pending(dma);
++	}
+ }
+ #endif
+ 
+@@ -274,8 +259,10 @@ smc_pxa_dma_insl(struct smc911x_local *lp, u_long physaddr,
+ 
+ static inline void
+ smc_pxa_dma_outsl(struct smc911x_local *lp, u_long physaddr,
+-		int reg, int dma, u_char *buf, int len)
++		int reg, struct dma_chan *dma, u_char *buf, int len)
+ {
++	struct dma_async_tx_descriptor *tx;
++
+ 	/* 64 bit alignment is required for memory to memory DMA */
+ 	if ((long)buf & 4) {
+ 		SMC_outl(*((u32 *)buf), lp, reg);
+@@ -286,12 +273,14 @@ smc_pxa_dma_outsl(struct smc911x_local *lp, u_long physaddr,
+ 	len *= 4;
+ 	tx_dmabuf = dma_map_single(lp->dev, buf, len, DMA_TO_DEVICE);
+ 	tx_dmalen = len;
+-	DCSR(dma) = DCSR_NODESC;
+-	DSADR(dma) = tx_dmabuf;
+-	DTADR(dma) = physaddr + reg;
+-	DCMD(dma) = (DCMD_INCSRCADDR | DCMD_BURST32 |
+-		DCMD_WIDTH4 | DCMD_ENDIRQEN | (DCMD_LENGTH & tx_dmalen));
+-	DCSR(dma) = DCSR_NODESC | DCSR_RUN;
++	tx = dmaengine_prep_slave_single(dma, tx_dmabuf, tx_dmalen,
++					 DMA_DEV_TO_MEM, 0);
++	if (tx) {
++		tx->callback = smc911x_tx_dma_irq;
++		tx->callback_param = lp;
++		dmaengine_submit(tx);
++		dma_async_issue_pending(dma);
++	}
+ }
+ #endif
+ #endif	 /* SMC_USE_PXA_DMA */
+-- 
+2.1.4
