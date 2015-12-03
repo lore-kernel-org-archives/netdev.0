@@ -1,47 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2] i40e: Fix i40e_print_features() VEB mode output
-Date: Thu, 03 Dec 2015 11:49:46 -0500 (EST)
-Message-ID: <20151203.114946.1155215569226167223.davem@davemloft.net>
-References: <1449145257-110262-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH v2 net] ipv6: kill sk_dst_lock
+Date: Thu, 3 Dec 2015 08:49:59 -0800
+Message-ID: <CANn89iKYvoAnCcj8VDCpjYV5zmXW6W3B8riGUdEBveN9XFH2cg@mail.gmail.com>
+References: <1448901315.24696.127.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20151202.234216.1113392733011218992.davem@davemloft.net>
+	<1449122037.6379.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20151203.113243.972969856777923620.davem@davemloft.net>
+	<CANn89iJAbL+RJMhpFk552oV13VsQJwVoZ4GrFiAWSe+5aFUfFQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, joe@perches.com,
-	netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
-	shannon.nelson@intel.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41264 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751621AbbLCQts (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 11:49:48 -0500
-In-Reply-To: <1449145257-110262-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:36303 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752095AbbLCQuA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 11:50:00 -0500
+Received: by wmww144 with SMTP id w144so29340365wmw.1
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 08:49:59 -0800 (PST)
+In-Reply-To: <CANn89iJAbL+RJMhpFk552oV13VsQJwVoZ4GrFiAWSe+5aFUfFQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu,  3 Dec 2015 04:20:57 -0800
+On Thu, Dec 3, 2015 at 8:49 AM, Eric Dumazet <edumazet@google.com> wrote:
+> Hmm... I got lazy yesterday night I sent the same patch from my
+> laptop, only changelog was updated.
 
-> From: Joe Perches <joe@perches.com>
-> 
-> Commit 7fd89545f337 ("i40e: remove BUG_ON from feature string building")
-> added defective output when I40E_FLAG_VEB_MODE_ENABLED was set in
-> function i40e_print_features.
-> 
-> Fix it.
-> 
-> Miscellanea:
-> 
-> - Remove unnecessary string variable
-> - Add space before not after fixed strings
-> - Use kmalloc not kzalloc
-> - Don't initialize i to 0, use result of first snprintf
-> 
-> Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
-> v2: fixed patch conflicts when trying to apply to my next-queue tree
->     (dev-queue branch), also fixed "Noticed-by" to the more acceptable
->     "Reported-by"
-
-Applied, thanks.
+Sorry for top posting.
