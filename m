@@ -1,40 +1,27 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 4.4-rc2 xfrm_lookup kasan trace
-Date: Thu, 03 Dec 2015 09:09:38 -0800
-Message-ID: <1449162578.25029.0.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151130232733.GA27119@codemonkey.org.uk>
-	 <1448932931.25582.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151203.115918.730123340200500473.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2015-12-03
+Date: Thu, 03 Dec 2015 12:11:17 -0500 (EST)
+Message-ID: <20151203.121117.1354630906230378451.davem@davemloft.net>
+References: <1449149160-105219-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davej@codemonkey.org.uk, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:35779 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752689AbbLCRJl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 12:09:41 -0500
-Received: by pacej9 with SMTP id ej9so72098362pac.2
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 09:09:40 -0800 (PST)
-In-Reply-To: <20151203.115918.730123340200500473.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41458 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752337AbbLCRLT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 12:11:19 -0500
+In-Reply-To: <1449149160-105219-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-12-03 at 11:59 -0500, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 30 Nov 2015 17:22:11 -0800
-> 
-> > @@ -2198,6 +2198,7 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
-> >  	xdst = NULL;
-> >  	route = NULL;
-> >  
-> > +	sk = sk_to_full_sk((struct sock *)sk);
-> 
-> The war against const...
-> 
-> I know this is the only instance where const is input, but you may want to
-> consider adding the const verion of the helper anyways to avoid ugly casts
-> like this.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu,  3 Dec 2015 05:25:45 -0800
 
-Agreed, it is sad C language has no way to 'propagate' the const..
+> This series contains updates to i40e and i40evf only.
+
+Pulled, thanks Jeff.
