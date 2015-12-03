@@ -1,42 +1,57 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next v2 0/5] ila: Optimization to preserve value of
- early demux
-Date: Thu, 3 Dec 2015 11:59:31 -0800
-Message-ID: <CALx6S358G5c47hUEHMYmhkZjnTqfAOD9kEEk2L92Y15TYA7=eg@mail.gmail.com>
-References: <1449011472-1459652-1-git-send-email-tom@herbertland.com>
-	<20151203.144845.271629627276792795.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net_sched: fix qdisc_tree_decrease_qlen() races
+Date: Thu, 03 Dec 2015 14:59:40 -0500 (EST)
+Message-ID: <20151203.145940.1297777652481637863.davem@davemloft.net>
+References: <CAHA+R7M++LboS_2OmhNjoApvFf6Xk-e+vsEgZrFeKG+k1J8edw@mail.gmail.com>
+	<1449011431.32764.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1449029331.32764.24.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: cwang@twopensource.com, pageexec@freemail.hu, dfucini@gmail.com,
+	netdev@vger.kernel.org, jhs@mojatatu.com, spender@grsecurity.net,
+	re.emese@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:33604 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753264AbbLCT7b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 14:59:31 -0500
-Received: by iouu10 with SMTP id u10so95078024iou.0
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 11:59:31 -0800 (PST)
-In-Reply-To: <20151203.144845.271629627276792795.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44784 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753264AbbLCT7m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 14:59:42 -0500
+In-Reply-To: <1449029331.32764.24.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 3, 2015 at 11:48 AM, David Miller <davem@davemloft.net> wrote:
-> From: Tom Herbert <tom@herbertland.com>
-> Date: Tue, 1 Dec 2015 15:11:07 -0800
->
->> ip6tables -t mangle -A PREROUTING --dst 2001:0:0:33::/64 -j ILAIN
->
-> The user should have to do anything like this in order to just get
-> proper working functionality of ILA.
->
-> It should just work transparently.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 01 Dec 2015 20:08:51 -0800
 
-This was transparent in the previously posted patch "ila: Add support
-for netfilter NF_INET_PRE_ROUTING hook", but there was significant
-pushback that NF interface was not intended for this purpose. Using an
-IP tables target like this should preserve the sanctity of the
-interfaces and does provide nice performance improvement since
-PREROUTING is done before early demux. The NF_INET_PRE_ROUTING hook is
-still better performance though and what we are using internally (just
-an incremental change on top of these patches).
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> qdisc_tree_decrease_qlen() suffers from two problems on multiqueue
+> devices.
+> 
+> One problem is that it updates sch->q.qlen and sch->qstats.drops
+> on the mq/mqprio root qdisc, while it should not : Daniele
+> reported underflows errors : 
+ ...
+> mq/mqprio have their own ways to report qlen/drops by folding stats on
+> all their queues, with appropriate locking.
+> 
+> A second problem is that qdisc_tree_decrease_qlen() calls qdisc_lookup()
+> without proper locking : concurrent qdisc updates could corrupt the list
+> that qdisc_match_from_root() parses to find a qdisc given its handle.
+> 
+> Fix first problem adding a TCQ_F_NOPARENT qdisc flag that
+> qdisc_tree_decrease_qlen() can use to abort its tree traversal,
+> as soon as it meets a mq/mqprio qdisc children.
+> 
+> Second problem can be fixed by RCU protection.
+> Qdisc are already freed after RCU grace period, so qdisc_list_add() and
+> qdisc_list_del() simply have to use appropriate rcu list variants.
+> 
+> A future patch will add a per struct netdev_queue list anchor, so that
+> qdisc_tree_decrease_qlen() can have more efficient lookups.
+> 
+> Reported-by: Daniele Fucini <dfucini@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+Applied and queued up for -stable, thanks Eric!
