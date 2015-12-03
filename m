@@ -1,66 +1,135 @@
-From: Andrey Ryabinin <ryabinin.a.a@gmail.com>
-Subject: Re: [PATCH v4 2/3] mac80211: Prevent build failure with CONFIG_UBSAN=y
-Date: Thu, 3 Dec 2015 22:18:05 +0300
-Message-ID: <CAPAsAGyXcsGrneze--o+F=tJpV4cmdgfB-MxZ5S3yB10nG+v3A@mail.gmail.com>
-References: <1449157807-20298-1-git-send-email-aryabinin@virtuozzo.com>
-	<1449157807-20298-3-git-send-email-aryabinin@virtuozzo.com>
-	<1449162322.31265.2.camel@sipsolutions.net>
+From: Chris Snook <chris.snook@gmail.com>
+Subject: Re: [PATCH] Improve Atheros ethernet driver not to do order 4
+ GFP_ATOMIC allocation
+Date: Thu, 03 Dec 2015 19:26:01 +0000
+Message-ID: <CAMXMK6v3i0djY2kW4OmJPvc5CuYFu8WeYeKa=Z0WSvk48wa6Rg@mail.gmail.com>
+References: <20151127082010.GA2500@dhcp22.suse.cz> <20151128145113.GB4135@amd>
+ <20151130132129.GB21950@dhcp22.suse.cz> <20151201.153517.224543138214404348.davem@davemloft.net>
+ <CAMXMK6u1vQ772SGv-J3cKvOmS6QRAjjQLYiSiWO2+T=HRTiK1A@mail.gmail.com> <20151203081646.GB9264@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-wireless@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	Jonathan Corbet <corbet@lwn.net>,
-	Michal Marek <mmarek@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Yury Gribov <y.gribov@samsung.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Konstantin Khlebnikov <koct9i@gmail.com>,
-	Kostya Serebryany <kcc@google.com>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"open list:DOCUMENTATION" <linux-doc@vger.kernel.org>,
-	"open list:KERNEL BUILD + fi..." <linux-kbuild@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1449162322.31265.2.camel@sipsolutions.net>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Type: multipart/alternative; boundary=001a113cf54404df780526035d0d
+Cc: David Miller <davem@davemloft.net>, pavel@ucw.cz, akpm@osdl.org,
+	linux-kernel@vger.kernel.org, jcliburn@gmail.com, netdev@vger.kernel.org,
+	rjw@rjwysocki.net, linux-mm@kvack.org, nic-devel@qualcomm.com,
+	ronangeles@gmail.com, ebiederm@xmission.com
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20151203081646.GB9264@dhcp22.suse.cz>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-2015-12-03 20:05 GMT+03:00 Johannes Berg <johannes@sipsolutions.net>:
-> On Thu, 2015-12-03 at 18:50 +0300, Andrey Ryabinin wrote:
->> With upcoming CONFIG_UBSAN the following BUILD_BUG_ON in
->> net/mac80211/debugfs.c starts to trigger:
->>       BUILD_BUG_ON(hw_flag_names[NUM_IEEE80211_HW_FLAGS] != (void
->> *)0x1);
->>
->> It seems, that compiler instrumentation causes some code
->> deoptimizations.
->> Because of that GCC is not being able to resolve condition in
->> BUILD_BUG_ON()
->> at compile time.
->>
->> We could make size of hw_flag_names array unspecified and replace the
->> condition in BUILD_BUG_ON() with following:
->>       ARRAY_SIZE(hw_flag_names) != NUM_IEEE80211_HW_FLAGS
->>
->> That will have the same effect as before (adding new flag without
->> updating
->> array will trigger build failure) except it doesn't fail with
->> CONFIG_UBSAN.
->> As a bonus this patch slightly decreases size of hw_flag_names array.
->>
-> Seems fine, would you want to take it through some other tree together
-> with UBSAN, or do you expect that to still take long enough to allow
-> this to trickle through our trees?
+--001a113cf54404df780526035d0d
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, Dec 3, 2015 at 12:16 AM Michal Hocko <mhocko@kernel.org> wrote:
+
+> On Wed 02-12-15 22:43:31, Chris Snook wrote:
+> > On Tue, Dec 1, 2015 at 12:35 PM David Miller <davem@davemloft.net>
+> wrote:
+> >
+> > > From: Michal Hocko <mhocko@kernel.org>
+> > > Date: Mon, 30 Nov 2015 14:21:29 +0100
+> > >
+> > > > On Sat 28-11-15 15:51:13, Pavel Machek wrote:
+> > > >>
+> > > >> atl1c driver is doing order-4 allocation with GFP_ATOMIC
+> > > >> priority. That often breaks  networking after resume. Switch to
+> > > >> GFP_KERNEL. Still not ideal, but should be significantly better.
+> > > >
+> > > > It is not clear why GFP_KERNEL can replace GFP_ATOMIC safely neithe=
+r
+> > > > from the changelog nor from the patch context.
+> > >
+> > > Earlier in the function we do a GFP_KERNEL kmalloc so:
+> > >
+> > > =C2=AF\_(=E3=83=84)_/=C2=AF
+> > >
+> > > It should be fine.
+> > >
+> >
+> > AFAICT, the people who benefit from GFP_ATOMIC are the people running a=
+ll
+> > their storage over NFS/iSCSI who are suspending their machines while
+> > they're so busy they don't have any clean order 4 pagecache to drop, an=
+d
+> > want the machine to panic rather than hang.
+>
+> Why would GFP_KERNEL order-4 allocation hang? It will fail if there are
+> not >=3D4 order pages available even after reclaim and/or compaction.
+> GFP_ATOMIC allocations should be used only when an access to memory
+> reserves is really required. If the allocation just doesn't want to
+> invoke direct reclaim then GFP_NOWAIT is a more suitable alternative.
 >
 
-I expect that Andrew will take it with UBSAN for 4.5
+The *machine* may hang if you can't bring back the interface that's
+required to access the storage. It's a ridiculous use case, as Pavel noted.
+I only pointed it out to note that there exists a rationale for GFP_ATOMIC.
+It just isn't nearly as good as the rationale for using GFP_KERNEL.
+
+-- Chris
+
+--001a113cf54404df780526035d0d
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr"><div class=3D"gmail_quote"><div dir=3D"ltr">On Thu, Dec 3,=
+ 2015 at 12:16 AM Michal Hocko &lt;<a href=3D"mailto:mhocko@kernel.org">mho=
+cko@kernel.org</a>&gt; wrote:<br></div><blockquote class=3D"gmail_quote" st=
+yle=3D"margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">On We=
+d 02-12-15 22:43:31, Chris Snook wrote:<br>
+&gt; On Tue, Dec 1, 2015 at 12:35 PM David Miller &lt;<a href=3D"mailto:dav=
+em@davemloft.net" target=3D"_blank">davem@davemloft.net</a>&gt; wrote:<br>
+&gt;<br>
+&gt; &gt; From: Michal Hocko &lt;<a href=3D"mailto:mhocko@kernel.org" targe=
+t=3D"_blank">mhocko@kernel.org</a>&gt;<br>
+&gt; &gt; Date: Mon, 30 Nov 2015 14:21:29 +0100<br>
+&gt; &gt;<br>
+&gt; &gt; &gt; On Sat 28-11-15 15:51:13, Pavel Machek wrote:<br>
+&gt; &gt; &gt;&gt;<br>
+&gt; &gt; &gt;&gt; atl1c driver is doing order-4 allocation with GFP_ATOMIC=
+<br>
+&gt; &gt; &gt;&gt; priority. That often breaks=C2=A0 networking after resum=
+e. Switch to<br>
+&gt; &gt; &gt;&gt; GFP_KERNEL. Still not ideal, but should be significantly=
+ better.<br>
+&gt; &gt; &gt;<br>
+&gt; &gt; &gt; It is not clear why GFP_KERNEL can replace GFP_ATOMIC safely=
+ neither<br>
+&gt; &gt; &gt; from the changelog nor from the patch context.<br>
+&gt; &gt;<br>
+&gt; &gt; Earlier in the function we do a GFP_KERNEL kmalloc so:<br>
+&gt; &gt;<br>
+&gt; &gt; =C2=AF\_(=E3=83=84)_/=C2=AF<br>
+&gt; &gt;<br>
+&gt; &gt; It should be fine.<br>
+&gt; &gt;<br>
+&gt;<br>
+&gt; AFAICT, the people who benefit from GFP_ATOMIC are the people running =
+all<br>
+&gt; their storage over NFS/iSCSI who are suspending their machines while<b=
+r>
+&gt; they&#39;re so busy they don&#39;t have any clean order 4 pagecache to=
+ drop, and<br>
+&gt; want the machine to panic rather than hang.<br>
+<br>
+Why would GFP_KERNEL order-4 allocation hang? It will fail if there are<br>
+not &gt;=3D4 order pages available even after reclaim and/or compaction.<br=
+>
+GFP_ATOMIC allocations should be used only when an access to memory<br>
+reserves is really required. If the allocation just doesn&#39;t want to<br>
+invoke direct reclaim then GFP_NOWAIT is a more suitable alternative.<br></=
+blockquote><div><br></div><div>The *machine* may hang if you can&#39;t brin=
+g back the interface that&#39;s required to access the storage. It&#39;s a =
+ridiculous use case, as Pavel noted. I only pointed it out to note that the=
+re exists a rationale for GFP_ATOMIC. It just isn&#39;t nearly as good as t=
+he rationale for using GFP_KERNEL.<br><br></div><div>-- Chris<br></div></di=
+v></div>
+
+--001a113cf54404df780526035d0d--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
