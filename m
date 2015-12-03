@@ -1,27 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/2] ravb: More compatibility strings
-Date: Thu, 03 Dec 2015 15:01:27 -0500 (EST)
-Message-ID: <20151203.150127.704957742248906445.davem@davemloft.net>
-References: <1449035913-9129-1-git-send-email-horms+renesas@verge.net.au>
+Subject: Re: [PATCH] net: lpc_eth: remove irq > NR_IRQS check from probe()
+Date: Thu, 03 Dec 2015 15:02:52 -0500 (EST)
+Message-ID: <20151203.150252.916768886355672458.davem@davemloft.net>
+References: <1449036733-20632-1-git-send-email-vz@mleia.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	magnus.damm@gmail.com, sergei.shtylyov@cogentembedded.com,
-	devicetree@vger.kernel.org
-To: horms+renesas@verge.net.au
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1449035913-9129-1-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: vz@mleia.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45047 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753285AbbLCUCy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 15:02:54 -0500
+In-Reply-To: <1449036733-20632-1-git-send-email-vz@mleia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms+renesas@verge.net.au>
-Date: Wed,  2 Dec 2015 14:58:31 +0900
+From: Vladimir Zapolskiy <vz@mleia.com>
+Date: Wed,  2 Dec 2015 08:12:13 +0200
 
-> this short series adds generic gen2 and gen3, and soc-specific
-> compatibility strings for the missing gen2 SoCs.
+> If the driver is used on an ARM platform with SPARSE_IRQ defined,
+> semantics of NR_IRQS is different (minimal value of virtual irqs) and
+> by default it is set to 16, see arch/arm/include/asm/irq.h.
 > 
-> Key Changes in v2:
-> * Include "rcar-" in generic bindings
+> This value may be less than the actual number of virtual irqs, which
+> may break the driver initialization. The check removal allows to use
+> the driver on such a platform, and, if irq controller driver works
+> correctly, the check is not needed on legacy platforms.
+> 
+> Fixes a runtime problem:
+> 
+>     lpc-eth 31060000.ethernet: error getting resources.
+>     lpc_eth: lpc-eth: not found (-6).
+> 
+> Signed-off-by: Vladimir Zapolskiy <vz@mleia.com>
 
-Series applied, thanks Simon.
+Applied.
