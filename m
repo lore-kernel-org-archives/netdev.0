@@ -1,110 +1,198 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 02/15] ixgbe: Add support for newer thermal alarm
-Date: Thu,  3 Dec 2015 03:07:10 -0800
-Message-ID: <1449140843-118580-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/15] ixgbe: Save VF info and take references
+Date: Thu,  3 Dec 2015 03:07:20 -0800
+Message-ID: <1449140843-118580-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449140843-118580-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:27448 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:63144 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759867AbbLCLH1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 06:07:27 -0500
+	id S1759885AbbLCLHc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2015 06:07:32 -0500
 In-Reply-To: <1449140843-118580-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mark Rustad <mark.d.rustad@intel.com>
 
-The newer copper PHY implementation used with newer X550EM_x
-devices uses a different thermal alarm type than the earlier
-one. Make changes to support both types.
+Save VF device pointers and take references to speed accesses used
+to monitor the device behavior to avoid slot resets. The saved
+information avoids lock contention during the search used to access
+each of the VFs.
 
 Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
 Tested-by: Darin Miller <darin.j.miller@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  4 ++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 22 +++++++++++++++++++---
- 2 files changed, 23 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 31 ++++++----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 50 ++++++++++++++++++++++++--
+ 3 files changed, 59 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 995f031..927349d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -1345,7 +1345,10 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_MDIO_GLOBAL_INT_CHIP_VEN_MASK	0xFF01 /* int chip-wide mask */
- #define IXGBE_MDIO_GLOBAL_INT_CHIP_VEN_FLAG	0xFC01 /* int chip-wide mask */
- #define IXGBE_MDIO_GLOBAL_ALARM_1		0xCC00 /* Global alarm 1 */
-+#define IXGBE_MDIO_GLOBAL_ALM_1_DEV_FAULT	0x0010 /* device fault */
- #define IXGBE_MDIO_GLOBAL_ALM_1_HI_TMP_FAIL	0x4000 /* high temp failure */
-+#define IXGBE_MDIO_GLOBAL_FAULT_MSG		0xC850 /* global fault msg */
-+#define IXGBE_MDIO_GLOBAL_FAULT_MSG_HI_TMP	0x8007 /* high temp failure */
- #define IXGBE_MDIO_GLOBAL_INT_MASK		0xD400 /* Global int mask */
- /* autoneg vendor alarm int enable */
- #define IXGBE_MDIO_GLOBAL_AN_VEN_ALM_INT_EN	0x1000
-@@ -1353,6 +1356,7 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_MDIO_GLOBAL_VEN_ALM_INT_EN	0x1 /* vendor alarm int enable */
- #define IXGBE_MDIO_GLOBAL_STD_ALM2_INT		0x200 /* vendor alarm2 int mask */
- #define IXGBE_MDIO_GLOBAL_INT_HI_TEMP_EN	0x4000 /* int high temp enable */
-+#define IXGBE_MDIO_GLOBAL_INT_DEV_FAULT_EN	0x0010 /*int dev fault enable */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 518f339..445b4c9 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -139,6 +139,7 @@ enum ixgbe_tx_flags {
+ #define IXGBE_X540_VF_DEVICE_ID         0x1515
  
- #define IXGBE_MDIO_PMA_PMD_SDA_SCL_ADDR	0xC30A /* PHY_XS SDA/SCL Addr Reg */
- #define IXGBE_MDIO_PMA_PMD_SDA_SCL_DATA	0xC30B /* PHY_XS SDA/SCL Data Reg */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index a9c73b7..b8ad3f2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -1444,7 +1444,7 @@ static s32 ixgbe_get_lasi_ext_t_x550em(struct ixgbe_hw *hw, bool *lsc)
- 				IXGBE_MDIO_GLOBAL_ALARM_1_INT)))
- 		return status;
+ struct vf_data_storage {
++	struct pci_dev *vfdev;
+ 	unsigned char vf_mac_addresses[ETH_ALEN];
+ 	u16 vf_mc_hashes[IXGBE_MAX_VF_MC_ENTRIES];
+ 	u16 num_vf_mc_hashes;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 6192628..a10a0fa 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -6666,10 +6666,8 @@ static void ixgbe_check_for_bad_vf(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct pci_dev *pdev = adapter->pdev;
+-	struct pci_dev *vfdev;
++	unsigned int vf;
+ 	u32 gpc;
+-	int pos;
+-	unsigned short vf_id;
  
--	/* High temperature failure alarm triggered */
-+	/* Global alarm triggered */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_ALARM_1,
- 				      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
- 				      &reg);
-@@ -1458,6 +1458,21 @@ static s32 ixgbe_get_lasi_ext_t_x550em(struct ixgbe_hw *hw, bool *lsc)
- 		ixgbe_set_copper_phy_power(hw, false);
- 		return IXGBE_ERR_OVERTEMP;
+ 	if (!(netif_carrier_ok(adapter->netdev)))
+ 		return;
+@@ -6686,26 +6684,17 @@ static void ixgbe_check_for_bad_vf(struct ixgbe_adapter *adapter)
+ 	if (!pdev)
+ 		return;
+ 
+-	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
+-	if (!pos)
+-		return;
+-
+-	/* get the device ID for the VF */
+-	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_DID, &vf_id);
+-
+ 	/* check status reg for all VFs owned by this PF */
+-	vfdev = pci_get_device(pdev->vendor, vf_id, NULL);
+-	while (vfdev) {
+-		if (vfdev->is_virtfn && (vfdev->physfn == pdev)) {
+-			u16 status_reg;
+-
+-			pci_read_config_word(vfdev, PCI_STATUS, &status_reg);
+-			if (status_reg & PCI_STATUS_REC_MASTER_ABORT)
+-				/* issue VFLR */
+-				ixgbe_issue_vf_flr(adapter, vfdev);
+-		}
++	for (vf = 0; vf < adapter->num_vfs; ++vf) {
++		struct pci_dev *vfdev = adapter->vfinfo[vf].vfdev;
++		u16 status_reg;
+ 
+-		vfdev = pci_get_device(pdev->vendor, vf_id, vfdev);
++		if (!vfdev)
++			continue;
++		pci_read_config_word(vfdev, PCI_STATUS, &status_reg);
++		if (status_reg != IXGBE_FAILED_READ_CFG_WORD &&
++		    status_reg & PCI_STATUS_REC_MASTER_ABORT)
++			ixgbe_issue_vf_flr(adapter, vfdev);
  	}
-+	if (reg & IXGBE_MDIO_GLOBAL_ALM_1_DEV_FAULT) {
-+		/*  device fault alarm triggered */
-+		status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_FAULT_MSG,
-+					  IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
-+					  &reg);
-+		if (status)
-+			return status;
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index fcd8b27..31de6cf 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel 10 Gigabit PCI Express Linux driver
+-  Copyright(c) 1999 - 2014 Intel Corporation.
++  Copyright(c) 1999 - 2015 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -130,6 +130,38 @@ static int __ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
+ 	return -ENOMEM;
+ }
+ 
++/**
++ * ixgbe_get_vfs - Find and take references to all vf devices
++ * @adapter: Pointer to adapter struct
++ */
++static void ixgbe_get_vfs(struct ixgbe_adapter *adapter)
++{
++	struct pci_dev *pdev = adapter->pdev;
++	u16 vendor = pdev->vendor;
++	struct pci_dev *vfdev;
++	int vf = 0;
++	u16 vf_id;
++	int pos;
 +
-+		/* if device fault was due to high temp alarm handle and exit */
-+		if (reg == IXGBE_MDIO_GLOBAL_FAULT_MSG_HI_TMP) {
-+			/* power down the PHY in case the PHY FW didn't */
-+			ixgbe_set_copper_phy_power(hw, false);
-+			return IXGBE_ERR_OVERTEMP;
-+		}
++	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
++	if (!pos)
++		return;
++	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_DID, &vf_id);
++
++	vfdev = pci_get_device(vendor, vf_id, NULL);
++	for (; vfdev; vfdev = pci_get_device(vendor, vf_id, vfdev)) {
++		if (!vfdev->is_virtfn)
++			continue;
++		if (vfdev->physfn != pdev)
++			continue;
++		if (vf >= adapter->num_vfs)
++			continue;
++		pci_dev_get(vfdev);
++		adapter->vfinfo[vf].vfdev = vfdev;
++		++vf;
++	}
++}
++
+ /* Note this function is called when the user wants to enable SR-IOV
+  * VFs using the now deprecated module parameter
+  */
+@@ -170,8 +202,10 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
+ 		}
+ 	}
+ 
+-	if (!__ixgbe_enable_sriov(adapter))
++	if (!__ixgbe_enable_sriov(adapter)) {
++		ixgbe_get_vfs(adapter);
+ 		return;
 +	}
  
- 	/* Vendor alarm 2 triggered */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_CHIP_STD_INT_FLAG,
-@@ -1511,14 +1526,15 @@ static s32 ixgbe_enable_lasi_ext_t_x550em(struct ixgbe_hw *hw)
- 	if (status)
- 		return status;
+ 	/* If we have gotten to this point then there is no memory available
+ 	 * to manage the VF devices - print message and bail.
+@@ -184,6 +218,7 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
+ #endif /* #ifdef CONFIG_PCI_IOV */
+ int ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
+ {
++	unsigned int num_vfs = adapter->num_vfs, vf;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 gpie;
+ 	u32 vmdctl;
+@@ -192,6 +227,16 @@ int ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
+ 	/* set num VFs to 0 to prevent access to vfinfo */
+ 	adapter->num_vfs = 0;
  
--	/* Enables high temperature failure alarm */
-+	/* Enable high temperature failure and global fault alarms */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_INT_MASK,
- 				      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
- 				      &reg);
- 	if (status)
- 		return status;
++	/* put the reference to all of the vf devices */
++	for (vf = 0; vf < num_vfs; ++vf) {
++		struct pci_dev *vfdev = adapter->vfinfo[vf].vfdev;
++
++		if (!vfdev)
++			continue;
++		adapter->vfinfo[vf].vfdev = NULL;
++		pci_dev_put(vfdev);
++	}
++
+ 	/* free VF control structures */
+ 	kfree(adapter->vfinfo);
+ 	adapter->vfinfo = NULL;
+@@ -289,6 +334,7 @@ static int ixgbe_pci_sriov_enable(struct pci_dev *dev, int num_vfs)
+ 		e_dev_warn("Failed to enable PCI sriov: %d\n", err);
+ 		return err;
+ 	}
++	ixgbe_get_vfs(adapter);
+ 	ixgbe_sriov_reinit(adapter);
  
--	reg |= IXGBE_MDIO_GLOBAL_INT_HI_TEMP_EN;
-+	reg |= (IXGBE_MDIO_GLOBAL_INT_HI_TEMP_EN |
-+		IXGBE_MDIO_GLOBAL_INT_DEV_FAULT_EN);
- 
- 	status = hw->phy.ops.write_reg(hw, IXGBE_MDIO_GLOBAL_INT_MASK,
- 				       IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
+ 	return num_vfs;
 -- 
 2.5.0
