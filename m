@@ -1,57 +1,29 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: Re: use-after-free in sctp_do_sm
-Date: Thu, 3 Dec 2015 15:10:15 -0500
-Message-ID: <5660A1A7.3080301@akamai.com>
-References: <CACT4Y+ZnWRZfQC25uW=GXHAJB=GX0L6tJQUy43P6WNR3=hwT8Q@mail.gmail.com>
- <20151203130525.GB4164@mrl.redhat.com>
- <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
- <CANn89iKEv-q6EFi1eX+Hk_2+jNfZ0ayUqUn_Fh1U7RTs9xjdXg@mail.gmail.com>
- <CACT4Y+bgeqS05zqkAHkxzAP7fuvFSkeEybwDTizw6Gp8KK28Fw@mail.gmail.com>
- <CANn89i+d=mTJ-hAhhgPXsZPGAkQdECxRdbkeRLfozRq8i9Ms+g@mail.gmail.com>
- <CACT4Y+YJe-OJj9q1Kr5-_ApDt1UBKLjTRxhP62EHtEAwZt5vXw@mail.gmail.com>
- <f7twpsvgyar.fsf@aconole.bos.csb> <566098BD.6010803@akamai.com>
- <1449172984.12092.0.camel@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net 0/3] bnxt_en: set mac address and uc_list bug
+ fixes.
+Date: Thu, 03 Dec 2015 15:10:39 -0500 (EST)
+Message-ID: <20151203.151039.315892178286944602.davem@davemloft.net>
+References: <1449039248-8745-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Joe Perches <joe@perches.com>, Aaron Conole <aconole@redhat.com>,
-	Dmitry Vyukov <dvyukov@google.com>
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:43561 "EHLO
-	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753387AbbLCUKQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 15:10:16 -0500
-In-Reply-To: <1449172984.12092.0.camel@perches.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45455 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753271AbbLCUKk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 15:10:40 -0500
+In-Reply-To: <1449039248-8745-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Michael Chan <mchan@broadcom.com>
+Date: Wed, 2 Dec 2015 01:54:05 -0500
 
-
-On 12/03/2015 03:03 PM, Joe Perches wrote:
-> On Thu, 2015-12-03 at 14:32 -0500, Jason Baron wrote:
->> On 12/03/2015 01:52 PM, Aaron Conole wrote:
->>> I think that as a minimum, the following patch should be evaluted,
->>> but am unsure to whom I should submit it (after I test):
-> []
->> Agreed - the intention here is certainly to have no side effects. It
->> looks like 'no_printk()' is used in quite a few other places that would
->> benefit from this change. So we probably want a generic
->> 'really_no_printk()' macro.
+> Fix ndo_set_mac_address() for PF and VF.
+> Re-apply uc_list after chip reset.
 > 
-> https://lkml.org/lkml/2012/6/17/231
-> 
+> v2: Fix compile error if CONFIG_BNXT_SRIOV is not set.
 
-I don't see this in the tree. Also maybe we should just convert
-no_printk() to do what your 'eliminated_printk()'. So we can convert all
-users with this change?
-
-Thanks,
-
--Jason
+Series applied, thanks Michael.
