@@ -1,89 +1,70 @@
-From: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Subject: [PATCH v4 2/3] mac80211: Prevent build failure with CONFIG_UBSAN=y
-Date: Thu, 3 Dec 2015 18:50:06 +0300
-Message-ID: <1449157807-20298-3-git-send-email-aryabinin@virtuozzo.com>
-References: <1449157807-20298-1-git-send-email-aryabinin@virtuozzo.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: use-after-free in sctp_do_sm
+Date: Thu, 3 Dec 2015 16:55:44 +0100
+Message-ID: <CACT4Y+bgeqS05zqkAHkxzAP7fuvFSkeEybwDTizw6Gp8KK28Fw@mail.gmail.com>
+References: <CACT4Y+ZnWRZfQC25uW=GXHAJB=GX0L6tJQUy43P6WNR3=hwT8Q@mail.gmail.com>
+ <20151203130525.GB4164@mrl.redhat.com> <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
+ <CANn89iKEv-q6EFi1eX+Hk_2+jNfZ0ayUqUn_Fh1U7RTs9xjdXg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	Jonathan Corbet <corbet@lwn.net>,
-	Michal Marek <mmarek@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Yury Gribov <y.gribov@samsung.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Konstantin Khlebnikov <koct9i@gmail.com>,
-	Kostya Serebryany <kcc@google.com>, <x86@kernel.org>,
-	<linux-doc@vger.kernel.org>, <linux-kbuild@vger.kernel.org>
-To: <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449157807-20298-1-git-send-email-aryabinin@virtuozzo.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller <syzkaller@googlegroups.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:35688 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757189AbbLCP4G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 10:56:06 -0500
+Received: by wmuu63 with SMTP id u63so27095100wmu.0
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 07:56:04 -0800 (PST)
+In-Reply-To: <CANn89iKEv-q6EFi1eX+Hk_2+jNfZ0ayUqUn_Fh1U7RTs9xjdXg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With upcoming CONFIG_UBSAN the following BUILD_BUG_ON in
-net/mac80211/debugfs.c starts to trigger:
-	BUILD_BUG_ON(hw_flag_names[NUM_IEEE80211_HW_FLAGS] != (void *)0x1);
+On Thu, Dec 3, 2015 at 3:48 PM, Eric Dumazet <edumazet@google.com> wrote:
+>>
+>> No, I don't. But pr_debug always computes its arguments. See no_printk
+>> in printk.h. So this use-after-free happens for all users.
+>
+> Hmm.
+>
+> pr_debug() should be a nop unless either DEBUG or CONFIG_DYNAMIC_DEBUG are set
+>
+> On our production kernels, pr_debug() is a nop.
+>
+> Can you double check ? Thanks !
 
-It seems, that compiler instrumentation causes some code deoptimizations.
-Because of that GCC is not being able to resolve condition in BUILD_BUG_ON()
-at compile time.
 
-We could make size of hw_flag_names array unspecified and replace the
-condition in BUILD_BUG_ON() with following:
-	ARRAY_SIZE(hw_flag_names) != NUM_IEEE80211_HW_FLAGS
+Why should it be nop? no_printk thing in printk.h pretty much
+explicitly makes it not a nop...
 
-That will have the same effect as before (adding new flag without updating
-array will trigger build failure) except it doesn't fail with CONFIG_UBSAN.
-As a bonus this patch slightly decreases size of hw_flag_names array.
+Double-checked: debug_post_sfx leads to some generated code:
 
-Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Cc: Johannes Berg <johannes@sipsolutions.net>
-Cc: "David S. Miller" <davem@davemloft.net>
----
- net/mac80211/debugfs.c | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+        debug_post_sfx();
+ffffffff8229f256:       48 8b 85 58 fe ff ff    mov    -0x1a8(%rbp),%rax
+ffffffff8229f25d:       48 85 c0                test   %rax,%rax
+ffffffff8229f260:       74 24                   je
+ffffffff8229f286 <sctp_do_sm+0x176>
+ffffffff8229f262:       8b b0 a8 00 00 00       mov    0xa8(%rax),%esi
+ffffffff8229f268:       48 8b 85 60 fe ff ff    mov    -0x1a0(%rbp),%rax
+ffffffff8229f26f:       44 89 85 74 fe ff ff    mov    %r8d,-0x18c(%rbp)
+ffffffff8229f276:       48 8b 78 20             mov    0x20(%rax),%rdi
+ffffffff8229f27a:       e8 71 28 01 00          callq
+ffffffff822b1af0 <sctp_id2assoc>
+ffffffff8229f27f:       44 8b 85 74 fe ff ff    mov    -0x18c(%rbp),%r8d
 
-diff --git a/net/mac80211/debugfs.c b/net/mac80211/debugfs.c
-index abbdff0..3e24d0d 100644
---- a/net/mac80211/debugfs.c
-+++ b/net/mac80211/debugfs.c
-@@ -91,7 +91,7 @@ static const struct file_operations reset_ops = {
- };
- #endif
- 
--static const char *hw_flag_names[NUM_IEEE80211_HW_FLAGS + 1] = {
-+static const char *hw_flag_names[] = {
- #define FLAG(F)	[IEEE80211_HW_##F] = #F
- 	FLAG(HAS_RATE_CONTROL),
- 	FLAG(RX_INCLUDES_FCS),
-@@ -126,9 +126,6 @@ static const char *hw_flag_names[NUM_IEEE80211_HW_FLAGS + 1] = {
- 	FLAG(SUPPORTS_AMSDU_IN_AMPDU),
- 	FLAG(BEACON_TX_STATUS),
- 	FLAG(NEEDS_UNIQUE_STA_ADDR),
--
--	/* keep last for the build bug below */
--	(void *)0x1
- #undef FLAG
- };
- 
-@@ -148,7 +145,7 @@ static ssize_t hwflags_read(struct file *file, char __user *user_buf,
- 	/* fail compilation if somebody adds or removes
- 	 * a flag without updating the name array above
- 	 */
--	BUILD_BUG_ON(hw_flag_names[NUM_IEEE80211_HW_FLAGS] != (void *)0x1);
-+	BUILD_BUG_ON(ARRAY_SIZE(hw_flag_names) != NUM_IEEE80211_HW_FLAGS);
- 
- 	for (i = 0; i < NUM_IEEE80211_HW_FLAGS; i++) {
- 		if (test_bit(i, local->hw.flags))
--- 
-2.4.10
+        return error;
+}
+ffffffff8229f286:       48 81 c4 a0 01 00 00    add    $0x1a0,%rsp
+ffffffff8229f28d:       44 89 c0                mov    %r8d,%eax
+ffffffff8229f290:       5b                      pop    %rbx
+ffffffff8229f291:       41 5c                   pop    %r12
+ffffffff8229f293:       41 5d                   pop    %r13
+ffffffff8229f295:       41 5e                   pop    %r14
+ffffffff8229f297:       41 5f                   pop    %r15
+ffffffff8229f299:       5d                      pop    %rbp
+ffffffff8229f29a:       c3                      retq
