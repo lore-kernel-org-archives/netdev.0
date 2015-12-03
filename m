@@ -1,49 +1,76 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH net 1/4] qed: Fix corner case for chain in-between pages
-Date: Thu, 3 Dec 2015 05:59:13 -0500
-Message-ID: <1449140356-17419-2-git-send-email-manish.chopra@qlogic.com>
-References: <1449140356-17419-1-git-send-email-manish.chopra@qlogic.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 1/1] atm: solos-pci: Replace simple_strtol by kstrtoint
+Date: Thu, 3 Dec 2015 14:41:14 +0300
+Message-ID: <56602A5A.4020701@cogentembedded.com>
+References: <1449060889-20447-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1449060889-20447-2-git-send-email-clabbe.montjoie@gmail.com>
+ <565EF9EB.3000509@cogentembedded.com> <20151203075257.GA13787@Red>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
-	<Yuval.Mintz@qlogic.com>, Tomer Tayar <Tomer.Tayar@qlogic.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:37787 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756081AbbLCLjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 06:39:31 -0500
-In-Reply-To: <1449140356-17419-1-git-send-email-manish.chopra@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: LABBE Corentin <clabbe.montjoie@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151203075257.GA13787@Red>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tomer Tayar <Tomer.Tayar@qlogic.com>
+Hello.
 
-The amount of chain next pointer elements between the producer
-and the consumer indices depends on which pages they currently
-point to. The current calculation is based only on their difference,
-and it can lead to a number of free elements which is higher by 1
-than the actual value.
+On 12/3/2015 10:52 AM, LABBE Corentin wrote:
 
-Signed-off-by: Tomer Tayar <Tomer.Tayar@qlogic.com>
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
----
- include/linux/qed/qed_chain.h |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+>>> The simple_strtol function is obsolete.
+>>> This patch replace it by kstrtoint.
+>>> This will simplify code, since some error case not handled by
+>>> simple_strtol are handled by kstrtoint.
+>>>
+>>> Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
+>>> ---
+>>>    drivers/atm/solos-pci.c | 28 +++++++++++++++-------------
+>>>    1 file changed, 15 insertions(+), 13 deletions(-)
+>>>
+>>> diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+>>> index 3d7fb65..f944d75 100644
+>>> --- a/drivers/atm/solos-pci.c
+>>> +++ b/drivers/atm/solos-pci.c
+>>> @@ -347,8 +347,8 @@ static char *next_string(struct sk_buff *skb)
+>>>     */
+>>>    static int process_status(struct solos_card *card, int port, struct sk_buff *skb)
+>>>    {
+>>> -	char *str, *end, *state_str, *snr, *attn;
+>>> -	int ver, rate_up, rate_down;
+>>> +	char *str, *state_str, *snr, *attn;
+>>> +	int ver, rate_up, rate_down, err;
+>>>
+>>>    	if (!card->atmdev[port])
+>>>    		return -ENODEV;
+>>> @@ -357,11 +357,11 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
+>>>    	if (!str)
+>>>    		return -EIO;
+>>>
+>>> -	ver = simple_strtol(str, NULL, 10);
+>>> -	if (ver < 1) {
+>>> +	err = kstrtoint(str, 10, &ver);
+>>> +	if (ver < 1 || err) {
+>>
+>>      Is 'ver' initialized in case of error? If not, you have to check 'err' first.
+>
+> Hello
+>
+> Whatever if ver is initialized,
 
-diff --git a/include/linux/qed/qed_chain.h b/include/linux/qed/qed_chain.h
-index b920c36..41b9049 100644
---- a/include/linux/qed/qed_chain.h
-+++ b/include/linux/qed/qed_chain.h
-@@ -111,7 +111,8 @@ static inline u16 qed_chain_get_elem_left(struct qed_chain *p_chain)
- 	used = ((u32)0x10000u + (u32)(p_chain->prod_idx)) -
- 		(u32)p_chain->cons_idx;
- 	if (p_chain->mode == QED_CHAIN_MODE_NEXT_PTR)
--		used -= (used / p_chain->elem_per_page);
-+		used -= p_chain->prod_idx / p_chain->elem_per_page -
-+			p_chain->cons_idx / p_chain->elem_per_page;
- 
- 	return p_chain->capacity - used;
- }
--- 
-1.7.1
+    I meant initialized by kstrtoint().
+
+> since the conditional is an or, the test will always be true with the err value.
+
+    I don't understand you. If you test 'ver' first, you risk testing 
+uninitialized variable.
+
+> Anyway I will send an updated version.
+
+    Let's see...
+
+> Regards
+
+MBR, Sergei
