@@ -1,40 +1,40 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next 07/15] i40e: propagate properly
-Date: Thu, 3 Dec 2015 16:00:28 +0200
-Message-ID: <CAJ3xEMjX0_TULVQX9XoFvwfH=Lh9_jjc1m_oeu1GXdJBh-QbDQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:35090 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751519AbbLCOA3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 09:00:29 -0500
-Received: by igl9 with SMTP id 9so11262660igl.0
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 06:00:28 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: [PATCH net 0/3] Marvell Armada 375 mvpp2 fixes
+Date: Thu,  3 Dec 2015 15:20:48 +0100
+Message-ID: <1449152451-2939-1-git-send-email-mw@semihalf.com>
+Cc: davem@davemloft.net, linux@arm.linux.org.uk,
+	sebastian.hesselbarth@gmail.com, andrew@lunn.ch,
+	jason@lakedaemon.net, thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com,
+	ezequiel.garcia@free-electrons.com, nadavh@marvell.com,
+	alior@marvell.com, mw@semihalf.com, jaz@semihalf.com,
+	tn@semihalf.com
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 3, 2015 at 3:25 PM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Mitch Williams <mitch.a.williams@intel.com>
+Hi,
 
-Hi Mitch,
+During my work on mvneta driver I revised mvpp2, and it occurred that the
+initial version of Marvell Armada 375 SoC comprised bugs around
+DMA-unmapping in both ingress and egress paths - not all buffers were
+umapped in TX path and none(!) in RX. Three patches that I send fix
+this situation.
 
-Can you use a more descriptive title for the patch, propagate what properly?
+Any feedback would be welcome.
 
+Best regards,
+Marcin Wojtas
 
-> i40e_sync_vsi_filters() is the surly teenager of this driver. It says
-> it's going to report errors, but it doesn't actually do that most of the
-> time. And when it does, it leaves a mess.
->
-> Change this function to have a common exit point so it will properly
-> release the busy lock on the VSI. Propagate errors to the callers.
-> Finally, adjust a few callers to check for and deal with errors from
-> this function.
+Marcin Wojtas (3):
+  net: mvpp2: fix missing DMA region unmap in egress processing
+  net: mvpp2: fix buffers' DMA handling on RX path
+  net: mvpp2: fix refilling BM pools in RX path
+
+ drivers/net/ethernet/marvell/mvpp2.c | 52 +++++++++++++++++++++++-------------
+ 1 file changed, 33 insertions(+), 19 deletions(-)
+
+-- 
+1.8.3.1
