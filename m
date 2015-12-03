@@ -1,79 +1,92 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 03/15] ixgbe: Use private workqueue to avoid certain possible hangs
-Date: Thu,  3 Dec 2015 03:07:11 -0800
-Message-ID: <1449140843-118580-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 15/15] ixgbevf: Handle extended IPv6 headers in Tx path
+Date: Thu,  3 Dec 2015 03:07:23 -0800
+Message-ID: <1449140843-118580-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449140843-118580-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:28882 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:63144 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759868AbbLCLH1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 06:07:27 -0500
+	id S933023AbbLCLHi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2015 06:07:38 -0500
 In-Reply-To: <1449140843-118580-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mark Rustad <mark.d.rustad@intel.com>
 
-Use a private workqueue to avoid hangs that were otherwise possible
-when performing stress tests, such as creating and destroying many
-VFS repeatedly.
+Check for and handle IPv6 extended headers so that Tx checksum
+offload can be done. Also use skb_checksum_help for unexpected
+cases. Thanks to Tom Herbert for noticing these problems. Thanks
+to Alexander Duyck for seeing how to coalesce the error handling
+into one location.
 
+Reported-by: Tom Herbert <tom@herbertland.com>
 Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
 Tested-by: Darin Miller <darin.j.miller@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 22 ++++++++++++++--------
+ 1 file changed, 14 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index c95042e..0918e32 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -172,6 +172,8 @@ MODULE_DESCRIPTION("Intel(R) 10 Gigabit PCI Express Network Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 42b971c..f098952 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -3344,6 +3344,7 @@ static void ixgbevf_tx_csum(struct ixgbevf_ring *tx_ring,
  
-+static struct workqueue_struct *ixgbe_wq;
-+
- static bool ixgbe_check_cfg_remove(struct ixgbe_hw *hw, struct pci_dev *pdev);
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		u8 l4_hdr = 0;
++		__be16 frag_off;
  
- static int ixgbe_read_pci_cfg_word_parent(struct ixgbe_adapter *adapter,
-@@ -313,7 +315,7 @@ static void ixgbe_service_event_schedule(struct ixgbe_adapter *adapter)
- 	if (!test_bit(__IXGBE_DOWN, &adapter->state) &&
- 	    !test_bit(__IXGBE_REMOVING, &adapter->state) &&
- 	    !test_and_set_bit(__IXGBE_SERVICE_SCHED, &adapter->state))
--		schedule_work(&adapter->service_task);
-+		queue_work(ixgbe_wq, &adapter->service_task);
- }
+ 		switch (first->protocol) {
+ 		case htons(ETH_P_IP):
+@@ -3354,13 +3355,16 @@ static void ixgbevf_tx_csum(struct ixgbevf_ring *tx_ring,
+ 		case htons(ETH_P_IPV6):
+ 			vlan_macip_lens |= skb_network_header_len(skb);
+ 			l4_hdr = ipv6_hdr(skb)->nexthdr;
++			if (likely(skb_network_header_len(skb) ==
++				   sizeof(struct ipv6hdr)))
++				break;
++			ipv6_skip_exthdr(skb, skb_network_offset(skb) +
++					      sizeof(struct ipv6hdr),
++					 &l4_hdr, &frag_off);
++			if (unlikely(frag_off))
++				l4_hdr = NEXTHDR_FRAGMENT;
+ 			break;
+ 		default:
+-			if (unlikely(net_ratelimit())) {
+-				dev_warn(tx_ring->dev,
+-					 "partial checksum but proto=%x!\n",
+-					 first->protocol);
+-			}
+ 			break;
+ 		}
  
- static void ixgbe_remove_adapter(struct ixgbe_hw *hw)
-@@ -9320,6 +9322,12 @@ static int __init ixgbe_init_module(void)
- 	pr_info("%s - version %s\n", ixgbe_driver_string, ixgbe_driver_version);
- 	pr_info("%s\n", ixgbe_copyright);
+@@ -3382,16 +3386,18 @@ static void ixgbevf_tx_csum(struct ixgbevf_ring *tx_ring,
+ 		default:
+ 			if (unlikely(net_ratelimit())) {
+ 				dev_warn(tx_ring->dev,
+-					 "partial checksum but l4 proto=%x!\n",
+-					 l4_hdr);
++					 "partial checksum, l3 proto=%x, l4 proto=%x\n",
++					 first->protocol, l4_hdr);
+ 			}
+-			break;
++			skb_checksum_help(skb);
++			goto no_csum;
+ 		}
  
-+	ixgbe_wq = create_singlethread_workqueue(ixgbe_driver_name);
-+	if (!ixgbe_wq) {
-+		pr_err("%s: Failed to create workqueue\n", ixgbe_driver_name);
-+		return -ENOMEM;
-+	}
-+
- 	ixgbe_dbg_init();
+ 		/* update TX checksum flag */
+ 		first->tx_flags |= IXGBE_TX_FLAGS_CSUM;
+ 	}
  
- 	ret = pci_register_driver(&ixgbe_driver);
-@@ -9351,6 +9359,10 @@ static void __exit ixgbe_exit_module(void)
- 	pci_unregister_driver(&ixgbe_driver);
- 
- 	ixgbe_dbg_exit();
-+	if (ixgbe_wq) {
-+		destroy_workqueue(ixgbe_wq);
-+		ixgbe_wq = NULL;
-+	}
- }
- 
- #ifdef CONFIG_IXGBE_DCA
++no_csum:
+ 	/* vlan_macip_lens: MACLEN, VLAN tag */
+ 	vlan_macip_lens |= skb_network_offset(skb) << IXGBE_ADVTXD_MACLEN_SHIFT;
+ 	vlan_macip_lens |= first->tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
 -- 
 2.5.0
