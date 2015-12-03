@@ -1,48 +1,39 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [RFC] ipv6: use a random ifid for headerless devices
-Date: Thu, 03 Dec 2015 20:29:53 +0100
-Message-ID: <87vb8fjpou.fsf@nemi.mork.no>
-References: <1448884508-5235-1-git-send-email-bjorn@mork.no>
-	<1448968942.3320842.454553905.2C5FBADD@webmail.messagingengine.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] openvswitch: fix hangup on vxlan/gre/geneve device
+ deletion
+Date: Thu, 03 Dec 2015 14:30:48 -0500 (EST)
+Message-ID: <20151203.143048.662288701351689156.davem@davemloft.net>
+References: <d3c53f79dfaacd71bebf97427388d60dc5652eae.1448989843.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, pshelar@nicira.com, tgraf@suug.ch,
+	dev@openvswitch.org, fbl@sysclose.org
+To: pabeni@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:35298 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753163AbbLCTaA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 14:30:00 -0500
-In-Reply-To: <1448968942.3320842.454553905.2C5FBADD@webmail.messagingengine.com>
-	(Hannes Frederic Sowa's message of "Tue, 01 Dec 2015 12:22:22 +0100")
+Received: from shards.monkeyblade.net ([149.20.54.216]:43852 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751618AbbLCTau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 14:30:50 -0500
+In-Reply-To: <d3c53f79dfaacd71bebf97427388d60dc5652eae.1448989843.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Tue,  1 Dec 2015 18:33:36 +0100
 
-> I see no problem with the patch as it eases operating those devices. =
-I
-> would also suggest storing the ifid in the inet6_dev so it does only
-> change during device creation and destruction. Otherwise I would
-> recommend to use stable privacy addresses to generate the link local
-> addresses. EUI-48 based LL creation should hopefully not be used anym=
-ore
-> soon.
+> Each openvswitch tunnel vport (vxlan,gre,geneve) holds a reference
+> to the underlying tunnel device, but never released it when such
+> device is deleted.
+> Deleting the underlying device via the ip tool cause the kernel to
+> hangup in the netdev_wait_allrefs() loop.
+> This commit ensure that on device unregistration dp_detach_port_notify()
+> is called for all vports that hold the device reference, properly
+> releasing it.
+> 
+> Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
+> Fixes: b2acd1dc3949 ("openvswitch: Use regular GRE net_device instead of vport")
+> Fixes: 6b001e682e90 ("openvswitch: Use Geneve device.")
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-Thanks for commenting on this. Yes, the stable privacy addresses looks
-like they will solve this and other problems.  But enabling them requir=
-e
-an adminstrator action.
-
-After looking more at addrconf, I started wondering if we couldn't abus=
-e
-ipv6_generate_stable_address() for this purpose?  We could add a new
-addr_gen_mode which would trigger automatic generation of a secret if
-stable_secret is uninitialized.  This would be good enough to ensure
-stability until the interface is destroyed.  And it would still allow
-the adminstrator to select IN6_ADDR_GEN_MODE_STABLE_PRIVACY by entering
-a new secret.
-
-
-Bj=C3=B8rn
+Applied and queued up for -stable, thank you.
