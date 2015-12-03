@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] vxlan: consolidate output route calculation
-Date: Thu, 03 Dec 2015 15:25:07 -0500 (EST)
-Message-ID: <20151203.152507.2076390764541090334.davem@davemloft.net>
-References: <65e2af7ff108b1c7b477c3df91382bb9e4662edf.1449141813.git.jbenc@redhat.com>
+Subject: Re: [PATCH] stmmac: ipq806x: Return error values instead of
+ pointers
+Date: Thu, 03 Dec 2015 15:27:17 -0500 (EST)
+Message-ID: <20151203.152717.1108068845756443724.davem@davemloft.net>
+References: <1449129315-1427-1-git-send-email-sboyd@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@nicira.com, pshelar@nicira.com
-To: jbenc@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45616 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753636AbbLCUZI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 15:25:08 -0500
-In-Reply-To: <65e2af7ff108b1c7b477c3df91382bb9e4662edf.1449141813.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	peppe.cavallaro@st.com, netdev@vger.kernel.org, manabian@gmail.com
+To: sboyd@codeaurora.org
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <1449129315-1427-1-git-send-email-sboyd@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Thu,  3 Dec 2015 12:23:57 +0100
+From: Stephen Boyd <sboyd@codeaurora.org>
+Date: Wed,  2 Dec 2015 23:55:15 -0800
 
-> The code for output route lookup is duplicated for ndo_start_xmit and
-> ndo_fill_metadata_dst. Move it to a common function.
+> Typically we return error pointers when we want to use those
+> pointers in the non-error case, but this function is just
+> returning error pointers or NULL for success. Change the style to
+> plain int to follow normal kernel coding styles.
 > 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> Cc: Joachim Eastwood <manabian@gmail.com>
+> Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
 
-Applied to net-next, thanks.
+Applied.
