@@ -1,122 +1,149 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 0/6] net: qmi_wwan: MDM9x30 support
-Date: Thu, 03 Dec 2015 13:36:56 -0600
-Message-ID: <1449171416.21472.42.camel@redhat.com>
-References: <1449167063-22703-1-git-send-email-bjorn@mork.no>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [net-next v4 4/8] dpaa_eth: add driver's Tx queue selection
+Date: Thu, 3 Dec 2015 13:37:04 -0600
+Message-ID: <1449171424.15946.17.camel@freescale.com>
+References: <1446485500-9782-1-git-send-email-madalin.bucur@freescale.com>
+	 <1446485500-9782-5-git-send-email-madalin.bucur@freescale.com>
+	 <1449092431.29246.156.camel@freescale.com>
+	 <DM2PR0301MB07689A2F03A375C248DDA817E60D0@DM2PR0301MB0768.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org, Marcel Holtmann <marcel@holtmann.org>,
-	Oliver Neukum <oneukum@suse.com>,
-	Aleksander Morgado <aleksander@aleksander.es>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48294 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753005AbbLCTg6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 14:36:58 -0500
-In-Reply-To: <1449167063-22703-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Liberman Igal-B31950 <Igal.Liberman@freescale.com>,
+	Pledge Roy-R01356 <roy.pledge@freescale.com>,
+	"ppc@mindchasers.com" <ppc@mindchasers.com>,
+	"joe@perches.com" <joe@perches.com>,
+	"pebolle@tiscali.nl" <pebolle@tiscali.nl>,
+	"joakim.tjernlund@transmode.se" <joakim.tjernlund@transmode.se>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
+To: Bucur Madalin-Cristian-B32716 <madalin.bucur@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <DM2PR0301MB07689A2F03A375C248DDA817E60D0@DM2PR0301MB0768.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-12-03 at 19:24 +0100, Bj=C3=B8rn Mork wrote:
-> We add new device IDs all the time, often without any testing on
-> actual hardware. This is usually OK as long as the device is similar
-> to already supported devices, using the same chipset and firmware
-> basis.  But the Sierra Wireless MC7455 is an example of a new chipset
-> generation. Adding it based on assumed similarity with its ancestors
-> proved too optimistic.
->=20
-> This series adds the missing bits and pieces necessary to support LTE
-> Advanced modems based on the Qualcomm MDM9x30 chipset. A big thanks
-> to
-> Sierra Wireless for providing MC7455 samples for testing
->=20
-> The most important change is the "raw-ip" support. The series also
-> adds a necessary control request, removes an unsupported device ID,
-> and adds a driver specific entry in MAINTAINERS.
->=20
-> A few random notes about "raw-ip":
->=20
-> "I rather have these all running in raw IP mode. The 802.3 framing is
-> utterly stupid." - Marcel Holtmann in Jan 2012 [1]
->=20
-> Marcel was right.  I should have listened to him. What more can I
-> say?
+On Thu, 2015-12-03 at 04:02 -0600, Bucur Madalin-Cristian-B32716 wrote:
+> > -----Original Message-----
+> > From: Wood Scott-B07421
+> > Sent: Wednesday, December 02, 2015 11:41 PM
+> > 
+> > On Mon, 2015-11-02 at 19:31 +0200, Madalin Bucur wrote:
+> > > Allow the selection of the transmission queue based on the CPU id.
+> > 
+> > Explain why.
+> 
+> I'll add more details in the commit log. This is a customer generated
+> feature. Bypassing the standard XPS can increase performance by making use
+> of the DPAA HW particularities.
+> 
+> > > 
+> > > Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
+> > > ---
+> > >  drivers/net/ethernet/freescale/dpaa/Kconfig           | 10 ++++++++++
+> > >  drivers/net/ethernet/freescale/dpaa/dpaa_eth.c        |  3 +++
+> > >  drivers/net/ethernet/freescale/dpaa/dpaa_eth.h        |  6 ++++++
+> > >  drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c |  8 ++++++++
+> > >  drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h |  4 ++++
+> > >  5 files changed, 31 insertions(+)
+> > > 
+> > > diff --git a/drivers/net/ethernet/freescale/dpaa/Kconfig
+> > > b/drivers/net/ethernet/freescale/dpaa/Kconfig
+> > > index 022d5aa..2577aac 100644
+> > > --- a/drivers/net/ethernet/freescale/dpaa/Kconfig
+> > > +++ b/drivers/net/ethernet/freescale/dpaa/Kconfig
+> > > @@ -11,6 +11,16 @@ menuconfig FSL_DPAA_ETH
+> > > 
+> > >  if FSL_DPAA_ETH
+> > > 
+> > > +config FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
+> > > +	bool "Use driver's Tx queue selection mechanism"
+> > > +	default y
+> > > +	---help---
+> > > +	  The DPAA Ethernet driver defines a ndo_select_queue()
+> > > callback
+> > > for optimal selection
+> > > +	  of the egress FQ. That will override the XPS support for this
+> > > netdevice.
+> > > +	  If for whatever reason you want to be in control of the
+> > > egress FQ
+> > > -to-CPU selection and mapping,
+> > > +	  or simply don't want to use the driver's ndo_select_queue()
+> > > callback, then unselect this
+> > > +	  and use the standard XPS support instead.
+> > 
+> > Is there a use case for needing this to be configurable?
+> 
+> If the standard XPS is desired, the Kconfig option allows the driver user to
+> select that.
 
-The decision was less clear-cut at the time, since all the devices did
-support 802.3 framing and DHCP.  And people wanted easy-1-2-3 DHCP and
-bridging capability too.  We still get a lot of people asking about
-issues with DHCP and even bridging.  802.3 makes it *look* simple but
-of course we know it's not that simple...
+Under what circumstances does it make sense to desire this?  Could you put the
+answer to that in the help text?
 
-> The 802.3 framing has provided a steady supply of firmware bugs for
-> many years. We've added driver workarounds for many of these, but
-> there are still known bugs where the workaround is so yucky that we
-> have refused to apply it. But all that is over now.  The latest
-> generation Qualcomm chips no longer supports 802.3 framing at all.
->=20
-> I had two open questions regarding the "raw-ip" userspace API:
->=20
-> 1) Should we continue faking an ethernet device, even if we don't use
->    the L2 headers on the USB link anymore?
->=20
->    There was a vote in favour of the "headerless" device. This is the
->    honest representation of the hardware/firmware interface.
+> > > diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> > > b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> > > index 31d55b4..894f1a7 100644
+> > > --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> > > +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> > > @@ -390,6 +390,9 @@ static const struct net_device_ops dpa_private_ops =
+> > {
+> > >  	.ndo_get_stats64 = dpa_get_stats64,
+> > >  	.ndo_set_mac_address = dpa_set_mac_address,
+> > >  	.ndo_validate_addr = eth_validate_addr,
+> > > +#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
+> > > +	.ndo_select_queue = dpa_select_queue,
+> > > +#endif
+> > >  	.ndo_change_mtu = dpa_change_mtu,
+> > >  	.ndo_set_rx_mode = dpa_set_rx_mode,
+> > >  	.ndo_init = dpa_ndo_init,
+> > > diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+> > > b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+> > > index 1ba6617..87577cf 100644
+> > > --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+> > > +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+> > > @@ -420,9 +420,15 @@ static inline void _dpa_assign_wq(struct dpa_fq
+> > *fq)
+> > >  	}
+> > >  }
+> > > 
+> > > +#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
+> > > +/* Use in lieu of skb_get_queue_mapping() */
+> > > +#define dpa_get_queue_mapping(skb) \
+> > > +	raw_smp_processor_id()
+> > > +#else
+> > >  /* Use the queue selected by XPS */
+> > >  #define dpa_get_queue_mapping(skb) \
+> > >  	skb_get_queue_mapping(skb)
+> > > +#endif
+> > 
+> > Why is this necessary?  Shouldn't providing a custom .ndo_select_queue()
+> > be
+> > sufficient to ensure that skb_get_queue_mapping() returns the same thing?
+> 
+> dpa_get_queue_mapping() is used in more than one place, the ndo function
+> cannot
+> be used directly in all places, the current setup is justified.
 
-I like the approach of the current patchset where it's more like a tun
-device.  Simple.
+It's called in two places that I see.  For the call in dpa_tx(), when will
+skb_get_queue_mapping() not return the correct answer?  For the call in
+dpa_select_queue(), that's already called via function pointer so it would not
+be a new indirection layer.
 
-> 2) What input should the driver base its framing on?
->=20
->    Snooping or directly manipulating QMI is considered out of the
->    question. We delegated all QMI handling to userspace from the
->    beginning.
->=20
->    We have so far required userspace to configure the firmware for
->    "802.3" framing, or fail if that proved impossible.  This
->    requirement is now changed.  Userspace must now inform the driver
->    if it negotiates "raw-ip" framing.  Two alternative interfaces
-> were
->    proposed:
->     - ethtool private driver flag, or
->     - sysfs file
->=20
->    The NetworkManager/ModemManager developers were in favour of the
->    sysfs alternative.
+> > And if this goes away, it's just a matter of a function pointer, so if it
+> > does
+> > need to be configurable it could be a runtime option.
+> > 
+> > -Scott
+> 
+> It's used on the hot path, adding an extra indirection layer to make it
+> selectable
+> at runtime would defeat the purpose...
 
-Sysfs is the easiest for most things to touch; ethtool requires being
-able to do ioctls and bit operations or shell out to ethtool.  Just
-stating the reasons for my above vote.
+"if this goes away"
 
-Dan
+I wasn't asking for a new indirection layer.
 
-> These questions (or any other you migh have :) are of course still
-> open.  This patch set presents the solutions I currently prefer,
-> considering the above.
->=20
-> All comments are appreciated, even simple '+1' ones.
->=20
->=20
-> Bj=C3=B8rn
->=20
-> [1] http://www.spinics.net/lists/linux-usb/msg57056.html
->=20
->=20
-> Bj=C3=B8rn Mork (6):
->   net: qmi_wwan: MDM9x30 specific power management
->   net: qmi_wwan: remove 1199:9070 device id
->   usbnet: allow mini-drivers to consume L2 headers
->   net: qmi_wwan: support "raw IP" mode
->   net: qmi_wwan: document the qmi/raw_ip sysfs file
->   MAINTAINERS: add qmi_wwan driver entry
->=20
->  Documentation/ABI/testing/sysfs-class-net-qmi |  23 +++++
->  MAINTAINERS                                   |   7 ++
->  drivers/net/usb/qmi_wwan.c                    | 138
-> +++++++++++++++++++++++++-
->  drivers/net/usb/usbnet.c                      |   5 +-
->  4 files changed, 169 insertions(+), 4 deletions(-)
->  create mode 100644 Documentation/ABI/testing/sysfs-class-net-qmi
->=20
+-Scott
