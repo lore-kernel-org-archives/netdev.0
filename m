@@ -1,25 +1,61 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: bluetooth 2015-12-01
-Date: Thu, 03 Dec 2015 12:04:27 -0500 (EST)
-Message-ID: <20151203.120427.382210677435943066.davem@davemloft.net>
-References: <20151201085844.GA12776@t440s.lan>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v4 2/3] mac80211: Prevent build failure with
+ CONFIG_UBSAN=y
+Date: Thu, 03 Dec 2015 18:05:22 +0100
+Message-ID: <1449162322.31265.2.camel@sipsolutions.net>
+References: <1449157807-20298-1-git-send-email-aryabinin@virtuozzo.com>
+	 <1449157807-20298-3-git-send-email-aryabinin@virtuozzo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151201085844.GA12776-ypHiNAJIRA7/PtFMR13I2A@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Randy Dunlap <rdunlap@infradead.org>,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Michal Marek <mmarek@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Yury Gribov <y.gribov@samsung.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Konstantin Khlebnikov <koct9i@gmail.com>,
+	Kostya Serebryany <kcc@google.com>, x86@kernel.org,
+	linux-doc@vger.kernel.org, linux-kbuild@vger.kernel.org
+To: Andrey Ryabinin <aryabinin@virtuozzo.com>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <1449157807-20298-3-git-send-email-aryabinin@virtuozzo.com>
+Sender: linux-kbuild-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Tue, 1 Dec 2015 10:58:44 +0200
-
-> Here's a Bluetooth fix for the 4.4-rc series that fixes a memory leak of
-> the Security Manager L2CAP channel that'll happen for every LE
-> connection.
+On Thu, 2015-12-03 at 18:50 +0300, Andrey Ryabinin wrote:
+> With upcoming CONFIG_UBSAN the following BUILD_BUG_ON in
+> net/mac80211/debugfs.c starts to trigger:
+> 	BUILD_BUG_ON(hw_flag_names[NUM_IEEE80211_HW_FLAGS] != (void
+> *)0x1);
 > 
-> Please let me know if there are any issues pulling. Thanks.
+> It seems, that compiler instrumentation causes some code
+> deoptimizations.
+> Because of that GCC is not being able to resolve condition in
+> BUILD_BUG_ON()
+> at compile time.
+> 
+> We could make size of hw_flag_names array unspecified and replace the
+> condition in BUILD_BUG_ON() with following:
+> 	ARRAY_SIZE(hw_flag_names) != NUM_IEEE80211_HW_FLAGS
+> 
+> That will have the same effect as before (adding new flag without
+> updating
+> array will trigger build failure) except it doesn't fail with
+> CONFIG_UBSAN.
+> As a bonus this patch slightly decreases size of hw_flag_names array.
+> 
+Seems fine, would you want to take it through some other tree together
+with UBSAN, or do you expect that to still take long enough to allow
+this to trickle through our trees?
 
-Pulled, thanks Johan.
+johannes
