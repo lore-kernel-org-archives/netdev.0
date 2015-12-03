@@ -1,61 +1,37 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v4 2/3] mac80211: Prevent build failure with
- CONFIG_UBSAN=y
-Date: Thu, 03 Dec 2015 18:05:22 +0100
-Message-ID: <1449162322.31265.2.camel@sipsolutions.net>
-References: <1449157807-20298-1-git-send-email-aryabinin@virtuozzo.com>
-	 <1449157807-20298-3-git-send-email-aryabinin@virtuozzo.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: sctp: implement sctp_v6_destroy_sock()
+Date: Thu, 03 Dec 2015 12:06:41 -0500 (EST)
+Message-ID: <20151203.120641.1445164595074464179.davem@davemloft.net>
+References: <565DAD8D.9020800@iogearbox.net>
+	<1448980723.25582.24.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1448983207.25582.29.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	Jonathan Corbet <corbet@lwn.net>,
-	Michal Marek <mmarek@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Yury Gribov <y.gribov@samsung.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Konstantin Khlebnikov <koct9i@gmail.com>,
-	Kostya Serebryany <kcc@google.com>, x86@kernel.org,
-	linux-doc@vger.kernel.org, linux-kbuild@vger.kernel.org
-To: Andrey Ryabinin <aryabinin@virtuozzo.com>,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <1449157807-20298-3-git-send-email-aryabinin@virtuozzo.com>
-Sender: linux-kbuild-owner@vger.kernel.org
+Cc: daniel@iogearbox.net, dvyukov@google.com, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vyasevich@gmail.com, nhorman@tuxdriver.com,
+	linux-sctp@vger.kernel.org, syzkaller@googlegroups.com,
+	kcc@google.com, glider@google.com, sasha.levin@oracle.com,
+	edumazet@google.com
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1448983207.25582.29.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-12-03 at 18:50 +0300, Andrey Ryabinin wrote:
-> With upcoming CONFIG_UBSAN the following BUILD_BUG_ON in
-> net/mac80211/debugfs.c starts to trigger:
-> 	BUILD_BUG_ON(hw_flag_names[NUM_IEEE80211_HW_FLAGS] != (void
-> *)0x1);
-> 
-> It seems, that compiler instrumentation causes some code
-> deoptimizations.
-> Because of that GCC is not being able to resolve condition in
-> BUILD_BUG_ON()
-> at compile time.
-> 
-> We could make size of hw_flag_names array unspecified and replace the
-> condition in BUILD_BUG_ON() with following:
-> 	ARRAY_SIZE(hw_flag_names) != NUM_IEEE80211_HW_FLAGS
-> 
-> That will have the same effect as before (adding new flag without
-> updating
-> array will trigger build failure) except it doesn't fail with
-> CONFIG_UBSAN.
-> As a bonus this patch slightly decreases size of hw_flag_names array.
-> 
-Seems fine, would you want to take it through some other tree together
-with UBSAN, or do you expect that to still take long enough to allow
-this to trickle through our trees?
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 01 Dec 2015 07:20:07 -0800
 
-johannes
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Dmitry Vyukov reported a memory leak using IPV6 SCTP sockets.
+> 
+> We need to call inet6_destroy_sock() to properly release
+> inet6 specific fields.
+> 
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+Applied and queued up for -stable, thanks.
