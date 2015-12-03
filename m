@@ -1,61 +1,100 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH v5] i40e: Look up MAC address in Open Firmware or IDPROM
-Date: Thu, 3 Dec 2015 10:48:23 -0500
-Message-ID: <20151203154823.GA23433@oracle.com>
-References: <20151104193956.GD14575@oracle.com>
- <CAHp75Vcrx+Rkz2mDSG+GEUW6LdO0w6On=6UoV4fhZK27Ayf1zQ@mail.gmail.com>
- <FC41C24E35F18A40888AACA1A36F3E418AFAEA1A@fmsmsx115.amr.corp.intel.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net] pppoe: fix memory corruption in padt work structure
+Date: Thu, 3 Dec 2015 16:49:32 +0100
+Message-ID: <8d1438dac05eb64026c51086770a8875a26b103b.1449156478.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andy Shevchenko <andy.shevchenko@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>
-To: netdev <netdev@vger.kernel.org>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>, davem@davemloft.net
+Cc: "David S. Miller" <davem@davemloft.net>, Andrew <nitr0@seti.kr.ua>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:37566 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752144AbbLCPsi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 10:48:38 -0500
+Received: from zimbra.alphalink.fr ([217.15.80.77]:54894 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758101AbbLCPtl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 10:49:41 -0500
 Content-Disposition: inline
-In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E418AFAEA1A@fmsmsx115.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+pppoe_connect() mustn't touch the padt_work field of pppoe sockets
+because that work could be already pending.
 
-The patch here: http://patchwork.ozlabs.org/patch/540218/
-is marked "Awaiting Upstream", I think that means it has to first
-show up in some other repo first (which one?)?
+[   21.473147] BUG: unable to handle kernel NULL pointer dereference at 00000004
+[   21.474523] IP: [<c1043177>] process_one_work+0x29/0x31c
+[   21.475164] *pde = 00000000
+[   21.475513] Oops: 0000 [#1] SMP
+[   21.475910] Modules linked in: pppoe pppox ppp_generic slhc crc32c_intel aesni_intel virtio_net xts aes_i586 lrw gf128mul ablk_helper cryptd evdev acpi_cpufreq processor serio_raw button ext4 crc16 mbcache jbd2 virtio_blk virtio_pci virtio_ring virtio
+[   21.476168] CPU: 2 PID: 164 Comm: kworker/2:2 Not tainted 4.4.0-rc1 #1
+[   21.476168] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Debian-1.8.2-1 04/01/2014
+[   21.476168] task: f5f83c00 ti: f5e28000 task.ti: f5e28000
+[   21.476168] EIP: 0060:[<c1043177>] EFLAGS: 00010046 CPU: 2
+[   21.476168] EIP is at process_one_work+0x29/0x31c
+[   21.484082] EAX: 00000000 EBX: f678b2a0 ECX: 00000004 EDX: 00000000
+[   21.484082] ESI: f6c69940 EDI: f5e29ef0 EBP: f5e29f0c ESP: f5e29edc
+[   21.484082]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+[   21.484082] CR0: 80050033 CR2: 000000a4 CR3: 317ad000 CR4: 00040690
+[   21.484082] Stack:
+[   21.484082]  00000000 f6c69950 00000000 f6c69940 c0042338 f5e29f0c c1327945 00000000
+[   21.484082]  00000008 f678b2a0 f6c69940 f678b2b8 f5e29f30 c1043984 f5f83c00 f6c69970
+[   21.484082]  f678b2a0 c10437d3 f6775e80 f678b2a0 c10437d3 f5e29fac c1047059 f5e29f74
+[   21.484082] Call Trace:
+[   21.484082]  [<c1327945>] ? _raw_spin_lock_irq+0x28/0x30
+[   21.484082]  [<c1043984>] worker_thread+0x1b1/0x244
+[   21.484082]  [<c10437d3>] ? rescuer_thread+0x229/0x229
+[   21.484082]  [<c10437d3>] ? rescuer_thread+0x229/0x229
+[   21.484082]  [<c1047059>] kthread+0x8f/0x94
+[   21.484082]  [<c1327a32>] ? _raw_spin_unlock_irq+0x22/0x26
+[   21.484082]  [<c1327ee9>] ret_from_kernel_thread+0x21/0x38
+[   21.484082]  [<c1046fca>] ? kthread_parkme+0x19/0x19
+[   21.496082] Code: 5d c3 55 89 e5 57 56 53 89 c3 83 ec 24 89 d0 89 55 e0 8d 7d e4 e8 6c d8 ff ff b9 04 00 00 00 89 45 d8 8b 43 24 89 45 dc 8b 45 d8 <8b> 40 04 8b 80 e0 00 00 00 c1 e8 05 24 01 88 45 d7 8b 45 e0 8d
+[   21.496082] EIP: [<c1043177>] process_one_work+0x29/0x31c SS:ESP 0068:f5e29edc
+[   21.496082] CR2: 0000000000000004
+[   21.496082] ---[ end trace e362cc9cf10dae89 ]---
 
-On addiitonal testing, we found a bug in the patch: if
-we did not find the macaddr from Open Firmwre or IDPROM (i.e., defaults
-were ok) then you dont want to be doing i40e_macaddr_init again, else
-you will get a failure like this (truncated dump_stack shown
-below)
+Reported-by: Andrew <nitr0@seti.kr.ua>
+Fixes: 287f3a943fef ("pppoe: Use workqueue to die properly when a PADT is received")
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ drivers/net/ppp/pppoe.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
 
-[ 8127.050926] WARNING: CPU: 18 PID: 878 at kernel/irq/manage.c:1346 __free_irq+0x9f/0x230()
-[ 8127.050927] Trying to free already-free IRQ 177
-  :
-[ 8127.051013]  [<ffffffffa043ddd0>] i40e_clear_interrupt_scheme+0xb0/0xc0 [i40e]
-[ 8127.051018]  [<ffffffffa044b538>] i40e_probe.part.64+0x1018/0x1320 [i40e]
-  :
-[ 8127.051057]  [<ffffffffa044b862>] i40e_probe+0x22/0x30 [i40e]
-
-I can think of a couple of ways to fix this- one (the ugly
-way) is to ifdef the i40e_macaddr_init invocation for CONFIG_OF or CONFIG_SPARC
-only. Another way to solve this is to track some bit in struct i40e_hw that 
-indicates that the macaddr is not the default, thus i40e_macaddr_init() should
-be called before register_netdev only if that bit is set. (Dont know
-if there are cache-line considerations that exist in i40e_hw that
-need to be taken into account for the second version)
-
-In order to send a fix out for review, what should I clone? 
-should I just apply the patch/540218 to net-next and send the update?
-
---Sowmini
+diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
+index 5e0b432..0a37f84 100644
+--- a/drivers/net/ppp/pppoe.c
++++ b/drivers/net/ppp/pppoe.c
+@@ -568,6 +568,9 @@ static int pppoe_create(struct net *net, struct socket *sock, int kern)
+ 	sk->sk_family		= PF_PPPOX;
+ 	sk->sk_protocol		= PX_PROTO_OE;
+ 
++	INIT_WORK(&pppox_sk(sk)->proto.pppoe.padt_work,
++		  pppoe_unbind_sock_work);
++
+ 	return 0;
+ }
+ 
+@@ -632,8 +635,6 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
+ 
+ 	lock_sock(sk);
+ 
+-	INIT_WORK(&po->proto.pppoe.padt_work, pppoe_unbind_sock_work);
+-
+ 	error = -EINVAL;
+ 	if (sp->sa_protocol != PX_PROTO_OE)
+ 		goto end;
+@@ -663,8 +664,13 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
+ 			po->pppoe_dev = NULL;
+ 		}
+ 
+-		memset(sk_pppox(po) + 1, 0,
+-		       sizeof(struct pppox_sock) - sizeof(struct sock));
++		po->pppoe_ifindex = 0;
++		memset(&po->pppoe_pa, 0, sizeof(po->pppoe_pa));
++		memset(&po->pppoe_relay, 0, sizeof(po->pppoe_relay));
++		memset(&po->chan, 0, sizeof(po->chan));
++		po->next = NULL;
++		po->num = 0;
++
+ 		sk->sk_state = PPPOX_NONE;
+ 	}
+ 
+-- 
+2.6.2
