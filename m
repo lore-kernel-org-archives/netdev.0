@@ -1,8 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 13/28] net: introduce change lower state notifier
-Date: Thu,  3 Dec 2015 12:12:15 +0100
-Message-ID: <1449141150-8172-14-git-send-email-jiri@resnulli.us>
-References: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 00/28] bonding/team offload + mlxsw implementation
+Date: Thu,  3 Dec 2015 12:12:02 +0100
+Message-ID: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, j.vosburgh@gmail.com,
 	vfalico@gmail.com, gospo@cumulusnetworks.com,
@@ -11,96 +10,109 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	john.fastabend@gmail.com, roopa@cumulusnetworks.com, andrew@lunn.ch
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:33130 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759035AbbLCLMx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 06:12:53 -0500
-Received: by wmec201 with SMTP id c201so21508072wme.0
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 03:12:52 -0800 (PST)
-In-Reply-To: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:37223 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759665AbbLCLMi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 06:12:38 -0500
+Received: by wmww144 with SMTP id w144so17294839wmw.0
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 03:12:37 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-When lower device like bonding slave, team/bridge port, etc changes its
-state, it is useful for others to notice this change. Currently this is
-implemented specificly for bonding as NETDEV_BONDING_INFO notifier. This
-patch aims to replace this specific usage and make this more generic to
-be used for all upper-lower devices.
+This patchset introduces needed infrastructure for link aggregation
+offload - for both team and bonding. It also implements the offload
+in mlxsw driver.
 
-Introduce NETDEV_CHANGELOWERSTATE netdev notifier type and
-netdev_lower_state_changed() helper.
+Particulary, this patchset introduces possibility for upper driver
+(bond/team/bridge/..) to pass type-specific info down to notifier listeners.
+Info is passed along with NETDEV_CHANGEUPPER/NETDEV_PRECHANGEUPPER
+notifiers. Listeners (drivers of netdevs being enslaved) can react
+accordingly.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Other extension is for run-time use. This patchset introduces
+new netdev notifier type - NETDEV_CHANGELOWERSTATE. Along with this
+notification, the upper driver (bond/team/bridge/..) can pass some
+information about lower device change, particulary link-up and
+TX-enabled states. Listeners (drivers of netdevs being enslaved)
+can react accordingly.
+
+The last part of the patchset is implementation of LAG offload in mlxsw,
+using both previously introduced infrastructre extensions.
+
+Note that bond-speficic (and ugly) NETDEV_BONDING_INFO used by mlx4
+can be removed and mlx4 can use the extensions this patchset adds.
+I plan to convert it and get rid of NETDEV_BONDING_INFO in
+a follow-up patchset.
+
 ---
- include/linux/netdevice.h |  8 ++++++++
- net/core/dev.c            | 20 ++++++++++++++++++++
- 2 files changed, 28 insertions(+)
+v2->v3:
+- one small fix in patch 1
+v1->v2:
+- added patch 1 and 2 per Andy's request
+- couple of more or less cosmetic changes described in couple other patches
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 0461f86..a392d0f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2156,6 +2156,7 @@ struct netdev_lag_upper_info {
- #define NETDEV_CHANGEINFODATA	0x0018
- #define NETDEV_BONDING_INFO	0x0019
- #define NETDEV_PRECHANGEUPPER	0x001A
-+#define NETDEV_CHANGELOWERSTATE	0x001B
- 
- int register_netdevice_notifier(struct notifier_block *nb);
- int unregister_netdevice_notifier(struct notifier_block *nb);
-@@ -2177,6 +2178,11 @@ struct netdev_notifier_changeupper_info {
- 	void *upper_info; /* upper dev info */
- };
- 
-+struct netdev_notifier_changelowerstate_info {
-+	struct netdev_notifier_info info; /* must be first */
-+	void *lower_state_info; /* is lower dev state */
-+};
-+
- static inline void netdev_notifier_info_init(struct netdev_notifier_info *info,
- 					     struct net_device *dev)
- {
-@@ -3638,6 +3644,8 @@ void netdev_upper_dev_unlink(struct net_device *dev,
- void netdev_adjacent_rename_links(struct net_device *dev, char *oldname);
- void *netdev_lower_dev_get_private(struct net_device *dev,
- 				   struct net_device *lower_dev);
-+void netdev_lower_state_changed(struct net_device *lower_dev,
-+				void *lower_state_info);
- 
- /* RSS keys are 40 or 52 bytes long */
- #define NETDEV_RSS_KEY_LEN 52
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8ed8866..d1706e8 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5756,6 +5756,26 @@ int dev_get_nest_level(struct net_device *dev,
- }
- EXPORT_SYMBOL(dev_get_nest_level);
- 
-+/**
-+ * netdev_lower_change - Dispatch event about lower device state change
-+ * @lower_dev: device
-+ * @lower_state_info: state to dispatch
-+ *
-+ * Send NETDEV_CHANGELOWERSTATE to netdev notifiers with info.
-+ * The caller must hold the RTNL lock.
-+ */
-+void netdev_lower_state_changed(struct net_device *lower_dev,
-+				void *lower_state_info)
-+{
-+	struct netdev_notifier_changelowerstate_info changelowerstate_info;
-+
-+	ASSERT_RTNL();
-+	changelowerstate_info.lower_state_info = lower_state_info;
-+	call_netdevice_notifiers_info(NETDEV_CHANGELOWERSTATE, lower_dev,
-+				      &changelowerstate_info.info);
-+}
-+EXPORT_SYMBOL(netdev_lower_state_changed);
-+
- static void dev_change_rx_flags(struct net_device *dev, int flags)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
+Ido Schimmel (2):
+  net: Check CHANGEUPPER notifier return value
+  net: Add support for CHANGEUPPER notifier error injection
+
+Jiri Pirko (26):
+  bonding: add 802.3ad support for 100G speeds
+  net: add netif_is_team_master helper
+  net: add netif_is_team_port helper
+  net: add netif_is_lag_master helper
+  net: add netif_is_lag_port helper
+  net: propagate upper priv via netdev_master_upper_dev_link
+  net: add possibility to pass information about upper device via
+    notifier
+  net: add info struct for LAG changeupper
+  team: fill-up LAG changeupper info struct and pass it along
+  bonding: fill-up LAG changeupper info struct and pass it along
+  net: introduce change lower state notifier
+  net: introduce lower state changed info structure for LAG lowers
+  team: rtnl_lock for options set
+  team: implement lower state change propagation
+  bonding: allow notifications for bond_set_slave_link_state
+  bonding: implement lower state change propagation
+  bonding: set inactive flags on release
+  mlxsw: spectrum: Add set_rx_mode ndo stub
+  mlxsw: core: Add support for packets received from LAG port
+  mlxsw: pci: Implement LAG processing for received packets
+  mlxsw: reg: Add link aggregation configuration registers definitions
+  mlxsw: reg: Add definition of LAG unicast record for SFD register
+  mlxsw: reg: Add definition of LAG unicast record for SFN register
+  mlxsw: spectrum: Implement LAG port join/leave
+  mlxsw: spectrum: Implement FDB add/remove/dump for LAG
+  mlxsw: spectrum: Implement LAG tx enabled lower state change
+
+ .../fault-injection/notifier-error-inject.txt      |   1 +
+ drivers/net/bonding/bond_3ad.c                     |  11 +-
+ drivers/net/bonding/bond_main.c                    | 111 ++++--
+ drivers/net/ethernet/mellanox/mlxsw/core.c         |  79 ++++-
+ drivers/net/ethernet/mellanox/mlxsw/core.h         |  14 +-
+ drivers/net/ethernet/mellanox/mlxsw/pci.c          |  17 +-
+ drivers/net/ethernet/mellanox/mlxsw/pci.h          |   4 +-
+ drivers/net/ethernet/mellanox/mlxsw/reg.h          | 394 ++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 370 ++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  35 +-
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 182 ++++++++--
+ drivers/net/team/team.c                            |  55 ++-
+ drivers/net/team/team_mode_activebackup.c          |   1 +
+ drivers/net/team/team_mode_broadcast.c             |   1 +
+ drivers/net/team/team_mode_loadbalance.c           |   1 +
+ drivers/net/team/team_mode_random.c                |   1 +
+ drivers/net/team/team_mode_roundrobin.c            |   1 +
+ drivers/net/vrf.c                                  |   2 +-
+ include/linux/if_team.h                            |   1 +
+ include/linux/netdevice.h                          |  56 ++-
+ include/net/bonding.h                              |  39 +-
+ lib/netdev-notifier-error-inject.c                 |   1 +
+ net/batman-adv/hard-interface.c                    |   3 +-
+ net/bridge/br_if.c                                 |   2 +-
+ net/core/dev.c                                     |  51 ++-
+ net/openvswitch/vport-netdev.c                     |   2 +-
+ 26 files changed, 1288 insertions(+), 147 deletions(-)
+
 -- 
 1.9.3
