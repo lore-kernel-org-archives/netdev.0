@@ -1,39 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: lpc_eth: remove irq > NR_IRQS check from probe()
-Date: Thu, 03 Dec 2015 15:02:52 -0500 (EST)
-Message-ID: <20151203.150252.916768886355672458.davem@davemloft.net>
-References: <1449036733-20632-1-git-send-email-vz@mleia.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: use-after-free in sctp_do_sm
+Date: Thu, 03 Dec 2015 12:03:04 -0800
+Message-ID: <1449172984.12092.0.camel@perches.com>
+References: <CACT4Y+ZnWRZfQC25uW=GXHAJB=GX0L6tJQUy43P6WNR3=hwT8Q@mail.gmail.com>
+	 <20151203130525.GB4164@mrl.redhat.com>
+	 <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
+	 <CANn89iKEv-q6EFi1eX+Hk_2+jNfZ0ayUqUn_Fh1U7RTs9xjdXg@mail.gmail.com>
+	 <CACT4Y+bgeqS05zqkAHkxzAP7fuvFSkeEybwDTizw6Gp8KK28Fw@mail.gmail.com>
+	 <CANn89i+d=mTJ-hAhhgPXsZPGAkQdECxRdbkeRLfozRq8i9Ms+g@mail.gmail.com>
+	 <CACT4Y+YJe-OJj9q1Kr5-_ApDt1UBKLjTRxhP62EHtEAwZt5vXw@mail.gmail.com>
+	 <f7twpsvgyar.fsf@aconole.bos.csb> <566098BD.6010803@akamai.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vz@mleia.com
+Cc: Eric Dumazet <edumazet@google.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Jason Baron <jbaron@akamai.com>, Aaron Conole <aconole@redhat.com>,
+	Dmitry Vyukov <dvyukov@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45047 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753285AbbLCUCy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 15:02:54 -0500
-In-Reply-To: <1449036733-20632-1-git-send-email-vz@mleia.com>
+Received: from smtprelay0159.hostedemail.com ([216.40.44.159]:35176 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753285AbbLCUDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 15:03:08 -0500
+In-Reply-To: <566098BD.6010803@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladimir Zapolskiy <vz@mleia.com>
-Date: Wed,  2 Dec 2015 08:12:13 +0200
+On Thu, 2015-12-03 at 14:32 -0500, Jason Baron wrote:
+> On 12/03/2015 01:52 PM, Aaron Conole wrote:
+> > I think that as a minimum, the following patch should be evaluted,
+> > but am unsure to whom I should submit it (after I test):
+[]
+> Agreed - the intention here is certainly to have no side effects. It
+> looks like 'no_printk()' is used in quite a few other places that would
+> benefit from this change. So we probably want a generic
+> 'really_no_printk()' macro.
 
-> If the driver is used on an ARM platform with SPARSE_IRQ defined,
-> semantics of NR_IRQS is different (minimal value of virtual irqs) and
-> by default it is set to 16, see arch/arm/include/asm/irq.h.
-> 
-> This value may be less than the actual number of virtual irqs, which
-> may break the driver initialization. The check removal allows to use
-> the driver on such a platform, and, if irq controller driver works
-> correctly, the check is not needed on legacy platforms.
-> 
-> Fixes a runtime problem:
-> 
->     lpc-eth 31060000.ethernet: error getting resources.
->     lpc_eth: lpc-eth: not found (-6).
-> 
-> Signed-off-by: Vladimir Zapolskiy <vz@mleia.com>
-
-Applied.
+https://lkml.org/lkml/2012/6/17/231
