@@ -1,40 +1,31 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v3 00/28] bonding/team offload + mlxsw
- implementation
-Date: Thu, 3 Dec 2015 17:54:20 +0100
-Message-ID: <20151203165420.GL2331@nanopsycho.orion>
-References: <1449141150-8172-1-git-send-email-jiri@resnulli.us>
- <20151203.115140.1992432368275148930.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] alx: remove pointless assignment
+Date: Thu, 03 Dec 2015 11:58:28 -0500 (EST)
+Message-ID: <20151203.115828.1712589413260020106.davem@davemloft.net>
+References: <1448922816-13960-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com, j.vosburgh@gmail.com,
-	vfalico@gmail.com, gospo@cumulusnetworks.com,
-	dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	pjonnala@broadcom.com, f.fainelli@gmail.com, sfeldma@gmail.com,
-	john.fastabend@gmail.com, roopa@cumulusnetworks.com, andrew@lunn.ch
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, jcliburn@gmail.com,
+	chris.snook@gmail.com, netdev@vger.kernel.org
+To: jarod@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37435 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752418AbbLCQyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 11:54:23 -0500
-Received: by wmww144 with SMTP id w144so30573889wmw.0
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 08:54:22 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20151203.115140.1992432368275148930.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41340 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752692AbbLCQ6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 11:58:30 -0500
+In-Reply-To: <1448922816-13960-1-git-send-email-jarod@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Dec 03, 2015 at 05:51:40PM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Thu,  3 Dec 2015 12:12:02 +0100
->
->> This patchset introduces needed infrastructure for link aggregation
->> offload - for both team and bonding. It also implements the offload
->> in mlxsw driver.
->
->Series applied, please send followups that do the const'ing Eric Dumazet
->asked for.
+From: Jarod Wilson <jarod@redhat.com>
+Date: Mon, 30 Nov 2015 17:33:36 -0500
 
-Will do. Thanks.
+> Reasonably sure this doesn't serve any purpose.
+> 
+> CC: Jay Cliburn <jcliburn@gmail.com>
+> CC: Chris Snook <chris.snook@gmail.com>
+> CC: netdev@vger.kernel.org
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+
+Applied, thanks.
