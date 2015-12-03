@@ -1,35 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: use GFP_USER for user-controlled kmalloc
-Date: Wed, 02 Dec 2015 23:40:08 -0500 (EST)
-Message-ID: <20151202.234008.2105465549392712497.davem@davemloft.net>
-References: <CACT4Y+a_V5WQZNEnYkuA3Xc5qCWmLV3oScNeNiATZm-wW5eg3Q@mail.gmail.comc>
-	<db23659cdf84bc80aff45e906cbfb67581e7a125.1448901154.git.marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] ipv6: kill sk_dst_lock
+Date: Wed, 02 Dec 2015 23:42:16 -0500 (EST)
+Message-ID: <20151202.234216.1113392733011218992.davem@davemloft.net>
+References: <1448731434.24696.97.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1448854142.24696.109.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1448901315.24696.127.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	vyasevich@gmail.com, nhorman@tuxdriver.com, daniel@iogearbox.net,
-	linux-kernel@vger.kernel.org, syzkaller@googlegroups.com,
-	dvyukov@google.com, kcc@google.com, glider@google.com,
-	sasha.levin@oracle.com, edumazet@google.com
-To: marcelo.leitner@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <db23659cdf84bc80aff45e906cbfb67581e7a125.1448901154.git.marcelo.leitner@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dvyukov@google.com, vyasevich@gmail.com, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, edumazet@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58966 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758149AbbLCEmS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 23:42:18 -0500
+In-Reply-To: <1448901315.24696.127.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Mon, 30 Nov 2015 14:32:54 -0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 30 Nov 2015 08:35:15 -0800
 
-> Dmitry Vyukov reported that the user could trigger a kernel warning by
-> using a large len value for getsockopt SCTP_GET_LOCAL_ADDRS, as that
-> value directly affects the value used as a kmalloc() parameter.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> This patch thus switches the allocation flags from all user-controllable
-> kmalloc size to GFP_USER to put some more restrictions on it and also
-> disables the warn, as they are not necessary.
+> While testing the np->opt RCU conversion, I found that UDP/IPv6 was
+> using a mixture of xchg() and sk_dst_lock to protect concurrent changes
+> to sk->sk_dst_cache, leading to possible corruptions and crashes.
 > 
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> ip6_sk_dst_lookup_flow() uses sk_dst_check() anyway, so the simplest
+> way to fix the mess is to remove sk_dst_lock completely, as we did for
+> IPv4.
+> 
+> __ip6_dst_store() and ip6_dst_store() share same implementation.
+> 
+> sk_setup_caps() being called with socket lock being held or not,
+> we have to use sk_dst_set() instead of __sk_dst_set()
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
 
-Applied.
+Please update the commit log message with the details you
+provided in a reply to this thread.
+
+Thanks.
