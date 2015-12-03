@@ -1,60 +1,44 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: ipsec impact on performance
-Date: Thu, 3 Dec 2015 09:45:08 +0100
-Message-ID: <20151203084508.GD14008@secunet.com>
-References: <20151201175953.GC21252@oracle.com>
- <20151202065305.GB14008@secunet.com>
- <20151202120538.GJ23178@oracle.com>
+From: =?UTF-8?q?J=C3=A9r=C3=B4me=20Pouiller?= <jezz@sysmic.org>
+Subject: [PATCH] net: phy: reset only targeted phy
+Date: Thu,  3 Dec 2015 10:02:35 +0100
+Message-ID: <1449133355-7668-1-git-send-email-jezz@sysmic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <linux-crypto@vger.kernel.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151202120538.GJ23178@oracle.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?J=C3=A9r=C3=B4me=20Pouiller?= <jezz@sysmic.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sysmic.org ([62.210.89.17]:53209 "EHLO lupi.sysmic.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932201AbbLCJJt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2015 04:09:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 02, 2015 at 07:05:38AM -0500, Sowmini Varadhan wrote:
-> On (12/02/15 07:53), Steffen Klassert wrote:
-> > 
-> > I'm currently working on a GRO/GSO codepath for IPsec too. The GRO part
-> > works already. I decapsulate/decrypt the packets on layer2 with a esp GRO
-> > callback function and reinject them into napi_gro_receive(). So in case
-> > the decapsulated packet is TCP, GRO can aggregate big packets.
-> 
-> Would you be able to share your patch with me? I'd like to give that a try
-> just to get preliminary numbers (and I could massage it as needed
-> for transport mode too).
+It is possible to address another chip on same MDIO bus. The case is
+correctly handled for media advertising. It is taken into account
+only if mii_data->phy_id =3D=3D phydev->addr. However, this condition
+was missing for reset case.
 
-I've got the final bits to work today, I can do async crypto now.
-I can push the patches to a public tree after some polishing.
-But I have to warn, it has still bugs and no usefull commit messages.
+Signed-off-by: J=C3=A9r=C3=B4me Pouiller <jezz@sysmic.org>
+---
+ drivers/net/phy/phy.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-I did a first test with forwaring esp in tunnel mode. The crypto
-algorithm I used was:
-
-pcrypt(echainiv(authenc(hmac(sha1-ssse3),cbc-aes-aesni)))
-
-Result:
-
-iperf -c 10.0.0.12 -t 60
-------------------------------------------------------------
-Client connecting to 10.0.0.12, TCP port 5001
-TCP window size: 45.0 KByte (default)
-------------------------------------------------------------
-[  3] local 192.168.0.12 port 39380 connected with 10.0.0.12 port 5001
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0-60.0 sec  32.8 GBytes  4.70 Gbits/sec
-
-I provide more informatios as soon as the code is available.
-
-> 
-> > Another thing, I thought about setting up an IPsec BoF/workshop at
-> > netdev1.1. My main topic is GRO/GSO for IPsec. I'll send out a mail
-> > to the list later this week to see if there is enough interest and
-> > maybe some additional topics.
-> 
-> Sounds like an excellent idea. I'm certainly interested.
-
-Great, than we are at least two :)
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 48ce6ef..47cd306 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -448,7 +448,8 @@ int phy_mii_ioctl(struct phy_device *phydev, struct=
+ ifreq *ifr, int cmd)
+ 		mdiobus_write(phydev->bus, mii_data->phy_id,
+ 			      mii_data->reg_num, val);
+=20
+-		if (mii_data->reg_num =3D=3D MII_BMCR &&
++		if (mii_data->phy_id =3D=3D phydev->addr &&
++		    mii_data->reg_num =3D=3D MII_BMCR &&
+ 		    val & BMCR_RESET)
+ 			return phy_init_hw(phydev);
+=20
+--=20
+2.6.2
