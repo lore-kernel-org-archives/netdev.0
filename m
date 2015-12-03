@@ -1,137 +1,258 @@
 From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH net 3/4] qed: Fix BAR size split for some servers
-Date: Thu, 3 Dec 2015 05:59:15 -0500
-Message-ID: <1449140356-17419-4-git-send-email-manish.chopra@qlogic.com>
+Subject: [PATCH net 4/4] qed: Correct slowpath interrupt scheme
+Date: Thu, 3 Dec 2015 05:59:16 -0500
+Message-ID: <1449140356-17419-5-git-send-email-manish.chopra@qlogic.com>
 References: <1449140356-17419-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
-	<Yuval.Mintz@qlogic.com>
+	<Yuval.Mintz@qlogic.com>,
+	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:47611 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S964961AbbLCLjd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 06:39:33 -0500
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:59282 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756741AbbLCLjb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 06:39:31 -0500
 In-Reply-To: <1449140356-17419-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <Ariel.Elior@qlogic.com>
+From: Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
 
-Can't rely on pci config space to discover bar size,
-as in some environments this returns a wrong, too large value.
-Instead, rely on device register, which contains the value
-provided by MFW at preboot.
+When using INTa, ISR might be called before device is configured
+for INTa [E.g., due to other device asserting the shared interrupt line],
+in which case the ISR would read the SISR registers that shouldn't be
+read unless HW is already configured for INTa. This might break interrupts
+later on. There's also an MSI-X issue due to this difference, although
+it's mostly theoretical.
 
-Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+This patch changes the initialization order, calling request_irq() for the
+slowpath interrupt only after the chip is configured for working
+in the preferred interrupt mode.
+
+Signed-off-by: Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
 Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dev.c      |   53 ++++++++++++++---------
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |    4 ++
- 2 files changed, 36 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed.h      |    3 +
+ drivers/net/ethernet/qlogic/qed/qed_int.c  |   33 ++++++++++++----
+ drivers/net/ethernet/qlogic/qed/qed_int.h  |   15 +++++--
+ drivers/net/ethernet/qlogic/qed/qed_main.c |   56 +++++++++-------------------
+ 4 files changed, 55 insertions(+), 52 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 803b190..817bbd5 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -1385,52 +1385,63 @@ err0:
- 	return rc;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
+index ac17d86..1292c36 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed.h
++++ b/drivers/net/ethernet/qlogic/qed/qed.h
+@@ -299,6 +299,7 @@ struct qed_hwfn {
+ 
+ 	/* Flag indicating whether interrupts are enabled or not*/
+ 	bool				b_int_enabled;
++	bool				b_int_requested;
+ 
+ 	struct qed_mcp_info		*mcp_info;
+ 
+@@ -491,6 +492,8 @@ u32 qed_unzip_data(struct qed_hwfn *p_hwfn,
+ 		   u32 input_len, u8 *input_buf,
+ 		   u32 max_size, u8 *unzip_buf);
+ 
++int qed_slowpath_irq_req(struct qed_hwfn *hwfn);
++
+ #define QED_ETH_INTERFACE_VERSION       300
+ 
+ #endif /* _QED_H */
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
+index de50e84..9cc9d62 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_int.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
+@@ -783,22 +783,16 @@ void qed_int_igu_enable_int(struct qed_hwfn *p_hwfn,
+ 	qed_wr(p_hwfn, p_ptt, IGU_REG_PF_CONFIGURATION, igu_pf_conf);
  }
  
--static u32 qed_hw_bar_size(struct qed_dev *cdev,
--			   u8 bar_id)
-+static u32 qed_hw_bar_size(struct qed_hwfn	*p_hwfn,
-+			   u8			bar_id)
+-void qed_int_igu_enable(struct qed_hwfn *p_hwfn,
+-			struct qed_ptt *p_ptt,
+-			enum qed_int_mode int_mode)
++int qed_int_igu_enable(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
++		       enum qed_int_mode int_mode)
  {
--	u32 size = pci_resource_len(cdev->pdev, (bar_id > 0) ? 2 : 0);
-+	u32 bar_reg = (bar_id == 0 ? PGLUE_B_REG_PF_BAR0_SIZE
-+		       : PGLUE_B_REG_PF_BAR1_SIZE);
-+	u32 val = qed_rd(p_hwfn, p_hwfn->p_main_ptt, bar_reg);
+-	int i;
+-
+-	p_hwfn->b_int_enabled = 1;
++	int rc, i;
  
--	return size / cdev->num_hwfns;
-+	/* Get the BAR size(in KB) from hardware given val */
-+	return 1 << (val + 15);
- }
+ 	/* Mask non-link attentions */
+ 	for (i = 0; i < 9; i++)
+ 		qed_wr(p_hwfn, p_ptt,
+ 		       MISC_REG_AEU_ENABLE1_IGU_OUT_0 + (i << 2), 0);
  
- int qed_hw_prepare(struct qed_dev *cdev,
- 		   int personality)
- {
--	int rc, i;
-+	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-+	int rc;
+-	/* Enable interrupt Generation */
+-	qed_int_igu_enable_int(p_hwfn, p_ptt, int_mode);
+-
+ 	/* Configure AEU signal change to produce attentions for link */
+ 	qed_wr(p_hwfn, p_ptt, IGU_REG_LEADING_EDGE_LATCH, 0xfff);
+ 	qed_wr(p_hwfn, p_ptt, IGU_REG_TRAILING_EDGE_LATCH, 0xfff);
+@@ -808,6 +802,19 @@ void qed_int_igu_enable(struct qed_hwfn *p_hwfn,
  
- 	/* Store the precompiled init data ptrs */
- 	qed_init_iro_array(cdev);
- 
- 	/* Initialize the first hwfn - will learn number of hwfns */
--	rc = qed_hw_prepare_single(&cdev->hwfns[0], cdev->regview,
-+	rc = qed_hw_prepare_single(p_hwfn,
-+				   cdev->regview,
- 				   cdev->doorbells, personality);
- 	if (rc)
- 		return rc;
- 
--	personality = cdev->hwfns[0].hw_info.personality;
-+	personality = p_hwfn->hw_info.personality;
- 
- 	/* Initialize the rest of the hwfns */
--	for (i = 1; i < cdev->num_hwfns; i++) {
-+	if (cdev->num_hwfns > 1) {
- 		void __iomem *p_regview, *p_doorbell;
-+		u8 __iomem *addr;
+ 	/* Unmask AEU signals toward IGU */
+ 	qed_wr(p_hwfn, p_ptt, MISC_REG_AEU_MASK_ATTN_IGU, 0xff);
++	if ((int_mode != QED_INT_MODE_INTA) || IS_LEAD_HWFN(p_hwfn)) {
++		rc = qed_slowpath_irq_req(p_hwfn);
++		if (rc != 0) {
++			DP_NOTICE(p_hwfn, "Slowpath IRQ request failed\n");
++			return -EINVAL;
++		}
++		p_hwfn->b_int_requested = true;
++	}
++	/* Enable interrupt Generation */
++	qed_int_igu_enable_int(p_hwfn, p_ptt, int_mode);
++	p_hwfn->b_int_enabled = 1;
 +
-+		/* adjust bar offset for second engine */
-+		addr = cdev->regview + qed_hw_bar_size(p_hwfn, 0) / 2;
-+		p_regview = addr;
- 
--		p_regview =  cdev->regview +
--			     i * qed_hw_bar_size(cdev, 0);
--		p_doorbell = cdev->doorbells +
--			     i * qed_hw_bar_size(cdev, 1);
--		rc = qed_hw_prepare_single(&cdev->hwfns[i], p_regview,
-+		/* adjust doorbell bar offset for second engine */
-+		addr = cdev->doorbells + qed_hw_bar_size(p_hwfn, 1) / 2;
-+		p_doorbell = addr;
-+
-+		/* prepare second hw function */
-+		rc = qed_hw_prepare_single(&cdev->hwfns[1], p_regview,
- 					   p_doorbell, personality);
-+
-+		/* in case of error, need to free the previously
-+		 * initiliazed hwfn 0.
-+		 */
- 		if (rc) {
--			/* Cleanup previously initialized hwfns */
--			while (--i >= 0) {
--				qed_init_free(&cdev->hwfns[i]);
--				qed_mcp_free(&cdev->hwfns[i]);
--				qed_hw_hwfn_free(&cdev->hwfns[i]);
--			}
--			return rc;
-+			qed_init_free(p_hwfn);
-+			qed_mcp_free(p_hwfn);
-+			qed_hw_hwfn_free(p_hwfn);
- 		}
- 	}
- 
--	return 0;
 +	return rc;
  }
  
- void qed_hw_remove(struct qed_dev *cdev)
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-index 7a5ce59..e8df123 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-@@ -363,4 +363,8 @@
- 		0x7 << 0)
- #define  MCP_REG_NVM_CFG4_FLASH_SIZE_SHIFT \
- 	0
-+#define PGLUE_B_REG_PF_BAR0_SIZE \
-+	0x2aae60UL
-+#define PGLUE_B_REG_PF_BAR1_SIZE \
-+	0x2aae64UL
- #endif
+ void qed_int_igu_disable_int(struct qed_hwfn *p_hwfn,
+@@ -1127,3 +1134,11 @@ int qed_int_get_num_sbs(struct qed_hwfn *p_hwfn,
+ 
+ 	return info->igu_sb_cnt;
+ }
++
++void qed_int_disable_post_isr_release(struct qed_dev *cdev)
++{
++	int i;
++
++	for_each_hwfn(cdev, i)
++		cdev->hwfns[i].b_int_requested = false;
++}
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.h b/drivers/net/ethernet/qlogic/qed/qed_int.h
+index 16b5751..51e0b09 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_int.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_int.h
+@@ -169,10 +169,14 @@ int qed_int_get_num_sbs(struct qed_hwfn *p_hwfn,
+ 			int *p_iov_blks);
+ 
+ /**
+- * @file
++ * @brief qed_int_disable_post_isr_release - performs the cleanup post ISR
++ *        release. The API need to be called after releasing all slowpath IRQs
++ *        of the device.
++ *
++ * @param cdev
+  *
+- * @brief Interrupt handler
+  */
++void qed_int_disable_post_isr_release(struct qed_dev *cdev);
+ 
+ #define QED_CAU_DEF_RX_TIMER_RES 0
+ #define QED_CAU_DEF_TX_TIMER_RES 0
+@@ -366,10 +370,11 @@ void qed_int_setup(struct qed_hwfn *p_hwfn,
+  * @param p_hwfn
+  * @param p_ptt
+  * @param int_mode
++ *
++ * @return int
+  */
+-void qed_int_igu_enable(struct qed_hwfn *p_hwfn,
+-			struct qed_ptt *p_ptt,
+-			enum qed_int_mode int_mode);
++int qed_int_igu_enable(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
++		       enum qed_int_mode int_mode);
+ 
+ /**
+  * @brief - Initialize CAU status block entry
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 947c7af..174f734 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -476,41 +476,22 @@ static irqreturn_t qed_single_int(int irq, void *dev_instance)
+ 	return rc;
+ }
+ 
+-static int qed_slowpath_irq_req(struct qed_dev *cdev)
++int qed_slowpath_irq_req(struct qed_hwfn *hwfn)
+ {
+-	int i = 0, rc = 0;
++	struct qed_dev *cdev = hwfn->cdev;
++	int rc = 0;
++	u8 id;
+ 
+ 	if (cdev->int_params.out.int_mode == QED_INT_MODE_MSIX) {
+-		/* Request all the slowpath MSI-X vectors */
+-		for (i = 0; i < cdev->num_hwfns; i++) {
+-			snprintf(cdev->hwfns[i].name, NAME_SIZE,
+-				 "sp-%d-%02x:%02x.%02x",
+-				 i, cdev->pdev->bus->number,
+-				 PCI_SLOT(cdev->pdev->devfn),
+-				 cdev->hwfns[i].abs_pf_id);
+-
+-			rc = request_irq(cdev->int_params.msix_table[i].vector,
+-					 qed_msix_sp_int, 0,
+-					 cdev->hwfns[i].name,
+-					 cdev->hwfns[i].sp_dpc);
+-			if (rc)
+-				break;
+-
+-			DP_VERBOSE(&cdev->hwfns[i],
+-				   (NETIF_MSG_INTR | QED_MSG_SP),
++		id = hwfn->my_id;
++		snprintf(hwfn->name, NAME_SIZE, "sp-%d-%02x:%02x.%02x",
++			 id, cdev->pdev->bus->number,
++			 PCI_SLOT(cdev->pdev->devfn), hwfn->abs_pf_id);
++		rc = request_irq(cdev->int_params.msix_table[id].vector,
++				 qed_msix_sp_int, 0, hwfn->name, hwfn->sp_dpc);
++		if (!rc)
++			DP_VERBOSE(hwfn, (NETIF_MSG_INTR | QED_MSG_SP),
+ 				   "Requested slowpath MSI-X\n");
+-		}
+-
+-		if (i != cdev->num_hwfns) {
+-			/* Free already request MSI-X vectors */
+-			for (i--; i >= 0; i--) {
+-				unsigned int vec =
+-					cdev->int_params.msix_table[i].vector;
+-				synchronize_irq(vec);
+-				free_irq(cdev->int_params.msix_table[i].vector,
+-					 cdev->hwfns[i].sp_dpc);
+-			}
+-		}
+ 	} else {
+ 		unsigned long flags = 0;
+ 
+@@ -534,13 +515,17 @@ static void qed_slowpath_irq_free(struct qed_dev *cdev)
+ 
+ 	if (cdev->int_params.out.int_mode == QED_INT_MODE_MSIX) {
+ 		for_each_hwfn(cdev, i) {
++			if (!cdev->hwfns[i].b_int_requested)
++				break;
+ 			synchronize_irq(cdev->int_params.msix_table[i].vector);
+ 			free_irq(cdev->int_params.msix_table[i].vector,
+ 				 cdev->hwfns[i].sp_dpc);
+ 		}
+ 	} else {
+-		free_irq(cdev->pdev->irq, cdev);
++		if (QED_LEADING_HWFN(cdev)->b_int_requested)
++			free_irq(cdev->pdev->irq, cdev);
+ 	}
++	qed_int_disable_post_isr_release(cdev);
+ }
+ 
+ static int qed_nic_stop(struct qed_dev *cdev)
+@@ -765,16 +750,11 @@ static int qed_slowpath_start(struct qed_dev *cdev,
+ 	if (rc)
+ 		goto err1;
+ 
+-	/* Request the slowpath IRQ */
+-	rc = qed_slowpath_irq_req(cdev);
+-	if (rc)
+-		goto err2;
+-
+ 	/* Allocate stream for unzipping */
+ 	rc = qed_alloc_stream_mem(cdev);
+ 	if (rc) {
+ 		DP_NOTICE(cdev, "Failed to allocate stream memory\n");
+-		goto err3;
++		goto err2;
+ 	}
+ 
+ 	/* Start the slowpath */
 -- 
 1.7.1
