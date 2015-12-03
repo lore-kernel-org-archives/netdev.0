@@ -1,50 +1,34 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [Intel-wired-lan] [PATCH v6] i40e: Look up MAC address in Open
- Firmware or IDPROM
-Date: Thu, 3 Dec 2015 11:58:50 -0500
-Message-ID: <20151203165850.GB15262@oracle.com>
-References: <20151105.103126.148818796422971143.davem@davemloft.net>
- <20151105.110506.1901401372160830603.davem@davemloft.net>
- <CAHp75VfiV6DVb-2piCxmEWFP4Gi-+n0qNhhscvd=UsqXrivVYg@mail.gmail.com>
- <20151105.133131.1900833527415923596.davem@davemloft.net>
- <CAHp75Ve2sLrNZGjD=1LHbyzQEuB2GMhXJxmBgQo1Y4eCHzPk+A@mail.gmail.com>
- <26D9FDECA4FBDD4AADA65D8E2FC68A4A0F96CBB6@ORSMSX104.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 4.4-rc2 xfrm_lookup kasan trace
+Date: Thu, 03 Dec 2015 11:59:18 -0500 (EST)
+Message-ID: <20151203.115918.730123340200500473.davem@davemloft.net>
+References: <20151130232733.GA27119@codemonkey.org.uk>
+	<1448932931.25582.2.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Shevchenko <andy.shevchenko@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	netdev <netdev@vger.kernel.org>
-To: "Bowers, AndrewX" <andrewx.bowers@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <26D9FDECA4FBDD4AADA65D8E2FC68A4A0F96CBB6@ORSMSX104.amr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davej@codemonkey.org.uk, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41356 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753049AbbLCQ7T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 11:59:19 -0500
+In-Reply-To: <1448932931.25582.2.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (12/03/15 16:53), Bowers, AndrewX wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 30 Nov 2015 17:22:11 -0800
 
-> 
-> I get an error -11 on driver init with this patch applied, I can
-> revert it and everything works normally. Dmesg screenshot is attached,
-> can supply complete dmesg log if needed.
+> @@ -2198,6 +2198,7 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+>  	xdst = NULL;
+>  	route = NULL;
+>  
+> +	sk = sk_to_full_sk((struct sock *)sk);
 
-Yes, that's the same thing that I'm running into as well. 
-Using this patch makes this work. But this adds some ugly
-ifdef's, and other methods should be explored.
+The war against const...
 
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -9102,9 +9102,11 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 ty
-                ret = i40e_config_netdev(vsi);
-                if (ret)
-                        goto err_netdev;
-+#if defined(CONFIG_SPARC) || defined(CONFIG_OF)
-                ret = i40e_macaddr_init(vsi, pf->hw.mac.addr);
-                if (ret)
-                        goto err_netdev;
-+#endif
-                ret = register_netdev(vsi->netdev);
-                if (ret)
-                        goto err_netdev;
+I know this is the only instance where const is input, but you may want to
+consider adding the const verion of the helper anyways to avoid ugly casts
+like this.
