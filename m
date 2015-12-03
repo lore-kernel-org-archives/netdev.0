@@ -1,104 +1,78 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH 0/6] net: qmi_wwan: MDM9x30 support
-Date: Thu,  3 Dec 2015 19:24:17 +0100
-Message-ID: <1449167063-22703-1-git-send-email-bjorn@mork.no>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: use-after-free in sctp_do_sm
+Date: Thu, 3 Dec 2015 13:35:37 -0500
+Message-ID: <56608B79.7040105@gmail.com>
+References: <CACT4Y+ZnWRZfQC25uW=GXHAJB=GX0L6tJQUy43P6WNR3=hwT8Q@mail.gmail.com>
+ <CACT4Y+aAYy4-Ow+gt+1C46CK1+MbspBMM7qz9pVYsXvGXRJ1SQ@mail.gmail.com>
+ <CACT4Y+YjAhRSYDFUZYydtWfRzi1yDEKtPrPsJqYN93Km91J=Cw@mail.gmail.com>
+ <20151124204553.GB3364@hmsreliant.think-freely.org>
+ <5655CFDC.4050206@gmail.com>
+ <CACT4Y+aNgjykBXxEM0uv0MPOa=N6zkBuEp+vShR3KHqRE-tPAw@mail.gmail.com>
+ <20151203165133.GD4164@mrl.redhat.com> <20151203174356.GE4164@mrl.redhat.com>
+ <1449165550.25029.4.camel@edumazet-glaptop2.roam.corp.google.com>
+ <74ED362E-9B4D-48CB-85BE-04DEDF1BFC97@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org, Marcel Holtmann <marcel@holtmann.org>,
-	Oliver Neukum <oneukum@suse.com>,
-	Aleksander Morgado <aleksander@aleksander.es>,
-	Dan Williams <dcbw@redhat.com>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: syzkaller <syzkaller@googlegroups.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>,
+	=?UTF-8?Q?Maciej_=c5=bbenczykowski?= <maze@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>
+To: Marcelo <marcelo.leitner@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:47912 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752075AbbLCSZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 13:25:08 -0500
+Received: from mail-qk0-f176.google.com ([209.85.220.176]:36111 "EHLO
+	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752818AbbLCSfl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 13:35:41 -0500
+In-Reply-To: <74ED362E-9B4D-48CB-85BE-04DEDF1BFC97@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We add new device IDs all the time, often without any testing on
-actual hardware. This is usually OK as long as the device is similar
-to already supported devices, using the same chipset and firmware
-basis.  But the Sierra Wireless MC7455 is an example of a new chipset
-generation. Adding it based on assumed similarity with its ancestors
-proved too optimistic.
+On 12/03/2015 01:06 PM, Marcelo wrote:
+> 
+> 
+> Em 3 de dezembro de 2015 15:59:10 BRST, Eric Dumazet <eric.dumazet@gmail.com> escreveu:
+>> On Thu, 2015-12-03 at 15:43 -0200, Marcelo Ricardo Leitner wrote:
+>>
+>>> Vlad, others,
+>>>
+>>> It's been a long time but this was introduced by commit 914e1c8b6980
+>>> ("sctp: Inherit all socket options from parent correctly."). This is
+>> not
+>>> very consistent with how other protocols work and it will be hard to
+>>> keep tracking a negative mask of flags that we can't copy.
+>>>
+>>> I reviewed the list of options and I'm thinking that only
+>>> SO_BINDTODEVICE is worth copying, leaving the others for the
+>> application
+>>> to re-set, as it is for other protocols. So I'm thinking on simply:
+>>>
+>>> -       newsk->sk_flags = sk->sk_flags;
+>>> +       newsk->sk_flags = sk->sk_flags & SO_BINDTODEVICE;
+>>>
+>>> in the above.
+>>>
+>>> What do you think?
+>>
+>> I think SO_BINDTODEVICE is not a flag ;)
+>>
+>> #define SO_BINDTODEVICE    25
+> 
+> Oops, indeed!
+> Idea persists.
+> Thx!
+> 
 
-This series adds the missing bits and pieces necessary to support LTE
-Advanced modems based on the Qualcomm MDM9x30 chipset. A big thanks to
-Sierra Wireless for providing MC7455 samples for testing
+Hmm...  sk_clone_lock() appears to copy the flags as well, so it would
+appear the tcp accept() sockets would also have timestamping set.
 
-The most important change is the "raw-ip" support. The series also
-adds a necessary control request, removes an unsupported device ID,
-and adds a driver specific entry in MAINTAINERS.
+I can see how we probably shouldn't being copying sk_flags as there isn't
+much there that need to be set.
 
-A few random notes about "raw-ip":
-
-"I rather have these all running in raw IP mode. The 802.3 framing is
-utterly stupid." - Marcel Holtmann in Jan 2012 [1]
-
-Marcel was right.  I should have listened to him. What more can I say?
-
-The 802.3 framing has provided a steady supply of firmware bugs for
-many years. We've added driver workarounds for many of these, but
-there are still known bugs where the workaround is so yucky that we
-have refused to apply it. But all that is over now.  The latest
-generation Qualcomm chips no longer supports 802.3 framing at all.
-
-I had two open questions regarding the "raw-ip" userspace API:
-
-1) Should we continue faking an ethernet device, even if we don't use
-   the L2 headers on the USB link anymore?
-
-   There was a vote in favour of the "headerless" device. This is the
-   honest representation of the hardware/firmware interface.
-
-2) What input should the driver base its framing on?
-
-   Snooping or directly manipulating QMI is considered out of the
-   question. We delegated all QMI handling to userspace from the
-   beginning.
-
-   We have so far required userspace to configure the firmware for
-   "802.3" framing, or fail if that proved impossible.  This
-   requirement is now changed.  Userspace must now inform the driver
-   if it negotiates "raw-ip" framing.  Two alternative interfaces were
-   proposed:
-    - ethtool private driver flag, or
-    - sysfs file
-
-   The NetworkManager/ModemManager developers were in favour of the
-   sysfs alternative.
-
-These questions (or any other you migh have :) are of course still
-open.  This patch set presents the solutions I currently prefer,
-considering the above.
-
-All comments are appreciated, even simple '+1' ones.
-
-
-Bj=C3=B8rn
-
-[1] http://www.spinics.net/lists/linux-usb/msg57056.html
-
-
-Bj=C3=B8rn Mork (6):
-  net: qmi_wwan: MDM9x30 specific power management
-  net: qmi_wwan: remove 1199:9070 device id
-  usbnet: allow mini-drivers to consume L2 headers
-  net: qmi_wwan: support "raw IP" mode
-  net: qmi_wwan: document the qmi/raw_ip sysfs file
-  MAINTAINERS: add qmi_wwan driver entry
-
- Documentation/ABI/testing/sysfs-class-net-qmi |  23 +++++
- MAINTAINERS                                   |   7 ++
- drivers/net/usb/qmi_wwan.c                    | 138 ++++++++++++++++++=
-+++++++-
- drivers/net/usb/usbnet.c                      |   5 +-
- 4 files changed, 169 insertions(+), 4 deletions(-)
- create mode 100644 Documentation/ABI/testing/sysfs-class-net-qmi
-
---=20
-2.1.4
+-vlad
