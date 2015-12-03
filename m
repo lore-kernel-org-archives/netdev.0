@@ -1,27 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ravb: ptp: Add CONFIG mode support
-Date: Thu, 03 Dec 2015 14:28:39 -0500 (EST)
-Message-ID: <20151203.142839.1524060182047354031.davem@davemloft.net>
-References: <1448989479-11594-1-git-send-email-ykaneko0929@gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [RFC] ipv6: use a random ifid for headerless devices
+Date: Thu, 03 Dec 2015 20:29:53 +0100
+Message-ID: <87vb8fjpou.fsf@nemi.mork.no>
+References: <1448884508-5235-1-git-send-email-bjorn@mork.no>
+	<1448968942.3320842.454553905.2C5FBADD@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, horms@verge.net.au, magnus.damm@gmail.com,
-	linux-sh@vger.kernel.org
-To: ykaneko0929@gmail.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1448989479-11594-1-git-send-email-ykaneko0929@gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:35298 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753163AbbLCTaA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 14:30:00 -0500
+In-Reply-To: <1448968942.3320842.454553905.2C5FBADD@webmail.messagingengine.com>
+	(Hannes Frederic Sowa's message of "Tue, 01 Dec 2015 12:22:22 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Date: Wed,  2 Dec 2015 02:04:39 +0900
+Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
 
-> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> 
-> This patch makes PTP support active in CONFIG mode on R-Car Gen3.
-> 
-> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+> I see no problem with the patch as it eases operating those devices. =
+I
+> would also suggest storing the ifid in the inet6_dev so it does only
+> change during device creation and destruction. Otherwise I would
+> recommend to use stable privacy addresses to generate the link local
+> addresses. EUI-48 based LL creation should hopefully not be used anym=
+ore
+> soon.
 
-Applied, thank you.
+Thanks for commenting on this. Yes, the stable privacy addresses looks
+like they will solve this and other problems.  But enabling them requir=
+e
+an adminstrator action.
+
+After looking more at addrconf, I started wondering if we couldn't abus=
+e
+ipv6_generate_stable_address() for this purpose?  We could add a new
+addr_gen_mode which would trigger automatic generation of a secret if
+stable_secret is uninitialized.  This would be good enough to ensure
+stability until the interface is destroyed.  And it would still allow
+the adminstrator to select IN6_ADDR_GEN_MODE_STABLE_PRIVACY by entering
+a new secret.
+
+
+Bj=C3=B8rn
