@@ -1,70 +1,58 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: Kernel 4.1.12 crash
-Date: Thu, 3 Dec 2015 16:35:37 +0100
-Message-ID: <20151203153536.GC16101@alphalink.fr>
-References: <5650287B.9070901@seti.kr.ua>
- <56514FF5.7060906@gmail.com>
- <5654EBE8.9030705@seti.kr.ua>
- <20151125141048.GA3868@alphalink.fr>
- <5655CCAE.6000300@seti.kr.ua>
- <20151126164452.GA2988@alphalink.fr>
- <565B7699.8030105@seti.kr.ua>
- <20151130150337.GC3059@alphalink.fr>
- <20151130204208.GA6046@alphalink.fr>
- <20151202172335.GB16101@alphalink.fr>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: rhashtable: Prevent spurious EBUSY errors on insertion
+Date: Thu, 3 Dec 2015 16:38:05 +0100
+Message-ID: <20151203153805.GC17467@orbit.nwl.cc>
+References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
+ <20151130093755.GA8159@gondor.apana.org.au>
+ <20151130101401.GA17712@orbit.nwl.cc>
+ <20151130101859.GA8378@gondor.apana.org.au>
+ <20151203124129.GA5505@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	netdev@vger.kernel.org, Simon Farnsworth <simon@farnz.org.uk>
-To: Andrew <nitr0@seti.kr.ua>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:53785 "EHLO
-	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752123AbbLCPfk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 10:35:40 -0500
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tgraf@suug.ch,
+	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20151202172335.GB16101@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20151203124129.GA5505@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 02, 2015 at 06:23:35PM +0100, Guillaume Nault wrote:
+On Thu, Dec 03, 2015 at 08:41:29PM +0800, Herbert Xu wrote:
+> On Mon, Nov 30, 2015 at 06:18:59PM +0800, Herbert Xu wrote:
+> > 
+> > OK that's better.  I think I see the problem.  The test in
+> > rhashtable_insert_rehash is racy and if two threads both try
+> > to grow the table one of them may be tricked into doing a rehash
+> > instead.
+> > 
+> > I'm working on a fix.
 > 
-> You can try the following. It's not yet a proper fix as there are still
-> a few things that bug me in pppoe_connect().
+> OK this patch fixes the EBUSY problem as far as I can tell.  Please
+> let me know if you still observe EBUSY with it.  I'll respond to the
+> ENOMEM problem in another email.
 > 
-> ---
-> diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
-> index 5e0b432..865b74d 100644
-> --- a/drivers/net/ppp/pppoe.c
-> +++ b/drivers/net/ppp/pppoe.c
-> @@ -568,6 +568,9 @@ static int pppoe_create(struct net *net, struct socket *sock, int kern)
->  	sk->sk_family		= PF_PPPOX;
->  	sk->sk_protocol		= PX_PROTO_OE;
->  
-> +	INIT_WORK(&pppox_sk(sk)->proto.pppoe.padt_work,
-> +		  pppoe_unbind_sock_work);
-> +
->  	return 0;
->  }
->  
-> @@ -632,8 +635,6 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
->  
->  	lock_sock(sk);
->  
-> -	INIT_WORK(&po->proto.pppoe.padt_work, pppoe_unbind_sock_work);
-> -
->  	error = -EINVAL;
->  	if (sp->sa_protocol != PX_PROTO_OE)
->  		goto end;
-> @@ -663,8 +664,6 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
->  			po->pppoe_dev = NULL;
->  		}
->  
-> -		memset(sk_pppox(po) + 1, 0,
-> -		       sizeof(struct pppox_sock) - sizeof(struct sock));
->  		sk->sk_state = PPPOX_NONE;
->  	}
->  
-Finally, I'm going to send something similar to -net and keep the rest
-of pppoe_connect() modifications for net-next. This will ease
-backporting to -stable.
+> ---8<---
+> Thomas and Phil observed that under stress rhashtable insertion
+> sometimes failed with EBUSY, even though this error should only
+> ever been seen when we're under attack and our hash chain length
+> has grown to an unacceptable level, even after a rehash.
+> 
+> It turns out that the logic for detecting whether there is an
+> existing rehash is faulty.  In particular, when two threads both
+> try to grow the same table at the same time, one of them may see
+> the newly grown table and thus erroneously conclude that it had
+> been rehashed.  This is what leads to the EBUSY error.
+> 
+> This patch fixes this by remembering the current last table we
+> used during insertion so that rhashtable_insert_rehash can detect
+> when another thread has also done a resize/rehash.  When this is
+> detected we will give up our resize/rehash and simply retry the
+> insertion with the new table.
+> 
+> Reported-by: Thomas Graf <tgraf@suug.ch>
+> Reported-by: Phil Sutter <phil@nwl.cc>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Tested-by: Phil Sutter <phil@nwl.cc>
