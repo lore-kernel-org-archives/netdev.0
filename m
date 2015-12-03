@@ -1,40 +1,87 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] ravb: ptp: Add CONFIG mode support
-Date: Fri, 4 Dec 2015 00:10:56 +0300
-Message-ID: <5660AFE0.7060401@cogentembedded.com>
-References: <1448989479-11594-1-git-send-email-ykaneko0929@gmail.com>
- <20151203.142839.1524060182047354031.davem@davemloft.net>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: SoCFPGA ethernet broken
+Date: Thu, 3 Dec 2015 13:23:56 -0800
+Message-ID: <5660B2EC.1050705@caviumnetworks.com>
+References: <561FF9E2.30102@opensource.altera.com> <56200687.9040903@gmail.com> <562005AD.8020903@opensource.altera.com> <56200BD7.8020505@gmail.com> <20151203204811.GB14427@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, horms@verge.net.au, magnus.damm@gmail.com,
-	linux-sh@vger.kernel.org
-To: David Miller <davem@davemloft.net>, ykaneko0929@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:32787 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754512AbbLCVLA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 16:11:00 -0500
-Received: by lbbkw15 with SMTP id kw15so9391689lbb.0
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2015 13:10:59 -0800 (PST)
-In-Reply-To: <20151203.142839.1524060182047354031.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Dinh Nguyen <dinguyen@opensource.altera.com>,
+	"David S. Miller" <davem@davemloft.net>, <david.daney@cavium.com>,
+	<netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Pavel Machek <pavel@denx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151203204811.GB14427@amd>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 12/03/2015 10:28 PM, David Miller wrote:
-
->> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+On 12/03/2015 12:48 PM, Pavel Machek wrote:
+> On Thu 2015-10-15 13:25:59, Florian Fainelli wrote:
+>> On 15/10/15 12:59, Dinh Nguyen wrote:
+>>> On 10/15/2015 03:03 PM, Florian Fainelli wrote:
+>>>> On 15/10/15 12:09, Dinh Nguyen wrote:
+>>>>> Hi,
+>>>>>
+>>>>> commit "8b63ec1837fa phylib: Make PHYs children of their MDIO bus, not
+>>>>> the bus' parent." seems to have broken ethernet support for the SoCFPGA
+>>>>> platform which is using the stmmac ethernet driver.
+>>>>
+>>>> It is not clear to me how this relates to what you are seeing yet.
+>>>>
+>>>>>
+>>>>> It appears that during DHCP, it cannot get an IP address. This only
+>>>>> happens if ethernet was not used by the bootloader to tftp an kernel
+>>>>> image. If I use the bootloader to tftp an image then ethernet is working
+>>>>> fine. So I think the PHY is not getting enabled properly.
+>>>>>
+>>>>> If I revert this patch, then ethernet is back to working on the platform.
+>>>>
+>>>> Is the Device Tree source for this platform available somewhere to look at?
+>>>>
+>>>
+>>> Yes, I'm using the DTS that is in the mainline:
+>>>
+>>> arch/arm/boot/dts/socfpga.dtsi
+>>> arch/arm/boot/dts/socfpga_cyclone5.dtsi
+>>> arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
 >>
->> This patch makes PTP support active in CONFIG mode on R-Car Gen3.
+>> There are no PHY devices in any of these DTS files, instead there is the
+>> non-standard "phy-addr" property which is set to 0xffffffff supposedly
+>> to indicate that the MDIO bus should be scanned. This is likely part of
+>> your problem. The stmmac driver seems to be looking for "snps,phy-addr"
+>> and not "phy-addr", so I am not even clear how this is supposed to work,
+>> and the driver mentions this custom property is deprecated anyway.
 >>
->> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+>> The core problem is in
+>> drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c::stmmac_mdio_register
+>> which manually detects the PHY, that is mostly fine, except that it does
+>> not really seem to work here for a reason that is still unclear to me.
+>>
+>> Your Ethernet PHYs need to be declared in Device Tree, see
+>> Documentation/devicetree/bindings/net/phy.txt
 >
-> Applied, thank you.
+> While updating DTS might be good idea, I don't think you can simply
+> blame this on DTS. If it worked before the change, it is supposed to
+> work after the change, otherwise we call that change a "regression"
+> and revert the change.
 
-    You were too fast for me. Alas, I overlooked it. :-/
-    Perhaps worth adding me to MAINTAINERS as (a new role of) a reviewer...
+FWIW: My initial patch to address the failure worked with the original DTB.
 
-MBR, Sergei
+Also: userspace wasn't broken. So, the commandment about not breaking 
+userspace wasn't broken.  Although admittedly, breaking the kernel isn't 
+good either.
+
+
+
+>
+> Plus, DTS is supposed to be ABI. Old DTS should still work on new
+> kernels in ideal world.
+
+If you supply the device tree file in the kernel tree, it is not an ABI.
+
+If the device tree is not part of the kernel, and instead comes from the 
+boot firmware of the board, then you could make the ABI claim.
+
+David Daney
