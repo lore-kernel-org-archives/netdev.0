@@ -1,40 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] net: ipv6: restrict hop_limit sysctl setting
- to range [1;255]
-Date: Thu, 03 Dec 2015 14:42:37 -0500 (EST)
-Message-ID: <20151203.144237.978887160176558314.davem@davemloft.net>
-References: <1449006315-11175-1-git-send-email-phil@nwl.cc>
+Subject: Re: [PATCH net-next v2 2/5] rhashtable: add function to replace an
+ element
+Date: Thu, 03 Dec 2015 14:45:58 -0500 (EST)
+Message-ID: <20151203.144558.1956397517705186998.davem@davemloft.net>
+References: <1449011472-1459652-1-git-send-email-tom@herbertland.com>
+	<1449011472-1459652-3-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: phil@nwl.cc
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44364 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44536 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753005AbbLCTmi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 14:42:38 -0500
-In-Reply-To: <1449006315-11175-1-git-send-email-phil@nwl.cc>
+	with ESMTP id S1753022AbbLCTqA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 14:46:00 -0500
+In-Reply-To: <1449011472-1459652-3-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter <phil@nwl.cc>
-Date: Tue,  1 Dec 2015 22:45:15 +0100
+From: Tom Herbert <tom@herbertland.com>
+Date: Tue, 1 Dec 2015 15:11:09 -0800
 
-> Setting a value bigger than 255 resulted in using only the lower eight
-> bits of that value as it is assigned to the u8 header field. To avoid
-> this unexpected result, reject such values.
-> 
-> Setting a value of zero is technically possible, but hosts receiving
-> such a packet have to treat it like hop_limit was set to one, according
-> to RFC2460. Therefore I don't see a use-case for that.
-> 
-> Setting a route's hop_limit to zero in iproute2 means to use the sysctl
-> default, which is not the case here: Setting e.g.
-> net.conf.eth0.hop_limit=0 will not make the kernel use
-> net.conf.all.hop_limit for outgoing packets on eth0. To avoid these
-> kinds of confusion, reject zero.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> +	lock = rht_bucket_lock(tbl, hash);
+> +
+> +	spin_lock_bh(lock);
+> +
+> +	pprev = &tbl->buckets[hash];
+> +	rht_for_each(he, tbl, hash) {
+> +		if (he != obj_old) {
+> +			pprev = &he->next;
+> +			continue;
+> +		}
+> +
+> +		rcu_assign_pointer(obj_new->next, obj_old->next);
+> +		rcu_assign_pointer(*pprev, obj_new);
+> +		err = 0;
+> +		break;
 
-Applied, thanks Phil.
+Are you sure this works fine in the presence of both parallel readers and
+table expansion passes?
