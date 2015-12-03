@@ -1,57 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net_sched: fix qdisc_tree_decrease_qlen() races
-Date: Thu, 03 Dec 2015 14:59:40 -0500 (EST)
-Message-ID: <20151203.145940.1297777652481637863.davem@davemloft.net>
-References: <CAHA+R7M++LboS_2OmhNjoApvFf6Xk-e+vsEgZrFeKG+k1J8edw@mail.gmail.com>
-	<1449011431.32764.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1449029331.32764.24.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2 net-next 0/2] ravb: More compatibility strings
+Date: Thu, 03 Dec 2015 15:01:27 -0500 (EST)
+Message-ID: <20151203.150127.704957742248906445.davem@davemloft.net>
+References: <1449035913-9129-1-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cwang@twopensource.com, pageexec@freemail.hu, dfucini@gmail.com,
-	netdev@vger.kernel.org, jhs@mojatatu.com, spender@grsecurity.net,
-	re.emese@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44784 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753264AbbLCT7m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 14:59:42 -0500
-In-Reply-To: <1449029331.32764.24.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	magnus.damm@gmail.com, sergei.shtylyov@cogentembedded.com,
+	devicetree@vger.kernel.org
+To: horms+renesas@verge.net.au
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1449035913-9129-1-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 01 Dec 2015 20:08:51 -0800
+From: Simon Horman <horms+renesas@verge.net.au>
+Date: Wed,  2 Dec 2015 14:58:31 +0900
 
-> From: Eric Dumazet <edumazet@google.com>
+> this short series adds generic gen2 and gen3, and soc-specific
+> compatibility strings for the missing gen2 SoCs.
 > 
-> qdisc_tree_decrease_qlen() suffers from two problems on multiqueue
-> devices.
-> 
-> One problem is that it updates sch->q.qlen and sch->qstats.drops
-> on the mq/mqprio root qdisc, while it should not : Daniele
-> reported underflows errors : 
- ...
-> mq/mqprio have their own ways to report qlen/drops by folding stats on
-> all their queues, with appropriate locking.
-> 
-> A second problem is that qdisc_tree_decrease_qlen() calls qdisc_lookup()
-> without proper locking : concurrent qdisc updates could corrupt the list
-> that qdisc_match_from_root() parses to find a qdisc given its handle.
-> 
-> Fix first problem adding a TCQ_F_NOPARENT qdisc flag that
-> qdisc_tree_decrease_qlen() can use to abort its tree traversal,
-> as soon as it meets a mq/mqprio qdisc children.
-> 
-> Second problem can be fixed by RCU protection.
-> Qdisc are already freed after RCU grace period, so qdisc_list_add() and
-> qdisc_list_del() simply have to use appropriate rcu list variants.
-> 
-> A future patch will add a per struct netdev_queue list anchor, so that
-> qdisc_tree_decrease_qlen() can have more efficient lookups.
-> 
-> Reported-by: Daniele Fucini <dfucini@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Key Changes in v2:
+> * Include "rcar-" in generic bindings
 
-Applied and queued up for -stable, thanks Eric!
+Series applied, thanks Simon.
