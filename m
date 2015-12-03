@@ -1,100 +1,72 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Wed, 2 Dec 2015 16:15:23 -0800
-Message-ID: <CALx6S35EwSXNvOxf_a+=5n2xBN6ZTq--cxdciNgCzPnqzxACJA@mail.gmail.com>
-References: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>
-	<1448312579-159544-2-git-send-email-anjali.singhai@intel.com>
-	<CALx6S34+_AtjO94znh7vW4py5a8Nj1g6b-sjGPCa4U1Mc6Y6-w@mail.gmail.com>
-	<20151129.222138.1582847465760563254.davem@davemloft.net>
-	<CAEh+42ivCoBE-vAwWpHHmHYqcXzKP+ceZSvg2rEPh7Db3M1k6Q@mail.gmail.com>
-	<CALx6S35_rXPsYUGcc+yrQX8K1dOcL4aWnmQsa-6X6xULo9BBbg@mail.gmail.com>
-	<CAEh+42gvn=cjZ4E3nACR7=-_a4iFS7OwEsSb+SQGme2k19kVAA@mail.gmail.com>
-	<CALx6S37EoLM=bZ6sSAiiF81X=SvTvoNAmkbH5Dmn9zSvR2oiUA@mail.gmail.com>
-	<20151201154445.GF29497@tuxdriver.com>
-	<1448984968.3382143.454794705.68D88B7D@webmail.messagingengine.com>
-	<CALx6S36i7Ee3Njs6OPVndyoGz1OpYss3YRPG8KO2ehxvAe50dA@mail.gmail.com>
-	<1449074114.3806253.455834737.16948E5F@webmail.messagingengine.com>
-	<CALx6S34Zqn1t4RPkAoa3QT-vWLvawnBN19qEZ12P-YiCEckxHw@mail.gmail.com>
-	<565F8059.3010101@gmail.com>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [net-next 13/15] ixgbe: Handle extended IPv6 headers in tx path
+Date: Thu, 3 Dec 2015 01:06:34 +0000
+Message-ID: <BDE75CB1-7061-4841-A2B7-B4C39A3F03C1@intel.com>
+References: <1449059468-87025-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1449059468-87025-14-git-send-email-jeffrey.t.kirsher@intel.com>
+ <565F1A6E.5010305@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jesse Gross <jesse@kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kiran Patil <kiran.patil@intel.com>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_FFF015B6-3D23-4938-B5CE-5695C344758F";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:32791 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756151AbbLCAPY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2015 19:15:24 -0500
-Received: by iouu10 with SMTP id u10so65669808iou.0
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2015 16:15:23 -0800 (PST)
-In-Reply-To: <565F8059.3010101@gmail.com>
+Received: from mga03.intel.com ([134.134.136.65]:11026 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754717AbbLCBGg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2015 20:06:36 -0500
+In-Reply-To: <565F1A6E.5010305@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 2, 2015 at 3:35 PM, John Fastabend <john.fastabend@gmail.com> wrote:
-> [...]
->
->>>
->>> I wonder why we need protocol generic offloads? I know there are
->>> currently a lot of overlay encapsulation protocols. Are there many more
->>> coming?
->>>
->> Yes, and assume that there are more coming with an unbounded limit
->> (for instance I just noticed today that there is a netdev1.1 talk on
->> supporting GTP in the kernel). Besides, this problem space not just
->> limited to offload of encapsulation protocols, but how to generalize
->> offload of any transport, IPv[46], application protocols, protocol
->> implemented in user space, security protocols, etc.
->>
->>> Besides, this offload is about TSO and RSS and they do need to parse the
->>> packet to get the information where the inner header starts. It is not
->>> only about checksum offloading.
->>>
->> RSS does not require the device to parse the inner header. All the UDP
->> encapsulations protocols being defined set the source port to entropy
->> flow value and most devices already support RSS+UDP (just needs to be
->> enabled) so this works just fine with dumb NICs. In fact, this is one
->> of the main motivations of encapsulating UDP in the first place, to
->> leverage existing RSS and ECMP mechanisms. The more general solution
->> is to use IPv6 flow label (RFC6438). We need HW support to include the
->> flow label into the hash for ECMP and RSS, but once we have that much
->> of the motivation for using UDP goes away and we can get back to just
->> doing GRE/IP, IPIP, MPLS/IP, etc. (hence eliminate overhead and
->> complexity of UDP encap).
->>
->>> Please provide a sketch up for a protocol generic api that can tell
->>> hardware where a inner protocol header starts that supports vxlan,
->>> vxlan-gpe, geneve and ipv6 extension headers and knows which protocol is
->>> starting at that point.
->>>
->> BPF. Implementing protocol generic offloads are not just a HW concern
->> either, adding kernel GRO code for every possible protocol that comes
->> along doesn't scale well. This becomes especially obvious when we
->> consider how to provide offloads for applications protocols. If the
->> kernel provides a programmable framework for the offloads then
->> application protocols, such as QUIC, could use use that without
->> needing to hack the kernel to support the specific protocol (which no
->> one wants!). Application protocol parsing in KCM and some other use
->> cases of BPF have already foreshadowed this, and we are working on a
->> prototype for a BPF programmable engine in the kernel. Presumably,
->> this same model could eventually be applied as the HW API to
->> programmable offload.
->
-> Just keying off the last statement there...
->
-> I think BPF programs are going to be hard to translate into hardware
-> for most devices. The problem is the BPF programs in general lack
-> structure. A parse graph would be much more friendly for hardware or
-> at minimum the BPF program would need to be a some sort of
-> well-structured program so a driver could turn that into a parse graph.
->
-This might be relevant:
-http://richard.systems/research/pdf/IEEE_HPSR_BPF_OPENFLOW.pdf
+--Apple-Mail=_FFF015B6-3D23-4938-B5CE-5695C344758F
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=windows-1252
 
-> .John
+Alexander Duyck <alexander.duyck@gmail.com> wrote:
+
+> This doesn't look right.  How come this doesn't match the =
+implementation you did for the ixgbevf driver?  If I am not mistaken =
+this approach had issues where it could spin forever didn't it?
+
+Yes, this is the original version of the patch instead of the V4 of the =
+patch which you would recognize and should have seen on the =
+intel-wired-lan list. Jeff and I discussed this a little while ago and I =
+sent him a link to the V4 of the patch in patchwork.
+
+--
+Mark Rustad, Networking Division, Intel Corporation
+
+--Apple-Mail=_FFF015B6-3D23-4938-B5CE-5695C344758F
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
+
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - http://gpgtools.org
+
+iQIcBAEBCAAGBQJWX5WaAAoJEDwO/+eO4+5u2NYP/324092VtCawAe5eUM7/G0wQ
+/+hX/QwoqkridFhXLk3v8KWrsF4TVqp0+ay2if74sJ5YM5r0VS+5N/E1V4gtVScx
+YSl2UWlp6MVDSdQTlr3Q3f1VYzfDIdFW+taCPY+V1bpTS6rCdxT/7qgisLOqqun1
+N70IDMAjt6b5MVhHJ2IRPKLpRM+H0LpNQy9l0ZFCMFXmdVGMegbTDlZ+j8EtazeA
+eiDMqfU3bcK2OHMXzIgbr+dcGI7cZLGH27uXYeXYssfAqDEI5Or7EFImaMquT5k6
+wt25EZxQR4U9Llp1Q4tBHNZVwfRQtbtR7ky/8p9cNhPMq82DXhY+DWkdnF5pyWhP
+tM+ChgBhN7LwwIyRFevaWLvo6VWxJynblM7cqPoUSmPGOIGUSdmnXSYO6tnGtsyS
+915/ZoykNbI4k1h1b4SnGjmJx62uz76LUOhnXU5D2+3s2A+HZBoBqSuIEMP0krT3
+FxdD9EOPj0D0+DSxWqYmZ1iOOaSCbaO2DdZ4iLptTsDIOJN5TuzK8UYHabMtgTJs
+bAEiH7eHcyfBnE5Mj+AKiTZIlTz/a5+ZBSVGvsD3TpKnv1q/9pp6Zym5gCBc58Vz
+iCYXjW29PlZtMicOvJ9C/baPcXD2TsCR89EPvKv1bjx74ulm0NRcEyODVKtvuwys
+zC5LYWnGzI5NGhFkhZJZ
+=9qHt
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_FFF015B6-3D23-4938-B5CE-5695C344758F--
