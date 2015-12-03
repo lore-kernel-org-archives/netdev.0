@@ -1,72 +1,61 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH net] atl1c: Improve driver not to do order 4 GFP_ATOMIC
- allocation
-Date: Thu, 3 Dec 2015 17:13:58 +0100
-Message-ID: <20151203161357.GJ9264@dhcp22.suse.cz>
-References: <20151126163413.GA3816@amd>
- <20151127082010.GA2500@dhcp22.suse.cz>
- <20151128145113.GB4135@amd>
- <20151203155905.GA31974@amd>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Andrew Morton <akpm@osdl.org>,
-	kernel list <linux-kernel@vger.kernel.org>, jcliburn@gmail.com,
-	chris.snook@gmail.com, netdev@vger.kernel.org,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>, linux-mm@kvack.org,
-	nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151203155905.GA31974@amd>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH iproute2] libnetlink: don't confuse variables in rtnl_talk()
+Date: Thu,  3 Dec 2015 17:13:48 +0100
+Message-ID: <1449159228-4233-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:51443 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760574AbbLCQOO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 11:14:14 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu 03-12-15 16:59:05, Pavel Machek wrote:
-> 
-> atl1c driver is doing order-4 allocation with GFP_ATOMIC
-> priority. That often breaks  networking after resume. Switch to
-> GFP_KERNEL. Still not ideal, but should be significantly better.
-> 
-> atl1c_setup_ring_resources() is called from .open() function, and
-> already uses GFP_KERNEL, so this change is safe.
+There is two variables named 'len' in rtnl_talk. In fact, commit
+c079e121a73a didn't work. For example, it was possible to trigger
+a seg fault with this command:
+$ ip link set gre2 type ip6gre hoplimit 32
 
-Thanks for updating the changelog
+Let's rename the argument len to maxlen.
 
-> Signed-off-by: Pavel Machek <pavel@ucw.cz>
+Fixes: c079e121a73a ("libnetlink: add size argument to rtnl_talk")
+Reported-by: Thomas Faivre <thomas.faivre@6wind.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ lib/libnetlink.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Acked-by: Michal Hocko <mhocko@suse.com>
-
-> 
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> index 2795d6d..afb71e0 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> @@ -1016,10 +1016,10 @@ static int atl1c_setup_ring_resources(struct atl1c_adapter *adapter)
->  		sizeof(struct atl1c_recv_ret_status) * rx_desc_count +
->  		8 * 4;
->  
-> -	ring_header->desc = pci_alloc_consistent(pdev, ring_header->size,
-> -				&ring_header->dma);
-> +	ring_header->desc = dma_alloc_coherent(&pdev->dev, ring_header->size,
-> +					       &ring_header->dma, GFP_KERNEL);
->  	if (unlikely(!ring_header->desc)) {
-> -		dev_err(&pdev->dev, "pci_alloc_consistend failed\n");
-> +		dev_err(&pdev->dev, "could not get memory for DMA buffer\n");
->  		goto err_nomem;
->  	}
->  	memset(ring_header->desc, 0, ring_header->size);
-> 
-> 
-> -- 
-> (english) http://www.livejournal.com/~pavelmachek
-> (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
-
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index 922ec2d9f872..165821447b2d 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -332,7 +332,7 @@ int rtnl_dump_filter_nc(struct rtnl_handle *rth,
+ }
+ 
+ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+-	      struct nlmsghdr *answer, size_t len)
++	      struct nlmsghdr *answer, size_t maxlen)
+ {
+ 	int status;
+ 	unsigned seq;
+@@ -415,7 +415,7 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+ 				} else if (!err->error) {
+ 					if (answer)
+ 						memcpy(answer, h,
+-						       MIN(len, h->nlmsg_len));
++						       MIN(maxlen, h->nlmsg_len));
+ 					return 0;
+ 				}
+ 
+@@ -427,7 +427,7 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+ 
+ 			if (answer) {
+ 				memcpy(answer, h,
+-				       MIN(len, h->nlmsg_len));
++				       MIN(maxlen, h->nlmsg_len));
+ 				return 0;
+ 			}
+ 
 -- 
-Michal Hocko
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2.4.2
