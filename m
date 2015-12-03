@@ -1,67 +1,158 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: rhashtable: ENOMEM errors when hit with a flood of insertions
-Date: Thu, 3 Dec 2015 20:51:17 +0800
-Message-ID: <20151203125117.GB5505@gondor.apana.org.au>
-References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
- <20151130093755.GA8159@gondor.apana.org.au>
- <20151130101401.GA17712@orbit.nwl.cc>
- <20151130101859.GA8378@gondor.apana.org.au>
+From: Madalin Bucur <madalin.bucur@freescale.com>
+Subject: [net-next v5 1/8] devres: add devm_alloc_percpu()
+Date: Thu, 3 Dec 2015 15:49:42 +0200
+Message-ID: <1449150589-26253-2-git-send-email-madalin.bucur@freescale.com>
+References: <1449150589-26253-1-git-send-email-madalin.bucur@freescale.com>
+Reply-To: <madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Phil Sutter <phil@nwl.cc>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tgraf@suug.ch, fengguang.wu@intel.com, wfg@linux.intel.com,
-	lkp@01.org
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+	<davem@davemloft.net>, <scottwood@freescale.com>,
+	<igal.liberman@freescale.com>, <ppc@mindchasers.com>,
+	<joe@perches.com>, <pebolle@tiscali.nl>,
+	<joakim.tjernlund@transmode.se>, <gregkh@linuxfoundation.org>,
+	Madalin Bucur <madalin.bucur@freescale.com>
+To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151130101859.GA8378@gondor.apana.org.au>
+In-Reply-To: <1449150589-26253-1-git-send-email-madalin.bucur@freescale.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 30, 2015 at 06:18:59PM +0800, Herbert Xu wrote:
-> 
-> OK that's better.  I think I see the problem.  The test in
-> rhashtable_insert_rehash is racy and if two threads both try
-> to grow the table one of them may be tricked into doing a rehash
-> instead.
-> 
-> I'm working on a fix.
+Introduce managed counterparts for alloc_percpu() and free_percpu().
+Add devm_alloc_percpu() and devm_free_percpu() into the managed
+interfaces list.
 
-While the EBUSY errors are gone for me, I can still see plenty
-of ENOMEM errors.  In fact it turns out that the reason is quite
-understandable.  When you pound the rhashtable hard so that it
-doesn't actually get a chance to grow the table in process context,
-then the table will only grow with GFP_ATOMIC allocations.
+Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
+Tested-by: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+---
+ Documentation/driver-model/devres.txt |  4 +++
+ drivers/base/devres.c                 | 64 +++++++++++++++++++++++++++++++++++
+ include/linux/device.h                | 19 +++++++++++
+ 3 files changed, 87 insertions(+)
 
-For me this starts failing regularly at around 2^19 entries, which
-requires about 1024 contiguous pages if I'm not mistaken.
-
-I've got fairly straightforward solution for this, but it does
-mean that we have to add another level of complexity to the
-rhashtable implementation.  So before I go there I want to be
-absolutely sure that we need it.
-
-I guess the question is do we care about users that pound rhashtable
-in this fashion?
-
-My answer would be yes but I'd like to hear your opinions.
-
-My solution is to use a slightly more complex/less efficient hash
-table when we fail the allocation in interrupt context.  Instead
-of allocating contiguous pages, we'll simply switch to allocating
-individual pages and have a master page that points to them.
-
-On a 64-bit platform, each page can accomodate 512 entries.  So
-with a two-level deep setup (meaning one extra access for a hash
-lookup), this would accomodate 2^18 entries.  Three levels (two
-extra lookups) will give us 2^27 entries, which should be enough.
-
-When we do this we should of course schedule an async rehash so
-that as soon as we get a chance we can move the entries into a
-normal hash table that needs only a single lookup.
-
-Cheers,
+diff --git a/Documentation/driver-model/devres.txt b/Documentation/driver-model/devres.txt
+index 831a536..595fd1b 100644
+--- a/Documentation/driver-model/devres.txt
++++ b/Documentation/driver-model/devres.txt
+@@ -312,6 +312,10 @@ MEM
+   devm_kvasprintf()
+   devm_kzalloc()
+ 
++PER-CPU MEM
++  devm_alloc_percpu()
++  devm_free_percpu()
++
+ PCI
+   pcim_enable_device()	: after success, all PCI ops become managed
+   pcim_pin_device()	: keep PCI device enabled after release
+diff --git a/drivers/base/devres.c b/drivers/base/devres.c
+index 8fc654f..77e658f 100644
+--- a/drivers/base/devres.c
++++ b/drivers/base/devres.c
+@@ -10,6 +10,7 @@
+ #include <linux/device.h>
+ #include <linux/module.h>
+ #include <linux/slab.h>
++#include <linux/percpu.h>
+ 
+ #include "base.h"
+ 
+@@ -985,3 +986,66 @@ void devm_free_pages(struct device *dev, unsigned long addr)
+ 			       &devres));
+ }
+ EXPORT_SYMBOL_GPL(devm_free_pages);
++
++static void devm_percpu_release(struct device *dev, void *pdata)
++{
++	void __percpu *p;
++
++	p = *(void __percpu **)pdata;
++	free_percpu(p);
++}
++
++static int devm_percpu_match(struct device *dev, void *data, void *p)
++{
++	struct devres *devr = container_of(data, struct devres, data);
++
++	return *(void **)devr->data == p;
++}
++
++/**
++ * __devm_alloc_percpu - Resource-managed alloc_percpu
++ * @dev: Device to allocate per-cpu memory for
++ * @size: Size of per-cpu memory to allocate
++ * @align: Alignment of per-cpu memory to allocate
++ *
++ * Managed alloc_percpu. Per-cpu memory allocated with this function is
++ * automatically freed on driver detach.
++ *
++ * RETURNS:
++ * Pointer to allocated memory on success, NULL on failure.
++ */
++void __percpu *__devm_alloc_percpu(struct device *dev, size_t size,
++		size_t align)
++{
++	void *p;
++	void __percpu *pcpu;
++
++	pcpu = __alloc_percpu(size, align);
++	if (!pcpu)
++		return NULL;
++
++	p = devres_alloc(devm_percpu_release, sizeof(void *), GFP_KERNEL);
++	if (!p)
++		return NULL;
++
++	*(void __percpu **)p = pcpu;
++
++	devres_add(dev, p);
++
++	return pcpu;
++}
++EXPORT_SYMBOL_GPL(__devm_alloc_percpu);
++
++/**
++ * devm_free_percpu - Resource-managed free_percpu
++ * @dev: Device this memory belongs to
++ * @pdata: Per-cpu memory to free
++ *
++ * Free memory allocated with devm_alloc_percpu().
++ */
++void devm_free_percpu(struct device *dev, void __percpu *pdata)
++{
++	WARN_ON(devres_destroy(dev, devm_percpu_release, devm_percpu_match,
++			       (void *)pdata));
++}
++EXPORT_SYMBOL_GPL(devm_free_percpu);
+diff --git a/include/linux/device.h b/include/linux/device.h
+index b8f411b..ef9a86a 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -681,6 +681,25 @@ void __iomem *devm_ioremap_resource(struct device *dev, struct resource *res);
+ int devm_add_action(struct device *dev, void (*action)(void *), void *data);
+ void devm_remove_action(struct device *dev, void (*action)(void *), void *data);
+ 
++/**
++ * devm_alloc_percpu - Resource-managed alloc_percpu
++ * @dev: Device to allocate per-cpu memory for
++ * @type: Type to allocate per-cpu memory for
++ *
++ * Managed alloc_percpu. Per-cpu memory allocated with this function is
++ * automatically freed on driver detach.
++ *
++ * RETURNS:
++ * Pointer to allocated memory on success, NULL on failure.
++ */
++#define devm_alloc_percpu(dev, type)      \
++	(typeof(type) __percpu *)__devm_alloc_percpu(dev, sizeof(type), \
++						     __alignof__(type))
++
++void __percpu *__devm_alloc_percpu(struct device *dev, size_t size,
++				   size_t align);
++void devm_free_percpu(struct device *dev, void __percpu *pdata);
++
+ struct device_dma_parameters {
+ 	/*
+ 	 * a low level driver may set these to teach IOMMU code about
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.11.7
