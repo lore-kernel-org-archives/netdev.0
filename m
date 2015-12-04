@@ -1,47 +1,106 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [RFC PATCH net] vxlan: fix incorrect RCO bit in VXLAN header
-Date: Fri,  4 Dec 2015 13:54:03 +0100
-Message-ID: <67179e9385c71f7c377a7df345d445704f49dbbc.1449233631.git.jbenc@redhat.com>
-Cc: Thomas Graf <tgraf@suug.ch>, Tom Herbert <therbert@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58646 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750947AbbLDMyp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Dec 2015 07:54:45 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: use-after-free in sctp_do_sm
+Date: Fri, 4 Dec 2015 10:55:43 -0200
+Message-ID: <20151204125543.GG4164@mrl.redhat.com>
+References: <CANn89i+d=mTJ-hAhhgPXsZPGAkQdECxRdbkeRLfozRq8i9Ms+g@mail.gmail.com>
+ <CACT4Y+YJe-OJj9q1Kr5-_ApDt1UBKLjTRxhP62EHtEAwZt5vXw@mail.gmail.com>
+ <f7twpsvgyar.fsf@aconole.bos.csb>
+ <566098BD.6010803@akamai.com>
+ <1449172984.12092.0.camel@perches.com>
+ <5660A1A7.3080301@akamai.com>
+ <1449174246.12092.8.camel@perches.com>
+ <5660A951.4000808@akamai.com>
+ <1449175884.17296.2.camel@perches.com>
+ <CACT4Y+Z68wnWjFZ6e2AmePBNu1U+V9N_4szdyNrrf710Er2zyg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Joe Perches <joe@perches.com>, Jason Baron <jbaron@akamai.com>,
+	Aaron Conole <aconole@redhat.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+Z68wnWjFZ6e2AmePBNu1U+V9N_4szdyNrrf710Er2zyg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 3511494ce2f3d ("vxlan: Group Policy extension") changed definition of
-VXLAN_HF_RCO from 0x00200000 to BIT(24). This is obviously incorrect. It's
-also in violation with the RFC draft.
+On Fri, Dec 04, 2015 at 11:40:02AM +0100, Dmitry Vyukov wrote:
+> On Thu, Dec 3, 2015 at 9:51 PM, Joe Perches <joe@perches.com> wrote:
+> > (adding lkml as this is likely better discussed there)
+> >
+> > On Thu, 2015-12-03 at 15:42 -0500, Jason Baron wrote:
+> >> On 12/03/2015 03:24 PM, Joe Perches wrote:
+> >> > On Thu, 2015-12-03 at 15:10 -0500, Jason Baron wrote:
+> >> > > On 12/03/2015 03:03 PM, Joe Perches wrote:
+> >> > > > On Thu, 2015-12-03 at 14:32 -0500, Jason Baron wrote:
+> >> > > > > On 12/03/2015 01:52 PM, Aaron Conole wrote:
+> >> > > > > > I think that as a minimum, the following patch should be evaluted,
+> >> > > > > > but am unsure to whom I should submit it (after I test):
+> >> > > > []
+> >> > > > > Agreed - the intention here is certainly to have no side effects. It
+> >> > > > > looks like 'no_printk()' is used in quite a few other places that would
+> >> > > > > benefit from this change. So we probably want a generic
+> >> > > > > 'really_no_printk()' macro.
+> >> > > >
+> >> > > > https://lkml.org/lkml/2012/6/17/231
+> >> > >
+> >> > > I don't see this in the tree.
+> >> >
+> >> > It never got applied.
+> >> >
+> >> > > Also maybe we should just convert
+> >> > > no_printk() to do what your 'eliminated_printk()'.
+> >> >
+> >> > Some of them at least.
+> >> >
+> >> > > So we can convert all users with this change?
+> >> >
+> >> > I don't think so, I think there are some
+> >> > function evaluation/side effects that are
+> >> > required.  I believe some do hardware I/O.
+> >> >
+> >> > It'd be good to at least isolate them.
+> >> >
+> >> > I'm not sure how to find them via some
+> >> > automated tool/mechanism though.
+> >> >
+> >> > I asked Julia Lawall about it once in this
+> >> > thread:  https://lkml.org/lkml/2014/12/3/696
+> >> >
+> >>
+> >> Seems rather fragile to have side effects that we rely
+> >> upon hidden in a printk().
+> >
+> > Yup.
+> >
+> >> Just convert them and see what breaks :)
+> >
+> > I appreciate your optimism.  It's very 1995.
+> > Try it and see what happens.
+> 
+> 
+> Whatever is the resolution for pr_debug, we still need to fix this
+> particular use-after-free. It affects stability of debug builds, gives
+> invalid debug output, prevents us from finding more bugs in SCTP. And
+> maybe somebody uses CONFIG_DYNAMIC_DEBUG in production.
 
-Fixes: 3511494ce2f3d ("vxlan: Group Policy extension")
-Cc: Thomas Graf <tgraf@suug.ch>
-Cc: Tom Herbert <therbert@google.com>
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
-This code is, unfortunately, in the tree since 4.0. Not sure whether we can
-change it now. On the other hand, we're in violation with the RFC draft and
-collide with VXLAN-GPE flags assignment which defines this bit as OAM flag.
+Agreed. I'm already working on a fix for this particular use-after-free.
 
-Opinions welcome, especially by Tom and Thomas.
----
- include/net/vxlan.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Another interesting thing about this is that sctp_do_sm() is called for
+nearly every movement that happens on a sctp socket. Said that, that
+always-running IDR search hidden on that debug statement do have some
+nasty performance impact, specially because it's serialized on a
+spinlock. This wouldn't be happening if it was fully ellided and would
+be ok if that pr_debug() was really being printed, but not as it is.
+Kudos to this report that I could notice this. I'm trying to fix this on
+SCTP-side as well.
 
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index c1c899c3a51b..e289ada6adf6 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -79,7 +79,7 @@ struct vxlanhdr {
- };
- 
- /* VXLAN header flags. */
--#define VXLAN_HF_RCO BIT(24)
-+#define VXLAN_HF_RCO BIT(21)
- #define VXLAN_HF_VNI BIT(27)
- #define VXLAN_HF_GBP BIT(31)
- 
--- 
-1.8.3.1
+  Marcelo
