@@ -1,22 +1,17 @@
-From: David Miller <davem@davemloft.net>
-Subject: MERGE net --> net-next
-Date: Thu, 03 Dec 2015 23:46:51 -0500 (EST)
-Message-ID: <20151203.234651.478620808748356599.davem@davemloft.net>
+From: Sandy Harris <sandyinchina@gmail.com>
+Subject: Re: ipsec impact on performance
+Date: Fri, 4 Dec 2015 00:18:43 -0500
+Message-ID: <CACXcFm=RhctbE-+cJNEdBE2DdRuvh7hSwX4Kzwn8UO=SUFxPPw@mail.gmail.com>
+References: <20151201175953.GC21252@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54359 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752974AbbLDEqz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 23:46:55 -0500
-Received: from localhost (cpe-72-227-129-226.nyc.res.rr.com [72.227.129.226])
-	(Authenticated sender: davem-davemloft)
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id B724559B9A1
-	for <netdev@vger.kernel.org>; Thu,  3 Dec 2015 20:46:54 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20151201175953.GC21252@oracle.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-I've merged net into net-next.
+This article is old (turn of the century) but it may have numbers
+worth comparing to
+http://www.freeswan.org/freeswan_trees/CURRENT-TREE/doc/performance.html
