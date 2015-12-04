@@ -1,53 +1,60 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 2/2] sh_eth: read MAC address registers only once
-Date: Sat, 05 Dec 2015 00:58:57 +0300
-Message-ID: <2035649.FBvo9Og81d@wasted.cogentembedded.com>
-References: <10429393.qU4CxZ5nlj@wasted.cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] atl1c: Improve driver not to do order 4 GFP_ATOMIC
+ allocation
+Date: Fri, 04 Dec 2015 17:01:25 -0500 (EST)
+Message-ID: <20151204.170125.1062807391042745453.davem@davemloft.net>
+References: <20151204081127.GA29367@amd>
+	<20151204.112140.1465149588813636971.davem@davemloft.net>
+	<20151204213027.GA6397@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <10429393.qU4CxZ5nlj@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, mhocko@kernel.org, akpm@osdl.org,
+ linux-kernel@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com,
+ netdev@vger.kernel.org, rjw@rjwysocki.net, linux-mm@kvack.org,
+ nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com
+To: pavel@ucw.cz
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20151204213027.GA6397@amd>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-The code reading the MAHR/MALR registers in read_mac_address() is terribly
-ineffective -- it reads MAHR 4 times and MALR 2 times, while it's enough to
-read each register only once.  Use the local variables to achieve that,
-somewhat beautifying the code while at it...
+From: Pavel Machek <pavel@ucw.cz>
+Date: Fri, 4 Dec 2015 22:30:27 +0100
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> On Fri 2015-12-04 11:21:40, David Miller wrote:
+>> From: Pavel Machek <pavel@ucw.cz>
+>> Date: Fri, 4 Dec 2015 09:11:27 +0100
+>> 
+>> >> >>  	if (unlikely(!ring_header->desc)) {
+>> >> >> -		dev_err(&pdev->dev, "pci_alloc_consistend failed\n");
+>> >> >> +		dev_err(&pdev->dev, "could not get memory for DMA buffer\n");
+>> >> >>  		goto err_nomem;
+>> >> >>  	}
+>> >> >>  	memset(ring_header->desc, 0, ring_header->size);
+>> >> >> 
+>> >> >> 
+>> >> > 
+>> >> > So this memset() will really require a different patch to get removed ?
+>> >> > 
+>> >> > Sigh, not sure why I review patches.
+>> >> 
+>> >> Agreed, please use dma_zalloc_coherent() and kill that memset().
+>> > 
+>> > Ok, updated. I'll also add cc: stable, because it makes notebooks with
+>> > affected chipset unusable.
+>> 
+>> Networking patches do not use CC: stable, instead you simply ask me
+>> to queue it up and then I batch submit networking fixes to -stable
+>> periodically myself.
+> 
+> Ok, can you take the patch and ignore the Cc, or should I do one more
+> iteration?
 
----
- drivers/net/ethernet/renesas/sh_eth.c |   15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
+I took care of it.
 
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -989,12 +989,15 @@ static void read_mac_address(struct net_
- 	if (mac[0] || mac[1] || mac[2] || mac[3] || mac[4] || mac[5]) {
- 		memcpy(ndev->dev_addr, mac, ETH_ALEN);
- 	} else {
--		ndev->dev_addr[0] = (sh_eth_read(ndev, MAHR) >> 24);
--		ndev->dev_addr[1] = (sh_eth_read(ndev, MAHR) >> 16) & 0xFF;
--		ndev->dev_addr[2] = (sh_eth_read(ndev, MAHR) >> 8) & 0xFF;
--		ndev->dev_addr[3] = (sh_eth_read(ndev, MAHR) & 0xFF);
--		ndev->dev_addr[4] = (sh_eth_read(ndev, MALR) >> 8) & 0xFF;
--		ndev->dev_addr[5] = (sh_eth_read(ndev, MALR) & 0xFF);
-+		u32 mahr = sh_eth_read(ndev, MAHR);
-+		u32 malr = sh_eth_read(ndev, MALR);
-+
-+		ndev->dev_addr[0] = (mahr >> 24) & 0xFF;
-+		ndev->dev_addr[1] = (mahr >> 16) & 0xFF;
-+		ndev->dev_addr[2] = (mahr >>  8) & 0xFF;
-+		ndev->dev_addr[3] = (mahr >>  0) & 0xFF;
-+		ndev->dev_addr[4] = (malr >>  8) & 0xFF;
-+		ndev->dev_addr[5] = (malr >>  0) & 0xFF;
- 	}
- }
- 
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
