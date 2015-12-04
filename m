@@ -1,75 +1,76 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Fri, 04 Dec 2015 21:26:25 +0100
-Message-ID: <1449260785.11089.458370265.3954BCFA@webmail.messagingengine.com>
-References: <1449158374.11080.456996721.69F803D7@webmail.messagingengine.com>
- <CALx6S342OMLB6s7LcmnZP1rnYNUs345Dy1gjYX3JUKqqB_waPA@mail.gmail.com>
- <1449259145.6236.458303617.55CF2C4E@webmail.messagingengine.com>
- <20151204.150633.1744714566987717806.davem@davemloft.net>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net 1/3] sctp: use the same clock as if sock source
+ timestamps were on
+Date: Fri, 4 Dec 2015 15:31:05 -0500
+Message-ID: <5661F809.4000104@gmail.com>
+References: <20151203184316.GF4164@mrl.redhat.com>
+ <cover.1449249050.git.marcelo.leitner@gmail.com>
+ <8ff122e39159e5ccf1277c692ad7bd6431695825.1449249050.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, linville@tuxdriver.com, jesse@kernel.org,
-	anjali.singhai@intel.com, netdev@vger.kernel.org,
-	kiran.patil@intel.com
-To: David Miller <davem@davemloft.net>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	linux-sctp@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	=?UTF-8?Q?Maciej_=c5=bbenczykowski?= <maze@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:42002 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756485AbbLDU00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 15:26:26 -0500
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id 3E681207C7
-	for <netdev@vger.kernel.org>; Fri,  4 Dec 2015 15:26:26 -0500 (EST)
-In-Reply-To: <20151204.150633.1744714566987717806.davem@davemloft.net>
+Received: from mail-qg0-f66.google.com ([209.85.192.66]:34663 "EHLO
+	mail-qg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752509AbbLDUbI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 15:31:08 -0500
+In-Reply-To: <8ff122e39159e5ccf1277c692ad7bd6431695825.1449249050.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On 12/04/2015 12:14 PM, Marcelo Ricardo Leitner wrote:
+> SCTP echoes a cookie o INIT ACK chunks that contains a timestamp, for
+> detecting stale cookies. This cookie is echoed back to the server by the
+> client and then that timestamp is checked.
+> 
+> Thing is, if the listening socket is using packet timestamping, the
+> cookie is encoded with ktime_get() value and checked against
+> ktime_get_real(), as done by __net_timestamp().
+> 
+> The fix is to sctp also use ktime_get_real(), so we can compare bananas
+> with bananas later no matter if packet timestamping was enabled or not.
+> 
+> Fixes: 52db882f3fc2 ("net: sctp: migrate cookie life from timeval to ktime")
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-On Fri, Dec 4, 2015, at 21:06, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Fri, 04 Dec 2015 20:59:05 +0100
-> 
-> > Yes, I agree, I am totally with you here. If generic offloading can be
-> > realized by NICs I am totally with you that this should be the way to
-> > go. I don't see that coming in the next (small number of) years, so I
-> > don't see a reason to stop this patchset.
-> 
-> If I just apply this and say "yeah ok", the message is completely lost
-> and your prediction about "small number of years" indeed will occur.
-> 
-> However if I push back hard on this, as I will, then the message has
-> some chance of seeping back to the people designing these chips.
-> 
-> So that's what I'm going to do, like it or not.
-> 
-> Or can someone convince me that someone who understand this stuff
-> is telling the hardware guys to universally put 2's complement
-> checksums into the descriptors?
-> 
-> Who is doing that at each and every prominent ethernet hardware
-> verndor?
-> 
-> Who?
-> 
-> If I get silence, or some vague non-specific response, then I'm going
-> to hold my ground and keep pushing back on this stuff.
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-This is not only about 1's checksumming but also about TSO (and to some
-smaller degree about RSS, as I tried to explain): if we attach a geneve
-header in front of a skb we expect the hardware to recognize it and
-duplicate it while doing the hardware segmentation. The hardware can
-only do so if it is in knowledge of the specific port (in this case UDP
-port used for geneve) which is in use for this particular tunneling
-transport protocol. We currently cannot describe this in a generic way,
-thus this patchset. (Please correct me if I am wrong!)
+-vlad
 
-The other way to do it would probably be to enlarge the skb and push the
-structure of the packet into it, so hardware has more semantic knowledge
-about the frames structure. I guess(!!!) DPDK does it like that?
-
-If it would only be about checksuming I probably would agree.
-
-Bye,
-Hannes
+> ---
+>  net/sctp/sm_make_chunk.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> index 763e06a55155b2a9e0a9d918ecc1fe2dd6d9e0c0..5d6a03fad3789a12290f5f14c5a7efa69c98f41a 100644
+> --- a/net/sctp/sm_make_chunk.c
+> +++ b/net/sctp/sm_make_chunk.c
+> @@ -1652,7 +1652,7 @@ static sctp_cookie_param_t *sctp_pack_cookie(const struct sctp_endpoint *ep,
+>  
+>  	/* Set an expiration time for the cookie.  */
+>  	cookie->c.expiration = ktime_add(asoc->cookie_life,
+> -					 ktime_get());
+> +					 ktime_get_real());
+>  
+>  	/* Copy the peer's init packet.  */
+>  	memcpy(&cookie->c.peer_init[0], init_chunk->chunk_hdr,
+> @@ -1780,7 +1780,7 @@ no_hmac:
+>  	if (sock_flag(ep->base.sk, SOCK_TIMESTAMP))
+>  		kt = skb_get_ktime(skb);
+>  	else
+> -		kt = ktime_get();
+> +		kt = ktime_get_real();
+>  
+>  	if (!asoc && ktime_before(bear_cookie->expiration, kt)) {
+>  		/*
+> 
