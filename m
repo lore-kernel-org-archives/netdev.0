@@ -1,75 +1,74 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [BUG] net: performance regression on ixgbe (Intel 82599EB
- 10-Gigabit NIC)
-Date: Fri, 4 Dec 2015 21:31:58 +0000
-Message-ID: <B1166ACF-986A-418C-953F-9B5F68D44C36@intel.com>
-References: <20151203162627.GA8989@redhat.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: use-after-free in sctp_do_sm
+Date: Fri, 4 Dec 2015 19:34:28 -0200
+Message-ID: <20151204213428.GH4164@mrl.redhat.com>
+References: <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
+ <fcceeb2a58ce2054cedb091f0e251393b36418ba.1449250981.git.marcelo.leitner@gmail.com>
+ <CACT4Y+b66FHbFyERm804RDWh9oPC==K43TgDJfs52cQG1MDjcg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_0C8A8527-1F54-43AE-9E85-7C17D5E5F5B6";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Jirka Hladky <jhladky@redhat.com>,
-	"Adam Okuliar" <aokuliar@redhat.com>,
-	Kamil Kolakowski <kkolakow@redhat.com>
-To: Otto Sabart <osabart@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	linux-sctp@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:7923 "EHLO mga01.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60142 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754837AbbLDVc1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Dec 2015 16:32:27 -0500
-In-Reply-To: <20151203162627.GA8989@redhat.com>
-Content-Language: en-US
+	id S1754837AbbLDVec (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Dec 2015 16:34:32 -0500
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+b66FHbFyERm804RDWh9oPC==K43TgDJfs52cQG1MDjcg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail=_0C8A8527-1F54-43AE-9E85-7C17D5E5F5B6
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+On Fri, Dec 04, 2015 at 09:25:35PM +0100, Dmitry Vyukov wrote:
+> On Fri, Dec 4, 2015 at 6:48 PM, Marcelo Ricardo Leitner
+> <marcelo.leitner@gmail.com> wrote:
+> > Hi Dmitry,
+> >
+> > Can you please test this patch?
+> > I'll re-post with proper subject if it works.
+> 
+> Still happening with the same stacks.
 
-Otto Sabart <osabart@redhat.com> wrote:
+Then there may be another one, I'm afraid.
 
-> I probably found a performance regression on ixgbe (Intel 82599EB
-> 10-Gigabit NIC) on v4.4-rc3. I am able to see this problem since
-> v4.4-rc1.
->=20
-> The bug report you can find here [0].
->=20
-> Can somebody take a look at it?
->=20
-> [0] https://bugzilla.redhat.com/show_bug.cgi?id=3D1288124
+I'm using the testapp you shared in the first email, with that debug line
+enabled and added a new one:
++       pr_debug("%p %d\n", asoc, asoc ? asoc->state : 0);
+        debug_post_sfx();
+(should have used %x, but ok)
 
-A recent patch has disabled LRO by default because it is incompatible =
-with forwarding. If you aren't interested in forwarding, you might try =
-enabling lro with ethtool.
+Also enabled slub_debug=PUZ, and I get:
 
---
-Mark Rustad, Networking Division, Intel Corporation
+without the patch:
+[   87.873640] sctp: ffff8800b71533d8 1
+[   87.873647] sctp: sctp_do_sm[post-sfx]: error:0,
+asoc:ffff8800b71533d8[STATE_CLOSED]
+[   87.873739] sctp: ffff8800b71533d8 1
+[   87.873742] sctp: sctp_do_sm[post-sfx]: error:0,
+asoc:ffff8800b71533d8[STATE_CLOSED]
+[   87.875149] sctp: ffff8800b71533d8 1802201963
+[   87.875238] sctp: sctp_do_sm[post-sfx]: error:0,
+asoc:ffff8800b71533d8[STATE_CLOSED]
 
---Apple-Mail=_0C8A8527-1F54-43AE-9E85-7C17D5E5F5B6
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
+1802201963 = 0x6b6b6b6b, poison
 
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
+with the patch:
+[   81.071265] sctp: ffff880137571148 1
+[   81.071273] sctp: sctp_do_sm[post-sfx]: error:0,
+asoc:ffff880137571148[STATE_CLOSED]
+[   81.071372] sctp: ffff880137571148 1
+[   81.071375] sctp: sctp_do_sm[post-sfx]: error:0,
+asoc:ffff880137571148[STATE_CLOSED]
+[   81.072423] sctp:           (null) 0
+[   81.072427] sctp: sctp_do_sm[post-sfx]: error:0, asoc:
+(null)[STATE_CLOSED]
 
-iQIcBAEBCAAGBQJWYgZNAAoJEDwO/+eO4+5uhfcP/jihOfAYki2HszzOO7q0pZBB
-i52/iDWd2ZCXWGopyo5/goT95eA/mdxhS0u3dHFDWVCCBcl87k7EYW6PHT8Eurrb
-pT/DjPQN5PRjJ98ZcRPG37WSya13jrqb87etPMa4CDrzMX7zBvEETkFbVJYeW2gQ
-sDGMmNP8emVnWDPi82GoA/z8iVjqEecHuzSs6WgUw9OrdKwDd+guSP4Oa1GKE95c
-BDu5IypU8NMeZfuQD9PMMMuMhfql9d1KOhh/tcBIKDUvhEnazh2nLdpzX1Tjn5IP
-xaRkxzlnokvieao4ykAzGwUdooqk6BTR3dyynuZFF2TzXjyHXqbiCGeAAQgNgTAM
-gGU0ne5DZ++EAoXFyDyLW9U0W9kqB5E5YFKhmkO0/R20IdTvTH/3T5g3SVjTBQpp
-uEMbFuhvs1wyn+qn2oqs4/tWi/UYsTUVwklYuKJP/Ms7w44Wg2PIrFhT9D7/UKys
-LAnH4FBjcyIkhaC+iKVdSHObMf2IKLsM+h0a1iiwm6eVIUiQVRnVf0iFiO7eXusT
-TTZl7cK4kkmZ37VWN9na+Xv6jcvdHpAYPTIX0ZyEc68FZRlZxrgh714608GyNhTS
-RF/A9YfUqpC3yPvT8pSLas3Y1IFFnrNMUZFT24KTwdb6GnCXnm156C6aAqHBUpGo
-oTb0TcRC7MKsmZ/+Jqt9
-=KVCL
------END PGP SIGNATURE-----
+This one, at least, is gone with this patch.
 
---Apple-Mail=_0C8A8527-1F54-43AE-9E85-7C17D5E5F5B6--
+  Marcelo
