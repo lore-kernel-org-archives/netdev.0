@@ -1,70 +1,65 @@
-From: Bert Kenward <bkenward@solarflare.com>
-Subject: [PATCH net-next] sfc: check warm_boot_count after other functions
- have been reset
-Date: Fri, 4 Dec 2015 08:48:39 +0000
-Message-ID: <56615367.30002@solarflare.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: [PATCH net] atl1c: Improve driver not to do order 4 GFP_ATOMIC
+ allocation
+Date: Fri, 4 Dec 2015 09:50:00 +0100
+Message-ID: <20151204085000.GA30233@amd>
+References: <20151126163413.GA3816@amd>
+ <20151127082010.GA2500@dhcp22.suse.cz>
+ <20151128145113.GB4135@amd>
+ <20151203155905.GA31974@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Daniel Pieczko <dpieczko@solarflare.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:46698 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755372AbbLDIs6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 03:48:58 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel list <linux-kernel@vger.kernel.org>, jcliburn@gmail.com,
+	chris.snook@gmail.com, netdev@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>, linux-mm@kvack.org,
+	nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com
+To: Michal Hocko <mhocko@kernel.org>, davem@davemloft.net,
+	Andrew Morton <akpm@osdl.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20151203155905.GA31974@amd>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Pieczko <dpieczko@solarflare.com>
+atl1c driver is doing order-4 allocation with GFP_ATOMIC
+priority. That often breaks  networking after resume. Switch to
+GFP_KERNEL. Still not ideal, but should be significantly better.
 
-A change in MCFW behaviour means that the net driver must update its record
-of the warm_boot_count by reading it from the ER_DZ_BIU_MC_SFT_STATUS
-register.
+atl1c_setup_ring_resources() is called from .open() function, and
+already uses GFP_KERNEL, so this change is safe.
+    
+Signed-off-by: Pavel Machek <pavel@ucw.cz>
+Acked-by: Michal Hocko <mhocko@suse.com>
+Cc: stable <stable@vger.kernel.org>
 
-On v4.6.x MCFW the global boot count was incremented when some functions
-needed to be reset to enable multicast chaining, so all functions saw the
-same value.  In that case, the driver needed to increment its
-warm_boot_count when other functions were reset, to avoid noticing it later
-and then trying to reset itself to recover unnecessarily.
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 2795d6d..8b5988e 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -1016,13 +1016,12 @@ static int atl1c_setup_ring_resources(struct atl1c_adapter *adapter)
+ 		sizeof(struct atl1c_recv_ret_status) * rx_desc_count +
+ 		8 * 4;
+ 
+-	ring_header->desc = pci_alloc_consistent(pdev, ring_header->size,
+-				&ring_header->dma);
++	ring_header->desc = dma_zalloc_coherent(&pdev->dev, ring_header->size,
++						&ring_header->dma, GFP_KERNEL);
+ 	if (unlikely(!ring_header->desc)) {
+-		dev_err(&pdev->dev, "pci_alloc_consistend failed\n");
++		dev_err(&pdev->dev, "could not get memory for DMA buffer\n");
+ 		goto err_nomem;
+ 	}
+-	memset(ring_header->desc, 0, ring_header->size);
+ 	/* init TPD ring */
+ 
+ 	tpd_ring[0].dma = roundup(ring_header->dma, 8);
 
-With v4.7+ MCFW, the boot count in firmware doesn't change as that is
-unnecessary since the PFs that have been reset will each receive an MC
-reboot notification.  In that case, the driver re-reads the unchanged
-value.
-
-Signed-off-by: Bert Kenward <bkenward@solarflare.com>
----
- drivers/net/ethernet/sfc/ef10.c | 15 +++++++++++++--
- 1 file changed, 13 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 425df3d..c4a0e8a 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -2374,8 +2374,19 @@ static int efx_ef10_ev_init(struct efx_channel *channel)
- 				    1 << MC_CMD_WORKAROUND_EXT_OUT_FLR_DONE_LBN) {
- 					netif_info(efx, drv, efx->net_dev,
- 						   "other functions on NIC have been reset\n");
--					/* MC's boot count has incremented */
--					++nic_data->warm_boot_count;
-+
-+					/* With MCFW v4.6.x and earlier, the
-+					 * boot count will have incremented,
-+					 * so re-read the warm_boot_count
-+					 * value now to ensure this function
-+					 * doesn't think it has changed next
-+					 * time it checks.
-+					 */
-+					rc = efx_ef10_get_warm_boot_count(efx);
-+					if (rc >= 0) {
-+						nic_data->warm_boot_count = rc;
-+						rc = 0;
-+					}
- 				}
- 				nic_data->workaround_26807 = true;
- 			} else if (rc == -EPERM) {
 -- 
-2.4.3
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
