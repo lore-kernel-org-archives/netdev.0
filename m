@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 6/7] cxgb4: Add FL DMA mapping error and low counter
-Date: Fri,  4 Dec 2015 14:18:10 +0530
-Message-ID: <1449218891-7819-7-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 1/7] cxgb4: Align rest of the ethtool get stats
+Date: Fri,  4 Dec 2015 14:18:05 +0530
+Message-ID: <1449218891-7819-2-git-send-email-hariprasad@chelsio.com>
 References: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
@@ -9,95 +9,173 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from stargate.chelsio.com ([12.32.117.8]:24918 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755944AbbLDJt4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 04:49:56 -0500
+	by vger.kernel.org with ESMTP id S1755973AbbLDJt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 04:49:57 -0500
 In-Reply-To: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add Free List DMA Mapping Errors to SGE Queue info for
-Free Lists. Add Free List "Low" counter to count the number of times we
-see the number of pointers that we _think_ the hardware sees in the
-Free List below the Egress Threshold.
-
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         | 2 ++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 6 ++++++
- drivers/net/ethernet/chelsio/cxgb4/sge.c           | 3 +++
- 3 files changed, 11 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 146 ++++++++++-----------
+ 1 file changed, 73 insertions(+), 73 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index b3a1353..1aed402 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -483,6 +483,8 @@ struct sge_fl {                     /* SGE free-buffer queue state */
- 	unsigned int pidx;          /* producer index */
- 	unsigned long alloc_failed; /* # of times buffer allocation failed */
- 	unsigned long large_alloc_failed;
-+	unsigned long mapping_err;  /* # of RX Buffer DMA Mapping failures */
-+	unsigned long low;          /* # of times momentarily starving */
- 	unsigned long starving;
- 	/* RO fields */
- 	unsigned int cntxt_id;      /* SGE context id for the free list */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-index 4269944..0d579b1 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-@@ -2325,6 +2325,8 @@ do { \
- 		TL("TxMapErr:", mapping_err);
- 		RL("FLAllocErr:", fl.alloc_failed);
- 		RL("FLLrgAlcErr:", fl.large_alloc_failed);
-+		RL("FLMapErr:", fl.mapping_err);
-+		RL("FLLow:", fl.low);
- 		RL("FLStarving:", fl.starving);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
+index a077f94..2a61a42 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
+@@ -35,79 +35,79 @@ static void set_msglevel(struct net_device *dev, u32 val)
+ }
  
- 	} else if (iscsi_idx < iscsi_entries) {
-@@ -2359,6 +2361,8 @@ do { \
- 		RL("RxNoMem:", stats.nomem);
- 		RL("FLAllocErr:", fl.alloc_failed);
- 		RL("FLLrgAlcErr:", fl.large_alloc_failed);
-+		RL("FLMapErr:", fl.mapping_err);
-+		RL("FLLow:", fl.low);
- 		RL("FLStarving:", fl.starving);
+ static const char stats_strings[][ETH_GSTRING_LEN] = {
+-	"tx_octets_ok		",
+-	"tx_frames_ok		",
+-	"tx_broadcast_frames	",
+-	"tx_multicast_frames	",
+-	"tx_unicast_frames	",
+-	"tx_error_frames	",
+-
+-	"tx_frames_64		",
+-	"tx_frames_65_to_127	",
+-	"tx_frames_128_to_255	",
+-	"tx_frames_256_to_511	",
+-	"tx_frames_512_to_1023	",
+-	"tx_frames_1024_to_1518	",
+-	"tx_frames_1519_to_max	",
+-
+-	"tx_frames_dropped	",
+-	"tx_pause_frames	",
+-	"tx_ppp0_frames		",
+-	"tx_ppp1_frames		",
+-	"tx_ppp2_frames		",
+-	"tx_ppp3_frames		",
+-	"tx_ppp4_frames		",
+-	"tx_ppp5_frames		",
+-	"tx_ppp6_frames		",
+-	"tx_ppp7_frames		",
+-
+-	"rx_octets_ok		",
+-	"rx_frames_ok		",
+-	"rx_broadcast_frames	",
+-	"rx_multicast_frames	",
+-	"rx_unicast_frames	",
+-
+-	"rx_frames_too_long	",
+-	"rx_jabber_errors	",
+-	"rx_fcs_errors		",
+-	"rx_length_errors	",
+-	"rx_symbol_errors	",
+-	"rx_runt_frames		",
+-
+-	"rx_frames_64		",
+-	"rx_frames_65_to_127	",
+-	"rx_frames_128_to_255	",
+-	"rx_frames_256_to_511	",
+-	"rx_frames_512_to_1023	",
+-	"rx_frames_1024_to_1518	",
+-	"rx_frames_1519_to_max	",
+-
+-	"rx_pause_frames	",
+-	"rx_ppp0_frames		",
+-	"rx_ppp1_frames		",
+-	"rx_ppp2_frames		",
+-	"rx_ppp3_frames		",
+-	"rx_ppp4_frames		",
+-	"rx_ppp5_frames		",
+-	"rx_ppp6_frames		",
+-	"rx_ppp7_frames		",
+-
+-	"rx_bg0_frames_dropped	",
+-	"rx_bg1_frames_dropped	",
+-	"rx_bg2_frames_dropped	",
+-	"rx_bg3_frames_dropped	",
+-	"rx_bg0_frames_trunc	",
+-	"rx_bg1_frames_trunc	",
+-	"rx_bg2_frames_trunc	",
+-	"rx_bg3_frames_trunc	",
+-
+-	"tso			",
+-	"tx_csum_offload	",
+-	"rx_csum_good		",
+-	"vlan_extractions	",
+-	"vlan_insertions	",
+-	"gro_packets		",
+-	"gro_merged		",
++	"tx_octets_ok           ",
++	"tx_frames_ok           ",
++	"tx_broadcast_frames    ",
++	"tx_multicast_frames    ",
++	"tx_unicast_frames      ",
++	"tx_error_frames        ",
++
++	"tx_frames_64           ",
++	"tx_frames_65_to_127    ",
++	"tx_frames_128_to_255   ",
++	"tx_frames_256_to_511   ",
++	"tx_frames_512_to_1023  ",
++	"tx_frames_1024_to_1518 ",
++	"tx_frames_1519_to_max  ",
++
++	"tx_frames_dropped      ",
++	"tx_pause_frames        ",
++	"tx_ppp0_frames         ",
++	"tx_ppp1_frames         ",
++	"tx_ppp2_frames         ",
++	"tx_ppp3_frames         ",
++	"tx_ppp4_frames         ",
++	"tx_ppp5_frames         ",
++	"tx_ppp6_frames         ",
++	"tx_ppp7_frames         ",
++
++	"rx_octets_ok           ",
++	"rx_frames_ok           ",
++	"rx_broadcast_frames    ",
++	"rx_multicast_frames    ",
++	"rx_unicast_frames      ",
++
++	"rx_frames_too_long     ",
++	"rx_jabber_errors       ",
++	"rx_fcs_errors          ",
++	"rx_length_errors       ",
++	"rx_symbol_errors       ",
++	"rx_runt_frames         ",
++
++	"rx_frames_64           ",
++	"rx_frames_65_to_127    ",
++	"rx_frames_128_to_255   ",
++	"rx_frames_256_to_511   ",
++	"rx_frames_512_to_1023  ",
++	"rx_frames_1024_to_1518 ",
++	"rx_frames_1519_to_max  ",
++
++	"rx_pause_frames        ",
++	"rx_ppp0_frames         ",
++	"rx_ppp1_frames         ",
++	"rx_ppp2_frames         ",
++	"rx_ppp3_frames         ",
++	"rx_ppp4_frames         ",
++	"rx_ppp5_frames         ",
++	"rx_ppp6_frames         ",
++	"rx_ppp7_frames         ",
++
++	"rx_bg0_frames_dropped  ",
++	"rx_bg1_frames_dropped  ",
++	"rx_bg2_frames_dropped  ",
++	"rx_bg3_frames_dropped  ",
++	"rx_bg0_frames_trunc    ",
++	"rx_bg1_frames_trunc    ",
++	"rx_bg2_frames_trunc    ",
++	"rx_bg3_frames_trunc    ",
++
++	"tso                    ",
++	"tx_csum_offload        ",
++	"rx_csum_good           ",
++	"vlan_extractions       ",
++	"vlan_insertions        ",
++	"gro_packets            ",
++	"gro_merged             ",
+ };
  
- 	} else if (rdma_idx < rdma_entries) {
-@@ -2388,6 +2392,8 @@ do { \
- 		RL("RxNoMem:", stats.nomem);
- 		RL("FLAllocErr:", fl.alloc_failed);
- 		RL("FLLrgAlcErr:", fl.large_alloc_failed);
-+		RL("FLMapErr:", fl.mapping_err);
-+		RL("FLLow:", fl.low);
- 		RL("FLStarving:", fl.starving);
- 
- 	} else if (ciq_idx < ciq_entries) {
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 28b0272..edd4438 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -613,6 +613,7 @@ static unsigned int refill_fl(struct adapter *adap, struct sge_fl *q, int n,
- 				       PCI_DMA_FROMDEVICE);
- 		if (unlikely(dma_mapping_error(adap->pdev_dev, mapping))) {
- 			__free_pages(pg, s->fl_pg_order);
-+			q->mapping_err++;
- 			goto out;   /* do not try small pages for this error */
- 		}
- 		mapping |= RX_LARGE_PG_BUF;
-@@ -642,6 +643,7 @@ alloc_small_pages:
- 				       PCI_DMA_FROMDEVICE);
- 		if (unlikely(dma_mapping_error(adap->pdev_dev, mapping))) {
- 			put_page(pg);
-+			q->mapping_err++;
- 			goto out;
- 		}
- 		*d++ = cpu_to_be64(mapping);
-@@ -663,6 +665,7 @@ out:	cred = q->avail - cred;
- 
- 	if (unlikely(fl_starving(adap, q))) {
- 		smp_wmb();
-+		q->low++;
- 		set_bit(q->cntxt_id - adap->sge.egr_start,
- 			adap->sge.starving_fl);
- 	}
+ static char adapter_stats_strings[][ETH_GSTRING_LEN] = {
 -- 
 2.3.4
