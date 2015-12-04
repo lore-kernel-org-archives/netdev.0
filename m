@@ -1,135 +1,107 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] net: constify netif_is_* helpers net_device param
-Date: Fri,  4 Dec 2015 15:01:31 +0100
-Message-ID: <1449237691-17962-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:36197 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751068AbbLDOBf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 09:01:35 -0500
-Received: by wmww144 with SMTP id w144so63072987wmw.1
-        for <netdev@vger.kernel.org>; Fri, 04 Dec 2015 06:01:34 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Subject: [PATCH] cxgb3: Convert simple_strtoul to kstrtox
+Date: Fri,  4 Dec 2015 15:26:40 +0100
+Message-ID: <1449239201-879-1-git-send-email-clabbe.montjoie@gmail.com>
+Cc: LABBE Corentin <clabbe.montjoie@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: santosh@chelsio.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+the simple_strtoul function is obsolete. This patch replace it by
+kstrtox.
 
-As suggested by Eric, these helpers should have const dev param.
-
-Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
 ---
- include/linux/if_vlan.h   |  2 +-
- include/linux/netdevice.h | 22 +++++++++++-----------
- net/core/dev.c            |  2 +-
- 3 files changed, 13 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c | 10 ++++-----
+ drivers/net/ethernet/chelsio/cxgb3/t3_hw.c      | 28 ++++++++++++++++++-------
+ 2 files changed, 25 insertions(+), 13 deletions(-)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 67ce5bd..05f5879 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -73,7 +73,7 @@ static inline struct vlan_ethhdr *vlan_eth_hdr(const struct sk_buff *skb)
- /* found in socket.c */
- extern void vlan_ioctl_set(int (*hook)(struct net *, void __user *));
- 
--static inline bool is_vlan_dev(struct net_device *dev)
-+static inline bool is_vlan_dev(const struct net_device *dev)
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+index 8f7aa53..6637073 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+@@ -701,15 +701,14 @@ static ssize_t attr_store(struct device *d,
+ 			  ssize_t(*set) (struct net_device *, unsigned int),
+ 			  unsigned int min_val, unsigned int max_val)
  {
-         return dev->priv_flags & IFF_802_1Q_VLAN;
- }
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3efe017..1bb21ff 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3661,7 +3661,7 @@ extern u8 netdev_rss_key[NETDEV_RSS_KEY_LEN];
- void netdev_rss_key_fill(void *buffer, size_t len);
+-	char *endp;
+ 	ssize_t ret;
+ 	unsigned int val;
  
- int dev_get_nest_level(struct net_device *dev,
--		       bool (*type_check)(struct net_device *dev));
-+		       bool (*type_check)(const struct net_device *dev));
- int skb_checksum_help(struct sk_buff *skb);
- struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
- 				  netdev_features_t features, bool tx_path);
-@@ -3858,32 +3858,32 @@ static inline void skb_gso_error_unwind(struct sk_buff *skb, __be16 protocol,
- 	skb->mac_len = mac_len;
- }
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
  
--static inline bool netif_is_macvlan(struct net_device *dev)
-+static inline bool netif_is_macvlan(const struct net_device *dev)
- {
- 	return dev->priv_flags & IFF_MACVLAN;
- }
+-	val = simple_strtoul(buf, &endp, 0);
+-	if (endp == buf || val < min_val || val > max_val)
++	ret = kstrtouint(buf, 0, &val);
++	if (ret || val < min_val || val > max_val)
+ 		return -EINVAL;
  
--static inline bool netif_is_macvlan_port(struct net_device *dev)
-+static inline bool netif_is_macvlan_port(const struct net_device *dev)
- {
- 	return dev->priv_flags & IFF_MACVLAN_PORT;
- }
+ 	rtnl_lock();
+@@ -829,14 +828,13 @@ static ssize_t tm_attr_store(struct device *d,
+ 	struct port_info *pi = netdev_priv(to_net_dev(d));
+ 	struct adapter *adap = pi->adapter;
+ 	unsigned int val;
+-	char *endp;
+ 	ssize_t ret;
  
--static inline bool netif_is_ipvlan(struct net_device *dev)
-+static inline bool netif_is_ipvlan(const struct net_device *dev)
- {
- 	return dev->priv_flags & IFF_IPVLAN_SLAVE;
- }
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
  
--static inline bool netif_is_ipvlan_port(struct net_device *dev)
-+static inline bool netif_is_ipvlan_port(const struct net_device *dev)
- {
- 	return dev->priv_flags & IFF_IPVLAN_MASTER;
- }
+-	val = simple_strtoul(buf, &endp, 0);
+-	if (endp == buf || val > 10000000)
++	ret = kstrtouint(buf, 0, &val);
++	if (ret || val > 10000000)
+ 		return -EINVAL;
  
--static inline bool netif_is_bond_master(struct net_device *dev)
-+static inline bool netif_is_bond_master(const struct net_device *dev)
- {
- 	return dev->flags & IFF_MASTER && dev->priv_flags & IFF_BONDING;
- }
+ 	rtnl_lock();
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+index a22768c..ee04caa 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+@@ -709,11 +709,21 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ 			return ret;
+ 	}
  
--static inline bool netif_is_bond_slave(struct net_device *dev)
-+static inline bool netif_is_bond_slave(const struct net_device *dev)
- {
- 	return dev->flags & IFF_SLAVE && dev->priv_flags & IFF_BONDING;
- }
-@@ -3918,22 +3918,22 @@ static inline bool netif_is_ovs_master(const struct net_device *dev)
- 	return dev->priv_flags & IFF_OPENVSWITCH;
- }
+-	p->cclk = simple_strtoul(vpd.cclk_data, NULL, 10);
+-	p->mclk = simple_strtoul(vpd.mclk_data, NULL, 10);
+-	p->uclk = simple_strtoul(vpd.uclk_data, NULL, 10);
+-	p->mdc = simple_strtoul(vpd.mdc_data, NULL, 10);
+-	p->mem_timing = simple_strtoul(vpd.mt_data, NULL, 10);
++	ret = kstrtouint(vpd.cclk_data, 10, &p->cclk);
++	if (ret)
++		return ret;
++	ret = kstrtouint(vpd.mclk_data, 10, &p->mclk);
++	if (ret)
++		return ret;
++	ret = kstrtouint(vpd.uclk_data, 10, &p->uclk);
++	if (ret)
++		return ret;
++	ret = kstrtouint(vpd.mdc_data, 10, &p->mdc);
++	if (ret)
++		return ret;
++	ret = kstrtouint(vpd.mt_data, 10, &p->mem_timing);
++	if (ret)
++		return ret;
+ 	memcpy(p->sn, vpd.sn_data, SERNUM_LEN);
  
--static inline bool netif_is_team_master(struct net_device *dev)
-+static inline bool netif_is_team_master(const struct net_device *dev)
- {
- 	return dev->priv_flags & IFF_TEAM;
- }
+ 	/* Old eeproms didn't have port information */
+@@ -723,8 +733,12 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ 	} else {
+ 		p->port_type[0] = hex_to_bin(vpd.port0_data[0]);
+ 		p->port_type[1] = hex_to_bin(vpd.port1_data[0]);
+-		p->xauicfg[0] = simple_strtoul(vpd.xaui0cfg_data, NULL, 16);
+-		p->xauicfg[1] = simple_strtoul(vpd.xaui1cfg_data, NULL, 16);
++		ret = kstrtou16(vpd.xaui0cfg_data, 16, &p->xauicfg[0]);
++		if (ret)
++			return ret;
++		ret = kstrtou16(vpd.xaui1cfg_data, 16, &p->xauicfg[1]);
++		if (ret)
++			return ret;
+ 	}
  
--static inline bool netif_is_team_port(struct net_device *dev)
-+static inline bool netif_is_team_port(const struct net_device *dev)
- {
- 	return dev->priv_flags & IFF_TEAM_PORT;
- }
- 
--static inline bool netif_is_lag_master(struct net_device *dev)
-+static inline bool netif_is_lag_master(const struct net_device *dev)
- {
- 	return netif_is_bond_master(dev) || netif_is_team_master(dev);
- }
- 
--static inline bool netif_is_lag_port(struct net_device *dev)
-+static inline bool netif_is_lag_port(const struct net_device *dev)
- {
- 	return netif_is_bond_slave(dev) || netif_is_team_port(dev);
- }
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d1706e8..e5c3954 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5734,7 +5734,7 @@ EXPORT_SYMBOL(netdev_lower_dev_get_private);
- 
- 
- int dev_get_nest_level(struct net_device *dev,
--		       bool (*type_check)(struct net_device *dev))
-+		       bool (*type_check)(const struct net_device *dev))
- {
- 	struct net_device *lower = NULL;
- 	struct list_head *iter;
+ 	ret = hex2bin(p->eth_base, vpd.na_data, 6);
 -- 
-1.9.3
+2.4.10
