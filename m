@@ -1,42 +1,200 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH net-next 2/3] bnx2x: change FW GRO error message to WARN_ONCE
-Date: Fri,  4 Dec 2015 17:22:35 +0100
-Message-ID: <1449246156-13796-3-git-send-email-mschmidt@redhat.com>
-References: <1449246156-13796-1-git-send-email-mschmidt@redhat.com>
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>
-To: netdev@vger.kernel.org
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH RESEND v7] i40e: Look up MAC address in Open Firmware or
+ IDPROM
+Date: Fri, 4 Dec 2015 11:24:07 -0500
+Message-ID: <20151204162407.GM26633@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	andy.shevchenko@gmail.com
+To: sowmini.varadhan@oracle.com, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40746 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753534AbbLDQWl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Dec 2015 11:22:41 -0500
-In-Reply-To: <1449246156-13796-1-git-send-email-mschmidt@redhat.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:33809 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753617AbbLDQYQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 11:24:16 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's supposed to be impossible for TPA to give us anything else
-than IPv4 or IPv6 here. But in case there is a way to reach this error
-by some strange received frames, we don't want to flood the kernel log.
-WARN_ONCE is better for this purpose.
 
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+[Apologies for fat-fingering subject in the other attempt]
+
+This is the i40e equivalent of commit c762dff24c06 ("ixgbe: Look up MAC
+address in Open Firmware or IDPROM").
+
+As with that fix, attempt to look up the MAC address in Open Firmware
+on systems that support it, and use IDPROM on SPARC if no OF address
+is found.
+
+In the case of the i40e there is an assumption that the default mac
+address has already been set up as the primary mac filter on probe,
+so if this filter is obtained from the Open Firmware or IDPROM, an
+explicit write is needed via i40e_aq_mac_address_write() and
+i40e_aq_add_macvlan() invocation.
+
+The is_default_mac field in the platform-private i40e_pf structure
+tracks whether the mac address was default or not, and in the latter
+case, will trigger the calls to i40e_aq_mac_address_write() and
+i40e_aq_add_macvlan().
+
+Reviewed-by: Martin K. Petersen <martin.petersen@oracle.com>
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+v2, v3: Andy Shevchenko comments
+v4: Shannon Nelson review: explicitly set up mac filters before register_netdev
+v5: Shannon Nelson code style comments
+v6: Shannon Nelson code style comments
+v7: Ensure that i40e_macaddr_init() is called only for VSI_MAIN, and only
+    if the mac address is not the default. Some additional code-refactoring
+    based on comments from Shannon Nelson
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 5b6c17c53d..f6634a5241 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -743,7 +743,7 @@ static void bnx2x_gro_receive(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 			bnx2x_gro_csum(bp, skb, bnx2x_gro_ipv6_csum);
- 			break;
- 		default:
--			BNX2X_ERR("Error: FW GRO supports only IPv4/IPv6, not 0x%04x\n",
-+			WARN_ONCE(1, "Error: FW GRO supports only IPv4/IPv6, not 0x%04x\n",
- 				  be16_to_cpu(skb->protocol));
- 		}
+ drivers/net/ethernet/intel/i40e/i40e.h      |    2 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c |   87 +++++++++++++++++++++++++++
+ 2 files changed, 89 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 0b9537b..6d41757 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -420,6 +420,8 @@ struct i40e_pf {
+ 
+ 	u32 ioremap_len;
+ 	u32 fd_inv;
++
++	u32 is_default_mac:1;
+ };
+ 
+ struct i40e_mac_filter {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 9e6268b..40a5d53 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -24,6 +24,15 @@
+  *
+  ******************************************************************************/
+ 
++#include <linux/etherdevice.h>
++#include <linux/of_net.h>
++#include <linux/pci.h>
++
++#ifdef CONFIG_SPARC
++#include <asm/idprom.h>
++#include <asm/prom.h>
++#endif
++
+ /* Local includes */
+ #include "i40e.h"
+ #include "i40e_diag.h"
+@@ -9387,6 +9396,44 @@ static struct i40e_vsi *i40e_vsi_reinit_setup(struct i40e_vsi *vsi)
+ }
+ 
+ /**
++ * i40e_macaddr_init - explicitly write the mac address filters.
++ *
++ * @vsi: pointer to the vsi.
++ * @macaddr: the MAC address
++ *
++ * This is needed when the macaddr has been obtained by other
++ * means than the default, e.g., from Open Firmware or IDPROM.
++ * Returns 0 on success, negative on failure
++ **/
++static int i40e_macaddr_init(struct i40e_vsi *vsi, u8 *macaddr)
++{
++	int ret, aq_err;
++	struct i40e_aqc_add_macvlan_element_data element;
++
++	ret = i40e_aq_mac_address_write(&vsi->back->hw,
++					I40E_AQC_WRITE_TYPE_LAA_WOL,
++					macaddr, NULL);
++	if (ret) {
++		dev_info(&vsi->back->pdev->dev,
++			 "Addr change for VSI failed: %d\n", ret);
++		return -EADDRNOTAVAIL;
++	}
++
++	memset(&element, 0, sizeof(element));
++	ether_addr_copy(element.mac_addr, macaddr);
++	element.flags = cpu_to_le16(I40E_AQC_MACVLAN_ADD_PERFECT_MATCH);
++	ret = i40e_aq_add_macvlan(&vsi->back->hw, vsi->seid, &element, 1, NULL);
++	aq_err = vsi->back->hw.aq.asq_last_status;
++	if (aq_err != I40E_AQ_RC_OK) {
++		dev_info(&vsi->back->pdev->dev,
++			 "add filter failed err %s aq_err %s\n",
++			 i40e_stat_str(&vsi->back->hw, ret),
++			 i40e_aq_str(&vsi->back->hw, aq_err));
++	}
++	return ret;
++}
++
++/**
+  * i40e_vsi_setup - Set up a VSI by a given type
+  * @pf: board private structure
+  * @type: VSI type
+@@ -9510,6 +9557,14 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
+ 	switch (vsi->type) {
+ 	/* setup the netdev if needed */
+ 	case I40E_VSI_MAIN:
++		/* Apply relevant filters if a platform-specific mac
++		 * address was selected.
++		 */
++		if (!pf->is_default_mac) {
++			ret = i40e_macaddr_init(vsi, pf->hw.mac.addr);
++			if (ret)
++				goto err_netdev;
++		}
+ 	case I40E_VSI_VMDQ2:
+ 	case I40E_VSI_FCOE:
+ 		ret = i40e_config_netdev(vsi);
+@@ -10340,6 +10395,36 @@ static void i40e_print_features(struct i40e_pf *pf)
+ }
+ 
+ /**
++ * i40e_get_platform_mac_addr - get platform-specific MAC address
++ *
++ * @pdev: PCI device information struct
++ * @pf: board private structure
++ *
++ * Look up the MAC address in Open Firmware  on systems that support it,
++ * and use IDPROM on SPARC if no OF address is found. On return, the value
++ * of pf->is_default_mac will be set to 1, if the default mac address is
++ * to be used, or 0, if a platform-specific value has been selected.
++ *
++ **/
++static void i40e_get_platform_mac_addr(struct pci_dev *pdev, struct i40e_pf *pf)
++{
++	struct device_node *dp = pci_device_to_OF_node(pdev);
++	const unsigned char *addr;
++	u8 *mac_addr = pf->hw.mac.addr;
++
++	pf->is_default_mac = 1;
++	addr = of_get_mac_address(dp);
++	if (addr) {
++		ether_addr_copy(mac_addr, addr);
++		pf->is_default_mac = 0;
++	}
++#ifdef CONFIG_SPARC
++	ether_addr_copy(mac_addr, idprom->id_ethaddr);
++	pf->is_default_mac = 0;
++#endif /* CONFIG_SPARC */
++}
++
++/**
+  * i40e_probe - Device initialization routine
+  * @pdev: PCI device information struct
+  * @ent: entry in i40e_pci_tbl
+@@ -10543,6 +10628,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  	}
+ 
+ 	i40e_get_mac_addr(hw, hw->mac.addr);
++	/* allow a platform config to override the HW addr */
++	i40e_get_platform_mac_addr(pdev, pf);
+ 	if (!is_valid_ether_addr(hw->mac.addr)) {
+ 		dev_info(&pdev->dev, "invalid MAC address %pM\n", hw->mac.addr);
+ 		err = -EIO;
 -- 
-2.5.0
+1.7.1
