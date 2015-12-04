@@ -1,41 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: rhashtable: ENOMEM errors when hit with a flood of insertions
-Date: Fri, 4 Dec 2015 08:07:02 +0800
-Message-ID: <20151204000702.GA8863@gondor.apana.org.au>
-References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
- <20151130093755.GA8159@gondor.apana.org.au>
- <20151130101401.GA17712@orbit.nwl.cc>
- <20151130101859.GA8378@gondor.apana.org.au>
- <20151203125117.GB5505@gondor.apana.org.au>
- <1449158919.6379.27.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Phil Sutter <phil@nwl.cc>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tgraf@suug.ch, fengguang.wu@intel.com, wfg@linux.intel.com,
-	lkp@01.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1449158919.6379.27.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/17] fm10k: Correct typecast in fm10k_update_xc_addr_pf
+Date: Thu,  3 Dec 2015 16:29:43 -0800
+Message-ID: <1449188994-64940-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1449188994-64940-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:22000 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754298AbbLDA35 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2015 19:29:57 -0500
+In-Reply-To: <1449188994-64940-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 03, 2015 at 08:08:39AM -0800, Eric Dumazet wrote:
->
-> Well, it will fail before this point if memory is fragmented.
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Indeed, I was surprised that it even worked up to that point,
-possibly because the previous resizes might have actually been
-done in process context.
+Since the resultant data type of the mac_update.mac_upper field is u16,
+it does not make sense to typecast u8 variables to u32 first. Since
+we're modifying fm10k_pf.c, also update the copyright year.
 
-> Anyway, __vmalloc() can be used with GFP_ATOMIC, have you tried this ?
+Reported-by: Matthew Vick <matthew.vick@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Ah I didn't know that.  That would be much simpler.  I'll give it a
-try.
-
-Thanks Eric!
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+index 8c0bdc4..b1e0975 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+@@ -1,5 +1,5 @@
+ /* Intel Ethernet Switch Host Interface Driver
+- * Copyright(c) 2013 - 2014 Intel Corporation.
++ * Copyright(c) 2013 - 2015 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -334,8 +334,8 @@ static s32 fm10k_update_xc_addr_pf(struct fm10k_hw *hw, u16 glort,
+ 						 ((u32)mac[3] << 16) |
+ 						 ((u32)mac[4] << 8) |
+ 						 ((u32)mac[5]));
+-	mac_update.mac_upper = cpu_to_le16(((u32)mac[0] << 8) |
+-						 ((u32)mac[1]));
++	mac_update.mac_upper = cpu_to_le16(((u16)mac[0] << 8) |
++					   ((u16)mac[1]));
+ 	mac_update.vlan = cpu_to_le16(vid);
+ 	mac_update.glort = cpu_to_le16(glort);
+ 	mac_update.action = add ? 0 : 1;
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.5.0
