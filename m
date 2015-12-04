@@ -1,68 +1,193 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 2/5] stmmac: Correct documentation on stmmac clocks.
-Date: Fri, 4 Dec 2015 10:18:07 -0600
-Message-ID: <20151204161807.GA10180@rob-hp-laptop>
-References: <1449220125-67417-1-git-send-email-preid@electromag.com.au>
- <1449220125-67417-3-git-send-email-preid@electromag.com.au>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: bar
+Date: Fri, 4 Dec 2015 11:19:18 -0500
+Message-ID: <20151204161918.GL26633@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	davem@davemloft.net
-To: Phil Reid <preid@electromag.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:56388 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754665AbbLDQSL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Dec 2015 11:18:11 -0500
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	andy.shevchenko@gmail.com
+To: sowmini.varadhan@oracle.com, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1449220125-67417-3-git-send-email-preid@electromag.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 04, 2015 at 05:08:42PM +0800, Phil Reid wrote:
-> devm_get_clk looks in clock-name property for matching clock.
-> the ptp_ref_clk property is ignored.
-> 
-> Signed-off-by: Phil Reid <preid@electromag.com.au>
 
-Acked-by: Rob Herring <robh@kernel.org>
+This is the i40e equivalent of commit c762dff24c06 ("ixgbe: Look up MAC
+address in Open Firmware or IDPROM").
 
-> ---
->  Documentation/devicetree/bindings/net/stmmac.txt | 17 ++++++++---------
->  1 file changed, 8 insertions(+), 9 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-> index 0056c4c..060e2d5 100644
-> --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> @@ -35,15 +35,14 @@ Optional properties:
->  - reset-names: Should contain the reset signal name "stmmaceth", if a
->  	reset phandle is given
->  - max-frame-size: See ethernet.txt file in the same directory
-> -- clocks: If present, the first clock should be the GMAC main clock and
-> -  the second clock should be peripheral's register interface clock. Further
-> -  clocks may be specified in derived bindings.
-> -- clock-names: One name for each entry in the clocks property, the
-> -  first one should be "stmmaceth" and the second one should be "pclk".
-> -- clk_ptp_ref: this is the PTP reference clock; in case of the PTP is
-> -  available this clock is used for programming the Timestamp Addend Register.
-> -  If not passed then the system clock will be used and this is fine on some
-> -  platforms.
-> +- clocks: If present, the first clock should be the GMAC main clock
-> +  The optional second clock should be peripheral's register interface clock.
-> +  The third optional clock should be the ptp reference clock. 
-> +  Further clocks may be specified in derived bindings.
-> +- clock-names: One name for each entry in the clocks property.
-> +  The first one should be "stmmaceth".
-> +  The optional second one should be "pclk".
-> +  The optional third one should be "clk_ptp_ref".
->  - snps,burst_len: The AXI burst lenth value of the AXI BUS MODE register.
->  - tx-fifo-depth: See ethernet.txt file in the same directory
->  - rx-fifo-depth: See ethernet.txt file in the same directory
-> -- 
-> 1.8.3.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe devicetree" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+As with that fix, attempt to look up the MAC address in Open Firmware
+on systems that support it, and use IDPROM on SPARC if no OF address
+is found.
+
+In the case of the i40e there is an assumption that the default mac
+address has already been set up as the primary mac filter on probe,
+so if this filter is obtained from the Open Firmware or IDPROM, an
+explicit write is needed via i40e_aq_mac_address_write() and
+i40e_aq_add_macvlan() invocation.
+
+The is_default_mac field in the platform-private i40e_pf structure
+tracks whether the mac address was default or not, and in the latter
+case, will trigger the calls to i40e_aq_mac_address_write() and
+i40e_aq_add_macvlan().
+
+Reviewed-by: Martin K. Petersen <martin.petersen@oracle.com>
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+v2, v3: Andy Shevchenko comments
+v4: Shannon Nelson review: explicitly set up mac filters before register_netdev
+v5: Shannon Nelson code style comments
+v6: Shannon Nelson code style comments
+v7: Ensure that i40e_macaddr_init() is called only for VSI_MAIN, and only
+    if the mac address is not the default. Some additional code-refactoring
+    based on comments from Shannon Nelson
+
+ drivers/net/ethernet/intel/i40e/i40e.h      |    2 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c |   87 +++++++++++++++++++++++++++
+ 2 files changed, 89 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 0b9537b..6d41757 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -420,6 +420,8 @@ struct i40e_pf {
+ 
+ 	u32 ioremap_len;
+ 	u32 fd_inv;
++
++	u32 is_default_mac:1;
+ };
+ 
+ struct i40e_mac_filter {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 9e6268b..40a5d53 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -24,6 +24,15 @@
+  *
+  ******************************************************************************/
+ 
++#include <linux/etherdevice.h>
++#include <linux/of_net.h>
++#include <linux/pci.h>
++
++#ifdef CONFIG_SPARC
++#include <asm/idprom.h>
++#include <asm/prom.h>
++#endif
++
+ /* Local includes */
+ #include "i40e.h"
+ #include "i40e_diag.h"
+@@ -9387,6 +9396,44 @@ static struct i40e_vsi *i40e_vsi_reinit_setup(struct i40e_vsi *vsi)
+ }
+ 
+ /**
++ * i40e_macaddr_init - explicitly write the mac address filters.
++ *
++ * @vsi: pointer to the vsi.
++ * @macaddr: the MAC address
++ *
++ * This is needed when the macaddr has been obtained by other
++ * means than the default, e.g., from Open Firmware or IDPROM.
++ * Returns 0 on success, negative on failure
++ **/
++static int i40e_macaddr_init(struct i40e_vsi *vsi, u8 *macaddr)
++{
++	int ret, aq_err;
++	struct i40e_aqc_add_macvlan_element_data element;
++
++	ret = i40e_aq_mac_address_write(&vsi->back->hw,
++					I40E_AQC_WRITE_TYPE_LAA_WOL,
++					macaddr, NULL);
++	if (ret) {
++		dev_info(&vsi->back->pdev->dev,
++			 "Addr change for VSI failed: %d\n", ret);
++		return -EADDRNOTAVAIL;
++	}
++
++	memset(&element, 0, sizeof(element));
++	ether_addr_copy(element.mac_addr, macaddr);
++	element.flags = cpu_to_le16(I40E_AQC_MACVLAN_ADD_PERFECT_MATCH);
++	ret = i40e_aq_add_macvlan(&vsi->back->hw, vsi->seid, &element, 1, NULL);
++	aq_err = vsi->back->hw.aq.asq_last_status;
++	if (aq_err != I40E_AQ_RC_OK) {
++		dev_info(&vsi->back->pdev->dev,
++			 "add filter failed err %s aq_err %s\n",
++			 i40e_stat_str(&vsi->back->hw, ret),
++			 i40e_aq_str(&vsi->back->hw, aq_err));
++	}
++	return ret;
++}
++
++/**
+  * i40e_vsi_setup - Set up a VSI by a given type
+  * @pf: board private structure
+  * @type: VSI type
+@@ -9510,6 +9557,14 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
+ 	switch (vsi->type) {
+ 	/* setup the netdev if needed */
+ 	case I40E_VSI_MAIN:
++		/* Apply relevant filters if a platform-specific mac
++		 * address was selected.
++		 */
++		if (!pf->is_default_mac) {
++			ret = i40e_macaddr_init(vsi, pf->hw.mac.addr);
++			if (ret)
++				goto err_netdev;
++		}
+ 	case I40E_VSI_VMDQ2:
+ 	case I40E_VSI_FCOE:
+ 		ret = i40e_config_netdev(vsi);
+@@ -10340,6 +10395,36 @@ static void i40e_print_features(struct i40e_pf *pf)
+ }
+ 
+ /**
++ * i40e_get_platform_mac_addr - get platform-specific MAC address
++ *
++ * @pdev: PCI device information struct
++ * @pf: board private structure
++ *
++ * Look up the MAC address in Open Firmware  on systems that support it,
++ * and use IDPROM on SPARC if no OF address is found. On return, the value
++ * of pf->is_default_mac will be set to 1, if the default mac address is
++ * to be used, or 0, if a platform-specific value has been selected.
++ *
++ **/
++static void i40e_get_platform_mac_addr(struct pci_dev *pdev, struct i40e_pf *pf)
++{
++	struct device_node *dp = pci_device_to_OF_node(pdev);
++	const unsigned char *addr;
++	u8 *mac_addr = pf->hw.mac.addr;
++
++	pf->is_default_mac = 1;
++	addr = of_get_mac_address(dp);
++	if (addr) {
++		ether_addr_copy(mac_addr, addr);
++		pf->is_default_mac = 0;
++	}
++#ifdef CONFIG_SPARC
++	ether_addr_copy(mac_addr, idprom->id_ethaddr);
++	pf->is_default_mac = 0;
++#endif /* CONFIG_SPARC */
++}
++
++/**
+  * i40e_probe - Device initialization routine
+  * @pdev: PCI device information struct
+  * @ent: entry in i40e_pci_tbl
+@@ -10543,6 +10628,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 
+ 	i40e_get_mac_addr(hw, hw->mac.addr);
++	/* allow a platform config to override the HW addr */
++	i40e_get_platform_mac_addr(pdev, pf);
+ 	if (!is_valid_ether_addr(hw->mac.addr)) {
+ 		dev_info(&pdev->dev, "invalid MAC address %pM\n", hw->mac.addr);
+ 		err = -EIO;
+-- 
+1.7.1
