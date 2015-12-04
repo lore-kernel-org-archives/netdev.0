@@ -1,50 +1,31 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: SoCFPGA ethernet broken
-Date: Fri, 4 Dec 2015 02:10:50 +0100
-Message-ID: <20151204011050.GC26934@lunn.ch>
-References: <561FF9E2.30102@opensource.altera.com>
- <56200687.9040903@gmail.com>
- <562005AD.8020903@opensource.altera.com>
- <56200BD7.8020505@gmail.com>
- <20151203204811.GB14427@amd>
- <5660B2EC.1050705@caviumnetworks.com>
- <5660CD87.5050603@opensource.altera.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ravb: ptp: Add CONFIG mode support
+Date: Thu, 03 Dec 2015 20:36:36 -0500 (EST)
+Message-ID: <20151203.203636.1169814325276565350.davem@davemloft.net>
+References: <5660AFE0.7060401@cogentembedded.com>
+	<20151203.180853.1418394974611593944.davem@davemloft.net>
+	<5660D276.3000306@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Daney <ddaney@caviumnetworks.com>,
-	Pavel Machek <pavel@denx.de>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, david.daney@cavium.com,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Dinh Nguyen <dinguyen@opensource.altera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5660CD87.5050603@opensource.altera.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ykaneko0929@gmail.com, netdev@vger.kernel.org, horms@verge.net.au,
+	magnus.damm@gmail.com, linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <5660D276.3000306@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > FWIW: My initial patch to address the failure worked with the original DTB.
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Fri, 4 Dec 2015 02:38:30 +0300
+
+> On 12/04/2015 02:08 AM, David Miller wrote:
 > 
-> Can I ask what patch are you referring to? I was sidetracked for a while
-> on this issue, but I still see it failing as of v4.4-rc3. I'll try to
-> get back to debugging this.
+>>>     Perhaps worth adding me to MAINTAINERS as (a new role of) a
+>>>     reviewer...
+>>
+>> I'll happily apply such a patch.
+> 
+>    OK, net.git would be OK as a base?
 
-Hi Dinh
-
-There are two different patches:
-
-https://lkml.org/lkml/2015/10/16/669
-
-and
-
-https://www.mail-archive.com/netdev@vger.kernel.org/msg83183.html
-
-Although the first one works, it keeps searching up and up and up, so
-you could in theory put the phy properties a lot higher than the MAC.
-
-The second patch restricts where it looks for the phy properties to
-only the MAC. But it does not work. We would like to understand why it
-does not work.
-
-     Andrew
+Absolutely.
