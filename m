@@ -1,11 +1,11 @@
 From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net 1/3] sctp: use the same clock as if sock source
- timestamps were on
-Date: Fri, 4 Dec 2015 15:31:05 -0500
-Message-ID: <5661F809.4000104@gmail.com>
+Subject: Re: [PATCH net 2/3] sctp: update the netstamp_needed counter when
+ copying sockets
+Date: Fri, 4 Dec 2015 15:33:01 -0500
+Message-ID: <5661F87D.40705@gmail.com>
 References: <20151203184316.GF4164@mrl.redhat.com>
  <cover.1449249050.git.marcelo.leitner@gmail.com>
- <8ff122e39159e5ccf1277c692ad7bd6431695825.1449249050.git.marcelo.leitner@gmail.com>
+ <351c05ec8d79bdc03f38c021bb112d29908a6a5e.1449249050.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -20,27 +20,27 @@ Cc: Neil Horman <nhorman@tuxdriver.com>,
 To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f66.google.com ([209.85.192.66]:34663 "EHLO
-	mail-qg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752509AbbLDUbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 15:31:08 -0500
-In-Reply-To: <8ff122e39159e5ccf1277c692ad7bd6431695825.1449249050.git.marcelo.leitner@gmail.com>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:34630 "EHLO
+	mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754819AbbLDUdE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 15:33:04 -0500
+In-Reply-To: <351c05ec8d79bdc03f38c021bb112d29908a6a5e.1449249050.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 12/04/2015 12:14 PM, Marcelo Ricardo Leitner wrote:
-> SCTP echoes a cookie o INIT ACK chunks that contains a timestamp, for
-> detecting stale cookies. This cookie is echoed back to the server by the
-> client and then that timestamp is checked.
+> Dmitry Vyukov reported that SCTP was triggering a WARN on socket destroy
+> related to disabling sock timestamp.
 > 
-> Thing is, if the listening socket is using packet timestamping, the
-> cookie is encoded with ktime_get() value and checked against
-> ktime_get_real(), as done by __net_timestamp().
+> When SCTP accepts an association or peel one off, it copies sock flags
+> but forgot to call net_enable_timestamp() if a packet timestamping flag
+> was copied, leading to extra calls to net_disable_timestamp() whenever
+> such clones were closed.
 > 
-> The fix is to sctp also use ktime_get_real(), so we can compare bananas
-> with bananas later no matter if packet timestamping was enabled or not.
+> The fix is to call net_enable_timestamp() whenever we copy a sock with
+> that flag on, like tcp does.
 > 
-> Fixes: 52db882f3fc2 ("net: sctp: migrate cookie life from timeval to ktime")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
 > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
 Acked-by: Vlad Yasevich <vyasevich@gmail.com>
@@ -48,29 +48,49 @@ Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 -vlad
 
 > ---
->  net/sctp/sm_make_chunk.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+>  include/net/sock.h | 2 ++
+>  net/core/sock.c    | 2 --
+>  net/sctp/socket.c  | 3 +++
+>  3 files changed, 5 insertions(+), 2 deletions(-)
 > 
-> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-> index 763e06a55155b2a9e0a9d918ecc1fe2dd6d9e0c0..5d6a03fad3789a12290f5f14c5a7efa69c98f41a 100644
-> --- a/net/sctp/sm_make_chunk.c
-> +++ b/net/sctp/sm_make_chunk.c
-> @@ -1652,7 +1652,7 @@ static sctp_cookie_param_t *sctp_pack_cookie(const struct sctp_endpoint *ep,
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 52d27ee924f47867026d8f65c65551a9137219d3..b1d475b5db6825e13df3e3e147fed8654e1cf086 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -740,6 +740,8 @@ enum sock_flags {
+>  	SOCK_SELECT_ERR_QUEUE, /* Wake select on error queue */
+>  };
 >  
->  	/* Set an expiration time for the cookie.  */
->  	cookie->c.expiration = ktime_add(asoc->cookie_life,
-> -					 ktime_get());
-> +					 ktime_get_real());
+> +#define SK_FLAGS_TIMESTAMP ((1UL << SOCK_TIMESTAMP) | (1UL << SOCK_TIMESTAMPING_RX_SOFTWARE))
+> +
+>  static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
+>  {
+>  	nsk->sk_flags = osk->sk_flags;
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index e31dfcee1729aa23bdd2ed692fda1b90bd75afb8..d01c8f42dbb2f040fd48009b2767bd4e80aea8ab 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -433,8 +433,6 @@ static bool sock_needs_netstamp(const struct sock *sk)
+>  	}
+>  }
 >  
->  	/* Copy the peer's init packet.  */
->  	memcpy(&cookie->c.peer_init[0], init_chunk->chunk_hdr,
-> @@ -1780,7 +1780,7 @@ no_hmac:
->  	if (sock_flag(ep->base.sk, SOCK_TIMESTAMP))
->  		kt = skb_get_ktime(skb);
->  	else
-> -		kt = ktime_get();
-> +		kt = ktime_get_real();
+> -#define SK_FLAGS_TIMESTAMP ((1UL << SOCK_TIMESTAMP) | (1UL << SOCK_TIMESTAMPING_RX_SOFTWARE))
+> -
+>  static void sock_disable_timestamp(struct sock *sk, unsigned long flags)
+>  {
+>  	if (sk->sk_flags & flags) {
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 03c8256063ec6355fcce034366aa5d005d75b5f7..4c9282bdd06790a0cca7f7c33986e7eb6c541398 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -7199,6 +7199,9 @@ void sctp_copy_sock(struct sock *newsk, struct sock *sk,
+>  	newinet->mc_ttl = 1;
+>  	newinet->mc_index = 0;
+>  	newinet->mc_list = NULL;
+> +
+> +	if (newsk->sk_flags & SK_FLAGS_TIMESTAMP)
+> +		net_enable_timestamp();
+>  }
 >  
->  	if (!asoc && ktime_before(bear_cookie->expiration, kt)) {
->  		/*
+>  static inline void sctp_copy_descendant(struct sock *sk_to,
 > 
