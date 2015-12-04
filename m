@@ -1,94 +1,89 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Fri, 04 Dec 2015 22:11:12 +0100
-Message-ID: <1449263472.20674.458404473.7E823214@webmail.messagingengine.com>
-References: <1449158374.11080.456996721.69F803D7@webmail.messagingengine.com>
- <CALx6S342OMLB6s7LcmnZP1rnYNUs345Dy1gjYX3JUKqqB_waPA@mail.gmail.com>
- <1449259145.6236.458303617.55CF2C4E@webmail.messagingengine.com>
- <20151204.150633.1744714566987717806.davem@davemloft.net>
- <1449260785.11089.458370265.3954BCFA@webmail.messagingengine.com>
- <CALx6S35Jyb_cmG-bBjWRPAV_g4V7yudFi_zoMgg8QtoZ_tqdPQ@mail.gmail.com>
+Subject: Re: bpf: undefined shift in __bpf_prog_run
+Date: Fri, 04 Dec 2015 22:21:09 +0100
+Message-ID: <1449264069.22539.458413297.29D20E0D@webmail.messagingengine.com>
+References: <20151204184333.GA42737@ast-mbp.thefacebook.com>
+ <CACT4Y+YLV4scGXSFz=G3ACa-WE8VuT5wDGvPBV9D2Q+devxedA@mail.gmail.com>
+ <20151204191013.GB45508@ast-mbp.thefacebook.com>
+ <20151204.142651.968075964630586979.davem@davemloft.net>
+ <CACT4Y+Y6vzvHuxk=o5Y_f2qDCGW30cAOCuyCeoLtj28Xh3G1dA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	John Linville <linville@tuxdriver.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kiran Patil <kiran.patil@intel.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:49883 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753167AbbLDVLN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 16:11:13 -0500
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id 4E9A820864
-	for <netdev@vger.kernel.org>; Fri,  4 Dec 2015 16:11:12 -0500 (EST)
-In-Reply-To: <CALx6S35Jyb_cmG-bBjWRPAV_g4V7yudFi_zoMgg8QtoZ_tqdPQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Alexei Starovoitov <ast@kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Andrey Ryabinin <ryabinin.a.a@gmail.com>
+To: Dmitry Vyukov <dvyukov@google.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+Y6vzvHuxk=o5Y_f2qDCGW30cAOCuyCeoLtj28Xh3G1dA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 4, 2015, at 21:43, Tom Herbert wrote:
-> On Fri, Dec 4, 2015 at 12:26 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > Hi Dave,
-> >
-> > On Fri, Dec 4, 2015, at 21:06, David Miller wrote:
-> >> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> >> Date: Fri, 04 Dec 2015 20:59:05 +0100
-> >>
-> >> > Yes, I agree, I am totally with you here. If generic offloading can be
-> >> > realized by NICs I am totally with you that this should be the way to
-> >> > go. I don't see that coming in the next (small number of) years, so I
-> >> > don't see a reason to stop this patchset.
-> >>
-> >> If I just apply this and say "yeah ok", the message is completely lost
-> >> and your prediction about "small number of years" indeed will occur.
-> >>
-> >> However if I push back hard on this, as I will, then the message has
-> >> some chance of seeping back to the people designing these chips.
-> >>
-> >> So that's what I'm going to do, like it or not.
-> >>
-> >> Or can someone convince me that someone who understand this stuff
-> >> is telling the hardware guys to universally put 2's complement
-> >> checksums into the descriptors?
-> >>
-> >> Who is doing that at each and every prominent ethernet hardware
-> >> verndor?
-> >>
-> >> Who?
-> >>
-> >> If I get silence, or some vague non-specific response, then I'm going
-> >> to hold my ground and keep pushing back on this stuff.
-> >
-> > This is not only about 1's checksumming but also about TSO (and to some
-> > smaller degree about RSS, as I tried to explain): if we attach a geneve
-> > header in front of a skb we expect the hardware to recognize it and
-> > duplicate it while doing the hardware segmentation. The hardware can
-> > only do so if it is in knowledge of the specific port (in this case UDP
-> > port used for geneve) which is in use for this particular tunneling
-> > transport protocol. We currently cannot describe this in a generic way,
-> > thus this patchset. (Please correct me if I am wrong!)
-> >
-> Yes, you are wrong. Port numbers are not used in transmit path to
-> signal offload. To perform TSO on UDP encapsulated packets the skb is
-> marked with SKB_GSO_UDP_TUNNEL or SKB_GSO_UDP_TUNNEL_CSUM and
-> SKB_GSO_TCP, etc. The driver can use information along with the
-> offsets of the inner and outer headers in the packet to set up the
-> operation in the device.  Some devices only support TSO for VXLAN, but
-> regardless SKB_GSO_UDP_TUNNEL is generic for all known UDP
-> encapsulations. Protocol specific offload is not needed. Please start
-> looking at
-> http://people.netfilter.org/pablo/netdev0.1/papers/UDP-Encapsulation-in-Linux.pdf
-> and the kernel code to see how things _actually_ work.
+Hello,
 
-I am sorry. Of course we have _inner_ header pointers and the
-corresponding gso_types in skb_shinfo to signal that already. Probably I
-got confused by some driver sources and commit descriptions I looked
-into lately. Thanks for the correction! :)
+On Fri, Dec 4, 2015, at 20:48, Dmitry Vyukov wrote:
+> On Fri, Dec 4, 2015 at 8:26 PM, David Miller <davem@davemloft.net> wrote:
+> > From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+> > Date: Fri, 4 Dec 2015 11:10:15 -0800
+> >
+> >> just don't generate random bpf programs with such shifts.
+> >
+> > Agreed, it is exactly the same as if the compiler emitted real cpu
+> > shift instructions with undefined behavior.
+> >
+> > The creator of the BPF code in question is what should be fixed.
+> 
+> 
+> There is another magical gcc flag enabled in kernel that alleviates
+> this undefined behavior? Or we are just assuming that C compilers are
+> still dump translators to machine code without analysis and
+> optimizations?
+> 
+> C standard per-se is pretty clear on this code:
+> 
+> 6.5.7/3
+> The integer promotions are performed on each of the operands. The type
+> of the result is that of the promoted left operand. If the value of
+> the right operand is negative or is greater than or equal to the width
+> of the promoted left operand, the behavior is undefined.
+> 
+> 3.4.3
+> undefined behavior
+> 1 behavior, upon use of a nonportable or erroneous program construct
+> or of erroneous data, for which this International Standard imposes no
+> requirements
+> 2 NOTE Possible undefined behavior ranges from ignoring the situation
+> completely with unpredictable results, to behaving during translation
+> or program execution in a documented manner characteristic of the
+> environment (with or without the issuance of a diagnostic message), to
+> terminating a translation or execution
+> 
+> 
+> For example, a compiler can assume that result of left shift is larger
+> or equal to first operand, which in turn can allow it to elide some
+> bounds check in code, which in turn can lead to an exploit. I am not
+> saying that this particular pattern is present in the code, what I
+> want to say is that such undefined behaviors can lead to very
+> unpredictable and unexpected consequences.
+
+I agree with Alexei and David that this should not be an issue. The
+paragraphs you quoted define undefined behavior within one compilation
+unit. The compiler itself can do undefined behavior within this but it
+will not affect the rest of the kernel as the verifier should already
+have done enough reasonable checks that you are not able to escape its
+sandbox or be able to access random memory.
+
+At the point of execution of the bytecode the interpreter or in case of
+jitting, the semantics of the machine code on a particular CPU, are
+crucial.
 
 Bye,
 Hannes
