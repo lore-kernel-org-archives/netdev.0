@@ -1,37 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH V7 net-next 0/5] net:hns: Add support of Hip06 SoC to
- the Hislicon Network Subsystem
-Date: Fri, 04 Dec 2015 14:37:42 -0500 (EST)
-Message-ID: <20151204.143742.2290508303650946149.davem@davemloft.net>
-References: <1449145077-9400-1-git-send-email-salil.mehta@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: rhashtable: Prevent spurious EBUSY errors on insertion
+Date: Fri, 04 Dec 2015 14:38:44 -0500 (EST)
+Message-ID: <20151204.143844.1840501199234860407.davem@davemloft.net>
+References: <20151130101401.GA17712@orbit.nwl.cc>
+	<20151130101859.GA8378@gondor.apana.org.au>
+	<20151203124129.GA5505@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
-	galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
-	arnd-r2nGTMty4D4@public.gmane.org, liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-	huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, kenneth-lee-2012-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org,
-	mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org,
-	lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449145077-9400-1-git-send-email-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: phil@nwl.cc, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tgraf@suug.ch, fengguang.wu@intel.com, wfg@linux.intel.com,
+	lkp@01.org
+To: herbert@gondor.apana.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151203124129.GA5505@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Date: Thu, 3 Dec 2015 12:17:52 +0000
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 3 Dec 2015 20:41:29 +0800
 
-> This PATCH V7 addresses the TAB formatting comments by 
-> Sergei Shtylyov. Missing TABs at some other palces have
-> also been corrected.
+> Thomas and Phil observed that under stress rhashtable insertion
+> sometimes failed with EBUSY, even though this error should only
+> ever been seen when we're under attack and our hash chain length
+> has grown to an unacceptable level, even after a rehash.
+> 
+> It turns out that the logic for detecting whether there is an
+> existing rehash is faulty.  In particular, when two threads both
+> try to grow the same table at the same time, one of them may see
+> the newly grown table and thus erroneously conclude that it had
+> been rehashed.  This is what leads to the EBUSY error.
+> 
+> This patch fixes this by remembering the current last table we
+> used during insertion so that rhashtable_insert_rehash can detect
+> when another thread has also done a resize/rehash.  When this is
+> detected we will give up our resize/rehash and simply retry the
+> insertion with the new table.
+> 
+> Reported-by: Thomas Graf <tgraf@suug.ch>
+> Reported-by: Phil Sutter <phil@nwl.cc>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Series applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Looks good, applied, thanks Herbert.
