@@ -1,30 +1,41 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] ravb: ptp: Add CONFIG mode support
-Date: Fri, 4 Dec 2015 02:38:30 +0300
-Message-ID: <5660D276.3000306@cogentembedded.com>
-References: <1448989479-11594-1-git-send-email-ykaneko0929@gmail.com>
- <20151203.142839.1524060182047354031.davem@davemloft.net>
- <5660AFE0.7060401@cogentembedded.com>
- <20151203.180853.1418394974611593944.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: rhashtable: ENOMEM errors when hit with a flood of insertions
+Date: Fri, 4 Dec 2015 08:07:02 +0800
+Message-ID: <20151204000702.GA8863@gondor.apana.org.au>
+References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
+ <20151130093755.GA8159@gondor.apana.org.au>
+ <20151130101401.GA17712@orbit.nwl.cc>
+ <20151130101859.GA8378@gondor.apana.org.au>
+ <20151203125117.GB5505@gondor.apana.org.au>
+ <1449158919.6379.27.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ykaneko0929@gmail.com, netdev@vger.kernel.org, horms@verge.net.au,
-	magnus.damm@gmail.com, linux-sh@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20151203.180853.1418394974611593944.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Phil Sutter <phil@nwl.cc>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tgraf@suug.ch, fengguang.wu@intel.com, wfg@linux.intel.com,
+	lkp@01.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1449158919.6379.27.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/04/2015 02:08 AM, David Miller wrote:
-
->>     Perhaps worth adding me to MAINTAINERS as (a new role of) a
->>     reviewer...
+On Thu, Dec 03, 2015 at 08:08:39AM -0800, Eric Dumazet wrote:
 >
-> I'll happily apply such a patch.
+> Well, it will fail before this point if memory is fragmented.
 
-    OK, net.git would be OK as a base?
+Indeed, I was surprised that it even worked up to that point,
+possibly because the previous resizes might have actually been
+done in process context.
 
-MBR, Sergei
+> Anyway, __vmalloc() can be used with GFP_ATOMIC, have you tried this ?
 
+Ah I didn't know that.  That would be much simpler.  I'll give it a
+try.
+
+Thanks Eric!
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
