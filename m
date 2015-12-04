@@ -1,88 +1,53 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/17] fm10k: reinitialize queuing scheme after calling init_hw
-Date: Thu,  3 Dec 2015 16:29:42 -0800
-Message-ID: <1449188994-64940-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/17] fm10k: change default Tx ITR to 25usec
+Date: Thu,  3 Dec 2015 16:29:52 -0800
+Message-ID: <1449188994-64940-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449188994-64940-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:14336 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:22000 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754297AbbLDA35 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 19:29:57 -0500
+	id S1754408AbbLDA37 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2015 19:29:59 -0500
 In-Reply-To: <1449188994-64940-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-The init_hw function may fail, and in the case of VFs, it might change
-the number of maximum queues available. Thus, for every flow which
-checks init_hw, we need to ensure that we clear the queue scheme before,
-and initialize it after. The fm10k_io_slot_reset path will end up
-triggering a reset so fm10k_reinit needs this change. The
-fm10k_io_error_detected and fm10k_io_resume also need to properly clear
-and reinitialize the queue scheme.
+The current default ITR for Tx is overly restrictive. Using a simple
+netperf TCP_STREAM test, we top out at about 10Gb/s for a single thread
+when running using 1500 byte frames. By reducing the ITR value to 25usec
+(up to 40K interrupts a second from 10K), we are able to achieve 36Gb/s
+for a single thread TCP stream test.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+ drivers/net/ethernet/intel/fm10k/fm10k.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 9c21d1e..faf8149 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -159,6 +159,9 @@ static void fm10k_reinit(struct fm10k_intfc *interface)
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
+index 115033f..fa26e20 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
+@@ -171,11 +171,12 @@ struct fm10k_ring_container {
+ #define FM10K_ITR_MAX		0x0FFF	/* maximum value for ITR */
+ #define FM10K_ITR_10K		100	/* 100us */
+ #define FM10K_ITR_20K		50	/* 50us */
++#define FM10K_ITR_40K		25	/* 25us */
+ #define FM10K_ITR_ADAPTIVE	0x8000	/* adaptive interrupt moderation flag */
  
- 	fm10k_mbx_free_irq(interface);
+ #define ITR_IS_ADAPTIVE(itr) (!!(itr & FM10K_ITR_ADAPTIVE))
  
-+	/* free interrupts */
-+	fm10k_clear_queueing_scheme(interface);
-+
- 	/* delay any future reset requests */
- 	interface->last_reset = jiffies + (10 * HZ);
- 
-@@ -175,6 +178,12 @@ static void fm10k_reinit(struct fm10k_intfc *interface)
- 		goto reinit_err;
- 	}
- 
-+	err = fm10k_init_queueing_scheme(interface);
-+	if (err) {
-+		dev_err(&interface->pdev->dev, "init_queueing_scheme failed: %d\n", err);
-+		goto reinit_err;
-+	}
-+
- 	/* reassociate interrupts */
- 	fm10k_mbx_request_irq(interface);
- 
-@@ -2198,6 +2207,9 @@ static pci_ers_result_t fm10k_io_error_detected(struct pci_dev *pdev,
- 	if (netif_running(netdev))
- 		fm10k_close(netdev);
- 
-+	/* free interrupts */
-+	fm10k_clear_queueing_scheme(interface);
-+
- 	fm10k_mbx_free_irq(interface);
- 
- 	pci_disable_device(pdev);
-@@ -2270,6 +2282,12 @@ static void fm10k_io_resume(struct pci_dev *pdev)
- 	/* reset statistics starting values */
- 	hw->mac.ops.rebind_hw_stats(hw, &interface->stats);
- 
-+	err = fm10k_init_queueing_scheme(interface);
-+	if (err) {
-+		dev_err(&interface->pdev->dev, "init_queueing_scheme failed: %d\n", err);
-+		return;
-+	}
-+
- 	/* reassociate interrupts */
- 	fm10k_mbx_request_irq(interface);
+-#define FM10K_TX_ITR_DEFAULT	FM10K_ITR_10K
++#define FM10K_TX_ITR_DEFAULT	FM10K_ITR_40K
+ #define FM10K_RX_ITR_DEFAULT	FM10K_ITR_20K
+ #define FM10K_ITR_ENABLE	(FM10K_ITR_AUTOMASK | FM10K_ITR_MASK_CLEAR)
  
 -- 
 2.5.0
