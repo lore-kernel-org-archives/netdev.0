@@ -1,31 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] gre6: allow to update all parameters via rtnl
-Date: Fri, 04 Dec 2015 16:57:02 -0500 (EST)
-Message-ID: <20151204.165702.1714745625413079332.davem@davemloft.net>
-References: <1449159710-489-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH 1/2] ravb: read MAC address registers only once
+Date: Sat, 05 Dec 2015 00:58:07 +0300
+Message-ID: <6904286.WCKWH7i1NK@wasted.cogentembedded.com>
+References: <10429393.qU4CxZ5nlj@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44852 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754867AbbLDV5E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 16:57:04 -0500
-In-Reply-To: <1449159710-489-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <10429393.qU4CxZ5nlj@wasted.cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Thu,  3 Dec 2015 17:21:50 +0100
+The code reading the MAHR/MALR registers in ravb_read_mac_address() is
+terribly ineffective -- it reads  MAHR 4 times and MALR 2 times, while
+it's enough to read each register only once. Use the local variables to
+achieve that, somewhat beautifying the code while at it...
 
-> Parameters were updated only if the kernel was unable to find the tunnel
-> with the new parameters, ie only if core pamareters were updated (keys,
-> addr, link, type).
-> Now it's possible to update ttl, hoplimit, flowinfo and flags.
-> 
-> Fixes: c12b395a4664 ("gre: Support GRE over IPv6")
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Applied and queued up for -stable, thanks.
+---
+ drivers/net/ethernet/renesas/ravb_main.c |   15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
+
+Index: net-next/drivers/net/ethernet/renesas/ravb_main.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/ravb_main.c
++++ net-next/drivers/net/ethernet/renesas/ravb_main.c
+@@ -115,12 +115,15 @@ static void ravb_read_mac_address(struct
+ 	if (mac) {
+ 		ether_addr_copy(ndev->dev_addr, mac);
+ 	} else {
+-		ndev->dev_addr[0] = (ravb_read(ndev, MAHR) >> 24);
+-		ndev->dev_addr[1] = (ravb_read(ndev, MAHR) >> 16) & 0xFF;
+-		ndev->dev_addr[2] = (ravb_read(ndev, MAHR) >> 8) & 0xFF;
+-		ndev->dev_addr[3] = (ravb_read(ndev, MAHR) >> 0) & 0xFF;
+-		ndev->dev_addr[4] = (ravb_read(ndev, MALR) >> 8) & 0xFF;
+-		ndev->dev_addr[5] = (ravb_read(ndev, MALR) >> 0) & 0xFF;
++		u32 mahr = ravb_read(ndev, MAHR);
++		u32 malr = ravb_read(ndev, MALR);
++
++		ndev->dev_addr[0] = (mahr >> 24) & 0xFF;
++		ndev->dev_addr[1] = (mahr >> 16) & 0xFF;
++		ndev->dev_addr[2] = (mahr >>  8) & 0xFF;
++		ndev->dev_addr[3] = (mahr >>  0) & 0xFF;
++		ndev->dev_addr[4] = (malr >>  8) & 0xFF;
++		ndev->dev_addr[5] = (malr >>  0) & 0xFF;
+ 	}
+ }
+ 
+
