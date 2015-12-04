@@ -1,45 +1,51 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 5/5] stmmac: socfpga: Provide dt node to config ptp clk
- source.
-Date: Fri, 4 Dec 2015 10:19:49 -0600
-Message-ID: <20151204161949.GA11372@rob-hp-laptop>
-References: <1449220125-67417-1-git-send-email-preid@electromag.com.au>
- <1449220125-67417-6-git-send-email-preid@electromag.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] atl1c: Improve driver not to do order 4 GFP_ATOMIC
+ allocation
+Date: Fri, 04 Dec 2015 11:21:40 -0500 (EST)
+Message-ID: <20151204.112140.1465149588813636971.davem@davemloft.net>
+References: <1449163048.25029.2.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20151203.123249.2158644928982094593.davem@davemloft.net>
+	<20151204081127.GA29367@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	davem@davemloft.net
-To: Phil Reid <preid@electromag.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:56552 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753840AbbLDQTx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Dec 2015 11:19:53 -0500
-Content-Disposition: inline
-In-Reply-To: <1449220125-67417-6-git-send-email-preid@electromag.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, mhocko@kernel.org, akpm@osdl.org,
+ linux-kernel@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com,
+ netdev@vger.kernel.org, rjw@rjwysocki.net, linux-mm@kvack.org,
+ nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com
+To: pavel@ucw.cz
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20151204081127.GA29367@amd>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 04, 2015 at 05:08:45PM +0800, Phil Reid wrote:
-> Signed-off-by: Phil Reid <preid@electromag.com.au>
-> ---
->  Documentation/devicetree/bindings/net/socfpga-dwmac.txt |  2 ++
->  drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c     | 10 ++++++++++
->  2 files changed, 12 insertions(+)
+From: Pavel Machek <pavel@ucw.cz>
+Date: Fri, 4 Dec 2015 09:11:27 +0100
+
+>> >>  	if (unlikely(!ring_header->desc)) {
+>> >> -		dev_err(&pdev->dev, "pci_alloc_consistend failed\n");
+>> >> +		dev_err(&pdev->dev, "could not get memory for DMA buffer\n");
+>> >>  		goto err_nomem;
+>> >>  	}
+>> >>  	memset(ring_header->desc, 0, ring_header->size);
+>> >> 
+>> >> 
+>> > 
+>> > So this memset() will really require a different patch to get removed ?
+>> > 
+>> > Sigh, not sure why I review patches.
+>> 
+>> Agreed, please use dma_zalloc_coherent() and kill that memset().
 > 
-> diff --git a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-> index 3a9d679..72d82d6 100644
-> --- a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-> +++ b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-> @@ -11,6 +11,8 @@ Required properties:
->  		  designware version numbers documented in stmmac.txt
->   - altr,sysmgr-syscon : Should be the phandle to the system manager node that
->     encompasses the glue register, the register offset, and the register shift.
-> + - altr,f2h_ptp_ref_clk use f2h_ptp_ref_clk instead of default eosc1 clock
-> +   for ptp ref clk. This affects all emacs as the clock is common.
+> Ok, updated. I'll also add cc: stable, because it makes notebooks with
+> affected chipset unusable.
 
-This and ...
+Networking patches do not use CC: stable, instead you simply ask me
+to queue it up and then I batch submit networking fixes to -stable
+periodically myself.
 
-> +	dwmac->f2h_ptp_ref_clk = of_property_read_bool(np, "f2h_ptp_ref_clk");
-
-this don't match.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
