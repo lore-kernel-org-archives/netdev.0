@@ -1,51 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] atl1c: Improve driver not to do order 4 GFP_ATOMIC
- allocation
-Date: Fri, 04 Dec 2015 11:21:40 -0500 (EST)
-Message-ID: <20151204.112140.1465149588813636971.davem@davemloft.net>
-References: <1449163048.25029.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151203.123249.2158644928982094593.davem@davemloft.net>
-	<20151204081127.GA29367@amd>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, mhocko@kernel.org, akpm@osdl.org,
- linux-kernel@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com,
- netdev@vger.kernel.org, rjw@rjwysocki.net, linux-mm@kvack.org,
- nic-devel@qualcomm.com, ronangeles@gmail.com, ebiederm@xmission.com
-To: pavel@ucw.cz
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20151204081127.GA29367@amd>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH net-next 1/3] bnx2x: drop redundant error message about allocation failure
+Date: Fri,  4 Dec 2015 17:22:34 +0100
+Message-ID: <1449246156-13796-2-git-send-email-mschmidt@redhat.com>
+References: <1449246156-13796-1-git-send-email-mschmidt@redhat.com>
+Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45246 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753534AbbLDQWj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Dec 2015 11:22:39 -0500
+In-Reply-To: <1449246156-13796-1-git-send-email-mschmidt@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Machek <pavel@ucw.cz>
-Date: Fri, 4 Dec 2015 09:11:27 +0100
+alloc_pages() already prints a warning when it fails. No need to emit
+another message. Certainly not at KERN_ERR level, because it is no big
+deal if this GFP_ATOMIC allocation fails occasionally.
 
->> >>  	if (unlikely(!ring_header->desc)) {
->> >> -		dev_err(&pdev->dev, "pci_alloc_consistend failed\n");
->> >> +		dev_err(&pdev->dev, "could not get memory for DMA buffer\n");
->> >>  		goto err_nomem;
->> >>  	}
->> >>  	memset(ring_header->desc, 0, ring_header->size);
->> >> 
->> >> 
->> > 
->> > So this memset() will really require a different patch to get removed ?
->> > 
->> > Sigh, not sure why I review patches.
->> 
->> Agreed, please use dma_zalloc_coherent() and kill that memset().
-> 
-> Ok, updated. I'll also add cc: stable, because it makes notebooks with
-> affected chipset unusable.
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-Networking patches do not use CC: stable, instead you simply ask me
-to queue it up and then I batch submit networking fixes to -stable
-periodically myself.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index d9add7c02e..5b6c17c53d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -558,10 +558,8 @@ static int bnx2x_alloc_rx_sge(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 			put_page(pool->page);
+ 
+ 		pool->page = alloc_pages(gfp_mask, PAGES_PER_SGE_SHIFT);
+-		if (unlikely(!pool->page)) {
+-			BNX2X_ERR("Can't alloc sge\n");
++		if (unlikely(!pool->page))
+ 			return -ENOMEM;
+-		}
+ 
+ 		pool->offset = 0;
+ 	}
+-- 
+2.5.0
