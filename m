@@ -1,200 +1,74 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH RESEND v7] i40e: Look up MAC address in Open Firmware or
- IDPROM
-Date: Fri, 4 Dec 2015 11:24:07 -0500
-Message-ID: <20151204162407.GM26633@oracle.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Add support for Geneve udp port offload
+Date: Fri, 4 Dec 2015 08:31:28 -0800
+Message-ID: <CALx6S37N95yGGZs49KcF1D2VDknx2S+Wo1PgfwQz=KFQqznOAA@mail.gmail.com>
+References: <1449217144-18756-1-git-send-email-anjali.singhai@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	andy.shevchenko@gmail.com
-To: sowmini.varadhan@oracle.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Anjali Singhai Jain <anjali.singhai@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:33809 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753617AbbLDQYQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 11:24:16 -0500
-Content-Disposition: inline
+Received: from mail-io0-f174.google.com ([209.85.223.174]:33883 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755056AbbLDQb3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 11:31:29 -0500
+Received: by ioir85 with SMTP id r85so121273336ioi.1
+        for <netdev@vger.kernel.org>; Fri, 04 Dec 2015 08:31:28 -0800 (PST)
+In-Reply-To: <1449217144-18756-1-git-send-email-anjali.singhai@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Dec 4, 2015 at 12:19 AM, Anjali Singhai Jain
+<anjali.singhai@intel.com> wrote:
+> This patch series adds new ndo ops for Geneve add/del port, so as
+> to help offload Geneve tunnel functionalities such as checksum, TSO
+> RSS, filters etc.
+>
+> i40e driver has been tested with the changes to make sure the offloads
+> happen.
+>
+> We do understand that this is not the ideal solution and most likely
+> will be redone with a more generic offload framework.
+> But this certainly will enable us to start seeing benefits of the
+> accelerations for Geneve tunnels.
+>
+Anjali,
 
-[Apologies for fat-fingering subject in the other attempt]
+This is a lot of complexity being added to i40e driver and kernel. It
+needs to be justified. Please:
 
-This is the i40e equivalent of commit c762dff24c06 ("ixgbe: Look up MAC
-address in Open Firmware or IDPROM").
+1) Quantify the effects of the offloads. Please provide a set of
+performance numbers for various benchmarks showing tps, CPU, latency,
+etc. You can peruse some of the patches I have done for GUE or VXLAN
+for ideas on reporting performance.
+2) The baselines for the above testing should include UDP checksum
+enabled with Remote Checksum Offload and GRO/GSO in full effect. I
+don't know if RCO has been implemented for Geneve, but it should be
+pretty straightforward to add if it's not.
+3) The ndo function needs to be clearly documented. Precisely what is
+a driver allowed to do with this port information? We already have at
+least one case in VXLAN where a driver is incorrectly using the
+provide port in the transmit path, this should be explicitly forbidden
+in the description.
 
-As with that fix, attempt to look up the MAC address in Open Firmware
-on systems that support it, and use IDPROM on SPARC if no OF address
-is found.
+Thanks,
+Tom
 
-In the case of the i40e there is an assumption that the default mac
-address has already been set up as the primary mac filter on probe,
-so if this filter is obtained from the Open Firmware or IDPROM, an
-explicit write is needed via i40e_aq_mac_address_write() and
-i40e_aq_add_macvlan() invocation.
-
-The is_default_mac field in the platform-private i40e_pf structure
-tracks whether the mac address was default or not, and in the latter
-case, will trigger the calls to i40e_aq_mac_address_write() and
-i40e_aq_add_macvlan().
-
-Reviewed-by: Martin K. Petersen <martin.petersen@oracle.com>
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
-v2, v3: Andy Shevchenko comments
-v4: Shannon Nelson review: explicitly set up mac filters before register_netdev
-v5: Shannon Nelson code style comments
-v6: Shannon Nelson code style comments
-v7: Ensure that i40e_macaddr_init() is called only for VSI_MAIN, and only
-    if the mac address is not the default. Some additional code-refactoring
-    based on comments from Shannon Nelson
-
- drivers/net/ethernet/intel/i40e/i40e.h      |    2 +
- drivers/net/ethernet/intel/i40e/i40e_main.c |   87 +++++++++++++++++++++++++++
- 2 files changed, 89 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 0b9537b..6d41757 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -420,6 +420,8 @@ struct i40e_pf {
- 
- 	u32 ioremap_len;
- 	u32 fd_inv;
-+
-+	u32 is_default_mac:1;
- };
- 
- struct i40e_mac_filter {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 9e6268b..40a5d53 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -24,6 +24,15 @@
-  *
-  ******************************************************************************/
- 
-+#include <linux/etherdevice.h>
-+#include <linux/of_net.h>
-+#include <linux/pci.h>
-+
-+#ifdef CONFIG_SPARC
-+#include <asm/idprom.h>
-+#include <asm/prom.h>
-+#endif
-+
- /* Local includes */
- #include "i40e.h"
- #include "i40e_diag.h"
-@@ -9387,6 +9396,44 @@ static struct i40e_vsi *i40e_vsi_reinit_setup(struct i40e_vsi *vsi)
- }
- 
- /**
-+ * i40e_macaddr_init - explicitly write the mac address filters.
-+ *
-+ * @vsi: pointer to the vsi.
-+ * @macaddr: the MAC address
-+ *
-+ * This is needed when the macaddr has been obtained by other
-+ * means than the default, e.g., from Open Firmware or IDPROM.
-+ * Returns 0 on success, negative on failure
-+ **/
-+static int i40e_macaddr_init(struct i40e_vsi *vsi, u8 *macaddr)
-+{
-+	int ret, aq_err;
-+	struct i40e_aqc_add_macvlan_element_data element;
-+
-+	ret = i40e_aq_mac_address_write(&vsi->back->hw,
-+					I40E_AQC_WRITE_TYPE_LAA_WOL,
-+					macaddr, NULL);
-+	if (ret) {
-+		dev_info(&vsi->back->pdev->dev,
-+			 "Addr change for VSI failed: %d\n", ret);
-+		return -EADDRNOTAVAIL;
-+	}
-+
-+	memset(&element, 0, sizeof(element));
-+	ether_addr_copy(element.mac_addr, macaddr);
-+	element.flags = cpu_to_le16(I40E_AQC_MACVLAN_ADD_PERFECT_MATCH);
-+	ret = i40e_aq_add_macvlan(&vsi->back->hw, vsi->seid, &element, 1, NULL);
-+	aq_err = vsi->back->hw.aq.asq_last_status;
-+	if (aq_err != I40E_AQ_RC_OK) {
-+		dev_info(&vsi->back->pdev->dev,
-+			 "add filter failed err %s aq_err %s\n",
-+			 i40e_stat_str(&vsi->back->hw, ret),
-+			 i40e_aq_str(&vsi->back->hw, aq_err));
-+	}
-+	return ret;
-+}
-+
-+/**
-  * i40e_vsi_setup - Set up a VSI by a given type
-  * @pf: board private structure
-  * @type: VSI type
-@@ -9510,6 +9557,14 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
- 	switch (vsi->type) {
- 	/* setup the netdev if needed */
- 	case I40E_VSI_MAIN:
-+		/* Apply relevant filters if a platform-specific mac
-+		 * address was selected.
-+		 */
-+		if (!pf->is_default_mac) {
-+			ret = i40e_macaddr_init(vsi, pf->hw.mac.addr);
-+			if (ret)
-+				goto err_netdev;
-+		}
- 	case I40E_VSI_VMDQ2:
- 	case I40E_VSI_FCOE:
- 		ret = i40e_config_netdev(vsi);
-@@ -10340,6 +10395,36 @@ static void i40e_print_features(struct i40e_pf *pf)
- }
- 
- /**
-+ * i40e_get_platform_mac_addr - get platform-specific MAC address
-+ *
-+ * @pdev: PCI device information struct
-+ * @pf: board private structure
-+ *
-+ * Look up the MAC address in Open Firmware  on systems that support it,
-+ * and use IDPROM on SPARC if no OF address is found. On return, the value
-+ * of pf->is_default_mac will be set to 1, if the default mac address is
-+ * to be used, or 0, if a platform-specific value has been selected.
-+ *
-+ **/
-+static void i40e_get_platform_mac_addr(struct pci_dev *pdev, struct i40e_pf *pf)
-+{
-+	struct device_node *dp = pci_device_to_OF_node(pdev);
-+	const unsigned char *addr;
-+	u8 *mac_addr = pf->hw.mac.addr;
-+
-+	pf->is_default_mac = 1;
-+	addr = of_get_mac_address(dp);
-+	if (addr) {
-+		ether_addr_copy(mac_addr, addr);
-+		pf->is_default_mac = 0;
-+	}
-+#ifdef CONFIG_SPARC
-+	ether_addr_copy(mac_addr, idprom->id_ethaddr);
-+	pf->is_default_mac = 0;
-+#endif /* CONFIG_SPARC */
-+}
-+
-+/**
-  * i40e_probe - Device initialization routine
-  * @pdev: PCI device information struct
-  * @ent: entry in i40e_pci_tbl
-@@ -10543,6 +10628,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	}
- 
- 	i40e_get_mac_addr(hw, hw->mac.addr);
-+	/* allow a platform config to override the HW addr */
-+	i40e_get_platform_mac_addr(pdev, pf);
- 	if (!is_valid_ether_addr(hw->mac.addr)) {
- 		dev_info(&pdev->dev, "invalid MAC address %pM\n", hw->mac.addr);
- 		err = -EIO;
--- 
-1.7.1
+> As a side note, we did find an existing issue in i40e driver where a
+> service task can modify tunnel data structures with no locks held to
+> help linearize access. A separate patch will be taking care of that issue.
+>
+> A question out to the community is regarding the driver Kconfig parameters
+> for VxLAN and Geneve, it would be ideal to drop those if there is a way
+> to help resolve vxlan/geneve_get_rx_port symbols while the tunnel modules
+> are not loaded.
+>
+> Anjali Singhai Jain (4):
+>   [RFC PATCH v2 1/4] geneve: Add geneve udp port offload for ethernet
+>   [RFC PATCH v2 2/4] i40e: geneve tunnel offload support
+>   [RFC PATCH v2 3/4] i40e: Kernel dependency update for i40e to support
+>   [RFC PATCH v2 4/4] geneve: Add geneve_get_rx_port support
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
