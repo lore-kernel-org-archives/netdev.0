@@ -1,78 +1,61 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 3/3] vhost_net: basic polling support
-Date: Fri, 4 Dec 2015 10:24:00 +0800
-Message-ID: <5660F940.3000202@redhat.com>
-References: <1448435489-5949-1-git-send-email-jasowang@redhat.com>
-	<1448435489-5949-4-git-send-email-jasowang@redhat.com>
-	<20151130124233-mutt-send-email-mst@redhat.com>
-	<565D2D7D.4010903@redhat.com>
-	<20151201163939-mutt-send-email-mst@redhat.com>
-	<565E7BC3.2060107@redhat.com>
-	<20151202143522-mutt-send-email-mst@redhat.com>
+From: YanBo <dreamfly281@gmail.com>
+Subject: Re: Regression in 3.9 caused by "bridge: respect RFC2863 operational state"
+Date: Thu, 3 Dec 2015 18:31:19 -0800
+Message-ID: <CAFuUQkjm3RFnrzWWSvbnYFC8gMnbX7C4bP_x0+2bREYumcoJyg@mail.gmail.com>
+References: <CAFuUQkhHsRZMnNYBbVZU0=BcAKMEktzYgPv6oc=CMFd7MFDi6g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20151202143522-mutt-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Krishna Chaitanya <chaitanya.mgit@gmail.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Sebastian Gottschall <s.gottschall@dd-wrt.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	netdev <netdev@vger.kernel.org>, hostap@lists.infradead.org
+To: Felix Fietkau <nbd@openwrt.org>, jouni@qca.qualcomm.com,
+	kvalo@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f170.google.com ([209.85.160.170]:35594 "EHLO
+	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755135AbbLDCbU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 21:31:20 -0500
+In-Reply-To: <CAFuUQkhHsRZMnNYBbVZU0=BcAKMEktzYgPv6oc=CMFd7MFDi6g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+ Sorry to pick up this thread again,  it looks this issue still
+existed  in the newer 4.3 kernel. (The EAP frames can not be received
+by wireless interface due to the bridge interface,
+http://marc.info/?l=linux-wireless&m=136743495526905&w=2)
 
+ Wonder is anyone know some update for this issue?  Currently the only
+workaround is make the 4-address  AP and STA associated in security
+mode firstly and then create the bridge, the renew key configuration
+also need be disable at the hostapd side to  avoid renew the key at
+bridge status.
 
-On 12/02/2015 08:36 PM, Michael S. Tsirkin wrote:
-> On Wed, Dec 02, 2015 at 01:04:03PM +0800, Jason Wang wrote:
->>
->> On 12/01/2015 10:43 PM, Michael S. Tsirkin wrote:
->>> On Tue, Dec 01, 2015 at 01:17:49PM +0800, Jason Wang wrote:
->>>> On 11/30/2015 06:44 PM, Michael S. Tsirkin wrote:
->>>>> On Wed, Nov 25, 2015 at 03:11:29PM +0800, Jason Wang wrote:
->>>>>>> This patch tries to poll for new added tx buffer or socket receive
->>>>>>> queue for a while at the end of tx/rx processing. The maximum time
->>>>>>> spent on polling were specified through a new kind of vring ioctl.
->>>>>>>
->>>>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>>>> One further enhancement would be to actually poll
->>>>> the underlying device. This should be reasonably
->>>>> straight-forward with macvtap (especially in the
->>>>> passthrough mode).
->>>>>
->>>>>
->>>> Yes, it is. I have some patches to do this by replacing
->>>> skb_queue_empty() with sk_busy_loop() but for tap.
->>> We probably don't want to do this unconditionally, though.
->>>
->>>> Tests does not show
->>>> any improvement but some regression.
->>> Did you add code to call sk_mark_napi_id on tap then?
->>> sk_busy_loop won't do anything useful without.
->> Yes I did. Probably something wrong elsewhere.
-> Is this for guest-to-guest?
-
-Nope. Like you said below, since it requires NAPI so it was external
-host to guest.
-
->  the patch to do napi
-> for tap is still not upstream due to minor performance
-> regression.  Want me to repost it?
-
-Sure, I've played this a little bit in the past too.
-
->
->>>>  Maybe it's better to test macvtap.
->>> Same thing ...
->>>
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks
+Yanbo
+> On Wed, May 1, 2013 at 5:53 PM, Felix Fietkau <nbd@openwrt.org> wrote:
+> >
+> > On 2013-05-02 12:49 AM, Stephen Hemminger wrote:
+> > > On Wed, 01 May 2013 23:06:16 +0200
+> > > Felix Fietkau <nbd@openwrt.org> wrote:
+> > >
+> > >> On 2013-05-01 10:21 PM, Stephen Hemminger wrote:
+> > >> > What about using AF_PACKET bound to underlying wireless device and the
+> > >> > packet type. You can even use BPF to filter.
+> > >> As far as I know, AF_PACKET only works when not binding it to the packet
+> > >> type (otherwise it get stolen by the rx handler).
+> > >
+> > > You can do AF_PACKET and it gets handle before rx_handler.
+> > If I don't bind it to a protocol, it ends up in ptype_all, if I do, it
+> > ends up in &ptype_base. ptype_all is processed before the rx_handler,
+> > ptype_base is processed after the rx handler.
+> > Hooking into ptype_all wastes tons of CPU cycles, hooking into
+> > ptype_base does not solve the problem.
+> >
+> > - Felix
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
