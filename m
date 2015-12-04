@@ -1,74 +1,215 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Add support for Geneve udp port offload
-Date: Fri, 4 Dec 2015 08:31:28 -0800
-Message-ID: <CALx6S37N95yGGZs49KcF1D2VDknx2S+Wo1PgfwQz=KFQqznOAA@mail.gmail.com>
-References: <1449217144-18756-1-git-send-email-anjali.singhai@intel.com>
+From: "Lan, Tianyu" <tianyu.lan@intel.com>
+Subject: Re: [RFC PATCH V2 0/3] IXGBE/VFIO: Add live migration support for
+ SRIOV NIC
+Date: Sat, 5 Dec 2015 00:32:00 +0800
+Message-ID: <5661C000.8070201@intel.com>
+References: <CAKgT0UevBmRLpM1PvuuVDUW79A66RcPrfO8uGiqL1RiALW7apg@mail.gmail.com>
+ <A12AC9D104E08D47BAF23C492F83C53B25CDE9E3@SHSMSX104.ccr.corp.intel.com>
+ <CAKgT0Ucyq=7OSYBVvU9Z01b3f6scS+eBMLg+yphW7bwkNZosPQ@mail.gmail.com>
+ <565BF285.4040507@intel.com>
+ <CAKgT0Uc+-gFAetEfde6DmMOFK+vDE6UkgsNF8oLNqaQc4USSeg@mail.gmail.com>
+ <565DB6FF.1050602@intel.com> <20151201171140-mutt-send-email-mst@redhat.com>
+ <CAKgT0UfLEJpV-KdqRGfzBeas8bdqfHCmT5Xc8iVVP03g_pQO8A@mail.gmail.com>
+ <20151201193026-mutt-send-email-mst@redhat.com>
+ <CAKgT0UfJ7w6yYcZcF2YZyDKEwvE7Gh3P-jfGQGKLfPH2crVBzw@mail.gmail.com>
+ <20151202105955-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Anjali Singhai Jain <anjali.singhai@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:33883 "EHLO
-	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755056AbbLDQb3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 11:31:29 -0500
-Received: by ioir85 with SMTP id r85so121273336ioi.1
-        for <netdev@vger.kernel.org>; Fri, 04 Dec 2015 08:31:28 -0800 (PST)
-In-Reply-To: <1449217144-18756-1-git-send-email-anjali.singhai@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Dong, Eddie" <eddie.dong@intel.com>,
+	"a.motakis@virtualopensystems.com" <a.motakis@virtualopensystems.com>,
+	Alex Williamson <alex.williamson@redhat.com>,
+	"b.reynal@virtualopensystems.com" <b.reynal@virtualopensystems.com>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Jani, Nrupal" <nrupal.jani@intel.com>,
+	Alexander Graf <agraf@suse.de>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Paolo Bonzini <pbonzini@redhat.com>,
+	"qemu-devel@nongnu.org" <qemu-devel@nongnu.org>,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"Rustad, Mark D" <mark.d.rustad@intel.com>,
+	Eric Auger <eric.auger@linaro.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151202105955-mutt-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 4, 2015 at 12:19 AM, Anjali Singhai Jain
-<anjali.singhai@intel.com> wrote:
-> This patch series adds new ndo ops for Geneve add/del port, so as
-> to help offload Geneve tunnel functionalities such as checksum, TSO
-> RSS, filters etc.
->
-> i40e driver has been tested with the changes to make sure the offloads
-> happen.
->
-> We do understand that this is not the ideal solution and most likely
-> will be redone with a more generic offload framework.
-> But this certainly will enable us to start seeing benefits of the
-> accelerations for Geneve tunnels.
->
-Anjali,
+Hi Michael & Alexander:
+Thanks a lot for your comments and suggestions.
 
-This is a lot of complexity being added to i40e driver and kernel. It
-needs to be justified. Please:
+We still need to support Windows guest for migration and this is why our 
+patches keep all changes in the driver since it's impossible to change 
+Windows kernel.
 
-1) Quantify the effects of the offloads. Please provide a set of
-performance numbers for various benchmarks showing tps, CPU, latency,
-etc. You can peruse some of the patches I have done for GUE or VXLAN
-for ideas on reporting performance.
-2) The baselines for the above testing should include UDP checksum
-enabled with Remote Checksum Offload and GRO/GSO in full effect. I
-don't know if RCO has been implemented for Geneve, but it should be
-pretty straightforward to add if it's not.
-3) The ndo function needs to be clearly documented. Precisely what is
-a driver allowed to do with this port information? We already have at
-least one case in VXLAN where a driver is incorrectly using the
-provide port in the transmit path, this should be explicitly forbidden
-in the description.
+Following is my idea to do DMA tracking.
 
-Thanks,
-Tom
+Inject event to VF driver after memory iterate stage
+and before stop VCPU and then VF driver marks dirty all
+using DMA memory. The new allocated pages also need to
+be marked dirty before stopping VCPU. All dirty memory
+in this time slot will be migrated until stop-and-copy
+stage. We also need to make sure to disable VF via clearing the
+bus master enable bit for VF before migrating these memory.
 
-> As a side note, we did find an existing issue in i40e driver where a
-> service task can modify tunnel data structures with no locks held to
-> help linearize access. A separate patch will be taking care of that issue.
+The dma page allocated by VF driver also needs to reserve space
+to do dummy write.
+
+
+On 12/2/2015 7:44 PM, Michael S. Tsirkin wrote:
+> On Tue, Dec 01, 2015 at 10:36:33AM -0800, Alexander Duyck wrote:
+>> On Tue, Dec 1, 2015 at 9:37 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>>> On Tue, Dec 01, 2015 at 09:04:32AM -0800, Alexander Duyck wrote:
+>>>> On Tue, Dec 1, 2015 at 7:28 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>>
+>>>>> There are several components to this:
+>>>>> - dma_map_* needs to prevent page from
+>>>>>    being migrated while device is running.
+>>>>>    For example, expose some kind of bitmap from guest
+>>>>>    to host, set bit there while page is mapped.
+>>>>>    What happens if we stop the guest and some
+>>>>>    bits are still set? See dma_alloc_coherent below
+>>>>>    for some ideas.
+>>>>
+>>>> Yeah, I could see something like this working.  Maybe we could do
+>>>> something like what was done for the NX bit and make use of the upper
+>>>> order bits beyond the limits of the memory range to mark pages as
+>>>> non-migratable?
+>>>>
+>>>> I'm curious.  What we have with a DMA mapped region is essentially
+>>>> shared memory between the guest and the device.  How would we resolve
+>>>> something like this with IVSHMEM, or are we blocked there as well in
+>>>> terms of migration?
+>>>
+>>> I have some ideas. Will post later.
+>>
+>> I look forward to it.
+>>
+>>>>> - dma_unmap_* needs to mark page as dirty
+>>>>>    This can be done by writing into a page.
+>>>>>
+>>>>> - dma_sync_* needs to mark page as dirty
+>>>>>    This is trickier as we can not change the data.
+>>>>>    One solution is using atomics.
+>>>>>    For example:
+>>>>>          int x = ACCESS_ONCE(*p);
+>>>>>          cmpxchg(p, x, x);
+>>>>>    Seems to do a write without changing page
+>>>>>    contents.
+>>>>
+>>>> Like I said we can probably kill 2 birds with one stone by just
+>>>> implementing our own dma_mark_clean() for x86 virtualized
+>>>> environments.
+>>>>
+>>>> I'd say we could take your solution one step further and just use 0
+>>>> instead of bothering to read the value.  After all it won't write the
+>>>> area if the value at the offset is not 0.
+>>>
+>>> Really almost any atomic that has no side effect will do.
+>>> atomic or with 0
+>>> atomic and with ffffffff
+>>>
+>>> It's just that cmpxchg already happens to have a portable
+>>> wrapper.
+>>
+>> I was originally thinking maybe an atomic_add with 0 would be the way
+>> to go.
 >
-> A question out to the community is regarding the driver Kconfig parameters
-> for VxLAN and Geneve, it would be ideal to drop those if there is a way
-> to help resolve vxlan/geneve_get_rx_port symbols while the tunnel modules
-> are not loaded.
+> cmpxchg with any value too.
 >
-> Anjali Singhai Jain (4):
->   [RFC PATCH v2 1/4] geneve: Add geneve udp port offload for ethernet
->   [RFC PATCH v2 2/4] i40e: geneve tunnel offload support
->   [RFC PATCH v2 3/4] i40e: Kernel dependency update for i40e to support
->   [RFC PATCH v2 4/4] geneve: Add geneve_get_rx_port support
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>   Either way though we still are using a locked prefix and
+>> having to dirty a cache line per page which is going to come at some
+>> cost.
+>
+> I agree. It's likely not necessary for everyone
+> to be doing this: only people that both
+> run within the VM and want migration to work
+> need to do this logging.
+>
+> So set some module option to have driver tell hypervisor that it
+> supports logging.  If bus mastering is enabled before this, migration is
+> blocked.  Or even pass some flag from hypervisor so
+> driver can detect it needs to log writes.
+> I guess this could be put in device config somewhere,
+> though in practice it's a global thing, not a per device one, so
+> maybe we need some new channel to
+> pass this flag to guest. CPUID?
+> Or maybe we can put some kind of agent in the initrd
+> and use the existing guest agent channel after all.
+> agent in initrd could open up a lot of new possibilities.
+>
+>
+>>>>> - dma_alloc_coherent memory (e.g. device rings)
+>>>>>    must be migrated after device stopped modifying it.
+>>>>>    Just stopping the VCPU is not enough:
+>>>>>    you must make sure device is not changing it.
+>>>>>
+>>>>>    Or maybe the device has some kind of ring flush operation,
+>>>>>    if there was a reasonably portable way to do this
+>>>>>    (e.g. a flush capability could maybe be added to SRIOV)
+>>>>>    then hypervisor could do this.
+>>>>
+>>>> This is where things start to get messy. I was suggesting the
+>>>> suspend/resume to resolve this bit, but it might be possible to also
+>>>> deal with this via something like this via clearing the bus master
+>>>> enable bit for the VF.  If I am not mistaken that should disable MSI-X
+>>>> interrupts and halt any DMA.  That should work as long as you have
+>>>> some mechanism that is tracking the pages in use for DMA.
+>>>
+>>> A bigger issue is recovering afterwards.
+>>
+>> Agreed.
+>>
+>>>>>    In case you need to resume on source, you
+>>>>>    really need to follow the same path
+>>>>>    as on destination, preferably detecting
+>>>>>    device reset and restoring the device
+>>>>>    state.
+>>>>
+>>>> The problem with detecting the reset is that you would likely have to
+>>>> be polling to do something like that.
+>>>
+>>> We could some event to guest to notify it about this event
+>>> through a new or existing channel.
+>>>
+>>> Or we could make it possible for userspace to trigger this,
+>>> then notify guest through the guest agent.
+>>
+>> The first thing that comes to mind would be to use something like PCIe
+>> Advanced Error Reporting, however I don't know if we can put a
+>> requirement on the system supporting the q35 machine type or not in
+>> order to support migration.
+>
+> You mean require pci express? This sounds quite reasonable.
+>
+>>>>   I believe the fm10k driver
+>>>> already has code like that in place where it will detect a reset as a
+>>>> part of its watchdog, however the response time is something like 2
+>>>> seconds for that.  That was one of the reasons I preferred something
+>>>> like hot-plug as that should be functioning as soon as the guest is up
+>>>> and it is a mechanism that operates outside of the VF drivers.
+>>>
+>>> That's pretty minor.
+>>> A bigger issue is making sure guest does not crash
+>>> when device is suddenly reset under it's legs.
+>>
+>> I know the ixgbevf driver should already have logic to address some of
+>> that.  If you look through the code there should be logic there for a
+>> surprise removal support in ixgbevf.  The only issue is that unlike
+>> fm10k it will not restore itself after a resume or slot_reset call.
+>
+> So if it's the question of driver installing a slot_reset handler, this
+> sounds quite reasonable.
+>
+> It would be nice to be able to detect that guest supports
+> this removal, too, and block migration if it doesn't.
+> For example, show this capability
+> in an attribute in sysfs, make guest agent read that.
+>
