@@ -1,51 +1,50 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 3/7] cxgb4: Use ACCES_ONCE macro to read queue's consumer index
-Date: Fri,  4 Dec 2015 14:18:07 +0530
-Message-ID: <1449218891-7819-4-git-send-email-hariprasad@chelsio.com>
-References: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 0/7] Update Kconfig and some fixes for cxgb4
+Date: Fri,  4 Dec 2015 14:18:04 +0530
+Message-ID: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from stargate.chelsio.com ([12.32.117.8]:24918 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755859AbbLDJtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 04:49:51 -0500
-In-Reply-To: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
+	by vger.kernel.org with ESMTP id S1755862AbbLDJtw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 04:49:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use helper macro ACCESS_ONCE() to load from the SGE status page
-to prevent the compiler loading multiple times.
+Hi
 
-Based on original work by Mike Werner <werner@chelsio.com>
+This series update Kconfig to add description for Chelsio's next
+generation T6 family of adapters, also fixes ethtool stats alignment
+and prevents simultaneous execution of service_ofldq thread, deals with
+queue wrap around and adds some fl counters for debugging purpose and
+device ID for new T5 adapters.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/sge.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This patch series has been created against net-next tree and includes
+patches on cxgb4 driver.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 48d8fbb..1076c35 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -406,7 +406,7 @@ static void free_tx_desc(struct adapter *adap, struct sge_txq *q,
-  */
- static inline int reclaimable(const struct sge_txq *q)
- {
--	int hw_cidx = ntohs(q->stat->cidx);
-+	int hw_cidx = ntohs(ACCESS_ONCE(q->stat->cidx));
- 	hw_cidx -= q->cidx;
- 	return hw_cidx < 0 ? hw_cidx + q->size : hw_cidx;
- }
-@@ -1320,7 +1320,7 @@ out_free:	dev_kfree_skb_any(skb);
-  */
- static inline void reclaim_completed_tx_imm(struct sge_txq *q)
- {
--	int hw_cidx = ntohs(q->stat->cidx);
-+	int hw_cidx = ntohs(ACCESS_ONCE(q->stat->cidx));
- 	int reclaim = hw_cidx - q->cidx;
- 
- 	if (reclaim < 0)
+We have included all the maintainers of respective drivers. Kindly review
+the change and let us know in case of any review comments.
+
+Thanks
+
+Hariprasad Shenai (7):
+  cxgb4: Align rest of the ethtool get stats
+  cxgb4/cxgb4vf: update Kconfig file to include T6 adapter
+  cxgb4: Use ACCES_ONCE macro to read queue's consumer index
+  cxgb4: prevent simultaneous execution of service_ofldq()
+  cxgb4: Deal with wrap-around of queue for Work request
+  cxgb4: Add FL DMA mapping error and low counter
+  cxgb4: Adds PCI device id for new T5 adapters
+
+ drivers/net/ethernet/chelsio/Kconfig               |  17 +--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   3 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |   6 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 146 ++++++++++-----------
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           | 120 +++++++++++++++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h |   3 +
+ 6 files changed, 202 insertions(+), 93 deletions(-)
+
 -- 
 2.3.4
