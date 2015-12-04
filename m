@@ -1,83 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 2/2] vxlan: support ndo_fill_metadata_dst also
- for IPv6
-Date: Fri, 04 Dec 2015 14:28:38 -0500 (EST)
-Message-ID: <20151204.142838.797312333399556109.davem@davemloft.net>
-References: <cover.1449139112.git.jbenc@redhat.com>
-	<66ad22ee59eb0a21090ff9e3fcad7faf77b63148.1449139112.git.jbenc@redhat.com>
-	<CALnjE+qX=sv2wgT=HQ1kfmxVj1KAWe5rWuEEMeNbDr_seBxLqw@mail.gmail.com>
+Subject: Re: [PATCH net 2/4] qed: fix handling of concurrent ramrods
+Date: Fri, 04 Dec 2015 14:34:15 -0500 (EST)
+Message-ID: <20151204.143415.1088078490863415742.davem@davemloft.net>
+References: <1449140356-17419-1-git-send-email-manish.chopra@qlogic.com>
+	<1449140356-17419-3-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jbenc@redhat.com, netdev@vger.kernel.org, jesse@nicira.com
-To: pshelar@nicira.com
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
+	Yuval.Mintz@qlogic.com, Tomer.Tayar@qlogic.com
+To: manish.chopra@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40511 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40730 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753328AbbLDT2j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 14:28:39 -0500
-In-Reply-To: <CALnjE+qX=sv2wgT=HQ1kfmxVj1KAWe5rWuEEMeNbDr_seBxLqw@mail.gmail.com>
+	with ESMTP id S1751498AbbLDTeR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 14:34:17 -0500
+In-Reply-To: <1449140356-17419-3-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin Shelar <pshelar@nicira.com>
-Date: Fri, 4 Dec 2015 10:49:37 -0800
+From: Manish Chopra <manish.chopra@qlogic.com>
+Date: Thu, 3 Dec 2015 05:59:14 -0500
 
-> On Thu, Dec 3, 2015 at 2:41 AM, Jiri Benc <jbenc@redhat.com> wrote:
->> Fill the metadata correctly even when tunneling over IPv6. Also, check that
->> the provided metadata is of an address family that is supported by the
->> tunnel.
->>
->> Signed-off-by: Jiri Benc <jbenc@redhat.com>
->> ---
->> v2: fixed unused variable warning when building without IPv6
->> ---
->>  drivers/net/vxlan.c | 26 ++++++++++++++++++++++++--
->>  1 file changed, 24 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
->> index 5a38558da157..d3594de3ad07 100644
->> --- a/drivers/net/vxlan.c
->> +++ b/drivers/net/vxlan.c
->> @@ -2413,15 +2413,37 @@ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
->>  {
->>         struct vxlan_dev *vxlan = netdev_priv(dev);
->>         struct ip_tunnel_info *info = skb_tunnel_info(skb);
->> +#if IS_ENABLED(CONFIG_IPV6)
->> +       struct dst_entry *ndst;
->> +#endif
->>         __be16 sport, dport;
->>
->>         sport = udp_flow_src_port(dev_net(dev), skb, vxlan->cfg.port_min,
->>                                   vxlan->cfg.port_max, true);
->>         dport = info->key.tp_dst ? : vxlan->cfg.dst_port;
->>
->> -       if (ip_tunnel_info_af(info) == AF_INET)
->> +       if (ip_tunnel_info_af(info) == AF_INET) {
->> +               if (!vxlan->vn4_sock)
->> +                       return -EINVAL;
->>                 return egress_ipv4_tun_info(dev, skb, info, sport, dport);
->> -       return -EINVAL;
->> +       } else {
->> +               if (!IS_ENABLED(CONFIG_IPV6))
->> +                       return -EPFNOSUPPORT;
->> +
->> +#if IS_ENABLED(CONFIG_IPV6)
->> +               if (!vxlan->vn6_sock)
->> +                       return -EINVAL;
->> +               ndst = vxlan6_get_route(vxlan, skb, 0,
->> +                                       &info->key.u.ipv6.dst,
->> +                                       &info->key.u.ipv6.src);
->> +               if (IS_ERR(ndst))
->> +                       return PTR_ERR(ndst);
->> +               dst_release(ndst);
->> +#endif
-> 
-> Rather than checking IS_ENABLED(CONFIG_IPV6) three separate times, all
-> code can is restructured in one #if #else block by moving the ndst
-> definition to IPv6 local block.
+> @@ -124,8 +124,19 @@ struct qed_spq {
+>  	dma_addr_t		p_phys;
+>  	struct qed_spq_entry	*p_virt;
+>  
+> -	/* Used as index for completions (returns on EQ by FW) */
+> -	u16			echo_idx;
+> +	/* Bitmap for handling out-of-order completions */
+> +#define SPQ_RING_SIZE \
+> +	(CORE_SPQE_PAGE_SIZE_BYTES / sizeof(struct slow_path_element))
+> +#define SPQ_COMP_BMAP_SIZE	(SPQ_RING_SIZE / BITS_PER_LONG)
+> +	unsigned long		p_comp_bitmap[SPQ_COMP_BMAP_SIZE];
+> +	u8			comp_bitmap_idx;
+> +
+> +#define SPQ_COMP_BMAP_SET_BIT(p_spq, idx)	\
+> +	__set_bit((idx) % SPQ_RING_SIZE, (p_spq)->p_comp_bitmap)
+> +#define SPQ_COMP_BMAP_CLEAR_BIT(p_spq, idx)	\
+> +	__clear_bit((idx) % SPQ_RING_SIZE, (p_spq)->p_comp_bitmap)
+> +#define SPQ_COMP_BMAP_TEST_BIT(p_spq, idx)	\
+> +	test_bit((idx) % SPQ_RING_SIZE, (p_spq)->p_comp_bitmap)
+>  
 
-Agreed, you should be putting variable definitions into the deepest most
-containing scope anyways.  So if you declare 'ndst' inside of the else
-branch you'll be doing that plus decreasing the amount of CPP tests in
-this file.
+Don't invent stuff we already have ifrastructure for.
+
+Use DECLARE_BITMAP(), and the helpers, as necessary, in linux/bitmap.h
