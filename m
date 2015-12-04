@@ -1,106 +1,54 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: use-after-free in sctp_do_sm
-Date: Fri, 4 Dec 2015 10:55:43 -0200
-Message-ID: <20151204125543.GG4164@mrl.redhat.com>
-References: <CANn89i+d=mTJ-hAhhgPXsZPGAkQdECxRdbkeRLfozRq8i9Ms+g@mail.gmail.com>
- <CACT4Y+YJe-OJj9q1Kr5-_ApDt1UBKLjTRxhP62EHtEAwZt5vXw@mail.gmail.com>
- <f7twpsvgyar.fsf@aconole.bos.csb>
- <566098BD.6010803@akamai.com>
- <1449172984.12092.0.camel@perches.com>
- <5660A1A7.3080301@akamai.com>
- <1449174246.12092.8.camel@perches.com>
- <5660A951.4000808@akamai.com>
- <1449175884.17296.2.camel@perches.com>
- <CACT4Y+Z68wnWjFZ6e2AmePBNu1U+V9N_4szdyNrrf710Er2zyg@mail.gmail.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH] ipv6: keep existing flags when setting IFA_F_OPTIMISTIC
+Date: Fri,  4 Dec 2015 14:15:08 +0100
+Message-ID: <1449234908-29623-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, Jason Baron <jbaron@akamai.com>,
-	Aaron Conole <aconole@redhat.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACT4Y+Z68wnWjFZ6e2AmePBNu1U+V9N_4szdyNrrf710Er2zyg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+	Erik Kline <ek@google.com>,
+	Fernando Gont <fgont@si6networks.com>,
+	Lorenzo Colitti <lorenzo@google.com>,
+	=?UTF-8?q?YOSHIFUJI=20Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<hideaki.yoshifuji@miraclelinux.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:53685 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750817AbbLDNPl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Dec 2015 08:15:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 04, 2015 at 11:40:02AM +0100, Dmitry Vyukov wrote:
-> On Thu, Dec 3, 2015 at 9:51 PM, Joe Perches <joe@perches.com> wrote:
-> > (adding lkml as this is likely better discussed there)
-> >
-> > On Thu, 2015-12-03 at 15:42 -0500, Jason Baron wrote:
-> >> On 12/03/2015 03:24 PM, Joe Perches wrote:
-> >> > On Thu, 2015-12-03 at 15:10 -0500, Jason Baron wrote:
-> >> > > On 12/03/2015 03:03 PM, Joe Perches wrote:
-> >> > > > On Thu, 2015-12-03 at 14:32 -0500, Jason Baron wrote:
-> >> > > > > On 12/03/2015 01:52 PM, Aaron Conole wrote:
-> >> > > > > > I think that as a minimum, the following patch should be evaluted,
-> >> > > > > > but am unsure to whom I should submit it (after I test):
-> >> > > > []
-> >> > > > > Agreed - the intention here is certainly to have no side effects. It
-> >> > > > > looks like 'no_printk()' is used in quite a few other places that would
-> >> > > > > benefit from this change. So we probably want a generic
-> >> > > > > 'really_no_printk()' macro.
-> >> > > >
-> >> > > > https://lkml.org/lkml/2012/6/17/231
-> >> > >
-> >> > > I don't see this in the tree.
-> >> >
-> >> > It never got applied.
-> >> >
-> >> > > Also maybe we should just convert
-> >> > > no_printk() to do what your 'eliminated_printk()'.
-> >> >
-> >> > Some of them at least.
-> >> >
-> >> > > So we can convert all users with this change?
-> >> >
-> >> > I don't think so, I think there are some
-> >> > function evaluation/side effects that are
-> >> > required.  I believe some do hardware I/O.
-> >> >
-> >> > It'd be good to at least isolate them.
-> >> >
-> >> > I'm not sure how to find them via some
-> >> > automated tool/mechanism though.
-> >> >
-> >> > I asked Julia Lawall about it once in this
-> >> > thread:  https://lkml.org/lkml/2014/12/3/696
-> >> >
-> >>
-> >> Seems rather fragile to have side effects that we rely
-> >> upon hidden in a printk().
-> >
-> > Yup.
-> >
-> >> Just convert them and see what breaks :)
-> >
-> > I appreciate your optimism.  It's very 1995.
-> > Try it and see what happens.
-> 
-> 
-> Whatever is the resolution for pr_debug, we still need to fix this
-> particular use-after-free. It affects stability of debug builds, gives
-> invalid debug output, prevents us from finding more bugs in SCTP. And
-> maybe somebody uses CONFIG_DYNAMIC_DEBUG in production.
+Commit 64236f3f3d74 ("ipv6: introduce IFA_F_STABLE_PRIVACY flag")
+failed to update the setting of the IFA_F_OPTIMISTIC flag, causing
+the IFA_F_STABLE_PRIVACY flag to be lost if IFA_F_OPTIMISTIC is set.
 
-Agreed. I'm already working on a fix for this particular use-after-free.
+Cc: Erik Kline <ek@google.com>
+Cc: Fernando Gont <fgont@si6networks.com>
+Cc: Lorenzo Colitti <lorenzo@google.com>
+Cc: YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <hideaki.yos=
+hifuji@miraclelinux.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+=46ixes: 64236f3f3d74 ("ipv6: introduce IFA_F_STABLE_PRIVACY flag")
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+ net/ipv6/addrconf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Another interesting thing about this is that sctp_do_sm() is called for
-nearly every movement that happens on a sctp socket. Said that, that
-always-running IDR search hidden on that debug statement do have some
-nasty performance impact, specially because it's serialized on a
-spinlock. This wouldn't be happening if it was fully ellided and would
-be ok if that pr_debug() was really being printed, but not as it is.
-Kudos to this report that I could notice this. I'm trying to fix this on
-SCTP-side as well.
-
-  Marcelo
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index b5cc81a18521..b3465bbbcd82 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2463,7 +2463,7 @@ ok:
+ #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+ 			if (in6_dev->cnf.optimistic_dad &&
+ 			    !net->ipv6.devconf_all->forwarding && sllao)
+-				addr_flags =3D IFA_F_OPTIMISTIC;
++				addr_flags |=3D IFA_F_OPTIMISTIC;
+ #endif
+=20
+ 			/* Do not allow to create too much of autoconfigured
+--=20
+2.1.4
