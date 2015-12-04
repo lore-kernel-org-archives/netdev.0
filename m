@@ -1,107 +1,84 @@
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Subject: [PATCH] cxgb3: Convert simple_strtoul to kstrtox
-Date: Fri,  4 Dec 2015 15:26:40 +0100
-Message-ID: <1449239201-879-1-git-send-email-clabbe.montjoie@gmail.com>
-Cc: LABBE Corentin <clabbe.montjoie@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: santosh@chelsio.com
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: SoCFPGA ethernet broken
+Date: Fri, 4 Dec 2015 15:31:05 +0100
+Message-ID: <20151204143105.GA26391@lunn.ch>
+References: <561FF9E2.30102@opensource.altera.com>
+ <56200687.9040903@gmail.com>
+ <562005AD.8020903@opensource.altera.com>
+ <56200BD7.8020505@gmail.com>
+ <20151203204811.GB14427@amd>
+ <5660B2EC.1050705@caviumnetworks.com>
+ <5660CD87.5050603@opensource.altera.com>
+ <20151204011050.GC26934@lunn.ch>
+ <20151204015057.GB28005@lunn.ch>
+ <alpine.DEB.2.02.1512040522350.32296@linux-builds1>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Daney <ddaney@caviumnetworks.com>,
+	Pavel Machek <pavel@denx.de>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, david.daney@cavium.com,
+	netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Dinh Nguyen <dinguyen@opensource.altera.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.02.1512040522350.32296@linux-builds1>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-the simple_strtoul function is obsolete. This patch replace it by
-kstrtox.
+> > @@ -339,9 +340,19 @@ static int ksz9021_config_init(struct phy_device *phydev)
+> >  {
+> >  	const struct device *dev = &phydev->dev;
+> >  	const struct device_node *of_node = dev->of_node;
+> > +	const struct device *dev_walker;
+> >  
+> > -	if (!of_node && dev->parent->of_node)
+> > -		of_node = dev->parent->of_node;
+> > +	dev_info(dev, "dev->parent: %s\n", dev_name(dev->parent));
+> > +	dev_info(dev, "phydev->attached_dev->dev: %s\n", dev_name(&phydev->attached_dev->dev));
+> > +
+> > +	dev_walker = &phydev->dev;
+> > +	do {
+> > +		of_node = dev_walker->of_node;
+> > +		dev_info(dev, "walking: %s %p\n",
+> > +			 dev_name(dev_walker), of_node);
+> > +		dev_walker = dev_walker->parent;
+> > +
+> > +	} while (!of_node && dev_walker);
+> >  
+> >  	if (of_node) {
+> >  		ksz9021_load_values_from_of(phydev, of_node,
+> > 
+> 
+> Here is the output from the above patch:
+> 
+> [    1.042049] mmc0: new high speed SDHC card at address aaaa
+> [    1.048017] mmcblk0: mmc0:aaaa SU32G 29.7 GiB
+> [    1.053506]  mmcblk0: p1 p2 p3 p4
+> [    1.057708] dwc2 ffb40000.usb: Configuration mismatch. Forcing host mode
+> [    1.064418] dwc2 ffb40000.usb: no platform data or transceiver defined
+> [    1.070966] Micrel KSZ9021 Gigabit PHY stmmac-0:04: dev->parent: stmmac-0
+> [    1.077746] Micrel KSZ9021 Gigabit PHY stmmac-0:04: phydev->attached_dev->dev: eth0
+> [    1.085389] Micrel KSZ9021 Gigabit PHY stmmac-0:04: walking: stmmac-0:04   (null)
+> [    1.092841] Micrel KSZ9021 Gigabit PHY stmmac-0:04: walking: stmmac-0   (null)
+> [    1.100042] Micrel KSZ9021 Gigabit PHY stmmac-0:04: walking: ff702000.ethernet ef9f3538
 
-Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
----
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c | 10 ++++-----
- drivers/net/ethernet/chelsio/cxgb3/t3_hw.c      | 28 ++++++++++++++++++-------
- 2 files changed, 25 insertions(+), 13 deletions(-)
+Ah! So we have an intermediary device in the
+chain. phydev->attached_dev->dev points to this intermediate device,
+rather than the platform device, which is why my patch failed.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-index 8f7aa53..6637073 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-@@ -701,15 +701,14 @@ static ssize_t attr_store(struct device *d,
- 			  ssize_t(*set) (struct net_device *, unsigned int),
- 			  unsigned int min_val, unsigned int max_val)
- {
--	char *endp;
- 	ssize_t ret;
- 	unsigned int val;
- 
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
- 
--	val = simple_strtoul(buf, &endp, 0);
--	if (endp == buf || val < min_val || val > max_val)
-+	ret = kstrtouint(buf, 0, &val);
-+	if (ret || val < min_val || val > max_val)
- 		return -EINVAL;
- 
- 	rtnl_lock();
-@@ -829,14 +828,13 @@ static ssize_t tm_attr_store(struct device *d,
- 	struct port_info *pi = netdev_priv(to_net_dev(d));
- 	struct adapter *adap = pi->adapter;
- 	unsigned int val;
--	char *endp;
- 	ssize_t ret;
- 
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
- 
--	val = simple_strtoul(buf, &endp, 0);
--	if (endp == buf || val > 10000000)
-+	ret = kstrtouint(buf, 0, &val);
-+	if (ret || val > 10000000)
- 		return -EINVAL;
- 
- 	rtnl_lock();
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
-index a22768c..ee04caa 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
-@@ -709,11 +709,21 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- 			return ret;
- 	}
- 
--	p->cclk = simple_strtoul(vpd.cclk_data, NULL, 10);
--	p->mclk = simple_strtoul(vpd.mclk_data, NULL, 10);
--	p->uclk = simple_strtoul(vpd.uclk_data, NULL, 10);
--	p->mdc = simple_strtoul(vpd.mdc_data, NULL, 10);
--	p->mem_timing = simple_strtoul(vpd.mt_data, NULL, 10);
-+	ret = kstrtouint(vpd.cclk_data, 10, &p->cclk);
-+	if (ret)
-+		return ret;
-+	ret = kstrtouint(vpd.mclk_data, 10, &p->mclk);
-+	if (ret)
-+		return ret;
-+	ret = kstrtouint(vpd.uclk_data, 10, &p->uclk);
-+	if (ret)
-+		return ret;
-+	ret = kstrtouint(vpd.mdc_data, 10, &p->mdc);
-+	if (ret)
-+		return ret;
-+	ret = kstrtouint(vpd.mt_data, 10, &p->mem_timing);
-+	if (ret)
-+		return ret;
- 	memcpy(p->sn, vpd.sn_data, SERNUM_LEN);
- 
- 	/* Old eeproms didn't have port information */
-@@ -723,8 +733,12 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- 	} else {
- 		p->port_type[0] = hex_to_bin(vpd.port0_data[0]);
- 		p->port_type[1] = hex_to_bin(vpd.port1_data[0]);
--		p->xauicfg[0] = simple_strtoul(vpd.xaui0cfg_data, NULL, 16);
--		p->xauicfg[1] = simple_strtoul(vpd.xaui1cfg_data, NULL, 16);
-+		ret = kstrtou16(vpd.xaui0cfg_data, 16, &p->xauicfg[0]);
-+		if (ret)
-+			return ret;
-+		ret = kstrtou16(vpd.xaui1cfg_data, 16, &p->xauicfg[1]);
-+		if (ret)
-+			return ret;
- 	}
- 
- 	ret = hex2bin(p->eth_base, vpd.na_data, 6);
--- 
-2.4.10
+I don't know the network stack well enough. Is this consider broken?
+Is this valid? Is there any generic code which might try looking in
+netdev->dev.of_node?  Do other MAC drivers have an intermediate
+device?
+
+We could modify the stmac driver so that phydev->attached_dev->dev
+does point to the platform device, and then my patch works. But if
+there are other MAC drivers which are structured like this, they are
+also broken when used with the Micrel PHY. So then walking up the
+device tree is a better solution.
+
+Comments from more knowledgeable people requested!
+
+       Andrew
