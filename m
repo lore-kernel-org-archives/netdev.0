@@ -1,83 +1,39 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 00/13] mvneta Buffer Management and enhancements
-Date: Fri, 04 Dec 2015 12:15:05 -0800
-Message-ID: <5661F449.5020205@gmail.com>
-References: <CAPv3WKc4zSmjtw_FeePCVCaq_aUubbCw_ggtxgxs0-7LwL7fHQ@mail.gmail.com>	<20151129.210210.1777978635596463961.davem@davemloft.net>	<CAPv3WKcHnJHCvg63Vs79RboNOuESU8jCLouKPRW4NdptAd_hag@mail.gmail.com>	<20151130.112500.293198684175670933.davem@redhat.com> <CAPv3WKcKm3X3Lys2HwYZXaZxPaajenF7av1wJKXqKxxwibXW4A@mail.gmail.com>
+From: Venkatesh Srinivas via Virtualization
+	<virtualization@lists.linux-foundation.org>
+Subject: Re: [PATCH v2] vhost: replace % with & on data path
+Date: Fri, 4 Dec 2015 12:19:01 -0800
+Message-ID: <20151204201901.GB19430@google.com>
+References: <1448874894-18398-1-git-send-email-mst@redhat.com>
+Reply-To: Venkatesh Srinivas <venkateshs@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@redhat.com>, linux-kernel@vger.kernel.org,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Yair Mahalalel <myair@marvell.com>,
-	Grzegorz Jaszczyk <jaz@semihalf.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Evan Wang <xswang@marvell.com>, nadavh@marvell.com,
-	Lior Amsalem <alior@marvell.com>,
-	Tomasz Nowicki <tn@semihalf.com>,
-	=?UTF-8?B?R3JlZ29yeSBDbMOpbWVudA==?=
-	<gregory.clement@free-electrons.com>, nitroshift@yahoo.com,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Marcin Wojtas <mw@semihalf.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPv3WKcKm3X3Lys2HwYZXaZxPaajenF7av1wJKXqKxxwibXW4A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1448874894-18398-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-(no top posting please)
-
-On 02/12/15 00:26, Marcin Wojtas wrote:
-> Hi Florian,
+On Mon, Nov 30, 2015 at 11:15:23AM +0200, Michael S. Tsirkin wrote:
+> We know vring num is a power of 2, so use &
+> to mask the high bits.
 > 
-> Can you please describe in more details, what would you expect from
-> such special abstraction layer regarding buffer managers? I'd like to
-> understand more of your expectations and evaluate possible work.
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
 
-Well, something along these lines:
+The generated code switches from DIV -> masking, source is clearer as well.
 
-- have the ability to register a particular pool (location + number of
-buffers) in a way that is relatively device agnostic (initialization
-would of course be device specific)
+Tested-by: Venkatesh Srinivas <venkateshs@google.com>
 
-- provide a set of buffer management APIs like those you proposed below,
-and have some generic code that leverages what
-drivers/net/ethernet/sun/niu.c does for instance
-
-- introduce a netdev_alloc_skb_from_pool() or something like that which
-would limit the amount of code to change in your network driver to
-benefit from that feature so based
-
-I am sure David would be able to suggest more detailed API.
-
-> 
-> Best regards,
-> Marcin
-> 
-> 2015-11-30 17:25 GMT+01:00 David Miller <davem@redhat.com>:
->> From: Marcin Wojtas <mw@semihalf.com>
->> Date: Mon, 30 Nov 2015 15:13:22 +0100
->>
->>> What kind of abstraction and helpers do you mean? Some kind of API
->>> (e.g. bm_alloc_buffer, bm_initialize_ring bm_put_buffer,
->>> bm_get_buffer), which would be used by platform drivers (and specific
->>> aplications if one wants to develop on top of the kernel)?
->>>
->>> In general, what is your top-view of such solution and its cooperation
->>> with the drivers?
->>
->> The tricky parts involved have to do with allocating pages for the
->> buffer pools and minimizing the number of atomic refcounting
->> operations on those pages for for the puts and gets, particularly
->> around buffer replenish runs.
->>
->> For example, if you're allocating a page for a buffer pool the device
->> will chop into N (for any N < PAGE_SIZE) byte pieces, you can
->> eliminate many atomic operations.
-
-
--- 
-Florian
+-- vs;
