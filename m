@@ -1,100 +1,143 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/17] fm10k: add statistics for actual DWORD count of mbmem mailbox
-Date: Thu,  3 Dec 2015 16:29:45 -0800
-Message-ID: <1449188994-64940-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/17] fm10k: set netdev features in one location
+Date: Thu,  3 Dec 2015 16:29:39 -0800
+Message-ID: <1449188994-64940-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449188994-64940-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:5708 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:22000 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754314AbbLDA36 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 19:29:58 -0500
+	id S1754278AbbLDA34 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2015 19:29:56 -0500
 In-Reply-To: <1449188994-64940-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-A previous bug was uncovered by addition of a debug stat to indicate the
-actual number of DWORDS we pulled from the mbmem. It turned out this was
-not the same as the tx_dwords counter. While the previous bug fix should
-have corrected this in all cases, add some debug stats that count the
-number of DWORDs pushed or pulled from the mbmem. A future debugger may
-take advantage of this statistic for debugging purposes. Since we're
-modifying fm10k_mbx.h, update the copyright year as well.
+Don't change netdev hw_features later in fm10k_probe, instead set all
+values inside fm10k_alloc_netdev. To do so, we need to know the MAC type
+(whether it is PF or VF) in order to determine what to do. This helps
+ensure that all logic regarding features is co-located.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
+Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 2 ++
- drivers/net/ethernet/intel/fm10k/fm10k_mbx.c     | 4 ++++
- drivers/net/ethernet/intel/fm10k/fm10k_mbx.h     | 4 +++-
- 3 files changed, 9 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/fm10k/fm10k.h        |  2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 31 +++++++++++++++----------
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c    |  9 +------
+ 3 files changed, 21 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-index 2ce0eba..7c01561 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-@@ -114,9 +114,11 @@ static const struct fm10k_stats fm10k_gstrings_mbx_stats[] = {
- 	FM10K_MBX_STAT("mbx_tx_oversized", tx_dropped),
- 	FM10K_MBX_STAT("mbx_tx_messages", tx_messages),
- 	FM10K_MBX_STAT("mbx_tx_dwords", tx_dwords),
-+	FM10K_MBX_STAT("mbx_tx_mbmem_pulled", tx_mbmem_pulled),
- 	FM10K_MBX_STAT("mbx_rx_messages", rx_messages),
- 	FM10K_MBX_STAT("mbx_rx_dwords", rx_dwords),
- 	FM10K_MBX_STAT("mbx_rx_parse_err", rx_parse_err),
-+	FM10K_MBX_STAT("mbx_rx_mbmem_pushed", rx_mbmem_pushed),
- };
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
+index 48809e5..b178905 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
+@@ -484,7 +484,7 @@ void fm10k_netpoll(struct net_device *netdev);
+ #endif
  
- #define FM10K_GLOBAL_STATS_LEN ARRAY_SIZE(fm10k_gstrings_global_stats)
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-index af09a1b..2bce474 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-@@ -375,6 +375,8 @@ static void fm10k_mbx_write_copy(struct fm10k_hw *hw,
- 			if (!tail)
- 				tail++;
+ /* Netdev */
+-struct net_device *fm10k_alloc_netdev(void);
++struct net_device *fm10k_alloc_netdev(const struct fm10k_info *info);
+ int fm10k_setup_rx_resources(struct fm10k_ring *);
+ int fm10k_setup_tx_resources(struct fm10k_ring *);
+ void fm10k_free_rx_resources(struct fm10k_ring *);
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index 96364c7..38fe2d8 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -1391,8 +1391,9 @@ static const struct net_device_ops fm10k_netdev_ops = {
  
-+			mbx->tx_mbmem_pulled++;
+ #define DEFAULT_DEBUG_LEVEL_SHIFT 3
+ 
+-struct net_device *fm10k_alloc_netdev(void)
++struct net_device *fm10k_alloc_netdev(const struct fm10k_info *info)
+ {
++	netdev_features_t hw_features;
+ 	struct fm10k_intfc *interface;
+ 	struct net_device *dev;
+ 
+@@ -1415,27 +1416,31 @@ struct net_device *fm10k_alloc_netdev(void)
+ 			 NETIF_F_TSO |
+ 			 NETIF_F_TSO6 |
+ 			 NETIF_F_TSO_ECN |
+-			 NETIF_F_GSO_UDP_TUNNEL |
+ 			 NETIF_F_RXHASH |
+ 			 NETIF_F_RXCSUM;
+ 
++	/* Only the PF can support VXLAN and NVGRE tunnel offloads */
++	if (info->mac == fm10k_mac_pf) {
++		dev->hw_enc_features = NETIF_F_IP_CSUM |
++				       NETIF_F_TSO |
++				       NETIF_F_TSO6 |
++				       NETIF_F_TSO_ECN |
++				       NETIF_F_GSO_UDP_TUNNEL |
++				       NETIF_F_IPV6_CSUM |
++				       NETIF_F_SG;
 +
- 			/* write message to hardware FIFO */
- 			fm10k_write_reg(hw, mbmem + tail++, *(head++));
- 		} while (--len && --end);
-@@ -459,6 +461,8 @@ static void fm10k_mbx_read_copy(struct fm10k_hw *hw,
- 			if (!head)
- 				head++;
- 
-+			mbx->rx_mbmem_pushed++;
++		dev->features |= NETIF_F_GSO_UDP_TUNNEL;
++	}
 +
- 			/* read message from hardware FIFO */
- 			*(tail++) = fm10k_read_reg(hw, mbmem + head++);
- 		} while (--len && --end);
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
-index 0419a7f..c4f18a8 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
-@@ -1,5 +1,5 @@
- /* Intel Ethernet Switch Host Interface Driver
-- * Copyright(c) 2013 - 2014 Intel Corporation.
-+ * Copyright(c) 2013 - 2015 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -291,8 +291,10 @@ struct fm10k_mbx_info {
- 	u64 tx_dropped;
- 	u64 tx_messages;
- 	u64 tx_dwords;
-+	u64 tx_mbmem_pulled;
- 	u64 rx_messages;
- 	u64 rx_dwords;
-+	u64 rx_mbmem_pushed;
- 	u64 rx_parse_err;
+ 	/* all features defined to this point should be changeable */
+-	dev->hw_features |= dev->features;
++	hw_features = dev->features;
  
- 	/* Buffer to store messages */
+ 	/* allow user to enable L2 forwarding acceleration */
+-	dev->hw_features |= NETIF_F_HW_L2FW_DOFFLOAD;
++	hw_features |= NETIF_F_HW_L2FW_DOFFLOAD;
+ 
+ 	/* configure VLAN features */
+ 	dev->vlan_features |= dev->features;
+ 
+-	/* configure tunnel offloads */
+-	dev->hw_enc_features |= NETIF_F_IP_CSUM |
+-				NETIF_F_TSO |
+-				NETIF_F_TSO6 |
+-				NETIF_F_TSO_ECN |
+-				NETIF_F_GSO_UDP_TUNNEL |
+-				NETIF_F_IPV6_CSUM;
+-
+ 	/* we want to leave these both on as we cannot disable VLAN tag
+ 	 * insertion or stripping on the hardware since it is contained
+ 	 * in the FTAG and not in the frame itself.
+@@ -1446,5 +1451,7 @@ struct net_device *fm10k_alloc_netdev(void)
+ 
+ 	dev->priv_flags |= IFF_UNICAST_FLT;
+ 
++	dev->hw_features |= hw_features;
++
+ 	return dev;
+ }
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index 5fbffba..1af4b22 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -1722,13 +1722,6 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
+ 					     pci_resource_len(pdev, 4));
+ 	hw->sw_addr = interface->sw_addr;
+ 
+-	/* Only the PF can support VXLAN and NVGRE offloads */
+-	if (hw->mac.type != fm10k_mac_pf) {
+-		netdev->hw_enc_features = 0;
+-		netdev->features &= ~NETIF_F_GSO_UDP_TUNNEL;
+-		netdev->hw_features &= ~NETIF_F_GSO_UDP_TUNNEL;
+-	}
+-
+ 	/* initialize DCBNL interface */
+ 	fm10k_dcbnl_set_ops(netdev);
+ 
+@@ -1894,7 +1887,7 @@ static int fm10k_probe(struct pci_dev *pdev,
+ 	pci_set_master(pdev);
+ 	pci_save_state(pdev);
+ 
+-	netdev = fm10k_alloc_netdev();
++	netdev = fm10k_alloc_netdev(fm10k_info_tbl[ent->driver_data]);
+ 	if (!netdev) {
+ 		err = -ENOMEM;
+ 		goto err_alloc_netdev;
 -- 
 2.5.0
