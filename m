@@ -1,70 +1,117 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [RFC PATCH net] vxlan: fix incorrect RCO bit in VXLAN header
-Date: Fri, 4 Dec 2015 08:43:59 -0800
-Message-ID: <CALx6S35_CbKfNpGJM6xsSgdkd25iekMCS3jwyG7_B5bCfeJhQw@mail.gmail.com>
-References: <67179e9385c71f7c377a7df345d445704f49dbbc.1449233631.git.jbenc@redhat.com>
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: use-after-free in sctp_do_sm
+Date: Fri, 4 Dec 2015 11:47:52 -0500
+Message-ID: <5661C3B8.2030902@akamai.com>
+References: <CACT4Y+ZnWRZfQC25uW=GXHAJB=GX0L6tJQUy43P6WNR3=hwT8Q@mail.gmail.com>
+ <20151203130525.GB4164@mrl.redhat.com>
+ <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
+ <CANn89iKEv-q6EFi1eX+Hk_2+jNfZ0ayUqUn_Fh1U7RTs9xjdXg@mail.gmail.com>
+ <CACT4Y+bgeqS05zqkAHkxzAP7fuvFSkeEybwDTizw6Gp8KK28Fw@mail.gmail.com>
+ <CANn89i+d=mTJ-hAhhgPXsZPGAkQdECxRdbkeRLfozRq8i9Ms+g@mail.gmail.com>
+ <CACT4Y+YJe-OJj9q1Kr5-_ApDt1UBKLjTRxhP62EHtEAwZt5vXw@mail.gmail.com>
+ <f7twpsvgyar.fsf@aconole.bos.csb> <566098BD.6010803@akamai.com>
+ <1449172984.12092.0.camel@perches.com> <5660A1A7.3080301@akamai.com>
+ <1449174246.12092.8.camel@perches.com> <5660A951.4000808@akamai.com>
+ <1449175884.17296.2.camel@perches.com>
+ <CACT4Y+btkVJBtXkp0QAJhdoK_5TeVJ97GU_wOrMsPNG3E98vaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>, Tom Herbert <therbert@google.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:35064 "EHLO
-	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754034AbbLDQoA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 11:44:00 -0500
-Received: by ioc74 with SMTP id 74so121409052ioc.2
-        for <netdev@vger.kernel.org>; Fri, 04 Dec 2015 08:43:59 -0800 (PST)
-In-Reply-To: <67179e9385c71f7c377a7df345d445704f49dbbc.1449233631.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Aaron Conole <aconole@redhat.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Dmitry Vyukov <dvyukov@google.com>, Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+btkVJBtXkp0QAJhdoK_5TeVJ97GU_wOrMsPNG3E98vaQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 4, 2015 at 4:54 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> Commit 3511494ce2f3d ("vxlan: Group Policy extension") changed definition of
-> VXLAN_HF_RCO from 0x00200000 to BIT(24). This is obviously incorrect. It's
-> also in violation with the RFC draft.
->
-> Fixes: 3511494ce2f3d ("vxlan: Group Policy extension")
-> Cc: Thomas Graf <tgraf@suug.ch>
-> Cc: Tom Herbert <therbert@google.com>
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
-> This code is, unfortunately, in the tree since 4.0. Not sure whether we can
-> change it now. On the other hand, we're in violation with the RFC draft and
-> collide with VXLAN-GPE flags assignment which defines this bit as OAM flag.
->
-> Opinions welcome, especially by Tom and Thomas.
+On 12/04/2015 11:12 AM, Dmitry Vyukov wrote:
+> On Thu, Dec 3, 2015 at 9:51 PM, Joe Perches <joe@perches.com> wrote:
+>> (adding lkml as this is likely better discussed there)
+>>
+>> On Thu, 2015-12-03 at 15:42 -0500, Jason Baron wrote:
+>>> On 12/03/2015 03:24 PM, Joe Perches wrote:
+>>>> On Thu, 2015-12-03 at 15:10 -0500, Jason Baron wrote:
+>>>>> On 12/03/2015 03:03 PM, Joe Perches wrote:
+>>>>>> On Thu, 2015-12-03 at 14:32 -0500, Jason Baron wrote:
+>>>>>>> On 12/03/2015 01:52 PM, Aaron Conole wrote:
+>>>>>>>> I think that as a minimum, the following patch should be evaluted,
+>>>>>>>> but am unsure to whom I should submit it (after I test):
+>>>>>> []
+>>>>>>> Agreed - the intention here is certainly to have no side effects. It
+>>>>>>> looks like 'no_printk()' is used in quite a few other places that would
+>>>>>>> benefit from this change. So we probably want a generic
+>>>>>>> 'really_no_printk()' macro.
+>>>>>>
+>>>>>> https://lkml.org/lkml/2012/6/17/231
+>>>>>
+>>>>> I don't see this in the tree.
+>>>>
+>>>> It never got applied.
+>>>>
+>>>>> Also maybe we should just convert
+>>>>> no_printk() to do what your 'eliminated_printk()'.
+>>>>
+>>>> Some of them at least.
+>>>>
+>>>>> So we can convert all users with this change?
+>>>>
+>>>> I don't think so, I think there are some
+>>>> function evaluation/side effects that are
+>>>> required.  I believe some do hardware I/O.
+>>>>
+>>>> It'd be good to at least isolate them.
+>>>>
+>>>> I'm not sure how to find them via some
+>>>> automated tool/mechanism though.
+>>>>
+>>>> I asked Julia Lawall about it once in this
+>>>> thread:  https://lkml.org/lkml/2014/12/3/696
+>>>>
+>>>
+>>> Seems rather fragile to have side effects that we rely
+>>> upon hidden in a printk().
+>>
+>> Yup.
+>>
+>>> Just convert them and see what breaks :)
+>>
+>> I appreciate your optimism.  It's very 1995.
+>> Try it and see what happens.
+> 
+> 
+> But Aaron says that DYNAMIC_DEBUG is enabled in most major
+> distributions, and all these side-effects don't happen with
+> DYNAMIC_DEBUG.
 
-Thanks Jiri!
+When DYNAMIC_DEBUG is enabled we have this wrapper from
+include/linux/dynamic_debug.h:
 
-What a mess VXLAN has become. There are no guidelines or order in
-defining these reserved bits! If anyone is looking to do some work in
-encapsulation please consider bringing up VXLAN-GPE/NSH in the stack,
-hopefully that world will be better....
+if (unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT))
+	<do debug stuff>
 
-Acked-by: Tom Herbert <tom@herbertland.com>
+So the compiler is not emitting the side-effects in this
+case.
 
-> ---
->  include/net/vxlan.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-> index c1c899c3a51b..e289ada6adf6 100644
-> --- a/include/net/vxlan.h
-> +++ b/include/net/vxlan.h
-> @@ -79,7 +79,7 @@ struct vxlanhdr {
->  };
->
->  /* VXLAN header flags. */
-> -#define VXLAN_HF_RCO BIT(24)
-> +#define VXLAN_HF_RCO BIT(21)
->  #define VXLAN_HF_VNI BIT(27)
->  #define VXLAN_HF_GBP BIT(31)
->
-> --
-> 1.8.3.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>This suggests that we can make these side-effects not
+> happen without DYNAMIC_DEBUG as well.
+> Or I am missing something here?
+> 
+
+When DYNAMIC_DEBUG is disabled we are instead replacing
+pr_debug() with the 'no_printk()' function as you've pointed
+out. We are changing this to emit no code at all:
+
+http://marc.info/?l=linux-kernel&m=144918276518878&w=2
+
+Thanks,
+
+-Jason
