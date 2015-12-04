@@ -1,48 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/4] qed: fix handling of concurrent ramrods
-Date: Fri, 04 Dec 2015 14:34:15 -0500 (EST)
-Message-ID: <20151204.143415.1088078490863415742.davem@davemloft.net>
-References: <1449140356-17419-1-git-send-email-manish.chopra@qlogic.com>
-	<1449140356-17419-3-git-send-email-manish.chopra@qlogic.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH V7 net-next 0/5] net:hns: Add support of Hip06 SoC to
+ the Hislicon Network Subsystem
+Date: Fri, 04 Dec 2015 14:37:42 -0500 (EST)
+Message-ID: <20151204.143742.2290508303650946149.davem@davemloft.net>
+References: <1449145077-9400-1-git-send-email-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
-	Yuval.Mintz@qlogic.com, Tomer.Tayar@qlogic.com
-To: manish.chopra@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40730 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751498AbbLDTeR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 14:34:17 -0500
-In-Reply-To: <1449140356-17419-3-git-send-email-manish.chopra@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
+	galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
+	arnd-r2nGTMty4D4@public.gmane.org, liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, kenneth-lee-2012-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org,
+	mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org,
+	lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1449145077-9400-1-git-send-email-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@qlogic.com>
-Date: Thu, 3 Dec 2015 05:59:14 -0500
+From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Date: Thu, 3 Dec 2015 12:17:52 +0000
 
-> @@ -124,8 +124,19 @@ struct qed_spq {
->  	dma_addr_t		p_phys;
->  	struct qed_spq_entry	*p_virt;
->  
-> -	/* Used as index for completions (returns on EQ by FW) */
-> -	u16			echo_idx;
-> +	/* Bitmap for handling out-of-order completions */
-> +#define SPQ_RING_SIZE \
-> +	(CORE_SPQE_PAGE_SIZE_BYTES / sizeof(struct slow_path_element))
-> +#define SPQ_COMP_BMAP_SIZE	(SPQ_RING_SIZE / BITS_PER_LONG)
-> +	unsigned long		p_comp_bitmap[SPQ_COMP_BMAP_SIZE];
-> +	u8			comp_bitmap_idx;
-> +
-> +#define SPQ_COMP_BMAP_SET_BIT(p_spq, idx)	\
-> +	__set_bit((idx) % SPQ_RING_SIZE, (p_spq)->p_comp_bitmap)
-> +#define SPQ_COMP_BMAP_CLEAR_BIT(p_spq, idx)	\
-> +	__clear_bit((idx) % SPQ_RING_SIZE, (p_spq)->p_comp_bitmap)
-> +#define SPQ_COMP_BMAP_TEST_BIT(p_spq, idx)	\
-> +	test_bit((idx) % SPQ_RING_SIZE, (p_spq)->p_comp_bitmap)
->  
+> This PATCH V7 addresses the TAB formatting comments by 
+> Sergei Shtylyov. Missing TABs at some other palces have
+> also been corrected.
 
-Don't invent stuff we already have ifrastructure for.
-
-Use DECLARE_BITMAP(), and the helpers, as necessary, in linux/bitmap.h
+Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
