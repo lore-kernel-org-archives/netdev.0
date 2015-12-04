@@ -1,50 +1,113 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 0/7] Update Kconfig and some fixes for cxgb4
-Date: Fri,  4 Dec 2015 14:18:04 +0530
-Message-ID: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 5/7] cxgb4: Deal with wrap-around of queue for Work request
+Date: Fri,  4 Dec 2015 14:18:09 +0530
+Message-ID: <1449218891-7819-6-git-send-email-hariprasad@chelsio.com>
+References: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from stargate.chelsio.com ([12.32.117.8]:24918 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755862AbbLDJtw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 04:49:52 -0500
+	by vger.kernel.org with ESMTP id S1755859AbbLDJtz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 04:49:55 -0500
+In-Reply-To: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+The WR headers  may not fit within one descriptor.
+So we need to deal with wrap-around here.
 
-This series update Kconfig to add description for Chelsio's next
-generation T6 family of adapters, also fixes ethtool stats alignment
-and prevents simultaneous execution of service_ofldq thread, deals with
-queue wrap around and adds some fl counters for debugging purpose and
-device ID for new T5 adapters.
+Based on original patch by Pranjal Joshi <pjoshi@chelsio.com>
 
-This patch series has been created against net-next tree and includes
-patches on cxgb4 driver.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/sge.c | 57 +++++++++++++++++++++++++++++---
+ 1 file changed, 53 insertions(+), 4 deletions(-)
 
-We have included all the maintainers of respective drivers. Kindly review
-the change and let us know in case of any review comments.
-
-Thanks
-
-Hariprasad Shenai (7):
-  cxgb4: Align rest of the ethtool get stats
-  cxgb4/cxgb4vf: update Kconfig file to include T6 adapter
-  cxgb4: Use ACCES_ONCE macro to read queue's consumer index
-  cxgb4: prevent simultaneous execution of service_ofldq()
-  cxgb4: Deal with wrap-around of queue for Work request
-  cxgb4: Add FL DMA mapping error and low counter
-  cxgb4: Adds PCI device id for new T5 adapters
-
- drivers/net/ethernet/chelsio/Kconfig               |  17 +--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   3 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |   6 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 146 ++++++++++-----------
- drivers/net/ethernet/chelsio/cxgb4/sge.c           | 120 +++++++++++++++--
- drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h |   3 +
- 6 files changed, 202 insertions(+), 93 deletions(-)
-
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index c71cd50..28b0272 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -1029,6 +1029,30 @@ static void inline_tx_skb(const struct sk_buff *skb, const struct sge_txq *q,
+ 		*p = 0;
+ }
+ 
++static void *inline_tx_skb_header(const struct sk_buff *skb,
++				  const struct sge_txq *q,  void *pos,
++				  int length)
++{
++	u64 *p;
++	int left = (void *)q->stat - pos;
++
++	if (likely(length <= left)) {
++		memcpy(pos, skb->data, length);
++		pos += length;
++	} else {
++		memcpy(pos, skb->data, left);
++		memcpy(q->desc, skb->data + left, length - left);
++		pos = (void *)q->desc + (length - left);
++	}
++	/* 0-pad to multiple of 16 */
++	p = PTR_ALIGN(pos, 8);
++	if ((uintptr_t)p & 8) {
++		*p = 0;
++		return p + 1;
++	}
++	return p;
++}
++
+ /*
+  * Figure out what HW csum a packet wants and return the appropriate control
+  * bits.
+@@ -1561,9 +1585,11 @@ static void ofldtxq_stop(struct sge_ofld_txq *q, struct sk_buff *skb)
+  */
+ static void service_ofldq(struct sge_ofld_txq *q)
+ {
+-	u64 *pos;
++	u64 *pos, *before, *end;
+ 	int credits;
+ 	struct sk_buff *skb;
++	struct sge_txq *txq;
++	unsigned int left;
+ 	unsigned int written = 0;
+ 	unsigned int flits, ndesc;
+ 
+@@ -1607,9 +1633,32 @@ static void service_ofldq(struct sge_ofld_txq *q)
+ 		} else {
+ 			int last_desc, hdr_len = skb_transport_offset(skb);
+ 
+-			memcpy(pos, skb->data, hdr_len);
+-			write_sgl(skb, &q->q, (void *)pos + hdr_len,
+-				  pos + flits, hdr_len,
++			/* The WR headers  may not fit within one descriptor.
++			 * So we need to deal with wrap-around here.
++			 */
++			before = (u64 *)pos;
++			end = (u64 *)pos + flits;
++			txq = &q->q;
++			pos = (void *)inline_tx_skb_header(skb, &q->q,
++							   (void *)pos,
++							   hdr_len);
++			if (before > (u64 *)pos) {
++				left = (u8 *)end - (u8 *)txq->stat;
++				end = (void *)txq->desc + left;
++			}
++
++			/* If current position is already at the end of the
++			 * ofld queue, reset the current to point to
++			 * start of the queue and update the end ptr as well.
++			 */
++			if (pos == (u64 *)txq->stat) {
++				left = (u8 *)end - (u8 *)txq->stat;
++				end = (void *)txq->desc + left;
++				pos = (void *)txq->desc;
++			}
++
++			write_sgl(skb, &q->q, (void *)pos,
++				  end, hdr_len,
+ 				  (dma_addr_t *)skb->head);
+ #ifdef CONFIG_NEED_DMA_MAP_STATE
+ 			skb->dev = q->adap->port[0];
 -- 
 2.3.4
