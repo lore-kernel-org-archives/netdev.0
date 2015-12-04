@@ -1,85 +1,66 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net v2 2/2] vxlan: support ndo_fill_metadata_dst also for IPv6
-Date: Fri, 4 Dec 2015 10:49:37 -0800
-Message-ID: <CALnjE+qX=sv2wgT=HQ1kfmxVj1KAWe5rWuEEMeNbDr_seBxLqw@mail.gmail.com>
-References: <cover.1449139112.git.jbenc@redhat.com>
-	<66ad22ee59eb0a21090ff9e3fcad7faf77b63148.1449139112.git.jbenc@redhat.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: bpf: undefined shift in __bpf_prog_run
+Date: Fri, 4 Dec 2015 20:03:47 +0100
+Message-ID: <CACT4Y+YLV4scGXSFz=G3ACa-WE8VuT5wDGvPBV9D2Q+devxedA@mail.gmail.com>
+References: <CACT4Y+ZxoR3UjLgcNdUm4fECLMx2VdtfrENMtRRCdgHB2n0bJA@mail.gmail.com>
+ <20151204184333.GA42737@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:33244 "EHLO
-	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751005AbbLDSti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 13:49:38 -0500
-Received: by iouu10 with SMTP id u10so127912686iou.0
-        for <netdev@vger.kernel.org>; Fri, 04 Dec 2015 10:49:37 -0800 (PST)
-In-Reply-To: <66ad22ee59eb0a21090ff9e3fcad7faf77b63148.1449139112.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexei Starovoitov <ast@kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Andrey Ryabinin <ryabinin.a.a@gmail.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151204184333.GA42737@ast-mbp.thefacebook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 3, 2015 at 2:41 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> Fill the metadata correctly even when tunneling over IPv6. Also, check that
-> the provided metadata is of an address family that is supported by the
-> tunnel.
+On Fri, Dec 4, 2015 at 7:43 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Fri, Dec 04, 2015 at 12:17:08PM +0100, Dmitry Vyukov wrote:
+>> Hello,
+>>
+>> UBSAN reports the following undefined behavior:
+>>
+>> UBSAN: Undefined behaviour in kernel/bpf/core.c:336:2
+>> shift exponent 2835 is to large for 32-bit type 'unsigned int'
+>> CPU: 1 PID: 14227 Comm: syzkaller_execu Not tainted 4.4.0-rc3+ #142
+>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>>  0000000000000001 ffff88003892f898 ffffffff82c747b8 0000000041b58ab3
+>>  ffffffff878cbc05 ffffffff82c74706 ffff88003892f860 ffff88003892f9a0
+>>  0000000000000000 0000000000000b13 ffffffff88178de2 0000000000000020
+>> Call Trace:
+>>  [<ffffffff82d684f0>] __ubsan_handle_shift_out_of_bounds+0x294/0x2e5
+>> lib/ubsan.c:417
+>>  [<ffffffff8160a408>] __bpf_prog_run+0x8f48/0x9ac0 kernel/bpf/core.c:336
+>>  [<     inline     >] seccomp_run_filters kernel/seccomp.c:198
+>>  [<     inline     >] __seccomp_phase1_filter kernel/seccomp.c:588
+>>  [<ffffffff8156ddfb>] seccomp_phase1+0x1cb/0x990 kernel/seccomp.c:667
+>>  [<ffffffff8100651f>] syscall_trace_enter_phase1+0x28f/0x4e0
+>> arch/x86/entry/common.c:132
+>>  [<ffffffff8691b939>] tracesys+0xd/0x44 arch/x86/entry/entry_64.S:240
 >
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
-> v2: fixed unused variable warning when building without IPv6
-> ---
->  drivers/net/vxlan.c | 26 ++++++++++++++++++++++++--
->  1 file changed, 24 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 5a38558da157..d3594de3ad07 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -2413,15 +2413,37 @@ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
->  {
->         struct vxlan_dev *vxlan = netdev_priv(dev);
->         struct ip_tunnel_info *info = skb_tunnel_info(skb);
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +       struct dst_entry *ndst;
-> +#endif
->         __be16 sport, dport;
->
->         sport = udp_flow_src_port(dev_net(dev), skb, vxlan->cfg.port_min,
->                                   vxlan->cfg.port_max, true);
->         dport = info->key.tp_dst ? : vxlan->cfg.dst_port;
->
-> -       if (ip_tunnel_info_af(info) == AF_INET)
-> +       if (ip_tunnel_info_af(info) == AF_INET) {
-> +               if (!vxlan->vn4_sock)
-> +                       return -EINVAL;
->                 return egress_ipv4_tun_info(dev, skb, info, sport, dport);
-> -       return -EINVAL;
-> +       } else {
-> +               if (!IS_ENABLED(CONFIG_IPV6))
-> +                       return -EPFNOSUPPORT;
-> +
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +               if (!vxlan->vn6_sock)
-> +                       return -EINVAL;
-> +               ndst = vxlan6_get_route(vxlan, skb, 0,
-> +                                       &info->key.u.ipv6.dst,
-> +                                       &info->key.u.ipv6.src);
-> +               if (IS_ERR(ndst))
-> +                       return PTR_ERR(ndst);
-> +               dst_release(ndst);
-> +#endif
+> is it with some random seccomp program?
+> If normal libseccomp generates such programs than it needs to be fixed.
 
-Rather than checking IS_ENABLED(CONFIG_IPV6) three separate times, all
-code can is restructured in one #if #else block by moving the ndst
-definition to IPv6 local block.
+Yes, it is with completely random seccomp program.
 
-> +               info->key.tp_src = sport;
-> +               info->key.tp_dst = dport;
-> +       }
-> +       return 0;
->  }
+>> Such shifts have undefined behavior according to C standard and behave
+>> differently on different archs. I guess we don't want to rely on any
+>> kind of undefined behavior in bpf/seccomp. And generally want to
+>> completely define results of all operations in bpf.
 >
->  static const struct net_device_ops vxlan_netdev_ops = {
-> --
-> 1.8.3.1
->
+> bpf is an engine and we're not going to slow down each shift operation
+> by extra run-time checks or masks.
+> In other words bpf shift instruction == shift in C. Both undefined
+> with for large operands.
+> If seccomp is relying on undefined behavior, it should be fixed.
+
+But note that it is not that result of such operation is undefined, it
+is overall kernel behavior that becomes undefined.
