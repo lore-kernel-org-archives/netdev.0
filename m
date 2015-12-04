@@ -1,44 +1,118 @@
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH] net: qca_spi: fix transmit queue timeout handling
-Date: Fri,  4 Dec 2015 16:29:10 +0100
-Message-ID: <1449242950-19291-1-git-send-email-stefan.wahren@i2se.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Stefan Wahren <stefan.wahren@i2se.com>,
-	<stable@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: use-after-free in sctp_do_sm
+Date: Fri, 4 Dec 2015 10:37:26 -0500
+Message-ID: <5661B336.8090007@gmail.com>
+References: <CANn89i+d=mTJ-hAhhgPXsZPGAkQdECxRdbkeRLfozRq8i9Ms+g@mail.gmail.com>
+ <CACT4Y+YJe-OJj9q1Kr5-_ApDt1UBKLjTRxhP62EHtEAwZt5vXw@mail.gmail.com>
+ <f7twpsvgyar.fsf@aconole.bos.csb> <566098BD.6010803@akamai.com>
+ <1449172984.12092.0.camel@perches.com> <5660A1A7.3080301@akamai.com>
+ <1449174246.12092.8.camel@perches.com> <5660A951.4000808@akamai.com>
+ <1449175884.17296.2.camel@perches.com>
+ <CACT4Y+Z68wnWjFZ6e2AmePBNu1U+V9N_4szdyNrrf710Er2zyg@mail.gmail.com>
+ <20151204125543.GG4164@mrl.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Joe Perches <joe@perches.com>, Jason Baron <jbaron@akamai.com>,
+	Aaron Conole <aconole@redhat.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Dmitry Vyukov <dvyukov@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151204125543.GG4164@mrl.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In case of a tx queue timeout every transmit is blocked until the
-QCA7000 resets himself and triggers a sync which makes the driver
-flushs the tx ring. So avoid this blocking situation by triggering
-the sync immediately after the timeout. Waking the queue doesn't
-make sense in this situation.
+On 12/04/2015 07:55 AM, Marcelo Ricardo Leitner wrote:
+> On Fri, Dec 04, 2015 at 11:40:02AM +0100, Dmitry Vyukov wrote:
+>> On Thu, Dec 3, 2015 at 9:51 PM, Joe Perches <joe@perches.com> wrote:
+>>> (adding lkml as this is likely better discussed there)
+>>>
+>>> On Thu, 2015-12-03 at 15:42 -0500, Jason Baron wrote:
+>>>> On 12/03/2015 03:24 PM, Joe Perches wrote:
+>>>>> On Thu, 2015-12-03 at 15:10 -0500, Jason Baron wrote:
+>>>>>> On 12/03/2015 03:03 PM, Joe Perches wrote:
+>>>>>>> On Thu, 2015-12-03 at 14:32 -0500, Jason Baron wrote:
+>>>>>>>> On 12/03/2015 01:52 PM, Aaron Conole wrote:
+>>>>>>>>> I think that as a minimum, the following patch should be evaluted,
+>>>>>>>>> but am unsure to whom I should submit it (after I test):
+>>>>>>> []
+>>>>>>>> Agreed - the intention here is certainly to have no side effects. It
+>>>>>>>> looks like 'no_printk()' is used in quite a few other places that would
+>>>>>>>> benefit from this change. So we probably want a generic
+>>>>>>>> 'really_no_printk()' macro.
+>>>>>>>
+>>>>>>> https://lkml.org/lkml/2012/6/17/231
+>>>>>>
+>>>>>> I don't see this in the tree.
+>>>>>
+>>>>> It never got applied.
+>>>>>
+>>>>>> Also maybe we should just convert
+>>>>>> no_printk() to do what your 'eliminated_printk()'.
+>>>>>
+>>>>> Some of them at least.
+>>>>>
+>>>>>> So we can convert all users with this change?
+>>>>>
+>>>>> I don't think so, I think there are some
+>>>>> function evaluation/side effects that are
+>>>>> required.  I believe some do hardware I/O.
+>>>>>
+>>>>> It'd be good to at least isolate them.
+>>>>>
+>>>>> I'm not sure how to find them via some
+>>>>> automated tool/mechanism though.
+>>>>>
+>>>>> I asked Julia Lawall about it once in this
+>>>>> thread:  https://lkml.org/lkml/2014/12/3/696
+>>>>>
+>>>>
+>>>> Seems rather fragile to have side effects that we rely
+>>>> upon hidden in a printk().
+>>>
+>>> Yup.
+>>>
+>>>> Just convert them and see what breaks :)
+>>>
+>>> I appreciate your optimism.  It's very 1995.
+>>> Try it and see what happens.
+>>
+>>
+>> Whatever is the resolution for pr_debug, we still need to fix this
+>> particular use-after-free. It affects stability of debug builds, gives
+>> invalid debug output, prevents us from finding more bugs in SCTP. And
+>> maybe somebody uses CONFIG_DYNAMIC_DEBUG in production.
+> 
+> Agreed. I'm already working on a fix for this particular use-after-free.
+> 
+> Another interesting thing about this is that sctp_do_sm() is called for
+> nearly every movement that happens on a sctp socket. Said that, that
+> always-running IDR search hidden on that debug statement do have some
+> nasty performance impact, specially because it's serialized on a
+> spinlock.
 
-Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
-Cc: <stable@vger.kernel.org> # v3.18+
-Fixes: 291ab06ecf67 ("net: qualcomm: new Ethernet over SPI driver for QCA7000")
+YUCK!  I didn't really pay much attention to those debug macros before, but
+debug_post_sfx() is truly awful.
 
----
- drivers/net/ethernet/qualcomm/qca_spi.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+This wasn't such a bad thing where these macros depended on CONFIG_SCTP_DEBUG,
+but now that they are always built, we need fix them.
 
-diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
-index ddb2c6c..689a4a5 100644
---- a/drivers/net/ethernet/qualcomm/qca_spi.c
-+++ b/drivers/net/ethernet/qualcomm/qca_spi.c
-@@ -736,9 +736,8 @@ qcaspi_netdev_tx_timeout(struct net_device *dev)
- 	netdev_info(qca->net_dev, "Transmit timeout at %ld, latency %ld\n",
- 		    jiffies, jiffies - dev->trans_start);
- 	qca->net_dev->stats.tx_errors++;
--	/* wake the queue if there is room */
--	if (qcaspi_tx_ring_has_space(&qca->txr))
--		netif_wake_queue(dev);
-+	/* Trigger tx queue flush and QCA7000 reset */
-+	qca->sync = QCASPI_SYNC_UNKNOWN;
- }
- 
- static int
--- 
-2.1.4
+-vlad
+
+
+
+> This wouldn't be happening if it was fully ellided and would
+> be ok if that pr_debug() was really being printed, but not as it is.
+> Kudos to this report that I could notice this. I'm trying to fix this on
+> SCTP-side as well.
+> 
+>   Marcelo
+> 
