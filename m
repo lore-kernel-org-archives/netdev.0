@@ -1,50 +1,60 @@
-From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-Subject: Re: [PATCH] net: thunderx: Remove unnecessary struct nicpf::lmac_cnt
-Date: Fri, 4 Dec 2015 23:11:00 +0530
-Message-ID: <CA+sq2CejiQ1En32_26=Ub6haNgAW2HaKAMPpgVCMCds5ny1VcQ@mail.gmail.com>
-References: <1449242242-9036-1-git-send-email-p.fedin@samsung.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
+Date: Fri, 04 Dec 2015 09:45:20 -0800
+Message-ID: <1449251120.25029.31.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
+	 <20151130093755.GA8159@gondor.apana.org.au>
+	 <20151130101401.GA17712@orbit.nwl.cc>
+	 <20151130101859.GA8378@gondor.apana.org.au>
+	 <20151203125117.GB5505@gondor.apana.org.au>
+	 <1449158919.6379.27.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151204143956.GA17471@gondor.apana.org.au>
+	 <20151204170101.GB29598@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	Robert Richter <rric@kernel.org>, youngmin.lee@cavium.com,
-	kin-yip.liu@cavium.com
-To: Pavel Fedin <p.fedin@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:34525 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750937AbbLDRlC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 12:41:02 -0500
-Received: by wmvv187 with SMTP id v187so85262125wmv.1
-        for <netdev@vger.kernel.org>; Fri, 04 Dec 2015 09:41:00 -0800 (PST)
-In-Reply-To: <1449242242-9036-1-git-send-email-p.fedin@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tgraf@suug.ch, fengguang.wu@intel.com, wfg@linux.intel.com,
+	lkp@01.org
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151204170101.GB29598@orbit.nwl.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->num_vf_en and lmac_cnt are always equal.However in future this may change.
-Yes these two won't be equal in future and hence a differentiation is needed.
-lmac_cnt will have to point to no of physical interfaces and num_vf_en
-to logical interfaces.
-num_vf_en will default to lmac_cnt but with 'sriov_configure' can be increased.
+On Fri, 2015-12-04 at 18:01 +0100, Phil Sutter wrote:
+> On Fri, Dec 04, 2015 at 10:39:56PM +0800, Herbert Xu wrote:
+> > On Thu, Dec 03, 2015 at 08:08:39AM -0800, Eric Dumazet wrote:
+> > >
+> > > Anyway, __vmalloc() can be used with GFP_ATOMIC, have you tried this ?
+> > 
+> > OK I've tried it and I no longer get any ENOMEM errors!
+> 
+> I can't confirm this, sadly. Using 50 threads, results seem to be stable
+> and good. But increasing the number of threads I can provoke ENOMEM
+> condition again. See attached log which shows a failing test run with
+> 100 threads.
+> 
+> I tried to extract logs of a test run with as few as possible failing
+> threads, but wasn't successful. It seems like the error amplifies
+> itself: While having stable success with less than 70 threads, going
+> beyond a margin I could not identify exactly, much more threads failed
+> than expected. For instance, the attached log shows 70 out of 100
+> threads failing, while for me every single test with 50 threads was
+> successful.
+> 
+> HTH, Phil
 
->The worst consequence of this is failure to deliver link status
-> messages, causing VFs to go defunct
-There is no point in delivering link status to all VFs, as
-irrespective of physical link
-status, VFs (attached to VMs) should be able to communicate. A
-differentiation here
-will also be needed then.
+But this patch is about GFP_ATOMIC allocations, I doubt your test is
+using GFP_ATOMIC.
 
--       for (vf = 0; vf < nic->lmac_cnt; vf++) {
-+       for (vf = 0; vf < nic->num_vf_en; vf++) {
-This is incorrect, if in future this refers to logical interfaces
-which may be greater than
-physical interface count then below references will fail.
+Threads (process context) should use GFP_KERNEL allocations.
 
-/* Get BGX, LMAC indices for the VF */
-bgx = NIC_GET_BGX_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
-lmac = NIC_GET_LMAC_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
+BTW, if 100 threads are simultaneously trying to vmalloc(32 MB), this
+might not be very wise :(
 
+Only one should really do this, while others are waiting.
 
-Thanks,
-Sunil.
+If we really want parallelism (multiple cpus coordinating their effort),
+it should be done very differently.
