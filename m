@@ -1,50 +1,83 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Fri, 4 Dec 2015 12:13:53 -0800
-Message-ID: <CALx6S349Ub+UJSRN5UEt+0b76sVLzcxDbq_hZGaKkRzK-_gOrw@mail.gmail.com>
-References: <1449158374.11080.456996721.69F803D7@webmail.messagingengine.com>
-	<CALx6S342OMLB6s7LcmnZP1rnYNUs345Dy1gjYX3JUKqqB_waPA@mail.gmail.com>
-	<1449259145.6236.458303617.55CF2C4E@webmail.messagingengine.com>
-	<20151204.150633.1744714566987717806.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 00/13] mvneta Buffer Management and enhancements
+Date: Fri, 04 Dec 2015 12:15:05 -0800
+Message-ID: <5661F449.5020205@gmail.com>
+References: <CAPv3WKc4zSmjtw_FeePCVCaq_aUubbCw_ggtxgxs0-7LwL7fHQ@mail.gmail.com>	<20151129.210210.1777978635596463961.davem@davemloft.net>	<CAPv3WKcHnJHCvg63Vs79RboNOuESU8jCLouKPRW4NdptAd_hag@mail.gmail.com>	<20151130.112500.293198684175670933.davem@redhat.com> <CAPv3WKcKm3X3Lys2HwYZXaZxPaajenF7av1wJKXqKxxwibXW4A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	John Linville <linville@tuxdriver.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kiran Patil <kiran.patil@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:37009 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755912AbbLDUNy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 15:13:54 -0500
-Received: by igcto18 with SMTP id to18so44138408igc.0
-        for <netdev@vger.kernel.org>; Fri, 04 Dec 2015 12:13:54 -0800 (PST)
-In-Reply-To: <20151204.150633.1744714566987717806.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@redhat.com>, linux-kernel@vger.kernel.org,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Yair Mahalalel <myair@marvell.com>,
+	Grzegorz Jaszczyk <jaz@semihalf.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Evan Wang <xswang@marvell.com>, nadavh@marvell.com,
+	Lior Amsalem <alior@marvell.com>,
+	Tomasz Nowicki <tn@semihalf.com>,
+	=?UTF-8?B?R3JlZ29yeSBDbMOpbWVudA==?=
+	<gregory.clement@free-electrons.com>, nitroshift@yahoo.com,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Marcin Wojtas <mw@semihalf.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAPv3WKcKm3X3Lys2HwYZXaZxPaajenF7av1wJKXqKxxwibXW4A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 4, 2015 at 12:06 PM, David Miller <davem@davemloft.net> wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Fri, 04 Dec 2015 20:59:05 +0100
->
->> Yes, I agree, I am totally with you here. If generic offloading can be
->> realized by NICs I am totally with you that this should be the way to
->> go. I don't see that coming in the next (small number of) years, so I
->> don't see a reason to stop this patchset.
->
-> If I just apply this and say "yeah ok", the message is completely lost
-> and your prediction about "small number of years" indeed will occur.
->
-> However if I push back hard on this, as I will, then the message has
-> some chance of seeping back to the people designing these chips.
->
-> So that's what I'm going to do, like it or not.
->
-> Or can someone convince me that someone who understand this stuff
-> is telling the hardware guys to universally put 2's complement
-> checksums into the descriptors?
->
-We're talking about 1's complement checksum (RFC1701). Just to be clear :-)
+(no top posting please)
+
+On 02/12/15 00:26, Marcin Wojtas wrote:
+> Hi Florian,
+> 
+> Can you please describe in more details, what would you expect from
+> such special abstraction layer regarding buffer managers? I'd like to
+> understand more of your expectations and evaluate possible work.
+
+Well, something along these lines:
+
+- have the ability to register a particular pool (location + number of
+buffers) in a way that is relatively device agnostic (initialization
+would of course be device specific)
+
+- provide a set of buffer management APIs like those you proposed below,
+and have some generic code that leverages what
+drivers/net/ethernet/sun/niu.c does for instance
+
+- introduce a netdev_alloc_skb_from_pool() or something like that which
+would limit the amount of code to change in your network driver to
+benefit from that feature so based
+
+I am sure David would be able to suggest more detailed API.
+
+> 
+> Best regards,
+> Marcin
+> 
+> 2015-11-30 17:25 GMT+01:00 David Miller <davem@redhat.com>:
+>> From: Marcin Wojtas <mw@semihalf.com>
+>> Date: Mon, 30 Nov 2015 15:13:22 +0100
+>>
+>>> What kind of abstraction and helpers do you mean? Some kind of API
+>>> (e.g. bm_alloc_buffer, bm_initialize_ring bm_put_buffer,
+>>> bm_get_buffer), which would be used by platform drivers (and specific
+>>> aplications if one wants to develop on top of the kernel)?
+>>>
+>>> In general, what is your top-view of such solution and its cooperation
+>>> with the drivers?
+>>
+>> The tricky parts involved have to do with allocating pages for the
+>> buffer pools and minimizing the number of atomic refcounting
+>> operations on those pages for for the puts and gets, particularly
+>> around buffer replenish runs.
+>>
+>> For example, if you're allocating a page for a buffer pool the device
+>> will chop into N (for any N < PAGE_SIZE) byte pieces, you can
+>> eliminate many atomic operations.
+
+
+-- 
+Florian
