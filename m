@@ -1,53 +1,38 @@
-From: Pavel Machek <pavel@denx.de>
-Subject: Re: SoCFPGA ethernet broken
-Date: Fri, 4 Dec 2015 10:38:38 +0100
-Message-ID: <20151204093837.GB22014@amd>
-References: <561FF9E2.30102@opensource.altera.com>
- <56200687.9040903@gmail.com>
- <562005AD.8020903@opensource.altera.com>
- <56200BD7.8020505@gmail.com>
- <20151203204811.GB14427@amd>
- <5660B2EC.1050705@caviumnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Dinh Nguyen <dinguyen@opensource.altera.com>,
-	"David S. Miller" <davem@davemloft.net>, david.daney@cavium.com,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Daney <ddaney@caviumnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5660B2EC.1050705@caviumnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 7/7] cxgb4: Adds PCI device id for new T5 adapters
+Date: Fri,  4 Dec 2015 14:18:11 +0530
+Message-ID: <1449218891-7819-8-git-send-email-hariprasad@chelsio.com>
+References: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:24918 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754358AbbLDJtu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 04:49:50 -0500
+In-Reply-To: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h | 3 +++
+ 1 file changed, 3 insertions(+)
 
-> >While updating DTS might be good idea, I don't think you can simply
-> >blame this on DTS. If it worked before the change, it is supposed to
-> >work after the change, otherwise we call that change a "regression"
-> >and revert the change.
-> 
-> FWIW: My initial patch to address the failure worked with the original DTB.
-> 
-> Also: userspace wasn't broken. So, the commandment about not breaking
-> userspace wasn't broken.  Although admittedly, breaking the kernel isn't
-> good either.
-
-You can't break neither kernel nor userspace.
-
-> >Plus, DTS is supposed to be ABI. Old DTS should still work on new
-> >kernels in ideal world.
-> 
-> If you supply the device tree file in the kernel tree, it is not an ABI.
-> 
-> If the device tree is not part of the kernel, and instead comes from the
-> boot firmware of the board, then you could make the ABI claim.
-
-It is an ABI if it was declared so, and it was. Yes, it _can_ come
-from kernel tree. That does not mean it has to.
-
-									Pavel
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h b/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
+index 03ed00c..a8dda63 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
+@@ -162,6 +162,9 @@ CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN
+ 	CH_PCI_ID_TABLE_FENTRY(0x5095),	/* Custom T540-CR-SO */
+ 	CH_PCI_ID_TABLE_FENTRY(0x5096),	/* Custom T580-CR */
+ 	CH_PCI_ID_TABLE_FENTRY(0x5097),	/* Custom T520-KR */
++	CH_PCI_ID_TABLE_FENTRY(0x5098),	/* Custom 2x40G QSFP */
++	CH_PCI_ID_TABLE_FENTRY(0x5099),	/* Custom 2x40G QSFP */
++	CH_PCI_ID_TABLE_FENTRY(0x509a),	/* Custom T520-CR */
+ 
+ 	/* T6 adapters:
+ 	 */
 -- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+2.3.4
