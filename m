@@ -1,36 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
-Date: Fri, 04 Dec 2015 16:53:34 -0500 (EST)
-Message-ID: <20151204.165334.1119277452308794437.davem@davemloft.net>
-References: <20151203125117.GB5505@gondor.apana.org.au>
-	<1449158919.6379.27.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151204143956.GA17471@gondor.apana.org.au>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH 0/2] Renesas: read MAC address registers only once
+Date: Sat, 05 Dec 2015 00:55:54 +0300
+Message-ID: <10429393.qU4CxZ5nlj@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, phil@nwl.cc, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tgraf@suug.ch,
-	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
-To: herbert@gondor.apana.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151204143956.GA17471@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:33874 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752780AbbLDVz7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 16:55:59 -0500
+Received: by lbbcs9 with SMTP id cs9so28148615lbb.1
+        for <netdev@vger.kernel.org>; Fri, 04 Dec 2015 13:55:57 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 4 Dec 2015 22:39:56 +0800
+Hello.
 
-> When an rhashtable user pounds rhashtable hard with back-to-back
-> insertions we may end up growing the table in GFP_ATOMIC context.
-> Unfortunately when the table reaches a certain size this often
-> fails because we don't have enough physically contiguous pages
-> to hold the new table.
-> 
-> Eric Dumazet suggested (and in fact wrote this patch) using
-> __vmalloc instead which can be used in GFP_ATOMIC context.
-> 
-> Reported-by: Phil Sutter <phil@nwl.cc>
-> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+   Here's 2 patches against DaveM's 'net-next.git' repo. Here we optimize the
+MAC address register reading (left over from a bootloader).
 
-Applied, thanks Herbert.
+[1/2] ravb: read MAC address registers only once
+[2/2] sh_eth: read MAC address registers only once
+
+MBR, Sergei
