@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] pppoe: fix memory corruption in padt work structure
-Date: Fri, 04 Dec 2015 16:49:47 -0500 (EST)
-Message-ID: <20151204.164947.1753713332502681473.davem@davemloft.net>
-References: <8d1438dac05eb64026c51086770a8875a26b103b.1449156478.git.g.nault@alphalink.fr>
+Subject: Re: rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
+Date: Fri, 04 Dec 2015 16:53:34 -0500 (EST)
+Message-ID: <20151204.165334.1119277452308794437.davem@davemloft.net>
+References: <20151203125117.GB5505@gondor.apana.org.au>
+	<1449158919.6379.27.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20151204143956.GA17471@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nitr0@seti.kr.ua
-To: g.nault@alphalink.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44695 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756644AbbLDVtt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 16:49:49 -0500
-In-Reply-To: <8d1438dac05eb64026c51086770a8875a26b103b.1449156478.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, phil@nwl.cc, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tgraf@suug.ch,
+	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
+To: herbert@gondor.apana.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151204143956.GA17471@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Thu, 3 Dec 2015 16:49:32 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 4 Dec 2015 22:39:56 +0800
 
-> pppoe_connect() mustn't touch the padt_work field of pppoe sockets
-> because that work could be already pending.
- ...
-> Reported-by: Andrew <nitr0@seti.kr.ua>
-> Fixes: 287f3a943fef ("pppoe: Use workqueue to die properly when a PADT is received")
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+> When an rhashtable user pounds rhashtable hard with back-to-back
+> insertions we may end up growing the table in GFP_ATOMIC context.
+> Unfortunately when the table reaches a certain size this often
+> fails because we don't have enough physically contiguous pages
+> to hold the new table.
+> 
+> Eric Dumazet suggested (and in fact wrote this patch) using
+> __vmalloc instead which can be used in GFP_ATOMIC context.
+> 
+> Reported-by: Phil Sutter <phil@nwl.cc>
+> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied and queued up for -stable, thanks!
+Applied, thanks Herbert.
