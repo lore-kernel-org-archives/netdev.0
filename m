@@ -1,82 +1,77 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/17] fm10k: introduce ITR_IS_ADAPTIVE macro
-Date: Thu,  3 Dec 2015 16:29:49 -0800
-Message-ID: <1449188994-64940-13-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1449188994-64940-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 00/17][pull request] 100GbE Intel Wired LAN Driver Updates 2015-12-03
+Date: Thu,  3 Dec 2015 16:29:37 -0800
+Message-ID: <1449188994-64940-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:22000 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754344AbbLDA36 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2015 19:29:58 -0500
-In-Reply-To: <1449188994-64940-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1753994AbbLDA34 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2015 19:29:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+This series contains updates to fm10k only.
 
-Define a macro for identifying when the itr value is dynamic or
-adaptive. The concept was taken from i40e. This helps make clear what
-the check is, and reduces the line length to something more reasonable
-in a few places.
+I know I am going to regret this, but Nick Krause actually submitted a good
+patch for fm10k to fix error handling of fm10k_setup_tc().  There were two
+calls in the function which returned an integer which was being ignored
+and not handled properly.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k.h         | 2 ++
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 6 ++----
- drivers/net/ethernet/intel/fm10k/fm10k_main.c    | 2 +-
- 3 files changed, 5 insertions(+), 5 deletions(-)
+Jacob provides the remaining fm10k patches in the series.  First change
+ensures that all the logic regarding the setting of netdev features is
+consolidated in one place of the driver.  Fixed an issue where an assumption
+was being made on how many queues are available, especially when init_hw_vf()
+errors out.  Fixed up an number of issues with init_hw() where failures
+were not being handled properly or at all, so update the driver to check
+returned error codes and respond appropriately.  Fixed up typecasting
+issues found where either the incorrect typecast size was used or
+explicitly typecast values.  Added additional debugging statistics and
+rename statistic to better reflect its true value.  Added support for
+ITR scaling based on PCIe link speed for fm10k.  Fixed up code comment
+where "hardware" was misspelled.
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index b178905..cea0d94 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -172,6 +172,8 @@ struct fm10k_ring_container {
- #define FM10K_ITR_20K		50	/* 50us */
- #define FM10K_ITR_ADAPTIVE	0x8000	/* adaptive interrupt moderation flag */
- 
-+#define ITR_IS_ADAPTIVE(itr) (!!(itr & FM10K_ITR_ADAPTIVE))
-+
- #define FM10K_ITR_ENABLE	(FM10K_ITR_AUTOMASK | FM10K_ITR_MASK_CLEAR)
- 
- static inline struct netdev_queue *txring_txq(const struct fm10k_ring *ring)
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-index fd29145..a505a50 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-@@ -701,12 +701,10 @@ static int fm10k_get_coalesce(struct net_device *dev,
- {
- 	struct fm10k_intfc *interface = netdev_priv(dev);
- 
--	ec->use_adaptive_tx_coalesce =
--		!!(interface->tx_itr & FM10K_ITR_ADAPTIVE);
-+	ec->use_adaptive_tx_coalesce = ITR_IS_ADAPTIVE(interface->tx_itr);
- 	ec->tx_coalesce_usecs = interface->tx_itr & ~FM10K_ITR_ADAPTIVE;
- 
--	ec->use_adaptive_rx_coalesce =
--		!!(interface->rx_itr & FM10K_ITR_ADAPTIVE);
-+	ec->use_adaptive_rx_coalesce = ITR_IS_ADAPTIVE(interface->rx_itr);
- 	ec->rx_coalesce_usecs = interface->rx_itr & ~FM10K_ITR_ADAPTIVE;
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index c5f7e0d..8207ee1 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -1370,7 +1370,7 @@ static void fm10k_update_itr(struct fm10k_ring_container *ring_container)
- 	unsigned int avg_wire_size, packets;
- 
- 	/* Only update ITR if we are using adaptive setting */
--	if (!(ring_container->itr & FM10K_ITR_ADAPTIVE))
-+	if (!ITR_IS_ADAPTIVE(ring_container->itr))
- 		goto clear_counts;
- 
- 	packets = ring_container->total_packets;
+The following are changes since commit 6b20da4d8f3f6a3be9f67e3207f435cfaa5f7f97:
+  mlxsw: core: Change BUG to WARN in hwmon code
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 100GbE
+
+Jacob Keller (16):
+  fm10k: set netdev features in one location
+  fm10k: reset max_queues on init_hw_vf failure
+  fm10k: always check init_hw for errors
+  fm10k: reinitialize queuing scheme after calling init_hw
+  fm10k: Correct typecast in fm10k_update_xc_addr_pf
+  fm10k: explicitly typecast vlan values to u16
+  fm10k: add statistics for actual DWORD count of mbmem mailbox
+  fm10k: rename mbx_tx_oversized statistic to mbx_tx_dropped
+  fm10k: add TEB check to fm10k_gre_is_nvgre
+  fm10k: Add support for ITR scaling based on PCIe link speed
+  fm10k: introduce ITR_IS_ADAPTIVE macro
+  fm10k: Update adaptive ITR algorithm
+  fm10k: use macro for default Tx and Rx ITR values
+  fm10k: change default Tx ITR to 25usec
+  fm10k: TRIVIAL fix typo of hardware
+  fm10k: TRIVIAL cleanup order at top of fm10k_xmit_frame
+
+Nick (1):
+  fm10k: Fix error handling in the function fm10k_setup_tc for certain
+    function calls
+
+ drivers/net/ethernet/intel/fm10k/fm10k.h         |  8 ++-
+ drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 14 ++---
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c    | 66 +++++++++++++++------
+ drivers/net/ethernet/intel/fm10k/fm10k_mbx.c     |  4 ++
+ drivers/net/ethernet/intel/fm10k/fm10k_mbx.h     |  4 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  | 40 ++++++++-----
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c     | 75 ++++++++++++++++++------
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c      | 34 ++++++++---
+ drivers/net/ethernet/intel/fm10k/fm10k_type.h    | 17 +++++-
+ drivers/net/ethernet/intel/fm10k/fm10k_vf.c      | 33 +++++++++--
+ 10 files changed, 223 insertions(+), 72 deletions(-)
+
 -- 
 2.5.0
