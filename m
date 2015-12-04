@@ -1,63 +1,55 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH net] atl1c: Improve driver not to do order 4 GFP_ATOMIC
- allocation
-Date: Fri, 4 Dec 2015 22:30:27 +0100
-Message-ID: <20151204213027.GA6397@amd>
-References: <1449163048.25029.2.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151203.123249.2158644928982094593.davem@davemloft.net>
- <20151204081127.GA29367@amd>
- <20151204.112140.1465149588813636971.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next v2 4/4] net: mvneta: Spread out the TX queues management on all CPUs
+Date: Fri, 04 Dec 2015 22:30:35 +0100
+Message-ID: <10523514.jXrVKo414l@wuerfel>
+References: <1449254700-32685-1-git-send-email-gregory.clement@free-electrons.com> <1449254700-32685-5-git-send-email-gregory.clement@free-electrons.com> <1449256350.25029.36.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, mhocko@kernel.org, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, jcliburn@gmail.com,
-	chris.snook@gmail.com, netdev@vger.kernel.org, rjw@rjwysocki.net,
-	linux-mm@kvack.org, nic-devel@qualcomm.com, ronangeles@gmail.com,
-	ebiederm@xmission.com
-To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151204.112140.1465149588813636971.davem@davemloft.net>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449256350.25029.36.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri 2015-12-04 11:21:40, David Miller wrote:
-> From: Pavel Machek <pavel@ucw.cz>
-> Date: Fri, 4 Dec 2015 09:11:27 +0100
-> 
-> >> >>  	if (unlikely(!ring_header->desc)) {
-> >> >> -		dev_err(&pdev->dev, "pci_alloc_consistend failed\n");
-> >> >> +		dev_err(&pdev->dev, "could not get memory for DMA buffer\n");
-> >> >>  		goto err_nomem;
-> >> >>  	}
-> >> >>  	memset(ring_header->desc, 0, ring_header->size);
-> >> >> 
-> >> >> 
-> >> > 
-> >> > So this memset() will really require a different patch to get removed ?
-> >> > 
-> >> > Sigh, not sure why I review patches.
-> >> 
-> >> Agreed, please use dma_zalloc_coherent() and kill that memset().
+On Friday 04 December 2015 11:12:30 Eric Dumazet wrote:
+> On Fri, 2015-12-04 at 19:45 +0100, Gregory CLEMENT wrote:
+> > With this patch each CPU is associated with its own set of TX queues. In
+> > the same time the SKB received in mvneta_tx is bound to the queue
+> > associated to the CPU sending the data. Thanks to this the next IRQ will
+> > be received on the same CPU allowing sending more data.
 > > 
-> > Ok, updated. I'll also add cc: stable, because it makes notebooks with
-> > affected chipset unusable.
+> > It will also allow to have a more predictable behavior regarding
+> > throughput and latency when having multiple threads sending out data on
+> > different CPUs.
+> > 
+> > As an example on Armada XP GP, with an iperf bound to a CPU and a ping
+> > bound to another CPU, without this patch the ping round trip was about
+> > 2.5ms (and could reach 3s!), whereas with this patch it was around
+> > 0.7ms (and sometime it went to 1.2ms).
 > 
-> Networking patches do not use CC: stable, instead you simply ask me
-> to queue it up and then I batch submit networking fixes to -stable
-> periodically myself.
+> This really looks like you need something smarter than pfifo_fast qdisc,
+> and maybe BQL (I did not check if this driver already implements this)
 
-Ok, can you take the patch and ignore the Cc, or should I do one more
-iteration?
+I suggested this change as well as the BQL implementation that Marcin did.
+I believe he hasn't posted that yet while he's doing some more testing,
+but it should come soon.
 
-Thanks,
-									Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+	Arnd
