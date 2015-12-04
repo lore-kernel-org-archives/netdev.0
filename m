@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 2/7] cxgb4/cxgb4vf: update Kconfig file to include T6 adapter
-Date: Fri,  4 Dec 2015 14:18:06 +0530
-Message-ID: <1449218891-7819-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 3/7] cxgb4: Use ACCES_ONCE macro to read queue's consumer index
+Date: Fri,  4 Dec 2015 14:18:07 +0530
+Message-ID: <1449218891-7819-4-git-send-email-hariprasad@chelsio.com>
 References: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
@@ -9,64 +9,43 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from stargate.chelsio.com ([12.32.117.8]:24918 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755935AbbLDJtx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 04:49:53 -0500
+	by vger.kernel.org with ESMTP id S1755859AbbLDJtv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 04:49:51 -0500
 In-Reply-To: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Use helper macro ACCESS_ONCE() to load from the SGE status page
+to prevent the compiler loading multiple times.
+
+Based on original work by Mike Werner <werner@chelsio.com>
+
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/Kconfig | 17 +++++++++--------
- 1 file changed, 9 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/sge.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/Kconfig b/drivers/net/ethernet/chelsio/Kconfig
-index a79813a..4d187f2 100644
---- a/drivers/net/ethernet/chelsio/Kconfig
-+++ b/drivers/net/ethernet/chelsio/Kconfig
-@@ -65,13 +65,14 @@ config CHELSIO_T3
- 	  will be called cxgb3.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 48d8fbb..1076c35 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -406,7 +406,7 @@ static void free_tx_desc(struct adapter *adap, struct sge_txq *q,
+  */
+ static inline int reclaimable(const struct sge_txq *q)
+ {
+-	int hw_cidx = ntohs(q->stat->cidx);
++	int hw_cidx = ntohs(ACCESS_ONCE(q->stat->cidx));
+ 	hw_cidx -= q->cidx;
+ 	return hw_cidx < 0 ? hw_cidx + q->size : hw_cidx;
+ }
+@@ -1320,7 +1320,7 @@ out_free:	dev_kfree_skb_any(skb);
+  */
+ static inline void reclaim_completed_tx_imm(struct sge_txq *q)
+ {
+-	int hw_cidx = ntohs(q->stat->cidx);
++	int hw_cidx = ntohs(ACCESS_ONCE(q->stat->cidx));
+ 	int reclaim = hw_cidx - q->cidx;
  
- config CHELSIO_T4
--	tristate "Chelsio Communications T4/T5 Ethernet support"
-+	tristate "Chelsio Communications T4/T5/T6 Ethernet support"
- 	depends on PCI && (IPV6 || IPV6=n)
- 	select FW_LOADER
- 	select MDIO
- 	---help---
--	  This driver supports Chelsio T4 and T5 based gigabit, 10Gb Ethernet
--	  adapter and T5 based 40Gb Ethernet adapter.
-+	  This driver supports Chelsio T4, T5 & T6 based gigabit, 10Gb Ethernet
-+	  adapter and T5/T6 based 40Gb and T6 based 25Gb, 50Gb and 100Gb
-+	  Ethernet adapters.
- 
- 	  For general information about Chelsio and our products, visit
- 	  our website at <http://www.chelsio.com>.
-@@ -85,7 +86,7 @@ config CHELSIO_T4
- 	  will be called cxgb4.
- 
- config CHELSIO_T4_DCB
--	bool "Data Center Bridging (DCB) Support for Chelsio T4/T5 cards"
-+	bool "Data Center Bridging (DCB) Support for Chelsio T4/T5/T6 cards"
- 	default n
- 	depends on CHELSIO_T4 && DCB
- 	---help---
-@@ -107,12 +108,12 @@ config CHELSIO_T4_FCOE
- 	  If unsure, say N.
- 
- config CHELSIO_T4VF
--	tristate "Chelsio Communications T4/T5 Virtual Function Ethernet support"
-+	tristate "Chelsio Communications T4/T5/T6 Virtual Function Ethernet support"
- 	depends on PCI
- 	---help---
--	  This driver supports Chelsio T4 and T5 based gigabit, 10Gb Ethernet
--	  adapters and T5 based 40Gb Ethernet adapters with PCI-E SR-IOV Virtual
--	  Functions.
-+	  This driver supports Chelsio T4, T5 & T6 based gigabit, 10Gb Ethernet
-+	  adapters and T5/T6 based 40Gb and T6 based 25Gb, 50Gb and 100Gb
-+	  Ethernet adapters with PCI-E SR-IOV Virtual Functions.
- 
- 	  For general information about Chelsio and our products, visit
- 	  our website at <http://www.chelsio.com>.
+ 	if (reclaim < 0)
 -- 
 2.3.4
