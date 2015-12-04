@@ -1,60 +1,40 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net 3/3] sctp: also copy sk_tsflags when copying the
- socket
-Date: Fri, 4 Dec 2015 15:33:26 -0500
-Message-ID: <5661F896.2040706@gmail.com>
-References: <20151203184316.GF4164@mrl.redhat.com>
- <cover.1449249050.git.marcelo.leitner@gmail.com>
- <ff20b0d68e8652db4406e4b19c93404f9c32637a.1449249050.git.marcelo.leitner@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: bpf: undefined shift in __bpf_prog_run
+Date: Fri, 4 Dec 2015 12:35:23 -0800
+Message-ID: <20151204203522.GB64517@ast-mbp.thefacebook.com>
+References: <20151204184333.GA42737@ast-mbp.thefacebook.com>
+ <CACT4Y+YLV4scGXSFz=G3ACa-WE8VuT5wDGvPBV9D2Q+devxedA@mail.gmail.com>
+ <20151204191013.GB45508@ast-mbp.thefacebook.com>
+ <20151204.142651.968075964630586979.davem@davemloft.net>
+ <CACT4Y+Y6vzvHuxk=o5Y_f2qDCGW30cAOCuyCeoLtj28Xh3G1dA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Alexei Starovoitov <ast@kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
 	syzkaller <syzkaller@googlegroups.com>,
-	linux-sctp@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
+	Kostya Serebryany <kcc@google.com>,
 	Alexander Potapenko <glider@google.com>,
 	Sasha Levin <sasha.levin@oracle.com>,
-	=?UTF-8?Q?Maciej_=c5=bbenczykowski?= <maze@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f65.google.com ([209.85.192.65]:33641 "EHLO
-	mail-qg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754819AbbLDUd3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 15:33:29 -0500
-In-Reply-To: <ff20b0d68e8652db4406e4b19c93404f9c32637a.1449249050.git.marcelo.leitner@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Eric Dumazet <edumazet@google.com>,
+	Andrey Ryabinin <ryabinin.a.a@gmail.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+Y6vzvHuxk=o5Y_f2qDCGW30cAOCuyCeoLtj28Xh3G1dA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/04/2015 12:14 PM, Marcelo Ricardo Leitner wrote:
-> As we are keeping timestamps on when copying the socket, we also have to
-> copy sk_tsflags.
+On Fri, Dec 04, 2015 at 08:48:57PM +0100, Dmitry Vyukov wrote:
 > 
-> This is needed since b9f40e21ef42 ("net-timestamp: move timestamp flags
-> out of sk_flags").
-> 
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> For example, a compiler can assume that result of left shift is larger
+> or equal to first operand, which in turn can allow it to elide some
+> bounds check in code, which in turn can lead to an exploit. I am not
+> saying that this particular pattern is present in the code, what I
+> want to say is that such undefined behaviors can lead to very
+> unpredictable and unexpected consequences.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-
--vlad
-
-> ---
->  net/sctp/socket.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 4c9282bdd06790a0cca7f7c33986e7eb6c541398..1a32ecdb8bae98de2e76591f0f5ffee1441ff04d 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -7167,6 +7167,7 @@ void sctp_copy_sock(struct sock *newsk, struct sock *sk,
->  	newsk->sk_type = sk->sk_type;
->  	newsk->sk_bound_dev_if = sk->sk_bound_dev_if;
->  	newsk->sk_flags = sk->sk_flags;
-> +	newsk->sk_tsflags = sk->sk_tsflags;
->  	newsk->sk_no_check_tx = sk->sk_no_check_tx;
->  	newsk->sk_no_check_rx = sk->sk_no_check_rx;
->  	newsk->sk_reuse = sk->sk_reuse;
-> 
+Within bpf it cannot.
+shift is not used in any memory or bounds operations.
+so reg <<= 1234 cannot be exploited.
