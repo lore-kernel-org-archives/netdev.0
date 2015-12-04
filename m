@@ -1,146 +1,100 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 4/7] cxgb4: prevent simultaneous execution of service_ofldq()
-Date: Fri,  4 Dec 2015 14:18:08 +0530
-Message-ID: <1449218891-7819-5-git-send-email-hariprasad@chelsio.com>
-References: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+From: Aleksander Morgado <aleksander@aleksander.es>
+Subject: Re: [PATCH 0/6] net: qmi_wwan: MDM9x30 support
+Date: Fri, 4 Dec 2015 10:56:52 +0100
+Message-ID: <CAAP7ucJmLg6eRRyJBZbEi9wJkfd84n2M=7EQp4rvObj+2bk1ng@mail.gmail.com>
+References: <1449167063-22703-1-git-send-email-bjorn@mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-usb@vger.kernel.org, Marcel Holtmann <marcel@holtmann.org>,
+	Oliver Neukum <oneukum@suse.com>,
+	Dan Williams <dcbw@redhat.com>
+To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:24918 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755935AbbLDJt6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 04:49:58 -0500
-In-Reply-To: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:33083 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752123AbbLDJ4w convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 04:56:52 -0500
+Received: by oixx65 with SMTP id x65so65039781oix.0
+        for <netdev@vger.kernel.org>; Fri, 04 Dec 2015 01:56:52 -0800 (PST)
+In-Reply-To: <1449167063-22703-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change mutual exclusion mechanism to prevent multiple threads of
-execution from running in service_ofldq() at the same time.  The old
-mechanism used an implicit guard on the down-call path and none on the
-restart path and wasn't working. This checking makes the mechanism
-explicit and is much easier to understand as a result.
+On Thu, Dec 3, 2015 at 7:24 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
+> We add new device IDs all the time, often without any testing on
+> actual hardware. This is usually OK as long as the device is similar
+> to already supported devices, using the same chipset and firmware
+> basis.  But the Sierra Wireless MC7455 is an example of a new chipset
+> generation. Adding it based on assumed similarity with its ancestors
+> proved too optimistic.
+>
+> This series adds the missing bits and pieces necessary to support LTE
+> Advanced modems based on the Qualcomm MDM9x30 chipset. A big thanks t=
+o
+> Sierra Wireless for providing MC7455 samples for testing
+>
+> The most important change is the "raw-ip" support. The series also
+> adds a necessary control request, removes an unsupported device ID,
+> and adds a driver specific entry in MAINTAINERS.
+>
+> A few random notes about "raw-ip":
+>
+> "I rather have these all running in raw IP mode. The 802.3 framing is
+> utterly stupid." - Marcel Holtmann in Jan 2012 [1]
+>
+> Marcel was right.  I should have listened to him. What more can I say=
+?
+>
+> The 802.3 framing has provided a steady supply of firmware bugs for
+> many years. We've added driver workarounds for many of these, but
+> there are still known bugs where the workaround is so yucky that we
+> have refused to apply it. But all that is over now.  The latest
+> generation Qualcomm chips no longer supports 802.3 framing at all.
+>
+> I had two open questions regarding the "raw-ip" userspace API:
+>
+> 1) Should we continue faking an ethernet device, even if we don't use
+>    the L2 headers on the USB link anymore?
+>
+>    There was a vote in favour of the "headerless" device. This is the
+>    honest representation of the hardware/firmware interface.
+>
+> 2) What input should the driver base its framing on?
+>
+>    Snooping or directly manipulating QMI is considered out of the
+>    question. We delegated all QMI handling to userspace from the
+>    beginning.
+>
+>    We have so far required userspace to configure the firmware for
+>    "802.3" framing, or fail if that proved impossible.  This
+>    requirement is now changed.  Userspace must now inform the driver
+>    if it negotiates "raw-ip" framing.  Two alternative interfaces wer=
+e
+>    proposed:
+>     - ethtool private driver flag, or
+>     - sysfs file
+>
+>    The NetworkManager/ModemManager developers were in favour of the
+>    sysfs alternative.
+>
+> These questions (or any other you migh have :) are of course still
+> open.  This patch set presents the solutions I currently prefer,
+> considering the above.
+>
+> All comments are appreciated, even simple '+1' ones.
+>
 
-Based on original work by Casey Leedom <leedom@chelsio.com>
++1 from me as well.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h |  1 +
- drivers/net/ethernet/chelsio/cxgb4/sge.c   | 56 ++++++++++++++++++++++++++----
- 2 files changed, 51 insertions(+), 6 deletions(-)
+We still need to decide how to manage this in userspace once the
+kernel part is ready. For all pre-WDA devices, I'd use 802-3 as that
+is what we've all been using. For WDA capable devices, we should
+likely query what the current data link layer mode is, and ask the
+kernel to use that one via sysfs; or, default to raw-ip in those,
+don't know.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 55a47de..b3a1353 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -618,6 +618,7 @@ struct sge_ofld_txq {               /* state for an SGE offload Tx queue */
- 	struct adapter *adap;
- 	struct sk_buff_head sendq;  /* list of backpressured packets */
- 	struct tasklet_struct qresume_tsk; /* restarts the queue */
-+	u8 service_ofldq_running;   /* service_ofldq() is processing sendq */
- 	u8 full;                    /* the Tx ring is full */
- 	unsigned long mapping_err;  /* # of I/O MMU packet mapping errors */
- } ____cacheline_aligned_in_smp;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 1076c35..c71cd50 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -1542,11 +1542,22 @@ static void ofldtxq_stop(struct sge_ofld_txq *q, struct sk_buff *skb)
- }
- 
- /**
-- *	service_ofldq - restart a suspended offload queue
-+ *	service_ofldq - service/restart a suspended offload queue
-  *	@q: the offload queue
-  *
-- *	Services an offload Tx queue by moving packets from its packet queue
-- *	to the HW Tx ring.  The function starts and ends with the queue locked.
-+ *	Services an offload Tx queue by moving packets from its Pending Send
-+ *	Queue to the Hardware TX ring.  The function starts and ends with the
-+ *	Send Queue locked, but drops the lock while putting the skb at the
-+ *	head of the Send Queue onto the Hardware TX Ring.  Dropping the lock
-+ *	allows more skbs to be added to the Send Queue by other threads.
-+ *	The packet being processed at the head of the Pending Send Queue is
-+ *	left on the queue in case we experience DMA Mapping errors, etc.
-+ *	and need to give up and restart later.
-+ *
-+ *	service_ofldq() can be thought of as a task which opportunistically
-+ *	uses other threads execution contexts.  We use the Offload Queue
-+ *	boolean "service_ofldq_running" to make sure that only one instance
-+ *	is ever running at a time ...
-  */
- static void service_ofldq(struct sge_ofld_txq *q)
- {
-@@ -1556,10 +1567,23 @@ static void service_ofldq(struct sge_ofld_txq *q)
- 	unsigned int written = 0;
- 	unsigned int flits, ndesc;
- 
-+	/* If another thread is currently in service_ofldq() processing the
-+	 * Pending Send Queue then there's nothing to do. Otherwise, flag
-+	 * that we're doing the work and continue.  Examining/modifying
-+	 * the Offload Queue boolean "service_ofldq_running" must be done
-+	 * while holding the Pending Send Queue Lock.
-+	 */
-+	if (q->service_ofldq_running)
-+		return;
-+	q->service_ofldq_running = 1;
-+
- 	while ((skb = skb_peek(&q->sendq)) != NULL && !q->full) {
--		/*
--		 * We drop the lock but leave skb on sendq, thus retaining
--		 * exclusive access to the state of the queue.
-+		/* We drop the lock while we're working with the skb at the
-+		 * head of the Pending Send Queue.  This allows more skbs to
-+		 * be added to the Pending Send Queue while we're working on
-+		 * this one.  We don't need to lock to guard the TX Ring
-+		 * updates because only one thread of execution is ever
-+		 * allowed into service_ofldq() at a time.
- 		 */
- 		spin_unlock(&q->sendq.lock);
- 
-@@ -1604,6 +1628,11 @@ static void service_ofldq(struct sge_ofld_txq *q)
- 			written = 0;
- 		}
- 
-+		/* Reacquire the Pending Send Queue Lock so we can unlink the
-+		 * skb we've just successfully transferred to the TX Ring and
-+		 * loop for the next skb which may be at the head of the
-+		 * Pending Send Queue.
-+		 */
- 		spin_lock(&q->sendq.lock);
- 		__skb_unlink(skb, &q->sendq);
- 		if (is_ofld_imm(skb))
-@@ -1611,6 +1640,11 @@ static void service_ofldq(struct sge_ofld_txq *q)
- 	}
- 	if (likely(written))
- 		ring_tx_db(q->adap, &q->q, written);
-+
-+	/*Indicate that no thread is processing the Pending Send Queue
-+	 * currently.
-+	 */
-+	q->service_ofldq_running = 0;
- }
- 
- /**
-@@ -1624,9 +1658,19 @@ static int ofld_xmit(struct sge_ofld_txq *q, struct sk_buff *skb)
- {
- 	skb->priority = calc_tx_flits_ofld(skb);       /* save for restart */
- 	spin_lock(&q->sendq.lock);
-+
-+	/* Queue the new skb onto the Offload Queue's Pending Send Queue.  If
-+	 * that results in this new skb being the only one on the queue, start
-+	 * servicing it.  If there are other skbs already on the list, then
-+	 * either the queue is currently being processed or it's been stopped
-+	 * for some reason and it'll be restarted at a later time.  Restart
-+	 * paths are triggered by events like experiencing a DMA Mapping Error
-+	 * or filling the Hardware TX Ring.
-+	 */
- 	__skb_queue_tail(&q->sendq, skb);
- 	if (q->sendq.qlen == 1)
- 		service_ofldq(q);
-+
- 	spin_unlock(&q->sendq.lock);
- 	return NET_XMIT_SUCCESS;
- }
--- 
-2.3.4
+--=20
+Aleksander
+https://aleksander.es
