@@ -1,84 +1,63 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: SoCFPGA ethernet broken
-Date: Fri, 4 Dec 2015 15:31:05 +0100
-Message-ID: <20151204143105.GA26391@lunn.ch>
-References: <561FF9E2.30102@opensource.altera.com>
- <56200687.9040903@gmail.com>
- <562005AD.8020903@opensource.altera.com>
- <56200BD7.8020505@gmail.com>
- <20151203204811.GB14427@amd>
- <5660B2EC.1050705@caviumnetworks.com>
- <5660CD87.5050603@opensource.altera.com>
- <20151204011050.GC26934@lunn.ch>
- <20151204015057.GB28005@lunn.ch>
- <alpine.DEB.2.02.1512040522350.32296@linux-builds1>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
+Date: Fri, 4 Dec 2015 22:39:56 +0800
+Message-ID: <20151204143956.GA17471@gondor.apana.org.au>
+References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
+ <20151130093755.GA8159@gondor.apana.org.au>
+ <20151130101401.GA17712@orbit.nwl.cc>
+ <20151130101859.GA8378@gondor.apana.org.au>
+ <20151203125117.GB5505@gondor.apana.org.au>
+ <1449158919.6379.27.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Daney <ddaney@caviumnetworks.com>,
-	Pavel Machek <pavel@denx.de>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, david.daney@cavium.com,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Dinh Nguyen <dinguyen@opensource.altera.com>
+Cc: Phil Sutter <phil@nwl.cc>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tgraf@suug.ch, fengguang.wu@intel.com, wfg@linux.intel.com,
+	lkp@01.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.02.1512040522350.32296@linux-builds1>
+In-Reply-To: <1449158919.6379.27.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > @@ -339,9 +340,19 @@ static int ksz9021_config_init(struct phy_device *phydev)
-> >  {
-> >  	const struct device *dev = &phydev->dev;
-> >  	const struct device_node *of_node = dev->of_node;
-> > +	const struct device *dev_walker;
-> >  
-> > -	if (!of_node && dev->parent->of_node)
-> > -		of_node = dev->parent->of_node;
-> > +	dev_info(dev, "dev->parent: %s\n", dev_name(dev->parent));
-> > +	dev_info(dev, "phydev->attached_dev->dev: %s\n", dev_name(&phydev->attached_dev->dev));
-> > +
-> > +	dev_walker = &phydev->dev;
-> > +	do {
-> > +		of_node = dev_walker->of_node;
-> > +		dev_info(dev, "walking: %s %p\n",
-> > +			 dev_name(dev_walker), of_node);
-> > +		dev_walker = dev_walker->parent;
-> > +
-> > +	} while (!of_node && dev_walker);
-> >  
-> >  	if (of_node) {
-> >  		ksz9021_load_values_from_of(phydev, of_node,
-> > 
-> 
-> Here is the output from the above patch:
-> 
-> [    1.042049] mmc0: new high speed SDHC card at address aaaa
-> [    1.048017] mmcblk0: mmc0:aaaa SU32G 29.7 GiB
-> [    1.053506]  mmcblk0: p1 p2 p3 p4
-> [    1.057708] dwc2 ffb40000.usb: Configuration mismatch. Forcing host mode
-> [    1.064418] dwc2 ffb40000.usb: no platform data or transceiver defined
-> [    1.070966] Micrel KSZ9021 Gigabit PHY stmmac-0:04: dev->parent: stmmac-0
-> [    1.077746] Micrel KSZ9021 Gigabit PHY stmmac-0:04: phydev->attached_dev->dev: eth0
-> [    1.085389] Micrel KSZ9021 Gigabit PHY stmmac-0:04: walking: stmmac-0:04   (null)
-> [    1.092841] Micrel KSZ9021 Gigabit PHY stmmac-0:04: walking: stmmac-0   (null)
-> [    1.100042] Micrel KSZ9021 Gigabit PHY stmmac-0:04: walking: ff702000.ethernet ef9f3538
+On Thu, Dec 03, 2015 at 08:08:39AM -0800, Eric Dumazet wrote:
+>
+> Anyway, __vmalloc() can be used with GFP_ATOMIC, have you tried this ?
 
-Ah! So we have an intermediary device in the
-chain. phydev->attached_dev->dev points to this intermediate device,
-rather than the platform device, which is why my patch failed.
+OK I've tried it and I no longer get any ENOMEM errors!
 
-I don't know the network stack well enough. Is this consider broken?
-Is this valid? Is there any generic code which might try looking in
-netdev->dev.of_node?  Do other MAC drivers have an intermediate
-device?
+---8<---
+When an rhashtable user pounds rhashtable hard with back-to-back
+insertions we may end up growing the table in GFP_ATOMIC context.
+Unfortunately when the table reaches a certain size this often
+fails because we don't have enough physically contiguous pages
+to hold the new table.
 
-We could modify the stmac driver so that phydev->attached_dev->dev
-does point to the platform device, and then my patch works. But if
-there are other MAC drivers which are structured like this, they are
-also broken when used with the Micrel PHY. So then walking up the
-device tree is a better solution.
+Eric Dumazet suggested (and in fact wrote this patch) using
+__vmalloc instead which can be used in GFP_ATOMIC context.
 
-Comments from more knowledgeable people requested!
+Reported-by: Phil Sutter <phil@nwl.cc>
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-       Andrew
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index a54ff89..1c624db 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -120,8 +120,9 @@ static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
+ 	if (size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER) ||
+ 	    gfp != GFP_KERNEL)
+ 		tbl = kzalloc(size, gfp | __GFP_NOWARN | __GFP_NORETRY);
+-	if (tbl == NULL && gfp == GFP_KERNEL)
+-		tbl = vzalloc(size);
++	if (tbl == NULL)
++		tbl = __vmalloc(size, gfp | __GFP_HIGHMEM | __GFP_ZERO,
++				PAGE_KERNEL);
+ 	if (tbl == NULL)
+ 		return NULL;
+ 
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
