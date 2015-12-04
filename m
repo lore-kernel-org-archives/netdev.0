@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ravb: ptp: Add CONFIG mode support
-Date: Thu, 03 Dec 2015 20:36:36 -0500 (EST)
-Message-ID: <20151203.203636.1169814325276565350.davem@davemloft.net>
-References: <5660AFE0.7060401@cogentembedded.com>
-	<20151203.180853.1418394974611593944.davem@davemloft.net>
-	<5660D276.3000306@cogentembedded.com>
+Subject: Re: [PATCH] Revert "i40e: remove CONFIG_I40E_VXLAN"
+Date: Thu, 03 Dec 2015 20:36:24 -0500 (EST)
+Message-ID: <20151203.203624.965876308312409032.davem@davemloft.net>
+References: <1449186399-229337-1-git-send-email-anjali.singhai@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ykaneko0929@gmail.com, netdev@vger.kernel.org, horms@verge.net.au,
-	magnus.damm@gmail.com, linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <5660D276.3000306@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: anjali.singhai@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51143 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753167AbbLDBg2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2015 20:36:28 -0500
+In-Reply-To: <1449186399-229337-1-git-send-email-anjali.singhai@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Fri, 4 Dec 2015 02:38:30 +0300
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
+Date: Thu,  3 Dec 2015 15:46:39 -0800
 
-> On 12/04/2015 02:08 AM, David Miller wrote:
-> 
->>>     Perhaps worth adding me to MAINTAINERS as (a new role of) a
->>>     reviewer...
->>
->> I'll happily apply such a patch.
-> 
->    OK, net.git would be OK as a base?
+> This reverts commit 8fe269991aece394a7ed274f525d96c73f94109a.
+> The case where VXLAN is a module and i40e driver is in built
+> will not be handled properly with this change since i40e
+> will have an undefined symbol vxlan_get_rx_port in it.
 
-Absolutely.
+All commits, even straight reverts, must have a proper signoff.
