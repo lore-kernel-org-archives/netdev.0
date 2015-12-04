@@ -1,54 +1,44 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH] ipv6: keep existing flags when setting IFA_F_OPTIMISTIC
-Date: Fri,  4 Dec 2015 14:15:08 +0100
-Message-ID: <1449234908-29623-1-git-send-email-bjorn@mork.no>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: keep existing flags when setting IFA_F_OPTIMISTIC
+Date: Fri, 04 Dec 2015 14:29:02 +0100
+Message-ID: <1449235742.322981.458011217.1C6356E9@webmail.messagingengine.com>
+References: <1449234908-29623-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-	Erik Kline <ek@google.com>,
-	Fernando Gont <fgont@si6networks.com>,
+Cc: Erik Kline <ek@google.com>, Fernando Gont <fgont@si6networks.com>,
 	Lorenzo Colitti <lorenzo@google.com>,
-	=?UTF-8?q?YOSHIFUJI=20Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<hideaki.yoshifuji@miraclelinux.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+	=?UTF-8?Q?YOSHIFUJI=20Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<hideaki.yoshifuji@miraclelinux.com>
+To: =?UTF-8?Q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:53685 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750817AbbLDNPl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Dec 2015 08:15:41 -0500
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:52851 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750829AbbLDN3D convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Dec 2015 08:29:03 -0500
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id C45C620706
+	for <netdev@vger.kernel.org>; Fri,  4 Dec 2015 08:29:02 -0500 (EST)
+In-Reply-To: <1449234908-29623-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 64236f3f3d74 ("ipv6: introduce IFA_F_STABLE_PRIVACY flag")
-failed to update the setting of the IFA_F_OPTIMISTIC flag, causing
-the IFA_F_STABLE_PRIVACY flag to be lost if IFA_F_OPTIMISTIC is set.
+On Fri, Dec 4, 2015, at 14:15, Bj=C3=B8rn Mork wrote:
+> Commit 64236f3f3d74 ("ipv6: introduce IFA_F_STABLE_PRIVACY flag")
+> failed to update the setting of the IFA_F_OPTIMISTIC flag, causing
+> the IFA_F_STABLE_PRIVACY flag to be lost if IFA_F_OPTIMISTIC is set.
+>=20
+> Cc: Erik Kline <ek@google.com>
+> Cc: Fernando Gont <fgont@si6networks.com>
+> Cc: Lorenzo Colitti <lorenzo@google.com>
+> Cc: YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <hideaki.y=
+oshifuji@miraclelinux.com>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Fixes: 64236f3f3d74 ("ipv6: introduce IFA_F_STABLE_PRIVACY flag")
+> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 
-Cc: Erik Kline <ek@google.com>
-Cc: Fernando Gont <fgont@si6networks.com>
-Cc: Lorenzo Colitti <lorenzo@google.com>
-Cc: YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <hideaki.yos=
-hifuji@miraclelinux.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-=46ixes: 64236f3f3d74 ("ipv6: introduce IFA_F_STABLE_PRIVACY flag")
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- net/ipv6/addrconf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index b5cc81a18521..b3465bbbcd82 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2463,7 +2463,7 @@ ok:
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
- 			if (in6_dev->cnf.optimistic_dad &&
- 			    !net->ipv6.devconf_all->forwarding && sllao)
--				addr_flags =3D IFA_F_OPTIMISTIC;
-+				addr_flags |=3D IFA_F_OPTIMISTIC;
- #endif
-=20
- 			/* Do not allow to create too much of autoconfigured
---=20
-2.1.4
+Ups, thanks! :)
