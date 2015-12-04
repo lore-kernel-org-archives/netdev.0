@@ -1,50 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Fri, 04 Dec 2015 16:37:01 -0500 (EST)
-Message-ID: <20151204.163701.1543607078191101626.davem@davemloft.net>
-References: <1449259145.6236.458303617.55CF2C4E@webmail.messagingengine.com>
-	<20151204.150633.1744714566987717806.davem@davemloft.net>
-	<CALx6S349Ub+UJSRN5UEt+0b76sVLzcxDbq_hZGaKkRzK-_gOrw@mail.gmail.com>
+Subject: Re: bpf: undefined shift in __bpf_prog_run
+Date: Fri, 04 Dec 2015 16:37:53 -0500 (EST)
+Message-ID: <20151204.163753.594151588498690658.davem@davemloft.net>
+References: <20151204.142651.968075964630586979.davem@davemloft.net>
+	<CACT4Y+Y6vzvHuxk=o5Y_f2qDCGW30cAOCuyCeoLtj28Xh3G1dA@mail.gmail.com>
+	<20151204203522.GB64517@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, linville@tuxdriver.com,
-	jesse@kernel.org, anjali.singhai@intel.com, netdev@vger.kernel.org,
-	kiran.patil@intel.com
-To: tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44465 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754947AbbLDVhF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 16:37:05 -0500
-In-Reply-To: <CALx6S349Ub+UJSRN5UEt+0b76sVLzcxDbq_hZGaKkRzK-_gOrw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dvyukov@google.com, ast@kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, syzkaller@googlegroups.com,
+	kcc@google.com, glider@google.com, sasha.levin@oracle.com,
+	edumazet@google.com, ryabinin.a.a@gmail.com
+To: alexei.starovoitov@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151204203522.GB64517@ast-mbp.thefacebook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Fri, 4 Dec 2015 12:13:53 -0800
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Date: Fri, 4 Dec 2015 12:35:23 -0800
 
-> On Fri, Dec 4, 2015 at 12:06 PM, David Miller <davem@davemloft.net> wrote:
->> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> Date: Fri, 04 Dec 2015 20:59:05 +0100
->>
->>> Yes, I agree, I am totally with you here. If generic offloading can be
->>> realized by NICs I am totally with you that this should be the way to
->>> go. I don't see that coming in the next (small number of) years, so I
->>> don't see a reason to stop this patchset.
->>
->> If I just apply this and say "yeah ok", the message is completely lost
->> and your prediction about "small number of years" indeed will occur.
->>
->> However if I push back hard on this, as I will, then the message has
->> some chance of seeping back to the people designing these chips.
->>
->> So that's what I'm going to do, like it or not.
->>
->> Or can someone convince me that someone who understand this stuff
->> is telling the hardware guys to universally put 2's complement
->> checksums into the descriptors?
->>
-> We're talking about 1's complement checksum (RFC1701). Just to be clear :-)
+> On Fri, Dec 04, 2015 at 08:48:57PM +0100, Dmitry Vyukov wrote:
+>> 
+>> For example, a compiler can assume that result of left shift is larger
+>> or equal to first operand, which in turn can allow it to elide some
+>> bounds check in code, which in turn can lead to an exploit. I am not
+>> saying that this particular pattern is present in the code, what I
+>> want to say is that such undefined behaviors can lead to very
+>> unpredictable and unexpected consequences.
+> 
+> Within bpf it cannot.
+> shift is not used in any memory or bounds operations.
+> so reg <<= 1234 cannot be exploited.
 
-Right :)
++1
