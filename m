@@ -1,128 +1,117 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: Re: [PATCH V6 net-next 5/5] net:hns: Add the init code to disable
- Hip06 "Hardware VLAN assist"
-Date: Fri, 4 Dec 2015 18:18:38 +0000
-Message-ID: <5661D8FE.2010909@huawei.com>
-References: <1449075171-4820-1-git-send-email-salil.mehta@huawei.com> <1449075171-4820-6-git-send-email-salil.mehta@huawei.com> <565F4AB0.5020100@cogentembedded.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Fri, 4 Dec 2015 10:28:32 -0800
+Message-ID: <CALx6S342OMLB6s7LcmnZP1rnYNUs345Dy1gjYX3JUKqqB_waPA@mail.gmail.com>
+References: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>
+	<1448312579-159544-2-git-send-email-anjali.singhai@intel.com>
+	<CALx6S34+_AtjO94znh7vW4py5a8Nj1g6b-sjGPCa4U1Mc6Y6-w@mail.gmail.com>
+	<20151129.222138.1582847465760563254.davem@davemloft.net>
+	<CAEh+42ivCoBE-vAwWpHHmHYqcXzKP+ceZSvg2rEPh7Db3M1k6Q@mail.gmail.com>
+	<CALx6S35_rXPsYUGcc+yrQX8K1dOcL4aWnmQsa-6X6xULo9BBbg@mail.gmail.com>
+	<CAEh+42gvn=cjZ4E3nACR7=-_a4iFS7OwEsSb+SQGme2k19kVAA@mail.gmail.com>
+	<CALx6S37EoLM=bZ6sSAiiF81X=SvTvoNAmkbH5Dmn9zSvR2oiUA@mail.gmail.com>
+	<20151201154445.GF29497@tuxdriver.com>
+	<1448984968.3382143.454794705.68D88B7D@webmail.messagingengine.com>
+	<CALx6S36i7Ee3Njs6OPVndyoGz1OpYss3YRPG8KO2ehxvAe50dA@mail.gmail.com>
+	<1449074114.3806253.455834737.16948E5F@webmail.messagingengine.com>
+	<CALx6S34Zqn1t4RPkAoa3QT-vWLvawnBN19qEZ12P-YiCEckxHw@mail.gmail.com>
+	<1449158374.11080.456996721.69F803D7@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	<davem@davemloft.net>, <robh+dt@kernel.org>, <pawel.moll@arm.com>,
-	<mark.rutland@arm.com>, <paul.gortmaker@windriver.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<catalin.marinas@arm.com>, <will.deacon@arm.com>, <arnd@arndb.de>,
-	<liguozhu@hisilicon.com>, <yisen.zhuang@huawei.com>,
-	<dingtianhong@huawei.com>, <zhangfei.gao@linaro.org>,
-	<huangdaode@hisilicon.com>, <kenneth-lee-2012@foxmail.com>,
-	<mehta.salil.lnk@gmail.com>, <xuwei5@hisilicon.com>,
-	<lisheng011@huawei.com>, <devicetree@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	<linuxarm@huawei.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jesse Gross <jesse@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Anjali Singhai Jain <anjali.singhai@intel.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kiran Patil <kiran.patil@intel.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:37845 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753977AbbLDS0N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 13:26:13 -0500
-In-Reply-To: <565F4AB0.5020100@cogentembedded.com>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:35550 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754739AbbLDS2d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 13:28:33 -0500
+Received: by igl9 with SMTP id 9so38597687igl.0
+        for <netdev@vger.kernel.org>; Fri, 04 Dec 2015 10:28:32 -0800 (PST)
+In-Reply-To: <1449158374.11080.456996721.69F803D7@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> I do know that, but fact is, the current drivers do it. I am concerned
+> about the amount of entropy in one single 16 bit field used to
+> distinguish flows. Flow labels fine and good, but if current hardware
+> does not support it, it does not help. Imagine containers with lots of
+> applications, 16 bit doesn't seem to fit here.
+>
+Based on what? RSS indirection table is only seven bits so even 16
+bits would be overkill for that. Please provide a concrete example,
+data where 16 bits wouldn't be sufficient.
 
-On 12/2/2015 7:46 PM, Sergei Shtylyov wrote:
-> Hello.
+>> > Please provide a sketch up for a protocol generic api that can tell
+>> > hardware where a inner protocol header starts that supports vxlan,
+>> > vxlan-gpe, geneve and ipv6 extension headers and knows which protocol is
+>> > starting at that point.
+>> >
+>> BPF. Implementing protocol generic offloads are not just a HW concern
+>> either, adding kernel GRO code for every possible protocol that comes
+>> along doesn't scale well. This becomes especially obvious when we
+>> consider how to provide offloads for applications protocols. If the
+>> kernel provides a programmable framework for the offloads then
+>> application protocols, such as QUIC, could use use that without
+>> needing to hack the kernel to support the specific protocol (which no
+>> one wants!). Application protocol parsing in KCM and some other use
+>> cases of BPF have already foreshadowed this, and we are working on a
+>> prototype for a BPF programmable engine in the kernel. Presumably,
+>> this same model could eventually be applied as the HW API to
+>> programmable offload.
 >
-> On 12/02/2015 07:52 PM, Salil Mehta wrote:
+> So your proposal is like this:
 >
->> This patch adds the initializzation code to disable the hardware
->> vlan support for VLAN Tag stripping by default for now.
->>
->> Proper support of "hardware VLAN assitance" feature would
->> soon come in the next coming patches.
->>
->> Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
->> ---
->>
->> PATCH V6:
->> - No change over the earlier patch
->>
->> PATCH V5:
->> - Minor merge/reject change resolved to application of previous patch
->>
->> PATCH V4/V3/V2:
->> - No change over the initial floated patch
->>
->> PATCH V1:
->> - Initial code to disable the hardware VLAN assist for now
->> ---
->>   drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c |    7 +++++++
->>   drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h |    1 +
->>   2 files changed, 8 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c 
->> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
->> index b5e4c44..f302ef9 100644
->> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
->> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
->> @@ -176,6 +176,11 @@ static void hns_ppe_cnt_clr_ce(struct hns_ppe_cb 
->> *ppe_cb)
->>                PPE_CNT_CLR_CE_B, 1);
->>   }
->>
->> +static void hns_ppe_set_vlan_strip(struct hns_ppe_cb *ppe_cb, int en)
->> +{
->> +    dsaf_write_dev(ppe_cb, PPEV2_VLAN_STRIP_EN_REG, en);
+> dev->ops->ndo_add_offload(struct net_device *, struct bpf_prog *) ?
 >
->    Why not call it directly?
-Hi Sergei,
-The wrapper API abstraction has been put intentionally. The reason is 
-the same code
-is suppose to run across different SoCs so it is always clean approach 
-to hide it so
-that even if there are differences in the way we access or configure 
-hardware
-in other SoCs basic interface of the SET API remains same!!
-Therefore, we are in favour of keeping the above wrapper and therefore not
-changing now.
+> What do network cards do when they don't support bpf in hardware as
+> currently all cards. Should they do program equivalence testing on the
+> bpf program to check if it conforms some of its offload capabilities and
+> activate those for the port they parsed out of the bpf program? I don't
+> really care about more function pointers in struct net_device_ops
+> because it really doesn't matter but what really concerns me is the huge
+> size of the drivers in the kernel. Just tell the driver specifically
+> what is wanted and let them do that. Don't force them to do program
+> inspection or anything.
+>
+Nobody is forcing anyone to do anything. If someone implements generic
+offload like this it's treated just like any other optional feature of
+a NIC.
 
-Best regards
-Salil
->> +}
->> +
->>   /**
->>    * hns_ppe_checksum_hw - set ppe checksum caculate
->>    * @ppe_device: ppe device
->> @@ -336,6 +341,8 @@ static void hns_ppe_init_hw(struct hns_ppe_cb 
->> *ppe_cb)
->>       hns_ppe_cnt_clr_ce(ppe_cb);
->>
->>       if (!AE_IS_VER1(dsaf_dev->dsaf_ver)) {
->> +        hns_ppe_set_vlan_strip(ppe_cb, 0);
->> +
->>           /* set default RSS key in h/w */
->>           hns_ppe_set_rss_key(ppe_cb, ppe_cb->rss_key);
->>
->> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h 
->> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
->> index 98c163e..6c18ca9 100644
->> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
->> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
->> @@ -318,6 +318,7 @@
->>   #define PPE_CFG_PARSE_TAG_REG            0x94
->>   #define PPE_CFG_PRO_CHECK_EN_REG        0x98
->>   #define PPEV2_CFG_TSO_EN_REG                    0xA0
->> +#define PPEV2_VLAN_STRIP_EN_REG                 0xAC
+> About your argument regarding GRO for every possible protocol:
 >
->    Please indent with tabs, like all the surrounding #define's are 
-> indented (except PPEV2_CFG_TSO_EN_REG).
-Thanks for this. I have changed this in PATCH V7 already floated.
+> Adding GRO for QUIC or SPUD transparently does not work as it breaks the
+> semantics of UDP. UDP is a framed protocol not a streamed one so it does
+> not make sense to add that. You can implement GRO for fragmented UDP,
+> though. The length of the packet is end-to-end information. If you add a
+> new protocol with a new socket type, sure you can add GRO engine
+> transparently for that but not simply peeking data inside UDP if you
+> don't know how the local application uses this data. In case of
+> forwarding you can never do that, it will break the internet actually.
+> In case you are the end host GRO engine can ask the socket what type it
+> is or what framing inside UDP is used. Thus this cannot work on hardware
+> either.
+>
+This is not correct, We already have many instances of GRO being used
+over UDP in several UDP encapsulations, there is no issue with
+breaking UDP semantics. QUIC is a stream based transport like TCP so
+it will fit into the model (granted the fact that this incoming from
+userspace and the per packet security will make it little more
+challenging to implement offload). I don't know if this is needed, but
+I can only assume that server performance in QUIC must be miserable if
+all the I/O is 1350 bytes.
 
-Best Regards
-Salil
->>   #define PPE_INTEN_REG 0x100
->>   #define PPE_RINT_REG                0x104
->>   #define PPE_INTSTS_REG                0x108
+> I am not very happy with the use cases of BPF outside of tracing and
+> cls_bpf and packet steering.
 >
-> MBR, Sergei
+> Please don't propose that we should use BPF as the API for HW
+> programmable offloading currently. It does not make sense.
 >
+If you have an alternative, please propose it now.
+
+> Bye,
+> Hannes
