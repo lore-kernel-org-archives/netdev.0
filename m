@@ -1,37 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: bpf: undefined shift in __bpf_prog_run
-Date: Fri, 04 Dec 2015 16:37:53 -0500 (EST)
-Message-ID: <20151204.163753.594151588498690658.davem@davemloft.net>
-References: <20151204.142651.968075964630586979.davem@davemloft.net>
-	<CACT4Y+Y6vzvHuxk=o5Y_f2qDCGW30cAOCuyCeoLtj28Xh3G1dA@mail.gmail.com>
-	<20151204203522.GB64517@ast-mbp.thefacebook.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: use-after-free in sctp_do_sm
+Date: Fri, 4 Dec 2015 22:38:18 +0100
+Message-ID: <CACT4Y+bbtJvK59DixEHuVHTZ-x0rbrk3PLKQJ=U=-YJ60JS4zA@mail.gmail.com>
+References: <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
+ <fcceeb2a58ce2054cedb091f0e251393b36418ba.1449250981.git.marcelo.leitner@gmail.com>
+ <CACT4Y+b66FHbFyERm804RDWh9oPC==K43TgDJfs52cQG1MDjcg@mail.gmail.com> <20151204213428.GH4164@mrl.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, ast@kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, syzkaller@googlegroups.com,
-	kcc@google.com, glider@google.com, sasha.levin@oracle.com,
-	edumazet@google.com, ryabinin.a.a@gmail.com
-To: alexei.starovoitov@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151204203522.GB64517@ast-mbp.thefacebook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	linux-sctp@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:38624 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754845AbbLDVij (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 16:38:39 -0500
+Received: by wmec201 with SMTP id c201so81902548wme.1
+        for <netdev@vger.kernel.org>; Fri, 04 Dec 2015 13:38:38 -0800 (PST)
+In-Reply-To: <20151204213428.GH4164@mrl.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Date: Fri, 4 Dec 2015 12:35:23 -0800
+On Fri, Dec 4, 2015 at 10:34 PM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> On Fri, Dec 04, 2015 at 09:25:35PM +0100, Dmitry Vyukov wrote:
+>> On Fri, Dec 4, 2015 at 6:48 PM, Marcelo Ricardo Leitner
+>> <marcelo.leitner@gmail.com> wrote:
+>> > Hi Dmitry,
+>> >
+>> > Can you please test this patch?
+>> > I'll re-post with proper subject if it works.
+>>
+>> Still happening with the same stacks.
+>
+> Then there may be another one, I'm afraid.
+>
+> I'm using the testapp you shared in the first email, with that debug line
+> enabled and added a new one:
+> +       pr_debug("%p %d\n", asoc, asoc ? asoc->state : 0);
+>         debug_post_sfx();
+> (should have used %x, but ok)
+>
+> Also enabled slub_debug=PUZ, and I get:
+>
+> without the patch:
+> [   87.873640] sctp: ffff8800b71533d8 1
+> [   87.873647] sctp: sctp_do_sm[post-sfx]: error:0,
+> asoc:ffff8800b71533d8[STATE_CLOSED]
+> [   87.873739] sctp: ffff8800b71533d8 1
+> [   87.873742] sctp: sctp_do_sm[post-sfx]: error:0,
+> asoc:ffff8800b71533d8[STATE_CLOSED]
+> [   87.875149] sctp: ffff8800b71533d8 1802201963
+> [   87.875238] sctp: sctp_do_sm[post-sfx]: error:0,
+> asoc:ffff8800b71533d8[STATE_CLOSED]
+>
+> 1802201963 = 0x6b6b6b6b, poison
+>
+> with the patch:
+> [   81.071265] sctp: ffff880137571148 1
+> [   81.071273] sctp: sctp_do_sm[post-sfx]: error:0,
+> asoc:ffff880137571148[STATE_CLOSED]
+> [   81.071372] sctp: ffff880137571148 1
+> [   81.071375] sctp: sctp_do_sm[post-sfx]: error:0,
+> asoc:ffff880137571148[STATE_CLOSED]
+> [   81.072423] sctp:           (null) 0
+> [   81.072427] sctp: sctp_do_sm[post-sfx]: error:0, asoc:
+> (null)[STATE_CLOSED]
+>
+> This one, at least, is gone with this patch.
 
-> On Fri, Dec 04, 2015 at 08:48:57PM +0100, Dmitry Vyukov wrote:
->> 
->> For example, a compiler can assume that result of left shift is larger
->> or equal to first operand, which in turn can allow it to elide some
->> bounds check in code, which in turn can lead to an exploit. I am not
->> saying that this particular pattern is present in the code, what I
->> want to say is that such undefined behaviors can lead to very
->> unpredictable and unexpected consequences.
-> 
-> Within bpf it cannot.
-> shift is not used in any memory or bounds operations.
-> so reg <<= 1234 cannot be exploited.
 
-+1
+I will try to extract reproducer next week.
