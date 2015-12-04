@@ -1,138 +1,128 @@
-From: Stefan Priebe <s.priebe@profihost.ag>
-Subject: Re: Asterisk deadlocks since Kernel 4.1
-Date: Fri, 4 Dec 2015 19:26:12 +0100
-Message-ID: <5661DAC4.8040909@profihost.ag>
-References: <564B3D35.50004@profihost.ag>
- <alpine.DEB.2.11.1511171936030.3761@nanos> <564B7F9D.5060701@profihost.ag>
- <alpine.DEB.2.11.1511172041480.3761@nanos> <564CDE2F.8000201@profihost.ag>
- <564CEB0C.40006@redhat.com> <564CEF5D.3080005@profihost.ag>
- <564D9A17.6080305@redhat.com> <564D9B21.302@profihost.ag>
- <564D9CE6.2090104@profihost.ag>
- <1447933294.1974772.444210441.67F1AC5E@webmail.messagingengine.com>
- <564DB5F5.9060208@profihost.ag>
- <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com>
- <564DC4A5.70104@profihost.ag> <564DCC4C.1090009@redhat.com>
- <564E2852.8000200@profihost.ag> <56530A42.6030609@profihost.ag>
- <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com>
- <565EBDC1.1090808@profihost.ag> <8737vlt6xb.fsf@stressinduktion.org>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: Re: [PATCH V6 net-next 5/5] net:hns: Add the init code to disable
+ Hip06 "Hardware VLAN assist"
+Date: Fri, 4 Dec 2015 18:18:38 +0000
+Message-ID: <5661D8FE.2010909@huawei.com>
+References: <1449075171-4820-1-git-send-email-salil.mehta@huawei.com> <1449075171-4820-6-git-send-email-salil.mehta@huawei.com> <565F4AB0.5020100@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Weimer <fweimer@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8737vlt6xb.fsf@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	<davem@davemloft.net>, <robh+dt@kernel.org>, <pawel.moll@arm.com>,
+	<mark.rutland@arm.com>, <paul.gortmaker@windriver.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<catalin.marinas@arm.com>, <will.deacon@arm.com>, <arnd@arndb.de>,
+	<liguozhu@hisilicon.com>, <yisen.zhuang@huawei.com>,
+	<dingtianhong@huawei.com>, <zhangfei.gao@linaro.org>,
+	<huangdaode@hisilicon.com>, <kenneth-lee-2012@foxmail.com>,
+	<mehta.salil.lnk@gmail.com>, <xuwei5@hisilicon.com>,
+	<lisheng011@huawei.com>, <devicetree@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<linuxarm@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:37845 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753977AbbLDS0N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 13:26:13 -0500
+In-Reply-To: <565F4AB0.5020100@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-I got it fixed / at least not live / deadlocking by doing applying the 
-following patch - which is the diff of the commits below on top of 4.1.13.
-
-patch:
-http://pastebin.com/raw.php?i=hiuq4bsW
-
-all commits / changes in reverse order:
-
-* 0ceb380 - (6 weeks ago) netlink: fix locking around 
-NETLINK_LIST_MEMBERSHIPS - David Herrmann (HEAD)
-* c3f272b - (7 weeks ago) netlink: Trim skb to alloc size to avoid 
-MSG_TRUNC - Arad, Ronen
-* 9f87e0c - (2 months ago) netlink: Replace rhash_portid with bound - 
-Herbert Xu
-* 35e9890 - (3 months ago) netlink: Fix autobind race condition that 
-leads to zero port ID - Herbert Xu
-* f1d1215 - (3 months ago) netlink, mmap: transform mmap skb into full 
-skb on taps - Daniel Borkmann
-* faad871 - (3 months ago) netlink, mmap: fix edge-case leakages in nf 
-queue zero-copy - Daniel Borkmann
-* fb18c94 - (3 months ago) netlink, mmap: don't walk rx ring on poll if 
-receive queue non-empty - Daniel Borkmann
-* da13789 - (3 months ago) netlink: rx mmap: fix POLLIN condition - 
-Ken-ichirou MATSUZAWA
-* 808071f - (3 months ago) netlink: mmap: fix lookup frame position - 
-Ken-ichirou MATSUZAWA
-* 589bfd5 - (3 months ago) netlink: add NETLINK_CAP_ACK socket option - 
-Christophe Ricard
-* d23c4eb - (4 months ago) netlink: mmap: fix tx type check - 
-Ken-ichirou MATSUZAWA
-* 5dcc50a - (4 months ago) netlink: make sure -EBUSY won't escape from 
-netlink_insert - Daniel Borkmann
-* ada2b3e - (5 months ago) netlink: don't hold mutex in rcu callback 
-when releasing mmapd ring - Florian Westphal
-* e0f54a3 - (5 months ago) netlink: Delete an unnecessary check before 
-the function call "module_put" - Markus Elfring
-* 0a5bdaf - (6 months ago) netlink: add API to retrieve all group 
-memberships - David Herrmann
-* 30c6472 - (7 months ago) netlink: Use random autobind rover - Herbert Xu
-* 021a670 - (7 months ago) netlink: Create kernel netlink sockets in the 
-proper network namespace - Eric W. Biederman
-* e1b01b4 - (7 months ago) net: Pass kern from net_proto_family.create 
-to sk_alloc - Eric W. Biederman
-* dd4b3c9 - (7 months ago) netlink: rename private flags and states - 
-Nicolas Dichtel
-* 0356126 - (2 days ago) Revert "netlink: don't hold mutex in rcu 
-callback when releasing mmapd ring" - Stefan Priebe
-* 231d0da - (2 days ago) Revert "netlink: make sure -EBUSY won't escape 
-from netlink_insert" - Stefan Priebe
-* e0f56af1 - (2 days ago) Revert "netlink, mmap: transform mmap skb into 
-full skb on taps" - Stefan Priebe
-* 23a0326 - (2 days ago) Revert "netlink: Fix autobind race condition 
-that leads to zero port ID" - Stefan Priebe
-* 97f4677 - (2 days ago) Revert "netlink: Replace rhash_portid with 
-bound" - Stefan Priebe
-* 40c851fe - (2 days ago) Revert "netlink: Trim skb to alloc size to 
-avoid MSG_TRUNC" - Stefan Priebe
-* 1f2ce4a - (4 weeks ago) Linux 4.1.13 - Greg Kroah-Hartman (v4.1.13, 
-origin/linux-4.1.y)
-
-So the netlink code is in line with 4.3.
-
-Stefan
-
-Am 02.12.2015 um 12:40 schrieb Hannes Frederic Sowa:
-> Hello Stefan,
+On 12/2/2015 7:46 PM, Sergei Shtylyov wrote:
+> Hello.
 >
-> Stefan Priebe - Profihost AG <s.priebe@profihost.ag> writes:
+> On 12/02/2015 07:52 PM, Salil Mehta wrote:
 >
->
->> here are the results.
+>> This patch adds the initializzation code to disable the hardware
+>> vlan support for VLAN Tag stripping by default for now.
 >>
->> It works with 4.1.
->> It works with 4.2.
->> It does not work with 4.1.13.
+>> Proper support of "hardware VLAN assitance" feature would
+>> soon come in the next coming patches.
 >>
->> git bisect tells me it stopped working after those two commits were applied:
+>> Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+>> ---
 >>
->> commit d48623677191e0f035d7afd344f92cf880b01f8e
->> Author: Herbert Xu <herbert@gondor.apana.org.au>
->> Date:   Tue Sep 22 11:38:56 2015 +0800
+>> PATCH V6:
+>> - No change over the earlier patch
 >>
->>      netlink: Replace rhash_portid with bound
+>> PATCH V5:
+>> - Minor merge/reject change resolved to application of previous patch
 >>
->> commit 4e27762417669cb459971635be550eb7b5598286
->> Author: Herbert Xu <herbert@gondor.apana.org.au>
->> Date:   Fri Sep 18 19:16:50 2015 +0800
+>> PATCH V4/V3/V2:
+>> - No change over the initial floated patch
 >>
->>      netlink: Fix autobind race condition that leads to zero port ID
+>> PATCH V1:
+>> - Initial code to disable the hardware VLAN assist for now
+>> ---
+>>   drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c |    7 +++++++
+>>   drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h |    1 +
+>>   2 files changed, 8 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c 
+>> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+>> index b5e4c44..f302ef9 100644
+>> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+>> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+>> @@ -176,6 +176,11 @@ static void hns_ppe_cnt_clr_ce(struct hns_ppe_cb 
+>> *ppe_cb)
+>>                PPE_CNT_CLR_CE_B, 1);
+>>   }
+>>
+>> +static void hns_ppe_set_vlan_strip(struct hns_ppe_cb *ppe_cb, int en)
+>> +{
+>> +    dsaf_write_dev(ppe_cb, PPEV2_VLAN_STRIP_EN_REG, en);
 >
-> Cool, thanks a lot. Does this patch make a difference?
+>    Why not call it directly?
+Hi Sergei,
+The wrapper API abstraction has been put intentionally. The reason is 
+the same code
+is suppose to run across different SoCs so it is always clean approach 
+to hide it so
+that even if there are differences in the way we access or configure 
+hardware
+in other SoCs basic interface of the SET API remains same!!
+Therefore, we are in favour of keeping the above wrapper and therefore not
+changing now.
+
+Best regards
+Salil
+>> +}
+>> +
+>>   /**
+>>    * hns_ppe_checksum_hw - set ppe checksum caculate
+>>    * @ppe_device: ppe device
+>> @@ -336,6 +341,8 @@ static void hns_ppe_init_hw(struct hns_ppe_cb 
+>> *ppe_cb)
+>>       hns_ppe_cnt_clr_ce(ppe_cb);
+>>
+>>       if (!AE_IS_VER1(dsaf_dev->dsaf_ver)) {
+>> +        hns_ppe_set_vlan_strip(ppe_cb, 0);
+>> +
+>>           /* set default RSS key in h/w */
+>>           hns_ppe_set_rss_key(ppe_cb, ppe_cb->rss_key);
+>>
+>> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h 
+>> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+>> index 98c163e..6c18ca9 100644
+>> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+>> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+>> @@ -318,6 +318,7 @@
+>>   #define PPE_CFG_PARSE_TAG_REG            0x94
+>>   #define PPE_CFG_PRO_CHECK_EN_REG        0x98
+>>   #define PPEV2_CFG_TSO_EN_REG                    0xA0
+>> +#define PPEV2_VLAN_STRIP_EN_REG                 0xAC
 >
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 59651af..278e94c 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -1137,7 +1137,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
+>    Please indent with tabs, like all the surrounding #define's are 
+> indented (except PPEV2_CFG_TSO_EN_REG).
+Thanks for this. I have changed this in PATCH V7 already floated.
+
+Best Regards
+Salil
+>>   #define PPE_INTEN_REG 0x100
+>>   #define PPE_RINT_REG                0x104
+>>   #define PPE_INTSTS_REG                0x108
 >
->   	/* We need to ensure that the socket is hashed and visible. */
->   	smp_wmb();
-> -	nlk_sk(sk)->bound = portid;
-> +	nlk_sk(sk)->bound = true;
->
->   err:
->   	release_sock(sk);
+> MBR, Sergei
 >
