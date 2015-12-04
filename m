@@ -1,119 +1,96 @@
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
-Subject: [RFC PATCH v2 1/4] geneve: Add geneve udp port offload for ethernet devices
-Date: Fri,  4 Dec 2015 00:19:01 -0800
-Message-ID: <1449217144-18756-2-git-send-email-anjali.singhai@intel.com>
+Subject: [RFC PATCH v2 4/4] geneve: Add geneve_get_rx_port support
+Date: Fri,  4 Dec 2015 00:19:04 -0800
+Message-ID: <1449217144-18756-5-git-send-email-anjali.singhai@intel.com>
 References: <1449217144-18756-1-git-send-email-anjali.singhai@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Kiran Patil <kiran.patil@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:45409 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755003AbbLDIBw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Dec 2015 03:01:52 -0500
+	id S1755334AbbLDIBx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Dec 2015 03:01:53 -0500
 In-Reply-To: <1449217144-18756-1-git-send-email-anjali.singhai@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add ndo_ops to add/del UDP ports to a device that supports geneve
-offload.
+This patch adds an op that the drivers can call into to get existing
+geneve ports.
 
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Signed-off-by: Kiran Patil <kiran.patil@intel.com>
 ---
- drivers/net/geneve.c      | 23 +++++++++++++++++++++++
- include/linux/netdevice.h | 20 +++++++++++++++++++-
- 2 files changed, 42 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c |  3 +++
+ drivers/net/geneve.c                        | 24 ++++++++++++++++++++++++
+ include/net/geneve.h                        |  8 ++++++++
+ 3 files changed, 35 insertions(+)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index ea7e6ac..a55493b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5300,6 +5300,9 @@ int i40e_open(struct net_device *netdev)
+ #ifdef CONFIG_I40E_VXLAN
+ 	vxlan_get_rx_port(netdev);
+ #endif
++#ifdef CONFIG_I40E_GENEVE
++	geneve_get_rx_port(netdev);
++#endif
+ 
+ 	return 0;
+ }
 diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index de5c30c..b43fd56 100644
+index b43fd56..bcf2be0 100644
 --- a/drivers/net/geneve.c
 +++ b/drivers/net/geneve.c
-@@ -371,8 +371,11 @@ static struct socket *geneve_create_sock(struct net *net, bool ipv6,
+@@ -1090,6 +1090,30 @@ static struct device_type geneve_type = {
+ 	.name = "geneve",
+ };
  
- static void geneve_notify_add_rx_port(struct geneve_sock *gs)
- {
-+	struct net_device *dev;
- 	struct sock *sk = gs->sock->sk;
-+	struct net *net = sock_net(sk);
- 	sa_family_t sa_family = sk->sk_family;
-+	__be16 port = inet_sk(sk)->inet_sport;
- 	int err;
- 
- 	if (sa_family == AF_INET) {
-@@ -381,6 +384,14 @@ static void geneve_notify_add_rx_port(struct geneve_sock *gs)
- 			pr_warn("geneve: udp_add_offload failed with status %d\n",
- 				err);
- 	}
++/* Calls the ndo_add_geneve_port of the caller in order to
++ * supply the listening GENEVE udp ports. Callers are expected
++ * to implement the ndo_add_geneve_port.
++ */
++void geneve_get_rx_port(struct net_device *dev)
++{
++	struct net *net = dev_net(dev);
++	struct geneve_net *gn = net_generic(net, geneve_net_id);
++	struct geneve_sock *gs;
++	sa_family_t sa_family;
++	struct sock *sk;
++	__be16 port;
 +
 +	rcu_read_lock();
-+	for_each_netdev_rcu(net, dev) {
-+		if (dev->netdev_ops->ndo_add_geneve_port)
-+			dev->netdev_ops->ndo_add_geneve_port(dev, sa_family,
-+							     port);
++	list_for_each_entry_rcu(gs, &gn->sock_list, list) {
++		sk = gs->sock->sk;
++		sa_family = sk->sk_family;
++		port = inet_sk(sk)->inet_sport;
++		dev->netdev_ops->ndo_add_geneve_port(dev, sa_family, port);
 +	}
 +	rcu_read_unlock();
- }
- 
- static int geneve_hlen(struct genevehdr *gh)
-@@ -521,8 +532,20 @@ static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
- 
- static void geneve_notify_del_rx_port(struct geneve_sock *gs)
++}
++EXPORT_SYMBOL_GPL(geneve_get_rx_port);
++
+ /* Initialize the device structure. */
+ static void geneve_setup(struct net_device *dev)
  {
-+	struct net_device *dev;
- 	struct sock *sk = gs->sock->sk;
-+	struct net *net = sock_net(sk);
- 	sa_family_t sa_family = sk->sk_family;
-+	__be16 port = inet_sk(sk)->inet_sport;
-+
-+	rcu_read_lock();
-+	for_each_netdev_rcu(net, dev) {
-+		if (dev->netdev_ops->ndo_del_geneve_port)
-+			dev->netdev_ops->ndo_del_geneve_port(dev, sa_family,
-+							     port);
-+	}
-+
-+	rcu_read_unlock();
+diff --git a/include/net/geneve.h b/include/net/geneve.h
+index 3106ed6..e6c23dc 100644
+--- a/include/net/geneve.h
++++ b/include/net/geneve.h
+@@ -62,6 +62,14 @@ struct genevehdr {
+ 	struct geneve_opt options[];
+ };
  
- 	if (sa_family == AF_INET)
- 		udp_del_offload(&gs->udp_offloads);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index fa84b59..4b395a4 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1013,6 +1013,19 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  *	a new port starts listening. The operation is protected by the
-  *	vxlan_net->sock_lock.
-  *
-+ * void (*ndo_add_geneve_port)(struct net_device *dev,
-+ *			      sa_family_t sa_family, __be16 port);
-+ *	Called by geneve to notiy a driver about the UDP port and socket
-+ *	address family that geneve is listnening to. It is called only when
-+ *	a new port starts listening. The operation is protected by the
-+ *	geneve_net->sock_lock.
-+ *
-+ * void (*ndo_del_geneve_port)(struct net_device *dev,
-+ *			      sa_family_t sa_family, __be16 port);
-+ *	Called by geneve to notify the driver about a UDP port and socket
-+ *	address family that geneve is not listening to anymore. The operation
-+ *	is protected by the geneve_net->sock_lock.
-+ *
-  * void (*ndo_del_vxlan_port)(struct  net_device *dev,
-  *			      sa_family_t sa_family, __be16 port);
-  *	Called by vxlan to notify the driver about a UDP port and socket
-@@ -1217,7 +1230,12 @@ struct net_device_ops {
- 	void			(*ndo_del_vxlan_port)(struct  net_device *dev,
- 						      sa_family_t sa_family,
- 						      __be16 port);
--
-+	void			(*ndo_add_geneve_port)(struct  net_device *dev,
-+						       sa_family_t sa_family,
-+						       __be16 port);
-+	void			(*ndo_del_geneve_port)(struct  net_device *dev,
-+						       sa_family_t sa_family,
-+						       __be16 port);
- 	void*			(*ndo_dfwd_add_station)(struct net_device *pdev,
- 							struct net_device *dev);
- 	void			(*ndo_dfwd_del_station)(struct net_device *pdev,
++#if IS_ENABLED(CONFIG_GENEVE)
++void geneve_get_rx_port(struct net_device *netdev);
++#else
++static inline void geneve_get_rx_port(struct net_device *netdev)
++{
++}
++#endif
++
+ #ifdef CONFIG_INET
+ struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
+ 					u8 name_assign_type, u16 dst_port);
 -- 
 1.8.1.4
