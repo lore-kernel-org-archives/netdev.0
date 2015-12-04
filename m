@@ -1,50 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Fri, 04 Dec 2015 15:06:33 -0500 (EST)
-Message-ID: <20151204.150633.1744714566987717806.davem@davemloft.net>
-References: <1449158374.11080.456996721.69F803D7@webmail.messagingengine.com>
-	<CALx6S342OMLB6s7LcmnZP1rnYNUs345Dy1gjYX3JUKqqB_waPA@mail.gmail.com>
-	<1449259145.6236.458303617.55CF2C4E@webmail.messagingengine.com>
+Subject: Re: [net-next v5 2/8] dpaa_eth: add support for DPAA Ethernet
+Date: Fri, 04 Dec 2015 15:08:17 -0500 (EST)
+Message-ID: <20151204.150817.532736454345962933.davem@davemloft.net>
+References: <1449150589-26253-3-git-send-email-madalin.bucur@freescale.com>
+	<20151204.145549.859527220803940077.davem@davemloft.net>
+	<1449259235.8611.19.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, linville@tuxdriver.com, jesse@kernel.org,
-	anjali.singhai@intel.com, netdev@vger.kernel.org,
-	kiran.patil@intel.com
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42561 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753792AbbLDUGf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 15:06:35 -0500
-In-Reply-To: <1449259145.6236.458303617.55CF2C4E@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: madalin.bucur@freescale.com, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+	scottwood@freescale.com, igal.liberman@freescale.com,
+	ppc@mindchasers.com, pebolle@tiscali.nl,
+	joakim.tjernlund@transmode.se, gregkh@linuxfoundation.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449259235.8611.19.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 04 Dec 2015 20:59:05 +0100
+=46rom: Joe Perches <joe@perches.com>
+Date: Fri, 04 Dec 2015 12:00:35 -0800
 
-> Yes, I agree, I am totally with you here. If generic offloading can be
-> realized by NICs I am totally with you that this should be the way to
-> go. I don't see that coming in the next (small number of) years, so I
-> don't see a reason to stop this patchset.
+> On Fri, 2015-12-04 at 14:55 -0500, David Miller wrote:
+>> From: Madalin Bucur <madalin.bucur@freescale.com>
+>> Date: Thu, 3 Dec 2015 15:49:43 +0200
+>>=20
+>> > @@ -0,0 +1,22 @@
+>> > +menuconfig FSL_DPAA_ETH
+>> > +=A0=A0=A0=A0=A0tristate "DPAA Ethernet"
+>> > +=A0=A0=A0=A0=A0depends on FSL_SOC && FSL_BMAN && FSL_QMAN && FSL_=
+=46MAN
+>> > +=A0=A0=A0=A0=A0select PHYLIB
+>> > +=A0=A0=A0=A0=A0select FSL_FMAN_MAC
+>>=20
+>> I do not see the FSL_FMAN_MAC Kconfig symbol defined anywhere in the
+>> tree.
+>=20
+> I believe this patch series is dependent on two
+> other patch series mentioned in the cover letter.
 
-If I just apply this and say "yeah ok", the message is completely lost
-and your prediction about "small number of years" indeed will occur.
+Then this shouldn't have been submitted.
 
-However if I push back hard on this, as I will, then the message has
-some chance of seeping back to the people designing these chips.
+The dependent series has been through a lot of changes and still needs
+lots of work, and is very far from being applied.
 
-So that's what I'm going to do, like it or not.
+Posting patches depending upon it is therefore wholly inapproprate.
+That time and effort should be spent putting the dependent series
+into proper shape.
 
-Or can someone convince me that someone who understand this stuff
-is telling the hardware guys to universally put 2's complement
-checksums into the descriptors?
+Since I see what is happening here, I am going to simply ignore all
+future submissions of dpaa_eth, until the dependencies are worked
+out properly so don't bother posting this stuff again until that
+happens.
 
-Who is doing that at each and every prominent ethernet hardware
-verndor?
-
-Who?
-
-If I get silence, or some vague non-specific response, then I'm going
-to hold my ground and keep pushing back on this stuff.
+Thanks.
