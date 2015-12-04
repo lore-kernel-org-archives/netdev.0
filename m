@@ -1,90 +1,68 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: use-after-free in sctp_do_sm
-Date: Fri, 4 Dec 2015 17:12:11 +0100
-Message-ID: <CACT4Y+btkVJBtXkp0QAJhdoK_5TeVJ97GU_wOrMsPNG3E98vaQ@mail.gmail.com>
-References: <CACT4Y+ZnWRZfQC25uW=GXHAJB=GX0L6tJQUy43P6WNR3=hwT8Q@mail.gmail.com>
- <20151203130525.GB4164@mrl.redhat.com> <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
- <CANn89iKEv-q6EFi1eX+Hk_2+jNfZ0ayUqUn_Fh1U7RTs9xjdXg@mail.gmail.com>
- <CACT4Y+bgeqS05zqkAHkxzAP7fuvFSkeEybwDTizw6Gp8KK28Fw@mail.gmail.com>
- <CANn89i+d=mTJ-hAhhgPXsZPGAkQdECxRdbkeRLfozRq8i9Ms+g@mail.gmail.com>
- <CACT4Y+YJe-OJj9q1Kr5-_ApDt1UBKLjTRxhP62EHtEAwZt5vXw@mail.gmail.com>
- <f7twpsvgyar.fsf@aconole.bos.csb> <566098BD.6010803@akamai.com>
- <1449172984.12092.0.camel@perches.com> <5660A1A7.3080301@akamai.com>
- <1449174246.12092.8.camel@perches.com> <5660A951.4000808@akamai.com> <1449175884.17296.2.camel@perches.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH 1/5] stmmac: create of compatible mdio bus for stmacc
+ driver
+Date: Fri, 4 Dec 2015 10:16:14 -0600
+Message-ID: <20151204161614.GA8791@rob-hp-laptop>
+References: <1449220125-67417-1-git-send-email-preid@electromag.com.au>
+ <1449220125-67417-2-git-send-email-preid@electromag.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jason Baron <jbaron@akamai.com>, Aaron Conole <aconole@redhat.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449175884.17296.2.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	davem@davemloft.net
+To: Phil Reid <preid@electromag.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:56161 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753494AbbLDQQT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Dec 2015 11:16:19 -0500
+Content-Disposition: inline
+In-Reply-To: <1449220125-67417-2-git-send-email-preid@electromag.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 3, 2015 at 9:51 PM, Joe Perches <joe@perches.com> wrote:
-> (adding lkml as this is likely better discussed there)
->
-> On Thu, 2015-12-03 at 15:42 -0500, Jason Baron wrote:
->> On 12/03/2015 03:24 PM, Joe Perches wrote:
->> > On Thu, 2015-12-03 at 15:10 -0500, Jason Baron wrote:
->> > > On 12/03/2015 03:03 PM, Joe Perches wrote:
->> > > > On Thu, 2015-12-03 at 14:32 -0500, Jason Baron wrote:
->> > > > > On 12/03/2015 01:52 PM, Aaron Conole wrote:
->> > > > > > I think that as a minimum, the following patch should be evaluted,
->> > > > > > but am unsure to whom I should submit it (after I test):
->> > > > []
->> > > > > Agreed - the intention here is certainly to have no side effects. It
->> > > > > looks like 'no_printk()' is used in quite a few other places that would
->> > > > > benefit from this change. So we probably want a generic
->> > > > > 'really_no_printk()' macro.
->> > > >
->> > > > https://lkml.org/lkml/2012/6/17/231
->> > >
->> > > I don't see this in the tree.
->> >
->> > It never got applied.
->> >
->> > > Also maybe we should just convert
->> > > no_printk() to do what your 'eliminated_printk()'.
->> >
->> > Some of them at least.
->> >
->> > > So we can convert all users with this change?
->> >
->> > I don't think so, I think there are some
->> > function evaluation/side effects that are
->> > required.  I believe some do hardware I/O.
->> >
->> > It'd be good to at least isolate them.
->> >
->> > I'm not sure how to find them via some
->> > automated tool/mechanism though.
->> >
->> > I asked Julia Lawall about it once in this
->> > thread:  https://lkml.org/lkml/2014/12/3/696
->> >
->>
->> Seems rather fragile to have side effects that we rely
->> upon hidden in a printk().
->
-> Yup.
->
->> Just convert them and see what breaks :)
->
-> I appreciate your optimism.  It's very 1995.
-> Try it and see what happens.
+On Fri, Dec 04, 2015 at 05:08:41PM +0800, Phil Reid wrote:
+> The DSA driver needs to be passed a reference to an mdio bus. Typically
+> the mac is configured to use a fixed link but the mdio bus still needs
+> to be registered so that it con configure the switch.
+> This patch follows the same process as the altera tse ethernet driver for
+> creation of the mdio bus.
+> 
+> Signed-off-by: Phil Reid <preid@electromag.com.au>
+> ---
+>  Documentation/devicetree/bindings/net/stmmac.txt   | 10 ++++++-
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  | 32 ++++++++++++++++------
+>  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  2 +-
+>  3 files changed, 34 insertions(+), 10 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+> index f34fc3c..0056c4c 100644
+> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> @@ -47,7 +47,8 @@ Optional properties:
+>  - snps,burst_len: The AXI burst lenth value of the AXI BUS MODE register.
+>  - tx-fifo-depth: See ethernet.txt file in the same directory
+>  - rx-fifo-depth: See ethernet.txt file in the same directory
+> -
+> +- mdio: with compatible = "snps,dwmac-mdio", create and register mdio bus.
+> +  
+>  Examples:
+>  
+>  	gmac0: ethernet@e0800000 {
+> @@ -65,4 +66,11 @@ Examples:
+>  		tx-fifo-depth = <16384>;
+>  		clocks = <&clock>;
+>  		clock-names = "stmmaceth";
+> +		mdio0: mdio@0 {
+
+Don't need a unit address here. Otherwise, for the binding:
+
+Acked-by: Rob Herring <robh@kernel.org>
 
 
-But Aaron says that DYNAMIC_DEBUG is enabled in most major
-distributions, and all these side-effects don't happen with
-DYNAMIC_DEBUG. This suggests that we can make these side-effects not
-happen without DYNAMIC_DEBUG as well.
-Or I am missing something here?
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +			compatible = "snps,dwmac-mdio";
+> +			phy1: ethernet-phy@0 {
+> +			};
+> +		};    
+>  	};
