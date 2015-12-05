@@ -1,91 +1,105 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Sat, 5 Dec 2015 00:24:55 -0800
-Message-ID: <CAKgT0Uc1bJRrzpLUdr3vOFkYZbcqP=J8wgOz1feF+u04aNBg1g@mail.gmail.com>
-References: <CAKgT0UepW=VehhXncrAM=tvqrVDD_KOdVJBpwEU+hYTAdMz_dg@mail.gmail.com>
-	<CALx6S36Y4fP9a6U40My+kuhik5THPOjHNYfRrVe8Szte03K7Ew@mail.gmail.com>
-	<566279E5.9070500@gmail.com>
-	<20151205.014909.1572453190886968569.davem@davemloft.net>
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: Re: [PATCH net-next] ravb: ptp: Add CONFIG mode support
+Date: Sat, 5 Dec 2015 19:01:40 +0900
+Message-ID: <CAH1o70+n7m+4rmVvTbi9VNBknzV9s_04dsADhJ4RSkuC07ti7A@mail.gmail.com>
+References: <1448989479-11594-1-git-send-email-ykaneko0929@gmail.com>
+	<5660AF89.1010008@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <tom@herbertland.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	John Linville <linville@tuxdriver.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Kiran Patil <kiran.patil@intel.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:37439 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752892AbbLEIY4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 03:24:56 -0500
-Received: by igcto18 with SMTP id to18so51725042igc.0
-        for <netdev@vger.kernel.org>; Sat, 05 Dec 2015 00:24:56 -0800 (PST)
-In-Reply-To: <20151205.014909.1572453190886968569.davem@davemloft.net>
+Received: from mail-yk0-f180.google.com ([209.85.160.180]:36360 "EHLO
+	mail-yk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753110AbbLEKBl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 05:01:41 -0500
+In-Reply-To: <5660AF89.1010008@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 4, 2015 at 10:49 PM, David Miller <davem@davemloft.net> wrote:
-> From: Alexander Duyck <alexander.duyck@gmail.com>
-> Date: Fri, 4 Dec 2015 21:45:09 -0800
+Hello Sergei,
+
+Thanks for your review.
+
+2015-12-04 6:09 GMT+09:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
+> Hello.
 >
->> Not having this feature has to in some way impact sales.
+> On 12/01/2015 08:04 PM, Yoshihiro Kaneko wrote:
 >
-> I'm glad money trumps clean design and performance these days.
+>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>
+>> This patch makes PTP support active in CONFIG mode on R-Car Gen3.
+>>
+>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+>> ---
+>>
+>> This patch is based on the master branch of David Miller's next networking
+>> tree.
+>>
+>>   drivers/net/ethernet/renesas/ravb.h      |  1 +
+>>   drivers/net/ethernet/renesas/ravb_main.c | 33
+>> +++++++++++++++++++++++++++-----
+>>   2 files changed, 29 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/renesas/ravb.h
+>> b/drivers/net/ethernet/renesas/ravb.h
+>> index f9dee74..9fbe92a 100644
+>> --- a/drivers/net/ethernet/renesas/ravb.h
+>> +++ b/drivers/net/ethernet/renesas/ravb.h
+>> @@ -206,6 +206,7 @@ enum CCC_BIT {
+>>         CCC_OPC_RESET   = 0x00000000,
+>>         CCC_OPC_CONFIG  = 0x00000001,
+>>         CCC_OPC_OPERATION = 0x00000002,
+>> +       CCC_GAC         = 0x00000080,
 >
-> Would they ship a literal turd until some customer asked for
-> something better?  You have to be kidding me.
+>
+>    I'd have added a comment that it's gen3 specific.
+>
+> [...]
+>>
+>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
+>> b/drivers/net/ethernet/renesas/ravb_main.c
+>> index 990dc55..293046d 100644
+>> --- a/drivers/net/ethernet/renesas/ravb_main.c
+>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+>
+> [...]
+>>
+>> @@ -1814,6 +1825,10 @@ static int ravb_probe(struct platform_device *pdev)
+>>         /* Initialise HW timestamp list */
+>>         INIT_LIST_HEAD(&priv->ts_skb_list);
+>>
+>> +       /* Initialise PTP Clock driver */
+>> +       if (chip_id != RCAR_GEN2)
+>> +               ravb_ptp_init(ndev, pdev);
+>> +
+>>         /* Debug message level */
+>>         priv->msg_enable = RAVB_DEF_MSG_ENABLE;
+>>
+>> @@ -1855,6 +1870,10 @@ out_napi_del:
+>>   out_dma_free:
+>>         dma_free_coherent(ndev->dev.parent, priv->desc_bat_size,
+>> priv->desc_bat,
+>>                           priv->desc_bat_dma);
+>> +
+>> +       /* Stop PTP Clock driver */
+>> +       if (chip_id != RCAR_GEN2)
+>> +               ravb_ptp_stop(ndev);
+>
+>
+>    This is clearly misplaced.
 
-You think they wouldn't?  It all comes down to the bottom line.
+It's my fault.
 
-Also, do you really think not having support for CHECKSUM_COMPLETE
-makes the part a complete turd?  That hasn't stopped anyone from
-buying many of the NICs out there that are using the port based
-approach for VXLAN up to now.  Really what we are arguing about here
-is a "nice to have feature" not something that will make or break a
-sale for most people.  It was implemented just well enough to be able
-to show gains on marketing data but there are enough corner cases
-where the feature won't do much of anything since there is always some
-upper limit on the number of ports supported.
+>
+> [...]
+>
+> MBR, Sergei
+>
 
-> If it's true, then what a sad world we live in.
-
-That is the nature of business.  If there is isn't any significant
-impact on the bottom line most companies won't be pushed to take
-action.
-
-> And part of this is bogus, the circuit is already there and
-> implemented already.  The missing part is putting the value computed
-> by that circuit into the receive descriptor.
-
-Yes, but that part doesn't complete the whole piece.  As I stated in
-my other email it is still a bit of effort to complete something like
-this.
-
-> And furthermore, nobody is going to drop to BSD or DPDK for VXLAN
-> tunnels just because I push back hard on this facility.
-
-I agree, that was a bit of hyperbole on my part.  Still, hard blocking
-this isn't necessarily going to push the vendors to change their ways.
-It just ends up punishing the customers who already own the devices.
-You may think the port based approach for the UDP tunnel offloads is a
-"literal turd" but the fact is no amount of software changes is going
-to do anything to fundamentally change how the hardware was designed,
-and like I said there is likely more of that to come.
-
-Keep in mind I don't represent one of the hardware vendors here
-anymore.  I am approaching this from the customer point of view.  I
-would like to have the performance I can get out of the parts I have.
-In the future Mirantis may not buy nor recommend the devices, but I
-have an OpenStack environment filled with NICs from various vendors
-that support this UDP port number based offload.  I have to come up
-with a means of polishing these "turds" in such a way that we can get
-the maximum benefit out of them.  The question I would have is if you
-see a constructive way of me doing this and working it out through the
-kernel network stack, or do I need to suggest a bypass solution such
-as ovs-dpdk and just give up on the hope of using kernel networking
-with these parts?
-
-- Alex
+Regards,
+Kaneko
