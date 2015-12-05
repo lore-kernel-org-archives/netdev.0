@@ -1,45 +1,63 @@
-From: Konstantin Shemyak <konstantin@shemyak.com>
-Subject: [PATCH] Set DF bit for IPv4 GRE tunnels with fixed TTL
-Date: Sat, 5 Dec 2015 22:55:13 +0200
-Message-ID: <56634F31.3000609@shemyak.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next 09/15] i40e: use priv flags to control packet split
+Date: Sat, 5 Dec 2015 23:25:18 +0200
+Message-ID: <CAJ3xEMi7=-LgxapNQM2YX26nxqA9gCceMX95wOEGn-WztsQYbg@mail.gmail.com>
+References: <1449149160-105219-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1449149160-105219-10-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	pshelar@nicira.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sub3.mail.dreamhost.com ([69.163.253.7]:51392 "EHLO
-	homiemail-a12.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751055AbbLEUzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 15:55:16 -0500
+Received: from mail-io0-f181.google.com ([209.85.223.181]:36790 "EHLO
+	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751379AbbLEVZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 16:25:19 -0500
+Received: by iofh3 with SMTP id h3so148854943iof.3
+        for <netdev@vger.kernel.org>; Sat, 05 Dec 2015 13:25:18 -0800 (PST)
+In-Reply-To: <1449149160-105219-10-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The DF bit on IPv4 GRE tunnels with fixed TTL is enforced in order
-to prevent networking loops. This was the original behavior of GRE
-tunnels, lost in the refactoring.
+On Thu, Dec 3, 2015 at 3:25 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>
+> Ethtool priv flags implementation to enable or disable packet split, which
+> is a hardware feature that inspects headers and will put headers in a
+> separate DMA buffer from the payload data.  The driver was automatically
+> choosing to enable packet split in some cases and this gives the user the
+> ability to turn it off/on explicitly.
+>
+> to query state:
+> ethtool --show-priv-flags ethx
+>
+> to enable:
+> ethtool --set-priv-flags ethx packet-split on
+> to disable:
+> ethtool --set-priv-flags ethx packet-split off
+>
+> Why would anyone want this?
+>         Because some environments benefit from header/data split in the receive
+>         buffer, and the driver defaults to one or the other depending on
+>         environment/kernel parameters.
+>
+> Why didn't you implement a generic ethtool control for this feature?
+>         Because Intel hardware is the only hardware that supports header/data
+>         split.
 
-Signed-off-by: Konstantin Shemyak <konstantin@shemyak.com>
----
-  net/ipv4/ip_gre.c | 4 ++++
-  1 file changed, 4 insertions(+)
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 6145214..485bf27 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -679,6 +679,10 @@ static int ipgre_tunnel_ioctl(struct net_device *dev,
-  		    ((p.i_flags|p.o_flags)&(GRE_VERSION|GRE_ROUTING)))
-  			return -EINVAL;
-  	}
-+
-+        if (p.iph.ttl)
-+                p.iph.frag_off |= htons(IP_DF);
-+
-  	p.i_flags = gre_flags_to_tnl_flags(p.i_flags);
-  	p.o_flags = gre_flags_to_tnl_flags(p.o_flags);
+Hi Jesse,
 
--- 
-1.9.1
+HDS is a generic feature,and even if you think only Intel hardware is
+the only hardware that supports that, you have multiple drivers..
+right? why not go the right way of adding new netdev feature and
+enable/disable it through the conventional ethtool feature on/off
+directive?
+
+Or.
