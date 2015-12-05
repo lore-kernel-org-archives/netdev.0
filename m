@@ -1,88 +1,71 @@
-From: Konstantin Shemyak <konstantin@shemyak.com>
-Subject: Re: IPv4 tunnels: why IP-IP and SIT enforce DF bit, but GRE does not?
-Date: Sat, 5 Dec 2015 17:24:39 +0200
-Message-ID: <566301B7.3050506@shemyak.com>
-References: <1448964929.3305540.454487369.098BD535@webmail.messagingengine.com>
- <565D9EB6.1080102@shemyak.com>
- <1448976655.3349108.454655833.599EFE94@webmail.messagingengine.com>
- <20151201.120851.2159228528635979581.davem@davemloft.net>
+From: Stefan Priebe <s.priebe@profihost.ag>
+Subject: Re: Asterisk deadlocks since Kernel 4.1
+Date: Sat, 5 Dec 2015 16:34:08 +0100
+Message-ID: <566303F0.5040007@profihost.ag>
+References: <1447933294.1974772.444210441.67F1AC5E@webmail.messagingengine.com>
+ <564DB5F5.9060208@profihost.ag>
+ <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com>
+ <564DC4A5.70104@profihost.ag> <564DCC4C.1090009@redhat.com>
+ <564E2852.8000200@profihost.ag> <56530A42.6030609@profihost.ag>
+ <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com>
+ <565EBDC1.1090808@profihost.ag> <8737vlt6xb.fsf@stressinduktion.org>
+ <20151205141906.GB31897@pmhahn.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080205090603010708070202"
-Cc: netdev@vger.kernel.org, pshelar@nicira.com
-To: David Miller <davem@davemloft.net>, hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sub3.mail.dreamhost.com ([69.163.253.7]:35688 "EHLO
-	homiemail-a17.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752444AbbLEPYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 10:24:43 -0500
-In-Reply-To: <20151201.120851.2159228528635979581.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------080205090603010708070202
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Weimer <fweimer@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	herbert@gondor.apana.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151205141906.GB31897@pmhahn.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01.12.2015 19:08, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Tue, 01 Dec 2015 14:30:55 +0100
+Hello Philipp,
+
+Am 05.12.2015 um 15:19 schrieb Philipp Matthias Hahn:
+> Hello Hannes,
 >
->> On Tue, Dec 1, 2015, at 14:20, Konstantin Shemyak wrote:
->>> My point was not to question its feasibility, but to make it similar
->>> across GRE, IP-IP and SIT tunnels.
+> On Wed, Dec 02, 2015 at 12:40:32PM +0100, Hannes Frederic Sowa wrote:
+>>> git bisect tells me it stopped working after those two commits were applied:
+>>>
+>>> commit d48623677191e0f035d7afd344f92cf880b01f8e
+>>> Author: Herbert Xu <herbert@gondor.apana.org.au>
+>>> Date:   Tue Sep 22 11:38:56 2015 +0800
+>>>
+>>>      netlink: Replace rhash_portid with bound
+>>>
+>>> commit 4e27762417669cb459971635be550eb7b5598286
+>>> Author: Herbert Xu <herbert@gondor.apana.org.au>
+>>> Date:   Fri Sep 18 19:16:50 2015 +0800
+>>>
+>>>      netlink: Fix autobind race condition that leads to zero port ID
 >>
->> I would send a patch to add it again if Parvin didn't have good reasons
->> to remove it.
+>> Cool, thanks a lot. Does this patch make a difference?
+>>
+>> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+>> index 59651af..278e94c 100644
+>> --- a/net/netlink/af_netlink.c
+>> +++ b/net/netlink/af_netlink.c
+>> @@ -1137,7 +1137,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
+>>
+>>   	/* We need to ensure that the socket is hashed and visible. */
+>>   	smp_wmb();
+>> -	nlk_sk(sk)->bound = portid;
+>> +	nlk_sk(sk)->bound = true;
+>>
+>>   err:
+>>   	release_sock(sk);
 >
-> The tunnel code consolidation created a lot of regressions and subtle
-> unintended changes in behavior between the different tunnel types.
+> Didn't help, test program still gets stuck; sorry :-(
+
+Can you please try this patch on top of 4.1.13 (which helps me):
+http://pastebin.com/raw.php?i=hiuq4bsW
+
+Stefan
+
 >
-> This DF bit issue is just yet another example of that.
-
-The patch is rather trivial; attached.
-
-Konstantin.
-
---------------080205090603010708070202
-Content-Type: text/x-patch;
- name="0001-Set-DF-bit-to-GRE-tunnels-with-fixed-TTL-similarly-t.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename*0="0001-Set-DF-bit-to-GRE-tunnels-with-fixed-TTL-similarly-t.pa";
- filename*1="tch"
-
->From b8a901a0d970907a2dc162744536b1ef07e5d45a Mon Sep 17 00:00:00 2001
-From: Konstantin Shemyak <konstantin@shemyak.com>
-Date: Sat, 5 Dec 2015 17:15:55 +0200
-Subject: [PATCH] Set DF bit to GRE tunnels with fixed TTL, similarly to IP-IP
- and SIT
-
-The DF bit on IPv4 tunnels with fixed TTL is enforced in order to
-prevent networking loops. This was the original behavior of GRE
-tunnels, lost in the refactoring.
----
- net/ipv4/ip_gre.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 6145214..485bf27 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -679,6 +679,10 @@ static int ipgre_tunnel_ioctl(struct net_device *dev,
- 		    ((p.i_flags|p.o_flags)&(GRE_VERSION|GRE_ROUTING)))
- 			return -EINVAL;
- 	}
-+
-+        if (p.iph.ttl)
-+                p.iph.frag_off |= htons(IP_DF);
-+
- 	p.i_flags = gre_flags_to_tnl_flags(p.i_flags);
- 	p.o_flags = gre_flags_to_tnl_flags(p.o_flags);
- 
--- 
-1.9.1
-
-
---------------080205090603010708070202--
+> Philipp
+>
