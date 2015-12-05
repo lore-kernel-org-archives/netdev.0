@@ -1,74 +1,47 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next 2/2] net: hns: enet specisies a reference to dsaf (config and documents)
-Date: Sat, 05 Dec 2015 23:19:04 +0100
-Message-ID: <23027215.8RIhViTVaB@wuerfel>
-References: <1449295856-31068-1-git-send-email-yankejian@huawei.com> <1449295856-31068-3-git-send-email-yankejian@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 4/4] net: mvneta: Spread out the TX queues
+ management on all CPUs
+Date: Sat, 05 Dec 2015 17:24:37 -0500 (EST)
+Message-ID: <20151205.172437.1660871557891874317.davem@davemloft.net>
+References: <1449254700-32685-1-git-send-email-gregory.clement@free-electrons.com>
+	<1449254700-32685-5-git-send-email-gregory.clement@free-electrons.com>
+	<CAPv3WKe32dUP0jTkjJkWF=tpJDkR_J3Z5aSR5YT8rJtoMAKyjA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, fengguang.wu@intel.com, robh+dt@kernel.org,
-	pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	catalin.marinas@arm.com, will.deacon@arm.com,
-	salil.mehta@huawei.com, Yisen.Zhuang@huawei.com,
-	liguozhu@huawei.com, lisheng011@huawei.com,
-	huangdaode@hisilicon.com, xuwei5@hisilicon.com,
-	haifeng.wei@huawei.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: yankejian <yankejian@huawei.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregory.clement@free-electrons.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com,
+	jason@lakedaemon.net, andrew@lunn.ch,
+	sebastian.hesselbarth@gmail.com,
+	ezequiel.garcia@free-electrons.com,
+	linux-arm-kernel@lists.infradead.org, alior@marvell.com,
+	nadavh@marvell.com, simon.guinot@sequanux.org,
+	maxime.ripard@free-electrons.com,
+	boris.brezillon@free-electrons.com, linux@arm.linux.org.uk,
+	w@1wt.eu, arnd@arndb.de
+To: mw@semihalf.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449295856-31068-3-git-send-email-yankejian@huawei.com>
+In-Reply-To: <CAPv3WKe32dUP0jTkjJkWF=tpJDkR_J3Z5aSR5YT8rJtoMAKyjA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 05 December 2015 14:10:56 yankejian wrote:
-> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
-> index 80411b2..ecacfa4 100644
-> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
-> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
-> @@ -4,8 +4,6 @@ Required properties:
->  - compatible: should be "hisilicon,hns-dsaf-v1" or "hisilicon,hns-dsaf-v2".
->    "hisilicon,hns-dsaf-v1" is for hip05.
->    "hisilicon,hns-dsaf-v2" is for Hi1610 and Hi1612.
-> -- dsa-name: dsa fabric name who provide this interface.
-> -  should be "dsafX", X is the dsaf id.
->  - mode: dsa fabric mode string. only support one of dsaf modes like these:
->                 "2port-64vf",
->                 "6port-16rss",
-> @@ -26,9 +24,8 @@ Required properties:
->  
->  Example:
->  
-> -dsa: dsa@c7000000 {
-> +dsaf0: dsa@c7000000 {
->         compatible = "hisilicon,hns-dsaf-v1";
-> -       dsa_name = "dsaf0";
->         mode = "6port-16rss";
->         interrupt-parent = <&mbigen_dsa>;
->         reg = <0x0 0xC0000000 0x0 0x420000
-> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
-> index 41d19be..e6a9d1c 100644
-> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
-> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
-> @@ -4,8 +4,9 @@ Required properties:
->  - compatible: "hisilicon,hns-nic-v1" or "hisilicon,hns-nic-v2".
->    "hisilicon,hns-nic-v1" is for hip05.
->    "hisilicon,hns-nic-v2" is for Hi1610 and Hi1612.
-> -- ae-name: accelerator name who provides this interface,
-> -  is simply a name referring to the name of name in the accelerator node.
-> +- ae-handle: accelerator engine handle for hns,
-> +  specifies a reference to the associating hardware driver node.
-> +  see Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
->  - port-id: is the index of port provided by DSAF (the accelerator). DSAF can
->    connect to 8 PHYs. Port 0 to 1 are both used for adminstration purpose. They
->    are called debug ports.
-> @@ -41,7 +42,7 @@ Example:
->  
+From: Marcin Wojtas <mw@semihalf.com>
+Date: Sat, 5 Dec 2015 20:14:31 +0100
+
+> Hi Gregory,
 > 
+>> @@ -1824,13 +1835,16 @@ error:
+>>  static int mvneta_tx(struct sk_buff *skb, struct net_device *dev)
+>>  {
+>>         struct mvneta_port *pp = netdev_priv(dev);
+>> -       u16 txq_id = skb_get_queue_mapping(skb);
+>> +       u16 txq_id = smp_processor_id() % txq_number;
+> 
+> I think it may be ok to bind TXQs to different CPUs, but I don't think
+> that replacing skb_get_queue_mapping by in fact smp_processor_id() is
+> the best idea. This way you use only 2 TXQs on A385 and 4 TXQs on AXP.
+> There are HW mechanisms like WRR or EJP that provide balancing for
+> egress, so let's better keep all 8.
 
-This looks like an incompatible change, as you add and remove
-required properties. Is there a way to support both the old and
-the new style?
-
-	Arnd
+Also it is possible for other parts of the stack to set the SKB queue
+mapping and you must respect that setting rather than override it.
