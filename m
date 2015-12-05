@@ -1,32 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] MAINTAINERS: add myself as Renesas Ethernet drivers
- reviewer
-Date: Fri, 04 Dec 2015 17:02:07 -0800
-Message-ID: <1449277327.8611.27.camel@perches.com>
-References: <1846877.jRW8849mPU@wasted.cogentembedded.com>
-	 <1449276063.8611.25.camel@perches.com>
-	 <56623680.4050808@cogentembedded.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Asterisk deadlocks since Kernel 4.1
+Date: Sat, 5 Dec 2015 09:08:19 +0800
+Message-ID: <20151205010819.GA21889@gondor.apana.org.au>
+References: <564DB5F5.9060208@profihost.ag>
+ <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com>
+ <564DC4A5.70104@profihost.ag>
+ <564DCC4C.1090009@redhat.com>
+ <564E2852.8000200@profihost.ag>
+ <56530A42.6030609@profihost.ag>
+ <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com>
+ <565EBDC1.1090808@profihost.ag>
+ <8737vlt6xb.fsf@stressinduktion.org>
+ <5661DAC4.8040909@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <56623680.4050808@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Weimer <fweimer@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stefan Priebe <s.priebe@profihost.ag>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5661DAC4.8040909@profihost.ag>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2015-12-05 at 03:57 +0300, Sergei Shtylyov wrote:
-> Since you seem to be get_maintainers.pl maintainer, I (and not only I=
-)
-> would like to propose a switch to suppress the committers/authors/etc=
-=2E It's=A0
-> generally annoying and unhelpful to have the bunch of people listed, =
-none of=A0
-> which usually are a good addressees for the patches...
+On Fri, Dec 04, 2015 at 07:26:12PM +0100, Stefan Priebe wrote:
+>
+> * 9f87e0c - (2 months ago) netlink: Replace rhash_portid with bound
+> - Herbert Xu
+> * 35e9890 - (3 months ago) netlink: Fix autobind race condition that
+> leads to zero port ID - Herbert Xu
+> * 30c6472 - (7 months ago) netlink: Use random autobind rover - Herbert Xu
 
-Done!
+These three patches are absolutely required in any kernel where the
+netlink insertion is lockless.  So yes they should be applied to
+4.1.
 
-Add "--nogit" and "--nogit-fallback"
-
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
