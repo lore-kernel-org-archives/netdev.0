@@ -1,70 +1,62 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Fri, 4 Dec 2015 22:50:19 -0800
-Message-ID: <CAKgT0Ufr9pCKdKR2jVa8UKUXGWQ8_gJv=hxFWnLfQvi6rkT3Cg@mail.gmail.com>
-References: <1449259145.6236.458303617.55CF2C4E@webmail.messagingengine.com>
-	<20151204.150633.1744714566987717806.davem@davemloft.net>
-	<CAKgT0UepW=VehhXncrAM=tvqrVDD_KOdVJBpwEU+hYTAdMz_dg@mail.gmail.com>
-	<20151204.235036.1511254463749836388.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
+Date: Sat, 5 Dec 2015 15:03:54 +0800
+Message-ID: <20151205070354.GA23255@gondor.apana.org.au>
+References: <20151203125117.GB5505@gondor.apana.org.au>
+ <1449158919.6379.27.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151204143956.GA17471@gondor.apana.org.au>
+ <20151204.165334.1119277452308794437.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Tom Herbert <tom@herbertland.com>,
-	John Linville <linville@tuxdriver.com>, jesse@kernel.org,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Kiran Patil <kiran.patil@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, phil@nwl.cc, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tgraf@suug.ch,
+	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:33538 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751718AbbLEGuU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 01:50:20 -0500
-Received: by igcmv3 with SMTP id mv3so50154641igc.0
-        for <netdev@vger.kernel.org>; Fri, 04 Dec 2015 22:50:19 -0800 (PST)
-In-Reply-To: <20151204.235036.1511254463749836388.davem@davemloft.net>
+Received: from helcar.hengli.com.au ([209.40.204.226]:54480 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751676AbbLEHEM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 02:04:12 -0500
+Content-Disposition: inline
+In-Reply-To: <20151204.165334.1119277452308794437.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 4, 2015 at 8:50 PM, David Miller <davem@davemloft.net> wrote:
-> From: Alexander Duyck <alexander.duyck@gmail.com>
-> Date: Fri, 4 Dec 2015 14:44:00 -0800
->
->> I actually tried to push the generic checksum idea for fm10k back
->> during hardware development but ended up losing that battle.
->
-> This chips already have a circuit calculating the 1's complement sum
-> over the data as is passed through the FIFO in the RTL, it's merely a
-> matter of putting the result it in the descriptor.
+On Fri, Dec 04, 2015 at 04:53:34PM -0500, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Fri, 4 Dec 2015 22:39:56 +0800
+> 
+> > When an rhashtable user pounds rhashtable hard with back-to-back
+> > insertions we may end up growing the table in GFP_ATOMIC context.
+> > Unfortunately when the table reaches a certain size this often
+> > fails because we don't have enough physically contiguous pages
+> > to hold the new table.
+> > 
+> > Eric Dumazet suggested (and in fact wrote this patch) using
+> > __vmalloc instead which can be used in GFP_ATOMIC context.
+> > 
+> > Reported-by: Phil Sutter <phil@nwl.cc>
+> > Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Applied, thanks Herbert.
 
-Actually it is a bit trickier than that.  The problem is the L4
-checksum doesn't include all of the L3 header in the pseudo header.
-So in order to add this feature and maintain the current feature you
-have to essentially compute two checksums.  One with the pseudo header
-and one with the entire L3 header.  In addition there are the fiddly
-little details like what to do about VLAN headers since I think they
-were included in the checksum if you leave them in the header, but you
-have to exclude them if they aren't.  There is also the matter of if
-we include the L2 header or not.  Basically there are number of odd
-corner cases and such where this really starts to become a pain.
+Sorry Dave but you'll have to revert this because I've been able
+to trigger the following crash with the patch:
 
-> Relatively speaking, the feature would be almost free.
+Testing concurrent rhashtable access from 50 threads
+------------[ cut here ]------------
+kernel BUG at ../mm/vmalloc.c:1337!
+invalid opcode: 0000 [#1] PREEMPT SMP 
 
-Right.  I made similar arguments.  The problem is the RTL they have
-works, and they don't want to change it unless they have to.  Having a
-couple engineers write the RTL, then have some validation engineers
-test it, and some driver developer code it up costs money.  In
-addition there is risk involved if some flaw slips through one of the
-validation efforts resulting in a silicon spin, or even worse if some
-flaw ends up being released.
+The reason is that because I was testing insertions with BH disabled,
+and __vmalloc doesn't like that, even with GFP_ATOMIC.  As we
+obviously want to continue to support rhashtable users inserting
+entries with BH disabled, we'll have to look for an alternate
+solution.
 
-What it comes down to is that from the engineering side we likely
-won't be able to influence any change on the hardware design.  We have
-to convince the sales and marketing folks for one of the vendors that
-implementing this feature would be beneficial to their bottom line if
-we want to see any actual change.  Without that impetus there is no
-motivation on the vendors side to risk any of their capital trying to
-implement a feature that a few of us kernel engineers think would be a
-really good idea.
-
-- Alex
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
