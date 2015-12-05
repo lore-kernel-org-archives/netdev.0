@@ -1,31 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] net: constify netif_is_* helpers net_device
- param
-Date: Sat, 05 Dec 2015 18:16:44 -0500 (EST)
-Message-ID: <20151205.181644.505381810946685672.davem@davemloft.net>
-References: <1449237691-17962-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH] cxgb3: Convert simple_strtoul to kstrtox
+Date: Sat, 05 Dec 2015 18:45:20 -0500 (EST)
+Message-ID: <20151205.184520.1281826797997335875.davem@davemloft.net>
+References: <1449239201-879-1-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39699 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752631AbbLEXQp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 18:16:45 -0500
-In-Reply-To: <1449237691-17962-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: santosh@chelsio.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: clabbe.montjoie@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449239201-879-1-git-send-email-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri,  4 Dec 2015 15:01:31 +0100
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Date: Fri,  4 Dec 2015 15:26:40 +0100
 
-> From: Jiri Pirko <jiri@mellanox.com>
+> the simple_strtoul function is obsolete. This patch replace it by
+> kstrtox.
 > 
-> As suggested by Eric, these helpers should have const dev param.
-> 
-> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
 
-Applied, thanks Jiri.
+Again, kstrtouint() provides a reasonable error code, therefore
+when you do these conversions you should use that error code
+rather than hardcoded -EWHATEVER.
