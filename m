@@ -1,77 +1,44 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [ovs-dev] [PATCH net-next v3 3/8] netfilter: Allow calling into
- nat helper without skb_dst.g
-Date: Fri, 4 Dec 2015 15:45:33 -0800
-Message-ID: <CALnjE+r_af=4c3T-2UC3ZVRYXZ-qWr-QewCpPDhFnw-b-ahVSw@mail.gmail.com>
-References: <1448496501-109561-1-git-send-email-jarno@ovn.org>
-	<1448496501-109561-4-git-send-email-jarno@ovn.org>
-	<20151201205119.GA2563@salvia>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] MAINTAINERS: add myself as Renesas Ethernet drivers reviewer
+Date: Sat, 05 Dec 2015 03:03:26 +0300
+Message-ID: <1846877.jRW8849mPU@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jarno Rajahalme <jarno@ovn.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20151201205119.GA2563@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 1, 2015 at 12:51 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Wed, Nov 25, 2015 at 04:08:16PM -0800, Jarno Rajahalme wrote:
->> NAT checksum recalculation code assumes existence of skb_dst, which
->> becomes a problem for a later patch in the series ("openvswitch:
->> Interface with NAT.").  Simplify this by removing the check on
->> skb_dst, as the checksum will be dealt with later in the stack.
->>
->> Suggested-by: Pravin Shelar <pshelar@nicira.com>
->> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
->> ---
->>  net/ipv4/netfilter/nf_nat_l3proto_ipv4.c | 29 ++++++++---------------------
->>  net/ipv6/netfilter/nf_nat_l3proto_ipv6.c | 29 ++++++++---------------------
->>  2 files changed, 16 insertions(+), 42 deletions(-)
->>
->> diff --git a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
->> index 5075b7e..f8aad03 100644
->> --- a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
->> +++ b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
->> @@ -127,28 +127,15 @@ static void nf_nat_ipv4_csum_recalc(struct sk_buff *skb,
->>                                   u8 proto, void *data, __sum16 *check,
->>                                   int datalen, int oldlen)
->>  {
->> -     const struct iphdr *iph = ip_hdr(skb);
->> -     struct rtable *rt = skb_rtable(skb);
->> -
->>       if (skb->ip_summed != CHECKSUM_PARTIAL) {
->> -             if (!(rt->rt_flags & RTCF_LOCAL) &&
->> -                 (!skb->dev || skb->dev->features & NETIF_F_V4_CSUM)) {
->> -                     skb->ip_summed = CHECKSUM_PARTIAL;
->> -                     skb->csum_start = skb_headroom(skb) +
->> -                                       skb_network_offset(skb) +
->> -                                       ip_hdrlen(skb);
->> -                     skb->csum_offset = (void *)check - data;
->> -                     *check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
->> -                                                 datalen, proto, 0);
->> -             } else {
->> -                     *check = 0;
->> -                     *check = csum_tcpudp_magic(iph->saddr, iph->daddr,
->> -                                                datalen, proto,
->> -                                                csum_partial(data, datalen,
->> -                                                             0));
->> -                     if (proto == IPPROTO_UDP && !*check)
->> -                             *check = CSUM_MANGLED_0;
->> -             }
->> +             const struct iphdr *iph = ip_hdr(skb);
->> +
->> +             skb->ip_summed = CHECKSUM_PARTIAL;
->> +             skb->csum_start = skb_headroom(skb) + skb_network_offset(skb) +
->> +                     ip_hdrlen(skb);
->> +             skb->csum_offset = (void *)check - data;
->> +             *check = ~csum_tcpudp_magic(iph->saddr, iph->daddr, datalen,
->> +                                         proto, 0);
->
-> Is this change going to work with traffic that is redirected to the
-> localhost?
+liAdd myself as  a reviewer for the Renesas Ethernet drivers -- hopefully I
+won't miss the buggy  patches anymore. :-)
 
-localhost should handle CHECKSUM_PARTIAL just fine. So I do not see
-problem with always converting skb to CHECKSUM_PARTIAL skb.
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+---
+The patch is against DaveM's 'net.git' repo.
+
+ MAINTAINERS |    8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+Index: net/MAINTAINERS
+===================================================================
+--- net.orig/MAINTAINERS
++++ net/MAINTAINERS
+@@ -8929,6 +8929,14 @@ F:	drivers/rpmsg/
+ F:	Documentation/rpmsg.txt
+ F:	include/linux/rpmsg.h
+ 
++RENESAS ETHERNET DRIVERS
++R:	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
++L:	netdev@vger.kernel.org
++L:	linux-sh@vger.kernel.org
++S:	Maintained
++F:	drivers/net/ethernet/renesas/
++F:	include/linux/sh_eth.h
++
+ RESET CONTROLLER FRAMEWORK
+ M:	Philipp Zabel <p.zabel@pengutronix.de>
+ S:	Maintained
+
