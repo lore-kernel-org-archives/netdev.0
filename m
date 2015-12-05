@@ -1,37 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Sat, 05 Dec 2015 13:03:13 -0500 (EST)
-Message-ID: <20151205.130313.1952213347830357234.davem@davemloft.net>
-References: <566279E5.9070500@gmail.com>
-	<20151205.014909.1572453190886968569.davem@davemloft.net>
-	<CAKgT0Uc1bJRrzpLUdr3vOFkYZbcqP=J8wgOz1feF+u04aNBg1g@mail.gmail.com>
+Subject: Re: IPv4 tunnels: why IP-IP and SIT enforce DF bit, but GRE does
+ not?
+Date: Sat, 05 Dec 2015 13:07:30 -0500 (EST)
+Message-ID: <20151205.130730.864484715672273318.davem@davemloft.net>
+References: <1448976655.3349108.454655833.599EFE94@webmail.messagingengine.com>
+	<20151201.120851.2159228528635979581.davem@davemloft.net>
+	<566301B7.3050506@shemyak.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, hannes@stressinduktion.org,
-	linville@tuxdriver.com, jesse@kernel.org, anjali.singhai@intel.com,
-	netdev@vger.kernel.org, kiran.patil@intel.com
-To: alexander.duyck@gmail.com
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
+	pshelar@nicira.com
+To: konstantin@shemyak.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36296 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36322 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751228AbbLESDR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 13:03:17 -0500
-In-Reply-To: <CAKgT0Uc1bJRrzpLUdr3vOFkYZbcqP=J8wgOz1feF+u04aNBg1g@mail.gmail.com>
+	with ESMTP id S1750959AbbLESHb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 13:07:31 -0500
+In-Reply-To: <566301B7.3050506@shemyak.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Sat, 5 Dec 2015 00:24:55 -0800
+From: Konstantin Shemyak <konstantin@shemyak.com>
+Date: Sat, 5 Dec 2015 17:24:39 +0200
 
-> Still, hard blocking this isn't necessarily going to push the
-> vendors to change their ways.
+> On 01.12.2015 19:08, David Miller wrote:
+>> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> Date: Tue, 01 Dec 2015 14:30:55 +0100
+>>
+>>> On Tue, Dec 1, 2015, at 14:20, Konstantin Shemyak wrote:
+>>>> My point was not to question its feasibility, but to make it similar
+>>>> across GRE, IP-IP and SIT tunnels.
+>>>
+>>> I would send a patch to add it again if Parvin didn't have good
+>>> reasons
+>>> to remove it.
+>>
+>> The tunnel code consolidation created a lot of regressions and subtle
+>> unintended changes in behavior between the different tunnel types.
+>>
+>> This DF bit issue is just yet another example of that.
+> 
+> The patch is rather trivial; attached.
 
-Pushing back is different from blocking entirely.
+No signoff, so I can't apply this.
 
-That means I'm going to be very difficult and make a lot of noise
-until I see the message has seeped in.
+Also patches should be submitted as fresh mailing list postings,
+with the patch inline rather than as an attachment.
 
-It doesn't mean that I won't allow a means to use existing hardware
-offloads.  You'll just have to bear with me, be patient, and survive
-my tantrum on this matter.
+Thanks.
