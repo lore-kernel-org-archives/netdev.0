@@ -1,43 +1,67 @@
-From: Tomer Barletz <barletz@gmail.com>
-Subject: [PATCH] netfilter: Initialize local variables to NULL, to prevent using them when uninitialized.
-Date: Sat,  5 Dec 2015 02:08:43 -0800
-Message-ID: <1449310123-31503-1-git-send-email-barletz@gmail.com>
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Tomer Barletz <barletz@gmail.com>
-To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: only drop the reference on the datamsg after
+ sending a msg
+Date: Sat, 5 Dec 2015 08:31:11 -0200
+Message-ID: <5662BCEF.3030909@gmail.com>
+References: <b2b92ed429c3f617f5a22df8b232cf58ab7a0fb5.1449299967.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: vyasevic@redhat.com, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>,
+	linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:35251 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753380AbbLEKbT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 05:31:19 -0500
+In-Reply-To: <b2b92ed429c3f617f5a22df8b232cf58ab7a0fb5.1449299967.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Tomer Barletz <barletz@gmail.com>
----
- net/netfilter/nfnetlink_queue.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Em 05-12-2015 05:19, Xin Long escreveu:
+> If the chunks are enqueued successfully but sctp_cmd_interpreter()
+> return err to sctp_sendmsg() (mainly because of no mem), the chunks will
+> get re-queued, but we are dropping the reference and freeing them.
+>
+> The fix is to just drop the reference on the datamsg just as it had
+> succeeded, as:
+>   - if the chunks weren't queued, this is enough to get them freed.
+>   - if they were queued, they will get freed when they finally get out or
+>   discarded.
+>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index 7d81d28..e8be660 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -313,7 +313,7 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- 	struct net_device *outdev;
- 	struct nf_conn *ct = NULL;
- 	enum ip_conntrack_info uninitialized_var(ctinfo);
--	struct nfnl_ct_hook *nfnl_ct;
-+	struct nfnl_ct_hook *nfnl_ct = NULL;
- 	bool csum_verify;
- 	char *secdata = NULL;
- 	u32 seclen = 0;
-@@ -1041,7 +1041,7 @@ nfqnl_recv_verdict(struct sock *ctnl, struct sk_buff *skb,
- 	unsigned int verdict;
- 	struct nf_queue_entry *entry;
- 	enum ip_conntrack_info uninitialized_var(ctinfo);
--	struct nfnl_ct_hook *nfnl_ct;
-+	struct nfnl_ct_hook *nfnl_ct = NULL;
- 	struct nf_conn *ct = NULL;
- 
- 	struct net *net = sock_net(ctnl);
--- 
-2.5.0
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
+Thanks Xin
+
+> ---
+>   net/sctp/socket.c | 6 ++----
+>   1 file changed, 2 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 03c8256..d8460be 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -1966,15 +1966,13 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
+>   	 * breaks.
+>   	 */
+>   	err = sctp_primitive_SEND(net, asoc, datamsg);
+> +	sctp_datamsg_put(datamsg);
+>   	/* Did the lower layer accept the chunk? */
+> -	if (err) {
+> -		sctp_datamsg_free(datamsg);
+> +	if (err)
+>   		goto out_free;
+> -	}
+>
+>   	pr_debug("%s: we sent primitively\n", __func__);
+>
+> -	sctp_datamsg_put(datamsg);
+>   	err = msg_len;
+>
+>   	if (unlikely(wait_connect)) {
+>
