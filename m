@@ -1,38 +1,37 @@
-From: Tom Herbert <tom@herbertland.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Sat, 5 Dec 2015 09:53:43 -0800
-Message-ID: <CALx6S36-oe5tZ2QAy5rV3SbHveJ7nyfEHArMh2z24zrAuAWY9g@mail.gmail.com>
-References: <CAKgT0UepW=VehhXncrAM=tvqrVDD_KOdVJBpwEU+hYTAdMz_dg@mail.gmail.com>
-	<CALx6S36Y4fP9a6U40My+kuhik5THPOjHNYfRrVe8Szte03K7Ew@mail.gmail.com>
-	<566279E5.9070500@gmail.com>
+Date: Sat, 05 Dec 2015 13:03:13 -0500 (EST)
+Message-ID: <20151205.130313.1952213347830357234.davem@davemloft.net>
+References: <566279E5.9070500@gmail.com>
 	<20151205.014909.1572453190886968569.davem@davemloft.net>
 	<CAKgT0Uc1bJRrzpLUdr3vOFkYZbcqP=J8wgOz1feF+u04aNBg1g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	John Linville <linville@tuxdriver.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Kiran Patil <kiran.patil@intel.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tom@herbertland.com, hannes@stressinduktion.org,
+	linville@tuxdriver.com, jesse@kernel.org, anjali.singhai@intel.com,
+	netdev@vger.kernel.org, kiran.patil@intel.com
+To: alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:37104 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753053AbbLERxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 12:53:44 -0500
-Received: by igcto18 with SMTP id to18so56725217igc.0
-        for <netdev@vger.kernel.org>; Sat, 05 Dec 2015 09:53:43 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:36296 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751228AbbLESDR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 13:03:17 -0500
 In-Reply-To: <CAKgT0Uc1bJRrzpLUdr3vOFkYZbcqP=J8wgOz1feF+u04aNBg1g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Keep in mind I don't represent one of the hardware vendors here
-> anymore.  I am approaching this from the customer point of view.  I
-> would like to have the performance I can get out of the parts I have.
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Sat, 5 Dec 2015 00:24:55 -0800
 
-Trying enabling UDP checksum, GRO/GSO, and Remote Checksum Offload in
-VXLAN. Assuming you have a NIC that at least provides UDP checksum
-offload and RSS for UDP (may need to be enabled) you can get good
-VXLAN performance across a varietyof legacy "dumb" NICs.
+> Still, hard blocking this isn't necessarily going to push the
+> vendors to change their ways.
+
+Pushing back is different from blocking entirely.
+
+That means I'm going to be very difficult and make a lot of noise
+until I see the message has seeped in.
+
+It doesn't mean that I won't allow a means to use existing hardware
+offloads.  You'll just have to bear with me, be patient, and survive
+my tantrum on this matter.
