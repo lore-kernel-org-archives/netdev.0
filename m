@@ -1,80 +1,63 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: start t5 timer only when peer rwnd is 0 and local state is SHUTDOWN_PENDING
-Date: Sat,  5 Dec 2015 15:35:36 +0800
-Message-ID: <dfbfa2ef370b0f8962933e7f9400f9588cdb2281.1449300936.git.lucien.xin@gmail.com>
-Cc: marcelo.leitner@gmail.com, vyasevic@redhat.com, davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: yankejian <yankejian@huawei.com>
+Subject: [PATCH RESEND net-next 1/3] dts: hisi: enables the ethX for D02 board
+Date: Sat, 5 Dec 2015 15:54:46 +0800
+Message-ID: <1449302088-53037-2-git-send-email-yankejian@huawei.com>
+References: <1449302088-53037-1-git-send-email-yankejian@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <haifeng.wei@huawei.com>, <devicetree@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linuxarm@huawei.com>
+To: <davem@davemloft.net>, <robh+dt@kernel.org>, <pawel.moll@arm.com>,
+	<mark.rutland@arm.com>, <ijc+devicetree@hellion.org.uk>,
+	<galak@codeaurora.org>, <xuwei5@hisilicon.com>,
+	<catalin.marinas@arm.com>, <will.deacon@arm.com>,
+	<wangkefeng.wang@huawei.com>, <dingtianhong@huawei.com>,
+	<liguozhu@huawei.com>, <Yisen.Zhuang@huawei.com>,
+	<sboyd@codeaurora.org>, <haojian.zhuang@linaro.org>,
+	<wangzhou1@hisilicon.com>, <bintian.wang@huawei.com>,
+	<long.wanglong@huawei.com>, <leo.yan@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:33699 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752053AbbLEHfk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 02:35:40 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:31871 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752147AbbLEHjs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 02:39:48 -0500
+In-Reply-To: <1449302088-53037-1-git-send-email-yankejian@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-when A sends a data to B, then A close() and enter into SHUTDOWN_PENDING
-state, if B neither claim his rwnd is 0 nor send SACK for this data, A
-will keep retransmitting this data until t5 timeout, Max.Retrans times
-can't work anymore, which is bad.
+this patch enables the ethX for D02 board on hip05-d02.dts. otherwise it
+cannot find hns ethX by ifconfig -a.
 
-if B's rwnd is not 0, it should send abort after Max.Retrans times, only
-when B's rwnd == 0 and A's retransmitting beyonds Max.Retrans times, A
-will start t5 timer, which is also commit f8d960524328 ("sctp: Enforce
-retransmission limit during shutdown") means, but it lacks the condition
-peer rwnd == 0.
-
-so fix it by adding a bit (zero_window_announced) in peer to record if
-the last rwnd is 0. If it was, zero_window_announced will be set. and use
-this bit to decide if start t5 timer when local.state is SHUTDOWN_PENDING.
-
-Fixes: commit f8d960524328 ("sctp: Enforce retransmission limit during shutdown")
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Signed-off-by: yankejian <yankejian@huawei.com>
 ---
- include/net/sctp/structs.h | 3 ++-
- net/sctp/outqueue.c        | 1 +
- net/sctp/sm_statefuns.c    | 3 ++-
- 3 files changed, 5 insertions(+), 2 deletions(-)
+ arch/arm64/boot/dts/hisilicon/hip05-d02.dts | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 7bbb710..eea9bde 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1493,7 +1493,8 @@ struct sctp_association {
- 		 *             : SACK's are not delayed (see Section 6).
- 		 */
- 		__u8    sack_needed:1,     /* Do we need to sack the peer? */
--			sack_generation:1;
-+			sack_generation:1,
-+			zero_window_announced:1;
- 		__u32	sack_cnt;
- 
- 		__u32   adaptation_ind;	 /* Adaptation Code point. */
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 7e8f0a1..8d88823 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -1251,6 +1251,7 @@ int sctp_outq_sack(struct sctp_outq *q, struct sctp_chunk *chunk)
- 	 */
- 
- 	sack_a_rwnd = ntohl(sack->a_rwnd);
-+	asoc->peer.zero_window_announced = !sack_a_rwnd;
- 	outstanding = q->outstanding_bytes;
- 
- 	if (outstanding < sack_a_rwnd)
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 6f46aa1..cd34a4a 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -5412,7 +5412,8 @@ sctp_disposition_t sctp_sf_do_6_3_3_rtx(struct net *net,
- 	SCTP_INC_STATS(net, SCTP_MIB_T3_RTX_EXPIREDS);
- 
- 	if (asoc->overall_error_count >= asoc->max_retrans) {
--		if (asoc->state == SCTP_STATE_SHUTDOWN_PENDING) {
-+		if (asoc->peer.zero_window_announced &&
-+		    asoc->state == SCTP_STATE_SHUTDOWN_PENDING) {
- 			/*
- 			 * We are here likely because the receiver had its rwnd
- 			 * closed for a while and we have not been able to
+diff --git a/arch/arm64/boot/dts/hisilicon/hip05-d02.dts b/arch/arm64/boot/dts/hisilicon/hip05-d02.dts
+index ae34e25..6aa5cb2 100644
+--- a/arch/arm64/boot/dts/hisilicon/hip05-d02.dts
++++ b/arch/arm64/boot/dts/hisilicon/hip05-d02.dts
+@@ -34,3 +34,19 @@
+ &uart0 {
+ 	status = "ok";
+ };
++
++&eth2 {
++	status = "okay";
++};
++
++&eth3 {
++	status = "okay";
++};
++
++&eth6 {
++	status = "okay";
++};
++
++&eth7 {
++	status = "okay";
++};
 -- 
-2.1.0
+1.9.1
