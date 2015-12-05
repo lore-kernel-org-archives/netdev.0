@@ -1,7 +1,7 @@
 From: yankejian <yankejian@huawei.com>
-Subject: [PATCH net-next 2/2] net: hns: enet specisies a reference to dsaf (config and documents)
-Date: Sat, 5 Dec 2015 14:10:56 +0800
-Message-ID: <1449295856-31068-3-git-send-email-yankejian@huawei.com>
+Subject: [PATCH net-next 1/2] net: hns: enet specisies a reference to dsaf
+Date: Sat, 5 Dec 2015 14:10:55 +0800
+Message-ID: <1449295856-31068-2-git-send-email-yankejian@huawei.com>
 References: <1449295856-31068-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -20,151 +20,202 @@ In-Reply-To: <1449295856-31068-1-git-send-email-yankejian@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-when enet specisies a reference to dsaf, the correlative config and
-documents needs to update. this patch updates the correlative dtsi file
-and bindings documents .
+enet is associating with dasf. before this patch, the association is
+the same strings between ae-name and dsa-name. in a general way, enet
+specifies a reference to dsaf should be a good idea. so this patch
+deletes the ae-name in enet, and adds parsing the ae-handle
+from DT to set the associating with dsaf.
 
 Signed-off-by: yankejian <yankejian@huawei.com>
 ---
- .../devicetree/bindings/net/hisilicon-hns-dsaf.txt    |  5 +----
- .../devicetree/bindings/net/hisilicon-hns-nic.txt     |  7 ++++---
- arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi          | 19 +++++++++----------
- 3 files changed, 14 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hnae.c          | 17 +++++++----------
+ drivers/net/ethernet/hisilicon/hns/hnae.h          |  7 +++++--
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |  4 ++++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 10 +---------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  1 +
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 13 +++++++++----
+ drivers/net/ethernet/hisilicon/hns/hns_enet.h      |  2 +-
+ 7 files changed, 28 insertions(+), 26 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
-index 80411b2..ecacfa4 100644
---- a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
-+++ b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
-@@ -4,8 +4,6 @@ Required properties:
- - compatible: should be "hisilicon,hns-dsaf-v1" or "hisilicon,hns-dsaf-v2".
-   "hisilicon,hns-dsaf-v1" is for hip05.
-   "hisilicon,hns-dsaf-v2" is for Hi1610 and Hi1612.
--- dsa-name: dsa fabric name who provide this interface.
--  should be "dsafX", X is the dsaf id.
- - mode: dsa fabric mode string. only support one of dsaf modes like these:
- 		"2port-64vf",
- 		"6port-16rss",
-@@ -26,9 +24,8 @@ Required properties:
+diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
+index b364529..3bfe36f 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hnae.c
++++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
+@@ -95,21 +95,17 @@ static struct hnae_buf_ops hnae_bops = {
+ static int __ae_match(struct device *dev, const void *data)
+ {
+ 	struct hnae_ae_dev *hdev = cls_to_ae_dev(dev);
+-	const char *ae_id = data;
  
- Example:
+-	if (!strncmp(ae_id, hdev->name, AE_NAME_SIZE))
+-		return 1;
+-
+-	return 0;
++	return hdev->dev->of_node == data;
+ }
  
--dsa: dsa@c7000000 {
-+dsaf0: dsa@c7000000 {
- 	compatible = "hisilicon,hns-dsaf-v1";
--	dsa_name = "dsaf0";
- 	mode = "6port-16rss";
- 	interrupt-parent = <&mbigen_dsa>;
- 	reg = <0x0 0xC0000000 0x0 0x420000
-diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
-index 41d19be..e6a9d1c 100644
---- a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
-+++ b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
-@@ -4,8 +4,9 @@ Required properties:
- - compatible: "hisilicon,hns-nic-v1" or "hisilicon,hns-nic-v2".
-   "hisilicon,hns-nic-v1" is for hip05.
-   "hisilicon,hns-nic-v2" is for Hi1610 and Hi1612.
--- ae-name: accelerator name who provides this interface,
--  is simply a name referring to the name of name in the accelerator node.
-+- ae-handle: accelerator engine handle for hns,
-+  specifies a reference to the associating hardware driver node.
-+  see Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
- - port-id: is the index of port provided by DSAF (the accelerator). DSAF can
-   connect to 8 PHYs. Port 0 to 1 are both used for adminstration purpose. They
-   are called debug ports.
-@@ -41,7 +42,7 @@ Example:
+-static struct hnae_ae_dev *find_ae(const char *ae_id)
++static struct hnae_ae_dev *find_ae(const struct device_node *ae_node)
+ {
+ 	struct device *dev;
  
- 	ethernet@0{
- 		compatible = "hisilicon,hns-nic-v1";
--		ae-name = "dsaf0";
-+		ae-handle = <&dsaf0>;
- 		port-id = <0>;
- 		local-mac-address = [a2 14 e4 4b 56 76];
- 	};
-diff --git a/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi b/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi
-index 606dd5a..89c883e 100644
---- a/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi
-+++ b/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi
-@@ -23,9 +23,8 @@ soc0: soc@000000000 {
- 		};
- 	};
+-	WARN_ON(!ae_id);
++	WARN_ON(!ae_node);
  
--	dsa: dsa@c7000000 {
-+	dsaf0: dsa@c7000000 {
- 		compatible = "hisilicon,hns-dsaf-v1";
--		dsa_name = "dsaf0";
- 		mode = "6port-16rss";
- 		interrupt-parent = <&mbigen_dsa>;
+-	dev = class_find_device(hnae_class, NULL, ae_id, __ae_match);
++	dev = class_find_device(hnae_class, NULL, ae_node, __ae_match);
  
-@@ -127,7 +126,7 @@ soc0: soc@000000000 {
+ 	return dev ? cls_to_ae_dev(dev) : NULL;
+ }
+@@ -316,7 +312,8 @@ EXPORT_SYMBOL(hnae_reinit_handle);
+  * return handle ptr or ERR_PTR
+  */
+ struct hnae_handle *hnae_get_handle(struct device *owner_dev,
+-				    const char *ae_id, u32 port_id,
++				    const struct device_node *ae_node,
++				    u32 port_id,
+ 				    struct hnae_buf_ops *bops)
+ {
+ 	struct hnae_ae_dev *dev;
+@@ -324,7 +321,7 @@ struct hnae_handle *hnae_get_handle(struct device *owner_dev,
+ 	int i, j;
+ 	int ret;
  
- 	eth0: ethernet@0{
- 		compatible = "hisilicon,hns-nic-v1";
--		ae-name = "dsaf0";
-+		ae-handle = <&dsaf0>;
- 		port-id = <0>;
- 		local-mac-address = [00 00 00 01 00 58];
- 		status = "disabled";
-@@ -135,14 +134,14 @@ soc0: soc@000000000 {
- 	};
- 	eth1: ethernet@1{
- 		compatible = "hisilicon,hns-nic-v1";
--		ae-name = "dsaf0";
-+		ae-handle = <&dsaf0>;
- 		port-id = <1>;
- 		status = "disabled";
- 		dma-coherent;
- 	};
- 	eth2: ethernet@2{
- 		compatible = "hisilicon,hns-nic-v1";
--		ae-name = "dsaf0";
-+		ae-handle = <&dsaf0>;
- 		port-id = <2>;
- 		local-mac-address = [00 00 00 01 00 5a];
- 		status = "disabled";
-@@ -150,7 +149,7 @@ soc0: soc@000000000 {
- 	};
- 	eth3: ethernet@3{
- 		compatible = "hisilicon,hns-nic-v1";
--		ae-name = "dsaf0";
-+		ae-handle = <&dsaf0>;
- 		port-id = <3>;
- 		local-mac-address = [00 00 00 01 00 5b];
- 		status = "disabled";
-@@ -158,7 +157,7 @@ soc0: soc@000000000 {
- 	};
- 	eth4: ethernet@4{
- 		compatible = "hisilicon,hns-nic-v1";
--		ae-name = "dsaf0";
-+		ae-handle = <&dsaf0>;
- 		port-id = <4>;
- 		local-mac-address = [00 00 00 01 00 5c];
- 		status = "disabled";
-@@ -166,7 +165,7 @@ soc0: soc@000000000 {
- 	};
- 	eth5: ethernet@5{
- 		compatible = "hisilicon,hns-nic-v1";
--		ae-name = "dsaf0";
-+		ae-handle = <&dsaf0>;
- 		port-id = <5>;
- 		local-mac-address = [00 00 00 01 00 5d];
- 		status = "disabled";
-@@ -174,7 +173,7 @@ soc0: soc@000000000 {
- 	};
- 	eth6: ethernet@6{
- 		compatible = "hisilicon,hns-nic-v1";
--		ae-name = "dsaf0";
-+		ae-handle = <&dsaf0>;
- 		port-id = <6>;
- 		local-mac-address = [00 00 00 01 00 5e];
- 		status = "disabled";
-@@ -182,7 +181,7 @@ soc0: soc@000000000 {
- 	};
- 	eth7: ethernet@7{
- 		compatible = "hisilicon,hns-nic-v1";
--		ae-name = "dsaf0";
-+		ae-handle = <&dsaf0>;
- 		port-id = <7>;
- 		local-mac-address = [00 00 00 01 00 5f];
- 		status = "disabled";
+-	dev = find_ae(ae_id);
++	dev = find_ae(ae_node);
+ 	if (!dev)
+ 		return ERR_PTR(-ENODEV);
+ 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
+index d1f3316..0012664 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hnae.h
++++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
+@@ -523,8 +523,11 @@ struct hnae_handle {
+ 
+ #define ring_to_dev(ring) ((ring)->q->dev->dev)
+ 
+-struct hnae_handle *hnae_get_handle(struct device *owner_dev, const char *ae_id,
+-				    u32 port_id, struct hnae_buf_ops *bops);
++struct hnae_handle *hnae_get_handle(struct device *owner_dev,
++				    const struct device_node *ae_node,
++				    u32 port_id,
++				    struct hnae_buf_ops *bops);
++
+ void hnae_put_handle(struct hnae_handle *handle);
+ int hnae_ae_register(struct hnae_ae_dev *dev, struct module *owner);
+ void hnae_ae_unregister(struct hnae_ae_dev *dev);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index 77c6edb..ed9a72c 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -848,6 +848,7 @@ static struct hnae_ae_ops hns_dsaf_ops = {
+ int hns_dsaf_ae_init(struct dsaf_device *dsaf_dev)
+ {
+ 	struct hnae_ae_dev *ae_dev = &dsaf_dev->ae_dev;
++	static atomic_t id = ATOMIC_INIT(-1);
+ 
+ 	switch (dsaf_dev->dsaf_ver) {
+ 	case AE_VERSION_1:
+@@ -859,6 +860,9 @@ int hns_dsaf_ae_init(struct dsaf_device *dsaf_dev)
+ 	default:
+ 		break;
+ 	}
++
++	snprintf(ae_dev->name, AE_NAME_SIZE, "%s%d", DSAF_DEVICE_NAME,
++		 (int)atomic_inc_return(&id));
+ 	ae_dev->ops = &hns_dsaf_ops;
+ 	ae_dev->dev = dsaf_dev->dev;
+ 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index 636b205..f3de749 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -35,7 +35,7 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
+ 	int ret, i;
+ 	u32 desc_num;
+ 	u32 buf_size;
+-	const char *name, *mode_str;
++	const char *mode_str;
+ 	struct device_node *np = dsaf_dev->dev->of_node;
+ 
+ 	if (of_device_is_compatible(np, "hisilicon,hns-dsaf-v1"))
+@@ -43,14 +43,6 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
+ 	else
+ 		dsaf_dev->dsaf_ver = AE_VERSION_2;
+ 
+-	ret = of_property_read_string(np, "dsa_name", &name);
+-	if (ret) {
+-		dev_err(dsaf_dev->dev, "get dsaf name fail, ret=%d!\n", ret);
+-		return ret;
+-	}
+-	strncpy(dsaf_dev->ae_dev.name, name, AE_NAME_SIZE);
+-	dsaf_dev->ae_dev.name[AE_NAME_SIZE - 1] = '\0';
+-
+ 	ret = of_property_read_string(np, "mode", &mode_str);
+ 	if (ret) {
+ 		dev_err(dsaf_dev->dev, "get dsaf mode fail, ret=%d!\n", ret);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+index 31c312f..40205b9 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+@@ -18,6 +18,7 @@ struct hns_mac_cb;
+ 
+ #define DSAF_DRV_NAME "hns_dsaf"
+ #define DSAF_MOD_VERSION "v1.0"
++#define DSAF_DEVICE_NAME "dsaf"
+ 
+ #define HNS_DSAF_DEBUG_NW_REG_OFFSET 0x100000
+ 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index cad2663..33b9aab 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -1778,7 +1778,7 @@ static int hns_nic_try_get_ae(struct net_device *ndev)
+ 	int ret;
+ 
+ 	h = hnae_get_handle(&priv->netdev->dev,
+-			    priv->ae_name, priv->port_id, NULL);
++			    priv->ae_node, priv->port_id, NULL);
+ 	if (IS_ERR_OR_NULL(h)) {
+ 		ret = PTR_ERR(h);
+ 		dev_dbg(priv->dev, "has not handle, register notifier!\n");
+@@ -1856,9 +1856,12 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
+ 	else
+ 		priv->enet_ver = AE_VERSION_2;
+ 
+-	ret = of_property_read_string(node, "ae-name", &priv->ae_name);
+-	if (ret)
+-		goto out_read_string_fail;
++	priv->ae_node = (void *)of_parse_phandle(node, "ae-handle", 0);
++	if (IS_ERR_OR_NULL(priv->ae_node)) {
++		ret = PTR_ERR(priv->ae_node);
++		dev_err(dev, "not find ae-handle\n");
++		goto out_read_handle_fai;
++	}
+ 
+ 	ret = of_property_read_u32(node, "port-id", &priv->port_id);
+ 	if (ret)
+@@ -1921,6 +1924,8 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
+ 
+ out_notify_fail:
+ 	(void)cancel_work_sync(&priv->service_task);
++out_read_handle_fai:
++
+ out_read_string_fail:
+ 	free_netdev(ndev);
+ 	return ret;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.h b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
+index 4b75270..c68ab3d 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
+@@ -51,7 +51,7 @@ struct hns_nic_ops {
+ };
+ 
+ struct hns_nic_priv {
+-	const char *ae_name;
++	const struct device_node *ae_node;
+ 	u32 enet_ver;
+ 	u32 port_id;
+ 	int phy_mode;
 -- 
 1.9.1
