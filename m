@@ -1,39 +1,74 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Fri, 4 Dec 2015 16:53:00 -0800
-Message-ID: <CALx6S36Y4fP9a6U40My+kuhik5THPOjHNYfRrVe8Szte03K7Ew@mail.gmail.com>
-References: <1449158374.11080.456996721.69F803D7@webmail.messagingengine.com>
-	<CALx6S342OMLB6s7LcmnZP1rnYNUs345Dy1gjYX3JUKqqB_waPA@mail.gmail.com>
-	<1449259145.6236.458303617.55CF2C4E@webmail.messagingengine.com>
-	<20151204.150633.1744714566987717806.davem@davemloft.net>
-	<CAKgT0UepW=VehhXncrAM=tvqrVDD_KOdVJBpwEU+hYTAdMz_dg@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] MAINTAINERS: add myself as Renesas Ethernet drivers
+ reviewer
+Date: Sat, 5 Dec 2015 03:57:36 +0300
+Message-ID: <56623680.4050808@cogentembedded.com>
+References: <1846877.jRW8849mPU@wasted.cogentembedded.com>
+ <1449276063.8611.25.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	John Linville <linville@tuxdriver.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Kiran Patil <kiran.patil@intel.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:36280 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755525AbbLEAxB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2015 19:53:01 -0500
-Received: by iofh3 with SMTP id h3so133714309iof.3
-        for <netdev@vger.kernel.org>; Fri, 04 Dec 2015 16:53:00 -0800 (PST)
-In-Reply-To: <CAKgT0UepW=VehhXncrAM=tvqrVDD_KOdVJBpwEU+hYTAdMz_dg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>, netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1449276063.8611.25.camel@perches.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I actually tried to push the generic checksum idea for fm10k back
-> during hardware development but ended up losing that battle.  The
-> problem is you have to have some customer willing to spend the cash in
-> order to get a feature, and the fact is nobody other than Tom has been
-> pushing for this.
+Hello.
 
-Very well, it is true that I only represent one user of networking
-protocols, grant it a very large one. I will shut up now. If other
-USERS want to chime in on what is best I'll certainly listen.
+On 12/05/2015 03:41 AM, Joe Perches wrote:
+
+>> liAdd myself as  a reviewer for the Renesas Ethernet drivers --
+>> hopefully I
+>> won't miss the buggy  patches anymore. :-)
+>>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>
+>> ---
+>> The patch is against DaveM's 'net.git' repo.
+>>
+>>   MAINTAINERS |    8 ++++++++
+>>   1 file changed, 8 insertions(+)
+>>
+>> Index: net/MAINTAINERS
+>> ===================================================================
+>> --- net.orig/MAINTAINERS
+>> +++ net/MAINTAINERS
+>> @@ -8929,6 +8929,14 @@ F:	drivers/rpmsg/
+>>   F:	Documentation/rpmsg.txt
+>>   F:	include/linux/rpmsg.h
+>>
+>> +RENESAS ETHERNET DRIVERS
+>> +R:	Sergei Shtylyov <serge.shtylyov@cogentembedded.com>
+>> +L:	netdev@vger.kernel.orgc
+>> +L:	linux-sh@vger.kernel.org
+>> +S:	Maintained
+>> +F:	drivers/net/ethernet/renesas/
+>> +F:	include/linux/sh_eth.h
+
+> Hello Sergei
+>
+> Typically a reviewer isn't a maintainer.
+
+    Yeah, I didn't take courage to become a real maintainer, being always 
+short of time... But I was annoyed by dubious quality patches being merged 
+recently.
+
+> Does anyone actually maintain this?
+
+    Only DaveM.
+
+> I suggest you mark this "S: Odd fixes" or
+> remove the "S:" line altogether unless you
+> really want to become the maintainer.
+
+    OK, will remove, if that's OK.
+
+PS: Since you seem to be get_maintainers.pl maintainer, I (and not only I)
+would like to propose a switch to suppress the committers/authors/etc. It's 
+generally annoying and unhelpful to have the bunch of people listed, none of 
+which usually are a good addressees for the patches...
+
+MBR, Sergei
+
