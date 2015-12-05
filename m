@@ -1,30 +1,35 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net,stable] net: cdc_mbim: add "NDP to end" quirk for
- Huawei E3372
-Date: Sat, 5 Dec 2015 23:47:07 +0100 (CET)
-Message-ID: <alpine.LNX.2.20.1512052343321.14118@localhost.localdomain>
-References: <1449316910-8009-1-git-send-email-bjorn@mork.no>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH (net.git)] stmmac: fix resource management when resume
+Date: Sat, 05 Dec 2015 17:49:34 -0500 (EST)
+Message-ID: <20151205.174934.1926276723353475569.davem@davemloft.net>
+References: <1449210066-30336-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Sami Farin <hvtaifwkbgefbaei-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
-To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449316910-8009-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39371 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752593AbbLEWtf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 17:49:35 -0500
+In-Reply-To: <1449210066-30336-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello guys.
-I am sorry the way my feature is actually implemented is limiting MUX 
-performances in mbim case, even with good devices. When I developed it, I also 
-probably tought this wasn't affecting MBIM devices.
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Date: Fri, 4 Dec 2015 07:21:06 +0100
 
-Thank you Bjorn, great work in handling it.
-Thank you for all of you; Thank you for reporting this Sami.
+> There is a memleak when suspend/resume this driver version.
+> Currently the stmmac, during resume step, reallocates all the resources
+> but they are not released when suspend.
+> The patch is not to release these resources but the logic has been changed.
+> In fact, it is not necessary to free and reallocate all from scratch
+> because the memory data will be always preserved.
+> As final solution, the patch just reinit the descriptors and the rx/tx
+> pointers only when resume. Tested done on STi boxes.
+> 
+> Reported-by: ZhengShunQian <zhengsq@rock-chips.com>
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-Acked-By: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
