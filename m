@@ -1,29 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 1/1] atm: solos-pci: Replace simple_strtol by
- kstrtoint
-Date: Sat, 05 Dec 2015 17:51:20 -0500 (EST)
-Message-ID: <20151205.175120.236153071095458446.davem@davemloft.net>
-References: <1449214999-6741-1-git-send-email-clabbe.montjoie@gmail.com>
-	<1449214999-6741-2-git-send-email-clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH net-next 4/7] cxgb4: prevent simultaneous execution of
+ service_ofldq()
+Date: Sat, 05 Dec 2015 17:54:06 -0500 (EST)
+Message-ID: <20151205.175406.2276753550050897246.davem@davemloft.net>
+References: <1449218891-7819-1-git-send-email-hariprasad@chelsio.com>
+	<1449218891-7819-5-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: clabbe.montjoie@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449214999-6741-2-git-send-email-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39397 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753276AbbLEWyJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 17:54:09 -0500
+In-Reply-To: <1449218891-7819-5-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Date: Fri,  4 Dec 2015 08:43:19 +0100
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Fri,  4 Dec 2015 14:18:08 +0530
 
-> The simple_strtol function is obsolete.
-> This patch replace it by kstrtoint.
-> This will simplify code, since some error case not handled by
-> simple_strtol are handled by kstrtoint.
-> 
-> Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
+> +	u8 service_ofldq_running;   /* service_ofldq() is processing sendq */
 
-Applied to net-next, thanks.
+Please use 'bool' and 'true'/'false'.
