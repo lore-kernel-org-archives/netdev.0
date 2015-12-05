@@ -1,48 +1,37 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v3] MAINTAINERS: add myself as Renesas Ethernet drivers reviewer
-Date: Sat, 05 Dec 2015 04:50:48 +0300
-Message-ID: <4240679.6nOnT2RPZY@wasted.cogentembedded.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [net-next v5 0/8] dpaa_eth: Add the Freescale DPAA Ethernet driver
+Date: Fri, 4 Dec 2015 22:40:11 -0600
+Message-ID: <CAOZdJXU6CJe-9NsxhnS6ECfXd=KrY_6e+MJZZbJOa8+p5-4jxA@mail.gmail.com>
+References: <1449144546-25438-1-git-send-email-madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Scott Wood <scottwood@freescale.com>,
+	igal.liberman@freescale.com, ppc@mindchasers.com,
+	Joe Perches <joe@perches.com>, pebolle@tiscali.nl,
+	Joakim Tjernlund <joakim.tjernlund@transmode.se>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: madalin.bucur@freescale.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449144546-25438-1-git-send-email-madalin.bucur@freescale.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add myself as  a reviewer for the Renesas Ethernet drivers -- hopefully I
-won't miss the buggy  patches anymore. :-)
+On Thu, Dec 3, 2015 at 6:08 AM,  <> wrote:
+> From: Madalin Bucur <madalin.bucur@freescale.com>
+>
+> This patch series adds the Ethernet driver for the Freescale
+> QorIQ Data Path Acceleration Architecture (DPAA).
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Please fix your git-send-email configuration, so that your emails are
+formatted properly.  This is the From: header:
 
----
-The patch is against DaveM's 'net.git' repo.
+        From: <>
 
-Changes in version 3:
-- removed the status entry;
-
-Changes in version 2:
-- removed garbage from the changelog.
-
- MAINTAINERS |    7 +++++++
- 1 file changed, 7 insertions(+)
-
-Index: net/MAINTAINERS
-===================================================================
---- net.orig/MAINTAINERS
-+++ net/MAINTAINERS
-@@ -8929,6 +8929,13 @@ F:	drivers/rpmsg/
- F:	Documentation/rpmsg.txt
- F:	include/linux/rpmsg.h
- 
-+RENESAS ETHERNET DRIVERS
-+R:	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-+L:	netdev@vger.kernel.org
-+L:	linux-sh@vger.kernel.org
-+F:	drivers/net/ethernet/renesas/
-+F:	include/linux/sh_eth.h
-+
- RESET CONTROLLER FRAMEWORK
- M:	Philipp Zabel <p.zabel@pengutronix.de>
- S:	Maintained
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
+a Linux Foundation Collaborative Project.
