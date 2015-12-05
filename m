@@ -1,37 +1,21 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [net-next v5 0/8] dpaa_eth: Add the Freescale DPAA Ethernet driver
-Date: Fri, 4 Dec 2015 22:40:11 -0600
-Message-ID: <CAOZdJXU6CJe-9NsxhnS6ECfXd=KrY_6e+MJZZbJOa8+p5-4jxA@mail.gmail.com>
-References: <1449144546-25438-1-git-send-email-madalin.bucur@freescale.com>
+From: Don Boyer <donboyer@indra.com>
+Subject: (unknown)
+Date: Fri, 4 Dec 2015 21:32:19 -0700 (MST)
+Message-ID: <981279863.5557594.1449289939949.JavaMail.zimbra@indra.com>
+Reply-To: Mr Brett McCorriston <brettmccoriston777@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Scott Wood <scottwood@freescale.com>,
-	igal.liberman@freescale.com, ppc@mindchasers.com,
-	Joe Perches <joe@perches.com>, pebolle@tiscali.nl,
-	Joakim Tjernlund <joakim.tjernlund@transmode.se>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: madalin.bucur@freescale.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449144546-25438-1-git-send-email-madalin.bucur@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mta.indra.com ([209.169.0.16]:45086 "EHLO mta.indra.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752523AbbLEEkt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Dec 2015 23:40:49 -0500
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 3, 2015 at 6:08 AM,  <> wrote:
-> From: Madalin Bucur <madalin.bucur@freescale.com>
->
-> This patch series adds the Ethernet driver for the Freescale
-> QorIQ Data Path Acceleration Architecture (DPAA).
 
-Please fix your git-send-email configuration, so that your emails are
-formatted properly.  This is the From: header:
 
-        From: <>
-
--- 
-Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
-a Linux Foundation Collaborative Project.
+My name is Brett McCorriston a merchant of Paris but currently base in Nevada Las Vegas Cartgate Ct United states, I have been diagnosed with esophageal cancer which has defiled all forms of medical treatment i have only few weeks to live here on earth.My condition is really deteriorating. i have decided to divide part of my fortune,by contributing to the Charities & Motherless. I am willing to donate the sum of US$ 5 Million to the poor through you.Can you help me? contact me on my private email ( brettmccorriston88@yahoo.com ) I really need you to help me.
