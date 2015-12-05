@@ -1,77 +1,238 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] Bluetooth: Fix locking in bt_accept_dequeue after disconnection
-Date: Sat, 5 Dec 2015 08:21:51 -1000
-Message-ID: <8719CB24-9594-467C-8151-0A2291BA988C@holtmann.org>
-References: <1448997061-28144-1-git-send-email-zhaoyichen@google.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.1 \(3096.5\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	BlueZ development <linux-bluetooth@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org
-To: Yichen Zhao <zhaoyichen@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1448997061-28144-1-git-send-email-zhaoyichen@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [RFC] ipv6: use a random ifid for headerless devices
+Date: Sat, 05 Dec 2015 20:02:09 +0100
+Message-ID: <87d1ukk9ce.fsf@nemi.mork.no>
+References: <1448884508-5235-1-git-send-email-bjorn@mork.no>
+	<1448968942.3320842.454553905.2C5FBADD@webmail.messagingengine.com>
+	<87vb8fjpou.fsf@nemi.mork.no>
+	<1449225712.287884.457895729.21AD000E@webmail.messagingengine.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="=-=-="
+Cc: <netdev@vger.kernel.org>,
+	=?utf-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:52059 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752631AbbLETCT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Dec 2015 14:02:19 -0500
+In-Reply-To: <1449225712.287884.457895729.21AD000E@webmail.messagingengine.com>
+	(Hannes Frederic Sowa's message of "Fri, 04 Dec 2015 11:41:52 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Yichen,
+--=-=-=
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-> Fix a crash that may happen when bt_accept_dequeue is run after a
-> Bluetooth connection has been disconnected. bt_accept_unlink was called
-> after release_sock, permitting bt_accept_unlink to run twice on the same
-> socket and cause a NULL pointer dereference.
-> 
-> 
-> [50510.241632] BUG: unable to handle kernel NULL pointer dereference at 00000000000001a8
-> [50510.241694] IP: [<ffffffffc01243f7>] bt_accept_unlink+0x47/0xa0 [bluetooth]
-> [50510.241759] PGD 0 
-> [50510.241776] Oops: 0002 [#1] SMP 
-> [50510.241802] Modules linked in: rtl8192cu rtl_usb rtlwifi rtl8192c_common 8021q garp stp mrp llc rfcomm bnep nls_iso8859_1 intel_rapl x86_pkg_temp_thermal intel_powerclamp coretemp arc4 ath9k ath9k_common ath9k_hw ath kvm eeepc_wmi asus_wmi mac80211 snd_hda_codec_hdmi snd_hda_codec_realtek sparse_keymap crct10dif_pclmul snd_hda_codec_generic crc32_pclmul snd_hda_intel snd_hda_controller cfg80211 snd_hda_codec i915 snd_hwdep snd_pcm ghash_clmulni_intel snd_timer snd soundcore serio_raw cryptd drm_kms_helper drm i2c_algo_bit shpchp ath3k mei_me lpc_ich btusb bluetooth 6lowpan_iphc mei lp parport wmi video mac_hid psmouse ahci libahci r8169 mii
-> [50510.242279] CPU: 0 PID: 934 Comm: krfcommd Not tainted 3.16.0-49-generic #65~14.04.1-Ubuntu
-> [50510.242327] Hardware name: ASUSTeK Computer INC. VM40B/VM40B, BIOS 1501 12/09/2014
-> [50510.242370] task: ffff8800d9068a30 ti: ffff8800d7a54000 task.ti: ffff8800d7a54000
-> [50510.242413] RIP: 0010:[<ffffffffc01243f7>]  [<ffffffffc01243f7>] bt_accept_unlink+0x47/0xa0 [bluetooth]
-> [50510.242480] RSP: 0018:ffff8800d7a57d58  EFLAGS: 00010246
-> [50510.242511] RAX: 0000000000000000 RBX: ffff880119bb8c00 RCX: ffff880119bb8eb0
-> [50510.242552] RDX: ffff880119bb8eb0 RSI: 00000000fffffe01 RDI: ffff880119bb8c00
-> [50510.242592] RBP: ffff8800d7a57d60 R08: 0000000000000283 R09: 0000000000000001
-> [50510.242633] R10: 0000000000000000 R11: 0000000000000000 R12: ffff8800d8da9eb0
-> [50510.242673] R13: ffff8800d74fdb80 R14: ffff880119bb8c00 R15: ffff8800d8da9c00
-> [50510.242715] FS:  0000000000000000(0000) GS:ffff88011fa00000(0000) knlGS:0000000000000000
-> [50510.242761] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [50510.242794] CR2: 00000000000001a8 CR3: 0000000001c13000 CR4: 00000000001407f0
-> [50510.242835] Stack:
-> [50510.242849]  ffff880119bb8eb0 ffff8800d7a57da0 ffffffffc0124506 ffff8800d8da9eb0
-> [50510.242899]  ffff8800d8da9c00 ffff8800d9068a30 0000000000000000 ffff8800d74fdb80
-> [50510.242949]  ffff8800d6f85208 ffff8800d7a57e08 ffffffffc0159985 000000000000001f
-> [50510.242999] Call Trace:
-> [50510.243027]  [<ffffffffc0124506>] bt_accept_dequeue+0xb6/0x180 [bluetooth]
-> [50510.243085]  [<ffffffffc0159985>] l2cap_sock_accept+0x125/0x220 [bluetooth]
-> [50510.243128]  [<ffffffff810a1b30>] ? wake_up_state+0x20/0x20
-> [50510.243163]  [<ffffffff8164946e>] kernel_accept+0x4e/0xa0
-> [50510.243200]  [<ffffffffc05b97cd>] rfcomm_run+0x1ad/0x890 [rfcomm]
-> [50510.243238]  [<ffffffffc05b9620>] ? rfcomm_process_rx+0x8a0/0x8a0 [rfcomm]
-> [50510.243281]  [<ffffffff81091572>] kthread+0xd2/0xf0
-> [50510.243312]  [<ffffffff810914a0>] ? kthread_create_on_node+0x1c0/0x1c0
-> [50510.243353]  [<ffffffff8176e9d8>] ret_from_fork+0x58/0x90
-> [50510.243387]  [<ffffffff810914a0>] ? kthread_create_on_node+0x1c0/0x1c0
-> [50510.243424] Code: 00 48 8b 93 b8 02 00 00 48 8d 83 b0 02 00 00 48 89 51 08 48 89 0a 48 89 83 b0 02 00 00 48 89 83 b8 02 00 00 48 8b 83 c0 02 00 00 <66> 83 a8 a8 01 00 00 01 48 c7 83 c0 02 00 00 00 00 00 00 f0 ff 
-> [50510.243685] RIP  [<ffffffffc01243f7>] bt_accept_unlink+0x47/0xa0 [bluetooth]
-> [50510.243737]  RSP <ffff8800d7a57d58>
-> [50510.243758] CR2: 00000000000001a8
-> [50510.249457] ---[ end trace bb984f932c4e3ab3 ]---
-> 
-> Signed-off-by: Yichen Zhao <zhaoyichen@google.com>
-> ---
-> net/bluetooth/af_bluetooth.c | 2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
+Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+> On Thu, Dec 3, 2015, at 20:29, Bj=C3=B8rn Mork wrote:
+>
+>> After looking more at addrconf, I started wondering if we couldn't abuse
+>> ipv6_generate_stable_address() for this purpose?  We could add a new
+>> addr_gen_mode which would trigger automatic generation of a secret if
+>> stable_secret is uninitialized.  This would be good enough to ensure
+>> stability until the interface is destroyed.  And it would still allow
+>> the adminstrator to select IN6_ADDR_GEN_MODE_STABLE_PRIVACY by entering
+>> a new secret.
+>
+> I am fine with your proposal but I would really like to see it only
+> happen on the per-interface stable_secret instance.
 
-patch has been applied to bluetooth-next tree.
+Do you think something like the patch below will be OK?
 
-Regards
+Or would it be better to drop the additional mode and just generate a
+random secret if the mode is IN6_ADDR_GEN_MODE_STABLE_PRIVACY and the
+secrets are missing?  Or would that be changing the userspace ABI?  This
+is not clear to me...
 
-Marcel
+Bj=C3=B8rn
+
+
+--=-=-=
+Content-Type: text/x-diff; charset=utf-8
+Content-Disposition: inline;
+ filename=0001-ipv6-addrconf-use-stable-address-generator-for-ARPHR.patch
+Content-Transfer-Encoding: quoted-printable
+
+>From 099c0a856cc4d06d2da6eb7f1f684adff9820f65 Mon Sep 17 00:00:00 2001
+From: =3D?UTF-8?q?Bj=3DC3=3DB8rn=3D20Mork?=3D <bjorn@mork.no>
+Date: Fri, 4 Dec 2015 13:30:13 +0100
+Subject: [PATCH] ipv6: addrconf: use stable address generator for ARPHRD_NO=
+NE
+MIME-Version: 1.0
+Content-Type: text/plain; charset=3DUTF-8
+Content-Transfer-Encoding: 8bit
+
+Add a new address generator mode, using the stable address
+generator with an automatically generated secret. Set it up
+as the default address generator for ARPHRD_NONE interfaces,
+which cannot use the EUI generator.
+
+A random secret is generated on first link up event, allowing
+a link local address to be added:
+
+5: tun0: <POINTOPOINT,MULTICAST,NOARP> mtu 1500 qdisc noop state DOWN mode =
+DEFAULT group default qlen 500
+    link/none  promiscuity 0
+    tun addrgenmode auto
+cat: /proc/sys/net/ipv6/conf/tun0/stable_secret: Input/output error
+b269:f3cc:e285:3de3:d9e5:ac1c:bf76:a7ca
+5: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue s=
+tate UNKNOWN group default qlen 500
+    link/none  promiscuity 0
+    tun
+    inet6 fe80::19d4:c711:c8d3:451d/64 scope link flags 800
+       valid_lft forever preferred_lft forever
+
+Manually configuring a secret changes the mode to
+stable-privacy:
+
+A:~# echo :: > /proc/sys/net/ipv6/conf/tun0/stable_secret
+A:~# ip -d link show dev tun0
+5: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue s=
+tate UNKNOWN mode DEFAULT group default qlen 500
+    link/none  promiscuity 0
+    tun addrgenmode stable-privacy
+
+Changing the mode to auto will not change an existing secret.
+
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+ include/uapi/linux/if_link.h |  1 +
+ net/ipv6/addrconf.c          | 43 +++++++++++++++++++++++++++++++++++++---=
+---
+ 2 files changed, 38 insertions(+), 6 deletions(-)
+
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 5ad5737..999d765 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -218,6 +218,7 @@ enum in6_addr_gen_mode {
+ 	IN6_ADDR_GEN_MODE_EUI64,
+ 	IN6_ADDR_GEN_MODE_NONE,
+ 	IN6_ADDR_GEN_MODE_STABLE_PRIVACY,
++	IN6_ADDR_GEN_MODE_AUTO,
+ };
+=20
+ /* Bridge section */
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index d84742f..1b12ff3 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -393,6 +393,9 @@ static struct inet6_dev *ipv6_add_dev(struct net_device=
+ *dev)
+ 		ndev->cnf.rtr_solicits =3D 0;
+ 	}
+ #endif
++	/* this device type does not support the default EUI mode */
++	if (dev->type =3D=3D ARPHRD_NONE)
++		ndev->addr_gen_mode =3D IN6_ADDR_GEN_MODE_AUTO;
+=20
+ 	INIT_LIST_HEAD(&ndev->tempaddr_list);
+ 	setup_timer(&ndev->regen_timer, ipv6_regen_rndid, (unsigned long)ndev);
+@@ -2314,6 +2317,12 @@ static void manage_tempaddrs(struct inet6_dev *idev,
+ 	}
+ }
+=20
++static bool is_addr_mode_generate_stable(struct inet6_dev *idev)
++{
++	return idev->addr_gen_mode =3D=3D IN6_ADDR_GEN_MODE_STABLE_PRIVACY ||
++	       idev->addr_gen_mode =3D=3D IN6_ADDR_GEN_MODE_AUTO;
++}
++
+ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, bool sl=
+lao)
+ {
+ 	struct prefix_info *pinfo;
+@@ -2427,8 +2436,7 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *=
+opt, int len, bool sllao)
+ 				       in6_dev->token.s6_addr + 8, 8);
+ 				read_unlock_bh(&in6_dev->lock);
+ 				tokenized =3D true;
+-			} else if (in6_dev->addr_gen_mode =3D=3D
+-				   IN6_ADDR_GEN_MODE_STABLE_PRIVACY &&
++			} else if (is_addr_mode_generate_stable(in6_dev) &&
+ 				   !ipv6_generate_stable_address(&addr, 0,
+ 								 in6_dev)) {
+ 				addr_flags |=3D IFA_F_STABLE_PRIVACY;
+@@ -3028,6 +3036,17 @@ retry:
+ 	return 0;
+ }
+=20
++static void ipv6_gen_mode_auto_init(struct inet6_dev *idev)
++{
++	struct ipv6_stable_secret *s =3D &idev->cnf.stable_secret;
++
++	if (s->initialized)
++		return;
++	s =3D &idev->cnf.stable_secret;
++	get_random_bytes(&s->secret, sizeof(s->secret));
++	s->initialized =3D true;
++}
++
+ static void addrconf_addr_gen(struct inet6_dev *idev, bool prefix_route)
+ {
+ 	struct in6_addr addr;
+@@ -3038,13 +3057,18 @@ static void addrconf_addr_gen(struct inet6_dev *ide=
+v, bool prefix_route)
+=20
+ 	ipv6_addr_set(&addr, htonl(0xFE800000), 0, 0, 0);
+=20
+-	if (idev->addr_gen_mode =3D=3D IN6_ADDR_GEN_MODE_STABLE_PRIVACY) {
++	switch (idev->addr_gen_mode) {
++	case IN6_ADDR_GEN_MODE_AUTO:
++		ipv6_gen_mode_auto_init(idev);
++		/* fallthrough */
++	case IN6_ADDR_GEN_MODE_STABLE_PRIVACY:
+ 		if (!ipv6_generate_stable_address(&addr, 0, idev))
+ 			addrconf_add_linklocal(idev, &addr,
+ 					       IFA_F_STABLE_PRIVACY);
+ 		else if (prefix_route)
+ 			addrconf_prefix_route(&addr, 64, idev->dev, 0, 0);
+-	} else if (idev->addr_gen_mode =3D=3D IN6_ADDR_GEN_MODE_EUI64) {
++		break;
++	case IN6_ADDR_GEN_MODE_EUI64:
+ 		/* addrconf_add_linklocal also adds a prefix_route and we
+ 		 * only need to care about prefix routes if ipv6_generate_eui64
+ 		 * couldn't generate one.
+@@ -3053,6 +3077,11 @@ static void addrconf_addr_gen(struct inet6_dev *idev=
+, bool prefix_route)
+ 			addrconf_add_linklocal(idev, &addr, 0);
+ 		else if (prefix_route)
+ 			addrconf_prefix_route(&addr, 64, idev->dev, 0, 0);
++		break;
++	case IN6_ADDR_GEN_MODE_NONE:
++	default:
++		/* will not add any link local address */
++		break;
+ 	}
+ }
+=20
+@@ -3069,7 +3098,8 @@ static void addrconf_dev_config(struct net_device *de=
+v)
+ 	    (dev->type !=3D ARPHRD_IEEE802154) &&
+ 	    (dev->type !=3D ARPHRD_IEEE1394) &&
+ 	    (dev->type !=3D ARPHRD_TUNNEL6) &&
+-	    (dev->type !=3D ARPHRD_6LOWPAN)) {
++	    (dev->type !=3D ARPHRD_6LOWPAN) &&
++	    (dev->type !=3D ARPHRD_NONE)) {
+ 		/* Alas, we support only Ethernet autoconfiguration. */
+ 		return;
+ 	}
+@@ -4921,7 +4951,8 @@ static int inet6_set_link_af(struct net_device *dev, =
+const struct nlattr *nla)
+=20
+ 		if (mode !=3D IN6_ADDR_GEN_MODE_EUI64 &&
+ 		    mode !=3D IN6_ADDR_GEN_MODE_NONE &&
+-		    mode !=3D IN6_ADDR_GEN_MODE_STABLE_PRIVACY)
++		    mode !=3D IN6_ADDR_GEN_MODE_STABLE_PRIVACY &&
++		    mode !=3D IN6_ADDR_GEN_MODE_AUTO)
+ 			return -EINVAL;
+=20
+ 		if (mode =3D=3D IN6_ADDR_GEN_MODE_STABLE_PRIVACY &&
+--=20
+2.1.4
+
+
+--=-=-=--
