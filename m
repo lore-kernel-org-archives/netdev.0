@@ -1,52 +1,38 @@
-From: Jens Axboe <axboe@fb.com>
-Subject: Re: 4.4-rc3, KVM, br0 and instant hang
-Date: Sat, 5 Dec 2015 10:32:44 -0700
-Message-ID: <56631FBC.4030002@fb.com>
-References: <22114.26609.457727.203801@quad.stoffel.home>
- <20151205162328.GA32532@quad.stoffel.home>
- <22115.8036.357755.548697@quad.stoffel.home>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Sat, 5 Dec 2015 09:53:43 -0800
+Message-ID: <CALx6S36-oe5tZ2QAy5rV3SbHveJ7nyfEHArMh2z24zrAuAWY9g@mail.gmail.com>
+References: <CAKgT0UepW=VehhXncrAM=tvqrVDD_KOdVJBpwEU+hYTAdMz_dg@mail.gmail.com>
+	<CALx6S36Y4fP9a6U40My+kuhik5THPOjHNYfRrVe8Szte03K7Ew@mail.gmail.com>
+	<566279E5.9070500@gmail.com>
+	<20151205.014909.1572453190886968569.davem@davemloft.net>
+	<CAKgT0Uc1bJRrzpLUdr3vOFkYZbcqP=J8wgOz1feF+u04aNBg1g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<jaxboe@fusionio.com>
-To: John Stoffel <john@stoffel.org>,
-	John Stoffel <john@quad.stoffel.home>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <22115.8036.357755.548697@quad.stoffel.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	John Linville <linville@tuxdriver.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Anjali Singhai Jain <anjali.singhai@intel.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Kiran Patil <kiran.patil@intel.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:37104 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753053AbbLERxo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 12:53:44 -0500
+Received: by igcto18 with SMTP id to18so56725217igc.0
+        for <netdev@vger.kernel.org>; Sat, 05 Dec 2015 09:53:43 -0800 (PST)
+In-Reply-To: <CAKgT0Uc1bJRrzpLUdr3vOFkYZbcqP=J8wgOz1feF+u04aNBg1g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/05/2015 10:31 AM, John Stoffel wrote:
->>>>>> "John" == John Stoffel <john@quad.stoffel.home> writes:
->
-> John> On Fri, Dec 04, 2015 at 11:28:33PM -0500, John Stoffel wrote:
->>>
->>> Hi all,
->
->>> Anyway, if I try to boot up anything past the 4.2.6 kernel, the system
->>> locks up pretty quickly with an oops message that scrolls off the
->>> screen too far.  I've got some pictures which I'll attach in a bit,
->>> maybe they'll help.  So at first I thought it was something to do with
->>> bad kworker threads, or SCSI or SATA interactions, but as I tried to
->>> configure Netconsole to log to my beaglebone black SBC, I found out
->>> that if I compiled and installed 4.4-rc3, started the bridge up (br0),
->>> even started KVM, but did NOT start my VMs, the system was stable.
->
-> I've now figured out that I can disable all my VMs from autostart, and
-> the system will come up properly.  Then I can setup netconsole to use
-> the br0 interface, do an  "echo t > sysrq" to confirm it's working,
-> and start up the VMs.
->
-> On my most recent bootup, I thought it was ok, since the VMs worked
-> for a while (10 minutes) and I was starting to re-compile the kernel
-> again to make more modules compiled in.  No luck, I got the following
-> crash dump (partial) on my netconsole box.
->
-> [ 1434.266524] ------------[ cut here ]------------
-> [ 1434.266643] WARNING: CPU: 2 PID: 179 at block/blk-merge.c:435 blk_rq_map_sg+0x2d9/0x2eb()
+> Keep in mind I don't represent one of the hardware vendors here
+> anymore.  I am approaching this from the customer point of view.  I
+> would like to have the performance I can get out of the parts I have.
 
-This is fixed in current -git, as of a few days ago.
-
--- 
-Jens Axboe
+Trying enabling UDP checksum, GRO/GSO, and Remote Checksum Offload in
+VXLAN. Assuming you have a NIC that at least provides UDP checksum
+offload and RSS for UDP (may need to be enabled) you can get good
+VXLAN performance across a varietyof legacy "dumb" NICs.
