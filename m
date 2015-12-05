@@ -1,54 +1,57 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: only drop the reference on the datamsg after sending a msg
-Date: Sat,  5 Dec 2015 15:19:27 +0800
-Message-ID: <b2b92ed429c3f617f5a22df8b232cf58ab7a0fb5.1449299967.git.lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: hold the chunks only after the chunk is enqueued in outq
+Date: Sat,  5 Dec 2015 15:15:17 +0800
+Message-ID: <b2131d0e9ac5a34aea93d6770fcf68c4496d1d7d.1449299717.git.lucien.xin@gmail.com>
 Cc: marcelo.leitner@gmail.com, vyasevic@redhat.com, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:34090 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751902AbbLEHTb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 02:19:31 -0500
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:35968 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751902AbbLEHWF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 02:22:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the chunks are enqueued successfully but sctp_cmd_interpreter()
-return err to sctp_sendmsg() (mainly because of no mem), the chunks will
-get re-queued, but we are dropping the reference and freeing them.
+When a msg is sent, sctp will hold the chunks of this msg and then try
+to enqueue them. But if the chunks are not enqueued in sctp_outq_tail()
+because of the invalid state, sctp_cmd_interpreter() may still return
+success to sctp_sendmsg() after calling sctp_outq_flush(), these chunks
+will become orphans and will leak.
 
-The fix is to just drop the reference on the datamsg just as it had
-succeeded, as:
- - if the chunks weren't queued, this is enough to get them freed.
- - if they were queued, they will get freed when they finally get out or
- discarded.
+So we fix them by moving sctp_chunk_hold() to sctp_outq_tail(), where we
+are sure that the chunk is going to get queued.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
-Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
- net/sctp/socket.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ net/sctp/outqueue.c | 1 +
+ net/sctp/socket.c   | 2 --
+ 2 files changed, 1 insertion(+), 2 deletions(-)
 
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 7e8f0a1..0b3d818 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -324,6 +324,7 @@ int sctp_outq_tail(struct sctp_outq *q, struct sctp_chunk *chunk)
+ 				 sctp_cname(SCTP_ST_CHUNK(chunk->chunk_hdr->type)) :
+ 				 "illegal chunk");
+ 
++			sctp_chunk_hold(chunk);
+ 			sctp_outq_tail_data(q, chunk);
+ 			if (chunk->chunk_hdr->flags & SCTP_DATA_UNORDERED)
+ 				SCTP_INC_STATS(net, SCTP_MIB_OUTUNORDERCHUNKS);
 diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 03c8256..d8460be 100644
+index 03c8256..8804731 100644
 --- a/net/sctp/socket.c
 +++ b/net/sctp/socket.c
-@@ -1966,15 +1966,13 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
- 	 * breaks.
- 	 */
- 	err = sctp_primitive_SEND(net, asoc, datamsg);
-+	sctp_datamsg_put(datamsg);
- 	/* Did the lower layer accept the chunk? */
--	if (err) {
--		sctp_datamsg_free(datamsg);
-+	if (err)
- 		goto out_free;
--	}
+@@ -1952,8 +1952,6 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
  
- 	pr_debug("%s: we sent primitively\n", __func__);
+ 	/* Now send the (possibly) fragmented message. */
+ 	list_for_each_entry(chunk, &datamsg->chunks, frag_list) {
+-		sctp_chunk_hold(chunk);
+-
+ 		/* Do accounting for the write space.  */
+ 		sctp_set_owner_w(chunk);
  
--	sctp_datamsg_put(datamsg);
- 	err = msg_len;
- 
- 	if (unlikely(wait_connect)) {
 -- 
 2.1.0
