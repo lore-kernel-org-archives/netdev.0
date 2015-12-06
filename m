@@ -1,23 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Renesas: read MAC address registers only once
-Date: Sat, 05 Dec 2015 22:46:13 -0500 (EST)
-Message-ID: <20151205.224613.1052245495862594889.davem@davemloft.net>
-References: <10429393.qU4CxZ5nlj@wasted.cogentembedded.com>
+Subject: Re: rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
+Date: Sat, 05 Dec 2015 22:48:29 -0500 (EST)
+Message-ID: <20151205.224829.171477269244585844.davem@davemloft.net>
+References: <20151204143956.GA17471@gondor.apana.org.au>
+	<20151204.165334.1119277452308794437.davem@davemloft.net>
+	<20151205070354.GA23255@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <10429393.qU4CxZ5nlj@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: eric.dumazet@gmail.com, phil@nwl.cc, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tgraf@suug.ch,
+	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
+To: herbert@gondor.apana.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151205070354.GA23255@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sat, 05 Dec 2015 00:55:54 +0300
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 5 Dec 2015 15:03:54 +0800
 
->    Here's 2 patches against DaveM's 'net-next.git' repo. Here we
-> optimize the MAC address register reading (left over from a
-> bootloader).
+> Sorry Dave but you'll have to revert this because I've been able
+> to trigger the following crash with the patch:
+> 
+> Testing concurrent rhashtable access from 50 threads
+> ------------[ cut here ]------------
+> kernel BUG at ../mm/vmalloc.c:1337!
+> invalid opcode: 0000 [#1] PREEMPT SMP 
+> 
+> The reason is that because I was testing insertions with BH disabled,
+> and __vmalloc doesn't like that, even with GFP_ATOMIC.  As we
+> obviously want to continue to support rhashtable users inserting
+> entries with BH disabled, we'll have to look for an alternate
+> solution.
 
-Series applied, thanks.
+Ok, reverted, thanks for the heads up.
