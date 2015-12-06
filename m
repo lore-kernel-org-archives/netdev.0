@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 6/6] net/mlx4_core: Support the HA mode for SRIOV VFs too
-Date: Sun,  6 Dec 2015 18:07:43 +0200
-Message-ID: <1449418063-8111-7-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 5/6] IB/mlx4: Use the VF base-port when demuxing mad from wire
+Date: Sun,  6 Dec 2015 18:07:42 +0200
+Message-ID: <1449418063-8111-6-git-send-email-ogerlitz@mellanox.com>
 References: <1449418063-8111-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Tal Alon <talal@mellanox.com>,
 	Majd Dibbiny <majd@mellanox.com>,
@@ -10,173 +10,70 @@ Cc: netdev@vger.kernel.org, Tal Alon <talal@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:51582 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:51634 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753641AbbLFQIM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Dec 2015 11:08:12 -0500
+	id S1753999AbbLFQI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Dec 2015 11:08:28 -0500
 In-Reply-To: <1449418063-8111-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Moni Shoua <monis@mellanox.com>
+Under HA mode, it's possible that the VF registered its GID
+(and expects to get mads through the PV scheme) on a port which is
+different from the one this mad arrived on, due to HA fail over.
 
-When the mlx4 driver runs in HA mode, and all VFs are single ported
-ones, we make their single port Highly-Available.
+Therefore, if the gid is not matched on the port that the packet arrived
+on, check for a match on the other port if HA mode is active -- and if a
+match is found on the other port, continue processing the mad using that
+other port.
 
-This is done by taking advantage of the HA mode properties (following
-bonding changes with programming the port V2P map, etc) and adding
-the missing parts which are unique to SRIOV such as mirroring VF
-steering rules on both ports.
-
-Due to limits on the MAC and VLAN table this mode is enabled only when
-number of total VFs is under 64.
-
-Signed-off-by: Moni Shoua <monis@mellanox.com>
-Reviewed-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reviewed-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 ---
- drivers/net/ethernet/mellanox/mlx4/main.c | 107 +++++++++++++++++++++++++++---
- 1 file changed, 97 insertions(+), 10 deletions(-)
+ drivers/infiniband/hw/mlx4/mad.c | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 31c491e..f1b6d21 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -1221,6 +1221,76 @@ err_set_port:
- 	return err ? err : count;
- }
+diff --git a/drivers/infiniband/hw/mlx4/mad.c b/drivers/infiniband/hw/mlx4/mad.c
+index 870e56b..26833bf 100644
+--- a/drivers/infiniband/hw/mlx4/mad.c
++++ b/drivers/infiniband/hw/mlx4/mad.c
+@@ -40,6 +40,7 @@
+ #include <linux/gfp.h>
+ #include <rdma/ib_pma.h>
  
-+/* bond for multi-function device */
-+#define MAX_MF_BOND_ALLOWED_SLAVES 63
-+static int mlx4_mf_bond(struct mlx4_dev *dev)
-+{
-+	int err = 0;
-+	struct mlx4_slaves_pport slaves_port1;
-+	struct mlx4_slaves_pport slaves_port2;
-+	DECLARE_BITMAP(slaves_port_1_2, MLX4_MFUNC_MAX);
-+
-+	slaves_port1 = mlx4_phys_to_slaves_pport(dev, 1);
-+	slaves_port2 = mlx4_phys_to_slaves_pport(dev, 2);
-+	bitmap_and(slaves_port_1_2,
-+		   slaves_port1.slaves, slaves_port2.slaves,
-+		   dev->persist->num_vfs + 1);
-+
-+	/* only single port vfs are allowed */
-+	if (bitmap_weight(slaves_port_1_2, dev->persist->num_vfs + 1) > 1) {
-+		mlx4_warn(dev, "HA mode unsupported for dual ported VFs\n");
-+		return -EINVAL;
-+	}
-+
-+	/* limit on maximum allowed VFs */
-+	if ((bitmap_weight(slaves_port1.slaves, dev->persist->num_vfs + 1) +
-+	    bitmap_weight(slaves_port2.slaves, dev->persist->num_vfs + 1)) >
-+	    MAX_MF_BOND_ALLOWED_SLAVES)
-+		return -EINVAL;
-+
-+	if (dev->caps.steering_mode != MLX4_STEERING_MODE_DEVICE_MANAGED) {
-+		mlx4_warn(dev, "HA mode unsupported for NON DMFS steering\n");
-+		return -EINVAL;
-+	}
-+
-+	err = mlx4_bond_mac_table(dev);
-+	if (err)
-+		return err;
-+	err = mlx4_bond_vlan_table(dev);
-+	if (err)
-+		goto err1;
-+	err = mlx4_bond_fs_rules(dev);
-+	if (err)
-+		goto err2;
-+
-+	return 0;
-+err2:
-+	(void)mlx4_unbond_vlan_table(dev);
-+err1:
-+	(void)mlx4_unbond_mac_table(dev);
-+	return err;
-+}
-+
-+static int mlx4_mf_unbond(struct mlx4_dev *dev)
-+{
-+	int ret, ret1;
-+
-+	ret = mlx4_unbond_fs_rules(dev);
-+	if (ret)
-+		mlx4_warn(dev, "multifunction unbond for flow rules failedi (%d)\n", ret);
-+	ret1 = mlx4_unbond_mac_table(dev);
-+	if (ret1) {
-+		mlx4_warn(dev, "multifunction unbond for MAC table failed (%d)\n", ret1);
-+		ret = ret1;
-+	}
-+	ret1 = mlx4_unbond_vlan_table(dev);
-+	if (ret1) {
-+		mlx4_warn(dev, "multifunction unbond for VLAN table failed (%d)\n", ret1);
-+		ret = ret1;
-+	}
-+	return ret;
-+}
-+
- int mlx4_bond(struct mlx4_dev *dev)
++#include <linux/mlx4/driver.h>
+ #include "mlx4_ib.h"
+ 
+ enum {
+@@ -606,8 +607,8 @@ static int mlx4_ib_demux_mad(struct ib_device *ibdev, u8 port,
+ 			struct ib_mad *mad)
  {
- 	int ret = 0;
-@@ -1228,16 +1298,23 @@ int mlx4_bond(struct mlx4_dev *dev)
+ 	struct mlx4_ib_dev *dev = to_mdev(ibdev);
+-	int err;
+-	int slave;
++	int err, other_port;
++	int slave = -1;
+ 	u8 *slave_id;
+ 	int is_eth = 0;
  
- 	mutex_lock(&priv->bond_mutex);
- 
--	if (!mlx4_is_bonded(dev))
-+	if (!mlx4_is_bonded(dev)) {
- 		ret = mlx4_do_bond(dev, true);
--	else
--		ret = 0;
-+		if (ret)
-+			mlx4_err(dev, "Failed to bond device: %d\n", ret);
-+		if (!ret && mlx4_is_master(dev)) {
-+			ret = mlx4_mf_bond(dev);
-+			if (ret) {
-+				mlx4_err(dev, "bond for multifunction failed\n");
-+				mlx4_do_bond(dev, false);
+@@ -625,7 +626,17 @@ static int mlx4_ib_demux_mad(struct ib_device *ibdev, u8 port,
+ 			mlx4_ib_warn(ibdev, "RoCE mgmt class is not CM\n");
+ 			return -EINVAL;
+ 		}
+-		if (mlx4_get_slave_from_roce_gid(dev->dev, port, grh->dgid.raw, &slave)) {
++		err = mlx4_get_slave_from_roce_gid(dev->dev, port, grh->dgid.raw, &slave);
++		if (err && mlx4_is_mf_bonded(dev->dev)) {
++			other_port = (port == 1) ? 2 : 1;
++			err = mlx4_get_slave_from_roce_gid(dev->dev, other_port, grh->dgid.raw, &slave);
++			if (!err) {
++				port = other_port;
++				pr_debug("resolved slave %d from gid %pI6 wire port %d other %d\n",
++					 slave, grh->dgid.raw, port, other_port);
 +			}
 +		}
-+	}
- 
- 	mutex_unlock(&priv->bond_mutex);
--	if (ret)
--		mlx4_err(dev, "Failed to bond device: %d\n", ret);
--	else
-+	if (!ret)
- 		mlx4_dbg(dev, "Device is bonded\n");
-+
- 	return ret;
- }
- EXPORT_SYMBOL_GPL(mlx4_bond);
-@@ -1249,14 +1326,24 @@ int mlx4_unbond(struct mlx4_dev *dev)
- 
- 	mutex_lock(&priv->bond_mutex);
- 
--	if (mlx4_is_bonded(dev))
-+	if (mlx4_is_bonded(dev)) {
-+		int ret2 = 0;
-+
- 		ret = mlx4_do_bond(dev, false);
-+		if (ret)
-+			mlx4_err(dev, "Failed to unbond device: %d\n", ret);
-+		if (mlx4_is_master(dev))
-+			ret2 = mlx4_mf_unbond(dev);
-+		if (ret2) {
-+			mlx4_warn(dev, "Failed to unbond device for multifunction (%d)\n", ret2);
-+			ret = ret2;
-+		}
-+	}
- 
- 	mutex_unlock(&priv->bond_mutex);
--	if (ret)
--		mlx4_err(dev, "Failed to unbond device: %d\n", ret);
--	else
-+	if (!ret)
- 		mlx4_dbg(dev, "Device is unbonded\n");
-+
- 	return ret;
- }
- EXPORT_SYMBOL_GPL(mlx4_unbond);
++		if (err) {
+ 			mlx4_ib_warn(ibdev, "failed matching grh\n");
+ 			return -ENOENT;
+ 		}
 -- 
 2.3.7
