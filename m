@@ -1,53 +1,82 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 13/15] fm10k: change default Tx ITR to 25usec
-Date: Sun,  6 Dec 2015 00:01:32 -0800
-Message-ID: <1449388894-128573-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 10/15] fm10k: introduce ITR_IS_ADAPTIVE macro
+Date: Sun,  6 Dec 2015 00:01:29 -0800
+Message-ID: <1449388894-128573-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449388894-128573-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:43991 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:24651 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752383AbbLFIBj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Dec 2015 03:01:39 -0500
+	id S1752466AbbLFIBi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Dec 2015 03:01:38 -0500
 In-Reply-To: <1449388894-128573-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-The current default ITR for Tx is overly restrictive. Using a simple
-netperf TCP_STREAM test, we top out at about 10Gb/s for a single thread
-when running using 1500 byte frames. By reducing the ITR value to 25usec
-(up to 40K interrupts a second from 10K), we are able to achieve 36Gb/s
-for a single thread TCP stream test.
+Define a macro for identifying when the itr value is dynamic or
+adaptive. The concept was taken from i40e. This helps make clear what
+the check is, and reduces the line length to something more reasonable
+in a few places.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
+Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k.h | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/fm10k/fm10k.h         | 2 ++
+ drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 6 ++----
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c    | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index 115033f..fa26e20 100644
+index b178905..cea0d94 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k.h
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -171,11 +171,12 @@ struct fm10k_ring_container {
- #define FM10K_ITR_MAX		0x0FFF	/* maximum value for ITR */
- #define FM10K_ITR_10K		100	/* 100us */
+@@ -172,6 +172,8 @@ struct fm10k_ring_container {
  #define FM10K_ITR_20K		50	/* 50us */
-+#define FM10K_ITR_40K		25	/* 25us */
  #define FM10K_ITR_ADAPTIVE	0x8000	/* adaptive interrupt moderation flag */
  
- #define ITR_IS_ADAPTIVE(itr) (!!(itr & FM10K_ITR_ADAPTIVE))
- 
--#define FM10K_TX_ITR_DEFAULT	FM10K_ITR_10K
-+#define FM10K_TX_ITR_DEFAULT	FM10K_ITR_40K
- #define FM10K_RX_ITR_DEFAULT	FM10K_ITR_20K
++#define ITR_IS_ADAPTIVE(itr) (!!(itr & FM10K_ITR_ADAPTIVE))
++
  #define FM10K_ITR_ENABLE	(FM10K_ITR_AUTOMASK | FM10K_ITR_MASK_CLEAR)
  
+ static inline struct netdev_queue *txring_txq(const struct fm10k_ring *ring)
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+index fd29145..a505a50 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+@@ -701,12 +701,10 @@ static int fm10k_get_coalesce(struct net_device *dev,
+ {
+ 	struct fm10k_intfc *interface = netdev_priv(dev);
+ 
+-	ec->use_adaptive_tx_coalesce =
+-		!!(interface->tx_itr & FM10K_ITR_ADAPTIVE);
++	ec->use_adaptive_tx_coalesce = ITR_IS_ADAPTIVE(interface->tx_itr);
+ 	ec->tx_coalesce_usecs = interface->tx_itr & ~FM10K_ITR_ADAPTIVE;
+ 
+-	ec->use_adaptive_rx_coalesce =
+-		!!(interface->rx_itr & FM10K_ITR_ADAPTIVE);
++	ec->use_adaptive_rx_coalesce = ITR_IS_ADAPTIVE(interface->rx_itr);
+ 	ec->rx_coalesce_usecs = interface->rx_itr & ~FM10K_ITR_ADAPTIVE;
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index 746a198..21d4955 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -1366,7 +1366,7 @@ static void fm10k_update_itr(struct fm10k_ring_container *ring_container)
+ 	unsigned int avg_wire_size, packets;
+ 
+ 	/* Only update ITR if we are using adaptive setting */
+-	if (!(ring_container->itr & FM10K_ITR_ADAPTIVE))
++	if (!ITR_IS_ADAPTIVE(ring_container->itr))
+ 		goto clear_counts;
+ 
+ 	packets = ring_container->total_packets;
 -- 
 2.5.0
