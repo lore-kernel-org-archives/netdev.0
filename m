@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 10/15] fm10k: introduce ITR_IS_ADAPTIVE macro
-Date: Sun,  6 Dec 2015 00:01:29 -0800
-Message-ID: <1449388894-128573-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 05/15] fm10k: Correct typecast in fm10k_update_xc_addr_pf
+Date: Sun,  6 Dec 2015 00:01:24 -0800
+Message-ID: <1449388894-128573-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449388894-128573-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,73 +10,48 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:24651 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752466AbbLFIBi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Dec 2015 03:01:38 -0500
+	id S1751913AbbLFIBh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Dec 2015 03:01:37 -0500
 In-Reply-To: <1449388894-128573-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-Define a macro for identifying when the itr value is dynamic or
-adaptive. The concept was taken from i40e. This helps make clear what
-the check is, and reduces the line length to something more reasonable
-in a few places.
+Since the resultant data type of the mac_update.mac_upper field is u16,
+it does not make sense to typecast u8 variables to u32 first. Since
+we're modifying fm10k_pf.c, also update the copyright year.
 
+Reported-by: Matthew Vick <matthew.vick@intel.com>
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
+Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k.h         | 2 ++
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 6 ++----
- drivers/net/ethernet/intel/fm10k/fm10k_main.c    | 2 +-
- 3 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index b178905..cea0d94 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -172,6 +172,8 @@ struct fm10k_ring_container {
- #define FM10K_ITR_20K		50	/* 50us */
- #define FM10K_ITR_ADAPTIVE	0x8000	/* adaptive interrupt moderation flag */
- 
-+#define ITR_IS_ADAPTIVE(itr) (!!(itr & FM10K_ITR_ADAPTIVE))
-+
- #define FM10K_ITR_ENABLE	(FM10K_ITR_AUTOMASK | FM10K_ITR_MASK_CLEAR)
- 
- static inline struct netdev_queue *txring_txq(const struct fm10k_ring *ring)
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-index fd29145..a505a50 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-@@ -701,12 +701,10 @@ static int fm10k_get_coalesce(struct net_device *dev,
- {
- 	struct fm10k_intfc *interface = netdev_priv(dev);
- 
--	ec->use_adaptive_tx_coalesce =
--		!!(interface->tx_itr & FM10K_ITR_ADAPTIVE);
-+	ec->use_adaptive_tx_coalesce = ITR_IS_ADAPTIVE(interface->tx_itr);
- 	ec->tx_coalesce_usecs = interface->tx_itr & ~FM10K_ITR_ADAPTIVE;
- 
--	ec->use_adaptive_rx_coalesce =
--		!!(interface->rx_itr & FM10K_ITR_ADAPTIVE);
-+	ec->use_adaptive_rx_coalesce = ITR_IS_ADAPTIVE(interface->rx_itr);
- 	ec->rx_coalesce_usecs = interface->rx_itr & ~FM10K_ITR_ADAPTIVE;
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index 746a198..21d4955 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -1366,7 +1366,7 @@ static void fm10k_update_itr(struct fm10k_ring_container *ring_container)
- 	unsigned int avg_wire_size, packets;
- 
- 	/* Only update ITR if we are using adaptive setting */
--	if (!(ring_container->itr & FM10K_ITR_ADAPTIVE))
-+	if (!ITR_IS_ADAPTIVE(ring_container->itr))
- 		goto clear_counts;
- 
- 	packets = ring_container->total_packets;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+index 8c0bdc4..b1e0975 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+@@ -1,5 +1,5 @@
+ /* Intel Ethernet Switch Host Interface Driver
+- * Copyright(c) 2013 - 2014 Intel Corporation.
++ * Copyright(c) 2013 - 2015 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -334,8 +334,8 @@ static s32 fm10k_update_xc_addr_pf(struct fm10k_hw *hw, u16 glort,
+ 						 ((u32)mac[3] << 16) |
+ 						 ((u32)mac[4] << 8) |
+ 						 ((u32)mac[5]));
+-	mac_update.mac_upper = cpu_to_le16(((u32)mac[0] << 8) |
+-						 ((u32)mac[1]));
++	mac_update.mac_upper = cpu_to_le16(((u16)mac[0] << 8) |
++					   ((u16)mac[1]));
+ 	mac_update.vlan = cpu_to_le16(vid);
+ 	mac_update.glort = cpu_to_le16(glort);
+ 	mac_update.action = add ? 0 : 1;
 -- 
 2.5.0
