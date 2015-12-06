@@ -1,132 +1,136 @@
-From: Peter Wu <peter@lekensteyn.nl>
-Subject: Re: [PATCH] rtlwifi: fix gigantic memleak in rtl_usb
-Date: Sun, 6 Dec 2015 22:39:26 +0100
-Message-ID: <20151206213926.GA30777@al>
-References: <1449424677-3140-1-git-send-email-peter@lekensteyn.nl>
- <5664981C.1040704@lwfinger.net>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net-next] net: cdc_ncm: add "ndp_to_end" sysfs attribute
+Date: Sun,  6 Dec 2015 22:47:15 +0100
+Message-ID: <1449438435-10823-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5664981C.1040704@lwfinger.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+	Enrico Mioso <mrkiko.rs@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:38066 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753014AbbLFVra (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Dec 2015 16:47:30 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 06, 2015 at 02:18:36PM -0600, Larry Finger wrote:
-> On 12/06/2015 11:57 AM, Peter Wu wrote:
-> >Free skb for received frames with a wrong checksum.
-> >
-> >While using the rtl8192cu driver in monitor mode, somehow 5G of memory
-> >was permanently lost (observable via the Available column in `free -m`).
-> >
-> >Test scenario:
-> >
-> >     ip link set down wlan1
-> >     iw wlan1 set type monitor
-> >     ip link set up wlan1
-> >     iw wlan1 set channel 11
-> >
-> >Then stream a video on a smartphone on channel 11. Without this patch
-> >the memory usage grows linearly with the number of received packets:
-> >
-> >     grep MemAvailable /proc/meminfo
-> >     ip -s link show dev wlan1
-> >
-> >Signed-off-by: Peter Wu <peter@lekensteyn.nl>
-> >---
-> >Hi,
-> >
-> >This issue has existed since the introduction of this driver in v2.6.x,
-> >using kmemleak I was about to figure out the source. There is also a
-> >_rtl_usb_rx_process_agg that has similarly looking code, but that one is
-> >unaffected. The pci code already frees the skb and is unaffected too.
-> >
-> >Tested with kernel v4.3, this patch is simply rebased on v4.4-rc3 (due
-> >to changed paths).
-> >
-> >Kind regards,
-> >Peter
-> >---
-> >  drivers/net/wireless/realtek/rtlwifi/usb.c | 2 ++
-> >  1 file changed, 2 insertions(+)
-> >
-> >diff --git a/drivers/net/wireless/realtek/rtlwifi/usb.c b/drivers/net/wireless/realtek/rtlwifi/usb.c
-> >index 2721cf8..aac1ed3 100644
-> >--- a/drivers/net/wireless/realtek/rtlwifi/usb.c
-> >+++ b/drivers/net/wireless/realtek/rtlwifi/usb.c
-> >@@ -531,6 +531,8 @@ static void _rtl_usb_rx_process_noagg(struct ieee80211_hw *hw,
-> >  			ieee80211_rx(hw, skb);
-> >  		else
-> >  			dev_kfree_skb_any(skb);
-> >+	} else {
-> >+		dev_kfree_skb_any(skb);
-> >  	}
-> >  }
-> >
-> >
-> 
-> Thanks for finding and fixing this memory leak.
-> 
-> The patch is OK, but the commit message and subject are not. I do not like
-> the use of the word "gigantic" in the subject. A better subject would be:
-> "rtlwifi: Fix memory leak for USB device while in monitor mode".
-> 
-> The commit message should say that a memory leak was observed, and found
-> with kmemleak. If you were simply reportimg the bug, then the steps needed
-> to reproduce it would be important, but as you have a fix, those steps are
-> extraneous. You should also include a "Cc: Stable <stable@vger.kernel.org"
-> line. When the patch is picked up for stable kernels, it will be necessary
-> to rebase the patch to compensate for the directory change.
+Adding a writable sysfs attribute for the "NDP to end"
+quirk flag.
 
-I have done some additional testing using QEMU and USB passthrough and
-can report that the leak is not limited to monitor mode. The commit
-message is adjusted for that. This issue is pretty bad, I previously hit
-5GB within an hour with low traffic, this VM with 256M RAM panics after
-5 minutes in managed mode. (Remote denial of service, heh.)
+This makes it easier for end users to test new devices for
+this firmware bug.  We've been lucky so far, but we should
+not depend on reporters capable of rebuilding the driver.
 
-Originally I had the Cc: stable line added, but the SubmittingPatches
-document seems to discourage that for networking. Added it again.
-
-Here is the updated patch, hopefully addressing your concerns. Feel free
-to modify it as you find appropriate.
-
-Peter
---
->From a2c5fec1789bef48671d643ea7ecd0244d1e0246 Mon Sep 17 00:00:00 2001
-From: Peter Wu <peter@lekensteyn.nl>
-Date: Sun, 6 Dec 2015 17:59:41 +0100
-Subject: [PATCH] rtlwifi: fix memory leak for USB device
-
-Free skb for received frames with a wrong checksum. This can happen
-pretty rapidly, exhausting all memory.
-
-This fixes a memleak (detected with kmemleak). Originally found while
-using monitor mode, but it also appears during managed mode (once the
-link is up).
-
-Cc: stable@vger.kernel.org
-Signed-off-by: Peter Wu <peter@lekensteyn.nl>
+Cc: Enrico Mioso <mrkiko.rs@gmail.com>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 ---
- drivers/net/wireless/realtek/rtlwifi/usb.c | 2 ++
- 1 file changed, 2 insertions(+)
+ Documentation/ABI/testing/sysfs-class-net-cdc_ncm | 19 ++++++++++
+ drivers/net/usb/cdc_ncm.c                         | 43 +++++++++++++++=
+++++++++
+ 2 files changed, 62 insertions(+)
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/usb.c b/drivers/net/wireless/realtek/rtlwifi/usb.c
-index 2721cf8..aac1ed3 100644
---- a/drivers/net/wireless/realtek/rtlwifi/usb.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/usb.c
-@@ -531,6 +531,8 @@ static void _rtl_usb_rx_process_noagg(struct ieee80211_hw *hw,
- 			ieee80211_rx(hw, skb);
- 		else
- 			dev_kfree_skb_any(skb);
-+	} else {
-+		dev_kfree_skb_any(skb);
- 	}
- }
- 
--- 
-2.6.3
+diff --git a/Documentation/ABI/testing/sysfs-class-net-cdc_ncm b/Docume=
+ntation/ABI/testing/sysfs-class-net-cdc_ncm
+index 5cedf72df358..f7be0e88b139 100644
+--- a/Documentation/ABI/testing/sysfs-class-net-cdc_ncm
++++ b/Documentation/ABI/testing/sysfs-class-net-cdc_ncm
+@@ -19,6 +19,25 @@ Description:
+ 		Set to 0 to pad all frames. Set greater than tx_max to
+ 		disable all padding.
+=20
++What:		/sys/class/net/<iface>/cdc_ncm/ndp_to_end
++Date:		Dec 2015
++KernelVersion:	4.5
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		Boolean attribute showing the status of the "NDP to
++		end" quirk.  Defaults to 'N', except for devices
++		already known to need it enabled.
++
++		The "NDP to end" quirk makes the driver place the NDP
++		(the packet index table) after the payload.  The NCM
++		specification does not mandate this, but some devices
++		are known to be more restrictive. Write 'Y' to this
++		attribute for temporary testing of a suspect device
++		failing to work with the default driver settings.
++
++		A device entry should be added to the driver if this
++		quirk is found to be required.
++
+ What:		/sys/class/net/<iface>/cdc_ncm/rx_max
+ Date:		May 2014
+ KernelVersion:	3.16
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 3b1ba8237768..b45e5cae2a6b 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -283,6 +283,48 @@ static DEVICE_ATTR(rx_max, S_IRUGO | S_IWUSR, cdc_=
+ncm_show_rx_max, cdc_ncm_store
+ static DEVICE_ATTR(tx_max, S_IRUGO | S_IWUSR, cdc_ncm_show_tx_max, cdc=
+_ncm_store_tx_max);
+ static DEVICE_ATTR(tx_timer_usecs, S_IRUGO | S_IWUSR, cdc_ncm_show_tx_=
+timer_usecs, cdc_ncm_store_tx_timer_usecs);
+=20
++static ssize_t ndp_to_end_show(struct device *d, struct device_attribu=
+te *attr, char *buf)
++{
++	struct usbnet *dev =3D netdev_priv(to_net_dev(d));
++	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
++
++	return sprintf(buf, "%c\n", ctx->drvflags & CDC_NCM_FLAG_NDP_TO_END ?=
+ 'Y' : 'N');
++}
++
++static ssize_t ndp_to_end_store(struct device *d,  struct device_attri=
+bute *attr, const char *buf, size_t len)
++{
++	struct usbnet *dev =3D netdev_priv(to_net_dev(d));
++	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
++	bool enable;
++
++	if (strtobool(buf, &enable))
++		return -EINVAL;
++
++	/* no change? */
++	if (enable =3D=3D (ctx->drvflags & CDC_NCM_FLAG_NDP_TO_END))
++		return len;
++
++	if (enable && !ctx->delayed_ndp16) {
++		ctx->delayed_ndp16 =3D kzalloc(ctx->max_ndp_size, GFP_KERNEL);
++		if (!ctx->delayed_ndp16)
++			return -ENOMEM;
++	}
++
++	/* flush pending data before changing flag */
++	netif_tx_lock_bh(dev->net);
++	usbnet_start_xmit(NULL, dev->net);
++	spin_lock_bh(&ctx->mtx);
++	if (enable)
++		ctx->drvflags |=3D CDC_NCM_FLAG_NDP_TO_END;
++	else
++		ctx->drvflags &=3D ~CDC_NCM_FLAG_NDP_TO_END;
++	spin_unlock_bh(&ctx->mtx);
++	netif_tx_unlock_bh(dev->net);
++
++	return len;
++}
++static DEVICE_ATTR_RW(ndp_to_end);
++
+ #define NCM_PARM_ATTR(name, format, tocpu)				\
+ static ssize_t cdc_ncm_show_##name(struct device *d, struct device_att=
+ribute *attr, char *buf) \
+ { \
+@@ -305,6 +347,7 @@ NCM_PARM_ATTR(wNtbOutMaxDatagrams, "%u", le16_to_cp=
+u);
+=20
+ static struct attribute *cdc_ncm_sysfs_attrs[] =3D {
+ 	&dev_attr_min_tx_pkt.attr,
++	&dev_attr_ndp_to_end.attr,
+ 	&dev_attr_rx_max.attr,
+ 	&dev_attr_tx_max.attr,
+ 	&dev_attr_tx_timer_usecs.attr,
+--=20
+2.1.4
