@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 5/6] IB/mlx4: Use the VF base-port when demuxing mad from wire
-Date: Sun,  6 Dec 2015 18:07:42 +0200
-Message-ID: <1449418063-8111-6-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 1/6] net/mlx4_core: Use both physical ports to set the VF link state
+Date: Sun,  6 Dec 2015 18:07:38 +0200
+Message-ID: <1449418063-8111-2-git-send-email-ogerlitz@mellanox.com>
 References: <1449418063-8111-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Tal Alon <talal@mellanox.com>,
 	Majd Dibbiny <majd@mellanox.com>,
@@ -10,70 +10,72 @@ Cc: netdev@vger.kernel.org, Tal Alon <talal@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:51634 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:51565 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753999AbbLFQI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Dec 2015 11:08:28 -0500
+	id S1753117AbbLFQIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Dec 2015 11:08:09 -0500
 In-Reply-To: <1449418063-8111-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Under HA mode, it's possible that the VF registered its GID
-(and expects to get mads through the PV scheme) on a port which is
-different from the one this mad arrived on, due to HA fail over.
-
-Therefore, if the gid is not matched on the port that the packet arrived
-on, check for a match on the other port if HA mode is active -- and if a
-match is found on the other port, continue processing the mad using that
-other port.
+In HA mode, the link state for VFs for which the policy is "auto"
+(i.e. follow the physical link state) should be ORed from both ports.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Reviewed-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 ---
- drivers/infiniband/hw/mlx4/mad.c | 17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/fw.c | 12 +++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/fw.h |  1 +
+ 2 files changed, 12 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/infiniband/hw/mlx4/mad.c b/drivers/infiniband/hw/mlx4/mad.c
-index 870e56b..26833bf 100644
---- a/drivers/infiniband/hw/mlx4/mad.c
-+++ b/drivers/infiniband/hw/mlx4/mad.c
-@@ -40,6 +40,7 @@
- #include <linux/gfp.h>
- #include <rdma/ib_pma.h>
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 90db94e..2c2baab 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -1104,6 +1104,7 @@ int mlx4_QUERY_PORT(struct mlx4_dev *dev, int port, struct mlx4_port_cap *port_c
+ 			goto out;
  
-+#include <linux/mlx4/driver.h>
- #include "mlx4_ib.h"
- 
- enum {
-@@ -606,8 +607,8 @@ static int mlx4_ib_demux_mad(struct ib_device *ibdev, u8 port,
- 			struct ib_mad *mad)
- {
- 	struct mlx4_ib_dev *dev = to_mdev(ibdev);
--	int err;
--	int slave;
-+	int err, other_port;
-+	int slave = -1;
- 	u8 *slave_id;
- 	int is_eth = 0;
- 
-@@ -625,7 +626,17 @@ static int mlx4_ib_demux_mad(struct ib_device *ibdev, u8 port,
- 			mlx4_ib_warn(ibdev, "RoCE mgmt class is not CM\n");
- 			return -EINVAL;
- 		}
--		if (mlx4_get_slave_from_roce_gid(dev->dev, port, grh->dgid.raw, &slave)) {
-+		err = mlx4_get_slave_from_roce_gid(dev->dev, port, grh->dgid.raw, &slave);
-+		if (err && mlx4_is_mf_bonded(dev->dev)) {
-+			other_port = (port == 1) ? 2 : 1;
-+			err = mlx4_get_slave_from_roce_gid(dev->dev, other_port, grh->dgid.raw, &slave);
-+			if (!err) {
-+				port = other_port;
-+				pr_debug("resolved slave %d from gid %pI6 wire port %d other %d\n",
-+					 slave, grh->dgid.raw, port, other_port);
-+			}
+ 		MLX4_GET(field, outbox, QUERY_PORT_SUPPORTED_TYPE_OFFSET);
++		port_cap->link_state = (field & 0x80) >> 7;
+ 		port_cap->supported_port_types = field & 3;
+ 		port_cap->suggested_type = (field >> 3) & 1;
+ 		port_cap->default_sense = (field >> 4) & 1;
+@@ -1310,6 +1311,15 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
+ 			port_type |= MLX4_PORT_LINK_UP_MASK;
+ 		else if (IFLA_VF_LINK_STATE_DISABLE == admin_link_state)
+ 			port_type &= ~MLX4_PORT_LINK_UP_MASK;
++		else if (IFLA_VF_LINK_STATE_AUTO == admin_link_state && mlx4_is_bonded(dev)) {
++			int other_port = (port == 1) ? 2 : 1;
++			struct mlx4_port_cap port_cap;
++
++			err = mlx4_QUERY_PORT(dev, other_port, &port_cap);
++			if (err)
++				goto out;
++			port_type |= (port_cap.link_state << 7);
 +		}
-+		if (err) {
- 			mlx4_ib_warn(ibdev, "failed matching grh\n");
- 			return -ENOENT;
- 		}
+ 
+ 		MLX4_PUT(outbox->buf, port_type,
+ 			 QUERY_PORT_SUPPORTED_TYPE_OFFSET);
+@@ -1325,7 +1335,7 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
+ 		MLX4_PUT(outbox->buf, short_field,
+ 			 QUERY_PORT_CUR_MAX_PKEY_OFFSET);
+ 	}
+-
++out:
+ 	return err;
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
+index 08de555..7ea258a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.h
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
+@@ -44,6 +44,7 @@ struct mlx4_mod_stat_cfg {
+ };
+ 
+ struct mlx4_port_cap {
++	u8  link_state;
+ 	u8  supported_port_types;
+ 	u8  suggested_type;
+ 	u8  default_sense;
 -- 
 2.3.7
