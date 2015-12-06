@@ -1,46 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v8] i40e: Look up MAC address in Open Firmware or IDPROM
-Date: Sat, 05 Dec 2015 23:12:53 -0500 (EST)
-Message-ID: <20151205.231253.1057553137456534699.davem@davemloft.net>
-References: <20151205203300.GA8863@oracle.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net,stable] net: cdc_mbim: add "NDP to end" quirk for
+ Huawei E3372
+Date: Sat, 05 Dec 2015 23:36:00 -0500 (EST)
+Message-ID: <20151205.233600.318318676015594203.davem@davemloft.net>
+References: <1449316910-8009-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, shannon.nelson@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	matthew.vick@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com, andy.shevchenko@gmail.com
-To: sowmini.varadhan@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151205203300.GA8863@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	hvtaifwkbgefbaei-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org,
+	mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1449316910-8009-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Sat, 5 Dec 2015 15:33:00 -0500
+=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Date: Sat,  5 Dec 2015 13:01:50 +0100
 
-> +static void i40e_get_platform_mac_addr(struct pci_dev *pdev, struct i40e_pf *pf)
-> +{
-> +	struct device_node *dp = pci_device_to_OF_node(pdev);
-> +	const unsigned char *addr;
-> +	u8 *mac_addr = pf->hw.mac.addr;
-> +
-> +	pf->flags &= ~I40E_FLAG_PF_MAC;
-> +	addr = of_get_mac_address(dp);
-> +	if (addr) {
-> +		ether_addr_copy(mac_addr, addr);
-> +		pf->flags |= I40E_FLAG_PF_MAC;
-> +	}
-> +#ifdef CONFIG_SPARC
-> +	ether_addr_copy(mac_addr, idprom->id_ethaddr);
-> +	pf->flags |= I40E_FLAG_PF_MAC;
-> +#endif /* CONFIG_SPARC */
-> +}
+> The Huawei E3372 (12d1:157d) needs this quirk in MBIM mode
+> as well. Allow this by forcing the NTB to contain only a
+> single NDP, and add a device specific entry for this ID.
+>=20
+> Due to the way Huawei use device IDs, this might be applied
+> to other modems as well.  It is assumed that those modems
+> will be based on the same firmware and will need this quirk
+> too.  If not, it will still not harm normal usage, although
+> multiplexing performance could be impacted.
+>=20
+> Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Reported-by: Sami Farin <hvtaifwkbgefbaei-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 
-This logic doesn't look right.
-
-If we find an address via of_get_mac_address() we should not use the
-IDPROM address.  But here you are, since the IDPROM code runs
-unconditionally.
+Applied and queued up for -stable, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
