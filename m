@@ -1,37 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
-Date: Sat, 05 Dec 2015 22:48:29 -0500 (EST)
-Message-ID: <20151205.224829.171477269244585844.davem@davemloft.net>
-References: <20151204143956.GA17471@gondor.apana.org.au>
-	<20151204.165334.1119277452308794437.davem@davemloft.net>
-	<20151205070354.GA23255@gondor.apana.org.au>
+Subject: Re: [PATCH v8] i40e: Look up MAC address in Open Firmware or IDPROM
+Date: Sat, 05 Dec 2015 23:12:53 -0500 (EST)
+Message-ID: <20151205.231253.1057553137456534699.davem@davemloft.net>
+References: <20151205203300.GA8863@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, phil@nwl.cc, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tgraf@suug.ch,
-	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
-To: herbert@gondor.apana.org.au
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, shannon.nelson@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	matthew.vick@intel.com, john.ronciak@intel.com,
+	mitch.a.williams@intel.com, andy.shevchenko@gmail.com
+To: sowmini.varadhan@oracle.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151205070354.GA23255@gondor.apana.org.au>
+In-Reply-To: <20151205203300.GA8863@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 5 Dec 2015 15:03:54 +0800
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Sat, 5 Dec 2015 15:33:00 -0500
 
-> Sorry Dave but you'll have to revert this because I've been able
-> to trigger the following crash with the patch:
-> 
-> Testing concurrent rhashtable access from 50 threads
-> ------------[ cut here ]------------
-> kernel BUG at ../mm/vmalloc.c:1337!
-> invalid opcode: 0000 [#1] PREEMPT SMP 
-> 
-> The reason is that because I was testing insertions with BH disabled,
-> and __vmalloc doesn't like that, even with GFP_ATOMIC.  As we
-> obviously want to continue to support rhashtable users inserting
-> entries with BH disabled, we'll have to look for an alternate
-> solution.
+> +static void i40e_get_platform_mac_addr(struct pci_dev *pdev, struct i40e_pf *pf)
+> +{
+> +	struct device_node *dp = pci_device_to_OF_node(pdev);
+> +	const unsigned char *addr;
+> +	u8 *mac_addr = pf->hw.mac.addr;
+> +
+> +	pf->flags &= ~I40E_FLAG_PF_MAC;
+> +	addr = of_get_mac_address(dp);
+> +	if (addr) {
+> +		ether_addr_copy(mac_addr, addr);
+> +		pf->flags |= I40E_FLAG_PF_MAC;
+> +	}
+> +#ifdef CONFIG_SPARC
+> +	ether_addr_copy(mac_addr, idprom->id_ethaddr);
+> +	pf->flags |= I40E_FLAG_PF_MAC;
+> +#endif /* CONFIG_SPARC */
+> +}
 
-Ok, reverted, thanks for the heads up.
+This logic doesn't look right.
+
+If we find an address via of_get_mac_address() we should not use the
+IDPROM address.  But here you are, since the IDPROM code runs
+unconditionally.
