@@ -1,78 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: suspicious rcu_dereference_check in sctp_v6_get_dst
-Date: Sat, 05 Dec 2015 17:56:28 -0800
-Message-ID: <1449366988.25029.40.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151206002517.GB14181@codemonkey.org.uk>
-	 <1449364386.25029.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151206013708.GA19228@codemonkey.org.uk>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Sat, 5 Dec 2015 18:13:48 -0800
+Message-ID: <CAKgT0Udj2vNjqTO3HQKRoQajm-_Y6PdgQAu23Z8eQfnLRvsUiQ@mail.gmail.com>
+References: <CAKgT0Uc1bJRrzpLUdr3vOFkYZbcqP=J8wgOz1feF+u04aNBg1g@mail.gmail.com>
+	<20151205.130313.1952213347830357234.davem@davemloft.net>
+	<CAKgT0UfQCnz+oGfETZQs-nCP_QL_5qzngB+zC-e6ZN1-kV8C0Q@mail.gmail.com>
+	<20151205.172742.1214683922564543621.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@codemonkey.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <tom@herbertland.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	John Linville <linville@tuxdriver.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Anjali Singhai Jain <anjali.singhai@intel.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Kiran Patil <kiran.patil@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:33911 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751817AbbLFB4a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 20:56:30 -0500
-Received: by pfbg73 with SMTP id g73so46795493pfb.1
-        for <netdev@vger.kernel.org>; Sat, 05 Dec 2015 17:56:29 -0800 (PST)
-In-Reply-To: <20151206013708.GA19228@codemonkey.org.uk>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:34286 "EHLO
+	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752983AbbLFCNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 21:13:49 -0500
+Received: by ioir85 with SMTP id r85so151418362ioi.1
+        for <netdev@vger.kernel.org>; Sat, 05 Dec 2015 18:13:49 -0800 (PST)
+In-Reply-To: <20151205.172742.1214683922564543621.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-12-05 at 20:37 -0500, Dave Jones wrote:
-> On Sat, Dec 05, 2015 at 05:13:06PM -0800, Eric Dumazet wrote:
->  
->  > > diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
->  > > index acb45b8c2a9d..7081183f4d9f 100644
->  > > --- a/net/sctp/ipv6.c
->  > > +++ b/net/sctp/ipv6.c
->  > > @@ -328,7 +328,9 @@ static void sctp_v6_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
->  > >  	if (baddr) {
->  > >  		fl6->saddr = baddr->v6.sin6_addr;
->  > >  		fl6->fl6_sport = baddr->v6.sin6_port;
->  > > +		rcu_read_lock();
->  > >  		final_p = fl6_update_dst(fl6, rcu_dereference(np->opt), &final);
->  > > +		rcu_read_unlock();
->  > >  		dst = ip6_dst_lookup_flow(sk, fl6, final_p);
->  > >  	}
->  > >  
->  > 
->  > Hmm, better use :
->  > 
->  > diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
->  > index acb45b8c2a9d..d28c0b4c9128 100644
->  > --- a/net/sctp/ipv6.c
->  > +++ b/net/sctp/ipv6.c
->  > @@ -323,14 +323,13 @@ static void sctp_v6_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
->  >  			}
->  >  		}
->  >  	}
->  > -	rcu_read_unlock();
->  > -
->  >  	if (baddr) {
->  >  		fl6->saddr = baddr->v6.sin6_addr;
->  >  		fl6->fl6_sport = baddr->v6.sin6_port;
->  >  		final_p = fl6_update_dst(fl6, rcu_dereference(np->opt), &final);
->  >  		dst = ip6_dst_lookup_flow(sk, fl6, final_p);
->  >  	}
->  > +	rcu_read_unlock();
->  >  
->  >  out:
->  >  	if (!IS_ERR_OR_NULL(dst)) {
-> 
-> I looked at that option first, but decided to mirror the other use of fl6_update_dst.
-> 
-> It looks like your solution would work too, so I'm not against it, but..
-> For my own understanding, why is this better? Just to cut down on the
-> number of repeated lock/unlocks in the same function?  Or is there some
-> semantic I'm missing in the earlier lock/unlock section that's somehow
-> related to the np->opt ?
+On Sat, Dec 5, 2015 at 2:27 PM, David Miller <davem@davemloft.net> wrote:
+> From: Alexander Duyck <alexander.duyck@gmail.com>
+> Date: Sat, 5 Dec 2015 11:34:47 -0800
+>
+>> I'm only really interested in what options the customers has in order
+>> to get this all configured.  As long as there eventually ends up being
+>> some path forward I'll be good with whatever ends up happening, though
+>> my preference would be to see some option available in the kernel.
+>
+> Fair enough.
+>
+> BTW, I don't entirely buy your hardware complexity argument.
+>
+> When we're looking at checksumming offload via 1's complement in the
+> RX descriptor, that is heaps simpler than having a seperate RTL path
+> for N different encapsulation technologies and/or protocols.
 
-This was my intent when cooking commit c836a8ba93869d6a0
+I fully agree with you.  Basically what I had mentioned is some of the
+explanation I was given from the hardware engineers when they pushed
+back on my request.
 
-I have no idea how I missed to move the rcu_read_lock()
+> I'd rather maintain a single 1's complement circuit than N header
+> parser engines that trigger the sum at the right range.
 
-Yes, there is no need to have too many rcu_read_lock()/unlock() all
-around the places. Extending the existing section is good enough.
+Yes, but the thing is the port number and parsers are also needed for
+other things like RSS.  You also have to take into account there are
+also requirements placed on the vendors by other organizations such as
+Microsoft that end up impacting the final design.  As such there are
+some parts of the design we cannot convince the hardware vendors to
+give up.
+
+> There is definitely long term maintainability and stability value in
+> this.
+
+Agreed.  That is why I fully support the request to add the feature,
+it is just a matter of convincing the vendors to do so.
+
+The only spot I think you and I disagreed on was the approach.  I
+don't know if the hard push back does anything but punish the users by
+delaying the time needed to find a reasonable solution.  I really
+think if we are going to get the hardware vendors to change their
+behavior we have to create a market demand for it.  Having a bit of
+marketable data showing the folly of this approach versus the 1's
+compliment checksum would probably do more to encourage and/or shame
+them into it than simply pushing for this based on engineering
+opinion.
+
+- Alex
