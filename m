@@ -1,87 +1,113 @@
-From: "Gabriele Beltrame" <belgab@drvsource.net>
-Subject: Random packet loss using IPsec with AES128-SHA1
-Date: Sun, 6 Dec 2015 11:05:01 +0100
-Message-ID: <002201d1300d$93ed5e10$bbc81a30$@drvsource.net>
+From: Sam Russell <sam.h.russell@gmail.com>
+Subject: MPLS outbound packets being dropped
+Date: Sun, 6 Dec 2015 23:20:58 +1300
+Message-ID: <CAJm+voUzeyccnn57U_LEDQNO1qyn9xEYMDOjvqWeW+awifuDCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip209.psaruba.com ([94.23.150.209]:50733 "EHLO webs.psaruba.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752328AbbLFKKw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Dec 2015 05:10:52 -0500
-Received: from amavis-7.psaruba.com (amavis-7.psaruba.com [192.168.255.7])
-	by webs.psaruba.com (Postfix) with ESMTP id 62D52880BB
-	for <netdev@vger.kernel.org>; Sun,  6 Dec 2015 11:05:06 +0100 (CET)
-Received: from mail-hub.psaruba.com ([192.168.255.1])
-	by amavis-7.psaruba.com (srv-psaruba-002.psaruba.com [192.168.255.7]) (amavisd-new, port 10026)
-	with ESMTP id 7teV7PUOmK+y for <netdev@vger.kernel.org>;
-	Sun,  6 Dec 2015 11:05:06 +0100 (CET)
-Received: from mail-ext-sub.psaruba.com (mail-ext-sub.psaruba.com [IPv6:fc00:0:0:ff::4])
-	by mail-hub.psaruba.com (Postfix) with ESMTP id 2BB5FC403B
-	for <netdev@vger.kernel.org>; Sun,  6 Dec 2015 11:05:06 +0100 (CET)
-Received: from Unimatrix (host127-236-dynamic.24-79-r.retail.telecomitalia.it [79.24.236.127])
-	(using TLSv1 with cipher AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	(Authenticated sender: belgab@drvsource.net)
-	by mail-ext-sub.psaruba.com (Postfix) with ESMTPSA id DE33084039
-	for <netdev@vger.kernel.org>; Sun,  6 Dec 2015 11:05:05 +0100 (CET)
-Content-Language: it
+Received: from mail-yk0-f178.google.com ([209.85.160.178]:32843 "EHLO
+	mail-yk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753259AbbLFKU7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 05:20:59 -0500
+Received: by ykdv3 with SMTP id v3so166965586ykd.0
+        for <netdev@vger.kernel.org>; Sun, 06 Dec 2015 02:20:58 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+tl;dr mpls_output expects skb->protocol to be set to correct
+ethertype, but it isn't
 
-I'm running a few Strongswan 5.3.* CentOS (Kernel 3.16.7, 4.2.6, 4.1.*)
-instances on AWS to terminate VPNs between each other and/or to other
-devices across the Internet.
-While investigating some application issues, I've noticed that on every VPNs
-I have random packet losses (from 1% to 4% over 100 to 300 requests sent).
-This only happens when the two following conditions are met: (a) AES
-encryption used, (b) IP packet size shorter than about (150+8+20)Bytes.
+https://github.com/torvalds/linux/blob/ede2059dbaf9c6557a49d466c8c7778343b208ff/net/mpls/mpls_iptunnel.c#L64
 
-In tcpdump I can actually see all packets (requests and replies) being
-"sent" from the router, but on destination server (on the same "LAN") they
-are not being received... it's just like if the packet is being lost before
-it's being actually serialized onto the network by the XEN NIC driver
-Pinging form the vpn router itself always works fine though, never losing a
-single packet...
+Problem:
 
-Tested with Kernel 3.16.7, 4.2.6 and a AWS Amazon Linux instance (kernel
-4.1.*).
-Strongswan and libreswan shows the same issue, so it's not a Strongswan
-issue.
-Only AES CBS is affected... AES GCM is not affected, furthermore if I use
-the Strongswan's kernel-libipsec plugin there is no packet loss.
+I set up two interfaces pointed at each other, and added a static arp
+entry to minimise complexity
 
-To recap:
-	a. it's not an instance type/size issue (I have the same issue on
-everything I've tested with)
-	b. it's not a Strongswan issue (I have the same
-withlbreswan/Openswan)
-	c. it's not a network/related issue (I can actually see on the
-router all packets with tcpdump, they are just not received at the
-destination (a host on the same network as the "vpn router")
-	d. I only see this occurring with AES128 CBS DH2 (and possibly other
-key sizes as well)... AES GCM is not affected, as well as 3DES and NULL
-encryption
-	e. Strongswan developers cannot reproduce the issue on their lab
-(Strongswan issue #1220), so possibly there could be something wrong within
-the Xen NIC driver
-	f. ICMP packets bigger than around 178bytes (150+8+20) seem to not
-be affected
+ifconfig enp0s8 10.0.0.1/24 up
+ifconfig enp0s9 up
+arp -s 10.0.0.5 00:12:34:56:78:90
 
-Has somebody an idea about where the issue might be and how to
-fix/workaround it (I cannot use 3DES and/or AES GCM everywhere and the
-Strongswan's kernel-libipsec plugin taxes the CPU a lot more than the kernel
-implementation)?
+I then added an MPLS route
 
-Regards,
-Gabriele
+./dev/iproute2/ip/ip route add 192.168.2.0/24 encap mpls 100 via inet
+10.0.0.5 dev enp0s8
 
+I then tried to ping an IP in this route but got errors back
 
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+ping 192.168.2.1
+* PING 192.168.2.1 (192.168.2.1) 56(84) bytes of data.
+* ping: sendmsg: Invalid argument
+
+I then recorded calls to skb_kfree
+
+./tools/perf/perf record -e skb:kfree_skb -g -a
+
+This gave me the following packet trace:
+
+   100.00%   100.00%  ping     [kernel.kallsyms]  [k] kfree_skb
+               |
+               ---kfree_skb
+                  mpls_output
+                  lwtunnel_output
+                  ip_local_out_sk
+                  ip_send_skb
+                  ip_push_pending_frames
+                  raw_sendmsg
+                  inet_sendmsg
+                  sock_sendmsg
+                  ___sys_sendmsg
+                  __sys_sendmsg
+                  sys_sendmsg
+                  entry_SYSCALL_64_fastpath
+                  sendmsg
+                  0
+
+I then went through mpls_output.c and put printk() at every call to
+"goto drop" and found that this was being hit after failing to match
+skb->protocol
+
+https://github.com/torvalds/linux/blob/ede2059dbaf9c6557a49d466c8c7778343b208ff/net/mpls/mpls_iptunnel.c#L64
+
+My understanding is that skb->protocol is normally set after
+dst_output. For example, a ping packet hitting a normal IPv4 route
+should follow something like:
+
+raw_sendmsg
+ip_push_pending_frames
+ip_send_skb
+ip_local_out_sk
+dst_output
+ip_output
+
+ip_output() is the first place where skb->protocol gets set
+
+https://github.com/torvalds/linux/blob/dbd3393c56a8794fe596e7dd20d0efa613b9cf61/net/ipv4/ip_output.c#L356
+
+The path that a packet follows when hitting an MPLS route is as follows:
+
+raw_sendmsg
+ip_push_pending_frames
+ip_send_skb
+ip_local_out_sk
+dst_output
+lwtunnel_output
+mpls_output
+
+lwtunnel_output merely routes to the correct output function (mpls_output)
+mpls_output expects skb->protocol to be set, but nothing has set it
+yet, so it drops the packet!
+
+Any suggestions on how mpls_output should detect the protocol?
+
+Setup:
+
+Ubuntu 15.10
+
+iproute2 built from head
+
+Kernel 4.3, both ubuntu mainline and home-built:
+make menuconfig, add lwtunnel, mpls-router, mpls-gso and mpls-iptunnel
+
+Running virtualbox on OSX
