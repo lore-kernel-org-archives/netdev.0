@@ -1,9 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: hold the chunks only after the chunk is
- enqueued in outq
-Date: Sun, 06 Dec 2015 13:25:50 -0500 (EST)
-Message-ID: <20151206.132550.1712594759452545432.davem@davemloft.net>
-References: <b2131d0e9ac5a34aea93d6770fcf68c4496d1d7d.1449299717.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH net] sctp: only drop the reference on the datamsg after
+ sending a msg
+Date: Sun, 06 Dec 2015 13:26:03 -0500 (EST)
+Message-ID: <20151206.132603.1391902857457071088.davem@davemloft.net>
+References: <b2b92ed429c3f617f5a22df8b232cf58ab7a0fb5.1449299967.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,27 +11,27 @@ Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
 	marcelo.leitner@gmail.com, vyasevic@redhat.com
 To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54675 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54680 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753530AbbLFSZy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 13:25:54 -0500
-In-Reply-To: <b2131d0e9ac5a34aea93d6770fcf68c4496d1d7d.1449299717.git.lucien.xin@gmail.com>
+	with ESMTP id S1753496AbbLFS0E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 13:26:04 -0500
+In-Reply-To: <b2b92ed429c3f617f5a22df8b232cf58ab7a0fb5.1449299967.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Xin Long <lucien.xin@gmail.com>
-Date: Sat,  5 Dec 2015 15:15:17 +0800
+Date: Sat,  5 Dec 2015 15:19:27 +0800
 
-> When a msg is sent, sctp will hold the chunks of this msg and then try
-> to enqueue them. But if the chunks are not enqueued in sctp_outq_tail()
-> because of the invalid state, sctp_cmd_interpreter() may still return
-> success to sctp_sendmsg() after calling sctp_outq_flush(), these chunks
-> will become orphans and will leak.
+> If the chunks are enqueued successfully but sctp_cmd_interpreter()
+> return err to sctp_sendmsg() (mainly because of no mem), the chunks will
+> get re-queued, but we are dropping the reference and freeing them.
 > 
-> So we fix them by moving sctp_chunk_hold() to sctp_outq_tail(), where we
-> are sure that the chunk is going to get queued.
+> The fix is to just drop the reference on the datamsg just as it had
+> succeeded, as:
+>  - if the chunks weren't queued, this is enough to get them freed.
+>  - if they were queued, they will get freed when they finally get out or
+>  discarded.
 > 
 > Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
 Applied.
