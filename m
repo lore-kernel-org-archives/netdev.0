@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] sctp: packet timestamp fixes
-Date: Sat, 05 Dec 2015 22:24:00 -0500 (EST)
-Message-ID: <20151205.222400.709085792565221050.davem@davemloft.net>
-References: <20151203184316.GF4164@mrl.redhat.com>
-	<cover.1449249050.git.marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next] Driver for IBM System i/p VNIC protocol
+Date: Sat, 05 Dec 2015 22:25:51 -0500 (EST)
+Message-ID: <20151205.222551.512793392902323297.davem@davemloft.net>
+References: <1449251386-13476-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com, nhorman@tuxdriver.com,
-	eric.dumazet@gmail.com, syzkaller@googlegroups.com,
-	linux-sctp@vger.kernel.org, kcc@google.com, glider@google.com,
-	sasha.levin@oracle.com, maze@google.com, dvyukov@google.com
-To: marcelo.leitner@gmail.com
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	nfont@linux.vnet.ibm.com, brking@linux.vnet.ibm.com,
+	nguyendo@us.ibm.com, jallen@linux.vnet.ibm.com
+To: tlfalcon@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44038 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44124 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752193AbbLFDYG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 22:24:06 -0500
-In-Reply-To: <cover.1449249050.git.marcelo.leitner@gmail.com>
+	with ESMTP id S1752954AbbLFDZy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2015 22:25:54 -0500
+In-Reply-To: <1449251386-13476-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Fri,  4 Dec 2015 15:14:02 -0200
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Date: Fri,  4 Dec 2015 11:49:46 -0600
 
-> These a couple of fixes regarding sctp/packet timestamps.
-> 
-> Dmitry Vyukov <dvyukov@google.com> reported the counter leak on missing
-> net_enable_timestamp() (2nd patch) and further testing here revealed the
-> other two issues.
-> 
-> Please consider these to -stable.
+> +static int ibmvnic_buffs_per_pool = IBMVNIC_BUFFS_PER_POOL;
+> +module_param(ibmvnic_buffs_per_pool, int, S_IRUGO);
+> +MODULE_PARM_DESC(ibmvnic_buffs_per_pool,
+> +		 "IBMVNIC number of buffers per rx pool");
 
-Thanks for this, applied and queued up for -stable.
+Please do not use module parameters for settings that effect
+the basic operation of the driver.
+
+Instead use facilities that are generic and provide the same
+user interface for all networking drivers, such as ethtool.
+
+Otherwise users would need to learn a different way to configure the
+same thing on different devices, which is not acceptable.
