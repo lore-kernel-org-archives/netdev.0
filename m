@@ -1,143 +1,161 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/15] fm10k: set netdev features in one location
-Date: Sun,  6 Dec 2015 00:01:20 -0800
-Message-ID: <1449388894-128573-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 11/15] fm10k: Update adaptive ITR algorithm
+Date: Sun,  6 Dec 2015 00:01:30 -0800
+Message-ID: <1449388894-128573-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449388894-128573-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:43991 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:46039 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751603AbbLFIBg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Dec 2015 03:01:36 -0500
+	id S1752480AbbLFIBi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Dec 2015 03:01:38 -0500
 In-Reply-To: <1449388894-128573-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-Don't change netdev hw_features later in fm10k_probe, instead set all
-values inside fm10k_alloc_netdev. To do so, we need to know the MAC type
-(whether it is PF or VF) in order to determine what to do. This helps
-ensure that all logic regarding features is co-located.
+The existing adaptive ITR algorithm is overly restrictive. It throttles
+incorrectly for various traffic rates, and does not produce good
+performance. The algorithm now allows for more interrupts per second,
+and does some calculation to help improve for smaller packet loads. In
+addition, take into account the new itr_scale from the hardware which
+indicates how much to scale due to PCIe link speed.
 
+Reported-by: Matthew Vick <matthew.vick@intel.com>
+Reported-by: Alex Duyck <alexander.duyck@gmail.com>
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k.h        |  2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 31 +++++++++++++++----------
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c    |  9 +------
- 3 files changed, 21 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k.h      |  1 +
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c | 52 ++++++++++++++++++++-------
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c  |  6 ++--
+ 3 files changed, 45 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index 48809e5..b178905 100644
+index cea0d94..bb799b3 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k.h
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -484,7 +484,7 @@ void fm10k_netpoll(struct net_device *netdev);
- #endif
+@@ -164,6 +164,7 @@ struct fm10k_ring_container {
+ 	unsigned int total_packets;	/* total packets processed this int */
+ 	u16 work_limit;			/* total work allowed per interrupt */
+ 	u16 itr;			/* interrupt throttle rate value */
++	u8 itr_scale;			/* ITR adjustment scaler based on PCI speed */
+ 	u8 count;			/* total number of rings in vector */
+ };
  
- /* Netdev */
--struct net_device *fm10k_alloc_netdev(void);
-+struct net_device *fm10k_alloc_netdev(const struct fm10k_info *info);
- int fm10k_setup_rx_resources(struct fm10k_ring *);
- int fm10k_setup_tx_resources(struct fm10k_ring *);
- void fm10k_free_rx_resources(struct fm10k_ring *);
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index 7781e80..79f6b7d 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -1388,8 +1388,9 @@ static const struct net_device_ops fm10k_netdev_ops = {
- 
- #define DEFAULT_DEBUG_LEVEL_SHIFT 3
- 
--struct net_device *fm10k_alloc_netdev(void)
-+struct net_device *fm10k_alloc_netdev(const struct fm10k_info *info)
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index 21d4955..d422cd1 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -1363,7 +1363,7 @@ static bool fm10k_clean_tx_irq(struct fm10k_q_vector *q_vector,
+  **/
+ static void fm10k_update_itr(struct fm10k_ring_container *ring_container)
  {
-+	netdev_features_t hw_features;
- 	struct fm10k_intfc *interface;
- 	struct net_device *dev;
+-	unsigned int avg_wire_size, packets;
++	unsigned int avg_wire_size, packets, itr_round;
  
-@@ -1412,27 +1413,31 @@ struct net_device *fm10k_alloc_netdev(void)
- 			 NETIF_F_TSO |
- 			 NETIF_F_TSO6 |
- 			 NETIF_F_TSO_ECN |
--			 NETIF_F_GSO_UDP_TUNNEL |
- 			 NETIF_F_RXHASH |
- 			 NETIF_F_RXCSUM;
+ 	/* Only update ITR if we are using adaptive setting */
+ 	if (!ITR_IS_ADAPTIVE(ring_container->itr))
+@@ -1375,18 +1375,44 @@ static void fm10k_update_itr(struct fm10k_ring_container *ring_container)
  
-+	/* Only the PF can support VXLAN and NVGRE tunnel offloads */
-+	if (info->mac == fm10k_mac_pf) {
-+		dev->hw_enc_features = NETIF_F_IP_CSUM |
-+				       NETIF_F_TSO |
-+				       NETIF_F_TSO6 |
-+				       NETIF_F_TSO_ECN |
-+				       NETIF_F_GSO_UDP_TUNNEL |
-+				       NETIF_F_IPV6_CSUM |
-+				       NETIF_F_SG;
-+
-+		dev->features |= NETIF_F_GSO_UDP_TUNNEL;
-+	}
-+
- 	/* all features defined to this point should be changeable */
--	dev->hw_features |= dev->features;
-+	hw_features = dev->features;
+ 	avg_wire_size = ring_container->total_bytes / packets;
  
- 	/* allow user to enable L2 forwarding acceleration */
--	dev->hw_features |= NETIF_F_HW_L2FW_DOFFLOAD;
-+	hw_features |= NETIF_F_HW_L2FW_DOFFLOAD;
- 
- 	/* configure VLAN features */
- 	dev->vlan_features |= dev->features;
- 
--	/* configure tunnel offloads */
--	dev->hw_enc_features |= NETIF_F_IP_CSUM |
--				NETIF_F_TSO |
--				NETIF_F_TSO6 |
--				NETIF_F_TSO_ECN |
--				NETIF_F_GSO_UDP_TUNNEL |
--				NETIF_F_IPV6_CSUM;
+-	/* Add 24 bytes to size to account for CRC, preamble, and gap */
+-	avg_wire_size += 24;
 -
- 	/* we want to leave these both on as we cannot disable VLAN tag
- 	 * insertion or stripping on the hardware since it is contained
- 	 * in the FTAG and not in the frame itself.
-@@ -1443,5 +1448,7 @@ struct net_device *fm10k_alloc_netdev(void)
+-	/* Don't starve jumbo frames */
+-	if (avg_wire_size > 3000)
+-		avg_wire_size = 3000;
++	/* The following is a crude approximation of:
++	 *  wmem_default / (size + overhead) = desired_pkts_per_int
++	 *  rate / bits_per_byte / (size + ethernet overhead) = pkt_rate
++	 *  (desired_pkt_rate / pkt_rate) * usecs_per_sec = ITR value
++	 *
++	 * Assuming wmem_default is 212992 and overhead is 640 bytes per
++	 * packet, (256 skb, 64 headroom, 320 shared info), we can reduce the
++	 * formula down to
++	 *
++	 *  (34 * (size + 24)) / (size + 640) = ITR
++	 *
++	 * We first do some math on the packet size and then finally bitshift
++	 * by 8 after rounding up. We also have to account for PCIe link speed
++	 * difference as ITR scales based on this.
++	 */
++	if (avg_wire_size <= 360) {
++		/* Start at 250K ints/sec and gradually drop to 77K ints/sec */
++		avg_wire_size *= 8;
++		avg_wire_size += 376;
++	} else if (avg_wire_size <= 1152) {
++		/* 77K ints/sec to 45K ints/sec */
++		avg_wire_size *= 3;
++		avg_wire_size += 2176;
++	} else if (avg_wire_size <= 1920) {
++		/* 45K ints/sec to 38K ints/sec */
++		avg_wire_size += 4480;
++	} else {
++		/* plateau at a limit of 38K ints/sec */
++		avg_wire_size = 6656;
++	}
  
- 	dev->priv_flags |= IFF_UNICAST_FLT;
+-	/* Give a little boost to mid-size frames */
+-	if ((avg_wire_size > 300) && (avg_wire_size < 1200))
+-		avg_wire_size /= 3;
+-	else
+-		avg_wire_size /= 2;
++	/* Perform final bitshift for division after rounding up to ensure
++	 * that the calculation will never get below a 1. The bit shift
++	 * accounts for changes in the ITR due to PCIe link speed.
++	 */
++	itr_round = ACCESS_ONCE(ring_container->itr_scale) + 8;
++	avg_wire_size += (1 << itr_round) - 1;
++	avg_wire_size >>= itr_round;
  
-+	dev->hw_features |= hw_features;
-+
- 	return dev;
- }
+ 	/* write back value and retain adaptive flag */
+ 	ring_container->itr = avg_wire_size | FM10K_ITR_ADAPTIVE;
+@@ -1604,6 +1630,7 @@ static int fm10k_alloc_q_vector(struct fm10k_intfc *interface,
+ 	q_vector->tx.ring = ring;
+ 	q_vector->tx.work_limit = FM10K_DEFAULT_TX_WORK;
+ 	q_vector->tx.itr = interface->tx_itr;
++	q_vector->tx.itr_scale = interface->hw.mac.itr_scale;
+ 	q_vector->tx.count = txr_count;
+ 
+ 	while (txr_count) {
+@@ -1632,6 +1659,7 @@ static int fm10k_alloc_q_vector(struct fm10k_intfc *interface,
+ 	/* save Rx ring container info */
+ 	q_vector->rx.ring = ring;
+ 	q_vector->rx.itr = interface->rx_itr;
++	q_vector->rx.itr_scale = interface->hw.mac.itr_scale;
+ 	q_vector->rx.count = rxr_count;
+ 
+ 	while (rxr_count) {
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 5fbffba..1af4b22 100644
+index faf8149..1f0d9bc 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -1722,13 +1722,6 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
- 					     pci_resource_len(pdev, 4));
- 	hw->sw_addr = interface->sw_addr;
+@@ -880,7 +880,8 @@ static irqreturn_t fm10k_msix_mbx_vf(int __always_unused irq, void *data)
  
--	/* Only the PF can support VXLAN and NVGRE offloads */
--	if (hw->mac.type != fm10k_mac_pf) {
--		netdev->hw_enc_features = 0;
--		netdev->features &= ~NETIF_F_GSO_UDP_TUNNEL;
--		netdev->hw_features &= ~NETIF_F_GSO_UDP_TUNNEL;
--	}
--
- 	/* initialize DCBNL interface */
- 	fm10k_dcbnl_set_ops(netdev);
+ 	/* re-enable mailbox interrupt and indicate 20us delay */
+ 	fm10k_write_reg(hw, FM10K_VFITR(FM10K_MBX_VECTOR),
+-			FM10K_ITR_ENABLE | FM10K_MBX_INT_DELAY);
++			FM10K_ITR_ENABLE | (FM10K_MBX_INT_DELAY >>
++					    hw->mac.itr_scale));
  
-@@ -1894,7 +1887,7 @@ static int fm10k_probe(struct pci_dev *pdev,
- 	pci_set_master(pdev);
- 	pci_save_state(pdev);
+ 	/* service upstream mailbox */
+ 	if (fm10k_mbx_trylock(interface)) {
+@@ -1111,7 +1112,8 @@ static irqreturn_t fm10k_msix_mbx_pf(int __always_unused irq, void *data)
  
--	netdev = fm10k_alloc_netdev();
-+	netdev = fm10k_alloc_netdev(fm10k_info_tbl[ent->driver_data]);
- 	if (!netdev) {
- 		err = -ENOMEM;
- 		goto err_alloc_netdev;
+ 	/* re-enable mailbox interrupt and indicate 20us delay */
+ 	fm10k_write_reg(hw, FM10K_ITR(FM10K_MBX_VECTOR),
+-			FM10K_ITR_ENABLE | FM10K_MBX_INT_DELAY);
++			FM10K_ITR_ENABLE | (FM10K_MBX_INT_DELAY >>
++					    hw->mac.itr_scale));
+ 
+ 	return IRQ_HANDLED;
+ }
 -- 
 2.5.0
