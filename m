@@ -1,104 +1,65 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: [PATH 02/02] af_unix: fix unix_dgram_recvmsg entry locking
-Date: Sun, 06 Dec 2015 21:11:38 +0000
-Message-ID: <8737vf7051.fsf@doppelsaurus.mobileactivedefense.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Sun, 6 Dec 2015 13:30:13 -0800
+Message-ID: <CALx6S36SdoYO6XJkwUQMtEO9OPm-Hb+qu9Kzt3Db7+ps9Wf4AQ@mail.gmail.com>
+References: <CAKgT0Uc1bJRrzpLUdr3vOFkYZbcqP=J8wgOz1feF+u04aNBg1g@mail.gmail.com>
+	<20151205.130313.1952213347830357234.davem@davemloft.net>
+	<CAKgT0UfQCnz+oGfETZQs-nCP_QL_5qzngB+zC-e6ZN1-kV8C0Q@mail.gmail.com>
+	<20151205.172742.1214683922564543621.davem@davemloft.net>
+	<CAKgT0Udj2vNjqTO3HQKRoQajm-_Y6PdgQAu23Z8eQfnLRvsUiQ@mail.gmail.com>
+	<CALx6S37rekP6c9umanJAFhzpBC=pvR6VBA6CvR13-n7rhFYT-Q@mail.gmail.com>
+	<CAKgT0Uf4GGmeMKHZsr4ZPmRWxSDT4hEHpLr03SczQBJ8Ei6E4A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	John Linville <linville@tuxdriver.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Anjali Singhai Jain <anjali.singhai@intel.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Kiran Patil <kiran.patil@intel.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:33194 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754534AbbLFVaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 16:30:14 -0500
+Received: by igcmv3 with SMTP id mv3so67325981igc.0
+        for <netdev@vger.kernel.org>; Sun, 06 Dec 2015 13:30:13 -0800 (PST)
+In-Reply-To: <CAKgT0Uf4GGmeMKHZsr4ZPmRWxSDT4hEHpLr03SczQBJ8Ei6E4A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The current unix_dgram_recvsmg code acquires the u->readlock mutex in
-order to protect access to the peek offset prior to calling
-__skb_recv_datagram for actually receiving data. This implies that a
-blocking reader will go to sleep with this mutex held if there's
-presently no data to return to userspace. Two non-desirable side effects
-of this are that a later non-blocking read call on the same socket will
-block on the ->readlock mutex until the earlier blocking call releases it
-(or the readers is interrupted) and that later blocking read calls
-will wait longer than the effective socket read timeout says they
-should: The timeout will only start 'ticking' once such a reader hits
-the schedule_timeout in wait_for_more_packets (core.c) while the time it
-already had to wait until it could acquire the mutex is unaccounted for.
-
-The patch avoids both by using the __skb_try_recv_datagram and
-__skb_wait_for_more packets functions created by the first patch to
-implement a unix_dgram_recvmsg read loop which releases the readlock
-mutex prior to going to sleep and reacquires it as needed
-afterwards. Non-blocking readers will thus immediately return with
--EAGAIN if there's no data available regardless of any concurrent
-blocking readers and all blocking readers will end up sleeping via
-schedule_timeout, thus honouring the configured socket receive timeout.
-
-Signed-Off-By: Rainer Weikusat <rweikusat@mobileactivedefense.com>
----
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 45aebd9..47dfa97 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2078,8 +2078,8 @@ static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg,
- 	struct scm_cookie scm;
- 	struct sock *sk = sock->sk;
- 	struct unix_sock *u = unix_sk(sk);
--	int noblock = flags & MSG_DONTWAIT;
--	struct sk_buff *skb;
-+	struct sk_buff *skb, *last;
-+	long timeo;
- 	int err;
- 	int peeked, skip;
- 
-@@ -2087,26 +2087,32 @@ static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg,
- 	if (flags&MSG_OOB)
- 		goto out;
- 
--	err = mutex_lock_interruptible(&u->readlock);
--	if (unlikely(err)) {
--		/* recvmsg() in non blocking mode is supposed to return -EAGAIN
--		 * sk_rcvtimeo is not honored by mutex_lock_interruptible()
--		 */
--		err = noblock ? -EAGAIN : -ERESTARTSYS;
--		goto out;
--	}
-+	timeo = sock_rcvtimeo(sk, flags & MSG_DONTWAIT);
- 
--	skip = sk_peek_offset(sk, flags);
-+	do {
-+		mutex_lock(&u->readlock);
- 
--	skb = __skb_recv_datagram(sk, flags, &peeked, &skip, &err);
--	if (!skb) {
-+		skip = sk_peek_offset(sk, flags);
-+		skb = __skb_try_recv_datagram(sk, flags, &peeked, &skip, &err,
-+					      &last);
-+		if (skb)
-+			break;
-+
-+		mutex_unlock(&u->readlock);
-+
-+		if (err != -EAGAIN)
-+			break;
-+	} while (timeo &&
-+		 !__skb_wait_for_more_packets(sk, &err, &timeo, last));
-+
-+	if (!skb) { /* implies readlock unlocked */
- 		unix_state_lock(sk);
- 		/* Signal EOF on disconnected non-blocking SEQPACKET socket. */
- 		if (sk->sk_type == SOCK_SEQPACKET && err == -EAGAIN &&
- 		    (sk->sk_shutdown & RCV_SHUTDOWN))
- 			err = 0;
- 		unix_state_unlock(sk);
--		goto out_unlock;
-+		goto out;
- 	}
- 
- 	wake_up_interruptible_sync_poll(&u->peer_wait,
-@@ -2162,7 +2168,6 @@ static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg,
- 
- out_free:
- 	skb_free_datagram(sk, skb);
--out_unlock:
- 	mutex_unlock(&u->readlock);
- out:
- 	return err;
+On Sun, Dec 6, 2015 at 10:44 AM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On Sun, Dec 6, 2015 at 8:31 AM, Tom Herbert <tom@herbertland.com> wrote:
+>>> The only spot I think you and I disagreed on was the approach.  I
+>>> don't know if the hard push back does anything but punish the users by
+>>> delaying the time needed to find a reasonable solution.  I really
+>>> think if we are going to get the hardware vendors to change their
+>>> behavior we have to create a market demand for it.  Having a bit of
+>>> marketable data showing the folly of this approach versus the 1's
+>>> compliment checksum would probably do more to encourage and/or shame
+>>> them into it than simply pushing for this based on engineering
+>>> opinion.
+>>>
+>> I don't know what "marketable data" means. But I do know that we're
+>> like 70 postings into this thread, into the third patch set regarding
+>> this, yet nobody has bothered to contribute any data on what these
+>> patches do and what the quantifiable benefits are with HW offload of
+>> these protocols. I would test this stuff myself, but I don't have
+>> access to any NICs with necessary support. If someone else can start
+>> testing and providing meaningful data it would be most helpful...
+>
+> Here is an example of something kind of like what I am talking about:
+> http://www.mellanox.com/related-docs/whitepapers/CB_Intel_XL710.pdf
+>
+> I have seen evidence of the gains first hand.  The biggest gain ends
+> up being the result of GRO, and you cannot make use of GRO without
+> some form of Rx checksum offload.
+>
+Right, but we recoup the gains of GRO simply by enabling the UDP
+checksum. This works for all the UDP encapsulations, and probably
+about all NICs in deployment. You don't need protocol specific
+offloads for this. I have posted performance data many times on this,
+it is a clear win.
