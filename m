@@ -1,7 +1,8 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 0/6] Add HA and LAG support for mlx4 SRIOV VFs
-Date: Sun,  6 Dec 2015 18:07:37 +0200
-Message-ID: <1449418063-8111-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 3/6] net/mlx4_core: Support mirroring VF DMFS rules on both ports
+Date: Sun,  6 Dec 2015 18:07:40 +0200
+Message-ID: <1449418063-8111-4-git-send-email-ogerlitz@mellanox.com>
+References: <1449418063-8111-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Tal Alon <talal@mellanox.com>,
 	Majd Dibbiny <majd@mellanox.com>,
 	Jack Morgenstein <jackm@dev.mellanox.co.il>,
@@ -9,55 +10,330 @@ Cc: netdev@vger.kernel.org, Tal Alon <talal@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:51564 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:51588 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753530AbbLFQIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Dec 2015 11:08:09 -0500
+	id S1753530AbbLFQIN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Dec 2015 11:08:13 -0500
+In-Reply-To: <1449418063-8111-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave, 
+From: Moni Shoua <monis@mellanox.com>
 
-This series is built upon the code added in commit ce388ff "Merge branch
-'mlx4-next'" which added HA and LAG support to mlx4 RoCE and SRIOV services.
+Under HA mode, steering rules set by VFs should be mirrored on both
+ports of the device so packets will be accepted no matter on which
+port they arrived.
 
-We add HA and Link Aggregation support to single ported mlx4 Ethernet VFs. 
+Since getting into HA mode is done dynamically when the user bonds mlx4
+Ethernet netdevs, we keep hold of the VF DMFS rule mbox with the port
+value flipped (1->2,2->1) and execute the mirroring when getting into
+HA mode. Later, when going out of HA mode, we unset the mirrored rules.
+In that context note that mirrored rules cannot be removed explicitly.
 
-In this case, the PF Ethernet interfaces are bonded, the VFs see single
-port HW devices (already supported) -- however, now this port is highly
-available. This means that all VF HW QPs (both VF Ethernet driver and VF
-RoCE / RAW QPs) are subject to the V2P (Virtual-To-Physical) mapping which
-is managed by the PF driver, and hence resilient across link failures and
-such events.
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Reviewed-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   2 +
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  | 193 ++++++++++++++++++++-
+ 2 files changed, 186 insertions(+), 9 deletions(-)
 
-When bonding operates in Dynamic link aggregation (802.3ad) mode, traffic
-from each VF will go over the VF "base port" (the port this VF is assigned
-to by the admin) as long as this port is up. When the port fails, traffic
-from all VFs that are defined on this port will move to the other port, and
-be back to their base-port when it recovers.
-
-Moni and Or.
-
-Moni Shoua (4):
-  net/mlx4_core: Use both physical ports to dispatch link state events to VF
-  net/mlx4_core: Support mirroring VF DMFS rules on both ports
-  net/mlx4_core: Keep VLAN/MAC tables mirrored in multifunc HA mode
-  net/mlx4_core: Support the HA mode for SRIOV VFs too
-
-Or Gerlitz (2):
-  net/mlx4_core: Use both physical ports to set the VF link state
-  IB/mlx4: Use the VF base-port when demuxing mad from wire
-
- drivers/infiniband/hw/mlx4/mad.c                   |  17 +-
- drivers/net/ethernet/mellanox/mlx4/eq.c            |  24 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c            |  12 +-
- drivers/net/ethernet/mellanox/mlx4/fw.h            |   1 +
- drivers/net/ethernet/mellanox/mlx4/main.c          | 107 +++-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   8 +
- drivers/net/ethernet/mellanox/mlx4/port.c          | 598 ++++++++++++++++++++-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  | 193 ++++++-
- include/linux/mlx4/driver.h                        |   5 +
- 9 files changed, 915 insertions(+), 50 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index e1cf903..33c4c6f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -1385,6 +1385,8 @@ int mlx4_get_slave_num_gids(struct mlx4_dev *dev, int slave, int port);
+ int mlx4_get_vf_indx(struct mlx4_dev *dev, int slave);
+ int mlx4_config_mad_demux(struct mlx4_dev *dev);
+ int mlx4_do_bond(struct mlx4_dev *dev, bool enable);
++int mlx4_bond_fs_rules(struct mlx4_dev *dev);
++int mlx4_unbond_fs_rules(struct mlx4_dev *dev);
+ 
+ enum mlx4_zone_flags {
+ 	MLX4_ZONE_ALLOW_ALLOC_FROM_LOWER_PRIO	= 1UL << 0,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 6fec3e9..da7f578 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -222,6 +222,13 @@ enum res_fs_rule_states {
+ struct res_fs_rule {
+ 	struct res_common	com;
+ 	int			qpn;
++	/* VF DMFS mbox with port flipped */
++	void			*mirr_mbox;
++	/* > 0 --> apply mirror when getting into HA mode      */
++	/* = 0 --> un-apply mirror when getting out of HA mode */
++	u32			mirr_mbox_size;
++	struct list_head	mirr_list;
++	u64			mirr_rule_id;
+ };
+ 
+ static void *res_tracker_lookup(struct rb_root *root, u64 res_id)
+@@ -4284,6 +4291,22 @@ err_mac:
+ 	return err;
+ }
+ 
++static u32 qp_attach_mbox_size(void *mbox)
++{
++	u32 size = sizeof(struct mlx4_net_trans_rule_hw_ctrl);
++	struct _rule_hw  *rule_header;
++
++	rule_header = (struct _rule_hw *)(mbox + size);
++
++	while (rule_header->size) {
++		size += rule_header->size * sizeof(u32);
++		rule_header += 1;
++	}
++	return size;
++}
++
++static int mlx4_do_mirror_rule(struct mlx4_dev *dev, struct res_fs_rule *fs_rule);
++
+ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
+ 					 struct mlx4_vhcr *vhcr,
+ 					 struct mlx4_cmd_mailbox *inbox,
+@@ -4300,6 +4323,8 @@ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
+ 	struct mlx4_net_trans_rule_hw_ctrl *ctrl;
+ 	struct _rule_hw  *rule_header;
+ 	int header_id;
++	struct res_fs_rule *rrule;
++	u32 mbox_size;
+ 
+ 	if (dev->caps.steering_mode !=
+ 	    MLX4_STEERING_MODE_DEVICE_MANAGED)
+@@ -4328,7 +4353,7 @@ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
+ 	case MLX4_NET_TRANS_RULE_ID_ETH:
+ 		if (validate_eth_header_mac(slave, rule_header, rlist)) {
+ 			err = -EINVAL;
+-			goto err_put;
++			goto err_put_qp;
+ 		}
+ 		break;
+ 	case MLX4_NET_TRANS_RULE_ID_IB:
+@@ -4339,7 +4364,7 @@ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
+ 		pr_warn("Can't attach FS rule without L2 headers, adding L2 header\n");
+ 		if (add_eth_header(dev, slave, inbox, rlist, header_id)) {
+ 			err = -EINVAL;
+-			goto err_put;
++			goto err_put_qp;
+ 		}
+ 		vhcr->in_modifier +=
+ 			sizeof(struct mlx4_net_trans_rule_hw_eth) >> 2;
+@@ -4347,7 +4372,7 @@ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
+ 	default:
+ 		pr_err("Corrupted mailbox\n");
+ 		err = -EINVAL;
+-		goto err_put;
++		goto err_put_qp;
+ 	}
+ 
+ execute:
+@@ -4356,23 +4381,69 @@ execute:
+ 			   MLX4_QP_FLOW_STEERING_ATTACH, MLX4_CMD_TIME_CLASS_A,
+ 			   MLX4_CMD_NATIVE);
+ 	if (err)
+-		goto err_put;
++		goto err_put_qp;
++
+ 
+ 	err = add_res_range(dev, slave, vhcr->out_param, 1, RES_FS_RULE, qpn);
+ 	if (err) {
+ 		mlx4_err(dev, "Fail to add flow steering resources\n");
+-		/* detach rule*/
++		goto err_detach;
++	}
++
++	err = get_res(dev, slave, vhcr->out_param, RES_FS_RULE, &rrule);
++	if (err)
++		goto err_detach;
++
++	mbox_size = qp_attach_mbox_size(inbox->buf);
++	rrule->mirr_mbox = kmalloc(mbox_size, GFP_KERNEL);
++	if (!rrule->mirr_mbox) {
++		err = -ENOMEM;
++		goto err_put_rule;
++	}
++	rrule->mirr_mbox_size = mbox_size;
++	rrule->mirr_rule_id = 0;
++	memcpy(rrule->mirr_mbox, inbox->buf, mbox_size);
++
++	/* set different port */
++	ctrl = (struct mlx4_net_trans_rule_hw_ctrl *)rrule->mirr_mbox;
++	if (ctrl->port == 1)
++		ctrl->port = 2;
++	else
++		ctrl->port = 1;
++
++	if (mlx4_is_bonded(dev))
++		mlx4_do_mirror_rule(dev, rrule);
++
++	atomic_inc(&rqp->ref_count);
++
++err_put_rule:
++	put_res(dev, slave, vhcr->out_param, RES_FS_RULE);
++err_detach:
++	/* detach rule on error */
++	if (err)
+ 		mlx4_cmd(dev, vhcr->out_param, 0, 0,
+ 			 MLX4_QP_FLOW_STEERING_DETACH, MLX4_CMD_TIME_CLASS_A,
+ 			 MLX4_CMD_NATIVE);
+-		goto err_put;
+-	}
+-	atomic_inc(&rqp->ref_count);
+-err_put:
++err_put_qp:
+ 	put_res(dev, slave, qpn, RES_QP);
+ 	return err;
+ }
+ 
++static int mlx4_undo_mirror_rule(struct mlx4_dev *dev, struct res_fs_rule *fs_rule)
++{
++	int err;
++
++	err = rem_res_range(dev, fs_rule->com.owner, fs_rule->com.res_id, 1, RES_FS_RULE, 0);
++	if (err) {
++		mlx4_err(dev, "Fail to remove flow steering resources\n");
++		return err;
++	}
++
++	mlx4_cmd(dev, fs_rule->com.res_id, 0, 0, MLX4_QP_FLOW_STEERING_DETACH,
++		 MLX4_CMD_TIME_CLASS_A, MLX4_CMD_NATIVE);
++	return 0;
++}
++
+ int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
+ 					 struct mlx4_vhcr *vhcr,
+ 					 struct mlx4_cmd_mailbox *inbox,
+@@ -4382,6 +4453,7 @@ int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
+ 	int err;
+ 	struct res_qp *rqp;
+ 	struct res_fs_rule *rrule;
++	u64 mirr_reg_id;
+ 
+ 	if (dev->caps.steering_mode !=
+ 	    MLX4_STEERING_MODE_DEVICE_MANAGED)
+@@ -4390,12 +4462,30 @@ int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
+ 	err = get_res(dev, slave, vhcr->in_param, RES_FS_RULE, &rrule);
+ 	if (err)
+ 		return err;
++
++	if (!rrule->mirr_mbox) {
++		mlx4_err(dev, "Mirror rules cannot be removed explicitly\n");
++		put_res(dev, slave, vhcr->in_param, RES_FS_RULE);
++		return -EINVAL;
++	}
++	mirr_reg_id = rrule->mirr_rule_id;
++	kfree(rrule->mirr_mbox);
++
+ 	/* Release the rule form busy state before removal */
+ 	put_res(dev, slave, vhcr->in_param, RES_FS_RULE);
+ 	err = get_res(dev, slave, rrule->qpn, RES_QP, &rqp);
+ 	if (err)
+ 		return err;
+ 
++	if (mirr_reg_id && mlx4_is_bonded(dev)) {
++		err = get_res(dev, slave, mirr_reg_id, RES_FS_RULE, &rrule);
++		if (err) {
++			mlx4_err(dev, "Fail to get resource of mirror rule\n");
++		} else {
++			put_res(dev, slave, mirr_reg_id, RES_FS_RULE);
++			mlx4_undo_mirror_rule(dev, rrule);
++		}
++	}
+ 	err = rem_res_range(dev, slave, vhcr->in_param, 1, RES_FS_RULE, 0);
+ 	if (err) {
+ 		mlx4_err(dev, "Fail to remove flow steering resources\n");
+@@ -4833,6 +4923,91 @@ static void rem_slave_mtts(struct mlx4_dev *dev, int slave)
+ 	spin_unlock_irq(mlx4_tlock(dev));
+ }
+ 
++static int mlx4_do_mirror_rule(struct mlx4_dev *dev, struct res_fs_rule *fs_rule)
++{
++	struct mlx4_cmd_mailbox *mailbox;
++	int err;
++	struct res_fs_rule *mirr_rule;
++	u64 reg_id;
++
++	mailbox = mlx4_alloc_cmd_mailbox(dev);
++	if (IS_ERR(mailbox))
++		return PTR_ERR(mailbox);
++
++	if (!fs_rule->mirr_mbox) {
++		mlx4_err(dev, "rule mirroring mailbox is null\n");
++		return -EINVAL;
++	}
++	memcpy(mailbox->buf, fs_rule->mirr_mbox, fs_rule->mirr_mbox_size);
++	err = mlx4_cmd_imm(dev, mailbox->dma, &reg_id, fs_rule->mirr_mbox_size >> 2, 0,
++			   MLX4_QP_FLOW_STEERING_ATTACH, MLX4_CMD_TIME_CLASS_A,
++			   MLX4_CMD_NATIVE);
++	mlx4_free_cmd_mailbox(dev, mailbox);
++
++	if (err)
++		goto err;
++
++	err = add_res_range(dev, fs_rule->com.owner, reg_id, 1, RES_FS_RULE, fs_rule->qpn);
++	if (err)
++		goto err_detach;
++
++	err = get_res(dev, fs_rule->com.owner, reg_id, RES_FS_RULE, &mirr_rule);
++	if (err)
++		goto err_rem;
++
++	fs_rule->mirr_rule_id = reg_id;
++	mirr_rule->mirr_rule_id = 0;
++	mirr_rule->mirr_mbox_size = 0;
++	mirr_rule->mirr_mbox = NULL;
++	put_res(dev, fs_rule->com.owner, reg_id, RES_FS_RULE);
++
++	return 0;
++err_rem:
++	rem_res_range(dev, fs_rule->com.owner, reg_id, 1, RES_FS_RULE, 0);
++err_detach:
++	mlx4_cmd(dev, reg_id, 0, 0, MLX4_QP_FLOW_STEERING_DETACH,
++		 MLX4_CMD_TIME_CLASS_A, MLX4_CMD_NATIVE);
++err:
++	return err;
++}
++
++static int mlx4_mirror_fs_rules(struct mlx4_dev *dev, bool bond)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_resource_tracker *tracker =
++		&priv->mfunc.master.res_tracker;
++	struct rb_root *root = &tracker->res_tree[RES_FS_RULE];
++	struct rb_node *p;
++	struct res_fs_rule *fs_rule;
++	int err = 0;
++	LIST_HEAD(mirr_list);
++
++	for (p = rb_first(root); p; p = rb_next(p)) {
++		fs_rule = rb_entry(p, struct res_fs_rule, com.node);
++		if ((bond && fs_rule->mirr_mbox_size) ||
++		    (!bond && !fs_rule->mirr_mbox_size))
++			list_add_tail(&fs_rule->mirr_list, &mirr_list);
++	}
++
++	list_for_each_entry(fs_rule, &mirr_list, mirr_list) {
++		if (bond)
++			err += mlx4_do_mirror_rule(dev, fs_rule);
++		else
++			err += mlx4_undo_mirror_rule(dev, fs_rule);
++	}
++	return err;
++}
++
++int mlx4_bond_fs_rules(struct mlx4_dev *dev)
++{
++	return mlx4_mirror_fs_rules(dev, true);
++}
++
++int mlx4_unbond_fs_rules(struct mlx4_dev *dev)
++{
++	return mlx4_mirror_fs_rules(dev, false);
++}
++
+ static void rem_slave_fs_rule(struct mlx4_dev *dev, int slave)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
 -- 
 2.3.7
