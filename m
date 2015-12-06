@@ -1,61 +1,40 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH V4 net-next 4/5] net:hns: Add support of ethtool TSO set
- option for Hip06 in HNS
-Date: Sun, 6 Dec 2015 06:43:12 +0000
-Message-ID: <CO2PR11MB008864AFF3D819EFE7A7622B970A0__17741.1057790325$1449384266$gmane$org@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1448048952-146714-1-git-send-email-salil.mehta@huawei.com>
- <1448048952-146714-5-git-send-email-salil.mehta@huawei.com>
- <CO2PR11MB00885531F54375191E6F015597180@CO2PR11MB0088.namprd11.prod.outlook.com>
- <565DA6F5.7040804@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2] Revert "i40e: remove CONFIG_I40E_VXLAN"
+Date: Sat, 5 Dec 2015 23:13:31 -0800
+Message-ID: <CAL3LdT5x=8K4fUgL28PzWci_5UWmbSOTcJQwbmKOGzvH0T6PuA@mail.gmail.com>
+References: <1449215371-18357-1-git-send-email-anjali.singhai@intel.com>
+	<20151205.175019.927737740812545846.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Salil Mehta <mehta.salil.lnk@gmail.com>,
-	Salil Mehta <salil.mehta@huawei.com>,
-	David Miller <davem@davemloft.net>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.com" <pawel.moll@arm.com>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	"galak@codeaurora.org" <galak@codeaurora.org>,
-	"catalin.marinas@arm.com" <catalin.marinas@arm.com>,
-	"will.deacon@arm.com" <will.deacon@arm.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
-	"yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
-	"dingtianhong@huawei.com" <dingtianhong@huawei.com>,
-	"zhangfei.gao@linaro.org" <zhangfei.gao@linaro.org>,
-	"huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-	"kenneth-lee-2012@foxmail.com" <kenneth-lee-2012@foxmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: anjali.singhai@intel.com, netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0105.outbound.protection.outlook.com ([207.46.100.105]:44160
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751023AbbLFGnR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 01:43:17 -0500
-In-Reply-To: <565DA6F5.7040804@gmail.com>
-Content-Language: en-US
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:37541 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751023AbbLFHNc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 02:13:32 -0500
+Received: by igcto18 with SMTP id to18so62300683igc.0
+        for <netdev@vger.kernel.org>; Sat, 05 Dec 2015 23:13:31 -0800 (PST)
+In-Reply-To: <20151205.175019.927737740812545846.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > Isn't AE_VERSION_1 something fixed once you publish your features?
-> > If it can't be changed, why not simply remove the features from
-> > `hw_features' instead of having to implement this ndo?
-> There could be a case where the feature is supported by the SoC
-> and therefore it is already part of the 'hw_features' but it has been
-> say DISABLED or ENABLED by ethtool. In such a case, we need to
-> make sure we strike off that feature from the 'features' flag.
-> 
-> Therefore, we need this leg I suppose. Let me know If I am missing
-> something here or there is a gap in my understanding.
+On Sat, Dec 5, 2015 at 2:50 PM, David Miller <davem@davemloft.net> wrote:
+> From: Anjali Singhai Jain <anjali.singhai@intel.com>
+> Date: Thu,  3 Dec 2015 23:49:31 -0800
+>
+>> This reverts commit 8fe269991aece394a7ed274f525d96c73f94109a.
+>> The case where VXLAN is a module and i40e driver is inbuilt
+>> will not be handled properly with this change since i40e
+>> will have an undefined symbol vxlan_get_rx_port in it.
+>>
+>> v2: Add a signed-off-by.
+>>
+>> Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+>
+> Why isn't this going via Jeff Kirsher?  And why isn't he even
+> CC:'d?
 
-Look at ethtool_set_features() - if something isn't listed in hw_features,
-you're not support to be able to change it.
+Not sure why either... but for what it is worth, the revert has my blessing.
 
-If you can make a one-time decision when registering the netdevice
-whether this feature is supported by HW or not [assuming AE_VERSION_1
-is available at that point and can't later change] than it's the better alternative.
-
-Cheers,
-Yuval 
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
