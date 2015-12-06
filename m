@@ -1,120 +1,79 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] rtlwifi: fix gigantic memleak in rtl_usb
-Date: Sun, 6 Dec 2015 16:33:07 -0600
-Message-ID: <5664B7A3.40500@lwfinger.net>
-References: <1449424677-3140-1-git-send-email-peter@lekensteyn.nl>
- <5664981C.1040704@lwfinger.net> <20151206213926.GA30777@al>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] mwifiex: fix semicolon.cocci warnings
+Date: Sun, 06 Dec 2015 14:44:47 -0800
+Message-ID: <1449441887.7417.13.camel@perches.com>
+References: <alpine.DEB.2.02.1512062255060.2081@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
-	Kalle Valo <kvalo@codeaurora.org>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kbuild-all@01.org, Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Peter Wu <peter@lekensteyn.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151206213926.GA30777@al>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Julia Lawall <julia.lawall@lip6.fr>,
+	"Kalle Valo <kvalo@adurom.com> Kalle Valo" <kvalo@adurom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0190.hostedemail.com ([216.40.44.190]:51064 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754544AbbLFWou (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 17:44:50 -0500
+In-Reply-To: <alpine.DEB.2.02.1512062255060.2081@localhost6.localdomain6>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/06/2015 03:39 PM, Peter Wu wrote:
-> On Sun, Dec 06, 2015 at 02:18:36PM -0600, Larry Finger wrote:
->> On 12/06/2015 11:57 AM, Peter Wu wrote:
->>> Free skb for received frames with a wrong checksum.
->>>
->>> While using the rtl8192cu driver in monitor mode, somehow 5G of memory
->>> was permanently lost (observable via the Available column in `free -m`).
->>>
->>> Test scenario:
->>>
->>>      ip link set down wlan1
->>>      iw wlan1 set type monitor
->>>      ip link set up wlan1
->>>      iw wlan1 set channel 11
->>>
->>> Then stream a video on a smartphone on channel 11. Without this patch
->>> the memory usage grows linearly with the number of received packets:
->>>
->>>      grep MemAvailable /proc/meminfo
->>>      ip -s link show dev wlan1
->>>
->>> Signed-off-by: Peter Wu <peter@lekensteyn.nl>
->>> ---
->>> Hi,
->>>
->>> This issue has existed since the introduction of this driver in v2.6.x,
->>> using kmemleak I was about to figure out the source. There is also a
->>> _rtl_usb_rx_process_agg that has similarly looking code, but that one is
->>> unaffected. The pci code already frees the skb and is unaffected too.
->>>
->>> Tested with kernel v4.3, this patch is simply rebased on v4.4-rc3 (due
->>> to changed paths).
->>>
->>> Kind regards,
->>> Peter
->>> ---
->>>   drivers/net/wireless/realtek/rtlwifi/usb.c | 2 ++
->>>   1 file changed, 2 insertions(+)
->>>
->>> diff --git a/drivers/net/wireless/realtek/rtlwifi/usb.c b/drivers/net/wireless/realtek/rtlwifi/usb.c
->>> index 2721cf8..aac1ed3 100644
->>> --- a/drivers/net/wireless/realtek/rtlwifi/usb.c
->>> +++ b/drivers/net/wireless/realtek/rtlwifi/usb.c
->>> @@ -531,6 +531,8 @@ static void _rtl_usb_rx_process_noagg(struct ieee80211_hw *hw,
->>>   			ieee80211_rx(hw, skb);
->>>   		else
->>>   			dev_kfree_skb_any(skb);
->>> +	} else {
->>> +		dev_kfree_skb_any(skb);
->>>   	}
->>>   }
->>>
->>>
->>
->> Thanks for finding and fixing this memory leak.
->>
->> The patch is OK, but the commit message and subject are not. I do not like
->> the use of the word "gigantic" in the subject. A better subject would be:
->> "rtlwifi: Fix memory leak for USB device while in monitor mode".
->>
->> The commit message should say that a memory leak was observed, and found
->> with kmemleak. If you were simply reportimg the bug, then the steps needed
->> to reproduce it would be important, but as you have a fix, those steps are
->> extraneous. You should also include a "Cc: Stable <stable@vger.kernel.org"
->> line. When the patch is picked up for stable kernels, it will be necessary
->> to rebase the patch to compensate for the directory change.
->
-> I have done some additional testing using QEMU and USB passthrough and
-> can report that the leak is not limited to monitor mode. The commit
-> message is adjusted for that. This issue is pretty bad, I previously hit
-> 5GB within an hour with low traffic, this VM with 256M RAM panics after
-> 5 minutes in managed mode. (Remote denial of service, heh.)
->
-> Originally I had the Cc: stable line added, but the SubmittingPatches
-> document seems to discourage that for networking. Added it again.
->
-> Here is the updated patch, hopefully addressing your concerns. Feel free
-> to modify it as you find appropriate.
->
-> Peter
-> --
->>From a2c5fec1789bef48671d643ea7ecd0244d1e0246 Mon Sep 17 00:00:00 2001
-> From: Peter Wu <peter@lekensteyn.nl>
-> Date: Sun, 6 Dec 2015 17:59:41 +0100
-> Subject: [PATCH] rtlwifi: fix memory leak for USB device
->
-> Free skb for received frames with a wrong checksum. This can happen
-> pretty rapidly, exhausting all memory.
->
-> This fixes a memleak (detected with kmemleak). Originally found while
-> using monitor mode, but it also appears during managed mode (once the
-> link is up).
->
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Peter Wu <peter@lekensteyn.nl>
-> ---
+On Sun, 2015-12-06 at 22:56 +0100, Julia Lawall wrote:
+> Remove unneeded semicolon.
+>=20
+> Generated by: scripts/coccinelle/misc/semicolon.cocci
 
-This version is better, but you submitted it incorrectly. Sen it as [PATCH V2] 
-and cut out all extraneous messaging.
+There are a lot more of these
 
-Larry
+arch/arm/mach-ixp4xx/goramo_mlr.c:78:static u32 hw_bits =3D 0xFFFFFFFD;=
+=A0=A0=A0=A0/* assume all hardware present */;
+crypto/tgr192.c:563:	tgr192_update(desc, NULL, 0); /* flush */ ;
+crypto/tgr192.c:591:		tgr192_update(desc, NULL, 0); /* flush */ ;
+drivers/block/drbd/drbd_int.h:982:	struct list_head list; /* on device-=
+>pending_bitmap_io */;
+drivers/block/drbd/drbd_state.c:2202:	enum drbd_state_rv err, rv =3D SS=
+_UNKNOWN_ERROR; /* continue waiting */;
+drivers/block/drbd/drbd_main.c:1453:	return drop_it; /* && (device->sta=
+te =3D=3D R_PRIMARY) */;
+drivers/block/ataflop.c:779:		dma_wd.fdc_speed =3D 0;=A0	/* always seek=
+ with 8 Mhz */;
+drivers/scsi/bnx2i/bnx2i.h:540:	u16 itt[BNX2X_MAX_CQS];
+	/* Cstorm CQ sequence to notify array, updated by driver */;
+drivers/net/ethernet/chelsio/cxgb4vf/sge.c:1802:			for (frag =3D 0, fp =
+=3D gl.frags; /**/; frag++, fp++) {
+drivers/net/wireless/marvell/mwifiex/init.c:98:	priv->beacon_period =3D=
+ 100; /* beacon interval */ ;
+drivers/net/wireless/intel/iwlwifi/mvm/fw-api-power.h:313:}; /* TX_POWE=
+R_REDUCED_FLAGS_TYPE_API_E_VER_2 */;
+drivers/net/wireless/intersil/prism54/islpci_dev.c:112:			return -EILSE=
+Q; /* Illegal byte sequence=A0=A0*/;
+drivers/spi/spi-bcm2835.c:239:	bs->dma_pending =3D 0;
+
+	/* and mark as completed */;
+drivers/spi/spi-topcliff-pch.c:879:	param->chan_id =3D data->ch * 2; /*=
+ Tx =3D 0, 2 */;
+drivers/spi/spi-topcliff-pch.c:894:	param->chan_id =3D data->ch * 2 + 1=
+; /* Rx =3D Tx + 1 */;
+drivers/usb/serial/keyspan.c:1966:		dr->bRequest =3D 0xB0;	/* 49wg cont=
+rol message */;
+drivers/usb/serial/oti6858.c:112:	u8	rx_bytes_avail;		/* number of byte=
+s in rx buffer */;
+drivers/clk/tegra/clk-dfll.c:723:	int coef =3D 128; /* FIXME: td->cg_sc=
+ale? */;
+drivers/media/pci/ivtv/ivtv-driver.h:532:	u8 even[2];	/* two-byte paylo=
+ad of even field */;
+fs/xfs/libxfs/xfs_btree.h:98:	case XFS_BTNUM_MAX: ASSERT(0); /* fucking=
+ gcc */ ; break;	\
+fs/xfs/libxfs/xfs_btree.h:118:	case XFS_BTNUM_MAX: ASSERT(0); /* fuckin=
+g gcc */ ; break; \
+fs/xfs/xfs_itable.c:375:	ac.ac_ubleft =3D ubcount * statstruct_size; /*=
+ bytes */;
+include/uapi/linux/nfc.h:278:	char service_name[NFC_LLCP_MAX_SERVICE_NA=
+ME]; /* Service name URI */;
+kernel/trace/ring_buffer.c:4896:	set_current_state(TASK_INTERRUPTIBLE);
+	/* Just run for 10 seconds */;
+sound/soc/intel/atom/sst/sst.c:71:		sst_shim_write64(drv->shim, drv->ip=
+c_reg.ipcx, header.full);
