@@ -1,48 +1,87 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 08/15] fm10k: rename mbx_tx_oversized statistic to mbx_tx_dropped
-Date: Sun,  6 Dec 2015 00:01:27 -0800
-Message-ID: <1449388894-128573-9-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1449388894-128573-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: "Gabriele Beltrame" <belgab@drvsource.net>
+Subject: Random packet loss using IPsec with AES128-SHA1
+Date: Sun, 6 Dec 2015 11:05:01 +0100
+Message-ID: <002201d1300d$93ed5e10$bbc81a30$@drvsource.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:46039 "EHLO mga01.intel.com"
+Received: from ip209.psaruba.com ([94.23.150.209]:50733 "EHLO webs.psaruba.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752231AbbLFIBh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Dec 2015 03:01:37 -0500
-In-Reply-To: <1449388894-128573-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1752328AbbLFKKw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Dec 2015 05:10:52 -0500
+Received: from amavis-7.psaruba.com (amavis-7.psaruba.com [192.168.255.7])
+	by webs.psaruba.com (Postfix) with ESMTP id 62D52880BB
+	for <netdev@vger.kernel.org>; Sun,  6 Dec 2015 11:05:06 +0100 (CET)
+Received: from mail-hub.psaruba.com ([192.168.255.1])
+	by amavis-7.psaruba.com (srv-psaruba-002.psaruba.com [192.168.255.7]) (amavisd-new, port 10026)
+	with ESMTP id 7teV7PUOmK+y for <netdev@vger.kernel.org>;
+	Sun,  6 Dec 2015 11:05:06 +0100 (CET)
+Received: from mail-ext-sub.psaruba.com (mail-ext-sub.psaruba.com [IPv6:fc00:0:0:ff::4])
+	by mail-hub.psaruba.com (Postfix) with ESMTP id 2BB5FC403B
+	for <netdev@vger.kernel.org>; Sun,  6 Dec 2015 11:05:06 +0100 (CET)
+Received: from Unimatrix (host127-236-dynamic.24-79-r.retail.telecomitalia.it [79.24.236.127])
+	(using TLSv1 with cipher AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: belgab@drvsource.net)
+	by mail-ext-sub.psaruba.com (Postfix) with ESMTPSA id DE33084039
+	for <netdev@vger.kernel.org>; Sun,  6 Dec 2015 11:05:05 +0100 (CET)
+Content-Language: it
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+Hi,
 
-Originally this statistic was renamed because the method of dropping was
-called "drop_oversized_messages", but this logic has changed much, and
-this counter does actually represent messages which we failed to
-transmit for a number of reasons. Rename the counter back to tx_dropped
-since this is when it will increment, and it is less confusing.
+I'm running a few Strongswan 5.3.* CentOS (Kernel 3.16.7, 4.2.6, 4.1.*)
+instances on AWS to terminate VPNs between each other and/or to other
+devices across the Internet.
+While investigating some application issues, I've noticed that on every VPNs
+I have random packet losses (from 1% to 4% over 100 to 300 requests sent).
+This only happens when the two following conditions are met: (a) AES
+encryption used, (b) IP packet size shorter than about (150+8+20)Bytes.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+In tcpdump I can actually see all packets (requests and replies) being
+"sent" from the router, but on destination server (on the same "LAN") they
+are not being received... it's just like if the packet is being lost before
+it's being actually serialized onto the network by the XEN NIC driver
+Pinging form the vpn router itself always works fine though, never losing a
+single packet...
+
+Tested with Kernel 3.16.7, 4.2.6 and a AWS Amazon Linux instance (kernel
+4.1.*).
+Strongswan and libreswan shows the same issue, so it's not a Strongswan
+issue.
+Only AES CBS is affected... AES GCM is not affected, furthermore if I use
+the Strongswan's kernel-libipsec plugin there is no packet loss.
+
+To recap:
+	a. it's not an instance type/size issue (I have the same issue on
+everything I've tested with)
+	b. it's not a Strongswan issue (I have the same
+withlbreswan/Openswan)
+	c. it's not a network/related issue (I can actually see on the
+router all packets with tcpdump, they are just not received at the
+destination (a host on the same network as the "vpn router")
+	d. I only see this occurring with AES128 CBS DH2 (and possibly other
+key sizes as well)... AES GCM is not affected, as well as 3DES and NULL
+encryption
+	e. Strongswan developers cannot reproduce the issue on their lab
+(Strongswan issue #1220), so possibly there could be something wrong within
+the Xen NIC driver
+	f. ICMP packets bigger than around 178bytes (150+8+20) seem to not
+be affected
+
+Has somebody an idea about where the issue might be and how to
+fix/workaround it (I cannot use 3DES and/or AES GCM everywhere and the
+Strongswan's kernel-libipsec plugin taxes the CPU a lot more than the kernel
+implementation)?
+
+Regards,
+Gabriele
+
+
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-index 7c01561..fd29145 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-@@ -111,7 +111,7 @@ static const struct fm10k_stats fm10k_gstrings_pf_stats[] = {
- 
- static const struct fm10k_stats fm10k_gstrings_mbx_stats[] = {
- 	FM10K_MBX_STAT("mbx_tx_busy", tx_busy),
--	FM10K_MBX_STAT("mbx_tx_oversized", tx_dropped),
-+	FM10K_MBX_STAT("mbx_tx_dropped", tx_dropped),
- 	FM10K_MBX_STAT("mbx_tx_messages", tx_messages),
- 	FM10K_MBX_STAT("mbx_tx_dwords", tx_dwords),
- 	FM10K_MBX_STAT("mbx_tx_mbmem_pulled", tx_mbmem_pulled),
--- 
-2.5.0
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
