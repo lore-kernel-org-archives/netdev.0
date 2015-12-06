@@ -1,104 +1,45 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 2/6] net/mlx4_core: Use both physical ports to dispatch link state events to VF
-Date: Sun,  6 Dec 2015 18:07:39 +0200
-Message-ID: <1449418063-8111-3-git-send-email-ogerlitz@mellanox.com>
-References: <1449418063-8111-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Tal Alon <talal@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Moni Shoua <monis@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] Revert "i40e: remove CONFIG_I40E_VXLAN"
+Date: Sun, 06 Dec 2015 11:23:55 -0500 (EST)
+Message-ID: <20151206.112355.1485488163212149377.davem@davemloft.net>
+References: <1449215371-18357-1-git-send-email-anjali.singhai@intel.com>
+	<20151205.175019.927737740812545846.davem@davemloft.net>
+	<CAL3LdT5x=8K4fUgL28PzWci_5UWmbSOTcJQwbmKOGzvH0T6PuA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: anjali.singhai@intel.com, netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:51571 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753584AbbLFQIL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Dec 2015 11:08:11 -0500
-In-Reply-To: <1449418063-8111-1-git-send-email-ogerlitz@mellanox.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52746 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753600AbbLFQX5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 11:23:57 -0500
+In-Reply-To: <CAL3LdT5x=8K4fUgL28PzWci_5UWmbSOTcJQwbmKOGzvH0T6PuA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Moni Shoua <monis@mellanox.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sat, 5 Dec 2015 23:13:31 -0800
 
-Under HA mode, the link down event should be sent to VFs only if both
-ports are down.
+> On Sat, Dec 5, 2015 at 2:50 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Anjali Singhai Jain <anjali.singhai@intel.com>
+>> Date: Thu,  3 Dec 2015 23:49:31 -0800
+>>
+>>> This reverts commit 8fe269991aece394a7ed274f525d96c73f94109a.
+>>> The case where VXLAN is a module and i40e driver is inbuilt
+>>> will not be handled properly with this change since i40e
+>>> will have an undefined symbol vxlan_get_rx_port in it.
+>>>
+>>> v2: Add a signed-off-by.
+>>>
+>>> Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+>>
+>> Why isn't this going via Jeff Kirsher?  And why isn't he even
+>> CC:'d?
+> 
+> Not sure why either... but for what it is worth, the revert has my blessing.
+> 
+> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Signed-off-by: Moni Shoua <monis@mellanox.com>
-Reviewed-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/eq.c | 24 ++++++++++++++++++++----
- 1 file changed, 20 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
-index 603d1c3..4696053 100644
---- a/drivers/net/ethernet/mellanox/mlx4/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-@@ -151,6 +151,17 @@ void mlx4_gen_slave_eqe(struct work_struct *work)
- 	      eqe = next_slave_event_eqe(slave_eq)) {
- 		slave = eqe->slave_id;
- 
-+		if (eqe->type == MLX4_EVENT_TYPE_PORT_CHANGE &&
-+		    eqe->subtype == MLX4_PORT_CHANGE_SUBTYPE_DOWN &&
-+		    mlx4_is_bonded(dev)) {
-+			struct mlx4_port_cap port_cap;
-+
-+			if (!mlx4_QUERY_PORT(dev, 1, &port_cap) && port_cap.link_state)
-+				goto consume;
-+
-+			if (!mlx4_QUERY_PORT(dev, 2, &port_cap) && port_cap.link_state)
-+				goto consume;
-+		}
- 		/* All active slaves need to receive the event */
- 		if (slave == ALL_SLAVES) {
- 			for (i = 0; i <= dev->persist->num_vfs; i++) {
-@@ -174,6 +185,7 @@ void mlx4_gen_slave_eqe(struct work_struct *work)
- 				mlx4_warn(dev, "Failed to generate event for slave %d\n",
- 					  slave);
- 		}
-+consume:
- 		++slave_eq->cons;
- 	}
- }
-@@ -594,7 +606,9 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 					break;
- 				for (i = 0; i < dev->persist->num_vfs + 1;
- 				     i++) {
--					if (!test_bit(i, slaves_port.slaves))
-+					int reported_port = mlx4_is_bonded(dev) ? 1 : mlx4_phys_to_slave_port(dev, i, port);
-+
-+					if (!test_bit(i, slaves_port.slaves) && !mlx4_is_bonded(dev))
- 						continue;
- 					if (dev->caps.port_type[port] == MLX4_PORT_TYPE_ETH) {
- 						if (i == mlx4_master_func_num(dev))
-@@ -606,7 +620,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 							eqe->event.port_change.port =
- 								cpu_to_be32(
- 								(be32_to_cpu(eqe->event.port_change.port) & 0xFFFFFFF)
--								| (mlx4_phys_to_slave_port(dev, i, port) << 28));
-+								| (reported_port << 28));
- 							mlx4_slave_event(dev, i, eqe);
- 						}
- 					} else {  /* IB port */
-@@ -636,7 +650,9 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 					for (i = 0;
- 					     i < dev->persist->num_vfs + 1;
- 					     i++) {
--						if (!test_bit(i, slaves_port.slaves))
-+						int reported_port = mlx4_is_bonded(dev) ? 1 : mlx4_phys_to_slave_port(dev, i, port);
-+
-+						if (!test_bit(i, slaves_port.slaves) && !mlx4_is_bonded(dev))
- 							continue;
- 						if (i == mlx4_master_func_num(dev))
- 							continue;
-@@ -645,7 +661,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 							eqe->event.port_change.port =
- 								cpu_to_be32(
- 								(be32_to_cpu(eqe->event.port_change.port) & 0xFFFFFFF)
--								| (mlx4_phys_to_slave_port(dev, i, port) << 28));
-+								| (reported_port << 28));
- 							mlx4_slave_event(dev, i, eqe);
- 						}
- 					}
--- 
-2.3.7
+Applied.
