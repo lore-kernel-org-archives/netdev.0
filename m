@@ -1,71 +1,86 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: gigaset: freeing an active object
-Date: Sun, 06 Dec 2015 21:12:22 +0100
-Message-ID: <1449432742.2515.20.camel@tiscali.nl>
-References: <56587467.8050102@oracle.com> <565B1A1B.8020503@imap.cc>
-	 <565B4256.6080101@hurleysoftware.com> <565B4844.9020600@imap.cc>
-	 <1448828800.2603.17.camel@tiscali.nl> <1448839396.2891.14.camel@tiscali.nl>
-	 <1448906497.3546.16.camel@tiscali.nl> <565F8341.7010704@hurleysoftware.com>
-	 <1449408690.2515.15.camel@tiscali.nl> <5664545C.90607@imap.cc>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] rtlwifi: fix gigantic memleak in rtl_usb
+Date: Sun, 6 Dec 2015 14:18:36 -0600
+Message-ID: <5664981C.1040704@lwfinger.net>
+References: <1449424677-3140-1-git-send-email-peter@lekensteyn.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, davem@davemloft.net,
-	gigaset307x-common@lists.sourceforge.net,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>
-To: Tilman Schmidt <tilman@imap.cc>,
-	Peter Hurley <peter@hurleysoftware.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lb1-smtp-cloud6.xs4all.net ([194.109.24.24]:50699 "EHLO
-	lb1-smtp-cloud6.xs4all.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754125AbbLFUM0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 15:12:26 -0500
-In-Reply-To: <5664545C.90607@imap.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Peter Wu <peter@lekensteyn.nl>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449424677-3140-1-git-send-email-peter@lekensteyn.nl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On zo, 2015-12-06 at 16:29 +0100, Tilman Schmidt wrote:
-> So the solution might be as simple as moving the kfree() call from
-> gigaset_freecshw() to gigaset_device_release(). Something like this:
-> 
-> --- a/drivers/isdn/gigaset/ser-gigaset.c
-> +++ b/drivers/isdn/gigaset/ser-gigaset.c
-> @@ -370,19 +370,18 @@ static void gigaset_freecshw(struct cardstate
-> *cs)
->         tasklet_kill(&cs->write_tasklet);
->         if (!cs->hw.ser)
->                 return;
-> -       dev_set_drvdata(&cs->hw.ser->dev.dev, NULL);
->         platform_device_unregister(&cs->hw.ser->dev);
-> -       kfree(cs->hw.ser);
-> -       cs->hw.ser = NULL;
->  }
-> 
->  static void gigaset_device_release(struct device *dev)
->  {
-> -       struct platform_device *pdev = to_platform_device(dev);
-> +       struct cardstate *cs = dev_get_drvdata(dev);
-> 
-> -       /* adapted from platform_device_release() in
-> drivers/base/platform.c */
-> -       kfree(dev->platform_data);
-> -       kfree(pdev->resource);
-> +       if (!cs)
-> +               return;
-> +       dev_set_drvdata(dev, NULL);
-> +       kfree(cs->hw.ser);
-> +       cs->hw.ser = NULL;
->  }
+On 12/06/2015 11:57 AM, Peter Wu wrote:
+> Free skb for received frames with a wrong checksum.
+>
+> While using the rtl8192cu driver in monitor mode, somehow 5G of memory
+> was permanently lost (observable via the Available column in `free -m`).
+>
+> Test scenario:
+>
+>      ip link set down wlan1
+>      iw wlan1 set type monitor
+>      ip link set up wlan1
+>      iw wlan1 set channel 11
+>
+> Then stream a video on a smartphone on channel 11. Without this patch
+> the memory usage grows linearly with the number of received packets:
+>
+>      grep MemAvailable /proc/meminfo
+>      ip -s link show dev wlan1
+>
+> Signed-off-by: Peter Wu <peter@lekensteyn.nl>
+> ---
+> Hi,
+>
+> This issue has existed since the introduction of this driver in v2.6.x,
+> using kmemleak I was about to figure out the source. There is also a
+> _rtl_usb_rx_process_agg that has similarly looking code, but that one is
+> unaffected. The pci code already frees the skb and is unaffected too.
+>
+> Tested with kernel v4.3, this patch is simply rebased on v4.4-rc3 (due
+> to changed paths).
+>
+> Kind regards,
+> Peter
+> ---
+>   drivers/net/wireless/realtek/rtlwifi/usb.c | 2 ++
+>   1 file changed, 2 insertions(+)
+>
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/usb.c b/drivers/net/wireless/realtek/rtlwifi/usb.c
+> index 2721cf8..aac1ed3 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/usb.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/usb.c
+> @@ -531,6 +531,8 @@ static void _rtl_usb_rx_process_noagg(struct ieee80211_hw *hw,
+>   			ieee80211_rx(hw, skb);
+>   		else
+>   			dev_kfree_skb_any(skb);
+> +	} else {
+> +		dev_kfree_skb_any(skb);
+>   	}
+>   }
+>
+>
 
-This solution assumes that the struct platform_device is moved out of
-the struct ser_cardstate, doesn't it? In other words, this is something
-to do on top of my (draft) patch. Otherwise we'd still be freeing memory
-managed through reference counting.
+Thanks for finding and fixing this memory leak.
 
-Thanks,
+The patch is OK, but the commit message and subject are not. I do not like the 
+use of the word "gigantic" in the subject. A better subject would be: "rtlwifi: 
+Fix memory leak for USB device while in monitor mode".
 
+The commit message should say that a memory leak was observed, and found with 
+kmemleak. If you were simply reportimg the bug, then the steps needed to 
+reproduce it would be important, but as you have a fix, those steps are 
+extraneous. You should also include a "Cc: Stable <stable@vger.kernel.org" line. 
+When the patch is picked up for stable kernels, it will be necessary to rebase 
+the patch to compensate for the directory change.
 
-Paul Bolle
+NACK for the moment.
+
+Larry
