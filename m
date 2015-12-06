@@ -1,68 +1,37 @@
-From: Peter Wu <peter@lekensteyn.nl>
-Subject: [PATCH] rtlwifi: fix gigantic memleak in rtl_usb
-Date: Sun,  6 Dec 2015 18:57:57 +0100
-Message-ID: <1449424677-3140-1-git-send-email-peter@lekensteyn.nl>
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] sctp: hold the chunks only after the chunk is
+ enqueued in outq
+Date: Sun, 06 Dec 2015 13:25:50 -0500 (EST)
+Message-ID: <20151206.132550.1712594759452545432.davem@davemloft.net>
+References: <b2131d0e9ac5a34aea93d6770fcf68c4496d1d7d.1449299717.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	marcelo.leitner@gmail.com, vyasevic@redhat.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lekensteyn.nl ([178.21.112.251]:49180 "EHLO lekensteyn.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752559AbbLFR6v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Dec 2015 12:58:51 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:54675 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753530AbbLFSZy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 13:25:54 -0500
+In-Reply-To: <b2131d0e9ac5a34aea93d6770fcf68c4496d1d7d.1449299717.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Free skb for received frames with a wrong checksum.
+From: Xin Long <lucien.xin@gmail.com>
+Date: Sat,  5 Dec 2015 15:15:17 +0800
 
-While using the rtl8192cu driver in monitor mode, somehow 5G of memory
-was permanently lost (observable via the Available column in `free -m`).
+> When a msg is sent, sctp will hold the chunks of this msg and then try
+> to enqueue them. But if the chunks are not enqueued in sctp_outq_tail()
+> because of the invalid state, sctp_cmd_interpreter() may still return
+> success to sctp_sendmsg() after calling sctp_outq_flush(), these chunks
+> will become orphans and will leak.
+> 
+> So we fix them by moving sctp_chunk_hold() to sctp_outq_tail(), where we
+> are sure that the chunk is going to get queued.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Test scenario:
-
-    ip link set down wlan1
-    iw wlan1 set type monitor
-    ip link set up wlan1
-    iw wlan1 set channel 11
-
-Then stream a video on a smartphone on channel 11. Without this patch
-the memory usage grows linearly with the number of received packets:
-
-    grep MemAvailable /proc/meminfo
-    ip -s link show dev wlan1
-
-Signed-off-by: Peter Wu <peter@lekensteyn.nl>
----
-Hi,
-
-This issue has existed since the introduction of this driver in v2.6.x,
-using kmemleak I was about to figure out the source. There is also a
-_rtl_usb_rx_process_agg that has similarly looking code, but that one is
-unaffected. The pci code already frees the skb and is unaffected too.
-
-Tested with kernel v4.3, this patch is simply rebased on v4.4-rc3 (due
-to changed paths).
-
-Kind regards,
-Peter
----
- drivers/net/wireless/realtek/rtlwifi/usb.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/wireless/realtek/rtlwifi/usb.c b/drivers/net/wireless/realtek/rtlwifi/usb.c
-index 2721cf8..aac1ed3 100644
---- a/drivers/net/wireless/realtek/rtlwifi/usb.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/usb.c
-@@ -531,6 +531,8 @@ static void _rtl_usb_rx_process_noagg(struct ieee80211_hw *hw,
- 			ieee80211_rx(hw, skb);
- 		else
- 			dev_kfree_skb_any(skb);
-+	} else {
-+		dev_kfree_skb_any(skb);
- 	}
- }
- 
--- 
-2.6.3
+Applied.
