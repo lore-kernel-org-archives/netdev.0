@@ -1,26 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] MAINTAINERS: add myself as Renesas Ethernet drivers
- reviewer
-Date: Sat, 05 Dec 2015 22:44:47 -0500 (EST)
-Message-ID: <20151205.224447.1662738391217239902.davem@davemloft.net>
-References: <4240679.6nOnT2RPZY@wasted.cogentembedded.com>
+Subject: Re: [PATCH 0/2] Renesas: read MAC address registers only once
+Date: Sat, 05 Dec 2015 22:46:13 -0500 (EST)
+Message-ID: <20151205.224613.1052245495862594889.davem@davemloft.net>
+References: <10429393.qU4CxZ5nlj@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
 To: sergei.shtylyov@cogentembedded.com
 Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <4240679.6nOnT2RPZY@wasted.cogentembedded.com>
+In-Reply-To: <10429393.qU4CxZ5nlj@wasted.cogentembedded.com>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sat, 05 Dec 2015 04:50:48 +0300
+Date: Sat, 05 Dec 2015 00:55:54 +0300
 
-> Add myself as  a reviewer for the Renesas Ethernet drivers -- hopefully I
-> won't miss the buggy  patches anymore. :-)
-> 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>    Here's 2 patches against DaveM's 'net-next.git' repo. Here we
+> optimize the MAC address register reading (left over from a
+> bootloader).
 
-Applied, thanks.
+Series applied, thanks.
