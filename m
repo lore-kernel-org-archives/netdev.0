@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/15] fm10k: Add support for ITR scaling based on PCIe link speed
-Date: Sun,  6 Dec 2015 00:01:28 -0800
-Message-ID: <1449388894-128573-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 13/15] fm10k: change default Tx ITR to 25usec
+Date: Sun,  6 Dec 2015 00:01:32 -0800
+Message-ID: <1449388894-128573-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449388894-128573-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,198 +10,44 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:43991 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752403AbbLFIBi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Dec 2015 03:01:38 -0500
+	id S1752383AbbLFIBj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Dec 2015 03:01:39 -0500
 In-Reply-To: <1449388894-128573-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-The Intel Ethernet Switch FM10000 Host Interface interrupt throttle
-timers are based on the PCIe link speed. Because of this, the value
-being programmed into the ITR registers must be scaled accordingly.
+The current default ITR for Tx is overly restrictive. Using a simple
+netperf TCP_STREAM test, we top out at about 10Gb/s for a single thread
+when running using 1500 byte frames. By reducing the ITR value to 25usec
+(up to 40K interrupts a second from 10K), we are able to achieve 36Gb/s
+for a single thread TCP stream test.
 
-For the PF, this is as simple as reading the PCIe link speed and storing
-the result. However, in the case of SR-IOV, the VF's interrupt throttle
-timers are based on the link speed of the PF. However, the VF is unable
-to get the link speed information from its configuration space, so the
-PF must inform it of what scale to use.
-
-Rather than pass this scale via mailbox message, take advantage of
-unused bits in the TDLEN register to pass the scale. It is the
-responsibility of the PF to program this for the VF while setting up the
-VF queues and the responsibility of the VF to get the information
-accordingly. This is preferable because it allows the VF to set up the
-interrupts properly during initialization and matches how the MAC
-address is passed in the TDBAL/TDBAH registers.
-
-Since we're modifying fm10k_type.h, we may as well also update the
-copyright year.
-
-Reported-by: Matthew Vick <matthew.vick@intel.com>
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
+Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c   | 22 +++++++++++++++++++++-
- drivers/net/ethernet/intel/fm10k/fm10k_type.h | 17 ++++++++++++++++-
- drivers/net/ethernet/intel/fm10k/fm10k_vf.c   | 20 ++++++++++++++++++--
- 3 files changed, 55 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-index 00f7a29..8b9b6ba 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-@@ -150,19 +150,26 @@ static s32 fm10k_init_hw_pf(struct fm10k_hw *hw)
- 				FM10K_TPH_RXCTRL_HDR_WROEN);
- 	}
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
+index 115033f..fa26e20 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
+@@ -171,11 +171,12 @@ struct fm10k_ring_container {
+ #define FM10K_ITR_MAX		0x0FFF	/* maximum value for ITR */
+ #define FM10K_ITR_10K		100	/* 100us */
+ #define FM10K_ITR_20K		50	/* 50us */
++#define FM10K_ITR_40K		25	/* 25us */
+ #define FM10K_ITR_ADAPTIVE	0x8000	/* adaptive interrupt moderation flag */
  
--	/* set max hold interval to align with 1.024 usec in all modes */
-+	/* set max hold interval to align with 1.024 usec in all modes and
-+	 * store ITR scale
-+	 */
- 	switch (hw->bus.speed) {
- 	case fm10k_bus_speed_2500:
- 		dma_ctrl = FM10K_DMA_CTRL_MAX_HOLD_1US_GEN1;
-+		hw->mac.itr_scale = FM10K_TDLEN_ITR_SCALE_GEN1;
- 		break;
- 	case fm10k_bus_speed_5000:
- 		dma_ctrl = FM10K_DMA_CTRL_MAX_HOLD_1US_GEN2;
-+		hw->mac.itr_scale = FM10K_TDLEN_ITR_SCALE_GEN2;
- 		break;
- 	case fm10k_bus_speed_8000:
- 		dma_ctrl = FM10K_DMA_CTRL_MAX_HOLD_1US_GEN3;
-+		hw->mac.itr_scale = FM10K_TDLEN_ITR_SCALE_GEN3;
- 		break;
- 	default:
- 		dma_ctrl = 0;
-+		/* just in case, assume Gen3 ITR scale */
-+		hw->mac.itr_scale = FM10K_TDLEN_ITR_SCALE_GEN3;
- 		break;
- 	}
+ #define ITR_IS_ADAPTIVE(itr) (!!(itr & FM10K_ITR_ADAPTIVE))
  
-@@ -903,6 +910,13 @@ static s32 fm10k_iov_assign_default_mac_vlan_pf(struct fm10k_hw *hw,
- 	fm10k_write_reg(hw, FM10K_TDBAL(vf_q_idx), tdbal);
- 	fm10k_write_reg(hw, FM10K_TDBAH(vf_q_idx), tdbah);
- 
-+	/* Provide the VF the ITR scale, using software-defined fields in TDLEN
-+	 * to pass the information during VF initialization. See definition of
-+	 * FM10K_TDLEN_ITR_SCALE_SHIFT for more details.
-+	 */
-+	fm10k_write_reg(hw, FM10K_TDLEN(vf_q_idx), hw->mac.itr_scale <<
-+						   FM10K_TDLEN_ITR_SCALE_SHIFT);
-+
- err_out:
- 	/* configure Queue control register */
- 	txqctl = ((u32)vf_vid << FM10K_TXQCTL_VID_SHIFT) &
-@@ -1035,6 +1049,12 @@ static s32 fm10k_iov_reset_resources_pf(struct fm10k_hw *hw,
- 	for (i = queues_per_pool; i--;) {
- 		fm10k_write_reg(hw, FM10K_TDBAL(vf_q_idx + i), tdbal);
- 		fm10k_write_reg(hw, FM10K_TDBAH(vf_q_idx + i), tdbah);
-+		/* See definition of FM10K_TDLEN_ITR_SCALE_SHIFT for an
-+		 * explanation of how TDLEN is used.
-+		 */
-+		fm10k_write_reg(hw, FM10K_TDLEN(vf_q_idx + i),
-+				hw->mac.itr_scale <<
-+				FM10K_TDLEN_ITR_SCALE_SHIFT);
- 		fm10k_write_reg(hw, FM10K_TQMAP(qmap_idx + i), vf_q_idx + i);
- 		fm10k_write_reg(hw, FM10K_RQMAP(qmap_idx + i), vf_q_idx + i);
- 	}
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-index 35afd71..0272725 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-@@ -1,5 +1,5 @@
- /* Intel Ethernet Switch Host Interface Driver
-- * Copyright(c) 2013 - 2014 Intel Corporation.
-+ * Copyright(c) 2013 - 2015 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -272,6 +272,20 @@ struct fm10k_hw;
- #define FM10K_TDBAL(_n)		((0x40 * (_n)) + 0x8000)
- #define FM10K_TDBAH(_n)		((0x40 * (_n)) + 0x8001)
- #define FM10K_TDLEN(_n)		((0x40 * (_n)) + 0x8002)
-+/* When fist initialized, VFs need to know the Interrupt Throttle Rate (ITR)
-+ * scale which is based on the PCIe speed but the speed information in the PCI
-+ * configuration space may not be accurate. The PF already knows the ITR scale
-+ * but there is no defined method to pass that information from the PF to the
-+ * VF. This is accomplished during VF initialization by temporarily co-opting
-+ * the yet-to-be-used TDLEN register to have the PF store the ITR shift for
-+ * the VF to retrieve before the VF needs to use the TDLEN register for its
-+ * intended purpose, i.e. before the Tx resources are allocated.
-+ */
-+#define FM10K_TDLEN_ITR_SCALE_SHIFT		9
-+#define FM10K_TDLEN_ITR_SCALE_MASK		0x00000E00
-+#define FM10K_TDLEN_ITR_SCALE_GEN1		2
-+#define FM10K_TDLEN_ITR_SCALE_GEN2		1
-+#define FM10K_TDLEN_ITR_SCALE_GEN3		0
- #define FM10K_TPH_TXCTRL(_n)	((0x40 * (_n)) + 0x8003)
- #define FM10K_TPH_TXCTRL_DESC_TPHEN		0x00000020
- #define FM10K_TPH_TXCTRL_DESC_RROEN		0x00000200
-@@ -560,6 +574,7 @@ struct fm10k_mac_info {
- 	bool get_host_state;
- 	bool tx_ready;
- 	u32 dglort_map;
-+	u8 itr_scale;
- };
- 
- struct fm10k_swapi_table_info {
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_vf.c b/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
-index d512575..2af697d 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
-@@ -28,7 +28,7 @@
- static s32 fm10k_stop_hw_vf(struct fm10k_hw *hw)
- {
- 	u8 *perm_addr = hw->mac.perm_addr;
--	u32 bal = 0, bah = 0;
-+	u32 bal = 0, bah = 0, tdlen;
- 	s32 err;
- 	u16 i;
- 
-@@ -48,6 +48,9 @@ static s32 fm10k_stop_hw_vf(struct fm10k_hw *hw)
- 		       ((u32)perm_addr[2]);
- 	}
- 
-+	/* restore default itr_scale for next VF initialization */
-+	tdlen = hw->mac.itr_scale << FM10K_TDLEN_ITR_SCALE_SHIFT;
-+
- 	/* The queues have already been disabled so we just need to
- 	 * update their base address registers
- 	 */
-@@ -56,6 +59,12 @@ static s32 fm10k_stop_hw_vf(struct fm10k_hw *hw)
- 		fm10k_write_reg(hw, FM10K_TDBAH(i), bah);
- 		fm10k_write_reg(hw, FM10K_RDBAL(i), bal);
- 		fm10k_write_reg(hw, FM10K_RDBAH(i), bah);
-+		/* Restore ITR scale in software-defined mechanism in TDLEN
-+		 * for next VF initialization. See definition of
-+		 * FM10K_TDLEN_ITR_SCALE_SHIFT for more details on the use of
-+		 * TDLEN here.
-+		 */
-+		fm10k_write_reg(hw, FM10K_TDLEN(i), tdlen);
- 	}
- 
- 	return 0;
-@@ -131,9 +140,16 @@ static s32 fm10k_init_hw_vf(struct fm10k_hw *hw)
- 	/* record maximum queue count */
- 	hw->mac.max_queues = i;
- 
--	/* fetch default VLAN */
-+	/* fetch default VLAN and ITR scale */
- 	hw->mac.default_vid = (fm10k_read_reg(hw, FM10K_TXQCTL(0)) &
- 			       FM10K_TXQCTL_VID_MASK) >> FM10K_TXQCTL_VID_SHIFT;
-+	/* Read the ITR scale from TDLEN. See the definition of
-+	 * FM10K_TDLEN_ITR_SCALE_SHIFT for more information about how TDLEN is
-+	 * used here.
-+	 */
-+	hw->mac.itr_scale = (fm10k_read_reg(hw, FM10K_TDLEN(0)) &
-+			     FM10K_TDLEN_ITR_SCALE_MASK) >>
-+			    FM10K_TDLEN_ITR_SCALE_SHIFT;
- 
- 	return 0;
+-#define FM10K_TX_ITR_DEFAULT	FM10K_ITR_10K
++#define FM10K_TX_ITR_DEFAULT	FM10K_ITR_40K
+ #define FM10K_RX_ITR_DEFAULT	FM10K_ITR_20K
+ #define FM10K_ITR_ENABLE	(FM10K_ITR_AUTOMASK | FM10K_ITR_MASK_CLEAR)
  
 -- 
 2.5.0
