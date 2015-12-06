@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 03/15] fm10k: always check init_hw for errors
-Date: Sun,  6 Dec 2015 00:01:22 -0800
-Message-ID: <1449388894-128573-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 01/15] fm10k: set netdev features in one location
+Date: Sun,  6 Dec 2015 00:01:20 -0800
+Message-ID: <1449388894-128573-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449388894-128573-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:24651 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:43991 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751686AbbLFIBg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751603AbbLFIBg (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 6 Dec 2015 03:01:36 -0500
 In-Reply-To: <1449388894-128573-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,104 +18,126 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-A recent change modified init_hw in some flows the function may fail on
-VF devices. For example, if a VF doesn't yet own its own queues.
-However, many callers of init_hw didn't bother to check the error code.
-Other callers checked but only displayed diagnostic messages without
-actually handling the consequences.
+Don't change netdev hw_features later in fm10k_probe, instead set all
+values inside fm10k_alloc_netdev. To do so, we need to know the MAC type
+(whether it is PF or VF) in order to determine what to do. This helps
+ensure that all logic regarding features is co-located.
 
-Fix this by (a) always returning and preventing the netdevice from going
-up, and (b) printing the diagnostic in every flow for consistency. This
-should resolve an issue where VF drivers would attempt to come up
-before the PF has finished assigning queues.
-
-In addition, change the dmesg output to explicitly show the actual
-function that failed, instead of combining reset_hw and init_hw into a
-single check, to help for future debugging.
-
-Fixes: 1d568b0f6424 ("fm10k: do not assume VF always has 1 queue")
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
+Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 34 ++++++++++++++++++++++++----
- 1 file changed, 29 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k.h        |  2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 31 +++++++++++++++----------
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c    |  9 +------
+ 3 files changed, 21 insertions(+), 21 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
+index 48809e5..b178905 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
+@@ -484,7 +484,7 @@ void fm10k_netpoll(struct net_device *netdev);
+ #endif
+ 
+ /* Netdev */
+-struct net_device *fm10k_alloc_netdev(void);
++struct net_device *fm10k_alloc_netdev(const struct fm10k_info *info);
+ int fm10k_setup_rx_resources(struct fm10k_ring *);
+ int fm10k_setup_tx_resources(struct fm10k_ring *);
+ void fm10k_free_rx_resources(struct fm10k_ring *);
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index 7781e80..79f6b7d 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -1388,8 +1388,9 @@ static const struct net_device_ops fm10k_netdev_ops = {
+ 
+ #define DEFAULT_DEBUG_LEVEL_SHIFT 3
+ 
+-struct net_device *fm10k_alloc_netdev(void)
++struct net_device *fm10k_alloc_netdev(const struct fm10k_info *info)
+ {
++	netdev_features_t hw_features;
+ 	struct fm10k_intfc *interface;
+ 	struct net_device *dev;
+ 
+@@ -1412,27 +1413,31 @@ struct net_device *fm10k_alloc_netdev(void)
+ 			 NETIF_F_TSO |
+ 			 NETIF_F_TSO6 |
+ 			 NETIF_F_TSO_ECN |
+-			 NETIF_F_GSO_UDP_TUNNEL |
+ 			 NETIF_F_RXHASH |
+ 			 NETIF_F_RXCSUM;
+ 
++	/* Only the PF can support VXLAN and NVGRE tunnel offloads */
++	if (info->mac == fm10k_mac_pf) {
++		dev->hw_enc_features = NETIF_F_IP_CSUM |
++				       NETIF_F_TSO |
++				       NETIF_F_TSO6 |
++				       NETIF_F_TSO_ECN |
++				       NETIF_F_GSO_UDP_TUNNEL |
++				       NETIF_F_IPV6_CSUM |
++				       NETIF_F_SG;
++
++		dev->features |= NETIF_F_GSO_UDP_TUNNEL;
++	}
++
+ 	/* all features defined to this point should be changeable */
+-	dev->hw_features |= dev->features;
++	hw_features = dev->features;
+ 
+ 	/* allow user to enable L2 forwarding acceleration */
+-	dev->hw_features |= NETIF_F_HW_L2FW_DOFFLOAD;
++	hw_features |= NETIF_F_HW_L2FW_DOFFLOAD;
+ 
+ 	/* configure VLAN features */
+ 	dev->vlan_features |= dev->features;
+ 
+-	/* configure tunnel offloads */
+-	dev->hw_enc_features |= NETIF_F_IP_CSUM |
+-				NETIF_F_TSO |
+-				NETIF_F_TSO6 |
+-				NETIF_F_TSO_ECN |
+-				NETIF_F_GSO_UDP_TUNNEL |
+-				NETIF_F_IPV6_CSUM;
+-
+ 	/* we want to leave these both on as we cannot disable VLAN tag
+ 	 * insertion or stripping on the hardware since it is contained
+ 	 * in the FTAG and not in the frame itself.
+@@ -1443,5 +1448,7 @@ struct net_device *fm10k_alloc_netdev(void)
+ 
+ 	dev->priv_flags |= IFF_UNICAST_FLT;
+ 
++	dev->hw_features |= hw_features;
++
+ 	return dev;
+ }
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 1af4b22..9c21d1e 100644
+index 5fbffba..1af4b22 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -163,9 +163,17 @@ static void fm10k_reinit(struct fm10k_intfc *interface)
- 	interface->last_reset = jiffies + (10 * HZ);
+@@ -1722,13 +1722,6 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
+ 					     pci_resource_len(pdev, 4));
+ 	hw->sw_addr = interface->sw_addr;
  
- 	/* reset and initialize the hardware so it is in a known state */
--	err = hw->mac.ops.reset_hw(hw) ? : hw->mac.ops.init_hw(hw);
--	if (err)
-+	err = hw->mac.ops.reset_hw(hw);
-+	if (err) {
-+		dev_err(&interface->pdev->dev, "reset_hw failed: %d\n", err);
-+		goto reinit_err;
-+	}
-+
-+	err = hw->mac.ops.init_hw(hw);
-+	if (err) {
- 		dev_err(&interface->pdev->dev, "init_hw failed: %d\n", err);
-+		goto reinit_err;
-+	}
+-	/* Only the PF can support VXLAN and NVGRE offloads */
+-	if (hw->mac.type != fm10k_mac_pf) {
+-		netdev->hw_enc_features = 0;
+-		netdev->features &= ~NETIF_F_GSO_UDP_TUNNEL;
+-		netdev->hw_features &= ~NETIF_F_GSO_UDP_TUNNEL;
+-	}
+-
+ 	/* initialize DCBNL interface */
+ 	fm10k_dcbnl_set_ops(netdev);
  
- 	/* reassociate interrupts */
- 	fm10k_mbx_request_irq(interface);
-@@ -193,6 +201,10 @@ static void fm10k_reinit(struct fm10k_intfc *interface)
+@@ -1894,7 +1887,7 @@ static int fm10k_probe(struct pci_dev *pdev,
+ 	pci_set_master(pdev);
+ 	pci_save_state(pdev);
  
- 	fm10k_iov_resume(interface->pdev);
- 
-+reinit_err:
-+	if (err)
-+		netif_device_detach(netdev);
-+
- 	rtnl_unlock();
- 
- 	clear_bit(__FM10K_RESETTING, &interface->state);
-@@ -1684,7 +1696,13 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
- 	interface->last_reset = jiffies + (10 * HZ);
- 
- 	/* reset and initialize the hardware so it is in a known state */
--	err = hw->mac.ops.reset_hw(hw) ? : hw->mac.ops.init_hw(hw);
-+	err = hw->mac.ops.reset_hw(hw);
-+	if (err) {
-+		dev_err(&pdev->dev, "reset_hw failed: %d\n", err);
-+		return err;
-+	}
-+
-+	err = hw->mac.ops.init_hw(hw);
- 	if (err) {
- 		dev_err(&pdev->dev, "init_hw failed: %d\n", err);
- 		return err;
-@@ -2064,8 +2082,10 @@ static int fm10k_resume(struct pci_dev *pdev)
- 
- 	/* reset hardware to known state */
- 	err = hw->mac.ops.init_hw(&interface->hw);
--	if (err)
-+	if (err) {
-+		dev_err(&pdev->dev, "init_hw failed: %d\n", err);
- 		return err;
-+	}
- 
- 	/* reset statistics starting values */
- 	hw->mac.ops.rebind_hw_stats(hw, &interface->stats);
-@@ -2241,7 +2261,11 @@ static void fm10k_io_resume(struct pci_dev *pdev)
- 	int err = 0;
- 
- 	/* reset hardware to known state */
--	hw->mac.ops.init_hw(&interface->hw);
-+	err = hw->mac.ops.init_hw(&interface->hw);
-+	if (err) {
-+		dev_err(&pdev->dev, "init_hw failed: %d\n", err);
-+		return;
-+	}
- 
- 	/* reset statistics starting values */
- 	hw->mac.ops.rebind_hw_stats(hw, &interface->stats);
+-	netdev = fm10k_alloc_netdev();
++	netdev = fm10k_alloc_netdev(fm10k_info_tbl[ent->driver_data]);
+ 	if (!netdev) {
+ 		err = -ENOMEM;
+ 		goto err_alloc_netdev;
 -- 
 2.5.0
