@@ -1,33 +1,26 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: mac80211-next 2015-12-07
-Date: Mon, 07 Dec 2015 14:10:45 -0500 (EST)
-Message-ID: <20151207.141045.584254109238638917.davem@davemloft.net>
-References: <1449483574.4040.3.camel@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net 0/4] qed: Bug fixes
+Date: Mon, 07 Dec 2015 14:14:21 -0500 (EST)
+Message-ID: <20151207.141421.715521315249409092.davem@davemloft.net>
+References: <1449487559-31811-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449483574.4040.3.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
+	Yuval.Mintz@qlogic.com
+To: manish.chopra@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48006 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932296AbbLGTOW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 14:14:22 -0500
+In-Reply-To: <1449487559-31811-1-git-send-email-manish.chopra@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Mon, 07 Dec 2015 11:19:34 +0100
+From: Manish Chopra <manish.chopra@qlogic.com>
+Date: Mon, 7 Dec 2015 06:25:55 -0500
 
-> This is the first pull request for 4.5 from me - apologies for taking
-> so long and letting it grow, we had a bunch of issues to figure out,
-> most of which ended up unrelated to this code.
-> 
-> I don't know what git is doing with the diffstat below, I tried the
-> merge and ended up with a completely different and much saner diffstat,
-> but let me know if there's some problem on your side.
+> Please consider applying this series to net.
 
-The pull diffstat looked sane.
-
-Pulled, thanks Johannes.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thanks.
