@@ -1,43 +1,89 @@
-From: Phil Reid <preid@electromag.com.au>
-Subject: Re: [PATCH v2 4/5] stmmac: Add ptp debugfs entry.
-Date: Mon, 7 Dec 2015 21:37:52 +0800
-Message-ID: <56658BB0.10700@electromag.com.au>
-References: <1449452324-53858-1-git-send-email-preid@electromag.com.au>
- <1449452324-53858-6-git-send-email-preid@electromag.com.au>
- <2080516.uAzdPnupR8@wuerfel>
+From: Bintian <bintian.wang@huawei.com>
+Subject: Re: [PATCH RESEND net-next 3/3] arm64: hip05-d02: Document devicetree
+ bindings for Hisilicon D02 Board
+Date: Mon, 7 Dec 2015 21:48:38 +0800
+Message-ID: <56658E36.40702@huawei.com>
+References: <1449302088-53037-1-git-send-email-yankejian@huawei.com> <1449302088-53037-4-git-send-email-yankejian@huawei.com> <20151207131617.GA25170@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	peppe.cavallaro@st.com, davem@davemloft.net,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from anchovy2.45ru.net.au ([203.30.46.146]:58927 "EHLO
-	anchovy.45ru.net.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752938AbbLGNh7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 08:37:59 -0500
-In-Reply-To: <2080516.uAzdPnupR8@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Rob Herring <robh@kernel.org>, <davem@davemloft.net>,
+	<pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<xuwei5@hisilicon.com>, <catalin.marinas@arm.com>,
+	<will.deacon@arm.com>, <wangkefeng.wang@huawei.com>,
+	<dingtianhong@huawei.com>, <liguozhu@huawei.com>,
+	<Yisen.Zhuang@huawei.com>, <sboyd@codeaurora.org>,
+	<haojian.zhuang@linaro.org>, <wangzhou1@hisilicon.com>,
+	<long.wanglong@huawei.com>, <leo.yan@linaro.org>,
+	<haifeng.wei@huawei.com>, <devicetree@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linuxarm@huawei.com>
+To: yankejian <yankejian@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151207131617.GA25170@rob-hp-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/12/2015 5:03 PM, Arnd Bergmann wrote:
-> On Monday 07 December 2015 09:38:43 Phil Reid wrote:
->> This adds a debugfs entry to view the current status of the ptp
->> registers.
+On 2015/12/7 21:16, Rob Herring wrote:
+> On Sat, Dec 05, 2015 at 03:54:48PM +0800, yankejian wrote:
+>> This patch adds documentation for the devicetree bindings used by the
+>> DT files of Hisilicon Hip05-D02 development board.
 >>
->> Signed-off-by: Phil Reid <preid@electromag.com.au>
+>> Signed-off-by: yankejian <yankejian@huawei.com>
+You may need to configure as  "Kejian Yan <yankejian@huawei.com>"     :)
+
+BR,
+
+Bintian
+>> ---
+>>   .../devicetree/bindings/arm/hisilicon/hisilicon.txt      | 16 ++++++++++++++++
+>>   1 file changed, 16 insertions(+)
 >>
+>> diff --git a/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.txt b/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.txt
+>> index 6ac7c00..5318d78 100644
+>> --- a/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.txt
+>> +++ b/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.txt
+>> @@ -187,6 +187,22 @@ Example:
+>>   		reg = <0xb0000000 0x10000>;
+>>   	};
+>>   
+>> +Hisilicon HiP05 PERISUB system controller
+>> +
+>> +Required properties:
+>> +- compatible : "hisilicon,peri-c-subctrl", "syscon";
+> This should be more specific and have the SOC name in it.
 >
-> Your description should explain what this is good for. Why do you
-> need to look at this through debugfs?
+>> +- reg : Register address and size
+>> +
+>> +The HiP05 PERISUB system controller is shared by peripheral controllers in
+>> +HiP05 Soc to implement some basic configurations. the peripheral
+>> + controllers include mdio, ddr, iic, uart, timer and so on.
+>> +
+>> +Example:
+>> +	/* for HiP05 PCIe-SAS system */
+>> +	pcie_sas: system_controller@0xb0000000 {
+>> +		compatible = "hisilicon,pcie-sas-subctrl", "syscon";
+> The example doesn't match.
 >
-
-Happy to drop this one. I found it helpful when debugging the ptp
-behaviour. Allowing quick access to monitor the register updates
-by the ptp driver. Is there an alternative method that is preferred?
-
--- 
-Regards
-Phil Reid
+>> +		reg = <0xb0000000 0x10000>;
+>> +	};
+>>   -----------------------------------------------------------------------
+>>   Hisilicon CPU controller
+>>   
+>> -- 
+>> 1.9.1
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe devicetree" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
+> .
+>
