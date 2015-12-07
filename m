@@ -1,26 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net 0/4] qed: Bug fixes
-Date: Mon, 07 Dec 2015 14:14:21 -0500 (EST)
-Message-ID: <20151207.141421.715521315249409092.davem@davemloft.net>
-References: <1449487559-31811-1-git-send-email-manish.chopra@qlogic.com>
+Subject: Re: rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
+Date: Mon, 07 Dec 2015 14:29:53 -0500 (EST)
+Message-ID: <20151207.142953.387889541116696974.davem@davemloft.net>
+References: <20151204181555.GC29598@orbit.nwl.cc>
+	<20151205070603.GB23255@gondor.apana.org.au>
+	<20151207153524.GA22032@pox.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
-	Yuval.Mintz@qlogic.com
-To: manish.chopra@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48006 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932296AbbLGTOW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 14:14:22 -0500
-In-Reply-To: <1449487559-31811-1-git-send-email-manish.chopra@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: herbert@gondor.apana.org.au, phil@nwl.cc, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
+To: tgraf@suug.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151207153524.GA22032@pox.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@qlogic.com>
-Date: Mon, 7 Dec 2015 06:25:55 -0500
+From: Thomas Graf <tgraf@suug.ch>
+Date: Mon, 7 Dec 2015 16:35:24 +0100
 
-> Please consider applying this series to net.
+> Did you look into what __vmalloc prevents to work with BH disabled?
 
-Series applied, thanks.
+You can't issue the cross-cpu TLB flushes from atomic contexts.
+It's the kernel page table updates that create the restriction.
