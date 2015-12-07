@@ -1,8 +1,8 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH RFC 02/26] phy: convert swphy register generation to tabular
- form
-Date: Mon, 07 Dec 2015 17:37:21 +0000
-Message-ID: <E1a5ziz-00074Z-Lp@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH RFC 03/26] phy: separate swphy state validation from register
+ generation
+Date: Mon, 07 Dec 2015 17:37:26 +0000
+Message-ID: <E1a5zj4-00074f-PZ@rmk-PC.arm.linux.org.uk>
 References: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,212 +11,151 @@ Cc: netdev@vger.kernel.org
 To: Florian Fainelli <f.fainelli@gmail.com>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60254 "EHLO
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60257 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754713AbbLGRhY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:37:24 -0500
+	with ESMTP id S1756105AbbLGRh3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:37:29 -0500
 In-Reply-To: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert the swphy register generation to tabular form which allows us
-to eliminate multiple switch() statements.  This results in a smaller
-object code size, more efficient, and easier to add support for faster
-speeds.
-
-Before:
-
-Idx Name          Size      VMA       LMA       File off  Algn
-  0 .text         00000164  00000000  00000000  00000034  2**2
-
-   text    data     bss     dec     hex filename
-    388       0       0     388     184 swphy.o
-
-After:
-
-Idx Name          Size      VMA       LMA       File off  Algn
-  0 .text         000000fc  00000000  00000000  00000034  2**2
-  5 .rodata       00000028  00000000  00000000  00000138  2**2
-
-   text    data     bss     dec     hex filename
-    324       0       0     324     144 swphy.o
+Separate out the generation of MII registers from the state validation.
+This allows us to simplify the error handing in fixed_phy() by allowing
+earlier error detection.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/phy/swphy.c | 143 ++++++++++++++++++++++++++----------------------
- 1 file changed, 78 insertions(+), 65 deletions(-)
+ drivers/net/phy/fixed_phy.c | 15 +++++++--------
+ drivers/net/phy/swphy.c     | 33 ++++++++++++++++++++++++++-------
+ drivers/net/phy/swphy.h     |  3 ++-
+ 3 files changed, 35 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/phy/swphy.c b/drivers/net/phy/swphy.c
-index 0551a79a2454..c88a194b4cb6 100644
---- a/drivers/net/phy/swphy.c
-+++ b/drivers/net/phy/swphy.c
-@@ -20,6 +20,72 @@
+diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
+index 9a448e7f8f4e..fe4ca05afc77 100644
+--- a/drivers/net/phy/fixed_phy.c
++++ b/drivers/net/phy/fixed_phy.c
+@@ -49,12 +49,12 @@ static struct fixed_mdio_bus platform_fmb = {
+ 	.phys = LIST_HEAD_INIT(platform_fmb.phys),
+ };
  
- #include "swphy.h"
- 
-+struct swmii_regs {
-+	u16 bmcr;
-+	u16 bmsr;
-+	u16 lpa;
-+	u16 lpagb;
-+};
-+
-+enum {
-+	SWMII_SPEED_10 = 0,
-+	SWMII_SPEED_100,
-+	SWMII_SPEED_1000,
-+	SWMII_DUPLEX_HALF = 0,
-+	SWMII_DUPLEX_FULL,
-+};
-+
-+/*
-+ * These two tables get bitwise-anded together to produce the final result.
-+ * This means the speed table must contain both duplex settings, and the
-+ * duplex table must contain all speed settings.
-+ */
-+static const struct swmii_regs speed[] = {
-+	[SWMII_SPEED_10] = {
-+		.bmcr  = BMCR_FULLDPLX,
-+		.lpa   = LPA_10FULL | LPA_10HALF,
-+	},
-+	[SWMII_SPEED_100] = {
-+		.bmcr  = BMCR_FULLDPLX | BMCR_SPEED100,
-+		.bmsr  = BMSR_100FULL | BMSR_100HALF,
-+		.lpa   = LPA_100FULL | LPA_100HALF,
-+	},
-+	[SWMII_SPEED_1000] = {
-+		.bmcr  = BMCR_FULLDPLX | BMCR_SPEED1000,
-+		.bmsr  = BMSR_ESTATEN,
-+		.lpagb = LPA_1000FULL | LPA_1000HALF,
-+	},
-+};
-+
-+static const struct swmii_regs duplex[] = {
-+	[SWMII_DUPLEX_HALF] = {
-+		.bmcr  = ~BMCR_FULLDPLX,
-+		.bmsr  = BMSR_ESTATEN | BMSR_100HALF,
-+		.lpa   = LPA_10HALF | LPA_100HALF,
-+		.lpagb = LPA_1000HALF,
-+	},
-+	[SWMII_DUPLEX_FULL] = {
-+		.bmcr  = ~0,
-+		.bmsr  = BMSR_ESTATEN | BMSR_100FULL,
-+		.lpa   = LPA_10FULL | LPA_100FULL,
-+		.lpagb = LPA_1000FULL,
-+	},
-+};
-+
-+static int swphy_decode_speed(int speed)
-+{
-+	switch (speed) {
-+	case 1000:
-+		return SWMII_SPEED_1000;
-+	case 100:
-+		return SWMII_SPEED_100;
-+	case 10:
-+		return SWMII_SPEED_10;
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
- /**
-  * swphy_update_regs - update MII register array with fixed phy state
-  * @regs: array of 32 registers to update
-@@ -30,81 +96,28 @@
-  */
- int swphy_update_regs(u16 *regs, const struct fixed_phy_status *state)
+-static int fixed_phy_update_regs(struct fixed_phy *fp)
++static void fixed_phy_update_regs(struct fixed_phy *fp)
  {
-+	int speed_index, duplex_index;
- 	u16 bmsr = BMSR_ANEGCAPABLE;
- 	u16 bmcr = 0;
- 	u16 lpagb = 0;
- 	u16 lpa = 0;
+ 	if (gpio_is_valid(fp->link_gpio))
+ 		fp->status.link = !!gpio_get_value_cansleep(fp->link_gpio);
  
--	if (state->duplex) {
--		switch (state->speed) {
--		case 1000:
--			bmsr |= BMSR_ESTATEN;
--			break;
--		case 100:
--			bmsr |= BMSR_100FULL;
--			break;
--		case 10:
--			bmsr |= BMSR_10FULL;
--			break;
--		default:
--			break;
--		}
--	} else {
--		switch (state->speed) {
--		case 1000:
--			bmsr |= BMSR_ESTATEN;
--			break;
--		case 100:
--			bmsr |= BMSR_100HALF;
--			break;
--		case 10:
--			bmsr |= BMSR_10HALF;
--			break;
--		default:
--			break;
--		}
-+	speed_index = swphy_decode_speed(state->speed);
-+	if (speed_index < 0) {
-+		pr_warn("swphy: unknown speed\n");
-+		return -EINVAL;
+-	return swphy_update_regs(fp->regs, &fp->status);
++	swphy_update_regs(fp->regs, &fp->status);
+ }
+ 
+ static int fixed_mdio_read(struct mii_bus *bus, int phy_addr, int reg_num)
+@@ -161,6 +161,10 @@ int fixed_phy_add(unsigned int irq, int phy_addr,
+ 	struct fixed_mdio_bus *fmb = &platform_fmb;
+ 	struct fixed_phy *fp;
+ 
++	ret = swphy_validate_state(status);
++	if (ret < 0)
++		return ret;
++
+ 	fp = kzalloc(sizeof(*fp), GFP_KERNEL);
+ 	if (!fp)
+ 		return -ENOMEM;
+@@ -180,17 +184,12 @@ int fixed_phy_add(unsigned int irq, int phy_addr,
+ 			goto err_regs;
  	}
  
-+	duplex_index = state->duplex ? SWMII_DUPLEX_FULL : SWMII_DUPLEX_HALF;
-+
-+	bmsr |= speed[speed_index].bmsr & duplex[duplex_index].bmsr;
-+
- 	if (state->link) {
- 		bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
+-	ret = fixed_phy_update_regs(fp);
+-	if (ret)
+-		goto err_gpio;
++	fixed_phy_update_regs(fp);
  
--		if (state->duplex) {
--			bmcr |= BMCR_FULLDPLX;
+ 	list_add_tail(&fp->node, &fmb->phys);
+ 
+ 	return 0;
+ 
+-err_gpio:
+-	if (gpio_is_valid(fp->link_gpio))
+-		gpio_free(fp->link_gpio);
+ err_regs:
+ 	kfree(fp);
+ 	return ret;
+diff --git a/drivers/net/phy/swphy.c b/drivers/net/phy/swphy.c
+index c88a194b4cb6..21a9bd8a7830 100644
+--- a/drivers/net/phy/swphy.c
++++ b/drivers/net/phy/swphy.c
+@@ -87,6 +87,29 @@ static int swphy_decode_speed(int speed)
+ }
+ 
+ /**
++ * swphy_validate_state - validate the software phy status
++ * @state: software phy status
++ *
++ * This checks that we can represent the state stored in @state can be
++ * represented in the emulated MII registers.  Returns 0 if it can,
++ * otherwise returns -EINVAL.
++ */
++int swphy_validate_state(const struct fixed_phy_status *state)
++{
++	int err;
++
++	if (state->link) {
++		err = swphy_decode_speed(state->speed);
++		if (err < 0) {
++			pr_warn("swphy: unknown speed\n");
++			return -EINVAL;
++		}
++	}
++	return 0;
++}
++EXPORT_SYMBOL_GPL(swphy_validate_state);
++
++/**
+  * swphy_update_regs - update MII register array with fixed phy state
+  * @regs: array of 32 registers to update
+  * @state: fixed phy status
+@@ -94,7 +117,7 @@ static int swphy_decode_speed(int speed)
+  * Update the array of MII registers with the fixed phy link, speed,
+  * duplex and pause mode settings.
+  */
+-int swphy_update_regs(u16 *regs, const struct fixed_phy_status *state)
++void swphy_update_regs(u16 *regs, const struct fixed_phy_status *state)
+ {
+ 	int speed_index, duplex_index;
+ 	u16 bmsr = BMSR_ANEGCAPABLE;
+@@ -103,10 +126,8 @@ int swphy_update_regs(u16 *regs, const struct fixed_phy_status *state)
+ 	u16 lpa = 0;
+ 
+ 	speed_index = swphy_decode_speed(state->speed);
+-	if (speed_index < 0) {
+-		pr_warn("swphy: unknown speed\n");
+-		return -EINVAL;
+-	}
++	if (WARN_ON(speed_index < 0))
++		return;
+ 
+ 	duplex_index = state->duplex ? SWMII_DUPLEX_FULL : SWMII_DUPLEX_HALF;
+ 
+@@ -133,7 +154,5 @@ int swphy_update_regs(u16 *regs, const struct fixed_phy_status *state)
+ 	regs[MII_BMCR] = bmcr;
+ 	regs[MII_LPA] = lpa;
+ 	regs[MII_STAT1000] = lpagb;
 -
--			switch (state->speed) {
--			case 1000:
--				bmcr |= BMCR_SPEED1000;
--				lpagb |= LPA_1000FULL;
--				break;
--			case 100:
--				bmcr |= BMCR_SPEED100;
--				lpa |= LPA_100FULL;
--				break;
--			case 10:
--				lpa |= LPA_10FULL;
--				break;
--			default:
--				pr_warn("swphy: unknown speed\n");
--				return -EINVAL;
--			}
--		} else {
--			switch (state->speed) {
--			case 1000:
--				bmcr |= BMCR_SPEED1000;
--				lpagb |= LPA_1000HALF;
--				break;
--			case 100:
--				bmcr |= BMCR_SPEED100;
--				lpa |= LPA_100HALF;
--				break;
--			case 10:
--				lpa |= LPA_10HALF;
--				break;
--			default:
--				pr_warn("swphy: unknown speed\n");
--				return -EINVAL;
--			}
--		}
-+		bmcr  |= speed[speed_index].bmcr  & duplex[duplex_index].bmcr;
-+		lpa   |= speed[speed_index].lpa   & duplex[duplex_index].lpa;
-+		lpagb |= speed[speed_index].lpagb & duplex[duplex_index].lpagb;
+-	return 0;
+ }
+ EXPORT_SYMBOL_GPL(swphy_update_regs);
+diff --git a/drivers/net/phy/swphy.h b/drivers/net/phy/swphy.h
+index feaa38ff86a2..33d2e061896e 100644
+--- a/drivers/net/phy/swphy.h
++++ b/drivers/net/phy/swphy.h
+@@ -3,6 +3,7 @@
  
- 		if (state->pause)
- 			lpa |= LPA_PAUSE_CAP;
+ struct fixed_phy_status;
+ 
+-int swphy_update_regs(u16 *regs, const struct fixed_phy_status *state);
++int swphy_validate_state(const struct fixed_phy_status *state);
++void swphy_update_regs(u16 *regs, const struct fixed_phy_status *state);
+ 
+ #endif
 -- 
 2.1.0
