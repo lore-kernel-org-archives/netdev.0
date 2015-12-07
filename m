@@ -1,10 +1,12 @@
 From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH 2/2] net, thunderx: Remove unnecessary rcv buffer start address management
-Date: Mon,  7 Dec 2015 10:30:33 +0530
-Message-ID: <1449464433-43343-3-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 1/2] net: thunderx: nicvf_queues: nivc_*_intr: remove duplication
+Date: Mon,  7 Dec 2015 10:30:32 +0530
+Message-ID: <1449464433-43343-2-git-send-email-sunil.kovvuri@gmail.com>
 References: <y>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	p.fedin@samsung.com, Sunil.Goutham@caviumnetworks.com,
+	Yury Norov <yury.norov@auriga.com>,
+	Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
 	Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,158 +14,220 @@ In-Reply-To: <y>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sunil Goutham <sgoutham@cavium.com>
+From: Yury Norov <yury.norov@auriga.com>
 
-Since we have moved on to using allocated pages to carve receive
-buffers instead of netdev_alloc_skb() there is no need to store
-any pointers for later retrieval. Earlier we had to store
-skb and skb->data pointers which later are used to handover
-received packet to network stack.
+The same switch-case repeates for nivc_*_intr functions.
+In this patch it is moved to a helper nicvf_int_type_to_mask().
 
-This will avoid an unnecessary cache miss as well.
+By the way:
+ - Unneeded write to NICVF register dropped if int_type is unknown.
+ - netdev_dbg() is used instead of netdev_err().
 
+Signed-off-by: Yury Norov <yury.norov@auriga.com>
+Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
+Acked-by: Vadim Lomovtsev <Vadim.Lomovtsev@caiumnetworks.com>
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |   49 ++++----------------
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |   10 +---
- 2 files changed, 11 insertions(+), 48 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |  140 ++++++--------------
+ 1 files changed, 40 insertions(+), 100 deletions(-)
 
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index 99a29d0..1fbd908 100644
+index 206b6a7..99a29d0 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -18,14 +18,6 @@
- #include "q_struct.h"
- #include "nicvf_queues.h"
- 
--struct rbuf_info {
--	struct page *page;
--	void	*data;
--	u64	offset;
--};
--
--#define GET_RBUF_INFO(x) ((struct rbuf_info *)(x - NICVF_RCV_BUF_ALIGN_BYTES))
--
- /* Poll a register for a specific value */
- static int nicvf_poll_reg(struct nicvf *nic, int qidx,
- 			  u64 reg, int bit_pos, int bits, int val)
-@@ -86,8 +78,6 @@ static void nicvf_free_q_desc_mem(struct nicvf *nic, struct q_desc_mem *dmem)
- static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, gfp_t gfp,
- 					 u32 buf_len, u64 **rbuf)
- {
--	u64 data;
--	struct rbuf_info *rinfo;
- 	int order = get_order(buf_len);
- 
- 	/* Check if request can be accomodated in previous allocated page */
-@@ -113,46 +103,28 @@ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, gfp_t gfp,
- 		nic->rb_page_offset = 0;
- 	}
- 
--	data = (u64)page_address(nic->rb_page) + nic->rb_page_offset;
--
--	/* Align buffer addr to cache line i.e 128 bytes */
--	rinfo = (struct rbuf_info *)(data + NICVF_RCV_BUF_ALIGN_LEN(data));
--	/* Save page address for reference updation */
--	rinfo->page = nic->rb_page;
--	/* Store start address for later retrieval */
--	rinfo->data = (void *)data;
--	/* Store alignment offset */
--	rinfo->offset = NICVF_RCV_BUF_ALIGN_LEN(data);
-+	*rbuf = (u64 *)((u64)page_address(nic->rb_page) + nic->rb_page_offset);
- 
--	data += rinfo->offset;
--
--	/* Give next aligned address to hw for DMA */
--	*rbuf = (u64 *)(data + NICVF_RCV_BUF_ALIGN_BYTES);
- 	return 0;
- }
- 
--/* Retrieve actual buffer start address and build skb for received packet */
-+/* Build skb around receive buffer */
- static struct sk_buff *nicvf_rb_ptr_to_skb(struct nicvf *nic,
- 					   u64 rb_ptr, int len)
- {
-+	void *data;
- 	struct sk_buff *skb;
--	struct rbuf_info *rinfo;
- 
--	rb_ptr = (u64)phys_to_virt(rb_ptr);
--	/* Get buffer start address and alignment offset */
--	rinfo = GET_RBUF_INFO(rb_ptr);
-+	data = phys_to_virt(rb_ptr);
- 
- 	/* Now build an skb to give to stack */
--	skb = build_skb(rinfo->data, RCV_FRAG_LEN);
-+	skb = build_skb(data, RCV_FRAG_LEN);
- 	if (!skb) {
--		put_page(rinfo->page);
-+		put_page(virt_to_page(data));
- 		return NULL;
- 	}
- 
--	/* Set correct skb->data */
--	skb_reserve(skb, rinfo->offset + NICVF_RCV_BUF_ALIGN_BYTES);
--
--	prefetch((void *)rb_ptr);
-+	prefetch(skb->data);
+@@ -1234,153 +1234,93 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
  	return skb;
  }
  
-@@ -196,7 +168,6 @@ static void nicvf_free_rbdr(struct nicvf *nic, struct rbdr *rbdr)
- 	int head, tail;
- 	u64 buf_addr;
- 	struct rbdr_entry_t *desc;
--	struct rbuf_info *rinfo;
+-/* Enable interrupt */
+-void nicvf_enable_intr(struct nicvf *nic, int int_type, int q_idx)
++static u64 nicvf_int_type_to_mask(int int_type, int q_idx)
+ {
+ 	u64 reg_val;
  
- 	if (!rbdr)
- 		return;
-@@ -212,16 +183,14 @@ static void nicvf_free_rbdr(struct nicvf *nic, struct rbdr *rbdr)
- 	while (head != tail) {
- 		desc = GET_RBDR_DESC(rbdr, head);
- 		buf_addr = desc->buf_addr << NICVF_RCV_BUF_ALIGN;
--		rinfo = GET_RBUF_INFO((u64)phys_to_virt(buf_addr));
--		put_page(rinfo->page);
-+		put_page(virt_to_page(phys_to_virt(buf_addr)));
- 		head++;
- 		head &= (rbdr->dmem.q_len - 1);
+-	reg_val = nicvf_reg_read(nic, NIC_VF_ENA_W1S);
+-
+ 	switch (int_type) {
+ 	case NICVF_INTR_CQ:
+-		reg_val |= ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
++		reg_val = ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
+ 		break;
+ 	case NICVF_INTR_SQ:
+-		reg_val |= ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
++		reg_val = ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
+ 		break;
+ 	case NICVF_INTR_RBDR:
+-		reg_val |= ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
++		reg_val = ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
+ 		break;
+ 	case NICVF_INTR_PKT_DROP:
+-		reg_val |= (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
++		reg_val = (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
+ 		break;
+ 	case NICVF_INTR_TCP_TIMER:
+-		reg_val |= (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
++		reg_val = (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
+ 		break;
+ 	case NICVF_INTR_MBOX:
+-		reg_val |= (1ULL << NICVF_INTR_MBOX_SHIFT);
++		reg_val = (1ULL << NICVF_INTR_MBOX_SHIFT);
+ 		break;
+ 	case NICVF_INTR_QS_ERR:
+-		reg_val |= (1ULL << NICVF_INTR_QS_ERR_SHIFT);
++		reg_val = (1ULL << NICVF_INTR_QS_ERR_SHIFT);
+ 		break;
+ 	default:
+-		netdev_err(nic->netdev,
+-			   "Failed to enable interrupt: unknown type\n");
+-		break;
++		reg_val = 0;
  	}
- 	/* Free SKB of tail desc */
- 	desc = GET_RBDR_DESC(rbdr, tail);
- 	buf_addr = desc->buf_addr << NICVF_RCV_BUF_ALIGN;
--	rinfo = GET_RBUF_INFO((u64)phys_to_virt(buf_addr));
--	put_page(rinfo->page);
-+	put_page(virt_to_page(phys_to_virt(buf_addr)));
  
- 	/* Free RBDR ring */
- 	nicvf_free_q_desc_mem(nic, &rbdr->dmem);
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index 033e830..a4f6667 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -83,10 +83,8 @@
- #define MAX_RCV_BUF_COUNT	(1ULL << (RBDR_SIZE6 + 13))
- #define RBDR_THRESH		(RCV_BUF_COUNT / 2)
- #define DMA_BUFFER_LEN		2048 /* In multiples of 128bytes */
--#define RCV_FRAG_LEN	(SKB_DATA_ALIGN(DMA_BUFFER_LEN + NET_SKB_PAD) + \
--			 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) + \
--			 (NICVF_RCV_BUF_ALIGN_BYTES * 2))
--#define RCV_DATA_OFFSET		NICVF_RCV_BUF_ALIGN_BYTES
-+#define RCV_FRAG_LEN	 (SKB_DATA_ALIGN(DMA_BUFFER_LEN + NET_SKB_PAD) + \
-+			 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
+-	nicvf_reg_write(nic, NIC_VF_ENA_W1S, reg_val);
++	return reg_val;
++}
++
++/* Enable interrupt */
++void nicvf_enable_intr(struct nicvf *nic, int int_type, int q_idx)
++{
++	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
++
++	if (!mask) {
++		netdev_dbg(nic->netdev,
++			   "Failed to enable interrupt: unknown type\n");
++		return;
++	}
++	nicvf_reg_write(nic, NIC_VF_ENA_W1S,
++			nicvf_reg_read(nic, NIC_VF_ENA_W1S) | mask);
+ }
  
- #define MAX_CQES_FOR_TX		((SND_QUEUE_LEN / MIN_SQ_DESC_PER_PKT_XMIT) * \
- 				 MAX_CQE_PER_PKT_XMIT)
-@@ -108,10 +106,6 @@
- #define NICVF_SQ_BASE_ALIGN_BYTES	128  /* 7 bits */
+ /* Disable interrupt */
+ void nicvf_disable_intr(struct nicvf *nic, int int_type, int q_idx)
+ {
+-	u64 reg_val = 0;
++	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
  
- #define NICVF_ALIGNED_ADDR(ADDR, ALIGN_BYTES)	ALIGN(ADDR, ALIGN_BYTES)
--#define NICVF_ADDR_ALIGN_LEN(ADDR, BYTES)\
--	(NICVF_ALIGNED_ADDR(ADDR, BYTES) - BYTES)
--#define NICVF_RCV_BUF_ALIGN_LEN(X)\
--	(NICVF_ALIGNED_ADDR(X, NICVF_RCV_BUF_ALIGN_BYTES) - X)
+-	switch (int_type) {
+-	case NICVF_INTR_CQ:
+-		reg_val |= ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
+-		break;
+-	case NICVF_INTR_SQ:
+-		reg_val |= ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
+-		break;
+-	case NICVF_INTR_RBDR:
+-		reg_val |= ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
+-		break;
+-	case NICVF_INTR_PKT_DROP:
+-		reg_val |= (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
+-		break;
+-	case NICVF_INTR_TCP_TIMER:
+-		reg_val |= (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
+-		break;
+-	case NICVF_INTR_MBOX:
+-		reg_val |= (1ULL << NICVF_INTR_MBOX_SHIFT);
+-		break;
+-	case NICVF_INTR_QS_ERR:
+-		reg_val |= (1ULL << NICVF_INTR_QS_ERR_SHIFT);
+-		break;
+-	default:
+-		netdev_err(nic->netdev,
++	if (!mask) {
++		netdev_dbg(nic->netdev,
+ 			   "Failed to disable interrupt: unknown type\n");
+-		break;
++		return;
+ 	}
  
- /* Queue enable/disable */
- #define NICVF_SQ_EN		BIT_ULL(19)
+-	nicvf_reg_write(nic, NIC_VF_ENA_W1C, reg_val);
++	nicvf_reg_write(nic, NIC_VF_ENA_W1C, mask);
+ }
+ 
+ /* Clear interrupt */
+ void nicvf_clear_intr(struct nicvf *nic, int int_type, int q_idx)
+ {
+-	u64 reg_val = 0;
++	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
+ 
+-	switch (int_type) {
+-	case NICVF_INTR_CQ:
+-		reg_val = ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
+-		break;
+-	case NICVF_INTR_SQ:
+-		reg_val = ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
+-		break;
+-	case NICVF_INTR_RBDR:
+-		reg_val = ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
+-		break;
+-	case NICVF_INTR_PKT_DROP:
+-		reg_val = (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
+-		break;
+-	case NICVF_INTR_TCP_TIMER:
+-		reg_val = (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
+-		break;
+-	case NICVF_INTR_MBOX:
+-		reg_val = (1ULL << NICVF_INTR_MBOX_SHIFT);
+-		break;
+-	case NICVF_INTR_QS_ERR:
+-		reg_val |= (1ULL << NICVF_INTR_QS_ERR_SHIFT);
+-		break;
+-	default:
+-		netdev_err(nic->netdev,
++	if (!mask) {
++		netdev_dbg(nic->netdev,
+ 			   "Failed to clear interrupt: unknown type\n");
+-		break;
++		return;
+ 	}
+ 
+-	nicvf_reg_write(nic, NIC_VF_INT, reg_val);
++	nicvf_reg_write(nic, NIC_VF_INT, mask);
+ }
+ 
+ /* Check if interrupt is enabled */
+ int nicvf_is_intr_enabled(struct nicvf *nic, int int_type, int q_idx)
+ {
+-	u64 reg_val;
+-	u64 mask = 0xff;
+-
+-	reg_val = nicvf_reg_read(nic, NIC_VF_ENA_W1S);
+-
+-	switch (int_type) {
+-	case NICVF_INTR_CQ:
+-		mask = ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
+-		break;
+-	case NICVF_INTR_SQ:
+-		mask = ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
+-		break;
+-	case NICVF_INTR_RBDR:
+-		mask = ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
+-		break;
+-	case NICVF_INTR_PKT_DROP:
+-		mask = NICVF_INTR_PKT_DROP_MASK;
+-		break;
+-	case NICVF_INTR_TCP_TIMER:
+-		mask = NICVF_INTR_TCP_TIMER_MASK;
+-		break;
+-	case NICVF_INTR_MBOX:
+-		mask = NICVF_INTR_MBOX_MASK;
+-		break;
+-	case NICVF_INTR_QS_ERR:
+-		mask = NICVF_INTR_QS_ERR_MASK;
+-		break;
+-	default:
+-		netdev_err(nic->netdev,
++	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
++	/* If interrupt type is unknown, we treat it disabled. */
++	if (!mask) {
++		netdev_dbg(nic->netdev,
+ 			   "Failed to check interrupt enable: unknown type\n");
+-		break;
++		return 0;
+ 	}
+ 
+-	return (reg_val & mask);
++	return mask & nicvf_reg_read(nic, NIC_VF_ENA_W1S);
+ }
+ 
+ void nicvf_update_rq_stats(struct nicvf *nic, int rq_idx)
 -- 
 1.7.1
