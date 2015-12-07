@@ -1,37 +1,113 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH] I.MX6: Fix Ethernet PHY mode on Ventana boards
-Date: Mon, 7 Dec 2015 11:08:34 -0200
-Message-ID: <CAOMZO5CxaVsztHZjwEjMjF-hSaJMGZYNFv+6PVO_BuYDH09LFw@mail.gmail.com>
-References: <m3egeyct8o.fsf@t19.piap.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tim Harvey <tharvey@gateworks.com>,
-	netdev <netdev@vger.kernel.org>, Shawn Guo <shawnguo@kernel.org>
-To: =?UTF-8?Q?Krzysztof_Ha=C5=82asa?= <khalasa@piap.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:33482 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754562AbbLGNIf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 08:08:35 -0500
-Received: by iouu10 with SMTP id u10so183768739iou.0
-        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 05:08:35 -0800 (PST)
-In-Reply-To: <m3egeyct8o.fsf@t19.piap.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Subject: [PATCH v2 1/1] cxgb3: Convert simple_strtoul to kstrtox
+Date: Mon,  7 Dec 2015 14:11:33 +0100
+Message-ID: <1449493893-18055-2-git-send-email-clabbe.montjoie@gmail.com>
+References: <1449493893-18055-1-git-send-email-clabbe.montjoie@gmail.com>
+Cc: LABBE Corentin <clabbe.montjoie@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: santosh@chelsio.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449493893-18055-1-git-send-email-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 7, 2015 at 10:56 AM, Krzysztof Ha=C5=82asa <khalasa@piap.pl=
-> wrote:
-> Gateworks Ventana boards seem to need "RGMII-ID" (internal delay)
-> PHY mode, instead of simple "RGMII", for their Marvell 88E1510
-> transceiver. Otherwise, the Ethernet MAC doesn't work with Marvell PH=
-Y
-> driver (TX doesn't seem to work correctly).
->
-> Tested on GW5400 rev. C.
->
-> This bug affects ARM Fedora 23.
->
-> Signed-off-by: Krzysztof Ha=C5=82asa <khalasa@piap.pl>
+the simple_strtoul function is obsolete. This patch replace it by
+kstrtox.
 
-It seems you missed to Cc the i.MX maintainer, Shawn Guo.
+Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
+---
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c | 14 +++++++------
+ drivers/net/ethernet/chelsio/cxgb3/t3_hw.c      | 28 ++++++++++++++++++-------
+ 2 files changed, 29 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+index 8f7aa53..60908ea 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+@@ -701,15 +701,16 @@ static ssize_t attr_store(struct device *d,
+ 			  ssize_t(*set) (struct net_device *, unsigned int),
+ 			  unsigned int min_val, unsigned int max_val)
+ {
+-	char *endp;
+ 	ssize_t ret;
+ 	unsigned int val;
+ 
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	val = simple_strtoul(buf, &endp, 0);
+-	if (endp == buf || val < min_val || val > max_val)
++	ret = kstrtouint(buf, 0, &val);
++	if (ret)
++		return ret;
++	if (val < min_val || val > max_val)
+ 		return -EINVAL;
+ 
+ 	rtnl_lock();
+@@ -829,14 +830,15 @@ static ssize_t tm_attr_store(struct device *d,
+ 	struct port_info *pi = netdev_priv(to_net_dev(d));
+ 	struct adapter *adap = pi->adapter;
+ 	unsigned int val;
+-	char *endp;
+ 	ssize_t ret;
+ 
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	val = simple_strtoul(buf, &endp, 0);
+-	if (endp == buf || val > 10000000)
++	ret = kstrtouint(buf, 0, &val);
++	if (ret)
++		return ret;
++	if (val > 10000000)
+ 		return -EINVAL;
+ 
+ 	rtnl_lock();
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+index a22768c..ee04caa 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+@@ -709,11 +709,21 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ 			return ret;
+ 	}
+ 
+-	p->cclk = simple_strtoul(vpd.cclk_data, NULL, 10);
+-	p->mclk = simple_strtoul(vpd.mclk_data, NULL, 10);
+-	p->uclk = simple_strtoul(vpd.uclk_data, NULL, 10);
+-	p->mdc = simple_strtoul(vpd.mdc_data, NULL, 10);
+-	p->mem_timing = simple_strtoul(vpd.mt_data, NULL, 10);
++	ret = kstrtouint(vpd.cclk_data, 10, &p->cclk);
++	if (ret)
++		return ret;
++	ret = kstrtouint(vpd.mclk_data, 10, &p->mclk);
++	if (ret)
++		return ret;
++	ret = kstrtouint(vpd.uclk_data, 10, &p->uclk);
++	if (ret)
++		return ret;
++	ret = kstrtouint(vpd.mdc_data, 10, &p->mdc);
++	if (ret)
++		return ret;
++	ret = kstrtouint(vpd.mt_data, 10, &p->mem_timing);
++	if (ret)
++		return ret;
+ 	memcpy(p->sn, vpd.sn_data, SERNUM_LEN);
+ 
+ 	/* Old eeproms didn't have port information */
+@@ -723,8 +733,12 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ 	} else {
+ 		p->port_type[0] = hex_to_bin(vpd.port0_data[0]);
+ 		p->port_type[1] = hex_to_bin(vpd.port1_data[0]);
+-		p->xauicfg[0] = simple_strtoul(vpd.xaui0cfg_data, NULL, 16);
+-		p->xauicfg[1] = simple_strtoul(vpd.xaui1cfg_data, NULL, 16);
++		ret = kstrtou16(vpd.xaui0cfg_data, 16, &p->xauicfg[0]);
++		if (ret)
++			return ret;
++		ret = kstrtou16(vpd.xaui1cfg_data, 16, &p->xauicfg[1]);
++		if (ret)
++			return ret;
+ 	}
+ 
+ 	ret = hex2bin(p->eth_base, vpd.na_data, 6);
+-- 
+2.4.10
