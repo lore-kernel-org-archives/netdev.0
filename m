@@ -1,61 +1,77 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next] Driver for IBM System i/p VNIC protocol
-Date: Mon, 7 Dec 2015 12:50:00 -0600
-Message-ID: <5665D4D8.7010206@linux.vnet.ibm.com>
-References: <1449251386-13476-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
- <20151205.222551.512793392902323297.davem@davemloft.net>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: use-after-free in sctp_do_sm
+Date: Mon, 7 Dec 2015 16:52:18 -0200
+Message-ID: <20151207185218.GB22989@mrl.redhat.com>
+References: <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
+ <fcceeb2a58ce2054cedb091f0e251393b36418ba.1449250981.git.marcelo.leitner@gmail.com>
+ <CACT4Y+b66FHbFyERm804RDWh9oPC==K43TgDJfs52cQG1MDjcg@mail.gmail.com>
+ <20151204213428.GH4164@mrl.redhat.com>
+ <56631357.6020304@gmail.com>
+ <CACT4Y+YCZO2rfYdO_ACPF1U0p3YyXYJGA_Bhdb8CP8pecLy7SA@mail.gmail.com>
+ <20151207131524.GA22989@mrl.redhat.com>
+ <CACT4Y+ZhRG-LCdEoF=WusYVUj8gnm16663GcgJ=ztu0QC6r0vg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nguyendo@us.ibm.com,
-	jallen@linux.vnet.ibm.com, brking@linux.vnet.ibm.com,
-	nfont@linux.vnet.ibm.com, linuxppc-dev@lists.ozlabs.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	linux-sctp@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:33954 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755089AbbLGSuH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 13:50:07 -0500
-Received: from localhost
-	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-	Mon, 7 Dec 2015 11:50:05 -0700
-Received: from b03cxnp08026.gho.boulder.ibm.com (b03cxnp08026.gho.boulder.ibm.com [9.17.130.18])
-	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 3AAA519D803F
-	for <netdev@vger.kernel.org>; Mon,  7 Dec 2015 11:38:09 -0700 (MST)
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by b03cxnp08026.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id tB7Io3ai23789640
-	for <netdev@vger.kernel.org>; Mon, 7 Dec 2015 11:50:03 -0700
-Received: from d03av01.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id tB7Io2UL032104
-	for <netdev@vger.kernel.org>; Mon, 7 Dec 2015 11:50:03 -0700
-In-Reply-To: <20151205.222551.512793392902323297.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:51534 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932310AbbLGSwW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Dec 2015 13:52:22 -0500
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+ZhRG-LCdEoF=WusYVUj8gnm16663GcgJ=ztu0QC6r0vg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/05/2015 09:25 PM, David Miller wrote:
-> From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-> Date: Fri,  4 Dec 2015 11:49:46 -0600
->
->> +static int ibmvnic_buffs_per_pool = IBMVNIC_BUFFS_PER_POOL;
->> +module_param(ibmvnic_buffs_per_pool, int, S_IRUGO);
->> +MODULE_PARM_DESC(ibmvnic_buffs_per_pool,
->> +		 "IBMVNIC number of buffers per rx pool");
-> Please do not use module parameters for settings that effect
-> the basic operation of the driver.
+On Mon, Dec 07, 2015 at 02:20:47PM +0100, Dmitry Vyukov wrote:
+> On Mon, Dec 7, 2015 at 2:15 PM, Marcelo Ricardo Leitner
+> <marcelo.leitner@gmail.com> wrote:
+> > On Mon, Dec 07, 2015 at 12:26:09PM +0100, Dmitry Vyukov wrote:
+> >> On Sat, Dec 5, 2015 at 5:39 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
+...
+> >> > Hi Marcelo
+> >> >
+> >> > I think you also need to catch the SCTP_DISPOSITION_ABORT and update
+> >> > the pointer.  There are some issues there though as some functions report
+> >> > that code without actually destroying the association.  This happens when
+> >> > the ABORT chunk may be dropped.
+> >> >
+> >> > I think this might be why we still see the issue.
+> >>
+> >>
+> >> Marcelo,
+> >>
+> >> Is this info enough for you to cook another fix?
+> >
+> > Hi, I think so. I was really wondering how you could trigger that issue
+> > without the timestamp fix and Vlad's comment does shed some light on it.
+> >
+> > I'll do more tests later today, but what did you have connecting to the
+> > listening socket? Somehow you made that accept() call to return..
+> 
+> Local connect in another thread I guess.
 
-Hi. Thanks for you feedback.  Could you clarify on what constitutes basic operation?  I just want to be sure if we should remove the other module parameters or just this one in particular?
+Vlad, I reviewed the places on which it returns SCTP_DISPOSITION_ABORT,
+and if I didn't miss something in there all of them either issue
+SCTP_CMD_ASSOC_FAILED or SCTP_CMD_INIT_FAILED before returning it, thus
+delaying DELETE_TCB and with that the asoc free. There is one place,
+though, that may not do it that way, it's sctp_sf_abort_violation(), but
+then that code only runs if asoc is already NULL by then.
 
->
-> Instead use facilities that are generic and provide the same
-> user interface for all networking drivers, such as ethtool.
+Dmitry, still no luck here, cannot reproduce another hit.
+I'm using sctp_test and a custom test of mine, both on localhost so I
+would catch it in server or client side, nothing..
 
-Is it possible to change driver settings like this with ethtool? Would adding an interface in sysfs to change this setting be acceptable?
+I need more info. Please enable the pr_debug() on debug_post_sfn() macro
+and see which status is being reported when you trigger the issue.
+And/or share a traffic capture so we can see what's going on with the
+association.
 
->
-> Otherwise users would need to learn a different way to configure the
-> same thing on different devices, which is not acceptable.
-> _______________________________________________
-> Linuxppc-dev mailing list
-> Linuxppc-dev@lists.ozlabs.org
-> https://lists.ozlabs.org/listinfo/linuxppc-dev
+  Marcelo
