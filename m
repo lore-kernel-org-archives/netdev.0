@@ -1,64 +1,106 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: Re: [RFC PATCH v3 0/5] net: dsa: cleanup dsa driver
-Date: Mon, 7 Dec 2015 11:25:57 +0100
-Message-ID: <56655EB5.6080600@baylibre.com>
-References: <56323100.9000304@baylibre.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [RFC PATCH net-next 1/2] tcp: RTO Restart (RTOR)
+Date: Mon, 7 Dec 2015 12:22:08 +0200 (EET)
+Message-ID: <alpine.DEB.2.10.1512071215580.17913@melkinpaasi.cs.helsinki.fi>
+References: <cover.1449478261.git.per.hurtig@kau.se> <4719073d7d8285006b2fe5f1b67a3fe5255c503e.1449478261.git.per.hurtig@kau.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	vivien.didelot@savoirfairelinux.com,
-	Fabian Frederick <fabf@skynet.be>,
-	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
+	ncardwell@google.com, nanditad@google.com, tom@herbertland.com,
+	ycheng@google.com, viro@zeniv.linux.org.uk, fw@strlen.de,
+	mleitner@redhat.com, daniel@iogearbox.net, willemb@google.com,
+	pasi.sarolahti@iki.fi, stephen@networkplumber.org,
+	Netdev <netdev@vger.kernel.org>, anna.brunstrom@kau.se,
+	apetlund@simula.no, michawe@ifi.uio.no, mohammad.rajiullah@kau.se
+To: Per Hurtig <per.hurtig@kau.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:35944 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754824AbbLGK0A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 05:26:00 -0500
-Received: by wmww144 with SMTP id w144so134132483wmw.1
-        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 02:25:59 -0800 (PST)
-In-Reply-To: <56323100.9000304@baylibre.com>
+Received: from script.cs.helsinki.fi ([128.214.11.1]:57212 "EHLO
+	script.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754824AbbLGK1m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 05:27:42 -0500
+In-Reply-To: <4719073d7d8285006b2fe5f1b67a3fe5255c503e.1449478261.git.per.hurtig@kau.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/29/2015 03:45 PM, Neil Armstrong wrote:
-> Introduce a new remove callback to allow DSA drivers to cleanup their
-> ressources.
-> Then add a remove implementation for bcm_sf2 and mv88e6xxx.
-> 
-> This patch was not tested due of a lack of hardware.
-> 
-> v2: add remove callback patch to the serie
-> v3: separate & fix ppu remove callback into a proper patch
-> 
-> Neil Armstrong (5):
->   net: dsa: allow switch drivers to cleanup their resources
->   net: dsa: bcm_sf2: cleanup resources in remove callback
->   net: dsa: mv88e6xxx: add common remove function
->   net: dsa: make usage of mv88e6xxx common remove function
->   net: dsa: add mv88e6xxx ppu remove function for mv88e6131
-> 
->  drivers/net/dsa/bcm_sf2.c         | 20 ++++++++++++++++++++
->  drivers/net/dsa/mv88e6123_61_65.c |  1 +
->  drivers/net/dsa/mv88e6131.c       |  8 ++++++++
->  drivers/net/dsa/mv88e6171.c       |  1 +
->  drivers/net/dsa/mv88e6352.c       |  1 +
->  drivers/net/dsa/mv88e6xxx.c       | 18 ++++++++++++++++++
->  drivers/net/dsa/mv88e6xxx.h       |  2 ++
->  include/net/dsa.h                 |  1 +
->  net/dsa/dsa.c                     |  4 ++++
->  9 files changed, 56 insertions(+)
-> 
+On Mon, 7 Dec 2015, Per Hurtig wrote:
 
-Hi All,
+> This patch implements the RTO restart modification (RTOR). When data is
+> ACKed, and the RTO timer is restarted, the time elapsed since the last
+> outstanding segment was transmitted is subtracted from the calculated RTO
+> value. This way, the RTO timer will expire after exactly RTO seconds, and
+> not RTO + RTT [+ delACK] seconds.
+> 
+> This patch also implements a new sysctl (tcp_timer_restart) that is used
+> to control the timer restart behavior.
+> 
+> Signed-off-by: Per Hurtig <per.hurtig@kau.se>
+> ---
+>  Documentation/networking/ip-sysctl.txt | 12 ++++++++++++
+>  include/net/tcp.h                      |  4 ++++
+>  net/ipv4/sysctl_net_ipv4.c             | 10 ++++++++++
+>  net/ipv4/tcp_input.c                   | 24 ++++++++++++++++++++++++
+>  4 files changed, 50 insertions(+)
+> 
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index 2ea4c45..4094128 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -591,6 +591,18 @@ tcp_syn_retries - INTEGER
+>  	with the current initial RTO of 1second. With this the final timeout
+>  	for an active TCP connection attempt will happen after 127seconds.
+>  
+> +tcp_timer_restart - INTEGER
+> +	Controls how the RTO and PTO timers are restarted (RTOR and TLPR).
+> +	If set (per timer or combined) the timers are restarted with
+> +	respect to the earliest outstanding segment, to not extend tail loss
+> +	latency unnecessarily.
+> +	Possible values:
+> +		0 disables RTOR and TLPR.
+> +		1 enables RTOR.
+> +		2 enables TLPR.
+> +		3 enables RTOR and TLPR.
+> +	Default: 3
+> +
+>  tcp_timestamps - BOOLEAN
+>  	Enable timestamps as defined in RFC1323.
+>  
 
-Did someone had a chance to test this ?
+[...snip...]
 
-Having such code will help for the final DSA reworking.
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index fdd88c3..66e0425 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
 
-Neil
+[...snip...]
+
+>  /* Restart timer after forward progress on connection.
+>   * RFC2988 recommends to restart timer to now+rto.
+>   */
+> @@ -3027,6 +3040,17 @@ void tcp_rearm_rto(struct sock *sk)
+>  			 */
+>  			if (delta > 0)
+>  				rto = delta;
+> +		} else if (icsk->icsk_pending == ICSK_TIME_RETRANS &&
+> +			   (sysctl_tcp_timer_restart == 1 ||
+> +			    sysctl_tcp_timer_restart == 3) &&
+
+Use a bit operation here instead? Also I think that this sysctl would 
+benefit from named constants rather than use of literals (similar 
+comment applies to the other patch too).
+
+> +			   (tp->packets_out + tcp_unsent_pkts(sk) <
+> +			    TCP_RTORESTART_THRESH)) {
+> +			struct sk_buff *skb = tcp_write_queue_head(sk);
+> +			const u32 rto_time_stamp = tcp_skb_timestamp(skb);
+> +			s32 delta = (s32)(tcp_time_stamp - rto_time_stamp);
+> +
+> +			if (delta > 0 && rto > delta)
+> +				rto -= delta;
+>  		}
+>  		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, rto,
+>  					  TCP_RTO_MAX);
+
+
+-- 
+ i.
