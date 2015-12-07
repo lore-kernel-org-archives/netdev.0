@@ -1,233 +1,127 @@
-From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH 1/2] net: thunderx: nicvf_queues: nivc_*_intr: remove duplication
-Date: Mon,  7 Dec 2015 10:30:32 +0530
-Message-ID: <1449464433-43343-2-git-send-email-sunil.kovvuri@gmail.com>
-References: <y>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	p.fedin@samsung.com, Sunil.Goutham@caviumnetworks.com,
-	Yury Norov <yury.norov@auriga.com>,
-	Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
-	Sunil Goutham <sgoutham@cavium.com>
+From: Sam Russell <sam.h.russell@gmail.com>
+Subject: Re: MPLS outbound packets being dropped
+Date: Mon, 7 Dec 2015 18:56:51 +1300
+Message-ID: <CAJm+voX0wNb-yxA1ToOzMsrX7GKoVRMKMB2DKgWZ9avdyEU7uw@mail.gmail.com>
+References: <CAJm+voUzeyccnn57U_LEDQNO1qyn9xEYMDOjvqWeW+awifuDCg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <y>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f170.google.com ([209.85.160.170]:35390 "EHLO
+	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750819AbbLGF4w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 00:56:52 -0500
+Received: by ykba77 with SMTP id a77so183441648ykb.2
+        for <netdev@vger.kernel.org>; Sun, 06 Dec 2015 21:56:51 -0800 (PST)
+In-Reply-To: <CAJm+voUzeyccnn57U_LEDQNO1qyn9xEYMDOjvqWeW+awifuDCg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yury Norov <yury.norov@auriga.com>
+I can confirm that MPLS packets are sent correctly if the conditional
+at mpls_iptunnel.c:57-65 is removed and just replaced with lines
+58-59:
 
-The same switch-case repeates for nivc_*_intr functions.
-In this patch it is moved to a helper nicvf_int_type_to_mask().
+ttl = ip_hdr(skb)->ttl;
+rt = (struct rtable *)dst;
 
-By the way:
- - Unneeded write to NICVF register dropped if int_type is unknown.
- - netdev_dbg() is used instead of netdev_err().
+Obviously this isn't sufficient for IPv6, but is a workaround that
+enables MPLS-encapsulated packets to be sent from Linux in the
+meantime
 
-Signed-off-by: Yury Norov <yury.norov@auriga.com>
-Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
-Acked-by: Vadim Lomovtsev <Vadim.Lomovtsev@caiumnetworks.com>
-Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |  140 ++++++--------------
- 1 files changed, 40 insertions(+), 100 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index 206b6a7..99a29d0 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -1234,153 +1234,93 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
- 	return skb;
- }
- 
--/* Enable interrupt */
--void nicvf_enable_intr(struct nicvf *nic, int int_type, int q_idx)
-+static u64 nicvf_int_type_to_mask(int int_type, int q_idx)
- {
- 	u64 reg_val;
- 
--	reg_val = nicvf_reg_read(nic, NIC_VF_ENA_W1S);
--
- 	switch (int_type) {
- 	case NICVF_INTR_CQ:
--		reg_val |= ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
-+		reg_val = ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
- 		break;
- 	case NICVF_INTR_SQ:
--		reg_val |= ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
-+		reg_val = ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
- 		break;
- 	case NICVF_INTR_RBDR:
--		reg_val |= ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
-+		reg_val = ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
- 		break;
- 	case NICVF_INTR_PKT_DROP:
--		reg_val |= (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
-+		reg_val = (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
- 		break;
- 	case NICVF_INTR_TCP_TIMER:
--		reg_val |= (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
-+		reg_val = (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
- 		break;
- 	case NICVF_INTR_MBOX:
--		reg_val |= (1ULL << NICVF_INTR_MBOX_SHIFT);
-+		reg_val = (1ULL << NICVF_INTR_MBOX_SHIFT);
- 		break;
- 	case NICVF_INTR_QS_ERR:
--		reg_val |= (1ULL << NICVF_INTR_QS_ERR_SHIFT);
-+		reg_val = (1ULL << NICVF_INTR_QS_ERR_SHIFT);
- 		break;
- 	default:
--		netdev_err(nic->netdev,
--			   "Failed to enable interrupt: unknown type\n");
--		break;
-+		reg_val = 0;
- 	}
- 
--	nicvf_reg_write(nic, NIC_VF_ENA_W1S, reg_val);
-+	return reg_val;
-+}
-+
-+/* Enable interrupt */
-+void nicvf_enable_intr(struct nicvf *nic, int int_type, int q_idx)
-+{
-+	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
-+
-+	if (!mask) {
-+		netdev_dbg(nic->netdev,
-+			   "Failed to enable interrupt: unknown type\n");
-+		return;
-+	}
-+	nicvf_reg_write(nic, NIC_VF_ENA_W1S,
-+			nicvf_reg_read(nic, NIC_VF_ENA_W1S) | mask);
- }
- 
- /* Disable interrupt */
- void nicvf_disable_intr(struct nicvf *nic, int int_type, int q_idx)
- {
--	u64 reg_val = 0;
-+	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
- 
--	switch (int_type) {
--	case NICVF_INTR_CQ:
--		reg_val |= ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
--		break;
--	case NICVF_INTR_SQ:
--		reg_val |= ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
--		break;
--	case NICVF_INTR_RBDR:
--		reg_val |= ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
--		break;
--	case NICVF_INTR_PKT_DROP:
--		reg_val |= (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
--		break;
--	case NICVF_INTR_TCP_TIMER:
--		reg_val |= (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
--		break;
--	case NICVF_INTR_MBOX:
--		reg_val |= (1ULL << NICVF_INTR_MBOX_SHIFT);
--		break;
--	case NICVF_INTR_QS_ERR:
--		reg_val |= (1ULL << NICVF_INTR_QS_ERR_SHIFT);
--		break;
--	default:
--		netdev_err(nic->netdev,
-+	if (!mask) {
-+		netdev_dbg(nic->netdev,
- 			   "Failed to disable interrupt: unknown type\n");
--		break;
-+		return;
- 	}
- 
--	nicvf_reg_write(nic, NIC_VF_ENA_W1C, reg_val);
-+	nicvf_reg_write(nic, NIC_VF_ENA_W1C, mask);
- }
- 
- /* Clear interrupt */
- void nicvf_clear_intr(struct nicvf *nic, int int_type, int q_idx)
- {
--	u64 reg_val = 0;
-+	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
- 
--	switch (int_type) {
--	case NICVF_INTR_CQ:
--		reg_val = ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
--		break;
--	case NICVF_INTR_SQ:
--		reg_val = ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
--		break;
--	case NICVF_INTR_RBDR:
--		reg_val = ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
--		break;
--	case NICVF_INTR_PKT_DROP:
--		reg_val = (1ULL << NICVF_INTR_PKT_DROP_SHIFT);
--		break;
--	case NICVF_INTR_TCP_TIMER:
--		reg_val = (1ULL << NICVF_INTR_TCP_TIMER_SHIFT);
--		break;
--	case NICVF_INTR_MBOX:
--		reg_val = (1ULL << NICVF_INTR_MBOX_SHIFT);
--		break;
--	case NICVF_INTR_QS_ERR:
--		reg_val |= (1ULL << NICVF_INTR_QS_ERR_SHIFT);
--		break;
--	default:
--		netdev_err(nic->netdev,
-+	if (!mask) {
-+		netdev_dbg(nic->netdev,
- 			   "Failed to clear interrupt: unknown type\n");
--		break;
-+		return;
- 	}
- 
--	nicvf_reg_write(nic, NIC_VF_INT, reg_val);
-+	nicvf_reg_write(nic, NIC_VF_INT, mask);
- }
- 
- /* Check if interrupt is enabled */
- int nicvf_is_intr_enabled(struct nicvf *nic, int int_type, int q_idx)
- {
--	u64 reg_val;
--	u64 mask = 0xff;
--
--	reg_val = nicvf_reg_read(nic, NIC_VF_ENA_W1S);
--
--	switch (int_type) {
--	case NICVF_INTR_CQ:
--		mask = ((1ULL << q_idx) << NICVF_INTR_CQ_SHIFT);
--		break;
--	case NICVF_INTR_SQ:
--		mask = ((1ULL << q_idx) << NICVF_INTR_SQ_SHIFT);
--		break;
--	case NICVF_INTR_RBDR:
--		mask = ((1ULL << q_idx) << NICVF_INTR_RBDR_SHIFT);
--		break;
--	case NICVF_INTR_PKT_DROP:
--		mask = NICVF_INTR_PKT_DROP_MASK;
--		break;
--	case NICVF_INTR_TCP_TIMER:
--		mask = NICVF_INTR_TCP_TIMER_MASK;
--		break;
--	case NICVF_INTR_MBOX:
--		mask = NICVF_INTR_MBOX_MASK;
--		break;
--	case NICVF_INTR_QS_ERR:
--		mask = NICVF_INTR_QS_ERR_MASK;
--		break;
--	default:
--		netdev_err(nic->netdev,
-+	u64 mask = nicvf_int_type_to_mask(int_type, q_idx);
-+	/* If interrupt type is unknown, we treat it disabled. */
-+	if (!mask) {
-+		netdev_dbg(nic->netdev,
- 			   "Failed to check interrupt enable: unknown type\n");
--		break;
-+		return 0;
- 	}
- 
--	return (reg_val & mask);
-+	return mask & nicvf_reg_read(nic, NIC_VF_ENA_W1S);
- }
- 
- void nicvf_update_rq_stats(struct nicvf *nic, int rq_idx)
--- 
-1.7.1
+On 6 December 2015 at 23:20, Sam Russell <sam.h.russell@gmail.com> wrote:
+> tl;dr mpls_output expects skb->protocol to be set to correct
+> ethertype, but it isn't
+>
+> https://github.com/torvalds/linux/blob/ede2059dbaf9c6557a49d466c8c7778343b208ff/net/mpls/mpls_iptunnel.c#L64
+>
+> Problem:
+>
+> I set up two interfaces pointed at each other, and added a static arp
+> entry to minimise complexity
+>
+> ifconfig enp0s8 10.0.0.1/24 up
+> ifconfig enp0s9 up
+> arp -s 10.0.0.5 00:12:34:56:78:90
+>
+> I then added an MPLS route
+>
+> ./dev/iproute2/ip/ip route add 192.168.2.0/24 encap mpls 100 via inet
+> 10.0.0.5 dev enp0s8
+>
+> I then tried to ping an IP in this route but got errors back
+>
+> ping 192.168.2.1
+> * PING 192.168.2.1 (192.168.2.1) 56(84) bytes of data.
+> * ping: sendmsg: Invalid argument
+>
+> I then recorded calls to skb_kfree
+>
+> ./tools/perf/perf record -e skb:kfree_skb -g -a
+>
+> This gave me the following packet trace:
+>
+>    100.00%   100.00%  ping     [kernel.kallsyms]  [k] kfree_skb
+>                |
+>                ---kfree_skb
+>                   mpls_output
+>                   lwtunnel_output
+>                   ip_local_out_sk
+>                   ip_send_skb
+>                   ip_push_pending_frames
+>                   raw_sendmsg
+>                   inet_sendmsg
+>                   sock_sendmsg
+>                   ___sys_sendmsg
+>                   __sys_sendmsg
+>                   sys_sendmsg
+>                   entry_SYSCALL_64_fastpath
+>                   sendmsg
+>                   0
+>
+> I then went through mpls_output.c and put printk() at every call to
+> "goto drop" and found that this was being hit after failing to match
+> skb->protocol
+>
+> https://github.com/torvalds/linux/blob/ede2059dbaf9c6557a49d466c8c7778343b208ff/net/mpls/mpls_iptunnel.c#L64
+>
+> My understanding is that skb->protocol is normally set after
+> dst_output. For example, a ping packet hitting a normal IPv4 route
+> should follow something like:
+>
+> raw_sendmsg
+> ip_push_pending_frames
+> ip_send_skb
+> ip_local_out_sk
+> dst_output
+> ip_output
+>
+> ip_output() is the first place where skb->protocol gets set
+>
+> https://github.com/torvalds/linux/blob/dbd3393c56a8794fe596e7dd20d0efa613b9cf61/net/ipv4/ip_output.c#L356
+>
+> The path that a packet follows when hitting an MPLS route is as follows:
+>
+> raw_sendmsg
+> ip_push_pending_frames
+> ip_send_skb
+> ip_local_out_sk
+> dst_output
+> lwtunnel_output
+> mpls_output
+>
+> lwtunnel_output merely routes to the correct output function (mpls_output)
+> mpls_output expects skb->protocol to be set, but nothing has set it
+> yet, so it drops the packet!
+>
+> Any suggestions on how mpls_output should detect the protocol?
+>
+> Setup:
+>
+> Ubuntu 15.10
+>
+> iproute2 built from head
+>
+> Kernel 4.3, both ubuntu mainline and home-built:
+> make menuconfig, add lwtunnel, mpls-router, mpls-gso and mpls-iptunnel
+>
+> Running virtualbox on OSX
