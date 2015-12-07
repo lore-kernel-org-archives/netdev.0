@@ -1,56 +1,43 @@
-From: Nikolay Borisov <kernel@kyup.com>
-Subject: Re: [PATCH] netfilter: nfnetlink_queue: Unregister pernet subsys in
- case of init failure
-Date: Mon, 7 Dec 2015 14:58:44 +0200
-Message-ID: <56658284.9080009@kyup.com>
-References: <1449483206-22618-1-git-send-email-kernel@kyup.com>
- <56657BA5.6070303@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, kadlec@blackhole.kfki.hu,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	fruggeri@arista.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <56657BA5.6070303@cogentembedded.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: [PATCH v3 net-next 0/4] Further fix for dsa unbinding
+Date: Mon,  7 Dec 2015 13:57:31 +0100
+Message-ID: <1449493055-29047-1-git-send-email-narmstrong@baylibre.com>
+References: <56321D9A.8010109@baylibre.com>
+Cc: Neil Armstrong <narmstrong@baylibre.com>
+To: davem@davemloft.net, andrew@lunn.ch, f.fainelli@gmail.com,
+	linux@roeck-us.net, vivien.didelot@savoirfairelinux.com,
+	fabf@skynet.be, pavel.nakonechny@skitlab.ru, joe@perches.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56321D9A.8010109@baylibre.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This serie fixes further issues for DSA dynamic unbinding.
+The first patch completely removes the PHY link state polling.
+The two following cleans up the dsa state upon removal.
+The last patch moves slave destroy code as slave function and
+adds missing netdev and phy cleanup calls.
 
+v1: http://lkml.kernel.org/r/562F8ECB.6050709@baylibre.com
+v2: http://lkml.kernel.org/r/56321D9A.8010109@baylibre.com
+remove phy fix and add missing calls in dsa_switch_destroy
+then add dedicated dsa_slave_destroy
 
-On 12/07/2015 02:29 PM, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 12/07/2015 01:13 PM, Nikolay Borisov wrote:
-> 
->> Commit 3bfe049807c2403 ('netfilter: nfnetlink_{log,queue}:
-> 
->    Double quotes please, that's what scripts/checkpatch.pl enforces now.
-> 
->> Register pernet in first place') reorganised the initialisation
->> order of the pernet_subsys to avoid "use-before-initialised"
->> condition. However, in doing so the cleanup logic in nfnetlink_queue
->> got botched in that the pernet_subsys wasn't cleaned in case
->> nfnetlink_subsys_register failed. This patch adds the necessary
->> cleanup routine call.
->>
->> Fixes: 3bfe049807c2403 ('netfilter: nfnetlink_{log,queue}: Register
->>                         pernet in first place')
-> 
->    Likewise.
+v3: remove polling instead of fixing it, make single patch for
+dsa slave destroy
 
-I will resend it with proper quotes (even though I think this is a minor
-issue) but I'd like to first gather some review feedback.
+Neil Armstrong (4):
+  net: dsa: remove DSA link polling
+  net: dsa: cleanup resources upon module removal
+  net: dsa: Add missing master netdev dev_put() calls
+  net: dsa: move dsa slave destroy code to slave.c
 
-Also I dunno if this should be marked for stable.
+ include/net/dsa.h  | 12 -----------
+ net/dsa/dsa.c      | 60 +++++++++++++-----------------------------------------
+ net/dsa/dsa_priv.h |  1 +
+ net/dsa/slave.c    | 11 ++++++++++
+ 4 files changed, 26 insertions(+), 58 deletions(-)
 
-> 
->>
->> Signed-off-by: Nikolay Borisov <kernel@kyup.com>
-> 
-> [...]
-> 
-> MBR, Sergei
-> 
+-- 
+1.9.1
