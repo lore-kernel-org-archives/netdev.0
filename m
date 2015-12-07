@@ -1,114 +1,191 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 3/8] cgroup: implement cgroup_get_from_path() and expose cgroup_put()
-Date: Mon,  7 Dec 2015 17:38:50 -0500
-Message-ID: <1449527935-27056-4-git-send-email-tj@kernel.org>
+From: Tejun Heo <tj@kernel.org>
+Subject: [PATCH 1/8] cgroup: record ancestor IDs and reimplement cgroup_is_descendant() using it
+Date: Mon,  7 Dec 2015 17:38:48 -0500
+Message-ID: <1449527935-27056-2-git-send-email-tj@kernel.org>
 References: <1449527935-27056-1-git-send-email-tj@kernel.org>
-Cc: lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-team-b10kYP2dOMg@public.gmane.org, ninasc-b10kYP2dOMg@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
-	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449527935-27056-1-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: lizefan@huawei.com, hannes@cmpxchg.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-team@fb.com, ninasc@fb.com, Tejun Heo <tj@kernel.org>
+To: davem@davemloft.net, pablo@netfilter.org, kaber@trash.net,
+	kadlec@blackhole.kfki.hu, daniel@iogearbox.net,
+	daniel.wagner@bmw-carit.de, nhorman@tuxdriver.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1449527935-27056-1-git-send-email-tj@kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement cgroup_get_from_path() using kernfs_walk_and_get() which
-obtains a default hierarchy cgroup from its path.  This will be used
-to allow cgroup path based matching from outside cgroup proper -
-e.g. networking and perf.
+cgroup_is_descendant() currently walks up the hierarchy and compares
+each ancestor to the cgroup in question.  While enough for cgroup core
+usages, this can't be used in hot paths to test cgroup membership.
+This patch adds cgroup->ancestor_ids[] which records the IDs of all
+ancestors including self and cgroup->level for the nesting level.
 
-v2: Add EXPORT_SYMBOL_GPL(cgroup_get_from_path).
+This allows testing whether a given cgroup is a descendant of another
+in three finite steps - testing whether the two belong to the same
+hierarchy, whether the descendant candidate is at the same or a higher
+level than the ancestor and comparing the recorded ancestor_id at the
+matching level.  cgroup_is_descendant() is accordingly reimplmented
+and made inline.
 
-Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Signed-off-by: Tejun Heo <tj@kernel.org>
 ---
- include/linux/cgroup.h |  7 +++++++
- kernel/cgroup.c        | 39 ++++++++++++++++++++++++++++++++++-----
- 2 files changed, 41 insertions(+), 5 deletions(-)
+ include/linux/cgroup-defs.h | 14 ++++++++++++++
+ include/linux/cgroup.h      | 18 +++++++++++++++++-
+ kernel/cgroup.c             | 32 ++++++++++----------------------
+ 3 files changed, 41 insertions(+), 23 deletions(-)
 
+diff --git a/include/linux/cgroup-defs.h b/include/linux/cgroup-defs.h
+index 60d44b2..504d859 100644
+--- a/include/linux/cgroup-defs.h
++++ b/include/linux/cgroup-defs.h
+@@ -235,6 +235,14 @@ struct cgroup {
+ 	int id;
+ 
+ 	/*
++	 * The depth this cgroup is at.  The root is at depth zero and each
++	 * step down the hierarchy increments the level.  This along with
++	 * ancestor_ids[] can determine whether a given cgroup is a
++	 * descendant of another without traversing the hierarchy.
++	 */
++	int level;
++
++	/*
+ 	 * Each non-empty css_set associated with this cgroup contributes
+ 	 * one to populated_cnt.  All children with non-zero popuplated_cnt
+ 	 * of their own contribute one.  The count is zero iff there's no
+@@ -289,6 +297,9 @@ struct cgroup {
+ 
+ 	/* used to schedule release agent */
+ 	struct work_struct release_agent_work;
++
++	/* ids of the ancestors at each level including self */
++	int ancestor_ids[];
+ };
+ 
+ /*
+@@ -308,6 +319,9 @@ struct cgroup_root {
+ 	/* The root cgroup.  Root is destroyed on its release. */
+ 	struct cgroup cgrp;
+ 
++	/* for cgrp->ancestor_ids[0] */
++	int cgrp_ancestor_id_storage;
++
+ 	/* Number of cgroups in the hierarchy, used only for /proc/cgroups */
+ 	atomic_t nr_cgrps;
+ 
 diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
-index b5ee2c4..4c3ffab 100644
+index 22e3754..b5ee2c4 100644
 --- a/include/linux/cgroup.h
 +++ b/include/linux/cgroup.h
-@@ -81,6 +81,8 @@ struct cgroup_subsys_state *cgroup_get_e_css(struct cgroup *cgroup,
+@@ -81,7 +81,6 @@ struct cgroup_subsys_state *cgroup_get_e_css(struct cgroup *cgroup,
  struct cgroup_subsys_state *css_tryget_online_from_dir(struct dentry *dentry,
  						       struct cgroup_subsys *ss);
  
-+struct cgroup *cgroup_get_from_path(const char *path);
-+
+-bool cgroup_is_descendant(struct cgroup *cgrp, struct cgroup *ancestor);
  int cgroup_attach_task_all(struct task_struct *from, struct task_struct *);
  int cgroup_transfer_tasks(struct cgroup *to, struct cgroup *from);
  
-@@ -351,6 +353,11 @@ static inline void css_put_many(struct cgroup_subsys_state *css, unsigned int n)
- 		percpu_ref_put_many(&css->refcnt, n);
- }
- 
-+static inline void cgroup_put(struct cgroup *cgrp)
-+{
-+	css_put(&cgrp->self);
-+}
-+
- /**
-  * task_css_set_check - obtain a task's css_set with extra access conditions
-  * @task: the task to obtain css_set for
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index 3190040..3db5e8f 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -434,11 +434,6 @@ static bool cgroup_tryget(struct cgroup *cgrp)
- 	return css_tryget(&cgrp->self);
- }
- 
--static void cgroup_put(struct cgroup *cgrp)
--{
--	css_put(&cgrp->self);
--}
--
- struct cgroup_subsys_state *of_css(struct kernfs_open_file *of)
- {
- 	struct cgroup *cgrp = of->kn->parent->priv;
-@@ -5753,6 +5748,40 @@ struct cgroup_subsys_state *css_from_id(int id, struct cgroup_subsys *ss)
- 	return id > 0 ? idr_find(&ss->css_idr, id) : NULL;
+@@ -459,6 +458,23 @@ static inline struct cgroup *task_cgroup(struct task_struct *task,
+ 	return task_css(task, subsys_id)->cgroup;
  }
  
 +/**
-+ * cgroup_get_from_path - lookup and get a cgroup from its default hierarchy path
-+ * @path: path on the default hierarchy
++ * cgroup_is_descendant - test ancestry
++ * @cgrp: the cgroup to be tested
++ * @ancestor: possible ancestor of @cgrp
 + *
-+ * Find the cgroup at @path on the default hierarchy, increment its
-+ * reference count and return it.  Returns pointer to the found cgroup on
-+ * success, ERR_PTR(-ENOENT) if @path doens't exist and ERR_PTR(-ENOTDIR)
-+ * if @path points to a non-directory.
++ * Test whether @cgrp is a descendant of @ancestor.  It also returns %true
++ * if @cgrp == @ancestor.  This function is safe to call as long as @cgrp
++ * and @ancestor are accessible.
 + */
-+struct cgroup *cgroup_get_from_path(const char *path)
++static inline bool cgroup_is_descendant(struct cgroup *cgrp,
++					struct cgroup *ancestor)
 +{
-+	struct kernfs_node *kn;
-+	struct cgroup *cgrp;
-+
-+	mutex_lock(&cgroup_mutex);
-+
-+	kn = kernfs_walk_and_get(cgrp_dfl_root.cgrp.kn, path);
-+	if (kn) {
-+		if (kernfs_type(kn) == KERNFS_DIR) {
-+			cgrp = kn->priv;
-+			cgroup_get(cgrp);
-+		} else {
-+			cgrp = ERR_PTR(-ENOTDIR);
-+		}
-+		kernfs_put(kn);
-+	} else {
-+		cgrp = ERR_PTR(-ENOENT);
-+	}
-+
-+	mutex_unlock(&cgroup_mutex);
-+	return cgrp;
++	if (cgrp->root != ancestor->root || cgrp->level < ancestor->level)
++		return false;
++	return cgrp->ancestor_ids[ancestor->level] == ancestor->id;
 +}
-+EXPORT_SYMBOL_GPL(cgroup_get_from_path);
 +
- #ifdef CONFIG_CGROUP_DEBUG
- static struct cgroup_subsys_state *
- debug_css_alloc(struct cgroup_subsys_state *parent_css)
+ /* no synchronization, the result can only be used as a hint */
+ static inline bool cgroup_is_populated(struct cgroup *cgrp)
+ {
+diff --git a/kernel/cgroup.c b/kernel/cgroup.c
+index f1603c1..3190040 100644
+--- a/kernel/cgroup.c
++++ b/kernel/cgroup.c
+@@ -459,25 +459,6 @@ struct cgroup_subsys_state *of_css(struct kernfs_open_file *of)
+ }
+ EXPORT_SYMBOL_GPL(of_css);
+ 
+-/**
+- * cgroup_is_descendant - test ancestry
+- * @cgrp: the cgroup to be tested
+- * @ancestor: possible ancestor of @cgrp
+- *
+- * Test whether @cgrp is a descendant of @ancestor.  It also returns %true
+- * if @cgrp == @ancestor.  This function is safe to call as long as @cgrp
+- * and @ancestor are accessible.
+- */
+-bool cgroup_is_descendant(struct cgroup *cgrp, struct cgroup *ancestor)
+-{
+-	while (cgrp) {
+-		if (cgrp == ancestor)
+-			return true;
+-		cgrp = cgroup_parent(cgrp);
+-	}
+-	return false;
+-}
+-
+ static int notify_on_release(const struct cgroup *cgrp)
+ {
+ 	return test_bit(CGRP_NOTIFY_ON_RELEASE, &cgrp->flags);
+@@ -1903,6 +1884,7 @@ static int cgroup_setup_root(struct cgroup_root *root, unsigned long ss_mask)
+ 	if (ret < 0)
+ 		goto out;
+ 	root_cgrp->id = ret;
++	root_cgrp->ancestor_ids[0] = ret;
+ 
+ 	ret = percpu_ref_init(&root_cgrp->self.refcnt, css_release, 0,
+ 			      GFP_KERNEL);
+@@ -4846,11 +4828,11 @@ static int create_css(struct cgroup *cgrp, struct cgroup_subsys *ss,
+ static int cgroup_mkdir(struct kernfs_node *parent_kn, const char *name,
+ 			umode_t mode)
+ {
+-	struct cgroup *parent, *cgrp;
++	struct cgroup *parent, *cgrp, *tcgrp;
+ 	struct cgroup_root *root;
+ 	struct cgroup_subsys *ss;
+ 	struct kernfs_node *kn;
+-	int ssid, ret;
++	int level, ssid, ret;
+ 
+ 	/* Do not accept '\n' to prevent making /proc/<pid>/cgroup unparsable.
+ 	 */
+@@ -4861,9 +4843,11 @@ static int cgroup_mkdir(struct kernfs_node *parent_kn, const char *name,
+ 	if (!parent)
+ 		return -ENODEV;
+ 	root = parent->root;
++	level = parent->level + 1;
+ 
+ 	/* allocate the cgroup and its ID, 0 is reserved for the root */
+-	cgrp = kzalloc(sizeof(*cgrp), GFP_KERNEL);
++	cgrp = kzalloc(sizeof(*cgrp) +
++		       sizeof(cgrp->ancestor_ids[0]) * (level + 1), GFP_KERNEL);
+ 	if (!cgrp) {
+ 		ret = -ENOMEM;
+ 		goto out_unlock;
+@@ -4887,6 +4871,10 @@ static int cgroup_mkdir(struct kernfs_node *parent_kn, const char *name,
+ 
+ 	cgrp->self.parent = &parent->self;
+ 	cgrp->root = root;
++	cgrp->level = level;
++
++	for (tcgrp = cgrp; tcgrp; tcgrp = cgroup_parent(tcgrp))
++		cgrp->ancestor_ids[tcgrp->level] = tcgrp->id;
+ 
+ 	if (notify_on_release(parent))
+ 		set_bit(CGRP_NOTIFY_ON_RELEASE, &cgrp->flags);
 -- 
 2.5.0
+
