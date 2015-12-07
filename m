@@ -1,89 +1,125 @@
-From: Bintian <bintian.wang@huawei.com>
-Subject: Re: [PATCH RESEND net-next 3/3] arm64: hip05-d02: Document devicetree
- bindings for Hisilicon D02 Board
-Date: Mon, 7 Dec 2015 21:48:38 +0800
-Message-ID: <56658E36.40702@huawei.com>
-References: <1449302088-53037-1-git-send-email-yankejian@huawei.com> <1449302088-53037-4-git-send-email-yankejian@huawei.com> <20151207131617.GA25170@rob-hp-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <robh@kernel.org>, <davem@davemloft.net>,
-	<pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<xuwei5@hisilicon.com>, <catalin.marinas@arm.com>,
-	<will.deacon@arm.com>, <wangkefeng.wang@huawei.com>,
-	<dingtianhong@huawei.com>, <liguozhu@huawei.com>,
-	<Yisen.Zhuang@huawei.com>, <sboyd@codeaurora.org>,
-	<haojian.zhuang@linaro.org>, <wangzhou1@hisilicon.com>,
-	<long.wanglong@huawei.com>, <leo.yan@linaro.org>,
-	<haifeng.wei@huawei.com>, <devicetree@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linuxarm@huawei.com>
-To: yankejian <yankejian@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151207131617.GA25170@rob-hp-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Uri Mashiach <uri.mashiach@compulab.co.il>
+Subject: [PATCH] wlcore/wl12xx: spi: fix oops on firmware load
+Date: Mon,  7 Dec 2015 15:56:43 +0200
+Message-ID: <1449496603-24597-1-git-send-email-uri.mashiach@compulab.co.il>
+Cc: Luciano Coelho <luca@coelho.fi>, Eliad Peller <eliad@wizery.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	igor.grinberg@compulab.co.il,
+	Uri Mashiach <uri.mashiach@compulab.co.il>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from softlayer.compulab.co.il ([50.23.254.55]:57836 "EHLO
+	compulab.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752005AbbLGN5G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Dec 2015 08:57:06 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2015/12/7 21:16, Rob Herring wrote:
-> On Sat, Dec 05, 2015 at 03:54:48PM +0800, yankejian wrote:
->> This patch adds documentation for the devicetree bindings used by the
->> DT files of Hisilicon Hip05-D02 development board.
->>
->> Signed-off-by: yankejian <yankejian@huawei.com>
-You may need to configure as  "Kejian Yan <yankejian@huawei.com>"     :)
+The maximum chunks used by the function is
+(SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE + 1).
+The original commands array had space for
+(SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE) commands.
+When the last chunk is used (len > 4 * WSPI_MAX_CHUNK_SIZE), the last
+command is stored outside the bounds of the commands array.
 
-BR,
+Oops 5 (page fault) is generated during current wl1271 firmware load
+attempt:
 
-Bintian
->> ---
->>   .../devicetree/bindings/arm/hisilicon/hisilicon.txt      | 16 ++++++++++++++++
->>   1 file changed, 16 insertions(+)
->>
->> diff --git a/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.txt b/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.txt
->> index 6ac7c00..5318d78 100644
->> --- a/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.txt
->> +++ b/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.txt
->> @@ -187,6 +187,22 @@ Example:
->>   		reg = <0xb0000000 0x10000>;
->>   	};
->>   
->> +Hisilicon HiP05 PERISUB system controller
->> +
->> +Required properties:
->> +- compatible : "hisilicon,peri-c-subctrl", "syscon";
-> This should be more specific and have the SOC name in it.
->
->> +- reg : Register address and size
->> +
->> +The HiP05 PERISUB system controller is shared by peripheral controllers in
->> +HiP05 Soc to implement some basic configurations. the peripheral
->> + controllers include mdio, ddr, iic, uart, timer and so on.
->> +
->> +Example:
->> +	/* for HiP05 PCIe-SAS system */
->> +	pcie_sas: system_controller@0xb0000000 {
->> +		compatible = "hisilicon,pcie-sas-subctrl", "syscon";
-> The example doesn't match.
->
->> +		reg = <0xb0000000 0x10000>;
->> +	};
->>   -----------------------------------------------------------------------
->>   Hisilicon CPU controller
->>   
->> -- 
->> 1.9.1
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe devicetree" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
-> .
->
+root@debian-armhf:~# ifconfig wlan0 up
+[  294.312399] Unable to handle kernel paging request at virtual address
+00203fc4
+[  294.320173] pgd = de528000
+[  294.323028] [00203fc4] *pgd=00000000
+[  294.326916] Internal error: Oops: 5 [#1] SMP ARM
+[  294.331789] Modules linked in: bnep rfcomm bluetooth ipv6 arc4 wl12xx
+wlcore mac80211 musb_dsps cfg80211 musb_hdrc usbcore usb_common
+wlcore_spi omap_rng rng_core musb_am335x omap_wdt cpufreq_dt thermal_sys
+hwmon
+[  294.351838] CPU: 0 PID: 1827 Comm: ifconfig Not tainted
+4.2.0-00002-g3e9ad27-dirty #78
+[  294.360154] Hardware name: Generic AM33XX (Flattened Device Tree)
+[  294.366557] task: dc9d6d40 ti: de550000 task.ti: de550000
+[  294.372236] PC is at __spi_validate+0xa8/0x2ac
+[  294.376902] LR is at __spi_sync+0x78/0x210
+[  294.381200] pc : [<c049c760>]    lr : [<c049ebe0>]    psr: 60000013
+[  294.381200] sp : de551998  ip : de5519d8  fp : 00200000
+[  294.393242] r10: de551c8c  r9 : de5519d8  r8 : de3a9000
+[  294.398730] r7 : de3a9258  r6 : de3a9400  r5 : de551a48  r4 :
+00203fbc
+[  294.405577] r3 : 00000000  r2 : 00000000  r1 : 00000000  r0 :
+de3a9000
+[  294.412420] Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM
+Segment user
+[  294.419918] Control: 10c5387d  Table: 9e528019  DAC: 00000015
+[  294.425954] Process ifconfig (pid: 1827, stack limit = 0xde550218)
+[  294.432437] Stack: (0xde551998 to 0xde552000)
+
+...
+
+[  294.883613] [<c049c760>] (__spi_validate) from [<c049ebe0>]
+(__spi_sync+0x78/0x210)
+[  294.891670] [<c049ebe0>] (__spi_sync) from [<bf036598>]
+(wl12xx_spi_raw_write+0xfc/0x148 [wlcore_spi])
+[  294.901661] [<bf036598>] (wl12xx_spi_raw_write [wlcore_spi]) from
+[<bf21c694>] (wlcore_boot_upload_firmware+0x1ec/0x458 [wlcore])
+[  294.914038] [<bf21c694>] (wlcore_boot_upload_firmware [wlcore]) from
+[<bf24532c>] (wl12xx_boot+0xc10/0xfac [wl12xx])
+[  294.925161] [<bf24532c>] (wl12xx_boot [wl12xx]) from [<bf20d5cc>]
+(wl1271_op_add_interface+0x5b0/0x910 [wlcore])
+[  294.936364] [<bf20d5cc>] (wl1271_op_add_interface [wlcore]) from
+[<bf15c4ac>] (ieee80211_do_open+0x44c/0xf7c [mac80211])
+[  294.947963] [<bf15c4ac>] (ieee80211_do_open [mac80211]) from
+[<c0537978>] (__dev_open+0xa8/0x110)
+[  294.957307] [<c0537978>] (__dev_open) from [<c0537bf8>]
+(__dev_change_flags+0x88/0x148)
+[  294.965713] [<c0537bf8>] (__dev_change_flags) from [<c0537cd0>]
+(dev_change_flags+0x18/0x48)
+[  294.974576] [<c0537cd0>] (dev_change_flags) from [<c05a55a0>]
+(devinet_ioctl+0x6b4/0x7d0)
+[  294.983191] [<c05a55a0>] (devinet_ioctl) from [<c0517040>]
+(sock_ioctl+0x1e4/0x2bc)
+[  294.991244] [<c0517040>] (sock_ioctl) from [<c017d378>]
+(do_vfs_ioctl+0x420/0x6b0)
+[  294.999208] [<c017d378>] (do_vfs_ioctl) from [<c017d674>]
+(SyS_ioctl+0x6c/0x7c)
+[  295.006880] [<c017d674>] (SyS_ioctl) from [<c000f4c0>]
+(ret_fast_syscall+0x0/0x54)
+[  295.014835] Code: e1550004 e2444034 0a00007d e5953018 (e5942008)
+[  295.021544] ---[ end trace 66ed188198f4e24e ]---
+
+Signed-off-by: Uri Mashiach <uri.mashiach@compulab.co.il>
+---
+ drivers/net/wireless/ti/wlcore/spi.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/ti/wlcore/spi.c b/drivers/net/wireless/ti/wlcore/spi.c
+index f1ac283..720e4e4 100644
+--- a/drivers/net/wireless/ti/wlcore/spi.c
++++ b/drivers/net/wireless/ti/wlcore/spi.c
+@@ -73,7 +73,10 @@
+  */
+ #define SPI_AGGR_BUFFER_SIZE (4 * PAGE_SIZE)
+ 
+-#define WSPI_MAX_NUM_OF_CHUNKS (SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE)
++/* Maximum number of SPI write chunks */
++#define WSPI_MAX_NUM_OF_CHUNKS \
++	((SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE) + 1)
++
+ 
+ struct wl12xx_spi_glue {
+ 	struct device *dev;
+@@ -268,9 +271,10 @@ static int __must_check wl12xx_spi_raw_write(struct device *child, int addr,
+ 					     void *buf, size_t len, bool fixed)
+ {
+ 	struct wl12xx_spi_glue *glue = dev_get_drvdata(child->parent);
+-	struct spi_transfer t[2 * (WSPI_MAX_NUM_OF_CHUNKS + 1)];
++	/* SPI write buffers - 2 for each chunk */
++	struct spi_transfer t[2 * WSPI_MAX_NUM_OF_CHUNKS];
+ 	struct spi_message m;
+-	u32 commands[WSPI_MAX_NUM_OF_CHUNKS];
++	u32 commands[WSPI_MAX_NUM_OF_CHUNKS]; /* 1 command per chunk */
+ 	u32 *cmd;
+ 	u32 chunk_len;
+ 	int i;
+-- 
+2.5.0
