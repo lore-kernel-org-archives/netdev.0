@@ -1,44 +1,29 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next] PHY: DP83867: Remove looking in parent device for OF properties
-Date: Mon,  7 Dec 2015 04:38:58 +0100
-Message-ID: <1449459538-24105-1-git-send-email-andrew@lunn.ch>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/6] Add HA and LAG support for mlx4 SRIOV VFs
+Date: Sun, 06 Dec 2015 22:45:11 -0500 (EST)
+Message-ID: <20151206.224511.1085423164208836056.davem@davemloft.net>
+References: <1449418063-8111-1-git-send-email-ogerlitz@mellanox.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, talal@mellanox.com, majd@mellanox.com,
+	jackm@dev.mellanox.co.il, monis@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:54862 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755165AbbLGDjH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Dec 2015 22:39:07 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:34811 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755244AbbLGDpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 22:45:13 -0500
+In-Reply-To: <1449418063-8111-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Device tree properties for a phy device are expected to be in the phy
-node. The current code for the DP83867 also tries to look in the
-parent node. The devices binding documentation does not mention this,
-no current device tree file makes use of this, and it is not behaviour
-we want. So remove looking in the parent device.
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Sun,  6 Dec 2015 18:07:37 +0200
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/phy/dp83867.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+> This series is built upon the code added in commit ce388ff "Merge branch
+> 'mlx4-next'" which added HA and LAG support to mlx4 RoCE and SRIOV services.
+> 
+> We add HA and Link Aggregation support to single ported mlx4 Ethernet VFs. 
 
-diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
-index 32f10662f4ac..4ebf601073d9 100644
---- a/drivers/net/phy/dp83867.c
-+++ b/drivers/net/phy/dp83867.c
-@@ -107,10 +107,7 @@ static int dp83867_of_init(struct phy_device *phydev)
- 	struct device_node *of_node = dev->of_node;
- 	int ret;
- 
--	if (!of_node && dev->parent->of_node)
--		of_node = dev->parent->of_node;
--
--	if (!phydev->dev.of_node)
-+	if (!of_node)
- 		return -ENODEV;
- 
- 	ret = of_property_read_u32(of_node, "ti,rx-internal-delay",
--- 
-2.6.2
+Series applied, thanks.
