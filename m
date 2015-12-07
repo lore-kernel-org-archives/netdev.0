@@ -1,125 +1,194 @@
-From: Uri Mashiach <uri.mashiach@compulab.co.il>
-Subject: [PATCH] wlcore/wl12xx: spi: fix oops on firmware load
-Date: Mon,  7 Dec 2015 15:56:43 +0200
-Message-ID: <1449496603-24597-1-git-send-email-uri.mashiach@compulab.co.il>
-Cc: Luciano Coelho <luca@coelho.fi>, Eliad Peller <eliad@wizery.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	igor.grinberg@compulab.co.il,
-	Uri Mashiach <uri.mashiach@compulab.co.il>
-To: Kalle Valo <kvalo@codeaurora.org>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH net-next 2/2] net: hns: enet specisies a reference to
+ dsaf (config and documents)
+Date: Mon, 7 Dec 2015 08:12:21 -0600
+Message-ID: <20151207141221.GA18040@rob-hp-laptop>
+References: <1449302356-54658-1-git-send-email-yankejian@huawei.com>
+ <1449302356-54658-3-git-send-email-yankejian@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, arnd@arndb.de, fengguang.wu@intel.com,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	catalin.marinas@arm.com, will.deacon@arm.com,
+	salil.mehta@huawei.com, Yisen.Zhuang@huawei.com,
+	liguozhu@huawei.com, lisheng011@huawei.com,
+	huangdaode@hisilicon.com, xuwei5@hisilicon.com,
+	haifeng.wei@huawei.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linuxarm@huawei.com
+To: yankejian <yankejian@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from softlayer.compulab.co.il ([50.23.254.55]:57836 "EHLO
-	compulab.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752005AbbLGN5G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Dec 2015 08:57:06 -0500
+Received: from mail.kernel.org ([198.145.29.136]:36014 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932410AbbLGOM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Dec 2015 09:12:28 -0500
+Content-Disposition: inline
+In-Reply-To: <1449302356-54658-3-git-send-email-yankejian@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The maximum chunks used by the function is
-(SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE + 1).
-The original commands array had space for
-(SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE) commands.
-When the last chunk is used (len > 4 * WSPI_MAX_CHUNK_SIZE), the last
-command is stored outside the bounds of the commands array.
+On Sat, Dec 05, 2015 at 03:59:16PM +0800, yankejian wrote:
+> when enet specisies a reference to dsaf, the correlative config and
 
-Oops 5 (page fault) is generated during current wl1271 firmware load
-attempt:
+s/when/When/
 
-root@debian-armhf:~# ifconfig wlan0 up
-[  294.312399] Unable to handle kernel paging request at virtual address
-00203fc4
-[  294.320173] pgd = de528000
-[  294.323028] [00203fc4] *pgd=00000000
-[  294.326916] Internal error: Oops: 5 [#1] SMP ARM
-[  294.331789] Modules linked in: bnep rfcomm bluetooth ipv6 arc4 wl12xx
-wlcore mac80211 musb_dsps cfg80211 musb_hdrc usbcore usb_common
-wlcore_spi omap_rng rng_core musb_am335x omap_wdt cpufreq_dt thermal_sys
-hwmon
-[  294.351838] CPU: 0 PID: 1827 Comm: ifconfig Not tainted
-4.2.0-00002-g3e9ad27-dirty #78
-[  294.360154] Hardware name: Generic AM33XX (Flattened Device Tree)
-[  294.366557] task: dc9d6d40 ti: de550000 task.ti: de550000
-[  294.372236] PC is at __spi_validate+0xa8/0x2ac
-[  294.376902] LR is at __spi_sync+0x78/0x210
-[  294.381200] pc : [<c049c760>]    lr : [<c049ebe0>]    psr: 60000013
-[  294.381200] sp : de551998  ip : de5519d8  fp : 00200000
-[  294.393242] r10: de551c8c  r9 : de5519d8  r8 : de3a9000
-[  294.398730] r7 : de3a9258  r6 : de3a9400  r5 : de551a48  r4 :
-00203fbc
-[  294.405577] r3 : 00000000  r2 : 00000000  r1 : 00000000  r0 :
-de3a9000
-[  294.412420] Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM
-Segment user
-[  294.419918] Control: 10c5387d  Table: 9e528019  DAC: 00000015
-[  294.425954] Process ifconfig (pid: 1827, stack limit = 0xde550218)
-[  294.432437] Stack: (0xde551998 to 0xde552000)
+> documents needs to update. this patch updates the correlative dtsi file
 
-...
+s/this/This/
 
-[  294.883613] [<c049c760>] (__spi_validate) from [<c049ebe0>]
-(__spi_sync+0x78/0x210)
-[  294.891670] [<c049ebe0>] (__spi_sync) from [<bf036598>]
-(wl12xx_spi_raw_write+0xfc/0x148 [wlcore_spi])
-[  294.901661] [<bf036598>] (wl12xx_spi_raw_write [wlcore_spi]) from
-[<bf21c694>] (wlcore_boot_upload_firmware+0x1ec/0x458 [wlcore])
-[  294.914038] [<bf21c694>] (wlcore_boot_upload_firmware [wlcore]) from
-[<bf24532c>] (wl12xx_boot+0xc10/0xfac [wl12xx])
-[  294.925161] [<bf24532c>] (wl12xx_boot [wl12xx]) from [<bf20d5cc>]
-(wl1271_op_add_interface+0x5b0/0x910 [wlcore])
-[  294.936364] [<bf20d5cc>] (wl1271_op_add_interface [wlcore]) from
-[<bf15c4ac>] (ieee80211_do_open+0x44c/0xf7c [mac80211])
-[  294.947963] [<bf15c4ac>] (ieee80211_do_open [mac80211]) from
-[<c0537978>] (__dev_open+0xa8/0x110)
-[  294.957307] [<c0537978>] (__dev_open) from [<c0537bf8>]
-(__dev_change_flags+0x88/0x148)
-[  294.965713] [<c0537bf8>] (__dev_change_flags) from [<c0537cd0>]
-(dev_change_flags+0x18/0x48)
-[  294.974576] [<c0537cd0>] (dev_change_flags) from [<c05a55a0>]
-(devinet_ioctl+0x6b4/0x7d0)
-[  294.983191] [<c05a55a0>] (devinet_ioctl) from [<c0517040>]
-(sock_ioctl+0x1e4/0x2bc)
-[  294.991244] [<c0517040>] (sock_ioctl) from [<c017d378>]
-(do_vfs_ioctl+0x420/0x6b0)
-[  294.999208] [<c017d378>] (do_vfs_ioctl) from [<c017d674>]
-(SyS_ioctl+0x6c/0x7c)
-[  295.006880] [<c017d674>] (SyS_ioctl) from [<c000f4c0>]
-(ret_fast_syscall+0x0/0x54)
-[  295.014835] Code: e1550004 e2444034 0a00007d e5953018 (e5942008)
-[  295.021544] ---[ end trace 66ed188198f4e24e ]---
+> and bindings documents .
+                        ^
+extra space
 
-Signed-off-by: Uri Mashiach <uri.mashiach@compulab.co.il>
----
- drivers/net/wireless/ti/wlcore/spi.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+This change breaks compatibility with old dtbs. IIRC, this is all new, 
+so maybe it doesn't matter, but you should be explicit that you are 
+doing that.
 
-diff --git a/drivers/net/wireless/ti/wlcore/spi.c b/drivers/net/wireless/ti/wlcore/spi.c
-index f1ac283..720e4e4 100644
---- a/drivers/net/wireless/ti/wlcore/spi.c
-+++ b/drivers/net/wireless/ti/wlcore/spi.c
-@@ -73,7 +73,10 @@
-  */
- #define SPI_AGGR_BUFFER_SIZE (4 * PAGE_SIZE)
- 
--#define WSPI_MAX_NUM_OF_CHUNKS (SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE)
-+/* Maximum number of SPI write chunks */
-+#define WSPI_MAX_NUM_OF_CHUNKS \
-+	((SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE) + 1)
-+
- 
- struct wl12xx_spi_glue {
- 	struct device *dev;
-@@ -268,9 +271,10 @@ static int __must_check wl12xx_spi_raw_write(struct device *child, int addr,
- 					     void *buf, size_t len, bool fixed)
- {
- 	struct wl12xx_spi_glue *glue = dev_get_drvdata(child->parent);
--	struct spi_transfer t[2 * (WSPI_MAX_NUM_OF_CHUNKS + 1)];
-+	/* SPI write buffers - 2 for each chunk */
-+	struct spi_transfer t[2 * WSPI_MAX_NUM_OF_CHUNKS];
- 	struct spi_message m;
--	u32 commands[WSPI_MAX_NUM_OF_CHUNKS];
-+	u32 commands[WSPI_MAX_NUM_OF_CHUNKS]; /* 1 command per chunk */
- 	u32 *cmd;
- 	u32 chunk_len;
- 	int i;
--- 
-2.5.0
+
+> 
+> Signed-off-by: yankejian <yankejian@huawei.com>
+> ---
+>  .../devicetree/bindings/net/hisilicon-hns-dsaf.txt    |  5 +----
+>  .../devicetree/bindings/net/hisilicon-hns-nic.txt     |  7 ++++---
+>  arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi          | 19 +++++++++----------
+>  3 files changed, 14 insertions(+), 17 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
+> index 80411b2..ecacfa4 100644
+> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
+> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
+> @@ -4,8 +4,6 @@ Required properties:
+>  - compatible: should be "hisilicon,hns-dsaf-v1" or "hisilicon,hns-dsaf-v2".
+>    "hisilicon,hns-dsaf-v1" is for hip05.
+>    "hisilicon,hns-dsaf-v2" is for Hi1610 and Hi1612.
+> -- dsa-name: dsa fabric name who provide this interface.
+> -  should be "dsafX", X is the dsaf id.
+>  - mode: dsa fabric mode string. only support one of dsaf modes like these:
+>  		"2port-64vf",
+>  		"6port-16rss",
+> @@ -26,9 +24,8 @@ Required properties:
+>  
+>  Example:
+>  
+> -dsa: dsa@c7000000 {
+> +dsaf0: dsa@c7000000 {
+>  	compatible = "hisilicon,hns-dsaf-v1";
+> -	dsa_name = "dsaf0";
+>  	mode = "6port-16rss";
+>  	interrupt-parent = <&mbigen_dsa>;
+>  	reg = <0x0 0xC0000000 0x0 0x420000
+> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
+> index 41d19be..e6a9d1c 100644
+> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
+> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
+> @@ -4,8 +4,9 @@ Required properties:
+>  - compatible: "hisilicon,hns-nic-v1" or "hisilicon,hns-nic-v2".
+>    "hisilicon,hns-nic-v1" is for hip05.
+>    "hisilicon,hns-nic-v2" is for Hi1610 and Hi1612.
+> -- ae-name: accelerator name who provides this interface,
+> -  is simply a name referring to the name of name in the accelerator node.
+> +- ae-handle: accelerator engine handle for hns,
+> +  specifies a reference to the associating hardware driver node.
+> +  see Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
+>  - port-id: is the index of port provided by DSAF (the accelerator). DSAF can
+>    connect to 8 PHYs. Port 0 to 1 are both used for adminstration purpose. They
+>    are called debug ports.
+> @@ -41,7 +42,7 @@ Example:
+>  
+>  	ethernet@0{
+>  		compatible = "hisilicon,hns-nic-v1";
+> -		ae-name = "dsaf0";
+> +		ae-handle = <&dsaf0>;
+>  		port-id = <0>;
+>  		local-mac-address = [a2 14 e4 4b 56 76];
+>  	};
+> diff --git a/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi b/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi
+> index 606dd5a..89c883e 100644
+> --- a/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi
+> +++ b/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi
+> @@ -23,9 +23,8 @@ soc0: soc@000000000 {
+>  		};
+>  	};
+>  
+> -	dsa: dsa@c7000000 {
+> +	dsaf0: dsa@c7000000 {
+>  		compatible = "hisilicon,hns-dsaf-v1";
+> -		dsa_name = "dsaf0";
+>  		mode = "6port-16rss";
+>  		interrupt-parent = <&mbigen_dsa>;
+>  
+> @@ -127,7 +126,7 @@ soc0: soc@000000000 {
+>  
+>  	eth0: ethernet@0{
+>  		compatible = "hisilicon,hns-nic-v1";
+> -		ae-name = "dsaf0";
+> +		ae-handle = <&dsaf0>;
+>  		port-id = <0>;
+>  		local-mac-address = [00 00 00 01 00 58];
+>  		status = "disabled";
+> @@ -135,14 +134,14 @@ soc0: soc@000000000 {
+>  	};
+>  	eth1: ethernet@1{
+>  		compatible = "hisilicon,hns-nic-v1";
+> -		ae-name = "dsaf0";
+> +		ae-handle = <&dsaf0>;
+>  		port-id = <1>;
+>  		status = "disabled";
+>  		dma-coherent;
+>  	};
+>  	eth2: ethernet@2{
+>  		compatible = "hisilicon,hns-nic-v1";
+> -		ae-name = "dsaf0";
+> +		ae-handle = <&dsaf0>;
+>  		port-id = <2>;
+>  		local-mac-address = [00 00 00 01 00 5a];
+>  		status = "disabled";
+> @@ -150,7 +149,7 @@ soc0: soc@000000000 {
+>  	};
+>  	eth3: ethernet@3{
+>  		compatible = "hisilicon,hns-nic-v1";
+> -		ae-name = "dsaf0";
+> +		ae-handle = <&dsaf0>;
+>  		port-id = <3>;
+>  		local-mac-address = [00 00 00 01 00 5b];
+>  		status = "disabled";
+> @@ -158,7 +157,7 @@ soc0: soc@000000000 {
+>  	};
+>  	eth4: ethernet@4{
+>  		compatible = "hisilicon,hns-nic-v1";
+> -		ae-name = "dsaf0";
+> +		ae-handle = <&dsaf0>;
+>  		port-id = <4>;
+>  		local-mac-address = [00 00 00 01 00 5c];
+>  		status = "disabled";
+> @@ -166,7 +165,7 @@ soc0: soc@000000000 {
+>  	};
+>  	eth5: ethernet@5{
+>  		compatible = "hisilicon,hns-nic-v1";
+> -		ae-name = "dsaf0";
+> +		ae-handle = <&dsaf0>;
+>  		port-id = <5>;
+>  		local-mac-address = [00 00 00 01 00 5d];
+>  		status = "disabled";
+> @@ -174,7 +173,7 @@ soc0: soc@000000000 {
+>  	};
+>  	eth6: ethernet@6{
+>  		compatible = "hisilicon,hns-nic-v1";
+> -		ae-name = "dsaf0";
+> +		ae-handle = <&dsaf0>;
+>  		port-id = <6>;
+>  		local-mac-address = [00 00 00 01 00 5e];
+>  		status = "disabled";
+> @@ -182,7 +181,7 @@ soc0: soc@000000000 {
+>  	};
+>  	eth7: ethernet@7{
+>  		compatible = "hisilicon,hns-nic-v1";
+> -		ae-name = "dsaf0";
+> +		ae-handle = <&dsaf0>;
+>  		port-id = <7>;
+>  		local-mac-address = [00 00 00 01 00 5f];
+>  		status = "disabled";
+> -- 
+> 1.9.1
+> 
