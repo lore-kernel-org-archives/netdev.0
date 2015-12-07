@@ -1,32 +1,49 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC PATCH net] vxlan: fix incorrect RCO bit in VXLAN header
-Date: Mon, 7 Dec 2015 16:46:08 +0100
-Message-ID: <20151207154608.GB22032@pox.localdomain>
-References: <67179e9385c71f7c377a7df345d445704f49dbbc.1449233631.git.jbenc@redhat.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [PATCH 4.2 085/124] can: Use correct type in sizeof() in nla_put()
+Date: Mon,  7 Dec 2015 09:56:15 -0500
+Message-ID: <20151207144923.894413190@linuxfoundation.org>
+References: <20151207144919.656035367@linuxfoundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:34765 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933410AbbLGPqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 10:46:10 -0500
-Received: by wmvv187 with SMTP id v187so172751407wmv.1
-        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 07:46:09 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <67179e9385c71f7c377a7df345d445704f49dbbc.1449233631.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	stable@vger.kernel.org, Marek Vasut <marex@denx.de>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151207144919.656035367@linuxfoundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/04/15 at 01:54pm, Jiri Benc wrote:
-> Commit 3511494ce2f3d ("vxlan: Group Policy extension") changed definition of
-> VXLAN_HF_RCO from 0x00200000 to BIT(24). This is obviously incorrect. It's
-> also in violation with the RFC draft.
-> 
-> Fixes: 3511494ce2f3d ("vxlan: Group Policy extension")
-> Cc: Thomas Graf <tgraf@suug.ch>
-> Cc: Tom Herbert <therbert@google.com>
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+4.2-stable review patch.  If anyone has any objections, please let me know.
 
-Thanks for fixing this up Jiri. Sorry about the mess Tom.
+------------------
+
+From: Marek Vasut <marex@denx.de>
+
+commit 562b103a21974c2f9cd67514d110f918bb3e1796 upstream.
+
+The sizeof() is invoked on an incorrect variable, likely due to some
+copy-paste error, and this might result in memory corruption. Fix this.
+
+Signed-off-by: Marek Vasut <marex@denx.de>
+Cc: Wolfgang Grandegger <wg@grandegger.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+
+---
+ drivers/net/can/dev.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -915,7 +915,7 @@ static int can_fill_info(struct sk_buff
+ 	     nla_put(skb, IFLA_CAN_BITTIMING_CONST,
+ 		     sizeof(*priv->bittiming_const), priv->bittiming_const)) ||
+ 
+-	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(cm), &priv->clock) ||
++	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(priv->clock), &priv->clock) ||
+ 	    nla_put_u32(skb, IFLA_CAN_STATE, state) ||
+ 	    nla_put(skb, IFLA_CAN_CTRLMODE, sizeof(cm), &cm) ||
+ 	    nla_put_u32(skb, IFLA_CAN_RESTART_MS, priv->restart_ms) ||
