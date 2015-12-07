@@ -1,30 +1,28 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: IPsec workshop/BoF at netdev1.1?
-Date: Mon, 7 Dec 2015 13:00:55 +0100
-Message-ID: <20151207120054.GI14008@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: <netdev@vger.kernel.org>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net v3 0/2] vxlan: IPv6 fill_metadata_dst support
+Date: Mon,  7 Dec 2015 13:04:29 +0100
+Message-ID: <cover.1449489733.git.jbenc@redhat.com>
+Cc: Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:36322 "EHLO a.mx.secunet.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57435 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751998AbbLGMA6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Dec 2015 07:00:58 -0500
-Content-Disposition: inline
+	id S1753363AbbLGMEr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Dec 2015 07:04:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Is there any interest in doing an IPsec workshop/BoF at netdev1.1?
+This adds IPv6 support to ndo_fill_metadata_dst in vxlan. The IPv4 part
+needs some restructuring to avoid duplicate code, this will be sent as
+a separate patch targeting net-next.
 
-This mail is to probe if we can gather enough discussion topics to run
-such a workshop/BoF. So if someone is interested to attend and/or has a
-related discussion topic, please let me know.
+Jiri Benc (2):
+  vxlan: move IPv6 outpute route calculation to a function
+  vxlan: support ndo_fill_metadata_dst also for IPv6
 
-My current topics:
+ drivers/net/vxlan.c | 69 +++++++++++++++++++++++++++++++++++++++++++----------
+ 1 file changed, 57 insertions(+), 12 deletions(-)
 
-- Adding a software GRO/GSO codepath for IPsec. I have working example code,
-  a RFC version could be ready before the netdev conference.
-
-- Can we support IPsec offloading to NICs? There are NICs that can handle
-  IPsec, so what are the requirements to support this?
+-- 
+1.8.3.1
