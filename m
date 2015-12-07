@@ -1,58 +1,50 @@
-From: "Yankejian (Hackim Yim)" <yankejian@huawei.com>
-Subject: Re: [PATCH RESEND net-next 2/3] dts: hisi: fixes no syscon error when
- init mdio
-Date: Mon, 7 Dec 2015 09:30:56 +0800
-Message-ID: <5664E150.4020402@huawei.com>
-References: <1449302218-54374-1-git-send-email-yankejian@huawei.com>
- <1449302218-54374-3-git-send-email-yankejian@huawei.com>
- <5330584.WSWh7F8G32@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mark.rutland@arm.com, wangkefeng.wang@huawei.com, catalin.marinas@arm.com,
- will.deacon@arm.com, linuxarm@huawei.com, haojian.zhuang@linaro.org,
- haifeng.wei@huawei.com, xuwei5@hisilicon.com, galak@codeaurora.org,
- dingtianhong@huawei.com, Yisen.Zhuang@huawei.com, devicetree@vger.kernel.org,
- bintian.wang@huawei.com, pawel.moll@arm.com, ijc+devicetree@hellion.org.uk,
- leo.yan@linaro.org, robh+dt@kernel.org, liguozhu@huawei.com,
- netdev@vger.kernel.org, sboyd@codeaurora.org, linux-kernel@vger.kernel.org,
- wangzhou1@hisilicon.com, long.wanglong@huawei.com, davem@davemloft.net
-To: Arnd Bergmann <arnd@arndb.de>, <linux-arm-kernel@lists.infradead.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <5330584.WSWh7F8G32@wuerfel>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
+Subject: [PATCH v2 0/5] stmmac: Fixed Phy & PTP fixes
+Date: Mon,  7 Dec 2015 09:38:38 +0800
+Message-ID: <1449452324-53858-1-git-send-email-preid@electromag.com.au>
+Cc: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
+To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Provide ability to specify a fixed phy in the device tree and
+retain the mdio bus if no phy is found. This is needed where 
+a dsa is connected via a fixed phy and uses the mdio bus for config.
+Fixed ptp ref clock calculatins for the stmmac when ptp ref clock
+is running at <= 50Mhz. Also add device tree setting to config
+ptp clk source on socfpga platforms.
 
+Changes from V1:
+- Fixed mismatch doc / code for ptp_ref_clk dt node. 
+- Remove unit address from doc example.
 
-On 2015/12/6 6:15, Arnd Bergmann wrote:
-> On Saturday 05 December 2015 15:56:57 yankejian wrote:
->>                 #size-cells = <0>;
->>                 compatible = "hisilicon,hns-mdio";
->> -               reg = <0x0 0x803c0000 0x0 0x10000
->> -                      0x0 0x80000000 0x0 0x10000>;
->> +               reg = <0x0 0x803c0000 0x0 0x10000>;
->> +               subctrl_vbase = <&peri_c_subctrl>;
->>  
->>                 soc0_phy0: ethernet-phy@0 {
->>                         reg = <0x0>;
-> I don't see the subctrl_vbase property documented in the binding. Please
-> modify the binding as well.
->
-> Also, please use the normal naming conventions using '-' instead of '_'
-> inside of property names.
->
-> 	Arnd
->
-> .
+Phil Reid (5):
+  stmmac: create of compatible mdio bus for stmacc driver
+  stmmac: Correct documentation on stmmac clocks.
+  stmmac: Fix calculations for ptp counters when clock input = 50Mhz.
+  stmmac: Add ptp debugfs entry.
+  stmmac: socfpga: Provide dt node to config ptp clk source.
 
-Hi, Arnd
-Thanks for your suggestions. i will fixes it later.
+ .../devicetree/bindings/net/socfpga-dwmac.txt      |  2 +
+ Documentation/devicetree/bindings/net/stmmac.txt   | 27 +++++---
+ drivers/net/ethernet/stmicro/stmmac/common.h       |  2 +-
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |  9 +++
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |  1 +
+ .../net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c  |  8 ++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 79 +++++++++++++++++++---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  | 32 ++++++---
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h   |  5 ++
+ 10 files changed, 133 insertions(+), 34 deletions(-)
+
+-- 
+1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
