@@ -1,67 +1,98 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: Asterisk deadlocks since Kernel 4.1
-Date: Mon, 7 Dec 2015 07:58:25 +0100
-Message-ID: <56652E11.4010604@profihost.ag>
-References: <564DC4A5.70104@profihost.ag> <564DCC4C.1090009@redhat.com>
- <564E2852.8000200@profihost.ag> <56530A42.6030609@profihost.ag>
- <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com>
- <565EBDC1.1090808@profihost.ag> <8737vlt6xb.fsf@stressinduktion.org>
- <5661DAC4.8040909@profihost.ag> <20151205010819.GA21889@gondor.apana.org.au>
- <5664A102.2030602@profihost.ag> <20151207012042.GA7420@gondor.apana.org.au>
+From: "Yankejian (Hackim Yim)" <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next 2/2] net: hns: enet specisies a reference to dsaf
+ (config and documents)
+Date: Mon, 7 Dec 2015 15:14:13 +0800
+Message-ID: <566531C5.4050208@huawei.com>
+References: <1449295856-31068-1-git-send-email-yankejian@huawei.com>
+ <1449295856-31068-3-git-send-email-yankejian@huawei.com>
+ <23027215.8RIhViTVaB@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Weimer <fweimer@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jannik Winkel <j.winkel@profihost.ag>,
-	Marco Schinkel <m.schinkel@profihost.ag>,
-	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151207012042.GA7420@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<catalin.marinas-5wv7dgnIgG8@public.gmane.org>, <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	<salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<liguozhu-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
+	<haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <23027215.8RIhViTVaB@wuerfel>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Herbert,
 
-Am 07.12.2015 um 02:20 schrieb Herbert Xu:
-> On Sun, Dec 06, 2015 at 09:56:34PM +0100, Stefan Priebe wrote:
->> Hi Herbert,
->>
->> i think i found the issue in 4.1 with netlink. Somebody made a
->> mistake while backporting or cherry-picking your patch "netlink: Fix
->> autobind race condition that leads to zero port ID" to 4.1.
->>
->> It misses a goto in 4.1.
->>
->> This goto is missing in 4.1:
->>
->> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
->> index 4017e12..f15c001 100644
->> --- a/net/netlink/af_netlink.c
->> +++ b/net/netlink/af_netlink.c
->> @@ -1132,7 +1132,6 @@ static int netlink_insert(struct sock *sk, u32 portid)
->>                 if (err == -EEXIST)
->>                         err = -EADDRINUSE;
->>                 sock_put(sk);
->> -               goto err;
->>         }
->>
->>         /* We need to ensure that the socket is hashed and visible. */
->>
->> Can you please confirm, that this is not correct and might cause
->> those issues.
-> 
-> Well spotted! Yes this would be a fatal error and can cause the
-> problems you guys are seeing.
 
-Thanks, good. Can you help me to get this fix upstream into the stable
-lines?
+On 2015/12/6 6:19, Arnd Bergmann wrote:
+> On Saturday 05 December 2015 14:10:56 yankejian wrote:
+>> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
+>> index 80411b2..ecacfa4 100644
+>> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
+>> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
+>> @@ -4,8 +4,6 @@ Required properties:
+>>  - compatible: should be "hisilicon,hns-dsaf-v1" or "hisilicon,hns-dsaf-v2".
+>>    "hisilicon,hns-dsaf-v1" is for hip05.
+>>    "hisilicon,hns-dsaf-v2" is for Hi1610 and Hi1612.
+>> -- dsa-name: dsa fabric name who provide this interface.
+>> -  should be "dsafX", X is the dsaf id.
+>>  - mode: dsa fabric mode string. only support one of dsaf modes like these:
+>>                 "2port-64vf",
+>>                 "6port-16rss",
+>> @@ -26,9 +24,8 @@ Required properties:
+>>  
+>>  Example:
+>>  
+>> -dsa: dsa@c7000000 {
+>> +dsaf0: dsa@c7000000 {
+>>         compatible = "hisilicon,hns-dsaf-v1";
+>> -       dsa_name = "dsaf0";
+>>         mode = "6port-16rss";
+>>         interrupt-parent = <&mbigen_dsa>;
+>>         reg = <0x0 0xC0000000 0x0 0x420000
+>> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
+>> index 41d19be..e6a9d1c 100644
+>> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
+>> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
+>> @@ -4,8 +4,9 @@ Required properties:
+>>  - compatible: "hisilicon,hns-nic-v1" or "hisilicon,hns-nic-v2".
+>>    "hisilicon,hns-nic-v1" is for hip05.
+>>    "hisilicon,hns-nic-v2" is for Hi1610 and Hi1612.
+>> -- ae-name: accelerator name who provides this interface,
+>> -  is simply a name referring to the name of name in the accelerator node.
+>> +- ae-handle: accelerator engine handle for hns,
+>> +  specifies a reference to the associating hardware driver node.
+>> +  see Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
+>>  - port-id: is the index of port provided by DSAF (the accelerator). DSAF can
+>>    connect to 8 PHYs. Port 0 to 1 are both used for adminstration purpose. They
+>>    are called debug ports.
+>> @@ -41,7 +42,7 @@ Example:
+>>  
+>>
+> This looks like an incompatible change, as you add and remove
+> required properties. Is there a way to support both the old and
+> the new style?
+>
+> 	Arnd
+>
+> .
 
-Stefan
+Hi Arnd,
+Thanks for your suggestions.  it must be set the same strings in dsaf node and every enet node before.
+it seems inappropriate. as Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> 's suggestions, that would solve associating
+enet with a particular dsaf. so we discus the solution with Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>.
+we decide to use the new way instead of the old one.
 
-> 
-> Thanks,
-> 
+Best regards,
+yankejian
+
+>
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
