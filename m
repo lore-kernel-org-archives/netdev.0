@@ -1,34 +1,36 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 1/1] stmmac: socfpga: Provide dt node to config ptp clk
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 5/5] stmmac: socfpga: Provide dt node to config ptp clk
  source.
-Date: Mon, 7 Dec 2015 14:57:31 +0300
-Message-ID: <5665742B.7090908@cogentembedded.com>
+Date: Mon, 7 Dec 2015 14:59:57 +0300
+Message-ID: <566574BD.9010204@cogentembedded.com>
 References: <1449452324-53858-1-git-send-email-preid@electromag.com.au>
- <1449452324-53858-3-git-send-email-preid@electromag.com.au>
+ <1449452324-53858-7-git-send-email-preid@electromag.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449452324-53858-3-git-send-email-preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-Hello.
+To: Phil Reid <preid@electromag.com.au>, robh+dt@kernel.org,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	peppe.cavallaro@st.com, davem@davemloft.net,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:33564 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751818AbbLGMAB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 07:00:01 -0500
+Received: by lbbkw15 with SMTP id kw15so59488487lbb.0
+        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 03:59:59 -0800 (PST)
+In-Reply-To: <1449452324-53858-7-git-send-email-preid@electromag.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On 12/07/2015 04:38 AM, Phil Reid wrote:
 
-    How about change log?
-
-> Signed-off-by: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
+> Signed-off-by: Phil Reid <preid@electromag.com.au>
 > ---
->   Documentation/devicetree/bindings/net/socfpga-dwmac.txt |  2 ++
->   drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c     | 10 ++++++++++
->   2 files changed, 12 insertions(+)
+>   Documentation/devicetree/bindings/net/socfpga-dwmac.txt | 2 ++
+>   drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c     | 9 +++++++++
+>   2 files changed, 11 insertions(+)
 >
 > diff --git a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
 > index 3a9d679..72d82d6 100644
@@ -39,32 +41,23 @@ On 12/07/2015 04:38 AM, Phil Reid wrote:
 >    - altr,sysmgr-syscon : Should be the phandle to the system manager node that
 >      encompasses the glue register, the register offset, and the register shift.
 > + - altr,f2h_ptp_ref_clk use f2h_ptp_ref_clk instead of default eosc1 clock
-
-    Colon missed after the prop name. And in general, hyphens are preferred to 
-underscores in the device tree names.
-
 > +   for ptp ref clk. This affects all emacs as the clock is common.
 >
 >   Optional properties:
 >   altr,emac-splitter: Should be the phandle to the emac splitter soft IP node if
 > diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-> index 401383b..c1bab62 100644
+> index 401383b..3c5bc12 100644
 > --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
 > +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
 [...]
-> @@ -116,6 +118,9 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
->   		return -EINVAL;
->   	}
+> @@ -171,6 +175,11 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
+>   	ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << reg_shift);
+>   	ctrl |= val << reg_shift;
 >
-> +	dwmac->f2h_ptp_ref_clk = of_property_read_bool(np, "f2h_ptp_ref_clk");
+> +	if(dwmac->f2h_ptp_ref_clk)
 
-    Where is "altr,"?
+    Please run your patches thru scripts/checkpatch.pl (space needed after *if*).
 
 [...]
 
 MBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
