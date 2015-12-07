@@ -1,42 +1,76 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v3 net-next 0/4] Further fix for dsa unbinding
-Date: Mon, 07 Dec 2015 12:39:26 -0800
-Message-ID: <5665EE7E.9020600@gmail.com>
-References: <56321D9A.8010109@baylibre.com> <1449493055-29047-1-git-send-email-narmstrong@baylibre.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: use-after-free in sctp_do_sm
+Date: Mon, 7 Dec 2015 18:52:11 -0200
+Message-ID: <5665F17B.5030908@gmail.com>
+References: <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
+ <fcceeb2a58ce2054cedb091f0e251393b36418ba.1449250981.git.marcelo.leitner@gmail.com>
+ <CACT4Y+b66FHbFyERm804RDWh9oPC==K43TgDJfs52cQG1MDjcg@mail.gmail.com>
+ <20151204213428.GH4164@mrl.redhat.com> <56631357.6020304@gmail.com>
+ <CACT4Y+YCZO2rfYdO_ACPF1U0p3YyXYJGA_Bhdb8CP8pecLy7SA@mail.gmail.com>
+ <20151207131524.GA22989@mrl.redhat.com>
+ <CACT4Y+ZhRG-LCdEoF=WusYVUj8gnm16663GcgJ=ztu0QC6r0vg@mail.gmail.com>
+ <20151207185218.GB22989@mrl.redhat.com> <5665DF20.9020904@gmail.com>
+ <20151207195032.GA22987@mrl.redhat.com> <5665EE26.3000706@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Neil Armstrong <narmstrong@baylibre.com>, davem@davemloft.net,
-	andrew@lunn.ch, linux@roeck-us.net,
-	vivien.didelot@savoirfairelinux.com, fabf@skynet.be,
-	pavel.nakonechny@skitlab.ru, joe@perches.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449493055-29047-1-git-send-email-narmstrong@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	linux-sctp@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f48.google.com ([209.85.192.48]:33174 "EHLO
+	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933019AbbLGUwS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 15:52:18 -0500
+In-Reply-To: <5665EE26.3000706@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/12/15 04:57, Neil Armstrong wrote:
-> This serie fixes further issues for DSA dynamic unbinding.
-> The first patch completely removes the PHY link state polling.
-> The two following cleans up the dsa state upon removal.
-> The last patch moves slave destroy code as slave function and
-> adds missing netdev and phy cleanup calls.
-> 
-> v1: http://lkml.kernel.org/r/562F8ECB.6050709@baylibre.com
-> v2: http://lkml.kernel.org/r/56321D9A.8010109@baylibre.com
-> remove phy fix and add missing calls in dsa_switch_destroy
-> then add dedicated dsa_slave_destroy
-> 
-> v3: remove polling instead of fixing it, make single patch for
-> dsa slave destroy
-> 
-> Neil Armstrong (4):
->   net: dsa: remove DSA link polling
->   net: dsa: cleanup resources upon module removal
->   net: dsa: Add missing master netdev dev_put() calls
->   net: dsa: move dsa slave destroy code to slave.c
+Em 07-12-2015 18:37, Vlad Yasevich escreveu:
+> On 12/07/2015 02:50 PM, Marcelo Ricardo Leitner wrote:
+>> On Mon, Dec 07, 2015 at 02:33:52PM -0500, Vlad Yasevich wrote:
+>>> On 12/07/2015 01:52 PM, Marcelo Ricardo Leitner wrote:
+>>>> Vlad, I reviewed the places on which it returns SCTP_DISPOSITION_ABORT,
+>>>> and if I didn't miss something in there all of them either issue
+>>>> SCTP_CMD_ASSOC_FAILED or SCTP_CMD_INIT_FAILED before returning it, thus
+>>>> delaying DELETE_TCB and with that the asoc free.
+>>>
+>>> They delay it from the perspective of the command interpreter since the command
+>>> to delete the TCB happens a little later, but status code  is checked after all
+>>> commands are processed and command processing doesn't change it.  So the 'status'
+>>> code would still be SCTP_DISPOSITION_ABORT after DELETE_TCB command was processed.
+>>> So, I think we may still have an use-after-free issue here.
+>>
+>> Gotcha! That's pretty much it then. From that point of view now, there
+>> shouldn't be a case that it returns _ABORT without freeing the asoc in
+>> the same loop. (more below)
+>>
+>>>> There is one place,
+>>>> though, that may not do it that way, it's sctp_sf_abort_violation(), but
+>>>> then that code only runs if asoc is already NULL by then.
+>>>
+>>> I don't believe so.  The violation state function can run with a non-NULL association
+>>> if we are encountering protocol violations after the association is established.
+>>
+>> Yup, that's correct. I just tried to reference one case on which it
+>> would return _ABORT without issuing any of those _FAILEDs before doing
+>> so (meaning the association could still be valid) but that in that case,
+>> the asoc was already NULL.
+>
+> I think it is possible to hit the 'discard:' tag in that function while still
+> having a valid association.  That happens when ABORT chunk is required to be
+> authenticated.  This that case, instead of generating an ABORT and terminating the
+> current association, we just drop the packet, but still report an _ABORT disposition code.
+>
+> This probably need to change if we are going to catch the _ABORT disposition and
+> clear the asoc pointer.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+Oups. Nice one. I'll switch it to SCTP_DISPOSITION_DISCARD if it hits 
+that if() then. Thanks Vlad.
+
+   Marcelo
