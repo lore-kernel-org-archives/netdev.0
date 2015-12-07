@@ -1,37 +1,33 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] PHY: DP83867: Remove looking in parent device
- for OF properties
-Date: Sun, 6 Dec 2015 19:51:34 -0800
-Message-ID: <56650246.8030903@gmail.com>
-References: <1449459538-24105-1-git-send-email-andrew@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: hisilicon: constify hnae_buf_ops and hnae_ae_ops
+ structures
+Date: Sun, 06 Dec 2015 22:51:44 -0500 (EST)
+Message-ID: <20151206.225144.1422377179689530868.davem@davemloft.net>
+References: <1449419097-19032-1-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:35432 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755514AbbLGDvg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 22:51:36 -0500
-Received: by obbnk6 with SMTP id nk6so107195041obb.2
-        for <netdev@vger.kernel.org>; Sun, 06 Dec 2015 19:51:35 -0800 (PST)
-In-Reply-To: <1449459538-24105-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, huangdaode@hisilicon.com,
+	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Julia.Lawall@lip6.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449419097-19032-1-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 06/12/2015 19:38, Andrew Lunn a =C3=A9crit :
-> Device tree properties for a phy device are expected to be in the phy
-> node. The current code for the DP83867 also tries to look in the
-> parent node. The devices binding documentation does not mention this,
-> no current device tree file makes use of this, and it is not behaviou=
-r
-> we want. So remove looking in the parent device.
->=20
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Sun,  6 Dec 2015 17:24:57 +0100
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+> The hnae_buf_ops and hnae_ae_ops structures are never modified, so declare
+> them as const.
+> 
+> Done with the help of Coccinelle.
+> 
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Thanks!
---=20
-=46lorian
+This doesn't apply to net-next.
+
+> I have the impression that this driver is not recorded properly in the
+> MAINTAINERS file.
+
+Patches welcome.
