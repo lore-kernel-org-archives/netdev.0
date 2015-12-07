@@ -1,128 +1,323 @@
-From: Tim Harvey <tharvey@gateworks.com>
-Subject: Re: [PATCH] I.MX6: Fix Ethernet PHY mode on Ventana boards
-Date: Mon, 7 Dec 2015 06:34:34 -0800
-Message-ID: <CAJ+vNU0bNzuDJ971VS4r0gt4+zJj4GkXWE_qzoC0bs7s4OdU1Q@mail.gmail.com>
-References: <m3egeyct8o.fsf@t19.piap.pl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: use-after-free in ip6_xmit
+Date: Mon, 07 Dec 2015 06:36:20 -0800
+Message-ID: <1449498980.25029.57.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACT4Y+aJdFhzX-QKQR3ZNZ=MHPoNQdoS6arFaVn0c4GgUzfb0g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Krzysztof_Ha=C5=82asa?= <khalasa@piap.pl>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org, syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:32858 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932383AbbLGOee convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 09:34:34 -0500
-Received: by igcmv3 with SMTP id mv3so79610543igc.0
-        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 06:34:34 -0800 (PST)
-In-Reply-To: <m3egeyct8o.fsf@t19.piap.pl>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36244 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932133AbbLGOgX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 09:36:23 -0500
+In-Reply-To: <CACT4Y+aJdFhzX-QKQR3ZNZ=MHPoNQdoS6arFaVn0c4GgUzfb0g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 7, 2015 at 4:56 AM, Krzysztof Ha=C5=82asa <khalasa@piap.pl>=
- wrote:
-> Gateworks Ventana boards seem to need "RGMII-ID" (internal delay)
-> PHY mode, instead of simple "RGMII", for their Marvell 88E1510
-> transceiver. Otherwise, the Ethernet MAC doesn't work with Marvell PH=
-Y
-> driver (TX doesn't seem to work correctly).
->
-> Tested on GW5400 rev. C.
->
-> This bug affects ARM Fedora 23.
->
-> Signed-off-by: Krzysztof Ha=C5=82asa <khalasa@piap.pl>
->
-> diff --git a/arch/arm/boot/dts/imx6q-gw5400-a.dts b/arch/arm/boot/dts=
-/imx6q-gw5400-a.dts
-> index 822ffb2..6c168dc 100644
-> --- a/arch/arm/boot/dts/imx6q-gw5400-a.dts
-> +++ b/arch/arm/boot/dts/imx6q-gw5400-a.dts
-> @@ -154,7 +154,7 @@
->  &fec {
->         pinctrl-names =3D "default";
->         pinctrl-0 =3D <&pinctrl_enet>;
-> -       phy-mode =3D "rgmii";
-> +       phy-mode =3D "rgmii-id";
->         phy-reset-gpios =3D <&gpio1 30 GPIO_ACTIVE_HIGH>;
->         status =3D "okay";
->  };
-> diff --git a/arch/arm/boot/dts/imx6qdl-gw51xx.dtsi b/arch/arm/boot/dt=
-s/imx6qdl-gw51xx.dtsi
-> index f2867c4..90496aa 100644
-> --- a/arch/arm/boot/dts/imx6qdl-gw51xx.dtsi
-> +++ b/arch/arm/boot/dts/imx6qdl-gw51xx.dtsi
-> @@ -94,7 +94,7 @@
->  &fec {
->         pinctrl-names =3D "default";
->         pinctrl-0 =3D <&pinctrl_enet>;
-> -       phy-mode =3D "rgmii";
-> +       phy-mode =3D "rgmii-id";
->         phy-reset-gpios =3D <&gpio1 30 GPIO_ACTIVE_LOW>;
->         status =3D "okay";
->  };
-> diff --git a/arch/arm/boot/dts/imx6qdl-gw52xx.dtsi b/arch/arm/boot/dt=
-s/imx6qdl-gw52xx.dtsi
-> index 4493f6e..0a6730b 100644
-> --- a/arch/arm/boot/dts/imx6qdl-gw52xx.dtsi
-> +++ b/arch/arm/boot/dts/imx6qdl-gw52xx.dtsi
-> @@ -154,7 +154,7 @@
->  &fec {
->         pinctrl-names =3D "default";
->         pinctrl-0 =3D <&pinctrl_enet>;
-> -       phy-mode =3D "rgmii";
-> +       phy-mode =3D "rgmii-id";
->         phy-reset-gpios =3D <&gpio1 30 GPIO_ACTIVE_LOW>;
->         status =3D "okay";
->  };
-> diff --git a/arch/arm/boot/dts/imx6qdl-gw53xx.dtsi b/arch/arm/boot/dt=
-s/imx6qdl-gw53xx.dtsi
-> index cfad214..2c549ad 100644
-> --- a/arch/arm/boot/dts/imx6qdl-gw53xx.dtsi
-> +++ b/arch/arm/boot/dts/imx6qdl-gw53xx.dtsi
-> @@ -174,7 +174,7 @@
->  &fec {
->         pinctrl-names =3D "default";
->         pinctrl-0 =3D <&pinctrl_enet>;
-> -       phy-mode =3D "rgmii";
-> +       phy-mode =3D "rgmii-id";
->         phy-reset-gpios =3D <&gpio1 30 GPIO_ACTIVE_LOW>;
->         status =3D "okay";
->  };
-> diff --git a/arch/arm/boot/dts/imx6qdl-gw54xx.dtsi b/arch/arm/boot/dt=
-s/imx6qdl-gw54xx.dtsi
-> index 535b536..b4ea087 100644
-> --- a/arch/arm/boot/dts/imx6qdl-gw54xx.dtsi
-> +++ b/arch/arm/boot/dts/imx6qdl-gw54xx.dtsi
-> @@ -164,7 +164,7 @@
->  &fec {
->         pinctrl-names =3D "default";
->         pinctrl-0 =3D <&pinctrl_enet>;
-> -       phy-mode =3D "rgmii";
-> +       phy-mode =3D "rgmii-id";
->         phy-reset-gpios =3D <&gpio1 30 GPIO_ACTIVE_LOW>;
->         status =3D "okay";
->  };
->
+On Mon, 2015-12-07 at 11:22 +0100, Dmitry Vyukov wrote:
+> Hello,
+> 
+> The following program triggers use-after-free in ip6_xmit:
+> 
+> // autogenerated by syzkaller (http://github.com/google/syzkaller)
+> #include <syscall.h>
+> #include <string.h>
+> #include <stdint.h>
+> #include <pthread.h>
+> #include <sys/types.h>
+> #include <sys/socket.h>
+> #include <linux/socket.h>
+> #include <linux/in.h>
+> #include <linux/in6.h>
+> #include <unistd.h>
+> #include <stdlib.h>
+> 
+> void *thr0(void *arg)
+> {
+>         *(uint32_t*)0x20000000 = 0x5;
+>         long r5 = syscall(SYS_setsockopt, arg, 0x29ul, 0x6ul,
+> 0x20000000ul, 0x4ul, 0);
+>         return 0;
+> }
+> 
+> void *thr1(void *arg)
+> {
+>         struct sockaddr_in6 sa = {};
+>         sa.sin6_family = AF_INET6;
+>         sa.sin6_port = getpid();
+>         sa.sin6_addr.s6_addr[15] = 1;
+>         syscall(SYS_bind, arg, &sa, sizeof(sa), 0, 0, 0);
+>         return 0;
+> }
+> 
+> void *thr2(void *arg)
+> {
+>         struct sockaddr_in6 sa = {};
+>         sa.sin6_family = AF_INET6;
+>         sa.sin6_port = getpid();
+>         sa.sin6_addr.s6_addr[15] = 1;
+>         syscall(SYS_connect, arg, &sa, sizeof(sa), 0, 0, 0);
+>         return 0;
+> }
+> 
+> void *thr3(void *arg)
+> {
+>         syscall(SYS_listen, arg, 0x3ul, 0, 0, 0, 0);
+>         return 0;
+> }
+> 
+> void *thr4(void *arg)
+> {
+>         syscall(SYS_accept4, arg, 0, 0, 0x800ul, 0, 0);
+>         return 0;
+> }
+> 
+> int main()
+> {
+>         srand(getpid());
+>         syscall(SYS_mmap, 0x20000000ul, 0x10000ul, 0x2ul, 0x32ul,
+> 0xfffffffffffffffful, 0x0ul);
+>         int fd[2];
+>         fd[0] = syscall(SYS_socket, PF_INET6, SOCK_STREAM, IPPROTO_TCP);
+>         fd[1] = syscall(SYS_socket, PF_INET6, SOCK_STREAM, IPPROTO_TCP);
+>         pthread_t th;
+>         pthread_create(&th, 0, thr0, (void*)(long)fd[0]);
+>         pthread_create(&th, 0, thr1, (void*)(long)fd[0]);
+>         pthread_create(&th, 0, thr2, (void*)(long)fd[0]);
+>         pthread_create(&th, 0, thr3, (void*)(long)fd[0]);
+>         pthread_create(&th, 0, thr4, (void*)(long)fd[0]);
+>         pthread_create(&th, 0, thr0, (void*)(long)fd[0]);
+>         pthread_create(&th, 0, thr1, (void*)(long)fd[0]);
+>         pthread_create(&th, 0, thr2, (void*)(long)fd[0]);
+>         pthread_create(&th, 0, thr3, (void*)(long)fd[0]);
+>         pthread_create(&th, 0, thr4, (void*)(long)fd[0]);
+>         pthread_create(&th, 0, thr0, (void*)(long)fd[1]);
+>         pthread_create(&th, 0, thr1, (void*)(long)fd[1]);
+>         pthread_create(&th, 0, thr2, (void*)(long)fd[1]);
+>         pthread_create(&th, 0, thr3, (void*)(long)fd[1]);
+>         pthread_create(&th, 0, thr4, (void*)(long)fd[1]);
+>         pthread_create(&th, 0, thr0, (void*)(long)fd[1]);
+>         pthread_create(&th, 0, thr1, (void*)(long)fd[1]);
+>         pthread_create(&th, 0, thr2, (void*)(long)fd[1]);
+>         pthread_create(&th, 0, thr3, (void*)(long)fd[1]);
+>         pthread_create(&th, 0, thr4, (void*)(long)fd[1]);
+> 
+>         usleep(20000);
+>         return 0;
+> }
+> 
+> 
+> 
+> ==================================================================
+> BUG: KASAN: use-after-free in ip6_xmit+0x15e3/0x1f50 at addr ffff88003991c786
+> Read of size 2 by task a.out/6864
+> =============================================================================
+> BUG kmalloc-64 (Not tainted): kasan: bad access detected
+> -----------------------------------------------------------------------------
+> 
+> Disabling lock debugging due to kernel taint
+> INFO: Allocated in sock_kmalloc+0x93/0x100 age=40 cpu=1 pid=6850
+> [<      none      >] ___slab_alloc+0x648/0x8c0 mm/slub.c:2438
+> [<      none      >] __slab_alloc+0x4c/0x90 mm/slub.c:2467
+> [<     inline     >] slab_alloc_node mm/slub.c:2530
+> [<     inline     >] slab_alloc mm/slub.c:2572
+> [<      none      >] __kmalloc+0x2d9/0x480 mm/slub.c:3532
+> [<     inline     >] kmalloc include/linux/slab.h:463
+> [<      none      >] sock_kmalloc+0x93/0x100 net/core/sock.c:1772
+> [<      none      >] do_ipv6_setsockopt.isra.5+0xf4d/0x2d30
+> net/ipv6/ipv6_sockglue.c:483
+> [<      none      >] ipv6_setsockopt+0x4f/0x150 net/ipv6/ipv6_sockglue.c:885
+> [<      none      >] sctp_setsockopt+0x194/0x4020 net/sctp/socket.c:3702
+> [<      none      >] sock_common_setsockopt+0xb4/0x140 net/core/sock.c:2643
+> [<     inline     >] SYSC_setsockopt net/socket.c:1757
+> [<      none      >] SyS_setsockopt+0x161/0x290 net/socket.c:1736
+> [<      none      >] entry_SYSCALL_64_fastpath+0x16/0x7a
+> arch/x86/entry/entry_64.S:185
+> 
+> INFO: Freed in sock_kfree_s+0x29/0x90 age=34 cpu=0 pid=6855
+> [<      none      >] __slab_free+0x21e/0x3e0 mm/slub.c:2648
+> [<     inline     >] slab_free mm/slub.c:2803
+> [<      none      >] kfree+0x26f/0x3e0 mm/slub.c:3632
+> [<     inline     >] __sock_kfree_s net/core/sock.c:1793
+> [<      none      >] sock_kfree_s+0x29/0x90 net/core/sock.c:1799
+> [<      none      >] do_ipv6_setsockopt.isra.5+0x100f/0x2d30
+> net/ipv6/ipv6_sockglue.c:506
+> [<      none      >] ipv6_setsockopt+0x4f/0x150 net/ipv6/ipv6_sockglue.c:885
+> [<      none      >] sctp_setsockopt+0x194/0x4020 net/sctp/socket.c:3702
+> [<      none      >] sock_common_setsockopt+0xb4/0x140 net/core/sock.c:2643
+> [<     inline     >] SYSC_setsockopt net/socket.c:1757
+> [<      none      >] SyS_setsockopt+0x161/0x290 net/socket.c:1736
+> [<      none      >] entry_SYSCALL_64_fastpath+0x16/0x7a
+> arch/x86/entry/entry_64.S:185
+> 
+> INFO: Slab 0xffffea0000e64700 objects=21 used=19 fp=0xffff88003991cc00
+> flags=0x1fffc0000004080
+> INFO: Object 0xffff88003991c780 @offset=1920 fp=0x          (null)
+> CPU: 2 PID: 6864 Comm: a.out Tainted: G    B           4.4.0-rc3+ #150
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>  0000000000000002 ffff88005f3f6e18 ffffffff82c6f2a8 0000000041b58ab3
+>  ffffffff8788bf8d ffffffff82c6f1f6 ffff880062045a00 ffffffff878ac723
+>  ffff88003e807700 0000000000000008 ffff88003991c780 ffff88005f3f6e18
+> 
+> Call Trace:
+>  [<     inline     >] __dump_stack lib/dump_stack.c:15
+>  [<ffffffff82c6f2a8>] dump_stack+0xb2/0xfa lib/dump_stack.c:50
+>  [<ffffffff81788e3c>] print_trailer+0x12c/0x210 mm/slub.c:652
+>  [<ffffffff81793c5f>] object_err+0x2f/0x40 mm/slub.c:659
+>  [<     inline     >] print_address_description mm/kasan/report.c:138
+>  [<ffffffff817979c9>] kasan_report_error+0x5d9/0x860 mm/kasan/report.c:251
+>  [<     inline     >] kasan_report mm/kasan/report.c:274
+>  [<ffffffff81797d14>] __asan_report_load2_noabort+0x54/0x70
+> mm/kasan/report.c:293
+>  [<ffffffff85bc06e3>] ip6_xmit+0x15e3/0x1f50 net/ipv6/ip6_output.c:176
+>  [<ffffffff8635a0b9>] sctp_v6_xmit+0x319/0x530 net/sctp/ipv6.c:223
+>  [<ffffffff8634595d>] sctp_packet_transmit+0x113d/0x2680 net/sctp/output.c:595
+>  [<ffffffff8630e897>] sctp_outq_flush+0x717/0x2840 net/sctp/outqueue.c:1090
+>  [<ffffffff86315d67>] sctp_outq_uncork+0x57/0x80 net/sctp/outqueue.c:692
+>  [<     inline     >] sctp_cmd_interpreter net/sctp/sm_sideeffect.c:1750
+>  [<     inline     >] sctp_side_effects net/sctp/sm_sideeffect.c:1153
+>  [<ffffffff862d9e83>] sctp_do_sm+0x38a3/0x5be0 net/sctp/sm_sideeffect.c:1125
+>  [<ffffffff863423c9>] sctp_primitive_SHUTDOWN+0xa9/0xd0 net/sctp/primitive.c:104
+>  [<ffffffff8632e94d>] sctp_close+0x6fd/0x9b0 net/sctp/socket.c:1519
+>  [<ffffffff85a4b2a1>] inet_release+0x111/0x270 net/ipv4/af_inet.c:413
+>  [<ffffffff85bac8c5>] inet6_release+0x55/0x90 net/ipv6/af_inet6.c:406
+>  [<ffffffff85501586>] sock_release+0x96/0x260 net/socket.c:571
+>  [<ffffffff85501766>] sock_close+0x16/0x20 net/socket.c:1022
+>  [<ffffffff817f0014>] __fput+0x244/0x860 fs/file_table.c:208
+>  [<ffffffff817f06c5>] ____fput+0x15/0x20 fs/file_table.c:244
+>  [<ffffffff8133a5e0>] task_work_run+0x130/0x240 kernel/task_work.c:115
+>  [<     inline     >] exit_task_work include/linux/task_work.h:21
+>  [<ffffffff812d4a05>] do_exit+0x885/0x3050 kernel/exit.c:750
+>  [<ffffffff812d732c>] do_group_exit+0xec/0x390 kernel/exit.c:880
+>  [<ffffffff81302177>] get_signal+0x677/0x1bf0 kernel/signal.c:2307
+>  [<ffffffff8118645e>] do_signal+0x7e/0x2170 arch/x86/kernel/signal.c:709
+>  [<ffffffff81003a1e>] exit_to_usermode_loop+0xfe/0x1e0
+> arch/x86/entry/common.c:247
+>  [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:282
+>  [<ffffffff8100733b>] syscall_return_slowpath+0x16b/0x240
+> arch/x86/entry/common.c:344
+>  [<ffffffff868dafe2>] int_ret_from_sys_call+0x25/0x9f
+> arch/x86/entry/entry_64.S:281
+> ==================================================================
+> 
+> On commit 31ade3b83e1821da5fbb2f11b5b3d4ab2ec39db8.
+> 
+> The allocation/free stacks look similar to the ones I reported in
+> "memory leak in do_ipv6_setsockopt". However, the fix for that leak
+> suggests that it could lead only to leaks, not to use-after-frees.
 > --
-> Krzysztof Halasa
->
-> Industrial Research Institute for Automation and Measurements PIAP
-> Al. Jerozolimskie 202, 02-486 Warsaw, Poland
 
-Krzysztof,
+I thought I already fixed these, based on your report ?
 
-It sounds like your saying this controls whether the phy is in charge
-of delay vs the MAC. I have never needed to set this and haven't found
-where its actually used (in at least 4.3). Is this caused by something
-new in the kernel I haven't seen yet or is it possible you have board
-that has an Ethernet issue?
+commit 6bd4f355df2eae80b8a5c7b097371cd1e05f20d5
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Wed Dec 2 21:53:57 2015 -0800
 
-Regards,
+    ipv6: kill sk_dst_lock
+    
+    While testing the np->opt RCU conversion, I found that UDP/IPv6 was
+    using a mixture of xchg() and sk_dst_lock to protect concurrent changes
+    to sk->sk_dst_cache, leading to possible corruptions and crashes.
+    
+    ip6_sk_dst_lookup_flow() uses sk_dst_check() anyway, so the simplest
+    way to fix the mess is to remove sk_dst_lock completely, as we did for
+    IPv4.
+    
+    __ip6_dst_store() and ip6_dst_store() share same implementation.
+    
+    sk_setup_caps() being called with socket lock being held or not,
+    we have to use sk_dst_set() instead of __sk_dst_set()
+    
+    Note that I had to move the "np->dst_cookie = rt6_get_cookie(rt);"
+    in ip6_dst_store() before the sk_setup_caps(sk, dst) call.
+    
+    This is because ip6_dst_store() can be called from process context,
+    without any lock held.
+    
+    As soon as the dst is installed in sk->sk_dst_cache, dst can be freed
+    from another cpu doing a concurrent ip6_dst_store()
+    
+    Doing the dst dereference before doing the install is needed to make
+    sure no use after free would trigger.
+    
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Reported-by: Dmitry Vyukov <dvyukov@google.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Tim
+commit 45f6fad84cc305103b28d73482b344d7f5b76f39
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Sun Nov 29 19:37:57 2015 -0800
 
-Tim Harvey - Principal Software Engineer
-Gateworks Corporation - http://www.gateworks.com/
-3026 S. Higuera St. San Luis Obispo CA 93401
-805-781-2000
+    ipv6: add complete rcu protection around np->opt
+    
+    This patch addresses multiple problems :
+    
+    UDP/RAW sendmsg() need to get a stable struct ipv6_txoptions
+    while socket is not locked : Other threads can change np->opt
+    concurrently. Dmitry posted a syzkaller
+    (http://github.com/google/syzkaller) program desmonstrating
+    use-after-free.
+    
+    Starting with TCP/DCCP lockless listeners, tcp_v6_syn_recv_sock()
+    and dccp_v6_request_recv_sock() also need to use RCU protection
+    to dereference np->opt once (before calling ipv6_dup_options())
+    
+    This patch adds full RCU protection to np->opt
+    
+    Reported-by: Dmitry Vyukov <dvyukov@google.com>
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+commit 602dd62dfbda3e63a2d6a3cbde953ebe82bf5087
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Tue Dec 1 07:20:07 2015 -0800
+
+    ipv6: sctp: implement sctp_v6_destroy_sock()
+    
+    Dmitry Vyukov reported a memory leak using IPV6 SCTP sockets.
+    
+    We need to call inet6_destroy_sock() to properly release
+    inet6 specific fields.
+    
+    Reported-by: Dmitry Vyukov <dvyukov@google.com>
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+commit c836a8ba93869d6a0290a6ae0047fbef09066871
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Wed Dec 2 21:48:14 2015 -0800
+
+    ipv6: sctp: add rcu protection around np->opt
+    
+    This patch completes the work I did in commit 45f6fad84cc3
+    ("ipv6: add complete rcu protection around np->opt"), as I missed
+    sctp part.
+    
+    This simply makes sure np->opt is used with proper RCU locking
+    and accessors.
+    
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Can you double check based on linux-4.4-rc4 instead of linux-4.4-rc3 ?
+
+Thanks
