@@ -1,56 +1,105 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: nfnetlink_queue: Unregister pernet subsys in
- case of init failure
-Date: Mon, 7 Dec 2015 14:17:46 +0100
-Message-ID: <20151207131746.GA27860@salvia>
-References: <1449483206-22618-1-git-send-email-kernel@kyup.com>
- <56657BA5.6070303@cogentembedded.com>
- <56658284.9080009@kyup.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: use-after-free in sctp_do_sm
+Date: Mon, 7 Dec 2015 14:20:47 +0100
+Message-ID: <CACT4Y+ZhRG-LCdEoF=WusYVUj8gnm16663GcgJ=ztu0QC6r0vg@mail.gmail.com>
+References: <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
+ <fcceeb2a58ce2054cedb091f0e251393b36418ba.1449250981.git.marcelo.leitner@gmail.com>
+ <CACT4Y+b66FHbFyERm804RDWh9oPC==K43TgDJfs52cQG1MDjcg@mail.gmail.com>
+ <20151204213428.GH4164@mrl.redhat.com> <56631357.6020304@gmail.com>
+ <CACT4Y+YCZO2rfYdO_ACPF1U0p3YyXYJGA_Bhdb8CP8pecLy7SA@mail.gmail.com> <20151207131524.GA22989@mrl.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	fruggeri@arista.com, kadlec@blackhole.kfki.hu,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Nikolay Borisov <kernel@kyup.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56658284.9080009@kyup.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	linux-sctp@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:37324 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754491AbbLGNVI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 08:21:08 -0500
+Received: by wmww144 with SMTP id w144so149818376wmw.0
+        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 05:21:07 -0800 (PST)
+In-Reply-To: <20151207131524.GA22989@mrl.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 07, 2015 at 02:58:44PM +0200, Nikolay Borisov wrote:
-> 
-> 
-> On 12/07/2015 02:29 PM, Sergei Shtylyov wrote:
-> > Hello.
-> > 
-> > On 12/07/2015 01:13 PM, Nikolay Borisov wrote:
-> > 
-> >> Commit 3bfe049807c2403 ('netfilter: nfnetlink_{log,queue}:
-> > 
-> >    Double quotes please, that's what scripts/checkpatch.pl enforces now.
-> > 
-> >> Register pernet in first place') reorganised the initialisation
-> >> order of the pernet_subsys to avoid "use-before-initialised"
-> >> condition. However, in doing so the cleanup logic in nfnetlink_queue
-> >> got botched in that the pernet_subsys wasn't cleaned in case
-> >> nfnetlink_subsys_register failed. This patch adds the necessary
-> >> cleanup routine call.
-> >>
-> >> Fixes: 3bfe049807c2403 ('netfilter: nfnetlink_{log,queue}: Register
-> >>                         pernet in first place')
-> > 
-> >    Likewise.
-> 
-> I will resend it with proper quotes (even though I think this is a minor
-> issue) but I'd like to first gather some review feedback.
+On Mon, Dec 7, 2015 at 2:15 PM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> On Mon, Dec 07, 2015 at 12:26:09PM +0100, Dmitry Vyukov wrote:
+>> On Sat, Dec 5, 2015 at 5:39 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
+>> > On 12/04/2015 04:34 PM, Marcelo Ricardo Leitner wrote:
+>> >> On Fri, Dec 04, 2015 at 09:25:35PM +0100, Dmitry Vyukov wrote:
+>> >>> On Fri, Dec 4, 2015 at 6:48 PM, Marcelo Ricardo Leitner
+>> >>> <marcelo.leitner@gmail.com> wrote:
+>> >>>> Hi Dmitry,
+>> >>>>
+>> >>>> Can you please test this patch?
+>> >>>> I'll re-post with proper subject if it works.
+>> >>>
+>> >>> Still happening with the same stacks.
+>> >>
+>> >> Then there may be another one, I'm afraid.
+>> >>
+>> >> I'm using the testapp you shared in the first email, with that debug line
+>> >> enabled and added a new one:
+>> >> +       pr_debug("%p %d\n", asoc, asoc ? asoc->state : 0);
+>> >>         debug_post_sfx();
+>> >> (should have used %x, but ok)
+>> >>
+>> >> Also enabled slub_debug=PUZ, and I get:
+>> >>
+>> >> without the patch:
+>> >> [   87.873640] sctp: ffff8800b71533d8 1
+>> >> [   87.873647] sctp: sctp_do_sm[post-sfx]: error:0,
+>> >> asoc:ffff8800b71533d8[STATE_CLOSED]
+>> >> [   87.873739] sctp: ffff8800b71533d8 1
+>> >> [   87.873742] sctp: sctp_do_sm[post-sfx]: error:0,
+>> >> asoc:ffff8800b71533d8[STATE_CLOSED]
+>> >> [   87.875149] sctp: ffff8800b71533d8 1802201963
+>> >> [   87.875238] sctp: sctp_do_sm[post-sfx]: error:0,
+>> >> asoc:ffff8800b71533d8[STATE_CLOSED]
+>> >>
+>> >> 1802201963 = 0x6b6b6b6b, poison
+>> >>
+>> >> with the patch:
+>> >> [   81.071265] sctp: ffff880137571148 1
+>> >> [   81.071273] sctp: sctp_do_sm[post-sfx]: error:0,
+>> >> asoc:ffff880137571148[STATE_CLOSED]
+>> >> [   81.071372] sctp: ffff880137571148 1
+>> >> [   81.071375] sctp: sctp_do_sm[post-sfx]: error:0,
+>> >> asoc:ffff880137571148[STATE_CLOSED]
+>> >> [   81.072423] sctp:           (null) 0
+>> >> [   81.072427] sctp: sctp_do_sm[post-sfx]: error:0, asoc:
+>> >> (null)[STATE_CLOSED]
+>> >>
+>> >> This one, at least, is gone with this patch.
+>> >>
+>> >>   Marcelo
+>> >>
+>> >
+>> > Hi Marcelo
+>> >
+>> > I think you also need to catch the SCTP_DISPOSITION_ABORT and update
+>> > the pointer.  There are some issues there though as some functions report
+>> > that code without actually destroying the association.  This happens when
+>> > the ABORT chunk may be dropped.
+>> >
+>> > I think this might be why we still see the issue.
+>>
+>>
+>> Marcelo,
+>>
+>> Is this info enough for you to cook another fix?
+>
+> Hi, I think so. I was really wondering how you could trigger that issue
+> without the timestamp fix and Vlad's comment does shed some light on it.
+>
+> I'll do more tests later today, but what did you have connecting to the
+> listening socket? Somehow you made that accept() call to return..
 
-Unless someone spots any other more relevant problem with this, I'll
-fix this comestic issues here, no need to resend.
-
-> Also I dunno if this should be marked for stable.
-
-Yes, this qualifies for -stable, will take care of that.
-
-Thanks.
+Local connect in another thread I guess.
