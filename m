@@ -1,7 +1,7 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH RFC 04/26] phy: generate swphy registers on the fly
-Date: Mon, 07 Dec 2015 17:37:31 +0000
-Message-ID: <E1a5zj9-00074l-TH@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH RFC 06/26] phy: provide a hook for link up/link down events
+Date: Mon, 07 Dec 2015 17:37:42 +0000
+Message-ID: <E1a5zjK-000750-5O@rmk-PC.arm.linux.org.uk>
 References: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,218 +10,197 @@ Cc: netdev@vger.kernel.org
 To: Florian Fainelli <f.fainelli@gmail.com>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60260 "EHLO
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60266 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756131AbbLGRhf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:37:35 -0500
+	with ESMTP id S1756118AbbLGRhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:37:45 -0500
 In-Reply-To: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Generate software phy registers as and when requested, rather than
-duplicating the state in fixed_phy.  This allows us to eliminate
-the duplicate storage of of the same data, which is only different
-in format.
+Sometimes, we need to do additional work between the PHY coming up and
+marking the carrier present - for example, we may need to wait for the
+PHY to MAC link to finish negotiation.  This changes phylib to provide
+a notification function pointer which avoids the built-in
+netif_carrier_on() and netif_carrier_off() functions.
 
-As fixed_phy_update_regs() no longer updates register state, rename
-it to fixed_phy_update().
+Standard ->adjust_link functionality is provided by hooking a helper
+into the new ->phy_link_change method.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/phy/fixed_phy.c | 31 +++++-------------------------
- drivers/net/phy/swphy.c     | 47 ++++++++++++++++++++++++++++++++-------------
- drivers/net/phy/swphy.h     |  2 +-
- 3 files changed, 40 insertions(+), 40 deletions(-)
+ drivers/net/phy/phy.c        | 42 ++++++++++++++++++++++--------------------
+ drivers/net/phy/phy_device.c | 14 ++++++++++++++
+ include/linux/phy.h          |  1 +
+ 3 files changed, 37 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-index fe4ca05afc77..66555da2ef27 100644
---- a/drivers/net/phy/fixed_phy.c
-+++ b/drivers/net/phy/fixed_phy.c
-@@ -26,8 +26,6 @@
- 
- #include "swphy.h"
- 
--#define MII_REGS_NUM 29
--
- struct fixed_mdio_bus {
- 	int irqs[PHY_MAX_ADDR];
- 	struct mii_bus *mii_bus;
-@@ -36,7 +34,6 @@ struct fixed_mdio_bus {
- 
- struct fixed_phy {
- 	int addr;
--	u16 regs[MII_REGS_NUM];
- 	struct phy_device *phydev;
- 	struct fixed_phy_status status;
- 	int (*link_update)(struct net_device *, struct fixed_phy_status *);
-@@ -49,12 +46,10 @@ static struct fixed_mdio_bus platform_fmb = {
- 	.phys = LIST_HEAD_INIT(platform_fmb.phys),
- };
- 
--static void fixed_phy_update_regs(struct fixed_phy *fp)
-+static void fixed_phy_update(struct fixed_phy *fp)
- {
- 	if (gpio_is_valid(fp->link_gpio))
- 		fp->status.link = !!gpio_get_value_cansleep(fp->link_gpio);
--
--	swphy_update_regs(fp->regs, &fp->status);
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index adb48abafc87..150497246922 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -802,6 +802,16 @@ void phy_start(struct phy_device *phydev)
  }
+ EXPORT_SYMBOL(phy_start);
  
- static int fixed_mdio_read(struct mii_bus *bus, int phy_addr, int reg_num)
-@@ -62,29 +57,15 @@ static int fixed_mdio_read(struct mii_bus *bus, int phy_addr, int reg_num)
- 	struct fixed_mdio_bus *fmb = bus->priv;
- 	struct fixed_phy *fp;
- 
--	if (reg_num >= MII_REGS_NUM)
--		return -1;
--
--	/* We do not support emulating Clause 45 over Clause 22 register reads
--	 * return an error instead of bogus data.
--	 */
--	switch (reg_num) {
--	case MII_MMD_CTRL:
--	case MII_MMD_DATA:
--		return -1;
--	default:
--		break;
--	}
--
- 	list_for_each_entry(fp, &fmb->phys, node) {
- 		if (fp->addr == phy_addr) {
- 			/* Issue callback if user registered it. */
- 			if (fp->link_update) {
- 				fp->link_update(fp->phydev->attached_dev,
- 						&fp->status);
--				fixed_phy_update_regs(fp);
-+				fixed_phy_update(fp);
- 			}
--			return fp->regs[reg_num];
-+			return swphy_read_reg(reg_num, &fp->status);
- 		}
- 	}
- 
-@@ -144,7 +125,7 @@ int fixed_phy_update_state(struct phy_device *phydev,
- 			_UPD(pause);
- 			_UPD(asym_pause);
- #undef _UPD
--			fixed_phy_update_regs(fp);
-+			fixed_phy_update(fp);
- 			return 0;
- 		}
- 	}
-@@ -169,8 +150,6 @@ int fixed_phy_add(unsigned int irq, int phy_addr,
- 	if (!fp)
- 		return -ENOMEM;
- 
--	memset(fp->regs, 0xFF,  sizeof(fp->regs[0]) * MII_REGS_NUM);
--
- 	fmb->irqs[phy_addr] = irq;
- 
- 	fp->addr = phy_addr;
-@@ -184,7 +163,7 @@ int fixed_phy_add(unsigned int irq, int phy_addr,
- 			goto err_regs;
- 	}
- 
--	fixed_phy_update_regs(fp);
-+	fixed_phy_update(fp);
- 
- 	list_add_tail(&fp->node, &fmb->phys);
- 
-diff --git a/drivers/net/phy/swphy.c b/drivers/net/phy/swphy.c
-index 21a9bd8a7830..34f58f2349e9 100644
---- a/drivers/net/phy/swphy.c
-+++ b/drivers/net/phy/swphy.c
-@@ -20,6 +20,8 @@
- 
- #include "swphy.h"
- 
-+#define MII_REGS_NUM 29
++static void phy_link_up(struct phy_device *phydev)
++{
++	phydev->phy_link_change(phydev, true, true);
++}
 +
- struct swmii_regs {
- 	u16 bmcr;
- 	u16 bmsr;
-@@ -110,14 +112,13 @@ int swphy_validate_state(const struct fixed_phy_status *state)
- EXPORT_SYMBOL_GPL(swphy_validate_state);
- 
++static void phy_link_down(struct phy_device *phydev, bool do_carrier)
++{
++	phydev->phy_link_change(phydev, false, do_carrier);
++}
++
  /**
-- * swphy_update_regs - update MII register array with fixed phy state
-- * @regs: array of 32 registers to update
-+ * swphy_read_reg - return a MII register from the fixed phy state
-+ * @reg: MII register
-  * @state: fixed phy status
-  *
-- * Update the array of MII registers with the fixed phy link, speed,
-- * duplex and pause mode settings.
-+ * Return the MII @reg register generated from the fixed phy state @state.
-  */
--void swphy_update_regs(u16 *regs, const struct fixed_phy_status *state)
-+int swphy_read_reg(int reg, const struct fixed_phy_status *state)
- {
- 	int speed_index, duplex_index;
- 	u16 bmsr = BMSR_ANEGCAPABLE;
-@@ -125,9 +126,12 @@ void swphy_update_regs(u16 *regs, const struct fixed_phy_status *state)
- 	u16 lpagb = 0;
- 	u16 lpa = 0;
+  * phy_state_machine - Handle the state machine
+  * @work: work_struct that describes the work to be done
+@@ -843,8 +853,7 @@ void phy_state_machine(struct work_struct *work)
+ 		/* If the link is down, give up on negotiation for now */
+ 		if (!phydev->link) {
+ 			phydev->state = PHY_NOLINK;
+-			netif_carrier_off(phydev->attached_dev);
+-			phydev->adjust_link(phydev->attached_dev);
++			phy_link_down(phydev, true);
+ 			break;
+ 		}
  
-+	if (reg > MII_REGS_NUM)
-+		return -1;
+@@ -856,9 +865,7 @@ void phy_state_machine(struct work_struct *work)
+ 		/* If AN is done, we're running */
+ 		if (err > 0) {
+ 			phydev->state = PHY_RUNNING;
+-			netif_carrier_on(phydev->attached_dev);
+-			phydev->adjust_link(phydev->attached_dev);
+-
++			phy_link_up(phydev);
+ 		} else if (0 == phydev->link_timeout--)
+ 			needs_aneg = true;
+ 		break;
+@@ -880,8 +887,7 @@ void phy_state_machine(struct work_struct *work)
+ 				}
+ 			}
+ 			phydev->state = PHY_RUNNING;
+-			netif_carrier_on(phydev->attached_dev);
+-			phydev->adjust_link(phydev->attached_dev);
++			phy_link_up(phydev);
+ 		}
+ 		break;
+ 	case PHY_FORCING:
+@@ -891,13 +897,12 @@ void phy_state_machine(struct work_struct *work)
+ 
+ 		if (phydev->link) {
+ 			phydev->state = PHY_RUNNING;
+-			netif_carrier_on(phydev->attached_dev);
++			phy_link_up(phydev);
+ 		} else {
+ 			if (0 == phydev->link_timeout--)
+ 				needs_aneg = true;
++			phy_link_down(phydev, false);
+ 		}
+-
+-		phydev->adjust_link(phydev->attached_dev);
+ 		break;
+ 	case PHY_RUNNING:
+ 		/* Only register a CHANGE if we are polling or ignoring
+@@ -920,14 +925,12 @@ void phy_state_machine(struct work_struct *work)
+ 
+ 		if (phydev->link) {
+ 			phydev->state = PHY_RUNNING;
+-			netif_carrier_on(phydev->attached_dev);
++			phy_link_up(phydev);
+ 		} else {
+ 			phydev->state = PHY_NOLINK;
+-			netif_carrier_off(phydev->attached_dev);
++			phy_link_down(phydev, true);
+ 		}
+ 
+-		phydev->adjust_link(phydev->attached_dev);
+-
+ 		if (phy_interrupt_is_valid(phydev))
+ 			err = phy_config_interrupt(phydev,
+ 						   PHY_INTERRUPT_ENABLED);
+@@ -935,8 +938,7 @@ void phy_state_machine(struct work_struct *work)
+ 	case PHY_HALTED:
+ 		if (phydev->link) {
+ 			phydev->link = 0;
+-			netif_carrier_off(phydev->attached_dev);
+-			phydev->adjust_link(phydev->attached_dev);
++			phy_link_down(phydev, true);
+ 			do_suspend = true;
+ 		}
+ 		break;
+@@ -956,11 +958,11 @@ void phy_state_machine(struct work_struct *work)
+ 
+ 				if (phydev->link) {
+ 					phydev->state = PHY_RUNNING;
+-					netif_carrier_on(phydev->attached_dev);
++					phy_link_up(phydev);
+ 				} else	{
+ 					phydev->state = PHY_NOLINK;
++					phy_link_down(phydev, false);
+ 				}
+-				phydev->adjust_link(phydev->attached_dev);
+ 			} else {
+ 				phydev->state = PHY_AN;
+ 				phydev->link_timeout = PHY_AN_TIMEOUT;
+@@ -972,11 +974,11 @@ void phy_state_machine(struct work_struct *work)
+ 
+ 			if (phydev->link) {
+ 				phydev->state = PHY_RUNNING;
+-				netif_carrier_on(phydev->attached_dev);
++				phy_link_up(phydev);
+ 			} else	{
+ 				phydev->state = PHY_NOLINK;
++				phy_link_down(phydev, false);
+ 			}
+-			phydev->adjust_link(phydev->attached_dev);
+ 		}
+ 		break;
+ 	}
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 0bfbabad4431..67a654a1179b 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -441,6 +441,19 @@ struct phy_device *phy_find_first(struct mii_bus *bus)
+ }
+ EXPORT_SYMBOL(phy_find_first);
+ 
++static void phy_link_change(struct phy_device *phydev, bool up, bool do_carrier)
++{
++	struct net_device *netdev = phydev->attached_dev;
 +
- 	speed_index = swphy_decode_speed(state->speed);
- 	if (WARN_ON(speed_index < 0))
--		return;
-+		return 0;
- 
- 	duplex_index = state->duplex ? SWMII_DUPLEX_FULL : SWMII_DUPLEX_HALF;
- 
-@@ -147,12 +151,29 @@ void swphy_update_regs(u16 *regs, const struct fixed_phy_status *state)
- 			lpa |= LPA_PAUSE_ASYM;
++	if (do_carrier) {
++		if (up)
++			netif_carrier_on(netdev);
++		else
++			netif_carrier_off(netdev);
++	}
++	phydev->adjust_link(netdev);
++}
++
+ /**
+  * phy_prepare_link - prepares the PHY layer to monitor link status
+  * @phydev: target phy_device struct
+@@ -659,6 +672,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 		goto error;
  	}
  
--	regs[MII_PHYSID1] = 0;
--	regs[MII_PHYSID2] = 0;
-+	switch (reg) {
-+	case MII_BMCR:
-+		return bmcr;
-+	case MII_BMSR:
-+		return bmsr;
-+	case MII_PHYSID1:
-+	case MII_PHYSID2:
-+		return 0;
-+	case MII_LPA:
-+		return lpa;
-+	case MII_STAT1000:
-+		return lpagb;
-+
-+	/*
-+	 * We do not support emulating Clause 45 over Clause 22 register
-+	 * reads.  Return an error instead of bogus data.
-+	 */
-+	case MII_MMD_CTRL:
-+	case MII_MMD_DATA:
-+		return -1;
++	phydev->phy_link_change = phy_link_change;
+ 	phydev->attached_dev = dev;
+ 	dev->phydev = phydev;
  
--	regs[MII_BMSR] = bmsr;
--	regs[MII_BMCR] = bmcr;
--	regs[MII_LPA] = lpa;
--	regs[MII_STAT1000] = lpagb;
-+	default:
-+		return 0xffff;
-+	}
- }
--EXPORT_SYMBOL_GPL(swphy_update_regs);
-+EXPORT_SYMBOL_GPL(swphy_read_reg);
-diff --git a/drivers/net/phy/swphy.h b/drivers/net/phy/swphy.h
-index 33d2e061896e..2f09ac324e18 100644
---- a/drivers/net/phy/swphy.h
-+++ b/drivers/net/phy/swphy.h
-@@ -4,6 +4,6 @@
- struct fixed_phy_status;
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 05fde31b6dc6..63e52af00493 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -433,6 +433,7 @@ struct phy_device {
  
- int swphy_validate_state(const struct fixed_phy_status *state);
--void swphy_update_regs(u16 *regs, const struct fixed_phy_status *state);
-+int swphy_read_reg(int reg, const struct fixed_phy_status *state);
+ 	u8 mdix;
  
- #endif
++	void (*phy_link_change)(struct phy_device *, bool up, bool do_carrier);
+ 	void (*adjust_link)(struct net_device *dev);
+ };
+ #define to_phy_device(d) container_of(d, struct phy_device, dev)
 -- 
 2.1.0
