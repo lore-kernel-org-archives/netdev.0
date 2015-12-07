@@ -1,47 +1,71 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 8/8] treewide: Remove newlines inside
- DEFINE_PER_CPU() macros
-Date: Mon, 07 Dec 2015 09:04:21 -0800
-Message-ID: <1449507861.7162.1.camel@perches.com>
-References: <1449242787-16598-1-git-send-email-mmarek@suse.com>
-	 <1449242787-16598-9-git-send-email-mmarek@suse.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CBE695F@AcuExch.aculab.com>
-	 <5665B9A0.5060009@suse.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] vhost: cleanups and fixes
+Date: Mon, 7 Dec 2015 19:07:01 +0200
+Message-ID: <20151207190701-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>,
-	"rds-devel@oss.oracle.com" <rds-devel@oss.oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michal Marek <mmarek@suse.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	"linux-kbuild@vger.kernel.org" <linux-kbuild@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5665B9A0.5060009@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mhocko@suse.com, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, will.deacon@arm.com,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, luto@kernel.org, s-anna@ti.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-12-07 at 17:53 +0100, Michal Marek wrote:
-> On 2015-12-07 17:33, David Laight wrote:
-> > From: Michal Marek
-> > > Sent: 04 December 2015 15:26
-> > > Otherwise make tags can't parse them:
-> > > 
-> > > ctags: Warning: arch/ia64/kernel/smp.c:60: null expansion of name pattern "\1"
-> > ...
-> > 
-> > Seems to me you need to fix ctags.
-> 
-> I'm sure the maintainers of ctags and etags would accept patches to
-> describe a custom context-free grammar via commandline options, but
-> until then, let's continue using the regular expressions in tags.sh and
-> remove newlines in macros that tags.sh is trying to expand.
-> 
+The following changes since commit 527e9316f8ec44bd53d90fb9f611fa7ffff52bb9:
 
-Do you have a list of the most common macros?
+  Linux 4.4-rc4 (2015-12-06 15:43:12 -0800)
 
-Perhaps it'd be good to add exceptions to checkpatch
-80 column line rules for them.
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+
+for you to fetch changes up to f277ec42f38f406ed073569b24b04f1c291fec0f:
+
+  virtio_ring: shadow available ring flags & index (2015-12-07 17:28:11 +0200)
+
+----------------------------------------------------------------
+virtio: fixes on top of 4.4-rc4
+
+This includes some fixes and cleanups in virtio and vhost code. Most notably,
+shadowing the index fixes the excessive cacheline bouncing observed on AMD
+platforms.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Michael S. Tsirkin (5):
+      virtio-net: Stop doing DMA from the stack
+      vhost: relax log address alignment
+      tools/virtio: move list macro stubs
+      tools/virtio: fix byteswap logic
+      vhost: replace % with & on data path
+
+Michal Hocko (1):
+      virtio: Do not drop __GFP_HIGH in alloc_indirect
+
+Suman Anna (1):
+      virtio: fix memory leak of virtio ida cache layers
+
+Venkatesh Srinivas (1):
+      virtio_ring: shadow available ring flags & index
+
+ tools/virtio/linux/kernel.h        |  6 +++++
+ tools/virtio/linux/virtio.h        |  6 -----
+ tools/virtio/linux/virtio_config.h | 20 ++++++++++------
+ drivers/net/virtio_net.c           | 34 +++++++++++++++------------
+ drivers/vhost/vhost.c              |  8 +++----
+ drivers/virtio/virtio.c            |  1 +
+ drivers/virtio/virtio_ring.c       | 48 +++++++++++++++++++++++++++-----------
+ 7 files changed, 78 insertions(+), 45 deletions(-)
