@@ -1,116 +1,47 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: MPLS outbound packets being dropped
-Date: Mon, 7 Dec 2015 10:40:25 +0000
-Message-ID: <56656219.7070009@brocade.com>
-References: <CAJm+voUzeyccnn57U_LEDQNO1qyn9xEYMDOjvqWeW+awifuDCg@mail.gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [RFC PATCH net] vxlan: fix incorrect RCO bit in VXLAN header
+Date: Mon, 7 Dec 2015 11:48:30 +0100
+Message-ID: <20151207114830.78912df5@griffin>
+References: <67179e9385c71f7c377a7df345d445704f49dbbc.1449233631.git.jbenc@redhat.com>
+	<CALx6S35_CbKfNpGJM6xsSgdkd25iekMCS3jwyG7_B5bCfeJhQw@mail.gmail.com>
+	<20151204180610.51732e36@griffin>
+	<CALx6S34_MazNmhACWBnVYFzXT9qZPLy2CZK3BBhP8RJzoHYo4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: roopa <roopa@cumulusnetworks.com>
-To: Sam Russell <sam.h.russell@gmail.com>, <netdev@vger.kernel.org>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:52250 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754647AbbLGKkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 05:40:43 -0500
-In-Reply-To: <CAJm+voUzeyccnn57U_LEDQNO1qyn9xEYMDOjvqWeW+awifuDCg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:50642 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755896AbbLGKse (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Dec 2015 05:48:34 -0500
+In-Reply-To: <CALx6S34_MazNmhACWBnVYFzXT9qZPLy2CZK3BBhP8RJzoHYo4w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/12/15 10:20, Sam Russell wrote:
-> tl;dr mpls_output expects skb->protocol to be set to correct
-> ethertype, but it isn't
->
-> https://github.com/torvalds/linux/blob/ede2059dbaf9c6557a49d466c8c7778343b208ff/net/mpls/mpls_iptunnel.c#L64
->
-> Problem:
->
-> I set up two interfaces pointed at each other, and added a static arp
-> entry to minimise complexity
->
-> ifconfig enp0s8 10.0.0.1/24 up
-> ifconfig enp0s9 up
-> arp -s 10.0.0.5 00:12:34:56:78:90
->
-> I then added an MPLS route
->
-> ./dev/iproute2/ip/ip route add 192.168.2.0/24 encap mpls 100 via inet
-> 10.0.0.5 dev enp0s8
->
-> I then tried to ping an IP in this route but got errors back
->
-> ping 192.168.2.1
-> * PING 192.168.2.1 (192.168.2.1) 56(84) bytes of data.
-> * ping: sendmsg: Invalid argument
->
-> I then recorded calls to skb_kfree
->
-> ./tools/perf/perf record -e skb:kfree_skb -g -a
->
-> This gave me the following packet trace:
->
->     100.00%   100.00%  ping     [kernel.kallsyms]  [k] kfree_skb
->                 |
->                 ---kfree_skb
->                    mpls_output
->                    lwtunnel_output
->                    ip_local_out_sk
->                    ip_send_skb
->                    ip_push_pending_frames
->                    raw_sendmsg
->                    inet_sendmsg
->                    sock_sendmsg
->                    ___sys_sendmsg
->                    __sys_sendmsg
->                    sys_sendmsg
->                    entry_SYSCALL_64_fastpath
->                    sendmsg
->                    0
->
-> I then went through mpls_output.c and put printk() at every call to
-> "goto drop" and found that this was being hit after failing to match
-> skb->protocol
->
-> https://github.com/torvalds/linux/blob/ede2059dbaf9c6557a49d466c8c7778343b208ff/net/mpls/mpls_iptunnel.c#L64
->
-> My understanding is that skb->protocol is normally set after
-> dst_output. For example, a ping packet hitting a normal IPv4 route
-> should follow something like:
->
-> raw_sendmsg
-> ip_push_pending_frames
-> ip_send_skb
-> ip_local_out_sk
-> dst_output
-> ip_output
->
-> ip_output() is the first place where skb->protocol gets set
->
-> https://github.com/torvalds/linux/blob/dbd3393c56a8794fe596e7dd20d0efa613b9cf61/net/ipv4/ip_output.c#L356
->
-> The path that a packet follows when hitting an MPLS route is as follows:
->
-> raw_sendmsg
-> ip_push_pending_frames
-> ip_send_skb
-> ip_local_out_sk
-> dst_output
-> lwtunnel_output
-> mpls_output
->
-> lwtunnel_output merely routes to the correct output function (mpls_output)
-> mpls_output expects skb->protocol to be set, but nothing has set it
-> yet, so it drops the packet!
->
-> Any suggestions on how mpls_output should detect the protocol?
+<On Fri, 4 Dec 2015 09:13:28 -0800, Tom Herbert wrote:
+> That's awesome! One favor, can you make sure VXLAN-GPE works with IPv6
+> from the start. :-)
 
-Thanks for reporting this and for your analysis.
+Absolutely. I've not spent so much effort adding IPv6 counterparts to
+various vxlan stuff to submit vxlan-gpe for IPv4 only :-)
 
-We could write wrappers to lwtunnel_output for the v4 and v6 cases that 
-set the protocol accordingly and then call lwtunnel_output, but since 
-mpls_output relies on the AF-specific type of dst I think the simpler 
-fix is to just test the type of the dst in mpls_output rather than 
-skb->protocol.
+> Also, I'll need to spin an I-D for RCO in VXLAN-GPE. Do you see any
+> reason to use a different bit for it?
 
-Thanks,
-Rob
+As for the flags, VXLAN-GBP, VXLAN-GPE and VXLAN-RCO are compatible
+with each other. It's not possible to use GBP and GPE together because
+the group policy id and the next protocol field are overlapping but
+it's possible to distinguish whether it's GBP or GPE based on the
+flags.
+
+There should be no problem using GPE and RCO together (at least now,
+when this patch is applied). It needs to be explicitly configured as
+such when creating the interface, though.
+
+ Jiri
+
+-- 
+Jiri Benc
