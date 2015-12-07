@@ -1,36 +1,41 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: ipsec impact on performance
-Date: Mon, 7 Dec 2015 06:27:48 -0500
-Message-ID: <20151207112748.GB14535@oracle.com>
-References: <20151201175953.GC21252@oracle.com>
- <20151202065305.GB14008@secunet.com>
- <20151202120538.GJ23178@oracle.com>
- <20151203084508.GD14008@secunet.com>
- <20151203113820.GX15262@oracle.com>
- <20151207084050.GH14008@secunet.com>
+From: Otto Sabart <osabart@redhat.com>
+Subject: Re: [BUG] net: performance regression on ixgbe (Intel 82599EB
+ 10-Gigabit NIC)
+Date: Mon, 7 Dec 2015 12:28:37 +0100
+Message-ID: <20151207112837.GA14417@redhat.com>
+References: <20151203162627.GA8989@redhat.com>
+ <566078AA.5040804@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jirka Hladky <jhladky@redhat.com>,
+	Adam Okuliar <aokuliar@redhat.com>,
+	Kamil Kolakowski <kkolakow@redhat.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:58412 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755337AbbLGL2j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Dec 2015 06:28:39 -0500
 Content-Disposition: inline
-In-Reply-To: <20151207084050.GH14008@secunet.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <566078AA.5040804@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (12/07/15 09:40), Steffen Klassert wrote:
+> Hi Ota,
 > 
-> I've pushed it to
+> It looks like there were a few changes that went through that could be
+> causing the regression.  The most obvious one that jumps out at me is commit
+> 72bfd32d2f84 ("ixgbe: disable LRO by default").  As such one thing you might
+> try doing is turning on LRO support via ethtool -k to see if that is the
+> issue you are seeing.
 > 
-> https://git.kernel.org/cgit/linux/kernel/git/klassert/linux-stk.git/log/?h=net-next-ipsec-offload
-> 
-> It is just example code, nothing that I would show usually.
-> But you asked for it, so here is it :)
 
-that's fine, I dont expect more at this point, just want to 
-test-drive it, and see how it compares to my approach. 
+Hi Alex,
+enabling LRO resolved the problem.
 
-thanks!
+Thank you!
 
-> The GRO part seems to work well, the GSO part is just a hack at the 
-> moment.
+Ota
