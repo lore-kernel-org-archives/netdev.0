@@ -1,37 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/4] Further fix for dsa unbinding
-Date: Mon, 07 Dec 2015 16:36:08 -0500 (EST)
-Message-ID: <20151207.163608.1805578623951785262.davem@davemloft.net>
-References: <56321D9A.8010109@baylibre.com>
-	<1449493055-29047-1-git-send-email-narmstrong@baylibre.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH 0/3] sh_eth: optimize MDIO code
+Date: Tue, 08 Dec 2015 00:39:03 +0300
+Message-ID: <1582774.FcjyuztLtc@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, linux@roeck-us.net,
-	vivien.didelot@savoirfairelinux.com, fabf@skynet.be,
-	pavel.nakonechny@skitlab.ru, joe@perches.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: narmstrong@baylibre.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449493055-29047-1-git-send-email-narmstrong@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:36313 "EHLO
+	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932392AbbLGVjM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 16:39:12 -0500
+Received: by lfs39 with SMTP id 39so257354lfs.3
+        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 13:39:10 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Neil Armstrong <narmstrong@baylibre.com>
-Date: Mon,  7 Dec 2015 13:57:31 +0100
+Hello.
 
-> This serie fixes further issues for DSA dynamic unbinding.
-> The first patch completely removes the PHY link state polling.
-> The two following cleans up the dsa state upon removal.
-> The last patch moves slave destroy code as slave function and
-> adds missing netdev and phy cleanup calls.
-> 
-> v1: http://lkml.kernel.org/r/562F8ECB.6050709@baylibre.com
-> v2: http://lkml.kernel.org/r/56321D9A.8010109@baylibre.com
-> remove phy fix and add missing calls in dsa_switch_destroy
-> then add dedicated dsa_slave_destroy
-> 
-> v3: remove polling instead of fixing it, make single patch for
-> dsa slave destroy
+   Here's a set of 3 patches against DaveM's 'net-next.git' repo which gets rid
+of ~35 LoCs in the MDIO bitbang methods.
 
-Series applied, thanks Neil.
+[1/3] sh_eth: remove mask fields from 'struct bb_info'
+[2/3] sh_eth: factor out common code from MDIO bitbang methods
+[3/3] sh_eth: get rid of bb_{set|clr|read}()
+
+MBR, Sergei
