@@ -1,74 +1,53 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 1/4] batman-adv: fix speedy join for DAT cache replies
-Date: Mon,  7 Dec 2015 23:12:12 +0800
-Message-ID: <1449501135-30438-2-git-send-email-antonio@meshcoding.com>
-References: <1449501135-30438-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Simon Wunderlich <sw@simonwunderlich.de>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Antonio Quartulli <antonio@meshcoding.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:18373 "EHLO s1.neomailbox.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933041AbbLGPOL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Dec 2015 10:14:11 -0500
-In-Reply-To: <1449501135-30438-1-git-send-email-antonio@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: use-after-free in ip6_xmit
+Date: Mon, 7 Dec 2015 07:22:49 -0800
+Message-ID: <CANn89i+BRPvDgSFUZGS5iq63C_OrNFK_86pNT0MUEw4OqkqYJQ@mail.gmail.com>
+References: <CACT4Y+aJdFhzX-QKQR3ZNZ=MHPoNQdoS6arFaVn0c4GgUzfb0g@mail.gmail.com>
+	<1449498980.25029.57.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1449499144.25029.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CACT4Y+bGbGT4jA1XKG3_2e8eQgC=oD79FkXEiyELg2UcMZMqMA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org, syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+bGbGT4jA1XKG3_2e8eQgC=oD79FkXEiyELg2UcMZMqMA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Wunderlich <sw@simonwunderlich.de>
+On Mon, Dec 7, 2015 at 6:44 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> Yes, seems to be fixed on master of
+> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git. Just
+> can't pull in all fixes from all trees. Sorry.
+> When will it be merged into Linus tree?
+>
 
-DAT Cache replies are answered on behalf of other clients which are not
-connected to the answering originator. Therefore, we shouldn't add these
-clients to the answering originators TT table through speed join to
-avoid bogus entries.
+As I said, they are already in Linus tree, part of linux-4.4-rc4,
+released yesterday.
 
-Reported-by: Alessandro Bolletta <alessandro@mediaspot.net>
-Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
-Acked-by: Antonio Quartulli <antonio@meshcoding.com>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
----
- net/batman-adv/routing.c | 19 +++++++++++++++----
- 1 file changed, 15 insertions(+), 4 deletions(-)
+I would like to remind you lkml and netdev have thousands of subscribers,
+so please do not flood them with duplicates, especially considering
+you were CC on all
+the patches I cooked to address your original report.
 
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 8d990b0..3207667 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -836,6 +836,7 @@ int batadv_recv_unicast_packet(struct sk_buff *skb,
- 	u8 *orig_addr;
- 	struct batadv_orig_node *orig_node = NULL;
- 	int check, hdr_size = sizeof(*unicast_packet);
-+	enum batadv_subtype subtype;
- 	bool is4addr;
- 
- 	unicast_packet = (struct batadv_unicast_packet *)skb->data;
-@@ -863,10 +864,20 @@ int batadv_recv_unicast_packet(struct sk_buff *skb,
- 	/* packet for me */
- 	if (batadv_is_my_mac(bat_priv, unicast_packet->dest)) {
- 		if (is4addr) {
--			batadv_dat_inc_counter(bat_priv,
--					       unicast_4addr_packet->subtype);
--			orig_addr = unicast_4addr_packet->src;
--			orig_node = batadv_orig_hash_find(bat_priv, orig_addr);
-+			subtype = unicast_4addr_packet->subtype;
-+			batadv_dat_inc_counter(bat_priv, subtype);
-+
-+			/* Only payload data should be considered for speedy
-+			 * join. For example, DAT also uses unicast 4addr
-+			 * types, but those packets should not be considered
-+			 * for speedy join, since the clients do not actually
-+			 * reside at the sending originator.
-+			 */
-+			if (subtype == BATADV_P_DATA) {
-+				orig_addr = unicast_4addr_packet->src;
-+				orig_node = batadv_orig_hash_find(bat_priv,
-+								  orig_addr);
-+			}
- 		}
- 
- 		if (batadv_dat_snoop_incoming_arp_request(bat_priv, skb,
--- 
-2.6.3
+So you knew patches were on their way.
+
+commit 071f5d105a0ae93aeb02197c4ee3557e8cc57a21
+Merge: 2873d32ff493 e3c9b1ef78eb
+Author: Linus Torvalds <torvalds@linux-foundation.org>
+Date:   Thu Dec 3 16:02:46 2015 -0800
+
+    Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
