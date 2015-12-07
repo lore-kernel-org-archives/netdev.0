@@ -1,53 +1,49 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: use-after-free in ip6_xmit
-Date: Mon, 7 Dec 2015 07:22:49 -0800
-Message-ID: <CANn89i+BRPvDgSFUZGS5iq63C_OrNFK_86pNT0MUEw4OqkqYJQ@mail.gmail.com>
-References: <CACT4Y+aJdFhzX-QKQR3ZNZ=MHPoNQdoS6arFaVn0c4GgUzfb0g@mail.gmail.com>
-	<1449498980.25029.57.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1449499144.25029.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CACT4Y+bGbGT4jA1XKG3_2e8eQgC=oD79FkXEiyELg2UcMZMqMA@mail.gmail.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [PATCH 4.3 078/125] can: Use correct type in sizeof() in nla_put()
+Date: Mon,  7 Dec 2015 10:01:31 -0500
+Message-ID: <20151207145756.101753360@linuxfoundation.org>
+References: <20151207145752.225938417@linuxfoundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-sctp@vger.kernel.org, syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	stable@vger.kernel.org, Marek Vasut <marex@denx.de>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+bGbGT4jA1XKG3_2e8eQgC=oD79FkXEiyELg2UcMZMqMA@mail.gmail.com>
+In-Reply-To: <20151207145752.225938417@linuxfoundation.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 7, 2015 at 6:44 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> Yes, seems to be fixed on master of
-> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git. Just
-> can't pull in all fixes from all trees. Sorry.
-> When will it be merged into Linus tree?
->
+4.3-stable review patch.  If anyone has any objections, please let me know.
 
-As I said, they are already in Linus tree, part of linux-4.4-rc4,
-released yesterday.
+------------------
 
-I would like to remind you lkml and netdev have thousands of subscribers,
-so please do not flood them with duplicates, especially considering
-you were CC on all
-the patches I cooked to address your original report.
+From: Marek Vasut <marex@denx.de>
 
-So you knew patches were on their way.
+commit 562b103a21974c2f9cd67514d110f918bb3e1796 upstream.
 
-commit 071f5d105a0ae93aeb02197c4ee3557e8cc57a21
-Merge: 2873d32ff493 e3c9b1ef78eb
-Author: Linus Torvalds <torvalds@linux-foundation.org>
-Date:   Thu Dec 3 16:02:46 2015 -0800
+The sizeof() is invoked on an incorrect variable, likely due to some
+copy-paste error, and this might result in memory corruption. Fix this.
 
-    Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+Signed-off-by: Marek Vasut <marex@denx.de>
+Cc: Wolfgang Grandegger <wg@grandegger.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+
+---
+ drivers/net/can/dev.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -915,7 +915,7 @@ static int can_fill_info(struct sk_buff
+ 	     nla_put(skb, IFLA_CAN_BITTIMING_CONST,
+ 		     sizeof(*priv->bittiming_const), priv->bittiming_const)) ||
+ 
+-	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(cm), &priv->clock) ||
++	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(priv->clock), &priv->clock) ||
+ 	    nla_put_u32(skb, IFLA_CAN_STATE, state) ||
+ 	    nla_put(skb, IFLA_CAN_CTRLMODE, sizeof(cm), &cm) ||
+ 	    nla_put_u32(skb, IFLA_CAN_RESTART_MS, priv->restart_ms) ||
