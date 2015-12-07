@@ -1,126 +1,335 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: [PATCH RFC 00/26] Phylink & SFP support
-Date: Mon, 7 Dec 2015 17:35:53 +0000
-Message-ID: <20151207173553.GU8644@n2100.arm.linux.org.uk>
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Subject: [PATCH RFC 01/26] phy: move fixed_phy MII register generation to a
+ library
+Date: Mon, 07 Dec 2015 17:37:16 +0000
+Message-ID: <E1a5ziu-00074T-EQ@rmk-PC.arm.linux.org.uk>
+References: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org
 To: Florian Fainelli <f.fainelli@gmail.com>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60245 "EHLO
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60250 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932374AbbLGRgA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:36:00 -0500
+	with ESMTP id S932245AbbLGRhT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:37:19 -0500
+In-Reply-To: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Move the fixed_phy MII register generation to a library to allow other
+software phy implementations to use this code.
 
-SFP modules are hot-pluggable ethernet transceivers; they can be
-detected at runtime and accordingly configured.  There are a range of
-modules offering many different features.
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+---
+ drivers/net/phy/Kconfig     |   4 ++
+ drivers/net/phy/Makefile    |   3 +-
+ drivers/net/phy/fixed_phy.c |  95 ++-------------------------------
+ drivers/net/phy/swphy.c     | 126 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/phy/swphy.h     |   8 +++
+ 5 files changed, 143 insertions(+), 93 deletions(-)
+ create mode 100644 drivers/net/phy/swphy.c
+ create mode 100644 drivers/net/phy/swphy.h
 
-Some SFP modules have PHYs conventional integrated into them, others
-drive a laser diode from the Serdes bus.  Some have monitoring, others
-do not.
-
-Some SFP modules want to use SGMII over the Serdes link, others want
-to use 1000base-X over the Serdes link.
-
-This makes it non-trivial to support with the existing code structure.
-Not wanting to write something specific to the mvneta driver, I decided
-to have a go at coming up with something more generic.
-
-My initial attempts were to provide a PHY driver, but I found that
-phylib's state machine got in the way, and it was hard to support two
-chained PHYs.  Conversely, having a fixed DT specified setup (via
-the fixed phy infrastructure) would allow some SFP modules to work, but
-not others.  The same is true of the "managed" in-band status (which
-is SGMII.)
-
-The result is that I came up with phylink - an infrastructure layer
-which sits between the network driver and any attached PHY, and a
-SFP module layer detects the SFP module, and configures phylink
-accordingly.
-
-Overall, this supports:
-
-* switching the serdes mode at the NIC driver
-* controlling autonegotiation and autoneg results
-* allowing PHYs to be hotplugged
-* allowing SFP modules to be hotplugged with proper link indication
-* fixed-mode links without involving phylib
-* flow control
-* EEE support
-* reading SFP module EEPROMs
-
-Overall, phylink supports several link modes, with dynamic switching
-possible between these:
-* A true fixed link mode, where the parameters are set by DT.
-* PHY mode, where we read the negotiation results from the PHY registers
-  and pass them to the NIC driver.
-* SGMII mode, where the in-band status indicates the speed, duplex and
-  flow control settings of the link partner.
-* 1000base-X mode, where the in-band status indicates only duplex and
-  flow control settings (different, incompatible bit layout from SGMII.)
-
-Ethtool support is included, as well as emulation of the MII registers
-for situations where a PHY is not attached, giving compatible emulation
-of existing user interfaces where required.
-
-The patches here include modification of mvneta (against 4.4-rc1, so
-probably won't apply to current development tips.)  It basically
-hooks into the places where the phylib would hook into.
-
-DT wise, the changes needed to support SFP look like this (example
-taken from Clearfog):
-
- 			ethernet@34000 {
-+				managed = "in-band-status";
- 				phy-mode = "sgmii";
- 				status = "okay";
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 60994a83a0d6..c59f957fc282 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -12,6 +12,9 @@ menuconfig PHYLIB
+ 
+ if PHYLIB
+ 
++config SWPHY
++	bool
++
+ comment "MII PHY device drivers"
+ 
+ config AQUANTIA_PHY
+@@ -159,6 +162,7 @@ config MICROCHIP_PHY
+ config FIXED_PHY
+ 	tristate "Driver for MDIO Bus/PHY emulation with fixed speed/link PHYs"
+ 	depends on PHYLIB
++	select SWPHY
+ 	---help---
+ 	  Adds the platform "fixed" MDIO Bus to cover the boards that use
+ 	  PHYs that are not connected to the real MDIO bus.
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index f31a4e25cf15..31bdf193adbd 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -1,6 +1,7 @@
+ # Makefile for Linux PHY drivers
+ 
+-libphy-objs			:= phy.o phy_device.o mdio_bus.o
++libphy-y			:= phy.o phy_device.o mdio_bus.o
++libphy-$(CONFIG_SWPHY)		+= swphy.o
+ 
+ obj-$(CONFIG_PHYLIB)		+= libphy.o
+ obj-$(CONFIG_AQUANTIA_PHY)	+= aquantia.o
+diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
+index e23bf5b90e17..9a448e7f8f4e 100644
+--- a/drivers/net/phy/fixed_phy.c
++++ b/drivers/net/phy/fixed_phy.c
+@@ -24,6 +24,8 @@
+ #include <linux/of.h>
+ #include <linux/gpio.h>
+ 
++#include "swphy.h"
++
+ #define MII_REGS_NUM 29
+ 
+ struct fixed_mdio_bus {
+@@ -49,101 +51,10 @@ static struct fixed_mdio_bus platform_fmb = {
+ 
+ static int fixed_phy_update_regs(struct fixed_phy *fp)
+ {
+-	u16 bmsr = BMSR_ANEGCAPABLE;
+-	u16 bmcr = 0;
+-	u16 lpagb = 0;
+-	u16 lpa = 0;
 -
--				fixed-link {
--					speed = <1000>;
--					full-duplex;
--				};
- 			};
-...
-+	sfp: sfp {
-+		compatible = "sff,sfp";
-+		i2c-bus = <&i2c1>;
-+		los-gpio = <&expander0 12 GPIO_ACTIVE_HIGH>;
-+		moddef0-gpio = <&expander0 15 GPIO_ACTIVE_LOW>;
-+		sfp,ethernet = <&eth2>;
-+		tx-disable-gpio = <&expander0 14 GPIO_ACTIVE_HIGH>;
-+		tx-fault-gpio = <&expander0 13 GPIO_ACTIVE_HIGH>;
-+	};
-
-These DT changes are omitted from this patch set as the baseline DT
-file is not in mainline yet (has been submitted.)
-
- drivers/net/ethernet/marvell/Kconfig  |    2 +-
- drivers/net/ethernet/marvell/mvneta.c |  537 +++++++++-----
- drivers/net/phy/Kconfig               |   29 +
- drivers/net/phy/Makefile              |    6 +-
- drivers/net/phy/fixed_phy.c           |  178 +----
- drivers/net/phy/marvell.c             |    2 +-
- drivers/net/phy/mdio-i2c.c            |   90 +++
- drivers/net/phy/mdio-i2c.h            |   19 +
- drivers/net/phy/phy.c                 |   46 +-
- drivers/net/phy/phy_device.c          |   15 +
- drivers/net/phy/phylink.c             | 1138 ++++++++++++++++++++++++++++++
- drivers/net/phy/sfp.c                 | 1235 +++++++++++++++++++++++++++++++++
- drivers/net/phy/swphy.c               |  179 +++++
- drivers/net/phy/swphy.h               |    9 +
- include/linux/phy.h                   |    4 +
- include/linux/phy_fixed.h             |    9 -
- include/linux/phylink.h               |  102 +++
- include/linux/sfp.h                   |  338 +++++++++
- 18 files changed, 3577 insertions(+), 361 deletions(-)
-
+ 	if (gpio_is_valid(fp->link_gpio))
+ 		fp->status.link = !!gpio_get_value_cansleep(fp->link_gpio);
+ 
+-	if (fp->status.duplex) {
+-		switch (fp->status.speed) {
+-		case 1000:
+-			bmsr |= BMSR_ESTATEN;
+-			break;
+-		case 100:
+-			bmsr |= BMSR_100FULL;
+-			break;
+-		case 10:
+-			bmsr |= BMSR_10FULL;
+-			break;
+-		default:
+-			break;
+-		}
+-	} else {
+-		switch (fp->status.speed) {
+-		case 1000:
+-			bmsr |= BMSR_ESTATEN;
+-			break;
+-		case 100:
+-			bmsr |= BMSR_100HALF;
+-			break;
+-		case 10:
+-			bmsr |= BMSR_10HALF;
+-			break;
+-		default:
+-			break;
+-		}
+-	}
+-
+-	if (fp->status.link) {
+-		bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
+-
+-		if (fp->status.duplex) {
+-			bmcr |= BMCR_FULLDPLX;
+-
+-			switch (fp->status.speed) {
+-			case 1000:
+-				bmcr |= BMCR_SPEED1000;
+-				lpagb |= LPA_1000FULL;
+-				break;
+-			case 100:
+-				bmcr |= BMCR_SPEED100;
+-				lpa |= LPA_100FULL;
+-				break;
+-			case 10:
+-				lpa |= LPA_10FULL;
+-				break;
+-			default:
+-				pr_warn("fixed phy: unknown speed\n");
+-				return -EINVAL;
+-			}
+-		} else {
+-			switch (fp->status.speed) {
+-			case 1000:
+-				bmcr |= BMCR_SPEED1000;
+-				lpagb |= LPA_1000HALF;
+-				break;
+-			case 100:
+-				bmcr |= BMCR_SPEED100;
+-				lpa |= LPA_100HALF;
+-				break;
+-			case 10:
+-				lpa |= LPA_10HALF;
+-				break;
+-			default:
+-				pr_warn("fixed phy: unknown speed\n");
+-			return -EINVAL;
+-			}
+-		}
+-
+-		if (fp->status.pause)
+-			lpa |= LPA_PAUSE_CAP;
+-
+-		if (fp->status.asym_pause)
+-			lpa |= LPA_PAUSE_ASYM;
+-	}
+-
+-	fp->regs[MII_PHYSID1] = 0;
+-	fp->regs[MII_PHYSID2] = 0;
+-
+-	fp->regs[MII_BMSR] = bmsr;
+-	fp->regs[MII_BMCR] = bmcr;
+-	fp->regs[MII_LPA] = lpa;
+-	fp->regs[MII_STAT1000] = lpagb;
+-
+-	return 0;
++	return swphy_update_regs(fp->regs, &fp->status);
+ }
+ 
+ static int fixed_mdio_read(struct mii_bus *bus, int phy_addr, int reg_num)
+diff --git a/drivers/net/phy/swphy.c b/drivers/net/phy/swphy.c
+new file mode 100644
+index 000000000000..0551a79a2454
+--- /dev/null
++++ b/drivers/net/phy/swphy.c
+@@ -0,0 +1,126 @@
++/*
++ * Software PHY emulation
++ *
++ * Code taken from fixed_phy.c by Russell King <rmk+kernel@arm.linux.org.uk>
++ *
++ * Author: Vitaly Bordug <vbordug@ru.mvista.com>
++ *         Anton Vorontsov <avorontsov@ru.mvista.com>
++ *
++ * Copyright (c) 2006-2007 MontaVista Software, Inc.
++ *
++ * This program is free software; you can redistribute  it and/or modify it
++ * under  the terms of  the GNU General  Public License as published by the
++ * Free Software Foundation;  either version 2 of the  License, or (at your
++ * option) any later version.
++ */
++#include <linux/export.h>
++#include <linux/mii.h>
++#include <linux/phy.h>
++#include <linux/phy_fixed.h>
++
++#include "swphy.h"
++
++/**
++ * swphy_update_regs - update MII register array with fixed phy state
++ * @regs: array of 32 registers to update
++ * @state: fixed phy status
++ *
++ * Update the array of MII registers with the fixed phy link, speed,
++ * duplex and pause mode settings.
++ */
++int swphy_update_regs(u16 *regs, const struct fixed_phy_status *state)
++{
++	u16 bmsr = BMSR_ANEGCAPABLE;
++	u16 bmcr = 0;
++	u16 lpagb = 0;
++	u16 lpa = 0;
++
++	if (state->duplex) {
++		switch (state->speed) {
++		case 1000:
++			bmsr |= BMSR_ESTATEN;
++			break;
++		case 100:
++			bmsr |= BMSR_100FULL;
++			break;
++		case 10:
++			bmsr |= BMSR_10FULL;
++			break;
++		default:
++			break;
++		}
++	} else {
++		switch (state->speed) {
++		case 1000:
++			bmsr |= BMSR_ESTATEN;
++			break;
++		case 100:
++			bmsr |= BMSR_100HALF;
++			break;
++		case 10:
++			bmsr |= BMSR_10HALF;
++			break;
++		default:
++			break;
++		}
++	}
++
++	if (state->link) {
++		bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
++
++		if (state->duplex) {
++			bmcr |= BMCR_FULLDPLX;
++
++			switch (state->speed) {
++			case 1000:
++				bmcr |= BMCR_SPEED1000;
++				lpagb |= LPA_1000FULL;
++				break;
++			case 100:
++				bmcr |= BMCR_SPEED100;
++				lpa |= LPA_100FULL;
++				break;
++			case 10:
++				lpa |= LPA_10FULL;
++				break;
++			default:
++				pr_warn("swphy: unknown speed\n");
++				return -EINVAL;
++			}
++		} else {
++			switch (state->speed) {
++			case 1000:
++				bmcr |= BMCR_SPEED1000;
++				lpagb |= LPA_1000HALF;
++				break;
++			case 100:
++				bmcr |= BMCR_SPEED100;
++				lpa |= LPA_100HALF;
++				break;
++			case 10:
++				lpa |= LPA_10HALF;
++				break;
++			default:
++				pr_warn("swphy: unknown speed\n");
++				return -EINVAL;
++			}
++		}
++
++		if (state->pause)
++			lpa |= LPA_PAUSE_CAP;
++
++		if (state->asym_pause)
++			lpa |= LPA_PAUSE_ASYM;
++	}
++
++	regs[MII_PHYSID1] = 0;
++	regs[MII_PHYSID2] = 0;
++
++	regs[MII_BMSR] = bmsr;
++	regs[MII_BMCR] = bmcr;
++	regs[MII_LPA] = lpa;
++	regs[MII_STAT1000] = lpagb;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(swphy_update_regs);
+diff --git a/drivers/net/phy/swphy.h b/drivers/net/phy/swphy.h
+new file mode 100644
+index 000000000000..feaa38ff86a2
+--- /dev/null
++++ b/drivers/net/phy/swphy.h
+@@ -0,0 +1,8 @@
++#ifndef SWPHY_H
++#define SWPHY_H
++
++struct fixed_phy_status;
++
++int swphy_update_regs(u16 *regs, const struct fixed_phy_status *state);
++
++#endif
 -- 
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+2.1.0
