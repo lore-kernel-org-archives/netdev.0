@@ -1,43 +1,38 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH v2 4/5] stmmac: Add ptp debugfs entry.
-Date: Mon, 07 Dec 2015 15:37:20 +0100
-Message-ID: <3249879.RWnkoF3UVT@wuerfel>
-References: <1449452324-53858-1-git-send-email-preid@electromag.com.au> <2080516.uAzdPnupR8@wuerfel> <56658BB0.10700@electromag.com.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: use-after-free in ip6_xmit
+Date: Mon, 07 Dec 2015 06:39:04 -0800
+Message-ID: <1449499144.25029.59.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACT4Y+aJdFhzX-QKQR3ZNZ=MHPoNQdoS6arFaVn0c4GgUzfb0g@mail.gmail.com>
+	 <1449498980.25029.57.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <56658BB0.10700-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org, syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449498980.25029.57.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 07 December 2015 21:37:52 Phil Reid wrote:
-> On 7/12/2015 5:03 PM, Arnd Bergmann wrote:
-> > On Monday 07 December 2015 09:38:43 Phil Reid wrote:
-> >> This adds a debugfs entry to view the current status of the ptp
-> >> registers.
-> >>
-> >> Signed-off-by: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
-> >>
-> >
-> > Your description should explain what this is good for. Why do you
-> > need to look at this through debugfs?
-> >
+On Mon, 2015-12-07 at 06:36 -0800, Eric Dumazet wrote:
+
+
+> Thanks
 > 
-> Happy to drop this one. I found it helpful when debugging the ptp
-> behaviour. Allowing quick access to monitor the register updates
-> by the ptp driver. Is there an alternative method that is preferred?
 
-For tracing what the driver does, I'd add a trace event, which also
-lets you see when any updates happen.
+Also note that Dave Jones reported a SCTP problem fixed by : 
 
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+https://patchwork.ozlabs.org/patch/553068/
