@@ -1,83 +1,65 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Sun, 6 Dec 2015 17:20:49 -0800
-Message-ID: <CAKgT0UdDrx8LWXzgGNfWZHY+XSMAmj7axK5Dn85+fJbghp+Cfg@mail.gmail.com>
-References: <CAKgT0Uc1bJRrzpLUdr3vOFkYZbcqP=J8wgOz1feF+u04aNBg1g@mail.gmail.com>
-	<20151205.130313.1952213347830357234.davem@davemloft.net>
-	<CAKgT0UfQCnz+oGfETZQs-nCP_QL_5qzngB+zC-e6ZN1-kV8C0Q@mail.gmail.com>
-	<20151205.172742.1214683922564543621.davem@davemloft.net>
-	<CAKgT0Udj2vNjqTO3HQKRoQajm-_Y6PdgQAu23Z8eQfnLRvsUiQ@mail.gmail.com>
-	<CALx6S37rekP6c9umanJAFhzpBC=pvR6VBA6CvR13-n7rhFYT-Q@mail.gmail.com>
-	<CAKgT0Uf4GGmeMKHZsr4ZPmRWxSDT4hEHpLr03SczQBJ8Ei6E4A@mail.gmail.com>
-	<CALx6S36SdoYO6XJkwUQMtEO9OPm-Hb+qu9Kzt3Db7+ps9Wf4AQ@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Asterisk deadlocks since Kernel 4.1
+Date: Mon, 7 Dec 2015 09:20:42 +0800
+Message-ID: <20151207012042.GA7420@gondor.apana.org.au>
+References: <564DC4A5.70104@profihost.ag>
+ <564DCC4C.1090009@redhat.com>
+ <564E2852.8000200@profihost.ag>
+ <56530A42.6030609@profihost.ag>
+ <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com>
+ <565EBDC1.1090808@profihost.ag>
+ <8737vlt6xb.fsf@stressinduktion.org>
+ <5661DAC4.8040909@profihost.ag>
+ <20151205010819.GA21889@gondor.apana.org.au>
+ <5664A102.2030602@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	John Linville <linville@tuxdriver.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Kiran Patil <kiran.patil@intel.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:37112 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754125AbbLGBUu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 20:20:50 -0500
-Received: by igcto18 with SMTP id to18so70941223igc.0
-        for <netdev@vger.kernel.org>; Sun, 06 Dec 2015 17:20:49 -0800 (PST)
-In-Reply-To: <CALx6S36SdoYO6XJkwUQMtEO9OPm-Hb+qu9Kzt3Db7+ps9Wf4AQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Weimer <fweimer@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jannik Winkel <j.winkel@profihost.ag>,
+	Marco Schinkel <m.schinkel@profihost.ag>,
+	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org
+To: Stefan Priebe <s.priebe@profihost.ag>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5664A102.2030602@profihost.ag>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Dec 6, 2015 at 1:30 PM, Tom Herbert <tom@herbertland.com> wrote:
-> On Sun, Dec 6, 2015 at 10:44 AM, Alexander Duyck
-> <alexander.duyck@gmail.com> wrote:
->> On Sun, Dec 6, 2015 at 8:31 AM, Tom Herbert <tom@herbertland.com> wrote:
->>>> The only spot I think you and I disagreed on was the approach.  I
->>>> don't know if the hard push back does anything but punish the users by
->>>> delaying the time needed to find a reasonable solution.  I really
->>>> think if we are going to get the hardware vendors to change their
->>>> behavior we have to create a market demand for it.  Having a bit of
->>>> marketable data showing the folly of this approach versus the 1's
->>>> compliment checksum would probably do more to encourage and/or shame
->>>> them into it than simply pushing for this based on engineering
->>>> opinion.
->>>>
->>> I don't know what "marketable data" means. But I do know that we're
->>> like 70 postings into this thread, into the third patch set regarding
->>> this, yet nobody has bothered to contribute any data on what these
->>> patches do and what the quantifiable benefits are with HW offload of
->>> these protocols. I would test this stuff myself, but I don't have
->>> access to any NICs with necessary support. If someone else can start
->>> testing and providing meaningful data it would be most helpful...
->>
->> Here is an example of something kind of like what I am talking about:
->> http://www.mellanox.com/related-docs/whitepapers/CB_Intel_XL710.pdf
->>
->> I have seen evidence of the gains first hand.  The biggest gain ends
->> up being the result of GRO, and you cannot make use of GRO without
->> some form of Rx checksum offload.
->>
-> Right, but we recoup the gains of GRO simply by enabling the UDP
-> checksum. This works for all the UDP encapsulations, and probably
-> about all NICs in deployment. You don't need protocol specific
-> offloads for this. I have posted performance data many times on this,
-> it is a clear win.
+On Sun, Dec 06, 2015 at 09:56:34PM +0100, Stefan Priebe wrote:
+> Hi Herbert,
+> 
+> i think i found the issue in 4.1 with netlink. Somebody made a
+> mistake while backporting or cherry-picking your patch "netlink: Fix
+> autobind race condition that leads to zero port ID" to 4.1.
+> 
+> It misses a goto in 4.1.
+> 
+> This goto is missing in 4.1:
+> 
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index 4017e12..f15c001 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+> @@ -1132,7 +1132,6 @@ static int netlink_insert(struct sock *sk, u32 portid)
+>                 if (err == -EEXIST)
+>                         err = -EADDRINUSE;
+>                 sock_put(sk);
+> -               goto err;
+>         }
+> 
+>         /* We need to ensure that the socket is hashed and visible. */
+> 
+> Can you please confirm, that this is not correct and might cause
+> those issues.
 
-That works for Linux to Linux, but what about the cases where you have
-a non-Linux endpoint on the other end such as something like a Cisco
-switch?  That is where having the protocol specific offload is useful
-as long as the hardware has sufficient capabilities to support it.
+Well spotted! Yes this would be a fatal error and can cause the
+problems you guys are seeing.
 
-As far as trying to get the vendors to give up their protocol parsing,
-it will probably never happen.  It wouldn't surprise me if it is due
-to product requirements from Microsoft in order to support things like
-RSS, RSC, and filtering on inner header fields.  If Linux doesn't care
-about that we can drop support for it, but it still doesn't mean they
-can drop those bits from the hardware design so they would likely
-interpret this as a request to add a new feature instead of fixing or
-replacing the existing checksum approach.
-
-- Alex
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
