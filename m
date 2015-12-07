@@ -1,84 +1,79 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH net 1/2] net: cadence: macb: Disable USRIO register on some platforms
-Date: Mon,  7 Dec 2015 11:58:33 +0100
-Message-ID: <1449485914-12883-2-git-send-email-narmstrong@baylibre.com>
-References: <1449485914-12883-1-git-send-email-narmstrong@baylibre.com>
-Cc: Neil Armstrong <narmstrong@baylibre.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Harini Katakam <harini.katakam@xilinx.com>,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
+From: Alexey Eromenko <al4321@gmail.com>
+Subject: Brand-new networking Internet Protocol "Five Fields"
+Date: Mon, 7 Dec 2015 12:59:18 +0200
+Message-ID: <CAOJ6w=G+27bEVjhUSSm7V17Bx05rmqJ_SPvnOJ+yAAo1d923uQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:36956 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755578AbbLGK7B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 05:59:01 -0500
-Received: by wmww144 with SMTP id w144so144889754wmw.0
-        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 02:58:58 -0800 (PST)
-In-Reply-To: <1449485914-12883-1-git-send-email-narmstrong@baylibre.com>
+Received: from mail-io0-f178.google.com ([209.85.223.178]:36518 "EHLO
+	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755588AbbLGK7i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 05:59:38 -0500
+Received: by iofh3 with SMTP id h3so177396451iof.3
+        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 02:59:37 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On some platforms, the macb integration does not use the USRIO
-register to configure the (R)MII port and clocks.
-When the register is not implemented and the MACB error signal
-is connected to the bus error, reading or writing to the USRIO
-register can trigger some Imprecise External Aborts on ARM platforms.
----
- drivers/net/ethernet/cadence/macb.c | 29 +++++++++++++++++------------
- 1 file changed, 17 insertions(+), 12 deletions(-)
+Hi all,
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 169059c..3897620 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -2122,7 +2122,9 @@ static void macb_get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 	regs_buff[10] = macb_tx_dma(&bp->queues[0], tail);
- 	regs_buff[11] = macb_tx_dma(&bp->queues[0], head);
- 
--	regs_buff[12] = macb_or_gem_readl(bp, USRIO);
-+	if (!of_property_read_bool(bp->pdev->dev.of_node, "no-usrio")) {
-+		regs_buff[12] = macb_or_gem_readl(bp, USRIO);
-+	}
- 	if (macb_is_gem(bp)) {
- 		regs_buff[13] = gem_readl(bp, DMACFG);
- 	}
-@@ -2401,19 +2403,22 @@ static int macb_init(struct platform_device *pdev)
- 		dev->hw_features &= ~NETIF_F_SG;
- 	dev->features = dev->hw_features;
- 
--	val = 0;
--	if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
--		val = GEM_BIT(RGMII);
--	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII &&
--		 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
--		val = MACB_BIT(RMII);
--	else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
--		val = MACB_BIT(MII);
-+	/* Some platform do not implement the USRIO register */
-+	if (!of_property_read_bool(pdev->dev.of_node, "no-usrio")) {
-+		val = 0;
-+		if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
-+			val = GEM_BIT(RGMII);
-+		else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII &&
-+			 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-+			val = MACB_BIT(RMII);
-+		else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-+			val = MACB_BIT(MII);
- 
--	if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
--		val |= MACB_BIT(CLKEN);
-+		if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
-+			val |= MACB_BIT(CLKEN);
- 
--	macb_or_gem_writel(bp, USRIO, val);
-+		macb_or_gem_writel(bp, USRIO, val);
-+	}
- 
- 	/* Set MII management clock divider */
- 	val = macb_mdc_clk_div(bp);
+I have created a new Internet Protocol "Five Fields".
+
+Why ?
+Because IPv6 is hard to use, and I wanted to keep look & feel similar to IPv4.
+Problem with IPv6, is that those addresses are very hard for humans to
+remember, compare and visualize topologies in human brain.
+IPv4 has great look & feel, but it is exhausted. So I wrote a new
+replacement for IPv6.
+
+I did it, because I don't like to work with something long like this:
+   2001:db8:2e1:1a73:149f:88ff:fe81:6116
+
+And it would be better, if we work with simpler addressing:
+      192.168.510.971.11
+
+      10.0.0.0.1
+
+      382.201.769.25.133
+
+Draft spec. available.
+
+"Five Fields" offers 0...999 in each field, in dotted decimal
+notation, and includes unique features not found *anywhere else*.
+
+- x230,000 times larger address space than IPv4 (should be enough for
+several hundred years, including IoT)
+-Mobile TCP, allows moving Mobile Nodes between subnets, without
+losing connectivity. A replacement for Mobile IP. An order of
+magnitude simpler, and requires no access to routers and
+configuration-free.
+-IP-VRF header extension, allows doing VRF-VPN without MPLS (and
+without dot1q VLANs)
+-Super-lightweight, and should be faster than IPv4 or IPv6 by 1%-2%.
+Small overhead.
+-UDP/IP overhead is 28 bytes; UDP/IPv6 overhead is 48 bytes, but
+UDP/IP-FF overhead is just 26 bytes ! Even shorter than the original,
+yay !
+-Simpler to implement than IPv4/v6, because no fragmentation. MTU path
+discovery is the way to go.
+-No broadcasts.
+-No IP header checksums (done at layer 4)
+-No autoconfiguration/SLAAC (this belongs to DHCP territory)
+-No IGMP required (it is optional now for Multicasts)
+-No Layer2 resolution. ARP-free protocol.
+
+I believe, that it is superior to both IPv4 and IPv6, simpler than
+both, and intended as a replacement for both. Substantial improvement
+on both.
+
+This draft specification describes various parts, the protocol itself,
+addressing scheme, Address Resolution Algorithm (without ARP), DNS
+extensions, Mobile TCP, and more...
+
+https://www.dropbox.com/s/zcinwk05h2zkflw/IP-FF-2015-12-07.zip?dl=0
+
+With more time and polish, I plan to send it to IETF.
+
+Best wishes,
 -- 
-1.9.1
+-Alexey Eromenko "Technologov"
