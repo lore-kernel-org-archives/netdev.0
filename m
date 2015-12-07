@@ -1,39 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] mpls: fix sending of local encapped packets
-Date: Mon, 07 Dec 2015 16:33:27 -0500 (EST)
-Message-ID: <20151207.163327.128104390576260749.davem@davemloft.net>
-References: <56656219.7070009@brocade.com>
-	<1449492795-12406-1-git-send-email-rshearma@brocade.com>
+Subject: Re: [PATCH v3 net-next 0/4] Further fix for dsa unbinding
+Date: Mon, 07 Dec 2015 16:36:08 -0500 (EST)
+Message-ID: <20151207.163608.1805578623951785262.davem@davemloft.net>
+References: <56321D9A.8010109@baylibre.com>
+	<1449493055-29047-1-git-send-email-narmstrong@baylibre.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	ebiederm@xmission.com, sam.h.russell@gmail.com
-To: rshearma@brocade.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50904 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755881AbbLGVd2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 16:33:28 -0500
-In-Reply-To: <1449492795-12406-1-git-send-email-rshearma@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, linux@roeck-us.net,
+	vivien.didelot@savoirfairelinux.com, fabf@skynet.be,
+	pavel.nakonechny@skitlab.ru, joe@perches.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: narmstrong@baylibre.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449493055-29047-1-git-send-email-narmstrong@baylibre.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Robert Shearman <rshearma@brocade.com>
-Date: Mon, 7 Dec 2015 12:53:15 +0000
+From: Neil Armstrong <narmstrong@baylibre.com>
+Date: Mon,  7 Dec 2015 13:57:31 +0100
 
-> Locally generated IPv4 and (probably) IPv6 packets are dropped because
-> skb->protocol isn't set. We could write wrappers to lwtunnel_output
-> for IPv4 and IPv6 that set the protocol accordingly and then call
-> lwtunnel_output, but mpls_output relies on the AF-specific type of dst
-> anyway to get the via address.
+> This serie fixes further issues for DSA dynamic unbinding.
+> The first patch completely removes the PHY link state polling.
+> The two following cleans up the dsa state upon removal.
+> The last patch moves slave destroy code as slave function and
+> adds missing netdev and phy cleanup calls.
 > 
-> Therefore, make use of dst->dst_ops->family in mpls_output to
-> determine the type of nexthop and thus protocol of the packet instead
-> of checking skb->protocol.
+> v1: http://lkml.kernel.org/r/562F8ECB.6050709@baylibre.com
+> v2: http://lkml.kernel.org/r/56321D9A.8010109@baylibre.com
+> remove phy fix and add missing calls in dsa_switch_destroy
+> then add dedicated dsa_slave_destroy
 > 
-> Fixes: 61adedf3e3f1 ("route: move lwtunnel state to dst_entry")
-> Reported-by: Sam Russell <sam.h.russell@gmail.com>
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
+> v3: remove polling instead of fixing it, make single patch for
+> dsa slave destroy
 
-Applied, thanks.
+Series applied, thanks Neil.
