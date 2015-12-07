@@ -1,75 +1,46 @@
-From: Peter Wu <peter@lekensteyn.nl>
-Subject: [PATCH] r8152: fix lockup when runtime PM is enabled
-Date: Mon,  7 Dec 2015 17:58:40 +0100
-Message-ID: <1449507520-10671-1-git-send-email-peter@lekensteyn.nl>
-Cc: Lu Baolu <baolu.lu@linux.intel.com>
-To: "David S . Miller" <davem@davemloft.net>,
-	hayeswang <hayeswang@realtek.com>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: Re: [PATCH net] ravb: Remove clear unhandled interrupt
+Date: Tue, 8 Dec 2015 01:59:15 +0900
+Message-ID: <CAH1o70LeSfwpcFicV=CCip=W1QOeYE3VioEv7L-XZCyMBgnTrA@mail.gmail.com>
+References: <1449402140-24272-1-git-send-email-ykaneko0929@gmail.com>
+	<566489E8.8040605@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <566489E8.8040605@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When an interface is brought up which was previously suspended (via
-runtime PM), it would hang. This happens because napi_disable is called
-before napi_enable.
+Hello,
 
-Solve this by avoiding napi_disable before the device is fully up.
+2015-12-07 4:18 GMT+09:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
+> Hello.
+>
+> On 12/06/2015 02:42 PM, Yoshihiro Kaneko wrote:
+>
+>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>
+>> AVB-DMAC Reception Warning interrupt is not enabled, so it is not
+>> necessary to clear the interrupt.
+>>
+>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+>
+>
+>    In principle I agree but perhaps we should clear RIC1 in probe() to not
+> depend on a state left from a bootloader?
 
-While at it, remove WORK_ENABLE check from rtl8152_open (introduced with
-the original change) because it cannot happen:
+I think that it is a good idea.
+I'll add it to v2.
 
- - After this patch, runtime resume will not set it during rtl8152_open.
- - When link is up, rtl8152_open is not called.
- - When link is down during system/auto suspend/resume, it is not set.
+>
+> MBR, Sergei
+>
 
-Fixes: 41cec84cf285 ("r8152: don't enable napi before rx ready")
-Link: https://lkml.kernel.org/r/20151205105912.GA1766@al
-Signed-off-by: Peter Wu <peter@lekensteyn.nl>
----
- drivers/net/usb/r8152.c | 23 +++++++----------------
- 1 file changed, 7 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index d9427ca..b8b083e 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -3067,17 +3067,6 @@ static int rtl8152_open(struct net_device *netdev)
- 
- 	mutex_lock(&tp->control);
- 
--	/* The WORK_ENABLE may be set when autoresume occurs */
--	if (test_bit(WORK_ENABLE, &tp->flags)) {
--		clear_bit(WORK_ENABLE, &tp->flags);
--		usb_kill_urb(tp->intr_urb);
--		cancel_delayed_work_sync(&tp->schedule);
--
--		/* disable the tx/rx, if the workqueue has enabled them. */
--		if (netif_carrier_ok(netdev))
--			tp->rtl_ops.disable(tp);
--	}
--
- 	tp->rtl_ops.up(tp);
- 
- 	rtl8152_set_speed(tp, AUTONEG_ENABLE,
-@@ -3516,11 +3505,13 @@ static int rtl8152_resume(struct usb_interface *intf)
- 		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
- 			rtl_runtime_suspend_enable(tp, false);
- 			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
--			napi_disable(&tp->napi);
--			set_bit(WORK_ENABLE, &tp->flags);
--			if (netif_carrier_ok(tp->netdev))
--				rtl_start_rx(tp);
--			napi_enable(&tp->napi);
-+			if (tp->netdev->flags & IFF_UP) {
-+				napi_disable(&tp->napi);
-+				set_bit(WORK_ENABLE, &tp->flags);
-+				if (netif_carrier_ok(tp->netdev))
-+					rtl_start_rx(tp);
-+				napi_enable(&tp->napi);
-+			}
- 		} else {
- 			tp->rtl_ops.up(tp);
- 			rtl8152_set_speed(tp, AUTONEG_ENABLE,
--- 
-2.6.3
+Thanks,
+Kaneko
