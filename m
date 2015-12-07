@@ -1,62 +1,49 @@
-From: Lu Baolu <baolu.lu@linux.intel.com>
-Subject: Re: (4.3.0) r8152: deadlock related to runtime suspend?
-Date: Mon, 7 Dec 2015 17:11:50 +0800
-Message-ID: <56654D56.3080402@linux.intel.com>
-References: <20151205105912.GA1766@al>
+From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Subject: Re: [net-next v5 0/8] dpaa_eth: Add the Freescale DPAA Ethernet
+ driver
+Date: Mon, 7 Dec 2015 09:18:12 +0000
+Message-ID: <DM2PR0301MB0768DF6B97C90CB85E895BB9E6090@DM2PR0301MB0768.namprd03.prod.outlook.com>
+References: <1449144546-25438-1-git-send-email-madalin.bucur@freescale.com>,<CAOZdJXU6CJe-9NsxhnS6ECfXd=KrY_6e+MJZZbJOa8+p5-4jxA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Peter Wu <peter@lekensteyn.nl>, linux-usb@vger.kernel.org,
-	hayeswang@realtek.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Timur Tabi <timur@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151205105912.GA1766@al>
+In-Reply-To: <CAOZdJXU6CJe-9NsxhnS6ECfXd=KrY_6e+MJZZbJOa8+p5-4jxA@mail.gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Peter,
 
-Have you ever tried disabling auto-pm? Did things go smoothly if auto-pm is disabled?
+Hi Timur,
 
-I always disable usb auto-pm in below way.
+I've managed somehow to make got send-email to move the From: line in the body instead of the header, probably typed something wrong when asked to confirm the sender. I've resent the series.
 
-# echo on | tee /sys/bus/usb/devices/*/power/control
-# echo on > /sys/bus/pci/devices/<bus_name>/power/control
+Regards,
+Madalin
+________________________________________
+From: Timur Tabi <timur@codeaurora.org>
+Sent: Saturday, December 5, 2015 6:40:11 AM
+To: Bucur Madalin-Cristian-B32716
+Cc: netdev@vger.kernel.org; linuxppc-dev@lists.ozlabs.org; lkml; David Miller; Wood Scott-B07421; Liberman Igal-B31950; ppc@mindchasers.com; Joe Perches; pebolle@tiscali.nl; Joakim Tjernlund; Greg Kroah-Hartman
+Subject: Re: [net-next v5 0/8] dpaa_eth: Add the Freescale DPAA Ethernet driver
 
-Thanks,
-Baolu
+On Thu, Dec 3, 2015 at 6:08 AM,  <> wrote:
+> From: Madalin Bucur <madalin.bucur@freescale.com>
+>
+> This patch series adds the Ethernet driver for the Freescale
+> QorIQ Data Path Acceleration Architecture (DPAA).
 
-On 12/05/2015 06:59 PM, Peter Wu wrote:
-> Hi,
->
-> I rarely use a Realtek USB 3.0 Gigabit Ethernet adapter (vid/pid
-> 0bda:8153), but when I did last night, it resulted in a lockup of
-> processes doing networking ("ip link", "ping", "ethtool", ...).
->
-> A (few) minute(s) before that event, I noticed that there was no network
-> connectivity (ping hung) which was somehow solved by invoking "ethtool
-> eth1" (triggering runtime pm wakeup?). This same trick did not work at
-> the next event. Invoking "ethtool eth1", "ip link", etc. hung completely
-> and interrupt (^C) did not work at all.
->
-> Since that did not work, I pulled the USB adapter and re-inserted it,
-> hoping it would reset things. That did not work at all, there was a
-> "usb disconnect" message, but no further driver messages.
->
-> Fast forward an hour, and it has become a disaster. I have terminated
-> and killed many programs via SysRq but am still unable to get a stable
-> system that does not hang on network I/O. Even the suspend process
-> fails so in the end I attempted to shutdown the system. After half an
-> hour after getting the poweroff message, I issued SysRq + B to reboot
-> (since SysRq + O did not shut down either).
->
-> Attached are logs with various various backtraces from SysRq and failed
-> suspend. Let me know if you need more information!
->
-> By the way, often I have to rmmod xhci and re-insert it, otherwise
-> plugging it in does not result in a detection. A USB 2.0 port does not
-> have this problem (runtime PM is enabled for all devices). This is the
-> USB 3.0 port:
->
->     02:00.0 USB controller [0c03]: NEC Corporation uPD720200 USB 3.0
->     Host Controller [1033:0194] (rev 03)
+Please fix your git-send-email configuration, so that your emails are
+formatted properly.  This is the From: header:
+
+        From: <>
+
+--
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
+a Linux Foundation Collaborative Project.
