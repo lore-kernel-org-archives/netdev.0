@@ -1,7 +1,7 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH RFC 07/26] phy: marvell: 88E1512: add flow control support
-Date: Mon, 07 Dec 2015 17:37:47 +0000
-Message-ID: <E1a5zjP-000756-9Y@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH RFC 08/26] phy: export phy_start_machine() for phylink
+Date: Mon, 07 Dec 2015 17:37:52 +0000
+Message-ID: <E1a5zjU-00075C-Dn@rmk-PC.arm.linux.org.uk>
 References: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,36 +10,35 @@ Cc: netdev@vger.kernel.org
 To: Florian Fainelli <f.fainelli@gmail.com>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60268 "EHLO
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60273 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932416AbbLGRhu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:37:50 -0500
+	with ESMTP id S1756056AbbLGRhz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:37:55 -0500
 In-Reply-To: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Marvell PHYs support pause frame advertisments, so we should not be
-masking their support off.  Add the necessary flag to the Marvell PHY
-to allow any MAC level pause frame support to be advertised.
+phylink will need phy_start_machine exported, so lets export it as a
+GPL symbol.  Documentation/networking/phy.txt indicates that this
+should be a PHY API function.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/phy/marvell.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/phy/phy.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 5de8d5827536..9a5329bfd0fd 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -1142,7 +1142,7 @@ static struct phy_driver marvell_drivers[] = {
- 		.phy_id = MARVELL_PHY_ID_88E1510,
- 		.phy_id_mask = MARVELL_PHY_ID_MASK,
- 		.name = "Marvell 88E1510",
--		.features = PHY_GBIT_FEATURES,
-+		.features = PHY_GBIT_FEATURES | SUPPORTED_Pause,
- 		.flags = PHY_HAS_INTERRUPT,
- 		.config_aneg = &m88e1510_config_aneg,
- 		.read_status = &marvell_read_status,
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 150497246922..ec9953202f58 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -523,6 +523,7 @@ void phy_start_machine(struct phy_device *phydev)
+ {
+ 	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, HZ);
+ }
++EXPORT_SYMBOL_GPL(phy_start_machine);
+ 
+ /**
+  * phy_stop_machine - stop the PHY state machine tracking
 -- 
 2.1.0
