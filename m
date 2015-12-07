@@ -1,103 +1,80 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: use-after-free in sctp_do_sm
-Date: Mon, 7 Dec 2015 11:15:24 -0200
-Message-ID: <20151207131524.GA22989@mrl.redhat.com>
-References: <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
- <fcceeb2a58ce2054cedb091f0e251393b36418ba.1449250981.git.marcelo.leitner@gmail.com>
- <CACT4Y+b66FHbFyERm804RDWh9oPC==K43TgDJfs52cQG1MDjcg@mail.gmail.com>
- <20151204213428.GH4164@mrl.redhat.com>
- <56631357.6020304@gmail.com>
- <CACT4Y+YCZO2rfYdO_ACPF1U0p3YyXYJGA_Bhdb8CP8pecLy7SA@mail.gmail.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH RESEND net-next 3/3] arm64: hip05-d02: Document
+ devicetree bindings for Hisilicon D02 Board
+Date: Mon, 7 Dec 2015 07:16:17 -0600
+Message-ID: <20151207131617.GA25170@rob-hp-laptop>
+References: <1449302088-53037-1-git-send-email-yankejian@huawei.com>
+ <1449302088-53037-4-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	linux-sctp@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+Cc: davem@davemloft.net, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	xuwei5@hisilicon.com, catalin.marinas@arm.com, will.deacon@arm.com,
+	wangkefeng.wang@huawei.com, dingtianhong@huawei.com,
+	liguozhu@huawei.com, Yisen.Zhuang@huawei.com, sboyd@codeaurora.org,
+	haojian.zhuang@linaro.org, wangzhou1@hisilicon.com,
+	bintian.wang@huawei.com, long.wanglong@huawei.com,
+	leo.yan@linaro.org, haifeng.wei@huawei.com,
+	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linuxarm@huawei.com
+To: yankejian <yankejian@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41429 "EHLO mx1.redhat.com"
+Received: from mail.kernel.org ([198.145.29.136]:59999 "EHLO mail.kernel.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754978AbbLGNP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Dec 2015 08:15:29 -0500
+	id S1754655AbbLGNQX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Dec 2015 08:16:23 -0500
 Content-Disposition: inline
-In-Reply-To: <CACT4Y+YCZO2rfYdO_ACPF1U0p3YyXYJGA_Bhdb8CP8pecLy7SA@mail.gmail.com>
+In-Reply-To: <1449302088-53037-4-git-send-email-yankejian@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 07, 2015 at 12:26:09PM +0100, Dmitry Vyukov wrote:
-> On Sat, Dec 5, 2015 at 5:39 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
-> > On 12/04/2015 04:34 PM, Marcelo Ricardo Leitner wrote:
-> >> On Fri, Dec 04, 2015 at 09:25:35PM +0100, Dmitry Vyukov wrote:
-> >>> On Fri, Dec 4, 2015 at 6:48 PM, Marcelo Ricardo Leitner
-> >>> <marcelo.leitner@gmail.com> wrote:
-> >>>> Hi Dmitry,
-> >>>>
-> >>>> Can you please test this patch?
-> >>>> I'll re-post with proper subject if it works.
-> >>>
-> >>> Still happening with the same stacks.
-> >>
-> >> Then there may be another one, I'm afraid.
-> >>
-> >> I'm using the testapp you shared in the first email, with that debug line
-> >> enabled and added a new one:
-> >> +       pr_debug("%p %d\n", asoc, asoc ? asoc->state : 0);
-> >>         debug_post_sfx();
-> >> (should have used %x, but ok)
-> >>
-> >> Also enabled slub_debug=PUZ, and I get:
-> >>
-> >> without the patch:
-> >> [   87.873640] sctp: ffff8800b71533d8 1
-> >> [   87.873647] sctp: sctp_do_sm[post-sfx]: error:0,
-> >> asoc:ffff8800b71533d8[STATE_CLOSED]
-> >> [   87.873739] sctp: ffff8800b71533d8 1
-> >> [   87.873742] sctp: sctp_do_sm[post-sfx]: error:0,
-> >> asoc:ffff8800b71533d8[STATE_CLOSED]
-> >> [   87.875149] sctp: ffff8800b71533d8 1802201963
-> >> [   87.875238] sctp: sctp_do_sm[post-sfx]: error:0,
-> >> asoc:ffff8800b71533d8[STATE_CLOSED]
-> >>
-> >> 1802201963 = 0x6b6b6b6b, poison
-> >>
-> >> with the patch:
-> >> [   81.071265] sctp: ffff880137571148 1
-> >> [   81.071273] sctp: sctp_do_sm[post-sfx]: error:0,
-> >> asoc:ffff880137571148[STATE_CLOSED]
-> >> [   81.071372] sctp: ffff880137571148 1
-> >> [   81.071375] sctp: sctp_do_sm[post-sfx]: error:0,
-> >> asoc:ffff880137571148[STATE_CLOSED]
-> >> [   81.072423] sctp:           (null) 0
-> >> [   81.072427] sctp: sctp_do_sm[post-sfx]: error:0, asoc:
-> >> (null)[STATE_CLOSED]
-> >>
-> >> This one, at least, is gone with this patch.
-> >>
-> >>   Marcelo
-> >>
-> >
-> > Hi Marcelo
-> >
-> > I think you also need to catch the SCTP_DISPOSITION_ABORT and update
-> > the pointer.  There are some issues there though as some functions report
-> > that code without actually destroying the association.  This happens when
-> > the ABORT chunk may be dropped.
-> >
-> > I think this might be why we still see the issue.
+On Sat, Dec 05, 2015 at 03:54:48PM +0800, yankejian wrote:
+> This patch adds documentation for the devicetree bindings used by the
+> DT files of Hisilicon Hip05-D02 development board.
 > 
+> Signed-off-by: yankejian <yankejian@huawei.com>
+> ---
+>  .../devicetree/bindings/arm/hisilicon/hisilicon.txt      | 16 ++++++++++++++++
+>  1 file changed, 16 insertions(+)
 > 
-> Marcelo,
+> diff --git a/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.txt b/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.txt
+> index 6ac7c00..5318d78 100644
+> --- a/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.txt
+> +++ b/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.txt
+> @@ -187,6 +187,22 @@ Example:
+>  		reg = <0xb0000000 0x10000>;
+>  	};
+>  
+> +Hisilicon HiP05 PERISUB system controller
+> +
+> +Required properties:
+> +- compatible : "hisilicon,peri-c-subctrl", "syscon";
+
+This should be more specific and have the SOC name in it.
+
+> +- reg : Register address and size
+> +
+> +The HiP05 PERISUB system controller is shared by peripheral controllers in
+> +HiP05 Soc to implement some basic configurations. the peripheral
+> + controllers include mdio, ddr, iic, uart, timer and so on.
+> +
+> +Example:
+> +	/* for HiP05 PCIe-SAS system */
+> +	pcie_sas: system_controller@0xb0000000 {
+> +		compatible = "hisilicon,pcie-sas-subctrl", "syscon";
+
+The example doesn't match.
+
+> +		reg = <0xb0000000 0x10000>;
+> +	};
+>  -----------------------------------------------------------------------
+>  Hisilicon CPU controller
+>  
+> -- 
+> 1.9.1
 > 
-> Is this info enough for you to cook another fix?
-
-Hi, I think so. I was really wondering how you could trigger that issue
-without the timestamp fix and Vlad's comment does shed some light on it.
-
-I'll do more tests later today, but what did you have connecting to the
-listening socket? Somehow you made that accept() call to return..
-
-  Marcelo
+> --
+> To unsubscribe from this list: send the line "unsubscribe devicetree" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
