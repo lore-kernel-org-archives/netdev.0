@@ -1,58 +1,95 @@
-From: Phil Reid <preid@electromag.com.au>
-Subject: [PATCH v2 2/5] stmmac: Correct documentation on stmmac clocks.
-Date: Mon,  7 Dec 2015 09:38:41 +0800
-Message-ID: <1449452324-53858-4-git-send-email-preid@electromag.com.au>
-References: <1449452324-53858-1-git-send-email-preid@electromag.com.au>
-Cc: Phil Reid <preid@electromag.com.au>
-To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	peppe.cavallaro@st.com, davem@davemloft.net,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 203-59-230-133.perm.iinet.net.au ([203.59.230.133]:49169 "EHLO
-	preid-centos7.electromag.com.au" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754761AbbLGBjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 20:39:15 -0500
-In-Reply-To: <1449452324-53858-1-git-send-email-preid@electromag.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH] VSOCK: fix returnvar.cocci warnings
+Date: Mon, 7 Dec 2015 09:50:08 +0800
+Message-ID: <20151207015008.GA32667@stefanha-x1.localdomain>
+References: <alpine.DEB.2.02.1512060654580.2030@localhost6.localdomain6>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============2395429677250100390=="
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, kbuild-all@01.org,
+	Matt Benjamin <mbenjamin@redhat.com>, Asias He <asias@redhat.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>, matt.ma@linaro.org
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <alpine.DEB.2.02.1512060654580.2030@localhost6.localdomain6>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-devm_get_clk looks in clock-name property for matching clock.
-the ptp_ref_clk property is ignored.
 
-Acked-by: Rob Herring <robh@kernel.org>
-Signed-off-by: Phil Reid <preid@electromag.com.au>
----
- Documentation/devicetree/bindings/net/stmmac.txt | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
+--===============2395429677250100390==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="YZ5djTAD1cGYuMQK"
+Content-Disposition: inline
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index cb6288e..90af2e0 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -35,15 +35,14 @@ Optional properties:
- - reset-names: Should contain the reset signal name "stmmaceth", if a
- 	reset phandle is given
- - max-frame-size: See ethernet.txt file in the same directory
--- clocks: If present, the first clock should be the GMAC main clock and
--  the second clock should be peripheral's register interface clock. Further
--  clocks may be specified in derived bindings.
--- clock-names: One name for each entry in the clocks property, the
--  first one should be "stmmaceth" and the second one should be "pclk".
--- clk_ptp_ref: this is the PTP reference clock; in case of the PTP is
--  available this clock is used for programming the Timestamp Addend Register.
--  If not passed then the system clock will be used and this is fine on some
--  platforms.
-+- clocks: If present, the first clock should be the GMAC main clock
-+  The optional second clock should be peripheral's register interface clock.
-+  The third optional clock should be the ptp reference clock. 
-+  Further clocks may be specified in derived bindings.
-+- clock-names: One name for each entry in the clocks property.
-+  The first one should be "stmmaceth".
-+  The optional second one should be "pclk".
-+  The optional third one should be "clk_ptp_ref".
- - snps,burst_len: The AXI burst lenth value of the AXI BUS MODE register.
- - tx-fifo-depth: See ethernet.txt file in the same directory
- - rx-fifo-depth: See ethernet.txt file in the same directory
--- 
-1.8.3.1
+
+--YZ5djTAD1cGYuMQK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Sun, Dec 06, 2015 at 06:56:23AM +0100, Julia Lawall wrote:
+> Remove unneeded variable used to store return value.
+>=20
+> Generated by: scripts/coccinelle/misc/returnvar.cocci
+>=20
+> CC: Asias He <asias@redhat.com>
+> Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Julia Lawall <julia.lawall@lip6.fr>
+>=20
+> ---
+>=20
+>  vsock.c |    3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>=20
+> --- a/drivers/vhost/vsock.c
+> +++ b/drivers/vhost/vsock.c
+> @@ -56,8 +56,7 @@ struct vhost_vsock {
+> =20
+>  static u32 vhost_transport_get_local_cid(void)
+>  {
+> -	u32 cid =3D VHOST_VSOCK_DEFAULT_HOST_CID;
+> -	return cid;
+> +	return VHOST_VSOCK_DEFAULT_HOST_CID;
+>  }
+> =20
+>  static struct vhost_vsock *vhost_vsock_get(u32 guest_cid)
+
+Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+--YZ5djTAD1cGYuMQK
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBAgAGBQJWZOXQAAoJEJykq7OBq3PIGV4H/jDfOawFZoYeSsl9qNQaKRfa
+JUDop9aGhg66ZUfhHwqPaAky47kFBHLkNaNacAWOGlHcjHTcBfkgPIMs4rdnvIkG
+qS0YVTzORskTI/V3LLVyADfazb/gmnCUAbWmUoDXdkf7o1/Sdl60Pmz3GGSDnaPK
+a8/X+mrvODxF4t+4QBElr2guzdREeBVm2GEKslCuudWr5AKBSJcWv5q1l8zrwngC
+FIw0rEBMnwMC34M6WuUk4WWIKvSDfjkBfI8YRmfq0uGNG0sK4K+Yx8Dy4Ds1ov5H
+CsBDUXcbSX7MMYUMS/skZYaHXzYNZQaSrPZ8+MU5mBArIU22JytFONZQh3hjhS8=
+=7tc0
+-----END PGP SIGNATURE-----
+
+--YZ5djTAD1cGYuMQK--
+
+--===============2395429677250100390==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Virtualization mailing list
+Virtualization@lists.linux-foundation.org
+https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+--===============2395429677250100390==--
