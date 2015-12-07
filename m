@@ -1,45 +1,33 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 5/5] stmmac: socfpga: Provide dt node to config ptp clk source.
-Date: Mon, 07 Dec 2015 10:05:07 +0100
-Message-ID: <2600741.aLNrbYNOOu@wuerfel>
-References: <1449452324-53858-1-git-send-email-preid@electromag.com.au> <1449452324-53858-7-git-send-email-preid@electromag.com.au>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH v2 4/5] stmmac: Add ptp debugfs entry.
+Date: Mon, 07 Dec 2015 10:03:26 +0100
+Message-ID: <2080516.uAzdPnupR8@wuerfel>
+References: <1449452324-53858-1-git-send-email-preid@electromag.com.au> <1449452324-53858-6-git-send-email-preid@electromag.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	peppe.cavallaro@st.com, davem@davemloft.net,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org
-To: Phil Reid <preid@electromag.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.10]:60926 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754969AbbLGJFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 04:05:41 -0500
-In-Reply-To: <1449452324-53858-7-git-send-email-preid@electromag.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1449452324-53858-6-git-send-email-preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 07 December 2015 09:38:44 Phil Reid wrote:
-> Signed-off-by: Phil Reid <preid@electromag.com.au>
-> ---
->  Documentation/devicetree/bindings/net/socfpga-dwmac.txt | 2 ++
->  drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c     | 9 +++++++++
->  2 files changed, 11 insertions(+)
+On Monday 07 December 2015 09:38:43 Phil Reid wrote:
+> This adds a debugfs entry to view the current status of the ptp
+> registers.
 > 
-> diff --git a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-> index 3a9d679..72d82d6 100644
-> --- a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-> +++ b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-> @@ -11,6 +11,8 @@ Required properties:
->                   designware version numbers documented in stmmac.txt
->   - altr,sysmgr-syscon : Should be the phandle to the system manager node that
->     encompasses the glue register, the register offset, and the register shift.
-> + - altr,f2h_ptp_ref_clk use f2h_ptp_ref_clk instead of default eosc1 clock
-> +   for ptp ref clk. This affects all emacs as the clock is common.
+> Signed-off-by: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
 > 
 
-Is this feature specific to the Altera glue logic, or would it be possible
-to do the same thing on another dwmac implementation?
+Your description should explain what this is good for. Why do you
+need to look at this through debugfs?
 
 	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
