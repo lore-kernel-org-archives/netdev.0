@@ -1,7 +1,7 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH RFC 15/26] net: mvneta: convert to phylink
-Date: Mon, 07 Dec 2015 17:38:28 +0000
-Message-ID: <E1a5zk4-00075z-9s@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH RFC 19/26] phylink: add flow control support
+Date: Mon, 07 Dec 2015 17:38:48 +0000
+Message-ID: <E1a5zkO-00076Q-Q8@rmk-PC.arm.linux.org.uk>
 References: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,638 +10,232 @@ Cc: netdev@vger.kernel.org
 To: Florian Fainelli <f.fainelli@gmail.com>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60296 "EHLO
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60308 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932303AbbLGRib (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:38:31 -0500
+	with ESMTP id S932581AbbLGRiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:38:52 -0500
 In-Reply-To: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert mvneta to use phylink, which models the MAC to PHY link in
-a generic, reusable form.
+Add flow control support, including ethtool support, to phylink.  We
+add support to allow ethtool to get and set the current flow control
+settings, and the 802.3 specified resolution for the local and remote
+link partner abilities.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/marvell/Kconfig  |   2 +-
- drivers/net/ethernet/marvell/mvneta.c | 399 +++++++++++++++++++---------------
- 2 files changed, 224 insertions(+), 177 deletions(-)
+ drivers/net/phy/phylink.c | 128 +++++++++++++++++++++++++++++++++++++++++++++-
+ include/linux/phylink.h   |   8 +++
+ 2 files changed, 135 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index a1c862b4664d..d59fb29f28b3 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -44,7 +44,7 @@ config MVNETA
- 	tristate "Marvell Armada 370/38x/XP network interface support"
- 	depends on PLAT_ORION
- 	select MVMDIO
--	select FIXED_PHY
-+	select PHYLINK
- 	---help---
- 	  This driver supports the network interface units in the
- 	  Marvell ARMADA XP, ARMADA 370 and ARMADA 38x SoC family.
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index e84c7f2634d3..f19d9a31dccd 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -31,6 +31,7 @@
- #include <linux/of_net.h>
- #include <linux/of_address.h>
- #include <linux/phy.h>
-+#include <linux/phylink.h>
- #include <linux/clk.h>
- #include <linux/cpu.h>
+diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
+index 908235fb16c1..22c8b0711252 100644
+--- a/drivers/net/phy/phylink.c
++++ b/drivers/net/phy/phylink.c
+@@ -95,6 +95,9 @@ static int phylink_parse_fixedlink(struct phylink *pl, struct device_node *np)
  
-@@ -169,6 +170,7 @@
- #define MVNETA_GMAC_CTRL_0                       0x2c00
- #define      MVNETA_GMAC_MAX_RX_SIZE_SHIFT       2
- #define      MVNETA_GMAC_MAX_RX_SIZE_MASK        0x7ffc
-+#define      MVNETA_GMAC0_PORT_1000BASE_X        BIT(1)
- #define      MVNETA_GMAC0_PORT_ENABLE            BIT(0)
- #define MVNETA_GMAC_CTRL_2                       0x2c08
- #define      MVNETA_GMAC2_INBAND_AN_ENABLE       BIT(0)
-@@ -184,13 +186,19 @@
- #define      MVNETA_GMAC_TX_FLOW_CTRL_ENABLE     BIT(5)
- #define      MVNETA_GMAC_RX_FLOW_CTRL_ACTIVE     BIT(6)
- #define      MVNETA_GMAC_TX_FLOW_CTRL_ACTIVE     BIT(7)
-+#define      MVNETA_GMAC_AN_COMPLETE             BIT(11)
-+#define      MVNETA_GMAC_SYNC_OK                 BIT(14)
- #define MVNETA_GMAC_AUTONEG_CONFIG               0x2c0c
- #define      MVNETA_GMAC_FORCE_LINK_DOWN         BIT(0)
- #define      MVNETA_GMAC_FORCE_LINK_PASS         BIT(1)
- #define      MVNETA_GMAC_INBAND_AN_ENABLE        BIT(2)
-+#define      MVNETA_GMAC_AN_BYPASS_ENABLE        BIT(3)
-+#define      MVNETA_GMAC_INBAND_RESTART_AN       BIT(4)
- #define      MVNETA_GMAC_CONFIG_MII_SPEED        BIT(5)
- #define      MVNETA_GMAC_CONFIG_GMII_SPEED       BIT(6)
- #define      MVNETA_GMAC_AN_SPEED_EN             BIT(7)
-+#define      MVNETA_GMAC_CONFIG_FLOW_CTRL        BIT(8)
-+#define      MVNETA_GMAC_ADVERT_SYM_FLOW_CTRL    BIT(9)
- #define      MVNETA_GMAC_AN_FLOW_CTRL_EN         BIT(11)
- #define      MVNETA_GMAC_CONFIG_FULL_DUPLEX      BIT(12)
- #define      MVNETA_GMAC_AN_DUPLEX_EN            BIT(13)
-@@ -361,15 +369,9 @@ struct mvneta_port {
- 	u16 tx_ring_size;
- 	u16 rx_ring_size;
- 
--	struct mii_bus *mii_bus;
--	struct phy_device *phy_dev;
--	phy_interface_t phy_interface;
--	struct device_node *phy_node;
--	unsigned int link;
--	unsigned int duplex;
--	unsigned int speed;
-+	struct device_node *dn;
- 	unsigned int tx_csum_limit;
--	int use_inband_status:1;
-+	struct phylink *phylink;
- 
- 	u64 ethtool_stats[ARRAY_SIZE(mvneta_statistics)];
- };
-@@ -1056,26 +1058,6 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
- 	val &= ~MVNETA_PHY_POLLING_ENABLE;
- 	mvreg_write(pp, MVNETA_UNIT_CONTROL, val);
- 
--	if (pp->use_inband_status) {
--		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
--		val &= ~(MVNETA_GMAC_FORCE_LINK_PASS |
--			 MVNETA_GMAC_FORCE_LINK_DOWN |
--			 MVNETA_GMAC_AN_FLOW_CTRL_EN);
--		val |= MVNETA_GMAC_INBAND_AN_ENABLE |
--		       MVNETA_GMAC_AN_SPEED_EN |
--		       MVNETA_GMAC_AN_DUPLEX_EN;
--		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
--		val = mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
--		val |= MVNETA_GMAC_1MS_CLOCK_ENABLE;
--		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
--	} else {
--		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
--		val &= ~(MVNETA_GMAC_INBAND_AN_ENABLE |
--		       MVNETA_GMAC_AN_SPEED_EN |
--		       MVNETA_GMAC_AN_DUPLEX_EN);
--		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
--	}
--
- 	mvneta_set_ucast_table(pp, -1);
- 	mvneta_set_special_mcast_table(pp, -1);
- 	mvneta_set_other_mcast_table(pp, -1);
-@@ -2115,26 +2097,11 @@ static irqreturn_t mvneta_isr(int irq, void *dev_id)
- 	return IRQ_HANDLED;
- }
- 
--static int mvneta_fixed_link_update(struct mvneta_port *pp,
--				    struct phy_device *phy)
-+static void mvneta_link_change(struct mvneta_port *pp)
- {
--	struct fixed_phy_status status;
--	struct fixed_phy_status changed = {};
- 	u32 gmac_stat = mvreg_read(pp, MVNETA_GMAC_STATUS);
- 
--	status.link = !!(gmac_stat & MVNETA_GMAC_LINK_UP);
--	if (gmac_stat & MVNETA_GMAC_SPEED_1000)
--		status.speed = SPEED_1000;
--	else if (gmac_stat & MVNETA_GMAC_SPEED_100)
--		status.speed = SPEED_100;
--	else
--		status.speed = SPEED_10;
--	status.duplex = !!(gmac_stat & MVNETA_GMAC_FULL_DUPLEX);
--	changed.link = 1;
--	changed.speed = 1;
--	changed.duplex = 1;
--	fixed_phy_update_state(phy, &status, &changed);
--	return 0;
-+	phylink_mac_change(pp->phylink, !!(gmac_stat & MVNETA_GMAC_LINK_UP));
- }
- 
- /* NAPI handler
-@@ -2162,12 +2129,11 @@ static int mvneta_poll(struct napi_struct *napi, int budget)
- 		u32 cause_misc = mvreg_read(pp, MVNETA_INTR_MISC_CAUSE);
- 
- 		mvreg_write(pp, MVNETA_INTR_MISC_CAUSE, 0);
--		if (pp->use_inband_status && (cause_misc &
--				(MVNETA_CAUSE_PHY_STATUS_CHANGE |
--				 MVNETA_CAUSE_LINK_CHANGE |
--				 MVNETA_CAUSE_PSC_SYNC_CHANGE))) {
--			mvneta_fixed_link_update(pp, pp->phy_dev);
--		}
+ 		if (of_property_read_bool(fixed_node, "full-duplex"))
+ 			pl->link_config.duplex = DUPLEX_FULL;
 +
-+		if (cause_misc & (MVNETA_CAUSE_PHY_STATUS_CHANGE |
-+				  MVNETA_CAUSE_LINK_CHANGE |
-+				  MVNETA_CAUSE_PSC_SYNC_CHANGE))
-+			mvneta_link_change(pp);
- 	}
- 
- 	/* Release Tx descriptors */
-@@ -2456,7 +2422,7 @@ static void mvneta_start_dev(struct mvneta_port *pp)
- 		    MVNETA_CAUSE_LINK_CHANGE |
- 		    MVNETA_CAUSE_PSC_SYNC_CHANGE);
- 
--	phy_start(pp->phy_dev);
-+	phylink_start(pp->phylink);
- 	netif_tx_start_all_queues(pp->dev);
++		/* We treat the "pause" and "asym-pause" terminology as
++		 * defining the link partner's ability. */
+ 		if (of_property_read_bool(fixed_node, "pause"))
+ 			pl->link_config.pause |= MLO_PAUSE_SYM;
+ 		if (of_property_read_bool(fixed_node, "asym-pause"))
+@@ -216,6 +219,56 @@ static void phylink_get_fixed_state(struct phylink *pl, struct phylink_link_stat
+ 		state->link = !!gpiod_get_value(pl->link_gpio);
  }
  
-@@ -2464,7 +2430,7 @@ static void mvneta_stop_dev(struct mvneta_port *pp)
- {
- 	unsigned int cpu;
- 
--	phy_stop(pp->phy_dev);
-+	phylink_stop(pp->phylink);
- 
- 	for_each_present_cpu(cpu) {
- 		struct mvneta_pcpu_port *port = per_cpu_ptr(pp->ports, cpu);
-@@ -2615,99 +2581,218 @@ static int mvneta_set_mac_addr(struct net_device *dev, void *addr)
- 	return 0;
- }
- 
--static void mvneta_adjust_link(struct net_device *ndev)
-+static int mvneta_mac_support(struct net_device *ndev, unsigned int mode,
-+			      struct phylink_link_state *state)
++/* Flow control is resolved according to our and the link partners
++ * advertisments using the following drawn from the 802.3 specs:
++ *  Local device  Link partner
++ *  Pause AsymDir Pause AsymDir Result
++ *    1     X       1     X     TX+RX
++ *    0     1       1     1     RX
++ *    1     1       0     1     TX
++ */
++static void phylink_resolve_flow(struct phylink *pl,
++	struct phylink_link_state *state)
 +{
-+	switch (mode) {
-+	case MLO_AN_8023Z:
-+		state->supported = SUPPORTED_1000baseT_Full |
-+				   SUPPORTED_Autoneg | SUPPORTED_Pause;
-+		state->advertising = ADVERTISED_1000baseT_Full |
-+				     ADVERTISED_Autoneg | ADVERTISED_Pause;
-+		state->an_enabled = 1;
++	int new_pause = 0;
++
++	if (pl->link_config.pause & MLO_PAUSE_AN) {
++		int pause = 0;
++
++		if (pl->link_config.advertising & ADVERTISED_Pause)
++			pause |= MLO_PAUSE_SYM;
++		if (pl->link_config.advertising & ADVERTISED_Asym_Pause)
++			pause |= MLO_PAUSE_ASYM;
++
++		pause &= state->pause;
++
++		if (pause & MLO_PAUSE_SYM)
++			new_pause = MLO_PAUSE_TX | MLO_PAUSE_RX;
++		else if (pause & MLO_PAUSE_ASYM)
++			new_pause = state->pause & MLO_PAUSE_SYM ?
++				 MLO_PAUSE_RX : MLO_PAUSE_TX;
++	} else {
++		new_pause = pl->link_config.pause & MLO_PAUSE_TXRX_MASK;
++	}
++
++	state->pause &= ~MLO_PAUSE_TXRX_MASK;
++	state->pause |= new_pause;
++}
++
++static const char *phylink_pause_to_str(int pause)
++{
++	switch (pause & MLO_PAUSE_TXRX_MASK) {
++	case MLO_PAUSE_TX | MLO_PAUSE_RX:
++		return "rx/tx";
++	case MLO_PAUSE_TX:
++		return "tx";
++	case MLO_PAUSE_RX:
++		return "rx";
++	default:
++		return "off";
++	}
++}
++
+ extern const char *phy_speed_to_str(int speed);
+ 
+ static void phylink_resolve(struct work_struct *w)
+@@ -231,6 +284,7 @@ static void phylink_resolve(struct work_struct *w)
+ 		switch (pl->link_an_mode) {
+ 		case MLO_AN_PHY:
+ 			link_state = pl->phy_state;
++			phylink_resolve_flow(pl, &link_state);
+ 			break;
+ 
+ 		case MLO_AN_FIXED:
+@@ -268,7 +322,7 @@ static void phylink_resolve(struct work_struct *w)
+ 				    "Link is Up - %s/%s - flow control %s\n",
+ 				    phy_speed_to_str(link_state.speed),
+ 				    link_state.duplex ? "Full" : "Half",
+-				    link_state.pause ? "rx/tx" : "off");
++				    phylink_pause_to_str(link_state.pause));
+ 		}
+ 	}
+ 	mutex_unlock(&pl->state_mutex);
+@@ -297,6 +351,7 @@ struct phylink *phylink_create(struct net_device *ndev, struct device_node *np,
+ 	pl->link_interface = iface;
+ 	pl->link_port_support = SUPPORTED_MII;
+ 	pl->link_port = PORT_MII;
++	pl->link_config.pause = MLO_PAUSE_AN;
+ 	pl->ops = ops;
+ 	__set_bit(PHYLINK_DISABLE_STOPPED, &pl->phylink_disable_state);
+ 
+@@ -479,6 +534,7 @@ void phylink_start(struct phylink *pl)
+ 	 * a fixed-link to start with the correct parameters, and also
+ 	 * ensures that we set the appropriate advertisment for Serdes links.
+ 	 */
++	phylink_resolve_flow(pl, &pl->link_config);
+ 	pl->ops->mac_config(pl->netdev, pl->link_an_mode, &pl->link_config);
+ 
+ 	clear_bit(PHYLINK_DISABLE_STOPPED, &pl->phylink_disable_state);
+@@ -673,6 +729,76 @@ int phylink_ethtool_nway_reset(struct phylink *pl)
+ }
+ EXPORT_SYMBOL_GPL(phylink_ethtool_nway_reset);
+ 
++void phylink_ethtool_get_pauseparam(struct phylink *pl,
++				    struct ethtool_pauseparam *pause)
++{
++	mutex_lock(&pl->config_mutex);
++
++	pause->autoneg = !!(pl->link_config.pause & MLO_PAUSE_AN);
++	pause->rx_pause = !!(pl->link_config.pause & MLO_PAUSE_RX);
++	pause->tx_pause = !!(pl->link_config.pause & MLO_PAUSE_TX);
++
++	mutex_unlock(&pl->config_mutex);
++}
++EXPORT_SYMBOL_GPL(phylink_ethtool_get_pauseparam);
++
++static int __phylink_ethtool_set_pauseparam(struct phylink *pl,
++					    struct ethtool_pauseparam *pause)
++{
++	struct phylink_link_state *config = &pl->link_config;
++
++	if (!(config->supported & (SUPPORTED_Pause | SUPPORTED_Asym_Pause)))
++		return -EOPNOTSUPP;
++
++	if (!(config->supported & SUPPORTED_Asym_Pause) &&
++	    !pause->autoneg && pause->rx_pause != pause->tx_pause)
++		return -EINVAL;
++
++	config->pause &= ~(MLO_PAUSE_AN | MLO_PAUSE_TXRX_MASK);
++
++	if (pause->autoneg)
++		config->pause |= MLO_PAUSE_AN;
++	if (pause->rx_pause)
++		config->pause |= MLO_PAUSE_RX;
++	if (pause->tx_pause)
++		config->pause |= MLO_PAUSE_TX;
++
++	switch (pl->link_an_mode) {
++	case MLO_AN_PHY:
++		/* Silently mark the carrier down, and then trigger a resolve */
++		netif_carrier_off(pl->netdev);
++		phylink_run_resolve(pl);
 +		break;
 +
 +	case MLO_AN_FIXED:
++		/* Should we allow fixed links to change against the config? */
++		phylink_resolve_flow(pl, config);
++		pl->ops->mac_config(pl->netdev, pl->link_an_mode, config);
 +		break;
 +
-+	default:
-+		state->supported = PHY_10BT_FEATURES |
-+				   PHY_100BT_FEATURES |
-+				   SUPPORTED_1000baseT_Full |
-+				   SUPPORTED_Autoneg;
-+		state->advertising = ADVERTISED_10baseT_Half |
-+				     ADVERTISED_10baseT_Full |
-+				     ADVERTISED_100baseT_Half |
-+				     ADVERTISED_100baseT_Full |
-+				     ADVERTISED_1000baseT_Full |
-+				     ADVERTISED_Autoneg;
-+		state->an_enabled = 1;
++	case MLO_AN_SGMII:
++	case MLO_AN_8023Z:
++		pl->ops->mac_config(pl->netdev, pl->link_an_mode, config);
++		pl->ops->mac_an_restart(pl->netdev, pl->link_an_mode);
 +		break;
 +	}
++
 +	return 0;
 +}
 +
-+static int mvneta_mac_link_state(struct net_device *ndev,
-+				 struct phylink_link_state *state)
- {
- 	struct mvneta_port *pp = netdev_priv(ndev);
--	struct phy_device *phydev = pp->phy_dev;
--	int status_change = 0;
-+	u32 gmac_stat;
- 
--	if (phydev->link) {
--		if ((pp->speed != phydev->speed) ||
--		    (pp->duplex != phydev->duplex)) {
--			u32 val;
-+	gmac_stat = mvreg_read(pp, MVNETA_GMAC_STATUS);
- 
--			val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
--			val &= ~(MVNETA_GMAC_CONFIG_MII_SPEED |
--				 MVNETA_GMAC_CONFIG_GMII_SPEED |
--				 MVNETA_GMAC_CONFIG_FULL_DUPLEX);
-+	if (gmac_stat & MVNETA_GMAC_SPEED_1000)
-+		state->speed = SPEED_1000;
-+	else if (gmac_stat & MVNETA_GMAC_SPEED_100)
-+		state->speed = SPEED_100;
-+	else
-+		state->speed = SPEED_10;
- 
--			if (phydev->duplex)
--				val |= MVNETA_GMAC_CONFIG_FULL_DUPLEX;
-+	state->an_complete = !!(gmac_stat & MVNETA_GMAC_AN_COMPLETE);
-+	state->sync = !!(gmac_stat & MVNETA_GMAC_SYNC_OK);
-+	state->link = !!(gmac_stat & MVNETA_GMAC_LINK_UP);
-+	state->duplex = !!(gmac_stat & MVNETA_GMAC_FULL_DUPLEX);
- 
--			if (phydev->speed == SPEED_1000)
--				val |= MVNETA_GMAC_CONFIG_GMII_SPEED;
--			else if (phydev->speed == SPEED_100)
--				val |= MVNETA_GMAC_CONFIG_MII_SPEED;
-+	state->pause = 0;
-+	if (gmac_stat & MVNETA_GMAC_RX_FLOW_CTRL_ENABLE)
-+		state->pause |= MLO_PAUSE_RX;
-+	if (gmac_stat & MVNETA_GMAC_TX_FLOW_CTRL_ENABLE)
-+		state->pause |= MLO_PAUSE_TX;
- 
--			mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
-+	return 1;
-+}
- 
--			pp->duplex = phydev->duplex;
--			pp->speed  = phydev->speed;
--		}
-+static void mvneta_mac_an_restart(struct net_device *ndev, unsigned int mode)
++int phylink_ethtool_set_pauseparam(struct phylink *pl,
++				   struct ethtool_pauseparam *pause)
 +{
-+	struct mvneta_port *pp = netdev_priv(ndev);
++	int ret;
 +
-+	if (mode == MLO_AN_8023Z) {
-+		u32 gmac_an = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
++	mutex_lock(&pl->config_mutex);
++	ret = __phylink_ethtool_set_pauseparam(pl, pause);
++	mutex_unlock(&pl->config_mutex);
 +
-+		gmac_an |= MVNETA_GMAC_INBAND_RESTART_AN;
-+		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, gmac_an);
- 	}
++	return ret;
 +}
- 
--	if (phydev->link != pp->link) {
--		if (!phydev->link) {
--			pp->duplex = -1;
--			pp->speed = 0;
--		}
-+static void mvneta_mac_config(struct net_device *ndev, unsigned int mode,
-+	const struct phylink_link_state *state)
-+{
-+	struct mvneta_port *pp = netdev_priv(ndev);
-+	u32 new_ctrl0, gmac_ctrl0 = mvreg_read(pp, MVNETA_GMAC_CTRL_0);
-+	u32 new_ctrl2, gmac_ctrl2 = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
-+	u32 new_clk, gmac_clk = mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
-+	u32 new_an, gmac_an = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
++EXPORT_SYMBOL_GPL(phylink_ethtool_set_pauseparam);
 +
-+	new_ctrl0 = gmac_ctrl0 & ~MVNETA_GMAC0_PORT_1000BASE_X;
-+	new_ctrl2 = gmac_ctrl2 & ~MVNETA_GMAC2_INBAND_AN_ENABLE;
-+	new_clk = gmac_clk & ~MVNETA_GMAC_1MS_CLOCK_ENABLE;
-+	new_an = gmac_an & ~(MVNETA_GMAC_INBAND_AN_ENABLE |
-+			     MVNETA_GMAC_INBAND_RESTART_AN |
-+			     MVNETA_GMAC_CONFIG_MII_SPEED |
-+			     MVNETA_GMAC_CONFIG_GMII_SPEED |
-+			     MVNETA_GMAC_AN_SPEED_EN |
-+			     MVNETA_GMAC_ADVERT_SYM_FLOW_CTRL |
-+			     MVNETA_GMAC_CONFIG_FLOW_CTRL |
-+			     MVNETA_GMAC_AN_FLOW_CTRL_EN |
-+			     MVNETA_GMAC_CONFIG_FULL_DUPLEX |
-+			     MVNETA_GMAC_AN_DUPLEX_EN);
-+
-+	switch (mode) {
-+	case MLO_AN_SGMII:
-+		/* SGMII mode receives the state from the PHY */
-+		new_ctrl2 |= MVNETA_GMAC2_INBAND_AN_ENABLE;
-+		new_clk |= MVNETA_GMAC_1MS_CLOCK_ENABLE;
-+		new_an = (new_an & ~(MVNETA_GMAC_FORCE_LINK_DOWN |
-+				     MVNETA_GMAC_FORCE_LINK_PASS)) |
-+			 MVNETA_GMAC_INBAND_AN_ENABLE |
-+			 MVNETA_GMAC_AN_SPEED_EN |
-+			 MVNETA_GMAC_AN_DUPLEX_EN;
-+		break;
-+
-+	case MLO_AN_8023Z:
-+		/* 802.3z negotiation - only 1000base-X */
-+		new_ctrl0 |= MVNETA_GMAC0_PORT_1000BASE_X;
-+		new_clk |= MVNETA_GMAC_1MS_CLOCK_ENABLE;
-+		new_an = (new_an & ~(MVNETA_GMAC_FORCE_LINK_DOWN |
-+				     MVNETA_GMAC_FORCE_LINK_PASS)) |
-+			 MVNETA_GMAC_INBAND_AN_ENABLE |
-+			 MVNETA_GMAC_CONFIG_GMII_SPEED;
-+
-+		if (state->advertising & ADVERTISED_Pause)
-+			new_an |= MVNETA_GMAC_ADVERT_SYM_FLOW_CTRL;
-+
-+		if (state->an_enabled)
-+			new_an |= MVNETA_GMAC_AN_FLOW_CTRL_EN |
-+				  MVNETA_GMAC_AN_DUPLEX_EN;
-+		else if (state->duplex)
-+			new_an |= MVNETA_GMAC_CONFIG_FULL_DUPLEX;
-+		break;
+ /* This emulates MII registers for a fixed-mode phy operating as per the
+  * passed in state. "aneg" defines if we report negotiation is possible.
+  *
+diff --git a/include/linux/phylink.h b/include/linux/phylink.h
+index ad3c85508d19..a23c772cc3f9 100644
+--- a/include/linux/phylink.h
++++ b/include/linux/phylink.h
+@@ -13,6 +13,10 @@ enum {
+ 	MLO_PAUSE_NONE,
+ 	MLO_PAUSE_ASYM = BIT(0),
+ 	MLO_PAUSE_SYM = BIT(1),
++	MLO_PAUSE_RX = BIT(2),
++	MLO_PAUSE_TX = BIT(3),
++	MLO_PAUSE_TXRX_MASK = MLO_PAUSE_TX | MLO_PAUSE_RX,
++	MLO_PAUSE_AN = BIT(4),
  
--		pp->link = phydev->link;
--		status_change = 1;
-+	default:
-+		/* Phy or fixed speed */
-+		if (state->duplex)
-+			new_an |= MVNETA_GMAC_CONFIG_FULL_DUPLEX;
-+
-+		if (state->speed == SPEED_1000)
-+			new_an |= MVNETA_GMAC_CONFIG_GMII_SPEED;
-+		else if (state->speed == SPEED_100)
-+			new_an |= MVNETA_GMAC_CONFIG_MII_SPEED;
-+		break;
- 	}
+ 	MLO_AN_PHY = 0,
+ 	MLO_AN_FIXED,
+@@ -66,6 +70,10 @@ void phylink_stop(struct phylink *);
+ int phylink_ethtool_get_settings(struct phylink *, struct ethtool_cmd *);
+ int phylink_ethtool_set_settings(struct phylink *, struct ethtool_cmd *);
+ int phylink_ethtool_nway_reset(struct phylink *);
++void phylink_ethtool_get_pauseparam(struct phylink *,
++				    struct ethtool_pauseparam *);
++int phylink_ethtool_set_pauseparam(struct phylink *,
++				   struct ethtool_pauseparam *);
+ int phylink_mii_ioctl(struct phylink *, struct ifreq *, int);
  
--	if (status_change) {
--		if (phydev->link) {
--			if (!pp->use_inband_status) {
--				u32 val = mvreg_read(pp,
--						  MVNETA_GMAC_AUTONEG_CONFIG);
--				val &= ~MVNETA_GMAC_FORCE_LINK_DOWN;
--				val |= MVNETA_GMAC_FORCE_LINK_PASS;
--				mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG,
--					    val);
--			}
--			mvneta_port_up(pp);
--		} else {
--			if (!pp->use_inband_status) {
--				u32 val = mvreg_read(pp,
--						  MVNETA_GMAC_AUTONEG_CONFIG);
--				val &= ~MVNETA_GMAC_FORCE_LINK_PASS;
--				val |= MVNETA_GMAC_FORCE_LINK_DOWN;
--				mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG,
--					    val);
--			}
--			mvneta_port_down(pp);
--		}
--		phy_print_status(phydev);
-+	/* Armada 370 documentation says we can only change the port mode
-+	 * and in-band enable when the link is down, so force it down
-+	 * while making these changes. We also do this for GMAC_CTRL2 */
-+	if ((new_ctrl0 ^ gmac_ctrl0) & MVNETA_GMAC0_PORT_1000BASE_X ||
-+	    (new_ctrl2 ^ gmac_ctrl2) & MVNETA_GMAC2_INBAND_AN_ENABLE ||
-+	    (new_an  ^ gmac_an) & MVNETA_GMAC_INBAND_AN_ENABLE) {
-+		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG,
-+			    (gmac_an & ~MVNETA_GMAC_FORCE_LINK_PASS) |
-+			    MVNETA_GMAC_FORCE_LINK_DOWN);
- 	}
-+
-+	if (new_ctrl0 != gmac_ctrl0)
-+		mvreg_write(pp, MVNETA_GMAC_CTRL_0, new_ctrl0);
-+	if (new_ctrl2 != gmac_ctrl2)
-+		mvreg_write(pp, MVNETA_GMAC_CTRL_2, new_ctrl2);
-+	if (new_clk != gmac_clk)
-+		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, new_clk);
-+	if (new_an != gmac_an)
-+		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, new_an);
- }
- 
--static int mvneta_mdio_probe(struct mvneta_port *pp)
-+static void mvneta_mac_link_down(struct net_device *ndev, unsigned int mode)
- {
--	struct phy_device *phy_dev;
-+	struct mvneta_port *pp = netdev_priv(ndev);
-+	u32 val;
- 
--	phy_dev = of_phy_connect(pp->dev, pp->phy_node, mvneta_adjust_link, 0,
--				 pp->phy_interface);
--	if (!phy_dev) {
--		netdev_err(pp->dev, "could not find the PHY\n");
--		return -ENODEV;
-+	mvneta_port_down(pp);
-+
-+	if (mode == MLO_AN_PHY || mode == MLO_AN_FIXED) {
-+		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
-+		val &= ~MVNETA_GMAC_FORCE_LINK_PASS;
-+		val |= MVNETA_GMAC_FORCE_LINK_DOWN;
-+		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
- 	}
-+}
- 
--	phy_dev->supported &= PHY_GBIT_FEATURES;
--	phy_dev->advertising = phy_dev->supported;
-+static void mvneta_mac_link_up(struct net_device *ndev, unsigned int mode,
-+			       struct phy_device *phy)
-+{
-+	struct mvneta_port *pp = netdev_priv(ndev);
-+	u32 val;
- 
--	pp->phy_dev = phy_dev;
--	pp->link    = 0;
--	pp->duplex  = 0;
--	pp->speed   = 0;
-+	if (mode == MLO_AN_PHY || mode == MLO_AN_FIXED) {
-+		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
-+		val &= ~MVNETA_GMAC_FORCE_LINK_DOWN;
-+		val |= MVNETA_GMAC_FORCE_LINK_PASS;
-+		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
-+	}
- 
--	return 0;
-+	mvneta_port_up(pp);
-+}
-+
-+static const struct phylink_mac_ops mvneta_phylink_ops = {
-+	.mac_get_support = mvneta_mac_support,
-+	.mac_link_state = mvneta_mac_link_state,
-+	.mac_an_restart = mvneta_mac_an_restart,
-+	.mac_config = mvneta_mac_config,
-+	.mac_link_down = mvneta_mac_link_down,
-+	.mac_link_up = mvneta_mac_link_up,
-+};
-+
-+static int mvneta_mdio_probe(struct mvneta_port *pp)
-+{
-+	int err = phylink_of_phy_connect(pp->phylink, pp->dn);
-+	if (err)
-+		netdev_err(pp->dev, "could not attach PHY\n");
-+
-+	return err;
- }
- 
- static void mvneta_mdio_remove(struct mvneta_port *pp)
- {
--	phy_disconnect(pp->phy_dev);
--	pp->phy_dev = NULL;
-+	phylink_disconnect_phy(pp->phylink);
- }
- 
- static void mvneta_percpu_enable(void *arg)
-@@ -2914,10 +2999,7 @@ static int mvneta_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
- 	struct mvneta_port *pp = netdev_priv(dev);
- 
--	if (!pp->phy_dev)
--		return -ENOTSUPP;
--
--	return phy_mii_ioctl(pp->phy_dev, ifr, cmd);
-+	return phylink_mii_ioctl(pp->phylink, ifr, cmd);
- }
- 
- /* Ethtool methods */
-@@ -2927,10 +3009,7 @@ int mvneta_ethtool_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct mvneta_port *pp = netdev_priv(dev);
- 
--	if (!pp->phy_dev)
--		return -ENODEV;
--
--	return phy_ethtool_gset(pp->phy_dev, cmd);
-+	return phylink_ethtool_get_settings(pp->phylink, cmd);
- }
- 
- /* Set settings (phy address, speed) for ethtools */
-@@ -2938,10 +3017,7 @@ int mvneta_ethtool_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct mvneta_port *pp = netdev_priv(dev);
- 
--	if (!pp->phy_dev)
--		return -ENODEV;
--
--	return phy_ethtool_sset(pp->phy_dev, cmd);
-+	return phylink_ethtool_set_settings(pp->phylink, cmd);
- }
- 
- /* Set interrupt coalescing for ethtools */
-@@ -3223,9 +3299,6 @@ static int mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
- 		return -EINVAL;
- 	}
- 
--	if (pp->use_inband_status)
--		ctrl |= MVNETA_GMAC2_INBAND_AN_ENABLE;
--
- 	/* Cancel Port Reset */
- 	ctrl &= ~MVNETA_GMAC2_PORT_RESET;
- 	mvreg_write(pp, MVNETA_GMAC_CTRL_2, ctrl);
-@@ -3243,13 +3316,12 @@ static int mvneta_probe(struct platform_device *pdev)
- 	const struct mbus_dram_target_info *dram_target_info;
- 	struct resource *res;
- 	struct device_node *dn = pdev->dev.of_node;
--	struct device_node *phy_node;
- 	struct mvneta_port *pp;
- 	struct net_device *dev;
-+	struct phylink *phylink;
- 	const char *dt_mac_addr;
- 	char hw_mac_addr[ETH_ALEN];
- 	const char *mac_from;
--	const char *managed;
- 	int phy_mode;
- 	int err;
- 	int cpu;
-@@ -3264,31 +3336,11 @@ static int mvneta_probe(struct platform_device *pdev)
- 		goto err_free_netdev;
- 	}
- 
--	phy_node = of_parse_phandle(dn, "phy", 0);
--	if (!phy_node) {
--		if (!of_phy_is_fixed_link(dn)) {
--			dev_err(&pdev->dev, "no PHY specified\n");
--			err = -ENODEV;
--			goto err_free_irq;
--		}
--
--		err = of_phy_register_fixed_link(dn);
--		if (err < 0) {
--			dev_err(&pdev->dev, "cannot register fixed PHY\n");
--			goto err_free_irq;
--		}
--
--		/* In the case of a fixed PHY, the DT node associated
--		 * to the PHY is the Ethernet MAC DT node.
--		 */
--		phy_node = of_node_get(dn);
--	}
--
- 	phy_mode = of_get_phy_mode(dn);
- 	if (phy_mode < 0) {
- 		dev_err(&pdev->dev, "incorrect phy-mode\n");
- 		err = -EINVAL;
--		goto err_put_phy_node;
-+		goto err_free_irq;
- 	}
- 
- 	dev->tx_queue_len = MVNETA_MAX_TXD;
-@@ -3298,18 +3350,13 @@ static int mvneta_probe(struct platform_device *pdev)
- 	dev->ethtool_ops = &mvneta_eth_tool_ops;
- 
- 	pp = netdev_priv(dev);
--	pp->phy_node = phy_node;
--	pp->phy_interface = phy_mode;
--
--	err = of_property_read_string(dn, "managed", &managed);
--	pp->use_inband_status = (err == 0 &&
--				 strcmp(managed, "in-band-status") == 0);
-+	pp->dn = dn;
- 	pp->cpu_notifier.notifier_call = mvneta_percpu_notifier;
- 
- 	pp->clk = devm_clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(pp->clk)) {
- 		err = PTR_ERR(pp->clk);
--		goto err_put_phy_node;
-+		goto err_free_irq;
- 	}
- 
- 	clk_prepare_enable(pp->clk);
-@@ -3386,6 +3433,14 @@ static int mvneta_probe(struct platform_device *pdev)
- 	dev->priv_flags |= IFF_UNICAST_FLT;
- 	dev->gso_max_segs = MVNETA_MAX_TSO_SEGS;
- 
-+	phylink = phylink_create(dev, dn, phy_mode, &mvneta_phylink_ops);
-+	if (IS_ERR(phylink)) {
-+		err = PTR_ERR(phylink);
-+		goto err_free_stats;
-+	}
-+
-+	pp->phylink = phylink;
-+
- 	err = register_netdev(dev);
- 	if (err < 0) {
- 		dev_err(&pdev->dev, "failed to register\n");
-@@ -3397,24 +3452,16 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- 	platform_set_drvdata(pdev, pp->dev);
- 
--	if (pp->use_inband_status) {
--		struct phy_device *phy = of_phy_find_device(dn);
--
--		mvneta_fixed_link_update(pp, phy);
--
--		put_device(&phy->dev);
--	}
--
- 	return 0;
- 
- err_free_stats:
-+	if (pp->phylink)
-+		phylink_destroy(pp->phylink);
- 	free_percpu(pp->stats);
- err_free_ports:
- 	free_percpu(pp->ports);
- err_clk:
- 	clk_disable_unprepare(pp->clk);
--err_put_phy_node:
--	of_node_put(phy_node);
- err_free_irq:
- 	irq_dispose_mapping(dev->irq);
- err_free_netdev:
-@@ -3433,7 +3480,7 @@ static int mvneta_remove(struct platform_device *pdev)
- 	free_percpu(pp->ports);
- 	free_percpu(pp->stats);
- 	irq_dispose_mapping(dev->irq);
--	of_node_put(pp->phy_node);
-+	phylink_destroy(pp->phylink);
- 	free_netdev(dev);
- 
- 	return 0;
+ void phylink_set_link_port(struct phylink *pl, u32 support, u8 port);
 -- 
 2.1.0
