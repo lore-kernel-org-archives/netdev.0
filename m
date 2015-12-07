@@ -1,7 +1,7 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH RFC 16/26] phy: fixed-phy: remove fixed_phy_update_state()
-Date: Mon, 07 Dec 2015 17:38:33 +0000
-Message-ID: <E1a5zk9-000765-Dl@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH RFC 17/26] phylink: add ethtool nway_reset support
+Date: Mon, 07 Dec 2015 17:38:38 +0000
+Message-ID: <E1a5zkE-00076C-He@rmk-PC.arm.linux.org.uk>
 References: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,92 +10,60 @@ Cc: netdev@vger.kernel.org
 To: Florian Fainelli <f.fainelli@gmail.com>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60299 "EHLO
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60302 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932264AbbLGRig (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:38:36 -0500
+	with ESMTP id S932603AbbLGRil (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:38:41 -0500
 In-Reply-To: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-mvneta is the only user of fixed_phy_update_state(), which has been
-converted to use phylink instead.  Remove fixed_phy_update_state().
+Add ethtool nway_reset support to phylink, to allow userspace to
+request a re-negotiation of the link.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/phy/fixed_phy.c | 31 -------------------------------
- include/linux/phy_fixed.h   |  9 ---------
- 2 files changed, 40 deletions(-)
+ drivers/net/phy/phylink.c | 14 ++++++++++++++
+ include/linux/phylink.h   |  1 +
+ 2 files changed, 15 insertions(+)
 
-diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-index 474cc39a5457..19ac47aab0ba 100644
---- a/drivers/net/phy/fixed_phy.c
-+++ b/drivers/net/phy/fixed_phy.c
-@@ -115,37 +115,6 @@ int fixed_phy_set_link_update(struct phy_device *phydev,
+diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
+index 7d56e5895087..908235fb16c1 100644
+--- a/drivers/net/phy/phylink.c
++++ b/drivers/net/phy/phylink.c
+@@ -659,6 +659,20 @@ int phylink_ethtool_set_settings(struct phylink *pl, struct ethtool_cmd *cmd)
  }
- EXPORT_SYMBOL_GPL(fixed_phy_set_link_update);
+ EXPORT_SYMBOL_GPL(phylink_ethtool_set_settings);
  
--int fixed_phy_update_state(struct phy_device *phydev,
--			   const struct fixed_phy_status *status,
--			   const struct fixed_phy_status *changed)
--{
--	struct fixed_mdio_bus *fmb = &platform_fmb;
--	struct fixed_phy *fp;
--
--	if (!phydev || phydev->bus != fmb->mii_bus)
--		return -EINVAL;
--
--	list_for_each_entry(fp, &fmb->phys, node) {
--		if (fp->addr == phydev->addr) {
--			write_seqcount_begin(&fp->seqcount);
--#define _UPD(x) if (changed->x) \
--	fp->status.x = status->x
--			_UPD(link);
--			_UPD(speed);
--			_UPD(duplex);
--			_UPD(pause);
--			_UPD(asym_pause);
--#undef _UPD
--			fixed_phy_update(fp);
--			write_seqcount_end(&fp->seqcount);
--			return 0;
--		}
--	}
--
--	return -ENOENT;
--}
--EXPORT_SYMBOL(fixed_phy_update_state);
--
- int fixed_phy_add(unsigned int irq, int phy_addr,
- 		  struct fixed_phy_status *status,
- 		  int link_gpio)
-diff --git a/include/linux/phy_fixed.h b/include/linux/phy_fixed.h
-index 2400d2ea4f34..cf3f718c62b9 100644
---- a/include/linux/phy_fixed.h
-+++ b/include/linux/phy_fixed.h
-@@ -23,9 +23,6 @@ extern void fixed_phy_del(int phy_addr);
- extern int fixed_phy_set_link_update(struct phy_device *phydev,
- 			int (*link_update)(struct net_device *,
- 					   struct fixed_phy_status *));
--extern int fixed_phy_update_state(struct phy_device *phydev,
--			   const struct fixed_phy_status *status,
--			   const struct fixed_phy_status *changed);
- #else
- static inline int fixed_phy_add(unsigned int irq, int phy_id,
- 				struct fixed_phy_status *status,
-@@ -50,12 +47,6 @@ static inline int fixed_phy_set_link_update(struct phy_device *phydev,
- {
- 	return -ENODEV;
- }
--static inline int fixed_phy_update_state(struct phy_device *phydev,
--			   const struct fixed_phy_status *status,
--			   const struct fixed_phy_status *changed)
--{
--	return -ENODEV;
--}
- #endif /* CONFIG_FIXED_PHY */
++int phylink_ethtool_nway_reset(struct phylink *pl)
++{
++	int ret = 0;
++
++	mutex_lock(&pl->config_mutex);
++	if (pl->phydev)
++		ret = genphy_restart_aneg(pl->phydev);
++	pl->ops->mac_an_restart(pl->netdev, pl->link_an_mode);
++	mutex_unlock(&pl->config_mutex);
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(phylink_ethtool_nway_reset);
++
+ /* This emulates MII registers for a fixed-mode phy operating as per the
+  * passed in state. "aneg" defines if we report negotiation is possible.
+  *
+diff --git a/include/linux/phylink.h b/include/linux/phylink.h
+index c7a665a538c1..ad3c85508d19 100644
+--- a/include/linux/phylink.h
++++ b/include/linux/phylink.h
+@@ -65,6 +65,7 @@ void phylink_stop(struct phylink *);
  
- #endif /* __PHY_FIXED_H */
+ int phylink_ethtool_get_settings(struct phylink *, struct ethtool_cmd *);
+ int phylink_ethtool_set_settings(struct phylink *, struct ethtool_cmd *);
++int phylink_ethtool_nway_reset(struct phylink *);
+ int phylink_mii_ioctl(struct phylink *, struct ifreq *, int);
+ 
+ void phylink_set_link_port(struct phylink *pl, u32 support, u8 port);
 -- 
 2.1.0
