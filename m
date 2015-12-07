@@ -1,74 +1,126 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Checksum offload queries
-Date: Mon, 7 Dec 2015 09:29:48 -0800
-Message-ID: <CALx6S37+YVqpVL6XX2KCHZad84DGpqpL+K4LdDZr5H-feiyjow@mail.gmail.com>
-References: <5665A848.9010001@solarflare.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: [PATCH RFC 00/26] Phylink & SFP support
+Date: Mon, 7 Dec 2015 17:35:53 +0000
+Message-ID: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>
-To: Edward Cree <ecree@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:33638 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753801AbbLGR3t convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:29:49 -0500
-Received: by iouu10 with SMTP id u10so192345126iou.0
-        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 09:29:48 -0800 (PST)
-In-Reply-To: <5665A848.9010001@solarflare.com>
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60245 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932374AbbLGRgA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:36:00 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 7, 2015 at 7:39 AM, Edward Cree <ecree@solarflare.com> wrote:
-> Having decided to take Dave Miller's advice to push our hardware guys in the direction of generic checksum offload, I found I wasn't quite sure exactly what's being encouraged.  After discussing the subject with a colleague, some questions crystallised.  I expect it's mostly a result of misunderstandings on my part, but here goes:
->
+Hi,
 
-Hi Edward, thanks for looking into this.
+SFP modules are hot-pluggable ethernet transceivers; they can be
+detected at runtime and accordingly configured.  There are a range of
+modules offering many different features.
 
-> 1) Receive checksums.  Given that CHECKSUM_UNNECESSARY conversion exists (and is a cheap operation), what is the advantage to the stack of using CHECKSUM_COMPLETE if the packet happens to be a protocol which CHECKSUM_UNNECESSARY conversion can handle?  As I see it, CHECKSUM_UNNECESSARY is strictly better as the stack is told "the first csum_level+1 checksums are good" *and* (indirectly) "here is the whole-packet checksum, which you can use to help with anything beyond csum_level+1".  Is it not, then, best for a device only to use CHECKSUM_COMPLETE for protocols the conversion doesn't handle?  (I agree that having that fallback of CHECKSUM_COMPLETE is a good thing, sadly I don't think our new chip does that.  (But maybe firmware can fix it.))
->
-Checksum unnecessary conversion works great but it's applicability is
-limited. This only helps in encapsulation when the UDP checksum can be
-enabled, but due to restrictions of other devices we may need to
-communicate with (e.g. Cisco switches) it might not be usable. Also,
-checksum conversion is not relevant to many other protocols we want to
-run like GRE, IPIP, SIT, MPLS/IP, etc., and does not help with IPv6
-extension headers. CHECKSUM_COMPLETE is the really closet thing to a
-universal solution.
+Some SFP modules have PHYs conventional integrated into them, others
+drive a laser diode from the Serdes bus.  Some have monitoring, others
+do not.
 
-> 2) Transmit checksums.  While many protocols permit using 0 in the outer checksum, it doesn't seem prudent to assume all will.  Besides, many NICs will still have IP and TCP/UDP checksum offload hardware, if only to support less enlightened operating systems; why not use it?  Would it not be better for a device to have both NETIF_F_HW_CSUM *and* NETIF_F_IP[|V6]_CSUM, and be smart enough to fill in IP checksum, TCP/UDP checksum and one encapsulated checksum of your choice (i.e. whatever csum_start and friends asked for)?  (Again, I agree that having a NETIF_F_IP_CSUM device do specific magic for a list of specific encapsulation protocols is unsatisfactory.  Sadly, guess what our new chip does!  (But maybe firmware can fix it.))
->
-It's analogous to CHECKSUM_COMPLETE, NETIF_F_HW_CSUM works for all
-cases of checksum offload and any combination of protocol layering.
-NETIF_F_IP[V6]_CSUM is limited and requires a lot of logic in both
-driver and HW to implement correctly. I can't help you with these less
-enlightening operating systems, maybe if they see the advantages of a
-protocol generic offload model they'll "get with the program" as Dave
-might say? In any case I do not believe we should be at all
-constrained in building Linux interfaces or capabilities by the design
-decisions made in other operating systems.
+Some SFP modules want to use SGMII over the Serdes link, others want
+to use 1000base-X over the Serdes link.
 
-> 3) Related to the above, what does a NETIF_F_HW_CSUM device do when transmitting an unencapsulated packet (let's say it's UDP) currently?  Will it simply get no checksum offload at all?  Will csum_start point at the regular UDP checksum (and the stack will do the IP header checksum)?  Again, a device that does both HW_ and IP_CSUM could cope with this (do the IP and UDP checksums as per NETIF_F_IP_CSUM, and just don't ask for a 'generic' HW_CSUM), though that would require more checksum flags (there's no way for CHECKSUM_PARTIAL to say "do your IP-specific stuff but ignore csum_start and friends).
->
-The NETIF_F_*_CSUM flags only describe the capabilities of the device,
-the interface between the stack and the driver to offload the checksum
-of a particular packet is solely the csum_start and csum_offset fields
-in the skb (non-GSO case). It is up to the driver to decide whether
-the particular checksum can actually be offloaded, but in any case it
-must set the correct checksum (through skb_checksum_help if
-necessary).
+This makes it non-trivial to support with the existing code structure.
+Not wanting to write something specific to the mvneta driver, I decided
+to have a go at coming up with something more generic.
 
-> 4) Where, precisely, should I tell our hardware guys to stuff the protocol-specific encapsulated checksum offloads they're so proud of having added to our new chip? ;)
+My initial attempts were to provide a PHY driver, but I found that
+phylib's state machine got in the way, and it was hard to support two
+chained PHYs.  Conversely, having a fixed DT specified setup (via
+the fixed phy infrastructure) would allow some SFP modules to work, but
+not others.  The same is true of the "managed" in-band status (which
+is SGMII.)
 
-Tell them that if the support generic checksum you're marketing guys
-will be able to list at least fifteen protocols in the product specs
-that can be checksum offloaded to the device instead of just one or
-two like the competition ;-)
+The result is that I came up with phylink - an infrastructure layer
+which sits between the network driver and any attached PHY, and a
+SFP module layer detects the SFP module, and configures phylink
+accordingly.
 
-Thanks,
-Tom
-.
->
-> --
-> Edward Cree, not speaking for Solarflare Communications
-> The information contained in this message is confidential and is intended for the addressee(s) only. If you have received this message in error, please notify the sender immediately and delete the message. Unless you are an addressee (or authorized to receive for an addressee), you may not use, copy or disclose to anyone this message or any information contained in this message. The unauthorized use, disclosure, copying or alteration of this message is strictly prohibited.
+Overall, this supports:
+
+* switching the serdes mode at the NIC driver
+* controlling autonegotiation and autoneg results
+* allowing PHYs to be hotplugged
+* allowing SFP modules to be hotplugged with proper link indication
+* fixed-mode links without involving phylib
+* flow control
+* EEE support
+* reading SFP module EEPROMs
+
+Overall, phylink supports several link modes, with dynamic switching
+possible between these:
+* A true fixed link mode, where the parameters are set by DT.
+* PHY mode, where we read the negotiation results from the PHY registers
+  and pass them to the NIC driver.
+* SGMII mode, where the in-band status indicates the speed, duplex and
+  flow control settings of the link partner.
+* 1000base-X mode, where the in-band status indicates only duplex and
+  flow control settings (different, incompatible bit layout from SGMII.)
+
+Ethtool support is included, as well as emulation of the MII registers
+for situations where a PHY is not attached, giving compatible emulation
+of existing user interfaces where required.
+
+The patches here include modification of mvneta (against 4.4-rc1, so
+probably won't apply to current development tips.)  It basically
+hooks into the places where the phylib would hook into.
+
+DT wise, the changes needed to support SFP look like this (example
+taken from Clearfog):
+
+ 			ethernet@34000 {
++				managed = "in-band-status";
+ 				phy-mode = "sgmii";
+ 				status = "okay";
+-
+-				fixed-link {
+-					speed = <1000>;
+-					full-duplex;
+-				};
+ 			};
+...
++	sfp: sfp {
++		compatible = "sff,sfp";
++		i2c-bus = <&i2c1>;
++		los-gpio = <&expander0 12 GPIO_ACTIVE_HIGH>;
++		moddef0-gpio = <&expander0 15 GPIO_ACTIVE_LOW>;
++		sfp,ethernet = <&eth2>;
++		tx-disable-gpio = <&expander0 14 GPIO_ACTIVE_HIGH>;
++		tx-fault-gpio = <&expander0 13 GPIO_ACTIVE_HIGH>;
++	};
+
+These DT changes are omitted from this patch set as the baseline DT
+file is not in mainline yet (has been submitted.)
+
+ drivers/net/ethernet/marvell/Kconfig  |    2 +-
+ drivers/net/ethernet/marvell/mvneta.c |  537 +++++++++-----
+ drivers/net/phy/Kconfig               |   29 +
+ drivers/net/phy/Makefile              |    6 +-
+ drivers/net/phy/fixed_phy.c           |  178 +----
+ drivers/net/phy/marvell.c             |    2 +-
+ drivers/net/phy/mdio-i2c.c            |   90 +++
+ drivers/net/phy/mdio-i2c.h            |   19 +
+ drivers/net/phy/phy.c                 |   46 +-
+ drivers/net/phy/phy_device.c          |   15 +
+ drivers/net/phy/phylink.c             | 1138 ++++++++++++++++++++++++++++++
+ drivers/net/phy/sfp.c                 | 1235 +++++++++++++++++++++++++++++++++
+ drivers/net/phy/swphy.c               |  179 +++++
+ drivers/net/phy/swphy.h               |    9 +
+ include/linux/phy.h                   |    4 +
+ include/linux/phy_fixed.h             |    9 -
+ include/linux/phylink.h               |  102 +++
+ include/linux/sfp.h                   |  338 +++++++++
+ 18 files changed, 3577 insertions(+), 361 deletions(-)
+
+-- 
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
