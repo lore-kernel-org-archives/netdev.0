@@ -1,45 +1,56 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] netfilter: nfnetlink_queue: Unregister pernet subsys in
- case of init failure
-Date: Mon, 7 Dec 2015 15:29:25 +0300
-Message-ID: <56657BA5.6070303@cogentembedded.com>
-References: <1449483206-22618-1-git-send-email-kernel@kyup.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: [PATCH net] mpls: fix sending of local encapped packets
+Date: Mon, 7 Dec 2015 12:53:15 +0000
+Message-ID: <1449492795-12406-1-git-send-email-rshearma@brocade.com>
+References: <56656219.7070009@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, kadlec@blackhole.kfki.hu,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Nikolay Borisov <kernel@kyup.com>, fruggeri@arista.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1449483206-22618-1-git-send-email-kernel@kyup.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <roopa@cumulusnetworks.com>,
+	<ebiederm@xmission.com>, Sam Russell <sam.h.russell@gmail.com>,
+	"Robert Shearman" <rshearma@brocade.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:2345 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754978AbbLGMx5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 07:53:57 -0500
+In-Reply-To: <56656219.7070009@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Locally generated IPv4 and (probably) IPv6 packets are dropped because
+skb->protocol isn't set. We could write wrappers to lwtunnel_output
+for IPv4 and IPv6 that set the protocol accordingly and then call
+lwtunnel_output, but mpls_output relies on the AF-specific type of dst
+anyway to get the via address.
 
-On 12/07/2015 01:13 PM, Nikolay Borisov wrote:
+Therefore, make use of dst->dst_ops->family in mpls_output to
+determine the type of nexthop and thus protocol of the packet instead
+of checking skb->protocol.
 
-> Commit 3bfe049807c2403 ('netfilter: nfnetlink_{log,queue}:
+Fixes: 61adedf3e3f1 ("route: move lwtunnel state to dst_entry")
+Reported-by: Sam Russell <sam.h.russell@gmail.com>
+Signed-off-by: Robert Shearman <rshearma@brocade.com>
+---
+ net/mpls/mpls_iptunnel.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-    Double quotes please, that's what scripts/checkpatch.pl enforces now.
-
-> Register pernet in first place') reorganised the initialisation
-> order of the pernet_subsys to avoid "use-before-initialised"
-> condition. However, in doing so the cleanup logic in nfnetlink_queue
-> got botched in that the pernet_subsys wasn't cleaned in case
-> nfnetlink_subsys_register failed. This patch adds the necessary
-> cleanup routine call.
->
-> Fixes: 3bfe049807c2403 ('netfilter: nfnetlink_{log,queue}: Register
-> 						pernet in first place')
-
-    Likewise.
-
->
-> Signed-off-by: Nikolay Borisov <kernel@kyup.com>
-
-[...]
-
-MBR, Sergei
-
+diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
+index 67591aef9cae..64afd3d0b144 100644
+--- a/net/mpls/mpls_iptunnel.c
++++ b/net/mpls/mpls_iptunnel.c
+@@ -54,10 +54,10 @@ int mpls_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 	unsigned int ttl;
+ 
+ 	/* Obtain the ttl */
+-	if (skb->protocol == htons(ETH_P_IP)) {
++	if (dst->ops->family == AF_INET) {
+ 		ttl = ip_hdr(skb)->ttl;
+ 		rt = (struct rtable *)dst;
+-	} else if (skb->protocol == htons(ETH_P_IPV6)) {
++	} else if (dst->ops->family == AF_INET6) {
+ 		ttl = ipv6_hdr(skb)->hop_limit;
+ 		rt6 = (struct rt6_info *)dst;
+ 	} else {
+-- 
+2.1.4
