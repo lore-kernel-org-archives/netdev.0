@@ -1,109 +1,112 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [RFC PATCH net-next 1/2] tcp: RTO Restart (RTOR)
-Date: Mon, 7 Dec 2015 14:46:23 -0200
-Message-ID: <20151207164623.GA22976@mrl.redhat.com>
-References: <cover.1449478261.git.per.hurtig@kau.se>
- <4719073d7d8285006b2fe5f1b67a3fe5255c503e.1449478261.git.per.hurtig@kau.se>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] xfrm: take care of request sockets
+Date: Mon, 07 Dec 2015 08:53:17 -0800
+Message-ID: <1449507197.25029.73.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151130232733.GA27119@codemonkey.org.uk>
+	 <1448932931.25582.2.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, edumazet@google.com, ncardwell@google.com,
-	nanditad@google.com, tom@herbertland.com, ycheng@google.com,
-	viro@zeniv.linux.org.uk, fw@strlen.de, daniel@iogearbox.net,
-	willemb@google.com, ilpo.jarvinen@helsinki.fi,
-	pasi.sarolahti@iki.fi, stephen@networkplumber.org,
-	netdev@vger.kernel.org, anna.brunstrom@kau.se, apetlund@simula.no,
-	michawe@ifi.uio.no, mohammad.rajiullah@kau.se
-To: Per Hurtig <per.hurtig@kau.se>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Dave Jones <davej@codemonkey.org.uk>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46969 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932421AbbLGQqe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Dec 2015 11:46:34 -0500
-Content-Disposition: inline
-In-Reply-To: <4719073d7d8285006b2fe5f1b67a3fe5255c503e.1449478261.git.per.hurtig@kau.se>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35053 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755648AbbLGQxU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 11:53:20 -0500
+Received: by pacej9 with SMTP id ej9so127728093pac.2
+        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 08:53:19 -0800 (PST)
+In-Reply-To: <1448932931.25582.2.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 07, 2015 at 10:00:11AM +0100, Per Hurtig wrote:
-> This patch implements the RTO restart modification (RTOR). When data is
-> ACKed, and the RTO timer is restarted, the time elapsed since the last
-> outstanding segment was transmitted is subtracted from the calculated RTO
-> value. This way, the RTO timer will expire after exactly RTO seconds, and
-> not RTO + RTT [+ delACK] seconds.
-> 
-> This patch also implements a new sysctl (tcp_timer_restart) that is used
-> to control the timer restart behavior.
-> 
-> Signed-off-by: Per Hurtig <per.hurtig@kau.se>
-> ---
->  Documentation/networking/ip-sysctl.txt | 12 ++++++++++++
->  include/net/tcp.h                      |  4 ++++
->  net/ipv4/sysctl_net_ipv4.c             | 10 ++++++++++
->  net/ipv4/tcp_input.c                   | 24 ++++++++++++++++++++++++
->  4 files changed, 50 insertions(+)
-> 
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index 2ea4c45..4094128 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
+From: Eric Dumazet <edumazet@google.com>
 
-(snip)
+TCP SYNACK messages might now be attached to request sockets.
 
-> @@ -2997,6 +2998,18 @@ static void tcp_cong_avoid(struct sock *sk, u32 ack, u32 acked)
->  	tcp_sk(sk)->snd_cwnd_stamp = tcp_time_stamp;
->  }
->  
-> +static u32 tcp_unsent_pkts(const struct sock *sk)
-> +{
-> +	struct sk_buff *skb = tcp_send_head(sk);
-> +	u32 pkts = 0;
-> +
-> +	if (skb)
-> +		tcp_for_write_queue_from(skb, sk)
-> +			pkts += tcp_skb_pcount(skb);
-> +
-> +	return pkts;
-> +}
-> +
->  /* Restart timer after forward progress on connection.
->   * RFC2988 recommends to restart timer to now+rto.
->   */
-> @@ -3027,6 +3040,17 @@ void tcp_rearm_rto(struct sock *sk)
->  			 */
->  			if (delta > 0)
->  				rto = delta;
-> +		} else if (icsk->icsk_pending == ICSK_TIME_RETRANS &&
-> +			   (sysctl_tcp_timer_restart == 1 ||
-> +			    sysctl_tcp_timer_restart == 3) &&
-> +			   (tp->packets_out + tcp_unsent_pkts(sk) <
-> +			    TCP_RTORESTART_THRESH)) {
+XFRM needs to get back to a listener socket.
 
-(snip)
+Adds new helpers that might be used elsewhere :
+sk_to_full_sk() and sk_const_to_full_sk()
 
-By when this gets hit, you could have a big write queue.
-What about wrapping at least this this condition 
-tp->packets_out + tcp_unsent_pkts(sk) < TCP_RTORESTART_THRESH
-in its own check function? Like:
+Note: We also need to add RCU protection for xfrm lookups,
+now TCP/DCCP have lockless listener processing. This will
+be addressed in separate patches.
 
-+static bool tcp_can_rtor(const struct sock *sk)
-+{
-+	struct sk_buff *skb = tcp_send_head(sk);
-+	s32 target = TCP_RTORESTART_THRESH - tp->packets_out;
-+
-+	if (target <= 0)
-+		return false;
-+
-+	if (skb) {
-+		tcp_for_write_queue_from(skb, sk) {
-+			target -= tcp_skb_pcount(skb);
-+			if (target <= 0)
-+				return false;
-+		}
-+	}
-+
-+	return true;
+Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
+Reported-by: Dave Jones <davej@codemonkey.org.uk>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/net/inet_sock.h |   27 +++++++++++++++++++++++----
+ net/xfrm/xfrm_policy.c  |    2 ++
+ 2 files changed, 25 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 2134e6d815bc..625bdf95d673 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -210,18 +210,37 @@ struct inet_sock {
+ #define IP_CMSG_ORIGDSTADDR	BIT(6)
+ #define IP_CMSG_CHECKSUM	BIT(7)
+ 
+-/* SYNACK messages might be attached to request sockets.
++/**
++ * sk_to_full_sk - Access to a full socket
++ * @sk: pointer to a socket
++ *
++ * SYNACK messages might be attached to request sockets.
+  * Some places want to reach the listener in this case.
+  */
+-static inline struct sock *skb_to_full_sk(const struct sk_buff *skb)
++static inline struct sock *sk_to_full_sk(struct sock *sk)
+ {
+-	struct sock *sk = skb->sk;
+-
++#ifdef CONFIG_INET
+ 	if (sk && sk->sk_state == TCP_NEW_SYN_RECV)
+ 		sk = inet_reqsk(sk)->rsk_listener;
++#endif
++	return sk;
 +}
-
-This way it will only traverse what is needed for the check itself.
-
-  Marcelo
++
++/* sk_to_full_sk() variant with a const argument */
++static inline const struct sock *sk_const_to_full_sk(const struct sock *sk)
++{
++#ifdef CONFIG_INET
++	if (sk && sk->sk_state == TCP_NEW_SYN_RECV)
++		sk = ((const struct request_sock *)sk)->rsk_listener;
++#endif
+ 	return sk;
+ }
+ 
++static inline struct sock *skb_to_full_sk(const struct sk_buff *skb)
++{
++	return sk_to_full_sk(skb->sk);
++}
++
+ static inline struct inet_sock *inet_sk(const struct sock *sk)
+ {
+ 	return (struct inet_sock *)sk;
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 09bfcbac63bb..18276f0cc32b 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2198,6 +2198,7 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+ 	xdst = NULL;
+ 	route = NULL;
+ 
++	sk = sk_const_to_full_sk(sk);
+ 	if (sk && sk->sk_policy[XFRM_POLICY_OUT]) {
+ 		num_pols = 1;
+ 		pols[0] = xfrm_sk_policy_lookup(sk, XFRM_POLICY_OUT, fl);
+@@ -2477,6 +2478,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
+ 	}
+ 
+ 	pol = NULL;
++	sk = sk_to_full_sk(sk);
+ 	if (sk && sk->sk_policy[dir]) {
+ 		pol = xfrm_sk_policy_lookup(sk, dir, &fl);
+ 		if (IS_ERR(pol)) {
