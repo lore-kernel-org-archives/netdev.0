@@ -1,64 +1,54 @@
-From: Philipp Hahn <pmhahn@pmhahn.de>
-Subject: Re: Asterisk deadlocks since Kernel 4.1
-Date: Mon, 7 Dec 2015 08:41:38 +0100
-Message-ID: <56653832.2030607@pmhahn.de>
-References: <564DB5F5.9060208@profihost.ag>
- <1447936902.1986892.444251921.3928A049@webmail.messagingengine.com>
- <564DC4A5.70104@profihost.ag> <564DCC4C.1090009@redhat.com>
- <564E2852.8000200@profihost.ag> <56530A42.6030609@profihost.ag>
- <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com>
- <565EBDC1.1090808@profihost.ag> <8737vlt6xb.fsf@stressinduktion.org>
- <5661DAC4.8040909@profihost.ag> <20151205010819.GA21889@gondor.apana.org.au>
- <5664A102.2030602@profihost.ag>
+From: yankejian <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v2 next 2/2] net: hns: fixes no syscon error when init mdio
+Date: Mon, 7 Dec 2015 16:25:07 +0800
+Message-ID: <1449476707-224320-3-git-send-email-yankejian@huawei.com>
+References: <1449476707-224320-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Weimer <fweimer@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jannik Winkel <j.winkel@profihost.ag>,
-	Marco Schinkel <m.schinkel@profihost.ag>
-To: Stefan Priebe <s.priebe@profihost.ag>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5664A102.2030602@profihost.ag>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	<mark.rutland-5wv7dgnIgG8@public.gmane.org>, <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	<galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
+	<catalin.marinas-5wv7dgnIgG8@public.gmane.org>, <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	<wangkefeng.wang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<liguozhu-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, <haojian.zhuang-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	<wangzhou1-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <bintian.wang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<long.wanglong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <leo.yan-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1449476707-224320-1-git-send-email-yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello Stefan,
+as dtsi files use the normal naming conventions using '-' instead of '_'
+inside of property names, the driver needs to update the phandle name
+strings of the of_parse_phandle func.
 
-Am 06.12.2015 um 21:56 schrieb Stefan Priebe:
-> i think i found the issue in 4.1 with netlink. Somebody made a mistake
-> while backporting or cherry-picking your patch "netlink: Fix autobind
-> race condition that leads to zero port ID" to 4.1.
-> 
-> It misses a goto in 4.1.
-> 
-> This goto is missing in 4.1:
-> 
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 4017e12..f15c001 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -1132,7 +1132,6 @@ static int netlink_insert(struct sock *sk, u32
-> portid)
->                 if (err == -EEXIST)
->                         err = -EADDRINUSE;
->                 sock_put(sk);
-> -               goto err;
->         }
-> 
->         /* We need to ensure that the socket is hashed and visible. */
-> 
-> Can you please confirm, that this is not correct and might cause those
-> issues.
+Signed-off-by: yankejian <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+---
+ drivers/net/ethernet/hisilicon/hns_mdio.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I just tested that patch and it seems to fix our hang. Thank you for
-your good work.
+diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
+index 37491c8..1e07e91 100644
+--- a/drivers/net/ethernet/hisilicon/hns_mdio.c
++++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
+@@ -458,7 +458,7 @@ static int hns_mdio_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	mdio_dev->subctrl_vbase =
+-		syscon_node_to_regmap(of_parse_phandle(np, "subctrl_vbase", 0));
++		syscon_node_to_regmap(of_parse_phandle(np, "subctrl-vbase", 0));
+ 	if (IS_ERR(mdio_dev->subctrl_vbase)) {
+ 		dev_warn(&pdev->dev, "no syscon hisilicon,peri-c-subctrl\n");
+ 		mdio_dev->subctrl_vbase = NULL;
+-- 
+1.9.1
 
-Philipp
-
-PS: I guess I can skip testing your other test request as this simple
-patch is part of your other hiuq4bsW patch. If I should still test it,
-just send a note.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
