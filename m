@@ -1,101 +1,73 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: arRe: [PATCH net-next 2/2] net: hns: enet specisies a reference to dsaf (config and documents)
-Date: Mon, 07 Dec 2015 10:40:04 +0100
-Message-ID: <1503684.BNZUVaD74W@wuerfel>
-References: <1449295856-31068-1-git-send-email-yankejian@huawei.com> <23027215.8RIhViTVaB@wuerfel> <566531C5.4050208@huawei.com>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: [PATCH] prism54: fix compare_const_fl.cocci warnings (fwd)
+Date: Mon, 7 Dec 2015 10:55:33 +0100 (CET)
+Message-ID: <alpine.DEB.2.10.1512071053490.2520@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, fengguang.wu@intel.com, robh+dt@kernel.org,
-	pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	catalin.marinas@arm.com, will.deacon@arm.com,
-	salil.mehta@huawei.com, Yisen.Zhuang@huawei.com,
-	liguozhu@huawei.com, lisheng011@huawei.com,
-	huangdaode@hisilicon.com, xuwei5@hisilicon.com,
-	haifeng.wei@huawei.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: "Yankejian (Hackim Yim)" <yankejian@huawei.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Luis R. Rodriguez" <mcgrof@gmail.com>,
+	linux-wireless@vger.kernel.org, kbuild-all@01.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Kalle Valo <kvalo@adurom.com> Kalle Valo" <kvalo@adurom.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <566531C5.4050208@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 07 December 2015 15:14:13 Yankejian wrote:
-> On 2015/12/6 6:19, Arnd Bergmann wrote:
-> > On Saturday 05 December 2015 14:10:56 yankejian wrote:
-> >> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
-> >> index 80411b2..ecacfa4 100644
-> >> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
-> >> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
-> >> @@ -4,8 +4,6 @@ Required properties:
-> >>  - compatible: should be "hisilicon,hns-dsaf-v1" or "hisilicon,hns-dsaf-v2".
-> >>    "hisilicon,hns-dsaf-v1" is for hip05.
-> >>    "hisilicon,hns-dsaf-v2" is for Hi1610 and Hi1612.
-> >> -- dsa-name: dsa fabric name who provide this interface.
-> >> -  should be "dsafX", X is the dsaf id.
-> >>  - mode: dsa fabric mode string. only support one of dsaf modes like these:
-> >>                 "2port-64vf",
-> >>                 "6port-16rss",
-> >> @@ -26,9 +24,8 @@ Required properties:
-> >>  
-> >>  Example:
-> >>  
-> >> -dsa: dsa@c7000000 {
-> >> +dsaf0: dsa@c7000000 {
-> >>         compatible = "hisilicon,hns-dsaf-v1";
-> >> -       dsa_name = "dsaf0";
-> >>         mode = "6port-16rss";
-> >>         interrupt-parent = <&mbigen_dsa>;
-> >>         reg = <0x0 0xC0000000 0x0 0x420000
-> >> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
-> >> index 41d19be..e6a9d1c 100644
-> >> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
-> >> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
-> >> @@ -4,8 +4,9 @@ Required properties:
-> >>  - compatible: "hisilicon,hns-nic-v1" or "hisilicon,hns-nic-v2".
-> >>    "hisilicon,hns-nic-v1" is for hip05.
-> >>    "hisilicon,hns-nic-v2" is for Hi1610 and Hi1612.
-> >> -- ae-name: accelerator name who provides this interface,
-> >> -  is simply a name referring to the name of name in the accelerator node.
-> >> +- ae-handle: accelerator engine handle for hns,
-> >> +  specifies a reference to the associating hardware driver node.
-> >> +  see Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
-> >>  - port-id: is the index of port provided by DSAF (the accelerator). DSAF can
-> >>    connect to 8 PHYs. Port 0 to 1 are both used for adminstration purpose. They
-> >>    are called debug ports.
-> >> @@ -41,7 +42,7 @@ Example:
-> >>  
-> >>
-> > This looks like an incompatible change, as you add and remove
-> > required properties. Is there a way to support both the old and
-> > the new style?
-> >
-> >       Arnd
-> >
-> > .
-> 
-> Hi Arnd,
-> Thanks for your suggestions.  it must be set the same strings in dsaf node and every enet node before.
-> it seems inappropriate. as Rob Herring <robh@kernel.org> 's suggestions, that would solve associating
-> enet with a particular dsaf. so we discus the solution with Yisen Zhuang <yisen.zhuang@huawei.com>.
-> we decide to use the new way instead of the old one.
+Move constants to the right of binary operators.
 
-I agree the new form looks better than the original way, but I'm worried
-about the migration path. You don't explain in the patch description
-how you want to ensure that nothing breaks for existing systems.
+Generated by: scripts/coccinelle/misc/compare_const_fl.cocci
 
-We generally try to avoid doing incompatible changes altogether and
-prefer to keep backwards compatibility, unless we can prove that no
-other systems exist that would get impacted by the change.
+Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Julia Lawall <julia.lawall@lip6.fr>
+---
 
-Are you sure that nobody ships a DTB file for this hardware with their
-firmware that would now require an incompatible update which in turn
-breaks old kernels?
+It looks a little nicer to me because n is the thing we care about.
 
-Are you sure that there is no hardware using the same dsa hardware
-with out-of-tree dts files that need to make the same change but might
-not be aware of the change?
+ oid_mgt.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-	Arnd
+--- a/drivers/net/wireless/intersil/prism54/oid_mgt.c
++++ b/drivers/net/wireless/intersil/prism54/oid_mgt.c
+@@ -424,7 +424,7 @@ mgt_set_request(islpci_private *priv, en
+ 	void *cache, *_data = data;
+ 	u32 oid;
+
+-	BUG_ON(OID_NUM_LAST <= n);
++	BUG_ON(n >= OID_NUM_LAST);
+ 	BUG_ON(extra > isl_oid[n].range);
+
+ 	if (!priv->mib)
+@@ -485,7 +485,7 @@ mgt_set_varlen(islpci_private *priv, enu
+ 	int dlen;
+ 	u32 oid;
+
+-	BUG_ON(OID_NUM_LAST <= n);
++	BUG_ON(n >= OID_NUM_LAST);
+
+ 	dlen = isl_oid[n].size;
+ 	oid = isl_oid[n].oid;
+@@ -524,7 +524,7 @@ mgt_get_request(islpci_private *priv, en
+ 	void *cache, *_res = NULL;
+ 	u32 oid;
+
+-	BUG_ON(OID_NUM_LAST <= n);
++	BUG_ON(n >= OID_NUM_LAST);
+ 	BUG_ON(extra > isl_oid[n].range);
+
+ 	res->ptr = NULL;
+@@ -626,7 +626,7 @@ mgt_commit_list(islpci_private *priv, en
+ void
+ mgt_set(islpci_private *priv, enum oid_num_t n, void *data)
+ {
+-	BUG_ON(OID_NUM_LAST <= n);
++	BUG_ON(n >= OID_NUM_LAST);
+ 	BUG_ON(priv->mib[n] == NULL);
+
+ 	memcpy(priv->mib[n], data, isl_oid[n].size);
+@@ -636,7 +636,7 @@ mgt_set(islpci_private *priv, enum oid_n
+ void
+ mgt_get(islpci_private *priv, enum oid_num_t n, void *res)
+ {
+-	BUG_ON(OID_NUM_LAST <= n);
++	BUG_ON(n >= OID_NUM_LAST);
+ 	BUG_ON(priv->mib[n] == NULL);
+ 	BUG_ON(res == NULL);
