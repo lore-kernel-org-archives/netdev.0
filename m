@@ -1,33 +1,70 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH v2 4/5] stmmac: Add ptp debugfs entry.
-Date: Mon, 07 Dec 2015 10:03:26 +0100
-Message-ID: <2080516.uAzdPnupR8@wuerfel>
-References: <1449452324-53858-1-git-send-email-preid@electromag.com.au> <1449452324-53858-6-git-send-email-preid@electromag.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449452324-53858-6-git-send-email-preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Per Hurtig <per.hurtig@kau.se>
+Subject: [RFC PATCH net-next 0/2] tcp: timer restart for tail loss
+Date: Mon,  7 Dec 2015 10:00:10 +0100
+Message-ID: <cover.1449478261.git.per.hurtig@kau.se>
+Cc: anna.brunstrom@kau.se, apetlund@simula.no, michawe@ifi.uio.no,
+	mohammad.rajiullah@kau.se, Per Hurtig <per.hurtig@kau.se>
+To: davem@davemloft.net, edumazet@google.com, ncardwell@google.com,
+	nanditad@google.com, tom@herbertland.com, ycheng@google.com,
+	viro@zeniv.linux.org.uk, fw@strlen.de, mleitner@redhat.com,
+	daniel@iogearbox.net, willemb@google.com,
+	ilpo.jarvinen@helsinki.fi, pasi.sarolahti@iki.fi,
+	stephen@networkplumber.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.kau.se ([193.10.220.39]:24741 "EHLO nasse.dc.kau.se"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754901AbbLGJGx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Dec 2015 04:06:53 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 07 December 2015 09:38:43 Phil Reid wrote:
-> This adds a debugfs entry to view the current status of the ptp
-> registers.
-> 
-> Signed-off-by: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
-> 
+This is a request for comments.
 
-Your description should explain what this is good for. Why do you
-need to look at this through debugfs?
+RTO and TLP restart is a modification to the restart process of the RTO and
+TLP timers in TCP. Currently, both timers are restarted with its
+corresponding timeout value when an acknowledgment (ACK) for correctly
+received data is received. In many situations, resetting the timers on
+incoming ACKs will add an implicit offset of at least RTT seconds to the
+loss recovery process.
 
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The goal of the modified restart is to provide quicker loss recovery for
+segments lost in the end of a burst/connection, where the limited feedback
+from a receiver inhibits the use of fast/early retransmit. To accomplish
+this the algorithm adjusts the RTO and PTO (TLP's timer) values on each
+rearm of the timers to allow them to expire after exactly RTO and PTO ms,
+respectively.
+
+The restart behavior is controlled by the new tcp_timer_restart sysctl.
+tcp_timer_restart==0; disables RTOR and TLPR.
+		 ==1; enables RTOR.
+		 ==2; enables TLPR.
+		 ==3; enables both RTOR and TLPR. [DEFAULT]
+
+The new restart behavior has been approved by the IETF for publication as
+an experimental RFC (for the RTO part of the mechanism) [1], and
+experiments have been conducted to show both the benefit of this strategy
+(in terms of reduced loss-recovery delays) and the limited negative impact
+(in terms of spurious retransmissions) [2]. More information regarding the
+mechanism can be found at [3].
+
+Basic functionality tests, using packetdrill, are available at:
+https://github.com/perhurt/packetdrill/tree/master/gtests/net/packetdrill/tests/linux/timer_restart
+
+
+[1] https://datatracker.ietf.org/doc/draft-ietf-tcpm-rtorestart/
+[2] http://www.sigcomm.org/sites/default/files/ccr/papers/2015/January/0000000-0000000.pdf
+[3] http://riteproject.eu/resources/rto-restart/
+
+Per Hurtig (2):
+  tcp: RTO Restart (RTOR)
+  tcp: TLP restart (TLPR)
+
+ Documentation/networking/ip-sysctl.txt | 12 ++++++++++++
+ include/net/tcp.h                      |  6 +++++-
+ net/ipv4/sysctl_net_ipv4.c             | 10 ++++++++++
+ net/ipv4/tcp_input.c                   | 26 +++++++++++++++++++++++++-
+ net/ipv4/tcp_output.c                  | 12 ++++++++++--
+ 5 files changed, 62 insertions(+), 4 deletions(-)
+
+-- 
+1.9.1
