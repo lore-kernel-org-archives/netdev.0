@@ -1,85 +1,48 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 3/3] sh_eth: get rid of bb_{set|clr|read}()
-Date: Tue, 08 Dec 2015 00:41:43 +0300
-Message-ID: <2620242.OINoAeziLK@wasted.cogentembedded.com>
-References: <1582774.FcjyuztLtc@wasted.cogentembedded.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: MPLS decap with iproute2
+Date: Mon, 7 Dec 2015 21:42:50 +0000
+Message-ID: <5665FD5A.8000200@brocade.com>
+References: <CAJm+voVUXPBXBRo98K6XS9pVEkN=fCJ4chRdQ=azcZO9ge9gEg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Sam Russell <sam.h.russell@gmail.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f41.google.com ([209.85.215.41]:35626 "EHLO
-	mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755674AbbLGVlq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 16:41:46 -0500
-Received: by lfdl133 with SMTP id l133so325463lfd.2
-        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 13:41:45 -0800 (PST)
-In-Reply-To: <1582774.FcjyuztLtc@wasted.cogentembedded.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:16622 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755674AbbLGVnC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 16:43:02 -0500
+In-Reply-To: <CAJm+voVUXPBXBRo98K6XS9pVEkN=fCJ4chRdQ=azcZO9ge9gEg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After the MDIO bitbang code consolidation, there's no need anymore for
-bb_{set|clr}() as well as bb_read() -- just expand them inline, thus
-saving more LoCs...
+On 07/12/15 19:42, Sam Russell wrote:
+> Hi,
+>
+> I've had success with the iproute2 manpage example for encapsulating
+> outgoing traffic in MPLS, but I've not found a way to add decap routes
+> inbound.
+>
+> I've tried "ip route -f mpls add 100 dev lo" and other variations, but I
+> get netlink errors back.
+>
+> Has this been built yet? Is there sample config that I can try out? I'm
+> running a home-built 4.3 kernel + iproute2 built from head (on ubuntu
+> 15.10) and am comfortable with perf and splashing around in the codebase if
+> need be.
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Hi Sam,
 
----
- drivers/net/ethernet/renesas/sh_eth.c |   27 ++++++---------------------
- 1 file changed, 6 insertions(+), 21 deletions(-)
+This certainly works on net-next, albeit with a bug on the subsequent 
+"ip route -f mpls list" that I'll shortly be sending a patch for.
 
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1015,35 +1015,20 @@ struct bb_info {
- 	void *addr;
- };
- 
--/* PHY bit set */
--static void bb_set(void *addr, u32 msk)
--{
--	iowrite32(ioread32(addr) | msk, addr);
--}
--
--/* PHY bit clear */
--static void bb_clr(void *addr, u32 msk)
--{
--	iowrite32((ioread32(addr) & ~msk), addr);
--}
--
--/* PHY bit read */
--static int bb_read(void *addr, u32 msk)
--{
--	return (ioread32(addr) & msk) != 0;
--}
--
- static void sh_mdio_ctrl(struct mdiobb_ctrl *ctrl, u32 mask, int set)
- {
- 	struct bb_info *bitbang = container_of(ctrl, struct bb_info, ctrl);
-+	u32 pir;
- 
- 	if (bitbang->set_gate)
- 		bitbang->set_gate(bitbang->addr);
- 
-+	pir = ioread32(bitbang->addr);
- 	if (set)
--		bb_set(bitbang->addr, mask);
-+		pir |=  mask;
- 	else
--		bb_clr(bitbang->addr, mask);
-+		pir &= ~mask;
-+	iowrite32(pir, bitbang->addr);
- }
- 
- /* Data I/O pin control */
-@@ -1066,7 +1051,7 @@ static int sh_get_mdio(struct mdiobb_ctr
- 	if (bitbang->set_gate)
- 		bitbang->set_gate(bitbang->addr);
- 
--	return bb_read(bitbang->addr, PIR_MDI);
-+	return (ioread32(bitbang->addr) & PIR_MDI) != 0;
- }
- 
- /* MDC pin control */
+Have you first set an appropriate label table size? E.g.:
+
+   $ sysctl net.mpls.platform_labels=1048575
+
+If you intend to receive non-BOS traffic over your route above, then you 
+should also make sure to enable mpls input on lo (and your actual input 
+interfaces), otherwise the traffic will be dropped.
+
+Thanks,
+Rob
