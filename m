@@ -1,64 +1,49 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net] vxlan: interpret IP headers for ECN correctly
-Date: Mon,  7 Dec 2015 16:29:08 +0100
-Message-ID: <47068a34770a946e847903daa73d130d4fcbbc0e.1449502140.git.jbenc@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47977 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932891AbbLGP3R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Dec 2015 10:29:17 -0500
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (Postfix) with ESMTPS id 67F1C41
-	for <netdev@vger.kernel.org>; Mon,  7 Dec 2015 15:29:17 +0000 (UTC)
-Received: from griffin.localdomain (ovpn-204-102.brq.redhat.com [10.40.204.102])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id tB7FTGG2018293
-	for <netdev@vger.kernel.org>; Mon, 7 Dec 2015 10:29:16 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
+Date: Mon, 7 Dec 2015 16:35:24 +0100
+Message-ID: <20151207153524.GA22032@pox.localdomain>
+References: <20151130093755.GA8159@gondor.apana.org.au>
+ <20151130101401.GA17712@orbit.nwl.cc>
+ <20151130101859.GA8378@gondor.apana.org.au>
+ <20151203125117.GB5505@gondor.apana.org.au>
+ <1449158919.6379.27.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151204143956.GA17471@gondor.apana.org.au>
+ <20151204170101.GB29598@orbit.nwl.cc>
+ <1449251120.25029.31.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151204181555.GC29598@orbit.nwl.cc>
+ <20151205070603.GB23255@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Phil Sutter <phil@nwl.cc>, Eric Dumazet <eric.dumazet@gmail.com>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
+	wfg@linux.intel.com, lkp@01.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151205070603.GB23255@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When looking for outer IP header, use the actual socket address family, not
-the address family of the default destination which is not set for metadata
-based interfaces (and doesn't have to match the address family of the
-received packet even if it was set).
+On 12/05/15 at 03:06pm, Herbert Xu wrote:
+> On Fri, Dec 04, 2015 at 07:15:55PM +0100, Phil Sutter wrote:
+> >
+> > > Only one should really do this, while others are waiting.
+> > 
+> > Sure, that was my previous understanding of how this thing works.
+> 
+> Yes that's clearly how it should be.  Unfortunately while adding
+> the locking to do this, I found out that you can't actually call
+> __vmalloc with BH disabled so this is a no-go.
+> 
+> Unless we can make __vmalloc work with BH disabled, I guess we'll
+> have to go back to multi-level lookups unless someone has a better
+> suggestion.
 
-Fix also the misleading comment.
+Thanks for fixing the race.
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- drivers/net/vxlan.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+As for the remaining problem, I think we'll have to find a way to
+serve a hard pounding user if we want to convert TCP hashtables
+later on.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 6369a5734d4c..2718b836c1e7 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1158,7 +1158,6 @@ static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb,
- 	struct pcpu_sw_netstats *stats;
- 	union vxlan_addr saddr;
- 	int err = 0;
--	union vxlan_addr *remote_ip;
- 
- 	/* For flow based devices, map all packets to VNI 0 */
- 	if (vs->flags & VXLAN_F_COLLECT_METADATA)
-@@ -1169,7 +1168,6 @@ static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb,
- 	if (!vxlan)
- 		goto drop;
- 
--	remote_ip = &vxlan->default_dst.remote_ip;
- 	skb_reset_mac_header(skb);
- 	skb_scrub_packet(skb, !net_eq(vxlan->net, dev_net(vxlan->dev)));
- 	skb->protocol = eth_type_trans(skb, vxlan->dev);
-@@ -1179,8 +1177,8 @@ static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb,
- 	if (ether_addr_equal(eth_hdr(skb)->h_source, vxlan->dev->dev_addr))
- 		goto drop;
- 
--	/* Re-examine inner Ethernet packet */
--	if (remote_ip->sa.sa_family == AF_INET) {
-+	/* Get data from the outer IP header */
-+	if (vxlan_get_sk_family(vs) == AF_INET) {
- 		oip = ip_hdr(skb);
- 		saddr.sin.sin_addr.s_addr = oip->saddr;
- 		saddr.sa.sa_family = AF_INET;
--- 
-1.8.3.1
+Did you look into what __vmalloc prevents to work with BH disabled?
