@@ -1,7 +1,7 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH RFC 26/26] sfp/phylink: hook up eeprom functions
-Date: Mon, 07 Dec 2015 17:39:24 +0000
-Message-ID: <E1a5zky-00077F-Rn@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH RFC 25/26] net: mvneta: add module EEPROM reading support
+Date: Mon, 07 Dec 2015 17:39:19 +0000
+Message-ID: <E1a5zkt-000779-NX@rmk-PC.arm.linux.org.uk>
 References: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,10 +10,10 @@ Cc: netdev@vger.kernel.org
 To: Florian Fainelli <f.fainelli@gmail.com>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60333 "EHLO
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60328 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932743AbbLGRj2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:39:28 -0500
+	with ESMTP id S932735AbbLGRjW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 12:39:22 -0500
 In-Reply-To: <20151207173553.GU8644@n2100.arm.linux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -21,68 +21,44 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/phy/sfp.c | 19 +++++++++++--------
- 1 file changed, 11 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
 
-diff --git a/drivers/net/phy/sfp.c b/drivers/net/phy/sfp.c
-index 678298844203..feb5f7062b2c 100644
---- a/drivers/net/phy/sfp.c
-+++ b/drivers/net/phy/sfp.c
-@@ -902,11 +902,9 @@ static void sfp_sm_event(struct sfp *sfp, unsigned int event)
- 	mutex_unlock(&sfp->sm_mutex);
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 3de2aa9335b2..bf0b03f58dae 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3244,6 +3244,22 @@ static int mvneta_ethtool_get_sset_count(struct net_device *dev, int sset)
+ 	return -EOPNOTSUPP;
  }
  
--#if 0
--static int sfp_phy_module_info(struct phy_device *phy,
--			       struct ethtool_modinfo *modinfo)
-+static int sfp_module_info(void *priv, struct ethtool_modinfo *modinfo)
- {
--	struct sfp *sfp = phy->priv;
-+	struct sfp *sfp = priv;
- 
- 	/* locking... and check module is present */
- 
-@@ -920,10 +918,9 @@ static int sfp_phy_module_info(struct phy_device *phy,
- 	return 0;
- }
- 
--static int sfp_phy_module_eeprom(struct phy_device *phy,
--	struct ethtool_eeprom *ee, u8 *data)
-+static int sfp_module_eeprom(void *priv, struct ethtool_eeprom *ee, u8 *data)
- {
--	struct sfp *sfp = phy->priv;
-+	struct sfp *sfp = priv;
- 	unsigned int first, last, len;
- 	int ret;
- 
-@@ -954,7 +951,11 @@ static int sfp_phy_module_eeprom(struct phy_device *phy,
- 	}
- 	return 0;
- }
--#endif
++static int mvneta_ethtool_get_module_info(struct net_device *dev,
++					  struct ethtool_modinfo *modinfo)
++{
++	struct mvneta_port *pp = netdev_priv(dev);
 +
-+static const struct phylink_module_ops sfp_module_ops = {
-+	.get_module_info = sfp_module_info,
-+	.get_module_eeprom = sfp_module_eeprom,
-+};
- 
- static void sfp_timeout(struct work_struct *work)
++	return phylink_ethtool_get_module_info(pp->phylink, modinfo);
++}
++
++static int mvneta_ethtool_get_module_eeprom(struct net_device *dev,
++					    struct ethtool_eeprom *ee, u8 *buf)
++{
++	struct mvneta_port *pp = netdev_priv(dev);
++
++	return phylink_ethtool_get_module_eeprom(pp->phylink, ee, buf);
++}
++
+ static int mvneta_ethtool_get_eee(struct net_device *dev,
+ 				  struct ethtool_eee *eee)
  {
-@@ -1030,6 +1031,7 @@ static int sfp_netdev_notify(struct notifier_block *nb, unsigned long act, void
- 	case NETDEV_UNREGISTER:
- 		if (sfp->mod_phy && sfp->phylink)
- 			phylink_disconnect_phy(sfp->phylink);
-+		phylink_unregister_module(sfp->phylink, sfp);
- 		sfp->phylink = NULL;
- 		dev_put(sfp->ndev);
- 		sfp->ndev = NULL;
-@@ -1146,6 +1148,7 @@ static int sfp_probe(struct platform_device *pdev)
- 		}
- 
- 		phylink_disable(sfp->phylink);
-+		phylink_register_module(sfp->phylink, sfp, &sfp_module_ops);
- 	}
- 
- 	sfp->state = sfp_get_state(sfp);
+@@ -3312,6 +3328,8 @@ const struct ethtool_ops mvneta_eth_tool_ops = {
+ 	.get_strings	= mvneta_ethtool_get_strings,
+ 	.get_ethtool_stats = mvneta_ethtool_get_stats,
+ 	.get_sset_count	= mvneta_ethtool_get_sset_count,
++	.get_module_info = mvneta_ethtool_get_module_info,
++	.get_module_eeprom = mvneta_ethtool_get_module_eeprom,
+ 	.get_eee	= mvneta_ethtool_get_eee,
+ 	.set_eee	= mvneta_ethtool_set_eee,
+ };
 -- 
 2.1.0
