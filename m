@@ -1,26 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] cxgb3: Convert simple_strtoul to kstrtox
-Date: Mon, 07 Dec 2015 16:49:58 -0500 (EST)
-Message-ID: <20151207.164958.995538780250171482.davem@davemloft.net>
-References: <1449493893-18055-1-git-send-email-clabbe.montjoie@gmail.com>
-	<1449493893-18055-2-git-send-email-clabbe.montjoie@gmail.com>
+From: Sam Russell <sam.h.russell@gmail.com>
+Subject: Re: MPLS decap with iproute2
+Date: Tue, 8 Dec 2015 10:50:48 +1300
+Message-ID: <CAJm+voWbsySEHxT=nmokbxz4fiqyfAhmJSQNgi9YApen3OKRag@mail.gmail.com>
+References: <CAJm+voVUXPBXBRo98K6XS9pVEkN=fCJ4chRdQ=azcZO9ge9gEg@mail.gmail.com>
+	<5665FD5A.8000200@brocade.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: santosh@chelsio.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: clabbe.montjoie@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449493893-18055-2-git-send-email-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Robert Shearman <rshearma@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:33978 "EHLO
+	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932264AbbLGVut (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 16:50:49 -0500
+Received: by qkdp187 with SMTP id p187so1335195qkd.1
+        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 13:50:48 -0800 (PST)
+In-Reply-To: <5665FD5A.8000200@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Date: Mon,  7 Dec 2015 14:11:33 +0100
+Hi Robert,
 
-> the simple_strtoul function is obsolete. This patch replace it by
-> kstrtox.
-> 
-> Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
+Thanks for the tip, I'll give it a shot when I get home this evening (UTC+13).
+I'm planning to put together a blog on how to manually string up an
+MPLS l3vpn, to help people start playing with the new MPLS support now
+that it's finally in the mainline kernel.
 
-Applied, thanks.
+Cheers
+Sam
