@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: hisilicon: constify hnae_buf_ops and hnae_ae_ops
- structures
-Date: Sun, 06 Dec 2015 22:51:44 -0500 (EST)
-Message-ID: <20151206.225144.1422377179689530868.davem@davemloft.net>
-References: <1449419097-19032-1-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [PATCH net-next] net: cdc_ncm: add "ndp_to_end" sysfs attribute
+Date: Sun, 06 Dec 2015 22:52:30 -0500 (EST)
+Message-ID: <20151206.225230.1940853097679776431.davem@davemloft.net>
+References: <1449438435-10823-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, huangdaode@hisilicon.com,
-	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449419097-19032-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	mrkiko.rs@gmail.com
+To: bjorn@mork.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34993 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755373AbbLGDwc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2015 22:52:32 -0500
+In-Reply-To: <1449438435-10823-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Sun,  6 Dec 2015 17:24:57 +0100
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Sun,  6 Dec 2015 22:47:15 +0100
 
-> The hnae_buf_ops and hnae_ae_ops structures are never modified, so declare
-> them as const.
-> 
-> Done with the help of Coccinelle.
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> Adding a writable sysfs attribute for the "NDP to end"
+> quirk flag.
+>=20
+> This makes it easier for end users to test new devices for
+> this firmware bug.  We've been lucky so far, but we should
+> not depend on reporters capable of rebuilding the driver.
+>=20
+> Cc: Enrico Mioso <mrkiko.rs@gmail.com>
+> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
 
-This doesn't apply to net-next.
-
-> I have the impression that this driver is not recorded properly in the
-> MAINTAINERS file.
-
-Patches welcome.
+Applied, thanks.
