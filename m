@@ -1,199 +1,258 @@
 From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH v2 net 2/4] qed: fix handling of concurrent ramrods.
-Date: Mon, 7 Dec 2015 06:25:57 -0500
-Message-ID: <1449487559-31811-3-git-send-email-manish.chopra@qlogic.com>
+Subject: [PATCH v2 net 4/4] qed: Correct slowpath interrupt scheme
+Date: Mon, 7 Dec 2015 06:25:59 -0500
+Message-ID: <1449487559-31811-5-git-send-email-manish.chopra@qlogic.com>
 References: <1449487559-31811-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
-	<Yuval.Mintz@qlogic.com>, Tomer Tayar <Tomer.Tayar@qlogic.com>
+	<Yuval.Mintz@qlogic.com>,
+	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:62086 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751450AbbLGMGY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 07:06:24 -0500
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:10721 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754724AbbLGMGZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 07:06:25 -0500
 In-Reply-To: <1449487559-31811-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tomer Tayar <Tomer.Tayar@qlogic.com>
+From: Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
 
-Concurrent non-blocking slowpath ramrods can be completed
-out-of-order on the completion chain. Recycling completed elements,
-while previously sent elements are still completion pending,
-can lead to overriding of active elements on the chain. Furthermore,
-sending pending slowpath ramrods currently lacks the update of the
-chain element physical pointer.
+When using INTa, ISR might be called before device is configured
+for INTa [E.g., due to other device asserting the shared interrupt line],
+in which case the ISR would read the SISR registers that shouldn't be
+read unless HW is already configured for INTa. This might break interrupts
+later on. There's also an MSI-X issue due to this difference, although
+it's mostly theoretical.
 
-This patch:
-* Ensures that ramrods are sent to the FW with
-  consecutive echo values.
-* Handles out-of-order completions by freeing only first
-  successive completed entries.
-* Updates the chain element physical pointer when copying
-  a pending element into a free element for sending.
+This patch changes the initialization order, calling request_irq() for the
+slowpath interrupt only after the chip is configured for working
+in the preferred interrupt mode.
 
-Signed-off-by: Tomer Tayar <Tomer.Tayar@qlogic.com>
+Signed-off-by: Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
 Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_sp.h  |    8 +++-
- drivers/net/ethernet/qlogic/qed/qed_spq.c |   63 ++++++++++++++++++++++-------
- include/linux/qed/common_hsi.h            |    2 +
- 3 files changed, 56 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed.h      |    3 +
+ drivers/net/ethernet/qlogic/qed/qed_int.c  |   33 ++++++++++++----
+ drivers/net/ethernet/qlogic/qed/qed_int.h  |   15 +++++--
+ drivers/net/ethernet/qlogic/qed/qed_main.c |   56 +++++++++-------------------
+ 4 files changed, 55 insertions(+), 52 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp.h b/drivers/net/ethernet/qlogic/qed/qed_sp.h
-index 31a1f1e..287fadf 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sp.h
-@@ -124,8 +124,12 @@ struct qed_spq {
- 	dma_addr_t		p_phys;
- 	struct qed_spq_entry	*p_virt;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
+index ac17d86..1292c36 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed.h
++++ b/drivers/net/ethernet/qlogic/qed/qed.h
+@@ -299,6 +299,7 @@ struct qed_hwfn {
  
--	/* Used as index for completions (returns on EQ by FW) */
--	u16			echo_idx;
-+#define SPQ_RING_SIZE \
-+	(CORE_SPQE_PAGE_SIZE_BYTES / sizeof(struct slow_path_element))
+ 	/* Flag indicating whether interrupts are enabled or not*/
+ 	bool				b_int_enabled;
++	bool				b_int_requested;
+ 
+ 	struct qed_mcp_info		*mcp_info;
+ 
+@@ -491,6 +492,8 @@ u32 qed_unzip_data(struct qed_hwfn *p_hwfn,
+ 		   u32 input_len, u8 *input_buf,
+ 		   u32 max_size, u8 *unzip_buf);
+ 
++int qed_slowpath_irq_req(struct qed_hwfn *hwfn);
 +
-+	/* Bitmap for handling out-of-order completions */
-+	DECLARE_BITMAP(p_comp_bitmap, SPQ_RING_SIZE);
-+	u8			comp_bitmap_idx;
+ #define QED_ETH_INTERFACE_VERSION       300
  
- 	/* Statistics */
- 	u32			unlimited_pending_count;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-index 7c0b845..3dd548a 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-@@ -112,8 +112,6 @@ static int
- qed_spq_fill_entry(struct qed_hwfn *p_hwfn,
- 		   struct qed_spq_entry *p_ent)
+ #endif /* _QED_H */
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
+index de50e84..9cc9d62 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_int.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
+@@ -783,22 +783,16 @@ void qed_int_igu_enable_int(struct qed_hwfn *p_hwfn,
+ 	qed_wr(p_hwfn, p_ptt, IGU_REG_PF_CONFIGURATION, igu_pf_conf);
+ }
+ 
+-void qed_int_igu_enable(struct qed_hwfn *p_hwfn,
+-			struct qed_ptt *p_ptt,
+-			enum qed_int_mode int_mode)
++int qed_int_igu_enable(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
++		       enum qed_int_mode int_mode)
  {
--	p_ent->elem.hdr.echo = 0;
--	p_hwfn->p_spq->echo_idx++;
- 	p_ent->flags = 0;
+-	int i;
+-
+-	p_hwfn->b_int_enabled = 1;
++	int rc, i;
  
- 	switch (p_ent->comp_mode) {
-@@ -195,10 +193,12 @@ static int qed_spq_hw_post(struct qed_hwfn *p_hwfn,
- 			   struct qed_spq *p_spq,
- 			   struct qed_spq_entry *p_ent)
- {
--	struct qed_chain		*p_chain = &p_hwfn->p_spq->chain;
-+	struct qed_chain *p_chain = &p_hwfn->p_spq->chain;
-+	u16 echo = qed_chain_get_prod_idx(p_chain);
- 	struct slow_path_element	*elem;
- 	struct core_db_data		db;
+ 	/* Mask non-link attentions */
+ 	for (i = 0; i < 9; i++)
+ 		qed_wr(p_hwfn, p_ptt,
+ 		       MISC_REG_AEU_ENABLE1_IGU_OUT_0 + (i << 2), 0);
  
-+	p_ent->elem.hdr.echo	= cpu_to_le16(echo);
- 	elem = qed_chain_produce(p_chain);
- 	if (!elem) {
- 		DP_NOTICE(p_hwfn, "Failed to produce from SPQ chain\n");
-@@ -437,7 +437,9 @@ void qed_spq_setup(struct qed_hwfn *p_hwfn)
- 	p_spq->comp_count		= 0;
- 	p_spq->comp_sent_count		= 0;
- 	p_spq->unlimited_pending_count	= 0;
--	p_spq->echo_idx			= 0;
-+
-+	bitmap_zero(p_spq->p_comp_bitmap, SPQ_RING_SIZE);
-+	p_spq->comp_bitmap_idx = 0;
+-	/* Enable interrupt Generation */
+-	qed_int_igu_enable_int(p_hwfn, p_ptt, int_mode);
+-
+ 	/* Configure AEU signal change to produce attentions for link */
+ 	qed_wr(p_hwfn, p_ptt, IGU_REG_LEADING_EDGE_LATCH, 0xfff);
+ 	qed_wr(p_hwfn, p_ptt, IGU_REG_TRAILING_EDGE_LATCH, 0xfff);
+@@ -808,6 +802,19 @@ void qed_int_igu_enable(struct qed_hwfn *p_hwfn,
  
- 	/* SPQ cid, cannot fail */
- 	qed_cxt_acquire_cid(p_hwfn, PROTOCOLID_CORE, &p_spq->cid);
-@@ -582,26 +584,32 @@ qed_spq_add_entry(struct qed_hwfn *p_hwfn,
- 	struct qed_spq *p_spq = p_hwfn->p_spq;
- 
- 	if (p_ent->queue == &p_spq->unlimited_pending) {
--		struct qed_spq_entry *p_en2;
- 
- 		if (list_empty(&p_spq->free_pool)) {
- 			list_add_tail(&p_ent->list, &p_spq->unlimited_pending);
- 			p_spq->unlimited_pending_count++;
- 
- 			return 0;
--		}
-+		} else {
-+			struct qed_spq_entry *p_en2;
- 
--		p_en2 = list_first_entry(&p_spq->free_pool,
--					 struct qed_spq_entry,
--					 list);
--		list_del(&p_en2->list);
-+			p_en2 = list_first_entry(&p_spq->free_pool,
-+						 struct qed_spq_entry,
-+						 list);
-+			list_del(&p_en2->list);
-+
-+			/* Copy the ring element physical pointer to the new
-+			 * entry, since we are about to override the entire ring
-+			 * entry and don't want to lose the pointer.
-+			 */
-+			p_ent->elem.data_ptr = p_en2->elem.data_ptr;
- 
--		/* Strcut assignment */
--		*p_en2 = *p_ent;
-+			*p_en2 = *p_ent;
- 
--		kfree(p_ent);
-+			kfree(p_ent);
- 
--		p_ent = p_en2;
-+			p_ent = p_en2;
+ 	/* Unmask AEU signals toward IGU */
+ 	qed_wr(p_hwfn, p_ptt, MISC_REG_AEU_MASK_ATTN_IGU, 0xff);
++	if ((int_mode != QED_INT_MODE_INTA) || IS_LEAD_HWFN(p_hwfn)) {
++		rc = qed_slowpath_irq_req(p_hwfn);
++		if (rc != 0) {
++			DP_NOTICE(p_hwfn, "Slowpath IRQ request failed\n");
++			return -EINVAL;
 +		}
- 	}
++		p_hwfn->b_int_requested = true;
++	}
++	/* Enable interrupt Generation */
++	qed_int_igu_enable_int(p_hwfn, p_ptt, int_mode);
++	p_hwfn->b_int_enabled = 1;
++
++	return rc;
+ }
  
- 	/* entry is to be placed in 'pending' queue */
-@@ -777,13 +785,38 @@ int qed_spq_completion(struct qed_hwfn *p_hwfn,
- 	list_for_each_entry_safe(p_ent, tmp, &p_spq->completion_pending,
- 				 list) {
- 		if (p_ent->elem.hdr.echo == echo) {
-+			u16 pos = le16_to_cpu(echo) % SPQ_RING_SIZE;
-+
- 			list_del(&p_ent->list);
+ void qed_int_igu_disable_int(struct qed_hwfn *p_hwfn,
+@@ -1127,3 +1134,11 @@ int qed_int_get_num_sbs(struct qed_hwfn *p_hwfn,
  
--			qed_chain_return_produced(&p_spq->chain);
-+			/* Avoid overriding of SPQ entries when getting
-+			 * out-of-order completions, by marking the completions
-+			 * in a bitmap and increasing the chain consumer only
-+			 * for the first successive completed entries.
-+			 */
-+			bitmap_set(p_spq->p_comp_bitmap, pos, SPQ_RING_SIZE);
+ 	return info->igu_sb_cnt;
+ }
 +
-+			while (test_bit(p_spq->comp_bitmap_idx,
-+					p_spq->p_comp_bitmap)) {
-+				bitmap_clear(p_spq->p_comp_bitmap,
-+					     p_spq->comp_bitmap_idx,
-+					     SPQ_RING_SIZE);
-+				p_spq->comp_bitmap_idx++;
-+				qed_chain_return_produced(&p_spq->chain);
-+			}
++void qed_int_disable_post_isr_release(struct qed_dev *cdev)
++{
++	int i;
 +
- 			p_spq->comp_count++;
- 			found = p_ent;
- 			break;
++	for_each_hwfn(cdev, i)
++		cdev->hwfns[i].b_int_requested = false;
++}
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.h b/drivers/net/ethernet/qlogic/qed/qed_int.h
+index 16b5751..51e0b09 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_int.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_int.h
+@@ -169,10 +169,14 @@ int qed_int_get_num_sbs(struct qed_hwfn *p_hwfn,
+ 			int *p_iov_blks);
+ 
+ /**
+- * @file
++ * @brief qed_int_disable_post_isr_release - performs the cleanup post ISR
++ *        release. The API need to be called after releasing all slowpath IRQs
++ *        of the device.
++ *
++ * @param cdev
+  *
+- * @brief Interrupt handler
+  */
++void qed_int_disable_post_isr_release(struct qed_dev *cdev);
+ 
+ #define QED_CAU_DEF_RX_TIMER_RES 0
+ #define QED_CAU_DEF_TX_TIMER_RES 0
+@@ -366,10 +370,11 @@ void qed_int_setup(struct qed_hwfn *p_hwfn,
+  * @param p_hwfn
+  * @param p_ptt
+  * @param int_mode
++ *
++ * @return int
+  */
+-void qed_int_igu_enable(struct qed_hwfn *p_hwfn,
+-			struct qed_ptt *p_ptt,
+-			enum qed_int_mode int_mode);
++int qed_int_igu_enable(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
++		       enum qed_int_mode int_mode);
+ 
+ /**
+  * @brief - Initialize CAU status block entry
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 947c7af..174f734 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -476,41 +476,22 @@ static irqreturn_t qed_single_int(int irq, void *dev_instance)
+ 	return rc;
+ }
+ 
+-static int qed_slowpath_irq_req(struct qed_dev *cdev)
++int qed_slowpath_irq_req(struct qed_hwfn *hwfn)
+ {
+-	int i = 0, rc = 0;
++	struct qed_dev *cdev = hwfn->cdev;
++	int rc = 0;
++	u8 id;
+ 
+ 	if (cdev->int_params.out.int_mode == QED_INT_MODE_MSIX) {
+-		/* Request all the slowpath MSI-X vectors */
+-		for (i = 0; i < cdev->num_hwfns; i++) {
+-			snprintf(cdev->hwfns[i].name, NAME_SIZE,
+-				 "sp-%d-%02x:%02x.%02x",
+-				 i, cdev->pdev->bus->number,
+-				 PCI_SLOT(cdev->pdev->devfn),
+-				 cdev->hwfns[i].abs_pf_id);
+-
+-			rc = request_irq(cdev->int_params.msix_table[i].vector,
+-					 qed_msix_sp_int, 0,
+-					 cdev->hwfns[i].name,
+-					 cdev->hwfns[i].sp_dpc);
+-			if (rc)
+-				break;
+-
+-			DP_VERBOSE(&cdev->hwfns[i],
+-				   (NETIF_MSG_INTR | QED_MSG_SP),
++		id = hwfn->my_id;
++		snprintf(hwfn->name, NAME_SIZE, "sp-%d-%02x:%02x.%02x",
++			 id, cdev->pdev->bus->number,
++			 PCI_SLOT(cdev->pdev->devfn), hwfn->abs_pf_id);
++		rc = request_irq(cdev->int_params.msix_table[id].vector,
++				 qed_msix_sp_int, 0, hwfn->name, hwfn->sp_dpc);
++		if (!rc)
++			DP_VERBOSE(hwfn, (NETIF_MSG_INTR | QED_MSG_SP),
+ 				   "Requested slowpath MSI-X\n");
+-		}
+-
+-		if (i != cdev->num_hwfns) {
+-			/* Free already request MSI-X vectors */
+-			for (i--; i >= 0; i--) {
+-				unsigned int vec =
+-					cdev->int_params.msix_table[i].vector;
+-				synchronize_irq(vec);
+-				free_irq(cdev->int_params.msix_table[i].vector,
+-					 cdev->hwfns[i].sp_dpc);
+-			}
+-		}
+ 	} else {
+ 		unsigned long flags = 0;
+ 
+@@ -534,13 +515,17 @@ static void qed_slowpath_irq_free(struct qed_dev *cdev)
+ 
+ 	if (cdev->int_params.out.int_mode == QED_INT_MODE_MSIX) {
+ 		for_each_hwfn(cdev, i) {
++			if (!cdev->hwfns[i].b_int_requested)
++				break;
+ 			synchronize_irq(cdev->int_params.msix_table[i].vector);
+ 			free_irq(cdev->int_params.msix_table[i].vector,
+ 				 cdev->hwfns[i].sp_dpc);
  		}
-+
-+		/* This is relatively uncommon - depends on scenarios
-+		 * which have mutliple per-PF sent ramrods.
-+		 */
-+		DP_VERBOSE(p_hwfn, QED_MSG_SPQ,
-+			   "Got completion for echo %04x - doesn't match echo %04x in completion pending list\n",
-+			   le16_to_cpu(echo),
-+			   le16_to_cpu(p_ent->elem.hdr.echo));
+ 	} else {
+-		free_irq(cdev->pdev->irq, cdev);
++		if (QED_LEADING_HWFN(cdev)->b_int_requested)
++			free_irq(cdev->pdev->irq, cdev);
+ 	}
++	qed_int_disable_post_isr_release(cdev);
+ }
+ 
+ static int qed_nic_stop(struct qed_dev *cdev)
+@@ -765,16 +750,11 @@ static int qed_slowpath_start(struct qed_dev *cdev,
+ 	if (rc)
+ 		goto err1;
+ 
+-	/* Request the slowpath IRQ */
+-	rc = qed_slowpath_irq_req(cdev);
+-	if (rc)
+-		goto err2;
+-
+ 	/* Allocate stream for unzipping */
+ 	rc = qed_alloc_stream_mem(cdev);
+ 	if (rc) {
+ 		DP_NOTICE(cdev, "Failed to allocate stream memory\n");
+-		goto err3;
++		goto err2;
  	}
  
- 	/* Release lock before callback, as callback may post
-diff --git a/include/linux/qed/common_hsi.h b/include/linux/qed/common_hsi.h
-index 6a43476..1d1ba2c 100644
---- a/include/linux/qed/common_hsi.h
-+++ b/include/linux/qed/common_hsi.h
-@@ -9,6 +9,8 @@
- #ifndef __COMMON_HSI__
- #define __COMMON_HSI__
- 
-+#define CORE_SPQE_PAGE_SIZE_BYTES                       4096
-+
- #define FW_MAJOR_VERSION	8
- #define FW_MINOR_VERSION	4
- #define FW_REVISION_VERSION	2
+ 	/* Start the slowpath */
 -- 
 1.7.1
