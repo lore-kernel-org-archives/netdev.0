@@ -1,56 +1,104 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net] mpls: fix sending of local encapped packets
-Date: Mon, 7 Dec 2015 12:53:15 +0000
-Message-ID: <1449492795-12406-1-git-send-email-rshearma@brocade.com>
-References: <56656219.7070009@brocade.com>
+From: khalasa@piap.pl (Krzysztof =?utf-8?Q?Ha=C5=82asa?=)
+Subject: [PATCH] I.MX6: Fix Ethernet PHY mode on Ventana boards
+Date: Mon, 07 Dec 2015 13:56:23 +0100
+Message-ID: <m3egeyct8o.fsf@t19.piap.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <roopa@cumulusnetworks.com>,
-	<ebiederm@xmission.com>, Sam Russell <sam.h.russell@gmail.com>,
-	"Robert Shearman" <rshearma@brocade.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Tim Harvey <tharvey@gateworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:2345 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754978AbbLGMx5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 07:53:57 -0500
-In-Reply-To: <56656219.7070009@brocade.com>
+Received: from ni.piap.pl ([195.187.100.4]:44053 "EHLO ni.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753905AbbLGM40 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 07:56:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Locally generated IPv4 and (probably) IPv6 packets are dropped because
-skb->protocol isn't set. We could write wrappers to lwtunnel_output
-for IPv4 and IPv6 that set the protocol accordingly and then call
-lwtunnel_output, but mpls_output relies on the AF-specific type of dst
-anyway to get the via address.
+Gateworks Ventana boards seem to need "RGMII-ID" (internal delay)
+PHY mode, instead of simple "RGMII", for their Marvell 88E1510
+transceiver. Otherwise, the Ethernet MAC doesn't work with Marvell PHY
+driver (TX doesn't seem to work correctly).
 
-Therefore, make use of dst->dst_ops->family in mpls_output to
-determine the type of nexthop and thus protocol of the packet instead
-of checking skb->protocol.
+Tested on GW5400 rev. C.
 
-Fixes: 61adedf3e3f1 ("route: move lwtunnel state to dst_entry")
-Reported-by: Sam Russell <sam.h.russell@gmail.com>
-Signed-off-by: Robert Shearman <rshearma@brocade.com>
----
- net/mpls/mpls_iptunnel.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This bug affects ARM Fedora 23.
 
-diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
-index 67591aef9cae..64afd3d0b144 100644
---- a/net/mpls/mpls_iptunnel.c
-+++ b/net/mpls/mpls_iptunnel.c
-@@ -54,10 +54,10 @@ int mpls_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- 	unsigned int ttl;
- 
- 	/* Obtain the ttl */
--	if (skb->protocol == htons(ETH_P_IP)) {
-+	if (dst->ops->family == AF_INET) {
- 		ttl = ip_hdr(skb)->ttl;
- 		rt = (struct rtable *)dst;
--	} else if (skb->protocol == htons(ETH_P_IPV6)) {
-+	} else if (dst->ops->family == AF_INET6) {
- 		ttl = ipv6_hdr(skb)->hop_limit;
- 		rt6 = (struct rt6_info *)dst;
- 	} else {
--- 
-2.1.4
+Signed-off-by: Krzysztof Ha=C5=82asa <khalasa@piap.pl>
+
+diff --git a/arch/arm/boot/dts/imx6q-gw5400-a.dts b/arch/arm/boot/dts/i=
+mx6q-gw5400-a.dts
+index 822ffb2..6c168dc 100644
+--- a/arch/arm/boot/dts/imx6q-gw5400-a.dts
++++ b/arch/arm/boot/dts/imx6q-gw5400-a.dts
+@@ -154,7 +154,7 @@
+ &fec {
+ 	pinctrl-names =3D "default";
+ 	pinctrl-0 =3D <&pinctrl_enet>;
+-	phy-mode =3D "rgmii";
++	phy-mode =3D "rgmii-id";
+ 	phy-reset-gpios =3D <&gpio1 30 GPIO_ACTIVE_HIGH>;
+ 	status =3D "okay";
+ };
+diff --git a/arch/arm/boot/dts/imx6qdl-gw51xx.dtsi b/arch/arm/boot/dts/=
+imx6qdl-gw51xx.dtsi
+index f2867c4..90496aa 100644
+--- a/arch/arm/boot/dts/imx6qdl-gw51xx.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-gw51xx.dtsi
+@@ -94,7 +94,7 @@
+ &fec {
+ 	pinctrl-names =3D "default";
+ 	pinctrl-0 =3D <&pinctrl_enet>;
+-	phy-mode =3D "rgmii";
++	phy-mode =3D "rgmii-id";
+ 	phy-reset-gpios =3D <&gpio1 30 GPIO_ACTIVE_LOW>;
+ 	status =3D "okay";
+ };
+diff --git a/arch/arm/boot/dts/imx6qdl-gw52xx.dtsi b/arch/arm/boot/dts/=
+imx6qdl-gw52xx.dtsi
+index 4493f6e..0a6730b 100644
+--- a/arch/arm/boot/dts/imx6qdl-gw52xx.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-gw52xx.dtsi
+@@ -154,7 +154,7 @@
+ &fec {
+ 	pinctrl-names =3D "default";
+ 	pinctrl-0 =3D <&pinctrl_enet>;
+-	phy-mode =3D "rgmii";
++	phy-mode =3D "rgmii-id";
+ 	phy-reset-gpios =3D <&gpio1 30 GPIO_ACTIVE_LOW>;
+ 	status =3D "okay";
+ };
+diff --git a/arch/arm/boot/dts/imx6qdl-gw53xx.dtsi b/arch/arm/boot/dts/=
+imx6qdl-gw53xx.dtsi
+index cfad214..2c549ad 100644
+--- a/arch/arm/boot/dts/imx6qdl-gw53xx.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-gw53xx.dtsi
+@@ -174,7 +174,7 @@
+ &fec {
+ 	pinctrl-names =3D "default";
+ 	pinctrl-0 =3D <&pinctrl_enet>;
+-	phy-mode =3D "rgmii";
++	phy-mode =3D "rgmii-id";
+ 	phy-reset-gpios =3D <&gpio1 30 GPIO_ACTIVE_LOW>;
+ 	status =3D "okay";
+ };
+diff --git a/arch/arm/boot/dts/imx6qdl-gw54xx.dtsi b/arch/arm/boot/dts/=
+imx6qdl-gw54xx.dtsi
+index 535b536..b4ea087 100644
+--- a/arch/arm/boot/dts/imx6qdl-gw54xx.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-gw54xx.dtsi
+@@ -164,7 +164,7 @@
+ &fec {
+ 	pinctrl-names =3D "default";
+ 	pinctrl-0 =3D <&pinctrl_enet>;
+-	phy-mode =3D "rgmii";
++	phy-mode =3D "rgmii-id";
+ 	phy-reset-gpios =3D <&gpio1 30 GPIO_ACTIVE_LOW>;
+ 	status =3D "okay";
+ };
+
+--=20
+Krzysztof Halasa
+
+Industrial Research Institute for Automation and Measurements PIAP
+Al. Jerozolimskie 202, 02-486 Warsaw, Poland
