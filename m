@@ -1,38 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: use-after-free in ip6_xmit
-Date: Mon, 07 Dec 2015 06:39:04 -0800
-Message-ID: <1449499144.25029.59.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+aJdFhzX-QKQR3ZNZ=MHPoNQdoS6arFaVn0c4GgUzfb0g@mail.gmail.com>
-	 <1449498980.25029.57.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 5/5] stmmac: socfpga: Provide dt node to config ptp clk source.
+Date: Mon, 07 Dec 2015 15:37:41 +0100
+Message-ID: <6323766.k1xXTMgHKY@wuerfel>
+References: <1449452324-53858-1-git-send-email-preid@electromag.com.au> <2600741.aLNrbYNOOu@wuerfel> <56658AE5.7020108@electromag.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-sctp@vger.kernel.org, syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449498980.25029.57.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	peppe.cavallaro@st.com, davem@davemloft.net,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org
+To: Phil Reid <preid@electromag.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.24]:63383 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754693AbbLGOiR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 09:38:17 -0500
+In-Reply-To: <56658AE5.7020108@electromag.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-12-07 at 06:36 -0800, Eric Dumazet wrote:
-
-
-> Thanks
+On Monday 07 December 2015 21:34:29 Phil Reid wrote:
+> On 7/12/2015 5:05 PM, Arnd Bergmann wrote:
+> > On Monday 07 December 2015 09:38:44 Phil Reid wrote:
+> >> Signed-off-by: Phil Reid <preid@electromag.com.au>
+> >> ---
+> >>   Documentation/devicetree/bindings/net/socfpga-dwmac.txt | 2 ++
+> >>   drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c     | 9 +++++++++
+> >>   2 files changed, 11 insertions(+)
+> >>
+> >> diff --git a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
+> >> index 3a9d679..72d82d6 100644
+> >> --- a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
+> >> +++ b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
+> >> @@ -11,6 +11,8 @@ Required properties:
+> >>                    designware version numbers documented in stmmac.txt
+> >>    - altr,sysmgr-syscon : Should be the phandle to the system manager node that
+> >>      encompasses the glue register, the register offset, and the register shift.
+> >> + - altr,f2h_ptp_ref_clk use f2h_ptp_ref_clk instead of default eosc1 clock
+> >> +   for ptp ref clk. This affects all emacs as the clock is common.
+> >>
+> >
+> > Is this feature specific to the Altera glue logic, or would it be possible
+> > to do the same thing on another dwmac implementation?
+> >
+> I think it is specific to Altera's glue logic. It selects either a clock connected
+> directly to the ARM HPS core or a clock routed from Altera FPGA fabric.
+> Control register is in the altera sysmgr.
+> 
 > 
 
-Also note that Dave Jones reported a SCTP problem fixed by : 
+Ok, makes sense.
 
-https://patchwork.ozlabs.org/patch/553068/
+	Arnd
