@@ -1,103 +1,112 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: use-after-free in sctp_do_sm
-Date: Tue, 8 Dec 2015 18:30:51 +0100
-Message-ID: <CACT4Y+ad0YGve+KB8wiv6f1+eHt9Ci19FGM0SMWQvJFSez+Rcw@mail.gmail.com>
-References: <CACT4Y+ZMshfGvb81VhCGuZzbSec2sCBaJUNFb1QQ-ccyH9BPkQ@mail.gmail.com>
- <fcceeb2a58ce2054cedb091f0e251393b36418ba.1449250981.git.marcelo.leitner@gmail.com>
- <CACT4Y+b66FHbFyERm804RDWh9oPC==K43TgDJfs52cQG1MDjcg@mail.gmail.com>
- <20151204213428.GH4164@mrl.redhat.com> <56631357.6020304@gmail.com>
- <CACT4Y+YCZO2rfYdO_ACPF1U0p3YyXYJGA_Bhdb8CP8pecLy7SA@mail.gmail.com>
- <20151207131524.GA22989@mrl.redhat.com> <CACT4Y+ZhRG-LCdEoF=WusYVUj8gnm16663GcgJ=ztu0QC6r0vg@mail.gmail.com>
- <20151207185218.GB22989@mrl.redhat.com> <5665DF20.9020904@gmail.com>
- <20151207195032.GA22987@mrl.redhat.com> <5665EE26.3000706@gmail.com> <5665F17B.5030908@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	linux-sctp@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [RFC 1/1] drivers/net: fix eisa_driver probe section mismatch
+Date: Tue,  8 Dec 2015 18:36:25 +0100
+Message-ID: <1449596185-5339-1-git-send-email-fabf@skynet.be>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Fabian Frederick <fabf@skynet.be>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:38627 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751143AbbLHRbM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 12:31:12 -0500
-Received: by wmec201 with SMTP id c201so39177246wme.1
-        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 09:31:11 -0800 (PST)
-In-Reply-To: <5665F17B.5030908@gmail.com>
+Received: from mailrelay116.isp.belgacom.be ([195.238.20.143]:20205 "EHLO
+	mailrelay116.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751410AbbLHRgd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 12:36:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 7, 2015 at 9:52 PM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> Em 07-12-2015 18:37, Vlad Yasevich escreveu:
->>
->> On 12/07/2015 02:50 PM, Marcelo Ricardo Leitner wrote:
->>>
->>> On Mon, Dec 07, 2015 at 02:33:52PM -0500, Vlad Yasevich wrote:
->>>>
->>>> On 12/07/2015 01:52 PM, Marcelo Ricardo Leitner wrote:
->>>>>
->>>>> Vlad, I reviewed the places on which it returns SCTP_DISPOSITION_ABORT,
->>>>> and if I didn't miss something in there all of them either issue
->>>>> SCTP_CMD_ASSOC_FAILED or SCTP_CMD_INIT_FAILED before returning it, thus
->>>>> delaying DELETE_TCB and with that the asoc free.
->>>>
->>>>
->>>> They delay it from the perspective of the command interpreter since the
->>>> command
->>>> to delete the TCB happens a little later, but status code  is checked
->>>> after all
->>>> commands are processed and command processing doesn't change it.  So the
->>>> 'status'
->>>> code would still be SCTP_DISPOSITION_ABORT after DELETE_TCB command was
->>>> processed.
->>>> So, I think we may still have an use-after-free issue here.
->>>
->>>
->>> Gotcha! That's pretty much it then. From that point of view now, there
->>> shouldn't be a case that it returns _ABORT without freeing the asoc in
->>> the same loop. (more below)
->>>
->>>>> There is one place,
->>>>> though, that may not do it that way, it's sctp_sf_abort_violation(),
->>>>> but
->>>>> then that code only runs if asoc is already NULL by then.
->>>>
->>>>
->>>> I don't believe so.  The violation state function can run with a
->>>> non-NULL association
->>>> if we are encountering protocol violations after the association is
->>>> established.
->>>
->>>
->>> Yup, that's correct. I just tried to reference one case on which it
->>> would return _ABORT without issuing any of those _FAILEDs before doing
->>> so (meaning the association could still be valid) but that in that case,
->>> the asoc was already NULL.
->>
->>
->> I think it is possible to hit the 'discard:' tag in that function while
->> still
->> having a valid association.  That happens when ABORT chunk is required to
->> be
->> authenticated.  This that case, instead of generating an ABORT and
->> terminating the
->> current association, we just drop the packet, but still report an _ABORT
->> disposition code.
->>
->> This probably need to change if we are going to catch the _ABORT
->> disposition and
->> clear the asoc pointer.
->
->
-> Oups. Nice one. I'll switch it to SCTP_DISPOSITION_DISCARD if it hits that
-> if() then. Thanks Vlad.
+Some eisa_driver structures use __init probe functions which generates
+a warning and could crash if function is called after being deleted.
+I guess we can remove __init from the 5 functions below in
+separate patches ?
 
+__init:
+hp100_eisa_probe()
+vortex_eisa_probe()
+el3_eisa_probe()
+sim710_eisa_probe()
+de4x5_eisa_probe()
 
-So I am waiting for a new patch, right?
-Can you please combine all changes into a single patch (as far as I
-understand the previous one must be applied on top of the first one)?
+__maybe_unused:
+dfx_dev_register()
+
+default:
+advansys_eisa_probe()
+aic7770_probe()
+aha1740_probe()
+
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ drivers/net/ethernet/3com/3c509.c      | 2 +-
+ drivers/net/ethernet/3com/3c59x.c      | 2 +-
+ drivers/net/ethernet/dec/tulip/de4x5.c | 2 +-
+ drivers/net/ethernet/hp/hp100.c        | 2 +-
+ drivers/scsi/sim710.c                  | 3 +--
+ 5 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/3com/3c509.c b/drivers/net/ethernet/3com/3c509.c
+index 4547a1b..aadaab5 100644
+--- a/drivers/net/ethernet/3com/3c509.c
++++ b/drivers/net/ethernet/3com/3c509.c
+@@ -562,7 +562,7 @@ static void el3_common_remove (struct net_device *dev)
+ }
+ 
+ #ifdef CONFIG_EISA
+-static int __init el3_eisa_probe (struct device *device)
++static int el3_eisa_probe (struct device *device)
+ {
+ 	short i;
+ 	int ioaddr, irq, if_port;
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index 2839af0..1c5f3b2 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -907,7 +907,7 @@ static struct eisa_device_id vortex_eisa_ids[] = {
+ };
+ MODULE_DEVICE_TABLE(eisa, vortex_eisa_ids);
+ 
+-static int __init vortex_eisa_probe(struct device *device)
++static int vortex_eisa_probe(struct device *device)
+ {
+ 	void __iomem *ioaddr;
+ 	struct eisa_device *edev;
+diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
+index 8966f31..13ee4c7 100644
+--- a/drivers/net/ethernet/dec/tulip/de4x5.c
++++ b/drivers/net/ethernet/dec/tulip/de4x5.c
+@@ -1990,7 +1990,7 @@ SetMulticastFilter(struct net_device *dev)
+ 
+ static u_char de4x5_irq[] = EISA_ALLOWED_IRQ_LIST;
+ 
+-static int __init de4x5_eisa_probe (struct device *gendev)
++static int de4x5_eisa_probe (struct device *gendev)
+ {
+ 	struct eisa_device *edev;
+ 	u_long iobase;
+diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
+index ae6e30d..daa9b50 100644
+--- a/drivers/net/ethernet/hp/hp100.c
++++ b/drivers/net/ethernet/hp/hp100.c
+@@ -2843,7 +2843,7 @@ static void cleanup_dev(struct net_device *d)
+ }
+ 
+ #ifdef CONFIG_EISA
+-static int __init hp100_eisa_probe (struct device *gendev)
++static int hp100_eisa_probe (struct device *gendev)
+ {
+ 	struct net_device *dev = alloc_etherdev(sizeof(struct hp100_private));
+ 	struct eisa_device *edev = to_eisa_device(gendev);
+diff --git a/drivers/scsi/sim710.c b/drivers/scsi/sim710.c
+index 3b3b56f..82ed998 100644
+--- a/drivers/scsi/sim710.c
++++ b/drivers/scsi/sim710.c
+@@ -176,8 +176,7 @@ static struct eisa_device_id sim710_eisa_ids[] = {
+ };
+ MODULE_DEVICE_TABLE(eisa, sim710_eisa_ids);
+ 
+-static __init int
+-sim710_eisa_probe(struct device *dev)
++static int sim710_eisa_probe(struct device *dev)
+ {
+ 	struct eisa_device *edev = to_eisa_device(dev);
+ 	unsigned long io_addr = edev->base_addr;
+-- 
+2.1.4
