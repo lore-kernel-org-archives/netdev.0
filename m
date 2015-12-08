@@ -1,37 +1,37 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: Checksum offload queries
-Date: Tue, 08 Dec 2015 12:06:54 -0500 (EST)
-Message-ID: <20151208.120654.2127200076257822677.davem@davemloft.net>
+Date: Tue, 08 Dec 2015 12:09:11 -0500 (EST)
+Message-ID: <20151208.120911.1930136653560954435.davem@davemloft.net>
 References: <5665A848.9010001@solarflare.com>
-	<20151207.143848.2158761076110518741.davem@davemloft.net>
-	<5666EC4B.40800@solarflare.com>
+	<CALx6S37+YVqpVL6XX2KCHZad84DGpqpL+K4LdDZr5H-feiyjow@mail.gmail.com>
+	<5666FF46.6030702@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com
+Cc: tom@herbertland.com, netdev@vger.kernel.org
 To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38156 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38186 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750737AbbLHRG4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 12:06:56 -0500
-In-Reply-To: <5666EC4B.40800@solarflare.com>
+	with ESMTP id S1751393AbbLHRJM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 12:09:12 -0500
+In-Reply-To: <5666FF46.6030702@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Edward Cree <ecree@solarflare.com>
-Date: Tue, 8 Dec 2015 14:42:19 +0000
+Date: Tue, 8 Dec 2015 16:03:18 +0000
 
-> I'm afraid I still don't see it.
+> NETIF_F_HW_CSUM is limited to one checksum per packet.
 
-You assume that nothing in the stack mangles the packet and would
-benefit from having the 1's complement to work with in order to
-assist with checksum adjustments etc.
+This is false.
 
-So we want 1's complement, all the time.
+As we demux encapsulation layers, we re-adjust the provided 1's
+complement sum provided and use that to validate the next layer.
 
-All of the headers get touched anyways as each layer of the stack
-demuxes the packet.  Therefore there is _ZERO_ cost to use 1's
-complement to validate checksums in input.
+This works for arbitrarily nested encapsulations, and therefore
+can support mutliple checksums per packet.
 
-It's always superior.
+Tom has also created a scheme, called remote checksum offload,
+that deals with the corner cases that are actually not able
+to be handled fully by NETIF_F_HW_CSUM.
