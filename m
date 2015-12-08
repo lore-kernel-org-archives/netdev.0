@@ -1,65 +1,77 @@
-From: Lloyds TSB Bank PLC <info@gmail.com>
-Subject: =?UTF-8?Q?l=C3=A5netilbud?=
-Date: Wed, 09 Dec 2015 00:36:52 +0100
-Message-ID: <c8f25c5dbe000a0e626372cb3c55fa70__25306.7116522745$1449617894$gmane$org@multivision.com.ve>
-Reply-To: <lloyds25tsb@gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [P.A. Semi] Does the ethernet interface work on your Electra,
+ Chitra,  Nemo, and Athena board?
+Date: Wed, 09 Dec 2015 10:38:46 +1100
+Message-ID: <1449617926.21036.42.camel@kernel.crashing.org>
+References: <565AF986.9060106@xenosoft.de>
+	 <CAOJe8K1911vDjMe9m_1vY6DSGpOk0TmL96Qf1whuNFXxHJesGw@mail.gmail.com>
+	 <565C1B55.4020207@xenosoft.de> <565C8287.7090209@xenosoft.de>
+	 <20151130181217.GA15921@visitor2.iram.es> <565DB2FE.1010706@xenosoft.de>
+	 <565E7A9E.4000909@xenosoft.de> <1449044072.24750.3.camel@ellerman.id.au>
+	 <565F5E7C.9040207@xenosoft.de> <56603787.3000802@xenosoft.de>
+	 <566576E8.2060300@xenosoft.de> <566593B8.3070904@xenosoft.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Christian Zigotzky <chzigotzky@xenosoft.de>,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	Gabriel Paubert <paubert@iram.es>, netdev@vger.kernel.org,
+	Denis Kirjanov <kda@linux-powerpc.org>,
+	linuxppc-dev@lists.ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvx1.ifxnw.com.ve ([200.62.27.83]:39213 "EHLO mvx1.ifxnw.com.ve"
+Received: from gate.crashing.org ([63.228.1.57]:57104 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751365AbbLHXh5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Dec 2015 18:37:57 -0500
+	id S1751934AbbLHXjN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2015 18:39:13 -0500
+In-Reply-To: <566593B8.3070904@xenosoft.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-God dag,
+On Mon, 2015-12-07 at 15:12 +0100, Christian Zigotzky wrote:
+> Hi all,
+> 
+> I have some good news for you. I was able to fix the issue with the
+> P.A. 
+> Semi Ethernet. It was a problem with the new DMA handling. The patch
+> ' 
+> [RFC/PATCH,v2] powerpc/iommu: Support "hybrid" iommu/direct DMA ops
+> for 
+> coherent_mask < dma_mask (https://patchwork.ozlabs.org/patch/472535/)
+> ' 
+> is the problem.
 
-  Dette er Lloyds TSB Bank Plc L=C3=A5n tilby.
+Send me your .config and the full dmesg output. I can't seem to
+reproduce here.
 
-    Lloyds TSB tilbyr fleksible og rimelige l=C3=A5n til ethvert form=C3=
-=A5l =C3=A5=20
-hjelpe deg =C3=A5 n=C3=A5 dine m=C3=A5l. vi l=C3=A5n med lav rente p=C3=
-=A5 1,5%. Her er noen=20
-viktige funksjoner i personlige l=C3=A5n som tilbys av Lloyds TSB. Her =
-er de=20
-L=C3=A5ne Faktorer vi samarbeider med de ledende britiske meglere som h=
-ar=20
-tilgang til toppen l=C3=A5ngivere og er i stand til =C3=A5 finne den be=
-ste=20
-=C3=B8konomiske l=C3=B8sningen til en rimelig price.Please hvis du er i=
-nteressert=20
-vennligst ta kontakt med oss =E2=80=8B=E2=80=8Bvia denne e-post: lloyds=
-25tsb@europe.com
+Cheers,
+Ben.
 
-
-Etter reaksjonen, vil du motta en s=C3=B8knad om l=C3=A5n fyll. Ingen s=
-osial=20
-sikkerhet og ingen kredittsjekk, 100% garantert.
-
-Det vil v=C3=A6re v=C3=A5r =C3=A6re hvis du tillater oss =C3=A5 v=C3=A6=
-re til tjeneste.
-
-
-Informasjon som er n=C3=B8dvendig
-
-Ditt navn:
-Adresse: ...........
-Telefon: ...........
-Bel=C3=B8pet som trengs: ........
-Varighet: ...............
-Okkupasjon: ...........
-M=C3=A5nedlig Inntekt niv=C3=A5: ........
-Kj=C3=B8nn: ...............
-=46=C3=B8dselsdato: ........
-Tilstand: ..................
-Land: ..........
-=46orm=C3=A5let: .........
-
-M=C3=B8te dine finansielle behov er v=C3=A5r stolthet.
-
-
-Dr.john Mahama.
+> I had patched the following files before I compiled a kernel.
+> 
+> arch/powerpc/Kconfig
+> arch/powerpc/include/asm/device.h
+> arch/powerpc/include/asm/dma-mapping.h
+> arch/powerpc/include/asm/iommu.h
+> arch/powerpc/kernel/dma-iommu.c
+> arch/powerpc/kernel/dma-swiotlb.c
+> arch/powerpc/kernel/dma.c
+> arch/powerpc/platforms/powernv/pci-ioda.c
+> arch/powerpc/platforms/pseries/iommu.c
+> arch/powerpc/sysdev/dart_iommu.c
+> include/asm-generic/dma-mapping-common.h
+> 
+> The P.A. Semi Ethernet works again with the patched kernel.
+> 
+> I am happy. :-)
+> 
+> Please fix the issue in the kernel source code.
+> 
+> Thanks in advance,
+> 
+> Christian
+> 
+> 
+> _______________________________________________
+> Linuxppc-dev mailing list
+> Linuxppc-dev@lists.ozlabs.org
+> https://lists.ozlabs.org/listinfo/linuxppc-dev
