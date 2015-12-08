@@ -1,67 +1,48 @@
-From: Peter Wu <peter@lekensteyn.nl>
-Subject: Re: [PATCH v2] r8152: fix lockup when runtime PM is enabled
-Date: Tue, 8 Dec 2015 15:33:05 +0100
-Message-ID: <20151208143305.GB18728@al>
-References: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
- <0835B3720019904CB8F7AA43166CEEB2F8DAD9@RTITMBSV03.realtek.com.tw>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: 4.4-rc2 xfrm_lookup kasan trace
+Date: Tue, 8 Dec 2015 14:35:34 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBE87BE@AcuExch.aculab.com>
+References: <20151130232733.GA27119@codemonkey.org.uk>
+	<1448932931.25582.2.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151203.115918.730123340200500473.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Lu Baolu <baolu.lu@linux.intel.com>
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2F8DAD9@RTITMBSV03.realtek.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davej@codemonkey.org.uk" <davej@codemonkey.org.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'David Miller' <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.194]:50362 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756813AbbLHOh0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 09:37:26 -0500
+In-Reply-To: <20151203.115918.730123340200500473.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 08, 2015 at 12:39:12PM +0000, Hayes Wang wrote:
-> Peter Wu [mailto:peter@lekensteyn.nl]
-> > Sent: Tuesday, December 08, 2015 7:18 PM
-> > 
-> > When an interface is brought up which was previously suspended (via
-> > runtime PM), it would hang. This happens because napi_disable is called
-> > before napi_enable.
-> > 
-> > Solve this by avoiding napi_enable in the resume during open function
-> > (netif_running is true when open is called, IFF_UP is set after a
-> > successful open; netif_running is false when close is called, but IFF_UP
-> > is then still set).
-> > 
-> > While at it, remove WORK_ENABLE check from rtl8152_open (introduced with
-> > the original change) because it cannot happen:
-> > 
-> >  - After this patch, runtime resume will not set it during rtl8152_open.
-> >  - When link is up, rtl8152_open is not called.
-> >  - When link is down during system/auto suspend/resume, it is not set.
-> > 
-> > Fixes: 41cec84cf285 ("r8152: don't enable napi before rx ready")
-> > Link: https://lkml.kernel.org/r/20151205105912.GA1766@al
-> > Signed-off-by: Peter Wu <peter@lekensteyn.nl>
-> > ---
-> >  v2: moved rtl_runtime_suspend_enable from close to rtl8152_suspend
+From: Of David Miller
+> Sent: 03 December 2015 16:59
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 30 Nov 2015 17:22:11 -0800
 > 
-> Acked-by: Hayes Wang <hayeswang@realtek.com>
+> > @@ -2198,6 +2198,7 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+> >  	xdst = NULL;
+> >  	route = NULL;
+> >
+> > +	sk = sk_to_full_sk((struct sock *)sk);
 > 
-> Best Regards,
-> Hayes
+> The war against const...
+> 
+> I know this is the only instance where const is input, but you may want to
+> consider adding the const verion of the helper anyways to avoid ugly casts
+> like this.
 
-I found another problem with runtime PM. When a device is suspended via
-autosuspend and a system suspend takes place, there is no network I/O
-after resume. Triggering a renegotiation (ethtool -r eth1) brings back
-network activity.
+In that case you could use something like:
 
-Can you have a look? I guess that reset_resume needs different
-treatment, but don't know how to do it properly as suspend is not called
-before system reset (because the device is apparently already in
-suspended state).
+#define SK_TO_FULL_SK(sk) (typeof (sk))sk_to_full_sk(sk))
 
-I think that this new issue can be addressed in a different patch, this
-patch solves a more severe lockup. Opinions?
--- 
-Kind regards,
-Peter Wu
-https://lekensteyn.nl
+With the helper arg and result being 'const struct sock *'.
+
+	David
