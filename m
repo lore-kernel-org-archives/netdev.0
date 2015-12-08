@@ -1,58 +1,54 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: re: net: mvpp2: fix missing DMA region unmap in egress processing
-Date: Tue, 8 Dec 2015 22:38:46 +0300
-Message-ID: <20151208193846.GA25726@mwanda>
+From: "Liang, Kan" <kan.liang@intel.com>
+Subject: RE: [RFC 1/2] net/ethtool: Add new coalescing parameter for queue
+Date: Tue, 8 Dec 2015 19:39:57 +0000
+Message-ID: <37D7C6CF3E00A74B8858931C1DB2F077019AA93C@SHSMSX103.ccr.corp.intel.com>
+References: <1449549750-12448-1-git-send-email-kan.liang@intel.com>
+ <CAP-MU4OHMz8DaMwvF7=0ZgMCFdW0_85KH5O5ke55-X6Ox1Vw2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: mw@semihalf.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"bwh@kernel.org" <bwh@kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"andi@firstfloor.org" <andi@firstfloor.org>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"jiri@mellanox.com" <jiri@mellanox.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	"sasha.levin@oracle.com" <sasha.levin@oracle.com>,
+	"dsahern@gmail.com" <dsahern@gmail.com>,
+	"tj@kernel.org" <tj@kernel.org
+To: "Nelson, Shannon" <shannon.nelson@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:31042 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752205AbbLHTjA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 14:39:00 -0500
-Content-Disposition: inline
+Received: from mga03.intel.com ([134.134.136.65]:9367 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752282AbbLHTkE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2015 14:40:04 -0500
+In-Reply-To: <CAP-MU4OHMz8DaMwvF7=0ZgMCFdW0_85KH5O5ke55-X6Ox1Vw2Q@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Marcin Wojtas,
-
-The patch e864b4c7b184: "net: mvpp2: fix missing DMA region unmap in
-egress processing" from Dec 3, 2015, leads to the following static
-checker warning:
-
-	drivers/net/ethernet/marvell/mvpp2.c:4414 mvpp2_txq_bufs_free()
-	warn: variable dereferenced before check 'skb' (see line 4412)
-
-drivers/net/ethernet/marvell/mvpp2.c
-  4399  static void mvpp2_txq_bufs_free(struct mvpp2_port *port,
-  4400                                  struct mvpp2_tx_queue *txq,
-  4401                                  struct mvpp2_txq_pcpu *txq_pcpu, int num)
-  4402  {
-  4403          int i;
-  4404  
-  4405          for (i = 0; i < num; i++) {
-  4406                  dma_addr_t buf_phys_addr =
-  4407                                      txq_pcpu->tx_buffs[txq_pcpu->txq_get_index];
-  4408                  struct sk_buff *skb = txq_pcpu->tx_skb[txq_pcpu->txq_get_index];
-  4409  
-  4410                  mvpp2_txq_inc_get(txq_pcpu);
-  4411  
-  4412                  dma_unmap_single(port->dev->dev.parent, buf_phys_addr,
-  4413                                   skb_headlen(skb), DMA_TO_DEVICE);
-                                         ^^^^^^^^^^^^^^^^
-Dereference inside function.
-
-  4414                  if (!skb)
-                            ^^^^^
-Check too late.  There is no way that patch can be fix a bug, the best
-case is that it does nothing or maybe it adds an oops...
-
-  4415                          continue;
-  4416                  dev_kfree_skb_any(skb);
-  4417          }
-  4418  }
-
-
-regards,
-dan carpenter
+DQoNCg0KPiANCj4gRm9yIHRoYXQgbWF0dGVyLCBpZiB5b3UndmUgc2V0IGRpZmZlcmVudCBjb2Fs
+ZXNjZSB2YWx1ZXMgb24gdmFyaW91cyBxdWV1ZXMsDQo+IHdoYXQgZG9lcyBhc2tpbmcgZm9yICct
+MScgb3IgImFsbCB0aGUgcXVldWVzIiBtZWFuIGFuZCBob3cgc2hvdWxkIGl0IHJldHVybg0KPiBp
+bmZvPyBTaG91bGRuJ3QgYWxsIHRoZSBzcGVjaWZpYyBxdWV1ZXMgYmUgc2hvd24/ICBPciBkbyB3
+ZSBub3cgaGF2ZSB0bw0KPiBkbyBhbiBldGh0b29sIGNvbW1hbmQgZm9yIGVhY2ggYW5kIGV2ZXJ5
+IHF1ZXVlPw0KPg0KDQpUaGUgb25seSB3YXkgdG8gc2hvdyB0aGUgdmFsdWUgb2Ygc3BlY2lmaWMg
+cXVldWUgaXMgdG8gYXBwbHkgcXVldWUgb3B0aW9uLA0KbGlrZSAiZXRodG9vbCAtYyBERVZOQU1F
+IHF1ZXVlIE4iDQpJZiB1c2luZyAiYWxsIHRoZSBxdWV1ZXMiLCB0aGUgbGFzdCB2YWx1ZSB3aGlj
+aCBzZXQgYnkgZXRodG9vbCAtQyB3aWxsIGJlDQpzaG93bi4gIA0KDQpZZXMsICJhbGwgdGhlIHF1
+ZXVlcyIgaXMgbWlzbGVhZGluZy4gSSB0aGluayB3ZSBtYXkgZm9yY2UgdXNlciB0byBzcGVjaWZ5
+IHRoZQ0KcXVldWUgd2hlbiB1c2luZyAtLXNob3ctY29hbGVzY2UuIFF1ZXVlIDAgaXMgdGhlIGRl
+ZmF1bHQgcXVldWUuDQpJZiB3ZSByZWFsbHkgd2FudCB0byBzaG93IGFsbCBxdWV1ZXMgYnkgZGVm
+YXVsdCwgd2UgbWF5IG5lZWQgdG8NCmNoYW5nZSB0aGUgZXRodG9vbF9nZXRfY29hbGVzY2UgaW50
+ZXJmYWNlLiBIb3dldmVyLCB0aGF0IHdpbGwgaW1wYWN0IGFsbA0Kb3RoZXIgZHJpdmVycy4NCkkn
+bSBub3Qgc3VyZSB3aGljaCBvbmUgaXMgYmV0dGVyLg0KDQpUaGFua3MsDQpLYW4NCg0K
