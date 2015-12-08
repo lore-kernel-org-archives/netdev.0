@@ -1,35 +1,55 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: Checksum offload queries
-Date: Tue, 8 Dec 2015 14:42:19 +0000
-Message-ID: <5666EC4B.40800@solarflare.com>
-References: <5665A848.9010001@solarflare.com>
- <20151207.143848.2158761076110518741.davem@davemloft.net>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH] fix inverted test in __skb_recv_datagram
+Date: Tue, 08 Dec 2015 14:46:36 +0000
+Message-ID: <87io4980c3.fsf@doppelsaurus.mobileactivedefense.com>
+References: <20151206.233038.1580536748391971635.davem@davemloft.net>
+	<874mft7sur.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<87vb8925vx.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<20151207.222827.1680789119862020474.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:57210 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752019AbbLHOm2 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Dec 2015 09:42:28 -0500
-In-Reply-To: <20151207.143848.2158761076110518741.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151207.222827.1680789119862020474.davem@davemloft.net> (David
+	Miller's message of "Mon, 07 Dec 2015 22:28:27 -0500 (EST)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/12/15 19:38, David Miller wrote:
-> No, it is better to universally provide the 1's complement sum for
-> all receive packets.  This allows the stack more flexibility in
-> checksum handling.
-I'm afraid I still don't see it.  If a device can both provide the 1's complement sum _and_ validate some of the checksums in the packet, that should be strictly better than just providing the 1's complement sum - the stack has at least as much information, and less work to do.  And while there is no general way at present for a driver to tell the stack it has done both (and in my opinion there should be such a way), it _is_ possible in the specific case of a UDP packet with the checksum filled in, thanks to CHECKSUM_UNNECESSARY conversion.  So why shouldn't a device (that otherwise gives the full ones complement sum with CHECKSUM_COMPLETE) use CHECKSUM_UNNECESSARY in this specific case?  Is there a flaw in my logic, or is it just that this would be a hack and the Right Thing is to change 
- the interface to let a driver report both pieces of information *directly*?  Or am I wrong for some other reason?
->> 3) Related to the above, what does a NETIF_F_HW_CSUM device do when
->> transmitting an unencapsulated packet
-> The stack will have skb->csum_start point to the UDP header's checksum
-> field for unencapsulated packets, and it has done this for decades.
+David Miller <davem@davemloft.net> writes:
+> From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+> Date: Mon, 07 Dec 2015 23:30:58 +0000
 >
-> Sun Microsystems had NETIF_F_HW_CSUM supporting NICs nearly two
-> decades ago, and this is what NETIF_F_HW_CSUM was designed for.
-Thanks, that makes more sense now.  Though, does that mean that there's no way in this case to offload the IP header checksum?  (Of course, it's generally much less work than the payload checksum, and it goes away in v6.)
+>> As the kernel generally uses negated error numbers, *err needs to be
+>> compared with -EAGAIN (d'oh).
+>> 
+>> Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+>> Fixes: ea3793ee29d3
+>
+> Improperly formatted Fixes: tag, you must also include the commit
+> header line, in parenthesis and double quotes, after the SHA_ID.
+>
+> Futhermore this is the wrong SHA_ID.
+
+https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=ea3793ee29d3
+
+displays the commit I was referring to, namely, the one containing this
+
++ timeo = sock_rcvtimeo(sk, flags & MSG_DONTWAIT);
++
++ do {
++ skb = __skb_try_recv_datagram(sk, flags, peeked, off, err,
++ &last);
++ if (skb)
++ return skb;
++
++ if (*err != EAGAIN)
++ break;
++ } while (timeo &&
++ !__skb_wait_for_more_packets(sk, err, &timeo, last));
+
+which added the inverted test, IOW, if this is the wrong hash, I have no
+idea what the right one could be. I'll resubmit this with the 'one line
+summary' added. After noticing the issue around 23:10 UK time yesterday,
+I was in a bit of a hurry and stopped reading the 'Fixes' text in
+SubmittingPatches after the "with the first 12 characters".
