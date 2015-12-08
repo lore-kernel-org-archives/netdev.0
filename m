@@ -1,94 +1,121 @@
-From: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v2 net-next 1/3] net: ethernet: cadence-macb: Add disabled usrio caps
-Date: Tue,  8 Dec 2015 14:52:04 +0100
-Message-ID: <1449582726-6148-2-git-send-email-narmstrong@baylibre.com>
-References: <1449485914-12883-1-git-send-email-narmstrong@baylibre.com>
- <1449582726-6148-1-git-send-email-narmstrong@baylibre.com>
-Cc: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-To: nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joshc-acOepvfBmUk@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449582726-6148-1-git-send-email-narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] bnx2x: avoid soft lockup in bnx2x_poll()
+Date: Tue, 08 Dec 2015 05:54:40 -0800
+Message-ID: <1449582880.7632.19.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:32830 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964804AbbLHNym (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 08:54:42 -0500
+Received: by pabur14 with SMTP id ur14so12571611pab.0
+        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 05:54:41 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On some platforms, the macb integration does not use the USRIO
-register to configure the (R)MII port and clocks.
-When the register is not implemented and the MACB error signal
-is connected to the bus error, reading or writing to the USRIO
-register can trigger some Imprecise External Aborts on ARM platforms.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Under heavy TX load, bnx2x_poll() can loop forever and trigger
+soft lockup bugs.
+
+A napi poll handler must yield after one TX completion round,
+risk of livelock is too high otherwise.
+
+Bug is very easy to trigger using a debug build, and udp flood, because
+of added cpu cycles in TX completion, and we do not receive enough
+packets to break the loop.
+
+Reported-by: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Ariel Elior <ariel.elior@qlogic.com>
 ---
- drivers/net/ethernet/cadence/macb.c | 27 +++++++++++++++------------
- drivers/net/ethernet/cadence/macb.h |  1 +
- 2 files changed, 16 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   51 +++++---------
+ 1 file changed, 21 insertions(+), 30 deletions(-)
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 169059c..9325140 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -2122,7 +2122,8 @@ static void macb_get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 	regs_buff[10] = macb_tx_dma(&bp->queues[0], tail);
- 	regs_buff[11] = macb_tx_dma(&bp->queues[0], head);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index f6634a524153..d7cc2aa7c37a 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -3204,42 +3204,32 @@ int bnx2x_set_power_state(struct bnx2x *bp, pci_power_t state)
+  */
+ static int bnx2x_poll(struct napi_struct *napi, int budget)
+ {
+-	int work_done = 0;
+-	u8 cos;
+ 	struct bnx2x_fastpath *fp = container_of(napi, struct bnx2x_fastpath,
+ 						 napi);
+ 	struct bnx2x *bp = fp->bp;
++	int rx_work_done;
++	u8 cos;
  
--	regs_buff[12] = macb_or_gem_readl(bp, USRIO);
-+	if (!(bp->caps & MACB_CAPS_USRIO_DISABLED))
-+		regs_buff[12] = macb_or_gem_readl(bp, USRIO);
- 	if (macb_is_gem(bp)) {
- 		regs_buff[13] = gem_readl(bp, DMACFG);
- 	}
-@@ -2401,19 +2402,21 @@ static int macb_init(struct platform_device *pdev)
- 		dev->hw_features &= ~NETIF_F_SG;
- 	dev->features = dev->hw_features;
- 
--	val = 0;
--	if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
--		val = GEM_BIT(RGMII);
--	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII &&
--		 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
--		val = MACB_BIT(RMII);
--	else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
--		val = MACB_BIT(MII);
-+	if (!(bp->caps & MACB_CAPS_USRIO_DISABLED)) {
-+		val = 0;
-+		if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
-+			val = GEM_BIT(RGMII);
-+		else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII &&
-+			 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-+			val = MACB_BIT(RMII);
-+		else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-+			val = MACB_BIT(MII);
- 
--	if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
--		val |= MACB_BIT(CLKEN);
-+		if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
-+			val |= MACB_BIT(CLKEN);
- 
--	macb_or_gem_writel(bp, USRIO, val);
-+		macb_or_gem_writel(bp, USRIO, val);
+-	while (1) {
+ #ifdef BNX2X_STOP_ON_ERROR
+-		if (unlikely(bp->panic)) {
+-			napi_complete(napi);
+-			return 0;
+-		}
++	if (unlikely(bp->panic)) {
++		napi_complete(napi);
++		return 0;
 +	}
+ #endif
+-		for_each_cos_in_tx_queue(fp, cos)
+-			if (bnx2x_tx_queue_has_work(fp->txdata_ptr[cos]))
+-				bnx2x_tx_int(bp, fp->txdata_ptr[cos]);
+-
+-		if (bnx2x_has_rx_work(fp)) {
+-			work_done += bnx2x_rx_int(fp, budget - work_done);
+-
+-			/* must not complete if we consumed full budget */
+-			if (work_done >= budget)
+-				break;
+-		}
++	for_each_cos_in_tx_queue(fp, cos)
++		if (bnx2x_tx_queue_has_work(fp->txdata_ptr[cos]))
++			bnx2x_tx_int(bp, fp->txdata_ptr[cos]);
  
- 	/* Set MII management clock divider */
- 	val = macb_mdc_clk_div(bp);
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index d83b0db..65ea049 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -400,6 +400,7 @@
- #define MACB_CAPS_USRIO_HAS_CLKEN		0x00000002
- #define MACB_CAPS_USRIO_DEFAULT_IS_MII		0x00000004
- #define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
-+#define MACB_CAPS_USRIO_DISABLED		0x00000010
- #define MACB_CAPS_FIFO_MODE			0x10000000
- #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
- #define MACB_CAPS_SG_DISABLED			0x40000000
--- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-		/* Fall out from the NAPI loop if needed */
+-		if (!(bnx2x_has_rx_work(fp) || bnx2x_has_tx_work(fp))) {
++	rx_work_done = (bnx2x_has_rx_work(fp)) ? bnx2x_rx_int(fp, budget) : 0;
+ 
+-			/* No need to update SB for FCoE L2 ring as long as
+-			 * it's connected to the default SB and the SB
+-			 * has been updated when NAPI was scheduled.
+-			 */
+-			if (IS_FCOE_FP(fp)) {
+-				napi_complete(napi);
+-				break;
+-			}
++	if (rx_work_done < budget) {
++		/* No need to update SB for FCoE L2 ring as long as
++		 * it's connected to the default SB and the SB
++		 * has been updated when NAPI was scheduled.
++		 */
++		if (IS_FCOE_FP(fp)) {
++			napi_complete(napi);
++		} else {
+ 			bnx2x_update_fpsb_idx(fp);
+ 			/* bnx2x_has_rx_work() reads the status block,
+ 			 * thus we need to ensure that status block indices
+@@ -3264,12 +3254,13 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
+ 				bnx2x_ack_sb(bp, fp->igu_sb_id, USTORM_ID,
+ 					     le16_to_cpu(fp->fp_hc_idx),
+ 					     IGU_INT_ENABLE, 1);
+-				break;
++			} else {
++				rx_work_done = budget;
+ 			}
+ 		}
+ 	}
+ 
+-	return work_done;
++	return rx_work_done;
+ }
+ 
+ /* we split the first BD into headers and data BDs
