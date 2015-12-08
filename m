@@ -1,112 +1,84 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [RFC] ipv6: use a random ifid for headerless devices
-Date: Tue, 08 Dec 2015 19:57:08 +0100
-Message-ID: <87d1ugzs3f.fsf@nemi.mork.no>
-References: <1448884508-5235-1-git-send-email-bjorn@mork.no>
-	<1448968942.3320842.454553905.2C5FBADD@webmail.messagingengine.com>
-	<87vb8fjpou.fsf@nemi.mork.no>
-	<1449225712.287884.457895729.21AD000E@webmail.messagingengine.com>
-	<87d1ukk9ce.fsf@nemi.mork.no> <5666DEAD.6010202@stressinduktion.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [RFC 1/2] net/ethtool: Add new coalescing parameter for queue
+Date: Tue, 08 Dec 2015 19:00:52 +0000
+Message-ID: <1449601252.2824.101.camel@decadent.org.uk>
+References: <1449549750-12448-1-git-send-email-kan.liang@intel.com>
+	 <CAP-MU4OHMz8DaMwvF7=0ZgMCFdW0_85KH5O5ke55-X6Ox1Vw2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	=?utf-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-9HG2x0mdKYQ+edYSdGZg"
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	bwh@kernel.org, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	andi@firstfloor.org, f.fainelli@gmail.com,
+	alexander.duyck@gmail.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	mitch.a.williams@intel.com, ogerlitz@mellanox.com,
+	edumazet@google.com, jiri@mellanox.com, sfeldma@gmail.com,
+	gospo@cumulusnetworks.com, sasha.levin@oracle.com,
+	dsahern@gmail.com, tj@kernel.org, cascardo@redhat.com,
+	corbet@lwn.net
+To: Shannon Nelson <shannon.nelson@intel.com>, kan.liang@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:34754 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751818AbbLHS5Q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 13:57:16 -0500
-In-Reply-To: <5666DEAD.6010202@stressinduktion.org> (Hannes Frederic Sowa's
-	message of "Tue, 8 Dec 2015 14:44:13 +0100")
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:55301 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751952AbbLHTBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 14:01:16 -0500
+In-Reply-To: <CAP-MU4OHMz8DaMwvF7=0ZgMCFdW0_85KH5O5ke55-X6Ox1Vw2Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
-> On 05.12.2015 20:02, Bj=C3=B8rn Mork wrote:
->> Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
->>> On Thu, Dec 3, 2015, at 20:29, Bj=C3=B8rn Mork wrote:
->>>
->>>> After looking more at addrconf, I started wondering if we couldn't=
- abuse
->>>> ipv6_generate_stable_address() for this purpose?  We could add a n=
-ew
->>>> addr_gen_mode which would trigger automatic generation of a secret=
- if
->>>> stable_secret is uninitialized.  This would be good enough to ensu=
-re
->>>> stability until the interface is destroyed.  And it would still al=
-low
->>>> the adminstrator to select IN6_ADDR_GEN_MODE_STABLE_PRIVACY by ent=
-ering
->>>> a new secret.
->>>
->>> I am fine with your proposal but I would really like to see it only
->>> happen on the per-interface stable_secret instance.
->>=20
->> Do you think something like the patch below will be OK?
->
-> I wouldn't call it IN6_ADDR_GEN_MODE_AUTO, this doesn't say anything.
-> But the idea is already good.
 
-No, I didn't like that name either.  I just couldn't come up with
-anything descriptive, short and non-redundant. "random", "generated",
-"stable" are even worse.  And that's about where my imagination ended.
-We need a child here :)
+--=-9HG2x0mdKYQ+edYSdGZg
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: base64
 
->> Or would it be better to drop the additional mode and just generate =
-a
->> random secret if the mode is IN6_ADDR_GEN_MODE_STABLE_PRIVACY and th=
-e
->> secrets are missing?  Or would that be changing the userspace ABI?  =
-This
->> is not clear to me...
->
-> I would not like to do that somehow. The problem is that the stable
-> secrets get written by user space probably during boot-up, but we don=
-'t
-> know when. That's why I would also not set the ->initialized flag, so
-> user can overwrite it to the final secret later on. We block it other=
-wise.
-
-I am not sure I follow...  There is nothing preventing userspace from
-initializing the secret before or after generation of the random secret=
-=2E
-Writing to /proc/sys/net/ipv6/conf/<iface>/stable_secret will update th=
-e
-secret and set the mode to IN6_ADDR_GEN_MODE_STABLE_PRIVACY as before,
-even if we have generated a random secret first.  I have verified that
-this part works as expected.
-
-I guess we should check &net->ipv6.devconf_dflt->stable_secret too
-before choosing the default mode.  IN6_ADDR_GEN_MODE_STABLE_PRIVACY is =
-a
-more approproate default if a default secret is set.  IMHO, this should
-really be the case without the proposed change too, but it isn't. The
-current behaviour confuses me: Setting 'default' changes all existing
-interfaces, but does not change the default for new interfaces. Is that
-right?
-
-> My proposal would be to use the stable privacy generator in case the
-> device does not have a device address for EUI-48 generation with a
-> secret which we simply generate on the stack. Let's factor out the pa=
-rt
-> of the generator which depends on the inet6_dev and cnf bits for that=
-=2E
-
-Not sure I get this part either.  The point was to have stable addresse=
-s
-for the lifetime of the netdev.  We can generate the secret on the
-stack, but we will still need to stash it somewhere.  That could of
-course be to a new field.  But I don't see the point since there is no
-way you can combine this mode with IN6_ADDR_GEN_MODE_STABLE_PRIVACY.
-Only one mode can be active at, and that mode can then own the secret.
-
-As long as we can manage to introduce this without changing any existin=
-g
-behaviour, of course.
+T24gVHVlLCAyMDE1LTEyLTA4IGF0IDEwOjAyIC0wODAwLCBTaGFubm9uIE5lbHNvbiB3cm90ZToK
+PiBPbiBNb24sIERlYyA3LCAyMDE1IGF0IDg6NDIgUE0swqDCoDxrYW4ubGlhbmdAaW50ZWwuY29t
+PiB3cm90ZToKPiA+IEZyb206IEthbiBMaWFuZyA8a2FuLmxpYW5nQGludGVsLmNvbT4KPiA+IAo+
+ID4gSW50cmRvdWNlICJxdWV1ZSIgb3B0aW9uIGZvciBjb2FsZXNjZSBnZXR0aW5nIGFuZCBzZXR0
+aW5nLgpbLi4uXQo+ID4gLS0tIGEvbmV0L2NvcmUvZXRodG9vbC5jCj4gPiArKysgYi9uZXQvY29y
+ZS9ldGh0b29sLmMKPiA+IEBAIC0xMTIzLDEwICsxMTIzLDE2IEBAIHN0YXRpYyBub2lubGluZV9m
+b3Jfc3RhY2sgaW50IGV0aHRvb2xfZ2V0X2NvYWxlc2NlKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYs
+Cj4gPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB2b2lkIF9f
+dXNlciAqdXNlcmFkZHIpCj4gPiDCoHsKPiA+IMKgwqDCoMKgwqDCoMKgwqBzdHJ1Y3QgZXRodG9v
+bF9jb2FsZXNjZSBjb2FsZXNjZSA9IHsgLmNtZCA9IEVUSFRPT0xfR0NPQUxFU0NFIH07Cj4gPiAr
+wqDCoMKgwqDCoMKgwqBzdHJ1Y3QgZXRodG9vbF9jb2FsZXNjZSB0bXAgPSB7IC5xdWV1ZSA9IC0x
+IH07Cj4gPiAKPiA+IMKgwqDCoMKgwqDCoMKgwqBpZiAoIWRldi0+ZXRodG9vbF9vcHMtPmdldF9j
+b2FsZXNjZSkKPiA+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgcmV0dXJuIC1FT1BO
+T1RTVVBQOwo+ID4gCj4gPiArwqDCoMKgwqDCoMKgwqBpZiAoY29weV9mcm9tX3VzZXIoJnRtcCwg
+dXNlcmFkZHIsIHNpemVvZihjb2FsZXNjZSkpKQo+ID4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoHJldHVybiAtRUZBVUxUOwo+ID4gKwo+ID4gK8KgwqDCoMKgwqDCoMKgY29hbGVzY2Uu
+cXVldWUgPSB0bXAucXVldWU7Cj4gPiArCj4gCj4gSXMgdGhpcyBnb2luZyB0byBkbyB3aGF0IHlv
+dSBleHBlY3Qgd2hlbiB5b3UgaGF2ZSBhbiBvbGRlciBldGh0b29sCj4gcHJvZ3JhbT/CoMKgSXQg
+c2VlbXMgdG8gbWUgdGhhdCB0aGUgb2xkZXIgZXRodG9vbCBwcm9ncmFtIHdpbGwgaGF2ZSB0aGUK
+PiBvcmlnaW5hbCBjb2FsZXNjZSBzdHJ1Y3Qgd2l0aG91dCB0aGUgbmV3IHF1ZXVlIGZpZWxkLCBz
+byB3aGVuIHlvdSBkbwpbLi4uXQoKSW5kZWVkLCBpdCdzIG5vdCBzYWZlIHRvIGV4dGVuZCBVQVBJ
+IHN0cnVjdHVyZXMgbGlrZSB0aGlzLgoKQmVuLgoKLS0gCkJlbiBIdXRjaGluZ3MKTGlmZSB3b3Vs
+ZCBiZSBzbyBtdWNoIGVhc2llciBpZiB3ZSBjb3VsZCBsb29rIGF0IHRoZSBzb3VyY2UgY29kZS4=
 
 
+--=-9HG2x0mdKYQ+edYSdGZg
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-Bj=C3=B8rn
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAVmco5Oe/yOyVhhEJAQpf/g//XndqS1DprldYk2otuyS60Kh6mYnQPQXs
+1udZVRLwOBEjEXxOlSrklu8junDcvGK4Oz+glpdGiPBdrGJrSeXt8QmDa/zqPwfm
+dIkm7GdPD9Zo2QZBPnegm329+LLWT+PT52PjrRdKRkTrkfgys8NF8jON9wz16PAy
+VxjYRqLjdOPqFhnj32oNXweYNRI9+rbXP1feY9Whb2PWZNw9uZ9xloo/BBcxCqtj
+C44+UBU3oK5aDTp2lFeKATp38hQ041+xBK4Qm0AVf6Sa6WTNhKBbLt6lF/hFIszQ
+CCQL3E07DOj1X3MzywvD6U2i69b5Akk/1ysDltSUxWOUT4bTOUgS78vP1aBBTP1U
+jH9S6op//iYG6oqR/eDif2Jdnt4vqD5OnL3RgQZjEx7E7DJCk/FspifExjUwmG33
+8C/6CcH4MQ3bBWXq5j3S96AUhqZIWBMH7E9q77Nk8ElbmfnFtQ/wNZzMWQLw7Hwc
+ZinabXhzuPilDmpB6tuB/s+nEi8HgCVuf+8JI1VF0i2CmNU0kofdSmu72HGS/jSz
+erwEBZVzhighMi/4lhHcC0gy2If7YyJOXFMdPWEnVJggp3BFZkZOBbsiM00Vk5JZ
+BCUNwPUqE8TsoYS49zUHT3e0BQc7hkc+3piZ7SVZj9z/vnN+tH0+LCt97jnWZKUs
+2+z6b2StuxE=
+=KhWC
+-----END PGP SIGNATURE-----
+
+--=-9HG2x0mdKYQ+edYSdGZg--
