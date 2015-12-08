@@ -1,75 +1,58 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC 10/26] phy: add I2C mdio bus
-Date: Tue, 08 Dec 2015 10:15:08 -0800
-Message-ID: <56671E2C.4000508@gmail.com>
-References: <20151207173553.GU8644@n2100.arm.linux.org.uk> <E1a5zje-00075T-LA@rmk-PC.arm.linux.org.uk>
+Subject: Re: [RFC 1/2] net/ethtool: Add new coalescing parameter for queue
+Date: Tue, 08 Dec 2015 10:15:53 -0800
+Message-ID: <56671E59.40402@gmail.com>
+References: <1449549750-12448-1-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Russell King <rmk+kernel@arm.linux.org.uk>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: jesse.brandeburg@intel.com, andi@firstfloor.org,
+	alexander.duyck@gmail.com, jeffrey.t.kirsher@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, mitch.a.williams@intel.com,
+	ogerlitz@mellanox.com, edumazet@google.com, jiri@mellanox.com,
+	sfeldma@gmail.com, gospo@cumulusnetworks.com,
+	sasha.levin@oracle.com, dsahern@gmail.com, tj@kernel.org,
+	cascardo@redhat.com, corbet@lwn.net
+To: kan.liang@intel.com, netdev@vger.kernel.org, davem@davemloft.net,
+	bwh@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35903 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751037AbbLHSPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 13:15:16 -0500
-Received: by pacdm15 with SMTP id dm15so15663953pac.3
-        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 10:15:16 -0800 (PST)
-In-Reply-To: <E1a5zje-00075T-LA@rmk-PC.arm.linux.org.uk>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:33838 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751703AbbLHSQD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 13:16:03 -0500
+Received: by pacwq6 with SMTP id wq6so15602292pac.1
+        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 10:16:02 -0800 (PST)
+In-Reply-To: <1449549750-12448-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/12/15 09:38, Russell King wrote:
-> Add an I2C MDIO bus bridge library, to allow phylib to access PHYs which
-> are connected to an I2C bus instead of the more conventional MDIO bus.
-> Such PHYs can be found in SFP adapters and SFF modules.
+On 07/12/15 20:42, kan.liang@intel.com wrote:
+> From: Kan Liang <kan.liang@intel.com>
 > 
-> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
-> ---
-[snip]
-> +static int i2c_mii_read(struct mii_bus *bus, int phy_id, int reg)
-> +{
-> +	struct i2c_adapter *i2c = bus->priv;
-> +	struct i2c_msg msgs[2];
-> +	u8 data[2], dev_addr = reg;
-> +	int bus_addr, ret;
-> +
-> +	bus_addr = 0x40 + phy_id;
-> +	if (bus_addr == 0x50 || bus_addr == 0x51)
-> +		return 0xffff;
+> Intrdouce "queue" option for coalesce getting and setting.
+> For coalesce getting, only the coalescing parameters from specific
+> queue will be passed to user space.
+> For coalesce setting, the coalescing parameters will only be applied to
+> specific queue.
+> If the queue is set to -1, the coalescing parameters will apply to all
+> queues.
 
-These could deserve a local definition for these specific addresses so
-we know why there is such logic here.
+This looks like a good start, but there are a few things that need to be
+clarified, in particular:
 
-> +
-> +	msgs[0].addr = bus_addr;
-> +	msgs[0].flags = 0;
-> +	msgs[0].len = 1;
-> +	msgs[0].buf = &dev_addr;
-> +	msgs[1].addr = bus_addr;
-> +	msgs[1].flags = I2C_M_RD;
-> +	msgs[1].len = sizeof(data);
-> +	msgs[1].buf = data;
-> +
-> +	ret = i2c_transfer(i2c, msgs, ARRAY_SIZE(msgs));
-> +	if (ret != ARRAY_SIZE(msgs))
-> +		return 0xffff;
-> +
-> +	return data[0] << 8 | data[1];
-> +}
-> +
-> +static int i2c_mii_write(struct mii_bus *bus, int phy_id, int reg, u16 val)
-> +{
-> +	struct i2c_adapter *i2c = bus->priv;
-> +	struct i2c_msg msg;
-> +	int bus_addr, ret;
-> +	u8 data[3];
-> +
-> +	bus_addr = 0x40 + phy_id;
-> +	if (bus_addr == 0x50 || bus_addr == 0x51)
-> +		return 0;
+- if the number of TX and RX queues differ, but the ethtool coalesce
+structure contains parameters that affect both the RX and TX side, and
+the queue number is invalid/non-existent for one of these sides, what is
+the expected outcome? Same question with specifying a queue number, with
+RX queue N not belonging to the same queue pair as TX queue N?
 
-Same here.
+- from an user perspective do we want to iterate over all queues to set
+their parameters, or should we have a queue bitmask parameter which
+allows setting them with the same settings in one shot? What would be
+the appropriate bitmask size then (32-bits with 16-bits for TX and
+16-bits for RX might be too small)?
+
+Thanks
 -- 
 Florian
