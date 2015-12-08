@@ -1,7 +1,7 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 3/3] ser_gigaset: remove unnecessary kfree() calls from release method
+Subject: [PATCH 2/3] ser_gigaset: fix deallocation of platform device structure
 Date: Tue,  8 Dec 2015 12:00:33 +0100 (CET)
-Message-ID: <61b60d7eff05eddf305460f3dae2b80221f08aad.1449570042.git.tilman@imap.cc>
+Message-ID: <83c4ab9bbca911aad62343154eabfa1af077b021.1449570042.git.tilman@imap.cc>
 References: <cover.1449570042.git.tilman@imap.cc>
 Cc: Peter Hurley <peter@hurleysoftware.com>,
 	Sasha Levin <sasha.levin@oracle.com>,
@@ -16,33 +16,48 @@ In-Reply-To: <cover.1449570042.git.tilman@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-device->platform_data and platform_device->resource are never used
-and remain NULL through their entire life. Drops the kfree() calls
-for them from the device release method.
+When shutting down the device, the struct ser_cardstate must not be
+kfree()d immediately after the call to platform_device_unregister()
+since the embedded struct platform_device is still in use.
+Move the kfree() call to the release method instead.
 
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
-Reported-by: Paul Bolle <pebolle@tiscali.nl>
+Fixes: 2869b23e4b95 ("drivers/isdn/gigaset: new M101 driver (v2)")
+Reported-by: Sasha Levin <sasha.levin@oracle.com>
 ---
- drivers/isdn/gigaset/ser-gigaset.c | 5 -----
- 1 file changed, 5 deletions(-)
+ drivers/isdn/gigaset/ser-gigaset.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
-index 2693cb2..b7e0329 100644
+index d8771b5..2693cb2 100644
 --- a/drivers/isdn/gigaset/ser-gigaset.c
 +++ b/drivers/isdn/gigaset/ser-gigaset.c
-@@ -375,13 +375,8 @@ static void gigaset_freecshw(struct cardstate *cs)
+@@ -370,19 +370,23 @@ static void gigaset_freecshw(struct cardstate *cs)
+ 	tasklet_kill(&cs->write_tasklet);
+ 	if (!cs->hw.ser)
+ 		return;
+-	dev_set_drvdata(&cs->hw.ser->dev.dev, NULL);
+ 	platform_device_unregister(&cs->hw.ser->dev);
+-	kfree(cs->hw.ser);
+-	cs->hw.ser = NULL;
+ }
  
  static void gigaset_device_release(struct device *dev)
  {
--	struct platform_device *pdev = to_platform_device(dev);
- 	struct cardstate *cs = dev_get_drvdata(dev);
+ 	struct platform_device *pdev = to_platform_device(dev);
++	struct cardstate *cs = dev_get_drvdata(dev);
  
--	/* adapted from platform_device_release() in drivers/base/platform.c */
--	kfree(dev->platform_data);
--	kfree(pdev->resource);
--
- 	if (!cs)
- 		return;
- 	dev_set_drvdata(dev, NULL);
+ 	/* adapted from platform_device_release() in drivers/base/platform.c */
+ 	kfree(dev->platform_data);
+ 	kfree(pdev->resource);
++
++	if (!cs)
++		return;
++	dev_set_drvdata(dev, NULL);
++	kfree(cs->hw.ser);
++	cs->hw.ser = NULL;
+ }
+ 
+ /*
 -- 
 1.9.2.459.g68773ac
