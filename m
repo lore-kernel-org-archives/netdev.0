@@ -1,386 +1,408 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: [PATCH 13/14] mm: memcontrol: hook up vmpressure to socket pressure
-Date: Tue,  8 Dec 2015 10:30:23 -0500
-Message-ID: <1449588624-9220-14-git-send-email-hannes@cmpxchg.org>
-References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
-Cc: linux-mm@kvack.org,
-	netdev@vger.kernel.org,
-	cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 1/2] netcp: try to reduce type confusion in descriptors
+Date: Tue, 08 Dec 2015 16:32:27 +0100
+Message-ID: <1578620.t1ANcREMZ8@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Wingman Kwok <w-kwok2@ti.com>,
+	Murali Karicheri <m-karicheri2@ti.com>,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Let the networking stack know when a memcg is under reclaim pressure
-so that it can clamp its transmit windows accordingly.
+The netcp driver produces tons of warnings when CONFIG_LPAE is enabled
+on ARM:
 
-Whenever the reclaim efficiency of a cgroup's LRU lists drops low
-enough for a MEDIUM or HIGH vmpressure event to occur, assert a
-pressure state in the socket and tcp memory code that tells it to curb
-consumption growth from sockets associated with said control group.
+drivers/net/ethernet/ti/netcp_core.c: In function 'netcp_tx_map_skb':
+drivers/net/ethernet/ti/netcp_core.c:1084:13: warning: passing argument 1 of 'set_words' from incompatible pointer type [-Wincompatible-pointer-types]
 
-Traditionally, vmpressure reports for the entire subtree of a memcg
-under pressure, which drops useful information on the individual
-groups reclaimed. However, it's too late to change the userinterface,
-so add a second reporting mode that reports on the level of reclaim
-instead of at the level of pressure, and use that report for sockets.
+This is the result of trying to pass a pointer to a dma_addr_t to
+a function that expects a u32 pointer to copy that into a DMA descriptor.
 
-vmpressure events are naturally edge triggered, so for hysteresis
-assert socket pressure for a second to allow for subsequent vmpressure
-events to occur before letting the socket code return to normal.
+Looking at that code in more detail to fix the warnings, I see multiple
+related problems:
 
-This will likely need finetuning for a wider variety of workloads, but
-for now stick to the vmpressure presets and keep hysteresis simple.
+* The conversion functions are not endian-safe, as the DMA descriptors
+  are almost certainly fixed-endian, but the CPU is not.
 
-Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
-Acked-by: David S. Miller <davem@davemloft.net>
-Reviewed-by: Vladimir Davydov <vdavydov@virtuozzo.com>
+* On 64-bit machines, passing a pointer through a u32 variable is a
+  bug, accessing an indirect pointer as a u32 pointer even more so.
+
+* The handling of epib and psdata mixes native-endian and device-endian
+  data.
+
+In this patch, I try to sort out the types for most accesses here,
+adding le32_to_cpu/cpu_to_le32 where appropriate, and passing pointers
+through two 32-bit words in the descriptor padding, to make it plausible
+that the driver does the right thing if compiled for big-endian or
+64-bit systems.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- include/linux/memcontrol.h | 32 ++++++++++++++++---
- include/linux/vmpressure.h |  7 +++--
- mm/memcontrol.c            | 17 ++--------
- mm/vmpressure.c            | 78 +++++++++++++++++++++++++++++++++++-----------
- mm/vmscan.c                | 10 +++++-
- 5 files changed, 104 insertions(+), 40 deletions(-)
+ drivers/net/ethernet/ti/netcp_core.c | 123 ++++++++++++++++++++---------------
+ include/linux/soc/ti/knav_dma.h      |  22 +++----
+ 2 files changed, 82 insertions(+), 63 deletions(-)
 
-diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
-index 863ae8d..e4f6721 100644
---- a/include/linux/memcontrol.h
-+++ b/include/linux/memcontrol.h
-@@ -249,6 +249,10 @@ struct mem_cgroup {
- 	struct wb_domain cgwb_domain;
- #endif
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index e5e20e734f21..eb2585e777e1 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -109,69 +109,80 @@ module_param(netcp_debug_level, int, 0);
+ MODULE_PARM_DESC(netcp_debug_level, "Netcp debug level (NETIF_MSG bits) (0=none,...,16=all)");
  
-+#ifdef CONFIG_INET
-+	unsigned long		socket_pressure;
-+#endif
-+
- 	/* List of events which userspace want to receive */
- 	struct list_head event_list;
- 	spinlock_t event_list_lock;
-@@ -292,18 +296,34 @@ struct lruvec *mem_cgroup_page_lruvec(struct page *, struct zone *);
- 
- bool task_in_mem_cgroup(struct task_struct *task, struct mem_cgroup *memcg);
- struct mem_cgroup *mem_cgroup_from_task(struct task_struct *p);
--struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *memcg);
- 
- static inline
- struct mem_cgroup *mem_cgroup_from_css(struct cgroup_subsys_state *css){
- 	return css ? container_of(css, struct mem_cgroup, css) : NULL;
+ /* Helper functions - Get/Set */
+-static void get_pkt_info(u32 *buff, u32 *buff_len, u32 *ndesc,
++static void get_pkt_info(dma_addr_t *buff, u32 *buff_len, dma_addr_t *ndesc,
+ 			 struct knav_dma_desc *desc)
+ {
+-	*buff_len = desc->buff_len;
+-	*buff = desc->buff;
+-	*ndesc = desc->next_desc;
++	*buff_len = le32_to_cpu(desc->buff_len);
++	*buff = le32_to_cpu(desc->buff);
++	*ndesc = le32_to_cpu(desc->next_desc);
  }
  
-+#define mem_cgroup_from_counter(counter, member)	\
-+	container_of(counter, struct mem_cgroup, member)
-+
- struct mem_cgroup *mem_cgroup_iter(struct mem_cgroup *,
- 				   struct mem_cgroup *,
- 				   struct mem_cgroup_reclaim_cookie *);
- void mem_cgroup_iter_break(struct mem_cgroup *, struct mem_cgroup *);
+-static void get_pad_info(u32 *pad0, u32 *pad1, struct knav_dma_desc *desc)
++static void get_pad_info(u32 *pad0, u32 *pad1, u32 *pad2, struct knav_dma_desc *desc)
+ {
+-	*pad0 = desc->pad[0];
+-	*pad1 = desc->pad[1];
++	*pad0 = le32_to_cpu(desc->pad[0]);
++	*pad1 = le32_to_cpu(desc->pad[1]);
++	*pad2 = le32_to_cpu(desc->pad[2]);
+ }
  
-+/**
-+ * parent_mem_cgroup - find the accounting parent of a memcg
-+ * @memcg: memcg whose parent to find
-+ *
-+ * Returns the parent memcg, or NULL if this is the root or the memory
-+ * controller is in legacy no-hierarchy mode.
-+ */
-+static inline struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *memcg)
+-static void get_org_pkt_info(u32 *buff, u32 *buff_len,
++static void get_pad_ptr(void **padptr, struct knav_dma_desc *desc)
 +{
-+	if (!memcg->memory.parent)
-+		return NULL;
-+	return mem_cgroup_from_counter(memcg->memory.parent, memory);
++	u64 pad64;
++
++	pad64 = le32_to_cpu(desc->pad[0]) +
++		((u64)le32_to_cpu(desc->pad[1]) << 32);
++	*padptr = (void *)(uintptr_t)pad64;
 +}
 +
- static inline bool mem_cgroup_is_descendant(struct mem_cgroup *memcg,
- 			      struct mem_cgroup *root)
++static void get_org_pkt_info(dma_addr_t *buff, u32 *buff_len,
+ 			     struct knav_dma_desc *desc)
  {
-@@ -693,10 +713,14 @@ extern struct static_key memcg_sockets_enabled_key;
- static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
- {
- #ifdef CONFIG_MEMCG_KMEM
--	return memcg->tcp_mem.memory_pressure;
--#else
--	return false;
-+	if (memcg->tcp_mem.memory_pressure)
-+		return true;
- #endif
-+	do {
-+		if (time_before(jiffies, memcg->socket_pressure))
-+			return true;
-+	} while ((memcg = parent_mem_cgroup(memcg)));
-+	return false;
- }
- #else
- #define mem_cgroup_sockets_enabled 0
-diff --git a/include/linux/vmpressure.h b/include/linux/vmpressure.h
-index 3e45358..3347cc3 100644
---- a/include/linux/vmpressure.h
-+++ b/include/linux/vmpressure.h
-@@ -12,6 +12,9 @@
- struct vmpressure {
- 	unsigned long scanned;
- 	unsigned long reclaimed;
-+
-+	unsigned long tree_scanned;
-+	unsigned long tree_reclaimed;
- 	/* The lock is used to keep the scanned/reclaimed above in sync. */
- 	struct spinlock sr_lock;
- 
-@@ -26,7 +29,7 @@ struct vmpressure {
- struct mem_cgroup;
- 
- #ifdef CONFIG_MEMCG
--extern void vmpressure(gfp_t gfp, struct mem_cgroup *memcg,
-+extern void vmpressure(gfp_t gfp, struct mem_cgroup *memcg, bool tree,
- 		       unsigned long scanned, unsigned long reclaimed);
- extern void vmpressure_prio(gfp_t gfp, struct mem_cgroup *memcg, int prio);
- 
-@@ -40,7 +43,7 @@ extern int vmpressure_register_event(struct mem_cgroup *memcg,
- extern void vmpressure_unregister_event(struct mem_cgroup *memcg,
- 					struct eventfd_ctx *eventfd);
- #else
--static inline void vmpressure(gfp_t gfp, struct mem_cgroup *memcg,
-+static inline void vmpressure(gfp_t gfp, struct mem_cgroup *memcg, bool tree,
- 			      unsigned long scanned, unsigned long reclaimed) {}
- static inline void vmpressure_prio(gfp_t gfp, struct mem_cgroup *memcg,
- 				   int prio) {}
-diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 59555b0..a0da91f 100644
---- a/mm/memcontrol.c
-+++ b/mm/memcontrol.c
-@@ -1091,9 +1091,6 @@ bool task_in_mem_cgroup(struct task_struct *task, struct mem_cgroup *memcg)
- 	return ret;
+-	*buff = desc->orig_buff;
+-	*buff_len = desc->orig_len;
++	*buff = le32_to_cpu(desc->orig_buff);
++	*buff_len = le32_to_cpu(desc->orig_len);
  }
  
--#define mem_cgroup_from_counter(counter, member)	\
--	container_of(counter, struct mem_cgroup, member)
--
- /**
-  * mem_cgroup_margin - calculate chargeable space of a memory cgroup
-  * @memcg: the memory cgroup
-@@ -4159,17 +4156,6 @@ static void __mem_cgroup_free(struct mem_cgroup *memcg)
- 	kfree(memcg);
+-static void get_words(u32 *words, int num_words, u32 *desc)
++static void get_words(dma_addr_t *words, int num_words, __le32 *desc)
+ {
+ 	int i;
+ 
+ 	for (i = 0; i < num_words; i++)
+-		words[i] = desc[i];
++		words[i] = le32_to_cpu(desc[i]);
  }
  
--/*
-- * Returns the parent mem_cgroup in memcgroup hierarchy with hierarchy enabled.
-- */
--struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *memcg)
--{
--	if (!memcg->memory.parent)
--		return NULL;
--	return mem_cgroup_from_counter(memcg->memory.parent, memory);
--}
--EXPORT_SYMBOL(parent_mem_cgroup);
--
- static struct cgroup_subsys_state * __ref
- mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
+-static void set_pkt_info(u32 buff, u32 buff_len, u32 ndesc,
++static void set_pkt_info(dma_addr_t buff, u32 buff_len, u32 ndesc,
+ 			 struct knav_dma_desc *desc)
  {
-@@ -4210,6 +4196,9 @@ mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
- #ifdef CONFIG_CGROUP_WRITEBACK
- 	INIT_LIST_HEAD(&memcg->cgwb_list);
- #endif
-+#ifdef CONFIG_INET
-+	memcg->socket_pressure = jiffies;
-+#endif
- 	return &memcg->css;
+-	desc->buff_len = buff_len;
+-	desc->buff = buff;
+-	desc->next_desc = ndesc;
++	desc->buff_len = cpu_to_le32(buff_len);
++	desc->buff = cpu_to_le32(buff);
++	desc->next_desc = cpu_to_le32(ndesc);
+ }
  
- free_out:
-diff --git a/mm/vmpressure.c b/mm/vmpressure.c
-index 4c25e62..af262bb 100644
---- a/mm/vmpressure.c
-+++ b/mm/vmpressure.c
-@@ -137,14 +137,11 @@ struct vmpressure_event {
- };
- 
- static bool vmpressure_event(struct vmpressure *vmpr,
--			     unsigned long scanned, unsigned long reclaimed)
-+			     enum vmpressure_levels level)
+ static void set_desc_info(u32 desc_info, u32 pkt_info,
+ 			  struct knav_dma_desc *desc)
  {
- 	struct vmpressure_event *ev;
--	enum vmpressure_levels level;
- 	bool signalled = false;
+-	desc->desc_info = desc_info;
+-	desc->packet_info = pkt_info;
++	desc->desc_info = cpu_to_le32(desc_info);
++	desc->packet_info = cpu_to_le32(pkt_info);
+ }
  
--	level = vmpressure_calc_level(scanned, reclaimed);
--
- 	mutex_lock(&vmpr->events_lock);
+-static void set_pad_info(u32 pad0, u32 pad1, struct knav_dma_desc *desc)
++static void set_pad_info(u32 pad0, u32 pad1, u32 pad2, struct knav_dma_desc *desc)
+ {
+-	desc->pad[0] = pad0;
+-	desc->pad[1] = pad1;
++	desc->pad[0] = cpu_to_le32(pad0);
++	desc->pad[1] = cpu_to_le32(pad1);
++	desc->pad[2] = cpu_to_le32(pad1);
+ }
  
- 	list_for_each_entry(ev, &vmpr->events, node) {
-@@ -164,6 +161,7 @@ static void vmpressure_work_fn(struct work_struct *work)
- 	struct vmpressure *vmpr = work_to_vmpressure(work);
- 	unsigned long scanned;
- 	unsigned long reclaimed;
-+	enum vmpressure_levels level;
+-static void set_org_pkt_info(u32 buff, u32 buff_len,
++static void set_org_pkt_info(dma_addr_t buff, u32 buff_len,
+ 			     struct knav_dma_desc *desc)
+ {
+-	desc->orig_buff = buff;
+-	desc->orig_len = buff_len;
++	desc->orig_buff = cpu_to_le32(buff);
++	desc->orig_len = cpu_to_le32(buff_len);
+ }
  
- 	spin_lock(&vmpr->sr_lock);
- 	/*
-@@ -174,19 +172,21 @@ static void vmpressure_work_fn(struct work_struct *work)
- 	 * here. No need for any locks here since we don't care if
- 	 * vmpr->reclaimed is in sync.
- 	 */
--	scanned = vmpr->scanned;
-+	scanned = vmpr->tree_scanned;
- 	if (!scanned) {
- 		spin_unlock(&vmpr->sr_lock);
- 		return;
+-static void set_words(u32 *words, int num_words, u32 *desc)
++static void set_words(u32 *words, int num_words, __le32 *desc)
+ {
+ 	int i;
+ 
+ 	for (i = 0; i < num_words; i++)
+-		desc[i] = words[i];
++		desc[i] = cpu_to_le32(words[i]);
+ }
+ 
+ /* Read the e-fuse value as 32 bit values to be endian independent */
+@@ -570,7 +581,7 @@ static void netcp_free_rx_desc_chain(struct netcp_intf *netcp,
+ 	dma_addr_t dma_desc, dma_buf;
+ 	unsigned int buf_len, dma_sz = sizeof(*ndesc);
+ 	void *buf_ptr;
+-	u32 tmp;
++	u32 pad[2];
+ 
+ 	get_words(&dma_desc, 1, &desc->next_desc);
+ 
+@@ -580,14 +591,15 @@ static void netcp_free_rx_desc_chain(struct netcp_intf *netcp,
+ 			dev_err(netcp->ndev_dev, "failed to unmap Rx desc\n");
+ 			break;
+ 		}
+-		get_pkt_info(&dma_buf, &tmp, &dma_desc, ndesc);
+-		get_pad_info((u32 *)&buf_ptr, &tmp, ndesc);
++		get_pad_ptr(&buf_ptr, ndesc);
+ 		dma_unmap_page(netcp->dev, dma_buf, PAGE_SIZE, DMA_FROM_DEVICE);
+ 		__free_page(buf_ptr);
+ 		knav_pool_desc_put(netcp->rx_pool, desc);
  	}
  
--	reclaimed = vmpr->reclaimed;
--	vmpr->scanned = 0;
--	vmpr->reclaimed = 0;
-+	reclaimed = vmpr->tree_reclaimed;
-+	vmpr->tree_scanned = 0;
-+	vmpr->tree_reclaimed = 0;
- 	spin_unlock(&vmpr->sr_lock);
- 
-+	level = vmpressure_calc_level(scanned, reclaimed);
+-	get_pad_info((u32 *)&buf_ptr, &buf_len, desc);
++	get_pad_info(&pad[0], &pad[1], &buf_len, desc);
++	buf_ptr = (void *)(uintptr_t)(pad[0] + ((u64)pad[1] << 32));
 +
- 	do {
--		if (vmpressure_event(vmpr, scanned, reclaimed))
-+		if (vmpressure_event(vmpr, level))
- 			break;
- 		/*
- 		 * If not handled, propagate the event upward into the
-@@ -199,6 +199,7 @@ static void vmpressure_work_fn(struct work_struct *work)
-  * vmpressure() - Account memory pressure through scanned/reclaimed ratio
-  * @gfp:	reclaimer's gfp mask
-  * @memcg:	cgroup memory controller handle
-+ * @tree:	legacy subtree mode
-  * @scanned:	number of pages scanned
-  * @reclaimed:	number of pages reclaimed
-  *
-@@ -206,9 +207,16 @@ static void vmpressure_work_fn(struct work_struct *work)
-  * "instantaneous" memory pressure (scanned/reclaimed ratio). The raw
-  * pressure index is then further refined and averaged over time.
-  *
-+ * If @tree is set, vmpressure is in traditional userspace reporting
-+ * mode: @memcg is considered the pressure root and userspace is
-+ * notified of the entire subtree's reclaim efficiency.
-+ *
-+ * If @tree is not set, reclaim efficiency is recorded for @memcg, and
-+ * only in-kernel users are notified.
-+ *
-  * This function does not return any value.
-  */
--void vmpressure(gfp_t gfp, struct mem_cgroup *memcg,
-+void vmpressure(gfp_t gfp, struct mem_cgroup *memcg, bool tree,
- 		unsigned long scanned, unsigned long reclaimed)
- {
- 	struct vmpressure *vmpr = memcg_to_vmpressure(memcg);
-@@ -238,15 +246,47 @@ void vmpressure(gfp_t gfp, struct mem_cgroup *memcg,
- 	if (!scanned)
- 		return;
+ 	if (buf_ptr)
+ 		netcp_frag_free(buf_len <= PAGE_SIZE, buf_ptr);
+ 	knav_pool_desc_put(netcp->rx_pool, desc);
+@@ -626,7 +638,6 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
+ 	struct netcp_packet p_info;
+ 	struct sk_buff *skb;
+ 	void *org_buf_ptr;
+-	u32 tmp;
  
--	spin_lock(&vmpr->sr_lock);
--	vmpr->scanned += scanned;
--	vmpr->reclaimed += reclaimed;
--	scanned = vmpr->scanned;
--	spin_unlock(&vmpr->sr_lock);
-+	if (tree) {
-+		spin_lock(&vmpr->sr_lock);
-+		vmpr->tree_scanned += scanned;
-+		vmpr->tree_reclaimed += reclaimed;
-+		scanned = vmpr->scanned;
-+		spin_unlock(&vmpr->sr_lock);
+ 	dma_desc = knav_queue_pop(netcp->rx_queue, &dma_sz);
+ 	if (!dma_desc)
+@@ -639,7 +650,7 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
+ 	}
  
--	if (scanned < vmpressure_win)
--		return;
--	schedule_work(&vmpr->work);
-+		if (scanned < vmpressure_win)
-+			return;
-+		schedule_work(&vmpr->work);
-+	} else {
-+		enum vmpressure_levels level;
-+
-+		/* For now, no users for root-level efficiency */
-+		if (memcg == root_mem_cgroup)
-+			return;
-+
-+		spin_lock(&vmpr->sr_lock);
-+		scanned = vmpr->scanned += scanned;
-+		reclaimed = vmpr->reclaimed += reclaimed;
-+		if (scanned < vmpressure_win) {
-+			spin_unlock(&vmpr->sr_lock);
-+			return;
-+		}
-+		vmpr->scanned = vmpr->reclaimed = 0;
-+		spin_unlock(&vmpr->sr_lock);
-+
-+		level = vmpressure_calc_level(scanned, reclaimed);
-+
-+		if (level > VMPRESSURE_LOW) {
-+			/*
-+			 * Let the socket buffer allocator know that
-+			 * we are having trouble reclaiming LRU pages.
-+			 *
-+			 * For hysteresis keep the pressure state
-+			 * asserted for a second in which subsequent
-+			 * pressure events can occur.
-+			 */
-+			memcg->socket_pressure = jiffies + HZ;
-+		}
-+	}
- }
+ 	get_pkt_info(&dma_buff, &buf_len, &dma_desc, desc);
+-	get_pad_info((u32 *)&org_buf_ptr, &org_buf_len, desc);
++	get_pad_ptr(&org_buf_ptr, desc);
  
- /**
-@@ -276,7 +316,7 @@ void vmpressure_prio(gfp_t gfp, struct mem_cgroup *memcg, int prio)
- 	 * to the vmpressure() basically means that we signal 'critical'
- 	 * level.
- 	 */
--	vmpressure(gfp, memcg, vmpressure_win, 0);
-+	vmpressure(gfp, memcg, true, vmpressure_win, 0);
- }
+ 	if (unlikely(!org_buf_ptr)) {
+ 		dev_err(netcp->ndev_dev, "NULL bufptr in desc\n");
+@@ -664,6 +675,7 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
+ 	/* Fill in the page fragment list */
+ 	while (dma_desc) {
+ 		struct page *page;
++		void *ptr;
  
- /**
-diff --git a/mm/vmscan.c b/mm/vmscan.c
-index 97ba9e1..50e54c0 100644
---- a/mm/vmscan.c
-+++ b/mm/vmscan.c
-@@ -2396,6 +2396,7 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
- 		memcg = mem_cgroup_iter(root, NULL, &reclaim);
- 		do {
- 			unsigned long lru_pages;
-+			unsigned long reclaimed;
- 			unsigned long scanned;
- 			struct lruvec *lruvec;
- 			int swappiness;
-@@ -2408,6 +2409,7 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
- 
- 			lruvec = mem_cgroup_zone_lruvec(zone, memcg);
- 			swappiness = mem_cgroup_swappiness(memcg);
-+			reclaimed = sc->nr_reclaimed;
- 			scanned = sc->nr_scanned;
- 
- 			shrink_lruvec(lruvec, swappiness, sc, &lru_pages);
-@@ -2418,6 +2420,11 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
- 					    memcg, sc->nr_scanned - scanned,
- 					    lru_pages);
- 
-+			/* Record the group's reclaim efficiency */
-+			vmpressure(sc->gfp_mask, memcg, false,
-+				   sc->nr_scanned - scanned,
-+				   sc->nr_reclaimed - reclaimed);
-+
- 			/*
- 			 * Direct reclaim and kswapd have to scan all memory
- 			 * cgroups to fulfill the overall scan target for the
-@@ -2449,7 +2456,8 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
- 			reclaim_state->reclaimed_slab = 0;
+ 		ndesc = knav_pool_desc_unmap(netcp->rx_pool, dma_desc, dma_sz);
+ 		if (unlikely(!ndesc)) {
+@@ -672,14 +684,15 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
  		}
  
--		vmpressure(sc->gfp_mask, sc->target_mem_cgroup,
-+		/* Record the subtree's reclaim efficiency */
-+		vmpressure(sc->gfp_mask, sc->target_mem_cgroup, true,
- 			   sc->nr_scanned - nr_scanned,
- 			   sc->nr_reclaimed - nr_reclaimed);
+ 		get_pkt_info(&dma_buff, &buf_len, &dma_desc, ndesc);
+-		get_pad_info((u32 *)&page, &tmp, ndesc);
++		get_pad_ptr(ptr, ndesc);
++		page = ptr;
  
+ 		if (likely(dma_buff && buf_len && page)) {
+ 			dma_unmap_page(netcp->dev, dma_buff, PAGE_SIZE,
+ 				       DMA_FROM_DEVICE);
+ 		} else {
+-			dev_err(netcp->ndev_dev, "Bad Rx desc dma_buff(%p), len(%d), page(%p)\n",
+-				(void *)dma_buff, buf_len, page);
++			dev_err(netcp->ndev_dev, "Bad Rx desc dma_buff(%pad), len(%d), page(%p)\n",
++				&dma_buff, buf_len, page);
+ 			goto free_desc;
+ 		}
+ 
+@@ -750,7 +763,6 @@ static void netcp_free_rx_buf(struct netcp_intf *netcp, int fdq)
+ 	unsigned int buf_len, dma_sz;
+ 	dma_addr_t dma;
+ 	void *buf_ptr;
+-	u32 tmp;
+ 
+ 	/* Allocate descriptor */
+ 	while ((dma = knav_queue_pop(netcp->rx_fdq[fdq], &dma_sz))) {
+@@ -761,7 +773,7 @@ static void netcp_free_rx_buf(struct netcp_intf *netcp, int fdq)
+ 		}
+ 
+ 		get_org_pkt_info(&dma, &buf_len, desc);
+-		get_pad_info((u32 *)&buf_ptr, &tmp, desc);
++		get_pad_ptr(buf_ptr, desc);
+ 
+ 		if (unlikely(!dma)) {
+ 			dev_err(netcp->ndev_dev, "NULL orig_buff in desc\n");
+@@ -813,7 +825,7 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+ 	struct page *page;
+ 	dma_addr_t dma;
+ 	void *bufptr;
+-	u32 pad[2];
++	u32 pad[3];
+ 
+ 	/* Allocate descriptor */
+ 	hwdesc = knav_pool_desc_get(netcp->rx_pool);
+@@ -830,7 +842,7 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+ 				SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+ 
+ 		bufptr = netdev_alloc_frag(primary_buf_len);
+-		pad[1] = primary_buf_len;
++		pad[2] = primary_buf_len;
+ 
+ 		if (unlikely(!bufptr)) {
+ 			dev_warn_ratelimited(netcp->ndev_dev,
+@@ -842,7 +854,8 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+ 		if (unlikely(dma_mapping_error(netcp->dev, dma)))
+ 			goto fail;
+ 
+-		pad[0] = (u32)bufptr;
++		pad[0] = lower_32_bits((uintptr_t)bufptr);
++		pad[1] = upper_32_bits((uintptr_t)bufptr);
+ 
+ 	} else {
+ 		/* Allocate a secondary receive queue entry */
+@@ -853,8 +866,9 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+ 		}
+ 		buf_len = PAGE_SIZE;
+ 		dma = dma_map_page(netcp->dev, page, 0, buf_len, DMA_TO_DEVICE);
+-		pad[0] = (u32)page;
+-		pad[1] = 0;
++		pad[0] = lower_32_bits(dma);
++		pad[1] = upper_32_bits(dma);
++		pad[2] = 0;
+ 	}
+ 
+ 	desc_info =  KNAV_DMA_DESC_PS_INFO_IN_DESC;
+@@ -864,7 +878,7 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+ 	pkt_info |= (netcp->rx_queue_id & KNAV_DMA_DESC_RETQ_MASK) <<
+ 		    KNAV_DMA_DESC_RETQ_SHIFT;
+ 	set_org_pkt_info(dma, buf_len, hwdesc);
+-	set_pad_info(pad[0], pad[1], hwdesc);
++	set_pad_info(pad[0], pad[1], pad[2], hwdesc);
+ 	set_desc_info(desc_info, pkt_info, hwdesc);
+ 
+ 	/* Push to FDQs */
+@@ -935,8 +949,8 @@ static void netcp_free_tx_desc_chain(struct netcp_intf *netcp,
+ 			dma_unmap_single(netcp->dev, dma_buf, buf_len,
+ 					 DMA_TO_DEVICE);
+ 		else
+-			dev_warn(netcp->ndev_dev, "bad Tx desc buf(%p), len(%d)\n",
+-				 (void *)dma_buf, buf_len);
++			dev_warn(netcp->ndev_dev, "bad Tx desc buf(%pad), len(%d)\n",
++				 &dma_buf, buf_len);
+ 
+ 		knav_pool_desc_put(netcp->tx_pool, ndesc);
+ 		ndesc = NULL;
+@@ -953,11 +967,11 @@ static int netcp_process_tx_compl_packets(struct netcp_intf *netcp,
+ 					  unsigned int budget)
+ {
+ 	struct knav_dma_desc *desc;
++	void *ptr;
+ 	struct sk_buff *skb;
+ 	unsigned int dma_sz;
+ 	dma_addr_t dma;
+ 	int pkts = 0;
+-	u32 tmp;
+ 
+ 	while (budget--) {
+ 		dma = knav_queue_pop(netcp->tx_compl_q, &dma_sz);
+@@ -970,7 +984,8 @@ static int netcp_process_tx_compl_packets(struct netcp_intf *netcp,
+ 			continue;
+ 		}
+ 
+-		get_pad_info((u32 *)&skb, &tmp, desc);
++		get_pad_ptr(&ptr, desc);
++		skb = ptr;
+ 		netcp_free_tx_desc_chain(netcp, desc, dma_sz);
+ 		if (!skb) {
+ 			dev_err(netcp->ndev_dev, "No skb in Tx desc\n");
+@@ -1059,6 +1074,7 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
+ 		u32 page_offset = frag->page_offset;
+ 		u32 buf_len = skb_frag_size(frag);
+ 		dma_addr_t desc_dma;
++		u32 desc_dma_32;
+ 		u32 pkt_info;
+ 
+ 		dma_addr = dma_map_page(dev, page, page_offset, buf_len,
+@@ -1075,13 +1091,13 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
+ 			goto free_descs;
+ 		}
+ 
+-		desc_dma = knav_pool_desc_virt_to_dma(netcp->tx_pool,
+-						      (void *)ndesc);
++		desc_dma = knav_pool_desc_virt_to_dma(netcp->tx_pool, ndesc);
+ 		pkt_info =
+ 			(netcp->tx_compl_qid & KNAV_DMA_DESC_RETQ_MASK) <<
+ 				KNAV_DMA_DESC_RETQ_SHIFT;
+ 		set_pkt_info(dma_addr, buf_len, 0, ndesc);
+-		set_words(&desc_dma, 1, &pdesc->next_desc);
++		desc_dma_32 = (u32)desc_dma;
++		set_words(&desc_dma_32, 1, &pdesc->next_desc);
+ 		pkt_len += buf_len;
+ 		if (pdesc != desc)
+ 			knav_pool_desc_map(netcp->tx_pool, pdesc,
+@@ -1173,11 +1189,14 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
+ 	}
+ 
+ 	set_words(&tmp, 1, &desc->packet_info);
+-	set_words((u32 *)&skb, 1, &desc->pad[0]);
++	tmp = lower_32_bits((uintptr_t)&skb);
++	set_words(&tmp, 1, &desc->pad[0]);
++	tmp = upper_32_bits((uintptr_t)&skb);
++	set_words(&tmp, 1, &desc->pad[1]);
+ 
+ 	if (tx_pipe->flags & SWITCH_TO_PORT_IN_TAGINFO) {
+ 		tmp = tx_pipe->switch_to_port;
+-		set_words((u32 *)&tmp, 1, &desc->tag_info);
++		set_words(&tmp, 1, &desc->tag_info);
+ 	}
+ 
+ 	/* submit packet descriptor */
+diff --git a/include/linux/soc/ti/knav_dma.h b/include/linux/soc/ti/knav_dma.h
+index dad035c16d94..343c13ac4f71 100644
+--- a/include/linux/soc/ti/knav_dma.h
++++ b/include/linux/soc/ti/knav_dma.h
+@@ -144,17 +144,17 @@ struct knav_dma_cfg {
+  * @psdata:			Protocol specific
+  */
+ struct knav_dma_desc {
+-	u32	desc_info;
+-	u32	tag_info;
+-	u32	packet_info;
+-	u32	buff_len;
+-	u32	buff;
+-	u32	next_desc;
+-	u32	orig_len;
+-	u32	orig_buff;
+-	u32	epib[KNAV_DMA_NUM_EPIB_WORDS];
+-	u32	psdata[KNAV_DMA_NUM_PS_WORDS];
+-	u32	pad[4];
++	__le32	desc_info;
++	__le32	tag_info;
++	__le32	packet_info;
++	__le32	buff_len;
++	__le32	buff;
++	__le32	next_desc;
++	__le32	orig_len;
++	__le32	orig_buff;
++	__le32	epib[KNAV_DMA_NUM_EPIB_WORDS];
++	__le32	psdata[KNAV_DMA_NUM_PS_WORDS];
++	__le32	pad[4];
+ } ____cacheline_aligned;
+ 
+ #if IS_ENABLED(CONFIG_KEYSTONE_NAVIGATOR_DMA)
 -- 
-2.6.3
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2.1.0.rc2
