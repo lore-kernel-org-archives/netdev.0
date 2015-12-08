@@ -1,96 +1,177 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Tue, 8 Dec 2015 09:23:39 -0500
-Message-ID: <5666E7EB.40709@mojatatu.com>
-References: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>
- <1448312579-159544-2-git-send-email-anjali.singhai@intel.com>
- <CALx6S34+_AtjO94znh7vW4py5a8Nj1g6b-sjGPCa4U1Mc6Y6-w@mail.gmail.com>
- <20151129.222138.1582847465760563254.davem@davemloft.net>
- <CAEh+42ivCoBE-vAwWpHHmHYqcXzKP+ceZSvg2rEPh7Db3M1k6Q@mail.gmail.com>
- <CALx6S35_rXPsYUGcc+yrQX8K1dOcL4aWnmQsa-6X6xULo9BBbg@mail.gmail.com>
- <CAEh+42gvn=cjZ4E3nACR7=-_a4iFS7OwEsSb+SQGme2k19kVAA@mail.gmail.com>
- <CALx6S37EoLM=bZ6sSAiiF81X=SvTvoNAmkbH5Dmn9zSvR2oiUA@mail.gmail.com>
- <20151201154445.GF29497@tuxdriver.com>
- <1448984968.3382143.454794705.68D88B7D@webmail.messagingengine.com>
- <CALx6S36i7Ee3Njs6OPVndyoGz1OpYss3YRPG8KO2ehxvAe50dA@mail.gmail.com>
- <1449074114.3806253.455834737.16948E5F@webmail.messagingengine.com>
- <CALx6S34Zqn1t4RPkAoa3QT-vWLvawnBN19qEZ12P-YiCEckxHw@mail.gmail.com>
- <565F8059.3010101@gmail.com>
- <CALx6S35EwSXNvOxf_a+=5n2xBN6ZTq--cxdciNgCzPnqzxACJA@mail.gmail.com>
- <566687DC.7040805@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] vrf: Add ip rules at vrf device create
+Date: Tue, 8 Dec 2015 07:19:59 -0700
+Message-ID: <5666E70F.2010307@cumulusnetworks.com>
+References: <1449546920-8617-1-git-send-email-dsa@cumulusnetworks.com>
+ <5666C50A.5080409@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jesse Gross <jesse@kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kiran Patil <kiran.patil@intel.com>
-To: John Fastabend <john.fastabend@gmail.com>,
-	Tom Herbert <tom@herbertland.com>
+Cc: shm@cumulusnetworks.com
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:35465 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754516AbbLHOXn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 09:23:43 -0500
-Received: by igl9 with SMTP id 9so96861779igl.0
-        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 06:23:42 -0800 (PST)
-In-Reply-To: <566687DC.7040805@gmail.com>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:36796 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755241AbbLHOZn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 09:25:43 -0500
+Received: by pfdd184 with SMTP id d184so12897383pfd.3
+        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 06:25:43 -0800 (PST)
+In-Reply-To: <5666C50A.5080409@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15-12-08 02:33 AM, John Fastabend wrote:
-> On 15-12-02 04:15 PM, Tom Herbert wrote:
 
->>>
->>> Just keying off the last statement there...
->>>
->>> I think BPF programs are going to be hard to translate into hardware
->>> for most devices. The problem is the BPF programs in general lack
->>> structure. A parse graph would be much more friendly for hardware or
->>> at minimum the BPF program would need to be a some sort of
->>> well-structured program so a driver could turn that into a parse graph.
->>>
->> This might be relevant:
->> http://richard.systems/research/pdf/IEEE_HPSR_BPF_OPENFLOW.pdf
+On 12/8/15 4:54 AM, Nikolay Aleksandrov wrote:
+> Hi,
+> On 12/08/2015 04:55 AM, David Ahern wrote:
+> [snip]
 >>
+>> +static inline size_t vrf_fib_rule_nl_size(bool have_pref)
+>> +{
+>> +	size_t sz;
+>> +
+>> +	sz = NLMSG_ALIGN(sizeof(struct fib_rule_hdr))
+>> +			 + nla_total_size(IFNAMSIZ) /* FRA_{I,O}IFNAME */
+>> +			 + nla_total_size(4); /* FRA_TABLE, u32 */
+> directly use sizeof(u32) and remove it from the comment ?
+
+sure.
+
 >
-> Thanks Tom interesting read but they seem to argue for a BPF engine in
-> hardware which I'm still not convinced is necessary and the numbers
-> provided are for a 1Gbps link where 10Gpbs/100Gbps+ would be more
-> valuable.
+>> +
+>> +	if (have_pref)
+>> +		sz += nla_total_size(4); /* FRA_PRIORITY, u32 */
+> Why not always add this to the size and remove the whole have_pref and sz ?
+
+pref == 0 and pref not set are completely different configurations and 
+the message should not contain extra bytes.
+
 >
-> I am still leaning towards a fully programmable parse graph and a set
-> of basic actions push/pop/set/fwd/etc. This would be useful for other
-> features not just checksum offloads. I guess it doesn't necessarily
-> exclude also having 1s complement logic though.
+>> +
+>> +	return sz;
+>> +}
+>> +
+>> +static int vrf_fib_rule(struct net_device *dev, __u8 family, int if_type,
+>> +			bool add_it)
+> I think dev can be constified.
+>
+>> +{
+>> +	struct net_vrf *vrf = netdev_priv(dev);
+> vrf is only read and can be const
+>
+>> +	struct fib_rule_hdr *frh;
+>> +	struct nlmsghdr *nlh;
+>> +	struct sk_buff *skb;
+>> +	int err;
+>> +
+>> +	skb = nlmsg_new(vrf_fib_rule_nl_size(!!vrf->pref), GFP_KERNEL);
+>> +	if (!skb)
+>> +		return -ENOMEM;
+>> +
+>> +	nlh = nlmsg_put(skb, 0, 0, 0, sizeof(*frh), 0);
+>> +	if (!nlh)
+>> +		return -EMSGSIZE;
+> Looks like the skb will be leaked here because nlmsg_put() doesn't free it.
+> In fact I can see this error in other places throughout the stack (probably
+> c&p errors), good that it's not supposed to happen. :-)
+>
+>> +
+>> +	frh = nlmsg_data(nlh);
+>> +	memset(frh, 0, sizeof(*frh));
+>> +	frh->family = family;
+>> +	frh->action = FR_ACT_TO_TBL;
+>> +
+>> +	if (nla_put_u32(skb, FRA_TABLE, vrf->tb_id))
+>> +		goto nla_put_failure;
+>> +
+>> +	if (nla_put_string(skb, if_type, dev->name))
+>> +		goto nla_put_failure;
+>> +
+>> +	if (vrf->pref) {
+>> +		if (nla_put_u32(skb, FRA_PRIORITY, vrf->pref))
+>> +			goto nla_put_failure;
+>> +	}
+>> +
+>> +	nlmsg_end(skb, nlh);
+>> +
+>> +	/* fib_nl_{new,del}rule handling looks for net from skb->sk */
+>> +	skb->sk = dev_net(dev)->rtnl;
+>> +	if (add_it) {
+>> +		err = fib_nl_newrule(skb, nlh);
+>> +	} else {
+>> +		err = fib_nl_delrule(skb, nlh);
+>> +		if (err == -ENOENT)
+>> +			err = 0;
+>> +	}
+>> +
+>> +	kfree_skb(skb);
+> minor nit: instead of kfree_skb(), you can use nlmsg_free() which currently
+> does the same, but would be clearer that this is the nlmsg skb.
+>
+>> +
+>> +	return err;
+>> +
+>> +nla_put_failure:
+>> +	nlmsg_cancel(skb, nlh);
+>
+> Here you'll leak the skb, nlmsg_cancel() only trims it and removes
+> the message, but doesn't free the skb.
+>
+>> +	return -EMSGSIZE;
+>> +}
+>> +
+>> +static void vrf_del_fib_rules(struct net_device *dev)
+> Same here for dev (const)
+>
+>> +{
+>> +	if (vrf_fib_rule(dev, AF_INET,  FRA_IIFNAME, 0) ||
+>> +	    vrf_fib_rule(dev, AF_INET,  FRA_OIFNAME, 0) ||
+>> +	    vrf_fib_rule(dev, AF_INET6, FRA_IIFNAME, 0) ||
+>> +	    vrf_fib_rule(dev, AF_INET6, FRA_OIFNAME, 0)) {
+>> +		netdev_err(dev, "Failed to delete FIB rules for %s\n",
+>> +			   dev->name);
+>
+> I've seen this use of netdev_err() elsewhere in vrf, too. I was going to
+> send a patch to change it because you get messages like:
+> <dev name>: Failed to add FIB rules for <dev name>
+> which is pointless. You can just drop the extra dev->name.
+>
+>> +	}
+>> +}
+>> +
+>> +static int vrf_add_fib_rules(struct net_device *dev)
+> Same here for dev (const)
+>
+>> +{
+>> +	int err;
+>> +
+>> +	err = vrf_fib_rule(dev, AF_INET,  FRA_IIFNAME, 1);
+>> +	if (err < 0)
+>> +		goto out_err;
+>> +
+>> +	err = vrf_fib_rule(dev, AF_INET,  FRA_OIFNAME, 1);
+>> +	if (err < 0)
+>> +		goto out_err;
+>> +
+>> +	err = vrf_fib_rule(dev, AF_INET6, FRA_IIFNAME, 1);
+>> +	if (err < 0)
+>> +		goto out_err;
+>> +
+>> +	err = vrf_fib_rule(dev, AF_INET6, FRA_OIFNAME, 1);
+>> +	if (err < 0)
+>> +		goto out_err;
+>> +
+>> +	return 0;
+>> +out_err:
+>> +	netdev_err(dev, "Failed to add FIB rules for %s\n", dev->name);
+> Same here for dev->name
+>
+>> +	vrf_del_fib_rules(dev);
+>> +	return err;
+>> +}
+>> +
+> [snip]
+>
 
-
-;-> I feel a little vindicated with this discussion.
-
-Of course you can implement hardware using BPF! I think there is an
-opportunity for someone to build such hardware, if one is not in
-progress of being built yet.
-A BPF hardware implementation is just a very different approach;
-instead of it being a series of TCAM table hardware implementation
-(and/or other  types of implementation which use DRAM etc), it becomes
-CPU instructions. Surely one can cast the EBPF bytecode into an ASIC.
-My disagreement with Tom is laying a stake that this is how hardware
-features are to be exposed.
-My disagreement with you is laying a stake in the ground that hardware
-oughta be implemented using a series of Tubes^WTCAMS.
-When i build a graphics card the API is not how the internal 
-implementation works. Everbody conforms to the same driver APIs.
-Likewise, we have Linux APIs - and switchdev
-is the right direction. Write your driver to switchdev interfaces.
-Let a thousand flowers bloom.
-
-BTW: It is bordering on the abstraction-ridiculous when I see the
-P4 claims to use ebpf and then somehow translate to use
-classifier/actions.
-
-
-cheers,
-jamal
+ack on all the rest. Thanks for the review, Nik.
