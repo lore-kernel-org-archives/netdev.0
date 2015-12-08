@@ -1,40 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/14] mm: memcontrol: account socket memory in unified
- hierarchy v4-RESEND
-Date: Tue, 08 Dec 2015 11:28:42 -0500 (EST)
-Message-ID: <20151208.112842.1232564665639623347.davem@davemloft.net>
-References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
+Subject: Re: [PATCH] fix inverted test in __skb_recv_datagram
+Date: Tue, 08 Dec 2015 11:30:42 -0500 (EST)
+Message-ID: <20151208.113042.982813461385384189.davem@davemloft.net>
+References: <87vb8925vx.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<20151207.222827.1680789119862020474.davem@davemloft.net>
+	<87io4980c3.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-mm@kvack.org, netdev@vger.kernel.org,
- cgroups@vger.kernel.org, linux-kernel@vger.kernel.org
-To: hannes@cmpxchg.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: rweikusat@mobileactivedefense.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87io4980c3.fsf@doppelsaurus.mobileactivedefense.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Weiner <hannes@cmpxchg.org>
-Date: Tue,  8 Dec 2015 10:30:10 -0500
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Date: Tue, 08 Dec 2015 14:46:36 +0000
 
-> Hi Andrew,
+> David Miller <davem@davemloft.net> writes:
+>> From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+>> Date: Mon, 07 Dec 2015 23:30:58 +0000
+>>
+>>> As the kernel generally uses negated error numbers, *err needs to be
+>>> compared with -EAGAIN (d'oh).
+>>> 
+>>> Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+>>> Fixes: ea3793ee29d3
+>>
+>> Improperly formatted Fixes: tag, you must also include the commit
+>> header line, in parenthesis and double quotes, after the SHA_ID.
+>>
+>> Futhermore this is the wrong SHA_ID.
 > 
-> there was some build breakage in CONFIG_ combinations I hadn't tested
-> in the last revision, so here is a fixed-up resend with minimal CC
-> list. The only difference to the previous version is a section in
-> memcontrol.h, but it accumulates throughout the series and would have
-> been a pain to resolve on your end. So here goes. This also includes
-> the review tags that Dave and Vlad had sent out in the meantime.
+> https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=ea3793ee29d3
 > 
-> Difference to the original v4:
+> displays the commit I was referring to, namely, the one containing this
 
-All looks fine to me:
-
-Acked-by: David S. Miller <davem@davemloft.net>
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+My bad.
