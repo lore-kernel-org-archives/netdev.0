@@ -1,78 +1,96 @@
-From: khalasa@piap.pl (Krzysztof =?utf-8?Q?Ha=C5=82asa?=)
-Subject: Re: [PATCH] I.MX6: Fix Ethernet PHY mode on Ventana boards
-Date: Tue, 08 Dec 2015 15:13:10 +0100
-Message-ID: <m3zixlav0p.fsf@t19.piap.pl>
-References: <m3egeyct8o.fsf@t19.piap.pl>
-	<CAJ+vNU0bNzuDJ971VS4r0gt4+zJj4GkXWE_qzoC0bs7s4OdU1Q@mail.gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Tue, 8 Dec 2015 09:23:39 -0500
+Message-ID: <5666E7EB.40709@mojatatu.com>
+References: <1448312579-159544-1-git-send-email-anjali.singhai@intel.com>
+ <1448312579-159544-2-git-send-email-anjali.singhai@intel.com>
+ <CALx6S34+_AtjO94znh7vW4py5a8Nj1g6b-sjGPCa4U1Mc6Y6-w@mail.gmail.com>
+ <20151129.222138.1582847465760563254.davem@davemloft.net>
+ <CAEh+42ivCoBE-vAwWpHHmHYqcXzKP+ceZSvg2rEPh7Db3M1k6Q@mail.gmail.com>
+ <CALx6S35_rXPsYUGcc+yrQX8K1dOcL4aWnmQsa-6X6xULo9BBbg@mail.gmail.com>
+ <CAEh+42gvn=cjZ4E3nACR7=-_a4iFS7OwEsSb+SQGme2k19kVAA@mail.gmail.com>
+ <CALx6S37EoLM=bZ6sSAiiF81X=SvTvoNAmkbH5Dmn9zSvR2oiUA@mail.gmail.com>
+ <20151201154445.GF29497@tuxdriver.com>
+ <1448984968.3382143.454794705.68D88B7D@webmail.messagingengine.com>
+ <CALx6S36i7Ee3Njs6OPVndyoGz1OpYss3YRPG8KO2ehxvAe50dA@mail.gmail.com>
+ <1449074114.3806253.455834737.16948E5F@webmail.messagingengine.com>
+ <CALx6S34Zqn1t4RPkAoa3QT-vWLvawnBN19qEZ12P-YiCEckxHw@mail.gmail.com>
+ <565F8059.3010101@gmail.com>
+ <CALx6S35EwSXNvOxf_a+=5n2xBN6ZTq--cxdciNgCzPnqzxACJA@mail.gmail.com>
+ <566687DC.7040805@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>
-To: Tim Harvey <tharvey@gateworks.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jesse Gross <jesse@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Anjali Singhai Jain <anjali.singhai@intel.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kiran Patil <kiran.patil@intel.com>
+To: John Fastabend <john.fastabend@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ni.piap.pl ([195.187.100.4]:44704 "EHLO ni.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756067AbbLHONN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Dec 2015 09:13:13 -0500
-In-Reply-To: <CAJ+vNU0bNzuDJ971VS4r0gt4+zJj4GkXWE_qzoC0bs7s4OdU1Q@mail.gmail.com>
-	(Tim Harvey's message of "Mon, 7 Dec 2015 06:34:34 -0800")
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:35465 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754516AbbLHOXn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 09:23:43 -0500
+Received: by igl9 with SMTP id 9so96861779igl.0
+        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 06:23:42 -0800 (PST)
+In-Reply-To: <566687DC.7040805@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tim Harvey <tharvey@gateworks.com> writes:
+On 15-12-08 02:33 AM, John Fastabend wrote:
+> On 15-12-02 04:15 PM, Tom Herbert wrote:
 
-> It sounds like your saying this controls whether the phy is in charge
-> of delay vs the MAC. I have never needed to set this and haven't found
-> where its actually used (in at least 4.3). Is this caused by something
-> new in the kernel I haven't seen yet or is it possible you have board
-> that has an Ethernet issue?
-
-I think you aren't using the Marvell PHY driver :-)
-The existing DTS files work fine with the "default" PHY driver.
-It's only the Marvell driver (drivers/net/phy/marvell.c, aka
-CONFIG_MARVELL_PHY) which have the issue.
-
-The problem is caused by the following code in m88e1121_config_aneg():
-
-        if (phy_interface_is_rgmii(phydev)) {
-
-                mscr = phy_read(phydev, MII_88E1121_PHY_MSCR_REG) &
-                        MII_88E1121_PHY_MSCR_DELAY_MASK;
-
-                if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
-                        mscr |= (MII_88E1121_PHY_MSCR_RX_DELAY |
-                                 MII_88E1121_PHY_MSCR_TX_DELAY);
-                else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID)
-                        mscr |= MII_88E1121_PHY_MSCR_RX_DELAY;
-                else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
-                        mscr |= MII_88E1121_PHY_MSCR_TX_DELAY;
-
-                err = phy_write(phydev, MII_88E1121_PHY_MSCR_REG, mscr);
-                if (err < 0)
-                        return err;
-        }
-
-mscr initially holds the correct value (one with RX_DELAY and TX_DELAY
-bits set). Since the _*ID are not specified, these bits are reset and
-(now incorrect) value is written back to the register.
-OTOH the generic PHY driver knows nothing about the MSCR and thus
-doesn't "corrupt" it.
-
-The whole -ID thing is about signal trace lengths (on PCB), where the
-non-ID setup requires special, longer traces for certain signals to
-compensate for propagation times etc. The -ID version does it internally
-(when enabled) and the PCB layout can be a bit simpler.
-
-To be honest I only checked it on a single GW5400 rev. C, but I'd expect
-it to be exactly the same across all GW5[234]*. Can test on GW5[23] if
-there is any doubt (in few days I guess).
+>>>
+>>> Just keying off the last statement there...
+>>>
+>>> I think BPF programs are going to be hard to translate into hardware
+>>> for most devices. The problem is the BPF programs in general lack
+>>> structure. A parse graph would be much more friendly for hardware or
+>>> at minimum the BPF program would need to be a some sort of
+>>> well-structured program so a driver could turn that into a parse graph.
+>>>
+>> This might be relevant:
+>> http://richard.systems/research/pdf/IEEE_HPSR_BPF_OPENFLOW.pdf
+>>
+>
+> Thanks Tom interesting read but they seem to argue for a BPF engine in
+> hardware which I'm still not convinced is necessary and the numbers
+> provided are for a 1Gbps link where 10Gpbs/100Gbps+ would be more
+> valuable.
+>
+> I am still leaning towards a fully programmable parse graph and a set
+> of basic actions push/pop/set/fwd/etc. This would be useful for other
+> features not just checksum offloads. I guess it doesn't necessarily
+> exclude also having 1s complement logic though.
 
 
-This issue doesn't show itself on Yocto and OpenWrt, because they
-apparently don't enable marvell PHY driver. Fedora 23 does and it
-doesn't work (this probably means it could be worth it to push it to
-stable).
--- 
-Krzysztof Halasa
+;-> I feel a little vindicated with this discussion.
 
-Industrial Research Institute for Automation and Measurements PIAP
-Al. Jerozolimskie 202, 02-486 Warsaw, Poland
+Of course you can implement hardware using BPF! I think there is an
+opportunity for someone to build such hardware, if one is not in
+progress of being built yet.
+A BPF hardware implementation is just a very different approach;
+instead of it being a series of TCAM table hardware implementation
+(and/or other  types of implementation which use DRAM etc), it becomes
+CPU instructions. Surely one can cast the EBPF bytecode into an ASIC.
+My disagreement with Tom is laying a stake that this is how hardware
+features are to be exposed.
+My disagreement with you is laying a stake in the ground that hardware
+oughta be implemented using a series of Tubes^WTCAMS.
+When i build a graphics card the API is not how the internal 
+implementation works. Everbody conforms to the same driver APIs.
+Likewise, we have Linux APIs - and switchdev
+is the right direction. Write your driver to switchdev interfaces.
+Let a thousand flowers bloom.
+
+BTW: It is bordering on the abstraction-ridiculous when I see the
+P4 claims to use ebpf and then somehow translate to use
+classifier/actions.
+
+
+cheers,
+jamal
