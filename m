@@ -1,92 +1,66 @@
-From: Marcin Wojtas <mw@semihalf.com>
-Subject: Re: [PATCH 00/13] mvneta Buffer Management and enhancements
-Date: Tue, 8 Dec 2015 11:56:28 +0100
-Message-ID: <CAPv3WKeTqWXvABPHovH6dqUz_qs88Wy7Q6cbOHsujt4CM0=32g@mail.gmail.com>
-References: <CAPv3WKc4zSmjtw_FeePCVCaq_aUubbCw_ggtxgxs0-7LwL7fHQ@mail.gmail.com>
-	<20151129.210210.1777978635596463961.davem@davemloft.net>
-	<CAPv3WKcHnJHCvg63Vs79RboNOuESU8jCLouKPRW4NdptAd_hag@mail.gmail.com>
-	<20151130.112500.293198684175670933.davem@redhat.com>
-	<CAPv3WKcKm3X3Lys2HwYZXaZxPaajenF7av1wJKXqKxxwibXW4A@mail.gmail.com>
-	<5661F449.5020205@gmail.com>
+From: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
+Subject: Re: [PATCH v3 1/4] stmmac: create of compatible mdio bus for stmacc
+ driver
+Date: Tue, 8 Dec 2015 11:53:31 +0100
+Message-ID: <20151208105331.GF22271@distanz.ch>
+References: <1449551582-6599-1-git-send-email-preid@electromag.com.au>
+ <1449551582-6599-2-git-send-email-preid@electromag.com.au>
+ <2819989.unjINxCo2S@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Yair Mahalalel <myair@marvell.com>,
-	Grzegorz Jaszczyk <jaz@semihalf.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Evan Wang <xswang@marvell.com>, nadavh@marvell.com,
-	Lior Amsalem <alior@marvell.com>,
-	Tomasz Nowicki <tn@semihalf.com>,
-	=?UTF-8?Q?Gregory_Cl=C3=A9ment?=
-	<gregory.clement@free-electrons.com>, nitroshift@yahoo.com,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: David Miller <davem@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5661F449.5020205@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	vbridger-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <2819989.unjINxCo2S@wuerfel>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+On 2015-12-08 at 10:35:05 +0100, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+> On Tuesday 08 December 2015 13:12:59 Phil Reid wrote:
+> 
+> > @@ -201,6 +201,25 @@ int stmmac_mdio_register(struct net_device *ndev)
+> >  	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
+> >  	int addr, found;
+> >  
+> > +#ifdef CONFIG_OF
+> > +	struct device_node *mdio_node = NULL;
+> > +	struct device_node *child_node = NULL;
+> > +
+> > +	for_each_child_of_node(priv->device->of_node, child_node) {
+> > +		if (of_device_is_compatible(child_node, "snps,dwmac-mdio")) {
+> > +			mdio_node = child_node;
+> > +			break;
+> > +		}
+> > +	}
+> 
+> Can you use "if (IS_ENABLED(CONFIG_OF))" here instead of a preprocessor "#if"?
+> 
+> > @@ -231,7 +250,11 @@ int stmmac_mdio_register(struct net_device *ndev)
+> >  	new_bus->irq = irqlist;
+> >  	new_bus->phy_mask = mdio_bus_data->phy_mask;
+> >  	new_bus->parent = priv->device;
+> > +#ifdef CONFIG_OF
+> > +	err = of_mdiobus_register(new_bus, mdio_node);
+> > +#else
+> >  	err = mdiobus_register(new_bus);
+> > +#endif
+> 
+> This looks like it should be done in the header file. Can you make
+> a separate patch that changes the header file declaring of_mdiobus_register
+> to make it a static inline function calling mdiobus_register() if CONFIG_OF
+> is disabled?
 
-2015-12-04 21:15 GMT+01:00 Florian Fainelli <f.fainelli@gmail.com>:
-> (no top posting please)
->
-> On 02/12/15 00:26, Marcin Wojtas wrote:
->> Hi Florian,
->>
->> Can you please describe in more details, what would you expect from
->> such special abstraction layer regarding buffer managers? I'd like to
->> understand more of your expectations and evaluate possible work.
->
-> Well, something along these lines:
->
-> - have the ability to register a particular pool (location + number of
-> buffers) in a way that is relatively device agnostic (initialization
-> would of course be device specific)
->
-> - provide a set of buffer management APIs like those you proposed below,
-> and have some generic code that leverages what
-> drivers/net/ethernet/sun/niu.c does for instance
->
-> - introduce a netdev_alloc_skb_from_pool() or something like that which
-> would limit the amount of code to change in your network driver to
-> benefit from that feature so based
->
-> I am sure David would be able to suggest more detailed API.
->
-
-As we're getting closer to what a generic BM part, could you please
-share your thoughts on the possible API?
-
-
->>>
->>>> What kind of abstraction and helpers do you mean? Some kind of API
->>>> (e.g. bm_alloc_buffer, bm_initialize_ring bm_put_buffer,
->>>> bm_get_buffer), which would be used by platform drivers (and specific
->>>> aplications if one wants to develop on top of the kernel)?
->>>>
->>>> In general, what is your top-view of such solution and its cooperation
->>>> with the drivers?
->>>
->>> The tricky parts involved have to do with allocating pages for the
->>> buffer pools and minimizing the number of atomic refcounting
->>> operations on those pages for for the puts and gets, particularly
->>> around buffer replenish runs.
->>>
->>> For example, if you're allocating a page for a buffer pool the device
->>> will chop into N (for any N < PAGE_SIZE) byte pieces, you can
->>> eliminate many atomic operations.
->
-
-Do you think you can point to anything similar that could be a sort of
-reference for such solution?
-
-Best regards,
-Marcin
+This is already the case since commit 23a456f0 ("net: mdio:
+of_mdiobus_register(): fall back to mdiobus_register() for !CONFIG_OF"),
+so just calling of_mdiobus_register() regardless of CONFIG_OF is
+sufficient here.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
