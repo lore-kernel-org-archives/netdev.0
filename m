@@ -1,55 +1,64 @@
-From: Shannon Nelson <shannon.nelson@intel.com>
-Subject: Re: [RFC 1/1] ethtool: support per queue coalesce options
-Date: Tue, 8 Dec 2015 10:17:51 -0800
-Message-ID: <CAP-MU4PrJ7xrEmR5k_1qNeXFzybsJMo-SAPX-Us++YokX+zeGQ@mail.gmail.com>
-References: <1449549861-12513-1-git-send-email-kan.liang@intel.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v3 2/4] i40e: geneve tunnel offload support
+Date: Tue, 8 Dec 2015 10:20:06 -0800
+Message-ID: <20151208182005.GB77166@ast-mbp.thefacebook.com>
+References: <1449598334-97674-1-git-send-email-anjali.singhai@intel.com>
+ <1449598334-97674-3-git-send-email-anjali.singhai@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	bwh@kernel.org, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	andi@firstfloor.org, f.fainelli@gmail.com,
-	alexander.duyck@gmail.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	mitch.a.williams@intel.com, ogerlitz@mellanox.com,
-	edumazet@google.com, jiri@mellanox.com, sfeldma@gmail.com,
-	gospo@cumulusnetworks.com, sasha.levin@oracle.com,
-	dsahern@gmail.com, tj@kernel.org, cascardo@redhat.com,
-	corbet@lwn.net
-To: kan.liang@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.org,
+	Kiran Patil <kiran.patil@intel.com>, tom@herbertland.com
+To: Anjali Singhai Jain <anjali.singhai@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:32892 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751240AbbLHSRv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 13:17:51 -0500
-Received: by ioef137 with SMTP id f137so3147704ioe.0
-        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 10:17:51 -0800 (PST)
-In-Reply-To: <1449549861-12513-1-git-send-email-kan.liang@intel.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:33240 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751716AbbLHSUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 13:20:11 -0500
+Received: by pabur14 with SMTP id ur14so15781664pab.0
+        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 10:20:11 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1449598334-97674-3-git-send-email-anjali.singhai@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 7, 2015 at 8:44 PM,  <kan.liang@intel.com> wrote:
-> From: Kan Liang <kan.liang@intel.com>
->
-> Intruduce new coalesce option "queue" to get/set coalesce value to
+On Tue, Dec 08, 2015 at 10:12:12AM -0800, Anjali Singhai Jain wrote:
+> +/**
+> + * i40e_add_geneve_port - Get notifications about GENEVE ports that come up
+> + * @netdev: This physical port's netdev
+> + * @sa_family: Socket Family that GENEVE is notifying us about
+> + * @port: New UDP port number that GENEVE started listening to
+> + **/
+> +static void i40e_add_geneve_port(struct net_device *netdev,
+> +				 sa_family_t sa_family, __be16 port)
+> +{
+> +#if IS_ENABLED(CONFIG_GENEVE)
+...
+> +	/* New port: add it and mark its index in the bitmap */
+> +	pf->udp_ports[next_idx].index = port;
+> +	pf->udp_ports[next_idx].type = I40E_AQC_TUNNEL_TYPE_NGE;
 
-s/Intruduce/Introduce/
+the function suppose to deal with geneve but tunnel type is NGE ?!
 
-[...]
+> -#define I40E_MAX_TUNNEL_HDR_LEN 80
+> +/* Hardware supports L4 tunnel length of 128B (=2^7) which includes
+> + * inner mac plus all inner ethertypes.
+> + */
+> +#define I40E_MAX_TUNNEL_HDR_LEN 128
 
-> diff --git a/ethtool.c b/ethtool.c
-> index 92c40b8..7c644db 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -1178,6 +1178,12 @@ static int dump_channels(const struct ethtool_channels *echannels)
->
->  static int dump_coalesce(const struct ethtool_coalesce *ecoal)
->  {
-> +       if (ecoal->queue < 0)
-> +               fprintf(stdout, "Queue: All\n");
+so the driver lied about actual hw capabilities earlier
+or it needs firmware update to work this way?
 
-If some queues have been given different settings, then "All" is
-rather misleading, and there seems to be no way to indicate that some
-queues have separate settings.
+> -	if (!(tx_flags & I40E_TX_FLAGS_VXLAN_TUNNEL)) {
+> +	if (!(tx_flags & I40E_TX_FLAGS_UDP_TUNNEL)) {
+...
+> @@ -163,7 +163,7 @@ enum i40e_dyn_idx_t {
+>  #define I40E_TX_FLAGS_FSO		BIT(7)
+>  #define I40E_TX_FLAGS_TSYN		BIT(8)
+>  #define I40E_TX_FLAGS_FD_SB		BIT(9)
+> -#define I40E_TX_FLAGS_VXLAN_TUNNEL	BIT(10)
+> +#define I40E_TX_FLAGS_UDP_TUNNEL	BIT(10)
 
-sln
+these changes implying that HW actually doesn't have special 'geneve or vxlan'
+hard coded logic and it's generic enough to understand most of udp tunnels.
+Then why you cannot generalize this whole things as generic udp tunnel offload
+and do not add any protocol specific hooks and ndos.
