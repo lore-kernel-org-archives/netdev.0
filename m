@@ -1,74 +1,53 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC] ipv6: use a random ifid for headerless devices
-Date: Tue, 8 Dec 2015 14:44:13 +0100
-Message-ID: <5666DEAD.6010202@stressinduktion.org>
-References: <1448884508-5235-1-git-send-email-bjorn@mork.no>
- <1448968942.3320842.454553905.2C5FBADD@webmail.messagingengine.com>
- <87vb8fjpou.fsf@nemi.mork.no>
- <1449225712.287884.457895729.21AD000E@webmail.messagingengine.com>
- <87d1ukk9ce.fsf@nemi.mork.no>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCHv2 net-next 1/2] tcp: RTO Restart (RTOR)
+Date: Tue, 08 Dec 2015 05:47:10 -0800
+Message-ID: <1449582430.7632.18.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <cover.1449478261.git.per.hurtig@kau.se>
+	 <cover.1449561786.git.per.hurtig@kau.se>
+	 <8cd2c4817d86e30b09fe398c6bfcb7a89521bdb3.1449561786.git.per.hurtig@kau.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	=?UTF-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
-To: =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, edumazet@google.com, ncardwell@google.com,
+	nanditad@google.com, tom@herbertland.com, ycheng@google.com,
+	viro@zeniv.linux.org.uk, fw@strlen.de, mleitner@redhat.com,
+	daniel@iogearbox.net, willemb@google.com,
+	ilpo.jarvinen@helsinki.fi, pasi.sarolahti@iki.fi,
+	stephen@networkplumber.org, netdev@vger.kernel.org,
+	anna.brunstrom@kau.se, apetlund@simula.no, michawe@ifi.uio.no,
+	mohammad.rajiullah@kau.se
+To: Per Hurtig <per.hurtig@kau.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:59659 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756289AbbLHNoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 08:44:16 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id B7A97208CF
-	for <netdev@vger.kernel.org>; Tue,  8 Dec 2015 08:44:15 -0500 (EST)
-In-Reply-To: <87d1ukk9ce.fsf@nemi.mork.no>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34384 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756400AbbLHNrO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 08:47:14 -0500
+Received: by pacwq6 with SMTP id wq6so12378079pac.1
+        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 05:47:13 -0800 (PST)
+In-Reply-To: <8cd2c4817d86e30b09fe398c6bfcb7a89521bdb3.1449561786.git.per.hurtig@kau.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05.12.2015 20:02, Bj=C3=B8rn Mork wrote:
-> Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
->> On Thu, Dec 3, 2015, at 20:29, Bj=C3=B8rn Mork wrote:
->>
->>> After looking more at addrconf, I started wondering if we couldn't =
-abuse
->>> ipv6_generate_stable_address() for this purpose?  We could add a ne=
-w
->>> addr_gen_mode which would trigger automatic generation of a secret =
-if
->>> stable_secret is uninitialized.  This would be good enough to ensur=
-e
->>> stability until the interface is destroyed.  And it would still all=
-ow
->>> the adminstrator to select IN6_ADDR_GEN_MODE_STABLE_PRIVACY by ente=
-ring
->>> a new secret.
->>
->> I am fine with your proposal but I would really like to see it only
->> happen on the per-interface stable_secret instance.
->=20
-> Do you think something like the patch below will be OK?
+On Tue, 2015-12-08 at 10:19 +0100, Per Hurtig wrote:
 
-I wouldn't call it IN6_ADDR_GEN_MODE_AUTO, this doesn't say anything.
-But the idea is already good.
+> +static u32 tcp_unsent_pkts(const struct sock *sk, u32 ulimit)
+> +{
+> +	struct sk_buff *skb = tcp_send_head(sk);
+> +	u32 pkts = 0;
+> +
+> +	if (skb)
+> +		tcp_for_write_queue_from(skb, sk) {
+> +			pkts += tcp_skb_pcount(skb);
+> +
+> +			if (ulimit && pkts >= ulimit)
+> +				return ulimit;
+> +		}
+> +
+> +	return pkts;
+> +}
 
-> Or would it be better to drop the additional mode and just generate a
-> random secret if the mode is IN6_ADDR_GEN_MODE_STABLE_PRIVACY and the
-> secrets are missing?  Or would that be changing the userspace ABI?  T=
-his
-> is not clear to me...
 
-I would not like to do that somehow. The problem is that the stable
-secrets get written by user space probably during boot-up, but we don't
-know when. That's why I would also not set the ->initialized flag, so
-user can overwrite it to the final secret later on. We block it otherwi=
-se.
+Considering Yuchung feedback, have you looked at using an approximation
+instead ? 
 
-My proposal would be to use the stable privacy generator in case the
-device does not have a device address for EUI-48 generation with a
-secret which we simply generate on the stack. Let's factor out the part
-of the generator which depends on the inet6_dev and cnf bits for that.
-
-What do you think?
-
-Bye,
-Hannes
+(ie using tp->write_seq - tp->snd_nxt)
