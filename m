@@ -1,52 +1,65 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next 09/15] i40e: use priv flags to control packet split
-Date: Wed, 9 Dec 2015 01:33:52 +0200
-Message-ID: <CAJ3xEMiqoLa9uKS5pw4ZhkQuE3b+UoVn3OqLHMudgLKH99fA7A@mail.gmail.com>
-References: <1449149160-105219-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1449149160-105219-10-git-send-email-jeffrey.t.kirsher@intel.com>
-	<CAJ3xEMi7=-LgxapNQM2YX26nxqA9gCceMX95wOEGn-WztsQYbg@mail.gmail.com>
-	<CAEuXFEycBrALvFgb3tvcRgHtNzEq7kRk5tHJ8_-K3HEeWeZswQ@mail.gmail.com>
+From: Lloyds TSB Bank PLC <info@gmail.com>
+Subject: =?UTF-8?Q?l=C3=A5netilbud?=
+Date: Wed, 09 Dec 2015 00:36:52 +0100
+Message-ID: <c8f25c5dbe000a0e626372cb3c55fa70__25306.7116522745$1449617894$gmane$org@multivision.com.ve>
+Reply-To: <lloyds25tsb@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:36143 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751132AbbLHXdx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 18:33:53 -0500
-Received: by igcph11 with SMTP id ph11so106719305igc.1
-        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 15:33:52 -0800 (PST)
-In-Reply-To: <CAEuXFEycBrALvFgb3tvcRgHtNzEq7kRk5tHJ8_-K3HEeWeZswQ@mail.gmail.com>
+Received: from mvx1.ifxnw.com.ve ([200.62.27.83]:39213 "EHLO mvx1.ifxnw.com.ve"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751365AbbLHXh5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2015 18:37:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 9, 2015 at 1:24 AM, Jesse Brandeburg
-<jesse.brandeburg@gmail.com> wrote:
-> On Sat, Dec 5, 2015 at 1:25 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->> HDS is a generic feature,and even if you think only Intel hardware is
->> the only hardware that supports that, you have multiple drivers..
->> right? why not go the right way of adding new netdev feature and
->> enable/disable it through the conventional ethtool feature on/off
->> directive?
->
-> In this case, the return on the investment in the new feature is too
-> low, IMO. If your hardware also supports this feature we can discuss
-> adding this via ethtool, and I'd be glad to review any patches, and
-> implement for Intel devices if necessary.
+God dag,
 
-Wasn't sure to follow on the ROI comment, but anyway, we can renew
-this discussion if/when Mellanox and/or more HWs to open that. BTW do
-you iSCSI/NFS or alike benchmark of (say) 4KB payload to demo the gain
-of the patch? where does your HW does the HDSplit in case of these or
-other IP based storage protocols?
+  Dette er Lloyds TSB Bank Plc L=C3=A5n tilby.
 
-Or.
+    Lloyds TSB tilbyr fleksible og rimelige l=C3=A5n til ethvert form=C3=
+=A5l =C3=A5=20
+hjelpe deg =C3=A5 n=C3=A5 dine m=C3=A5l. vi l=C3=A5n med lav rente p=C3=
+=A5 1,5%. Her er noen=20
+viktige funksjoner i personlige l=C3=A5n som tilbys av Lloyds TSB. Her =
+er de=20
+L=C3=A5ne Faktorer vi samarbeider med de ledende britiske meglere som h=
+ar=20
+tilgang til toppen l=C3=A5ngivere og er i stand til =C3=A5 finne den be=
+ste=20
+=C3=B8konomiske l=C3=B8sningen til en rimelig price.Please hvis du er i=
+nteressert=20
+vennligst ta kontakt med oss =E2=80=8B=E2=80=8Bvia denne e-post: lloyds=
+25tsb@europe.com
 
-Or.
+
+Etter reaksjonen, vil du motta en s=C3=B8knad om l=C3=A5n fyll. Ingen s=
+osial=20
+sikkerhet og ingen kredittsjekk, 100% garantert.
+
+Det vil v=C3=A6re v=C3=A5r =C3=A6re hvis du tillater oss =C3=A5 v=C3=A6=
+re til tjeneste.
+
+
+Informasjon som er n=C3=B8dvendig
+
+Ditt navn:
+Adresse: ...........
+Telefon: ...........
+Bel=C3=B8pet som trengs: ........
+Varighet: ...............
+Okkupasjon: ...........
+M=C3=A5nedlig Inntekt niv=C3=A5: ........
+Kj=C3=B8nn: ...............
+=46=C3=B8dselsdato: ........
+Tilstand: ..................
+Land: ..........
+=46orm=C3=A5let: .........
+
+M=C3=B8te dine finansielle behov er v=C3=A5r stolthet.
+
+
+Dr.john Mahama.
