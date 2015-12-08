@@ -1,121 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] bnx2x: avoid soft lockup in bnx2x_poll()
-Date: Tue, 08 Dec 2015 05:54:40 -0800
-Message-ID: <1449582880.7632.19.camel@edumazet-glaptop2.roam.corp.google.com>
+From: khalasa@piap.pl (Krzysztof =?utf-8?Q?Ha=C5=82asa?=)
+Subject: Re: [PATCH] I.MX6: Fix Ethernet PHY mode on Ventana boards
+Date: Tue, 08 Dec 2015 15:13:10 +0100
+Message-ID: <m3zixlav0p.fsf@t19.piap.pl>
+References: <m3egeyct8o.fsf@t19.piap.pl>
+	<CAJ+vNU0bNzuDJ971VS4r0gt4+zJj4GkXWE_qzoC0bs7s4OdU1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Willem de Bruijn <willemb@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>
+To: Tim Harvey <tharvey@gateworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:32830 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964804AbbLHNym (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 08:54:42 -0500
-Received: by pabur14 with SMTP id ur14so12571611pab.0
-        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 05:54:41 -0800 (PST)
+Received: from ni.piap.pl ([195.187.100.4]:44704 "EHLO ni.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756067AbbLHONN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2015 09:13:13 -0500
+In-Reply-To: <CAJ+vNU0bNzuDJ971VS4r0gt4+zJj4GkXWE_qzoC0bs7s4OdU1Q@mail.gmail.com>
+	(Tim Harvey's message of "Mon, 7 Dec 2015 06:34:34 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Tim Harvey <tharvey@gateworks.com> writes:
 
-Under heavy TX load, bnx2x_poll() can loop forever and trigger
-soft lockup bugs.
+> It sounds like your saying this controls whether the phy is in charge
+> of delay vs the MAC. I have never needed to set this and haven't found
+> where its actually used (in at least 4.3). Is this caused by something
+> new in the kernel I haven't seen yet or is it possible you have board
+> that has an Ethernet issue?
 
-A napi poll handler must yield after one TX completion round,
-risk of livelock is too high otherwise.
+I think you aren't using the Marvell PHY driver :-)
+The existing DTS files work fine with the "default" PHY driver.
+It's only the Marvell driver (drivers/net/phy/marvell.c, aka
+CONFIG_MARVELL_PHY) which have the issue.
 
-Bug is very easy to trigger using a debug build, and udp flood, because
-of added cpu cycles in TX completion, and we do not receive enough
-packets to break the loop.
+The problem is caused by the following code in m88e1121_config_aneg():
 
-Reported-by: Willem de Bruijn <willemb@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Ariel Elior <ariel.elior@qlogic.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   51 +++++---------
- 1 file changed, 21 insertions(+), 30 deletions(-)
+        if (phy_interface_is_rgmii(phydev)) {
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index f6634a524153..d7cc2aa7c37a 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -3204,42 +3204,32 @@ int bnx2x_set_power_state(struct bnx2x *bp, pci_power_t state)
-  */
- static int bnx2x_poll(struct napi_struct *napi, int budget)
- {
--	int work_done = 0;
--	u8 cos;
- 	struct bnx2x_fastpath *fp = container_of(napi, struct bnx2x_fastpath,
- 						 napi);
- 	struct bnx2x *bp = fp->bp;
-+	int rx_work_done;
-+	u8 cos;
- 
--	while (1) {
- #ifdef BNX2X_STOP_ON_ERROR
--		if (unlikely(bp->panic)) {
--			napi_complete(napi);
--			return 0;
--		}
-+	if (unlikely(bp->panic)) {
-+		napi_complete(napi);
-+		return 0;
-+	}
- #endif
--		for_each_cos_in_tx_queue(fp, cos)
--			if (bnx2x_tx_queue_has_work(fp->txdata_ptr[cos]))
--				bnx2x_tx_int(bp, fp->txdata_ptr[cos]);
--
--		if (bnx2x_has_rx_work(fp)) {
--			work_done += bnx2x_rx_int(fp, budget - work_done);
--
--			/* must not complete if we consumed full budget */
--			if (work_done >= budget)
--				break;
--		}
-+	for_each_cos_in_tx_queue(fp, cos)
-+		if (bnx2x_tx_queue_has_work(fp->txdata_ptr[cos]))
-+			bnx2x_tx_int(bp, fp->txdata_ptr[cos]);
- 
--		/* Fall out from the NAPI loop if needed */
--		if (!(bnx2x_has_rx_work(fp) || bnx2x_has_tx_work(fp))) {
-+	rx_work_done = (bnx2x_has_rx_work(fp)) ? bnx2x_rx_int(fp, budget) : 0;
- 
--			/* No need to update SB for FCoE L2 ring as long as
--			 * it's connected to the default SB and the SB
--			 * has been updated when NAPI was scheduled.
--			 */
--			if (IS_FCOE_FP(fp)) {
--				napi_complete(napi);
--				break;
--			}
-+	if (rx_work_done < budget) {
-+		/* No need to update SB for FCoE L2 ring as long as
-+		 * it's connected to the default SB and the SB
-+		 * has been updated when NAPI was scheduled.
-+		 */
-+		if (IS_FCOE_FP(fp)) {
-+			napi_complete(napi);
-+		} else {
- 			bnx2x_update_fpsb_idx(fp);
- 			/* bnx2x_has_rx_work() reads the status block,
- 			 * thus we need to ensure that status block indices
-@@ -3264,12 +3254,13 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
- 				bnx2x_ack_sb(bp, fp->igu_sb_id, USTORM_ID,
- 					     le16_to_cpu(fp->fp_hc_idx),
- 					     IGU_INT_ENABLE, 1);
--				break;
-+			} else {
-+				rx_work_done = budget;
- 			}
- 		}
- 	}
- 
--	return work_done;
-+	return rx_work_done;
- }
- 
- /* we split the first BD into headers and data BDs
+                mscr = phy_read(phydev, MII_88E1121_PHY_MSCR_REG) &
+                        MII_88E1121_PHY_MSCR_DELAY_MASK;
+
+                if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
+                        mscr |= (MII_88E1121_PHY_MSCR_RX_DELAY |
+                                 MII_88E1121_PHY_MSCR_TX_DELAY);
+                else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID)
+                        mscr |= MII_88E1121_PHY_MSCR_RX_DELAY;
+                else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
+                        mscr |= MII_88E1121_PHY_MSCR_TX_DELAY;
+
+                err = phy_write(phydev, MII_88E1121_PHY_MSCR_REG, mscr);
+                if (err < 0)
+                        return err;
+        }
+
+mscr initially holds the correct value (one with RX_DELAY and TX_DELAY
+bits set). Since the _*ID are not specified, these bits are reset and
+(now incorrect) value is written back to the register.
+OTOH the generic PHY driver knows nothing about the MSCR and thus
+doesn't "corrupt" it.
+
+The whole -ID thing is about signal trace lengths (on PCB), where the
+non-ID setup requires special, longer traces for certain signals to
+compensate for propagation times etc. The -ID version does it internally
+(when enabled) and the PCB layout can be a bit simpler.
+
+To be honest I only checked it on a single GW5400 rev. C, but I'd expect
+it to be exactly the same across all GW5[234]*. Can test on GW5[23] if
+there is any doubt (in few days I guess).
+
+
+This issue doesn't show itself on Yocto and OpenWrt, because they
+apparently don't enable marvell PHY driver. Fedora 23 does and it
+doesn't work (this probably means it could be worth it to push it to
+stable).
+-- 
+Krzysztof Halasa
+
+Industrial Research Institute for Automation and Measurements PIAP
+Al. Jerozolimskie 202, 02-486 Warsaw, Poland
