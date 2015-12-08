@@ -1,73 +1,75 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 1/2] net: hns: enet specisies a reference to
- dsaf
-Date: Tue, 08 Dec 2015 10:10:47 -0800
-Message-ID: <56671D27.5070700@gmail.com>
-References: <1449302356-54658-1-git-send-email-yankejian@huawei.com> <1449302356-54658-2-git-send-email-yankejian@huawei.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFC 10/26] phy: add I2C mdio bus
+Date: Tue, 08 Dec 2015 10:15:08 -0800
+Message-ID: <56671E2C.4000508@gmail.com>
+References: <20151207173553.GU8644@n2100.arm.linux.org.uk> <E1a5zje-00075T-LA@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: yankejian <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	arnd-r2nGTMty4D4@public.gmane.org, fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
-	salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	liguozhu-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449302356-54658-2-git-send-email-yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Russell King <rmk+kernel@arm.linux.org.uk>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35903 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751037AbbLHSPQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 13:15:16 -0500
+Received: by pacdm15 with SMTP id dm15so15663953pac.3
+        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 10:15:16 -0800 (PST)
+In-Reply-To: <E1a5zje-00075T-LA@rmk-PC.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Subject: s/specisies/specifies/?
-
-On 04/12/15 23:59, yankejian wrote:
-> enet is associating with dasf. before this patch, the association is
-> the same strings between ae-name and dsa-name. in a general way, enet
-> specifies a reference to dsaf should be a good idea. so this patch
-> deletes the ae-name in enet, and adds parsing the ae-handle
-> from DT to set the associating with dsaf.
+On 07/12/15 09:38, Russell King wrote:
+> Add an I2C MDIO bus bridge library, to allow phylib to access PHYs which
+> are connected to an I2C bus instead of the more conventional MDIO bus.
+> Such PHYs can be found in SFP adapters and SFF modules.
 > 
-> Signed-off-by: yankejian <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 > ---
 [snip]
+> +static int i2c_mii_read(struct mii_bus *bus, int phy_id, int reg)
+> +{
+> +	struct i2c_adapter *i2c = bus->priv;
+> +	struct i2c_msg msgs[2];
+> +	u8 data[2], dev_addr = reg;
+> +	int bus_addr, ret;
+> +
+> +	bus_addr = 0x40 + phy_id;
+> +	if (bus_addr == 0x50 || bus_addr == 0x51)
+> +		return 0xffff;
 
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
-> index b364529..3bfe36f 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hnae.c
-> +++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
-> @@ -95,21 +95,17 @@ static struct hnae_buf_ops hnae_bops = {
->  static int __ae_match(struct device *dev, const void *data)
->  {
->  	struct hnae_ae_dev *hdev = cls_to_ae_dev(dev);
-> -	const char *ae_id = data;
->  
-> -	if (!strncmp(ae_id, hdev->name, AE_NAME_SIZE))
-> -		return 1;
-> -
-> -	return 0;
-> +	return hdev->dev->of_node == data;
->  }
->  
-> -static struct hnae_ae_dev *find_ae(const char *ae_id)
-> +static struct hnae_ae_dev *find_ae(const struct device_node *ae_node)
->  {
->  	struct device *dev;
->  
-> -	WARN_ON(!ae_id);
-> +	WARN_ON(!ae_node);
->  
-> -	dev = class_find_device(hnae_class, NULL, ae_id, __ae_match);
-> +	dev = class_find_device(hnae_class, NULL, ae_node, __ae_match);
+These could deserve a local definition for these specific addresses so
+we know why there is such logic here.
 
-of_find_net_device_by_node might be used for this maybe?
+> +
+> +	msgs[0].addr = bus_addr;
+> +	msgs[0].flags = 0;
+> +	msgs[0].len = 1;
+> +	msgs[0].buf = &dev_addr;
+> +	msgs[1].addr = bus_addr;
+> +	msgs[1].flags = I2C_M_RD;
+> +	msgs[1].len = sizeof(data);
+> +	msgs[1].buf = data;
+> +
+> +	ret = i2c_transfer(i2c, msgs, ARRAY_SIZE(msgs));
+> +	if (ret != ARRAY_SIZE(msgs))
+> +		return 0xffff;
+> +
+> +	return data[0] << 8 | data[1];
+> +}
+> +
+> +static int i2c_mii_write(struct mii_bus *bus, int phy_id, int reg, u16 val)
+> +{
+> +	struct i2c_adapter *i2c = bus->priv;
+> +	struct i2c_msg msg;
+> +	int bus_addr, ret;
+> +	u8 data[3];
+> +
+> +	bus_addr = 0x40 + phy_id;
+> +	if (bus_addr == 0x50 || bus_addr == 0x51)
+> +		return 0;
+
+Same here.
 -- 
 Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
