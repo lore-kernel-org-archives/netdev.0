@@ -1,44 +1,27 @@
-From: Gilad Avidov <gavidov@codeaurora.org>
-Subject: Re: [PATCH] net: emac: emac gigabit ethernet controller driver
-Date: Mon, 7 Dec 2015 16:47:50 -0700
-Message-ID: <20151207164750.62992b54@gavidov-lnx.qualcomm.com>
-References: <1449529094-10922-1-git-send-email-gavidov@codeaurora.org>
-	<56661730.4050801@openwrt.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 1/3] sh_eth: remove mask fields from 'struct bb_info'
+Date: Tue, 8 Dec 2015 09:42:21 +0900
+Message-ID: <20151208004221.GH10799@verge.net.au>
+References: <1582774.FcjyuztLtc@wasted.cogentembedded.com>
+ <8193175.UjRYeBy7vc@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	sdharia@codeaurora.org, linux-arm-msm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vikrams@codeaurora.org,
-	shankerd@codeaurora.org
-To: Felix Fietkau <nbd@openwrt.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <56661730.4050801@openwrt.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:55146 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755189AbbLHAmW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 19:42:22 -0500
+Content-Disposition: inline
+In-Reply-To: <8193175.UjRYeBy7vc@wasted.cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 8 Dec 2015 00:33:04 +0100
-Felix Fietkau <nbd@openwrt.org> wrote:
-
-
-> On 2015-12-07 23:58, Gilad Avidov wrote:
-> > +/* RRD (Receive Return Descriptor) */
-> > +union emac_rrd {
-> > +	struct {
-> > +		/* 32bit word 0 */
-> > +		u32  xsum:16;
-> > +		u32  nor:4;       /* number of RFD */
-> > +		u32  si:12;       /* start index of rfd-ring */
-> > +		/* 32bit word 1 */
-> > +		u32  hash;
-> > +		/* 32bit word 2 */
-> You should never use bitfields for hardware structs.
-> I think in general, kernel code should be made endian safe, even if
-> you only care about one particular endian type for your platform.
+On Tue, Dec 08, 2015 at 12:40:19AM +0300, Sergei Shtylyov wrote:
+> The MDIO control bits are always mapped to the same bits of the same register
+> (PIR), so there's no need to store their masks in the 'struct bb_info'...
 > 
-> - Felix
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Thank you Felix,
-I will change the bit fields to bitwise operations and macros.
-
-Gilad
+Acked-by: Simon Horman <horms+renesas@verge.net.au>
