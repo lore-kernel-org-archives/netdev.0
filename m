@@ -1,7 +1,7 @@
 From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: [PATCH 11/14] mm: memcontrol: move socket code for unified hierarchy accounting
-Date: Tue,  8 Dec 2015 10:30:21 -0500
-Message-ID: <1449588624-9220-12-git-send-email-hannes@cmpxchg.org>
+Subject: [PATCH 14/14] mm: memcontrol: switch to the updated jump-label API
+Date: Tue,  8 Dec 2015 10:30:24 -0500
+Message-ID: <1449588624-9220-15-git-send-email-hannes@cmpxchg.org>
 References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
 Cc: linux-mm@kvack.org,
 	netdev@vger.kernel.org,
@@ -13,183 +13,130 @@ In-Reply-To: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-The unified hierarchy memory controller will account socket
-memory. Move the infrastructure functions accordingly.
+According to <linux/jump_label.h> the direct use of struct static_key
+is deprecated. Update the socket and slab accounting code accordingly.
 
+Reported-by: Jason Baron <jbaron@akamai.com>
 Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
-Acked-by: Michal Hocko <mhocko@suse.com>
-Reviewed-by: Vladimir Davydov <vdavydov@virtuozzo.com>
-Acked-by: David S. Miller <davem@davemloft.net>
 ---
- mm/memcontrol.c | 148 ++++++++++++++++++++++++++++----------------------------
- 1 file changed, 74 insertions(+), 74 deletions(-)
+ include/linux/memcontrol.h |  8 ++++----
+ mm/memcontrol.c            | 12 ++++++------
+ net/ipv4/tcp_memcontrol.c  |  4 ++--
+ 3 files changed, 12 insertions(+), 12 deletions(-)
 
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index e4f6721..189f04d 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -708,8 +708,8 @@ void sock_release_memcg(struct sock *sk);
+ bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
+ void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
+ #if defined(CONFIG_MEMCG) && defined(CONFIG_INET)
+-extern struct static_key memcg_sockets_enabled_key;
+-#define mem_cgroup_sockets_enabled static_key_false(&memcg_sockets_enabled_key)
++extern struct static_key_false memcg_sockets_enabled_key;
++#define mem_cgroup_sockets_enabled static_branch_unlikely(&memcg_sockets_enabled_key)
+ static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
+ {
+ #ifdef CONFIG_MEMCG_KMEM
+@@ -731,7 +731,7 @@ static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
+ #endif
+ 
+ #ifdef CONFIG_MEMCG_KMEM
+-extern struct static_key memcg_kmem_enabled_key;
++extern struct static_key_false memcg_kmem_enabled_key;
+ 
+ extern int memcg_nr_cache_ids;
+ void memcg_get_cache_ids(void);
+@@ -747,7 +747,7 @@ void memcg_put_cache_ids(void);
+ 
+ static inline bool memcg_kmem_enabled(void)
+ {
+-	return static_key_false(&memcg_kmem_enabled_key);
++	return static_branch_unlikely(&memcg_kmem_enabled_key);
+ }
+ 
+ static inline bool memcg_kmem_is_active(struct mem_cgroup *memcg)
 diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 6b8c0f7..ed030b5 100644
+index a0da91f..5fe45d68 100644
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
-@@ -294,80 +294,6 @@ static inline struct mem_cgroup *mem_cgroup_from_id(unsigned short id)
- 	return mem_cgroup_from_css(css);
- }
+@@ -346,7 +346,7 @@ void memcg_put_cache_ids(void)
+  * conditional to this static branch, we'll have to allow modules that does
+  * kmem_cache_alloc and the such to see this symbol as well
+  */
+-struct static_key memcg_kmem_enabled_key;
++DEFINE_STATIC_KEY_FALSE(memcg_kmem_enabled_key);
+ EXPORT_SYMBOL(memcg_kmem_enabled_key);
  
--/* Writing them here to avoid exposing memcg's inner layout */
--#if defined(CONFIG_INET) && defined(CONFIG_MEMCG_KMEM)
--
+ #endif /* CONFIG_MEMCG_KMEM */
+@@ -2883,7 +2883,7 @@ static int memcg_activate_kmem(struct mem_cgroup *memcg,
+ 	err = page_counter_limit(&memcg->kmem, nr_pages);
+ 	VM_BUG_ON(err);
+ 
+-	static_key_slow_inc(&memcg_kmem_enabled_key);
++	static_branch_inc(&memcg_kmem_enabled_key);
+ 	/*
+ 	 * A memory cgroup is considered kmem-active as soon as it gets
+ 	 * kmemcg_id. Setting the id after enabling static branching will
+@@ -3622,7 +3622,7 @@ static void memcg_destroy_kmem(struct mem_cgroup *memcg)
+ {
+ 	if (memcg->kmem_acct_activated) {
+ 		memcg_destroy_kmem_caches(memcg);
+-		static_key_slow_dec(&memcg_kmem_enabled_key);
++		static_branch_dec(&memcg_kmem_enabled_key);
+ 		WARN_ON(page_counter_read(&memcg->kmem));
+ 	}
+ 	tcp_destroy_cgroup(memcg);
+@@ -4258,7 +4258,7 @@ mem_cgroup_css_online(struct cgroup_subsys_state *css)
+ 
+ #ifdef CONFIG_INET
+ 	if (cgroup_subsys_on_dfl(memory_cgrp_subsys) && !cgroup_memory_nosocket)
+-		static_key_slow_inc(&memcg_sockets_enabled_key);
++		static_branch_inc(&memcg_sockets_enabled_key);
+ #endif
+ 
+ 	/*
+@@ -4302,7 +4302,7 @@ static void mem_cgroup_css_free(struct cgroup_subsys_state *css)
+ 	memcg_destroy_kmem(memcg);
+ #ifdef CONFIG_INET
+ 	if (cgroup_subsys_on_dfl(memory_cgrp_subsys) && !cgroup_memory_nosocket)
+-		static_key_slow_dec(&memcg_sockets_enabled_key);
++		static_branch_dec(&memcg_sockets_enabled_key);
+ #endif
+ 	__mem_cgroup_free(memcg);
+ }
+@@ -5494,7 +5494,7 @@ void mem_cgroup_replace_page(struct page *oldpage, struct page *newpage)
+ 
+ #ifdef CONFIG_INET
+ 
 -struct static_key memcg_sockets_enabled_key;
--EXPORT_SYMBOL(memcg_sockets_enabled_key);
--
--void sock_update_memcg(struct sock *sk)
--{
--	struct mem_cgroup *memcg;
--
--	/* Socket cloning can throw us here with sk_cgrp already
--	 * filled. It won't however, necessarily happen from
--	 * process context. So the test for root memcg given
--	 * the current task's memcg won't help us in this case.
--	 *
--	 * Respecting the original socket's memcg is a better
--	 * decision in this case.
--	 */
--	if (sk->sk_memcg) {
--		BUG_ON(mem_cgroup_is_root(sk->sk_memcg));
--		css_get(&sk->sk_memcg->css);
--		return;
--	}
--
--	rcu_read_lock();
--	memcg = mem_cgroup_from_task(current);
--	if (memcg != root_mem_cgroup &&
--	    memcg->tcp_mem.active &&
--	    css_tryget_online(&memcg->css))
--		sk->sk_memcg = memcg;
--	rcu_read_unlock();
--}
--EXPORT_SYMBOL(sock_update_memcg);
--
--void sock_release_memcg(struct sock *sk)
--{
--	WARN_ON(!sk->sk_memcg);
--	css_put(&sk->sk_memcg->css);
--}
--
--/**
-- * mem_cgroup_charge_skmem - charge socket memory
-- * @memcg: memcg to charge
-- * @nr_pages: number of pages to charge
-- *
-- * Charges @nr_pages to @memcg. Returns %true if the charge fit within
-- * @memcg's configured limit, %false if the charge had to be forced.
-- */
--bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
--{
--	struct page_counter *counter;
--
--	if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
--				    nr_pages, &counter)) {
--		memcg->tcp_mem.memory_pressure = 0;
--		return true;
--	}
--	page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
--	memcg->tcp_mem.memory_pressure = 1;
--	return false;
--}
--
--/**
-- * mem_cgroup_uncharge_skmem - uncharge socket memory
-- * @memcg - memcg to uncharge
-- * @nr_pages - number of pages to uncharge
-- */
--void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
--{
--	page_counter_uncharge(&memcg->tcp_mem.memory_allocated, nr_pages);
--}
--
--#endif
--
- #ifdef CONFIG_MEMCG_KMEM
- /*
-  * This will be the memcg's index in each cache's ->memcg_params.memcg_caches.
-@@ -5544,6 +5470,80 @@ void mem_cgroup_replace_page(struct page *oldpage, struct page *newpage)
- 	commit_charge(newpage, memcg, true);
++DEFINE_STATIC_KEY_FALSE(memcg_sockets_enabled_key);
+ EXPORT_SYMBOL(memcg_sockets_enabled_key);
+ 
+ void sock_update_memcg(struct sock *sk)
+diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
+index 9a22e2d..18bc7f7 100644
+--- a/net/ipv4/tcp_memcontrol.c
++++ b/net/ipv4/tcp_memcontrol.c
+@@ -34,7 +34,7 @@ void tcp_destroy_cgroup(struct mem_cgroup *memcg)
+ 		return;
+ 
+ 	if (memcg->tcp_mem.active)
+-		static_key_slow_dec(&memcg_sockets_enabled_key);
++		static_branch_dec(&memcg_sockets_enabled_key);
  }
  
-+/* Writing them here to avoid exposing memcg's inner layout */
-+#if defined(CONFIG_INET) && defined(CONFIG_MEMCG_KMEM)
-+
-+struct static_key memcg_sockets_enabled_key;
-+EXPORT_SYMBOL(memcg_sockets_enabled_key);
-+
-+void sock_update_memcg(struct sock *sk)
-+{
-+	struct mem_cgroup *memcg;
-+
-+	/* Socket cloning can throw us here with sk_cgrp already
-+	 * filled. It won't however, necessarily happen from
-+	 * process context. So the test for root memcg given
-+	 * the current task's memcg won't help us in this case.
-+	 *
-+	 * Respecting the original socket's memcg is a better
-+	 * decision in this case.
-+	 */
-+	if (sk->sk_memcg) {
-+		BUG_ON(mem_cgroup_is_root(sk->sk_memcg));
-+		css_get(&sk->sk_memcg->css);
-+		return;
-+	}
-+
-+	rcu_read_lock();
-+	memcg = mem_cgroup_from_task(current);
-+	if (memcg != root_mem_cgroup &&
-+	    memcg->tcp_mem.active &&
-+	    css_tryget_online(&memcg->css))
-+		sk->sk_memcg = memcg;
-+	rcu_read_unlock();
-+}
-+EXPORT_SYMBOL(sock_update_memcg);
-+
-+void sock_release_memcg(struct sock *sk)
-+{
-+	WARN_ON(!sk->sk_memcg);
-+	css_put(&sk->sk_memcg->css);
-+}
-+
-+/**
-+ * mem_cgroup_charge_skmem - charge socket memory
-+ * @memcg: memcg to charge
-+ * @nr_pages: number of pages to charge
-+ *
-+ * Charges @nr_pages to @memcg. Returns %true if the charge fit within
-+ * @memcg's configured limit, %false if the charge had to be forced.
-+ */
-+bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
-+{
-+	struct page_counter *counter;
-+
-+	if (page_counter_try_charge(&memcg->tcp_mem.memory_allocated,
-+				    nr_pages, &counter)) {
-+		memcg->tcp_mem.memory_pressure = 0;
-+		return true;
-+	}
-+	page_counter_charge(&memcg->tcp_mem.memory_allocated, nr_pages);
-+	memcg->tcp_mem.memory_pressure = 1;
-+	return false;
-+}
-+
-+/**
-+ * mem_cgroup_uncharge_skmem - uncharge socket memory
-+ * @memcg - memcg to uncharge
-+ * @nr_pages - number of pages to uncharge
-+ */
-+void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
-+{
-+	page_counter_uncharge(&memcg->tcp_mem.memory_allocated, nr_pages);
-+}
-+
-+#endif
-+
- /*
-  * subsys_initcall() for memory controller.
-  *
+ static int tcp_update_limit(struct mem_cgroup *memcg, unsigned long nr_pages)
+@@ -65,7 +65,7 @@ static int tcp_update_limit(struct mem_cgroup *memcg, unsigned long nr_pages)
+ 		 * because when this value change, the code to process it is not
+ 		 * patched in yet.
+ 		 */
+-		static_key_slow_inc(&memcg_sockets_enabled_key);
++		static_branch_inc(&memcg_sockets_enabled_key);
+ 		memcg->tcp_mem.active = true;
+ 	}
+ 
 -- 
 2.6.3
 
