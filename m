@@ -1,177 +1,113 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] vrf: Add ip rules at vrf device create
-Date: Tue, 8 Dec 2015 07:19:59 -0700
-Message-ID: <5666E70F.2010307@cumulusnetworks.com>
-References: <1449546920-8617-1-git-send-email-dsa@cumulusnetworks.com>
- <5666C50A.5080409@cumulusnetworks.com>
+From: Tim Harvey <tharvey@gateworks.com>
+Subject: Re: [PATCH] I.MX6: Fix Ethernet PHY mode on Ventana boards
+Date: Tue, 8 Dec 2015 06:30:56 -0800
+Message-ID: <CAJ+vNU0RsXB7j4F5+M8d0Z06=eS1pkMRnyYOfimNPkXe-TfKbQ@mail.gmail.com>
+References: <m3egeyct8o.fsf@t19.piap.pl>
+	<CAJ+vNU0bNzuDJ971VS4r0gt4+zJj4GkXWE_qzoC0bs7s4OdU1Q@mail.gmail.com>
+	<m3zixlav0p.fsf@t19.piap.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: shm@cumulusnetworks.com
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>, Shawn Guo <shawnguo@kernel.org>,
+	Fabio Estevam <Fabio.Estevam@freescale.com>
+To: =?UTF-8?Q?Krzysztof_Ha=C5=82asa?= <khalasa@piap.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:36796 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755241AbbLHOZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 09:25:43 -0500
-Received: by pfdd184 with SMTP id d184so12897383pfd.3
-        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 06:25:43 -0800 (PST)
-In-Reply-To: <5666C50A.5080409@cumulusnetworks.com>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:33109 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756665AbbLHOa5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 09:30:57 -0500
+Received: by iouu10 with SMTP id u10so26389269iou.0
+        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 06:30:56 -0800 (PST)
+In-Reply-To: <m3zixlav0p.fsf@t19.piap.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 12/8/15 4:54 AM, Nikolay Aleksandrov wrote:
-> Hi,
-> On 12/08/2015 04:55 AM, David Ahern wrote:
-> [snip]
->>
->> +static inline size_t vrf_fib_rule_nl_size(bool have_pref)
->> +{
->> +	size_t sz;
->> +
->> +	sz = NLMSG_ALIGN(sizeof(struct fib_rule_hdr))
->> +			 + nla_total_size(IFNAMSIZ) /* FRA_{I,O}IFNAME */
->> +			 + nla_total_size(4); /* FRA_TABLE, u32 */
-> directly use sizeof(u32) and remove it from the comment ?
-
-sure.
-
+On Tue, Dec 8, 2015 at 6:13 AM, Krzysztof Ha=C5=82asa <khalasa@piap.pl>=
+ wrote:
+> Tim Harvey <tharvey@gateworks.com> writes:
 >
->> +
->> +	if (have_pref)
->> +		sz += nla_total_size(4); /* FRA_PRIORITY, u32 */
-> Why not always add this to the size and remove the whole have_pref and sz ?
-
-pref == 0 and pref not set are completely different configurations and 
-the message should not contain extra bytes.
-
+>> It sounds like your saying this controls whether the phy is in charg=
+e
+>> of delay vs the MAC. I have never needed to set this and haven't fou=
+nd
+>> where its actually used (in at least 4.3). Is this caused by somethi=
+ng
+>> new in the kernel I haven't seen yet or is it possible you have boar=
+d
+>> that has an Ethernet issue?
 >
->> +
->> +	return sz;
->> +}
->> +
->> +static int vrf_fib_rule(struct net_device *dev, __u8 family, int if_type,
->> +			bool add_it)
-> I think dev can be constified.
->
->> +{
->> +	struct net_vrf *vrf = netdev_priv(dev);
-> vrf is only read and can be const
->
->> +	struct fib_rule_hdr *frh;
->> +	struct nlmsghdr *nlh;
->> +	struct sk_buff *skb;
->> +	int err;
->> +
->> +	skb = nlmsg_new(vrf_fib_rule_nl_size(!!vrf->pref), GFP_KERNEL);
->> +	if (!skb)
->> +		return -ENOMEM;
->> +
->> +	nlh = nlmsg_put(skb, 0, 0, 0, sizeof(*frh), 0);
->> +	if (!nlh)
->> +		return -EMSGSIZE;
-> Looks like the skb will be leaked here because nlmsg_put() doesn't free it.
-> In fact I can see this error in other places throughout the stack (probably
-> c&p errors), good that it's not supposed to happen. :-)
->
->> +
->> +	frh = nlmsg_data(nlh);
->> +	memset(frh, 0, sizeof(*frh));
->> +	frh->family = family;
->> +	frh->action = FR_ACT_TO_TBL;
->> +
->> +	if (nla_put_u32(skb, FRA_TABLE, vrf->tb_id))
->> +		goto nla_put_failure;
->> +
->> +	if (nla_put_string(skb, if_type, dev->name))
->> +		goto nla_put_failure;
->> +
->> +	if (vrf->pref) {
->> +		if (nla_put_u32(skb, FRA_PRIORITY, vrf->pref))
->> +			goto nla_put_failure;
->> +	}
->> +
->> +	nlmsg_end(skb, nlh);
->> +
->> +	/* fib_nl_{new,del}rule handling looks for net from skb->sk */
->> +	skb->sk = dev_net(dev)->rtnl;
->> +	if (add_it) {
->> +		err = fib_nl_newrule(skb, nlh);
->> +	} else {
->> +		err = fib_nl_delrule(skb, nlh);
->> +		if (err == -ENOENT)
->> +			err = 0;
->> +	}
->> +
->> +	kfree_skb(skb);
-> minor nit: instead of kfree_skb(), you can use nlmsg_free() which currently
-> does the same, but would be clearer that this is the nlmsg skb.
->
->> +
->> +	return err;
->> +
->> +nla_put_failure:
->> +	nlmsg_cancel(skb, nlh);
->
-> Here you'll leak the skb, nlmsg_cancel() only trims it and removes
-> the message, but doesn't free the skb.
->
->> +	return -EMSGSIZE;
->> +}
->> +
->> +static void vrf_del_fib_rules(struct net_device *dev)
-> Same here for dev (const)
->
->> +{
->> +	if (vrf_fib_rule(dev, AF_INET,  FRA_IIFNAME, 0) ||
->> +	    vrf_fib_rule(dev, AF_INET,  FRA_OIFNAME, 0) ||
->> +	    vrf_fib_rule(dev, AF_INET6, FRA_IIFNAME, 0) ||
->> +	    vrf_fib_rule(dev, AF_INET6, FRA_OIFNAME, 0)) {
->> +		netdev_err(dev, "Failed to delete FIB rules for %s\n",
->> +			   dev->name);
->
-> I've seen this use of netdev_err() elsewhere in vrf, too. I was going to
-> send a patch to change it because you get messages like:
-> <dev name>: Failed to add FIB rules for <dev name>
-> which is pointless. You can just drop the extra dev->name.
->
->> +	}
->> +}
->> +
->> +static int vrf_add_fib_rules(struct net_device *dev)
-> Same here for dev (const)
->
->> +{
->> +	int err;
->> +
->> +	err = vrf_fib_rule(dev, AF_INET,  FRA_IIFNAME, 1);
->> +	if (err < 0)
->> +		goto out_err;
->> +
->> +	err = vrf_fib_rule(dev, AF_INET,  FRA_OIFNAME, 1);
->> +	if (err < 0)
->> +		goto out_err;
->> +
->> +	err = vrf_fib_rule(dev, AF_INET6, FRA_IIFNAME, 1);
->> +	if (err < 0)
->> +		goto out_err;
->> +
->> +	err = vrf_fib_rule(dev, AF_INET6, FRA_OIFNAME, 1);
->> +	if (err < 0)
->> +		goto out_err;
->> +
->> +	return 0;
->> +out_err:
->> +	netdev_err(dev, "Failed to add FIB rules for %s\n", dev->name);
-> Same here for dev->name
->
->> +	vrf_del_fib_rules(dev);
->> +	return err;
->> +}
->> +
-> [snip]
+> I think you aren't using the Marvell PHY driver :-)
+> The existing DTS files work fine with the "default" PHY driver.
+> It's only the Marvell driver (drivers/net/phy/marvell.c, aka
+> CONFIG_MARVELL_PHY) which have the issue.
 >
 
-ack on all the rest. Thanks for the review, Nik.
+Kryzsztof,
+
+True - I have not used CONFIG_MARVELL_PHY and didn't know of its exista=
+nce.
+
+> The problem is caused by the following code in m88e1121_config_aneg()=
+:
+>
+>         if (phy_interface_is_rgmii(phydev)) {
+>
+>                 mscr =3D phy_read(phydev, MII_88E1121_PHY_MSCR_REG) &
+>                         MII_88E1121_PHY_MSCR_DELAY_MASK;
+>
+>                 if (phydev->interface =3D=3D PHY_INTERFACE_MODE_RGMII=
+_ID)
+>                         mscr |=3D (MII_88E1121_PHY_MSCR_RX_DELAY |
+>                                  MII_88E1121_PHY_MSCR_TX_DELAY);
+>                 else if (phydev->interface =3D=3D PHY_INTERFACE_MODE_=
+RGMII_RXID)
+>                         mscr |=3D MII_88E1121_PHY_MSCR_RX_DELAY;
+>                 else if (phydev->interface =3D=3D PHY_INTERFACE_MODE_=
+RGMII_TXID)
+>                         mscr |=3D MII_88E1121_PHY_MSCR_TX_DELAY;
+>
+>                 err =3D phy_write(phydev, MII_88E1121_PHY_MSCR_REG, m=
+scr);
+>                 if (err < 0)
+>                         return err;
+>         }
+>
+> mscr initially holds the correct value (one with RX_DELAY and TX_DELA=
+Y
+> bits set). Since the _*ID are not specified, these bits are reset and
+> (now incorrect) value is written back to the register.
+> OTOH the generic PHY driver knows nothing about the MSCR and thus
+> doesn't "corrupt" it.
+>
+> The whole -ID thing is about signal trace lengths (on PCB), where the
+> non-ID setup requires special, longer traces for certain signals to
+> compensate for propagation times etc. The -ID version does it interna=
+lly
+> (when enabled) and the PCB layout can be a bit simpler.
+
+right - I understand what the delay lines are, it just struck me as
+strange that I've never needed this.
+
+>
+> To be honest I only checked it on a single GW5400 rev. C, but I'd exp=
+ect
+> it to be exactly the same across all GW5[234]*. Can test on GW5[23] i=
+f
+> there is any doubt (in few days I guess).
+>
+
+no doubt now. I re-created your config and see the problem as well.
+
+The marvell phy driver (drivers/net/phy/marvell.c) has a very lacking
+Kconfig stating its a PHY driver for the 88E1011S when in fact it has
+id's for 12 ID's including the 88E1510 we use on the GW51xx, GW52xx,
+GW53xx, GW54xx.
+
+This may be a stupid question but what does the Marvell phy driver
+offer that the generic phy driver does not?
+
+Thanks for finding this and submitting a patch!
+
+Acked-by: Tim Harvey <tharvey@gateworks.com>
+
+Tim
