@@ -1,97 +1,55 @@
-From: Peter Wu <peter@lekensteyn.nl>
-Subject: [PATCH v2] r8152: fix lockup when runtime PM is enabled
-Date: Tue,  8 Dec 2015 12:17:42 +0100
-Message-ID: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
-Cc: Lu Baolu <baolu.lu@linux.intel.com>
-To: Hayes Wang <hayeswang@realtek.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Liberman Igal <Igal.Liberman@freescale.com>
+Subject: RE: [v9, 3/6] fsl/fman: Add FMan MAC support
+Date: Tue, 8 Dec 2015 11:20:28 +0000
+Message-ID: <DM2PR03MB50977BE1FED436058110704E6080@DM2PR03MB509.namprd03.prod.outlook.com>
+References: <1449127157-9400-1-git-send-email-igal.liberman@freescale.com>
+	<1449127157-9400-4-git-send-email-igal.liberman@freescale.com>
+ <20151203.152342.830757781812463540.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Scott Wood <scottwood@freescale.com>,
+	Madalin-Cristian Bucur <madalin.bucur@freescale.com>,
+	"pebolle@tiscali.nl" <pebolle@tiscali.nl>,
+	"joakim.tjernlund@transmode.se" <joakim.tjernlund@transmode.se>,
+	"ppc@mindchasers.com" <ppc@mindchasers.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151203.152342.830757781812463540.davem@davemloft.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When an interface is brought up which was previously suspended (via
-runtime PM), it would hang. This happens because napi_disable is called
-before napi_enable.
 
-Solve this by avoiding napi_enable in the resume during open function
-(netif_running is true when open is called, IFF_UP is set after a
-successful open; netif_running is false when close is called, but IFF_UP
-is then still set).
 
-While at it, remove WORK_ENABLE check from rtl8152_open (introduced with
-the original change) because it cannot happen:
+Regards,
+Igal Liberman
 
- - After this patch, runtime resume will not set it during rtl8152_open.
- - When link is up, rtl8152_open is not called.
- - When link is down during system/auto suspend/resume, it is not set.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Thursday, December 03, 2015 10:24 PM
+> To: Liberman Igal-B31950 <Igal.Liberman@freescale.com>
+> Cc: netdev@vger.kernel.org; linuxppc-dev@lists.ozlabs.org; linux-
+> kernel@vger.kernel.org; Wood Scott-B07421 <scottwood@freescale.com>;
+> Bucur Madalin-Cristian-B32716 <madalin.bucur@freescale.com>;
+> pebolle@tiscali.nl; joakim.tjernlund@transmode.se; ppc@mindchasers.com;
+> stephen@networkplumber.org
+> Subject: Re: [v9, 3/6] fsl/fman: Add FMan MAC support
+> 
+> From: <igal.liberman@freescale.com>
+> Date: Thu, 3 Dec 2015 09:19:14 +0200
+> 
+> > +static u32 crc_table[256] = {
+> 
+> No way.
+> 
+> We have every conceivable implementation of CRC calculations in the kernel
+> already.  Use them.
 
-Fixes: 41cec84cf285 ("r8152: don't enable napi before rx ready")
-Link: https://lkml.kernel.org/r/20151205105912.GA1766@al
-Signed-off-by: Peter Wu <peter@lekensteyn.nl>
----
- v2: moved rtl_runtime_suspend_enable from close to rtl8152_suspend
+OK, I will remove the private implementation of CRC calculation in the next submission. Thank you.
 
-Tested with the scenario from
-https://lkml.kernel.org/r/20151208111008.GA18728@al
-(added debug prints to verify the suspend/resume moments)
----
- drivers/net/usb/r8152.c | 21 +++------------------
- 1 file changed, 3 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index d9427ca..2e32c41 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -3067,17 +3067,6 @@ static int rtl8152_open(struct net_device *netdev)
- 
- 	mutex_lock(&tp->control);
- 
--	/* The WORK_ENABLE may be set when autoresume occurs */
--	if (test_bit(WORK_ENABLE, &tp->flags)) {
--		clear_bit(WORK_ENABLE, &tp->flags);
--		usb_kill_urb(tp->intr_urb);
--		cancel_delayed_work_sync(&tp->schedule);
--
--		/* disable the tx/rx, if the workqueue has enabled them. */
--		if (netif_carrier_ok(netdev))
--			tp->rtl_ops.disable(tp);
--	}
--
- 	tp->rtl_ops.up(tp);
- 
- 	rtl8152_set_speed(tp, AUTONEG_ENABLE,
-@@ -3124,12 +3113,6 @@ static int rtl8152_close(struct net_device *netdev)
- 	} else {
- 		mutex_lock(&tp->control);
- 
--		/* The autosuspend may have been enabled and wouldn't
--		 * be disable when autoresume occurs, because the
--		 * netif_running() would be false.
--		 */
--		rtl_runtime_suspend_enable(tp, false);
--
- 		tp->rtl_ops.down(tp);
- 
- 		mutex_unlock(&tp->control);
-@@ -3512,7 +3495,7 @@ static int rtl8152_resume(struct usb_interface *intf)
- 		netif_device_attach(tp->netdev);
- 	}
- 
--	if (netif_running(tp->netdev)) {
-+	if (netif_running(tp->netdev) && tp->netdev->flags & IFF_UP) {
- 		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
- 			rtl_runtime_suspend_enable(tp, false);
- 			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
-@@ -3532,6 +3515,8 @@ static int rtl8152_resume(struct usb_interface *intf)
- 		}
- 		usb_submit_urb(tp->intr_urb, GFP_KERNEL);
- 	} else if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
-+		if (tp->netdev->flags & IFF_UP)
-+			rtl_runtime_suspend_enable(tp, false);
- 		clear_bit(SELECTIVE_SUSPEND, &tp->flags);
- 	}
- 
--- 
-2.6.3
+Igal
