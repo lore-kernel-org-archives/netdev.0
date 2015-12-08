@@ -1,49 +1,67 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [v9, 6/6] fsl/fman: Add FMan MAC driver
-Date: Tue, 8 Dec 2015 16:44:38 -0600
-Message-ID: <1449614678.15946.152.camel@freescale.com>
-References: <1449127157-9400-1-git-send-email-igal.liberman@freescale.com>
-	 <1449127157-9400-7-git-send-email-igal.liberman@freescale.com>
-	 <CAKWjMd7EDx8OnYGu-QJXM++fy=W5i2E74Fe4r9zNjUV_giyUKw@mail.gmail.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH] sbc8641: drop bogus PHY IRQ entries from DTS file
+Date: Tue, 8 Dec 2015 17:44:02 -0500
+Message-ID: <1449614642-8161-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	<madalin.bucur@freescale.com>, <pebolle@tiscali.nl>,
-	Joakim Tjernlund <joakim.tjernlund@transmode.se>,
-	<ppc@mindchasers.com>, <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>
-To: Andy Fleming <afleming@gmail.com>, <igal.liberman@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKWjMd7EDx8OnYGu-QJXM++fy=W5i2E74Fe4r9zNjUV_giyUKw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Michael Ellerman <mpe@ellerman.id.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:42631 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750937AbbLHWpu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 17:45:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-12-08 at 14:18 -0600, Andy Fleming wrote:
-> On Thu, Dec 3, 2015 at 1:19 AM,  <igal.liberman@freescale.com> wrote:
-> > From: Igal Liberman <igal.liberman@freescale.com>
-> > 
-> > This patch adds the Ethernet MAC driver supporting the three
-> > different types of MACs: dTSEC, tGEC and mEMAC.
-> > 
-> > Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
-> 
-> [...]
-> 
-> > +
-> > +MODULE_LICENSE("Dual BSD/GPL");
-> > +
-> > +MODULE_AUTHOR("Emil Medve <Emilian.Medve@Freescale.com>");
-> 
-> I imagine this email address doesn't exist anymore, or won't soon.
-> This is also an issue in the ethernet driver (with my old address).
-> I'm not sure what the right approach is, but we shouldn't be putting
-> obsolete email addresses in the kernel.
+This file was originally cloned off of the MPC8641D-HPCN reference
+platform, which actually had a PHY IRQ line connected.  However
+this board does not.  The bogus entry was largely inert and went
+undetected until commit 321beec5047af83db90c88114b7e664b156f49fe
+("net: phy: Use interrupts when available in NOLINK state") was
+added to the tree.
 
-I don't think a MODULE_AUTHOR tag makes sense for drivers like this that had a
-lot of people work on them.  git history is better for giving credit in such
-cases.
+With the above commit, the board fails to NFS boot since it sits
+waiting for a PHY IRQ event that of course never arrives.  Removing
+the bogus entries from the DTS file fixes the issue.
 
--Scott
+Cc: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ arch/powerpc/boot/dts/sbc8641d.dts | 8 --------
+ 1 file changed, 8 deletions(-)
+
+diff --git a/arch/powerpc/boot/dts/sbc8641d.dts b/arch/powerpc/boot/dts/sbc8641d.dts
+index 631ede72e226..68f0ed7626bd 100644
+--- a/arch/powerpc/boot/dts/sbc8641d.dts
++++ b/arch/powerpc/boot/dts/sbc8641d.dts
+@@ -227,23 +227,15 @@
+ 				reg = <0x520 0x20>;
+ 
+ 				phy0: ethernet-phy@1f {
+-					interrupt-parent = <&mpic>;
+-					interrupts = <10 1>;
+ 					reg = <0x1f>;
+ 				};
+ 				phy1: ethernet-phy@0 {
+-					interrupt-parent = <&mpic>;
+-					interrupts = <10 1>;
+ 					reg = <0>;
+ 				};
+ 				phy2: ethernet-phy@1 {
+-					interrupt-parent = <&mpic>;
+-					interrupts = <10 1>;
+ 					reg = <1>;
+ 				};
+ 				phy3: ethernet-phy@2 {
+-					interrupt-parent = <&mpic>;
+-					interrupts = <10 1>;
+ 					reg = <2>;
+ 				};
+ 				tbi0: tbi-phy@11 {
+-- 
+2.6.1
