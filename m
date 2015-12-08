@@ -1,145 +1,57 @@
-From: Pavel Fedin <p.fedin@samsung.com>
-Subject: [PATCH v2] net: thunderx: Correctly distinguish between VF and LMAC
- count
-Date: Tue, 08 Dec 2015 10:37:44 +0300
-Message-ID: <009701d1318b$54357620$fca06260$@samsung.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: Fixing full name in patchwork
+Date: Tue, 08 Dec 2015 09:54:41 +0200
+Message-ID: <87r3ixbcji.fsf@kamboji.qca.qualcomm.com>
+References: <1448281922-20382-1-git-send-email-sudipm.mukherjee@gmail.com>
+	<87zixmb0fp.fsf@kamboji.qca.qualcomm.com>
+	<20151208045404.GB23610@sudip-pc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: 'Sunil Goutham' <sgoutham@cavium.com>,
-	'Robert Richter' <rric@kernel.org>,
-	'Sunil Kovvuri' <sunil.kovvuri@gmail.com>,
-	youngmin.lee@cavium.com, kin-yip.liu@cavium.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.w1.samsung.com ([210.118.77.11]:52699 "EHLO
-	mailout1.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933219AbbLHHht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 02:37:49 -0500
-Received: from eucpsbgm2.samsung.com (unknown [203.254.199.245])
- by mailout1.w1.samsung.com
- (Oracle Communications Messaging Server 7.0.5.31.0 64bit (built May  5 2014))
- with ESMTP id <0NZ100A2C3UX8X20@mailout1.w1.samsung.com> for
- netdev@vger.kernel.org; Tue, 08 Dec 2015 07:37:45 +0000 (GMT)
-Content-language: ru
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, libertas-dev@lists.infradead.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151208045404.GB23610@sudip-pc> (Sudip Mukherjee's message of
+	"Tue, 8 Dec 2015 10:24:04 +0530")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit bc69fdfc6c13
-("net: thunderx: Enable BGX LMAC's RX/TX only after VF is up")
-introduces lmac_cnt member and starts verifying VF number against it.
-This is plain wrong, and works only because currently we have hardcoded
-1:1 mapping between VFs and LMACs, and in this case num_vf_en and
-lmac_cnt are always equal. However in future this may change, and the
-code will badly misbehave. The worst consequence of this is failure to
-deliver link status messages, causing VFs to go defunct because since
-commit 0b72a9a1060e ("net: thunderx: Switchon carrier only upon
-interface link up") VF will not fully bring itself up without it.
+Sudip Mukherjee <sudipm.mukherjee@gmail.com> writes:
 
-This patch fixes the potential problem by doing VF number checks against
-the num_vf_en. Since lmac_cnt is not used anywhere else, it is removed.
+> On Mon, Dec 07, 2015 at 08:03:54PM +0200, Kalle Valo wrote:
+>> Hi Sudip,
+>> 
+>> Sudip Mukherjee <sudipm.mukherjee@gmail.com> writes:
+>> 
+>> > We were dereferencing cmd first and checking for NULL later. Lets first
+>> > check for NULL.
+>> >
+>> > Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+>> 
+>> I noticed that your name in git log is not your full name:
+>> 
+>> commit 0a38c8e1b592c16d959da456f425053e323a5153
+>> Author: sudip <sudipm.mukherjee@gmail.com>
+>> Date:   Tue Nov 24 13:51:38 2015 +0530
+>> 
+>> This is because for some reason in patchwork your fullname is just
+>> "sudip":
+>> 
+>> https://patchwork.kernel.org/patch/7688171/
+>> 
+>> Could you please fix your name in patchwork so that in the future we can
+>> use your correct full name? The problem is that I don't know exactly how
+>> to do this but it should be possible because I remember someone else
+>> having a similar problem and he was able to fix it.
+>
+> I have also noticed the patch. Anyway, I have created a profile in
+> patchwork and given full name. Hopefully that should solve the problem.
 
-Additionally some duplicated code is factored out into nic_enable_vf()
+At least now your name in the patchwork link above looks correct:
 
-Signed-off-by: Pavel Fedin <p.fedin@samsung.com>
----
-v1 => v2:
-- Updated subject and commit message for better understanding
----
- drivers/net/ethernet/cavium/thunder/nic_main.c | 39 ++++++++++++--------------
- 1 file changed, 18 insertions(+), 21 deletions(-)
+Sudip Mukherjee - Nov. 24, 2015, 8:21 a.m.
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 4b7fd63..5f24d11 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -37,7 +37,6 @@ struct nicpf {
- #define	NIC_GET_BGX_FROM_VF_LMAC_MAP(map)	((map >> 4) & 0xF)
- #define	NIC_GET_LMAC_FROM_VF_LMAC_MAP(map)	(map & 0xF)
- 	u8			vf_lmac_map[MAX_LMAC];
--	u8			lmac_cnt;
- 	struct delayed_work     dwork;
- 	struct workqueue_struct *check_link;
- 	u8			link[MAX_LMAC];
-@@ -280,7 +279,6 @@ static void nic_set_lmac_vf_mapping(struct nicpf *nic)
- 	u64 lmac_credit;
- 
- 	nic->num_vf_en = 0;
--	nic->lmac_cnt = 0;
- 
- 	for (bgx = 0; bgx < NIC_MAX_BGX; bgx++) {
- 		if (!(bgx_map & (1 << bgx)))
-@@ -290,7 +288,6 @@ static void nic_set_lmac_vf_mapping(struct nicpf *nic)
- 			nic->vf_lmac_map[next_bgx_lmac++] =
- 						NIC_SET_VF_LMAC_MAP(bgx, lmac);
- 		nic->num_vf_en += lmac_cnt;
--		nic->lmac_cnt += lmac_cnt;
- 
- 		/* Program LMAC credits */
- 		lmac_credit = (1ull << 1); /* channel credit enable */
-@@ -618,6 +615,21 @@ static int nic_config_loopback(struct nicpf *nic, struct set_loopback *lbk)
- 	return 0;
- }
- 
-+static void nic_enable_vf(struct nicpf *nic, int vf, bool enable)
-+{
-+	int bgx, lmac;
-+
-+	nic->vf_enabled[vf] = enable;
-+
-+	if (vf >= nic->num_vf_en)
-+		return;
-+
-+	bgx = NIC_GET_BGX_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
-+	lmac = NIC_GET_LMAC_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
-+
-+	bgx_lmac_rx_tx_enable(nic->node, bgx, lmac, enable);
-+}
-+
- /* Interrupt handler to handle mailbox messages from VFs */
- static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
- {
-@@ -717,29 +729,14 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
- 		break;
- 	case NIC_MBOX_MSG_CFG_DONE:
- 		/* Last message of VF config msg sequence */
--		nic->vf_enabled[vf] = true;
--		if (vf >= nic->lmac_cnt)
--			goto unlock;
--
--		bgx = NIC_GET_BGX_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
--		lmac = NIC_GET_LMAC_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
--
--		bgx_lmac_rx_tx_enable(nic->node, bgx, lmac, true);
-+		nic_enable_vf(nic, vf, true);
- 		goto unlock;
- 	case NIC_MBOX_MSG_SHUTDOWN:
- 		/* First msg in VF teardown sequence */
--		nic->vf_enabled[vf] = false;
- 		if (vf >= nic->num_vf_en)
- 			nic->sqs_used[vf - nic->num_vf_en] = false;
- 		nic->pqs_vf[vf] = 0;
--
--		if (vf >= nic->lmac_cnt)
--			break;
--
--		bgx = NIC_GET_BGX_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
--		lmac = NIC_GET_LMAC_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
--
--		bgx_lmac_rx_tx_enable(nic->node, bgx, lmac, false);
-+		nic_enable_vf(nic, vf, false);
- 		break;
- 	case NIC_MBOX_MSG_ALLOC_SQS:
- 		nic_alloc_sqs(nic, &mbx.sqs_alloc);
-@@ -958,7 +955,7 @@ static void nic_poll_for_link(struct work_struct *work)
- 
- 	mbx.link_status.msg = NIC_MBOX_MSG_BGX_LINK_CHANGE;
- 
--	for (vf = 0; vf < nic->lmac_cnt; vf++) {
-+	for (vf = 0; vf < nic->num_vf_en; vf++) {
- 		/* Poll only if VF is UP */
- 		if (!nic->vf_enabled[vf])
- 			continue;
+Thanks for fixing this.
+
 -- 
-2.4.4
-
+Kalle Valo
