@@ -1,50 +1,97 @@
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
-Subject: [PATCH v3 3/4] i40e: Kernel dependency update for i40e to support geneve offload
-Date: Tue,  8 Dec 2015 10:12:13 -0800
-Message-ID: <1449598334-97674-4-git-send-email-anjali.singhai@intel.com>
+Subject: [PATCH v3 4/4] geneve: Add geneve_get_rx_port support
+Date: Tue,  8 Dec 2015 10:12:14 -0800
+Message-ID: <1449598334-97674-5-git-send-email-anjali.singhai@intel.com>
 References: <1449598334-97674-1-git-send-email-anjali.singhai@intel.com>
 Cc: jeffrey.t.kirsher@intel.org,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Kiran Patil <kiran.patil@intel.com>
+	Anjali Singhai Jain <anjali.singhai@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:11625 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751510AbbLHR5j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Dec 2015 12:57:39 -0500
+	id S1751808AbbLHR5k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2015 12:57:40 -0500
 In-Reply-To: <1449598334-97674-1-git-send-email-anjali.singhai@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update the Kconfig file with dependency for supporting GENEVE tunnel
-offloads.
+This patch adds an op that the drivers can call into to get existing
+geneve ports.
 
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Signed-off-by: Kiran Patil <kiran.patil@intel.com>
 ---
- drivers/net/ethernet/intel/Kconfig | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_main.c |  3 +++
+ drivers/net/geneve.c                        | 24 ++++++++++++++++++++++++
+ include/net/geneve.h                        |  8 ++++++++
+ 3 files changed, 35 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index 4163b16..fa593dd 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -280,6 +280,16 @@ config I40E_VXLAN
- 	  Say Y here if you want to use Virtual eXtensible Local Area Network
- 	  (VXLAN) in the driver.
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 08dc7d6..338d5eb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5347,6 +5347,9 @@ int i40e_open(struct net_device *netdev)
+ #ifdef CONFIG_I40E_VXLAN
+ 	vxlan_get_rx_port(netdev);
+ #endif
++#ifdef CONFIG_I40E_GENEVE
++	geneve_get_rx_port(netdev);
++#endif
  
-+config I40E_GENEVE
-+	bool "Generic Network Virtualization Encapsulation (GENEVE) Support"
-+	depends on I40E && GENEVE && !(I40E=y && GENEVE=m)
-+	default n
-+	---help---
-+	  This allows one to create GENEVE virtual interfaces that provide
-+	  Layer 2 Networks over Layer 3 Networks. GENEVE is often used
-+	  to tunnel virtual network infrastructure in virtualized environments.
-+	  Say Y here if you want to use GENEVE in the driver.
+ 	return 0;
+ }
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index b43fd56..bcf2be0 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -1090,6 +1090,30 @@ static struct device_type geneve_type = {
+ 	.name = "geneve",
+ };
+ 
++/* Calls the ndo_add_geneve_port of the caller in order to
++ * supply the listening GENEVE udp ports. Callers are expected
++ * to implement the ndo_add_geneve_port.
++ */
++void geneve_get_rx_port(struct net_device *dev)
++{
++	struct net *net = dev_net(dev);
++	struct geneve_net *gn = net_generic(net, geneve_net_id);
++	struct geneve_sock *gs;
++	sa_family_t sa_family;
++	struct sock *sk;
++	__be16 port;
 +
- config I40E_DCB
- 	bool "Data Center Bridging (DCB) Support"
- 	default n
++	rcu_read_lock();
++	list_for_each_entry_rcu(gs, &gn->sock_list, list) {
++		sk = gs->sock->sk;
++		sa_family = sk->sk_family;
++		port = inet_sk(sk)->inet_sport;
++		dev->netdev_ops->ndo_add_geneve_port(dev, sa_family, port);
++	}
++	rcu_read_unlock();
++}
++EXPORT_SYMBOL_GPL(geneve_get_rx_port);
++
+ /* Initialize the device structure. */
+ static void geneve_setup(struct net_device *dev)
+ {
+diff --git a/include/net/geneve.h b/include/net/geneve.h
+index 3106ed6..e6c23dc 100644
+--- a/include/net/geneve.h
++++ b/include/net/geneve.h
+@@ -62,6 +62,14 @@ struct genevehdr {
+ 	struct geneve_opt options[];
+ };
+ 
++#if IS_ENABLED(CONFIG_GENEVE)
++void geneve_get_rx_port(struct net_device *netdev);
++#else
++static inline void geneve_get_rx_port(struct net_device *netdev)
++{
++}
++#endif
++
+ #ifdef CONFIG_INET
+ struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
+ 					u8 name_assign_type, u16 dst_port);
 -- 
 1.8.1.4
