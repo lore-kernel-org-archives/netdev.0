@@ -1,51 +1,51 @@
-From: "Yankejian (Hackim Yim)" <yankejian@huawei.com>
-Subject: Re: [PATCH net-next] net: hns: optimize XGE capability by reducing
- cpu usage
-Date: Tue, 8 Dec 2015 14:58:04 +0800
-Message-ID: <56667F7C.9020009@huawei.com>
-References: <1449300749-50275-1-git-send-email-yankejian@huawei.com>
- <56654A31.4080607@intel.com> <56667729.1080701@huawei.com>
- <56667921.2010006@intel.com>
+From: Sam Russell <sam.h.russell@gmail.com>
+Subject: Re: MPLS decap with iproute2
+Date: Tue, 8 Dec 2015 20:26:12 +1300
+Message-ID: <CAJm+voW-J-aMM_cqCghSOPtYW_LbtUrHOD8XsdMGjGawEhesuQ@mail.gmail.com>
+References: <CAJm+voVUXPBXBRo98K6XS9pVEkN=fCJ4chRdQ=azcZO9ge9gEg@mail.gmail.com>
+	<5666424C.3050801@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <haifeng.wei@huawei.com>, <yisen.zhuang@huawei.com>,
-	<linuxarm@huawei.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: "Du, Fan" <fan.du@intel.com>, <davem@davemloft.net>,
-	<lisheng011@huawei.com>, <lipeng321@huawei.com>,
-	<salil.mehta@huawei.com>, <huangdaode@hisilicon.com>,
-	<xuwei5@hisilicon.com>, <liguozhu@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56667921.2010006@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: roopa <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f178.google.com ([209.85.220.178]:35421 "EHLO
+	mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933163AbbLHH0N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 02:26:13 -0500
+Received: by qkfb125 with SMTP id b125so17232867qkf.2
+        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 23:26:12 -0800 (PST)
+In-Reply-To: <5666424C.3050801@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Thanks all for your help, I got it working with Robert and Roopa's
+sysctl settings, the following works:
 
+ip route -f mpls add 100 dev lo
 
-On 2015/12/8 14:30, Du, Fan wrote:
->
->
-> On 2015/12/8 14:22, Yankejian (Hackim Yim) wrote:
+On 8 December 2015 at 15:37, roopa <roopa@cumulusnetworks.com> wrote:
+> On 12/7/15, 11:42 AM, Sam Russell wrote:
+>> Hi,
 >>
->> On 2015/12/7 16:58, Du, Fan wrote:
->>> >
->>> >
->>> >On 2015/12/5 15:32, yankejian wrote:
->>>> >>here is the patch raising the performance of XGE by:
->>>> >>1)changes the way page management method for enet momery, and
->>>> >>2)reduces the count of rmb, and
->>>> >>3)adds Memory prefetching
->>> >
->>> >Any numbers on how much it boost performance?
->>> >
->> it is almost the same as 82599.
+>> I've had success with the iproute2 manpage example for encapsulating
+>> outgoing traffic in MPLS, but I've not found a way to add decap routes
+>> inbound.
+>>
+>> I've tried "ip route -f mpls add 100 dev lo" and other variations, but I
+>> get netlink errors back.
+>>
+>> Has this been built yet? Is there sample config that I can try out? I'm
+>> running a home-built 4.3 kernel + iproute2 built from head (on ubuntu
+>> 15.10) and am comfortable with perf and splashing around in the codebase if
+>> need be.
+>>
+> Example below should work
+>  ip -f mpls route add 100 as 200 via inet 10.1.1.2 dev eth0
 >
-> I mean how much it improves performance *BEFORE* and *AFTER* this patch
-> for Huawei XGE chip, because the commit log states it "raising the performance",
-> but did give numbers of the testing.
+> You have to enable mpls on the interface first:
+> echo 1 > /proc/sys/net/mpls/conf/eth0/input
 >
-> .
+> multipath iproute2 patches are not in yet. Will submit them soon.
 >
-Hi Du Fan,
-the bandwidth's raising is not obviously, but the cpu usage degracing up to 50%
+> let me know if you still get errors.
