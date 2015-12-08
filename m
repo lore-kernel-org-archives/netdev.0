@@ -1,52 +1,52 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] vhost: vsock: select CONFIG_VHOST
-Date: Tue, 08 Dec 2015 16:46:08 +0100
-Message-ID: <36261336.7BBY96nNaM@wuerfel>
+From: Noam Camus <noamc@ezchip.com>
+Subject: RE: [PATCH] net: ezchip: fix address space confusion in nps_enet.c
+Date: Tue, 8 Dec 2015 15:54:26 +0000
+Message-ID: <DB5PR02MB11413338E829BFCBB7F086AED6080@DB5PR02MB1141.eurprd02.prod.outlook.com>
+References: <33732958.3idC7H2UPT@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, Asias He <asias@redhat.com>,
-	Stefan Hajnoczi <stefanha@redhat.com>,
+Content-Transfer-Encoding: 8BIT
+Cc: Tal Zilcer <talz@ezchip.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Arnd Bergmann <arnd@arndb.de>,
 	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.133]:65005 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965079AbbLHPqV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 10:46:21 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <33732958.3idC7H2UPT@wuerfel>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When building the new vsock code without vhost, we get a build error:
+>From: Arnd Bergmann [mailto:arnd@arndb.de] 
+>Sent: Tuesday, December 08, 2015 5:29 PM
+>To: David S. Miller
+>Cc: Noam Camus; Tal Zilcer; netdev@vger.kernel.org; linux-kernel@vger.kernel.org; linux-arm-kernel@lists.infradead.org
+>Subject: [PATCH] net: ezchip: fix address space confusion in nps_enet.c
 
-drivers/built-in.o: In function `vhost_vsock_flush':
-:(.text+0x24d29c): undefined reference to `vhost_poll_flush'
+>The nps_enet driver happily mixes virtual, physical and __iomem addresses, which are all different depending on the architecture and configuration.  That causes a warning when building the code on ARM with LPAE mode enabled:
 
-This adds an explicit 'select' like we have for the other vhost
-drivers.
+>drivers/net/ethernet/ezchip/nps_enet.c: In function 'nps_enet_send_frame':
+>drivers/net/ethernet/ezchip/nps_enet.c:370:13: warning: cast to pointer from integer of different size [-Wint-to-pointer-cast]
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/vhost/Kconfig.vsock | 2 ++
- 1 file changed, 2 insertions(+)
+>but will also fail to work for other reasons.
 
-The patch causing the problem is currently in net-next, so the fix should be
-applied on top of that.
+>In this patch, I'm trying to change the code to use only normal kernel pointers, which I assume is what the author actually meant:
 
-diff --git a/drivers/vhost/Kconfig.vsock b/drivers/vhost/Kconfig.vsock
-index 3491865d3eb9..bfb9edc4b5d6 100644
---- a/drivers/vhost/Kconfig.vsock
-+++ b/drivers/vhost/Kconfig.vsock
-@@ -2,6 +2,8 @@ config VHOST_VSOCK
- 	tristate "vhost virtio-vsock driver"
- 	depends on VSOCKETS && EVENTFD
- 	select VIRTIO_VSOCKETS_COMMON
-+	select VHOST
-+	select VHOST_RING
- 	default n
- 	---help---
- 	Say M here to enable the vhost-vsock for virtio-vsock guests
--- 
-2.1.0.rc2
+>* For reading or writing a 32-bit word that may be unaligned when
+> an SKB contains unaligned data, I'm using get_unaligned/put_unaligned()
+>  rather than memcpy_fromio/toio.
+
+>* For converting a u8 pointer to a u32 pointer, I use a cast rather
+>  than the incorrect virt_to_phys.
+
+>* For copying a couple of bytes from one place to another while respecting
+ > alignment, I use memcpy instead of memcpy_toio.
+
+>Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+
+I have tested it on my simulator environment and driver compiles cleanly and runs happily without any problem.
+Thank you.
+
+Acked-by Noam Camus <noamc@ezchip.com>
