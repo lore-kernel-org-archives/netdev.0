@@ -1,39 +1,36 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: IPsec workshop/BoF at netdev1.1?
-Date: Tue, 8 Dec 2015 12:30:02 +0100
-Message-ID: <20151208113002.GJ14008@secunet.com>
-References: <20151207120054.GI14008@secunet.com>
- <1449505201.25029.61.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: ipsec impact on performance
+Date: Tue, 8 Dec 2015 12:32:44 +0100
+Message-ID: <20151208113244.GK14008@secunet.com>
+References: <20151201175953.GC21252@oracle.com>
+ <20151202065305.GB14008@secunet.com>
+ <20151202120538.GJ23178@oracle.com>
+ <20151203084508.GD14008@secunet.com>
+ <20151203113820.GX15262@oracle.com>
+ <20151207084050.GH14008@secunet.com>
+ <20151207112748.GB14535@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:56091 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755401AbbLHLaH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Dec 2015 06:30:07 -0500
+Cc: <netdev@vger.kernel.org>, <linux-crypto@vger.kernel.org>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1449505201.25029.61.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20151207112748.GB14535@oracle.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 07, 2015 at 08:20:01AM -0800, Eric Dumazet wrote:
-> On Mon, 2015-12-07 at 13:00 +0100, Steffen Klassert wrote:
-> > Is there any interest in doing an IPsec workshop/BoF at netdev1.1?
+On Mon, Dec 07, 2015 at 06:27:48AM -0500, Sowmini Varadhan wrote:
+> On (12/07/15 09:40), Steffen Klassert wrote:
 > > 
-> > This mail is to probe if we can gather enough discussion topics to run
-> > such a workshop/BoF. So if someone is interested to attend and/or has a
-> > related discussion topic, please let me know.
+> > I've pushed it to
 > > 
-> > My current topics:
+> > https://git.kernel.org/cgit/linux/kernel/git/klassert/linux-stk.git/log/?h=net-next-ipsec-offload
 > > 
-> > - Adding a software GRO/GSO codepath for IPsec. I have working example code,
-> >   a RFC version could be ready before the netdev conference.
+> > It is just example code, nothing that I would show usually.
+> > But you asked for it, so here is it :)
 > 
-> 
-> - Remove rwlock usage (xfrm_policy_lock) from fast path and szitch to
-> RCU ?
+> that's fine, I dont expect more at this point, just want to 
+> test-drive it, and see how it compares to my approach. 
 
-Good point. I add it to the topic list, thanks!
+Would be nice if you could share the results. Comments are
+welcome too, of course.
