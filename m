@@ -1,84 +1,92 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC PATCHv2 net-next 1/2] tcp: RTO Restart (RTOR)
-Date: Tue, 8 Dec 2015 12:50:18 +0200 (EET)
-Message-ID: <alpine.DEB.2.10.1512081246070.19242@melkinpaasi.cs.helsinki.fi>
-References: <cover.1449478261.git.per.hurtig@kau.se> <cover.1449561786.git.per.hurtig@kau.se> <8cd2c4817d86e30b09fe398c6bfcb7a89521bdb3.1449561786.git.per.hurtig@kau.se>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH 00/13] mvneta Buffer Management and enhancements
+Date: Tue, 8 Dec 2015 11:56:28 +0100
+Message-ID: <CAPv3WKeTqWXvABPHovH6dqUz_qs88Wy7Q6cbOHsujt4CM0=32g@mail.gmail.com>
+References: <CAPv3WKc4zSmjtw_FeePCVCaq_aUubbCw_ggtxgxs0-7LwL7fHQ@mail.gmail.com>
+	<20151129.210210.1777978635596463961.davem@davemloft.net>
+	<CAPv3WKcHnJHCvg63Vs79RboNOuESU8jCLouKPRW4NdptAd_hag@mail.gmail.com>
+	<20151130.112500.293198684175670933.davem@redhat.com>
+	<CAPv3WKcKm3X3Lys2HwYZXaZxPaajenF7av1wJKXqKxxwibXW4A@mail.gmail.com>
+	<5661F449.5020205@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
-	ncardwell@google.com, nanditad@google.com, tom@herbertland.com,
-	ycheng@google.com, viro@zeniv.linux.org.uk, fw@strlen.de,
-	mleitner@redhat.com, daniel@iogearbox.net, willemb@google.com,
-	pasi.sarolahti@iki.fi, stephen@networkplumber.org,
-	Netdev <netdev@vger.kernel.org>, anna.brunstrom@kau.se,
-	apetlund@simula.no, michawe@ifi.uio.no, mohammad.rajiullah@kau.se
-To: Per Hurtig <per.hurtig@kau.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from script.cs.helsinki.fi ([128.214.11.1]:36455 "EHLO
-	script.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932537AbbLHKuY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 05:50:24 -0500
-In-Reply-To: <8cd2c4817d86e30b09fe398c6bfcb7a89521bdb3.1449561786.git.per.hurtig@kau.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Yair Mahalalel <myair@marvell.com>,
+	Grzegorz Jaszczyk <jaz@semihalf.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Evan Wang <xswang@marvell.com>, nadavh@marvell.com,
+	Lior Amsalem <alior@marvell.com>,
+	Tomasz Nowicki <tn@semihalf.com>,
+	=?UTF-8?Q?Gregory_Cl=C3=A9ment?=
+	<gregory.clement@free-electrons.com>, nitroshift@yahoo.com,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: David Miller <davem@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5661F449.5020205@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 8 Dec 2015, Per Hurtig wrote:
+Hi David,
 
-> This patch implements the RTO restart modification (RTOR). When data is
-> ACKed, and the RTO timer is restarted, the time elapsed since the last
-> outstanding segment was transmitted is subtracted from the calculated RTO
-> value. This way, the RTO timer will expire after exactly RTO seconds, and
-> not RTO + RTT [+ delACK] seconds.
-> 
-> This patch also implements a new sysctl (tcp_timer_restart) that is used
-> to control the timer restart behavior.
-> 
-> Signed-off-by: Per Hurtig <per.hurtig@kau.se>
-> ---
->  Documentation/networking/ip-sysctl.txt | 12 ++++++++++++
->  include/net/tcp.h                      |  6 ++++++
->  net/ipv4/sysctl_net_ipv4.c             | 10 ++++++++++
->  net/ipv4/tcp_input.c                   | 29 +++++++++++++++++++++++++++++
->  4 files changed, 57 insertions(+)
-> 
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index 2ea4c45..4094128 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -591,6 +591,18 @@ tcp_syn_retries - INTEGER
->  	with the current initial RTO of 1second. With this the final timeout
->  	for an active TCP connection attempt will happen after 127seconds.
->  
-> +tcp_timer_restart - INTEGER
-> +	Controls how the RTO and PTO timers are restarted (RTOR and TLPR).
-> +	If set (per timer or combined) the timers are restarted with
-> +	respect to the earliest outstanding segment, to not extend tail loss
-> +	latency unnecessarily.
-> +	Possible values:
-> +		0 disables RTOR and TLPR.
-> +		1 enables RTOR.
-> +		2 enables TLPR.
-> +		3 enables RTOR and TLPR.
-> +	Default: 3
-> +
->  tcp_timestamps - BOOLEAN
->  	Enable timestamps as defined in RFC1323.
->  
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index f80e74c..833efb7 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -76,6 +76,11 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
->  /* After receiving this amount of duplicate ACKs fast retransmit starts. */
->  #define TCP_FASTRETRANS_THRESH 3
->  
-> +/* Disable RTO Restart if the number of outstanding segments is at least. */
-> +#define TCP_TIMER_RTORESTART	1
-> +#define TCP_TIMER_TLPRESTART	2
-> +#define TCP_RTORESTART_THRESH	4
+2015-12-04 21:15 GMT+01:00 Florian Fainelli <f.fainelli@gmail.com>:
+> (no top posting please)
+>
+> On 02/12/15 00:26, Marcin Wojtas wrote:
+>> Hi Florian,
+>>
+>> Can you please describe in more details, what would you expect from
+>> such special abstraction layer regarding buffer managers? I'd like to
+>> understand more of your expectations and evaluate possible work.
+>
+> Well, something along these lines:
+>
+> - have the ability to register a particular pool (location + number of
+> buffers) in a way that is relatively device agnostic (initialization
+> would of course be device specific)
+>
+> - provide a set of buffer management APIs like those you proposed below,
+> and have some generic code that leverages what
+> drivers/net/ethernet/sun/niu.c does for instance
+>
+> - introduce a netdev_alloc_skb_from_pool() or something like that which
+> would limit the amount of code to change in your network driver to
+> benefit from that feature so based
+>
+> I am sure David would be able to suggest more detailed API.
+>
 
-Unfortunately the comment got now separated from the actual define.
+As we're getting closer to what a generic BM part, could you please
+share your thoughts on the possible API?
 
 
--- 
- i.
+>>>
+>>>> What kind of abstraction and helpers do you mean? Some kind of API
+>>>> (e.g. bm_alloc_buffer, bm_initialize_ring bm_put_buffer,
+>>>> bm_get_buffer), which would be used by platform drivers (and specific
+>>>> aplications if one wants to develop on top of the kernel)?
+>>>>
+>>>> In general, what is your top-view of such solution and its cooperation
+>>>> with the drivers?
+>>>
+>>> The tricky parts involved have to do with allocating pages for the
+>>> buffer pools and minimizing the number of atomic refcounting
+>>> operations on those pages for for the puts and gets, particularly
+>>> around buffer replenish runs.
+>>>
+>>> For example, if you're allocating a page for a buffer pool the device
+>>> will chop into N (for any N < PAGE_SIZE) byte pieces, you can
+>>> eliminate many atomic operations.
+>
+
+Do you think you can point to anything similar that could be a sort of
+reference for such solution?
+
+Best regards,
+Marcin
