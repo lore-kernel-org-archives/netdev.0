@@ -1,59 +1,33 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: next-20151207 - crash in IPv6 code
-Date: Tue, 8 Dec 2015 12:34:09 +0100
-Message-ID: <20151208113409.GA31055@breakpoint.cc>
-References: <3884.1449551563@turing-police.cc.vt.edu>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: ipsec impact on performance
+Date: Tue, 8 Dec 2015 06:51:15 -0500
+Message-ID: <20151208115115.GJ4415@oracle.com>
+References: <20151201175953.GC21252@oracle.com>
+ <20151202065305.GB14008@secunet.com>
+ <20151202120538.GJ23178@oracle.com>
+ <20151203084508.GD14008@secunet.com>
+ <20151203113820.GX15262@oracle.com>
+ <20151207084050.GH14008@secunet.com>
+ <20151207112748.GB14535@oracle.com>
+ <20151208113244.GK14008@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, pablo@netfilter.org
-To: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40571 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750750AbbLHLeP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 06:34:15 -0500
+Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <3884.1449551563@turing-police.cc.vt.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20151208113244.GK14008@secunet.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Valdis Kletnieks <Valdis.Kletnieks@vt.edu> wrote:
+On (12/08/15 12:32), Steffen Klassert wrote:
+> 
+> Would be nice if you could share the results. Comments are
 
-[ CC Pablo ]
+Sure, not a problem. Give me some time though, I'm also looking
+into the skb_cow_data and other memory-management issues that
+were flagged on this thread. 
 
-> Seen this in 2 boots out of two on next-20151207 when IPV6 networking
-> was available.  It was stable when no net was available. Also, next-20161127 is OK.
-> Haven't bisected it yet - this ring any bells?
+I'll have all this info by netdev, at the latest.
 
-Thanks for the report, my fault -- its caused by
-029f7f3b8701cc7aca8bdb which is only in Pablos nf-next tree.
-
-This should fix this bug (proper patch w. changelog coming
-after more testing):
-
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -441,11 +441,14 @@ nf_ct_frag6_reasm(struct frag_queue *fq, struct sk_buff *prev,  struct net_devic
- 			return false;
- 
- 		fp->next = prev->next;
--		skb_queue_walk(head, iter) {
--			if (iter->next != prev)
--				continue;
--			iter->next = fp;
--			break;
-+
-+		iter = head;
-+		while (iter) {
-+			if (iter->next == prev) {
-+				iter->next = fp;
-+				break;
-+			}
-+			iter = iter->next;
- 		}
- 
- 		skb_morph(prev, head);
+--Sowmini
