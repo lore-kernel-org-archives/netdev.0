@@ -1,7 +1,7 @@
 From: Per Hurtig <per.hurtig@kau.se>
-Subject: [RFC PATCHv2 net-next 1/2] tcp: RTO Restart (RTOR)
-Date: Tue,  8 Dec 2015 10:19:42 +0100
-Message-ID: <8cd2c4817d86e30b09fe398c6bfcb7a89521bdb3.1449561786.git.per.hurtig@kau.se>
+Subject: [RFC PATCHv2 net-next 2/2] tcp: TLP restart (TLPR)
+Date: Tue,  8 Dec 2015 10:19:43 +0100
+Message-ID: <b1ed93c04ebc853c5bd4366392147ed8212fc706.1449561786.git.per.hurtig@kau.se>
 References: <cover.1449478261.git.per.hurtig@kau.se>
  <cover.1449561786.git.per.hurtig@kau.se>
 Cc: anna.brunstrom@kau.se, apetlund@simula.no, michawe@ifi.uio.no,
@@ -13,9 +13,9 @@ To: davem@davemloft.net, edumazet@google.com, ncardwell@google.com,
 	ilpo.jarvinen@helsinki.fi, pasi.sarolahti@iki.fi,
 	stephen@networkplumber.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.kau.se ([193.10.220.39]:53178 "EHLO nasse.dc.kau.se"
+Received: from smtp.kau.se ([193.10.220.39]:16975 "EHLO nasse.dc.kau.se"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755025AbbLHJ04 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755075AbbLHJ04 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 8 Dec 2015 04:26:56 -0500
 In-Reply-To: <cover.1449561786.git.per.hurtig@kau.se>
 In-Reply-To: <cover.1449561786.git.per.hurtig@kau.se>
@@ -23,151 +23,83 @@ References: <cover.1449561786.git.per.hurtig@kau.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch implements the RTO restart modification (RTOR). When data is
-ACKed, and the RTO timer is restarted, the time elapsed since the last
+This patch implements the TLP restart modification (TLPR). When data is
+ACKed, and TLP's PTO timer is restarted, the time elapsed since the last
 outstanding segment was transmitted is subtracted from the calculated RTO
-value. This way, the RTO timer will expire after exactly RTO seconds, and
-not RTO + RTT [+ delACK] seconds.
-
-This patch also implements a new sysctl (tcp_timer_restart) that is used
-to control the timer restart behavior.
+value to not unnecessarily delay loss probes.
 
 Signed-off-by: Per Hurtig <per.hurtig@kau.se>
 ---
- Documentation/networking/ip-sysctl.txt | 12 ++++++++++++
- include/net/tcp.h                      |  6 ++++++
- net/ipv4/sysctl_net_ipv4.c             | 10 ++++++++++
- net/ipv4/tcp_input.c                   | 29 +++++++++++++++++++++++++++++
- 4 files changed, 57 insertions(+)
+ include/net/tcp.h     |  2 +-
+ net/ipv4/tcp_input.c  |  2 +-
+ net/ipv4/tcp_output.c | 12 ++++++++++--
+ 3 files changed, 12 insertions(+), 4 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 2ea4c45..4094128 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -591,6 +591,18 @@ tcp_syn_retries - INTEGER
- 	with the current initial RTO of 1second. With this the final timeout
- 	for an active TCP connection attempt will happen after 127seconds.
- 
-+tcp_timer_restart - INTEGER
-+	Controls how the RTO and PTO timers are restarted (RTOR and TLPR).
-+	If set (per timer or combined) the timers are restarted with
-+	respect to the earliest outstanding segment, to not extend tail loss
-+	latency unnecessarily.
-+	Possible values:
-+		0 disables RTOR and TLPR.
-+		1 enables RTOR.
-+		2 enables TLPR.
-+		3 enables RTOR and TLPR.
-+	Default: 3
-+
- tcp_timestamps - BOOLEAN
- 	Enable timestamps as defined in RFC1323.
- 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index f80e74c..833efb7 100644
+index 833efb7..14c0888 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -76,6 +76,11 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
- /* After receiving this amount of duplicate ACKs fast retransmit starts. */
- #define TCP_FASTRETRANS_THRESH 3
+@@ -568,7 +568,7 @@ void tcp_push_one(struct sock *, unsigned int mss_now);
+ void tcp_send_ack(struct sock *sk);
+ void tcp_send_delayed_ack(struct sock *sk);
+ void tcp_send_loss_probe(struct sock *sk);
+-bool tcp_schedule_loss_probe(struct sock *sk);
++bool tcp_schedule_loss_probe(struct sock *sk, bool restart);
  
-+/* Disable RTO Restart if the number of outstanding segments is at least. */
-+#define TCP_TIMER_RTORESTART	1
-+#define TCP_TIMER_TLPRESTART	2
-+#define TCP_RTORESTART_THRESH	4
-+
- /* Maximal number of ACKs sent quickly to accelerate slow-start. */
- #define TCP_MAX_QUICKACKS	16U
- 
-@@ -284,6 +289,7 @@ extern int sysctl_tcp_autocorking;
- extern int sysctl_tcp_invalid_ratelimit;
- extern int sysctl_tcp_pacing_ss_ratio;
- extern int sysctl_tcp_pacing_ca_ratio;
-+extern int sysctl_tcp_timer_restart;
- 
- extern atomic_long_t tcp_memory_allocated;
- extern struct percpu_counter tcp_sockets_allocated;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index a0bd7a5..dfb6968 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -28,6 +28,7 @@
- 
- static int zero;
- static int one = 1;
-+static int three = 3;
- static int four = 4;
- static int thousand = 1000;
- static int gso_max_segs = GSO_MAX_SEGS;
-@@ -745,6 +746,15 @@ static struct ctl_table ipv4_table[] = {
- 		.extra2		= &thousand,
- 	},
- 	{
-+		.procname	= "tcp_timer_restart",
-+		.data		= &sysctl_tcp_timer_restart,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &three,
-+	},
-+	{
- 		.procname	= "tcp_autocorking",
- 		.data		= &sysctl_tcp_autocorking,
- 		.maxlen		= sizeof(int),
+ /* tcp_input.c */
+ void tcp_resume_early_retransmit(struct sock *sk);
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 2d656ee..2870af3 100644
+index 2870af3..952c4cd 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -101,6 +101,8 @@ int sysctl_tcp_thin_dupack __read_mostly;
+@@ -3660,7 +3660,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	}
  
- int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
- int sysctl_tcp_early_retrans __read_mostly = 3;
-+int sysctl_tcp_timer_restart __read_mostly = TCP_TIMER_RTORESTART |
-+					     TCP_TIMER_TLPRESTART;
- int sysctl_tcp_invalid_ratelimit __read_mostly = HZ/2;
+ 	if (icsk->icsk_pending == ICSK_TIME_RETRANS)
+-		tcp_schedule_loss_probe(sk);
++		tcp_schedule_loss_probe(sk, true);
+ 	tcp_update_pacing_rate(sk);
+ 	return 1;
  
- #define FLAG_DATA		0x01 /* Incoming frame contained data.		*/
-@@ -2997,6 +2999,22 @@ static void tcp_cong_avoid(struct sock *sk, u32 ack, u32 acked)
- 	tcp_sk(sk)->snd_cwnd_stamp = tcp_time_stamp;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index a800cee..b89ba50 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2135,7 +2135,7 @@ repair:
+ 
+ 		/* Send one loss probe per tail loss episode. */
+ 		if (push_one != 2)
+-			tcp_schedule_loss_probe(sk);
++			tcp_schedule_loss_probe(sk, false);
+ 		is_cwnd_limited |= (tcp_packets_in_flight(tp) >= tp->snd_cwnd);
+ 		tcp_cwnd_validate(sk, is_cwnd_limited);
+ 		return false;
+@@ -2143,10 +2143,11 @@ repair:
+ 	return !tp->packets_out && tcp_send_head(sk);
  }
  
-+static u32 tcp_unsent_pkts(const struct sock *sk, u32 ulimit)
-+{
-+	struct sk_buff *skb = tcp_send_head(sk);
-+	u32 pkts = 0;
+-bool tcp_schedule_loss_probe(struct sock *sk)
++bool tcp_schedule_loss_probe(struct sock *sk, bool restart)
+ {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	struct sk_buff *skb = tcp_write_queue_head(sk);
+ 	u32 timeout, tlp_time_stamp, rto_time_stamp;
+ 	u32 rtt = usecs_to_jiffies(tp->srtt_us >> 3);
+ 
+@@ -2186,6 +2187,13 @@ bool tcp_schedule_loss_probe(struct sock *sk)
+ 	if (tp->packets_out == 1)
+ 		timeout = max_t(u32, timeout,
+ 				(rtt + (rtt >> 1) + TCP_DELACK_MAX));
++	if (sysctl_tcp_timer_restart & TCP_TIMER_TLPRESTART && restart && skb) {
++		const u32 rto_time_stamp = tcp_skb_timestamp(skb);
++		s32 delta = (s32)(tcp_time_stamp - rto_time_stamp);
 +
-+	if (skb)
-+		tcp_for_write_queue_from(skb, sk) {
-+			pkts += tcp_skb_pcount(skb);
-+
-+			if (ulimit && pkts >= ulimit)
-+				return ulimit;
-+		}
-+
-+	return pkts;
-+}
-+
- /* Restart timer after forward progress on connection.
-  * RFC2988 recommends to restart timer to now+rto.
-  */
-@@ -3027,6 +3045,17 @@ void tcp_rearm_rto(struct sock *sk)
- 			 */
- 			if (delta > 0)
- 				rto = delta;
-+		} else if (icsk->icsk_pending == ICSK_TIME_RETRANS &&
-+			   (sysctl_tcp_timer_restart & TCP_TIMER_RTORESTART) &&
-+			   (tp->packets_out +
-+			    tcp_unsent_pkts(sk, TCP_RTORESTART_THRESH) <
-+			    TCP_RTORESTART_THRESH)) {
-+			struct sk_buff *skb = tcp_write_queue_head(sk);
-+			const u32 rto_time_stamp = tcp_skb_timestamp(skb);
-+			s32 delta = (s32)(tcp_time_stamp - rto_time_stamp);
-+
-+			if (delta > 0 && rto > delta)
-+				rto -= delta;
- 		}
- 		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, rto,
- 					  TCP_RTO_MAX);
++		if (delta > 0 && timeout > delta)
++			timeout -= delta;
++	}
+ 	timeout = max_t(u32, timeout, msecs_to_jiffies(10));
+ 
+ 	/* If RTO is shorter, just schedule TLP in its place. */
 -- 
 1.9.1
