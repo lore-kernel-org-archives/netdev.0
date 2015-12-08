@@ -1,53 +1,42 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH v2] r8152: fix lockup when runtime PM is enabled
-Date: Tue, 8 Dec 2015 12:39:12 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2F8DAD9@RTITMBSV03.realtek.com.tw>
-References: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next,1/2] net: Set sk_txhash from a random number
+Date: Tue, 08 Dec 2015 05:15:59 -0800
+Message-ID: <1449580559.7632.10.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1438124526-2129341-2-git-send-email-tom@herbertland.com>
+	 <566695D6.6060603@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Lu Baolu <baolu.lu@linux.intel.com>
-To: Peter Wu <peter@lekensteyn.nl>,
-	"David S . Miller" <davem@davemloft.net>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, kernel-team@fb.com
+To: Alexander Drozdov <al.drozdov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:59016 "EHLO
-	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755129AbbLHMjf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 07:39:35 -0500
-In-Reply-To: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
-Content-Language: zh-TW
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:35425 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751834AbbLHNQC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 08:16:02 -0500
+Received: by pfu207 with SMTP id 207so12175659pfu.2
+        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 05:16:01 -0800 (PST)
+In-Reply-To: <566695D6.6060603@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Peter Wu [mailto:peter@lekensteyn.nl]
-> Sent: Tuesday, December 08, 2015 7:18 PM
+On Tue, 2015-12-08 at 11:33 +0300, Alexander Drozdov wrote:
+> 29.07.2015 02:02, Tom Herbert wrote:
+> > This patch creates sk_set_txhash and eliminates protocol specific
+> > inet_set_txhash and ip6_set_txhash. sk_set_txhash simply sets a
+> > random number instead of performing flow dissection. sk_set_txash
+> > is also allowed to be called multiple times for the same socket,
+> > we'll need this when redoing the hash for negative routing advice.
+> It seems that this patch and some previous txhash-related
+> ones break af_packet hash features for outgoing packets:
+> - PACKET_FANOUT_HASH
+> - TP_FT_REQ_FILL_RXHASH
 > 
-> When an interface is brought up which was previously suspended (via
-> runtime PM), it would hang. This happens because napi_disable is called
-> before napi_enable.
-> 
-> Solve this by avoiding napi_enable in the resume during open function
-> (netif_running is true when open is called, IFF_UP is set after a
-> successful open; netif_running is false when close is called, but IFF_UP
-> is then still set).
-> 
-> While at it, remove WORK_ENABLE check from rtl8152_open (introduced with
-> the original change) because it cannot happen:
-> 
->  - After this patch, runtime resume will not set it during rtl8152_open.
->  - When link is up, rtl8152_open is not called.
->  - When link is down during system/auto suspend/resume, it is not set.
-> 
-> Fixes: 41cec84cf285 ("r8152: don't enable napi before rx ready")
-> Link: https://lkml.kernel.org/r/20151205105912.GA1766@al
-> Signed-off-by: Peter Wu <peter@lekensteyn.nl>
-> ---
->  v2: moved rtl_runtime_suspend_enable from close to rtl8152_suspend
+> af_packet now thinks that hashes for for incoming and outgoing
+> packets of the same TCP stream differ. That is true for TCP
+> sessions initiated by the host.
 
-Acked-by: Hayes Wang <hayeswang@realtek.com>
-
-Best Regards,
-Hayes
+There never has been such guarantee. Even rx hashes for a single TCP
+flow can differ, if packets are received on two different NIC with
+different RSSS keys.
