@@ -1,74 +1,207 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH 1/1] net:sctp: disable to inform ULP about transition
- from PF to active state
-Date: Tue, 8 Dec 2015 10:11:31 -0200
-Message-ID: <20151208121131.GA26906@mrl.redhat.com>
-References: <1449568042-9176-1-git-send-email-zyjzyj2000@gmail.com>
+From: "Yankejian (Hackim Yim)" <yankejian@huawei.com>
+Subject: Re: [PATCH net-next 2/2] net: hns: enet specisies a reference to dsaf
+ (config and documents)
+Date: Tue, 8 Dec 2015 20:21:05 +0800
+Message-ID: <5666CB31.6090109@huawei.com>
+References: <1449302356-54658-1-git-send-email-yankejian@huawei.com>
+ <1449302356-54658-3-git-send-email-yankejian@huawei.com>
+ <20151207141221.GA18040@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	alexandre.dietsch@windriver.com, stefan.costandache@windriver.com
-To: zyjzyj2000@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43643 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932535AbbLHMLh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Dec 2015 07:11:37 -0500
-Content-Disposition: inline
-In-Reply-To: <1449568042-9176-1-git-send-email-zyjzyj2000@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <arnd@arndb.de>, <fengguang.wu@intel.com>,
+	<pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<catalin.marinas@arm.com>, <will.deacon@arm.com>,
+	<salil.mehta@huawei.com>, <Yisen.Zhuang@huawei.com>,
+	<liguozhu@huawei.com>, <lisheng011@huawei.com>,
+	<huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
+	<haifeng.wei@huawei.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
+To: Rob Herring <robh@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151207141221.GA18040@rob-hp-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
 
-On Tue, Dec 08, 2015 at 05:47:22PM +0800, zyjzyj2000@gmail.com wrote:
-> From: yzhu1 <zyjzyj2000@gmail.com>
-> 
-> This feature is introduced in the commit 5aa93bc "sctp: Implement
-> quick failover draft from tsvwg". This feature should be disabled
-> if the quick failover feature is disabled.
-> 
-> Signed-off-by: yzhu1 <zyjzyj2000@gmail.com>
-> ---
->  net/sctp/associola.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index 559afd0..7438625 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -795,7 +795,8 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
->  		 * active state and set cwnd to 1 MTU, see SCTP
->  		 * Quick failover draft section 5.1, point 5
->  		 */
-> -		if (transport->state == SCTP_PF) {
-> +		if ((asoc->pf_retrans < asoc->max_retrans) && 
-> +			(transport->state == SCTP_PF)) {
->  			ulp_notify = false;
->  			transport->cwnd = asoc->pathmtu;
->  		}
 
-Didn't you confuse asoc->max_retrans with Path.Max.Retrans?
-That draft refers to asoc->pf_retrans having to be bigger than
-Path.Max.Retrans in order to disable PF, and asoc->max_retrans is
-another thing, it's originated from net->sctp.max_retrans_association.
-
-The check is performed later in the code:
-
-+       if ((transport->state != SCTP_PF) &&
-+          (asoc->pf_retrans < transport->pathmaxrxt) &&
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-+          (transport->error_count > asoc->pf_retrans)) {
-
-This check should avoid that state transition as it will avoid the path
-from entereing SCTP_PF state at all.
-
-transport->pathmaxrst is originated from net->sctp.max_retrans_path.
-
-Btw, you had indentantion issues with your patch. Extra () that aren't
-needed and the second line should start at the column right after the
-initial ( in the first line. Please run scripts/checkpatch.pl on it next
-time. 
-
-  Marcelo
+On 2015/12/7 22:12, Rob Herring wrote:
+> On Sat, Dec 05, 2015 at 03:59:16PM +0800, yankejian wrote:
+>> when enet specisies a reference to dsaf, the correlative config and
+> s/when/When/
+ok=EF=BC=8Ci will pay attention to it on patch v3.
+thanks.
+>> documents needs to update. this patch updates the correlative dtsi f=
+ile
+> s/this/This/
+ok=EF=BC=8Ci will pay attention to it on patch v3.
+thanks.
+>> and bindings documents .
+>                         ^
+> extra space
+>
+> This change breaks compatibility with old dtbs. IIRC, this is all new=
+,=20
+> so maybe it doesn't matter, but you should be explicit that you are=20
+> doing that.
+>
+ok=EF=BC=8Ci will pay attention to it on patch v3.
+thanks.
+>> Signed-off-by: yankejian <yankejian@huawei.com>
+>> ---
+>>  .../devicetree/bindings/net/hisilicon-hns-dsaf.txt    |  5 +----
+>>  .../devicetree/bindings/net/hisilicon-hns-nic.txt     |  7 ++++---
+>>  arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi          | 19 ++++++++=
++----------
+>>  3 files changed, 14 insertions(+), 17 deletions(-)
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-dsa=
+f.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
+>> index 80411b2..ecacfa4 100644
+>> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
+>> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
+>> @@ -4,8 +4,6 @@ Required properties:
+>>  - compatible: should be "hisilicon,hns-dsaf-v1" or "hisilicon,hns-d=
+saf-v2".
+>>    "hisilicon,hns-dsaf-v1" is for hip05.
+>>    "hisilicon,hns-dsaf-v2" is for Hi1610 and Hi1612.
+>> -- dsa-name: dsa fabric name who provide this interface.
+>> -  should be "dsafX", X is the dsaf id.
+>>  - mode: dsa fabric mode string. only support one of dsaf modes like=
+ these:
+>>  		"2port-64vf",
+>>  		"6port-16rss",
+>> @@ -26,9 +24,8 @@ Required properties:
+>> =20
+>>  Example:
+>> =20
+>> -dsa: dsa@c7000000 {
+>> +dsaf0: dsa@c7000000 {
+>>  	compatible =3D "hisilicon,hns-dsaf-v1";
+>> -	dsa_name =3D "dsaf0";
+>>  	mode =3D "6port-16rss";
+>>  	interrupt-parent =3D <&mbigen_dsa>;
+>>  	reg =3D <0x0 0xC0000000 0x0 0x420000
+>> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-nic=
+=2Etxt b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
+>> index 41d19be..e6a9d1c 100644
+>> --- a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
+>> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
+>> @@ -4,8 +4,9 @@ Required properties:
+>>  - compatible: "hisilicon,hns-nic-v1" or "hisilicon,hns-nic-v2".
+>>    "hisilicon,hns-nic-v1" is for hip05.
+>>    "hisilicon,hns-nic-v2" is for Hi1610 and Hi1612.
+>> -- ae-name: accelerator name who provides this interface,
+>> -  is simply a name referring to the name of name in the accelerator=
+ node.
+>> +- ae-handle: accelerator engine handle for hns,
+>> +  specifies a reference to the associating hardware driver node.
+>> +  see Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
+>>  - port-id: is the index of port provided by DSAF (the accelerator).=
+ DSAF can
+>>    connect to 8 PHYs. Port 0 to 1 are both used for adminstration pu=
+rpose. They
+>>    are called debug ports.
+>> @@ -41,7 +42,7 @@ Example:
+>> =20
+>>  	ethernet@0{
+>>  		compatible =3D "hisilicon,hns-nic-v1";
+>> -		ae-name =3D "dsaf0";
+>> +		ae-handle =3D <&dsaf0>;
+>>  		port-id =3D <0>;
+>>  		local-mac-address =3D [a2 14 e4 4b 56 76];
+>>  	};
+>> diff --git a/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi b/arch/arm=
+64/boot/dts/hisilicon/hip05_hns.dtsi
+>> index 606dd5a..89c883e 100644
+>> --- a/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi
+>> +++ b/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi
+>> @@ -23,9 +23,8 @@ soc0: soc@000000000 {
+>>  		};
+>>  	};
+>> =20
+>> -	dsa: dsa@c7000000 {
+>> +	dsaf0: dsa@c7000000 {
+>>  		compatible =3D "hisilicon,hns-dsaf-v1";
+>> -		dsa_name =3D "dsaf0";
+>>  		mode =3D "6port-16rss";
+>>  		interrupt-parent =3D <&mbigen_dsa>;
+>> =20
+>> @@ -127,7 +126,7 @@ soc0: soc@000000000 {
+>> =20
+>>  	eth0: ethernet@0{
+>>  		compatible =3D "hisilicon,hns-nic-v1";
+>> -		ae-name =3D "dsaf0";
+>> +		ae-handle =3D <&dsaf0>;
+>>  		port-id =3D <0>;
+>>  		local-mac-address =3D [00 00 00 01 00 58];
+>>  		status =3D "disabled";
+>> @@ -135,14 +134,14 @@ soc0: soc@000000000 {
+>>  	};
+>>  	eth1: ethernet@1{
+>>  		compatible =3D "hisilicon,hns-nic-v1";
+>> -		ae-name =3D "dsaf0";
+>> +		ae-handle =3D <&dsaf0>;
+>>  		port-id =3D <1>;
+>>  		status =3D "disabled";
+>>  		dma-coherent;
+>>  	};
+>>  	eth2: ethernet@2{
+>>  		compatible =3D "hisilicon,hns-nic-v1";
+>> -		ae-name =3D "dsaf0";
+>> +		ae-handle =3D <&dsaf0>;
+>>  		port-id =3D <2>;
+>>  		local-mac-address =3D [00 00 00 01 00 5a];
+>>  		status =3D "disabled";
+>> @@ -150,7 +149,7 @@ soc0: soc@000000000 {
+>>  	};
+>>  	eth3: ethernet@3{
+>>  		compatible =3D "hisilicon,hns-nic-v1";
+>> -		ae-name =3D "dsaf0";
+>> +		ae-handle =3D <&dsaf0>;
+>>  		port-id =3D <3>;
+>>  		local-mac-address =3D [00 00 00 01 00 5b];
+>>  		status =3D "disabled";
+>> @@ -158,7 +157,7 @@ soc0: soc@000000000 {
+>>  	};
+>>  	eth4: ethernet@4{
+>>  		compatible =3D "hisilicon,hns-nic-v1";
+>> -		ae-name =3D "dsaf0";
+>> +		ae-handle =3D <&dsaf0>;
+>>  		port-id =3D <4>;
+>>  		local-mac-address =3D [00 00 00 01 00 5c];
+>>  		status =3D "disabled";
+>> @@ -166,7 +165,7 @@ soc0: soc@000000000 {
+>>  	};
+>>  	eth5: ethernet@5{
+>>  		compatible =3D "hisilicon,hns-nic-v1";
+>> -		ae-name =3D "dsaf0";
+>> +		ae-handle =3D <&dsaf0>;
+>>  		port-id =3D <5>;
+>>  		local-mac-address =3D [00 00 00 01 00 5d];
+>>  		status =3D "disabled";
+>> @@ -174,7 +173,7 @@ soc0: soc@000000000 {
+>>  	};
+>>  	eth6: ethernet@6{
+>>  		compatible =3D "hisilicon,hns-nic-v1";
+>> -		ae-name =3D "dsaf0";
+>> +		ae-handle =3D <&dsaf0>;
+>>  		port-id =3D <6>;
+>>  		local-mac-address =3D [00 00 00 01 00 5e];
+>>  		status =3D "disabled";
+>> @@ -182,7 +181,7 @@ soc0: soc@000000000 {
+>>  	};
+>>  	eth7: ethernet@7{
+>>  		compatible =3D "hisilicon,hns-nic-v1";
+>> -		ae-name =3D "dsaf0";
+>> +		ae-handle =3D <&dsaf0>;
+>>  		port-id =3D <7>;
+>>  		local-mac-address =3D [00 00 00 01 00 5f];
+>>  		status =3D "disabled";
+>> --=20
+>> 1.9.1
+>>
+> .
+>
