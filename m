@@ -1,49 +1,71 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: rhashtable: Remove unnecessary wmb for future_tbl
-Date: Tue, 8 Dec 2015 17:09:04 +0800
-Message-ID: <20151208090904.GA17605@gondor.apana.org.au>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: Re: [PATCH net 1/2] net: cadence: macb: Disable USRIO register on
+ some platforms
+Date: Tue, 8 Dec 2015 10:21:35 +0100
+Message-ID: <CAA3gFWtDiza1V3_eM84JxseHRDJMH_NF4Rx=-dOPD-Usp=pVNA@mail.gmail.com>
+References: <1449485914-12883-1-git-send-email-narmstrong@baylibre.com>
+	<1449485914-12883-2-git-send-email-narmstrong@baylibre.com>
+	<20151207193215.GI29051@jcartwri.amer.corp.natinst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Josh Triplett <josh@joshtriplett.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:45802 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756098AbbLHJJb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 04:09:31 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Harini Katakam <harini.katakam@xilinx.com>,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	devicetree@vger.kernel.org
+To: Josh Cartwright <joshc@ni.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151207193215.GI29051@jcartwri.amer.corp.natinst.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The patch 9497df88ab5567daa001829051c5f87161a81ff0 ("rhashtable:
-Fix reader/rehash race") added a pair of barriers.  In fact the
-wmb is superfluous because every subsequent write to the old or
-new hash table uses rcu_assign_pointer, which itself carriers a
-full barrier prior to the assignment.
+Hi Josh,
 
-Therefore we may remove the explicit wmb.
+2015-12-07 20:32 GMT+01:00 Josh Cartwright <joshc@ni.com>:
+> On Mon, Dec 07, 2015 at 11:58:33AM +0100, Neil Armstrong wrote:
+>> On some platforms, the macb integration does not use the USRIO
+>> register to configure the (R)MII port and clocks.
+>> When the register is not implemented and the MACB error signal
+>> is connected to the bus error, reading or writing to the USRIO
+>> register can trigger some Imprecise External Aborts on ARM platforms.
+>> ---
+>
+> Does this make sense to even be a separate bool device tree property?
+>
+> This sort of configuration is typically done by:
+>    1. Creating a new 'caps' bit; relevant codepaths check that bit
+>    2. Creating a new "compatible" string for your platform's macb
+>       instance
+>    3. Creating a new 'struct macb_config' instance for your platform,
+>       setting any relevant caps bits when it is selected.
+>
+>   Josh
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+I see the point, but according to the User Guide :
+>User I/O Register
+> The MACB design provides up to 16 inputs and 16 outputs,
+> for which the state of the I/O may
+> be read or set under the control of the processor interface.
+> If the user I/O is disabled as a configuration option, this address space is defined
+> as reserved, and hence will be a read-only register of value 0x0.
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 1c624db..d1f94b4 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -232,9 +232,6 @@ static int rhashtable_rehash_attach(struct rhashtable *ht,
- 	 */
- 	rcu_assign_pointer(old_tbl->future_tbl, new_tbl);
- 
--	/* Ensure the new table is visible to readers. */
--	smp_wmb();
--
- 	spin_unlock_bh(old_tbl->locks);
- 
- 	return 0;
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On the design I worked on, the macb_user_* signals were commented,
+thus disabling this register.
+
+The implementation is not mandatory, and the "generic" macb compatible
+"cdns,macb" should disable
+usage of USRIO register by default and be only used for platform
+specific macb instances...
+
+Is it OK if I add a new 'caps' bit and use it for the "generic" macb instance ?
+
+For the device tree property, it should be safe to have the generic
+instances of macb and gem to
+rely on these properties instead of hardcoded instances.
+(it's the biggest aim of device tree, no ? no more hardcoded 'caps' bit ?)
+The "no-usrio" and other should eventually map 'caps' bits along the
+generic instances.
+
+Neil
