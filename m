@@ -1,37 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Checksum offload queries
-Date: Tue, 08 Dec 2015 12:09:11 -0500 (EST)
-Message-ID: <20151208.120911.1930136653560954435.davem@davemloft.net>
-References: <5665A848.9010001@solarflare.com>
-	<CALx6S37+YVqpVL6XX2KCHZad84DGpqpL+K4LdDZr5H-feiyjow@mail.gmail.com>
-	<5666FF46.6030702@solarflare.com>
+Subject: Re: [PATCH] vhost: vsock: select CONFIG_VHOST
+Date: Tue, 08 Dec 2015 12:13:56 -0500 (EST)
+Message-ID: <20151208.121356.1131159668858222040.davem@davemloft.net>
+References: <36261336.7BBY96nNaM@wuerfel>
+	<20151208180529-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, netdev@vger.kernel.org
-To: ecree@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38186 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751393AbbLHRJM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 12:09:12 -0500
-In-Reply-To: <5666FF46.6030702@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: arnd@arndb.de, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, stefanha@redhat.com,
+	asias@redhat.com
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20151208180529-mutt-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Tue, 8 Dec 2015 16:03:18 +0000
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Tue, 8 Dec 2015 18:09:44 +0200
 
-> NETIF_F_HW_CSUM is limited to one checksum per packet.
+> On Tue, Dec 08, 2015 at 04:46:08PM +0100, Arnd Bergmann wrote:
+>> When building the new vsock code without vhost, we get a build error:
+>> 
+>> drivers/built-in.o: In function `vhost_vsock_flush':
+>> :(.text+0x24d29c): undefined reference to `vhost_poll_flush'
+>> 
+>> This adds an explicit 'select' like we have for the other vhost
+>> drivers.
+>> 
+>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> 
+> This will need to be done eventually, so
+> 
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> 
+> but I really think the right thing for now is to revert current vsock
+> code, or disable building it unconditionally.  Stefan, could you please
+> send a patch like this?
 
-This is false.
-
-As we demux encapsulation layers, we re-adjust the provided 1's
-complement sum provided and use that to validate the next layer.
-
-This works for arbitrarily nested encapsulations, and therefore
-can support mutliple checksums per packet.
-
-Tom has also created a scheme, called remote checksum offload,
-that deals with the corner cases that are actually not able
-to be handled fully by NETIF_F_HW_CSUM.
+I'm waiting for the full single revert patch and will apply it as
+soon as I receive it.
