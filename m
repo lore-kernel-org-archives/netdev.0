@@ -1,61 +1,65 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost: vsock: select CONFIG_VHOST
-Date: Tue, 8 Dec 2015 18:09:44 +0200
-Message-ID: <20151208180529-mutt-send-email-mst@redhat.com>
-References: <36261336.7BBY96nNaM@wuerfel>
+From: David Miller <davem@davemloft.net>
+Subject: Re: netlink: Add missing goto statement to netlink_insert
+Date: Tue, 08 Dec 2015 11:21:48 -0500 (EST)
+Message-ID: <20151208.112148.848925272627144797.davem@davemloft.net>
+References: <20151207012042.GA7420@gondor.apana.org.au>
+	<56652E11.4010604@profihost.ag>
+	<20151208061319.GA16209@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, Asias He <asias@redhat.com>,
-	Stefan Hajnoczi <stefanha@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: s.priebe@profihost.ag, hannes@stressinduktion.org,
+	fweimer@redhat.com, tglx@linutronix.de, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	j.winkel@profihost.ag, m.schinkel@profihost.ag,
+	stable@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <36261336.7BBY96nNaM@wuerfel>
+In-Reply-To: <20151208061319.GA16209@gondor.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 08, 2015 at 04:46:08PM +0100, Arnd Bergmann wrote:
-> When building the new vsock code without vhost, we get a build error:
-> 
-> drivers/built-in.o: In function `vhost_vsock_flush':
-> :(.text+0x24d29c): undefined reference to `vhost_poll_flush'
-> 
-> This adds an explicit 'select' like we have for the other vhost
-> drivers.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 8 Dec 2015 14:13:19 +0800
 
-This will need to be done eventually, so
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-but I really think the right thing for now is to revert current vsock
-code, or disable building it unconditionally.  Stefan, could you please
-send a patch like this?
-
-> ---
->  drivers/vhost/Kconfig.vsock | 2 ++
->  1 file changed, 2 insertions(+)
+> On Mon, Dec 07, 2015 at 07:58:25AM +0100, Stefan Priebe - Profihost AG wrote:
+>>
+>> Thanks, good. Can you help me to get this fix upstream into the stable
+>> lines?
 > 
-> The patch causing the problem is currently in net-next, so the fix should be
-> applied on top of that.
+> Sure.  Greg, please apply this patch to fix up the backport for 4.1.
+
+Herbert, thanks so much for taking care of this.
+
+> ---8<---
+> The backport of 1f770c0a09da855a2b51af6d19de97fb955eca85 ("netlink:
+> Fix autobind race condition that leads to zero port ID") missed a
+> goto statement, which causes netlink to break subtly.
 > 
-> diff --git a/drivers/vhost/Kconfig.vsock b/drivers/vhost/Kconfig.vsock
-> index 3491865d3eb9..bfb9edc4b5d6 100644
-> --- a/drivers/vhost/Kconfig.vsock
-> +++ b/drivers/vhost/Kconfig.vsock
-> @@ -2,6 +2,8 @@ config VHOST_VSOCK
->  	tristate "vhost virtio-vsock driver"
->  	depends on VSOCKETS && EVENTFD
->  	select VIRTIO_VSOCKETS_COMMON
-> +	select VHOST
-> +	select VHOST_RING
->  	default n
->  	---help---
->  	Say M here to enable the vhost-vsock for virtio-vsock guests
+> This was discovered by Stefan Priebe <s.priebe@profihost.ag>.
+> 
+> Fixes: 4e2776241766 ("netlink: Fix autobind race condition that...")
+> Reported-by: Stefan Priebe <s.priebe@profihost.ag>
+> Reported-by: Philipp Hahn <pmhahn@pmhahn.de>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Acked-by: David S. Miller <davem@davemloft.net>
+
+> 
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index d139c43..0d6038c 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+> @@ -1118,6 +1118,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
+>  		if (err == -EEXIST)
+>  			err = -EADDRINUSE;
+>  		sock_put(sk);
+> +		goto err;
+>  	}
+>  
+>  	/* We need to ensure that the socket is hashed and visible. */
+> 
 > -- 
-> 2.1.0.rc2
-> 
+> Email: Herbert Xu <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
