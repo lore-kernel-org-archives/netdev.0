@@ -1,48 +1,60 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: 4.4-rc2 xfrm_lookup kasan trace
-Date: Tue, 8 Dec 2015 14:35:34 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBE87BE@AcuExch.aculab.com>
-References: <20151130232733.GA27119@codemonkey.org.uk>
-	<1448932931.25582.2.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151203.115918.730123340200500473.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davej@codemonkey.org.uk" <davej@codemonkey.org.uk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'David Miller' <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net-next] ipv6: allow routes to be configured with expire values
+Date: Tue,  8 Dec 2015 22:37:44 +0800
+Message-ID: <b813d147f9f4c938fbe4c3e0e671e88b2afcf412.1449585464.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.194]:50362 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756813AbbLHOh0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 09:37:26 -0500
-In-Reply-To: <20151203.115918.730123340200500473.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:36483 "EHLO
+	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756619AbbLHOhs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 09:37:48 -0500
+Received: by pfdd184 with SMTP id d184so13032411pfd.3
+        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 06:37:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Of David Miller
-> Sent: 03 December 2015 16:59
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 30 Nov 2015 17:22:11 -0800
-> 
-> > @@ -2198,6 +2198,7 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
-> >  	xdst = NULL;
-> >  	route = NULL;
-> >
-> > +	sk = sk_to_full_sk((struct sock *)sk);
-> 
-> The war against const...
-> 
-> I know this is the only instance where const is input, but you may want to
-> consider adding the const verion of the helper anyways to avoid ugly casts
-> like this.
+Add the support for adding expire value to routes,  requested by
+Tom Gundersen <teg@jklm.no> for systemd-networkd, and NetworkManager
+wants it too.
 
-In that case you could use something like:
+add it by using the field rta_expires of rta_cacheinfo
 
-#define SK_TO_FULL_SK(sk) (typeof (sk))sk_to_full_sk(sk))
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv6/route.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-With the helper arg and result being 'const struct sock *'.
-
-	David
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index c83b6a5..7815bc0 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2709,6 +2709,7 @@ static const struct nla_policy rtm_ipv6_policy[RTA_MAX+1] = {
+ 	[RTA_PREF]              = { .type = NLA_U8 },
+ 	[RTA_ENCAP_TYPE]	= { .type = NLA_U16 },
+ 	[RTA_ENCAP]		= { .type = NLA_NESTED },
++	[RTA_CACHEINFO]		= { .len = sizeof(struct rta_cacheinfo) },
+ };
+ 
+ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+@@ -2809,6 +2810,16 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (tb[RTA_ENCAP_TYPE])
+ 		cfg->fc_encap_type = nla_get_u16(tb[RTA_ENCAP_TYPE]);
+ 
++	if (tb[RTA_CACHEINFO]) {
++		struct rta_cacheinfo *ci = nla_data(tb[RTA_CACHEINFO]);
++		unsigned long timeout = addrconf_timeout_fixup(ci->rta_expires, HZ);
++
++		if (addrconf_finite_timeout(timeout)) {
++			cfg->fc_expires = jiffies_to_clock_t(timeout * HZ);
++			cfg->fc_flags |= RTF_EXPIRES;
++		}
++	}
++
+ 	err = 0;
+ errout:
+ 	return err;
+-- 
+2.1.0
