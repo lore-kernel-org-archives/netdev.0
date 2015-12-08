@@ -1,7 +1,7 @@
 From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [PATCH 4/6] Revert "VSOCK: Introduce virtio-vsock.ko"
-Date: Tue,  8 Dec 2015 19:57:34 +0800
-Message-ID: <1449575856-28507-5-git-send-email-stefanha@redhat.com>
+Subject: [PATCH 5/6] Revert "VSOCK: Introduce virtio-vsock-common.ko"
+Date: Tue,  8 Dec 2015 19:57:35 +0800
+Message-ID: <1449575856-28507-6-git-send-email-stefanha@redhat.com>
 References: <1449575856-28507-1-git-send-email-stefanha@redhat.com>
 Cc: Matt Benjamin <mbenjamin@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>, kvm@vger.kernel.org,
@@ -11,496 +11,1629 @@ Cc: Matt Benjamin <mbenjamin@redhat.com>,
 	Stefan Hajnoczi <stefanha@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41741 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:58336 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932676AbbLHL6J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Dec 2015 06:58:09 -0500
+	id S933147AbbLHL6R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2015 06:58:17 -0500
 In-Reply-To: <1449575856-28507-1-git-send-email-stefanha@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 32e61b06b6946ba137723c5b1de2a1fdb2e0e0a5.
+This reverts commit 80a19e338d458abb5a700df3fd00795c51361f06.
 
 Keep virtio-vsock out-of-tree until the device specification is
 finalized.
 
 Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
 ---
- net/vmw_vsock/virtio_transport.c | 466 ---------------------------------------
- 1 file changed, 466 deletions(-)
- delete mode 100644 net/vmw_vsock/virtio_transport.c
+ include/linux/virtio_vsock.h            |  209 -----
+ include/uapi/linux/virtio_ids.h         |    1 -
+ include/uapi/linux/virtio_vsock.h       |   89 ---
+ net/vmw_vsock/virtio_transport_common.c | 1272 -------------------------------
+ 4 files changed, 1571 deletions(-)
+ delete mode 100644 include/linux/virtio_vsock.h
+ delete mode 100644 include/uapi/linux/virtio_vsock.h
+ delete mode 100644 net/vmw_vsock/virtio_transport_common.c
 
-diff --git a/net/vmw_vsock/virtio_transport.c b/net/vmw_vsock/virtio_transport.c
+diff --git a/include/linux/virtio_vsock.h b/include/linux/virtio_vsock.h
 deleted file mode 100644
-index df65dca..0000000
---- a/net/vmw_vsock/virtio_transport.c
+index a5f3ecc..0000000
+--- a/include/linux/virtio_vsock.h
 +++ /dev/null
-@@ -1,466 +0,0 @@
+@@ -1,209 +0,0 @@
 -/*
-- * virtio transport for vsock
+- * This header, excluding the #ifdef __KERNEL__ part, is BSD licensed so
+- * anyone can use the definitions to implement compatible drivers/servers:
+- *
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions
+- * are met:
+- * 1. Redistributions of source code must retain the above copyright
+- *    notice, this list of conditions and the following disclaimer.
+- * 2. Redistributions in binary form must reproduce the above copyright
+- *    notice, this list of conditions and the following disclaimer in the
+- *    documentation and/or other materials provided with the distribution.
+- * 3. Neither the name of IBM nor the names of its contributors
+- *    may be used to endorse or promote products derived from this software
+- *    without specific prior written permission.
+- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS''
+- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+- * ARE DISCLAIMED.  IN NO EVENT SHALL IBM OR CONTRIBUTORS BE LIABLE
+- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+- * SUCH DAMAGE.
+- *
+- * Copyright (C) Red Hat, Inc., 2013-2015
+- * Copyright (C) Asias He <asias@redhat.com>, 2013
+- * Copyright (C) Stefan Hajnoczi <stefanha@redhat.com>, 2015
+- */
+-
+-#ifndef _LINUX_VIRTIO_VSOCK_H
+-#define _LINUX_VIRTIO_VSOCK_H
+-
+-#include <uapi/linux/virtio_vsock.h>
+-#include <linux/socket.h>
+-#include <net/sock.h>
+-
+-#define VIRTIO_VSOCK_DEFAULT_MIN_BUF_SIZE	128
+-#define VIRTIO_VSOCK_DEFAULT_BUF_SIZE		(1024 * 256)
+-#define VIRTIO_VSOCK_DEFAULT_MAX_BUF_SIZE	(1024 * 256)
+-#define VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE	(1024 * 4)
+-#define VIRTIO_VSOCK_MAX_BUF_SIZE		0xFFFFFFFFUL
+-#define VIRTIO_VSOCK_MAX_PKT_BUF_SIZE		(1024 * 64)
+-#define VIRTIO_VSOCK_MAX_TX_BUF_SIZE		(1024 * 1024 * 16)
+-#define VIRTIO_VSOCK_MAX_DGRAM_SIZE		(1024 * 64)
+-
+-struct vsock_transport_recv_notify_data;
+-struct vsock_transport_send_notify_data;
+-struct sockaddr_vm;
+-struct vsock_sock;
+-
+-enum {
+-	VSOCK_VQ_CTRL	= 0,
+-	VSOCK_VQ_RX	= 1, /* for host to guest data */
+-	VSOCK_VQ_TX	= 2, /* for guest to host data */
+-	VSOCK_VQ_MAX	= 3,
+-};
+-
+-/* virtio transport socket state */
+-struct virtio_transport {
+-	struct virtio_transport_pkt_ops	*ops;
+-	struct vsock_sock *vsk;
+-
+-	u32 buf_size;
+-	u32 buf_size_min;
+-	u32 buf_size_max;
+-
+-	struct mutex tx_lock;
+-	struct mutex rx_lock;
+-
+-	struct list_head rx_queue;
+-	u32 rx_bytes;
+-
+-	/* Protected by trans->tx_lock */
+-	u32 tx_cnt;
+-	u32 buf_alloc;
+-	u32 peer_fwd_cnt;
+-	u32 peer_buf_alloc;
+-	/* Protected by trans->rx_lock */
+-	u32 fwd_cnt;
+-
+-	/* Protected by sk_lock */
+-	u16 dgram_id;
+-	struct list_head incomplete_dgrams; /* dgram fragments */
+-};
+-
+-struct virtio_vsock_pkt {
+-	struct virtio_vsock_hdr	hdr;
+-	struct virtio_transport	*trans;
+-	struct work_struct work;
+-	struct list_head list;
+-	void *buf;
+-	u32 len;
+-	u32 off;
+-};
+-
+-struct virtio_vsock_pkt_info {
+-	u32 remote_cid, remote_port;
+-	struct msghdr *msg;
+-	u32 pkt_len;
+-	u16 type;
+-	u16 op;
+-	u32 flags;
+-	u16 dgram_id;
+-	u16 dgram_len;
+-};
+-
+-struct virtio_transport_pkt_ops {
+-	int (*send_pkt)(struct vsock_sock *vsk,
+-			struct virtio_vsock_pkt_info *info);
+-};
+-
+-void virtio_vsock_dumppkt(const char *func,
+-			  const struct virtio_vsock_pkt *pkt);
+-
+-struct sock *
+-virtio_transport_get_pending(struct sock *listener,
+-			     struct virtio_vsock_pkt *pkt);
+-struct virtio_vsock_pkt *
+-virtio_transport_alloc_pkt(struct vsock_sock *vsk,
+-			   struct virtio_vsock_pkt_info *info,
+-			   size_t len,
+-			   u32 src_cid,
+-			   u32 src_port,
+-			   u32 dst_cid,
+-			   u32 dst_port);
+-ssize_t
+-virtio_transport_stream_dequeue(struct vsock_sock *vsk,
+-				struct msghdr *msg,
+-				size_t len,
+-				int type);
+-int
+-virtio_transport_dgram_dequeue(struct vsock_sock *vsk,
+-			       struct msghdr *msg,
+-			       size_t len, int flags);
+-
+-s64 virtio_transport_stream_has_data(struct vsock_sock *vsk);
+-s64 virtio_transport_stream_has_space(struct vsock_sock *vsk);
+-
+-int virtio_transport_do_socket_init(struct vsock_sock *vsk,
+-				 struct vsock_sock *psk);
+-u64 virtio_transport_get_buffer_size(struct vsock_sock *vsk);
+-u64 virtio_transport_get_min_buffer_size(struct vsock_sock *vsk);
+-u64 virtio_transport_get_max_buffer_size(struct vsock_sock *vsk);
+-void virtio_transport_set_buffer_size(struct vsock_sock *vsk, u64 val);
+-void virtio_transport_set_min_buffer_size(struct vsock_sock *vsk, u64 val);
+-void virtio_transport_set_max_buffer_size(struct vsock_sock *vs, u64 val);
+-int
+-virtio_transport_notify_poll_in(struct vsock_sock *vsk,
+-				size_t target,
+-				bool *data_ready_now);
+-int
+-virtio_transport_notify_poll_out(struct vsock_sock *vsk,
+-				 size_t target,
+-				 bool *space_available_now);
+-
+-int virtio_transport_notify_recv_init(struct vsock_sock *vsk,
+-	size_t target, struct vsock_transport_recv_notify_data *data);
+-int virtio_transport_notify_recv_pre_block(struct vsock_sock *vsk,
+-	size_t target, struct vsock_transport_recv_notify_data *data);
+-int virtio_transport_notify_recv_pre_dequeue(struct vsock_sock *vsk,
+-	size_t target, struct vsock_transport_recv_notify_data *data);
+-int virtio_transport_notify_recv_post_dequeue(struct vsock_sock *vsk,
+-	size_t target, ssize_t copied, bool data_read,
+-	struct vsock_transport_recv_notify_data *data);
+-int virtio_transport_notify_send_init(struct vsock_sock *vsk,
+-	struct vsock_transport_send_notify_data *data);
+-int virtio_transport_notify_send_pre_block(struct vsock_sock *vsk,
+-	struct vsock_transport_send_notify_data *data);
+-int virtio_transport_notify_send_pre_enqueue(struct vsock_sock *vsk,
+-	struct vsock_transport_send_notify_data *data);
+-int virtio_transport_notify_send_post_enqueue(struct vsock_sock *vsk,
+-	ssize_t written, struct vsock_transport_send_notify_data *data);
+-
+-u64 virtio_transport_stream_rcvhiwat(struct vsock_sock *vsk);
+-bool virtio_transport_stream_is_active(struct vsock_sock *vsk);
+-bool virtio_transport_stream_allow(u32 cid, u32 port);
+-int virtio_transport_dgram_bind(struct vsock_sock *vsk,
+-				struct sockaddr_vm *addr);
+-bool virtio_transport_dgram_allow(u32 cid, u32 port);
+-
+-int virtio_transport_connect(struct vsock_sock *vsk);
+-
+-int virtio_transport_shutdown(struct vsock_sock *vsk, int mode);
+-
+-void virtio_transport_release(struct vsock_sock *vsk);
+-
+-ssize_t
+-virtio_transport_stream_enqueue(struct vsock_sock *vsk,
+-				struct msghdr *msg,
+-				size_t len);
+-int
+-virtio_transport_dgram_enqueue(struct vsock_sock *vsk,
+-			       struct sockaddr_vm *remote_addr,
+-			       struct msghdr *msg,
+-			       size_t len);
+-
+-void virtio_transport_destruct(struct vsock_sock *vsk);
+-
+-void virtio_transport_recv_pkt(struct virtio_vsock_pkt *pkt);
+-void virtio_transport_free_pkt(struct virtio_vsock_pkt *pkt);
+-void virtio_transport_inc_tx_pkt(struct virtio_vsock_pkt *pkt);
+-void virtio_transport_dec_tx_pkt(struct virtio_vsock_pkt *pkt);
+-u32 virtio_transport_get_credit(struct virtio_transport *trans, u32 wanted);
+-void virtio_transport_put_credit(struct virtio_transport *trans, u32 credit);
+-#endif /* _LINUX_VIRTIO_VSOCK_H */
+diff --git a/include/uapi/linux/virtio_ids.h b/include/uapi/linux/virtio_ids.h
+index 16dcf5d..77925f5 100644
+--- a/include/uapi/linux/virtio_ids.h
++++ b/include/uapi/linux/virtio_ids.h
+@@ -39,7 +39,6 @@
+ #define VIRTIO_ID_9P		9 /* 9p virtio console */
+ #define VIRTIO_ID_RPROC_SERIAL 11 /* virtio remoteproc serial link */
+ #define VIRTIO_ID_CAIF	       12 /* Virtio caif */
+-#define VIRTIO_ID_VSOCK        13 /* virtio vsock transport */
+ #define VIRTIO_ID_GPU          16 /* virtio GPU */
+ #define VIRTIO_ID_INPUT        18 /* virtio input */
+ 
+diff --git a/include/uapi/linux/virtio_vsock.h b/include/uapi/linux/virtio_vsock.h
+deleted file mode 100644
+index 8cf9b56..0000000
+--- a/include/uapi/linux/virtio_vsock.h
++++ /dev/null
+@@ -1,89 +0,0 @@
+-/*
+- * This header, excluding the #ifdef __KERNEL__ part, is BSD licensed so
+- * anyone can use the definitions to implement compatible drivers/servers:
+- *
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions
+- * are met:
+- * 1. Redistributions of source code must retain the above copyright
+- *    notice, this list of conditions and the following disclaimer.
+- * 2. Redistributions in binary form must reproduce the above copyright
+- *    notice, this list of conditions and the following disclaimer in the
+- *    documentation and/or other materials provided with the distribution.
+- * 3. Neither the name of IBM nor the names of its contributors
+- *    may be used to endorse or promote products derived from this software
+- *    without specific prior written permission.
+- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS''
+- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+- * ARE DISCLAIMED.  IN NO EVENT SHALL IBM OR CONTRIBUTORS BE LIABLE
+- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+- * SUCH DAMAGE.
+- *
+- * Copyright (C) Red Hat, Inc., 2013-2015
+- * Copyright (C) Asias He <asias@redhat.com>, 2013
+- * Copyright (C) Stefan Hajnoczi <stefanha@redhat.com>, 2015
+- */
+-
+-#ifndef _UAPI_LINUX_VIRTIO_VSOCK_H
+-#define _UAPI_LINUX_VIRTIO_VOSCK_H
+-
+-#include <linux/types.h>
+-#include <linux/virtio_ids.h>
+-#include <linux/virtio_config.h>
+-
+-struct virtio_vsock_config {
+-	__le32 guest_cid;
+-	__le32 max_virtqueue_pairs;
+-};
+-
+-struct virtio_vsock_hdr {
+-	__le32	src_cid;
+-	__le32	src_port;
+-	__le32	dst_cid;
+-	__le32	dst_port;
+-	__le32	len;
+-	__le16	type;		/* enum virtio_vsock_type */
+-	__le16	op;		/* enum virtio_vsock_op */
+-	__le32	flags;
+-	__le32	buf_alloc;
+-	__le32	fwd_cnt;
+-};
+-
+-enum virtio_vsock_type {
+-	VIRTIO_VSOCK_TYPE_STREAM = 1,
+-	VIRTIO_VSOCK_TYPE_DGRAM = 2,
+-};
+-
+-enum virtio_vsock_op {
+-	VIRTIO_VSOCK_OP_INVALID = 0,
+-
+-	/* Connect operations */
+-	VIRTIO_VSOCK_OP_REQUEST = 1,
+-	VIRTIO_VSOCK_OP_RESPONSE = 2,
+-	VIRTIO_VSOCK_OP_ACK = 3,
+-	VIRTIO_VSOCK_OP_RST = 4,
+-	VIRTIO_VSOCK_OP_SHUTDOWN = 5,
+-
+-	/* To send payload */
+-	VIRTIO_VSOCK_OP_RW = 6,
+-
+-	/* Tell the peer our credit info */
+-	VIRTIO_VSOCK_OP_CREDIT_UPDATE = 7,
+-	/* Request the peer to send the credit info to us */
+-	VIRTIO_VSOCK_OP_CREDIT_REQUEST = 8,
+-};
+-
+-/* VIRTIO_VSOCK_OP_SHUTDOWN flags values */
+-enum virtio_vsock_shutdown {
+-	VIRTIO_VSOCK_SHUTDOWN_RCV = 1,
+-	VIRTIO_VSOCK_SHUTDOWN_SEND = 2,
+-};
+-
+-#endif /* _UAPI_LINUX_VIRTIO_VSOCK_H */
+diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/virtio_transport_common.c
+deleted file mode 100644
+index 28f790d..0000000
+--- a/net/vmw_vsock/virtio_transport_common.c
++++ /dev/null
+@@ -1,1272 +0,0 @@
+-/*
+- * common code for virtio vsock
 - *
 - * Copyright (C) 2013-2015 Red Hat, Inc.
 - * Author: Asias He <asias@redhat.com>
 - *         Stefan Hajnoczi <stefanha@redhat.com>
 - *
-- * Some of the code is take from Gerd Hoffmann <kraxel@redhat.com>'s
-- * early virtio-vsock proof-of-concept bits.
-- *
 - * This work is licensed under the terms of the GNU GPL, version 2.
 - */
--#include <linux/spinlock.h>
 -#include <linux/module.h>
+-#include <linux/ctype.h>
 -#include <linux/list.h>
 -#include <linux/virtio.h>
 -#include <linux/virtio_ids.h>
 -#include <linux/virtio_config.h>
 -#include <linux/virtio_vsock.h>
+-#include <linux/random.h>
+-#include <linux/cryptohash.h>
+-
 -#include <net/sock.h>
--#include <linux/mutex.h>
 -#include <net/af_vsock.h>
 -
--static struct workqueue_struct *virtio_vsock_workqueue;
--static struct virtio_vsock *the_virtio_vsock;
--static DEFINE_MUTEX(the_virtio_vsock_mutex); /* protects the_virtio_vsock */
--static void virtio_vsock_rx_fill(struct virtio_vsock *vsock);
+-#define COOKIEBITS 24
+-#define COOKIEMASK (((u32)1 << COOKIEBITS) - 1)
+-#define VSOCK_TIMEOUT_INIT 4
 -
--struct virtio_vsock {
--	/* Virtio device */
--	struct virtio_device *vdev;
--	/* Virtio virtqueue */
--	struct virtqueue *vqs[VSOCK_VQ_MAX];
--	/* Wait queue for send pkt */
--	wait_queue_head_t queue_wait;
--	/* Work item to send pkt */
--	struct work_struct tx_work;
--	/* Work item to recv pkt */
--	struct work_struct rx_work;
--	/* Mutex to protect send pkt*/
--	struct mutex tx_lock;
--	/* Mutex to protect recv pkt*/
--	struct mutex rx_lock;
--	/* Number of recv buffers */
--	int rx_buf_nr;
--	/* Number of max recv buffers */
--	int rx_buf_max_nr;
--	/* Used for global tx buf limitation */
--	u32 total_tx_buf;
--	/* Guest context id, just like guest ip address */
--	u32 guest_cid;
--};
+-#define SHA_MESSAGE_WORDS 16
+-#define SHA_VSOCK_WORDS 5
 -
--static struct virtio_vsock *virtio_vsock_get(void)
+-static u32 vsockcookie_secret[2][SHA_MESSAGE_WORDS - SHA_VSOCK_WORDS +
+-				 SHA_DIGEST_WORDS];
+-
+-static DEFINE_PER_CPU(__u32[SHA_MESSAGE_WORDS + SHA_DIGEST_WORDS +
+-		      SHA_WORKSPACE_WORDS], vsock_cookie_scratch);
+-
+-static u32 cookie_hash(u32 saddr, u32 daddr, u16 sport, u16 dport,
+-		       u32 count, int c)
 -{
--	return the_virtio_vsock;
+-	__u32 *tmp = this_cpu_ptr(vsock_cookie_scratch);
+-
+-	memcpy(tmp + SHA_VSOCK_WORDS, vsockcookie_secret[c],
+-	       sizeof(vsockcookie_secret[c]));
+-	tmp[0] = saddr;
+-	tmp[1] = daddr;
+-	tmp[2] = sport;
+-	tmp[3] = dport;
+-	tmp[4] = count;
+-	sha_transform(tmp + SHA_MESSAGE_WORDS, (__u8 *)tmp,
+-		      tmp + SHA_MESSAGE_WORDS + SHA_DIGEST_WORDS);
+-
+-	return tmp[17];
 -}
 -
--static u32 virtio_transport_get_local_cid(void)
+-static u32
+-virtio_vsock_secure_cookie(u32 saddr, u32 daddr, u32 sport, u32 dport,
+-			   u32 count)
 -{
--	struct virtio_vsock *vsock = virtio_vsock_get();
+-	u32 h1, h2;
 -
--	return vsock->guest_cid;
+-	h1 = cookie_hash(saddr, daddr, sport, dport, 0, 0);
+-	h2 = cookie_hash(saddr, daddr, sport, dport, count, 1);
+-
+-	return h1 + (count << COOKIEBITS) + (h2 & COOKIEMASK);
 -}
 -
--static int
--virtio_transport_send_pkt(struct vsock_sock *vsk,
--			  struct virtio_vsock_pkt_info *info)
+-static u32
+-virtio_vsock_check_cookie(u32 saddr, u32 daddr, u32 sport, u32 dport,
+-			  u32 count, u32 cookie, u32 maxdiff)
 -{
--	u32 src_cid, src_port, dst_cid, dst_port;
--	int ret, in_sg = 0, out_sg = 0;
--	struct virtio_transport *trans;
+-	u32 diff;
+-	u32 ret;
+-
+-	cookie -= cookie_hash(saddr, daddr, sport, dport, 0, 0);
+-
+-	diff = (count - (cookie >> COOKIEBITS)) & ((u32)-1 >> COOKIEBITS);
+-	pr_debug("%s: diff=%x\n", __func__, diff);
+-	if (diff >= maxdiff)
+-		return (u32)-1;
+-
+-	ret = (cookie -
+-		cookie_hash(saddr, daddr, sport, dport, count - diff, 1))
+-		& COOKIEMASK;
+-	pr_debug("%s: ret=%x\n", __func__, diff);
+-
+-	return ret;
+-}
+-
+-void virtio_vsock_dumppkt(const char *func,  const struct virtio_vsock_pkt *pkt)
+-{
+-	pr_debug("%s: pkt=%p, op=%d, len=%d, %d:%d---%d:%d, len=%d\n",
+-		 func, pkt,
+-		 le16_to_cpu(pkt->hdr.op),
+-		 le32_to_cpu(pkt->hdr.len),
+-		 le32_to_cpu(pkt->hdr.src_cid),
+-		 le32_to_cpu(pkt->hdr.src_port),
+-		 le32_to_cpu(pkt->hdr.dst_cid),
+-		 le32_to_cpu(pkt->hdr.dst_port),
+-		 pkt->len);
+-}
+-EXPORT_SYMBOL_GPL(virtio_vsock_dumppkt);
+-
+-struct virtio_vsock_pkt *
+-virtio_transport_alloc_pkt(struct vsock_sock *vsk,
+-			   struct virtio_vsock_pkt_info *info,
+-			   size_t len,
+-			   u32 src_cid,
+-			   u32 src_port,
+-			   u32 dst_cid,
+-			   u32 dst_port)
+-{
+-	struct virtio_transport *trans = vsk->trans;
 -	struct virtio_vsock_pkt *pkt;
--	struct virtio_vsock *vsock;
--	struct scatterlist hdr, buf, *sgs[2];
--	struct virtqueue *vq;
--	u32 pkt_len = info->pkt_len;
--	DEFINE_WAIT(wait);
+-	int err;
 -
--	vsock = virtio_vsock_get();
--	if (!vsock)
--		return -ENODEV;
+-	BUG_ON(!trans);
 -
--	src_cid	= virtio_transport_get_local_cid();
--	src_port = vsk->local_addr.svm_port;
--	if (!info->remote_cid) {
--		dst_cid	= vsk->remote_addr.svm_cid;
--		dst_port = vsk->remote_addr.svm_port;
--	} else {
--		dst_cid = info->remote_cid;
--		dst_port = info->remote_port;
--	}
+-	pkt = kzalloc(sizeof(*pkt), GFP_KERNEL);
+-	if (!pkt)
+-		return NULL;
 -
--	trans = vsk->trans;
--	vq = vsock->vqs[VSOCK_VQ_TX];
+-	pkt->hdr.type		= cpu_to_le16(info->type);
+-	pkt->hdr.op		= cpu_to_le16(info->op);
+-	pkt->hdr.src_cid	= cpu_to_le32(src_cid);
+-	pkt->hdr.src_port	= cpu_to_le32(src_port);
+-	pkt->hdr.dst_cid	= cpu_to_le32(dst_cid);
+-	pkt->hdr.dst_port	= cpu_to_le32(dst_port);
+-	pkt->hdr.flags		= cpu_to_le32(info->flags);
+-	pkt->len		= len;
+-	pkt->trans		= trans;
+-	if (info->type == VIRTIO_VSOCK_TYPE_DGRAM)
+-		pkt->hdr.len	= cpu_to_le32(len + (info->dgram_len << 16));
+-	else if (info->type == VIRTIO_VSOCK_TYPE_STREAM)
+-		pkt->hdr.len	= cpu_to_le32(len);
 -
--	if (pkt_len > VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE)
--		pkt_len = VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE;
--	pkt_len = virtio_transport_get_credit(trans, pkt_len);
--	/* Do not send zero length OP_RW pkt*/
--	if (pkt_len == 0 && info->op == VIRTIO_VSOCK_OP_RW)
--		return pkt_len;
--
--	/* Respect global tx buf limitation */
--	mutex_lock(&vsock->tx_lock);
--	while (pkt_len + vsock->total_tx_buf > VIRTIO_VSOCK_MAX_TX_BUF_SIZE) {
--		prepare_to_wait_exclusive(&vsock->queue_wait, &wait,
--					  TASK_UNINTERRUPTIBLE);
--		mutex_unlock(&vsock->tx_lock);
--		schedule();
--		mutex_lock(&vsock->tx_lock);
--		finish_wait(&vsock->queue_wait, &wait);
--	}
--	vsock->total_tx_buf += pkt_len;
--	mutex_unlock(&vsock->tx_lock);
--
--	pkt = virtio_transport_alloc_pkt(vsk, info, pkt_len,
--					 src_cid, src_port,
--					 dst_cid, dst_port);
--	if (!pkt) {
--		mutex_lock(&vsock->tx_lock);
--		vsock->total_tx_buf -= pkt_len;
--		mutex_unlock(&vsock->tx_lock);
--		virtio_transport_put_credit(trans, pkt_len);
--		return -ENOMEM;
--	}
--
--	pr_debug("%s:info->pkt_len= %d\n", __func__, info->pkt_len);
--
--	/* Will be released in virtio_transport_send_pkt_work */
--	sock_hold(&trans->vsk->sk);
--	virtio_transport_inc_tx_pkt(pkt);
--
--	/* Put pkt in the virtqueue */
--	sg_init_one(&hdr, &pkt->hdr, sizeof(pkt->hdr));
--	sgs[out_sg++] = &hdr;
--	if (info->msg && info->pkt_len > 0) {
--		sg_init_one(&buf, pkt->buf, pkt->len);
--	        sgs[out_sg++] = &buf;
--	}
--
--	mutex_lock(&vsock->tx_lock);
--	while ((ret = virtqueue_add_sgs(vq, sgs, out_sg, in_sg, pkt,
--					GFP_KERNEL)) < 0) {
--		prepare_to_wait_exclusive(&vsock->queue_wait, &wait,
--					  TASK_UNINTERRUPTIBLE);
--		mutex_unlock(&vsock->tx_lock);
--		schedule();
--		mutex_lock(&vsock->tx_lock);
--		finish_wait(&vsock->queue_wait, &wait);
--	}
--	virtqueue_kick(vq);
--	mutex_unlock(&vsock->tx_lock);
--
--	return pkt_len;
--}
--
--static struct virtio_transport_pkt_ops virtio_ops = {
--	.send_pkt = virtio_transport_send_pkt,
--};
--
--static void virtio_vsock_rx_fill(struct virtio_vsock *vsock)
--{
--	int buf_len = VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE;
--	struct virtio_vsock_pkt *pkt;
--	struct scatterlist hdr, buf, *sgs[2];
--	struct virtqueue *vq;
--	int ret;
--
--	vq = vsock->vqs[VSOCK_VQ_RX];
--
--	do {
--		pkt = kzalloc(sizeof(*pkt), GFP_KERNEL);
--		if (!pkt) {
--			pr_debug("%s: fail to allocate pkt\n", __func__);
+-	if (info->msg && len > 0) {
+-		pkt->buf = kmalloc(len, GFP_KERNEL);
+-		if (!pkt->buf)
+-			goto out_pkt;
+-		err = memcpy_from_msg(pkt->buf, info->msg, len);
+-		if (err)
 -			goto out;
--		}
+-	}
 -
--		/* TODO: use mergeable rx buffer */
--		pkt->buf = kmalloc(buf_len, GFP_KERNEL);
--		if (!pkt->buf) {
--			pr_debug("%s: fail to allocate pkt->buf\n", __func__);
--			goto err;
--		}
+-	return pkt;
 -
--		sg_init_one(&hdr, &pkt->hdr, sizeof(pkt->hdr));
--		sgs[0] = &hdr;
--
--		sg_init_one(&buf, pkt->buf, buf_len);
--	        sgs[1] = &buf;
--		ret = virtqueue_add_sgs(vq, sgs, 0, 2, pkt, GFP_KERNEL);
--		if (ret)
--			goto err;
--		vsock->rx_buf_nr++;
--	} while (vq->num_free);
--	if (vsock->rx_buf_nr > vsock->rx_buf_max_nr)
--		vsock->rx_buf_max_nr = vsock->rx_buf_nr;
 -out:
--	virtqueue_kick(vq);
--	return;
--err:
--	virtqueue_kick(vq);
+-	kfree(pkt->buf);
+-out_pkt:
+-	kfree(pkt);
+-	return NULL;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_alloc_pkt);
+-
+-struct sock *
+-virtio_transport_get_pending(struct sock *listener,
+-			     struct virtio_vsock_pkt *pkt)
+-{
+-	struct vsock_sock *vlistener;
+-	struct vsock_sock *vpending;
+-	struct sockaddr_vm src;
+-	struct sockaddr_vm dst;
+-	struct sock *pending;
+-
+-	vsock_addr_init(&src, le32_to_cpu(pkt->hdr.src_cid), le32_to_cpu(pkt->hdr.src_port));
+-	vsock_addr_init(&dst, le32_to_cpu(pkt->hdr.dst_cid), le32_to_cpu(pkt->hdr.dst_port));
+-
+-	vlistener = vsock_sk(listener);
+-	list_for_each_entry(vpending, &vlistener->pending_links,
+-			    pending_links) {
+-		if (vsock_addr_equals_addr(&src, &vpending->remote_addr) &&
+-		    vsock_addr_equals_addr(&dst, &vpending->local_addr)) {
+-			pending = sk_vsock(vpending);
+-			sock_hold(pending);
+-			return pending;
+-		}
+-	}
+-
+-	return NULL;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_get_pending);
+-
+-static void virtio_transport_inc_rx_pkt(struct virtio_vsock_pkt *pkt)
+-{
+-	pkt->trans->rx_bytes += pkt->len;
+-}
+-
+-static void virtio_transport_dec_rx_pkt(struct virtio_vsock_pkt *pkt)
+-{
+-	pkt->trans->rx_bytes -= pkt->len;
+-	pkt->trans->fwd_cnt += pkt->len;
+-}
+-
+-void virtio_transport_inc_tx_pkt(struct virtio_vsock_pkt *pkt)
+-{
+-	mutex_lock(&pkt->trans->tx_lock);
+-	pkt->hdr.fwd_cnt = cpu_to_le32(pkt->trans->fwd_cnt);
+-	pkt->hdr.buf_alloc = cpu_to_le32(pkt->trans->buf_alloc);
+-	mutex_unlock(&pkt->trans->tx_lock);
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_inc_tx_pkt);
+-
+-void virtio_transport_dec_tx_pkt(struct virtio_vsock_pkt *pkt)
+-{
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_dec_tx_pkt);
+-
+-u32 virtio_transport_get_credit(struct virtio_transport *trans, u32 credit)
+-{
+-	u32 ret;
+-
+-	mutex_lock(&trans->tx_lock);
+-	ret = trans->peer_buf_alloc - (trans->tx_cnt - trans->peer_fwd_cnt);
+-	if (ret > credit)
+-		ret = credit;
+-	trans->tx_cnt += ret;
+-	mutex_unlock(&trans->tx_lock);
+-
+-	pr_debug("%s: ret=%d, buf_alloc=%d, peer_buf_alloc=%d,"
+-		 "tx_cnt=%d, fwd_cnt=%d, peer_fwd_cnt=%d\n", __func__,
+-		 ret, trans->buf_alloc, trans->peer_buf_alloc,
+-		 trans->tx_cnt, trans->fwd_cnt, trans->peer_fwd_cnt);
+-
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_get_credit);
+-
+-void virtio_transport_put_credit(struct virtio_transport *trans, u32 credit)
+-{
+-	mutex_lock(&trans->tx_lock);
+-	trans->tx_cnt -= credit;
+-	mutex_unlock(&trans->tx_lock);
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_put_credit);
+-
+-static int virtio_transport_send_credit_update(struct vsock_sock *vsk, int type, struct virtio_vsock_hdr *hdr)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-	struct virtio_vsock_pkt_info info = {
+-		.op = VIRTIO_VSOCK_OP_CREDIT_UPDATE,
+-		.type = type,
+-	};
+-
+-	if (hdr && type == VIRTIO_VSOCK_TYPE_DGRAM) {
+-		info.remote_cid = le32_to_cpu(hdr->src_cid);
+-		info.remote_port = le32_to_cpu(hdr->src_port);
+-	}
+-
+-	pr_debug("%s: sk=%p send_credit_update\n", __func__, vsk);
+-	return trans->ops->send_pkt(vsk, &info);
+-}
+-
+-static int virtio_transport_send_credit_request(struct vsock_sock *vsk, int type)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-	struct virtio_vsock_pkt_info info = {
+-		.op = VIRTIO_VSOCK_OP_CREDIT_REQUEST,
+-		.type = type,
+-	};
+-
+-	pr_debug("%s: sk=%p send_credit_request\n", __func__, vsk);
+-	return trans->ops->send_pkt(vsk, &info);
+-}
+-
+-static ssize_t
+-virtio_transport_stream_do_dequeue(struct vsock_sock *vsk,
+-				   struct msghdr *msg,
+-				   size_t len)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-	struct virtio_vsock_pkt *pkt;
+-	size_t bytes, total = 0;
+-	int err = -EFAULT;
+-
+-	mutex_lock(&trans->rx_lock);
+-	while (total < len && trans->rx_bytes > 0  &&
+-			!list_empty(&trans->rx_queue)) {
+-		pkt = list_first_entry(&trans->rx_queue,
+-				       struct virtio_vsock_pkt, list);
+-
+-		bytes = len - total;
+-		if (bytes > pkt->len - pkt->off)
+-			bytes = pkt->len - pkt->off;
+-
+-		err = memcpy_to_msg(msg, pkt->buf + pkt->off, bytes);
+-		if (err)
+-			goto out;
+-		total += bytes;
+-		pkt->off += bytes;
+-		if (pkt->off == pkt->len) {
+-			virtio_transport_dec_rx_pkt(pkt);
+-			list_del(&pkt->list);
+-			virtio_transport_free_pkt(pkt);
+-		}
+-	}
+-	mutex_unlock(&trans->rx_lock);
+-
+-	/* Send a credit pkt to peer */
+-	virtio_transport_send_credit_update(vsk, VIRTIO_VSOCK_TYPE_STREAM,
+-					    NULL);
+-
+-	return total;
+-
+-out:
+-	mutex_unlock(&trans->rx_lock);
+-	if (total)
+-		err = total;
+-	return err;
+-}
+-
+-ssize_t
+-virtio_transport_stream_dequeue(struct vsock_sock *vsk,
+-				struct msghdr *msg,
+-				size_t len, int flags)
+-{
+-	if (flags & MSG_PEEK)
+-		return -EOPNOTSUPP;
+-
+-	return virtio_transport_stream_do_dequeue(vsk, msg, len);
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_stream_dequeue);
+-
+-struct dgram_skb {
+-	struct list_head list;
+-	struct sk_buff *skb;
+-	u16 id;
+-};
+-
+-static struct dgram_skb *dgram_id_to_skb(struct virtio_transport *trans,
+-					 u16 id)
+-{
+-	struct dgram_skb *dgram_skb;
+-
+-	list_for_each_entry(dgram_skb, &trans->incomplete_dgrams, list) {
+-		if (dgram_skb->id == id)
+-			return dgram_skb;
+-	}
+-
+-	return NULL;
+-}
+-
+-static void
+-virtio_transport_recv_dgram(struct sock *sk,
+-			    struct virtio_vsock_pkt *pkt)
+-{
+-	struct sk_buff *skb = NULL;
+-	struct vsock_sock *vsk;
+-	struct virtio_transport *trans;
+-	size_t size;
+-	u16 dgram_id, pkt_off, dgram_len, pkt_len;
+-	u32 flags, len;
+-	struct dgram_skb *dgram_skb;
+-
+-	vsk = vsock_sk(sk);
+-	trans = vsk->trans;
+-
+-	/* len:   dgram_len | pkt_len */
+-	len = le32_to_cpu(pkt->hdr.len);
+-	dgram_len = len >> 16;
+-	pkt_len = len & 0xFFFF;
+-
+-	/* flags: dgram_id  | pkt_off */
+-	flags = le32_to_cpu(pkt->hdr.flags);
+-	dgram_id = flags >> 16;
+-	pkt_off = flags & 0xFFFF;
+-
+-	pr_debug("%s: dgram_len=%d, pkt_len=%d, id=%d, off=%d\n", __func__,
+-		 dgram_len, pkt_len, dgram_id, pkt_off);
+-
+-	dgram_skb = dgram_id_to_skb(trans, dgram_id);
+-	if (dgram_skb) {
+-		/* This pkt is for a existing dgram */
+-		skb = dgram_skb->skb;
+-		pr_debug("%s:found skb\n", __func__);
+-	}
+-
+-	/* Packet payload must be within datagram bounds */
+-	if (pkt_len > VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE)
+-		goto drop;
+-	if (pkt_len > dgram_len)
+-		goto drop;
+-	if (pkt_off > dgram_len)
+-		goto drop;
+-	if (dgram_len - pkt_off < pkt_len)
+-		goto drop;
+-
+-	if (!skb) {
+-		/* This pkt is for a new dgram */
+-		pr_debug("%s:create skb\n", __func__);
+-
+-		size = sizeof(pkt->hdr) + dgram_len;
+-		/* Attach the packet to the socket's receive queue as an sk_buff. */
+-		dgram_skb = kzalloc(sizeof(struct dgram_skb), GFP_ATOMIC);
+-		if (!dgram_skb)
+-			goto drop;
+-
+-		skb = alloc_skb(size, GFP_ATOMIC);
+-		if (!skb) {
+-			kfree(dgram_skb);
+-			dgram_skb = NULL;
+-			goto drop;
+-		}
+-		dgram_skb->id = dgram_id;
+-		dgram_skb->skb = skb;
+-		list_add_tail(&dgram_skb->list, &trans->incomplete_dgrams);
+-
+-		/* sk_receive_skb() will do a sock_put(), so hold here. */
+-		sock_hold(sk);
+-		skb_put(skb, size);
+-		memcpy(skb->data, &pkt->hdr, sizeof(pkt->hdr));
+-	}
+-
+-	memcpy(skb->data + sizeof(pkt->hdr) + pkt_off, pkt->buf, pkt_len);
+-
+-	pr_debug("%s:C, off=%d, pkt_len=%d, dgram_len=%d\n", __func__,
+-		 pkt_off, pkt_len, dgram_len);
+-
+-	/* We are done with this dgram */
+-	if (pkt_off + pkt_len == dgram_len) {
+-		pr_debug("%s:dgram_id=%d is done\n", __func__, dgram_id);
+-		list_del(&dgram_skb->list);
+-		kfree(dgram_skb);
+-		sk_receive_skb(sk, skb, 0);
+-	}
 -	virtio_transport_free_pkt(pkt);
 -	return;
+-
+-drop:
+-	if (dgram_skb) {
+-		list_del(&dgram_skb->list);
+-		kfree(dgram_skb);
+-		kfree_skb(skb);
+-		sock_put(sk);
+-	}
+-	virtio_transport_free_pkt(pkt);
 -}
 -
--static void virtio_transport_send_pkt_work(struct work_struct *work)
+-int
+-virtio_transport_dgram_dequeue(struct vsock_sock *vsk,
+-			       struct msghdr *msg,
+-			       size_t len, int flags)
 -{
--	struct virtio_vsock *vsock =
--		container_of(work, struct virtio_vsock, tx_work);
--	struct virtio_vsock_pkt *pkt;
--	bool added = false;
--	struct virtqueue *vq;
--	unsigned int len;
--	struct sock *sk;
+-	struct virtio_vsock_hdr *hdr;
+-	struct sk_buff *skb;
+-	int noblock;
+-	int err;
+-	int dgram_len;
 -
--	vq = vsock->vqs[VSOCK_VQ_TX];
--	mutex_lock(&vsock->tx_lock);
--	do {
--		virtqueue_disable_cb(vq);
--		while ((pkt = virtqueue_get_buf(vq, &len)) != NULL) {
--			sk = &pkt->trans->vsk->sk;
--			virtio_transport_dec_tx_pkt(pkt);
--			/* Release refcnt taken in virtio_transport_send_pkt */
--			sock_put(sk);
--			vsock->total_tx_buf -= pkt->len;
--			virtio_transport_free_pkt(pkt);
--			added = true;
+-	noblock = flags & MSG_DONTWAIT;
+-
+-	if (flags & MSG_OOB || flags & MSG_ERRQUEUE)
+-		return -EOPNOTSUPP;
+-
+-	/* Retrieve the head sk_buff from the socket's receive queue. */
+-	err = 0;
+-	skb = skb_recv_datagram(&vsk->sk, flags, noblock, &err);
+-	if (err)
+-		return err;
+-	if (!skb)
+-		return -EAGAIN;
+-
+-	hdr = (struct virtio_vsock_hdr *)skb->data;
+-	if (!hdr)
+-		goto out;
+-
+-	dgram_len = le32_to_cpu(hdr->len) >> 16;
+-	/* Place the datagram payload in the user's iovec. */
+-	err = skb_copy_datagram_msg(skb, sizeof(*hdr), msg, dgram_len);
+-	if (err)
+-		goto out;
+-
+-	if (msg->msg_name) {
+-		/* Provide the address of the sender. */
+-		DECLARE_SOCKADDR(struct sockaddr_vm *, vm_addr, msg->msg_name);
+-		vsock_addr_init(vm_addr, le32_to_cpu(hdr->src_cid), le32_to_cpu(hdr->src_port));
+-		msg->msg_namelen = sizeof(*vm_addr);
+-	}
+-	err = dgram_len;
+-
+-	/* Send a credit pkt to peer */
+-	virtio_transport_send_credit_update(vsk, VIRTIO_VSOCK_TYPE_DGRAM, hdr);
+-
+-	pr_debug("%s:done, recved =%d\n", __func__, dgram_len);
+-out:
+-	skb_free_datagram(&vsk->sk, skb);
+-	return err;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_dgram_dequeue);
+-
+-s64 virtio_transport_stream_has_data(struct vsock_sock *vsk)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-	s64 bytes;
+-
+-	mutex_lock(&trans->rx_lock);
+-	bytes = trans->rx_bytes;
+-	mutex_unlock(&trans->rx_lock);
+-
+-	return bytes;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_stream_has_data);
+-
+-static s64 virtio_transport_has_space(struct vsock_sock *vsk)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-	s64 bytes;
+-
+-	bytes = trans->peer_buf_alloc - (trans->tx_cnt - trans->peer_fwd_cnt);
+-	if (bytes < 0)
+-		bytes = 0;
+-
+-	return bytes;
+-}
+-
+-s64 virtio_transport_stream_has_space(struct vsock_sock *vsk)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-	s64 bytes;
+-
+-	mutex_lock(&trans->tx_lock);
+-	bytes = virtio_transport_has_space(vsk);
+-	mutex_unlock(&trans->tx_lock);
+-
+-	pr_debug("%s: bytes=%lld\n", __func__, bytes);
+-
+-	return bytes;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_stream_has_space);
+-
+-int virtio_transport_do_socket_init(struct vsock_sock *vsk,
+-				    struct vsock_sock *psk)
+-{
+-	struct virtio_transport *trans;
+-
+-	trans = kzalloc(sizeof(*trans), GFP_KERNEL);
+-	if (!trans)
+-		return -ENOMEM;
+-
+-	vsk->trans = trans;
+-	trans->vsk = vsk;
+-	if (psk) {
+-		struct virtio_transport *ptrans = psk->trans;
+-		trans->buf_size	= ptrans->buf_size;
+-		trans->buf_size_min = ptrans->buf_size_min;
+-		trans->buf_size_max = ptrans->buf_size_max;
+-		trans->peer_buf_alloc = ptrans->peer_buf_alloc;
+-	} else {
+-		trans->buf_size = VIRTIO_VSOCK_DEFAULT_BUF_SIZE;
+-		trans->buf_size_min = VIRTIO_VSOCK_DEFAULT_MIN_BUF_SIZE;
+-		trans->buf_size_max = VIRTIO_VSOCK_DEFAULT_MAX_BUF_SIZE;
+-	}
+-
+-	trans->buf_alloc = trans->buf_size;
+-
+-	pr_debug("%s: trans->buf_alloc=%d\n", __func__, trans->buf_alloc);
+-
+-	mutex_init(&trans->rx_lock);
+-	mutex_init(&trans->tx_lock);
+-	INIT_LIST_HEAD(&trans->rx_queue);
+-	INIT_LIST_HEAD(&trans->incomplete_dgrams);
+-
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_do_socket_init);
+-
+-u64 virtio_transport_get_buffer_size(struct vsock_sock *vsk)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-
+-	return trans->buf_size;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_get_buffer_size);
+-
+-u64 virtio_transport_get_min_buffer_size(struct vsock_sock *vsk)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-
+-	return trans->buf_size_min;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_get_min_buffer_size);
+-
+-u64 virtio_transport_get_max_buffer_size(struct vsock_sock *vsk)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-
+-	return trans->buf_size_max;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_get_max_buffer_size);
+-
+-void virtio_transport_set_buffer_size(struct vsock_sock *vsk, u64 val)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-
+-	if (val > VIRTIO_VSOCK_MAX_BUF_SIZE)
+-		val = VIRTIO_VSOCK_MAX_BUF_SIZE;
+-	if (val < trans->buf_size_min)
+-		trans->buf_size_min = val;
+-	if (val > trans->buf_size_max)
+-		trans->buf_size_max = val;
+-	trans->buf_size = val;
+-	trans->buf_alloc = val;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_set_buffer_size);
+-
+-void virtio_transport_set_min_buffer_size(struct vsock_sock *vsk, u64 val)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-
+-	if (val > VIRTIO_VSOCK_MAX_BUF_SIZE)
+-		val = VIRTIO_VSOCK_MAX_BUF_SIZE;
+-	if (val > trans->buf_size)
+-		trans->buf_size = val;
+-	trans->buf_size_min = val;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_set_min_buffer_size);
+-
+-void virtio_transport_set_max_buffer_size(struct vsock_sock *vsk, u64 val)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-
+-	if (val > VIRTIO_VSOCK_MAX_BUF_SIZE)
+-		val = VIRTIO_VSOCK_MAX_BUF_SIZE;
+-	if (val < trans->buf_size)
+-		trans->buf_size = val;
+-	trans->buf_size_max = val;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_set_max_buffer_size);
+-
+-int
+-virtio_transport_notify_poll_in(struct vsock_sock *vsk,
+-				size_t target,
+-				bool *data_ready_now)
+-{
+-	if (vsock_stream_has_data(vsk))
+-		*data_ready_now = true;
+-	else
+-		*data_ready_now = false;
+-
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_notify_poll_in);
+-
+-int
+-virtio_transport_notify_poll_out(struct vsock_sock *vsk,
+-				 size_t target,
+-				 bool *space_avail_now)
+-{
+-	s64 free_space;
+-
+-	free_space = vsock_stream_has_space(vsk);
+-	if (free_space > 0)
+-		*space_avail_now = true;
+-	else if (free_space == 0)
+-		*space_avail_now = false;
+-
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_notify_poll_out);
+-
+-int virtio_transport_notify_recv_init(struct vsock_sock *vsk,
+-	size_t target, struct vsock_transport_recv_notify_data *data)
+-{
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_notify_recv_init);
+-
+-int virtio_transport_notify_recv_pre_block(struct vsock_sock *vsk,
+-	size_t target, struct vsock_transport_recv_notify_data *data)
+-{
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_notify_recv_pre_block);
+-
+-int virtio_transport_notify_recv_pre_dequeue(struct vsock_sock *vsk,
+-	size_t target, struct vsock_transport_recv_notify_data *data)
+-{
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_notify_recv_pre_dequeue);
+-
+-int virtio_transport_notify_recv_post_dequeue(struct vsock_sock *vsk,
+-	size_t target, ssize_t copied, bool data_read,
+-	struct vsock_transport_recv_notify_data *data)
+-{
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_notify_recv_post_dequeue);
+-
+-int virtio_transport_notify_send_init(struct vsock_sock *vsk,
+-	struct vsock_transport_send_notify_data *data)
+-{
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_notify_send_init);
+-
+-int virtio_transport_notify_send_pre_block(struct vsock_sock *vsk,
+-	struct vsock_transport_send_notify_data *data)
+-{
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_notify_send_pre_block);
+-
+-int virtio_transport_notify_send_pre_enqueue(struct vsock_sock *vsk,
+-	struct vsock_transport_send_notify_data *data)
+-{
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_notify_send_pre_enqueue);
+-
+-int virtio_transport_notify_send_post_enqueue(struct vsock_sock *vsk,
+-	ssize_t written, struct vsock_transport_send_notify_data *data)
+-{
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_notify_send_post_enqueue);
+-
+-u64 virtio_transport_stream_rcvhiwat(struct vsock_sock *vsk)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-
+-	return trans->buf_size;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_stream_rcvhiwat);
+-
+-bool virtio_transport_stream_is_active(struct vsock_sock *vsk)
+-{
+-	return true;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_stream_is_active);
+-
+-bool virtio_transport_stream_allow(u32 cid, u32 port)
+-{
+-	return true;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_stream_allow);
+-
+-int virtio_transport_dgram_bind(struct vsock_sock *vsk,
+-				struct sockaddr_vm *addr)
+-{
+-	return vsock_bind_dgram_generic(vsk, addr);
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_dgram_bind);
+-
+-bool virtio_transport_dgram_allow(u32 cid, u32 port)
+-{
+-	return true;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_dgram_allow);
+-
+-int virtio_transport_connect(struct vsock_sock *vsk)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-	struct virtio_vsock_pkt_info info = {
+-		.op = VIRTIO_VSOCK_OP_REQUEST,
+-		.type = VIRTIO_VSOCK_TYPE_STREAM,
+-	};
+-
+-	pr_debug("%s: vsk=%p send_request\n", __func__, vsk);
+-	return trans->ops->send_pkt(vsk, &info);
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_connect);
+-
+-int virtio_transport_shutdown(struct vsock_sock *vsk, int mode)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-	struct virtio_vsock_pkt_info info = {
+-		.op = VIRTIO_VSOCK_OP_SHUTDOWN,
+-		.type = VIRTIO_VSOCK_TYPE_STREAM,
+-		.flags = (mode & RCV_SHUTDOWN ?
+-			  VIRTIO_VSOCK_SHUTDOWN_RCV : 0) |
+-			 (mode & SEND_SHUTDOWN ?
+-			  VIRTIO_VSOCK_SHUTDOWN_SEND : 0),
+-	};
+-
+-	pr_debug("%s: vsk=%p: send_shutdown\n", __func__, vsk);
+-	return trans->ops->send_pkt(vsk, &info);
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_shutdown);
+-
+-void virtio_transport_release(struct vsock_sock *vsk)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-	struct sock *sk = &vsk->sk;
+-	struct dgram_skb *dgram_skb;
+-	struct dgram_skb *dgram_skb_tmp;
+-
+-	pr_debug("%s: vsk=%p\n", __func__, vsk);
+-
+-	/* Tell other side to terminate connection */
+-	if (sk->sk_type == SOCK_STREAM && sk->sk_state == SS_CONNECTED) {
+-		virtio_transport_shutdown(vsk, SHUTDOWN_MASK);
+-	}
+-
+-	/* Free incomplete dgrams */
+-	lock_sock(sk);
+-	list_for_each_entry_safe(dgram_skb, dgram_skb_tmp,
+-				 &trans->incomplete_dgrams, list) {
+-		list_del(&dgram_skb->list);
+-		kfree_skb(dgram_skb->skb);
+-		kfree(dgram_skb);
+-		sock_put(sk); /* held in virtio_transport_recv_dgram() */
+-	}
+-	release_sock(sk);
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_release);
+-
+-int
+-virtio_transport_dgram_enqueue(struct vsock_sock *vsk,
+-			       struct sockaddr_vm *remote_addr,
+-			       struct msghdr *msg,
+-			       size_t dgram_len)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-	struct virtio_vsock_pkt_info info = {
+-		.op = VIRTIO_VSOCK_OP_RW,
+-		.type = VIRTIO_VSOCK_TYPE_DGRAM,
+-		.msg = msg,
+-	};
+-	size_t total_written = 0, pkt_off = 0, written;
+-	u16 dgram_id;
+-
+-	/* The max size of a single dgram we support is 64KB */
+-	if (dgram_len > VIRTIO_VSOCK_MAX_DGRAM_SIZE)
+-		return -EMSGSIZE;
+-
+-	info.dgram_len = dgram_len;
+-	vsk->remote_addr = *remote_addr;
+-
+-	dgram_id = trans->dgram_id++;
+-
+-	/* TODO: To optimize, if we have enough credit to send the pkt already,
+-	 * do not ask the peer to send credit to use  */
+-	virtio_transport_send_credit_request(vsk, VIRTIO_VSOCK_TYPE_DGRAM);
+-
+-	while (total_written < dgram_len) {
+-		info.pkt_len = dgram_len - total_written;
+-		info.flags = dgram_id << 16 | pkt_off;
+-		written = trans->ops->send_pkt(vsk, &info);
+-		if (written < 0)
+-			return -ENOMEM;
+-		if (written == 0) {
+-			/* TODO: if written = 0, we need a sleep & wakeup
+-			 * instead of sleep */
+-			pr_debug("%s: SHOULD WAIT written==0", __func__);
+-			msleep(10);
 -		}
--	} while (!virtqueue_enable_cb(vq));
--	mutex_unlock(&vsock->tx_lock);
+-		total_written += written;
+-		pkt_off += written;
+-		pr_debug("%s:id=%d, dgram_len=%zu, off=%zu, total_written=%zu, written=%zu\n",
+-			  __func__, dgram_id, dgram_len, pkt_off, total_written, written);
+-	}
 -
--	if (added)
--		wake_up(&vsock->queue_wait);
+-	return dgram_len;
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_dgram_enqueue);
+-
+-ssize_t
+-virtio_transport_stream_enqueue(struct vsock_sock *vsk,
+-				struct msghdr *msg,
+-				size_t len)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-	struct virtio_vsock_pkt_info info = {
+-		.op = VIRTIO_VSOCK_OP_RW,
+-		.type = VIRTIO_VSOCK_TYPE_STREAM,
+-		.msg = msg,
+-		.pkt_len = len,
+-	};
+-
+-	return trans->ops->send_pkt(vsk, &info);
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_stream_enqueue);
+-
+-void virtio_transport_destruct(struct vsock_sock *vsk)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-
+-	pr_debug("%s: vsk=%p\n", __func__, vsk);
+-	kfree(trans);
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_destruct);
+-
+-static int virtio_transport_send_ack(struct vsock_sock *vsk, u32 cookie)
+-{
+-	struct virtio_transport *trans = vsk->trans;
+-	struct virtio_vsock_pkt_info info = {
+-		.op = VIRTIO_VSOCK_OP_ACK,
+-		.type = VIRTIO_VSOCK_TYPE_STREAM,
+-		.flags = cpu_to_le32(cookie),
+-	};
+-
+-	pr_debug("%s: sk=%p send_offer\n", __func__, vsk);
+-	return trans->ops->send_pkt(vsk, &info);
 -}
 -
--static void virtio_transport_recv_pkt_work(struct work_struct *work)
+-static int virtio_transport_send_reset(struct vsock_sock *vsk,
+-				       struct virtio_vsock_pkt *pkt)
 -{
--	struct virtio_vsock *vsock =
--		container_of(work, struct virtio_vsock, rx_work);
--	struct virtio_vsock_pkt *pkt;
--	struct virtqueue *vq;
--	unsigned int len;
+-	struct virtio_transport *trans = vsk->trans;
+-	struct virtio_vsock_pkt_info info = {
+-		.op = VIRTIO_VSOCK_OP_RST,
+-		.type = VIRTIO_VSOCK_TYPE_STREAM,
+-	};
 -
--	vq = vsock->vqs[VSOCK_VQ_RX];
--	mutex_lock(&vsock->rx_lock);
--	do {
--		virtqueue_disable_cb(vq);
--		while ((pkt = virtqueue_get_buf(vq, &len)) != NULL) {
--			pkt->len = len;
--			virtio_transport_recv_pkt(pkt);
--			vsock->rx_buf_nr--;
--		}
--	} while (!virtqueue_enable_cb(vq));
+-	pr_debug("%s\n", __func__);
 -
--	if (vsock->rx_buf_nr < vsock->rx_buf_max_nr / 2)
--		virtio_vsock_rx_fill(vsock);
--	mutex_unlock(&vsock->rx_lock);
--}
+-	/* Send RST only if the original pkt is not a RST pkt */
+-	if (le16_to_cpu(pkt->hdr.op) == VIRTIO_VSOCK_OP_RST)
+-		return 0;
 -
--static void virtio_vsock_ctrl_done(struct virtqueue *vq)
--{
--}
--
--static void virtio_vsock_tx_done(struct virtqueue *vq)
--{
--	struct virtio_vsock *vsock = vq->vdev->priv;
--
--	if (!vsock)
--		return;
--	queue_work(virtio_vsock_workqueue, &vsock->tx_work);
--}
--
--static void virtio_vsock_rx_done(struct virtqueue *vq)
--{
--	struct virtio_vsock *vsock = vq->vdev->priv;
--
--	if (!vsock)
--		return;
--	queue_work(virtio_vsock_workqueue, &vsock->rx_work);
+-	return trans->ops->send_pkt(vsk, &info);
 -}
 -
 -static int
--virtio_transport_socket_init(struct vsock_sock *vsk, struct vsock_sock *psk)
+-virtio_transport_recv_connecting(struct sock *sk,
+-				 struct virtio_vsock_pkt *pkt)
 -{
--	struct virtio_transport *trans;
--	int ret;
+-	struct vsock_sock *vsk = vsock_sk(sk);
+-	int err;
+-	int skerr;
+-	u32 cookie;
 -
--	ret = virtio_transport_do_socket_init(vsk, psk);
--	if (ret)
--		return ret;
--
--	trans = vsk->trans;
--	trans->ops = &virtio_ops;
--	return ret;
--}
--
--static struct vsock_transport virtio_transport = {
--	.get_local_cid            = virtio_transport_get_local_cid,
--
--	.init                     = virtio_transport_socket_init,
--	.destruct                 = virtio_transport_destruct,
--	.release                  = virtio_transport_release,
--	.connect                  = virtio_transport_connect,
--	.shutdown                 = virtio_transport_shutdown,
--
--	.dgram_bind               = virtio_transport_dgram_bind,
--	.dgram_dequeue            = virtio_transport_dgram_dequeue,
--	.dgram_enqueue            = virtio_transport_dgram_enqueue,
--	.dgram_allow              = virtio_transport_dgram_allow,
--
--	.stream_dequeue           = virtio_transport_stream_dequeue,
--	.stream_enqueue           = virtio_transport_stream_enqueue,
--	.stream_has_data          = virtio_transport_stream_has_data,
--	.stream_has_space         = virtio_transport_stream_has_space,
--	.stream_rcvhiwat          = virtio_transport_stream_rcvhiwat,
--	.stream_is_active         = virtio_transport_stream_is_active,
--	.stream_allow             = virtio_transport_stream_allow,
--
--	.notify_poll_in           = virtio_transport_notify_poll_in,
--	.notify_poll_out          = virtio_transport_notify_poll_out,
--	.notify_recv_init         = virtio_transport_notify_recv_init,
--	.notify_recv_pre_block    = virtio_transport_notify_recv_pre_block,
--	.notify_recv_pre_dequeue  = virtio_transport_notify_recv_pre_dequeue,
--	.notify_recv_post_dequeue = virtio_transport_notify_recv_post_dequeue,
--	.notify_send_init         = virtio_transport_notify_send_init,
--	.notify_send_pre_block    = virtio_transport_notify_send_pre_block,
--	.notify_send_pre_enqueue  = virtio_transport_notify_send_pre_enqueue,
--	.notify_send_post_enqueue = virtio_transport_notify_send_post_enqueue,
--
--	.set_buffer_size          = virtio_transport_set_buffer_size,
--	.set_min_buffer_size      = virtio_transport_set_min_buffer_size,
--	.set_max_buffer_size      = virtio_transport_set_max_buffer_size,
--	.get_buffer_size          = virtio_transport_get_buffer_size,
--	.get_min_buffer_size      = virtio_transport_get_min_buffer_size,
--	.get_max_buffer_size      = virtio_transport_get_max_buffer_size,
--};
--
--static int virtio_vsock_probe(struct virtio_device *vdev)
--{
--	vq_callback_t *callbacks[] = {
--		virtio_vsock_ctrl_done,
--		virtio_vsock_rx_done,
--		virtio_vsock_tx_done,
--	};
--	const char *names[] = {
--		"ctrl",
--		"rx",
--		"tx",
--	};
--	struct virtio_vsock *vsock = NULL;
--	u32 guest_cid;
--	int ret;
--
--	ret = mutex_lock_interruptible(&the_virtio_vsock_mutex);
--	if (ret)
--		return ret;
--
--	/* Only one virtio-vsock device per guest is supported */
--	if (the_virtio_vsock) {
--		ret = -EBUSY;
--		goto out;
+-	pr_debug("%s: vsk=%p\n", __func__, vsk);
+-	switch (le16_to_cpu(pkt->hdr.op)) {
+-	case VIRTIO_VSOCK_OP_RESPONSE:
+-		cookie = le32_to_cpu(pkt->hdr.flags);
+-		pr_debug("%s: got RESPONSE and send ACK, cookie=%x\n", __func__, cookie);
+-		err = virtio_transport_send_ack(vsk, cookie);
+-		if (err < 0) {
+-			skerr = -err;
+-			goto destroy;
+-		}
+-		sk->sk_state = SS_CONNECTED;
+-		sk->sk_socket->state = SS_CONNECTED;
+-		vsock_insert_connected(vsk);
+-		sk->sk_state_change(sk);
+-		break;
+-	case VIRTIO_VSOCK_OP_INVALID:
+-		pr_debug("%s: got invalid\n", __func__);
+-		break;
+-	case VIRTIO_VSOCK_OP_RST:
+-		pr_debug("%s: got rst\n", __func__);
+-		skerr = ECONNRESET;
+-		err = 0;
+-		goto destroy;
+-	default:
+-		pr_debug("%s: got def\n", __func__);
+-		skerr = EPROTO;
+-		err = -EINVAL;
+-		goto destroy;
 -	}
--
--	vsock = kzalloc(sizeof(*vsock), GFP_KERNEL);
--	if (!vsock) {
--		ret = -ENOMEM;
--		goto out;
--	}
--
--	vsock->vdev = vdev;
--
--	ret = vsock->vdev->config->find_vqs(vsock->vdev, VSOCK_VQ_MAX,
--					    vsock->vqs, callbacks, names);
--	if (ret < 0)
--		goto out;
--
--	vdev->config->get(vdev, offsetof(struct virtio_vsock_config, guest_cid),
--			  &guest_cid, sizeof(guest_cid));
--	vsock->guest_cid = le32_to_cpu(guest_cid);
--	pr_debug("%s:guest_cid=%d\n", __func__, vsock->guest_cid);
--
--	ret = vsock_core_init(&virtio_transport);
--	if (ret < 0)
--		goto out_vqs;
--
--	vsock->rx_buf_nr = 0;
--	vsock->rx_buf_max_nr = 0;
--
--	vdev->priv = the_virtio_vsock = vsock;
--	init_waitqueue_head(&vsock->queue_wait);
--	mutex_init(&vsock->tx_lock);
--	mutex_init(&vsock->rx_lock);
--	INIT_WORK(&vsock->rx_work, virtio_transport_recv_pkt_work);
--	INIT_WORK(&vsock->tx_work, virtio_transport_send_pkt_work);
--
--	mutex_lock(&vsock->rx_lock);
--	virtio_vsock_rx_fill(vsock);
--	mutex_unlock(&vsock->rx_lock);
--
--	mutex_unlock(&the_virtio_vsock_mutex);
 -	return 0;
 -
--out_vqs:
--	vsock->vdev->config->del_vqs(vsock->vdev);
--out:
--	kfree(vsock);
--	mutex_unlock(&the_virtio_vsock_mutex);
--	return ret;
+-destroy:
+-	virtio_transport_send_reset(vsk, pkt);
+-	sk->sk_state = SS_UNCONNECTED;
+-	sk->sk_err = skerr;
+-	sk->sk_error_report(sk);
+-	return err;
 -}
 -
--static void virtio_vsock_remove(struct virtio_device *vdev)
+-static int
+-virtio_transport_recv_connected(struct sock *sk,
+-				struct virtio_vsock_pkt *pkt)
 -{
--	struct virtio_vsock *vsock = vdev->priv;
+-	struct vsock_sock *vsk = vsock_sk(sk);
+-	struct virtio_transport *trans = vsk->trans;
+-	int err = 0;
 -
--	mutex_lock(&the_virtio_vsock_mutex);
--	the_virtio_vsock = NULL;
--	vsock_core_exit();
--	mutex_unlock(&the_virtio_vsock_mutex);
+-	switch (le16_to_cpu(pkt->hdr.op)) {
+-	case VIRTIO_VSOCK_OP_RW:
+-		pkt->len = le32_to_cpu(pkt->hdr.len);
+-		pkt->off = 0;
+-		pkt->trans = trans;
 -
--	kfree(vsock);
+-		mutex_lock(&trans->rx_lock);
+-		virtio_transport_inc_rx_pkt(pkt);
+-		list_add_tail(&pkt->list, &trans->rx_queue);
+-		mutex_unlock(&trans->rx_lock);
+-
+-		sk->sk_data_ready(sk);
+-		return err;
+-	case VIRTIO_VSOCK_OP_CREDIT_UPDATE:
+-		sk->sk_write_space(sk);
+-		break;
+-	case VIRTIO_VSOCK_OP_SHUTDOWN:
+-		pr_debug("%s: got shutdown\n", __func__);
+-		if (le32_to_cpu(pkt->hdr.flags) & VIRTIO_VSOCK_SHUTDOWN_RCV)
+-			vsk->peer_shutdown |= RCV_SHUTDOWN;
+-		if (le32_to_cpu(pkt->hdr.flags) & VIRTIO_VSOCK_SHUTDOWN_SEND)
+-			vsk->peer_shutdown |= SEND_SHUTDOWN;
+-		if (le32_to_cpu(pkt->hdr.flags))
+-			sk->sk_state_change(sk);
+-		break;
+-	case VIRTIO_VSOCK_OP_RST:
+-		pr_debug("%s: got rst\n", __func__);
+-		sock_set_flag(sk, SOCK_DONE);
+-		vsk->peer_shutdown = SHUTDOWN_MASK;
+-		if (vsock_stream_has_data(vsk) <= 0)
+-			sk->sk_state = SS_DISCONNECTING;
+-		sk->sk_state_change(sk);
+-		break;
+-	default:
+-		err = -EINVAL;
+-		break;
+-	}
+-
+-	virtio_transport_free_pkt(pkt);
+-	return err;
 -}
 -
--static struct virtio_device_id id_table[] = {
--	{ VIRTIO_ID_VSOCK, VIRTIO_DEV_ANY_ID },
--	{ 0 },
--};
--
--static unsigned int features[] = {
--};
--
--static struct virtio_driver virtio_vsock_driver = {
--	.feature_table = features,
--	.feature_table_size = ARRAY_SIZE(features),
--	.driver.name = KBUILD_MODNAME,
--	.driver.owner = THIS_MODULE,
--	.id_table = id_table,
--	.probe = virtio_vsock_probe,
--	.remove = virtio_vsock_remove,
--};
--
--static int __init virtio_vsock_init(void)
+-static int
+-virtio_transport_send_response(struct vsock_sock *vsk,
+-			       struct virtio_vsock_pkt *pkt)
 -{
--	int ret;
+-	struct virtio_transport *trans = vsk->trans;
+-	struct virtio_vsock_pkt_info info = {
+-		.op = VIRTIO_VSOCK_OP_RESPONSE,
+-		.type = VIRTIO_VSOCK_TYPE_STREAM,
+-		.remote_cid = le32_to_cpu(pkt->hdr.src_cid),
+-		.remote_port = le32_to_cpu(pkt->hdr.src_port),
+-	};
+-	u32 cookie;
 -
--	virtio_vsock_workqueue = alloc_workqueue("virtio_vsock", 0, 0);
--	if (!virtio_vsock_workqueue)
--		return -ENOMEM;
--	ret = register_virtio_driver(&virtio_vsock_driver);
--	if (ret)
--		destroy_workqueue(virtio_vsock_workqueue);
--	return ret;
+-	cookie = virtio_vsock_secure_cookie(le32_to_cpu(pkt->hdr.src_cid),
+-					    le32_to_cpu(pkt->hdr.dst_cid),
+-					    le32_to_cpu(pkt->hdr.src_port),
+-					    le32_to_cpu(pkt->hdr.dst_port),
+-					    jiffies / (HZ * 60));
+-	info.flags = cpu_to_le32(cookie);
+-
+-	pr_debug("%s: send_response, cookie=%x\n", __func__, le32_to_cpu(cookie));
+-
+-	return trans->ops->send_pkt(vsk, &info);
 -}
 -
--static void __exit virtio_vsock_exit(void)
+-/* Handle server socket */
+-static int
+-virtio_transport_recv_listen(struct sock *sk, struct virtio_vsock_pkt *pkt)
 -{
--	unregister_virtio_driver(&virtio_vsock_driver);
--	destroy_workqueue(virtio_vsock_workqueue);
+-	struct vsock_sock *vsk = vsock_sk(sk);
+-	struct vsock_sock *vpending;
+-	struct sock *pending;
+-	int err;
+-	u32 cookie;
+-
+-	switch (le16_to_cpu(pkt->hdr.op)) {
+-	case VIRTIO_VSOCK_OP_REQUEST:
+-		err = virtio_transport_send_response(vsk, pkt);
+-		if (err < 0) {
+-			// FIXME vsk should be vpending
+-			virtio_transport_send_reset(vsk, pkt);
+-			return err;
+-		}
+-		break;
+-	case VIRTIO_VSOCK_OP_ACK:
+-		cookie = le32_to_cpu(pkt->hdr.flags);
+-		err = virtio_vsock_check_cookie(le32_to_cpu(pkt->hdr.src_cid),
+-						le32_to_cpu(pkt->hdr.dst_cid),
+-						le32_to_cpu(pkt->hdr.src_port),
+-						le32_to_cpu(pkt->hdr.dst_port),
+-						jiffies / (HZ * 60),
+-						le32_to_cpu(pkt->hdr.flags),
+-						VSOCK_TIMEOUT_INIT);
+-		pr_debug("%s: cookie=%x, err=%d\n", __func__, cookie, err);
+-		if (err)
+-			return err;
+-
+-		/* So no pending socket are responsible for this pkt, create one */
+-		pr_debug("%s: create pending\n", __func__);
+-		pending = __vsock_create(sock_net(sk), NULL, sk, GFP_KERNEL,
+-				sk->sk_type, 0);
+-		if (!pending) {
+-			virtio_transport_send_reset(vsk, pkt);
+-			return -ENOMEM;
+-		}
+-		sk->sk_ack_backlog++;
+-		pending->sk_state = SS_CONNECTING;
+-
+-		vpending = vsock_sk(pending);
+-		vsock_addr_init(&vpending->local_addr, le32_to_cpu(pkt->hdr.dst_cid),
+-				le32_to_cpu(pkt->hdr.dst_port));
+-		vsock_addr_init(&vpending->remote_addr, le32_to_cpu(pkt->hdr.src_cid),
+-				le32_to_cpu(pkt->hdr.src_port));
+-		vsock_add_pending(sk, pending);
+-
+-		pr_debug("%s: get pending\n", __func__);
+-		pending = virtio_transport_get_pending(sk, pkt);
+-		vpending = vsock_sk(pending);
+-		lock_sock(pending);
+-		switch (pending->sk_state) {
+-			case SS_CONNECTING:
+-				if (le16_to_cpu(pkt->hdr.op) != VIRTIO_VSOCK_OP_ACK) {
+-					pr_debug("%s: op=%d != OP_ACK\n", __func__,
+-						 le16_to_cpu(pkt->hdr.op));
+-					virtio_transport_send_reset(vpending, pkt);
+-					pending->sk_err = EPROTO;
+-					pending->sk_state = SS_UNCONNECTED;
+-					sock_put(pending);
+-				} else {
+-					pending->sk_state = SS_CONNECTED;
+-					vsock_insert_connected(vpending);
+-
+-					vsock_remove_pending(sk, pending);
+-					vsock_enqueue_accept(sk, pending);
+-
+-					sk->sk_data_ready(sk);
+-				}
+-				err = 0;
+-				break;
+-			default:
+-				pr_debug("%s: sk->sk_ack_backlog=%d\n", __func__,
+-						sk->sk_ack_backlog);
+-				virtio_transport_send_reset(vpending, pkt);
+-				err = -EINVAL;
+-				break;
+-		}
+-		if (err < 0)
+-			vsock_remove_pending(sk, pending);
+-		release_sock(pending);
+-
+-		/* Release refcnt obtained in virtio_transport_get_pending */
+-		sock_put(pending);
+-		break;
+-	default:
+-		break;
+-	}
+-
+-	return 0;
 -}
 -
--module_init(virtio_vsock_init);
--module_exit(virtio_vsock_exit);
+-static void virtio_transport_space_update(struct sock *sk,
+-					  struct virtio_vsock_pkt *pkt)
+-{
+-	struct vsock_sock *vsk = vsock_sk(sk);
+-	struct virtio_transport *trans = vsk->trans;
+-	bool space_available;
+-
+-	/* buf_alloc and fwd_cnt is always included in the hdr */
+-	mutex_lock(&trans->tx_lock);
+-	trans->peer_buf_alloc = le32_to_cpu(pkt->hdr.buf_alloc);
+-	trans->peer_fwd_cnt = le32_to_cpu(pkt->hdr.fwd_cnt);
+-	space_available = virtio_transport_has_space(vsk);
+-	mutex_unlock(&trans->tx_lock);
+-
+-	if (space_available)
+-		sk->sk_write_space(sk);
+-}
+-
+-/* We are under the virtio-vsock's vsock->rx_lock or
+- * vhost-vsock's vq->mutex lock */
+-void virtio_transport_recv_pkt(struct virtio_vsock_pkt *pkt)
+-{
+-	struct virtio_transport *trans;
+-	struct sockaddr_vm src, dst;
+-	struct vsock_sock *vsk;
+-	struct sock *sk;
+-
+-	vsock_addr_init(&src, le32_to_cpu(pkt->hdr.src_cid), le32_to_cpu(pkt->hdr.src_port));
+-	vsock_addr_init(&dst, le32_to_cpu(pkt->hdr.dst_cid), le32_to_cpu(pkt->hdr.dst_port));
+-
+-	virtio_vsock_dumppkt(__func__, pkt);
+-
+-	if (le16_to_cpu(pkt->hdr.type) == VIRTIO_VSOCK_TYPE_DGRAM) {
+-		sk = vsock_find_unbound_socket(&dst);
+-		if (!sk)
+-			goto free_pkt;
+-
+-		vsk = vsock_sk(sk);
+-		trans = vsk->trans;
+-		BUG_ON(!trans);
+-
+-		virtio_transport_space_update(sk, pkt);
+-
+-		lock_sock(sk);
+-		switch (le16_to_cpu(pkt->hdr.op)) {
+-		case VIRTIO_VSOCK_OP_CREDIT_UPDATE:
+-			virtio_transport_free_pkt(pkt);
+-			break;
+-		case VIRTIO_VSOCK_OP_CREDIT_REQUEST:
+-			virtio_transport_send_credit_update(vsk, VIRTIO_VSOCK_TYPE_DGRAM,
+-							    &pkt->hdr);
+-			virtio_transport_free_pkt(pkt);
+-			break;
+-		case VIRTIO_VSOCK_OP_RW:
+-			virtio_transport_recv_dgram(sk, pkt);
+-			break;
+-		default:
+-			virtio_transport_free_pkt(pkt);
+-			break;
+-		}
+-		release_sock(sk);
+-
+-		/* Release refcnt obtained when we fetched this socket out of
+-		 * the unbound list.
+-		 */
+-		sock_put(sk);
+-		return;
+-	} else if (le16_to_cpu(pkt->hdr.type) == VIRTIO_VSOCK_TYPE_STREAM) {
+-		/* The socket must be in connected or bound table
+-		 * otherwise send reset back
+-		 */
+-		sk = vsock_find_connected_socket(&src, &dst);
+-		if (!sk) {
+-			sk = vsock_find_bound_socket(&dst);
+-			if (!sk) {
+-				pr_debug("%s: can not find bound_socket\n", __func__);
+-				virtio_vsock_dumppkt(__func__, pkt);
+-				/* Ignore this pkt instead of sending reset back */
+-				/* TODO send a RST unless this packet is a RST (to avoid infinite loops) */
+-				goto free_pkt;
+-			}
+-		}
+-
+-		vsk = vsock_sk(sk);
+-		trans = vsk->trans;
+-		BUG_ON(!trans);
+-
+-		virtio_transport_space_update(sk, pkt);
+-
+-		lock_sock(sk);
+-		switch (sk->sk_state) {
+-		case VSOCK_SS_LISTEN:
+-			virtio_transport_recv_listen(sk, pkt);
+-			virtio_transport_free_pkt(pkt);
+-			break;
+-		case SS_CONNECTING:
+-			virtio_transport_recv_connecting(sk, pkt);
+-			virtio_transport_free_pkt(pkt);
+-			break;
+-		case SS_CONNECTED:
+-			virtio_transport_recv_connected(sk, pkt);
+-			break;
+-		default:
+-			virtio_transport_free_pkt(pkt);
+-			break;
+-		}
+-		release_sock(sk);
+-
+-		/* Release refcnt obtained when we fetched this socket out of the
+-		 * bound or connected list.
+-		 */
+-		sock_put(sk);
+-	}
+-	return;
+-
+-free_pkt:
+-	virtio_transport_free_pkt(pkt);
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_recv_pkt);
+-
+-void virtio_transport_free_pkt(struct virtio_vsock_pkt *pkt)
+-{
+-	kfree(pkt->buf);
+-	kfree(pkt);
+-}
+-EXPORT_SYMBOL_GPL(virtio_transport_free_pkt);
+-
+-static int __init virtio_vsock_common_init(void)
+-{
+-	get_random_bytes(vsockcookie_secret, sizeof(vsockcookie_secret));
+-	return 0;
+-}
+-
+-static void __exit virtio_vsock_common_exit(void)
+-{
+-}
+-
+-module_init(virtio_vsock_common_init);
+-module_exit(virtio_vsock_common_exit);
 -MODULE_LICENSE("GPL v2");
 -MODULE_AUTHOR("Asias He");
--MODULE_DESCRIPTION("virtio transport for vsock");
--MODULE_DEVICE_TABLE(virtio, id_table);
+-MODULE_DESCRIPTION("common code for virtio vsock");
 -- 
 2.5.0
